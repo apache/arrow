@@ -41,7 +41,7 @@ class ARROW_EXPORT ChunkedArray {
  public:
   /// \brief Construct a chunked array from a vector of arrays
   ///
-  /// The vector should be non-empty and all its elements should have the same
+  /// The vector must be non-empty and all its elements must have the same
   /// data type.
   explicit ChunkedArray(const ArrayVector& chunks);
 
@@ -277,8 +277,6 @@ class ARROW_EXPORT Table {
 /// of the table's columns.
 class ARROW_EXPORT TableBatchReader : public RecordBatchReader {
  public:
-  ~TableBatchReader() override;
-
   /// \brief Construct a TableBatchReader for the given table
   explicit TableBatchReader(const Table& table);
 
@@ -293,8 +291,12 @@ class ARROW_EXPORT TableBatchReader : public RecordBatchReader {
   void set_chunksize(int64_t chunksize);
 
  private:
-  class TableBatchReaderImpl;
-  std::unique_ptr<TableBatchReaderImpl> impl_;
+  const Table& table_;
+  std::vector<ChunkedArray*> column_data_;
+  std::vector<int> chunk_numbers_;
+  std::vector<int64_t> chunk_offsets_;
+  int64_t absolute_row_position_;
+  int64_t max_chunksize_;
 };
 
 /// \brief Construct table from multiple input tables.

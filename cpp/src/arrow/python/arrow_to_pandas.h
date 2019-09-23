@@ -27,6 +27,7 @@
 #include <string>
 #include <unordered_set>
 
+#include "arrow/memory_pool.h"
 #include "arrow/python/visibility.h"
 
 namespace arrow {
@@ -42,6 +43,9 @@ class Table;
 namespace py {
 
 struct PandasOptions {
+  /// arrow::MemoryPool to use for memory allocations
+  MemoryPool* pool = default_memory_pool();
+
   /// If true, we will convert all string columns to categoricals
   bool strings_to_categorical = false;
   bool zero_copy_only = false;
@@ -78,8 +82,7 @@ Status ConvertColumnToPandas(const PandasOptions& options,
 // tuple item: (indices: ndarray[int32], block: ndarray[TYPE, ndim=2])
 ARROW_PYTHON_EXPORT
 Status ConvertTableToPandas(const PandasOptions& options,
-                            const std::shared_ptr<Table>& table, MemoryPool* pool,
-                            PyObject** out);
+                            const std::shared_ptr<Table>& table, PyObject** out);
 
 /// Convert a whole table as efficiently as possible to a pandas.DataFrame.
 ///
@@ -88,8 +91,7 @@ Status ConvertTableToPandas(const PandasOptions& options,
 ARROW_PYTHON_EXPORT
 Status ConvertTableToPandas(const PandasOptions& options,
                             const std::unordered_set<std::string>& categorical_columns,
-                            const std::shared_ptr<Table>& table, MemoryPool* pool,
-                            PyObject** out);
+                            const std::shared_ptr<Table>& table, PyObject** out);
 
 }  // namespace py
 }  // namespace arrow

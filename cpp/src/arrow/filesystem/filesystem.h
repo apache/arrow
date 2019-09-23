@@ -57,7 +57,7 @@ using TimePoint =
     std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>;
 
 /// \brief EXPERIMENTAL: FileSystem entry type
-enum class ARROW_EXPORT FileType {
+enum class ARROW_EXPORT FileType : int8_t {
   // Target does not exist
   NonExistent,
   // Target exists but its type is unknown (could be a special file such
@@ -107,12 +107,19 @@ struct ARROW_EXPORT FileStats {
   TimePoint mtime() const { return mtime_; }
   void set_mtime(TimePoint mtime) { mtime_ = mtime; }
 
+  bool operator==(const FileStats& other) const {
+    return type() == other.type() && path() == other.path() && size() == other.size() &&
+           mtime() == other.mtime();
+  }
+
  protected:
   FileType type_ = FileType::Unknown;
   std::string path_;
   int64_t size_ = kNoSize;
   TimePoint mtime_ = kNoTime;
 };
+
+ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const FileStats&);
 
 /// \brief EXPERIMENTAL: file selector
 struct ARROW_EXPORT Selector {
@@ -124,6 +131,8 @@ struct ARROW_EXPORT Selector {
   bool allow_non_existent = false;
   // Whether to recurse into subdirectories.
   bool recursive = false;
+  // The maximum number of subdirectories to recurse into.
+  int32_t max_recursion = INT32_MAX;
 
   Selector() {}
 };

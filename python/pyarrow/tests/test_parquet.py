@@ -203,17 +203,32 @@ def test_chunked_table_write():
 
 
 @pytest.mark.pandas
-def test_no_memory_map(tempdir):
+def test_memory_map(tempdir):
     df = alltypes_sample(size=10)
 
     table = pa.Table.from_pandas(df)
-    _check_roundtrip(table, read_table_kwargs={'memory_map': False},
+    _check_roundtrip(table, read_table_kwargs={'memory_map': True},
                      version='2.0')
 
     filename = str(tempdir / 'tmp_file')
     with open(filename, 'wb') as f:
         _write_table(table, f, version='2.0')
-    table_read = pq.read_pandas(filename, memory_map=False)
+    table_read = pq.read_pandas(filename, memory_map=True)
+    assert table_read.equals(table)
+
+
+@pytest.mark.pandas
+def test_enable_buffered_stream(tempdir):
+    df = alltypes_sample(size=10)
+
+    table = pa.Table.from_pandas(df)
+    _check_roundtrip(table, read_table_kwargs={'buffer_size': 1025},
+                     version='2.0')
+
+    filename = str(tempdir / 'tmp_file')
+    with open(filename, 'wb') as f:
+        _write_table(table, f, version='2.0')
+    table_read = pq.read_pandas(filename, buffer_size=4096)
     assert table_read.equals(table)
 
 
@@ -255,6 +270,17 @@ def test_empty_lists_table_roundtrip():
     arr = pa.array([[], []], type=pa.list_(pa.int32()))
     table = pa.Table.from_arrays([arr], ["A"])
     _check_roundtrip(table)
+
+
+def test_nested_list_nonnullable_roundtrip_bug():
+    # Reproduce failure in ARROW-5630
+    typ = pa.list_(pa.field("item", pa.float32(), False))
+    num_rows = 10000
+    t = pa.table([
+        pa.array(([[0] * ((i + 5) % 10) for i in range(0, 10)]
+                  * (num_rows // 10)), type=typ)
+    ], ['a'])
+    _check_roundtrip(t, data_page_size=4096)
 
 
 @pytest.mark.pandas
@@ -606,6 +632,42 @@ def make_sample_file(table_or_df):
     return pq.ParquetFile(buf)
 
 
+def test_compression_level():
+    arr = pa.array(list(map(int, range(1000))))
+    data = [arr, arr]
+    table = pa.Table.from_arrays(data, names=['a', 'b'])
+
+    # Check one compression level.
+    _check_roundtrip(table, expected=table, compression="gzip",
+                     compression_level=1)
+
+    # Check another one to make sure that compression_level=1 does not
+    # coincide with the default one in Arrow.
+    _check_roundtrip(table, expected=table, compression="gzip",
+                     compression_level=5)
+
+    # Check that the user can provide a compression level per column
+    _check_roundtrip(table, expected=table, compression="gzip",
+                     compression_level=[{'a': 2, 'b': 3}])
+
+    # Check that specifying a compression level for a codec which does allow
+    # specifying one, results into an error.
+    # Uncompressed, snappy, lz4 and lzo do not support specifying a compression
+    # level.
+    # GZIP (zlib) allows for specifying a compression level but as of up
+    # to version 1.2.11 the valid range is [-1, 9].
+    invalid_combinations = [("snappy", 4), ("lz4", 5), ("gzip", -1337),
+                            ("None", 444), ("lzo", 14)]
+    buf = io.BytesIO()
+    for (codec, level) in invalid_combinations:
+        try:
+            _write_table(table, buf, compression=codec,
+                         compression_level=level)
+            assert 0
+        except pa.ArrowException:
+            pass
+
+
 @pytest.mark.pandas
 def test_parquet_metadata_api():
     df = alltypes_sample(size=10000)
@@ -697,6 +759,14 @@ def test_parquet_metadata_api():
         col_meta.index_page_offset
 
 
+def test_parquet_metadata_lifetime(tempdir):
+    # ARROW-6642 - ensure that chained access keeps parent objects alive
+    table = pa.table({'a': [1, 2, 3]})
+    pq.write_table(table, tempdir / 'test_metadata_segfault.parquet')
+    dataset = pq.ParquetDataset(tempdir / 'test_metadata_segfault.parquet')
+    dataset.pieces[0].get_metadata().row_group(0).column(0).statistics
+
+
 @pytest.mark.pandas
 @pytest.mark.parametrize(
     (
@@ -763,6 +833,16 @@ def test_parquet_column_statistics_api(data, type, physical_type, min_value,
     # method, missing distinct_count is represented as zero instead of None
     assert stat.distinct_count == distinct_count
     assert stat.physical_type == physical_type
+
+
+# ARROW-6339
+@pytest.mark.pandas
+def test_parquet_raise_on_unset_statistics():
+    df = pd.DataFrame({"t": pd.Series([pd.NaT], dtype="datetime64[ns]")})
+    meta = make_sample_file(pa.Table.from_pandas(df)).metadata
+
+    assert not meta.row_group(0).column(0).statistics.has_min_max
+    assert meta.row_group(0).column(0).statistics.max is None
 
 
 def _close(type, left, right):
@@ -2079,8 +2159,8 @@ def test_dataset_read_pandas(tempdir):
 
 
 @pytest.mark.pandas
-def test_dataset_no_memory_map(tempdir):
-    # ARROW-2627: Check that we can use ParquetDataset without memory-mapping
+def test_dataset_memory_map(tempdir):
+    # ARROW-2627: Check that we can use ParquetDataset with memory-mapping
     dirpath = tempdir / guid()
     dirpath.mkdir()
 
@@ -2089,10 +2169,26 @@ def test_dataset_no_memory_map(tempdir):
     table = pa.Table.from_pandas(df)
     _write_table(table, path, version='2.0')
 
-    # TODO(wesm): Not sure how to easily check that memory mapping is _not_
-    # used. Mocking is not especially easy for pa.memory_map
-    dataset = pq.ParquetDataset(dirpath, memory_map=False)
+    dataset = pq.ParquetDataset(dirpath, memory_map=True)
     assert dataset.pieces[0].read().equals(table)
+
+
+@pytest.mark.pandas
+def test_dataset_enable_buffered_stream(tempdir):
+    dirpath = tempdir / guid()
+    dirpath.mkdir()
+
+    df = _test_dataframe(10, seed=0)
+    path = dirpath / '{}.parquet'.format(0)
+    table = pa.Table.from_pandas(df)
+    _write_table(table, path, version='2.0')
+
+    with pytest.raises(ValueError):
+        pq.ParquetDataset(dirpath, buffer_size=-64)
+
+    for buffer_size in [128, 1024]:
+        dataset = pq.ParquetDataset(dirpath, buffer_size=buffer_size)
+        assert dataset.pieces[0].read().equals(table)
 
 
 @pytest.mark.pandas

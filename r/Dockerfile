@@ -60,25 +60,10 @@ ENV ARROW_R_DEV=TRUE
 ENV PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/build/cpp/src/arrow:/opt/conda/lib/pkgconfig
 ENV LD_LIBRARY_PATH=/opt/conda/lib/:/build/cpp/src/arrow:/arrow/r/src
 
-# Ensure parallel R package installation
-RUN printf "options(Ncpus = parallel::detectCores())\n" >> /etc/R/Rprofile.site
+# Ensure parallel R package installation and set CRAN repo mirror
+RUN printf "options(Ncpus = parallel::detectCores(), repos = 'https://demo.rstudiopm.com/all/__linux__/bionic/latest')\n" >> /etc/R/Rprofile.site
 # Also ensure parallel compilation of each individual package
 RUN printf "MAKEFLAGS=-j8\n" >> /usr/lib/R/etc/Makeconf
-
-RUN Rscript -e "install.packages('devtools', repos = 'http://cran.rstudio.com')"
-RUN Rscript -e "devtools::install_github('romainfrancois/decor')"
-RUN Rscript -e "install.packages(c( \
-        'Rcpp', 'dplyr', 'stringr', 'glue', 'vctrs', \
-        'purrr', \
-        'assertthat', \
-        'fs', \
-        'tibble', \
-        'crayon', \
-        'testthat', \
-        'bit64', \
-        'hms', \
-        'lubridate'), \
-        repos = 'https://cran.rstudio.com')"
 
 # ARROW-6171: Because lz4 is installed in the base Ubuntu image, there's an
 # issue of which library is loaded at runtime. R by default will override

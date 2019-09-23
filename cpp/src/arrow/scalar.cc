@@ -26,6 +26,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
@@ -114,5 +115,31 @@ FixedSizeListScalar::FixedSizeListScalar(const std::shared_ptr<Array>& value,
 FixedSizeListScalar::FixedSizeListScalar(const std::shared_ptr<Array>& value,
                                          bool is_valid)
     : FixedSizeListScalar(value, value->type(), is_valid) {}
+
+struct MakeNullImpl {
+  template <typename T>
+  using ScalarType = typename TypeTraits<T>::ScalarType;
+
+  template <typename T>
+  typename std::enable_if<std::is_default_constructible<ScalarType<T>>::value,
+                          Status>::type
+  Visit(const T&) {
+    *out_ = std::make_shared<ScalarType<T>>();
+    return Status::OK();
+  }
+
+  Status Visit(const DataType& t) {
+    return Status::NotImplemented("construcing null scalars of type ", t);
+  }
+
+  std::shared_ptr<DataType> type_;
+  std::shared_ptr<Scalar>* out_;
+};
+
+Status MakeNullScalar(const std::shared_ptr<DataType>& type,
+                      std::shared_ptr<Scalar>* null) {
+  MakeNullImpl impl = {type, null};
+  return VisitTypeInline(*type, &impl);
+}
 
 }  // namespace arrow

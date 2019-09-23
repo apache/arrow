@@ -35,7 +35,7 @@ import org.apache.arrow.vector.util.TransferPair;
  * timestamp (seconds resolution) values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public class TimeStampSecVector extends TimeStampVector {
+public final class TimeStampSecVector extends TimeStampVector {
   private final FieldReader reader;
 
   /**

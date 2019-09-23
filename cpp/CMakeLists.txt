@@ -264,16 +264,12 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   set(ARROW_WITH_ZLIB ON)
 endif()
 
-if((ARROW_BUILD_TESTS OR ARROW_BUILD_INTEGRATION) AND NOT ARROW_JSON)
-  message(FATAL_ERROR "JSON parsing of arrays is required for Arrow tests")
+if(ARROW_BUILD_TESTS OR ARROW_BUILD_INTEGRATION)
+  set(ARROW_JSON ON)
 endif()
 
 if(ARROW_FLIGHT OR ARROW_PARQUET OR ARROW_BUILD_TESTS)
   set(ARROW_IPC ON)
-endif()
-
-if(ARROW_IPC AND NOT ARROW_JSON)
-  message(FATAL_ERROR "JSON support is required for Arrow IPC")
 endif()
 
 if(MSVC)
@@ -813,6 +809,7 @@ include(CMakePackageConfigHelpers)
 # Makes the project importable from the build directory
 export(EXPORT ${PROJECT_NAME}-targets
        FILE "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Targets.cmake")
+
 configure_package_config_file(${PROJECT_NAME}Config.cmake.in
                               "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
                               INSTALL_DESTINATION
@@ -821,12 +818,17 @@ write_basic_package_version_file(
   ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
   VERSION ${${PROJECT_NAME}_VERSION}
   COMPATIBILITY AnyNewerVersion)
+config_summary_cmake_setters("${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Options.cmake")
 
 install(EXPORT ${PROJECT_NAME}-targets
         FILE ${PROJECT_NAME}Targets.cmake
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
               ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+              ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Options.cmake
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
 
-config_summary()
+config_summary_message()
+if(${ARROW_BUILD_CONFIG_SUMMARY_JSON})
+  config_summary_json()
+endif()

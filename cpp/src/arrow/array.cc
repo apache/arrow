@@ -37,7 +37,6 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/visitor.h"
@@ -108,6 +107,12 @@ int64_t ArrayData::GetNullCount() const {
 // Base array class
 
 int64_t Array::null_count() const { return data_->GetNullCount(); }
+
+std::string Array::Diff(const Array& other) const {
+  std::stringstream diff;
+  ARROW_IGNORE_EXPR(Equals(other, EqualOptions().diff_sink(&diff)));
+  return diff.str();
+}
 
 bool Array::Equals(const Array& arr, const EqualOptions& opts) const {
   return ArrayEquals(*this, arr, opts);
@@ -627,6 +632,7 @@ std::shared_ptr<Array> StructArray::GetFieldByName(const std::string& name) cons
 
 Status StructArray::Flatten(MemoryPool* pool, ArrayVector* out) const {
   ArrayVector flattened;
+  flattened.reserve(data_->child_data.size());
   std::shared_ptr<Buffer> null_bitmap = data_->buffers[0];
 
   for (auto& child_data : data_->child_data) {
@@ -907,108 +913,17 @@ Status DictionaryArray::FromArrays(const std::shared_ptr<DataType>& type,
   return Status::OK();
 }
 
-static bool IsTrivialTransposition(const std::vector<int32_t>& transpose_map,
-                                   int64_t input_dict_size) {
-  for (int64_t i = 0; i < input_dict_size; ++i) {
-    if (transpose_map[i] != i) {
-      return false;
-    }
-  }
-  return true;
-}
+bool DictionaryArray::CanCompareIndices(const DictionaryArray& other) const {
+  DCHECK(dictionary()->type()->Equals(other.dictionary()->type()))
+      << "dictionaries have differing type " << *dictionary()->type() << " vs "
+      << *other.dictionary()->type();
 
-template <typename InType, typename OutType>
-static Status TransposeDictIndices(MemoryPool* pool, const ArrayData& in_data,
-                                   const std::vector<int32_t>& transpose_map,
-                                   const std::shared_ptr<ArrayData>& out_data,
-                                   std::shared_ptr<Array>* out) {
-  using in_c_type = typename InType::c_type;
-  using out_c_type = typename OutType::c_type;
-  internal::TransposeInts(in_data.GetValues<in_c_type>(1),
-                          out_data->GetMutableValues<out_c_type>(1), in_data.length,
-                          transpose_map.data());
-  *out = MakeArray(out_data);
-  return Status::OK();
-}
-
-Status DictionaryArray::Transpose(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-                                  const std::shared_ptr<Array>& dictionary,
-                                  const std::vector<int32_t>& transpose_map,
-                                  std::shared_ptr<Array>* out) const {
-  if (type->id() != Type::DICTIONARY) {
-    return Status::TypeError("Expected dictionary type");
-  }
-  const int64_t in_dict_len = data_->dictionary->length();
-  if (in_dict_len > static_cast<int64_t>(transpose_map.size())) {
-    return Status::Invalid(
-        "Transpose map too small for dictionary array "
-        "(has ",
-        transpose_map.size(), " values, need at least ", in_dict_len, ")");
+  if (!indices()->type()->Equals(other.indices()->type())) {
+    return false;
   }
 
-  const auto& out_dict_type = checked_cast<const DictionaryType&>(*type);
-
-  const auto& out_index_type =
-      static_cast<const FixedWidthType&>(*out_dict_type.index_type());
-
-  auto in_type_id = dict_type_->index_type()->id();
-  auto out_type_id = out_index_type.id();
-
-  if (in_type_id == out_type_id && IsTrivialTransposition(transpose_map, in_dict_len)) {
-    // Index type and values will be identical => we can simply reuse
-    // the existing buffers.
-    auto out_data =
-        ArrayData::Make(type, data_->length, {data_->buffers[0], data_->buffers[1]},
-                        data_->null_count, data_->offset);
-    out_data->dictionary = dictionary;
-    *out = MakeArray(out_data);
-    return Status::OK();
-  }
-
-  // Default path: compute a buffer of transposed indices.
-  std::shared_ptr<Buffer> out_buffer;
-  RETURN_NOT_OK(AllocateBuffer(
-      pool, data_->length * out_index_type.bit_width() * CHAR_BIT, &out_buffer));
-
-  // Shift null buffer if the original offset is non-zero
-  std::shared_ptr<Buffer> null_bitmap;
-  if (data_->offset != 0) {
-    RETURN_NOT_OK(
-        CopyBitmap(pool, null_bitmap_data_, data_->offset, data_->length, &null_bitmap));
-  } else {
-    null_bitmap = data_->buffers[0];
-  }
-
-  auto out_data =
-      ArrayData::Make(type, data_->length, {null_bitmap, out_buffer}, data_->null_count);
-  out_data->dictionary = dictionary;
-
-#define TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, OUT_INDEX_TYPE)    \
-  case OUT_INDEX_TYPE::type_id:                                 \
-    return TransposeDictIndices<IN_INDEX_TYPE, OUT_INDEX_TYPE>( \
-        pool, *data_, transpose_map, out_data, out);
-
-#define TRANSPOSE_IN_CASE(IN_INDEX_TYPE)                        \
-  case IN_INDEX_TYPE::type_id:                                  \
-    switch (out_type_id) {                                      \
-      TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, Int8Type)            \
-      TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, Int16Type)           \
-      TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, Int32Type)           \
-      TRANSPOSE_IN_OUT_CASE(IN_INDEX_TYPE, Int64Type)           \
-      default:                                                  \
-        return Status::NotImplemented("unexpected index type"); \
-    }
-
-  switch (in_type_id) {
-    TRANSPOSE_IN_CASE(Int8Type)
-    TRANSPOSE_IN_CASE(Int16Type)
-    TRANSPOSE_IN_CASE(Int32Type)
-    TRANSPOSE_IN_CASE(Int64Type)
-    default:
-      return Status::NotImplemented("unexpected index type");
-  }
-#undef TRANSPOSE_IN_CASE
-#undef TRANSPOSE_IN_OUT_CASE
+  auto min_length = std::min(dictionary()->length(), other.dictionary()->length());
+  return dictionary()->RangeEquals(other.dictionary(), 0, min_length, 0);
 }
 
 // ----------------------------------------------------------------------
@@ -1447,11 +1362,13 @@ Status Array::Validate() const {
                            "of type ",
                            type.ToString(), ", got ", data.buffers.size());
   }
-  if (data.child_data.size() != static_cast<size_t>(type.num_children())) {
-    return Status::Invalid("Expected ", type.num_children(),
-                           " child arrays in array "
-                           "of type ",
-                           type.ToString(), ", got ", data.child_data.size());
+  if (type.id() != Type::EXTENSION) {
+    if (data.child_data.size() != static_cast<size_t>(type.num_children())) {
+      return Status::Invalid("Expected ", type.num_children(),
+                             " child arrays in array "
+                             "of type ",
+                             type.ToString(), ", got ", data.child_data.size());
+    }
   }
   if (layout.has_dictionary && !data.dictionary) {
     return Status::Invalid("Array of type ", type.ToString(),
@@ -1517,9 +1434,8 @@ class NullArrayFactory {
     GetBufferLength(const std::shared_ptr<DataType>& type, int64_t length)
         : type_(*type), length_(length), buffer_length_(BitUtil::BytesForBits(length)) {}
 
-    operator int64_t() && {
-      // TODO this should implement proper error propagation
-      ARROW_CHECK_OK(VisitTypeInline(type_, this));
+    Result<int64_t> Finish() && {
+      RETURN_NOT_OK(VisitTypeInline(type_, this));
       return buffer_length_;
     }
 
@@ -1528,37 +1444,48 @@ class NullArrayFactory {
       return MaxOf(TypeTraits<T>::bytes_required(length_));
     }
 
-    Status Visit(const ListType& type) {
-      // list's values array may be empty, but there must be at least one offset of 0
-      return MaxOf(sizeof(int32_t));
+    template <typename T>
+    enable_if_base_list<T, Status> Visit(const T&) {
+      // values array may be empty, but there must be at least one offset of 0
+      return MaxOf(sizeof(typename T::offset_type) * (length_ + 1));
+    }
+
+    template <typename T>
+    enable_if_base_binary<T, Status> Visit(const T&) {
+      // values buffer may be empty, but there must be at least one offset of 0
+      return MaxOf(sizeof(typename T::offset_type) * (length_ + 1));
     }
 
     Status Visit(const FixedSizeListType& type) {
       return MaxOf(GetBufferLength(type.value_type(), type.list_size() * length_));
     }
 
+    Status Visit(const FixedSizeBinaryType& type) {
+      return MaxOf(type.byte_width() * length_);
+    }
+
     Status Visit(const StructType& type) {
       for (const auto& child : type.children()) {
-        DCHECK_OK(MaxOf(GetBufferLength(child->type(), length_)));
+        RETURN_NOT_OK(MaxOf(GetBufferLength(child->type(), length_)));
       }
       return Status::OK();
     }
 
     Status Visit(const UnionType& type) {
       // type codes
-      DCHECK_OK(MaxOf(length_));
+      RETURN_NOT_OK(MaxOf(length_));
       if (type.mode() == UnionMode::DENSE) {
         // offsets
-        DCHECK_OK(MaxOf(sizeof(int32_t) * length_));
+        RETURN_NOT_OK(MaxOf(sizeof(int32_t) * length_));
       }
       for (const auto& child : type.children()) {
-        DCHECK_OK(MaxOf(GetBufferLength(child->type(), length_)));
+        RETURN_NOT_OK(MaxOf(GetBufferLength(child->type(), length_)));
       }
       return Status::OK();
     }
 
     Status Visit(const DictionaryType& type) {
-      DCHECK_OK(MaxOf(GetBufferLength(type.value_type(), length_)));
+      RETURN_NOT_OK(MaxOf(GetBufferLength(type.value_type(), length_)));
       return MaxOf(GetBufferLength(type.index_type(), length_));
     }
 
@@ -1572,6 +1499,11 @@ class NullArrayFactory {
     }
 
    private:
+    Status MaxOf(GetBufferLength&& other) {
+      ARROW_ASSIGN_OR_RAISE(int64_t buffer_length, std::move(other).Finish());
+      return MaxOf(buffer_length);
+    }
+
     Status MaxOf(int64_t buffer_length) {
       if (buffer_length > buffer_length_) {
         buffer_length_ = buffer_length;
@@ -1588,7 +1520,8 @@ class NullArrayFactory {
       : pool_(pool), type_(type), length_(length), out_(out) {}
 
   Status CreateBuffer() {
-    int64_t buffer_length = GetBufferLength(type_, length_);
+    ARROW_ASSIGN_OR_RAISE(int64_t buffer_length,
+                          GetBufferLength(type_, length_).Finish());
     RETURN_NOT_OK(AllocateBuffer(pool_, buffer_length, &buffer_));
     std::memset(buffer_->mutable_data(), 0, buffer_->size());
     return Status::OK();
@@ -1610,12 +1543,14 @@ class NullArrayFactory {
     return Status::OK();
   }
 
-  Status Visit(const BinaryType&) {
+  template <typename T>
+  enable_if_base_binary<T, Status> Visit(const T&) {
     (*out_)->buffers.resize(3, buffer_);
     return Status::OK();
   }
 
-  Status Visit(const ListType& type) {
+  template <typename T>
+  enable_if_base_list<T, Status> Visit(const T& type) {
     (*out_)->buffers.resize(2, buffer_);
     return CreateChild(0, length_, &(*out_)->child_data[0]);
   }
@@ -1635,7 +1570,7 @@ class NullArrayFactory {
     if (type.mode() == UnionMode::DENSE) {
       (*out_)->buffers.resize(3, buffer_);
     } else {
-      (*out_)->buffers.resize(2, buffer_);
+      (*out_)->buffers = {buffer_, buffer_, nullptr};
     }
 
     for (int i = 0; i < type_->num_children(); ++i) {
@@ -1694,7 +1629,7 @@ class RepeatedArrayFactory {
   }
 
   template <typename T>
-  enable_if_binary<T, Status> Visit(const T&) {
+  enable_if_base_binary<T, Status> Visit(const T&) {
     std::shared_ptr<Buffer> value =
         checked_cast<const typename TypeTraits<T>::ScalarType&>(scalar_).value;
     std::shared_ptr<Buffer> values_buffer, offsets_buffer;

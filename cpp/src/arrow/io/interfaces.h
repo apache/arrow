@@ -114,7 +114,20 @@ class ARROW_EXPORT Writable {
  public:
   virtual ~Writable() = default;
 
+  /// \brief Write the given data to the stream
+  ///
+  /// This method always processes the bytes in full.  Depending on the
+  /// semantics of the stream, the data may be written out immediately,
+  /// held in a buffer, or written asynchronously.  In the case where
+  /// the stream buffers the data, it will be copied.  To avoid potentially
+  /// large copies, use the Write variant that takes an owned Buffer.
   virtual Status Write(const void* data, int64_t nbytes) = 0;
+
+  /// \brief Write the given data to the stream
+  ///
+  /// Since the Buffer owns its memory, this method can avoid a copy if
+  /// buffering is required.  See Write(const void*, int64_t) for details.
+  virtual Status Write(const std::shared_ptr<Buffer>& data);
 
   /// \brief Flush buffered bytes, if any
   virtual Status Flush();
@@ -144,11 +157,14 @@ class ARROW_EXPORT InputStream : virtual public FileInterface, virtual public Re
   /// \return Status
   Status Advance(int64_t nbytes);
 
-  /// \brief Return zero-copy string_view to upcoming bytes in the
-  /// stream but do not modify stream position. View becomes invalid
-  /// after any operation on file. If the InputStream is unbuffered,
-  /// returns 0-length string_view. May trigger buffering if the
-  /// requested size is larger than the number of buffered bytes
+  /// \brief Return zero-copy string_view to upcoming bytes.
+  ///
+  /// Do not modify the stream position.  The view becomes invalid after
+  /// any operation on the stream.  May trigger buffering if the requested
+  /// size is larger than the number of buffered bytes.
+  ///
+  /// May return NotImplemented on streams that don't support it.
+  ///
   /// \param[in] nbytes the maximum number of bytes to see
   /// \param[out] out the returned arrow::util::string_view
   /// \return Status

@@ -59,7 +59,7 @@ namespace Apache.Arrow.Tests
             {
                 ArrowFileWriter writer = new ArrowFileWriter(stream, originalBatch.Schema);
                 await writer.WriteRecordBatchAsync(originalBatch);
-                await writer.WriteFooterAsync();
+                await writer.WriteEndAsync();
                 stream.Position = 0;
 
                 var memoryPool = new TestMemoryAllocator();
@@ -121,7 +121,7 @@ namespace Apache.Arrow.Tests
             {
                 ArrowFileWriter writer = new ArrowFileWriter(stream, originalBatch.Schema);
                 await writer.WriteRecordBatchAsync(originalBatch);
-                await writer.WriteFooterAsync();
+                await writer.WriteEndAsync();
                 stream.Position = 0;
 
                 ArrowFileReader reader = new ArrowFileReader(stream);
@@ -140,7 +140,7 @@ namespace Apache.Arrow.Tests
                 ArrowFileWriter writer = new ArrowFileWriter(stream, originalBatch1.Schema);
                 await writer.WriteRecordBatchAsync(originalBatch1);
                 await writer.WriteRecordBatchAsync(originalBatch2);
-                await writer.WriteFooterAsync();
+                await writer.WriteEndAsync();
                 stream.Position = 0;
 
                 // the recordbatches by index are in reverse order - back to front.

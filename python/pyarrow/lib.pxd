@@ -237,6 +237,8 @@ cdef class Array(_PandasConvertible):
 
     cdef readonly:
         DataType type
+        # To allow Table to propagate metadata to pandas.Series
+        object _name
 
     cdef void init(self, const shared_ptr[CArray]& sp_array) except *
     cdef getitem(self, int64_t i)
@@ -392,6 +394,10 @@ cdef class ChunkedArray(_PandasConvertible):
         shared_ptr[CChunkedArray] sp_chunked_array
         CChunkedArray* chunked_array
 
+    cdef readonly:
+        # To allow Table to propagate metadata to pandas.Series
+        object _name
+
     cdef void init(self, const shared_ptr[CChunkedArray]& chunked_array)
     cdef getitem(self, int64_t i)
 
@@ -450,6 +456,22 @@ cdef class NativeFile:
     cdef shared_ptr[RandomAccessFile] get_random_access_file(self) except *
     cdef shared_ptr[InputStream] get_input_stream(self) except *
     cdef shared_ptr[OutputStream] get_output_stream(self) except *
+
+
+cdef class BufferedInputStream(NativeFile):
+    pass
+
+
+cdef class BufferedOutputStream(NativeFile):
+    pass
+
+
+cdef class CompressedInputStream(NativeFile):
+    pass
+
+
+cdef class CompressedOutputStream(NativeFile):
+    pass
 
 
 cdef class _CRecordBatchWriter:

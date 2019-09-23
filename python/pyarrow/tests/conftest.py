@@ -44,6 +44,7 @@ groups = [
     'gandiva',
     'hdfs',
     'large_memory',
+    'nopandas',
     'orc',
     'pandas',
     'parquet',
@@ -62,6 +63,7 @@ defaults = {
     'hdfs': False,
     'large_memory': False,
     'orc': False,
+    'nopandas': False,
     'pandas': False,
     'parquet': False,
     'plasma': False,
@@ -98,7 +100,7 @@ try:
     import pandas  # noqa
     defaults['pandas'] = True
 except ImportError:
-    pass
+    defaults['nopandas'] = True
 
 try:
     import pyarrow.parquet  # noqa

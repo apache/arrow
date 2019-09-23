@@ -38,6 +38,21 @@
 #include <mimalloc.h>
 #endif
 
+#ifdef ARROW_JEMALLOC
+
+// Compile-time configuration for jemalloc options.
+// Note the prefix ("je_arrow_") must match the symbol prefix given when
+// building jemalloc.
+// See discussion in https://github.com/jemalloc/jemalloc/issues/1621
+
+#ifdef NDEBUG
+const char* je_arrow_malloc_conf = "oversize_threshold:0";
+#else
+// In debug mode, add memory poisoning on alloc / free
+const char* je_arrow_malloc_conf = "oversize_threshold:0,junk:true";
+#endif
+#endif
+
 namespace arrow {
 
 constexpr size_t kAlignment = 64;
@@ -230,6 +245,12 @@ int64_t MemoryPool::max_memory() const { return -1; }
 // MemoryPool implementation that delegates its core duty
 // to an Allocator class.
 
+#ifndef NDEBUG
+static constexpr uint8_t kAllocPoison = 0xBC;
+static constexpr uint8_t kReallocPoison = 0xBD;
+static constexpr uint8_t kDeallocPoison = 0xBE;
+#endif
+
 template <typename Allocator>
 class BaseMemoryPoolImpl : public MemoryPool {
  public:
@@ -243,6 +264,14 @@ class BaseMemoryPoolImpl : public MemoryPool {
       return Status::CapacityError("malloc size overflows size_t");
     }
     RETURN_NOT_OK(Allocator::AllocateAligned(size, out));
+#ifndef NDEBUG
+    // Poison data
+    if (size > 0) {
+      DCHECK_NE(*out, nullptr);
+      (*out)[0] = kAllocPoison;
+      (*out)[size - 1] = kAllocPoison;
+    }
+#endif
 
     stats_.UpdateAllocatedBytes(size);
     return Status::OK();
@@ -256,12 +285,28 @@ class BaseMemoryPoolImpl : public MemoryPool {
       return Status::CapacityError("realloc overflows size_t");
     }
     RETURN_NOT_OK(Allocator::ReallocateAligned(old_size, new_size, ptr));
+#ifndef NDEBUG
+    // Poison data
+    if (new_size > old_size) {
+      DCHECK_NE(*ptr, nullptr);
+      (*ptr)[old_size] = kReallocPoison;
+      (*ptr)[new_size - 1] = kReallocPoison;
+    }
+#endif
 
     stats_.UpdateAllocatedBytes(new_size - old_size);
     return Status::OK();
   }
 
   void Free(uint8_t* buffer, int64_t size) override {
+#ifndef NDEBUG
+    // Poison data
+    if (size > 0) {
+      DCHECK_NE(buffer, nullptr);
+      buffer[0] = kDeallocPoison;
+      buffer[size - 1] = kDeallocPoison;
+    }
+#endif
     Allocator::DeallocateAligned(buffer, size);
 
     stats_.UpdateAllocatedBytes(-size);

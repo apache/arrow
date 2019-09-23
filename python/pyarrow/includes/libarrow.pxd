@@ -143,6 +143,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         int num_fields()
 
+        c_string Diff(const CArray& other)
         c_bool Equals(const CArray& arr)
         c_bool IsNull(int i)
 
@@ -753,14 +754,16 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
     cdef cppclass Readable:
         # put overload under a different name to avoid cython bug with multiple
         # layers of inheritance
-        CStatus ReadB" Read"(int64_t nbytes, shared_ptr[CBuffer]* out)
+        CStatus ReadBuffer" Read"(int64_t nbytes, shared_ptr[CBuffer]* out)
         CStatus Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out)
 
     cdef cppclass Seekable:
         CStatus Seek(int64_t position)
 
     cdef cppclass Writable:
+        CStatus WriteBuffer" Write"(shared_ptr[CBuffer] data)
         CStatus Write(const uint8_t* data, int64_t nbytes)
+        CStatus Flush()
 
     cdef cppclass OutputStream(FileInterface, Writable):
         pass
@@ -849,6 +852,8 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
                        shared_ptr[InputStream] raw,
                        shared_ptr[CBufferedInputStream]* out)
 
+        shared_ptr[InputStream] Detach()
+
     cdef cppclass CBufferedOutputStream \
             " arrow::io::BufferedOutputStream"(OutputStream):
 
@@ -856,6 +861,8 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         CStatus Create(int64_t buffer_size, CMemoryPool* pool,
                        shared_ptr[OutputStream] raw,
                        shared_ptr[CBufferedOutputStream]* out)
+
+        CStatus Detach(shared_ptr[OutputStream]* raw)
 
     # ----------------------------------------------------------------------
     # HDFS
@@ -964,6 +971,11 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         MessageType_V4" arrow::ipc::MetadataVersion::V4"
 
     cdef cppclass CIpcOptions" arrow::ipc::IpcOptions":
+        c_bool allow_64bit
+        int max_recursion_depth
+        int32_t alignment
+        c_bool write_legacy_ipc_format
+
         @staticmethod
         CIpcOptions Defaults()
 
@@ -989,7 +1001,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         MetadataVersion metadata_version()
         MessageType type()
 
-        CStatus SerializeTo(OutputStream* stream, int32_t alignment,
+        CStatus SerializeTo(OutputStream* stream, const CIpcOptions& options,
                             int64_t* output_length)
 
     c_string FormatMessageType(MessageType type)
@@ -1018,14 +1030,16 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     cdef cppclass CRecordBatchStreamWriter \
             " arrow::ipc::RecordBatchStreamWriter"(CRecordBatchWriter):
         @staticmethod
-        CStatus Open(OutputStream* sink, const shared_ptr[CSchema]& schema,
-                     shared_ptr[CRecordBatchWriter]* out)
+        CResult[shared_ptr[CRecordBatchWriter]] Open(
+            OutputStream* sink, const shared_ptr[CSchema]& schema,
+            CIpcOptions& options)
 
     cdef cppclass CRecordBatchFileWriter \
             " arrow::ipc::RecordBatchFileWriter"(CRecordBatchWriter):
         @staticmethod
-        CStatus Open(OutputStream* sink, const shared_ptr[CSchema]& schema,
-                     shared_ptr[CRecordBatchWriter]* out)
+        CResult[shared_ptr[CRecordBatchWriter]] Open(
+            OutputStream* sink, const shared_ptr[CSchema]& schema,
+            CIpcOptions& options)
 
     cdef cppclass CRecordBatchFileReader \
             " arrow::ipc::RecordBatchFileReader":
@@ -1257,6 +1271,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
                  const CDatum& indices, const CTakeOptions& options,
                  CDatum* out)
 
+    # Filter clashes with gandiva.pyx::Filter
+    CStatus FilterKernel" arrow::compute::Filter"(
+        CFunctionContext* context, const CDatum& values,
+        const CDatum& filter, CDatum* out)
+
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py":
     # Requires GIL
@@ -1343,7 +1362,6 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         const PandasOptions& options,
         const unordered_set[c_string]& categorical_columns,
         const shared_ptr[CTable]& table,
-        CMemoryPool* pool,
         PyObject** out)
 
     void c_set_default_memory_pool \
@@ -1367,7 +1385,8 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     cdef cppclass PyOutputStream(OutputStream):
         PyOutputStream(object fo)
 
-    cdef struct PandasOptions:
+    cdef cppclass PandasOptions:
+        CMemoryPool* pool
         c_bool strings_to_categorical
         c_bool zero_copy_only
         c_bool integer_object_nulls
@@ -1396,6 +1415,16 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
                                         int num_buffers,
                                         object buffers,
                                         CSerializedPyObject* out)
+
+
+cdef extern from "arrow/python/api.h" namespace "arrow::py::internal" nogil:
+
+    cdef cppclass CTimePoint "arrow::py::internal::TimePoint":
+        pass
+
+    cdef CStatus PyDateTime_from_int(int64_t val, const TimeUnit unit,
+                                     PyObject** out)
+    cdef CStatus PyDateTime_from_TimePoint(CTimePoint val, PyObject** out)
 
 
 cdef extern from 'arrow/python/init.h':

@@ -54,12 +54,15 @@ cimport cpython as cp
 cdef class Statistics:
     cdef:
         shared_ptr[CStatistics] statistics
+        ColumnChunkMetaData parent
 
     def __cinit__(self):
         pass
 
-    cdef init(self, const shared_ptr[CStatistics]& statistics):
+    cdef init(self, const shared_ptr[CStatistics]& statistics,
+              ColumnChunkMetaData parent):
         self.statistics = statistics
+        self.parent = parent
 
     def __repr__(self):
         return """{}
@@ -116,19 +119,31 @@ cdef class Statistics:
 
     @property
     def min_raw(self):
-        return _cast_statistic_raw_min(self.statistics.get())
+        if self.has_min_max:
+            return _cast_statistic_raw_min(self.statistics.get())
+        else:
+            return None
 
     @property
     def max_raw(self):
-        return _cast_statistic_raw_max(self.statistics.get())
+        if self.has_min_max:
+            return _cast_statistic_raw_max(self.statistics.get())
+        else:
+            return None
 
     @property
     def min(self):
-        return _cast_statistic_min(self.statistics.get())
+        if self.has_min_max:
+            return _cast_statistic_min(self.statistics.get())
+        else:
+            return None
 
     @property
     def max(self):
-        return _cast_statistic_max(self.statistics.get())
+        if self.has_min_max:
+            return _cast_statistic_max(self.statistics.get())
+        else:
+            return None
 
     @property
     def null_count(self):
@@ -291,13 +306,15 @@ cdef class ColumnChunkMetaData:
     cdef:
         unique_ptr[CColumnChunkMetaData] up_metadata
         CColumnChunkMetaData* metadata
+        RowGroupMetaData parent
 
     def __cinit__(self):
         pass
 
-    cdef init(self, const CRowGroupMetaData& row_group_metadata, int i):
-        self.up_metadata = row_group_metadata.ColumnChunk(i)
+    cdef init(self, RowGroupMetaData parent, int i):
+        self.up_metadata = parent.metadata.ColumnChunk(i)
         self.metadata = self.up_metadata.get()
+        self.parent = parent
 
     def __repr__(self):
         statistics = indent(repr(self.statistics), 4 * ' ')
@@ -404,7 +421,7 @@ cdef class ColumnChunkMetaData:
         if not self.metadata.is_stats_set():
             return None
         statistics = Statistics()
-        statistics.init(self.metadata.statistics())
+        statistics.init(self.metadata.statistics(), self)
         return statistics
 
     @property
@@ -487,7 +504,7 @@ cdef class RowGroupMetaData:
         if i < 0 or i >= self.num_columns:
             raise IndexError('{0} out of bounds'.format(i))
         chunk = ColumnChunkMetaData()
-        chunk.init(deref(self.metadata), i)
+        chunk.init(self, i)
         return chunk
 
     def __repr__(self):
@@ -989,12 +1006,13 @@ cdef class ParquetReader:
         self.pool = maybe_unbox_memory_pool(memory_pool)
         self._metadata = None
 
-    def open(self, object source, c_bool use_memory_map=True,
-             read_dictionary=None, FileMetaData metadata=None):
+    def open(self, object source, bint use_memory_map=True,
+             read_dictionary=None, FileMetaData metadata=None,
+             int buffer_size=0):
         cdef:
             shared_ptr[RandomAccessFile] rd_handle
             shared_ptr[CFileMetaData] c_metadata
-            ReaderProperties properties = default_reader_properties()
+            CReaderProperties properties = default_reader_properties()
             ArrowReaderProperties arrow_props = (
                 default_arrow_reader_properties())
             c_string path
@@ -1002,6 +1020,14 @@ cdef class ParquetReader:
 
         if metadata is not None:
             c_metadata = metadata.sp_metadata
+
+        if buffer_size > 0:
+            properties.enable_buffered_stream()
+            properties.set_buffer_size(buffer_size)
+        elif buffer_size == 0:
+            properties.disable_buffered_stream()
+        else:
+            raise ValueError('Buffer size must be larger than zero')
 
         self.source = source
 
@@ -1185,6 +1211,7 @@ cdef class ParquetWriter:
         object coerce_timestamps
         object allow_truncated_timestamps
         object compression
+        object compression_level
         object version
         object write_statistics
         int row_group_size
@@ -1197,7 +1224,8 @@ cdef class ParquetWriter:
                   use_deprecated_int96_timestamps=False,
                   coerce_timestamps=None,
                   data_page_size=None,
-                  allow_truncated_timestamps=False):
+                  allow_truncated_timestamps=False,
+                  compression_level=None):
         cdef:
             shared_ptr[WriterProperties] properties
             c_string c_where
@@ -1217,6 +1245,7 @@ cdef class ParquetWriter:
 
         self.use_dictionary = use_dictionary
         self.compression = compression
+        self.compression_level = compression_level
         self.version = version
         self.write_statistics = write_statistics
         self.use_deprecated_int96_timestamps = use_deprecated_int96_timestamps
@@ -1293,6 +1322,12 @@ cdef class ParquetWriter:
             for column, codec in self.compression.iteritems():
                 check_compression_name(codec)
                 props.compression(column, compression_from_name(codec))
+
+        if isinstance(self.compression_level, int):
+            props.compression_level(self.compression_level)
+        elif self.compression_level is not None:
+            for column, level in self.compression_level.iteritems():
+                props.compression_level(column, level)
 
     cdef void _set_dictionary_props(self, WriterProperties.Builder* props):
         if isinstance(self.use_dictionary, bool):

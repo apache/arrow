@@ -38,17 +38,18 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 
+#include "arrow/python/datetime.h"
 #include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/inference.h"
 #include "arrow/python/iterators.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/type_traits.h"
-#include "arrow/python/util/datetime.h"
 
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 
 namespace py {
 
@@ -94,12 +95,12 @@ class SeqConverter {
     return Status::OK();
   }
 
-  virtual Status GetResult(std::vector<std::shared_ptr<Array>>* chunks) {
+  virtual Status GetResult(std::shared_ptr<ChunkedArray>* out) {
     // Still some accumulated data in the builder. If there are no chunks, we
     // always call Finish to deal with the edge case where a size-0 sequence
     // was converted with a specific output type, like array([], type=t)
     RETURN_NOT_OK(Close());
-    *chunks = chunks_;
+    *out = std::make_shared<ChunkedArray>(chunks_, builder_->type());
     return Status::OK();
   }
 
@@ -301,7 +302,7 @@ class Date32Converter
     int32_t t;
     if (PyDate_Check(obj)) {
       auto pydate = reinterpret_cast<PyDateTime_Date*>(obj);
-      t = static_cast<int32_t>(PyDate_to_days(pydate));
+      t = static_cast<int32_t>(internal::PyDate_to_days(pydate));
     } else {
       RETURN_NOT_OK(internal::CIntFromPython(obj, &t, "Integer too large for date32"));
     }
@@ -317,12 +318,12 @@ class Date64Converter
     int64_t t;
     if (PyDateTime_Check(obj)) {
       auto pydate = reinterpret_cast<PyDateTime_DateTime*>(obj);
-      t = PyDateTime_to_ms(pydate);
+      t = internal::PyDateTime_to_ms(pydate);
       // Truncate any intraday milliseconds
       t -= t % 86400000LL;
     } else if (PyDate_Check(obj)) {
       auto pydate = reinterpret_cast<PyDateTime_Date*>(obj);
-      t = PyDate_to_ms(pydate);
+      t = internal::PyDate_to_ms(pydate);
     } else {
       RETURN_NOT_OK(internal::CIntFromPython(obj, &t, "Integer too large for date64"));
     }
@@ -343,10 +344,10 @@ class Time32Converter
       // datetime.time stores microsecond resolution
       switch (unit_) {
         case TimeUnit::SECOND:
-          t = static_cast<int32_t>(PyTime_to_s(obj));
+          t = static_cast<int32_t>(internal::PyTime_to_s(obj));
           break;
         case TimeUnit::MILLI:
-          t = static_cast<int32_t>(PyTime_to_ms(obj));
+          t = static_cast<int32_t>(internal::PyTime_to_ms(obj));
           break;
         default:
           return Status::UnknownError("Invalid time unit");
@@ -373,10 +374,10 @@ class Time64Converter
       // datetime.time stores microsecond resolution
       switch (unit_) {
         case TimeUnit::MICRO:
-          t = PyTime_to_us(obj);
+          t = internal::PyTime_to_us(obj);
           break;
         case TimeUnit::NANO:
-          t = PyTime_to_ns(obj);
+          t = internal::PyTime_to_ns(obj);
           break;
         default:
           return Status::UnknownError("Invalid time unit");
@@ -404,16 +405,16 @@ class TimestampConverter
 
       switch (unit_) {
         case TimeUnit::SECOND:
-          t = PyDateTime_to_s(pydatetime);
+          t = internal::PyDateTime_to_s(pydatetime);
           break;
         case TimeUnit::MILLI:
-          t = PyDateTime_to_ms(pydatetime);
+          t = internal::PyDateTime_to_ms(pydatetime);
           break;
         case TimeUnit::MICRO:
-          t = PyDateTime_to_us(pydatetime);
+          t = internal::PyDateTime_to_us(pydatetime);
           break;
         case TimeUnit::NANO:
-          t = PyDateTime_to_ns(pydatetime);
+          t = internal::PyDateTime_to_ns(pydatetime);
           break;
         default:
           return Status::UnknownError("Invalid time unit");
@@ -581,7 +582,7 @@ class StringConverter
     return Status::OK();
   }
 
-  virtual Status GetResult(std::vector<std::shared_ptr<Array>>* out) {
+  virtual Status GetResult(std::shared_ptr<ChunkedArray>* out) {
     RETURN_NOT_OK(SeqConverter::GetResult(out));
 
     // If we saw any non-unicode, cast results to BinaryArray
@@ -589,14 +590,9 @@ class StringConverter
       // We should have bailed out earlier
       DCHECK(!STRICT);
 
-      using EquivalentBinaryType = typename TypeClass::EquivalentBinaryType;
-      using EquivalentBinaryArray = typename TypeTraits<EquivalentBinaryType>::ArrayType;
-
-      for (size_t i = 0; i < out->size(); ++i) {
-        auto binary_data = (*out)[i]->data()->Copy();
-        binary_data->type = TypeTraits<EquivalentBinaryType>::type_singleton();
-        (*out)[i] = std::make_shared<EquivalentBinaryArray>(binary_data);
-      }
+      auto binary_type =
+          TypeTraits<typename TypeClass::EquivalentBinaryType>::type_singleton();
+      return (*out)->View(binary_type, out);
     }
     return Status::OK();
   }
@@ -740,14 +736,14 @@ class ListConverter
     return value_converter_->AppendMultiple(obj, list_size);
   }
 
-  virtual Status GetResult(std::vector<std::shared_ptr<Array>>* chunks) {
+  virtual Status GetResult(std::shared_ptr<ChunkedArray>* out) {
     // TODO: Improved handling of chunked children
     if (value_converter_->num_chunks() > 0) {
       return Status::Invalid("List child type ",
                              value_converter_->builder()->type()->ToString(),
                              " overflowed the capacity of a single chunk");
     }
-    return SeqConverter::GetResult(chunks);
+    return SeqConverter::GetResult(out);
   }
 
  protected:
@@ -770,18 +766,18 @@ class StructConverter
   Status Init(ArrayBuilder* builder) {
     this->builder_ = builder;
     this->typed_builder_ = checked_cast<StructBuilder*>(builder);
-    const auto& struct_type = checked_cast<const StructType&>(*builder->type());
+    auto struct_type = checked_pointer_cast<StructType>(builder->type());
 
     num_fields_ = this->typed_builder_->num_fields();
-    DCHECK_EQ(num_fields_, struct_type.num_children());
+    DCHECK_EQ(num_fields_, struct_type->num_children());
 
     field_name_list_.reset(PyList_New(num_fields_));
     RETURN_IF_PYERROR();
 
     // Initialize the child converters and field names
     for (int i = 0; i < num_fields_; i++) {
-      const std::string& field_name(struct_type.child(i)->name());
-      std::shared_ptr<DataType> field_type(struct_type.child(i)->type());
+      const std::string& field_name(struct_type->child(i)->name());
+      std::shared_ptr<DataType> field_type(struct_type->child(i)->type());
 
       std::unique_ptr<SeqConverter> value_converter;
       RETURN_NOT_OK(
@@ -874,7 +870,7 @@ class DecimalConverter
 
   Status Init(ArrayBuilder* builder) override {
     RETURN_NOT_OK(BASE::Init(builder));
-    decimal_type_ = checked_cast<const DecimalType*>(this->typed_builder_->type().get());
+    decimal_type_ = checked_pointer_cast<DecimalType>(this->typed_builder_->type());
     return Status::OK();
   }
 
@@ -885,7 +881,7 @@ class DecimalConverter
   }
 
  private:
-  const DecimalType* decimal_type_ = nullptr;
+  std::shared_ptr<DecimalType> decimal_type_;
 };
 
 #define NUMERIC_CONVERTER(TYPE_ENUM, TYPE)                                         \
@@ -1060,8 +1056,6 @@ Status ConvertPySequence(PyObject* sequence_source, PyObject* mask,
                          std::shared_ptr<ChunkedArray>* out) {
   PyAcquireGIL lock;
 
-  PyDateTime_IMPORT;
-
   PyObject* seq;
   OwnedRef tmp_seq_nanny;
 
@@ -1105,11 +1099,7 @@ Status ConvertPySequence(PyObject* sequence_source, PyObject* mask,
   }
 
   // Retrieve result. Conversion may yield one or more array values
-  std::vector<std::shared_ptr<Array>> chunks;
-  RETURN_NOT_OK(converter->GetResult(&chunks));
-
-  *out = std::make_shared<ChunkedArray>(chunks);
-  return Status::OK();
+  return converter->GetResult(out);
 }
 
 Status ConvertPySequence(PyObject* obj, const PyConversionOptions& options,

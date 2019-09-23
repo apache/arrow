@@ -10,7 +10,7 @@ output:
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  fig.path = "man/figures/README-",
+  fig.path = "man/figures/",
   out.width = "100%"
 )
 ```
@@ -54,7 +54,7 @@ When installing from source, if the R and C++ library versions do not match, ins
 library(arrow)
 set.seed(24)
 
-tab <- arrow::table(x = 1:10, y = rnorm(10))
+tab <- Table$create(x = 1:10, y = rnorm(10))
 tab$schema
 tab
 as.data.frame(tab)

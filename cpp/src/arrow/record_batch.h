@@ -22,8 +22,8 @@
 #include <string>
 #include <vector>
 
+#include "arrow/status.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/iterator.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -70,6 +70,9 @@ class ARROW_EXPORT RecordBatch {
   static std::shared_ptr<RecordBatch> Make(
       const std::shared_ptr<Schema>& schema, int64_t num_rows,
       const std::vector<std::shared_ptr<ArrayData>>& columns);
+
+  static Status FromStructArray(const std::shared_ptr<Array>& array,
+                                std::shared_ptr<RecordBatch>* out);
 
   /// \brief Determine if two record batches are exactly equal
   /// \return true if batches are equal
@@ -164,12 +167,10 @@ class ARROW_EXPORT RecordBatch {
 };
 
 /// \brief Abstract interface for reading stream of record batches
-class ARROW_EXPORT RecordBatchReader
-    /// \cond FALSE
-    : public RecordBatchIterator
-/// \endcond
-{  // NOLINT whitespace/braces
+class ARROW_EXPORT RecordBatchReader {
  public:
+  virtual ~RecordBatchReader() = default;
+
   /// \return the shared schema of the record batches in the stream
   virtual std::shared_ptr<Schema> schema() const = 0;
 
@@ -180,7 +181,7 @@ class ARROW_EXPORT RecordBatchReader
   /// \return Status
   virtual Status ReadNext(std::shared_ptr<RecordBatch>* batch) = 0;
 
-  Status Next(std::shared_ptr<RecordBatch>* batch) final { return ReadNext(batch); }
+  Status Next(std::shared_ptr<RecordBatch>* batch) { return ReadNext(batch); }
 
   /// \brief Consume entire stream as a vector of record batches
   Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches);

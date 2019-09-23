@@ -163,7 +163,8 @@ def _register_custom_pandas_handlers(context):
     )
 
     def _serialize_pandas_dataframe(obj):
-        if isinstance(obj, pd.SparseDataFrame):
+        if (pdcompat._pandas_api.has_sparse
+                and isinstance(obj, pd.SparseDataFrame)):
             raise NotImplementedError(
                 sparse_type_error_msg.format('SparseDataFrame')
             )
@@ -174,7 +175,8 @@ def _register_custom_pandas_handlers(context):
         return pdcompat.serialized_dict_to_dataframe(data)
 
     def _serialize_pandas_series(obj):
-        if isinstance(obj, pd.SparseSeries):
+        if (pdcompat._pandas_api.has_sparse
+                and isinstance(obj, pd.SparseSeries)):
             raise NotImplementedError(
                 sparse_type_error_msg.format('SparseSeries')
             )

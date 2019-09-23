@@ -19,6 +19,7 @@
 
 #include <limits>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include <RcppCommon.h>
@@ -33,6 +34,11 @@ struct symbols {
   static SEXP inspect;
   static SEXP row_names;
 };
+
+struct data {
+  static SEXP classes_POSIXct;
+};
+
 }  // namespace r
 }  // namespace arrow
 
@@ -42,6 +48,17 @@ struct symbols {
   } while (0)
 
 #define STOP_IF_NOT_OK(s) STOP_IF_NOT(s.ok(), s.ToString())
+
+#define ARROW_ASSIGN_OR_STOP_IMPL(status_name, lhs, rexpr) \
+  auto status_name = (rexpr);                              \
+  if (!status_name.status().ok()) {                        \
+    Rcpp::stop(status_name.status().ToString());           \
+  }                                                        \
+  lhs = std::move(status_name).ValueOrDie();
+
+#define ARROW_ASSIGN_OR_STOP(lhs, rexp)                                               \
+  ARROW_ASSIGN_OR_STOP_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
+                            lhs, rexp)
 
 template <typename T>
 struct NoDelete {
@@ -167,6 +184,8 @@ inline std::shared_ptr<T> extract(SEXP x) {
 #include <arrow/api.h>
 #include <arrow/compute/api.h>
 #include <arrow/csv/reader.h>
+#include <arrow/filesystem/filesystem.h>
+#include <arrow/filesystem/localfs.h>
 #include <arrow/io/compressed.h>
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
@@ -187,6 +206,7 @@ RCPP_EXPOSED_ENUM_NODECL(arrow::StatusCode)
 RCPP_EXPOSED_ENUM_NODECL(arrow::io::FileMode::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::ipc::Message::Type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::Compression::type)
+RCPP_EXPOSED_ENUM_NODECL(arrow::fs::FileType)
 
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);

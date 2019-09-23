@@ -91,17 +91,17 @@ public class TestArrowBuf {
   @Test
   public void testSetBytesSliced() {
     int arrLength = 64;
-    byte[] expecteds = new byte[arrLength];
-    for (int i = 0; i < expecteds.length; i++) {
-      expecteds[i] = (byte) i;
+    byte[] expected = new byte[arrLength];
+    for (int i = 0; i < expected.length; i++) {
+      expected[i] = (byte) i;
     }
-    ByteBuffer data = ByteBuffer.wrap(expecteds);
-    try (ArrowBuf buf = allocator.buffer(expecteds.length)) {
+    ByteBuffer data = ByteBuffer.wrap(expected);
+    try (ArrowBuf buf = allocator.buffer(expected.length)) {
       buf.setBytes(0, data, 0, data.capacity());
 
-      byte[] actuals = new byte[expecteds.length];
-      buf.getBytes(0, actuals);
-      assertArrayEquals(expecteds, actuals);
+      byte[] actual = new byte[expected.length];
+      buf.getBytes(0, actual);
+      assertArrayEquals(expected, actual);
     }
   }
 
@@ -116,13 +116,13 @@ public class TestArrowBuf {
 
     int from = 10;
     int to = arrLength;
-    byte[] expecteds = Arrays.copyOfRange(arr, from, to);
-    try (ArrowBuf buf = allocator.buffer(expecteds.length)) {
+    byte[] expected = Arrays.copyOfRange(arr, from, to);
+    try (ArrowBuf buf = allocator.buffer(expected.length)) {
       buf.setBytes(0, data, from, to - from);
 
-      byte[] actuals = new byte[expecteds.length];
-      buf.getBytes(0, actuals);
-      assertArrayEquals(expecteds, actuals);
+      byte[] actual = new byte[expected.length];
+      buf.getBytes(0, actual);
+      assertArrayEquals(expected, actual);
     }
   }
 

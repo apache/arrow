@@ -1073,7 +1073,6 @@ def generate_map_case():
 
     batch_sizes = [7, 10]
     skip = set()
-    skip.add('JS')  # TODO(ARROW-1279)
     skip.add('Go')  # TODO(ARROW-3679)
     return _generate_file("map", fields, batch_sizes, skip=skip)
 

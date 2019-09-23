@@ -117,7 +117,7 @@ public class TestArrowStream extends BaseFileTest {
           assertTrue(reader.loadNextBatch());
         }
         // TODO figure out why reader isn't getting padding bytes
-        assertEquals(bytesWritten, reader.bytesRead() + 4);
+        assertEquals(bytesWritten, reader.bytesRead() + 8);
         assertFalse(reader.loadNextBatch());
         assertEquals(0, reader.getVectorSchemaRoot().getRowCount());
       }

@@ -66,4 +66,18 @@ std::shared_ptr<arrow::ChunkedArray> ChunkArray__Slice2(
   return chunked_array->Slice(offset, length);
 }
 
+// [[arrow::export]]
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__View(
+    const std::shared_ptr<arrow::ChunkedArray>& array,
+    const std::shared_ptr<arrow::DataType>& type) {
+  std::shared_ptr<arrow::ChunkedArray> out;
+  STOP_IF_NOT_OK(array->View(type, &out));
+  return out;
+}
+
+// [[arrow::export]]
+void ChunkedArray__Validate(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
+  STOP_IF_NOT_OK(chunked_array->Validate());
+}
+
 #endif

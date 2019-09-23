@@ -713,7 +713,7 @@ TEST_F(TestFixedSizeListArray, TestZeroLength) {
   ASSERT_OK(result_->Validate());
 }
 
-TEST_F(TestFixedSizeListArray, TestBuilderPreserveFieleName) {
+TEST_F(TestFixedSizeListArray, TestBuilderPreserveFieldName) {
   auto list_type_with_name = fixed_size_list(field("counts", int32()), list_size());
 
   std::unique_ptr<ArrayBuilder> tmp;

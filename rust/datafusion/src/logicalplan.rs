@@ -15,7 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Logical query plan
+//! This module provides a logical query plan enum that can describe queries. Logical query
+//! plans can be created from a SQL statement or built programmatically via the Table API.
+//!
+//! Logical query plans can then be optimized and executed directly, or translated into
+//! physical query plans and executed.
 
 use std::fmt;
 use std::sync::Arc;

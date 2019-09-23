@@ -24,6 +24,8 @@
 #include "arrow/tensor.h"
 #include "arrow/type.h"
 
+#include "arrow/python/common.h"
+#include "arrow/python/datetime.h"
 namespace {
 #include "arrow/python/pyarrow_api.h"
 }
@@ -31,7 +33,10 @@ namespace {
 namespace arrow {
 namespace py {
 
-int import_pyarrow() { return ::import_pyarrow__lib(); }
+int import_pyarrow() {
+  internal::InitDatetime();
+  return ::import_pyarrow__lib();
+}
 
 bool is_buffer(PyObject* buffer) { return ::pyarrow_is_buffer(buffer) != 0; }
 

@@ -16,6 +16,8 @@
 // under the License.
 
 import { Data } from '../data';
+import { Field } from '../schema';
+import { Vector } from '../vector';
 import { Visitor } from '../visitor';
 import { encodeUtf8 } from '../util/utf8';
 import { VectorType } from '../interfaces';
@@ -221,35 +223,34 @@ const setDecimal = <T extends Decimal>({ values }: VectorType<T>, index: number,
 
 /** @ignore */
 const setList = <T extends List>(vector: VectorType<T>, index: number, value: T['TValue']): void => {
-    const values = vector.getChildAt(0)!;
-    const { valueOffsets } = vector;
-    let idx = -1, offset = valueOffsets[index];
-    let end = Math.min(offset + value.length, valueOffsets[index + 1]);
-    while (offset < end) {
-        values.set(offset++, value.get(++idx));
+    const values = vector.getChildAt(0)!, valueOffsets = vector.valueOffsets;
+    for (let idx = -1, itr = valueOffsets[index], end = valueOffsets[index + 1]; itr < end;) {
+        values.set(itr++, value.get(++idx));
     }
 };
 
 /** @ignore */
-const setStruct = <
-    S extends { [key: string]: DataType },
-    V extends VectorType<Map_<S>> | VectorType<Struct<S>>
->(vector: V, index: number, value: V['TValue']) => {
-    vector.type.children.forEach((_field, idx) => {
-        const child = vector.getChildAt(idx);
-        child && child.set(index, value[idx]);
-    });
+const setMap = <T extends Map_>(vector: VectorType<T>, index: number, value: T['TValue']) => {
+    const values = vector.getChildAt(0)!, valueOffsets = vector.valueOffsets;
+    const entries = value instanceof Map ? [...value] : Object.entries(value);
+    for (let idx = -1, itr = valueOffsets[index], end = valueOffsets[index + 1]; itr < end;) {
+        values.set(itr++, entries[++idx]);
+    }
 };
 
+/** @ignore */ const _setStructArrayValue = (o: number, v: any[]) => (c: Vector | null, _: Field, i: number) => c && c.set(o, v[i]);
+/** @ignore */ const _setStructVectorValue = (o: number, v: Vector) => (c: Vector | null, _: Field, i: number) => c && c.set(o, v.get(i));
+/** @ignore */ const _setStructMapValue = (o: number, v: Map<string, any>) => (c: Vector | null, f: Field, _: number) => c && c.set(o, v.get(f.name));
+/** @ignore */ const _setStructObjectValue = (o: number, v: { [key: string]: any }) => (c: Vector | null, f: Field, _: number) => c && c.set(o, v[f.name]);
 /** @ignore */
-const setMap = <
-    S extends { [key: string]: DataType },
-    V extends VectorType<Map_<S>> | VectorType<Struct<S>>
->(vector: V, index: number, value: V['TValue']) => {
-    vector.type.children.forEach(({ name }, idx) => {
-        const child = vector.getChildAt(idx);
-        child && child.set(index, value[name]);
-    });
+const setStruct = <T extends Struct>(vector: VectorType<T>, index: number, value: T['TValue']) => {
+
+    const setValue = value instanceof Map    ? _setStructMapValue(index, value)    :
+                     value instanceof Vector ? _setStructVectorValue(index, value) :
+                     Array.isArray(value)    ? _setStructArrayValue(index, value)  :
+                                               _setStructObjectValue(index, value) ;
+
+    vector.type.children.forEach((f: Field, i: number) => setValue(vector.getChildAt(i), f, i));
 };
 
 /* istanbul ignore next */

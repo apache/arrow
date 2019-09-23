@@ -18,13 +18,14 @@
 //! Execution plan for reading CSV files
 
 use std::fs;
+use std::fs::metadata;
 use std::fs::File;
 use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::{BatchIterator, ExecutionPlan, Partition};
 use arrow::csv;
-use arrow::datatypes::{Field, Schema};
+use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 
 /// Execution plan for scanning a CSV file
@@ -76,19 +77,9 @@ impl CsvExec {
         projection: Option<Vec<usize>>,
         batch_size: usize,
     ) -> Result<Self> {
-        let projected_schema = match &projection {
-            Some(p) => {
-                let projected_fields: Vec<Field> =
-                    p.iter().map(|i| schema.fields()[*i].clone()).collect();
-
-                Arc::new(Schema::new(projected_fields))
-            }
-            None => schema,
-        };
-
         Ok(Self {
             path: path.to_string(),
-            schema: projected_schema,
+            schema,
             has_header,
             projection,
             batch_size,
@@ -97,19 +88,26 @@ impl CsvExec {
 
     /// Recursively build a list of csv files in a directory
     fn build_file_list(&self, dir: &str, filenames: &mut Vec<String>) -> Result<()> {
-        for entry in fs::read_dir(dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            if let Some(path_name) = path.to_str() {
-                if path.is_dir() {
-                    self.build_file_list(path_name, filenames)?;
-                } else {
-                    if path_name.ends_with(".csv") {
-                        filenames.push(path_name.to_string());
+        let metadata = metadata(dir)?;
+        if metadata.is_file() {
+            if dir.ends_with(".csv") {
+                filenames.push(dir.to_string());
+            }
+        } else {
+            for entry in fs::read_dir(dir)? {
+                let entry = entry?;
+                let path = entry.path();
+                if let Some(path_name) = path.to_str() {
+                    if path.is_dir() {
+                        self.build_file_list(path_name, filenames)?;
+                    } else {
+                        if path_name.ends_with(".csv") {
+                            filenames.push(path_name.to_string());
+                        }
                     }
+                } else {
+                    return Err(ExecutionError::General("Invalid path".to_string()));
                 }
-            } else {
-                return Err(ExecutionError::General("Invalid path".to_string()));
             }
         }
         Ok(())

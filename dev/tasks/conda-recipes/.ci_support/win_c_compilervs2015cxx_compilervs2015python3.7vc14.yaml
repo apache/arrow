@@ -1,5 +1,3 @@
-CMAKE_GENERATOR:
-- NMake Makefiles
 boost_cpp:
 - 1.70.0
 c_compiler:

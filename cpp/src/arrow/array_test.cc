@@ -248,6 +248,68 @@ TEST_F(TestArray, BuildLargeInMemoryArray) {
 
 TEST_F(TestArray, TestCopy) {}
 
+TEST_F(TestArray, TestMakeArrayOfNull) {
+  std::shared_ptr<DataType> types[] = {
+      null(),
+      boolean(),
+      int8(),
+      uint16(),
+      int32(),
+      uint64(),
+      float64(),
+      binary(),
+      large_binary(),
+      fixed_size_binary(3),
+      decimal(16, 4),
+      utf8(),
+      large_utf8(),
+      list(utf8()),
+      large_list(large_utf8()),
+      fixed_size_list(utf8(), 3),
+      dictionary(int32(), utf8()),
+      struct_({field("a", utf8()), field("b", int32())}),
+      union_({field("a", utf8()), field("b", int32())}, {0, 1}, UnionMode::SPARSE),
+      union_({field("a", utf8()), field("b", int32())}, {0, 1}, UnionMode::DENSE)};
+
+  for (int64_t length : {16}) {
+    for (auto type : types) {
+      std::shared_ptr<Array> array;
+      ASSERT_OK(MakeArrayOfNull(type, length, &array));
+      ASSERT_OK(array->Validate());
+      ASSERT_EQ(array->length(), length);
+      ASSERT_EQ(array->null_count(), length);
+    }
+  }
+}
+
+TEST_F(TestArray, TestMakeArrayFromScalar) {
+  auto hello = Buffer::FromString("hello");
+  std::shared_ptr<Scalar> scalars[] = {
+      std::make_shared<BooleanScalar>(false),
+      std::make_shared<Int8Scalar>(3),
+      std::make_shared<UInt16Scalar>(3),
+      std::make_shared<Int32Scalar>(3),
+      std::make_shared<UInt64Scalar>(3),
+      std::make_shared<DoubleScalar>(3.0),
+      std::make_shared<BinaryScalar>(hello),
+      std::make_shared<LargeBinaryScalar>(hello),
+      std::make_shared<FixedSizeBinaryScalar>(
+          hello, fixed_size_binary(static_cast<int32_t>(hello->size()))),
+      std::make_shared<Decimal128Scalar>(Decimal128(10), decimal(16, 4)),
+      std::make_shared<StringScalar>(hello),
+      std::make_shared<LargeStringScalar>(hello)};
+
+  for (int64_t length : {16}) {
+    for (auto scalar : scalars) {
+      std::shared_ptr<Array> array;
+      ASSERT_OK(MakeArrayFromScalar(*scalar, length, &array));
+      ASSERT_OK(array->Validate());
+      ASSERT_EQ(array->length(), length);
+      ASSERT_EQ(array->null_count(), 0);
+    }
+  }
+}
+
 // ----------------------------------------------------------------------
 // Null type tests
 
@@ -491,6 +553,17 @@ void TestPrimitiveBuilder<PBoolean>::Check(const std::unique_ptr<BooleanBuilder>
   ASSERT_EQ(0, builder->length());
   ASSERT_EQ(0, builder->capacity());
   ASSERT_EQ(0, builder->null_count());
+}
+
+TEST(TestPrimitiveAdHoc, TestType) {
+  Int8Builder i8(default_memory_pool());
+  ASSERT_TRUE(i8.type()->Equals(int8()));
+
+  DictionaryBuilder<Int8Type> d_i8(utf8());
+  ASSERT_TRUE(d_i8.type()->Equals(dictionary(int8(), utf8())));
+
+  Dictionary32Builder<Int8Type> d32_i8(utf8());
+  ASSERT_TRUE(d32_i8.type()->Equals(dictionary(int32(), utf8())));
 }
 
 TEST(NumericBuilderAccessors, TestSettersGetters) {
@@ -1425,6 +1498,7 @@ class TestAdaptiveIntBuilder : public TestBuilder {
 };
 
 TEST_F(TestAdaptiveIntBuilder, TestInt8) {
+  ASSERT_EQ(builder_->type()->id(), Type::INT8);
   ASSERT_OK(builder_->Append(0));
   ASSERT_OK(builder_->Append(127));
   ASSERT_OK(builder_->Append(-128));
@@ -1438,7 +1512,9 @@ TEST_F(TestAdaptiveIntBuilder, TestInt8) {
 
 TEST_F(TestAdaptiveIntBuilder, TestInt16) {
   ASSERT_OK(builder_->Append(0));
+  ASSERT_EQ(builder_->type()->id(), Type::INT8);
   ASSERT_OK(builder_->Append(128));
+  ASSERT_EQ(builder_->type()->id(), Type::INT16);
   Done();
 
   std::vector<int16_t> expected_values({0, 128});
@@ -1464,10 +1540,26 @@ TEST_F(TestAdaptiveIntBuilder, TestInt16) {
   AssertArraysEqual(*expected_, *result_);
 }
 
+TEST_F(TestAdaptiveIntBuilder, TestInt16Nulls) {
+  ASSERT_OK(builder_->Append(0));
+  ASSERT_EQ(builder_->type()->id(), Type::INT8);
+  ASSERT_OK(builder_->Append(128));
+  ASSERT_EQ(builder_->type()->id(), Type::INT16);
+  ASSERT_OK(builder_->AppendNull());
+  ASSERT_EQ(builder_->type()->id(), Type::INT16);
+  Done();
+
+  std::vector<int16_t> expected_values({0, 128, 0});
+  ArrayFromVector<Int16Type, int16_t>({1, 1, 0}, expected_values, &expected_);
+  ASSERT_ARRAYS_EQUAL(*expected_, *result_);
+}
+
 TEST_F(TestAdaptiveIntBuilder, TestInt32) {
   ASSERT_OK(builder_->Append(0));
+  ASSERT_EQ(builder_->type()->id(), Type::INT8);
   ASSERT_OK(
       builder_->Append(static_cast<int64_t>(std::numeric_limits<int16_t>::max()) + 1));
+  ASSERT_EQ(builder_->type()->id(), Type::INT32);
   Done();
 
   std::vector<int32_t> expected_values(
@@ -1497,8 +1589,10 @@ TEST_F(TestAdaptiveIntBuilder, TestInt32) {
 
 TEST_F(TestAdaptiveIntBuilder, TestInt64) {
   ASSERT_OK(builder_->Append(0));
+  ASSERT_EQ(builder_->type()->id(), Type::INT8);
   ASSERT_OK(
       builder_->Append(static_cast<int64_t>(std::numeric_limits<int32_t>::max()) + 1));
+  ASSERT_EQ(builder_->type()->id(), Type::INT64);
   Done();
 
   std::vector<int64_t> expected_values(
@@ -1645,12 +1739,14 @@ TEST_F(TestAdaptiveUIntBuilder, TestUInt8) {
 
 TEST_F(TestAdaptiveUIntBuilder, TestUInt16) {
   ASSERT_OK(builder_->Append(0));
+  ASSERT_EQ(builder_->type()->id(), Type::UINT8);
   ASSERT_OK(builder_->Append(256));
+  ASSERT_EQ(builder_->type()->id(), Type::UINT16);
   Done();
 
   std::vector<uint16_t> expected_values({0, 256});
   ArrayFromVector<UInt16Type, uint16_t>(expected_values, &expected_);
-  ASSERT_TRUE(expected_->Equals(result_));
+  ASSERT_ARRAYS_EQUAL(*expected_, *result_);
 
   SetUp();
   ASSERT_OK(builder_->Append(std::numeric_limits<uint16_t>::max()));
@@ -1661,10 +1757,26 @@ TEST_F(TestAdaptiveUIntBuilder, TestUInt16) {
   ASSERT_TRUE(expected_->Equals(result_));
 }
 
+TEST_F(TestAdaptiveUIntBuilder, TestUInt16Nulls) {
+  ASSERT_OK(builder_->Append(0));
+  ASSERT_EQ(builder_->type()->id(), Type::UINT8);
+  ASSERT_OK(builder_->Append(256));
+  ASSERT_EQ(builder_->type()->id(), Type::UINT16);
+  ASSERT_OK(builder_->AppendNull());
+  ASSERT_EQ(builder_->type()->id(), Type::UINT16);
+  Done();
+
+  std::vector<uint16_t> expected_values({0, 256, 0});
+  ArrayFromVector<UInt16Type, uint16_t>({1, 1, 0}, expected_values, &expected_);
+  ASSERT_ARRAYS_EQUAL(*expected_, *result_);
+}
+
 TEST_F(TestAdaptiveUIntBuilder, TestUInt32) {
   ASSERT_OK(builder_->Append(0));
+  ASSERT_EQ(builder_->type()->id(), Type::UINT8);
   ASSERT_OK(
       builder_->Append(static_cast<uint64_t>(std::numeric_limits<uint16_t>::max()) + 1));
+  ASSERT_EQ(builder_->type()->id(), Type::UINT32);
   Done();
 
   std::vector<uint32_t> expected_values(
@@ -1683,8 +1795,10 @@ TEST_F(TestAdaptiveUIntBuilder, TestUInt32) {
 
 TEST_F(TestAdaptiveUIntBuilder, TestUInt64) {
   ASSERT_OK(builder_->Append(0));
+  ASSERT_EQ(builder_->type()->id(), Type::UINT8);
   ASSERT_OK(
       builder_->Append(static_cast<uint64_t>(std::numeric_limits<uint32_t>::max()) + 1));
+  ASSERT_EQ(builder_->type()->id(), Type::UINT64);
   Done();
 
   std::vector<uint64_t> expected_values(

@@ -15,17 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "arrow/dataset/file_base.h"
+#include "arrow/dataset/filter.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/stl.h"
 
 namespace arrow {
@@ -72,7 +75,7 @@ class DatasetFixtureMixin : public ::testing::Test {
   void AssertScanTaskEquals(RecordBatchReader* expected, ScanTask* task,
                             bool ensure_drained = true) {
     auto it = task->Scan();
-    ARROW_EXPECT_OK(it->Visit([expected](std::shared_ptr<RecordBatch> rhs) -> Status {
+    ARROW_EXPECT_OK(it.Visit([expected](std::shared_ptr<RecordBatch> rhs) -> Status {
       std::shared_ptr<RecordBatch> lhs;
       RETURN_NOT_OK(expected->ReadNext(&lhs));
       EXPECT_NE(lhs, nullptr);
@@ -89,10 +92,10 @@ class DatasetFixtureMixin : public ::testing::Test {
   /// record batches yielded by the data fragment.
   void AssertFragmentEquals(RecordBatchReader* expected, DataFragment* fragment,
                             bool ensure_drained = true) {
-    std::unique_ptr<ScanTaskIterator> it;
+    ScanTaskIterator it;
     ARROW_EXPECT_OK(fragment->Scan(ctx_, &it));
 
-    ARROW_EXPECT_OK(it->Visit([&](std::unique_ptr<ScanTask> task) -> Status {
+    ARROW_EXPECT_OK(it.Visit([&](std::unique_ptr<ScanTask> task) -> Status {
       AssertScanTaskEquals(expected, task.get(), false);
       return Status::OK();
     }));
@@ -108,7 +111,7 @@ class DatasetFixtureMixin : public ::testing::Test {
                               bool ensure_drained = true) {
     auto it = source->GetFragments(options_);
 
-    ARROW_EXPECT_OK(it->Visit([&](std::shared_ptr<DataFragment> fragment) -> Status {
+    ARROW_EXPECT_OK(it.Visit([&](std::shared_ptr<DataFragment> fragment) -> Status {
       AssertFragmentEquals(expected, fragment.get(), false);
       return Status::OK();
     }));
@@ -124,7 +127,7 @@ class DatasetFixtureMixin : public ::testing::Test {
                            bool ensure_drained = true) {
     auto it = scanner->Scan();
 
-    ARROW_EXPECT_OK(it->Visit([&](std::unique_ptr<ScanTask> task) -> Status {
+    ARROW_EXPECT_OK(it.Visit([&](std::unique_ptr<ScanTask> task) -> Status {
       AssertScanTaskEquals(expected, task.get(), false);
       return Status::OK();
     }));
@@ -162,7 +165,12 @@ class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
   virtual std::vector<std::string> file_names() const = 0;
 
   void SetUp() override {
+    selector_.base_dir = "/";
+    selector_.recursive = true;
+
     format_ = std::make_shared<Format>();
+    schema_ = schema({field("dummy", null())});
+    options_ = std::make_shared<ScanOptions>();
 
     ASSERT_OK(
         TemporaryDir::Make("test-fsdatasource-" + format_->name() + "-", &temp_dir_));
@@ -174,6 +182,8 @@ class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
     for (auto path : file_names()) {
       CreateFile(path, "");
     }
+
+    partition_expression_ = ScalarExpression::Make(true);
   }
 
   void CreateFile(std::string path, std::string contents) {
@@ -188,69 +198,72 @@ class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
 
   void MakeDataSource() {
     ASSERT_OK(FileSystemBasedDataSource::Make(fs_.get(), selector_, format_,
-                                              std::make_shared<ScanOptions>(), &source_));
+                                              partition_expression_, &source_));
   }
 
  protected:
+  std::function<Status(std::shared_ptr<DataFragment> fragment)> OpenFragments(
+      size_t* count) {
+    return [this, count](std::shared_ptr<DataFragment> fragment) {
+      auto file_fragment =
+          internal::checked_pointer_cast<FileBasedDataFragment>(fragment);
+      ++*count;
+      auto extension =
+          fs::internal::GetAbstractPathExtension(file_fragment->source().path());
+      EXPECT_TRUE(format_->IsKnownExtension(extension));
+      std::shared_ptr<io::RandomAccessFile> f;
+      return this->fs_->OpenInputFile(file_fragment->source().path(), &f);
+    };
+  }
+
   void NonRecursive() {
-    selector_.base_dir = "/";
+    selector_.recursive = false;
     MakeDataSource();
 
-    int count = 0;
-    ASSERT_OK(
-        source_->GetFragments({})->Visit([&](std::shared_ptr<DataFragment> fragment) {
-          auto file_fragment =
-              internal::checked_pointer_cast<FileBasedDataFragment>(fragment);
-          ++count;
-          auto extension =
-              fs::internal::GetAbstractPathExtension(file_fragment->source().path());
-          EXPECT_TRUE(format_->IsKnownExtension(extension));
-          std::shared_ptr<io::RandomAccessFile> f;
-          return this->fs_->OpenInputFile(file_fragment->source().path(), &f);
-        }));
-
+    size_t count = 0;
+    ASSERT_OK(source_->GetFragments(options_).Visit(OpenFragments(&count)));
     ASSERT_EQ(count, 1);
   }
 
   void Recursive() {
-    selector_.base_dir = "/";
-    selector_.recursive = true;
     MakeDataSource();
 
-    int count = 0;
-    ASSERT_OK(
-        source_->GetFragments({})->Visit([&](std::shared_ptr<DataFragment> fragment) {
-          auto file_fragment =
-              internal::checked_pointer_cast<FileBasedDataFragment>(fragment);
-          ++count;
-          auto extension =
-              fs::internal::GetAbstractPathExtension(file_fragment->source().path());
-          EXPECT_TRUE(format_->IsKnownExtension(extension));
-          std::shared_ptr<io::RandomAccessFile> f;
-          return this->fs_->OpenInputFile(file_fragment->source().path(), &f);
-        }));
-
-    ASSERT_EQ(count, 4);
+    size_t count = 0;
+    ASSERT_OK(source_->GetFragments(options_).Visit(OpenFragments(&count)));
+    ASSERT_EQ(count, file_names().size());
   }
 
   void DeletedFile() {
-    selector_.base_dir = "/";
-    selector_.recursive = true;
     MakeDataSource();
     ASSERT_GT(file_names().size(), 0);
     ASSERT_OK(this->fs_->DeleteFile(file_names()[0]));
 
-    ASSERT_RAISES(
-        IOError,
-        source_->GetFragments({})->Visit([&](std::shared_ptr<DataFragment> fragment) {
-          auto file_fragment =
-              internal::checked_pointer_cast<FileBasedDataFragment>(fragment);
-          auto extension =
-              fs::internal::GetAbstractPathExtension(file_fragment->source().path());
-          EXPECT_TRUE(format_->IsKnownExtension(extension));
-          std::shared_ptr<io::RandomAccessFile> f;
-          return this->fs_->OpenInputFile(file_fragment->source().path(), &f);
-        }));
+    size_t count = 0;
+    ASSERT_RAISES(IOError, source_->GetFragments(options_).Visit(OpenFragments(&count)));
+  }
+
+  void PredicatePushDown() {
+    partition_expression_ = equal(field_ref("alpha"), ScalarExpression::Make<int16_t>(3));
+    MakeDataSource();
+
+    options_->selector = std::make_shared<DataSelector>();
+    options_->selector->filters.resize(1);
+
+    // with a filter identical to the partition condition, all fragments are yielded
+    options_->selector->filters[0] =
+        std::make_shared<ExpressionFilter>(partition_expression_->Copy());
+
+    size_t count = 0;
+    // ASSERT_OK(source_->GetFragments(context_)->Visit(OpenFragments(&count)));
+    // ASSERT_EQ(count, file_names().size());
+
+    // with a filter which contradicts the partition condition, no fragments are yielded
+    options_->selector->filters[0] = std::make_shared<ExpressionFilter>(
+        equal(field_ref("alpha"), ScalarExpression::Make<int16_t>(0)));
+
+    count = 0;
+    ASSERT_OK(source_->GetFragments(options_).Visit(OpenFragments(&count)));
+    ASSERT_EQ(count, 0);
   }
 
   fs::Selector selector_;
@@ -259,6 +272,9 @@ class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
   std::shared_ptr<fs::FileSystem> fs_;
   std::unique_ptr<TemporaryDir> temp_dir_;
   std::shared_ptr<FileFormat> format_;
+  std::shared_ptr<Schema> schema_;
+  std::shared_ptr<ScanOptions> options_;
+  std::shared_ptr<Expression> partition_expression_;
 };
 
 template <typename Gen>
@@ -278,8 +294,8 @@ class DummyFileFormat : public FileFormat {
   /// \brief Open a file for scanning (always returns an empty iterator)
   Status ScanFile(const FileSource& source, std::shared_ptr<ScanOptions> scan_options,
                   std::shared_ptr<ScanContext> scan_context,
-                  std::unique_ptr<ScanTaskIterator>* out) const override {
-    *out = internal::make_unique<EmptyIterator<std::unique_ptr<ScanTask>>>();
+                  ScanTaskIterator* out) const override {
+    *out = MakeEmptyIterator<std::unique_ptr<ScanTask>>();
     return Status::OK();
   }
 

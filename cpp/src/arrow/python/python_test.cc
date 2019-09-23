@@ -306,8 +306,7 @@ TEST(PandasConversionTest, TestObjectBlockWriteFails) {
   PyObject* out;
   PandasOptions options;
   options.use_threads = true;
-  MemoryPool* pool = default_memory_pool();
-  st = ConvertTableToPandas(options, table, pool, &out);
+  st = ConvertTableToPandas(options, table, &out);
   Py_END_ALLOW_THREADS;
   ASSERT_RAISES(UnknownError, st);
 }

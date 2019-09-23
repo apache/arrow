@@ -34,12 +34,14 @@
 #endif
 
 #define ARROW_NO_EXPORT
+#define ARROW_FORCE_INLINE __forceinline
 #else  // Not Windows
 #ifndef ARROW_EXPORT
 #define ARROW_EXPORT __attribute__((visibility("default")))
 #endif
 #ifndef ARROW_NO_EXPORT
 #define ARROW_NO_EXPORT __attribute__((visibility("hidden")))
+#define ARROW_FORCE_INLINE
 #endif
 #endif  // Non-Windows
 

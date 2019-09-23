@@ -257,7 +257,13 @@ TEST_F(TestBufferedOutputStream, SetBufferSize) {
 
   ASSERT_EQ(10, buffered_->buffer_size());
 
-  ASSERT_OK(buffered_->Write(data + 10, 10));
+  // Shrink buffer, write some buffered bytes, then expand buffer
+  ASSERT_OK(buffered_->SetBufferSize(5));
+  ASSERT_OK(buffered_->Write(data + 10, 3));
+  ASSERT_OK(buffered_->SetBufferSize(10));
+  ASSERT_EQ(3, buffered_->bytes_buffered());
+
+  ASSERT_OK(buffered_->Write(data + 13, 7));
   ASSERT_OK(buffered_->Flush());
 
   AssertFileContents(path_, datastr);
@@ -353,30 +359,39 @@ TEST_F(TestBufferedInputStream, BasicOperation) {
   // 6 bytes remaining in buffer
   ASSERT_EQ(6, buffered_->bytes_buffered());
 
+  // This make sure Peek() works well when buffered bytes are not enough
   util::string_view peek;
-  ASSERT_OK(buffered_->Peek(6, &peek));
-  ASSERT_EQ(6, peek.size());
+  ASSERT_OK(buffered_->Peek(8, &peek));
+  ASSERT_EQ(8, peek.size());
+  ASSERT_EQ('r', peek.data()[0]);
+  ASSERT_EQ('m', peek.data()[1]);
+  ASSERT_EQ('a', peek.data()[2]);
+  ASSERT_EQ('t', peek.data()[3]);
+  ASSERT_EQ('i', peek.data()[4]);
+  ASSERT_EQ('c', peek.data()[5]);
+  ASSERT_EQ('a', peek.data()[6]);
+  ASSERT_EQ('c', peek.data()[7]);
 
   // Buffered position is 4
   ASSERT_OK(buffered_->Tell(&stream_position));
   ASSERT_EQ(4, stream_position);
 
-  // Raw position actually 10
+  // Raw position actually 12
   ASSERT_OK(raw_->Tell(&stream_position));
-  ASSERT_EQ(10, stream_position);
+  ASSERT_EQ(12, stream_position);
 
   // Reading to end of buffered bytes does not cause any more data to be
   // buffered
-  ASSERT_OK(buffered_->Read(6, &bytes_read, buf.data()));
-  ASSERT_EQ(6, bytes_read);
-  ASSERT_EQ(0, memcmp(buf.data(), test_data_.data() + 4, 6));
+  ASSERT_OK(buffered_->Read(8, &bytes_read, buf.data()));
+  ASSERT_EQ(8, bytes_read);
+  ASSERT_EQ(0, memcmp(buf.data(), test_data_.data() + 4, 8));
 
   ASSERT_EQ(0, buffered_->bytes_buffered());
 
   // Read to EOF, exceeding buffer size
-  ASSERT_OK(buffered_->Read(20, &bytes_read, buf.data()));
-  ASSERT_EQ(20, bytes_read);
-  ASSERT_EQ(0, memcmp(buf.data(), test_data_.data() + 10, 20));
+  ASSERT_OK(buffered_->Read(18, &bytes_read, buf.data()));
+  ASSERT_EQ(18, bytes_read);
+  ASSERT_EQ(0, memcmp(buf.data(), test_data_.data() + 12, 18));
   ASSERT_EQ(0, buffered_->bytes_buffered());
 
   // Read to EOF
@@ -594,14 +609,14 @@ TEST_F(TestBufferedInputStreamBound, UnboundedPeek) {
   ASSERT_OK(stream_->Peek(246, &view));
   ASSERT_EQ(246, view.size());
   ASSERT_EQ(246, stream_->bytes_buffered());
-  ASSERT_EQ(246, stream_->buffer_size());
+  ASSERT_EQ(256, stream_->buffer_size());
 
   // Larger peek returns the same, expands the buffer, but there is no
   // more data to buffer
   ASSERT_OK(stream_->Peek(300, &view));
   ASSERT_EQ(246, view.size());
   ASSERT_EQ(246, stream_->bytes_buffered());
-  ASSERT_EQ(300, stream_->buffer_size());
+  ASSERT_EQ(310, stream_->buffer_size());
 }
 
 TEST_F(TestBufferedInputStreamBound, OneByteReads) {

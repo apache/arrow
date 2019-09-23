@@ -29,6 +29,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_common.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
@@ -37,6 +38,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 
 // ----------------------------------------------------------------------
 // Dictionary tests
@@ -790,10 +792,10 @@ TEST(TestDecimalDictionaryBuilder, DoubleTableSize) {
   const auto& decimal_type = arrow::decimal(21, 0);
 
   // Build the dictionary Array
-  DictionaryBuilder<FixedSizeBinaryType> builder(decimal_type);
+  DictionaryBuilder<FixedSizeBinaryType> dict_builder(decimal_type);
 
   // Build expected data
-  FixedSizeBinaryBuilder fsb_builder(decimal_type);
+  Decimal128Builder decimal_builder(decimal_type);
   Int16Builder int_builder;
 
   // Fill with 1024 different values
@@ -814,29 +816,29 @@ TEST(TestDecimalDictionaryBuilder, DoubleTableSize) {
                              12,
                              static_cast<uint8_t>(i / 128),
                              static_cast<uint8_t>(i % 128)};
-    ASSERT_OK(builder.Append(bytes));
-    ASSERT_OK(fsb_builder.Append(bytes));
+    ASSERT_OK(dict_builder.Append(bytes));
+    ASSERT_OK(decimal_builder.Append(bytes));
     ASSERT_OK(int_builder.Append(static_cast<uint16_t>(i)));
   }
   // Fill with an already existing value
   const uint8_t known_value[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 12, 12, 0, 1};
   for (int64_t i = 0; i < 1024; i++) {
-    ASSERT_OK(builder.Append(known_value));
+    ASSERT_OK(dict_builder.Append(known_value));
     ASSERT_OK(int_builder.Append(1));
   }
 
   // Finalize result
   std::shared_ptr<Array> result;
-  ASSERT_OK(builder.Finish(&result));
+  ASSERT_OK(dict_builder.Finish(&result));
 
   // Finalize expected data
-  std::shared_ptr<Array> fsb_array;
-  ASSERT_OK(fsb_builder.Finish(&fsb_array));
+  std::shared_ptr<Array> decimal_array;
+  ASSERT_OK(decimal_builder.Finish(&decimal_array));
 
   std::shared_ptr<Array> int_array;
   ASSERT_OK(int_builder.Finish(&int_array));
 
-  DictionaryArray expected(dictionary(int16(), decimal_type), int_array, fsb_array);
+  DictionaryArray expected(dictionary(int16(), decimal_type), int_array, decimal_array);
   ASSERT_TRUE(expected.Equals(result));
 }
 
@@ -948,7 +950,7 @@ TEST(TestDictionary, FromArray) {
 }
 
 static void CheckTranspose(const std::shared_ptr<Array>& input,
-                           const std::vector<int32_t>& transpose_map,
+                           const int32_t* transpose_map,
                            const std::shared_ptr<DataType>& out_dict_type,
                            const std::shared_ptr<Array>& out_dict,
                            const std::shared_ptr<Array>& expected_indices) {
@@ -978,11 +980,13 @@ TEST(TestDictionary, TransposeBasic) {
     auto out_dict_type = dict_type;
     auto out_dict = ArrayFromJSON(utf8(), "[\"Z\", \"A\", \"C\", \"B\"]");
     auto expected_indices = ArrayFromJSON(int16(), "[3, 2, 1, 1]");
-    CheckTranspose(arr, {1, 3, 2}, out_dict_type, out_dict, expected_indices);
+    std::vector<int32_t> transpose_map = {1, 3, 2};
+    CheckTranspose(arr, transpose_map.data(), out_dict_type, out_dict, expected_indices);
 
     // Sliced
     expected_indices = ArrayFromJSON(int16(), "[2, 1]");
-    CheckTranspose(sliced, {1, 3, 2}, out_dict_type, out_dict, expected_indices);
+    CheckTranspose(sliced, transpose_map.data(), out_dict_type, out_dict,
+                   expected_indices);
   }
 
   // Transpose to other index type
@@ -990,11 +994,13 @@ TEST(TestDictionary, TransposeBasic) {
     auto out_dict_type = dictionary(int8(), utf8());
     auto out_dict = ArrayFromJSON(utf8(), "[\"Z\", \"A\", \"C\", \"B\"]");
     auto expected_indices = ArrayFromJSON(int8(), "[3, 2, 1, 1]");
-    CheckTranspose(arr, {1, 3, 2}, out_dict_type, out_dict, expected_indices);
+    std::vector<int32_t> transpose_map = {1, 3, 2};
+    CheckTranspose(arr, transpose_map.data(), out_dict_type, out_dict, expected_indices);
 
     // Sliced
     expected_indices = ArrayFromJSON(int8(), "[2, 1]");
-    CheckTranspose(sliced, {1, 3, 2}, out_dict_type, out_dict, expected_indices);
+    CheckTranspose(sliced, transpose_map.data(), out_dict_type, out_dict,
+                   expected_indices);
   }
 }
 
@@ -1010,16 +1016,19 @@ TEST(TestDictionary, TransposeTrivial) {
   // ["C", "A"]
   sliced = arr->Slice(1, 2);
 
+  std::vector<int32_t> transpose_map = {0, 1, 2};
+
   // Transpose to same index type
   {
     auto out_dict_type = dict_type;
     auto out_dict = ArrayFromJSON(utf8(), "[\"A\", \"B\", \"C\", \"D\"]");
     auto expected_indices = ArrayFromJSON(int16(), "[1, 2, 0, 0]");
-    CheckTranspose(arr, {0, 1, 2}, out_dict_type, out_dict, expected_indices);
+    CheckTranspose(arr, transpose_map.data(), out_dict_type, out_dict, expected_indices);
 
     // Sliced
     expected_indices = ArrayFromJSON(int16(), "[2, 0]");
-    CheckTranspose(sliced, {0, 1, 2}, out_dict_type, out_dict, expected_indices);
+    CheckTranspose(sliced, transpose_map.data(), out_dict_type, out_dict,
+                   expected_indices);
   }
 
   // Transpose to other index type
@@ -1027,11 +1036,12 @@ TEST(TestDictionary, TransposeTrivial) {
     auto out_dict_type = dictionary(int8(), utf8());
     auto out_dict = ArrayFromJSON(utf8(), "[\"A\", \"B\", \"C\", \"D\"]");
     auto expected_indices = ArrayFromJSON(int8(), "[1, 2, 0, 0]");
-    CheckTranspose(arr, {0, 1, 2}, out_dict_type, out_dict, expected_indices);
+    CheckTranspose(arr, transpose_map.data(), out_dict_type, out_dict, expected_indices);
 
     // Sliced
     expected_indices = ArrayFromJSON(int8(), "[2, 0]");
-    CheckTranspose(sliced, {0, 1, 2}, out_dict_type, out_dict, expected_indices);
+    CheckTranspose(sliced, transpose_map.data(), out_dict_type, out_dict,
+                   expected_indices);
   }
 }
 
@@ -1050,15 +1060,15 @@ TEST(TestDictionary, TransposeNulls) {
   auto out_dict_type = dictionary(int16(), utf8());
   auto expected_indices = ArrayFromJSON(int16(), "[3, 2, null, 1]");
 
-  CheckTranspose(arr, {1, 3, 2}, out_dict_type, out_dict, expected_indices);
+  std::vector<int32_t> transpose_map = {1, 3, 2};
+  CheckTranspose(arr, transpose_map.data(), out_dict_type, out_dict, expected_indices);
 
   // Sliced
   expected_indices = ArrayFromJSON(int16(), "[2, null]");
-
-  CheckTranspose(sliced, {1, 3, 2}, out_dict_type, out_dict, expected_indices);
+  CheckTranspose(sliced, transpose_map.data(), out_dict_type, out_dict, expected_indices);
 }
 
-TEST(TestDictionary, DISABLED_ListOfDictionary) {
+TEST(TestDictionary, ListOfDictionary) {
   std::unique_ptr<ArrayBuilder> root_builder;
   ASSERT_OK(MakeBuilder(default_memory_pool(), list(dictionary(int8(), utf8())),
                         &root_builder));
@@ -1068,17 +1078,17 @@ TEST(TestDictionary, DISABLED_ListOfDictionary) {
 
   ASSERT_OK(list_builder->Append());
   std::vector<std::string> expected;
-  for (char a : "abc") {
-    for (char d : "def") {
-      for (char g : "ghi") {
-        for (char j : "jkl") {
-          for (char m : "mno") {
-            for (char p : "pqr") {
+  for (char a : util::string_view("abc")) {
+    for (char d : util::string_view("def")) {
+      for (char g : util::string_view("ghi")) {
+        for (char j : util::string_view("jkl")) {
+          for (char m : util::string_view("mno")) {
+            for (char p : util::string_view("pqr")) {
               if ((static_cast<int>(a) + d + g + j + m + p) % 16 == 0) {
                 ASSERT_OK(list_builder->Append());
               }
               // 3**6 distinct strings; too large for int8
-              char str[6] = {a, d, g, j, m, p};
+              char str[] = {a, d, g, j, m, p, '\0'};
               ASSERT_OK(dict_builder->Append(str));
               expected.push_back(str);
             }
@@ -1087,6 +1097,9 @@ TEST(TestDictionary, DISABLED_ListOfDictionary) {
       }
     }
   }
+
+  ASSERT_TRUE(list_builder->type()->Equals(list(dictionary(int16(), utf8()))));
+
   std::shared_ptr<Array> expected_dict;
   ArrayFromVector<StringType, std::string>(expected, &expected_dict);
 
@@ -1101,6 +1114,49 @@ TEST(TestDictionary, DISABLED_ListOfDictionary) {
   auto actual_dict =
       checked_cast<const DictionaryArray&>(*list_array->values()).dictionary();
   ASSERT_ARRAYS_EQUAL(*expected_dict, *actual_dict);
+}
+
+TEST(TestDictionary, CanCompareIndices) {
+  auto make_dict = [](std::shared_ptr<DataType> index_type,
+                      std::shared_ptr<DataType> value_type, std::string dictionary_json) {
+    std::shared_ptr<Array> out;
+    ARROW_EXPECT_OK(DictionaryArray::FromArrays(
+        dictionary(index_type, value_type), ArrayFromJSON(index_type, "[]"),
+        ArrayFromJSON(value_type, dictionary_json), &out));
+    return checked_pointer_cast<DictionaryArray>(out);
+  };
+
+  auto compare_and_swap = [](const DictionaryArray& l, const DictionaryArray& r,
+                             bool expected) {
+    ASSERT_EQ(l.CanCompareIndices(r), expected)
+        << "left: " << l.ToString() << "\nright: " << r.ToString();
+    ASSERT_EQ(r.CanCompareIndices(l), expected)
+        << "left: " << r.ToString() << "\nright: " << l.ToString();
+  };
+
+  {
+    auto array = make_dict(int16(), utf8(), R"(["foo", "bar"])");
+    auto same = make_dict(int16(), utf8(), R"(["foo", "bar"])");
+    compare_and_swap(*array, *same, true);
+  }
+
+  {
+    auto array = make_dict(int16(), utf8(), R"(["foo", "bar", "quux"])");
+    auto prefix_dict = make_dict(int16(), utf8(), R"(["foo", "bar"])");
+    compare_and_swap(*array, *prefix_dict, true);
+  }
+
+  {
+    auto array = make_dict(int16(), utf8(), R"(["foo", "bar"])");
+    auto indices_need_casting = make_dict(int8(), utf8(), R"(["foo", "bar"])");
+    compare_and_swap(*array, *indices_need_casting, false);
+  }
+
+  {
+    auto array = make_dict(int16(), utf8(), R"(["foo", "bar", "quux"])");
+    auto non_prefix_dict = make_dict(int16(), utf8(), R"(["foo", "blink"])");
+    compare_and_swap(*array, *non_prefix_dict, false);
+  }
 }
 
 }  // namespace arrow

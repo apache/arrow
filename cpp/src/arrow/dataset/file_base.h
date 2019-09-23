@@ -131,7 +131,7 @@ class ARROW_DS_EXPORT FileFormat {
   virtual Status ScanFile(const FileSource& source,
                           std::shared_ptr<ScanOptions> scan_options,
                           std::shared_ptr<ScanContext> scan_context,
-                          std::unique_ptr<ScanTaskIterator>* out) const = 0;
+                          ScanTaskIterator* out) const = 0;
 
   /// \brief Open a fragment
   virtual Status MakeFragment(const FileSource& location,
@@ -148,8 +148,7 @@ class ARROW_DS_EXPORT FileBasedDataFragment : public DataFragment {
         format_(std::move(format)),
         scan_options_(std::move(scan_options)) {}
 
-  Status Scan(std::shared_ptr<ScanContext> scan_context,
-              std::unique_ptr<ScanTaskIterator>* out) override;
+  Status Scan(std::shared_ptr<ScanContext> scan_context, ScanTaskIterator* out) override;
 
   const FileSource& source() const { return source_; }
   std::shared_ptr<FileFormat> format() const { return format_; }
@@ -171,24 +170,26 @@ class ARROW_DS_EXPORT FileSystemBasedDataSource : public DataSource {
  public:
   static Status Make(fs::FileSystem* filesystem, const fs::Selector& selector,
                      std::shared_ptr<FileFormat> format,
-                     std::shared_ptr<ScanOptions> scan_options,
+                     std::unique_ptr<FileSystemBasedDataSource>* out);
+
+  static Status Make(fs::FileSystem* filesystem, const fs::Selector& selector,
+                     std::shared_ptr<FileFormat> format,
+                     std::shared_ptr<Expression> partition_expression,
                      std::unique_ptr<FileSystemBasedDataSource>* out);
 
   std::string type() const override { return "directory"; }
 
-  std::unique_ptr<DataFragmentIterator> GetFragments(
-      std::shared_ptr<ScanOptions> options) override;
-
  protected:
+  DataFragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
+
   FileSystemBasedDataSource(fs::FileSystem* filesystem, const fs::Selector& selector,
                             std::shared_ptr<FileFormat> format,
-                            std::shared_ptr<ScanOptions> scan_options,
+                            std::shared_ptr<Expression> partition_expression,
                             std::vector<fs::FileStats> stats);
 
   fs::FileSystem* filesystem_ = NULLPTR;
   fs::Selector selector_;
   std::shared_ptr<FileFormat> format_;
-  std::shared_ptr<ScanOptions> scan_options_;
   std::vector<fs::FileStats> stats_;
 };
 

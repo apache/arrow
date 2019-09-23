@@ -42,20 +42,23 @@ void ipc___RecordBatchWriter__Close(
 // [[arrow::export]]
 std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchFileWriter__Open(
     const std::shared_ptr<arrow::io::OutputStream>& stream,
-    const std::shared_ptr<arrow::Schema>& schema) {
-  std::shared_ptr<arrow::ipc::RecordBatchWriter> file_writer;
-  STOP_IF_NOT_OK(
-      arrow::ipc::RecordBatchFileWriter::Open(stream.get(), schema, &file_writer));
+    const std::shared_ptr<arrow::Schema>& schema, bool use_legacy_format) {
+  auto options = arrow::ipc::IpcOptions::Defaults();
+  options.write_legacy_ipc_format = use_legacy_format;
+  ARROW_ASSIGN_OR_STOP(auto file_writer, arrow::ipc::RecordBatchFileWriter::Open(
+                                             stream.get(), schema, options));
   return file_writer;
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::ipc::RecordBatchWriter> ipc___RecordBatchStreamWriter__Open(
     const std::shared_ptr<arrow::io::OutputStream>& stream,
-    const std::shared_ptr<arrow::Schema>& schema) {
-  std::shared_ptr<arrow::ipc::RecordBatchWriter> stream_writer;
-  STOP_IF_NOT_OK(
-      arrow::ipc::RecordBatchStreamWriter::Open(stream.get(), schema, &stream_writer));
+    const std::shared_ptr<arrow::Schema>& schema, bool use_legacy_format) {
+  auto options = arrow::ipc::IpcOptions::Defaults();
+  options.write_legacy_ipc_format = use_legacy_format;
+
+  ARROW_ASSIGN_OR_STOP(auto stream_writer, arrow::ipc::RecordBatchStreamWriter::Open(
+                                               stream.get(), schema, options));
   return stream_writer;
 }
 

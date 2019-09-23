@@ -10,8 +10,9 @@
 \alias{FileMode}
 \alias{MessageType}
 \alias{CompressionType}
+\alias{FileType}
 \title{Arrow enums}
-\format{An object of class \code{arrow::TimeUnit::type} (inherits from \code{arrow-enum}) of length 4.}
+\format{An object of class \code{TimeUnit::type} (inherits from \code{arrow-enum}) of length 4.}
 \usage{
 TimeUnit
 
@@ -26,6 +27,8 @@ FileMode
 MessageType
 
 CompressionType
+
+FileType
 }
 \description{
 Arrow enums

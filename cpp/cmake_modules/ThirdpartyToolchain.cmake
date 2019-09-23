@@ -520,17 +520,27 @@ macro(build_boost)
 
   set(BOOST_LIB_DIR "${BOOST_PREFIX}/stage/lib")
   set(BOOST_BUILD_LINK "static")
+  if(MSVC)
+    string(REGEX
+           REPLACE "^([0-9]+)\\.([0-9]+)\\.[0-9]+$" "\\1_\\2"
+                   BOOST_VERSION_NO_MICRO_UNDERSCORE ${BOOST_VERSION})
+    set(BOOST_LIBRARY_SUFFIX
+        "-vc${MSVC_TOOLSET_VERSION}-mt-x64-${BOOST_VERSION_NO_MICRO_UNDERSCORE}")
+  else()
+    set(BOOST_LIBRARY_SUFFIX "")
+  endif()
   set(
     BOOST_STATIC_SYSTEM_LIBRARY
-    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_system${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    "${BOOST_LIB_DIR}/libboost_system${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
   set(
     BOOST_STATIC_FILESYSTEM_LIBRARY
-    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_filesystem${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    "${BOOST_LIB_DIR}/libboost_filesystem${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
   set(
     BOOST_STATIC_REGEX_LIBRARY
-    "${BOOST_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}boost_regex${CMAKE_STATIC_LIBRARY_SUFFIX}"
+
+    "${BOOST_LIB_DIR}/libboost_regex${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
   set(BOOST_SYSTEM_LIBRARY boost_system_static)
   set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
@@ -538,15 +548,27 @@ macro(build_boost)
   set(BOOST_BUILD_PRODUCTS ${BOOST_STATIC_SYSTEM_LIBRARY}
                            ${BOOST_STATIC_FILESYSTEM_LIBRARY}
                            ${BOOST_STATIC_REGEX_LIBRARY})
-  set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh" "--prefix=${BOOST_PREFIX}"
-                              "--with-libraries=filesystem,regex,system")
+  if(MSVC)
+    set(BOOST_CONFIGURE_COMMAND ".\\\\bootstrap.bat")
+  else()
+    set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh")
+  endif()
+  list(APPEND BOOST_CONFIGURE_COMMAND "--prefix=${BOOST_PREFIX}"
+              "--with-libraries=filesystem,regex,system")
   if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
     set(BOOST_BUILD_VARIANT "debug")
   else()
     set(BOOST_BUILD_VARIANT "release")
   endif()
   set(BOOST_BUILD_COMMAND "./b2" "link=${BOOST_BUILD_LINK}"
-                          "variant=${BOOST_BUILD_VARIANT}" "cxxflags=-fPIC")
+                          "variant=${BOOST_BUILD_VARIANT}")
+  if(MSVC)
+    string(REGEX
+           REPLACE "([0-9])$" ".\\1" BOOST_TOOLSET_MSVC_VERSION ${MSVC_TOOLSET_VERSION})
+    list(APPEND BOOST_BUILD_COMMAND "toolset=msvc-${BOOST_TOOLSET_MSVC_VERSION}")
+  else()
+    list(APPEND BOOST_BUILD_COMMAND "cxxflags=-fPIC")
+  endif()
 
   add_thirdparty_lib(boost_system STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}")
 
@@ -1382,16 +1404,21 @@ if(ARROW_JEMALLOC)
       "${JEMALLOC_PREFIX}/lib/libjemalloc_pic${CMAKE_STATIC_LIBRARY_SUFFIX}")
   externalproject_add(
     jemalloc_ep
-    URL ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/jemalloc/${JEMALLOC_VERSION}.tar.gz
-    PATCH_COMMAND touch doc/jemalloc.3 doc/jemalloc.html
-    CONFIGURE_COMMAND ./autogen.sh
+    URL ${JEMALLOC_SOURCE_URL}
+    PATCH_COMMAND
+      touch doc/jemalloc.3 doc/jemalloc.html
+      # The prefix "je_arrow_" must be kept in sync with the value in memory_pool.cc
+    CONFIGURE_COMMAND ./configure
                       "AR=${CMAKE_AR}"
                       "CC=${CMAKE_C_COMPILER}"
                       "--prefix=${JEMALLOC_PREFIX}"
                       "--with-jemalloc-prefix=je_arrow_"
                       "--with-private-namespace=je_arrow_private_"
-                      "--disable-tls"
-                      ${EP_LOG_OPTIONS}
+                      "--without-export"
+                      # Don't override operator new()
+                      "--disable-cxx" "--disable-libdl"
+                      # See https://github.com/jemalloc/jemalloc/issues/1237
+                      "--disable-initial-exec-tls" ${EP_LOG_OPTIONS}
     BUILD_IN_SOURCE 1
     BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS}
     BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}"

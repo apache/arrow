@@ -41,7 +41,7 @@ import io.netty.buffer.ArrowBuf;
 /**
  * A zero length vector of any type.
  */
-public class ZeroVector implements FieldVector {
+public final class ZeroVector implements FieldVector {
   public static final ZeroVector INSTANCE = new ZeroVector();
 
   private final TransferPair defaultPair = new TransferPair() {

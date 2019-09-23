@@ -20,13 +20,22 @@ set -e
 
 export ARROW_HOME=$CONDA_PREFIX
 
+: ${R_BIN:=R}
+
 # Build arrow
 pushd /arrow/r
 
-R CMD build --keep-empty-dirs .
-R CMD INSTALL $(ls | grep arrow_*.tar.gz)
+if [ "$R_CONDA" = "" ]; then
+  ${R_BIN} -e "install.packages(c('remotes', 'dplyr', 'glue'))"
+  ${R_BIN} -e "remotes::install_deps(dependencies = TRUE)"
+  ${R_BIN} -e "remotes::install_github('romainfrancois/decor')"
+fi
+
+make clean
+${R_BIN} CMD build --keep-empty-dirs .
+${R_BIN} CMD INSTALL $(ls | grep arrow_*.tar.gz)
 
 export _R_CHECK_FORCE_SUGGESTS_=false
-R CMD check $(ls | grep arrow_*.tar.gz) --as-cran --no-manual
+${R_BIN} CMD check $(ls | grep arrow_*.tar.gz) --as-cran --no-manual
 
 popd

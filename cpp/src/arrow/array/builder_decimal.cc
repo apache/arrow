@@ -44,7 +44,8 @@ namespace arrow {
 
 Decimal128Builder::Decimal128Builder(const std::shared_ptr<DataType>& type,
                                      MemoryPool* pool)
-    : FixedSizeBinaryBuilder(type, pool) {}
+    : FixedSizeBinaryBuilder(type, pool),
+      decimal_type_(internal::checked_pointer_cast<Decimal128Type>(type)) {}
 
 Status Decimal128Builder::Append(Decimal128 value) {
   RETURN_NOT_OK(FixedSizeBinaryBuilder::Reserve(1));
@@ -68,7 +69,7 @@ Status Decimal128Builder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   std::shared_ptr<Buffer> null_bitmap;
   RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
 
-  *out = ArrayData::Make(type_, length_, {null_bitmap, data}, null_count_);
+  *out = ArrayData::Make(type(), length_, {null_bitmap, data}, null_count_);
   capacity_ = length_ = null_count_ = 0;
   return Status::OK();
 }

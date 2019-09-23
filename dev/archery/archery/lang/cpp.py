@@ -29,11 +29,12 @@ def or_else(value, default):
 
 
 class CppConfiguration:
+
     def __init__(self,
                  # toolchain
                  cc=None, cxx=None, cxx_flags=None,
                  build_type=None, warn_level=None,
-                 install_prefix=None, use_conda=None,
+                 cpp_package_prefix=None, install_prefix=None, use_conda=None,
                  # components
                  with_tests=True, with_benchmarks=False, with_python=True,
                  with_parquet=False, with_gandiva=False, with_plasma=False,
@@ -45,6 +46,7 @@ class CppConfiguration:
         self.build_type = build_type
         self.warn_level = warn_level
         self._install_prefix = install_prefix
+        self._package_prefix = cpp_package_prefix
         self._use_conda = use_conda
 
         self.with_tests = with_tests
@@ -70,6 +72,10 @@ class CppConfiguration:
         maybe_prefix = self.install_prefix
         if maybe_prefix:
             yield ("CMAKE_INSTALL_PREFIX", maybe_prefix)
+
+        if self._package_prefix is not None:
+            yield ("ARROW_DEPENDENCY_SOURCE", "SYSTEM")
+            yield ("ARROW_PACKAGE_PREFIX", self._package_prefix)
 
         yield ("ARROW_BUILD_TESTS", truthifier(self.with_tests))
         yield ("ARROW_BUILD_BENCHMARKS", truthifier(self.with_benchmarks))

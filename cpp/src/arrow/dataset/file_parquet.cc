@@ -37,6 +37,7 @@ using RecordBatchReaderPtr = std::unique_ptr<RecordBatchReader>;
 // A set of RowGroup identifiers
 using RowGroupSet = std::vector<int>;
 
+// TODO(bkietz) refactor this to use ProjectedRecordBatchReader
 class ParquetScanTask : public ScanTask {
  public:
   static Status Make(RowGroupSet row_groups, const std::vector<int>& columns_projection,
@@ -54,8 +55,8 @@ class ParquetScanTask : public ScanTask {
     return Status::OK();
   }
 
-  std::unique_ptr<RecordBatchIterator> Scan() override {
-    return std::move(record_batch_reader_);
+  RecordBatchIterator Scan() {
+    return MakePointerIterator(std::move(record_batch_reader_));
   }
 
  private:
@@ -107,11 +108,11 @@ class ParquetRowGroupPartitioner {
   int num_row_groups_;
 };
 
-class ParquetScanTaskIterator : public ScanTaskIterator {
+class ParquetScanTaskIterator {
  public:
   static Status Make(std::shared_ptr<ScanOptions> options,
                      std::shared_ptr<ScanContext> context, ParquetFileReaderPtr reader,
-                     std::unique_ptr<ScanTaskIterator>* out) {
+                     ScanTaskIterator* out) {
     auto metadata = reader->metadata();
 
     std::vector<int> columns_projection;
@@ -121,14 +122,14 @@ class ParquetScanTaskIterator : public ScanTaskIterator {
     RETURN_NOT_OK(parquet::arrow::FileReader::Make(context->pool, std::move(reader),
                                                    &arrow_reader));
 
-    out->reset(new ParquetScanTaskIterator(columns_projection, metadata,
-                                           std::move(arrow_reader)));
+    *out = ScanTaskIterator(
+        ParquetScanTaskIterator(columns_projection, metadata, std::move(arrow_reader)));
 
     return Status::OK();
   }
 
-  Status Next(ScanTaskPtr* task) override {
-    auto partition = partitionner_.Next();
+  Status Next(ScanTaskPtr* task) {
+    auto partition = partitioner_.Next();
 
     // Iteration is done.
     if (partition.size() == 0) {
@@ -145,7 +146,8 @@ class ParquetScanTaskIterator : public ScanTaskIterator {
   static Status InferColumnProjection(const parquet::FileMetaData& metadata,
                                       const std::shared_ptr<ScanOptions>& options,
                                       std::vector<int>* out) {
-    // TODO(fsaintjacques): Compute intersection _and_ validity
+    // TODO(fsaintjacques): Compute intersection _and_ validity, could probably reuse
+    // RecordBatchProjector here
     *out = internal::Iota(metadata.num_columns());
 
     return Status::OK();
@@ -155,18 +157,18 @@ class ParquetScanTaskIterator : public ScanTaskIterator {
                           std::shared_ptr<parquet::FileMetaData> metadata,
                           std::unique_ptr<parquet::arrow::FileReader> reader)
       : columns_projection_(columns_projection),
-        partitionner_(std::move(metadata)),
+        partitioner_(std::move(metadata)),
         reader_(std::move(reader)) {}
 
   std::vector<int> columns_projection_;
-  ParquetRowGroupPartitioner partitionner_;
+  ParquetRowGroupPartitioner partitioner_;
   std::shared_ptr<parquet::arrow::FileReader> reader_;
 };
 
 Status ParquetFileFormat::ScanFile(const FileSource& source,
                                    std::shared_ptr<ScanOptions> scan_options,
                                    std::shared_ptr<ScanContext> scan_context,
-                                   std::unique_ptr<ScanTaskIterator>* out) const {
+                                   ScanTaskIterator* out) const {
   std::shared_ptr<io::RandomAccessFile> input;
   RETURN_NOT_OK(source.Open(&input));
 

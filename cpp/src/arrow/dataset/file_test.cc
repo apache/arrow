@@ -107,5 +107,9 @@ TEST_F(TestDummyFileSystemBasedDataSource, Recursive) { this->Recursive(); }
 
 TEST_F(TestDummyFileSystemBasedDataSource, DeletedFile) { this->DeletedFile(); }
 
+TEST_F(TestDummyFileSystemBasedDataSource, PredicatePushDown) {
+  this->PredicatePushDown();
+}
+
 }  // namespace dataset
 }  // namespace arrow

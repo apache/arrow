@@ -44,7 +44,6 @@ export { Column } from './column';
 export { Visitor } from './visitor';
 export { Schema, Field } from './schema';
 export {
-    Row,
     Vector,
     BaseVector,
     BinaryVector,

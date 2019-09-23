@@ -82,7 +82,8 @@ class FeatherWriter(object):
         self.writer.open(dest)
 
     def write(self, df):
-        if isinstance(df, _pandas_api.pd.SparseDataFrame):
+        if (_pandas_api.has_sparse
+                and isinstance(df, _pandas_api.pd.SparseDataFrame)):
             df = df.to_dense()
 
         if not df.columns.is_unique:

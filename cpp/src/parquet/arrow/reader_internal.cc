@@ -738,7 +738,13 @@ Status TransferInt96(RecordReader* reader, MemoryPool* pool,
   RETURN_NOT_OK(::arrow::AllocateBuffer(pool, length * sizeof(int64_t), &data));
   auto data_ptr = reinterpret_cast<int64_t*>(data->mutable_data());
   for (int64_t i = 0; i < length; i++) {
-    *data_ptr++ = Int96GetNanoSeconds(values[i]);
+    if (values[i].value[2] == 0) {
+      // Happens for null entries: avoid triggering UBSAN as that Int96 timestamp
+      // isn't representable as a 64-bit Unix timestamp.
+      *data_ptr++ = 0;
+    } else {
+      *data_ptr++ = Int96GetNanoSeconds(values[i]);
+    }
   }
   *out = std::make_shared<TimestampArray>(type, length, data, reader->ReleaseIsValid(),
                                           reader->null_count());
@@ -787,10 +793,13 @@ Status TransferBinary(RecordReader* reader,
   }
   auto binary_reader = dynamic_cast<internal::BinaryRecordReader*>(reader);
   DCHECK(binary_reader);
-  *out = std::make_shared<ChunkedArray>(binary_reader->GetBuilderChunks());
-  if (!logical_value_type->Equals(*(*out)->type())) {
-    RETURN_NOT_OK((*out)->View(logical_value_type, out));
+  auto chunks = binary_reader->GetBuilderChunks();
+  for (const auto& chunk : chunks) {
+    if (!chunk->type()->Equals(*logical_value_type)) {
+      return ChunkedArray(chunks).View(logical_value_type, out);
+    }
   }
+  *out = std::make_shared<ChunkedArray>(chunks, logical_value_type);
   return Status::OK();
 }
 
@@ -1085,7 +1094,7 @@ Status TransferDecimal(RecordReader* reader, MemoryPool* pool,
     // Replace the chunk, which will hopefully also free memory as we go
     chunks[i] = chunk_as_decimal;
   }
-  *out = std::make_shared<ChunkedArray>(chunks);
+  *out = std::make_shared<ChunkedArray>(chunks, type);
   return Status::OK();
 }
 

@@ -75,6 +75,7 @@ class ARROW_PYTHON_EXPORT PyOutputStream : public io::OutputStream {
   bool closed() const override;
   Status Tell(int64_t* position) const override;
   Status Write(const void* data, int64_t nbytes) override;
+  Status Write(const std::shared_ptr<Buffer>& buffer) override;
 
  private:
   std::unique_ptr<PythonFile> file_;

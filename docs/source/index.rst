@@ -73,5 +73,6 @@ such topics as:
    developers/cpp
    developers/python
    developers/integration
+   developers/crossbow
    developers/benchmarks
    developers/documentation

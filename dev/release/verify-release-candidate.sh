@@ -167,7 +167,6 @@ test_apt() {
                 debian-buster \
                 ubuntu-xenial \
                 ubuntu-bionic \
-                ubuntu-cosmic \
                 ubuntu-disco; do
     if ! "${SOURCE_DIR}/../run_docker_compose.sh" \
            "${target}" \

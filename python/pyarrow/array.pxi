@@ -218,14 +218,17 @@ def asarray(values, type=None):
 
     Parameters
     ----------
-    values : array-like (sequence, numpy.ndarray, pyarrow.Array)
+    values : array-like
+        This can be a sequence, numpy.ndarray, pyarrow.Array or
+        pyarrow.ChunkedArray. If a ChunkedArray is passed, the output will be
+        a ChunkedArray, otherwise the output will be a Array.
     type : string or DataType
 
     Returns
     -------
-    arr : Array
+    arr : Array or ChunkedArray
     """
-    if isinstance(values, Array):
+    if isinstance(values, (Array, ChunkedArray)):
         if type is not None and not values.type.equals(type):
             values = values.cast(type)
 
@@ -408,15 +411,26 @@ def _restore_array(data):
 
 cdef class _PandasConvertible:
 
-    def to_pandas(self, categories=None, bint strings_to_categorical=False,
-                  bint zero_copy_only=False, bint integer_object_nulls=False,
-                  bint date_as_object=True, bint use_threads=True,
-                  bint deduplicate_objects=True, bint ignore_metadata=False):
+    def to_pandas(
+            self,
+            memory_pool=None,
+            categories=None,
+            bint strings_to_categorical=False,
+            bint zero_copy_only=False,
+            bint integer_object_nulls=False,
+            bint date_as_object=True,
+            bint use_threads=True,
+            bint deduplicate_objects=True,
+            bint ignore_metadata=False
+    ):
         """
         Convert to a pandas-compatible NumPy array or DataFrame, as appropriate
 
         Parameters
         ----------
+        memory_pool : MemoryPool, default None
+            Arrow MemoryPool to use for allocations. Uses the default memory
+            pool is not passed
         strings_to_categorical : boolean, default False
             Encode string (UTF8) and binary types to pandas.Categorical
         categories: list, default empty
@@ -440,22 +454,31 @@ cdef class _PandasConvertible:
 
         Returns
         -------
-        NumPy array or DataFrame depending on type of object
+        pandas.Series or pandas.DataFrame depending on type of object
         """
-        cdef:
-            PyObject* out
-            PandasOptions options
-
-        options = PandasOptions(
+        options = dict(
+            pool=memory_pool,
             strings_to_categorical=strings_to_categorical,
             zero_copy_only=zero_copy_only,
             integer_object_nulls=integer_object_nulls,
             date_as_object=date_as_object,
             use_threads=use_threads,
-            deduplicate_objects=deduplicate_objects)
-
+            deduplicate_objects=deduplicate_objects
+        )
         return self._to_pandas(options, categories=categories,
                                ignore_metadata=ignore_metadata)
+
+
+cdef PandasOptions _convert_pandas_options(dict options):
+    cdef PandasOptions result
+    result.pool = maybe_unbox_memory_pool(options['pool'])
+    result.strings_to_categorical = options['strings_to_categorical']
+    result.zero_copy_only = options['zero_copy_only']
+    result.integer_object_nulls = options['integer_object_nulls']
+    result.date_as_object = options['date_as_object']
+    result.use_threads = options['use_threads']
+    result.deduplicate_objects = options['deduplicate_objects']
+    return result
 
 
 cdef class Array(_PandasConvertible):
@@ -480,6 +503,16 @@ cdef class Array(_PandasConvertible):
     def _debug_print(self):
         with nogil:
             check_status(DebugPrint(deref(self.ap), 0))
+
+    def diff(self, Array other):
+        """
+        Return string containing the result of arrow::Diff comparing contents
+        of this array against the other array
+        """
+        cdef c_string result
+        with nogil:
+            result = self.ap.Diff(deref(other.ap))
+        return frombytes(result)
 
     def cast(self, object target_type, bint safe=True):
         """
@@ -824,20 +857,81 @@ cdef class Array(_PandasConvertible):
 
         return wrap_datum(out)
 
+    def filter(self, Array mask):
+        """
+        Filter the array with a boolean mask.
+
+        Parameters
+        ----------
+        mask : Array
+            The boolean mask indicating which values to extract.
+
+        Returns
+        -------
+        Array
+
+        Examples
+        --------
+
+        >>> import pyarrow as pa
+        >>> arr = pa.array(["a", "b", "c", None, "e"])
+        >>> mask = pa.array([True, False, None, False, True])
+        >>> arr.filter(mask)
+        <pyarrow.lib.StringArray object at 0x7fa826df9200>
+        [
+          "a",
+          null,
+          "e"
+        ]
+        """
+        cdef:
+            cdef CDatum out
+
+        with nogil:
+            check_status(FilterKernel(_context(), CDatum(self.sp_array),
+                                      CDatum(mask.sp_array), &out))
+
+        return wrap_datum(out)
+
     def _to_pandas(self, options, **kwargs):
         cdef:
             PyObject* out
-            PandasOptions c_options = options
+            PandasOptions c_options = _convert_pandas_options(options)
 
         with nogil:
             check_status(ConvertArrayToPandas(c_options, self.sp_array,
                                               self, &out))
-        return wrap_array_output(out)
+        result = pandas_api.series(wrap_array_output(out), name=self._name)
+
+        if isinstance(self.type, TimestampType):
+            tz = self.type.tz
+            if tz is not None:
+                tz = string_to_tzinfo(tz)
+                result = (result.dt.tz_localize('utc')
+                          .dt.tz_convert(tz))
+
+        return result
 
     def __array__(self, dtype=None):
+        cdef:
+            PyObject* out
+            PandasOptions c_options
+            object values
+
+        with nogil:
+            check_status(ConvertArrayToPandas(c_options, self.sp_array,
+                                              self, &out))
+
+        # wrap_array_output uses pandas to convert to Categorical, here
+        # always convert to numpy array
+        values = PyObject_to_object(out)
+
+        if isinstance(values, dict):
+            values = np.take(values['dictionary'], values['indices'])
+
         if dtype is None:
-            return self.to_pandas()
-        return self.to_pandas().astype(dtype)
+            return values
+        return values.astype(dtype)
 
     def to_numpy(self):
         """
@@ -1618,7 +1712,7 @@ cdef object get_series_values(object obj, bint* is_series):
         result = obj
         is_series[0] = False
     else:
-        result = pandas_api.make_series(obj).values
+        result = pandas_api.series(obj).values
         is_series[0] = False
 
     return result

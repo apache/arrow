@@ -115,7 +115,7 @@ public class VectorSchemaRoot implements AutoCloseable {
 
   /**
    * Do an adaptive allocation of each vector for memory purposes. Sizes will be based on previously
-   * defined initial allocation for each vector (and subsequent size learnings).
+   * defined initial allocation for each vector (and subsequent size learned).
    */
   public void allocateNew() {
     for (FieldVector v : fieldVectors) {

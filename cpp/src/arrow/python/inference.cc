@@ -31,11 +31,11 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 
+#include "arrow/python/datetime.h"
 #include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/iterators.h"
 #include "arrow/python/numpy_convert.h"
-#include "arrow/python/util/datetime.h"
 
 namespace arrow {
 namespace py {
@@ -617,7 +617,6 @@ class TypeInferrer {
 // Non-exhaustive type inference
 Status InferArrowType(PyObject* obj, PyObject* mask, bool pandas_null_sentinels,
                       std::shared_ptr<DataType>* out_type) {
-  PyDateTime_IMPORT;
   TypeInferrer inferrer(pandas_null_sentinels);
   RETURN_NOT_OK(inferrer.VisitSequence(obj, mask));
   RETURN_NOT_OK(inferrer.GetType(out_type));

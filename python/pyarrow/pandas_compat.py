@@ -328,6 +328,14 @@ def _index_level_name(index, i, column_names):
 def _get_columns_to_convert(df, schema, preserve_index, columns):
     columns = _resolve_columns_of_interest(df, schema, columns)
 
+    if not df.columns.is_unique:
+        raise ValueError(
+            'Duplicate column names found: {}'.format(list(df.columns))
+        )
+
+    if schema is not None:
+        return _get_columns_to_convert_given_schema(df, schema, preserve_index)
+
     column_names = []
 
     index_levels = (
@@ -338,11 +346,6 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
     columns_to_convert = []
     convert_fields = []
 
-    if not df.columns.is_unique:
-        raise ValueError(
-            'Duplicate column names found: {}'.format(list(df.columns))
-        )
-
     for name in columns:
         col = df[name]
         name = _column_name_to_strings(name)
@@ -351,13 +354,8 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
             raise TypeError(
                 "Sparse pandas data (column {}) not supported.".format(name))
 
-        if schema is not None:
-            field = schema.field(name)
-        else:
-            field = None
-
         columns_to_convert.append(col)
-        convert_fields.append(field)
+        convert_fields.append(None)
         column_names.append(name)
 
     index_descriptors = []
@@ -387,6 +385,64 @@ def _get_columns_to_convert(df, schema, preserve_index, columns):
     # to be converted to Arrow format
     # columns_fields : specified column to use for coercion / casting
     # during serialization, if a Schema was provided
+    return (all_names, column_names, index_column_names, index_descriptors,
+            index_levels, columns_to_convert, convert_fields)
+
+
+def _get_columns_to_convert_given_schema(df, schema, preserve_index):
+    """
+    Specialized version of _get_columns_to_convert in case a Schema is
+    specified.
+    In that case, the Schema is used as the single point of truth for the
+    table structure (types, which columns are included, order of columns, ...).
+    """
+    column_names = []
+    columns_to_convert = []
+    convert_fields = []
+    index_descriptors = []
+    index_column_names = []
+    index_levels = []
+
+    for name in schema.names:
+        try:
+            col = df[name]
+            is_index = False
+        except KeyError:
+            if preserve_index is not False and name in df.index.names:
+                col = df.index.get_level_values(name)
+                if (preserve_index is None and
+                        isinstance(col, _pandas_api.pd.RangeIndex)):
+                    raise ValueError(
+                        "name '{}' is present in the schema, but it is a "
+                        "RangeIndex which will not be converted as a column "
+                        "in the Table, but saved as metadata-only not in "
+                        "columns. Specify 'preserve_index=True' to force it "
+                        "being added as a column, or remove it from the "
+                        "specified schema".format(name))
+                is_index = True
+            else:
+                raise KeyError(
+                    "name '{}' present in the specified schema is not found "
+                    "in the columns or index".format(name))
+
+        name = _column_name_to_strings(name)
+
+        if _pandas_api.is_sparse(col):
+            raise TypeError(
+                "Sparse pandas data (column {}) not supported.".format(name))
+
+        field = schema.field(name)
+        columns_to_convert.append(col)
+        convert_fields.append(field)
+        column_names.append(name)
+
+        if is_index:
+            index_column_names.append(name)
+            index_descriptors.append(name)
+            index_levels.append(col)
+
+    all_names = column_names + index_column_names
+
     return (all_names, column_names, index_column_names, index_descriptors,
             index_levels, columns_to_convert, convert_fields)
 
@@ -503,13 +559,7 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
 
     types = [x.type for x in arrays]
 
-    if schema is not None:
-        # add index columns
-        index_types = types[len(column_names):]
-        for name, type_ in zip(index_column_names, index_types):
-            name = name if name is not None else 'None'
-            schema = schema.append(pa.field(name, type_))
-    else:
+    if schema is None:
         fields = []
         for name, type_ in zip(all_names, types):
             name = name if name is not None else 'None'
@@ -649,8 +699,7 @@ def table_to_blockmanager(options, table, categories=None,
         index = _pandas_api.pd.RangeIndex(table.num_rows)
 
     _check_data_column_metadata_consistency(all_columns)
-    blocks = _table_to_blocks(options, table, pa.default_memory_pool(),
-                              categories)
+    blocks = _table_to_blocks(options, table, categories)
     columns = _deserialize_column_index(table, all_columns, column_indexes)
 
     axes = [columns, index]
@@ -774,7 +823,7 @@ def _extract_index_level(table, result_table, field_name,
     pd = _pandas_api.pd
 
     col = table.column(i)
-    values = col.to_pandas()
+    values = col.to_pandas().values
 
     if hasattr(values, 'flags') and not values.flags.writeable:
         # ARROW-1054: in pandas 0.19.2, factorize will reject
@@ -918,12 +967,11 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
     return pd.MultiIndex(new_levels, labels, names=columns.names)
 
 
-def _table_to_blocks(options, block_table, memory_pool, categories):
+def _table_to_blocks(options, block_table, categories):
     # Part of table_to_blockmanager
 
     # Convert an arrow table to Block from the internal pandas API
-    result = pa.lib.table_to_blocks(options, block_table, memory_pool,
-                                    categories)
+    result = pa.lib.table_to_blocks(options, block_table, categories)
 
     # Defined above
     return [_reconstruct_block(item) for item in result]

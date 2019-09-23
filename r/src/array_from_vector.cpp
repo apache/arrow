@@ -793,7 +793,7 @@ std::shared_ptr<arrow::DataType> GetFactorType(SEXP factor) {
 std::shared_ptr<arrow::DataType> InferType(SEXP x) {
   switch (TYPEOF(x)) {
     case ENVSXP:
-      if (Rf_inherits(x, "arrow::Array")) {
+      if (Rf_inherits(x, "Array")) {
         Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Array>> array(
             x);
         return static_cast<std::shared_ptr<arrow::Array>>(array)->type();
@@ -976,7 +976,7 @@ arrow::Status CheckCompatibleStruct(SEXP obj,
 std::shared_ptr<arrow::Array> Array__from_vector(
     SEXP x, const std::shared_ptr<arrow::DataType>& type, bool type_infered) {
   // short circuit if `x` is already an Array
-  if (Rf_inherits(x, "arrow::Array")) {
+  if (Rf_inherits(x, "Array")) {
     return Rcpp::ConstReferenceSmartPtrInputParameter<std::shared_ptr<arrow::Array>>(x);
   }
 

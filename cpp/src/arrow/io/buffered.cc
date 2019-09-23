@@ -60,7 +60,6 @@ class BufferedBase {
       RETURN_NOT_OK(buffer_->Resize(buffer_size_));
     }
     buffer_data_ = buffer_->mutable_data();
-    buffer_pos_ = 0;
     return Status::OK();
   }
 
@@ -76,6 +75,8 @@ class BufferedBase {
   }
 
   int64_t buffer_size() const { return buffer_size_; }
+
+  int64_t buffer_pos() const { return buffer_pos_; }
 
  protected:
   MemoryPool* pool_;
@@ -125,7 +126,14 @@ class BufferedOutputStream::Impl : public BufferedBase {
     return Status::OK();
   }
 
-  Status Write(const void* data, int64_t nbytes) {
+  Status Write(const void* data, int64_t nbytes) { return DoWrite(data, nbytes); }
+
+  Status Write(const std::shared_ptr<Buffer>& buffer) {
+    return DoWrite(buffer->data(), buffer->size(), buffer);
+  }
+
+  Status DoWrite(const void* data, int64_t nbytes,
+                 const std::shared_ptr<Buffer>& buffer = nullptr) {
     std::lock_guard<std::mutex> guard(lock_);
     if (nbytes < 0) {
       return Status::Invalid("write count should be >= 0");
@@ -138,7 +146,11 @@ class BufferedOutputStream::Impl : public BufferedBase {
       DCHECK_EQ(buffer_pos_, 0);
       if (nbytes >= buffer_size_) {
         // Direct write
-        return raw_->Write(data, nbytes);
+        if (buffer) {
+          return raw_->Write(buffer);
+        } else {
+          return raw_->Write(data, nbytes);
+        }
       }
     }
     AppendToBuffer(data, nbytes);
@@ -209,6 +221,8 @@ Status BufferedOutputStream::SetBufferSize(int64_t new_buffer_size) {
 
 int64_t BufferedOutputStream::buffer_size() const { return impl_->buffer_size(); }
 
+int64_t BufferedOutputStream::bytes_buffered() const { return impl_->buffer_pos(); }
+
 Status BufferedOutputStream::Detach(std::shared_ptr<OutputStream>* raw) {
   return impl_->Detach(raw);
 }
@@ -225,6 +239,10 @@ Status BufferedOutputStream::Tell(int64_t* position) const {
 
 Status BufferedOutputStream::Write(const void* data, int64_t nbytes) {
   return impl_->Write(data, nbytes);
+}
+
+Status BufferedOutputStream::Write(const std::shared_ptr<Buffer>& data) {
+  return impl_->Write(data);
 }
 
 Status BufferedOutputStream::Flush() { return impl_->Flush(); }
@@ -244,7 +262,6 @@ class BufferedInputStream::Impl : public BufferedBase {
         bytes_buffered_(0) {}
 
   Status Close() {
-    std::lock_guard<std::mutex> guard(lock_);
     if (is_open_) {
       is_open_ = false;
       return raw_->Close();
@@ -253,7 +270,6 @@ class BufferedInputStream::Impl : public BufferedBase {
   }
 
   Status Abort() {
-    std::lock_guard<std::mutex> guard(lock_);
     if (is_open_) {
       is_open_ = false;
       return raw_->Abort();
@@ -262,7 +278,6 @@ class BufferedInputStream::Impl : public BufferedBase {
   }
 
   Status Tell(int64_t* position) const {
-    std::lock_guard<std::mutex> guard(lock_);
     if (raw_pos_ == -1) {
       RETURN_NOT_OK(raw_->Tell(&raw_pos_));
       DCHECK_GE(raw_pos_, 0);
@@ -273,7 +288,6 @@ class BufferedInputStream::Impl : public BufferedBase {
   }
 
   Status SetBufferSize(int64_t new_buffer_size) {
-    std::lock_guard<std::mutex> guard(lock_);
     if (new_buffer_size <= 0) {
       return Status::Invalid("Buffer size should be positive");
     }
@@ -294,7 +308,7 @@ class BufferedInputStream::Impl : public BufferedBase {
       RETURN_NOT_OK(BufferIfNeeded());
     }
 
-    // Increase the buffer size if needed
+    // Increase the buffer size if needed.
     if (nbytes > buffer_->size() - buffer_pos_) {
       RETURN_NOT_OK(SetBufferSize(nbytes + buffer_pos_));
       DCHECK(buffer_->size() - buffer_pos_ >= nbytes);
@@ -324,7 +338,6 @@ class BufferedInputStream::Impl : public BufferedBase {
   int64_t buffer_size() const { return buffer_size_; }
 
   std::shared_ptr<InputStream> Detach() {
-    std::lock_guard<std::mutex> guard(lock_);
     is_open_ = false;
     return std::move(raw_);
   }
@@ -361,7 +374,6 @@ class BufferedInputStream::Impl : public BufferedBase {
   }
 
   Status Read(int64_t nbytes, int64_t* bytes_read, void* out) {
-    std::lock_guard<std::mutex> guard(lock_);
     ARROW_CHECK_GT(nbytes, 0);
 
     if (nbytes < buffer_size_) {
@@ -444,9 +456,9 @@ Status BufferedInputStream::Create(int64_t buffer_size, MemoryPool* pool,
   return Status::OK();
 }
 
-Status BufferedInputStream::Close() { return impl_->Close(); }
+Status BufferedInputStream::DoClose() { return impl_->Close(); }
 
-Status BufferedInputStream::Abort() { return impl_->Abort(); }
+Status BufferedInputStream::DoAbort() { return impl_->Abort(); }
 
 bool BufferedInputStream::closed() const { return impl_->closed(); }
 
@@ -454,11 +466,11 @@ std::shared_ptr<InputStream> BufferedInputStream::Detach() { return impl_->Detac
 
 std::shared_ptr<InputStream> BufferedInputStream::raw() const { return impl_->raw(); }
 
-Status BufferedInputStream::Tell(int64_t* position) const {
+Status BufferedInputStream::DoTell(int64_t* position) const {
   return impl_->Tell(position);
 }
 
-Status BufferedInputStream::Peek(int64_t nbytes, util::string_view* out) {
+Status BufferedInputStream::DoPeek(int64_t nbytes, util::string_view* out) {
   return impl_->Peek(nbytes, out);
 }
 
@@ -470,11 +482,11 @@ int64_t BufferedInputStream::bytes_buffered() const { return impl_->bytes_buffer
 
 int64_t BufferedInputStream::buffer_size() const { return impl_->buffer_size(); }
 
-Status BufferedInputStream::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
+Status BufferedInputStream::DoRead(int64_t nbytes, int64_t* bytes_read, void* out) {
   return impl_->Read(nbytes, bytes_read, out);
 }
 
-Status BufferedInputStream::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+Status BufferedInputStream::DoRead(int64_t nbytes, std::shared_ptr<Buffer>* out) {
   return impl_->Read(nbytes, out);
 }
 

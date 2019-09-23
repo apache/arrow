@@ -288,15 +288,16 @@ class MockFileSystem::Impl {
     return (consumed == parts.size() - 1) ? entry : nullptr;
   }
 
-  void GatherStats(const std::string& base_path, Directory& base_dir, bool recursive,
+  void GatherStats(const Selector& select, const std::string& base_path,
+                   Directory& base_dir, int32_t nesting_depth,
                    std::vector<FileStats>* stats) {
     for (const auto& pair : base_dir.entries) {
       Entry* child = pair.second.get();
       stats->push_back(child->GetStats(base_path));
-      if (recursive && child->is_dir()) {
+      if (select.recursive && nesting_depth < select.max_recursion && child->is_dir()) {
         Directory& child_dir = child->as_dir();
         std::string child_path = stats->back().path();
-        GatherStats(std::move(child_path), child_dir, recursive, stats);
+        GatherStats(select, std::move(child_path), child_dir, nesting_depth + 1, stats);
       }
     }
   }
@@ -510,7 +511,7 @@ Status MockFileSystem::GetTargetStats(const Selector& selector,
     return NotADir(selector.base_dir);
   }
 
-  impl_->GatherStats(selector.base_dir, base_dir->as_dir(), selector.recursive, out);
+  impl_->GatherStats(selector, selector.base_dir, base_dir->as_dir(), 0, out);
   return Status::OK();
 }
 

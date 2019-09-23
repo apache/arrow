@@ -434,7 +434,7 @@ class BufferedPageWriter : public PageWriter {
     // flush everything to the serialized sink
     std::shared_ptr<Buffer> buffer;
     PARQUET_THROW_NOT_OK(in_memory_sink_->Finish(&buffer));
-    PARQUET_THROW_NOT_OK(final_sink_->Write(buffer->data(), buffer->size()));
+    PARQUET_THROW_NOT_OK(final_sink_->Write(buffer));
   }
 
   int64_t WriteDataPage(const CompressedDataPage& page) override {

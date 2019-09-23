@@ -100,7 +100,7 @@ std::shared_ptr<arrow::Table> Table__select(const std::shared_ptr<arrow::Table>&
 bool all_record_batches(SEXP lst) {
   R_xlen_t n = XLENGTH(lst);
   for (R_xlen_t i = 0; i < n; i++) {
-    if (!Rf_inherits(VECTOR_ELT(lst, i), "arrow::RecordBatch")) return false;
+    if (!Rf_inherits(VECTOR_ELT(lst, i), "RecordBatch")) return false;
   }
   return true;
 }
@@ -114,7 +114,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
     auto batches = arrow::r::List_to_shared_ptr_vector<arrow::RecordBatch>(lst);
     std::shared_ptr<arrow::Table> tab;
 
-    if (Rf_inherits(schema_sxp, "arrow::Schema")) {
+    if (Rf_inherits(schema_sxp, "Schema")) {
       auto schema = arrow::r::extract<arrow::Schema>(schema_sxp);
       STOP_IF_NOT_OK(arrow::Table::FromRecordBatches(schema, batches, &tab));
     } else {
@@ -135,11 +135,11 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
     SEXP names = Rf_getAttrib(lst, R_NamesSymbol);
 
     auto fill_one_column = [&columns, &fields](int j, SEXP x, SEXP name) {
-      if (Rf_inherits(x, "arrow::ChunkedArray")) {
+      if (Rf_inherits(x, "ChunkedArray")) {
         auto chunked_array = arrow::r::extract<arrow::ChunkedArray>(x);
         fields[j] = arrow::field(CHAR(name), chunked_array->type());
         columns[j] = chunked_array;
-      } else if (Rf_inherits(x, "arrow::Array")) {
+      } else if (Rf_inherits(x, "Array")) {
         auto array = arrow::r::extract<arrow::Array>(x);
         fields[j] = arrow::field(CHAR(name), array->type());
         columns[j] = std::make_shared<arrow::ChunkedArray>(array);
@@ -166,15 +166,15 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp) {
     }
 
     schema = std::make_shared<arrow::Schema>(std::move(fields));
-  } else if (Rf_inherits(schema_sxp, "arrow::Schema")) {
+  } else if (Rf_inherits(schema_sxp, "Schema")) {
     // use the schema that is given
     schema = arrow::r::extract<arrow::Schema>(schema_sxp);
 
     auto fill_one_column = [&columns, &schema](int j, SEXP x) {
-      if (Rf_inherits(x, "arrow::ChunkedArray")) {
+      if (Rf_inherits(x, "ChunkedArray")) {
         auto chunked_array = arrow::r::extract<arrow::ChunkedArray>(x);
         columns[j] = chunked_array;
-      } else if (Rf_inherits(x, "arrow::Array")) {
+      } else if (Rf_inherits(x, "Array")) {
         auto array = arrow::r::extract<arrow::Array>(x);
         columns[j] = std::make_shared<arrow::ChunkedArray>(array);
       } else {

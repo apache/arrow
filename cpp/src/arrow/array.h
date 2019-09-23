@@ -318,6 +318,10 @@ class ARROW_EXPORT Array {
   bool Equals(const std::shared_ptr<Array>& arr,
               const EqualOptions& = EqualOptions::Defaults()) const;
 
+  /// \brief Return the formatted unified diff of arrow::Diff between this
+  /// Array and another Array
+  std::string Diff(const Array& other) const;
+
   /// Approximate equality comparison with another array
   ///
   /// epsilon is only used if this is FloatArray or DoubleArray
@@ -1236,18 +1240,20 @@ class ARROW_EXPORT DictionaryArray : public Array {
   /// This method constructs a new dictionary array with the given dictionary type,
   /// transposing indices using the transpose map.
   /// The type and the transpose map are typically computed using
-  /// DictionaryType::Unify.
+  /// DictionaryUnifier.
   ///
   /// \param[in] pool a pool to allocate the array data from
   /// \param[in] type the new type object
   /// \param[in] dictionary the new dictionary
-  /// \param[in] transpose_map a vector transposing this array's indices
+  /// \param[in] transpose_map transposition array of this array's indices
   /// into the target array's indices
   /// \param[out] out the resulting DictionaryArray instance
   Status Transpose(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-                   const std::shared_ptr<Array>& dictionary,
-                   const std::vector<int32_t>& transpose_map,
+                   const std::shared_ptr<Array>& dictionary, const int32_t* transpose_map,
                    std::shared_ptr<Array>* out) const;
+
+  /// \brief Determine whether dictionary arrays may be compared without unification
+  bool CanCompareIndices(const DictionaryArray& other) const;
 
   /// \brief Return the dictionary for this array, which is stored as
   /// a member of the ArrayData internal structure

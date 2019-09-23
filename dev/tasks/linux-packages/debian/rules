@@ -21,11 +21,6 @@ override_dh_auto_configure:
 	  ARROW_CUDA=OFF;					\
 	  ARROW_PLASMA=OFF;					\
 	fi;							\
-	if dpkg -l clang-7 > /dev/null 2>&1; then		\
-	  ARROW_GANDIVA=ON;					\
-	else							\
-	  ARROW_GANDIVA=OFF;					\
-	fi;							\
 	if dpkg -l libprotobuf-dev > /dev/null 2>&1; then	\
 	  cpp_build_system=cmake+ninja;				\
 	else							\
@@ -36,14 +31,13 @@ override_dh_auto_configure:
 	  --builddirectory=cpp_build				\
 	  --buildsystem=$${cpp_build_system}			\
 	  --							\
-	  -DARROW_BUILD_TESTS=OFF				\
 	  -DARROW_CUDA=$${ARROW_CUDA}				\
 	  -DARROW_FLIGHT=ON					\
-	  -DARROW_GANDIVA=$${ARROW_GANDIVA}			\
+	  -DARROW_GANDIVA=ON					\
 	  -DARROW_GANDIVA_JAVA=OFF				\
 	  -DARROW_ORC=ON					\
 	  -DARROW_PARQUET=ON					\
-	  -DARROW_PLASMA=$${ARROW_GANDIVA}			\
+	  -DARROW_PLASMA=$${ARROW_PLASMA}			\
 	  -DARROW_PYTHON=ON					\
 	  -DARROW_VERBOSE_THIRDPARTY_BUILD=ON			\
 	  -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)			\

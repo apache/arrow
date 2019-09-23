@@ -1465,7 +1465,8 @@ mod tests {
     }
 
     fn load_csv(filename: &str, schema: &Arc<Schema>) -> Rc<RefCell<dyn Relation>> {
-        let ds = CsvBatchIterator::new(filename, schema.clone(), true, &None, 10);
+        let ds =
+            CsvBatchIterator::try_new(filename, schema.clone(), true, &None, 10).unwrap();
         Rc::new(RefCell::new(DataSourceRelation::new(Arc::new(Mutex::new(
             ds,
         )))))

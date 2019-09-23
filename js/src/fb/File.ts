@@ -35,15 +35,6 @@ export namespace org.apache.arrow.flatbuf {
         }
 
         /**
-         * @param flatbuffers.ByteBuffer bb
-         * @param Footer= obj
-         * @returns Footer
-         */
-        static getSizePrefixedRootAsFooter(bb: flatbuffers.ByteBuffer, obj?: Footer): Footer {
-            return (obj || new Footer).__init(bb.readInt32(bb.position()) + bb.position(), bb);
-        }
-
-        /**
          * @returns org.apache.arrow.flatbuf.MetadataVersion
          */
         version(): NS7624605610262437867.org.apache.arrow.flatbuf.MetadataVersion {
@@ -166,14 +157,6 @@ export namespace org.apache.arrow.flatbuf {
          */
         static finishFooterBuffer(builder: flatbuffers.Builder, offset: flatbuffers.Offset) {
             builder.finish(offset);
-        }
-
-        /**
-         * @param flatbuffers.Builder builder
-         * @param flatbuffers.Offset offset
-         */
-        static finishSizePrefixedFooterBuffer(builder: flatbuffers.Builder, offset: flatbuffers.Offset) {
-            builder.finish(offset, undefined);
         }
 
         static createFooter(builder: flatbuffers.Builder, version: NS7624605610262437867.org.apache.arrow.flatbuf.MetadataVersion, schemaOffset: flatbuffers.Offset, dictionariesOffset: flatbuffers.Offset, recordBatchesOffset: flatbuffers.Offset): flatbuffers.Offset {

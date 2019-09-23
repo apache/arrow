@@ -36,7 +36,7 @@ import io.netty.buffer.ArrowBuf;
  * short values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public class SmallIntVector extends BaseFixedWidthVector implements BaseIntVector {
+public final class SmallIntVector extends BaseFixedWidthVector implements BaseIntVector {
   public static final byte TYPE_WIDTH = 2;
   private final FieldReader reader;
 

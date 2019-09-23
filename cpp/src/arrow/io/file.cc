@@ -289,38 +289,36 @@ Status ReadableFile::Open(int fd, std::shared_ptr<ReadableFile>* file) {
   return Open(fd, default_memory_pool(), file);
 }
 
-Status ReadableFile::Close() { return impl_->Close(); }
+Status ReadableFile::DoClose() { return impl_->Close(); }
 
 bool ReadableFile::closed() const { return !impl_->is_open(); }
 
-Status ReadableFile::Tell(int64_t* pos) const { return impl_->Tell(pos); }
+Status ReadableFile::DoTell(int64_t* pos) const { return impl_->Tell(pos); }
 
-Status ReadableFile::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
-  std::lock_guard<std::mutex> guard(impl_->lock());
+Status ReadableFile::DoRead(int64_t nbytes, int64_t* bytes_read, void* out) {
   return impl_->Read(nbytes, bytes_read, out);
 }
 
-Status ReadableFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                            void* out) {
+Status ReadableFile::DoReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
+                              void* out) {
   return impl_->ReadAt(position, nbytes, bytes_read, out);
 }
 
-Status ReadableFile::ReadAt(int64_t position, int64_t nbytes,
-                            std::shared_ptr<Buffer>* out) {
+Status ReadableFile::DoReadAt(int64_t position, int64_t nbytes,
+                              std::shared_ptr<Buffer>* out) {
   return impl_->ReadBufferAt(position, nbytes, out);
 }
 
-Status ReadableFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
-  std::lock_guard<std::mutex> guard(impl_->lock());
+Status ReadableFile::DoRead(int64_t nbytes, std::shared_ptr<Buffer>* out) {
   return impl_->ReadBuffer(nbytes, out);
 }
 
-Status ReadableFile::GetSize(int64_t* size) {
+Status ReadableFile::DoGetSize(int64_t* size) {
   *size = impl_->size();
   return Status::OK();
 }
 
-Status ReadableFile::Seek(int64_t pos) { return impl_->Seek(pos); }
+Status ReadableFile::DoSeek(int64_t pos) { return impl_->Seek(pos); }
 
 int ReadableFile::file_descriptor() const { return impl_->fd(); }
 

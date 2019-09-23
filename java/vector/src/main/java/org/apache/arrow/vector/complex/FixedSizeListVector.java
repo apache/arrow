@@ -533,7 +533,7 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
     }
     int hash = 0;
     for (int i = 0; i < listSize; i++) {
-      hash = ByteFunctionHelpers.comebineHash(hash, vector.hashCode(index * listSize + i));
+      hash = ByteFunctionHelpers.combineHash(hash, vector.hashCode(index * listSize + i));
     }
     return hash;
   }

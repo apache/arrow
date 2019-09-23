@@ -155,7 +155,7 @@ cdef class ChunkedArray(_PandasConvertible):
     def _to_pandas(self, options, **kwargs):
         cdef:
             PyObject* out
-            PandasOptions c_options = options
+            PandasOptions c_options = _convert_pandas_options(options)
 
         with nogil:
             check_status(libarrow.ConvertChunkedArrayToPandas(
@@ -163,12 +163,13 @@ cdef class ChunkedArray(_PandasConvertible):
                 self.sp_chunked_array,
                 self, &out))
 
-        return wrap_array_output(out)
+        return pandas_api.series(wrap_array_output(out), name=self._name)
 
     def __array__(self, dtype=None):
+        values = self.to_pandas().values
         if dtype is None:
-            return self.to_pandas()
-        return self.to_pandas().astype(dtype)
+            return values
+        return values.astype(dtype)
 
     def cast(self, object target_type, bint safe=True):
         """
@@ -441,8 +442,7 @@ cdef _sanitize_arrays(arrays, names, schema, metadata,
         c_schema[0] = cy_schema.sp_schema
         converted_arrays = []
         for i, item in enumerate(arrays):
-            if not isinstance(item, (Array, ChunkedArray)):
-                item = array(item, type=schema[i].type)
+            item = asarray(item, type=schema[i].type)
             converted_arrays.append(item)
     return converted_arrays
 
@@ -569,7 +569,9 @@ cdef class RecordBatch(_PandasConvertible):
         column : pyarrow.Array
         """
         cdef int index = <int> _normalize_index(i, self.num_columns)
-        return pyarrow_wrap_array(self.batch.column(index))
+        cdef Array result = pyarrow_wrap_array(self.batch.column(index))
+        result._name = self.schema[index].name
+        return result
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -668,6 +670,11 @@ cdef class RecordBatch(_PandasConvertible):
         schema: pyarrow.Schema, optional
             The expected schema of the RecordBatch. This can be used to
             indicate the type of columns if we cannot infer it automatically.
+            If passed, the output will have exactly this schema. Columns
+            specified in the schema that are not found in the DataFrame columns
+            or its index will raise an error. Additional columns or index
+            levels in the DataFrame which are not specified in the schema will
+            be ignored.
         preserve_index : bool, optional
             Whether to store the index as an additional column in the resulting
             ``RecordBatch``. The default of None will store the index as a
@@ -751,22 +758,21 @@ def _reconstruct_record_batch(columns, schema):
     return RecordBatch.from_arrays(columns, schema=schema)
 
 
-def table_to_blocks(PandasOptions options, Table table,
-                    MemoryPool memory_pool, categories):
+def table_to_blocks(options, Table table, categories):
     cdef:
         PyObject* result_obj
         shared_ptr[CTable] c_table = table.sp_table
         CMemoryPool* pool
         unordered_set[c_string] categorical_columns
+        PandasOptions c_options = _convert_pandas_options(options)
 
     if categories is not None:
         categorical_columns = {tobytes(cat) for cat in categories}
 
-    pool = maybe_unbox_memory_pool(memory_pool)
     with nogil:
         check_status(
             libarrow.ConvertTableToPandas(
-                options, categorical_columns, c_table, pool, &result_obj)
+                c_options, categorical_columns, c_table, &result_obj)
         )
 
     return PyObject_to_object(result_obj)
@@ -1006,6 +1012,11 @@ cdef class Table(_PandasConvertible):
         schema : pyarrow.Schema, optional
             The expected schema of the Arrow Table. This can be used to
             indicate the type of columns if we cannot infer it automatically.
+            If passed, the output will have exactly this schema. Columns
+            specified in the schema that are not found in the DataFrame columns
+            or its index will raise an error. Additional columns or index
+            levels in the DataFrame which are not specified in the schema will
+            be ignored.
         preserve_index : bool, optional
             Whether to store the index as an additional column in the resulting
             ``Table``. The default of None will store the index as a column,
@@ -1121,16 +1132,14 @@ cdef class Table(_PandasConvertible):
                         v = mapping[tobytes(field.name)]
                     except KeyError as e2:
                         raise e
-                arrays.append(array(v, type=field.type))
+                arrays.append(asarray(v, type=field.type))
             # Will raise if metadata is not None
             return Table.from_arrays(arrays, schema=schema, metadata=metadata)
         else:
             names = []
             for k, v in mapping.items():
                 names.append(k)
-                if not isinstance(v, (Array, ChunkedArray)):
-                    v = array(v)
-                arrays.append(v)
+                arrays.append(asarray(v))
             return Table.from_arrays(arrays, names, metadata=metadata)
 
     @staticmethod
@@ -1305,7 +1314,10 @@ cdef class Table(_PandasConvertible):
         pyarrow.ChunkedArray
         """
         cdef int index = <int> _normalize_index(i, self.num_columns)
-        return pyarrow_wrap_chunked_array(self.table.column(index))
+        cdef ChunkedArray result = pyarrow_wrap_chunked_array(
+            self.table.column(index))
+        result._name = self.schema[index].name
+        return result
 
     def itercolumns(self):
         """
@@ -1516,6 +1528,11 @@ def record_batch(data, names=None, schema=None, metadata=None):
     --------
     RecordBatch.from_arrays, RecordBatch.from_pandas, Table.from_pydict
     """
+    # accept schema as first argument for backwards compatibility / usability
+    if isinstance(names, Schema) and schema is None:
+        schema = names
+        names = None
+
     if isinstance(data, (list, tuple)):
         return RecordBatch.from_arrays(data, names=names, schema=schema,
                                        metadata=metadata)
@@ -1534,13 +1551,16 @@ def table(data, names=None, schema=None, metadata=None):
     ----------
     data : pandas.DataFrame, dict, list
         A DataFrame, mapping of strings to Arrays or Python lists, or list of
-        arrays or chunked arrays
+        arrays or chunked arrays.
     names : list, default None
         Column names if list of arrays passed as data. Mutually exclusive with
-        'schema' argument
+        'schema' argument.
     schema : Schema, default None
         The expected schema of the Arrow Table. If not passed, will be inferred
-        from the data. Mutually exclusive with 'names' argument
+        from the data. Mutually exclusive with 'names' argument.
+        If passed, the output will have exactly this schema (raising an error
+        when columns are not found in the data and ignoring additional data not
+        specified in the schema, when data is a dict or DataFrame).
     metadata : dict or Mapping, default None
         Optional metadata for the schema (if schema not passed).
 
@@ -1552,12 +1572,24 @@ def table(data, names=None, schema=None, metadata=None):
     --------
     Table.from_arrays, Table.from_pandas, Table.from_pydict
     """
+    # accept schema as first argument for backwards compatibility / usability
+    if isinstance(names, Schema) and schema is None:
+        schema = names
+        names = None
+
     if isinstance(data, (list, tuple)):
         return Table.from_arrays(data, names=names, schema=schema,
                                  metadata=metadata)
     elif isinstance(data, dict):
+        if names is not None:
+            raise ValueError(
+                "The 'names' argument is not valid when passing a dictionary")
         return Table.from_pydict(data, schema=schema, metadata=metadata)
     elif isinstance(data, _pandas_api.pd.DataFrame):
+        if names is not None or metadata is not None:
+            raise ValueError(
+                "The 'names' and 'metadata' arguments are not valid when "
+                "passing a pandas DataFrame")
         return Table.from_pandas(data, schema=schema)
     else:
         return TypeError("Expected pandas DataFrame or python dictionary")

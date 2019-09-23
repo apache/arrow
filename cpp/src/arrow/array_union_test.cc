@@ -272,10 +272,6 @@ class UnionBuilderTest : public ::testing::Test {
 
     ASSERT_OK(list_builder.Finish(actual));
     ArrayFromVector<Int8Type, uint8_t>(expected_types_vector, &expected_types);
-
-    ASSERT_EQ(I8, 0);
-    ASSERT_EQ(STR, 1);
-    ASSERT_EQ(DBL, 2);
   }
 
   std::vector<uint8_t> expected_types_vector;
@@ -403,4 +399,14 @@ TEST_F(SparseUnionBuilderTest, InferredType) {
   ASSERT_EQ(expected->type()->ToString(), actual->type()->ToString());
   ASSERT_ARRAYS_EQUAL(*expected, *actual);
 }
+
+TEST_F(SparseUnionBuilderTest, StructWithUnion) {
+  auto union_builder = std::make_shared<SparseUnionBuilder>(default_memory_pool());
+  StructBuilder builder(struct_({field("u", union_({}))}), default_memory_pool(),
+                        {union_builder});
+  ASSERT_EQ(union_builder->AppendChild(std::make_shared<Int32Builder>(), "i"), 0);
+  ASSERT_TRUE(
+      builder.type()->Equals(struct_({field("u", union_({field("i", int32())}, {0}))})));
+}
+
 }  // namespace arrow

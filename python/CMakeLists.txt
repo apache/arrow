@@ -358,8 +358,10 @@ if(PYARROW_BUNDLE_ARROW_CPP)
   endif()
 
   if(MSVC)
+    find_package(ZLIB)
     bundle_arrow_implib(ARROW_SHARED_IMP_LIB)
     bundle_arrow_implib(ARROW_PYTHON_SHARED_IMP_LIB)
+    bundle_arrow_dependency(zlib zlib.dll)
   endif()
 endif()
 
@@ -379,7 +381,7 @@ if(UNIX)
   set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 endif()
 
-set(CYTHON_EXTENSIONS lib _csv _json)
+set(CYTHON_EXTENSIONS lib _fs _csv _json)
 
 set(LINK_LIBS arrow_shared arrow_python_shared)
 

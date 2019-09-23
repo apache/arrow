@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! ExecutionContext contains methods for registering data sources and executing SQL
-//! queries
+//! ExecutionContext contains methods for registering data sources and executing queries
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -27,6 +26,7 @@ use std::sync::Arc;
 use arrow::datatypes::*;
 
 use crate::arrow::array::{ArrayRef, BooleanBuilder};
+use crate::arrow::record_batch::RecordBatch;
 use crate::datasource::csv::CsvFile;
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
@@ -35,6 +35,13 @@ use crate::execution::aggregate::AggregateRelation;
 use crate::execution::expression::*;
 use crate::execution::filter::FilterRelation;
 use crate::execution::limit::LimitRelation;
+use crate::execution::physical_plan::common;
+use crate::execution::physical_plan::datasource::DatasourceExec;
+use crate::execution::physical_plan::expressions::{Column, Sum};
+use crate::execution::physical_plan::hash_aggregate::HashAggregateExec;
+use crate::execution::physical_plan::merge::MergeExec;
+use crate::execution::physical_plan::projection::ProjectionExec;
+use crate::execution::physical_plan::{AggregateExpr, ExecutionPlan, PhysicalExpr};
 use crate::execution::projection::ProjectRelation;
 use crate::execution::relation::{DataSourceRelation, Relation};
 use crate::execution::scalar_relation::ScalarRelation;
@@ -208,6 +215,139 @@ impl ExecutionContext {
             plan = rule.optimize(&plan)?;
         }
         Ok(plan)
+    }
+
+    /// Create a physical plan from a logical plan
+    pub fn create_physical_plan(
+        &mut self,
+        logical_plan: &Arc<LogicalPlan>,
+        batch_size: usize,
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        match logical_plan.as_ref() {
+            LogicalPlan::TableScan {
+                table_name,
+                projection,
+                ..
+            } => match (*self.datasources).borrow().get(table_name) {
+                Some(provider) => {
+                    let partitions = provider.scan(projection, batch_size)?;
+                    if partitions.is_empty() {
+                        Err(ExecutionError::General(
+                            "Table provider returned no partitions".to_string(),
+                        ))
+                    } else {
+                        let partition = partitions[0].lock().unwrap();
+                        let schema = partition.schema();
+                        let exec =
+                            DatasourceExec::new(schema.clone(), partitions.clone());
+                        Ok(Arc::new(exec))
+                    }
+                }
+                _ => Err(ExecutionError::General(format!(
+                    "No table named {}",
+                    table_name
+                ))),
+            },
+            LogicalPlan::Projection { input, expr, .. } => {
+                let input = self.create_physical_plan(input, batch_size)?;
+                let input_schema = input.as_ref().schema().clone();
+                let runtime_expr = expr
+                    .iter()
+                    .map(|e| self.create_physical_expr(e, &input_schema))
+                    .collect::<Result<Vec<_>>>()?;
+                Ok(Arc::new(ProjectionExec::try_new(runtime_expr, input)?))
+            }
+            LogicalPlan::Aggregate {
+                input,
+                group_expr,
+                aggr_expr,
+                schema,
+            } => {
+                let input = self.create_physical_plan(input, batch_size)?;
+                let input_schema = input.as_ref().schema().clone();
+                let group_expr = group_expr
+                    .iter()
+                    .map(|e| self.create_physical_expr(e, &input_schema))
+                    .collect::<Result<Vec<_>>>()?;
+                let aggr_expr = aggr_expr
+                    .iter()
+                    .map(|e| self.create_aggregate_expr(e, &input_schema))
+                    .collect::<Result<Vec<_>>>()?;
+                Ok(Arc::new(HashAggregateExec::try_new(
+                    group_expr,
+                    aggr_expr,
+                    input,
+                    schema.clone(),
+                )?))
+            }
+            _ => Err(ExecutionError::General(
+                "Unsupported logical plan variant".to_string(),
+            )),
+        }
+    }
+
+    /// Create a physical expression from a logical expression
+    pub fn create_physical_expr(
+        &self,
+        e: &Expr,
+        _input_schema: &Schema,
+    ) -> Result<Arc<dyn PhysicalExpr>> {
+        match e {
+            Expr::Column(i) => Ok(Arc::new(Column::new(*i))),
+            _ => Err(ExecutionError::NotImplemented(
+                "Unsupported expression".to_string(),
+            )),
+        }
+    }
+
+    /// Create an aggregate expression from a logical expression
+    pub fn create_aggregate_expr(
+        &self,
+        e: &Expr,
+        input_schema: &Schema,
+    ) -> Result<Arc<dyn AggregateExpr>> {
+        match e {
+            Expr::AggregateFunction { name, args, .. } => {
+                match name.to_lowercase().as_ref() {
+                    "sum" => Ok(Arc::new(Sum::new(
+                        self.create_physical_expr(&args[0], input_schema)?,
+                    ))),
+                    other => Err(ExecutionError::NotImplemented(format!(
+                        "Unsupported aggregate function '{}'",
+                        other
+                    ))),
+                }
+            }
+            _ => Err(ExecutionError::NotImplemented(
+                "Unsupported aggregate expression".to_string(),
+            )),
+        }
+    }
+
+    /// Execute a physical plan and collect the results in memory
+    pub fn collect(&self, plan: &dyn ExecutionPlan) -> Result<Vec<RecordBatch>> {
+        let partitions = plan.partitions()?;
+
+        match partitions.len() {
+            0 => Ok(vec![]),
+            1 => {
+                let it = partitions[0].execute()?;
+                common::collect(it)
+            }
+            _ => {
+                // merge into a single partition
+                let plan = MergeExec::new(plan.schema().clone(), partitions);
+                let partitions = plan.partitions()?;
+                if partitions.len() == 1 {
+                    common::collect(partitions[0].execute()?)
+                } else {
+                    Err(ExecutionError::InternalError(format!(
+                        "MergeExec returned {} partitions",
+                        partitions.len()
+                    )))
+                }
+            }
+        }
     }
 
     /// Execute a logical plan and produce a Relation (a schema-aware iterator over a
@@ -401,4 +541,102 @@ impl SchemaProvider for ExecutionContextSchemaProvider {
     fn get_function_meta(&self, _name: &str) -> Option<Arc<FunctionMeta>> {
         None
     }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use crate::test;
+    use std::fs::File;
+    use std::io::prelude::*;
+    use tempdir::TempDir;
+
+    #[test]
+    fn parallel_projection() -> Result<()> {
+        let partition_count = 4;
+        let results = execute("SELECT c1, c2 FROM test", partition_count)?;
+
+        // there should be one batch per partition
+        assert_eq!(results.len(), partition_count);
+
+        // each batch should contain 2 columns and 10 rows
+        for batch in &results {
+            assert_eq!(batch.num_columns(), 2);
+            assert_eq!(batch.num_rows(), 10);
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn aggregate() -> Result<()> {
+        let results = execute("SELECT SUM(c1), SUM(c2) FROM test", 4)?;
+        assert_eq!(results.len(), 1);
+
+        let batch = &results[0];
+        let expected: Vec<&str> = vec!["60,220"];
+        let mut rows = test::format_batch(&batch);
+        rows.sort();
+        assert_eq!(rows, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn aggregate_grouped() -> Result<()> {
+        let results = execute("SELECT c1, SUM(c2) FROM test GROUP BY c1", 4)?;
+        assert_eq!(results.len(), 1);
+
+        let batch = &results[0];
+        let expected: Vec<&str> = vec!["0,55", "1,55", "2,55", "3,55"];
+        let mut rows = test::format_batch(&batch);
+        rows.sort();
+        assert_eq!(rows, expected);
+
+        Ok(())
+    }
+
+    /// Execute SQL and return results
+    fn execute(sql: &str, partition_count: usize) -> Result<Vec<RecordBatch>> {
+        let tmp_dir = TempDir::new("execute")?;
+        let mut ctx = create_ctx(&tmp_dir, partition_count)?;
+
+        let logical_plan = ctx.create_logical_plan(sql)?;
+        let logical_plan = ctx.optimize(&logical_plan)?;
+
+        let physical_plan = ctx.create_physical_plan(&logical_plan, 1024)?;
+
+        ctx.collect(physical_plan.as_ref())
+    }
+
+    /// Generate a partitioned CSV file and register it with an execution context
+    fn create_ctx(tmp_dir: &TempDir, partition_count: usize) -> Result<ExecutionContext> {
+        let mut ctx = ExecutionContext::new();
+
+        // define schema for data source (csv file)
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("c1", DataType::UInt32, false),
+            Field::new("c2", DataType::UInt64, false),
+        ]));
+
+        // generate a partitioned file
+        for partition in 0..partition_count {
+            let filename = format!("partition-{}.csv", partition);
+            let file_path = tmp_dir.path().join(&filename);
+            let mut file = File::create(file_path)?;
+
+            // generate some data
+            for i in 0..=10 {
+                let data = format!("{},{}\n", partition, i);
+                file.write_all(data.as_bytes())?;
+            }
+        }
+
+        // register csv file with the execution context
+        ctx.register_csv("test", tmp_dir.path().to_str().unwrap(), &schema, true);
+
+        Ok(ctx)
+    }
+
 }
