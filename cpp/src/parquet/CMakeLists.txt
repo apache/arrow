@@ -171,7 +171,7 @@ set(PARQUET_SRCS
     statistics.cc
     types.cc)
 
-if(ARROW_USE_OPENSSL)
+if(PARQUET_REQUIRE_ENCRYPTION)
   set(PARQUET_SRCS ${PARQUET_SRCS} encryption_internal.cc)
 else()
   set(PARQUET_SRCS ${PARQUET_SRCS} encryption_internal_nossl.cc)
@@ -315,7 +315,7 @@ add_parquet_test(arrow-test
                  arrow/arrow_schema_test.cc
                  test_util.cc)
 
-if(ARROW_USE_OPENSSL)
+if(PARQUET_REQUIRE_ENCRYPTION)
   add_parquet_test(encryption-test
                    SOURCES
                    encryption_write_configurations_test.cc

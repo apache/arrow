@@ -21,7 +21,7 @@ add_executable(parquet-arrow-example parquet-arrow/reader-writer.cc)
 target_include_directories(parquet-low-level-example PRIVATE low-level-api/)
 target_include_directories(parquet-low-level-example2 PRIVATE low-level-api/)
 
-if (ARROW_USE_OPENSSL)
+if (PARQUET_REQUIRE_ENCRYPTION)
   add_executable(parquet-encryption-example low-level-api/encryption-reader-writer.cc)
   add_executable(parquet-encryption-example-all-crypto-options low-level-api/encryption-reader-writer-all-crypto-options.cc)
   target_include_directories(parquet-encryption-example PRIVATE low-level-api/)
@@ -46,7 +46,7 @@ add_dependencies(parquet
   parquet-low-level-example2
   parquet-arrow-example)
 
-if (ARROW_USE_OPENSSL)
+if (PARQUET_REQUIRE_ENCRYPTION)
   add_dependencies(parquet
     parquet-encryption-example
     parquet-encryption-example-all-crypto-options)
