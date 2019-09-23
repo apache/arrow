@@ -23,6 +23,7 @@ import static org.junit.Assert.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -151,6 +152,43 @@ public class TestVectorSchemaRoot {
     vector.setValueCount(2);
 
     return schemaRoot;
+  }
+
+  @Test
+  public void testSlice() {
+    try (final IntVector intVector = new IntVector("intVector", allocator);
+         final Float4Vector float4Vector = new Float4Vector("float4Vector", allocator)) {
+      intVector.setValueCount(10);
+      float4Vector.setValueCount(10);
+      for (int i = 0; i < 10; i++) {
+        intVector.setSafe(i, i);
+        float4Vector.setSafe(i, i + 0.1f);
+      }
+      final VectorSchemaRoot original = new VectorSchemaRoot(Arrays.asList(intVector, float4Vector));
+
+      VectorSchemaRoot slice1 = original.slice(0, original.getRowCount());
+      assertEquals(original, slice1);
+
+      VectorSchemaRoot slice2 = original.slice(0, 5);
+      assertEquals(5, slice2.getRowCount());
+      // validate data
+      IntVector childVector1 = (IntVector) slice2.getFieldVectors().get(0);
+      Float4Vector childVector2 = (Float4Vector) slice2.getFieldVectors().get(1);
+      for (int i = 0; i < 5; i++) {
+        assertEquals(i, childVector1.get(i));
+        assertEquals(i + 0.1f, childVector2.get(i), 0);
+      }
+
+      // slice with invalid param
+      try {
+        original.slice(0, 20);
+      } catch (Exception e) {
+        assertTrue(e.getMessage().contains("index + length should <= rowCount"));
+      }
+
+
+      slice2.close();
+    }
   }
 
   @Test
