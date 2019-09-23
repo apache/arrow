@@ -326,6 +326,24 @@ describe(`Table`, () => {
                     }
                 });
             });
+            describe(`scanReverse()`, () => {
+                test(`yields all values`, () => {
+                    const table = datum.table();
+                    let expected_idx = values.length;
+                    table.scanReverse((idx, batch) => {
+                        const columns = batch.schema.fields.map((_, i) => batch.getChildAt(i)!);
+                        expect(columns.map((c) => c.get(idx))).toEqual(values[--expected_idx]);
+                    });
+                });
+                test(`calls bind function with every batch`, () => {
+                    const table = datum.table();
+                    let bind = jest.fn();
+                    table.scanReverse(() => { }, bind);
+                    for (let batch of table.chunks) {
+                        expect(bind).toHaveBeenCalledWith(batch);
+                    }
+                });
+            });
             test(`count() returns the correct length`, () => {
                 const table = datum.table();
                 const values = datum.values();
@@ -429,6 +447,26 @@ describe(`Table`, () => {
                             // that - and that's ok!
                             let bind = jest.fn();
                             filtered.scan(() => { }, bind);
+                            for (let batch of table.chunks) {
+                                expect(bind).toHaveBeenCalledWith(batch);
+                            }
+                        });
+                    });
+                    describe(`scanReverse()`, () => {
+                        test(`iterates over expected values in reverse`, () => {
+                            let expected_idx = expected.length;
+                            filtered.scanReverse((idx, batch) => {
+                                const columns = batch.schema.fields.map((_, i) => batch.getChildAt(i)!);
+                                expect(columns.map((c) => c.get(idx))).toEqual(expected[--expected_idx]);
+                            });
+                        });
+                        test(`calls bind function on every batch`, () => {
+                            // Techincally, we only need to call bind on
+                            // batches with data that match the predicate, so
+                            // this test may fail in the future if we change
+                            // that - and that's ok!
+                            let bind = jest.fn();
+                            filtered.scanReverse(() => { }, bind);
                             for (let batch of table.chunks) {
                                 expect(bind).toHaveBeenCalledWith(batch);
                             }

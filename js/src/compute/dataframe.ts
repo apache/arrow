@@ -31,6 +31,7 @@ export type NextFunc = (idx: number, batch: RecordBatch) => void;
 
 Table.prototype.countBy = function(this: Table, name: Col | string) { return new DataFrame(this.chunks).countBy(name); };
 Table.prototype.scan = function(this: Table, next: NextFunc, bind?: BindFunc) { return new DataFrame(this.chunks).scan(next, bind); };
+Table.prototype.scanReverse = function(this: Table, next: NextFunc, bind?: BindFunc) { return new DataFrame(this.chunks).scanReverse(next, bind); };
 Table.prototype.filter = function(this: Table, predicate: Predicate): FilteredDataFrame { return new DataFrame(this.chunks).filter(predicate); };
 
 export class DataFrame<T extends { [key: string]: DataType } = any> extends Table<T> {
@@ -45,6 +46,18 @@ export class DataFrame<T extends { [key: string]: DataType } = any> extends Tabl
             if (bind) { bind(batch); }
             // yield all indices
             for (let index = -1, numRows = batch.length; ++index < numRows;) {
+                next(index, batch);
+            }
+        }
+    }
+    public scanReverse(next: NextFunc, bind?: BindFunc) {
+        const batches = this.chunks, numBatches = batches.length;
+        for (let batchIndex = numBatches; --batchIndex >= 0;) {
+            // load batches
+            const batch = batches[batchIndex];
+            if (bind) { bind(batch); }
+            // yield all indices
+            for (let index = batch.length; --index >= 0;) {
                 next(index, batch);
             }
         }
@@ -126,6 +139,23 @@ export class FilteredDataFrame<T extends { [key: string]: DataType } = any> exte
             const predicate = this._predicate.bind(batch);
             // yield all indices
             for (let index = -1, numRows = batch.length; ++index < numRows;) {
+                if (predicate(index, batch)) { next(index, batch); }
+            }
+        }
+    }
+    public scanReverse(next: NextFunc, bind?: BindFunc) {
+        const batches = this._chunks;
+        const numBatches = batches.length;
+        for (let batchIndex = numBatches; --batchIndex >= 0;) {
+            // load batches
+            const batch = batches[batchIndex];
+            // TODO: bind batches lazily
+            // If predicate doesn't match anything in the batch we don't need
+            // to bind the callback
+            if (bind) { bind(batch); }
+            const predicate = this._predicate.bind(batch);
+            // yield all indices
+            for (let index = batch.length; --index >= 0;) {
                 if (predicate(index, batch)) { next(index, batch); }
             }
         }
