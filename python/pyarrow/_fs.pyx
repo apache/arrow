@@ -41,7 +41,8 @@ cdef class FileStats:
     """FileSystem entry stats"""
 
     def __init__(self):
-        raise TypeError('dont initialize me')
+        raise TypeError("FileStats cannot be instantiated directly, use "
+                        "FileSystem.get_target_stats method instead.")
 
     @staticmethod
     cdef FileStats wrap(CFileStats stats):

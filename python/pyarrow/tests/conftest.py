@@ -243,18 +243,15 @@ def minio_server():
         'MINIO_SECRET_KEY': secret_key
     })
 
-    minio_dir = os.environ.get('S3FS_DIR', '')
-    minio_bin = os.path.join(minio_dir, 'minio') if minio_dir else 'minio'
-
     try:
         with tempfile.TemporaryDirectory() as tempdir:
-            args = [minio_bin, '--compat', 'server', '--quiet', '--address',
+            args = ['minio', '--compat', 'server', '--quiet', '--address',
                     address, tempdir]
             with subprocess.Popen(args, env=env) as proc:
                 yield address, access_key, secret_key
                 proc.terminate()
     except IOError:
-        pytest.skip('`minio` command cannot be located, try to set S3FS_DIR')
+        pytest.skip('`minio` command cannot be located')
 
 
 @pytest.fixture(scope='module')
