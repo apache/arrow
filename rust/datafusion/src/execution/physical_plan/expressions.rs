@@ -205,6 +205,7 @@ pub struct CastExpr {
     cast_type: DataType,
 }
 
+/// Determine if a DataType is numeric or not
 fn is_numeric(dt: &DataType) -> bool {
     match dt {
         DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => true,
