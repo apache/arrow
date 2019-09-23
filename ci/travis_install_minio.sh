@@ -17,27 +17,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -x
 set -e
+set -x
 
-if [ "$ARROW_CI_RUBY_AFFECTED" = "1" ]; then
-  brew_log_path=brew.log
-  function run_brew() {
-    local i=0
-    local n_tries=3
-    while [[ $((i++)) < ${n_tries} ]]; do
-     echo "${i}: brew" "$@" >> ${brew_log_path}
-     if gtimeout --signal=KILL 9m brew "$@" >> ${brew_log_path} 2>&1; then
-       break
-     elif [[ ${i} == ${n_tries} ]]; then
-       cat ${brew_log_path}
-       rm ${brew_log_path}
-       false
-     fi
-    done
-  }
+if [ "$ARROW_TRAVIS_S3" == "1" ]; then
+    # Download the Minio S3 server into PATH
+    if [ $TRAVIS_OS_NAME = "osx" ]; then
+        MINIO_URL=https://dl.min.io/server/minio/release/darwin-amd64/minio
+    else
+        MINIO_URL=https://dl.min.io/server/minio/release/linux-amd64/minio
+    fi
 
-  run_brew bundle --file=$TRAVIS_BUILD_DIR/cpp/Brewfile --verbose
-  run_brew bundle --file=$TRAVIS_BUILD_DIR/c_glib/Brewfile --verbose
-  rm ${brew_log_path}
+    S3FS_DIR=~/.local/bin/
+    mkdir -p $S3FS_DIR
+    wget --directory-prefix $S3FS_DIR $MINIO_URL
+    chmod +x $S3FS_DIR/minio
 fi

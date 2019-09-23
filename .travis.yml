@@ -117,6 +117,7 @@ matrix:
     - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ] && [ $ARROW_CI_DOCS_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_clang_tools.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_linux.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_install_minio.sh
     - $TRAVIS_BUILD_DIR/ci/travis_install_toolchain.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh || travis_terminate 1
@@ -151,7 +152,7 @@ matrix:
     - if [ $ARROW_CI_CPP_AFFECTED != "1" ] && [ $ARROW_CI_JAVA_AFFECTED != "1" ]; then exit; fi
     # If either C++ or Python changed, we must install the C++ libraries
     - git submodule update --init
-    - $TRAVIS_BUILD_DIR/ci/travis_install_osx.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_install_minio.sh
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_cpp.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh || travis_terminate 1
@@ -174,7 +175,7 @@ matrix:
     before_script:
     script:
     - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ]; then exit; fi
-    - $TRAVIS_BUILD_DIR/ci/travis_install_osx.sh
+    - $TRAVIS_BUILD_DIR/ci/travis_install_minio.sh
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
   - name: "Java OpenJDK8 and OpenJDK11"
     language: cpp
