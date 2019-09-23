@@ -261,17 +261,19 @@ def minio_server():
         'MINIO_SECRET_KEY': secret_key
     })
 
-    try:
-        with TemporaryDirectory() as tempdir:
-            args = ['minio', '--compat', 'server', '--quiet', '--address',
-                    address, tempdir]
-            try:
-                proc = subprocess.Popen(args, env=env)
-                yield address, access_key, secret_key
-            finally:
+    with TemporaryDirectory() as tempdir:
+        args = ['minio', '--compat', 'server', '--quiet', '--address',
+                address, tempdir]
+        proc = None
+        try:
+            proc = subprocess.Popen(args, env=env)
+        except IOError:
+            pytest.skip('`minio` command cannot be located')
+        else:
+            yield address, access_key, secret_key
+        finally:
+            if proc is not None:
                 proc.kill()
-    except IOError:
-        pytest.skip('`minio` command cannot be located')
 
 
 @pytest.fixture(scope='session')
