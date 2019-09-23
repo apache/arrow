@@ -335,7 +335,7 @@ void TestSlowInputStream() {
 
   util::string_view view;
   ASSERT_OK(slow->Peek(4, &view));
-  ASSERT_EQ(view, "ghij");
+  ASSERT_EQ(view, util::string_view("ghij"));
 
   ASSERT_OK(slow->Close());
   ASSERT_TRUE(slow->closed());

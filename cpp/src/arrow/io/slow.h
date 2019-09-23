@@ -33,7 +33,7 @@ class Status;
 
 namespace io {
 
-class LatencyGenerator {
+class ARROW_EXPORT LatencyGenerator {
  public:
   virtual ~LatencyGenerator();
 
