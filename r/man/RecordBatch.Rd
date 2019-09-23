@@ -3,14 +3,84 @@
 \docType{class}
 \name{RecordBatch}
 \alias{RecordBatch}
-\title{class arrow::RecordBatch}
+\alias{record_batch}
+\title{RecordBatch class}
+\usage{
+record_batch(..., schema = NULL)
+}
+\arguments{
+\item{...}{A \code{data.frame} or a named set of Arrays or vectors. If given a
+mixture of data.frames and vectors, the inputs will be autospliced together
+(see examples).}
+
+\item{schema}{a \link{Schema}, or \code{NULL} (the default) to infer the schema from
+the data in \code{...}}
+}
 \description{
-class arrow::RecordBatch
+A record batch is a collection of equal-length arrays matching
+a particular \link{Schema}. It is a table-like data structure that is semantically
+a sequence of \link[=Field]{fields}, each a contiguous Arrow \link{Array}.
 }
-\section{Methods}{
+\section{S3 Methods and Usage}{
 
+Record batches are data-frame-like, and many methods you expect to work on
+a \code{data.frame} are implemented for \code{RecordBatch}. This includes \code{[}, \code{[[},
+\code{$}, \code{names}, \code{dim}, \code{nrow}, \code{ncol}, \code{head}, and \code{tail}. You can also pull
+the data from an Arrow record batch into R with \code{as.data.frame()}. See the
+examples.
 
-TODO
+A caveat about the \code{$} method: because \code{RecordBatch} is an \code{R6} object,
+\code{$} is also used to access the object's methods (see below). Methods take
+precedence over the table's columns. So, \code{batch$Slice} would return the
+"Slice" method function even if there were a column in the table called
+"Slice".
+
+A caveat about the \code{[} method for row operations: only "slicing" is
+currently supported. That is, you can select a continuous range of rows
+from the table, but you can't filter with a \code{logical} vector or take an
+arbitrary selection of rows by integer indices.
 }
 
+\section{R6 Methods}{
+
+In addition to the more R-friendly S3 methods, a \code{RecordBatch} object has
+the following R6 methods that map onto the underlying C++ methods:
+\itemize{
+\item \code{$Equals(other)}: Returns \code{TRUE} if the \code{other} record batch is equal
+\item \code{$column(i)}: Extract an \code{Array} by integer position from the batch
+\item \code{$column_name(i)}: Get a column's name by integer position
+\item \code{$names()}: Get all column names (called by \code{names(batch)})
+\item \code{$GetColumnByName(name)}: Extract an \code{Array} by string name
+\item \code{$RemoveColumn(i)}: Drops a column from the batch by integer position
+\item \code{$select(spec)}: Return a new record batch with a selection of columns.
+This supports the usual \code{character}, \code{numeric}, and \code{logical} selection
+methods as well as "tidy select" expressions.
+\item \code{$Slice(offset, length = NULL)}: Create a zero-copy view starting at the
+indicated integer offset and going for the given length, or to the end
+of the table if \code{NULL}, the default.
+\item \code{$serialize()}: Returns a raw vector suitable for interprocess communication
+\item \code{$cast(target_schema, safe = TRUE, options = cast_options(safe))}: Alter
+the schema of the record batch.
+}
+
+There are also some active bindings
+\itemize{
+\item \code{$num_columns}
+\item \code{$num_rows}
+\item \code{$schema}
+\item \code{$columns}: Returns a list of \code{Array}s
+}
+}
+
+\examples{
+\donttest{
+batch <- record_batch(name = rownames(mtcars), mtcars)
+dim(batch)
+dim(head(batch))
+names(batch)
+batch$mpg
+batch[["cyl"]]
+as.data.frame(batch[4:8, c("gear", "hp", "wt")])
+}
+}
 \keyword{datasets}

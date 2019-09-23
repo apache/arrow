@@ -4,11 +4,8 @@
 \name{Field}
 \alias{Field}
 \alias{field}
-\title{class arrow::Field}
-\format{An object of class \code{R6ClassGenerator} of length 25.}
+\title{Field class}
 \usage{
-Field
-
 field(name, type, metadata)
 }
 \arguments{

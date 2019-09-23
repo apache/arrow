@@ -18,13 +18,15 @@
 context("RecordBatch")
 
 test_that("RecordBatch", {
+  # Note that we're reusing `tbl` and `batch` throughout the tests in this file
   tbl <- tibble::tibble(
-    int = 1:10, dbl = as.numeric(1:10),
+    int = 1:10,
+    dbl = as.numeric(1:10),
     lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
     chr = letters[1:10],
     fct = factor(letters[1:10])
   )
-  batch <- record_batch(!!!tbl)
+  batch <- record_batch(tbl)
 
   expect_true(batch == batch)
   expect_equal(
@@ -84,6 +86,40 @@ test_that("RecordBatch", {
   expect_identical(as.data.frame(batch4), tbl[6:7,])
 })
 
+test_that("[ on RecordBatch", {
+  expect_identical(as.data.frame(batch[6:7,]), tbl[6:7,])
+  expect_identical(as.data.frame(batch[c(6, 7),]), tbl[6:7,])
+  expect_identical(as.data.frame(batch[6:7, 2:4]), tbl[6:7, 2:4])
+  expect_identical(as.data.frame(batch[, c("dbl", "fct")]), tbl[, c(2, 5)])
+  expect_identical(as.vector(batch[, "chr", drop = TRUE]), tbl$chr)
+  expect_error(
+    batch[c(3, 5, 7),],
+    'Only row "Slicing" (taking rows a:b) currently supported',
+    fixed = TRUE
+  )
+})
+
+test_that("[[ and $ on RecordBatch", {
+  expect_identical(as.vector(batch[["int"]]), tbl$int)
+  expect_identical(as.vector(batch$int), tbl$int)
+  expect_identical(as.vector(batch[[4]]), tbl$chr)
+  expect_null(batch$qwerty)
+  expect_null(batch[["asdf"]])
+  expect_error(batch[[c(4, 3)]], 'length(i) not equal to 1', fixed = TRUE)
+  expect_error(batch[[NA]], "'i' must be character or numeric, not logical")
+  expect_error(batch[[NULL]], "'i' must be character or numeric, not NULL")
+  expect_error(batch[[c("asdf", "jkl;")]], 'length(name) not equal to 1', fixed = TRUE)
+})
+
+test_that("head and tail on RecordBatch", {
+  expect_identical(as.data.frame(head(batch)), head(tbl))
+  expect_identical(as.data.frame(head(batch, 4)), head(tbl, 4))
+  expect_identical(as.data.frame(head(batch, -4)), head(tbl, -4))
+  expect_identical(as.data.frame(tail(batch)), tail(tbl))
+  expect_identical(as.data.frame(tail(batch, 4)), tail(tbl, 4))
+  expect_identical(as.data.frame(tail(batch, -4)), tail(tbl, -4))
+})
+
 test_that("RecordBatch with 0 rows are supported", {
   tbl <- tibble::tibble(
     int = integer(),
@@ -93,7 +129,7 @@ test_that("RecordBatch with 0 rows are supported", {
     fct = factor(character(), levels = c("a", "b"))
   )
 
-  batch <- record_batch(!!!tbl)
+  batch <- record_batch(tbl)
   expect_equal(batch$num_columns, 5L)
   expect_equal(batch$num_rows, 0L)
   expect_equal(

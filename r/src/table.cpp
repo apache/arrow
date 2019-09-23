@@ -70,13 +70,26 @@ std::vector<std::shared_ptr<arrow::ChunkedArray>> Table__columns(
 }
 
 // [[arrow::export]]
-Rcpp::CharacterVector Table__column_names(const std::shared_ptr<arrow::Table>& table) {
-  int nc = table->num_columns();
-  Rcpp::CharacterVector res(nc);
-  for (int i = 0; i < nc; i++) {
-    res[i] = table->field(i)->name();
-  }
-  return res;
+std::vector<std::string> Table__ColumnNames(const std::shared_ptr<arrow::Table>& table) {
+  return table->ColumnNames();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Table> Table__Slice1(
+    const std::shared_ptr<arrow::Table>& table, int offset) {
+  return table->Slice(offset);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Table> Table__Slice2(
+    const std::shared_ptr<arrow::Table>& table, int offset, int length) {
+  return table->Slice(offset, length);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::ChunkedArray> Table__GetColumnByName(
+    const std::shared_ptr<arrow::Table>& table, const std::string& name) {
+  return table->GetColumnByName(name);
 }
 
 // [[arrow::export]]

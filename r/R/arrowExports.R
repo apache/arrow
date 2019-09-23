@@ -908,6 +908,14 @@ RecordBatch__column <- function(batch, i){
     .Call(`_arrow_RecordBatch__column` , batch, i)
 }
 
+RecordBatch__GetColumnByName <- function(batch, name){
+    .Call(`_arrow_RecordBatch__GetColumnByName` , batch, name)
+}
+
+RecordBatch__select <- function(batch, indices){
+    .Call(`_arrow_RecordBatch__select` , batch, indices)
+}
+
 RecordBatch__from_dataframe <- function(tbl){
     .Call(`_arrow_RecordBatch__from_dataframe` , tbl)
 }
@@ -1068,8 +1076,20 @@ Table__columns <- function(table){
     .Call(`_arrow_Table__columns` , table)
 }
 
-Table__column_names <- function(table){
-    .Call(`_arrow_Table__column_names` , table)
+Table__ColumnNames <- function(table){
+    .Call(`_arrow_Table__ColumnNames` , table)
+}
+
+Table__Slice1 <- function(table, offset){
+    .Call(`_arrow_Table__Slice1` , table, offset)
+}
+
+Table__Slice2 <- function(table, offset, length){
+    .Call(`_arrow_Table__Slice2` , table, offset, length)
+}
+
+Table__GetColumnByName <- function(table, name){
+    .Call(`_arrow_Table__GetColumnByName` , table, name)
 }
 
 Table__select <- function(table, indices){

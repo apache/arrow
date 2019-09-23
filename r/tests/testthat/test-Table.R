@@ -82,6 +82,49 @@ test_that("Table dim() and nrow() (ARROW-3816)", {
   expect_equal(nrow(tab), 10L)
 })
 
+test_that("[, [[, $ for Table", {
+  tbl <- tibble::tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
+    chr = letters[1:10],
+    fct = factor(letters[1:10])
+  )
+  tab <- Table$create(tbl)
+
+  expect_identical(names(tab), names(tbl))
+
+  expect_identical(as.data.frame(tab[6:7,]), tbl[6:7,])
+  expect_identical(as.data.frame(tab[6:7, 2:4]), tbl[6:7, 2:4])
+  expect_identical(as.data.frame(tab[, c("dbl", "fct")]), tbl[, c(2, 5)])
+  expect_identical(as.vector(tab[, "chr", drop = TRUE]), tbl$chr)
+
+  expect_identical(as.vector(tab[["int"]]), tbl$int)
+  expect_identical(as.vector(tab$int), tbl$int)
+  expect_identical(as.vector(tab[[4]]), tbl$chr)
+  expect_null(tab$qwerty)
+  expect_null(tab[["asdf"]])
+  expect_error(tab[[c(4, 3)]], 'length(i) not equal to 1', fixed = TRUE)
+  expect_error(tab[[NA]], "'i' must be character or numeric, not logical")
+  expect_error(tab[[NULL]], "'i' must be character or numeric, not NULL")
+  expect_error(tab[[c("asdf", "jkl;")]], 'length(name) not equal to 1', fixed = TRUE)
+})
+
+test_that("head and tail on Table", {
+  expect_identical(as.data.frame(head(tab)), head(tbl))
+  expect_identical(as.data.frame(head(tab, 4)), head(tbl, 4))
+  expect_identical(as.data.frame(head(tab, -4)), head(tbl, -4))
+  expect_identical(as.data.frame(tail(tab)), tail(tbl))
+  expect_identical(as.data.frame(tail(tab, 4)), tail(tbl, 4))
+  expect_identical(as.data.frame(tail(tab, -4)), tail(tbl, -4))
+})
+
+test_that("table active bindings", {
+  expect_identical(dim(tbl), dim(tab))
+  expect_is(tab$columns, "list")
+  expect_equal(tab$columns[[1]], tab[[1]])
+})
+
 test_that("table() handles record batches with splicing", {
   batch <- record_batch(x = 1:2, y = letters[1:2])
   tab <- Table$create(batch, batch, batch)
@@ -136,4 +179,3 @@ test_that("table() auto splices (ARROW-5718)", {
   expect_equal(tab3$schema, s)
   expect_equivalent(as.data.frame(tab3), df)
 })
-
