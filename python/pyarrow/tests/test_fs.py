@@ -272,7 +272,7 @@ def localfs(request, tempdir):
 
 @pytest.fixture(params=[
     S3Wrapper,
-    #SubTreeS3Wrapper
+    SubTreeS3Wrapper
 ])
 def s3fs(request, minio_server, minio_client, minio_bucket):
     from pyarrow.fs import initialize_s3
