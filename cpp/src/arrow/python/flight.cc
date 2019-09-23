@@ -239,6 +239,100 @@ Status PyGeneratorFlightDataStream::Next(FlightPayload* payload) {
   });
 }
 
+// Flight Server Middleware
+
+PyServerMiddlewareFactory::PyServerMiddlewareFactory(PyObject* factory,
+                                                     StartCallCallback start_call)
+    : start_call_(start_call) {
+  Py_INCREF(factory);
+  factory_.reset(factory);
+}
+
+Status PyServerMiddlewareFactory::StartCall(
+    const arrow::flight::CallInfo& info,
+    const arrow::flight::CallHeaders& incoming_headers,
+    std::shared_ptr<arrow::flight::ServerMiddleware>* middleware) {
+  return SafeCallIntoPython([&] {
+    const Status status = start_call_(factory_.obj(), info, incoming_headers, middleware);
+    RETURN_NOT_OK(CheckPyError());
+    return status;
+  });
+}
+
+PyServerMiddleware::PyServerMiddleware(PyObject* middleware, Vtable vtable)
+    : vtable_(vtable) {
+  Py_INCREF(middleware);
+  middleware_.reset(middleware);
+}
+
+Status PyServerMiddleware::SendingHeaders(
+    arrow::flight::AddCallHeaders& outgoing_headers) {
+  return SafeCallIntoPython([&] {
+    const Status status = vtable_.sending_headers(middleware_.obj(), outgoing_headers);
+    RETURN_NOT_OK(CheckPyError());
+    return status;
+  });
+}
+
+Status PyServerMiddleware::CallCompleted(const Status& call_status) {
+  return SafeCallIntoPython([&] {
+    const Status status = vtable_.call_completed(middleware_.obj(), call_status);
+    RETURN_NOT_OK(CheckPyError());
+    return status;
+  });
+}
+
+// Flight Client Middleware
+
+PyClientMiddlewareFactory::PyClientMiddlewareFactory(PyObject* factory,
+                                                     StartCallCallback start_call)
+    : start_call_(start_call) {
+  Py_INCREF(factory);
+  factory_.reset(factory);
+}
+
+Status PyClientMiddlewareFactory::StartCall(
+    const arrow::flight::CallInfo& info,
+    std::unique_ptr<arrow::flight::ClientMiddleware>* middleware) {
+  return SafeCallIntoPython([&] {
+    const Status status = start_call_(factory_.obj(), info, middleware);
+    RETURN_NOT_OK(CheckPyError());
+    return status;
+  });
+}
+
+PyClientMiddleware::PyClientMiddleware(PyObject* middleware, Vtable vtable)
+    : vtable_(vtable) {
+  Py_INCREF(middleware);
+  middleware_.reset(middleware);
+}
+
+Status PyClientMiddleware::SendingHeaders(
+    arrow::flight::AddCallHeaders& outgoing_headers) {
+  return SafeCallIntoPython([&] {
+    const Status status = vtable_.sending_headers(middleware_.obj(), outgoing_headers);
+    RETURN_NOT_OK(CheckPyError());
+    return status;
+  });
+}
+
+Status PyClientMiddleware::ReceivedHeaders(
+    const arrow::flight::CallHeaders& incoming_headers) {
+  return SafeCallIntoPython([&] {
+    const Status status = vtable_.received_headers(middleware_.obj(), incoming_headers);
+    RETURN_NOT_OK(CheckPyError());
+    return status;
+  });
+}
+
+Status PyClientMiddleware::CallCompleted(const Status& call_status) {
+  return SafeCallIntoPython([&] {
+    const Status status = vtable_.call_completed(middleware_.obj(), call_status);
+    RETURN_NOT_OK(CheckPyError());
+    return status;
+  });
+}
+
 Status CreateFlightInfo(const std::shared_ptr<arrow::Schema>& schema,
                         const arrow::flight::FlightDescriptor& descriptor,
                         const std::vector<arrow::flight::FlightEndpoint>& endpoints,

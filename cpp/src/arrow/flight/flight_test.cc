@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
@@ -41,6 +42,7 @@
 #endif
 
 #include "arrow/flight/internal.h"
+#include "arrow/flight/middleware_internal.h"
 #include "arrow/flight/test_util.h"
 
 namespace pb = arrow::flight::protocol;
@@ -581,6 +583,279 @@ class TestTls : public ::testing::Test {
   std::unique_ptr<InProcessTestServer> server_;
 };
 
+class RejectServerMiddlewareFactory : public ServerMiddlewareFactory {
+  Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
+                   std::shared_ptr<ServerMiddleware>* middleware) override {
+    return MakeFlightError(FlightStatusCode::Unauthenticated, "All calls are rejected");
+  }
+};
+
+class CountingServerMiddleware : public ServerMiddleware {
+ public:
+  CountingServerMiddleware(std::atomic<int>* successful, std::atomic<int>* failed)
+      : successful_(successful), failed_(failed) {}
+  Status SendingHeaders(AddCallHeaders& outgoing_headers) { return Status::OK(); }
+  Status CallCompleted(const Status& status) {
+    if (status.ok()) {
+      ARROW_IGNORE_EXPR((*successful_)++);
+    } else {
+      ARROW_IGNORE_EXPR((*failed_)++);
+    }
+    return Status::OK();
+  }
+
+ private:
+  std::atomic<int>* successful_;
+  std::atomic<int>* failed_;
+};
+
+class CountingServerMiddlewareFactory : public ServerMiddlewareFactory {
+ public:
+  CountingServerMiddlewareFactory() : successful_(0), failed_(0) {}
+
+  Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
+                   std::shared_ptr<ServerMiddleware>* middleware) override {
+    *middleware = std::make_shared<CountingServerMiddleware>(&successful_, &failed_);
+    return Status::OK();
+  }
+
+  std::atomic<int> successful_;
+  std::atomic<int> failed_;
+};
+
+class TracingServerMiddleware : public ServerMiddleware {
+ public:
+  TracingServerMiddleware(const std::string& span_id) : span_id_(span_id) {}
+  Status SendingHeaders(AddCallHeaders& outgoing_headers) { return Status::OK(); }
+  Status CallCompleted(const Status& status) { return Status::OK(); }
+
+  std::string span_id_;
+};
+
+static thread_local std::string current_span_id = "";
+
+class TracingServerMiddlewareFactory : public ServerMiddlewareFactory {
+ public:
+  TracingServerMiddlewareFactory() {}
+
+  Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
+                   std::shared_ptr<ServerMiddleware>* middleware) override {
+    const auto& iter_pair = incoming_headers.GetHeaders("x-tracing-span-id");
+    if (iter_pair.first != iter_pair.second) {
+      const auto& value = (*iter_pair.first).second;
+      const std::string copy(value);
+      current_span_id = copy;
+      *middleware = std::make_shared<TracingServerMiddleware>(copy);
+    }
+    return Status::OK();
+  }
+};
+
+class PropagatingClientMiddleware : public ClientMiddleware {
+ public:
+  explicit PropagatingClientMiddleware(std::atomic<int>* received_headers,
+                                       std::vector<Status>* recorded_status)
+      : received_headers_(received_headers), recorded_status_(recorded_status) {}
+
+  Status SendingHeaders(AddCallHeaders& outgoing_headers) {
+    outgoing_headers.AddHeader("x-tracing-span-id", current_span_id);
+    return Status::OK();
+  }
+
+  Status ReceivedHeaders(const CallHeaders& incoming_headers) {
+    (*received_headers_)++;
+    return Status::OK();
+  }
+
+  Status CallCompleted(const Status& status) {
+    recorded_status_->push_back(status);
+    return Status::OK();
+  }
+
+ private:
+  std::atomic<int>* received_headers_;
+  std::vector<Status>* recorded_status_;
+};
+
+class PropagatingClientMiddlewareFactory : public ClientMiddlewareFactory {
+ public:
+  Status StartCall(const CallInfo& info, std::unique_ptr<ClientMiddleware>* middleware) {
+    recorded_calls_.push_back(info.method);
+    *middleware = arrow::internal::make_unique<PropagatingClientMiddleware>(
+        &received_headers_, &recorded_status_);
+    return Status::OK();
+  }
+
+  void Reset() {
+    recorded_calls_.clear();
+    recorded_status_.clear();
+    received_headers_.fetch_and(0);
+  }
+
+  std::vector<FlightMethod> recorded_calls_;
+  std::vector<Status> recorded_status_;
+  std::atomic<int> received_headers_;
+};
+
+class ReportContextTestServer : public FlightServerBase {
+  Status DoAction(const ServerCallContext& context, const Action& action,
+                  std::unique_ptr<ResultStream>* result) override {
+    std::shared_ptr<TracingServerMiddleware> middleware =
+        std::static_pointer_cast<TracingServerMiddleware>(
+            context.GetMiddleware("tracing"));
+    std::shared_ptr<Buffer> buf;
+    if (middleware) {
+      RETURN_NOT_OK(Buffer::FromString(middleware->span_id_, &buf));
+    } else {
+      RETURN_NOT_OK(Buffer::FromString("", &buf));
+    }
+    *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
+    return Status::OK();
+  }
+};
+
+class PropagatingTestServer : public FlightServerBase {
+ public:
+  explicit PropagatingTestServer(std::unique_ptr<FlightClient> client)
+      : client_(std::move(client)) {}
+
+  Status DoAction(const ServerCallContext& context, const Action& action,
+                  std::unique_ptr<ResultStream>* result) override {
+    return client_->DoAction(action, result);
+  }
+
+ private:
+  std::unique_ptr<FlightClient> client_;
+};
+
+class TestServerMiddleware : public ::testing::Test {
+ public:
+  void SetUp() {
+    Location location;
+    std::unique_ptr<FlightServerBase> server(new MetadataTestServer);
+
+    ASSERT_OK(Location::ForGrpcTcp("localhost", 0, &location));
+    FlightServerOptions options(location);
+    options.middleware.push_back(
+        std::make_pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>(
+            "test", std::make_shared<RejectServerMiddlewareFactory>()));
+    ASSERT_OK(server->Init(options));
+
+    Location real_location;
+    ASSERT_OK(Location::ForGrpcTcp("localhost", server->port(), &real_location));
+    server_.reset(new InProcessTestServer(std::move(server), real_location));
+    ASSERT_OK(server_->Start());
+    ASSERT_OK(ConnectClient());
+  }
+
+  void TearDown() { server_->Stop(); }
+
+  Status ConnectClient() { return FlightClient::Connect(server_->location(), &client_); }
+
+ protected:
+  std::unique_ptr<FlightClient> client_;
+  std::unique_ptr<InProcessTestServer> server_;
+};
+
+class TestCountingServerMiddleware : public ::testing::Test {
+ public:
+  void SetUp() {
+    Location location;
+    std::unique_ptr<FlightServerBase> server(new MetadataTestServer);
+
+    request_counter_ = std::make_shared<CountingServerMiddlewareFactory>();
+
+    ASSERT_OK(Location::ForGrpcTcp("localhost", 0, &location));
+    FlightServerOptions options(location);
+    options.middleware.push_back(
+        std::make_pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>(
+            "counting", request_counter_));
+    ASSERT_OK(server->Init(options));
+
+    Location real_location;
+    ASSERT_OK(Location::ForGrpcTcp("localhost", server->port(), &real_location));
+    server_.reset(new InProcessTestServer(std::move(server), real_location));
+    ASSERT_OK(server_->Start());
+    ASSERT_OK(ConnectClient());
+  }
+
+  void TearDown() { server_->Stop(); }
+
+  Status ConnectClient() { return FlightClient::Connect(server_->location(), &client_); }
+
+ protected:
+  std::unique_ptr<FlightClient> client_;
+  std::unique_ptr<InProcessTestServer> server_;
+  std::shared_ptr<CountingServerMiddlewareFactory> request_counter_;
+};
+
+// Setup for this test is 2 servers
+// 1. Client makes request to server A with a request ID set
+// 2. server A extracts the request ID and makes a request to server B
+//    with the same request ID set
+// 3. server B extracts the request ID and sends it back
+// 4. server A returns the response of server B
+// 5. Client validates the response
+class TestPropagatingMiddleware : public ::testing::Test {
+ public:
+  void SetUp() {
+    Location location;
+    ASSERT_OK(Location::ForGrpcTcp("localhost", 0, &location));
+
+    server_middleware_ = std::make_shared<TracingServerMiddlewareFactory>();
+    second_client_middleware_ = std::make_shared<PropagatingClientMiddlewareFactory>();
+    client_middleware_ = std::make_shared<PropagatingClientMiddlewareFactory>();
+
+    second_server_ = arrow::internal::make_unique<ReportContextTestServer>();
+    FlightServerOptions second_server_options(location);
+    second_server_options.middleware.push_back(
+        std::make_pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>(
+            "tracing", server_middleware_));
+    ASSERT_OK(second_server_->Init(second_server_options));
+
+    Location real_location;
+    ASSERT_OK(Location::ForGrpcTcp("localhost", second_server_->port(), &real_location));
+    std::unique_ptr<FlightClient> server_client;
+    FlightClientOptions second_client_options{};
+    second_client_options.middleware.push_back(second_client_middleware_);
+    ASSERT_OK(
+        FlightClient::Connect(real_location, second_client_options, &server_client));
+
+    first_server_ =
+        arrow::internal::make_unique<PropagatingTestServer>(std::move(server_client));
+
+    FlightServerOptions first_server_options(location);
+    first_server_options.middleware.push_back(
+        std::make_pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>(
+            "tracing", server_middleware_));
+    ASSERT_OK(first_server_->Init(first_server_options));
+
+    ASSERT_OK(Location::ForGrpcTcp("localhost", first_server_->port(), &real_location));
+    FlightClientOptions first_client_options{};
+    first_client_options.middleware.push_back(client_middleware_);
+    ASSERT_OK(FlightClient::Connect(real_location, first_client_options, &client_));
+  }
+
+  void ValidateStatus(const Status& status, const FlightMethod& method) {
+    ASSERT_EQ(1, client_middleware_->received_headers_);
+    ASSERT_EQ(method, client_middleware_->recorded_calls_.at(0));
+    ASSERT_EQ(status.code(), client_middleware_->recorded_status_.at(0).code());
+  }
+
+  void TearDown() {
+    ASSERT_OK(first_server_->Shutdown());
+    ASSERT_OK(second_server_->Shutdown());
+  }
+
+ protected:
+  std::unique_ptr<FlightClient> client_;
+  std::unique_ptr<FlightServerBase> first_server_;
+  std::unique_ptr<FlightServerBase> second_server_;
+  std::shared_ptr<TracingServerMiddlewareFactory> server_middleware_;
+  std::shared_ptr<PropagatingClientMiddlewareFactory> second_client_middleware_;
+  std::shared_ptr<PropagatingClientMiddlewareFactory> client_middleware_;
+};
+
 TEST_F(TestFlightClient, ListFlights) {
   std::unique_ptr<FlightListing> listing;
   ASSERT_OK(client_->ListFlights(&listing));
@@ -1075,6 +1350,173 @@ TEST_F(TestMetadata, DoPutReadMetadata) {
   // As opposed to DoPutDrainMetadata, now we've read the messages, so
   // make sure this still closes as expected.
   ASSERT_OK(writer->Close());
+}
+
+TEST_F(TestServerMiddleware, Rejected) {
+  std::unique_ptr<FlightInfo> info;
+  const auto& status = client_->GetFlightInfo(FlightDescriptor{}, &info);
+  ASSERT_RAISES(IOError, status);
+  ASSERT_THAT(status.message(), ::testing::HasSubstr("All calls are rejected"));
+}
+
+TEST_F(TestCountingServerMiddleware, Count) {
+  std::unique_ptr<FlightInfo> info;
+  const auto& status = client_->GetFlightInfo(FlightDescriptor{}, &info);
+  ASSERT_RAISES(NotImplemented, status);
+
+  Ticket ticket{""};
+  std::unique_ptr<FlightStreamReader> stream;
+  ASSERT_OK(client_->DoGet(ticket, &stream));
+
+  // The DoGet hasn't finished yet here.
+  ASSERT_EQ(0, request_counter_->successful_);
+  ASSERT_EQ(1, request_counter_->failed_);
+
+  while (true) {
+    FlightStreamChunk chunk;
+    ASSERT_OK(stream->Next(&chunk));
+    if (chunk.data == nullptr) {
+      break;
+    }
+  }
+
+  ASSERT_EQ(1, request_counter_->successful_);
+  ASSERT_EQ(1, request_counter_->failed_);
+}
+
+TEST_F(TestPropagatingMiddleware, Propagate) {
+  Action action;
+  std::unique_ptr<ResultStream> stream;
+  std::unique_ptr<Result> result;
+
+  current_span_id = "trace-id";
+  client_middleware_->Reset();
+
+  action.type = "action1";
+  const std::string action1_value = "action1-content";
+  ASSERT_OK(Buffer::FromString(action1_value, &action.body));
+  ASSERT_OK(client_->DoAction(action, &stream));
+
+  ASSERT_OK(stream->Next(&result));
+  ASSERT_EQ("trace-id", result->body->ToString());
+  ValidateStatus(Status::OK(), FlightMethod::DoAction);
+}
+
+// For each method, make sure that the client middleware received
+// headers from the server and that the proper method enum value was
+// passed to the interceptor
+TEST_F(TestPropagatingMiddleware, ListFlights) {
+  client_middleware_->Reset();
+  std::unique_ptr<FlightListing> listing;
+  const Status status = client_->ListFlights(&listing);
+  ASSERT_RAISES(NotImplemented, status);
+  ValidateStatus(status, FlightMethod::ListFlights);
+}
+
+TEST_F(TestPropagatingMiddleware, GetFlightInfo) {
+  client_middleware_->Reset();
+  auto descr = FlightDescriptor::Path({"examples", "ints"});
+  std::unique_ptr<FlightInfo> info;
+  const Status status = client_->GetFlightInfo(descr, &info);
+  ASSERT_RAISES(NotImplemented, status);
+  ValidateStatus(status, FlightMethod::GetFlightInfo);
+}
+
+TEST_F(TestPropagatingMiddleware, GetSchema) {
+  client_middleware_->Reset();
+  auto descr = FlightDescriptor::Path({"examples", "ints"});
+  std::unique_ptr<SchemaResult> result;
+  const Status status = client_->GetSchema(descr, &result);
+  ASSERT_RAISES(NotImplemented, status);
+  ValidateStatus(status, FlightMethod::GetSchema);
+}
+
+TEST_F(TestPropagatingMiddleware, ListActions) {
+  client_middleware_->Reset();
+  std::vector<ActionType> actions;
+  const Status status = client_->ListActions(&actions);
+  ASSERT_RAISES(NotImplemented, status);
+  ValidateStatus(status, FlightMethod::ListActions);
+}
+
+TEST_F(TestPropagatingMiddleware, DoGet) {
+  client_middleware_->Reset();
+  Ticket ticket1{"ARROW-5095-fail"};
+  std::unique_ptr<FlightStreamReader> stream;
+  Status status = client_->DoGet(ticket1, &stream);
+  ASSERT_RAISES(NotImplemented, status);
+  ValidateStatus(status, FlightMethod::DoGet);
+}
+
+TEST_F(TestPropagatingMiddleware, DoPut) {
+  client_middleware_->Reset();
+  auto descr = FlightDescriptor::Path({"ints"});
+  auto a1 = ArrayFromJSON(int32(), "[4, 5, 6, null]");
+  auto schema = arrow::schema({field("f1", a1->type())});
+
+  std::unique_ptr<FlightStreamWriter> stream;
+  std::unique_ptr<FlightMetadataReader> reader;
+  ASSERT_OK(client_->DoPut(descr, schema, &stream, &reader));
+  const Status status = stream->Close();
+  ASSERT_RAISES(NotImplemented, status);
+  ValidateStatus(status, FlightMethod::DoPut);
+}
+
+// Validate the implementation of the call headers wrapper
+TEST_F(TestPropagatingMiddleware, CallHeaders) {
+  std::string header1 = "x-header";
+  std::string header1_value1 = "value";
+  std::string header1_value2 = "value";
+  std::string header2 = "x-header-two";
+  std::string header2_value1 = "value-two";
+
+  internal::GrpcMetadataMap headers;
+  headers.insert({header1, header1_value1});
+  headers.insert({header2, header2_value1});
+  headers.insert({header1, header1_value2});
+
+  internal::GrpcCallHeaders incoming_headers(&headers);
+
+  ASSERT_EQ(incoming_headers.cbegin(), incoming_headers.cbegin());
+  ASSERT_EQ(incoming_headers.cend(), incoming_headers.cend());
+  ASSERT_EQ(2, incoming_headers.Count(header1));
+  ASSERT_EQ(1, incoming_headers.Count(header2));
+  {
+    const auto& header_pair = incoming_headers.GetHeaders("x-invalid");
+    ASSERT_EQ(header_pair.first, header_pair.second);
+  }
+  {
+    std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator> header_pair =
+        incoming_headers.GetHeaders(header1);
+    auto& current = header_pair.first;
+    ASSERT_NE(current, header_pair.second);
+    ASSERT_EQ(header1, (*current).first);
+    ASSERT_EQ(header1_value1, (*current).second);
+    ++current;
+    ASSERT_NE(current, header_pair.second);
+    ASSERT_EQ(header1, (*current).first);
+    ASSERT_EQ(header1_value2, (*current).second);
+    ++current;
+    ASSERT_EQ(current, header_pair.second);
+  }
+  {
+    std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator> header_pair =
+        incoming_headers.GetHeaders(header2);
+    auto& current = header_pair.first;
+    ASSERT_NE(current, header_pair.second);
+    ASSERT_EQ(header2, (*current).first);
+    ASSERT_EQ(header2_value1, (*current).second);
+    ++current;
+    ASSERT_EQ(current, header_pair.second);
+  }
+  CallHeaders::const_iterator it = incoming_headers.cbegin();
+  ASSERT_NE(it, incoming_headers.cend());
+  it++;
+  ASSERT_NE(it, incoming_headers.cend());
+  it++;
+  ASSERT_NE(it, incoming_headers.cend());
+  it++;
+  ASSERT_EQ(it, incoming_headers.cend());
 }
 
 }  // namespace flight

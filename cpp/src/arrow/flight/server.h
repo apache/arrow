@@ -23,6 +23,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/flight/server_auth.h"
@@ -39,6 +40,9 @@ class Schema;
 class Status;
 
 namespace flight {
+
+class ServerMiddleware;
+class ServerMiddlewareFactory;
 
 /// \brief Interface that produces a sequence of IPC payloads to be sent in
 /// FlightData protobuf messages
@@ -98,11 +102,17 @@ class ARROW_FLIGHT_EXPORT ServerCallContext {
   virtual ~ServerCallContext() = default;
   /// \brief The name of the authenticated peer (may be the empty string)
   virtual const std::string& peer_identity() const = 0;
+  /// \brief Get a middleware instance for this call.
+  /// \return nullptr if not found
+  virtual std::shared_ptr<ServerMiddleware> GetMiddleware(
+      const std::string& key) const = 0;
 };
 
 class ARROW_FLIGHT_EXPORT FlightServerOptions {
  public:
   explicit FlightServerOptions(const Location& location_);
+
+  ~FlightServerOptions();
 
   /// \brief The host & port (or domain socket path) to listen on.
   /// Use port 0 to bind to an available port.
@@ -111,8 +121,16 @@ class ARROW_FLIGHT_EXPORT FlightServerOptions {
   std::unique_ptr<ServerAuthHandler> auth_handler;
   /// \brief A list of TLS certificate+key pairs to use.
   std::vector<CertKeyPair> tls_certificates;
+
+  /// \brief A list of server middleware to apply.
+  ///
+  /// It is a vector rather than a map since the order of middleware matters.
+  std::vector<std::pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>>
+      middleware;
+
   /// \brief A Flight implementation-specific callback to customize
   /// transport-specific options.
+  ///
   /// Not guaranteed to be called. The type of the parameter is
   /// specific to the Flight implementation. Users should take care to
   /// link to the same transport implementation as Flight to avoid

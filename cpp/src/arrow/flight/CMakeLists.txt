@@ -83,6 +83,8 @@ set(ARROW_FLIGHT_SRCS
     internal.cc
     protocol_internal.cc
     serialization_internal.cc
+    middleware.cc
+    middleware_internal.cc
     server.cc
     server_auth.cc
     types.cc)

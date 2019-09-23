@@ -31,6 +31,7 @@ import warnings
 import six
 
 from cython.operator cimport dereference as deref
+from cython.operator cimport postincrement
 
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.lib cimport *
@@ -280,6 +281,40 @@ class DescriptorType(enum.Enum):
     UNKNOWN = 0
     PATH = 1
     CMD = 2
+
+
+class FlightMethod(enum.Enum):
+    """The implemented methods in Flight."""
+
+    INVALID = 0
+    HANDSHAKE = 1
+    LIST_FLIGHTS = 2
+    GET_FLIGHT_INFO = 3
+    GET_SCHEMA = 4
+    DO_GET = 5
+    DO_PUT = 6
+    DO_ACTION = 7
+    LIST_ACTIONS = 8
+
+
+cdef wrap_flight_method(CFlightMethod method):
+    if method == CFlightMethodHandshake:
+        return FlightMethod.HANDSHAKE
+    elif method == CFlightMethodListFlights:
+        return FlightMethod.LIST_FLIGHTS
+    elif method == CFlightMethodGetFlightInfo:
+        return FlightMethod.GET_FLIGHT_INFO
+    elif method == CFlightMethodGetSchema:
+        return FlightMethod.GET_SCHEMA
+    elif method == CFlightMethodDoGet:
+        return FlightMethod.DO_GET
+    elif method == CFlightMethodDoPut:
+        return FlightMethod.DO_PUT
+    elif method == CFlightMethodDoAction:
+        return FlightMethod.DO_ACTION
+    elif method == CFlightMethodListActions:
+        return FlightMethod.LIST_ACTIONS
+    return FlightMethod.INVALID
 
 
 cdef class FlightDescriptor:
@@ -855,11 +890,14 @@ cdef class FlightClient:
         PEM-encoded
     override_hostname : str or None
         Override the hostname checked by TLS. Insecure, use with caution.
+    middleware : list optional, default None
+        A list of ClientMiddlewareFactory instances.
     """
     cdef:
         unique_ptr[CFlightClient] client
 
-    def __init__(self, location, tls_root_certs=None, override_hostname=None):
+    def __init__(self, location, tls_root_certs=None, override_hostname=None,
+                 middleware=None):
         if isinstance(location, six.string_types):
             location = Location(location)
         elif isinstance(location, tuple):
@@ -871,18 +909,27 @@ cdef class FlightClient:
         elif not isinstance(location, Location):
             raise TypeError('`location` argument must be a string, tuple or a '
                             'Location instance')
-        self.init(location, tls_root_certs, override_hostname)
+        self.init(location, tls_root_certs, override_hostname, middleware)
 
-    cdef init(self, Location location, tls_root_certs, override_hostname):
+    cdef init(self, Location location, tls_root_certs, override_hostname,
+              middleware):
         cdef:
             int c_port = 0
             CLocation c_location = Location.unwrap(location)
             CFlightClientOptions c_options
+            function[cb_client_middleware_start_call] start_call = \
+                &_client_middleware_start_call
 
         if tls_root_certs:
             c_options.tls_root_certs = tobytes(tls_root_certs)
         if override_hostname:
             c_options.override_hostname = tobytes(override_hostname)
+        if middleware:
+            for factory in middleware:
+                c_options.middleware.push_back(
+                    <shared_ptr[CClientMiddlewareFactory]>
+                    make_shared[CPyClientMiddlewareFactory](
+                        <PyObject*> factory, start_call))
 
         with nogil:
             check_flight_status(CFlightClient.Connect(c_location, c_options,
@@ -1597,6 +1644,104 @@ cdef CStatus _get_token(void* self, c_string* token) except *:
     return CStatus_OK()
 
 
+cdef CStatus _middleware_sending_headers(
+        void* self, CAddCallHeaders& add_headers) except *:
+    """Callback for implementing middleware."""
+    try:
+        headers = (<object> self).sending_headers()
+    except FlightError as flight_error:
+        return (<FlightError> flight_error).to_status()
+
+    if headers:
+        for header, values in headers.items():
+            if isinstance(values, (six.text_type, six.binary_type)):
+                values = (values,)
+            for value in values:
+                add_headers.AddHeader(tobytes(header), tobytes(value))
+
+    return CStatus_OK()
+
+
+cdef CStatus _middleware_call_completed(
+        void* self,
+        const CStatus& call_status) except *:
+    """Callback for implementing middleware."""
+    try:
+        try:
+            check_flight_status(call_status)
+        except Exception as e:
+            (<object> self).call_completed(e)
+        else:
+            (<object> self).call_completed(None)
+    except FlightError as flight_error:
+        return (<FlightError> flight_error).to_status()
+    return CStatus_OK()
+
+
+cdef CStatus _middleware_received_headers(
+        void* self,
+        const CCallHeaders& c_headers) except *:
+    """Callback for implementing middleware."""
+    try:
+        headers = convert_headers(c_headers)
+        (<object> self).received_headers(headers)
+    except FlightError as flight_error:
+        return (<FlightError> flight_error).to_status()
+    return CStatus_OK()
+
+
+cdef dict convert_headers(const CCallHeaders& c_headers):
+    cdef:
+        CHeaderIterator header_iter = c_headers.cbegin()
+    headers = {}
+    while header_iter != c_headers.cend():
+        header = frombytes(c_string(deref(header_iter).first))
+        value = frombytes(c_string(deref(header_iter).second))
+        if header not in headers:
+            headers[header] = []
+        headers[header].append(value)
+        postincrement(header_iter)
+    return headers
+
+
+cdef CStatus _server_middleware_start_call(
+        void* self,
+        const CCallInfo& c_info,
+        const CCallHeaders& c_headers,
+        shared_ptr[CServerMiddleware]* c_instance) except *:
+    """Callback for implementing server middleware."""
+    instance = None
+    try:
+        call_info = wrap_call_info(c_info)
+        headers = convert_headers(c_headers)
+        instance = (<object> self).start_call(call_info, headers)
+    except FlightError as flight_error:
+        return (<FlightError> flight_error).to_status()
+
+    if instance:
+        ServerMiddleware.wrap(instance, c_instance)
+
+    return CStatus_OK()
+
+
+cdef CStatus _client_middleware_start_call(
+        void* self,
+        const CCallInfo& c_info,
+        unique_ptr[CClientMiddleware]* c_instance) except *:
+    """Callback for implementing client middleware."""
+    instance = None
+    try:
+        call_info = wrap_call_info(c_info)
+        instance = (<object> self).start_call(call_info)
+    except FlightError as flight_error:
+        return (<FlightError> flight_error).to_status()
+
+    if instance:
+        ClientMiddleware.wrap(instance, c_instance)
+
+    return CStatus_OK()
+
+
 cdef class ServerAuthHandler:
     """Authentication middleware for a server.
 
@@ -1667,6 +1812,64 @@ cdef class ClientAuthHandler:
         return new PyClientAuthHandler(self, vtable)
 
 
+_CallInfo = collections.namedtuple("_CallInfo", ["method"])
+
+
+class CallInfo(_CallInfo):
+    """Information about a particular RPC for Flight middleware."""
+
+
+cdef wrap_call_info(const CCallInfo& c_info):
+    method = wrap_flight_method(c_info.method)
+    return CallInfo(method=method)
+
+
+cdef class ClientMiddlewareFactory:
+    def start_call(self, info):
+        pass
+
+
+cdef class ClientMiddleware:
+    def sending_headers(self):
+        pass
+
+    def received_headers(self, headers):
+        pass
+
+    def call_completed(self, exception):
+        pass
+
+    @staticmethod
+    cdef void wrap(object py_middleware,
+                   unique_ptr[CClientMiddleware]* c_instance):
+        cdef PyClientMiddlewareVtable vtable
+        vtable.sending_headers = _middleware_sending_headers
+        vtable.received_headers = _middleware_received_headers
+        vtable.call_completed = _middleware_call_completed
+        c_instance[0].reset(new CPyClientMiddleware(py_middleware, vtable))
+
+
+cdef class ServerMiddlewareFactory:
+    def start_call(self, info, headers):
+        pass
+
+
+cdef class ServerMiddleware:
+    def sending_headers(self):
+        pass
+
+    def call_completed(self, exception):
+        pass
+
+    @staticmethod
+    cdef void wrap(object py_middleware,
+                   shared_ptr[CServerMiddleware]* c_instance):
+        cdef PyServerMiddlewareVtable vtable
+        vtable.sending_headers = _middleware_sending_headers
+        vtable.call_completed = _middleware_call_completed
+        c_instance[0].reset(new CPyServerMiddleware(py_middleware, vtable))
+
+
 cdef class FlightServerBase:
     """A Flight service definition.
 
@@ -1683,13 +1886,15 @@ cdef class FlightServerBase:
         An authentication mechanism to use. May be None.
     tls_certificates : list optional, default None
         A list of (certificate, key) pairs.
+    middleware : dict optional, default None
+        A dictionary of (middleware key, middleware factory) items.
     """
 
     cdef:
         unique_ptr[PyFlightServer] server
 
     def __init__(self, location=None, auth_handler=None,
-                 tls_certificates=None):
+                 tls_certificates=None, middleware=None):
         if isinstance(location, six.string_types):
             location = Location(location)
         elif isinstance(location, (tuple, type(None))):
@@ -1703,15 +1908,19 @@ cdef class FlightServerBase:
         elif not isinstance(location, Location):
             raise TypeError('`location` argument must be a string, tuple or a '
                             'Location instance')
-        self.init(location, auth_handler, tls_certificates)
+        self.init(location, auth_handler, tls_certificates, middleware)
 
     cdef init(self, Location location, ServerAuthHandler auth_handler,
-              list tls_certificates):
+              list tls_certificates, dict middleware):
         cdef:
             PyFlightServerVtable vtable = PyFlightServerVtable()
             PyFlightServer* c_server
             unique_ptr[CFlightServerOptions] c_options
             CCertKeyPair c_cert
+            pair[c_string, shared_ptr[CServerMiddlewareFactory]] \
+                middleware_pair
+            function[cb_server_middleware_start_call] start_call = \
+                &_server_middleware_start_call
 
         c_options.reset(new CFlightServerOptions(Location.unwrap(location)))
 
@@ -1727,6 +1936,14 @@ cdef class FlightServerBase:
                 c_cert.pem_cert = tobytes(cert)
                 c_cert.pem_key = tobytes(key)
                 c_options.get().tls_certificates.push_back(c_cert)
+
+        if middleware:
+            # Takes advantage of dict ordering in Python>=3.6
+            for key, factory in middleware.items():
+                middleware_pair.first = tobytes(key)
+                middleware_pair.second.reset(
+                    new CPyServerMiddlewareFactory(factory, start_call))
+                c_options.get().middleware.push_back(middleware_pair)
 
         vtable.list_flights = &_list_flights
         vtable.get_flight_info = &_get_flight_info
@@ -1820,7 +2037,8 @@ cdef class FlightServerBase:
         self.wait()
 
 
-def connect(location, tls_root_certs=None, override_hostname=None):
+def connect(location, tls_root_certs=None, override_hostname=None,
+            middleware=None):
     """
     Connect to the Flight server
 
@@ -1833,10 +2051,13 @@ def connect(location, tls_root_certs=None, override_hostname=None):
         PEM-encoded
     override_hostname : str or None
         Override the hostname checked by TLS. Insecure, use with caution.
+    middleware : list or None
+        A list of ClientMiddlewareFactory instances to apply.
 
     Returns
     -------
     client : FlightClient
     """
     return FlightClient(location, tls_root_certs=tls_root_certs,
-                        override_hostname=override_hostname)
+                        override_hostname=override_hostname,
+                        middleware=middleware)

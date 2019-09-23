@@ -49,5 +49,9 @@ from pyarrow._flight import (  # noqa
     Result,
     ClientAuthHandler,
     ServerAuthHandler,
+    ClientMiddleware,
+    ClientMiddlewareFactory,
+    ServerMiddleware,
+    ServerMiddlewareFactory,
     BasicAuth
 )

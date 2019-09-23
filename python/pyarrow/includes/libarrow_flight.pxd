@@ -201,16 +201,71 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         c_string pem_cert
         c_string pem_key
 
+    cdef cppclass CFlightMethod" arrow::flight::FlightMethod":
+        bint operator==(CFlightMethod)
+
+    CFlightMethod CFlightMethodInvalid\
+        " arrow::flight::FlightMethod::Invalid"
+    CFlightMethod CFlightMethodHandshake\
+        " arrow::flight::FlightMethod::Handshake"
+    CFlightMethod CFlightMethodListFlights\
+        " arrow::flight::FlightMethod::ListFlights"
+    CFlightMethod CFlightMethodGetFlightInfo\
+        " arrow::flight::FlightMethod::GetFlightInfo"
+    CFlightMethod CFlightMethodGetSchema\
+        " arrow::flight::FlightMethod::GetSchema"
+    CFlightMethod CFlightMethodDoGet\
+        " arrow::flight::FlightMethod::DoGet"
+    CFlightMethod CFlightMethodDoPut\
+        " arrow::flight::FlightMethod::DoPut"
+    CFlightMethod CFlightMethodDoAction\
+        " arrow::flight::FlightMethod::DoAction"
+    CFlightMethod CFlightMethodListActions\
+        " arrow::flight::FlightMethod::ListActions"
+
+    cdef cppclass CCallInfo" arrow::flight::CallInfo":
+        CFlightMethod method
+
+    cdef cppclass CHeaderIterator" arrow::flight::HeaderIterator":
+        CHeaderIterator& operator++()
+        const pair[c_string, c_string] operator*()
+        bint operator==(const CHeaderIterator& r)
+        bint operator!=(const CHeaderIterator& r)
+
+    cdef cppclass CCallHeaders" arrow::flight::CallHeaders":
+        size_t Count(const c_string& key)
+        CHeaderIterator cbegin()
+        CHeaderIterator cend()
+
+    cdef cppclass CAddCallHeaders" arrow::flight::AddCallHeaders":
+        void AddHeader(const c_string& key, const c_string& value)
+
+    cdef cppclass CServerMiddleware" arrow::flight::ServerMiddleware":
+        pass
+
+    cdef cppclass CServerMiddlewareFactory\
+            " arrow::flight::ServerMiddlewareFactory":
+        pass
+
+    cdef cppclass CClientMiddleware" arrow::flight::ClientMiddleware":
+        pass
+
+    cdef cppclass CClientMiddlewareFactory\
+            " arrow::flight::ClientMiddlewareFactory":
+        pass
+
     cdef cppclass CFlightServerOptions" arrow::flight::FlightServerOptions":
         CFlightServerOptions(const CLocation& location)
         CLocation location
         unique_ptr[CServerAuthHandler] auth_handler
         vector[CCertKeyPair] tls_certificates
+        vector[pair[c_string, shared_ptr[CServerMiddlewareFactory]]] middleware
 
     cdef cppclass CFlightClientOptions" arrow::flight::FlightClientOptions":
         CFlightClientOptions()
         c_string tls_root_certs
         c_string override_hostname
+        vector[shared_ptr[CClientMiddlewareFactory]] middleware
 
     cdef cppclass CFlightClient" arrow::flight::FlightClient":
         @staticmethod
@@ -298,6 +353,20 @@ ctypedef CStatus cb_client_authenticate(object, CClientAuthSender*,
                                         CClientAuthReader*)
 ctypedef CStatus cb_get_token(object, c_string*)
 
+ctypedef CStatus cb_middleware_sending_headers(object, CAddCallHeaders&)
+ctypedef CStatus cb_middleware_call_completed(object, const CStatus&)
+ctypedef CStatus cb_client_middleware_received_headers(
+    object, const CCallHeaders&)
+ctypedef CStatus cb_server_middleware_start_call(
+    object,
+    const CCallInfo&,
+    const CCallHeaders&,
+    shared_ptr[CServerMiddleware]*)
+ctypedef CStatus cb_client_middleware_start_call(
+    object,
+    const CCallInfo&,
+    unique_ptr[CClientMiddleware]*)
+
 cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
     cdef cppclass PyFlightServerVtable:
         PyFlightServerVtable()
@@ -352,6 +421,41 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
         CPyGeneratorFlightDataStream(object generator,
                                      shared_ptr[CSchema] schema,
                                      function[cb_data_stream_next] callback)
+
+    cdef cppclass PyServerMiddlewareVtable\
+            " arrow::py::flight::PyServerMiddleware::Vtable":
+        PyServerMiddlewareVtable()
+        function[cb_middleware_sending_headers] sending_headers
+        function[cb_middleware_call_completed] call_completed
+
+    cdef cppclass PyClientMiddlewareVtable\
+            " arrow::py::flight::PyClientMiddleware::Vtable":
+        PyClientMiddlewareVtable()
+        function[cb_middleware_sending_headers] sending_headers
+        function[cb_client_middleware_received_headers] received_headers
+        function[cb_middleware_call_completed] call_completed
+
+    cdef cppclass CPyServerMiddleware\
+            " arrow::py::flight::PyServerMiddleware"(CServerMiddleware):
+        CPyServerMiddleware(object middleware, PyServerMiddlewareVtable vtable)
+
+    cdef cppclass CPyServerMiddlewareFactory\
+            " arrow::py::flight::PyServerMiddlewareFactory"\
+            (CServerMiddlewareFactory):
+        CPyServerMiddlewareFactory(
+            object factory,
+            function[cb_server_middleware_start_call] start_call)
+
+    cdef cppclass CPyClientMiddleware\
+            " arrow::py::flight::PyClientMiddleware"(CClientMiddleware):
+        CPyClientMiddleware(object middleware, PyClientMiddlewareVtable vtable)
+
+    cdef cppclass CPyClientMiddlewareFactory\
+            " arrow::py::flight::PyClientMiddlewareFactory"\
+            (CClientMiddlewareFactory):
+        CPyClientMiddlewareFactory(
+            object factory,
+            function[cb_client_middleware_start_call] start_call)
 
     cdef CStatus CreateFlightInfo" arrow::py::flight::CreateFlightInfo"(
         shared_ptr[CSchema] schema,
