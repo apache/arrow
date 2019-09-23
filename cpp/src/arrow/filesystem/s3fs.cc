@@ -955,8 +955,10 @@ class S3FileSystem::Impl {
         ListObjectsV2(bucket, key, std::move(handle_results), std::move(handle_error)));
 
     // Recurse
-    for (const auto& child_key : child_keys) {
-      RETURN_NOT_OK(Walk(select, bucket, child_key, nesting_depth + 1, out));
+    if (select.recursive && nesting_depth < select.max_recursion) {
+      for (const auto& child_key : child_keys) {
+        RETURN_NOT_OK(Walk(select, bucket, child_key, nesting_depth + 1, out));
+      }
     }
 
     // If no contents were found, perhaps it's an empty "directory",

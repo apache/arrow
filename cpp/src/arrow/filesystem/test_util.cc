@@ -21,11 +21,14 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/filesystem/test_util.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/testing/gtest_util.h"
+
+using ::testing::ElementsAre;
 
 namespace arrow {
 namespace fs {
@@ -646,6 +649,96 @@ void GenericFileSystemTest::TestGetTargetStatsSelector(FileSystem* fs) {
   ASSERT_RAISES(IOError, fs->GetTargetStats(s, &stats));
 }
 
+FileStats File(std::string path) {
+  FileStats st;
+  st.set_type(FileType::File);
+  st.set_path(path);
+  return st;
+}
+
+FileStats Dir(std::string path) {
+  FileStats st;
+  st.set_type(FileType::Directory);
+  st.set_path(path);
+  return st;
+}
+
+void GetSortedStats(FileSystem* fs, Selector s, std::vector<FileStats>& stats) {
+  ASSERT_OK(fs->GetTargetStats(s, &stats));
+  // Clear mtime & size for easier testing.
+  for_each(stats.begin(), stats.end(), [](FileStats& s) {
+    s.set_mtime(kNoTime);
+    s.set_size(kNoSize);
+  });
+  SortStats(&stats);
+}
+
+void GenericFileSystemTest::TestGetTargetStatsSelectorWithRecursion(FileSystem* fs) {
+  ASSERT_OK(fs->CreateDir("01/02/03/04"));
+  ASSERT_OK(fs->CreateDir("AA"));
+  CreateFile(fs, "00.file", "00");
+  CreateFile(fs, "01/01.file", "01");
+  CreateFile(fs, "AA/AA.file", "aa");
+  CreateFile(fs, "01/02/02.file", "02");
+  CreateFile(fs, "01/02/03/03.file", "03");
+  CreateFile(fs, "01/02/03/04/04.file", "04");
+
+  std::vector<FileStats> stats;
+  Selector s;
+
+  s.base_dir = "";
+  s.recursive = false;
+  GetSortedStats(fs, s, stats);
+  EXPECT_THAT(stats, ElementsAre(File("00.file"), Dir("01"), Dir("AA")));
+
+  // recursive should prevail on max_recursion
+  s.max_recursion = 9000;
+  GetSortedStats(fs, s, stats);
+  EXPECT_THAT(stats, ElementsAre(File("00.file"), Dir("01"), Dir("AA")));
+
+  // recursive but no traversal
+  s.recursive = true;
+  s.max_recursion = 0;
+  GetSortedStats(fs, s, stats);
+  EXPECT_THAT(stats, ElementsAre(File("00.file"), Dir("01"), Dir("AA")));
+
+  s.recursive = true;
+  s.max_recursion = 1;
+  GetSortedStats(fs, s, stats);
+  EXPECT_THAT(stats, ElementsAre(File("00.file"), Dir("01"), File("01/01.file"),
+                                 Dir("01/02"), Dir("AA"), File("AA/AA.file")));
+
+  s.recursive = true;
+  s.max_recursion = 2;
+  GetSortedStats(fs, s, stats);
+  EXPECT_THAT(stats, ElementsAre(File("00.file"), Dir("01"), File("01/01.file"),
+                                 Dir("01/02"), File("01/02/02.file"), Dir("01/02/03"),
+                                 Dir("AA"), File("AA/AA.file")));
+
+  s.base_dir = "01";
+  s.recursive = false;
+  GetSortedStats(fs, s, stats);
+  EXPECT_THAT(stats, ElementsAre(File("01/01.file"), Dir("01/02")));
+
+  s.base_dir = "01";
+  s.recursive = true;
+  s.max_recursion = 1;
+  GetSortedStats(fs, s, stats);
+  EXPECT_THAT(stats, ElementsAre(File("01/01.file"), Dir("01/02"), File("01/02/02.file"),
+                                 Dir("01/02/03")));
+
+  // All-in
+  s.base_dir = "";
+  s.recursive = true;
+  s.max_recursion = INT32_MAX;
+  GetSortedStats(fs, s, stats);
+  EXPECT_THAT(
+      stats, ElementsAre(File("00.file"), Dir("01"), File("01/01.file"), Dir("01/02"),
+                         File("01/02/02.file"), Dir("01/02/03"), File("01/02/03/03.file"),
+                         Dir("01/02/03/04"), File("01/02/03/04/04.file"), Dir("AA"),
+                         File("AA/AA.file")));
+}
+
 void GenericFileSystemTest::TestOpenOutputStream(FileSystem* fs) {
   std::shared_ptr<io::OutputStream> stream;
   int64_t position = -1;
@@ -790,6 +883,7 @@ GENERIC_FS_TEST_DEFINE(TestCopyFile)
 GENERIC_FS_TEST_DEFINE(TestGetTargetStatsSingle)
 GENERIC_FS_TEST_DEFINE(TestGetTargetStatsVector)
 GENERIC_FS_TEST_DEFINE(TestGetTargetStatsSelector)
+GENERIC_FS_TEST_DEFINE(TestGetTargetStatsSelectorWithRecursion)
 GENERIC_FS_TEST_DEFINE(TestOpenOutputStream)
 GENERIC_FS_TEST_DEFINE(TestOpenAppendStream)
 GENERIC_FS_TEST_DEFINE(TestOpenInputStream)

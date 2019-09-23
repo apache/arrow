@@ -70,6 +70,11 @@ std::string FileStats::base_name() const {
   return internal::GetAbstractPathParent(path_).second;
 }
 
+// Debug helper
+std::ostream& operator<<(std::ostream& os, const FileStats& stats) {
+  return os << "FileStats(" << stats.type() << ", " << stats.path() << ")";
+}
+
 //////////////////////////////////////////////////////////////////////////
 // FileSystem default method implementations
 
