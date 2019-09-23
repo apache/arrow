@@ -56,7 +56,6 @@ import org.apache.arrow.adapter.jdbc.consumer.TinyIntConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.VarCharConsumer;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Preconditions;
-import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateMilliVector;
@@ -86,8 +85,6 @@ import org.apache.arrow.vector.types.pojo.Schema;
  * @since 0.10.0
  */
 public class JdbcToArrowUtils {
-
-  public static final int DEFAULT_BUFFER_SIZE = 256;
 
   private static final int JDBC_ARRAY_VALUE_COLUMN = 2;
 
@@ -308,18 +305,6 @@ public class JdbcToArrowUtils {
     return fieldInfo;
   }
 
-  static void allocateVectors(VectorSchemaRoot root, int size) {
-    List<FieldVector> vectors = root.getFieldVectors();
-    for (FieldVector fieldVector : vectors) {
-      if (fieldVector instanceof BaseFixedWidthVector) {
-        ((BaseFixedWidthVector) fieldVector).allocateNew(size);
-      } else {
-        fieldVector.allocateNew();
-      }
-      fieldVector.setInitialCapacity(size);
-    }
-  }
-
   /**
    * Iterate the given JDBC {@link ResultSet} object to fetch the data and transpose it to populate
    * the given Arrow Vector objects.
@@ -352,7 +337,6 @@ public class JdbcToArrowUtils {
 
     ResultSetMetaData rsmd = rs.getMetaData();
     int columnCount = rsmd.getColumnCount();
-    allocateVectors(root, DEFAULT_BUFFER_SIZE);
 
     JdbcConsumer[] consumers = new JdbcConsumer[columnCount];
     for (int i = 1; i <= columnCount; i++) {

@@ -45,6 +45,9 @@ public class ClobConsumer implements JdbcConsumer<VarCharVector> {
    * Instantiate a ClobConsumer.
    */
   public ClobConsumer(VarCharVector vector, int index) {
+    if (vector != null) {
+      vector.allocateNewSafe();
+    }
     this.vector = vector;
     this.columnIndexInResultSet = index;
   }
@@ -92,6 +95,7 @@ public class ClobConsumer implements JdbcConsumer<VarCharVector> {
   @Override
   public void resetValueVector(VarCharVector vector) {
     this.vector = vector;
+    this.vector.allocateNewSafe();
     this.currentIndex = 0;
   }
 }
