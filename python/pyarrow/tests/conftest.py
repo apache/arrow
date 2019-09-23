@@ -230,6 +230,22 @@ def datadir():
     return pathlib.Path(__file__).parent / 'data'
 
 
+try:
+    from tempfile import TemporaryDirectory
+except ImportError:
+    import shutil
+
+    class TemporaryDirectory(object):
+        """Temporary directory implementation for python 2"""
+
+        def __enter__(self):
+            self.tmp = tempfile.mkdtemp()
+            return self.tmp
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            shutil.rmtree(self.tmp)
+
+
 @pytest.fixture(scope='module')
 @pytest.mark.s3
 def minio_server():
@@ -244,7 +260,7 @@ def minio_server():
     })
 
     try:
-        with tempfile.TemporaryDirectory() as tempdir:
+        with TemporaryDirectory() as tempdir:
             args = ['minio', '--compat', 'server', '--quiet', '--address',
                     address, tempdir]
             with subprocess.Popen(args, env=env) as proc:
