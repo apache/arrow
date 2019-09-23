@@ -91,12 +91,7 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
     return buffer;
   }
 
-  void Put(const std::vector<T>& src, int num_values = -1) override {
-    if (num_values == -1) {
-      num_values = static_cast<int>(src.size());
-    }
-    Put(src.data(), num_values);
-  }
+  using TypedEncoder<DType>::Put;
 
   void Put(const T* buffer, int num_values) override;
 
@@ -300,6 +295,7 @@ class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEnco
   std::shared_ptr<Buffer> FlushValues() override;
 
   void Put(const bool* src, int num_values) override;
+
   void Put(const std::vector<bool>& src, int num_values) override;
 
   void PutSpaced(const bool* src, int num_values, const uint8_t* valid_bits,
@@ -472,9 +468,11 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
 
   ~DictEncoderImpl() override { DCHECK(buffered_indices_.empty()); }
 
+  /*
   void Put(const std::vector<T>& src, int num_values) override {
     ParquetException::NYI("FIXME");
   }
+  */
 
   int dict_encoded_size() override { return dict_encoded_size_; }
 
@@ -697,18 +695,17 @@ inline void DictEncoderImpl<FLBAType>::Put(const FixedLenByteArray& v) {
 
 template <>
 void DictEncoderImpl<Int96Type>::Put(const arrow::Array& values) {
-  ParquetException::NYI(values.type()->ToString());
+  ParquetException::NYI("Direct put to Int96");
 }
 
 template <>
 void DictEncoderImpl<Int96Type>::PutDictionary(const arrow::Array& values) {
-  ParquetException::NYI(values.type()->ToString());
+  ParquetException::NYI("Direct put to Int96");
 }
 
 template <typename DType>
 void DictEncoderImpl<DType>::Put(const arrow::Array& values) {
   using ArrayType = typename arrow::CTypeTraits<typename DType::c_type>::ArrayType;
-  // FIXME(bkietz) assert appropriate type?
   const auto& data = checked_cast<const ArrayType&>(values);
   if (data.null_count() == 0) {
     // no nulls, just dump the data
@@ -720,8 +717,6 @@ void DictEncoderImpl<DType>::Put(const arrow::Array& values) {
     for (int64_t i = 0; i < data.length(); i++) {
       if (data.IsValid(i)) {
         Put(data.Value(i));
-      } else {
-        Put(0);
       }
     }
   }
@@ -741,8 +736,6 @@ void DictEncoderImpl<FLBAType>::Put(const arrow::Array& values) {
     for (int64_t i = 0; i < data.length(); i++) {
       if (data.IsValid(i)) {
         Put(FixedLenByteArray(data.Value(i)));
-      } else {
-        Put(FixedLenByteArray(empty.data()));
       }
     }
   }
@@ -1156,14 +1149,34 @@ template <>
 inline int PlainDecoder<ByteArrayType>::DecodeArrow(
     int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
     typename EncodingTraits<ByteArrayType>::Accumulator* builder) {
-  ParquetException::NYI("consolidate custom subclasses");
+  ParquetException::NYI();
 }
 
 template <>
 inline int PlainDecoder<FLBAType>::DecodeArrow(
     int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
     typename EncodingTraits<FLBAType>::Accumulator* builder) {
-  ParquetException::NYI("consolidate custom subclasses");
+  int values_decoded = num_values - null_count;
+  if (ARROW_PREDICT_FALSE(len_ < descr_->type_length() * values_decoded)) {
+    ParquetException::EofException();
+  }
+
+  PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
+
+  arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
+  for (int i = 0; i < num_values; ++i) {
+    if (bit_reader.IsSet()) {
+      builder->UnsafeAppend(data_);
+      data_ += descr_->type_length();
+    } else {
+      builder->UnsafeAppendNull();
+    }
+    bit_reader.Next();
+  }
+
+  num_values_ -= values_decoded;
+  len_ -= descr_->type_length() * values_decoded;
+  return values_decoded;
 }
 
 class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,

@@ -171,7 +171,7 @@ class Encoder {
 // Base class for value encoders. Since encoders may or not have state (e.g.,
 // dictionary encoding) we use a class instance to maintain any state.
 //
-// TODO(wesm): Encode interface API is temporary
+// Encode interfaces are internal, subject to change without deprecation.
 template <typename DType>
 class TypedEncoder : virtual public Encoder {
  public:
@@ -181,11 +181,23 @@ class TypedEncoder : virtual public Encoder {
 
   virtual void Put(const T* src, int num_values) = 0;
 
-  virtual void Put(const std::vector<T>& src, int num_values = -1) = 0;
+  virtual void Put(const std::vector<T>& src, int num_values = -1);
 
   virtual void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
                          int64_t valid_bits_offset) = 0;
 };
+
+template <typename DType>
+void TypedEncoder<DType>::Put(const std::vector<T>& src, int num_values) {
+  if (num_values == -1) {
+    num_values = static_cast<int>(src.size());
+  }
+  Put(src.data(), num_values);
+}
+
+template <>
+inline void TypedEncoder<BooleanType>::Put(const std::vector<bool>& src, int num_values) {
+}
 
 // Base class for dictionary encoders
 template <typename DType>
