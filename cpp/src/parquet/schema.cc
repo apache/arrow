@@ -778,6 +778,11 @@ void SchemaDescriptor::BuildTree(const NodePtr& node, int16_t max_def_level,
 
   // Now, walk the schema and create a ColumnDescriptor for each leaf node
   if (node->is_group()) {
+    if (node->logical_type()->is_list()) {
+      has_array_type_ = true;
+    } else if (node->logical_type()->is_map()){
+      has_map_type_ = true;
+    }
     const GroupNode* group = static_cast<const GroupNode*>(node.get());
     for (int i = 0; i < group->field_count(); ++i) {
       BuildTree(group->field(i), max_def_level, max_rep_level, base);

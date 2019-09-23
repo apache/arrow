@@ -454,6 +454,9 @@ class PARQUET_EXPORT SchemaDescriptor {
   /// PrimitiveNode. Returns -1 if not found
   int GetColumnIndex(const schema::PrimitiveNode& node) const;
 
+  bool hasArrayType() const { return has_array_type_; }
+  bool hasMapType() const { return has_map_type_; }
+
  private:
   friend class ColumnDescriptor;
 
@@ -483,6 +486,9 @@ class PARQUET_EXPORT SchemaDescriptor {
 
   // Mapping between ColumnPath DotString to the leaf index
   std::unordered_multimap<std::string, int> leaf_to_idx_;
+
+  bool has_array_type_ = false;
+  bool has_map_type_ = false;
 };
 
 }  // namespace parquet
