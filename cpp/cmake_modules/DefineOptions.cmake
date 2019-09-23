@@ -76,7 +76,9 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   # Disable this option to exercise non-SIMD fallbacks
   define_option(ARROW_USE_SIMD "Build with SIMD optimizations" ON)
 
-  define_option(ARROW_ALTIVEC "Build Arrow with Altivec" ON)
+  define_option(ARROW_SSE42 "Build with SSE4.2 if compiler has support" ON)
+
+  define_option(ARROW_ALTIVEC "Build with Altivec if compiler has support" ON)
 
   define_option(ARROW_RPATH_ORIGIN "Build Arrow libraries with RATH set to \$ORIGIN" OFF)
 
