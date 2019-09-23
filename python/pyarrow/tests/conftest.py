@@ -27,6 +27,8 @@ try:
 except ImportError:
     import pathlib2 as pathlib  # py2 compat
 
+from pyarrow.util import find_free_port
+
 
 # setup hypothesis profiles
 h.settings.register_profile('ci', max_examples=1000)
@@ -246,10 +248,10 @@ except ImportError:
             shutil.rmtree(self.tmp)
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='session')
 @pytest.mark.s3
 def minio_server():
-    host, port = 'localhost', 9000
+    host, port = 'localhost', find_free_port()
     access_key, secret_key = 'arrow', 'apachearrow'
 
     address = '{}:{}'.format(host, port)
@@ -263,14 +265,16 @@ def minio_server():
         with TemporaryDirectory() as tempdir:
             args = ['minio', '--compat', 'server', '--quiet', '--address',
                     address, tempdir]
-            with subprocess.Popen(args, env=env) as proc:
+            try:
+                proc = subprocess.Popen(args, env=env)
                 yield address, access_key, secret_key
-                proc.terminate()
+            finally:
+                proc.kill()
     except IOError:
         pytest.skip('`minio` command cannot be located')
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='session')
 def minio_client(minio_server):
     minio = pytest.importorskip('minio')
     address, access_key, secret_key = minio_server
@@ -282,7 +286,7 @@ def minio_client(minio_server):
     )
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='session')
 def minio_bucket(minio_client):
     bucket_name = 'pyarrow-bucket'
     minio_client.make_bucket(bucket_name)
