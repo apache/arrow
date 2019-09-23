@@ -83,10 +83,85 @@ std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadTable2(
 }
 
 // [[arrow::export]]
+std::shared_ptr<parquet::ArrowWriterProperties> parquet___default_arrow_writer_properties(){
+  return parquet::default_arrow_writer_properties();
+}
+
+// [[arrow::export]]
+std::shared_ptr<parquet::ArrowWriterProperties::Builder> parquet___ArrowWriterProperties___Builder__create() {
+  return std::make_shared<parquet::ArrowWriterProperties::Builder>();
+}
+
+// [[arrow::export]]
+void parquet___ArrowWriterProperties___Builder__store_schema(const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder) {
+  builder->store_schema();
+}
+
+// [[arrow::export]]
+void parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps(const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder) {
+  builder->enable_deprecated_int96_timestamps();
+}
+
+// [[arrow::export]]
+void parquet___ArrowWriterProperties___Builder__disable_deprecated_int96_timestamps(const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder) {
+  builder->disable_deprecated_int96_timestamps();
+}
+
+// [[arrow::export]]
+void parquet___ArrowWriterProperties___Builder__coerce_timestamps(const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder, arrow::TimeUnit::type unit) {
+  builder->coerce_timestamps(unit);
+}
+
+// [[arrow::export]]
+void parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps(const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder) {
+  builder->allow_truncated_timestamps();
+}
+
+// [[arrow::export]]
+void parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps(const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder) {
+  builder->disallow_truncated_timestamps();
+}
+
+// [[arrow::export]]
+std::shared_ptr<parquet::ArrowWriterProperties> parquet___ArrowWriterProperties___Builder__build(const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder){
+  return builder->build();
+}
+
+// [[arrow::export]]
+std::shared_ptr<parquet::WriterProperties> parquet___default_writer_properties() {
+  return parquet::default_writer_properties();
+}
+
+// [[arrow::export]]
+std::unique_ptr<parquet::arrow::FileWriter> parquet___arrow___ParquetFileWriter__Open(
+    const std::shared_ptr<arrow::Schema>& schema,
+    const std::shared_ptr<arrow::io::OutputStream>& sink,
+    const std::shared_ptr<parquet::WriterProperties>& properties,
+    const std::shared_ptr<parquet::ArrowWriterProperties>& arrow_properties
+) {
+  std::unique_ptr<parquet::arrow::FileWriter> writer;
+  PARQUET_THROW_NOT_OK(parquet::arrow::FileWriter::Open(*schema, arrow::default_memory_pool(), sink, properties, arrow_properties, &writer));
+  return writer;
+}
+
+// [[arrow::export]]
+void parquet___arrow___FileWriter__WriteTable(const std::unique_ptr<parquet::arrow::FileWriter>& writer, const std::shared_ptr<arrow::Table>& table, int64_t chunk_size) {
+  PARQUET_THROW_NOT_OK(writer->WriteTable(*table, chunk_size));
+}
+
+// [[arrow::export]]
+void parquet___arrow___FileWriter__Close(const std::unique_ptr<parquet::arrow::FileWriter>& writer) {
+  PARQUET_THROW_NOT_OK(writer->Close());
+}
+
+// [[arrow::export]]
 void parquet___arrow___WriteTable(const std::shared_ptr<arrow::Table>& table,
-                                  const std::shared_ptr<arrow::io::OutputStream>& sink) {
+                                  const std::shared_ptr<arrow::io::OutputStream>& sink,
+                                  const std::shared_ptr<parquet::WriterProperties>& properties,
+                                  const std::shared_ptr<parquet::ArrowWriterProperties>& arrow_properties
+) {
   PARQUET_THROW_NOT_OK(parquet::arrow::WriteTable(*table, arrow::default_memory_pool(),
-                                                  sink, table->num_rows()));
+                                                  sink, table->num_rows(), properties, arrow_properties));
 }
 
 // [[arrow::export]]

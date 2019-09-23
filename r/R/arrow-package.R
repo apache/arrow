@@ -21,6 +21,7 @@
 #' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos
 #' @importFrom Rcpp sourceCpp
 #' @importFrom tidyselect vars_select
+#' @importFrom zeallot %<-%
 #' @useDynLib arrow, .registration = TRUE
 #' @keywords internal
 "_PACKAGE"

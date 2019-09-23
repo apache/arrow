@@ -880,8 +880,60 @@ parquet___arrow___FileReader__ReadTable2 <- function(reader, column_indices){
     .Call(`_arrow_parquet___arrow___FileReader__ReadTable2` , reader, column_indices)
 }
 
-parquet___arrow___WriteTable <- function(table, sink){
-    invisible(.Call(`_arrow_parquet___arrow___WriteTable` , table, sink))
+parquet___default_arrow_writer_properties <- function(){
+    .Call(`_arrow_parquet___default_arrow_writer_properties` )
+}
+
+parquet___ArrowWriterProperties___Builder__create <- function(){
+    .Call(`_arrow_parquet___ArrowWriterProperties___Builder__create` )
+}
+
+parquet___ArrowWriterProperties___Builder__store_schema <- function(builder){
+    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__store_schema` , builder))
+}
+
+parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps <- function(builder){
+    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps` , builder))
+}
+
+parquet___ArrowWriterProperties___Builder__disable_deprecated_int96_timestamps <- function(builder){
+    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__disable_deprecated_int96_timestamps` , builder))
+}
+
+parquet___ArrowWriterProperties___Builder__coerce_timestamps <- function(builder, unit){
+    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__coerce_timestamps` , builder, unit))
+}
+
+parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps <- function(builder){
+    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps` , builder))
+}
+
+parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps <- function(builder){
+    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps` , builder))
+}
+
+parquet___ArrowWriterProperties___Builder__build <- function(builder){
+    .Call(`_arrow_parquet___ArrowWriterProperties___Builder__build` , builder)
+}
+
+parquet___default_writer_properties <- function(){
+    .Call(`_arrow_parquet___default_writer_properties` )
+}
+
+parquet___arrow___ParquetFileWriter__Open <- function(schema, sink, properties, arrow_properties){
+    .Call(`_arrow_parquet___arrow___ParquetFileWriter__Open` , schema, sink, properties, arrow_properties)
+}
+
+parquet___arrow___FileWriter__WriteTable <- function(writer, table, chunk_size){
+    invisible(.Call(`_arrow_parquet___arrow___FileWriter__WriteTable` , writer, table, chunk_size))
+}
+
+parquet___arrow___FileWriter__Close <- function(writer){
+    invisible(.Call(`_arrow_parquet___arrow___FileWriter__Close` , writer))
+}
+
+parquet___arrow___WriteTable <- function(table, sink, properties, arrow_properties){
+    invisible(.Call(`_arrow_parquet___arrow___WriteTable` , table, sink, properties, arrow_properties))
 }
 
 parquet___arrow___FileReader__GetSchema <- function(reader){

@@ -3416,17 +3416,225 @@ RcppExport SEXP _arrow_parquet___arrow___FileReader__ReadTable2(SEXP reader_sexp
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void parquet___arrow___WriteTable(const std::shared_ptr<arrow::Table>& table, const std::shared_ptr<arrow::io::OutputStream>& sink);
-RcppExport SEXP _arrow_parquet___arrow___WriteTable(SEXP table_sexp, SEXP sink_sexp){
+std::shared_ptr<parquet::ArrowWriterProperties> parquet___default_arrow_writer_properties();
+RcppExport SEXP _arrow_parquet___default_arrow_writer_properties(){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::OutputStream>&>::type sink(sink_sexp);
-	parquet___arrow___WriteTable(table, sink);
+	return Rcpp::wrap(parquet___default_arrow_writer_properties());
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_parquet___default_arrow_writer_properties(){
+	Rf_error("Cannot call parquet___default_arrow_writer_properties(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<parquet::ArrowWriterProperties::Builder> parquet___ArrowWriterProperties___Builder__create();
+RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__create(){
+BEGIN_RCPP
+	return Rcpp::wrap(parquet___ArrowWriterProperties___Builder__create());
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__create(){
+	Rf_error("Cannot call parquet___ArrowWriterProperties___Builder__create(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void parquet___ArrowWriterProperties___Builder__store_schema(const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder);
+RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__store_schema(SEXP builder_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::ArrowWriterProperties::Builder>&>::type builder(builder_sexp);
+	parquet___ArrowWriterProperties___Builder__store_schema(builder);
 	return R_NilValue;
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_parquet___arrow___WriteTable(SEXP table_sexp, SEXP sink_sexp){
+RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__store_schema(SEXP builder_sexp){
+	Rf_error("Cannot call parquet___ArrowWriterProperties___Builder__store_schema(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps(const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder);
+RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps(SEXP builder_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::ArrowWriterProperties::Builder>&>::type builder(builder_sexp);
+	parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps(builder);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps(SEXP builder_sexp){
+	Rf_error("Cannot call parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void parquet___ArrowWriterProperties___Builder__disable_deprecated_int96_timestamps(const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder);
+RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__disable_deprecated_int96_timestamps(SEXP builder_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::ArrowWriterProperties::Builder>&>::type builder(builder_sexp);
+	parquet___ArrowWriterProperties___Builder__disable_deprecated_int96_timestamps(builder);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__disable_deprecated_int96_timestamps(SEXP builder_sexp){
+	Rf_error("Cannot call parquet___ArrowWriterProperties___Builder__disable_deprecated_int96_timestamps(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void parquet___ArrowWriterProperties___Builder__coerce_timestamps(const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder, arrow::TimeUnit::type unit);
+RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__coerce_timestamps(SEXP builder_sexp, SEXP unit_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::ArrowWriterProperties::Builder>&>::type builder(builder_sexp);
+	Rcpp::traits::input_parameter<arrow::TimeUnit::type>::type unit(unit_sexp);
+	parquet___ArrowWriterProperties___Builder__coerce_timestamps(builder, unit);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__coerce_timestamps(SEXP builder_sexp, SEXP unit_sexp){
+	Rf_error("Cannot call parquet___ArrowWriterProperties___Builder__coerce_timestamps(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps(const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder);
+RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps(SEXP builder_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::ArrowWriterProperties::Builder>&>::type builder(builder_sexp);
+	parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps(builder);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps(SEXP builder_sexp){
+	Rf_error("Cannot call parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps(const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder);
+RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps(SEXP builder_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::ArrowWriterProperties::Builder>&>::type builder(builder_sexp);
+	parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps(builder);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps(SEXP builder_sexp){
+	Rf_error("Cannot call parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<parquet::ArrowWriterProperties> parquet___ArrowWriterProperties___Builder__build(const std::shared_ptr<parquet::ArrowWriterProperties::Builder>& builder);
+RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__build(SEXP builder_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::ArrowWriterProperties::Builder>&>::type builder(builder_sexp);
+	return Rcpp::wrap(parquet___ArrowWriterProperties___Builder__build(builder));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__build(SEXP builder_sexp){
+	Rf_error("Cannot call parquet___ArrowWriterProperties___Builder__build(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<parquet::WriterProperties> parquet___default_writer_properties();
+RcppExport SEXP _arrow_parquet___default_writer_properties(){
+BEGIN_RCPP
+	return Rcpp::wrap(parquet___default_writer_properties());
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_parquet___default_writer_properties(){
+	Rf_error("Cannot call parquet___default_writer_properties(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::unique_ptr<parquet::arrow::FileWriter> parquet___arrow___ParquetFileWriter__Open(const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<arrow::io::OutputStream>& sink, const std::shared_ptr<parquet::WriterProperties>& properties, const std::shared_ptr<parquet::ArrowWriterProperties>& arrow_properties);
+RcppExport SEXP _arrow_parquet___arrow___ParquetFileWriter__Open(SEXP schema_sexp, SEXP sink_sexp, SEXP properties_sexp, SEXP arrow_properties_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::OutputStream>&>::type sink(sink_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterProperties>&>::type properties(properties_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::ArrowWriterProperties>&>::type arrow_properties(arrow_properties_sexp);
+	return Rcpp::wrap(parquet___arrow___ParquetFileWriter__Open(schema, sink, properties, arrow_properties));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_parquet___arrow___ParquetFileWriter__Open(SEXP schema_sexp, SEXP sink_sexp, SEXP properties_sexp, SEXP arrow_properties_sexp){
+	Rf_error("Cannot call parquet___arrow___ParquetFileWriter__Open(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void parquet___arrow___FileWriter__WriteTable(const std::unique_ptr<parquet::arrow::FileWriter>& writer, const std::shared_ptr<arrow::Table>& table, int64_t chunk_size);
+RcppExport SEXP _arrow_parquet___arrow___FileWriter__WriteTable(SEXP writer_sexp, SEXP table_sexp, SEXP chunk_size_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<parquet::arrow::FileWriter>&>::type writer(writer_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	Rcpp::traits::input_parameter<int64_t>::type chunk_size(chunk_size_sexp);
+	parquet___arrow___FileWriter__WriteTable(writer, table, chunk_size);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_parquet___arrow___FileWriter__WriteTable(SEXP writer_sexp, SEXP table_sexp, SEXP chunk_size_sexp){
+	Rf_error("Cannot call parquet___arrow___FileWriter__WriteTable(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void parquet___arrow___FileWriter__Close(const std::unique_ptr<parquet::arrow::FileWriter>& writer);
+RcppExport SEXP _arrow_parquet___arrow___FileWriter__Close(SEXP writer_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<parquet::arrow::FileWriter>&>::type writer(writer_sexp);
+	parquet___arrow___FileWriter__Close(writer);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_parquet___arrow___FileWriter__Close(SEXP writer_sexp){
+	Rf_error("Cannot call parquet___arrow___FileWriter__Close(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void parquet___arrow___WriteTable(const std::shared_ptr<arrow::Table>& table, const std::shared_ptr<arrow::io::OutputStream>& sink, const std::shared_ptr<parquet::WriterProperties>& properties, const std::shared_ptr<parquet::ArrowWriterProperties>& arrow_properties);
+RcppExport SEXP _arrow_parquet___arrow___WriteTable(SEXP table_sexp, SEXP sink_sexp, SEXP properties_sexp, SEXP arrow_properties_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::io::OutputStream>&>::type sink(sink_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterProperties>&>::type properties(properties_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::ArrowWriterProperties>&>::type arrow_properties(arrow_properties_sexp);
+	parquet___arrow___WriteTable(table, sink, properties, arrow_properties);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_parquet___arrow___WriteTable(SEXP table_sexp, SEXP sink_sexp, SEXP properties_sexp, SEXP arrow_properties_sexp){
 	Rf_error("Cannot call parquet___arrow___WriteTable(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
@@ -4536,7 +4744,20 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_parquet___arrow___FileReader__OpenFile", (DL_FUNC) &_arrow_parquet___arrow___FileReader__OpenFile, 2}, 
 		{ "_arrow_parquet___arrow___FileReader__ReadTable1", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadTable1, 1}, 
 		{ "_arrow_parquet___arrow___FileReader__ReadTable2", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadTable2, 2}, 
-		{ "_arrow_parquet___arrow___WriteTable", (DL_FUNC) &_arrow_parquet___arrow___WriteTable, 2}, 
+		{ "_arrow_parquet___default_arrow_writer_properties", (DL_FUNC) &_arrow_parquet___default_arrow_writer_properties, 0}, 
+		{ "_arrow_parquet___ArrowWriterProperties___Builder__create", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__create, 0}, 
+		{ "_arrow_parquet___ArrowWriterProperties___Builder__store_schema", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__store_schema, 1}, 
+		{ "_arrow_parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps, 1}, 
+		{ "_arrow_parquet___ArrowWriterProperties___Builder__disable_deprecated_int96_timestamps", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__disable_deprecated_int96_timestamps, 1}, 
+		{ "_arrow_parquet___ArrowWriterProperties___Builder__coerce_timestamps", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__coerce_timestamps, 2}, 
+		{ "_arrow_parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps, 1}, 
+		{ "_arrow_parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps, 1}, 
+		{ "_arrow_parquet___ArrowWriterProperties___Builder__build", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__build, 1}, 
+		{ "_arrow_parquet___default_writer_properties", (DL_FUNC) &_arrow_parquet___default_writer_properties, 0}, 
+		{ "_arrow_parquet___arrow___ParquetFileWriter__Open", (DL_FUNC) &_arrow_parquet___arrow___ParquetFileWriter__Open, 4}, 
+		{ "_arrow_parquet___arrow___FileWriter__WriteTable", (DL_FUNC) &_arrow_parquet___arrow___FileWriter__WriteTable, 3}, 
+		{ "_arrow_parquet___arrow___FileWriter__Close", (DL_FUNC) &_arrow_parquet___arrow___FileWriter__Close, 1}, 
+		{ "_arrow_parquet___arrow___WriteTable", (DL_FUNC) &_arrow_parquet___arrow___WriteTable, 4}, 
 		{ "_arrow_parquet___arrow___FileReader__GetSchema", (DL_FUNC) &_arrow_parquet___arrow___FileReader__GetSchema, 1}, 
 		{ "_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1}, 
 		{ "_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1}, 

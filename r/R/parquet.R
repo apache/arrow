@@ -15,6 +15,130 @@
 # specific language governing permissions and limitations
 # under the License.
 
+ParquetArrowWriterProperties_Builder <- R6Class("ParquetArrowWriterProperties_Builder", inherit = Object,
+  public = list(
+    store_schema = function() {
+      parquet___ArrowWriterProperties___Builder__store_schema(self)
+      self
+    },
+    set_int96_support = function(use_deprecated_int96_timestamps = FALSE) {
+      if (use_deprecated_int96_timestamps) {
+        parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps(self)
+      } else {
+        parquet___ArrowWriterProperties___Builder__disable_deprecated_int96_timestamps(self)
+      }
+      self
+    },
+    set_coerce_timestamps = function(coerce_timestamps = NULL) {
+      if (!is.null(coerce_timestamps)) {
+        if (coerce_timestamps == "ms") {
+          parquet___ArrowWriterProperties___Builder__coerce_timestamps(TimeUnit$MILLI)
+        } else if (coerce_timestamps == "us") {
+          parquet___ArrowWriterProperties___Builder__coerce_timestamps(TimeUnit$MICRO)
+        } else {
+          abort("Invalid value for coerce_timestamps")
+        }
+      }
+      self
+    },
+    set_allow_truncated_timestamps = function(allow_truncated_timestamps = FALSE) {
+      if (allow_truncated_timestamps) {
+        parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps()
+      } else {
+        parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps()
+      }
+
+      self
+    }
+
+  )
+)
+ParquetArrowWriterProperties <- R6Class("ParquetArrowWriterProperties", inherit = Object)
+
+ParquetArrowWriterProperties$default <- function() {
+  shared_ptr(ParquetArrowWriterProperties, parquet___default_arrow_writer_properties())
+}
+
+ParquetArrowWriterProperties$create <- function(use_deprecated_int96_timestamps = FALSE, coerce_timestamps = NULL, allow_truncated_timestamps = FALSE) {
+  builder <- shared_ptr(ParquetArrowWriterProperties_Builder, parquet___ArrowWriterProperties___Builder__create())
+  builder$store_schema()
+  builder$set_int96_support(use_deprecated_int96_timestamps)
+  builder$coerce_timestamps(coerce_timestamps)
+  builder$set_allow_truncated_timestamps(allow_truncated_timestamps)
+  shared_ptr(ParquetArrowWriterProperties, parquet___ArrowWriterProperties___Builder__build(builder))
+}
+
+ParquetWriterProperties <- R6Class("ParquetWriterProperties", inherit = Object)
+ParquetWriterProperties$default <- function() {
+  shared_ptr(ParquetWriterProperties, parquet___default_writer_properties())
+}
+
+ParquetFileWriter <- R6Class("ParquetFileWriter", inherit = Object,
+  public = list(
+    WriteTable = function(table, chunk_size) {
+      parquet___arrow___FileWriter__WriteTable(self, table, chunk_size)
+    },
+    Close = function() {
+      parquet___arrow___FileWriter__Close(self)
+    }
+  )
+
+)
+ParquetFileWriter$create <- function(
+  schema,
+  sink,
+  properties = ParquetWriterProperties$default(),
+  arrow_properties = ParquetArrowWriterProperties$default()
+) {
+  unique_ptr(
+    ParquetFileWriter,
+    parquet___arrow___ParquetFileWriter__Open(schema, sink, properties, arrow_properties)
+  )
+}
+
+#' Write Parquet file to disk
+#'
+#' [Parquet](https://parquet.apache.org/) is a columnar storage file format.
+#' This function enables you to write Parquet files from R.
+#'
+#' @param table An [arrow::Table][Table], or an object convertible to it with [to_arrow()]
+#' @param sink an [arrow::io::OutputStream][OutputStream] or a string which is interpreted as a file path
+#' @param chunk_size chunk size
+#'
+#' @examples
+#' \donttest{
+#' tf1 <- tempfile(fileext = ".parquet")
+#' write_parquet(tibble::tibble(x = 1:5), tf2)
+#'
+#' # using compression
+#' tf2 <- tempfile(fileext = ".gz.parquet")
+#' write_parquet(tibble::tibble(x = 1:5), CompressedOutputStream$create(tf2, "gzip"))
+#'
+#' }
+#' @export
+write_parquet <- function(table, sink, chunk_size = table$num_rows) {
+  UseMethod("write_parquet", sink)
+}
+
+#' @export
+write_parquet.OutputStream <- function(table, sink, chunk_size = table$num_rows) {
+  table <- to_arrow(table)
+  schema <- table$schema
+  properties <- ParquetWriterProperties$default()
+  arrow_properties <- ParquetArrowWriterProperties$default()
+  writer <- ParquetFileWriter$create(schema, sink, properties = properties, arrow_properties = arrow_properties)
+  writer$WriteTable(table, chunk_size = chunk_size)
+  writer$Close()
+}
+
+#' @export
+write_parquet.character <- function(table, sink, chunk_size = table$num_rows) {
+  table <- to_arrow(table)
+  file_sink <- FileOutputStream$create(sink)
+  on.exit(file_sink$close())
+
+  write_parquet(table, sink = file_sink, chunk_size = chunk_size)
+}
 
 #' Read a Parquet file
 #'
@@ -161,40 +285,4 @@ ParquetReaderProperties$create <- function(use_threads = option_use_threads()) {
     ParquetReaderProperties,
     parquet___arrow___ArrowReaderProperties__Make(isTRUE(use_threads))
   )
-}
-
-
-#' Write Parquet file to disk
-#'
-#' [Parquet](https://parquet.apache.org/) is a columnar storage file format.
-#' This function enables you to write Parquet files from R.
-#'
-#' @param table An [arrow::Table][Table], or an object convertible to it with [to_arrow()]
-#' @param stream an [arrow::io::OutputStream][OutputStream] or a string which is interpreted as a file path
-#'
-#' @examples
-#' \donttest{
-#' tf1 <- tempfile(fileext = ".parquet")
-#' write_parquet(tibble::tibble(x = 1:5), tf2)
-#'
-#' # using compression
-#' tf2 <- tempfile(fileext = ".gz.parquet")
-#' write_parquet(tibble::tibble(x = 1:5), CompressedOutputStream$create(tf2, "gzip"))
-#'
-#' }
-#' @export
-write_parquet <- function(table, stream) {
-  UseMethod("write_parquet", stream)
-}
-
-#' @export
-write_parquet.OutputStream <- function(table, stream) {
-  parquet___arrow___WriteTable(to_arrow(table), stream)
-}
-
-#' @export
-write_parquet.character <- function(table, stream) {
-  file_stream <- FileOutputStream$create(stream)
-  on.exit(file_stream$close())
-  parquet___arrow___WriteTable(to_arrow(table), file_stream)
 }
