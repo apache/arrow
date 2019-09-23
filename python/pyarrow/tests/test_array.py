@@ -1786,3 +1786,6 @@ def test_to_pandas_timezone():
     arr = pa.array([1, 2, 3], type=pa.timestamp('s', tz='Europe/Brussels'))
     s = arr.to_pandas()
     assert s.dt.tz is not None
+    arr = pa.chunked_array([arr])
+    s = arr.to_pandas()
+    assert s.dt.tz is not None
