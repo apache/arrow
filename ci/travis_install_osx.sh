@@ -41,3 +41,11 @@ if [ "$ARROW_CI_RUBY_AFFECTED" = "1" ]; then
   run_brew bundle --file=$TRAVIS_BUILD_DIR/c_glib/Brewfile --verbose
   rm ${brew_log_path}
 fi
+
+if [ "$ARROW_TRAVIS_S3" == "1" ]; then
+    # Download the Minio S3 server into PATH
+    S3FS_DIR=~/.local/bin/
+    mkdir -p $S3FS_DIR
+    wget --directory-prefix $S3FS_DIR https://dl.min.io/server/minio/release/darwin-amd64/minio
+    chmod +x $S3FS_DIR/minio
+fi
