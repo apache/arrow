@@ -19,12 +19,15 @@
 set -e
 
 : ${R_BIN:=RDsan}
-source /arrow/ci/docker_install_r_deps.sh
 
 # Build arrow
 pushd /arrow/r
 
-install_deps
+# Install R package dependencies
+# NOTE: any changes here should also be done in docker_build_r.sh
+${R_BIN} -e "install.packages(c('remotes', 'dplyr', 'glue'))"
+${R_BIN} -e "remotes::install_deps(dependencies = TRUE)"
+${R_BIN} -e "remotes::install_github('romainfrancois/decor')"
 
 make clean
 ${R_BIN} CMD INSTALL --no-byte-compile .
