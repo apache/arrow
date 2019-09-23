@@ -153,6 +153,46 @@ public class VectorSchemaRoot implements AutoCloseable {
     return fieldVectorsMap.get(name);
   }
 
+  public FieldVector getVector(int index) {
+    Preconditions.checkArgument(index >= 0 && index < fieldVectors.size());
+    return fieldVectors.get(index);
+  }
+
+  /**
+   * Add vector to the record batch, producing a new VectorSchemaRoot.
+   * @param index field index
+   * @param vector vector to be added.
+   * @return out VectorSchemaRoot with vector added
+   */
+  public VectorSchemaRoot addVector(int index, FieldVector vector) {
+    Preconditions.checkNotNull(vector);
+    Preconditions.checkArgument(index >= 0 && index < fieldVectors.size());
+    List<FieldVector> newVectors = new ArrayList<>();
+    for (int i = 0; i < fieldVectors.size(); i++) {
+      if (i == index) {
+        newVectors.add(vector);
+      }
+      newVectors.add(fieldVectors.get(i));
+    }
+    return new VectorSchemaRoot(newVectors);
+  }
+
+  /**
+   * Remove vector from the record batch, producing a new VectorSchemaRoot.
+   * @param index field index
+   * @return out VectorSchemaRoot with vector removed
+   */
+  public VectorSchemaRoot removeVector(int index) {
+    Preconditions.checkArgument(index >= 0 && index < fieldVectors.size());
+    List<FieldVector> newVectors = new ArrayList<>();
+    for (int i = 0; i < fieldVectors.size(); i++) {
+      if (i != index) {
+        newVectors.add(fieldVectors.get(i));
+      }
+    }
+    return new VectorSchemaRoot(newVectors);
+  }
+
   public Schema getSchema() {
     return schema;
   }
@@ -236,6 +276,15 @@ public class VectorSchemaRoot implements AutoCloseable {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Slice this root from desired index.
+   * @param index start position of the slice
+   * @return the sliced root
+   */
+  public VectorSchemaRoot slice(int index) {
+    return slice(index, this.rowCount - index);
   }
 
   /**

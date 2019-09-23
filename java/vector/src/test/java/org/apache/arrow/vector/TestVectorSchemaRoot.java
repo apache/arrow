@@ -155,6 +155,44 @@ public class TestVectorSchemaRoot {
   }
 
   @Test
+  public void testAddVector() {
+    try (final IntVector intVector1 = new IntVector("intVector1", allocator);
+         final IntVector intVector2 = new IntVector("intVector2", allocator);
+         final IntVector intVector3 = new IntVector("intVector3", allocator);) {
+
+      VectorSchemaRoot original = new VectorSchemaRoot(Arrays.asList(intVector1, intVector2));
+      assertEquals(2, original.getFieldVectors().size());
+
+      VectorSchemaRoot newRecordBatch = original.addVector(1, intVector3);
+      assertEquals(3, newRecordBatch.getFieldVectors().size());
+      assertEquals(intVector3, newRecordBatch.getFieldVectors().get(1));
+
+      original.close();
+      newRecordBatch.close();
+    }
+  }
+
+  @Test
+  public void testRemoveVector() {
+    try (final IntVector intVector1 = new IntVector("intVector1", allocator);
+        final IntVector intVector2 = new IntVector("intVector2", allocator);
+        final IntVector intVector3 = new IntVector("intVector3", allocator);) {
+
+      VectorSchemaRoot original =
+          new VectorSchemaRoot(Arrays.asList(intVector1, intVector2, intVector3));
+      assertEquals(3, original.getFieldVectors().size());
+
+      VectorSchemaRoot newRecordBatch = original.removeVector(0);
+      assertEquals(2, newRecordBatch.getFieldVectors().size());
+      assertEquals(intVector2, newRecordBatch.getFieldVectors().get(0));
+      assertEquals(intVector3, newRecordBatch.getFieldVectors().get(1));
+
+      original.close();
+      newRecordBatch.close();
+    }
+  }
+
+  @Test
   public void testSlice() {
     try (final IntVector intVector = new IntVector("intVector", allocator);
          final Float4Vector float4Vector = new Float4Vector("float4Vector", allocator)) {
@@ -186,7 +224,7 @@ public class TestVectorSchemaRoot {
         assertTrue(e.getMessage().contains("index + length should <= rowCount"));
       }
 
-
+      original.close();
       slice2.close();
     }
   }
