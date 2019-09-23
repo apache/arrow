@@ -22,11 +22,14 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.holders.NullableBitHolder;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
@@ -41,13 +44,22 @@ import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import io.netty.buffer.ArrowBuf;
 
+@RunWith(Parameterized.class)
 public class TestUnionVector {
   private static final String EMPTY_SCHEMA_PATH = "";
 
   private BufferAllocator allocator;
+
+  private boolean dense;
+
+  public TestUnionVector(boolean dense) {
+    this.dense = dense;
+  }
 
   @Before
   public void init() {
@@ -66,7 +78,7 @@ public class TestUnionVector {
     uInt4Holder.value = 100;
     uInt4Holder.isSet = 1;
 
-    try (UnionVector unionVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+    try (UnionVector unionVector = createUnionVector()) {
       unionVector.allocateNew();
 
       // write some data
@@ -93,7 +105,7 @@ public class TestUnionVector {
 
   @Test
   public void testTransfer() throws Exception {
-    try (UnionVector srcVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+    try (UnionVector srcVector = createUnionVector()) {
       srcVector.allocateNew();
 
       // write some data
@@ -107,7 +119,7 @@ public class TestUnionVector {
       srcVector.setSafe(5, newBitHolder(false));
       srcVector.setValueCount(6);
 
-      try (UnionVector destVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+      try (UnionVector destVector = createUnionVector()) {
         TransferPair pair = srcVector.makeTransferPair(destVector);
 
         // Creating the transfer should transfer the type of the field at least.
@@ -142,8 +154,7 @@ public class TestUnionVector {
 
   @Test
   public void testSplitAndTransfer() throws Exception {
-    try (UnionVector sourceVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
-
+    try (UnionVector sourceVector = createUnionVector()) {
       sourceVector.allocateNew();
 
       /* populate the UnionVector */
@@ -192,8 +203,7 @@ public class TestUnionVector {
       assertEquals(false, sourceVector.isNull(9));
       assertEquals(50, sourceVector.getObject(9));
 
-      try (UnionVector toVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
-
+      try (UnionVector toVector = createUnionVector()) {
         final TransferPair transferPair = sourceVector.makeTransferPair(toVector);
 
         final int[][] transferLengths = {{0, 3},
@@ -222,8 +232,7 @@ public class TestUnionVector {
 
   @Test
   public void testSplitAndTransferWithMixedVectors() throws Exception {
-    try (UnionVector sourceVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
-
+    try (UnionVector sourceVector = createUnionVector()) {
       sourceVector.allocateNew();
 
       /* populate the UnionVector */
@@ -281,8 +290,7 @@ public class TestUnionVector {
       assertEquals(false, sourceVector.isNull(9));
       assertEquals(30.5f, sourceVector.getObject(9));
 
-      try (UnionVector toVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
-
+      try (UnionVector toVector = createUnionVector()) {
         final TransferPair transferPair = sourceVector.makeTransferPair(toVector);
 
         final int[][] transferLengths = {{0, 2},
@@ -320,7 +328,8 @@ public class TestUnionVector {
     children.add(new Field("int", FieldType.nullable(MinorType.INT.getType()), null));
     children.add(new Field("varchar", FieldType.nullable(MinorType.VARCHAR.getType()), null));
 
-    final FieldType fieldType = new FieldType(false, new ArrowType.Union(UnionMode.Sparse, typeIds),
+    UnionMode mode = dense ? UnionMode.Dense : UnionMode.Sparse;
+    final FieldType fieldType = new FieldType(false, new ArrowType.Union(mode, typeIds),
         /*dictionary=*/null, metadata);
     final Field field = new Field("union", fieldType, children);
 
@@ -333,7 +342,7 @@ public class TestUnionVector {
 
   @Test
   public void testGetBufferAddress() throws Exception {
-    try (UnionVector vector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+    try (UnionVector vector = createUnionVector()) {
       boolean error = false;
 
       vector.allocateNew();
@@ -373,7 +382,9 @@ public class TestUnionVector {
       } catch (UnsupportedOperationException ue) {
         error = true;
       } finally {
-        assertTrue(error);
+        if (!dense) {
+          assertTrue(error);
+        }
         error = false;
       }
 
@@ -385,7 +396,11 @@ public class TestUnionVector {
         assertTrue(error);
       }
 
-      assertEquals(1, buffers.size());
+      if (dense) {
+        assertEquals(2, buffers.size());
+      } else {
+        assertEquals(1, buffers.size());
+      }
       assertEquals(bitAddress, buffers.get(0).memoryAddress());
     }
   }
@@ -412,6 +427,11 @@ public class TestUnionVector {
     }
   }
 
+  private UnionVector createUnionVector() {
+    return dense ? new DenseUnionVector(EMPTY_SCHEMA_PATH, allocator, null, null) :
+            new UnionVector(EMPTY_SCHEMA_PATH, allocator, null, null);
+  }
+
   private static NullableIntHolder newIntHolder(int value) {
     final NullableIntHolder holder = new NullableIntHolder();
     holder.isSet = 1;
@@ -431,5 +451,13 @@ public class TestUnionVector {
     holder.isSet = 1;
     holder.value = value;
     return holder;
+  }
+
+  @Parameterized.Parameters(name = "dense mode = {0}")
+  public static Collection<Object[]> getParameter() {
+    return Arrays.asList(
+      new Object[]{true},
+      new Object[]{false}
+    );
   }
 }

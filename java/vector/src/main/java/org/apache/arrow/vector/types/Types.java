@@ -19,6 +19,7 @@ package org.apache.arrow.vector.types;
 
 import static org.apache.arrow.vector.types.FloatingPointPrecision.DOUBLE;
 import static org.apache.arrow.vector.types.FloatingPointPrecision.SINGLE;
+import static org.apache.arrow.vector.types.UnionMode.Dense;
 import static org.apache.arrow.vector.types.UnionMode.Sparse;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -58,6 +59,7 @@ import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
@@ -598,7 +600,14 @@ public class Types {
           throw new UnsupportedOperationException("Dictionary encoding not supported for complex " +
               "types");
         }
-        return new UnionVector(field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
+        ArrowType.Union unionType = (Union) field.getFieldType().getType();
+        if (unionType.getMode() == Sparse) {
+          return new UnionVector(field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
+        } else if (unionType.getMode() == Dense) {
+          return new DenseUnionVector(field.getName(), allocator, field.getFieldType(), schemaChangeCallback);
+        } else {
+          throw new IllegalArgumentException("Illegal mode: " + unionType.getMode());
+        }
       }
 
       @Override

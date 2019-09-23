@@ -78,8 +78,8 @@ import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
  */
 public class UnionVector implements FieldVector {
 
-  private String name;
-  private BufferAllocator allocator;
+  protected String name;
+  protected BufferAllocator allocator;
   int valueCount;
 
   NonNullableStructVector internalStruct;
@@ -88,17 +88,17 @@ public class UnionVector implements FieldVector {
   private StructVector structVector;
   private ListVector listVector;
 
-  private FieldReader reader;
+  protected FieldReader reader;
 
   private int singleType = 0;
   private ValueVector singleVector;
 
   private final CallBack callBack;
-  private int typeBufferAllocationSizeInBytes;
+  protected long typeBufferAllocationSizeInBytes;
 
-  private final FieldType fieldType;
+  protected final FieldType fieldType;
 
-  private static final byte TYPE_WIDTH = 1;
+  protected static final byte TYPE_WIDTH = 1;
   private static final FieldType INTERNAL_STRUCT_TYPE = new FieldType(false /*nullable*/,
       ArrowType.Struct.INSTANCE, null /*dictionary*/, null /*metadata*/);
 
@@ -299,7 +299,7 @@ public class UnionVector implements FieldVector {
     return true;
   }
 
-  private void allocateTypeBuffer() {
+  protected void allocateTypeBuffer() {
     typeBuffer = allocator.buffer(typeBufferAllocationSizeInBytes);
     typeBuffer.readerIndex(0);
     typeBuffer.setZero(0, typeBuffer.capacity());
@@ -311,7 +311,7 @@ public class UnionVector implements FieldVector {
     reallocTypeBuffer();
   }
 
-  private void reallocTypeBuffer() {
+  protected void reallocTypeBuffer() {
     final long currentBufferCapacity = typeBuffer.capacity();
     long baseSize  = typeBufferAllocationSizeInBytes;
 
@@ -340,7 +340,7 @@ public class UnionVector implements FieldVector {
 
   @Override
   public int getValueCapacity() {
-    return Math.min(getTypeBufferValueCapacity(), internalStruct.getValueCapacity());
+    return (int) Math.min(getTypeBufferValueCapacity(), internalStruct.getValueCapacity());
   }
 
   @Override
@@ -550,7 +550,7 @@ public class UnionVector implements FieldVector {
     return vectors.iterator();
   }
 
-    private ValueVector getVector(int index) {
+    public ValueVector getVector(int index) {
       int type = typeBuffer.getByte(index * TYPE_WIDTH);
       switch (MinorType.values()[type]) {
         case NULL:
@@ -689,7 +689,7 @@ public class UnionVector implements FieldVector {
       typeBuffer.setByte(index * TYPE_WIDTH , (byte) type.ordinal());
     }
 
-    private int getTypeBufferValueCapacity() {
+    protected int getTypeBufferValueCapacity() {
       return capAtMaxInt(typeBuffer.capacity() / TYPE_WIDTH);
     }
 
