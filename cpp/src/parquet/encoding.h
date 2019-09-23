@@ -33,9 +33,14 @@ class ArrayBuilder;
 class BinaryArray;
 class BinaryBuilder;
 class BinaryDictionary32Builder;
+class BooleanBuilder;
 class Int32Type;
+class Int64Type;
+class FloatType;
+class DoubleType;
 template <typename T>
 class NumericBuilder;
+class FixedSizeBinaryBuilder;
 template <typename T>
 class Dictionary32Builder;
 
@@ -68,11 +73,14 @@ using ByteArrayDecoder = TypedDecoder<ByteArrayType>;
 class FLBADecoder;
 
 template <typename T>
-struct EncodingTraits {
-  using Encoder = TypedEncoder<T>;
-  using Decoder = TypedDecoder<T>;
+struct EncodingTraits;
 
-  struct Accumulator {};
+template <>
+struct EncodingTraits<BooleanType> {
+  using Encoder = BooleanEncoder;
+  using Decoder = BooleanDecoder;
+
+  using Accumulator = ::arrow::BooleanBuilder;
   struct DictAccumulator {};
 };
 
@@ -86,12 +94,39 @@ struct EncodingTraits<Int32Type> {
 };
 
 template <>
-struct EncodingTraits<BooleanType> {
-  using Encoder = BooleanEncoder;
-  using Decoder = BooleanDecoder;
+struct EncodingTraits<Int64Type> {
+  using Encoder = Int64Encoder;
+  using Decoder = Int64Decoder;
+
+  using Accumulator = ::arrow::NumericBuilder<::arrow::Int64Type>;
+  using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::Int64Type>;
+};
+
+template <>
+struct EncodingTraits<Int96Type> {
+  using Encoder = Int96Encoder;
+  using Decoder = Int96Decoder;
 
   struct Accumulator {};
   struct DictAccumulator {};
+};
+
+template <>
+struct EncodingTraits<FloatType> {
+  using Encoder = FloatEncoder;
+  using Decoder = FloatDecoder;
+
+  using Accumulator = ::arrow::NumericBuilder<::arrow::FloatType>;
+  using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::FloatType>;
+};
+
+template <>
+struct EncodingTraits<DoubleType> {
+  using Encoder = DoubleEncoder;
+  using Decoder = DoubleDecoder;
+
+  using Accumulator = ::arrow::NumericBuilder<::arrow::DoubleType>;
+  using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::DoubleType>;
 };
 
 template <>
@@ -113,7 +148,7 @@ struct EncodingTraits<FLBAType> {
   using Encoder = FLBAEncoder;
   using Decoder = FLBADecoder;
 
-  struct Accumulator {};
+  using Accumulator = ::arrow::FixedSizeBinaryBuilder;
   struct DictAccumulator {};
 };
 
@@ -211,16 +246,25 @@ class TypedDecoder : virtual public Decoder {
  public:
   using T = typename DType::c_type;
 
-  // Subclasses should override the ones they support. In each of these functions,
-  // the decoder would decode put to 'max_values', storing the result in 'buffer'.
-  // The function returns the number of values decoded, which should be max_values
-  // except for end of the current data page.
+  /// \brief Decode values into a buffer
+  ///
+  /// Subclasses may override the more specialized Decode methods below.
+  ///
+  /// \param[in] buffer destination for decoded values
+  /// \param[in] max_values maximum number of values to decode
+  /// \return The number of values decoded. Should be identical to max_values except
+  /// at the end of the current data page.
   virtual int Decode(T* buffer, int max_values) = 0;
 
-  // Decode the values in this data page but leave spaces for null entries.
-  //
-  // num_values is the size of the def_levels and buffer arrays including the number of
-  // null values.
+  /// \brief Decode the values in this data page but leave spaces for null entries.
+  ///
+  /// \param[in] buffer destination for decoded values
+  /// \param[in] num_values size of the def_levels and buffer arrays including the number
+  /// of null slots
+  /// \param[in] null_count number of null slots
+  /// \param[in] valid_bits bitmap data indicating position of valid slots
+  /// \param[in] valid_bits_offset offset into valid_bits
+  /// \return The number of values decoded, including nulls.
   virtual int DecodeSpaced(T* buffer, int num_values, int null_count,
                            const uint8_t* valid_bits, int64_t valid_bits_offset) {
     int values_to_read = num_values - null_count;
@@ -245,28 +289,38 @@ class TypedDecoder : virtual public Decoder {
     return num_values;
   }
 
-  /// \brief Returns number of encoded values decoded
+  /// \brief Decode into an ArrayBuilder or other accumulator
+  ///
+  /// \return number of values decoded
+  virtual int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                          int64_t valid_bits_offset,
+                          typename EncodingTraits<DType>::Accumulator* out) = 0;
+
+  /// \brief Decode into an ArrayBuilder or other accumulator ignoring nulls
+  ///
+  /// \return number of values decoded
+  virtual int DecodeArrowNonNull(int num_values,
+                                 typename EncodingTraits<DType>::Accumulator* out) {
+    const uint8_t valid_bits = 0;
+    return DecodeArrow(num_values, 0, &valid_bits, 0, out);
+  }
+
+  /// \brief Decode into a DictionaryBuilder
+  ///
+  /// \return number of values decoded
   virtual int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                           int64_t valid_bits_offset,
                           typename EncodingTraits<DType>::DictAccumulator* builder) {
     ParquetException::NYI("FIXME");
   }
 
+  /// \brief Decode into a DictionaryBuilder ignoring nulls
+  ///
+  /// \return number of values decoded
   virtual int DecodeArrowNonNull(
       int num_values, typename EncodingTraits<DType>::DictAccumulator* builder) {
-    ParquetException::NYI("FIXME");
-  }
-
-  /// \brief Returns number of encoded values decoded
-  virtual int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
-                          int64_t valid_bits_offset,
-                          typename EncodingTraits<DType>::Accumulator* out) {
-    ParquetException::NYI("FIXME");
-  }
-
-  virtual int DecodeArrowNonNull(int num_values,
-                                 typename EncodingTraits<DType>::Accumulator* out) {
-    ParquetException::NYI("FIXME");
+    const uint8_t valid_bits = 0;
+    return DecodeArrow(num_values, 0, &valid_bits, 0, builder);
   }
 };
 
@@ -283,7 +337,7 @@ class DictDecoder : virtual public TypedDecoder<DType> {
   /// builder. The builder must have had the dictionary from this decoder
   /// inserted already.
   ///
-  /// Remember to reset the builder each time the dict decoder is initialized
+  /// \warning Remember to reset the builder each time the dict decoder is initialized
   /// with a new dictionary page
   virtual int DecodeIndicesSpaced(int num_values, int null_count,
                                   const uint8_t* valid_bits, int64_t valid_bits_offset,
@@ -291,7 +345,7 @@ class DictDecoder : virtual public TypedDecoder<DType> {
 
   /// \brief Decode only dictionary indices (no nulls)
   ///
-  /// Remember to reset the builder each time the dict decoder is initialized
+  /// \warning Remember to reset the builder each time the dict decoder is initialized
   /// with a new dictionary page
   virtual int DecodeIndices(int num_values, ::arrow::ArrayBuilder* builder) = 0;
 };

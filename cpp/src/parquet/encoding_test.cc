@@ -517,16 +517,24 @@ TEST(PlainEncodingAdHoc, ArrowBinaryDirectPut) {
   }
 }
 
-TEST(PlainEncodingAdHoc, ArrowInt32DirectPut) {
-  const int64_t size = 50;
-  const double null_probability = 0.25;
+template <typename Pair = void>
+class PlainEncodingAdHocTyped {
+ public:
+  using Types = ::testing::Types<std::pair<::arrow::BooleanType, BooleanType>,
+                                 std::pair<::arrow::Int32Type, Int32Type>,
+                                 std::pair<::arrow::Int64Type, Int64Type>,
+                                 std::pair<::arrow::FloatType, FloatType>,
+                                 std::pair<::arrow::DoubleType, DoubleType>>;
+};
 
-  auto CheckSeed = [&](int seed) {
-    arrow::random::RandomArrayGenerator rag(seed);
-    auto values = rag.Int32(size, 0, 10, null_probability);
-
-    auto encoder = MakeTypedEncoder<Int32Type>(Encoding::PLAIN);
-    auto decoder = MakeTypedDecoder<Int32Type>(Encoding::PLAIN);
+template <typename ArrowType, typename ParquetType>
+class PlainEncodingAdHocTyped<std::pair<ArrowType, ParquetType>>
+    : public ::testing::Test {
+ public:
+  void CheckSeed(int seed) {
+    auto values = GetValues(seed);
+    auto encoder = MakeTypedEncoder<ParquetType>(Encoding::PLAIN);
+    auto decoder = MakeTypedDecoder<ParquetType>(Encoding::PLAIN);
 
     ASSERT_NO_THROW(encoder->Put(*values));
     auto buf = encoder->FlushValues();
@@ -534,7 +542,7 @@ TEST(PlainEncodingAdHoc, ArrowInt32DirectPut) {
     int num_values = static_cast<int>(values->length() - values->null_count());
     decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
 
-    arrow::NumericBuilder<::arrow::Int32Type> acc;
+    typename arrow::TypeTraits<ArrowType>::BuilderType acc;
     ASSERT_EQ(num_values,
               decoder->DecodeArrow(static_cast<int>(values->length()),
                                    static_cast<int>(values->null_count()),
@@ -544,10 +552,27 @@ TEST(PlainEncodingAdHoc, ArrowInt32DirectPut) {
     ASSERT_OK(acc.Finish(&result));
     ASSERT_EQ(50, result->length());
     arrow::AssertArraysEqual(*values, *result);
-  };
+  }
 
+  std::shared_ptr<arrow::Array> GetValues(int seed) {
+    arrow::random::RandomArrayGenerator rag(seed);
+    if (std::is_same<ArrowType, arrow::BooleanType>::value) {
+      return rag.Boolean(size_, 0.1, null_probability_);
+    } else {
+      return rag.Numeric<ArrowType>(size_, 0, 10, null_probability_);
+    }
+  }
+
+ protected:
+  const int64_t size_ = 50;
+  const double null_probability_ = 0.25;
+};
+
+TYPED_TEST_CASE(PlainEncodingAdHocTyped, PlainEncodingAdHocTyped<>::Types);
+
+TYPED_TEST(PlainEncodingAdHocTyped, ArrowDirectPut) {
   for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
-    CheckSeed(seed);
+    this->CheckSeed(seed);
   }
 }
 
