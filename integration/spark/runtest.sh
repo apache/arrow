@@ -47,8 +47,6 @@ pushd /spark
   build/mvn -B -Dtest=none -DwildcardSuites=$(IFS=,; echo "${SPARK_SCALA_TESTS[*]}") test
 
   # Run pyarrow related Python tests only
-  echo "Testing PySpark:"
-
   SPARK_PYTHON_TESTS=(
     "pyspark.sql.tests.test_arrow"
     "pyspark.sql.tests.test_pandas_udf"
