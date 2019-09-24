@@ -123,7 +123,7 @@ std::ostream& operator<<(std::ostream& os, const std::shared_ptr<PathTree>& tree
 }
 
 bool operator==(const std::shared_ptr<PathTree>& lhs,
-                             const std::shared_ptr<PathTree>& rhs) {
+                const std::shared_ptr<PathTree>& rhs) {
   if (lhs == NULLPTR && rhs == NULLPTR) {
     return true;
   } else if (lhs != NULLPTR && rhs != NULLPTR) {

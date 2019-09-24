@@ -25,6 +25,8 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/status.h"
+
 namespace arrow {
 namespace fs {
 
@@ -57,21 +59,29 @@ class ARROW_EXPORT PathTree {
 
   /// \brief Visit with eager pruning.
   template <typename Visitor, typename Matcher>
-  void Visit(Visitor v, Matcher m) const {
-    if (!m(stats_)) {
-      return;
+  Status Visit(Visitor&& v, Matcher&& m) const {
+    bool match = false;
+    ARROW_RETURN_NOT_OK(m(stats_, &match));
+    if (!match) {
+      return Status::OK();
     }
 
-    v(stats_);
+    ARROW_RETURN_NOT_OK(v(stats_));
 
-    auto recurse = [&v, &m](const std::shared_ptr<PathTree>& t) { t->Visit(v, m); };
-    std::for_each(subtrees_.cbegin(), subtrees_.cend(), recurse);
+    for (const auto& t : subtrees_) {
+      ARROW_RETURN_NOT_OK(t->Visit(v, m));
+    }
+
+    return Status::OK();
   }
 
   template <typename Visitor>
-  void Visit(Visitor v) const {
-    auto always_match = [](const std::shared_ptr<PathTree>& t) { return true; };
-    return Visit(std::move(v), always_match);
+  Status Visit(Visitor&& v) const {
+    auto always_match = [](const FileStats& t, bool* match) {
+      *match = true;
+      return Status::OK();
+    };
+    return Visit(v, always_match);
   }
 
   bool operator==(const PathTree& other) const {
@@ -82,7 +92,7 @@ class ARROW_EXPORT PathTree {
   FileStats stats_;
   std::vector<std::shared_ptr<PathTree>> subtrees_;
 
-  // The AddChild method is conveninent to create trees in a top-down fashion,
+  // The AddChild method is convenient to create trees in a top-down fashion,
   // e.g. the Make factory constructor.
   void AddChild(std::shared_ptr<PathTree> child) {
     subtrees_.push_back(std::move(child));
