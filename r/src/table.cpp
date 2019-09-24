@@ -75,14 +75,14 @@ std::vector<std::string> Table__ColumnNames(const std::shared_ptr<arrow::Table>&
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> Table__Slice1(
-    const std::shared_ptr<arrow::Table>& table, int offset) {
+std::shared_ptr<arrow::Table> Table__Slice1(const std::shared_ptr<arrow::Table>& table,
+                                            int offset) {
   return table->Slice(offset);
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> Table__Slice2(
-    const std::shared_ptr<arrow::Table>& table, int offset, int length) {
+std::shared_ptr<arrow::Table> Table__Slice2(const std::shared_ptr<arrow::Table>& table,
+                                            int offset, int length) {
   return table->Slice(offset, length);
 }
 
