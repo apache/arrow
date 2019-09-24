@@ -15,18 +15,39 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-.. default-domain:: cpp
-.. highlight:: cpp
+=======
+Tensors
+=======
 
-Getting Started
-===============
+Dense Tensors
+=============
 
-.. toctree::
+.. doxygenclass:: arrow::Tensor
+   :members:
 
-   overview
-   conventions
-   memory
-   arrays
-   datatypes
-   tables
-   io
+.. doxygenclass:: arrow::NumericTensor
+   :members:
+
+Sparse Tensors
+==============
+
+.. doxygenenum:: arrow::SparseTensorFormat::type
+
+.. doxygenclass:: arrow::SparseIndex
+   :members:
+
+.. doxygenclass:: arrow::SparseCOOIndex
+   :members:
+
+.. doxygenclass:: arrow::SparseCSRIndex
+   :members:
+
+.. doxygenclass:: arrow::SparseTensor
+   :members:
+
+.. doxygenclass:: arrow::SparseTensorImpl
+   :members:
+
+.. doxygentypedef:: arrow::SparseTensorCOO
+
+.. doxygentypedef:: arrow::SparseTensorCSR

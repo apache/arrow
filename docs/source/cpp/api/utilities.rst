@@ -37,3 +37,16 @@ Abstract Sequences
    :project: arrow_cpp
    :members:
 
+Compression
+===========
+
+.. doxygenenum:: arrow::Compression::type
+
+.. doxygenclass:: arrow::util::Codec
+   :members:
+
+.. doxygenclass:: arrow::util::Compressor
+   :members:
+
+.. doxygenclass:: arrow::util::Decompressor
+   :members:
