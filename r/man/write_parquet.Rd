@@ -4,12 +4,31 @@
 \alias{write_parquet}
 \title{Write Parquet file to disk}
 \usage{
-write_parquet(table, stream)
+write_parquet(table, sink, chunk_size = NULL, version = NULL,
+  compression = NULL, use_dictionary = NULL, write_statistics = NULL,
+  properties = ParquetWriterProperties$create(version = version,
+  compression = compression, use_dictionary = use_dictionary,
+  write_statistics = write_statistics),
+  arrow_properties = ParquetArrowWriterProperties$default())
 }
 \arguments{
 \item{table}{An \link[=Table]{arrow::Table}, or an object convertible to it with \code{\link[=to_arrow]{to_arrow()}}}
 
-\item{stream}{an \link[=OutputStream]{arrow::io::OutputStream} or a string which is interpreted as a file path}
+\item{sink}{an \link[=OutputStream]{arrow::io::OutputStream} or a string which is interpreted as a file path}
+
+\item{chunk_size}{chunk size. If NULL, the number of rows of the table is used}
+
+\item{version}{parquet version}
+
+\item{compression}{compression name}
+
+\item{use_dictionary}{Specify if we should use dictionary encoding}
+
+\item{write_statistics}{Specify if we should write statistics}
+
+\item{properties}{properties for parquet writer, derived from arguments \code{version}, \code{compression}, \code{use_dictionary} and \code{write_statistics}}
+
+\item{arrow_properties}{arrow specific writer properties}
 }
 \description{
 \href{https://parquet.apache.org/}{Parquet} is a columnar storage file format.

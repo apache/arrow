@@ -43,9 +43,9 @@ ParquetArrowWriterProperties_Builder <- R6Class("ParquetArrowWriterProperties_Bu
     },
     set_allow_truncated_timestamps = function(allow_truncated_timestamps = FALSE) {
       if (allow_truncated_timestamps) {
-        parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps()
+        parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps(self)
       } else {
-        parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps()
+        parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps(self)
       }
 
       self
@@ -63,7 +63,7 @@ ParquetArrowWriterProperties$create <- function(use_deprecated_int96_timestamps 
   builder <- shared_ptr(ParquetArrowWriterProperties_Builder, parquet___ArrowWriterProperties___Builder__create())
   builder$store_schema()
   builder$set_int96_support(use_deprecated_int96_timestamps)
-  builder$coerce_timestamps(coerce_timestamps)
+  builder$set_coerce_timestamps(coerce_timestamps)
   builder$set_allow_truncated_timestamps(allow_truncated_timestamps)
   shared_ptr(ParquetArrowWriterProperties, parquet___ArrowWriterProperties___Builder__build(builder))
 }
@@ -75,13 +75,69 @@ ParquetWriterProperties$default <- function() {
 
 ParquetWriterProperties_Builder <- R6Class("ParquetWriterProperties_Builder", inherit = Object,
   public = list(
+    set_version = function(version = NULL) {
+      if (!is.null(version)) {
+        if (identical(version, "1.0")) {
+          parquet___ArrowWriterProperties___Builder__version(self, ParquetVersionType$PARQUET_1_0)
+        } else if (identical(version, "2.0")) {
+          parquet___ArrowWriterProperties___Builder__version(self, ParquetVersionType$PARQUET_2_0)
+        } else {
+          abort("unknown parquet version")
+        }
+      }
+    },
 
+    set_compression = function(compression){
+      if (is.character(compression) && length(compression) == 1L) {
+        type <- CompressionType[[match.arg(toupper(compression), names(CompressionType))]]
+        parquet___ArrowWriterProperties___Builder__default_compression(self, type)
+      } else {
+        abort("compression specification not supported yet")
+      }
+    },
+
+    set_dictionary = function(use_dictionary) {
+      if (is.logical(use_dictionary) && length(use_dictionary) == 1L) {
+        parquet___ArrowWriterProperties___Builder__default_use_dictionary(self, isTRUE(use_dictionary))
+      } else {
+        abort("use_dictionary specification not supported yet")
+      }
+    },
+
+    set_write_statistics = function(write_statistics) {
+      if (is.logical(write_statistics) && length(write_statistics) == 1L) {
+        parquet___ArrowWriterProperties___Builder__default_write_statistics(self, isTRUE(write_statistics))
+      } else {
+        abort("write_statistics specification not supported yet")
+      }
+    },
+
+    set_data_page_size = function(data_page_size) {
+      parquet___ArrowWriterProperties___Builder__data_page_size(self, data_page_size)
+    }
   )
 )
 
-ParquetWriterProperties$create <- function() {
-  builder <- shared_ptr(ParquetWriterProperties_Builder, parquet___WriterProperties___Builder__create())
-  shared_ptr(ParquetWriterProperties, parquet___WriterProperties___Builder__build(builder))
+ParquetWriterProperties$create <- function(version = NULL, compression = NULL, use_dictionary = NULL, write_statistics = NULL, data_page_size = NULL) {
+  if (is.null(version) && is.null(compression) && is.null(use_dictionary) && is.null(write_statistics) && is.null(data_page_size)) {
+    ParquetWriterProperties$default()
+  } else {
+    builder <- shared_ptr(ParquetWriterProperties_Builder, parquet___WriterProperties___Builder__create())
+    builder$set_version(version)
+    if (!is.null(compression)) {
+      builder$set_compression(compression)
+    }
+    if (!is.null(use_dictionary)) {
+      builder$set_dictionary(use_dictionary)
+    }
+    if (!is.null(write_statistics)) {
+      builder$set_write_statistics(write_statistics)
+    }
+    if (!is.null(data_page_size)) {
+      builder$set_data_page_size(data_page_size)
+    }
+    shared_ptr(ParquetWriterProperties, parquet___WriterProperties___Builder__build(builder))
+  }
 }
 
 ParquetFileWriter <- R6Class("ParquetFileWriter", inherit = Object,
@@ -116,6 +172,22 @@ ParquetFileWriter$create <- function(
 #' @param sink an [arrow::io::OutputStream][OutputStream] or a string which is interpreted as a file path
 #' @param chunk_size chunk size. If NULL, the number of rows of the table is used
 #'
+#' @param version parquet version
+#' @param compression compression name
+#' @param use_dictionary Specify if we should use dictionary encoding
+#' @param write_statistics Specify if we should write statistics
+#' @param data_page_size Set a target threshhold for the approximate encoded size of data
+#'        pages within a column chunk. If None, use the default data page size (1Mb) is used.
+#' @param properties properties for parquet writer, derived from arguments `version`, `compression`, `use_dictionary`, `write_statistics` and `data_page_size`
+#'
+#' @param use_deprecated_int96_timestamps Write timestamps to INT96 Parquet format
+#' @param coerce_timestamps Cast timestamps a particular resolution. can be NULL, "ms" or "us"
+#' @param allow_truncated_timestamps Allow loss of data when coercing timestamps to a particular
+#'    resolution. E.g. if microsecond or nanosecond data is lost when coercing to
+#'    ms', do not raise an exception
+#'
+#' @param arrow_properties arrow specific writer properties, derived from arguments `use_deprecated_int96_timestamps`, `coerce_timestamps` and `allow_truncated_timestamps`
+#'
 #' @examples
 #' \donttest{
 #' tf1 <- tempfile(fileext = ".parquet")
@@ -127,28 +199,38 @@ ParquetFileWriter$create <- function(
 #'
 #' }
 #' @export
-write_parquet <- function(table, sink, chunk_size = NULL) {
-  UseMethod("write_parquet", sink)
-}
+write_parquet <- function(
+  table,
+  sink, chunk_size = NULL,
+  version = NULL, compression = NULL, use_dictionary = NULL, write_statistics = NULL, data_page_size = NULL,
+  properties = ParquetWriterProperties$create(
+    version = version,
+    compression = compression,
+    use_dictionary = use_dictionary,
+    write_statistics = write_statistics,
+    data_page_size = data_page_size
+  ),
 
-#' @export
-write_parquet.OutputStream <- function(table, sink, chunk_size = NULL) {
+  use_deprecated_int96_timestamps = FALSE, coerce_timestamps = NULL, allow_truncated_timestamps = FALSE,
+  arrow_properties = ParquetArrowWriterProperties$create(
+    use_deprecated_int96_timestamps = use_deprecated_int96_timestamps,
+    coerce_timestamps = coerce_timestamps,
+    allow_truncated_timestamps = allow_truncated_timestamps
+  )
+) {
   table <- to_arrow(table)
+
+  if (is.character(sink)) {
+    sink <- FileOutputStream$create(sink)
+    on.exit(sink$close())
+  } else if (!inherits(sink, OutputStream)) {
+    abort("sink must be a file path or an OutputStream")
+  }
+
   schema <- table$schema
-  properties <- ParquetWriterProperties$default()
-  arrow_properties <- ParquetArrowWriterProperties$default()
   writer <- ParquetFileWriter$create(schema, sink, properties = properties, arrow_properties = arrow_properties)
   writer$WriteTable(table, chunk_size = chunk_size %||% table$num_rows)
   writer$Close()
-}
-
-#' @export
-write_parquet.character <- function(table, sink, chunk_size = NULL) {
-  table <- to_arrow(table)
-  file_sink <- FileOutputStream$create(sink)
-  on.exit(file_sink$close())
-
-  write_parquet(table, sink = file_sink, chunk_size = chunk_size)
 }
 
 #' Read a Parquet file

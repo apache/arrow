@@ -138,6 +138,40 @@ std::shared_ptr<parquet::WriterProperties::Builder> parquet___WriterProperties__
 }
 
 // [[arrow::export]]
+void parquet___WriterProperties___Builder__version(const std::shared_ptr<parquet::WriterProperties::Builder>& builder, const parquet::ParquetVersion::type& version) {
+  builder->version(version);
+}
+
+// [[arrow::export]]
+void parquet___ArrowWriterProperties___Builder__default_compression(const std::shared_ptr<parquet::WriterProperties::Builder>& builder, const arrow::Compression::type& compression) {
+  builder->compression(compression);
+}
+
+// [[arrow::export]]
+void parquet___ArrowWriterProperties___Builder__default_write_statistics(const std::shared_ptr<parquet::WriterProperties::Builder>& builder, bool write_statistics) {
+  if (write_statistics) {
+    builder->enable_statistics();
+  } else {
+    builder->disable_statistics();
+  }
+}
+
+// [[arrow::export]]
+void parquet___ArrowWriterProperties___Builder__default_use_dictionary(const std::shared_ptr<parquet::WriterProperties::Builder>& builder, bool use_dictionary) {
+  if (use_dictionary) {
+    builder->enable_dictionary();
+  } else {
+    builder->disable_dictionary();
+  }
+}
+
+// [[arrow::export]]
+void parquet___ArrowWriterProperties___Builder__data_page_size(const std::shared_ptr<parquet::WriterProperties::Builder>& builder, int64_t data_page_size) {
+  builder->data_pagesize(data_page_size);
+}
+
+
+// [[arrow::export]]
 std::shared_ptr<parquet::WriterProperties> parquet___WriterProperties___Builder__build(const std::shared_ptr<parquet::WriterProperties::Builder>& builder) {
   return builder->build();
 }

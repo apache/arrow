@@ -84,3 +84,9 @@ CompressionType <- enum("Compression::type",
 FileType <- enum("FileType",
   NonExistent = 0L, Unknown = 1L, File = 2L, Directory = 3L
 )
+
+#' @export
+#' @rdname enums
+ParquetVersionType <- enum("ParquetVersionType",
+  PARQUET_1_0 = 0L, PARQUET_2_0 = 1L
+)

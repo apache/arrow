@@ -207,6 +207,7 @@ RCPP_EXPOSED_ENUM_NODECL(arrow::io::FileMode::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::ipc::Message::Type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::Compression::type)
 RCPP_EXPOSED_ENUM_NODECL(arrow::fs::FileType)
+RCPP_EXPOSED_ENUM_NODECL(parquet::ParquetVersion::type)
 
 SEXP ChunkedArray__as_vector(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
 SEXP Array__as_vector(const std::shared_ptr<arrow::Array>& array);
