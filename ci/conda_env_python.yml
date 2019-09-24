@@ -19,7 +19,6 @@ cython=0.29.7
 cloudpickle
 hypothesis
 numpy>=1.14
-minio
 pandas
 pytest
 pytest-faulthandler

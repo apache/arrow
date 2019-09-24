@@ -1844,12 +1844,28 @@ def test_filters_read_table(tempdir):
 
 
 @pytest.fixture
-def s3_example(minio_server, minio_bucket):
+def s3_bucket(request, minio_server):
+    boto3 = pytest.importorskip('boto3')
+    botocore = pytest.importorskip('botocore')
+
+    address, access_key, secret_key = minio_server
+    s3 = boto3.resource('s3',
+        endpoint_url='http://{}'.format(address),
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+        config=botocore.client.Config(signature_version='s3v4'),
+        region_name='us-east-1'
+    )
+    bucket = s3.Bucket('test-s3fs')
+    bucket.create()
+    return 'test-s3fs'
+
+
+@pytest.fixture
+def s3_example(minio_server, s3_bucket):
     s3fs = pytest.importorskip('s3fs')
 
     address, access_key, secret_key = minio_server
-    bucket_name = minio_bucket
-
     fs = s3fs.S3FileSystem(
         key=access_key,
         secret=secret_key,
@@ -1859,7 +1875,7 @@ def s3_example(minio_server, minio_bucket):
     )
 
     test_dir = guid()
-    bucket_uri = 's3://{0}/{1}'.format(bucket_name, test_dir)
+    bucket_uri = 's3://{0}/{1}'.format(s3_bucket, test_dir)
 
     fs.mkdir(bucket_uri)
     yield fs, bucket_uri
