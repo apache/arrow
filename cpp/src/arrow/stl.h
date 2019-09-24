@@ -42,11 +42,32 @@ namespace stl {
 
 namespace internal {
 
+template <typename T, typename = void>
+struct is_optional_like : public std::false_type {};
+
+template <typename T, typename = void>
+struct is_dereferencable : public std::false_type {};
+
+template <typename T>
+struct is_dereferencable<T, arrow::internal::void_t<decltype(*std::declval<T>())>>
+    : public std::true_type {};
+
+template <typename T>
+struct is_optional_like<
+    T, typename std::enable_if<
+           std::is_constructible<bool, T>::value && is_dereferencable<T>::value &&
+           !std::is_array<typename std::remove_reference<T>::type>::value>::type>
+    : public std::true_type {};
+
 template <size_t N, typename Tuple>
-using BareTupleElement = typename std::remove_const<typename std::remove_reference<
-    typename std::tuple_element<N, Tuple>::type>::type>::type;
+using BareTupleElement =
+    typename std::decay<typename std::tuple_element<N, Tuple>::type>::type;
 
 }  // namespace internal
+
+template <typename T, typename R = void>
+using enable_if_optional_like =
+    typename std::enable_if<internal::is_optional_like<T>::value, R>::type;
 
 /// Traits meta class to map standard C/C++ types to equivalent Arrow types.
 template <typename T, typename Enable = void>
@@ -81,7 +102,6 @@ Status AppendListValues(CBuilderType<ValueCType>& value_builder, Range&& cell_ra
                            size_t j) {                                              \
       return array.Value(j);                                                        \
     }                                                                               \
-    constexpr static bool nullable = false;                                         \
   };                                                                                \
                                                                                     \
   template <>                                                                       \
@@ -111,7 +131,6 @@ struct ConversionTraits<std::string> : public CTypeTraits<std::string> {
   static std::string GetEntry(const StringArray& array, size_t j) {
     return array.GetString(j);
   }
-  constexpr static bool nullable = false;
 };
 
 /// Append cell range elements as a single value to the list builder.
@@ -159,19 +178,15 @@ struct ConversionTraits<std::vector<ValueCType>>
     }
     return vec;
   }
-
-  constexpr static bool nullable = false;
 };
 
 template <typename Optional>
 struct ConversionTraits<Optional, enable_if_optional_like<Optional>>
-    : public CTypeTraits<Optional> {
-  // Dependent names from base template class needs to be brought into scope.
-  using typename CTypeTraits<Optional>::OptionalInnerType;
-  using typename CTypeTraits<Optional>::ArrowType;
-  using CTypeTraits<Optional>::type_singleton;
-
-  constexpr static bool nullable = true;
+    : public CTypeTraits<typename std::decay<decltype(*std::declval<Optional>())>::type> {
+  using OptionalInnerType =
+      typename std::decay<decltype(*std::declval<Optional>())>::type;
+  using typename CTypeTraits<OptionalInnerType>::ArrowType;
+  using CTypeTraits<OptionalInnerType>::type_singleton;
 
   static Status AppendRow(typename TypeTraits<ArrowType>::BuilderType& builder,
                           const Optional& cell) {
@@ -200,8 +215,8 @@ struct SchemaFromTuple {
       const std::vector<std::string>& names) {
     std::vector<std::shared_ptr<Field>> ret =
         SchemaFromTuple<Tuple, N - 1>::MakeSchemaRecursion(names);
-    std::shared_ptr<DataType> type = CTypeTraits<Element>::type_singleton();
-    ret.push_back(field(names[N - 1], type, ConversionTraits<Element>::nullable));
+    auto type = ConversionTraits<Element>::type_singleton();
+    ret.push_back(field(names[N - 1], type, internal::is_optional_like<Element>::value));
     return ret;
   }
 
@@ -232,7 +247,8 @@ struct SchemaFromTuple {
     std::vector<std::shared_ptr<Field>> ret =
         SchemaFromTuple<Tuple, N - 1>::MakeSchemaRecursionT(names);
     std::shared_ptr<DataType> type = ConversionTraits<Element>::type_singleton();
-    ret.push_back(field(get<N - 1>(names), type, ConversionTraits<Element>::nullable));
+    ret.push_back(
+        field(get<N - 1>(names), type, internal::is_optional_like<Element>::value));
     return ret;
   }
 
