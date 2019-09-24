@@ -306,7 +306,7 @@ impl PhysicalExpr for BinaryExpr {
                         right.data_type()
                     )));
                 }
-            },
+            }
             Operator::Or => {
                 if left.data_type() == &DataType::Boolean {
                     boolean_op!(left, right, or)
@@ -318,7 +318,7 @@ impl PhysicalExpr for BinaryExpr {
                         right.data_type()
                     )));
                 }
-            },
+            }
             _ => Err(ExecutionError::General("Unsupported operator".to_string())),
         }
     }
