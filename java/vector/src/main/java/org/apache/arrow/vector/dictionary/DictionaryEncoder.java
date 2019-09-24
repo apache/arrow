@@ -22,7 +22,6 @@ import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -151,24 +150,6 @@ public class DictionaryEncoder {
    */
   static FieldVector getChildVector(FieldVector vector, int index) {
     return vector.getChildrenFromFields().get(index);
-  }
-
-  /**
-   * Clone FieldVector, mainly used for sub field encoding.
-   * @param vector vector to clone from.
-   * @param allocator buffer allocator.
-   * @return the cloned vector
-   */
-  static FieldVector cloneVector(FieldVector vector, BufferAllocator allocator) {
-
-    final FieldType fieldType = vector.getField().getFieldType();
-    FieldVector cloned = fieldType.createNewSingleVector(
-        vector.getField().getName(), allocator, /*schemaCallback=*/null);
-
-    final ArrowFieldNode fieldNode = new ArrowFieldNode(vector.getValueCount(), vector.getNullCount());
-    cloned.loadFieldBuffers(fieldNode, vector.getFieldBuffers());
-
-    return cloned;
   }
 
   /**

@@ -17,7 +17,6 @@
 
 package org.apache.arrow.vector.dictionary;
 
-import static org.apache.arrow.vector.dictionary.DictionaryEncoder.cloneVector;
 import static org.apache.arrow.vector.dictionary.DictionaryEncoder.getChildVector;
 import static org.apache.arrow.vector.dictionary.DictionaryEncoder.getChildVectorDictionary;
 
@@ -31,20 +30,21 @@ import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 
 /**
  * Sub fields encoder/decoder for Dictionary encoded {@link StructVector}.
- * Notes that child vectors within struct vector can either be dictionary encodeable or not.
+ * Notes that child vectors within struct vector can either be dictionary encodable or not.
  */
 public class StructSubfieldEncoder {
 
-  protected final BufferAllocator allocator;
+  private final BufferAllocator allocator;
 
-  protected final DictionaryProvider.MapDictionaryProvider provider;
-  protected final Map<Long, DictionaryHashTable> dictionaryIdToHashTable;
+  private final DictionaryProvider.MapDictionaryProvider provider;
+  private final Map<Long, DictionaryHashTable> dictionaryIdToHashTable;
 
   /**
    * Construct an instance.
@@ -62,6 +62,18 @@ public class StructSubfieldEncoder {
         dictionaryIdToHashTable.put(id, new DictionaryHashTable(provider.lookup(id).getVector())));
   }
 
+  private StructVector cloneVector(StructVector vector) {
+
+    final FieldType fieldType = vector.getField().getFieldType();
+    StructVector cloned = (StructVector) fieldType.createNewSingleVector(
+        vector.getField().getName(), allocator, /*schemaCallback=*/null);
+
+    final ArrowFieldNode fieldNode = new ArrowFieldNode(vector.getValueCount(), vector.getNullCount());
+    cloned.loadFieldBuffers(fieldNode, vector.getFieldBuffers());
+
+    return cloned;
+  }
+
   /**
    * Dictionary encodes subfields for complex vector with a provided dictionary.
    * The dictionary must contain all values in the sub fields vector.
@@ -70,8 +82,7 @@ public class StructSubfieldEncoder {
    *        id indicates the child vector is not encodable.
    * @return dictionary encoded vector
    */
-  public FieldVector encode(FieldVector vector, Map<Integer, Long> columnToDictionaryId) {
-    checkVectorType(vector);
+  public StructVector encode(StructVector vector, Map<Integer, Long> columnToDictionaryId) {
     final int valueCount = vector.getValueCount();
     final int childCount = vector.getChildrenFromFields().size();
 
@@ -94,7 +105,7 @@ public class StructSubfieldEncoder {
     }
 
     // clone list vector and initialize data vector
-    FieldVector encoded = cloneVector(vector, allocator);
+    StructVector encoded = cloneVector(vector);
     encoded.initializeChildrenFromFields(childrenFields);
     encoded.setValueCount(valueCount);
 
@@ -119,14 +130,12 @@ public class StructSubfieldEncoder {
    * @param vector dictionary encoded vector, its child vector must be int type
    * @return vector with values restored from dictionary
    */
-  public FieldVector decode(FieldVector vector) {
-    checkVectorType(vector);
-
+  public StructVector decode(StructVector vector) {
     final int valueCount = vector.getValueCount();
     final int childCount = vector.getChildrenFromFields().size();
 
     // clone list vector and initialize child vectors
-    FieldVector decoded = cloneVector(vector, allocator);
+    StructVector decoded = cloneVector(vector);
     List<Field> childFields = new ArrayList<>();
     for (int i = 0; i < childCount; i++) {
       FieldVector childVector = getChildVector(vector, i);
@@ -159,9 +168,5 @@ public class StructSubfieldEncoder {
     }
 
     return decoded;
-  }
-
-  protected void checkVectorType(FieldVector vector) {
-    Preconditions.checkArgument(vector instanceof StructVector);
   }
 }

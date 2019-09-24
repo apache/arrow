@@ -1018,7 +1018,7 @@ public class TestDictionaryVector {
       columnToDictionaryId.put(0, 1L);
       columnToDictionaryId.put(1, 2L);
 
-      try (final UnionVector encoded = (UnionVector) encoder.encode(vector, columnToDictionaryId)) {
+      try (final UnionVector encoded = encoder.encode(vector, columnToDictionaryId)) {
         // verify indices
         assertEquals(UnionVector.class, encoded.getClass());
 
