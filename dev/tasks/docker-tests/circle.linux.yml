@@ -19,7 +19,8 @@ version: 2
 jobs:
   build:
     machine:
-      image: circleci/classic:201808-01
+      image: ubuntu-1604:201903-01
+      docker_layer_caching: true
     steps:
       - run: docker -v
       - run: docker-compose -v
@@ -33,12 +34,14 @@ jobs:
       - run: git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
       - run: git -C arrow checkout FETCH_HEAD
       - run: git -C arrow submodule update --init --recursive
-      - run: |
-          pushd arrow
-          {%- for command in commands %}
-            {{ command }}
-          {%- endfor %}
-          popd
+      - run:
+          no_output_timeout: 1h
+          command: |
+            pushd arrow
+            {%- for command in commands %}
+              {{ command }}
+            {%- endfor %}
+            popd
 
 workflows:
   version: 2
