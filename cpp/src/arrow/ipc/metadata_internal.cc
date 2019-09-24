@@ -62,9 +62,6 @@ using Offset = flatbuffers::Offset<void>;
 using FBString = flatbuffers::Offset<flatbuffers::String>;
 using KVVector = flatbuffers::Vector<KeyValueOffset>;
 
-static const char kExtensionTypeKeyName[] = "ARROW:extension:name";
-static const char kExtensionMetadataKeyName[] = "ARROW:extension:metadata";
-
 MetadataVersion GetMetadataVersion(flatbuf::MetadataVersion version) {
   switch (version) {
     case flatbuf::MetadataVersion_V1:

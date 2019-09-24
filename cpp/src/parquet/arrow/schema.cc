@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/extension_type.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 
@@ -307,6 +308,12 @@ Status FieldToNode(const std::shared_ptr<Field>& field,
       std::shared_ptr<::arrow::Field> unpacked_field = ::arrow::field(
           field->name(), dict_type.value_type(), field->nullable(), field->metadata());
       return FieldToNode(unpacked_field, properties, arrow_properties, out);
+    }
+    case ArrowTypeId::EXTENSION: {
+      auto ext_type = std::static_pointer_cast<::arrow::ExtensionType>(field->type());
+      std::shared_ptr<::arrow::Field> storage_field = ::arrow::field(
+          field->name(), ext_type->storage_type(), field->nullable(), field->metadata());
+      return FieldToNode(storage_field, properties, arrow_properties, out);
     }
     default: {
       // TODO: DENSE_UNION, SPARE_UNION, JSON_SCALAR, DECIMAL_TEXT, VARCHAR
