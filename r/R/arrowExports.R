@@ -920,6 +920,14 @@ parquet___default_writer_properties <- function(){
     .Call(`_arrow_parquet___default_writer_properties` )
 }
 
+parquet___WriterProperties___Builder__create <- function(){
+    .Call(`_arrow_parquet___WriterProperties___Builder__create` )
+}
+
+parquet___WriterProperties___Builder__build <- function(builder){
+    .Call(`_arrow_parquet___WriterProperties___Builder__build` , builder)
+}
+
 parquet___arrow___ParquetFileWriter__Open <- function(schema, sink, properties, arrow_properties){
     .Call(`_arrow_parquet___arrow___ParquetFileWriter__Open` , schema, sink, properties, arrow_properties)
 }

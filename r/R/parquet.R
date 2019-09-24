@@ -73,6 +73,17 @@ ParquetWriterProperties$default <- function() {
   shared_ptr(ParquetWriterProperties, parquet___default_writer_properties())
 }
 
+ParquetWriterProperties_Builder <- R6Class("ParquetWriterProperties_Builder", inherit = Object,
+  public = list(
+
+  )
+)
+
+ParquetWriterProperties$create <- function() {
+  builder <- shared_ptr(ParquetWriterProperties_Builder, parquet___WriterProperties___Builder__create())
+  shared_ptr(ParquetWriterProperties, parquet___WriterProperties___Builder__build(builder))
+}
+
 ParquetFileWriter <- R6Class("ParquetFileWriter", inherit = Object,
   public = list(
     WriteTable = function(table, chunk_size) {
@@ -103,7 +114,7 @@ ParquetFileWriter$create <- function(
 #'
 #' @param table An [arrow::Table][Table], or an object convertible to it with [to_arrow()]
 #' @param sink an [arrow::io::OutputStream][OutputStream] or a string which is interpreted as a file path
-#' @param chunk_size chunk size
+#' @param chunk_size chunk size. If NULL, the number of rows of the table is used
 #'
 #' @examples
 #' \donttest{
@@ -116,23 +127,23 @@ ParquetFileWriter$create <- function(
 #'
 #' }
 #' @export
-write_parquet <- function(table, sink, chunk_size = table$num_rows) {
+write_parquet <- function(table, sink, chunk_size = NULL) {
   UseMethod("write_parquet", sink)
 }
 
 #' @export
-write_parquet.OutputStream <- function(table, sink, chunk_size = table$num_rows) {
+write_parquet.OutputStream <- function(table, sink, chunk_size = NULL) {
   table <- to_arrow(table)
   schema <- table$schema
   properties <- ParquetWriterProperties$default()
   arrow_properties <- ParquetArrowWriterProperties$default()
   writer <- ParquetFileWriter$create(schema, sink, properties = properties, arrow_properties = arrow_properties)
-  writer$WriteTable(table, chunk_size = chunk_size)
+  writer$WriteTable(table, chunk_size = chunk_size %||% table$num_rows)
   writer$Close()
 }
 
 #' @export
-write_parquet.character <- function(table, sink, chunk_size = table$num_rows) {
+write_parquet.character <- function(table, sink, chunk_size = NULL) {
   table <- to_arrow(table)
   file_sink <- FileOutputStream$create(sink)
   on.exit(file_sink$close())

@@ -133,6 +133,16 @@ std::shared_ptr<parquet::WriterProperties> parquet___default_writer_properties()
 }
 
 // [[arrow::export]]
+std::shared_ptr<parquet::WriterProperties::Builder> parquet___WriterProperties___Builder__create() {
+  return std::make_shared<parquet::WriterProperties::Builder>();
+}
+
+// [[arrow::export]]
+std::shared_ptr<parquet::WriterProperties> parquet___WriterProperties___Builder__build(const std::shared_ptr<parquet::WriterProperties::Builder>& builder) {
+  return builder->build();
+}
+
+// [[arrow::export]]
 std::unique_ptr<parquet::arrow::FileWriter> parquet___arrow___ParquetFileWriter__Open(
     const std::shared_ptr<arrow::Schema>& schema,
     const std::shared_ptr<arrow::io::OutputStream>& sink,
