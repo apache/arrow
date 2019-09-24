@@ -17,4 +17,4 @@
 
 #pragma once
 
-#include "arrow/vendored/base64.h"
+#include "arrow/vendored/base64.h"  // IWYU pragma: export
