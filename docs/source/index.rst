@@ -52,6 +52,7 @@ such topics as:
    format/Columnar
    format/Flight
    format/Integration
+   format/CProtocol
    format/Other
 
 .. _toc.usage:
