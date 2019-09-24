@@ -903,7 +903,8 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
     cdef cppclass HdfsOutputStream(COutputStream):
         pass
 
-    cdef cppclass CHadoopFileSystem" arrow::io::HadoopFileSystem"(CIOFileSystem):
+    cdef cppclass CHadoopFileSystem \
+            "arrow::io::HadoopFileSystem"(CIOFileSystem):
         @staticmethod
         CStatus Connect(const HdfsConnectionConfig* config,
                         shared_ptr[CHadoopFileSystem]* client)
