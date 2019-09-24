@@ -61,7 +61,9 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   Status Tell(int64_t* position) const override;
   Status Write(const void* data, int64_t nbytes) override;
 
+  /// \cond FALSE
   using OutputStream::Write;
+  /// \endcond
 
   /// Close the stream and return the buffer
   Status Finish(std::shared_ptr<Buffer>* result);

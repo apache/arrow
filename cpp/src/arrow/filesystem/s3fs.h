@@ -79,7 +79,9 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
  public:
   ~S3FileSystem() override;
 
+  /// \cond FALSE
   using FileSystem::GetTargetStats;
+  /// \endcond
   Status GetTargetStats(const std::string& path, FileStats* out) override;
   Status GetTargetStats(const Selector& select, std::vector<FileStats>* out) override;
 

@@ -96,8 +96,9 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
 
   // Write bytes to the stream. Thread-safe
   Status Write(const void* data, int64_t nbytes) override;
-
+  /// \cond FALSE
   using Writable::Write;
+  /// \endcond
 
   int file_descriptor() const;
 

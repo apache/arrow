@@ -38,7 +38,9 @@ class ARROW_EXPORT LocalFileSystem : public FileSystem {
   LocalFileSystem();
   ~LocalFileSystem() override;
 
+  /// \cond FALSE
   using FileSystem::GetTargetStats;
+  /// \endcond
   Status GetTargetStats(const std::string& path, FileStats* out) override;
   Status GetTargetStats(const Selector& select, std::vector<FileStats>* out) override;
 
