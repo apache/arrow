@@ -74,7 +74,7 @@ OutputStream <- R6Class("OutputStream", inherit = Writable,
 #' @export
 FileOutputStream <- R6Class("FileOutputStream", inherit = OutputStream)
 FileOutputStream$create <- function(path) {
-  shared_ptr(FileOutputStream, io___FileOutputStream__Open(clean_path(path)))
+  shared_ptr(FileOutputStream, io___FileOutputStream__Open(clean_path_abs(path)))
 }
 
 #' @usage NULL
@@ -209,7 +209,7 @@ MemoryMappedFile <- R6Class("MemoryMappedFile", inherit = RandomAccessFile,
 #' @export
 ReadableFile <- R6Class("ReadableFile", inherit = RandomAccessFile)
 ReadableFile$create <- function(path) {
-  shared_ptr(ReadableFile, io___ReadableFile__Open(clean_path(path)))
+  shared_ptr(ReadableFile, io___ReadableFile__Open(clean_path_abs(path)))
 }
 
 #' @usage NULL
@@ -231,7 +231,7 @@ BufferReader$create <- function(x) {
 #'
 #' @export
 mmap_create <- function(path, size) {
-  path <- clean_path(path)
+  path <- clean_path_abs(path)
   shared_ptr(MemoryMappedFile, io___MemoryMappedFile__Create(path, size))
 }
 
@@ -243,7 +243,7 @@ mmap_create <- function(path, size) {
 #' @export
 mmap_open <- function(path, mode = c("read", "write", "readwrite")) {
   mode <- match(match.arg(mode), c("read", "write", "readwrite")) - 1L
-  path <- clean_path(path)
+  path <- clean_path_abs(path)
   shared_ptr(MemoryMappedFile, io___MemoryMappedFile__Open(path, mode))
 }
 
