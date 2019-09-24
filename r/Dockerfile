@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM arrow:cpp
+FROM ursalab/arrow-cpp
 
 # Configure
 ENV CC=gcc \

@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM arrow:python-3.6
+FROM ursalab/arrow-python-3.6
 
 # test against pandas' master
 RUN pip install git+https://github.com/pandas-dev/pandas.git

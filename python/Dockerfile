@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM arrow:cpp
+FROM ursalab/arrow-cpp
 
 # install python specific packages
 ARG PYTHON_VERSION=3.6

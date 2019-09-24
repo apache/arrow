@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM arrow:python-3.6
+FROM ursalab/arrow-python-3.6
 
 # installing java and maven
 ARG MAVEN_VERSION=3.5.4
