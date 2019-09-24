@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -26,6 +27,7 @@
 #include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
+#include "arrow/io/slow.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
@@ -312,6 +314,40 @@ TEST(TestMemcopy, ParallelMemcopy) {
     ASSERT_EQ(0, memcmp(buffer1->data(), buffer2->data(), buffer1->size()));
   }
 }
+
+template <typename SlowStreamType>
+void TestSlowInputStream() {
+  using clock = std::chrono::high_resolution_clock;
+
+  auto stream = std::make_shared<BufferReader>(util::string_view("abcdefghijkl"));
+  const double latency = 0.6;
+  auto slow = std::make_shared<SlowStreamType>(stream, latency);
+
+  ASSERT_FALSE(slow->closed());
+  std::shared_ptr<Buffer> buf;
+  auto t1 = clock::now();
+  ASSERT_OK(slow->Read(6, &buf));
+  auto t2 = clock::now();
+  AssertBufferEqual(*buf, "abcdef");
+  auto dt = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count();
+  ASSERT_LT(dt, latency * 3);  // likely
+  ASSERT_GT(dt, latency / 3);  // likely
+
+  util::string_view view;
+  ASSERT_OK(slow->Peek(4, &view));
+  ASSERT_EQ(view, util::string_view("ghij"));
+
+  ASSERT_OK(slow->Close());
+  ASSERT_TRUE(slow->closed());
+  ASSERT_TRUE(stream->closed());
+  ASSERT_OK(slow->Close());
+  ASSERT_TRUE(slow->closed());
+  ASSERT_TRUE(stream->closed());
+}
+
+TEST(TestSlowInputStream, Basics) { TestSlowInputStream<SlowInputStream>(); }
+
+TEST(TestSlowRandomAccessFile, Basics) { TestSlowInputStream<SlowRandomAccessFile>(); }
 
 }  // namespace io
 }  // namespace arrow

@@ -25,7 +25,6 @@
 #include <vector>
 
 #include "arrow/status.h"
-#include "arrow/util/compression.h"
 #include "arrow/util/visibility.h"
 
 // The Windows API defines macros from *File resolving to either
@@ -44,6 +43,7 @@ namespace arrow {
 namespace io {
 
 class InputStream;
+class LatencyGenerator;
 class OutputStream;
 class RandomAccessFile;
 
@@ -263,6 +263,48 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
   Status PrependBaseNonEmpty(std::string* s) const;
   Status StripBase(const std::string& s, std::string* out) const;
   Status FixStats(FileStats* st) const;
+};
+
+/// \brief EXPERIMENTAL: a FileSystem implementation that delegates to another
+/// implementation but inserts latencies at various points.
+class ARROW_EXPORT SlowFileSystem : public FileSystem {
+ public:
+  SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
+                 std::shared_ptr<io::LatencyGenerator> latencies);
+  SlowFileSystem(std::shared_ptr<FileSystem> base_fs, double average_latency);
+  SlowFileSystem(std::shared_ptr<FileSystem> base_fs, double average_latency,
+                 int32_t seed);
+
+  using FileSystem::GetTargetStats;
+  Status GetTargetStats(const std::string& path, FileStats* out) override;
+  Status GetTargetStats(const Selector& select, std::vector<FileStats>* out) override;
+
+  Status CreateDir(const std::string& path, bool recursive = true) override;
+
+  Status DeleteDir(const std::string& path) override;
+  Status DeleteDirContents(const std::string& path) override;
+
+  Status DeleteFile(const std::string& path) override;
+
+  Status Move(const std::string& src, const std::string& dest) override;
+
+  Status CopyFile(const std::string& src, const std::string& dest) override;
+
+  Status OpenInputStream(const std::string& path,
+                         std::shared_ptr<io::InputStream>* out) override;
+
+  Status OpenInputFile(const std::string& path,
+                       std::shared_ptr<io::RandomAccessFile>* out) override;
+
+  Status OpenOutputStream(const std::string& path,
+                          std::shared_ptr<io::OutputStream>* out) override;
+
+  Status OpenAppendStream(const std::string& path,
+                          std::shared_ptr<io::OutputStream>* out) override;
+
+ protected:
+  std::shared_ptr<FileSystem> base_fs_;
+  std::shared_ptr<io::LatencyGenerator> latencies_;
 };
 
 }  // namespace fs
