@@ -39,20 +39,21 @@ DictionaryType <- R6Class("DictionaryType",
     ordered = function() DictionaryType__ordered(self)
   )
 )
+DictionaryType$create <- function(index_type = int32(),
+                                  value_type = utf8(),
+                                  ordered = FALSE) {
+  assert_is(index_type, "DataType")
+  assert_is(value_type, "DataType")
+  shared_ptr(DictionaryType, DictionaryType__initialize(index_type, value_type, ordered))
+}
 
 #' Create a dictionary type
 #'
-#' @param index_type index type, e.g. [int32()]
-#' @param value_type value type, probably [utf8()]
-#' @param ordered Is this an ordered dictionary ?
+#' @param index_type A DataType for the indexes (default [int32()])
+#' @param value_type A DataType for the values (default [utf8()])
+#' @param ordered Is this an ordered dictionary (default `FALSE`)?
 #'
 #' @return A [DictionaryType]
 #' @seealso [Other Arrow data types][data-type]
 #' @export
-dictionary <- function(index_type, value_type, ordered = FALSE) {
-  assert_that(
-    inherits(index_type, "DataType"),
-    inherits(index_type, "DataType")
-  )
-  shared_ptr(DictionaryType, DictionaryType__initialize(index_type, value_type, ordered))
-}
+dictionary <- DictionaryType$create

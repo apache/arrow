@@ -104,6 +104,7 @@ Table <- R6Class("Table", inherit = Object,
     field = function(i) shared_ptr(Field, Table__field(self, i)),
 
     serialize = function(output_stream, ...) write_table(self, output_stream, ...),
+    ToString = function() ToString_tabular(self),
 
     cast = function(target_schema, safe = TRUE, options = cast_options(safe)) {
       assert_is(target_schema, "Schema")

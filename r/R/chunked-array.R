@@ -69,6 +69,20 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = Object,
     },
     Validate = function() {
       ChunkedArray__Validate(self)
+    },
+    ToString = function() {
+      out <- self$chunk(0)$ToString()
+      if (self$num_chunks > 1) {
+        # Regardless of whether the first array prints with ellipsis, we need
+        # to ellipsize because there's more data than is contained in this
+        # chunk
+        if (grepl("...\n", out, fixed = TRUE)) {
+          out <- sub("\\.\\.\\..*$", "...\n]", out)
+        } else {
+          out <- sub("\\n\\]$", ",\n  ...\n]", out)
+        }
+      }
+      out
     }
   ),
   active = list(

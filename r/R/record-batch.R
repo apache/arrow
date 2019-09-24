@@ -111,6 +111,7 @@ RecordBatch <- R6Class("RecordBatch", inherit = Object,
     },
 
     serialize = function() ipc___SerializeRecordBatch__Raw(self),
+    ToString = function() ToString_tabular(self),
 
     cast = function(target_schema, safe = TRUE, options = cast_options(safe)) {
       assert_is(target_schema, "Schema")
@@ -245,4 +246,12 @@ tail.RecordBatch <- function(x, n = 6L, ...) {
     n <- nrow(x) - n
   }
   x$Slice(n)
+}
+
+ToString_tabular <- function(x, ...) {
+  # Generic to work with both RecordBatch and Table
+  sch <- unlist(strsplit(x$schema$ToString(), "\n"))
+  sch <- sub("(.*): (.*)", "$\\1 <\\2>", sch)
+  dims <- sprintf("%s rows x %s columns", nrow(x), ncol(x))
+  paste(c(dims, sch), collapse = "\n")
 }

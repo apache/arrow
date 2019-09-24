@@ -70,12 +70,11 @@ library(arrow)
 set.seed(24)
 
 tab <- Table$create(x = 1:10, y = rnorm(10))
-tab$schema
-#> Schema 
-#> x: int32
-#> y: double
 tab
 #> Table
+#> 10 rows x 2 columns
+#> $x <int32>
+#> $y <double>
 as.data.frame(tab)
 #>     x            y
 #> 1   1 -0.545880758

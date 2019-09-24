@@ -54,9 +54,9 @@ Object <- R6Class("Object",
       self$`.:xp:.` <- xp
     },
     print = function(...){
-      cat(class(self)[[1]], "\n")
+      cat(class(self)[[1]], "\n", sep = "")
       if (!is.null(self$ToString)){
-        cat(self$ToString(), "\n")
+        cat(self$ToString(), "\n", sep = "")
       }
       invisible(self)
     }

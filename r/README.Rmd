@@ -55,7 +55,6 @@ library(arrow)
 set.seed(24)
 
 tab <- Table$create(x = 1:10, y = rnorm(10))
-tab$schema
 tab
 as.data.frame(tab)
 ```

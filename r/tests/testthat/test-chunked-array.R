@@ -27,8 +27,8 @@ test_that("ChunkedArray", {
   y <- x$Slice(8)
   expect_equal(y$type, int32())
   expect_equal(y$num_chunks, 3L)
-  expect_equal(y$length(), 17L)
-  expect_equal(y$as_vector(), c(9:10, 1:10, 1:5))
+  expect_equal(length(y), 17L)
+  expect_equal(as.vector(y), c(9:10, 1:10, 1:5))
 
   z <- x$Slice(8, 5)
   expect_equal(z$type, int32())
@@ -53,6 +53,55 @@ test_that("ChunkedArray", {
   expect_equal(z_dbl$num_chunks, 2L)
   expect_equal(z_dbl$length(), 2L)
   expect_equal(z_dbl$as_vector(), as.numeric(3:4))
+})
+
+test_that("print ChunkedArray", {
+  x1 <- chunked_array(c(1,2,3), c(4,5,6))
+  expect_output(
+    print(x1),
+    paste(
+      "ChunkedArray",
+      "<double>",
+      "[",
+      "  1,",
+      "  2,",
+      "  3,",
+      "  ...",
+      "]",
+      sep = "\n"
+    ),
+    fixed = TRUE
+  )
+  x2 <- chunked_array(1:30, c(4,5,6))
+  expect_output(
+    print(x2),
+    paste(
+      "ChunkedArray",
+      "<int32>",
+      "[",
+      "  1,",
+      "  2,",
+      "  3,",
+      "  4,",
+      "  5,",
+      "  6,",
+      "  7,",
+      "  8,",
+      "  9,",
+      "  10,",
+      "  ...",
+      "]",
+      sep = "\n"
+    ),
+    fixed = TRUE
+  )
+  # If there's only one chunk, it should look like a regular Array
+  x3 <- chunked_array(1:30)
+  expect_output(
+    print(x3),
+    paste0("Chunked", paste(capture.output(print(Array$create(1:30))), collapse = "\n")),
+    fixed = TRUE
+  )
 })
 
 test_that("ChunkedArray handles !!! splicing", {
