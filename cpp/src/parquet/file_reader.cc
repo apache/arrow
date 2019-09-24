@@ -128,11 +128,10 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
     std::unique_ptr<ColumnCryptoMetaData> crypto_metadata = col->crypto_metadata();
 
-    PageReaderContext ctx;
     // Column is encrypted only if crypto_metadata exists.
     if (!crypto_metadata) {
-      ctx = PageReaderContext{col->has_dictionary_page(), row_group_ordinal_,
-                              static_cast<int16_t>(i), NULLPTR, NULLPTR};
+      CryptoContext ctx(col->has_dictionary_page(), row_group_ordinal_,
+                        static_cast<int16_t>(i), NULLPTR, NULLPTR);
       return PageReader::Open(stream, col->num_values(), col->compression(),
                               properties_.memory_pool(), &ctx);
     }
@@ -145,8 +144,8 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     if (crypto_metadata->encrypted_with_footer_key()) {
       meta_decryptor = file_decryptor_->GetFooterDecryptorForColumnMeta();
       data_decryptor = file_decryptor_->GetFooterDecryptorForColumnData();
-      PageReaderContext ctx = {col->has_dictionary_page(), row_group_ordinal_,
-                               static_cast<int16_t>(i), meta_decryptor, data_decryptor};
+      CryptoContext ctx(col->has_dictionary_page(), row_group_ordinal_,
+                        static_cast<int16_t>(i), meta_decryptor, data_decryptor);
       return PageReader::Open(stream, col->num_values(), col->compression(),
                               properties_.memory_pool(), &ctx);
     }
@@ -161,8 +160,8 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     data_decryptor =
         file_decryptor_->GetColumnDataDecryptor(column_path, column_key_metadata);
 
-    ctx = PageReaderContext{col->has_dictionary_page(), row_group_ordinal_,
-                            static_cast<int16_t>(i), meta_decryptor, data_decryptor};
+    CryptoContext ctx(col->has_dictionary_page(), row_group_ordinal_,
+                      static_cast<int16_t>(i), meta_decryptor, data_decryptor);
     return PageReader::Open(stream, col->num_values(), col->compression(),
                             properties_.memory_pool(), &ctx);
   }
@@ -344,7 +343,7 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithEncryptedFooter(
     }
   }
   auto file_decryption_properties = properties_.file_decryption_properties();
-  if (file_decryption_properties == nullptr) {
+  if (file_decryption_properties == NULLPTR) {
     throw ParquetException(
         "No decryption properties are provided. Could not read "
         "encrypted footer metadata");
@@ -467,7 +466,7 @@ std::unique_ptr<ParquetFileReader::Contents> ParquetFileReader::Contents::Open(
   // Access private methods here, but otherwise unavailable
   SerializedFile* file = static_cast<SerializedFile*>(result.get());
 
-  if (metadata == nullptr) {
+  if (metadata == NULLPTR) {
     // Validates magic bytes, parses metadata, and initializes the SchemaDescriptor
     file->ParseMetaData();
   } else {
