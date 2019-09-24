@@ -17,7 +17,7 @@
 FROM arrow:python-3.6
 
 # installing java and maven
-ARG MAVEN_VERSION=3.5.4
+ARG MAVEN_VERSION=3.6.2
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 \
     MAVEN_HOME=/usr/local/maven \
     M2_HOME=/root/.m2 \

@@ -58,5 +58,5 @@ pushd /spark
     "pyspark.sql.tests.test_pandas_udf_window")
 
   (echo "Testing PySpark:"; IFS=$'\n'; echo "${SPARK_PYTHON_TESTS[*]}")
-  python/run-tests --testnames "$(IFS=,; echo "${SPARK_PYTHON_TESTS[*]}")"
+  python/run-tests --testnames "$(IFS=,; echo "${SPARK_PYTHON_TESTS[*]}")" --python-executables python
 popd
