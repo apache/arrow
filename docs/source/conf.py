@@ -30,9 +30,12 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-import pyarrow
+
 import os
 import sys
+from unittest import mock
+
+import pyarrow
 
 from unittest import mock
 
