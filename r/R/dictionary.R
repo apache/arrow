@@ -53,7 +53,7 @@ DictionaryType$create <- function(index_type = int32(),
 
 #' Create a dictionary type
 #'
-#' @param index_type A DataType for the indexes (default [int32()])
+#' @param index_type A DataType for the indices (default [int32()])
 #' @param value_type A DataType for the values (default [utf8()])
 #' @param ordered Is this an ordered dictionary (default `FALSE`)?
 #'
