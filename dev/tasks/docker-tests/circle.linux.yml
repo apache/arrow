@@ -35,13 +35,13 @@ jobs:
       - run: git -C arrow checkout FETCH_HEAD
       - run: git -C arrow submodule update --init --recursive
       - run:
-          no_output_timeout: 1h
           command: |
             pushd arrow
             {%- for command in commands %}
               {{ command }}
             {%- endfor %}
             popd
+          no_output_timeout: 1h
 
 workflows:
   version: 2
