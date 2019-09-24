@@ -295,8 +295,30 @@ impl PhysicalExpr for BinaryExpr {
             Operator::GtEq => comparison_op!(left, right, gt_eq),
             Operator::Eq => comparison_op!(left, right, eq),
             Operator::NotEq => comparison_op!(left, right, neq),
-            Operator::And => boolean_op!(left, right, and),
-            Operator::Or => boolean_op!(left, right, or),
+            Operator::And => {
+                if left.data_type() == &DataType::Boolean {
+                    boolean_op!(left, right, and)
+                } else {
+                    return Err(ExecutionError::General(format!(
+                        "Cannot evaluate binary expression {:?} with types {:?} and {:?}",
+                        self.op,
+                        left.data_type(),
+                        right.data_type()
+                    )));
+                }
+            },
+            Operator::Or => {
+                if left.data_type() == &DataType::Boolean {
+                    boolean_op!(left, right, or)
+                } else {
+                    return Err(ExecutionError::General(format!(
+                        "Cannot evaluate binary expression {:?} with types {:?} and {:?}",
+                        self.op,
+                        left.data_type(),
+                        right.data_type()
+                    )));
+                }
+            },
             _ => Err(ExecutionError::General("Unsupported operator".to_string())),
         }
     }
