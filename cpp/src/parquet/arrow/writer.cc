@@ -30,6 +30,7 @@
 #include "arrow/ipc/writer.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
+#include "arrow/util/base64.h"
 #include "arrow/visitor_inline.h"
 
 #include "parquet/arrow/reader_internal.h"
@@ -577,7 +578,13 @@ Status GetSchemaMetadata(const ::arrow::Schema& schema, ::arrow::MemoryPool* poo
   ::arrow::ipc::DictionaryMemo dict_memo;
   std::shared_ptr<Buffer> serialized;
   RETURN_NOT_OK(::arrow::ipc::SerializeSchema(schema, &dict_memo, pool, &serialized));
-  result->Append(kArrowSchemaKey, serialized->ToString());
+
+  // The serialized schema is not UTF-8, which is required for Thrift
+  std::string schema_as_string = serialized->ToString();
+  std::string schema_base64 = ::arrow::util::base64_encode(
+      reinterpret_cast<const unsigned char*>(schema_as_string.data()),
+      static_cast<unsigned int>(schema_as_string.size()));
+  result->Append(kArrowSchemaKey, schema_base64);
   *out = result;
   return Status::OK();
 }

@@ -145,6 +145,7 @@ set(ARROW_SRCS
     util/thread_pool.cc
     util/trie.cc
     util/utf8.cc
+    vendored/base64.cpp
     vendored/datetime/tz.cpp)
 
 # Add dependencies for third-party allocators.
