@@ -30,3 +30,4 @@ Getting Started
    datatypes
    tables
    io
+   flight
