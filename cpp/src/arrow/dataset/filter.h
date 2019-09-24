@@ -295,29 +295,17 @@ class ARROW_DS_EXPORT ScalarExpression final : public Expression {
 
   bool Equals(const Expression& other) const override;
 
-  static std::shared_ptr<ScalarExpression> Make(bool value) {
-    return std::make_shared<ScalarExpression>(std::make_shared<BooleanScalar>(value));
-  }
-
   template <typename T>
-  static typename std::enable_if<std::is_integral<T>::value ||
-                                     std::is_floating_point<T>::value,
-                                 std::shared_ptr<ScalarExpression>>::type
-  Make(T value) {
-    using ScalarType = typename CTypeTraits<T>::ScalarType;
-    return std::make_shared<ScalarExpression>(std::make_shared<ScalarType>(value));
-  }
-
-  static std::shared_ptr<ScalarExpression> Make(std::string value);
-
-  static std::shared_ptr<ScalarExpression> Make(const char* value);
-
-  static std::shared_ptr<ScalarExpression> Make(std::shared_ptr<Scalar> value) {
-    return std::make_shared<ScalarExpression>(std::move(value));
+  static std::shared_ptr<ScalarExpression> Make(T&& value) {
+    return ScalarExpression::Make(MakeScalar(std::forward<T>(value)));
   }
 
   static std::shared_ptr<ScalarExpression> MakeNull(
       const std::shared_ptr<DataType>& type);
+
+  static std::shared_ptr<ScalarExpression> Make(std::shared_ptr<Scalar> value) {
+    return std::make_shared<ScalarExpression>(std::move(value));
+  }
 
   Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
 

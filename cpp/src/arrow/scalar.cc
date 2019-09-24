@@ -77,6 +77,9 @@ DayTimeIntervalScalar::DayTimeIntervalScalar(DayTimeIntervalType::DayMillisecond
             checked_cast<IntervalType*>(type.get())->interval_type());
 }
 
+StringScalar::StringScalar(std::string s)
+    : StringScalar(Buffer::FromString(std::move(s))) {}
+
 FixedSizeBinaryScalar::FixedSizeBinaryScalar(const std::shared_ptr<Buffer>& value,
                                              const std::shared_ptr<DataType>& type,
                                              bool is_valid)
@@ -144,9 +147,6 @@ Status MakeNullScalar(const std::shared_ptr<DataType>& type,
 }
 
 struct ScalarParseImpl {
-  template <typename T>
-  using ScalarType = typename TypeTraits<T>::ScalarType;
-
   template <typename T, typename Converter = internal::StringConverter<T>,
             typename Value = typename Converter::value_type>
   Status Visit(const T& t) {
@@ -154,7 +154,7 @@ struct ScalarParseImpl {
     if (!Converter{type_}(s_.data(), s_.size(), &value)) {
       return Status::Invalid("error parsing \"", s_, "\" as scalar of type ", t);
     }
-    Construct<ScalarType<T>, Value>(std::move(value));
+    *out_ = MakeScalar<T>(type_, std::move(value));
     return Status::OK();
   }
 
@@ -162,23 +162,14 @@ struct ScalarParseImpl {
     return Status::NotImplemented("parsing scalars of type ", t);
   }
 
-  template <typename ScalarType, typename Value>
-  typename std::enable_if<std::is_constructible<
-      ScalarType, Value&&, const std::shared_ptr<DataType>&>::value>::type
-  Construct(Value&& value) {
-    *out_ = std::make_shared<ScalarType>(std::move(value), type_);
-  }
-
-  template <typename ScalarType, typename Value>
-  typename std::enable_if<std::is_constructible<ScalarType, Value&&>::value>::type
-  Construct(Value&& value) {
-    *out_ = std::make_shared<ScalarType>(std::move(value));
-  }
+  ScalarParseImpl(const std::shared_ptr<DataType>& type, util::string_view s,
+                  std::shared_ptr<Scalar>* out)
+      : type_(type), s_(s), out_(out) {}
 
   const std::shared_ptr<DataType>& type_;
   util::string_view s_;
   std::shared_ptr<Scalar>* out_;
-};  // namespace arrow
+};
 
 Status Scalar::Parse(const std::shared_ptr<DataType>& type, util::string_view s,
                      std::shared_ptr<Scalar>* out) {

@@ -283,9 +283,10 @@ struct CTypeTraits<std::string> : public TypeTraits<StringType> {
 };
 
 template <>
-struct CTypeTraits<char*> : public TypeTraits<StringType> {
-  using ArrowType = StringType;
-};
+struct CTypeTraits<const char*> : public CTypeTraits<std::string> {};
+
+template <size_t N>
+struct CTypeTraits<const char (&)[N]> : public CTypeTraits<std::string> {};
 
 template <>
 struct CTypeTraits<DayTimeIntervalType::DayMilliseconds>

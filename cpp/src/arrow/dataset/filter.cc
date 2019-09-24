@@ -187,19 +187,10 @@ Result<Datum> ComparisonExpression::Evaluate(compute::FunctionContext* ctx,
   return std::move(out);
 }
 
-std::shared_ptr<ScalarExpression> ScalarExpression::Make(std::string value) {
-  return std::make_shared<ScalarExpression>(
-      std::make_shared<StringScalar>(Buffer::FromString(std::move(value))));
-}
-
-std::shared_ptr<ScalarExpression> ScalarExpression::Make(const char* value) {
-  return std::make_shared<ScalarExpression>(
-      std::make_shared<StringScalar>(Buffer::Wrap(value, std::strlen(value))));
-}
-
 std::shared_ptr<ScalarExpression> ScalarExpression::MakeNull(
     const std::shared_ptr<DataType>& type) {
   std::shared_ptr<Scalar> null;
+  // FIXME(bkietz) don't just DCHECK this
   DCHECK_OK(arrow::MakeNullScalar(type, &null));
   return Make(std::move(null));
 }

@@ -122,6 +122,8 @@ struct ARROW_EXPORT StringScalar : public BinaryScalar {
   explicit StringScalar(const std::shared_ptr<Buffer>& value, bool is_valid = true)
       : BinaryScalar(value, utf8(), is_valid) {}
 
+  explicit StringScalar(std::string s);
+
   StringScalar() : StringScalar(NULLPTR, false) {}
 };
 
@@ -256,5 +258,59 @@ class ARROW_EXPORT ExtensionScalar : public Scalar {};
 ARROW_EXPORT
 Status MakeNullScalar(const std::shared_ptr<DataType>& type,
                       std::shared_ptr<Scalar>* null);
+
+template <typename T, typename Value,
+          typename ScalarType = typename TypeTraits<T>::ScalarType>
+typename std::enable_if<
+    std::is_constructible<ScalarType, Value&&, const std::shared_ptr<DataType>&>::value,
+    std::shared_ptr<Scalar>>::type
+MakeScalar(const std::shared_ptr<DataType>& type, Value&& value) {
+  return std::make_shared<ScalarType>(std::forward<Value>(value), type);
+}
+
+template <typename T, typename Value,
+          typename ScalarType = typename TypeTraits<T>::ScalarType>
+typename std::enable_if<std::is_constructible<ScalarType, Value&&>::value,
+                        std::shared_ptr<Scalar>>::type
+MakeScalar(const std::shared_ptr<DataType>& type, Value&& value) {
+  return std::make_shared<ScalarType>(std::forward<Value>(value));
+}
+
+template <typename ValueRef>
+struct MakeScalarImpl {
+  template <typename T>
+  typename std::enable_if<std::is_same<decltype(MakeScalar<T>(std::shared_ptr<DataType>(),
+                                                              std::declval<ValueRef>())),
+                                       std::shared_ptr<Scalar>>::value,
+                          Status>::type
+  Visit(const T&) {
+    *out_ = MakeScalar<T>(type_, static_cast<ValueRef>(value_));
+    return Status::OK();
+  }
+
+  Status Visit(const DataType& t) {
+    return Status::NotImplemented("constructing scalars of type ", t,
+                                  " using MakeScalar");
+  }
+
+  const std::shared_ptr<DataType>& type_;
+  ValueRef value_;
+  std::shared_ptr<Scalar>* out_;
+};
+
+template <typename Value>
+Status MakeScalar(const std::shared_ptr<DataType>& type, Value&& value,
+                  std::shared_ptr<Scalar>* out) {
+  MakeScalarImpl<Value&&> impl = {type, std::forward<Value>(value), out};
+  return VisitTypeInline(*type, &impl);
+}
+
+/// \brief type inferring scalar factory
+template <typename Value,
+          typename T = typename CTypeTraits<typename std::decay<Value>::type>::ArrowType>
+decltype(MakeScalar<T>(TypeTraits<T>::type_singleton(), std::declval<Value>()))
+MakeScalar(Value&& value) {
+  return MakeScalar<T>(TypeTraits<T>::type_singleton(), std::forward<Value>(value));
+}
 
 }  // namespace arrow
