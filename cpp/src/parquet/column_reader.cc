@@ -623,7 +623,7 @@ class ColumnReaderImplBase {
 
   ::arrow::MemoryPool* pool_;
 
-  using DecoderType = typename EncodingTraits<DType>::Decoder;
+  using DecoderType = TypedDecoder<DType>;
   DecoderType* current_decoder_;
   Encoding::type current_encoding_;
 
