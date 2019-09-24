@@ -69,8 +69,14 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
   @Override
   public Boolean visit(BaseFixedWidthVector left, Range range) {
     if (left instanceof Float4Vector) {
+      if (!validate(left)) {
+        return false;
+      }
       return float4ApproxEquals(range);
     } else if (left instanceof Float8Vector) {
+      if (!validate(left)) {
+        return false;
+      }
       return float8ApproxEquals(range);
     } else {
       return super.visit(left, range);

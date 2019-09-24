@@ -58,7 +58,11 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
     Preconditions.checkArgument(right != null,
         "right vector cannot be null");
 
-    // types cannot change for a visitor instance. so, the check is done only once.
+    // type usually checks only once unless the left vector is changed.
+    checkType();
+  }
+
+  private void checkType() {
     if (!isTypeCheckNeeded) {
       typeCompareResult = true;
     } else if (left == right) {
@@ -66,6 +70,17 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
     } else {
       typeCompareResult = left.getField().getType().equals(right.getField().getType());
     }
+  }
+
+  /**
+   * Validate the passed left vector, if it is changed, reset and check type.
+   */
+  protected boolean validate(ValueVector left) {
+    if (left != this.left) {
+      this.left = left;
+      checkType();
+    }
+    return typeCompareResult;
   }
 
   /**
@@ -79,7 +94,7 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
   }
 
   /**
-   * Check range equals without passing IN param in VectorVisitor.
+   * Check range equals.
    */
   public boolean rangeEquals(Range range) {
     if (!typeCompareResult) {
@@ -107,42 +122,59 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
     return right;
   }
 
-  public boolean isTypeCheckNeeded() {
-    return isTypeCheckNeeded;
-  }
-
   @Override
   public Boolean visit(BaseFixedWidthVector left, Range range) {
+    if (!validate(left)) {
+      return false;
+    }
     return compareBaseFixedWidthVectors(range);
   }
 
   @Override
   public Boolean visit(BaseVariableWidthVector left, Range range) {
+    if (!validate(left)) {
+      return false;
+    }
     return compareBaseVariableWidthVectors(range);
   }
 
   @Override
   public Boolean visit(ListVector left, Range range) {
+    if (!validate(left)) {
+      return false;
+    }
     return compareListVectors(range);
   }
 
   @Override
   public Boolean visit(FixedSizeListVector left, Range range) {
+    if (!validate(left)) {
+      return false;
+    }
     return compareFixedSizeListVectors(range);
   }
 
   @Override
   public Boolean visit(NonNullableStructVector left, Range range) {
+    if (!validate(left)) {
+      return false;
+    }
     return compareStructVectors(range);
   }
 
   @Override
   public Boolean visit(UnionVector left, Range range) {
+    if (!validate(left)) {
+      return false;
+    }
     return compareUnionVectors(range);
   }
 
   @Override
   public Boolean visit(ZeroVector left, Range range) {
+    if (!validate(left)) {
+      return false;
+    }
     return true;
   }
 
