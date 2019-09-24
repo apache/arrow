@@ -517,51 +517,12 @@ TEST(PlainEncodingAdHoc, ArrowBinaryDirectPut) {
   }
 }
 
-TEST(PlainEncodingAdHoc, ArrowFLBADirectPut) {
-  const int64_t size = 50;
-  const double null_probability = 0.25;
-  auto arrow_type = arrow::fixed_size_binary(sizeof(uint64_t));
-  auto column_descr = ExampleDescr<FLBAType>();
-
-  auto CheckSeed = [&](int seed) {
-    arrow::random::RandomArrayGenerator rag(seed);
-    std::shared_ptr<arrow::Array> values;
-    ASSERT_OK(rag.UInt64(size, 0, std::numeric_limits<uint64_t>::max(), null_probability)
-                  ->View(arrow_type, &values));
-
-    auto encoder = MakeTypedEncoder<FLBAType>(Encoding::PLAIN, /*use_dictionary=*/false,
-                                              column_descr.get());
-    auto decoder = MakeTypedDecoder<FLBAType>(Encoding::PLAIN, column_descr.get());
-
-    ASSERT_NO_THROW(encoder->Put(*values));
-    auto buf = encoder->FlushValues();
-
-    int num_values = static_cast<int>(values->length() - values->null_count());
-    decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
-
-    typename EncodingTraits<FLBAType>::Accumulator acc(arrow_type);
-    ASSERT_EQ(num_values,
-              decoder->DecodeArrow(static_cast<int>(values->length()),
-                                   static_cast<int>(values->null_count()),
-                                   values->null_bitmap_data(), values->offset(), &acc));
-
-    std::shared_ptr<::arrow::Array> result;
-    ASSERT_OK(acc.Finish(&result));
-    ASSERT_EQ(50, result->length());
-    arrow::AssertArraysEqual(*values, *result);
-  };
-
-  for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
-    CheckSeed(seed);
-  }
-}
-
-template <typename T, typename Out = typename EncodingTraits<T>::Decoder>
+template <typename T>
 void GetDictDecoder(DictEncoder<T>* encoder, int64_t num_values,
                     std::shared_ptr<Buffer>* out_values,
                     std::shared_ptr<Buffer>* out_dict, const ColumnDescriptor* descr,
-                    std::unique_ptr<Out>* out_decoder) {
-  auto decoder = MakeDictDecoder<T>();
+                    std::unique_ptr<TypedDecoder<T>>* out_decoder) {
+  auto decoder = MakeDictDecoder<T>(descr);
   auto buf = encoder->FlushValues();
   auto dict_buf = AllocateBuffer(default_memory_pool(), encoder->dict_encoded_size());
   encoder->WriteDict(dict_buf->mutable_data());
@@ -576,7 +537,10 @@ void GetDictDecoder(DictEncoder<T>* encoder, int64_t num_values,
 
   *out_values = buf;
   *out_dict = dict_buf;
-  *out_decoder = std::unique_ptr<Out>(dynamic_cast<Out*>(decoder.release()));
+  ASSERT_NE(decoder, nullptr);
+  auto released = dynamic_cast<TypedDecoder<T>*>(decoder.release());
+  ASSERT_NE(released, nullptr);
+  *out_decoder = std::unique_ptr<TypedDecoder<T>>(released);
 }
 
 template <typename Pair = void>
@@ -586,16 +550,32 @@ class EncodingAdHocTyped {
                                  std::pair<::arrow::Int32Type, Int32Type>,
                                  std::pair<::arrow::Int64Type, Int64Type>,
                                  std::pair<::arrow::FloatType, FloatType>,
-                                 std::pair<::arrow::DoubleType, DoubleType>>;
+                                 std::pair<::arrow::DoubleType, DoubleType>,
+                                 std::pair<::arrow::FixedSizeBinaryType, FLBAType>>;
 };
 
 template <typename ArrowType, typename ParquetType>
 class EncodingAdHocTyped<std::pair<ArrowType, ParquetType>> : public ::testing::Test {
  public:
+  using EncoderType = typename EncodingTraits<ParquetType>::Encoder;
+  using DecoderType = typename EncodingTraits<ParquetType>::Decoder;
+  using BuilderType = typename EncodingTraits<ParquetType>::Accumulator;
+  using DictBuilderType = typename EncodingTraits<ParquetType>::DictAccumulator;
+
+  static const ColumnDescriptor* column_descr() {
+    static auto column_descr = ExampleDescr<ParquetType>();
+    return column_descr.get();
+  }
+
+  std::shared_ptr<arrow::Array> GetValues(int seed);
+
+  static std::shared_ptr<arrow::DataType> arrow_type();
+
   void Plain(int seed) {
     auto values = GetValues(seed);
-    auto encoder = MakeTypedEncoder<ParquetType>(Encoding::PLAIN);
-    auto decoder = MakeTypedDecoder<ParquetType>(Encoding::PLAIN);
+    auto encoder = MakeTypedEncoder<ParquetType>(
+        Encoding::PLAIN, /*use_dictionary=*/false, column_descr());
+    auto decoder = MakeTypedDecoder<ParquetType>(Encoding::PLAIN, column_descr());
 
     ASSERT_NO_THROW(encoder->Put(*values));
     auto buf = encoder->FlushValues();
@@ -603,7 +583,7 @@ class EncodingAdHocTyped<std::pair<ArrowType, ParquetType>> : public ::testing::
     int num_values = static_cast<int>(values->length() - values->null_count());
     decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
 
-    typename arrow::TypeTraits<ArrowType>::BuilderType acc;
+    BuilderType acc(arrow_type(), arrow::default_memory_pool());
     ASSERT_EQ(num_values,
               decoder->DecodeArrow(static_cast<int>(values->length()),
                                    static_cast<int>(values->null_count()),
@@ -617,25 +597,25 @@ class EncodingAdHocTyped<std::pair<ArrowType, ParquetType>> : public ::testing::
 
   void Dict(int seed) {
     if (std::is_same<ParquetType, BooleanType>::value) {
-      // dictionary encoding boolean would be silly
       return;
     }
 
     auto values = GetValues(seed);
 
-    auto owned_encoder = MakeTypedEncoder<ParquetType>(Encoding::PLAIN,
-                                                       /*use_dictionary=*/true);
-
+    auto owned_encoder =
+        MakeTypedEncoder<ParquetType>(Encoding::PLAIN,
+                                      /*use_dictionary=*/true, column_descr());
     auto encoder = dynamic_cast<DictEncoder<ParquetType>*>(owned_encoder.get());
 
     ASSERT_NO_THROW(encoder->Put(*values));
 
-    std::unique_ptr<typename EncodingTraits<ParquetType>::Decoder> decoder;
     std::shared_ptr<Buffer> buf, dict_buf;
     int num_values = static_cast<int>(values->length() - values->null_count());
-    GetDictDecoder(encoder, num_values, &buf, &dict_buf, nullptr, &decoder);
 
-    typename arrow::TypeTraits<ArrowType>::BuilderType acc;
+    std::unique_ptr<TypedDecoder<ParquetType>> decoder;
+    GetDictDecoder(encoder, num_values, &buf, &dict_buf, column_descr(), &decoder);
+
+    BuilderType acc(arrow_type(), arrow::default_memory_pool());
     ASSERT_EQ(num_values,
               decoder->DecodeArrow(static_cast<int>(values->length()),
                                    static_cast<int>(values->null_count()),
@@ -646,19 +626,107 @@ class EncodingAdHocTyped<std::pair<ArrowType, ParquetType>> : public ::testing::
     arrow::AssertArraysEqual(*values, *result);
   }
 
-  std::shared_ptr<arrow::Array> GetValues(int seed) {
-    arrow::random::RandomArrayGenerator rag(seed);
-    if (std::is_same<ArrowType, arrow::BooleanType>::value) {
-      return rag.Boolean(size_, 0.1, null_probability_);
-    } else {
-      return rag.Numeric<ArrowType>(size_, 0, 10, null_probability_);
+  void DictPutIndices() {
+    if (std::is_same<ParquetType, BooleanType>::value) {
+      return;
     }
+
+    /*
+    auto dict_values =
+        arrow::ArrayFromJSON(arrow::binary(), "[\"foo\", \"bar\", \"baz\"]");
+
+    auto expected = arrow::ArrayFromJSON(arrow::binary(),
+                                         "[\"foo\", \"bar\", \"baz\", null, "
+                                         "\"foo\", \"bar\", null, \"baz\"]");
+                                         */
+
+    auto dict_values =
+        arrow::ArrayFromJSON(arrow_type(), std::is_same<ParquetType, FLBAType>::value
+                                               ? R"(["abcdefgh", "ijklmnop", "qrstuvwx"])"
+                                               : "[120, -37, 47]");
+    auto indices = arrow::ArrayFromJSON(arrow::int32(), "[0, 1, 2]");
+    auto indices_nulls = arrow::ArrayFromJSON(arrow::int32(), "[null, 0, 1, null, 2]");
+
+    auto expected = arrow::ArrayFromJSON(
+        arrow_type(), std::is_same<ParquetType, FLBAType>::value
+                          ? R"(["abcdefgh", "ijklmnop", "qrstuvwx", null,
+                                "abcdefgh", "ijklmnop", null, "qrstuvwx"])"
+                          : "[120, -37, 47, null, "
+                            "120, -37, null, 47]");
+
+    auto owned_encoder =
+        MakeTypedEncoder<ParquetType>(Encoding::PLAIN,
+                                      /*use_dictionary=*/true, column_descr());
+    auto owned_decoder = MakeDictDecoder<ParquetType>();
+
+    auto encoder = dynamic_cast<DictEncoder<ParquetType>*>(owned_encoder.get());
+
+    ASSERT_NO_THROW(encoder->PutDictionary(*dict_values));
+
+    // Trying to call PutDictionary again throws
+    ASSERT_THROW(encoder->PutDictionary(*dict_values), ParquetException);
+
+    ASSERT_NO_THROW(encoder->PutIndices(*indices));
+    ASSERT_NO_THROW(encoder->PutIndices(*indices_nulls));
+
+    std::shared_ptr<Buffer> buf, dict_buf;
+    int num_values = static_cast<int>(expected->length() - expected->null_count());
+
+    std::unique_ptr<TypedDecoder<ParquetType>> decoder;
+    GetDictDecoder(encoder, num_values, &buf, &dict_buf, column_descr(), &decoder);
+
+    BuilderType acc(arrow_type(), arrow::default_memory_pool());
+    ASSERT_EQ(num_values, decoder->DecodeArrow(static_cast<int>(expected->length()),
+                                               static_cast<int>(expected->null_count()),
+                                               expected->null_bitmap_data(),
+                                               expected->offset(), &acc));
+
+    std::shared_ptr<::arrow::Array> result;
+    ASSERT_OK(acc.Finish(&result));
+    arrow::AssertArraysEqual(*expected, *result);
   }
 
  protected:
   const int64_t size_ = 50;
   const double null_probability_ = 0.25;
 };
+
+template <typename ArrowType, typename ParquetType>
+std::shared_ptr<arrow::DataType>
+EncodingAdHocTyped<std::pair<ArrowType, ParquetType>>::arrow_type() {
+  return arrow::TypeTraits<ArrowType>::type_singleton();
+}
+
+template <>
+std::shared_ptr<arrow::DataType>
+EncodingAdHocTyped<std::pair<arrow::FixedSizeBinaryType, FLBAType>>::arrow_type() {
+  return arrow::fixed_size_binary(sizeof(uint64_t));
+}
+
+template <typename ArrowType, typename ParquetType>
+std::shared_ptr<arrow::Array>
+EncodingAdHocTyped<std::pair<ArrowType, ParquetType>>::GetValues(int seed) {
+  arrow::random::RandomArrayGenerator rag(seed);
+  return rag.Numeric<ArrowType>(size_, 0, 10, null_probability_);
+}
+
+template <>
+std::shared_ptr<arrow::Array>
+EncodingAdHocTyped<std::pair<arrow::BooleanType, BooleanType>>::GetValues(int seed) {
+  arrow::random::RandomArrayGenerator rag(seed);
+  return rag.Boolean(size_, 0.1, null_probability_);
+}
+
+template <>
+std::shared_ptr<arrow::Array>
+EncodingAdHocTyped<std::pair<arrow::FixedSizeBinaryType, FLBAType>>::GetValues(int seed) {
+  arrow::random::RandomArrayGenerator rag(seed);
+  std::shared_ptr<arrow::Array> values;
+  ARROW_EXPECT_OK(
+      rag.UInt64(size_, 0, std::numeric_limits<uint64_t>::max(), null_probability_)
+          ->View(arrow_type(), &values));
+  return values;
+}
 
 TYPED_TEST_CASE(EncodingAdHocTyped, EncodingAdHocTyped<>::Types);
 
@@ -743,6 +811,8 @@ TEST(DictEncodingAdHoc, PutDictionaryPutIndices) {
   ASSERT_OK(acc.builder->Finish(&result));
   arrow::AssertArraysEqual(*expected, *result);
 }
+
+TYPED_TEST(EncodingAdHocTyped, DictArrowDirectPutIndices) { this->DictPutIndices(); }
 
 class DictEncoding : public TestArrowBuilderDecoding {
  public:

@@ -766,8 +766,7 @@ void DictEncoderImpl<DType>::PutDictionary(const arrow::Array& values) {
     throw ParquetException("Inserted dictionary cannot cannot contain nulls");
   }
 
-  // FIXME(bkietz) is this correct accounting of dict_encoded_size_?
-  dict_encoded_size_ += static_cast<int>(type_length_ * data.length());
+  dict_encoded_size_ += static_cast<int>(sizeof(typename DType::c_type) * data.length());
   for (int64_t i = 0; i < data.length(); i++) {
     ARROW_IGNORE_EXPR(
         memo_table_.GetOrInsert(data.Value(i),
@@ -788,9 +787,7 @@ void DictEncoderImpl<FLBAType>::PutDictionary(const arrow::Array& values) {
     throw ParquetException("Inserted dictionary cannot cannot contain nulls");
   }
 
-  // FIXME(bkietz) is this correct accounting of dict_encoded_size_?
-  dict_encoded_size_ +=
-      static_cast<int>((type_length_ + sizeof(uint32_t)) * data.length());
+  dict_encoded_size_ += static_cast<int>(type_length_ * data.length());
   for (int64_t i = 0; i < data.length(); i++) {
     ARROW_IGNORE_EXPR(
         memo_table_.GetOrInsert(data.Value(i), type_length_,
@@ -1561,7 +1558,32 @@ template <>
 int DictDecoderImpl<FLBAType>::DecodeArrow(
     int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
     typename EncodingTraits<FLBAType>::Accumulator* builder) {
-  ParquetException::NYI("DecodeArrow implemented elsewhere");
+  if (builder->byte_width() != descr_->type_length()) {
+    throw ParquetException("Byte width mismatch: builder was " +
+                           std::to_string(builder->byte_width()) + " but decoder was " +
+                           std::to_string(descr_->type_length()));
+  }
+
+  PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
+  arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
+
+  auto dict_values = reinterpret_cast<const FLBA*>(dictionary_->data());
+
+  for (int i = 0; i < num_values; ++i) {
+    bool is_valid = bit_reader.IsSet();
+    bit_reader.Next();
+    if (is_valid) {
+      int32_t index;
+      if (ARROW_PREDICT_FALSE(!idx_decoder_.Get(&index))) {
+        throw ParquetException("");
+      }
+      builder->UnsafeAppend(dict_values[index].ptr);
+    } else {
+      builder->UnsafeAppendNull();
+    }
+  }
+
+  return num_values - null_count;
 }
 
 template <typename Type>
