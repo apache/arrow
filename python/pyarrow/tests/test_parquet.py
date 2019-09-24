@@ -1849,7 +1849,8 @@ def s3_bucket(request, minio_server):
     botocore = pytest.importorskip('botocore')
 
     address, access_key, secret_key = minio_server
-    s3 = boto3.resource('s3',
+    s3 = boto3.resource(
+        's3',
         endpoint_url='http://{}'.format(address),
         aws_access_key_id=access_key,
         aws_secret_access_key=secret_key,
