@@ -1290,7 +1290,9 @@ cdef class UnionArray(Array):
             check_status(CUnionArray.MakeDense(
                 deref(types.ap), deref(value_offsets.ap), c, c_field_names,
                 c_type_codes, &out))
-        return pyarrow_wrap_array(out)
+        cdef Array result = pyarrow_wrap_array(out)
+        result.validate()
+        return result
 
     @staticmethod
     def from_sparse(Array types, list children, list field_names=None,
@@ -1328,7 +1330,9 @@ cdef class UnionArray(Array):
                                                 c_field_names,
                                                 c_type_codes,
                                                 &out))
-        return pyarrow_wrap_array(out)
+        cdef Array result = pyarrow_wrap_array(out)
+        result.validate()
+        return result
 
 
 cdef class StringArray(Array):
@@ -1503,7 +1507,9 @@ cdef class DictionaryArray(Array):
             c_result.reset(new CDictionaryArray(c_type, _indices.sp_array,
                                                 _dictionary.sp_array))
 
-        return pyarrow_wrap_array(c_result)
+        cdef Array result = pyarrow_wrap_array(c_result)
+        result.validate()
+        return result
 
 
 cdef class StructArray(Array):
@@ -1628,7 +1634,9 @@ cdef class StructArray(Array):
         else:
             c_result = CStructArray.MakeFromFields(
                 c_arrays, c_fields, shared_ptr[CBuffer](), -1, 0)
-        return pyarrow_wrap_array(GetResultValue(c_result))
+        cdef Array result = pyarrow_wrap_array(GetResultValue(c_result))
+        result.validate()
+        return result
 
 
 cdef class ExtensionArray(Array):
@@ -1667,7 +1675,9 @@ cdef class ExtensionArray(Array):
                             "for extension type {1}".format(storage.type, typ))
 
         ext_array = make_shared[CExtensionArray](typ.sp_type, storage.sp_array)
-        return pyarrow_wrap_array(<shared_ptr[CArray]> ext_array)
+        cdef Array result = pyarrow_wrap_array(<shared_ptr[CArray]> ext_array)
+        result.validate()
+        return result
 
 
 cdef dict _array_classes = {
