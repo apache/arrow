@@ -53,7 +53,7 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
   @Override
   public void init() {
     final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-    this.config = new AvroToArrowConfig(allocator, /*targetBatchSize=*/3);
+    this.config = new AvroToArrowConfigBuilder(allocator).setTargetBatchSize(3).build();
   }
 
   private AvroToArrowVectorIterator writeAndRead(Schema schema, List data) throws Exception {
@@ -172,8 +172,8 @@ public class AvroToArrowIteratorTest extends AvroTestBase {
     int x = 0;
     final int targetRows = 600000;
     Decoder fakeDecoder = new FakeDecoder(targetRows);
-    try (AvroToArrowVectorIterator iter =
-        AvroToArrow.avroToArrowIterator(schema, fakeDecoder, new AvroToArrowConfig(config.getAllocator()))) {
+    try (AvroToArrowVectorIterator iter = AvroToArrow.avroToArrowIterator(schema, fakeDecoder,
+            new AvroToArrowConfigBuilder(config.getAllocator()).build())) {
       while (iter.hasNext()) {
         VectorSchemaRoot root = iter.next();
         x += root.getRowCount();

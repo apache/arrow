@@ -51,7 +51,7 @@ public class AvroTestBase {
   @Before
   public void init() {
     BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-    config = new AvroToArrowConfig(allocator);
+    config = new AvroToArrowConfigBuilder(allocator).build();
   }
 
   protected Schema getSchema(String schemaName) throws Exception {

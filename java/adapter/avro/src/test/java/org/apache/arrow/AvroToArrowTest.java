@@ -123,6 +123,62 @@ public class AvroToArrowTest extends AvroTestBase {
   }
 
   @Test
+  public void testSkipFields() throws Exception {
+    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(Arrays.asList("f1")).build();
+    Schema schema = getSchema("test_record.avsc");
+    Schema expectedSchema = getSchema("test_skip_fields.avsc");
+
+    ArrayList<GenericRecord> data = new ArrayList<>();
+    ArrayList<GenericRecord> expectedData = new ArrayList<>();
+
+    for (int i = 0; i < 5; i++) {
+      GenericRecord record = new GenericData.Record(schema);
+      record.put(0, "test" + i);
+      record.put(1, i);
+      record.put(2, i % 2 == 0);
+      data.add(record);
+
+      GenericRecord expectedRecord = new GenericData.Record(expectedSchema);
+      expectedRecord.put(0, record.get(0));
+      expectedRecord.put(1, record.get(2));
+      expectedData.add(expectedRecord);
+    }
+
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    checkRecordResult(expectedSchema, expectedData, root);
+  }
+
+  @Test
+  public void testSkipNestedFields() throws Exception {
+    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(Arrays.asList("f0")).build();
+    Schema schema = getSchema("test_nested_record.avsc");
+    Schema nestedSchema = schema.getFields().get(0).schema();
+    ArrayList<GenericRecord> data = new ArrayList<>();
+
+    Schema expectedSchema = getSchema("test_skip_nested_fields.avsc");
+    Schema expectedNestedSchema = expectedSchema.getFields().get(0).schema();
+    ArrayList<GenericRecord> expectedData = new ArrayList<>();
+
+    for (int i = 0; i < 5; i++) {
+      GenericRecord record = new GenericData.Record(schema);
+      GenericRecord nestedRecord = new GenericData.Record(nestedSchema);
+      nestedRecord.put(0, "test" + i);
+      nestedRecord.put(1, i);
+      record.put(0, nestedRecord);
+      data.add(record);
+
+      GenericRecord expectedRecord = new GenericData.Record(expectedSchema);
+      GenericRecord expectedNestedRecord = new GenericData.Record(expectedNestedSchema);
+      expectedNestedRecord.put(0, nestedRecord.get(1));
+      expectedRecord.put(0, expectedNestedRecord);
+      expectedData.add(expectedRecord);
+    }
+
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    checkNestedRecordResult(expectedSchema, expectedData, root);
+  }
+
+  @Test
   public void testEnumType() throws Exception {
     Schema schema = getSchema("test_primitive_enum.avsc");
     List<GenericData.EnumSymbol> data = Arrays.asList(
