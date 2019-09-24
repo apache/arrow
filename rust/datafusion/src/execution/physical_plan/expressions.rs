@@ -28,13 +28,13 @@ use arrow::array::{
     ArrayRef, BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array,
     Int64Array, Int8Array, UInt16Array, UInt32Array, UInt64Array, UInt8Array,
 };
-use arrow::compute::kernels::boolean::{and, or};
-use arrow::compute::kernels::comparison::{eq, gt, gt_eq, lt, lt_eq, neq};
 use arrow::array::{
     Float32Builder, Float64Builder, Int16Builder, Int32Builder, Int64Builder,
     Int8Builder, UInt16Builder, UInt32Builder, UInt64Builder, UInt8Builder,
 };
+use arrow::compute::kernels::boolean::{and, or};
 use arrow::compute::kernels::cast::cast;
+use arrow::compute::kernels::comparison::{eq, gt, gt_eq, lt, lt_eq, neq};
 use arrow::datatypes::{DataType, Schema};
 use arrow::record_batch::RecordBatch;
 
