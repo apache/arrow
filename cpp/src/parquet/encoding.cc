@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -924,8 +925,9 @@ int PlainDecoder<DType>::DecodeArrow(
     typename EncodingTraits<DType>::Accumulator* builder) {
   using value_type = typename DType::c_type;
 
+  constexpr int value_size = static_cast<int>(sizeof(value_type));
   int values_decoded = num_values - null_count;
-  if (ARROW_PREDICT_FALSE(len_ < sizeof(value_type) * values_decoded)) {
+  if (ARROW_PREDICT_FALSE(len_ < value_size * values_decoded)) {
     ParquetException::EofException();
   }
 
