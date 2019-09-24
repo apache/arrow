@@ -34,7 +34,7 @@
 Field <- R6Class("Field", inherit = Object,
   public = list(
     ToString = function() {
-      Field__ToString(self)
+      prettier_dictionary_type(Field__ToString(self))
     },
     Equals = function(other) {
       inherits(other, "Field") && Field__Equals(self, other)

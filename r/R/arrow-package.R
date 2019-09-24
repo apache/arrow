@@ -63,6 +63,9 @@ Object <- R6Class("Object",
   )
 )
 
+#' @export
+`!=.Object` <- function(lhs, rhs) !(lhs == rhs)
+
 shared_ptr <- function(class, xp) {
   if (!shared_ptr_is_null(xp)) class$new(xp)
 }

@@ -31,7 +31,11 @@
 #' @name DictionaryType
 DictionaryType <- R6Class("DictionaryType",
   inherit = FixedWidthType,
-
+  public = list(
+    ToString = function() {
+      prettier_dictionary_type(DataType__ToString(self))
+    }
+  ),
   active = list(
     index_type = function() DataType$create(DictionaryType__index_type(self)),
     value_type = function() DataType$create(DictionaryType__value_type(self)),
@@ -57,3 +61,9 @@ DictionaryType$create <- function(index_type = int32(),
 #' @seealso [Other Arrow data types][data-type]
 #' @export
 dictionary <- DictionaryType$create
+
+prettier_dictionary_type <- function(x) {
+  # Prettier format the "ordered" attribute
+  x <- sub(", ordered=0", "", x)
+  sub("ordered=1", "ordered", x)
+}

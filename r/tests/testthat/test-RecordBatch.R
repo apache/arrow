@@ -130,7 +130,7 @@ test_that("RecordBatch print method", {
       "$dbl <double>",
       "$lgl <bool>",
       "$chr <string>",
-      "$fct <dictionary<values=string, indices=int8, ordered=0>>",
+      "$fct <dictionary<values=string, indices=int8>>",
       sep = "\n"
     ),
     fixed = TRUE
