@@ -41,7 +41,7 @@ jobs:
               {{ command }}
             {%- endfor %}
             popd
-          no_output_timeout: 1h
+          no_output_timeout: "1h"
 
 workflows:
   version: 2
