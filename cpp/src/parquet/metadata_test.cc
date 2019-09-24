@@ -100,6 +100,11 @@ TEST(Metadata, TestBuildAccess) {
   // Generate the metadata
   auto f_accessor = GenerateTableMetaData(schema, props, nrows, stats_int, stats_float);
 
+  ASSERT_EQ(512, f_accessor->ToString().length());
+  ASSERT_EQ(21, static_cast<int32_t>(f_accessor->ToString()[0]));
+  ASSERT_EQ(60, static_cast<int32_t>(f_accessor->ToString()[3]));
+  ASSERT_EQ(24, static_cast<int32_t>(f_accessor->ToString()[219]));
+
   // file metadata
   ASSERT_EQ(nrows, f_accessor->num_rows());
   ASSERT_LE(0, static_cast<int>(f_accessor->size()));
@@ -180,6 +185,12 @@ TEST(Metadata, TestBuildAccess) {
 
   // Test AppendRowGroups
   auto f_accessor_2 = GenerateTableMetaData(schema, props, nrows, stats_int, stats_float);
+  
+  ASSERT_EQ(512, f_accessor_2->ToString().length());
+  ASSERT_EQ(21, static_cast<int32_t>(f_accessor_2->ToString()[0]));
+  ASSERT_EQ(60, static_cast<int32_t>(f_accessor_2->ToString()[3]));
+  ASSERT_EQ(24, static_cast<int32_t>(f_accessor_2->ToString()[219]));
+
   f_accessor->AppendRowGroups(*f_accessor_2);
   ASSERT_EQ(4, f_accessor->num_row_groups());
   ASSERT_EQ(nrows * 2, f_accessor->num_rows());

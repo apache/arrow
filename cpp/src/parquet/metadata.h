@@ -231,6 +231,8 @@ class PARQUET_EXPORT FileMetaData {
   void WriteTo(::arrow::io::OutputStream* dst,
                const std::shared_ptr<Encryptor>& encryptor = NULLPTR) const;
 
+  std::string ToString() const;
+
   // Return const-pointer to make it clear that this object is not to be copied
   const SchemaDescriptor* schema() const;
 

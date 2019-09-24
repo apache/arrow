@@ -774,6 +774,14 @@ void FileCryptoMetaData::WriteTo(::arrow::io::OutputStream* dst) const {
   impl_->WriteTo(dst);
 }
 
+std::string FileMetaData::ToString() const {
+  std::shared_ptr<arrow::ResizableBuffer> metadata_buffer;
+  PARQUET_THROW_NOT_OK(AllocateResizableBuffer(0, &metadata_buffer));
+  arrow::io::BufferOutputStream serializer(metadata_buffer);
+  WriteTo(&serializer);
+  return metadata_buffer->ToString();
+}
+
 ApplicationVersion::ApplicationVersion(const std::string& application, int major,
                                        int minor, int patch)
     : application_(application), version{major, minor, patch, "", "", ""} {}
