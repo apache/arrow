@@ -163,7 +163,14 @@ cdef class ChunkedArray(_PandasConvertible):
                 self.sp_chunked_array,
                 self, &out))
 
-        return pandas_api.series(wrap_array_output(out), name=self._name)
+        result = pandas_api.series(wrap_array_output(out), name=self._name)
+
+        if isinstance(self.type, TimestampType) and self.type.tz is not None:
+            from pyarrow.pandas_compat import make_tz_aware
+
+            result = make_tz_aware(result, self.type.tz)
+
+        return result
 
     def __array__(self, dtype=None):
         values = self.to_pandas().values
