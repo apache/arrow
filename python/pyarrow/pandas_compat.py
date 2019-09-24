@@ -1046,3 +1046,17 @@ def _add_any_metadata(table, pandas_metadata):
         return pa.Table.from_arrays(columns, schema=pa.schema(fields))
     else:
         return table
+
+
+# ----------------------------------------------------------------------
+# Helper functions used in lib
+
+
+def make_tz_aware(series, tz):
+    """
+    Make a datetime64 Series timezone-aware for the given tz
+    """
+    tz = pa.lib.string_to_tzinfo(tz)
+    series = (series.dt.tz_localize('utc')
+                    .dt.tz_convert(tz))
+    return series

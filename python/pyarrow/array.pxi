@@ -903,12 +903,10 @@ cdef class Array(_PandasConvertible):
                                               self, &out))
         result = pandas_api.series(wrap_array_output(out), name=self._name)
 
-        if isinstance(self.type, TimestampType):
-            tz = self.type.tz
-            if tz is not None:
-                tz = string_to_tzinfo(tz)
-                result = (result.dt.tz_localize('utc')
-                          .dt.tz_convert(tz))
+        if isinstance(self.type, TimestampType) and self.type.tz is not None:
+            from pyarrow.pandas_compat import make_tz_aware
+
+            result = make_tz_aware(result, self.type.tz)
 
         return result
 
