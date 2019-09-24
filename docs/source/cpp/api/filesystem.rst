@@ -15,18 +15,32 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-.. default-domain:: cpp
-.. highlight:: cpp
+===========
+Filesystems
+===========
 
-Getting Started
-===============
+Interface
+=========
 
-.. toctree::
+.. doxygenenum:: arrow::fs::FileType
 
-   overview
-   conventions
-   memory
-   arrays
-   datatypes
-   tables
-   io
+.. doxygenstruct:: arrow::fs::FileStats
+   :members:
+
+.. doxygenclass:: arrow::fs::FileSystem
+   :members:
+
+Concrete implementations
+========================
+
+.. doxygenclass:: arrow::fs::SubTreeFileSystem
+   :members:
+
+.. doxygenclass:: arrow::fs::LocalFileSystem
+   :members:
+
+.. doxygenstruct:: arrow::fs::S3Options
+   :members:
+
+.. doxygenclass:: arrow::fs::S3FileSystem
+   :members:

@@ -37,7 +37,7 @@ namespace fs {
 
 extern ARROW_EXPORT const char* kS3DefaultRegion;
 
-/// Options for the S3 FileSystem implementation.
+/// Options for the S3FileSystem implementation.
 struct ARROW_EXPORT S3Options {
   /// AWS region to connect to (default "us-east-1")
   std::string region = kS3DefaultRegion;
@@ -79,7 +79,9 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
  public:
   ~S3FileSystem() override;
 
+  /// \cond FALSE
   using FileSystem::GetTargetStats;
+  /// \endcond
   Status GetTargetStats(const std::string& path, FileStats* out) override;
   Status GetTargetStats(const Selector& select, std::vector<FileStats>* out) override;
 
@@ -120,6 +122,7 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   Status OpenAppendStream(const std::string& path,
                           std::shared_ptr<io::OutputStream>* out) override;
 
+  /// Create a S3FileSystem instance from the given options.
   static Status Make(const S3Options& options, std::shared_ptr<S3FileSystem>* out);
 
  protected:

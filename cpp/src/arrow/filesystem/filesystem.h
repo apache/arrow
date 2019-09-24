@@ -58,14 +58,16 @@ using TimePoint =
 
 /// \brief EXPERIMENTAL: FileSystem entry type
 enum class ARROW_EXPORT FileType : int8_t {
-  // Target does not exist
+  /// Entry does not exist
   NonExistent,
-  // Target exists but its type is unknown (could be a special file such
-  // as a Unix socket or character device, or Windows NUL / CON / ...)
+  /// Entry exists but its type is unknown
+  ///
+  /// This can designate a special file such as a Unix socket or character
+  /// device, or Windows NUL / CON / ...
   Unknown,
-  // Target is a regular file
+  /// Entry is a regular file
   File,
-  // Target is a directory
+  /// Entry is a directory
   Directory
 };
 
@@ -84,26 +86,27 @@ struct ARROW_EXPORT FileStats {
   FileStats(const FileStats&) = default;
   FileStats& operator=(const FileStats&) = default;
 
-  // The file type.
+  /// The file type
   FileType type() const { return type_; }
   void set_type(FileType type) { type_ = type; }
 
-  // The full file path in the filesystem.
+  /// The full file path in the filesystem
   std::string path() const { return path_; }
   void set_path(const std::string& path) { path_ = path; }
 
-  // The file base name (component after the last directory separator).
+  /// The file base name (component after the last directory separator)
   std::string base_name() const;
 
-  // The size in bytes, if available.  Only regular files are guaranteed
-  // to have a size.
+  /// The size in bytes, if available
+  ///
+  /// Only regular files are guaranteed to have a size.
   int64_t size() const { return size_; }
   void set_size(int64_t size) { size_ = size; }
 
-  // The file extension
+  /// The file extension (excluding the dot)
   std::string extension() const;
 
-  // The time of last modification, if available.
+  /// The time of last modification, if available
   TimePoint mtime() const { return mtime_; }
   void set_mtime(TimePoint mtime) { mtime_ = mtime; }
 
@@ -228,7 +231,9 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
                              std::shared_ptr<FileSystem> base_fs);
   ~SubTreeFileSystem() override;
 
+  /// \cond FALSE
   using FileSystem::GetTargetStats;
+  /// \endcond
   Status GetTargetStats(const std::string& path, FileStats* out) override;
   Status GetTargetStats(const Selector& select, std::vector<FileStats>* out) override;
 

@@ -28,6 +28,9 @@ API Reference
    api/array
    api/builder
    api/table
+   api/tensor
    api/utilities
+   api/io
    api/cuda
    api/flight
+   api/filesystem

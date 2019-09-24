@@ -226,7 +226,7 @@ if [ "$ARROW_TRAVIS_PYTHON_DOCS" == "1" ]; then
   doxygen
   popd
   cd ../docs
-  sphinx-build -q -b html -d _build/doctrees -W source _build/html
+  sphinx-build -q -b html -d _build/doctrees -W --keep-going source _build/html
 fi
 
 popd  # $ARROW_PYTHON_DIR

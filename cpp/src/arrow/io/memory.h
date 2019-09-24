@@ -37,7 +37,7 @@ class Status;
 
 namespace io {
 
-// \brief An output stream that writes to a resizable buffer
+/// \brief An output stream that writes to a resizable buffer
 class ARROW_EXPORT BufferOutputStream : public OutputStream {
  public:
   explicit BufferOutputStream(const std::shared_ptr<ResizableBuffer>& buffer);
@@ -61,7 +61,9 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   Status Tell(int64_t* position) const override;
   Status Write(const void* data, int64_t nbytes) override;
 
+  /// \cond FALSE
   using OutputStream::Write;
+  /// \endcond
 
   /// Close the stream and return the buffer
   Status Finish(std::shared_ptr<Buffer>* result);
@@ -88,7 +90,11 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   uint8_t* mutable_data_;
 };
 
-// \brief A helper class to tracks the size of allocations
+/// \brief A helper class to tracks the size of allocations
+///
+/// Writes to this stream do not copy or retain any data, they just bump
+/// a size counter that can be later used to know exactly which data size
+/// needs to be allocated for actual writing.
 class ARROW_EXPORT MockOutputStream : public OutputStream {
  public:
   MockOutputStream() : extent_bytes_written_(0), is_open_(true) {}
@@ -106,7 +112,7 @@ class ARROW_EXPORT MockOutputStream : public OutputStream {
   bool is_open_;
 };
 
-/// \brief Enables random writes into a fixed-size mutable buffer
+/// \brief An output stream that writes into a fixed-size mutable buffer
 class ARROW_EXPORT FixedSizeBufferWriter : public WritableFile {
  public:
   /// Input buffer must be mutable, will abort if not
