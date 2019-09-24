@@ -30,9 +30,10 @@ class AesEncryptor::AesEncryptorImpl {};
 
 AesEncryptor::~AesEncryptor() {}
 
-int AesEncryptor::SignedFooterEncrypt(const uint8_t* footer, int footer_len, const uint8_t* key,
-                                      int key_len, const uint8_t* aad, int aad_len,
-                                      const uint8_t* nonce, uint8_t* encrypted_footer) {
+int AesEncryptor::SignedFooterEncrypt(const uint8_t* footer, int footer_len,
+                                      const uint8_t* key, int key_len, const uint8_t* aad,
+                                      int aad_len, const uint8_t* nonce,
+                                      uint8_t* encrypted_footer) {
   ThrowOpenSSLRequiredException();
   return -1;
 }
@@ -45,7 +46,8 @@ int AesEncryptor::CiphertextSizeDelta() {
 }
 
 int AesEncryptor::Encrypt(const uint8_t* plaintext, int plaintext_len, const uint8_t* key,
-                          int key_len, const uint8_t* aad, int aad_len, uint8_t* ciphertext) {
+                          int key_len, const uint8_t* aad, int aad_len,
+                          uint8_t* ciphertext) {
   ThrowOpenSSLRequiredException();
   return -1;
 }
@@ -57,7 +59,8 @@ AesEncryptor::AesEncryptor(ParquetCipher::type alg_id, int key_len, bool metadat
 class AesDecryptor::AesDecryptorImpl {};
 
 int AesDecryptor::Decrypt(const uint8_t* plaintext, int plaintext_len, const uint8_t* key,
-                          int key_len, const uint8_t* aad, int aad_len, uint8_t* ciphertext) {
+                          int key_len, const uint8_t* aad, int aad_len,
+                          uint8_t* ciphertext) {
   ThrowOpenSSLRequiredException();
   return -1;
 }
