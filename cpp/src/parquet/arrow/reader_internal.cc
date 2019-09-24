@@ -1130,11 +1130,15 @@ Status TransferExtension(RecordReader* reader, std::shared_ptr<DataType> value_t
   auto storage_type = ext_type->storage_type();
   RETURN_NOT_OK(TransferColumnData(reader, storage_type, descr, pool, &result));
 
-  auto result0 = result->chunk(0);
-  auto ext_data = result0->data()->Copy();
-  ext_data->type = ext_type;
-  auto ext_result = ext_type->MakeArray(ext_data);
-  *out = ext_result;
+  ::arrow::ArrayVector out_chunks(result->num_chunks());
+  for (int i = 0; i < result->num_chunks(); i++) {
+    auto chunk = result->chunk(i);
+    auto ext_data = chunk->data()->Copy();
+    ext_data->type = ext_type;
+    auto ext_result = ext_type->MakeArray(ext_data);
+    out_chunks[i] = ext_result;
+  }
+  *out = std::make_shared<ChunkedArray>(out_chunks);
   return Status::OK();
 }
 
