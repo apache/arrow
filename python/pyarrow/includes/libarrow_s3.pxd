@@ -24,7 +24,7 @@ from pyarrow.includes.libarrow cimport CFileSystem
 
 cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
-    enum CS3LogLevel "arrow::fs::S3LogLevel":
+    ctypedef enum CS3LogLevel "arrow::fs::S3LogLevel":
         CS3LogLevel_Off "arrow::fs::S3LogLevel::Off"
         CS3LogLevel_Fatal "arrow::fs::S3LogLevel::Fatal"
         CS3LogLevel_Error "arrow::fs::S3LogLevel::Error"

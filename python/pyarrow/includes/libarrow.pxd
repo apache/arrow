@@ -964,7 +964,7 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
 
 cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
-    enum CFileType "arrow::fs::FileType":
+    ctypedef enum CFileType "arrow::fs::FileType":
         CFileType_NonExistent "arrow::fs::FileType::NonExistent"
         CFileType_Unknown "arrow::fs::FileType::Unknown"
         CFileType_File "arrow::fs::FileType::File"

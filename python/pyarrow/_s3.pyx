@@ -19,12 +19,12 @@
 
 import six
 
+from pyarrow.lib cimport check_status
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_s3 cimport *
 from pyarrow._fs cimport FileSystem
-from pyarrow.lib cimport check_status
 
 
 cpdef enum S3LogLevel:
