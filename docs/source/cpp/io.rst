@@ -25,7 +25,7 @@ Input / output and filesystems
 Arrow provides a range of C++ interfaces abstracting the concrete details
 of input / output operations.  They operate on streams of untyped binary data.
 Those abstractions are used for various purposes such as reading CSV or
-Parquet data, transmitting IPC streams...
+Parquet data, transmitting IPC streams, and more.
 
 .. cpp:namespace:: arrow::io
 
