@@ -138,4 +138,7 @@ std::shared_ptr<ExtensionType> GetExtensionType(const std::string& type_name) {
   return registry->GetType(type_name);
 }
 
+extern const char kExtensionTypeKeyName[] = "ARROW:extension:name";
+extern const char kExtensionMetadataKeyName[] = "ARROW:extension:metadata";
+
 }  // namespace arrow

@@ -627,13 +627,10 @@ Status ApplyOriginalMetadata(std::shared_ptr<Field> field, const Field& origin_f
     field = field->WithMetadata(field_metadata);
 
     // extension type
-    static const char kExtensionTypeKeyName[] = "ARROW:extension:name";
-    static const char kExtensionMetadataKeyName[] = "ARROW:extension:metadata";
-
-    int name_index = field_metadata->FindKey(kExtensionTypeKeyName);
+    int name_index = field_metadata->FindKey(::arrow::kExtensionTypeKeyName);
     if (name_index != -1) {
       std::string type_name = field_metadata->value(name_index);
-      int data_index = field_metadata->FindKey(kExtensionMetadataKeyName);
+      int data_index = field_metadata->FindKey(::arrow::kExtensionMetadataKeyName);
       std::string type_data = data_index == -1 ? "" : field_metadata->value(data_index);
 
       std::shared_ptr<::arrow::ExtensionType> ext_type =
