@@ -51,7 +51,9 @@ groups = [
     'plasma',
     's3',
     'tensorflow',
-    'flight'
+    'flight',
+    'slow',
+    'requires_testing_data',
 ]
 
 
@@ -70,6 +72,8 @@ defaults = {
     's3': False,
     'tensorflow': False,
     'flight': False,
+    'slow': False,
+    'requires_testing_data': True,
 }
 
 try:
@@ -165,18 +169,6 @@ def pytest_addoption(parser):
         parser.addoption('--only-{}'.format(group),
                          action='store_true', default=default,
                          help=('Run only the {} test group'.format(group)))
-
-    parser.addoption('--runslow', action='store_true',
-                     default=False, help='run slow tests')
-
-
-def pytest_collection_modifyitems(config, items):
-    if not config.getoption('--runslow'):
-        skip_slow = pytest.mark.skip(reason='need --runslow option to run')
-
-        for item in items:
-            if 'slow' in item.keywords:
-                item.add_marker(skip_slow)
 
 
 def pytest_runtest_setup(item):

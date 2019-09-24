@@ -152,15 +152,15 @@ def test_to_pandas_zero_copy():
     arr = pa.array(range(10))
 
     for i in range(10):
-        np_arr = arr.to_pandas()
-        assert sys.getrefcount(np_arr) == 2
-        np_arr = None  # noqa
+        series = arr.to_pandas()
+        assert sys.getrefcount(series) == 2
+        series = None  # noqa
 
     assert sys.getrefcount(arr) == 2
 
     for i in range(10):
         arr = pa.array(range(10))
-        np_arr = arr.to_pandas()
+        series = arr.to_pandas()
         arr = None
         gc.collect()
 
@@ -168,9 +168,9 @@ def test_to_pandas_zero_copy():
 
         # Because of py.test's assert inspection magic, if you put getrefcount
         # on the line being examined, it will be 1 higher than you expect
-        base_refcount = sys.getrefcount(np_arr.base)
+        base_refcount = sys.getrefcount(series.values.base)
         assert base_refcount == 2
-        np_arr.sum()
+        series.sum()
 
 
 @pytest.mark.nopandas

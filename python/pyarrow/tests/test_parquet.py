@@ -2352,9 +2352,7 @@ def test_noncoerced_nanoseconds_written_without_exception(tempdir):
     # nanosecond timestamps by default
     n = 9
     df = pd.DataFrame({'x': range(n)},
-                      index=pd.DatetimeIndex(start='2017-01-01',
-                      freq='1n',
-                      periods=n))
+                      index=pd.date_range('2017-01-01', freq='1n', periods=n))
     tb = pa.Table.from_pandas(df)
 
     filename = tempdir / 'written.parquet'
@@ -3025,7 +3023,7 @@ def test_write_nested_zero_length_array_chunk_failure():
     # Each column is a ChunkedArray with 2 elements
     my_arrays = [pa.array(batch, type=pa.struct(cols)).flatten()
                  for batch in data]
-    my_batches = [pa.RecordBatch.from_arrays(batch, pa.schema(cols))
+    my_batches = [pa.RecordBatch.from_arrays(batch, schema=pa.schema(cols))
                   for batch in my_arrays]
     tbl = pa.Table.from_batches(my_batches, pa.schema(cols))
     _check_roundtrip(tbl)
