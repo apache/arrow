@@ -319,12 +319,12 @@ def identity(v):
 def test_open_input_stream(fs, pathfn, compression, buffer_size, compressor):
     p = pathfn('open-input-stream')
 
-    data = b'some data for reading' * 1024
+    data = b'some data for reading\n' * 512
     with fs.open_output_stream(p) as s:
         s.write(compressor(data))
 
     with fs.open_input_stream(p, compression, buffer_size) as s:
-        result = s.read(len(data))
+        result = s.read()
 
     assert result == data
 
@@ -386,9 +386,8 @@ def test_open_append_stream(fs, pathfn, compression, buffer_size, compressor,
         with fs.open_append_stream(p, compression, buffer_size) as f:
             f.write(b'\nnewly added')
 
-        appended = compressor(b'\nnewly added')
         with fs.open_input_stream(p) as f:
-            result = f.read(len(initial) + len(appended))
+            result = f.read()
 
         result = decompressor(result)
         assert result == b'already existing\nnewly added'
