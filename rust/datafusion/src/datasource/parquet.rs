@@ -52,7 +52,7 @@ impl ParquetTable {
         let mut filenames: Vec<String> = vec![];
         common::build_file_list(path, &mut filenames, ".parquet")?;
         if filenames.is_empty() {
-            panic!()
+            Err(ExecutionError::General("No files found".to_string()))
         } else {
             let parquet_file = ParquetFile::open(&filenames[0], None, 0)?;
             let schema = parquet_file.projection_schema.clone();
