@@ -37,23 +37,27 @@ use parquet::file::reader::*;
 
 use crate::datasource::{ScanResult, TableProvider};
 use crate::error::{ExecutionError, Result};
+use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::BatchIterator;
 
 /// Table-based representation of a `ParquetFile`
 pub struct ParquetTable {
-    filename: String,
+    filenames: Vec<String>,
     schema: Arc<Schema>,
 }
 
 impl ParquetTable {
     /// Attempt to initialize a new `ParquetTable` from a file path
-    pub fn try_new(filename: &str) -> Result<Self> {
-        let parquet_file = ParquetFile::open(filename, None, 0)?;
-        let schema = parquet_file.projection_schema.clone();
-        Ok(Self {
-            filename: filename.to_string(),
-            schema,
-        })
+    pub fn try_new(path: &str) -> Result<Self> {
+        let mut filenames: Vec<String> = vec![];
+        common::build_file_list(path, &mut filenames, ".parquet")?;
+        if filenames.is_empty() {
+            Err(ExecutionError::General("No files found".to_string()))
+        } else {
+            let parquet_file = ParquetFile::open(&filenames[0], None, 0)?;
+            let schema = parquet_file.projection_schema.clone();
+            Ok(Self { filenames, schema })
+        }
     }
 }
 
@@ -70,17 +74,16 @@ impl TableProvider for ParquetTable {
         projection: &Option<Vec<usize>>,
         batch_size: usize,
     ) -> Result<Vec<ScanResult>> {
-        // note that this code currently assumes the filename is a file rather than a directory
-        // and therefore only returns a single partition
-        let parquet_file = match projection {
-            Some(p) => ParquetScanPartition::try_new(
-                &self.filename,
-                Some(p.clone()),
-                batch_size,
-            )?,
-            None => ParquetScanPartition::try_new(&self.filename, None, batch_size)?,
-        };
-        Ok(vec![Arc::new(Mutex::new(parquet_file))])
+        Ok(self
+            .filenames
+            .iter()
+            .map(|filename| {
+                ParquetScanPartition::try_new(filename, projection.clone(), batch_size)
+                    .and_then(|part| {
+                        Ok(Arc::new(Mutex::new(part)) as Arc<Mutex<dyn BatchIterator>>)
+                    })
+            })
+            .collect::<Result<Vec<_>>>()?)
     }
 }
 
