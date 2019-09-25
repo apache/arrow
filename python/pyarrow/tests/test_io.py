@@ -1191,7 +1191,7 @@ def test_compressed_recordbatch_stream(compression):
         else:
             raise
     writer = pa.RecordBatchStreamWriter(stream, table.schema)
-    writer.write_table(table, chunksize=3)
+    writer.write_table(table, max_chunksize=3)
     writer.close()
     stream.close()  # Flush data
     buf = raw.getvalue()
