@@ -627,10 +627,10 @@ public class DenseUnionVector implements FieldVector {
     if (clear) {
       valueCount = 0;
       typeBuffer.getReferenceManager().retain();
-      typeBuffer.getReferenceManager().release();
+      typeBuffer.close();
       typeBuffer = allocator.getEmpty();
       offsetBuffer.getReferenceManager().retain();
-      offsetBuffer.getReferenceManager().release();
+      offsetBuffer.close();
       offsetBuffer = allocator.getEmpty();
     }
     return list.toArray(new ArrowBuf[list.size()]);
