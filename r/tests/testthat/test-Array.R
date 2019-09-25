@@ -52,6 +52,11 @@ test_that("Array", {
   expect_equal(z_dbl$as_vector(), as.numeric(4:5))
 })
 
+test_that("Array print method includes type", {
+  x <- Array$create(c(1:10, 1:10, 1:5))
+  expect_output(print(x), "Array\n<int32>\n[\n", fixed = TRUE)
+})
+
 test_that("Array supports NA", {
   x_int <- Array$create(as.integer(c(1:10, NA)))
   x_dbl <- Array$create(as.numeric(c(1:10, NA)))
@@ -257,7 +262,7 @@ test_that("array supports integer64", {
   expect_true(a$IsNull(3L))
 })
 
-test_that("array$as_vector() correctly handles all NA inte64 (ARROW-3795)", {
+test_that("array$as_vector() correctly handles all NA int64 (ARROW-3795)", {
   x <- bit64::as.integer64(NA)
   a <- Array$create(x)
   expect_true(is.na(a$as_vector()))

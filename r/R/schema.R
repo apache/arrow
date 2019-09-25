@@ -49,7 +49,7 @@
 Schema <- R6Class("Schema",
   inherit = Object,
   public = list(
-    ToString = function() Schema__ToString(self),
+    ToString = function() prettier_dictionary_type(Schema__ToString(self)),
     num_fields = function() Schema__num_fields(self),
     field = function(i) shared_ptr(Field, Schema__field(self, i)),
     serialize = function() Schema__serialize(self),

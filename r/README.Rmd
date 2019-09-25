@@ -54,9 +54,13 @@ When installing from source, if the R and C++ library versions do not match, ins
 library(arrow)
 set.seed(24)
 
-tab <- Table$create(x = 1:10, y = rnorm(10))
-tab$schema
+tab <- Table$create(
+  x = 1:10,
+  y = rnorm(10),
+  z = as.factor(rep(c("b", "c"), 5))
+)
 tab
+tab$x
 as.data.frame(tab)
 ```
 

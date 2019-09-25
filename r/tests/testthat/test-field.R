@@ -28,3 +28,11 @@ test_that("field() factory", {
 test_that("Field validation", {
   expect_error(schema(b = 32), "b must be arrow::DataType, not numeric")
 })
+
+test_that("Print method for field", {
+  expect_output(print(field("x", int32())), "Field\nx: int32")
+  expect_output(
+    print(field("zz", dictionary())),
+    "Field\nzz: dictionary<values=string, indices=int32>"
+  )
+})

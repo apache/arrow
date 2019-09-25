@@ -34,7 +34,7 @@ test_that("RecordBatch", {
     schema(
       int = int32(), dbl = float64(),
       lgl = boolean(), chr = utf8(),
-      fct = dictionary(int32(), Array$create(letters[1:10]))
+      fct = dictionary()
     )
   )
   expect_equal(batch$num_columns, 5L)
@@ -69,12 +69,12 @@ test_that("RecordBatch", {
   col_fct <- batch$column(4)
   expect_true(inherits(col_fct, 'Array'))
   expect_equal(col_fct$as_vector(), tbl$fct)
-  expect_equal(col_fct$type, dictionary(int32(), Array$create(letters[1:10])))
+  expect_equal(col_fct$type, dictionary())
 
   batch2 <- batch$RemoveColumn(0)
   expect_equal(
     batch2$schema,
-    schema(dbl = float64(), lgl = boolean(), chr = utf8(), fct = dictionary(int32(), Array$create(letters[1:10])))
+    schema(dbl = float64(), lgl = boolean(), chr = utf8(), fct = dictionary())
   )
   expect_equal(batch2$column(0), batch$column(1))
   expect_identical(as.data.frame(batch2), tbl[,-1])
@@ -120,6 +120,23 @@ test_that("head and tail on RecordBatch", {
   expect_identical(as.data.frame(tail(batch, -4)), tail(tbl, -4))
 })
 
+test_that("RecordBatch print method", {
+  expect_output(
+    print(batch),
+    paste(
+      "RecordBatch",
+      "10 rows x 5 columns",
+      "$int <int32>",
+      "$dbl <double>",
+      "$lgl <bool>",
+      "$chr <string>",
+      "$fct <dictionary<values=string, indices=int8>>",
+      sep = "\n"
+    ),
+    fixed = TRUE
+  )
+})
+
 test_that("RecordBatch with 0 rows are supported", {
   tbl <- tibble::tibble(
     int = integer(),
@@ -139,7 +156,7 @@ test_that("RecordBatch with 0 rows are supported", {
       dbl = float64(),
       lgl = boolean(),
       chr = utf8(),
-      fct = dictionary(int32(), Array$create(c("a", "b")))
+      fct = dictionary()
     )
   )
 })

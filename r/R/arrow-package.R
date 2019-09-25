@@ -54,14 +54,17 @@ Object <- R6Class("Object",
       self$`.:xp:.` <- xp
     },
     print = function(...){
-      cat(class(self)[[1]], "\n")
+      cat(class(self)[[1]], "\n", sep = "")
       if (!is.null(self$ToString)){
-        cat(self$ToString(), "\n")
+        cat(self$ToString(), "\n", sep = "")
       }
       invisible(self)
     }
   )
 )
+
+#' @export
+`!=.Object` <- function(lhs, rhs) !(lhs == rhs)
 
 shared_ptr <- function(class, xp) {
   if (!shared_ptr_is_null(xp)) class$new(xp)

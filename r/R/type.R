@@ -16,12 +16,6 @@
 # under the License.
 
 #' @include arrow-package.R
-
-#' @export
-`!=.Object` <- function(lhs, rhs){
-  !(lhs == rhs)
-}
-
 #' @title class arrow::DataType
 #'
 #' @usage NULL

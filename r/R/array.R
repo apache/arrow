@@ -74,7 +74,10 @@ Array <- R6Class("Array",
     ApproxEquals = function(other) Array__ApproxEquals(self, other),
     data = function() shared_ptr(ArrayData, Array__data(self)),
     as_vector = function() Array__as_vector(self),
-    ToString = function() Array__ToString(self),
+    ToString = function() {
+      typ <- paste0("<", self$type$ToString(), ">")
+      paste(typ, Array__ToString(self), sep = "\n")
+    },
     Slice = function(offset, length = NULL){
       if (is.null(length)) {
         shared_ptr(Array, Array__Slice1(self, offset))

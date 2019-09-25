@@ -119,6 +119,23 @@ test_that("head and tail on Table", {
   expect_identical(as.data.frame(tail(tab, -4)), tail(tbl, -4))
 })
 
+test_that("Table print method", {
+  expect_output(
+    print(tab),
+    paste(
+      "Table",
+      "10 rows x 5 columns",
+      "$int <int32>",
+      "$dbl <double>",
+      "$lgl <bool>",
+      "$chr <string>",
+      "$fct <dictionary<values=string, indices=int8>>",
+      sep = "\n"
+    ),
+    fixed = TRUE
+  )
+})
+
 test_that("table active bindings", {
   expect_identical(dim(tbl), dim(tab))
   expect_is(tab$columns, "list")
