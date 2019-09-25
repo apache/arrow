@@ -2075,6 +2075,7 @@ INCLUDE_FILE_PATTERNS  =
 PREDEFINED = __attribute__(x)= \
              __declspec(x)= \
              ARROW_EXPORT= \
+             ARROW_FLIGHT_EXPORT= \
              ARROW_EXTERN_TEMPLATE= \
              ARROW_DEPRECATED(x)=
 
