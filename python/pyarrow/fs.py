@@ -30,5 +30,3 @@ try:
     from pyarrow._s3 import S3FileSystem, initialize_s3, finalize_s3  # noqa
 except ImportError:
     pass
-else:
-    initialize_s3()

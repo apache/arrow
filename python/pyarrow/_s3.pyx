@@ -47,6 +47,16 @@ def finalize_s3():
     check_status(CFinalizeS3())
 
 
+cdef bint _initialized = False
+
+
+cdef _ensure_initialized():
+    global _initialized
+    if not _initialized:
+        initialize_s3()
+        _initialized = True
+
+
 cdef class S3FileSystem(FileSystem):
     """S3-backed FileSystem implementation
 
@@ -79,9 +89,12 @@ cdef class S3FileSystem(FileSystem):
                  scheme='https', endpoint_override=None,
                  bint background_writes=True):
         cdef:
-            CS3Options options = CS3Options.Defaults()
+            CS3Options options
             shared_ptr[CS3FileSystem] wrapped
 
+        _ensure_initialized()
+
+        options = CS3Options.Defaults()
         if access_key is not None or secret_key is not None:
             options.ConfigureAccessKey(tobytes(access_key),
                                        tobytes(secret_key))

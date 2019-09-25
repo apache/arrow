@@ -54,7 +54,6 @@ def subtree_localfs(request, tempdir, localfs):
 @pytest.fixture
 def s3fs(request, minio_server):
     from pyarrow.fs import S3FileSystem
-    # initialize_s3()
 
     address, access_key, secret_key = minio_server
     bucket = 'pyarrow-filesystem/'

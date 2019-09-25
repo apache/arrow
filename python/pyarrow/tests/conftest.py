@@ -274,22 +274,3 @@ def minio_server():
         finally:
             if proc is not None:
                 proc.kill()
-
-
-@pytest.fixture(scope='session')
-def minio_client(minio_server):
-    minio = pytest.importorskip('minio')
-    address, access_key, secret_key = minio_server
-    return minio.Minio(
-        address,
-        access_key=access_key,
-        secret_key=secret_key,
-        secure=False
-    )
-
-
-@pytest.fixture(scope='session')
-def minio_bucket(minio_client):
-    bucket_name = 'pyarrow-bucket'
-    minio_client.make_bucket(bucket_name)
-    return bucket_name
