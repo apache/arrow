@@ -164,6 +164,13 @@ void parquet___ArrowWriterProperties___Builder__default_compression(
 }
 
 // [[arrow::export]]
+void parquet___ArrowWriterProperties___Builder__default_compression_level(
+    const std::shared_ptr<parquet::WriterProperties::Builder>& builder,
+    int compression_level) {
+  builder->compression_level(compression_level);
+}
+
+// [[arrow::export]]
 void parquet___ArrowWriterProperties___Builder__default_write_statistics(
     const std::shared_ptr<parquet::WriterProperties::Builder>& builder,
     bool write_statistics) {

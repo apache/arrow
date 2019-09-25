@@ -91,8 +91,19 @@ ParquetWriterProperties_Builder <- R6Class("ParquetWriterProperties_Builder", in
       if (is.character(compression) && length(compression) == 1L) {
         type <- CompressionType[[match.arg(toupper(compression), names(CompressionType))]]
         parquet___ArrowWriterProperties___Builder__default_compression(self, type)
+      } else if(inherits(compression, "Codec")) {
+        # TODO: Codec does not give a way to access its compression level, e.g. compression$level
+        parquet___ArrowWriterProperties___Builder__default_compression(self, compression$name)
       } else {
         abort("compression specification not supported yet")
+      }
+    },
+
+    set_compression_level = function(compression_level){
+      if (rlang::is_integerish(compression_level) && length(compression_level) == 1L) {
+        parquet___ArrowWriterProperties___Builder__default_compression_level(self, compression_level)
+      } else {
+        abort("compression_level specification not supported yet")
       }
     },
 
@@ -118,14 +129,17 @@ ParquetWriterProperties_Builder <- R6Class("ParquetWriterProperties_Builder", in
   )
 )
 
-ParquetWriterProperties$create <- function(version = NULL, compression = NULL, use_dictionary = NULL, write_statistics = NULL, data_page_size = NULL) {
-  if (is.null(version) && is.null(compression) && is.null(use_dictionary) && is.null(write_statistics) && is.null(data_page_size)) {
+ParquetWriterProperties$create <- function(version = NULL, compression = NULL, compression_level = NULL, use_dictionary = NULL, write_statistics = NULL, data_page_size = NULL) {
+  if (is.null(version) && is.null(compression) && is.null(compression_level) && is.null(use_dictionary) && is.null(write_statistics) && is.null(data_page_size)) {
     ParquetWriterProperties$default()
   } else {
     builder <- shared_ptr(ParquetWriterProperties_Builder, parquet___WriterProperties___Builder__create())
     builder$set_version(version)
     if (!is.null(compression)) {
       builder$set_compression(compression)
+    }
+    if (!is.null(compression_level)) {
+      builder$set_compression_level(compression_level)
     }
     if (!is.null(use_dictionary)) {
       builder$set_dictionary(use_dictionary)
@@ -174,6 +188,7 @@ ParquetFileWriter$create <- function(
 #'
 #' @param version parquet version
 #' @param compression compression name
+#' @param compression_level compression level
 #' @param use_dictionary Specify if we should use dictionary encoding
 #' @param write_statistics Specify if we should write statistics
 #' @param data_page_size Set a target threshhold for the approximate encoded size of data
@@ -202,10 +217,11 @@ ParquetFileWriter$create <- function(
 write_parquet <- function(
   table,
   sink, chunk_size = NULL,
-  version = NULL, compression = NULL, use_dictionary = NULL, write_statistics = NULL, data_page_size = NULL,
+  version = NULL, compression = NULL, compression_level = NULL, use_dictionary = NULL, write_statistics = NULL, data_page_size = NULL,
   properties = ParquetWriterProperties$create(
     version = version,
     compression = compression,
+    compression_level = compression_level,
     use_dictionary = use_dictionary,
     write_statistics = write_statistics,
     data_page_size = data_page_size

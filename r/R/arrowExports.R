@@ -224,6 +224,10 @@ util___Codec__Create <- function(codec, compression_level){
     .Call(`_arrow_util___Codec__Create` , codec, compression_level)
 }
 
+util___Codec__name <- function(codec){
+    .Call(`_arrow_util___Codec__name` , codec)
+}
+
 io___CompressedOutputStream__Make <- function(codec, raw){
     .Call(`_arrow_io___CompressedOutputStream__Make` , codec, raw)
 }
@@ -930,6 +934,10 @@ parquet___WriterProperties___Builder__version <- function(builder, version){
 
 parquet___ArrowWriterProperties___Builder__default_compression <- function(builder, compression){
     invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__default_compression` , builder, compression))
+}
+
+parquet___ArrowWriterProperties___Builder__default_compression_level <- function(builder, compression_level){
+    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__default_compression_level` , builder, compression_level))
 }
 
 parquet___ArrowWriterProperties___Builder__default_write_statistics <- function(builder, write_statistics){

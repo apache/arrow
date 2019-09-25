@@ -36,7 +36,12 @@
 #' @rdname Codec
 #' @name Codec
 #' @export
-Codec <- R6Class("Codec", inherit = Object)
+Codec <- R6Class("Codec", inherit = Object,
+  active = list(
+    type = function() util___Codec__name(self),
+    level = function() abort("Codec$level() no yet implemented")
+  )
+)
 Codec$create <- function(type = "gzip", compression_level = NA) {
   if (is.character(type)) {
     type <- unique_ptr(Codec, util___Codec__Create(
