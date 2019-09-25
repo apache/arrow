@@ -114,13 +114,6 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
-                     path: "dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb",
-                     hunks: [
-                       ["-  url \"https://www.apache.org/dyn/closer.cgi?path=arrow/arrow-#{@previous_version}.9000/apache-arrow-#{@previous_version}.9000.tar.gz\"",
-                        "+  url \"https://www.apache.org/dyn/closer.cgi?path=arrow/arrow-#{@release_version}/apache-arrow-#{@release_version}.tar.gz\""],
-                     ],
-                   },
-                   {
                      path: "js/package.json",
                      hunks: [
                        ["-  \"version\": \"#{@snapshot_version}\"",
@@ -281,13 +274,6 @@ class PrepareTest < Test::Unit::TestCase
                      hunks: [
                        ["-  url \"https://www.apache.org/dyn/closer.cgi?path=arrow/arrow-#{@release_version}/apache-arrow-#{@release_version}.tar.gz\"",
                         "+  url \"https://www.apache.org/dyn/closer.cgi?path=arrow/arrow-#{@next_snapshot_version}/apache-arrow-#{@next_snapshot_version}.tar.gz\""],
-                     ],
-                   },
-                   {
-                     path: "dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb",
-                     hunks: [
-                       ["-  url \"https://www.apache.org/dyn/closer.cgi?path=arrow/arrow-#{@release_version}/apache-arrow-#{@release_version}.tar.gz\"",
-                        "+  url \"https://www.apache.org/dyn/closer.cgi?path=arrow/arrow-#{@release_version}.9000/apache-arrow-#{@release_version}.9000.tar.gz\""],
                      ],
                    },
                    {

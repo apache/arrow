@@ -164,7 +164,6 @@ groups:
     - centos-7
     - centos-7-aarch64
     - homebrew-cpp
-    - homebrew-cpp-autobrew
     - gandiva-jar-trusty
     - gandiva-jar-osx
     - docker-r
@@ -1128,13 +1127,6 @@ tasks:
     template: homebrew-formulae/travis.osx.yml
     params:
       formula: apache-arrow.rb
-
-  homebrew-cpp-autobrew:
-    ci: travis
-    platform: osx
-    template: homebrew-formulae/travis.osx.yml
-    params:
-      formula: autobrew/apache-arrow.rb
 
   ############################## Gandiva Tasks ################################
 

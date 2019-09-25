@@ -41,8 +41,7 @@ fi
 
 if [ "$LOCAL_AUTOBREW" == "TRUE" ]; then
   # LOCAL_AUTOBREW means use the script in tools/
-  # If you want to use a local apache-arrow.rb formula, do:
-  # $ cp ../dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb tools/apache-arrow.rb
+  # Put it there
   # before R CMD build (assuming a local checkout of the apache/arrow repository)
   # FORCE_AUTOBREW without LOCAL_AUTOBREW means to pull from jeroen.github.io
   cp tools/autobrew .
