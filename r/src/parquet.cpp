@@ -164,10 +164,30 @@ void parquet___ArrowWriterProperties___Builder__default_compression(
 }
 
 // [[arrow::export]]
+void parquet___ArrowWriterProperties___Builder__set_compressions(
+    const std::shared_ptr<parquet::WriterProperties::Builder>& builder,
+    const std::vector<std::string>& paths, const Rcpp::IntegerVector& types) {
+  auto n = paths.size();
+  for (decltype(n) i = 0; i < n; i++) {
+    builder->compression(paths[i], static_cast<arrow::Compression::type>(types[i]));
+  }
+}
+
+// [[arrow::export]]
 void parquet___ArrowWriterProperties___Builder__default_compression_level(
     const std::shared_ptr<parquet::WriterProperties::Builder>& builder,
     int compression_level) {
   builder->compression_level(compression_level);
+}
+
+// [[arrow::export]]
+void parquet___ArrowWriterProperties___Builder__set_compression_levels(
+    const std::shared_ptr<parquet::WriterProperties::Builder>& builder,
+    const std::vector<std::string>& paths, const Rcpp::IntegerVector& levels) {
+  auto n = paths.size();
+  for (decltype(n) i = 0; i < n; i++) {
+    builder->compression_level(paths[i], levels[i]);
+  }
 }
 
 // [[arrow::export]]

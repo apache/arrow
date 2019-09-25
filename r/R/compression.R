@@ -38,7 +38,7 @@
 #' @export
 Codec <- R6Class("Codec", inherit = Object,
   active = list(
-    type = function() util___Codec__name(self),
+    name = function() util___Codec__name(self),
     level = function() abort("Codec$level() no yet implemented")
   )
 )
@@ -51,6 +51,10 @@ Codec$create <- function(type = "gzip", compression_level = NA) {
   }
   assert_is(type, "Codec")
   type
+}
+
+compression_from_name <- function(name) {
+  CompressionType[[match.arg(toupper(name), names(CompressionType))]]
 }
 
 #' @title Compressed stream classes

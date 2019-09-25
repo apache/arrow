@@ -8,7 +8,7 @@ write_parquet(table, sink, chunk_size = NULL, version = NULL,
   compression = NULL, compression_level = NULL,
   use_dictionary = NULL, write_statistics = NULL,
   data_page_size = NULL,
-  properties = ParquetWriterProperties$create(version = version,
+  properties = ParquetWriterProperties$create(table, version = version,
   compression = compression, compression_level = compression_level,
   use_dictionary = use_dictionary, write_statistics = write_statistics,
   data_page_size = data_page_size),
@@ -27,9 +27,16 @@ write_parquet(table, sink, chunk_size = NULL, version = NULL,
 
 \item{version}{parquet version}
 
-\item{compression}{compression name}
+\item{compression}{compression specification. Possible values:
+\itemize{
+\item a single string: uses that compression algorithm for all columns
+\item a single \link{Codec} instance: uses that compression algorithm for all columns
+\item an unnamed string vector: specify a compression algorithm for each, same order as the columns
+\item a named string vector: specify compression algorithm individually
+}}
 
-\item{compression_level}{compression level}
+\item{compression_level}{compression level. A single integer, a named integer vector
+or an unnamed integer vector of the same size as the number of columns of \code{table}}
 
 \item{use_dictionary}{Specify if we should use dictionary encoding}
 

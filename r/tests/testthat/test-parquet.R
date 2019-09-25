@@ -49,3 +49,35 @@ test_that("read_parquet() with raw data", {
   df <- read_parquet(test_raw)
   expect_identical(dim(df), c(10L, 11L))
 })
+
+test_that("write_parquet() handles various compression= specs", {
+  tab <- Table$create(x1 = 1:5, x2 = 1:5, y = 1:5)
+  tf <- tempfile()
+
+  # a single string
+  expect_error(write_parquet(tab, tf, compression = "snappy"), NA)
+
+  # a single Codec
+  expect_error(write_parquet(tab, tf, compression = Codec$create("snappy")), NA)
+
+  # one string per column
+  expect_error(write_parquet(tab, tf, compression = rep("snappy", 3L)), NA)
+
+  # named strings
+  expect_error(write_parquet(tab, tf, compression = c(x1 = "snappy", x2 = "snappy")), NA)
+})
+
+test_that("write_parquet() handles various compression_level= specs", {
+  tab <- Table$create(x1 = 1:5, x2 = 1:5, y = 1:5)
+  tf <- tempfile()
+
+  # a single number
+  expect_error(write_parquet(tab, tf, compression = "gzip", compression_level = 4), NA)
+
+  # one number per column
+  expect_error(write_parquet(tab, tf, compression = "gzip", compression_level = rep(4L, 3L)), NA)
+
+  # named numbers
+  expect_error(write_parquet(tab, tf, compression = "gzip", compression_level = c(x1 = 5L, x2 = 3L)), NA)
+})
+
