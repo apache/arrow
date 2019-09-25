@@ -18,8 +18,8 @@
 .. default-domain:: cpp
 .. highlight:: cpp
 
-Getting Started
-===============
+User Guide
+==========
 
 .. toctree::
 
@@ -30,4 +30,7 @@ Getting Started
    datatypes
    tables
    io
+   parquet
+   csv
+   json
    flight

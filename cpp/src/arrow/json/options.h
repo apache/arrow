@@ -29,33 +29,44 @@ class Schema;
 
 namespace json {
 
-enum class UnexpectedFieldBehavior : char { Ignore, Error, InferType };
+enum class UnexpectedFieldBehavior : char {
+  /// Unexpected JSON fields are ignored
+  Ignore,
+  /// Unexpected JSON fields error out
+  Error,
+  /// Unexpected JSON fields are type-inferred and included in the output
+  InferType
+};
 
 struct ARROW_EXPORT ParseOptions {
   // Parsing options
 
-  // Optional explicit schema (no type inference, ignores other fields)
+  /// Optional explicit schema (disables type inference on those fields)
   std::shared_ptr<Schema> explicit_schema;
 
-  // Whether objects may be printed across multiple lines (for example pretty printed)
-  // NB: if false, input must end with an empty line
+  /// Whether objects may be printed across multiple lines (for example pretty-printed)
+  ///
+  /// If true, parsing may be slower
+  /// If false, input must end with an empty line
   bool newlines_in_values = false;
 
-  // How should parse handle fields outside the explicit_schema?
+  /// How JSON fields outside of explicit_schema (if given) are treated
   UnexpectedFieldBehavior unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
 
+  /// Create parsing options with default values
   static ParseOptions Defaults();
 };
 
 struct ARROW_EXPORT ReadOptions {
   // Reader options
 
-  // Whether to use the global CPU thread pool
+  /// Whether to use the global CPU thread pool
   bool use_threads = true;
-  // Block size we request from the IO layer; also determines the size of
-  // chunks when use_threads is true
+  /// Block size we request from the IO layer; also determines the size of
+  /// chunks when use_threads is true
   int32_t block_size = 1 << 20;  // 1 MB
 
+  /// Create read options with default values
   static ReadOptions Defaults();
 };
 
