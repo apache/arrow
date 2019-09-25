@@ -422,7 +422,7 @@ def test_struct_from_buffers():
 
 
 def test_struct_from_arrays():
-    a = pa.array([4, 5, 6])
+    a = pa.array([4, 5, 6], type=pa.int64())
     b = pa.array(["bar", None, ""])
     c = pa.array([[1, 2], None, [3, None]])
     expected_list = [
@@ -447,7 +447,7 @@ def test_struct_from_arrays():
     # From fields
     fa = pa.field("a", a.type, nullable=False)
     fb = pa.field("b", b.type)
-    fc = pa.field("c", b.type)
+    fc = pa.field("c", c.type)
     arr = pa.StructArray.from_arrays([a, b, c], fields=[fa, fb, fc])
     assert arr.type == pa.struct([fa, fb, fc])
     assert not arr.type[0].nullable
@@ -459,6 +459,11 @@ def test_struct_from_arrays():
     arr = pa.StructArray.from_arrays([], fields=[])
     assert arr.type == pa.struct([])
     assert arr.to_pylist() == []
+
+    # Inconsistent fields
+    fa2 = pa.field("a", pa.int32())
+    with pytest.raises(ValueError, match="int64 vs int32"):
+        pa.StructArray.from_arrays([a, b, c], fields=[fa2, fb, fc])
 
 
 def test_dictionary_from_numpy():
