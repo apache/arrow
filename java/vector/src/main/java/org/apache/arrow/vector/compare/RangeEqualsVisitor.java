@@ -27,6 +27,7 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
+import org.apache.arrow.vector.complex.DenseUnionVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
@@ -168,6 +169,11 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
       return false;
     }
     return compareUnionVectors(range);
+  }
+
+  @Override
+  public Boolean visit(DenseUnionVector left, Range range) {
+    throw new UnsupportedOperationException();
   }
 
   @Override

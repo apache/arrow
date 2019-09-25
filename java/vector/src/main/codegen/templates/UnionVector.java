@@ -78,8 +78,8 @@ import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
  */
 public class UnionVector implements FieldVector {
 
-  protected String name;
-  protected BufferAllocator allocator;
+  private String name;
+  private BufferAllocator allocator;
   int valueCount;
 
   NonNullableStructVector internalStruct;
@@ -88,7 +88,7 @@ public class UnionVector implements FieldVector {
   private StructVector structVector;
   private ListVector listVector;
 
-  protected FieldReader reader;
+  private FieldReader reader;
 
   private int singleType = 0;
   private ValueVector singleVector;
@@ -96,9 +96,9 @@ public class UnionVector implements FieldVector {
   private final CallBack callBack;
   protected long typeBufferAllocationSizeInBytes;
 
-  protected final FieldType fieldType;
+  private final FieldType fieldType;
 
-  protected static final byte TYPE_WIDTH = 1;
+  private static final byte TYPE_WIDTH = 1;
   private static final FieldType INTERNAL_STRUCT_TYPE = new FieldType(false /*nullable*/,
       ArrowType.Struct.INSTANCE, null /*dictionary*/, null /*metadata*/);
 
@@ -299,7 +299,7 @@ public class UnionVector implements FieldVector {
     return true;
   }
 
-  protected void allocateTypeBuffer() {
+  private void allocateTypeBuffer() {
     typeBuffer = allocator.buffer(typeBufferAllocationSizeInBytes);
     typeBuffer.readerIndex(0);
     typeBuffer.setZero(0, typeBuffer.capacity());
@@ -689,8 +689,8 @@ public class UnionVector implements FieldVector {
       typeBuffer.setByte(index * TYPE_WIDTH , (byte) type.ordinal());
     }
 
-    protected int getTypeBufferValueCapacity() {
-      return capAtMaxInt(typeBuffer.capacity() / TYPE_WIDTH);
+    private int getTypeBufferValueCapacity() {
+      return (int) typeBuffer.capacity() / TYPE_WIDTH;
     }
 
     @Override
