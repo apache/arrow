@@ -37,10 +37,13 @@ use crate::execution::filter::FilterRelation;
 use crate::execution::limit::LimitRelation;
 use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::datasource::DatasourceExec;
-use crate::execution::physical_plan::expressions::{Column, Sum};
+use crate::execution::physical_plan::expressions::{
+    BinaryExpr, CastExpr, Column, Literal, Sum,
+};
 use crate::execution::physical_plan::hash_aggregate::HashAggregateExec;
 use crate::execution::physical_plan::merge::MergeExec;
 use crate::execution::physical_plan::projection::ProjectionExec;
+use crate::execution::physical_plan::selection::SelectionExec;
 use crate::execution::physical_plan::{AggregateExpr, ExecutionPlan, PhysicalExpr};
 use crate::execution::projection::ProjectRelation;
 use crate::execution::relation::{DataSourceRelation, Relation};
@@ -280,6 +283,12 @@ impl ExecutionContext {
                     schema.clone(),
                 )?))
             }
+            LogicalPlan::Selection { input, expr, .. } => {
+                let input = self.create_physical_plan(input, batch_size)?;
+                let input_schema = input.as_ref().schema().clone();
+                let runtime_expr = self.create_physical_expr(expr, &input_schema)?;
+                Ok(Arc::new(SelectionExec::try_new(runtime_expr, input)?))
+            }
             _ => Err(ExecutionError::General(
                 "Unsupported logical plan variant".to_string(),
             )),
@@ -290,13 +299,25 @@ impl ExecutionContext {
     pub fn create_physical_expr(
         &self,
         e: &Expr,
-        _input_schema: &Schema,
+        input_schema: &Schema,
     ) -> Result<Arc<dyn PhysicalExpr>> {
         match e {
             Expr::Column(i) => Ok(Arc::new(Column::new(*i))),
-            _ => Err(ExecutionError::NotImplemented(
-                "Unsupported expression".to_string(),
-            )),
+            Expr::Literal(value) => Ok(Arc::new(Literal::new(value.clone()))),
+            Expr::BinaryExpr { left, op, right } => Ok(Arc::new(BinaryExpr::new(
+                self.create_physical_expr(left, input_schema)?,
+                op.clone(),
+                self.create_physical_expr(right, input_schema)?,
+            ))),
+            Expr::Cast { expr, data_type } => Ok(Arc::new(CastExpr::try_new(
+                self.create_physical_expr(expr, input_schema)?,
+                input_schema,
+                data_type.clone(),
+            )?)),
+            other => Err(ExecutionError::NotImplemented(format!(
+                "Physical plan does not support logical expression {:?}",
+                other
+            ))),
         }
     }
 
@@ -565,6 +586,29 @@ mod tests {
             assert_eq!(batch.num_columns(), 2);
             assert_eq!(batch.num_rows(), 10);
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn parallel_selection() -> Result<()> {
+        let tmp_dir = TempDir::new("parallel_selection")?;
+        let partition_count = 4;
+        let mut ctx = create_ctx(&tmp_dir, partition_count)?;
+
+        let logical_plan =
+            ctx.create_logical_plan("SELECT c1, c2 FROM test WHERE c1 > 0 AND c1 < 3")?;
+        let logical_plan = ctx.optimize(&logical_plan)?;
+
+        let physical_plan = ctx.create_physical_plan(&logical_plan, 1024)?;
+
+        let results = ctx.collect(physical_plan.as_ref())?;
+
+        // there should be one batch per partition
+        assert_eq!(results.len(), partition_count);
+
+        let row_count: usize = results.iter().map(|batch| batch.num_rows()).sum();
+        assert_eq!(row_count, 20);
 
         Ok(())
     }

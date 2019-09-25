@@ -88,3 +88,4 @@ pub mod expressions;
 pub mod hash_aggregate;
 pub mod merge;
 pub mod projection;
+pub mod selection;
