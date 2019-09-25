@@ -67,9 +67,9 @@ where
 
         let mut array_data = ArrayDataBuilder::new(ArrowSourceType::get_data_type())
             .len(record_reader.num_values())
-            .add_buffer(record_data);
+            .add_buffer(record_data?);
 
-        if let Some(b) = record_reader.consume_bitmap_buffer() {
+        if let Some(b) = record_reader.consume_bitmap_buffer()? {
             array_data = array_data.null_bit_buffer(b);
         }
 

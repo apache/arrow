@@ -95,12 +95,11 @@ impl<T: DataType> PrimitiveArrayReader<T> {
             .clone();
 
         let mut record_reader = RecordReader::<T>::new(column_desc.clone());
-        record_reader.set_page_reader(pages.next().ok_or_else(|| {
-            general_err!(
-                "Can't \
-                 build array without pages!"
-            )
-        })??)?;
+        record_reader.set_page_reader(
+            pages
+                .next()
+                .ok_or_else(|| general_err!("Can't build array without pages!"))??,
+        )?;
 
         Ok(Self {
             data_type,
@@ -217,8 +216,8 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
         }?;
 
         // save definition and repetition buffers
-        self.def_levels_buffer = self.record_reader.consume_def_levels();
-        self.rep_levels_buffer = self.record_reader.consume_rep_levels();
+        self.def_levels_buffer = self.record_reader.consume_def_levels()?;
+        self.rep_levels_buffer = self.record_reader.consume_rep_levels()?;
         self.record_reader.reset();
         Ok(array)
     }
@@ -305,7 +304,10 @@ impl ArrayReader for StructArrayReader {
             )?;
 
         // check that array child data has same size
-        let children_array_len = children_array.first().unwrap().len();
+        let children_array_len =
+            children_array.first().map(|arr| arr.len()).ok_or_else(|| {
+                general_err!("Struct array reader should have at least one child!")
+            })?;
 
         let all_children_len_eq = children_array
             .iter()
@@ -371,7 +373,9 @@ impl ArrayReader for StructArrayReader {
         let rep_level_data = self
             .children
             .first()
-            .unwrap()
+            .ok_or_else(|| {
+                general_err!("Struct array reader should have at least one child!")
+            })?
             .get_rep_levels()
             .map(|data| -> Result<Buffer> {
                 let mut buffer = Int16BufferBuilder::new(children_array_len);
@@ -584,7 +588,9 @@ impl<'a> ArrayReaderBuilder {
         let context = ArrayReaderBuilderContext::default();
 
         self.visit_struct(self.root_schema.clone(), &context)
-            .map(|reader| reader.unwrap())
+            .and_then(|reader_opt| {
+                reader_opt.ok_or_else(|| general_err!("Failed to build array reader!"))
+            })
     }
 
     // Utility functions
