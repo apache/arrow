@@ -173,7 +173,24 @@ cdef class ChunkedArray(_PandasConvertible):
         return result
 
     def __array__(self, dtype=None):
-        values = self.to_pandas().values
+        cdef:
+            PyObject* out
+            PandasOptions c_options
+            object values
+
+        with nogil:
+            check_status(libarrow.ConvertChunkedArrayToPandas(
+                c_options,
+                self.sp_chunked_array,
+                self, &out))
+
+        # wrap_array_output uses pandas to convert to Categorical, here
+        # always convert to numpy array
+        values = PyObject_to_object(out)
+
+        if isinstance(values, dict):
+            values = np.take(values['dictionary'], values['indices'])
+
         if dtype is None:
             return values
         return values.astype(dtype)
