@@ -159,10 +159,6 @@ def test_get_target_stats(fs, pathfn):
     assert 'aaa' in repr(aaa_stat)
     assert aaa_stat.extension == ''
     assert isinstance(aaa_stat.mtime, datetime)
-    # assert mtime_almost_equal(aaa_stat.mtime, fs.mtime(_aaa))
-    # assert aaa_stat.base_name == 'aaa'
-    # assert aaa_stat.type == FileType.Directory
-    # assert aaa_stat is None
 
     assert bb_stat.path == str(bb)
     assert bb_stat.base_name == 'bb'
@@ -225,9 +221,6 @@ def test_create_dir(fs, pathfn):
     fs.delete_dir(d)
 
     d = pathfn('deeply/nested/test-directory/')
-    # with pytest.raises(ArrowIOError):
-    #     fs.create_dir(d, recursive=False)
-
     fs.create_dir(d, recursive=True)
     fs.delete_dir(d)
 
