@@ -926,7 +926,8 @@ EXCLUDED_PARQUET_PATHS = {'_SUCCESS'}
 
 
 class _ParquetDatasetMetadata:
-    __slots__ = 'fs', 'memory_map', 'read_dictionary', 'common_metadata', 'buffer_size'
+    __slots__ = ('fs', 'memory_map', 'read_dictionary', 'common_metadata',
+                 'buffer_size')
 
 
 def _open_dataset_file(dataset, path, meta=None):
@@ -1031,7 +1032,10 @@ metadata_nthreads: int, default 1
 
         if self.common_metadata_path is not None:
             with self.fs.open(self.common_metadata_path) as f:
-                self._metadata.common_metadata = read_metadata(f, memory_map=memory_map)
+                self._metadata.common_metadata = read_metadata(
+                    f,
+                    memory_map=memory_map
+                )
         else:
             self._metadata.common_metadata = None
 
@@ -1180,11 +1184,14 @@ metadata_nthreads: int, default 1
 
         self.pieces = [p for p in self.pieces if all_filters_accept(p)]
 
-
     fs = property(operator.attrgetter('_metadata.fs'))
     memory_map = property(operator.attrgetter('_metadata.memory_map'))
-    read_dictionary = property(operator.attrgetter('_metadata.read_dictionary'))
-    common_metadata = property(operator.attrgetter('_metadata.common_metadata'))
+    read_dictionary = property(
+        operator.attrgetter('_metadata.read_dictionary')
+    )
+    common_metadata = property(
+        operator.attrgetter('_metadata.common_metadata')
+    )
     buffer_size = property(operator.attrgetter('_metadata.buffer_size'))
 
 
