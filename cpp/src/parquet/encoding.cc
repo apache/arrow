@@ -459,6 +459,7 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
 
   explicit DictEncoderImpl(const ColumnDescriptor* desc, MemoryPool* pool)
       : EncoderImpl(desc, Encoding::PLAIN_DICTIONARY, pool),
+        buffered_indices_(::arrow::stl_allocator<int32_t>(pool)),
         dict_encoded_size_(0),
         memo_table_(pool, kInitialHashTableSize) {}
 
@@ -596,8 +597,7 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
   void ClearIndices() { buffered_indices_.clear(); }
 
   /// Indices that have not yet be written out by WriteIndices().
-  std::vector<int32_t> buffered_indices_;
-
+  std::vector<int32_t, ::arrow::stl_allocator<int32_t> > buffered_indices_;
   /// The number of bytes needed to encode the dictionary.
   int dict_encoded_size_;
 
@@ -2133,7 +2133,8 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
   explicit DeltaLengthByteArrayDecoder(const ColumnDescriptor* descr,
                                        MemoryPool* pool = arrow::default_memory_pool())
       : DecoderImpl(descr, Encoding::DELTA_LENGTH_BYTE_ARRAY),
-        len_decoder_(nullptr, pool) {}
+        len_decoder_(nullptr, pool),
+        pool_(pool) {}
 
   void SetData(int num_values, const uint8_t* data, int len) override {
     num_values_ = num_values;
@@ -2147,7 +2148,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
 
   int Decode(ByteArray* buffer, int max_values) override {
     max_values = std::min(max_values, num_values_);
-    std::vector<int> lengths(max_values);
+    std::vector<int, ::arrow::stl_allocator<int>> lengths(max_values, ::arrow::stl_allocator<int>(pool_));
     len_decoder_.Decode(lengths.data(), max_values);
     for (int i = 0; i < max_values; ++i) {
       buffer[i].len = lengths[i];
@@ -2173,6 +2174,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
 
  private:
   DeltaBitPackDecoder<Int32Type> len_decoder_;
+  ::arrow::MemoryPool* pool_;
 };
 
 // ----------------------------------------------------------------------
