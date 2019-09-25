@@ -42,11 +42,10 @@ class ParquetFileWriter;
 
 namespace arrow {
 
-/**
- * Iterative API:
- *  Start a new RowGroup/Chunk with NewRowGroup
- *  Write column-by-column the whole column chunk
- */
+/// \brief Iterative FileWriter class
+///
+/// Start a new RowGroup or Chunk with NewRowGroup.
+/// Write column-by-column the whole column chunk.
 class PARQUET_EXPORT FileWriter {
  public:
   static ::arrow::Status Make(
@@ -99,11 +98,9 @@ PARQUET_EXPORT
 ::arrow::Status WriteMetaDataFile(const FileMetaData& file_metadata,
                                   ::arrow::io::OutputStream* sink);
 
-/**
- * Write a Table to Parquet.
- *
- * The table shall only consist of columns of primitive type or of primitive lists.
- */
+/// \brief Write a Table to Parquet.
+///
+/// The table shall only consist of columns of primitive type or of primitive lists.
 ::arrow::Status PARQUET_EXPORT WriteTable(
     const ::arrow::Table& table, MemoryPool* pool,
     const std::shared_ptr<::arrow::io::OutputStream>& sink, int64_t chunk_size,

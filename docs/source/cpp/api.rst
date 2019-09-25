@@ -31,6 +31,7 @@ API Reference
    api/tensor
    api/utilities
    api/io
+   api/formats
    api/cuda
    api/flight
    api/filesystem
