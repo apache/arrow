@@ -956,6 +956,14 @@ parquet___ArrowWriterProperties___Builder__default_use_dictionary <- function(bu
     invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__default_use_dictionary` , builder, use_dictionary))
 }
 
+parquet___ArrowWriterProperties___Builder__set_use_dictionary <- function(builder, paths, use_dictionary){
+    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__set_use_dictionary` , builder, paths, use_dictionary))
+}
+
+parquet___ArrowWriterProperties___Builder__set_write_statistics <- function(builder, paths, write_statistics){
+    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__set_write_statistics` , builder, paths, write_statistics))
+}
+
 parquet___ArrowWriterProperties___Builder__data_page_size <- function(builder, data_page_size){
     invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__data_page_size` , builder, data_page_size))
 }

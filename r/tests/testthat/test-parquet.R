@@ -81,3 +81,30 @@ test_that("write_parquet() handles various compression_level= specs", {
   expect_error(write_parquet(tab, tf, compression = "gzip", compression_level = c(x1 = 5L, x2 = 3L)), NA)
 })
 
+test_that("write_parquet() handles various use_dictionary= specs", {
+  tab <- Table$create(x1 = 1:5, x2 = 1:5, y = 1:5)
+  tf <- tempfile()
+
+  # a single logical
+  expect_error(write_parquet(tab, tf, use_dictionary = TRUE), NA)
+
+  # one logical per column
+  expect_error(write_parquet(tab, tf, use_dictionary = c(TRUE, FALSE, TRUE, FALSE)), NA)
+
+  # named logicals
+  expect_error(write_parquet(tab, tf, use_dictionary = c(x1 = TRUE, x2 = TRUE)), NA)
+})
+
+test_that("write_parquet() handles various write_statistics= specs", {
+  tab <- Table$create(x1 = 1:5, x2 = 1:5, y = 1:5)
+  tf <- tempfile()
+
+  # a single logical
+  expect_error(write_parquet(tab, tf, write_statistics = TRUE), NA)
+
+  # one logical per column
+  expect_error(write_parquet(tab, tf, write_statistics = c(TRUE, FALSE, TRUE, FALSE)), NA)
+
+  # named logicals
+  expect_error(write_parquet(tab, tf, write_statistics = c(x1 = TRUE, x2 = TRUE)), NA)
+})

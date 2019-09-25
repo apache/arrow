@@ -38,14 +38,14 @@ write_parquet(table, sink, chunk_size = NULL, version = NULL,
 \item{compression_level}{compression level. A single integer, a named integer vector
 or an unnamed integer vector of the same size as the number of columns of \code{table}}
 
-\item{use_dictionary}{Specify if we should use dictionary encoding}
+\item{use_dictionary}{Specify if we should use dictionary encoding.}
 
 \item{write_statistics}{Specify if we should write statistics}
 
 \item{data_page_size}{Set a target threshhold for the approximate encoded size of data
 pages within a column chunk. If None, use the default data page size (1Mb) is used.}
 
-\item{properties}{properties for parquet writer, derived from arguments \code{version}, \code{compression}, \code{use_dictionary}, \code{write_statistics} and \code{data_page_size}}
+\item{properties}{properties for parquet writer, derived from arguments \code{version}, \code{compression}, \code{compression_level}, \code{use_dictionary}, \code{write_statistics} and \code{data_page_size}}
 
 \item{use_deprecated_int96_timestamps}{Write timestamps to INT96 Parquet format}
 
@@ -68,7 +68,7 @@ write_parquet(tibble::tibble(x = 1:5), tf2)
 
 # using compression
 tf2 <- tempfile(fileext = ".gz.parquet")
-write_parquet(tibble::tibble(x = 1:5), CompressedOutputStream$create(tf2, "gzip"))
+write_parquet(tibble::tibble(x = 1:5), compression = "gzip", compression_level = 5)
 
 }
 }

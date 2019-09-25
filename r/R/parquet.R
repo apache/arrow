@@ -115,24 +115,48 @@ ParquetWriterProperties_Builder <- R6Class("ParquetWriterProperties_Builder", in
         } else if (length(compression_level) == length(column_names)) {
           parquet___ArrowWriterProperties___Builder__set_compression_levels(self, column_names, compression_level)
         }
-      } else if (all(given_names) %in% column_names) {
+      } else if (all(given_names %in% column_names)) {
         parquet___ArrowWriterProperties___Builder__set_compression_levels(self, given_names, compression_level)
+      } else {
+        abort("unsupported compression_level= specification")
       }
     },
 
-    set_dictionary = function(use_dictionary) {
-      if (is.logical(use_dictionary) && length(use_dictionary) == 1L) {
-        parquet___ArrowWriterProperties___Builder__default_use_dictionary(self, isTRUE(use_dictionary))
+    set_dictionary = function(table, use_dictionary) {
+      if (!is.logical(use_dictionary)) {
+        abort("unsupported use_dictionary= specification")
+      }
+
+      column_names <- names(table)
+      if (is.null(given_names <- names(use_dictionary))) {
+        if (length(use_dictionary) == 1L) {
+          parquet___ArrowWriterProperties___Builder__default_use_dictionary(self, isTRUE(use_dictionary))
+        } else if (length(use_dictionary) == length(column_names)) {
+          parquet___ArrowWriterProperties___Builder__set_use_dictionary(self, column_names, use_dictionary)
+        }
+      } else if(all(given_names%in% column_names)) {
+        parquet___ArrowWriterProperties___Builder__set_use_dictionary(self, given_names, use_dictionary)
       } else {
-        abort("use_dictionary specification not supported yet")
+        abort("unsupported use_dictionary= specification")
       }
     },
 
-    set_write_statistics = function(write_statistics) {
-      if (is.logical(write_statistics) && length(write_statistics) == 1L) {
-        parquet___ArrowWriterProperties___Builder__default_write_statistics(self, isTRUE(write_statistics))
+    set_write_statistics = function(table, write_statistics) {
+      if (!is.logical(write_statistics)) {
+        abort("unsupported write_statistics= specification")
+      }
+
+      column_names <- names(table)
+      if (is.null(given_names <- names(write_statistics))) {
+        if (length(write_statistics) == 1L) {
+          parquet___ArrowWriterProperties___Builder__default_write_statistics(self, isTRUE(write_statistics))
+        } else if (length(write_statistics) == length(column_names)) {
+          parquet___ArrowWriterProperties___Builder__set_write_statistics(self, column_names, write_statistics)
+        }
+      } else if(all(given_names%in% column_names)) {
+        parquet___ArrowWriterProperties___Builder__set_write_statistics(self, given_names, write_statistics)
       } else {
-        abort("write_statistics specification not supported yet")
+        abort("unsupported write_statistics= specification")
       }
     },
 
@@ -155,10 +179,10 @@ ParquetWriterProperties$create <- function(table, version = NULL, compression = 
       builder$set_compression_level(table, compression_level = compression_level)
     }
     if (!is.null(use_dictionary)) {
-      builder$set_dictionary(use_dictionary)
+      builder$set_dictionary(table, use_dictionary)
     }
     if (!is.null(write_statistics)) {
-      builder$set_write_statistics(write_statistics)
+      builder$set_write_statistics(table, write_statistics)
     }
     if (!is.null(data_page_size)) {
       builder$set_data_page_size(data_page_size)
@@ -207,11 +231,11 @@ ParquetFileWriter$create <- function(
 #'  - a named string vector: specify compression algorithm individually
 #' @param compression_level compression level. A single integer, a named integer vector
 #'   or an unnamed integer vector of the same size as the number of columns of `table`
-#' @param use_dictionary Specify if we should use dictionary encoding
+#' @param use_dictionary Specify if we should use dictionary encoding.
 #' @param write_statistics Specify if we should write statistics
 #' @param data_page_size Set a target threshhold for the approximate encoded size of data
 #'        pages within a column chunk. If None, use the default data page size (1Mb) is used.
-#' @param properties properties for parquet writer, derived from arguments `version`, `compression`, `use_dictionary`, `write_statistics` and `data_page_size`
+#' @param properties properties for parquet writer, derived from arguments `version`, `compression`, `compression_level`, `use_dictionary`, `write_statistics` and `data_page_size`
 #'
 #' @param use_deprecated_int96_timestamps Write timestamps to INT96 Parquet format
 #' @param coerce_timestamps Cast timestamps a particular resolution. can be NULL, "ms" or "us"
@@ -228,7 +252,7 @@ ParquetFileWriter$create <- function(
 #'
 #' # using compression
 #' tf2 <- tempfile(fileext = ".gz.parquet")
-#' write_parquet(tibble::tibble(x = 1:5), CompressedOutputStream$create(tf2, "gzip"))
+#' write_parquet(tibble::tibble(x = 1:5), compression = "gzip", compression_level = 5)
 #'
 #' }
 #' @export

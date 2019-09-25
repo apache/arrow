@@ -213,6 +213,36 @@ void parquet___ArrowWriterProperties___Builder__default_use_dictionary(
 }
 
 // [[arrow::export]]
+void parquet___ArrowWriterProperties___Builder__set_use_dictionary(
+    const std::shared_ptr<parquet::WriterProperties::Builder>& builder,
+    const std::vector<std::string>& paths, const Rcpp::LogicalVector& use_dictionary) {
+  builder->disable_dictionary();
+  auto n = paths.size();
+  for (decltype(n) i = 0; i < n; i++) {
+    if (use_dictionary[i]) {
+      builder->enable_dictionary(paths[i]);
+    } else {
+      builder->disable_dictionary(paths[i]);
+    }
+  }
+}
+
+// [[arrow::export]]
+void parquet___ArrowWriterProperties___Builder__set_write_statistics(
+    const std::shared_ptr<parquet::WriterProperties::Builder>& builder,
+    const std::vector<std::string>& paths, const Rcpp::LogicalVector& write_statistics) {
+  builder->disable_statistics();
+  auto n = paths.size();
+  for (decltype(n) i = 0; i < n; i++) {
+    if (write_statistics[i]) {
+      builder->enable_statistics(paths[i]);
+    } else {
+      builder->disable_statistics(paths[i]);
+    }
+  }
+}
+
+// [[arrow::export]]
 void parquet___ArrowWriterProperties___Builder__data_page_size(
     const std::shared_ptr<parquet::WriterProperties::Builder>& builder,
     int64_t data_page_size) {

@@ -3720,6 +3720,42 @@ RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__default_use_di
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_ARROW)
+void parquet___ArrowWriterProperties___Builder__set_use_dictionary(const std::shared_ptr<parquet::WriterProperties::Builder>& builder, const std::vector<std::string>& paths, const Rcpp::LogicalVector& use_dictionary);
+RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_use_dictionary(SEXP builder_sexp, SEXP paths_sexp, SEXP use_dictionary_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterProperties::Builder>&>::type builder(builder_sexp);
+	Rcpp::traits::input_parameter<const std::vector<std::string>&>::type paths(paths_sexp);
+	Rcpp::traits::input_parameter<const Rcpp::LogicalVector&>::type use_dictionary(use_dictionary_sexp);
+	parquet___ArrowWriterProperties___Builder__set_use_dictionary(builder, paths, use_dictionary);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_use_dictionary(SEXP builder_sexp, SEXP paths_sexp, SEXP use_dictionary_sexp){
+	Rf_error("Cannot call parquet___ArrowWriterProperties___Builder__set_use_dictionary(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void parquet___ArrowWriterProperties___Builder__set_write_statistics(const std::shared_ptr<parquet::WriterProperties::Builder>& builder, const std::vector<std::string>& paths, const Rcpp::LogicalVector& write_statistics);
+RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_write_statistics(SEXP builder_sexp, SEXP paths_sexp, SEXP write_statistics_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<parquet::WriterProperties::Builder>&>::type builder(builder_sexp);
+	Rcpp::traits::input_parameter<const std::vector<std::string>&>::type paths(paths_sexp);
+	Rcpp::traits::input_parameter<const Rcpp::LogicalVector&>::type write_statistics(write_statistics_sexp);
+	parquet___ArrowWriterProperties___Builder__set_write_statistics(builder, paths, write_statistics);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__set_write_statistics(SEXP builder_sexp, SEXP paths_sexp, SEXP write_statistics_sexp){
+	Rf_error("Cannot call parquet___ArrowWriterProperties___Builder__set_write_statistics(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_ARROW)
 void parquet___ArrowWriterProperties___Builder__data_page_size(const std::shared_ptr<parquet::WriterProperties::Builder>& builder, int64_t data_page_size);
 RcppExport SEXP _arrow_parquet___ArrowWriterProperties___Builder__data_page_size(SEXP builder_sexp, SEXP data_page_size_sexp){
 BEGIN_RCPP
@@ -4945,6 +4981,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_parquet___ArrowWriterProperties___Builder__set_compression_levels", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__set_compression_levels, 3}, 
 		{ "_arrow_parquet___ArrowWriterProperties___Builder__default_write_statistics", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__default_write_statistics, 2}, 
 		{ "_arrow_parquet___ArrowWriterProperties___Builder__default_use_dictionary", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__default_use_dictionary, 2}, 
+		{ "_arrow_parquet___ArrowWriterProperties___Builder__set_use_dictionary", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__set_use_dictionary, 3}, 
+		{ "_arrow_parquet___ArrowWriterProperties___Builder__set_write_statistics", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__set_write_statistics, 3}, 
 		{ "_arrow_parquet___ArrowWriterProperties___Builder__data_page_size", (DL_FUNC) &_arrow_parquet___ArrowWriterProperties___Builder__data_page_size, 2}, 
 		{ "_arrow_parquet___WriterProperties___Builder__build", (DL_FUNC) &_arrow_parquet___WriterProperties___Builder__build, 1}, 
 		{ "_arrow_parquet___arrow___ParquetFileWriter__Open", (DL_FUNC) &_arrow_parquet___arrow___ParquetFileWriter__Open, 4}, 
