@@ -39,6 +39,7 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/base64.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
@@ -576,7 +577,8 @@ Status GetOriginSchema(const std::shared_ptr<const KeyValueMetadata>& metadata,
   // The original Arrow schema was serialized using the store_schema option. We
   // deserialize it here and use it to inform read options such as
   // dictionary-encoded fields
-  auto schema_buf = std::make_shared<Buffer>(metadata->value(schema_index));
+  auto decoded = ::arrow::util::base64_decode(metadata->value(schema_index));
+  auto schema_buf = std::make_shared<Buffer>(decoded);
 
   ::arrow::ipc::DictionaryMemo dict_memo;
   ::arrow::io::BufferReader input(schema_buf);
