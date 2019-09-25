@@ -170,7 +170,6 @@ class build_ext(_build_ext):
 
     CYTHON_MODULE_NAMES = [
         'lib',
-        '_s3',
         '_fs',
         '_csv',
         '_json',
@@ -179,6 +178,7 @@ class build_ext(_build_ext):
         '_parquet',
         '_orc',
         '_plasma',
+        '_s3fs',
         'gandiva']
 
     def _run_cmake(self):
@@ -419,7 +419,7 @@ class build_ext(_build_ext):
             return True
         if name == '_flight' and not self.with_flight:
             return True
-        if name == '_s3' and not self.with_s3:
+        if name == '_s3fs' and not self.with_s3:
             return True
         if name == '_cuda' and not self.with_cuda:
             return True

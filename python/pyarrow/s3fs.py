@@ -17,11 +17,10 @@
 
 from __future__ import absolute_import
 
-from pyarrow._fs import (  # noqa
-    Selector,
-    FileType,
-    FileStats,
-    FileSystem,
-    LocalFileSystem,
-    SubTreeFileSystem
+from pyarrow._s3fs import (  # noqa
+    initialize_s3,
+    finalize_s3,
+    S3FileSystem
 )
+
+initialize_s3()

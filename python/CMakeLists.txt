@@ -386,7 +386,7 @@ set(CYTHON_EXTENSIONS lib _fs _csv _json)
 set(LINK_LIBS arrow_shared arrow_python_shared)
 
 if(PYARROW_BUILD_S3)
-  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _s3)
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _s3fs)
 endif()
 
 if(PYARROW_BUILD_CUDA)

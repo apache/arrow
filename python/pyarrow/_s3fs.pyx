@@ -23,7 +23,7 @@ from pyarrow.lib cimport check_status
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.includes.libarrow_s3 cimport *
+from pyarrow.includes.libarrow_s3fs cimport *
 from pyarrow._fs cimport FileSystem
 
 
@@ -45,16 +45,6 @@ def initialize_s3(S3LogLevel log_level=S3LogLevel.Error):
 
 def finalize_s3():
     check_status(CFinalizeS3())
-
-
-cdef bint _initialized = False
-
-
-cdef _ensure_initialized():
-    global _initialized
-    if not _initialized:
-        initialize_s3()
-        _initialized = True
 
 
 cdef class S3FileSystem(FileSystem):
@@ -91,8 +81,6 @@ cdef class S3FileSystem(FileSystem):
         cdef:
             CS3Options options
             shared_ptr[CS3FileSystem] wrapped
-
-        _ensure_initialized()
 
         options = CS3Options.Defaults()
         if access_key is not None or secret_key is not None:
