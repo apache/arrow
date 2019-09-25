@@ -17,4 +17,18 @@
 
 #pragma once
 
-#include "arrow/vendored/base64.h"  // IWYU pragma: export
+#include <string>
+
+#include "arrow/util/visibility.h"
+
+namespace arrow {
+namespace util {
+
+ARROW_EXPORT
+std::string base64_encode(unsigned char const*, unsigned int len);
+
+ARROW_EXPORT
+std::string base64_decode(std::string const& s);
+
+}  // namespace util
+}  // namespace arrow

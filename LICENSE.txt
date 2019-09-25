@@ -1877,7 +1877,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ----------------------------------------------------------------------
 
-cpp/src/arrow/vendored/base64.h and base64.cpp have the following license
+cpp/src/arrow/vendored/base64.cpp has the following license
 
 ZLIB License
 
