@@ -5,11 +5,18 @@
 \title{Write Parquet file to disk}
 \usage{
 write_parquet(table, sink, chunk_size = NULL, version = NULL,
-  compression = NULL, use_dictionary = NULL, write_statistics = NULL,
+  compression = NULL, compression_level = NULL,
+  use_dictionary = NULL, write_statistics = NULL,
+  data_page_size = NULL,
   properties = ParquetWriterProperties$create(version = version,
-  compression = compression, use_dictionary = use_dictionary,
-  write_statistics = write_statistics),
-  arrow_properties = ParquetArrowWriterProperties$default())
+  compression = compression, compression_level = compression_level,
+  use_dictionary = use_dictionary, write_statistics = write_statistics,
+  data_page_size = data_page_size),
+  use_deprecated_int96_timestamps = FALSE, coerce_timestamps = NULL,
+  allow_truncated_timestamps = FALSE,
+  arrow_properties = ParquetArrowWriterProperties$create(use_deprecated_int96_timestamps
+  = use_deprecated_int96_timestamps, coerce_timestamps = coerce_timestamps,
+  allow_truncated_timestamps = allow_truncated_timestamps))
 }
 \arguments{
 \item{table}{An \link[=Table]{arrow::Table}, or an object convertible to it with \code{\link[=to_arrow]{to_arrow()}}}
@@ -22,13 +29,26 @@ write_parquet(table, sink, chunk_size = NULL, version = NULL,
 
 \item{compression}{compression name}
 
+\item{compression_level}{compression level}
+
 \item{use_dictionary}{Specify if we should use dictionary encoding}
 
 \item{write_statistics}{Specify if we should write statistics}
 
-\item{properties}{properties for parquet writer, derived from arguments \code{version}, \code{compression}, \code{use_dictionary} and \code{write_statistics}}
+\item{data_page_size}{Set a target threshhold for the approximate encoded size of data
+pages within a column chunk. If None, use the default data page size (1Mb) is used.}
 
-\item{arrow_properties}{arrow specific writer properties}
+\item{properties}{properties for parquet writer, derived from arguments \code{version}, \code{compression}, \code{use_dictionary}, \code{write_statistics} and \code{data_page_size}}
+
+\item{use_deprecated_int96_timestamps}{Write timestamps to INT96 Parquet format}
+
+\item{coerce_timestamps}{Cast timestamps a particular resolution. can be NULL, "ms" or "us"}
+
+\item{allow_truncated_timestamps}{Allow loss of data when coercing timestamps to a particular
+resolution. E.g. if microsecond or nanosecond data is lost when coercing to
+ms', do not raise an exception}
+
+\item{arrow_properties}{arrow specific writer properties, derived from arguments \code{use_deprecated_int96_timestamps}, \code{coerce_timestamps} and \code{allow_truncated_timestamps}}
 }
 \description{
 \href{https://parquet.apache.org/}{Parquet} is a columnar storage file format.
