@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-context("test-type")
+context("File system")
 
 test_that("LocalFilesystem", {
   fs <- LocalFileSystem$create()
@@ -83,7 +83,6 @@ test_that("SubTreeFilesystem", {
   expect_is(st_fs, "FileSystem")
   st_fs$CreateDir("test")
   st_fs$CopyFile("DESCRIPTION", "DESC.txt")
-  skip_on_os("windows") # See ARROW-6622
   stats <- st_fs$GetTargetStats(c("DESCRIPTION", "test", "nope", "DESC.txt"))
   expect_equal(stats[[1L]]$type, FileType$File)
   expect_equal(stats[[2L]]$type, FileType$Directory)
