@@ -74,21 +74,16 @@ impl TableProvider for ParquetTable {
         projection: &Option<Vec<usize>>,
         batch_size: usize,
     ) -> Result<Vec<ScanResult>> {
-        //TODO remove the unwrap
         Ok(self
             .filenames
             .iter()
             .map(|filename| {
-                Arc::new(Mutex::new(
-                    ParquetScanPartition::try_new(
-                        filename,
-                        projection.clone(),
-                        batch_size,
-                    )
-                    .unwrap(),
-                )) as Arc<Mutex<dyn BatchIterator>>
+                ParquetScanPartition::try_new(filename, projection.clone(), batch_size)
+                    .and_then(|part| {
+                        Ok(Arc::new(Mutex::new(part)) as Arc<Mutex<dyn BatchIterator>>)
+                    })
             })
-            .collect())
+            .collect::<Result<Vec<_>>>()?)
     }
 }
 
