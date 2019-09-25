@@ -17,12 +17,10 @@
 
 //! Execution plan for reading CSV files
 
-use std::fs;
-use std::fs::metadata;
 use std::fs::File;
 use std::sync::{Arc, Mutex};
 
-use crate::error::{ExecutionError, Result};
+use crate::error::Result;
 use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::{BatchIterator, ExecutionPlan, Partition};
 use arrow::csv;

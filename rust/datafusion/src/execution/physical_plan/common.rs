@@ -19,7 +19,6 @@
 
 use std::fs;
 use std::fs::metadata;
-use std::fs::File;
 use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
