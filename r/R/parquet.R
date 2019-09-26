@@ -83,8 +83,6 @@ ParquetWriterProperties_Builder <- R6Class("ParquetWriterProperties_Builder", in
     set_compression = function(table, compression){
       if (is.character(compression) && is.null(names(compression)) && length(compression) == 1L) {
         parquet___ArrowWriterProperties___Builder__default_compression(self, compression_from_name(compression))
-      } else if (inherits(compression, "Codec")) {
-        parquet___ArrowWriterProperties___Builder__default_compression(self, compression_from_name(compression$name))
       } else {
         column_names <- names(table)
         if (is.character(compression) && is.null(names(compression)) && length(compression) == length(column_names)) {
@@ -98,9 +96,8 @@ ParquetWriterProperties_Builder <- R6Class("ParquetWriterProperties_Builder", in
     },
 
     set_compression_level = function(table, compression_level){
-      if (!rlang::is_integerish(compression_level)) {
-        abort("unsupported compression_level= specification")
-      }
+      assert_that(is_integerish(compression_level), msg = "unsupported compression_level= specification")
+
       column_names <- names(table)
       if (is.null(given_names <- names(compression_level))) {
         if (length(compression_level) == 1L) {
@@ -116,9 +113,7 @@ ParquetWriterProperties_Builder <- R6Class("ParquetWriterProperties_Builder", in
     },
 
     set_dictionary = function(table, use_dictionary) {
-      if (!is.logical(use_dictionary)) {
-        abort("unsupported use_dictionary= specification")
-      }
+      assert_that(is.logical(use_dictionary), msg = "unsupported use_dictionary= specification")
 
       column_names <- names(table)
       if (is.null(given_names <- names(use_dictionary))) {
@@ -135,9 +130,7 @@ ParquetWriterProperties_Builder <- R6Class("ParquetWriterProperties_Builder", in
     },
 
     set_write_statistics = function(table, write_statistics) {
-      if (!is.logical(write_statistics)) {
-        abort("unsupported write_statistics= specification")
-      }
+      assert_that(is.logical(write_statistics), msg = "unsupported write_statistics= specification")
 
       column_names <- names(table)
       if (is.null(given_names <- names(write_statistics))) {
@@ -212,14 +205,13 @@ ParquetFileWriter$create <- function(
 #' [Parquet](https://parquet.apache.org/) is a columnar storage file format.
 #' This function enables you to write Parquet files from R.
 #'
-#' @param table An [arrow::Table][Table], or an object convertible to it with [to_arrow()]
+#' @param table An [arrow::Table][Table], or an object convertible to it.
 #' @param sink an [arrow::io::OutputStream][OutputStream] or a string which is interpreted as a file path
 #' @param chunk_size chunk size. If NULL, the number of rows of the table is used
 #'
 #' @param version parquet version
 #' @param compression compression specification. Possible values:
 #'  - a single string: uses that compression algorithm for all columns
-#'  - a single [Codec][Codec] instance: uses that compression algorithm for all columns
 #'  - an unnamed string vector: specify a compression algorithm for each, same order as the columns
 #'  - a named string vector: specify compression algorithm individually
 #' @param compression_level compression level. A single integer, a named integer vector

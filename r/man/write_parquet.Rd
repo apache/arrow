@@ -19,7 +19,7 @@ write_parquet(table, sink, chunk_size = NULL, version = NULL,
   allow_truncated_timestamps = allow_truncated_timestamps))
 }
 \arguments{
-\item{table}{An \link[=Table]{arrow::Table}, or an object convertible to it with \code{\link[=to_arrow]{to_arrow()}}}
+\item{table}{An \link[=Table]{arrow::Table}, or an object convertible to it.}
 
 \item{sink}{an \link[=OutputStream]{arrow::io::OutputStream} or a string which is interpreted as a file path}
 
@@ -30,7 +30,6 @@ write_parquet(table, sink, chunk_size = NULL, version = NULL,
 \item{compression}{compression specification. Possible values:
 \itemize{
 \item a single string: uses that compression algorithm for all columns
-\item a single \link{Codec} instance: uses that compression algorithm for all columns
 \item an unnamed string vector: specify a compression algorithm for each, same order as the columns
 \item a named string vector: specify compression algorithm individually
 }}

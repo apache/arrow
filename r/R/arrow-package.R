@@ -18,7 +18,7 @@
 #' @importFrom R6 R6Class
 #' @importFrom purrr map map_int map2
 #' @importFrom assertthat assert_that
-#' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos
+#' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish
 #' @importFrom Rcpp sourceCpp
 #' @importFrom tidyselect vars_select
 #' @useDynLib arrow, .registration = TRUE

@@ -57,9 +57,6 @@ test_that("write_parquet() handles various compression= specs", {
   # a single string
   expect_error(write_parquet(tab, tf, compression = "snappy"), NA)
 
-  # a single Codec
-  expect_error(write_parquet(tab, tf, compression = Codec$create("snappy")), NA)
-
   # one string per column
   expect_error(write_parquet(tab, tf, compression = rep("snappy", 3L)), NA)
 
