@@ -151,6 +151,9 @@ class ARROW_DS_EXPORT Expression {
   /// BooleanScalar. Its value may be retrieved at the same time.
   bool IsTrivialCondition(bool* value = NULLPTR) const;
 
+  bool IsTrivialTrueCondition() const;
+  bool IsTrivialFalseCondition() const;
+
   /// Copy this expression into a shared pointer.
   virtual std::shared_ptr<Expression> Copy() const = 0;
 

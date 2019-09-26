@@ -38,16 +38,16 @@ class ARROW_DS_EXPORT ScanOptions {
  public:
   ScanOptions() = default;
 
-  ScanOptions(std::shared_ptr<DataSelector> selector, std::shared_ptr<Schema> schema,
+  ScanOptions(std::shared_ptr<Expression> filter, std::shared_ptr<Schema> schema,
               std::vector<std::shared_ptr<FileScanOptions>> options = {})
-      : selector(std::move(selector)), schema(std::move(schema)) {}
+      : filter(std::move(filter)), schema(std::move(schema)) {}
 
   virtual ~ScanOptions() = default;
 
   MemoryPool* pool() const { return pool_; }
 
   // Filters
-  std::shared_ptr<DataSelector> selector;
+  std::shared_ptr<Expression> filter;
 
   // Schema to which record batches will be reconciled
   std::shared_ptr<Schema> schema;

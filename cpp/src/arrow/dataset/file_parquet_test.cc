@@ -172,22 +172,5 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
   ASSERT_EQ(row_count, kNumRows);
 }
 
-class TestParquetFileSystemBasedDataSource
-    : public FileSystemBasedDataSourceMixin<ParquetFileFormat> {
-  std::vector<std::string> file_names() const override {
-    return {"a/b/c.parquet", "a/b/c/d.parquet", "a/b.parquet", "a.parquet"};
-  }
-};
-
-TEST_F(TestParquetFileSystemBasedDataSource, NonRecursive) { this->NonRecursive(); }
-
-TEST_F(TestParquetFileSystemBasedDataSource, Recursive) { this->Recursive(); }
-
-TEST_F(TestParquetFileSystemBasedDataSource, DeletedFile) { this->DeletedFile(); }
-
-TEST_F(TestParquetFileSystemBasedDataSource, PredicatePushDown) {
-  this->PredicatePushDown();
-}
-
 }  // namespace dataset
 }  // namespace arrow

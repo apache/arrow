@@ -842,6 +842,16 @@ bool Expression::IsTrivialCondition(bool* out) const {
   return true;
 }
 
+bool Expression::IsTrivialTrueCondition() const {
+  bool value = false;
+  return IsTrivialCondition(&value) && value;
+}
+
+bool Expression::IsTrivialFalseCondition() const {
+  bool value = false;
+  return IsTrivialCondition(&value) && !value;
+}
+
 std::shared_ptr<Expression> FieldExpression::Copy() const {
   return std::make_shared<FieldExpression>(*this);
 }
@@ -937,34 +947,6 @@ Result<std::shared_ptr<DataType>> FieldExpression::Validate(const Schema& schema
     return field->type();
   }
   return null();
-}
-
-Result<std::shared_ptr<Expression>> SelectorAssume(
-    const std::shared_ptr<DataSelector>& selector,
-    const std::shared_ptr<Expression>& given) {
-  if (selector == nullptr || selector->filters.size() == 0) {
-    return ScalarExpression::Make(true);
-  }
-
-  auto get_expression = [](const std::shared_ptr<Filter>& f) {
-    DCHECK_EQ(f->type(), FilterType::EXPRESSION);
-    return checked_cast<const ExpressionFilter&>(*f).expression();
-  };
-
-  auto out_expr = get_expression(selector->filters[0]);
-  for (size_t i = 1; i < selector->filters.size(); ++i) {
-    out_expr = and_(std::move(out_expr), get_expression(selector->filters[i]));
-  }
-
-  if (given == nullptr) {
-    return std::move(out_expr);
-  }
-  return out_expr->Assume(*given);
-}
-
-std::shared_ptr<DataSelector> ExpressionSelector(std::shared_ptr<Expression> e) {
-  return std::make_shared<DataSelector>(
-      DataSelector{FilterVector{std::make_shared<ExpressionFilter>(std::move(e))}});
 }
 
 }  // namespace dataset
