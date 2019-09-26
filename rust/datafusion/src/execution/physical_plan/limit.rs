@@ -17,28 +17,31 @@
 
 //! Defines the LIMIT plan
 
-use crate::error::Result;
+use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common::RecordBatchIterator;
 use crate::execution::physical_plan::{common, ExecutionPlan};
 use crate::execution::physical_plan::{BatchIterator, Partition};
+use arrow::array::ArrayRef;
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::JoinHandle;
 
-//// Limit execution plan
+/// Limit execution plan
 pub struct LimitExec {
     /// Input schema
     schema: Arc<Schema>,
     /// Input partitions
     partitions: Vec<Arc<dyn Partition>>,
+    /// Maximum number of rows to return
+    limit: usize
 }
 
 impl LimitExec {
     /// Create a new MergeExec
-    pub fn new(schema: Arc<Schema>, partitions: Vec<Arc<dyn Partition>>) -> Self {
-        LimitExec { schema, partitions }
+    pub fn new(schema: Arc<Schema>, partitions: Vec<Arc<dyn Partition>>, limit: usize) -> Self {
+        LimitExec { schema, partitions, limit }
     }
 }
 
@@ -86,7 +89,7 @@ impl Partition for LimitPartition {
                 .for_each(|batch| combined_results.push(Arc::new(batch.clone())));
         }
 
-        combined_results.
+        //combined_results.
 
         Ok(Arc::new(Mutex::new(RecordBatchIterator::new(
             self.schema.clone(),
@@ -101,29 +104,29 @@ fn limit(it: Arc<Mutex<dyn BatchIterator>>, limit: usize) -> Result<Vec<Arc<Reco
     let mut batches: Vec<Arc<RecordBatch>> = vec![];
     let capacity = limit - num_consumed_rows;
 
-    if capacity <= 0 {
-        return Ok(None);
-    }
+    return Ok(vec![]);
 
-    if batch.num_rows() >= capacity {
-        let limited_columns: Result<Vec<ArrayRef>> = (0..batch.num_columns())
-            .map(|i| match limit(batch.column(i), capacity) {
-                Ok(result) => Ok(result),
-                Err(error) => Err(ExecutionError::from(error)),
-            })
-            .collect();
-
-        let limited_batch: RecordBatch =
-            RecordBatch::try_new(self.schema.clone(), limited_columns?)?;
-        self.num_consumed_rows += capacity;
-
-        Ok(Some(limited_batch))
-    } else {
-        self.num_consumed_rows += batch.num_rows();
-        Ok(Some(batch))
-    }
-}
-
+//    if capacity <= 0 {
+//        return Ok(None);
+//    }
+//
+//    if batch.num_rows() >= capacity {
+//        let limited_columns: Result<Vec<ArrayRef>> = (0..batch.num_columns())
+//            .map(|i| match limit(batch.column(i), capacity) {
+//                Ok(result) => Ok(result),
+//                Err(error) => Err(ExecutionError::from(error)),
+//            })
+//            .collect();
+//
+//        let limited_batch: RecordBatch =
+//            RecordBatch::try_new(self.schema.clone(), limited_columns?)?;
+//        self.num_consumed_rows += capacity;
+//
+//        Ok(Some(limited_batch))
+//    } else {
+//        self.num_consumed_rows += batch.num_rows();
+//        Ok(Some(batch))
+//    }
 }
 
 #[cfg(test)]
@@ -135,7 +138,7 @@ mod tests {
     use crate::test;
 
     #[test]
-    fn merge() -> Result<()> {
+    fn limit() -> Result<()> {
         let schema = test::aggr_test_schema();
 
         let num_partitions = 4;
@@ -148,20 +151,16 @@ mod tests {
         let input = csv.partitions()?;
         assert_eq!(input.len(), num_partitions);
 
-        let merge = MergeExec::new(schema.clone(), input);
-
-        // output of MergeExec should have a single partition
-        let merged = merge.partitions()?;
-        assert_eq!(merged.len(), 1);
+        let limit = LimitExec::new(schema.clone(), input, 7);
+        let partitions = limit.partitions()?;
 
         // the result should contain 4 batches (one per input partition)
-        let iter = merged[0].execute()?;
+        let iter = partitions[0].execute()?;
         let batches = common::collect(iter)?;
-        assert_eq!(batches.len(), num_partitions);
 
         // there should be a total of 100 rows
         let row_count: usize = batches.iter().map(|batch| batch.num_rows()).sum();
-        assert_eq!(row_count, 100);
+        assert_eq!(row_count, 7);
 
         Ok(())
     }
