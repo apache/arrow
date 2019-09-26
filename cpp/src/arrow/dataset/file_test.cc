@@ -94,7 +94,7 @@ class TestFileSystemBasedDataSource : public ::testing::Test {
 
  protected:
   std::shared_ptr<fs::FileSystem> fs_;
-  std::unique_ptr<DataSource> source_;
+  std::shared_ptr<DataSource> source_;
   std::shared_ptr<ScanOptions> options_;
 };
 

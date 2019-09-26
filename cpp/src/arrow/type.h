@@ -1380,6 +1380,9 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable {
   std::unique_ptr<Impl> impl_;
 };
 
+ARROW_EXPORT bool operator==(const std::shared_ptr<Schema>& rhs,
+                             const std::shared_ptr<Schema> lhs);
+
 // ----------------------------------------------------------------------
 // Parametric factory functions
 // Other factory functions are in type_fwd.h

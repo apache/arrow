@@ -132,6 +132,10 @@ class ARROW_DS_EXPORT FileFormat {
   /// \brief Return true if the given file extension
   virtual bool IsKnownExtension(const std::string& ext) const = 0;
 
+  /// \brief Return the schema of the file if possible.
+  virtual Status Inspect(const FileSource& source,
+                         std::shared_ptr<Schema>* out) const = 0;
+
   /// \brief Open a file for scanning
   virtual Status ScanFile(const FileSource& source,
                           std::shared_ptr<ScanOptions> scan_options,
@@ -187,7 +191,7 @@ class ARROW_DS_EXPORT FileSystemBasedDataSource : public DataSource {
   static Status Make(fs::FileSystem* filesystem, std::vector<fs::FileStats> stats,
                      std::shared_ptr<Expression> source_partition,
                      PathPartitions partitions, std::shared_ptr<FileFormat> format,
-                     std::unique_ptr<DataSource>* out);
+                     std::shared_ptr<DataSource>* out);
 
   std::string type() const override { return "filesystem_data_source"; }
 

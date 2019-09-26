@@ -62,7 +62,7 @@ Status FileSystemBasedDataSource::Make(fs::FileSystem* filesystem,
                                        std::shared_ptr<Expression> source_partition,
                                        PathPartitions partitions,
                                        std::shared_ptr<FileFormat> format,
-                                       std::unique_ptr<DataSource>* out) {
+                                       std::shared_ptr<DataSource>* out) {
   fs::PathForest forest;
   RETURN_NOT_OK(fs::PathTree::Make(stats, &forest));
   out->reset(new FileSystemBasedDataSource(filesystem, std::move(forest),

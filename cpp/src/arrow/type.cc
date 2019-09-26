@@ -676,6 +676,16 @@ std::vector<std::string> Schema::field_names() const {
   return names;
 }
 
+bool operator==(const std::shared_ptr<Schema>& lhs, const std::shared_ptr<Schema> rhs) {
+  if (lhs == nullptr && rhs == nullptr) {
+    return true;
+  } else if (lhs != nullptr && rhs != nullptr) {
+    return lhs->Equals(*lhs);
+  }
+
+  return false;
+}
+
 std::shared_ptr<Schema> schema(const std::vector<std::shared_ptr<Field>>& fields,
                                const std::shared_ptr<const KeyValueMetadata>& metadata) {
   return std::make_shared<Schema>(fields, metadata);

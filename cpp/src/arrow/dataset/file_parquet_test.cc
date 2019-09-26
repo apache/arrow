@@ -138,9 +138,11 @@ class ParquetBufferFixtureMixin : public ArrowParquetWriterMixin {
                                                              builder->UnsafeAppend(0.0);
                                                            }));
 
-    auto schema_ = schema({field("f64", f64->type())});
     return RecordBatch::Make(schema_, kBatchSize, {f64});
   }
+
+ protected:
+  std::shared_ptr<Schema> schema_ = schema({field("f64", float64())});
 };
 
 class TestParquetFileFormat : public ParquetBufferFixtureMixin {
@@ -170,6 +172,16 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
   }));
 
   ASSERT_EQ(row_count, kNumRows);
+}
+
+TEST_F(TestParquetFileFormat, Inspect) {
+  auto reader = GetRecordBatchReader();
+  auto source = GetFileSource(reader.get());
+  auto format = ParquetFileFormat();
+
+  std::shared_ptr<Schema> actual;
+  ASSERT_OK(format.Inspect(*source.get(), &actual));
+  EXPECT_EQ(actual, schema_);
 }
 
 }  // namespace dataset

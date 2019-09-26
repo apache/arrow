@@ -186,6 +186,11 @@ class DummyFileFormat : public FileFormat {
   /// \brief Return true if the given file extension
   bool IsKnownExtension(const std::string& ext) const override { return ext == name(); }
 
+  Status Inspect(const FileSource& source, std::shared_ptr<Schema>* out) const override {
+    *out = nullptr;
+    return Status::OK();
+  }
+
   /// \brief Open a file for scanning (always returns an empty iterator)
   Status ScanFile(const FileSource& source, std::shared_ptr<ScanOptions> scan_options,
                   std::shared_ptr<ScanContext> scan_context,
