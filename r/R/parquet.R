@@ -31,13 +31,10 @@ ParquetArrowWriterProperties_Builder <- R6Class("ParquetArrowWriterProperties_Bu
     },
     set_coerce_timestamps = function(coerce_timestamps = NULL) {
       if (!is.null(coerce_timestamps)) {
-        if (coerce_timestamps == "ms") {
-          parquet___ArrowWriterProperties___Builder__coerce_timestamps(TimeUnit$MILLI)
-        } else if (coerce_timestamps == "us") {
-          parquet___ArrowWriterProperties___Builder__coerce_timestamps(TimeUnit$MICRO)
-        } else {
-          abort("Invalid value for coerce_timestamps")
-        }
+        unit <- make_valid_time_unit(coerce_timestamps,
+          c("ms" = TimeUnit$MILLI, "us" = TimeUnit$MICRO)
+        )
+        parquet___ArrowWriterProperties___Builder__coerce_timestamps(unit)
       }
       self
     },
