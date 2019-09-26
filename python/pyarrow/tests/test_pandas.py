@@ -3207,6 +3207,7 @@ def _to_pandas(table, extension_columns=None):
     from pyarrow.pandas_compat import table_to_blockmanager
 
     options = dict(
+        pool=None,
         strings_to_categorical=False,
         zero_copy_only=False,
         integer_object_nulls=False,

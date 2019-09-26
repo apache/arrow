@@ -677,7 +677,8 @@ def _reconstruct_block(item):
         bitmask = buflist[0]
         if bitmask is not None:
             mask = pa.BooleanArray.from_buffers(
-                pa.bool_(), len(arr), [None, bitmask]).to_pandas()
+                pa.bool_(), len(arr), [None, bitmask])
+            mask = np.asarray(mask)
         else:
             mask = np.ones(len(arr), dtype=bool)
         block_arr = _pandas_api.pd.arrays.IntegerArray(

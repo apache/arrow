@@ -1482,7 +1482,7 @@ class ExtensionBlock : public PandasBlock {
     return Status::OK();
   }
 
-  Status Write(const std::shared_ptr<ChunkedArray>& data, int64_t abs_placement,
+  Status Write(std::shared_ptr<ChunkedArray> data, int64_t abs_placement,
                int64_t rel_placement) override {
     PyAcquireGIL lock;
 
@@ -1644,9 +1644,7 @@ class DataFrameBlockCreator {
   explicit DataFrameBlockCreator(const PandasOptions& options,
                                  const std::unordered_set<std::string>& extension_columns,
                                  const std::shared_ptr<Table>& table)
-      : table_(table),
-        options_(options),
-        extension_columns_(extension_columns) {}
+      : table_(table), options_(options), extension_columns_(extension_columns) {}
 
   Status Convert(PyObject** output) {
     column_types_.resize(table_->num_columns());
