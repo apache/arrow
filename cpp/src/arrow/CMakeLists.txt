@@ -117,6 +117,7 @@ set(ARROW_SRCS
     filesystem/filesystem.cc
     filesystem/localfs.cc
     filesystem/mockfs.cc
+    filesystem/path_tree.cc
     filesystem/path_util.cc
     filesystem/util_internal.cc
     io/buffered.cc
