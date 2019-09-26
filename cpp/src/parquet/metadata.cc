@@ -774,8 +774,10 @@ void FileCryptoMetaData::WriteTo(::arrow::io::OutputStream* dst) const {
   impl_->WriteTo(dst);
 }
 
-std::string FileMetaData::ToString() const {
+std::string FileMetaData::SerializedMetadata() const {
   std::shared_ptr<arrow::ResizableBuffer> metadata_buffer;
+  // We need pass in an initial size. Since it will automatically
+  // increase the size to hould the metadata. We just leave it 0.
   PARQUET_THROW_NOT_OK(AllocateResizableBuffer(0, &metadata_buffer));
   arrow::io::BufferOutputStream serializer(metadata_buffer);
   WriteTo(&serializer);
