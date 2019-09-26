@@ -20,6 +20,7 @@
 //!
 //! This mod provides API for converting between arrow and parquet.
 
+pub(in crate::arrow) mod array_reader;
 pub(in crate::arrow) mod converter;
 pub(in crate::arrow) mod record_reader;
 pub mod schema;
