@@ -45,8 +45,9 @@ public class FloatConsumer implements JdbcConsumer<Float4Vector> {
   public void consume(ResultSet resultSet) throws SQLException {
     float value = resultSet.getFloat(columnIndexInResultSet);
     if (!resultSet.wasNull()) {
-      vector.setSafe(currentIndex++, value);
+      vector.setSafe(currentIndex, value);
     }
+    currentIndex++;
   }
 
   @Override

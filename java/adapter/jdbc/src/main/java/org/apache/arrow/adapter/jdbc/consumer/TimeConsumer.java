@@ -57,8 +57,9 @@ public class TimeConsumer implements JdbcConsumer<TimeMilliVector> {
     Time time = calendar == null ? resultSet.getTime(columnIndexInResultSet) :
         resultSet.getTime(columnIndexInResultSet, calendar);
     if (!resultSet.wasNull()) {
-      vector.setSafe(currentIndex++, (int) time.getTime());
+      vector.setSafe(currentIndex, (int) time.getTime());
     }
+    currentIndex++;
   }
 
   @Override

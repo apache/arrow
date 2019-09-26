@@ -57,8 +57,9 @@ public class TimestampConsumer implements JdbcConsumer<TimeStampMilliTZVector> {
     Timestamp timestamp = calendar == null ? resultSet.getTimestamp(columnIndexInResultSet) :
         resultSet.getTimestamp(columnIndexInResultSet, calendar);
     if (!resultSet.wasNull()) {
-      vector.setSafe(currentIndex++, timestamp.getTime());
+      vector.setSafe(currentIndex, timestamp.getTime());
     }
+    currentIndex++;
   }
 
   @Override

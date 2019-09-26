@@ -45,8 +45,9 @@ public class BitConsumer implements JdbcConsumer<BitVector> {
   public void consume(ResultSet resultSet) throws SQLException {
     boolean value = resultSet.getBoolean(columnIndexInResultSet);
     if (!resultSet.wasNull()) {
-      vector.setSafe(currentIndex++, value ? 1 : 0);
+      vector.setSafe(currentIndex, value ? 1 : 0);
     }
+    currentIndex++;
   }
 
   @Override
