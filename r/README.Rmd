@@ -161,6 +161,21 @@ remotes::install_github("romainfrancois/decor")
 install.packages(c("dplyr", "purrr", "glue"))
 ```
 
+We use Google C++ style in our C++ code. Check for style errors with
+
+```
+./lint.sh
+```
+
+Fix any style issues before committing with
+
+```
+./lint.sh --fix
+```
+
+The lint script requires Python 3 and `clang-format`, which should already be
+present on your system.
+
 ### Useful functions
 
 Within an R session, these can help with package development:
