@@ -45,8 +45,9 @@ public class TinyIntConsumer implements JdbcConsumer<TinyIntVector> {
   public void consume(ResultSet resultSet) throws SQLException {
     byte value = resultSet.getByte(columnIndexInResultSet);
     if (!resultSet.wasNull()) {
-      vector.setSafe(currentIndex++, value);
+      vector.setSafe(currentIndex, value);
     }
+    currentIndex++;
   }
 
   @Override

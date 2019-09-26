@@ -48,8 +48,9 @@ public class VarCharConsumer implements JdbcConsumer<VarCharVector> {
     if (!resultSet.wasNull()) {
       byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
 
-      vector.setSafe(currentIndex++, bytes);
+      vector.setSafe(currentIndex, bytes);
     }
+    currentIndex++;
   }
 
   @Override

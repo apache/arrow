@@ -46,8 +46,9 @@ public class DecimalConsumer implements JdbcConsumer<DecimalVector> {
   public void consume(ResultSet resultSet) throws SQLException {
     BigDecimal value = resultSet.getBigDecimal(columnIndexInResultSet);
     if (!resultSet.wasNull()) {
-      vector.setSafe(currentIndex++, value);
+      vector.setSafe(currentIndex, value);
     }
+    currentIndex++;
   }
 
   @Override

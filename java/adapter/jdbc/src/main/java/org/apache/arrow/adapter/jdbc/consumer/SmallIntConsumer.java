@@ -45,8 +45,9 @@ public class SmallIntConsumer implements JdbcConsumer<SmallIntVector> {
   public void consume(ResultSet resultSet) throws SQLException {
     short value = resultSet.getShort(columnIndexInResultSet);
     if (!resultSet.wasNull()) {
-      vector.setSafe(currentIndex++, value);
+      vector.setSafe(currentIndex, value);
     }
+    currentIndex++;
   }
 
   @Override
