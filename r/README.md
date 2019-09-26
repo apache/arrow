@@ -241,8 +241,14 @@ Fix any style issues before committing with
 
     ./lint.sh --fix
 
-The lint script requires Python 3 and `clang-format`, which should
-already be present on your system.
+The lint script requires Python 3 and `clang-format`. If the command
+isn’t found, you can explicitly provide the path to it like
+`CLANG_FORMAT=$(which clang-format) ./lint.sh`
+
+For consistency, it is recommended that you use `clang-format-7`. On
+macOS, you can get this by installing LLVM via Homebrew and running the
+script as `CLANG_FORMAT=$(brew --prefix llvm@7)/bin/clang-format
+./lint.sh`
 
 ### Useful functions
 
