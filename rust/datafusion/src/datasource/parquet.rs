@@ -244,7 +244,7 @@ where
                 builder.append_slice(&converted_buffer[0..values_read])?;
             } else {
                 let mut value_index = 0;
-                for i in 0..def_levels.len() {
+                for i in 0..levels_read {
                     if def_levels[i] != 0 {
                         builder.append_value(converted_buffer[value_index].into())?;
                         value_index += 1;
