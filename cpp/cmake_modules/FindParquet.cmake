@@ -34,6 +34,10 @@ if(NOT "$ENV{ARROW_HOME}" STREQUAL "")
   set(ARROW_HOME "$ENV{ARROW_HOME}")
 endif()
 
+if((NOT PARQUET_HOME) AND ARROW_HOME)
+  set(PARQUET_HOME ${ARROW_HOME})
+endif()
+
 if(MSVC)
   set(CMAKE_FIND_LIBRARY_SUFFIXES ".lib" ".dll")
 
@@ -52,16 +56,16 @@ endif()
 
 if(PARQUET_HOME)
   set(PARQUET_SEARCH_HEADER_PATHS ${PARQUET_HOME}/include)
-  set(PARQUET_SEARCH_LIB_PATH ${PARQUET_HOME}/lib)
+  set(PARQUET_SEARCH_LIB_PATH ${PARQUET_HOME})
   find_path(PARQUET_INCLUDE_DIR parquet/api/reader.h
             PATHS ${PARQUET_SEARCH_HEADER_PATHS}
                   # make sure we don't accidentally pick up a different version
             NO_DEFAULT_PATH)
   find_library(PARQUET_LIBRARIES
                NAMES parquet
-               PATHS ${PARQUET_HOME}
-               NO_DEFAULT_PATH
-               PATH_SUFFIXES "lib")
+               PATHS ${PARQUET_SEARCH_LIB_PATH}
+               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+               NO_DEFAULT_PATH)
   get_filename_component(PARQUET_LIBS ${PARQUET_LIBRARIES} PATH)
 
   # Try to autodiscover the Parquet ABI version
