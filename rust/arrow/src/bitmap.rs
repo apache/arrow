@@ -126,5 +126,4 @@ mod tests {
         assert_eq!(true, bitmap.is_set(6));
         assert_eq!(false, bitmap.is_set(7));
     }
-
 }

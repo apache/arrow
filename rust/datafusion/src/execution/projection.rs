@@ -141,5 +141,4 @@ mod tests {
 
         assert_eq!("c1", batch.schema().field(0).name());
     }
-
 }
