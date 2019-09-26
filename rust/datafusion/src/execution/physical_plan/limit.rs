@@ -19,9 +19,10 @@
 
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common::RecordBatchIterator;
-use crate::execution::physical_plan::{common, ExecutionPlan};
+use crate::execution::physical_plan::ExecutionPlan;
 use crate::execution::physical_plan::{BatchIterator, Partition};
 use arrow::array::ArrayRef;
+use arrow::compute::array_ops::limit;
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 use std::sync::{Arc, Mutex};
@@ -35,13 +36,21 @@ pub struct LimitExec {
     /// Input partitions
     partitions: Vec<Arc<dyn Partition>>,
     /// Maximum number of rows to return
-    limit: usize
+    limit: usize,
 }
 
 impl LimitExec {
     /// Create a new MergeExec
-    pub fn new(schema: Arc<Schema>, partitions: Vec<Arc<dyn Partition>>, limit: usize) -> Self {
-        LimitExec { schema, partitions, limit }
+    pub fn new(
+        schema: Arc<Schema>,
+        partitions: Vec<Arc<dyn Partition>>,
+        limit: usize,
+    ) -> Self {
+        LimitExec {
+            schema,
+            partitions,
+            limit,
+        }
     }
 }
 
@@ -54,6 +63,7 @@ impl ExecutionPlan for LimitExec {
         Ok(vec![Arc::new(LimitPartition {
             schema: self.schema.clone(),
             partitions: self.partitions.clone(),
+            limit: self.limit,
         })])
     }
 }
@@ -63,33 +73,47 @@ struct LimitPartition {
     schema: Arc<Schema>,
     /// Input partitions
     partitions: Vec<Arc<dyn Partition>>,
+    /// Maximum number of rows to return
+    limit: usize,
 }
 
 impl Partition for LimitPartition {
     fn execute(&self) -> Result<Arc<Mutex<dyn BatchIterator>>> {
+        // collect up to "limit" rows on each partition
         let threads: Vec<JoinHandle<Result<Vec<RecordBatch>>>> = self
             .partitions
             .iter()
             .map(|p| {
                 let p = p.clone();
+                let limit = self.limit;
                 thread::spawn(move || {
                     let it = p.execute()?;
-                    common::collect(it)
+                    collect_with_limit(it, limit)
                 })
             })
             .collect();
 
-        // combine the results from each thread
+        // combine the results from each thread, up to the limit
         let mut combined_results: Vec<Arc<RecordBatch>> = vec![];
+        let mut count = 0;
         for thread in threads {
             let join = thread.join().expect("Failed to join thread");
             let result = join?;
-            result
-                .iter()
-                .for_each(|batch| combined_results.push(Arc::new(batch.clone())));
+            for batch in result {
+                let capacity = self.limit - count;
+                if batch.num_rows() <= capacity {
+                    count += batch.num_rows();
+                    combined_results.push(Arc::new(batch.clone()))
+                } else {
+                    let batch = truncate_batch(&batch, capacity)?;
+                    count += batch.num_rows();
+                    combined_results.push(Arc::new(batch.clone()))
+                }
+                if count == self.limit {
+                    break;
+                }
+            }
         }
-
-        //combined_results.
 
         Ok(Arc::new(Mutex::new(RecordBatchIterator::new(
             self.schema.clone(),
@@ -98,35 +122,52 @@ impl Partition for LimitPartition {
     }
 }
 
-fn limit(it: Arc<Mutex<dyn BatchIterator>>, limit: usize) -> Result<Vec<Arc<RecordBatch>>> {
+/// Truncate a RecordBatch to maximum of n rows
+pub fn truncate_batch(batch: &RecordBatch, n: usize) -> Result<RecordBatch> {
+    let limited_columns: Result<Vec<ArrayRef>> = (0..batch.num_columns())
+        .map(|i| match limit(batch.column(i), n) {
+            Ok(result) => Ok(result),
+            Err(error) => Err(ExecutionError::from(error)),
+        })
+        .collect();
 
-    let mut num_consumed_rows = 0;
-    let mut batches: Vec<Arc<RecordBatch>> = vec![];
-    let capacity = limit - num_consumed_rows;
+    Ok(RecordBatch::try_new(
+        batch.schema().clone(),
+        limited_columns?,
+    )?)
+}
 
-    return Ok(vec![]);
-
-//    if capacity <= 0 {
-//        return Ok(None);
-//    }
-//
-//    if batch.num_rows() >= capacity {
-//        let limited_columns: Result<Vec<ArrayRef>> = (0..batch.num_columns())
-//            .map(|i| match limit(batch.column(i), capacity) {
-//                Ok(result) => Ok(result),
-//                Err(error) => Err(ExecutionError::from(error)),
-//            })
-//            .collect();
-//
-//        let limited_batch: RecordBatch =
-//            RecordBatch::try_new(self.schema.clone(), limited_columns?)?;
-//        self.num_consumed_rows += capacity;
-//
-//        Ok(Some(limited_batch))
-//    } else {
-//        self.num_consumed_rows += batch.num_rows();
-//        Ok(Some(batch))
-//    }
+/// Create a vector of record batches from an iterator
+fn collect_with_limit(
+    it: Arc<Mutex<dyn BatchIterator>>,
+    limit: usize,
+) -> Result<Vec<RecordBatch>> {
+    let mut count = 0;
+    let mut it = it.lock().unwrap();
+    let mut results: Vec<RecordBatch> = vec![];
+    loop {
+        match it.next() {
+            Ok(Some(batch)) => {
+                let capacity = limit - count;
+                if batch.num_rows() <= capacity {
+                    count += batch.num_rows();
+                    results.push(batch);
+                } else {
+                    let batch = truncate_batch(&batch, capacity)?;
+                    count += batch.num_rows();
+                    results.push(batch);
+                }
+                if count == limit {
+                    return Ok(results);
+                }
+            }
+            Ok(None) => {
+                // end of result set
+                return Ok(results);
+            }
+            Err(e) => return Err(e),
+        }
+    }
 }
 
 #[cfg(test)]
