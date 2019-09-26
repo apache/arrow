@@ -52,24 +52,20 @@ ParquetArrowWriterProperties_Builder <- R6Class("ParquetArrowWriterProperties_Bu
 )
 ParquetArrowWriterProperties <- R6Class("ParquetArrowWriterProperties", inherit = Object)
 
-ParquetArrowWriterProperties$default <- function() {
-  shared_ptr(ParquetArrowWriterProperties, parquet___default_arrow_writer_properties())
-}
-
 ParquetArrowWriterProperties$create <- function(use_deprecated_int96_timestamps = FALSE, coerce_timestamps = NULL, allow_truncated_timestamps = FALSE) {
-  builder <- shared_ptr(ParquetArrowWriterProperties_Builder, parquet___ArrowWriterProperties___Builder__create())
-  builder$store_schema()
-  builder$set_int96_support(use_deprecated_int96_timestamps)
-  builder$set_coerce_timestamps(coerce_timestamps)
-  builder$set_allow_truncated_timestamps(allow_truncated_timestamps)
-  shared_ptr(ParquetArrowWriterProperties, parquet___ArrowWriterProperties___Builder__build(builder))
+  if (!use_deprecated_int96_timestamps && is.null(coerce_timestamps) && !allow_truncated_timestamps) {
+    shared_ptr(ParquetArrowWriterProperties, parquet___default_arrow_writer_properties())
+  } else {
+    builder <- shared_ptr(ParquetArrowWriterProperties_Builder, parquet___ArrowWriterProperties___Builder__create())
+    builder$store_schema()
+    builder$set_int96_support(use_deprecated_int96_timestamps)
+    builder$set_coerce_timestamps(coerce_timestamps)
+    builder$set_allow_truncated_timestamps(allow_truncated_timestamps)
+    shared_ptr(ParquetArrowWriterProperties, parquet___ArrowWriterProperties___Builder__build(builder))
+  }
 }
 
 ParquetWriterProperties <- R6Class("ParquetWriterProperties", inherit = Object)
-ParquetWriterProperties$default <- function() {
-  shared_ptr(ParquetWriterProperties, parquet___default_writer_properties())
-}
-
 ParquetWriterProperties_Builder <- R6Class("ParquetWriterProperties_Builder", inherit = Object,
   public = list(
     set_version = function(version = NULL) {
@@ -165,7 +161,7 @@ ParquetWriterProperties_Builder <- R6Class("ParquetWriterProperties_Builder", in
 
 ParquetWriterProperties$create <- function(table, version = NULL, compression = NULL, compression_level = NULL, use_dictionary = NULL, write_statistics = NULL, data_page_size = NULL) {
   if (is.null(version) && is.null(compression) && is.null(compression_level) && is.null(use_dictionary) && is.null(write_statistics) && is.null(data_page_size)) {
-    ParquetWriterProperties$default()
+    shared_ptr(ParquetWriterProperties, parquet___default_writer_properties())
   } else {
     builder <- shared_ptr(ParquetWriterProperties_Builder, parquet___WriterProperties___Builder__create())
     builder$set_version(version)
@@ -202,8 +198,8 @@ ParquetFileWriter <- R6Class("ParquetFileWriter", inherit = Object,
 ParquetFileWriter$create <- function(
   schema,
   sink,
-  properties = ParquetWriterProperties$default(),
-  arrow_properties = ParquetArrowWriterProperties$default()
+  properties = ParquetWriterProperties$create(),
+  arrow_properties = ParquetArrowWriterProperties$create()
 ) {
   unique_ptr(
     ParquetFileWriter,
