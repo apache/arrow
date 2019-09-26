@@ -17,6 +17,7 @@
 
 use std::cell::RefCell;
 use std::env;
+use std::fs;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -92,6 +93,35 @@ fn parquet_query() {
     let actual = execute(&mut ctx, sql);
     let expected = "4\t\"0\"\n5\t\"1\"\n6\t\"0\"\n7\t\"1\"\n2\t\"0\"\n3\t\"1\"\n0\t\"0\"\n1\t\"1\"\n".to_string();
     assert_eq!(expected, actual);
+}
+
+#[test]
+fn parquet_simple_partition() {
+    let mut ctx = ExecutionContext::new();
+    let testdata = env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
+    fs::create_dir_all(&format!("{}/partition/key=1", testdata)).unwrap();
+    fs::create_dir_all(&format!("{}/partition/key=2", testdata)).unwrap();
+    fs::copy(
+        &format!("{}/alltypes_plain.parquet", testdata),
+        &format!("{}/partition/key=1/alltypes_plain.parquet", testdata),
+    )
+    .unwrap();
+    fs::copy(
+        &format!("{}/alltypes_plain.parquet", testdata),
+        &format!("{}/partition/key=2/alltypes_plain.parquet", testdata),
+    )
+    .unwrap();
+    ctx.register_parquet("data", &format!("{}/alltypes_plain.parquet", testdata))
+        .unwrap();
+    let sql = "SELECT id, string_col FROM data";
+    let plan = ctx.create_logical_plan(&sql).unwrap();
+    let plan = ctx.optimize(&plan).unwrap();
+    let plan = ctx.create_physical_plan(&plan, DEFAULT_BATCH_SIZE).unwrap();
+    let results = ctx.collect(plan.as_ref()).unwrap();
+    for batch in results {
+        assert_eq!(16, batch.num_rows());
+        assert_eq!(2, batch.num_columns());
+    }
 }
 
 #[test]
