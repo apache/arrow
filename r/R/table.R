@@ -124,12 +124,17 @@ Table <- R6Class("Table", inherit = Object,
         shared_ptr(Table, Table__select(self, indices))
       }
     },
+
     Slice = function(offset, length = NULL) {
       if (is.null(length)) {
         shared_ptr(Table, Table__Slice1(self, offset))
       } else {
         shared_ptr(Table, Table__Slice2(self, offset, length))
       }
+    },
+
+    Equals = function(other) {
+      Table__Equals(self, other)
     }
   ),
 
@@ -140,6 +145,11 @@ Table <- R6Class("Table", inherit = Object,
     columns = function() map(Table__columns(self), shared_ptr, class = ChunkedArray)
   )
 )
+
+#' @export
+`==.Table` <- function(x, y) {
+  x$Equals(y)
+}
 
 Table$create <- function(..., schema = NULL){
   dots <- list2(...)
