@@ -66,7 +66,7 @@ impl Relation for LimitRelation {
                     return Ok(None);
                 }
 
-                if batch.num_rows() >= capacity {
+                if batch.num_rows() > capacity {
                     let limited_batch = truncate_batch(&batch, capacity)?;
                     self.num_consumed_rows += capacity;
                     Ok(Some(limited_batch))
