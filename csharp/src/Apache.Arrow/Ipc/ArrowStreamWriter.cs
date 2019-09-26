@@ -370,7 +370,7 @@ namespace Apache.Arrow.Ipc
             Builder.Finish(messageOffset.Value);
 
             var messageData = Builder.DataBuffer.ToReadOnlyMemory(Builder.DataBuffer.Position, Builder.Offset);
-            var messagePaddingLength = CalculatePadding(messageData.Length);
+            var messagePaddingLength = CalculatePadding(_options.SizeOfIpcLength + messageData.Length);
 
             await WriteIpcMessageLengthAsync(messageData.Length + messagePaddingLength, cancellationToken)
                 .ConfigureAwait(false);
