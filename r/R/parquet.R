@@ -65,18 +65,29 @@ ParquetArrowWriterProperties$create <- function(use_deprecated_int96_timestamps 
   }
 }
 
+valid_parquet_version <- c(
+  "1.0" = ParquetVersionType$PARQUET_1_0,
+  "2.0" = ParquetVersionType$PARQUET_2_0
+)
+
+make_valid_version <- function(version, valid_versions = valid_parquet_version) {
+  if (is_integerish(version)) {
+    version <- as.character(version)
+  }
+  tryCatch(
+    valid_versions[[match.arg(version, choices = names(valid_versions))]],
+    error = function(cond) {
+      stop('"version" should be one of ', oxford_paste(names(valid_versions), "or"), call.=FALSE)
+    }
+  )
+}
+
 ParquetWriterProperties <- R6Class("ParquetWriterProperties", inherit = Object)
 ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder", inherit = Object,
   public = list(
     set_version = function(version = NULL) {
       if (!is.null(version)) {
-        if (identical(version, "1.0")) {
-          parquet___ArrowWriterProperties___Builder__version(self, ParquetVersionType$PARQUET_1_0)
-        } else if (identical(version, "2.0")) {
-          parquet___ArrowWriterProperties___Builder__version(self, ParquetVersionType$PARQUET_2_0)
-        } else {
-          abort("unknown parquet version")
-        }
+        parquet___ArrowWriterProperties___Builder__version(self, make_valid_version(version))
       }
     },
 
