@@ -3360,7 +3360,8 @@ def test_fastparquet_cross_compatibility(tempdir):
             "c": np.arange(4.0, 7.0, dtype="float64"),
             "d": [True, False, True],
             "e": pd.date_range("20130101", periods=3),
-            "f": pd.Categorical(["a", "b", "a"])
+            "f": pd.Categorical(["a", "b", "a"]),
+            # fastparquet writes list as BYTE_ARRAY JSON, so no roundtrip
             # "g": [[1, 2], None, [1, 2, 3]],
         }
     )
