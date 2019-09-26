@@ -86,9 +86,9 @@ ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder", inhe
       } else {
         column_names <- names(table)
         if (is.character(compression) && is.null(names(compression)) && length(compression) == length(column_names)) {
-          parquet___ArrowWriterProperties___Builder__set_compressions(self, column_names, map_int(compression, compression_from_name))
+          parquet___ArrowWriterProperties___Builder__set_compressions(self, column_names, compression_from_name(compression))
         } else if (is.character(compression) && all(names(compression) %in% column_names)) {
-          parquet___ArrowWriterProperties___Builder__set_compressions(self, names(compression), map_int(compression, compression_from_name))
+          parquet___ArrowWriterProperties___Builder__set_compressions(self, names(compression), compression_from_name(compression))
         } else {
           abort("unsupported compression= specification")
         }

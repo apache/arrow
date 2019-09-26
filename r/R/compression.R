@@ -45,8 +45,7 @@ Codec <- R6Class("Codec", inherit = Object,
 Codec$create <- function(type = "gzip", compression_level = NA) {
   if (is.character(type)) {
     type <- unique_ptr(Codec, util___Codec__Create(
-      CompressionType[[match.arg(toupper(type), names(CompressionType))]],
-      compression_level
+      compression_from_name(type), compression_level
     ))
   }
   assert_is(type, "Codec")
@@ -54,7 +53,7 @@ Codec$create <- function(type = "gzip", compression_level = NA) {
 }
 
 compression_from_name <- function(name) {
-  CompressionType[[match.arg(toupper(name), names(CompressionType))]]
+  map_int(name, ~CompressionType[[match.arg(toupper(.x), names(CompressionType))]])
 }
 
 #' @title Compressed stream classes
