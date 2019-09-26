@@ -132,7 +132,7 @@ except ImportError:
     pass
 
 try:
-    from pyarrow.fs import S3FileSystem  # noqa
+    import pyarrow.s3fs  # noqa
     defaults['s3'] = True
 except ImportError:
     pass
@@ -248,8 +248,8 @@ except ImportError:
             shutil.rmtree(self.tmp)
 
 
-@pytest.fixture(scope='session')
 @pytest.mark.s3
+@pytest.fixture(scope='session')
 def minio_server():
     host, port = 'localhost', find_free_port()
     access_key, secret_key = 'arrow', 'apachearrow'

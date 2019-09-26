@@ -20,6 +20,7 @@ from __future__ import absolute_import
 from pyarrow._s3fs import (  # noqa
     initialize_s3,
     finalize_s3,
+    S3Options,
     S3FileSystem
 )
 

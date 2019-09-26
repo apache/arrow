@@ -51,18 +51,20 @@ def subtree_localfs(request, tempdir, localfs):
     )
 
 
+@pytest.mark.s3
 @pytest.fixture
 def s3fs(request, minio_server):
-    from pyarrow.s3fs import S3FileSystem
+    from pyarrow.s3fs import S3Options, S3FileSystem
 
     address, access_key, secret_key = minio_server
     bucket = 'pyarrow-filesystem/'
-    fs = S3FileSystem(
+    options = S3Options(
         endpoint_override=address,
         access_key=access_key,
         secret_key=secret_key,
         scheme='http'
     )
+    fs = S3FileSystem(options)
     fs.create_dir(bucket)
 
     return dict(
@@ -387,3 +389,37 @@ def test_open_append_stream(fs, pathfn, compression, buffer_size, compressor,
     else:
         with pytest.raises(pa.ArrowNotImplementedError):
             fs.open_append_stream(p, compression, buffer_size)
+
+
+@pytest.mark.s3
+def test_s3_options(minio_server):
+    from pyarrow.s3fs import S3Options
+
+    options = S3Options()
+
+    assert options.region == 'us-east-1'
+    options.region = 'us-west-1'
+    assert options.region == 'us-west-1'
+
+    assert options.scheme == 'https'
+    options.scheme = 'http'
+    assert options.scheme == 'http'
+
+    assert options.endpoint_override == ''
+    options.endpoint_override = 'localhost:8999'
+    assert options.endpoint_override == 'localhost:8999'
+
+    with pytest.raises(ValueError):
+        S3Options(access_key='access')
+    with pytest.raises(ValueError):
+        S3Options(secret_key='secret')
+
+    address, access_key, secret_key = minio_server
+    options = S3Options(
+        access_key=access_key,
+        secret_key=secret_key,
+        endpoint_override=address,
+        scheme='http'
+    )
+    assert options.scheme == 'http'
+    assert options.endpoint_override == address

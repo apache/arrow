@@ -47,6 +47,105 @@ def finalize_s3():
     check_status(CFinalizeS3())
 
 
+cdef class S3Options:
+    """Options for S3FileSystem.
+
+    If neither access_key nor secret_key are provided then attempts to
+    initialize from AWS environment variables, otherwise both access_key and
+    secret_key must be provided.
+
+    Parameters
+    ----------
+    access_key: str, default None
+        AWS Access Key ID. Pass None to use the standard AWS environment
+        variables and/or configuration file.
+    secret_key: str, default None
+        AWS Secret Access key. Pass None to use the standard AWS environment
+        variables and/or configuration file.
+    region: str, default 'us-east-1'
+        AWS region to connect to.
+    scheme: str, default 'https'
+        S3 connection transport scheme.
+    endpoint_override: str, default None
+        Override region with a connect string such as "localhost:9000"
+    background_writes: boolean, default True
+        Whether OutputStream writes will be issued in the background, without
+        blocking.
+    """
+    cdef:
+        CS3Options options
+
+    # Avoid mistakingly creating attributes
+    __slots__ = ()
+
+    def __init__(self, access_key=None, secret_key=None, region=None,
+                 scheme=None, endpoint_override=None, background_writes=None):
+        if access_key is not None and secret_key is None:
+            raise ValueError(
+                'In order to initialize with explicit credentials both '
+                'access_key and secret_key must be provided, '
+                '`secret_key` is not set.'
+            )
+        elif access_key is None and secret_key is not None:
+            raise ValueError(
+                'In order to initialize with explicit credentials both '
+                'access_key and secret_key must be provided, '
+                '`access_key` is not set.'
+            )
+        elif access_key is not None or secret_key is not None:
+            self.options = CS3Options.FromAccessKey(
+                tobytes(access_key),
+                tobytes(secret_key)
+            )
+        else:
+            self.options = CS3Options.Defaults()
+
+        if region is not None:
+            self.region = region
+        if scheme is not None:
+            self.scheme = scheme
+        if endpoint_override is not None:
+            self.endpoint_override = endpoint_override
+        if background_writes is not None:
+            self.background_writes = background_writes
+
+    @property
+    def region(self):
+        """AWS region to connect to."""
+        return frombytes(self.options.region)
+
+    @region.setter
+    def region(self, value):
+        self.options.region = tobytes(value)
+
+    @property
+    def scheme(self):
+        """S3 connection transport scheme."""
+        return frombytes(self.options.scheme)
+
+    @scheme.setter
+    def scheme(self, value):
+        self.options.scheme = tobytes(value)
+
+    @property
+    def endpoint_override(self):
+        """Override region with a connect string such as localhost:9000"""
+        return frombytes(self.options.endpoint_override)
+
+    @endpoint_override.setter
+    def endpoint_override(self, value):
+        self.options.endpoint_override = tobytes(value)
+
+    @property
+    def background_writes(self):
+        """OutputStream writes will be issued in the background"""
+        return self.options.background_writes
+
+    @background_writes.setter
+    def background_writes(self, bint value):
+        self.options.background_writes = value
+
+
 cdef class S3FileSystem(FileSystem):
     """S3-backed FileSystem implementation
 
@@ -75,25 +174,10 @@ cdef class S3FileSystem(FileSystem):
     cdef:
         CS3FileSystem* s3fs
 
-    def __init__(self, access_key=None, secret_key=None, region='us-east-1',
-                 scheme='https', endpoint_override=None,
-                 bint background_writes=True):
-        cdef:
-            CS3Options options
-            shared_ptr[CS3FileSystem] wrapped
-
-        options = CS3Options.Defaults()
-        if access_key is not None or secret_key is not None:
-            options.ConfigureAccessKey(tobytes(access_key),
-                                       tobytes(secret_key))
-
-        options.region = tobytes(region)
-        options.scheme = tobytes(scheme)
-        options.background_writes = background_writes
-        if endpoint_override is not None:
-            options.endpoint_override = tobytes(endpoint_override)
-
-        check_status(CS3FileSystem.Make(options, &wrapped))
+    def __init__(self, S3Options options=None):
+        cdef shared_ptr[CS3FileSystem] wrapped
+        options = options or S3Options()
+        check_status(CS3FileSystem.Make(options.options, &wrapped))
         self.init(<shared_ptr[CFileSystem]> wrapped)
 
     cdef init(self, const shared_ptr[CFileSystem]& wrapped):
