@@ -85,82 +85,62 @@ make_valid_version <- function(version, valid_versions = valid_parquet_version) 
 ParquetWriterProperties <- R6Class("ParquetWriterProperties", inherit = Object)
 ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder", inherit = Object,
   public = list(
-    set_version = function(version = NULL) {
-      if (!is.null(version)) {
-        parquet___ArrowWriterProperties___Builder__version(self, make_valid_version(version))
-      }
+    set_version = function(version) {
+      parquet___ArrowWriterProperties___Builder__version(self, make_valid_version(version))
     },
 
     set_compression = function(table, compression){
-      if (is.character(compression) && is.null(names(compression)) && length(compression) == 1L) {
-        parquet___ArrowWriterProperties___Builder__default_compression(self, compression_from_name(compression))
-      } else {
-        column_names <- names(table)
-        if (is.character(compression) && is.null(names(compression)) && length(compression) == length(column_names)) {
-          parquet___ArrowWriterProperties___Builder__set_compressions(self, column_names, compression_from_name(compression))
-        } else if (is.character(compression) && all(names(compression) %in% column_names)) {
-          parquet___ArrowWriterProperties___Builder__set_compressions(self, names(compression), compression_from_name(compression))
-        } else {
-          abort("unsupported compression= specification")
-        }
-      }
+      private$.set(table, compression_from_name(compression), "compression", is.integer,
+        parquet___ArrowWriterProperties___Builder__default_compression,
+        parquet___ArrowWriterProperties___Builder__set_compressions
+      )
     },
 
     set_compression_level = function(table, compression_level){
-      assert_that(is_integerish(compression_level), msg = "unsupported compression_level= specification")
-
-      column_names <- names(table)
-      if (is.null(given_names <- names(compression_level))) {
-        if (length(compression_level) == 1L) {
-          parquet___ArrowWriterProperties___Builder__default_compression_level(self, compression_level)
-        } else if (length(compression_level) == length(column_names)) {
-          parquet___ArrowWriterProperties___Builder__set_compression_levels(self, column_names, compression_level)
-        }
-      } else if (all(given_names %in% column_names)) {
-        parquet___ArrowWriterProperties___Builder__set_compression_levels(self, given_names, compression_level)
-      } else {
-        abort("unsupported compression_level= specification")
-      }
+      private$.set(table, compression_level, "compression_level", is_integerish,
+        parquet___ArrowWriterProperties___Builder__default_compression_level,
+        parquet___ArrowWriterProperties___Builder__set_compression_levels
+      )
     },
 
     set_dictionary = function(table, use_dictionary) {
-      assert_that(is.logical(use_dictionary), msg = "unsupported use_dictionary= specification")
-
-      column_names <- names(table)
-      if (is.null(given_names <- names(use_dictionary))) {
-        if (length(use_dictionary) == 1L) {
-          parquet___ArrowWriterProperties___Builder__default_use_dictionary(self, isTRUE(use_dictionary))
-        } else if (length(use_dictionary) == length(column_names)) {
-          parquet___ArrowWriterProperties___Builder__set_use_dictionary(self, column_names, use_dictionary)
-        }
-      } else if(all(given_names%in% column_names)) {
-        parquet___ArrowWriterProperties___Builder__set_use_dictionary(self, given_names, use_dictionary)
-      } else {
-        abort("unsupported use_dictionary= specification")
-      }
+      private$.set(table, use_dictionary, "use_dictionary", is.logical,
+        parquet___ArrowWriterProperties___Builder__default_use_dictionary,
+        parquet___ArrowWriterProperties___Builder__set_use_dictionary
+      )
     },
 
     set_write_statistics = function(table, write_statistics) {
-      assert_that(is.logical(write_statistics), msg = "unsupported write_statistics= specification")
-
-      column_names <- names(table)
-      if (is.null(given_names <- names(write_statistics))) {
-        if (length(write_statistics) == 1L) {
-          parquet___ArrowWriterProperties___Builder__default_write_statistics(self, isTRUE(write_statistics))
-        } else if (length(write_statistics) == length(column_names)) {
-          parquet___ArrowWriterProperties___Builder__set_write_statistics(self, column_names, write_statistics)
-        }
-      } else if(all(given_names%in% column_names)) {
-        parquet___ArrowWriterProperties___Builder__set_write_statistics(self, given_names, write_statistics)
-      } else {
-        abort("unsupported write_statistics= specification")
-      }
+      private$.set(table, write_statistics, "write_statistics", is.logical,
+        parquet___ArrowWriterProperties___Builder__default_write_statistics,
+        parquet___ArrowWriterProperties___Builder__set_write_statistics
+      )
     },
 
     set_data_page_size = function(data_page_size) {
       parquet___ArrowWriterProperties___Builder__data_page_size(self, data_page_size)
     }
+  ),
+
+  private = list(
+    .set = function(table, value, name, is, default, multiple) {
+      msg <- paste0("unsupported ", name, "= specification")
+      assert_that(is(value), msg = msg)
+      column_names <- names(table)
+      if (is.null(given_names <- names(value))) {
+        if (length(value) == 1L) {
+          default(self, value)
+        } else if (length(value) == length(column_names)) {
+          multiple(self, column_names, value)
+        }
+      } else if(all(given_names %in% column_names)) {
+        multiple(self, given_names, value)
+      } else {
+        abort(msg)
+      }
+    }
   )
+
 )
 
 ParquetWriterProperties$create <- function(table, version = NULL, compression = NULL, compression_level = NULL, use_dictionary = NULL, write_statistics = NULL, data_page_size = NULL) {
@@ -168,7 +148,9 @@ ParquetWriterProperties$create <- function(table, version = NULL, compression = 
     shared_ptr(ParquetWriterProperties, parquet___default_writer_properties())
   } else {
     builder <- shared_ptr(ParquetWriterPropertiesBuilder, parquet___WriterProperties___Builder__create())
-    builder$set_version(version)
+    if (!is.null(version)) {
+      builder$set_version(version)
+    }
     if (!is.null(compression)) {
       builder$set_compression(table, compression = compression)
     }
