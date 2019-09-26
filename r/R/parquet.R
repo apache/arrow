@@ -241,30 +241,38 @@ ParquetFileWriter$create <- function(
 #'
 #' }
 #' @export
-write_parquet <- function(
-  table,
-  sink, chunk_size = NULL,
+write_parquet <- function(table,
+                          sink,
+                          chunk_size = NULL,
 
-  # writer properties
-  version = NULL, compression = NULL, compression_level = NULL, use_dictionary = NULL, write_statistics = NULL, data_page_size = NULL,
-  properties = ParquetWriterProperties$create(
-    table,
+                          # writer properties
+                          version = NULL,
+                          compression = NULL,
+                          compression_level = NULL,
+                          use_dictionary = NULL,
+                          write_statistics = NULL,
+                          data_page_size = NULL,
 
-    version = version,
-    compression = compression,
-    compression_level = compression_level,
-    use_dictionary = use_dictionary,
-    write_statistics = write_statistics,
-    data_page_size = data_page_size
-  ),
+                          properties = ParquetWriterProperties$create(
+                            table,
+                            version = version,
+                            compression = compression,
+                            compression_level = compression_level,
+                            use_dictionary = use_dictionary,
+                            write_statistics = write_statistics,
+                            data_page_size = data_page_size
+                          ),
 
-  # arrow writer properties
-  use_deprecated_int96_timestamps = FALSE, coerce_timestamps = NULL, allow_truncated_timestamps = FALSE,
-  arrow_properties = ParquetArrowWriterProperties$create(
-    use_deprecated_int96_timestamps = use_deprecated_int96_timestamps,
-    coerce_timestamps = coerce_timestamps,
-    allow_truncated_timestamps = allow_truncated_timestamps
-  )
+                          # arrow writer properties
+                          use_deprecated_int96_timestamps = FALSE,
+                          coerce_timestamps = NULL,
+                          allow_truncated_timestamps = FALSE,
+
+                          arrow_properties = ParquetArrowWriterProperties$create(
+                            use_deprecated_int96_timestamps = use_deprecated_int96_timestamps,
+                            coerce_timestamps = coerce_timestamps,
+                            allow_truncated_timestamps = allow_truncated_timestamps
+                          )
 ) {
   table <- to_arrow(table)
 
