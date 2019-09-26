@@ -39,7 +39,7 @@
 Codec <- R6Class("Codec", inherit = Object,
   active = list(
     name = function() util___Codec__name(self),
-    level = function() abort("Codec$level() no yet implemented")
+    level = function() abort("Codec$level() not yet implemented")
   )
 )
 Codec$create <- function(type = "gzip", compression_level = NA) {

@@ -244,11 +244,11 @@ ParquetFileWriter$create <- function(
 #' @examples
 #' \donttest{
 #' tf1 <- tempfile(fileext = ".parquet")
-#' write_parquet(tibble::tibble(x = 1:5), tf2)
+#' write_parquet(data.frame(x = 1:5), tf2)
 #'
 #' # using compression
 #' tf2 <- tempfile(fileext = ".gz.parquet")
-#' write_parquet(tibble::tibble(x = 1:5), compression = "gzip", compression_level = 5)
+#' write_parquet(data.frame(x = 1:5), compression = "gzip", compression_level = 5)
 #'
 #' }
 #' @export
