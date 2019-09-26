@@ -133,6 +133,7 @@ dev/tasks/linux-packages/debian/source/format
 dev/tasks/linux-packages/debian/watch
 dev/tasks/conda-recipes/*
 docs/requirements.txt
+integration/spark/ARROW-6429.patch
 go/arrow/go.sum
 go/arrow/Gopkg.lock
 go/arrow/internal/cpu/*

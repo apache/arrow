@@ -17,7 +17,7 @@
 FROM arrow:python-3.6
 
 # installing java and maven
-ARG MAVEN_VERSION=3.5.4
+ARG MAVEN_VERSION=3.6.2
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 \
     MAVEN_HOME=/usr/local/maven \
     M2_HOME=/root/.m2 \
@@ -37,6 +37,11 @@ RUN wget -q -O /tmp/spark.tar.gz https://github.com/apache/spark/archive/$SPARK_
     mkdir /spark && \
     tar -xzf /tmp/spark.tar.gz -C /spark --strip-components=1 && \
     rm /tmp/spark.tar.gz
+
+# patch spark to build with current Arrow Java
+COPY integration/spark/ARROW-6429.patch /tmp/
+RUN patch -d /spark -p1 -i /tmp/ARROW-6429.patch && \
+    rm /tmp/ARROW-6429.patch
 
 # build cpp with tests
 ENV CC=gcc \
