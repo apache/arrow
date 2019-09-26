@@ -52,56 +52,32 @@ test_that("read_parquet() with raw data", {
 
 test_that("write_parquet() handles various compression= specs", {
   tab <- Table$create(x1 = 1:5, x2 = 1:5, y = 1:5)
-  tf <- tempfile()
 
-  # a single string
-  expect_error(write_parquet(tab, tf, compression = "snappy"), NA)
-
-  # one string per column
-  expect_error(write_parquet(tab, tf, compression = rep("snappy", 3L)), NA)
-
-  # named strings
-  expect_error(write_parquet(tab, tf, compression = c(x1 = "snappy", x2 = "snappy")), NA)
+  expect_parquet_roundtrip(tab, compression = "snappy")
+  expect_parquet_roundtrip(tab, compression = rep("snappy", 3L))
+  expect_parquet_roundtrip(tab, compression = c(x1 = "snappy", x2 = "snappy"))
 })
 
 test_that("write_parquet() handles various compression_level= specs", {
   tab <- Table$create(x1 = 1:5, x2 = 1:5, y = 1:5)
-  tf <- tempfile()
 
-  # a single number
-  expect_error(write_parquet(tab, tf, compression = "gzip", compression_level = 4), NA)
-
-  # one number per column
-  expect_error(write_parquet(tab, tf, compression = "gzip", compression_level = rep(4L, 3L)), NA)
-
-  # named numbers
-  expect_error(write_parquet(tab, tf, compression = "gzip", compression_level = c(x1 = 5L, x2 = 3L)), NA)
+  expect_parquet_roundtrip(tab, compression = "gzip", compression_level = 4)
+  expect_parquet_roundtrip(tab, compression = "gzip", compression_level = rep(4L, 3L))
+  expect_parquet_roundtrip(tab, compression = "gzip", compression_level = c(x1 = 5L, x2 = 3L))
 })
 
 test_that("write_parquet() handles various use_dictionary= specs", {
   tab <- Table$create(x1 = 1:5, x2 = 1:5, y = 1:5)
-  tf <- tempfile()
 
-  # a single logical
-  expect_error(write_parquet(tab, tf, use_dictionary = TRUE), NA)
-
-  # one logical per column
-  expect_error(write_parquet(tab, tf, use_dictionary = c(TRUE, FALSE, TRUE, FALSE)), NA)
-
-  # named logicals
-  expect_error(write_parquet(tab, tf, use_dictionary = c(x1 = TRUE, x2 = TRUE)), NA)
+  expect_parquet_roundtrip(tab, use_dictionary = TRUE)
+  expect_parquet_roundtrip(tab, use_dictionary = c(TRUE, FALSE, TRUE, FALSE))
+  expect_parquet_roundtrip(tab, use_dictionary = c(x1 = TRUE, x2 = TRUE))
 })
 
 test_that("write_parquet() handles various write_statistics= specs", {
   tab <- Table$create(x1 = 1:5, x2 = 1:5, y = 1:5)
-  tf <- tempfile()
 
-  # a single logical
-  expect_error(write_parquet(tab, tf, write_statistics = TRUE), NA)
-
-  # one logical per column
-  expect_error(write_parquet(tab, tf, write_statistics = c(TRUE, FALSE, TRUE, FALSE)), NA)
-
-  # named logicals
-  expect_error(write_parquet(tab, tf, write_statistics = c(x1 = TRUE, x2 = TRUE)), NA)
+  expect_parquet_roundtrip(tab, write_statistics = TRUE)
+  expect_parquet_roundtrip(tab, write_statistics = c(TRUE, FALSE, TRUE, FALSE))
+  expect_parquet_roundtrip(tab, write_statistics = c(x1 = TRUE, x2 = TRUE))
 })
