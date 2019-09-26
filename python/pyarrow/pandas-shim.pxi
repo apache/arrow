@@ -30,7 +30,7 @@ cdef class _PandasAPIShim(object):
         object _loose_version, _version
         object _pd, _types_api, _compat_module
         object _data_frame, _index, _series, _categorical_type
-        object _datetimetz_type, _extension_array
+        object _datetimetz_type, _extension_array, _extension_dtype
         object _array_like_types
         bint has_sparse
 
@@ -64,10 +64,12 @@ cdef class _PandasAPIShim(object):
             self._array_like_types = (
                 self._series, self._index, self._categorical_type,
                 self._extension_array)
+            self._extension_dtype = pd.api.extensions.ExtensionDtype
         else:
             self._extension_array = None
             self._array_like_types = (
                 self._series, self._index, self._categorical_type)
+            self._extension_dtype = None
 
         if self._loose_version >= LooseVersion('0.20.0'):
             from pandas.api.types import DatetimeTZDtype
@@ -130,6 +132,13 @@ cdef class _PandasAPIShim(object):
         except AttributeError:
             return self._pd.lib.infer_dtype(obj)
 
+    cpdef pandas_dtype(self, dtype):
+        self._check_import()
+        try:
+            return self._types_api.pandas_dtype(dtype)
+        except AttributeError:
+            return None
+
     @property
     def loose_version(self):
         self._check_import()
@@ -148,6 +157,11 @@ cdef class _PandasAPIShim(object):
     @property
     def datetimetz_type(self):
         return self._datetimetz_type
+
+    @property
+    def extension_dtype(self):
+        self._check_import()
+        return self._extension_dtype
 
     cpdef is_array_like(self, obj):
         self._check_import()

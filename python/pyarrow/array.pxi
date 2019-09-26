@@ -421,7 +421,8 @@ cdef class _PandasConvertible:
             bint date_as_object=True,
             bint use_threads=True,
             bint deduplicate_objects=True,
-            bint ignore_metadata=False
+            bint ignore_metadata=False,
+            extension_columns=None,
     ):
         """
         Convert to a pandas-compatible NumPy array or DataFrame, as appropriate
@@ -466,6 +467,7 @@ cdef class _PandasConvertible:
             deduplicate_objects=deduplicate_objects
         )
         return self._to_pandas(options, categories=categories,
+                               extension_columns=extension_columns,
                                ignore_metadata=ignore_metadata)
 
 

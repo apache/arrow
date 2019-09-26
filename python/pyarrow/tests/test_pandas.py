@@ -3226,45 +3226,73 @@ def test_array_protocol():
 # Pandas ExtensionArray support
 
 
-def _to_pandas(table, extension_columns=None):
-    # temporary test function as long as we have no public API to do this
-    from pyarrow.pandas_compat import table_to_blockmanager
-
-    options = dict(
-        pool=None,
-        strings_to_categorical=False,
-        zero_copy_only=False,
-        integer_object_nulls=False,
-        date_as_object=True,
-        use_threads=True,
-        deduplicate_objects=True)
-
-    mgr = table_to_blockmanager(
-        options, table, extension_columns=extension_columns)
-    return pd.DataFrame(mgr)
+def _Int64Dtype__from_arrow__(self, array):
+    # for test only deal with single chunk for now
+    # TODO: do we require handling of chunked arrays in the protocol?
+    arr = array.chunk(0)
+    buflist = arr.buffers()
+    data = np.frombuffer(buflist[-1], dtype=arr.type.to_pandas_dtype())[
+        arr.offset:arr.offset + len(arr)]
+    bitmask = buflist[0]
+    if bitmask is not None:
+        mask = pa.BooleanArray.from_buffers(
+            pa.bool_(), len(arr), [None, bitmask])
+        mask = np.asarray(mask)
+    else:
+        mask = np.ones(len(arr), dtype=bool)
+    int_arr = pd.arrays.IntegerArray(data.copy(), ~mask, copy=False)
+    return int_arr
 
 
 def test_convert_to_extension_array():
-    if LooseVersion(pd.__version__) < '0.24.0':
-        pytest.skip(reason='IntegerArray only introduced in 0.24')
+    if LooseVersion(pd.__version__) < "0.26.0.dev":
+        pytest.skip("Conversion from IntegerArray to arrow not yet supported")
 
     import pandas.core.internals as _int
 
-    table = pa.table({'a': [1, 2, 3], 'b': [2, 3, 4]})
+    # table converted from dataframe with extension types (so pandas_metadata
+    # has this information)
+    df = pd.DataFrame(
+        {'a': [1, 2, 3], 'b': pd.array([2, 3, 4], dtype='Int64'),
+         'c': [4, 5, 6]})
+    table = pa.table(df)
 
-    df = _to_pandas(table)
-    assert len(df._data.blocks) == 1
-    assert isinstance(df._data.blocks[0], _int.IntBlock)
+    # Int64Dtype has no __arrow_array__ -> use normal conversion
+    result = table.to_pandas()
+    assert len(result._data.blocks) == 1
+    assert isinstance(result._data.blocks[0], _int.IntBlock)
 
-    df = _to_pandas(table, extension_columns=['b'])
-    assert isinstance(df._data.blocks[0], _int.IntBlock)
-    assert isinstance(df._data.blocks[1], _int.ExtensionBlock)
+    # raise error is explicitly asking for unsupported conversion
+    with pytest.raises(ValueError):
+        table.to_pandas(extension_columns=['b'])
 
-    table = pa.table({'a': [1, 2, None]})
-    df = _to_pandas(table, extension_columns=['a'])
-    assert isinstance(df._data.blocks[0], _int.ExtensionBlock)
-    expected = pd.DataFrame({'a': pd.Series([1, 2, None], dtype='Int64')})
-    tm.assert_frame_equal(df, expected)
+    try:
+        # patch pandas Int64Dtype to have the protocol method
+        pd.Int64Dtype.__from_arrow__ = _Int64Dtype__from_arrow__
+
+        # Int64Dtype is recognized -> convert to extension block by default
+        # for a proper roundtrip
+        result = table.to_pandas()
+        assert isinstance(result._data.blocks[0], _int.IntBlock)
+        assert isinstance(result._data.blocks[1], _int.ExtensionBlock)
+        tm.assert_frame_equal(result, df)
+
+        # explicitly specifying the column works as well
+        # TODO is this useful?
+        result = table.to_pandas(extension_columns=['b'])
+        assert isinstance(result._data.blocks[0], _int.IntBlock)
+        assert isinstance(result._data.blocks[1], _int.ExtensionBlock)
+        tm.assert_frame_equal(result, df)
+
+        # test with missing values
+        df2 = pd.DataFrame({'a': pd.array([1, 2, None], dtype='Int64')})
+        table2 = pa.table(df2)
+        result = table2.to_pandas(extension_columns=['a'])
+        assert isinstance(result._data.blocks[0], _int.ExtensionBlock)
+        tm.assert_frame_equal(result, df2)
+
+    finally:
+        del pd.Int64Dtype.__from_arrow__
 
 
 # ----------------------------------------------------------------------
