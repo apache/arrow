@@ -58,12 +58,11 @@ RecordBatchWriter <- R6Class("RecordBatchWriter", inherit = Object,
     write_table = function(table) ipc___RecordBatchWriter__WriteTable(self, table),
 
     write = function(x) {
+      x <- to_arrow(x)
       if (inherits(x, "RecordBatch")) {
         self$write_batch(x)
       } else if (inherits(x, "Table")) {
         self$write_table(x)
-      } else if (inherits(x, "data.frame")) {
-        self$write_table(table(x))
       } else {
         abort("unexpected type for RecordBatchWriter$write(), must be an arrow::RecordBatch or an arrow::Table")
       }
