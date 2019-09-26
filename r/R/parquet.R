@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ParquetArrowWriterProperties_Builder <- R6Class("ParquetArrowWriterProperties_Builder", inherit = Object,
+ParquetArrowWriterPropertiesBuilder <- R6Class("ParquetArrowWriterPropertiesBuilder", inherit = Object,
   public = list(
     store_schema = function() {
       parquet___ArrowWriterProperties___Builder__store_schema(self)
@@ -56,7 +56,7 @@ ParquetArrowWriterProperties$create <- function(use_deprecated_int96_timestamps 
   if (!use_deprecated_int96_timestamps && is.null(coerce_timestamps) && !allow_truncated_timestamps) {
     shared_ptr(ParquetArrowWriterProperties, parquet___default_arrow_writer_properties())
   } else {
-    builder <- shared_ptr(ParquetArrowWriterProperties_Builder, parquet___ArrowWriterProperties___Builder__create())
+    builder <- shared_ptr(ParquetArrowWriterPropertiesBuilder, parquet___ArrowWriterProperties___Builder__create())
     builder$store_schema()
     builder$set_int96_support(use_deprecated_int96_timestamps)
     builder$set_coerce_timestamps(coerce_timestamps)
@@ -66,7 +66,7 @@ ParquetArrowWriterProperties$create <- function(use_deprecated_int96_timestamps 
 }
 
 ParquetWriterProperties <- R6Class("ParquetWriterProperties", inherit = Object)
-ParquetWriterProperties_Builder <- R6Class("ParquetWriterProperties_Builder", inherit = Object,
+ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder", inherit = Object,
   public = list(
     set_version = function(version = NULL) {
       if (!is.null(version)) {
@@ -156,7 +156,7 @@ ParquetWriterProperties$create <- function(table, version = NULL, compression = 
   if (is.null(version) && is.null(compression) && is.null(compression_level) && is.null(use_dictionary) && is.null(write_statistics) && is.null(data_page_size)) {
     shared_ptr(ParquetWriterProperties, parquet___default_writer_properties())
   } else {
-    builder <- shared_ptr(ParquetWriterProperties_Builder, parquet___WriterProperties___Builder__create())
+    builder <- shared_ptr(ParquetWriterPropertiesBuilder, parquet___WriterProperties___Builder__create())
     builder$set_version(version)
     if (!is.null(compression)) {
       builder$set_compression(table, compression = compression)
