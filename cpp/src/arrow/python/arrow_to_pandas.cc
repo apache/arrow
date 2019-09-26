@@ -83,7 +83,21 @@ struct WrapBytes<StringType> {
 };
 
 template <>
+struct WrapBytes<LargeStringType> {
+  static inline PyObject* Wrap(const char* data, int64_t length) {
+    return PyUnicode_FromStringAndSize(data, length);
+  }
+};
+
+template <>
 struct WrapBytes<BinaryType> {
+  static inline PyObject* Wrap(const char* data, int64_t length) {
+    return PyBytes_FromStringAndSize(data, length);
+  }
+};
+
+template <>
+struct WrapBytes<LargeBinaryType> {
   static inline PyObject* Wrap(const char* data, int64_t length) {
     return PyBytes_FromStringAndSize(data, length);
   }
@@ -795,8 +809,12 @@ class ObjectBlock : public PandasBlock {
       RETURN_NOT_OK(ConvertIntegerObjects<Int64Type>(options_, *data, out_buffer));
     } else if (type == Type::BINARY) {
       RETURN_NOT_OK(ConvertBinaryLike<BinaryType>(options_, *data, out_buffer));
+    } else if (type == Type::LARGE_BINARY) {
+      RETURN_NOT_OK(ConvertBinaryLike<LargeBinaryType>(options_, *data, out_buffer));
     } else if (type == Type::STRING) {
       RETURN_NOT_OK(ConvertBinaryLike<StringType>(options_, *data, out_buffer));
+    } else if (type == Type::LARGE_STRING) {
+      RETURN_NOT_OK(ConvertBinaryLike<LargeStringType>(options_, *data, out_buffer));
     } else if (type == Type::FIXED_SIZE_BINARY) {
       RETURN_NOT_OK(ConvertBinaryLike<FixedSizeBinaryType>(options_, *data, out_buffer));
     } else if (type == Type::DATE32) {
@@ -1442,8 +1460,10 @@ static Status GetPandasBlockType(const ChunkedArray& data, const PandasOptions& 
     case Type::DOUBLE:
       *output_type = PandasBlock::DOUBLE;
       break;
-    case Type::STRING:  // fall through
-    case Type::BINARY:
+    case Type::STRING:        // fall through
+    case Type::LARGE_STRING:  // fall through
+    case Type::BINARY:        // fall through
+    case Type::LARGE_BINARY:
       if (options.strings_to_categorical) {
         *output_type = PandasBlock::CATEGORICAL;
         break;
@@ -1888,8 +1908,8 @@ class ArrowDeserializer {
 
   // Strings and binary
   template <typename Type>
-  typename std::enable_if<std::is_base_of<BinaryType, Type>::value, Status>::type Visit(
-      const Type& type) {
+  typename std::enable_if<std::is_base_of<BaseBinaryType, Type>::value, Status>::type
+  Visit(const Type& type) {
     return VisitObjects(ConvertBinaryLike<Type>);
   }
 
