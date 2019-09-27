@@ -133,5 +133,78 @@ TEST_F(TestPartitionScheme, EtlThenHive) {
   AssertParseError("/20X6/03/21/alpha=0/beta=3.25");
 }
 
+TEST_F(TestPartitionScheme, Set) {
+  // create an adhoc partition scheme which parses segments like "/x in [1 4 5]"
+  // into ("x"_ == 1 or "x"_ == 4 or "x"_ == 5)
+  scheme_ = std::make_shared<FunctionPartitionScheme>(
+      [](const std::string& path, std::string* unconsumed,
+         std::shared_ptr<Expression>* out) {
+        std::smatch matches;
+        std::regex re("^/x in \\[(.+)\\](.*)$");
+        if (!std::regex_match(path, matches, re) || matches.size() != 3) {
+          return Status::Invalid("regex failed to parse");
+        }
+
+        std::vector<std::shared_ptr<Expression>> element_equality;
+        std::string element;
+        std::istringstream elements(matches[1]);
+        while (elements >> element) {
+          std::shared_ptr<Scalar> s;
+          RETURN_NOT_OK(Scalar::Parse(int32(), element, &s));
+          element_equality.push_back(equal(field_ref("x"), scalar(s)));
+        }
+
+        *unconsumed = matches[2].str();
+        *out = or_(std::move(element_equality));
+        return Status::OK();
+      });
+
+  AssertParse("/x in [1 4 5]", "", "x"_ == 1 or "x"_ == 4 or "x"_ == 5);
+}
+
+TEST_F(TestPartitionScheme, Range) {
+  std::vector<std::unique_ptr<PartitionScheme>> schemes;
+  for (std::string x : {"x", "y", "z"}) {
+    schemes.emplace_back(
+        // create an adhoc partition scheme which parses segments like "/x=[-3.25, 0.0)"
+        // into ("x"_ >= -3.25 and "x" < 0.0)
+        new FunctionPartitionScheme([x](const std::string& path, std::string* unconsumed,
+                                        std::shared_ptr<Expression>* out) {
+          std::smatch matches;
+          std::regex re("^/" + x +
+                        "="
+                        R"((\[|\())"  // open bracket or paren
+                        "([^,/]+)"    // representation of range minimum
+                        ", "
+                        R"(([^,/\]\)]+))"  // representation of range maximum
+                        R"((\]|\)))"       // close bracket or paren
+                        "(.*)$");          // unconsumed
+          if (!std::regex_match(path, matches, re) || matches.size() != 6) {
+            return Status::Invalid("regex failed to parse");
+          }
+
+          auto& min_cmp = matches[1] == "[" ? greater_equal : greater;
+          std::string min_repr = matches[2];
+          std::string max_repr = matches[3];
+          auto& max_cmp = matches[4] == "]" ? less_equal : less;
+          *unconsumed = matches[5].str();
+
+          std::shared_ptr<Scalar> min, max;
+          RETURN_NOT_OK(Scalar::Parse(float64(), min_repr, &min));
+          RETURN_NOT_OK(Scalar::Parse(float64(), max_repr, &max));
+
+          auto field_x = field_ref(x);
+          *out = and_(min_cmp(field_ref(x), scalar(min)),
+                      max_cmp(field_ref(x), scalar(max)));
+          return Status::OK();
+        }));
+  }
+  scheme_ = std::make_shared<ChainPartitionScheme>(std::move(schemes));
+
+  AssertParse("/x=[-1.5, 0.0)/y=[0.0, 1.5)/z=(1.5, 3.0]", "",
+              ("x"_ >= -1.5 and "x"_ < 0.0) and ("y"_ >= 0.0 and "y"_ < 1.5) and
+                  ("z"_ > 1.5 and "z"_ <= 3.0));
+}
+
 }  // namespace dataset
 }  // namespace arrow

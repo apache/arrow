@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <regex>
 #include <string>
@@ -184,6 +185,28 @@ class ARROW_DS_EXPORT HivePartitionScheme : public PartitionScheme {
 // In this case, the dataset has 11 fragments (11 files) to be
 // scanned, or potentially more if it is configured to split Parquet
 // files at the row group level
+
+/// \brief Implementation provided by lambda or other callable
+class ARROW_DS_EXPORT FunctionPartitionScheme : public PartitionScheme {
+ public:
+  explicit FunctionPartitionScheme(std::function<Status(const std::string&, std::string*,
+                                                        std::shared_ptr<Expression>*)>
+                                       impl,
+                                   std::string name = "function_partition_scheme")
+      : impl_(std::move(impl)), name_(std::move(name)) {}
+
+  std::string name() const override { return name_; }
+
+  Status Parse(const std::string& path, std::string* unconsumed,
+               std::shared_ptr<Expression>* out) const override {
+    return impl_(path, unconsumed, out);
+  }
+
+ private:
+  std::function<Status(const std::string&, std::string*, std::shared_ptr<Expression>*)>
+      impl_;
+  std::string name_;
+};
 
 }  // namespace dataset
 }  // namespace arrow

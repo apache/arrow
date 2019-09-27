@@ -107,7 +107,7 @@ std::vector<UnconvertedKey> HivePartitionScheme::GetUnconvertedKeys(
   std::smatch matches;
   // TODO(bkietz) use RE2 and named groups
   static std::regex hive_style("^/([^=/]+)=([^/]*)(.*)$");
-  while (std::regex_match(*unconsumed, matches, hive_style) && matches.size() != 3) {
+  while (std::regex_match(*unconsumed, matches, hive_style) && matches.size() == 4) {
     if (schema_->GetFieldByName(matches[1]) == nullptr) {
       break;
     }
