@@ -18,7 +18,9 @@
 #pragma once
 
 #include <memory>
+#include <regex>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -26,35 +28,22 @@
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace dataset {
 
 // ----------------------------------------------------------------------
-// Computing partition values
-
-// TODO(wesm): API for computing partition keys derived from raw
-// values. For example, year(value) or hash_function(value) instead of
-// simply value, so a dataset with a timestamp column might group all
-// data with year 2009 in the same partition
-
-// /// \brief
-// class ScalarTransform {
-//  public:
-//   virtual Status Transform(const std::shared_ptr<Scalar>& input,
-//                            std::shared_ptr<Scalar>* output) const = 0;
-// };
-
-// class PartitionField {
-//  public:
-
-//  private:
-//   std::string field_name_;
-// };
-
-// ----------------------------------------------------------------------
 // Partition schemes
+
+struct ARROW_DS_EXPORT UnconvertedKey {
+  std::string name, value;
+};
+
+/// \brief Helper function for the common case of combining partition information
+/// consisting of equality expressions into a single conjunction expression
+ARROW_DS_EXPORT
+Status ConvertPartitionKeys(const std::vector<UnconvertedKey>& keys, const Schema& schema,
+                            std::shared_ptr<Expression>* out);
 
 /// \brief Interface for parsing partition expressions from string partition
 /// identifiers.
@@ -66,6 +55,10 @@ namespace dataset {
 /// store instead of in file paths, for example
 /// dataset_root/2009/11/... could be used when the partition fields
 /// are "year" and "month"
+///
+/// Paths are consumed from left to right. Paths must be relative to
+/// the root of a partition; path prefixes must be removed before passing
+/// the path to a scheme for parsing.
 class ARROW_DS_EXPORT PartitionScheme {
  public:
   virtual ~PartitionScheme() = default;
@@ -73,32 +66,60 @@ class ARROW_DS_EXPORT PartitionScheme {
   /// \brief The name identifying the kind of partition scheme
   virtual std::string name() const = 0;
 
-  /// \brief Return true if path can be parsed
-  virtual bool CanParse(util::string_view path) const = 0;
-
   /// \brief Parse a path into a partition expression
-  virtual Status Parse(util::string_view path,
+  ///
+  /// \param[in] path the partition identifier to parse
+  /// \param[out] unconsumed a suffix of path which was not consumed
+  /// \param[out] out the parsed expression
+  virtual Status Parse(const std::string& path, std::string* unconsumed,
                        std::shared_ptr<Expression>* out) const = 0;
 };
 
-/// \brief Trivial partition scheme which does not actually parse paths.
-/// Instead it returns an expression provided on construction whatever the path.
+/// \brief Trivial partition scheme which only consumes a specified prefix (empty by
+/// default) from a path, yielding an expression provided on construction.
 class ARROW_DS_EXPORT SimplePartitionScheme : public PartitionScheme {
  public:
-  explicit SimplePartitionScheme(std::shared_ptr<Expression> expr)
-      : partition_expression_(std::move(expr)) {}
+  explicit SimplePartitionScheme(std::shared_ptr<Expression> expr,
+                                 std::string ignored = "")
+      : partition_expression_(std::move(expr)), ignored_(std::move(ignored)) {}
 
   std::string name() const override { return "simple_partition_scheme"; }
 
-  bool CanParse(util::string_view path) const override { return true; }
-
-  Status Parse(util::string_view path, std::shared_ptr<Expression>* out) const override {
-    *out = partition_expression_;
-    return Status::OK();
-  }
+  Status Parse(const std::string& path, std::string* unconsumed,
+               std::shared_ptr<Expression>* out) const override;
 
  private:
   std::shared_ptr<Expression> partition_expression_;
+  std::string ignored_;
+};
+
+/// \brief Combine partition schemes
+class ARROW_DS_EXPORT ChainPartitionScheme : public PartitionScheme {
+ public:
+  explicit ChainPartitionScheme(std::vector<std::unique_ptr<PartitionScheme>> schemes)
+      : schemes_(std::move(schemes)) {}
+
+  std::string name() const override { return "chain_partition_scheme"; }
+
+  Status Parse(const std::string& path, std::string* unconsumed,
+               std::shared_ptr<Expression>* out) const override;
+
+ protected:
+  std::vector<std::unique_ptr<PartitionScheme>> schemes_;
+};
+
+/// \brief Parse a single field from a single path segment
+class ARROW_DS_EXPORT FieldPartitionScheme : public PartitionScheme {
+ public:
+  FieldPartitionScheme(std::shared_ptr<Field> field) : field_(std::move(field)) {}
+
+  std::string name() const override { return "field_partition_scheme"; }
+
+  Status Parse(const std::string& path, std::string* unconsumed,
+               std::shared_ptr<Expression>* out) const override;
+
+ protected:
+  std::shared_ptr<Field> field_;
 };
 
 /// \brief Multi-level, directory based partitioning scheme
@@ -113,9 +134,11 @@ class ARROW_DS_EXPORT HivePartitionScheme : public PartitionScheme {
 
   std::string name() const override { return "hive_partition_scheme"; }
 
-  bool CanParse(util::string_view path) const override;
+  Status Parse(const std::string& path, std::string* unconsumed,
+               std::shared_ptr<Expression>* out) const override;
 
-  Status Parse(util::string_view path, std::shared_ptr<Expression>* out) const override;
+  std::vector<UnconvertedKey> GetUnconvertedKeys(const std::string& path,
+                                                 std::string* unconsumed) const;
 
  protected:
   /// XXX do we have a schema when constructing partition schemes?
@@ -123,6 +146,7 @@ class ARROW_DS_EXPORT HivePartitionScheme : public PartitionScheme {
   /// If not: we don't know what the types of RHSs are; they must stay strings
   /// for later conversion. This means among other things that some errors are
   /// deferred until the schema is given, including some parse errors.
+  /// Also: how do we know what fields belong to this partition scheme?
   std::shared_ptr<Schema> schema_;
 };
 

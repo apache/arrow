@@ -154,12 +154,19 @@ struct ScalarParseImpl {
     if (!Converter{type_}(s_.data(), s_.size(), &value)) {
       return Status::Invalid("error parsing \"", s_, "\" as scalar of type ", t);
     }
-    *out_ = MakeScalar<T>(type_, std::move(value));
-    return Status::OK();
+    return Finish<T>(std::move(value));
   }
+
+  Status Visit(const StringType&) { return Finish<StringType>(std::string(s_)); }
 
   Status Visit(const DataType& t) {
     return Status::NotImplemented("parsing scalars of type ", t);
+  }
+
+  template <typename T, typename... Args>
+  Status Finish(Args&&... args) {
+    *out_ = MakeScalar<T>(type_, std::forward<Args>(args)...);
+    return Status::OK();
   }
 
   ScalarParseImpl(const std::shared_ptr<DataType>& type, util::string_view s,

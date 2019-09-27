@@ -706,37 +706,46 @@ std::string OperatorName(compute::CompareOperator op) {
   return "";
 }
 
+// TODO(bkietz) extract this to Scalar::ToString()
+struct ScalarExpressionToString {
+  Status Visit(const BooleanType&) {
+    return Finish(CastValue<BooleanType>().value ? "true" : "false");
+  }
+
+  template <typename T>
+  enable_if_number<T, Status> Visit(const T&) {
+    return Finish(std::to_string(CastValue<T>().value));
+  }
+
+  Status Visit(const StringType&) {
+    return Finish(CastValue<StringType>().value->ToString());
+  }
+
+  Status Visit(const DataType&) { return Finish("TODO(bkietz)"); }
+
+  Status Finish(std::string repr) {
+    *repr_ = std::move(repr);
+    return Status::OK();
+  }
+
+  template <typename T>
+  const typename TypeTraits<T>::ScalarType& CastValue() {
+    return checked_cast<const typename TypeTraits<T>::ScalarType&>(value_);
+  }
+
+  const Scalar& value_;
+  std::string* repr_;
+};
+
 std::string ScalarExpression::ToString() const {
   if (!value_->is_valid) {
     return "scalar<" + value_->type->ToString() + ", null>()";
   }
 
-  std::string value;
-  switch (value_->type->id()) {
-    case Type::BOOL:
-      value = checked_cast<const BooleanScalar&>(*value_).value ? "true" : "false";
-      break;
-    case Type::INT32:
-      value = std::to_string(checked_cast<const Int32Scalar&>(*value_).value);
-      break;
-    case Type::INT64:
-      value = std::to_string(checked_cast<const Int64Scalar&>(*value_).value);
-      break;
-    case Type::FLOAT:
-      value = std::to_string(checked_cast<const FloatScalar&>(*value_).value);
-      break;
-    case Type::DOUBLE:
-      value = std::to_string(checked_cast<const DoubleScalar&>(*value_).value);
-      break;
-    case Type::STRING:
-      value = checked_cast<const StringScalar&>(*value_).value->ToString();
-      break;
-    default:
-      value = "TODO(bkietz)";
-      break;
-  }
-
-  return "scalar<" + value_->type->ToString() + ">(" + value + ")";
+  std::string repr;
+  ScalarExpressionToString impl{*value_, &repr};
+  DCHECK_OK(VisitTypeInline(*value_->type, &impl));
+  return "scalar<" + value_->type->ToString() + ">(" + repr + ")";
 }
 
 static std::string EulerNotation(std::string fn, const ExpressionVector& operands) {
@@ -859,9 +868,34 @@ std::shared_ptr<AndExpression> and_(std::shared_ptr<Expression> lhs,
   return std::make_shared<AndExpression>(std::move(lhs), std::move(rhs));
 }
 
+std::shared_ptr<Expression> and_(
+    std::vector<std::shared_ptr<Expression>> subexpressions) {
+  if (subexpressions.size() == 0) {
+    return scalar(true);
+  }
+  if (subexpressions.size() == 1) {
+    return std::move(subexpressions[0]);
+  }
+  auto back = std::move(subexpressions.back());
+  subexpressions.pop_back();
+  return and_(and_(std::move(subexpressions)), std::move(back));
+}
+
 std::shared_ptr<OrExpression> or_(std::shared_ptr<Expression> lhs,
                                   std::shared_ptr<Expression> rhs) {
   return std::make_shared<OrExpression>(std::move(lhs), std::move(rhs));
+}
+
+std::shared_ptr<Expression> or_(std::vector<std::shared_ptr<Expression>> subexpressions) {
+  if (subexpressions.size() == 0) {
+    return scalar(false);
+  }
+  if (subexpressions.size() == 1) {
+    return std::move(subexpressions[0]);
+  }
+  auto back = std::move(subexpressions.back());
+  subexpressions.pop_back();
+  return or_(or_(std::move(subexpressions)), std::move(back));
 }
 
 std::shared_ptr<NotExpression> not_(std::shared_ptr<Expression> operand) {

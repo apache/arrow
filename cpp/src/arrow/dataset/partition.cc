@@ -26,58 +26,95 @@
 #include "arrow/scalar.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/stl.h"
+#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace dataset {
 
 using util::string_view;
 
-bool ParseOneKey(string_view path, string_view* key, string_view* value,
-                 string_view* parent) {
-  auto parent_end = path.find_last_of(fs::internal::kSep);
-  if (parent_end == string_view::npos) {
-    return false;
-  }
+Status ConvertPartitionKeys(const std::vector<UnconvertedKey>& keys, const Schema& schema,
+                            std::shared_ptr<Expression>* out) {
+  std::vector<std::shared_ptr<Expression>> subexpressions;
 
-  auto key_length = path.substr(parent_end + 1).find_first_of('=');
-  if (key_length == string_view::npos) {
-    return false;
-  }
-
-  *key = path.substr(parent_end + 1, key_length);
-  *value = path.substr(parent_end + 1 + key_length + 1);
-  *parent = path.substr(0, parent_end);
-  return true;
-}
-
-bool HivePartitionScheme::CanParse(string_view path) const {
-  // at worst we return an empty expression
-  return true;
-}
-
-Status HivePartitionScheme::Parse(string_view path,
-                                  std::shared_ptr<Expression>* out) const {
-  *out = nullptr;
-  string_view key, value;
-  while (ParseOneKey(path, &key, &value, &path)) {
-    auto name = key.to_string();
-    auto field = schema_->GetFieldByName(name);
+  for (const auto& key : keys) {
+    auto field = schema.GetFieldByName(key.name);
     if (field == nullptr) {
       continue;
     }
 
-    std::shared_ptr<Scalar> scalar;
-    RETURN_NOT_OK(Scalar::Parse(field->type(), value, &scalar));
-    auto expr = equal(field_ref(name), ScalarExpression::Make(scalar));
-
-    if (*out == nullptr) {
-      *out = std::move(expr);
-    } else {
-      *out = and_(std::move(expr), std::move(*out));
-    }
+    std::shared_ptr<Scalar> converted;
+    RETURN_NOT_OK(Scalar::Parse(field->type(), key.value, &converted));
+    subexpressions.push_back(equal(field_ref(field->name()), scalar(converted)));
   }
 
+  *out = and_(std::move(subexpressions));
   return Status::OK();
+}
+
+Status SimplePartitionScheme::Parse(const std::string& path, std::string* unconsumed,
+                                    std::shared_ptr<Expression>* out) const {
+  if (!string_view(path).starts_with(ignored_)) {
+    return Status::Invalid("path \"", path, "\" did not contain required prefix \"",
+                           ignored_, "\"");
+  }
+
+  *unconsumed = path.substr(ignored_.size());
+  *out = partition_expression_;
+  return Status::OK();
+}
+
+Status ChainPartitionScheme::Parse(const std::string& path, std::string* unconsumed,
+                                   std::shared_ptr<Expression>* out) const {
+  *unconsumed = path;
+  std::vector<std::shared_ptr<Expression>> subexpressions;
+
+  for (const auto& scheme : schemes_) {
+    std::shared_ptr<Expression> expr;
+    RETURN_NOT_OK(scheme->Parse(*unconsumed, unconsumed, &expr));
+    subexpressions.push_back(std::move(expr));
+  }
+
+  *out = and_(std::move(subexpressions));
+  return Status::OK();
+}
+
+Status FieldPartitionScheme::Parse(const std::string& path, std::string* unconsumed,
+                                   std::shared_ptr<Expression>* out) const {
+  auto segments = fs::internal::SplitAbstractPath(path);
+  if (segments.size() == 0) {
+    return Status::Invalid("cannot parse a path with no segments");
+  }
+
+  *unconsumed =
+      "/" + fs::internal::JoinAbstractPath(segments.begin() + 1, segments.end());
+  std::vector<UnconvertedKey> keys = {{field_->name(), segments[0]}};
+  auto schm = schema({field_});
+  return ConvertPartitionKeys(keys, *schm, out);
+}
+
+std::vector<UnconvertedKey> HivePartitionScheme::GetUnconvertedKeys(
+    const std::string& path, std::string* unconsumed) const {
+  *unconsumed = path;
+
+  std::vector<UnconvertedKey> keys;
+  std::smatch matches;
+  // TODO(bkietz) use RE2 and named groups
+  static std::regex hive_style("^/([^=/]+)=([^/]*)(.*)$");
+  while (std::regex_match(*unconsumed, matches, hive_style) && matches.size() != 3) {
+    if (schema_->GetFieldByName(matches[1]) == nullptr) {
+      break;
+    }
+    keys.push_back({matches[1], matches[2]});
+    *unconsumed = matches[3];
+  }
+
+  return keys;
+}
+
+Status HivePartitionScheme::Parse(const std::string& path, std::string* unconsumed,
+                                  std::shared_ptr<Expression>* out) const {
+  return ConvertPartitionKeys(GetUnconvertedKeys(path, unconsumed), *schema_, out);
 }
 
 }  // namespace dataset
