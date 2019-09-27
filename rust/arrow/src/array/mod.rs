@@ -150,8 +150,8 @@ pub type Float32Builder = PrimitiveBuilder<Float32Type>;
 pub type Float64Builder = PrimitiveBuilder<Float64Type>;
 
 pub type TimestampSecondBuilder = PrimitiveBuilder<TimestampSecondType>;
-
 pub type TimestampMillisecondBuilder = PrimitiveBuilder<TimestampMillisecondType>;
+
 pub type TimestampMicrosecondBuilder = PrimitiveBuilder<TimestampMicrosecondType>;
 pub type TimestampNanosecondBuilder = PrimitiveBuilder<TimestampNanosecondType>;
 pub type Date32Builder = PrimitiveBuilder<Date32Type>;
