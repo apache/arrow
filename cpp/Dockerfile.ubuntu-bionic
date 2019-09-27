@@ -71,12 +71,15 @@ RUN apt-get update -y -q && \
       libgoogle-glog-dev \
       liblz4-dev \
       liblzma-dev \
+      libprotobuf-dev \
+      libprotoc-dev \
       libre2-dev \
       libsnappy-dev \
       libssl-dev \
       libzstd-dev \
       ninja-build \
       pkg-config \
+      protobuf-compiler \
       rapidjson-dev \
       thrift-compiler \
       tzdata && \
@@ -92,14 +95,11 @@ RUN apt-get update -y -q && \
 ENV CMAKE_ARGS="-DThrift_SOURCE=BUNDLED \
 -DFlatbuffers_SOURCE=BUNDLED \
 -DGTest_SOURCE=BUNDLED \
--DORC_SOURCE=BUNDLED \
--Dc-ares_SOURCE=BUNDLED \
--DgRPC_SOURCE=BUNDLED \
--DProtobuf_SOURCE=BUNDLED ${CMAKE_ARGS}"
+-DORC_SOURCE=BUNDLED"
 
 # Prioritize system packages and local installation
 ENV ARROW_DEPENDENCY_SOURCE=SYSTEM \
-    ARROW_FLIGHT=ON \
+    ARROW_FLIGHT=OFF \
     ARROW_GANDIVA=ON \
     ARROW_HDFS=ON \
     ARROW_ORC=ON \
