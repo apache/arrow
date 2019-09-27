@@ -53,20 +53,17 @@ read_parquet <- function(file,
 #'
 #' @param table An [arrow::Table][Table], or an object convertible to it.
 #' @param sink an [arrow::io::OutputStream][OutputStream] or a string which is interpreted as a file path
-#' @param chunk_size chunk size. If NULL, the number of rows of the table is used
+#' @param chunk_size chunk size in number of rows. If NULL, the total number of rows is used.
 #'
-#' @param version parquet version
-#' @param compression compression specification. Possible values:
-#'  - a single string: uses that compression algorithm for all columns
-#'  - an unnamed string vector: specify a compression algorithm for each, same order as the columns
-#'  - a named string vector: specify compression algorithm individually
-#' @param compression_level compression level. A single integer, a named integer vector
-#'   or an unnamed integer vector of the same size as the number of columns of `table`
+#' @param version parquet version, "1.0" or "2.0".
+#' @param compression compression algorithm. No compression by default.
+#' @param compression_level compression level.
 #' @param use_dictionary Specify if we should use dictionary encoding.
 #' @param write_statistics Specify if we should write statistics
 #' @param data_page_size Set a target threshhold for the approximate encoded size of data
 #'        pages within a column chunk. If omitted, the default data page size (1Mb) is used.
-#' @param properties properties for parquet writer, derived from arguments `version`, `compression`, `compression_level`, `use_dictionary`, `write_statistics` and `data_page_size`
+#' @param properties properties for parquet writer, derived from arguments
+#'       `version`, `compression`, `compression_level`, `use_dictionary`, `write_statistics` and `data_page_size`
 #'
 #' @param use_deprecated_int96_timestamps Write timestamps to INT96 Parquet format
 #' @param coerce_timestamps Cast timestamps a particular resolution. can be NULL, "ms" or "us"
@@ -74,7 +71,20 @@ read_parquet <- function(file,
 #'    resolution. E.g. if microsecond or nanosecond data is lost when coercing to
 #'    ms', do not raise an exception
 #'
-#' @param arrow_properties arrow specific writer properties, derived from arguments `use_deprecated_int96_timestamps`, `coerce_timestamps` and `allow_truncated_timestamps`
+#' @param arrow_properties arrow specific writer properties, derived from
+#'    arguments `use_deprecated_int96_timestamps`, `coerce_timestamps` and `allow_truncated_timestamps`
+#'
+#' @details The parameters `compression`, `compression_level`, `use_dictionary` and `write_statistics` support
+#'          various patterns:
+#'          - The default `NULL` leaves the parameter unspecified, and the C++ library uses an appropriate default for
+#'            each column
+#'          - A single, unnamed, value (e.g. a single string for `compression`) applies to all columns
+#'          - An unnamed vector, of the same size as the number of columns, to specify a value for each column, in
+#'            positional order
+#'          - A named vector, to specify the value for the named columns, the default value for the setting is used
+#'            when not supplied.
+#'
+#' @return NULL, invisibly
 #'
 #' @examples
 #' \donttest{

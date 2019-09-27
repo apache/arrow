@@ -23,28 +23,23 @@ write_parquet(table, sink, chunk_size = NULL, version = NULL,
 
 \item{sink}{an \link[=OutputStream]{arrow::io::OutputStream} or a string which is interpreted as a file path}
 
-\item{chunk_size}{chunk size. If NULL, the number of rows of the table is used}
+\item{chunk_size}{chunk size in number of rows. If NULL, the total number of rows is used.}
 
-\item{version}{parquet version}
+\item{version}{parquet version, "1.0" or "2.0".}
 
-\item{compression}{compression specification. Possible values:
-\itemize{
-\item a single string: uses that compression algorithm for all columns
-\item an unnamed string vector: specify a compression algorithm for each, same order as the columns
-\item a named string vector: specify compression algorithm individually
-}}
+\item{compression}{compression algorithm. No compression by default.}
 
-\item{compression_level}{compression level. A single integer, a named integer vector
-or an unnamed integer vector of the same size as the number of columns of \code{table}}
+\item{compression_level}{compression level.}
 
 \item{use_dictionary}{Specify if we should use dictionary encoding.}
 
 \item{write_statistics}{Specify if we should write statistics}
 
 \item{data_page_size}{Set a target threshhold for the approximate encoded size of data
-pages within a column chunk. If None, use the default data page size (1Mb) is used.}
+pages within a column chunk. If omitted, the default data page size (1Mb) is used.}
 
-\item{properties}{properties for parquet writer, derived from arguments \code{version}, \code{compression}, \code{compression_level}, \code{use_dictionary}, \code{write_statistics} and \code{data_page_size}}
+\item{properties}{properties for parquet writer, derived from arguments
+\code{version}, \code{compression}, \code{compression_level}, \code{use_dictionary}, \code{write_statistics} and \code{data_page_size}}
 
 \item{use_deprecated_int96_timestamps}{Write timestamps to INT96 Parquet format}
 
@@ -54,11 +49,26 @@ pages within a column chunk. If None, use the default data page size (1Mb) is us
 resolution. E.g. if microsecond or nanosecond data is lost when coercing to
 ms', do not raise an exception}
 
-\item{arrow_properties}{arrow specific writer properties, derived from arguments \code{use_deprecated_int96_timestamps}, \code{coerce_timestamps} and \code{allow_truncated_timestamps}}
+\item{arrow_properties}{arrow specific writer properties, derived from
+arguments \code{use_deprecated_int96_timestamps}, \code{coerce_timestamps} and \code{allow_truncated_timestamps}}
+}
+\value{
+NULL, invisibly
 }
 \description{
 \href{https://parquet.apache.org/}{Parquet} is a columnar storage file format.
 This function enables you to write Parquet files from R.
+}
+\details{
+The parameters \code{compression}, \code{compression_level}, \code{use_dictionary} and \code{write_statistics} support
+various patterns:
+- The default \code{NULL} leaves the parameter unspecified, and the C++ library uses an appropriate default for
+each column
+- A single, unnamed, value (e.g. a single string for \code{compression}) applies to all columns
+- An unnamed vector, of the same size as the number of columns, to specify a value for each column, in
+positional order
+- A named vector, to specify the value for the named columns, the default value for the setting is used
+when not supplied.
 }
 \examples{
 \donttest{
