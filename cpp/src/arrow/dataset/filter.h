@@ -20,6 +20,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/compare.h"

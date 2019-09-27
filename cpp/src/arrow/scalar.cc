@@ -18,6 +18,8 @@
 #include "arrow/scalar.h"
 
 #include <memory>
+#include <string>
+#include <utility>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"

@@ -121,7 +121,7 @@ TEST_F(TestPartitionScheme, EtlThenHive) {
 
   AssertParse("/1999/12/31/alpha=0/beta=3.25", "",
               "year"_ == int16_t(1999) and "month"_ == int8_t(12) and
-                  "day"_ == int8_t(31) and ("alpha"_ == int32_t(0) and "beta"_ == 3.25f));
+                  "day"_ == int8_t(31) && ("alpha"_ == int32_t(0) and "beta"_ == 3.25f));
 
   AssertParseError("/20X6/03/21/alpha=0/beta=3.25");
 }

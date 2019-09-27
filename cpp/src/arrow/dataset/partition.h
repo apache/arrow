@@ -111,7 +111,8 @@ class ARROW_DS_EXPORT ChainPartitionScheme : public PartitionScheme {
 /// \brief Parse a single field from a single path segment
 class ARROW_DS_EXPORT FieldPartitionScheme : public PartitionScheme {
  public:
-  FieldPartitionScheme(std::shared_ptr<Field> field) : field_(std::move(field)) {}
+  explicit FieldPartitionScheme(std::shared_ptr<Field> field)
+      : field_(std::move(field)) {}
 
   std::string name() const override { return "field_partition_scheme"; }
 

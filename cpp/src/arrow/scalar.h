@@ -24,6 +24,8 @@
 #pragma once
 
 #include <memory>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/type.h"

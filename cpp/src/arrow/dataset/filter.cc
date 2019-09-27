@@ -22,6 +22,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
