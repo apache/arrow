@@ -18,16 +18,20 @@
 context("RecordBatch.*(Reader|Writer)")
 
 test_that("RecordBatchStreamReader / Writer", {
-  batch <- record_batch(
+  tbl <- tibble::tibble(
     x = 1:10,
     y = letters[1:10]
   )
+  batch <- record_batch(tbl)
+  tab <- Table$create(tbl)
 
   sink <- BufferOutputStream$create()
   expect_equal(sink$tell(), 0)
   writer <- RecordBatchStreamWriter$create(sink, batch$schema)
   expect_is(writer, "RecordBatchStreamWriter")
-  writer$write_batch(batch)
+  writer$write(batch)
+  writer$write(tab)
+  writer$write(tbl)
   expect_true(sink$tell() > 0)
   writer$close()
 
@@ -40,20 +44,22 @@ test_that("RecordBatchStreamReader / Writer", {
   batch1 <- reader$read_next_batch()
   expect_is(batch1, "RecordBatch")
   expect_equal(batch, batch1)
-
+  batch2 <- reader$read_next_batch()
+  expect_is(batch2, "RecordBatch")
+  expect_equal(batch, batch2)
+  batch3 <- reader$read_next_batch()
+  expect_is(batch3, "RecordBatch")
+  expect_equal(batch, batch3)
   expect_null(reader$read_next_batch())
 })
 
 test_that("RecordBatchFileReader / Writer", {
-  batch <- record_batch(
-    x = 1:10,
-    y = letters[1:10]
-  )
-
   sink <- BufferOutputStream$create()
   writer <- RecordBatchFileWriter$create(sink, batch$schema)
   expect_is(writer, "RecordBatchFileWriter")
-  writer$write_batch(batch)
+  writer$write(batch)
+  writer$write(tab)
+  writer$write(tbl)
   writer$close()
 
   buf <- sink$getvalue()
@@ -66,5 +72,5 @@ test_that("RecordBatchFileReader / Writer", {
   expect_is(batch1, "RecordBatch")
   expect_equal(batch, batch1)
 
-  expect_equal(reader$num_record_batches, 1)
+  expect_equal(reader$num_record_batches, 3)
 })
