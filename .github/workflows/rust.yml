@@ -1,6 +1,23 @@
 name: Rust
 
-on: [push]
+on:
+  push:
+    paths:
+      - 'rust/arrow/*'
+      - 'rust/arrow/*/*'
+      - 'rust/arrow/*/*/*'
+      - 'rust/arrow/*/*/*/*'
+      - 'rust/arrow/*/*/*/*/*'
+      - 'rust/parquet/*'
+      - 'rust/parquet/*/*'
+      - 'rust/parquet/*/*/*'
+      - 'rust/parquet/*/*/*/*'
+      - 'rust/parquet/*/*/*/*/*'
+      - 'rust/datafusion/*'
+      - 'rust/datafusion/*/*'
+      - 'rust/datafusion/*/*/*'
+      - 'rust/datafusion/*/*/*/*'
+      - 'rust/datafusion/*/*/*/*/*'
 
 jobs:
   build:
@@ -11,5 +28,5 @@ jobs:
     - uses: actions/checkout@v1
     - name: Build
       run: cargo build --verbose
-    - name: Run tests
+    - name: Test
       run: cargo test --verbose
