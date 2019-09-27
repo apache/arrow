@@ -17,8 +17,8 @@
 
 #' Write data in the Feather format
 #'
-#' @param data `data.frame` or RecordBatch
-#' @param stream A file path or an OutputStream
+#' @param x `data.frame` or RecordBatch
+#' @param sink A file path or an OutputStream
 #'
 #' @export
 #' @examples
@@ -30,20 +30,20 @@
 #' })
 #' }
 #' @include arrow-package.R
-write_feather <- function(data, stream) {
-  if (is.data.frame(data)) {
-    data <- record_batch(data)
+write_feather <- function(x, sink) {
+  if (is.data.frame(x)) {
+    x <- record_batch(x)
   }
-  assert_is(data, "RecordBatch")
+  assert_is(x, "RecordBatch")
 
-  if (is.character(stream)) {
-    stream <- FileOutputStream$create(stream)
-    on.exit(stream$close())
+  if (is.character(sink)) {
+    sink <- FileOutputStream$create(sink)
+    on.exit(sink$close())
   }
-  assert_is(stream, "OutputStream")
+  assert_is(sink, "OutputStream")
 
-  writer <- FeatherTableWriter$create(stream)
-  ipc___TableWriter__RecordBatch__WriteFeather(writer, data)
+  writer <- FeatherTableWriter$create(sink)
+  ipc___TableWriter__RecordBatch__WriteFeather(writer, x)
 }
 
 #' @title FeatherTableWriter class

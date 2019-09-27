@@ -51,7 +51,7 @@ read_parquet <- function(file,
 #' [Parquet](https://parquet.apache.org/) is a columnar storage file format.
 #' This function enables you to write Parquet files from R.
 #'
-#' @param table An [arrow::Table][Table], or an object convertible to it.
+#' @param x An [arrow::Table][Table], or an object convertible to it.
 #' @param sink an [arrow::io::OutputStream][OutputStream] or a string which is interpreted as a file path
 #' @param chunk_size chunk size in number of rows. If NULL, the total number of rows is used.
 #'
@@ -97,7 +97,7 @@ read_parquet <- function(file,
 #'
 #' }
 #' @export
-write_parquet <- function(table,
+write_parquet <- function(x,
   sink,
   chunk_size = NULL,
 
@@ -110,7 +110,7 @@ write_parquet <- function(table,
   data_page_size = NULL,
 
   properties = ParquetWriterProperties$create(
-    table,
+    x,
     version = version,
     compression = compression,
     compression_level = compression_level,
@@ -130,7 +130,7 @@ write_parquet <- function(table,
     allow_truncated_timestamps = allow_truncated_timestamps
   )
 ) {
-  table <- to_arrow(table)
+  x <- to_arrow(x)
 
   if (is.character(sink)) {
     sink <- FileOutputStream$create(sink)
@@ -139,9 +139,9 @@ write_parquet <- function(table,
     abort("sink must be a file path or an OutputStream")
   }
 
-  schema <- table$schema
+  schema <- x$schema
   writer <- ParquetFileWriter$create(schema, sink, properties = properties, arrow_properties = arrow_properties)
-  writer$WriteTable(table, chunk_size = chunk_size %||% table$num_rows)
+  writer$WriteTable(x, chunk_size = chunk_size %||% x$num_rows)
   writer$Close()
 }
 
