@@ -212,7 +212,7 @@ ParquetFileWriter$create <- function(
 #' @param use_dictionary Specify if we should use dictionary encoding.
 #' @param write_statistics Specify if we should write statistics
 #' @param data_page_size Set a target threshhold for the approximate encoded size of data
-#'        pages within a column chunk. If None, use the default data page size (1Mb) is used.
+#'        pages within a column chunk. If omitted, the default data page size (1Mb) is used.
 #' @param properties properties for parquet writer, derived from arguments `version`, `compression`, `compression_level`, `use_dictionary`, `write_statistics` and `data_page_size`
 #'
 #' @param use_deprecated_int96_timestamps Write timestamps to INT96 Parquet format
