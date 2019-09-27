@@ -48,7 +48,7 @@ Status ConvertPartitionKeys(const std::vector<UnconvertedKey>& keys, const Schem
     subexpressions.push_back(equal(field_ref(field->name()), scalar(converted)));
   }
 
-  *out = and_(std::move(subexpressions));
+  *out = and_(subexpressions);
   return Status::OK();
 }
 
@@ -81,7 +81,7 @@ Status ChainPartitionScheme::Parse(const std::string& path, std::string* unconsu
     subexpressions.push_back(std::move(expr));
   }
 
-  *out = and_(std::move(subexpressions));
+  *out = and_(subexpressions);
   return Status::OK();
 }
 

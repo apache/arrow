@@ -347,7 +347,7 @@ ARROW_DS_EXPORT std::shared_ptr<AndExpression> and_(std::shared_ptr<Expression> 
                                                     std::shared_ptr<Expression> rhs);
 
 ARROW_DS_EXPORT std::shared_ptr<Expression> and_(
-    std::vector<std::shared_ptr<Expression>> subexpressions);
+    const std::vector<std::shared_ptr<Expression>>& subexpressions);
 
 ARROW_DS_EXPORT AndExpression operator&&(const Expression& lhs, const Expression& rhs);
 
@@ -355,7 +355,7 @@ ARROW_DS_EXPORT std::shared_ptr<OrExpression> or_(std::shared_ptr<Expression> lh
                                                   std::shared_ptr<Expression> rhs);
 
 ARROW_DS_EXPORT std::shared_ptr<Expression> or_(
-    std::vector<std::shared_ptr<Expression>> subexpressions);
+    const std::vector<std::shared_ptr<Expression>>& subexpressions);
 
 ARROW_DS_EXPORT OrExpression operator||(const Expression& lhs, const Expression& rhs);
 

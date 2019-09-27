@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <numeric>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -870,16 +871,15 @@ std::shared_ptr<AndExpression> and_(std::shared_ptr<Expression> lhs,
 }
 
 std::shared_ptr<Expression> and_(
-    std::vector<std::shared_ptr<Expression>> subexpressions) {
+    const std::vector<std::shared_ptr<Expression>>& subexpressions) {
   if (subexpressions.size() == 0) {
     return scalar(true);
   }
-  if (subexpressions.size() == 1) {
-    return std::move(subexpressions[0]);
-  }
-  auto back = std::move(subexpressions.back());
-  subexpressions.pop_back();
-  return and_(and_(std::move(subexpressions)), std::move(back));
+  return std::accumulate(
+      subexpressions.begin(), subexpressions.end(), std::shared_ptr<Expression>(),
+      [](std::shared_ptr<Expression> acc, const std::shared_ptr<Expression>& next) {
+        return acc == nullptr ? next : and_(std::move(acc), next);
+      });
 }
 
 std::shared_ptr<OrExpression> or_(std::shared_ptr<Expression> lhs,
@@ -887,16 +887,16 @@ std::shared_ptr<OrExpression> or_(std::shared_ptr<Expression> lhs,
   return std::make_shared<OrExpression>(std::move(lhs), std::move(rhs));
 }
 
-std::shared_ptr<Expression> or_(std::vector<std::shared_ptr<Expression>> subexpressions) {
+std::shared_ptr<Expression> or_(
+    const std::vector<std::shared_ptr<Expression>>& subexpressions) {
   if (subexpressions.size() == 0) {
     return scalar(false);
   }
-  if (subexpressions.size() == 1) {
-    return std::move(subexpressions[0]);
-  }
-  auto back = std::move(subexpressions.back());
-  subexpressions.pop_back();
-  return or_(or_(std::move(subexpressions)), std::move(back));
+  return std::accumulate(
+      subexpressions.begin(), subexpressions.end(), std::shared_ptr<Expression>(),
+      [](std::shared_ptr<Expression> acc, const std::shared_ptr<Expression>& next) {
+        return acc == nullptr ? next : or_(std::move(acc), next);
+      });
 }
 
 std::shared_ptr<NotExpression> not_(std::shared_ptr<Expression> operand) {
