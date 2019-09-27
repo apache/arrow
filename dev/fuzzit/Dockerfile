@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM ursalab/arrow-cpp
+FROM arrowdev/arrow-cpp
 
 RUN apt-get update && \
     apt-get install -y -q \

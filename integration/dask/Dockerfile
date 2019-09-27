@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM ursalab/arrow-python-3.6
+FROM arrowdev/arrow-python-3.6
 
 # install dask release from conda
 RUN conda install -c conda-forge dask pytest=3 && \
