@@ -211,5 +211,8 @@ test_that("==.Table", {
 
   expect_false(tab1 == tab4)
   expect_false(tab4 == tab1)
+
+  expect_true(all.equal(tab1, tab2))
+  expect_equal(tab1, tab2)
 })
 
