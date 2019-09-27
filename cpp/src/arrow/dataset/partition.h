@@ -73,6 +73,11 @@ class ARROW_DS_EXPORT PartitionScheme {
   /// \param[out] out the parsed expression
   virtual Status Parse(const std::string& path, std::string* unconsumed,
                        std::shared_ptr<Expression>* out) const = 0;
+
+  /// \brief Parse a path into a partition expression
+  ///
+  /// Helper for use by a root PartitionScheme; consumes whole path.
+  Status Parse(const std::string& path, std::shared_ptr<Expression>* out) const;
 };
 
 /// \brief Trivial partition scheme which only consumes a specified prefix (empty by

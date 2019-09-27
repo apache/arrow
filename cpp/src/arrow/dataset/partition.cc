@@ -52,6 +52,12 @@ Status ConvertPartitionKeys(const std::vector<UnconvertedKey>& keys, const Schem
   return Status::OK();
 }
 
+Status PartitionScheme::Parse(const std::string& path,
+                              std::shared_ptr<Expression>* out) const {
+  std::string unconsumed;
+  return Parse(path, &unconsumed, out);
+}
+
 Status SimplePartitionScheme::Parse(const std::string& path, std::string* unconsumed,
                                     std::shared_ptr<Expression>* out) const {
   if (!string_view(path).starts_with(ignored_)) {

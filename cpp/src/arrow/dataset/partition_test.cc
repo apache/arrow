@@ -47,15 +47,17 @@ class TestPartitionScheme : public ::testing::Test {
   void AssertParse(const std::string& expected_consumed,
                    const std::string& expected_unconsumed,
                    std::shared_ptr<Expression> expected) {
-    std::string unconsumed;
-    std::shared_ptr<Expression> parsed;
-    ASSERT_OK(
-        scheme_->Parse(expected_consumed + expected_unconsumed, &unconsumed, &parsed));
+    for (std::string suffix : {"", "/dat.parquet"}) {
+      std::string unconsumed;
+      std::shared_ptr<Expression> parsed;
+      ASSERT_OK(scheme_->Parse(expected_consumed + expected_unconsumed + suffix,
+                               &unconsumed, &parsed));
 
-    ASSERT_NE(parsed, nullptr);
-    ASSERT_EQ(expected_unconsumed, unconsumed);
-    ASSERT_TRUE(parsed->Equals(*expected)) << parsed->ToString() << "\n"
-                                           << expected->ToString();
+      ASSERT_NE(parsed, nullptr);
+      ASSERT_EQ(expected_unconsumed + suffix, unconsumed);
+      ASSERT_TRUE(parsed->Equals(*expected)) << parsed->ToString() << "\n"
+                                             << expected->ToString();
+    }
   }
 
   void AssertParse(const std::string& expected_consumed,
@@ -78,6 +80,11 @@ TEST_F(TestPartitionScheme, Hive) {
       schema({field("alpha", int32()), field("beta", float32())}));
 
   AssertParse("/alpha=0/beta=3.25", "", "alpha"_ == int32_t(0) and "beta"_ == 3.25f);
+  AssertParse("/beta=3.25/alpha=0", "", "beta"_ == 3.25f and "alpha"_ == int32_t(0));
+  AssertParse("/alpha=0", "", "alpha"_ == int32_t(0));
+  AssertParse("/beta=3.25", "", "beta"_ == 3.25f);
+
+  AssertParse("/alpha=0", "/unexpected/beta=3.25", "alpha"_ == int32_t(0));
 
   AssertParse("/alpha=0/beta=3.25", "/ignored=2341",
               "alpha"_ == int32_t(0) and "beta"_ == 3.25f);
