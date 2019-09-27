@@ -22,6 +22,7 @@ use std::{cell, convert, io, result};
 use arrow::error::ArrowError;
 use quick_error::quick_error;
 use snap;
+use std::error::Error;
 use thrift;
 
 quick_error! {
@@ -96,4 +97,13 @@ macro_rules! nyi_err {
 macro_rules! eof_err {
     ($fmt:expr) => (ParquetError::EOF($fmt.to_owned()));
     ($fmt:expr, $($args:expr),*) => (ParquetError::EOF(format!($fmt, $($args),*)));
+}
+
+// ----------------------------------------------------------------------
+// Convert parquet error into other errors
+
+impl Into<ArrowError> for ParquetError {
+    fn into(self) -> ArrowError {
+        ArrowError::ParquetError(self.description().to_string())
+    }
 }
