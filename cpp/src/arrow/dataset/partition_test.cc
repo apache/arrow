@@ -71,7 +71,7 @@ class TestPartitionScheme : public ::testing::Test {
 
 TEST_F(TestPartitionScheme, Simple) {
   auto expr = equal(field_ref("alpha"), scalar<int16_t>(3));
-  scheme_ = std::make_shared<SimplePartitionScheme>(expr);
+  scheme_ = std::make_shared<ConstantPartitionScheme>(expr);
   AssertParse("", "/hello/world", expr);
 }
 

@@ -58,15 +58,15 @@ Status PartitionScheme::Parse(const std::string& path,
   return Parse(path, &unconsumed, out);
 }
 
-Status SimplePartitionScheme::Parse(const std::string& path, std::string* unconsumed,
-                                    std::shared_ptr<Expression>* out) const {
+Status ConstantPartitionScheme::Parse(const std::string& path, std::string* unconsumed,
+                                      std::shared_ptr<Expression>* out) const {
   if (!string_view(path).starts_with(ignored_)) {
     return Status::Invalid("path \"", path, "\" did not contain required prefix \"",
                            ignored_, "\"");
   }
 
   *unconsumed = path.substr(ignored_.size());
-  *out = partition_expression_;
+  *out = expression_;
   return Status::OK();
 }
 

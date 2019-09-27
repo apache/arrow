@@ -83,11 +83,11 @@ class ARROW_DS_EXPORT PartitionScheme {
 
 /// \brief Trivial partition scheme which only consumes a specified prefix (empty by
 /// default) from a path, yielding an expression provided on construction.
-class ARROW_DS_EXPORT SimplePartitionScheme : public PartitionScheme {
+class ARROW_DS_EXPORT ConstantPartitionScheme : public PartitionScheme {
  public:
-  explicit SimplePartitionScheme(std::shared_ptr<Expression> expr,
-                                 std::string ignored = "")
-      : partition_expression_(std::move(expr)), ignored_(std::move(ignored)) {}
+  explicit ConstantPartitionScheme(std::shared_ptr<Expression> expr,
+                                   std::string ignored = "")
+      : expression_(std::move(expr)), ignored_(std::move(ignored)) {}
 
   std::string name() const override { return "simple_partition_scheme"; }
 
@@ -95,7 +95,7 @@ class ARROW_DS_EXPORT SimplePartitionScheme : public PartitionScheme {
                std::shared_ptr<Expression>* out) const override;
 
  private:
-  std::shared_ptr<Expression> partition_expression_;
+  std::shared_ptr<Expression> expression_;
   std::string ignored_;
 };
 
