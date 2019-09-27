@@ -156,6 +156,3 @@ length.Array <- function(x) x$length()
 
 #' @export
 as.vector.Array <- function(x, mode) x$as_vector()
-
-#' @export
-`==.Array` <- function(x, y) x$Equals(y)

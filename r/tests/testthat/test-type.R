@@ -33,7 +33,10 @@ test_that("type() infers from R type", {
   expect_equal(type(TRUE), boolean())
   expect_equal(type(raw()), int8())
   expect_equal(type(""), utf8())
-  expect_equal(type(iris$Species), dictionary())
+  expect_equal(
+    type(iris$Species),
+    dictionary(int8(), utf8(), FALSE)
+  )
   expect_equal(
     type(lubridate::ymd_hms("2019-02-14 13:55:05")),
     timestamp(TimeUnit$MICRO, "GMT")

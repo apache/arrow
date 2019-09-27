@@ -701,6 +701,22 @@ RcppExport SEXP _arrow_Buffer__data(SEXP buffer_sexp){
 }
 #endif
 
+// buffer.cpp
+#if defined(ARROW_R_WITH_ARROW)
+bool Buffer__Equals(const std::shared_ptr<arrow::Buffer>& x, const std::shared_ptr<arrow::Buffer>& y);
+RcppExport SEXP _arrow_Buffer__Equals(SEXP x_sexp, SEXP y_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Buffer>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Buffer>&>::type y(y_sexp);
+	return Rcpp::wrap(Buffer__Equals(x, y));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Buffer__Equals(SEXP x_sexp, SEXP y_sexp){
+	Rf_error("Cannot call Buffer__Equals(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
 // chunkedarray.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int ChunkedArray__length(const std::shared_ptr<arrow::ChunkedArray>& chunked_array);
@@ -854,6 +870,22 @@ END_RCPP
 #else
 RcppExport SEXP _arrow_ChunkedArray__Validate(SEXP chunked_array_sexp){
 	Rf_error("Cannot call ChunkedArray__Validate(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// chunkedarray.cpp
+#if defined(ARROW_R_WITH_ARROW)
+bool ChunkedArray__Equals(const std::shared_ptr<arrow::ChunkedArray>& x, const std::shared_ptr<arrow::ChunkedArray>& y);
+RcppExport SEXP _arrow_ChunkedArray__Equals(SEXP x_sexp, SEXP y_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type y(y_sexp);
+	return Rcpp::wrap(ChunkedArray__Equals(x, y));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_ChunkedArray__Equals(SEXP x_sexp, SEXP y_sexp){
+	Rf_error("Cannot call ChunkedArray__Equals(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -4803,6 +4835,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Buffer__size", (DL_FUNC) &_arrow_Buffer__size, 1}, 
 		{ "_arrow_r___RBuffer__initialize", (DL_FUNC) &_arrow_r___RBuffer__initialize, 1}, 
 		{ "_arrow_Buffer__data", (DL_FUNC) &_arrow_Buffer__data, 1}, 
+		{ "_arrow_Buffer__Equals", (DL_FUNC) &_arrow_Buffer__Equals, 2}, 
 		{ "_arrow_ChunkedArray__length", (DL_FUNC) &_arrow_ChunkedArray__length, 1}, 
 		{ "_arrow_ChunkedArray__null_count", (DL_FUNC) &_arrow_ChunkedArray__null_count, 1}, 
 		{ "_arrow_ChunkedArray__num_chunks", (DL_FUNC) &_arrow_ChunkedArray__num_chunks, 1}, 
@@ -4813,6 +4846,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ChunkArray__Slice2", (DL_FUNC) &_arrow_ChunkArray__Slice2, 3}, 
 		{ "_arrow_ChunkedArray__View", (DL_FUNC) &_arrow_ChunkedArray__View, 2}, 
 		{ "_arrow_ChunkedArray__Validate", (DL_FUNC) &_arrow_ChunkedArray__Validate, 1}, 
+		{ "_arrow_ChunkedArray__Equals", (DL_FUNC) &_arrow_ChunkedArray__Equals, 2}, 
 		{ "_arrow_util___Codec__Create", (DL_FUNC) &_arrow_util___Codec__Create, 2}, 
 		{ "_arrow_util___Codec__name", (DL_FUNC) &_arrow_util___Codec__name, 1}, 
 		{ "_arrow_io___CompressedOutputStream__Make", (DL_FUNC) &_arrow_io___CompressedOutputStream__Make, 2}, 

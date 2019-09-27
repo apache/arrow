@@ -146,11 +146,6 @@ Table <- R6Class("Table", inherit = Object,
   )
 )
 
-#' @export
-`==.Table` <- function(x, y) {
-  x$Equals(y)
-}
-
 Table$create <- function(..., schema = NULL){
   dots <- list2(...)
   # making sure there are always names

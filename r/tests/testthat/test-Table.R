@@ -111,6 +111,15 @@ test_that("[, [[, $ for Table", {
 })
 
 test_that("head and tail on Table", {
+  tbl <- tibble::tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
+    chr = letters[1:10],
+    fct = factor(letters[1:10])
+  )
+  tab <- Table$create(tbl)
+
   expect_identical(as.data.frame(head(tab)), head(tbl))
   expect_identical(as.data.frame(head(tab, 4)), head(tbl, 4))
   expect_identical(as.data.frame(head(tab, -4)), head(tbl, -4))
@@ -137,6 +146,15 @@ test_that("Table print method", {
 })
 
 test_that("table active bindings", {
+  tbl <- tibble::tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
+    chr = letters[1:10],
+    fct = factor(letters[1:10])
+  )
+  tab <- Table$create(tbl)
+
   expect_identical(dim(tbl), dim(tab))
   expect_is(tab$columns, "list")
   expect_equal(tab$columns[[1]], tab[[1]])

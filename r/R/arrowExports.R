@@ -180,6 +180,10 @@ Buffer__data <- function(buffer){
     .Call(`_arrow_Buffer__data` , buffer)
 }
 
+Buffer__Equals <- function(x, y){
+    .Call(`_arrow_Buffer__Equals` , x, y)
+}
+
 ChunkedArray__length <- function(chunked_array){
     .Call(`_arrow_ChunkedArray__length` , chunked_array)
 }
@@ -218,6 +222,10 @@ ChunkedArray__View <- function(array, type){
 
 ChunkedArray__Validate <- function(chunked_array){
     invisible(.Call(`_arrow_ChunkedArray__Validate` , chunked_array))
+}
+
+ChunkedArray__Equals <- function(x, y){
+    .Call(`_arrow_ChunkedArray__Equals` , x, y)
 }
 
 util___Codec__Create <- function(codec, compression_level){

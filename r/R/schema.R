@@ -62,9 +62,6 @@ Schema <- R6Class("Schema",
 
 Schema$create <- function(...) shared_ptr(Schema, schema_(.fields(list2(...))))
 
-#' @export
-`==.Schema` <- function(lhs, rhs) lhs$Equals(rhs)
-
 #' @param ... named list of [data types][data-type]
 #' @export
 #' @rdname Schema

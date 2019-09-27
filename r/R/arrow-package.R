@@ -67,6 +67,11 @@ Object <- R6Class("Object",
 `!=.Object` <- function(lhs, rhs) !(lhs == rhs)
 
 #' @export
+`==.Object` <- function(x, y) {
+  x$Equals(y)
+}
+
+#' @export
 all.equal.Object <- function(target, current, ...) {
   target == current
 }

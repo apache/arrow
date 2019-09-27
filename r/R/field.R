@@ -67,11 +67,6 @@ Field$create <- function(name, type, metadata) {
   shared_ptr(Field, Field__initialize(name, type, TRUE))
 }
 
-#' @export
-`==.Field` <- function(lhs, rhs){
-  lhs$Equals(rhs)
-}
-
 #' @param name field name
 #' @param type logical type, instance of [DataType]
 #' @param metadata currently ignored
