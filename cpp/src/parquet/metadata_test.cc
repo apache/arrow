@@ -100,8 +100,8 @@ TEST(Metadata, TestBuildAccess) {
   // Generate the metadata
   auto f_accessor = GenerateTableMetaData(schema, props, nrows, stats_int, stats_float);
 
-  std::string f_accessor_serialized_metadata = f_accessor->SerializedMetadata();
-  ASSERT_EQ(512, f_accessor_serialized_metadata.length());
+  std::string f_accessor_serialized_metadata = f_accessor->SerializeToString();
+  ASSERT_EQ(403, f_accessor_serialized_metadata.length());
   uint32_t metadata_len = f_accessor_serialized_metadata.length();
   auto f_accessor_copy = FileMetaData::Make(f_accessor_serialized_metadata.data(), &metadata_len);
 
