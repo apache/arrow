@@ -81,3 +81,14 @@ test_that("write_parquet() handles various write_statistics= specs", {
   expect_parquet_roundtrip(tab, write_statistics = c(TRUE, FALSE, TRUE))
   expect_parquet_roundtrip(tab, write_statistics = c(x1 = TRUE, x2 = TRUE))
 })
+
+test_that("make_valid_version()", {
+  expect_equal(make_valid_version("1.0"), ParquetVersionType$PARQUET_1_0)
+  expect_equal(make_valid_version("2.0"), ParquetVersionType$PARQUET_2_0)
+
+  expect_equal(make_valid_version(1), ParquetVersionType$PARQUET_1_0)
+  expect_equal(make_valid_version(2), ParquetVersionType$PARQUET_2_0)
+
+  expect_equal(make_valid_version(1.0), ParquetVersionType$PARQUET_1_0)
+  expect_equal(make_valid_version(2.0), ParquetVersionType$PARQUET_2_0)
+})
