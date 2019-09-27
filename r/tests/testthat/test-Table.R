@@ -196,3 +196,20 @@ test_that("table() auto splices (ARROW-5718)", {
   expect_equal(tab3$schema, s)
   expect_equivalent(as.data.frame(tab3), df)
 })
+
+test_that("==.Table", {
+  tab1 <- Table$create(x = 1:2, y = c("a", "b"))
+  tab2 <- Table$create(x = 1:2, y = c("a", "b"))
+  tab3 <- Table$create(x = 1:2)
+  tab4 <- Table$create(x = 1:2, y = c("a", "b"), z = 3:4)
+
+  expect_true(tab1 == tab2)
+  expect_true(tab2 == tab1)
+
+  expect_false(tab1 == tab3)
+  expect_false(tab3 == tab1)
+
+  expect_false(tab1 == tab4)
+  expect_false(tab4 == tab1)
+})
+

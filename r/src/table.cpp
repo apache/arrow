@@ -87,6 +87,11 @@ std::shared_ptr<arrow::Table> Table__Slice2(const std::shared_ptr<arrow::Table>&
 }
 
 // [[arrow::export]]
+bool Table__Equals(const std::shared_ptr<arrow::Table>& lhs, const std::shared_ptr<arrow::Table>& rhs) {
+  return lhs->Equals(*rhs.get());
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> Table__GetColumnByName(
     const std::shared_ptr<arrow::Table>& table, const std::string& name) {
   return table->GetColumnByName(name);

@@ -1192,6 +1192,10 @@ Table__Slice2 <- function(table, offset, length){
     .Call(`_arrow_Table__Slice2` , table, offset, length)
 }
 
+Table__Equals <- function(lhs, rhs){
+    .Call(`_arrow_Table__Equals` , lhs, rhs)
+}
+
 Table__GetColumnByName <- function(table, name){
     .Call(`_arrow_Table__GetColumnByName` , table, name)
 }

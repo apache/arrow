@@ -4653,6 +4653,22 @@ RcppExport SEXP _arrow_Table__Slice2(SEXP table_sexp, SEXP offset_sexp, SEXP len
 
 // table.cpp
 #if defined(ARROW_R_WITH_ARROW)
+bool Table__Equals(const std::shared_ptr<arrow::Table>& lhs, const std::shared_ptr<arrow::Table>& rhs);
+RcppExport SEXP _arrow_Table__Equals(SEXP lhs_sexp, SEXP rhs_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type rhs(rhs_sexp);
+	return Rcpp::wrap(Table__Equals(lhs, rhs));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_Table__Equals(SEXP lhs_sexp, SEXP rhs_sexp){
+	Rf_error("Cannot call Table__Equals(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// table.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::ChunkedArray> Table__GetColumnByName(const std::shared_ptr<arrow::Table>& table, const std::string& name);
 RcppExport SEXP _arrow_Table__GetColumnByName(SEXP table_sexp, SEXP name_sexp){
 BEGIN_RCPP
@@ -5040,6 +5056,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Table__ColumnNames", (DL_FUNC) &_arrow_Table__ColumnNames, 1}, 
 		{ "_arrow_Table__Slice1", (DL_FUNC) &_arrow_Table__Slice1, 2}, 
 		{ "_arrow_Table__Slice2", (DL_FUNC) &_arrow_Table__Slice2, 3}, 
+		{ "_arrow_Table__Equals", (DL_FUNC) &_arrow_Table__Equals, 2}, 
 		{ "_arrow_Table__GetColumnByName", (DL_FUNC) &_arrow_Table__GetColumnByName, 2}, 
 		{ "_arrow_Table__select", (DL_FUNC) &_arrow_Table__select, 2}, 
 		{ "_arrow_Table__from_dots", (DL_FUNC) &_arrow_Table__from_dots, 2}, 
