@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM arrowdev/arrow-cpp
+FROM arrowdev/arrow-cpp:latest
 
 # Configure
 ENV CC=gcc \
