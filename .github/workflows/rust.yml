@@ -18,6 +18,23 @@ on:
       - 'rust/datafusion/*/*/*'
       - 'rust/datafusion/*/*/*/*'
       - 'rust/datafusion/*/*/*/*/*'
+  pull-request:
+    paths:
+      - 'rust/arrow/*'
+      - 'rust/arrow/*/*'
+      - 'rust/arrow/*/*/*'
+      - 'rust/arrow/*/*/*/*'
+      - 'rust/arrow/*/*/*/*/*'
+      - 'rust/parquet/*'
+      - 'rust/parquet/*/*'
+      - 'rust/parquet/*/*/*'
+      - 'rust/parquet/*/*/*/*'
+      - 'rust/parquet/*/*/*/*/*'
+      - 'rust/datafusion/*'
+      - 'rust/datafusion/*/*'
+      - 'rust/datafusion/*/*/*'
+      - 'rust/datafusion/*/*/*/*'
+      - 'rust/datafusion/*/*/*/*/*'
 
 jobs:
   build:
