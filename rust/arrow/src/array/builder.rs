@@ -1458,5 +1458,4 @@ mod tests {
         let mut builder = StructBuilder::new(fields, field_builders);
         assert!(builder.field_builder::<BinaryBuilder>(0).is_none());
     }
-
 }
