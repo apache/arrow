@@ -151,13 +151,13 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
   private int decrement(int decrement) {
     allocator.assertOpen();
     final int outcome;
-    synchronized (allocationManager) {
-      outcome = bufRefCnt.addAndGet(-decrement);
-      if (outcome == 0) {
-        lDestructionTime = System.nanoTime();
-        // refcount of this reference manager has dropped to 0
-        // inform the allocation manager that this reference manager
-        // no longer holds references to underlying memory
+    outcome = bufRefCnt.addAndGet(-decrement);
+    if (outcome == 0) {
+      lDestructionTime = System.nanoTime();
+      // refcount of this reference manager has dropped to 0
+      // inform the allocation manager that this reference manager
+      // no longer holds references to underlying memory
+      synchronized (allocationManager) {
         allocationManager.release(this);
       }
     }
