@@ -167,10 +167,7 @@ names.RecordBatch <- function(x) {
 #' @export
 `[.RecordBatch` <- function(x, i, j, ..., drop = FALSE) {
   if (!missing(i)) {
-    if (is.numeric(i) &&
-        length(i) > 0 &&
-        all(i > 0) &&
-        identical(i, as(seq(i[1], i[length(i)], 1), class(i)))) {
+    if (is.sliceable(i)) {
       x <- x$Slice(i[1] - 1, length(i))
     } else {
       stop('Only row "Slicing" (taking rows a:b) currently supported', call. = FALSE)

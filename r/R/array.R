@@ -54,7 +54,13 @@
 #' - `$data()`: return the underlying [ArrayData][ArrayData]
 #' - `$as_vector()`: convert to an R vector
 #' - `$ToString()`: string representation of the array
-#' - `$Slice(offset, length = NULL)` : Construct a zero-copy slice of the array with the indicated offset and length. If length is `NULL`, the slice goes until the end of the array.
+#' - `$Slice(offset, length = NULL)`: Construct a zero-copy slice of the array
+#'    with the indicated offset and length. If length is `NULL`, the slice goes
+#'    until the end of the array.
+#' - `$Take(i)`: return an `Array` with values at positions given by integers
+#'    `i`.
+#' - `$Filter(i)`: return an `Array` with values at positions where logical
+#'    vector `i` is `TRUE`.
 #' - `$RangeEquals(other, start_idx, end_idx, other_start_idx)` :
 #' - `$View(type)`: Construct a zero-copy view of this array with the given type.
 #' - `$Validate()` : Perform any validation checks to determine obvious inconsistencies
@@ -84,6 +90,21 @@ Array <- R6Class("Array",
       } else {
         shared_ptr(Array, Array__Slice2(self, offset, length))
       }
+    },
+    Take = function(i) {
+      if (is.numeric(i)) {
+        i <- as.integer(i)
+      }
+      if (is.integer(i)) {
+        i <- Array$create(i)
+      }
+      assert_is(i, "Array")
+      shared_ptr(Array, Array__Take(self, i))
+    },
+    Filter = function(i) {
+      # TODO: implement "Filter" (for boolean)
+      i <- rep_len(i, self$length()) # For R recycling behavior
+      self$Take(which(i) - 1L)
     },
     RangeEquals = function(other, start_idx, end_idx, other_start_idx) {
       assert_is(other, "Array")
@@ -156,3 +177,32 @@ length.Array <- function(x) x$length()
 
 #' @export
 as.vector.Array <- function(x, mode) x$as_vector()
+
+#' @export
+`[.Array` <- function(x, i, ...) {
+  if (is.logical(i)) {
+    x$Filter(i)
+  } else if (is.numeric(i)) {
+    if (all(i < 0)) {
+      # Negative i means "everything but i"
+      i <- setdiff(seq_len(x$length()), -1 * i)
+    }
+    if (is.sliceable(i)) {
+      x$Slice(i[1] - 1, length(i))
+    } else if (all(i > 0)) {
+      x$Take(i - 1)
+    } else {
+      stop("Cannot mix positive and negative indices", call. = FALSE)
+    }
+  } else {
+    stop("not implemented", call.=FALSE)
+  }
+}
+
+is.sliceable <- function (i) {
+  # Determine whether `i` can be expressed as a $Slice() command
+  is.numeric(i) &&
+    length(i) > 0 &&
+    all(i > 0) &&
+    identical(as.integer(i), i[1]:i[length(i)])
+}

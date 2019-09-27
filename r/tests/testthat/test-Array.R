@@ -462,3 +462,18 @@ test_that("Array$Validate()", {
   a <- Array$create(1:10)
   expect_error(a$Validate(), NA)
 })
+
+test_that("Array$Take()", {
+  a <- Array$create(10:20)
+  expect_equal(as.vector(a$Take(c(4, 2))), c(14, 12))
+})
+
+test_that("[ method on Array", {
+  vec <- 11:20
+  a <- Array$create(vec)
+  expect_equal(as.vector(a[5:9]), vec[5:9])
+  expect_equal(as.vector(a[c(9, 3, 5)]), vec[c(9, 3, 5)])
+  expect_equal(as.vector(a[rep(c(TRUE, FALSE), 5)]), vec[c(1, 3, 5, 7, 9)])
+  expect_equal(as.vector(a[-4]), vec[-4])
+  expect_equal(as.vector(a[-1]), vec[-1])
+})

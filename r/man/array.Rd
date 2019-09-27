@@ -44,7 +44,13 @@ a == a
 \item \code{$data()}: return the underlying \link{ArrayData}
 \item \code{$as_vector()}: convert to an R vector
 \item \code{$ToString()}: string representation of the array
-\item \code{$Slice(offset, length = NULL)} : Construct a zero-copy slice of the array with the indicated offset and length. If length is \code{NULL}, the slice goes until the end of the array.
+\item \code{$Slice(offset, length = NULL)}: Construct a zero-copy slice of the array
+with the indicated offset and length. If length is \code{NULL}, the slice goes
+until the end of the array.
+\item \code{$Take(i)}: return an \code{Array} with values at positions given by integers
+\code{i}.
+\item \code{$Filter(i)}: return an \code{Array} with values at positions where logical
+vector \code{i} is \code{TRUE}.
 \item \code{$RangeEquals(other, start_idx, end_idx, other_start_idx)} :
 \item \code{$View(type)}: Construct a zero-copy view of this array with the given type.
 \item \code{$Validate()} : Perform any validation checks to determine obvious inconsistencies

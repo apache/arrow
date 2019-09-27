@@ -264,6 +264,10 @@ Table__cast <- function(table, schema, options){
     .Call(`_arrow_Table__cast` , table, schema, options)
 }
 
+Array__Take <- function(values, indices){
+    .Call(`_arrow_Array__Take` , values, indices)
+}
+
 csv___ReadOptions__initialize <- function(options){
     .Call(`_arrow_csv___ReadOptions__initialize` , options)
 }

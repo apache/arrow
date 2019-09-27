@@ -82,4 +82,18 @@ std::shared_ptr<arrow::Table> Table__cast(
   return arrow::Table::Make(schema, std::move(columns), table->num_rows());
 }
 
+// [[arrow::export]]
+std::shared_ptr<arrow::Array> Array__Take(
+    const std::shared_ptr<arrow::Array>& values,
+    const std::shared_ptr<arrow::Array>& indices) {
+
+      // Status Take(FunctionContext* ctx, const Array& values, const Array& indices,
+      //             const TakeOptions& options, std::shared_ptr<Array>* out);
+  std::shared_ptr<arrow::Array> out;
+  arrow::compute::FunctionContext context;
+  arrow::compute::TakeOptions options;
+  STOP_IF_NOT_OK(arrow::compute::Take(&context, *values, *indices, options, &out));
+  return out;
+}
+
 #endif
