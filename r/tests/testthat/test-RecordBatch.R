@@ -92,10 +92,10 @@ test_that("[ on RecordBatch", {
   expect_identical(as.data.frame(batch[6:7, 2:4]), tbl[6:7, 2:4])
   expect_identical(as.data.frame(batch[, c("dbl", "fct")]), tbl[, c(2, 5)])
   expect_identical(as.vector(batch[, "chr", drop = TRUE]), tbl$chr)
-  expect_error(
-    batch[c(3, 5, 7),],
-    'Only row "Slicing" (taking rows a:b) currently supported',
-    fixed = TRUE
+  expect_identical(as.data.frame(batch[c(7, 3, 5), 2:4]), tbl[c(7, 3, 5), 2:4])
+  expect_identical(
+    as.data.frame(batch[rep(c(FALSE, TRUE), 5),]),
+    tbl[c(2, 4, 6, 8, 10),]
   )
 })
 
@@ -275,4 +275,3 @@ test_that("record_batch() only auto splice data frames", {
     regexp = "only data frames are allowed as unnamed arguments to be auto spliced"
   )
 })
-

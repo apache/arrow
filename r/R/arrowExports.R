@@ -268,6 +268,10 @@ Array__Take <- function(values, indices){
     .Call(`_arrow_Array__Take` , values, indices)
 }
 
+RecordBatch__Take <- function(batch, indices){
+    .Call(`_arrow_RecordBatch__Take` , batch, indices)
+}
+
 csv___ReadOptions__initialize <- function(options){
     .Call(`_arrow_csv___ReadOptions__initialize` , options)
 }

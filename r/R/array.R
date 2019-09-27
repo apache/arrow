@@ -178,14 +178,13 @@ length.Array <- function(x) x$length()
 #' @export
 as.vector.Array <- function(x, mode) x$as_vector()
 
-#' @export
-`[.Array` <- function(x, i, ...) {
+filter_rows <- function(x, i, ...) {
   if (is.logical(i)) {
     x$Filter(i)
   } else if (is.numeric(i)) {
     if (all(i < 0)) {
       # Negative i means "everything but i"
-      i <- setdiff(seq_len(x$length()), -1 * i)
+      i <- setdiff(seq_len(x$num_rows %||% x$length()), -1 * i)
     }
     if (is.sliceable(i)) {
       x$Slice(i[1] - 1, length(i))
@@ -198,6 +197,9 @@ as.vector.Array <- function(x, mode) x$as_vector()
     stop("not implemented", call.=FALSE)
   }
 }
+
+#' @export
+`[.Array` <- filter_rows
 
 is.sliceable <- function (i) {
   # Determine whether `i` can be expressed as a $Slice() command

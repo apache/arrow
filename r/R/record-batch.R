@@ -58,6 +58,10 @@
 #' - `$Slice(offset, length = NULL)`: Create a zero-copy view starting at the
 #'    indicated integer offset and going for the given length, or to the end
 #'    of the table if `NULL`, the default.
+#' - `$Take(i)`: return an `RecordBatch` with rows at positions given by
+#'    integers `i`.
+#' - `$Filter(i)`: return an `RecordBatch` with rows at positions where logical
+#'    vector `i` is `TRUE`.
 #' - `$serialize()`: Returns a raw vector suitable for interprocess communication
 #' - `$cast(target_schema, safe = TRUE, options = cast_options(safe))`: Alter
 #'    the schema of the record batch.
@@ -109,7 +113,21 @@ RecordBatch <- R6Class("RecordBatch", inherit = Object,
         shared_ptr(RecordBatch, RecordBatch__Slice2(self, offset, length))
       }
     },
-
+    Take = function(i) {
+      if (is.numeric(i)) {
+        i <- as.integer(i)
+      }
+      if (is.integer(i)) {
+        i <- Array$create(i)
+      }
+      assert_is(i, "Array")
+      shared_ptr(RecordBatch, RecordBatch__Take(self, i))
+    },
+    Filter = function(i) {
+      # TODO: implement "Filter" (for boolean)
+      i <- rep_len(i, self$num_rows) # For R recycling behavior
+      self$Take(which(i) - 1L)
+    },
     serialize = function() ipc___SerializeRecordBatch__Raw(self),
     ToString = function() ToString_tabular(self),
 
@@ -167,11 +185,7 @@ names.RecordBatch <- function(x) {
 #' @export
 `[.RecordBatch` <- function(x, i, j, ..., drop = FALSE) {
   if (!missing(i)) {
-    if (is.sliceable(i)) {
-      x <- x$Slice(i[1] - 1, length(i))
-    } else {
-      stop('Only row "Slicing" (taking rows a:b) currently supported', call. = FALSE)
-    }
+    x <- filter_rows(x, i, ...)
   }
   if (!missing(j)) {
     x <- x$select(j)
