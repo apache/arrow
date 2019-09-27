@@ -70,7 +70,7 @@ test_that("write_parquet() handles various use_dictionary= specs", {
   tab <- Table$create(x1 = 1:5, x2 = 1:5, y = 1:5)
 
   expect_parquet_roundtrip(tab, use_dictionary = TRUE)
-  expect_parquet_roundtrip(tab, use_dictionary = c(TRUE, FALSE, TRUE, FALSE))
+  expect_parquet_roundtrip(tab, use_dictionary = c(TRUE, FALSE, TRUE))
   expect_parquet_roundtrip(tab, use_dictionary = c(x1 = TRUE, x2 = TRUE))
 })
 
@@ -78,6 +78,6 @@ test_that("write_parquet() handles various write_statistics= specs", {
   tab <- Table$create(x1 = 1:5, x2 = 1:5, y = 1:5)
 
   expect_parquet_roundtrip(tab, write_statistics = TRUE)
-  expect_parquet_roundtrip(tab, write_statistics = c(TRUE, FALSE, TRUE, FALSE))
+  expect_parquet_roundtrip(tab, write_statistics = c(TRUE, FALSE, TRUE))
   expect_parquet_roundtrip(tab, write_statistics = c(x1 = TRUE, x2 = TRUE))
 })
