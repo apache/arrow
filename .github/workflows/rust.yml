@@ -18,7 +18,7 @@ on:
       - 'rust/datafusion/*/*/*'
       - 'rust/datafusion/*/*/*/*'
       - 'rust/datafusion/*/*/*/*/*'
-  pull-request:
+  pull_request:
     paths:
       - 'rust/arrow/*'
       - 'rust/arrow/*/*'
