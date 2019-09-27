@@ -25,7 +25,6 @@
 
 #include "arrow/dataset/api.h"
 #include "arrow/dataset/test_util.h"
-#include "arrow/filesystem/mockfs.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/status.h"
@@ -76,42 +75,6 @@ TEST(FileSource, BufferBased) {
   ASSERT_EQ(FileSource::BUFFER, source2.type());
   ASSERT_TRUE(source2.buffer()->Equals(*buf));
   ASSERT_EQ(Compression::LZ4, source2.compression());
-}
-
-class TestFileSystemBasedDataSource : public ::testing::Test {
- public:
-  void SetUp() { options_ = std::make_shared<ScanOptions>(); }
-
-  void MakeSource(std::vector<fs::FileStats> stats,
-                  std::shared_ptr<Expression> source_partition = nullptr,
-                  PathPartitions partitions = {}) {
-    ASSERT_OK(fs::internal::MockFileSystem::Make(fs::kNoTime, stats, &fs_));
-
-    auto format = std::make_shared<DummyFileFormat>();
-    ASSERT_OK(FileSystemBasedDataSource::Make(fs_.get(), stats, source_partition,
-                                              partitions, format, &source_));
-  }
-
- protected:
-  std::shared_ptr<fs::FileSystem> fs_;
-  std::shared_ptr<DataSource> source_;
-  std::shared_ptr<ScanOptions> options_;
-};
-
-void AssertFragmentsAreFromPath(DataFragmentIterator it,
-                                std::vector<std::string> expected) {
-  std::vector<std::string> actual;
-
-  auto v = [&actual](std::shared_ptr<DataFragment> fragment) -> Status {
-    EXPECT_NE(fragment, nullptr);
-    auto dummy = std::static_pointer_cast<DummyFragment>(fragment);
-    actual.push_back(dummy->source().path());
-    return Status::OK();
-  };
-
-  ASSERT_OK(it.Visit(v));
-  // Ordering is not guaranteed.
-  EXPECT_THAT(actual, testing::UnorderedElementsAreArray(expected));
 }
 
 TEST_F(TestFileSystemBasedDataSource, Basic) {

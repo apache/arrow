@@ -15,16 +15,24 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#pragma once
+
+#include <algorithm>
 #include <functional>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
+
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/filter.h"
 #include "arrow/filesystem/localfs.h"
+#include "arrow/filesystem/mockfs.h"
 #include "arrow/filesystem/path_util.h"
+#include "arrow/filesystem/test_util.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
@@ -181,13 +189,16 @@ std::unique_ptr<GeneratedRecordBatch<Gen>> MakeGeneratedRecordBatch(
 /// \brief A dummy FileFormat implementation
 class DummyFileFormat : public FileFormat {
  public:
+  explicit DummyFileFormat(std::shared_ptr<Schema> schema = NULLPTR)
+      : schema_(std::move(schema)) {}
+
   std::string name() const override { return "dummy"; }
 
   /// \brief Return true if the given file extension
   bool IsKnownExtension(const std::string& ext) const override { return ext == name(); }
 
   Status Inspect(const FileSource& source, std::shared_ptr<Schema>* out) const override {
-    *out = nullptr;
+    *out = schema_;
     return Status::OK();
   }
 
@@ -202,6 +213,9 @@ class DummyFileFormat : public FileFormat {
   inline Status MakeFragment(const FileSource& location,
                              std::shared_ptr<ScanOptions> opts,
                              std::unique_ptr<DataFragment>* out) override;
+
+ protected:
+  std::shared_ptr<Schema> schema_;
 };
 
 class DummyFragment : public FileBasedDataFragment {
@@ -217,6 +231,53 @@ Status DummyFileFormat::MakeFragment(const FileSource& source,
                                      std::unique_ptr<DataFragment>* out) {
   *out = internal::make_unique<DummyFragment>(source, opts);
   return Status::OK();
+}
+
+class TestFileSystemBasedDataSource : public ::testing::Test {
+ public:
+  void SetUp() { options_ = std::make_shared<ScanOptions>(); }
+
+  void MakeFileSystem(const std::vector<fs::FileStats>& stats) {
+    ASSERT_OK(fs::internal::MockFileSystem::Make(fs::kNoTime, stats, &fs_));
+  }
+
+  void MakeFileSystem(const std::vector<std::string>& paths) {
+    std::vector<fs::FileStats> stats{paths.size()};
+    std::transform(paths.cbegin(), paths.cend(), stats.begin(),
+                   [](const std::string& p) { return fs::File(p); });
+
+    ASSERT_OK(fs::internal::MockFileSystem::Make(fs::kNoTime, stats, &fs_));
+  }
+
+  void MakeSource(const std::vector<fs::FileStats>& stats,
+                  std::shared_ptr<Expression> source_partition = nullptr,
+                  PathPartitions partitions = {}) {
+    MakeFileSystem(stats);
+    auto format = std::make_shared<DummyFileFormat>();
+    ASSERT_OK(FileSystemBasedDataSource::Make(fs_.get(), stats, source_partition,
+                                              partitions, format, &source_));
+  }
+
+ protected:
+  std::shared_ptr<fs::FileSystem> fs_;
+  std::shared_ptr<DataSource> source_;
+  std::shared_ptr<ScanOptions> options_;
+};
+
+void AssertFragmentsAreFromPath(DataFragmentIterator it,
+                                std::vector<std::string> expected) {
+  std::vector<std::string> actual;
+
+  auto v = [&actual](std::shared_ptr<DataFragment> fragment) -> Status {
+    EXPECT_NE(fragment, nullptr);
+    auto dummy = std::static_pointer_cast<DummyFragment>(fragment);
+    actual.push_back(dummy->source().path());
+    return Status::OK();
+  };
+
+  ASSERT_OK(it.Visit(v));
+  // Ordering is not guaranteed.
+  EXPECT_THAT(actual, testing::UnorderedElementsAreArray(expected));
 }
 
 }  // namespace dataset
