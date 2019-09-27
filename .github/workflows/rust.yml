@@ -1,40 +1,40 @@
 name: Rust
 
-on:
-  push:
-    paths:
-      - 'rust/arrow/*'
-      - 'rust/arrow/*/*'
-      - 'rust/arrow/*/*/*'
-      - 'rust/arrow/*/*/*/*'
-      - 'rust/arrow/*/*/*/*/*'
-      - 'rust/parquet/*'
-      - 'rust/parquet/*/*'
-      - 'rust/parquet/*/*/*'
-      - 'rust/parquet/*/*/*/*'
-      - 'rust/parquet/*/*/*/*/*'
-      - 'rust/datafusion/*'
-      - 'rust/datafusion/*/*'
-      - 'rust/datafusion/*/*/*'
-      - 'rust/datafusion/*/*/*/*'
-      - 'rust/datafusion/*/*/*/*/*'
-  pull_request:
-    paths:
-      - 'rust/arrow/*'
-      - 'rust/arrow/*/*'
-      - 'rust/arrow/*/*/*'
-      - 'rust/arrow/*/*/*/*'
-      - 'rust/arrow/*/*/*/*/*'
-      - 'rust/parquet/*'
-      - 'rust/parquet/*/*'
-      - 'rust/parquet/*/*/*'
-      - 'rust/parquet/*/*/*/*'
-      - 'rust/parquet/*/*/*/*/*'
-      - 'rust/datafusion/*'
-      - 'rust/datafusion/*/*'
-      - 'rust/datafusion/*/*/*'
-      - 'rust/datafusion/*/*/*/*'
-      - 'rust/datafusion/*/*/*/*/*'
+on: [push, pull_request]
+#  push:
+#    paths:
+#      - 'rust/arrow/*'
+#      - 'rust/arrow/*/*'
+#      - 'rust/arrow/*/*/*'
+#      - 'rust/arrow/*/*/*/*'
+#      - 'rust/arrow/*/*/*/*/*'
+#      - 'rust/parquet/*'
+#      - 'rust/parquet/*/*'
+#      - 'rust/parquet/*/*/*'
+#      - 'rust/parquet/*/*/*/*'
+#      - 'rust/parquet/*/*/*/*/*'
+#      - 'rust/datafusion/*'
+#      - 'rust/datafusion/*/*'
+#      - 'rust/datafusion/*/*/*'
+#      - 'rust/datafusion/*/*/*/*'
+#      - 'rust/datafusion/*/*/*/*/*'
+#  pull_request:
+#    paths:
+#      - 'rust/arrow/*'
+#      - 'rust/arrow/*/*'
+#      - 'rust/arrow/*/*/*'
+#      - 'rust/arrow/*/*/*/*'
+#      - 'rust/arrow/*/*/*/*/*'
+#      - 'rust/parquet/*'
+#      - 'rust/parquet/*/*'
+#      - 'rust/parquet/*/*/*'
+#      - 'rust/parquet/*/*/*/*'
+#      - 'rust/parquet/*/*/*/*/*'
+#      - 'rust/datafusion/*'
+#      - 'rust/datafusion/*/*'
+#      - 'rust/datafusion/*/*/*'
+#      - 'rust/datafusion/*/*/*/*'
+#      - 'rust/datafusion/*/*/*/*/*'
 
 jobs:
   build:
@@ -51,5 +51,7 @@ jobs:
         cargo build --verbose
     - name: Test
       run: |
+        export ARROW_TEST_DATA=`pwd`/testing/data/
+        export PARQUET_TEST_DATA=`pwd`/cpp/submodules/parquet-testing/data
         cd rust
         cargo test --verbose
