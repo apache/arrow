@@ -124,12 +124,17 @@ Table <- R6Class("Table", inherit = Object,
         shared_ptr(Table, Table__select(self, indices))
       }
     },
+
     Slice = function(offset, length = NULL) {
       if (is.null(length)) {
         shared_ptr(Table, Table__Slice1(self, offset))
       } else {
         shared_ptr(Table, Table__Slice2(self, offset, length))
       }
+    },
+
+    Equals = function(other) {
+      Table__Equals(self, other)
     }
   ),
 

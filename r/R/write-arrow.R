@@ -30,7 +30,7 @@ to_arrow.data.frame <- function(x) Table$create(!!!x)
 #'
 #' @param x an [arrow::Table][Table], an [arrow::RecordBatch][RecordBatch] or a data.frame
 #'
-#' @param stream where to serialize to
+#' @param sink where to serialize to
 #'
 #' - A [arrow::RecordBatchWriter][RecordBatchWriter]: the `$write()`
 #'      of `x` is used. The stream is left open. This uses the streaming format
@@ -50,20 +50,20 @@ to_arrow.data.frame <- function(x) Table$create(!!!x)
 #' and [arrow::RecordBatchStreamWriter][RecordBatchStreamWriter] can be used for more flexibility.
 #'
 #' @export
-write_arrow <- function(x, stream, ...) {
-  UseMethod("write_arrow", stream)
+write_arrow <- function(x, sink, ...) {
+  UseMethod("write_arrow", sink)
 }
 
 #' @export
-write_arrow.RecordBatchWriter <- function(x, stream, ...){
-  stream$write(x)
+write_arrow.RecordBatchWriter <- function(x, sink, ...){
+  sink$write(x)
 }
 
 #' @export
-write_arrow.character <- function(x, stream, ...) {
-  assert_that(length(stream) == 1L)
+write_arrow.character <- function(x, sink, ...) {
+  assert_that(length(sink) == 1L)
   x <- to_arrow(x)
-  file_stream <- FileOutputStream$create(stream)
+  file_stream <- FileOutputStream$create(sink)
   on.exit(file_stream$close())
   file_writer <- RecordBatchFileWriter$create(file_stream, x$schema)
   on.exit({
@@ -77,7 +77,7 @@ write_arrow.character <- function(x, stream, ...) {
 }
 
 #' @export
-write_arrow.raw <- function(x, stream, ...) {
+write_arrow.raw <- function(x, sink, ...) {
   x <- to_arrow(x)
   schema <- x$schema
 

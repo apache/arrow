@@ -111,6 +111,15 @@ test_that("[, [[, $ for Table", {
 })
 
 test_that("head and tail on Table", {
+  tbl <- tibble::tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
+    chr = letters[1:10],
+    fct = factor(letters[1:10])
+  )
+  tab <- Table$create(tbl)
+
   expect_identical(as.data.frame(head(tab)), head(tbl))
   expect_identical(as.data.frame(head(tab, 4)), head(tbl, 4))
   expect_identical(as.data.frame(head(tab, -4)), head(tbl, -4))
@@ -137,6 +146,15 @@ test_that("Table print method", {
 })
 
 test_that("table active bindings", {
+  tbl <- tibble::tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
+    chr = letters[1:10],
+    fct = factor(letters[1:10])
+  )
+  tab <- Table$create(tbl)
+
   expect_identical(dim(tbl), dim(tab))
   expect_is(tab$columns, "list")
   expect_equal(tab$columns[[1]], tab[[1]])
@@ -196,3 +214,23 @@ test_that("table() auto splices (ARROW-5718)", {
   expect_equal(tab3$schema, s)
   expect_equivalent(as.data.frame(tab3), df)
 })
+
+test_that("==.Table", {
+  tab1 <- Table$create(x = 1:2, y = c("a", "b"))
+  tab2 <- Table$create(x = 1:2, y = c("a", "b"))
+  tab3 <- Table$create(x = 1:2)
+  tab4 <- Table$create(x = 1:2, y = c("a", "b"), z = 3:4)
+
+  expect_true(tab1 == tab2)
+  expect_true(tab2 == tab1)
+
+  expect_false(tab1 == tab3)
+  expect_false(tab3 == tab1)
+
+  expect_false(tab1 == tab4)
+  expect_false(tab4 == tab1)
+
+  expect_true(all.equal(tab1, tab2))
+  expect_equal(tab1, tab2)
+})
+

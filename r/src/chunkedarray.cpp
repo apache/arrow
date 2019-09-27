@@ -80,4 +80,10 @@ void ChunkedArray__Validate(const std::shared_ptr<arrow::ChunkedArray>& chunked_
   STOP_IF_NOT_OK(chunked_array->Validate());
 }
 
+// [[arrow::export]]
+bool ChunkedArray__Equals(const std::shared_ptr<arrow::ChunkedArray>& x,
+                          const std::shared_ptr<arrow::ChunkedArray>& y) {
+  return x->Equals(y);
+}
+
 #endif

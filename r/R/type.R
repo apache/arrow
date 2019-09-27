@@ -128,9 +128,6 @@ FixedWidthType <- R6Class("FixedWidthType",
   )
 )
 
-#' @export
-`==.DataType` <- function(lhs, rhs) lhs$Equals(rhs)
-
 Int8 <- R6Class("Int8", inherit = FixedWidthType)
 Int16 <- R6Class("Int16", inherit = FixedWidthType)
 Int32 <- R6Class("Int32", inherit = FixedWidthType)

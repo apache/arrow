@@ -163,11 +163,6 @@ names.RecordBatch <- function(x) {
   x$names()
 }
 
-#' @export
-`==.RecordBatch` <- function(x, y) {
-  x$Equals(y)
-}
-
 #' @importFrom methods as
 #' @export
 `[.RecordBatch` <- function(x, i, j, ..., drop = FALSE) {

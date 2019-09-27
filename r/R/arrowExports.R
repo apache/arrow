@@ -180,6 +180,10 @@ Buffer__data <- function(buffer){
     .Call(`_arrow_Buffer__data` , buffer)
 }
 
+Buffer__Equals <- function(x, y){
+    .Call(`_arrow_Buffer__Equals` , x, y)
+}
+
 ChunkedArray__length <- function(chunked_array){
     .Call(`_arrow_ChunkedArray__length` , chunked_array)
 }
@@ -220,8 +224,16 @@ ChunkedArray__Validate <- function(chunked_array){
     invisible(.Call(`_arrow_ChunkedArray__Validate` , chunked_array))
 }
 
+ChunkedArray__Equals <- function(x, y){
+    .Call(`_arrow_ChunkedArray__Equals` , x, y)
+}
+
 util___Codec__Create <- function(codec, compression_level){
     .Call(`_arrow_util___Codec__Create` , codec, compression_level)
+}
+
+util___Codec__name <- function(codec){
+    .Call(`_arrow_util___Codec__name` , codec)
 }
 
 io___CompressedOutputStream__Make <- function(codec, raw){
@@ -880,8 +892,108 @@ parquet___arrow___FileReader__ReadTable2 <- function(reader, column_indices){
     .Call(`_arrow_parquet___arrow___FileReader__ReadTable2` , reader, column_indices)
 }
 
-write_parquet_file <- function(table, filename){
-    invisible(.Call(`_arrow_write_parquet_file` , table, filename))
+parquet___default_arrow_writer_properties <- function(){
+    .Call(`_arrow_parquet___default_arrow_writer_properties` )
+}
+
+parquet___ArrowWriterProperties___Builder__create <- function(){
+    .Call(`_arrow_parquet___ArrowWriterProperties___Builder__create` )
+}
+
+parquet___ArrowWriterProperties___Builder__store_schema <- function(builder){
+    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__store_schema` , builder))
+}
+
+parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps <- function(builder){
+    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__enable_deprecated_int96_timestamps` , builder))
+}
+
+parquet___ArrowWriterProperties___Builder__disable_deprecated_int96_timestamps <- function(builder){
+    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__disable_deprecated_int96_timestamps` , builder))
+}
+
+parquet___ArrowWriterProperties___Builder__coerce_timestamps <- function(builder, unit){
+    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__coerce_timestamps` , builder, unit))
+}
+
+parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps <- function(builder){
+    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__allow_truncated_timestamps` , builder))
+}
+
+parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps <- function(builder){
+    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__disallow_truncated_timestamps` , builder))
+}
+
+parquet___ArrowWriterProperties___Builder__build <- function(builder){
+    .Call(`_arrow_parquet___ArrowWriterProperties___Builder__build` , builder)
+}
+
+parquet___default_writer_properties <- function(){
+    .Call(`_arrow_parquet___default_writer_properties` )
+}
+
+parquet___WriterProperties___Builder__create <- function(){
+    .Call(`_arrow_parquet___WriterProperties___Builder__create` )
+}
+
+parquet___WriterProperties___Builder__version <- function(builder, version){
+    invisible(.Call(`_arrow_parquet___WriterProperties___Builder__version` , builder, version))
+}
+
+parquet___ArrowWriterProperties___Builder__default_compression <- function(builder, compression){
+    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__default_compression` , builder, compression))
+}
+
+parquet___ArrowWriterProperties___Builder__set_compressions <- function(builder, paths, types){
+    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__set_compressions` , builder, paths, types))
+}
+
+parquet___ArrowWriterProperties___Builder__default_compression_level <- function(builder, compression_level){
+    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__default_compression_level` , builder, compression_level))
+}
+
+parquet___ArrowWriterProperties___Builder__set_compression_levels <- function(builder, paths, levels){
+    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__set_compression_levels` , builder, paths, levels))
+}
+
+parquet___ArrowWriterProperties___Builder__default_write_statistics <- function(builder, write_statistics){
+    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__default_write_statistics` , builder, write_statistics))
+}
+
+parquet___ArrowWriterProperties___Builder__default_use_dictionary <- function(builder, use_dictionary){
+    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__default_use_dictionary` , builder, use_dictionary))
+}
+
+parquet___ArrowWriterProperties___Builder__set_use_dictionary <- function(builder, paths, use_dictionary){
+    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__set_use_dictionary` , builder, paths, use_dictionary))
+}
+
+parquet___ArrowWriterProperties___Builder__set_write_statistics <- function(builder, paths, write_statistics){
+    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__set_write_statistics` , builder, paths, write_statistics))
+}
+
+parquet___ArrowWriterProperties___Builder__data_page_size <- function(builder, data_page_size){
+    invisible(.Call(`_arrow_parquet___ArrowWriterProperties___Builder__data_page_size` , builder, data_page_size))
+}
+
+parquet___WriterProperties___Builder__build <- function(builder){
+    .Call(`_arrow_parquet___WriterProperties___Builder__build` , builder)
+}
+
+parquet___arrow___ParquetFileWriter__Open <- function(schema, sink, properties, arrow_properties){
+    .Call(`_arrow_parquet___arrow___ParquetFileWriter__Open` , schema, sink, properties, arrow_properties)
+}
+
+parquet___arrow___FileWriter__WriteTable <- function(writer, table, chunk_size){
+    invisible(.Call(`_arrow_parquet___arrow___FileWriter__WriteTable` , writer, table, chunk_size))
+}
+
+parquet___arrow___FileWriter__Close <- function(writer){
+    invisible(.Call(`_arrow_parquet___arrow___FileWriter__Close` , writer))
+}
+
+parquet___arrow___WriteTable <- function(table, sink, properties, arrow_properties){
+    invisible(.Call(`_arrow_parquet___arrow___WriteTable` , table, sink, properties, arrow_properties))
 }
 
 parquet___arrow___FileReader__GetSchema <- function(reader){
@@ -1086,6 +1198,10 @@ Table__Slice1 <- function(table, offset){
 
 Table__Slice2 <- function(table, offset, length){
     .Call(`_arrow_Table__Slice2` , table, offset, length)
+}
+
+Table__Equals <- function(lhs, rhs){
+    .Call(`_arrow_Table__Equals` , lhs, rhs)
 }
 
 Table__GetColumnByName <- function(table, name){
