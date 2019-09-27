@@ -43,6 +43,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v1
+    - name: Checkout submodules
+      run: git submodule update --init
     - name: Build
       run: |
         cd rust
