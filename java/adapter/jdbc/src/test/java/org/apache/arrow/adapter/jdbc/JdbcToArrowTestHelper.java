@@ -118,7 +118,7 @@ public class JdbcToArrowTestHelper {
 
     for (int j = 0; j < bigIntVector.getValueCount(); j++) {
       if (values[j] == null) {
-        assertNull(bigIntVector.getObject(j));
+        assertTrue(bigIntVector.isNull(j));
       } else {
         assertEquals(values[j].longValue(), bigIntVector.get(j));
       }
@@ -130,7 +130,7 @@ public class JdbcToArrowTestHelper {
 
     for (int j = 0; j < decimalVector.getValueCount(); j++) {
       if (values[j] == null) {
-        assertNull(decimalVector.getObject(j));
+        assertTrue(decimalVector.isNull(j));
       } else {
         assertEquals(values[j].doubleValue(), decimalVector.getObject(j).doubleValue(), 0);
       }
@@ -142,7 +142,7 @@ public class JdbcToArrowTestHelper {
 
     for (int j = 0; j < float8Vector.getValueCount(); j++) {
       if (values[j] == null) {
-        assertNull(float8Vector.getObject(j));
+        assertTrue(float8Vector.isNull(j));
       } else {
         assertEquals(values[j], float8Vector.get(j), 0.01);
       }
@@ -154,7 +154,7 @@ public class JdbcToArrowTestHelper {
 
     for (int j = 0; j < float4Vector.getValueCount(); j++) {
       if (values[j] == null) {
-        assertNull(float4Vector.getObject(j));
+        assertTrue(float4Vector.isNull(j));
       } else {
         assertEquals(values[j], float4Vector.get(j), 0.01);
       }
@@ -166,7 +166,7 @@ public class JdbcToArrowTestHelper {
 
     for (int j = 0; j < timeMilliVector.getValueCount(); j++) {
       if (values[j] == null) {
-        assertNull(timeMilliVector.getObject(j));
+        assertTrue(timeMilliVector.isNull(j));
       } else {
         assertEquals(values[j].longValue(), timeMilliVector.get(j));
       }
@@ -178,7 +178,7 @@ public class JdbcToArrowTestHelper {
 
     for (int j = 0; j < dateMilliVector.getValueCount(); j++) {
       if (values[j] == null) {
-        assertNull(dateMilliVector.getObject(j));
+        assertTrue(dateMilliVector.isNull(j));
       } else {
         assertEquals(values[j].longValue(), dateMilliVector.get(j));
       }
@@ -190,7 +190,7 @@ public class JdbcToArrowTestHelper {
 
     for (int j = 0; j < timeStampVector.getValueCount(); j++) {
       if (values[j] == null) {
-        assertNull(timeStampVector.getObject(j));
+        assertTrue(timeStampVector.isNull(j));
       } else {
         assertEquals(values[j].longValue(), timeStampVector.get(j));
       }
@@ -202,7 +202,7 @@ public class JdbcToArrowTestHelper {
 
     for (int j = 0; j < varBinaryVector.getValueCount(); j++) {
       if (values[j] == null) {
-        assertNull(varBinaryVector.getObject(j));
+        assertTrue(varBinaryVector.isNull(j));
       } else {
         assertArrayEquals(values[j], varBinaryVector.get(j));
       }
@@ -214,7 +214,7 @@ public class JdbcToArrowTestHelper {
 
     for (int j = 0; j < varCharVector.getValueCount(); j++) {
       if (values[j] == null) {
-        assertNull(varCharVector.getObject(j));
+        assertTrue(varCharVector.isNull(j));
       } else {
         assertArrayEquals(values[j], varCharVector.get(j));
       }
