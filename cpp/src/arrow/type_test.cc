@@ -230,10 +230,7 @@ TEST(TestField, TestReplacement) {
   ASSERT_TRUE(f1->metadata()->Equals(*metadata));
 }
 
-class TestSchema : public ::testing::Test {
- public:
-  void SetUp() {}
-};
+using TestSchema = ::testing::Test;
 
 TEST_F(TestSchema, Basics) {
   auto f0 = field("f0", int32());
@@ -424,6 +421,109 @@ TEST_F(TestSchema, TestRemoveMetadata) {
   auto schema = std::make_shared<Schema>(fields);
   std::shared_ptr<Schema> new_schema = schema->RemoveMetadata();
   ASSERT_TRUE(new_schema->metadata() == nullptr);
+}
+
+class TestUnifySchemas : public TestSchema {
+ protected:
+  void AssertSchemaEqualsUnorderedFields(const Schema& lhs, const Schema& rhs) {
+    if (lhs.metadata()) {
+      ASSERT_NE(nullptr, rhs.metadata());
+      ASSERT_TRUE(lhs.metadata()->Equals(*rhs.metadata()));
+    } else {
+      ASSERT_EQ(nullptr, rhs.metadata());
+    }
+    ASSERT_EQ(lhs.num_fields(), rhs.num_fields());
+    for (int i = 0; i < lhs.num_fields(); ++i) {
+      auto lhs_field = lhs.field(i);
+      auto rhs_field = rhs.GetFieldByName(lhs_field->name());
+      ASSERT_NE(nullptr, rhs_field);
+      ASSERT_TRUE(lhs_field->Equals(rhs_field, true));
+    }
+  }
+};
+
+TEST_F(TestUnifySchemas, EmptyInput) {
+  std::shared_ptr<Schema> result;
+  Status status = UnifySchemas({}, &result);
+  ASSERT_TRUE(status.IsInvalid());
+}
+
+TEST_F(TestUnifySchemas, IdenticalSchemas) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8(), false);
+  auto f2 = field("f2", utf8());
+  auto schema1 = schema({f0, f1, f2});
+  auto metadata =
+      std::shared_ptr<KeyValueMetadata>(new KeyValueMetadata({"foo"}, {"bar"}));
+  auto f2_with_metadata = f2->WithMetadata(metadata);
+  auto schema2 = schema({f0, f1, f2_with_metadata})->WithMetadata(metadata);
+
+  std::shared_ptr<Schema> result;
+  ASSERT_OK(UnifySchemas({schema1, schema2}, &result));
+  AssertSchemaEqualsUnorderedFields(*result, *schema1);
+
+  ASSERT_OK(UnifySchemas({schema2, schema1}, &result));
+  AssertSchemaEqualsUnorderedFields(*result, *schema2);
+}
+
+TEST_F(TestUnifySchemas, MissingField) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8(), false);
+  auto f2 = field("f2", utf8());
+  auto metadata1 =
+      std::shared_ptr<KeyValueMetadata>(new KeyValueMetadata({"foo"}, {"bar"}));
+  auto metadata2 = std::shared_ptr<KeyValueMetadata>(new KeyValueMetadata({"q"}, {"42"}));
+  auto schema1 = schema({f0, f1})->WithMetadata(metadata1);
+  auto schema2 = schema({f1, f2->WithMetadata(metadata2)});
+  auto schema3 = schema({f0->WithMetadata(metadata1), f1, f2});
+  std::shared_ptr<Schema> result;
+  ASSERT_OK(UnifySchemas({schema1, schema2}, &result));
+  AssertSchemaEqualsUnorderedFields(
+      *result, *schema({f0, f1, f2->WithMetadata(metadata2)})->WithMetadata(metadata1));
+}
+
+TEST_F(TestUnifySchemas, PromoteNullTypeField) {
+  auto metadata =
+      std::shared_ptr<KeyValueMetadata>(new KeyValueMetadata({"foo"}, {"bar"}));
+  auto f0 = field("f0", null());
+  auto f0_typed = field("f0", int32());
+
+  auto schema1 = schema({f0->WithMetadata(metadata)});
+  auto schema2 = schema({f0_typed});
+  std::shared_ptr<Schema> result;
+  ASSERT_OK(UnifySchemas({schema1, schema2}, &result));
+  AssertSchemaEqualsUnorderedFields(*result, *schema({f0_typed->WithMetadata(metadata)}));
+
+  ASSERT_OK(UnifySchemas({schema2, schema1}, &result));
+  AssertSchemaEqualsUnorderedFields(*result, *schema({f0_typed}));
+}
+
+TEST_F(TestUnifySchemas, MoreSchemas) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8(), false);
+  auto f2 = field("f2", utf8());
+
+  std::shared_ptr<Schema> result;
+  ASSERT_OK(UnifySchemas({schema({f0}), schema({f1}), schema({f2})}, &result));
+  AssertSchemaEqualsUnorderedFields(*result, *schema({f0, f1, f2}));
+}
+
+TEST_F(TestUnifySchemas, IncompatibleTypes) {
+  auto f0 = field("f0", int32());
+  auto f0_alt = field("f0", uint8(), false);
+  std::shared_ptr<Schema> result;
+  Status s = UnifySchemas({schema({f0}), schema({f0_alt})}, &result);
+  ASSERT_TRUE(s.IsInvalid());
+}
+
+TEST_F(TestUnifySchemas, DuplicateFieldNames) {
+  auto f0 = field("f0", int32());
+  auto f0_alt = field("f0", int32());
+  auto f1 = field("f2", utf8());
+  std::shared_ptr<Schema> result;
+  Status s = UnifySchemas(
+      {schema({f0, f1}), schema({f0_alt, f1}), schema({f0, f0_alt, f1})}, &result);
+  ASSERT_TRUE(s.IsInvalid());
 }
 
 #define PRIMITIVE_TEST(KLASS, CTYPE, ENUM, NAME)                              \

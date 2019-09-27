@@ -1535,6 +1535,22 @@ std::shared_ptr<Schema> schema(
 
 /// @}
 
+/// \brief Unifies schemas
+///
+/// The resulting schema will contain the union of fields from all schemas.
+/// Fields with the same name will be unified:
+/// - They are expected to be of the same type, or of Null type. The unified
+///   field will be of that same type.
+/// - The unified field will inherit the metadata from the schema where
+///   that field is first defined.
+/// The resulting schema will inherit its metadata from the first input schema.
+/// Returns an error if:
+/// - Any input schema contains fields with duplicate names.
+/// - Fields of the same name are of incompatible types.
+ARROW_EXPORT
+Status UnifySchemas(const std::vector<std::shared_ptr<Schema>>& schemas,
+                    std::shared_ptr<Schema>* out);
+
 }  // namespace arrow
 
 #endif  // ARROW_TYPE_H

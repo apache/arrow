@@ -686,6 +686,48 @@ std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>>&& fields,
   return std::make_shared<Schema>(std::move(fields), metadata);
 }
 
+Status UnifySchemas(const std::vector<std::shared_ptr<Schema>>& schemas,
+                    std::shared_ptr<Schema>* out) {
+  if (schemas.empty()) {
+    return Status::Invalid("Must provide at least one schema to unify.");
+  }
+
+  std::unordered_map<std::string, std::shared_ptr<Field>> field_name_to_field;
+  for (const auto& schema : schemas) {
+    for (const std::string& field_name : schema->field_names()) {
+      const std::vector<std::shared_ptr<Field>> fields =
+          schema->GetAllFieldsByName(field_name);
+      if (fields.size() != 1) {
+        return Status::Invalid(
+            "UnifySchemas does not support duplicate field names in the schema: ",
+            field_name);
+      }
+      const auto& current_field = fields[0];
+      auto insertion_result = field_name_to_field.emplace(field_name, current_field);
+      if (!insertion_result.second) {
+        auto existing_field_iter = insertion_result.first;
+        // Promote a Null column if applicable. Otherwise types should equal.
+        if (existing_field_iter->second->type()->id() == Type::NA) {
+          existing_field_iter->second =
+              current_field->WithMetadata(existing_field_iter->second->metadata());
+        } else if (current_field->type()->id() != Type::NA &&
+                   !existing_field_iter->second->type()->Equals(current_field->type())) {
+          return Status::Invalid("Field ", field_name, " has incompatible types: ",
+                                 existing_field_iter->second->type()->ToString(), " vs ",
+                                 current_field->type()->ToString());
+        }
+      }
+    }
+  }
+  std::vector<std::shared_ptr<Field>> fields;
+  fields.reserve(field_name_to_field.size());
+  for (auto& pair : field_name_to_field) {
+    fields.push_back(std::move(pair.second));
+  }
+  *out = schema(std::move(fields))->WithMetadata(schemas[0]->metadata());
+  return Status::OK();
+}
+
 // ----------------------------------------------------------------------
 // Fingerprint computations
 

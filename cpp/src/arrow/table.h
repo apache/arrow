@@ -308,6 +308,38 @@ ARROW_EXPORT
 Status ConcatenateTables(const std::vector<std::shared_ptr<Table>>& tables,
                          std::shared_ptr<Table>* table);
 
+/// \brief Promotes a table to conform to the given schema.
+///
+/// If a field in the schema does not have a corresponding column in the
+/// table, a column of nulls will be added to the resulting table.
+/// If the corresponding column is of type Null, it will be promoted to
+/// the type specified by schema, with null values filled.
+/// Returns an error:
+/// - if the corresponding column's type is not compatible with the
+///   schema.
+/// - if there is a column in the table that does not exist in the schema.
+ARROW_EXPORT
+Status PromoteTableToSchema(MemoryPool* pool, const std::shared_ptr<Table>& table,
+                            const std::shared_ptr<Schema>& schema,
+                            std::shared_ptr<Table>* out);
+
+/// \brief Concatenate tables with null-filling and type promotion.
+///
+/// Columns of the same name will be concatenated. They should be of the
+/// same type, or be of type NULL, in which case it will be promoted to
+/// the type of other corresponding columns with null values filled.
+/// If some table is missing a column, a null values filled column will
+/// be created to participate the concatenation. The new schema will share
+/// the metadata with the first table. Each field in the new schema will share
+/// the metadata with the first table which has the field defined.
+
+/// \param[in] pool The memory pool to be used if null-filled arrays need to
+/// be created.
+ARROW_EXPORT
+Status ConcatenateTablesWithPromotion(MemoryPool* pool,
+                                      const std::vector<std::shared_ptr<Table>>& tables,
+                                      std::shared_ptr<Table>* table);
+
 }  // namespace arrow
 
 #endif  // ARROW_TABLE_H

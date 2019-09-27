@@ -511,6 +511,92 @@ Status ConcatenateTables(const std::vector<std::shared_ptr<Table>>& tables,
   return Status::OK();
 }
 
+Status ConcatenateTablesWithPromotion(MemoryPool* pool,
+                                      const std::vector<std::shared_ptr<Table>>& tables,
+                                      std::shared_ptr<Table>* out) {
+  std::vector<std::shared_ptr<Schema>> schemas;
+  schemas.reserve(tables.size());
+  for (const auto& t : tables) schemas.push_back(t->schema());
+  std::shared_ptr<Schema> unified_schema;
+  RETURN_NOT_OK(UnifySchemas(schemas, &unified_schema));
+
+  std::vector<std::shared_ptr<Table>> promoted_tables;
+  promoted_tables.reserve(tables.size());
+  for (const auto& t : tables) {
+    promoted_tables.emplace_back();
+    RETURN_NOT_OK(PromoteTableToSchema(pool, t, unified_schema, &promoted_tables.back()));
+  }
+
+  return ConcatenateTables(promoted_tables, out);
+}
+
+ARROW_EXPORT
+Status PromoteTableToSchema(MemoryPool* pool, const std::shared_ptr<Table>& table,
+                            const std::shared_ptr<Schema>& schema,
+                            std::shared_ptr<Table>* out) {
+  const std::shared_ptr<Schema> current_schema = table->schema();
+  if (current_schema->Equals(*schema, /*check_metadata=*/false)) {
+    *out = table->ReplaceSchemaMetadata(schema->metadata());
+    return Status::OK();
+  }
+
+  // fields_seen[i] == true iff that field is also in `schema`.
+  std::vector<bool> fields_seen(current_schema->num_fields(), false);
+
+  std::vector<std::shared_ptr<ChunkedArray>> columns;
+  columns.reserve(schema->num_fields());
+  const int64_t num_rows = table->num_rows();
+  auto append_column_of_nulls = [pool, &columns,
+                                 num_rows](const std::shared_ptr<DataType>& type) {
+    std::shared_ptr<Array> array_of_nulls;
+    RETURN_NOT_OK(MakeArrayOfNull(pool, type, num_rows, &array_of_nulls));
+    columns.push_back(std::make_shared<ChunkedArray>(array_of_nulls));
+    return Status::OK();
+  };
+
+  for (const auto& field : schema->fields()) {
+    const std::vector<int> field_indices =
+        current_schema->GetAllFieldIndices(field->name());
+    if (field_indices.empty()) {
+      RETURN_NOT_OK(append_column_of_nulls(field->type()));
+      continue;
+    }
+
+    if (field_indices.size() > 1) {
+      return Status::Invalid(
+          "PromoteTableToSchema cannot handle schemas with duplicate fields: ",
+          field->name());
+    }
+
+    fields_seen[field_indices[0]] = true;
+    const auto& current_field = current_schema->field(field_indices[0]);
+    if (current_field->type()->Equals(field->type())) {
+      columns.push_back(table->column(field_indices[0]));
+      continue;
+    }
+
+    if (current_field->type()->id() == Type::NA) {
+      RETURN_NOT_OK(append_column_of_nulls(field->type()));
+      continue;
+    }
+
+    return Status::Invalid("Unable to promote field ", field->name(),
+                           ": incompatible types: ", field->type()->ToString(), " vs ",
+                           current_field->type()->ToString());
+  }
+
+  auto unseen_field_iter = std::find(fields_seen.begin(), fields_seen.end(), false);
+  if (unseen_field_iter != fields_seen.end()) {
+    const size_t unseen_field_index = unseen_field_iter - fields_seen.begin();
+    return Status::Invalid("Incompatible schemas: field ",
+                           current_schema->field(unseen_field_index)->name(),
+                           " did not exist in the new schema.");
+  }
+
+  *out = Table::Make(schema, std::move(columns));
+  return Status::OK();
+}
+
 bool Table::Equals(const Table& other) const {
   if (this == &other) {
     return true;
