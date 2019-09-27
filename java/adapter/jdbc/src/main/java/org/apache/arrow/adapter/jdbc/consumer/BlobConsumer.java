@@ -28,17 +28,15 @@ import org.apache.arrow.vector.VarBinaryVector;
  * Consumer which consume blob type values from {@link ResultSet}.
  * Write the data to {@link VarBinaryVector}.
  */
-public class BlobConsumer implements JdbcConsumer<VarBinaryVector> {
-
-  private final int columnIndexInResultSet;
+public class BlobConsumer extends BaseJdbcConsumer<VarBinaryVector> {
 
   private BinaryConsumer delegate;
 
   /**
    * Instantiate a BlobConsumer.
    */
-  public BlobConsumer(BinaryConsumer delegate, int index) {
-    this.columnIndexInResultSet = index;
+  public BlobConsumer(BinaryConsumer delegate, int index, boolean nullable) {
+    super(null, index, nullable);
     this.delegate = delegate;
   }
 
@@ -52,12 +50,7 @@ public class BlobConsumer implements JdbcConsumer<VarBinaryVector> {
   }
 
   @Override
-  public void close() throws Exception {
-    delegate.close();
-  }
-
-  @Override
   public void resetValueVector(VarBinaryVector vector) {
-    delegate = new BinaryConsumer(vector, columnIndexInResultSet);
+    delegate = new BinaryConsumer(vector, columnIndexInResultSet, nullable);
   }
 }

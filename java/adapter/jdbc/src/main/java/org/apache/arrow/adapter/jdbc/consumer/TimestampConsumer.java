@@ -28,27 +28,22 @@ import org.apache.arrow.vector.TimeStampMilliTZVector;
  * Consumer which consume timestamp type values from {@link ResultSet}.
  * Write the data to {@link TimeStampMilliTZVector}.
  */
-public class TimestampConsumer implements JdbcConsumer<TimeStampMilliTZVector> {
+public class TimestampConsumer extends BaseJdbcConsumer<TimeStampMilliTZVector> {
 
-  private TimeStampMilliTZVector vector;
-  private final int columnIndexInResultSet;
   private final Calendar calendar;
-
-  private int currentIndex;
 
   /**
    * Instantiate a TimestampConsumer.
    */
-  public TimestampConsumer(TimeStampMilliTZVector vector, int index) {
-    this(vector, index, null);
+  public TimestampConsumer(TimeStampMilliTZVector vector, int index, boolean nullable) {
+    this(vector, index, nullable, null);
   }
 
   /**
    * Instantiate a TimestampConsumer.
    */
-  public TimestampConsumer(TimeStampMilliTZVector vector, int index, Calendar calendar) {
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
+  public TimestampConsumer(TimeStampMilliTZVector vector, int index, boolean nullable, Calendar calendar) {
+    super(vector, index, nullable);
     this.calendar = calendar;
   }
 
@@ -56,20 +51,9 @@ public class TimestampConsumer implements JdbcConsumer<TimeStampMilliTZVector> {
   public void consume(ResultSet resultSet) throws SQLException {
     Timestamp timestamp = calendar == null ? resultSet.getTimestamp(columnIndexInResultSet) :
         resultSet.getTimestamp(columnIndexInResultSet, calendar);
-    if (!resultSet.wasNull()) {
+    if (!nullable || !resultSet.wasNull()) {
       vector.setSafe(currentIndex, timestamp.getTime());
     }
     currentIndex++;
-  }
-
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
-  }
-
-  @Override
-  public void resetValueVector(TimeStampMilliTZVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
   }
 }

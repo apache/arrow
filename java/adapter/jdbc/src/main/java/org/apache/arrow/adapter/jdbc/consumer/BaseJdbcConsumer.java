@@ -17,30 +17,39 @@
 
 package org.apache.arrow.adapter.jdbc.consumer;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-
-import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.ValueVector;
 
 /**
- * Consumer which consume bigint type values from {@link ResultSet}.
- * Write the data to {@link org.apache.arrow.vector.BigIntVector}.
+ * Base class for all jdbc consumers.
+ * @param <T> vector type.
  */
-public class BigIntConsumer extends BaseJdbcConsumer<BigIntVector> {
+public abstract class BaseJdbcConsumer<T extends ValueVector> implements JdbcConsumer<T> {
+
+  protected final int columnIndexInResultSet;
+  protected T vector;
+  protected int currentIndex;
+  protected final boolean nullable;
 
   /**
-   * Instantiate a BigIntConsumer.
+   * Constructs a base jdbc consumer.
+   * @param vector the vector to consume.
+   * @param index the column index of the vector.
+   * @param nullable if the column if nullable.
    */
-  public BigIntConsumer(BigIntVector vector, int index, boolean nullable) {
-    super(vector, index, nullable);
+  public BaseJdbcConsumer(T vector, int index, boolean nullable) {
+    this.columnIndexInResultSet = index;
+    this.vector = vector;
+    this.nullable = nullable;
   }
 
   @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    long value = resultSet.getLong(columnIndexInResultSet);
-    if (!nullable || !resultSet.wasNull()) {
-      vector.setSafe(currentIndex, value);
-    }
-    currentIndex++;
+  public void resetValueVector(T vector) {
+    this.vector = vector;
+    this.currentIndex = 0;
+  }
+
+  @Override
+  public void close() throws Exception {
+    this.vector.close();
   }
 }

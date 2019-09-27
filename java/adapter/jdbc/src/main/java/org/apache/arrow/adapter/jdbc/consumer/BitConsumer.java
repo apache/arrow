@@ -26,38 +26,21 @@ import org.apache.arrow.vector.BitVector;
  * Consumer which consume bit type values from {@link ResultSet}.
  * Write the data to {@link BitVector}.
  */
-public class BitConsumer implements JdbcConsumer<BitVector> {
-
-  private BitVector vector;
-  private final int columnIndexInResultSet;
-
-  private int currentIndex;
+public class BitConsumer extends BaseJdbcConsumer<BitVector> {
 
   /**
    * Instantiate a BitConsumer.
    */
-  public BitConsumer(BitVector vector, int index) {
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
+  public BitConsumer(BitVector vector, int index, boolean nullable) {
+    super(vector, index, nullable);
   }
 
   @Override
   public void consume(ResultSet resultSet) throws SQLException {
     boolean value = resultSet.getBoolean(columnIndexInResultSet);
-    if (!resultSet.wasNull()) {
+    if (!nullable || !resultSet.wasNull()) {
       vector.setSafe(currentIndex, value ? 1 : 0);
     }
     currentIndex++;
-  }
-
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
-  }
-
-  @Override
-  public void resetValueVector(BitVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
   }
 }

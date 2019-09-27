@@ -27,40 +27,23 @@ import org.apache.arrow.vector.VarCharVector;
  * Consumer which consume varchar type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.VarCharVector}.
  */
-public class VarCharConsumer implements JdbcConsumer<VarCharVector> {
-
-  private final int columnIndexInResultSet;
-
-  private VarCharVector vector;
-  private int currentIndex;
+public class VarCharConsumer extends BaseJdbcConsumer<VarCharVector> {
 
   /**
    * Instantiate a VarCharConsumer.
    */
-  public VarCharConsumer(VarCharVector vector, int index) {
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
+  public VarCharConsumer(VarCharVector vector, int index, boolean nullable) {
+    super(vector, index, nullable);
   }
 
   @Override
   public void consume(ResultSet resultSet) throws SQLException {
     String value = resultSet.getString(columnIndexInResultSet);
-    if (!resultSet.wasNull()) {
+    if (!nullable || !resultSet.wasNull()) {
       byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
 
       vector.setSafe(currentIndex, bytes);
     }
     currentIndex++;
-  }
-
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
-  }
-
-  @Override
-  public void resetValueVector(VarCharVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
   }
 }

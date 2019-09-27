@@ -26,38 +26,21 @@ import org.apache.arrow.vector.SmallIntVector;
  * Consumer which consume smallInt type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.SmallIntVector}.
  */
-public class SmallIntConsumer implements JdbcConsumer<SmallIntVector> {
-
-  private SmallIntVector vector;
-  private final int columnIndexInResultSet;
-
-  private int currentIndex;
+public class SmallIntConsumer extends BaseJdbcConsumer<SmallIntVector> {
 
   /**
    * Instantiate a SmallIntConsumer.
    */
-  public SmallIntConsumer(SmallIntVector vector, int index) {
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
+  public SmallIntConsumer(SmallIntVector vector, int index, boolean nullable) {
+    super(vector, index, nullable);
   }
 
   @Override
   public void consume(ResultSet resultSet) throws SQLException {
     short value = resultSet.getShort(columnIndexInResultSet);
-    if (!resultSet.wasNull()) {
+    if (!nullable || !resultSet.wasNull()) {
       vector.setSafe(currentIndex, value);
     }
     currentIndex++;
-  }
-
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
-  }
-
-  @Override
-  public void resetValueVector(SmallIntVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
   }
 }

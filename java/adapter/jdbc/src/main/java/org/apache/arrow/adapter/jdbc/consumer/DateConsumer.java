@@ -28,27 +28,22 @@ import org.apache.arrow.vector.DateMilliVector;
  * Consumer which consume date type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.DateMilliVector}.
  */
-public class DateConsumer implements JdbcConsumer<DateMilliVector> {
+public class DateConsumer extends BaseJdbcConsumer<DateMilliVector> {
 
-  private DateMilliVector vector;
-  private final int columnIndexInResultSet;
   private final Calendar calendar;
-
-  private int currentIndex;
 
   /**
    * Instantiate a DateConsumer.
    */
-  public DateConsumer(DateMilliVector vector, int index) {
-    this (vector, index, null);
+  public DateConsumer(DateMilliVector vector, int index, boolean nullable) {
+    this (vector, index, nullable,null);
   }
 
   /**
    * Instantiate a DateConsumer.
    */
-  public DateConsumer(DateMilliVector vector, int index, Calendar calendar) {
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
+  public DateConsumer(DateMilliVector vector, int index, boolean nullable, Calendar calendar) {
+    super(vector, index, nullable);
     this.calendar = calendar;
   }
 
@@ -56,20 +51,9 @@ public class DateConsumer implements JdbcConsumer<DateMilliVector> {
   public void consume(ResultSet resultSet) throws SQLException {
     Date date = calendar == null ? resultSet.getDate(columnIndexInResultSet) :
         resultSet.getDate(columnIndexInResultSet, calendar);
-    if (!resultSet.wasNull()) {
+    if (!nullable || !resultSet.wasNull()) {
       vector.setSafe(currentIndex, date.getTime());
     }
     currentIndex++;
-  }
-
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
-  }
-
-  @Override
-  public void resetValueVector(DateMilliVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
   }
 }

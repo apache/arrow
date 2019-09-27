@@ -32,24 +32,18 @@ import io.netty.util.internal.PlatformDependent;
  * Consumer which consume binary type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.VarBinaryVector}.
  */
-public class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
+public class BinaryConsumer extends BaseJdbcConsumer<VarBinaryVector> {
 
   private static final int BUFFER_SIZE = 1024;
-
-  private VarBinaryVector vector;
-  private final int columnIndexInResultSet;
-
-  private int currentIndex;
 
   /**
    * Instantiate a BinaryConsumer.
    */
-  public BinaryConsumer(VarBinaryVector vector, int index) {
+  public BinaryConsumer(VarBinaryVector vector, int index, boolean nullable) {
+    super(vector, index, nullable);
     if (vector != null) {
       vector.allocateNewSafe();
     }
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
   }
 
   /**
@@ -82,7 +76,7 @@ public class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
   @Override
   public void consume(ResultSet resultSet) throws SQLException, IOException {
     InputStream is = resultSet.getBinaryStream(columnIndexInResultSet);
-    if (!resultSet.wasNull()) {
+    if (!nullable || !resultSet.wasNull()) {
       consume(is);
     }
     currentIndex++;
@@ -90,11 +84,6 @@ public class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
 
   public void moveWriterPosition() {
     currentIndex++;
-  }
-
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
   }
 
   @Override

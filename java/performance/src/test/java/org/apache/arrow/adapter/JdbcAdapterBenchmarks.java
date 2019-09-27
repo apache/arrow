@@ -28,6 +28,7 @@ import org.apache.arrow.adapter.jdbc.ArrowVectorIterator;
 import org.apache.arrow.adapter.jdbc.JdbcToArrow;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfigBuilder;
+import org.apache.arrow.adapter.jdbc.consumer.IntConsumer;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -58,6 +59,18 @@ public class JdbcAdapterBenchmarks {
   private Connection conn = null;
   private ResultSet resultSet = null;
 
+  /**
+   * Result set for the consumer benchmark.
+   */
+  private ResultSet consumerResultSet = null;
+
+  private IntVector intVector;
+  private IntConsumer intConsumer;
+
+  private Statement statement;
+
+  private BaseAllocator allocator;
+
   private static final String CREATE_STATEMENT =
       "CREATE TABLE test_table (f0 INT, f1 LONG, f2 VARCHAR, f3 BOOLEAN);";
   private static final String INSERT_STATEMENT =
@@ -70,7 +83,7 @@ public class JdbcAdapterBenchmarks {
    */
   @Setup
   public void prepare() throws Exception {
-    BaseAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
+    allocator = new RootAllocator(Integer.MAX_VALUE);
     config = new JdbcToArrowConfigBuilder().setAllocator(allocator).setTargetBatchSize(1024).build();
 
     String url = "jdbc:h2:mem:JdbcAdapterBenchmarks";
@@ -93,8 +106,15 @@ public class JdbcAdapterBenchmarks {
       }
     }
 
-    resultSet = conn.createStatement().executeQuery(QUERY);
+    statement = conn.createStatement();
+    resultSet = statement.executeQuery(QUERY);
 
+    consumerResultSet = statement.executeQuery(QUERY);
+    consumerResultSet.next();
+
+    intVector = new IntVector("", allocator);
+    intVector.allocateNew(valueCount);
+    intConsumer = new IntConsumer(intVector, 1, true);
   }
 
   /**
@@ -102,14 +122,17 @@ public class JdbcAdapterBenchmarks {
    */
   @TearDown
   public void tearDown() throws Exception {
-    try (Statement stmt = conn.createStatement()) {
-      stmt.executeUpdate(DROP_STATEMENT);
-    } finally {
-      if (conn != null) {
-        conn.close();
-        conn = null;
-      }
-    }
+    statement.executeUpdate(DROP_STATEMENT);
+
+    resultSet.close();
+    consumerResultSet.close();
+    statement.close();
+    conn.close();
+
+    intVector.close();
+    intConsumer.close();
+
+    allocator.close();
   }
 
   /**
@@ -130,6 +153,16 @@ public class JdbcAdapterBenchmarks {
       }
     }
     return valueCount;
+  }
+
+  @Benchmark
+  @BenchmarkMode(Mode.AverageTime)
+  @OutputTimeUnit(TimeUnit.NANOSECONDS)
+  public void consumeBenchmark() throws Exception {
+    intConsumer.resetValueVector(intVector);
+    for (int i = 0; i < valueCount; i++) {
+      intConsumer.consume(consumerResultSet);
+    }
   }
 
   @Test

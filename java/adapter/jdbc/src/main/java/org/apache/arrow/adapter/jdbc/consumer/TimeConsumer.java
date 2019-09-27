@@ -28,27 +28,22 @@ import org.apache.arrow.vector.TimeMilliVector;
  * Consumer which consume time type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.TimeMilliVector}.
  */
-public class TimeConsumer implements JdbcConsumer<TimeMilliVector> {
+public class TimeConsumer extends BaseJdbcConsumer<TimeMilliVector> {
 
-  private TimeMilliVector vector;
-  private final int columnIndexInResultSet;
   private final Calendar calendar;
-
-  private int currentIndex;
 
   /**
    * Instantiate a TimeConsumer.
    */
-  public TimeConsumer(TimeMilliVector vector, int index) {
-    this(vector, index, null);
+  public TimeConsumer(TimeMilliVector vector, int index, boolean nullable) {
+    this(vector, index, nullable, null);
   }
 
   /**
    * Instantiate a TimeConsumer.
    */
-  public TimeConsumer(TimeMilliVector vector, int index, Calendar calendar) {
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
+  public TimeConsumer(TimeMilliVector vector, int index, boolean nullable, Calendar calendar) {
+    super(vector, index, nullable);
     this.calendar = calendar;
   }
 
@@ -56,20 +51,9 @@ public class TimeConsumer implements JdbcConsumer<TimeMilliVector> {
   public void consume(ResultSet resultSet) throws SQLException {
     Time time = calendar == null ? resultSet.getTime(columnIndexInResultSet) :
         resultSet.getTime(columnIndexInResultSet, calendar);
-    if (!resultSet.wasNull()) {
+    if (!nullable || !resultSet.wasNull()) {
       vector.setSafe(currentIndex, (int) time.getTime());
     }
     currentIndex++;
-  }
-
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
-  }
-
-  @Override
-  public void resetValueVector(TimeMilliVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
   }
 }

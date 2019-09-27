@@ -26,38 +26,21 @@ import org.apache.arrow.vector.Float4Vector;
  * Consumer which consume float type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.Float4Vector}.
  */
-public class FloatConsumer implements JdbcConsumer<Float4Vector> {
-
-  private Float4Vector vector;
-  private final int columnIndexInResultSet;
-
-  private int currentIndex;
+public class FloatConsumer extends BaseJdbcConsumer<Float4Vector> {
 
   /**
    * Instantiate a FloatConsumer.
    */
-  public FloatConsumer(Float4Vector vector, int index) {
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
+  public FloatConsumer(Float4Vector vector, int index, boolean nullable) {
+    super(vector, index, nullable);
   }
 
   @Override
   public void consume(ResultSet resultSet) throws SQLException {
     float value = resultSet.getFloat(columnIndexInResultSet);
-    if (!resultSet.wasNull()) {
+    if (!nullable || !resultSet.wasNull()) {
       vector.setSafe(currentIndex, value);
     }
     currentIndex++;
-  }
-
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
-  }
-
-  @Override
-  public void resetValueVector(Float4Vector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
   }
 }

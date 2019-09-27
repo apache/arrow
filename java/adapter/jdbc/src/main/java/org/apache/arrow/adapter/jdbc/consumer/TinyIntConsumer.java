@@ -26,38 +26,21 @@ import org.apache.arrow.vector.TinyIntVector;
  * Consumer which consume tinyInt type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.TinyIntVector}.
  */
-public class TinyIntConsumer implements JdbcConsumer<TinyIntVector> {
-
-  private TinyIntVector vector;
-  private final int columnIndexInResultSet;
-
-  private int currentIndex;
+public class TinyIntConsumer extends BaseJdbcConsumer<TinyIntVector> {
 
   /**
    * Instantiate a TinyIntConsumer.
    */
-  public TinyIntConsumer(TinyIntVector vector, int index) {
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
+  public TinyIntConsumer(TinyIntVector vector, int index, boolean nullable) {
+    super(vector, index, nullable);
   }
 
   @Override
   public void consume(ResultSet resultSet) throws SQLException {
     byte value = resultSet.getByte(columnIndexInResultSet);
-    if (!resultSet.wasNull()) {
+    if (!nullable || !resultSet.wasNull()) {
       vector.setSafe(currentIndex, value);
     }
     currentIndex++;
-  }
-
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
-  }
-
-  @Override
-  public void resetValueVector(TinyIntVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
   }
 }

@@ -28,27 +28,22 @@ import org.apache.arrow.vector.complex.ListVector;
  * Consumer which consume array type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.complex.ListVector}.
  */
-public class ArrayConsumer implements JdbcConsumer<ListVector> {
+public class ArrayConsumer extends BaseJdbcConsumer<ListVector> {
 
   private final JdbcConsumer delegate;
-  private final int columnIndexInResultSet;
-
-  private ListVector vector;
-  private int currentIndex;
 
   /**
    * Instantiate a ArrayConsumer.
    */
-  public ArrayConsumer(ListVector vector, JdbcConsumer delegate, int index) {
-    this.columnIndexInResultSet = index;
+  public ArrayConsumer(ListVector vector, JdbcConsumer delegate, int index, boolean nullable) {
+    super(vector, index, nullable);
     this.delegate = delegate;
-    this.vector = vector;
   }
 
   @Override
   public void consume(ResultSet resultSet) throws SQLException, IOException {
     final Array array = resultSet.getArray(columnIndexInResultSet);
-    if (!resultSet.wasNull()) {
+    if (!nullable || !resultSet.wasNull()) {
 
       vector.startNewValue(currentIndex);
       int count = 0;
@@ -67,11 +62,5 @@ public class ArrayConsumer implements JdbcConsumer<ListVector> {
   public void close() throws Exception {
     this.vector.close();
     this.delegate.close();
-  }
-
-  @Override
-  public void resetValueVector(ListVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
   }
 }
