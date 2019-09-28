@@ -14,8 +14,7 @@ jobs:
         repository: ursa-labs/ursabot
         ref: refs/heads/master
         path: ursabot
-
-    - name: Check Docker
-      run: docker --version
-    - name: Check Python
-      run: python3 --version
+    - name: Install Ursabot
+      run: pip3 install -e ursabot
+    - name: Check Ursabot Command
+      run: ursabot --help
