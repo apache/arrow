@@ -17,6 +17,14 @@ jobs:
         - "AMD64 Conda Python 2.7"
         - "AMD64 Conda Python 3.6"
         - "AMD64 Conda Python 3.7"
+        - "AMD64 Conda R"
+        - "AMD64 Debian 9 NodeJS 11"
+        - "AMD64 Java OpenJDK 11"
+        - "AMD64 Java OpenJDK 8"
+        - "AMD64 Ubuntu 18.04 C GLib"
+        - "AMD64 Ubuntu 18.04 C++"
+        - "AMD64 Ubuntu 18.04 Python 3"
+        - "AMD64 Ubuntu 18.04 R"
 
     steps:
 
