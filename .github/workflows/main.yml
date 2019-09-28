@@ -22,6 +22,8 @@ jobs:
       run: ls -lah ..
     - name: LS
       run: ls -lah ../..
+    - name: ENV
+      run: env
     - name: PWD
       run: pwd
     - name: Install Ursabot
