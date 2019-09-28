@@ -107,7 +107,7 @@ class GrpcAddCallHeaders : public AddCallHeaders {
 class GrpcClientInterceptorAdapter : public grpc::experimental::Interceptor {
  public:
   GrpcClientInterceptorAdapter(std::vector<std::unique_ptr<ClientMiddleware>> middleware)
-      : middleware_(std::move(middleware)), failed_() {}
+      : middleware_(std::move(middleware)) {}
 
   void Intercept(grpc::experimental::InterceptorBatchMethods* methods) {
     using InterceptionHookPoints = grpc::experimental::InterceptionHookPoints;
@@ -115,47 +115,26 @@ class GrpcClientInterceptorAdapter : public grpc::experimental::Interceptor {
             InterceptionHookPoints::PRE_SEND_INITIAL_METADATA)) {
       GrpcAddCallHeaders add_headers(methods->GetSendInitialMetadata());
       for (const auto& middleware : middleware_) {
-        const Status& status = middleware->SendingHeaders(add_headers);
-        if (!status.ok()) {
-          failed_ = status;
-          break;
-        }
+        middleware->SendingHeaders(add_headers);
       }
     }
 
     // TODO: also check for trailing metadata if call failed?
     // (grpc-java and grpc-core differ on this point, it seems)
-
-    // Don't run this hook if an earlier middleware already failed the call
-    if (failed_.ok() && methods->QueryInterceptionHookPoint(
-                            InterceptionHookPoints::POST_RECV_INITIAL_METADATA)) {
+    if (methods->QueryInterceptionHookPoint(
+            InterceptionHookPoints::POST_RECV_INITIAL_METADATA)) {
       internal::GrpcCallHeaders headers(methods->GetRecvInitialMetadata());
       for (const auto& middleware : middleware_) {
-        const Status& status = middleware->ReceivedHeaders(headers);
-        if (!status.ok()) {
-          failed_ = status;
-          break;
-        }
+        middleware->ReceivedHeaders(headers);
       }
     }
 
     if (methods->QueryInterceptionHookPoint(InterceptionHookPoints::POST_RECV_STATUS)) {
       DCHECK_NE(nullptr, methods->GetRecvStatus());
-      const Status status =
-          failed_.ok() ? internal::FromGrpcStatus(*methods->GetRecvStatus()) : failed_;
+      const Status status = internal::FromGrpcStatus(*methods->GetRecvStatus());
 
       for (const auto& middleware : middleware_) {
-        const Status& substatus = middleware->CallCompleted(status);
-        if (!substatus.ok()) {
-          // Abandon the rest
-          failed_ = substatus;
-          break;
-        }
-      }
-
-      // Overwrite the gRPC status with the interceptor status
-      if (!failed_.ok()) {
-        *methods->GetRecvStatus() = internal::ToGrpcStatus(failed_);
+        middleware->CallCompleted(status);
       }
     }
 
@@ -164,8 +143,6 @@ class GrpcClientInterceptorAdapter : public grpc::experimental::Interceptor {
 
  private:
   std::vector<std::unique_ptr<ClientMiddleware>> middleware_;
-  // Stores an Arrow failure status returned by middleware (if any)
-  Status failed_;
 };
 
 class GrpcClientInterceptorAdapterFactory
@@ -202,22 +179,7 @@ class GrpcClientInterceptorAdapterFactory
     const CallInfo flight_info{flight_method};
     for (auto& factory : middleware_) {
       std::unique_ptr<ClientMiddleware> instance;
-      const Status& status = factory->StartCall(flight_info, &instance);
-      if (!status.ok()) {
-        // Call was rejected here, but we don't have a formal way to
-        // stop the call with a status.
-        ARROW_LOG(INFO) << "Call cancelled: " << status;
-        info->client_context()->TryCancel();
-        for (auto& existing_instance : middleware) {
-          const Status& sub_status = existing_instance->CallCompleted(status);
-          if (!sub_status.ok()) {
-            // Aborted twice, log and bail
-            ARROW_LOG(INFO) << "Call cancelled while processing cancellation: " << status;
-            break;
-          }
-        }
-        return nullptr;
-      }
+      factory->StartCall(flight_info, &instance);
       if (instance) {
         middleware.push_back(std::move(instance));
       }

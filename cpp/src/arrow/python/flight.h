@@ -237,8 +237,8 @@ class ARROW_PYTHON_EXPORT PyClientMiddlewareFactory
   /// \brief Must only be called while holding the GIL.
   explicit PyClientMiddlewareFactory(PyObject* factory, StartCallCallback start_call);
 
-  Status StartCall(const arrow::flight::CallInfo& info,
-                   std::unique_ptr<arrow::flight::ClientMiddleware>* middleware) override;
+  void StartCall(const arrow::flight::CallInfo& info,
+                 std::unique_ptr<arrow::flight::ClientMiddleware>* middleware) override;
 
  private:
   OwnedRefNoGIL factory_;
@@ -264,9 +264,9 @@ class ARROW_PYTHON_EXPORT PyClientMiddleware : public arrow::flight::ClientMiddl
   /// \brief Must only be called while holding the GIL.
   explicit PyClientMiddleware(PyObject* factory, Vtable vtable);
 
-  Status SendingHeaders(arrow::flight::AddCallHeaders& outgoing_headers) override;
-  Status ReceivedHeaders(const arrow::flight::CallHeaders& incoming_headers) override;
-  Status CallCompleted(const Status& status) override;
+  void SendingHeaders(arrow::flight::AddCallHeaders& outgoing_headers) override;
+  void ReceivedHeaders(const arrow::flight::CallHeaders& incoming_headers) override;
+  void CallCompleted(const Status& status) override;
 
  private:
   OwnedRefNoGIL middleware_;

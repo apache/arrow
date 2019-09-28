@@ -273,7 +273,7 @@ void PyServerMiddleware::SendingHeaders(arrow::flight::AddCallHeaders& outgoing_
   });
 
   if (!status.ok()) {
-    ARROW_LOG(WARNING) << "Python middleware failed in SendingHeaders: " << status;
+    ARROW_LOG(WARNING) << "Python server middleware failed in SendingHeaders: " << status;
   }
 }
 
@@ -284,7 +284,7 @@ void PyServerMiddleware::CallCompleted(const Status& call_status) {
     return status;
   });
   if (!status.ok()) {
-    ARROW_LOG(WARNING) << "Python middleware failed in CallCompleted: " << status;
+    ARROW_LOG(WARNING) << "Python server middleware failed in CallCompleted: " << status;
   }
 }
 
@@ -297,14 +297,17 @@ PyClientMiddlewareFactory::PyClientMiddlewareFactory(PyObject* factory,
   factory_.reset(factory);
 }
 
-Status PyClientMiddlewareFactory::StartCall(
+void PyClientMiddlewareFactory::StartCall(
     const arrow::flight::CallInfo& info,
     std::unique_ptr<arrow::flight::ClientMiddleware>* middleware) {
-  return SafeCallIntoPython([&] {
+  const Status& status = SafeCallIntoPython([&] {
     const Status status = start_call_(factory_.obj(), info, middleware);
     RETURN_NOT_OK(CheckPyError());
     return status;
   });
+  if (!status.ok()) {
+    ARROW_LOG(WARNING) << "Python client middleware failed in StartCall: " << status;
+  }
 }
 
 PyClientMiddleware::PyClientMiddleware(PyObject* middleware, Vtable vtable)
@@ -313,30 +316,38 @@ PyClientMiddleware::PyClientMiddleware(PyObject* middleware, Vtable vtable)
   middleware_.reset(middleware);
 }
 
-Status PyClientMiddleware::SendingHeaders(
-    arrow::flight::AddCallHeaders& outgoing_headers) {
-  return SafeCallIntoPython([&] {
+void PyClientMiddleware::SendingHeaders(arrow::flight::AddCallHeaders& outgoing_headers) {
+  const Status& status = SafeCallIntoPython([&] {
     const Status status = vtable_.sending_headers(middleware_.obj(), outgoing_headers);
     RETURN_NOT_OK(CheckPyError());
     return status;
   });
+  if (!status.ok()) {
+    ARROW_LOG(WARNING) << "Python client middleware failed in StartCall: " << status;
+  }
 }
 
-Status PyClientMiddleware::ReceivedHeaders(
+void PyClientMiddleware::ReceivedHeaders(
     const arrow::flight::CallHeaders& incoming_headers) {
-  return SafeCallIntoPython([&] {
+  const Status& status = SafeCallIntoPython([&] {
     const Status status = vtable_.received_headers(middleware_.obj(), incoming_headers);
     RETURN_NOT_OK(CheckPyError());
     return status;
   });
+  if (!status.ok()) {
+    ARROW_LOG(WARNING) << "Python client middleware failed in StartCall: " << status;
+  }
 }
 
-Status PyClientMiddleware::CallCompleted(const Status& call_status) {
-  return SafeCallIntoPython([&] {
+void PyClientMiddleware::CallCompleted(const Status& call_status) {
+  const Status& status = SafeCallIntoPython([&] {
     const Status status = vtable_.call_completed(middleware_.obj(), call_status);
     RETURN_NOT_OK(CheckPyError());
     return status;
   });
+  if (!status.ok()) {
+    ARROW_LOG(WARNING) << "Python client middleware failed in StartCall: " << status;
+  }
 }
 
 Status CreateFlightInfo(const std::shared_ptr<arrow::Schema>& schema,

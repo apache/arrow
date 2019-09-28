@@ -28,17 +28,32 @@ namespace arrow {
 
 namespace flight {
 
+/// \brief Client-side middleware for a call, instantiated per RPC.
+///
+/// Middleware should be fast and must be infalliable: there is no way
+/// to reject the call or report errors from the middleware instance.
 class ARROW_FLIGHT_EXPORT ClientMiddleware {
  public:
   virtual ~ClientMiddleware() = default;
 
-  /// While a non-OK status will do its best to stop the call, this
-  /// isn't guaranteed.
-  virtual Status SendingHeaders(AddCallHeaders& outgoing_headers) = 0;
-  virtual Status ReceivedHeaders(const CallHeaders& incoming_headers) = 0;
-  virtual Status CallCompleted(const Status& status) = 0;
+  /// \brief A callback before headers are sent. Extra headers can be
+  /// added, but existing ones cannot be read.
+  virtual void SendingHeaders(AddCallHeaders& outgoing_headers) = 0;
+
+  /// \brief A callback when headers are received from the server.
+  virtual void ReceivedHeaders(const CallHeaders& incoming_headers) = 0;
+
+  /// \brief A callback after the call has completed.
+  virtual void CallCompleted(const Status& status) = 0;
 };
 
+/// \brief A factory for new middleware instances.
+///
+/// If added to a client, this will be called for each RPC (including
+/// Handshake) to give the opportunity to intercept the call.
+///
+/// It is guaranteed that all client middleware methods are called
+/// from the same thread that calls the RPC method implementation.
 class ARROW_FLIGHT_EXPORT ClientMiddlewareFactory {
  public:
   virtual ~ClientMiddlewareFactory() = default;
@@ -49,11 +64,8 @@ class ARROW_FLIGHT_EXPORT ClientMiddlewareFactory {
   /// \param[out] middleware The middleware instance for this call. If
   ///     unset, will not add middleware to this call instance from
   ///     this factory.
-  /// \return Status a status. A non-OK status will try to stop the
-  /// call, but the underlying implementation may not be able to
-  /// support this.
-  virtual Status StartCall(const CallInfo& info,
-                           std::unique_ptr<ClientMiddleware>* middleware) = 0;
+  virtual void StartCall(const CallInfo& info,
+                         std::unique_ptr<ClientMiddleware>* middleware) = 0;
 };
 
 }  // namespace flight

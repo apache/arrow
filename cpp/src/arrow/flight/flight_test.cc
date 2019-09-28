@@ -646,20 +646,13 @@ class PropagatingClientMiddleware : public ClientMiddleware {
                                        std::vector<Status>* recorded_status)
       : received_headers_(received_headers), recorded_status_(recorded_status) {}
 
-  Status SendingHeaders(AddCallHeaders& outgoing_headers) {
+  void SendingHeaders(AddCallHeaders& outgoing_headers) {
     outgoing_headers.AddHeader("x-tracing-span-id", current_span_id);
-    return Status::OK();
   }
 
-  Status ReceivedHeaders(const CallHeaders& incoming_headers) {
-    (*received_headers_)++;
-    return Status::OK();
-  }
+  void ReceivedHeaders(const CallHeaders& incoming_headers) { (*received_headers_)++; }
 
-  Status CallCompleted(const Status& status) {
-    recorded_status_->push_back(status);
-    return Status::OK();
-  }
+  void CallCompleted(const Status& status) { recorded_status_->push_back(status); }
 
  private:
   std::atomic<int>* received_headers_;
@@ -668,11 +661,10 @@ class PropagatingClientMiddleware : public ClientMiddleware {
 
 class PropagatingClientMiddlewareFactory : public ClientMiddlewareFactory {
  public:
-  Status StartCall(const CallInfo& info, std::unique_ptr<ClientMiddleware>* middleware) {
+  void StartCall(const CallInfo& info, std::unique_ptr<ClientMiddleware>* middleware) {
     recorded_calls_.push_back(info.method);
     *middleware = arrow::internal::make_unique<PropagatingClientMiddleware>(
         &received_headers_, &recorded_status_);
-    return Status::OK();
   }
 
   void Reset() {
