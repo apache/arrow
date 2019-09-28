@@ -9,10 +9,9 @@ jobs:
 
     steps:
     - name: Checkout Ursabot
-      uses: actions/checkout@master
+      uses: actions/checkout@v1
       with:
-        repository: https://github.com/ursa-labs/ursabot
-        ref: master
+        repository: ursa-labs/ursabot
         path: ursabot
 
     - name: Check Docker
