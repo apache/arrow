@@ -12,7 +12,7 @@ jobs:
       uses: actions/checkout@v1
       with:
         repository: ursa-labs/ursabot
-        ref: refs/head/master
+        ref: refs/heads/master
         path: ursabot
 
     - name: Check Docker
