@@ -351,3 +351,9 @@ test_that("ChunkedArray$Validate()", {
   a <- ChunkedArray$create(1:10)
   expect_error(a$Validate(), NA)
 })
+
+test_that("[ ChunkedArray", {
+  x <- chunked_array(1:10, 31:40, 51:55)
+  expect_equal(as.vector(x[8:12]), c(8:10, 31:32))
+  expect_equal(as.vector(x[c(11, 15, 12)]), c(31, 35, 32))
+})

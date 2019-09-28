@@ -98,13 +98,15 @@ Array <- R6Class("Array",
       if (is.integer(i)) {
         i <- Array$create(i)
       }
-      assert_is(i, "Array")
+      assert_is(i, "Array") # Assert type too?
       shared_ptr(Array, Array__Take(self, i))
     },
     Filter = function(i) {
-      # TODO: implement "Filter" (for boolean)
-      i <- rep_len(i, self$length()) # For R recycling behavior
-      self$Take(which(i) - 1L)
+      if (is.logical(i)) {
+        i <- Array$create(i)
+      }
+      assert_is(i, "Array") # Assert type too?
+      shared_ptr(Array, Array__Filter(self, i))
     },
     RangeEquals = function(other, start_idx, end_idx, other_start_idx) {
       assert_is(other, "Array")
@@ -179,12 +181,16 @@ length.Array <- function(x) x$length()
 as.vector.Array <- function(x, mode) x$as_vector()
 
 filter_rows <- function(x, i, ...) {
+  # General purpose function for [ row subsetting with R semantics
+  # Based on the input for `i`, calls x$Filter, x$Slice, or x$Take
+  nrows <- x$num_rows %||% x$length() # Depends on whether Array or Table-like
   if (is.logical(i)) {
+    i <- rep_len(i, nrows) # For R recycling behavior
     x$Filter(i)
   } else if (is.numeric(i)) {
     if (all(i < 0)) {
-      # Negative i means "everything but i"
-      i <- setdiff(seq_len(x$num_rows %||% x$length()), -1 * i)
+      # in R, negative i means "everything but i"
+      i <- setdiff(seq_len(nrows), -1 * i)
     }
     if (is.sliceable(i)) {
       x$Slice(i[1] - 1, length(i))
@@ -194,6 +200,7 @@ filter_rows <- function(x, i, ...) {
       stop("Cannot mix positive and negative indices", call. = FALSE)
     }
   } else {
+    # TODO: allow i to be an Array or ChunkedArray
     stop("not implemented", call.=FALSE)
   }
 }

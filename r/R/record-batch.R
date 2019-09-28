@@ -124,9 +124,11 @@ RecordBatch <- R6Class("RecordBatch", inherit = Object,
       shared_ptr(RecordBatch, RecordBatch__Take(self, i))
     },
     Filter = function(i) {
-      # TODO: implement "Filter" (for boolean)
-      i <- rep_len(i, self$num_rows) # For R recycling behavior
-      self$Take(which(i) - 1L)
+      if (is.logical(i)) {
+        i <- Array$create(i)
+      }
+      assert_is(i, "Array") # Assert type too?
+      shared_ptr(RecordBatch, RecordBatch__Filter(self, i))
     },
     serialize = function() ipc___SerializeRecordBatch__Raw(self),
     ToString = function() ToString_tabular(self),

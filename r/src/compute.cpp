@@ -109,4 +109,31 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__Take(
 
   return arrow::RecordBatch::Make(batch->schema(), nrows, columns);
 }
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Array> Array__Filter(
+    const std::shared_ptr<arrow::Array>& values,
+    const std::shared_ptr<arrow::Array>& filter) {
+
+  std::shared_ptr<arrow::Array> out;
+  arrow::compute::FunctionContext context;
+  STOP_IF_NOT_OK(arrow::compute::Filter(&context, *values, *filter, &out));
+  return out;
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::RecordBatch> RecordBatch__Filter(
+    const std::shared_ptr<arrow::RecordBatch>& batch,
+    const std::shared_ptr<arrow::Array>& filter) {
+  int ncols = batch->num_columns();
+
+  std::vector<std::shared_ptr<arrow::Array>> columns(ncols);
+
+  for (R_xlen_t j = 0; j < ncols; j++) {
+    columns[j] = Array__Filter(batch->column(j), filter);
+  }
+
+  return arrow::RecordBatch::Make(batch->schema(), columns[0]->length(), columns);
+}
+
 #endif

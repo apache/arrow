@@ -44,3 +44,4 @@ clean:
 	-rm src/Makevars
 	-rm src/Makevars.win
 	-rm -rf arrow.Rcheck/
+	-find . -name "*.orig" -delete
