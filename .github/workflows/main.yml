@@ -14,7 +14,9 @@ jobs:
         repository: ursa-labs/ursabot
         ref: refs/heads/master
         path: ursabot
+    - name: LS
+      run: ls -lah
     - name: Install Ursabot
-      run: pip3 install -e ursabot
+      run: pip3 install -e ./ursabot
     - name: Check Ursabot Command
       run: ursabot --help
