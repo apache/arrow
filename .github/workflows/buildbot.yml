@@ -30,18 +30,24 @@ jobs:
 
     steps:
 
+    - name: Show Environment
+      run: env
+
     - name: Checkout Ursabot
       uses: actions/checkout@v1
       with:
         repository: ursa-labs/ursabot
         ref: refs/heads/master
         path: ursabot
+
     - name: Install Python
       uses: actions/setup-python@v1
       with:
         python-version: '3.7'
+
     - name: Install Ursabot
       run: pip install -e ../ursabot
+
     - name: Check Ursabot Command
       run: ursabot --help
 
