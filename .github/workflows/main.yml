@@ -26,6 +26,7 @@ jobs:
       run: |
         cd ../ursabot/projects/arrow
         ursabot project build \
+          --repo https://github.com/$GITHUB_REPOSITORY \
           --branch $GITHUB_REF \
           --commit $GITHUB_SHA \
           "AMD64 Debian 9 Rust 1.35"
