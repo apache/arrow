@@ -1,10 +1,10 @@
-name: Buildbot Builders
+name: Buildbot
 
 on: [push]
 
 jobs:
   build:
-
+    name: Build
     runs-on: ubuntu-latest
 
     strategy:
