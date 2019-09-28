@@ -1825,19 +1825,74 @@ cdef wrap_call_info(const CCallInfo& c_info):
 
 
 cdef class ClientMiddlewareFactory:
+    """A factory for new middleware instances.
+
+    All middleware methods will be called from the same thread as the
+    RPC method implementation. That is, thread-locals set in the
+    client are accessible from the middleware itself.
+
+    """
+
     def start_call(self, info):
-        pass
+        """Called at the start of an RPC.
+
+        This must be thread-safe and must not raise exceptions.
+
+        Parameters
+        ----------
+        info : CallInfo
+            Information about the call.
+
+        Returns
+        -------
+        instance : ClientMiddleware optional
+            An instance of ClientMiddleware (the instance to use for
+            the call), or None if this call is not intercepted.
+
+        """
 
 
 cdef class ClientMiddleware:
+    """Client-side middleware for a call, instantiated per RPC.
+
+    Methods here should be fast and must be infalliable: they should
+    not raise exceptions or stall indefinitely.
+
+    """
+
     def sending_headers(self):
-        pass
+        """A callback before headers are sent.
+
+        Returns
+        -------
+        headers : dict optional
+            A dictionary of header values to add to the response, or
+            None if no headers are to be added. The dictionary should
+            have string keys and string or list-of-string values.
+
+        """
 
     def received_headers(self, headers):
-        pass
+        """A callback when headers are received.
+
+        Parameters
+        ----------
+        headers : dict
+            A dictionary of headers from the client. Keys are strings
+            and values are lists of strings.
+
+        """
 
     def call_completed(self, exception):
-        pass
+        """A callback when the call finishes.
+
+        Parameters
+        ----------
+        exception : ArrowException
+            If the call errored, this is the equivalent
+            exception. Will be None if the call succeeded.
+
+        """
 
     @staticmethod
     cdef void wrap(object py_middleware,
@@ -1850,16 +1905,73 @@ cdef class ClientMiddleware:
 
 
 cdef class ServerMiddlewareFactory:
+    """A factory for new middleware instances.
+
+    All middleware methods will be called from the same thread as the
+    RPC method implementation. That is, thread-locals set in the
+    middleware are accessible from the method itself.
+
+    """
+
     def start_call(self, info, headers):
-        pass
+        """Called at the start of an RPC.
+
+        This must be thread-safe.
+
+        Parameters
+        ----------
+        info : CallInfo
+            Information about the call.
+
+        headers : dict
+            A dictionary of headers from the client. Keys are strings
+            and values are lists of strings.
+
+        Returns
+        -------
+        instance : ServerMiddleware optional
+            An instance of ServerMiddleware (the instance to use for
+            the call), or None if this call is not intercepted.
+
+        Raises
+        ------
+        ArrowException
+            If an exception is raised, the call will be rejected with
+            the given error.
+
+        """
 
 
 cdef class ServerMiddleware:
+    """Server-side middleware for a call, instantiated per RPC.
+
+    Methods here should be fast and must be infalliable: they should
+    not raise exceptions or stall indefinitely.
+
+    """
+
     def sending_headers(self):
-        pass
+        """A callback before headers are sent.
+
+        Returns
+        -------
+        headers : dict optional
+            A dictionary of header values to add to the response, or
+            None if no headers are to be added. The dictionary should
+            have string keys and string or list-of-string values.
+
+        """
 
     def call_completed(self, exception):
-        pass
+        """A callback when the call finishes.
+
+        Parameters
+        ----------
+        exception : ArrowException
+            If the call errored, this is the equivalent
+            exception. Will be None if the call succeeded.
+
+        """
 
     @staticmethod
     cdef void wrap(object py_middleware,
@@ -1871,18 +1983,20 @@ cdef class ServerMiddleware:
 
 
 cdef class _ServerMiddlewareFactoryWrapper(ServerMiddlewareFactory):
-    """
+    """A wrapper that bundles server middleware into a single C++ one.
 
-    gRPC runs RPCs on C++ threads. We use PyGilState_Ensure/Release to
-    interact with the GIL. However, this has a major shortcoming: it
-    breaks thread locals, since PyGilState_Release will clean up
-    Python's thread state (and clean up any thread locals). This makes
+    gRPC runs RPCs on C++ threads, so we use PyGilState_Ensure/Release
+    to interact with the GIL before running Python code. However, this
+    has a major shortcoming: it breaks thread locals. When we enter
+    Python, it creates new thread state. When we exit, that thread
+    state is freed (and Python thread locals cleaned up), since the
+    thread isn't persistent from Python's point of view. This makes
     development of middleware harder than it needs to be.
 
-    Instead, we'll always register a middleware that always runs
-    first/last that artifically makes sure the GIL state stays valid.
-
-    TODO: after this, remove Status from middleware (it just mucks things up)
+    This middleware solves this by first incrementing the reference
+    count on the thread state, then running all Python middleware. It
+    then doesn't decrement the reference count until the call is
+    finished.
 
     """
 
@@ -1902,6 +2016,8 @@ cdef class _ServerMiddlewareFactoryWrapper(ServerMiddlewareFactory):
                 if instance:
                     instances.append(instance)
         except:
+            # Don't artifically keep thread state around if an error
+            # happens
             PyGILState_Release(state)
             raise
 
@@ -1923,8 +2039,16 @@ cdef class _ServerMiddlewareWrapper(ServerMiddleware):
         self.middleware = middleware
 
     def sending_headers(self):
-        # TODO: need to merge all results
-        pass
+        headers = collections.defaultdict(list)
+        for instance in self.middleware:
+            more_headers = instance.sending_headers()
+            # Manually merge with existing headers (since headers are
+            # multi-valued)
+            for key, values in more_headers.items():
+                if isinstance(values, (six.text_type, six.binary_type)):
+                    values = (values,)
+                headers[key].extend(values)
+        return headers
 
     def call_completed(self, exception):
         try:
