@@ -58,5 +58,6 @@ jobs:
           --repo https://github.com/$GITHUB_REPOSITORY \
           --branch $GITHUB_REF \
           --commit $GITHUB_SHA \
+          --property ARROW_S3=OFF \
           "${{ matrix.builder }}"
 
