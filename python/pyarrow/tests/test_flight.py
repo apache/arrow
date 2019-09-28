@@ -764,13 +764,12 @@ def test_tls_fails():
     with ConstantFlightServer(tls_certificates=certs["certificates"]) as s:
         # Ensure client doesn't connect when certificate verification
         # fails (this is a slow test since gRPC does retry a few times)
-        client = FlightServerBase(('localhost', s.port),
-                                  tls_root_certs=certs["root_cert"])
+        client = FlightClient("grpc+tls://localhost:" + str(s.port))
 
         # gRPC error messages change based on version, so don't look
         # for a particular error
         with pytest.raises(flight.FlightUnavailableError):
-            client.do_get(flight.Ticket(b'ints'))
+            client.do_get(flight.Ticket(b'ints')).read_all()
 
 
 @pytest.mark.requires_testing_data
