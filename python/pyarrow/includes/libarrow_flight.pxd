@@ -259,7 +259,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CLocation location
         unique_ptr[CServerAuthHandler] auth_handler
         vector[CCertKeyPair] tls_certificates
-        vector[pair[c_string, shared_ptr[CServerMiddlewareFactory]]] middleware
+        vector[shared_ptr[CServerMiddlewareFactory]] middleware
 
     cdef cppclass CFlightClientOptions" arrow::flight::FlightClientOptions":
         CFlightClientOptions()
@@ -482,3 +482,12 @@ cdef extern from "<utility>" namespace "std":
     unique_ptr[CFlightDataStream] move(unique_ptr[CFlightDataStream]) nogil
     unique_ptr[CServerAuthHandler] move(unique_ptr[CServerAuthHandler]) nogil
     unique_ptr[CClientAuthHandler] move(unique_ptr[CClientAuthHandler]) nogil
+
+# We have to manually write these definitions since they're broken in
+# Cython (until 82a0ed4 is released)
+cdef extern from "Python.h":
+    ctypedef struct PyGILState_STATE:
+        pass
+
+    PyGILState_STATE PyGILState_Ensure()
+    void PyGILState_Release(PyGILState_STATE)

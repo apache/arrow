@@ -28,14 +28,29 @@ namespace arrow {
 
 namespace flight {
 
+/// \brief Server-side middleware for a call, instantiated per RPC.
+///
+/// Middleware should be fast and must be infalliable: there is no way
+/// to reject the call or report errors from the middleware instance.
 class ARROW_FLIGHT_EXPORT ServerMiddleware {
  public:
   virtual ~ServerMiddleware() = default;
 
-  virtual Status SendingHeaders(AddCallHeaders& outgoing_headers) = 0;
-  virtual Status CallCompleted(const Status& status) = 0;
+  /// \brief A callback before headers are sent. Extra headers can be
+  /// added, but existing ones cannot be read.
+  virtual void SendingHeaders(AddCallHeaders& outgoing_headers) = 0;
+
+  /// \brief A callback after the call has completed.
+  virtual void CallCompleted(const Status& status) = 0;
 };
 
+/// \brief A factory for new middleware instances.
+///
+/// If added to a server, this will be called for each RPC (including
+/// Handshake) to give the opportunity to intercept the call.
+///
+/// It is guaranteed that all server middleware methods are called
+/// from the same thread that calls the RPC method implementation.
 class ARROW_FLIGHT_EXPORT ServerMiddlewareFactory {
  public:
   virtual ~ServerMiddlewareFactory() = default;
@@ -50,6 +65,10 @@ class ARROW_FLIGHT_EXPORT ServerMiddlewareFactory {
   /// \param[out] middleware The middleware instance for this call. If
   ///     unset, will not add middleware to this call instance from
   ///     this factory.
+  /// \return Status A non-OK status will reject the call with the
+  ///     given status. Middleware previously in the chain will have
+  ///     their CallCompleted callback called. Other middleware
+  ///     factories will not be called.
   virtual Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
                            std::shared_ptr<ServerMiddleware>* middleware) = 0;
 };

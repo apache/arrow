@@ -1870,6 +1870,70 @@ cdef class ServerMiddleware:
         c_instance[0].reset(new CPyServerMiddleware(py_middleware, vtable))
 
 
+cdef class _ServerMiddlewareFactoryWrapper(ServerMiddlewareFactory):
+    """
+
+    gRPC runs RPCs on C++ threads. We use PyGilState_Ensure/Release to
+    interact with the GIL. However, this has a major shortcoming: it
+    breaks thread locals, since PyGilState_Release will clean up
+    Python's thread state (and clean up any thread locals). This makes
+    development of middleware harder than it needs to be.
+
+    Instead, we'll always register a middleware that always runs
+    first/last that artifically makes sure the GIL state stays valid.
+
+    TODO: after this, remove Status from middleware (it just mucks things up)
+
+    """
+
+    cdef:
+        list factories
+
+    def __init__(self, factories):
+        self.factories = factories
+
+    def start_call(self, info, headers):
+        cdef PyGILState_STATE state = PyGILState_Ensure()
+
+        instances = []
+        try:
+            for factory in self.factories:
+                instance = factory.start_call(info, headers)
+                if instance:
+                    instances.append(instance)
+        except:
+            PyGILState_Release(state)
+            raise
+
+        if not instances:
+            PyGILState_Release(state)
+            return
+
+        wrapper = _ServerMiddlewareWrapper(instances)
+        wrapper.state = state
+        return wrapper
+
+
+cdef class _ServerMiddlewareWrapper(ServerMiddleware):
+    cdef:
+        PyGILState_STATE state
+        list middleware
+
+    def __init__(self, list middleware):
+        self.middleware = middleware
+
+    def sending_headers(self):
+        # TODO: need to merge all results
+        pass
+
+    def call_completed(self, exception):
+        try:
+            for instance in self.middleware:
+                instance.call_completed(exception)
+        finally:
+            PyGILState_Release(self.state)
+
+
 cdef class FlightServerBase:
     """A Flight service definition.
 
@@ -1886,7 +1950,7 @@ cdef class FlightServerBase:
         An authentication mechanism to use. May be None.
     tls_certificates : list optional, default None
         A list of (certificate, key) pairs.
-    middleware : dict optional, default None
+    middleware : list optional, default None
         A dictionary of (middleware key, middleware factory) items.
     """
 
@@ -1911,14 +1975,13 @@ cdef class FlightServerBase:
         self.init(location, auth_handler, tls_certificates, middleware)
 
     cdef init(self, Location location, ServerAuthHandler auth_handler,
-              list tls_certificates, dict middleware):
+              list tls_certificates, list middleware):
         cdef:
             PyFlightServerVtable vtable = PyFlightServerVtable()
             PyFlightServer* c_server
             unique_ptr[CFlightServerOptions] c_options
             CCertKeyPair c_cert
-            pair[c_string, shared_ptr[CServerMiddlewareFactory]] \
-                middleware_pair
+            shared_ptr[CServerMiddlewareFactory] c_middleware
             function[cb_server_middleware_start_call] start_call = \
                 &_server_middleware_start_call
 
@@ -1938,12 +2001,16 @@ cdef class FlightServerBase:
                 c_options.get().tls_certificates.push_back(c_cert)
 
         if middleware:
-            # Takes advantage of dict ordering in Python>=3.6
-            for key, factory in middleware.items():
-                middleware_pair.first = tobytes(key)
-                middleware_pair.second.reset(
-                    new CPyServerMiddlewareFactory(factory, start_call))
-                c_options.get().middleware.push_back(middleware_pair)
+            py_middleware = _ServerMiddlewareFactoryWrapper(middleware)
+            c_middleware.reset(new CPyServerMiddlewareFactory(
+                py_middleware,
+                start_call))
+            c_options.get().middleware.push_back(c_middleware)
+            # for key, factory in middleware.items():
+            #     middleware_pair.first = tobytes(key)
+            #     middleware_pair.second.reset(
+            #         new CPyServerMiddlewareFactory(factory, start_call))
+            #     c_options.get().middleware.push_back(middleware_pair)
 
         vtable.list_flights = &_list_flights
         vtable.get_flight_info = &_get_flight_info

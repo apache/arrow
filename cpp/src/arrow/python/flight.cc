@@ -265,21 +265,27 @@ PyServerMiddleware::PyServerMiddleware(PyObject* middleware, Vtable vtable)
   middleware_.reset(middleware);
 }
 
-Status PyServerMiddleware::SendingHeaders(
-    arrow::flight::AddCallHeaders& outgoing_headers) {
-  return SafeCallIntoPython([&] {
+void PyServerMiddleware::SendingHeaders(arrow::flight::AddCallHeaders& outgoing_headers) {
+  const Status& status = SafeCallIntoPython([&] {
     const Status status = vtable_.sending_headers(middleware_.obj(), outgoing_headers);
     RETURN_NOT_OK(CheckPyError());
     return status;
   });
+
+  if (!status.ok()) {
+    ARROW_LOG(WARNING) << "Python middleware failed in SendingHeaders: " << status;
+  }
 }
 
-Status PyServerMiddleware::CallCompleted(const Status& call_status) {
-  return SafeCallIntoPython([&] {
+void PyServerMiddleware::CallCompleted(const Status& call_status) {
+  const Status& status = SafeCallIntoPython([&] {
     const Status status = vtable_.call_completed(middleware_.obj(), call_status);
     RETURN_NOT_OK(CheckPyError());
     return status;
   });
+  if (!status.ok()) {
+    ARROW_LOG(WARNING) << "Python middleware failed in CallCompleted: " << status;
+  }
 }
 
 // Flight Client Middleware

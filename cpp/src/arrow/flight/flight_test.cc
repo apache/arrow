@@ -594,14 +594,13 @@ class CountingServerMiddleware : public ServerMiddleware {
  public:
   CountingServerMiddleware(std::atomic<int>* successful, std::atomic<int>* failed)
       : successful_(successful), failed_(failed) {}
-  Status SendingHeaders(AddCallHeaders& outgoing_headers) { return Status::OK(); }
-  Status CallCompleted(const Status& status) {
+  void SendingHeaders(AddCallHeaders& outgoing_headers) {}
+  void CallCompleted(const Status& status) {
     if (status.ok()) {
       ARROW_IGNORE_EXPR((*successful_)++);
     } else {
       ARROW_IGNORE_EXPR((*failed_)++);
     }
-    return Status::OK();
   }
 
  private:
@@ -623,15 +622,6 @@ class CountingServerMiddlewareFactory : public ServerMiddlewareFactory {
   std::atomic<int> failed_;
 };
 
-class TracingServerMiddleware : public ServerMiddleware {
- public:
-  TracingServerMiddleware(const std::string& span_id) : span_id_(span_id) {}
-  Status SendingHeaders(AddCallHeaders& outgoing_headers) { return Status::OK(); }
-  Status CallCompleted(const Status& status) { return Status::OK(); }
-
-  std::string span_id_;
-};
-
 static thread_local std::string current_span_id = "";
 
 class TracingServerMiddlewareFactory : public ServerMiddlewareFactory {
@@ -645,7 +635,6 @@ class TracingServerMiddlewareFactory : public ServerMiddlewareFactory {
       const auto& value = (*iter_pair.first).second;
       const std::string copy(value);
       current_span_id = copy;
-      *middleware = std::make_shared<TracingServerMiddleware>(copy);
     }
     return Status::OK();
   }
@@ -700,15 +689,8 @@ class PropagatingClientMiddlewareFactory : public ClientMiddlewareFactory {
 class ReportContextTestServer : public FlightServerBase {
   Status DoAction(const ServerCallContext& context, const Action& action,
                   std::unique_ptr<ResultStream>* result) override {
-    std::shared_ptr<TracingServerMiddleware> middleware =
-        std::static_pointer_cast<TracingServerMiddleware>(
-            context.GetMiddleware("tracing"));
     std::shared_ptr<Buffer> buf;
-    if (middleware) {
-      RETURN_NOT_OK(Buffer::FromString(middleware->span_id_, &buf));
-    } else {
-      RETURN_NOT_OK(Buffer::FromString("", &buf));
-    }
+    RETURN_NOT_OK(Buffer::FromString(current_span_id, &buf));
     *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
     return Status::OK();
   }
@@ -736,9 +718,7 @@ class TestServerMiddleware : public ::testing::Test {
 
     ASSERT_OK(Location::ForGrpcTcp("localhost", 0, &location));
     FlightServerOptions options(location);
-    options.middleware.push_back(
-        std::make_pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>(
-            "test", std::make_shared<RejectServerMiddlewareFactory>()));
+    options.middleware.push_back(std::make_shared<RejectServerMiddlewareFactory>());
     ASSERT_OK(server->Init(options));
 
     Location real_location;
@@ -767,9 +747,7 @@ class TestCountingServerMiddleware : public ::testing::Test {
 
     ASSERT_OK(Location::ForGrpcTcp("localhost", 0, &location));
     FlightServerOptions options(location);
-    options.middleware.push_back(
-        std::make_pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>(
-            "counting", request_counter_));
+    options.middleware.push_back(request_counter_);
     ASSERT_OK(server->Init(options));
 
     Location real_location;
@@ -808,9 +786,7 @@ class TestPropagatingMiddleware : public ::testing::Test {
 
     second_server_ = arrow::internal::make_unique<ReportContextTestServer>();
     FlightServerOptions second_server_options(location);
-    second_server_options.middleware.push_back(
-        std::make_pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>(
-            "tracing", server_middleware_));
+    second_server_options.middleware.push_back(server_middleware_);
     ASSERT_OK(second_server_->Init(second_server_options));
 
     Location real_location;
@@ -825,9 +801,7 @@ class TestPropagatingMiddleware : public ::testing::Test {
         arrow::internal::make_unique<PropagatingTestServer>(std::move(server_client));
 
     FlightServerOptions first_server_options(location);
-    first_server_options.middleware.push_back(
-        std::make_pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>(
-            "tracing", server_middleware_));
+    first_server_options.middleware.push_back(server_middleware_);
     ASSERT_OK(first_server_->Init(first_server_options));
 
     ASSERT_OK(Location::ForGrpcTcp("localhost", first_server_->port(), &real_location));

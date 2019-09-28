@@ -102,10 +102,6 @@ class ARROW_FLIGHT_EXPORT ServerCallContext {
   virtual ~ServerCallContext() = default;
   /// \brief The name of the authenticated peer (may be the empty string)
   virtual const std::string& peer_identity() const = 0;
-  /// \brief Get a middleware instance for this call.
-  /// \return nullptr if not found
-  virtual std::shared_ptr<ServerMiddleware> GetMiddleware(
-      const std::string& key) const = 0;
 };
 
 class ARROW_FLIGHT_EXPORT FlightServerOptions {
@@ -124,9 +120,8 @@ class ARROW_FLIGHT_EXPORT FlightServerOptions {
 
   /// \brief A list of server middleware to apply.
   ///
-  /// It is a vector rather than a map since the order of middleware matters.
-  std::vector<std::pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>>
-      middleware;
+  /// Middleware are always applied in the order provided.
+  std::vector<std::shared_ptr<ServerMiddlewareFactory>> middleware;
 
   /// \brief A Flight implementation-specific callback to customize
   /// transport-specific options.

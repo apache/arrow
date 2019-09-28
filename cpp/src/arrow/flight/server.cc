@@ -237,14 +237,6 @@ class FlightServiceImpl;
 class GrpcServerCallContext : public ServerCallContext {
   const std::string& peer_identity() const override { return peer_identity_; }
 
-  std::shared_ptr<ServerMiddleware> GetMiddleware(const std::string& key) const override {
-    auto result = middleware_map_.find(key);
-    if (result == middleware_map_.end()) {
-      return nullptr;
-    }
-    return result->second;
-  }
-
   // Helper method that runs interceptors given the result of an RPC,
   // then returns the final gRPC status to send to the client
   grpc::Status finish_request(const grpc::Status& status) {
@@ -255,8 +247,7 @@ class GrpcServerCallContext : public ServerCallContext {
 
   grpc::Status finish_request(const arrow::Status& status) {
     for (const auto& instance : middleware_) {
-      // If an error occurs here, remainder of middleware are aborted
-      GRPC_RETURN_NOT_OK(instance->CallCompleted(status));
+      instance->CallCompleted(status);
     }
     return internal::ToGrpcStatus(status);
   }
@@ -266,8 +257,6 @@ class GrpcServerCallContext : public ServerCallContext {
   ServerContext* context_;
   std::string peer_identity_;
   std::vector<std::shared_ptr<ServerMiddleware>> middleware_;
-  mutable std::unordered_map<std::string, std::shared_ptr<ServerMiddleware>>
-      middleware_map_;
 };
 
 class GrpcAddCallHeaders : public AddCallHeaders {
@@ -289,8 +278,7 @@ class FlightServiceImpl : public FlightService::Service {
  public:
   explicit FlightServiceImpl(
       std::shared_ptr<ServerAuthHandler> auth_handler,
-      std::vector<std::pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>>
-          middleware,
+      std::vector<std::shared_ptr<ServerMiddlewareFactory>> middleware,
       FlightServerBase* server)
       : auth_handler_(auth_handler),
         middleware_(std::move(middleware)),
@@ -366,7 +354,7 @@ class FlightServiceImpl : public FlightService::Service {
     GrpcAddCallHeaders outgoing_headers(context);
     for (const auto& factory : middleware_) {
       std::shared_ptr<ServerMiddleware> instance;
-      Status result = factory.second->StartCall(info, incoming_headers, &instance);
+      Status result = factory->StartCall(info, incoming_headers, &instance);
       if (!result.ok()) {
         // Interceptor rejected call, end the request on all existing
         // interceptors
@@ -374,13 +362,7 @@ class FlightServiceImpl : public FlightService::Service {
       }
       if (instance) {
         flight_context.middleware_.push_back(instance);
-        flight_context.middleware_map_[factory.first] = instance;
-        result = instance->SendingHeaders(outgoing_headers);
-        if (!result.ok()) {
-          // Interceptor rejected call, end the request on all existing
-          // interceptors
-          return flight_context.finish_request(result);
-        }
+        instance->SendingHeaders(outgoing_headers);
       }
     }
 
@@ -580,8 +562,7 @@ class FlightServiceImpl : public FlightService::Service {
 
  private:
   std::shared_ptr<ServerAuthHandler> auth_handler_;
-  std::vector<std::pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>>
-      middleware_;
+  std::vector<std::shared_ptr<ServerMiddlewareFactory>> middleware_;
   FlightServerBase* server_;
 };
 

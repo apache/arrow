@@ -217,8 +217,8 @@ class ARROW_PYTHON_EXPORT PyServerMiddleware : public arrow::flight::ServerMiddl
   /// \brief Must only be called while holding the GIL.
   explicit PyServerMiddleware(PyObject* middleware, Vtable vtable);
 
-  Status SendingHeaders(arrow::flight::AddCallHeaders& outgoing_headers) override;
-  Status CallCompleted(const Status& status) override;
+  void SendingHeaders(arrow::flight::AddCallHeaders& outgoing_headers) override;
+  void CallCompleted(const Status& status) override;
 
  private:
   OwnedRefNoGIL middleware_;
