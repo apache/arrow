@@ -1,0 +1,21 @@
+name: CI
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout Ursabot
+      uses: actions/checkout@v1
+      with:
+        repository: https://github.com/ursa-labs/ursabot
+        ref: master
+        path: ursabot
+
+    - name: Check Docker
+      run: docker --version
+    - name: Check Python
+      run: python --version
