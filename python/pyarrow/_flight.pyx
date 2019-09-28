@@ -1696,7 +1696,7 @@ cdef dict convert_headers(const CCallHeaders& c_headers):
     headers = {}
     while header_iter != c_headers.cend():
         header = frombytes(c_string(deref(header_iter).first))
-        value = frombytes(c_string(deref(header_iter).second))
+        value = c_string(deref(header_iter).second)
         if header not in headers:
             headers[header] = []
         headers[header].append(value)
@@ -1879,7 +1879,7 @@ cdef class ClientMiddleware:
         ----------
         headers : dict
             A dictionary of headers from the client. Keys are strings
-            and values are lists of strings.
+            and values are lists of bytes.
 
         """
 
@@ -2021,10 +2021,8 @@ cdef class _ServerMiddlewareFactoryWrapper(ServerMiddlewareFactory):
             PyGILState_Release(state)
             raise
 
-        if not instances:
-            PyGILState_Release(state)
-            return
-
+        # Even if there's no middleware, we need to keep thread state
+        # alive
         wrapper = _ServerMiddlewareWrapper(instances)
         wrapper.state = state
         return wrapper
@@ -2042,6 +2040,8 @@ cdef class _ServerMiddlewareWrapper(ServerMiddleware):
         headers = collections.defaultdict(list)
         for instance in self.middleware:
             more_headers = instance.sending_headers()
+            if not more_headers:
+                continue
             # Manually merge with existing headers (since headers are
             # multi-valued)
             for key, values in more_headers.items():

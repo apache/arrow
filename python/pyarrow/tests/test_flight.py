@@ -411,6 +411,60 @@ class TokenClientAuthHandler(ClientAuthHandler):
         return self.token
 
 
+_thread_locals = threading.local()
+_thread_locals.sentinel = "wrong value"
+
+
+class ThreadLocalServerMiddleware(flight.ServerMiddleware):
+    def sending_headers(self):
+        assert _thread_locals.sentinel == "right value"
+
+    def call_completed(self, exception):
+        ThreadLocalServerMiddlewareFactory.last_sentinel = _thread_locals.sentinel
+
+
+class ThreadLocalServerMiddlewareFactory(flight.ServerMiddlewareFactory):
+    last_sentinel = None
+
+    def start_call(self, info, headers):
+        _thread_locals.sentinel = "right value"
+        return ThreadLocalServerMiddleware()
+
+
+class ThreadLocalFlightServer(FlightServerBase):
+    def do_action(self, context, action):
+        return iter([flight.Result(getattr(_thread_locals, "sentinel", "wrong value").encode())])
+
+
+class SelectiveAuthServerMiddlewareFactory(flight.ServerMiddlewareFactory):
+    def start_call(self, info, headers):
+        if info.method == flight.FlightMethod.LIST_ACTIONS:
+            # No auth needed
+            return
+
+        token = headers.get("x-auth-token")
+        if not token:
+            raise flight.FlightUnauthenticatedError("No token")
+
+        token = token[0]
+        if token != b"password":
+            raise flight.FlightUnauthenticatedError("Invalid token")
+
+        _thread_locals.sentinel = "password"
+
+
+class SelectiveAuthClientMiddlewareFactory(flight.ClientMiddlewareFactory):
+    def start_call(self, info):
+        return SelectiveAuthClientMiddleware()
+
+
+class SelectiveAuthClientMiddleware(flight.ClientMiddleware):
+    def sending_headers(self):
+        return {
+            "x-auth-token": "password",
+        }
+
+
 def test_flight_server_location_argument():
     locations = [
         None,
@@ -923,3 +977,36 @@ def test_do_put_independent_read_write():
         # writer.close() won't segfault since reader thread has
         # stopped
         assert count[0] == len(batches)
+
+
+def test_server_middleware_same_thread():
+    """Ensure that server middleware run on the same thread as the RPC."""
+    with ThreadLocalFlightServer(middleware=[
+            ThreadLocalServerMiddlewareFactory(),
+    ]) as server:
+        client = FlightClient(('localhost', server.port))
+        results = list(client.do_action(flight.Action(b"test", b"")))
+        assert len(results) == 1
+        value = results[0].body.to_pybytes()
+        assert b"right value" == value
+        assert "right value" == ThreadLocalServerMiddlewareFactory.last_sentinel
+
+
+def test_middleware_reject():
+    """Test rejecting an RPC with server middleware."""
+    with ThreadLocalFlightServer(middleware=[
+            SelectiveAuthServerMiddlewareFactory(),
+    ]) as server:
+        client = FlightClient(('localhost', server.port))
+        with pytest.raises(pa.ArrowNotImplementedError):
+            list(client.list_actions())
+
+        with pytest.raises(flight.FlightUnauthenticatedError):
+            list(client.do_action(flight.Action(b"", b"")))
+
+        client = FlightClient(
+            ('localhost', server.port),
+            middleware=[SelectiveAuthClientMiddlewareFactory()]
+        )
+        response = next(client.do_action(flight.Action(b"", b"")))
+        assert b"password" == response.body.to_pybytes()
