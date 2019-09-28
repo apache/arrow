@@ -14,9 +14,11 @@ jobs:
         repository: ursa-labs/ursabot
         ref: refs/heads/master
         path: ursabot
+    - name: Install Python
+      uses: actions/setup-python@v1
+      with:
+        python-version: '3.7'
     - name: Install Ursabot
-      run: |
-        pip3 install ursabot
-        pip3 install -e ../ursabot
+      run: pip install -e ../ursabot
     - name: Check Ursabot Command
       run: ursabot --help
