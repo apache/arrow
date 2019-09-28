@@ -7,7 +7,19 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        builder:
+        - "AMD64 Debian 9 Rust 1.35"
+        - "AMD64 Debian 9 Go 1.11.11"
+        - "AMD64 Debian 9 Go 1.12.6"
+        - "AMD64 Conda C++"
+        - "AMD64 Conda Python 2.7"
+        - "AMD64 Conda Python 3.6"
+        - "AMD64 Conda Python 3.7"
+
     steps:
+
     - name: Checkout Ursabot
       uses: actions/checkout@v1
       with:
@@ -22,12 +34,13 @@ jobs:
       run: pip install -e ../ursabot
     - name: Check Ursabot Command
       run: ursabot --help
-    - name: Run Rust Builder
+
+    - name: Run ${{ matrix.builder }} Builder
       run: |
         cd ../ursabot/projects/arrow
         ursabot project build \
           --repo https://github.com/$GITHUB_REPOSITORY \
           --branch $GITHUB_REF \
           --commit $GITHUB_SHA \
-          "AMD64 Debian 9 Rust 1.35"
+          "${{ matrix.builder }}"
 
