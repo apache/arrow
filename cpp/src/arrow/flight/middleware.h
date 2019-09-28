@@ -68,14 +68,21 @@ struct ARROW_FLIGHT_EXPORT HeaderIterator {
 /// \brief A read-only wrapper around headers for an RPC call.
 class ARROW_FLIGHT_EXPORT CallHeaders {
  public:
+  /// \brief The iterator type. Dereferences to a std::pair of string
+  /// views.
   typedef HeaderIterator const_iterator;
 
   virtual ~CallHeaders() = default;
 
+  /// \brief Get all the values for the given header.
   virtual std::pair<const_iterator, const_iterator> GetHeaders(
       const std::string& key) const = 0;
+  /// \brief Count the number of values for the header (returns 0 if
+  /// header does not exist).
   virtual std::size_t Count(const std::string& key) const = 0;
+  /// \brief Const iterator for header-value pairs.
   virtual const_iterator cbegin() const noexcept = 0;
+  /// \brief Const iterator for header-value pairs.
   virtual const_iterator cend() const noexcept = 0;
 };
 
@@ -84,6 +91,7 @@ class ARROW_FLIGHT_EXPORT AddCallHeaders {
  public:
   virtual ~AddCallHeaders() = default;
 
+  /// \brief Add a header to be sent to the client.
   virtual void AddHeader(const std::string& key, const std::string& value) = 0;
 };
 
@@ -103,6 +111,7 @@ enum class FlightMethod : char {
 /// \brief Information about an instance of a Flight RPC.
 class ARROW_FLIGHT_EXPORT CallInfo {
  public:
+  /// \brief The RPC method of this call.
   FlightMethod method;
 };
 

@@ -1845,7 +1845,7 @@ cdef class ClientMiddlewareFactory:
 
         Returns
         -------
-        instance : ClientMiddleware optional
+        instance : ClientMiddleware
             An instance of ClientMiddleware (the instance to use for
             the call), or None if this call is not intercepted.
 
@@ -1865,7 +1865,7 @@ cdef class ClientMiddleware:
 
         Returns
         -------
-        headers : dict optional
+        headers : dict
             A dictionary of header values to add to the response, or
             None if no headers are to be added. The dictionary should
             have string keys and string or list-of-string values.
@@ -1929,13 +1929,13 @@ cdef class ServerMiddlewareFactory:
 
         Returns
         -------
-        instance : ServerMiddleware optional
+        instance : ServerMiddleware
             An instance of ServerMiddleware (the instance to use for
             the call), or None if this call is not intercepted.
 
         Raises
         ------
-        ArrowException
+        exception : pyarrow.ArrowException
             If an exception is raised, the call will be rejected with
             the given error.
 
@@ -1955,7 +1955,7 @@ cdef class ServerMiddleware:
 
         Returns
         -------
-        headers : dict optional
+        headers : dict
             A dictionary of header values to add to the response, or
             None if no headers are to be added. The dictionary should
             have string keys and string or list-of-string values.
@@ -1967,7 +1967,7 @@ cdef class ServerMiddleware:
 
         Parameters
         ----------
-        exception : ArrowException
+        exception : pyarrow.ArrowException
             If the call errored, this is the equivalent
             exception. Will be None if the call succeeded.
 
@@ -2075,7 +2075,7 @@ cdef class FlightServerBase:
     tls_certificates : list optional, default None
         A list of (certificate, key) pairs.
     middleware : list optional, default None
-        A dictionary of (middleware key, middleware factory) items.
+        A dictionary of :class:`ServerMiddlewareFactory` items.
     """
 
     cdef:
