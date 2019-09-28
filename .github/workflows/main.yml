@@ -8,6 +8,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: PWD
+      run: pwd
     - name: Checkout Ursabot
       uses: actions/checkout@v1
       with:
@@ -16,6 +18,8 @@ jobs:
         path: ursabot
     - name: LS
       run: ls -lah
+    - name: PWD
+      run: pwd
     - name: Install Ursabot
       run: pip3 install -e ./ursabot
     - name: Check Ursabot Command
