@@ -15,38 +15,38 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Windows MSVC C++
-on:
-  - push
-  - pull_request
-jobs:
-  build:
-    name: Build
-    strategy:
-      matrix:
-        cmake-generator:
-          - Visual Studio 16 2019
-          - Visual Studio 15 2017
-        include:
-          - cmake-generator: Visual Studio 16 2019
-            os: windows-2019
-          - cmake-generator: Visual Studio 15 2017
-            os: windows-2016
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@master
-      - name: CMake
-        run: |
-          mkdir build\cpp
-          cmake ^
-            -G "${{ matrix.cmake-generator }}" ^
-            -A x64 ^
-            -DARROW_USE_GLOG=OFF ^
-            -DARROW_WITH_LZ4=OFF ^
-            -DARROW_WITH_ZLIB=OFF ^
-            -DCMAKE_INSTALL_PREFIX=install ^
-            -S cpp ^
-            -B build\cpp
-      - name: Install
-        run: |
-          cmake --build build\cpp --config Debug --target Install
+# name: Windows MSVC C++
+# on:
+#   - push
+#   - pull_request
+# jobs:
+#   build:
+#     name: Build
+#     strategy:
+#       matrix:
+#         cmake-generator:
+#           - Visual Studio 16 2019
+#           - Visual Studio 15 2017
+#         include:
+#           - cmake-generator: Visual Studio 16 2019
+#             os: windows-2019
+#           - cmake-generator: Visual Studio 15 2017
+#             os: windows-2016
+#     runs-on: ${{ matrix.os }}
+#     steps:
+#       - uses: actions/checkout@master
+#       - name: CMake
+#         run: |
+#           mkdir build\cpp
+#           cmake ^
+#             -G "${{ matrix.cmake-generator }}" ^
+#             -A x64 ^
+#             -DARROW_USE_GLOG=OFF ^
+#             -DARROW_WITH_LZ4=OFF ^
+#             -DARROW_WITH_ZLIB=OFF ^
+#             -DCMAKE_INSTALL_PREFIX=install ^
+#             -S cpp ^
+#             -B build\cpp
+#       - name: Install
+#         run: |
+#           cmake --build build\cpp --config Debug --target Install
