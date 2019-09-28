@@ -18,6 +18,10 @@ jobs:
         path: ursabot
     - name: LS
       run: ls -lah
+    - name: LS
+      run: ls -lah ..
+    - name: LS
+      run: ls -lah ../..
     - name: PWD
       run: pwd
     - name: Install Ursabot
