@@ -280,6 +280,10 @@ RecordBatch__Filter <- function(batch, filter){
     .Call(`_arrow_RecordBatch__Filter` , batch, filter)
 }
 
+ChunkedArray__Filter <- function(values, filter){
+    .Call(`_arrow_ChunkedArray__Filter` , values, filter)
+}
+
 csv___ReadOptions__initialize <- function(options){
     .Call(`_arrow_csv___ReadOptions__initialize` , options)
 }

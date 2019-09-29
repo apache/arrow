@@ -477,3 +477,14 @@ test_that("[ method on Array", {
   expect_equal(as.vector(a[-4]), vec[-4])
   expect_equal(as.vector(a[-1]), vec[-1])
 })
+
+test_that("Array$Filter(Array$Slice)", {
+  a <- Array$create(1:5)
+  f <- Array$create(c(FALSE, TRUE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE))
+  expect_equal(as.vector(a$Filter(f$Slice(0, 5))), c(2, 5))
+  skip("Filtering on a Slice with an offset reaches into memory it shouldn't")
+  expect_equal(as.vector(a$Filter(f$Slice(1, 5))), c(1, 4))
+  expect_equal(as.vector(a$Filter(f$Slice(2, 5))), 3)
+  expect_equal(as.vector(a$Filter(f$Slice(3, 5))), 2)
+  expect_error(as.vector(a$Filter(f$Slice(4, 5))))
+})

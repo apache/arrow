@@ -87,7 +87,7 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = Object,
       if (is.logical(i)) {
         i <- Array$create(i)
       }
-      stop("TODO: slice and filter; need to implement Array__Filter too")
+      shared_ptr(ChunkedArray, ChunkedArray__Filter(self, i))
     },
     cast = function(target_type, safe = TRUE, options = cast_options(safe)) {
       assert_is(target_type, "DataType")

@@ -136,4 +136,26 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__Filter(
   return arrow::RecordBatch::Make(batch->schema(), columns[0]->length(), columns);
 }
 
+// [[arrow::export]]
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Filter(
+    const std::shared_ptr<arrow::ChunkedArray>& values,
+    const std::shared_ptr<arrow::Array>& filter) {
+
+  arrow::compute::FunctionContext context;
+  int num_chunks = values->num_chunks();
+  std::vector<std::shared_ptr<arrow::Array>> new_chunks(num_chunks);
+  std::shared_ptr<arrow::Array> current_chunk;
+  int offset = 0;
+  int len;
+
+  for (R_xlen_t i = 0; i < num_chunks; i++) {
+    current_chunk = values->chunk(i);
+    len = current_chunk->length();
+    new_chunks[i] = Array__Filter(current_chunk, filter->Slice(offset, len));
+    offset += len;
+  }
+
+  return std::make_shared<arrow::ChunkedArray>(std::move(new_chunks));
+}
+
 #endif
