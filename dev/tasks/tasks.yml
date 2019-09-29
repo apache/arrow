@@ -80,7 +80,6 @@ groups:
     - docker-cpp-alpine
     - docker-cpp-cmake32
     - docker-cpp-release
-    - docker-cpp-fuzzit
     - docker-cpp-static-only
     - docker-c_glib
     - docker-go
@@ -174,7 +173,6 @@ groups:
     - docker-cpp
     - docker-cpp-cmake32
     - docker-cpp-release
-    - docker-cpp-fuzzit
     - docker-cpp-static-only
     - docker-c_glib
     - docker-go
