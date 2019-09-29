@@ -36,6 +36,7 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.junit.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Scope;
@@ -48,91 +49,150 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 /**
- * Benchmarks for avro adapter.
+ * Benchmarks for Jdbc adapter.
  */
-@State(Scope.Benchmark)
 public class JdbcAdapterBenchmarks {
 
-  private final int valueCount = 3000;
-  private JdbcToArrowConfig config;
-
-  private Connection conn = null;
-  private ResultSet resultSet = null;
-
-  /**
-   * Result set for the consumer benchmark.
-   */
-  private ResultSet consumerResultSet = null;
-
-  private IntVector intVector;
-  private IntConsumer intConsumer;
-
-  private Statement statement;
-
-  private BaseAllocator allocator;
+  private static final int VALUE_COUNT = 3000;
 
   private static final String CREATE_STATEMENT =
-      "CREATE TABLE test_table (f0 INT, f1 LONG, f2 VARCHAR, f3 BOOLEAN);";
+          "CREATE TABLE test_table (f0 INT, f1 LONG, f2 VARCHAR, f3 BOOLEAN);";
   private static final String INSERT_STATEMENT =
-      "INSERT INTO test_table (f0, f1, f2, f3) VALUES (?, ?, ?, ?);";
+          "INSERT INTO test_table (f0, f1, f2, f3) VALUES (?, ?, ?, ?);";
   private static final String QUERY = "SELECT f0, f1, f2, f3 FROM test_table;";
   private static final String DROP_STATEMENT = "DROP TABLE test_table;";
 
+  private static final String URL = "jdbc:h2:mem:JdbcAdapterBenchmarks";
+  private static final String DRIVER = "org.h2.Driver";
+
   /**
-   * Setup benchmarks.
+   * State object for the jdbc e2e benchmark.
    */
-  @Setup
-  public void prepare() throws Exception {
-    allocator = new RootAllocator(Integer.MAX_VALUE);
-    config = new JdbcToArrowConfigBuilder().setAllocator(allocator).setTargetBatchSize(1024).build();
+  @State(Scope.Benchmark)
+  public static class JdbcState {
 
-    String url = "jdbc:h2:mem:JdbcAdapterBenchmarks";
-    String driver = "org.h2.Driver";
-    Class.forName(driver);
-    conn = DriverManager.getConnection(url);
-    try (Statement stmt = conn.createStatement()) {
-      stmt.executeUpdate(CREATE_STATEMENT);
-    }
+    private Connection conn = null;
 
-    for (int i = 0; i < valueCount; i++) {
-      // Insert data
-      try (PreparedStatement stmt = conn.prepareStatement(INSERT_STATEMENT)) {
+    private ResultSet resultSet = null;
 
-        stmt.setInt(1, i);
-        stmt.setLong(2, i);
-        stmt.setString(3, "test" + i);
-        stmt.setBoolean(4, i % 2 == 0);
-        stmt.executeUpdate();
+    private BaseAllocator allocator;
+
+    private Statement statement;
+
+    private JdbcToArrowConfig config;
+
+    @Setup(Level.Trial)
+    public void prepareState() throws Exception {
+      allocator = new RootAllocator(Integer.MAX_VALUE);
+      config = new JdbcToArrowConfigBuilder().setAllocator(allocator).setTargetBatchSize(1024).build();
+      Class.forName(DRIVER);
+      conn = DriverManager.getConnection(URL);
+
+      try (Statement stmt = conn.createStatement()) {
+        stmt.executeUpdate(CREATE_STATEMENT);
+      }
+
+      for (int i = 0; i < VALUE_COUNT; i++) {
+        // Insert data
+        try (PreparedStatement stmt = conn.prepareStatement(INSERT_STATEMENT)) {
+
+          stmt.setInt(1, i);
+          stmt.setLong(2, i);
+          stmt.setString(3, "test" + i);
+          stmt.setBoolean(4, i % 2 == 0);
+          stmt.executeUpdate();
+        }
       }
     }
 
-    statement = conn.createStatement();
-    resultSet = statement.executeQuery(QUERY);
+    @Setup(Level.Invocation)
+    public void prepareInvoke() throws Exception {
+      statement = conn.createStatement();
+      resultSet = statement.executeQuery(QUERY);
+    }
 
-    consumerResultSet = statement.executeQuery(QUERY);
-    consumerResultSet.next();
+    @TearDown(Level.Invocation)
+    public void tearDownInvoke() throws Exception {
+      resultSet.close();
+      statement.close();
+    }
 
-    intVector = new IntVector("", allocator);
-    intVector.allocateNew(valueCount);
-    intConsumer = new IntConsumer(intVector, 1, true);
+    @TearDown(Level.Trial)
+    public void tearDownState() throws Exception {
+      try (Statement stmt = conn.createStatement()) {
+        stmt.executeUpdate(DROP_STATEMENT);
+      }
+      allocator.close();
+    }
   }
 
   /**
-   * Tear down benchmarks.
+   * State object for the consume benchmark.
    */
-  @TearDown
-  public void tearDown() throws Exception {
-    statement.executeUpdate(DROP_STATEMENT);
+  @State(Scope.Benchmark)
+  public static class ConsumeState {
 
-    resultSet.close();
-    consumerResultSet.close();
-    statement.close();
-    conn.close();
+    private Connection conn = null;
 
-    intVector.close();
-    intConsumer.close();
+    private ResultSet resultSet = null;
 
-    allocator.close();
+    private BaseAllocator allocator;
+
+    private Statement statement;
+
+    private IntVector intVector;
+
+    private IntConsumer intConsumer;
+
+    private JdbcToArrowConfig config;
+
+    @Setup(Level.Trial)
+    public void prepare() throws Exception {
+      allocator = new RootAllocator(Integer.MAX_VALUE);
+      config = new JdbcToArrowConfigBuilder().setAllocator(allocator).setTargetBatchSize(1024).build();
+
+      Class.forName(DRIVER);
+      conn = DriverManager.getConnection(URL);
+      try (Statement stmt = conn.createStatement()) {
+        stmt.executeUpdate(CREATE_STATEMENT);
+      }
+
+      for (int i = 0; i < VALUE_COUNT; i++) {
+        // Insert data
+        try (PreparedStatement stmt = conn.prepareStatement(INSERT_STATEMENT)) {
+
+          stmt.setInt(1, i);
+          stmt.setLong(2, i);
+          stmt.setString(3, "test" + i);
+          stmt.setBoolean(4, i % 2 == 0);
+          stmt.executeUpdate();
+        }
+      }
+
+      statement = conn.createStatement();
+      resultSet = statement.executeQuery(QUERY);
+      resultSet.next();
+
+      intVector = new IntVector("", allocator);
+      intVector.allocateNew(VALUE_COUNT);
+      intConsumer = new IntConsumer(intVector, 1, true);
+    }
+
+    @TearDown(Level.Trial)
+    public void tearDown() throws Exception {
+      try (Statement stmt = conn.createStatement()) {
+        stmt.executeUpdate(DROP_STATEMENT);
+      }
+
+      resultSet.close();
+      statement.close();
+      conn.close();
+
+      intVector.close();
+      intConsumer.close();
+
+      allocator.close();
+    }
   }
 
   /**
@@ -141,10 +201,10 @@ public class JdbcAdapterBenchmarks {
    */
   @Benchmark
   @BenchmarkMode(Mode.AverageTime)
-  @OutputTimeUnit(TimeUnit.NANOSECONDS)
-  public int testJdbcToArrow() throws Exception {
+  @OutputTimeUnit(TimeUnit.MICROSECONDS)
+  public int testJdbcToArrow(JdbcState state) throws Exception {
     int valueCount = 0;
-    try (ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(resultSet, config)) {
+    try (ArrowVectorIterator iter = JdbcToArrow.sqlToArrowVectorIterator(state.resultSet, state.config)) {
       while (iter.hasNext()) {
         VectorSchemaRoot root = iter.next();
         IntVector intVector = (IntVector) root.getFieldVectors().get(0);
@@ -157,11 +217,11 @@ public class JdbcAdapterBenchmarks {
 
   @Benchmark
   @BenchmarkMode(Mode.AverageTime)
-  @OutputTimeUnit(TimeUnit.NANOSECONDS)
-  public void consumeBenchmark() throws Exception {
-    intConsumer.resetValueVector(intVector);
-    for (int i = 0; i < valueCount; i++) {
-      intConsumer.consume(consumerResultSet);
+  @OutputTimeUnit(TimeUnit.MICROSECONDS)
+  public void consumeBenchmark(ConsumeState state) throws Exception {
+    state.intConsumer.resetValueVector(state.intVector);
+    for (int i = 0; i < VALUE_COUNT; i++) {
+      state.intConsumer.consume(state.resultSet);
     }
   }
 
