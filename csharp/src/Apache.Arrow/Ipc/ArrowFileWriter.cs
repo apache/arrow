@@ -88,11 +88,11 @@ namespace Apache.Arrow.Ipc
             // always be greater than 0.
             Debug.Assert(_currentRecordBatchOffset > 0, "_currentRecordBatchOffset must be positive.");
 
-            int metadataLengthInt;
-            checked
-            {
-                metadataLengthInt = (int)metadataLength;
-            }
+            int metadataLengthInt = checked((int)metadataLength);
+
+            Debug.Assert(BitUtility.IsMultipleOf8(_currentRecordBatchOffset));
+            Debug.Assert(BitUtility.IsMultipleOf8(metadataLengthInt));
+            Debug.Assert(BitUtility.IsMultipleOf8(bodyLength));
 
             var block = new Block(
                 offset: _currentRecordBatchOffset,

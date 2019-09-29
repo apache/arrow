@@ -140,6 +140,8 @@ namespace Apache.Arrow
             return (n + (factor - 1)) & ~(factor - 1);
         }
 
+        internal static bool IsMultipleOf8(long n) => n % 8 == 0;
+
         /// <summary>
         /// Calculates the number of bytes required to store n bits.
         /// </summary>
