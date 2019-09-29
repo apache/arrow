@@ -19,6 +19,8 @@ package org.apache.arrow.algorithm.sort;
 
 import org.apache.arrow.vector.BaseFixedWidthVector;
 
+import java.util.Stack;
+
 /**
  * Default in-place sorter for fixed-width vectors.
  * It is based on quick-sort, with average time complexity O(n*log(n)).
@@ -48,17 +50,36 @@ public class FixedWidthInPlaceVectorSorter<V extends BaseFixedWidthVector> imple
       this.pivotBuffer.allocateNew(1);
 
       comparator.attachVectors(vec, pivotBuffer);
-      quickSort(0, vec.getValueCount() - 1);
+      quickSort();
     } finally {
       this.pivotBuffer.close();
     }
   }
 
-  private void quickSort(int low, int high) {
-    if (low < high) {
-      int mid = partition(low, high);
-      quickSort(low, mid - 1);
-      quickSort(mid + 1, high);
+  private void quickSort() {
+    Stack<int[]> rangeStack = new Stack<>();
+    int[] range = new int[2];
+    range[0] = 0;
+    range[1] = vec.getValueCount() - 1;
+    rangeStack.push(range);
+
+    while (!rangeStack.isEmpty()) {
+      range = rangeStack.pop();
+      int low = range[0];
+      int high = range[1];
+      if (low < high) {
+        int mid = partition(low, high);
+
+        int[] lowRange = new int[2];
+        lowRange[0] = low;
+        lowRange[1] = mid - 1;
+        rangeStack.push(lowRange);
+
+        int[] highRange = new int[2];
+        highRange[0] = mid + 1;
+        highRange[1] = high;
+        rangeStack.push(highRange);
+      }
     }
   }
 

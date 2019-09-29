@@ -17,6 +17,7 @@
 
 package org.apache.arrow.algorithm.sort;
 
+import java.util.Stack;
 import java.util.stream.IntStream;
 
 import org.apache.arrow.vector.IntVector;
@@ -55,14 +56,33 @@ public class IndexSorter<V extends ValueVector> {
 
     this.comparator = comparator;
 
-    quickSort(0, indices.getValueCount() - 1);
+    quickSort();
   }
 
-  private void quickSort(int low, int high) {
-    if (low < high) {
-      int mid = partition(low, high, indices, comparator);
-      quickSort(low, mid - 1);
-      quickSort(mid + 1, high);
+  private void quickSort() {
+    Stack<int[]> rangeStack = new Stack<>();
+    int[] range = new int[2];
+    range[0] = 0;
+    range[1] = indices.getValueCount() - 1;
+    rangeStack.push(range);
+
+    while (!rangeStack.isEmpty()) {
+      range = rangeStack.pop();
+      int low = range[0];
+      int high = range[1];
+      if (low < high) {
+        int mid = partition(low, high, indices, comparator);
+
+        int[] lowRange = new int[2];
+        lowRange[0] = low;
+        lowRange[1] = mid - 1;
+        rangeStack.push(lowRange);
+
+        int[] highRange = new int[2];
+        highRange[0] = mid + 1;
+        highRange[1] = high;
+        rangeStack.push(highRange);
+      }
     }
   }
 
