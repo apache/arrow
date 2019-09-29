@@ -516,7 +516,7 @@ using enable_if_boolean =
 
 template <typename T, typename R = void>
 using enable_if_binary_like =
-    typename std::enable_if<std::is_base_of<BinaryType, T>::value ||
+    typename std::enable_if<std::is_base_of<BaseBinaryType, T>::value ||
                                 std::is_base_of<FixedSizeBinaryType, T>::value,
                             R>::type;
 

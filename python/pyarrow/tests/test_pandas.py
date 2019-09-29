@@ -1455,6 +1455,20 @@ class TestConvertStringLikeTypes(object):
         # Infer type from bytearrays
         _check_series_roundtrip(s, expected_pa_type=pa.binary())
 
+    def test_large_binary(self):
+        s = pd.Series([b'123', b'', b'a', None])
+        _check_series_roundtrip(s, type_=pa.large_binary())
+        df = pd.DataFrame({'a': s})
+        _check_pandas_roundtrip(
+            df, schema=pa.schema([('a', pa.large_binary())]))
+
+    def test_large_string(self):
+        s = pd.Series(['123', '', 'a', None])
+        _check_series_roundtrip(s, type_=pa.large_string())
+        df = pd.DataFrame({'a': s})
+        _check_pandas_roundtrip(
+            df, schema=pa.schema([('a', pa.large_string())]))
+
     def test_table_empty_str(self):
         values = ['', '', '', '', '']
         df = pd.DataFrame({'strings': values})
