@@ -90,21 +90,19 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   #----------------------------------------------------------------------
   set_option_category("Test and benchmark")
 
-  define_option(ARROW_BUILD_EXAMPLES "Build the Arrow examples, default OFF" OFF)
+  define_option(ARROW_BUILD_EXAMPLES "Build the Arrow examples" OFF)
 
-  define_option(ARROW_BUILD_TESTS "Build the Arrow googletest unit tests, default OFF"
+  define_option(ARROW_BUILD_TESTS "Build the Arrow googletest unit tests" OFF)
+
+  define_option(ARROW_BUILD_INTEGRATION "Build the Arrow integration test executables"
                 OFF)
 
-  define_option(ARROW_BUILD_INTEGRATION
-                "Build the Arrow integration test executables, default OFF" OFF)
-
-  define_option(ARROW_BUILD_BENCHMARKS "Build the Arrow micro benchmarks, default OFF"
-                OFF)
+  define_option(ARROW_BUILD_BENCHMARKS "Build the Arrow micro benchmarks" OFF)
 
   # Reference benchmarks are used to compare to naive implementation, or
   # discover various hardware limits.
   define_option(ARROW_BUILD_BENCHMARKS_REFERENCE
-                "Build the Arrow micro reference benchmarks, default OFF." OFF)
+                "Build the Arrow micro reference benchmarks" OFF)
 
   define_option_string(ARROW_TEST_LINKAGE
                        "Linkage of Arrow libraries with unit tests executables."
@@ -141,46 +139,48 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   #----------------------------------------------------------------------
   set_option_category("Project component")
 
+  define_option(ARROW_BUILD_UTILITIES "Build Arrow commandline utilities" ON)
+
   define_option(ARROW_COMPUTE "Build the Arrow Compute Modules" ON)
 
+  define_option(ARROW_CUDA "Build the Arrow CUDA extensions (requires CUDA toolkit)" OFF)
+
   define_option(ARROW_DATASET "Build the Arrow Dataset Modules" ON)
+
+  define_option(ARROW_FILESYSTEM "Build the Arrow Filesystem Layer" ON)
 
   define_option(ARROW_FLIGHT
                 "Build the Arrow Flight RPC System (requires GRPC, Protocol Buffers)" OFF)
 
   define_option(ARROW_GANDIVA "Build the Gandiva libraries" OFF)
 
-  define_option(ARROW_PARQUET "Build the Parquet libraries" OFF)
+  define_option(ARROW_HDFS "Build the Arrow HDFS bridge" ON)
+
+  define_option(ARROW_HIVESERVER2 "Build the HiveServer2 client and Arrow adapter" OFF)
 
   define_option(ARROW_IPC "Build the Arrow IPC extensions" ON)
 
-  define_option(ARROW_BUILD_UTILITIES "Build Arrow commandline utilities" ON)
-
-  define_option(ARROW_CUDA "Build the Arrow CUDA extensions (requires CUDA toolkit)" OFF)
-
-  define_option(ARROW_ORC "Build the Arrow ORC adapter" OFF)
+  define_option(ARROW_JEMALLOC "Build the Arrow jemalloc-based allocator" ON)
 
   define_option(ARROW_JNI "Build the Arrow JNI lib" OFF)
 
-  define_option(ARROW_TENSORFLOW "Build Arrow with TensorFlow support enabled" OFF)
-
-  define_option(ARROW_JEMALLOC "Build the Arrow jemalloc-based allocator" ON)
+  define_option(ARROW_JSON "Build Arrow with JSON support (requires RapidJSON)" ON)
 
   define_option(ARROW_MIMALLOC "Build the Arrow mimalloc-based allocator" OFF)
 
-  define_option(ARROW_HDFS "Build the Arrow HDFS bridge" ON)
+  define_option(ARROW_PARQUET "Build the Parquet libraries" OFF)
 
-  define_option(ARROW_PYTHON "Build the Arrow CPython extensions" OFF)
-
-  define_option(ARROW_HIVESERVER2 "Build the HiveServer2 client and Arrow adapter" OFF)
+  define_option(ARROW_ORC "Build the Arrow ORC adapter" OFF)
 
   define_option(ARROW_PLASMA "Build the plasma object store along with Arrow" OFF)
 
   define_option(ARROW_PLASMA_JAVA_CLIENT "Build the plasma object store java client" OFF)
 
-  define_option(ARROW_JSON "Build Arrow with JSON support (requires RapidJSON)" ON)
+  define_option(ARROW_PYTHON "Build the Arrow CPython extensions" OFF)
 
   define_option(ARROW_S3 "Build Arrow with S3 support (requires the AWS SDK for C++)" OFF)
+
+  define_option(ARROW_TENSORFLOW "Build Arrow with TensorFlow support enabled" OFF)
 
   #----------------------------------------------------------------------
   set_option_category("Thirdparty toolchain")

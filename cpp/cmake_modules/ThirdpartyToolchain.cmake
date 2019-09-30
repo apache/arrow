@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+include(ProcessorCount)
+processorcount(NPROC)
+
 add_custom_target(rapidjson)
 add_custom_target(toolchain)
 add_custom_target(toolchain-benchmarks)
@@ -500,7 +503,7 @@ if(${CMAKE_GENERATOR} MATCHES "Makefiles")
   set(MAKE_BUILD_ARGS "")
 else()
   # limit the maximum number of jobs for ninja
-  set(MAKE_BUILD_ARGS "-j4")
+  set(MAKE_BUILD_ARGS "-j${NPROC}")
 endif()
 
 # ----------------------------------------------------------------------
@@ -560,7 +563,7 @@ macro(build_boost)
   else()
     set(BOOST_BUILD_VARIANT "release")
   endif()
-  set(BOOST_BUILD_COMMAND "./b2" "link=${BOOST_BUILD_LINK}"
+  set(BOOST_BUILD_COMMAND "./b2" "-j${NPROC}" "link=${BOOST_BUILD_LINK}"
                           "variant=${BOOST_BUILD_VARIANT}")
   if(MSVC)
     string(REGEX
