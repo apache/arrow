@@ -785,7 +785,7 @@ impl Field {
         })
     }
 
-    /// Converts to a `String` representation of the the `Field`
+    /// Converts to a `String` representation of the `Field`
     pub fn to_string(&self) -> String {
         format!("{}: {:?}", self.name, self.data_type)
     }
