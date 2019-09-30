@@ -1071,6 +1071,22 @@ RcppExport SEXP _arrow_RecordBatch__Take(SEXP batch_sexp, SEXP indices_sexp){
 
 // compute.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Take(const std::shared_ptr<arrow::ChunkedArray>& values, Rcpp::IntegerVector& indices);
+RcppExport SEXP _arrow_ChunkedArray__Take(SEXP values_sexp, SEXP indices_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type values(values_sexp);
+	Rcpp::traits::input_parameter<Rcpp::IntegerVector&>::type indices(indices_sexp);
+	return Rcpp::wrap(ChunkedArray__Take(values, indices));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_ChunkedArray__Take(SEXP values_sexp, SEXP indices_sexp){
+	Rf_error("Cannot call ChunkedArray__Take(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// compute.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Array> Array__Filter(const std::shared_ptr<arrow::Array>& values, const std::shared_ptr<arrow::Array>& filter);
 RcppExport SEXP _arrow_Array__Filter(SEXP values_sexp, SEXP filter_sexp){
 BEGIN_RCPP
@@ -4938,6 +4954,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Table__cast", (DL_FUNC) &_arrow_Table__cast, 3}, 
 		{ "_arrow_Array__Take", (DL_FUNC) &_arrow_Array__Take, 2}, 
 		{ "_arrow_RecordBatch__Take", (DL_FUNC) &_arrow_RecordBatch__Take, 2}, 
+		{ "_arrow_ChunkedArray__Take", (DL_FUNC) &_arrow_ChunkedArray__Take, 2}, 
 		{ "_arrow_Array__Filter", (DL_FUNC) &_arrow_Array__Filter, 2}, 
 		{ "_arrow_RecordBatch__Filter", (DL_FUNC) &_arrow_RecordBatch__Filter, 2}, 
 		{ "_arrow_ChunkedArray__Filter", (DL_FUNC) &_arrow_ChunkedArray__Filter, 2}, 

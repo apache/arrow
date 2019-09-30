@@ -60,28 +60,14 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = Object,
       }
     },
     Take = function(i) {
-      if (self$num_chunks == 1) {
-        # Call Array__Take on the 0th chunk and wrap that up
-        ChunkedArray$create(self$chunk(0)$Take(i), type = self$type)
-      } else {
-        # 1) see if all i are in the same chunk, call Array__Take on that
-        chunks <- self$chunks
-        lengths <- map_int(chunks, length)
-        offsets <- c(0L, cumsum(lengths[-1]))
-
-        all_in <- which(min(i) >= offsets & max(i) <= (offsets + lengths - 1L))
-        if (length(all_in)) {
-          return(ChunkedArray$create(chunks[[all_in]]$Take(i - offsets[all_in]), type = self$type))
-        }
-        stop("ChunkedArray$Take() only supported when all i are in the same chunk")
-        # 2) if identical(i, sort(i)), Take from each chunk appropriately?
-
-        sorted_i <- sort(unique(i))
-        # split sorted_i based on which chunk they fall in, then mapply to Take
-        # from each Array in chunks.
-        # Then concatenate the Arrays, and then do a Take on that to get back
-        # to the original order? Then wrap as a ChunkedArray with a single array
+      if (inherits(i, c("Array", "ChunkedArray"))) {
+        # Hack because ChunkedArray__Take doesn't take Arrays
+        i <- as.vector(i)
+      } else if (is.numeric(i)) {
+        i <- as.integer(i)
       }
+      assert_is(i, "integer")
+      return(shared_ptr(ChunkedArray, ChunkedArray__Take(self, i)))
     },
     Filter = function(i) {
       if (is.logical(i)) {

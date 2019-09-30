@@ -111,6 +111,48 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__Take(
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Take(
+    const std::shared_ptr<arrow::ChunkedArray>& values,
+    Rcpp::IntegerVector& indices) {
+
+  int num_chunks = values->num_chunks();
+  std::vector<std::shared_ptr<arrow::Array>> new_chunks(1); // Hard-coded 1 for now
+  // TODO: fast path if there's only 1 chunk?
+
+  std::shared_ptr<arrow::Array> current_chunk;
+  std::shared_ptr<arrow::Array> current_indices;
+  int offset = 0;
+  int len;
+  int min_i = indices[0];
+  int max_i = indices[0];
+
+  // 1) see if all i are in the same chunk, call Array__Take on that
+  for (R_xlen_t i = 0; i < indices.size(); i++) {
+    if (indices[i] < min_i) {
+      min_i = indices[i];
+    } else if (indices[i] > max_i) {
+      max_i = indices[i];
+    }
+  }
+
+  for (R_xlen_t chk = 0; chk < num_chunks; chk++) {
+    current_chunk = values->chunk(chk);
+    len = current_chunk->length();
+    if (min_i >= offset & max_i < offset + len) {
+      for (R_xlen_t i = 0; i < indices.size(); i++) {
+        // Subtract offset from all indices
+        indices[i] -= offset;
+      }
+      current_indices = arrow::r::Array__from_vector(indices, arrow::int32(), true);
+      new_chunks[0] = Array__Take(current_chunk, current_indices);
+      return std::make_shared<arrow::ChunkedArray>(std::move(new_chunks));
+    }
+    offset += len;
+  }
+  Rcpp::stop("ChunkedArray$Take() only supported when all i are in the same chunk");
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::Array> Array__Filter(
     const std::shared_ptr<arrow::Array>& values,
     const std::shared_ptr<arrow::Array>& filter) {
@@ -141,7 +183,6 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Filter(
     const std::shared_ptr<arrow::ChunkedArray>& values,
     const std::shared_ptr<arrow::Array>& filter) {
 
-  arrow::compute::FunctionContext context;
   int num_chunks = values->num_chunks();
   std::vector<std::shared_ptr<arrow::Array>> new_chunks(num_chunks);
   std::shared_ptr<arrow::Array> current_chunk;
