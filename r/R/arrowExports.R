@@ -276,6 +276,10 @@ ChunkedArray__Take <- function(values, indices){
     .Call(`_arrow_ChunkedArray__Take` , values, indices)
 }
 
+Table__Take <- function(table, indices){
+    .Call(`_arrow_Table__Take` , table, indices)
+}
+
 Array__Filter <- function(values, filter){
     .Call(`_arrow_Array__Filter` , values, filter)
 }
@@ -286,6 +290,10 @@ RecordBatch__Filter <- function(batch, filter){
 
 ChunkedArray__Filter <- function(values, filter){
     .Call(`_arrow_ChunkedArray__Filter` , values, filter)
+}
+
+Table__Filter <- function(table, filter){
+    .Call(`_arrow_Table__Filter` , table, filter)
 }
 
 csv___ReadOptions__initialize <- function(options){

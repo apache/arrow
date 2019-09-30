@@ -65,6 +65,12 @@
 #' - `$Slice(offset, length = NULL)`: Create a zero-copy view starting at the
 #'    indicated integer offset and going for the given length, or to the end
 #'    of the table if `NULL`, the default.
+#' - `$Take(i)`: return an `Table` with rows at positions given by
+#'    integers `i`. `Take` is currently only supported where all of `i`
+#'    references values that are in a single chunk of the `ChunkedArray`s in
+#'    the `Table`.
+#' - `$Filter(i)`: return an `Table` with rows at positions where logical
+#'    vector `i` is `TRUE`.
 #' - `$serialize(output_stream, ...)`: Write the table to the given
 #'    [OutputStream]
 #' - `$cast(target_schema, safe = TRUE, options = cast_options(safe))`: Alter
@@ -131,6 +137,23 @@ Table <- R6Class("Table", inherit = Object,
       } else {
         shared_ptr(Table, Table__Slice2(self, offset, length))
       }
+    },
+    Take = function(i) {
+      if (inherits(i, c("Array", "ChunkedArray"))) {
+        # Hack because ChunkedArray__Take doesn't take Arrays
+        i <- as.vector(i)
+      } else if (is.numeric(i)) {
+        i <- as.integer(i)
+      }
+      assert_is(i, "integer")
+      shared_ptr(Table, Table__Take(self, i))
+    },
+    Filter = function(i) {
+      if (is.logical(i)) {
+        i <- Array$create(i)
+      }
+      assert_is(i, "Array") # Assert type too?
+      shared_ptr(Table, Table__Filter(self, i))
     },
 
     Equals = function(other) {

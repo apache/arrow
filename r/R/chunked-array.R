@@ -30,17 +30,26 @@
 #'
 #' @section Methods:
 #'
-#' - `$length()`
-#' - `$chunk(i)`
-#' - `$as_vector()`
-#' - `$Slice(offset, length = NULL)`
-#' - `$cast(target_type, safe = TRUE, options = cast_options(safe))`
-#' - `$null_count()`
-#' - `$chunks()`
-#' - `$num_chunks()`
-#' - `$type()`
-#' - `$View(type)`: Construct a zero-copy view of this chunked array with the given type.
-#' - `$Validate()` : Perform any validation checks to determine obvious inconsistencies
+#' - `$length()`: Size in the number of elements this array contains
+#' - `$chunk(i)`: Extract an `Array` chunk by integer position
+#' - `$as_vector()`: convert to an R vector
+#' - `$Slice(offset, length = NULL)`: Construct a zero-copy slice of the array
+#'    with the indicated offset and length. If length is `NULL`, the slice goes
+#'    until the end of the array.
+#' - `$Take(i)`: return a `ChunkedArray` with values at positions given by
+#'    integers `i`. `Take` is currently only supported where all of `i`
+#'    references values that are in a single chunk of the `ChunkedArray`.
+#' - `$Filter(i)`: return a `ChunkedArray` with values at positions where
+#'    logical vector `i` is `TRUE`.
+#' - `$cast(target_type, safe = TRUE, options = cast_options(safe))`: Alter the
+#'    data in the array to change its type.
+#' - `$null_count()`: The number of null entries in the array
+#' - `$chunks()`: return a list of `Array`s
+#' - `$num_chunks()`: integer number of chunks in the `ChunkedArray`
+#' - `$type()`: logical type of data
+#' - `$View(type)`: Construct a zero-copy view of this `ChunkedArray` with the
+#'    given type.
+#' - `$Validate()`: Perform any validation checks to determine obvious inconsistencies
 #'    within the array's internal data. This can be an expensive check, potentially `O(length)`
 #'
 #' @rdname ChunkedArray

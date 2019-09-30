@@ -62,6 +62,8 @@
 #' - `$Filter(i)`: return an `Array` with values at positions where logical
 #'    vector `i` is `TRUE`.
 #' - `$RangeEquals(other, start_idx, end_idx, other_start_idx)` :
+#' - `$cast(target_type, safe = TRUE, options = cast_options(safe))`: Alter the
+#'    data in the array to change its type.
 #' - `$View(type)`: Construct a zero-copy view of this array with the given type.
 #' - `$Validate()` : Perform any validation checks to determine obvious inconsistencies
 #'    within the array's internal data. This can be an expensive check, potentially `O(length)`

@@ -153,6 +153,20 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Take(
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::Table> Table__Take(
+    const std::shared_ptr<arrow::Table>& table,
+    Rcpp::IntegerVector& indices) {
+  auto ncols = table->num_columns();
+  std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(ncols);
+
+  for (R_xlen_t j = 0; j < ncols; j++) {
+    columns[j] = ChunkedArray__Take(table->column(j), indices);
+  }
+
+  return arrow::Table::Make(table->schema(), columns);
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::Array> Array__Filter(
     const std::shared_ptr<arrow::Array>& values,
     const std::shared_ptr<arrow::Array>& filter) {
@@ -199,4 +213,17 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Filter(
   return std::make_shared<arrow::ChunkedArray>(std::move(new_chunks));
 }
 
+// [[arrow::export]]
+std::shared_ptr<arrow::Table> Table__Filter(
+    const std::shared_ptr<arrow::Table>& table,
+    const std::shared_ptr<arrow::Array>& filter) {
+  auto ncols = table->num_columns();
+  std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(ncols);
+
+  for (R_xlen_t j = 0; j < ncols; j++) {
+    columns[j] = ChunkedArray__Filter(table->column(j), filter);
+  }
+
+  return arrow::Table::Make(table->schema(), columns);
+}
 #endif

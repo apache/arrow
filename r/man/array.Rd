@@ -52,6 +52,8 @@ until the end of the array.
 \item \code{$Filter(i)}: return an \code{Array} with values at positions where logical
 vector \code{i} is \code{TRUE}.
 \item \code{$RangeEquals(other, start_idx, end_idx, other_start_idx)} :
+\item \code{$cast(target_type, safe = TRUE, options = cast_options(safe))}: Alter the
+data in the array to change its type.
 \item \code{$View(type)}: Construct a zero-copy view of this array with the given type.
 \item \code{$Validate()} : Perform any validation checks to determine obvious inconsistencies
 within the array's internal data. This can be an expensive check, potentially \code{O(length)}

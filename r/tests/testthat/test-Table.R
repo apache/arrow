@@ -98,6 +98,11 @@ test_that("[, [[, $ for Table", {
   expect_identical(as.data.frame(tab[6:7, 2:4]), tbl[6:7, 2:4])
   expect_identical(as.data.frame(tab[, c("dbl", "fct")]), tbl[, c(2, 5)])
   expect_identical(as.vector(tab[, "chr", drop = TRUE]), tbl$chr)
+  expect_identical(as.data.frame(tab[c(7, 3, 5), 2:4]), tbl[c(7, 3, 5), 2:4])
+  expect_identical(
+    as.data.frame(tab[rep(c(FALSE, TRUE), 5),]),
+    tbl[c(2, 4, 6, 8, 10),]
+  )
 
   expect_identical(as.vector(tab[["int"]]), tbl$int)
   expect_identical(as.vector(tab$int), tbl$int)
@@ -233,4 +238,3 @@ test_that("==.Table", {
   expect_true(all.equal(tab1, tab2))
   expect_equal(tab1, tab2)
 })
-
