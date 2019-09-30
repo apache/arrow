@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -20,17 +20,20 @@
 
 # Run this from cpp/ directory. flatc is expected to be in your path
 
-OUTPUT_LOCATION=src/generated
-flatc -c -o $OUTPUT_LOCATION \
-      ../format/Message.fbs \
-      ../format/File.fbs \
-      ../format/Schema.fbs \
-      ../format/Tensor.fbs \
-      ../format/SparseTensor.fbs \
+CWD="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+SOURCE_DIR=$CWD/../src
+FORMAT_DIR=$CWD/../..
+
+flatc -c -o $SOURCE_DIR/generated \
+      $FORMAT_DIR/Message.fbs \
+      $FORMAT_DIR/File.fbs \
+      $FORMAT_DIR/Schema.fbs \
+      $FORMAT_DIR/Tensor.fbs \
+      $FORMAT_DIR/SparseTensor.fbs \
       src/arrow/ipc/feather.fbs
 
-flatc -c -o src/plasma \
+flatc -c -o $SOURCE_DIR/plasma \
       --gen-object-api \
       --scoped-enums \
-      src/plasma/common.fbs \
-      src/plasma/plasma.fbs
+      $SOURCE_DIR/plasma/common.fbs \
+      $SOURCE_DIR/plasma/plasma.fbs

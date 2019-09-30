@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -18,10 +18,13 @@
 # under the License.
 #
 
+set -eu
+
 # Run this from cpp/ directory with $FLATBUFFERS_HOME set to location of your
 # Flatbuffers installation
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 
-VENDOR_LOCATION=thirdparty/flatbuffers/include/flatbuffers
+VENDOR_LOCATION=$SOURCE_DIR/../thirdparty/flatbuffers/include/flatbuffers
 mkdir -p $VENDOR_LOCATION
 cp -f $FLATBUFFERS_HOME/include/flatbuffers/base.h $VENDOR_LOCATION
 cp -f $FLATBUFFERS_HOME/include/flatbuffers/flatbuffers.h $VENDOR_LOCATION
