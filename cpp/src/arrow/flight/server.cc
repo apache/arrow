@@ -262,7 +262,7 @@ class GrpcServerCallContext : public ServerCallContext {
 class GrpcAddCallHeaders : public AddCallHeaders {
  public:
   explicit GrpcAddCallHeaders(grpc::ServerContext* context) : context_(context) {}
-  ~GrpcAddCallHeaders() = default;
+  ~GrpcAddCallHeaders() override = default;
 
   void AddHeader(const std::string& key, const std::string& value) override {
     context_->AddInitialMetadata(key, value);

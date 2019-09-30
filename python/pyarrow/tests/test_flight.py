@@ -33,12 +33,17 @@ from pyarrow.util import pathlib, find_free_port
 try:
     from pyarrow import flight
     from pyarrow.flight import (
-        FlightClient, FlightServerBase, ServerAuthHandler, ClientAuthHandler
+        FlightClient, FlightServerBase,
+        ServerAuthHandler, ClientAuthHandler,
+        ServerMiddleware, ServerMiddlewareFactory,
+        ClientMiddleware, ClientMiddlewareFactory,
     )
 except ImportError:
     flight = None
     FlightClient, FlightServerBase = object, object
     ServerAuthHandler, ClientAuthHandler = object, object
+    ServerMiddleware, ServerMiddlewareFactory = object, object
+    ClientMiddleware, ClientMiddlewareFactory = object, object
 
 
 # Marks all of the tests in this module
@@ -415,7 +420,7 @@ _thread_locals = threading.local()
 _thread_locals.sentinel = "wrong value"
 
 
-class ThreadLocalServerMiddleware(flight.ServerMiddleware):
+class ThreadLocalServerMiddleware(ServerMiddleware):
     def sending_headers(self):
         assert _thread_locals.sentinel == "right value"
 
@@ -424,7 +429,7 @@ class ThreadLocalServerMiddleware(flight.ServerMiddleware):
             _thread_locals.sentinel
 
 
-class ThreadLocalServerMiddlewareFactory(flight.ServerMiddlewareFactory):
+class ThreadLocalServerMiddlewareFactory(ServerMiddlewareFactory):
     last_sentinel = None
 
     def start_call(self, info, headers):
@@ -438,7 +443,7 @@ class ThreadLocalFlightServer(FlightServerBase):
         return iter([flight.Result(sentinel.encode())])
 
 
-class SelectiveAuthServerMiddlewareFactory(flight.ServerMiddlewareFactory):
+class SelectiveAuthServerMiddlewareFactory(ServerMiddlewareFactory):
     def start_call(self, info, headers):
         if info.method == flight.FlightMethod.LIST_ACTIONS:
             # No auth needed
@@ -455,12 +460,12 @@ class SelectiveAuthServerMiddlewareFactory(flight.ServerMiddlewareFactory):
         _thread_locals.sentinel = "password"
 
 
-class SelectiveAuthClientMiddlewareFactory(flight.ClientMiddlewareFactory):
+class SelectiveAuthClientMiddlewareFactory(ClientMiddlewareFactory):
     def start_call(self, info):
         return SelectiveAuthClientMiddleware()
 
 
-class SelectiveAuthClientMiddleware(flight.ClientMiddleware):
+class SelectiveAuthClientMiddleware(ClientMiddleware):
     def sending_headers(self):
         return {
             "x-auth-token": "password",

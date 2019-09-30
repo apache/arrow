@@ -813,6 +813,15 @@ class TestPropagatingMiddleware : public ::testing::Test {
     ASSERT_OK(second_server_->Shutdown());
   }
 
+  void CheckHeader(const std::string& header, const std::string& value,
+                   const CallHeaders::const_iterator& it) {
+    // Construct a string_view before comparison to satisfy MSVC
+    util::string_view header_view(header.data(), header.length());
+    util::string_view value_view(value.data(), value.length());
+    ASSERT_EQ(header_view, (*it).first);
+    ASSERT_EQ(value_view, (*it).second);
+  }
+
  protected:
   std::unique_ptr<FlightClient> client_;
   std::unique_ptr<FlightServerBase> first_server_;
@@ -1456,12 +1465,10 @@ TEST_F(TestPropagatingMiddleware, CallHeaders) {
         incoming_headers.GetHeaders(header1);
     auto& current = header_pair.first;
     ASSERT_NE(current, header_pair.second);
-    ASSERT_EQ(header1, (*current).first);
-    ASSERT_EQ(header1_value1, (*current).second);
+    CheckHeader(header1, header1_value1, current);
     ++current;
     ASSERT_NE(current, header_pair.second);
-    ASSERT_EQ(header1, (*current).first);
-    ASSERT_EQ(header1_value2, (*current).second);
+    CheckHeader(header1, header1_value2, current);
     ++current;
     ASSERT_EQ(current, header_pair.second);
   }
@@ -1470,8 +1477,7 @@ TEST_F(TestPropagatingMiddleware, CallHeaders) {
         incoming_headers.GetHeaders(header2);
     auto& current = header_pair.first;
     ASSERT_NE(current, header_pair.second);
-    ASSERT_EQ(header2, (*current).first);
-    ASSERT_EQ(header2_value1, (*current).second);
+    CheckHeader(header2, header2_value1, current);
     ++current;
     ASSERT_EQ(current, header_pair.second);
   }

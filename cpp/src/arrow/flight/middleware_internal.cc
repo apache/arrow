@@ -35,21 +35,24 @@ namespace internal {
 class MultimapIterator : public HeaderIterator::Impl {
  public:
   explicit MultimapIterator(GrpcMetadataMap::const_iterator it) : it_(it) {}
+  ~MultimapIterator() override = default;
 
   void Next() override { it_++; }
+
   const HeaderIterator::value_type& Dereference() const override {
     current_header_ = util::string_view(it_->first.data(), it_->first.length());
     current_value_ = util::string_view(it_->second.data(), it_->second.length());
     current_ = std::make_pair(current_header_, current_value_);
     return current_;
   }
+
   bool Equals(const void* other) const override {
     return it_ == static_cast<const MultimapIterator*>(other)->it_;
   }
+
   std::unique_ptr<HeaderIterator::Impl> Clone() const override {
     return arrow::internal::make_unique<MultimapIterator>(it_);
   }
-  ~MultimapIterator() = default;
 
  private:
   GrpcMetadataMap::const_iterator it_;

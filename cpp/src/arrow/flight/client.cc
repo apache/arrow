@@ -95,7 +95,7 @@ class GrpcAddCallHeaders : public AddCallHeaders {
  public:
   explicit GrpcAddCallHeaders(std::multimap<grpc::string, grpc::string>* metadata)
       : metadata_(metadata) {}
-  ~GrpcAddCallHeaders() = default;
+  ~GrpcAddCallHeaders() override = default;
 
   void AddHeader(const std::string& key, const std::string& value) override {
     metadata_->insert(std::make_pair(key, value));

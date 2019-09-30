@@ -21,6 +21,7 @@
 #pragma once
 
 #include "arrow/flight/platform.h"
+#include "arrow/flight/visibility.h"  // IWYU pragma: keep
 
 #include <map>
 #include <string>
@@ -42,10 +43,10 @@ namespace internal {
 
 typedef std::multimap<grpc::string_ref, grpc::string_ref> GrpcMetadataMap;
 
-class GrpcCallHeaders : public CallHeaders {
+class ARROW_FLIGHT_EXPORT GrpcCallHeaders : public CallHeaders {
  public:
   explicit GrpcCallHeaders(const GrpcMetadataMap* metadata) : metadata_(metadata) {}
-  ~GrpcCallHeaders() = default;
+  ~GrpcCallHeaders() override = default;
 
   std::pair<const_iterator, const_iterator> GetHeaders(
       const std::string& key) const override;
