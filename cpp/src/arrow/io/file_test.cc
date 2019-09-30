@@ -636,7 +636,7 @@ class TestMemoryMappedFile : public ::testing::Test, public MemoryMapFixture {
 
 TEST_F(TestMemoryMappedFile, InvalidUsages) {}
 
-TEST_F(TestMemoryMappedFile, ZeroSizeFlie) {
+TEST_F(TestMemoryMappedFile, ZeroSizeFile) {
   std::string path = "io-memory-map-zero-size";
   std::shared_ptr<MemoryMappedFile> result;
   ASSERT_OK(InitMemoryMap(0, path, &result));
