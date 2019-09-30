@@ -420,7 +420,8 @@ class ThreadLocalServerMiddleware(flight.ServerMiddleware):
         assert _thread_locals.sentinel == "right value"
 
     def call_completed(self, exception):
-        ThreadLocalServerMiddlewareFactory.last_sentinel = _thread_locals.sentinel
+        ThreadLocalServerMiddlewareFactory.last_sentinel = \
+            _thread_locals.sentinel
 
 
 class ThreadLocalServerMiddlewareFactory(flight.ServerMiddlewareFactory):
@@ -433,7 +434,8 @@ class ThreadLocalServerMiddlewareFactory(flight.ServerMiddlewareFactory):
 
 class ThreadLocalFlightServer(FlightServerBase):
     def do_action(self, context, action):
-        return iter([flight.Result(getattr(_thread_locals, "sentinel", "wrong value").encode())])
+        sentinel = getattr(_thread_locals, "sentinel", "wrong value")
+        return iter([flight.Result(sentinel.encode())])
 
 
 class SelectiveAuthServerMiddlewareFactory(flight.ServerMiddlewareFactory):
@@ -988,7 +990,8 @@ def test_server_middleware_same_thread():
         assert len(results) == 1
         value = results[0].body.to_pybytes()
         assert b"right value" == value
-        assert "right value" == ThreadLocalServerMiddlewareFactory.last_sentinel
+        assert "right value" == \
+            ThreadLocalServerMiddlewareFactory.last_sentinel
 
 
 def test_middleware_reject():

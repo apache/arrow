@@ -20,6 +20,8 @@
 
 #pragma once
 
+#include <memory>
+
 #include "arrow/flight/middleware.h"
 #include "arrow/flight/visibility.h"  // IWYU pragma: keep
 #include "arrow/status.h"

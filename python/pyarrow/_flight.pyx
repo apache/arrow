@@ -2015,9 +2015,11 @@ cdef class _ServerMiddlewareFactoryWrapper(ServerMiddlewareFactory):
                 instance = factory.start_call(info, headers)
                 if instance:
                     instances.append(instance)
-        except:
+        except:  # noqa: E722
             # Don't artifically keep thread state around if an error
-            # happens
+            # happens.
+            # We want a bare except since we always want to release
+            # thread state.
             PyGILState_Release(state)
             raise
 

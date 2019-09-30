@@ -20,6 +20,7 @@
 // Platform-specific defines
 #include "arrow/flight/platform.h"
 
+#include <map>
 #include <memory>
 #include <mutex>
 #include <sstream>
@@ -106,7 +107,8 @@ class GrpcAddCallHeaders : public AddCallHeaders {
 
 class GrpcClientInterceptorAdapter : public grpc::experimental::Interceptor {
  public:
-  GrpcClientInterceptorAdapter(std::vector<std::unique_ptr<ClientMiddleware>> middleware)
+  explicit GrpcClientInterceptorAdapter(
+      std::vector<std::unique_ptr<ClientMiddleware>> middleware)
       : middleware_(std::move(middleware)) {}
 
   void Intercept(grpc::experimental::InterceptorBatchMethods* methods) {

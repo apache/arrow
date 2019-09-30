@@ -20,7 +20,6 @@
 import argparse
 import sys
 import threading
-import time
 import uuid
 
 import pyarrow as pa

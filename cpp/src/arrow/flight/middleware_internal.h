@@ -23,6 +23,8 @@
 #include "arrow/flight/platform.h"
 
 #include <map>
+#include <string>
+#include <utility>
 
 #ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>

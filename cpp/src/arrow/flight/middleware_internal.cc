@@ -21,6 +21,9 @@
 #include "arrow/flight/middleware_internal.h"
 
 #include <map>
+#include <memory>
+#include <string>
+#include <utility>
 
 #include "arrow/util/stl.h"
 
@@ -34,16 +37,16 @@ class MultimapIterator : public HeaderIterator::Impl {
   explicit MultimapIterator(GrpcMetadataMap::const_iterator it) : it_(it) {}
 
   void Next() override { it_++; }
-  virtual const HeaderIterator::value_type& Dereference() const override {
+  const HeaderIterator::value_type& Dereference() const override {
     current_header_ = util::string_view(it_->first.data(), it_->first.length());
     current_value_ = util::string_view(it_->second.data(), it_->second.length());
     current_ = std::make_pair(current_header_, current_value_);
     return current_;
   }
-  virtual bool Equals(const void* other) const override {
+  bool Equals(const void* other) const override {
     return it_ == static_cast<const MultimapIterator*>(other)->it_;
   }
-  virtual std::unique_ptr<HeaderIterator::Impl> Clone() const override {
+  std::unique_ptr<HeaderIterator::Impl> Clone() const override {
     return arrow::internal::make_unique<MultimapIterator>(it_);
   }
   ~MultimapIterator() = default;
@@ -58,7 +61,7 @@ class MultimapIterator : public HeaderIterator::Impl {
 std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>
 GrpcCallHeaders::GetHeaders(const std::string& key) const {
   const auto& result = metadata_->equal_range(key);
-  return std::make_pair<const_iterator, const_iterator>(
+  return std::make_pair(
       HeaderIterator(arrow::internal::make_unique<MultimapIterator>(result.first)),
       HeaderIterator(arrow::internal::make_unique<MultimapIterator>(result.second)));
 }
