@@ -940,7 +940,14 @@ table above): ::
 
 The ``Buffer`` Flatbuffers value describes the location and size of a
 piece of memory. Generally these are interpreted relative to the
-**encapsulated message format** defined next.
+**encapsulated message format** defined below.
+
+The ``size`` field of ``Buffer`` may or may not include padding bytes to round
+up to a multiple or 8 or 64. Implementations may set ``size`` to reflect the
+intent of the transmitted piece of memory to the receiver. For example, a 1
+byte buffer in-memory may have ``size`` set to either 1 or 8 or 64. Either 7 or
+63 padding bytes must be written after the 1 byte of data to comply with the
+padding and alignment requirements of the format.
 
 Byte Order (`Endianness`_)
 ---------------------------
