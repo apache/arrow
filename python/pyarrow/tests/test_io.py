@@ -839,6 +839,21 @@ def test_memory_map_large_seeks():
     check_large_seeks(pa.memory_map)
 
 
+def test_memory_map_close_remove(tmpdir):
+    # ARROW-6740: should be able to delete closed memory-mapped file (Windows)
+    path = os.path.join(str(tmpdir), guid())
+    mmap = pa.create_memory_map(path, 4096)
+    mmap.close()
+    assert mmap.closed
+    os.remove(path)  # Shouldn't fail
+
+
+def test_memory_map_deref_remove(tmpdir):
+    path = os.path.join(str(tmpdir), guid())
+    pa.create_memory_map(path, 4096)
+    os.remove(path)  # Shouldn't fail
+
+
 def test_os_file_writer(tmpdir):
     SIZE = 4096
     arr = np.random.randint(0, 256, size=SIZE).astype('u1')
