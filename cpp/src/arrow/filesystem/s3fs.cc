@@ -177,17 +177,18 @@ struct S3Path {
   std::vector<std::string> key_parts;
 
   static Status FromString(const std::string& s, S3Path* out) {
-    auto first_sep = s.find_first_of(kSep);
+    const auto src = internal::RemoveTrailingSlash(s);
+    auto first_sep = src.find_first_of(kSep);
     if (first_sep == 0) {
       return Status::Invalid("Path cannot start with a separator ('", s, "')");
     }
     if (first_sep == std::string::npos) {
-      *out = {s, s, "", {}};
+      *out = {std::string(src), std::string(src), "", {}};
       return Status::OK();
     }
-    out->full_path = s;
-    out->bucket = s.substr(0, first_sep);
-    out->key = s.substr(first_sep + 1);
+    out->full_path = std::string(src);
+    out->bucket = std::string(src.substr(0, first_sep));
+    out->key = std::string(src.substr(first_sep + 1));
     out->key_parts = internal::SplitAbstractPath(out->key);
     return internal::ValidateAbstractPathParts(out->key_parts);
   }

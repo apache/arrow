@@ -115,7 +115,7 @@ std::string EnsureTrailingSlash(const std::string& s) {
 }
 
 util::string_view RemoveTrailingSlash(util::string_view key) {
-  if (!key.empty() && key.back() == kSep) {
+  while (!key.empty() && key.back() == kSep) {
     key.remove_suffix(1);
   }
   return key;
