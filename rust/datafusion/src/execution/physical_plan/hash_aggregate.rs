@@ -281,6 +281,13 @@ impl BatchIterator for GroupedHashAggregateIterator {
                 .map(|expr| expr.evaluate(&batch))
                 .collect::<Result<Vec<_>>>()?;
 
+            // evaluate the inputs to the aggregate expressions for this batch
+            let aggr_input_values = self
+                .aggr_expr
+                .iter()
+                .map(|expr| expr.evaluate_input(&batch))
+                .collect::<Result<Vec<_>>>()?;
+
             // iterate over each row in the batch
             for row in 0..batch.num_rows() {
                 // create grouping key for this row
@@ -290,7 +297,10 @@ impl BatchIterator for GroupedHashAggregateIterator {
                     Some(accumulators) => {
                         let _ = accumulators
                             .iter()
-                            .map(|accum| accum.borrow_mut().accumulate(&batch, row))
+                            .zip(aggr_input_values.iter())
+                            .map(|(accum, input)| {
+                                accum.borrow_mut().accumulate(&batch, input, row)
+                            })
                             .collect::<Result<Vec<_>>>()?;
                         Ok(true)
                     }
@@ -306,7 +316,10 @@ impl BatchIterator for GroupedHashAggregateIterator {
 
                     let _ = accumulators
                         .iter()
-                        .map(|accum| accum.borrow_mut().accumulate(&batch, row))
+                        .zip(aggr_input_values.iter())
+                        .map(|(accum, input)| {
+                            accum.borrow_mut().accumulate(&batch, input, row)
+                        })
                         .collect::<Result<Vec<_>>>()?;
 
                     map.insert(key.clone(), accumulators);
@@ -511,11 +524,21 @@ impl BatchIterator for HashAggregateIterator {
 
         // iterate over input and perform aggregation
         while let Some(batch) = input.next()? {
+            // evaluate the inputs to the aggregate expressions for this batch
+            let aggr_input_values = self
+                .aggr_expr
+                .iter()
+                .map(|expr| expr.evaluate_input(&batch))
+                .collect::<Result<Vec<_>>>()?;
+
             // iterate over each row in the batch
             for row in 0..batch.num_rows() {
                 let _ = accumulators
                     .iter()
-                    .map(|accum| accum.borrow_mut().accumulate(&batch, row))
+                    .zip(aggr_input_values.iter())
+                    .map(|(accum, input)| {
+                        accum.borrow_mut().accumulate(&batch, input, row)
+                    })
                     .collect::<Result<Vec<_>>>()?;
             }
         }

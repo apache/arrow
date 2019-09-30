@@ -65,6 +65,8 @@ pub trait AggregateExpr: Send + Sync {
     fn name(&self) -> String;
     /// Get the data type of this expression, given the schema of the input
     fn data_type(&self, input_schema: &Schema) -> Result<DataType>;
+    /// Evaluate the expressioon being aggregated
+    fn evaluate_input(&self, batch: &RecordBatch) -> Result<ArrayRef>;
     /// Create an accumulator for this aggregate expression
     fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>>;
     /// Create an aggregate expression for combining the results of accumulators from partitions.
@@ -76,7 +78,12 @@ pub trait AggregateExpr: Send + Sync {
 /// Aggregate accumulator
 pub trait Accumulator {
     /// Update the accumulator based on a row in a batch
-    fn accumulate(&mut self, batch: &RecordBatch, row_index: usize) -> Result<()>;
+    fn accumulate(
+        &mut self,
+        batch: &RecordBatch,
+        input: &ArrayRef,
+        row_index: usize,
+    ) -> Result<()>;
     /// Get the final value for the accumulator
     fn get_value(&self) -> Result<Option<ScalarValue>>;
 }
