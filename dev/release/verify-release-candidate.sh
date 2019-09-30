@@ -99,49 +99,13 @@ fetch_archive() {
   shasum -a 512 -c ${dist_name}.tar.gz.sha512
 }
 
-bintray() {
-  local command=$1
-  shift
-  local path=$1
-  shift
-  local url=https://bintray.com/api/v1${path}
-  echo "${command} ${url}" 1>&2
-  curl \
-    --fail \
-    --request ${command} \
-    ${url} \
-    "$@" | \
-      jq .
-}
-
-download_bintray_files() {
-  local target=$1
-
-  local version_name=${VERSION}-rc${RC_NUMBER}
-
-  local file
-  bintray \
-    GET /packages/${BINTRAY_REPOSITORY}/${target}-rc/versions/${version_name}/files | \
-      jq -r ".[].path" | \
-      while read file; do
-    mkdir -p "$(dirname ${file})"
-    curl \
-      --fail \
-      --location \
-      --output ${file} \
-      https://dl.bintray.com/${BINTRAY_REPOSITORY}/${file}
-  done
-}
-
 test_binary() {
   local download_dir=binaries
   mkdir -p ${download_dir}
-  pushd ${download_dir}
 
-  # takes longer on slow network
-  for target in centos debian python ubuntu; do
-    download_bintray_files ${target}
-  done
+  python3 $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER --dest=${download_dir}
+
+  pushd ${download_dir}
 
   # verify the signature and the checksums of each artifact
   find . -name '*.asc' | while read sigfile; do
