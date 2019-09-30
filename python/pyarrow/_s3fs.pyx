@@ -154,21 +154,9 @@ cdef class S3FileSystem(FileSystem):
 
     Parameters
     ----------
-    access_key: str, default None
-        AWS Access Key ID. Pass None to use the standard AWS environment
-        variables and/or configuration file.
-    secret_key: str, default None
-        AWS Secret Access key. Pass None to use the standard AWS environment
-        variables and/or configuration file.
-    region: str, default 'us-east-1'
-        AWS region to connect to.
-    scheme: str, default 'https'
-        S3 connection transport scheme.
-    endpoint_override: str, default None
-        Override region with a connect string such as "localhost:9000"
-    background_writes: boolean, default True
-        Whether OutputStream writes will be issued in the background, without
-        blocking.
+    options: S3Options, default None
+        Options for connecting to S3. If None is passed then attempts to
+        initialize the connection from AWS environment variables.
     """
 
     cdef:
