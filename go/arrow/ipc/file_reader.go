@@ -437,10 +437,8 @@ func (ctx *arrayLoaderContext) loadChild(dt arrow.DataType) array.Interface {
 }
 
 func (ctx *arrayLoaderContext) loadNull() array.Interface {
-	field, buffers := ctx.loadCommon(1)
-	buffers = append(buffers, ctx.buffer())
-
-	data := array.NewData(arrow.Null, int(field.Length()), buffers, nil, int(field.NullCount()), 0)
+	field := ctx.field()
+	data := array.NewData(arrow.Null, int(field.Length()), nil, nil, int(field.NullCount()), 0)
 	defer data.Release()
 
 	return array.MakeFromData(data)

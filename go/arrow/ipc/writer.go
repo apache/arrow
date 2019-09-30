@@ -221,14 +221,19 @@ func (w *recordEncoder) visit(p *payload, arr array.Interface) error {
 	case 0:
 		p.body = append(p.body, nil)
 	default:
-		data := arr.Data()
-		bitmap := newTruncatedBitmap(w.mem, int64(data.Offset()), int64(data.Len()), data.Buffers()[0])
-		p.body = append(p.body, bitmap)
+		switch arr.DataType().ID() {
+		case arrow.NULL:
+			// Null type has no validity bitmap
+		default:
+			data := arr.Data()
+			bitmap := newTruncatedBitmap(w.mem, int64(data.Offset()), int64(data.Len()), data.Buffers()[0])
+			p.body = append(p.body, bitmap)
+		}
 	}
 
 	switch dtype := arr.DataType().(type) {
 	case *arrow.NullType:
-		p.body = append(p.body, nil)
+		// ok. NullArrays are completely empty.
 
 	case *arrow.BooleanType:
 		var (
