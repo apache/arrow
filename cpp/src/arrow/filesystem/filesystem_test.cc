@@ -155,6 +155,18 @@ TEST(PathUtil, EnsureTrailingSlash) {
   ASSERT_EQ("/abc/", EnsureTrailingSlash("/abc/"));
 }
 
+TEST(PathUtil, RemoveTrailingSlash) {
+  ASSERT_EQ("", std::string(RemoveTrailingSlash("")));
+  ASSERT_EQ("", std::string(RemoveTrailingSlash("/")));
+  ASSERT_EQ("", std::string(RemoveTrailingSlash("//")));
+  ASSERT_EQ("abc/def", std::string(RemoveTrailingSlash("abc/def")));
+  ASSERT_EQ("abc/def", std::string(RemoveTrailingSlash("abc/def/")));
+  ASSERT_EQ("abc/def", std::string(RemoveTrailingSlash("abc/def//")));
+  ASSERT_EQ("/abc/def", std::string(RemoveTrailingSlash("/abc/def")));
+  ASSERT_EQ("/abc/def", std::string(RemoveTrailingSlash("/abc/def/")));
+  ASSERT_EQ("/abc/def", std::string(RemoveTrailingSlash("/abc/def//")));
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // Generic MockFileSystem tests
 

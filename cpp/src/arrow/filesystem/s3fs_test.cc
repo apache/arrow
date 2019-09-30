@@ -375,6 +375,10 @@ TEST_F(TestS3FS, GetTargetStatsBucket) {
   AssertFileStats(fs_.get(), "bucket", FileType::Directory);
   AssertFileStats(fs_.get(), "empty-bucket", FileType::Directory);
   AssertFileStats(fs_.get(), "non-existent-bucket", FileType::NonExistent);
+  // Trailing slashes
+  AssertFileStats(fs_.get(), "bucket/", FileType::Directory);
+  AssertFileStats(fs_.get(), "empty-bucket/", FileType::Directory);
+  AssertFileStats(fs_.get(), "non-existent-bucket/", FileType::NonExistent);
 }
 
 TEST_F(TestS3FS, GetTargetStatsObject) {
@@ -393,6 +397,12 @@ TEST_F(TestS3FS, GetTargetStatsObject) {
   AssertFileStats(fs_.get(), "bucket/emptyd", FileType::NonExistent);
   AssertFileStats(fs_.get(), "bucket/somed", FileType::NonExistent);
   AssertFileStats(fs_.get(), "non-existent-bucket/somed", FileType::NonExistent);
+
+  // Trailing slashes
+  AssertFileStats(fs_.get(), "bucket/emptydir/", FileType::Directory, kNoSize);
+  AssertFileStats(fs_.get(), "bucket/somefile/", FileType::File, 9);
+  AssertFileStats(fs_.get(), "bucket/emptyd/", FileType::NonExistent);
+  AssertFileStats(fs_.get(), "non-existent-bucket/somed/", FileType::NonExistent);
 }
 
 TEST_F(TestS3FS, GetTargetStatsSelector) {
@@ -447,6 +457,17 @@ TEST_F(TestS3FS, GetTargetStatsSelector) {
   ASSERT_OK(fs_->GetTargetStats(select, &stats));
   ASSERT_EQ(stats.size(), 0);
   select.allow_non_existent = false;
+
+  // Trailing slashes
+  select.base_dir = "empty-bucket/";
+  ASSERT_OK(fs_->GetTargetStats(select, &stats));
+  ASSERT_EQ(stats.size(), 0);
+  select.base_dir = "non-existent-bucket/";
+  ASSERT_RAISES(IOError, fs_->GetTargetStats(select, &stats));
+  select.base_dir = "bucket/";
+  ASSERT_OK(fs_->GetTargetStats(select, &stats));
+  SortStats(&stats);
+  ASSERT_EQ(stats.size(), 3);
 }
 
 TEST_F(TestS3FS, GetTargetStatsSelectorRecursive) {
