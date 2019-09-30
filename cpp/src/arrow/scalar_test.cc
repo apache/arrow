@@ -74,7 +74,7 @@ TYPED_TEST(TestNumericScalar, MakeScalar) {
   using T = typename TypeParam::c_type;
   using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
 
-  auto three = MakeScalar(static_cast<T>(3));
+  std::shared_ptr<Scalar> three = MakeScalar(static_cast<T>(3));
   ASSERT_TRUE(ScalarType(3).Equals(three));
 
   ASSERT_OK(
@@ -118,6 +118,9 @@ TEST(TestBinaryScalar, Basics) {
 
 TEST(TestStringScalar, MakeScalar) {
   auto three = MakeScalar("three");
+  ASSERT_TRUE(StringScalar("three").Equals(three));
+
+  ASSERT_OK(MakeScalar(utf8(), Buffer::FromString("three"), &three));
   ASSERT_TRUE(StringScalar("three").Equals(three));
 
   ASSERT_OK(MakeScalar(utf8(), "three", &three));
@@ -249,10 +252,10 @@ TEST(TestTimestampScalars, MakeScalar) {
 
   std::shared_ptr<Scalar> s;
 
-  ASSERT_OK(MakeScalar(type1, int32_t(1), &s));
+  ASSERT_OK(MakeScalar(type1, int64_t(1), &s));
   ASSERT_TRUE(TimestampScalar(1, type1).Equals(s));
 
-  ASSERT_OK(MakeScalar(type2, int32_t(1), &s));
+  ASSERT_OK(MakeScalar(type2, int64_t(1), &s));
   ASSERT_TRUE(TimestampScalar(1, type2).Equals(s));
 
   ASSERT_OK(MakeScalar(type3, int64_t(1), &s));
@@ -290,9 +293,9 @@ TEST(TestMonthIntervalScalars, Basics) {
 
   int32_t val1 = 1;
   int32_t val2 = 2;
-  MonthIntervalScalar ts_val1(val1, type);
-  MonthIntervalScalar ts_val2(val2, type);
-  MonthIntervalScalar ts_null(val2, type, false);
+  MonthIntervalScalar ts_val1(val1);
+  MonthIntervalScalar ts_val2(val2);
+  MonthIntervalScalar ts_null(val2, false);
   ASSERT_EQ(val1, ts_val1.value);
   ASSERT_EQ(val2, ts_null.value);
 
@@ -312,9 +315,9 @@ TEST(TestDayTimeIntervalScalars, Basics) {
 
   DayTimeIntervalType::DayMilliseconds val1 = {1, 1};
   DayTimeIntervalType::DayMilliseconds val2 = {2, 2};
-  DayTimeIntervalScalar ts_val1(val1, type);
-  DayTimeIntervalScalar ts_val2(val2, type);
-  DayTimeIntervalScalar ts_null(val2, type, false);
+  DayTimeIntervalScalar ts_val1(val1);
+  DayTimeIntervalScalar ts_val2(val2);
+  DayTimeIntervalScalar ts_null(val2, false);
   ASSERT_EQ(val1, ts_val1.value);
   ASSERT_EQ(val2, ts_null.value);
 

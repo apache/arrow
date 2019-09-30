@@ -296,18 +296,6 @@ class ARROW_DS_EXPORT ScalarExpression final : public Expression {
 
   bool Equals(const Expression& other) const override;
 
-  template <typename T>
-  static std::shared_ptr<ScalarExpression> Make(T&& value) {
-    return ScalarExpression::Make(MakeScalar(std::forward<T>(value)));
-  }
-
-  static std::shared_ptr<ScalarExpression> MakeNull(
-      const std::shared_ptr<DataType>& type);
-
-  static std::shared_ptr<ScalarExpression> Make(std::shared_ptr<Scalar> value) {
-    return std::make_shared<ScalarExpression>(std::move(value));
-  }
-
   Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
 
   Result<compute::Datum> Evaluate(compute::FunctionContext* ctx,
@@ -363,6 +351,15 @@ ARROW_DS_EXPORT std::shared_ptr<NotExpression> not_(std::shared_ptr<Expression> 
 
 ARROW_DS_EXPORT NotExpression operator!(const Expression& rhs);
 
+inline std::shared_ptr<ScalarExpression> scalar(std::shared_ptr<Scalar> value) {
+  return std::make_shared<ScalarExpression>(std::move(value));
+}
+
+template <typename T>
+auto scalar(T&& value) -> decltype(scalar(MakeScalar(std::forward<T>(value)))) {
+  return scalar(MakeScalar(std::forward<T>(value)));
+}
+
 #define COMPARISON_FACTORY(NAME, FACTORY_NAME, OP)                                     \
   inline std::shared_ptr<ComparisonExpression> FACTORY_NAME(                           \
       const std::shared_ptr<FieldExpression>& lhs,                                     \
@@ -374,7 +371,7 @@ ARROW_DS_EXPORT NotExpression operator!(const Expression& rhs);
   template <typename T>                                                                \
   ComparisonExpression operator OP(const FieldExpression& lhs, T&& rhs) {              \
     return ComparisonExpression(compute::CompareOperator::NAME, lhs.Copy(),            \
-                                ScalarExpression::Make(std::forward<T>(rhs)));         \
+                                scalar(std::forward<T>(rhs)));                         \
   }
 COMPARISON_FACTORY(EQUAL, equal, ==)
 COMPARISON_FACTORY(NOT_EQUAL, not_equal, !=)
@@ -383,11 +380,6 @@ COMPARISON_FACTORY(GREATER_EQUAL, greater_equal, >=)
 COMPARISON_FACTORY(LESS, less, <)
 COMPARISON_FACTORY(LESS_EQUAL, less_equal, <=)
 #undef COMPARISON_FACTORY
-
-template <typename T>
-auto scalar(T&& value) -> decltype(ScalarExpression::Make(std::forward<T>(value))) {
-  return ScalarExpression::Make(std::forward<T>(value));
-}
 
 inline std::shared_ptr<FieldExpression> field_ref(std::string name) {
   return std::make_shared<FieldExpression>(std::move(name));

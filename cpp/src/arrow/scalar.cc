@@ -61,6 +61,9 @@ DurationScalar::DurationScalar(int64_t value, const std::shared_ptr<DataType>& t
   DCHECK_EQ(Type::DURATION, type->id());
 }
 
+MonthIntervalScalar::MonthIntervalScalar(int32_t value, bool is_valid)
+    : internal::PrimitiveScalar{month_interval(), is_valid}, value(value) {}
+
 MonthIntervalScalar::MonthIntervalScalar(int32_t value,
                                          const std::shared_ptr<DataType>& type,
                                          bool is_valid)
@@ -69,6 +72,10 @@ MonthIntervalScalar::MonthIntervalScalar(int32_t value,
   DCHECK_EQ(IntervalType::MONTHS,
             checked_cast<IntervalType*>(type.get())->interval_type());
 }
+
+DayTimeIntervalScalar::DayTimeIntervalScalar(DayTimeIntervalType::DayMilliseconds value,
+                                             bool is_valid)
+    : internal::PrimitiveScalar{day_time_interval(), is_valid}, value(value) {}
 
 DayTimeIntervalScalar::DayTimeIntervalScalar(DayTimeIntervalType::DayMilliseconds value,
                                              const std::shared_ptr<DataType>& type,
@@ -101,26 +108,13 @@ BaseListScalar::BaseListScalar(const std::shared_ptr<Array>& value,
 BaseListScalar::BaseListScalar(const std::shared_ptr<Array>& value, bool is_valid)
     : BaseListScalar(value, value->type(), is_valid) {}
 
-MapScalar::MapScalar(const std::shared_ptr<Array>& keys,
-                     const std::shared_ptr<Array>& items,
-                     const std::shared_ptr<DataType>& type, bool is_valid)
-    : Scalar{type, is_valid}, keys(keys), items(items) {}
-
-MapScalar::MapScalar(const std::shared_ptr<Array>& keys,
-                     const std::shared_ptr<Array>& values, bool is_valid)
-    : MapScalar(keys, values, map(keys->type(), values->type()), is_valid) {}
-
 FixedSizeListScalar::FixedSizeListScalar(const std::shared_ptr<Array>& value,
                                          const std::shared_ptr<DataType>& type,
                                          bool is_valid)
-    : Scalar{type, is_valid}, value(value) {
+    : BaseListScalar(value, type, is_valid) {
   ARROW_CHECK_EQ(value->length(),
                  checked_cast<const FixedSizeListType*>(type.get())->list_size());
 }
-
-FixedSizeListScalar::FixedSizeListScalar(const std::shared_ptr<Array>& value,
-                                         bool is_valid)
-    : FixedSizeListScalar(value, value->type(), is_valid) {}
 
 struct MakeNullImpl {
   template <typename T>
@@ -165,10 +159,9 @@ struct ScalarParseImpl {
     return Status::NotImplemented("parsing scalars of type ", t);
   }
 
-  template <typename T, typename... Args>
-  Status Finish(Args&&... args) {
-    *out_ = MakeScalar<T>(type_, std::forward<Args>(args)...);
-    return Status::OK();
+  template <typename T, typename Arg>
+  Status Finish(Arg&& arg) {
+    return MakeScalar(type_, std::forward<Arg>(arg), out_);
   }
 
   ScalarParseImpl(const std::shared_ptr<DataType>& type, util::string_view s,

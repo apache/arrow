@@ -171,6 +171,7 @@ struct TypeTraits<DayTimeIntervalType> {
     return elements * static_cast<int64_t>(sizeof(DayTimeIntervalType::DayMilliseconds));
   }
   constexpr static bool is_parameter_free = true;
+  static std::shared_ptr<DataType> type_singleton() { return day_time_interval(); }
 };
 
 template <>
@@ -183,6 +184,7 @@ struct TypeTraits<MonthIntervalType> {
     return elements * static_cast<int64_t>(sizeof(int32_t));
   }
   constexpr static bool is_parameter_free = true;
+  static std::shared_ptr<DataType> type_singleton() { return month_interval(); }
 };
 
 template <>

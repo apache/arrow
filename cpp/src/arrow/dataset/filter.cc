@@ -47,7 +47,11 @@ Result<Datum> ScalarExpression::Evaluate(compute::FunctionContext* ctx,
   return value_;
 }
 
-Datum NullDatum() { return Datum(std::make_shared<NullScalar>()); }
+inline std::shared_ptr<ScalarExpression> NullExpression() {
+  return std::make_shared<ScalarExpression>(std::make_shared<BooleanScalar>());
+}
+
+inline Datum NullDatum() { return Datum(std::make_shared<NullScalar>()); }
 
 Result<Datum> FieldExpression::Evaluate(compute::FunctionContext* ctx,
                                         const RecordBatch& batch) const {
@@ -187,14 +191,6 @@ Result<Datum> ComparisonExpression::Evaluate(compute::FunctionContext* ctx,
   RETURN_NOT_OK(
       arrow::compute::Compare(ctx, lhs, rhs, arrow::compute::CompareOptions(op_), &out));
   return std::move(out);
-}
-
-std::shared_ptr<ScalarExpression> ScalarExpression::MakeNull(
-    const std::shared_ptr<DataType>& type) {
-  std::shared_ptr<Scalar> null;
-  // FIXME(bkietz) don't just DCHECK this
-  DCHECK_OK(arrow::MakeNullScalar(type, &null));
-  return Make(std::move(null));
 }
 
 struct Comparison {
@@ -377,7 +373,7 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::Assume(
 
         if (simplified->IsNull()) {
           // some subexpression of given is always null, return null
-          return ScalarExpression::MakeNull(boolean());
+          return NullExpression();
         }
 
         bool trivial;
@@ -397,11 +393,11 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::Assume(
       }
 
       if (simplify_to_always) {
-        return ScalarExpression::Make(true);
+        return scalar(true);
       }
 
       if (simplify_to_never) {
-        return ScalarExpression::Make(false);
+        return scalar(false);
       }
 
       return Copy();
@@ -413,7 +409,7 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::Assume(
       auto simplified = Copy();
       for (const auto& operand : {given_and.left_operand(), given_and.right_operand()}) {
         if (simplified->IsNull()) {
-          return ScalarExpression::MakeNull(boolean());
+          return NullExpression();
         }
 
         if (simplified->IsTrivialCondition()) {
@@ -462,11 +458,11 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::AssumeGivenComparison(
 
   if (cmp == Comparison::NULL_) {
     // the RHS of e or given was null
-    return ScalarExpression::MakeNull(boolean());
+    return NullExpression();
   }
 
-  static auto always = ScalarExpression::Make(true);
-  static auto never = ScalarExpression::Make(false);
+  static auto always = scalar(true);
+  static auto never = scalar(false);
 
   using compute::CompareOperator;
 
@@ -612,7 +608,7 @@ Result<std::shared_ptr<Expression>> AndExpression::Assume(const Expression& give
 
   // if either operand is trivially null then so is this AND
   if (left_operand->IsNull() || right_operand->IsNull()) {
-    return ScalarExpression::MakeNull(boolean());
+    return NullExpression();
   }
 
   bool left_trivial, right_trivial;
@@ -630,7 +626,7 @@ Result<std::shared_ptr<Expression>> AndExpression::Assume(const Expression& give
       (right_is_trivial && right_trivial == false)) {
     // FIXME(bkietz) if left is false and right is a column conaining nulls, this is an
     // error because we should be yielding null there rather than false
-    return ScalarExpression::Make(false);
+    return scalar(false);
   }
 
   // at least one of the operands is trivially true; return the other operand
@@ -643,7 +639,7 @@ Result<std::shared_ptr<Expression>> OrExpression::Assume(const Expression& given
 
   // if either operand is trivially null then so is this OR
   if (left_operand->IsNull() || right_operand->IsNull()) {
-    return ScalarExpression::MakeNull(boolean());
+    return NullExpression();
   }
 
   bool left_trivial, right_trivial;
@@ -661,7 +657,7 @@ Result<std::shared_ptr<Expression>> OrExpression::Assume(const Expression& given
       (right_is_trivial && right_trivial == true)) {
     // FIXME(bkietz) if left is true but right is a column conaining nulls, this is an
     // error because we should be yielding null there rather than true
-    return ScalarExpression::Make(true);
+    return scalar(true);
   }
 
   // at least one of the operands is trivially false; return the other operand
@@ -672,12 +668,12 @@ Result<std::shared_ptr<Expression>> NotExpression::Assume(const Expression& give
   ARROW_ASSIGN_OR_RAISE(auto operand, operand_->Assume(given));
 
   if (operand->IsNull()) {
-    return ScalarExpression::MakeNull(boolean());
+    return NullExpression();
   }
 
   bool trivial;
   if (operand->IsTrivialCondition(&trivial)) {
-    return ScalarExpression::Make(!trivial);
+    return scalar(!trivial);
   }
 
   return Copy();
