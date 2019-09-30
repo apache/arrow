@@ -163,3 +163,4 @@ pub type Time64NanosecondBuilder = PrimitiveBuilder<Time64NanosecondType>;
 // --------------------- Array Equality ---------------------
 
 pub use self::equal::ArrayEqual;
+pub use self::equal::JsonEqual;
