@@ -87,7 +87,7 @@ DayTimeIntervalScalar::DayTimeIntervalScalar(DayTimeIntervalType::DayMillisecond
 }
 
 StringScalar::StringScalar(std::string s)
-    : StringScalar(Buffer::FromString(std::move(s))) {}
+    : StringScalar(Buffer::FromString(std::move(s)), true) {}
 
 FixedSizeBinaryScalar::FixedSizeBinaryScalar(const std::shared_ptr<Buffer>& value,
                                              const std::shared_ptr<DataType>& type,
