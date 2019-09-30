@@ -41,10 +41,11 @@ struct ARROW_DS_EXPORT UnconvertedKey {
 };
 
 /// \brief Helper function for the common case of combining partition information
-/// consisting of equality expressions into a single conjunction expression
+/// consisting of equality expressions into a single conjunction expression.
+/// Fields referenced in keys but absent from schema will be ignored.
 ARROW_DS_EXPORT
-Status ConvertPartitionKeys(const std::vector<UnconvertedKey>& keys, const Schema& schema,
-                            std::shared_ptr<Expression>* out);
+Result<std::shared_ptr<Expression>> ConvertPartitionKeys(
+    const std::vector<UnconvertedKey>& keys, const Schema& schema);
 
 /// \brief Interface for parsing partition expressions from string partition
 /// identifiers.
@@ -70,15 +71,8 @@ class ARROW_DS_EXPORT PartitionScheme {
   /// \brief Parse a path into a partition expression
   ///
   /// \param[in] path the partition identifier to parse
-  /// \param[out] unconsumed a suffix of path which was not consumed
-  /// \param[out] out the parsed expression
-  virtual Status Parse(const std::string& path, std::string* unconsumed,
-                       std::shared_ptr<Expression>* out) const = 0;
-
-  /// \brief Parse a path into a partition expression
-  ///
-  /// Helper for use by a root PartitionScheme; consumes whole path.
-  Status Parse(const std::string& path, std::shared_ptr<Expression>* out) const;
+  /// \return the parsed expression
+  virtual Result<std::shared_ptr<Expression>> Parse(const std::string& path) const = 0;
 };
 
 /// \brief Trivial partition scheme which only consumes a specified prefix (empty by
@@ -89,44 +83,29 @@ class ARROW_DS_EXPORT ConstantPartitionScheme : public PartitionScheme {
                                    std::string ignored = "")
       : expression_(std::move(expr)), ignored_(std::move(ignored)) {}
 
-  std::string name() const override { return "simple_partition_scheme"; }
+  std::string name() const override { return "constant_partition_scheme"; }
 
-  Status Parse(const std::string& path, std::string* unconsumed,
-               std::shared_ptr<Expression>* out) const override;
+  Result<std::shared_ptr<Expression>> Parse(const std::string& path) const override;
 
  private:
   std::shared_ptr<Expression> expression_;
   std::string ignored_;
 };
 
-/// \brief Combine partition schemes
-class ARROW_DS_EXPORT ChainPartitionScheme : public PartitionScheme {
- public:
-  explicit ChainPartitionScheme(std::vector<std::unique_ptr<PartitionScheme>> schemes)
-      : schemes_(std::move(schemes)) {}
-
-  std::string name() const override { return "chain_partition_scheme"; }
-
-  Status Parse(const std::string& path, std::string* unconsumed,
-               std::shared_ptr<Expression>* out) const override;
-
- protected:
-  std::vector<std::unique_ptr<PartitionScheme>> schemes_;
-};
-
 /// \brief Parse a single field from a single path segment
-class ARROW_DS_EXPORT FieldPartitionScheme : public PartitionScheme {
+class ARROW_DS_EXPORT SchemaPartitionScheme : public PartitionScheme {
  public:
-  explicit FieldPartitionScheme(std::shared_ptr<Field> field)
-      : field_(std::move(field)) {}
+  explicit SchemaPartitionScheme(std::shared_ptr<Schema> schema)
+      : schema_(std::move(schema)) {}
 
-  std::string name() const override { return "field_partition_scheme"; }
+  std::string name() const override { return "schema_partition_scheme"; }
 
-  Status Parse(const std::string& path, std::string* unconsumed,
-               std::shared_ptr<Expression>* out) const override;
+  Result<std::shared_ptr<Expression>> Parse(const std::string& path) const override;
+
+  const std::shared_ptr<Schema>& schema() { return schema_; }
 
  protected:
-  std::shared_ptr<Field> field_;
+  std::shared_ptr<Schema> schema_;
 };
 
 /// \brief Multi-level, directory based partitioning scheme
@@ -141,19 +120,13 @@ class ARROW_DS_EXPORT HivePartitionScheme : public PartitionScheme {
 
   std::string name() const override { return "hive_partition_scheme"; }
 
-  Status Parse(const std::string& path, std::string* unconsumed,
-               std::shared_ptr<Expression>* out) const override;
+  Result<std::shared_ptr<Expression>> Parse(const std::string& path) const override;
 
-  std::vector<UnconvertedKey> GetUnconvertedKeys(const std::string& path,
-                                                 std::string* unconsumed) const;
+  std::vector<UnconvertedKey> GetUnconvertedKeys(const std::string& path) const;
+
+  const std::shared_ptr<Schema>& schema() { return schema_; }
 
  protected:
-  /// XXX do we have a schema when constructing partition schemes?
-  /// If so: where do we get that?
-  /// If not: we don't know what the types of RHSs are; they must stay strings
-  /// for later conversion. This means among other things that some errors are
-  /// deferred until the schema is given, including some parse errors.
-  /// Also: how do we know what fields belong to this partition scheme?
   std::shared_ptr<Schema> schema_;
 };
 
@@ -189,24 +162,23 @@ class ARROW_DS_EXPORT HivePartitionScheme : public PartitionScheme {
 /// \brief Implementation provided by lambda or other callable
 class ARROW_DS_EXPORT FunctionPartitionScheme : public PartitionScheme {
  public:
-  explicit FunctionPartitionScheme(std::function<Status(const std::string&, std::string*,
-                                                        std::shared_ptr<Expression>*)>
-                                       impl,
-                                   std::string name = "function_partition_scheme")
+  explicit FunctionPartitionScheme(
+      std::function<Result<std::shared_ptr<Expression>>(const std::string&)> impl,
+      std::string name = "function_partition_scheme")
       : impl_(std::move(impl)), name_(std::move(name)) {}
 
   std::string name() const override { return name_; }
 
-  Status Parse(const std::string& path, std::string* unconsumed,
-               std::shared_ptr<Expression>* out) const override {
-    return impl_(path, unconsumed, out);
+  Result<std::shared_ptr<Expression>> Parse(const std::string& path) const override {
+    return impl_(path);
   }
 
  private:
-  std::function<Status(const std::string&, std::string*, std::shared_ptr<Expression>*)>
-      impl_;
+  std::function<Result<std::shared_ptr<Expression>>(const std::string&)> impl_;
   std::string name_;
 };
+
+// TODO(bkietz) use RE2 and named groups to provide RegexpPartitionScheme
 
 }  // namespace dataset
 }  // namespace arrow

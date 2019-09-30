@@ -866,8 +866,7 @@ std::shared_ptr<AndExpression> and_(std::shared_ptr<Expression> lhs,
   return std::make_shared<AndExpression>(std::move(lhs), std::move(rhs));
 }
 
-std::shared_ptr<Expression> and_(
-    const std::vector<std::shared_ptr<Expression>>& subexpressions) {
+std::shared_ptr<Expression> and_(const ExpressionVector& subexpressions) {
   if (subexpressions.size() == 0) {
     return scalar(true);
   }
@@ -883,8 +882,7 @@ std::shared_ptr<OrExpression> or_(std::shared_ptr<Expression> lhs,
   return std::make_shared<OrExpression>(std::move(lhs), std::move(rhs));
 }
 
-std::shared_ptr<Expression> or_(
-    const std::vector<std::shared_ptr<Expression>>& subexpressions) {
+std::shared_ptr<Expression> or_(const ExpressionVector& subexpressions) {
   if (subexpressions.size() == 0) {
     return scalar(false);
   }

@@ -31,7 +31,6 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace dataset {
@@ -39,30 +38,21 @@ namespace dataset {
 class TestPartitionScheme : public ::testing::Test {
  public:
   void AssertParseError(const std::string& path) {
-    std::string unconsumed;
-    std::shared_ptr<Expression> ignored;
-    ASSERT_RAISES(Invalid, scheme_->Parse(path, &unconsumed, &ignored));
+    ASSERT_RAISES(Invalid, scheme_->Parse(path).status());
   }
 
-  void AssertParse(const std::string& expected_consumed,
-                   const std::string& expected_unconsumed,
-                   std::shared_ptr<Expression> expected) {
+  void AssertParse(const std::string& path, std::shared_ptr<Expression> expected) {
     for (std::string suffix : {"", "/dat.parquet"}) {
-      std::string unconsumed;
-      std::shared_ptr<Expression> parsed;
-      ASSERT_OK(scheme_->Parse(expected_consumed + expected_unconsumed + suffix,
-                               &unconsumed, &parsed));
+      ASSERT_OK_AND_ASSIGN(auto parsed, scheme_->Parse(path + suffix));
 
       ASSERT_NE(parsed, nullptr);
-      ASSERT_EQ(expected_unconsumed + suffix, unconsumed);
       ASSERT_TRUE(parsed->Equals(*expected)) << parsed->ToString() << "\n"
                                              << expected->ToString();
     }
   }
 
-  void AssertParse(const std::string& expected_consumed,
-                   const std::string& expected_unconsumed, const Expression& expected) {
-    AssertParse(expected_consumed, expected_unconsumed, expected.Copy());
+  void AssertParse(const std::string& path, const Expression& expected) {
+    AssertParse(path, expected.Copy());
   }
 
  protected:
@@ -72,136 +62,161 @@ class TestPartitionScheme : public ::testing::Test {
 TEST_F(TestPartitionScheme, Simple) {
   auto expr = equal(field_ref("alpha"), scalar<int16_t>(3));
   scheme_ = std::make_shared<ConstantPartitionScheme>(expr);
-  AssertParse("", "/hello/world", expr);
+  AssertParse("/hello/world", expr);
+}
+
+TEST_F(TestPartitionScheme, Schema) {
+  scheme_ = std::make_shared<SchemaPartitionScheme>(
+      schema({field("alpha", int32()), field("beta", utf8())}));
+
+  AssertParse("/0/hello", "alpha"_ == int32_t(0) and "beta"_ == "hello");
+  AssertParseError("/world/0");
+  AssertParseError("/3.25");
+  AssertParseError("/0.0/foo");  // conversion of "0.0" to int32 fails
+  AssertParseError("");
+
+  // gotcha someday:
+  AssertParse("/0/dat.parquet", "alpha"_ == int32_t(0) and "beta"_ == "dat.parquet");
+
+  AssertParse("/0/foo/ignored=2341", "alpha"_ == int32_t(0) and "beta"_ == "foo");
 }
 
 TEST_F(TestPartitionScheme, Hive) {
   scheme_ = std::make_shared<HivePartitionScheme>(
       schema({field("alpha", int32()), field("beta", float32())}));
 
-  AssertParse("/alpha=0/beta=3.25", "", "alpha"_ == int32_t(0) and "beta"_ == 3.25f);
-  AssertParse("/beta=3.25/alpha=0", "", "beta"_ == 3.25f and "alpha"_ == int32_t(0));
-  AssertParse("/alpha=0", "", "alpha"_ == int32_t(0));
-  AssertParse("/beta=3.25", "", "beta"_ == 3.25f);
+  AssertParse("/alpha=0/beta=3.25", "alpha"_ == int32_t(0) and "beta"_ == 3.25f);
+  AssertParse("/beta=3.25/alpha=0", "beta"_ == 3.25f and "alpha"_ == int32_t(0));
+  AssertParse("/alpha=0", "alpha"_ == int32_t(0));
+  AssertParse("/beta=3.25", "beta"_ == 3.25f);
 
-  AssertParse("/alpha=0", "/unexpected/beta=3.25", "alpha"_ == int32_t(0));
-
-  AssertParse("/alpha=0/beta=3.25", "/ignored=2341",
+  AssertParse("/alpha=0/unexpected/beta=3.25",
               "alpha"_ == int32_t(0) and "beta"_ == 3.25f);
 
-  AssertParse("", "", scalar(true));
-  AssertParse("", "/ignored=2341", scalar(true));
+  AssertParse("/alpha=0/beta=3.25/ignored=2341",
+              "alpha"_ == int32_t(0) and "beta"_ == 3.25f);
+
+  AssertParse("", scalar(true));
+  AssertParse("/ignored=2341", scalar(true));
 
   AssertParseError("/alpha=0.0/beta=3.25");  // conversion of "0.0" to int32 fails
 }
 
-TEST_F(TestPartitionScheme, ChainOfHive) {
-  std::vector<std::shared_ptr<Schema>> schemas = {schema({field("alpha", int32())}),
-                                                  schema({field("beta", float32())}),
-                                                  schema({field("gamma", utf8())})};
-
-  std::vector<std::unique_ptr<PartitionScheme>> schemes;
-  for (auto schm : schemas) {
-    schemes.emplace_back(new HivePartitionScheme(schm));
-  }
-  scheme_ = std::make_shared<ChainPartitionScheme>(std::move(schemes));
-
-  AssertParse("/alpha=0/beta=3.25/gamma=hello", "",
-              "alpha"_ == int32_t(0) and "beta"_ == 3.25f and "gamma"_ == "hello");
-
-  auto wahr = scalar(true);
-  AssertParse("/alpha=0/gamma=yo", "",
-              "alpha"_ == int32_t(0) and *wahr and "gamma"_ == "yo");
-
-  AssertParse("", "/ignored=2341", *wahr and *wahr and *wahr);
-  AssertParse("", "/ignored=2341", *wahr and *wahr and *wahr);
+template <typename T>
+void PopFront(size_t n, std::vector<T>* v) {
+  std::move(v->begin() + n, v->end(), v->begin());
+  v->resize(v->size() - n);
 }
 
 TEST_F(TestPartitionScheme, EtlThenHive) {
-  std::vector<std::unique_ptr<PartitionScheme>> schemes;
-  schemes.emplace_back(new FieldPartitionScheme(field("year", int16())));
-  schemes.emplace_back(new FieldPartitionScheme(field("month", int8())));
-  schemes.emplace_back(new FieldPartitionScheme(field("day", int8())));
-  schemes.emplace_back(new HivePartitionScheme(
-      schema({field("alpha", int32()), field("beta", float32())})));
-  scheme_ = std::make_shared<ChainPartitionScheme>(std::move(schemes));
+  SchemaPartitionScheme etl_scheme(schema({field("year", int16()), field("month", int8()),
+                                           field("day", int8()), field("hour", int8())}));
+  HivePartitionScheme alphabeta_scheme(
+      schema({field("alpha", int32()), field("beta", float32())}));
 
-  AssertParse("/1999/12/31/alpha=0/beta=3.25", "",
+  scheme_ = std::make_shared<FunctionPartitionScheme>(
+      [&](const std::string& path) -> Result<std::shared_ptr<Expression>> {
+        ARROW_ASSIGN_OR_RAISE(auto etl_expr, etl_scheme.Parse(path));
+
+        auto segments = fs::internal::SplitAbstractPath(path);
+        PopFront(etl_scheme.schema()->num_fields(), &segments);
+        ARROW_ASSIGN_OR_RAISE(
+            auto alphabeta_expr,
+            alphabeta_scheme.Parse(fs::internal::JoinAbstractPath(segments)));
+
+        return and_(std::move(etl_expr), std::move(alphabeta_expr));
+      });
+
+  AssertParse("/1999/12/31/00/alpha=0/beta=3.25",
               "year"_ == int16_t(1999) and "month"_ == int8_t(12) and
-                  "day"_ == int8_t(31) && ("alpha"_ == int32_t(0) and "beta"_ == 3.25f));
+                  "day"_ == int8_t(31) and "hour"_ == int8_t(0) &&
+                  ("alpha"_ == int32_t(0) and "beta"_ == 3.25f));
 
-  AssertParseError("/20X6/03/21/alpha=0/beta=3.25");
+  AssertParseError("/20X6/03/21/05/alpha=0/beta=3.25");
 }
 
 TEST_F(TestPartitionScheme, Set) {
   // create an adhoc partition scheme which parses segments like "/x in [1 4 5]"
   // into ("x"_ == 1 or "x"_ == 4 or "x"_ == 5)
   scheme_ = std::make_shared<FunctionPartitionScheme>(
-      [](const std::string& path, std::string* unconsumed,
-         std::shared_ptr<Expression>* out) {
+      [](const std::string& path) -> Result<std::shared_ptr<Expression>> {
         std::smatch matches;
-        std::regex re("^/x in \\[(.+)\\](.*)$");
-        if (!std::regex_match(path, matches, re) || matches.size() != 3) {
+        auto segment = std::move(fs::internal::SplitAbstractPath(path)[0]);
+        static std::regex re("^x in \\[(.*)\\]$");
+        if (!std::regex_match(segment, matches, re) || matches.size() != 2) {
           return Status::Invalid("regex failed to parse");
         }
 
-        std::vector<std::shared_ptr<Expression>> element_equality;
+        ExpressionVector subexpressions;
         std::string element;
         std::istringstream elements(matches[1]);
         while (elements >> element) {
           std::shared_ptr<Scalar> s;
           RETURN_NOT_OK(Scalar::Parse(int32(), element, &s));
-          element_equality.push_back(equal(field_ref("x"), scalar(s)));
+          subexpressions.push_back(equal(field_ref("x"), scalar(s)));
         }
 
-        *unconsumed = matches[2].str();
-        *out = or_(std::move(element_equality));
-        return Status::OK();
+        return or_(std::move(subexpressions));
       });
 
-  AssertParse("/x in [1 4 5]", "", "x"_ == 1 or "x"_ == 4 or "x"_ == 5);
+  AssertParse("/x in [1]", "x"_ == 1);
+  AssertParse("/x in [1 4 5]", "x"_ == 1 or "x"_ == 4 or "x"_ == 5);
+  AssertParse("/x in []", scalar(false));
 }
 
-TEST_F(TestPartitionScheme, Range) {
-  std::vector<std::unique_ptr<PartitionScheme>> schemes;
-  for (std::string x : {"x", "y", "z"}) {
-    schemes.emplace_back(
-        // create an adhoc partition scheme which parses segments like "/x=[-3.25, 0.0)"
-        // into ("x"_ >= -3.25 and "x" < 0.0)
-        new FunctionPartitionScheme([x](const std::string& path, std::string* unconsumed,
-                                        std::shared_ptr<Expression>* out) {
-          std::smatch matches;
-          std::regex re("^/" + x +
-                        "="
-                        R"((\[|\())"  // open bracket or paren
-                        "([^,/]+)"    // representation of range minimum
-                        ", "
-                        R"(([^,/\]\)]+))"  // representation of range maximum
-                        R"((\]|\)))"       // close bracket or paren
-                        "(.*)$");          // unconsumed
-          if (!std::regex_match(path, matches, re) || matches.size() != 6) {
-            return Status::Invalid("regex failed to parse");
-          }
+// an adhoc partition scheme which parses segments like "/x=[-3.25, 0.0)"
+// into ("x"_ >= -3.25 and "x" < 0.0)
+class RangePartitionScheme : public HivePartitionScheme {
+ public:
+  using HivePartitionScheme::HivePartitionScheme;
 
-          auto& min_cmp = matches[1] == "[" ? greater_equal : greater;
-          std::string min_repr = matches[2];
-          std::string max_repr = matches[3];
-          auto& max_cmp = matches[4] == "]" ? less_equal : less;
-          *unconsumed = matches[5].str();
+  std::string name() const override { return "range_partition_scheme"; }
 
-          std::shared_ptr<Scalar> min, max;
-          RETURN_NOT_OK(Scalar::Parse(float64(), min_repr, &min));
-          RETURN_NOT_OK(Scalar::Parse(float64(), max_repr, &max));
+  Result<std::shared_ptr<Expression>> Parse(const std::string& path) const override {
+    ExpressionVector ranges;
+    for (auto key : GetUnconvertedKeys(path)) {
+      std::smatch matches;
+      RETURN_NOT_OK(DoRegex(key.value, &matches));
 
-          auto field_x = field_ref(x);
-          *out = and_(min_cmp(field_ref(x), scalar(min)),
-                      max_cmp(field_ref(x), scalar(max)));
-          return Status::OK();
-        }));
+      auto& min_cmp = matches[1] == "[" ? greater_equal : greater;
+      std::string min_repr = matches[2];
+      std::string max_repr = matches[3];
+      auto& max_cmp = matches[4] == "]" ? less_equal : less;
+
+      const auto& type = schema_->GetFieldByName(key.name)->type();
+      std::shared_ptr<Scalar> min, max;
+      RETURN_NOT_OK(Scalar::Parse(type, min_repr, &min));
+      RETURN_NOT_OK(Scalar::Parse(type, max_repr, &max));
+
+      ranges.push_back(and_(min_cmp(field_ref(key.name), scalar(min)),
+                            max_cmp(field_ref(key.name), scalar(max))));
+    }
+    return and_(ranges);
   }
-  scheme_ = std::make_shared<ChainPartitionScheme>(std::move(schemes));
 
-  AssertParse("/x=[-1.5, 0.0)/y=[0.0, 1.5)/z=(1.5, 3.0]", "",
+  static Status DoRegex(const std::string& segment, std::smatch* matches) {
+    static std::regex re(
+        "^"
+        "([\\[\\(])"  // open bracket or paren
+        "([^ ]+)"     // representation of range minimum
+        " "
+        "([^ ]+)"     // representation of range maximum
+        "([\\]\\)])"  // close bracket or paren
+        "$");
+
+    if (!std::regex_match(segment, *matches, re) || matches->size() != 5) {
+      return Status::Invalid("regex failed to parse");
+    }
+
+    return Status::OK();
+  }
+};
+
+TEST_F(TestPartitionScheme, Range) {
+  scheme_ = std::make_shared<RangePartitionScheme>(
+      schema({field("x", float64()), field("y", float64()), field("z", float64())}));
+
+  AssertParse("/x=[-1.5 0.0)/y=[0.0 1.5)/z=(1.5 3.0]",
               ("x"_ >= -1.5 and "x"_ < 0.0) and ("y"_ >= 0.0 and "y"_ < 1.5) and
                   ("z"_ > 1.5 and "z"_ <= 3.0));
 }
