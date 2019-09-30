@@ -114,12 +114,6 @@ set(ARROW_SRCS
     csv/options.cc
     csv/parser.cc
     csv/reader.cc
-    filesystem/filesystem.cc
-    filesystem/localfs.cc
-    filesystem/mockfs.cc
-    filesystem/path_tree.cc
-    filesystem/path_util.cc
-    filesystem/util_internal.cc
     io/buffered.cc
     io/compressed.cc
     io/file.cc
@@ -149,6 +143,13 @@ set(ARROW_SRCS
     vendored/base64.cpp
     vendored/datetime/tz.cpp)
 
+set(ARROW_TESTING_SRCS
+    io/test_common.cc
+    ipc/test_common.cc
+    testing/gtest_util.cc
+    testing/random.cc
+    testing/generator.cc)
+
 # Add dependencies for third-party allocators.
 # If possible we only want memory_pool.cc to wait for allocators to finish building,
 # but that only works with Ninja
@@ -173,26 +174,6 @@ endif()
 
 unset(_allocator_dependencies)
 
-if(ARROW_JSON)
-  add_subdirectory(json)
-  set(ARROW_SRCS
-      ${ARROW_SRCS}
-      json/options.cc
-      json/chunked_builder.cc
-      json/chunker.cc
-      json/converter.cc
-      json/parser.cc
-      json/reader.cc)
-endif()
-
-if(ARROW_S3)
-  set(ARROW_SRCS ${ARROW_SRCS} filesystem/s3fs.cc)
-endif()
-
-if(ARROW_WITH_URIPARSER)
-  set(ARROW_SRCS ${ARROW_SRCS} util/uri.cc)
-endif()
-
 if("${COMPILER_FAMILY}" STREQUAL "clang")
   set_property(SOURCE util/io_util.cc
                APPEND_STRING
@@ -202,94 +183,149 @@ endif()
 # Unconditionally install testing headers that are also useful for Arrow consumers.
 add_subdirectory(testing)
 
+#
+# Add the various components
+#
+
+add_subdirectory(array)
+add_subdirectory(csv)
+add_subdirectory(io)
+add_subdirectory(util)
+add_subdirectory(vendored)
+
 if(ARROW_COMPUTE)
   add_subdirectory(compute)
-  set(ARROW_SRCS
-      ${ARROW_SRCS}
-      compute/context.cc
-      compute/expression.cc
-      compute/logical_type.cc
-      compute/operation.cc
-      compute/kernels/aggregate.cc
-      compute/kernels/boolean.cc
-      compute/kernels/cast.cc
-      compute/kernels/compare.cc
-      compute/kernels/count.cc
-      compute/kernels/hash.cc
-      compute/kernels/filter.cc
-      compute/kernels/mean.cc
-      compute/kernels/sort_to_indices.cc
-      compute/kernels/sum.cc
-      compute/kernels/take.cc
-      compute/kernels/isin.cc
-      compute/kernels/util_internal.cc
-      compute/operations/cast.cc
-      compute/operations/literal.cc)
+  list(APPEND ARROW_SRCS
+              compute/context.cc
+              compute/expression.cc
+              compute/logical_type.cc
+              compute/operation.cc
+              compute/kernels/aggregate.cc
+              compute/kernels/boolean.cc
+              compute/kernels/cast.cc
+              compute/kernels/compare.cc
+              compute/kernels/count.cc
+              compute/kernels/hash.cc
+              compute/kernels/filter.cc
+              compute/kernels/mean.cc
+              compute/kernels/sort_to_indices.cc
+              compute/kernels/sum.cc
+              compute/kernels/take.cc
+              compute/kernels/isin.cc
+              compute/kernels/util_internal.cc
+              compute/operations/cast.cc
+              compute/operations/literal.cc)
 endif()
 
 if(ARROW_CUDA)
-  # IPC extensions required to build the CUDA library
-  set(ARROW_IPC ON)
   add_subdirectory(gpu)
 endif()
 
-if(ARROW_WITH_BROTLI)
-  add_definitions(-DARROW_WITH_BROTLI)
-  set(ARROW_SRCS util/compression_brotli.cc ${ARROW_SRCS})
+if(ARROW_DATASET)
+  add_subdirectory(dataset)
 endif()
 
-if(ARROW_WITH_BZ2)
-  add_definitions(-DARROW_WITH_BZ2)
-  set(ARROW_SRCS util/compression_bz2.cc ${ARROW_SRCS})
+if(ARROW_FILESYSTEM)
+  add_subdirectory(filesystem)
+
+  list(APPEND ARROW_SRCS
+              filesystem/filesystem.cc
+              filesystem/localfs.cc
+              filesystem/mockfs.cc
+              filesystem/path_tree.cc
+              filesystem/path_util.cc
+              filesystem/util_internal.cc)
+
+  if(ARROW_S3)
+    list(APPEND ARROW_SRCS filesystem/s3fs.cc)
+  endif()
+
+  list(APPEND ARROW_TESTING_SRCS filesystem/test_util.cc)
 endif()
 
-if(ARROW_WITH_LZ4)
-  add_definitions(-DARROW_WITH_LZ4)
-  set(ARROW_SRCS util/compression_lz4.cc ${ARROW_SRCS})
+if(ARROW_FLIGHT)
+  add_subdirectory(flight)
 endif()
 
-if(ARROW_WITH_SNAPPY)
-  add_definitions(-DARROW_WITH_SNAPPY)
-  set(ARROW_SRCS util/compression_snappy.cc ${ARROW_SRCS})
+if(ARROW_HIVESERVER2)
+  add_subdirectory(dbi/hiveserver2)
 endif()
 
-if(ARROW_WITH_ZLIB)
-  add_definitions(-DARROW_WITH_ZLIB)
-  set(ARROW_SRCS util/compression_zlib.cc ${ARROW_SRCS})
+if(ARROW_IPC)
+  add_subdirectory(ipc)
+
+  list(APPEND ARROW_SRCS
+              ipc/dictionary.cc
+              ipc/feather.cc
+              ipc/message.cc
+              ipc/metadata_internal.cc
+              ipc/options.cc
+              ipc/reader.cc
+              ipc/writer.cc)
+
+  if(ARROW_JSON)
+    list(
+      APPEND ARROW_SRCS ipc/json_integration.cc ipc/json_internal.cc ipc/json_simple.cc)
+  endif()
+  add_dependencies(arrow_dependencies metadata_fbs)
 endif()
 
-if(ARROW_WITH_ZSTD)
-  add_definitions(-DARROW_WITH_ZSTD)
-  set(ARROW_SRCS util/compression_zstd.cc ${ARROW_SRCS})
+if(ARROW_JSON)
+  add_subdirectory(json)
+  list(APPEND ARROW_SRCS
+              json/options.cc
+              json/chunked_builder.cc
+              json/chunker.cc
+              json/converter.cc
+              json/parser.cc
+              json/reader.cc)
 endif()
 
 if(ARROW_ORC)
   add_subdirectory(adapters/orc)
-  set(ARROW_SRCS adapters/orc/adapter.cc adapters/orc/adapter_util.cc ${ARROW_SRCS})
+  list(APPEND ARROW_SRCS adapters/orc/adapter.cc adapters/orc/adapter_util.cc)
+endif()
+
+if(ARROW_PYTHON)
+  add_subdirectory(python)
 endif()
 
 if(ARROW_TENSORFLOW)
   add_subdirectory(adapters/tensorflow)
 endif()
 
-if(ARROW_IPC)
-  add_subdirectory(ipc)
+if(ARROW_WITH_URIPARSER)
+  list(APPEND ARROW_SRCS util/uri.cc)
+endif()
 
-  set(ARROW_SRCS
-      ${ARROW_SRCS}
-      ipc/dictionary.cc
-      ipc/feather.cc
-      ipc/message.cc
-      ipc/metadata_internal.cc
-      ipc/options.cc
-      ipc/reader.cc
-      ipc/writer.cc)
+if(ARROW_WITH_BROTLI)
+  add_definitions(-DARROW_WITH_BROTLI)
+  list(APPEND ARROW_SRCS util/compression_brotli.cc)
+endif()
 
-  if(ARROW_JSON)
-    set(ARROW_SRCS ${ARROW_SRCS} ipc/json_integration.cc ipc/json_internal.cc
-                   ipc/json_simple.cc)
-  endif()
-  add_dependencies(arrow_dependencies metadata_fbs)
+if(ARROW_WITH_BZ2)
+  add_definitions(-DARROW_WITH_BZ2)
+  list(APPEND ARROW_SRCS util/compression_bz2.cc)
+endif()
+
+if(ARROW_WITH_LZ4)
+  add_definitions(-DARROW_WITH_LZ4)
+  list(APPEND ARROW_SRCS util/compression_lz4.cc)
+endif()
+
+if(ARROW_WITH_SNAPPY)
+  add_definitions(-DARROW_WITH_SNAPPY)
+  list(APPEND ARROW_SRCS util/compression_snappy.cc)
+endif()
+
+if(ARROW_WITH_ZLIB)
+  add_definitions(-DARROW_WITH_ZLIB)
+  list(APPEND ARROW_SRCS util/compression_zlib.cc)
+endif()
+
+if(ARROW_WITH_ZSTD)
+  add_definitions(-DARROW_WITH_ZSTD)
+  list(APPEND ARROW_SRCS util/compression_zstd.cc)
 endif()
 
 if(NOT APPLE AND NOT MSVC)
@@ -333,12 +369,7 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_INTEGRATION)
   # that depend on gtest
   add_arrow_lib(arrow_testing
                 SOURCES
-                io/test_common.cc
-                ipc/test_common.cc
-                filesystem/test_util.cc
-                testing/gtest_util.cc
-                testing/random.cc
-                testing/generator.cc
+                ${ARROW_TESTING_SRCS}
                 OUTPUTS
                 ARROW_TESTING_LIBRARIES
                 DEPENDENCIES
@@ -412,26 +443,3 @@ add_arrow_test(sparse_tensor_test)
 
 add_arrow_benchmark(builder_benchmark)
 add_arrow_benchmark(type_benchmark)
-
-add_subdirectory(array)
-add_subdirectory(csv)
-add_subdirectory(filesystem)
-add_subdirectory(io)
-add_subdirectory(util)
-add_subdirectory(vendored)
-
-if(ARROW_DATASET)
-  add_subdirectory(dataset)
-endif()
-
-if(ARROW_FLIGHT)
-  add_subdirectory(flight)
-endif()
-
-if(ARROW_PYTHON)
-  add_subdirectory(python)
-endif()
-
-if(ARROW_HIVESERVER2)
-  add_subdirectory(dbi/hiveserver2)
-endif()
