@@ -35,7 +35,7 @@ datafusion = "1.0.0-SNAPSHOT"
 #### Use as a bin
 ##### Build your own bin(requires rust toolchains)
 ```sh
-git clone https://github/apache/arrow
+git clone https://github.com/apache/arrow
 cd arrow/rust/datafusion
 cargo run --bin datafusion-cli
 ```
