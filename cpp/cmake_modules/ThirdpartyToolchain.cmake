@@ -2542,6 +2542,16 @@ if(ARROW_S3)
   include_directories(SYSTEM ${AWSSDK_INCLUDE_DIR})
   message(STATUS "Found AWS SDK headers: ${AWSSDK_INCLUDE_DIR}")
   message(STATUS "Found AWS SDK libraries: ${AWSSDK_LINK_LIBRARIES}")
+
+  if(APPLE)
+    # CoreFoundation's path is hardcoded in the CMake files provided by
+    # aws-sdk-cpp to use the MacOSX SDK provided by XCode which makes
+    # XCode a hard dependency. Command Line Tools is often used instead
+    # of the full XCode suite, so let the linker to find it.
+    set_target_properties(AWS::aws-c-common
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "-pthread;pthread;-framework CoreFoundation")
+  endif()
 endif()
 
 # Write out the package configurations.

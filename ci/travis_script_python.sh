@@ -100,6 +100,10 @@ CMAKE_COMMON_FLAGS="-DARROW_EXTRA_ERROR_CONTEXT=ON"
 
 PYTHON_CPP_BUILD_TARGETS="arrow_python-all plasma parquet"
 
+if [ "$ARROW_TRAVIS_S3" == "1" ]; then
+  CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_S3=ON"
+fi
+
 if [ "$ARROW_TRAVIS_FLIGHT" == "1" ]; then
   CMAKE_COMMON_FLAGS="$CMAKE_COMMON_FLAGS -DARROW_FLIGHT=ON"
 fi
@@ -164,6 +168,9 @@ export PYARROW_BUILD_TYPE=$ARROW_BUILD_TYPE
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PLASMA=1
 export PYARROW_WITH_ORC=1
+if [ "$ARROW_TRAVIS_S3" == "1" ]; then
+  export PYARROW_WITH_S3=1
+fi
 if [ "$ARROW_TRAVIS_FLIGHT" == "1" ]; then
   export PYARROW_WITH_FLIGHT=1
 fi
@@ -177,6 +184,7 @@ python setup.py develop
 python -c "import pyarrow.parquet"
 python -c "import pyarrow.plasma"
 python -c "import pyarrow.orc"
+python -c "import pyarrow.fs"
 
 # Ensure we do eagerly import pandas (or other expensive imports)
 python < scripts/test_imports.py

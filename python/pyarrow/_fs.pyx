@@ -22,17 +22,8 @@ import six
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport PyDateTime_from_TimePoint
-from pyarrow.includes.libarrow_fs cimport *
-from pyarrow.util import _stringify_path
 from pyarrow.lib import _detect_compression
-from pyarrow.lib cimport (
-    check_status,
-    NativeFile,
-    BufferedOutputStream,
-    BufferedInputStream,
-    CompressedInputStream,
-    CompressedOutputStream
-)
+from pyarrow.lib cimport *
 
 
 cdef inline c_string _path_as_bytes(path) except *:
@@ -46,20 +37,12 @@ cdef inline c_string _path_as_bytes(path) except *:
     return tobytes(path)
 
 
-cpdef enum FileType:
-    NonExistent = <int8_t> CFileType_NonExistent
-    Unknown = <int8_t> CFileType_Unknown
-    File = <int8_t> CFileType_File
-    Directory = <int8_t> CFileType_Directory
-
-
 cdef class FileStats:
     """FileSystem entry stats"""
 
-    cdef CFileStats stats
-
     def __init__(self):
-        raise TypeError('dont initialize me')
+        raise TypeError("FileStats cannot be instantiated directly, use "
+                        "FileSystem.get_target_stats method instead.")
 
     @staticmethod
     cdef FileStats wrap(CFileStats stats):
@@ -115,9 +98,7 @@ cdef class FileStats:
         Only regular files are guaranteed to have a size.
         """
         if self.stats.type() != CFileType_File:
-            raise ValueError(
-                'Only regular files are guaranteed to have a size'
-            )
+            return None
         return self.stats.size()
 
     @property
@@ -146,7 +127,7 @@ cdef class Selector:
 
     Parameters
     ----------
-    base_dir : str or pathlib.Path
+    base_dir : str
         The directory in which to select files. Relative paths also work, use
         '.' for the current directory and '..' for the parent.
     allow_non_existent : bool, default False
@@ -156,7 +137,6 @@ cdef class Selector:
     recursive : bool, default False
         Whether to recurse into subdirectories.
     """
-    cdef CSelector selector
 
     def __init__(self, base_dir, bint allow_non_existent=False,
                  bint recursive=False):
@@ -191,10 +171,6 @@ cdef class Selector:
 
 cdef class FileSystem:
     """Abstract file system API"""
-
-    cdef:
-        shared_ptr[CFileSystem] wrapped
-        CFileSystem* fs
 
     def __init__(self):
         raise TypeError("FileSystem is an abstract class, instantiate one of "
@@ -249,7 +225,7 @@ cdef class FileSystem:
 
         Parameters
         ----------
-        path : str or pathlib.Path
+        path : str
             The path of the new directory.
         recursive: bool, default True
             Create nested directories as well.
@@ -263,7 +239,7 @@ cdef class FileSystem:
 
         Parameters
         ----------
-        path : str or pathlib.Path
+        path : str
             The path of the directory to be deleted.
         """
         cdef c_string directory = _path_as_bytes(path)
@@ -280,9 +256,9 @@ cdef class FileSystem:
 
         Parameters
         ----------
-        src : str or pathlib.Path
+        src : str
             The path of the file or the directory to be moved.
-        dest : str or pathlib.Path
+        dest : str
             The destination path where the file or directory is moved to.
         """
         cdef:
@@ -299,9 +275,9 @@ cdef class FileSystem:
 
         Parameters
         ----------
-        src : str or pathlib.Path
+        src : str
             The path of the file to be copied from.
-        dest : str or pathlib.Path
+        dest : str
             The destination path where the file is copied to.
         """
         cdef:
@@ -315,7 +291,7 @@ cdef class FileSystem:
 
         Parameters
         ----------
-        path : str or pathlib.Path
+        path : str
             The path of the file to be deleted.
         """
         cdef c_string file = _path_as_bytes(path)
@@ -345,7 +321,7 @@ cdef class FileSystem:
 
         Parameters
         ----------
-        path : Union[str, pathlib.Path]
+        path : str
             The source to open for reading.
 
         Returns
@@ -369,7 +345,7 @@ cdef class FileSystem:
 
         Parameters
         ----------
-        source: str or pathlib.Path
+        source: str
             The source to open for reading.
         compression: str optional, default 'detect'
             The compression algorithm to use for on-the-fly decompression.
@@ -407,7 +383,7 @@ cdef class FileSystem:
 
         Parameters
         ----------
-        path : str or pathlib.Path
+        path : str
             The source to open for writing.
         compression: str optional, default 'detect'
             The compression algorithm to use for on-the-fly compression.
@@ -445,7 +421,7 @@ cdef class FileSystem:
 
         Parameters
         ----------
-        path : str or pathlib.Path
+        path : str
             The source to open for writing.
         compression: str optional, default 'detect'
             The compression algorithm to use for on-the-fly compression.
@@ -484,9 +460,6 @@ cdef class LocalFileSystem(FileSystem):
     except when deleting an entry).
     """
 
-    cdef:
-        CLocalFileSystem* localfs
-
     def __init__(self):
         cdef shared_ptr[CLocalFileSystem] wrapped
         wrapped = make_shared[CLocalFileSystem]()
@@ -506,10 +479,14 @@ cdef class SubTreeFileSystem(FileSystem):
     Note, that this makes no security guarantee. For example, symlinks may
     allow to "escape" the subtree and access other parts of the underlying
     filesystem.
-    """
 
-    cdef:
-        CSubTreeFileSystem* subtreefs
+    Parameters
+    ----------
+    base_path: str
+        The root of the subtree.
+    base_fs: FileSystem
+        FileSystem object the operations delegated to.
+    """
 
     def __init__(self, base_path, FileSystem base_fs):
         cdef:

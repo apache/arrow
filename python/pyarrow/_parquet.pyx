@@ -568,7 +568,7 @@ cdef class FileMetaData:
     def __reduce__(self):
         cdef:
             NativeFile sink = BufferOutputStream()
-            OutputStream* c_sink = sink.get_output_stream().get()
+            COutputStream* c_sink = sink.get_output_stream().get()
         with nogil:
             self._metadata.WriteTo(c_sink)
 
@@ -694,7 +694,7 @@ cdef class FileMetaData:
         Write the metadata object to a metadata-only file
         """
         cdef:
-            shared_ptr[OutputStream] sink
+            shared_ptr[COutputStream] sink
             c_string c_where
 
         try:
@@ -1010,7 +1010,7 @@ cdef class ParquetReader:
              read_dictionary=None, FileMetaData metadata=None,
              int buffer_size=0):
         cdef:
-            shared_ptr[RandomAccessFile] rd_handle
+            shared_ptr[CRandomAccessFile] rd_handle
             shared_ptr[CFileMetaData] c_metadata
             CReaderProperties properties = default_reader_properties()
             ArrowReaderProperties arrow_props = (
@@ -1202,7 +1202,7 @@ cdef class ParquetReader:
 cdef class ParquetWriter:
     cdef:
         unique_ptr[FileWriter] writer
-        shared_ptr[OutputStream] sink
+        shared_ptr[COutputStream] sink
         bint own_sink
 
     cdef readonly:

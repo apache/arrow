@@ -687,7 +687,7 @@ TEST_F(TestS3FS, OpenInputStream) {
 TEST_F(TestS3FS, OpenInputFile) {
   std::shared_ptr<io::RandomAccessFile> file;
   std::shared_ptr<Buffer> buf;
-  int64_t nbytes = -1, pos = -1;
+  int64_t nbytes = -1, pos = -1, bytes_read = 0;
 
   // Non-existent
   ASSERT_RAISES(IOError, fs_->OpenInputFile("non-existent-bucket/somefile", &file));
@@ -712,6 +712,15 @@ TEST_F(TestS3FS, OpenInputFile) {
   AssertBufferEqual(*buf, "data");
   ASSERT_OK(file->ReadAt(9, 20, &buf));
   AssertBufferEqual(*buf, "");
+
+  char result[10];
+  ASSERT_OK(file->ReadAt(2, 5, &bytes_read, &result));
+  ASSERT_EQ(bytes_read, 5);
+  ASSERT_OK(file->ReadAt(5, 20, &bytes_read, &result));
+  ASSERT_EQ(bytes_read, 4);
+  ASSERT_OK(file->ReadAt(9, 0, &bytes_read, &result));
+  ASSERT_EQ(bytes_read, 0);
+
   // Reading past end of file
   ASSERT_RAISES(IOError, file->ReadAt(10, 20, &buf));
 
