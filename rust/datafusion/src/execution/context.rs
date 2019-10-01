@@ -38,7 +38,7 @@ use crate::execution::limit::LimitRelation;
 use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::datasource::DatasourceExec;
 use crate::execution::physical_plan::expressions::{
-    BinaryExpr, CastExpr, Column, Count, Literal, Max, Sum,
+    BinaryExpr, CastExpr, Column, Count, Literal, Max, Min, Sum,
 };
 use crate::execution::physical_plan::hash_aggregate::HashAggregateExec;
 use crate::execution::physical_plan::merge::MergeExec;
@@ -334,6 +334,9 @@ impl ExecutionContext {
                         self.create_physical_expr(&args[0], input_schema)?,
                     ))),
                     "max" => Ok(Arc::new(Max::new(
+                        self.create_physical_expr(&args[0], input_schema)?,
+                    ))),
+                    "min" => Ok(Arc::new(Min::new(
                         self.create_physical_expr(&args[0], input_schema)?,
                     ))),
                     "count" => Ok(Arc::new(Count::new(
@@ -648,6 +651,20 @@ mod tests {
     }
 
     #[test]
+    fn aggregate_min() -> Result<()> {
+        let results = execute("SELECT MIN(c1), MIN(c2) FROM test", 4)?;
+        assert_eq!(results.len(), 1);
+
+        let batch = &results[0];
+        let expected: Vec<&str> = vec!["0,1"];
+        let mut rows = test::format_batch(&batch);
+        rows.sort();
+        assert_eq!(rows, expected);
+
+        Ok(())
+    }
+
+    #[test]
     fn aggregate_grouped() -> Result<()> {
         let results = execute("SELECT c1, SUM(c2) FROM test GROUP BY c1", 4)?;
         assert_eq!(results.len(), 1);
@@ -668,6 +685,20 @@ mod tests {
 
         let batch = &results[0];
         let expected: Vec<&str> = vec!["0,10", "1,10", "2,10", "3,10"];
+        let mut rows = test::format_batch(&batch);
+        rows.sort();
+        assert_eq!(rows, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn aggregate_grouped_min() -> Result<()> {
+        let results = execute("SELECT c1, MIN(c2) FROM test GROUP BY c1", 4)?;
+        assert_eq!(results.len(), 1);
+
+        let batch = &results[0];
+        let expected: Vec<&str> = vec!["0,1", "1,1", "2,1", "3,1"];
         let mut rows = test::format_batch(&batch);
         rows.sort();
         assert_eq!(rows, expected);
