@@ -65,6 +65,8 @@ type dataType struct {
 
 func dtypeToJSON(dt arrow.DataType) dataType {
 	switch dt := dt.(type) {
+	case *arrow.NullType:
+		return dataType{Name: "null"}
 	case *arrow.BooleanType:
 		return dataType{Name: "bool"}
 	case *arrow.Int8Type:
@@ -155,6 +157,8 @@ func dtypeToJSON(dt arrow.DataType) dataType {
 
 func dtypeFromJSON(dt dataType, children []Field) arrow.DataType {
 	switch dt.Name {
+	case "null":
+		return arrow.Null
 	case "bool":
 		return arrow.FixedWidthTypes.Boolean
 	case "int":
@@ -364,6 +368,9 @@ func arraysToJSON(schema *arrow.Schema, arrs []array.Interface) []Array {
 
 func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Interface {
 	switch dt := dt.(type) {
+	case *arrow.NullType:
+		return array.NewNull(arr.Count)
+
 	case *arrow.BooleanType:
 		bldr := array.NewBooleanBuilder(mem)
 		defer bldr.Release()
@@ -618,6 +625,12 @@ func arrayFromJSON(mem memory.Allocator, dt arrow.DataType, arr Array) array.Int
 
 func arrayToJSON(field arrow.Field, arr array.Interface) Array {
 	switch arr := arr.(type) {
+	case *array.Null:
+		return Array{
+			Name:  field.Name,
+			Count: arr.Len(),
+		}
+
 	case *array.Boolean:
 		return Array{
 			Name:   field.Name,

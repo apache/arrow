@@ -44,7 +44,7 @@ func TestArrayEqual(t *testing.T) {
 					sub2 := array.NewSlice(arr, 0, int64(arr.Len()-1))
 					defer sub2.Release()
 
-					if array.ArrayEqual(sub1, sub2) {
+					if array.ArrayEqual(sub1, sub2) && name != "nulls" {
 						t.Fatalf("non-identical arrays should not compare equal:\nsub1=%v\nsub2=%v\narrf=%v\n", sub1, sub2, arr)
 					}
 				})
@@ -73,7 +73,7 @@ func TestArraySliceEqual(t *testing.T) {
 					sub2 := array.NewSlice(arr, 0, int64(arr.Len()-1))
 					defer sub2.Release()
 
-					if array.ArraySliceEqual(sub1, 0, int64(sub1.Len()), sub2, 0, int64(sub2.Len())) {
+					if array.ArraySliceEqual(sub1, 0, int64(sub1.Len()), sub2, 0, int64(sub2.Len())) && name != "nulls" {
 						t.Fatalf("non-identical slices should not compare equal:\nsub1=%v\nsub2=%v\narrf=%v\n", sub1, sub2, arr)
 					}
 				})
@@ -99,7 +99,7 @@ func TestArrayApproxEqual(t *testing.T) {
 					sub2 := array.NewSlice(arr, 0, int64(arr.Len()-1))
 					defer sub2.Release()
 
-					if array.ArrayApproxEqual(sub1, sub2) {
+					if array.ArrayApproxEqual(sub1, sub2) && name != "nulls" {
 						t.Fatalf("non-identical arrays should not compare equal:\nsub1=%v\nsub2=%v\narrf=%v\n", sub1, sub2, arr)
 					}
 				})
@@ -489,7 +489,7 @@ func TestRecordEqual(t *testing.T) {
 				t.Fatalf("identical records should compare equal:\nrecord:\n%v", rec0)
 			}
 
-			if array.RecordEqual(rec0, rec1) {
+			if array.RecordEqual(rec0, rec1) && name != "nulls" {
 				t.Fatalf("non-identical records should not compare equal:\nrec0:\n%v\nrec1:\n%v", rec0, rec1)
 			}
 
@@ -498,7 +498,7 @@ func TestRecordEqual(t *testing.T) {
 			sub01 := rec0.NewSlice(1, recs[0].NumRows())
 			defer sub01.Release()
 
-			if array.RecordEqual(sub00, sub01) {
+			if array.RecordEqual(sub00, sub01) && name != "nulls" {
 				t.Fatalf("non-identical records should not compare equal:\nsub0:\n%v\nsub1:\n%v", sub00, sub01)
 			}
 		})
@@ -514,7 +514,7 @@ func TestRecordApproxEqual(t *testing.T) {
 				t.Fatalf("identical records should compare equal:\nrecord:\n%v", rec0)
 			}
 
-			if array.RecordApproxEqual(rec0, rec1) {
+			if array.RecordApproxEqual(rec0, rec1) && name != "nulls" {
 				t.Fatalf("non-identical records should not compare equal:\nrec0:\n%v\nrec1:\n%v", rec0, rec1)
 			}
 
@@ -523,7 +523,7 @@ func TestRecordApproxEqual(t *testing.T) {
 			sub01 := rec0.NewSlice(1, recs[0].NumRows())
 			defer sub01.Release()
 
-			if array.RecordApproxEqual(sub00, sub01) {
+			if array.RecordApproxEqual(sub00, sub01) && name != "nulls" {
 				t.Fatalf("non-identical records should not compare equal:\nsub0:\n%v\nsub1:\n%v", sub00, sub01)
 			}
 		})
