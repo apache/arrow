@@ -15,14 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-cython=0.29.7
-cloudpickle
-hypothesis
-numpy>=1.14
-pandas
-pytest
-pytest-faulthandler
-pytest-lazy-fixture
-pytz
-setuptools
-setuptools_scm=3.2.0
+from __future__ import absolute_import
+
+from pyarrow._s3fs import (  # noqa
+    initialize_s3,
+    finalize_s3,
+    S3Options,
+    S3FileSystem
+)
+
+initialize_s3()

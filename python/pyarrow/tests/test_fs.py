@@ -23,39 +23,109 @@ except ImportError:
 
 import pytest
 
-from pyarrow import ArrowIOError
+import pyarrow as pa
+from pyarrow.tests.test_io import gzip_compress, gzip_decompress
 from pyarrow.fs import (FileType, Selector, FileSystem, LocalFileSystem,
                         SubTreeFileSystem)
-from pyarrow.tests.test_io import gzip_compress, gzip_decompress
+
+
+@pytest.fixture
+def localfs(request, tempdir):
+    return dict(
+        fs=LocalFileSystem(),
+        pathfn=lambda p: (tempdir / p).as_posix(),
+        allow_move_dir=True,
+        allow_append_to_file=True,
+    )
+
+
+@pytest.fixture
+def subtree_localfs(request, tempdir, localfs):
+    prefix = 'subtree/prefix/'
+    (tempdir / prefix).mkdir(parents=True)
+    return dict(
+        fs=SubTreeFileSystem(prefix, localfs['fs']),
+        pathfn=prefix.__add__,
+        allow_move_dir=True,
+        allow_append_to_file=True,
+    )
+
+
+@pytest.mark.s3
+@pytest.fixture
+def s3fs(request, minio_server):
+    from pyarrow.s3fs import S3Options, S3FileSystem
+
+    address, access_key, secret_key = minio_server
+    bucket = 'pyarrow-filesystem/'
+    options = S3Options(
+        endpoint_override=address,
+        access_key=access_key,
+        secret_key=secret_key,
+        scheme='http'
+    )
+    fs = S3FileSystem(options)
+    fs.create_dir(bucket)
+
+    return dict(
+        fs=fs,
+        pathfn=bucket.__add__,
+        allow_move_dir=False,
+        allow_append_to_file=False,
+    )
+
+
+@pytest.fixture
+def subtree_s3fs(request, s3fs):
+    prefix = 'pyarrow-filesystem/prefix/'
+    return dict(
+        fs=SubTreeFileSystem(prefix, s3fs['fs']),
+        pathfn=prefix.__add__,
+        allow_move_dir=False,
+        allow_append_to_file=False,
+    )
 
 
 @pytest.fixture(params=[
     pytest.param(
-        lambda tmp: LocalFileSystem(),
-        id='LocalFileSystem'
+        pytest.lazy_fixture('localfs'),
+        id='LocalFileSystem()'
     ),
     pytest.param(
-        lambda tmp: SubTreeFileSystem(tmp, LocalFileSystem()),
-        id='SubTreeFileSystem(LocalFileSystem)'
+        pytest.lazy_fixture('subtree_localfs'),
+        id='SubTreeFileSystem(LocalFileSystem())'
+    ),
+    pytest.param(
+        pytest.lazy_fixture('s3fs'),
+        id='S3FileSystem'
+    ),
+    pytest.param(
+        pytest.lazy_fixture('subtree_s3fs'),
+        id='SubTreeFileSystem(S3FileSystem())'
     )
 ])
-def fs(request, tempdir):
-    return request.param(tempdir.as_posix())
+def filesystem_config(request):
+    return request.param
 
 
 @pytest.fixture
-def testpath(request, fs, tempdir):
-    # we always use the tempdir for reading and writing test artifacts, but
-    # if the filesystem is wrapped in a SubTreeFileSystem then we don't need
-    # to prepend the path with the tempdir, we also test the API with both
-    # pathlib.Path objects and plain python strings
-    def convert(path):
-        if isinstance(fs, SubTreeFileSystem):
-            path = pathlib.Path(path)
-        else:
-            path = tempdir / path
-        return path.as_posix()
-    return convert
+def fs(request, filesystem_config):
+    return filesystem_config['fs']
+
+
+@pytest.fixture
+def pathfn(request, filesystem_config):
+    return filesystem_config['pathfn']
+
+
+@pytest.fixture
+def allow_move_dir(request, filesystem_config):
+    return filesystem_config['allow_move_dir']
+
+
+@pytest.fixture
+def allow_append_to_file(request, filesystem_config):
+    return filesystem_config['allow_append_to_file']
 
 
 def test_cannot_instantiate_base_filesystem():
@@ -74,157 +144,158 @@ def test_non_path_like_input_raises(fs):
             fs.create_dir(path)
 
 
-def test_get_target_stats(fs, tempdir, testpath):
-    aaa, aaa_ = testpath('a/aa/aaa'), tempdir / 'a' / 'aa' / 'aaa'
-    bb, bb_ = testpath('a/bb'), tempdir / 'a' / 'bb'
-    c, c_ = testpath('c.txt'), tempdir / 'c.txt'
+def test_get_target_stats(fs, pathfn):
+    aaa = pathfn('a/aa/aaa/')
+    bb = pathfn('a/bb')
+    c = pathfn('c.txt')
 
-    aaa_.mkdir(parents=True)
-    bb_.touch()
-    c_.write_bytes(b'test')
-
-    def mtime_almost_equal(fs_dt, pathlib_ts):
-        # arrow's filesystem implementation truncates mtime to microsends
-        # resolution whereas pathlib rounds
-        pathlib_dt = datetime.utcfromtimestamp(pathlib_ts)
-        difference = (fs_dt - pathlib_dt).total_seconds()
-        return abs(difference) <= 10**-6
+    fs.create_dir(aaa)
+    with fs.open_output_stream(bb):
+        pass  # touch
+    with fs.open_output_stream(c) as fp:
+        fp.write(b'test')
 
     aaa_stat, bb_stat, c_stat = fs.get_target_stats([aaa, bb, c])
 
     assert aaa_stat.path == aaa
     assert 'aaa' in repr(aaa_stat)
-    assert aaa_stat.base_name == 'aaa'
     assert aaa_stat.extension == ''
-    assert aaa_stat.type == FileType.Directory
-    assert mtime_almost_equal(aaa_stat.mtime, aaa_.stat().st_mtime)
-    with pytest.raises(ValueError):
-        aaa_stat.size
+    assert isinstance(aaa_stat.mtime, datetime)
 
     assert bb_stat.path == str(bb)
     assert bb_stat.base_name == 'bb'
     assert bb_stat.extension == ''
     assert bb_stat.type == FileType.File
     assert bb_stat.size == 0
-    assert mtime_almost_equal(bb_stat.mtime, bb_.stat().st_mtime)
+    assert isinstance(bb_stat.mtime, datetime)
 
     assert c_stat.path == str(c)
     assert c_stat.base_name == 'c.txt'
     assert c_stat.extension == 'txt'
     assert c_stat.type == FileType.File
     assert c_stat.size == 4
-    assert mtime_almost_equal(c_stat.mtime, c_.stat().st_mtime)
+    assert isinstance(c_stat.mtime, datetime)
 
 
-def test_get_target_stats_with_selector(fs, tempdir, testpath):
-    base_dir = testpath('.')
-    base_dir_ = tempdir
+def test_get_target_stats_with_selector(fs, pathfn):
+    base_dir = pathfn('selector-dir/')
+    file_a = pathfn('selector-dir/test_file_a')
+    file_b = pathfn('selector-dir/test_file_b')
+    dir_a = pathfn('selector-dir/test_dir_a')
 
-    selector = Selector(base_dir, allow_non_existent=False, recursive=True)
-    assert selector.base_dir == str(base_dir)
+    try:
+        fs.create_dir(base_dir)
+        with fs.open_output_stream(file_a):
+            pass
+        with fs.open_output_stream(file_b):
+            pass
+        fs.create_dir(dir_a)
 
-    (tempdir / 'test_file').touch()
-    (tempdir / 'test_directory').mkdir()
+        selector = Selector(base_dir, allow_non_existent=False, recursive=True)
+        assert selector.base_dir == base_dir
 
-    stats = fs.get_target_stats(selector)
-    expected = list(base_dir_.iterdir())
-    assert len(stats) == len(expected)
+        stats = fs.get_target_stats(selector)
+        assert len(stats) == 3
 
-    for st in stats:
-        p = base_dir_ / st.path
-        if p.is_dir():
-            assert st.type == FileType.Directory
-        if p.is_file():
-            assert st.type == FileType.File
-
-
-def test_create_dir(fs, tempdir, testpath):
-    directory = testpath('directory')
-    directory_ = tempdir / 'directory'
-    assert not directory_.exists()
-    fs.create_dir(directory)
-    assert directory_.exists()
-
-    # recursive
-    directory = testpath('deeply/nested/directory')
-    directory_ = tempdir / 'deeply' / 'nested' / 'directory'
-    assert not directory_.exists()
-    with pytest.raises(ArrowIOError):
-        fs.create_dir(directory, recursive=False)
-    fs.create_dir(directory)
-    assert directory_.exists()
+        for st in stats:
+            if st.path.endswith(file_a):
+                assert st.type == FileType.File
+            elif st.path.endswith(file_b):
+                assert st.type == FileType.File
+            elif st.path.endswith(dir_a):
+                assert st.type == FileType.Directory
+            else:
+                raise ValueError('unexpected path {}'.format(st.path))
+    finally:
+        fs.delete_file(file_a)
+        fs.delete_file(file_b)
+        fs.delete_dir(dir_a)
+        fs.delete_dir(base_dir)
 
 
-def test_delete_dir(fs, tempdir, testpath):
-    folder = testpath('directory')
-    nested = testpath('nested/directory')
-    folder_ = tempdir / 'directory'
-    nested_ = tempdir / 'nested' / 'directory'
+def test_create_dir(fs, pathfn):
+    d = pathfn('test-directory/')
 
-    folder_.mkdir()
-    nested_.mkdir(parents=True)
+    with pytest.raises(pa.ArrowIOError):
+        fs.delete_dir(d)
 
-    assert folder_.exists()
-    fs.delete_dir(folder)
-    assert not folder_.exists()
+    fs.create_dir(d)
+    fs.delete_dir(d)
 
-    assert nested_.exists()
-    fs.delete_dir(nested)
-    assert not nested_.exists()
+    d = pathfn('deeply/nested/test-directory/')
+    fs.create_dir(d, recursive=True)
+    fs.delete_dir(d)
 
 
-def test_copy_file(fs, tempdir, testpath):
-    # copy file
-    source = testpath('source-file')
-    source_ = tempdir / 'source-file'
-    source_.touch()
-    target = testpath('target-file')
-    target_ = tempdir / 'target-file'
-    assert not target_.exists()
-    fs.copy_file(source, target)
-    assert source_.exists()
-    assert target_.exists()
+def test_delete_dir(fs, pathfn):
+    d = pathfn('directory/')
+    nd = pathfn('directory/nested/')
+
+    fs.create_dir(nd)
+    fs.delete_dir(nd)
+    fs.delete_dir(d)
+    with pytest.raises(pa.ArrowIOError):
+        fs.delete_dir(d)
 
 
-def test_move(fs, tempdir, testpath):
-    # move directory
-    source = testpath('source-dir')
-    source_ = tempdir / 'source-dir'
-    source_.mkdir()
-    target = testpath('target-dir')
-    target_ = tempdir / 'target-dir'
-    assert not target_.exists()
-    fs.move(source, target)
-    assert not source_.exists()
-    assert target_.exists()
+def test_copy_file(fs, pathfn):
+    s = pathfn('test-copy-source-file')
+    t = pathfn('test-copy-target-file')
 
-    # move file
-    source = testpath('source-file')
-    source_ = tempdir / 'source-file'
-    source_.touch()
-    target = testpath('target-file')
-    target_ = tempdir / 'target-file'
-    assert not target_.exists()
-    fs.move(source, target)
-    assert not source_.exists()
-    assert target_.exists()
+    with fs.open_output_stream(s):
+        pass
+
+    fs.copy_file(s, t)
+    fs.delete_file(s)
+    fs.delete_file(t)
 
 
-def test_delete_file(fs, tempdir, testpath):
-    target = testpath('target-file')
-    target_ = tempdir / 'target-file'
-    target_.touch()
-    assert target_.exists()
-    fs.delete_file(target)
-    assert not target_.exists()
+def test_move_directory(fs, pathfn, allow_move_dir):
+    # move directory (doesn't work with S3)
+    s = pathfn('source-dir/')
+    t = pathfn('target-dir/')
 
-    nested = testpath('nested/target-file')
-    nested_ = tempdir / 'nested/target-file'
-    nested_.parent.mkdir()
-    nested_.touch()
-    assert nested_.exists()
-    fs.delete_file(nested)
-    assert not nested_.exists()
+    fs.create_dir(s)
+
+    if allow_move_dir:
+        fs.move(s, t)
+        with pytest.raises(pa.ArrowIOError):
+            fs.delete_dir(s)
+        fs.delete_dir(t)
+    else:
+        with pytest.raises(pa.ArrowIOError):
+            fs.move(s, t)
+
+
+def test_move_file(fs, pathfn):
+    s = pathfn('test-move-source-file')
+    t = pathfn('test-move-target-file')
+
+    with fs.open_output_stream(s):
+        pass
+
+    fs.move(s, t)
+    with pytest.raises(pa.ArrowIOError):
+        fs.delete_file(s)
+    fs.delete_file(t)
+
+
+def test_delete_file(fs, pathfn):
+    p = pathfn('test-delete-target-file')
+    with fs.open_output_stream(p):
+        pass
+
+    fs.delete_file(p)
+    with pytest.raises(pa.ArrowIOError):
+        fs.delete_file(p)
+
+    d = pathfn('test-delete-nested')
+    fs.create_dir(d)
+    f = pathfn('test-delete-nested/target-file')
+    with fs.open_output_stream(f) as s:
+        s.write(b'data')
+
+    fs.delete_dir(d)
 
 
 def identity(v):
@@ -240,27 +311,28 @@ def identity(v):
         ('gzip', 256, gzip_compress),
     ]
 )
-def test_open_input_stream(fs, tempdir, testpath, compression, buffer_size,
-                           compressor):
-    file = testpath('abc')
-    file_ = tempdir / 'abc'
-    data = b'some data' * 1024
-    file_.write_bytes(compressor(data))
+def test_open_input_stream(fs, pathfn, compression, buffer_size, compressor):
+    p = pathfn('open-input-stream')
 
-    with fs.open_input_stream(file, compression, buffer_size) as f:
-        result = f.read()
+    data = b'some data for reading\n' * 512
+    with fs.open_output_stream(p) as s:
+        s.write(compressor(data))
+
+    with fs.open_input_stream(p, compression, buffer_size) as s:
+        result = s.read()
 
     assert result == data
 
 
-def test_open_input_file(fs, tempdir, testpath):
-    file = testpath('abc')
-    file_ = tempdir / 'abc'
+def test_open_input_file(fs, pathfn):
+    p = pathfn('open-input-file')
+
     data = b'some data' * 1024
-    file_.write_bytes(data)
+    with fs.open_output_stream(p) as s:
+        s.write(data)
 
     read_from = len(b'some data') * 512
-    with fs.open_input_file(file) as f:
+    with fs.open_input_file(p) as f:
         f.seek(read_from)
         result = f.read()
 
@@ -276,16 +348,16 @@ def test_open_input_file(fs, tempdir, testpath):
         ('gzip', 256, gzip_decompress),
     ]
 )
-def test_open_output_stream(fs, tempdir, testpath, compression, buffer_size,
+def test_open_output_stream(fs, pathfn, compression, buffer_size,
                             decompressor):
-    file = testpath('abc')
-    file_ = tempdir / 'abc'
+    p = pathfn('open-output-stream')
 
-    data = b'some data' * 1024
-    with fs.open_output_stream(file, compression, buffer_size) as f:
+    data = b'some data for writing' * 1024
+    with fs.open_output_stream(p, compression, buffer_size) as f:
         f.write(data)
 
-    assert decompressor(file_.read_bytes()) == data
+    with fs.open_input_stream(p, compression, buffer_size) as f:
+        assert f.read(len(data)) == data
 
 
 @pytest.mark.parametrize(
@@ -297,13 +369,57 @@ def test_open_output_stream(fs, tempdir, testpath, compression, buffer_size,
         ('gzip', 256, gzip_compress, gzip_decompress),
     ]
 )
-def test_open_append_stream(fs, tempdir, testpath, compression, buffer_size,
-                            compressor, decompressor):
-    file = testpath('abc')
-    file_ = tempdir / 'abc'
-    file_.write_bytes(compressor(b'already existing'))
+def test_open_append_stream(fs, pathfn, compression, buffer_size, compressor,
+                            decompressor, allow_append_to_file):
+    p = pathfn('open-append-stream')
 
-    with fs.open_append_stream(file, compression, buffer_size) as f:
-        f.write(b'\nnewly added')
+    initial = compressor(b'already existing')
+    with fs.open_output_stream(p) as s:
+        s.write(initial)
 
-    assert decompressor(file_.read_bytes()) == b'already existing\nnewly added'
+    if allow_append_to_file:
+        with fs.open_append_stream(p, compression, buffer_size) as f:
+            f.write(b'\nnewly added')
+
+        with fs.open_input_stream(p) as f:
+            result = f.read()
+
+        result = decompressor(result)
+        assert result == b'already existing\nnewly added'
+    else:
+        with pytest.raises(pa.ArrowNotImplementedError):
+            fs.open_append_stream(p, compression, buffer_size)
+
+
+@pytest.mark.s3
+def test_s3_options(minio_server):
+    from pyarrow.s3fs import S3Options
+
+    options = S3Options()
+
+    assert options.region == 'us-east-1'
+    options.region = 'us-west-1'
+    assert options.region == 'us-west-1'
+
+    assert options.scheme == 'https'
+    options.scheme = 'http'
+    assert options.scheme == 'http'
+
+    assert options.endpoint_override == ''
+    options.endpoint_override = 'localhost:8999'
+    assert options.endpoint_override == 'localhost:8999'
+
+    with pytest.raises(ValueError):
+        S3Options(access_key='access')
+    with pytest.raises(ValueError):
+        S3Options(secret_key='secret')
+
+    address, access_key, secret_key = minio_server
+    options = S3Options(
+        access_key=access_key,
+        secret_key=secret_key,
+        endpoint_override=address,
+        scheme='http'
+    )
+    assert options.scheme == 'http'
+    assert options.endpoint_override == address

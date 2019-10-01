@@ -24,7 +24,7 @@ from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport (CChunkedArray, CSchema, CStatus,
                                         CTable, CMemoryPool, CBuffer,
                                         CKeyValueMetadata,
-                                        RandomAccessFile, OutputStream,
+                                        CRandomAccessFile, COutputStream,
                                         TimeUnit)
 
 
@@ -316,7 +316,7 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         unique_ptr[CRowGroupMetaData] RowGroup(int i)
         const SchemaDescriptor* schema()
         shared_ptr[const CKeyValueMetadata] key_value_metadata() const
-        void WriteTo(OutputStream* dst) const
+        void WriteTo(COutputStream* dst) const
 
     cdef shared_ptr[CFileMetaData] CFileMetaData_Make \
         " parquet::FileMetaData::Make"(const void* serialized_metadata,
@@ -406,7 +406,7 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
 
     cdef cppclass FileReaderBuilder:
         FileReaderBuilder()
-        CStatus Open(const shared_ptr[RandomAccessFile]& file,
+        CStatus Open(const shared_ptr[CRandomAccessFile]& file,
                      const CReaderProperties& properties,
                      const shared_ptr[CFileMetaData]& metadata)
 
@@ -435,7 +435,7 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
 
         @staticmethod
         CStatus Open(const CSchema& schema, CMemoryPool* pool,
-                     const shared_ptr[OutputStream]& sink,
+                     const shared_ptr[COutputStream]& sink,
                      const shared_ptr[WriterProperties]& properties,
                      const shared_ptr[ArrowWriterProperties]& arrow_properties,
                      unique_ptr[FileWriter]* writer)
@@ -448,4 +448,4 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
 
     CStatus WriteMetaDataFile(
         const CFileMetaData& file_metadata,
-        const OutputStream* sink)
+        const COutputStream* sink)

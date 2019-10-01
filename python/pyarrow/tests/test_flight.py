@@ -17,9 +17,7 @@
 # under the License.
 
 import base64
-import contextlib
 import os
-import socket
 import struct
 import tempfile
 import threading
@@ -30,7 +28,7 @@ import pytest
 import pyarrow as pa
 
 from pyarrow.compat import tobytes
-from pyarrow.util import pathlib
+from pyarrow.util import pathlib, find_free_port
 
 try:
     from pyarrow import flight
@@ -46,14 +44,6 @@ except ImportError:
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not flight'
 pytestmark = pytest.mark.flight
-
-
-def find_free_port():
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    with contextlib.closing(sock) as sock:
-        sock.bind(('', 0))
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        return sock.getsockname()[1]
 
 
 def test_import():

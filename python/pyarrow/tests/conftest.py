@@ -16,6 +16,9 @@
 # under the License.
 
 import os
+import subprocess
+import tempfile
+
 import pytest
 import hypothesis as h
 
@@ -23,6 +26,8 @@ try:
     import pathlib
 except ImportError:
     import pathlib2 as pathlib  # py2 compat
+
+from pyarrow.util import find_free_port
 
 
 # setup hypothesis profiles
@@ -130,6 +135,12 @@ try:
 except ImportError:
     pass
 
+try:
+    import pyarrow.s3fs  # noqa
+    defaults['s3'] = True
+except ImportError:
+    pass
+
 
 def pytest_configure(config):
     for mark in groups:
@@ -211,3 +222,47 @@ def tempdir(tmpdir):
 @pytest.fixture(scope='session')
 def datadir():
     return pathlib.Path(__file__).parent / 'data'
+
+
+try:
+    from tempfile import TemporaryDirectory
+except ImportError:
+    import shutil
+
+    class TemporaryDirectory(object):
+        """Temporary directory implementation for python 2"""
+
+        def __enter__(self):
+            self.tmp = tempfile.mkdtemp()
+            return self.tmp
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            shutil.rmtree(self.tmp)
+
+
+@pytest.mark.s3
+@pytest.fixture(scope='session')
+def minio_server():
+    host, port = 'localhost', find_free_port()
+    access_key, secret_key = 'arrow', 'apachearrow'
+
+    address = '{}:{}'.format(host, port)
+    env = os.environ.copy()
+    env.update({
+        'MINIO_ACCESS_KEY': access_key,
+        'MINIO_SECRET_KEY': secret_key
+    })
+
+    with TemporaryDirectory() as tempdir:
+        args = ['minio', '--compat', 'server', '--quiet', '--address',
+                address, tempdir]
+        proc = None
+        try:
+            proc = subprocess.Popen(args, env=env)
+        except IOError:
+            pytest.skip('`minio` command cannot be located')
+        else:
+            yield address, access_key, secret_key
+        finally:
+            if proc is not None:
+                proc.kill()

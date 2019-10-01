@@ -1843,18 +1843,41 @@ def test_filters_read_table(tempdir):
     assert table.num_rows == 3
 
 
-@pytest.yield_fixture
-def s3_example():
-    access_key = os.environ['PYARROW_TEST_S3_ACCESS_KEY']
-    secret_key = os.environ['PYARROW_TEST_S3_SECRET_KEY']
-    bucket_name = os.environ['PYARROW_TEST_S3_BUCKET']
+@pytest.fixture
+def s3_bucket(request, minio_server):
+    boto3 = pytest.importorskip('boto3')
+    botocore = pytest.importorskip('botocore')
 
-    import s3fs
-    fs = s3fs.S3FileSystem(key=access_key, secret=secret_key)
+    address, access_key, secret_key = minio_server
+    s3 = boto3.resource(
+        's3',
+        endpoint_url='http://{}'.format(address),
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+        config=botocore.client.Config(signature_version='s3v4'),
+        region_name='us-east-1'
+    )
+    bucket = s3.Bucket('test-s3fs')
+    bucket.create()
+    return 'test-s3fs'
+
+
+@pytest.fixture
+def s3_example(minio_server, s3_bucket):
+    s3fs = pytest.importorskip('s3fs')
+
+    address, access_key, secret_key = minio_server
+    fs = s3fs.S3FileSystem(
+        key=access_key,
+        secret=secret_key,
+        client_kwargs={
+            'endpoint_url': 'http://{}'.format(address)
+        }
+    )
 
     test_dir = guid()
+    bucket_uri = 's3://{0}/{1}'.format(s3_bucket, test_dir)
 
-    bucket_uri = 's3://{0}/{1}'.format(bucket_name, test_dir)
     fs.mkdir(bucket_uri)
     yield fs, bucket_uri
     fs.rm(bucket_uri, recursive=True)
@@ -1920,23 +1943,29 @@ def _generate_partition_directories(fs, base_dir, partition_spec, df):
         for value in values:
             this_part_keys = part_keys + [(name, value)]
 
-            level_dir = base_dir / '{0}={1}'.format(name, value)
+            level_dir = fs._path_join(
+                str(base_dir),
+                '{0}={1}'.format(name, value)
+            )
             fs.mkdir(level_dir)
 
             if level == DEPTH - 1:
                 # Generate example data
-                file_path = level_dir / guid()
-
+                file_path = fs._path_join(level_dir, guid())
                 filtered_df = _filter_partition(df, this_part_keys)
                 part_table = pa.Table.from_pandas(filtered_df)
                 with fs.open(file_path, 'wb') as f:
                     _write_table(part_table, f)
                 assert fs.exists(file_path)
 
-                (level_dir / '_SUCCESS').touch()
+                file_success = fs._path_join(level_dir, '_SUCCESS')
+                with fs.open(file_success, 'wb') as f:
+                    pass
             else:
                 _visit_level(level_dir, level + 1, this_part_keys)
-                (level_dir / '_SUCCESS').touch()
+                file_success = fs._path_join(level_dir, '_SUCCESS')
+                with fs.open(file_success, 'wb') as f:
+                    pass
 
     _visit_level(base_dir, 0, [])
 

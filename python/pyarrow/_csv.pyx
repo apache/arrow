@@ -466,7 +466,7 @@ cdef class ConvertOptions:
         self.options.include_missing_columns = value
 
 
-cdef _get_reader(input_file, shared_ptr[InputStream]* out):
+cdef _get_reader(input_file, shared_ptr[CInputStream]* out):
     use_memory_map = False
     get_input_stream(input_file, use_memory_map, out)
 
@@ -522,7 +522,7 @@ def read_csv(input_file, read_options=None, parse_options=None,
         Contents of the CSV file as a in-memory table.
     """
     cdef:
-        shared_ptr[InputStream] stream
+        shared_ptr[CInputStream] stream
         CCSVReadOptions c_read_options
         CCSVParseOptions c_parse_options
         CCSVConvertOptions c_convert_options

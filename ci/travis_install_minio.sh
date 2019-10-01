@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,14 +17,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-cython=0.29.7
-cloudpickle
-hypothesis
-numpy>=1.14
-pandas
-pytest
-pytest-faulthandler
-pytest-lazy-fixture
-pytz
-setuptools
-setuptools_scm=3.2.0
+set -e
+set -x
+
+if [ "$ARROW_TRAVIS_S3" == "1" ]; then
+    # Download the Minio S3 server into PATH
+    if [ $TRAVIS_OS_NAME = "osx" ]; then
+        MINIO_URL=https://dl.min.io/server/minio/release/darwin-amd64/minio
+    else
+        MINIO_URL=https://dl.min.io/server/minio/release/linux-amd64/minio
+    fi
+
+    S3FS_DIR=~/.local/bin/
+    mkdir -p $S3FS_DIR
+    wget --directory-prefix $S3FS_DIR $MINIO_URL
+    chmod +x $S3FS_DIR/minio
+fi

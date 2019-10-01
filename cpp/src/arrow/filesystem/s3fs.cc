@@ -341,6 +341,12 @@ class ObjectInputFile : public io::RandomAccessFile {
     RETURN_NOT_OK(CheckClosed());
     RETURN_NOT_OK(CheckPosition(position, "read"));
 
+    nbytes = std::min(nbytes, content_length_ - position);
+    if (nbytes == 0) {
+      *bytes_read = 0;
+      return Status::OK();
+    }
+
     // Read the desired range of bytes
     S3Model::GetObjectResult result;
     RETURN_NOT_OK(GetObjectRange(client_, path_, position, nbytes, &result));

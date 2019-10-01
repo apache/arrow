@@ -436,9 +436,9 @@ cdef class ResizableBuffer(Buffer):
 
 cdef class NativeFile:
     cdef:
-        shared_ptr[InputStream] input_stream
-        shared_ptr[RandomAccessFile] random_access
-        shared_ptr[OutputStream] output_stream
+        shared_ptr[CInputStream] input_stream
+        shared_ptr[CRandomAccessFile] random_access
+        shared_ptr[COutputStream] output_stream
         bint is_readable
         bint is_writable
         bint is_seekable
@@ -449,13 +449,13 @@ cdef class NativeFile:
     # extension classes are technically virtual in the C++ sense) we can expose
     # the arrow::io abstract file interfaces to other components throughout the
     # suite of Arrow C++ libraries
-    cdef set_random_access_file(self, shared_ptr[RandomAccessFile] handle)
-    cdef set_input_stream(self, shared_ptr[InputStream] handle)
-    cdef set_output_stream(self, shared_ptr[OutputStream] handle)
+    cdef set_random_access_file(self, shared_ptr[CRandomAccessFile] handle)
+    cdef set_input_stream(self, shared_ptr[CInputStream] handle)
+    cdef set_output_stream(self, shared_ptr[COutputStream] handle)
 
-    cdef shared_ptr[RandomAccessFile] get_random_access_file(self) except *
-    cdef shared_ptr[InputStream] get_input_stream(self) except *
-    cdef shared_ptr[OutputStream] get_output_stream(self) except *
+    cdef shared_ptr[CRandomAccessFile] get_random_access_file(self) except *
+    cdef shared_ptr[CInputStream] get_input_stream(self) except *
+    cdef shared_ptr[COutputStream] get_output_stream(self) except *
 
 
 cdef class BufferedInputStream(NativeFile):
@@ -485,10 +485,10 @@ cdef class _CRecordBatchReader:
 
 
 cdef get_input_stream(object source, c_bool use_memory_map,
-                      shared_ptr[InputStream]* reader)
+                      shared_ptr[CInputStream]* reader)
 cdef get_reader(object source, c_bool use_memory_map,
-                shared_ptr[RandomAccessFile]* reader)
-cdef get_writer(object source, shared_ptr[OutputStream]* writer)
+                shared_ptr[CRandomAccessFile]* reader)
+cdef get_writer(object source, shared_ptr[COutputStream]* writer)
 
 # Default is allow_none=False
 cdef DataType ensure_type(object type, c_bool allow_none=*)

@@ -254,11 +254,11 @@ cdef class SerializedPyObject:
         """
         Write serialized object to a sink
         """
-        cdef shared_ptr[OutputStream] stream
+        cdef shared_ptr[COutputStream] stream
         get_writer(sink, &stream)
         self._write_to(stream.get())
 
-    cdef _write_to(self, OutputStream* stream):
+    cdef _write_to(self, COutputStream* stream):
         with nogil:
             check_status(self.data.WriteTo(stream))
 
@@ -399,7 +399,7 @@ def read_serialized(source, base=None):
     -------
     serialized : the serialized data
     """
-    cdef shared_ptr[RandomAccessFile] stream
+    cdef shared_ptr[CRandomAccessFile] stream
     get_reader(source, True, &stream)
 
     cdef SerializedPyObject serialized = SerializedPyObject()
