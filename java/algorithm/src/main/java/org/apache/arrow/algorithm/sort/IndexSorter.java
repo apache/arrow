@@ -60,28 +60,22 @@ public class IndexSorter<V extends ValueVector> {
   }
 
   private void quickSort() {
-    Stack<int[]> rangeStack = new Stack<>();
-    int[] range = new int[2];
-    range[0] = 0;
-    range[1] = indices.getValueCount() - 1;
-    rangeStack.push(range);
-
+    Stack<Integer> rangeStack = new Stack<>();
+    rangeStack.push(0);
+    rangeStack.push(indices.getValueCount() - 1);
+    
     while (!rangeStack.isEmpty()) {
-      range = rangeStack.pop();
-      int low = range[0];
-      int high = range[1];
+      int high = rangeStack.pop();
+      int low = rangeStack.pop();
+      
       if (low < high) {
         int mid = partition(low, high, indices, comparator);
 
-        int[] lowRange = new int[2];
-        lowRange[0] = low;
-        lowRange[1] = mid - 1;
-        rangeStack.push(lowRange);
+        rangeStack.push(low);
+        rangeStack.push(mid - 1);
 
-        int[] highRange = new int[2];
-        highRange[0] = mid + 1;
-        highRange[1] = high;
-        rangeStack.push(highRange);
+        rangeStack.push(mid + 1);
+        rangeStack.push(high);
       }
     }
   }
