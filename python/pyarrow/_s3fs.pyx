@@ -37,7 +37,7 @@ cpdef enum S3LogLevel:
     Trace = <int8_t> CS3LogLevel_Trace
 
 
-def initialize_s3(S3LogLevel log_level=S3LogLevel.Error):
+def initialize_s3(S3LogLevel log_level=S3LogLevel.Fatal):
     cdef CS3GlobalOptions options
     options.log_level = <CS3LogLevel> log_level
     check_status(CInitializeS3(options))
