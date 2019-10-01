@@ -99,7 +99,7 @@ cargo publish
 
 If the Cargo.toml does not have the correct version then it will be necessary
 to modify it manually. Since there is now a modified file locally that is not
-committed to github it will be necessary to use the following command.
+committed to GitHub it will be necessary to use the following command.
 
 ```bash
 cargo publish --allow-dirty
