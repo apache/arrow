@@ -148,20 +148,22 @@ struct ARROW_EXPORT BinaryScalar : public BaseBinaryScalar<BinaryType> {
       : BaseBinaryScalar(value, type, is_valid) {}
 
   explicit BinaryScalar(const std::shared_ptr<Buffer>& value, bool is_valid = true)
-      : BaseBinaryScalar(value, binary(), is_valid) {}
+      : BinaryScalar(value, binary(), is_valid) {}
 
   BinaryScalar() : BinaryScalar(NULLPTR, false) {}
 };
 
 struct ARROW_EXPORT StringScalar : public BinaryScalar {
+  StringScalar(const std::shared_ptr<Buffer>& value,
+               const std::shared_ptr<DataType>& type, bool is_valid = true)
+      : BinaryScalar(value, type, is_valid) {}
+
   explicit StringScalar(const std::shared_ptr<Buffer>& value, bool is_valid = true)
-      : BinaryScalar(value, utf8(), is_valid) {}
+      : StringScalar(value, utf8(), is_valid) {}
 
   explicit StringScalar(std::string s);
 
   StringScalar() : StringScalar(NULLPTR, false) {}
-
-  using BinaryScalar::BinaryScalar;
 };
 
 struct ARROW_EXPORT LargeBinaryScalar : public BaseBinaryScalar<LargeBinaryType> {
@@ -170,18 +172,20 @@ struct ARROW_EXPORT LargeBinaryScalar : public BaseBinaryScalar<LargeBinaryType>
       : BaseBinaryScalar(value, type, is_valid) {}
 
   explicit LargeBinaryScalar(const std::shared_ptr<Buffer>& value, bool is_valid = true)
-      : BaseBinaryScalar(value, large_binary(), is_valid) {}
+      : LargeBinaryScalar(value, large_binary(), is_valid) {}
 
   LargeBinaryScalar() : LargeBinaryScalar(NULLPTR, false) {}
 };
 
 struct ARROW_EXPORT LargeStringScalar : public LargeBinaryScalar {
+  LargeStringScalar(const std::shared_ptr<Buffer>& value,
+                    const std::shared_ptr<DataType>& type, bool is_valid = true)
+      : LargeBinaryScalar(value, type, is_valid) {}
+
   explicit LargeStringScalar(const std::shared_ptr<Buffer>& value, bool is_valid = true)
-      : LargeBinaryScalar(value, large_utf8(), is_valid) {}
+      : LargeStringScalar(value, large_utf8(), is_valid) {}
 
   LargeStringScalar() : LargeStringScalar(NULLPTR, false) {}
-
-  using LargeBinaryScalar::LargeBinaryScalar;
 };
 
 struct ARROW_EXPORT FixedSizeBinaryScalar : public BinaryScalar {
@@ -318,6 +322,15 @@ ARROW_EXPORT
 Status MakeNullScalar(const std::shared_ptr<DataType>& type,
                       std::shared_ptr<Scalar>* null);
 
+namespace internal {
+
+inline Status CheckBufferLength(...) { return Status::OK(); }
+
+ARROW_EXPORT Status CheckBufferLength(const FixedSizeBinaryType* t,
+                                      const std::shared_ptr<Buffer>* b);
+
+};  // namespace internal
+
 template <typename ValueRef>
 struct MakeScalarImpl {
   template <typename T>
@@ -325,25 +338,36 @@ struct MakeScalarImpl {
 
   template <typename T, typename ValueType = typename ScalarType<T>::ValueType>
   typename std::enable_if<internal::is_simple_scalar<ScalarType<T>>::value &&
+                              // std::is_same<ValueType, typename
+                              // std::decay<ValueRef>::type>::value,
                               std::is_constructible<ValueType, ValueRef>::value,
                           Status>::type
-  Visit(const T&) {
-    *out_ = std::make_shared<ScalarType<T>>(ValueType(static_cast<ValueRef>(value_)),
-                                            type_, true);
-    return Status::OK();
+  Visit(const T& t) {
+    ARROW_RETURN_NOT_OK(internal::CheckBufferLength(&t, &value_));
+    return Finish<T>();
   }
 
   template <typename T>
-  typename std::enable_if<std::is_same<ScalarType<T>, StringScalar>::value &&
+  typename std::enable_if<std::is_same<T, StringType>::value &&
                               std::is_constructible<std::string, ValueRef>::value,
                           Status>::type
   Visit(const T&) {
-    *out_ = std::make_shared<StringScalar>(static_cast<ValueRef>(value_));
-    return Status::OK();
+    return FinishWith<StringType>(std::string(static_cast<ValueRef>(value_)));
   }
 
   Status Visit(const DataType& t) {
     return Status::NotImplemented("constructing scalars of type ", t, " from ", value_);
+  }
+
+  template <typename T, typename... Args>
+  Status FinishWith(Args&&... args) {
+    *out_ = std::make_shared<ScalarType<T>>(std::forward<Args>(args)...);
+    return Status::OK();
+  }
+
+  template <typename T, typename ValueType = typename ScalarType<T>::ValueType>
+  Status Finish() {
+    return FinishWith<T>(ValueType(static_cast<ValueRef>(value_)), type_, true);
   }
 
   const std::shared_ptr<DataType>& type_;

@@ -80,6 +80,9 @@ TYPED_TEST(TestNumericScalar, MakeScalar) {
   ASSERT_OK(
       MakeScalar(TypeTraits<TypeParam>::type_singleton(), static_cast<T>(3), &three));
   ASSERT_TRUE(ScalarType(3).Equals(three));
+
+  ASSERT_OK(Scalar::Parse(TypeTraits<TypeParam>::type_singleton(), "3", &three));
+  ASSERT_TRUE(ScalarType(3).Equals(three));
 }
 
 TEST(TestBinaryScalar, Basics) {
@@ -125,6 +128,9 @@ TEST(TestStringScalar, MakeScalar) {
 
   ASSERT_OK(MakeScalar(utf8(), "three", &three));
   ASSERT_TRUE(StringScalar("three").Equals(three));
+
+  ASSERT_OK(Scalar::Parse(utf8(), "three", &three));
+  ASSERT_TRUE(StringScalar("three").Equals(three));
 }
 
 TEST(TestFixedSizeBinaryScalar, Basics) {
@@ -147,6 +153,13 @@ TEST(TestFixedSizeBinaryScalar, MakeScalar) {
   std::shared_ptr<Scalar> s;
   ASSERT_OK(MakeScalar(type, buf, &s));
   ASSERT_TRUE(FixedSizeBinaryScalar(buf, type).Equals(s));
+
+  ASSERT_OK(Scalar::Parse(type, util::string_view(data), &s));
+  ASSERT_TRUE(FixedSizeBinaryScalar(buf, type).Equals(s));
+
+  // wrong length:
+  ASSERT_RAISES(Invalid, MakeScalar(type, Buffer::FromString(data.substr(3)), &s));
+  ASSERT_RAISES(Invalid, Scalar::Parse(type, util::string_view(data).substr(3), &s));
 }
 
 TEST(TestDateScalars, Basics) {
@@ -171,8 +184,11 @@ TEST(TestDateScalars, MakeScalar) {
   std::shared_ptr<Scalar> s;
   ASSERT_OK(MakeScalar(date32(), int32_t(1), &s));
   ASSERT_TRUE(Date32Scalar(1).Equals(s));
+
   ASSERT_OK(MakeScalar(date64(), int64_t(1), &s));
   ASSERT_TRUE(Date64Scalar(1).Equals(s));
+
+  ASSERT_RAISES(NotImplemented, Scalar::Parse(date64(), "", &s));
 }
 
 TEST(TestTimeScalars, Basics) {
@@ -219,6 +235,8 @@ TEST(TestTimeScalars, MakeScalar) {
 
   ASSERT_OK(MakeScalar(type4, int64_t(1), &s));
   ASSERT_TRUE(Time64Scalar(1, type4).Equals(s));
+
+  ASSERT_RAISES(NotImplemented, Scalar::Parse(type4, "", &s));
 }
 
 TEST(TestTimestampScalars, Basics) {
@@ -252,17 +270,27 @@ TEST(TestTimestampScalars, MakeScalar) {
 
   std::shared_ptr<Scalar> s;
 
+  util::string_view epoch_plus_1s = "1970-01-01 00:00:01";
+
   ASSERT_OK(MakeScalar(type1, int64_t(1), &s));
   ASSERT_TRUE(TimestampScalar(1, type1).Equals(s));
+  ASSERT_OK(Scalar::Parse(type1, epoch_plus_1s, &s));
+  ASSERT_TRUE(TimestampScalar(1000, type1).Equals(s));
 
   ASSERT_OK(MakeScalar(type2, int64_t(1), &s));
+  ASSERT_TRUE(TimestampScalar(1, type2).Equals(s));
+  ASSERT_OK(Scalar::Parse(type2, epoch_plus_1s, &s));
   ASSERT_TRUE(TimestampScalar(1, type2).Equals(s));
 
   ASSERT_OK(MakeScalar(type3, int64_t(1), &s));
   ASSERT_TRUE(TimestampScalar(1, type3).Equals(s));
+  ASSERT_OK(Scalar::Parse(type3, epoch_plus_1s, &s));
+  ASSERT_TRUE(TimestampScalar(1000 * 1000, type3).Equals(s));
 
   ASSERT_OK(MakeScalar(type4, int64_t(1), &s));
   ASSERT_TRUE(TimestampScalar(1, type4).Equals(s));
+  ASSERT_OK(Scalar::Parse(type4, epoch_plus_1s, &s));
+  ASSERT_TRUE(TimestampScalar(1000 * 1000 * 1000, type4).Equals(s));
 }
 
 TEST(TestDurationScalars, Basics) {

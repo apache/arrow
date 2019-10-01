@@ -116,6 +116,8 @@ FixedSizeListScalar::FixedSizeListScalar(const std::shared_ptr<Array>& value,
                  checked_cast<const FixedSizeListType*>(type.get())->list_size());
 }
 
+// TODO(bkietz) This doesn't need a factory. Just rewrite all scalars to be generically
+// constructible (is_simple_scalar should apply to all scalars)
 struct MakeNullImpl {
   template <typename T>
   using ScalarType = typename TypeTraits<T>::ScalarType;
@@ -148,21 +150,27 @@ struct ScalarParseImpl {
   Status Visit(const T& t) {
     Value value;
     if (!Converter{type_}(s_.data(), s_.size(), &value)) {
-      return Status::Invalid("error parsing \"", s_, "\" as scalar of type ", t);
+      return Status::Invalid("error parsing '", s_, "' as scalar of type ", t);
     }
-    return Finish<T>(std::move(value));
+    return Finish(std::move(value));
   }
 
-  Status Visit(const StringType&) { return Finish<StringType>(std::string(s_)); }
+  Status Visit(const BinaryType&) { return FinishWithBuffer(); }
+
+  Status Visit(const LargeBinaryType&) { return FinishWithBuffer(); }
+
+  Status Visit(const FixedSizeBinaryType& t) { return FinishWithBuffer(); }
 
   Status Visit(const DataType& t) {
     return Status::NotImplemented("parsing scalars of type ", t);
   }
 
-  template <typename T, typename Arg>
+  template <typename Arg>
   Status Finish(Arg&& arg) {
     return MakeScalar(type_, std::forward<Arg>(arg), out_);
   }
+
+  Status FinishWithBuffer() { return Finish(Buffer::FromString(s_.to_string())); }
 
   ScalarParseImpl(const std::shared_ptr<DataType>& type, util::string_view s,
                   std::shared_ptr<Scalar>* out)
@@ -178,5 +186,14 @@ Status Scalar::Parse(const std::shared_ptr<DataType>& type, util::string_view s,
   ScalarParseImpl impl = {type, s, out};
   return VisitTypeInline(*type, &impl);
 }
+
+namespace internal {
+Status CheckBufferLength(const FixedSizeBinaryType* t, const std::shared_ptr<Buffer>* b) {
+  return t->byte_width() == (*b)->size()
+             ? Status::OK()
+             : Status::Invalid("buffer length ", (*b)->size(), " is not compatible with ",
+                               *t);
+}
+}  // namespace internal
 
 }  // namespace arrow
