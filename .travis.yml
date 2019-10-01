@@ -26,10 +26,6 @@ cache:
     - $HOME/.ccache
     - $HOME/.m2  # Maven
 
-env:
-  - CCACHE_COMPRESS: 1
-  - CCACHE_COMPRESSLEVEL: 5
-
 git:
   # ARROW-3083: We use a higher clone depth to also have the latest tag in the cloned history.
   depth: 250
@@ -318,6 +314,7 @@ matrix:
     # Have to copy-paste this here because of how R's build steps work
     - eval `python $TRAVIS_BUILD_DIR/ci/detect-changes.py`
     - if [ $ARROW_CI_R_AFFECTED != "1" ]; then exit; fi
+    - source ci/travis/before-install.sh
     # First check that it builds without libarrow
     - pushd ${TRAVIS_BUILD_DIR}/r
     - R -e 'install.packages("remotes"); remotes::install_deps(dep = TRUE)'
@@ -348,10 +345,10 @@ matrix:
     - Rscript ../ci/travis_upload_r_coverage.R
 
 after_failure:
-  - source ci/travis/after-failure.sh
+  - source ${TRAVIS_BUILD_DIR}/ci/travis/after-failure.sh
 
 after_script:
-  - source ci/travis/after-script.sh
+  - source ${TRAVIS_BUILD_DIR}/ci/travis/after-script.sh
 
 env:
   global:
