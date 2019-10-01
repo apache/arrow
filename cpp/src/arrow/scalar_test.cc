@@ -126,9 +126,6 @@ TEST(TestStringScalar, MakeScalar) {
   ASSERT_OK(MakeScalar(utf8(), Buffer::FromString("three"), &three));
   ASSERT_TRUE(StringScalar("three").Equals(three));
 
-  ASSERT_OK(MakeScalar(utf8(), "three", &three));
-  ASSERT_TRUE(StringScalar("three").Equals(three));
-
   ASSERT_OK(Scalar::Parse(utf8(), "three", &three));
   ASSERT_TRUE(StringScalar("three").Equals(three));
 }

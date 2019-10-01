@@ -333,41 +333,21 @@ ARROW_EXPORT Status CheckBufferLength(const FixedSizeBinaryType* t,
 
 template <typename ValueRef>
 struct MakeScalarImpl {
-  template <typename T>
-  using ScalarType = typename TypeTraits<T>::ScalarType;
-
-  template <typename T, typename ValueType = typename ScalarType<T>::ValueType>
-  typename std::enable_if<internal::is_simple_scalar<ScalarType<T>>::value &&
-                              // std::is_same<ValueType, typename
-                              // std::decay<ValueRef>::type>::value,
-                              std::is_constructible<ValueType, ValueRef>::value,
-                          Status>::type
-  Visit(const T& t) {
+  template <
+      typename T, typename ScalarType = typename TypeTraits<T>::ScalarType,
+      typename ValueType = typename ScalarType::ValueType,
+      typename Enable = typename std::enable_if<
+          internal::is_simple_scalar<ScalarType>::value &&
+          std::is_same<ValueType, typename std::decay<ValueRef>::type>::value>::type>
+  Status Visit(const T& t) {
     ARROW_RETURN_NOT_OK(internal::CheckBufferLength(&t, &value_));
-    return Finish<T>();
-  }
-
-  template <typename T>
-  typename std::enable_if<std::is_same<T, StringType>::value &&
-                              std::is_constructible<std::string, ValueRef>::value,
-                          Status>::type
-  Visit(const T&) {
-    return FinishWith<StringType>(std::string(static_cast<ValueRef>(value_)));
+    *out_ = std::make_shared<ScalarType>(ValueType(static_cast<ValueRef>(value_)), type_,
+                                         true);
+    return Status::OK();
   }
 
   Status Visit(const DataType& t) {
     return Status::NotImplemented("constructing scalars of type ", t, " from ", value_);
-  }
-
-  template <typename T, typename... Args>
-  Status FinishWith(Args&&... args) {
-    *out_ = std::make_shared<ScalarType<T>>(std::forward<Args>(args)...);
-    return Status::OK();
-  }
-
-  template <typename T, typename ValueType = typename ScalarType<T>::ValueType>
-  Status Finish() {
-    return FinishWith<T>(ValueType(static_cast<ValueRef>(value_)), type_, true);
   }
 
   const std::shared_ptr<DataType>& type_;
@@ -385,8 +365,8 @@ Status MakeScalar(const std::shared_ptr<DataType>& type, Value&& value,
 /// \brief type inferring scalar factory
 template <typename Value, typename Traits = CTypeTraits<typename std::decay<Value>::type>,
           typename ScalarType = typename Traits::ScalarType,
-          typename EnableIfConstructible =
-              decltype(ScalarType(std::declval<Value>(), Traits::type_singleton(), true))>
+          typename Enable = decltype(ScalarType(std::declval<Value>(),
+                                                Traits::type_singleton(), true))>
 std::shared_ptr<Scalar> MakeScalar(Value value) {
   return std::make_shared<ScalarType>(std::move(value), Traits::type_singleton(), true);
 }

@@ -119,14 +119,12 @@ FixedSizeListScalar::FixedSizeListScalar(const std::shared_ptr<Array>& value,
 // TODO(bkietz) This doesn't need a factory. Just rewrite all scalars to be generically
 // constructible (is_simple_scalar should apply to all scalars)
 struct MakeNullImpl {
-  template <typename T>
-  using ScalarType = typename TypeTraits<T>::ScalarType;
-
-  template <typename T>
-  typename std::enable_if<std::is_default_constructible<ScalarType<T>>::value,
-                          Status>::type
-  Visit(const T&) {
-    *out_ = std::make_shared<ScalarType<T>>();
+  template <typename T, typename ScalarType = typename TypeTraits<T>::ScalarType,
+            typename ValueType = typename ScalarType::ValueType,
+            typename Enable = typename std::enable_if<
+                internal::is_simple_scalar<ScalarType>::value>::type>
+  Status Visit(const T&) {
+    *out_ = std::make_shared<ScalarType>(ValueType(), type_, false);
     return Status::OK();
   }
 
