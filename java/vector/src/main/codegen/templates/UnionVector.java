@@ -690,4 +690,9 @@ public class UnionVector implements FieldVector {
     public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
       return visitor.visit(this, value);
     }
+
+    @Override
+    public String getName() {
+      return name;
+    }
 }

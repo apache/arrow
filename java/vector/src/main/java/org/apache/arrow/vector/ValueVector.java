@@ -271,4 +271,10 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
    * @param <IN> the input data together with visitor.
    */
   <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value);
+
+  /**
+   * Gets the name of the vector.
+   * @return the name of the vector.
+   */
+  String getName();
 }
