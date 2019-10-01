@@ -15,15 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module Gandiva
-  class Record
-    def initialize(schema)
-      @schema = schema
-    end
-
-    def method_missing(field)
-      field = @schema[field]
-      return Gandiva::FieldBuilder.new(field) if field
+module Arrow
+  class Schema
+    def build_expression(&block)
+      builder = Gandiva::ExpressionBuilder.new(self)
+      builder.build(&block)
     end
   end
 end

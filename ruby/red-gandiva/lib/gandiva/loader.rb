@@ -42,11 +42,21 @@ module Gandiva
     end
 
     def require_libraries
-      require "gandiva/expression-buildable"
+      require "gandiva/arrow-schema"
+      require "gandiva/expression-builder"
       require "gandiva/expression-builder-context"
-      require "gandiva/field-node"
+      require "gandiva/binary-expression-builder"
+      require "gandiva/add-expression-builder"
+      require "gandiva/divide-expression-builder"
+      require "gandiva/equal-expression-builder"
+      require "gandiva/field-builder"
+      require "gandiva/greater-than-expression-builder"
       require "gandiva/if-node-query"
+      require "gandiva/if-expression-builder"
+      require "gandiva/multiply-expression-builder"
+      require "gandiva/less-than-expression-builder"
       require "gandiva/record"
+      require "gandiva/subtract-expression-builder"
     end
   end
 end

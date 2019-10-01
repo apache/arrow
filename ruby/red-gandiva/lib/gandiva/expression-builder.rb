@@ -16,49 +16,42 @@
 # under the License.
 
 module Gandiva
-  class FieldNode
-    def +(node)
-      build_function_node("add", node)
+  class ExpressionBuilder
+    def initialize(schema)
+      @schema = schema
     end
 
-    def -(node)
-      build_function_node("subtract", node)
+    def build
+      builder = yield(Record.new(@schema), ExpressionBuilderContext.new)
+      builder.build
     end
 
-    def *(node)
-      build_function_node("multiply", node)
+    def +(builder)
+      AddExpressionBuilder.new(self, builder)
     end
 
-    def /(node)
-      build_function_node("divide", node)
+    def -(builder)
+      SubtractExpressionBuilder.new(self, builder)
     end
 
-    def >(node)
-      build_function_node("greater_than", node)
+    def *(builder)
+      MultiplyExpressionBuilder.new(self, builder)
     end
 
-    def <(node)
-      build_function_node("less_than", node)
+    def /(builder)
+      DivideExpressionBuilder.new(self, builder)
     end
 
-    def ==(node)
-      build_function_node("equal", node)
+    def >(builder)
+      GreaterThanExpressionBuilder.new(self, builder)
     end
 
-    private
+    def <(builder)
+      LessThanExpressionBuilder.new(self, builder)
+    end
 
-    def build_function_node(operator, node)
-      return_type =
-        if (operator == "greater_than" ||
-          operator == "less_than" || operator == "equal")
-          Arrow::BooleanDataType.new
-        else
-          field.data_type
-        end
-
-      Gandiva::FunctionNode.new(operator,
-                                [self, node],
-                                return_type)
+    def ==(builder)
+      EqualExpressionBuilder.new(self, builder)
     end
   end
 end

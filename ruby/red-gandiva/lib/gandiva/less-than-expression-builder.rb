@@ -16,40 +16,9 @@
 # under the License.
 
 module Gandiva
-  class IfNodeQuery
-    def initialize(condition)
-      @condition_builders = [condition]
-      @then_builders = []
-    end
-
-    def then(builder)
-      @then_builders << builder
-      self
-    end
-
-    def elsif(builder)
-      @condition_builders << builder
-      self
-    end
-
-    def else(builder)
-      to_expression_builder(builder)
-    end
-
-    private
-
-    def to_expression_builder(builder)
-      node_size = @condition_builders.size - 1
-      (0..node_size).reverse_each do |i|
-        builder = build_if_expression_builder(builder, i)
-      end
-      builder
-    end
-
-    def build_if_expression_builder(builder, i)
-      Gandiva::IfExpressionBuilder.new(@condition_builders[i],
-                                       @then_builders[i],
-                                       builder)
+  class LessThanExpressionBuilder < BinaryExpressionBuilder
+    def initialize(left, right)
+      super("less_than", left, right)
     end
   end
 end

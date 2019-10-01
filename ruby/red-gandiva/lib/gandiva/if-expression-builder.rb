@@ -16,22 +16,23 @@
 # under the License.
 
 module Gandiva
-  module ExpressionBuildable
-    def build_expression
-      node = yield Gandiva::Record.new(self), Gandiva::ExpressionBuilderContext.new
+  class IfExpressionBuilder < ExpressionBuilder
+    def initialize(condition_builder, then_builder, else_builder)
+      @condition = condition_builder
+      @then = then_builder
+      @else = else_builder
+    end
 
-      message = "The node passed to Gandiva::Expression must belong to Gandiva::Node"
-      message << ": <#{node.class}>"
-      raise ArgumentError, message unless node.is_a?(Gandiva::Node)
-
+    def build
       result = Arrow::Field.new("result", node.return_type)
       Gandiva::Expression.new(node, result)
     end
-  end
-end
 
-module Arrow
-  class Schema
-    include Gandiva::ExpressionBuildable
+    def node
+      @node ||= Gandiva::IfNode.new(@condition.node,
+                                    @then.node,
+                                    @else.node,
+                                    @then.node.return_type)
+    end
   end
 end
