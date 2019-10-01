@@ -36,6 +36,8 @@ before_install:
 matrix:
   fast_finish: true
   include:
+
+  # -------------------------------------------------------------------------
   - name: "Lint, Release tests"
     os: linux
     language: python
@@ -56,6 +58,8 @@ matrix:
     - docker-compose build --pull cpp-system-deps
     script:
     - docker-compose run cpp-system-deps
+
+  # -------------------------------------------------------------------------
   # Separating Valgrind and C++ coverage makes individual jobs shorter
   - name: "C++ unit tests w/ conda-forge toolchain, coverage"
     compiler: gcc
@@ -91,6 +95,8 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh || travis_terminate 1
     - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_java.sh || travis_terminate 1
     - $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh || travis_terminate 1
+
+  # -------------------------------------------------------------------------
   - name: "Python 3.6 unit tests w/ Valgrind, conda-forge toolchain, coverage"
     compiler: gcc
     language: cpp
@@ -124,11 +130,12 @@ matrix:
     - export PLASMA_VALGRIND=1
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
     - $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh
+
+  # -------------------------------------------------------------------------
   - name: "[OS X] C++ w/ XCode 9.3"
     compiler: clang
     osx_image: xcode9.3
     os: osx
-    cache:
     addons:
     env:
     - ARROW_TRAVIS_USE_TOOLCHAIN=1
@@ -155,11 +162,12 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh || travis_terminate 1
     # Disabled because of ARROW-4763
     # - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_java.sh
+
+  # -------------------------------------------------------------------------
   - name: "[OS X] Python w/ XCode 9.3"
     compiler: clang
     osx_image: xcode9.3
     os: osx
-    cache:
     addons:
     env:
     - ARROW_TRAVIS_S3=1
@@ -174,6 +182,8 @@ matrix:
     - if [ $ARROW_CI_PYTHON_AFFECTED != "1" ]; then exit; fi
     - $TRAVIS_BUILD_DIR/ci/travis_install_minio.sh
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
+
+  # -------------------------------------------------------------------------
   - name: "Java OpenJDK8 and OpenJDK11"
     language: cpp
     os: linux
@@ -182,6 +192,8 @@ matrix:
     - docker-compose build --pull java-all-jdks
     script:
     - docker-compose run java-all-jdks
+
+  # -------------------------------------------------------------------------
   - name: "Integration w/ OpenJDK 8, conda-forge toolchain"
     language: java
     os: linux
@@ -209,6 +221,8 @@ matrix:
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_integration.sh
     # - $TRAVIS_BUILD_DIR/ci/travis_script_plasma_java_client.sh
+
+  # -------------------------------------------------------------------------
   - name: "NodeJS"
     language: node_js
     os: linux
@@ -220,6 +234,8 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_before_script_js.sh
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_js.sh
+
+  # -------------------------------------------------------------------------
   - name: "C++ & GLib & Ruby w/ gcc 5.4"
     compiler: gcc
     os: linux
@@ -239,6 +255,8 @@ matrix:
     script:
     - if [ $ARROW_CI_C_GLIB_AFFECTED = "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh; fi
     - $TRAVIS_BUILD_DIR/ci/travis_script_ruby.sh
+
+  # -------------------------------------------------------------------------
   - name: "[OS X] C++ & GLib & Ruby w/ XCode 10.2 & Homebrew"
     compiler: clang
     osx_image: xcode10.2
@@ -252,7 +270,6 @@ matrix:
     - ARROW_TRAVIS_PYTHON=1
     - ARROW_TRAVIS_VERBOSE=1
     - ARROW_TRAVIS_MIMALLOC=1
-    cache:
     addons:
     before_script:
     - if [ $ARROW_CI_RUBY_AFFECTED != "1" ]; then exit; fi
@@ -263,6 +280,8 @@ matrix:
     script:
     - if [ $ARROW_CI_C_GLIB_AFFECTED = "1" ]; then $TRAVIS_BUILD_DIR/ci/travis_script_c_glib.sh; fi
     - $TRAVIS_BUILD_DIR/ci/travis_script_ruby.sh
+
+  # -------------------------------------------------------------------------
   - name: Rust
     language: rust
     cache: cargo
@@ -289,6 +308,8 @@ matrix:
       - export PARQUET_TEST_DATA=$TRAVIS_BUILD_DIR/cpp/submodules/parquet-testing/data
       - cargo tarpaulin --out Xml
       - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
+
+  # -------------------------------------------------------------------------
   - name: Go
     language: go
     go_import_path: github.com/apache/arrow
@@ -302,9 +323,14 @@ matrix:
     after_success:
     - pushd ${TRAVIS_BUILD_DIR}/go/arrow
     - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
+
+  # -------------------------------------------------------------------------
   - name: R (with and without libarrow)
     language: r
-    cache: packages
+    cache:
+      directories:
+        - $HOME/.ccache
+      packages: true
     dist: xenial
     env:
     - ARROW_TRAVIS_PARQUET=1
@@ -353,4 +379,3 @@ after_script:
 env:
   global:
   - secure: "GcrPtsKUCgNY7HKYjWlHQo8SiFrShDvdZSU8t1m1FJrE+UfK0Dgh9zXmAausM8GmhqSwkF0q4UbLQf2uCnSITWKeEPAL8Mo9eu4ib+ikJx/b3Sk81frgW5ADoHfW1Eyqd8xJNIMwMegJOtRLSDqiXh1CvMlKnY8PyTOGM2DgN9ona/v6p9OFH9Qs0JhBRVXAn0S4ztjumck8E56+01hqRfxbZ88pTfpKghBxYp9PJaMjtGdomjVWlqPaWaWJj+KptT8inV9NK+TVYKx0dXWD+S1Vgr1PytQnLdILOYV23gsOBYqn33ByF/yADl4m3hUjU/qeT0Fi7aWxmVpj+oTJISOSH5N8nIsuNH8mQk2ZzzXHfV7btFvP+cOPRczadoKkT6D6cHA8nQ7b0dphC6bl6SAeSfc/cbhRT+fYnIjg8jFXC8jlyWBr7LR6GXVpc0bND7i300ITo0FuRJhy2OxqPtGo3dKLE7eAcv78tuO0OYJ/kol1PEqFdFkbYbNVbg/cFpbGqiCXDsOtPDbAGBv69YnXdVowSxxs8cRGjSkDydv6ZSytb/Zd4lH/KAomcFNk8adx12O1Lk4sbmVav1cGig5P6OcQKS0jC5IiRb4THcQzVzAkXXbaafKm5sru/NoYxhzmkyhkOc11nTYHKVng+XKWzLCNn7pTTSLitp5+xa4="
-

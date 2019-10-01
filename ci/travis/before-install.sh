@@ -35,7 +35,6 @@ if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
   export CCACHE_COMPRESSLEVEL=5
   export CCACHE_COMPILERCHECK=content
   export PATH=/usr/lib/ccache/:$PATH
-
   ccache --show-stats
 fi
 
