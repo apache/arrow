@@ -843,6 +843,22 @@ def test_cast_from_null():
             in_arr.cast(out_type)
 
 
+def test_cast_string_to_number_roundtrip():
+    cases = [
+        (pa.array([u"1", u"127", u"-128"]),
+         pa.array([1, 127, -128], type=pa.int8())),
+        (pa.array([None, u"18446744073709551615"]),
+         pa.array([None, 18446744073709551615], type=pa.uint64())),
+    ]
+    for in_arr, expected in cases:
+        casted = in_arr.cast(expected.type, safe=True)
+        casted.validate()
+        assert casted.equals(expected)
+        casted_back = casted.cast(in_arr.type, safe=True)
+        casted_back.validate()
+        assert casted_back.equals(in_arr)
+
+
 def test_view():
     # ARROW-5992
     arr = pa.array(['foo', 'bar', 'baz'], type=pa.utf8())

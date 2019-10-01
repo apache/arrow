@@ -18,9 +18,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <functional>
-#include <locale>
 #include <memory>
-#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -160,6 +158,41 @@ class TestCast : public ComputeFixture, public TestBase {
         src_type, strings, all, dest_type, strings, options);
   }
 
+  template <typename DestType>
+  void TestCastNumberToString() {
+    auto dest_type = TypeTraits<DestType>::type_singleton();
+
+    CheckCaseJSON(int8(), dest_type, "[0, 1, 127, -128, null]",
+                  R"(["0", "1", "127", "-128", null])");
+    CheckCaseJSON(uint8(), dest_type, "[0, 1, 255, null]", R"(["0", "1", "255", null])");
+    CheckCaseJSON(int16(), dest_type, "[0, 1, 32767, -32768, null]",
+                  R"(["0", "1", "32767", "-32768", null])");
+    CheckCaseJSON(uint16(), dest_type, "[0, 1, 65535, null]",
+                  R"(["0", "1", "65535", null])");
+    CheckCaseJSON(int32(), dest_type, "[0, 1, 2147483647, -2147483648, null]",
+                  R"(["0", "1", "2147483647", "-2147483648", null])");
+    CheckCaseJSON(uint32(), dest_type, "[0, 1, 4294967295, null]",
+                  R"(["0", "1", "4294967295", null])");
+    CheckCaseJSON(int64(), dest_type,
+                  "[0, 1, 9223372036854775807, -9223372036854775808, null]",
+                  R"(["0", "1", "9223372036854775807", "-9223372036854775808", null])");
+    CheckCaseJSON(uint64(), dest_type, "[0, 1, 18446744073709551615, null]",
+                  R"(["0", "1", "18446744073709551615", null])");
+
+    CheckCaseJSON(float32(), dest_type, "[0.0, -0.0, 1.5, -Inf, Inf, NaN, null]",
+                  R"(["0", "-0", "1.5", "-inf", "inf", "nan", null])");
+    CheckCaseJSON(float64(), dest_type, "[0.0, -0.0, 1.5, -Inf, Inf, NaN, null]",
+                  R"(["0", "-0", "1.5", "-inf", "inf", "nan", null])");
+  }
+
+  template <typename DestType>
+  void TestCastBooleanToString() {
+    auto dest_type = TypeTraits<DestType>::type_singleton();
+
+    CheckCaseJSON(boolean(), dest_type, "[true, true, false, null]",
+                  R"(["true", "true", "false", null])");
+  }
+
   template <typename SourceType>
   void TestCastStringToNumber() {
     CastOptions options;
@@ -224,23 +257,16 @@ class TestCast : public ComputeFixture, public TestBase {
     CheckCase<SourceType, std::string, DoubleType, double>(src_type, v_float, is_valid,
                                                            float64(), e_double, options);
 
-#ifndef _WIN32
+#if !defined(_WIN32) || defined(NDEBUG)
     // Test that casting is locale-independent
-    // ARROW-6108: can't run this test on Windows.  std::locale() will simply throw
-    // on release builds, but may crash with an assertion failure on debug builds.
-    // (similar issue here: https://gerrit.libreoffice.org/#/c/54110/)
-    auto global_locale = std::locale();
-    try {
+    {
       // French locale uses the comma as decimal point
-      std::locale::global(std::locale("fr_FR.UTF-8"));
-    } catch (std::runtime_error&) {
-      // Locale unavailable, ignore
+      LocaleGuard locale_guard("fr_FR.UTF-8");
+      CheckCase<SourceType, std::string, FloatType, float>(src_type, v_float, is_valid,
+                                                           float32(), e_float, options);
+      CheckCase<SourceType, std::string, DoubleType, double>(
+          src_type, v_float, is_valid, float64(), e_double, options);
     }
-    CheckCase<SourceType, std::string, FloatType, float>(src_type, v_float, is_valid,
-                                                         float32(), e_float, options);
-    CheckCase<SourceType, std::string, DoubleType, double>(src_type, v_float, is_valid,
-                                                           float64(), e_double, options);
-    std::locale::global(global_locale);
 #endif
   }
 
@@ -923,7 +949,7 @@ TEST_F(TestCast, UnsupportedTarget) {
   ArrayFromVector<Int32Type, int32_t>(int32(), is_valid, v1, &arr);
 
   std::shared_ptr<Array> result;
-  ASSERT_RAISES(NotImplemented, Cast(&this->ctx_, *arr, utf8(), {}, &result));
+  ASSERT_RAISES(NotImplemented, Cast(&this->ctx_, *arr, list(utf8()), {}, &result));
 }
 
 TEST_F(TestCast, DateTimeZeroCopy) {
@@ -1114,6 +1140,14 @@ TEST_F(TestCast, BinaryToString) { TestCastBinaryToString<BinaryType, StringType
 TEST_F(TestCast, LargeBinaryToLargeString) {
   TestCastBinaryToString<LargeBinaryType, LargeStringType>();
 }
+
+TEST_F(TestCast, NumberToString) { TestCastNumberToString<StringType>(); }
+
+TEST_F(TestCast, NumberToLargeString) { TestCastNumberToString<LargeStringType>(); }
+
+TEST_F(TestCast, BooleanToString) { TestCastBooleanToString<StringType>(); }
+
+TEST_F(TestCast, BooleanToLargeString) { TestCastBooleanToString<LargeStringType>(); }
 
 TEST_F(TestCast, ListToList) {
   CastOptions options;

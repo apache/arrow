@@ -28,6 +28,7 @@ INTEGER_TYPES = ['UInt8', 'Int8', 'UInt16', 'Int16',
                  'UInt32', 'Int32', 'UInt64', 'Int64']
 FLOATING_TYPES = ['Float', 'Double']
 NUMERIC_TYPES = ['Boolean'] + INTEGER_TYPES + FLOATING_TYPES
+STRING_TYPES = ['String', 'LargeString']
 
 DATE_TIME_TYPES = ['Date32', 'Date64', 'Time32', 'Time64', 'Timestamp']
 
@@ -65,17 +66,17 @@ class CastCodeGenerator(object):
 
 
 CAST_GENERATORS = [
-    CastCodeGenerator('Boolean', NUMERIC_TYPES),
-    CastCodeGenerator('UInt8', NUMERIC_TYPES),
-    CastCodeGenerator('Int8', NUMERIC_TYPES),
-    CastCodeGenerator('UInt16', NUMERIC_TYPES),
-    CastCodeGenerator('Int16', NUMERIC_TYPES),
-    CastCodeGenerator('UInt32', NUMERIC_TYPES),
-    CastCodeGenerator('UInt64', NUMERIC_TYPES),
-    CastCodeGenerator('Int32', NUMERIC_TYPES),
-    CastCodeGenerator('Int64', NUMERIC_TYPES),
-    CastCodeGenerator('Float', NUMERIC_TYPES),
-    CastCodeGenerator('Double', NUMERIC_TYPES),
+    CastCodeGenerator('Boolean', NUMERIC_TYPES + STRING_TYPES),
+    CastCodeGenerator('UInt8', NUMERIC_TYPES + STRING_TYPES),
+    CastCodeGenerator('Int8', NUMERIC_TYPES + STRING_TYPES),
+    CastCodeGenerator('UInt16', NUMERIC_TYPES + STRING_TYPES),
+    CastCodeGenerator('Int16', NUMERIC_TYPES + STRING_TYPES),
+    CastCodeGenerator('UInt32', NUMERIC_TYPES + STRING_TYPES),
+    CastCodeGenerator('UInt64', NUMERIC_TYPES + STRING_TYPES),
+    CastCodeGenerator('Int32', NUMERIC_TYPES + STRING_TYPES),
+    CastCodeGenerator('Int64', NUMERIC_TYPES + STRING_TYPES),
+    CastCodeGenerator('Float', NUMERIC_TYPES + STRING_TYPES),
+    CastCodeGenerator('Double', NUMERIC_TYPES + STRING_TYPES),
     CastCodeGenerator('Date32', ['Date64']),
     CastCodeGenerator('Date64', ['Date32']),
     CastCodeGenerator('Time32', ['Time32', 'Time64'],
