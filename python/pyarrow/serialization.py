@@ -313,19 +313,13 @@ def _register_scipy_handlers(serialization_context):
 
         def _serialize_scipy_sparse(obj):
             if isspmatrix_coo(obj):
-                coords = np.vstack([obj.row, obj.col]).T
-                return 'coo', pyarrow.SparseTensorCOO \
-                    .from_numpy(obj.data, coords, obj.shape)
+                return 'coo', pyarrow.SparseTensorCOO.from_scipy(obj)
 
             elif isspmatrix_csr(obj):
-                return 'csr', pyarrow.SparseTensorCSR \
-                    .from_numpy(obj.data, obj.indptr, obj.indices, obj.shape)
+                return 'csr', pyarrow.SparseTensorCSR.from_scipy(obj)
 
             elif isspmatrix(obj):
-                obj_csr = obj.to_csr()
-                return 'csr', pyarrow.SparseTensorCSR \
-                    .from_numpy(obj_csr.data, obj_csr.indptr,
-                                obj_csr.indices, obj_csr.shape)
+                return 'csr', pyarrow.SparseTensorCSR.from_scipy(obj.to_csr())
 
             else:
                 raise NotImplementedError(
@@ -333,20 +327,13 @@ def _register_scipy_handlers(serialization_context):
 
         def _deserialize_scipy_sparse(data):
             if data[0] == 'coo':
-                data_array, coords = data[1].to_numpy()
-                return coo_matrix((data_array[:, 0],
-                                   (coords[:, 0], coords[:, 1])),
-                                  shape=data[1].shape)
+                return data[1].to_scipy()
 
             elif data[0] == 'csr':
-                result_data, result_indptr, result_indices = data[1].to_numpy()
-                return csr_matrix((result_data[:, 0], result_indices,
-                                   result_indptr))
+                return data[1].to_scipy()
 
             else:
-                result_data, result_indptr, result_indices = data[1].to_numpy()
-                return csr_matrix((result_data[:, 0], result_indices,
-                                   result_indptr))
+                return data[1].to_scipy()
 
         serialization_context.register_type(
             coo_matrix, 'scipy.sparse.coo.coo_matrix',

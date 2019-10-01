@@ -21,6 +21,12 @@ import sys
 import numpy as np
 import pyarrow as pa
 
+try:
+    from scipy.sparse import csr_matrix, coo_matrix
+except ImportError:
+    coo_matrix = None
+    csr_matrix = None
+
 
 tensor_type_pairs = [
     ('i1', pa.int8()),
@@ -240,3 +246,49 @@ def test_dense_to_sparse_tensor(dtype_str, arrow_type, sparse_tensor_type):
     assert sparse_tensor.type == arrow_type
     assert tensor.type == arrow_type
     assert np.array_equal(array, result_array)
+
+
+@pytest.mark.skipif(not coo_matrix, reason="requires scipy")
+@pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
+def test_sparse_tensor_coo_scipy_roundtrip(dtype_str, arrow_type):
+    dtype = np.dtype(dtype_str)
+    data = np.array([4, 5, 7, 9]).astype(dtype)
+    row = np.array([0, 3, 1, 0])
+    col = np.array([0, 3, 1, 2])
+    shape = (4, 4)
+    dim_names = ["x", "y"]
+
+    sparse_array = coo_matrix((data, (row, col)), shape=shape)
+    sparse_tensor = pa.SparseTensorCOO.from_scipy(sparse_array,
+                                                  dim_names=dim_names)
+    out_sparse_array = sparse_tensor.to_scipy()
+
+    assert sparse_tensor.type == arrow_type
+    assert sparse_tensor.dim_names == dim_names
+    assert sparse_array.dtype == out_sparse_array.dtype
+    assert np.array_equal(sparse_array.data, out_sparse_array.data)
+    assert np.array_equal(sparse_array.row, out_sparse_array.row)
+    assert np.array_equal(sparse_array.col, out_sparse_array.col)
+
+
+@pytest.mark.skipif(not csr_matrix, reason="requires scipy")
+@pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
+def test_sparse_tensor_csr_scipy_roundtrip(dtype_str, arrow_type):
+    dtype = np.dtype(dtype_str)
+    data = np.array([1, 2, 3, 4, 5, 6]).astype(dtype)
+    indptr = np.array([0, 2, 3, 6])
+    indices = np.array([0, 2, 2, 0, 1, 2])
+    shape = (3, 3)
+    dim_names = ["x", "y"]
+
+    sparse_array = csr_matrix((data, indices, indptr), shape=shape)
+    sparse_tensor = pa.SparseTensorCSR.from_scipy(sparse_array,
+                                                  dim_names=dim_names)
+    out_sparse_array = sparse_tensor.to_scipy()
+
+    assert sparse_tensor.type == arrow_type
+    assert sparse_tensor.dim_names == dim_names
+    assert sparse_array.dtype == out_sparse_array.dtype
+    assert np.array_equal(sparse_array.data, out_sparse_array.data)
+    assert np.array_equal(sparse_array.indptr, out_sparse_array.indptr)
+    assert np.array_equal(sparse_array.indices, out_sparse_array.indices)

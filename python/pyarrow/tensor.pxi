@@ -180,6 +180,29 @@ shape: {0.shape}""".format(self)
         return pyarrow_wrap_sparse_coo_tensor(csparse_tensor)
 
     @staticmethod
+    def from_scipy(obj, dim_names=None):
+        """
+        Convert scipy.sparse.coo_matrix to arrow::SparseCOOTensor
+        """
+        cdef shared_ptr[SparseCOOTensor] csparse_tensor
+        cdef vector[int64_t] c_shape
+        cdef vector[c_string] c_dim_names
+
+        for x in obj.shape:
+            c_shape.push_back(x)
+        if dim_names is not None:
+            for x in dim_names:
+                c_dim_names.push_back(tobytes(x))
+
+        coords = np.vstack([obj.row, obj.col]).T
+        coords = np.require(coords, dtype='i8', requirements='F')
+
+        check_status(NdarraysToSparseCOOTensor(c_default_memory_pool(),
+                     obj.data.view(), coords, c_shape, c_dim_names,
+                     &csparse_tensor))
+        return pyarrow_wrap_sparse_tensor_coo(csparse_tensor)
+
+    @staticmethod
     def from_tensor(obj):
         """
         Convert arrow::Tensor to arrow::SparseCOOTensor
@@ -202,6 +225,22 @@ shape: {0.shape}""".format(self)
         check_status(SparseCOOTensorToNdarray(self.sp_sparse_tensor, self,
                                               &out_data, &out_coords))
         return PyObject_to_object(out_data), PyObject_to_object(out_coords)
+
+    def to_scipy(self):
+        """
+        Convert arrow::SparseCOOTensor to scipy.sparse.coo_matrix
+        """
+        from scipy.sparse import coo_matrix
+        cdef PyObject* out_data
+        cdef PyObject* out_coords
+
+        check_status(SparseCOOTensorToNdarray(self.sp_sparse_tensor, self,
+                                              &out_data, &out_coords))
+        data = PyObject_to_object(out_data)
+        coords = PyObject_to_object(out_coords)
+        result = coo_matrix((data[:, 0], (coords[:, 0], coords[:, 1])),
+                            shape=self.shape)
+        return result
 
     def to_tensor(self):
         """
@@ -312,6 +351,30 @@ shape: {0.shape}""".format(self)
         return pyarrow_wrap_sparse_csr_matrix(csparse_tensor)
 
     @staticmethod
+    def from_scipy(obj, dim_names=None):
+        """
+        Convert scipy.sparse.csr_matrix to arrow::SparseCSRMatrix
+        """
+        cdef shared_ptr[CSparseCSRMatrix] csparse_tensor
+        cdef vector[int64_t] c_shape
+        cdef vector[c_string] c_dim_names
+
+        for x in obj.shape:
+            c_shape.push_back(x)
+        if dim_names is not None:
+            for x in dim_names:
+                c_dim_names.push_back(tobytes(x))
+
+        # Enforce precondition for CSparseCSRMatrix indices
+        indptr = np.require(obj.indptr, dtype='i8')
+        indices = np.require(obj.indices, dtype='i8')
+
+        check_status(NdarraysToCSparseCSRMatrix(c_default_memory_pool(),
+                     obj.data, indptr, indices, c_shape,
+                     c_dim_names, &csparse_tensor))
+        return pyarrow_wrap_sparse_tensor_csr(csparse_tensor)
+
+    @staticmethod
     def from_tensor(obj):
         """
         Convert arrow::Tensor to arrow::SparseCSRMatrix
@@ -337,6 +400,24 @@ shape: {0.shape}""".format(self)
                                               &out_indices))
         return (PyObject_to_object(out_data), PyObject_to_object(out_indptr),
                 PyObject_to_object(out_indices))
+
+    def to_scipy(self):
+        """
+        Convert arrow::SparseCSRMatrix to scipy.sparse.csr_matrix
+        """
+        from scipy.sparse import csr_matrix
+        cdef PyObject* out_data
+        cdef PyObject* out_indptr
+        cdef PyObject* out_indices
+
+        check_status(SparseCSRMatrixToNdarray(self.sp_sparse_tensor, self,
+                     &out_data, &out_indptr, &out_indices))
+
+        data = PyObject_to_object(out_data)
+        indptr = PyObject_to_object(out_indptr)
+        indices = PyObject_to_object(out_indices)
+        result = csr_matrix((data[:, 0], indices, indptr), shape=self.shape)
+        return result
 
     def to_tensor(self):
         """

@@ -43,8 +43,8 @@ except ImportError:
 try:
     from scipy.sparse import csr_matrix, coo_matrix
 except ImportError:
-    csr_matrix = None
     coo_matrix = None
+    csr_matrix = None
 
 try:
     import sparse
@@ -583,7 +583,7 @@ def test_sparse_tensor_csr_serialization(large_buffer):
     assert np.array_equal(indices_result, indices)
 
 
-@pytest.mark.skipif(os.name == 'nt', reason="fails on windows")
+@pytest.mark.skipif(os.name == 'nt', reason="equality check fails on windows")
 def test_sparse_tensor_csr_components_serialization(large_buffer):
     data = np.array([[1, 2, 3, 4, 5, 6]]).T
     indptr = np.array([0, 2, 3, 6])
