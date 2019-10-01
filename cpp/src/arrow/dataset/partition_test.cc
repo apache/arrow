@@ -70,10 +70,11 @@ TEST_F(TestPartitionScheme, Schema) {
       schema({field("alpha", int32()), field("beta", utf8())}));
 
   AssertParse("/0/hello", "alpha"_ == int32_t(0) and "beta"_ == "hello");
-  AssertParseError("/world/0");
-  AssertParseError("/3.25");
-  AssertParseError("/0.0/foo");  // conversion of "0.0" to int32 fails
-  AssertParseError("");
+  AssertParseError("/world/0");  // reversed order
+  AssertParseError("/3");        // valid alpha, but missing beta
+  AssertParseError("/0.0/foo");  // invalid alpha
+  AssertParseError("/3.25");     // invalid alpha with missing beta
+  AssertParseError("");          // no segments to parse
 
   // gotcha someday:
   AssertParse("/0/dat.parquet", "alpha"_ == int32_t(0) and "beta"_ == "dat.parquet");
@@ -89,6 +90,7 @@ TEST_F(TestPartitionScheme, Hive) {
   AssertParse("/beta=3.25/alpha=0", "beta"_ == 3.25f and "alpha"_ == int32_t(0));
   AssertParse("/alpha=0", "alpha"_ == int32_t(0));
   AssertParse("/beta=3.25", "beta"_ == 3.25f);
+  AssertParse("", scalar(true));
 
   AssertParse("/alpha=0/unexpected/beta=3.25",
               "alpha"_ == int32_t(0) and "beta"_ == 3.25f);
@@ -96,7 +98,6 @@ TEST_F(TestPartitionScheme, Hive) {
   AssertParse("/alpha=0/beta=3.25/ignored=2341",
               "alpha"_ == int32_t(0) and "beta"_ == 3.25f);
 
-  AssertParse("", scalar(true));
   AssertParse("/ignored=2341", scalar(true));
 
   AssertParseError("/alpha=0.0/beta=3.25");  // conversion of "0.0" to int32 fails
@@ -136,7 +137,7 @@ TEST_F(TestPartitionScheme, EtlThenHive) {
 }
 
 TEST_F(TestPartitionScheme, Set) {
-  // create an adhoc partition scheme which parses segments like "/x in [1 4 5]"
+  // An adhoc partition scheme which parses segments like "/x in [1 4 5]"
   // into ("x"_ == 1 or "x"_ == 4 or "x"_ == 5)
   scheme_ = std::make_shared<FunctionPartitionScheme>(
       [](const std::string& path) -> Result<std::shared_ptr<Expression>> {
@@ -164,7 +165,7 @@ TEST_F(TestPartitionScheme, Set) {
   AssertParse("/x in []", scalar(false));
 }
 
-// an adhoc partition scheme which parses segments like "/x=[-3.25, 0.0)"
+// An adhoc partition scheme which parses segments like "/x=[-3.25, 0.0)"
 // into ("x"_ >= -3.25 and "x" < 0.0)
 class RangePartitionScheme : public HivePartitionScheme {
  public:

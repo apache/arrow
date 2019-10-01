@@ -50,10 +50,6 @@ Result<std::shared_ptr<Expression>> ConvertPartitionKeys(
 
 Result<std::shared_ptr<Expression>> ConstantPartitionScheme::Parse(
     const std::string& path) const {
-  if (path.substr(0, ignored_.size()) != ignored_) {
-    return Status::Invalid("path '", path, "' did not contain required prefix '",
-                           ignored_, "'");
-  }
   return expression_;
 }
 

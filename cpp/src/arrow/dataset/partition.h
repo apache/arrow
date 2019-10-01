@@ -75,13 +75,11 @@ class ARROW_DS_EXPORT PartitionScheme {
   virtual Result<std::shared_ptr<Expression>> Parse(const std::string& path) const = 0;
 };
 
-/// \brief Trivial partition scheme which only consumes a specified prefix (empty by
-/// default) from a path, yielding an expression provided on construction.
+/// \brief Trivial partition scheme which yields an expression provided on construction.
 class ARROW_DS_EXPORT ConstantPartitionScheme : public PartitionScheme {
  public:
-  explicit ConstantPartitionScheme(std::shared_ptr<Expression> expr,
-                                   std::string ignored = "")
-      : expression_(std::move(expr)), ignored_(std::move(ignored)) {}
+  explicit ConstantPartitionScheme(std::shared_ptr<Expression> expr)
+      : expression_(std::move(expr)) {}
 
   std::string name() const override { return "constant_partition_scheme"; }
 
@@ -89,10 +87,14 @@ class ARROW_DS_EXPORT ConstantPartitionScheme : public PartitionScheme {
 
  private:
   std::shared_ptr<Expression> expression_;
-  std::string ignored_;
 };
 
-/// \brief Parse a single field from a single path segment
+/// \brief SchemaPartitionScheme parses one segment of a path for each field in its
+/// schema. All fields are required, so paths passed to SchemaPartitionScheme::Parse
+/// must contain segments for each field.
+///
+/// For example given schema<year:int16, month:int8> the path "/2009/11" would be
+/// parsed to ("year"_ == 2009 and "month"_ == 11)
 class ARROW_DS_EXPORT SchemaPartitionScheme : public PartitionScheme {
  public:
   explicit SchemaPartitionScheme(std::shared_ptr<Schema> schema)
@@ -112,7 +114,11 @@ class ARROW_DS_EXPORT SchemaPartitionScheme : public PartitionScheme {
 /// originating from Apache Hive with all data files stored in the
 /// leaf directories. Data is partitioned by static values of a
 /// particular column in the schema. Partition keys are represented in
-/// the form $key=$value in directory names
+/// the form $key=$value in directory names.
+/// Field order is ignored, as are missing or unrecognized field names.
+///
+/// For example given schema<year:int16, month:int8, day:int8> the path
+/// "/day=321/ignored=3.4/year=2009" parses to ("year"_ == 2009 and "day"_ == 321)
 class ARROW_DS_EXPORT HivePartitionScheme : public PartitionScheme {
  public:
   explicit HivePartitionScheme(std::shared_ptr<Schema> schema)
@@ -129,35 +135,6 @@ class ARROW_DS_EXPORT HivePartitionScheme : public PartitionScheme {
  protected:
   std::shared_ptr<Schema> schema_;
 };
-
-// ----------------------------------------------------------------------
-//
-
-// Partitioned datasets come in different forms. Here is an example of
-// a Hive-style partitioned dataset:
-//
-// dataset_root/
-//   key1=$k1_v1/
-//     key2=$k2_v1/
-//       0.parquet
-//       1.parquet
-//       2.parquet
-//       3.parquet
-//     key2=$k2_v2/
-//       0.parquet
-//       1.parquet
-//   key1=$k1_v2/
-//     key2=$k2_v1/
-//       0.parquet
-//       1.parquet
-//     key2=$k2_v2/
-//       0.parquet
-//       1.parquet
-//       2.parquet
-//
-// In this case, the dataset has 11 fragments (11 files) to be
-// scanned, or potentially more if it is configured to split Parquet
-// files at the row group level
 
 /// \brief Implementation provided by lambda or other callable
 class ARROW_DS_EXPORT FunctionPartitionScheme : public PartitionScheme {
