@@ -30,9 +30,12 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-import pyarrow
+
 import os
 import sys
+from unittest import mock
+
+import pyarrow
 
 sys.path.extend([
     os.path.join(os.path.dirname(__file__),
@@ -415,7 +418,6 @@ except ImportError:
     # Mock pyarrow.cuda to avoid autodoc warnings.
     # XXX I can't get autodoc_mock_imports to work, so mock manually instead
     # (https://github.com/sphinx-doc/sphinx/issues/2174#issuecomment-453177550)
-    from unittest import mock
     pyarrow.cuda = sys.modules['pyarrow.cuda'] = mock.Mock()
 
 try:

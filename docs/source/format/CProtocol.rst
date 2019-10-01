@@ -501,11 +501,10 @@ release callback.  This ensures that only one live copy of the struct is
 active at any given time and that lifetime is correctly communicated to
 the producer.
 
-Only the parent array (such as passed between producer and consumer) may be
-moved.  It is not recommended to move the children arrays.  It should also
-not be necessary, since the :c:member:`ArrowArray.children` and
-:c:member:`ArrowArray.dictionary` are typically heap-allocated by the
-producer.
+It is possible to move a child array, but the parent array MUST be released
+immediately afterwards, as it won't point to a valid child array anymore.
+This satisfies the use case of keeping only a subset of child arrays, while
+releasing the others.
 
 .. note::
 
@@ -535,6 +534,164 @@ be represented in either of two ways:
 * an array of ``ArrowArray`` structures, one per column;
 * or a single ``ArrowArray`` structure representing a struct array, with one
   child array per column.
+
+C producer examples
+===================
+
+Exporting a simple ``int32`` array
+----------------------------------
+
+Export a no-nulls C-malloc()ed ``int32`` array as a Arrow array, transferring
+ownership to the consumer:
+
+.. code-block:: c
+
+   static void release_int32_array(struct ArrowArray* array) {
+      assert(array->n_children == NULL);
+      assert(array->n_buffers == 2);
+      free(array->buffers[1]);
+      free(array->buffers);
+      array->format = NULL;
+      array->release = NULL;
+   }
+
+   void export_int32_array(const int32_t* data, int64_t nitems,
+                           struct ArrowArray* array) {
+      // Initialize primitive fields
+      *array = (struct ArrowArray) {
+         // Type description
+         .format = "l",
+         .name = "",
+         .metadata = NULL,
+         .flags = 0,
+         // Data description
+         .length = nitems,
+         .offset = 0,
+         .null_count = 0,
+         .n_buffers = 2,
+         .n_children = 0,
+         .children = NULL,
+         .dictionary = NULL,
+         // Bookkeeping
+         .release = &release_int32_array
+      };
+      // Allocate list of buffers
+      array->buffers = (const void**) malloc(sizeof(void*) * array->n_buffers);
+      assert(array->buffers != NULL);
+      array->buffers[0] = NULL;  // no nulls, null bitmap can be omitted
+      array->buffers[1] = data;
+   }
+
+Exporting a ``struct<float32, utf8>`` array
+-------------------------------------------
+
+Export C-malloc()ed arrays in Arrow-compatible layout as a Arrow struct array,
+transferring ownership to the consumer:
+
+.. code-block:: c
+
+   static void release_owned_array(struct ArrowArray* array) {
+      int i;
+      for (i = 0; i < array->n_children; ++i) {
+         struct ArrowArray* child = &array->children[i];
+         if (child->release != NULL) {
+            child->release(child);
+         }
+      }
+      free(array->children);
+      for (i = 0; i < array->n_buffers; ++i) {
+         free(array->buffers[i]);
+      }
+      free(array->buffers);
+      array->format = NULL;
+      array->release = NULL;
+   }
+
+   void export_float32_utf8_array(
+         int64_t nitems,
+         const uint8_t* float32_nulls, const float* float32_data,
+         const uint8_t* utf8_nulls, const int32_t* utf8_offsets, const uint8_t* utf8_data,
+         struct ArrowArray* array) {
+      struct ArrowArray* child;
+
+      //
+      // Initialize parent array
+      //
+      *array = (struct ArrowArray) {
+         // Type description
+         .format = "+s",
+         .name = "",
+         .metadata = NULL,
+         .flags = 0,
+         // Data description
+         .length = nitems,
+         .offset = 0,
+         .null_count = 0,
+         .n_buffers = 1,
+         .n_children = 2,
+         .dictionary = NULL,
+         // Bookkeeping
+         .release = &release_owned_array
+      };
+      // Allocate list of parent buffers
+      array->buffers = (const void**) malloc(sizeof(void*) * array->n_buffers);
+      array->buffers[0] = NULL;  // no nulls, null bitmap can be omitted
+      // Allocate list of children arrays
+      array->children = (const void**) malloc(sizeof(struct ArrowArray*) *
+                                              array->n_children);
+
+      //
+      // Initialize child array #1
+      //
+      child = array->children[0] = malloc(sizeof(struct ArrowArray));
+      *child = (struct ArrowArray) {
+         // Type description
+         .format = "f",
+         .name = "floats",
+         .metadata = NULL,
+         .flags = ARROW_FLAG_NULLABLE,
+         // Data description
+         .length = nitems,
+         .offset = 0,
+         .null_count = -1,
+         .n_buffers = 2,
+         .n_children = 0,
+         .dictionary = NULL,
+         .children = NULL,
+         // Bookkeeping
+         .release = &release_owned_array
+      };
+      child->buffers = (const void**) malloc(sizeof(void*) * array->n_buffers);
+      child->buffers[0] = float32_nulls;
+      child->buffers[1] = float32_data;
+
+      //
+      // Initialize child array #2
+      //
+      child = array->children[1] = malloc(sizeof(struct ArrowArray));
+      *child = (struct ArrowArray) {
+         // Type description
+         .format = "u",
+         .name = "strings",
+         .metadata = NULL,
+         .flags = ARROW_FLAG_NULLABLE,
+         // Data description
+         .length = nitems,
+         .offset = 0,
+         .null_count = -1,
+         .n_buffers = 3,
+         .n_children = 0,
+         .dictionary = NULL,
+         .children = NULL,
+         // Bookkeeping
+         .release = &release_owned_array
+      };
+      child->buffers = (const void**) malloc(sizeof(void*) * array->n_buffers);
+      child->buffers[0] = utf8_nulls;
+      child->buffers[1] = utf8_offsets;
+      child->buffers[2] = utf8_data;
+   }
+
 
 Updating this specification
 ===========================
