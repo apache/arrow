@@ -86,6 +86,9 @@ DataType <- R6Class("DataType",
 
 DataType$create <- function(xp) shared_ptr(DataType, xp)$..dispatch()
 
+INTEGER_TYPES <- as.character(outer(c("uint", "int"), c(8, 16, 32, 64), paste0))
+FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double")
+
 #' infer the arrow Array type from an R vector
 #'
 #' @param x an R vector
@@ -102,9 +105,6 @@ type.Array <- function(x) x$type
 
 #' @export
 type.ChunkedArray <- function(x) x$type
-
-#' @export
-type.Column <- function(x) x$type
 
 
 #----- metadata

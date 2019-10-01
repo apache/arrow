@@ -48,9 +48,9 @@ a == a
 with the indicated offset and length. If length is \code{NULL}, the slice goes
 until the end of the array.
 \item \code{$Take(i)}: return an \code{Array} with values at positions given by integers
-\code{i}.
+(R vector or Array Array) \code{i}.
 \item \code{$Filter(i)}: return an \code{Array} with values at positions where logical
-vector \code{i} is \code{TRUE}.
+vector (or Arrow boolean Array) \code{i} is \code{TRUE}.
 \item \code{$RangeEquals(other, start_idx, end_idx, other_start_idx)} :
 \item \code{$cast(target_type, safe = TRUE, options = cast_options(safe))}: Alter the
 data in the array to change its type.

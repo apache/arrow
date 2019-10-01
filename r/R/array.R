@@ -58,9 +58,9 @@
 #'    with the indicated offset and length. If length is `NULL`, the slice goes
 #'    until the end of the array.
 #' - `$Take(i)`: return an `Array` with values at positions given by integers
-#'    `i`.
+#'    (R vector or Array Array) `i`.
 #' - `$Filter(i)`: return an `Array` with values at positions where logical
-#'    vector `i` is `TRUE`.
+#'    vector (or Arrow boolean Array) `i` is `TRUE`.
 #' - `$RangeEquals(other, start_idx, end_idx, other_start_idx)` :
 #' - `$cast(target_type, safe = TRUE, options = cast_options(safe))`: Alter the
 #'    data in the array to change its type.
@@ -100,7 +100,7 @@ Array <- R6Class("Array",
       if (is.integer(i)) {
         i <- Array$create(i)
       }
-      assert_is(i, "Array") # Assert type too?
+      assert_is(i, "Array") # Assert type too? Support ChunkedArray too?
       shared_ptr(Array, Array__Take(self, i))
     },
     Filter = function(i) {
@@ -201,19 +201,35 @@ filter_rows <- function(x, i, ...) {
     } else {
       stop("Cannot mix positive and negative indices", call. = FALSE)
     }
+  } else if (is.Array(i, INTEGER_TYPES)) {
+    # NOTE: this doesn't do the - 1 offset
+    x$Take(i)
+  } else if (is.Array(i, "bool")) {
+    x$Filter(i)
   } else {
-    # TODO: allow i to be an Array or ChunkedArray
-    stop("not implemented", call.=FALSE)
+    # Unsupported cases
+    if (is.Array(i)) {
+      stop("Cannot extract rows with an Array of type ", i$type$ToString(), call. = FALSE)
+    }
+    stop("Cannot extract rows with an object of class ", class(i), call.=FALSE)
   }
 }
 
 #' @export
 `[.Array` <- filter_rows
 
-is.sliceable <- function (i) {
+is.sliceable <- function(i) {
   # Determine whether `i` can be expressed as a $Slice() command
   is.numeric(i) &&
     length(i) > 0 &&
     all(i > 0) &&
     identical(as.integer(i), i[1]:i[length(i)])
+}
+
+is.Array <- function(x, type = NULL) {
+  is_it <- inherits(x, c("Array", "ChunkedArray"))
+  if (is_it && !is.null(type)) {
+    is_it <- x$type$ToString() %in% type
+  }
+  is_it
 }

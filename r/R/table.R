@@ -69,6 +69,8 @@
 #'    integers `i`. `Take` is currently only supported where all of `i`
 #'    references values that are in a single chunk of the `ChunkedArray`s in
 #'    the `Table`.
+#'    If `i` is an Arrow `Array` or `ChunkedArray`, it will be coerced to an R
+#'    vector before taking.
 #' - `$Filter(i)`: return an `Table` with rows at positions where logical
 #'    vector `i` is `TRUE`.
 #' - `$serialize(output_stream, ...)`: Write the table to the given
@@ -152,6 +154,11 @@ Table <- R6Class("Table", inherit = Object,
       if (is.logical(i)) {
         i <- Array$create(i)
       }
+      if (inherits(i, "ChunkedArray") && i$num_chunks == 1) {
+        # Pull out the single chunk and use that
+        i <- i$chunk(0)
+      }
+      # TODO: Should be easy enough to support the case where both are chunked the same
       assert_is(i, "Array") # Assert type too?
       shared_ptr(Table, Table__Filter(self, i))
     },

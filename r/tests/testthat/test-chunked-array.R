@@ -355,15 +355,19 @@ test_that("ChunkedArray$Validate()", {
 test_that("[ ChunkedArray", {
   one_chunk <- chunked_array(2:11)
   x <- chunked_array(1:10, 31:40, 51:55)
-  expect_equal(as.vector(x[8:12]), c(8:10, 31:32))
-  expect_equal(as.vector(x[c(11, 15, 12)]), c(31, 35, 32))
-  expect_equal(
-    as.vector(one_chunk[c(FALSE, TRUE, FALSE, FALSE, TRUE)]),
+  expect_vector(x[8:12], c(8:10, 31:32))
+  expect_vector(x[c(11, 15, 12)], c(31, 35, 32))
+  expect_vector(
+    one_chunk[c(FALSE, TRUE, FALSE, FALSE, TRUE)],
+    c(3, 6, 8, 11)
+  )
+  expect_vector(
+    one_chunk[ChunkedArray$create(rep(c(FALSE, TRUE, FALSE, FALSE, TRUE), 2))],
     c(3, 6, 8, 11)
   )
   skip("Array__Filter doesn't work right with Slices")
-  expect_equal(
-    as.vector(x[c(FALSE, TRUE, FALSE, FALSE, TRUE)]),
+  expect_vector(
+    x[c(FALSE, TRUE, FALSE, FALSE, TRUE)],
     c(2, 5, 7, 10, 32, 35, 37, 40, 52, 55)
   )
 })

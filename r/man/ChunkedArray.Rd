@@ -36,6 +36,8 @@ until the end of the array.
 \item \code{$Take(i)}: return a \code{ChunkedArray} with values at positions given by
 integers \code{i}. \code{Take} is currently only supported where all of \code{i}
 references values that are in a single chunk of the \code{ChunkedArray}.
+If \code{i} is an Arrow \code{Array} or \code{ChunkedArray}, it will be coerced to an R
+vector before taking.
 \item \code{$Filter(i)}: return a \code{ChunkedArray} with values at positions where
 logical vector \code{i} is \code{TRUE}.
 \item \code{$cast(target_type, safe = TRUE, options = cast_options(safe))}: Alter the
