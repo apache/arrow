@@ -132,14 +132,19 @@ export class FilteredDataFrame<T extends { [key: string]: DataType } = any> exte
         for (let batchIndex = -1; ++batchIndex < numBatches;) {
             // load batches
             const batch = batches[batchIndex];
-            // TODO: bind batches lazily
-            // If predicate doesn't match anything in the batch we don't need
-            // to bind the callback
-            if (bind) { bind(batch); }
             const predicate = this._predicate.bind(batch);
+            let isBound = false;
             // yield all indices
             for (let index = -1, numRows = batch.length; ++index < numRows;) {
-                if (predicate(index, batch)) { next(index, batch); }
+                if (predicate(index, batch)) {
+                    // bind batches lazily - if predicate doesn't match anything
+                    // in the batch we don't need to call bind on the batch
+                    if (bind && !isBound) {
+                        bind(batch);
+                        isBound = true;
+                    }
+                    next(index, batch);
+                }
             }
         }
     }
@@ -149,14 +154,19 @@ export class FilteredDataFrame<T extends { [key: string]: DataType } = any> exte
         for (let batchIndex = numBatches; --batchIndex >= 0;) {
             // load batches
             const batch = batches[batchIndex];
-            // TODO: bind batches lazily
-            // If predicate doesn't match anything in the batch we don't need
-            // to bind the callback
-            if (bind) { bind(batch); }
             const predicate = this._predicate.bind(batch);
+            let isBound = false;
             // yield all indices
             for (let index = batch.length; --index >= 0;) {
-                if (predicate(index, batch)) { next(index, batch); }
+                if (predicate(index, batch)) {
+                    // bind batches lazily - if predicate doesn't match anything
+                    // in the batch we don't need to call bind on the batch
+                    if (bind && !isBound) {
+                        bind(batch);
+                        isBound = true;
+                    }
+                    next(index, batch);
+                }
             }
         }
     }
