@@ -34,6 +34,7 @@ var (
 )
 
 func init() {
+	Records["nulls"] = makeNullRecords()
 	Records["primitives"] = makePrimitiveRecords()
 	Records["structs"] = makeStructsRecords()
 	Records["lists"] = makeListsRecords()
@@ -49,6 +50,49 @@ func init() {
 		RecordNames = append(RecordNames, k)
 	}
 	sort.Strings(RecordNames)
+}
+
+func makeNullRecords() []array.Record {
+	mem := memory.NewGoAllocator()
+
+	meta := arrow.NewMetadata(
+		[]string{"k1", "k2", "k3"},
+		[]string{"v1", "v2", "v3"},
+	)
+
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			arrow.Field{Name: "nulls", Type: arrow.Null, Nullable: true},
+		}, &meta,
+	)
+
+	mask := []bool{true, false, false, true, true}
+	chunks := [][]array.Interface{
+		[]array.Interface{
+			arrayOf(mem, []nullT{null, null, null, null, null}, mask),
+		},
+		[]array.Interface{
+			arrayOf(mem, []nullT{null, null, null, null, null}, mask),
+		},
+		[]array.Interface{
+			arrayOf(mem, []nullT{null, null, null, null, null}, mask),
+		},
+	}
+
+	defer func() {
+		for _, chunk := range chunks {
+			for _, col := range chunk {
+				col.Release()
+			}
+		}
+	}()
+
+	recs := make([]array.Record, len(chunks))
+	for i, chunk := range chunks {
+		recs[i] = array.NewRecord(schema, chunk, -1)
+	}
+
+	return recs
 }
 
 func makePrimitiveRecords() []array.Record {
@@ -362,6 +406,7 @@ func makeStringsRecords() []array.Record {
 }
 
 type (
+	nullT        struct{}
 	time32s      arrow.Time32
 	time32ms     arrow.Time32
 	time64ns     arrow.Time64
@@ -370,6 +415,10 @@ type (
 	timestamp_ms arrow.Timestamp
 	timestamp_us arrow.Timestamp
 	timestamp_ns arrow.Timestamp
+)
+
+var (
+	null nullT
 )
 
 func makeFixedWidthTypesRecords() []array.Record {
@@ -650,6 +699,9 @@ func arrayOf(mem memory.Allocator, a interface{}, valids []bool) array.Interface
 	}
 
 	switch a := a.(type) {
+	case []nullT:
+		return array.NewNull(len(a))
+
 	case []bool:
 		bldr := array.NewBooleanBuilder(mem)
 		defer bldr.Release()
