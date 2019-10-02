@@ -361,4 +361,4 @@ if __name__ == "__main__":
             print("exit 1")
             raise
     else:
-        sys.exit("Script must be run under Travis-CI or AppVeyor")
+        sys.exit("Script must be run under Travis-CI, AppVeyor or GitHub Actions")
