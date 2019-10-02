@@ -365,6 +365,19 @@ TEST_F(TestMockFS, OpenAppendStream) {
   CheckFiles({{"ab", time_, "some data"}});
 }
 
+TEST_F(TestMockFS, Make) {
+  std::shared_ptr<FileSystem> fs;
+  ASSERT_OK(MockFileSystem::Make(time_, {}, &fs));
+  fs_ = std::static_pointer_cast<MockFileSystem>(fs);
+  CheckDirs({});
+  CheckFiles({});
+
+  ASSERT_OK(MockFileSystem::Make(time_, {Dir("A/B/C"), File("A/a")}, &fs));
+  fs_ = std::static_pointer_cast<MockFileSystem>(fs);
+  CheckDirs({{"A", time_}, {"A/B", time_}, {"A/B/C", time_}});
+  CheckFiles({{"A/a", time_, ""}});
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // Concrete SubTreeFileSystem tests
 

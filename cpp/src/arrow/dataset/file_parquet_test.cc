@@ -42,6 +42,8 @@ using parquet::CreateOutputStream;
 using parquet::arrow::FileWriter;
 using parquet::arrow::WriteTable;
 
+using testing::Pointee;
+
 Status WriteRecordBatch(const RecordBatch& batch, FileWriter* writer) {
   auto schema = batch.schema();
   auto size = batch.num_rows();
@@ -138,9 +140,11 @@ class ParquetBufferFixtureMixin : public ArrowParquetWriterMixin {
                                                              builder->UnsafeAppend(0.0);
                                                            }));
 
-    auto schema_ = schema({field("f64", f64->type())});
     return RecordBatch::Make(schema_, kBatchSize, {f64});
   }
+
+ protected:
+  std::shared_ptr<Schema> schema_ = schema({field("f64", float64())});
 };
 
 class TestParquetFileFormat : public ParquetBufferFixtureMixin {
@@ -172,21 +176,14 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
   ASSERT_EQ(row_count, kNumRows);
 }
 
-class TestParquetFileSystemBasedDataSource
-    : public FileSystemBasedDataSourceMixin<ParquetFileFormat> {
-  std::vector<std::string> file_names() const override {
-    return {"a/b/c.parquet", "a/b/c/d.parquet", "a/b.parquet", "a.parquet"};
-  }
-};
+TEST_F(TestParquetFileFormat, Inspect) {
+  auto reader = GetRecordBatchReader();
+  auto source = GetFileSource(reader.get());
+  auto format = ParquetFileFormat();
 
-TEST_F(TestParquetFileSystemBasedDataSource, NonRecursive) { this->NonRecursive(); }
-
-TEST_F(TestParquetFileSystemBasedDataSource, Recursive) { this->Recursive(); }
-
-TEST_F(TestParquetFileSystemBasedDataSource, DeletedFile) { this->DeletedFile(); }
-
-TEST_F(TestParquetFileSystemBasedDataSource, PredicatePushDown) {
-  this->PredicatePushDown();
+  std::shared_ptr<Schema> actual;
+  ASSERT_OK(format.Inspect(*source.get(), &actual));
+  EXPECT_EQ(*actual, *schema_);
 }
 
 }  // namespace dataset

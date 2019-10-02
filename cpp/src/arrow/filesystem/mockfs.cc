@@ -656,6 +656,40 @@ std::vector<FileInfo> MockFileSystem::AllFiles() {
   return result;
 }
 
+Status MockFileSystem::CreateFile(const std::string& path, const std::string& contents,
+                                  bool recursive) {
+  auto parent = fs::internal::GetAbstractPathParent(path).first;
+  if (parent != "") {
+    RETURN_NOT_OK(CreateDir(parent, recursive));
+  }
+
+  std::shared_ptr<io::OutputStream> file;
+  RETURN_NOT_OK(OpenOutputStream(path, &file));
+  RETURN_NOT_OK(file->Write(contents));
+  return file->Close();
+}
+
+Status MockFileSystem::Make(TimePoint current_time, const std::vector<FileStats>& stats,
+                            std::shared_ptr<FileSystem>* out) {
+  auto fs = std::make_shared<MockFileSystem>(current_time);
+  for (const auto& s : stats) {
+    switch (s.type()) {
+      case FileType::Directory:
+        RETURN_NOT_OK(fs->CreateDir(s.path(), /*recursive*/ true));
+        break;
+      case FileType::File:
+        RETURN_NOT_OK(fs->CreateFile(s.path(), "", /*recursive*/ true));
+        break;
+      default:
+        break;
+    }
+  }
+
+  *out = fs;
+
+  return Status::OK();
+}
+
 }  // namespace internal
 }  // namespace fs
 }  // namespace arrow

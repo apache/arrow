@@ -23,7 +23,12 @@ arrow_install_all_headers("arrow/dataset")
 # pkg-config support
 arrow_add_pkg_config("arrow-dataset")
 
-set(ARROW_DATASET_SRCS dataset.cc file_base.cc filter.cc scanner.cc)
+set(ARROW_DATASET_SRCS
+    dataset.cc
+    discovery.cc
+    file_base.cc
+    filter.cc
+    scanner.cc)
 set(ARROW_DATASET_LINK_STATIC arrow_static)
 set(ARROW_DATASET_LINK_SHARED arrow_shared)
 
@@ -91,6 +96,7 @@ endfunction()
 
 if(NOT WIN32)
   add_arrow_dataset_test(dataset_test)
+  add_arrow_dataset_test(discovery_test)
   add_arrow_dataset_test(file_test)
   add_arrow_dataset_test(filter_test)
   add_arrow_dataset_test(scanner_test)

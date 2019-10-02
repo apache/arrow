@@ -94,6 +94,15 @@ class ARROW_EXPORT MockFileSystem : public FileSystem {
   std::vector<DirInfo> AllDirs();
   std::vector<FileInfo> AllFiles();
 
+  // Create a File with a content from a string.
+  Status CreateFile(const std::string& path, const std::string& content,
+                    bool recursive = true);
+
+  // Create a MockFileSystem out of (empty) FileStats. The content of every
+  // file is empty and of size 0. All directories will be created recursively.
+  static Status Make(TimePoint current_time, const std::vector<FileStats>& stats,
+                     std::shared_ptr<FileSystem>* out);
+
   class Impl;
 
  protected:
