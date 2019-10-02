@@ -537,7 +537,6 @@ def test_numpy_subclass_serialization():
     assert np.alltrue(new_x.view(np.ndarray) == np.zeros(3))
 
 
-@pytest.mark.skip
 def test_sparse_tensor_coo_components_serialization(large_buffer):
     data = np.array([[1, 1, 1, 1, 1, 1, 1]]).T
     row = np.array([0, 0, 1, 3, 1, 0, 0])
