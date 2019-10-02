@@ -131,7 +131,6 @@ services:
       args:
         LLVM_VERSION: 7
     environment:
-      ARROW_FLIGHT: "ON"
       ARROW_USE_ASAN: "ON"
       ARROW_USE_UBSAN: "ON"
     volumes:
