@@ -29,7 +29,8 @@ jobs:
         include:
           - label: C++ w/ clang-7 & system packages
             image: cpp-system-deps
-            skipvar: ARROW_CI_CPP_AFFECTED
+            skip_expression: |
+              ${ARROW_CI_CPP_AFFECTED} != "1"
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@master
@@ -38,7 +39,9 @@ jobs:
       - name: docker-compose
         run: |
           eval "$(python ci/detect-changes.py)"
-          if [[ -n "${{ matrix.skipvar }}" && "$${{ matrix.skipvar }}" != "1" ]]; then exit; fi
+          if [[ ${{ matrix.skip_expression }} ]]; then
+            exit
+          fi
 
           docker-compose build --pull ${{ matrix.image }}
           docker-compose run ${{ matrix.image }}
