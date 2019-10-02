@@ -34,14 +34,13 @@ cargo +stable fmt --all -- --check
 # build entire project
 RUSTFLAGS="-D warnings" cargo build --all-targets
 
-# build Arrow crate without default features
-cp rust-toolchain arrow
+# run tests
+cargo test
+
+# make sure we can build Arrow sub-crate without default features
 pushd arrow
 cargo build --no-default-features
 popd
-
-# run tests
-cargo test
 
 # run Arrow examples
 pushd arrow
