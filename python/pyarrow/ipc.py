@@ -56,8 +56,15 @@ class RecordBatchStreamReader(lib._RecordBatchStreamReader, _ReadPandasOption):
     source : bytes/buffer-like, pyarrow.NativeFile, or file-like Python object
         Either an in-memory buffer, or a readable file object
     """
+
     def __init__(self, source):
         self._open(source)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
 
 
 _ipc_writer_class_doc = """\
@@ -81,6 +88,12 @@ class RecordBatchStreamWriter(lib._RecordBatchStreamWriter):
         use_legacy_format = _get_legacy_format_default(use_legacy_format)
         self._open(sink, schema, use_legacy_format=use_legacy_format)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+
 
 class RecordBatchFileReader(lib._RecordBatchFileReader, _ReadPandasOption):
     """
@@ -97,6 +110,12 @@ class RecordBatchFileReader(lib._RecordBatchFileReader, _ReadPandasOption):
     def __init__(self, source, footer_offset=None):
         self._open(source, footer_offset=footer_offset)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
+
 
 class RecordBatchFileWriter(lib._RecordBatchFileWriter):
 
@@ -107,6 +126,12 @@ class RecordBatchFileWriter(lib._RecordBatchFileWriter):
     def __init__(self, sink, schema, use_legacy_format=None):
         use_legacy_format = _get_legacy_format_default(use_legacy_format)
         self._open(sink, schema, use_legacy_format=use_legacy_format)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
 
 
 def _get_legacy_format_default(use_legacy_format):
@@ -177,9 +202,8 @@ def serialize_pandas(df, nthreads=None, preserve_index=None):
     batch = pa.RecordBatch.from_pandas(df, nthreads=nthreads,
                                        preserve_index=preserve_index)
     sink = pa.BufferOutputStream()
-    writer = pa.RecordBatchStreamWriter(sink, batch.schema)
-    writer.write_batch(batch)
-    writer.close()
+    with pa.RecordBatchStreamWriter(sink, batch.schema) as writer:
+        writer.write_batch(batch)
     return sink.getvalue()
 
 
@@ -198,6 +222,6 @@ def deserialize_pandas(buf, use_threads=True):
     df : pandas.DataFrame
     """
     buffer_reader = pa.BufferReader(buf)
-    reader = pa.RecordBatchStreamReader(buffer_reader)
-    table = reader.read_all()
+    with pa.RecordBatchStreamReader(buffer_reader) as reader:
+        table = reader.read_all()
     return table.to_pandas(use_threads=use_threads)
