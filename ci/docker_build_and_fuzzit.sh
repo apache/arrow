@@ -24,13 +24,14 @@ export ARROW_USE_ASAN="ON"
 export CC="clang-7"
 export CXX="clang++-7"
 export ARROW_BUILD_TYPE="RelWithDebInfo"
+export ARROW_FLIGHT="OFF"
+export ARROW_GANDIVA="OFF"
 export ARROW_ORC="OFF"
 export ARROW_PARQUET="OFF"
 export ARROW_PLASMA="OFF"
-export ARROW_FLIGHT="OFF"
-export ARROW_BUILD_BENCHMARKS="OFF"
 export ARROW_WITH_BZ2="OFF"
 export ARROW_WITH_ZSTD="OFF"
+export ARROW_BUILD_BENCHMARKS="OFF"
 export ARROW_BUILD_UTILITIES="OFF"
 /arrow/ci/docker_build_cpp.sh || exit 1
 pushd /build/cpp
@@ -40,11 +41,12 @@ cp ./relwithdebinfo/arrow-ipc-fuzzing-test ./relwithdebinfo/out/fuzzer
 ldd ./relwithdebinfo/arrow-ipc-fuzzing-test | grep "=> /" | awk '{print $3}' | xargs -I '{}' cp -v '{}' ./relwithdebinfo/out/.
 cd ./relwithdebinfo/out/
 tar -czvf fuzzer.tar.gz *
+stat fuzzer.tar.gz
 cd ../../
 
-export TARGET_ID=u79f6bXYgNH4NkU99iWK
-export FUZZIT_API_KEY=${FUZZIT_API_KEY:-ac6089a1bc2313679f2d99bb80553162c380676bff3f094de826b16229e28184a8084b86f52c95112bde6b3dbb07b9b7}
-wget -O fuzzit https://bin.fuzzit.dev/fuzzit-1.1
+export TARGET_ID=apache-arrow/arrow-ipc-fuzzing
+
+wget -O fuzzit https://github.com/fuzzitdev/fuzzit/releases/latest/download/fuzzit_Linux_x86_64
 chmod a+x fuzzit
-./fuzzit auth $FUZZIT_API_KEY
-./fuzzit create job --type fuzzing --host bionic-llvm7 --revision $CI_ARROW_SHA --branch $CI_ARROW_BRANCH $TARGET_ID ./relwithdebinfo/out/fuzzer.tar.gz
+
+./fuzzit create job --type $FUZZIT_JOB_TYPE --host bionic-llvm7 --revision $CI_ARROW_SHA --branch $CI_ARROW_BRANCH $TARGET_ID ./relwithdebinfo/out/fuzzer.tar.gz
