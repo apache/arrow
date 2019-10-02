@@ -31,16 +31,17 @@ rustup show
 # raises on any formatting errors
 cargo +stable fmt --all -- --check
 
-# make sure we build using the same Rust toolchain for all crates
-cp rust-toolchain arrow
-cp rust-toolchain parquet
-cp rust-toolchain datafusion
-
+# build entire project
 RUSTFLAGS="-D warnings" cargo build --all-targets
+
+# run tests
+cargo test
+
+# build Arrow crate without default features
+cp rust-toolchain arrow
 pushd arrow
 cargo build --no-default-features
 popd
-cargo test
 
 # run Arrow examples
 pushd arrow

@@ -298,7 +298,7 @@ matrix:
       - if [ $ARROW_CI_RUST_AFFECTED != "1" ]; then exit; fi
       - $TRAVIS_BUILD_DIR/ci/travis_install_cargo.sh
     script:
-      - RUSTUP_TOOLCHAIN=nightly $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh
+      - $TRAVIS_BUILD_DIR/ci/travis_script_rust.sh
     before_cache:
       cargo install cargo-tarpaulin -f
     after_success:
