@@ -41,11 +41,14 @@ set PYTHON=3.6
 
 @rem Using call with conda.bat seems necessary to avoid terminating the batch
 @rem script execution
-call conda create -p %_VERIFICATION_CONDA_ENV% -f -q -y python=%PYTHON% || exit /B
+call conda create -p %_VERIFICATION_CONDA_ENV% ^
+    --no-shortcuts -f -q -y python=%PYTHON% ^
+    || exit /B
 
 call activate %_VERIFICATION_CONDA_ENV% || exit /B
 
 call conda install -y ^
+     --no-shortcuts ^
      python=3.7 ^
      git ^
      --file=ci\conda_env_cpp.yml ^
@@ -68,8 +71,9 @@ pushd %ARROW_SOURCE%\cpp\build
 @rem This is the path for Visual Studio Community 2017
 call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\Common7\Tools\VsDevCmd.bat" -arch=amd64
 
-cmake -G "%GENERATOR%" ^
+cmake -G "Ninja" ^
       -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
+      -DARROW_BUILD_STATIC=OFF ^
       -DARROW_BOOST_USE_SHARED=ON ^
       -DARROW_BUILD_TESTS=ON ^
       -DGTest_SOURCE=BUNDLED ^
@@ -79,7 +83,12 @@ cmake -G "%GENERATOR%" ^
       -DARROW_PYTHON=ON ^
       -DARROW_PARQUET=ON ^
       ..  || exit /B
-cmake --build . --target INSTALL --config %CONFIGURATION%  || exit /B
+
+@rem NOTE(wesm): Building googletest is flaky for me with ninja. Building it
+@rem first fixes the problem
+ninja googletest_ep || exit /B
+
+ninja install || exit /B
 
 @rem Get testing datasets for Parquet unit tests
 git clone https://github.com/apache/parquet-testing.git %_VERIFICATION_DIR%\parquet-testing
