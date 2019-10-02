@@ -31,6 +31,11 @@ rustup show
 # raises on any formatting errors
 cargo +stable fmt --all -- --check
 
+# make sure we build using the same Rust toolchain for all crates
+cp rust-toolchain arrow
+cp rust-toolchain parquet
+cp rust-toolchain rust
+
 RUSTFLAGS="-D warnings" cargo build --all-targets
 pushd arrow
 cargo build --no-default-features
