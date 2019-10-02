@@ -31,11 +31,16 @@ rustup show
 # raises on any formatting errors
 cargo +stable fmt --all -- --check
 
+# build entire project
 RUSTFLAGS="-D warnings" cargo build --all-targets
+
+# run tests
+cargo test
+
+# make sure we can build Arrow sub-crate without default features
 pushd arrow
 cargo build --no-default-features
 popd
-cargo test
 
 # run Arrow examples
 pushd arrow
