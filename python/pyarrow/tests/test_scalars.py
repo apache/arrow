@@ -299,6 +299,48 @@ class TestScalars(unittest.TestCase):
         result = arr.to_pylist()
         assert result == timestamp_rows
 
+    def test_duration(self):
+        arr = np.array([0, 3600000000000], dtype='timedelta64[ns]')
+
+        units = ['us', 'ms', 's']
+
+        for i, unit in enumerate(units):
+            dtype = 'timedelta64[{0}]'.format(unit)
+            arrow_arr = pa.array(arr.astype(dtype))
+            expected = datetime.timedelta(seconds=60*60)
+            assert isinstance(arrow_arr[1].as_py(), datetime.timedelta)
+            assert arrow_arr[1].as_py() == expected
+            assert (arrow_arr[1].value * 1000**(i+1) ==
+                    expected.total_seconds() * 1e9)
+
+    @pytest.mark.pandas
+    def test_duration_nanos_pandas(self):
+        import pandas as pd
+        arr = np.array([0, 3600000000000], dtype='timedelta64[ns]')
+        arrow_arr = pa.array(arr)
+        expected = pd.Timedelta('1 hour')
+        assert isinstance(arrow_arr[1].as_py(), pd.Timedelta)
+        assert arrow_arr[1].as_py() == expected
+        assert arrow_arr[1].value == expected.value
+
+        # Non-zero nanos work fine
+        arr = pa.array(np.array([946684800000000001], dtype='timedelta64[ns]'))
+        arr[0].as_py() == pd.Timedelta(946684800000000001, unit='ns')
+
+    @pytest.mark.nopandas
+    def test_duration_nanos_nopandas(self):
+        arr = np.array([0, 3600000000000], dtype='timedelta64[ns]')
+        arrow_arr = pa.array(arr)
+        expected = datetime.timedelta(seconds=60*60)
+        assert isinstance(arrow_arr[1].as_py(), datetime.timedelta)
+        assert arrow_arr[1].as_py() == expected
+        assert arrow_arr[1].value == expected.total_seconds() * 1e9
+
+        # Non-zero nanos yields ValueError
+        arr = pa.array(np.array([946684800000000001], dtype='timedelta64[ns]'))
+        with pytest.raises(ValueError):
+            arr[0].as_py()
+
     @pytest.mark.pandas
     def test_dictionary(self):
         import pandas as pd

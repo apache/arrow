@@ -1383,6 +1383,31 @@ class TestConvertDateTimeLikeTypes(object):
         _check_pandas_roundtrip(df)
         _check_serialize_components_roundtrip(df)
 
+    def test_timedeltas_no_nulls(self):
+        df = pd.DataFrame({
+            'timedelta64': np.array([0, 3600000000000, 7200000000000],
+                                    dtype='timedelta64[ns]')
+        })
+        field = pa.field('timedelta64', pa.duration('ns'))
+        schema = pa.schema([field])
+        _check_pandas_roundtrip(
+            df,
+            expected_schema=schema,
+        )
+
+    def test_timedeltas_nulls(self):
+        df = pd.DataFrame({
+            'timedelta64': np.array([0, None, 7200000000000],
+                                    dtype='timedelta64[ns]')
+        })
+        field = pa.field('timedelta64', pa.duration('ns'))
+        schema = pa.schema([field])
+        _check_pandas_roundtrip(
+            df,
+            expected_schema=schema,
+        )
+
+
 # ----------------------------------------------------------------------
 # Conversion tests for string and binary types.
 
@@ -2184,6 +2209,10 @@ class TestZeroCopyConversion(object):
         arr = np.array(['2007-07-13'], dtype='datetime64[ns]')
         self.check_zero_copy_failure(pa.array(arr))
 
+    def test_zero_copy_failure_on_duration_types(self):
+        arr = np.array([1], dtype='timedelta64[ns]')
+        self.check_zero_copy_failure(pa.array(arr))
+
 
 # This function must be at the top-level for Python 2.7's multiprocessing
 def _non_threaded_conversion():
@@ -2542,16 +2571,13 @@ def _pytime_to_micros(pytime):
 def test_convert_unsupported_type_error_message():
     # ARROW-1454
 
+    # period as yet unsupported
     df = pd.DataFrame({
-        't1': pd.date_range('2000-01-01', periods=20),
-        't2': pd.date_range('2000-05-01', periods=20)
+        'a': pd.period_range('2000-01-01', periods=20),
     })
 
-    # timedelta64 as yet unsupported
-    df['diff'] = df.t2 - df.t1
-
-    expected_msg = 'Conversion failed for column diff with type timedelta64'
-    with pytest.raises(pa.ArrowNotImplementedError, match=expected_msg):
+    expected_msg = 'Conversion failed for column a with type period'
+    with pytest.raises(pa.ArrowInvalid, match=expected_msg):
         pa.Table.from_pandas(df)
 
 

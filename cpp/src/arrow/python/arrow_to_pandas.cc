@@ -131,6 +131,7 @@ static inline bool ListTypeSupported(const DataType& type) {
     case Type::TIME32:
     case Type::TIME64:
     case Type::TIMESTAMP:
+    case Type::DURATION:
     case Type::NA:  // empty list
       // The above types are all supported.
       return true;
@@ -230,6 +231,29 @@ inline void set_numpy_metadata(int type, const DataType* datatype, PyArray_Descr
       // datatype->type == Type::DATE64
       date_dtype->meta.base = NPY_FR_D;
     }
+  } else if (type == NPY_TIMEDELTA) {
+    auto date_dtype = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(out->c_metadata);
+    if (datatype->id() == Type::DURATION) {
+      const auto& duration_type = checked_cast<const DurationType&>(*datatype);
+
+      switch (duration_type.unit()) {
+        case DurationType::Unit::SECOND:
+          date_dtype->meta.base = NPY_FR_s;
+          break;
+        case DurationType::Unit::MILLI:
+          date_dtype->meta.base = NPY_FR_ms;
+          break;
+        case DurationType::Unit::MICRO:
+          date_dtype->meta.base = NPY_FR_us;
+          break;
+        case DurationType::Unit::NANO:
+          date_dtype->meta.base = NPY_FR_ns;
+          break;
+      }
+    } else {
+      // datatype->type == Type::DATE64
+      date_dtype->meta.base = NPY_FR_D;
+    }
   }
 }
 
@@ -285,6 +309,7 @@ class PandasBlock {
     BOOL,
     DATETIME,
     DATETIME_WITH_TZ,
+    TIMEDELTA,
     CATEGORICAL
   };
 
@@ -721,6 +746,19 @@ inline void ConvertDatetimeNanos(const ChunkedArray& data, int64_t* out_values) 
   }
 }
 
+template <typename T, int64_t SHIFT>
+inline void ConvertTimedeltaNanos(const ChunkedArray& data, int64_t* out_values) {
+  for (int c = 0; c < data.num_chunks(); c++) {
+    const auto& arr = *data.chunk(c);
+    const T* in_values = GetPrimitiveValues<T>(arr);
+
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      *out_values++ = arr.IsNull(i) ? kPandasTimestampNull
+                                    : (static_cast<int64_t>(in_values[i]) * SHIFT);
+    }
+  }
+}
+
 template <typename Type>
 static Status ConvertDates(const PandasOptions& options, const ChunkedArray& data,
                            PyObject** out_values) {
@@ -846,6 +884,7 @@ class ObjectBlock : public PandasBlock {
         CONVERTLISTSLIKE_CASE(Time32Type, TIME32)
         CONVERTLISTSLIKE_CASE(Time64Type, TIME64)
         CONVERTLISTSLIKE_CASE(TimestampType, TIMESTAMP)
+        CONVERTLISTSLIKE_CASE(DurationType, DURATION)
         CONVERTLISTSLIKE_CASE(FloatType, FLOAT)
         CONVERTLISTSLIKE_CASE(DoubleType, DOUBLE)
         CONVERTLISTSLIKE_CASE(DecimalType, DECIMAL)
@@ -1075,6 +1114,53 @@ class DatetimeBlock : public PandasBlock {
       return Status::NotImplemented("Cannot write Arrow data of type ",
                                     data->type()->ToString(),
                                     " to a Pandas datetime block.");
+    }
+
+    placement_data_[rel_placement] = abs_placement;
+    return Status::OK();
+  }
+};
+
+class TimedeltaBlock : public PandasBlock {
+ public:
+  using PandasBlock::PandasBlock;
+  Status AllocateDatetime(int ndim) {
+    RETURN_NOT_OK(AllocateNDArray(NPY_TIMEDELTA, ndim));
+
+    PyAcquireGIL lock;
+    auto date_dtype = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(
+        PyArray_DESCR(reinterpret_cast<PyArrayObject*>(block_arr_.obj()))->c_metadata);
+    date_dtype->meta.base = NPY_FR_ns;
+    return Status::OK();
+  }
+
+  Status Allocate() override { return AllocateDatetime(2); }
+
+  Status Write(std::shared_ptr<ChunkedArray> data, int64_t abs_placement,
+               int64_t rel_placement) override {
+    Type::type type = data->type()->id();
+
+    int64_t* out_buffer =
+        reinterpret_cast<int64_t*>(block_data_) + rel_placement * num_rows_;
+
+    if (type == Type::DURATION) {
+      const auto& ts_type = checked_cast<const DurationType&>(*data->type());
+
+      if (ts_type.unit() == TimeUnit::NANO) {
+        ConvertNumericNullable<int64_t>(*data, kPandasTimestampNull, out_buffer);
+      } else if (ts_type.unit() == TimeUnit::MICRO) {
+        ConvertTimedeltaNanos<int64_t, 1000L>(*data, out_buffer);
+      } else if (ts_type.unit() == TimeUnit::MILLI) {
+        ConvertTimedeltaNanos<int64_t, 1000000L>(*data, out_buffer);
+      } else if (ts_type.unit() == TimeUnit::SECOND) {
+        ConvertTimedeltaNanos<int64_t, 1000000000L>(*data, out_buffer);
+      } else {
+        return Status::NotImplemented("Unsupported time unit");
+      }
+    } else {
+      return Status::NotImplemented("Cannot write Arrow data of type ",
+                                    data->type()->ToString(),
+                                    " to a Pandas timedelta block.");
     }
 
     placement_data_[rel_placement] = abs_placement;
@@ -1411,6 +1497,7 @@ Status MakeBlock(const PandasOptions& options, PandasBlock::type type, int64_t n
     BLOCK_CASE(DOUBLE, Float64Block);
     BLOCK_CASE(BOOL, BoolBlock);
     BLOCK_CASE(DATETIME, DatetimeBlock);
+    BLOCK_CASE(TIMEDELTA, TimedeltaBlock);
     default:
       return Status::NotImplemented("Unsupported block type");
   }
@@ -1488,6 +1575,9 @@ static Status GetPandasBlockType(const ChunkedArray& data, const PandasOptions& 
         *output_type = PandasBlock::DATETIME;
       }
     } break;
+    case Type::DURATION:
+      *output_type = PandasBlock::TIMEDELTA;
+      break;
     case Type::LIST: {
       auto list_type = std::static_pointer_cast<ListType>(data.type());
       if (!ListTypeSupported(*list_type->value_type())) {
@@ -1795,7 +1885,9 @@ class ArrowDeserializer {
   }
 
   template <typename Type>
-  typename std::enable_if<std::is_base_of<TimestampType, Type>::value, Status>::type
+  typename std::enable_if<std::is_base_of<TimestampType, Type>::value ||
+                              std::is_base_of<DurationType, Type>::value,
+                          Status>::type
   Visit(const Type& type) {
     if (options_.zero_copy_only) {
       return Status::Invalid("Copy Needed, but zero_copy_only was True");
@@ -1968,6 +2060,7 @@ class ArrowDeserializer {
       CONVERTVALUES_LISTSLIKE_CASE(Time32Type, TIME32)
       CONVERTVALUES_LISTSLIKE_CASE(Time64Type, TIME64)
       CONVERTVALUES_LISTSLIKE_CASE(TimestampType, TIMESTAMP)
+      CONVERTVALUES_LISTSLIKE_CASE(DurationType, DURATION)
       CONVERTVALUES_LISTSLIKE_CASE(FloatType, FLOAT)
       CONVERTVALUES_LISTSLIKE_CASE(DoubleType, DOUBLE)
       CONVERTVALUES_LISTSLIKE_CASE(BinaryType, BINARY)

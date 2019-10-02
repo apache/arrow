@@ -42,6 +42,7 @@ def get_many_types():
         pa.timestamp('us'),
         pa.timestamp('us', tz='UTC'),
         pa.timestamp('us', tz='Europe/Paris'),
+        pa.duration('s'),
         pa.float16(),
         pa.float32(),
         pa.float64(),
@@ -242,6 +243,16 @@ def test_time64_units():
         error_msg = 'Invalid TimeUnit for time64: {}'.format(invalid_unit)
         with pytest.raises(ValueError, match=error_msg):
             pa.time64(invalid_unit)
+
+
+def test_duration():
+    for unit in ('s', 'ms', 'us', 'ns'):
+        ty = pa.duration(unit)
+        assert ty.unit == unit
+
+    for invalid_unit in ('m', 'arbit', 'rary'):
+        with pytest.raises(ValueError, match='Invalid TimeUnit string'):
+            pa.duration(invalid_unit)
 
 
 def test_list_type():
