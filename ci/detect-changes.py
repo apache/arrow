@@ -270,10 +270,9 @@ def run_from_appveyor():
 
 def run_from_github():
     perr("Environment variables (excerpt):")
-    dump_env_vars('GITHUB_', '(REPOSITORY|ACTOR|SHA|REF|HEAD_REF|BASE_REF)')
-    if (os.environ['GITHUB_REPOSITORY'] == 'apache/arrow' and
-            os.environ['GITHUB_REF'] == 'refs/heads/master'):
-        # Never skip anything on master builds in the official repository
+    dump_env_vars('GITHUB_', '(REPOSITORY|ACTOR|SHA|REF|HEAD_REF|BASE_REF|EVENT_NAME)')
+    if os.environ['GITHUB_EVENT_NAME'] != 'pull_request':
+        # Not a PR build, test everything
         affected = dict.fromkeys(ALL_TOPICS, True)
     else:
         affected_files = list_github_actions_affected_files()
