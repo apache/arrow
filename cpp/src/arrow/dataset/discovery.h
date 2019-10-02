@@ -35,10 +35,10 @@ namespace arrow {
 namespace dataset {
 
 struct ARROW_DS_EXPORT BuildOptions {
-  // Schema to conform to.
+  /// Schema to conform to.
   std::shared_ptr<Schema> schema = NULLPTR;
-  // The partition scheme indicate how to discover partitions for the data
-  // source and fragments.
+  /// The partition scheme indicate how to discover partitions for the data
+  /// source and fragments.
   std::shared_ptr<PartitionScheme> partition_scheme = NULLPTR;
 };
 

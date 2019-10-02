@@ -54,9 +54,10 @@ Status FileSystemDataSourceDiscovery::Make(fs::FileSystem* filesystem,
   return Make(filesystem, files, format, out);
 }
 
-static Status InspectSchema(fs::FileSystem* fs, const std::vector<fs::FileStats> stats,
-                            const std::shared_ptr<FileFormat>& format,
-                            std::shared_ptr<Schema>* out) {
+static inline Status InspectSchema(fs::FileSystem* fs,
+                                   const std::vector<fs::FileStats> stats,
+                                   const std::shared_ptr<FileFormat>& format,
+                                   std::shared_ptr<Schema>* out) {
   std::vector<std::shared_ptr<Schema>> schemas;
 
   for (const auto& f : stats) {
@@ -82,8 +83,8 @@ Status FileSystemDataSourceDiscovery::Inspect(std::shared_ptr<Schema>* out) {
 Status FileSystemDataSourceDiscovery::Build(const BuildOptions& options,
                                             std::shared_ptr<Expression> source_partition,
                                             std::shared_ptr<DataSource>* out) {
-  return FileSystemBasedDataSource::Make(fs_, files_, std::move(source_partition), {},
-                                         format_, out);
+  return FileSystemBasedDataSource::Make(fs_, files_, std::move(source_partition),
+                                         PathPartitions{}, format_, out);
 }
 
 }  // namespace dataset

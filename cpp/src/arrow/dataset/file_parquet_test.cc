@@ -42,6 +42,8 @@ using parquet::CreateOutputStream;
 using parquet::arrow::FileWriter;
 using parquet::arrow::WriteTable;
 
+using testing::Pointee;
+
 Status WriteRecordBatch(const RecordBatch& batch, FileWriter* writer) {
   auto schema = batch.schema();
   auto size = batch.num_rows();
@@ -181,7 +183,7 @@ TEST_F(TestParquetFileFormat, Inspect) {
 
   std::shared_ptr<Schema> actual;
   ASSERT_OK(format.Inspect(*source.get(), &actual));
-  EXPECT_EQ(actual, schema_);
+  EXPECT_EQ(*actual, *schema_);
 }
 
 }  // namespace dataset

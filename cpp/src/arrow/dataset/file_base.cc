@@ -124,6 +124,7 @@ bool FileSystemBasedDataSource::PartitionMatches(const fs::FileStats& stats,
     return true;
   }
 
+  // TODO: pass simplified expressions to children
   auto expr = std::move(c).ValueOrDie();
   if (expr->IsNull() || expr->IsTrivialFalseCondition()) {
     // selector is not satisfiable; don't recurse in this branch.
