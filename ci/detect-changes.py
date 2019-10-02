@@ -131,9 +131,9 @@ def list_appveyor_affected_files():
 
 def list_github_actions_affected_files():
     """
-    Return a list of files affected in the current Github Actions build.
+    Return a list of files affected in the current GitHub Actions build.
     """
-    # Github Actions checkout `refs/remotes/pull/$PR/merge` where `HEAD` points
+    # GitHub Actions checkout `refs/remotes/pull/$PR/merge` where `HEAD` points
     # to the merge commit while `HEAD^` points to the commit before. Hence,
     # `..HEAD^` points to all commit between master and the PR.
     return list_affected_files("HEAD^..")
