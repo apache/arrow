@@ -170,9 +170,9 @@ class Result {
   /// `T` must be implicitly constructible from `const U &`.
   ///
   /// \param other The value to copy from.
-  template <typename U,
-            typename E = typename std::enable_if<std::is_constructible<T, U>::value &&
-                                                 std::is_convertible<U, T>::value>::type>
+  template <typename U, typename E = typename std::enable_if<
+                            std::is_constructible<T, const U&>::value &&
+                            std::is_convertible<U, T>::value>::type>
   Result(const Result<U>& other) : variant_("unitialized") {
     AssignVariant(other.variant_);
   }
@@ -191,7 +191,7 @@ class Result {
   ///
   /// \param other The Result object to move from and set to a non-OK status.
   template <typename U,
-            typename E = typename std::enable_if<std::is_constructible<T, U>::value &&
+            typename E = typename std::enable_if<std::is_constructible<T, U&&>::value &&
                                                  std::is_convertible<U, T>::value>::type>
   Result(Result<U>&& other) : variant_("unitialized") {
     AssignVariant(std::move(other.variant_));
@@ -283,6 +283,17 @@ class Result {
     return tmp;
   }
   T operator*() && { return ValueOrDie(); }
+
+  /// Helper method for using Results in Status returning out arg functions
+  template <typename U, typename E = typename std::enable_if<
+                            std::is_constructible<U, T>::value>::type>
+  Status Value(U* out) && {
+    if (!ok()) {
+      return status();
+    }
+    *out = U(std::move(arrow::util::get<T>(variant_)));
+    return Status::OK();
+  }
 
  private:
   // Assignment is disabled by default so we need to destruct/reconstruct

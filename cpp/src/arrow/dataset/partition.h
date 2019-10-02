@@ -73,6 +73,11 @@ class ARROW_DS_EXPORT PartitionScheme {
   /// \param[in] path the partition identifier to parse
   /// \return the parsed expression
   virtual Result<std::shared_ptr<Expression>> Parse(const std::string& path) const = 0;
+
+  /// \brief Status return + out arg overload
+  Status Parse(const std::string& path, std::shared_ptr<Expression>* out) const {
+    return Parse(path).Value(out);
+  }
 };
 
 /// \brief Trivial partition scheme which yields an expression provided on construction.
