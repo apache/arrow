@@ -1010,7 +1010,7 @@ def test_table_from_pydict():
                              schema=pa.schema([("c0", pa.string())]))
 
     # Missing schema fields from the passed mapping
-    with pytest.raises(KeyError, match="doesn\'t contain.* c\, d"):
+    with pytest.raises(KeyError, match="doesn\'t contain.* c, d"):
         pa.Table.from_pydict(
             {'a': [1, 2, 3], 'b': [3, 4, 5]},
             schema=pa.schema([
