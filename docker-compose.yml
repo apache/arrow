@@ -447,6 +447,7 @@ services:
     volumes: *ubuntu-volumes
 
   fuzzit:
+    # Submit a fuzzing job on fuzzit.dev
     # Usage:
     #   docker-compose build cpp
     #   docker-compose build fuzzit
@@ -458,6 +459,41 @@ services:
     environment:
       CI_ARROW_SHA: ${CI_ARROW_SHA}
       CI_ARROW_BRANCH: ${CI_ARROW_BRANCH}
+      FUZZIT_JOB_TYPE: fuzzing
+      FUZZIT_API_KEY: c0b760d37db6012fcaafd8ca5f412ba7bcd297ac969650502994b51aa11798153824442f999a067e1ef67821989ed664
+    volumes: *ubuntu-volumes
+
+  fuzzit-regression:
+    # Submit a regression job on fuzzit.dev
+    # Usage:
+    #   docker-compose build cpp
+    #   docker-compose build fuzzit-regression
+    #   docker-compose run fuzzit-regression
+    image: arrow:fuzzit
+    build:
+      context: .
+      dockerfile: dev/fuzzit/Dockerfile
+    environment:
+      CI_ARROW_SHA: ${CI_ARROW_SHA}
+      CI_ARROW_BRANCH: ${CI_ARROW_BRANCH}
+      FUZZIT_JOB_TYPE: regression
+      FUZZIT_API_KEY: c0b760d37db6012fcaafd8ca5f412ba7bcd297ac969650502994b51aa11798153824442f999a067e1ef67821989ed664
+    volumes: *ubuntu-volumes
+
+  fuzzit-local-regression:
+    # Run a local fuzzit regression job
+    # Usage:
+    #   docker-compose build cpp
+    #   docker-compose build fuzzit-local-regression
+    #   docker-compose run fuzzit-local-regression
+    image: arrow:fuzzit
+    build:
+      context: .
+      dockerfile: dev/fuzzit/Dockerfile
+    environment:
+      CI_ARROW_SHA: ${CI_ARROW_SHA}
+      CI_ARROW_BRANCH: ${CI_ARROW_BRANCH}
+      FUZZIT_JOB_TYPE: local-regression
     volumes: *ubuntu-volumes
 
   iwyu:
