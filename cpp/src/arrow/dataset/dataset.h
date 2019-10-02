@@ -148,14 +148,5 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
   std::vector<std::shared_ptr<DataSource>> sources_;
 };
 
-/// \brief Conditions to apply to a dataset when reading to include or
-/// exclude fragments, filter out rows, etc.
-struct DataSelector {
-  std::vector<std::shared_ptr<Filter>> filters;
-
-  // TODO(wesm): Select specific partition keys, file path globs, or
-  // other common desirable selections
-};
-
 }  // namespace dataset
 }  // namespace arrow

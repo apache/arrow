@@ -1317,6 +1317,7 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable {
 
   /// Returns true if all of the schema fields are equal
   bool Equals(const Schema& other, bool check_metadata = true) const;
+  bool operator==(const Schema& other) const { return Equals(other); }
 
   /// \brief Return the number of fields (columns) in the schema
   int num_fields() const;
