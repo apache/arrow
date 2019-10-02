@@ -154,8 +154,7 @@ TYPED_TEST(TestFilterKernelWithNumeric, FilterNumeric) {
   this->AssertFilterArrays(
     ArrayFromJSON(this->type_singleton(), "[7, 8, 9]"),
     ArrayFromJSON(boolean(), "[0, 1, 1, 1, 0, 1]")->Slice(3, 3),
-    ArrayFromJSON(this->type_singleton(), "[7, 9]")
-  );
+    ArrayFromJSON(this->type_singleton(), "[7, 9]"));
 
   std::shared_ptr<Array> arr;
   ASSERT_RAISES(Invalid, this->Filter(this->type_singleton(), "[7, 8, 9]", "[]", &arr));
