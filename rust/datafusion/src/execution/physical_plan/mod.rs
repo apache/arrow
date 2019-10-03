@@ -86,6 +86,7 @@ pub mod csv;
 pub mod datasource;
 pub mod expressions;
 pub mod hash_aggregate;
+pub mod limit;
 pub mod merge;
 pub mod projection;
 pub mod selection;
