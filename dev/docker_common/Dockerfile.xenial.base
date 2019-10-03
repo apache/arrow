@@ -46,7 +46,6 @@ RUN wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -
       pytest \
       cmake \
       double-conversion \
-      flatbuffers \
       rapidjson \
       boost-cpp \
       thrift-cpp \

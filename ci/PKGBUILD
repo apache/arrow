@@ -93,9 +93,6 @@ build() {
     -Ddouble-conversion_ROOT="${MINGW_PREFIX}" \
     -DThrift_ROOT="${MINGW_PREFIX}"
 
-  # Workaround for a compile error that appears with GCC 4.9.3
-  sed -i 's/-fPIC/ /g' flatbuffers_ep-prefix/src/flatbuffers_ep-stamp/flatbuffers_ep-configure-RELEASE.cmake
-
   make
   popd
 }

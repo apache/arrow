@@ -27,12 +27,13 @@
 
 #include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
-#include "arrow/ipc/Message_generated.h"
 #include "arrow/ipc/metadata_internal.h"
 #include "arrow/ipc/util.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
+
+#include "generated/Message_generated.h"
 
 namespace arrow {
 namespace ipc {

@@ -28,10 +28,6 @@
 #include "arrow/array.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/interfaces.h"
-#include "arrow/ipc/File_generated.h"  // IWYU pragma: keep
-#include "arrow/ipc/Message_generated.h"
-#include "arrow/ipc/SparseTensor_generated.h"  // IWYU pragma: keep
-#include "arrow/ipc/Tensor_generated.h"        // IWYU pragma: keep
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/util.h"
 #include "arrow/sparse_tensor.h"
@@ -43,6 +39,11 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visitor_inline.h"
+
+#include "generated/File_generated.h"  // IWYU pragma: keep
+#include "generated/Message_generated.h"
+#include "generated/SparseTensor_generated.h"  // IWYU pragma: keep
+#include "generated/Tensor_generated.h"        // IWYU pragma: keep
 
 namespace arrow {
 

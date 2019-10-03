@@ -448,6 +448,9 @@ message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/src)
 include_directories(src)
 
+# Compiled flatbuffers files
+include_directories(src/generated)
+
 #
 # Visibility
 #

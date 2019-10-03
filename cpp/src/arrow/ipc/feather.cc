@@ -25,12 +25,11 @@
 #include <utility>
 #include <vector>
 
-#include "flatbuffers/flatbuffers.h"
+#include <flatbuffers/flatbuffers.h>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
-#include "arrow/ipc/feather_generated.h"
 #include "arrow/ipc/feather_internal.h"
 #include "arrow/ipc/util.h"  // IWYU pragma: keep
 #include "arrow/status.h"
@@ -41,6 +40,8 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor.h"
+
+#include "generated/feather_generated.h"
 
 namespace arrow {
 

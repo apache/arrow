@@ -32,36 +32,6 @@ set(PLASMA_FULL_SO_VERSION "${ARROW_FULL_SO_VERSION}")
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-conversion")
 
-# Compile flatbuffers
-
-set(PLASMA_FBS_SRC "${CMAKE_CURRENT_LIST_DIR}/format/plasma.fbs"
-                   "${CMAKE_CURRENT_LIST_DIR}/format/common.fbs")
-set(OUTPUT_DIR ${ARROW_BINARY_DIR}/src/plasma)
-
-set(PLASMA_FBS_OUTPUT_FILES "${OUTPUT_DIR}/common_generated.h"
-                            "${OUTPUT_DIR}/plasma_generated.h")
-
-add_custom_target(gen_plasma_fbs DEPENDS ${PLASMA_FBS_OUTPUT_FILES})
-
-add_dependencies(gen_plasma_fbs flatbuffers::flatc)
-
-add_custom_command(
-  OUTPUT ${PLASMA_FBS_OUTPUT_FILES}
-         # The --gen-object-api flag generates a C++ class MessageT for each
-         # flatbuffers message Message, which can be used to store deserialized
-         # messages in data structures. This is currently used for ObjectInfo for
-         # example.
-  COMMAND flatbuffers::flatc
-          -c
-          -o
-          ${OUTPUT_DIR}
-          ${PLASMA_FBS_SRC}
-          --gen-object-api
-          --scoped-enums
-  DEPENDS ${PLASMA_FBS_SRC}
-  COMMENT "Running flatc compiler on ${PLASMA_FBS_SRC}"
-  VERBATIM)
-
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 
 set(PLASMA_SRCS
@@ -104,8 +74,6 @@ add_arrow_lib(plasma
               ${PLASMA_SRCS}
               OUTPUTS
               PLASMA_LIBRARIES
-              DEPENDENCIES
-              gen_plasma_fbs
               SHARED_LINK_FLAGS
               ${PLASMA_SHARED_LINK_FLAGS}
               SHARED_LINK_LIBS

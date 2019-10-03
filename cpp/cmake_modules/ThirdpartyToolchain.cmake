@@ -61,7 +61,6 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     BZip2
     c-ares
     double-conversion
-    Flatbuffers
     gflags
     GLOG
     gRPC
@@ -141,8 +140,6 @@ macro(build_dependency DEPENDENCY_NAME)
     build_bzip2()
   elseif("${DEPENDENCY_NAME}" STREQUAL "c-ares")
     build_cares()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "Flatbuffers")
-    build_flatbuffers()
   elseif("${DEPENDENCY_NAME}" STREQUAL "gflags")
     build_gflags()
   elseif("${DEPENDENCY_NAME}" STREQUAL "GLOG")
@@ -203,6 +200,9 @@ endmacro()
 
 set(THIRDPARTY_DIR "${arrow_SOURCE_DIR}/thirdparty")
 
+# Include vendored Flatbuffers
+include_directories(SYSTEM "${THIRDPARTY_DIR}/flatbuffers/include")
+
 # ----------------------------------------------------------------------
 # Some EP's require other EP's
 
@@ -219,10 +219,6 @@ endif()
 if(ARROW_FLIGHT)
   set(ARROW_WITH_GRPC ON)
   set(ARROW_WITH_URIPARSER ON)
-endif()
-
-if(ARROW_FLIGHT OR ARROW_IPC)
-  set(ARROW_WITH_FLATBUFFERS ON)
 endif()
 
 if(ARROW_JSON)
@@ -298,13 +294,6 @@ else()
     DOUBLE_CONVERSION_SOURCE_URL
     "https://github.com/google/double-conversion/archive/${DOUBLE_CONVERSION_VERSION}.tar.gz"
     )
-endif()
-
-if(DEFINED ENV{ARROW_FLATBUFFERS_URL})
-  set(FLATBUFFERS_SOURCE_URL "$ENV{ARROW_FLATBUFFERS_URL}")
-else()
-  set(FLATBUFFERS_SOURCE_URL
-      "https://github.com/google/flatbuffers/archive/${FLATBUFFERS_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_GBENCHMARK_URL})
@@ -1781,103 +1770,6 @@ if(ARROW_WITH_RAPIDJSON)
 
   # TODO: Don't use global includes but rather target_include_directories
   include_directories(SYSTEM ${RAPIDJSON_INCLUDE_DIR})
-endif()
-
-macro(build_flatbuffers)
-  message(STATUS "Building flatbuffers from source")
-  set(FLATBUFFERS_PREFIX
-      "${CMAKE_CURRENT_BINARY_DIR}/flatbuffers_ep-prefix/src/flatbuffers_ep-install")
-  if(MSVC)
-    set(FLATBUFFERS_CMAKE_CXX_FLAGS /EHsc)
-  else()
-    set(FLATBUFFERS_CMAKE_CXX_FLAGS -fPIC)
-  endif()
-  set(FLATBUFFERS_COMPILER "${FLATBUFFERS_PREFIX}/bin/flatc")
-  set(
-    FLATBUFFERS_STATIC_LIB
-    "${FLATBUFFERS_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}flatbuffers${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-  # We always need to do release builds, otherwise flatc will not be installed.
-  externalproject_add(flatbuffers_ep
-                      URL ${FLATBUFFERS_SOURCE_URL}
-                      BUILD_BYPRODUCTS ${FLATBUFFERS_COMPILER} ${FLATBUFFERS_STATIC_LIB}
-                      CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
-                                 "-DCMAKE_BUILD_TYPE=RELEASE"
-                                 "-DCMAKE_CXX_FLAGS=${FLATBUFFERS_CMAKE_CXX_FLAGS}"
-                                 "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"
-                                 "-DFLATBUFFERS_BUILD_TESTS=OFF"
-                                 ${EP_LOG_OPTIONS})
-
-  file(MAKE_DIRECTORY "${FLATBUFFERS_PREFIX}/include")
-
-  add_library(flatbuffers::flatbuffers STATIC IMPORTED)
-  set_target_properties(flatbuffers::flatbuffers
-                        PROPERTIES IMPORTED_LOCATION "${FLATBUFFERS_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${FLATBUFFERS_PREFIX}/include")
-  add_executable(flatbuffers::flatc IMPORTED)
-  set_target_properties(flatbuffers::flatc
-                        PROPERTIES IMPORTED_LOCATION "${FLATBUFFERS_COMPILER}")
-
-  add_dependencies(toolchain flatbuffers_ep)
-  add_dependencies(flatbuffers::flatbuffers flatbuffers_ep)
-  add_dependencies(flatbuffers::flatc flatbuffers_ep)
-endmacro()
-
-if(ARROW_WITH_FLATBUFFERS)
-  if(Flatbuffers_SOURCE STREQUAL "AUTO")
-    find_package(Flatbuffers QUIET)
-    # Older versions of Flatbuffers (that are not built using CMake)
-    # don't install a FlatbuffersConfig.cmake
-    # This is only supported from 1.10+ on, we support at least 1.7
-    if(NOT Flatbuffers_FOUND)
-      find_package(FlatbuffersAlt)
-    endif()
-    if(NOT Flatbuffers_FOUND AND NOT FlatbuffersAlt_FOUND)
-      build_flatbuffers()
-    endif()
-  elseif(Flatbuffers_SOURCE STREQUAL "BUNDLED")
-    build_flatbuffers()
-  elseif(Flatbuffers_SOURCE STREQUAL "SYSTEM")
-    find_package(Flatbuffers QUIET)
-    if(NOT Flatbuffers_FOUND)
-      find_package(FlatbuffersAlt REQUIRED)
-    endif()
-  endif()
-
-  if(TARGET flatbuffers::flatbuffers_shared AND NOT TARGET flatbuffers::flatbuffers)
-    get_target_property(FLATBUFFERS_INCLUDE_DIR flatbuffers::flatbuffers_shared
-                        INTERFACE_INCLUDE_DIRECTORIES)
-    get_target_property(FLATBUFFERS_SHARED_LIB flatbuffers::flatbuffers_shared
-                        IMPORTED_LOCATION)
-    add_library(flatbuffers::flatbuffers SHARED IMPORTED)
-    set_target_properties(flatbuffers::flatbuffers
-                          PROPERTIES IMPORTED_LOCATION "${FLATBUFFERS_SHARED_LIB}"
-                                     INTERFACE_INCLUDE_DIRECTORIES
-                                     "${FLATBUFFERS_INCLUDE_DIR}")
-  endif()
-
-  if(TARGET flatbuffers::flatc)
-    get_target_property(FLATBUFFERS_COMPILER_LOCATION_CONFIG flatbuffers::flatc
-                        IMPORTED_LOCATION_${UPPERCASE_BUILD_TYPE})
-    get_target_property(FLATBUFFERS_COMPILER_LOCATION flatbuffers::flatc
-                        IMPORTED_LOCATION)
-    get_target_property(FLATBUFFERS_COMPILER_LOCATION_NOCONFIG flatbuffers::flatc
-                        IMPORTED_LOCATION_NOCONFIG)
-    # mingw-w64-flatbuffers provides location only for "noconfig"
-    if(NOT FLATBUFFERS_COMPILER_LOCATION_CONFIG
-       AND NOT FLATBUFFERS_COMPILER_LOCATION
-       AND FLATBUFFERS_COMPILER_LOCATION_NOCONFIG)
-      set_target_properties(flatbuffers::flatc
-                            PROPERTIES IMPORTED_LOCATION
-                                       "${FLATBUFFERS_COMPILER_LOCATION_NOCONFIG}")
-    endif()
-  endif()
-
-  # TODO: Don't use global includes but rather target_include_directories
-  get_target_property(FLATBUFFERS_INCLUDE_DIR flatbuffers::flatbuffers
-                      INTERFACE_INCLUDE_DIRECTORIES)
-  include_directories(SYSTEM ${FLATBUFFERS_INCLUDE_DIR})
 endif()
 
 macro(build_zlib)

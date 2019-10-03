@@ -23,7 +23,6 @@
 #include <vector>
 
 #include "arrow/buffer.h"
-#include "arrow/ipc/Message_generated.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/reader.h"
@@ -31,6 +30,8 @@
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
+
+#include "generated/Message_generated.h"
 
 #include "arrow/gpu/cuda_context.h"
 #include "arrow/gpu/cuda_memory.h"

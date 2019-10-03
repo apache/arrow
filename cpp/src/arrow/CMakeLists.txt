@@ -267,7 +267,6 @@ if(ARROW_IPC)
     list(
       APPEND ARROW_SRCS ipc/json_integration.cc ipc/json_internal.cc ipc/json_simple.cc)
   endif()
-  add_dependencies(arrow_dependencies metadata_fbs)
 endif()
 
 if(ARROW_JSON)
