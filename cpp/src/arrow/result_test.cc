@@ -76,17 +76,22 @@ struct MoveOnlyDataType {
     return *this;
   }
 
+  ~MoveOnlyDataType() { Destroy(); }
+
+  void Destroy() {
+    if (data != nullptr) {
+      delete data;
+      data = nullptr;
+    }
+  }
+
   void MoveFrom(MoveOnlyDataType& other) {
+    Destroy();
     data = other.data;
     other.data = nullptr;
   }
 
-  ~MoveOnlyDataType() {
-    delete data;
-    data = nullptr;
-  }
-
-  int* data;
+  int* data = nullptr;
 };
 
 struct ImplicitlyMoveConvertible {
