@@ -34,10 +34,8 @@ various Arrays or R vectors. \code{chunked_array()} is an alias for it.
 with the indicated offset and length. If length is \code{NULL}, the slice goes
 until the end of the array.
 \item \code{$Take(i)}: return a \code{ChunkedArray} with values at positions given by
-integers \code{i}. \code{Take} is currently only supported where all of \code{i}
-references values that are in a single chunk of the \code{ChunkedArray}.
-If \code{i} is an Arrow \code{Array} or \code{ChunkedArray}, it will be coerced to an R
-vector before taking.
+integers \code{i}. If \code{i} is an Arrow \code{Array} or \code{ChunkedArray}, it will be
+coerced to an R vector before taking.
 \item \code{$Filter(i)}: return a \code{ChunkedArray} with values at positions where
 logical vector or Arrow boolean-type \code{(Chunked)Array} \code{i} is \code{TRUE}.
 \item \code{$cast(target_type, safe = TRUE, options = cast_options(safe))}: Alter the

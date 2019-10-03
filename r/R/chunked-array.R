@@ -37,10 +37,8 @@
 #'    with the indicated offset and length. If length is `NULL`, the slice goes
 #'    until the end of the array.
 #' - `$Take(i)`: return a `ChunkedArray` with values at positions given by
-#'    integers `i`. `Take` is currently only supported where all of `i`
-#'    references values that are in a single chunk of the `ChunkedArray`.
-#'    If `i` is an Arrow `Array` or `ChunkedArray`, it will be coerced to an R
-#'    vector before taking.
+#'    integers `i`. If `i` is an Arrow `Array` or `ChunkedArray`, it will be
+#'    coerced to an R vector before taking.
 #' - `$Filter(i)`: return a `ChunkedArray` with values at positions where
 #'    logical vector or Arrow boolean-type `(Chunked)Array` `i` is `TRUE`.
 #' - `$cast(target_type, safe = TRUE, options = cast_options(safe))`: Alter the

@@ -66,11 +66,8 @@
 #'    indicated integer offset and going for the given length, or to the end
 #'    of the table if `NULL`, the default.
 #' - `$Take(i)`: return an `Table` with rows at positions given by
-#'    integers `i`. `Take` is currently only supported where all of `i`
-#'    references values that are in a single chunk of the `ChunkedArray`s in
-#'    the `Table`.
-#'    If `i` is an Arrow `Array` or `ChunkedArray`, it will be coerced to an R
-#'    vector before taking.
+#'    integers `i`. If `i` is an Arrow `Array` or `ChunkedArray`, it will be
+#'    coerced to an R vector before taking.
 #' - `$Filter(i)`: return an `Table` with rows at positions where logical
 #'    vector or Arrow boolean-type `(Chunked)Array` `i` is `TRUE`.
 #' - `$serialize(output_stream, ...)`: Write the table to the given

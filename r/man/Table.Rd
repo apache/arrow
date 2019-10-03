@@ -58,11 +58,8 @@ methods as well as "tidy select" expressions.
 indicated integer offset and going for the given length, or to the end
 of the table if \code{NULL}, the default.
 \item \code{$Take(i)}: return an \code{Table} with rows at positions given by
-integers \code{i}. \code{Take} is currently only supported where all of \code{i}
-references values that are in a single chunk of the \code{ChunkedArray}s in
-the \code{Table}.
-If \code{i} is an Arrow \code{Array} or \code{ChunkedArray}, it will be coerced to an R
-vector before taking.
+integers \code{i}. If \code{i} is an Arrow \code{Array} or \code{ChunkedArray}, it will be
+coerced to an R vector before taking.
 \item \code{$Filter(i)}: return an \code{Table} with rows at positions where logical
 vector or Arrow boolean-type \code{(Chunked)Array} \code{i} is \code{TRUE}.
 \item \code{$serialize(output_stream, ...)}: Write the table to the given
