@@ -21,12 +21,11 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use arrow::array::*;
-use arrow::compute::array_ops::limit;
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 
-use crate::error::{ExecutionError, Result};
+use crate::error::Result;
+use crate::execution::physical_plan::limit::truncate_batch;
 use crate::execution::relation::Relation;
 
 /// Implementation of a LIMIT relation
@@ -67,18 +66,9 @@ impl Relation for LimitRelation {
                     return Ok(None);
                 }
 
-                if batch.num_rows() >= capacity {
-                    let limited_columns: Result<Vec<ArrayRef>> = (0..batch.num_columns())
-                        .map(|i| match limit(batch.column(i), capacity) {
-                            Ok(result) => Ok(result),
-                            Err(error) => Err(ExecutionError::from(error)),
-                        })
-                        .collect();
-
-                    let limited_batch: RecordBatch =
-                        RecordBatch::try_new(self.schema.clone(), limited_columns?)?;
+                if batch.num_rows() > capacity {
+                    let limited_batch = truncate_batch(&batch, capacity)?;
                     self.num_consumed_rows += capacity;
-
                     Ok(Some(limited_batch))
                 } else {
                     self.num_consumed_rows += batch.num_rows();
