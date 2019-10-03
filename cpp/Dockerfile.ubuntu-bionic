@@ -93,7 +93,6 @@ RUN apt-get update -y -q && \
 # - libprotobuf-dev only provide sources
 # - thrift is too old
 ENV CMAKE_ARGS="-DThrift_SOURCE=BUNDLED \
--DFlatbuffers_SOURCE=BUNDLED \
 -DGTest_SOURCE=BUNDLED \
 -DORC_SOURCE=BUNDLED"
 
