@@ -52,6 +52,7 @@ test:
 
   requires:
     - pytest
+    - pytest-lazy-fixture
     - hypothesis
 
   commands:

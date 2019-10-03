@@ -46,7 +46,6 @@ groups:
     - wheel-osx-cp35m
     - wheel-osx-cp36m
     - wheel-osx-cp37m
-    - wheel-win-cp35m
     - wheel-win-cp36m
     - wheel-win-cp37m
 
@@ -146,7 +145,6 @@ groups:
     - wheel-osx-cp35m
     - wheel-osx-cp36m
     - wheel-osx-cp37m
-    - wheel-win-cp35m
     - wheel-win-cp36m
     - wheel-win-cp37m
     - debian-stretch
@@ -468,15 +466,6 @@ tasks:
       - pyarrow-{no_rc_version}-cp37-cp37m-macosx_10_6_intel.whl
 
   ############################## Wheel Windows ################################
-
-  wheel-win-cp35m:
-    ci: appveyor
-    platform: win
-    template: python-wheels/appveyor.yml
-    params:
-      python_version: 3.5
-    artifacts:
-      - pyarrow-{no_rc_version}-cp35-cp35m-win_amd64.whl
 
   wheel-win-cp36m:
     ci: appveyor

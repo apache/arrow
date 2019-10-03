@@ -259,7 +259,7 @@ def minio_server():
         proc = None
         try:
             proc = subprocess.Popen(args, env=env)
-        except IOError:
+        except (OSError, IOError):
             pytest.skip('`minio` command cannot be located')
         else:
             yield address, access_key, secret_key

@@ -79,8 +79,10 @@ set ARROW_TEST_DATA=%ARROW_SRC%\testing\data
 
 @rem test the wheel
 @rem TODO For maximum reliability, we should test in a plain virtualenv instead.
-call conda create -n wheel-test -q -y python=%PYTHON_VERSION% ^
-      numpy=%NUMPY_VERSION% pandas cython pytest hypothesis || exit /B
+call conda create -n wheel-test -c conda-forge -q -y ^
+    --file %ARROW_SRC%\ci\conda_env_python.yml ^
+    python=%PYTHON_VERSION% ^
+    numpy=%NUMPY_VERSION% || exit /B
 call activate wheel-test
 
 @rem install the built wheel
