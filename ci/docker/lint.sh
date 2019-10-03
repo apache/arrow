@@ -1,4 +1,3 @@
-#!/bin/bash
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,10 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+set -eu
 
-mkdir -p /build/lint
-pushd /build/lint
-  cmake -GNinja /arrow/cpp
-  ninja check-clang-tidy
-popd
+: ${ARROW_HOME:=/arrow}
+
+install_archery() {
+  pip3 install -e ${ARROW_HOME}/dev/archery
+  export LC_ALL=C.UTF-8
+  export LANG=C.UTF-8
+}
+
+install_archery
+archery lint

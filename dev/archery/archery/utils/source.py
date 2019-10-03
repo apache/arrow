@@ -43,9 +43,19 @@ class ArrowSources:
         self.path = path
 
     @property
+    def archery(self):
+        """ Returns the archery directory of an Arrow sources. """
+        return os.path.join(self.dev, "archery")
+
+    @property
     def cpp(self):
         """ Returns the cpp directory of an Arrow sources. """
         return os.path.join(self.path, "cpp")
+
+    @property
+    def dev(self):
+        """ Returns the dev directory of an Arrow sources. """
+        return os.path.join(self.path, "dev")
 
     @property
     def python(self):
@@ -53,10 +63,36 @@ class ArrowSources:
         return os.path.join(self.path, "python")
 
     @property
+    def pyarrow(self):
+        """ Returns the python/pyarrow directory of an Arrow sources. """
+        return os.path.join(self.python, "pyarrow")
+
+    @property
     def git_backed(self):
         """ Indicate if the sources are backed by git. """
         git_path = os.path.join(self.path, ".git")
         return os.path.exists(git_path)
+
+    @property
+    def git_dirty(self):
+        """ Indicate if the sources is a dirty git directory. """
+        return self.git_backed and git.dirty(git_dir=self.path)
+
+    def archive(self, path, dereference=False, compressor=None, revision=None):
+        """ Saves a git archive at path. """
+        if not self.git_backed:
+            raise ValueError(f"{self} is not backed by git")
+
+        rev = revision if revision else "HEAD"
+        archive = git.archive("--prefix=apache-arrow/", rev, git_dir=self.path)
+
+        # TODO(fsaintjacques): fix dereference for
+
+        if compressor:
+            archive = compressor(archive)
+
+        with open(path, "wb") as archive_fd:
+            archive_fd.write(archive)
 
     def at_revision(self, revision, clone_dir):
         """ Return a copy of the current sources for a specified git revision.

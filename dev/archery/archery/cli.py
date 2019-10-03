@@ -17,18 +17,18 @@
 # under the License.
 
 import click
-from contextlib import contextmanager
 import json
 import logging
 import sys
-from tempfile import mkdtemp, TemporaryDirectory
 
 from .benchmark.compare import RunnerComparator, DEFAULT_THRESHOLD
 from .benchmark.runner import BenchmarkRunner
 from .lang.cpp import CppCMakeDefinition, CppConfiguration
 from .utils.codec import JsonEncoder
+from .utils.lint import linter, LintValidationException
 from .utils.logger import logger, ctx as log_ctx
 from .utils.source import ArrowSources
+from .utils.tmpdir import tmpdir
 
 # Set default logging to INFO in command line.
 logging.basicConfig(level=logging.INFO)
@@ -165,13 +165,32 @@ def build(ctx, src, build_dir, force, targets, **kwargs):
         build.run(target)
 
 
-@contextmanager
-def tmpdir(preserve, prefix="arrow-bench-"):
-    if preserve:
-        yield mkdtemp(prefix=prefix)
-    else:
-        with TemporaryDirectory(prefix=prefix) as tmp:
-            yield tmp
+@archery.command(short_help="Lint Arrow source directory")
+@click.option("--src", metavar="<arrow_src>", default=ArrowSources.find(),
+              callback=validate_arrow_sources,
+              help="Specify Arrow source directory")
+@click.option("--with-clang-format/--without-clang-format", default=True,
+              help="Ensure formatting of C++ files.")
+@click.option("--with-cpplint/--without-cpplint", default=True,
+              help="Ensure linting of C++ files with cpplint.")
+@click.option("--with-clang-tidy/--without-clang-tidy", default=False,
+              help="Lint C++ with clang-tidy.")
+@click.option("--with-iwyu/--without-iwyu", default=False,
+              help="Lint C++ with Include-What-You-Use (iwyu).")
+@click.option("--with-flake8/--without-flake8", default=True,
+              help="Lint python files with flake8.")
+@click.option("--with-cmake-format/--without-cmake-format", default=False,
+              help="Lint CMakeFiles.txt files with cmake-format.py.")
+@click.option("--with-rat/--without-rat", default=True,
+              help="Lint files for license violation via apache-rat.")
+@click.option("--fix", type=bool, default=False,
+              help="Toggle fixing the lint errors if the linter supports it.")
+@click.pass_context
+def lint(ctx, src, **kwargs):
+    try:
+        linter(src, **kwargs)
+    except LintValidationException:
+        sys.exit(1)
 
 
 @archery.group()
@@ -226,7 +245,7 @@ def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
                    **kwargs):
     """ List benchmark suite.
     """
-    with tmpdir(preserve) as root:
+    with tmpdir(preserve=preserve) as root:
         logger.debug(f"Running benchmark {rev_or_path}")
 
         conf = CppConfiguration(
@@ -281,7 +300,7 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
     \b
     archery benchmark run --output=run.json
     """
-    with tmpdir(preserve) as root:
+    with tmpdir(preserve=preserve) as root:
         logger.debug(f"Running benchmark {rev_or_path}")
 
         conf = CppConfiguration(
@@ -379,7 +398,7 @@ def benchmark_diff(ctx, src, preserve, output, cmake_extras,
     # This should not recompute the benchmark from run.json
     archery --quiet benchmark diff WORKSPACE run.json > result.json
     """
-    with tmpdir(preserve) as root:
+    with tmpdir(preserve=preserve) as root:
         logger.debug(f"Comparing {contender} (contender) with "
                      f"{baseline} (baseline)")
 

@@ -24,7 +24,16 @@ from .logger import logger, ctx
 
 def find_exec(executable):
     exec_exists = os.path.exists(executable)
-    return executable if exec_exists else shutil.which(executable)
+    executable = executable if exec_exists else shutil.which(executable)
+
+    if executable is None:
+        raise FileNotFoundError(executable)
+
+    return executable
+
+
+def default_bin(name, env, default):
+    return name if name else os.environ.get(env, default)
 
 
 # Decorator running a command and returning stdout
@@ -68,4 +77,10 @@ class Command:
         return subprocess.run(invocation, **kwargs)
 
     def __call__(self, *argv, **kwargs):
-        self.run(*argv, **kwargs)
+        return self.run(*argv, **kwargs)
+
+
+class CommandStackMixin:
+    def run(self, *argv, **kwargs):
+        stacked_args = self.argv + argv
+        return super(CommandStackMixin, self).run(*stacked_args, **kwargs)

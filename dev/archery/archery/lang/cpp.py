@@ -38,7 +38,9 @@ class CppConfiguration:
                  # components
                  with_tests=True, with_benchmarks=False, with_python=True,
                  with_parquet=False, with_gandiva=False, with_plasma=False,
-                 with_flight=False, cmake_extras=None):
+                 with_flight=False,
+                 # extras
+                 cmake_extras=None):
         self.cc = cc
         self.cxx = cxx
         self.cxx_flags = cxx_flags
@@ -56,6 +58,7 @@ class CppConfiguration:
         self.with_gandiva = with_gandiva
         self.with_plasma = with_plasma
         self.with_flight = with_flight
+
         self.cmake_extras = cmake_extras
 
     def _gen_defs(self):
@@ -64,6 +67,7 @@ class CppConfiguration:
 
         yield ("CMAKE_EXPORT_COMPILE_COMMANDS", truthifier(True))
         yield ("CMAKE_BUILD_TYPE", or_else(self.build_type, "debug"))
+
         yield ("BUILD_WARNING_LEVEL", or_else(self.warn_level, "production"))
 
         # if not ctx.quiet:

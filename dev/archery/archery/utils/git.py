@@ -15,9 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import os
-
-from .command import Command, capture_stdout
+from .command import Command, capture_stdout, default_bin
 
 
 # Decorator prepending argv with the git sub-command found with the method
@@ -33,7 +31,7 @@ def git_cmd(fn):
 
 class Git(Command):
     def __init__(self, git_bin=None):
-        self.bin = git_bin if git_bin else os.environ.get("GIT", "git")
+        self.bin = default_bin(git_bin, "GIT", "git")
 
     def run_cmd(self, cmd, *argv, git_dir=None, **kwargs):
         """ Inject flags before sub-command in argv. """
@@ -43,6 +41,11 @@ class Git(Command):
 
         return self.run(*opts, cmd, *argv, **kwargs)
 
+    @capture_stdout(strip=False)
+    @git_cmd
+    def archive(self, *argv, **kwargs):
+        return self.run_cmd(*argv, **kwargs)
+
     @git_cmd
     def clone(self, *argv, **kwargs):
         return self.run_cmd(*argv, **kwargs)
@@ -51,6 +54,9 @@ class Git(Command):
     def checkout(self, *argv, **kwargs):
         return self.run_cmd(*argv, **kwargs)
 
+    def dirty(self, **kwargs):
+        return len(self.status("--short", **kwargs)) > 0
+
     @git_cmd
     def log(self, *argv, **kwargs):
         return self.run_cmd(*argv, **kwargs)
@@ -58,6 +64,11 @@ class Git(Command):
     @capture_stdout(strip=True)
     @git_cmd
     def rev_parse(self, *argv, **kwargs):
+        return self.run_cmd(*argv, **kwargs)
+
+    @capture_stdout(strip=True)
+    @git_cmd
+    def status(self, *argv, **kwargs):
         return self.run_cmd(*argv, **kwargs)
 
     @capture_stdout(strip=True)

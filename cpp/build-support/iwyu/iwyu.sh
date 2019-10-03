@@ -17,14 +17,12 @@
 # specific language governing permissions and limitations
 # under the License.
 #
-set -x
+set -uo pipefail
 
 ROOT=$(cd $(dirname $BASH_SOURCE)/../../..; pwd)
 
 IWYU_LOG=$(mktemp -t arrow-cpp-iwyu.XXXXXX)
 trap "rm -f $IWYU_LOG" EXIT
-
-echo "Logging IWYU to $IWYU_LOG"
 
 IWYU_MAPPINGS_PATH="$ROOT/cpp/build-support/iwyu/mappings"
 IWYU_ARGS="--mapping_file=$IWYU_MAPPINGS_PATH/boost-all.imp \
@@ -37,15 +35,20 @@ IWYU_ARGS="--mapping_file=$IWYU_MAPPINGS_PATH/boost-all.imp \
 
 set -e
 
-if [ "$1" == "all" ]; then
+affected_files() {
+  pushd $ROOT > /dev/null
+  local commit=$($ROOT/cpp/build-support/get-upstream-commit.sh)
+  git diff --name-only $commit | awk '/\.(c|cc|h)$/'
+  popd > /dev/null
+}
+
+if [[ "${1:-}" == "all" ]]; then
     python $ROOT/cpp/build-support/iwyu/iwyu_tool.py -p ${IWYU_COMPILATION_DATABASE_PATH:-.} \
         -- $IWYU_ARGS | awk -f $ROOT/cpp/build-support/iwyu/iwyu-filter.awk
 else
   # Build the list of updated files which are of IWYU interest.
-  file_list_tmp=$(git diff --name-only \
-      $($ROOT/cpp/build-support/get-upstream-commit.sh) | grep -E '\.(c|cc|h)$')
+  file_list_tmp=$(affected_files)
   if [ -z "$file_list_tmp" ]; then
-    echo "IWYU verification: no updates on related files, declaring success"
     exit 0
   fi
 
@@ -56,16 +59,13 @@ else
     IWYU_FILE_LIST="$IWYU_FILE_LIST $ROOT/$p"
   done
 
-  python $ROOT/cpp/build-support/iwyu/iwyu_tool.py -p ${IWYU_COMPILATION_DATABASE_PATH:-.} $IWYU_FILE_LIST  -- \
-       $IWYU_ARGS | awk -f $ROOT/cpp/build-support/iwyu/iwyu-filter.awk | \
-       tee $IWYU_LOG
+  python $ROOT/cpp/build-support/iwyu/iwyu_tool.py \
+      -p ${IWYU_COMPILATION_DATABASE_PATH:-.} $IWYU_FILE_LIST  -- \
+       $IWYU_ARGS | awk -f $ROOT/cpp/build-support/iwyu/iwyu-filter.awk > $IWYU_LOG
 fi
 
 if [ -s "$IWYU_LOG" ]; then
   # The output is not empty: the changelist needs correction.
+  cat $IWYU_LOG 1>&2
   exit 1
 fi
-
-# The output is empty: the changelist looks good.
-echo "IWYU verification: the changes look good"
-exit 0

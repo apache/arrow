@@ -15,21 +15,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import pandas as pa
-
 
 class Benchmark:
     def __init__(self, name, unit, less_is_better, values, stats=None):
         self.name = name
         self.unit = unit
         self.less_is_better = less_is_better
-        self.values = pa.Series(values)
-        self.statistics = self.values.describe()
+        self.values = sorted(values)
+        self.median = self.values[len(values)/2]
 
     @property
     def value(self):
-        median = "50%"
-        return float(self.statistics[median])
+        return self.median
 
     def __repr__(self):
         return f"Benchmark[name={self.name},value={self.value}]"

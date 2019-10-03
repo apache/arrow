@@ -1,4 +1,3 @@
-#!/bin/bash
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,10 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+from .command import Command, CommandStackMixin, default_bin
 
-mkdir -p /build/lint
-pushd /build/lint
-  cmake -GNinja /arrow/cpp
-  ninja format
-popd
+
+class Java(Command):
+    def __init__(self, java_bin=None):
+        self.bin = default_bin(java_bin, "JAVA", "java")
+
+
+class Jar(CommandStackMixin, Java):
+    def __init__(self, jar, *args, **kwargs):
+        self.jar = jar
+        self.argv = ("-jar", jar)
+        Java.__init__(self, *args, **kwargs)
