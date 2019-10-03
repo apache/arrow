@@ -292,8 +292,16 @@ ChunkedArray__Filter <- function(values, filter){
     .Call(`_arrow_ChunkedArray__Filter` , values, filter)
 }
 
+ChunkedArray__FilterChunked <- function(values, filter){
+    .Call(`_arrow_ChunkedArray__FilterChunked` , values, filter)
+}
+
 Table__Filter <- function(table, filter){
     .Call(`_arrow_Table__Filter` , table, filter)
+}
+
+Table__FilterChunked <- function(table, filter){
+    .Call(`_arrow_Table__FilterChunked` , table, filter)
 }
 
 csv___ReadOptions__initialize <- function(options){

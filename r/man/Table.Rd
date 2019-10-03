@@ -64,7 +64,7 @@ the \code{Table}.
 If \code{i} is an Arrow \code{Array} or \code{ChunkedArray}, it will be coerced to an R
 vector before taking.
 \item \code{$Filter(i)}: return an \code{Table} with rows at positions where logical
-vector \code{i} is \code{TRUE}.
+vector or Arrow boolean-type \code{(Chunked)Array} \code{i} is \code{TRUE}.
 \item \code{$serialize(output_stream, ...)}: Write the table to the given
 \link{OutputStream}
 \item \code{$cast(target_schema, safe = TRUE, options = cast_options(safe))}: Alter

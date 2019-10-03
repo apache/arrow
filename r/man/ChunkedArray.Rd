@@ -39,7 +39,7 @@ references values that are in a single chunk of the \code{ChunkedArray}.
 If \code{i} is an Arrow \code{Array} or \code{ChunkedArray}, it will be coerced to an R
 vector before taking.
 \item \code{$Filter(i)}: return a \code{ChunkedArray} with values at positions where
-logical vector \code{i} is \code{TRUE}.
+logical vector or Arrow boolean-type \code{(Chunked)Array} \code{i} is \code{TRUE}.
 \item \code{$cast(target_type, safe = TRUE, options = cast_options(safe))}: Alter the
 data in the array to change its type.
 \item \code{$null_count()}: The number of null entries in the array

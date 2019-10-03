@@ -369,4 +369,12 @@ test_that("[ ChunkedArray", {
     x[c(FALSE, TRUE, FALSE, FALSE, TRUE)],
     c(2, 5, 7, 10, 32, 35, 37, 40, 52, 55)
   )
+  p1 <- c(FALSE, TRUE, FALSE, FALSE, TRUE)
+  p2 <- c(TRUE, FALSE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE)
+  filt <- ChunkedArray$create(p1, p2, p2)
+  expect_vector(
+    x[filt],
+    c(2, 5, 6, 8, 9, 35, 36, 38, 39, 55)
+  )
+  # Filter with a chunked array with different sized chunks
 })

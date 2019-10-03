@@ -42,7 +42,7 @@
 #'    If `i` is an Arrow `Array` or `ChunkedArray`, it will be coerced to an R
 #'    vector before taking.
 #' - `$Filter(i)`: return a `ChunkedArray` with values at positions where
-#'    logical vector `i` is `TRUE`.
+#'    logical vector or Arrow boolean-type `(Chunked)Array` `i` is `TRUE`.
 #' - `$cast(target_type, safe = TRUE, options = cast_options(safe))`: Alter the
 #'    data in the array to change its type.
 #' - `$null_count()`: The number of null entries in the array
@@ -84,11 +84,9 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = Object,
       if (is.logical(i)) {
         i <- Array$create(i)
       }
-      if (inherits(i, "ChunkedArray") && i$num_chunks == 1) {
-        # Pull out the single chunk and use that
-        i <- i$chunk(0)
+      if (inherits(i, "ChunkedArray")) {
+        return(shared_ptr(ChunkedArray, ChunkedArray__FilterChunked(self, i)))
       }
-      # TODO: Should be easy enough to support the case where both are chunked the same
       assert_is(i, "Array")
       shared_ptr(ChunkedArray, ChunkedArray__Filter(self, i))
     },
