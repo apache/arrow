@@ -102,13 +102,14 @@ TEST(Metadata, TestBuildAccess) {
 
   std::string f_accessor_serialized_metadata = f_accessor->SerializeToString();
   ASSERT_EQ(403, f_accessor_serialized_metadata.length());
-  uint32_t metadata_len = f_accessor_serialized_metadata.length();
-  auto f_accessor_copy = FileMetaData::Make(f_accessor_serialized_metadata.data(), &metadata_len);
+  uint32_t metadata_len = static_cast<uint32_t>(f_accessor_serialized_metadata.length());
+  auto f_accessor_copy =
+      FileMetaData::Make(f_accessor_serialized_metadata.data(), &metadata_len);
 
   // Run this block twice, one for f_accessor, one for f_accessor_copy.
   // To make sure SerializedMetadata was deserialized correctly.
-  std::vector<FileMetaData*> f_accessors = { f_accessor.get(), f_accessor_copy.get() }; 
-  for(int loop_index = 0; loop_index < 2; loop_index++) {
+  std::vector<FileMetaData*> f_accessors = {f_accessor.get(), f_accessor_copy.get()};
+  for (int loop_index = 0; loop_index < 2; loop_index++) {
     // file metadata
     ASSERT_EQ(nrows, f_accessors[loop_index]->num_rows());
     ASSERT_LE(0, static_cast<int>(f_accessors[loop_index]->size()));
