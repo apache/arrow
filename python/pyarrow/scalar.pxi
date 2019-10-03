@@ -464,16 +464,6 @@ cdef class DurationValue(ArrayValue):
         cdef CDurationType* dtype = <CDurationType*> ap.type().get()
 
         cdef int64_t value = ap.Value(self.index)
-
-        # if dtype.unit() == TimeUnit_SECOND:
-        #     return datetime.timedelta(seconds=val)
-        # elif dtype.unit() == TimeUnit_MILLI:
-        #     return datetime.timedelta(milliseconds=val)
-        # elif dtype.unit() == TimeUnit_MICRO:
-        #     return datetime.timedelta(microseconds=val)
-        # elif dtype.unit() == TimeUnit_NANO:
-        #     raise NotImplementedError
-
         converter = _timedelta_conversion_functions()[dtype.unit()]
         return converter(value)
 

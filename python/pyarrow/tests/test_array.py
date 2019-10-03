@@ -300,7 +300,11 @@ def test_struct_array_slice():
 
 
 def test_array_factory_invalid_type():
-    arr = np.array([datetime.timedelta(1), datetime.timedelta(2)])
+
+    class MyObject:
+        pass
+
+    arr = np.array([MyObject()])
     with pytest.raises(ValueError):
         pa.array(arr)
 
@@ -823,7 +827,7 @@ def test_cast_from_null():
         pa.timestamp('us'),
         pa.timestamp('us', tz='UTC'),
         pa.timestamp('us', tz='Europe/Paris'),
-        # pa.duration('us'),
+        # pa.duration('us'),  # TODO implement duration cast
         pa.struct([pa.field('a', pa.int32()),
                    pa.field('b', pa.list_(pa.int8())),
                    pa.field('c', pa.string())]),
@@ -1160,7 +1164,7 @@ def test_pandas_null_sentinels_raise_error():
         ([0, np.nan], pa.time32('s')),
         ([0, np.nan], pa.time64('us')),
         ([0, np.nan], pa.timestamp('us')),
-        # ([0, np.nan], pa.duration('us')),
+        ([0, np.nan], pa.duration('us')),
     ]
     for case, ty in cases:
         # Both types of exceptions are raised. May want to clean that up
@@ -1259,14 +1263,12 @@ def test_array_from_numpy_timedelta(dtype, type):
     arr = pa.array(np_arr)
     assert isinstance(arr, pa.DurationArray)
     assert arr.type == type
-    # TODO implement python conversion
-    # expected = pa.array(data, type=type)
-    # assert arr.equals(expected)
-    np.testing.assert_array_equal(np.array(arr), np_arr)
+    expected = pa.array(data, type=type)
+    assert arr.equals(expected)
 
-    # # from list of numpy scalars
-    # arr = pa.array(list(np.array(data, dtype=dtype)))
-    # assert arr.equals(expected)
+    # from list of numpy scalars
+    arr = pa.array(list(np.array(data, dtype=dtype)))
+    assert arr.equals(expected)
 
 
 def test_array_from_numpy_ascii():

@@ -449,6 +449,63 @@ class TimestampConverter
   TimeUnit::type unit_;
 };
 
+template <NullCoding null_coding>
+class DurationConverter
+    : public TypedConverter<DurationType, DurationConverter<null_coding>, null_coding> {
+ public:
+  explicit DurationConverter(TimeUnit::type unit) : unit_(unit) {}
+
+  Status AppendItem(PyObject* obj) {
+    int64_t t;
+    if (PyDelta_Check(obj)) {
+      auto pytimedelta = reinterpret_cast<PyDateTime_Delta*>(obj);
+
+      switch (unit_) {
+        case TimeUnit::SECOND:
+          t = internal::PyDelta_to_s(pytimedelta);
+          break;
+        case TimeUnit::MILLI:
+          t = internal::PyDelta_to_ms(pytimedelta);
+          break;
+        case TimeUnit::MICRO:
+          t = internal::PyDelta_to_us(pytimedelta);
+          break;
+        case TimeUnit::NANO:
+          t = internal::PyDelta_to_ns(pytimedelta);
+          break;
+        default:
+          return Status::UnknownError("Invalid time unit");
+      }
+    } else if (PyArray_CheckAnyScalarExact(obj)) {
+      // numpy.datetime64
+      using traits = internal::npy_traits<NPY_TIMEDELTA>;
+
+      std::shared_ptr<DataType> type;
+      RETURN_NOT_OK(NumPyDtypeToArrow(PyArray_DescrFromScalar(obj), &type));
+      if (type->id() != Type::DURATION) {
+        return Status::Invalid("Expected np.timedelta64 but got: ", type->ToString());
+      }
+      const DurationType& ttype = checked_cast<const DurationType&>(*type);
+      if (unit_ != ttype.unit()) {
+        return Status::NotImplemented(
+            "Cannot convert NumPy timedelta64 objects with differing unit");
+      }
+
+      t = reinterpret_cast<PyTimedeltaScalarObject*>(obj)->obval;
+      if (traits::isnull(t)) {
+        // checks numpy NaT sentinel after conversion
+        return this->typed_builder_->AppendNull();
+      }
+    } else {
+      RETURN_NOT_OK(internal::CIntFromPython(obj, &t));
+    }
+    return this->typed_builder_->Append(t);
+  }
+
+ private:
+  TimeUnit::type unit_;
+};
+
 // ----------------------------------------------------------------------
 // Sequence converters for Binary, FixedSizeBinary, String
 
@@ -652,7 +709,7 @@ class ListConverter
 
     const bool null_sentinels_possible =
         // Always treat Numpy's NaT as null
-        NUMPY_TYPE == NPY_DATETIME ||
+        NUMPY_TYPE == NPY_DATETIME || NUMPY_TYPE == NPY_TIMEDELTA ||
         // Observing pandas's null sentinels
         (from_pandas_ && traits::supports_nulls);
 
@@ -700,6 +757,7 @@ class ListConverter
       LIST_SLOW_CASE(TIME32)
       LIST_SLOW_CASE(TIME64)
       LIST_FAST_CASE(TIMESTAMP, NPY_DATETIME, TimestampType)
+      LIST_FAST_CASE(DURATION, NPY_TIMEDELTA, DurationType)
       LIST_FAST_CASE(HALF_FLOAT, NPY_FLOAT16, HalfFloatType)
       LIST_FAST_CASE(FLOAT, NPY_FLOAT, FloatType)
       LIST_FAST_CASE(DOUBLE, NPY_DOUBLE, DoubleType)
@@ -949,6 +1007,11 @@ Status GetConverterFlat(const std::shared_ptr<DataType>& type, bool strict_conve
     case Type::TIMESTAMP: {
       *out = std::unique_ptr<SeqConverter>(new TimestampConverter<null_coding>(
           checked_cast<const TimestampType&>(*type).unit()));
+      break;
+    }
+    case Type::DURATION: {
+      *out = std::unique_ptr<SeqConverter>(new DurationConverter<null_coding>(
+          checked_cast<const DurationType&>(*type).unit()));
       break;
     }
     default:
