@@ -46,8 +46,7 @@ struct ARROW_EXPORT ParseOptions {
 
   /// Whether objects may be printed across multiple lines (for example pretty-printed)
   ///
-  /// If true, parsing may be slower
-  /// If false, input must end with an empty line
+  /// If true, parsing may be slower.
   bool newlines_in_values = false;
 
   /// How JSON fields outside of explicit_schema (if given) are treated

@@ -26,7 +26,6 @@
 #include "arrow/json/converter.h"
 #include "arrow/table.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/stl.h"
 #include "arrow/util/task_group.h"
 
 namespace arrow {
@@ -60,7 +59,9 @@ class NonNestedChunkedArrayBuilder : public ChunkedArrayBuilder {
   std::shared_ptr<Converter> converter_;
 };
 
-class TypedChunkedArrayBuilder : public NonNestedChunkedArrayBuilder {
+class TypedChunkedArrayBuilder
+    : public NonNestedChunkedArrayBuilder,
+      public std::enable_shared_from_this<TypedChunkedArrayBuilder> {
  public:
   using NonNestedChunkedArrayBuilder::NonNestedChunkedArrayBuilder;
 
@@ -72,17 +73,21 @@ class TypedChunkedArrayBuilder : public NonNestedChunkedArrayBuilder {
     }
     lock.unlock();
 
-    task_group_->Append([this, block_index, unconverted] {
+    auto self = shared_from_this();
+
+    task_group_->Append([self, block_index, unconverted] {
       std::shared_ptr<Array> converted;
-      RETURN_NOT_OK(converter_->Convert(unconverted, &converted));
-      std::unique_lock<std::mutex> lock(mutex_);
-      chunks_[block_index] = std::move(converted);
+      RETURN_NOT_OK(self->converter_->Convert(unconverted, &converted));
+      std::unique_lock<std::mutex> lock(self->mutex_);
+      self->chunks_[block_index] = std::move(converted);
       return Status::OK();
     });
   }
 };
 
-class InferringChunkedArrayBuilder : public NonNestedChunkedArrayBuilder {
+class InferringChunkedArrayBuilder
+    : public NonNestedChunkedArrayBuilder,
+      public std::enable_shared_from_this<InferringChunkedArrayBuilder> {
  public:
   InferringChunkedArrayBuilder(const std::shared_ptr<TaskGroup>& task_group,
                                const PromotionGraph* promotion_graph,
@@ -105,8 +110,9 @@ class InferringChunkedArrayBuilder : public NonNestedChunkedArrayBuilder {
   }
 
   void ScheduleConvertChunk(int64_t block_index) {
-    task_group_->Append([this, block_index] {
-      return TryConvertChunk(static_cast<size_t>(block_index));
+    auto self = shared_from_this();
+    task_group_->Append([self, block_index] {
+      return self->TryConvertChunk(static_cast<size_t>(block_index));
     });
   }
 
@@ -173,7 +179,7 @@ class InferringChunkedArrayBuilder : public NonNestedChunkedArrayBuilder {
 class ChunkedListArrayBuilder : public ChunkedArrayBuilder {
  public:
   ChunkedListArrayBuilder(const std::shared_ptr<TaskGroup>& task_group, MemoryPool* pool,
-                          std::unique_ptr<ChunkedArrayBuilder> value_builder,
+                          std::shared_ptr<ChunkedArrayBuilder> value_builder,
                           const std::shared_ptr<Field>& value_field)
       : ChunkedArrayBuilder(task_group),
         pool_(pool),
@@ -250,7 +256,7 @@ class ChunkedListArrayBuilder : public ChunkedArrayBuilder {
 
   std::mutex mutex_;
   MemoryPool* pool_;
-  std::unique_ptr<ChunkedArrayBuilder> value_builder_;
+  std::shared_ptr<ChunkedArrayBuilder> value_builder_;
   BufferVector offset_chunks_, null_bitmap_chunks_;
   std::shared_ptr<Field> value_field_;
 };
@@ -260,7 +266,7 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
   ChunkedStructArrayBuilder(
       const std::shared_ptr<TaskGroup>& task_group, MemoryPool* pool,
       const PromotionGraph* promotion_graph,
-      std::vector<std::pair<std::string, std::unique_ptr<ChunkedArrayBuilder>>>
+      std::vector<std::pair<std::string, std::shared_ptr<ChunkedArrayBuilder>>>
           name_builders)
       : ChunkedArrayBuilder(task_group), pool_(pool), promotion_graph_(promotion_graph) {
     for (auto&& name_builder : name_builders) {
@@ -390,7 +396,7 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
         auto new_index = static_cast<int>(name_to_index_.size());
         it = name_to_index_.emplace(fields[i]->name(), new_index).first;
 
-        std::unique_ptr<ChunkedArrayBuilder> child_builder;
+        std::shared_ptr<ChunkedArrayBuilder> child_builder;
         RETURN_NOT_OK(MakeChunkedArrayBuilder(task_group_, pool_, promotion_graph_, type,
                                               &child_builder));
         child_builders_.emplace_back(std::move(child_builder));
@@ -411,7 +417,7 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
   MemoryPool* pool_;
   const PromotionGraph* promotion_graph_;
   std::unordered_map<std::string, int> name_to_index_;
-  std::vector<std::unique_ptr<ChunkedArrayBuilder>> child_builders_;
+  std::vector<std::shared_ptr<ChunkedArrayBuilder>> child_builders_;
   std::vector<std::vector<bool>> child_absent_;
   BufferVector null_bitmap_chunks_;
   std::vector<int64_t> chunk_lengths_;
@@ -420,37 +426,36 @@ class ChunkedStructArrayBuilder : public ChunkedArrayBuilder {
 Status MakeChunkedArrayBuilder(const std::shared_ptr<TaskGroup>& task_group,
                                MemoryPool* pool, const PromotionGraph* promotion_graph,
                                const std::shared_ptr<DataType>& type,
-                               std::unique_ptr<ChunkedArrayBuilder>* out) {
+                               std::shared_ptr<ChunkedArrayBuilder>* out) {
   if (type->id() == Type::STRUCT) {
-    std::vector<std::pair<std::string, std::unique_ptr<ChunkedArrayBuilder>>>
+    std::vector<std::pair<std::string, std::shared_ptr<ChunkedArrayBuilder>>>
         child_builders;
     for (const auto& f : type->children()) {
-      std::unique_ptr<ChunkedArrayBuilder> child_builder;
+      std::shared_ptr<ChunkedArrayBuilder> child_builder;
       RETURN_NOT_OK(MakeChunkedArrayBuilder(task_group, pool, promotion_graph, f->type(),
                                             &child_builder));
       child_builders.emplace_back(f->name(), std::move(child_builder));
     }
-    *out = internal::make_unique<ChunkedStructArrayBuilder>(
-        task_group, pool, promotion_graph, std::move(child_builders));
+    *out = std::make_shared<ChunkedStructArrayBuilder>(task_group, pool, promotion_graph,
+                                                       std::move(child_builders));
     return Status::OK();
   }
   if (type->id() == Type::LIST) {
     auto list_type = static_cast<const ListType*>(type.get());
-    std::unique_ptr<ChunkedArrayBuilder> value_builder;
+    std::shared_ptr<ChunkedArrayBuilder> value_builder;
     RETURN_NOT_OK(MakeChunkedArrayBuilder(task_group, pool, promotion_graph,
                                           list_type->value_type(), &value_builder));
-    *out = internal::make_unique<ChunkedListArrayBuilder>(
+    *out = std::make_shared<ChunkedListArrayBuilder>(
         task_group, pool, std::move(value_builder), list_type->value_field());
     return Status::OK();
   }
   std::shared_ptr<Converter> converter;
   RETURN_NOT_OK(MakeConverter(type, pool, &converter));
   if (promotion_graph) {
-    *out = internal::make_unique<InferringChunkedArrayBuilder>(
-        task_group, promotion_graph, std::move(converter));
+    *out = std::make_shared<InferringChunkedArrayBuilder>(task_group, promotion_graph,
+                                                          std::move(converter));
   } else {
-    *out =
-        internal::make_unique<TypedChunkedArrayBuilder>(task_group, std::move(converter));
+    *out = std::make_shared<TypedChunkedArrayBuilder>(task_group, std::move(converter));
   }
   return Status::OK();
 }
