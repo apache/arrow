@@ -212,13 +212,9 @@ Status StringToNative(const std::string& s, NativePathString* out) {
 
 #if _WIN32
 Status NativeToString(const NativePathString& ws, std::string* out) {
-#if _WIN32
   std::string s;
   RETURN_NOT_OK(::arrow::util::WideStringToUTF8(ws, &s));
   *out = std::move(s);
-#else
-  *out = ws;
-#endif
   return Status::OK();
 }
 #endif
@@ -242,18 +238,28 @@ NativePathString GenericSlashes(NativePathString s) {
 }
 
 NativePathString NativeParent(const NativePathString& s) {
-  // XXX What about trailing separators?
   auto last_sep = s.find_last_of(kAllSeps);
+  if (last_sep == s.length() - 1) {
+    // Last separator is a trailing separator, skip all trailing separators
+    // and try again
+    auto before_last_seps = s.find_last_not_of(kAllSeps);
+    if (before_last_seps == NativePathString::npos) {
+      // Only separators in path
+      return s;
+    }
+    last_sep = s.find_last_of(kAllSeps, before_last_seps);
+  }
   if (last_sep == NativePathString::npos) {
+    // No (other) separator in path
     return s;
   }
   // There may be multiple contiguous separators, skip all of them
-  auto before_seps = s.find_last_not_of(kAllSeps, last_sep);
-  if (before_seps == NativePathString::npos) {
+  auto before_last_seps = s.find_last_not_of(kAllSeps, last_sep);
+  if (before_last_seps == NativePathString::npos) {
     // All separators are at start of string, keep them all
     return s.substr(0, last_sep + 1);
   } else {
-    return s.substr(0, before_seps + 1);
+    return s.substr(0, before_last_seps + 1);
   }
 }
 
@@ -282,7 +288,7 @@ static Status ToStatus(const bfs::filesystem_error& err) {
   return Status::IOError(err.what());
 }
 
-#endif
+#endif  // ARROW_WITH_BOOST_FILESYSTEM
 
 std::string ErrnoMessage(int errnum) { return std::strerror(errnum); }
 
@@ -509,7 +515,7 @@ Status DeleteDirContents(const PlatformFilename& dir_path, bool* deleted) {
   return Status::OK();
 }
 
-#else
+#else  // ARROW_WITH_BOOST_FILESYSTEM
 
 Status DeleteDirTree(const PlatformFilename& dir_path, bool* deleted) {
   return Status::NotImplemented("DeleteDirTree not available in this Arrow build");
@@ -1197,7 +1203,7 @@ Status TemporaryDir::Make(const std::string& prefix, std::unique_ptr<TemporaryDi
   return st;
 }
 
-#else
+#else  // ARROW_WITH_BOOST_FILESYSTEM
 
 Status TemporaryDir::Make(const std::string& prefix, std::unique_ptr<TemporaryDir>* out) {
   return Status::NotImplemented("TemporaryDir not available in this Arrow build");
