@@ -329,7 +329,6 @@ class RawArrayBuilder<Kind::kObject> {
         return name_index.first;
       }
     }
-    DCHECK(false);
     return "";
   }
 

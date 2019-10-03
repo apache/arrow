@@ -164,13 +164,13 @@ TEST_P(BlockParserTypeError, FailOnInconvertible) {
 }
 
 TEST_P(BlockParserTypeError, FailOnNestedInconvertible) {
-  auto options = Options(schema({field("a", list(struct_({field("a", int32())})))}));
+  auto options = Options(schema({field("a", list(struct_({field("b", int32())})))}));
   std::shared_ptr<Array> parsed;
   Status error =
-      ParseFromString(options, "{\"a\":[{\"a\":0}]}\n{\"a\":[{\"a\":true}]}", &parsed);
+      ParseFromString(options, "{\"a\":[{\"b\":0}]}\n{\"a\":[{\"b\":true}]}", &parsed);
   ASSERT_RAISES(Invalid, error);
   ASSERT_EQ(error.message(),
-            "JSON parse error: Column(/a/[]/a) changed from number to boolean in row 1");
+            "JSON parse error: Column(/a/[]/b) changed from number to boolean in row 1");
 }
 
 TEST_P(BlockParserTypeError, FailOnDuplicateKeys) {
