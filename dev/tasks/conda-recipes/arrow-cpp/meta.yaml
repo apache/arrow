@@ -20,6 +20,7 @@ requirements:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
   host:
+    - aws-sdk-cpp
     - boost-cpp
     - brotli
     - c-ares
@@ -44,6 +45,7 @@ requirements:
 
   run:
     - {{ pin_compatible('numpy', lower_bound='1.14') }}
+    - aws-sdk-cpp
     - boost-cpp
     - brotli
     - c-ares
