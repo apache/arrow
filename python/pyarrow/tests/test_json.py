@@ -16,12 +16,39 @@
 # under the License.
 
 import io
+import itertools
+import json
+import string
 import unittest
 
+import numpy as np
 import pytest
 
 import pyarrow as pa
 from pyarrow.json import read_json, ReadOptions, ParseOptions
+
+
+def generate_col_names():
+    # 'a', 'b'... 'z', then 'aa', 'ab'...
+    letters = string.ascii_lowercase
+    for letter in letters:
+        yield letter
+    for first in letter:
+        for second in letter:
+            yield first + second
+
+
+def make_random_json(num_cols=2, num_rows=10, linesep=u'\r\n'):
+    arr = np.random.RandomState(42).randint(0, 1000, size=(num_cols, num_rows))
+    col_names = list(itertools.islice(generate_col_names(), num_cols))
+    lines = []
+    for row in arr.T:
+        json_obj = {k: int(v) for (k, v) in zip(col_names, row)}
+        lines.append(json.dumps(json_obj))
+    data = linesep.join(lines).encode()
+    columns = [pa.array(col, type=pa.int64()) for col in arr]
+    expected = pa.Table.from_arrays(columns, col_names)
+    return data, expected
 
 
 def test_read_options():
@@ -75,6 +102,37 @@ class BaseTestJSONRead:
         with pytest.raises(TypeError):
             self.read_json(sio)
 
+    def test_block_sizes(self):
+        rows = b'{"a": 1}\n{"a": 2}\n{"a": 3}'
+        read_options = ReadOptions()
+        parse_options = ParseOptions()
+
+        for data in [rows, rows + b'\n']:
+            for newlines_in_values in [False, True]:
+                parse_options.newlines_in_values = newlines_in_values
+                read_options.block_size = 4
+                with pytest.raises(ValueError,
+                                   match="try to increase block size"):
+                    self.read_bytes(data, read_options=read_options,
+                                    parse_options=parse_options)
+
+                # Validate reader behavior with various block sizes.
+                # There used to be bugs in this area.
+                for block_size in range(9, 20):
+                    read_options.block_size = block_size
+                    table = self.read_bytes(data, read_options=read_options,
+                                            parse_options=parse_options)
+                    assert table.to_pydict() == {'a': [1, 2, 3]}
+
+    def test_no_newline_at_end(self):
+        rows = b'{"a": 1,"b": 2, "c": 3}\n{"a": 4,"b": 5, "c": 6}'
+        table = self.read_bytes(rows)
+        assert table.to_pydict() == {
+            'a': [1, 4],
+            'b': [2, 5],
+            'c': [3, 6],
+            }
+
     def test_simple_ints(self):
         # Infer integer columns
         rows = b'{"a": 1,"b": 2, "c": 3}\n{"a": 4,"b": 5, "c": 6}\n'
@@ -125,6 +183,31 @@ class BaseTestJSONRead:
             'd': [None, None, None],
             'e': [None, True, False],
             }
+
+    def test_small_random_json(self):
+        data, expected = make_random_json(num_cols=2, num_rows=10)
+        table = self.read_bytes(data)
+        assert table.schema == expected.schema
+        assert table.equals(expected)
+        assert table.to_pydict() == expected.to_pydict()
+
+    def test_stress_block_sizes(self):
+        # Test a number of small block sizes to stress block stitching
+        data_base, expected = make_random_json(num_cols=2, num_rows=100)
+        read_options = ReadOptions()
+        parse_options = ParseOptions()
+
+        for data in [data_base, data_base.rstrip(b'\r\n')]:
+            for newlines_in_values in [False, True]:
+                parse_options.newlines_in_values = newlines_in_values
+                for block_size in [22, 23, 37]:
+                    read_options.block_size = block_size
+                    table = self.read_bytes(data, read_options=read_options,
+                                            parse_options=parse_options)
+                    assert table.schema == expected.schema
+                    if not table.equals(expected):
+                        # Better error output
+                        assert table.to_pydict() == expected.to_pydict()
 
 
 class TestSerialJSONRead(BaseTestJSONRead, unittest.TestCase):

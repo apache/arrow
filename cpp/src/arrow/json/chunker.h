@@ -41,22 +41,47 @@ class ARROW_EXPORT Chunker {
   virtual ~Chunker() = default;
 
   /// \brief Carve up a chunk in a block of data to contain only whole objects
+  ///
+  /// Post-conditions:
+  /// - block == whole + partial
+  /// - `whole` is a valid block of JSON data
+  /// - `partial` doesn't contain an entire JSON object
+  ///
   /// \param[in] block json data to be chunked
   /// \param[out] whole subrange of block containing whole json objects
   /// \param[out] partial subrange of block a partial json object
-  virtual Status Process(const std::shared_ptr<Buffer>& block,
-                         std::shared_ptr<Buffer>* whole,
+  virtual Status Process(std::shared_ptr<Buffer> block, std::shared_ptr<Buffer>* whole,
                          std::shared_ptr<Buffer>* partial) = 0;
 
   /// \brief Carve the completion of a partial object out of a block
+  ///
+  /// Post-conditions:
+  /// - block == completion + rest
+  /// - `partial + completion` is a valid block of JSON data
+  /// - `completion` doesn't contain an entire JSON object
+  ///
   /// \param[in] partial incomplete json object
   /// \param[in] block json data
   /// \param[out] completion subrange of block containing the completion of partial
   /// \param[out] rest subrange of block containing what completion does not cover
-  virtual Status ProcessWithPartial(const std::shared_ptr<Buffer>& partial,
-                                    const std::shared_ptr<Buffer>& block,
+  virtual Status ProcessWithPartial(std::shared_ptr<Buffer> partial,
+                                    std::shared_ptr<Buffer> block,
                                     std::shared_ptr<Buffer>* completion,
                                     std::shared_ptr<Buffer>* rest) = 0;
+
+  /// \brief Like ProcessWithPartial, but for the lastblock of a file
+  ///
+  /// This method allows for a final JSON object without a trailing newline
+  /// (ProcessWithPartial would return an error in that case).
+  ///
+  /// Post-conditions:
+  /// - block == completion + rest
+  /// - `partial + completion` is a valid block of JSON data
+  /// - `completion` doesn't contain an entire JSON object
+  virtual Status ProcessFinal(std::shared_ptr<Buffer> partial,
+                              std::shared_ptr<Buffer> block,
+                              std::shared_ptr<Buffer>* completion,
+                              std::shared_ptr<Buffer>* rest) = 0;
 
   static std::unique_ptr<Chunker> Make(const ParseOptions& options);
 
