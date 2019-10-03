@@ -17,6 +17,7 @@
 
 class TestCUDA < Test::Unit::TestCase
   include Helper::Buildable
+  include Helper::Omittable
 
   def setup
     omit("Arrow CUDA is required") unless defined?(::ArrowCUDA)
@@ -47,6 +48,7 @@ class TestCUDA < Test::Unit::TestCase
     end
 
     def test_export
+      require_gi_bindings(3, 3, 9)
       @buffer.copy_from_host("Hello World")
       handle = @buffer.export
       serialized_handle = handle.serialize.data
