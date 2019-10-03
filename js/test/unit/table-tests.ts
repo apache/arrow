@@ -424,6 +424,10 @@ describe(`Table`, () => {
                             get_i32 = col('i32').bind(batch);
                         })),
                     expected: values.filter((row) => (row[F32] as number) * (row[I32] as number) > 0)
+                }, {
+                    name: `filter out all records`,
+                    filtered: table.filter(lit(1).eq(0)),
+                    expected: []
                 }
             ];
             for (let this_test of filter_tests) {
@@ -440,15 +444,13 @@ describe(`Table`, () => {
                                 expect(columns.map((c) => c.get(idx))).toEqual(expected[expected_idx++]);
                             });
                         });
-                        test(`calls bind function on every batch`, () => {
-                            // Techincally, we only need to call bind on
-                            // batches with data that match the predicate, so
-                            // this test may fail in the future if we change
-                            // that - and that's ok!
+                        test(`calls bind function lazily`, () => {
                             let bind = jest.fn();
                             filtered.scan(() => { }, bind);
-                            for (let batch of table.chunks) {
-                                expect(bind).toHaveBeenCalledWith(batch);
+                            if (expected.length) {
+                                expect(bind).toHaveBeenCalled();
+                            } else {
+                                expect(bind).not.toHaveBeenCalled();
                             }
                         });
                     });
@@ -460,15 +462,13 @@ describe(`Table`, () => {
                                 expect(columns.map((c) => c.get(idx))).toEqual(expected[--expected_idx]);
                             });
                         });
-                        test(`calls bind function on every batch`, () => {
-                            // Techincally, we only need to call bind on
-                            // batches with data that match the predicate, so
-                            // this test may fail in the future if we change
-                            // that - and that's ok!
+                        test(`calls bind function lazily`, () => {
                             let bind = jest.fn();
                             filtered.scanReverse(() => { }, bind);
-                            for (let batch of table.chunks) {
-                                expect(bind).toHaveBeenCalledWith(batch);
+                            if (expected.length) {
+                                expect(bind).toHaveBeenCalled();
+                            } else {
+                                expect(bind).not.toHaveBeenCalled();
                             }
                         });
                     });
