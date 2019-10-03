@@ -663,8 +663,10 @@ class HandlerBase : public BlockParser,
         path += "/[]";
       } else {
         auto struct_builder = Cast<Kind::kObject>(builder);
-        auto field_index =
-            i == field_index_stack_.size() ? field_index_ : field_index_stack_[i + 1];
+        auto field_index = field_index_;
+        if (i + 1 < field_index_stack_.size()) {
+          field_index = field_index_stack_[i + 1];
+        }
         path += "/" + struct_builder->FieldName(field_index);
       }
     }
