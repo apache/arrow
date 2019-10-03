@@ -250,9 +250,6 @@ inline void set_numpy_metadata(int type, const DataType* datatype, PyArray_Descr
           date_dtype->meta.base = NPY_FR_ns;
           break;
       }
-    } else {
-      // datatype->type == Type::DATE64
-      date_dtype->meta.base = NPY_FR_D;
     }
   }
 }
@@ -734,20 +731,7 @@ inline void ConvertNumericNullableCast(const ChunkedArray& data, OutType na_valu
 }
 
 template <typename T, int64_t SHIFT>
-inline void ConvertDatetimeNanos(const ChunkedArray& data, int64_t* out_values) {
-  for (int c = 0; c < data.num_chunks(); c++) {
-    const auto& arr = *data.chunk(c);
-    const T* in_values = GetPrimitiveValues<T>(arr);
-
-    for (int64_t i = 0; i < arr.length(); ++i) {
-      *out_values++ = arr.IsNull(i) ? kPandasTimestampNull
-                                    : (static_cast<int64_t>(in_values[i]) * SHIFT);
-    }
-  }
-}
-
-template <typename T, int64_t SHIFT>
-inline void ConvertTimedeltaNanos(const ChunkedArray& data, int64_t* out_values) {
+inline void ConvertDatetimeLikeNanos(const ChunkedArray& data, int64_t* out_values) {
   for (int c = 0; c < data.num_chunks(); c++) {
     const auto& arr = *data.chunk(c);
     const T* in_values = GetPrimitiveValues<T>(arr);
@@ -1091,22 +1075,22 @@ class DatetimeBlock : public PandasBlock {
 
     if (type == Type::DATE32) {
       // Convert from days since epoch to datetime64[ns]
-      ConvertDatetimeNanos<int32_t, kNanosecondsInDay>(*data, out_buffer);
+      ConvertDatetimeLikeNanos<int32_t, kNanosecondsInDay>(*data, out_buffer);
     } else if (type == Type::DATE64) {
       // Date64Type is millisecond timestamp stored as int64_t
       // TODO(wesm): Do we want to make sure to zero out the milliseconds?
-      ConvertDatetimeNanos<int64_t, 1000000L>(*data, out_buffer);
+      ConvertDatetimeLikeNanos<int64_t, 1000000L>(*data, out_buffer);
     } else if (type == Type::TIMESTAMP) {
       const auto& ts_type = checked_cast<const TimestampType&>(*data->type());
 
       if (ts_type.unit() == TimeUnit::NANO) {
         ConvertNumericNullable<int64_t>(*data, kPandasTimestampNull, out_buffer);
       } else if (ts_type.unit() == TimeUnit::MICRO) {
-        ConvertDatetimeNanos<int64_t, 1000L>(*data, out_buffer);
+        ConvertDatetimeLikeNanos<int64_t, 1000L>(*data, out_buffer);
       } else if (ts_type.unit() == TimeUnit::MILLI) {
-        ConvertDatetimeNanos<int64_t, 1000000L>(*data, out_buffer);
+        ConvertDatetimeLikeNanos<int64_t, 1000000L>(*data, out_buffer);
       } else if (ts_type.unit() == TimeUnit::SECOND) {
-        ConvertDatetimeNanos<int64_t, 1000000000L>(*data, out_buffer);
+        ConvertDatetimeLikeNanos<int64_t, 1000000000L>(*data, out_buffer);
       } else {
         return Status::NotImplemented("Unsupported time unit");
       }
@@ -1149,11 +1133,11 @@ class TimedeltaBlock : public PandasBlock {
       if (ts_type.unit() == TimeUnit::NANO) {
         ConvertNumericNullable<int64_t>(*data, kPandasTimestampNull, out_buffer);
       } else if (ts_type.unit() == TimeUnit::MICRO) {
-        ConvertTimedeltaNanos<int64_t, 1000L>(*data, out_buffer);
+        ConvertDatetimeLikeNanos<int64_t, 1000L>(*data, out_buffer);
       } else if (ts_type.unit() == TimeUnit::MILLI) {
-        ConvertTimedeltaNanos<int64_t, 1000000L>(*data, out_buffer);
+        ConvertDatetimeLikeNanos<int64_t, 1000000L>(*data, out_buffer);
       } else if (ts_type.unit() == TimeUnit::SECOND) {
-        ConvertTimedeltaNanos<int64_t, 1000000000L>(*data, out_buffer);
+        ConvertDatetimeLikeNanos<int64_t, 1000000000L>(*data, out_buffer);
       } else {
         return Status::NotImplemented("Unsupported time unit");
       }

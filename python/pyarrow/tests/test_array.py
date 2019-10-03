@@ -827,7 +827,7 @@ def test_cast_from_null():
         pa.timestamp('us'),
         pa.timestamp('us', tz='UTC'),
         pa.timestamp('us', tz='Europe/Paris'),
-        # pa.duration('us'),  # TODO implement duration cast
+        pa.duration('us'),
         pa.struct([pa.field('a', pa.int32()),
                    pa.field('b', pa.list_(pa.int8())),
                    pa.field('c', pa.string())]),
@@ -1269,6 +1269,21 @@ def test_array_from_numpy_timedelta(dtype, type):
     # from list of numpy scalars
     arr = pa.array(list(np.array(data, dtype=dtype)))
     assert arr.equals(expected)
+
+
+def test_array_from_numpy_timedelta_incorrect_unit():
+    # generic (no unit)
+    td = np.timedelta64(1)
+
+    for data in [[td], np.array([td])]:
+        with pytest.raises(NotImplementedError):
+            pa.array(data)
+
+    # unsupported unit
+    td = np.timedelta64(1, 'M')
+    for data in [[td], np.array([td])]:
+        with pytest.raises(NotImplementedError):
+            pa.array(data)
 
 
 def test_array_from_numpy_ascii():
