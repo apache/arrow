@@ -65,6 +65,11 @@
 #' - `$Slice(offset, length = NULL)`: Create a zero-copy view starting at the
 #'    indicated integer offset and going for the given length, or to the end
 #'    of the table if `NULL`, the default.
+#' - `$Take(i)`: return an `Table` with rows at positions given by
+#'    integers `i`. If `i` is an Arrow `Array` or `ChunkedArray`, it will be
+#'    coerced to an R vector before taking.
+#' - `$Filter(i)`: return an `Table` with rows at positions where logical
+#'    vector or Arrow boolean-type `(Chunked)Array` `i` is `TRUE`.
 #' - `$serialize(output_stream, ...)`: Write the table to the given
 #'    [OutputStream]
 #' - `$cast(target_schema, safe = TRUE, options = cast_options(safe))`: Alter
@@ -131,6 +136,26 @@ Table <- R6Class("Table", inherit = Object,
       } else {
         shared_ptr(Table, Table__Slice2(self, offset, length))
       }
+    },
+    Take = function(i) {
+      if (inherits(i, c("Array", "ChunkedArray"))) {
+        # Hack because ChunkedArray__Take doesn't take Arrays
+        i <- as.vector(i)
+      } else if (is.numeric(i)) {
+        i <- as.integer(i)
+      }
+      assert_is(i, "integer")
+      shared_ptr(Table, Table__Take(self, i))
+    },
+    Filter = function(i) {
+      if (is.logical(i)) {
+        i <- Array$create(i)
+      }
+      if (inherits(i, "ChunkedArray")) {
+        return(shared_ptr(Table, Table__FilterChunked(self, i)))
+      }
+      assert_is(i, "Array")
+      shared_ptr(Table, Table__Filter(self, i))
     },
 
     Equals = function(other) {

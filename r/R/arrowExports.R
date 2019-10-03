@@ -208,12 +208,12 @@ ChunkedArray__type <- function(chunked_array){
     .Call(`_arrow_ChunkedArray__type` , chunked_array)
 }
 
-ChunkArray__Slice1 <- function(chunked_array, offset){
-    .Call(`_arrow_ChunkArray__Slice1` , chunked_array, offset)
+ChunkedArray__Slice1 <- function(chunked_array, offset){
+    .Call(`_arrow_ChunkedArray__Slice1` , chunked_array, offset)
 }
 
-ChunkArray__Slice2 <- function(chunked_array, offset, length){
-    .Call(`_arrow_ChunkArray__Slice2` , chunked_array, offset, length)
+ChunkedArray__Slice2 <- function(chunked_array, offset, length){
+    .Call(`_arrow_ChunkedArray__Slice2` , chunked_array, offset, length)
 }
 
 ChunkedArray__View <- function(array, type){
@@ -262,6 +262,46 @@ RecordBatch__cast <- function(batch, schema, options){
 
 Table__cast <- function(table, schema, options){
     .Call(`_arrow_Table__cast` , table, schema, options)
+}
+
+Array__Take <- function(values, indices){
+    .Call(`_arrow_Array__Take` , values, indices)
+}
+
+RecordBatch__Take <- function(batch, indices){
+    .Call(`_arrow_RecordBatch__Take` , batch, indices)
+}
+
+ChunkedArray__Take <- function(values, indices){
+    .Call(`_arrow_ChunkedArray__Take` , values, indices)
+}
+
+Table__Take <- function(table, indices){
+    .Call(`_arrow_Table__Take` , table, indices)
+}
+
+Array__Filter <- function(values, filter){
+    .Call(`_arrow_Array__Filter` , values, filter)
+}
+
+RecordBatch__Filter <- function(batch, filter){
+    .Call(`_arrow_RecordBatch__Filter` , batch, filter)
+}
+
+ChunkedArray__Filter <- function(values, filter){
+    .Call(`_arrow_ChunkedArray__Filter` , values, filter)
+}
+
+ChunkedArray__FilterChunked <- function(values, filter){
+    .Call(`_arrow_ChunkedArray__FilterChunked` , values, filter)
+}
+
+Table__Filter <- function(table, filter){
+    .Call(`_arrow_Table__Filter` , table, filter)
+}
+
+Table__FilterChunked <- function(table, filter){
+    .Call(`_arrow_Table__FilterChunked` , table, filter)
 }
 
 csv___ReadOptions__initialize <- function(options){
