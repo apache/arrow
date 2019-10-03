@@ -30,17 +30,26 @@
 #'
 #' @section Methods:
 #'
-#' - `$length()`
-#' - `$chunk(i)`
-#' - `$as_vector()`
-#' - `$Slice(offset, length = NULL)`
-#' - `$cast(target_type, safe = TRUE, options = cast_options(safe))`
-#' - `$null_count()`
-#' - `$chunks()`
-#' - `$num_chunks()`
-#' - `$type()`
-#' - `$View(type)`: Construct a zero-copy view of this chunked array with the given type.
-#' - `$Validate()` : Perform any validation checks to determine obvious inconsistencies
+#' - `$length()`: Size in the number of elements this array contains
+#' - `$chunk(i)`: Extract an `Array` chunk by integer position
+#' - `$as_vector()`: convert to an R vector
+#' - `$Slice(offset, length = NULL)`: Construct a zero-copy slice of the array
+#'    with the indicated offset and length. If length is `NULL`, the slice goes
+#'    until the end of the array.
+#' - `$Take(i)`: return a `ChunkedArray` with values at positions given by
+#'    integers `i`. If `i` is an Arrow `Array` or `ChunkedArray`, it will be
+#'    coerced to an R vector before taking.
+#' - `$Filter(i)`: return a `ChunkedArray` with values at positions where
+#'    logical vector or Arrow boolean-type `(Chunked)Array` `i` is `TRUE`.
+#' - `$cast(target_type, safe = TRUE, options = cast_options(safe))`: Alter the
+#'    data in the array to change its type.
+#' - `$null_count()`: The number of null entries in the array
+#' - `$chunks()`: return a list of `Array`s
+#' - `$num_chunks()`: integer number of chunks in the `ChunkedArray`
+#' - `$type()`: logical type of data
+#' - `$View(type)`: Construct a zero-copy view of this `ChunkedArray` with the
+#'    given type.
+#' - `$Validate()`: Perform any validation checks to determine obvious inconsistencies
 #'    within the array's internal data. This can be an expensive check, potentially `O(length)`
 #'
 #' @rdname ChunkedArray
@@ -54,10 +63,30 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = Object,
     as_vector = function() ChunkedArray__as_vector(self),
     Slice = function(offset, length = NULL){
       if (is.null(length)) {
-        shared_ptr(ChunkedArray, ChunkArray__Slice1(self, offset))
+        shared_ptr(ChunkedArray, ChunkedArray__Slice1(self, offset))
       } else {
-        shared_ptr(ChunkedArray, ChunkArray__Slice2(self, offset, length))
+        shared_ptr(ChunkedArray, ChunkedArray__Slice2(self, offset, length))
       }
+    },
+    Take = function(i) {
+      if (inherits(i, c("Array", "ChunkedArray"))) {
+        # Hack because ChunkedArray__Take doesn't take Arrays
+        i <- as.vector(i)
+      } else if (is.numeric(i)) {
+        i <- as.integer(i)
+      }
+      assert_is(i, "integer")
+      return(shared_ptr(ChunkedArray, ChunkedArray__Take(self, i)))
+    },
+    Filter = function(i) {
+      if (is.logical(i)) {
+        i <- Array$create(i)
+      }
+      if (inherits(i, "ChunkedArray")) {
+        return(shared_ptr(ChunkedArray, ChunkedArray__FilterChunked(self, i)))
+      }
+      assert_is(i, "Array")
+      shared_ptr(ChunkedArray, ChunkedArray__Filter(self, i))
     },
     cast = function(target_type, safe = TRUE, options = cast_options(safe)) {
       assert_is(target_type, "DataType")
@@ -111,3 +140,6 @@ length.ChunkedArray <- function(x) x$length()
 
 #' @export
 as.vector.ChunkedArray <- function(x, mode) x$as_vector()
+
+#' @export
+`[.ChunkedArray` <- filter_rows

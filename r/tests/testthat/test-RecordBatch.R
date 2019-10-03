@@ -87,16 +87,20 @@ test_that("RecordBatch", {
 })
 
 test_that("[ on RecordBatch", {
-  expect_identical(as.data.frame(batch[6:7,]), tbl[6:7,])
-  expect_identical(as.data.frame(batch[c(6, 7),]), tbl[6:7,])
-  expect_identical(as.data.frame(batch[6:7, 2:4]), tbl[6:7, 2:4])
-  expect_identical(as.data.frame(batch[, c("dbl", "fct")]), tbl[, c(2, 5)])
+  expect_data_frame(batch[6:7,], tbl[6:7,])
+  expect_data_frame(batch[c(6, 7),], tbl[6:7,])
+  expect_data_frame(batch[6:7, 2:4], tbl[6:7, 2:4])
+  expect_data_frame(batch[, c("dbl", "fct")], tbl[, c(2, 5)])
   expect_identical(as.vector(batch[, "chr", drop = TRUE]), tbl$chr)
-  expect_error(
-    batch[c(3, 5, 7),],
-    'Only row "Slicing" (taking rows a:b) currently supported',
-    fixed = TRUE
+  expect_data_frame(batch[c(7, 3, 5), 2:4], tbl[c(7, 3, 5), 2:4])
+  expect_data_frame(
+    batch[rep(c(FALSE, TRUE), 5),],
+    tbl[c(2, 4, 6, 8, 10),]
   )
+  # bool Array
+  expect_data_frame(batch[batch$lgl,], tbl[tbl$lgl,])
+  # int Array
+  expect_data_frame(batch[Array$create(5:6), 2:4], tbl[6:7, 2:4])
 })
 
 test_that("[[ and $ on RecordBatch", {
@@ -246,7 +250,7 @@ test_that("record_batch() auto splices (ARROW-5718)", {
   batch2 <- record_batch(!!!df)
   expect_equal(batch1, batch2)
   expect_equal(batch1$schema, schema(x = int32(), y = utf8()))
-  expect_equivalent(as.data.frame(batch1), df)
+  expect_data_frame(batch1, df)
 
   batch3 <- record_batch(df, z = 1:10)
   batch4 <- record_batch(!!!df, z = 1:10)
@@ -275,4 +279,3 @@ test_that("record_batch() only auto splice data frames", {
     regexp = "only data frames are allowed as unnamed arguments to be auto spliced"
   )
 })
-

@@ -94,14 +94,26 @@ test_that("[, [[, $ for Table", {
 
   expect_identical(names(tab), names(tbl))
 
-  expect_identical(as.data.frame(tab[6:7,]), tbl[6:7,])
-  expect_identical(as.data.frame(tab[6:7, 2:4]), tbl[6:7, 2:4])
-  expect_identical(as.data.frame(tab[, c("dbl", "fct")]), tbl[, c(2, 5)])
-  expect_identical(as.vector(tab[, "chr", drop = TRUE]), tbl$chr)
+  expect_data_frame(tab[6:7,], tbl[6:7,])
+  expect_data_frame(tab[6:7, 2:4], tbl[6:7, 2:4])
+  expect_data_frame(tab[, c("dbl", "fct")], tbl[, c(2, 5)])
+  expect_vector(tab[, "chr", drop = TRUE], tbl$chr)
+  # Take within a single chunk
+  expect_data_frame(tab[c(7, 3, 5), 2:4], tbl[c(7, 3, 5), 2:4])
+  expect_data_frame(tab[rep(c(FALSE, TRUE), 5),], tbl[c(2, 4, 6, 8, 10),])
+  # bool ChunkedArray (with one chunk)
+  expect_data_frame(tab[tab$lgl,], tbl[tbl$lgl,])
+  # ChunkedArray with multiple chunks
+  c1 <- c(TRUE, FALSE, TRUE, TRUE, FALSE)
+  c2 <- c(FALSE, FALSE, TRUE, TRUE, FALSE)
+  ca <- ChunkedArray$create(c1, c2)
+  expect_data_frame(tab[ca,], tbl[c(1, 3, 4, 8, 9),])
+  # int Array
+  expect_data_frame(tab[Array$create(5:6), 2:4], tbl[6:7, 2:4])
 
-  expect_identical(as.vector(tab[["int"]]), tbl$int)
-  expect_identical(as.vector(tab$int), tbl$int)
-  expect_identical(as.vector(tab[[4]]), tbl$chr)
+  expect_vector(tab[["int"]], tbl$int)
+  expect_vector(tab$int, tbl$int)
+  expect_vector(tab[[4]], tbl$chr)
   expect_null(tab$qwerty)
   expect_null(tab[["asdf"]])
   expect_error(tab[[c(4, 3)]], 'length(i) not equal to 1', fixed = TRUE)
@@ -233,4 +245,3 @@ test_that("==.Table", {
   expect_true(all.equal(tab1, tab2))
   expect_equal(tab1, tab2)
 })
-
