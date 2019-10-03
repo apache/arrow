@@ -19,6 +19,7 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include "arrow/json/options.h"
@@ -159,8 +160,10 @@ TEST_P(BlockParserTypeError, FailOnInconvertible) {
   std::shared_ptr<Array> parsed;
   Status error = ParseFromString(options, "{\"a\":0}\n{\"a\":true}", &parsed);
   ASSERT_RAISES(Invalid, error);
-  ASSERT_EQ(error.message(),
-            "JSON parse error: Column(/a) changed from number to boolean in row 1");
+  EXPECT_THAT(
+      error.message(),
+      testing::StartsWith(
+          "JSON parse error: Column(/a) changed from number to boolean in row 1"));
 }
 
 TEST_P(BlockParserTypeError, FailOnNestedInconvertible) {
@@ -169,8 +172,10 @@ TEST_P(BlockParserTypeError, FailOnNestedInconvertible) {
   Status error =
       ParseFromString(options, "{\"a\":[{\"b\":0}]}\n{\"a\":[{\"b\":true}]}", &parsed);
   ASSERT_RAISES(Invalid, error);
-  ASSERT_EQ(error.message(),
-            "JSON parse error: Column(/a/[]/b) changed from number to boolean in row 1");
+  EXPECT_THAT(
+      error.message(),
+      testing::StartsWith(
+          "JSON parse error: Column(/a/[]/b) changed from number to boolean in row 1"));
 }
 
 TEST_P(BlockParserTypeError, FailOnDuplicateKeys) {
@@ -178,7 +183,9 @@ TEST_P(BlockParserTypeError, FailOnDuplicateKeys) {
   Status error = ParseFromString(Options(schema({field("a", int32())})),
                                  "{\"a\":0, \"a\":1}\n", &parsed);
   ASSERT_RAISES(Invalid, error);
-  ASSERT_EQ(error.message(), "JSON parse error: Column(/a) was specified twice in row 0");
+  EXPECT_THAT(
+      error.message(),
+      testing::StartsWith("JSON parse error: Column(/a) was specified twice in row 0"));
 }
 
 INSTANTIATE_TEST_CASE_P(BlockParserTypeError, BlockParserTypeError,
