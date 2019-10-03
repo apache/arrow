@@ -444,8 +444,7 @@ class TestUnifySchemas : public TestSchema {
 
 TEST_F(TestUnifySchemas, EmptyInput) {
   std::shared_ptr<Schema> result;
-  Status status = UnifySchemas({}, &result);
-  ASSERT_TRUE(status.IsInvalid());
+  ASSERT_RAISES(Invalid, UnifySchemas({}, &result));
 }
 
 TEST_F(TestUnifySchemas, IdenticalSchemas) {
@@ -512,8 +511,7 @@ TEST_F(TestUnifySchemas, IncompatibleTypes) {
   auto f0 = field("f0", int32());
   auto f0_alt = field("f0", uint8(), false);
   std::shared_ptr<Schema> result;
-  Status s = UnifySchemas({schema({f0}), schema({f0_alt})}, &result);
-  ASSERT_TRUE(s.IsInvalid());
+  ASSERT_RAISES(Invalid, UnifySchemas({schema({f0}), schema({f0_alt})}, &result));
 }
 
 TEST_F(TestUnifySchemas, DuplicateFieldNames) {
@@ -521,9 +519,9 @@ TEST_F(TestUnifySchemas, DuplicateFieldNames) {
   auto f0_alt = field("f0", int32());
   auto f1 = field("f2", utf8());
   std::shared_ptr<Schema> result;
-  Status s = UnifySchemas(
-      {schema({f0, f1}), schema({f0_alt, f1}), schema({f0, f0_alt, f1})}, &result);
-  ASSERT_TRUE(s.IsInvalid());
+  ASSERT_RAISES(Invalid, UnifySchemas({schema({f0, f1}), schema({f0_alt, f1}),
+                                       schema({f0, f0_alt, f1})},
+                                      &result));
 }
 
 #define PRIMITIVE_TEST(KLASS, CTYPE, ENUM, NAME)                              \

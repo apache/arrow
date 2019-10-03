@@ -461,12 +461,11 @@ TEST_F(TestPromoteTableToSchema, IncompatibleTypes) {
   auto table = Table::Make(schema({f0}), {MakeRandomArray<NullArray>(length)});
 
   std::shared_ptr<Table> result;
-  Status s =
-      PromoteTableToSchema(default_memory_pool(), table, schema({f0_alt1}), &result);
-  ASSERT_TRUE(s.IsInvalid());
+  ASSERT_RAISES(Invalid, PromoteTableToSchema(default_memory_pool(), table,
+                                              schema({f0_alt1}), &result));
 
-  s = PromoteTableToSchema(default_memory_pool(), table, schema({f0_alt2}), &result);
-  ASSERT_TRUE(s.IsInvalid());
+  ASSERT_RAISES(Invalid, PromoteTableToSchema(default_memory_pool(), table,
+                                              schema({f0_alt2}), &result));
 }
 
 TEST_F(TestPromoteTableToSchema, DuplicateFieldNames) {
@@ -479,8 +478,8 @@ TEST_F(TestPromoteTableToSchema, DuplicateFieldNames) {
                                                   MakeRandomArray<NullArray>(length)});
 
   std::shared_ptr<Table> result;
-  Status s = PromoteTableToSchema(default_memory_pool(), table, schema({f0}), &result);
-  ASSERT_TRUE(s.IsInvalid());
+  ASSERT_RAISES(
+      Invalid, PromoteTableToSchema(default_memory_pool(), table, schema({f0}), &result));
 }
 
 TEST_F(TestPromoteTableToSchema, TableFieldAbsentFromSchema) {
@@ -490,9 +489,8 @@ TEST_F(TestPromoteTableToSchema, TableFieldAbsentFromSchema) {
       Table::Make(schema({field("f0", int32())}), {MakeRandomArray<Int32Array>(length)});
 
   std::shared_ptr<Table> result;
-  Status s = PromoteTableToSchema(default_memory_pool(), table,
-                                  schema({field("f1", int32())}), &result);
-  ASSERT_TRUE(s.IsInvalid());
+  ASSERT_RAISES(Invalid, PromoteTableToSchema(default_memory_pool(), table,
+                                              schema({field("f1", int32())}), &result));
 }
 
 class ConcatenateTablesWithPromotionTest : public TestTable {
