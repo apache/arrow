@@ -83,10 +83,8 @@ std::shared_ptr<arrow::Table> Table__cast(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Array> Array__Take(
-    const std::shared_ptr<arrow::Array>& values,
-    const std::shared_ptr<arrow::Array>& indices) {
-
+std::shared_ptr<arrow::Array> Array__Take(const std::shared_ptr<arrow::Array>& values,
+                                          const std::shared_ptr<arrow::Array>& indices) {
   std::shared_ptr<arrow::Array> out;
   arrow::compute::FunctionContext context;
   arrow::compute::TakeOptions options;
@@ -112,15 +110,13 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__Take(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Take(
-    const std::shared_ptr<arrow::ChunkedArray>& values,
-    Rcpp::IntegerVector& indices) {
-
+    const std::shared_ptr<arrow::ChunkedArray>& values, Rcpp::IntegerVector& indices) {
   int num_chunks = values->num_chunks();
-  std::vector<std::shared_ptr<arrow::Array>> new_chunks(1); // Hard-coded 1 for now
+  std::vector<std::shared_ptr<arrow::Array>> new_chunks(1);  // Hard-coded 1 for now
   // 1) If there's only one chunk, just take from it
   if (num_chunks == 1) {
-    new_chunks[0] = Array__Take(values->chunk(0),
-                                arrow::r::Array__from_vector(indices, arrow::int32(), true));
+    new_chunks[0] = Array__Take(
+        values->chunk(0), arrow::r::Array__from_vector(indices, arrow::int32(), true));
     return std::make_shared<arrow::ChunkedArray>(std::move(new_chunks));
   }
 
@@ -158,18 +154,16 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Take(
   // the indices (offset appropriately) and take from each chunk
 
   // 4) Last resort: concatenate the chunks
-  STOP_IF_NOT_OK(arrow::Concatenate(values->chunks(),
-                                    arrow::default_memory_pool(),
-                                    &current_chunk));
+  STOP_IF_NOT_OK(
+      arrow::Concatenate(values->chunks(), arrow::default_memory_pool(), &current_chunk));
   current_indices = arrow::r::Array__from_vector(indices, arrow::int32(), true);
   new_chunks[0] = Array__Take(current_chunk, current_indices);
   return std::make_shared<arrow::ChunkedArray>(std::move(new_chunks));
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> Table__Take(
-    const std::shared_ptr<arrow::Table>& table,
-    Rcpp::IntegerVector& indices) {
+std::shared_ptr<arrow::Table> Table__Take(const std::shared_ptr<arrow::Table>& table,
+                                          Rcpp::IntegerVector& indices) {
   auto ncols = table->num_columns();
   std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(ncols);
 
@@ -181,10 +175,8 @@ std::shared_ptr<arrow::Table> Table__Take(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Array> Array__Filter(
-    const std::shared_ptr<arrow::Array>& values,
-    const std::shared_ptr<arrow::Array>& filter) {
-
+std::shared_ptr<arrow::Array> Array__Filter(const std::shared_ptr<arrow::Array>& values,
+                                            const std::shared_ptr<arrow::Array>& filter) {
   std::shared_ptr<arrow::Array> out;
   arrow::compute::FunctionContext context;
   STOP_IF_NOT_OK(arrow::compute::Filter(&context, *values, *filter, &out));
@@ -210,7 +202,6 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__Filter(
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Filter(
     const std::shared_ptr<arrow::ChunkedArray>& values,
     const std::shared_ptr<arrow::Array>& filter) {
-
   int num_chunks = values->num_chunks();
   std::vector<std::shared_ptr<arrow::Array>> new_chunks(num_chunks);
   std::shared_ptr<arrow::Array> current_chunk;
@@ -231,7 +222,6 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Filter(
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__FilterChunked(
     const std::shared_ptr<arrow::ChunkedArray>& values,
     const std::shared_ptr<arrow::ChunkedArray>& filter) {
-
   int num_chunks = values->num_chunks();
   std::vector<std::shared_ptr<arrow::Array>> new_chunks(num_chunks);
   std::shared_ptr<arrow::Array> current_chunk;
@@ -250,8 +240,7 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__FilterChunked(
     } else {
       // Concatenate the chunks of the filter so we have an Array
       STOP_IF_NOT_OK(arrow::Concatenate(current_chunked_filter->chunks(),
-                                        arrow::default_memory_pool(),
-                                        &current_filter));
+                                        arrow::default_memory_pool(), &current_filter));
     }
     new_chunks[i] = Array__Filter(current_chunk, current_filter);
     offset += len;
@@ -261,9 +250,8 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__FilterChunked(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> Table__Filter(
-    const std::shared_ptr<arrow::Table>& table,
-    const std::shared_ptr<arrow::Array>& filter) {
+std::shared_ptr<arrow::Table> Table__Filter(const std::shared_ptr<arrow::Table>& table,
+                                            const std::shared_ptr<arrow::Array>& filter) {
   auto ncols = table->num_columns();
   std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(ncols);
 
