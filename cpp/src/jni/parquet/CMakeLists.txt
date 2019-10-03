@@ -37,10 +37,10 @@ add_arrow_lib(arrow_parquet_jni
               BUILD_SHARED
               SOURCES
               jni_wrapper.cpp
-              HdfsConnector.cpp
-              FileConnector.cpp
-              ParquetReader.cpp
-              ParquetWriter.cpp
+              hdfs_connector.cc
+              file_connector.cc
+              parquet_reader.cc
+              parquet_writer.cc
               OUTPUTS
               ARROW_PARQUET_JNI_LIBRARIES
               SHARED_LINK_LIBS

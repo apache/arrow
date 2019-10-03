@@ -26,8 +26,8 @@
 #include <mutex>
 #include <string>
 #include <vector>
-#include "jni/parquet/FileConnector.h"
-#include "jni/parquet/HdfsConnector.h"
+#include "jni/parquet/file_connector.h"
+#include "jni/parquet/hdfs_connector.h"
 
 namespace jni {
 namespace parquet {

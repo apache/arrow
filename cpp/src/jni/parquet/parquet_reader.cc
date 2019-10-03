@@ -15,14 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "jni/parquet/ParquetReader.h"
+#include "jni/parquet/parquet_reader.h"
 
 #include <arrow/record_batch.h>
 #include <stdlib.h>
 #include <iostream>
 #include <memory>
-#include "jni/parquet/FileConnector.h"
-#include "jni/parquet/HdfsConnector.h"
+#include "jni/parquet/file_connector.h"
+#include "jni/parquet/hdfs_connector.h"
 
 namespace jni {
 namespace parquet {

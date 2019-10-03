@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "jni/parquet/HdfsConnector.h"
+#include "jni/parquet/hdfs_connector.h"
 
 #include <stdlib.h>
 #include <atomic>

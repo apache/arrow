@@ -22,9 +22,9 @@
 #include <iostream>
 #include <string>
 
-#include "jni/parquet/ParquetReader.h"
-#include "jni/parquet/ParquetWriter.h"
 #include "jni/parquet/concurrent_map.h"
+#include "jni/parquet/parquet_reader.h"
+#include "jni/parquet/parquet_writer.h"
 
 static jclass arrow_record_batch_builder_class;
 static jmethodID arrow_record_batch_builder_constructor;

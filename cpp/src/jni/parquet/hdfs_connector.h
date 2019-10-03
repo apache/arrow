@@ -21,7 +21,7 @@
 #include <arrow/io/hdfs.h>
 #include <memory>
 #include <string>
-#include "jni/parquet/Connector.h"
+#include "jni/parquet/connector.h"
 
 namespace jni {
 namespace parquet {

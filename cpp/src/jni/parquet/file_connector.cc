@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "jni/parquet/FileConnector.h"
+#include "jni/parquet/file_connector.h"
 
 #include <atomic>
 #include <cstdint>
