@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM arrow:python-3.6
+FROM arrowdev/arrow-python-3.6:latest
 
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update -y -q && \

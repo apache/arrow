@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM arrow:python-3.6
+FROM arrowdev/arrow-python-3.6:latest
 
 # installing java and maven
 ARG MAVEN_VERSION=3.6.2
