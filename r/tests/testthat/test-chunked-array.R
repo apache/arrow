@@ -365,7 +365,6 @@ test_that("[ ChunkedArray", {
     one_chunk[ChunkedArray$create(rep(c(FALSE, TRUE, FALSE, FALSE, TRUE), 2))],
     c(3, 6, 8, 11)
   )
-  skip("Array__Filter doesn't work right with Slices")
   expect_vector(
     x[c(FALSE, TRUE, FALSE, FALSE, TRUE)],
     c(2, 5, 7, 10, 32, 35, 37, 40, 52, 55)

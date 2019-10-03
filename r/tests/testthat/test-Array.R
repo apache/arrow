@@ -513,14 +513,3 @@ test_that("[ accepts Arrays and otherwise handles bad input", {
     "Cannot extract rows with an object of class character"
   )
 })
-
-test_that("Array$Filter(Array$Slice)", {
-  a <- Array$create(1:5)
-  f <- Array$create(c(FALSE, TRUE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE))
-  expect_vector(a$Filter(f$Slice(0, 5)), c(2, 5))
-  skip("Filtering on a Slice with an offset reaches into memory it shouldn't")
-  expect_vector(a$Filter(f$Slice(1, 5)), c(1, 4))
-  expect_vector(a$Filter(f$Slice(2, 5)), 3)
-  expect_vector(a$Filter(f$Slice(3, 5)), 2)
-  expect_vector(a$Filter(f$Slice(4, 5)))
-})

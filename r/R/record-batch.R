@@ -127,7 +127,7 @@ RecordBatch <- R6Class("RecordBatch", inherit = Object,
       if (is.logical(i)) {
         i <- Array$create(i)
       }
-      assert_is(i, "Array") # Assert type too?
+      assert_is(i, "Array")
       shared_ptr(RecordBatch, RecordBatch__Filter(self, i))
     },
     serialize = function() ipc___SerializeRecordBatch__Raw(self),

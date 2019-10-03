@@ -100,14 +100,14 @@ Array <- R6Class("Array",
       if (is.integer(i)) {
         i <- Array$create(i)
       }
-      assert_is(i, "Array") # Assert type too? Support ChunkedArray too?
+      assert_is(i, "Array") # Support ChunkedArray too?
       shared_ptr(Array, Array__Take(self, i))
     },
     Filter = function(i) {
       if (is.logical(i)) {
         i <- Array$create(i)
       }
-      assert_is(i, "Array") # Assert type too?
+      assert_is(i, "Array")
       shared_ptr(Array, Array__Filter(self, i))
     },
     RangeEquals = function(other, start_idx, end_idx, other_start_idx) {

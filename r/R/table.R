@@ -159,7 +159,7 @@ Table <- R6Class("Table", inherit = Object,
         i <- i$chunk(0)
       }
       # TODO: Should be easy enough to support the case where both are chunked the same
-      assert_is(i, "Array") # Assert type too?
+      assert_is(i, "Array")
       shared_ptr(Table, Table__Filter(self, i))
     },
 
