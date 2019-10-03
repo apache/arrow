@@ -41,10 +41,18 @@
 #include <dlfcn.h>
 #endif
 
+#ifdef ARROW_WITH_BOOST_FILESYSTEM
 #include <boost/filesystem.hpp>  // NOLINT
+#endif
 
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
+
+namespace arrow {
+namespace io {
+namespace internal {
+
+#ifdef ARROW_WITH_BOOST_FILESYSTEM
 
 namespace fs = boost::filesystem;
 
@@ -281,10 +289,6 @@ static inline void* GetLibrarySymbol(void* handle, const char* symbol) {
     *reinterpret_cast<void**>(&SHIM->SYMBOL_NAME) =      \
         GetLibrarySymbol(SHIM->handle, "" #SYMBOL_NAME); \
   }
-
-namespace arrow {
-namespace io {
-namespace internal {
 
 static LibHdfsShim libhdfs_shim;
 static LibHdfsShim libhdfs3_shim;
@@ -569,6 +573,18 @@ Status ConnectLibHdfs3(LibHdfsShim** driver) {
   *driver = shim;
   return shim->GetRequiredSymbols();
 }
+
+#else  // ARROW_WITH_BOOST_FILESYSTEM
+
+Status ConnectLibHdfs(LibHdfsShim** driver) {
+  return Status::NotImplemented("ConnectLibHdfs not available in this Arrow build");
+}
+
+Status ConnectLibHdfs3(LibHdfsShim** driver) {
+  return Status::NotImplemented("ConnectLibHdfs3 not available in this Arrow build");
+}
+
+#endif
 
 }  // namespace internal
 }  // namespace io
