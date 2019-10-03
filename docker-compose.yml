@@ -87,7 +87,7 @@ services:
     # Usage:
     #   docker-compose build build-context
     #   docker-compose run build-context
-    image: arrow:build-context
+    image: arrowdev/arrow-build-context:latest
     build:
       context: .
       dockerfile: dev/Dockerfile.context
@@ -99,7 +99,7 @@ services:
     #   docker-compose build cpp
     #   docker-compose build c_glib
     #   docker-compose run c_glib
-    image: arrow:c_glib
+    image: arrowdev/arrow-c_glib:latest
     build:
       context: .
       dockerfile: c_glib/Dockerfile
@@ -109,7 +109,7 @@ services:
     # Usage:
     #   docker-compose build cpp
     #   docker-compose run cpp
-    image: arrow:cpp
+    image: arrowdev/arrow-cpp:latest
     shm_size: 2G
     build:
       context: .
@@ -120,7 +120,7 @@ services:
     # Usage:
     #   docker-compose build cpp-system-deps
     #   docker-compose run cpp-system-deps
-    image: ursalab/arrow:cpp-system-deps
+    image: arrowdev/arrow-cpp-system-deps:latest
     shm_size: 2G
     cap_add:
       # LeakSanitizer and gdb requires ptrace(2)
@@ -142,7 +142,7 @@ services:
     # Usage:
     #   docker-compose build cpp
     #   docker-compose run cpp-release
-    image: arrow:cpp
+    image: arrowdev/arrow-cpp-release:latest
     shm_size: 2G
     build:
       context: .
@@ -156,7 +156,7 @@ services:
     # Usage:
     #   docker-compose build cpp
     #   docker-compose run cpp-static-only
-    image: arrow:cpp
+    image: arrowdev/arrow-cpp:latest
     shm_size: 2G
     environment:
       ARROW_BUILD_SHARED: "OFF"
@@ -168,7 +168,7 @@ services:
     # Usage:
     #   docker-compose build cpp
     #   docker-compose run cpp-static-only
-    image: arrow:cpp
+    image: arrowdev/arrow-cpp:latest
     shm_size: 2G
     environment:
       ARROW_BUILD_STATIC: "OFF"
@@ -179,7 +179,7 @@ services:
     # Usage:
     #   docker-compose build cpp-cmake32
     #   docker-compose run cpp-cmake32
-    image: arrow:cpp-cmake32
+    image: arrowdev/arrow-cpp-cmake32:latest
     shm_size: 2G
     build:
       context: .
@@ -199,7 +199,7 @@ services:
     # Usage:
     #   docker-compose build cpp-alpine
     #   docker-compose run cpp-alpine
-    image: arrow:cpp-alpine
+    image: arrowdev/arrow-cpp-alpine:latest
     shm_size: 2G
     build:
       context: .
@@ -212,7 +212,7 @@ services:
     # Usage:
     #   docker-compose build cpp-fedora
     #   docker-compose run cpp-fedora
-    image: arrow:cpp-fedora
+    image: arrowdev/arrow-cpp-fedora:latest
     shm_size: 2G
     build:
       context: .
@@ -225,7 +225,7 @@ services:
     # Usage:
     #   docker-compose build cpp-debian-testing
     #   docker-compose run cpp-debian-testing
-    image: arrow:cpp-debian-testing
+    image: arrowdev/arrow-cpp-debian-testing:latest
     shm_size: 2G
     build:
       context: .
@@ -238,7 +238,7 @@ services:
     # Usage:
     #   docker-compose build cpp-ubuntu-trusty
     #   docker-compose run cpp-ubuntu-trusty
-    image: arrow:cpp-ubuntu-trusty
+    image: arrowdev/arrow-cpp-ubuntu-trusty:latest
     shm_size: 2G
     build:
       context: .
@@ -251,7 +251,7 @@ services:
     # Usage:
     #   docker-compose build cpp-ubuntu-xenial
     #   docker-compose run cpp-ubuntu-xenial
-    image: arrow:cpp-ubuntu-xenial
+    image: arrowdev/arrow-cpp-ubuntu-xenial:latest
     shm_size: 2G
     build:
       context: .
@@ -266,7 +266,7 @@ services:
     # Usage:
     #   docker-compose build cpp-minimum-boost-version
     #   docker-compose run cpp-minimum-boost-version
-    image: arrow:cpp-ubuntu-xenial
+    image: arrowdev/arrow-cpp-ubuntu-xenial:latest
     shm_size: 2G
     build:
       context: .
@@ -281,7 +281,7 @@ services:
     # Usage:
     #   docker-compose build cpp-ubuntu-bionic
     #   docker-compose run cpp-ubuntu-bionic
-    image: arrow:cpp-ubuntu-bionic
+    image: arrowdev/arrow-cpp-ubuntu-bionic:latest
     shm_size: 2G
     build:
       context: .
@@ -294,7 +294,7 @@ services:
     # Usage:
     #   docker-compose build go
     #   docker-compose run go
-    image: arrow:go
+    image: arrowdev/arrow-go:latest
     build:
       context: .
       dockerfile: go/Dockerfile
@@ -304,7 +304,7 @@ services:
     # Usage:
     #   docker-compose build java
     #   docker-compose run java
-    image: arrow:java
+    image: arrowdev/arrow-java:latest
     build:
       context: .
       dockerfile: java/Dockerfile
@@ -316,7 +316,7 @@ services:
     # Usage:
     #   docker-compose build java-all-jdks
     #   docker-compose run java-all-jdks
-    image: ursalab/arrow-ci-java-all-jdks:latest
+    image: arrowdev/arrow-java-all-jdks:latest
     build:
       context: .
       dockerfile: java/Dockerfile.all-jdks
@@ -325,7 +325,7 @@ services:
       - maven-cache:/root/.m2:delegated
 
   js:
-    image: arrow:js
+    image: arrowdev/arrow-js:latest
     build:
       context: .
       dockerfile: js/Dockerfile
@@ -336,7 +336,7 @@ services:
     #   docker-compose build cpp
     #   docker-compose build python
     #   docker-compose run python
-    image: arrow:python-${PYTHON_VERSION:-3.6}
+    image: arrowdev/arrow-python-${PYTHON_VERSION:-3.6}:latest
     shm_size: 2G
     build:
       context: .
@@ -351,7 +351,7 @@ services:
     #   docker-compose build cpp-alpine
     #   docker-compose build python-alpine
     #   docker-compose run python-alpine
-    image: arrow:python-${PYTHON_VERSION:-3.6}-alpine
+    image: arrowdev/arrow-python-${PYTHON_VERSION:-3.6}-alpine:latest
     shm_size: 2G
     build:
       context: .
@@ -367,7 +367,7 @@ services:
     #   docker-compose build python
     #   docker-compose build python-nopandas
     #   docker-compose run python-nopandas
-    image: arrow:python-${PYTHON_VERSION:-3.6}-nopandas
+    image: arrowdev/arrow-python-${PYTHON_VERSION:-3.6}-nopandas:latest
     shm_size: 2G
     build:
       context: .
@@ -380,7 +380,7 @@ services:
     # Usage:
     #   docker-compose build rust
     #   docker-compose run rust
-    image: arrow:rust
+    image: arrowdev/arrow-rust:latest
     build:
       context: .
       dockerfile: rust/Dockerfile
@@ -393,7 +393,7 @@ services:
     #   docker-compose build cpp
     #   docker-compose build r
     #   docker-compose run r
-    image: arrow:r
+    image: arrowdev/arrow-r:latest
     build:
       context: .
       dockerfile: r/Dockerfile
@@ -403,7 +403,7 @@ services:
     # Usage:
     #   docker-compose build r-sanitizer
     #   docker-compose run r-sanitizer
-    image: arrow:r-sanitizer
+    image: arrowdev/arrow-r-sanitizer:latest
     cap_add:
       # LeakSanitizer and gdb requires ptrace(2)
       - SYS_PTRACE
@@ -418,7 +418,7 @@ services:
     #   docker-compose build cpp
     #   docker-compose build r-conda
     #   docker-compose run r-conda
-    image: arrow:r-conda-${R_VERSION:-3.5.1}
+    image: arrowdev/arrow-r-conda-${R_VERSION:-3.5.1}:latest
     shm_size: 2G
     build:
       context: .
@@ -439,7 +439,7 @@ services:
     #   docker-compose build python
     #   docker-compose build lint
     #   docker-compose run lint
-    image: arrow:lint
+    image: arrowdev/arrow-lint:latest
     build:
       context: .
       dockerfile: dev/lint/Dockerfile
@@ -452,7 +452,7 @@ services:
     #   docker-compose build cpp
     #   docker-compose build fuzzit
     #   docker-compose run fuzzit
-    image: arrow:fuzzit
+    image: arrowdev/arrow-fuzzit:latest
     build:
       context: .
       dockerfile: dev/fuzzit/Dockerfile
@@ -503,7 +503,7 @@ services:
     #   docker-compose build python
     #   docker-compose build lint
     #   docker-compose run iwyu
-    image: arrow:lint
+    image: arrowdev/arrow-lint:latest
     command: arrow/dev/lint/run_iwyu.sh
     volumes: *ubuntu-volumes
 
@@ -513,7 +513,7 @@ services:
     #   docker-compose build python
     #   docker-compose build lint
     #   docker-compose run clang-format
-    image: arrow:lint
+    image: arrowdev/arrow-lint:latest
     command: arrow/dev/lint/run_clang_format.sh
     volumes: *ubuntu-volumes
 
@@ -523,7 +523,7 @@ services:
     #   docker-compose build python
     #   docker-compose build lint
     #   docker-compose run clang-tidy
-    image: arrow:lint
+    image: arrowdev/arrow-lint:latest
     command: arrow/dev/lint/run_clang_tidy.sh
     volumes: *ubuntu-volumes
 
@@ -533,7 +533,7 @@ services:
     #   docker-compose build python
     #   docker-compose build docs
     #   docker-compose run docs
-    image: arrow:docs
+    image: arrowdev/arrow-docs:latest
     build:
       context: .
       dockerfile: docs/Dockerfile
@@ -549,7 +549,7 @@ services:
     #     $ docker-compose pull python-manylinux1
     #   an then run:
     #     $ docker-compose run -e PYTHON_VERSION=3.7 python-manylinux1
-    image: ursalab/arrow_manylinux1_x86_64_base:0.14.1-static-zlib
+    image: arrowdev/arrow_manylinux1_x86_64_base:0.14.1-static-zlib
     build:
       context: python/manylinux1
       dockerfile: Dockerfile-x86_64_base
@@ -571,7 +571,7 @@ services:
     #     $ docker-compose pull python-manylinux2010
     #   an then run:
     #     $ docker-compose run -e PYTHON_VERSION=3.7 python-manylinux2010
-    image: ursalab/arrow_manylinux2010_x86_64_base:0.14.1-static-zlib
+    image: arrowdev/arrow_manylinux2010_x86_64_base:0.14.1-static-zlib
     build:
       context: python/manylinux2010
       dockerfile: Dockerfile-x86_64_base
@@ -600,7 +600,7 @@ services:
     #   docker-compose build python
     #   docker-compose build --no-cache pandas-master
     #   docker-compose run pandas-master
-    image: arrow:pandas-master
+    image: arrowdev/arrow-pandas-master:latest
     build:
       context: .
       dockerfile: integration/pandas/Dockerfile
@@ -643,7 +643,7 @@ services:
     #   docker-compose build python
     #   docker-compose build hdfs-integration
     #   docker-compose run hdfs-integration
-    image: arrow:hdfs-${HDFS_VERSION:-2.9.2}
+    image: arrowdev/arrow-hdfs-${HDFS_VERSION:-2.9.2}:latest
     links:
       - hdfs-namenode:hdfs-namenode
       - hdfs-datanode-1:hdfs-datanode-1
@@ -667,7 +667,7 @@ services:
     #   docker-compose build python
     #   docker-compose build dask-integration
     #   docker-compose run dask-integration
-    image: arrow:dask-integration
+    image: arrowdev/arrow-dask-integration:latest
     build:
       context: .
       dockerfile: integration/dask/Dockerfile
@@ -680,7 +680,7 @@ services:
     #   docker-compose build python
     #   docker-compose build turbodbc-integration
     #   docker-compose run turbodbc-integration
-    image: arrow:turbodbc-integration
+    image: arrowdev/arrow-turbodbc-integration:latest
     build:
       context: .
       dockerfile: integration/turbodbc/Dockerfile
@@ -693,7 +693,7 @@ services:
     #   docker-compose build python
     #   docker-compose build spark-integration
     #   docker-compose run spark-integration
-    image: arrow:spark-${SPARK_VERSION:-master}
+    image: arrowdev/arrow-spark-${SPARK_VERSION:-master}:latest
     environment:
       - SPARK_VERSION=${SPARK_VERSION:-master}
     build:
@@ -710,7 +710,7 @@ services:
   ################################# Release ###################################
 
   release-source:
-    image: arrow:release-source
+    image: arrowdev/arrow-release-source:latest
     build:
       context: .
       dockerfile: dev/release/source/Dockerfile
