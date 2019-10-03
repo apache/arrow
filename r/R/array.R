@@ -187,7 +187,7 @@ filter_rows <- function(x, i, ...) {
   # Based on the input for `i`, calls x$Filter, x$Slice, or x$Take
   nrows <- x$num_rows %||% x$length() # Depends on whether Array or Table-like
   if (is.logical(i)) {
-    i <- rep_len(i, nrows) # For R recycling behavior
+    i <- rep_len(i, nrows) # For R recycling behavior; consider vctrs::vec_recycle()
     x$Filter(i)
   } else if (is.numeric(i)) {
     if (all(i < 0)) {
