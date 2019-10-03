@@ -298,6 +298,10 @@ if(ARROW_WITH_URIPARSER)
   list(APPEND ARROW_SRCS util/uri.cc)
 endif()
 
+if(ARROW_WITH_BOOST_FILESYSTEM)
+  add_definitions(-DARROW_WITH_BOOST_FILESYSTEM)
+endif()
+
 if(ARROW_WITH_BROTLI)
   add_definitions(-DARROW_WITH_BROTLI)
   list(APPEND ARROW_SRCS util/compression_brotli.cc)

@@ -113,6 +113,8 @@ using NativePathString = std::string;
 
 class ARROW_EXPORT PlatformFilename {
  public:
+  struct Impl;
+
   ~PlatformFilename();
   PlatformFilename();
   PlatformFilename(const PlatformFilename&);
@@ -124,24 +126,22 @@ class ARROW_EXPORT PlatformFilename {
   const NativePathString& ToNative() const;
   std::string ToString() const;
 
+  PlatformFilename Parent() const;
+
   // These functions can fail for character encoding reasons.
   static Status FromString(const std::string& file_name, PlatformFilename* out);
   Status Join(const std::string& child_name, PlatformFilename* out) const;
 
+  bool operator==(const PlatformFilename& other) const;
+  bool operator!=(const PlatformFilename& other) const;
+
+  // Made public to avoid the proliferation of friend declarations.
+  const Impl* impl() const { return impl_.get(); }
+
  private:
-  struct Impl;
   std::unique_ptr<Impl> impl_;
 
-  explicit PlatformFilename(const Impl& impl);
-  explicit PlatformFilename(Impl&& impl);
-
-  // Those functions need access to the embedded path object
-  friend ARROW_EXPORT Status CreateDir(const PlatformFilename&, bool*);
-  friend ARROW_EXPORT Status CreateDirTree(const PlatformFilename&, bool*);
-  friend ARROW_EXPORT Status DeleteDirContents(const PlatformFilename&, bool*);
-  friend ARROW_EXPORT Status DeleteDirTree(const PlatformFilename&, bool*);
-  friend ARROW_EXPORT Status DeleteFile(const PlatformFilename&, bool*);
-  friend ARROW_EXPORT Status FileExists(const PlatformFilename&, bool*);
+  explicit PlatformFilename(Impl impl);
 };
 
 ARROW_EXPORT
@@ -199,6 +199,12 @@ ARROW_EXPORT
 Status GetEnvVar(const char* name, std::string* out);
 ARROW_EXPORT
 Status GetEnvVar(const std::string& name, std::string* out);
+#ifdef _WIN32
+ARROW_EXPORT
+Status GetEnvVar(const char* name, NativePathString* out);
+ARROW_EXPORT
+Status GetEnvVar(const std::string& name, NativePathString* out);
+#endif
 ARROW_EXPORT
 Status SetEnvVar(const char* name, const char* value);
 ARROW_EXPORT
@@ -219,8 +225,11 @@ class ARROW_EXPORT TemporaryDir {
  public:
   ~TemporaryDir();
 
+  /// '/'-terminated path to the temporary dir
   const PlatformFilename& path() { return path_; }
 
+  /// Create a temporary subdirectory in the system temporary dir,
+  /// named starting with `prefix`.
   static Status Make(const std::string& prefix, std::unique_ptr<TemporaryDir>* out);
 
  private:

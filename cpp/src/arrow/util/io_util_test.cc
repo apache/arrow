@@ -77,6 +77,188 @@ TEST(PlatformFilename, Invalid) {
   ASSERT_RAISES(Invalid, PlatformFilename::FromString(s, &fn));
 }
 
+TEST(PlatformFilename, Join) {
+  PlatformFilename fn, joined;
+  ASSERT_OK(PlatformFilename::FromString("a/b", &fn));
+  ASSERT_OK(fn.Join("c/d", &joined));
+  ASSERT_EQ(joined.ToString(), "a/b/c/d");
+#if _WIN32
+  ASSERT_EQ(joined.ToNative(), L"a\\b\\c\\d");
+#else
+  ASSERT_EQ(joined.ToNative(), "a/b/c/d");
+#endif
+
+  ASSERT_OK(PlatformFilename::FromString("a/b/", &fn));
+  ASSERT_OK(fn.Join("c/d", &joined));
+  ASSERT_EQ(joined.ToString(), "a/b/c/d");
+#if _WIN32
+  ASSERT_EQ(joined.ToNative(), L"a\\b\\c\\d");
+#else
+  ASSERT_EQ(joined.ToNative(), "a/b/c/d");
+#endif
+
+  ASSERT_OK(PlatformFilename::FromString("", &fn));
+  ASSERT_OK(fn.Join("c/d", &joined));
+  ASSERT_EQ(joined.ToString(), "c/d");
+#if _WIN32
+  ASSERT_EQ(joined.ToNative(), L"c\\d");
+#else
+  ASSERT_EQ(joined.ToNative(), "c/d");
+#endif
+
+#if _WIN32
+  ASSERT_OK(PlatformFilename::FromString("a\\b", &fn));
+  ASSERT_OK(fn.Join("c\\d", &joined));
+  ASSERT_EQ(joined.ToString(), "a/b/c/d");
+  ASSERT_EQ(joined.ToNative(), L"a\\b\\c\\d");
+
+  ASSERT_OK(PlatformFilename::FromString("a\\b\\", &fn));
+  ASSERT_OK(fn.Join("c\\d", &joined));
+  ASSERT_EQ(joined.ToString(), "a/b/c/d");
+  ASSERT_EQ(joined.ToNative(), L"a\\b\\c\\d");
+#endif
+}
+
+TEST(PlatformFilename, JoinInvalid) {
+  PlatformFilename fn, joined;
+  ASSERT_OK(PlatformFilename::FromString("a/b", &fn));
+  std::string s = "foo";
+  s += '\x00';
+  ASSERT_RAISES(Invalid, fn.Join(s, &joined));
+}
+
+TEST(PlatformFilename, Parent) {
+  PlatformFilename fn;
+
+  // Relative
+  ASSERT_OK(PlatformFilename::FromString("ab/cd", &fn));
+  ASSERT_EQ(fn.ToString(), "ab/cd");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "ab");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "ab");
+#if _WIN32
+  ASSERT_OK(PlatformFilename::FromString("ab/cd\\ef", &fn));
+  ASSERT_EQ(fn.ToString(), "ab/cd/ef");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "ab/cd");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "ab");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "ab");
+#endif
+
+  // Absolute
+  ASSERT_OK(PlatformFilename::FromString("/ab/cd/ef", &fn));
+  ASSERT_EQ(fn.ToString(), "/ab/cd/ef");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "/ab/cd");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "/ab");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "/");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "/");
+#if _WIN32
+  ASSERT_OK(PlatformFilename::FromString("\\ab\\cd/ef", &fn));
+  ASSERT_EQ(fn.ToString(), "/ab/cd/ef");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "/ab/cd");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "/ab");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "/");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "/");
+#endif
+
+  // Empty
+  ASSERT_OK(PlatformFilename::FromString("", &fn));
+  ASSERT_EQ(fn.ToString(), "");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "");
+
+  // Multiple separators, relative
+  ASSERT_OK(PlatformFilename::FromString("ab//cd///ef", &fn));
+  ASSERT_EQ(fn.ToString(), "ab//cd///ef");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "ab//cd");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "ab");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "ab");
+#if _WIN32
+  ASSERT_OK(PlatformFilename::FromString("ab\\\\cd\\\\\\ef", &fn));
+  ASSERT_EQ(fn.ToString(), "ab//cd///ef");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "ab//cd");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "ab");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "ab");
+#endif
+
+  // Multiple separators, absolute
+  ASSERT_OK(PlatformFilename::FromString("//ab//cd///ef", &fn));
+  ASSERT_EQ(fn.ToString(), "//ab//cd///ef");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "//ab//cd");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "//ab");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "//");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "//");
+#if _WIN32
+  ASSERT_OK(PlatformFilename::FromString("\\\\ab\\cd\\ef", &fn));
+  ASSERT_EQ(fn.ToString(), "//ab/cd/ef");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "//ab/cd");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "//ab");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "//");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "//");
+#endif
+
+  // Trailing slashes
+  ASSERT_OK(PlatformFilename::FromString("/ab/cd/ef/", &fn));
+  ASSERT_EQ(fn.ToString(), "/ab/cd/ef/");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "/ab/cd");
+  ASSERT_OK(PlatformFilename::FromString("/ab/cd/ef//", &fn));
+  ASSERT_EQ(fn.ToString(), "/ab/cd/ef//");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "/ab/cd");
+  ASSERT_OK(PlatformFilename::FromString("ab/", &fn));
+  ASSERT_EQ(fn.ToString(), "ab/");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "ab/");
+  ASSERT_OK(PlatformFilename::FromString("ab//", &fn));
+  ASSERT_EQ(fn.ToString(), "ab//");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "ab//");
+#if _WIN32
+  ASSERT_OK(PlatformFilename::FromString("\\ab\\cd\\ef\\", &fn));
+  ASSERT_EQ(fn.ToString(), "/ab/cd/ef/");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "/ab/cd");
+  ASSERT_OK(PlatformFilename::FromString("\\ab\\cd\\ef\\\\", &fn));
+  ASSERT_EQ(fn.ToString(), "/ab/cd/ef//");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "/ab/cd");
+  ASSERT_OK(PlatformFilename::FromString("ab\\", &fn));
+  ASSERT_EQ(fn.ToString(), "ab/");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "ab/");
+  ASSERT_OK(PlatformFilename::FromString("ab\\\\", &fn));
+  ASSERT_EQ(fn.ToString(), "ab//");
+  fn = fn.Parent();
+  ASSERT_EQ(fn.ToString(), "ab//");
+#endif
+}
+
 TEST(CreateDirDeleteDir, Basics) {
   const std::string BASE = "xxx-io-util-test-dir";
   bool created, deleted;
