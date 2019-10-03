@@ -62,8 +62,8 @@ class ExpressionsTest : public ::testing::Test {
     ASSERT_TRUE(expr.right_operand()->Equals(rhs));
   }
 
-  std::shared_ptr<ScalarExpression> always = ScalarExpression::Make(true);
-  std::shared_ptr<ScalarExpression> never = ScalarExpression::Make(false);
+  std::shared_ptr<ScalarExpression> always = scalar(true);
+  std::shared_ptr<ScalarExpression> never = scalar(false);
 };
 
 TEST_F(ExpressionsTest, Equality) {
@@ -106,8 +106,8 @@ TEST_F(ExpressionsTest, SimplificationAgainstCompoundCondition) {
 }
 
 TEST_F(ExpressionsTest, SimplificationToNull) {
-  auto null = ScalarExpression::MakeNull(boolean());
-  auto null32 = ScalarExpression::MakeNull(int32());
+  auto null = scalar(std::shared_ptr<Scalar>(new BooleanScalar));
+  auto null32 = scalar(std::shared_ptr<Scalar>(new Int32Scalar));
 
   AssertSimplifiesTo(*equal(field_ref("b"), null32), "b"_ == 3, *null);
   AssertSimplifiesTo(*not_equal(field_ref("b"), null32), "b"_ == 3, *null);
@@ -191,7 +191,7 @@ TEST_F(FilterTest, Trivial) {
       {"a": 0, "b":  1.0, "in": 0}
   ])");
 
-  AssertFilter(*ScalarExpression::MakeNull(boolean()),
+  AssertFilter(*scalar(std::shared_ptr<Scalar>(new BooleanScalar)),
                {field("a", int32()), field("b", float64())}, R"([
       {"a": 0, "b": -0.1, "in": null},
       {"a": 0, "b":  0.3, "in": null},

@@ -886,8 +886,7 @@ class ScalarEqualsVisitor {
 
   Status Visit(const MapScalar& left) {
     const auto& right = checked_cast<const MapScalar&>(right_);
-    result_ = internal::SharedPtrEquals(left.keys, right.keys) &&
-              internal::SharedPtrEquals(left.items, right.items);
+    result_ = internal::SharedPtrEquals(left.value, right.value);
     return Status::OK();
   }
 

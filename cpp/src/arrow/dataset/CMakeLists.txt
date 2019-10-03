@@ -28,7 +28,9 @@ set(ARROW_DATASET_SRCS
     discovery.cc
     file_base.cc
     filter.cc
+    partition.cc
     scanner.cc)
+
 set(ARROW_DATASET_LINK_STATIC arrow_static)
 set(ARROW_DATASET_LINK_SHARED arrow_shared)
 
@@ -99,6 +101,7 @@ if(NOT WIN32)
   add_arrow_dataset_test(discovery_test)
   add_arrow_dataset_test(file_test)
   add_arrow_dataset_test(filter_test)
+  add_arrow_dataset_test(partition_test)
   add_arrow_dataset_test(scanner_test)
 
   if(ARROW_PARQUET)

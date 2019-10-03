@@ -123,8 +123,6 @@ namespace stl {
 template <>
 struct ConversionTraits<CustomOptionalTypeMock>
     : public CTypeTraits<CustomOptionalTypeMock> {
-  constexpr static bool nullable = true;
-
   static Status AppendRow(typename TypeTraits<ArrowType>::BuilderType& builder,
                           const CustomOptionalTypeMock& cell) {
     if (cell) {
@@ -137,9 +135,7 @@ struct ConversionTraits<CustomOptionalTypeMock>
 
 template <>
 struct ConversionTraits<TestInt32Type> : public CTypeTraits<TestInt32Type> {
-  constexpr static bool nullable = false;
-
-  // AppendRow is not needed, since it shouldn't be called.
+  // AppendRow is not needed, explicitly elide an implementation
 };
 
 template <>
