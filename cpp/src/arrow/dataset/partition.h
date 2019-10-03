@@ -17,12 +17,16 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
+#include <regex>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "arrow/dataset/dataset.h"
+#include "arrow/dataset/filter.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 
@@ -30,65 +34,33 @@ namespace arrow {
 namespace dataset {
 
 // ----------------------------------------------------------------------
-// Computing partition values
+// Partition schemes
 
-// TODO(wesm): API for computing partition keys derived from raw
-// values. For example, year(value) or hash_function(value) instead of
-// simply value, so a dataset with a timestamp column might group all
-// data with year 2009 in the same partition
-
-// /// \brief
-// class ScalarTransform {
-//  public:
-//   virtual Status Transform(const std::shared_ptr<Scalar>& input,
-//                            std::shared_ptr<Scalar>* output) const = 0;
-// };
-
-// class PartitionField {
-//  public:
-
-//  private:
-//   std::string field_name_;
-// };
-
-// ----------------------------------------------------------------------
-// Partition identifiers
-
-/// \brief A partition level identifier which can be used
-///
-/// TODO(wesm): Is this general enough? What other kinds of partition
-/// keys exist and do we need to support them?
-class PartitionKey {
- public:
-  const std::vector<std::string>& fields() const { return fields_; }
-  const std::vector<std::shared_ptr<Scalar>>& values() const { return values_; }
-
- private:
-  std::vector<std::string> fields_;
-  std::vector<std::shared_ptr<Scalar>> values_;
+struct ARROW_DS_EXPORT UnconvertedKey {
+  std::string name, value;
 };
 
-/// \brief Intermediate data structure for data parsed from a string
-/// partition identifier.
+/// \brief Helper function for the common case of combining partition information
+/// consisting of equality expressions into a single conjunction expression.
+/// Fields referenced in keys but absent from schema will be ignored.
+ARROW_DS_EXPORT
+Result<std::shared_ptr<Expression>> ConvertPartitionKeys(
+    const std::vector<UnconvertedKey>& keys, const Schema& schema);
+
+/// \brief Interface for parsing partition expressions from string partition
+/// identifiers.
 ///
-/// For example, the identifier "foo=5" might be parsed with a single
-/// "foo" field and the value 5. A more complex identifier might be
-/// written as "foo=5,bar=2", which would yield two fields and two
-/// values.
+/// For example, the identifier "foo=5" might be parsed to an equality expression
+/// between the "foo" field and the value 5.
 ///
 /// Some partition schemes may store the field names in a metadata
 /// store instead of in file paths, for example
 /// dataset_root/2009/11/... could be used when the partition fields
 /// are "year" and "month"
-struct PartitionKeyData {
-  std::vector<std::string> fields;
-  std::vector<std::shared_ptr<Scalar>> values;
-};
-
-// ----------------------------------------------------------------------
-// Partition schemes
-
-/// \brief
+///
+/// Paths are consumed from left to right. Paths must be relative to
+/// the root of a partition; path prefixes must be removed before passing
+/// the path to a scheme for parsing.
 class ARROW_DS_EXPORT PartitionScheme {
  public:
   virtual ~PartitionScheme() = default;
@@ -96,119 +68,99 @@ class ARROW_DS_EXPORT PartitionScheme {
   /// \brief The name identifying the kind of partition scheme
   virtual std::string name() const = 0;
 
-  virtual bool PathMatchesScheme(const std::string& path) const = 0;
+  /// \brief Parse a path into a partition expression
+  ///
+  /// \param[in] path the partition identifier to parse
+  /// \return the parsed expression
+  virtual Result<std::shared_ptr<Expression>> Parse(const std::string& path) const = 0;
 
-  virtual Status ParseKey(const std::string& path, PartitionKeyData* out) const = 0;
+  /// \brief Status return + out arg overload
+  Status Parse(const std::string& path, std::shared_ptr<Expression>* out) const {
+    return Parse(path).Value(out);
+  }
+};
+
+/// \brief Trivial partition scheme which yields an expression provided on construction.
+class ARROW_DS_EXPORT ConstantPartitionScheme : public PartitionScheme {
+ public:
+  explicit ConstantPartitionScheme(std::shared_ptr<Expression> expr)
+      : expression_(std::move(expr)) {}
+
+  std::string name() const override { return "constant_partition_scheme"; }
+
+  Result<std::shared_ptr<Expression>> Parse(const std::string& path) const override;
+
+ private:
+  std::shared_ptr<Expression> expression_;
+};
+
+/// \brief SchemaPartitionScheme parses one segment of a path for each field in its
+/// schema. All fields are required, so paths passed to SchemaPartitionScheme::Parse
+/// must contain segments for each field.
+///
+/// For example given schema<year:int16, month:int8> the path "/2009/11" would be
+/// parsed to ("year"_ == 2009 and "month"_ == 11)
+class ARROW_DS_EXPORT SchemaPartitionScheme : public PartitionScheme {
+ public:
+  explicit SchemaPartitionScheme(std::shared_ptr<Schema> schema)
+      : schema_(std::move(schema)) {}
+
+  std::string name() const override { return "schema_partition_scheme"; }
+
+  Result<std::shared_ptr<Expression>> Parse(const std::string& path) const override;
+
+  const std::shared_ptr<Schema>& schema() { return schema_; }
+
+ protected:
+  std::shared_ptr<Schema> schema_;
 };
 
 /// \brief Multi-level, directory based partitioning scheme
 /// originating from Apache Hive with all data files stored in the
 /// leaf directories. Data is partitioned by static values of a
 /// particular column in the schema. Partition keys are represented in
-/// the form $key=$value in directory names
+/// the form $key=$value in directory names.
+/// Field order is ignored, as are missing or unrecognized field names.
+///
+/// For example given schema<year:int16, month:int8, day:int8> the path
+/// "/day=321/ignored=3.4/year=2009" parses to ("year"_ == 2009 and "day"_ == 321)
 class ARROW_DS_EXPORT HivePartitionScheme : public PartitionScheme {
  public:
-  /// \brief Return true if path
-  bool PathMatchesScheme(const std::string& path) const override;
+  explicit HivePartitionScheme(std::shared_ptr<Schema> schema)
+      : schema_(std::move(schema)) {}
 
-  virtual Status ParseKey(const std::string& path, PartitionKeyData* out) const = 0;
-};
+  std::string name() const override { return "hive_partition_scheme"; }
 
-// ----------------------------------------------------------------------
-//
+  Result<std::shared_ptr<Expression>> Parse(const std::string& path) const override;
 
-// Partitioned datasets come in different forms. Here is an example of
-// a Hive-style partitioned dataset:
-//
-// dataset_root/
-//   key1=$k1_v1/
-//     key2=$k2_v1/
-//       0.parquet
-//       1.parquet
-//       2.parquet
-//       3.parquet
-//     key2=$k2_v2/
-//       0.parquet
-//       1.parquet
-//   key1=$k1_v2/
-//     key2=$k2_v1/
-//       0.parquet
-//       1.parquet
-//     key2=$k2_v2/
-//       0.parquet
-//       1.parquet
-//       2.parquet
-//
-// In this case, the dataset has 11 fragments (11 files) to be
-// scanned, or potentially more if it is configured to split Parquet
-// files at the row group level
+  std::vector<UnconvertedKey> GetUnconvertedKeys(const std::string& path) const;
 
-class ARROW_DS_EXPORT Partition : public DataSource {
- public:
-  std::string type() const override;
-
-  /// \brief The key for this partition source, may be nullptr,
-  /// e.g. for the top-level partitioned source container
-  virtual const PartitionKey* key() const = 0;
-
-  virtual DataFragmentIterator GetFragments(const Selector& selector) = 0;
-};
-
-/// \brief Simple implementation of Partition, which consists of a
-/// partition identifier, subpartitions, and some data fragments
-class ARROW_DS_EXPORT SimplePartition : public Partition {
- public:
-  SimplePartition(std::unique_ptr<PartitionKey> partition_key,
-                  DataFragmentVector&& data_fragments, PartitionVector&& subpartitions,
-                  std::shared_ptr<ScanOptions> scan_options = NULLPTR)
-      : key_(std::move(partition_key)),
-        data_fragments_(std::move(data_fragments)),
-        subpartitions_(std::move(subpartitions)),
-        scan_options_(scan_options) {}
-
-  const PartitionKey* key() const override { return key_.get(); }
-
-  int num_subpartitions() const { return static_cast<int>(subpartitions_.size()); }
-
-  int num_data_fragments() const { return static_cast<int>(data_fragments__.size()); }
-
-  const PartitionVector& subpartitions() const { return subpartitions_; }
-  const DataFragmentVector& data_fragments() const { return data_fragments_; }
-
-  DataFragmentIterator GetFragments(const FilterVector& filters) override;
-
- private:
-  std::unique_ptr<PartitionKey> key_;
-
-  /// \brief Data fragments belonging to this partition level. In some
-  /// partition schemes such as Hive-style, this member is
-  /// mutually-exclusive with subpartitions, where data fragments
-  /// occur only in the partition leaves
-  std::vector<std::shared_ptr<DataFragment>> data_fragments_;
-
-  /// \brief Child partitions of this partition
-  std::vector<std::shared_ptr<Partition>> subpartitions_;
-
-  /// \brief Default scan options to use for data fragments
-  std::shared_ptr<ScanOptions> scan_options_;
-};
-
-/// \brief A PartitionSource that returns fragments as the result of input iterators
-class ARROW_DS_EXPORT LazyPartition : public Partition {
- public:
-  const PartitionKey* key() const override;
-
-  DataFragmentIterator GetFragments(const& DataSelector selector) override;
-
-  // TODO(wesm): Iterate over subpartitions
+  const std::shared_ptr<Schema>& schema() { return schema_; }
 
  protected:
-  PartitionIterator partition_iter_;
-
-  // By default, once this source is consumed using GetFragments, it
-  // cannot be consumed again. By setting this to true, we cache
-  bool cache_manifest_ = false;
+  std::shared_ptr<Schema> schema_;
 };
+
+/// \brief Implementation provided by lambda or other callable
+class ARROW_DS_EXPORT FunctionPartitionScheme : public PartitionScheme {
+ public:
+  explicit FunctionPartitionScheme(
+      std::function<Result<std::shared_ptr<Expression>>(const std::string&)> impl,
+      std::string name = "function_partition_scheme")
+      : impl_(std::move(impl)), name_(std::move(name)) {}
+
+  std::string name() const override { return name_; }
+
+  Result<std::shared_ptr<Expression>> Parse(const std::string& path) const override {
+    return impl_(path);
+  }
+
+ private:
+  std::function<Result<std::shared_ptr<Expression>>(const std::string&)> impl_;
+  std::string name_;
+};
+
+// TODO(bkietz) use RE2 and named groups to provide RegexpPartitionScheme
 
 }  // namespace dataset
 }  // namespace arrow

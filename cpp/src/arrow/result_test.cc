@@ -67,17 +67,31 @@ struct ImplicitlyCopyConvertible {
 struct MoveOnlyDataType {
   explicit MoveOnlyDataType(int x) : data(new int(x)) {}
 
-  MoveOnlyDataType(MoveOnlyDataType&& other) : data(other.data) { other.data = nullptr; }
-
   MoveOnlyDataType(const MoveOnlyDataType& other) = delete;
   MoveOnlyDataType& operator=(const MoveOnlyDataType& other) = delete;
 
-  ~MoveOnlyDataType() {
-    delete data;
-    data = nullptr;
+  MoveOnlyDataType(MoveOnlyDataType&& other) { MoveFrom(other); }
+  MoveOnlyDataType& operator=(MoveOnlyDataType&& other) {
+    MoveFrom(other);
+    return *this;
   }
 
-  int* data;
+  ~MoveOnlyDataType() { Destroy(); }
+
+  void Destroy() {
+    if (data != nullptr) {
+      delete data;
+      data = nullptr;
+    }
+  }
+
+  void MoveFrom(MoveOnlyDataType& other) {
+    Destroy();
+    data = other.data;
+    other.data = nullptr;
+  }
+
+  int* data = nullptr;
 };
 
 struct ImplicitlyMoveConvertible {
@@ -397,8 +411,8 @@ TYPED_TEST(ResultTest, MoveAssignmentSelfOkStatus) {
 
 // Verify that a Result object can be constructed from a move-only type.
 TEST(ResultTest, InitializationMoveOnlyType) {
-  std::string* str = new std::string(kStringElement);
-  std::unique_ptr<std::string> value(str);
+  std::unique_ptr<std::string> value(new std::string(kStringElement));
+  auto str = value.get();
   Result<std::unique_ptr<std::string>> result(std::move(value));
 
   ASSERT_TRUE(result.ok());
@@ -407,8 +421,8 @@ TEST(ResultTest, InitializationMoveOnlyType) {
 
 // Verify that a Result object can be move-constructed from a move-only type.
 TEST(ResultTest, MoveConstructorMoveOnlyType) {
-  std::string* str = new std::string(kStringElement);
-  std::unique_ptr<std::string> value(str);
+  std::unique_ptr<std::string> value(new std::string(kStringElement));
+  auto str = value.get();
   Result<std::unique_ptr<std::string>> result1(std::move(value));
   Result<std::unique_ptr<std::string>> result2(std::move(result1));
 
@@ -424,8 +438,8 @@ TEST(ResultTest, MoveConstructorMoveOnlyType) {
 // Verify that a Result object can be move-assigned to from a Result object
 // containing a move-only type.
 TEST(ResultTest, MoveAssignmentMoveOnlyType) {
-  std::string* str = new std::string(kStringElement);
-  std::unique_ptr<std::string> value(str);
+  std::unique_ptr<std::string> value(new std::string(kStringElement));
+  auto str = value.get();
   Result<std::unique_ptr<std::string>> result1(std::move(value));
   Result<std::unique_ptr<std::string>> result2(Status(kErrorCode, kErrorMessage));
 
@@ -443,8 +457,8 @@ TEST(ResultTest, MoveAssignmentMoveOnlyType) {
 
 // Verify that a value can be moved out of a Result object via ValueOrDie().
 TEST(ResultTest, ValueOrDieMovedValue) {
-  std::string* str = new std::string(kStringElement);
-  std::unique_ptr<std::string> value(str);
+  std::unique_ptr<std::string> value(new std::string(kStringElement));
+  auto str = value.get();
   Result<std::unique_ptr<std::string>> result(std::move(value));
 
   std::unique_ptr<std::string> moved_value = std::move(result).ValueOrDie();
@@ -473,6 +487,44 @@ TEST(ResultTest, TemplateValueMoveConstruction) {
 
   EXPECT_TRUE(result.ok());
   EXPECT_EQ(*result.ValueOrDie().move_only.data, kIntElement);
+}
+
+// Verify that a Result<T> can be unpacked to T
+TEST(ResultTest, StatusReturnAdapterCopyValue) {
+  Result<CopyOnlyDataType> result(CopyOnlyDataType{kIntElement});
+  CopyOnlyDataType copy_only{0};
+
+  EXPECT_TRUE(std::move(result).Value(&copy_only).ok());
+  EXPECT_EQ(copy_only.data, kIntElement);
+}
+
+// Verify that a Result<T> can be unpacked to some U, where U is
+// a type which has a constructor taking a const T &.
+TEST(ResultTest, StatusReturnAdapterCopyAndConvertValue) {
+  Result<CopyOnlyDataType> result(CopyOnlyDataType{kIntElement});
+  ImplicitlyCopyConvertible implicitly_convertible(CopyOnlyDataType{0});
+
+  EXPECT_TRUE(std::move(result).Value(&implicitly_convertible).ok());
+  EXPECT_EQ(implicitly_convertible.copy_only.data, kIntElement);
+}
+
+// Verify that a Result<T> can be unpacked to T
+TEST(ResultTest, StatusReturnAdapterMoveValue) {
+  Result<MoveOnlyDataType> result(MoveOnlyDataType{kIntElement});
+  MoveOnlyDataType move_only{0};
+
+  EXPECT_TRUE(std::move(result).Value(&move_only).ok());
+  EXPECT_EQ(*move_only.data, kIntElement);
+}
+
+// Verify that a Result<T> can be unpacked to some U, where U is
+// a type which has a constructor taking a T &&.
+TEST(ResultTest, StatusReturnAdapterMoveAndConvertValue) {
+  Result<MoveOnlyDataType> result(MoveOnlyDataType{kIntElement});
+  ImplicitlyMoveConvertible implicitly_convertible(MoveOnlyDataType{0});
+
+  EXPECT_TRUE(std::move(result).Value(&implicitly_convertible).ok());
+  EXPECT_EQ(*implicitly_convertible.move_only.data, kIntElement);
 }
 
 // Verify that a Result<U> is assignable to a Result<T>, where T

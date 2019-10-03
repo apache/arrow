@@ -20,6 +20,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/compare.h"
@@ -295,30 +296,6 @@ class ARROW_DS_EXPORT ScalarExpression final : public Expression {
 
   bool Equals(const Expression& other) const override;
 
-  static std::shared_ptr<ScalarExpression> Make(bool value) {
-    return std::make_shared<ScalarExpression>(std::make_shared<BooleanScalar>(value));
-  }
-
-  template <typename T>
-  static typename std::enable_if<std::is_integral<T>::value ||
-                                     std::is_floating_point<T>::value,
-                                 std::shared_ptr<ScalarExpression>>::type
-  Make(T value) {
-    using ScalarType = typename CTypeTraits<T>::ScalarType;
-    return std::make_shared<ScalarExpression>(std::make_shared<ScalarType>(value));
-  }
-
-  static std::shared_ptr<ScalarExpression> Make(std::string value);
-
-  static std::shared_ptr<ScalarExpression> Make(const char* value);
-
-  static std::shared_ptr<ScalarExpression> Make(std::shared_ptr<Scalar> value) {
-    return std::make_shared<ScalarExpression>(std::move(value));
-  }
-
-  static std::shared_ptr<ScalarExpression> MakeNull(
-      const std::shared_ptr<DataType>& type);
-
   Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
 
   Result<compute::Datum> Evaluate(compute::FunctionContext* ctx,
@@ -357,16 +334,29 @@ class ARROW_DS_EXPORT FieldExpression final : public Expression {
 ARROW_DS_EXPORT std::shared_ptr<AndExpression> and_(std::shared_ptr<Expression> lhs,
                                                     std::shared_ptr<Expression> rhs);
 
+ARROW_DS_EXPORT std::shared_ptr<Expression> and_(const ExpressionVector& subexpressions);
+
 ARROW_DS_EXPORT AndExpression operator&&(const Expression& lhs, const Expression& rhs);
 
 ARROW_DS_EXPORT std::shared_ptr<OrExpression> or_(std::shared_ptr<Expression> lhs,
                                                   std::shared_ptr<Expression> rhs);
+
+ARROW_DS_EXPORT std::shared_ptr<Expression> or_(const ExpressionVector& subexpressions);
 
 ARROW_DS_EXPORT OrExpression operator||(const Expression& lhs, const Expression& rhs);
 
 ARROW_DS_EXPORT std::shared_ptr<NotExpression> not_(std::shared_ptr<Expression> operand);
 
 ARROW_DS_EXPORT NotExpression operator!(const Expression& rhs);
+
+inline std::shared_ptr<ScalarExpression> scalar(std::shared_ptr<Scalar> value) {
+  return std::make_shared<ScalarExpression>(std::move(value));
+}
+
+template <typename T>
+auto scalar(T&& value) -> decltype(scalar(MakeScalar(std::forward<T>(value)))) {
+  return scalar(MakeScalar(std::forward<T>(value)));
+}
 
 #define COMPARISON_FACTORY(NAME, FACTORY_NAME, OP)                                     \
   inline std::shared_ptr<ComparisonExpression> FACTORY_NAME(                           \
@@ -379,7 +369,7 @@ ARROW_DS_EXPORT NotExpression operator!(const Expression& rhs);
   template <typename T>                                                                \
   ComparisonExpression operator OP(const FieldExpression& lhs, T&& rhs) {              \
     return ComparisonExpression(compute::CompareOperator::NAME, lhs.Copy(),            \
-                                ScalarExpression::Make(std::forward<T>(rhs)));         \
+                                scalar(std::forward<T>(rhs)));                         \
   }
 COMPARISON_FACTORY(EQUAL, equal, ==)
 COMPARISON_FACTORY(NOT_EQUAL, not_equal, !=)
@@ -388,11 +378,6 @@ COMPARISON_FACTORY(GREATER_EQUAL, greater_equal, >=)
 COMPARISON_FACTORY(LESS, less, <)
 COMPARISON_FACTORY(LESS_EQUAL, less_equal, <=)
 #undef COMPARISON_FACTORY
-
-template <typename T>
-auto scalar(T&& value) -> decltype(ScalarExpression::Make(std::forward<T>(value))) {
-  return ScalarExpression::Make(std::forward<T>(value));
-}
 
 inline std::shared_ptr<FieldExpression> field_ref(std::string name) {
   return std::make_shared<FieldExpression>(std::move(name));

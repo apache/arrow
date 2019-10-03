@@ -19,9 +19,11 @@
 
 #include <algorithm>
 #include <cstring>
+#include <numeric>
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
@@ -45,7 +47,11 @@ Result<Datum> ScalarExpression::Evaluate(compute::FunctionContext* ctx,
   return value_;
 }
 
-Datum NullDatum() { return Datum(std::make_shared<NullScalar>()); }
+inline std::shared_ptr<ScalarExpression> NullExpression() {
+  return std::make_shared<ScalarExpression>(std::make_shared<BooleanScalar>());
+}
+
+inline Datum NullDatum() { return Datum(std::make_shared<NullScalar>()); }
 
 Result<Datum> FieldExpression::Evaluate(compute::FunctionContext* ctx,
                                         const RecordBatch& batch) const {
@@ -185,23 +191,6 @@ Result<Datum> ComparisonExpression::Evaluate(compute::FunctionContext* ctx,
   RETURN_NOT_OK(
       arrow::compute::Compare(ctx, lhs, rhs, arrow::compute::CompareOptions(op_), &out));
   return std::move(out);
-}
-
-std::shared_ptr<ScalarExpression> ScalarExpression::Make(std::string value) {
-  return std::make_shared<ScalarExpression>(
-      std::make_shared<StringScalar>(Buffer::FromString(std::move(value))));
-}
-
-std::shared_ptr<ScalarExpression> ScalarExpression::Make(const char* value) {
-  return std::make_shared<ScalarExpression>(
-      std::make_shared<StringScalar>(Buffer::Wrap(value, std::strlen(value))));
-}
-
-std::shared_ptr<ScalarExpression> ScalarExpression::MakeNull(
-    const std::shared_ptr<DataType>& type) {
-  std::shared_ptr<Scalar> null;
-  DCHECK_OK(arrow::MakeNullScalar(type, &null));
-  return Make(std::move(null));
 }
 
 struct Comparison {
@@ -384,7 +373,7 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::Assume(
 
         if (simplified->IsNull()) {
           // some subexpression of given is always null, return null
-          return ScalarExpression::MakeNull(boolean());
+          return NullExpression();
         }
 
         bool trivial;
@@ -404,11 +393,11 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::Assume(
       }
 
       if (simplify_to_always) {
-        return ScalarExpression::Make(true);
+        return scalar(true);
       }
 
       if (simplify_to_never) {
-        return ScalarExpression::Make(false);
+        return scalar(false);
       }
 
       return Copy();
@@ -420,7 +409,7 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::Assume(
       auto simplified = Copy();
       for (const auto& operand : {given_and.left_operand(), given_and.right_operand()}) {
         if (simplified->IsNull()) {
-          return ScalarExpression::MakeNull(boolean());
+          return NullExpression();
         }
 
         if (simplified->IsTrivialCondition()) {
@@ -469,11 +458,11 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::AssumeGivenComparison(
 
   if (cmp == Comparison::NULL_) {
     // the RHS of e or given was null
-    return ScalarExpression::MakeNull(boolean());
+    return NullExpression();
   }
 
-  static auto always = ScalarExpression::Make(true);
-  static auto never = ScalarExpression::Make(false);
+  static auto always = scalar(true);
+  static auto never = scalar(false);
 
   using compute::CompareOperator;
 
@@ -619,7 +608,7 @@ Result<std::shared_ptr<Expression>> AndExpression::Assume(const Expression& give
 
   // if either operand is trivially null then so is this AND
   if (left_operand->IsNull() || right_operand->IsNull()) {
-    return ScalarExpression::MakeNull(boolean());
+    return NullExpression();
   }
 
   bool left_trivial, right_trivial;
@@ -637,7 +626,7 @@ Result<std::shared_ptr<Expression>> AndExpression::Assume(const Expression& give
       (right_is_trivial && right_trivial == false)) {
     // FIXME(bkietz) if left is false and right is a column conaining nulls, this is an
     // error because we should be yielding null there rather than false
-    return ScalarExpression::Make(false);
+    return scalar(false);
   }
 
   // at least one of the operands is trivially true; return the other operand
@@ -650,7 +639,7 @@ Result<std::shared_ptr<Expression>> OrExpression::Assume(const Expression& given
 
   // if either operand is trivially null then so is this OR
   if (left_operand->IsNull() || right_operand->IsNull()) {
-    return ScalarExpression::MakeNull(boolean());
+    return NullExpression();
   }
 
   bool left_trivial, right_trivial;
@@ -668,7 +657,7 @@ Result<std::shared_ptr<Expression>> OrExpression::Assume(const Expression& given
       (right_is_trivial && right_trivial == true)) {
     // FIXME(bkietz) if left is true but right is a column conaining nulls, this is an
     // error because we should be yielding null there rather than true
-    return ScalarExpression::Make(true);
+    return scalar(true);
   }
 
   // at least one of the operands is trivially false; return the other operand
@@ -679,12 +668,12 @@ Result<std::shared_ptr<Expression>> NotExpression::Assume(const Expression& give
   ARROW_ASSIGN_OR_RAISE(auto operand, operand_->Assume(given));
 
   if (operand->IsNull()) {
-    return ScalarExpression::MakeNull(boolean());
+    return NullExpression();
   }
 
   bool trivial;
   if (operand->IsTrivialCondition(&trivial)) {
-    return ScalarExpression::Make(!trivial);
+    return scalar(!trivial);
   }
 
   return Copy();
@@ -715,34 +704,46 @@ std::string OperatorName(compute::CompareOperator op) {
   return "";
 }
 
+// TODO(bkietz) extract this to Scalar::ToString()
+struct ScalarExpressionToString {
+  Status Visit(const BooleanType&) {
+    return Finish(CastValue<BooleanType>().value ? "true" : "false");
+  }
+
+  template <typename T>
+  enable_if_number<T, Status> Visit(const T&) {
+    return Finish(std::to_string(CastValue<T>().value));
+  }
+
+  Status Visit(const StringType&) {
+    return Finish(CastValue<StringType>().value->ToString());
+  }
+
+  Status Visit(const DataType&) { return Finish("TODO(bkietz)"); }
+
+  Status Finish(std::string repr) {
+    *repr_ = std::move(repr);
+    return Status::OK();
+  }
+
+  template <typename T>
+  const typename TypeTraits<T>::ScalarType& CastValue() {
+    return checked_cast<const typename TypeTraits<T>::ScalarType&>(value_);
+  }
+
+  const Scalar& value_;
+  std::string* repr_;
+};
+
 std::string ScalarExpression::ToString() const {
   if (!value_->is_valid) {
     return "scalar<" + value_->type->ToString() + ", null>()";
   }
 
-  std::string value;
-  switch (value_->type->id()) {
-    case Type::BOOL:
-      value = checked_cast<const BooleanScalar&>(*value_).value ? "true" : "false";
-      break;
-    case Type::INT32:
-      value = std::to_string(checked_cast<const Int32Scalar&>(*value_).value);
-      break;
-    case Type::INT64:
-      value = std::to_string(checked_cast<const Int64Scalar&>(*value_).value);
-      break;
-    case Type::DOUBLE:
-      value = std::to_string(checked_cast<const DoubleScalar&>(*value_).value);
-      break;
-    case Type::STRING:
-      value = checked_cast<const StringScalar&>(*value_).value->ToString();
-      break;
-    default:
-      value = "TODO(bkietz)";
-      break;
-  }
-
-  return "scalar<" + value_->type->ToString() + ">(" + value + ")";
+  std::string repr;
+  ScalarExpressionToString impl{*value_, &repr};
+  DCHECK_OK(VisitTypeInline(*value_->type, &impl));
+  return "scalar<" + value_->type->ToString() + ">(" + repr + ")";
 }
 
 static std::string EulerNotation(std::string fn, const ExpressionVector& operands) {
@@ -865,9 +866,31 @@ std::shared_ptr<AndExpression> and_(std::shared_ptr<Expression> lhs,
   return std::make_shared<AndExpression>(std::move(lhs), std::move(rhs));
 }
 
+std::shared_ptr<Expression> and_(const ExpressionVector& subexpressions) {
+  if (subexpressions.size() == 0) {
+    return scalar(true);
+  }
+  return std::accumulate(
+      subexpressions.begin(), subexpressions.end(), std::shared_ptr<Expression>(),
+      [](std::shared_ptr<Expression> acc, const std::shared_ptr<Expression>& next) {
+        return acc == nullptr ? next : and_(std::move(acc), next);
+      });
+}
+
 std::shared_ptr<OrExpression> or_(std::shared_ptr<Expression> lhs,
                                   std::shared_ptr<Expression> rhs) {
   return std::make_shared<OrExpression>(std::move(lhs), std::move(rhs));
+}
+
+std::shared_ptr<Expression> or_(const ExpressionVector& subexpressions) {
+  if (subexpressions.size() == 0) {
+    return scalar(false);
+  }
+  return std::accumulate(
+      subexpressions.begin(), subexpressions.end(), std::shared_ptr<Expression>(),
+      [](std::shared_ptr<Expression> acc, const std::shared_ptr<Expression>& next) {
+        return acc == nullptr ? next : or_(std::move(acc), next);
+      });
 }
 
 std::shared_ptr<NotExpression> not_(std::shared_ptr<Expression> operand) {

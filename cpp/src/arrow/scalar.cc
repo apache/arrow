@@ -18,6 +18,8 @@
 #include "arrow/scalar.h"
 
 #include <memory>
+#include <string>
+#include <utility>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
@@ -26,6 +28,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/parsing.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -58,6 +61,9 @@ DurationScalar::DurationScalar(int64_t value, const std::shared_ptr<DataType>& t
   DCHECK_EQ(Type::DURATION, type->id());
 }
 
+MonthIntervalScalar::MonthIntervalScalar(int32_t value, bool is_valid)
+    : internal::PrimitiveScalar{month_interval(), is_valid}, value(value) {}
+
 MonthIntervalScalar::MonthIntervalScalar(int32_t value,
                                          const std::shared_ptr<DataType>& type,
                                          bool is_valid)
@@ -68,6 +74,10 @@ MonthIntervalScalar::MonthIntervalScalar(int32_t value,
 }
 
 DayTimeIntervalScalar::DayTimeIntervalScalar(DayTimeIntervalType::DayMilliseconds value,
+                                             bool is_valid)
+    : internal::PrimitiveScalar{day_time_interval(), is_valid}, value(value) {}
+
+DayTimeIntervalScalar::DayTimeIntervalScalar(DayTimeIntervalType::DayMilliseconds value,
                                              const std::shared_ptr<DataType>& type,
                                              bool is_valid)
     : internal::PrimitiveScalar{type, is_valid}, value(value) {
@@ -75,6 +85,9 @@ DayTimeIntervalScalar::DayTimeIntervalScalar(DayTimeIntervalType::DayMillisecond
   DCHECK_EQ(IntervalType::DAY_TIME,
             checked_cast<IntervalType*>(type.get())->interval_type());
 }
+
+StringScalar::StringScalar(std::string s)
+    : StringScalar(Buffer::FromString(std::move(s)), true) {}
 
 FixedSizeBinaryScalar::FixedSizeBinaryScalar(const std::shared_ptr<Buffer>& value,
                                              const std::shared_ptr<DataType>& type,
@@ -95,36 +108,23 @@ BaseListScalar::BaseListScalar(const std::shared_ptr<Array>& value,
 BaseListScalar::BaseListScalar(const std::shared_ptr<Array>& value, bool is_valid)
     : BaseListScalar(value, value->type(), is_valid) {}
 
-MapScalar::MapScalar(const std::shared_ptr<Array>& keys,
-                     const std::shared_ptr<Array>& items,
-                     const std::shared_ptr<DataType>& type, bool is_valid)
-    : Scalar{type, is_valid}, keys(keys), items(items) {}
-
-MapScalar::MapScalar(const std::shared_ptr<Array>& keys,
-                     const std::shared_ptr<Array>& values, bool is_valid)
-    : MapScalar(keys, values, map(keys->type(), values->type()), is_valid) {}
-
 FixedSizeListScalar::FixedSizeListScalar(const std::shared_ptr<Array>& value,
                                          const std::shared_ptr<DataType>& type,
                                          bool is_valid)
-    : Scalar{type, is_valid}, value(value) {
+    : BaseListScalar(value, type, is_valid) {
   ARROW_CHECK_EQ(value->length(),
                  checked_cast<const FixedSizeListType*>(type.get())->list_size());
 }
 
-FixedSizeListScalar::FixedSizeListScalar(const std::shared_ptr<Array>& value,
-                                         bool is_valid)
-    : FixedSizeListScalar(value, value->type(), is_valid) {}
-
+// TODO(bkietz) This doesn't need a factory. Just rewrite all scalars to be generically
+// constructible (is_simple_scalar should apply to all scalars)
 struct MakeNullImpl {
-  template <typename T>
-  using ScalarType = typename TypeTraits<T>::ScalarType;
-
-  template <typename T>
-  typename std::enable_if<std::is_default_constructible<ScalarType<T>>::value,
-                          Status>::type
-  Visit(const T&) {
-    *out_ = std::make_shared<ScalarType<T>>();
+  template <typename T, typename ScalarType = typename TypeTraits<T>::ScalarType,
+            typename ValueType = typename ScalarType::ValueType,
+            typename Enable = typename std::enable_if<
+                internal::is_simple_scalar<ScalarType>::value>::type>
+  Status Visit(const T&) {
+    *out_ = std::make_shared<ScalarType>(ValueType(), type_, false);
     return Status::OK();
   }
 
@@ -132,7 +132,7 @@ struct MakeNullImpl {
     return Status::NotImplemented("construcing null scalars of type ", t);
   }
 
-  std::shared_ptr<DataType> type_;
+  const std::shared_ptr<DataType>& type_;
   std::shared_ptr<Scalar>* out_;
 };
 
@@ -141,5 +141,57 @@ Status MakeNullScalar(const std::shared_ptr<DataType>& type,
   MakeNullImpl impl = {type, null};
   return VisitTypeInline(*type, &impl);
 }
+
+struct ScalarParseImpl {
+  template <typename T, typename Converter = internal::StringConverter<T>,
+            typename Value = typename Converter::value_type>
+  Status Visit(const T& t) {
+    Value value;
+    if (!Converter{type_}(s_.data(), s_.size(), &value)) {
+      return Status::Invalid("error parsing '", s_, "' as scalar of type ", t);
+    }
+    return Finish(std::move(value));
+  }
+
+  Status Visit(const BinaryType&) { return FinishWithBuffer(); }
+
+  Status Visit(const LargeBinaryType&) { return FinishWithBuffer(); }
+
+  Status Visit(const FixedSizeBinaryType& t) { return FinishWithBuffer(); }
+
+  Status Visit(const DataType& t) {
+    return Status::NotImplemented("parsing scalars of type ", t);
+  }
+
+  template <typename Arg>
+  Status Finish(Arg&& arg) {
+    return MakeScalar(type_, std::forward<Arg>(arg), out_);
+  }
+
+  Status FinishWithBuffer() { return Finish(Buffer::FromString(s_.to_string())); }
+
+  ScalarParseImpl(const std::shared_ptr<DataType>& type, util::string_view s,
+                  std::shared_ptr<Scalar>* out)
+      : type_(type), s_(s), out_(out) {}
+
+  const std::shared_ptr<DataType>& type_;
+  util::string_view s_;
+  std::shared_ptr<Scalar>* out_;
+};
+
+Status Scalar::Parse(const std::shared_ptr<DataType>& type, util::string_view s,
+                     std::shared_ptr<Scalar>* out) {
+  ScalarParseImpl impl = {type, s, out};
+  return VisitTypeInline(*type, &impl);
+}
+
+namespace internal {
+Status CheckBufferLength(const FixedSizeBinaryType* t, const std::shared_ptr<Buffer>* b) {
+  return t->byte_width() == (*b)->size()
+             ? Status::OK()
+             : Status::Invalid("buffer length ", (*b)->size(), " is not compatible with ",
+                               *t);
+}
+}  // namespace internal
 
 }  // namespace arrow
