@@ -33,28 +33,55 @@
 namespace jni {
 namespace parquet {
 
+/// \brief An Writer instance of one parquet file
+///
+/// This class is used by jni_wrapper to hold a writer handler for
+/// continuous record batch writing.
 class ParquetWriter {
  public:
-  ParquetWriter(std::string path, std::shared_ptr<::arrow::Schema>& schema);
+  /// \brief Construction of ParquetWriter
+  /// \param[in] path ParquetWriter will open difference connector according to file path
+  /// \param[in] schema Open writable parquet handler requires Parquet Schema as input
+  ParquetWriter(std::string path, const std::shared_ptr<::arrow::Schema>& schema);
+
   ~ParquetWriter();
-  ::arrow::Status initialize(bool useHdfs3 = true, int replication = 1);
-  ::arrow::Status writeNext(int num_rows, int64_t* in_buf_addrs, int64_t* in_buf_sizes,
+
+  /// \brief Initialization of ParquetWriter
+  /// \param[in] use_hdfs3 option used by HdfsConnector
+  /// \param[in] replication option used by HdfsConnector
+  ::arrow::Status Initialize(bool use_hdfs3 = true, int replication = 1);
+
+  /// \brief Write Next record batch
+  /// \param[in] num_rows rows number in this RecordBatch
+  /// \param[in] in_buf_addrs buffer addr list in this RecordBatch
+  /// \param[in] in_buf_sizes buffer size list in this RecordBatch
+  /// \param[in] in_bufs_len buffer list length in this RecordBatch
+  ///
+  /// RecordBatch will be only written to cache
+  ::arrow::Status WriteNext(int num_rows, int64_t* in_buf_addrs, int64_t* in_buf_sizes,
                             int in_bufs_len);
-  ::arrow::Status writeNext(std::shared_ptr<::arrow::RecordBatch>& rb);
-  ::arrow::Status flush();
+
+  /// \brief Write Next record batch
+  /// \param[in] rb Next RecordBatch
+  ///
+  /// RecordBatch will be only written to cache
+  ::arrow::Status WriteNext(const std::shared_ptr<::arrow::RecordBatch>& rb);
+
+  /// \brief Flush cached recordBatches as one table
+  ::arrow::Status Flush();
 
  private:
-  ::arrow::MemoryPool* pool;
-  Connector* connector;
-  std::mutex threadMtx;
-  std::unique_ptr<::parquet::arrow::FileWriter> arrow_writer;
-  std::shared_ptr<::arrow::Schema> schema;
-  std::shared_ptr<::parquet::SchemaDescriptor> schema_description;
-  std::vector<std::shared_ptr<::arrow::RecordBatch>> record_batch_buffer_list;
+  ::arrow::MemoryPool* pool_;
+  Connector* connector_;
+  std::mutex thread_mtx_;
+  std::unique_ptr<::parquet::arrow::FileWriter> arrow_writer_;
+  const std::shared_ptr<::arrow::Schema> schema;
+  std::shared_ptr<::parquet::SchemaDescriptor> schema_description_;
+  std::vector<std::shared_ptr<::arrow::RecordBatch>> record_batch_buffer_list_;
 
-  ::arrow::Status makeRecordBatch(std::shared_ptr<::arrow::Schema>& schema, int num_rows,
-                                  int64_t* in_buf_addrs, int64_t* in_buf_sizes,
-                                  int in_bufs_len,
+  ::arrow::Status MakeRecordBatch(const std::shared_ptr<::arrow::Schema>& schema,
+                                  int num_rows, int64_t* in_buf_addrs,
+                                  int64_t* in_buf_sizes, int in_bufs_len,
                                   std::shared_ptr<::arrow::RecordBatch>* batch);
 };
 }  // namespace parquet

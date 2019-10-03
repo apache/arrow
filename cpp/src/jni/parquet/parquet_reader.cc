@@ -28,79 +28,79 @@ namespace jni {
 namespace parquet {
 
 ParquetReader::ParquetReader(std::string path)
-    : pool(::arrow::default_memory_pool()), properties(false) {
+    : pool_(::arrow::default_memory_pool()), properties_(false) {
   if (path.find("hdfs") != std::string::npos) {
-    connector = new HdfsConnector(path);
+    connector_ = new HdfsConnector(path);
   } else {
-    connector = new FileConnector(path);
+    connector_ = new FileConnector(path);
   }
 }
 
 ParquetReader::~ParquetReader() {
-  connector->teardown();
-  delete connector;
+  connector_->TearDown();
+  delete connector_;
 }
 
-::arrow::Status ParquetReader::initialize(std::vector<int>& column_indices,
-                                          std::vector<int>& row_group_indices,
-                                          int64_t batch_size, bool useHdfs3) {
+::arrow::Status ParquetReader::Initialize(const std::vector<int>& column_indices,
+                                          const std::vector<int>& row_group_indices,
+                                          int64_t batch_size, bool use_hdfs3) {
   ::arrow::Status msg;
-  msg = connector->openReadable(useHdfs3);
+  msg = connector_->OpenReadable(use_hdfs3);
   if (!msg.ok()) {
     std::cerr << "Create connector failed, error msg: " << msg << std::endl;
     return msg;
   }
-  properties.set_batch_size(batch_size);
+  properties_.set_batch_size(batch_size);
 
   msg = ::parquet::arrow::FileReader::Make(
-      pool, ::parquet::ParquetFileReader::Open(connector->getReader()), properties,
-      &arrow_reader);
+      pool_, ::parquet::ParquetFileReader::Open(connector_->GetReader()), properties_,
+      &arrow_reader_);
   if (!msg.ok()) {
     std::cerr << "Open parquet file failed, error msg: " << msg << std::endl;
     return msg;
   }
 
-  msg = getRecordBatch(row_group_indices, column_indices);
+  msg = GetRecordBatchReader(row_group_indices, column_indices);
   if (!msg.ok()) {
-    std::cerr << "GetRecordBatch failed, error msg: " << msg << std::endl;
+    std::cerr << "GetRecordBatchReader failed, error msg: " << msg << std::endl;
     return msg;
   }
   return msg;
 }
 
-::arrow::Status ParquetReader::initialize(std::vector<int>& column_indices,
+::arrow::Status ParquetReader::Initialize(const std::vector<int>& column_indices,
                                           int64_t start_pos, int64_t end_pos,
-                                          int64_t batch_size, bool useHdfs3) {
+                                          int64_t batch_size, bool use_hdfs3) {
   ::arrow::Status msg;
-  msg = connector->openReadable(useHdfs3);
+  msg = connector_->OpenReadable(use_hdfs3);
   if (!msg.ok()) {
     std::cerr << "Create connector failed, error msg: " << msg << std::endl;
     return msg;
   }
-  properties.set_batch_size(batch_size);
+  properties_.set_batch_size(batch_size);
 
   msg = ::parquet::arrow::FileReader::Make(
-      pool, ::parquet::ParquetFileReader::Open(connector->getReader()), properties,
-      &arrow_reader);
+      pool_, ::parquet::ParquetFileReader::Open(connector_->GetReader()), properties_,
+      &arrow_reader_);
   if (!msg.ok()) {
     std::cerr << "Open parquet file failed, error msg: " << msg << std::endl;
     return msg;
   }
 
   std::vector<int> row_group_indices =
-      getRowGroupIndices(arrow_reader->num_row_groups(), start_pos, end_pos);
-  msg = getRecordBatch(row_group_indices, column_indices);
+      GetRowGroupIndices(arrow_reader_->num_row_groups(), start_pos, end_pos);
+  msg = GetRecordBatchReader(row_group_indices, column_indices);
   if (!msg.ok()) {
-    std::cerr << "GetRecordBatch failed, error msg: " << msg << std::endl;
+    std::cerr << "GetRecordBatchReader failed, error msg: " << msg << std::endl;
     return msg;
   }
   return msg;
 }
 
-std::vector<int> ParquetReader::getRowGroupIndices(int num_row_groups, int64_t start_pos,
+std::vector<int> ParquetReader::GetRowGroupIndices(int num_row_groups, int64_t start_pos,
                                                    int64_t end_pos) {
   std::unique_ptr<::parquet::ParquetFileReader> reader =
-      ::parquet::ParquetFileReader::Open(connector->getReader());
+      ::parquet::ParquetFileReader::Open(connector_->GetReader());
   std::vector<int> row_group_indices;
   int64_t pos = 0;
   for (int i = 0; i < num_row_groups; i++) {
@@ -116,22 +116,24 @@ std::vector<int> ParquetReader::getRowGroupIndices(int num_row_groups, int64_t s
   return row_group_indices;
 }
 
-::arrow::Status ParquetReader::getRecordBatch(std::vector<int>& row_group_indices,
-                                              std::vector<int>& column_indices) {
+::arrow::Status ParquetReader::GetRecordBatchReader(
+    const std::vector<int>& row_group_indices, const std::vector<int>& column_indices) {
   if (column_indices.empty()) {
-    return arrow_reader->GetRecordBatchReader(row_group_indices, &rb_reader);
+    return arrow_reader_->GetRecordBatchReader(row_group_indices, &rb_reader_);
   } else {
-    return arrow_reader->GetRecordBatchReader(row_group_indices, column_indices,
-                                              &rb_reader);
+    return arrow_reader_->GetRecordBatchReader(row_group_indices, column_indices,
+                                               &rb_reader_);
   }
 }
 
-::arrow::Status ParquetReader::readNext(std::shared_ptr<::arrow::RecordBatch>* out) {
-  std::lock_guard<std::mutex> lck(threadMtx);
-  return rb_reader->ReadNext(out);
+::arrow::Status ParquetReader::ReadNext(std::shared_ptr<::arrow::RecordBatch>* out) {
+  std::lock_guard<std::mutex> lck(thread_mtx_);
+  return rb_reader_->ReadNext(out);
 }
 
-std::shared_ptr<::arrow::Schema> ParquetReader::schema() { return rb_reader->schema(); }
+std::shared_ptr<::arrow::Schema> ParquetReader::GetSchema() {
+  return rb_reader_->schema();
+}
 
 }  // namespace parquet
 }  // namespace jni

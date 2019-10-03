@@ -44,9 +44,8 @@ add_arrow_lib(arrow_parquet_jni
               OUTPUTS
               ARROW_PARQUET_JNI_LIBRARIES
               SHARED_LINK_LIBS
-              parquet
-              arrow
-              arrow_dataset
+              parquet_shared
+              arrow_shared
               EXTRA_INCLUDES
               ${JNI_HEADERS_DIR}
               PRIVATE_INCLUDES

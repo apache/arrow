@@ -140,7 +140,7 @@ Java_org_apache_arrow_adapter_parquet_ParquetReaderJniWrapper_nativeOpenParquetR
 JNIEXPORT void JNICALL
 Java_org_apache_arrow_adapter_parquet_ParquetReaderJniWrapper_nativeInitParquetReader(
     JNIEnv* env, jobject obj, jlong reader_ptr, jintArray column_indices,
-    jintArray row_group_indices, jlong batch_size, jboolean useHdfs3) {
+    jintArray row_group_indices, jlong batch_size, jboolean use_hdfs3) {
   jni::parquet::ParquetReader* reader = (jni::parquet::ParquetReader*)reader_ptr;
 
   ::arrow::Status msg;
@@ -153,17 +153,17 @@ Java_org_apache_arrow_adapter_parquet_ParquetReaderJniWrapper_nativeInitParquetR
   int row_group_indices_len = env->GetArrayLength(row_group_indices);
   if (row_group_indices_len == 0) {
     std::vector<int> _row_group_indices = {};
-    msg = reader->initialize(_row_group_indices, _column_indices, batch_size, useHdfs3);
+    msg = reader->Initialize(_row_group_indices, _column_indices, batch_size, use_hdfs3);
   } else {
     jint* row_group_indices_ptr = env->GetIntArrayElements(row_group_indices, 0);
     std::vector<int> _row_group_indices(row_group_indices_ptr,
                                         row_group_indices_ptr + row_group_indices_len);
-    msg = reader->initialize(_row_group_indices, _column_indices, batch_size, useHdfs3);
+    msg = reader->Initialize(_row_group_indices, _column_indices, batch_size, use_hdfs3);
     env->ReleaseIntArrayElements(row_group_indices, row_group_indices_ptr, JNI_ABORT);
   }
   if (!msg.ok()) {
     std::string error_message =
-        "nativeInitParquetReader: failed to initialize, err msg is " + msg.message();
+        "nativeInitParquetReader: failed to Initialize, err msg is " + msg.message();
     env->ThrowNew(io_exception_class, error_message.c_str());
   }
   env->ReleaseIntArrayElements(column_indices, column_indices_ptr, JNI_ABORT);
@@ -172,7 +172,7 @@ Java_org_apache_arrow_adapter_parquet_ParquetReaderJniWrapper_nativeInitParquetR
 JNIEXPORT void JNICALL
 Java_org_apache_arrow_adapter_parquet_ParquetReaderJniWrapper_nativeInitParquetReader2(
     JNIEnv* env, jobject obj, jlong reader_ptr, jintArray column_indices, jlong start_pos,
-    jlong end_pos, jlong batch_size, jboolean useHdfs3) {
+    jlong end_pos, jlong batch_size, jboolean use_hdfs3) {
   jni::parquet::ParquetReader* reader = (jni::parquet::ParquetReader*)reader_ptr;
 
   int column_indices_len = env->GetArrayLength(column_indices);
@@ -181,10 +181,10 @@ Java_org_apache_arrow_adapter_parquet_ParquetReaderJniWrapper_nativeInitParquetR
                                    column_indices_ptr + column_indices_len);
 
   ::arrow::Status msg;
-  msg = reader->initialize(_column_indices, start_pos, end_pos, batch_size, useHdfs3);
+  msg = reader->Initialize(_column_indices, start_pos, end_pos, batch_size, use_hdfs3);
   if (!msg.ok()) {
     std::string error_message =
-        "nativeInitParquetReader: failed to initialize, err msg is " + msg.message();
+        "nativeInitParquetReader: failed to Initialize, err msg is " + msg.message();
     env->ThrowNew(io_exception_class, error_message.c_str());
   }
   env->ReleaseIntArrayElements(column_indices, column_indices_ptr, JNI_ABORT);
@@ -202,13 +202,13 @@ Java_org_apache_arrow_adapter_parquet_ParquetReaderJniWrapper_nativeReadNext(
     JNIEnv* env, jobject obj, jlong reader_ptr) {
   std::shared_ptr<::arrow::RecordBatch> record_batch;
   jni::parquet::ParquetReader* reader = (jni::parquet::ParquetReader*)reader_ptr;
-  arrow::Status status = reader->readNext(&record_batch);
+  arrow::Status status = reader->ReadNext(&record_batch);
 
   if (!status.ok() || !record_batch) {
     return nullptr;
   }
 
-  auto schema = reader->schema();
+  auto schema = reader->GetSchema();
 
   jobjectArray field_array =
       env->NewObjectArray(schema->num_fields(), arrow_field_node_builder_class, nullptr);
@@ -250,7 +250,7 @@ JNIEXPORT jobject JNICALL
 Java_org_apache_arrow_adapter_parquet_ParquetReaderJniWrapper_nativeGetSchema(
     JNIEnv* env, jobject obj, jlong reader_ptr) {
   jni::parquet::ParquetReader* reader = (jni::parquet::ParquetReader*)reader_ptr;
-  std::shared_ptr<::arrow::Schema> schema = reader->schema();
+  std::shared_ptr<::arrow::Schema> schema = reader->GetSchema();
   std::shared_ptr<arrow::Buffer> out;
   arrow::Status status =
       arrow::ipc::SerializeSchema(*schema, nullptr, arrow::default_memory_pool(), &out);
@@ -298,12 +298,12 @@ Java_org_apache_arrow_adapter_parquet_ParquetWriterJniWrapper_nativeOpenParquetW
 
 JNIEXPORT void JNICALL
 Java_org_apache_arrow_adapter_parquet_ParquetWriterJniWrapper_nativeInitParquetWriter(
-    JNIEnv* env, jobject obj, jlong writer_ptr, jboolean useHdfs3, jint rep) {
+    JNIEnv* env, jobject obj, jlong writer_ptr, jboolean use_hdfs3, jint rep) {
   jni::parquet::ParquetWriter* writer = (jni::parquet::ParquetWriter*)writer_ptr;
-  ::arrow::Status msg = writer->initialize(useHdfs3, rep);
+  ::arrow::Status msg = writer->Initialize(use_hdfs3, rep);
   if (!msg.ok()) {
     std::string error_message =
-        "nativeInitParquetWriter: failed to initialize, err msg is " + msg.message();
+        "nativeInitParquetWriter: failed to Initialize, err msg is " + msg.message();
     env->ThrowNew(io_exception_class, error_message.c_str());
   }
 }
@@ -312,10 +312,10 @@ JNIEXPORT void JNICALL
 Java_org_apache_arrow_adapter_parquet_ParquetWriterJniWrapper_nativeCloseParquetWriter(
     JNIEnv* env, jobject obj, jlong writer_ptr) {
   jni::parquet::ParquetWriter* writer = (jni::parquet::ParquetWriter*)writer_ptr;
-  arrow::Status msg = writer->flush();
+  arrow::Status msg = writer->Flush();
   if (!msg.ok()) {
     std::string error_message =
-        "nativeCloseParquetWriter: failed to flush, err msg is " + msg.message();
+        "nativeCloseParquetWriter: failed to Flush, err msg is " + msg.message();
     env->ThrowNew(io_exception_class, error_message.c_str());
   }
   delete writer;
@@ -336,7 +336,7 @@ Java_org_apache_arrow_adapter_parquet_ParquetWriterJniWrapper_nativeWriteNext(
   jlong* in_buf_sizes = env->GetLongArrayElements(bufSizes, 0);
 
   jni::parquet::ParquetWriter* writer = (jni::parquet::ParquetWriter*)writer_ptr;
-  arrow::Status msg = writer->writeNext(numRows, in_buf_addrs, in_buf_sizes, in_bufs_len);
+  arrow::Status msg = writer->WriteNext(numRows, in_buf_addrs, in_buf_sizes, in_bufs_len);
 
   if (!msg.ok()) {
     std::string error_message = "nativeWriteNext: failed, err msg is " + msg.message();

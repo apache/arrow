@@ -27,36 +27,38 @@
 #include <sstream>  // IWYU pragma: keep
 #include <string>
 #include <vector>
+#include "arrow/filesystem/path_util.h"
 
 namespace jni {
 namespace parquet {
 
-HdfsConnector::HdfsConnector(std::string hdfsPath) : driverLoaded(false) {
-  getHdfsHostAndPort(hdfsPath, &hdfsConfig);
-  filePath = getFileName(hdfsPath);
-  dirPath = getPathDir(filePath);
+HdfsConnector::HdfsConnector(std::string hdfs_path) : driver_loaded_(false) {
+  GetHdfsHostAndPort(hdfs_path, &hdfs_config_);
+  file_path_ = GetFileName(hdfs_path);
+  auto path_pair = arrow::fs::internal::GetAbstractPathParent(file_path_);
+  dir_path_ = path_pair.first;
 }
 
 HdfsConnector::~HdfsConnector() {}
 
-::arrow::Status HdfsConnector::setupHdfsClient(bool useHdfs3) {
-  if (hdfsClient) {
+::arrow::Status HdfsConnector::SetupHdfsClient(bool use_hdfs3) {
+  if (hdfs_client_) {
     return ::arrow::Status::OK();
   }
-  if (!driverLoaded) {
+  if (!driver_loaded_) {
     ::arrow::Status msg;
-    if (useHdfs3) {
-      hdfsConfig.driver = ::arrow::io::HdfsDriver::LIBHDFS3;
+    if (use_hdfs3) {
+      hdfs_config_.driver = ::arrow::io::HdfsDriver::LIBHDFS3;
     } else {
-      hdfsConfig.driver = ::arrow::io::HdfsDriver::LIBHDFS;
+      hdfs_config_.driver = ::arrow::io::HdfsDriver::LIBHDFS;
     }
-    driverLoaded = true;
+    driver_loaded_ = true;
   }
 
-  return ::arrow::io::HadoopFileSystem::Connect(&hdfsConfig, &hdfsClient);
+  return ::arrow::io::HadoopFileSystem::Connect(&hdfs_config_, &hdfs_client_);
 }
 
-::arrow::Status HdfsConnector::getHdfsHostAndPort(
+::arrow::Status HdfsConnector::GetHdfsHostAndPort(
     std::string hdfs_path, ::arrow::io::HdfsConnectionConfig* hdfs_conf) {
   std::string search_str0 = std::string(":");
   std::string::size_type pos0 = hdfs_path.find_first_of(search_str0, 7);
@@ -75,81 +77,81 @@ HdfsConnector::~HdfsConnector() {}
   return ::arrow::Status::OK();
 }
 
-std::string HdfsConnector::getFileName(std::string path) {
+std::string HdfsConnector::GetFileName(std::string path) {
   std::string search_str0 = std::string(":");
   std::string::size_type pos0 = path.find_first_of(search_str0, 7);
-  std::string fileName;
+  std::string file_name;
   if (pos0 == std::string::npos) {
-    fileName = path.substr(7, std::string::npos);
+    file_name = path.substr(7, std::string::npos);
   } else {
     std::string search_str1 = std::string("/");
     std::string::size_type pos1 = path.find_first_of(search_str1, 7);
-    fileName = path.substr(pos1, std::string::npos);
+    file_name = path.substr(pos1, std::string::npos);
   }
-  return fileName;
+  return file_name;
 }
 
-void HdfsConnector::teardown() {
-  if (fileWriter) {
-    fileWriter->Close();
+void HdfsConnector::TearDown() {
+  if (file_writer_) {
+    file_writer_->Close();
   }
-  if (fileReader) {
-    fileReader->Close();
+  if (file_reader_) {
+    file_reader_->Close();
   }
-  if (hdfsClient) {
-    hdfsClient->Disconnect();
-    hdfsClient = nullptr;
+  if (hdfs_client_) {
+    hdfs_client_->Disconnect();
+    hdfs_client_ = nullptr;
   }
 }
 
-::arrow::Status HdfsConnector::openReadable(bool useHdfs3) {
+::arrow::Status HdfsConnector::OpenReadable(bool use_hdfs3) {
   ::arrow::Status msg;
-  if (!hdfsClient) {
-    msg = setupHdfsClient(useHdfs3);
+  if (!hdfs_client_) {
+    msg = SetupHdfsClient(use_hdfs3);
     if (!msg.ok()) {
       std::cerr << "connect HDFS failed, error is : " << msg << std::endl;
       return msg;
     }
   }
-  msg = hdfsClient->OpenReadable(filePath, &fileReader);
+  msg = hdfs_client_->OpenReadable(file_path_, &file_reader_);
   if (!msg.ok()) {
-    std::cerr << "Open HDFS file failed, file name is " << filePath
+    std::cerr << "Open HDFS file failed, file name is " << file_path_
               << ", error is : " << msg << std::endl;
     return msg;
   }
   return msg;
 }
 
-::arrow::Status HdfsConnector::openWritable(bool useHdfs3, int replication) {
+::arrow::Status HdfsConnector::OpenWritable(bool use_hdfs3, int replication) {
   ::arrow::Status msg;
-  if (!hdfsClient) {
-    msg = setupHdfsClient(useHdfs3);
+  if (!hdfs_client_) {
+    msg = SetupHdfsClient(use_hdfs3);
     if (!msg.ok()) {
       std::cerr << "connect HDFS failed, error is : " << msg << std::endl;
       return msg;
     }
   }
-  if (!dirPath.empty()) {
-    msg = mkdir(dirPath);
+  if (!dir_path_.empty()) {
+    msg = Mkdir(dir_path_);
     if (!msg.ok()) {
-      std::cerr << "Mkdir for HDFS path failed " << dirPath << ", error is : " << msg
+      std::cerr << "Mkdir for HDFS path failed " << dir_path_ << ", error is : " << msg
                 << std::endl;
       return msg;
     }
   }
 
-  msg = hdfsClient->OpenWritable(filePath, false, buffer_size, (int16_t)replication,
-                                 default_block_size, &fileWriter);
+  msg = hdfs_client_->OpenWritable(file_path_, false, buffer_size_, (int16_t)replication,
+                                   default_block_size_, &file_writer_);
   if (!msg.ok()) {
-    std::cerr << "Open HDFS file failed, file name is " << filePath
+    std::cerr << "Open HDFS file failed, file name is " << file_path_
               << ", error is : " << msg << std::endl;
     return msg;
   }
   return msg;
 }
 
-::arrow::Status HdfsConnector::mkdir(std::string path) {
-  return hdfsClient->MakeDirectory(path);
+::arrow::Status HdfsConnector::Mkdir(std::string path) {
+  return hdfs_client_->MakeDirectory(path);
 }
 }  // namespace parquet
 }  // namespace jni

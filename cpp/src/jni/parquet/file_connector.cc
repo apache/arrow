@@ -26,61 +26,66 @@
 #include <sstream>  // IWYU pragma: keep
 #include <string>
 #include <vector>
+#include "arrow/filesystem/localfs.h"
+#include "arrow/filesystem/path_util.h"
 
 namespace jni {
 namespace parquet {
 
 FileConnector::FileConnector(std::string path) {
-  filePath = path;
-  dirPath = getPathDir(path);
+  file_path_ = path;
+  auto path_pair = arrow::fs::internal::GetAbstractPathParent(file_path_);
+  dir_path_ = path_pair.first;
 }
 
 FileConnector::~FileConnector() {}
 
-void FileConnector::teardown() {
-  if (fileWriter) {
-    fileWriter->Close();
+void FileConnector::TearDown() {
+  if (file_writer_) {
+    file_writer_->Close();
   }
 }
 
-::arrow::Status FileConnector::openReadable(bool useHdfs3) {
-  ::arrow::Status msg = ::arrow::io::ReadableFile::Open(filePath, &fileReader);
+::arrow::Status FileConnector::OpenReadable(bool option) {
+  ::arrow::Status msg = ::arrow::io::ReadableFile::Open(file_path_, &file_reader_);
   if (!msg.ok()) {
-    std::cerr << "Open file failed, file name is " << filePath << ", error is : " << msg
+    std::cerr << "Open file failed, file name is " << file_path_ << ", error is : " << msg
               << std::endl;
     return msg;
   }
   return msg;
 }
 
-::arrow::Status FileConnector::openWritable(bool useHdfs3, int replication) {
+::arrow::Status FileConnector::OpenWritable(bool option, int replication) {
   ::arrow::Status msg;
-  if (!dirPath.empty()) {
-    msg = mkdir(dirPath);
+  if (!dir_path_.empty()) {
+    msg = Mkdir(dir_path_);
     if (!msg.ok()) {
-      std::cerr << "mkdir for path failed " << dirPath << ", error is : " << msg
+      std::cerr << "Mkdir for path failed " << dir_path_ << ", error is : " << msg
                 << std::endl;
       return msg;
     }
   }
 
-  msg = ::arrow::io::FileOutputStream::Open(filePath, false, &fileWriter);
+  msg = ::arrow::io::FileOutputStream::Open(file_path_, false, &file_writer_);
   if (!msg.ok()) {
-    std::cerr << "Open file failed, file name is " << filePath << ", error is : " << msg
+    std::cerr << "Open file failed, file name is " << file_path_ << ", error is : " << msg
               << std::endl;
     return msg;
   }
   return msg;
 }
 
-::arrow::Status FileConnector::mkdir(std::string path) {
-  std::string cmd = "mkdir -p ";
-  cmd.append(path);
-  const int ret = system(cmd.c_str());
-  if (ret < 0 && ret != EEXIST) {
-    return ::arrow::Status::IOError(strerror(ret));
+::arrow::Status FileConnector::Mkdir(std::string path) {
+  std::shared_ptr<::arrow::fs::LocalFileSystem> local_fs =
+      std::make_shared<::arrow::fs::LocalFileSystem>();
+  ::arrow::Status msg = local_fs->CreateDir(path);
+  if (!msg.ok()) {
+    std::cerr << "Make Directory for " << path << " failed, error is: " << msg
+              << std::endl;
+    return msg;
   }
-  return ::arrow::Status::OK();
+  return msg;
 }
 
 }  // namespace parquet

@@ -26,35 +26,36 @@
 namespace jni {
 namespace parquet {
 
-ParquetWriter::ParquetWriter(std::string path, std::shared_ptr<::arrow::Schema>& schema)
-    : pool(::arrow::default_memory_pool()), schema(schema) {
+ParquetWriter::ParquetWriter(std::string path,
+                             const std::shared_ptr<::arrow::Schema>& schema)
+    : pool_(::arrow::default_memory_pool()), schema(schema) {
   if (path.find("hdfs") != std::string::npos) {
-    connector = new HdfsConnector(path);
+    connector_ = new HdfsConnector(path);
   } else {
-    connector = new FileConnector(path);
+    connector_ = new FileConnector(path);
   }
 }
 
 ParquetWriter::~ParquetWriter() {
-  if (arrow_writer) {
-    arrow_writer->Close();
+  if (arrow_writer_) {
+    arrow_writer_->Close();
   }
-  connector->teardown();
-  delete connector;
+  connector_->TearDown();
+  delete connector_;
 }
 
-::arrow::Status ParquetWriter::initialize(bool useHdfs3, int replication) {
+::arrow::Status ParquetWriter::Initialize(bool use_hdfs3, int replication) {
   ::arrow::Status msg;
-  msg = connector->openWritable(useHdfs3, replication);
+  msg = connector_->OpenWritable(use_hdfs3, replication);
   if (!msg.ok()) {
-    std::cerr << "Create connector failed, error msg: " << msg << std::endl;
+    std::cerr << "Create connector_ failed, error msg: " << msg << std::endl;
     return msg;
   }
 
   std::shared_ptr<::parquet::WriterProperties> properties =
       ::parquet::default_writer_properties();
   msg = ::parquet::arrow::ToParquetSchema(schema.get(), *properties.get(),
-                                          &schema_description);
+                                          &schema_description_);
   if (!msg.ok()) {
     std::cerr << "Convert Arrow ::arrow::Schema to "
               << "Parquet ::arrow::Schema failed, error msg: " << msg << std::endl;
@@ -62,17 +63,17 @@ ParquetWriter::~ParquetWriter() {
   }
 
   ::parquet::schema::NodeVector group_node_fields;
-  for (int i = 0; i < schema_description->group_node()->field_count(); i++) {
-    group_node_fields.push_back(schema_description->group_node()->field(i));
+  for (int i = 0; i < schema_description_->group_node()->field_count(); i++) {
+    group_node_fields.push_back(schema_description_->group_node()->field(i));
   }
   auto parquet_schema = std::static_pointer_cast<::parquet::schema::GroupNode>(
-      ::parquet::schema::GroupNode::Make(schema_description->schema_root()->name(),
-                                         schema_description->schema_root()->repetition(),
+      ::parquet::schema::GroupNode::Make(schema_description_->schema_root()->name(),
+                                         schema_description_->schema_root()->repetition(),
                                          group_node_fields));
 
   msg = ::parquet::arrow::FileWriter::Make(
-      pool, ::parquet::ParquetFileWriter::Open(connector->getWriter(), parquet_schema),
-      schema, ::parquet::default_arrow_writer_properties(), &arrow_writer);
+      pool_, ::parquet::ParquetFileWriter::Open(connector_->GetWriter(), parquet_schema),
+      schema, ::parquet::default_arrow_writer_properties(), &arrow_writer_);
   if (!msg.ok()) {
     std::cerr << "Open parquet file failed, error msg: " << msg << std::endl;
     return msg;
@@ -80,48 +81,53 @@ ParquetWriter::~ParquetWriter() {
   return msg;
 }
 
-::arrow::Status ParquetWriter::writeNext(int num_rows, int64_t* in_buf_addrs,
+::arrow::Status ParquetWriter::WriteNext(int num_rows, int64_t* in_buf_addrs,
                                          int64_t* in_buf_sizes, int in_bufs_len) {
   std::shared_ptr<::arrow::RecordBatch> batch;
   ::arrow::Status msg =
-      makeRecordBatch(schema, num_rows, in_buf_addrs, in_buf_sizes, in_bufs_len, &batch);
+      MakeRecordBatch(schema, num_rows, in_buf_addrs, in_buf_sizes, in_bufs_len, &batch);
   if (!msg.ok()) {
     return msg;
   }
 
-  std::lock_guard<std::mutex> lck(threadMtx);
-  record_batch_buffer_list.push_back(batch);
+  std::lock_guard<std::mutex> lck(thread_mtx_);
+  record_batch_buffer_list_.push_back(batch);
 
   return msg;
 }
 
-::arrow::Status ParquetWriter::flush() {
+::arrow::Status ParquetWriter::Flush() {
   std::shared_ptr<::arrow::Table> table;
   ::arrow::Status msg =
-      ::arrow::Table::FromRecordBatches(record_batch_buffer_list, &table);
+      ::arrow::Table::FromRecordBatches(record_batch_buffer_list_, &table);
   if (!msg.ok()) {
     std::cerr << "Table::FromRecordBatches failed" << std::endl;
     return msg;
   }
 
-  msg = arrow_writer->WriteTable(*table.get(), table->num_rows());
+  msg = arrow_writer_->WriteTable(*table.get(), table->num_rows());
   if (!msg.ok()) {
-    std::cerr << "arrow_writer->WriteTable failed" << std::endl;
+    std::cerr << "arrow_writer_->WriteTable failed" << std::endl;
     return msg;
   }
 
-  msg = connector->getWriter()->Flush();
+  msg = connector_->GetWriter()->Flush();
+  if (!msg.ok()) {
+    std::cerr << "ParquetWriter::Flush() failed" << std::endl;
+    return msg;
+  }
   return msg;
 }
 
-::arrow::Status ParquetWriter::writeNext(std::shared_ptr<::arrow::RecordBatch>& rb) {
-  std::lock_guard<std::mutex> lck(threadMtx);
-  record_batch_buffer_list.push_back(rb);
+::arrow::Status ParquetWriter::WriteNext(
+    const std::shared_ptr<::arrow::RecordBatch>& rb) {
+  std::lock_guard<std::mutex> lck(thread_mtx_);
+  record_batch_buffer_list_.push_back(rb);
   return ::arrow::Status::OK();
 }
 
-::arrow::Status ParquetWriter::makeRecordBatch(
-    std::shared_ptr<::arrow::Schema>& schema, int num_rows, int64_t* in_buf_addrs,
+::arrow::Status ParquetWriter::MakeRecordBatch(
+    const std::shared_ptr<::arrow::Schema>& schema, int num_rows, int64_t* in_buf_addrs,
     int64_t* in_buf_sizes, int in_bufs_len, std::shared_ptr<arrow::RecordBatch>* batch) {
   std::vector<std::shared_ptr<::arrow::ArrayData>> arrays;
   auto num_fields = schema->num_fields();

@@ -32,31 +32,58 @@
 namespace jni {
 namespace parquet {
 
+/// \brief An Reader instance of one parquet file
+///
+/// This class is used by jni_wrapper to hold a reader handler for
+/// continuous record batch reading.
 class ParquetReader {
  public:
+  /// \brief Construction of ParquetReader
+  /// \param[in] path ParquetReader will open difference connector according to file path
   explicit ParquetReader(std::string path);
-  ::arrow::Status initialize(std::vector<int>& column_indices,
-                             std::vector<int>& row_group_indices, int64_t batch_size,
-                             bool useHdfs3 = true);
-  ::arrow::Status initialize(std::vector<int>& column_indices, int64_t start_pos,
-                             int64_t end_pos, int64_t batch_size, bool useHdfs3 = true);
+
   ~ParquetReader();
-  ::arrow::Status readNext(std::shared_ptr<::arrow::RecordBatch>* out);
-  std::shared_ptr<::arrow::Schema> schema();
-  Connector* connector;
+
+  /// \brief Initialization of ParquetReader
+  /// \param[in] column_indices indexes of columns expected to be read
+  /// \param[in] row_group_indices indexes of row_groups expected to be read
+  /// \param[in] batch_size batch size, default is 4096
+  /// \param[in] use_hdfs3 option used by HdfsConnector
+  ::arrow::Status Initialize(const std::vector<int>& column_indices,
+                             const std::vector<int>& row_group_indices,
+                             int64_t batch_size, bool use_hdfs3 = true);
+
+  /// \brief Initialization of ParquetReader
+  /// \param[in] column_indices indexes of columns expected to be read
+  /// \param[in] start_pos use offset to indicate which row_group is expected
+  /// \param[in] end_pos use offset to indicate which row_group is expected
+  /// \param[in] batch_size batch size, default is 4096
+  /// \param[in] use_hdfs3 option used by HdfsConnector
+  ::arrow::Status Initialize(const std::vector<int>& column_indices, int64_t start_pos,
+                             int64_t end_pos, int64_t batch_size, bool use_hdfs3 = true);
+
+  /// \brief Read next batch
+  /// \param[out] out readed batch will be returned as RecordBatch
+  ::arrow::Status ReadNext(std::shared_ptr<::arrow::RecordBatch>* out);
+
+  /// \brief Get Parquet Schema
+  std::shared_ptr<::arrow::Schema> GetSchema();
+
+  Connector* connector_;
 
  private:
-  ::arrow::MemoryPool* pool;
-  std::mutex threadMtx;
+  ::arrow::MemoryPool* pool_;
+  std::mutex thread_mtx_;
 
-  std::unique_ptr<::parquet::arrow::FileReader> arrow_reader;
-  ::parquet::ArrowReaderProperties properties;
-  std::shared_ptr<::arrow::RecordBatchReader> rb_reader;
+  std::unique_ptr<::parquet::arrow::FileReader> arrow_reader_;
+  ::parquet::ArrowReaderProperties properties_;
+  std::shared_ptr<::arrow::RecordBatchReader> rb_reader_;
 
-  std::vector<int> getRowGroupIndices(int num_row_groups, int64_t start_pos,
+  std::vector<int> GetRowGroupIndices(int num_row_groups, int64_t start_pos,
                                       int64_t end_pos);
-  ::arrow::Status getRecordBatch(std::vector<int>& row_group_indices,
-                                 std::vector<int>& column_indices);
+
+  ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
+                                       const std::vector<int>& column_indices);
 };
 }  // namespace parquet
 }  // namespace jni

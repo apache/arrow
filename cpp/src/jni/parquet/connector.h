@@ -30,34 +30,26 @@
 namespace jni {
 namespace parquet {
 
+/// \brief A base class for Connectors
+///
+/// This class is used by ParquetReader and ParquetWriter to handle
+/// parquet files from different resources, local and hdfs for now using
+/// unified API.
 class Connector {
  public:
-  Connector() {}
-  std::string getFileName() { return filePath; }
-  virtual ::arrow::Status openReadable(bool useHdfs3) = 0;
-  virtual ::arrow::Status openWritable(bool useHdfs3, int replication) = 0;
-  virtual std::shared_ptr<::arrow::io::RandomAccessFile> getReader() = 0;
-  virtual std::shared_ptr<::arrow::io::OutputStream> getWriter() = 0;
-  virtual void teardown() = 0;
+  Connector() = default;
+  virtual ~Connector() {}
+  std::string GetFileName() { return file_path_; }
+  virtual ::arrow::Status OpenReadable(bool option) = 0;
+  virtual ::arrow::Status OpenWritable(bool option, int replication) = 0;
+  virtual std::shared_ptr<::arrow::io::RandomAccessFile> GetReader() = 0;
+  virtual std::shared_ptr<::arrow::io::OutputStream> GetWriter() = 0;
+  virtual void TearDown() = 0;
 
  protected:
-  std::string filePath;
-  std::string dirPath;
-  std::string getPathDir(std::string path) {
-    std::string delimiter = "/";
-    size_t pos = 0;
-    size_t last_pos = pos;
-    std::string token;
-    while ((pos = path.find(delimiter, pos)) != std::string::npos) {
-      last_pos = pos;
-      pos += 1;
-    }
-    if (last_pos == 0) {
-      return std::string();
-    }
-    return path.substr(0, last_pos + delimiter.length());
-  }
-  virtual ::arrow::Status mkdir(std::string path) = 0;
+  std::string file_path_;
+  std::string dir_path_;
+  virtual ::arrow::Status Mkdir(std::string path) = 0;
 };
 }  // namespace parquet
 }  // namespace jni

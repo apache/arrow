@@ -26,20 +26,41 @@
 namespace jni {
 namespace parquet {
 
+/// \brief A connector to handle local parquet file
+///
+/// This class is derived from base class "Connector", used to provide
+/// an unified interface for ParquetReader and ParquetWriter to handle
+/// files from different sources.
+/// Member methods are wrappers of some methods under arrow/io/file.h
 class FileConnector : public Connector {
  public:
+  /// \brief Construction of this class
+  /// \param[in] path local file path
   explicit FileConnector(std::string path);
   ~FileConnector();
-  ::arrow::Status openReadable(bool useHdfs3);
-  ::arrow::Status openWritable(bool useHdfs3, int replication);
-  std::shared_ptr<::arrow::io::RandomAccessFile> getReader() { return fileReader; }
-  std::shared_ptr<::arrow::io::OutputStream> getWriter() { return fileWriter; }
-  void teardown();
+
+  /// \brief Open local parquet file as readable handler
+  /// \param[in] option a param holder, not used
+  ::arrow::Status OpenReadable(bool option);
+
+  /// \brief Open local parquet file as writable handler
+  /// \param[in] option a param holder, not used
+  /// \param[in] replication a param holder, not used
+  ::arrow::Status OpenWritable(bool option, int replication);
+
+  /// \brief Get reader handler
+  std::shared_ptr<::arrow::io::RandomAccessFile> GetReader() { return file_reader_; }
+
+  /// \brief Get writer handler
+  std::shared_ptr<::arrow::io::OutputStream> GetWriter() { return file_writer_; }
+
+  /// \brief Tear down connection and handlers
+  void TearDown();
 
  protected:
-  ::arrow::Status mkdir(std::string path);
-  std::shared_ptr<::arrow::io::ReadableFile> fileReader;
-  std::shared_ptr<::arrow::io::OutputStream> fileWriter;
+  ::arrow::Status Mkdir(std::string path);
+  std::shared_ptr<::arrow::io::ReadableFile> file_reader_;
+  std::shared_ptr<::arrow::io::OutputStream> file_writer_;
 };
 }  // namespace parquet
 }  // namespace jni
