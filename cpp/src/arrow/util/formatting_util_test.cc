@@ -33,8 +33,8 @@ using internal::StringFormatter;
 
 class StringAppender {
  public:
-  Status operator()(const char* data, int32_t size) {
-    string_.append(data, static_cast<size_t>(size));
+  Status operator()(util::string_view v) {
+    string_.append(v.data(), v.size());
     return Status::OK();
   }
 

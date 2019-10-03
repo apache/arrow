@@ -1031,9 +1031,8 @@ struct CastFunctor<O, I,
       Status VisitNull() { return builder_.AppendNull(); }
 
       Status VisitValue(value_type value) {
-        return formatter_(value, [this](const char* data, int32_t size) {
-          return builder_.Append(data, size);
-        });
+        return formatter_(value,
+                          [this](util::string_view v) { return builder_.Append(v); });
       }
 
       FormatterType formatter_;

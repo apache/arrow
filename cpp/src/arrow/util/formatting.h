@@ -31,6 +31,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
+#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace internal {
@@ -52,10 +53,10 @@ class StringFormatter<BooleanType> {
   Status operator()(bool value, Appender&& append) {
     if (value) {
       const char string[] = "true";
-      return append(string, static_cast<int32_t>(sizeof(string) - 1));
+      return append(util::string_view(string));
     } else {
       const char string[] = "false";
-      return append(string, static_cast<int32_t>(sizeof(string) - 1));
+      return append(util::string_view(string));
     }
   }
 };
@@ -135,7 +136,7 @@ class IntToStringFormatterMixin {
     }
 
     assert(ptr >= buffer);
-    return append(ptr, size);
+    return append(util::string_view(ptr, size));
   }
 };
 
@@ -200,7 +201,7 @@ class FloatToStringFormatterMixin {
     // StringBuilder checks bounds in debug mode for us
     double_conversion::StringBuilder builder(buffer, buffer_size);
     static_cast<Derived*>(this)->Format(value, &builder);
-    return append(buffer, builder.position());
+    return append(util::string_view(buffer, builder.position()));
   }
 
  protected:

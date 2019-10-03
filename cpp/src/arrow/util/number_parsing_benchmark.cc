@@ -161,11 +161,11 @@ static void TimestampParsing(benchmark::State& state) {  // NOLINT non-const ref
 }
 
 struct DummyAppender {
-  Status operator()(const char* str, int32_t length) {
-    if (++pos_ >= length) {
+  Status operator()(util::string_view v) {
+    if (pos_ >= static_cast<int32_t>(v.size())) {
       pos_ = 0;
     }
-    total_ += str[pos_];
+    total_ += v[pos_++];
     return Status::OK();
   }
 
