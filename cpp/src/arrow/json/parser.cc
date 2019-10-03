@@ -658,7 +658,7 @@ class HandlerBase : public BlockParser,
   /// \brief Emit path of current field for debugging purposes
   std::string Path() {
     std::string path;
-    for (int i = 0; i < builder_stack_.size(); ++i) {
+    for (size_t i = 0; i < builder_stack_.size(); ++i) {
       auto builder = builder_stack_[i];
       if (builder.kind == Kind::kArray) {
         path += "/[]";
