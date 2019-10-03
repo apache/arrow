@@ -30,6 +30,6 @@ if [ "$ARROW_TRAVIS_S3" == "1" ]; then
 
     S3FS_DIR=~/.local/bin/
     mkdir -p $S3FS_DIR
-    wget --directory-prefix $S3FS_DIR $MINIO_URL
+    wget --quiet --directory-prefix $S3FS_DIR $MINIO_URL
     chmod +x $S3FS_DIR/minio
 fi
