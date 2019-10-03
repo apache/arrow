@@ -1,3 +1,5 @@
+#!/bin/bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -14,28 +16,16 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+#
 
-aws-sdk-cpp
-benchmark=1.4.1
-boost-cpp>=1.68.0
-brotli
-bzip2
-c-ares
-cmake
-double-conversion
-gflags
-glog
-gmock>=1.8.1
-grpc-cpp>=1.21.4
-gtest>=1.8.1
-libprotobuf
-lz4-c
-ninja
-pkg-config
-python
-rapidjson
-snappy
-thrift-cpp>=0.11.0
-uriparser
-zlib
-zstd
+set -eu
+
+# Run this from cpp/ directory with $FLATBUFFERS_HOME set to location of your
+# Flatbuffers installation
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+
+VENDOR_LOCATION=$SOURCE_DIR/../thirdparty/flatbuffers/include/flatbuffers
+mkdir -p $VENDOR_LOCATION
+cp -f $FLATBUFFERS_HOME/include/flatbuffers/base.h $VENDOR_LOCATION
+cp -f $FLATBUFFERS_HOME/include/flatbuffers/flatbuffers.h $VENDOR_LOCATION
+cp -f $FLATBUFFERS_HOME/include/flatbuffers/stl_emulation.h $VENDOR_LOCATION

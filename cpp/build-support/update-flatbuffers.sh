@@ -1,3 +1,5 @@
+#!/bin/bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -14,28 +16,24 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+#
 
-aws-sdk-cpp
-benchmark=1.4.1
-boost-cpp>=1.68.0
-brotli
-bzip2
-c-ares
-cmake
-double-conversion
-gflags
-glog
-gmock>=1.8.1
-grpc-cpp>=1.21.4
-gtest>=1.8.1
-libprotobuf
-lz4-c
-ninja
-pkg-config
-python
-rapidjson
-snappy
-thrift-cpp>=0.11.0
-uriparser
-zlib
-zstd
+# Run this from cpp/ directory. flatc is expected to be in your path
+
+CWD="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+SOURCE_DIR=$CWD/../src
+FORMAT_DIR=$CWD/../..
+
+flatc -c -o $SOURCE_DIR/generated \
+      $FORMAT_DIR/Message.fbs \
+      $FORMAT_DIR/File.fbs \
+      $FORMAT_DIR/Schema.fbs \
+      $FORMAT_DIR/Tensor.fbs \
+      $FORMAT_DIR/SparseTensor.fbs \
+      src/arrow/ipc/feather.fbs
+
+flatc -c -o $SOURCE_DIR/plasma \
+      --gen-object-api \
+      --scoped-enums \
+      $SOURCE_DIR/plasma/common.fbs \
+      $SOURCE_DIR/plasma/plasma.fbs

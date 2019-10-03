@@ -87,7 +87,8 @@ EXCLUSIONS = _paths('''\
     gandiva/jni
     jni/
     test
-    internal''')
+    internal
+    _generated''')
 
 
 def lint_files():

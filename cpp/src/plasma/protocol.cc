@@ -20,10 +20,10 @@
 #include <utility>
 
 #include "flatbuffers/flatbuffers.h"
-#include "plasma/plasma_generated.h"
 
 #include "plasma/common.h"
 #include "plasma/io.h"
+#include "plasma/plasma_generated.h"
 
 #ifdef PLASMA_CUDA
 #include "arrow/gpu/cuda_api.h"

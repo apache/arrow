@@ -27,12 +27,13 @@
 #include <string>
 #include <vector>
 
-#include "flatbuffers/flatbuffers.h"
+#include <flatbuffers/flatbuffers.h>
 
 #include "arrow/buffer.h"
 #include "arrow/ipc/feather.h"
-#include "arrow/ipc/feather_generated.h"
 #include "arrow/type.h"
+
+#include "generated/feather_generated.h"
 
 namespace arrow {
 namespace ipc {

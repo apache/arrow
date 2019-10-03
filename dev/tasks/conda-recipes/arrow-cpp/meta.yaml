@@ -24,7 +24,6 @@ requirements:
     - brotli
     - c-ares
     - double-conversion
-    - flatbuffers
     - gflags
     - glog
     - grpc-cpp
