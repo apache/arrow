@@ -144,13 +144,47 @@ TEST(BlockParserWithSchema, SkipFieldsOutsideSchema) {
                       "[\"thing\", null, \"\xe5\xbf\x8d\", null]"});
 }
 
-TEST(BlockParserWithSchema, FailOnInconvertible) {
-  auto options = ParseOptions::Defaults();
-  options.explicit_schema = schema({field("a", int32())});
-  options.unexpected_field_behavior = UnexpectedFieldBehavior::Ignore;
+class BlockParserTypeError : public ::testing::TestWithParam<UnexpectedFieldBehavior> {
+ public:
+  ParseOptions Options(std::shared_ptr<Schema> explicit_schema) {
+    auto options = ParseOptions::Defaults();
+    options.explicit_schema = std::move(explicit_schema);
+    options.unexpected_field_behavior = GetParam();
+    return options;
+  }
+};
+
+TEST_P(BlockParserTypeError, FailOnInconvertible) {
+  auto options = Options(schema({field("a", int32())}));
   std::shared_ptr<Array> parsed;
-  ASSERT_RAISES(Invalid, ParseFromString(options, "{\"a\":0}\n{\"a\":true}", &parsed));
+  Status error = ParseFromString(options, "{\"a\":0}\n{\"a\":true}", &parsed);
+  ASSERT_RAISES(Invalid, error);
+  ASSERT_EQ(error.message(),
+            "JSON parse error: Column(/a) changed from number to boolean in row 1");
 }
+
+TEST_P(BlockParserTypeError, FailOnNestedInconvertible) {
+  auto options = Options(schema({field("a", list(struct_({field("a", int32())})))}));
+  std::shared_ptr<Array> parsed;
+  Status error =
+      ParseFromString(options, "{\"a\":[{\"a\":0}]}\n{\"a\":[{\"a\":true}]}", &parsed);
+  ASSERT_RAISES(Invalid, error);
+  ASSERT_EQ(error.message(),
+            "JSON parse error: Column(/a/[]/a) changed from number to boolean in row 1");
+}
+
+TEST_P(BlockParserTypeError, FailOnDuplicateKeys) {
+  std::shared_ptr<Array> parsed;
+  Status error = ParseFromString(Options(schema({field("a", int32())})),
+                                 "{\"a\":0, \"a\":1}\n", &parsed);
+  ASSERT_RAISES(Invalid, error);
+  ASSERT_EQ(error.message(), "JSON parse error: Column(/a) was specified twice in row 0");
+}
+
+INSTANTIATE_TEST_CASE_P(BlockParserTypeError, BlockParserTypeError,
+                        ::testing::Values(UnexpectedFieldBehavior::Ignore,
+                                          UnexpectedFieldBehavior::Ignore,
+                                          UnexpectedFieldBehavior::InferType));
 
 TEST(BlockParserWithSchema, Nested) {
   auto options = ParseOptions::Defaults();
