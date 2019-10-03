@@ -407,79 +407,94 @@ TEST_F(TestTable, ConcatenateTables) {
   ASSERT_RAISES(Invalid, ConcatenateTables({t1, t3}, &result));
 }
 
-using TestPromoteTableToSchema = TestTable;
+class TestPromoteTableToSchema : public TestTable {
+ protected:
+  std::shared_ptr<Table> MakeTableWithOneNullColumn(const std::string& column_name,
+                                                    const int length) {
+    return Table::Make(schema({field(column_name, null())}),
+                       {MakeRandomArray<NullArray>(length)});
+  }
+
+  std::shared_ptr<Table> MakeTableWithOneNullFilledColumn(
+      const std::string& column_name, const std::shared_ptr<DataType>& data_type,
+      const int length) {
+    std::shared_ptr<Array> array_of_nulls;
+    DCHECK_OK(MakeArrayOfNull(data_type, length, &array_of_nulls));
+    return Table::Make(schema({field(column_name, data_type)}), {array_of_nulls});
+  }
+};
 
 TEST_F(TestPromoteTableToSchema, IdenticalSchema) {
   const int length = 10;
+  auto metadata =
+      std::shared_ptr<KeyValueMetadata>(new KeyValueMetadata({"foo"}, {"bar"}));
   MakeExample1(length);
   std::shared_ptr<Table> table = Table::Make(schema_, arrays_);
 
   std::shared_ptr<Table> result;
-  auto metadata =
-      std::shared_ptr<KeyValueMetadata>(new KeyValueMetadata({"foo"}, {"bar"}));
   ASSERT_OK(PromoteTableToSchema(default_memory_pool(), table,
                                  schema_->WithMetadata(metadata), &result));
 
-  ASSERT_TRUE(table->ReplaceSchemaMetadata(metadata)->Equals(*result));
+  std::shared_ptr<Table> expected = table->ReplaceSchemaMetadata(metadata);
+
+  ASSERT_TRUE(result->Equals(*expected));
 }
 
 TEST_F(TestPromoteTableToSchema, PromoteNullTypeField) {
   const int length = 10;
   auto metadata =
       std::shared_ptr<KeyValueMetadata>(new KeyValueMetadata({"foo"}, {"bar"}));
-  auto f0 = field("f0", null())->WithMetadata(metadata);
-  auto f0_alt = field("f0", int32());
-  auto table = Table::Make(schema({f0}), {MakeRandomArray<NullArray>(length)});
+  auto table_with_null_column =
+      MakeTableWithOneNullColumn("field", length)->ReplaceSchemaMetadata(metadata);
+  auto promoted_schema = schema({field("field", int32())});
 
   std::shared_ptr<Table> result;
-  ASSERT_OK(
-      PromoteTableToSchema(default_memory_pool(), table, schema({f0_alt}), &result));
-  std::shared_ptr<Array> array_of_nulls;
-  ASSERT_OK(MakeArrayOfNull(int32(), length, &array_of_nulls));
-  ASSERT_TRUE(result->Equals(*Table::Make(schema({f0_alt}), {array_of_nulls})));
+  ASSERT_OK(PromoteTableToSchema(default_memory_pool(), table_with_null_column,
+                                 promoted_schema, &result));
+
+  ASSERT_TRUE(
+      result->Equals(*MakeTableWithOneNullFilledColumn("field", int32(), length)));
 }
 
 TEST_F(TestPromoteTableToSchema, AddMissingField) {
   const int length = 10;
   auto f0 = field("f0", int32());
   auto table = Table::Make(schema({}), std::vector<std::shared_ptr<Array>>(), length);
-  std::shared_ptr<Table> result;
-  ASSERT_OK(PromoteTableToSchema(default_memory_pool(), table, schema({f0}), &result));
+  auto promoted_schema = schema({field("field", int32())});
 
-  std::shared_ptr<Array> array_of_nulls;
-  ASSERT_OK(MakeArrayOfNull(int32(), length, &array_of_nulls));
-  ASSERT_TRUE(result->Equals(*Table::Make(schema({f0}), {array_of_nulls})));
+  std::shared_ptr<Table> result;
+  ASSERT_OK(PromoteTableToSchema(default_memory_pool(), table, promoted_schema, &result));
+
+  ASSERT_TRUE(
+      result->Equals(*MakeTableWithOneNullFilledColumn("field", int32(), length)));
 }
 
 TEST_F(TestPromoteTableToSchema, IncompatibleTypes) {
   const int length = 10;
-
-  auto f0 = field("f0", int32());
-  auto f0_alt1 = field("f0", null());
-  auto f0_alt2 = field("f0", uint32());
-
-  auto table = Table::Make(schema({f0}), {MakeRandomArray<NullArray>(length)});
+  auto table = MakeTableWithOneNullFilledColumn("field", int32(), length);
 
   std::shared_ptr<Table> result;
+  // Invalid promotion: int32 to null.
   ASSERT_RAISES(Invalid, PromoteTableToSchema(default_memory_pool(), table,
-                                              schema({f0_alt1}), &result));
+                                              schema({field("field", null())}), &result));
 
-  ASSERT_RAISES(Invalid, PromoteTableToSchema(default_memory_pool(), table,
-                                              schema({f0_alt2}), &result));
+  // Invalid promotion: int32 to uint32.
+  ASSERT_RAISES(Invalid,
+                PromoteTableToSchema(default_memory_pool(), table,
+                                     schema({field("field", uint32())}), &result));
 }
 
 TEST_F(TestPromoteTableToSchema, DuplicateFieldNames) {
   const int length = 10;
 
-  auto f0 = field("f0", int32());
-  auto f0_alt = field("f0", null());
-
-  auto table = Table::Make(schema({f0, f0_alt}), {MakeRandomArray<Int32Array>(length),
-                                                  MakeRandomArray<NullArray>(length)});
+  auto table = Table::Make(
+      schema({field("field", int32()), field("field", null())}),
+      {MakeRandomArray<Int32Array>(length), MakeRandomArray<NullArray>(length)});
 
   std::shared_ptr<Table> result;
-  ASSERT_RAISES(
-      Invalid, PromoteTableToSchema(default_memory_pool(), table, schema({f0}), &result));
+  ASSERT_RAISES(Invalid,
+                PromoteTableToSchema(default_memory_pool(), table,
+                                     schema({field("field", int32())}), &result));
 }
 
 TEST_F(TestPromoteTableToSchema, TableFieldAbsentFromSchema) {

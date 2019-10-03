@@ -448,14 +448,15 @@ TEST_F(TestUnifySchemas, EmptyInput) {
 }
 
 TEST_F(TestUnifySchemas, IdenticalSchemas) {
-  auto f0 = field("f0", int32());
-  auto f1 = field("f1", uint8(), false);
-  auto f2 = field("f2", utf8());
-  auto schema1 = schema({f0, f1, f2});
+  auto int32_field = field("int32_field", int32());
+  auto uint8_field = field("uint8_field", uint8(), false);
+  auto utf8_field = field("utf8_field", utf8());
   auto metadata =
       std::shared_ptr<KeyValueMetadata>(new KeyValueMetadata({"foo"}, {"bar"}));
-  auto f2_with_metadata = f2->WithMetadata(metadata);
-  auto schema2 = schema({f0, f1, f2_with_metadata})->WithMetadata(metadata);
+
+  auto schema1 = schema({int32_field, uint8_field, utf8_field});
+  auto schema2 = schema({int32_field, uint8_field, utf8_field->WithMetadata(metadata)})
+                     ->WithMetadata(metadata);
 
   std::shared_ptr<Schema> result;
   ASSERT_OK(UnifySchemas({schema1, schema2}, &result));
@@ -466,61 +467,70 @@ TEST_F(TestUnifySchemas, IdenticalSchemas) {
 }
 
 TEST_F(TestUnifySchemas, MissingField) {
-  auto f0 = field("f0", int32());
-  auto f1 = field("f1", uint8(), false);
-  auto f2 = field("f2", utf8());
+  auto int32_field = field("int32_field", int32());
+  auto uint8_field = field("uint8_field", uint8(), false);
+  auto utf8_field = field("utf8_field", utf8());
   auto metadata1 =
       std::shared_ptr<KeyValueMetadata>(new KeyValueMetadata({"foo"}, {"bar"}));
   auto metadata2 = std::shared_ptr<KeyValueMetadata>(new KeyValueMetadata({"q"}, {"42"}));
-  auto schema1 = schema({f0, f1})->WithMetadata(metadata1);
-  auto schema2 = schema({f1, f2->WithMetadata(metadata2)});
-  auto schema3 = schema({f0->WithMetadata(metadata1), f1, f2});
+
+  auto schema1 = schema({int32_field, uint8_field})->WithMetadata(metadata1);
+  auto schema2 = schema({uint8_field, utf8_field->WithMetadata(metadata2)});
+  auto schema3 = schema({int32_field->WithMetadata(metadata1), uint8_field, utf8_field});
+
   std::shared_ptr<Schema> result;
   ASSERT_OK(UnifySchemas({schema1, schema2}, &result));
   AssertSchemaEqualsUnorderedFields(
-      *result, *schema({f0, f1, f2->WithMetadata(metadata2)})->WithMetadata(metadata1));
+      *result, *schema({int32_field, uint8_field, utf8_field->WithMetadata(metadata2)})
+                    ->WithMetadata(metadata1));
 }
 
 TEST_F(TestUnifySchemas, PromoteNullTypeField) {
   auto metadata =
       std::shared_ptr<KeyValueMetadata>(new KeyValueMetadata({"foo"}, {"bar"}));
-  auto f0 = field("f0", null());
-  auto f0_typed = field("f0", int32());
+  auto null_field = field("f", null());
+  auto int32_field = field("f", int32());
 
-  auto schema1 = schema({f0->WithMetadata(metadata)});
-  auto schema2 = schema({f0_typed});
+  auto schema1 = schema({null_field->WithMetadata(metadata)});
+  auto schema2 = schema({int32_field});
+
   std::shared_ptr<Schema> result;
   ASSERT_OK(UnifySchemas({schema1, schema2}, &result));
-  AssertSchemaEqualsUnorderedFields(*result, *schema({f0_typed->WithMetadata(metadata)}));
+  AssertSchemaEqualsUnorderedFields(*result,
+                                    *schema({int32_field->WithMetadata(metadata)}));
 
   ASSERT_OK(UnifySchemas({schema2, schema1}, &result));
-  AssertSchemaEqualsUnorderedFields(*result, *schema({f0_typed}));
+  AssertSchemaEqualsUnorderedFields(*result, *schema({int32_field}));
 }
 
 TEST_F(TestUnifySchemas, MoreSchemas) {
-  auto f0 = field("f0", int32());
-  auto f1 = field("f1", uint8(), false);
-  auto f2 = field("f2", utf8());
+  auto int32_field = field("int32_field", int32());
+  auto uint8_field = field("uint8_field", uint8(), false);
+  auto utf8_field = field("utf8_field", utf8());
 
   std::shared_ptr<Schema> result;
-  ASSERT_OK(UnifySchemas({schema({f0}), schema({f1}), schema({f2})}, &result));
-  AssertSchemaEqualsUnorderedFields(*result, *schema({f0, f1, f2}));
+  ASSERT_OK(UnifySchemas(
+      {schema({int32_field}), schema({uint8_field}), schema({utf8_field})}, &result));
+  AssertSchemaEqualsUnorderedFields(*result,
+                                    *schema({int32_field, uint8_field, utf8_field}));
 }
 
 TEST_F(TestUnifySchemas, IncompatibleTypes) {
-  auto f0 = field("f0", int32());
-  auto f0_alt = field("f0", uint8(), false);
+  auto int32_field = field("f", int32());
+  auto uint8_field = field("f", uint8(), false);
+
   std::shared_ptr<Schema> result;
-  ASSERT_RAISES(Invalid, UnifySchemas({schema({f0}), schema({f0_alt})}, &result));
+  ASSERT_RAISES(Invalid,
+                UnifySchemas({schema({int32_field}), schema({uint8_field})}, &result));
 }
 
 TEST_F(TestUnifySchemas, DuplicateFieldNames) {
-  auto f0 = field("f0", int32());
-  auto f0_alt = field("f0", int32());
-  auto f1 = field("f2", utf8());
+  auto int32_field = field("int32_field", int32());
+  auto utf8_field = field("utf8_field", utf8());
+
   std::shared_ptr<Schema> result;
-  ASSERT_RAISES(Invalid, UnifySchemas({schema({f0, f1}), schema({f0_alt, f1}),
-                                       schema({f0, f0_alt, f1})},
+  ASSERT_RAISES(Invalid, UnifySchemas({schema({int32_field, utf8_field}),
+                                       schema({int32_field, int32_field, utf8_field})},
                                       &result));
 }
 
