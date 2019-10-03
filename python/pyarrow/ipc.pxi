@@ -244,12 +244,6 @@ cdef class _CRecordBatchWriter:
         with nogil:
             check_status(self.writer.get().Close())
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
-
 
 cdef class _RecordBatchStreamWriter(_CRecordBatchWriter):
     cdef:
