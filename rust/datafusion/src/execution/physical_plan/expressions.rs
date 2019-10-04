@@ -310,7 +310,7 @@ impl Accumulator for AvgAccumulator {
             DataType::Float32 => avg_accumulate!(self, array, row_index, Float32Array),
             DataType::Float64 => avg_accumulate!(self, array, row_index, Float64Array),
             other => Err(ExecutionError::General(format!(
-                "SUM does not support {:?}",
+                "AVG does not support {:?}",
                 other
             ))),
         }
