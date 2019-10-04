@@ -86,6 +86,7 @@ CAST_GENERATORS = [
                       parametric=True),
     CastCodeGenerator('Timestamp', ['Date32', 'Date64', 'Timestamp'],
                       parametric=True),
+    CastCodeGenerator('Duration', ['Duration'], parametric=True),
     CastCodeGenerator('Binary', ['String']),
     CastCodeGenerator('LargeBinary', ['LargeString']),
     CastCodeGenerator('String', NUMERIC_TYPES + ['Timestamp']),

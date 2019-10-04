@@ -889,12 +889,46 @@ TEST_F(TestCast, DateToCompatible) {
 TEST_F(TestCast, DurationToCompatible) {
   CastOptions options;
 
+  auto CheckDurationCast =
+      [this](const CastOptions& options, TimeUnit::type from_unit, TimeUnit::type to_unit,
+             const std::vector<int64_t>& from_values,
+             const std::vector<int64_t>& to_values, const std::vector<bool>& is_valid) {
+        CheckCase<DurationType, int64_t, DurationType, int64_t>(
+            duration(from_unit), from_values, is_valid, duration(to_unit), to_values,
+            options);
+      };
+
   std::vector<bool> is_valid = {true, false, true, true, true};
 
+  // Multiply promotions
+  std::vector<int64_t> v1 = {0, 100, 200, 1, 2};
+  std::vector<int64_t> e1 = {0, 100000, 200000, 1000, 2000};
+  CheckDurationCast(options, TimeUnit::SECOND, TimeUnit::MILLI, v1, e1, is_valid);
+
+  std::vector<int64_t> v2 = {0, 100, 200, 1, 2};
+  std::vector<int64_t> e2 = {0, 100000000L, 200000000L, 1000000, 2000000};
+  CheckDurationCast(options, TimeUnit::SECOND, TimeUnit::MICRO, v2, e2, is_valid);
+
+  std::vector<int64_t> v3 = {0, 100, 200, 1, 2};
+  std::vector<int64_t> e3 = {0, 100000000000L, 200000000000L, 1000000000L, 2000000000L};
+  CheckDurationCast(options, TimeUnit::SECOND, TimeUnit::NANO, v3, e3, is_valid);
+
+  std::vector<int64_t> v4 = {0, 100, 200, 1, 2};
+  std::vector<int64_t> e4 = {0, 100000, 200000, 1000, 2000};
+  CheckDurationCast(options, TimeUnit::MILLI, TimeUnit::MICRO, v4, e4, is_valid);
+
+  std::vector<int64_t> v5 = {0, 100, 200, 1, 2};
+  std::vector<int64_t> e5 = {0, 100000000L, 200000000L, 1000000, 2000000};
+  CheckDurationCast(options, TimeUnit::MILLI, TimeUnit::NANO, v5, e5, is_valid);
+
+  std::vector<int64_t> v6 = {0, 100, 200, 1, 2};
+  std::vector<int64_t> e6 = {0, 100000, 200000, 1000, 2000};
+  CheckDurationCast(options, TimeUnit::MICRO, TimeUnit::NANO, v6, e6, is_valid);
+
   // Zero copy
-  std::vector<int64_t> v1 = {0, 70000, 2000, 1000, 0};
+  std::vector<int64_t> v7 = {0, 70000, 2000, 1000, 0};
   std::shared_ptr<Array> arr;
-  ArrayFromVector<DurationType, int64_t>(duration(TimeUnit::SECOND), is_valid, v1, &arr);
+  ArrayFromVector<DurationType, int64_t>(duration(TimeUnit::SECOND), is_valid, v7, &arr);
   CheckZeroCopy(*arr, duration(TimeUnit::SECOND));
   CheckZeroCopy(*arr, int64());
 }

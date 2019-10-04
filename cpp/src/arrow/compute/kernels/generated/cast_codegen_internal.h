@@ -190,6 +190,9 @@
   TEMPLATE(TimestampType, Date64Type) \
   TEMPLATE(TimestampType, TimestampType)
 
+#define DURATION_CASES(TEMPLATE) \
+  TEMPLATE(DurationType, DurationType)
+
 #define BINARY_CASES(TEMPLATE) \
   TEMPLATE(BinaryType, StringType)
 
