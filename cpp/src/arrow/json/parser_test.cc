@@ -190,7 +190,7 @@ TEST_P(BlockParserTypeError, FailOnDuplicateKeys) {
 
 INSTANTIATE_TEST_CASE_P(BlockParserTypeError, BlockParserTypeError,
                         ::testing::Values(UnexpectedFieldBehavior::Ignore,
-                                          UnexpectedFieldBehavior::Ignore,
+                                          UnexpectedFieldBehavior::Error,
                                           UnexpectedFieldBehavior::InferType));
 
 TEST(BlockParserWithSchema, Nested) {
