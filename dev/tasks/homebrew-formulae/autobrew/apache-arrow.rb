@@ -31,6 +31,7 @@ class ApacheArrow < Formula
 
   depends_on "cmake" => :build
   depends_on "flatbuffers" => :build
+  depends_on "aws-sdk-cpp"
   depends_on "boost"
   depends_on "double-conversion"
   depends_on "lz4"
@@ -50,6 +51,7 @@ class ApacheArrow < Formula
       -DARROW_WITH_BROTLI=OFF
       -DARROW_USE_GLOG=OFF
       -DARROW_PYTHON=OFF
+      -DARROW_S3=ON
       -DARROW_WITH_ZSTD=OFF
       -DARROW_WITH_SNAPPY=ON
       -DARROW_BUILD_UTILITIES=ON
@@ -75,7 +77,7 @@ class ApacheArrow < Formula
         return 0;
       }
     EOS
-    system ENV.cxx, "test.cpp", "-std=c++11", "-I#{include}", "-L#{lib}", "-larrow", "-o", "test"
+    system ENV.cxx, "test.cpp", "-std=c++11", "-I#{include}", "-L#{lib}", "-larrow", "-lparquet", "-lthrift", "-llz4", "-lboost_system", "-lboost_filesystem", "-lboost_regex", "-ldouble-conversion", "-lsnappy", "-o", "test"
     system "./test"
   end
 end
