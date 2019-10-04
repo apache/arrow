@@ -266,12 +266,12 @@ macro_rules! avg_accumulate {
         if let Some(array) = $ARRAY.as_any().downcast_ref::<$ARRAY_TYPE>() {
             if $ARRAY.is_valid($ROW_INDEX) {
                 let value = array.value($ROW_INDEX);
-                match $SELF.sum {
-                    Some(n) => {
-                        $SELF.sum = Some(n + value as f64);
-                        $SELF.count = Some($SELF.count.unwrap() + 1);
+                match ($SELF.sum, $SELF.count) {
+                    (Some(sum), Some(count)) => {
+                        $SELF.sum = Some(sum + value as f64);
+                        $SELF.count = Some(count + 1);
                     }
-                    None => {
+                    _ => {
                         $SELF.sum = Some(value as f64);
                         $SELF.count = Some(1);
                     }
@@ -317,11 +317,11 @@ impl Accumulator for AvgAccumulator {
     }
 
     fn get_value(&self) -> Result<Option<ScalarValue>> {
-        match self.sum {
-            Some(_) => Ok(Some(ScalarValue::Float64(
-                self.sum.unwrap() / self.count.unwrap() as f64,
-            ))),
-            None => Ok(None),
+        match (self.sum, self.count) {
+            (Some(sum), Some(count)) => {
+                Ok(Some(ScalarValue::Float64(sum / count as f64)))
+            }
+            _ => Ok(None),
         }
     }
 }
