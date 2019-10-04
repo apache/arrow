@@ -235,9 +235,7 @@ impl AggregateExpr for Count {
     }
 
     fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>> {
-        Rc::new(RefCell::new(CountAccumulator {
-            count: 0,
-        }))
+        Rc::new(RefCell::new(CountAccumulator { count: 0 }))
     }
 
     fn create_combiner(&self, column_index: usize) -> Arc<dyn AggregateExpr> {
