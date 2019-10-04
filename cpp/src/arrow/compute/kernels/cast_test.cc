@@ -886,6 +886,19 @@ TEST_F(TestCast, DateToCompatible) {
   CheckFails<Date64Type>(date64(), v8, is_valid, date32(), options);
 }
 
+TEST_F(TestCast, DurationToCompatible) {
+  CastOptions options;
+
+  std::vector<bool> is_valid = {true, false, true, true, true};
+
+  // Zero copy
+  std::vector<int64_t> v1 = {0, 70000, 2000, 1000, 0};
+  std::shared_ptr<Array> arr;
+  ArrayFromVector<DurationType, int64_t>(duration(TimeUnit::SECOND), is_valid, v1, &arr);
+  CheckZeroCopy(*arr, duration(TimeUnit::SECOND));
+  CheckZeroCopy(*arr, int64());
+}
+
 TEST_F(TestCast, ToDouble) {
   CastOptions options;
   std::vector<bool> is_valid = {true, false, true, true, true};
@@ -968,6 +981,7 @@ TEST_F(TestCast, DateTimeZeroCopy) {
   CheckZeroCopy(*arr, time64(TimeUnit::MICRO));
   CheckZeroCopy(*arr, date64());
   CheckZeroCopy(*arr, timestamp(TimeUnit::NANO));
+  CheckZeroCopy(*arr, duration(TimeUnit::MILLI));
 }
 
 TEST_F(TestCast, PreallocatedMemory) {

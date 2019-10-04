@@ -240,6 +240,7 @@
   TEMPLATE(DictionaryType, Time32Type) \
   TEMPLATE(DictionaryType, Time64Type) \
   TEMPLATE(DictionaryType, TimestampType) \
+  TEMPLATE(DictionaryType, DurationType) \
   TEMPLATE(DictionaryType, NullType) \
   TEMPLATE(DictionaryType, BinaryType) \
   TEMPLATE(DictionaryType, FixedSizeBinaryType) \

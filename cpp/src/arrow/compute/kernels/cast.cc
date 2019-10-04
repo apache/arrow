@@ -1233,13 +1233,14 @@ inline bool IsZeroCopyCast(Type::type in_type, Type::type out_type) {
       return (out_type == Type::DATE32) || (out_type == Type::TIME32);
     case Type::INT64:
       return ((out_type == Type::DATE64) || (out_type == Type::TIME64) ||
-              (out_type == Type::TIMESTAMP));
+              (out_type == Type::TIMESTAMP) || (out_type == Type::DURATION));
     case Type::DATE32:
     case Type::TIME32:
       return out_type == Type::INT32;
     case Type::DATE64:
     case Type::TIME64:
     case Type::TIMESTAMP:
+    case Type::DURATION:
       return out_type == Type::INT64;
     default:
       break;
