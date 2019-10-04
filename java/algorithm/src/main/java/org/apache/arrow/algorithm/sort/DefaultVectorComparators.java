@@ -20,6 +20,7 @@ package org.apache.arrow.algorithm.sort;
 import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.OFFSET_WIDTH;
 
 import org.apache.arrow.memory.util.ArrowBufPointer;
+import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.BigIntVector;
@@ -28,6 +29,10 @@ import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TinyIntVector;
+import org.apache.arrow.vector.UInt1Vector;
+import org.apache.arrow.vector.UInt2Vector;
+import org.apache.arrow.vector.UInt4Vector;
+import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
 
@@ -56,6 +61,14 @@ public class DefaultVectorComparators {
         return (VectorValueComparator<T>) new Float4Comparator();
       } else if (vector instanceof Float8Vector) {
         return (VectorValueComparator<T>) new Float8Comparator();
+      } else if (vector instanceof UInt1Vector) {
+        return (VectorValueComparator<T>) new UInt1Comparator();
+      } else if (vector instanceof UInt2Vector) {
+        return (VectorValueComparator<T>) new UInt2Comparator();
+      } else if (vector instanceof UInt4Vector) {
+        return (VectorValueComparator<T>) new UInt4Comparator();
+      } else if (vector instanceof UInt8Vector) {
+        return (VectorValueComparator<T>) new UInt8Comparator();
       }
     } else if (vector instanceof BaseVariableWidthVector) {
       return (VectorValueComparator<T>) new VariableWidthComparator();
@@ -138,6 +151,79 @@ public class DefaultVectorComparators {
       long value2 = vector2.get(index2);
 
       return Long.signum(value1 - value2);
+    }
+  }
+
+  /**
+   * Default comparator for unsigned bytes.
+   * The comparison is based on values, with null comes first.
+   */
+  public static class UInt1Comparator extends VectorValueComparator<UInt1Vector> {
+
+    public UInt1Comparator() {
+      super(1);
+    }
+
+    @Override
+    public int compareNotNull(int index1, int index2) {
+      byte value1 = vector1.get(index1);
+      byte value2 = vector2.get(index2);
+
+      return (value1 & 0xff) - (value2 & 0xff);
+    }
+  }
+
+  /**
+   * Default comparator for unsigned short integer.
+   * The comparison is based on values, with null comes first.
+   */
+  public static class UInt2Comparator extends VectorValueComparator<UInt2Vector> {
+
+    public UInt2Comparator() {
+      super(2);
+    }
+
+    @Override
+    public int compareNotNull(int index1, int index2) {
+      char value1 = vector1.get(index1);
+      char value2 = vector2.get(index2);
+      return value1 - value2;
+    }
+  }
+
+  /**
+   * Default comparator for unsigned integer.
+   * The comparison is based on values, with null comes first.
+   */
+  public static class UInt4Comparator extends VectorValueComparator<UInt4Vector> {
+
+    public UInt4Comparator() {
+      super(4);
+    }
+
+    @Override
+    public int compareNotNull(int index1, int index2) {
+      int value1 = vector1.get(index1);
+      int value2 = vector2.get(index2);
+      return ByteFunctionHelpers.unsignedIntCompare(value1, value2);
+    }
+  }
+
+  /**
+   * Default comparator for unsigned long integer.
+   * The comparison is based on values, with null comes first.
+   */
+  public static class UInt8Comparator extends VectorValueComparator<UInt8Vector> {
+
+    public UInt8Comparator() {
+      super(8);
+    }
+
+    @Override
+    public int compareNotNull(int index1, int index2) {
+      long value1 = vector1.get(index1);
+      long value2 = vector2.get(index2);
+      return ByteFunctionHelpers.unsignedLongCompare(value1, value2);
     }
   }
 
