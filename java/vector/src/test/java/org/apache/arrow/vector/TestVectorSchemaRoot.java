@@ -217,15 +217,24 @@ public class TestVectorSchemaRoot {
         assertEquals(i + 0.1f, childVector2.get(i), 0);
       }
 
-      // slice with invalid param
-      try {
-        original.slice(0, 20);
-      } catch (Exception e) {
-        assertTrue(e.getMessage().contains("index + length should <= rowCount"));
-      }
-
       original.close();
       slice2.close();
+    }
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testSliceWithInvalidParam() {
+    try (final IntVector intVector = new IntVector("intVector", allocator);
+         final Float4Vector float4Vector = new Float4Vector("float4Vector", allocator)) {
+      intVector.setValueCount(10);
+      float4Vector.setValueCount(10);
+      for (int i = 0; i < 10; i++) {
+        intVector.setSafe(i, i);
+        float4Vector.setSafe(i, i + 0.1f);
+      }
+      final VectorSchemaRoot original = new VectorSchemaRoot(Arrays.asList(intVector, float4Vector));
+
+      original.slice(0, 20);
     }
   }
 
