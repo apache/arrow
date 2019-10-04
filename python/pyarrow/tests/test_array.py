@@ -1265,10 +1265,12 @@ def test_array_from_numpy_timedelta(dtype, type):
     assert arr.type == type
     expected = pa.array(data, type=type)
     assert arr.equals(expected)
+    assert arr.to_pylist() == data
 
     # from list of numpy scalars
     arr = pa.array(list(np.array(data, dtype=dtype)))
     assert arr.equals(expected)
+    assert arr.to_pylist() == data
 
 
 def test_array_from_numpy_timedelta_incorrect_unit():

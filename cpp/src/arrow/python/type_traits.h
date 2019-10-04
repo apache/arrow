@@ -139,10 +139,7 @@ struct npy_traits<NPY_TIMEDELTA> {
   static constexpr bool supports_nulls = true;
 
   static inline bool isnull(int64_t v) {
-    // NaT = -2**63
-    // = -0x8000000000000000
-    // = -9223372036854775808;
-    // = std::numeric_limits<int64_t>::min()
+    // NaT = -2**63 = std::numeric_limits<int64_t>::min()
     return v == std::numeric_limits<int64_t>::min();
   }
 };

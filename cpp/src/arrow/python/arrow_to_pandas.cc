@@ -232,24 +232,24 @@ inline void set_numpy_metadata(int type, const DataType* datatype, PyArray_Descr
       date_dtype->meta.base = NPY_FR_D;
     }
   } else if (type == NPY_TIMEDELTA) {
-    auto date_dtype = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(out->c_metadata);
-    if (datatype->id() == Type::DURATION) {
-      const auto& duration_type = checked_cast<const DurationType&>(*datatype);
+    DCHECK_EQ(datatype->id(), Type::DURATION);
+    auto timedelta_dtype =
+        reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(out->c_metadata);
+    const auto& duration_type = checked_cast<const DurationType&>(*datatype);
 
-      switch (duration_type.unit()) {
-        case DurationType::Unit::SECOND:
-          date_dtype->meta.base = NPY_FR_s;
-          break;
-        case DurationType::Unit::MILLI:
-          date_dtype->meta.base = NPY_FR_ms;
-          break;
-        case DurationType::Unit::MICRO:
-          date_dtype->meta.base = NPY_FR_us;
-          break;
-        case DurationType::Unit::NANO:
-          date_dtype->meta.base = NPY_FR_ns;
-          break;
-      }
+    switch (duration_type.unit()) {
+      case DurationType::Unit::SECOND:
+        timedelta_dtype->meta.base = NPY_FR_s;
+        break;
+      case DurationType::Unit::MILLI:
+        timedelta_dtype->meta.base = NPY_FR_ms;
+        break;
+      case DurationType::Unit::MICRO:
+        timedelta_dtype->meta.base = NPY_FR_us;
+        break;
+      case DurationType::Unit::NANO:
+        timedelta_dtype->meta.base = NPY_FR_ns;
+        break;
     }
   }
 }

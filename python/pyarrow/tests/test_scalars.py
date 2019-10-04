@@ -324,7 +324,7 @@ class TestScalars(unittest.TestCase):
 
         # Non-zero nanos work fine
         arr = pa.array([946684800000000001], type=pa.duration('ns'))
-        arr[0].as_py() == pd.Timedelta(946684800000000001, unit='ns')
+        assert arr[0].as_py() == pd.Timedelta(946684800000000001, unit='ns')
 
     @pytest.mark.nopandas
     def test_duration_nanos_nopandas(self):

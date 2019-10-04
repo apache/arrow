@@ -406,7 +406,6 @@ cdef class TimestampValue(ArrayValue):
 
 
 cdef dict _TIMEDELTA_CONVERSION_FUNCTIONS = {}
-cdef c_bool _timedelta_conversion_initialized = False
 
 
 def _nanoseconds_to_timedelta_safe(v):
@@ -422,8 +421,7 @@ def _nanoseconds_to_timedelta_safe(v):
 
 
 def _timedelta_conversion_functions():
-    global _timedelta_conversion_initialized
-    if _timedelta_conversion_initialized:
+    if _TIMEDELTA_CONVERSION_FUNCTIONS:
         return _TIMEDELTA_CONVERSION_FUNCTIONS
 
     _TIMEDELTA_CONVERSION_FUNCTIONS.update({
@@ -441,7 +439,6 @@ def _timedelta_conversion_functions():
     except ImportError:
         pass
 
-    _timedelta_conversion_initialized = True
     return _TIMEDELTA_CONVERSION_FUNCTIONS
 
 
