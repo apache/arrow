@@ -208,6 +208,284 @@ pub fn sum(expr: Arc<dyn PhysicalExpr>) -> Arc<dyn AggregateExpr> {
     Arc::new(Sum::new(expr))
 }
 
+/// MAX aggregate expression
+pub struct Max {
+    expr: Arc<dyn PhysicalExpr>,
+}
+
+impl Max {
+    /// Create a new MAX aggregate function
+    pub fn new(expr: Arc<dyn PhysicalExpr>) -> Self {
+        Self { expr }
+    }
+}
+
+impl AggregateExpr for Max {
+    fn name(&self) -> String {
+        "MAX".to_string()
+    }
+
+    fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
+        match self.expr.data_type(input_schema)? {
+            DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => {
+                Ok(DataType::Int64)
+            }
+            DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => {
+                Ok(DataType::UInt64)
+            }
+            DataType::Float32 => Ok(DataType::Float32),
+            DataType::Float64 => Ok(DataType::Float64),
+            other => Err(ExecutionError::General(format!(
+                "MAX does not support {:?}",
+                other
+            ))),
+        }
+    }
+
+    fn evaluate_input(&self, batch: &RecordBatch) -> Result<ArrayRef> {
+        self.expr.evaluate(batch)
+    }
+
+    fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>> {
+        Rc::new(RefCell::new(MaxAccumulator {
+            expr: self.expr.clone(),
+            max: None,
+        }))
+    }
+
+    fn create_combiner(&self, column_index: usize) -> Arc<dyn AggregateExpr> {
+        Arc::new(Max::new(Arc::new(Column::new(column_index))))
+    }
+}
+
+macro_rules! max_accumulate {
+    ($SELF:ident, $ARRAY:ident, $ROW_INDEX:expr, $ARRAY_TYPE:ident, $SCALAR_VARIANT:ident, $TY:ty) => {{
+        if let Some(array) = $ARRAY.as_any().downcast_ref::<$ARRAY_TYPE>() {
+            if $ARRAY.is_valid($ROW_INDEX) {
+                let value = array.value($ROW_INDEX);
+                $SELF.max = match $SELF.max {
+                    Some(ScalarValue::$SCALAR_VARIANT(n)) => {
+                        if n > (value as $TY) {
+                            Some(ScalarValue::$SCALAR_VARIANT(n))
+                        } else {
+                            Some(ScalarValue::$SCALAR_VARIANT(value as $TY))
+                        }
+                    }
+                    Some(_) => {
+                        return Err(ExecutionError::InternalError(
+                            "Unexpected ScalarValue variant".to_string(),
+                        ))
+                    }
+                    None => Some(ScalarValue::$SCALAR_VARIANT(value as $TY)),
+                };
+            }
+            Ok(())
+        } else {
+            Err(ExecutionError::General(
+                "Failed to downcast array".to_string(),
+            ))
+        }
+    }};
+}
+struct MaxAccumulator {
+    expr: Arc<dyn PhysicalExpr>,
+    max: Option<ScalarValue>,
+}
+
+impl Accumulator for MaxAccumulator {
+    fn accumulate(
+        &mut self,
+        batch: &RecordBatch,
+        array: &ArrayRef,
+        row_index: usize,
+    ) -> Result<()> {
+        match self.expr.data_type(batch.schema())? {
+            DataType::Int8 => {
+                max_accumulate!(self, array, row_index, Int8Array, Int64, i64)
+            }
+            DataType::Int16 => {
+                max_accumulate!(self, array, row_index, Int16Array, Int64, i64)
+            }
+            DataType::Int32 => {
+                max_accumulate!(self, array, row_index, Int32Array, Int64, i64)
+            }
+            DataType::Int64 => {
+                max_accumulate!(self, array, row_index, Int64Array, Int64, i64)
+            }
+            DataType::UInt8 => {
+                max_accumulate!(self, array, row_index, UInt8Array, UInt64, u64)
+            }
+            DataType::UInt16 => {
+                max_accumulate!(self, array, row_index, UInt16Array, UInt64, u64)
+            }
+            DataType::UInt32 => {
+                max_accumulate!(self, array, row_index, UInt32Array, UInt64, u64)
+            }
+            DataType::UInt64 => {
+                max_accumulate!(self, array, row_index, UInt64Array, UInt64, u64)
+            }
+            DataType::Float32 => {
+                max_accumulate!(self, array, row_index, Float32Array, Float32, f32)
+            }
+            DataType::Float64 => {
+                max_accumulate!(self, array, row_index, Float64Array, Float64, f64)
+            }
+            other => Err(ExecutionError::General(format!(
+                "MAX does not support {:?}",
+                other
+            ))),
+        }
+    }
+
+    fn get_value(&self) -> Result<Option<ScalarValue>> {
+        Ok(self.max.clone())
+    }
+}
+
+/// Create a max expression
+pub fn max(expr: Arc<dyn PhysicalExpr>) -> Arc<dyn AggregateExpr> {
+    Arc::new(Max::new(expr))
+}
+
+/// MIN aggregate expression
+pub struct Min {
+    expr: Arc<dyn PhysicalExpr>,
+}
+
+impl Min {
+    /// Create a new MIN aggregate function
+    pub fn new(expr: Arc<dyn PhysicalExpr>) -> Self {
+        Self { expr }
+    }
+}
+
+impl AggregateExpr for Min {
+    fn name(&self) -> String {
+        "MIN".to_string()
+    }
+
+    fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
+        match self.expr.data_type(input_schema)? {
+            DataType::Int8 | DataType::Int16 | DataType::Int32 | DataType::Int64 => {
+                Ok(DataType::Int64)
+            }
+            DataType::UInt8 | DataType::UInt16 | DataType::UInt32 | DataType::UInt64 => {
+                Ok(DataType::UInt64)
+            }
+            DataType::Float32 => Ok(DataType::Float32),
+            DataType::Float64 => Ok(DataType::Float64),
+            other => Err(ExecutionError::General(format!(
+                "MIN does not support {:?}",
+                other
+            ))),
+        }
+    }
+
+    fn evaluate_input(&self, batch: &RecordBatch) -> Result<ArrayRef> {
+        self.expr.evaluate(batch)
+    }
+
+    fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>> {
+        Rc::new(RefCell::new(MinAccumulator {
+            expr: self.expr.clone(),
+            min: None,
+        }))
+    }
+
+    fn create_combiner(&self, column_index: usize) -> Arc<dyn AggregateExpr> {
+        Arc::new(Min::new(Arc::new(Column::new(column_index))))
+    }
+}
+
+macro_rules! min_accumulate {
+    ($SELF:ident, $ARRAY:ident, $ROW_INDEX:expr, $ARRAY_TYPE:ident, $SCALAR_VARIANT:ident, $TY:ty) => {{
+        if let Some(array) = $ARRAY.as_any().downcast_ref::<$ARRAY_TYPE>() {
+            if $ARRAY.is_valid($ROW_INDEX) {
+                let value = array.value($ROW_INDEX);
+                $SELF.min = match $SELF.min {
+                    Some(ScalarValue::$SCALAR_VARIANT(n)) => {
+                        if n < (value as $TY) {
+                            Some(ScalarValue::$SCALAR_VARIANT(n))
+                        } else {
+                            Some(ScalarValue::$SCALAR_VARIANT(value as $TY))
+                        }
+                    }
+                    Some(_) => {
+                        return Err(ExecutionError::InternalError(
+                            "Unexpected ScalarValue variant".to_string(),
+                        ))
+                    }
+                    None => Some(ScalarValue::$SCALAR_VARIANT(value as $TY)),
+                };
+            }
+            Ok(())
+        } else {
+            Err(ExecutionError::General(
+                "Failed to downcast array".to_string(),
+            ))
+        }
+    }};
+}
+struct MinAccumulator {
+    expr: Arc<dyn PhysicalExpr>,
+    min: Option<ScalarValue>,
+}
+
+impl Accumulator for MinAccumulator {
+    fn accumulate(
+        &mut self,
+        batch: &RecordBatch,
+        array: &ArrayRef,
+        row_index: usize,
+    ) -> Result<()> {
+        match self.expr.data_type(batch.schema())? {
+            DataType::Int8 => {
+                min_accumulate!(self, array, row_index, Int8Array, Int64, i64)
+            }
+            DataType::Int16 => {
+                min_accumulate!(self, array, row_index, Int16Array, Int64, i64)
+            }
+            DataType::Int32 => {
+                min_accumulate!(self, array, row_index, Int32Array, Int64, i64)
+            }
+            DataType::Int64 => {
+                min_accumulate!(self, array, row_index, Int64Array, Int64, i64)
+            }
+            DataType::UInt8 => {
+                min_accumulate!(self, array, row_index, UInt8Array, UInt64, u64)
+            }
+            DataType::UInt16 => {
+                min_accumulate!(self, array, row_index, UInt16Array, UInt64, u64)
+            }
+            DataType::UInt32 => {
+                min_accumulate!(self, array, row_index, UInt32Array, UInt64, u64)
+            }
+            DataType::UInt64 => {
+                min_accumulate!(self, array, row_index, UInt64Array, UInt64, u64)
+            }
+            DataType::Float32 => {
+                min_accumulate!(self, array, row_index, Float32Array, Float32, f32)
+            }
+            DataType::Float64 => {
+                min_accumulate!(self, array, row_index, Float64Array, Float64, f64)
+            }
+            other => Err(ExecutionError::General(format!(
+                "MIN does not support {:?}",
+                other
+            ))),
+        }
+    }
+
+    fn get_value(&self) -> Result<Option<ScalarValue>> {
+        Ok(self.min.clone())
+    }
+}
+
+/// Create a min expression
+pub fn min(expr: Arc<dyn PhysicalExpr>) -> Arc<dyn AggregateExpr> {
+    Arc::new(Min::new(expr))
+}
+
 /// COUNT aggregate expression
 /// Returns the amount of non-null values of the given expression.
 pub struct Count {
@@ -694,6 +972,36 @@ mod tests {
     }
 
     #[test]
+    fn max_contract() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+
+        let max = max(col(0));
+        assert_eq!("MAX".to_string(), max.name());
+        assert_eq!(DataType::Int64, max.data_type(&schema)?);
+
+        let combiner = max.create_combiner(0);
+        assert_eq!("MAX".to_string(), combiner.name());
+        assert_eq!(DataType::Int64, combiner.data_type(&schema)?);
+
+        Ok(())
+    }
+
+    #[test]
+    fn min_contract() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+
+        let min = min(col(0));
+        assert_eq!("MIN".to_string(), min.name());
+        assert_eq!(DataType::Int64, min.data_type(&schema)?);
+
+        let combiner = min.create_combiner(0);
+        assert_eq!("MIN".to_string(), combiner.name());
+        assert_eq!(DataType::Int64, combiner.data_type(&schema)?);
+
+        Ok(())
+    }
+
+    #[test]
     fn sum_i32() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
 
@@ -701,6 +1009,30 @@ mod tests {
         let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
 
         assert_eq!(do_sum(&batch)?, Some(ScalarValue::Int64(15)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn max_i32() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+
+        let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_max(&batch)?, Some(ScalarValue::Int64(5)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn min_i32() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+
+        let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_min(&batch)?, Some(ScalarValue::Int64(1)));
 
         Ok(())
     }
@@ -718,6 +1050,30 @@ mod tests {
     }
 
     #[test]
+    fn max_i32_with_nulls() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+
+        let a = Int32Array::from(vec![Some(1), None, Some(3), Some(4), Some(5)]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_max(&batch)?, Some(ScalarValue::Int64(5)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn min_i32_with_nulls() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+
+        let a = Int32Array::from(vec![Some(1), None, Some(3), Some(4), Some(5)]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_min(&batch)?, Some(ScalarValue::Int64(1)));
+
+        Ok(())
+    }
+
+    #[test]
     fn sum_i32_all_nulls() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
 
@@ -725,6 +1081,30 @@ mod tests {
         let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
 
         assert_eq!(do_sum(&batch)?, None);
+
+        Ok(())
+    }
+
+    #[test]
+    fn max_i32_all_nulls() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+
+        let a = Int32Array::from(vec![None, None]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_max(&batch)?, None);
+
+        Ok(())
+    }
+
+    #[test]
+    fn min_i32_all_nulls() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+
+        let a = Int32Array::from(vec![None, None]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_min(&batch)?, None);
 
         Ok(())
     }
@@ -742,6 +1122,30 @@ mod tests {
     }
 
     #[test]
+    fn max_u32() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::UInt32, false)]);
+
+        let a = UInt32Array::from(vec![1_u32, 2_u32, 3_u32, 4_u32, 5_u32]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_max(&batch)?, Some(ScalarValue::UInt64(5_u64)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn min_u32() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::UInt32, false)]);
+
+        let a = UInt32Array::from(vec![1_u32, 2_u32, 3_u32, 4_u32, 5_u32]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_min(&batch)?, Some(ScalarValue::UInt64(1_u64)));
+
+        Ok(())
+    }
+
+    #[test]
     fn sum_f32() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Float32, false)]);
 
@@ -754,6 +1158,30 @@ mod tests {
     }
 
     #[test]
+    fn max_f32() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Float32, false)]);
+
+        let a = Float32Array::from(vec![1_f32, 2_f32, 3_f32, 4_f32, 5_f32]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_max(&batch)?, Some(ScalarValue::Float32(5_f32)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn min_f32() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Float32, false)]);
+
+        let a = Float32Array::from(vec![1_f32, 2_f32, 3_f32, 4_f32, 5_f32]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_min(&batch)?, Some(ScalarValue::Float32(1_f32)));
+
+        Ok(())
+    }
+
+    #[test]
     fn sum_f64() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Float64, false)]);
 
@@ -761,6 +1189,30 @@ mod tests {
         let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
 
         assert_eq!(do_sum(&batch)?, Some(ScalarValue::Float64(15_f64)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn max_f64() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Float64, false)]);
+
+        let a = Float64Array::from(vec![1_f64, 2_f64, 3_f64, 4_f64, 5_f64]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_max(&batch)?, Some(ScalarValue::Float64(5_f64)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn min_f64() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Float64, false)]);
+
+        let a = Float64Array::from(vec![1_f64, 2_f64, 3_f64, 4_f64, 5_f64]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_min(&batch)?, Some(ScalarValue::Float64(1_f64)));
 
         Ok(())
     }
@@ -805,6 +1257,28 @@ mod tests {
         let sum = sum(col(0));
         let accum = sum.create_accumulator();
         let input = sum.evaluate_input(batch)?;
+        let mut accum = accum.borrow_mut();
+        for i in 0..batch.num_rows() {
+            accum.accumulate(&batch, &input, i)?;
+        }
+        accum.get_value()
+    }
+
+    fn do_max(batch: &RecordBatch) -> Result<Option<ScalarValue>> {
+        let max = max(col(0));
+        let accum = max.create_accumulator();
+        let input = max.evaluate_input(batch)?;
+        let mut accum = accum.borrow_mut();
+        for i in 0..batch.num_rows() {
+            accum.accumulate(&batch, &input, i)?;
+        }
+        accum.get_value()
+    }
+
+    fn do_min(batch: &RecordBatch) -> Result<Option<ScalarValue>> {
+        let min = min(col(0));
+        let accum = min.create_accumulator();
+        let input = min.evaluate_input(batch)?;
         let mut accum = accum.borrow_mut();
         for i in 0..batch.num_rows() {
             accum.accumulate(&batch, &input, i)?;
