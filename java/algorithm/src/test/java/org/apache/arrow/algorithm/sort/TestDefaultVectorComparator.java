@@ -115,8 +115,8 @@ public class TestDefaultVectorComparator {
   @Test
   public void testCompareUInt1() {
     try (UInt1Vector vec = new UInt1Vector("", allocator)) {
-      vec.allocateNew(8);
-      vec.setValueCount(8);
+      vec.allocateNew(10);
+      vec.setValueCount(10);
 
       vec.setNull(0);
       vec.set(1, -2);
@@ -126,6 +126,8 @@ public class TestDefaultVectorComparator {
       vec.set(5, 2);
       vec.set(6, -2);
       vec.setNull(7);
+      vec.set(8, Byte.MAX_VALUE);
+      vec.set(9, Byte.MIN_VALUE);
 
       VectorValueComparator<UInt1Vector> comparator =
               DefaultVectorComparators.createDefaultComparator(vec);
@@ -138,14 +140,18 @@ public class TestDefaultVectorComparator {
       assertTrue(comparator.compare(4, 5) < 0);
       assertTrue(comparator.compare(1, 6) == 0);
       assertTrue(comparator.compare(0, 7) == 0);
+      assertTrue(comparator.compare(8, 9) < 0);
+      assertTrue(comparator.compare(4, 8) < 0);
+      assertTrue(comparator.compare(5, 9) < 0);
+      assertTrue(comparator.compare(2, 9) > 0);
     }
   }
 
   @Test
   public void testCompareUInt2() {
     try (UInt2Vector vec = new UInt2Vector("", allocator)) {
-      vec.allocateNew(8);
-      vec.setValueCount(8);
+      vec.allocateNew(10);
+      vec.setValueCount(10);
 
       vec.setNull(0);
       vec.set(1, -2);
@@ -155,6 +161,8 @@ public class TestDefaultVectorComparator {
       vec.set(5, 2);
       vec.set(6, -2);
       vec.setNull(7);
+      vec.set(8, Short.MAX_VALUE);
+      vec.set(9, Short.MIN_VALUE);
 
       VectorValueComparator<UInt2Vector> comparator =
               DefaultVectorComparators.createDefaultComparator(vec);
@@ -167,14 +175,18 @@ public class TestDefaultVectorComparator {
       assertTrue(comparator.compare(4, 5) < 0);
       assertTrue(comparator.compare(1, 6) == 0);
       assertTrue(comparator.compare(0, 7) == 0);
+      assertTrue(comparator.compare(8, 9) < 0);
+      assertTrue(comparator.compare(4, 8) < 0);
+      assertTrue(comparator.compare(5, 9) < 0);
+      assertTrue(comparator.compare(2, 9) > 0);
     }
   }
 
   @Test
   public void testCompareUInt4() {
     try (UInt4Vector vec = new UInt4Vector("", allocator)) {
-      vec.allocateNew(8);
-      vec.setValueCount(8);
+      vec.allocateNew(10);
+      vec.setValueCount(10);
 
       vec.setNull(0);
       vec.set(1, -2);
@@ -184,6 +196,8 @@ public class TestDefaultVectorComparator {
       vec.set(5, 2);
       vec.set(6, -2);
       vec.setNull(7);
+      vec.set(8, Integer.MAX_VALUE);
+      vec.set(9, Integer.MIN_VALUE);
 
       VectorValueComparator<UInt4Vector> comparator =
               DefaultVectorComparators.createDefaultComparator(vec);
@@ -196,14 +210,18 @@ public class TestDefaultVectorComparator {
       assertTrue(comparator.compare(4, 5) < 0);
       assertTrue(comparator.compare(1, 6) == 0);
       assertTrue(comparator.compare(0, 7) == 0);
+      assertTrue(comparator.compare(8, 9) < 0);
+      assertTrue(comparator.compare(4, 8) < 0);
+      assertTrue(comparator.compare(5, 9) < 0);
+      assertTrue(comparator.compare(2, 9) > 0);
     }
   }
 
   @Test
   public void testCompareUInt8() {
     try (UInt8Vector vec = new UInt8Vector("", allocator)) {
-      vec.allocateNew(8);
-      vec.setValueCount(8);
+      vec.allocateNew(10);
+      vec.setValueCount(10);
 
       vec.setNull(0);
       vec.set(1, -2);
@@ -213,6 +231,8 @@ public class TestDefaultVectorComparator {
       vec.set(5, 2);
       vec.set(6, -2);
       vec.setNull(7);
+      vec.set(8, Long.MAX_VALUE);
+      vec.set(9, Long.MIN_VALUE);
 
       VectorValueComparator<UInt8Vector> comparator =
               DefaultVectorComparators.createDefaultComparator(vec);
@@ -225,6 +245,10 @@ public class TestDefaultVectorComparator {
       assertTrue(comparator.compare(4, 5) < 0);
       assertTrue(comparator.compare(1, 6) == 0);
       assertTrue(comparator.compare(0, 7) == 0);
+      assertTrue(comparator.compare(8, 9) < 0);
+      assertTrue(comparator.compare(4, 8) < 0);
+      assertTrue(comparator.compare(5, 9) < 0);
+      assertTrue(comparator.compare(2, 9) > 0);
     }
   }
 }
