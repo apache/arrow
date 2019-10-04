@@ -106,6 +106,10 @@ impl AggregateExpr for Sum {
         }
     }
 
+    fn evaluate_input(&self, batch: &RecordBatch) -> Result<ArrayRef> {
+        self.expr.evaluate(batch)
+    }
+
     fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>> {
         Rc::new(RefCell::new(SumAccumulator {
             expr: self.expr.clone(),
@@ -149,8 +153,12 @@ struct SumAccumulator {
 }
 
 impl Accumulator for SumAccumulator {
-    fn accumulate(&mut self, batch: &RecordBatch, row_index: usize) -> Result<()> {
-        let array = self.expr.evaluate(batch)?;
+    fn accumulate(
+        &mut self,
+        batch: &RecordBatch,
+        array: &ArrayRef,
+        row_index: usize,
+    ) -> Result<()> {
         match self.expr.data_type(batch.schema())? {
             DataType::Int8 => {
                 sum_accumulate!(self, array, row_index, Int8Array, Int64, i64)
@@ -697,9 +705,10 @@ mod tests {
     fn do_sum(batch: &RecordBatch) -> Result<Option<ScalarValue>> {
         let sum = sum(col(0));
         let accum = sum.create_accumulator();
+        let input = sum.evaluate_input(batch)?;
         let mut accum = accum.borrow_mut();
         for i in 0..batch.num_rows() {
-            accum.accumulate(&batch, i)?;
+            accum.accumulate(&batch, &input, i)?;
         }
         accum.get_value()
     }
