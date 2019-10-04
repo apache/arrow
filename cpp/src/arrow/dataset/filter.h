@@ -32,42 +32,6 @@
 namespace arrow {
 namespace dataset {
 
-struct FilterType {
-  enum type {
-    /// Simple boolean predicate consisting of comparisons and boolean
-    /// logic (ALL, OR, NOT) involving Schema fields
-    EXPRESSION,
-
-    /// Non decomposable filter; must be evaluated against every record batch
-    GENERIC
-  };
-};
-
-class ARROW_DS_EXPORT Filter {
- public:
-  explicit Filter(FilterType::type type) : type_(type) {}
-
-  virtual ~Filter() = default;
-
-  FilterType::type type() const { return type_; }
-
- private:
-  FilterType::type type_;
-};
-
-/// Filter subclass encapsulating a simple boolean predicate consisting of comparisons
-/// and boolean logic (ALL, OR, NOT) involving Schema fields
-class ARROW_DS_EXPORT ExpressionFilter : public Filter {
- public:
-  explicit ExpressionFilter(const std::shared_ptr<Expression>& expression)
-      : Filter(FilterType::EXPRESSION), expression_(std::move(expression)) {}
-
-  const std::shared_ptr<Expression>& expression() const { return expression_; }
-
- private:
-  std::shared_ptr<Expression> expression_;
-};
-
 struct ExpressionType {
   enum type {
     /// a reference to a column within a record batch, will evaluate to an array

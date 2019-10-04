@@ -55,10 +55,6 @@ class FileScanOptions;
 class FileWriteOptions;
 
 class Expression;
-class Filter;
-using FilterVector = std::vector<std::shared_ptr<Filter>>;
-
-class Expression;
 class ComparisonExpression;
 class AndExpression;
 class OrExpression;

@@ -21,6 +21,7 @@
 
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
+#include "arrow/dataset/filter.h"
 #include "arrow/table.h"
 #include "arrow/util/iterator.h"
 
@@ -65,7 +66,7 @@ ScannerBuilder* ScannerBuilder::Project(const std::vector<std::string>& columns)
   return this;
 }
 
-ScannerBuilder* ScannerBuilder::AddFilter(const std::shared_ptr<Filter>& filter) {
+ScannerBuilder* ScannerBuilder::AddFilter(const std::shared_ptr<Expression>& filter) {
   return this;
 }
 

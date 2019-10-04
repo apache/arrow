@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/dataset/filter.h"
 #pragma once
 
 #include <memory>
@@ -148,7 +149,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// \brief Set
   ScannerBuilder* Project(const std::vector<std::string>& columns);
 
-  ScannerBuilder* AddFilter(const std::shared_ptr<Filter>& filter);
+  ScannerBuilder* AddFilter(const std::shared_ptr<Expression>& filter);
 
   ScannerBuilder* SetGlobalFileOptions(std::shared_ptr<FileScanOptions> options);
 
@@ -164,7 +165,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
   std::shared_ptr<Dataset> dataset_;
   std::shared_ptr<ScanContext> scan_context_;
   std::vector<std::string> project_columns_;
-  FilterVector filters_;
+  std::shared_ptr<Expression> filter_;
   bool include_partition_keys_;
 };
 
