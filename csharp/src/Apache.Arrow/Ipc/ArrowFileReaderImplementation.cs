@@ -33,11 +33,6 @@ namespace Apache.Arrow.Ipc
         /// </summary>
         private int _recordBatchIndex;
 
-        /// <summary>
-        /// Notes what byte position where the footer data is in the stream
-        /// </summary>
-        private long _footerStartPostion;
-
         private ArrowFooter _footer;
 
         public ArrowFileReaderImplementation(Stream stream, MemoryAllocator allocator, bool leaveOpen)
@@ -77,9 +72,9 @@ namespace Apache.Arrow.Ipc
 
             await ArrayPool<byte>.Shared.RentReturnAsync(footerLength, async (buffer) =>
             {
-                _footerStartPostion = (int)GetFooterLengthPosition() - footerLength;
+                long footerStartPostion = GetFooterLengthPosition() - footerLength;
 
-                BaseStream.Position = _footerStartPostion;
+                BaseStream.Position = footerStartPostion;
 
                 int bytesRead = await BaseStream.ReadFullBufferAsync(buffer).ConfigureAwait(false);
                 EnsureFullRead(buffer, bytesRead);
@@ -110,9 +105,9 @@ namespace Apache.Arrow.Ipc
 
             ArrayPool<byte>.Shared.RentReturn(footerLength, (buffer) =>
             {
-                _footerStartPostion = GetFooterLengthPosition() - footerLength;
+                long footerStartPostion = GetFooterLengthPosition() - footerLength;
 
-                BaseStream.Position = _footerStartPostion;
+                BaseStream.Position = footerStartPostion;
 
                 int bytesRead = BaseStream.ReadFullBuffer(buffer);
                 EnsureFullRead(buffer, bytesRead);
