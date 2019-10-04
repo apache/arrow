@@ -359,7 +359,7 @@ mod tests {
         let a = take(&list_array, &index, None).unwrap();
         let a: &ListArray = a.as_any().downcast_ref::<ListArray>().unwrap();
 
-        // construct a value aray with expected results:
+        // construct a value array with expected results:
         // [[2,3], null, [-1,-2,-1], [2,3], [0,0,0]]
         let expected_data = Int32Array::from(vec![
             Some(2),
@@ -424,7 +424,7 @@ mod tests {
         let a = take(&list_array, &index, None).unwrap();
         let a: &ListArray = a.as_any().downcast_ref::<ListArray>().unwrap();
 
-        // construct a value aray with expected results:
+        // construct a value array with expected results:
         // [[null], null, [-1,-2,3], [5,null], [0,null,0]]
         let expected_data = Int32Array::from(vec![
             None,
@@ -487,7 +487,7 @@ mod tests {
         let a = take(&list_array, &index, None).unwrap();
         let a: &ListArray = a.as_any().downcast_ref::<ListArray>().unwrap();
 
-        // construct a value aray with expected results:
+        // construct a value array with expected results:
         // [null, null, [-1,-2,3], [5,null], [0,null,0]]
         let expected_data = Int32Array::from(vec![
             Some(-1),

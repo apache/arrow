@@ -39,12 +39,17 @@ class InputStream;
 
 namespace json {
 
+/// A class that reads an entire JSON file into a Arrow Table
+///
+/// The file is expected to consist of individual line-separated JSON objects
 class ARROW_EXPORT TableReader {
  public:
   virtual ~TableReader() = default;
 
+  /// Read the entire JSON file and convert it to a Arrow Table
   virtual Status Read(std::shared_ptr<Table>* out) = 0;
 
+  /// Create a TableReader instance
   static Status Make(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
                      const ReadOptions&, const ParseOptions&,
                      std::shared_ptr<TableReader>* out);

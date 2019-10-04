@@ -1234,6 +1234,7 @@ struct ValidateVisitor {
   }
 
   Status Visit(const StructArray& array) {
+    const auto& struct_type = checked_cast<const StructType&>(*array.type());
     if (array.num_fields() > 0) {
       // Validate fields
       int64_t array_length = array.field(0)->length();
@@ -1245,10 +1246,17 @@ struct ValidateVisitor {
                                  it->type()->ToString(), " at position [", idx, "]");
         }
 
+        auto it_type = struct_type.child(i)->type();
+        if (!it->type()->Equals(it_type)) {
+          return Status::Invalid("Child array at position [", idx,
+                                 "] does not match type field: ", it->type()->ToString(),
+                                 " vs ", it_type->ToString());
+        }
+
         const Status child_valid = it->Validate();
         if (!child_valid.ok()) {
           return Status::Invalid("Child array invalid: ", child_valid.ToString(),
-                                 " at position [", idx, "}");
+                                 " at position [", idx, "]");
         }
         ++idx;
       }

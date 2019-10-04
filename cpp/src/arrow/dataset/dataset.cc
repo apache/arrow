@@ -65,26 +65,28 @@ Status Dataset::NewScan(std::unique_ptr<ScannerBuilder>* out) {
 bool DataSource::AssumePartitionExpression(
     const std::shared_ptr<ScanOptions>& scan_options,
     std::shared_ptr<ScanOptions>* simplified_scan_options) const {
-  DCHECK_NE(simplified_scan_options, nullptr);
-  if (scan_options == nullptr) {
-    // null scan options; no selector to simplify
-    *simplified_scan_options = scan_options;
+  auto filter = scan_options->filter;
+  if (filter == nullptr || partition_expression_ == nullptr) {
+    if (simplified_scan_options != nullptr) {
+      *simplified_scan_options = scan_options;
+    }
     return true;
   }
 
-  auto c = SelectorAssume(scan_options->selector, partition_expression_);
+  auto c = filter->Assume(*partition_expression_);
   DCHECK_OK(c.status());
   auto expr = std::move(c).ValueOrDie();
 
-  bool trivial = true;
-  if (expr->IsNull() || (expr->IsTrivialCondition(&trivial) && !trivial)) {
+  if (expr->IsNull() || expr->IsTrivialFalseCondition()) {
     // selector is not satisfiable; yield no fragments
     return false;
   }
 
-  auto copy = std::make_shared<ScanOptions>(*scan_options);
-  copy->selector = ExpressionSelector(std::move(expr));
-  *simplified_scan_options = std::move(copy);
+  if (simplified_scan_options != nullptr) {
+    auto copy = std::make_shared<ScanOptions>(*scan_options);
+    copy->filter = std::move(expr);
+    *simplified_scan_options = std::move(copy);
+  }
   return true;
 }
 

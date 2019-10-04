@@ -24,7 +24,7 @@ import (
 
 	"github.com/apache/arrow/go/arrow"
 	"github.com/apache/arrow/go/arrow/array"
-	"github.com/apache/arrow/go/arrow/internal/bitutil"
+	"github.com/apache/arrow/go/arrow/bitutil"
 	"github.com/apache/arrow/go/arrow/internal/flatbuf"
 	"github.com/apache/arrow/go/arrow/memory"
 	"github.com/pkg/errors"
@@ -437,10 +437,8 @@ func (ctx *arrayLoaderContext) loadChild(dt arrow.DataType) array.Interface {
 }
 
 func (ctx *arrayLoaderContext) loadNull() array.Interface {
-	field, buffers := ctx.loadCommon(1)
-	buffers = append(buffers, ctx.buffer())
-
-	data := array.NewData(arrow.Null, int(field.Length()), buffers, nil, int(field.NullCount()), 0)
+	field := ctx.field()
+	data := array.NewData(arrow.Null, int(field.Length()), nil, nil, int(field.NullCount()), 0)
 	defer data.Release()
 
 	return array.MakeFromData(data)

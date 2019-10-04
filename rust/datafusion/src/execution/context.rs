@@ -37,10 +37,13 @@ use crate::execution::filter::FilterRelation;
 use crate::execution::limit::LimitRelation;
 use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::datasource::DatasourceExec;
-use crate::execution::physical_plan::expressions::{Column, Sum};
+use crate::execution::physical_plan::expressions::{
+    BinaryExpr, CastExpr, Column, Count, Literal, Sum,
+};
 use crate::execution::physical_plan::hash_aggregate::HashAggregateExec;
 use crate::execution::physical_plan::merge::MergeExec;
 use crate::execution::physical_plan::projection::ProjectionExec;
+use crate::execution::physical_plan::selection::SelectionExec;
 use crate::execution::physical_plan::{AggregateExpr, ExecutionPlan, PhysicalExpr};
 use crate::execution::projection::ProjectRelation;
 use crate::execution::relation::{DataSourceRelation, Relation};
@@ -280,6 +283,12 @@ impl ExecutionContext {
                     schema.clone(),
                 )?))
             }
+            LogicalPlan::Selection { input, expr, .. } => {
+                let input = self.create_physical_plan(input, batch_size)?;
+                let input_schema = input.as_ref().schema().clone();
+                let runtime_expr = self.create_physical_expr(expr, &input_schema)?;
+                Ok(Arc::new(SelectionExec::try_new(runtime_expr, input)?))
+            }
             _ => Err(ExecutionError::General(
                 "Unsupported logical plan variant".to_string(),
             )),
@@ -290,13 +299,25 @@ impl ExecutionContext {
     pub fn create_physical_expr(
         &self,
         e: &Expr,
-        _input_schema: &Schema,
+        input_schema: &Schema,
     ) -> Result<Arc<dyn PhysicalExpr>> {
         match e {
             Expr::Column(i) => Ok(Arc::new(Column::new(*i))),
-            _ => Err(ExecutionError::NotImplemented(
-                "Unsupported expression".to_string(),
-            )),
+            Expr::Literal(value) => Ok(Arc::new(Literal::new(value.clone()))),
+            Expr::BinaryExpr { left, op, right } => Ok(Arc::new(BinaryExpr::new(
+                self.create_physical_expr(left, input_schema)?,
+                op.clone(),
+                self.create_physical_expr(right, input_schema)?,
+            ))),
+            Expr::Cast { expr, data_type } => Ok(Arc::new(CastExpr::try_new(
+                self.create_physical_expr(expr, input_schema)?,
+                input_schema,
+                data_type.clone(),
+            )?)),
+            other => Err(ExecutionError::NotImplemented(format!(
+                "Physical plan does not support logical expression {:?}",
+                other
+            ))),
         }
     }
 
@@ -310,6 +331,9 @@ impl ExecutionContext {
             Expr::AggregateFunction { name, args, .. } => {
                 match name.to_lowercase().as_ref() {
                     "sum" => Ok(Arc::new(Sum::new(
+                        self.create_physical_expr(&args[0], input_schema)?,
+                    ))),
+                    "count" => Ok(Arc::new(Count::new(
                         self.create_physical_expr(&args[0], input_schema)?,
                     ))),
                     other => Err(ExecutionError::NotImplemented(format!(
@@ -570,6 +594,29 @@ mod tests {
     }
 
     #[test]
+    fn parallel_selection() -> Result<()> {
+        let tmp_dir = TempDir::new("parallel_selection")?;
+        let partition_count = 4;
+        let mut ctx = create_ctx(&tmp_dir, partition_count)?;
+
+        let logical_plan =
+            ctx.create_logical_plan("SELECT c1, c2 FROM test WHERE c1 > 0 AND c1 < 3")?;
+        let logical_plan = ctx.optimize(&logical_plan)?;
+
+        let physical_plan = ctx.create_physical_plan(&logical_plan, 1024)?;
+
+        let results = ctx.collect(physical_plan.as_ref())?;
+
+        // there should be one batch per partition
+        assert_eq!(results.len(), partition_count);
+
+        let row_count: usize = results.iter().map(|batch| batch.num_rows()).sum();
+        assert_eq!(row_count, 20);
+
+        Ok(())
+    }
+
+    #[test]
     fn aggregate() -> Result<()> {
         let results = execute("SELECT SUM(c1), SUM(c2) FROM test", 4)?;
         assert_eq!(results.len(), 1);
@@ -594,6 +641,45 @@ mod tests {
         rows.sort();
         assert_eq!(rows, expected);
 
+        Ok(())
+    }
+
+    #[test]
+    fn count_basic() -> Result<()> {
+        let results = execute("SELECT COUNT(c1), COUNT(c2) FROM test", 1)?;
+        assert_eq!(results.len(), 1);
+
+        let batch = &results[0];
+        let expected: Vec<&str> = vec!["10,10"];
+        let mut rows = test::format_batch(&batch);
+        rows.sort();
+        assert_eq!(rows, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn count_partitioned() -> Result<()> {
+        let results = execute("SELECT COUNT(c1), COUNT(c2) FROM test", 4)?;
+        assert_eq!(results.len(), 1);
+
+        let batch = &results[0];
+        let expected: Vec<&str> = vec!["40,40"];
+        let mut rows = test::format_batch(&batch);
+        rows.sort();
+        assert_eq!(rows, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn count_aggregated() -> Result<()> {
+        let results = execute("SELECT c1, COUNT(c2) FROM test GROUP BY c1", 4)?;
+        assert_eq!(results.len(), 1);
+
+        let batch = &results[0];
+        let expected = vec!["0,10", "1,10", "2,10", "3,10"];
+        let mut rows = test::format_batch(&batch);
+        rows.sort();
+        assert_eq!(rows, expected);
         Ok(())
     }
 
@@ -638,5 +724,4 @@ mod tests {
 
         Ok(ctx)
     }
-
 }

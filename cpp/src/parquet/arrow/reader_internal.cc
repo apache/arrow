@@ -32,12 +32,14 @@
 #include "arrow/array.h"
 #include "arrow/builder.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/base64.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
@@ -575,7 +577,8 @@ Status GetOriginSchema(const std::shared_ptr<const KeyValueMetadata>& metadata,
   // The original Arrow schema was serialized using the store_schema option. We
   // deserialize it here and use it to inform read options such as
   // dictionary-encoded fields
-  auto schema_buf = std::make_shared<Buffer>(metadata->value(schema_index));
+  auto decoded = ::arrow::util::base64_decode(metadata->value(schema_index));
+  auto schema_buf = std::make_shared<Buffer>(decoded);
 
   ::arrow::ipc::DictionaryMemo dict_memo;
   ::arrow::io::BufferReader input(schema_buf);
@@ -619,6 +622,27 @@ Status ApplyOriginalMetadata(std::shared_ptr<Field> field, const Field& origin_f
         static_cast<const ::arrow::DictionaryType&>(*origin_type);
     field = field->WithType(
         ::arrow::dictionary(::arrow::int32(), field->type(), dict_origin_type.ordered()));
+  }
+  // restore field metadata
+  std::shared_ptr<const KeyValueMetadata> field_metadata = origin_field.metadata();
+  if (field_metadata != nullptr) {
+    field = field->WithMetadata(field_metadata);
+
+    // extension type
+    int name_index = field_metadata->FindKey(::arrow::kExtensionTypeKeyName);
+    if (name_index != -1) {
+      std::string type_name = field_metadata->value(name_index);
+      int data_index = field_metadata->FindKey(::arrow::kExtensionMetadataKeyName);
+      std::string type_data = data_index == -1 ? "" : field_metadata->value(data_index);
+
+      std::shared_ptr<::arrow::ExtensionType> ext_type =
+          ::arrow::GetExtensionType(type_name);
+      if (ext_type != nullptr) {
+        std::shared_ptr<DataType> deserialized;
+        RETURN_NOT_OK(ext_type->Deserialize(field->type(), type_data, &deserialized));
+        field = field->WithType(deserialized);
+      }
+    }
   }
   *out = field;
   return Status::OK();
@@ -1098,6 +1122,25 @@ Status TransferDecimal(RecordReader* reader, MemoryPool* pool,
   return Status::OK();
 }
 
+Status TransferExtension(RecordReader* reader, std::shared_ptr<DataType> value_type,
+                         const ColumnDescriptor* descr, MemoryPool* pool, Datum* out) {
+  std::shared_ptr<ChunkedArray> result;
+  auto ext_type = std::static_pointer_cast<::arrow::ExtensionType>(value_type);
+  auto storage_type = ext_type->storage_type();
+  RETURN_NOT_OK(TransferColumnData(reader, storage_type, descr, pool, &result));
+
+  ::arrow::ArrayVector out_chunks(result->num_chunks());
+  for (int i = 0; i < result->num_chunks(); i++) {
+    auto chunk = result->chunk(i);
+    auto ext_data = chunk->data()->Copy();
+    ext_data->type = ext_type;
+    auto ext_result = ext_type->MakeArray(ext_data);
+    out_chunks[i] = ext_result;
+  }
+  *out = std::make_shared<ChunkedArray>(out_chunks);
+  return Status::OK();
+}
+
 #define TRANSFER_INT32(ENUM, ArrowType)                                              \
   case ::arrow::Type::ENUM: {                                                        \
     Status s = TransferInt<ArrowType, Int32Type>(reader, pool, value_type, &result); \
@@ -1193,6 +1236,9 @@ Status TransferColumnData(internal::RecordReader* reader,
         default:
           return Status::NotImplemented("TimeUnit not supported");
       }
+    } break;
+    case ::arrow::Type::EXTENSION: {
+      RETURN_NOT_OK(TransferExtension(reader, value_type, descr, pool, &result));
     } break;
     default:
       return Status::NotImplemented("No support for reading columns of type ",

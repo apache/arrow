@@ -109,7 +109,6 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
     VectorSchemaRoot root = null;
     try {
       root = VectorSchemaRoot.create(schema, config.getAllocator());
-      JdbcToArrowUtils.allocateVectors(root, JdbcToArrowUtils.DEFAULT_BUFFER_SIZE);
     } catch (Exception e) {
       if (root != null) {
         root.close();

@@ -22,7 +22,11 @@ source_dir=${1:-/arrow/cpp}
 build_dir=${2:-/build/cpp}
 install_dir=${3:-${ARROW_HOME:-/usr/local}}
 
+export CCACHE_COMPRESS=1
+export CCACHE_COMPRESSLEVEL=5
+export CCACHE_COMPILERCHECK=content
 export CCACHE_DIR=/build/ccache
+export PATH=/usr/lib/ccache/:$PATH
 
 rm -rf ${build_dir}
 mkdir -p ${build_dir}

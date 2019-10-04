@@ -155,6 +155,18 @@ TEST(PathUtil, EnsureTrailingSlash) {
   ASSERT_EQ("/abc/", EnsureTrailingSlash("/abc/"));
 }
 
+TEST(PathUtil, RemoveTrailingSlash) {
+  ASSERT_EQ("", std::string(RemoveTrailingSlash("")));
+  ASSERT_EQ("", std::string(RemoveTrailingSlash("/")));
+  ASSERT_EQ("", std::string(RemoveTrailingSlash("//")));
+  ASSERT_EQ("abc/def", std::string(RemoveTrailingSlash("abc/def")));
+  ASSERT_EQ("abc/def", std::string(RemoveTrailingSlash("abc/def/")));
+  ASSERT_EQ("abc/def", std::string(RemoveTrailingSlash("abc/def//")));
+  ASSERT_EQ("/abc/def", std::string(RemoveTrailingSlash("/abc/def")));
+  ASSERT_EQ("/abc/def", std::string(RemoveTrailingSlash("/abc/def/")));
+  ASSERT_EQ("/abc/def", std::string(RemoveTrailingSlash("/abc/def//")));
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // Generic MockFileSystem tests
 
@@ -351,6 +363,19 @@ TEST_F(TestMockFS, OpenAppendStream) {
   ASSERT_OK(stream->Close());
   CheckDirs({});
   CheckFiles({{"ab", time_, "some data"}});
+}
+
+TEST_F(TestMockFS, Make) {
+  std::shared_ptr<FileSystem> fs;
+  ASSERT_OK(MockFileSystem::Make(time_, {}, &fs));
+  fs_ = std::static_pointer_cast<MockFileSystem>(fs);
+  CheckDirs({});
+  CheckFiles({});
+
+  ASSERT_OK(MockFileSystem::Make(time_, {Dir("A/B/C"), File("A/a")}, &fs));
+  fs_ = std::static_pointer_cast<MockFileSystem>(fs);
+  CheckDirs({{"A", time_}, {"A/B", time_}, {"A/B/C", time_}});
+  CheckFiles({{"A/a", time_, ""}});
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -611,6 +636,27 @@ TEST_F(TestSubTreeFileSystem, GetTargetStatsSelector) {
   ASSERT_OK(subfs_->GetTargetStats(selector, &stats));
   ASSERT_EQ(stats.size(), 0);
 }
+
+////////////////////////////////////////////////////////////////////////////
+// Generic SlowFileSystem tests
+
+class TestSlowFSGeneric : public ::testing::Test, public GenericFileSystemTest {
+ public:
+  void SetUp() override {
+    time_ = TimePoint(TimePoint::duration(42));
+    fs_ = std::make_shared<MockFileSystem>(time_);
+    slow_fs_ = std::make_shared<SlowFileSystem>(fs_, 0.001);
+  }
+
+ protected:
+  std::shared_ptr<FileSystem> GetEmptyFileSystem() override { return slow_fs_; }
+
+  TimePoint time_;
+  std::shared_ptr<MockFileSystem> fs_;
+  std::shared_ptr<SlowFileSystem> slow_fs_;
+};
+
+GENERIC_FS_TEST_FUNCTIONS(TestSlowFSGeneric);
 
 }  // namespace internal
 }  // namespace fs

@@ -48,79 +48,90 @@ Status FileBasedDataFragment::Scan(std::shared_ptr<ScanContext> scan_context,
 }
 
 FileSystemBasedDataSource::FileSystemBasedDataSource(
-    fs::FileSystem* filesystem, const fs::Selector& selector,
-    std::shared_ptr<FileFormat> format, std::shared_ptr<Expression> partition_expression,
-    std::vector<fs::FileStats> stats)
-    : DataSource(std::move(partition_expression)),
+    fs::FileSystem* filesystem, fs::PathForest forest,
+    std::shared_ptr<Expression> source_partition, PathPartitions partitions,
+    std::shared_ptr<FileFormat> format)
+    : DataSource(std::move(source_partition)),
       filesystem_(filesystem),
-      selector_(std::move(selector)),
-      format_(std::move(format)),
-      stats_(std::move(stats)) {}
+      forest_(std::move(forest)),
+      partitions_(std::move(partitions)),
+      format_(std::move(format)) {}
 
 Status FileSystemBasedDataSource::Make(fs::FileSystem* filesystem,
-                                       const fs::Selector& selector,
+                                       std::vector<fs::FileStats> stats,
+                                       std::shared_ptr<Expression> source_partition,
+                                       PathPartitions partitions,
                                        std::shared_ptr<FileFormat> format,
-                                       std::shared_ptr<Expression> partition_expression,
-                                       std::unique_ptr<FileSystemBasedDataSource>* out) {
-  std::vector<fs::FileStats> stats;
-  RETURN_NOT_OK(filesystem->GetTargetStats(selector, &stats));
-
-  auto new_end =
-      std::remove_if(stats.begin(), stats.end(), [&](const fs::FileStats& stats) {
-        return stats.type() != fs::FileType::File ||
-               !format->IsKnownExtension(stats.extension());
-      });
-  stats.resize(new_end - stats.begin());
-
-  out->reset(new FileSystemBasedDataSource(filesystem, selector, std::move(format),
-                                           std::move(partition_expression),
-                                           std::move(stats)));
+                                       std::shared_ptr<DataSource>* out) {
+  fs::PathForest forest;
+  RETURN_NOT_OK(fs::PathTree::Make(stats, &forest));
+  out->reset(new FileSystemBasedDataSource(filesystem, std::move(forest),
+                                           std::move(source_partition),
+                                           std::move(partitions), std::move(format)));
   return Status::OK();
 }
 
-Status FileSystemBasedDataSource::Make(fs::FileSystem* filesystem,
-                                       const fs::Selector& selector,
-                                       std::shared_ptr<FileFormat> format,
-                                       std::unique_ptr<FileSystemBasedDataSource>* out) {
-  return Make(filesystem, selector, std::move(format), nullptr, out);
-}
-
 DataFragmentIterator FileSystemBasedDataSource::GetFragmentsImpl(
-    std::shared_ptr<ScanOptions> scan_options) {
-  std::shared_ptr<ScanOptions> simplified_scan_options;
-  if (!AssumePartitionExpression(scan_options, &simplified_scan_options)) {
-    return MakeEmptyIterator<std::shared_ptr<DataFragment>>();
-  }
+    std::shared_ptr<ScanOptions> options) {
+  std::vector<std::unique_ptr<fs::FileStats>> files;
 
-  struct Impl : DataFragmentIterator {
-    Impl(fs::FileSystem* filesystem, std::shared_ptr<FileFormat> format,
-         std::shared_ptr<ScanOptions> scan_options, std::vector<fs::FileStats> stats)
-        : filesystem_(filesystem),
-          format_(std::move(format)),
-          scan_options_(std::move(scan_options)),
-          stats_(std::move(stats)) {}
-
-    Status Next(std::shared_ptr<DataFragment>* out) {
-      if (i_ == stats_.size()) {
-        *out = nullptr;
-        return Status::OK();
-      }
-      FileSource src(stats_[i_++].path(), filesystem_);
-
-      std::unique_ptr<DataFragment> fragment;
-      RETURN_NOT_OK(format_->MakeFragment(src, scan_options_, &fragment));
-      *out = std::move(fragment);
-      return Status::OK();
+  auto visitor = [&files](const fs::FileStats& stats) {
+    if (stats.IsFile()) {
+      files.emplace_back(new fs::FileStats(stats));
     }
-
-    size_t i_ = 0;
-    fs::FileSystem* filesystem_;
-    std::shared_ptr<FileFormat> format_;
-    std::shared_ptr<ScanOptions> scan_options_;
-    std::vector<fs::FileStats> stats_;
+    return Status::OK();
+  };
+  // The matcher ensures that directories (and their descendants) are not
+  // visited.
+  auto matcher = [this, options](const fs::FileStats& stats, bool* match) {
+    *match = this->PartitionMatches(stats, options->filter);
+    return Status::OK();
   };
 
-  return DataFragmentIterator(Impl(filesystem_, format_, scan_options, stats_));
+  for (auto tree : forest_) {
+    DCHECK_OK(tree->Visit(visitor, matcher));
+  }
+
+  auto file_it = MakeVectorIterator(std::move(files));
+  auto file_to_fragment = [options, this](std::unique_ptr<fs::FileStats> stats,
+                                          std::shared_ptr<DataFragment>* out) {
+    std::unique_ptr<DataFragment> fragment;
+    FileSource src(stats->path(), filesystem_);
+
+    RETURN_NOT_OK(format_->MakeFragment(src, options, &fragment));
+    *out = std::move(fragment);
+    return Status::OK();
+  };
+
+  return MakeMaybeMapIterator(file_to_fragment, std::move(file_it));
+}
+
+bool FileSystemBasedDataSource::PartitionMatches(const fs::FileStats& stats,
+                                                 std::shared_ptr<Expression> filter) {
+  if (filter == nullptr) {
+    return true;
+  }
+
+  auto found = partitions_.find(stats.path());
+  if (found == partitions_.end()) {
+    // No partition attached to current node (directory or file), continue.
+    return true;
+  }
+
+  auto c = found->second->Assume(*filter);
+  if (!c.ok()) {
+    // Could not simplify expression move on!
+    return true;
+  }
+
+  // TODO: pass simplified expressions to children
+  auto expr = std::move(c).ValueOrDie();
+  if (expr->IsNull() || expr->IsTrivialFalseCondition()) {
+    // selector is not satisfiable; don't recurse in this branch.
+    return false;
+  }
+
+  return true;
 }
 
 }  // namespace dataset

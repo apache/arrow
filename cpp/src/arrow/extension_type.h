@@ -142,4 +142,7 @@ Status UnregisterExtensionType(const std::string& type_name);
 ARROW_EXPORT
 std::shared_ptr<ExtensionType> GetExtensionType(const std::string& type_name);
 
+ARROW_EXPORT extern const char kExtensionTypeKeyName[];
+ARROW_EXPORT extern const char kExtensionMetadataKeyName[];
+
 }  // namespace arrow

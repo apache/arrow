@@ -70,7 +70,7 @@ class ARROW_EXPORT ChunkedArrayBuilder {
 ARROW_EXPORT Status MakeChunkedArrayBuilder(
     const std::shared_ptr<internal::TaskGroup>& task_group, MemoryPool* pool,
     const PromotionGraph* promotion_graph, const std::shared_ptr<DataType>& type,
-    std::unique_ptr<ChunkedArrayBuilder>* out);
+    std::shared_ptr<ChunkedArrayBuilder>* out);
 
 }  // namespace json
 }  // namespace arrow

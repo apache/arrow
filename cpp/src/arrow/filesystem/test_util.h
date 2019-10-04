@@ -29,6 +29,20 @@ namespace fs {
 
 static constexpr double kTimeSlack = 2.0;  // In seconds
 
+static inline FileStats File(std::string path) {
+  FileStats st;
+  st.set_type(FileType::File);
+  st.set_path(path);
+  return st;
+}
+
+static inline FileStats Dir(std::string path) {
+  FileStats st;
+  st.set_type(FileType::Directory);
+  st.set_path(path);
+  return st;
+}
+
 ARROW_EXPORT
 void CreateFile(FileSystem* fs, const std::string& path, const std::string& data);
 

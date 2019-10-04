@@ -729,7 +729,7 @@ cdef class BufferReader(NativeFile):
         self.buffer = obj
         self.reader = new CCudaBufferReader(self.buffer.buffer)
         self.set_random_access_file(
-            shared_ptr[RandomAccessFile](self.reader))
+            shared_ptr[CRandomAccessFile](self.reader))
         self.is_readable = True
 
     def read_buffer(self, nbytes=None):
@@ -776,7 +776,7 @@ cdef class BufferWriter(NativeFile):
     def __cinit__(self, CudaBuffer buffer):
         self.buffer = buffer
         self.writer = new CCudaBufferWriter(self.buffer.cuda_buffer)
-        self.set_output_stream(shared_ptr[OutputStream](self.writer))
+        self.set_output_stream(shared_ptr[COutputStream](self.writer))
         self.is_writable = True
 
     def writeat(self, int64_t position, object data):

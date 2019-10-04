@@ -46,7 +46,6 @@ groups:
     - wheel-osx-cp35m
     - wheel-osx-cp36m
     - wheel-osx-cp37m
-    - wheel-win-cp35m
     - wheel-win-cp36m
     - wheel-win-cp37m
 
@@ -80,7 +79,6 @@ groups:
     - docker-cpp-alpine
     - docker-cpp-cmake32
     - docker-cpp-release
-    - docker-cpp-fuzzit
     - docker-cpp-static-only
     - docker-c_glib
     - docker-go
@@ -147,7 +145,6 @@ groups:
     - wheel-osx-cp35m
     - wheel-osx-cp36m
     - wheel-osx-cp37m
-    - wheel-win-cp35m
     - wheel-win-cp36m
     - wheel-win-cp37m
     - debian-stretch
@@ -174,7 +171,6 @@ groups:
     - docker-cpp
     - docker-cpp-cmake32
     - docker-cpp-release
-    - docker-cpp-fuzzit
     - docker-cpp-static-only
     - docker-c_glib
     - docker-go
@@ -470,15 +466,6 @@ tasks:
       - pyarrow-{no_rc_version}-cp37-cp37m-macosx_10_6_intel.whl
 
   ############################## Wheel Windows ################################
-
-  wheel-win-cp35m:
-    ci: appveyor
-    platform: win
-    template: python-wheels/appveyor.yml
-    params:
-      python_version: 3.5
-    artifacts:
-      - pyarrow-{no_rc_version}-cp35-cp35m-win_amd64.whl
 
   wheel-win-cp36m:
     ci: appveyor
@@ -1160,9 +1147,12 @@ tasks:
     template: docker-tests/circle.linux.yml
     params:
       commands:
+        - docker-compose pull --ignore-pull-failures cpp
+        - docker-compose pull --ignore-pull-failures r
         - docker-compose build cpp
         - docker-compose build r
         - docker-compose run r
+        - docker-compose push --ignore-push-failures r
 
   docker-r-conda:
     ci: circle
@@ -1170,9 +1160,12 @@ tasks:
     template: docker-tests/circle.linux.yml
     params:
       commands:
+        - docker-compose pull --ignore-pull-failures cpp
+        - docker-compose pull --ignore-pull-failures r-conda
         - docker-compose build cpp
         - docker-compose build r-conda
         - docker-compose run r-conda
+        - docker-compose push --ignore-push-failures r-conda
 
   docker-r-sanitizer:
     ci: circle
@@ -1180,8 +1173,10 @@ tasks:
     template: docker-tests/circle.linux.yml
     params:
       commands:
+        - docker-compose pull --ignore-pull-failures r-sanitizer
         - docker-compose build r-sanitizer
         - docker-compose run r-sanitizer
+        - docker-compose push --ignore-push-failures r-sanitizer
 
   docker-rust:
     ci: circle
@@ -1189,8 +1184,10 @@ tasks:
     template: docker-tests/circle.linux.yml
     params:
       commands:
+        - docker-compose pull --ignore-pull-failures rust
         - docker-compose build rust
         - docker-compose run rust
+        - docker-compose push --ignore-push-failures rust
 
   docker-cpp:
     ci: circle
@@ -1198,8 +1195,10 @@ tasks:
     template: docker-tests/circle.linux.yml
     params:
       commands:
+        - docker-compose pull --ignore-pull-failures cpp
         - docker-compose build cpp
         - docker-compose run cpp
+        - docker-compose push --ignore-push-failures cpp
 
   docker-cpp-release:
     ci: circle
@@ -1207,8 +1206,10 @@ tasks:
     template: docker-tests/circle.linux.yml
     params:
       commands:
-        - docker-compose build cpp
+        - docker-compose pull --ignore-pull-failures cpp-release
+        - docker-compose build cpp-release
         - docker-compose run cpp-release
+        - docker-compose push --ignore-push-failures cpp-release
 
   docker-cpp-alpine:
     ci: circle
@@ -1216,8 +1217,10 @@ tasks:
     template: docker-tests/circle.linux.yml
     params:
       commands:
+        - docker-compose pull --ignore-pull-failures cpp-alpine
         - docker-compose build cpp-alpine
         - docker-compose run cpp-alpine
+        - docker-compose push --ignore-push-failures cpp-alpine
 
   docker-cpp-cmake32:
     ci: circle
@@ -1225,8 +1228,10 @@ tasks:
     template: docker-tests/circle.linux.yml
     params:
       commands:
+        - docker-compose pull --ignore-pull-failures cpp-cmake32
         - docker-compose build cpp-cmake32
         - docker-compose run cpp-cmake32
+        - docker-compose push --ignore-push-failures cpp-cmake32
 
   docker-cpp-fuzzit:
     ci: circle
@@ -1234,9 +1239,12 @@ tasks:
     template: docker-tests/circle.linux.yml
     params:
       commands:
+        - docker-compose pull --ignore-pull-failures cpp
+        - docker-compose pull --ignore-pull-failures fuzzit
         - docker-compose build cpp
         - docker-compose build fuzzit
         - docker-compose run fuzzit
+        - docker-compose push --ignore-push-failures fuzzit
 
   docker-cpp-static-only:
     ci: circle
@@ -1244,8 +1252,11 @@ tasks:
     template: docker-tests/circle.linux.yml
     params:
       commands:
+        - docker-compose pull --ignore-pull-failures cpp
+        - docker-compose pull --ignore-pull-failures cpp-static-only
         - docker-compose build cpp
         - docker-compose run cpp-static-only
+        - docker-compose push --ignore-push-failures cpp-static-only
 
   docker-c_glib:
     ci: circle
@@ -1253,9 +1264,12 @@ tasks:
     template: docker-tests/circle.linux.yml
     params:
       commands:
+        - docker-compose pull --ignore-pull-failures cpp
+        - docker-compose pull --ignore-pull-failures c_glib
         - docker-compose build cpp
         - docker-compose build c_glib
         - docker-compose run c_glib
+        - docker-compose push --ignore-push-failures c_glib
 
   docker-go:
     ci: circle
@@ -1263,8 +1277,10 @@ tasks:
     template: docker-tests/circle.linux.yml
     params:
       commands:
+        - docker-compose pull --ignore-pull-failures go
         - docker-compose build go
         - docker-compose run go
+        - docker-compose push --ignore-push-failures go
 
   docker-js:
     ci: circle
@@ -1272,8 +1288,10 @@ tasks:
     template: docker-tests/circle.linux.yml
     params:
       commands:
+        - docker-compose pull --ignore-pull-failures js
         - docker-compose build js
         - docker-compose run js
+        - docker-compose push --ignore-push-failures js
 
   docker-java:
     ci: circle
@@ -1281,8 +1299,10 @@ tasks:
     template: docker-tests/circle.linux.yml
     params:
       commands:
+        - docker-compose pull --ignore-pull-failures java
         - docker-compose build java
         - docker-compose run java
+        - docker-compose push --ignore-push-failures java
 
   docker-python-2.7:
     ci: circle
@@ -1292,9 +1312,12 @@ tasks:
       environment:
         PYTHON_VERSION: 2.7
       commands:
+        - docker-compose pull --ignore-pull-failures cpp
+        - docker-compose pull --ignore-pull-failures python
         - docker-compose build cpp
         - docker-compose build python
         - docker-compose run python
+        - docker-compose push --ignore-push-failures python
 
   docker-python-3.6:
     ci: circle
@@ -1304,9 +1327,12 @@ tasks:
       environment:
         PYTHON_VERSION: 3.6
       commands:
+        - docker-compose pull --ignore-pull-failures cpp
+        - docker-compose pull --ignore-pull-failures python
         - docker-compose build cpp
         - docker-compose build python
         - docker-compose run python
+        - docker-compose push --ignore-push-failures python
 
   docker-python-3.7:
     ci: circle
@@ -1316,9 +1342,12 @@ tasks:
       environment:
         PYTHON_VERSION: 3.7
       commands:
+        - docker-compose pull --ignore-pull-failures cpp
+        - docker-compose pull --ignore-pull-failures python
         - docker-compose build cpp
         - docker-compose build python
         - docker-compose run python
+        - docker-compose push --ignore-push-failures python
 
   docker-python-2.7-alpine:
     ci: circle
@@ -1328,9 +1357,12 @@ tasks:
       environment:
         PYTHON_VERSION: 2.7
       commands:
+        - docker-compose pull --ignore-pull-failures cpp-alpine
+        - docker-compose pull --ignore-pull-failures python-alpine
         - docker-compose build cpp-alpine
         - docker-compose build python-alpine
         - docker-compose run python-alpine
+        - docker-compose push --ignore-push-failures python-alpine
 
   docker-python-3.6-alpine:
     ci: circle
@@ -1340,9 +1372,12 @@ tasks:
       environment:
         PYTHON_VERSION: 3.6
       commands:
+        - docker-compose pull --ignore-pull-failures cpp-alpine
+        - docker-compose pull --ignore-pull-failures python-alpine
         - docker-compose build cpp-alpine
         - docker-compose build python-alpine
         - docker-compose run python-alpine
+        - docker-compose push --ignore-push-failures python-alpine
 
   docker-python-2.7-nopandas:
     ci: circle
@@ -1352,10 +1387,14 @@ tasks:
       environment:
         PYTHON_VERSION: 2.7
       commands:
+        - docker-compose pull --ignore-pull-failures cpp
+        - docker-compose pull --ignore-pull-failures python
+        - docker-compose pull --ignore-pull-failures python-nopandas
         - docker-compose build cpp
         - docker-compose build python
         - docker-compose build python-nopandas
         - docker-compose run python-nopandas
+        - docker-compose push --ignore-push-failures python-nopandas
 
   docker-python-3.6-nopandas:
     ci: circle
@@ -1365,10 +1404,14 @@ tasks:
       environment:
         PYTHON_VERSION: 3.6
       commands:
+        - docker-compose pull --ignore-pull-failures cpp
+        - docker-compose pull --ignore-pull-failures python
+        - docker-compose pull --ignore-pull-failures python-nopandas
         - docker-compose build cpp
         - docker-compose build python
         - docker-compose build python-nopandas
         - docker-compose run python-nopandas
+        - docker-compose push --ignore-push-failures python-nopandas
 
   ###################### Documentation building tests #########################
 
@@ -1380,10 +1423,14 @@ tasks:
       environment:
         PYTHON_VERSION: 3.6
       commands:
+        - docker-compose pull --ignore-pull-failures cpp
+        - docker-compose pull --ignore-pull-failures python
+        - docker-compose pull --ignore-pull-failures docs
         - docker-compose build cpp
         - docker-compose build python
         - docker-compose build docs
         - docker-compose run docs
+        - docker-compose push --ignore-push-failures docs
 
   ############################## Linter tests #################################
 
@@ -1395,10 +1442,14 @@ tasks:
       environment:
         PYTHON_VERSION: 3.6
       commands:
+        - docker-compose pull --ignore-pull-failures cpp
+        - docker-compose pull --ignore-pull-failures python
+        - docker-compose pull --ignore-pull-failures lint
         - docker-compose build cpp
         - docker-compose build python
         - docker-compose build lint
         - docker-compose run lint
+        - docker-compose push --ignore-push-failures lint
 
   docker-iwyu:
     ci: circle
@@ -1408,6 +1459,9 @@ tasks:
       environment:
         PYTHON_VERSION: 3.6
       commands:
+        - docker-compose pull --ignore-pull-failures cpp
+        - docker-compose pull --ignore-pull-failures python
+        - docker-compose pull --ignore-pull-failures lint
         - docker-compose build cpp
         - docker-compose build python
         - docker-compose build lint
@@ -1421,6 +1475,9 @@ tasks:
       environment:
         PYTHON_VERSION: 3.6
       commands:
+        - docker-compose pull --ignore-pull-failures cpp
+        - docker-compose pull --ignore-pull-failures python
+        - docker-compose pull --ignore-pull-failures lint
         - docker-compose build cpp
         - docker-compose build python
         - docker-compose build lint
@@ -1436,10 +1493,14 @@ tasks:
       environment:
         PYTHON_VERSION: 3.6
       commands:
+        - docker-compose pull --ignore-pull-failures cpp
+        - docker-compose pull --ignore-pull-failures python
+        - docker-compose pull --ignore-pull-failures dask-integration
         - docker-compose build cpp
         - docker-compose build python
         - docker-compose build dask-integration
         - docker-compose run dask-integration
+        - docker-compose push --ignore-push-failures dask-integration
 
   docker-hdfs-integration:
     ci: circle
@@ -1449,10 +1510,14 @@ tasks:
       environment:
         PYTHON_VERSION: 3.6
       commands:
+        - docker-compose pull --ignore-pull-failures cpp
+        - docker-compose pull --ignore-pull-failures python
+        - docker-compose pull --ignore-pull-failures hdfs-integration
         - docker-compose build cpp
         - docker-compose build python
         - docker-compose build hdfs-integration
         - docker-compose run hdfs-integration
+        - docker-compose push --ignore-push-failures hdfs-integration
 
   docker-spark-integration:
     ci: circle
@@ -1462,10 +1527,14 @@ tasks:
       environment:
         PYTHON_VERSION: 3.6
       commands:
+        - docker-compose pull --ignore-pull-failures cpp
+        - docker-compose pull --ignore-pull-failures python
+        - docker-compose pull --ignore-pull-failures spark-integration
         - docker-compose build cpp
         - docker-compose build python
         - docker-compose build spark-integration
         - docker-compose run spark-integration
+        - docker-compose push --ignore-push-failures spark-integration
 
   docker-turbodbc-integration:
     ci: circle
@@ -1475,10 +1544,14 @@ tasks:
       environment:
         PYTHON_VERSION: 3.6
       commands:
+        - docker-compose pull --ignore-pull-failures cpp
+        - docker-compose pull --ignore-pull-failures python
+        - docker-compose pull --ignore-pull-failures turbodbc-integration
         - docker-compose build cpp
         - docker-compose build python
         - docker-compose build turbodbc-integration
         - docker-compose run turbodbc-integration
+        - docker-compose push --ignore-push-failures turbodbc-integration
 
   docker-pandas-master:
     ci: circle
@@ -1488,6 +1561,8 @@ tasks:
       environment:
         PYTHON_VERSION: 3.6
       commands:
+        - docker-compose pull --ignore-pull-failures cpp
+        - docker-compose pull --ignore-pull-failures python
         - docker-compose build cpp
         - docker-compose build python
         - docker-compose build --no-cache pandas-master

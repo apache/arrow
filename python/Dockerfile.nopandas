@@ -16,7 +16,7 @@
 # under the License.
 
 ARG PYTHON_VERSION=3.6
-FROM arrow:python-$PYTHON_VERSION
+FROM arrowdev/arrow-python-$PYTHON_VERSION:latest
 
 # not installing pandas doesn't mean that it's not grabbed as a transitive
 # dependency, so We remove it explicitly to make sure We don't have pandas

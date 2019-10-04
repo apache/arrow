@@ -55,6 +55,10 @@ impl Bitmap {
         assert!(i < (self.bits.len() << 3));
         unsafe { bit_util::get_bit_raw(self.bits.raw_data(), i) }
     }
+
+    pub fn to_buffer(self) -> Buffer {
+        self.bits
+    }
 }
 
 impl<'a, 'b> BitAnd<&'b Bitmap> for &'a Bitmap {
@@ -122,5 +126,4 @@ mod tests {
         assert_eq!(true, bitmap.is_set(6));
         assert_eq!(false, bitmap.is_set(7));
     }
-
 }

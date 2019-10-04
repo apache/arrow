@@ -31,9 +31,6 @@
 #include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
-#include "arrow/ipc/File_generated.h"  // IWYU pragma: export
-#include "arrow/ipc/Message_generated.h"
-#include "arrow/ipc/Schema_generated.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/metadata_internal.h"
@@ -45,6 +42,10 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
+
+#include "generated/File_generated.h"  // IWYU pragma: export
+#include "generated/Message_generated.h"
+#include "generated/Schema_generated.h"
 
 using arrow::internal::checked_pointer_cast;
 

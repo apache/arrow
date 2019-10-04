@@ -35,7 +35,7 @@ test_that("type() infers from R type", {
   expect_equal(type(""), utf8())
   expect_equal(
     type(iris$Species),
-    dictionary(int8(), Array$create(levels(iris$Species)), FALSE)
+    dictionary(int8(), utf8(), FALSE)
   )
   expect_equal(
     type(lubridate::ymd_hms("2019-02-14 13:55:05")),

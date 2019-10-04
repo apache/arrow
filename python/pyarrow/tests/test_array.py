@@ -152,15 +152,15 @@ def test_to_pandas_zero_copy():
     arr = pa.array(range(10))
 
     for i in range(10):
-        np_arr = arr.to_pandas()
-        assert sys.getrefcount(np_arr) == 2
-        np_arr = None  # noqa
+        series = arr.to_pandas()
+        assert sys.getrefcount(series) == 2
+        series = None  # noqa
 
     assert sys.getrefcount(arr) == 2
 
     for i in range(10):
         arr = pa.array(range(10))
-        np_arr = arr.to_pandas()
+        series = arr.to_pandas()
         arr = None
         gc.collect()
 
@@ -168,9 +168,9 @@ def test_to_pandas_zero_copy():
 
         # Because of py.test's assert inspection magic, if you put getrefcount
         # on the line being examined, it will be 1 higher than you expect
-        base_refcount = sys.getrefcount(np_arr.base)
+        base_refcount = sys.getrefcount(series.values.base)
         assert base_refcount == 2
-        np_arr.sum()
+        series.sum()
 
 
 @pytest.mark.nopandas
@@ -422,7 +422,7 @@ def test_struct_from_buffers():
 
 
 def test_struct_from_arrays():
-    a = pa.array([4, 5, 6])
+    a = pa.array([4, 5, 6], type=pa.int64())
     b = pa.array(["bar", None, ""])
     c = pa.array([[1, 2], None, [3, None]])
     expected_list = [
@@ -447,7 +447,7 @@ def test_struct_from_arrays():
     # From fields
     fa = pa.field("a", a.type, nullable=False)
     fb = pa.field("b", b.type)
-    fc = pa.field("c", b.type)
+    fc = pa.field("c", c.type)
     arr = pa.StructArray.from_arrays([a, b, c], fields=[fa, fb, fc])
     assert arr.type == pa.struct([fa, fb, fc])
     assert not arr.type[0].nullable
@@ -459,6 +459,11 @@ def test_struct_from_arrays():
     arr = pa.StructArray.from_arrays([], fields=[])
     assert arr.type == pa.struct([])
     assert arr.to_pylist() == []
+
+    # Inconsistent fields
+    fa2 = pa.field("a", pa.int32())
+    with pytest.raises(ValueError, match="int64 vs int32"):
+        pa.StructArray.from_arrays([a, b, c], fields=[fa2, fb, fc])
 
 
 def test_dictionary_from_numpy():
@@ -1784,5 +1789,8 @@ def test_concat_array_different_types():
 def test_to_pandas_timezone():
     # https://issues.apache.org/jira/browse/ARROW-6652
     arr = pa.array([1, 2, 3], type=pa.timestamp('s', tz='Europe/Brussels'))
+    s = arr.to_pandas()
+    assert s.dt.tz is not None
+    arr = pa.chunked_array([arr])
     s = arr.to_pandas()
     assert s.dt.tz is not None

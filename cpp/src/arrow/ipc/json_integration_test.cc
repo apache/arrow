@@ -21,13 +21,12 @@
 #include <fstream>  // IWYU pragma: keep
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <vector>
 
 #include <gflags/gflags.h>
 #include <gtest/gtest.h>
-
-#include <boost/filesystem.hpp>  // NOLINT
 
 #include "arrow/io/file.h"
 #include "arrow/ipc/json_integration.h"
@@ -38,6 +37,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/util/io_util.h"
 
 DEFINE_string(arrow, "", "Arrow file name");
 DEFINE_string(json, "", "JSON file name");
@@ -47,11 +47,10 @@ DEFINE_string(
 DEFINE_bool(integration, false, "Run in integration test mode");
 DEFINE_bool(verbose, true, "Verbose output");
 
-namespace fs = boost::filesystem;
-
 namespace arrow {
 
 class Buffer;
+using internal::TemporaryDir;
 
 namespace ipc {
 
@@ -228,18 +227,15 @@ Status RunCommand(const std::string& json_path, const std::string& arrow_path,
   }
 }
 
-static std::string temp_path() {
-  return (fs::temp_directory_path() / fs::unique_path()).string();
-}
-
 class TestJSONIntegration : public ::testing::Test {
  public:
-  void SetUp() {}
+  void SetUp() { ASSERT_OK(TemporaryDir::Make("json-integration-test-", &temp_dir_)); }
 
   std::string mkstemp() {
-    auto path = temp_path();
-    tmp_paths_.push_back(path);
-    return path;
+    std::stringstream ss;
+    ss << temp_dir_->path().ToString();
+    ss << "file" << ntemp_++;
+    return ss.str();
   }
 
   Status WriteJson(const char* data, const std::string& path) {
@@ -251,14 +247,11 @@ class TestJSONIntegration : public ::testing::Test {
     return Status::OK();
   }
 
-  void TearDown() {
-    for (const std::string path : tmp_paths_) {
-      ARROW_UNUSED(std::remove(path.c_str()));
-    }
-  }
+  void TearDown() { temp_dir_.reset(); }
 
  protected:
-  std::vector<std::string> tmp_paths_;
+  std::unique_ptr<TemporaryDir> temp_dir_;
+  int ntemp_ = 1;
 };
 
 static const char* JSON_EXAMPLE = R"example(

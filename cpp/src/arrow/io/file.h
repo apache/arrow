@@ -36,6 +36,7 @@ class Status;
 
 namespace io {
 
+/// \brief An operating system file open in write-only mode.
 class ARROW_EXPORT FileOutputStream : public OutputStream {
  public:
   ~FileOutputStream() override;
@@ -95,8 +96,9 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
 
   // Write bytes to the stream. Thread-safe
   Status Write(const void* data, int64_t nbytes) override;
-
+  /// \cond FALSE
   using Writable::Write;
+  /// \endcond
 
   int file_descriptor() const;
 
@@ -107,7 +109,11 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
   std::unique_ptr<FileOutputStreamImpl> impl_;
 };
 
-// Operating system file
+/// \brief An operating system file open in read-only mode.
+///
+/// Reads through this implementation are unbuffered.  If many small reads
+/// need to be issued, it is recommended to use a buffering layer for good
+/// performance.
 class ARROW_EXPORT ReadableFile
     : public internal::RandomAccessFileConcurrencyWrapper<ReadableFile> {
  public:
@@ -173,12 +179,13 @@ class ARROW_EXPORT ReadableFile
   std::unique_ptr<ReadableFileImpl> impl_;
 };
 
-// A file interface that uses memory-mapped files for memory interactions,
-// supporting zero copy reads. The same class is used for both reading and
-// writing.
-//
-// If opening a file in a writable mode, it is not truncated first as with
-// FileOutputStream
+/// \brief A file interface that uses memory-mapped files for memory interactions
+///
+/// This implementation supports zero-copy reads. The same class is used
+/// for both reading and writing.
+///
+/// If opening a file in a writable mode, it is not truncated first as with
+/// FileOutputStream.
 class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
  public:
   ~MemoryMappedFile() override;

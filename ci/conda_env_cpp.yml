@@ -23,7 +23,6 @@ bzip2
 c-ares
 cmake
 double-conversion
-flatbuffers
 gflags
 glog
 gmock>=1.8.1

@@ -31,7 +31,6 @@
 #include "arrow/io/file.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/test_common.h"
-#include "arrow/ipc/Message_generated.h"  // IWYU pragma: keep
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/metadata_internal.h"
 #include "arrow/ipc/reader.h"
@@ -49,6 +48,8 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
+
+#include "generated/Message_generated.h"  // IWYU pragma: keep
 
 namespace arrow {
 

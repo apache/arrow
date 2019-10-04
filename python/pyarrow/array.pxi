@@ -903,12 +903,10 @@ cdef class Array(_PandasConvertible):
                                               self, &out))
         result = pandas_api.series(wrap_array_output(out), name=self._name)
 
-        if isinstance(self.type, TimestampType):
-            tz = self.type.tz
-            if tz is not None:
-                tz = string_to_tzinfo(tz)
-                result = (result.dt.tz_localize('utc')
-                          .dt.tz_convert(tz))
+        if isinstance(self.type, TimestampType) and self.type.tz is not None:
+            from pyarrow.pandas_compat import make_tz_aware
+
+            result = make_tz_aware(result, self.type.tz)
 
         return result
 
@@ -1290,7 +1288,9 @@ cdef class UnionArray(Array):
             check_status(CUnionArray.MakeDense(
                 deref(types.ap), deref(value_offsets.ap), c, c_field_names,
                 c_type_codes, &out))
-        return pyarrow_wrap_array(out)
+        cdef Array result = pyarrow_wrap_array(out)
+        result.validate()
+        return result
 
     @staticmethod
     def from_sparse(Array types, list children, list field_names=None,
@@ -1328,7 +1328,9 @@ cdef class UnionArray(Array):
                                                 c_field_names,
                                                 c_type_codes,
                                                 &out))
-        return pyarrow_wrap_array(out)
+        cdef Array result = pyarrow_wrap_array(out)
+        result.validate()
+        return result
 
 
 cdef class StringArray(Array):
@@ -1503,7 +1505,9 @@ cdef class DictionaryArray(Array):
             c_result.reset(new CDictionaryArray(c_type, _indices.sp_array,
                                                 _dictionary.sp_array))
 
-        return pyarrow_wrap_array(c_result)
+        cdef Array result = pyarrow_wrap_array(c_result)
+        result.validate()
+        return result
 
 
 cdef class StructArray(Array):
@@ -1628,7 +1632,9 @@ cdef class StructArray(Array):
         else:
             c_result = CStructArray.MakeFromFields(
                 c_arrays, c_fields, shared_ptr[CBuffer](), -1, 0)
-        return pyarrow_wrap_array(GetResultValue(c_result))
+        cdef Array result = pyarrow_wrap_array(GetResultValue(c_result))
+        result.validate()
+        return result
 
 
 cdef class ExtensionArray(Array):
@@ -1667,7 +1673,9 @@ cdef class ExtensionArray(Array):
                             "for extension type {1}".format(storage.type, typ))
 
         ext_array = make_shared[CExtensionArray](typ.sp_type, storage.sp_array)
-        return pyarrow_wrap_array(<shared_ptr[CArray]> ext_array)
+        cdef Array result = pyarrow_wrap_array(<shared_ptr[CArray]> ext_array)
+        result.validate()
+        return result
 
 
 cdef dict _array_classes = {

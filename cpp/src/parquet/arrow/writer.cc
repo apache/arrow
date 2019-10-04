@@ -26,9 +26,11 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer_builder.h"
+#include "arrow/extension_type.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
+#include "arrow/util/base64.h"
 #include "arrow/visitor_inline.h"
 
 #include "parquet/arrow/reader_internal.h"
@@ -48,6 +50,7 @@ using arrow::DictionaryArray;
 using arrow::Field;
 using arrow::FixedSizeBinaryArray;
 using Int16BufferBuilder = arrow::TypedBufferBuilder<int16_t>;
+using arrow::ExtensionArray;
 using arrow::ListArray;
 using arrow::MemoryPool;
 using arrow::NumericArray;
@@ -115,6 +118,8 @@ class LevelBuilder {
     return VisitInline(*array.values());
   }
 
+  Status Visit(const ExtensionArray& array) { return VisitInline(*array.storage()); }
+
 #define NOT_IMPLEMENTED_VISIT(ArrowTypePrefix)                             \
   Status Visit(const ::arrow::ArrowTypePrefix##Array& array) {             \
     return Status::NotImplemented("Level generation for " #ArrowTypePrefix \
@@ -126,7 +131,6 @@ class LevelBuilder {
   NOT_IMPLEMENTED_VISIT(FixedSizeList)
   NOT_IMPLEMENTED_VISIT(Struct)
   NOT_IMPLEMENTED_VISIT(Union)
-  NOT_IMPLEMENTED_VISIT(Extension)
 
 #undef NOT_IMPLEMENTED_VISIT
 
@@ -574,7 +578,13 @@ Status GetSchemaMetadata(const ::arrow::Schema& schema, ::arrow::MemoryPool* poo
   ::arrow::ipc::DictionaryMemo dict_memo;
   std::shared_ptr<Buffer> serialized;
   RETURN_NOT_OK(::arrow::ipc::SerializeSchema(schema, &dict_memo, pool, &serialized));
-  result->Append(kArrowSchemaKey, serialized->ToString());
+
+  // The serialized schema is not UTF-8, which is required for Thrift
+  std::string schema_as_string = serialized->ToString();
+  std::string schema_base64 = ::arrow::util::base64_encode(
+      reinterpret_cast<const unsigned char*>(schema_as_string.data()),
+      static_cast<unsigned int>(schema_as_string.size()));
+  result->Append(kArrowSchemaKey, schema_base64);
   *out = result;
   return Status::OK();
 }

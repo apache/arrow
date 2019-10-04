@@ -104,8 +104,12 @@ class ARROW_FLIGHT_EXPORT FlightServerOptions {
  public:
   explicit FlightServerOptions(const Location& location_);
 
+  /// \brief The host & port (or domain socket path) to listen on.
+  /// Use port 0 to bind to an available port.
   Location location;
+  /// \brief The authentication handler to use.
   std::unique_ptr<ServerAuthHandler> auth_handler;
+  /// \brief A list of TLS certificate+key pairs to use.
   std::vector<CertKeyPair> tls_certificates;
   /// \brief A Flight implementation-specific callback to customize
   /// transport-specific options.

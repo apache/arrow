@@ -57,8 +57,9 @@ public class DateConsumer implements JdbcConsumer<DateMilliVector> {
     Date date = calendar == null ? resultSet.getDate(columnIndexInResultSet) :
         resultSet.getDate(columnIndexInResultSet, calendar);
     if (!resultSet.wasNull()) {
-      vector.setSafe(currentIndex++, date.getTime());
+      vector.setSafe(currentIndex, date.getTime());
     }
+    currentIndex++;
   }
 
   @Override

@@ -18,21 +18,23 @@
 context("RecordBatch")
 
 test_that("RecordBatch", {
+  # Note that we're reusing `tbl` and `batch` throughout the tests in this file
   tbl <- tibble::tibble(
-    int = 1:10, dbl = as.numeric(1:10),
+    int = 1:10,
+    dbl = as.numeric(1:10),
     lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
     chr = letters[1:10],
     fct = factor(letters[1:10])
   )
-  batch <- record_batch(!!!tbl)
+  batch <- record_batch(tbl)
 
-  expect_true(batch == batch)
+  expect_equal(batch, batch)
   expect_equal(
     batch$schema,
     schema(
       int = int32(), dbl = float64(),
       lgl = boolean(), chr = utf8(),
-      fct = dictionary(int32(), Array$create(letters[1:10]))
+      fct = dictionary(int8(), utf8())
     )
   )
   expect_equal(batch$num_columns, 5L)
@@ -67,12 +69,12 @@ test_that("RecordBatch", {
   col_fct <- batch$column(4)
   expect_true(inherits(col_fct, 'Array'))
   expect_equal(col_fct$as_vector(), tbl$fct)
-  expect_equal(col_fct$type, dictionary(int32(), Array$create(letters[1:10])))
+  expect_equal(col_fct$type, dictionary(int8(), utf8()))
 
   batch2 <- batch$RemoveColumn(0)
   expect_equal(
     batch2$schema,
-    schema(dbl = float64(), lgl = boolean(), chr = utf8(), fct = dictionary(int32(), Array$create(letters[1:10])))
+    schema(dbl = float64(), lgl = boolean(), chr = utf8(), fct = dictionary(int8(), utf8()))
   )
   expect_equal(batch2$column(0), batch$column(1))
   expect_identical(as.data.frame(batch2), tbl[,-1])
@@ -84,6 +86,61 @@ test_that("RecordBatch", {
   expect_identical(as.data.frame(batch4), tbl[6:7,])
 })
 
+test_that("[ on RecordBatch", {
+  expect_data_frame(batch[6:7,], tbl[6:7,])
+  expect_data_frame(batch[c(6, 7),], tbl[6:7,])
+  expect_data_frame(batch[6:7, 2:4], tbl[6:7, 2:4])
+  expect_data_frame(batch[, c("dbl", "fct")], tbl[, c(2, 5)])
+  expect_identical(as.vector(batch[, "chr", drop = TRUE]), tbl$chr)
+  expect_data_frame(batch[c(7, 3, 5), 2:4], tbl[c(7, 3, 5), 2:4])
+  expect_data_frame(
+    batch[rep(c(FALSE, TRUE), 5),],
+    tbl[c(2, 4, 6, 8, 10),]
+  )
+  # bool Array
+  expect_data_frame(batch[batch$lgl,], tbl[tbl$lgl,])
+  # int Array
+  expect_data_frame(batch[Array$create(5:6), 2:4], tbl[6:7, 2:4])
+})
+
+test_that("[[ and $ on RecordBatch", {
+  expect_identical(as.vector(batch[["int"]]), tbl$int)
+  expect_identical(as.vector(batch$int), tbl$int)
+  expect_identical(as.vector(batch[[4]]), tbl$chr)
+  expect_null(batch$qwerty)
+  expect_null(batch[["asdf"]])
+  expect_error(batch[[c(4, 3)]], 'length(i) not equal to 1', fixed = TRUE)
+  expect_error(batch[[NA]], "'i' must be character or numeric, not logical")
+  expect_error(batch[[NULL]], "'i' must be character or numeric, not NULL")
+  expect_error(batch[[c("asdf", "jkl;")]], 'length(name) not equal to 1', fixed = TRUE)
+})
+
+test_that("head and tail on RecordBatch", {
+  expect_identical(as.data.frame(head(batch)), head(tbl))
+  expect_identical(as.data.frame(head(batch, 4)), head(tbl, 4))
+  expect_identical(as.data.frame(head(batch, -4)), head(tbl, -4))
+  expect_identical(as.data.frame(tail(batch)), tail(tbl))
+  expect_identical(as.data.frame(tail(batch, 4)), tail(tbl, 4))
+  expect_identical(as.data.frame(tail(batch, -4)), tail(tbl, -4))
+})
+
+test_that("RecordBatch print method", {
+  expect_output(
+    print(batch),
+    paste(
+      "RecordBatch",
+      "10 rows x 5 columns",
+      "$int <int32>",
+      "$dbl <double>",
+      "$lgl <bool>",
+      "$chr <string>",
+      "$fct <dictionary<values=string, indices=int8>>",
+      sep = "\n"
+    ),
+    fixed = TRUE
+  )
+})
+
 test_that("RecordBatch with 0 rows are supported", {
   tbl <- tibble::tibble(
     int = integer(),
@@ -93,7 +150,7 @@ test_that("RecordBatch with 0 rows are supported", {
     fct = factor(character(), levels = c("a", "b"))
   )
 
-  batch <- record_batch(!!!tbl)
+  batch <- record_batch(tbl)
   expect_equal(batch$num_columns, 5L)
   expect_equal(batch$num_rows, 0L)
   expect_equal(
@@ -103,7 +160,7 @@ test_that("RecordBatch with 0 rows are supported", {
       dbl = float64(),
       lgl = boolean(),
       chr = utf8(),
-      fct = dictionary(int32(), Array$create(c("a", "b")))
+      fct = dictionary(int8(), utf8())
     )
   )
 })
@@ -155,10 +212,11 @@ test_that("record_batch() handles data frame columns", {
   tib <- tibble::tibble(x = 1:10, y = 1:10)
   # because tib is named here, this becomes a struct array
   batch <- record_batch(a = 1:10, b = tib)
-  expect_equal(batch$schema,
+  expect_equal(
+    batch$schema,
     schema(
       a = int32(),
-      struct(x = int32(), y = int32())
+      b = struct(x = int32(), y = int32())
     )
   )
   out <- as.data.frame(batch)
@@ -166,7 +224,8 @@ test_that("record_batch() handles data frame columns", {
 
   # if not named, columns from tib are auto spliced
   batch2 <- record_batch(a = 1:10, tib)
-  expect_equal(batch$schema,
+  expect_equal(
+    batch2$schema,
     schema(a = int32(), x = int32(), y = int32())
   )
   out <- as.data.frame(batch2)
@@ -191,7 +250,7 @@ test_that("record_batch() auto splices (ARROW-5718)", {
   batch2 <- record_batch(!!!df)
   expect_equal(batch1, batch2)
   expect_equal(batch1$schema, schema(x = int32(), y = utf8()))
-  expect_equivalent(as.data.frame(batch1), df)
+  expect_data_frame(batch1, df)
 
   batch3 <- record_batch(df, z = 1:10)
   batch4 <- record_batch(!!!df, z = 1:10)

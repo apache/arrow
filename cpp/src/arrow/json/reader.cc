@@ -47,7 +47,8 @@ using io::internal::ReadaheadSpooler;
 
 namespace json {
 
-class TableReaderImpl : public TableReader {
+class TableReaderImpl : public TableReader,
+                        public std::enable_shared_from_this<TableReaderImpl> {
  public:
   TableReaderImpl(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
                   const ReadOptions& read_options, const ParseOptions& parse_options,
@@ -69,30 +70,37 @@ class TableReaderImpl : public TableReader {
       return Status::Invalid("Empty JSON file");
     }
 
+    auto self = shared_from_this();
     auto empty = std::make_shared<Buffer>("");
 
     int64_t block_index = 0;
-    for (std::shared_ptr<Buffer> partial = empty, completion = empty,
-                                 starts_with_whole = rh.buffer;
-         rh.buffer; ++block_index) {
-      // get completion of partial from previous block
-      RETURN_NOT_OK(chunker_->ProcessWithPartial(partial, rh.buffer, &completion,
-                                                 &starts_with_whole));
+    std::shared_ptr<Buffer> partial = empty;
 
-      // get all whole objects entirely inside the current buffer
-      std::shared_ptr<Buffer> whole, next_partial;
-      RETURN_NOT_OK(chunker_->Process(starts_with_whole, &whole, &next_partial));
+    while (rh.buffer) {
+      std::shared_ptr<Buffer> block, whole, completion, next_partial;
 
-      // launch parse task
-      task_group_->Append([this, partial, completion, whole, block_index] {
-        return ParseAndInsert(partial, completion, whole, block_index);
-      });
-
+      block = rh.buffer;
       RETURN_NOT_OK(readahead_.Read(&rh));
-      if (rh.buffer == nullptr) {
-        DCHECK_EQ(string_view(*next_partial).find_first_not_of(" \t\n\r"),
-                  string_view::npos);
+
+      if (!rh.buffer) {
+        // End of file reached => compute completion from penultimate block
+        RETURN_NOT_OK(chunker_->ProcessFinal(partial, block, &completion, &whole));
+      } else {
+        std::shared_ptr<Buffer> starts_with_whole;
+        // Get completion of partial from previous block.
+        RETURN_NOT_OK(chunker_->ProcessWithPartial(partial, block, &completion,
+                                                   &starts_with_whole));
+
+        // Get all whole objects entirely inside the current buffer
+        RETURN_NOT_OK(chunker_->Process(starts_with_whole, &whole, &next_partial));
       }
+
+      // Launch parse task
+      task_group_->Append([self, partial, completion, whole, block_index] {
+        return self->ParseAndInsert(partial, completion, whole, block_index);
+      });
+      block_index++;
+
       partial = next_partial;
     }
 
@@ -123,13 +131,21 @@ class TableReaderImpl : public TableReader {
     RETURN_NOT_OK(parser->ReserveScalarStorage(partial->size() + completion->size() +
                                                whole->size()));
 
-    if (completion->size() != 0) {
+    if (partial->size() != 0 || completion->size() != 0) {
       std::shared_ptr<Buffer> straddling;
-      RETURN_NOT_OK(ConcatenateBuffers({partial, completion}, pool_, &straddling));
+      if (partial->size() == 0) {
+        straddling = completion;
+      } else if (completion->size() == 0) {
+        straddling = partial;
+      } else {
+        RETURN_NOT_OK(ConcatenateBuffers({partial, completion}, pool_, &straddling));
+      }
       RETURN_NOT_OK(parser->Parse(straddling));
     }
 
-    RETURN_NOT_OK(parser->Parse(whole));
+    if (whole->size() != 0) {
+      RETURN_NOT_OK(parser->Parse(whole));
+    }
 
     std::shared_ptr<Array> parsed;
     RETURN_NOT_OK(parser->Finish(&parsed));
@@ -143,7 +159,7 @@ class TableReaderImpl : public TableReader {
   std::unique_ptr<Chunker> chunker_;
   std::shared_ptr<TaskGroup> task_group_;
   ReadaheadSpooler readahead_;
-  std::unique_ptr<ChunkedArrayBuilder> builder_;
+  std::shared_ptr<ChunkedArrayBuilder> builder_;
 };
 
 Status TableReader::Make(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
@@ -174,7 +190,7 @@ Status ParseOne(ParseOptions options, std::shared_ptr<Buffer> json,
       options.unexpected_field_behavior == UnexpectedFieldBehavior::InferType
           ? GetPromotionGraph()
           : nullptr;
-  std::unique_ptr<ChunkedArrayBuilder> builder;
+  std::shared_ptr<ChunkedArrayBuilder> builder;
   RETURN_NOT_OK(MakeChunkedArrayBuilder(internal::TaskGroup::MakeSerial(),
                                         default_memory_pool(), promotion_graph, type,
                                         &builder));

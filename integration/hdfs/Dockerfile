@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM arrow:python-3.6
+FROM arrowdev/arrow-python-3.6:latest
 
 # installing libhdfs (JNI)
 ARG HADOOP_VERSION=2.9.2

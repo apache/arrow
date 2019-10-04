@@ -17,6 +17,7 @@
 
 import warnings
 
+
 cdef class Message:
     """
     Container for an Arrow IPC message with metadata and optional body
@@ -76,7 +77,7 @@ cdef class Message:
         """
         cdef:
             int64_t output_length = 0
-            OutputStream* out
+            COutputStream* out
             CIpcOptions options
 
         options.alignment = alignment
@@ -136,9 +137,11 @@ cdef class MessageReader:
 
     @staticmethod
     def open_stream(source):
-        cdef MessageReader result = MessageReader.__new__(MessageReader)
-        cdef shared_ptr[InputStream] in_stream
-        cdef unique_ptr[CMessageReader] reader
+        cdef:
+            MessageReader result = MessageReader.__new__(MessageReader)
+            shared_ptr[CInputStream] in_stream
+            unique_ptr[CMessageReader] reader
+
         _get_input_stream(source, &in_stream)
         with nogil:
             reader = CMessageReader.Open(in_stream)
@@ -250,7 +253,7 @@ cdef class _CRecordBatchWriter:
 
 cdef class _RecordBatchStreamWriter(_CRecordBatchWriter):
     cdef:
-        shared_ptr[OutputStream] sink
+        shared_ptr[COutputStream] sink
         CIpcOptions options
         bint closed
 
@@ -276,7 +279,7 @@ cdef class _RecordBatchStreamWriter(_CRecordBatchWriter):
         self.writer = GetResultValue(result)
 
 
-cdef _get_input_stream(object source, shared_ptr[InputStream]* out):
+cdef _get_input_stream(object source, shared_ptr[CInputStream]* out):
     try:
         source = as_buffer(source)
     except TypeError:
@@ -332,7 +335,7 @@ cdef class _CRecordBatchReader:
 
 cdef class _RecordBatchStreamReader(_CRecordBatchReader):
     cdef:
-        shared_ptr[InputStream] in_stream
+        shared_ptr[CInputStream] in_stream
 
     cdef readonly:
         Schema schema
@@ -367,7 +370,7 @@ cdef class _RecordBatchFileWriter(_RecordBatchStreamWriter):
 cdef class _RecordBatchFileReader:
     cdef:
         shared_ptr[CRecordBatchFileReader] reader
-        shared_ptr[RandomAccessFile] file
+        shared_ptr[CRandomAccessFile] file
 
     cdef readonly:
         Schema schema
@@ -516,9 +519,8 @@ def read_tensor(source):
     """
     cdef:
         shared_ptr[CTensor] sp_tensor
-        InputStream* c_stream
-
-    cdef NativeFile nf = as_native_file(source)
+        CInputStream* c_stream
+        NativeFile nf = as_native_file(source)
 
     c_stream = nf.get_input_stream().get()
     with nogil:
@@ -540,7 +542,7 @@ def read_message(source):
     """
     cdef:
         Message result = Message.__new__(Message)
-        InputStream* c_stream
+        CInputStream* c_stream
 
     cdef NativeFile nf = as_native_file(source)
     c_stream = nf.get_input_stream().get()
@@ -571,7 +573,7 @@ def read_schema(obj, DictionaryMemo dictionary_memo=None):
     """
     cdef:
         shared_ptr[CSchema] result
-        shared_ptr[RandomAccessFile] cpp_file
+        shared_ptr[CRandomAccessFile] cpp_file
         CDictionaryMemo temp_memo
         CDictionaryMemo* arg_dict_memo
 

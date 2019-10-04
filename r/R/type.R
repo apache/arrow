@@ -16,12 +16,6 @@
 # under the License.
 
 #' @include arrow-package.R
-
-#' @export
-`!=.Object` <- function(lhs, rhs){
-  !(lhs == rhs)
-}
-
 #' @title class arrow::DataType
 #'
 #' @usage NULL
@@ -92,6 +86,9 @@ DataType <- R6Class("DataType",
 
 DataType$create <- function(xp) shared_ptr(DataType, xp)$..dispatch()
 
+INTEGER_TYPES <- as.character(outer(c("uint", "int"), c(8, 16, 32, 64), paste0))
+FLOAT_TYPES <- c("float16", "float32", "float64", "halffloat", "float", "double")
+
 #' infer the arrow Array type from an R vector
 #'
 #' @param x an R vector
@@ -108,9 +105,6 @@ type.Array <- function(x) x$type
 
 #' @export
 type.ChunkedArray <- function(x) x$type
-
-#' @export
-type.Column <- function(x) x$type
 
 
 #----- metadata
@@ -133,9 +127,6 @@ FixedWidthType <- R6Class("FixedWidthType",
     bit_width = function() FixedWidthType__bit_width(self)
   )
 )
-
-#' @export
-`==.DataType` <- function(lhs, rhs) lhs$Equals(rhs)
 
 Int8 <- R6Class("Int8", inherit = FixedWidthType)
 Int16 <- R6Class("Int16", inherit = FixedWidthType)

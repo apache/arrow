@@ -62,4 +62,10 @@ Rcpp::RawVector Buffer__data(const std::shared_ptr<arrow::Buffer>& buffer) {
   return Rcpp::RawVector(buffer->data(), buffer->data() + buffer->size());
 }
 
+// [[arrow::export]]
+bool Buffer__Equals(const std::shared_ptr<arrow::Buffer>& x,
+                    const std::shared_ptr<arrow::Buffer>& y) {
+  return x->Equals(*y.get());
+}
+
 #endif

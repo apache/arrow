@@ -44,6 +44,7 @@ export interface Table<T extends { [key: string]: DataType } = any> {
     clone(chunks?: RecordBatch<T>[], offsets?: Uint32Array): Table<T>;
 
     scan(next: import('./compute/dataframe').NextFunc, bind?: import('./compute/dataframe').BindFunc): void;
+    scanReverse(next: import('./compute/dataframe').NextFunc, bind?: import('./compute/dataframe').BindFunc): void;
     countBy(name: import('./compute/predicate').Col | string): import('./compute/dataframe').CountByResult;
     filter(predicate: import('./compute/predicate').Predicate): import('./compute/dataframe').FilteredDataFrame<T>;
 }

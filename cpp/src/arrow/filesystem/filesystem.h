@@ -25,7 +25,6 @@
 #include <vector>
 
 #include "arrow/status.h"
-#include "arrow/util/compression.h"
 #include "arrow/util/visibility.h"
 
 // The Windows API defines macros from *File resolving to either
@@ -44,6 +43,7 @@ namespace arrow {
 namespace io {
 
 class InputStream;
+class LatencyGenerator;
 class OutputStream;
 class RandomAccessFile;
 
@@ -58,14 +58,16 @@ using TimePoint =
 
 /// \brief EXPERIMENTAL: FileSystem entry type
 enum class ARROW_EXPORT FileType : int8_t {
-  // Target does not exist
+  /// Entry does not exist
   NonExistent,
-  // Target exists but its type is unknown (could be a special file such
-  // as a Unix socket or character device, or Windows NUL / CON / ...)
+  /// Entry exists but its type is unknown
+  ///
+  /// This can designate a special file such as a Unix socket or character
+  /// device, or Windows NUL / CON / ...
   Unknown,
-  // Target is a regular file
+  /// Entry is a regular file
   File,
-  // Target is a directory
+  /// Entry is a directory
   Directory
 };
 
@@ -84,28 +86,35 @@ struct ARROW_EXPORT FileStats {
   FileStats(const FileStats&) = default;
   FileStats& operator=(const FileStats&) = default;
 
-  // The file type.
+  /// The file type
   FileType type() const { return type_; }
   void set_type(FileType type) { type_ = type; }
 
-  // The full file path in the filesystem.
+  /// The full file path in the filesystem
   std::string path() const { return path_; }
   void set_path(const std::string& path) { path_ = path; }
 
-  // The file base name (component after the last directory separator).
+  /// The file base name (component after the last directory separator)
   std::string base_name() const;
 
-  // The size in bytes, if available.  Only regular files are guaranteed
-  // to have a size.
+  // The directory base name (component before the file base name).
+  std::string dir_name() const;
+
+  /// The size in bytes, if available
+  ///
+  /// Only regular files are guaranteed to have a size.
   int64_t size() const { return size_; }
   void set_size(int64_t size) { size_ = size; }
 
-  // The file extension
+  /// The file extension (excluding the dot)
   std::string extension() const;
 
-  // The time of last modification, if available.
+  /// The time of last modification, if available
   TimePoint mtime() const { return mtime_; }
   void set_mtime(TimePoint mtime) { mtime_ = mtime; }
+
+  bool IsFile() const { return type_ == FileType::File; }
+  bool IsDirectory() const { return type_ == FileType::Directory; }
 
   bool operator==(const FileStats& other) const {
     return type() == other.type() && path() == other.path() && size() == other.size() &&
@@ -228,7 +237,9 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
                              std::shared_ptr<FileSystem> base_fs);
   ~SubTreeFileSystem() override;
 
+  /// \cond FALSE
   using FileSystem::GetTargetStats;
+  /// \endcond
   Status GetTargetStats(const std::string& path, FileStats* out) override;
   Status GetTargetStats(const Selector& select, std::vector<FileStats>* out) override;
 
@@ -263,6 +274,48 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
   Status PrependBaseNonEmpty(std::string* s) const;
   Status StripBase(const std::string& s, std::string* out) const;
   Status FixStats(FileStats* st) const;
+};
+
+/// \brief EXPERIMENTAL: a FileSystem implementation that delegates to another
+/// implementation but inserts latencies at various points.
+class ARROW_EXPORT SlowFileSystem : public FileSystem {
+ public:
+  SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
+                 std::shared_ptr<io::LatencyGenerator> latencies);
+  SlowFileSystem(std::shared_ptr<FileSystem> base_fs, double average_latency);
+  SlowFileSystem(std::shared_ptr<FileSystem> base_fs, double average_latency,
+                 int32_t seed);
+
+  using FileSystem::GetTargetStats;
+  Status GetTargetStats(const std::string& path, FileStats* out) override;
+  Status GetTargetStats(const Selector& select, std::vector<FileStats>* out) override;
+
+  Status CreateDir(const std::string& path, bool recursive = true) override;
+
+  Status DeleteDir(const std::string& path) override;
+  Status DeleteDirContents(const std::string& path) override;
+
+  Status DeleteFile(const std::string& path) override;
+
+  Status Move(const std::string& src, const std::string& dest) override;
+
+  Status CopyFile(const std::string& src, const std::string& dest) override;
+
+  Status OpenInputStream(const std::string& path,
+                         std::shared_ptr<io::InputStream>* out) override;
+
+  Status OpenInputFile(const std::string& path,
+                       std::shared_ptr<io::RandomAccessFile>* out) override;
+
+  Status OpenOutputStream(const std::string& path,
+                          std::shared_ptr<io::OutputStream>* out) override;
+
+  Status OpenAppendStream(const std::string& path,
+                          std::shared_ptr<io::OutputStream>* out) override;
+
+ protected:
+  std::shared_ptr<FileSystem> base_fs_;
+  std::shared_ptr<io::LatencyGenerator> latencies_;
 };
 
 }  // namespace fs

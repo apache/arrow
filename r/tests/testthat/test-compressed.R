@@ -36,7 +36,6 @@ test_that("can write Buffer to CompressedOutputStream and read back in Compresse
   stream2$close()
   sink2$close()
 
-
   input1 <- CompressedInputStream$create(tf1)
   buf1 <- input1$Read(1024L)
 

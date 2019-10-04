@@ -48,23 +48,22 @@ class ColumnChunkReader;
 class ColumnReader;
 class RowGroupReader;
 
-// Arrow read adapter class for deserializing Parquet files as Arrow row
-// batches.
-//
-// This interfaces caters for different use cases and thus provides different
-// interfaces. In its most simplistic form, we cater for a user that wants to
-// read the whole Parquet at once with the FileReader::ReadTable method.
-//
-// More advanced users that also want to implement parallelism on top of each
-// single Parquet files should do this on the RowGroup level. For this, they can
-// call FileReader::RowGroup(i)->ReadTable to receive only the specified
-// RowGroup as a table.
-//
-// In the most advanced situation, where a consumer wants to independently read
-// RowGroups in parallel and consume each column individually, they can call
-// FileReader::RowGroup(i)->Column(j)->Read and receive an arrow::Column
-// instance.
-//
+/// \brief Arrow read adapter class for deserializing Parquet files as Arrow row batches.
+///
+/// This interfaces caters for different use cases and thus provides different
+/// interfaces. In its most simplistic form, we cater for a user that wants to
+/// read the whole Parquet at once with the `FileReader::ReadTable` method.
+///
+/// More advanced users that also want to implement parallelism on top of each
+/// single Parquet files should do this on the RowGroup level. For this, they can
+/// call `FileReader::RowGroup(i)->ReadTable` to receive only the specified
+/// RowGroup as a table.
+///
+/// In the most advanced situation, where a consumer wants to independently read
+/// RowGroups in parallel and consume each column individually, they can call
+/// `FileReader::RowGroup(i)->Column(j)->Read` and receive an `arrow::Column`
+/// instance.
+///
 // TODO(wesm): nested data does not always make sense with this user
 // interface unless you are only reading a single leaf node from a branch of
 // a table. For example:
@@ -106,11 +105,13 @@ class RowGroupReader;
 // arrays
 class PARQUET_EXPORT FileReader {
  public:
+  /// Factory function to create a FileReader from a ParquetFileReader and properties
   static ::arrow::Status Make(::arrow::MemoryPool* pool,
                               std::unique_ptr<ParquetFileReader> reader,
                               const ArrowReaderProperties& properties,
                               std::unique_ptr<FileReader>* out);
 
+  /// Factory function to create a FileReader from a ParquetFileReader
   static ::arrow::Status Make(::arrow::MemoryPool* pool,
                               std::unique_ptr<ParquetFileReader> reader,
                               std::unique_ptr<FileReader>* out);
@@ -127,7 +128,9 @@ class PARQUET_EXPORT FileReader {
   /// \brief Return arrow schema for all the columns.
   virtual ::arrow::Status GetSchema(std::shared_ptr<::arrow::Schema>* out) = 0;
 
-  // Read column as a whole into an Array.
+  /// \brief Read column as a whole into a chunked array.
+  ///
+  /// The indicated column index is relative to the schema
   virtual ::arrow::Status ReadColumn(int i,
                                      std::shared_ptr<::arrow::ChunkedArray>* out) = 0;
 
@@ -183,11 +186,12 @@ class PARQUET_EXPORT FileReader {
     return ::arrow::Status::OK();
   }
 
-  // Read a table of columns into a Table
+  /// Read all columns into a Table
   virtual ::arrow::Status ReadTable(std::shared_ptr<::arrow::Table>* out) = 0;
 
-  // Read a table of columns into a Table. Read only the indicated column
-  // indices (relative to the schema)
+  /// \brief Read the given columns into a Table
+  ///
+  /// The indicated column indices are relative to the schema
   virtual ::arrow::Status ReadTable(const std::vector<int>& column_indices,
                                     std::shared_ptr<::arrow::Table>* out) = 0;
 
@@ -212,6 +216,7 @@ class PARQUET_EXPORT FileReader {
   ///   FileReader.
   virtual std::shared_ptr<RowGroupReader> RowGroup(int row_group_index) = 0;
 
+  /// \brief The number of row groups in the file
   virtual int num_row_groups() const = 0;
 
   virtual ParquetFileReader* parquet_reader() const = 0;
@@ -270,14 +275,18 @@ class PARQUET_EXPORT FileReaderBuilder {
  public:
   FileReaderBuilder();
 
+  /// Create FileReaderBuilder from Arrow file and optional properties / metadata
   ::arrow::Status Open(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
                        const ReaderProperties& properties = default_reader_properties(),
                        const std::shared_ptr<FileMetaData>& metadata = NULLPTR);
 
   ParquetFileReader* raw_reader() { return raw_reader_.get(); }
 
+  /// Set Arrow MemoryPool for memory allocation
   FileReaderBuilder* memory_pool(::arrow::MemoryPool* pool);
+  /// Set Arrow reader properties
   FileReaderBuilder* properties(const ArrowReaderProperties& arg_properties);
+  /// Build FileReader instance
   ::arrow::Status Build(std::unique_ptr<FileReader>* out);
 
  private:
@@ -286,6 +295,13 @@ class PARQUET_EXPORT FileReaderBuilder {
   std::unique_ptr<ParquetFileReader> raw_reader_;
 };
 
+/// \defgroup parquet-arrow-reader-factories Factory functions for Parquet Arrow readers
+///
+/// @{
+
+/// \brief Build FileReader from Arrow file and MemoryPool
+///
+/// Advanced settings are supported through the FileReaderBuilder class.
 PARQUET_EXPORT
 ::arrow::Status OpenFile(const std::shared_ptr<::arrow::io::RandomAccessFile>& file,
                          ::arrow::MemoryPool* allocator,
@@ -305,6 +321,8 @@ PARQUET_EXPORT
                          ::arrow::MemoryPool* allocator,
                          const ArrowReaderProperties& properties,
                          std::unique_ptr<FileReader>* reader);
+
+/// @}
 
 PARQUET_EXPORT
 ::arrow::Status FromParquetSchema(

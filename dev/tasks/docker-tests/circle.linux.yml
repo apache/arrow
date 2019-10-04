@@ -19,20 +19,29 @@ version: 2
 jobs:
   build:
     machine:
-      image: circleci/classic:201808-01
+      image: ubuntu-1604:201903-01
+      docker_layer_caching: true
     steps:
       - run: docker -v
       - run: docker-compose -v
+      {% if arrow.branch == "master" %}
+      - run: |
+          if [ -n $DOCKER_USER ] && [ -n $DOCKER_PASS ]; then
+            docker login -u $DOCKER_USER -p $DOCKER_PASS
+          fi
+      {% endif %}
       - run: git clone --no-checkout {{ arrow.remote }} arrow
       - run: git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
       - run: git -C arrow checkout FETCH_HEAD
       - run: git -C arrow submodule update --init --recursive
-      - run: |
-          pushd arrow
-          {%- for command in commands %}
-            {{ command }}
-          {%- endfor %}
-          popd
+      - run:
+          command: |
+            pushd arrow
+            {%- for command in commands %}
+              {{ command }}
+            {%- endfor %}
+            popd
+          no_output_timeout: "1h"
 
 workflows:
   version: 2

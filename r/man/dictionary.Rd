@@ -4,14 +4,15 @@
 \alias{dictionary}
 \title{Create a dictionary type}
 \usage{
-dictionary(index_type, value_type, ordered = FALSE)
+dictionary(index_type = int32(), value_type = utf8(),
+  ordered = FALSE)
 }
 \arguments{
-\item{index_type}{index type, e.g. \code{\link[=int32]{int32()}}}
+\item{index_type}{A DataType for the indices (default \code{\link[=int32]{int32()}})}
 
-\item{value_type}{value type, probably \code{\link[=utf8]{utf8()}}}
+\item{value_type}{A DataType for the values (default \code{\link[=utf8]{utf8()}})}
 
-\item{ordered}{Is this an ordered dictionary ?}
+\item{ordered}{Is this an ordered dictionary (default \code{FALSE})?}
 }
 \value{
 A \link{DictionaryType}

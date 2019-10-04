@@ -187,19 +187,26 @@ def test_chunked_array_pickle(data, typ):
 
 @pytest.mark.pandas
 def test_chunked_array_to_pandas():
+    import pandas as pd
+
     data = [
         pa.array([-10, -5, 0, 5, 10])
     ]
     table = pa.table(data, names=['a'])
     col = table.column(0)
     assert isinstance(col, pa.ChunkedArray)
-    array = col.to_pandas()
-    assert array.shape == (5,)
-    assert array[0] == -10
+    series = col.to_pandas()
+    assert isinstance(series, pd.Series)
+    assert series.shape == (5,)
+    assert series[0] == -10
+    assert series.name == 'a'
 
 
 @pytest.mark.pandas
+@pytest.mark.nopandas
 def test_chunked_array_asarray():
+    # ensure this is tested both when pandas is present or not (ARROW-6564)
+
     data = [
         pa.array([0]),
         pa.array([1, 2, 3])
@@ -227,6 +234,14 @@ def test_chunked_array_asarray():
     assert np.isnan(elements[1])
     assert elements[2:] == [1., 2., 3.]
     assert np_arr.dtype == np.dtype('float64')
+
+    # DictionaryType data will be converted to dense numpy array
+    arr = pa.DictionaryArray.from_arrays(
+        pa.array([0, 1, 2, 0, 1]), pa.array(['a', 'b', 'c']))
+    chunked_arr = pa.chunked_array([arr, arr])
+    np_arr = np.asarray(chunked_arr)
+    assert np_arr.dtype == np.dtype('object')
+    assert np_arr.tolist() == ['a', 'b', 'c', 'a', 'b'] * 2
 
 
 def test_chunked_array_flatten():

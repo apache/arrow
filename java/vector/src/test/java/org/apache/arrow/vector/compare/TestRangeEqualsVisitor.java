@@ -87,6 +87,31 @@ public class TestRangeEqualsVisitor {
   }
 
   @Test
+  public void testEqualsWithTypeChange() {
+    try (final IntVector vector1 = new IntVector("intVector1", allocator);
+         final IntVector vector2 = new IntVector("intVector2", allocator);
+         final BigIntVector vector3 = new BigIntVector("bigIntVector", allocator)) {
+
+      vector1.allocateNew(2);
+      vector1.setValueCount(2);
+      vector2.allocateNew(2);
+      vector2.setValueCount(2);
+
+      vector1.setSafe(0, 1);
+      vector1.setSafe(1, 2);
+
+      vector2.setSafe(0, 1);
+      vector2.setSafe(1, 2);
+
+      RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2);
+      Range range = new Range(0, 0, 2);
+      assertTrue(vector1.accept(visitor, range));
+      // visitor left vector changed, will reset and check type again
+      assertFalse(vector3.accept(visitor, range));
+    }
+  }
+
+  @Test
   public void testBaseFixedWidthVectorRangeEqual() {
     try (final IntVector vector1 = new IntVector("int", allocator);
         final IntVector vector2 = new IntVector("int", allocator)) {

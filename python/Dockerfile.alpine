@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM arrow:cpp-alpine
+FROM arrowdev/arrow-cpp-alpine:latest
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 

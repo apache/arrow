@@ -21,6 +21,7 @@ class TestPlasmaClient < Test::Unit::TestCase
   def setup
     @store = nil
     omit("Plasma is required") unless defined?(::Plasma)
+    require_gi_bindings(3, 3, 9)
     @store = Helper::PlasmaStore.new
     @store.start
     @options = Plasma::ClientOptions.new

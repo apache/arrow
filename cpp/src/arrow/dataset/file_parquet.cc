@@ -165,14 +165,26 @@ class ParquetScanTaskIterator {
   std::shared_ptr<parquet::arrow::FileReader> reader_;
 };
 
+Status ParquetFileFormat::Inspect(const FileSource& source,
+                                  std::shared_ptr<Schema>* out) const {
+  auto pool = default_memory_pool();
+
+  std::unique_ptr<parquet::ParquetFileReader> reader;
+  RETURN_NOT_OK(OpenReader(source, pool, &reader));
+
+  std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
+  RETURN_NOT_OK(parquet::arrow::FileReader::Make(pool, std::move(reader), &arrow_reader));
+
+  return arrow_reader->GetSchema(out);
+}
+
 Status ParquetFileFormat::ScanFile(const FileSource& source,
                                    std::shared_ptr<ScanOptions> scan_options,
                                    std::shared_ptr<ScanContext> scan_context,
                                    ScanTaskIterator* out) const {
-  std::shared_ptr<io::RandomAccessFile> input;
-  RETURN_NOT_OK(source.Open(&input));
+  std::unique_ptr<parquet::ParquetFileReader> reader;
+  RETURN_NOT_OK(OpenReader(source, scan_context->pool, &reader));
 
-  auto reader = parquet::ParquetFileReader::Open(input);
   return ParquetScanTaskIterator::Make(scan_options, scan_context, std::move(reader),
                                        out);
 }
@@ -182,6 +194,16 @@ Status ParquetFileFormat::MakeFragment(const FileSource& source,
                                        std::unique_ptr<DataFragment>* out) {
   // TODO(bkietz) check location.path() against IsKnownExtension etc
   *out = internal::make_unique<ParquetFragment>(source, opts);
+  return Status::OK();
+}
+
+Status ParquetFileFormat::OpenReader(
+    const FileSource& source, MemoryPool* pool,
+    std::unique_ptr<parquet::ParquetFileReader>* out) const {
+  std::shared_ptr<io::RandomAccessFile> input;
+  RETURN_NOT_OK(source.Open(&input));
+
+  *out = parquet::ParquetFileReader::Open(input);
   return Status::OK();
 }
 

@@ -85,7 +85,6 @@ On MSYS2:
      mingw-w64-${MSYSTEM_CARCH}-brotli \
      mingw-w64-${MSYSTEM_CARCH}-cmake \
      mingw-w64-${MSYSTEM_CARCH}-double-conversion \
-     mingw-w64-${MSYSTEM_CARCH}-flatbuffers \
      mingw-w64-${MSYSTEM_CARCH}-gcc \
      mingw-w64-${MSYSTEM_CARCH}-gflags \
      mingw-w64-${MSYSTEM_CARCH}-glog \
@@ -184,7 +183,7 @@ Some features of the core Arrow shared library can be switched off for improved
 build times if they are not required for your application:
 
 * ``-DARROW_COMPUTE=ON``: build the in-memory analytics module
-* ``-DARROW_IPC=ON``: build the IPC extensions (requiring Flatbuffers)
+* ``-DARROW_IPC=ON``: build the IPC extensions
 
 CMake version requirements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -221,7 +220,6 @@ The build system supports a number of third-party dependencies
   * ``GTEST``: Googletest, for testing
   * ``benchmark``: Google benchmark, for testing
   * ``RapidJSON``: for data serialization
-  * ``Flatbuffers``: for data serialization
   * ``ZLIB``: for data compression
   * ``BZip2``: for data compression
   * ``LZ4``: for data compression

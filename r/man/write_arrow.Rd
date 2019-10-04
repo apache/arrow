@@ -4,12 +4,12 @@
 \alias{write_arrow}
 \title{Write Arrow formatted data}
 \usage{
-write_arrow(x, stream, ...)
+write_arrow(x, sink, ...)
 }
 \arguments{
 \item{x}{an \link[=Table]{arrow::Table}, an \link[=RecordBatch]{arrow::RecordBatch} or a data.frame}
 
-\item{stream}{where to serialize to
+\item{sink}{where to serialize to
 \itemize{
 \item A \link[=RecordBatchWriter]{arrow::RecordBatchWriter}: the \code{$write()}
 of \code{x} is used. The stream is left open. This uses the streaming format

@@ -55,8 +55,6 @@ public abstract class BaseValueVector implements ValueVector {
     this.allocator = Preconditions.checkNotNull(allocator, "allocator cannot be null");
   }
 
-  public abstract String getName();
-
   @Override
   public String toString() {
     return super.toString() + "[name = " + getName() + ", ...]";

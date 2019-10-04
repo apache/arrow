@@ -49,3 +49,46 @@ test_that("read_parquet() with raw data", {
   df <- read_parquet(test_raw)
   expect_identical(dim(df), c(10L, 11L))
 })
+
+test_that("write_parquet() handles various compression= specs", {
+  tab <- Table$create(x1 = 1:5, x2 = 1:5, y = 1:5)
+
+  expect_parquet_roundtrip(tab, compression = "snappy")
+  expect_parquet_roundtrip(tab, compression = rep("snappy", 3L))
+  expect_parquet_roundtrip(tab, compression = c(x1 = "snappy", x2 = "snappy"))
+})
+
+test_that("write_parquet() handles various compression_level= specs", {
+  tab <- Table$create(x1 = 1:5, x2 = 1:5, y = 1:5)
+
+  expect_parquet_roundtrip(tab, compression = "gzip", compression_level = 4)
+  expect_parquet_roundtrip(tab, compression = "gzip", compression_level = rep(4L, 3L))
+  expect_parquet_roundtrip(tab, compression = "gzip", compression_level = c(x1 = 5L, x2 = 3L))
+})
+
+test_that("write_parquet() handles various use_dictionary= specs", {
+  tab <- Table$create(x1 = 1:5, x2 = 1:5, y = 1:5)
+
+  expect_parquet_roundtrip(tab, use_dictionary = TRUE)
+  expect_parquet_roundtrip(tab, use_dictionary = c(TRUE, FALSE, TRUE))
+  expect_parquet_roundtrip(tab, use_dictionary = c(x1 = TRUE, x2 = TRUE))
+})
+
+test_that("write_parquet() handles various write_statistics= specs", {
+  tab <- Table$create(x1 = 1:5, x2 = 1:5, y = 1:5)
+
+  expect_parquet_roundtrip(tab, write_statistics = TRUE)
+  expect_parquet_roundtrip(tab, write_statistics = c(TRUE, FALSE, TRUE))
+  expect_parquet_roundtrip(tab, write_statistics = c(x1 = TRUE, x2 = TRUE))
+})
+
+test_that("make_valid_version()", {
+  expect_equal(make_valid_version("1.0"), ParquetVersionType$PARQUET_1_0)
+  expect_equal(make_valid_version("2.0"), ParquetVersionType$PARQUET_2_0)
+
+  expect_equal(make_valid_version(1), ParquetVersionType$PARQUET_1_0)
+  expect_equal(make_valid_version(2), ParquetVersionType$PARQUET_2_0)
+
+  expect_equal(make_valid_version(1.0), ParquetVersionType$PARQUET_1_0)
+  expect_equal(make_valid_version(2.0), ParquetVersionType$PARQUET_2_0)
+})

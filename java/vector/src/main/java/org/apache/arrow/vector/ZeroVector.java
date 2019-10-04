@@ -265,4 +265,9 @@ public final class ZeroVector implements FieldVector {
   public void copyFromSafe(int fromIndex, int thisIndex, ValueVector from) {
     throw new UnsupportedOperationException();
   }
+
+  @Override
+  public String getName() {
+    return getField().getName();
+  }
 }

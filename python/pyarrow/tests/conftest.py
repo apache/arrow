@@ -16,6 +16,9 @@
 # under the License.
 
 import os
+import subprocess
+import tempfile
+
 import pytest
 import hypothesis as h
 
@@ -23,6 +26,8 @@ try:
     import pathlib
 except ImportError:
     import pathlib2 as pathlib  # py2 compat
+
+from pyarrow.util import find_free_port
 
 
 # setup hypothesis profiles
@@ -51,7 +56,9 @@ groups = [
     'plasma',
     's3',
     'tensorflow',
-    'flight'
+    'flight',
+    'slow',
+    'requires_testing_data',
 ]
 
 
@@ -70,6 +77,8 @@ defaults = {
     's3': False,
     'tensorflow': False,
     'flight': False,
+    'slow': False,
+    'requires_testing_data': True,
 }
 
 try:
@@ -126,6 +135,12 @@ try:
 except ImportError:
     pass
 
+try:
+    import pyarrow.s3fs  # noqa
+    defaults['s3'] = True
+except ImportError:
+    pass
+
 
 def pytest_configure(config):
     for mark in groups:
@@ -165,18 +180,6 @@ def pytest_addoption(parser):
         parser.addoption('--only-{}'.format(group),
                          action='store_true', default=default,
                          help=('Run only the {} test group'.format(group)))
-
-    parser.addoption('--runslow', action='store_true',
-                     default=False, help='run slow tests')
-
-
-def pytest_collection_modifyitems(config, items):
-    if not config.getoption('--runslow'):
-        skip_slow = pytest.mark.skip(reason='need --runslow option to run')
-
-        for item in items:
-            if 'slow' in item.keywords:
-                item.add_marker(skip_slow)
 
 
 def pytest_runtest_setup(item):
@@ -219,3 +222,47 @@ def tempdir(tmpdir):
 @pytest.fixture(scope='session')
 def datadir():
     return pathlib.Path(__file__).parent / 'data'
+
+
+try:
+    from tempfile import TemporaryDirectory
+except ImportError:
+    import shutil
+
+    class TemporaryDirectory(object):
+        """Temporary directory implementation for python 2"""
+
+        def __enter__(self):
+            self.tmp = tempfile.mkdtemp()
+            return self.tmp
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            shutil.rmtree(self.tmp)
+
+
+@pytest.mark.s3
+@pytest.fixture(scope='session')
+def minio_server():
+    host, port = 'localhost', find_free_port()
+    access_key, secret_key = 'arrow', 'apachearrow'
+
+    address = '{}:{}'.format(host, port)
+    env = os.environ.copy()
+    env.update({
+        'MINIO_ACCESS_KEY': access_key,
+        'MINIO_SECRET_KEY': secret_key
+    })
+
+    with TemporaryDirectory() as tempdir:
+        args = ['minio', '--compat', 'server', '--quiet', '--address',
+                address, tempdir]
+        proc = None
+        try:
+            proc = subprocess.Popen(args, env=env)
+        except (OSError, IOError):
+            pytest.skip('`minio` command cannot be located')
+        else:
+            yield address, access_key, secret_key
+        finally:
+            if proc is not None:
+                proc.kill()

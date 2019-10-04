@@ -65,10 +65,8 @@ class FilterIndexSequence {
 
 // TODO(bkietz) this can be optimized
 static int64_t OutputSize(const BooleanArray& filter) {
-  auto offset = filter.offset();
-  auto length = filter.length();
   int64_t size = 0;
-  for (auto i = offset; i < offset + length; ++i) {
+  for (auto i = 0; i < filter.length(); ++i) {
     if (filter.IsNull(i) || filter.Value(i)) {
       ++size;
     }

@@ -56,6 +56,8 @@ jobs:
         rake dist
         {{ build_command }}
         popd
+      env:
+        ARROW_VERSION: {{ arrow.version }}
       displayName: Build
 
     # Using github release tries to find a common ancestor between the

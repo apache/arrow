@@ -94,7 +94,6 @@ add_arrow_lib(arrow_flight
               ${ARROW_FLIGHT_SRCS}
               DEPENDENCIES
               flight_grpc_gen
-              metadata_fbs
               SHARED_LINK_FLAGS
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
@@ -119,7 +118,6 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_INTEGRATION)
                 GTest::GTest
                 flight_grpc_gen
                 arrow_dependencies
-                metadata_fbs
                 SHARED_LINK_LIBS
                 arrow_shared
                 arrow_flight_shared

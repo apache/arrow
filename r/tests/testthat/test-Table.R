@@ -82,6 +82,96 @@ test_that("Table dim() and nrow() (ARROW-3816)", {
   expect_equal(nrow(tab), 10L)
 })
 
+test_that("[, [[, $ for Table", {
+  tbl <- tibble::tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
+    chr = letters[1:10],
+    fct = factor(letters[1:10])
+  )
+  tab <- Table$create(tbl)
+
+  expect_identical(names(tab), names(tbl))
+
+  expect_data_frame(tab[6:7,], tbl[6:7,])
+  expect_data_frame(tab[6:7, 2:4], tbl[6:7, 2:4])
+  expect_data_frame(tab[, c("dbl", "fct")], tbl[, c(2, 5)])
+  expect_vector(tab[, "chr", drop = TRUE], tbl$chr)
+  # Take within a single chunk
+  expect_data_frame(tab[c(7, 3, 5), 2:4], tbl[c(7, 3, 5), 2:4])
+  expect_data_frame(tab[rep(c(FALSE, TRUE), 5),], tbl[c(2, 4, 6, 8, 10),])
+  # bool ChunkedArray (with one chunk)
+  expect_data_frame(tab[tab$lgl,], tbl[tbl$lgl,])
+  # ChunkedArray with multiple chunks
+  c1 <- c(TRUE, FALSE, TRUE, TRUE, FALSE)
+  c2 <- c(FALSE, FALSE, TRUE, TRUE, FALSE)
+  ca <- ChunkedArray$create(c1, c2)
+  expect_data_frame(tab[ca,], tbl[c(1, 3, 4, 8, 9),])
+  # int Array
+  expect_data_frame(tab[Array$create(5:6), 2:4], tbl[6:7, 2:4])
+
+  expect_vector(tab[["int"]], tbl$int)
+  expect_vector(tab$int, tbl$int)
+  expect_vector(tab[[4]], tbl$chr)
+  expect_null(tab$qwerty)
+  expect_null(tab[["asdf"]])
+  expect_error(tab[[c(4, 3)]], 'length(i) not equal to 1', fixed = TRUE)
+  expect_error(tab[[NA]], "'i' must be character or numeric, not logical")
+  expect_error(tab[[NULL]], "'i' must be character or numeric, not NULL")
+  expect_error(tab[[c("asdf", "jkl;")]], 'length(name) not equal to 1', fixed = TRUE)
+})
+
+test_that("head and tail on Table", {
+  tbl <- tibble::tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
+    chr = letters[1:10],
+    fct = factor(letters[1:10])
+  )
+  tab <- Table$create(tbl)
+
+  expect_identical(as.data.frame(head(tab)), head(tbl))
+  expect_identical(as.data.frame(head(tab, 4)), head(tbl, 4))
+  expect_identical(as.data.frame(head(tab, -4)), head(tbl, -4))
+  expect_identical(as.data.frame(tail(tab)), tail(tbl))
+  expect_identical(as.data.frame(tail(tab, 4)), tail(tbl, 4))
+  expect_identical(as.data.frame(tail(tab, -4)), tail(tbl, -4))
+})
+
+test_that("Table print method", {
+  expect_output(
+    print(tab),
+    paste(
+      "Table",
+      "10 rows x 5 columns",
+      "$int <int32>",
+      "$dbl <double>",
+      "$lgl <bool>",
+      "$chr <string>",
+      "$fct <dictionary<values=string, indices=int8>>",
+      sep = "\n"
+    ),
+    fixed = TRUE
+  )
+})
+
+test_that("table active bindings", {
+  tbl <- tibble::tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
+    chr = letters[1:10],
+    fct = factor(letters[1:10])
+  )
+  tab <- Table$create(tbl)
+
+  expect_identical(dim(tbl), dim(tab))
+  expect_is(tab$columns, "list")
+  expect_equal(tab$columns[[1]], tab[[1]])
+})
+
 test_that("table() handles record batches with splicing", {
   batch <- record_batch(x = 1:2, y = letters[1:2])
   tab <- Table$create(batch, batch, batch)
@@ -137,3 +227,21 @@ test_that("table() auto splices (ARROW-5718)", {
   expect_equivalent(as.data.frame(tab3), df)
 })
 
+test_that("==.Table", {
+  tab1 <- Table$create(x = 1:2, y = c("a", "b"))
+  tab2 <- Table$create(x = 1:2, y = c("a", "b"))
+  tab3 <- Table$create(x = 1:2)
+  tab4 <- Table$create(x = 1:2, y = c("a", "b"), z = 3:4)
+
+  expect_true(tab1 == tab2)
+  expect_true(tab2 == tab1)
+
+  expect_false(tab1 == tab3)
+  expect_false(tab3 == tab1)
+
+  expect_false(tab1 == tab4)
+  expect_false(tab4 == tab1)
+
+  expect_true(all.equal(tab1, tab2))
+  expect_equal(tab1, tab2)
+})

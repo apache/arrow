@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM arrow:python-3.6
+FROM arrowdev/arrow-python-3.6:latest
 
 COPY ci/conda_env_sphinx.yml /arrow/ci/
 RUN conda install --file arrow/ci/conda_env_sphinx.yml && \

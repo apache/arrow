@@ -33,6 +33,7 @@
 #include <sstream>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include <fcntl.h>
 #include <signal.h>
@@ -49,7 +50,9 @@
 #define ARROW_WRITE_SHMODE S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH
 #endif
 
+#ifdef ARROW_WITH_BOOST_FILESYSTEM
 #include <boost/filesystem.hpp>
+#endif
 
 // ----------------------------------------------------------------------
 // file compatibility stuff
@@ -178,9 +181,23 @@ Status StdinStream::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
 
 namespace internal {
 
+#ifdef ARROW_WITH_BOOST_FILESYSTEM
 namespace bfs = ::boost::filesystem;
+#endif
 
 namespace {
+
+template <typename CharT>
+std::basic_string<CharT> ReplaceChars(std::basic_string<CharT> s, CharT find, CharT rep) {
+  if (find != rep) {
+    for (size_t i = 0; i < s.length(); ++i) {
+      if (s[i] == find) {
+        s[i] = rep;
+      }
+    }
+  }
+  return s;
+}
 
 Status StringToNative(const std::string& s, NativePathString* out) {
 #if _WIN32
@@ -193,7 +210,72 @@ Status StringToNative(const std::string& s, NativePathString* out) {
   return Status::OK();
 }
 
+#if _WIN32
+Status NativeToString(const NativePathString& ws, std::string* out) {
+  std::string s;
+  RETURN_NOT_OK(::arrow::util::WideStringToUTF8(ws, &s));
+  *out = std::move(s);
+  return Status::OK();
+}
+#endif
+
+#if _WIN32
+const wchar_t kNativeSep = L'\\';
+const wchar_t kGenericSep = L'/';
+const wchar_t* kAllSeps = L"\\/";
+#else
+const char kNativeSep = '/';
+const char kGenericSep = '/';
+const char* kAllSeps = "/";
+#endif
+
+NativePathString NativeSlashes(NativePathString s) {
+  return ReplaceChars(std::move(s), kGenericSep, kNativeSep);
+}
+
+NativePathString GenericSlashes(NativePathString s) {
+  return ReplaceChars(std::move(s), kNativeSep, kGenericSep);
+}
+
+NativePathString NativeParent(const NativePathString& s) {
+  auto last_sep = s.find_last_of(kAllSeps);
+  if (last_sep == s.length() - 1) {
+    // Last separator is a trailing separator, skip all trailing separators
+    // and try again
+    auto before_last_seps = s.find_last_not_of(kAllSeps);
+    if (before_last_seps == NativePathString::npos) {
+      // Only separators in path
+      return s;
+    }
+    last_sep = s.find_last_of(kAllSeps, before_last_seps);
+  }
+  if (last_sep == NativePathString::npos) {
+    // No (other) separator in path
+    return s;
+  }
+  // There may be multiple contiguous separators, skip all of them
+  auto before_last_seps = s.find_last_not_of(kAllSeps, last_sep);
+  if (before_last_seps == NativePathString::npos) {
+    // All separators are at start of string, keep them all
+    return s.substr(0, last_sep + 1);
+  } else {
+    return s.substr(0, before_last_seps + 1);
+  }
+}
+
+Status ValidatePath(const std::string& s) {
+  if (s.find_first_of('\0') != std::string::npos) {
+    return Status::Invalid("Embedded NUL char in path: '", s, "'");
+  }
+  return Status::OK();
+}
+
 }  // namespace
+
+#ifdef ARROW_WITH_BOOST_FILESYSTEM
+
+// NOTE: catching filesystem_error gives more context than system::error_code
+// (it includes the file path(s) in the error message)
 
 #define BOOST_FILESYSTEM_TRY try {
 #define BOOST_FILESYSTEM_CATCH           \
@@ -202,25 +284,11 @@ Status StringToNative(const std::string& s, NativePathString* out) {
     return ToStatus(_err);               \
   }
 
-// NOTE: catching filesystem_error gives more context than system::error_code
-// (it includes the file path(s) in the error message)
-
 static Status ToStatus(const bfs::filesystem_error& err) {
   return Status::IOError(err.what());
 }
 
-static std::string MakeRandomName(int num_chars) {
-  static const std::string chars = "0123456789abcdefghijklmnopqrstuvwxyz";
-  std::random_device gen;
-  std::uniform_int_distribution<int> dist(0, static_cast<int>(chars.length() - 1));
-
-  std::string s;
-  s.reserve(num_chars);
-  for (int i = 0; i < num_chars; ++i) {
-    s += chars[dist(gen)];
-  }
-  return s;
-}
+#endif  // ARROW_WITH_BOOST_FILESYSTEM
 
 std::string ErrnoMessage(int errnum) { return std::strerror(errnum); }
 
@@ -245,27 +313,32 @@ std::string WinErrorMessage(int errnum) {
 
 struct PlatformFilename::Impl {
   Impl() = default;
-  explicit Impl(bfs::path p) : path(p.make_preferred()) {}
+  explicit Impl(NativePathString p) : native_(NativeSlashes(std::move(p))) {}
 
-  bfs::path path;
+  NativePathString native_;
+
+  // '/'-separated
+  NativePathString generic() const { return GenericSlashes(native_); }
+
+#ifdef ARROW_WITH_BOOST_FILESYSTEM
+  bfs::path boost_path() const { return bfs::path(native_); }
+#endif
 };
 
 PlatformFilename::PlatformFilename() : impl_(new Impl{}) {}
 
 PlatformFilename::~PlatformFilename() {}
 
-PlatformFilename::PlatformFilename(const Impl& impl) : impl_(new Impl(impl)) {}
-
-PlatformFilename::PlatformFilename(Impl&& impl) : impl_(new Impl(std::move(impl))) {}
+PlatformFilename::PlatformFilename(Impl impl) : impl_(new Impl(std::move(impl))) {}
 
 PlatformFilename::PlatformFilename(const PlatformFilename& other)
-    : PlatformFilename(Impl{other.impl_->path}) {}
+    : PlatformFilename(Impl{other.impl_->native_}) {}
 
 PlatformFilename::PlatformFilename(PlatformFilename&& other)
     : impl_(std::move(other.impl_)) {}
 
 PlatformFilename& PlatformFilename::operator=(const PlatformFilename& other) {
-  this->impl_.reset(new Impl{other.impl_->path});
+  this->impl_.reset(new Impl{other.impl_->native_});
   return *this;
 }
 
@@ -277,15 +350,20 @@ PlatformFilename& PlatformFilename::operator=(PlatformFilename&& other) {
 PlatformFilename::PlatformFilename(const NativePathString& path)
     : PlatformFilename(Impl{path}) {}
 
-const NativePathString& PlatformFilename::ToNative() const {
-  return impl_->path.native();
+bool PlatformFilename::operator==(const PlatformFilename& other) const {
+  return impl_->native_ == other.impl_->native_;
 }
+
+bool PlatformFilename::operator!=(const PlatformFilename& other) const {
+  return impl_->native_ != other.impl_->native_;
+}
+
+const NativePathString& PlatformFilename::ToNative() const { return impl_->native_; }
 
 std::string PlatformFilename::ToString() const {
 #if _WIN32
-  std::wstring ws = impl_->path.generic_wstring();
   std::string s;
-  Status st = ::arrow::util::WideStringToUTF8(ws, &s);
+  Status st = NativeToString(impl_->generic(), &s);
   if (!st.ok()) {
     std::stringstream ss;
     ss << "<Unrepresentable filename: " << st.ToString() << ">";
@@ -293,14 +371,16 @@ std::string PlatformFilename::ToString() const {
   }
   return s;
 #else
-  return impl_->path.generic_string();
+  return impl_->generic();
 #endif
 }
 
+PlatformFilename PlatformFilename::Parent() const {
+  return PlatformFilename(NativeParent(ToNative()));
+}
+
 Status PlatformFilename::FromString(const std::string& file_name, PlatformFilename* out) {
-  if (file_name.find_first_of('\0') != std::string::npos) {
-    return Status::Invalid("Embedded NUL char in file name: '", file_name, "'");
-  }
+  RETURN_NOT_OK(ValidatePath(file_name));
   NativePathString ns;
   RETURN_NOT_OK(StringToNative(file_name, &ns));
   *out = PlatformFilename(std::move(ns));
@@ -309,38 +389,93 @@ Status PlatformFilename::FromString(const std::string& file_name, PlatformFilena
 
 Status PlatformFilename::Join(const std::string& child_name,
                               PlatformFilename* out) const {
-  NativePathString ns;
-  RETURN_NOT_OK(StringToNative(child_name, &ns));
-  auto path = impl_->path / ns;
-  *out = PlatformFilename(Impl{std::move(path)});
-  return Status::OK();
+  PlatformFilename child;
+  RETURN_NOT_OK(PlatformFilename::FromString(child_name, &child));
+  if (impl_->native_.empty() || impl_->native_.back() == kNativeSep) {
+    *out = PlatformFilename(Impl{impl_->native_ + child.impl_->native_});
+    return Status::OK();
+  } else {
+    *out = PlatformFilename(Impl{impl_->native_ + kNativeSep + child.impl_->native_});
+    return Status::OK();
+  }
 }
 
+Status FileNameFromString(const std::string& file_name, PlatformFilename* out) {
+  return PlatformFilename::FromString(file_name, out);
+}
+
+//
+// Filesystem access routines
+//
+
+namespace {
+
+Status DoCreateDir(const PlatformFilename& dir_path, bool create_parents, bool* created) {
+#ifdef _WIN32
+  if (CreateDirectoryW(dir_path.ToNative().c_str(), nullptr)) {
+    *created = true;
+    return Status::OK();
+  }
+  int errnum = GetLastError();
+  if (errnum == ERROR_ALREADY_EXISTS) {
+    *created = false;
+    return Status::OK();
+  }
+  if (create_parents && errnum == ERROR_PATH_NOT_FOUND) {
+    auto parent_path = dir_path.Parent();
+    if (parent_path != dir_path) {
+      RETURN_NOT_OK(DoCreateDir(parent_path, create_parents, created));
+      return DoCreateDir(dir_path, false, created);  // Retry
+    }
+  }
+  return Status::IOError("Cannot create directory '", dir_path.ToString(),
+                         "': ", WinErrorMessage(errnum));
+#else
+  if (mkdir(dir_path.ToNative().c_str(), S_IRWXU | S_IRWXG | S_IRWXO) == 0) {
+    *created = true;
+    return Status::OK();
+  }
+  if (errno == EEXIST) {
+    *created = false;
+    return Status::OK();
+  }
+  if (create_parents && errno == ENOENT) {
+    auto parent_path = dir_path.Parent();
+    if (parent_path != dir_path) {
+      RETURN_NOT_OK(DoCreateDir(parent_path, create_parents, created));
+      return DoCreateDir(dir_path, false, created);  // Retry
+    }
+  }
+  return Status::IOError("Cannot create directory '", dir_path.ToString(),
+                         "': ", ErrnoMessage(errno));
+#endif
+}
+
+}  // namespace
+
 Status CreateDir(const PlatformFilename& dir_path, bool* created) {
-  bool res;
-  BOOST_FILESYSTEM_TRY
-  res = bfs::create_directory(dir_path.impl_->path);
-  BOOST_FILESYSTEM_CATCH
+  bool did_create = false;
+  RETURN_NOT_OK(DoCreateDir(dir_path, false, &did_create));
   if (created) {
-    *created = res;
+    *created = did_create;
   }
   return Status::OK();
 }
 
 Status CreateDirTree(const PlatformFilename& dir_path, bool* created) {
-  bool res;
-  BOOST_FILESYSTEM_TRY
-  res = bfs::create_directories(dir_path.impl_->path);
-  BOOST_FILESYSTEM_CATCH
+  bool did_create = false;
+  RETURN_NOT_OK(DoCreateDir(dir_path, true, &did_create));
   if (created) {
-    *created = res;
+    *created = did_create;
   }
   return Status::OK();
 }
 
+#ifdef ARROW_WITH_BOOST_FILESYSTEM
+
 Status DeleteDirTree(const PlatformFilename& dir_path, bool* deleted) {
   BOOST_FILESYSTEM_TRY
-  const auto& path = dir_path.impl_->path;
+  const auto& path = dir_path.impl()->boost_path();
   // XXX There is a race here.
   auto st = bfs::symlink_status(path);
   if (st.type() != bfs::file_not_found && st.type() != bfs::directory_file) {
@@ -356,7 +491,7 @@ Status DeleteDirTree(const PlatformFilename& dir_path, bool* deleted) {
 
 Status DeleteDirContents(const PlatformFilename& dir_path, bool* deleted) {
   BOOST_FILESYSTEM_TRY
-  const auto& path = dir_path.impl_->path;
+  const auto& path = dir_path.impl()->boost_path();
   // XXX There is a race here.
   auto st = bfs::symlink_status(path);
   if (st.type() == bfs::file_not_found) {
@@ -380,38 +515,71 @@ Status DeleteDirContents(const PlatformFilename& dir_path, bool* deleted) {
   return Status::OK();
 }
 
+#else  // ARROW_WITH_BOOST_FILESYSTEM
+
+Status DeleteDirTree(const PlatformFilename& dir_path, bool* deleted) {
+  return Status::NotImplemented("DeleteDirTree not available in this Arrow build");
+}
+
+Status DeleteDirContents(const PlatformFilename& dir_path, bool* deleted) {
+  return Status::NotImplemented("DeleteDirContents not available in this Arrow build");
+}
+
+#endif
+
 Status DeleteFile(const PlatformFilename& file_path, bool* deleted) {
-  BOOST_FILESYSTEM_TRY
-  bool res = false;
-  const auto& path = file_path.impl_->path;
-  // XXX There is a race here, and boost::filesystem doesn't allow deleting
-  // only files and not empty directories.
-  auto st = bfs::symlink_status(path);
-  if (!bfs::is_directory(st)) {
-    res = bfs::remove(path);
+  bool did_delete = false;
+#ifdef _WIN32
+  if (DeleteFileW(file_path.ToNative().c_str())) {
+    did_delete = true;
   } else {
-    return Status::IOError("Cannot delete directory '", path.string(), "'");
+    int errnum = GetLastError();
+    if (errnum != ERROR_FILE_NOT_FOUND) {
+      return Status::IOError("Cannot delete file '", file_path.ToString(),
+                             "': ", WinErrorMessage(errnum));
+    }
   }
+#else
+  if (unlink(file_path.ToNative().c_str()) == 0) {
+    did_delete = true;
+  } else {
+    if (errno != ENOENT) {
+      return Status::IOError("Cannot delete file '", file_path.ToString(),
+                             "': ", ErrnoMessage(errno));
+    }
+  }
+#endif
   if (deleted) {
-    *deleted = res;
+    *deleted = did_delete;
   }
-  BOOST_FILESYSTEM_CATCH
   return Status::OK();
 }
 
 Status FileExists(const PlatformFilename& path, bool* out) {
-  BOOST_FILESYSTEM_TRY
-  *out = bfs::exists(path.impl_->path);
-  BOOST_FILESYSTEM_CATCH
+#ifdef _WIN32
+  if (GetFileAttributesW(path.ToNative().c_str()) != INVALID_FILE_ATTRIBUTES) {
+    *out = true;
+  } else {
+    int errnum = GetLastError();
+    if (errnum != ERROR_PATH_NOT_FOUND && errnum != ERROR_FILE_NOT_FOUND) {
+      return Status::IOError("Failed getting information for path '", path.ToString(),
+                             "': ", WinErrorMessage(errnum));
+    }
+    *out = false;
+  }
+#else
+  struct stat st;
+  if (stat(path.ToNative().c_str(), &st) == 0) {
+    *out = true;
+  } else {
+    if (errno != ENOENT && errno != ENOTDIR) {
+      return Status::IOError("Failed getting information for path '", path.ToString(),
+                             "': ", ErrnoMessage(errno));
+    }
+    *out = false;
+  }
+#endif
   return Status::OK();
-}
-
-//
-// File name handling
-//
-
-Status FileNameFromString(const std::string& file_name, PlatformFilename* out) {
-  return PlatformFilename::FromString(file_name, out);
 }
 
 //
@@ -862,6 +1030,28 @@ Status GetEnvVar(const std::string& name, std::string* out) {
   return GetEnvVar(name.c_str(), out);
 }
 
+#ifdef _WIN32
+Status GetEnvVar(const std::string& name, NativePathString* out) {
+  NativePathString w_name;
+  constexpr int32_t bufsize = 2000;
+  wchar_t w_str[bufsize];
+
+  RETURN_NOT_OK(StringToNative(name, &w_name));
+  auto res = GetEnvironmentVariableW(w_name.c_str(), w_str, bufsize);
+  if (res >= bufsize) {
+    return Status::CapacityError("environment variable value too long");
+  } else if (res == 0) {
+    return Status::KeyError("environment variable undefined");
+  }
+  *out = NativePathString(w_str);
+  return Status::OK();
+}
+
+Status GetEnvVar(const char* name, NativePathString* out) {
+  return GetEnvVar(std::string(name), out);
+}
+#endif
+
 Status SetEnvVar(const char* name, const char* value) {
 #ifdef _WIN32
   if (SetEnvironmentVariableA(name, value)) {
@@ -900,6 +1090,127 @@ Status DelEnvVar(const char* name) {
 
 Status DelEnvVar(const std::string& name) { return DelEnvVar(name.c_str()); }
 
+//
+// Temporary directories
+//
+
+#ifdef ARROW_WITH_BOOST_FILESYSTEM
+
+namespace {
+
+#if _WIN32
+NativePathString GetWindowsDirectoryPath() {
+  auto size = GetWindowsDirectoryW(nullptr, 0);
+  ARROW_CHECK_GT(size, 0) << "GetWindowsDirectoryW failed";
+  std::vector<wchar_t> w_str(size);
+  size = GetWindowsDirectoryW(w_str.data(), size);
+  ARROW_CHECK_GT(size, 0) << "GetWindowsDirectoryW failed";
+  return {w_str.data(), size};
+}
+#endif
+
+// Return a list of preferred locations for temporary files
+std::vector<NativePathString> GetPlatformTemporaryDirs() {
+  struct TempDirSelector {
+    std::string env_var;
+    NativePathString path_append;
+  };
+
+  std::vector<TempDirSelector> selectors;
+  NativePathString fallback_tmp;
+
+#if _WIN32
+  selectors = {
+      {"TMP", L""}, {"TEMP", L""}, {"LOCALAPPDATA", L"Temp"}, {"USERPROFILE", L"Temp"}};
+  fallback_tmp = GetWindowsDirectoryPath();
+
+#else
+  selectors = {{"TMPDIR", ""}, {"TMP", ""}, {"TEMP", ""}, {"TEMPDIR", ""}};
+#ifdef __ANDROID__
+  fallback_tmp = "/data/local/tmp";
+#else
+  fallback_tmp = "/tmp";
+#endif
+#endif
+
+  std::vector<NativePathString> temp_dirs;
+  for (const auto& sel : selectors) {
+    NativePathString p;
+    Status st = GetEnvVar(sel.env_var, &p);
+    if (st.IsKeyError()) {
+      // Environment variable absent, skip
+      continue;
+    }
+    if (!st.ok()) {
+      ARROW_LOG(WARNING) << "Failed getting env var '" << sel.env_var
+                         << "': " << st.ToString();
+      continue;
+    }
+    if (p.empty()) {
+      // Environment variable set to empty string, skip
+      continue;
+    }
+    if (sel.path_append.empty()) {
+      temp_dirs.push_back(p);
+    } else {
+      temp_dirs.push_back(p + kNativeSep + sel.path_append);
+    }
+  }
+  temp_dirs.push_back(fallback_tmp);
+  return temp_dirs;
+}
+
+std::string MakeRandomName(int num_chars) {
+  static const std::string chars = "0123456789abcdefghijklmnopqrstuvwxyz";
+  std::random_device gen;
+  std::uniform_int_distribution<int> dist(0, static_cast<int>(chars.length() - 1));
+
+  std::string s;
+  s.reserve(num_chars);
+  for (int i = 0; i < num_chars; ++i) {
+    s += chars[dist(gen)];
+  }
+  return s;
+}
+}  // namespace
+
+Status TemporaryDir::Make(const std::string& prefix, std::unique_ptr<TemporaryDir>* out) {
+  std::string suffix = MakeRandomName(8);
+  NativePathString base_name;
+  RETURN_NOT_OK(StringToNative(prefix + suffix, &base_name));
+
+  auto base_dirs = GetPlatformTemporaryDirs();
+  DCHECK_NE(base_dirs.size(), 0);
+
+  auto st = Status::OK();
+  for (const auto& p : base_dirs) {
+    PlatformFilename fn(p + kNativeSep + base_name + kNativeSep);
+    bool created = false;
+    st = CreateDir(fn, &created);
+    if (!st.ok()) {
+      continue;
+    }
+    if (!created) {
+      // XXX Should we retry with another random name?
+      return Status::IOError("Path already exists: '", fn.ToString(), "'");
+    } else {
+      out->reset(new TemporaryDir(std::move(fn)));
+      return Status::OK();
+    }
+  }
+
+  DCHECK(!st.ok());
+  return st;
+}
+
+#else  // ARROW_WITH_BOOST_FILESYSTEM
+
+Status TemporaryDir::Make(const std::string& prefix, std::unique_ptr<TemporaryDir>* out) {
+  return Status::NotImplemented("TemporaryDir not available in this Arrow build");
+}
+
+#endif
+
 TemporaryDir::TemporaryDir(PlatformFilename&& path) : path_(std::move(path)) {}
 
 TemporaryDir::~TemporaryDir() {
@@ -907,26 +1218,6 @@ TemporaryDir::~TemporaryDir() {
   if (!st.ok()) {
     ARROW_LOG(WARNING) << "When trying to delete temporary directory: " << st;
   }
-}
-
-Status TemporaryDir::Make(const std::string& prefix, std::unique_ptr<TemporaryDir>* out) {
-  bfs::path path;
-  std::string suffix = MakeRandomName(8);
-
-  BOOST_FILESYSTEM_TRY
-  path = bfs::temp_directory_path() / (prefix + suffix);
-  path += "/";
-  BOOST_FILESYSTEM_CATCH
-
-  PlatformFilename fn(path.native());
-  bool created = false;
-  RETURN_NOT_OK(CreateDir(fn, &created));
-  if (!created) {
-    // XXX Should we retry?
-    return Status::IOError("Path already exists: '", fn.ToString(), "'");
-  }
-  out->reset(new TemporaryDir(std::move(fn)));
-  return Status::OK();
 }
 
 SignalHandler::SignalHandler() : SignalHandler(static_cast<Callback>(nullptr)) {}
