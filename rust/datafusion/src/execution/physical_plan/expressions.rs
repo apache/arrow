@@ -147,6 +147,7 @@ macro_rules! sum_accumulate {
         }
     }};
 }
+
 struct SumAccumulator {
     expr: Arc<dyn PhysicalExpr>,
     sum: Option<ScalarValue>,
@@ -205,6 +206,68 @@ impl Accumulator for SumAccumulator {
 /// Create a sum expression
 pub fn sum(expr: Arc<dyn PhysicalExpr>) -> Arc<dyn AggregateExpr> {
     Arc::new(Sum::new(expr))
+}
+
+/// COUNT aggregate expression
+/// Returns the amount of non-null values of the given expression.
+pub struct Count {
+    expr: Arc<dyn PhysicalExpr>,
+}
+
+impl Count {
+    /// Create a new COUNT aggregate function.
+    pub fn new(expr: Arc<dyn PhysicalExpr>) -> Self {
+        Self { expr: expr }
+    }
+}
+
+impl AggregateExpr for Count {
+    fn name(&self) -> String {
+        "COUNT".to_string()
+    }
+
+    fn data_type(&self, _input_schema: &Schema) -> Result<DataType> {
+        Ok(DataType::UInt64)
+    }
+
+    fn evaluate_input(&self, batch: &RecordBatch) -> Result<ArrayRef> {
+        self.expr.evaluate(batch)
+    }
+
+    fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>> {
+        Rc::new(RefCell::new(CountAccumulator { count: 0 }))
+    }
+
+    fn create_combiner(&self, column_index: usize) -> Arc<dyn AggregateExpr> {
+        Arc::new(Sum::new(Arc::new(Column::new(column_index))))
+    }
+}
+
+struct CountAccumulator {
+    count: u64,
+}
+
+impl Accumulator for CountAccumulator {
+    fn accumulate(
+        &mut self,
+        _batch: &RecordBatch,
+        array: &ArrayRef,
+        row_index: usize,
+    ) -> Result<()> {
+        if array.is_valid(row_index) {
+            self.count += 1;
+        }
+        Ok(())
+    }
+
+    fn get_value(&self) -> Result<Option<ScalarValue>> {
+        Ok(Some(ScalarValue::UInt64(self.count)))
+    }
+}
+
+/// Create a count expression
+pub fn count(expr: Arc<dyn PhysicalExpr>) -> Arc<dyn AggregateExpr> {
+    Arc::new(Count::new(expr))
 }
 
 /// Invoke a compute kernel on a pair of arrays
@@ -702,10 +765,57 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn count_elements() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+        let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+        assert_eq!(do_count(&batch)?, Some(ScalarValue::UInt64(5)));
+        Ok(())
+    }
+
+    #[test]
+    fn count_with_nulls() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+        let a = Int32Array::from(vec![Some(1), Some(2), None, None, Some(3), None]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+        assert_eq!(do_count(&batch)?, Some(ScalarValue::UInt64(3)));
+        Ok(())
+    }
+
+    #[test]
+    fn count_all_nulls() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Boolean, false)]);
+        let a = BooleanArray::from(vec![None, None, None, None, None, None, None, None]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+        assert_eq!(do_count(&batch)?, Some(ScalarValue::UInt64(0)));
+        Ok(())
+    }
+
+    #[test]
+    fn count_empty() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Boolean, false)]);
+        let a = BooleanArray::from(Vec::<bool>::new());
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+        assert_eq!(do_count(&batch)?, Some(ScalarValue::UInt64(0)));
+        Ok(())
+    }
+
     fn do_sum(batch: &RecordBatch) -> Result<Option<ScalarValue>> {
         let sum = sum(col(0));
         let accum = sum.create_accumulator();
         let input = sum.evaluate_input(batch)?;
+        let mut accum = accum.borrow_mut();
+        for i in 0..batch.num_rows() {
+            accum.accumulate(&batch, &input, i)?;
+        }
+        accum.get_value()
+    }
+
+    fn do_count(batch: &RecordBatch) -> Result<Option<ScalarValue>> {
+        let count = count(col(0));
+        let accum = count.create_accumulator();
+        let input = count.evaluate_input(batch)?;
         let mut accum = accum.borrow_mut();
         for i in 0..batch.num_rows() {
             accum.accumulate(&batch, &input, i)?;
