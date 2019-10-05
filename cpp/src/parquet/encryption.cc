@@ -258,9 +258,10 @@ FileEncryptionProperties::Builder::disable_aad_prefix_storage() {
   return this;
 }
 
-ColumnEncryptionProperties::ColumnEncryptionProperties(
-    bool encrypted, const std::string& column_path,
-    const std::string& key, const std::string& key_metadata)
+ColumnEncryptionProperties::ColumnEncryptionProperties(bool encrypted,
+                                                       const std::string& column_path,
+                                                       const std::string& key,
+                                                       const std::string& key_metadata)
     : column_path_(column_path) {
   // column encryption properties object (with a column key) can be used for writing only
   // one file.
@@ -287,8 +288,8 @@ ColumnEncryptionProperties::ColumnEncryptionProperties(
   key_ = key;
 }
 
-ColumnDecryptionProperties::ColumnDecryptionProperties(
-    const std::string& column_path, const std::string& key)
+ColumnDecryptionProperties::ColumnDecryptionProperties(const std::string& column_path,
+                                                       const std::string& key)
     : column_path_(column_path) {
   utilized_ = false;
   DCHECK(!column_path.empty());
@@ -300,8 +301,7 @@ ColumnDecryptionProperties::ColumnDecryptionProperties(
   key_ = key;
 }
 
-std::string FileDecryptionProperties::column_key(
-    const std::string& column_path) const {
+std::string FileDecryptionProperties::column_key(const std::string& column_path) const {
   if (column_decryption_properties_.find(column_path) !=
       column_decryption_properties_.end()) {
     auto column_prop = column_decryption_properties_.at(column_path);
@@ -356,8 +356,7 @@ FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::footer_key
 }
 
 std::shared_ptr<ColumnEncryptionProperties>
-FileEncryptionProperties::column_encryption_properties(
-    const std::string& column_path) {
+FileEncryptionProperties::column_encryption_properties(const std::string& column_path) {
   if (encrypted_columns_.size() == 0) {
     auto builder = std::shared_ptr<ColumnEncryptionProperties::Builder>(
         new ColumnEncryptionProperties::Builder(column_path));

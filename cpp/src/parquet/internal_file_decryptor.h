@@ -91,10 +91,8 @@ class InternalFileDecryptor {
   FileDecryptionProperties* properties_;
   // Concatenation of aad_prefix (if exists) and aad_file_unique
   std::string file_aad_;
-  std::map<std::string, std::shared_ptr<Decryptor>>
-      column_data_map_;
-  std::map<std::string, std::shared_ptr<Decryptor>>
-      column_metadata_map_;
+  std::map<std::string, std::shared_ptr<Decryptor>> column_data_map_;
+  std::map<std::string, std::shared_ptr<Decryptor>> column_metadata_map_;
 
   std::shared_ptr<Decryptor> footer_metadata_decryptor_;
   std::shared_ptr<Decryptor> footer_data_decryptor_;
@@ -110,10 +108,10 @@ class InternalFileDecryptor {
   ::arrow::MemoryPool* pool_;
 
   std::shared_ptr<Decryptor> GetFooterDecryptor(const std::string& aad, bool metadata);
-  std::shared_ptr<Decryptor> GetColumnDecryptor(
-      const std::string& column_path,
-      const std::string& column_key_metadata, const std::string& aad,
-      bool metadata = false);
+  std::shared_ptr<Decryptor> GetColumnDecryptor(const std::string& column_path,
+                                                const std::string& column_key_metadata,
+                                                const std::string& aad,
+                                                bool metadata = false);
 
   encryption::AesDecryptor* GetMetaAesDecryptor(size_t key_size);
   encryption::AesDecryptor* GetDataAesDecryptor(size_t key_size);

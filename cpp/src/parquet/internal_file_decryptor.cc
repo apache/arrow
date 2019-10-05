@@ -159,8 +159,8 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDataDecryptor(
 }
 
 std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
-    const std::string& column_path,
-    const std::string& column_key_metadata, const std::string& aad, bool metadata) {
+    const std::string& column_path, const std::string& column_key_metadata,
+    const std::string& aad, bool metadata) {
   std::string column_key;
   // first look if we already got the decryptor from before
   if (metadata) {
@@ -181,14 +181,12 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
       column_key = properties_->key_retriever()->GetKey(column_key_metadata);
     } catch (KeyAccessDeniedException& e) {
       std::stringstream ss;
-      ss << "HiddenColumnException, path=" + column_path + " " << e.what()
-         << "\n";
+      ss << "HiddenColumnException, path=" + column_path + " " << e.what() << "\n";
       throw HiddenColumnException(ss.str());
     }
   }
   if (column_key.empty()) {
-    throw HiddenColumnException("HiddenColumnException, path=" +
-                                column_path);
+    throw HiddenColumnException("HiddenColumnException, path=" + column_path);
   }
 
   // Create both data and metadata decryptors to avoid redundant retrieval of key

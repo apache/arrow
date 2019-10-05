@@ -141,7 +141,8 @@ class ColumnCryptoMetaData::ColumnCryptoMetaDataImpl {
     return crypto_metadata_->__isset.ENCRYPTION_WITH_COLUMN_KEY;
   }
   std::shared_ptr<schema::ColumnPath> path_in_schema() const {
-    return std::make_shared<schema::ColumnPath>(crypto_metadata_->ENCRYPTION_WITH_COLUMN_KEY.path_in_schema);
+    return std::make_shared<schema::ColumnPath>(
+        crypto_metadata_->ENCRYPTION_WITH_COLUMN_KEY.path_in_schema);
   }
   const std::string& key_metadata() const {
     return crypto_metadata_->ENCRYPTION_WITH_COLUMN_KEY.key_metadata;
@@ -162,7 +163,7 @@ ColumnCryptoMetaData::ColumnCryptoMetaData(const uint8_t* metadata)
 
 ColumnCryptoMetaData::~ColumnCryptoMetaData() {}
 
-std::shared_ptr<schema::ColumnPath>ColumnCryptoMetaData::path_in_schema() const {
+std::shared_ptr<schema::ColumnPath> ColumnCryptoMetaData::path_in_schema() const {
   return impl_->path_in_schema();
 }
 bool ColumnCryptoMetaData::encrypted_with_footer_key() const {
@@ -973,7 +974,8 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     }
     column_chunk_->meta_data.__set_encodings(thrift_encodings);
 
-    const auto& encrypt_md = properties_->column_encryption_properties(column_->path()->ToDotString());
+    const auto& encrypt_md =
+        properties_->column_encryption_properties(column_->path()->ToDotString());
     // column is encrypted
     if (encrypt_md != NULLPTR && encrypt_md->is_encrypted()) {
       column_chunk_->__isset.crypto_metadata = true;
