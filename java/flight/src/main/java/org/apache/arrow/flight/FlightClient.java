@@ -46,8 +46,10 @@ import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
+import io.grpc.Channel;
 import io.grpc.ClientCall;
 import io.grpc.ClientInterceptor;
+import io.grpc.ClientInterceptors;
 import io.grpc.ManagedChannel;
 import io.grpc.MethodDescriptor;
 import io.grpc.StatusRuntimeException;
@@ -72,6 +74,7 @@ public class FlightClient implements AutoCloseable {
   private static final int MAX_CHANNEL_TRACE_EVENTS = 0;
   private final BufferAllocator allocator;
   private final ManagedChannel channel;
+  private final Channel interceptedChannel;
   private final FlightServiceBlockingStub blockingStub;
   private final FlightServiceStub asyncStub;
   private final ClientAuthInterceptor authInterceptor = new ClientAuthInterceptor();
@@ -85,17 +88,19 @@ public class FlightClient implements AutoCloseable {
       List<FlightClientMiddleware.Factory> middleware) {
     this.allocator = incomingAllocator.newChildAllocator("flight-client", 0, Long.MAX_VALUE);
     this.channel = channel;
-    final ClientInterceptor[] interceptors;
 
+    final ClientInterceptor[] interceptors;
     if (middleware.isEmpty()) {
       interceptors = new ClientInterceptor[]{authInterceptor};
     } else {
       interceptors = new ClientInterceptor[]{authInterceptor, new ClientInterceptorAdapter(middleware)};
     }
 
-    blockingStub = FlightServiceGrpc.newBlockingStub(channel).withInterceptors(interceptors);
-    asyncStub = FlightServiceGrpc.newStub(channel).withInterceptors(interceptors);
-    // TODO: doGet/doPut need to run all interceptors
+    // Create a channel with interceptors pre-applied for DoGet and DoPut
+    this.interceptedChannel = ClientInterceptors.intercept(channel, interceptors);
+
+    blockingStub = FlightServiceGrpc.newBlockingStub(interceptedChannel);
+    asyncStub = FlightServiceGrpc.newStub(interceptedChannel);
     doGetDescriptor = FlightBindingService.getDoGetDescriptor(allocator);
     doPutDescriptor = FlightBindingService.getDoPutDescriptor(allocator);
   }
@@ -207,7 +212,7 @@ public class FlightClient implements AutoCloseable {
       final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
       ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
           ClientCalls.asyncBidiStreamingCall(
-              authInterceptor.interceptCall(doPutDescriptor, callOptions, channel), resultObserver);
+              interceptedChannel.newCall(doPutDescriptor, callOptions), resultObserver);
       // send the schema to start.
       DictionaryUtils.generateSchemaMessages(root.getSchema(), descriptor, provider, observer::onNext);
       return new PutObserver(new VectorUnloader(
@@ -251,8 +256,7 @@ public class FlightClient implements AutoCloseable {
    */
   public FlightStream getStream(Ticket ticket, CallOption... options) {
     final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
-    ClientCall<Flight.Ticket, ArrowMessage> call =
-        authInterceptor.interceptCall(doGetDescriptor, callOptions, channel);
+    ClientCall<Flight.Ticket, ArrowMessage> call = interceptedChannel.newCall(doGetDescriptor, callOptions);
     FlightStream stream = new FlightStream(
         allocator,
         PENDING_REQUESTS,

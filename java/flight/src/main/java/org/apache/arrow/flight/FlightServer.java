@@ -25,8 +25,10 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -157,18 +159,20 @@ public class FlightServer implements AutoCloseable {
     private InputStream certChain;
     private InputStream key;
     private final List<KeyFactory<?>> interceptors;
+    // Keep track of inserted interceptors
+    private final Set<String> interceptorKeys;
 
     Builder() {
       builderOptions = new HashMap<>();
       interceptors = new ArrayList<>();
+      interceptorKeys = new HashSet<>();
     }
 
     Builder(BufferAllocator allocator, Location location, FlightProducer producer) {
+      this();
       this.allocator = Preconditions.checkNotNull(allocator);
       this.location = Preconditions.checkNotNull(location);
       this.producer = Preconditions.checkNotNull(producer);
-      builderOptions = new HashMap<>();
-      interceptors = new ArrayList<>();
     }
 
     /** Create the server for this builder. */
@@ -315,16 +319,21 @@ public class FlightServer implements AutoCloseable {
     }
 
     /**
-     * Add a Flight middleware to inspect and modify requests to this service.
+     * Add a Flight middleware component to inspect and modify requests to this service.
      *
-     * @param key An identifier for this middleware. Service implementations can retrieve the middleware instance for
-     *     the current call using {@link org.apache.arrow.flight.FlightProducer.CallContext}.
+     * @param key An identifier for this middleware component. Service implementations can retrieve the middleware
+     *     instance for the current call using {@link org.apache.arrow.flight.FlightProducer.CallContext}.
      * @param factory A factory for the middleware.
      * @param <T> The middleware type.
+     * @throws IllegalArgumentException if the key already exists
      */
     public <T extends FlightServerMiddleware> Builder middleware(final FlightServerMiddleware.Key<T> key,
         final FlightServerMiddleware.Factory<T> factory) {
-      interceptors.add(new KeyFactory<T>(key, factory));
+      if (interceptorKeys.contains(key.key)) {
+        throw new IllegalArgumentException("Key already exists: " + key.key);
+      }
+      interceptors.add(new KeyFactory<>(key, factory));
+      interceptorKeys.add(key.key);
       return this;
     }
 

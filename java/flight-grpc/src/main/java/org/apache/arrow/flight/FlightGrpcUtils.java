@@ -17,6 +17,7 @@
 
 package org.apache.arrow.flight;
 
+import java.util.Collections;
 import java.util.concurrent.ExecutorService;
 
 import org.apache.arrow.flight.auth.ServerAuthHandler;
@@ -52,6 +53,6 @@ public class FlightGrpcUtils {
    * @return FlightClient
    */
   public static FlightClient createFlightClient(BufferAllocator incomingAllocator, ManagedChannel channel) {
-    return new FlightClient(incomingAllocator, channel);
+    return new FlightClient(incomingAllocator, channel, Collections.emptyList());
   }
 }

@@ -184,7 +184,11 @@ public interface FlightProducer {
     /** Whether the call has been cancelled by the client. */
     boolean isCancelled();
 
-    /** Get the middleware instance of the given type for this call. */
+    /**
+     * Get the middleware instance of the given type for this call.
+     *
+     * <p>Returns null if not found.
+     */
     <T extends FlightServerMiddleware> T getMiddleware(FlightServerMiddleware.Key<T> key);
 
     /** Get an immutable map of middleware for this call. */

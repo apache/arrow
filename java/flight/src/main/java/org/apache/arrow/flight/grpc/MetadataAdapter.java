@@ -18,6 +18,7 @@
 package org.apache.arrow.flight.grpc;
 
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.apache.arrow.flight.CallHeaders;
 
@@ -38,34 +39,30 @@ class MetadataAdapter implements CallHeaders {
   }
 
   @Override
-  public byte[] getBinary(String key) {
-    return this.metadata.get(Key.of(key, Metadata.BINARY_BYTE_MARSHALLER));
-  }
-
-  @Override
-  public String getText(String key) {
+  public String get(String key) {
     return this.metadata.get(Key.of(key, Metadata.ASCII_STRING_MARSHALLER));
   }
 
   @Override
-  public void putBinary(String key, byte[] value) {
-    this.metadata.put(Key.of(key, Metadata.BINARY_BYTE_MARSHALLER), value);
+  public Iterable<String> getAll(String key) {
+    return this.metadata.getAll(Key.of(key, Metadata.ASCII_STRING_MARSHALLER));
   }
 
   @Override
-  public void putText(String key, String value) {
+  public void insert(String key, String value) {
     this.metadata.put(Key.of(key, Metadata.ASCII_STRING_MARSHALLER), value);
   }
 
   @Override
   public Set<String> keys() {
-    return this.metadata.keys();
+    // Remove binary keys - we don't expose those
+    return this.metadata.keys().stream().filter(key -> !key.endsWith(Metadata.BINARY_HEADER_SUFFIX))
+        .collect(Collectors.toSet());
   }
 
   @Override
   public boolean containsKey(String key) {
-    final Key<?> grpcKey = key.endsWith("-bin") ? Key.of(key, Metadata.BINARY_BYTE_MARSHALLER)
-        : Key.of(key, Metadata.ASCII_STRING_MARSHALLER);
+    final Key<?> grpcKey = Key.of(key, Metadata.ASCII_STRING_MARSHALLER);
     return this.metadata.containsKey(grpcKey);
   }
 

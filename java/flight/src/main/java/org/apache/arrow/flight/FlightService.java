@@ -259,7 +259,7 @@ class FlightService extends FlightServiceImplBase {
       logger.error("Uncaught exception in Flight method body", t);
       return;
     }
-    middleware.forEach((k, v) -> v.callErrored(t));
+    middleware.forEach((k, v) -> v.onCallErrored(t));
   }
 
   @Override

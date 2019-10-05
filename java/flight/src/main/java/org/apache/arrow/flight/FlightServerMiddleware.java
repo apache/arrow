@@ -17,6 +17,8 @@
 
 package org.apache.arrow.flight;
 
+import java.util.Objects;
+
 /**
  * Server-side middleware for Flight calls.
  *
@@ -45,7 +47,7 @@ public interface FlightServerMiddleware {
      *
      * @throws FlightRuntimeException if the middleware wants to reject the call with the given status
      */
-    T startCall(CallInfo info, CallHeaders incomingHeaders);
+    T onCallStarted(CallInfo info, CallHeaders incomingHeaders);
   }
 
   /**
@@ -59,7 +61,7 @@ public interface FlightServerMiddleware {
     final String key;
 
     Key(String key) {
-      this.key = key;
+      this.key = Objects.requireNonNull(key, "Key must not be null.");
     }
 
     /**
@@ -76,22 +78,22 @@ public interface FlightServerMiddleware {
    * @param outgoingHeaders A mutable set of response headers. These can be manipulated to send different headers to the
    *     client.
    */
-  void sendingHeaders(CallHeaders outgoingHeaders);
+  void onBeforeSendingHeaders(CallHeaders outgoingHeaders);
 
   /**
    * Callback for when the underlying transport has completed a call.
    * @param status Whether the call completed successfully or not.
    */
-  void callCompleted(CallStatus status);
+  void onCallCompleted(CallStatus status);
 
   /**
    * Callback for when an RPC method implementation throws an uncaught exception.
    *
-   * <p>May be called multiple times, and may be called before or after {@link #callCompleted(CallStatus)}.
+   * <p>May be called multiple times, and may be called before or after {@link #onCallCompleted(CallStatus)}.
    * Generally, an uncaught exception will end the call with a error {@link CallStatus}, and will be reported to {@link
-   * #callCompleted(CallStatus)}, but not necessarily this method.
+   * #onCallCompleted(CallStatus)}, but not necessarily this method.
    *
    * @param err The exception that was thrown.
    */
-  void callErrored(Throwable err);
+  void onCallErrored(Throwable err);
 }

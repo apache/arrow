@@ -31,6 +31,10 @@ import io.grpc.Context;
 
 /**
  * An {@link ExecutorService} that propagates the {@link Context}.
+ *
+ * <p>Context is used to propagate per-call state, like the authenticated user, between threads (as gRPC makes no
+ * guarantees about what thread things execute on). This wrapper makes it easy to preserve this when using an Executor.
+ * The Context itself is immutable, so it is thread-safe.
  */
 public class ContextPropagatingExecutorService implements ExecutorService {
 
@@ -39,6 +43,8 @@ public class ContextPropagatingExecutorService implements ExecutorService {
   public ContextPropagatingExecutorService(ExecutorService delegate) {
     this.delegate = delegate;
   }
+
+  // These are just delegate methods.
 
   @Override
   public void shutdown() {
@@ -64,6 +70,8 @@ public class ContextPropagatingExecutorService implements ExecutorService {
   public boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
     return delegate.awaitTermination(timeout, unit);
   }
+
+  // These are delegate methods that wrap the submitted task in the current gRPC Context.
 
   @Override
   public <T> Future<T> submit(Callable<T> task) {

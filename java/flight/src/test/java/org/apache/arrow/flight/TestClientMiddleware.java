@@ -35,18 +35,25 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class TestClientMiddleware {
 
+  /**
+   * Test that a client middleware can fail a call before it starts by throwing a {@link FlightRuntimeException}.
+   */
   @Test
-  public void rejectCall() {
-    test(new Producer(), null, Collections.singletonList(new CallRejector.Factory()),
+  public void clientMiddleware_failCallBeforeSending() {
+    test(new NoOpFlightProducer(), null, Collections.singletonList(new CallRejector.Factory()),
         (allocator, client) -> {
           FlightTestUtil.assertCode(FlightStatusCode.UNAVAILABLE, client::listActions);
         });
   }
 
+  /**
+   * Test an OpenTracing-like scenario where client and server middleware work together to propagate a request ID
+   * without explicit intervention from the service implementation.
+   */
   @Test
-  public void injectSpans() {
+  public void middleware_propagateHeader() {
     final Context context = new Context("span id");
-    test(new Producer(),
+    test(new NoOpFlightProducer(),
         new TestServerMiddleware.ServerMiddlewarePair<>(
             FlightServerMiddleware.Key.of("test"), new ServerSpanInjector.Factory()),
         Collections.singletonList(new ClientSpanInjector.Factory(context)),
@@ -84,9 +91,10 @@ public class TestClientMiddleware {
     }
   }
 
-  private static class Producer extends NoOpFlightProducer {
-  }
-
+  /**
+   * A server middleware component that reads a request ID from incoming headers and sends the request ID back on
+   * outgoing headers.
+   */
   static class ServerSpanInjector implements FlightServerMiddleware {
 
     private final String spanId;
@@ -96,29 +104,33 @@ public class TestClientMiddleware {
     }
 
     @Override
-    public void sendingHeaders(CallHeaders outgoingHeaders) {
-      outgoingHeaders.putText("x-span", spanId);
+    public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {
+      outgoingHeaders.insert("x-span", spanId);
     }
 
     @Override
-    public void callCompleted(CallStatus status) {
+    public void onCallCompleted(CallStatus status) {
 
     }
 
     @Override
-    public void callErrored(Throwable err) {
+    public void onCallErrored(Throwable err) {
 
     }
 
     static class Factory implements FlightServerMiddleware.Factory<ServerSpanInjector> {
 
       @Override
-      public ServerSpanInjector startCall(CallInfo info, CallHeaders incomingHeaders) {
-        return new ServerSpanInjector(incomingHeaders.getText("x-span"));
+      public ServerSpanInjector onCallStarted(CallInfo info, CallHeaders incomingHeaders) {
+        return new ServerSpanInjector(incomingHeaders.get("x-span"));
       }
     }
   }
 
+  /**
+   * A client middleware component that, given a mock OpenTracing-like "request context", sends the request ID in the
+   * context on outgoing headers and reads it from incoming headers.
+   */
   static class ClientSpanInjector implements FlightClientMiddleware {
 
     private final Context context;
@@ -128,17 +140,17 @@ public class TestClientMiddleware {
     }
 
     @Override
-    public void sendingHeaders(CallHeaders outgoingHeaders) {
-      outgoingHeaders.putText("x-span", context.outgoingSpanId);
+    public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {
+      outgoingHeaders.insert("x-span", context.outgoingSpanId);
     }
 
     @Override
-    public void headersReceived(CallHeaders incomingHeaders) {
-      context.incomingSpanId = incomingHeaders.getText("x-span");
+    public void onHeadersReceived(CallHeaders incomingHeaders) {
+      context.incomingSpanId = incomingHeaders.get("x-span");
     }
 
     @Override
-    public void callCompleted(CallStatus status) {
+    public void onCallCompleted(CallStatus status) {
       context.finalStatus = status;
     }
 
@@ -151,41 +163,47 @@ public class TestClientMiddleware {
       }
 
       @Override
-      public FlightClientMiddleware startCall(CallInfo info) {
+      public FlightClientMiddleware onCallStarted(CallInfo info) {
         return new ClientSpanInjector(context);
       }
     }
   }
 
+  /**
+   * A mock OpenTracing-like "request context".
+   */
   static class Context {
 
-    public final String outgoingSpanId;
-    public String incomingSpanId;
-    public CallStatus finalStatus;
+    final String outgoingSpanId;
+    String incomingSpanId;
+    CallStatus finalStatus;
 
     Context(String spanId) {
       this.outgoingSpanId = spanId;
     }
   }
 
+  /**
+   * A client middleware that fails outgoing calls.
+   */
   static class CallRejector implements FlightClientMiddleware {
 
     @Override
-    public void sendingHeaders(CallHeaders outgoingHeaders) {
+    public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {
     }
 
     @Override
-    public void headersReceived(CallHeaders incomingHeaders) {
+    public void onHeadersReceived(CallHeaders incomingHeaders) {
     }
 
     @Override
-    public void callCompleted(CallStatus status) {
+    public void onCallCompleted(CallStatus status) {
     }
 
     static class Factory implements FlightClientMiddleware.Factory {
 
       @Override
-      public FlightClientMiddleware startCall(CallInfo info) {
+      public FlightClientMiddleware onCallStarted(CallInfo info) {
         throw CallStatus.UNAVAILABLE.withDescription("Rejecting call.").toRuntimeException();
       }
     }

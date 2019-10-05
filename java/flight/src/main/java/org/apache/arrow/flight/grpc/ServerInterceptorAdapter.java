@@ -25,6 +25,7 @@ import java.util.Map;
 
 import org.apache.arrow.flight.CallInfo;
 import org.apache.arrow.flight.CallStatus;
+import org.apache.arrow.flight.FlightMethod;
 import org.apache.arrow.flight.FlightProducer.CallContext;
 import org.apache.arrow.flight.FlightRuntimeException;
 import org.apache.arrow.flight.FlightServerMiddleware;
@@ -43,6 +44,9 @@ import io.grpc.Status;
 
 /**
  * An adapter between Flight middleware and a gRPC interceptor.
+ *
+ * <p>This is implemented as a single gRPC interceptor that runs all Flight server middleware sequentially. Flight
+ * middleware instances are stored in the gRPC Context so their state is accessible later.
  */
 public class ServerInterceptorAdapter implements ServerInterceptor {
 
@@ -78,7 +82,7 @@ public class ServerInterceptorAdapter implements ServerInterceptor {
   @Override
   public <ReqT, RespT> Listener<ReqT> interceptCall(ServerCall<ReqT, RespT> call, Metadata headers,
       ServerCallHandler<ReqT, RespT> next) {
-    final CallInfo info = new CallInfo(call.getMethodDescriptor().getFullMethodName());
+    final CallInfo info = new CallInfo(FlightMethod.fromProtocol(call.getMethodDescriptor().getFullMethodName()));
     final List<FlightServerMiddleware> middleware = new ArrayList<>();
     // Use LinkedHashMap to preserve insertion order
     final Map<FlightServerMiddleware.Key<?>, FlightServerMiddleware> middlewareMap = new LinkedHashMap<>();
@@ -86,7 +90,7 @@ public class ServerInterceptorAdapter implements ServerInterceptor {
     for (final KeyFactory<?> factory : factories) {
       final FlightServerMiddleware m;
       try {
-        m = factory.factory.startCall(info, headerAdapter);
+        m = factory.factory.onCallStarted(info, headerAdapter);
       } catch (FlightRuntimeException e) {
         // Cancel call
         call.close(StatusUtils.toGrpcStatus(e.status()), new Metadata());
@@ -102,48 +106,37 @@ public class ServerInterceptorAdapter implements ServerInterceptor {
 
     final SimpleForwardingServerCall<ReqT, RespT> forwardingServerCall = new SimpleForwardingServerCall<ReqT, RespT>(
         call) {
-      // Not useful to provide since we don't want to expose the Protobuf. Instead, perform logging inside the method.
-      // @Override
-      // public void sendMessage(RespT message) {
-      //   super.sendMessage(message);
-      // }
-
       boolean sentHeaders = false;
 
       @Override
       public void sendHeaders(Metadata headers) {
         sentHeaders = true;
-        final MetadataAdapter headerAdapter = new MetadataAdapter(headers);
-        middleware.forEach(m -> m.sendingHeaders(headerAdapter));
-        super.sendHeaders(headers);
+        try {
+          final MetadataAdapter headerAdapter = new MetadataAdapter(headers);
+          middleware.forEach(m -> m.onBeforeSendingHeaders(headerAdapter));
+        } finally {
+          // Make sure to always call the gRPC callback to avoid interrupting the gRPC request cycle
+          super.sendHeaders(headers);
+        }
       }
 
       @Override
       public void close(Status status, Metadata trailers) {
-        if (!sentHeaders) {
-          // gRPC doesn't always send response headers if the call errors or completes immediately
-          final MetadataAdapter headerAdapter = new MetadataAdapter(trailers);
-          middleware.forEach(m -> m.sendingHeaders(headerAdapter));
+        try {
+          if (!sentHeaders) {
+            // gRPC doesn't always send response headers if the call errors or completes immediately
+            final MetadataAdapter headerAdapter = new MetadataAdapter(trailers);
+            middleware.forEach(m -> m.onBeforeSendingHeaders(headerAdapter));
+          }
+        } finally {
+          // Make sure to always call the gRPC callback to avoid interrupting the gRPC request cycle
+          super.close(status, trailers);
         }
 
-        super.close(status, trailers);
         final CallStatus flightStatus = StatusUtils.fromGrpcStatus(status);
-        middleware.forEach(m -> m.callCompleted(flightStatus));
+        middleware.forEach(m -> m.onCallCompleted(flightStatus));
       }
     };
     return Contexts.interceptCall(contextWithMiddleware, forwardingServerCall, headers, next);
-
-    // Not useful to provide since we don't want to expose the Protobuf
-    // return new SimpleForwardingServerCallListener<ReqT>(listener) {
-    //   @Override
-    //   public void onMessage(ReqT message) {
-    //     super.onMessage(message);
-    //   }
-
-    //   @Override
-    //   public void onCancel() {
-    //     super.onCancel();
-    //   }
-    // };
   }
 }

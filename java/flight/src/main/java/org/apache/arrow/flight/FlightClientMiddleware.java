@@ -26,17 +26,17 @@ public interface FlightClientMiddleware {
   /**
    * A callback used before request headers are sent. The headers may be manipulated.
    */
-  void sendingHeaders(CallHeaders outgoingHeaders);
+  void onBeforeSendingHeaders(CallHeaders outgoingHeaders);
 
   /**
    * A callback called after response headers are received. The headers may be manipulated.
    */
-  void headersReceived(CallHeaders incomingHeaders);
+  void onHeadersReceived(CallHeaders incomingHeaders);
 
   /**
    * A callback called after the call completes.
    */
-  void callCompleted(CallStatus status);
+  void onCallCompleted(CallStatus status);
 
   /**
    * A factory for client middleware instances.
@@ -47,6 +47,6 @@ public interface FlightClientMiddleware {
      *
      * @throws FlightRuntimeException if the middleware wants to reject the call with the given status
      */
-    FlightClientMiddleware startCall(CallInfo info);
+    FlightClientMiddleware onCallStarted(CallInfo info);
   }
 }

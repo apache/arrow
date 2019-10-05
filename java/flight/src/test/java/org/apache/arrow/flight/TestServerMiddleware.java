@@ -199,16 +199,16 @@ public class TestServerMiddleware {
     CompletableFuture<Throwable> errFuture = new CompletableFuture<>();
 
     @Override
-    public void sendingHeaders(CallHeaders outgoingHeaders) {
+    public void onBeforeSendingHeaders(CallHeaders outgoingHeaders) {
     }
 
     @Override
-    public void callCompleted(CallStatus status) {
+    public void onCallCompleted(CallStatus status) {
       statusFuture.complete(status);
     }
 
     @Override
-    public void callErrored(Throwable err) {
+    public void onCallErrored(Throwable err) {
       errFuture.complete(err);
     }
 
@@ -217,7 +217,7 @@ public class TestServerMiddleware {
       ErrorRecorder instance = new ErrorRecorder();
 
       @Override
-      public ErrorRecorder startCall(CallInfo info, CallHeaders incomingHeaders) {
+      public ErrorRecorder onCallStarted(CallInfo info, CallHeaders incomingHeaders) {
         return instance;
       }
     }

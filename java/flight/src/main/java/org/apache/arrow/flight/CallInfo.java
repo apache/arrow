@@ -20,14 +20,14 @@ package org.apache.arrow.flight;
 /**
  * A description of a Flight call for middleware to inspect.
  */
-public class CallInfo {
-  final String method;
+public final class CallInfo {
+  private final FlightMethod method;
 
-  public CallInfo(String method) {
+  public CallInfo(FlightMethod method) {
     this.method = method;
   }
 
-  public String method() {
+  public FlightMethod method() {
     return method;
   }
 }

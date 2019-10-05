@@ -21,19 +21,27 @@ import java.util.Set;
 
 /**
  * A set of headers for a call (request or response).
+ *
+ * <p>Only text (ASCII) headers are supported.
  */
 public interface CallHeaders {
-  /** Get the value of a header with a binary encoding. */
-  byte[] getBinary(String key);
 
-  /** Get the value of a header with a text encoding. */
-  String getText(String key);
+  /**
+   * Get the value of a header. If multiple values are present, then get the last one.
+   */
+  String get(String key);
 
-  /** Set the value of a header with a binary encoding. */
-  void putBinary(String key, byte[] value);
+  /**
+   * Get all values present for the given header.
+   */
+  Iterable<String> getAll(String key);
 
-  /** Set the value of a header with a text encoding. */
-  void putText(String key, String value);
+  /**
+   * Insert a header with the given value.
+   *
+   * <p>Duplicate headers are permitted.
+   */
+  void insert(String key, String value);
 
   /** Get a set of all the headers. */
   Set<String> keys();
