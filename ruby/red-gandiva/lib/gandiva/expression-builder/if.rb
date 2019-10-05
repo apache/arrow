@@ -18,22 +18,57 @@
 module Gandiva
   class ExpressionBuilder
     class If
-      def initialize(condition_builder, then_builder, else_builder)
-        @condition = condition_builder
-        @then = then_builder
-        @else = else_builder
+      def initialize(condition)
+        @condition = condition
+        @then = nil
+        @else = nil
+      end
+
+      def then(clause)
+        @then = clause
+        self
+      end
+
+      def else(clause)
+        @else = clause
+        self
+      end
+
+      def elsif(condition)
+        Elsif.new(self, condition)
       end
 
       def build
-        result = Arrow::Field.new("result", node.return_type)
-        Gandiva::Expression.new(node, result)
+        build_if_node(condition_node,
+                      then_node,
+                      else_node)
       end
 
-      def node
-        @node ||= Gandiva::IfNode.new(@condition.node,
-                                      @then.node,
-                                      @else.node,
-                                      @then.node.return_type)
+      protected
+      def condition_node
+        @condition.build
+      end
+
+      def then_node
+        @then&.build
+      end
+
+      def else_node
+        @else&.build
+      end
+
+      private
+      def build_if_node(condition_node, then_node, else_node)
+        if then_node and else_node
+          # TODO: Validate then_node.return_type == else_node.return_type
+          return_type = then_node.return_type
+        else
+          return_type = (then_node || else_node).return_type
+        end
+        IfNode.new(condition_node,
+                   then_node,
+                   else_node,
+                   return_type)
       end
     end
   end

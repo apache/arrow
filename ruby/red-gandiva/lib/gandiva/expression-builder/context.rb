@@ -19,7 +19,7 @@ module Gandiva
   class ExpressionBuilder
     class Context
       def if(condition)
-        IfNodeQuery.new(condition)
+        If.new(condition)
       end
     end
   end

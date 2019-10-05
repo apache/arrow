@@ -23,6 +23,12 @@ module Gandiva
       def initialize(left, right)
         super("multiply", left, right)
       end
+
+      private
+      def return_type(left_node, right_node)
+        # TODO: Use larger type
+        right_node.return_type
+      end
     end
   end
 end

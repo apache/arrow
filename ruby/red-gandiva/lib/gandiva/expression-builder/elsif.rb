@@ -15,42 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
+require "gandiva/expression-builder/if"
+
 module Gandiva
   class ExpressionBuilder
-    class IfNodeQuery
-      def initialize(condition)
-        @condition_builders = [condition]
-        @then_builders = []
+    class Elsif < If
+      def initialize(parent, condition)
+        @parent = parent
+        super(condition)
       end
 
-      def then(builder)
-        @then_builders << builder
-        self
-      end
-
-      def elsif(builder)
-        @condition_builders << builder
-        self
-      end
-
-      def else(builder)
-        to_expression_builder(builder)
-      end
-
-      private
-
-      def to_expression_builder(builder)
-        node_size = @condition_builders.size - 1
-        (0..node_size).reverse_each do |i|
-          builder = build_if_expression_builder(builder, i)
-        end
-        builder
-      end
-
-      def build_if_expression_builder(builder, i)
-        If.new(@condition_builders[i],
-               @then_builders[i],
-               builder)
+      def build
+        elsif_node = super
+        build_if_node(@parent.condition_node,
+                      @parent.then_node,
+                      elsif_node)
       end
     end
   end

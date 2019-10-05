@@ -23,7 +23,9 @@ module Gandiva
 
     def build
       builder = yield(Record.new(@schema), Context.new)
-      builder.build
+      node = builder.build
+      Expression.new(node,
+                     Arrow::Field.new("result", node.return_type))
     end
   end
 end
@@ -31,11 +33,11 @@ end
 require "gandiva/expression-builder/add"
 require "gandiva/expression-builder/context"
 require "gandiva/expression-builder/divide"
+require "gandiva/expression-builder/elsif"
 require "gandiva/expression-builder/equal"
 require "gandiva/expression-builder/field"
 require "gandiva/expression-builder/greater-than"
 require "gandiva/expression-builder/if"
-require "gandiva/expression-builder/if-node-query"
 require "gandiva/expression-builder/less-than"
 require "gandiva/expression-builder/multiply"
 require "gandiva/expression-builder/record"

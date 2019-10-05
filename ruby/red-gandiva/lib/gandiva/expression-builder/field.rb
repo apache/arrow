@@ -20,10 +20,12 @@ require "gandiva/expression-builder/value"
 module Gandiva
   class ExpressionBuilder
     class Field < Value
-      attr_accessor :node
-
       def initialize(field)
-        @node = Gandiva::FieldNode.new(field)
+        @field = field
+      end
+
+      def build
+        FieldNode.new(@field)
       end
     end
   end

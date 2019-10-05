@@ -27,23 +27,11 @@ module Gandiva
       end
 
       def build
-        result = Arrow::Field.new("result", node.return_type)
-        Gandiva::Expression.new(node, result)
-      end
-
-      def node
-        @node ||= Gandiva::FunctionNode.new(@operator,
-                                            [@left.node, @right.node],
-                                            return_type)
-      end
-
-      private
-      def return_type
-        if ["greater_than", "less_than", "equal"].include?(@operator)
-          Arrow::BooleanDataType.new
-        else
-          @right.node.return_type
-        end
+        left_node = @left.build
+        right_node = @right.build
+        FunctionNode.new(@operator,
+                         [left_node, right_node],
+                         return_type(left_node, right_node))
       end
     end
   end

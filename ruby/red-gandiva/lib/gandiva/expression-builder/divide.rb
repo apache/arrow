@@ -23,6 +23,12 @@ module Gandiva
       def initialize(left, right)
         super("divide", left, right)
       end
+
+      private
+      def return_type(left_node, right_node)
+        # TODO: Use float if left or right is float
+        left_node.return_type
+      end
     end
   end
 end

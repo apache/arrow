@@ -23,6 +23,11 @@ module Gandiva
       def initialize(left, right)
         super("equal", left, right)
       end
+
+      private
+      def return_type(left_node, right_node)
+        Arrow::BooleanDataType.new
+      end
     end
   end
 end
