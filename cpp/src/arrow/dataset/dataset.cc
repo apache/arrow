@@ -74,11 +74,8 @@ bool DataSource::AssumePartitionExpression(
     return true;
   }
 
-  auto c = filter->Assume(*partition_expression_);
-  DCHECK_OK(c.status());
-  auto expr = std::move(c).ValueOrDie();
-
-  if (expr->IsNull() || expr->IsTrivialFalseCondition()) {
+  auto expr = filter->Assume(*partition_expression_);
+  if (expr->IsNull() || expr->Equals(false)) {
     // selector is not satisfiable; yield no fragments
     return false;
   }

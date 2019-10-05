@@ -264,6 +264,7 @@ struct CompareVisitor {
 
 // Compare two scalars
 // if either is null, return is null
+// TODO(bkietz) extract this to scalar.h
 Result<Comparison::type> Compare(const Scalar& lhs, const Scalar& rhs) {
   if (!lhs.type->Equals(*rhs.type)) {
     return Status::TypeError("Cannot compare scalars of differing type: ", *lhs.type,
@@ -308,9 +309,9 @@ compute::CompareOperator InvertCompareOperator(compute::CompareOperator op) {
 }
 
 template <typename Boolean>
-Result<std::shared_ptr<Expression>> InvertBoolean(const Boolean& expr) {
-  ARROW_ASSIGN_OR_RAISE(auto lhs, Invert(*expr.left_operand()));
-  ARROW_ASSIGN_OR_RAISE(auto rhs, Invert(*expr.right_operand()));
+std::shared_ptr<Expression> InvertBoolean(const Boolean& expr) {
+  auto lhs = Invert(*expr.left_operand());
+  auto rhs = Invert(*expr.right_operand());
 
   if (std::is_same<Boolean, AndExpression>::value) {
     return std::make_shared<OrExpression>(std::move(lhs), std::move(rhs));
@@ -320,10 +321,10 @@ Result<std::shared_ptr<Expression>> InvertBoolean(const Boolean& expr) {
     return std::make_shared<AndExpression>(std::move(lhs), std::move(rhs));
   }
 
-  return Status::Invalid("unknown boolean expression ", expr.ToString());
+  return nullptr;
 }
 
-Result<std::shared_ptr<Expression>> Invert(const Expression& expr) {
+std::shared_ptr<Expression> Invert(const Expression& expr) {
   switch (expr.type()) {
     case ExpressionType::NOT:
       return checked_cast<const NotExpression&>(expr).operand();
@@ -344,11 +345,10 @@ Result<std::shared_ptr<Expression>> Invert(const Expression& expr) {
     default:
       break;
   }
-  return Status::NotImplemented("can't invert this expression");
+  return nullptr;
 }
 
-Result<std::shared_ptr<Expression>> ComparisonExpression::Assume(
-    const Expression& given) const {
+std::shared_ptr<Expression> ComparisonExpression::Assume(const Expression& given) const {
   switch (given.type()) {
     case ExpressionType::COMPARISON: {
       return AssumeGivenComparison(checked_cast<const ComparisonExpression&>(given));
@@ -356,11 +356,11 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::Assume(
 
     case ExpressionType::NOT: {
       const auto& to_invert = checked_cast<const NotExpression&>(given).operand();
-      auto inverted = Invert(*to_invert);
-      if (!inverted.ok()) {
-        return Copy();
+      // FIXME(bkietz) I think this is wrong
+      if (auto inverted = Invert(*to_invert)) {
+        return Assume(*inverted);
       }
-      return Assume(*inverted.ValueOrDie());
+      return Copy();
     }
 
     case ExpressionType::OR: {
@@ -369,7 +369,7 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::Assume(
       bool simplify_to_always = true;
       bool simplify_to_never = true;
       for (const auto& operand : {given_or.left_operand(), given_or.right_operand()}) {
-        ARROW_ASSIGN_OR_RAISE(auto simplified, Assume(*operand));
+        auto simplified = Assume(*operand);
 
         if (simplified->IsNull()) {
           // some subexpression of given is always null, return null
@@ -413,12 +413,12 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::Assume(
         }
 
         if (simplified->IsTrivialCondition()) {
-          return std::move(simplified);
+          return simplified;
         }
 
-        ARROW_ASSIGN_OR_RAISE(simplified, simplified->Assume(*operand));
+        simplified = simplified->Assume(*operand);
       }
-      return std::move(simplified);
+      return simplified;
     }
 
     default:
@@ -430,21 +430,11 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::Assume(
 
 // Try to simplify one comparison against another comparison.
 // For example,
-// (x > 3) is a subset of (x > 2), so (x > 2).Assume(x > 3) == (true)
-// (x < 0) is disjoint with (x > 2), so (x > 2).Assume(x < 0) == (false)
+// ("x"_ > 3) is a subset of ("x"_ > 2), so ("x"_ > 2).Assume("x"_ > 3) == (true)
+// ("x"_ < 0) is disjoint with ("x"_ > 2), so ("x"_ > 2).Assume("x"_ < 0) == (false)
 // If simplification to (true) or (false) is not possible, pass e through unchanged.
-Result<std::shared_ptr<Expression>> ComparisonExpression::AssumeGivenComparison(
+std::shared_ptr<Expression> ComparisonExpression::AssumeGivenComparison(
     const ComparisonExpression& given) const {
-  for (auto comparison : {this, &given}) {
-    if (comparison->left_operand_->type() != ExpressionType::FIELD) {
-      return Status::Invalid("left hand side of comparison must be a field reference");
-    }
-
-    if (comparison->right_operand_->type() != ExpressionType::SCALAR) {
-      return Status::Invalid("right hand side of comparison must be a scalar");
-    }
-  }
-
   const auto& this_lhs = checked_cast<const FieldExpression&>(*left_operand_);
   const auto& given_lhs = checked_cast<const FieldExpression&>(*given.left_operand_);
   if (this_lhs.name() != given_lhs.name()) {
@@ -454,7 +444,8 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::AssumeGivenComparison(
   const auto& this_rhs = checked_cast<const ScalarExpression&>(*right_operand_).value();
   const auto& given_rhs =
       checked_cast<const ScalarExpression&>(*given.right_operand_).value();
-  ARROW_ASSIGN_OR_RAISE(auto cmp, Compare(*this_rhs, *given_rhs));
+
+  auto cmp = Compare(*this_rhs, *given_rhs).ValueOrDie();
 
   if (cmp == Comparison::NULL_) {
     // the RHS of e or given was null
@@ -602,9 +593,9 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::AssumeGivenComparison(
   return Copy();
 }
 
-Result<std::shared_ptr<Expression>> AndExpression::Assume(const Expression& given) const {
-  ARROW_ASSIGN_OR_RAISE(auto left_operand, left_operand_->Assume(given));
-  ARROW_ASSIGN_OR_RAISE(auto right_operand, right_operand_->Assume(given));
+std::shared_ptr<Expression> AndExpression::Assume(const Expression& given) const {
+  auto left_operand = left_operand_->Assume(given);
+  auto right_operand = right_operand_->Assume(given);
 
   // if either operand is trivially null then so is this AND
   if (left_operand->IsNull() || right_operand->IsNull()) {
@@ -633,9 +624,9 @@ Result<std::shared_ptr<Expression>> AndExpression::Assume(const Expression& give
   return right_is_trivial ? std::move(left_operand) : std::move(right_operand);
 }
 
-Result<std::shared_ptr<Expression>> OrExpression::Assume(const Expression& given) const {
-  ARROW_ASSIGN_OR_RAISE(auto left_operand, left_operand_->Assume(given));
-  ARROW_ASSIGN_OR_RAISE(auto right_operand, right_operand_->Assume(given));
+std::shared_ptr<Expression> OrExpression::Assume(const Expression& given) const {
+  auto left_operand = left_operand_->Assume(given);
+  auto right_operand = right_operand_->Assume(given);
 
   // if either operand is trivially null then so is this OR
   if (left_operand->IsNull() || right_operand->IsNull()) {
@@ -664,13 +655,14 @@ Result<std::shared_ptr<Expression>> OrExpression::Assume(const Expression& given
   return right_is_trivial ? std::move(left_operand) : std::move(right_operand);
 }
 
-Result<std::shared_ptr<Expression>> NotExpression::Assume(const Expression& given) const {
-  ARROW_ASSIGN_OR_RAISE(auto operand, operand_->Assume(given));
+std::shared_ptr<Expression> NotExpression::Assume(const Expression& given) const {
+  auto operand = operand_->Assume(given);
 
   if (operand->IsNull()) {
     return NullExpression();
   }
 
+  // TODO(bkietz) I think I can just invert the simplified operand
   bool trivial;
   if (operand->IsTrivialCondition(&trivial)) {
     return scalar(!trivial);
@@ -841,16 +833,6 @@ bool Expression::IsTrivialCondition(bool* out) const {
     *out = checked_cast<const BooleanScalar&>(*scalar).value;
   }
   return true;
-}
-
-bool Expression::IsTrivialTrueCondition() const {
-  bool value = false;
-  return IsTrivialCondition(&value) && value;
-}
-
-bool Expression::IsTrivialFalseCondition() const {
-  bool value = false;
-  return IsTrivialCondition(&value) && !value;
 }
 
 std::shared_ptr<Expression> FieldExpression::Copy() const {

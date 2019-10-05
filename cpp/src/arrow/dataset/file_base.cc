@@ -118,15 +118,8 @@ bool FileSystemBasedDataSource::PartitionMatches(const fs::FileStats& stats,
     return true;
   }
 
-  auto c = found->second->Assume(*filter);
-  if (!c.ok()) {
-    // Could not simplify expression move on!
-    return true;
-  }
-
-  // TODO: pass simplified expressions to children
-  auto expr = std::move(c).ValueOrDie();
-  if (expr->IsNull() || expr->IsTrivialFalseCondition()) {
+  auto expr = found->second->Assume(*filter);
+  if (expr->IsNull() || expr->Equals(false)) {
     // selector is not satisfiable; don't recurse in this branch.
     return false;
   }

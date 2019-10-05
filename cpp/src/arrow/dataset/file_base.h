@@ -62,11 +62,13 @@ class ARROW_DS_EXPORT FileSource {
   bool operator==(const FileSource& other) const {
     if (type_ != other.type_) {
       return false;
-    } else if (type_ == FileSource::PATH) {
-      return path_ == other.path_ && filesystem_ == other.filesystem_;
-    } else {
-      return buffer_->Equals(*other.buffer_);
     }
+
+    if (type_ == FileSource::PATH) {
+      return path_ == other.path_ && filesystem_ == other.filesystem_;
+    }
+
+    return buffer_->Equals(*other.buffer_);
   }
 
   /// \brief The kind of file, whether stored in a filesystem, memory

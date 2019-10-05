@@ -46,12 +46,11 @@ class ExpressionsTest : public ::testing::Test {
   void AssertSimplifiesTo(const Expression& expr, const Expression& given,
                           const Expression& expected) {
     auto simplified = expr.Assume(given);
-    ASSERT_OK(simplified.status());
-    if (!simplified.ValueOrDie()->Equals(expected)) {
+    if (!simplified->Equals(expected)) {
       FAIL() << "  simplification of: " << expr.ToString() << std::endl
              << "              given: " << given.ToString() << std::endl
              << "           expected: " << expected.ToString() << std::endl
-             << "                was: " << simplified.ValueOrDie()->ToString();
+             << "                was: " << simplified->ToString();
     }
   }
 
@@ -171,6 +170,8 @@ class FilterTest : public ::testing::Test {
 };
 
 TEST_F(FilterTest, Trivial) {
+  // Note that we should expect these trivial expressions will never be evaluated against
+  // record batches; since they're trivial, evaluation is not necessary.
   AssertFilter(*scalar(true), {field("a", int32()), field("b", float64())}, R"([
       {"a": 0, "b": -0.1, "in": 1},
       {"a": 0, "b":  0.3, "in": 1},

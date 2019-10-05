@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/util/checked_cast.h"
 #pragma once
 
 #include <memory>
@@ -81,18 +82,99 @@ class ARROW_DS_EXPORT Expression {
 
   bool Equals(const std::shared_ptr<Expression>& other) const;
 
+  /// Overload for the common case of checking for equality to a specific scalar.
+  template <typename T, typename Enable = decltype(MakeScalar(std::declval<T>()))>
+  bool Equals(T&& t) const;
+
+  /// If true, this Expression is a ScalarExpression wrapping a null scalar.
+  bool IsNull() const;
+
+  // TODO(bkietz) remove in favor of Equals()
+  bool IsTrivialCondition(bool* out = NULLPTR) const;
+
   /// Validate this expression for execution against a schema. This will check that all
   /// reference fields are present (fields not in the schema will be replaced with null)
   /// and all subexpressions are executable. Returns the type to which this expression
   /// will evaluate.
   virtual Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const = 0;
 
-  /// Return a simplified form of this expression given some known conditions.
-  /// For example, (a > 3).Assume(a == 5) == (true). This can be used to do less work
-  /// in ExpressionFilter when partition conditions guarantee some of this expression.
-  /// In the example above, *no* filtering need be done on record batches in the
-  /// partition since (a == 5).
-  virtual Result<std::shared_ptr<Expression>> Assume(const Expression& given) const {
+  Status Validate(const Schema& schema, std::shared_ptr<DataType>* out) const {
+    return Validate(schema).Value(out);
+  }
+
+  /// \brief Simplify to an equivalent Expression given assumed constraints on input.
+  /// This can be used to do less filtering work when partition conditions guarantee
+  /// some of a filter.
+  ///
+  /// Both expressions must pass validation against a schema before Assume may be used.
+  ///
+  /// Two expressions can be considered equivalent for a given subset of possible inputs
+  /// if they yield identical results. Formally, if given.Evaluate(input).Equals(input)
+  /// then Assume guarantees that:
+  ///     expr.Assume(given).Evaluate(input).Equals(expr.Evaluate(input))
+  ///
+  /// For example if we are given that all inputs will
+  /// satisfy ("a"_ == 1) then the expression ("a"_ > 0 and "b"_ > 0) is equivalent to
+  /// ("b"_ > 0). It is impossible that the comparison ("a"_ > 0) will evaluate false
+  /// given ("a"_ == 1), so both expressions will yield identical results. Thus we can
+  /// write:
+  ///     ("a"_ > 0 and "b"_ > 0).Assume("a"_ == 1).Equals("b"_ > 0)
+  ///
+  /// filter.Assume(partition) is trivial if filter and partition are disjoint or if
+  /// partition is a subset of filter. FIXME(bkietz) write this better
+  /// - If the two are disjoint, then (false) may be substituted for filter.
+  /// - If partition is a subset of filter then (true) may be substituted for filter.
+  ///
+  /// filter.Assume(partition) is straightforward if both filter and partition are simple
+  /// comparisons.
+  /// - filter may be a superset of partition, in which case the filter is
+  ///   satisfied by all inputs:
+  ///     ("a"_ > 0).Assume("a"_ == 1).Equals(true)
+  /// - filter may be disjoint with partition, in which case there are no inputs which
+  ///   satisfy filter:
+  ///     ("a"_ < 0).Assume("a"_ == 1).Equals(false)
+  /// - If neither of these is the case, partition provides no information which can
+  ///   simplify filter:
+  ///     ("a"_ == 1).Assume("a"_ > 0).Equals("a"_ == 1)
+  ///     ("a"_ == 1).Assume("b"_ == 1).Equals("a"_ == 1)
+  ///
+  /// If filter is compound, Assume can be distributed across the boolean operator. To
+  /// prove this is valid, we again demonstrate that the simplified expression will yield
+  /// identical results. For conjunction of filters lhs and rhs:
+  ///     (lhs.Assume(p) and rhs.Assume(p)).Evaluate(input)
+  ///     == Intersection(lhs.Assume(p).Evaluate(input), rhs.Assume(p).Evaluate(input))
+  ///     == Intersection(lhs.Evaluate(input), rhs.Evaluate(input))
+  ///     == (lhs and rhs).Evaluate(input)
+  /// - The proof for disjunction is symmetric; just replace Intersection with Union. Thus
+  ///   we can write:
+  ///     (lhs and rhs).Assume(p).Equals(lhs.Assume(p) and rhs.Assume(p))
+  ///     (lhs or rhs).Assume(p).Equals(lhs.Assume(p) or rhs.Assume(p))
+  /// - For negation:
+  ///     (not e.Assume(p)).Evaluate(input)
+  ///     == Difference(input, e.Assume(p).Evaluate(input))
+  ///     == Difference(input, e.Evaluate(input))
+  ///     == (not e).Evaluate(input)
+  /// - Thus we can write:
+  ///     (not e).Assume(p).Equals(not e.Assume(p))
+  ///
+  /// If the partition expression is a conjunction then each of its subexpressions is
+  /// true for all input and can be used independently:
+  ///     filter.Assume(lhs).Assume(rhs).Evaluate(input)
+  ///     == filter.Assume(lhs).Evaluate(input)
+  ///     == filter.Evaluate(input)
+  /// - Thus we can write:
+  ///     filter.Assume(lhs and rhs).Equals(filter.Assume(lhs).Assume(rhs))
+  ///
+  /// FIXME(bkietz) disjunction proof
+  ///     filter.Assume(lhs or rhs).Equals(filter.Assume(lhs) and filter.Assume(rhs))
+  /// - This may not result in a simpler expression so it is only used when
+  ///     filter.Assume(lhs).Equals(filter.Assume(rhs))
+  ///
+  /// If the partition expression is a negation then we can use the above relations by
+  /// replacing comparisons with their complements and using the properties:
+  ///     (not (a and b)).Equals(not a or not b)
+  ///     (not (a or b)).Equals(not a and not b)
+  virtual std::shared_ptr<Expression> Assume(const Expression& given) const {
     return Copy();
   }
 
@@ -104,20 +186,15 @@ class ARROW_DS_EXPORT Expression {
   virtual Result<compute::Datum> Evaluate(compute::FunctionContext* ctx,
                                           const RecordBatch& batch) const = 0;
 
+  Status Evaluate(compute::FunctionContext* ctx, const RecordBatch& batch,
+                  compute::Datum* out) const {
+    return Evaluate(ctx, batch).Value(out);
+  }
+
   /// returns a debug string representing this expression
   virtual std::string ToString() const = 0;
 
   ExpressionType::type type() const { return type_; }
-
-  /// If true, this Expression is a ScalarExpression wrapping a null scalar.
-  bool IsNull() const;
-
-  /// If true, this Expression is a ScalarExpression wrapping a
-  /// BooleanScalar. Its value may be retrieved at the same time.
-  bool IsTrivialCondition(bool* value = NULLPTR) const;
-
-  bool IsTrivialTrueCondition() const;
-  bool IsTrivialFalseCondition() const;
 
   /// Copy this expression into a shared pointer.
   virtual std::shared_ptr<Expression> Copy() const = 0;
@@ -187,7 +264,7 @@ class ARROW_DS_EXPORT ComparisonExpression final
 
   bool Equals(const Expression& other) const override;
 
-  Result<std::shared_ptr<Expression>> Assume(const Expression& given) const override;
+  std::shared_ptr<Expression> Assume(const Expression& given) const override;
 
   compute::CompareOperator op() const { return op_; }
 
@@ -197,7 +274,7 @@ class ARROW_DS_EXPORT ComparisonExpression final
   Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
 
  private:
-  Result<std::shared_ptr<Expression>> AssumeGivenComparison(
+  std::shared_ptr<Expression> AssumeGivenComparison(
       const ComparisonExpression& given) const;
 
   compute::CompareOperator op_;
@@ -210,7 +287,7 @@ class ARROW_DS_EXPORT AndExpression final
 
   std::string ToString() const override;
 
-  Result<std::shared_ptr<Expression>> Assume(const Expression& given) const override;
+  std::shared_ptr<Expression> Assume(const Expression& given) const override;
 
   Result<compute::Datum> Evaluate(compute::FunctionContext* ctx,
                                   const RecordBatch& batch) const override;
@@ -225,7 +302,7 @@ class ARROW_DS_EXPORT OrExpression final
 
   std::string ToString() const override;
 
-  Result<std::shared_ptr<Expression>> Assume(const Expression& given) const override;
+  std::shared_ptr<Expression> Assume(const Expression& given) const override;
 
   Result<compute::Datum> Evaluate(compute::FunctionContext* ctx,
                                   const RecordBatch& batch) const override;
@@ -240,7 +317,7 @@ class ARROW_DS_EXPORT NotExpression final
 
   std::string ToString() const override;
 
-  Result<std::shared_ptr<Expression>> Assume(const Expression& given) const override;
+  std::shared_ptr<Expression> Assume(const Expression& given) const override;
 
   Result<compute::Datum> Evaluate(compute::FunctionContext* ctx,
                                   const RecordBatch& batch) const override;
@@ -355,12 +432,14 @@ inline FieldExpression operator"" _(const char* name, size_t name_length) {
 }
 }  // namespace string_literals
 
-ARROW_DS_EXPORT Result<std::shared_ptr<Expression>> SelectorAssume(
-    const std::shared_ptr<DataSelector>& selector,
-    const std::shared_ptr<Expression>& given);
-
-ARROW_DS_EXPORT std::shared_ptr<DataSelector> ExpressionSelector(
-    std::shared_ptr<Expression> e);
+template <typename T, typename Enable>
+bool Expression::Equals(T&& t) const {
+  if (type_ != ExpressionType::SCALAR) {
+    return false;
+  }
+  auto s = MakeScalar(std::forward<T>(t));
+  return internal::checked_cast<const ScalarExpression&>(*this).value()->Equals(s);
+}
 
 }  // namespace dataset
 }  // namespace arrow
