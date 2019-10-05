@@ -179,6 +179,22 @@ pub fn format_batch(batch: &RecordBatch) -> Vec<String> {
                         .unwrap()
                         .value(row_index)
                 )),
+                DataType::Float32 => s.push_str(&format!(
+                    "{:?}",
+                    array
+                        .as_any()
+                        .downcast_ref::<array::Float32Array>()
+                        .unwrap()
+                        .value(row_index)
+                )),
+                DataType::Float64 => s.push_str(&format!(
+                    "{:?}",
+                    array
+                        .as_any()
+                        .downcast_ref::<array::Float64Array>()
+                        .unwrap()
+                        .value(row_index)
+                )),
                 _ => s.push('?'),
             }
         }
