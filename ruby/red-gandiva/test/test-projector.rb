@@ -22,19 +22,17 @@ class TestProjector < Test::Unit::TestCase
                              :field3 => Arrow::Int32Array.new([1, 10, 2, 2]))
     schema = table.schema
 
-    expression1 =
-      schema.build_expression do |record|
-        record.field1 + record.field2
-      end
+    expression1 = schema.build_expression do |record|
+      record.field1 + record.field2
+    end
 
-    expression2 =
-      schema.build_expression do |record, context|
-        context.if(record.field1 > record.field2)
-          .then(record.field1 + record.field2 * record.field3)
-          .elsif(record.field1 == record.field2)
-          .then(record.field1 - record.field2 / record.field3)
-          .else(record.field2)
-      end
+    expression2 = schema.build_expression do |record, context|
+      context.if(record.field1 > record.field2)
+        .then(record.field1 + record.field2 * record.field3)
+        .elsif(record.field1 == record.field2)
+        .then(record.field1 - record.field2 / record.field3)
+        .else(record.field2)
+    end
 
     projector = Gandiva::Projector.new(schema,
                                        [expression1, expression2])

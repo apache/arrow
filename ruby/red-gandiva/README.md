@@ -50,17 +50,15 @@ table = Arrow::Table.new(:field1 => Arrow::Int32Array.new([1, 2, 3, 4]),
                          :field2 => Arrow::Int32Array.new([11, 13, 15, 17]))
 schema = table.schema
 
-expression1 =
-  schema.build_expression do |record|
-    record.field1 + record.field2
-  end
+expression1 = schema.build_expression do |record|
+  record.field1 + record.field2
+end
 
-expression2 =
-  schema.build_expression do |record, context|
-    context.if(record.field1 > record.field2)
-      .then(record.field1 / record.field2)
-      .else(record.field1)
-  end
+expression2 = schema.build_expression do |record, context|
+  context.if(record.field1 > record.field2)
+    .then(record.field1 / record.field2)
+    .else(record.field1)
+end
 
 projector = Gandiva::Projector.new(schema, [expression1, expression2])
 table.each_record_batch do |record_batch|
