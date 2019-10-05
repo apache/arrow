@@ -21,9 +21,15 @@ module Gandiva
       @schema = schema
     end
 
-    def method_missing(field)
-      field = @schema[field]
-      return Gandiva::FieldBuilder.new(field) if field
+    def respond_to_missing?(name, include_private)
+      return true if @schema[name]
+      super
+    end
+
+    def method_missing(name, *args)
+      field = @schema[name]
+      return FieldBuilder.new(field) if field
+      super
     end
   end
 end
