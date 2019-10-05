@@ -103,24 +103,6 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
 
-  protected static final String BIGINT = "BIGINT_FIELD5";
-  protected static final String BINARY = "BINARY_FIELD12";
-  protected static final String BIT = "BIT_FIELD17";
-  protected static final String BLOB = "BLOB_FIELD14";
-  protected static final String BOOL = "BOOL_FIELD2";
-  protected static final String CHAR = "CHAR_FIELD16";
-  protected static final String CLOB = "CLOB_FIELD15";
-  protected static final String DATE = "DATE_FIELD10";
-  protected static final String DECIMAL = "DECIMAL_FIELD6";
-  protected static final String DOUBLE = "DOUBLE_FIELD7";
-  protected static final String INT = "INT_FIELD1";
-  protected static final String REAL = "REAL_FIELD8";
-  protected static final String SMALLINT = "SMALLINT_FIELD4";
-  protected static final String TIME = "TIME_FIELD9";
-  protected static final String TIMESTAMP = "TIMESTAMP_FIELD11";
-  protected static final String TINYINT = "TINYINT_FIELD3";
-  protected static final String VARCHAR = "VARCHAR_FIELD13";
-
   private static final String[] testFiles = {"h2/test1_all_datatypes_h2.yml"};
 
   /**
@@ -236,7 +218,6 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
     assertFloat4VectorValues((Float4Vector) root.getVector(REAL), table.getRowCount(),
         getFloatValues(table.getValues(), REAL));
   }
-
 
   @Test
   public void runLargeNumberOfRows() throws IOException, SQLException {

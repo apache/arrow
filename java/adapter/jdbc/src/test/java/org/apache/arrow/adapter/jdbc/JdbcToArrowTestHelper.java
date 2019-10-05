@@ -56,7 +56,11 @@ public class JdbcToArrowTestHelper {
     assertEquals(rowCount, intVector.getValueCount());
 
     for (int j = 0; j < intVector.getValueCount(); j++) {
-      assertEquals(values[j].intValue(), intVector.get(j));
+      if (values[j] == null) {
+        assertTrue(intVector.isNull(j));
+      } else {
+        assertEquals(values[j].intValue(), intVector.get(j));
+      }
     }
   }
 
@@ -64,7 +68,11 @@ public class JdbcToArrowTestHelper {
     assertEquals(rowCount, bitVector.getValueCount());
 
     for (int j = 0; j < bitVector.getValueCount(); j++) {
-      assertEquals(values[j].booleanValue(), bitVector.get(j) == 1);
+      if (values[j] == null) {
+        assertTrue(bitVector.isNull(j));
+      } else {
+        assertEquals(values[j].booleanValue(), bitVector.get(j) == 1);
+      }
     }
   }
 
@@ -72,7 +80,11 @@ public class JdbcToArrowTestHelper {
     assertEquals(rowCount, bitVector.getValueCount());
 
     for (int j = 0; j < bitVector.getValueCount(); j++) {
-      assertEquals(values[j].intValue(), bitVector.get(j));
+      if (values[j] == null) {
+        assertTrue(bitVector.isNull(j));
+      } else {
+        assertEquals(values[j].intValue(), bitVector.get(j));
+      }
     }
   }
 
@@ -80,7 +92,11 @@ public class JdbcToArrowTestHelper {
     assertEquals(rowCount, tinyIntVector.getValueCount());
 
     for (int j = 0; j < tinyIntVector.getValueCount(); j++) {
-      assertEquals(values[j].intValue(), tinyIntVector.get(j));
+      if (values[j] == null) {
+        assertTrue(tinyIntVector.isNull(j));
+      } else {
+        assertEquals(values[j].intValue(), tinyIntVector.get(j));
+      }
     }
   }
 
@@ -88,7 +104,11 @@ public class JdbcToArrowTestHelper {
     assertEquals(rowCount, smallIntVector.getValueCount());
 
     for (int j = 0; j < smallIntVector.getValueCount(); j++) {
-      assertEquals(values[j].intValue(), smallIntVector.get(j));
+      if (values[j] == null) {
+        assertTrue(smallIntVector.isNull(j));
+      } else {
+        assertEquals(values[j].intValue(), smallIntVector.get(j));
+      }
     }
   }
 
@@ -96,7 +116,11 @@ public class JdbcToArrowTestHelper {
     assertEquals(rowCount, bigIntVector.getValueCount());
 
     for (int j = 0; j < bigIntVector.getValueCount(); j++) {
-      assertEquals(values[j].longValue(), bigIntVector.get(j));
+      if (values[j] == null) {
+        assertTrue(bigIntVector.isNull(j));
+      } else {
+        assertEquals(values[j].longValue(), bigIntVector.get(j));
+      }
     }
   }
 
@@ -104,8 +128,11 @@ public class JdbcToArrowTestHelper {
     assertEquals(rowCount, decimalVector.getValueCount());
 
     for (int j = 0; j < decimalVector.getValueCount(); j++) {
-      assertNotNull(decimalVector.getObject(j));
-      assertEquals(values[j].doubleValue(), decimalVector.getObject(j).doubleValue(), 0);
+      if (values[j] == null) {
+        assertTrue(decimalVector.isNull(j));
+      } else {
+        assertEquals(values[j].doubleValue(), decimalVector.getObject(j).doubleValue(), 0);
+      }
     }
   }
 
@@ -113,7 +140,11 @@ public class JdbcToArrowTestHelper {
     assertEquals(rowCount, float8Vector.getValueCount());
 
     for (int j = 0; j < float8Vector.getValueCount(); j++) {
-      assertEquals(values[j], float8Vector.get(j), 0.01);
+      if (values[j] == null) {
+        assertTrue(float8Vector.isNull(j));
+      } else {
+        assertEquals(values[j], float8Vector.get(j), 0.01);
+      }
     }
   }
 
@@ -121,7 +152,11 @@ public class JdbcToArrowTestHelper {
     assertEquals(rowCount, float4Vector.getValueCount());
 
     for (int j = 0; j < float4Vector.getValueCount(); j++) {
-      assertEquals(values[j], float4Vector.get(j), 0.01);
+      if (values[j] == null) {
+        assertTrue(float4Vector.isNull(j));
+      } else {
+        assertEquals(values[j], float4Vector.get(j), 0.01);
+      }
     }
   }
 
@@ -129,7 +164,11 @@ public class JdbcToArrowTestHelper {
     assertEquals(rowCount, timeMilliVector.getValueCount());
 
     for (int j = 0; j < timeMilliVector.getValueCount(); j++) {
-      assertEquals(values[j].longValue(), timeMilliVector.get(j));
+      if (values[j] == null) {
+        assertTrue(timeMilliVector.isNull(j));
+      } else {
+        assertEquals(values[j].longValue(), timeMilliVector.get(j));
+      }
     }
   }
 
@@ -137,7 +176,11 @@ public class JdbcToArrowTestHelper {
     assertEquals(rowCount, dateMilliVector.getValueCount());
 
     for (int j = 0; j < dateMilliVector.getValueCount(); j++) {
-      assertEquals(values[j].longValue(), dateMilliVector.get(j));
+      if (values[j] == null) {
+        assertTrue(dateMilliVector.isNull(j));
+      } else {
+        assertEquals(values[j].longValue(), dateMilliVector.get(j));
+      }
     }
   }
 
@@ -145,7 +188,11 @@ public class JdbcToArrowTestHelper {
     assertEquals(rowCount, timeStampVector.getValueCount());
 
     for (int j = 0; j < timeStampVector.getValueCount(); j++) {
-      assertEquals(values[j].longValue(), timeStampVector.get(j));
+      if (values[j] == null) {
+        assertTrue(timeStampVector.isNull(j));
+      } else {
+        assertEquals(values[j].longValue(), timeStampVector.get(j));
+      }
     }
   }
 
@@ -153,7 +200,11 @@ public class JdbcToArrowTestHelper {
     assertEquals(rowCount, varBinaryVector.getValueCount());
 
     for (int j = 0; j < varBinaryVector.getValueCount(); j++) {
-      assertArrayEquals(values[j], varBinaryVector.get(j));
+      if (values[j] == null) {
+        assertTrue(varBinaryVector.isNull(j));
+      } else {
+        assertArrayEquals(values[j], varBinaryVector.get(j));
+      }
     }
   }
 
@@ -161,7 +212,11 @@ public class JdbcToArrowTestHelper {
     assertEquals(rowCount, varCharVector.getValueCount());
 
     for (int j = 0; j < varCharVector.getValueCount(); j++) {
-      assertArrayEquals(values[j], varCharVector.get(j));
+      if (values[j] == null) {
+        assertTrue(varCharVector.isNull(j));
+      } else {
+        assertArrayEquals(values[j], varCharVector.get(j));
+      }
     }
   }
 
@@ -223,7 +278,7 @@ public class JdbcToArrowTestHelper {
     Integer[] valueArr = new Integer[dataArr.length];
     int i = 0;
     for (String data : dataArr) {
-      valueArr[i++] = Integer.parseInt(data);
+      valueArr[i++] = "null".equals(data.trim()) ? null : Integer.parseInt(data);
     }
     return valueArr;
   }
@@ -233,7 +288,7 @@ public class JdbcToArrowTestHelper {
     Boolean[] valueArr = new Boolean[dataArr.length];
     int i = 0;
     for (String data : dataArr) {
-      valueArr[i++] = data.trim().equals("1");
+      valueArr[i++] = "null".equals(data.trim()) ? null : data.trim().equals("1");
     }
     return valueArr;
   }
@@ -243,7 +298,7 @@ public class JdbcToArrowTestHelper {
     BigDecimal[] valueArr = new BigDecimal[dataArr.length];
     int i = 0;
     for (String data : dataArr) {
-      valueArr[i++] = new BigDecimal(data);
+      valueArr[i++] = "null".equals(data.trim()) ? null : new BigDecimal(data);
     }
     return valueArr;
   }
@@ -253,7 +308,7 @@ public class JdbcToArrowTestHelper {
     Double[] valueArr = new Double[dataArr.length];
     int i = 0;
     for (String data : dataArr) {
-      valueArr[i++] = Double.parseDouble(data);
+      valueArr[i++] = "null".equals(data.trim()) ? null : Double.parseDouble(data);
     }
     return valueArr;
   }
@@ -263,7 +318,7 @@ public class JdbcToArrowTestHelper {
     Float[] valueArr = new Float[dataArr.length];
     int i = 0;
     for (String data : dataArr) {
-      valueArr[i++] = Float.parseFloat(data);
+      valueArr[i++] = "null".equals(data.trim()) ? null : Float.parseFloat(data);
     }
     return valueArr;
   }
@@ -273,7 +328,7 @@ public class JdbcToArrowTestHelper {
     Long[] valueArr = new Long[dataArr.length];
     int i = 0;
     for (String data : dataArr) {
-      valueArr[i++] = Long.parseLong(data);
+      valueArr[i++] = "null".equals(data.trim()) ? null : Long.parseLong(data);
     }
     return valueArr;
   }
@@ -283,7 +338,7 @@ public class JdbcToArrowTestHelper {
     byte[][] valueArr = new byte[dataArr.length][];
     int i = 0;
     for (String data : dataArr) {
-      valueArr[i++] = data.trim().getBytes();
+      valueArr[i++] = "null".equals(data.trim()) ? null : data.trim().getBytes();
     }
     return valueArr;
   }
@@ -293,7 +348,7 @@ public class JdbcToArrowTestHelper {
     byte[][] valueArr = new byte[dataArr.length][];
     int i = 0;
     for (String data : dataArr) {
-      valueArr[i++] = data.trim().getBytes(charSet);
+      valueArr[i++] = "null".equals(data.trim()) ? null : data.trim().getBytes(charSet);
     }
     return valueArr;
   }
@@ -303,7 +358,7 @@ public class JdbcToArrowTestHelper {
     byte[][] valueArr = new byte[dataArr.length][];
     int i = 0;
     for (String data : dataArr) {
-      valueArr[i++] = hexStringToByteArray(data.trim());
+      valueArr[i++] = "null".equals(data.trim()) ? null : hexStringToByteArray(data.trim());
     }
     return valueArr;
   }
