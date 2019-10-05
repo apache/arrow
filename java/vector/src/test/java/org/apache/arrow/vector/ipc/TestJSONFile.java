@@ -413,15 +413,16 @@ public class TestJSONFile extends BaseFileTest {
   @Test
   public void testWriteReadNullJSON() throws IOException {
     File file = new File("target/mytest_null.json");
+    int valueCount = 10;
 
     // write
     try (
         BufferAllocator vectorAllocator = allocator.newChildAllocator("original vectors", 0, Integer.MAX_VALUE)
     ) {
 
-      try (VectorSchemaRoot root = writeNullData(vectorAllocator)) {
+      try (VectorSchemaRoot root = writeNullData(valueCount)) {
         printVectors(root.getFieldVectors());
-        validateNullData(root);
+        validateNullData(root, valueCount);
         writeJSON(file, root, null);
       }
     }
@@ -436,7 +437,7 @@ public class TestJSONFile extends BaseFileTest {
 
       // initialize vectors
       try (VectorSchemaRoot root = reader.read();) {
-        validateNullData(root);
+        validateNullData(root, valueCount);
       }
       reader.close();
     }

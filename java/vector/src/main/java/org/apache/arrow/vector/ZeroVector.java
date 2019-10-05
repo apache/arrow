@@ -55,6 +55,11 @@ public final class ZeroVector extends NullVector {
   }
 
   @Override
+  public int getValueCapacity() {
+    return 0;
+  }
+
+  @Override
   public TransferPair getTransferPair(BufferAllocator allocator) {
     return defaultPair;
   }

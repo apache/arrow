@@ -25,6 +25,7 @@ import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.impl.NullReader;
 import org.apache.arrow.vector.complex.reader.FieldReader;
@@ -120,7 +121,7 @@ public class NullVector implements FieldVector {
 
   @Override
   public int getValueCapacity() {
-    return 0;
+    return this.valueCount;
   }
 
   @Override
@@ -157,9 +158,7 @@ public class NullVector implements FieldVector {
 
   @Override
   public void loadFieldBuffers(ArrowFieldNode fieldNode, List<ArrowBuf> ownBuffers) {
-    if (!ownBuffers.isEmpty()) {
-      throw new IllegalArgumentException("Null vector has no buffers");
-    }
+    Preconditions.checkArgument(ownBuffers.isEmpty(), "Null vector has no buffers");
   }
 
   @Override
@@ -232,7 +231,7 @@ public class NullVector implements FieldVector {
 
   @Override
   public int hashCode(int index) {
-    return 0;
+    return 31 * valueCount;
   }
 
   @Override
@@ -282,6 +281,10 @@ public class NullVector implements FieldVector {
     }
 
     @Override
-    public void copyValueSafe(int fromIndex, int toIndex) {}
+    public void copyValueSafe(int fromIndex, int toIndex) {
+      if (toIndex > to.valueCount) {
+        to.valueCount = toIndex;
+      }
+    }
   }
 }

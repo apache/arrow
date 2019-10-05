@@ -182,24 +182,17 @@ public class TestArrowReaderWriter {
 
     int valueCount = 3;
 
-    IntVector intVector = new IntVector("intVector", allocator);
-    intVector.allocateNewSafe();
-    intVector.setValueCount(valueCount);
-    intVector.set(0, 0);
-    intVector.set(1, 1);
-    intVector.set(2, 2);
-
     NullVector nullVector = new NullVector();
     nullVector.setValueCount(valueCount);
 
-    Schema schema = new Schema(asList(intVector.getField(), nullVector.getField()));
+    Schema schema = new Schema(asList(nullVector.getField()));
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
-    try (VectorSchemaRoot root = new VectorSchemaRoot(schema.getFields(), asList(intVector, nullVector), valueCount);
+    try (VectorSchemaRoot root = new VectorSchemaRoot(schema.getFields(), asList(nullVector), valueCount);
         ArrowFileWriter writer = new ArrowFileWriter(root, null, newChannel(out))) {
       ArrowRecordBatch batch = new ArrowRecordBatch(valueCount,
-          asList(new ArrowFieldNode(valueCount, 0), new ArrowFieldNode(valueCount, 8)),
-          asList(intVector.getValidityBuffer(), intVector.getDataBuffer()));
+          asList(new ArrowFieldNode(valueCount, 0)),
+          Collections.emptyList());
       VectorLoader loader = new VectorLoader(root);
       loader.load(batch);
       writer.writeBatch();
@@ -215,15 +208,9 @@ public class TestArrowReaderWriter {
       assertEquals(1, recordBatches.size());
 
       assertTrue(reader.loadNextBatch());
-      assertEquals(2, reader.getVectorSchemaRoot().getFieldVectors().size());
+      assertEquals(1, reader.getVectorSchemaRoot().getFieldVectors().size());
 
-      IntVector readIntVector = (IntVector) reader.getVectorSchemaRoot().getFieldVectors().get(0);
-      NullVector readNullVector = (NullVector) reader.getVectorSchemaRoot().getFieldVectors().get(1);
-      assertEquals(valueCount, readIntVector.getValueCount());
-      assertEquals(0, readIntVector.get(0));
-      assertEquals(1, readIntVector.get(1));
-      assertEquals(2, readIntVector.get(2));
-
+      NullVector readNullVector = (NullVector) reader.getVectorSchemaRoot().getFieldVectors().get(0);
       assertEquals(valueCount, readNullVector.getValueCount());
     }
   }

@@ -533,8 +533,7 @@ public class BaseFileTest {
     }
   }
 
-  protected VectorSchemaRoot writeNullData(BufferAllocator bufferAllocator) {
-    int valueCount = 10;
+  protected VectorSchemaRoot writeNullData(int valueCount) {
     NullVector nullVector1 = new NullVector();
     NullVector nullVector2 = new NullVector();
     nullVector1.setValueCount(valueCount);
@@ -545,8 +544,7 @@ public class BaseFileTest {
     return new VectorSchemaRoot(fields, vectors, valueCount);
   }
 
-  protected void validateNullData(VectorSchemaRoot root) {
-    int valueCount = 10;
+  protected void validateNullData(VectorSchemaRoot root, int valueCount) {
 
     NullVector vector1 = (NullVector) root.getFieldVectors().get(0);
     NullVector vector2 = (NullVector) root.getFieldVectors().get(1);
