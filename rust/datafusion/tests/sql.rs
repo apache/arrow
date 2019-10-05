@@ -99,6 +99,8 @@ fn parquet_single_nan_schema() {
     ctx.register_parquet("single_nan", &format!("{}/single_nan.parquet", testdata))
         .unwrap();
     let sql = "SELECT mycol FROM single_nan";
+    let results = ctx.sql(&sql, 1024 * 1024).unwrap();
+    for batch in results {
     let plan = ctx.create_logical_plan(&sql).unwrap();
     let plan = ctx.optimize(&plan).unwrap();
     let plan = ctx.create_physical_plan(&plan, DEFAULT_BATCH_SIZE).unwrap();
@@ -170,9 +172,9 @@ fn csv_query_avg_multi_batch() {
     let sql = "SELECT avg(c12) FROM aggregate_test_100";
     let plan = ctx.create_logical_plan(&sql).unwrap();
     let plan = ctx.optimize(&plan).unwrap();
-    let results = ctx.execute(&plan, 4).unwrap();
-    let mut relation = results.borrow_mut();
-    let batch = relation.next().unwrap().unwrap();
+    let plan = ctx.create_physical_plan(&plan, DEFAULT_BATCH_SIZE).unwrap();
+    let results = ctx.collect(plan.as_ref()).unwrap();
+    let batch = &results[0];
     let column = batch.column(0);
     let array = column.as_any().downcast_ref::<Float64Array>().unwrap();
     let actual = array.value(0);
