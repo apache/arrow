@@ -22,36 +22,21 @@ module Gandiva
     end
 
     def build
-      builder = yield(Record.new(@schema), ExpressionBuilderContext.new)
+      builder = yield(Record.new(@schema), Context.new)
       builder.build
-    end
-
-    def +(builder)
-      AddExpressionBuilder.new(self, builder)
-    end
-
-    def -(builder)
-      SubtractExpressionBuilder.new(self, builder)
-    end
-
-    def *(builder)
-      MultiplyExpressionBuilder.new(self, builder)
-    end
-
-    def /(builder)
-      DivideExpressionBuilder.new(self, builder)
-    end
-
-    def >(builder)
-      GreaterThanExpressionBuilder.new(self, builder)
-    end
-
-    def <(builder)
-      LessThanExpressionBuilder.new(self, builder)
-    end
-
-    def ==(builder)
-      EqualExpressionBuilder.new(self, builder)
     end
   end
 end
+
+require "gandiva/expression-builder/add"
+require "gandiva/expression-builder/context"
+require "gandiva/expression-builder/divide"
+require "gandiva/expression-builder/equal"
+require "gandiva/expression-builder/field"
+require "gandiva/expression-builder/greater-than"
+require "gandiva/expression-builder/if"
+require "gandiva/expression-builder/if-node-query"
+require "gandiva/expression-builder/less-than"
+require "gandiva/expression-builder/multiply"
+require "gandiva/expression-builder/record"
+require "gandiva/expression-builder/subtract"

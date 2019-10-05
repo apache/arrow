@@ -16,33 +16,42 @@
 # under the License.
 
 module Gandiva
-  class BinaryExpressionBuilder < ExpressionBuilder
-    def initialize(operator, left, right)
-      @operator = operator
-      @left = left
-      @right = right
-    end
+  class ExpressionBuilder
+    class IfNodeQuery
+      def initialize(condition)
+        @condition_builders = [condition]
+        @then_builders = []
+      end
 
-    def build
-      result = Arrow::Field.new("result", node.return_type)
-      Gandiva::Expression.new(node, result)
-    end
+      def then(builder)
+        @then_builders << builder
+        self
+      end
 
-    def node
-      @node ||= Gandiva::FunctionNode.new(@operator,
-                                          [@left.node, @right.node],
-                                          return_type)
-    end
+      def elsif(builder)
+        @condition_builders << builder
+        self
+      end
 
-    private
+      def else(builder)
+        to_expression_builder(builder)
+      end
 
-    def return_type
-      @return_type ||=
-        if ["greater_than", "less_than", "equal"].include?(@operator)
-          Arrow::BooleanDataType.new
-        else
-          @right.node.return_type
+      private
+
+      def to_expression_builder(builder)
+        node_size = @condition_builders.size - 1
+        (0..node_size).reverse_each do |i|
+          builder = build_if_expression_builder(builder, i)
         end
+        builder
+      end
+
+      def build_if_expression_builder(builder, i)
+        If.new(@condition_builders[i],
+               @then_builders[i],
+               builder)
+      end
     end
   end
 end

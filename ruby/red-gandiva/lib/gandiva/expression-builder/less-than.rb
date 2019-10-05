@@ -15,21 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
+require "gandiva/expression-builder/binary-operation"
+
 module Gandiva
-  class Record
-    def initialize(schema)
-      @schema = schema
-    end
-
-    def respond_to_missing?(name, include_private)
-      return true if @schema[name]
-      super
-    end
-
-    def method_missing(name, *args)
-      field = @schema[name]
-      return FieldBuilder.new(field) if field
-      super
+  class ExpressionBuilder
+    class LessThan < BinaryOperation
+      def initialize(left, right)
+        super("less_than", left, right)
+      end
     end
   end
 end

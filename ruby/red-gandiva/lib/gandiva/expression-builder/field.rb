@@ -15,10 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
+require "gandiva/expression-builder/value"
+
 module Gandiva
-  class GreaterThanExpressionBuilder < BinaryExpressionBuilder
-    def initialize(left, right)
-      super("greater_than", left, right)
+  class ExpressionBuilder
+    class Field < Value
+      attr_accessor :node
+
+      def initialize(field)
+        @node = Gandiva::FieldNode.new(field)
+      end
     end
   end
 end

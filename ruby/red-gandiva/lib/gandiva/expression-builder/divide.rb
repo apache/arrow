@@ -15,10 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
+require "gandiva/expression-builder/binary-operation"
+
 module Gandiva
-  class ExpressionBuilderContext
-    def if(condition)
-      IfNodeQuery.new(condition)
+  class ExpressionBuilder
+    class Divide < BinaryOperation
+      def initialize(left, right)
+        super("divide", left, right)
+      end
     end
   end
 end

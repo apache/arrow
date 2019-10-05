@@ -15,10 +15,36 @@
 # specific language governing permissions and limitations
 # under the License.
 
+require "gandiva/expression-builder/value"
+
 module Gandiva
-  class DivideExpressionBuilder < BinaryExpressionBuilder
-    def initialize(left, right)
-      super("divide", left, right)
+  class ExpressionBuilder
+    class BinaryOperation < Value
+      def initialize(operator, left, right)
+        @operator = operator
+        @left = left
+        @right = right
+      end
+
+      def build
+        result = Arrow::Field.new("result", node.return_type)
+        Gandiva::Expression.new(node, result)
+      end
+
+      def node
+        @node ||= Gandiva::FunctionNode.new(@operator,
+                                            [@left.node, @right.node],
+                                            return_type)
+      end
+
+      private
+      def return_type
+        if ["greater_than", "less_than", "equal"].include?(@operator)
+          Arrow::BooleanDataType.new
+        else
+          @right.node.return_type
+        end
+      end
     end
   end
 end

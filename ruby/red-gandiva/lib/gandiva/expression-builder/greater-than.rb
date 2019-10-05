@@ -15,10 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
+require "gandiva/expression-builder/binary-operation"
+
 module Gandiva
-  class AddExpressionBuilder < BinaryExpressionBuilder
-    def initialize(left, right)
-      super("add", left, right)
+  class ExpressionBuilder
+    class GreaterThan < BinaryOperation
+      def initialize(left, right)
+        super("greater_than", left, right)
+      end
     end
   end
 end

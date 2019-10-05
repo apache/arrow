@@ -16,23 +16,25 @@
 # under the License.
 
 module Gandiva
-  class IfExpressionBuilder < ExpressionBuilder
-    def initialize(condition_builder, then_builder, else_builder)
-      @condition = condition_builder
-      @then = then_builder
-      @else = else_builder
-    end
+  class ExpressionBuilder
+    class If
+      def initialize(condition_builder, then_builder, else_builder)
+        @condition = condition_builder
+        @then = then_builder
+        @else = else_builder
+      end
 
-    def build
-      result = Arrow::Field.new("result", node.return_type)
-      Gandiva::Expression.new(node, result)
-    end
+      def build
+        result = Arrow::Field.new("result", node.return_type)
+        Gandiva::Expression.new(node, result)
+      end
 
-    def node
-      @node ||= Gandiva::IfNode.new(@condition.node,
-                                    @then.node,
-                                    @else.node,
-                                    @then.node.return_type)
+      def node
+        @node ||= Gandiva::IfNode.new(@condition.node,
+                                      @then.node,
+                                      @else.node,
+                                      @then.node.return_type)
+      end
     end
   end
 end

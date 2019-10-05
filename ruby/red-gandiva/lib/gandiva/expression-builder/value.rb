@@ -16,11 +16,35 @@
 # under the License.
 
 module Gandiva
-  class FieldBuilder < ExpressionBuilder
-    attr_accessor :node
+  class ExpressionBuilder
+    class Value
+      def +(right)
+        Add.new(self, right)
+      end
 
-    def initialize(field)
-      @node = Gandiva::FieldNode.new(field)
+      def -(right)
+        Subtract.new(self, right)
+      end
+
+      def *(right)
+        Multiply.new(self, right)
+      end
+
+      def /(right)
+        Divide.new(self, right)
+      end
+
+      def >(right)
+        GreaterThan.new(self, right)
+      end
+
+      def <(right)
+        LessThan.new(self, right)
+      end
+
+      def ==(right)
+        Equal.new(self, right)
+      end
     end
   end
 end
