@@ -297,16 +297,22 @@ impl ExecutionContext {
                 match expr {
                     &Expr::Literal(ref scalar_value) => {
                         let limit: usize = match scalar_value {
-                            ScalarValue::Int8(x) => Ok(*x as usize),
-                            ScalarValue::Int16(x) => Ok(*x as usize),
-                            ScalarValue::Int32(x) => Ok(*x as usize),
-                            ScalarValue::Int64(x) => Ok(*x as usize),
-                            ScalarValue::UInt8(x) => Ok(*x as usize),
-                            ScalarValue::UInt16(x) => Ok(*x as usize),
-                            ScalarValue::UInt32(x) => Ok(*x as usize),
-                            ScalarValue::UInt64(x) => Ok(*x as usize),
+                            ScalarValue::Int8(limit) if *limit >= 0 => Ok(*limit as usize),
+                            ScalarValue::Int16(limit) if *limit >= 0 => {
+                                Ok(*limit as usize)
+                            }
+                            ScalarValue::Int32(limit) if *limit >= 0 => {
+                                Ok(*limit as usize)
+                            }
+                            ScalarValue::Int64(limit) if *limit >= 0 => {
+                                Ok(*limit as usize)
+                            }
+                            ScalarValue::UInt8(limit) => Ok(*limit as usize),
+                            ScalarValue::UInt16(limit) => Ok(*limit as usize),
+                            ScalarValue::UInt32(limit) => Ok(*limit as usize),
+                            ScalarValue::UInt64(limit) => Ok(*limit as usize),
                             _ => Err(ExecutionError::ExecutionError(
-                                "Limit only support positive integer literals"
+                                "Limit only supports non-negative integer literals"
                                     .to_string(),
                             )),
                         }?;
@@ -317,7 +323,7 @@ impl ExecutionContext {
                         )))
                     }
                     _ => Err(ExecutionError::ExecutionError(
-                        "Limit only support positive integer literals".to_string(),
+                        "Limit only supports non-negative integer literals".to_string(),
                     )),
                 }
             }
