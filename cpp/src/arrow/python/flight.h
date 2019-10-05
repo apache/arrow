@@ -205,7 +205,7 @@ class ARROW_PYTHON_EXPORT PyServerMiddlewareFactory
 class ARROW_PYTHON_EXPORT PyServerMiddleware : public arrow::flight::ServerMiddleware {
  public:
   typedef std::function<Status(PyObject*,
-                               arrow::flight::AddCallHeaders& outgoing_headers)>
+                               arrow::flight::AddCallHeaders* outgoing_headers)>
       SendingHeadersCallback;
   typedef std::function<Status(PyObject*, const Status& status)> CallCompletedCallback;
 
@@ -217,7 +217,7 @@ class ARROW_PYTHON_EXPORT PyServerMiddleware : public arrow::flight::ServerMiddl
   /// \brief Must only be called while holding the GIL.
   explicit PyServerMiddleware(PyObject* middleware, Vtable vtable);
 
-  void SendingHeaders(arrow::flight::AddCallHeaders& outgoing_headers) override;
+  void SendingHeaders(arrow::flight::AddCallHeaders* outgoing_headers) override;
   void CallCompleted(const Status& status) override;
 
  private:
@@ -248,7 +248,7 @@ class ARROW_PYTHON_EXPORT PyClientMiddlewareFactory
 class ARROW_PYTHON_EXPORT PyClientMiddleware : public arrow::flight::ClientMiddleware {
  public:
   typedef std::function<Status(PyObject*,
-                               arrow::flight::AddCallHeaders& outgoing_headers)>
+                               arrow::flight::AddCallHeaders* outgoing_headers)>
       SendingHeadersCallback;
   typedef std::function<Status(PyObject*,
                                const arrow::flight::CallHeaders& incoming_headers)>
@@ -264,7 +264,7 @@ class ARROW_PYTHON_EXPORT PyClientMiddleware : public arrow::flight::ClientMiddl
   /// \brief Must only be called while holding the GIL.
   explicit PyClientMiddleware(PyObject* factory, Vtable vtable);
 
-  void SendingHeaders(arrow::flight::AddCallHeaders& outgoing_headers) override;
+  void SendingHeaders(arrow::flight::AddCallHeaders* outgoing_headers) override;
   void ReceivedHeaders(const arrow::flight::CallHeaders& incoming_headers) override;
   void CallCompleted(const Status& status) override;
 

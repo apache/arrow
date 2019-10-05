@@ -71,7 +71,7 @@ namespace flight {
 #define RETURN_WITH_MIDDLEWARE(CONTEXT, STATUS) \
   do {                                          \
     const auto& __s = (STATUS);                 \
-    return CONTEXT.finish_request(__s);         \
+    return CONTEXT.FinishRequest(__s);          \
   } while (false)
 
 #define CHECK_ARG_NOT_NULL(CONTEXT, VAL, MESSAGE)                                      \
@@ -86,7 +86,7 @@ namespace flight {
   do {                                       \
     const auto& _s = (expr);                 \
     if (ARROW_PREDICT_FALSE(!_s.ok())) {     \
-      return CONTEXT.finish_request(_s);     \
+      return CONTEXT.FinishRequest(_s);      \
     }                                        \
   } while (false)
 
@@ -239,13 +239,13 @@ class GrpcServerCallContext : public ServerCallContext {
 
   // Helper method that runs interceptors given the result of an RPC,
   // then returns the final gRPC status to send to the client
-  grpc::Status finish_request(const grpc::Status& status) {
+  grpc::Status FinishRequest(const grpc::Status& status) {
     // Don't double-convert status - return the original one here
-    finish_request(internal::FromGrpcStatus(status));
+    FinishRequest(internal::FromGrpcStatus(status));
     return status;
   }
 
-  grpc::Status finish_request(const arrow::Status& status) {
+  grpc::Status FinishRequest(const arrow::Status& status) {
     for (const auto& instance : middleware_) {
       instance->CallCompleted(status);
     }
@@ -358,11 +358,11 @@ class FlightServiceImpl : public FlightService::Service {
       if (!result.ok()) {
         // Interceptor rejected call, end the request on all existing
         // interceptors
-        return flight_context.finish_request(result);
+        return flight_context.FinishRequest(result);
       }
-      if (instance) {
+      if (instance != nullptr) {
         flight_context.middleware_.push_back(instance);
-        instance->SendingHeaders(outgoing_headers);
+        instance->SendingHeaders(&outgoing_headers);
       }
     }
 
@@ -621,11 +621,7 @@ thread_local std::atomic<FlightServerBase::Impl*>
 #endif
 
 FlightServerOptions::FlightServerOptions(const Location& location_)
-    : location(location_),
-      auth_handler(nullptr),
-      tls_certificates(),
-      middleware(),
-      builder_hook() {}
+    : location(location_), auth_handler(nullptr) {}
 
 FlightServerOptions::~FlightServerOptions() = default;
 

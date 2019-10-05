@@ -132,25 +132,6 @@ bool TestServer::IsRunning() { return server_process_->running(); }
 
 int TestServer::port() const { return port_; }
 
-Status InProcessTestServer::Start() {
-  thread_ = std::thread([this]() { ARROW_EXPECT_OK(server_->Serve()); });
-  return Status::OK();
-}
-
-void InProcessTestServer::Stop() {
-  ARROW_CHECK_OK(server_->Shutdown());
-  thread_.join();
-}
-
-const Location& InProcessTestServer::location() const { return location_; }
-
-InProcessTestServer::~InProcessTestServer() {
-  // Make sure server shuts down properly
-  if (thread_.joinable()) {
-    Stop();
-  }
-}
-
 Status GetBatchForFlight(const Ticket& ticket, std::shared_ptr<RecordBatchReader>* out) {
   if (ticket.ticket == "ticket-ints-1") {
     BatchVector batches;

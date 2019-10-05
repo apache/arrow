@@ -81,10 +81,10 @@ add_custom_target(flight_grpc_gen ALL DEPENDS ${FLIGHT_GENERATED_PROTO_FILES})
 set(ARROW_FLIGHT_SRCS
     client.cc
     internal.cc
-    protocol_internal.cc
-    serialization_internal.cc
     middleware.cc
     middleware_internal.cc
+    protocol_internal.cc
+    serialization_internal.cc
     server.cc
     server_auth.cc
     types.cc)

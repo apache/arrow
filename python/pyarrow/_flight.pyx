@@ -1645,7 +1645,7 @@ cdef CStatus _get_token(void* self, c_string* token) except *:
 
 
 cdef CStatus _middleware_sending_headers(
-        void* self, CAddCallHeaders& add_headers) except *:
+        void* self, CAddCallHeaders* add_headers) except *:
     """Callback for implementing middleware."""
     try:
         headers = (<object> self).sending_headers()
@@ -1855,7 +1855,7 @@ cdef class ClientMiddlewareFactory:
 cdef class ClientMiddleware:
     """Client-side middleware for a call, instantiated per RPC.
 
-    Methods here should be fast and must be infalliable: they should
+    Methods here should be fast and must be infallible: they should
     not raise exceptions or stall indefinitely.
 
     """
@@ -1866,7 +1866,7 @@ cdef class ClientMiddleware:
         Returns
         -------
         headers : dict
-            A dictionary of header values to add to the response, or
+            A dictionary of header values to add to the request, or
             None if no headers are to be added. The dictionary should
             have string keys and string or list-of-string values.
 
@@ -1875,16 +1875,20 @@ cdef class ClientMiddleware:
     def received_headers(self, headers):
         """A callback when headers are received.
 
+        The default implementation does nothing.
+
         Parameters
         ----------
         headers : dict
-            A dictionary of headers from the client. Keys are strings
+            A dictionary of headers from the server. Keys are strings
             and values are lists of bytes.
 
         """
 
     def call_completed(self, exception):
         """A callback when the call finishes.
+
+        The default implementation does nothing.
 
         Parameters
         ----------
@@ -2132,11 +2136,6 @@ cdef class FlightServerBase:
                 py_middleware,
                 start_call))
             c_options.get().middleware.push_back(c_middleware)
-            # for key, factory in middleware.items():
-            #     middleware_pair.first = tobytes(key)
-            #     middleware_pair.second.reset(
-            #         new CPyServerMiddlewareFactory(factory, start_call))
-            #     c_options.get().middleware.push_back(middleware_pair)
 
         vtable.list_flights = &_list_flights
         vtable.get_flight_info = &_get_flight_info

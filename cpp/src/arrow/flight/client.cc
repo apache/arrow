@@ -117,7 +117,7 @@ class GrpcClientInterceptorAdapter : public grpc::experimental::Interceptor {
             InterceptionHookPoints::PRE_SEND_INITIAL_METADATA)) {
       GrpcAddCallHeaders add_headers(methods->GetSendInitialMetadata());
       for (const auto& middleware : middleware_) {
-        middleware->SendingHeaders(add_headers);
+        middleware->SendingHeaders(&add_headers);
       }
     }
 
@@ -176,6 +176,8 @@ class GrpcClientInterceptorAdapterFactory
       flight_method = FlightMethod::DoAction;
     } else if (method.ends_with("/ListActions")) {
       flight_method = FlightMethod::ListActions;
+    } else {
+      DCHECK(false) << "Unknown Flight method: " << info->method();
     }
 
     const CallInfo flight_info{flight_method};

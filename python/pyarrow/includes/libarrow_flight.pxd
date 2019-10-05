@@ -353,7 +353,7 @@ ctypedef CStatus cb_client_authenticate(object, CClientAuthSender*,
                                         CClientAuthReader*)
 ctypedef CStatus cb_get_token(object, c_string*)
 
-ctypedef CStatus cb_middleware_sending_headers(object, CAddCallHeaders&)
+ctypedef CStatus cb_middleware_sending_headers(object, CAddCallHeaders*)
 ctypedef CStatus cb_middleware_call_completed(object, const CStatus&)
 ctypedef CStatus cb_client_middleware_received_headers(
     object, const CCallHeaders&)

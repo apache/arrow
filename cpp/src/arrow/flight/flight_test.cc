@@ -289,24 +289,47 @@ TEST(TestFlight, BuilderHook) {
 // ----------------------------------------------------------------------
 // Client tests
 
+// Helper to initialize a server and matching client with callbacks to
+// populate options.
+template <typename T, typename... Args>
+Status MakeServer(std::unique_ptr<FlightServerBase>* server,
+                  std::unique_ptr<FlightClient>* client,
+                  std::function<Status(FlightServerOptions*)> make_server_options,
+                  std::function<Status(FlightClientOptions*)> make_client_options,
+                  Args&&... server_args) {
+  Location location;
+  RETURN_NOT_OK(Location::ForGrpcTcp("localhost", 0, &location));
+  *server = arrow::internal::make_unique<T>(std::forward<Args>(server_args)...);
+  FlightServerOptions server_options(location);
+  RETURN_NOT_OK(make_server_options(&server_options));
+  RETURN_NOT_OK((*server)->Init(server_options));
+  Location real_location;
+  RETURN_NOT_OK(Location::ForGrpcTcp("localhost", (*server)->port(), &real_location));
+  FlightClientOptions client_options;
+  RETURN_NOT_OK(make_client_options(&client_options));
+  return FlightClient::Connect(real_location, client_options, client);
+}
+
 class TestFlightClient : public ::testing::Test {
  public:
   void SetUp() {
+    server_ = ExampleTestServer();
+
     Location location;
-    std::unique_ptr<FlightServerBase> server = ExampleTestServer();
-
-    ASSERT_OK(Location::ForGrpcTcp("localhost", ::arrow::GetListenPort(), &location));
+    ASSERT_OK(Location::ForGrpcTcp("localhost", 0, &location));
     FlightServerOptions options(location);
-    ASSERT_OK(server->Init(options));
+    ASSERT_OK(server_->Init(options));
 
-    server_.reset(new InProcessTestServer(std::move(server), location));
-    ASSERT_OK(server_->Start());
     ASSERT_OK(ConnectClient());
   }
 
-  void TearDown() { server_->Stop(); }
+  void TearDown() { ASSERT_OK(server_->Shutdown()); }
 
-  Status ConnectClient() { return FlightClient::Connect(server_->location(), &client_); }
+  Status ConnectClient() {
+    Location location;
+    RETURN_NOT_OK(Location::ForGrpcTcp("localhost", server_->port(), &location));
+    return FlightClient::Connect(location, &client_);
+  }
 
   template <typename EndpointCheckFunc>
   void CheckDoGet(const FlightDescriptor& descr, const BatchVector& expected_batches,
@@ -342,9 +365,8 @@ class TestFlightClient : public ::testing::Test {
   }
 
  protected:
-  int port_;
   std::unique_ptr<FlightClient> client_;
-  std::unique_ptr<InProcessTestServer> server_;
+  std::unique_ptr<FlightServerBase> server_;
 };
 
 class AuthTestServer : public FlightServerBase {
@@ -419,104 +441,71 @@ class MetadataTestServer : public FlightServerBase {
   }
 };
 
-template <typename T>
-class InsecureTestServer : public ::testing::Test {
+class TestMetadata : public ::testing::Test {
  public:
   void SetUp() {
-    Location location;
-    ASSERT_OK(Location::ForGrpcTcp("localhost", 30000, &location));
-
-    std::unique_ptr<FlightServerBase> server(new T);
-    FlightServerOptions options(location);
-    ASSERT_OK(server->Init(options));
-
-    server_.reset(new InProcessTestServer(std::move(server), location));
-    ASSERT_OK(server_->Start());
-    ASSERT_OK(ConnectClient());
+    ASSERT_OK(MakeServer<MetadataTestServer>(
+        &server_, &client_, [](FlightServerOptions* options) { return Status::OK(); },
+        [](FlightClientOptions* options) { return Status::OK(); }));
   }
 
-  void TearDown() { server_->Stop(); }
-
-  Status ConnectClient() { return FlightClient::Connect(server_->location(), &client_); }
+  void TearDown() { ASSERT_OK(server_->Shutdown()); }
 
  protected:
-  int port_;
   std::unique_ptr<FlightClient> client_;
-  std::unique_ptr<InProcessTestServer> server_;
+  std::unique_ptr<FlightServerBase> server_;
 };
-
-using TestMetadata = InsecureTestServer<MetadataTestServer>;
 
 class TestAuthHandler : public ::testing::Test {
  public:
   void SetUp() {
-    Location location;
-    std::unique_ptr<FlightServerBase> server(new AuthTestServer);
-
-    ASSERT_OK(Location::ForGrpcTcp("localhost", ::arrow::GetListenPort(), &location));
-    FlightServerOptions options(location);
-    options.auth_handler =
-        std::unique_ptr<ServerAuthHandler>(new TestServerAuthHandler("user", "p4ssw0rd"));
-    ASSERT_OK(server->Init(options));
-
-    server_.reset(new InProcessTestServer(std::move(server), location));
-    ASSERT_OK(server_->Start());
-    ASSERT_OK(ConnectClient());
+    ASSERT_OK(MakeServer<AuthTestServer>(
+        &server_, &client_,
+        [](FlightServerOptions* options) {
+          options->auth_handler = std::unique_ptr<ServerAuthHandler>(
+              new TestServerAuthHandler("user", "p4ssw0rd"));
+          return Status::OK();
+        },
+        [](FlightClientOptions* options) { return Status::OK(); }));
   }
 
-  void TearDown() { server_->Stop(); }
-
-  Status ConnectClient() { return FlightClient::Connect(server_->location(), &client_); }
+  void TearDown() { ASSERT_OK(server_->Shutdown()); }
 
  protected:
   std::unique_ptr<FlightClient> client_;
-  std::unique_ptr<InProcessTestServer> server_;
+  std::unique_ptr<FlightServerBase> server_;
 };
 
 class TestBasicAuthHandler : public ::testing::Test {
  public:
   void SetUp() {
-    Location location;
-    std::unique_ptr<FlightServerBase> server(new AuthTestServer);
-
-    ASSERT_OK(Location::ForGrpcTcp("localhost", GetListenPort(), &location));
-    FlightServerOptions options(location);
-    options.auth_handler = std::unique_ptr<ServerAuthHandler>(
-        new TestServerBasicAuthHandler("user", "p4ssw0rd"));
-    ASSERT_OK(server->Init(options));
-
-    server_.reset(new InProcessTestServer(std::move(server), location));
-    ASSERT_OK(server_->Start());
-    ASSERT_OK(ConnectClient());
+    ASSERT_OK(MakeServer<AuthTestServer>(
+        &server_, &client_,
+        [](FlightServerOptions* options) {
+          options->auth_handler = std::unique_ptr<ServerAuthHandler>(
+              new TestServerBasicAuthHandler("user", "p4ssw0rd"));
+          return Status::OK();
+        },
+        [](FlightClientOptions* options) { return Status::OK(); }));
   }
 
-  void TearDown() { server_->Stop(); }
-
-  Status ConnectClient() { return FlightClient::Connect(server_->location(), &client_); }
+  void TearDown() { ASSERT_OK(server_->Shutdown()); }
 
  protected:
   std::unique_ptr<FlightClient> client_;
-  std::unique_ptr<InProcessTestServer> server_;
+  std::unique_ptr<FlightServerBase> server_;
 };
 
 class TestDoPut : public ::testing::Test {
  public:
   void SetUp() {
-    Location location;
-    ASSERT_OK(Location::ForGrpcTcp("localhost", ::arrow::GetListenPort(), &location));
-
-    do_put_server_ = new DoPutTestServer();
-    server_.reset(new InProcessTestServer(
-        std::unique_ptr<FlightServerBase>(do_put_server_), location));
-    FlightServerOptions options(location);
-    ASSERT_OK(do_put_server_->Init(options));
-    ASSERT_OK(server_->Start());
-    ASSERT_OK(ConnectClient());
+    ASSERT_OK(MakeServer<DoPutTestServer>(
+        &server_, &client_, [](FlightServerOptions* options) { return Status::OK(); },
+        [](FlightClientOptions* options) { return Status::OK(); }));
+    do_put_server_ = (DoPutTestServer*)server_.get();
   }
 
-  void TearDown() { server_->Stop(); }
-
-  Status ConnectClient() { return FlightClient::Connect(server_->location(), &client_); }
+  void TearDown() { ASSERT_OK(server_->Shutdown()); }
 
   void CheckBatches(FlightDescriptor expected_descriptor,
                     const BatchVector& expected_batches) {
@@ -543,46 +532,43 @@ class TestDoPut : public ::testing::Test {
 
  protected:
   std::unique_ptr<FlightClient> client_;
-  std::unique_ptr<InProcessTestServer> server_;
+  std::unique_ptr<FlightServerBase> server_;
   DoPutTestServer* do_put_server_;
 };
 
 class TestTls : public ::testing::Test {
  public:
   void SetUp() {
+    server_.reset(new TlsTestServer);
+
     Location location;
-    std::unique_ptr<FlightServerBase> server(new TlsTestServer);
-
-    ASSERT_OK(Location::ForGrpcTls("localhost", ::arrow::GetListenPort(), &location));
+    ASSERT_OK(Location::ForGrpcTls("localhost", 0, &location));
     FlightServerOptions options(location);
-    ASSERT_RAISES(UnknownError, server->Init(options));
+    ASSERT_RAISES(UnknownError, server_->Init(options));
     ASSERT_OK(ExampleTlsCertificates(&options.tls_certificates));
-    ASSERT_OK(server->Init(options));
+    ASSERT_OK(server_->Init(options));
 
-    server_.reset(new InProcessTestServer(std::move(server), location));
-    ASSERT_OK(server_->Start());
+    ASSERT_OK(Location::ForGrpcTls("localhost", server_->port(), &location_));
     ASSERT_OK(ConnectClient());
   }
 
-  void TearDown() {
-    if (server_) {
-      server_->Stop();
-    }
-  }
+  void TearDown() { ASSERT_OK(server_->Shutdown()); }
 
   Status ConnectClient() {
     auto options = FlightClientOptions();
     CertKeyPair root_cert;
     RETURN_NOT_OK(ExampleTlsCertificateRoot(&root_cert));
     options.tls_root_certs = root_cert.pem_cert;
-    return FlightClient::Connect(server_->location(), options, &client_);
+    return FlightClient::Connect(location_, options, &client_);
   }
 
  protected:
+  Location location_;
   std::unique_ptr<FlightClient> client_;
-  std::unique_ptr<InProcessTestServer> server_;
+  std::unique_ptr<FlightServerBase> server_;
 };
 
+// A server middleware that rejects all calls.
 class RejectServerMiddlewareFactory : public ServerMiddlewareFactory {
   Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
                    std::shared_ptr<ServerMiddleware>* middleware) override {
@@ -590,12 +576,14 @@ class RejectServerMiddlewareFactory : public ServerMiddlewareFactory {
   }
 };
 
+// A server middleware that counts the number of successful and failed
+// calls.
 class CountingServerMiddleware : public ServerMiddleware {
  public:
   CountingServerMiddleware(std::atomic<int>* successful, std::atomic<int>* failed)
       : successful_(successful), failed_(failed) {}
-  void SendingHeaders(AddCallHeaders& outgoing_headers) {}
-  void CallCompleted(const Status& status) {
+  void SendingHeaders(AddCallHeaders* outgoing_headers) override {}
+  void CallCompleted(const Status& status) override {
     if (status.ok()) {
       ARROW_IGNORE_EXPR((*successful_)++);
     } else {
@@ -630,24 +618,27 @@ class TracingServerMiddlewareFactory : public ServerMiddlewareFactory {
 
   Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
                    std::shared_ptr<ServerMiddleware>* middleware) override {
-    const auto& iter_pair = incoming_headers.GetHeaders("x-tracing-span-id");
+    const std::pair<HeaderIterator, HeaderIterator>& iter_pair =
+        incoming_headers.GetHeaders("x-tracing-span-id");
     if (iter_pair.first != iter_pair.second) {
-      const auto& value = (*iter_pair.first).second;
-      const std::string copy(value);
-      current_span_id = copy;
+      const util::string_view& value = (*iter_pair.first).second;
+      current_span_id = std::string(value);
     }
     return Status::OK();
   }
 };
 
+// A client middleware that adds a thread-local "request ID" to
+// outgoing calls as a header, and keeps track of the status of
+// completed calls. NOT thread-safe.
 class PropagatingClientMiddleware : public ClientMiddleware {
  public:
   explicit PropagatingClientMiddleware(std::atomic<int>* received_headers,
                                        std::vector<Status>* recorded_status)
       : received_headers_(received_headers), recorded_status_(recorded_status) {}
 
-  void SendingHeaders(AddCallHeaders& outgoing_headers) {
-    outgoing_headers.AddHeader("x-tracing-span-id", current_span_id);
+  void SendingHeaders(AddCallHeaders* outgoing_headers) {
+    outgoing_headers->AddHeader("x-tracing-span-id", current_span_id);
   }
 
   void ReceivedHeaders(const CallHeaders& incoming_headers) { (*received_headers_)++; }
@@ -702,61 +693,45 @@ class PropagatingTestServer : public FlightServerBase {
   std::unique_ptr<FlightClient> client_;
 };
 
-class TestServerMiddleware : public ::testing::Test {
+class TestRejectServerMiddleware : public ::testing::Test {
  public:
   void SetUp() {
-    Location location;
-    std::unique_ptr<FlightServerBase> server(new MetadataTestServer);
-
-    ASSERT_OK(Location::ForGrpcTcp("localhost", 0, &location));
-    FlightServerOptions options(location);
-    options.middleware.push_back(std::make_shared<RejectServerMiddlewareFactory>());
-    ASSERT_OK(server->Init(options));
-
-    Location real_location;
-    ASSERT_OK(Location::ForGrpcTcp("localhost", server->port(), &real_location));
-    server_.reset(new InProcessTestServer(std::move(server), real_location));
-    ASSERT_OK(server_->Start());
-    ASSERT_OK(ConnectClient());
+    ASSERT_OK(MakeServer<MetadataTestServer>(
+        &server_, &client_,
+        [](FlightServerOptions* options) {
+          options->middleware.push_back(
+              std::make_shared<RejectServerMiddlewareFactory>());
+          return Status::OK();
+        },
+        [](FlightClientOptions* options) { return Status::OK(); }));
   }
 
-  void TearDown() { server_->Stop(); }
-
-  Status ConnectClient() { return FlightClient::Connect(server_->location(), &client_); }
+  void TearDown() { ASSERT_OK(server_->Shutdown()); }
 
  protected:
   std::unique_ptr<FlightClient> client_;
-  std::unique_ptr<InProcessTestServer> server_;
+  std::unique_ptr<FlightServerBase> server_;
 };
 
 class TestCountingServerMiddleware : public ::testing::Test {
  public:
   void SetUp() {
-    Location location;
-    std::unique_ptr<FlightServerBase> server(new MetadataTestServer);
-
     request_counter_ = std::make_shared<CountingServerMiddlewareFactory>();
-
-    ASSERT_OK(Location::ForGrpcTcp("localhost", 0, &location));
-    FlightServerOptions options(location);
-    options.middleware.push_back(request_counter_);
-    ASSERT_OK(server->Init(options));
-
-    Location real_location;
-    ASSERT_OK(Location::ForGrpcTcp("localhost", server->port(), &real_location));
-    server_.reset(new InProcessTestServer(std::move(server), real_location));
-    ASSERT_OK(server_->Start());
-    ASSERT_OK(ConnectClient());
+    ASSERT_OK(MakeServer<MetadataTestServer>(
+        &server_, &client_,
+        [&](FlightServerOptions* options) {
+          options->middleware.push_back(request_counter_);
+          return Status::OK();
+        },
+        [](FlightClientOptions* options) { return Status::OK(); }));
   }
 
-  void TearDown() { server_->Stop(); }
-
-  Status ConnectClient() { return FlightClient::Connect(server_->location(), &client_); }
+  void TearDown() { ASSERT_OK(server_->Shutdown()); }
 
  protected:
-  std::unique_ptr<FlightClient> client_;
-  std::unique_ptr<InProcessTestServer> server_;
   std::shared_ptr<CountingServerMiddlewareFactory> request_counter_;
+  std::unique_ptr<FlightClient> client_;
+  std::unique_ptr<FlightServerBase> server_;
 };
 
 // Setup for this test is 2 servers
@@ -769,37 +744,33 @@ class TestCountingServerMiddleware : public ::testing::Test {
 class TestPropagatingMiddleware : public ::testing::Test {
  public:
   void SetUp() {
-    Location location;
-    ASSERT_OK(Location::ForGrpcTcp("localhost", 0, &location));
-
     server_middleware_ = std::make_shared<TracingServerMiddlewareFactory>();
     second_client_middleware_ = std::make_shared<PropagatingClientMiddlewareFactory>();
     client_middleware_ = std::make_shared<PropagatingClientMiddlewareFactory>();
 
-    second_server_ = arrow::internal::make_unique<ReportContextTestServer>();
-    FlightServerOptions second_server_options(location);
-    second_server_options.middleware.push_back(server_middleware_);
-    ASSERT_OK(second_server_->Init(second_server_options));
-
-    Location real_location;
-    ASSERT_OK(Location::ForGrpcTcp("localhost", second_server_->port(), &real_location));
     std::unique_ptr<FlightClient> server_client;
-    FlightClientOptions second_client_options{};
-    second_client_options.middleware.push_back(second_client_middleware_);
-    ASSERT_OK(
-        FlightClient::Connect(real_location, second_client_options, &server_client));
+    ASSERT_OK(MakeServer<ReportContextTestServer>(
+        &second_server_, &server_client,
+        [&](FlightServerOptions* options) {
+          options->middleware.push_back(server_middleware_);
+          return Status::OK();
+        },
+        [&](FlightClientOptions* options) {
+          options->middleware.push_back(second_client_middleware_);
+          return Status::OK();
+        }));
 
-    first_server_ =
-        arrow::internal::make_unique<PropagatingTestServer>(std::move(server_client));
-
-    FlightServerOptions first_server_options(location);
-    first_server_options.middleware.push_back(server_middleware_);
-    ASSERT_OK(first_server_->Init(first_server_options));
-
-    ASSERT_OK(Location::ForGrpcTcp("localhost", first_server_->port(), &real_location));
-    FlightClientOptions first_client_options{};
-    first_client_options.middleware.push_back(client_middleware_);
-    ASSERT_OK(FlightClient::Connect(real_location, first_client_options, &client_));
+    ASSERT_OK(MakeServer<PropagatingTestServer>(
+        &first_server_, &client_,
+        [&](FlightServerOptions* options) {
+          options->middleware.push_back(server_middleware_);
+          return Status::OK();
+        },
+        [&](FlightClientOptions* options) {
+          options->middleware.push_back(client_middleware_);
+          return Status::OK();
+        },
+        std::move(server_client)));
   }
 
   void ValidateStatus(const Status& status, const FlightMethod& method) {
@@ -1249,7 +1220,7 @@ TEST_F(TestTls, OverrideHostname) {
   CertKeyPair root_cert;
   ASSERT_OK(ExampleTlsCertificateRoot(&root_cert));
   client_options.tls_root_certs = root_cert.pem_cert;
-  ASSERT_OK(FlightClient::Connect(server_->location(), client_options, &client));
+  ASSERT_OK(FlightClient::Connect(location_, client_options, &client));
 
   FlightCallOptions options;
   options.timeout = TimeoutDuration{5.0};
@@ -1327,7 +1298,7 @@ TEST_F(TestMetadata, DoPutReadMetadata) {
   ASSERT_OK(writer->Close());
 }
 
-TEST_F(TestServerMiddleware, Rejected) {
+TEST_F(TestRejectServerMiddleware, Rejected) {
   std::unique_ptr<FlightInfo> info;
   const auto& status = client_->GetFlightInfo(FlightDescriptor{}, &info);
   ASSERT_RAISES(IOError, status);
@@ -1452,6 +1423,8 @@ TEST_F(TestPropagatingMiddleware, CallHeaders) {
 
   internal::GrpcCallHeaders incoming_headers(&headers);
 
+  // Make sure that we didn't implement HeaderIterator::Impl
+  // incorrectly
   ASSERT_EQ(incoming_headers.cbegin(), incoming_headers.cbegin());
   ASSERT_EQ(incoming_headers.cend(), incoming_headers.cend());
   ASSERT_EQ(2, incoming_headers.Count(header1));

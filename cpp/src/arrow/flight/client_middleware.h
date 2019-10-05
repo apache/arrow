@@ -27,12 +27,11 @@
 #include "arrow/status.h"
 
 namespace arrow {
-
 namespace flight {
 
 /// \brief Client-side middleware for a call, instantiated per RPC.
 ///
-/// Middleware should be fast and must be infalliable: there is no way
+/// Middleware should be fast and must be infallible: there is no way
 /// to reject the call or report errors from the middleware instance.
 class ARROW_FLIGHT_EXPORT ClientMiddleware {
  public:
@@ -40,7 +39,7 @@ class ARROW_FLIGHT_EXPORT ClientMiddleware {
 
   /// \brief A callback before headers are sent. Extra headers can be
   /// added, but existing ones cannot be read.
-  virtual void SendingHeaders(AddCallHeaders& outgoing_headers) = 0;
+  virtual void SendingHeaders(AddCallHeaders* outgoing_headers) = 0;
 
   /// \brief A callback when headers are received from the server.
   virtual void ReceivedHeaders(const CallHeaders& incoming_headers) = 0;
@@ -71,5 +70,4 @@ class ARROW_FLIGHT_EXPORT ClientMiddlewareFactory {
 };
 
 }  // namespace flight
-
 }  // namespace arrow

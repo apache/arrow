@@ -265,7 +265,7 @@ PyServerMiddleware::PyServerMiddleware(PyObject* middleware, Vtable vtable)
   middleware_.reset(middleware);
 }
 
-void PyServerMiddleware::SendingHeaders(arrow::flight::AddCallHeaders& outgoing_headers) {
+void PyServerMiddleware::SendingHeaders(arrow::flight::AddCallHeaders* outgoing_headers) {
   const Status& status = SafeCallIntoPython([&] {
     const Status status = vtable_.sending_headers(middleware_.obj(), outgoing_headers);
     RETURN_NOT_OK(CheckPyError());
@@ -316,7 +316,7 @@ PyClientMiddleware::PyClientMiddleware(PyObject* middleware, Vtable vtable)
   middleware_.reset(middleware);
 }
 
-void PyClientMiddleware::SendingHeaders(arrow::flight::AddCallHeaders& outgoing_headers) {
+void PyClientMiddleware::SendingHeaders(arrow::flight::AddCallHeaders* outgoing_headers) {
   const Status& status = SafeCallIntoPython([&] {
     const Status status = vtable_.sending_headers(middleware_.obj(), outgoing_headers);
     RETURN_NOT_OK(CheckPyError());

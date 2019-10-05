@@ -109,7 +109,7 @@ enum class FlightMethod : char {
 };
 
 /// \brief Information about an instance of a Flight RPC.
-class ARROW_FLIGHT_EXPORT CallInfo {
+struct ARROW_FLIGHT_EXPORT CallInfo {
  public:
   /// \brief The RPC method of this call.
   FlightMethod method;
