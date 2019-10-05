@@ -129,9 +129,11 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
 
     const auto& path = col_meta->descr()->path();
     auto meta_encryptor =
-        file_encryptor_ ? file_encryptor_->GetColumnMetaEncryptor(path) : NULLPTR;
+        file_encryptor_ ? file_encryptor_->GetColumnMetaEncryptor(path->ToDotString())
+                        : NULLPTR;
     auto data_encryptor =
-        file_encryptor_ ? file_encryptor_->GetColumnDataEncryptor(path) : NULLPTR;
+        file_encryptor_ ? file_encryptor_->GetColumnDataEncryptor(path->ToDotString())
+                        : NULLPTR;
     std::unique_ptr<PageWriter> pager = PageWriter::Open(
         sink_, properties_->compression(path), properties_->compression_level(path),
         col_meta, row_group_ordinal_, static_cast<int16_t>(next_column_index_ - 1),
@@ -233,9 +235,11 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
       auto col_meta = metadata_->NextColumnChunk();
       const auto& path = col_meta->descr()->path();
       auto meta_encryptor =
-          file_encryptor_ ? file_encryptor_->GetColumnMetaEncryptor(path) : NULLPTR;
+          file_encryptor_ ? file_encryptor_->GetColumnMetaEncryptor(path->ToDotString())
+                          : NULLPTR;
       auto data_encryptor =
-          file_encryptor_ ? file_encryptor_->GetColumnDataEncryptor(path) : NULLPTR;
+          file_encryptor_ ? file_encryptor_->GetColumnDataEncryptor(path->ToDotString())
+                          : NULLPTR;
       std::unique_ptr<PageWriter> pager = PageWriter::Open(
           sink_, properties_->compression(path), properties_->compression_level(path),
           col_meta, static_cast<int16_t>(row_group_ordinal_),

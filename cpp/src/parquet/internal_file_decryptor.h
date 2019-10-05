@@ -81,11 +81,11 @@ class InternalFileDecryptor {
   std::shared_ptr<Decryptor> GetFooterDecryptorForColumnMeta(const std::string& aad = "");
   std::shared_ptr<Decryptor> GetFooterDecryptorForColumnData(const std::string& aad = "");
   std::shared_ptr<Decryptor> GetColumnMetaDecryptor(
-      const std::shared_ptr<schema::ColumnPath>& column_path,
-      const std::string& column_key_metadata, const std::string& aad = "");
+      const std::string& column_path, const std::string& column_key_metadata,
+      const std::string& aad = "");
   std::shared_ptr<Decryptor> GetColumnDataDecryptor(
-      const std::shared_ptr<schema::ColumnPath>& column_path,
-      const std::string& column_key_metadata, const std::string& aad = "");
+      const std::string& column_path, const std::string& column_key_metadata,
+      const std::string& aad = "");
 
  private:
   FileDecryptionProperties* properties_;

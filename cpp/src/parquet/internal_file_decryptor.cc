@@ -147,15 +147,15 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
 }
 
 std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnMetaDecryptor(
-    const std::shared_ptr<schema::ColumnPath>& column_path,
-    const std::string& column_key_metadata, const std::string& aad) {
-  return GetColumnDecryptor(column_path->ToDotString(), column_key_metadata, aad, true);
+    const std::string& column_path, const std::string& column_key_metadata,
+    const std::string& aad) {
+  return GetColumnDecryptor(column_path, column_key_metadata, aad, true);
 }
 
 std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDataDecryptor(
-    const std::shared_ptr<schema::ColumnPath>& column_path,
-    const std::string& column_key_metadata, const std::string& aad) {
-  return GetColumnDecryptor(column_path->ToDotString(), column_key_metadata, aad, false);
+    const std::string& column_path, const std::string& column_key_metadata,
+    const std::string& aad) {
+  return GetColumnDecryptor(column_path, column_key_metadata, aad, false);
 }
 
 std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(

@@ -196,8 +196,8 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
           std::string aad_column_metadata = encryption::CreateModuleAad(
               file_decryptor->file_aad(), encryption::kColumnMetaData, row_group_ordinal,
               column_ordinal, (int16_t)-1);
-          auto decryptor = file_decryptor->GetColumnMetaDecryptor(path, key_metadata,
-                                                                  aad_column_metadata);
+          auto decryptor = file_decryptor->GetColumnMetaDecryptor(
+              path->ToDotString(), key_metadata, aad_column_metadata);
           uint32_t len = static_cast<uint32_t>(column->encrypted_column_metadata.size());
           DeserializeThriftMsg(
               reinterpret_cast<const uint8_t*>(column->encrypted_column_metadata.c_str()),

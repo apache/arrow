@@ -46,26 +46,8 @@ const std::string kColumnEncryptionKey2 = "1234567890123451";
 int main(int argc, char** argv) {
 
   /**********************************************************************************
-                             PARQUET WRITER EXAMPLE
+                             PARQUET ENCRYPTION WRITER EXAMPLE
   **********************************************************************************/
-
-  // Encryption configuration: Encrypt two columns and the footer.
-  std::map<std::string,
-           std::shared_ptr<parquet::ColumnEncryptionProperties>>
-      encryption_cols;
-  std::string column_path1 = "double_field";
-  std::string column_path2 = "float_field";
-
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder0(column_path1);
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder1(column_path2);
-  encryption_col_builder0.key(kColumnEncryptionKey1)->key_id("kc1");
-  encryption_col_builder1.key(kColumnEncryptionKey2)->key_id("kc2");
-
-  encryption_cols[column_path1] = encryption_col_builder0.build();
-  encryption_cols[column_path2] = encryption_col_builder1.build();
-
-  parquet::FileEncryptionProperties::Builder file_encryption_builder(
-      kFooterEncryptionKey);
 
   try {
     // Create a local file output stream instance.
@@ -76,14 +58,36 @@ int main(int argc, char** argv) {
     // Setup the parquet schema
     std::shared_ptr<GroupNode> schema = SetupSchema();
 
-    // Add writer properties
-    parquet::WriterProperties::Builder builder;
-    builder.compression(parquet::Compression::SNAPPY);
+    // Add encryption properties
+    // Encryption configuration: Encrypt two columns and the footer.
+    std::map<std::string,
+             std::shared_ptr<parquet::ColumnEncryptionProperties>>
+        encryption_cols;
 
+    parquet::SchemaDescriptor schema_desc;
+    schema_desc.Init(schema);
+    auto column_path1 = schema_desc.Column(5)->path()->ToDotString();
+    auto column_path2 = schema_desc.Column(4)->path()->ToDotString();
+
+    parquet::ColumnEncryptionProperties::Builder encryption_col_builder0(column_path1);
+    parquet::ColumnEncryptionProperties::Builder encryption_col_builder1(column_path2);
+    encryption_col_builder0.key(kColumnEncryptionKey1)->key_id("kc1");
+    encryption_col_builder1.key(kColumnEncryptionKey2)->key_id("kc2");
+
+    encryption_cols[column_path1] = encryption_col_builder0.build();
+    encryption_cols[column_path2] = encryption_col_builder1.build();
+
+    parquet::FileEncryptionProperties::Builder file_encryption_builder(
+        kFooterEncryptionKey);
+
+    parquet::WriterProperties::Builder builder;
     // Add the current encryption configuration to WriterProperties.
     builder.encryption(file_encryption_builder.footer_key_metadata("kf")
                            ->encrypted_columns(encryption_cols)
                            ->build());
+
+    // Add other writer properties
+    builder.compression(parquet::Compression::SNAPPY);
 
     std::shared_ptr<parquet::WriterProperties> props = builder.build();
 
@@ -194,7 +198,7 @@ int main(int argc, char** argv) {
   }
 
   /**********************************************************************************
-                             PARQUET READER EXAMPLE
+                             PARQUET ENCRYPTION READER EXAMPLE
   **********************************************************************************/
 
   // Decryption configuration: Decrypt using key retriever callback that holds the keys

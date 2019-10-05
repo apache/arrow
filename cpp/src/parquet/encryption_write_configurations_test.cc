@@ -73,10 +73,8 @@ class TestEncryptionConfiguration : public ::testing::Test {
   }
 
  protected:
-  std::shared_ptr<parquet::schema::ColumnPath> path_to_double_field_ =
-      parquet::schema::ColumnPath::FromDotString("double_field");
-  std::shared_ptr<parquet::schema::ColumnPath> path_to_float_field_ =
-      parquet::schema::ColumnPath::FromDotString("float_field");
+  std::string path_to_double_field_ = "double_field";
+  std::string path_to_float_field_ = "float_field";
   std::string file_name_;
   int rows_per_rowgroup_ = 50;
   std::shared_ptr<GroupNode> schema_;
@@ -252,14 +250,8 @@ TEST_F(TestEncryptionConfiguration, UniformEncryption) {
 
 // Encryption configuration 2: Encrypt two columns and the footer, with different keys.
 TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndTheFooter) {
-  std::map<std::shared_ptr<parquet::schema::ColumnPath>,
-           std::shared_ptr<parquet::ColumnEncryptionProperties>,
-           parquet::schema::ColumnPath::CmpColumnPath>
+  std::map<std::string, std::shared_ptr<parquet::ColumnEncryptionProperties>>
       encryption_cols2;
-  std::shared_ptr<parquet::schema::ColumnPath> path_to_double_field_ =
-      parquet::schema::ColumnPath::FromDotString("double_field");
-  std::shared_ptr<parquet::schema::ColumnPath> path_to_float_field_ =
-      parquet::schema::ColumnPath::FromDotString("float_field");
   parquet::ColumnEncryptionProperties::Builder encryption_col_builder_20(
       path_to_double_field_);
   parquet::ColumnEncryptionProperties::Builder encryption_col_builder_21(
@@ -283,9 +275,7 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndTheFooter) {
 // Don’t encrypt footer.
 // (plaintext footer mode, readable by legacy readers)
 TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsWithPlaintextFooter) {
-  std::map<std::shared_ptr<parquet::schema::ColumnPath>,
-           std::shared_ptr<parquet::ColumnEncryptionProperties>,
-           parquet::schema::ColumnPath::CmpColumnPath>
+  std::map<std::string, std::shared_ptr<parquet::ColumnEncryptionProperties>>
       encryption_cols3;
   parquet::ColumnEncryptionProperties::Builder encryption_col_builder_30(
       path_to_double_field_);
@@ -309,9 +299,7 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsWithPlaintextFooter) {
 // Encryption configuration 4: Encrypt two columns and the footer, with different keys.
 // Use aad_prefix.
 TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndFooterWithAadPrefix) {
-  std::map<std::shared_ptr<parquet::schema::ColumnPath>,
-           std::shared_ptr<parquet::ColumnEncryptionProperties>,
-           parquet::schema::ColumnPath::CmpColumnPath>
+  std::map<std::string, std::shared_ptr<parquet::ColumnEncryptionProperties>>
       encryption_cols4;
   parquet::ColumnEncryptionProperties::Builder encryption_col_builder_40(
       path_to_double_field_);
@@ -336,9 +324,7 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndFooterWithAadPrefix) {
 // Use aad_prefix and disable_aad_prefix_storage.
 TEST_F(TestEncryptionConfiguration,
        EncryptTwoColumnsAndFooterWithAadPrefixDisable_aad_prefix_storage) {
-  std::map<std::shared_ptr<parquet::schema::ColumnPath>,
-           std::shared_ptr<parquet::ColumnEncryptionProperties>,
-           parquet::schema::ColumnPath::CmpColumnPath>
+  std::map<std::string, std::shared_ptr<parquet::ColumnEncryptionProperties>>
       encryption_cols5;
   parquet::ColumnEncryptionProperties::Builder encryption_col_builder_50(
       path_to_double_field_);
@@ -364,9 +350,7 @@ TEST_F(TestEncryptionConfiguration,
 // Encryption configuration 6: Encrypt two columns and the footer, with different keys.
 // Use AES_GCM_CTR_V1 algorithm.
 TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndFooterUseAES_GCM_CTR) {
-  std::map<std::shared_ptr<parquet::schema::ColumnPath>,
-           std::shared_ptr<parquet::ColumnEncryptionProperties>,
-           parquet::schema::ColumnPath::CmpColumnPath>
+  std::map<std::string, std::shared_ptr<parquet::ColumnEncryptionProperties>>
       encryption_cols6;
   parquet::ColumnEncryptionProperties::Builder encryption_col_builder_60(
       path_to_double_field_);

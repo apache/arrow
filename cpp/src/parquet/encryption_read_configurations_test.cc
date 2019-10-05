@@ -91,10 +91,8 @@ class TestDecryptionConfiguration
   void SetUp() { createDecryptionConfigurations(); }
 
  protected:
-  std::shared_ptr<parquet::schema::ColumnPath> path_to_double_field_ =
-      parquet::schema::ColumnPath::FromDotString("double_field");
-  std::shared_ptr<parquet::schema::ColumnPath> path_to_float_field_ =
-      parquet::schema::ColumnPath::FromDotString("float_field");
+  std::string path_to_double_field_ = "double_field";
+  std::string path_to_float_field_ = "float_field";
   // This vector will hold various decryption configurations.
   std::vector<std::shared_ptr<parquet::FileDecryptionProperties>>
       vector_of_decryption_configurations_;
@@ -138,13 +136,9 @@ class TestDecryptionConfiguration
 
     // Decryption configuration 3: Decrypt using explicit column and footer keys. Supply
     // aad_prefix.
-    std::shared_ptr<parquet::schema::ColumnPath> path_float_ptr =
-        parquet::schema::ColumnPath::FromDotString("float_field");
-    std::shared_ptr<parquet::schema::ColumnPath> path_double_ptr =
-        parquet::schema::ColumnPath::FromDotString("double_field");
-    std::map<std::shared_ptr<parquet::schema::ColumnPath>,
-             std::shared_ptr<parquet::ColumnDecryptionProperties>,
-             parquet::schema::ColumnPath::CmpColumnPath>
+    std::string path_float_ptr = "float_field";
+    std::string path_double_ptr = "double_field";
+    std::map<std::string, std::shared_ptr<parquet::ColumnDecryptionProperties>>
         decryption_cols;
     parquet::ColumnDecryptionProperties::Builder decryption_col_builder31(
         path_double_ptr);

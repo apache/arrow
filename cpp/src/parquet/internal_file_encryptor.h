@@ -74,10 +74,8 @@ class InternalFileEncryptor {
 
   std::shared_ptr<Encryptor> GetFooterEncryptor();
   std::shared_ptr<Encryptor> GetFooterSigningEncryptor();
-  std::shared_ptr<Encryptor> GetColumnMetaEncryptor(
-      const std::shared_ptr<schema::ColumnPath>& column_path);
-  std::shared_ptr<Encryptor> GetColumnDataEncryptor(
-      const std::shared_ptr<schema::ColumnPath>& column_path);
+  std::shared_ptr<Encryptor> GetColumnMetaEncryptor(const std::string& column_path);
+  std::shared_ptr<Encryptor> GetColumnDataEncryptor(const std::string& column_path);
   void WipeOutEncryptionKeys();
 
  private:

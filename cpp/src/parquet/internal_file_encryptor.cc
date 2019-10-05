@@ -86,13 +86,13 @@ std::shared_ptr<Encryptor> InternalFileEncryptor::GetFooterSigningEncryptor() {
 }
 
 std::shared_ptr<Encryptor> InternalFileEncryptor::GetColumnMetaEncryptor(
-    const std::shared_ptr<schema::ColumnPath>& column_path) {
-  return GetColumnEncryptor(column_path->ToDotString(), true);
+    const std::string& column_path) {
+  return GetColumnEncryptor(column_path, true);
 }
 
 std::shared_ptr<Encryptor> InternalFileEncryptor::GetColumnDataEncryptor(
-    const std::shared_ptr<schema::ColumnPath>& column_path) {
-  return GetColumnEncryptor(column_path->ToDotString(), false);
+    const std::string& column_path) {
+  return GetColumnEncryptor(column_path, false);
 }
 
 std::shared_ptr<Encryptor>
