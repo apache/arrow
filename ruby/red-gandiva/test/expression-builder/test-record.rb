@@ -15,32 +15,31 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module Gandiva
-  class ExpressionBuilder
-    class Record
-      def initialize(schema)
-        @schema = schema
-      end
+class TestExpressionBuilderRecord < Test::Unit::TestCase
+  def setup
+    @table = Arrow::Table.new(field: Arrow::Int32Array.new([1, 13, 3, 17]))
+    @schema = @table.schema
+  end
 
-      def respond_to_missing?(name, include_private)
-        return true if @schema[name]
-        super
-      end
+  def build
+    record = Gandiva::ExpressionBuilder::Record.new(@schema)
+    builder = yield(record)
+    builder.build
+  end
 
-      def method_missing(name, *args)
-        field = @schema[name]
-        return Field.new(field) if field
-        super
-      end
-
-      def [](name)
-        field = @schema[name]
-        if field
-          Field.new(field)
-        else
-          nil
-        end
-      end
+  test("name") do
+    node = build do |record|
+      record.field
     end
+    assert_equal("(int32) field",
+                 node.to_s)
+  end
+
+  test("#[]") do
+    node = build do |record|
+      record[:field]
+    end
+    assert_equal("(int32) field",
+                 node.to_s)
   end
 end
