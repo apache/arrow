@@ -83,11 +83,9 @@ class InternalFileEncryptor {
  private:
   FileEncryptionProperties* properties_;
 
-  std::map<std::shared_ptr<schema::ColumnPath>, std::shared_ptr<Encryptor>,
-           parquet::schema::ColumnPath::CmpColumnPath>
+  std::map<std::string, std::shared_ptr<Encryptor>>
       column_data_map_;
-  std::map<std::shared_ptr<schema::ColumnPath>, std::shared_ptr<Encryptor>,
-           parquet::schema::ColumnPath::CmpColumnPath>
+  std::map<std::string, std::shared_ptr<Encryptor>>
       column_metadata_map_;
 
   std::shared_ptr<Encryptor> footer_signing_encryptor_;
@@ -103,7 +101,7 @@ class InternalFileEncryptor {
   ::arrow::MemoryPool* pool_;
 
   std::shared_ptr<Encryptor> GetColumnEncryptor(
-      const std::shared_ptr<schema::ColumnPath>& column_path, bool metadata);
+      const std::string& column_path, bool metadata);
 
   encryption::AesEncryptor* GetMetaAesEncryptor(ParquetCipher::type algorithm,
                                                 size_t key_len);

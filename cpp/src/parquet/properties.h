@@ -486,7 +486,7 @@ class PARQUET_EXPORT WriterProperties {
   }
 
   std::shared_ptr<ColumnEncryptionProperties> column_encryption_properties(
-      const std::shared_ptr<schema::ColumnPath>& path) const {
+      const std::string& path) const {
     if (file_encryption_properties_) {
       return file_encryption_properties_->column_encryption_properties(path);
     } else {

@@ -33,11 +33,11 @@ void IntegerKeyIdRetriever::PutKey(uint32_t key_id, const std::string& key) {
   key_map_.insert({key_id, key});
 }
 
-const std::string& IntegerKeyIdRetriever::GetKey(const std::string& key_metadata) {
+std::string IntegerKeyIdRetriever::GetKey(const std::string& key_metadata) const {
   uint32_t key_id;
   memcpy(reinterpret_cast<uint8_t*>(&key_id), key_metadata.c_str(), 4);
 
-  return key_map_[key_id];
+  return key_map_.at(key_id);
 }
 
 // string key retriever
@@ -45,8 +45,8 @@ void StringKeyIdRetriever::PutKey(const std::string& key_id, const std::string& 
   key_map_.insert({key_id, key});
 }
 
-const std::string& StringKeyIdRetriever::GetKey(const std::string& key_id) {
-  return key_map_[key_id];
+std::string StringKeyIdRetriever::GetKey(const std::string& key_id) const {
+  return key_map_.at(key_id);
 }
 
 ColumnEncryptionProperties::Builder* ColumnEncryptionProperties::Builder::key(
@@ -259,7 +259,7 @@ FileEncryptionProperties::Builder::disable_aad_prefix_storage() {
 }
 
 ColumnEncryptionProperties::ColumnEncryptionProperties(
-    bool encrypted, const std::shared_ptr<schema::ColumnPath>& column_path,
+    bool encrypted, const std::string& column_path,
     const std::string& key, const std::string& key_metadata)
     : column_path_(column_path) {
   // column encryption properties object (with a column key) can be used for writing only
@@ -268,7 +268,7 @@ ColumnEncryptionProperties::ColumnEncryptionProperties(
   // out (set to 0 in memory).
   utilized_ = false;
 
-  DCHECK(column_path != nullptr);
+  DCHECK(!column_path.empty());
   if (!encrypted) {
     DCHECK(key.empty() && key_metadata.empty());
   }
@@ -288,10 +288,10 @@ ColumnEncryptionProperties::ColumnEncryptionProperties(
 }
 
 ColumnDecryptionProperties::ColumnDecryptionProperties(
-    const std::shared_ptr<schema::ColumnPath>& column_path, const std::string& key)
+    const std::string& column_path, const std::string& key)
     : column_path_(column_path) {
   utilized_ = false;
-  DCHECK(column_path != nullptr);
+  DCHECK(!column_path.empty());
 
   if (!key.empty()) {
     DCHECK(key.length() == 16 || key.length() == 24 || key.length() == 32);
@@ -300,11 +300,11 @@ ColumnDecryptionProperties::ColumnDecryptionProperties(
   key_ = key;
 }
 
-const std::string& FileDecryptionProperties::column_key(
-    const std::shared_ptr<schema::ColumnPath>& column_path) {
+std::string FileDecryptionProperties::column_key(
+    const std::string& column_path) const {
   if (column_decryption_properties_.find(column_path) !=
       column_decryption_properties_.end()) {
-    auto column_prop = column_decryption_properties_[column_path];
+    auto column_prop = column_decryption_properties_.at(column_path);
     if (column_prop != nullptr) {
       return column_prop->key();
     }
@@ -357,7 +357,7 @@ FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::footer_key
 
 std::shared_ptr<ColumnEncryptionProperties>
 FileEncryptionProperties::column_encryption_properties(
-    const std::shared_ptr<schema::ColumnPath>& column_path) {
+    const std::string& column_path) {
   if (encrypted_columns_.size() == 0) {
     auto builder = std::shared_ptr<ColumnEncryptionProperties::Builder>(
         new ColumnEncryptionProperties::Builder(column_path));

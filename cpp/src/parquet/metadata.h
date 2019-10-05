@@ -110,7 +110,7 @@ class PARQUET_EXPORT ColumnCryptoMetaData {
   static std::unique_ptr<ColumnCryptoMetaData> Make(const uint8_t* metadata);
   ~ColumnCryptoMetaData();
 
-  const std::vector<std::string>& path_in_schema() const;
+  std::shared_ptr<schema::ColumnPath> path_in_schema() const;
   bool encrypted_with_footer_key() const;
   const std::string& key_metadata() const;
 

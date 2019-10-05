@@ -50,21 +50,19 @@ int main(int argc, char** argv) {
   **********************************************************************************/
 
   // Encryption configuration: Encrypt two columns and the footer.
-  std::map<std::shared_ptr<parquet::schema::ColumnPath>,
-           std::shared_ptr<parquet::ColumnEncryptionProperties>,
-           parquet::schema::ColumnPath::CmpColumnPath>
+  std::map<std::string,
+           std::shared_ptr<parquet::ColumnEncryptionProperties>>
       encryption_cols;
-  std::shared_ptr<parquet::schema::ColumnPath> path_ptr =
-      parquet::schema::ColumnPath::FromDotString("double_field");
-  std::shared_ptr<parquet::schema::ColumnPath> path_ptr1 =
-      parquet::schema::ColumnPath::FromDotString("float_field");
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder0(path_ptr);
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder1(path_ptr1);
+  std::string column_path1 = "double_field";
+  std::string column_path2 = "float_field";
+
+  parquet::ColumnEncryptionProperties::Builder encryption_col_builder0(column_path1);
+  parquet::ColumnEncryptionProperties::Builder encryption_col_builder1(column_path2);
   encryption_col_builder0.key(kColumnEncryptionKey1)->key_id("kc1");
   encryption_col_builder1.key(kColumnEncryptionKey2)->key_id("kc2");
 
-  encryption_cols[path_ptr] = encryption_col_builder0.build();
-  encryption_cols[path_ptr1] = encryption_col_builder1.build();
+  encryption_cols[column_path1] = encryption_col_builder0.build();
+  encryption_cols[column_path2] = encryption_col_builder1.build();
 
   parquet::FileEncryptionProperties::Builder file_encryption_builder(
       kFooterEncryptionKey);

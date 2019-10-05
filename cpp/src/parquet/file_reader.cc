@@ -152,8 +152,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
     // The column is encrypted with its own key
     std::string column_key_metadata = crypto_metadata->key_metadata();
-    std::shared_ptr<schema::ColumnPath> column_path =
-        std::make_shared<schema::ColumnPath>(crypto_metadata->path_in_schema());
+    std::shared_ptr<schema::ColumnPath> column_path = crypto_metadata->path_in_schema();
 
     meta_decryptor =
         file_decryptor_->GetColumnMetaDecryptor(column_path, column_key_metadata);

@@ -40,19 +40,17 @@ static constexpr int32_t kAadFileUniqueLength = 8;
 
 class ColumnDecryptionProperties;
 using ColumnPathToDecryptionPropertiesMap =
-    std::map<std::shared_ptr<schema::ColumnPath>,
-             std::shared_ptr<ColumnDecryptionProperties>,
-             schema::ColumnPath::CmpColumnPath>;
+    std::map<std::string,
+             std::shared_ptr<ColumnDecryptionProperties>>;
 
 class ColumnEncryptionProperties;
 using ColumnPathToEncryptionPropertiesMap =
-    std::map<std::shared_ptr<schema::ColumnPath>,
-             std::shared_ptr<ColumnEncryptionProperties>,
-             schema::ColumnPath::CmpColumnPath>;
+    std::map<std::string,
+             std::shared_ptr<ColumnEncryptionProperties>>;
 
 class PARQUET_EXPORT DecryptionKeyRetriever {
  public:
-  virtual const std::string& GetKey(const std::string& key_metadata) = 0;
+  virtual std::string GetKey(const std::string& key_metadata) const = 0;
   virtual ~DecryptionKeyRetriever() {}
 };
 
@@ -60,7 +58,7 @@ class PARQUET_EXPORT DecryptionKeyRetriever {
 class PARQUET_EXPORT IntegerKeyIdRetriever : public DecryptionKeyRetriever {
  public:
   void PutKey(uint32_t key_id, const std::string& key);
-  const std::string& GetKey(const std::string& key_metadata);
+  std::string GetKey(const std::string& key_metadata) const;
 
  private:
   std::map<uint32_t, std::string> key_map_;
@@ -70,7 +68,7 @@ class PARQUET_EXPORT IntegerKeyIdRetriever : public DecryptionKeyRetriever {
 class PARQUET_EXPORT StringKeyIdRetriever : public DecryptionKeyRetriever {
  public:
   void PutKey(const std::string& key_id, const std::string& key);
-  const std::string& GetKey(const std::string& key_metadata);
+  std::string GetKey(const std::string& key_metadata) const;
 
  private:
   std::map<std::string, std::string> key_map_;
@@ -99,13 +97,13 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
  public:
   class PARQUET_EXPORT Builder {
    public:
-    /// Convenience builder for regular (not nested) columns.
+    /// Convenience builder for encrypted columns.
     explicit Builder(const std::string& name)
-        : Builder(schema::ColumnPath::FromDotString(name), true) {}
+        : Builder(name, true) {}
 
     /// Convenience builder for encrypted columns.
     explicit Builder(const std::shared_ptr<schema::ColumnPath>& path)
-        : Builder(path, true) {}
+        : Builder(path->ToDotString(), true) {}
 
     /// Set a column-specific key.
     /// If key is not set on an encrypted column, the column will
@@ -132,20 +130,20 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
     }
 
    private:
-    const std::shared_ptr<schema::ColumnPath> column_path_;
+    const std::string column_path_;
     bool encrypted_;
     std::string key_;
     std::string key_metadata_;
 
-    Builder(const std::shared_ptr<schema::ColumnPath>& path, bool encrypted)
+    Builder(const std::string path, bool encrypted)
         : column_path_(path), encrypted_(encrypted) {}
   };
 
-  const std::shared_ptr<schema::ColumnPath>& column_path() { return column_path_; }
+  std::string column_path() const { return column_path_; }
   bool is_encrypted() const { return encrypted_; }
   bool is_encrypted_with_footer_key() const { return encrypted_with_footer_key_; }
-  const std::string& key() const { return key_; }
-  const std::string& key_metadata() const { return key_metadata_; }
+  std::string key() const { return key_; }
+  std::string key_metadata() const { return key_metadata_; }
 
   /// Upon completion of file writing, the encryption key
   /// will be wiped out.
@@ -174,14 +172,14 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
   ColumnEncryptionProperties(ColumnEncryptionProperties&& other) = default;
 
  private:
-  const std::shared_ptr<schema::ColumnPath> column_path_;
+  const std::string column_path_;
   bool encrypted_;
   bool encrypted_with_footer_key_;
   std::string key_;
   std::string key_metadata_;
   bool utilized_;
   explicit ColumnEncryptionProperties(
-      bool encrypted, const std::shared_ptr<schema::ColumnPath>& column_path,
+      bool encrypted, const std::string& column_path,
       const std::string& key, const std::string& key_metadata);
 };
 
@@ -189,12 +187,11 @@ class PARQUET_EXPORT ColumnDecryptionProperties {
  public:
   class PARQUET_EXPORT Builder {
    public:
-    /// convenience builder for regular (not nested) columns.
     explicit Builder(const std::string& name)
-        : Builder(schema::ColumnPath::FromDotString(name)) {}
+        : column_path_(name) {}
 
     explicit Builder(const std::shared_ptr<schema::ColumnPath>& path)
-        : column_path_(path) {}
+        : Builder(path->ToDotString()) {}
 
     /// Set an explicit column key. If applied on a file that contains
     /// key metadata for this column the metadata will be ignored,
@@ -205,7 +202,7 @@ class PARQUET_EXPORT ColumnDecryptionProperties {
     std::shared_ptr<ColumnDecryptionProperties> build();
 
    private:
-    const std::shared_ptr<schema::ColumnPath> column_path_;
+    const std::string column_path_;
     std::string key_;
   };
 
@@ -213,8 +210,8 @@ class PARQUET_EXPORT ColumnDecryptionProperties {
   ColumnDecryptionProperties(const ColumnDecryptionProperties& other) = default;
   ColumnDecryptionProperties(ColumnDecryptionProperties&& other) = default;
 
-  const std::shared_ptr<schema::ColumnPath>& column_path() { return column_path_; }
-  const std::string& key() const { return key_; }
+  std::string column_path() const { return column_path_; }
+  std::string key() const { return key_; }
   bool is_utilized() { return utilized_; }
 
   /// ColumnDecryptionProperties object can be used for reading one file only.
@@ -230,7 +227,7 @@ class PARQUET_EXPORT ColumnDecryptionProperties {
   std::shared_ptr<ColumnDecryptionProperties> DeepClone();
 
  private:
-  const std::shared_ptr<schema::ColumnPath> column_path_;
+  const std::string column_path_;
   std::string key_;
   bool utilized_;
 
@@ -238,7 +235,7 @@ class PARQUET_EXPORT ColumnDecryptionProperties {
   /// to override key retriever (or to provide keys when key metadata and/or
   /// key retriever are not available)
   explicit ColumnDecryptionProperties(
-      const std::shared_ptr<schema::ColumnPath>& column_path, const std::string& key);
+      const std::string& column_path, const std::string& key);
 };
 
 class PARQUET_EXPORT AADPrefixVerifier {
@@ -340,16 +337,17 @@ class PARQUET_EXPORT FileDecryptionProperties {
     bool plaintext_files_allowed_;
   };
 
-  const std::string& column_key(const std::shared_ptr<schema::ColumnPath>& column_path);
+  std::string column_key(const std::string& column_path) const;
 
-  const std::string& footer_key() { return footer_key_; }
+  std::string footer_key() const { return footer_key_; }
 
-  const std::string& aad_prefix() { return aad_prefix_; }
+  std::string aad_prefix() const { return aad_prefix_; }
+
   std::shared_ptr<DecryptionKeyRetriever> key_retriever() { return key_retriever_; }
 
-  bool check_plaintext_footer_integrity() { return check_plaintext_footer_integrity_; }
+  bool check_plaintext_footer_integrity() const { return check_plaintext_footer_integrity_; }
 
-  bool plaintext_files_allowed() { return plaintext_files_allowed_; }
+  bool plaintext_files_allowed() const { return plaintext_files_allowed_; }
 
   const std::shared_ptr<AADPrefixVerifier>& aad_prefix_verifier() {
     return aad_prefix_verifier_;
@@ -461,18 +459,18 @@ class PARQUET_EXPORT FileEncryptionProperties {
   };
   bool encrypted_footer() const { return encrypted_footer_; }
 
-  const EncryptionAlgorithm algorithm() { return algorithm_; }
+  EncryptionAlgorithm algorithm() const { return algorithm_; }
 
-  const std::string& footer_key() { return footer_key_; }
+  std::string footer_key() const { return footer_key_; }
 
-  const std::string& footer_key_metadata() { return footer_key_metadata_; }
+  std::string footer_key_metadata() const { return footer_key_metadata_; }
 
-  const std::string& file_aad() const { return file_aad_; }
+  std::string file_aad() const { return file_aad_; }
 
   std::shared_ptr<ColumnEncryptionProperties> column_encryption_properties(
-      const std::shared_ptr<schema::ColumnPath>& column_path);
+      const std::string& column_path);
 
-  bool is_utilized() { return utilized_; }
+  bool is_utilized() const { return utilized_; }
 
   /// FileEncryptionProperties object can be used for writing one file only.
   /// Mark FileEncryptionProperties as utilized once it is used to write a file as the
@@ -490,7 +488,7 @@ class PARQUET_EXPORT FileEncryptionProperties {
   /// aadPrefix will be cloned too)
   std::shared_ptr<FileEncryptionProperties> DeepClone(std::string new_aad_prefix = "");
 
-  ColumnPathToEncryptionPropertiesMap encrypted_columns() { return encrypted_columns_; }
+  ColumnPathToEncryptionPropertiesMap encrypted_columns() const { return encrypted_columns_; }
 
  private:
   EncryptionAlgorithm algorithm_;

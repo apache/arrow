@@ -81,21 +81,19 @@ class InternalFileDecryptor {
   std::shared_ptr<Decryptor> GetFooterDecryptorForColumnMeta(const std::string& aad = "");
   std::shared_ptr<Decryptor> GetFooterDecryptorForColumnData(const std::string& aad = "");
   std::shared_ptr<Decryptor> GetColumnMetaDecryptor(
-      std::shared_ptr<schema::ColumnPath> column_path,
+      const std::shared_ptr<schema::ColumnPath>& column_path,
       const std::string& column_key_metadata, const std::string& aad = "");
   std::shared_ptr<Decryptor> GetColumnDataDecryptor(
-      std::shared_ptr<schema::ColumnPath> column_path,
+      const std::shared_ptr<schema::ColumnPath>& column_path,
       const std::string& column_key_metadata, const std::string& aad = "");
 
  private:
   FileDecryptionProperties* properties_;
   // Concatenation of aad_prefix (if exists) and aad_file_unique
   std::string file_aad_;
-  std::map<std::shared_ptr<schema::ColumnPath>, std::shared_ptr<Decryptor>,
-           parquet::schema::ColumnPath::CmpColumnPath>
+  std::map<std::string, std::shared_ptr<Decryptor>>
       column_data_map_;
-  std::map<std::shared_ptr<schema::ColumnPath>, std::shared_ptr<Decryptor>,
-           parquet::schema::ColumnPath::CmpColumnPath>
+  std::map<std::string, std::shared_ptr<Decryptor>>
       column_metadata_map_;
 
   std::shared_ptr<Decryptor> footer_metadata_decryptor_;
@@ -113,7 +111,7 @@ class InternalFileDecryptor {
 
   std::shared_ptr<Decryptor> GetFooterDecryptor(const std::string& aad, bool metadata);
   std::shared_ptr<Decryptor> GetColumnDecryptor(
-      std::shared_ptr<schema::ColumnPath> column_path,
+      const std::string& column_path,
       const std::string& column_key_metadata, const std::string& aad,
       bool metadata = false);
 

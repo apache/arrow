@@ -147,19 +147,19 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
 }
 
 std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnMetaDecryptor(
-    std::shared_ptr<schema::ColumnPath> column_path,
+    const std::shared_ptr<schema::ColumnPath>& column_path,
     const std::string& column_key_metadata, const std::string& aad) {
-  return GetColumnDecryptor(column_path, column_key_metadata, aad, true);
+  return GetColumnDecryptor(column_path->ToDotString(), column_key_metadata, aad, true);
 }
 
 std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDataDecryptor(
-    std::shared_ptr<schema::ColumnPath> column_path,
+    const std::shared_ptr<schema::ColumnPath>& column_path,
     const std::string& column_key_metadata, const std::string& aad) {
-  return GetColumnDecryptor(column_path, column_key_metadata, aad, false);
+  return GetColumnDecryptor(column_path->ToDotString(), column_key_metadata, aad, false);
 }
 
 std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
-    std::shared_ptr<schema::ColumnPath> column_path,
+    const std::string& column_path,
     const std::string& column_key_metadata, const std::string& aad, bool metadata) {
   std::string column_key;
   // first look if we already got the decryptor from before
@@ -181,14 +181,14 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
       column_key = properties_->key_retriever()->GetKey(column_key_metadata);
     } catch (KeyAccessDeniedException& e) {
       std::stringstream ss;
-      ss << "HiddenColumnException, path=" + column_path->ToDotString() + " " << e.what()
+      ss << "HiddenColumnException, path=" + column_path + " " << e.what()
          << "\n";
       throw HiddenColumnException(ss.str());
     }
   }
   if (column_key.empty()) {
     throw HiddenColumnException("HiddenColumnException, path=" +
-                                column_path->ToDotString());
+                                column_path);
   }
 
   // Create both data and metadata decryptors to avoid redundant retrieval of key
