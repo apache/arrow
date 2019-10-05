@@ -19,31 +19,36 @@ module Gandiva
   class ExpressionBuilder
     class Value
       def +(right)
-        Add.new(self, right)
+        Add.new(self, resolve(right))
       end
 
       def -(right)
-        Subtract.new(self, right)
+        Subtract.new(self, resolve(right))
       end
 
       def *(right)
-        Multiply.new(self, right)
+        Multiply.new(self, resolve(right))
       end
 
       def /(right)
-        Divide.new(self, right)
+        Divide.new(self, resolve(right))
       end
 
       def >(right)
-        GreaterThan.new(self, right)
+        GreaterThan.new(self, resolve(right))
       end
 
       def <(right)
-        LessThan.new(self, right)
+        LessThan.new(self, resolve(right))
       end
 
       def ==(right)
-        Equal.new(self, right)
+        Equal.new(self, resolve(right))
+      end
+
+      private
+      def resolve(value)
+        Literal.resolve(value) or value
       end
     end
   end

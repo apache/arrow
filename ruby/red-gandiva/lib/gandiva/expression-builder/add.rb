@@ -26,8 +26,14 @@ module Gandiva
 
       private
       def return_type(left_node, right_node)
-        # TODO: Use larger type
-        right_node.return_type
+        # TODO: More clever implementation. e.g. (int64, float) -> float
+        left_return_type = left_node.return_type
+        right_return_type = right_node.return_type
+        if left_return_type.bit_width > right_return_type.bit_width
+          left_return_type
+        else
+          right_return_type
+        end
       end
     end
   end
