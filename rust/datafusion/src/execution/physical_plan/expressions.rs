@@ -208,6 +208,129 @@ pub fn sum(expr: Arc<dyn PhysicalExpr>) -> Arc<dyn AggregateExpr> {
     Arc::new(Sum::new(expr))
 }
 
+/// AVG aggregate expression
+pub struct Avg {
+    expr: Arc<dyn PhysicalExpr>,
+}
+
+impl Avg {
+    /// Create a new AVG aggregate function
+    pub fn new(expr: Arc<dyn PhysicalExpr>) -> Self {
+        Self { expr }
+    }
+}
+
+impl AggregateExpr for Avg {
+    fn name(&self) -> String {
+        "AVG".to_string()
+    }
+
+    fn data_type(&self, input_schema: &Schema) -> Result<DataType> {
+        match self.expr.data_type(input_schema)? {
+            DataType::Int8
+            | DataType::Int16
+            | DataType::Int32
+            | DataType::Int64
+            | DataType::UInt8
+            | DataType::UInt16
+            | DataType::UInt32
+            | DataType::UInt64
+            | DataType::Float32
+            | DataType::Float64 => Ok(DataType::Float64),
+            other => Err(ExecutionError::General(format!(
+                "AVG does not support {:?}",
+                other
+            ))),
+        }
+    }
+
+    fn evaluate_input(&self, batch: &RecordBatch) -> Result<ArrayRef> {
+        self.expr.evaluate(batch)
+    }
+
+    fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>> {
+        Rc::new(RefCell::new(AvgAccumulator {
+            expr: self.expr.clone(),
+            sum: None,
+            count: None,
+        }))
+    }
+
+    fn create_combiner(&self, column_index: usize) -> Arc<dyn AggregateExpr> {
+        Arc::new(Avg::new(Arc::new(Column::new(column_index))))
+    }
+}
+
+macro_rules! avg_accumulate {
+    ($SELF:ident, $ARRAY:ident, $ROW_INDEX:expr, $ARRAY_TYPE:ident) => {{
+        if let Some(array) = $ARRAY.as_any().downcast_ref::<$ARRAY_TYPE>() {
+            if $ARRAY.is_valid($ROW_INDEX) {
+                let value = array.value($ROW_INDEX);
+                match ($SELF.sum, $SELF.count) {
+                    (Some(sum), Some(count)) => {
+                        $SELF.sum = Some(sum + value as f64);
+                        $SELF.count = Some(count + 1);
+                    }
+                    _ => {
+                        $SELF.sum = Some(value as f64);
+                        $SELF.count = Some(1);
+                    }
+                };
+            }
+            Ok(())
+        } else {
+            Err(ExecutionError::General(
+                "Failed to downcast array".to_string(),
+            ))
+        }
+    }};
+}
+struct AvgAccumulator {
+    expr: Arc<dyn PhysicalExpr>,
+    sum: Option<f64>,
+    count: Option<i64>,
+}
+
+impl Accumulator for AvgAccumulator {
+    fn accumulate(
+        &mut self,
+        batch: &RecordBatch,
+        array: &ArrayRef,
+        row_index: usize,
+    ) -> Result<()> {
+        match self.expr.data_type(batch.schema())? {
+            DataType::Int8 => avg_accumulate!(self, array, row_index, Int8Array),
+            DataType::Int16 => avg_accumulate!(self, array, row_index, Int16Array),
+            DataType::Int32 => avg_accumulate!(self, array, row_index, Int32Array),
+            DataType::Int64 => avg_accumulate!(self, array, row_index, Int64Array),
+            DataType::UInt8 => avg_accumulate!(self, array, row_index, UInt8Array),
+            DataType::UInt16 => avg_accumulate!(self, array, row_index, UInt16Array),
+            DataType::UInt32 => avg_accumulate!(self, array, row_index, UInt32Array),
+            DataType::UInt64 => avg_accumulate!(self, array, row_index, UInt64Array),
+            DataType::Float32 => avg_accumulate!(self, array, row_index, Float32Array),
+            DataType::Float64 => avg_accumulate!(self, array, row_index, Float64Array),
+            other => Err(ExecutionError::General(format!(
+                "AVG does not support {:?}",
+                other
+            ))),
+        }
+    }
+
+    fn get_value(&self) -> Result<Option<ScalarValue>> {
+        match (self.sum, self.count) {
+            (Some(sum), Some(count)) => {
+                Ok(Some(ScalarValue::Float64(sum / count as f64)))
+            }
+            _ => Ok(None),
+        }
+    }
+}
+
+/// Create a avg expression
+pub fn avg(expr: Arc<dyn PhysicalExpr>) -> Arc<dyn AggregateExpr> {
+    Arc::new(Avg::new(expr))
+}
+
 /// MAX aggregate expression
 pub struct Max {
     expr: Arc<dyn PhysicalExpr>,
@@ -1000,6 +1123,20 @@ mod tests {
 
         Ok(())
     }
+    #[test]
+    fn avg_contract() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+
+        let avg = avg(col(0));
+        assert_eq!("AVG".to_string(), avg.name());
+        assert_eq!(DataType::Float64, avg.data_type(&schema)?);
+
+        let combiner = avg.create_combiner(0);
+        assert_eq!("AVG".to_string(), combiner.name());
+        assert_eq!(DataType::Float64, combiner.data_type(&schema)?);
+
+        Ok(())
+    }
 
     #[test]
     fn sum_i32() -> Result<()> {
@@ -1009,6 +1146,18 @@ mod tests {
         let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
 
         assert_eq!(do_sum(&batch)?, Some(ScalarValue::Int64(15)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn avg_i32() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+
+        let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_avg(&batch)?, Some(ScalarValue::Float64(3_f64)));
 
         Ok(())
     }
@@ -1045,6 +1194,18 @@ mod tests {
         let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
 
         assert_eq!(do_sum(&batch)?, Some(ScalarValue::Int64(13)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn avg_i32_with_nulls() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+
+        let a = Int32Array::from(vec![Some(1), None, Some(3), Some(4), Some(5)]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_avg(&batch)?, Some(ScalarValue::Float64(3.25)));
 
         Ok(())
     }
@@ -1110,6 +1271,18 @@ mod tests {
     }
 
     #[test]
+    fn avg_i32_all_nulls() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Int32, false)]);
+
+        let a = Int32Array::from(vec![None, None]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_avg(&batch)?, None);
+
+        Ok(())
+    }
+
+    #[test]
     fn sum_u32() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::UInt32, false)]);
 
@@ -1117,6 +1290,18 @@ mod tests {
         let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
 
         assert_eq!(do_sum(&batch)?, Some(ScalarValue::UInt64(15_u64)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn avg_u32() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::UInt32, false)]);
+
+        let a = UInt32Array::from(vec![1_u32, 2_u32, 3_u32, 4_u32, 5_u32]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_avg(&batch)?, Some(ScalarValue::Float64(3_f64)));
 
         Ok(())
     }
@@ -1158,6 +1343,18 @@ mod tests {
     }
 
     #[test]
+    fn avg_f32() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Float32, false)]);
+
+        let a = Float32Array::from(vec![1_f32, 2_f32, 3_f32, 4_f32, 5_f32]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_avg(&batch)?, Some(ScalarValue::Float64(3_f64)));
+
+        Ok(())
+    }
+
+    #[test]
     fn max_f32() -> Result<()> {
         let schema = Schema::new(vec![Field::new("a", DataType::Float32, false)]);
 
@@ -1189,6 +1386,18 @@ mod tests {
         let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
 
         assert_eq!(do_sum(&batch)?, Some(ScalarValue::Float64(15_f64)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn avg_f64() -> Result<()> {
+        let schema = Schema::new(vec![Field::new("a", DataType::Float64, false)]);
+
+        let a = Float64Array::from(vec![1_f64, 2_f64, 3_f64, 4_f64, 5_f64]);
+        let batch = RecordBatch::try_new(Arc::new(schema.clone()), vec![Arc::new(a)])?;
+
+        assert_eq!(do_avg(&batch)?, Some(ScalarValue::Float64(3_f64)));
 
         Ok(())
     }
@@ -1290,6 +1499,17 @@ mod tests {
         let count = count(col(0));
         let accum = count.create_accumulator();
         let input = count.evaluate_input(batch)?;
+        let mut accum = accum.borrow_mut();
+        for i in 0..batch.num_rows() {
+            accum.accumulate(&batch, &input, i)?;
+        }
+        accum.get_value()
+    }
+
+    fn do_avg(batch: &RecordBatch) -> Result<Option<ScalarValue>> {
+        let avg = avg(col(0));
+        let accum = avg.create_accumulator();
+        let input = avg.evaluate_input(batch)?;
         let mut accum = accum.borrow_mut();
         for i in 0..batch.num_rows() {
             accum.accumulate(&batch, &input, i)?;

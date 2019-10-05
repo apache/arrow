@@ -38,7 +38,7 @@ use crate::execution::limit::LimitRelation;
 use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::datasource::DatasourceExec;
 use crate::execution::physical_plan::expressions::{
-    BinaryExpr, CastExpr, Column, Count, Literal, Max, Min, Sum,
+    Avg, BinaryExpr, CastExpr, Column, Count, Literal, Max, Min, Sum,
 };
 use crate::execution::physical_plan::hash_aggregate::HashAggregateExec;
 use crate::execution::physical_plan::merge::MergeExec;
@@ -331,6 +331,9 @@ impl ExecutionContext {
             Expr::AggregateFunction { name, args, .. } => {
                 match name.to_lowercase().as_ref() {
                     "sum" => Ok(Arc::new(Sum::new(
+                        self.create_physical_expr(&args[0], input_schema)?,
+                    ))),
+                    "avg" => Ok(Arc::new(Avg::new(
                         self.create_physical_expr(&args[0], input_schema)?,
                     ))),
                     "max" => Ok(Arc::new(Max::new(
@@ -637,6 +640,20 @@ mod tests {
     }
 
     #[test]
+    fn aggregate_avg() -> Result<()> {
+        let results = execute("SELECT AVG(c1), AVG(c2) FROM test", 4)?;
+        assert_eq!(results.len(), 1);
+
+        let batch = &results[0];
+        let expected: Vec<&str> = vec!["1.5,5.5"];
+        let mut rows = test::format_batch(&batch);
+        rows.sort();
+        assert_eq!(rows, expected);
+
+        Ok(())
+    }
+
+    #[test]
     fn aggregate_max() -> Result<()> {
         let results = execute("SELECT MAX(c1), MAX(c2) FROM test", 4)?;
         assert_eq!(results.len(), 1);
@@ -671,6 +688,20 @@ mod tests {
 
         let batch = &results[0];
         let expected: Vec<&str> = vec!["0,55", "1,55", "2,55", "3,55"];
+        let mut rows = test::format_batch(&batch);
+        rows.sort();
+        assert_eq!(rows, expected);
+
+        Ok(())
+    }
+
+    #[test]
+    fn aggregate_grouped_avg() -> Result<()> {
+        let results = execute("SELECT c1, AVG(c2) FROM test GROUP BY c1", 4)?;
+        assert_eq!(results.len(), 1);
+
+        let batch = &results[0];
+        let expected: Vec<&str> = vec!["0,5.5", "1,5.5", "2,5.5", "3,5.5"];
         let mut rows = test::format_batch(&batch);
         rows.sort();
         assert_eq!(rows, expected);
