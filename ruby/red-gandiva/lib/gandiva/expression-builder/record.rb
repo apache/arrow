@@ -28,9 +28,8 @@ module Gandiva
       end
 
       def method_missing(name, *args)
-        field = @schema[name]
-        return Field.new(field) if field
-        super
+        return super unless args.empty?
+        self[name] || super
       end
 
       def [](name)
