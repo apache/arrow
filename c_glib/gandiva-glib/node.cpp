@@ -216,7 +216,7 @@ ggandiva_node_class_init(GGandivaNodeClass *klass)
 
 /**
  * ggandiva_node_to_string:
- * @expression: A #GGandivaNode.
+ * @node: A #GGandivaNode.
  *
  * Returns: (transfer full): The string representation of the node.
  *
