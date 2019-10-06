@@ -17,8 +17,8 @@
 
 package org.apache.arrow;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
@@ -34,7 +34,7 @@ public class AvroToArrowConfigBuilder {
 
   private DictionaryProvider.MapDictionaryProvider provider;
 
-  private  List<String> skipFieldNames;
+  private Set<String> skipFieldNames;
 
   /**
    * Default constructor for the {@link AvroToArrowConfigBuilder}.
@@ -43,7 +43,7 @@ public class AvroToArrowConfigBuilder {
     this.allocator = allocator;
     this.targetBatchSize = AvroToArrowVectorIterator.DEFAULT_BATCH_SIZE;
     this.provider = new DictionaryProvider.MapDictionaryProvider();
-    this.skipFieldNames = new ArrayList<>();
+    this.skipFieldNames = new HashSet<>();
   }
 
   public AvroToArrowConfigBuilder setTargetBatchSize(int targetBatchSize) {
@@ -56,7 +56,7 @@ public class AvroToArrowConfigBuilder {
     return this;
   }
 
-  public AvroToArrowConfigBuilder setSkipFieldNames(List<String> skipFieldNames) {
+  public AvroToArrowConfigBuilder setSkipFieldNames(Set<String> skipFieldNames) {
     this.skipFieldNames = skipFieldNames;
     return this;
   }

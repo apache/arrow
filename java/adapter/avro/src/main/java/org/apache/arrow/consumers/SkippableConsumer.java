@@ -20,7 +20,6 @@ package org.apache.arrow.consumers;
 import java.io.IOException;
 
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.ValueVector;
 import org.apache.avro.io.Decoder;
 
 /**
@@ -57,6 +56,7 @@ public class SkippableConsumer implements Consumer {
   }
 
   @Override
-  public void resetValueVector(ValueVector vector) {
+  public boolean resetValueVector(FieldVector vector) {
+    return false;
   }
 }

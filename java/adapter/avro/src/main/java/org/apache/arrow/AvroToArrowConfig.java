@@ -17,7 +17,7 @@
 
 package org.apache.arrow;
 
-import java.util.List;
+import java.util.Set;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
@@ -44,7 +44,7 @@ public class AvroToArrowConfig {
   /**
    * The field names which to skip when reading decoder values.
    */
-  private final List<String> skipFieldNames;
+  private final Set<String> skipFieldNames;
 
   /**
    * Instantiate an instance.
@@ -57,7 +57,7 @@ public class AvroToArrowConfig {
       BufferAllocator allocator,
       int targetBatchSize,
       DictionaryProvider.MapDictionaryProvider provider,
-      List<String> skipFieldNames) {
+      Set<String> skipFieldNames) {
 
     Preconditions.checkArgument(targetBatchSize == AvroToArrowVectorIterator.NO_LIMIT_BATCH_SIZE ||
         targetBatchSize > 0, "invalid targetBatchSize: %s", targetBatchSize);
@@ -80,7 +80,7 @@ public class AvroToArrowConfig {
     return provider;
   }
 
-  public List<String> getSkipFieldNames() {
+  public Set<String> getSkipFieldNames() {
     return skipFieldNames;
   }
 }

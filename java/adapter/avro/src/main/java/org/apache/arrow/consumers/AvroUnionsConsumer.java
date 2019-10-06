@@ -29,20 +29,17 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume unions type values from avro decoder.
  * Write the data to {@link org.apache.arrow.vector.complex.UnionVector}.
  */
-public class AvroUnionsConsumer implements Consumer<UnionVector> {
+public class AvroUnionsConsumer extends BaseAvroConsumer<UnionVector> {
 
   private Consumer[] delegates;
   private Types.MinorType[] types;
-
-  private UnionVector vector;
-  private int currentIndex;
 
   /**
    * Instantiate an AvroUnionConsumer.
    */
   public AvroUnionsConsumer(UnionVector vector, Consumer[] delegates, Types.MinorType[] types) {
 
-    this.vector = vector;
+    super(vector);
     this.delegates = delegates;
     this.types = types;
   }
@@ -63,16 +60,6 @@ public class AvroUnionsConsumer implements Consumer<UnionVector> {
   }
 
   @Override
-  public void addNull() {
-    currentIndex++;
-  }
-
-  @Override
-  public void setPosition(int index) {
-    currentIndex = index;
-  }
-
-  @Override
   public FieldVector getVector() {
     vector.setValueCount(currentIndex);
     return this.vector;
@@ -80,16 +67,16 @@ public class AvroUnionsConsumer implements Consumer<UnionVector> {
 
   @Override
   public void close() throws Exception {
-    vector.close();
+    super.close();
     AutoCloseables.close(delegates);
   }
 
   @Override
-  public void resetValueVector(UnionVector vector) {
-    this.vector = vector;
+  public boolean resetValueVector(UnionVector vector) {
+    super.resetValueVector(vector);
     for (int i = 0; i < delegates.length; i++) {
       delegates[i].resetValueVector(vector.getChildrenFromFields().get(i));
     }
-    this.currentIndex = 0;
+    return true;
   }
 }

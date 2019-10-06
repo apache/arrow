@@ -29,6 +29,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.consumers.AvroArraysConsumer;
@@ -217,7 +218,7 @@ public class AvroToArrowUtils {
         break;
       default:
         // no-op, shouldn't get here
-        throw new RuntimeException("Can't convert avro type %s to arrow type." + type.getName());
+        throw new UnsupportedOperationException("Can't convert avro type %s to arrow type." + type.getName());
     }
 
     if (nullable) {
@@ -256,10 +257,25 @@ public class AvroToArrowUtils {
           break;
         }
       case ARRAY:
-        skipFunction = decoder -> decoder.skipArray();
+        Consumer elementDelegate = createSkippableConsumer(schema.getElementType());
+        skipFunction = decoder -> {
+          for (long i = decoder.skipArray(); i != 0; i = decoder.skipArray()) {
+            for (long j = 0; j < i; j++) {
+              elementDelegate.consume(decoder);
+            }
+          }
+        };
         break;
       case MAP:
-        skipFunction = decoder -> decoder.skipMap();
+        Consumer valueDelegate = createSkippableConsumer(schema.getElementType());
+        skipFunction = decoder -> {
+          for (long i = decoder.skipMap(); i != 0; i = decoder.skipMap()) {
+            for (long j = 0; j < i; j++) {
+              decoder.skipString();  // Discard key
+              valueDelegate.consume(decoder);
+            }
+          }
+        };
         break;
       case RECORD:
         List<Consumer> delegates = schema.getFields().stream().map(field ->
@@ -304,7 +320,7 @@ public class AvroToArrowUtils {
         break;
       default:
         // no-op, shouldn't get here
-        throw new RuntimeException("Invalid avro type: " + type.getName());
+        throw new UnsupportedOperationException("Invalid avro type: " + type.getName());
     }
 
     return new SkippableConsumer(skipFunction);
@@ -314,7 +330,7 @@ public class AvroToArrowUtils {
       Schema schema, AvroToArrowConfig config) {
 
     List<Consumer> consumers = new ArrayList<>();
-    final List<String> skipFieldNames = config.getSkipFieldNames();
+    final Set<String> skipFieldNames = config.getSkipFieldNames();
 
     Schema.Type type = schema.getType();
     if (type == Type.RECORD) {
@@ -387,7 +403,7 @@ public class AvroToArrowUtils {
         return new Field(name, FieldType.nullable(arrowType), Collections.singletonList(structField));
       case RECORD:
         List<Field> childFields = new ArrayList<>();
-        final List<String> skipFieldNames = config.getSkipFieldNames();
+        final Set<String> skipFieldNames = config.getSkipFieldNames();
         for (int i = 0; i < schema.getFields().size(); i++) {
           final Schema.Field field = schema.getFields().get(i);
           Schema childSchema = field.schema();
@@ -470,7 +486,7 @@ public class AvroToArrowUtils {
   private static Consumer createStructConsumer(Schema schema, String name, AvroToArrowConfig config,
       FieldVector consumerVector) {
 
-    final List<String> skipFieldNames = config.getSkipFieldNames();
+    final Set<String> skipFieldNames = config.getSkipFieldNames();
 
     StructVector structVector;
     if (consumerVector == null) {
@@ -615,7 +631,7 @@ public class AvroToArrowUtils {
 
     List<FieldVector> vectors = new ArrayList<>();
     List<Consumer> consumers = new ArrayList<>();
-    final List<String> skipFieldNames = config.getSkipFieldNames();
+    final Set<String> skipFieldNames = config.getSkipFieldNames();
 
     Schema.Type type = schema.getType();
     if (type == Type.RECORD) {
@@ -655,7 +671,7 @@ public class AvroToArrowUtils {
       root.setRowCount(valueCount);
     } catch (Exception e) {
       compositeConsumer.close();
-      throw new RuntimeException("Error occurs while consume process.", e);
+      throw new UnsupportedOperationException("Error occurs while consume process.", e);
     }
 
     return root;

@@ -22,7 +22,7 @@ import java.io.IOException;
 import org.apache.avro.io.Decoder;
 
 /**
- * Avro adapter skip function.
+ * Adapter function to skip (throw away) data from the decoder.
  */
 @FunctionalInterface
 public interface SkipFunction {

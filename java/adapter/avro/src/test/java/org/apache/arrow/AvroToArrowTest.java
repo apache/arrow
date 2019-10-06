@@ -26,8 +26,10 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VarCharVector;
@@ -124,7 +126,9 @@ public class AvroToArrowTest extends AvroTestBase {
 
   @Test
   public void testSkipFields() throws Exception {
-    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(Arrays.asList("f1")).build();
+    Set<String> skipFieldNames = new HashSet<>();
+    skipFieldNames.add("f1");
+    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
     Schema schema = getSchema("test_record.avsc");
     Schema expectedSchema = getSchema("test_skip_fields.avsc");
 
@@ -150,7 +154,9 @@ public class AvroToArrowTest extends AvroTestBase {
 
   @Test
   public void testSkipNestedFields() throws Exception {
-    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(Arrays.asList("f0")).build();
+    Set<String> skipFieldNames = new HashSet<>();
+    skipFieldNames.add("f0");
+    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
     Schema schema = getSchema("test_nested_record.avsc");
     Schema nestedSchema = schema.getFields().get(0).schema();
     ArrayList<GenericRecord> data = new ArrayList<>();

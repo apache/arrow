@@ -55,10 +55,10 @@ public class CompositeAvroConsumer implements AutoCloseable {
   public void resetConsumerVectors(VectorSchemaRoot root) {
     int index = 0;
     for (Consumer consumer : consumers) {
-      if (consumer instanceof SkippableConsumer) {
-        continue;
+      boolean resetResult = consumer.resetValueVector(root.getFieldVectors().get(index));
+      if (resetResult) {
+        index++;
       }
-      consumer.resetValueVector(root.getFieldVectors().get(index++));
     }
   }
 
