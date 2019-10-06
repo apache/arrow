@@ -19,6 +19,7 @@ FROM rust:1.38.0-stretch
 RUN rustup show
 
 # Install stable rustfmt
+RUN rustup install stable
 RUN rustup component add rustfmt
 
 # Install the specific version of Rust nightly that we need so that we don't need to download it for every CI run
