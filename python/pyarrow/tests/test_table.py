@@ -308,7 +308,7 @@ def test_recordbatch_column_sets_private_name():
 def test_recordbatch_from_arrays_validate_schema():
     # ARROW-6263
     arr = pa.array([1, 2])
-    schema = pa.schema([pa.field('f0', pa.utf8())])
+    schema = pa.schema([pa.field('f0', pa.list_(pa.utf8()))])
     with pytest.raises(NotImplementedError):
         pa.record_batch([arr], schema=schema)
 

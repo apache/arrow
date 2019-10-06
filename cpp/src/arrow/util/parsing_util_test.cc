@@ -15,12 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <locale>
-#include <stdexcept>
 #include <string>
 
 #include <gtest/gtest.h>
 
+#include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/util/parsing.h"
 
@@ -42,22 +41,6 @@ void AssertConversionFails(ConverterType& converter, const std::string& s) {
   ASSERT_FALSE(converter(s.data(), s.length(), &out))
       << "Conversion should have failed for '" << s << "' (returned " << out << ")";
 }
-
-class LocaleGuard {
- public:
-  explicit LocaleGuard(const char* new_locale) : global_locale_(std::locale()) {
-    try {
-      std::locale::global(std::locale(new_locale));
-    } catch (std::runtime_error&) {
-      // Locale unavailable, ignore
-    }
-  }
-
-  ~LocaleGuard() { std::locale::global(global_locale_); }
-
- protected:
-  std::locale global_locale_;
-};
 
 TEST(StringConversion, ToBoolean) {
   StringConverter<BooleanType> converter;
@@ -98,11 +81,7 @@ TEST(StringConversion, ToDouble) {
   AssertConversionFails(converter, "e");
 }
 
-#ifndef _WIN32
-// Test that casting is locale-independent
-// ARROW-6108: can't run these tests on Windows.  std::locale() will simply throw
-// on release builds, but may crash with an assertion failure on debug builds.
-// (similar issue here: https://gerrit.libreoffice.org/#/c/54110/)
+#if !defined(_WIN32) || defined(NDEBUG)
 
 TEST(StringConversion, ToFloatLocale) {
   // French locale uses the comma as decimal point

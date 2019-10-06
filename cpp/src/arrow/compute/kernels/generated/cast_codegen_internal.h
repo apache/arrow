@@ -27,7 +27,9 @@
   TEMPLATE(BooleanType, UInt64Type) \
   TEMPLATE(BooleanType, Int64Type) \
   TEMPLATE(BooleanType, FloatType) \
-  TEMPLATE(BooleanType, DoubleType)
+  TEMPLATE(BooleanType, DoubleType) \
+  TEMPLATE(BooleanType, StringType) \
+  TEMPLATE(BooleanType, LargeStringType)
 
 #define UINT8_CASES(TEMPLATE) \
   TEMPLATE(UInt8Type, BooleanType) \
@@ -39,7 +41,9 @@
   TEMPLATE(UInt8Type, UInt64Type) \
   TEMPLATE(UInt8Type, Int64Type) \
   TEMPLATE(UInt8Type, FloatType) \
-  TEMPLATE(UInt8Type, DoubleType)
+  TEMPLATE(UInt8Type, DoubleType) \
+  TEMPLATE(UInt8Type, StringType) \
+  TEMPLATE(UInt8Type, LargeStringType)
 
 #define INT8_CASES(TEMPLATE) \
   TEMPLATE(Int8Type, BooleanType) \
@@ -51,7 +55,9 @@
   TEMPLATE(Int8Type, UInt64Type) \
   TEMPLATE(Int8Type, Int64Type) \
   TEMPLATE(Int8Type, FloatType) \
-  TEMPLATE(Int8Type, DoubleType)
+  TEMPLATE(Int8Type, DoubleType) \
+  TEMPLATE(Int8Type, StringType) \
+  TEMPLATE(Int8Type, LargeStringType)
 
 #define UINT16_CASES(TEMPLATE) \
   TEMPLATE(UInt16Type, BooleanType) \
@@ -63,7 +69,9 @@
   TEMPLATE(UInt16Type, UInt64Type) \
   TEMPLATE(UInt16Type, Int64Type) \
   TEMPLATE(UInt16Type, FloatType) \
-  TEMPLATE(UInt16Type, DoubleType)
+  TEMPLATE(UInt16Type, DoubleType) \
+  TEMPLATE(UInt16Type, StringType) \
+  TEMPLATE(UInt16Type, LargeStringType)
 
 #define INT16_CASES(TEMPLATE) \
   TEMPLATE(Int16Type, BooleanType) \
@@ -75,7 +83,9 @@
   TEMPLATE(Int16Type, UInt64Type) \
   TEMPLATE(Int16Type, Int64Type) \
   TEMPLATE(Int16Type, FloatType) \
-  TEMPLATE(Int16Type, DoubleType)
+  TEMPLATE(Int16Type, DoubleType) \
+  TEMPLATE(Int16Type, StringType) \
+  TEMPLATE(Int16Type, LargeStringType)
 
 #define UINT32_CASES(TEMPLATE) \
   TEMPLATE(UInt32Type, BooleanType) \
@@ -87,7 +97,9 @@
   TEMPLATE(UInt32Type, UInt64Type) \
   TEMPLATE(UInt32Type, Int64Type) \
   TEMPLATE(UInt32Type, FloatType) \
-  TEMPLATE(UInt32Type, DoubleType)
+  TEMPLATE(UInt32Type, DoubleType) \
+  TEMPLATE(UInt32Type, StringType) \
+  TEMPLATE(UInt32Type, LargeStringType)
 
 #define UINT64_CASES(TEMPLATE) \
   TEMPLATE(UInt64Type, BooleanType) \
@@ -99,7 +111,9 @@
   TEMPLATE(UInt64Type, Int32Type) \
   TEMPLATE(UInt64Type, Int64Type) \
   TEMPLATE(UInt64Type, FloatType) \
-  TEMPLATE(UInt64Type, DoubleType)
+  TEMPLATE(UInt64Type, DoubleType) \
+  TEMPLATE(UInt64Type, StringType) \
+  TEMPLATE(UInt64Type, LargeStringType)
 
 #define INT32_CASES(TEMPLATE) \
   TEMPLATE(Int32Type, BooleanType) \
@@ -111,7 +125,9 @@
   TEMPLATE(Int32Type, UInt64Type) \
   TEMPLATE(Int32Type, Int64Type) \
   TEMPLATE(Int32Type, FloatType) \
-  TEMPLATE(Int32Type, DoubleType)
+  TEMPLATE(Int32Type, DoubleType) \
+  TEMPLATE(Int32Type, StringType) \
+  TEMPLATE(Int32Type, LargeStringType)
 
 #define INT64_CASES(TEMPLATE) \
   TEMPLATE(Int64Type, BooleanType) \
@@ -123,7 +139,9 @@
   TEMPLATE(Int64Type, Int32Type) \
   TEMPLATE(Int64Type, UInt64Type) \
   TEMPLATE(Int64Type, FloatType) \
-  TEMPLATE(Int64Type, DoubleType)
+  TEMPLATE(Int64Type, DoubleType) \
+  TEMPLATE(Int64Type, StringType) \
+  TEMPLATE(Int64Type, LargeStringType)
 
 #define FLOAT_CASES(TEMPLATE) \
   TEMPLATE(FloatType, BooleanType) \
@@ -135,7 +153,9 @@
   TEMPLATE(FloatType, Int32Type) \
   TEMPLATE(FloatType, UInt64Type) \
   TEMPLATE(FloatType, Int64Type) \
-  TEMPLATE(FloatType, DoubleType)
+  TEMPLATE(FloatType, DoubleType) \
+  TEMPLATE(FloatType, StringType) \
+  TEMPLATE(FloatType, LargeStringType)
 
 #define DOUBLE_CASES(TEMPLATE) \
   TEMPLATE(DoubleType, BooleanType) \
@@ -147,7 +167,9 @@
   TEMPLATE(DoubleType, Int32Type) \
   TEMPLATE(DoubleType, UInt64Type) \
   TEMPLATE(DoubleType, Int64Type) \
-  TEMPLATE(DoubleType, FloatType)
+  TEMPLATE(DoubleType, FloatType) \
+  TEMPLATE(DoubleType, StringType) \
+  TEMPLATE(DoubleType, LargeStringType)
 
 #define DATE32_CASES(TEMPLATE) \
   TEMPLATE(Date32Type, Date64Type)

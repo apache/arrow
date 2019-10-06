@@ -30,6 +30,7 @@ add_arrow_test(utility-test
                SOURCES
                align_util_test.cc
                checked_cast_test.cc
+               formatting_util_test.cc
                key_value_metadata_test.cc
                hashing_test.cc
                int_util_test.cc

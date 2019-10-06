@@ -18,11 +18,14 @@
 #include "benchmark/benchmark.h"
 
 #include <limits>
+#include <numeric>
 #include <string>
 #include <type_traits>
 #include <vector>
 
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
+#include "arrow/util/formatting.h"
 #include "arrow/util/parsing.h"
 
 namespace arrow {
@@ -66,6 +69,32 @@ static std::vector<std::string> MakeTimestampStrings(int32_t num_items) {
     strings.push_back(base_strings[i % base_strings.size()]);
   }
   return strings;
+}
+
+template <typename c_int, typename c_int_limits = std::numeric_limits<c_int>>
+static typename std::enable_if<c_int_limits::is_signed, std::vector<c_int>>::type
+MakeInts(int32_t num_items) {
+  std::vector<c_int> out;
+  // C++ doesn't guarantee that all integer types support std::uniform_int_distribution,
+  // so use a known type (int64_t)
+  randint<int64_t, c_int>(num_items, c_int_limits::min(), c_int_limits::max(), &out);
+  return out;
+}
+
+template <typename c_int, typename c_int_limits = std::numeric_limits<c_int>>
+static typename std::enable_if<!c_int_limits::is_signed, std::vector<c_int>>::type
+MakeInts(int32_t num_items) {
+  std::vector<c_int> out;
+  // See above.
+  randint<uint64_t, c_int>(num_items, c_int_limits::min(), c_int_limits::max(), &out);
+  return out;
+}
+
+template <typename c_float>
+static std::vector<c_float> MakeFloats(int32_t num_items) {
+  std::vector<c_float> out;
+  random_real<double, c_float>(num_items, /*seed =*/42, -1e10, 1e10, &out);
+  return out;
 }
 
 template <typename ARROW_TYPE, typename C_TYPE = typename ARROW_TYPE::c_type>
@@ -131,6 +160,49 @@ static void TimestampParsing(benchmark::State& state) {  // NOLINT non-const ref
   state.SetItemsProcessed(state.iterations() * strings.size());
 }
 
+struct DummyAppender {
+  Status operator()(util::string_view v) {
+    if (pos_ >= static_cast<int32_t>(v.size())) {
+      pos_ = 0;
+    }
+    total_ += v[pos_++];
+    return Status::OK();
+  }
+
+  int64_t total_ = 0;
+  int32_t pos_ = 0;
+};
+
+template <typename ARROW_TYPE, typename C_TYPE = typename ARROW_TYPE::c_type>
+static void IntegerFormatting(benchmark::State& state) {  // NOLINT non-const reference
+  std::vector<C_TYPE> values = MakeInts<C_TYPE>(1000);
+  StringFormatter<ARROW_TYPE> formatter;
+
+  while (state.KeepRunning()) {
+    DummyAppender appender;
+    for (const auto value : values) {
+      ABORT_NOT_OK(formatter(value, appender));
+    }
+    benchmark::DoNotOptimize(appender.total_);
+  }
+  state.SetItemsProcessed(state.iterations() * values.size());
+}
+
+template <typename ARROW_TYPE, typename C_TYPE = typename ARROW_TYPE::c_type>
+static void FloatFormatting(benchmark::State& state) {  // NOLINT non-const reference
+  std::vector<C_TYPE> values = MakeFloats<C_TYPE>(1000);
+  StringFormatter<ARROW_TYPE> formatter;
+
+  while (state.KeepRunning()) {
+    DummyAppender appender;
+    for (const auto value : values) {
+      ABORT_NOT_OK(formatter(value, appender));
+    }
+    benchmark::DoNotOptimize(appender.total_);
+  }
+  state.SetItemsProcessed(state.iterations() * values.size());
+}
+
 BENCHMARK_TEMPLATE(IntegerParsing, Int8Type);
 BENCHMARK_TEMPLATE(IntegerParsing, Int16Type);
 BENCHMARK_TEMPLATE(IntegerParsing, Int32Type);
@@ -147,6 +219,18 @@ BENCHMARK_TEMPLATE(TimestampParsing, TimeUnit::SECOND);
 BENCHMARK_TEMPLATE(TimestampParsing, TimeUnit::MILLI);
 BENCHMARK_TEMPLATE(TimestampParsing, TimeUnit::MICRO);
 BENCHMARK_TEMPLATE(TimestampParsing, TimeUnit::NANO);
+
+BENCHMARK_TEMPLATE(IntegerFormatting, Int8Type);
+BENCHMARK_TEMPLATE(IntegerFormatting, Int16Type);
+BENCHMARK_TEMPLATE(IntegerFormatting, Int32Type);
+BENCHMARK_TEMPLATE(IntegerFormatting, Int64Type);
+BENCHMARK_TEMPLATE(IntegerFormatting, UInt8Type);
+BENCHMARK_TEMPLATE(IntegerFormatting, UInt16Type);
+BENCHMARK_TEMPLATE(IntegerFormatting, UInt32Type);
+BENCHMARK_TEMPLATE(IntegerFormatting, UInt64Type);
+
+BENCHMARK_TEMPLATE(FloatFormatting, FloatType);
+BENCHMARK_TEMPLATE(FloatFormatting, DoubleType);
 
 }  // namespace internal
 }  // namespace arrow

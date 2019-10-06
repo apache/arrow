@@ -33,6 +33,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/formatting.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/parsing.h"  // IWYU pragma: keep
@@ -1001,6 +1002,49 @@ struct CastFunctor<TimestampType, I,
         return;
       }
     }
+  }
+};
+
+// ----------------------------------------------------------------------
+// Number / Boolean to String
+
+template <typename I, typename O>
+struct CastFunctor<O, I,
+                   typename std::enable_if<is_any_string_type<O>::value &&
+                                           (is_number_type<I>::value ||
+                                            std::is_same<I, BooleanType>::value)>::type> {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
+    ctx->SetStatus(Convert(ctx, options, input, output));
+  }
+
+  Status Convert(FunctionContext* ctx, const CastOptions& options, const ArrayData& input,
+                 ArrayData* output) {
+    using value_type = typename TypeTraits<I>::CType;
+    using BuilderType = typename TypeTraits<O>::BuilderType;
+    using FormatterType = typename internal::StringFormatter<I>;
+
+    struct Visitor {
+      Visitor(FunctionContext* ctx, const ArrayData& input)
+          : formatter_(input.type), builder_(input.type, ctx->memory_pool()) {}
+
+      Status VisitNull() { return builder_.AppendNull(); }
+
+      Status VisitValue(value_type value) {
+        return formatter_(value,
+                          [this](util::string_view v) { return builder_.Append(v); });
+      }
+
+      FormatterType formatter_;
+      BuilderType builder_;
+    };
+
+    Visitor visitor(ctx, input);
+    RETURN_NOT_OK(ArrayDataVisitor<I>::Visit(input, &visitor));
+    std::shared_ptr<Array> output_array;
+    RETURN_NOT_OK(visitor.builder_.Finish(&output_array));
+    *output = std::move(*output_array->data());
+    return Status::OK();
   }
 };
 
