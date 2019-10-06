@@ -202,8 +202,8 @@ enum IntervalUnit: short { YEAR_MONTH, DAY_TIME}
 // A "calendar" interval which models types that don't necessarily
 // have a precise duration without the context of a base timestamp (e.g.
 // days can differ in length during day light savings time transitions).
-// YEAR_MONTH - Indicates the number of elapsed whole months, stored as 
-//   4-byte integers. 
+// YEAR_MONTH - Indicates the number of elapsed whole months, stored as
+//   4-byte integers.
 // DAY_TIME - Indicates the number of elapsed days and milliseconds,
 //   stored as 2 contiguous 32-bit integers (8-bytes in total).  Support
 //   of this IntervalUnit is not required for full arrow compatibility.
@@ -211,7 +211,7 @@ table Interval {
   unit: IntervalUnit;
 }
 
-// An absolute length of time unrelated to any calendar artifacts.  
+// An absolute length of time unrelated to any calendar artifacts.
 //
 // For the purposes of Arrow Implementations, adding this value to a Timestamp
 // ("t1") naively (i.e. simply summing the two number) is acceptable even
@@ -323,7 +323,10 @@ struct Buffer {
   offset: long;
 
   /// The absolute length (in bytes) of the memory buffer. The memory is found
-  /// from offset (inclusive) to offset + length (non-inclusive).
+  /// from offset (inclusive) to offset + length (non-inclusive). When building
+  /// messages using the encapsulated IPC message, padding bytes may be written
+  /// after a buffer, but such padding bytes do not need to be accounted for in
+  /// the size here.
   length: long;
 }
 
