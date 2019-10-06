@@ -15,12 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM rustlang/rust:nightly
+FROM rust:1.38.0-stretch
+RUN rustup show
 
-# Install the specific version of Rust nightly that we need so that we don't need to download it for every build
+# Install stable rustfmt
+RUN rustup component add rustfmt
+
+# Install the specific version of Rust nightly that we need so that we don't need to download it for every CI run
 COPY rust/rust-toolchain /tmp
 RUN rustup install `cat /tmp/rust-toolchain`
 RUN rustup default `cat /tmp/rust-toolchain`
+
+# Enable stable rustfmt for nightly Rust
+RUN rustup component add rustfmt --toolchain stable-x86_64-unknown-linux-gnu
 
 # Set environment variables for location of test data required by unit and integration tests
 ENV ARROW_TEST_DATA=/arrow/testing/data

@@ -19,4 +19,35 @@
 set -e
 
 cd /arrow/rust
+
+# show activated toolchain
+rustup show
+
+# raises on any formatting errors
+cargo +stable fmt --all -- --check
+
+# build entire project
+RUSTFLAGS="-D warnings" cargo build --all-targets
+
+# run tests
 cargo test
+
+# make sure we can build Arrow sub-crate without default features
+pushd arrow
+cargo build --no-default-features
+popd
+
+# run Arrow examples
+pushd arrow
+cargo run --example builders
+cargo run --example dynamic_types
+cargo run --example read_csv
+cargo run --example read_csv_infer_schema
+popd
+
+# run DataFusion examples
+pushd datafusion
+cargo run --example csv_sql
+cargo run --example parquet_sql
+popd
+
