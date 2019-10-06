@@ -57,6 +57,7 @@ Makefile.in
 /*-glib/stamp-*
 /arrow-glib/version.h
 /arrow-glib/*.pc
+/gandiva-glib/version.h
 /gandiva-glib/*.pc
 /parquet-glib/*.pc
 /plasma-glib/*.pc
