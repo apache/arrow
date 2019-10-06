@@ -323,12 +323,10 @@ struct Buffer {
   offset: long;
 
   /// The absolute length (in bytes) of the memory buffer. The memory is found
-  /// from offset (inclusive) to offset + length (non-inclusive). In record
-  /// batch bodies following the IPC protocol, buffer lengths are always padded
-  /// to a minimum size multiple of 8, but the length here is the Buffer size
-  /// that the writer intends the reader to receive. For example, a buffer of
-  /// size 1 may go on the wire with 1 byte plus 7 bytes of padding, though the
-  /// length here can either be 1 or 8
+  /// from offset (inclusive) to offset + length (non-inclusive). When building
+  /// messages using the encapsulated IPC message, padding bytes may be written
+  /// after a buffer, but such padding bytes do not need to be accounted for in
+  /// the size here.
   length: long;
 }
 
