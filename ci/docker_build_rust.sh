@@ -23,8 +23,13 @@ cd /arrow/rust
 # show activated toolchain
 rustup show
 
+# clean first
+cargo clean
+
 # raises on any formatting errors
+echo "Running formatting checks ..."
 cargo +stable fmt --all -- --check
+echo "Formatting checks completed"
 
 # build entire project
 RUSTFLAGS="-D warnings" cargo build --all-targets
