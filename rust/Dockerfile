@@ -20,7 +20,9 @@ FROM rustlang/rust:nightly
 # Install the specific version of Rust nightly that we need so that we don't need to download it for every build
 COPY rust/rust-toolchain /tmp
 RUN rustup install `cat /tmp/rust-toolchain`
+RUN rustup default `cat /tmp/rust-toolchain`
 
+# Set environment variables for location of test data required by unit and integration tests
 ENV ARROW_TEST_DATA=/arrow/testing/data
 ENV PARQUET_TEST_DATA=/arrow/cpp/submodules/parquet-testing/data
 
