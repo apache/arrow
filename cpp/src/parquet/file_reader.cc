@@ -89,7 +89,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
       : source_(source),
         file_metadata_(file_metadata),
         properties_(props),
-        row_group_ordinal_((int16_t)row_group_number),
+        row_group_ordinal_(row_group_number),
         file_decryptor_(file_decryptor) {
     row_group_metadata_ = file_metadata->RowGroup(row_group_number);
   }
@@ -130,14 +130,11 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
     // Column is encrypted only if crypto_metadata exists.
     if (!crypto_metadata) {
-      CryptoContext ctx(col->has_dictionary_page(), row_group_ordinal_,
-                        static_cast<int16_t>(i), NULLPTR, NULLPTR);
       return PageReader::Open(stream, col->num_values(), col->compression(),
-                              properties_.memory_pool(), &ctx);
+                              properties_.memory_pool());
     }
 
     // The column is encrypted
-
     std::shared_ptr<Decryptor> meta_decryptor;
     std::shared_ptr<Decryptor> data_decryptor;
     // The column is encrypted with footer key
@@ -198,8 +195,9 @@ class SerializedFile : public ParquetFileReader::Contents {
   }
 
   std::shared_ptr<RowGroupReader> GetRowGroup(int i) override {
-    std::unique_ptr<SerializedRowGroup> contents(new SerializedRowGroup(
-        source_, file_metadata_.get(), i, properties_, file_decryptor_.get()));
+    std::unique_ptr<SerializedRowGroup> contents(
+        new SerializedRowGroup(source_, file_metadata_.get(), static_cast<int16_t>(i),
+                               properties_, file_decryptor_.get()));
     return std::make_shared<RowGroupReader>(std::move(contents));
   }
 
@@ -386,7 +384,8 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithPlaintextFooter(
         file_metadata_->footer_signing_key_metadata(), properties_.memory_pool()));
 
     if (file_decryption_properties->check_plaintext_footer_integrity()) {
-      if (metadata_len - read_metadata_len != 28) {
+      if (metadata_len - read_metadata_len !=
+          (parquet::encryption::kGcmTagLength + parquet::encryption::kNonceLength)) {
         throw ParquetException(
             "Invalid parquet file. Cannot verify plaintext mode footer.");
       }
