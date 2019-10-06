@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,13 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM rustlang/rust:nightly
+set -e
 
-# Install the specific version of Rust nightly that we need so that we don't need to download it for every build
-COPY rust/rust-toolchain /tmp
-RUN rustup install `cat /tmp/rust-toolchain`
-
-ENV ARROW_TEST_DATA=/arrow/testing/data
-ENV PARQUET_TEST_DATA=/arrow/cpp/submodules/parquet-testing/data
-
-CMD ["/bin/bash", "-c", "arrow/ci/docker_build_rust.sh"]
+cd /arrow/rust
+cargo test
