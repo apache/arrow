@@ -52,5 +52,30 @@ TEST_F(TestSimpleScanner, Scan) {
   AssertScannerEquals(reader.get(), &scanner);
 }
 
+TEST_F(TestSimpleScanner, ToTable) {
+  constexpr int64_t kBatchSize = 1024;
+  constexpr int64_t kNumberBatches = 16;
+
+  auto s = schema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, s);
+  std::vector<std::shared_ptr<RecordBatch>> batches{kNumberBatches, batch};
+
+  std::shared_ptr<Table> expected;
+  ASSERT_OK(Table::FromRecordBatches(batches, &expected));
+
+  auto fragment = std::make_shared<SimpleDataFragment>(batches);
+  DataFragmentVector fragments{1, fragment};
+
+  std::vector<std::shared_ptr<DataSource>> sources = {
+      std::make_shared<SimpleDataSource>(fragments),
+  };
+
+  auto scanner = std::make_shared<SimpleScanner>(sources, options_, ctx_);
+  std::shared_ptr<Table> actual;
+  ASSERT_OK(Scanner::ToTable(scanner, &actual));
+
+  AssertTablesEqual(*expected, *actual);
+}
+
 }  // namespace dataset
 }  // namespace arrow

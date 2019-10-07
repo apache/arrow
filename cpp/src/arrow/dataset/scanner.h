@@ -27,6 +27,9 @@
 #include "arrow/memory_pool.h"
 
 namespace arrow {
+
+class Table;
+
 namespace dataset {
 
 /// \brief Shared state for a Scan operation
@@ -99,6 +102,12 @@ class ARROW_DS_EXPORT Scanner {
   virtual ScanTaskIterator Scan() = 0;
 
   virtual ~Scanner() = default;
+
+  /// \brief Convert a Scanner into a Table.
+  ///
+  /// Use this convenience utility with care. This will serially materialize the
+  /// Scan result in memory before creating the Table.
+  static Status ToTable(std::shared_ptr<Scanner> scanner, std::shared_ptr<Table>* out);
 };
 
 /// \brief SimpleScanner is a trivial Scanner implementation that flattens
