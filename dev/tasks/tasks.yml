@@ -51,17 +51,19 @@ groups:
 
   linux:
     - debian-stretch
-    - debian-stretch-arm64
     - debian-buster
-    - debian-buster-arm64
     - ubuntu-xenial
-    - ubuntu-xenial-arm64
     - ubuntu-bionic
-    - ubuntu-bionic-arm64
     - ubuntu-disco
-    - ubuntu-disco-arm64
     - centos-6
     - centos-7
+
+  linux-arm:
+    - debian-stretch-arm64
+    - debian-buster-arm64
+    - ubuntu-xenial-arm64
+    - ubuntu-bionic-arm64
+    - ubuntu-disco-arm64
     - centos-7-aarch64
 
   gandiva:
@@ -148,18 +150,12 @@ groups:
     - wheel-win-cp36m
     - wheel-win-cp37m
     - debian-stretch
-    - debian-stretch-arm64
     - debian-buster
-    - debian-buster-arm64
     - ubuntu-xenial
-    - ubuntu-xenial-arm64
     - ubuntu-bionic
-    - ubuntu-bionic-arm64
     - ubuntu-disco
-    - ubuntu-disco-arm64
     - centos-6
     - centos-7
-    - centos-7-aarch64
     - homebrew-cpp
     - homebrew-cpp-autobrew
     - gandiva-jar-trusty
