@@ -443,10 +443,12 @@ test_integration() {
 
   pushd integration
 
-  if [ ${TEST_INTEGRATION_SELECTED} -gt 0 ]; then
-    INTEGRATION_TEST_ARGS="--enable-c++=${TEST_CPP} --enable-java=${TEST_JAVA} --enable-js=${TEST_JS} --enable-go=${TEST_GO}"
-  else
+  if [ ${TEST_INTEGRATION} -gt 0 ]; then
+    # Default to test all languages
     INTEGRATION_TEST_ARGS=
+  else
+    # Run selective tests
+    INTEGRATION_TEST_ARGS="--enable-c++=${TEST_INTEGRATION_CPP} --enable-java=${TEST_INTEGRATION_JAVA} --enable-js=${TEST_INTEGRATION_JS} --enable-go=${TEST_INTEGRATION_GO}"
   fi
 
   if [ "${ARROW_FLIGHT}" = "ON" ]; then
@@ -507,7 +509,11 @@ test_source_distribution() {
   if [ ${TEST_RUST} -gt 0 ]; then
     test_rust
   fi
-  if [ ${TEST_INTEGRATION} -gt 0 ] || [ ${TEST_INTEGRATION_SELECTED} -gt 0 ]; then
+  if [ ${TEST_INTEGRATION} -gt 0 ] ||
+     [ ${TEST_INTEGRATION_CPP} -gt 0 ] ||
+     [ ${TEST_INTEGRATION_JAVA} -gt 0 ] ||
+     [ ${TEST_INTEGRATION_JS} -gt 0 ] ||
+     [ ${TEST_INTEGRATION_GO} -gt 0 ]; then
     test_integration
   fi
 }
@@ -530,13 +536,6 @@ test_binary_distribution() {
 # To deactivate one test, deactivate the test and all of its dependents
 # To explicitly select one test, set TEST_DEFAULT=0 TEST_X=1
 : ${TEST_DEFAULT:=1}
-
-# For selective integration testing, set TEST_INTEGRATION_SELECTED=1 TEST_X=1
-: ${TEST_INTEGRATION_SELECTED:=0}
-if [ ${TEST_INTEGRATION_SELECTED} -gt 0 ]; then
-  TEST_DEFAULT=0
-fi
-
 : ${TEST_SOURCE:=${TEST_DEFAULT}}
 : ${TEST_JAVA:=${TEST_DEFAULT}}
 : ${TEST_CPP:=${TEST_DEFAULT}}
@@ -552,12 +551,18 @@ fi
 : ${TEST_APT:=${TEST_DEFAULT}}
 : ${TEST_YUM:=${TEST_DEFAULT}}
 
+# For selective Integration testing, set TEST_DEFAULT=0 TEST_INTEGRATION_X=1 TEST_INTEGRATION_Y=1
+: ${TEST_INTEGRATION_CPP:=0}
+: ${TEST_INTEGRATION_JAVA:=0}
+: ${TEST_INTEGRATION_JS:=0}
+: ${TEST_INTEGRATION_GO:=0}
+
 # Automatically test if its activated by a dependent
 TEST_GLIB=$((${TEST_GLIB} + ${TEST_RUBY}))
-TEST_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON} + ${TEST_INTEGRATION}))
-TEST_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION}))
-TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION}))
-TEST_GO=$((${TEST_GO} + ${TEST_INTEGRATION}))
+TEST_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON} + ${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP}))
+TEST_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION} + ${TEST_INTEGRATION_JAVA}))
+TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION} + ${TEST_INTEGRATION_JS}))
+TEST_GO=$((${TEST_GO} + ${TEST_INTEGRATION} + ${TEST_INTEGRATION_GO}))
 
 : ${TEST_ARCHIVE:=apache-arrow-${VERSION}.tar.gz}
 case "${TEST_ARCHIVE}" in
