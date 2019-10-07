@@ -70,6 +70,10 @@ groups:
     - gandiva-jar-trusty
     - gandiva-jar-osx
 
+  homebrew:
+    - homebrew-cpp
+    - homebrew-cpp-autobrew
+
   ############################# Testing tasks #################################
 
   docker:
@@ -122,6 +126,12 @@ groups:
     - docker-python-3.6-nopandas
     - docker-python-3.7
 
+  r:
+    - docker-r
+    - docker-r-conda
+    - docker-r-sanitizer
+    - macos-r-autobrew
+
   ######################## Tasks to run regularly #############################
 
   nightly:
@@ -157,12 +167,12 @@ groups:
     - centos-6
     - centos-7
     - homebrew-cpp
-    - homebrew-cpp-autobrew
     - gandiva-jar-trusty
     - gandiva-jar-osx
     - docker-r
     - docker-r-conda
     - docker-r-sanitizer
+    - macos-r-autobrew
     - docker-rust
     - docker-cpp
     - docker-cpp-cmake32
@@ -1118,6 +1128,14 @@ tasks:
     template: homebrew-formulae/travis.osx.yml
     params:
       formula: autobrew/apache-arrow.rb
+
+  macos-r-autobrew:
+    # This tests that the autobrew formula + script work in practice
+    ci: travis
+    platform: osx
+    template: homebrew-formulae/travis.osx.r.yml
+    params:
+      r_version: release
 
   ############################## Gandiva Tasks ################################
 

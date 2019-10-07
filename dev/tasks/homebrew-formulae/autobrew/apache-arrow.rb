@@ -29,6 +29,7 @@ class ApacheArrow < Formula
     root_url "https://autobrew.github.io/bottles"
   end
 
+  # NOTE: if you add something here, be sure to add to PKG_LIBS in r/tools/autobrew
   depends_on "cmake" => :build
   depends_on "flatbuffers" => :build
   depends_on "aws-sdk-cpp"
