@@ -206,7 +206,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
         } else {
           throw ParquetException(
               "Cannot decrypt ColumnMetadata."
-              "FileDecryption is not setup correctly");
+              " FileDecryption is not setup correctly");
         }
       }
     }
