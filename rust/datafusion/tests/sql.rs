@@ -99,8 +99,6 @@ fn parquet_single_nan_schema() {
     ctx.register_parquet("single_nan", &format!("{}/single_nan.parquet", testdata))
         .unwrap();
     let sql = "SELECT mycol FROM single_nan";
-    let results = ctx.sql(&sql, 1024 * 1024).unwrap();
-    for batch in results {
     let plan = ctx.create_logical_plan(&sql).unwrap();
     let plan = ctx.optimize(&plan).unwrap();
     let plan = ctx.create_physical_plan(&plan, DEFAULT_BATCH_SIZE).unwrap();
