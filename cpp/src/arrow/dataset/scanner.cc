@@ -20,32 +20,13 @@
 #include <algorithm>
 
 #include "arrow/dataset/dataset.h"
+#include "arrow/dataset/dataset_internal.h"
 #include "arrow/util/iterator.h"
 
 namespace arrow {
 namespace dataset {
 
 RecordBatchIterator SimpleScanTask::Scan() { return MakeVectorIterator(record_batches_); }
-
-/// \brief GetFragmentsIterator transforms a vector<DataSource> in a flattened
-/// Iterator<DataFragment>.
-static DataFragmentIterator GetFragmentsIterator(
-    const std::vector<std::shared_ptr<DataSource>>& sources,
-    std::shared_ptr<ScanOptions> options) {
-  // Iterator<DataSource>
-  auto sources_it = MakeVectorIterator(sources);
-
-  // DataSource -> Iterator<DataFragment>
-  auto fn = [options](std::shared_ptr<DataSource> source) -> DataFragmentIterator {
-    return source->GetFragments(options);
-  };
-
-  // Iterator<Iterator<DataFragment>>
-  auto fragments_it = MakeMapIterator(fn, std::move(sources_it));
-
-  // Iterator<DataFragment>
-  return MakeFlattenIterator(std::move(fragments_it));
-}
 
 /// \brief GetScanTaskIterator transforms an Iterator<DataFragment> in a
 /// flattened Iterator<ScanTask>.
@@ -68,12 +49,13 @@ ScanTaskIterator SimpleScanner::Scan() {
   // First, transforms DataSources in a flat Iterator<DataFragment>. This
   // iterator is lazily constructed, i.e. DataSource::GetFragments is never
   // invoked.
-  auto fragments_it = GetFragmentsIterator(sources_, options_);
+  auto fragments_it = GetFragmentsFromSources(sources_, options_);
   // Second, transforms Iterator<DataFragment> into a unified
   // Iterator<ScanTask>. The first Iterator::Next invocation is going to do
   // all the work of unwinding the chained iterators.
   return GetScanTaskIterator(std::move(fragments_it), context_);
 }
+
 ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset,
                                std::shared_ptr<ScanContext> scan_context)
     : dataset_(std::move(dataset)), scan_context_(std::move(scan_context)) {}

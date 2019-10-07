@@ -119,6 +119,19 @@ class ARROW_DS_EXPORT SimpleDataSource : public DataSource {
   DataFragmentVector fragments_;
 };
 
+/// \brief A recursive DataSource with child DataSources.
+class ARROW_DS_EXPORT TreeDataSource : public DataSource {
+ public:
+  explicit TreeDataSource(DataSourceVector children) : children_(std::move(children)) {}
+
+  DataFragmentIterator GetFragmentsImpl(std::shared_ptr<ScanOptions> options) override;
+
+  std::string type() const override { return "tree_data_source"; }
+
+ private:
+  DataSourceVector children_;
+};
+
 /// \brief Top-level interface for a Dataset with fragments coming
 /// from possibly multiple sources.
 class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
