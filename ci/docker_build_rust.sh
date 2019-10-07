@@ -55,4 +55,3 @@ pushd datafusion
 cargo run --example csv_sql
 cargo run --example parquet_sql
 popd
-
