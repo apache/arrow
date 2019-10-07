@@ -453,10 +453,10 @@ class SelectiveAuthServerMiddlewareFactory(ServerMiddlewareFactory):
             raise flight.FlightUnauthenticatedError("No token")
 
         token = token[0]
-        if token != b"password":
+        if token != "password":
             raise flight.FlightUnauthenticatedError("Invalid token")
 
-        return HeaderServerMiddleware(token.decode())
+        return HeaderServerMiddleware(token)
 
 
 class SelectiveAuthClientMiddlewareFactory(ClientMiddlewareFactory):

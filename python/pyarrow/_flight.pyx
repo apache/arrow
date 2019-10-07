@@ -1672,10 +1672,16 @@ cdef CStatus _middleware_sending_headers(
 
     if headers:
         for header, values in headers.items():
-            if isinstance(values, (six.text_type, six.binary_type)):
+            if isinstance(values, (str, bytes)):
                 values = (values,)
+            # Headers in gRPC (and HTTP/1, HTTP/2) are required to be
+            # valid ASCII.
+            if isinstance(header, str):
+                header = header.encode("ascii")
             for value in values:
-                add_headers.AddHeader(tobytes(header), tobytes(value))
+                if isinstance(value, str):
+                    value = value.encode("ascii")
+                add_headers.AddHeader(header, value)
 
     return CStatus_OK()
 
@@ -1713,11 +1719,15 @@ cdef dict convert_headers(const CCallHeaders& c_headers):
         CCallHeaders.const_iterator header_iter = c_headers.cbegin()
     headers = {}
     while header_iter != c_headers.cend():
-        header = frombytes(c_string(deref(header_iter).first))
-        value = c_string(deref(header_iter).second)
-        if header not in headers:
-            headers[header] = []
-        headers[header].append(value)
+        # Headers in gRPC (and HTTP/1, HTTP/2) are required to be
+        # valid ASCII.
+        header = c_string(deref(header_iter).first).decode("ascii")
+        if not header.endswith("-bin"):
+            # Ignore -bin (gRPC binary) headers
+            value = c_string(deref(header_iter).second).decode("ascii")
+            if header not in headers:
+                headers[header] = []
+            headers[header].append(value)
         postincrement(header_iter)
     return headers
 
@@ -1886,7 +1896,8 @@ cdef class ClientMiddleware:
         headers : dict
             A dictionary of header values to add to the request, or
             None if no headers are to be added. The dictionary should
-            have string keys and string or list-of-string values.
+            have string keys and string or list-of-string values. All
+            values should be ASCII-encodable.
 
         """
 
@@ -1899,7 +1910,7 @@ cdef class ClientMiddleware:
         ----------
         headers : dict
             A dictionary of headers from the server. Keys are strings
-            and values are lists of bytes.
+            and values are lists of strings.
 
         """
 
@@ -1980,7 +1991,8 @@ cdef class ServerMiddleware:
         headers : dict
             A dictionary of header values to add to the response, or
             None if no headers are to be added. The dictionary should
-            have string keys and string or list-of-string values.
+            have string keys and string or list-of-string values. All
+            headers should be ASCII-encodable.
 
         """
 
