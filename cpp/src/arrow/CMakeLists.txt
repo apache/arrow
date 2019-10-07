@@ -415,7 +415,6 @@ arrow_add_pkg_config("arrow")
 # Unit tests
 #
 
-add_arrow_test(allocator_test)
 add_arrow_test(array_test
                SOURCES
                array_test.cc
