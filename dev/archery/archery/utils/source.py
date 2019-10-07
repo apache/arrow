@@ -73,6 +73,11 @@ class ArrowSources:
         return os.path.join(self.path, "r")
 
     @property
+    def rust(self):
+        """ Returns the rust directory of an Arrow sources. """
+        return os.path.join(self.path, "rust")
+
+    @property
     def git_backed(self):
         """ Indicate if the sources are backed by git. """
         git_path = os.path.join(self.path, ".git")

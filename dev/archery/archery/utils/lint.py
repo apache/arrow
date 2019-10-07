@@ -22,6 +22,7 @@ from .tmpdir import tmpdir
 from .command import Bash, Command, default_bin
 from .logger import logger
 from ..lang.cpp import CppCMakeDefinition, CppConfiguration
+from ..lang.rust import Cargo
 from .rat import Rat, exclusion_from_globs
 
 
@@ -132,10 +133,18 @@ def r_linter(src):
     yield LintResult.from_cmd(Bash().run(r_lint_sh, check=False))
 
 
+def rust_linter(src):
+    """ Run Rust linter. """
+    logger.info("Running rust linter")
+    yield LintResult.from_cmd(Cargo().run("+stable", "fmt", "--all", "--",
+                                          "--check", cwd=src.rust,
+                                          check=False))
+
+
 def linter(src, with_clang_format=True, with_cpplint=True,
            with_clang_tidy=False, with_iwyu=False,
            with_flake8=True, with_cmake_format=False,
-           with_rat=True, with_r=True,
+           with_rat=True, with_r=True, with_rust=True,
            fix=False):
     """ Run all linters. """
     with tmpdir(preserve=True, prefix="arrow-lint-") as root:
@@ -165,6 +174,9 @@ def linter(src, with_clang_format=True, with_cpplint=True,
 
         if with_r:
             results.extend(r_linter(src))
+
+        if with_rust:
+            results.extend(rust_linter(src))
 
         # Raise error if one linter failed, ensuring calling code can exit with
         # non-zero.

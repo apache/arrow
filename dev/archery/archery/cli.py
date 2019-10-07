@@ -207,6 +207,8 @@ def build(ctx, src, build_dir, force, targets, **kwargs):
               help="Lint files for license violation via apache-rat.")
 @click.option("--with-r", default=True, type=BOOL,
               help="Lint r files.")
+@click.option("--with-rust", default=True, type=BOOL,
+              help="Lint rust files.")
 @click.option("--fix", type=BOOL, default=False,
               help="Toggle fixing the lint errors if the linter supports it.")
 @click.pass_context
