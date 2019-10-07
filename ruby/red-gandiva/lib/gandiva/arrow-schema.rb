@@ -15,35 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module Gandiva
-  class Loader < GObjectIntrospection::Loader
-    class << self
-      def load
-        super("Gandiva", Gandiva)
-      end
-    end
-
-    private
-    def load_method_info(info, klass, method_name)
-      case klass.name
-      when "Gandiva::BooleanLiteralNode"
-        case method_name
-        when "value?"
-          method_name = "value"
-        end
-        super(info, klass, method_name)
-      else
-        super
-      end
-    end
-
-    def post_load(repository, namespace)
-      require_libraries
-    end
-
-    def require_libraries
-      require "gandiva/arrow-schema"
-      require "gandiva/expression-builder"
+module Arrow
+  class Schema
+    def build_expression(&block)
+      builder = Gandiva::ExpressionBuilder.new(self)
+      builder.build(&block)
     end
   end
 end

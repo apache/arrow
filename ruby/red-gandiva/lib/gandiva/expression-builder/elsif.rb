@@ -15,35 +15,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
+require "gandiva/expression-builder/if"
+
 module Gandiva
-  class Loader < GObjectIntrospection::Loader
-    class << self
-      def load
-        super("Gandiva", Gandiva)
+  class ExpressionBuilder
+    class Elsif < If
+      def initialize(parent, condition)
+        @parent = parent
+        super(condition)
       end
-    end
 
-    private
-    def load_method_info(info, klass, method_name)
-      case klass.name
-      when "Gandiva::BooleanLiteralNode"
-        case method_name
-        when "value?"
-          method_name = "value"
-        end
-        super(info, klass, method_name)
-      else
-        super
+      def build
+        elsif_node = super
+        build_if_node(@parent.condition_node,
+                      @parent.then_node,
+                      elsif_node)
       end
-    end
-
-    def post_load(repository, namespace)
-      require_libraries
-    end
-
-    def require_libraries
-      require "gandiva/arrow-schema"
-      require "gandiva/expression-builder"
     end
   end
 end

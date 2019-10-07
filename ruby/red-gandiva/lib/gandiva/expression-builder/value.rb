@@ -16,34 +16,40 @@
 # under the License.
 
 module Gandiva
-  class Loader < GObjectIntrospection::Loader
-    class << self
-      def load
-        super("Gandiva", Gandiva)
+  class ExpressionBuilder
+    class Value
+      def +(right)
+        Add.new(self, resolve(right))
       end
-    end
 
-    private
-    def load_method_info(info, klass, method_name)
-      case klass.name
-      when "Gandiva::BooleanLiteralNode"
-        case method_name
-        when "value?"
-          method_name = "value"
-        end
-        super(info, klass, method_name)
-      else
-        super
+      def -(right)
+        Subtract.new(self, resolve(right))
       end
-    end
 
-    def post_load(repository, namespace)
-      require_libraries
-    end
+      def *(right)
+        Multiply.new(self, resolve(right))
+      end
 
-    def require_libraries
-      require "gandiva/arrow-schema"
-      require "gandiva/expression-builder"
+      def /(right)
+        Divide.new(self, resolve(right))
+      end
+
+      def >(right)
+        GreaterThan.new(self, resolve(right))
+      end
+
+      def <(right)
+        LessThan.new(self, resolve(right))
+      end
+
+      def ==(right)
+        Equal.new(self, resolve(right))
+      end
+
+      private
+      def resolve(value)
+        Literal.resolve(value) or value
+      end
     end
   end
 end

@@ -15,35 +15,31 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module Gandiva
-  class Loader < GObjectIntrospection::Loader
-    class << self
-      def load
-        super("Gandiva", Gandiva)
-      end
-    end
+class TestExpressionBuilderRecord < Test::Unit::TestCase
+  def setup
+    @table = Arrow::Table.new(field: Arrow::Int32Array.new([1, 13, 3, 17]))
+    @schema = @table.schema
+  end
 
-    private
-    def load_method_info(info, klass, method_name)
-      case klass.name
-      when "Gandiva::BooleanLiteralNode"
-        case method_name
-        when "value?"
-          method_name = "value"
-        end
-        super(info, klass, method_name)
-      else
-        super
-      end
-    end
+  def build
+    record = Gandiva::ExpressionBuilder::Record.new(@schema)
+    builder = yield(record)
+    builder.build
+  end
 
-    def post_load(repository, namespace)
-      require_libraries
+  test("name") do
+    node = build do |record|
+      record.field
     end
+    assert_equal("(int32) field",
+                 node.to_s)
+  end
 
-    def require_libraries
-      require "gandiva/arrow-schema"
-      require "gandiva/expression-builder"
+  test("#[]") do
+    node = build do |record|
+      record[:field]
     end
+    assert_equal("(int32) field",
+                 node.to_s)
   end
 end

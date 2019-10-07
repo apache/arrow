@@ -15,35 +15,26 @@
 # specific language governing permissions and limitations
 # under the License.
 
+require "gandiva/expression-builder/binary-operation"
+
 module Gandiva
-  class Loader < GObjectIntrospection::Loader
-    class << self
-      def load
-        super("Gandiva", Gandiva)
+  class ExpressionBuilder
+    class Add < BinaryOperation
+      def initialize(left, right)
+        super("add", left, right)
       end
-    end
 
-    private
-    def load_method_info(info, klass, method_name)
-      case klass.name
-      when "Gandiva::BooleanLiteralNode"
-        case method_name
-        when "value?"
-          method_name = "value"
+      private
+      def return_type(left_node, right_node)
+        # TODO: More clever implementation. e.g. (int64, float) -> float
+        left_return_type = left_node.return_type
+        right_return_type = right_node.return_type
+        if left_return_type.bit_width > right_return_type.bit_width
+          left_return_type
+        else
+          right_return_type
         end
-        super(info, klass, method_name)
-      else
-        super
       end
-    end
-
-    def post_load(repository, namespace)
-      require_libraries
-    end
-
-    def require_libraries
-      require "gandiva/arrow-schema"
-      require "gandiva/expression-builder"
     end
   end
 end
