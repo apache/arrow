@@ -32,6 +32,7 @@ use arrow::array::{
     Float32Builder, Float64Builder, Int16Builder, Int32Builder, Int64Builder,
     Int8Builder, UInt16Builder, UInt32Builder, UInt64Builder, UInt8Builder,
 };
+use arrow::compute::kernels::arithmetic::{add, divide, multiply, subtract};
 use arrow::compute::kernels::boolean::{and, or};
 use arrow::compute::kernels::cast::cast;
 use arrow::compute::kernels::comparison::{eq, gt, gt_eq, lt, lt_eq, neq};
@@ -687,7 +688,7 @@ macro_rules! compute_op {
 }
 
 /// Invoke a compute kernel on a pair of arrays
-macro_rules! comparison_op {
+macro_rules! binary_array_op {
     ($LEFT:expr, $RIGHT:expr, $OP:ident) => {{
         match $LEFT.data_type() {
             DataType::Int8 => compute_op!($LEFT, $RIGHT, $OP, Int8Array),
@@ -761,12 +762,16 @@ impl PhysicalExpr for BinaryExpr {
             )));
         }
         match &self.op {
-            Operator::Lt => comparison_op!(left, right, lt),
-            Operator::LtEq => comparison_op!(left, right, lt_eq),
-            Operator::Gt => comparison_op!(left, right, gt),
-            Operator::GtEq => comparison_op!(left, right, gt_eq),
-            Operator::Eq => comparison_op!(left, right, eq),
-            Operator::NotEq => comparison_op!(left, right, neq),
+            Operator::Lt => binary_array_op!(left, right, lt),
+            Operator::LtEq => binary_array_op!(left, right, lt_eq),
+            Operator::Gt => binary_array_op!(left, right, gt),
+            Operator::GtEq => binary_array_op!(left, right, gt_eq),
+            Operator::Eq => binary_array_op!(left, right, eq),
+            Operator::NotEq => binary_array_op!(left, right, neq),
+            Operator::Plus => binary_array_op!(left, right, add),
+            Operator::Minus => binary_array_op!(left, right, subtract),
+            Operator::Multiply => binary_array_op!(left, right, multiply),
+            Operator::Divide => binary_array_op!(left, right, divide),
             Operator::And => {
                 if left.data_type() == &DataType::Boolean {
                     boolean_op!(left, right, and)
@@ -940,7 +945,7 @@ pub fn lit(value: ScalarValue) -> Arc<dyn PhysicalExpr> {
 mod tests {
     use super::*;
     use crate::error::Result;
-    use arrow::array::BinaryArray;
+    use arrow::array::{BinaryArray, PrimitiveArray};
     use arrow::datatypes::*;
 
     #[test]
@@ -1515,5 +1520,119 @@ mod tests {
             accum.accumulate(&batch, &input, i)?;
         }
         accum.get_value()
+    }
+
+    #[test]
+    fn plus_op() -> Result<()> {
+        let schema = Schema::new(vec![
+            Field::new("a", DataType::Int32, false),
+            Field::new("b", DataType::Int32, false),
+        ]);
+        let a = Int32Array::from(vec![1, 2, 3, 4, 5]);
+        let b = Int32Array::from(vec![1, 2, 4, 8, 16]);
+
+        apply_arithmetic::<Int32Type>(
+            Arc::new(schema),
+            vec![Arc::new(a), Arc::new(b)],
+            Operator::Plus,
+            Int32Array::from(vec![2, 4, 7, 12, 21]),
+        )?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn minus_op() -> Result<()> {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("a", DataType::Int32, false),
+            Field::new("b", DataType::Int32, false),
+        ]));
+        let a = Arc::new(Int32Array::from(vec![1, 2, 4, 8, 16]));
+        let b = Arc::new(Int32Array::from(vec![1, 2, 3, 4, 5]));
+
+        apply_arithmetic::<Int32Type>(
+            schema.clone(),
+            vec![a.clone(), b.clone()],
+            Operator::Minus,
+            Int32Array::from(vec![0, 0, 1, 4, 11]),
+        )?;
+
+        // should handle have negative values in result (for signed)
+        apply_arithmetic::<Int32Type>(
+            schema.clone(),
+            vec![b.clone(), a.clone()],
+            Operator::Minus,
+            Int32Array::from(vec![0, 0, -1, -4, -11]),
+        )?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn multiply_op() -> Result<()> {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("a", DataType::Int32, false),
+            Field::new("b", DataType::Int32, false),
+        ]));
+        let a = Arc::new(Int32Array::from(vec![4, 8, 16, 32, 64]));
+        let b = Arc::new(Int32Array::from(vec![2, 4, 8, 16, 32]));
+
+        apply_arithmetic::<Int32Type>(
+            schema,
+            vec![a, b],
+            Operator::Multiply,
+            Int32Array::from(vec![8, 32, 128, 512, 2048]),
+        )?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn divide_op() -> Result<()> {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("a", DataType::Int32, false),
+            Field::new("b", DataType::Int32, false),
+        ]));
+        let a = Arc::new(Int32Array::from(vec![8, 32, 128, 512, 2048]));
+        let b = Arc::new(Int32Array::from(vec![2, 4, 8, 16, 32]));
+
+        apply_arithmetic::<Int32Type>(
+            schema,
+            vec![a, b],
+            Operator::Divide,
+            Int32Array::from(vec![4, 8, 16, 32, 64]),
+        )?;
+
+        Ok(())
+    }
+
+    fn apply_arithmetic<T: ArrowNumericType>(
+        schema: Arc<Schema>,
+        data: Vec<ArrayRef>,
+        op: Operator,
+        expected: PrimitiveArray<T>,
+    ) -> Result<()> {
+        let batch = RecordBatch::try_new(schema, data)?;
+
+        let arithmetic_op = binary(col(0), op, col(1));
+        let result = arithmetic_op.evaluate(&batch)?;
+
+        assert_array_eq::<T>(expected, result);
+
+        Ok(())
+    }
+
+    fn assert_array_eq<T: ArrowNumericType>(
+        expected: PrimitiveArray<T>,
+        actual: ArrayRef,
+    ) {
+        let actual = actual
+            .as_any()
+            .downcast_ref::<PrimitiveArray<T>>()
+            .expect("Actual array should unwrap to type of expected array");
+
+        for i in 0..expected.len() {
+            assert_eq!(expected.value(i), actual.value(i));
+        }
     }
 }
