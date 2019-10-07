@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/record_batch.h"
 #pragma once
 
 #include <memory>
@@ -49,6 +50,20 @@ ARROW_EXPORT
 Status Filter(FunctionContext* ctx, const Array& values, const Array& filter,
               std::shared_ptr<Array>* out);
 
+/// \brief Filter a record batch with a boolean selection filter
+///
+/// The output record batch's columns will be populated with values from corresponding
+/// columns of the input at positions where the selection filter is not 0. Nulls in the
+/// filter will result in nulls in the output.
+///
+/// \param[in] ctx the FunctionContext
+/// \param[in] batch record batch to filter
+/// \param[in] filter indicates which values should be filtered out
+/// \param[out] out resulting record batch
+ARROW_EXPORT
+Status Filter(FunctionContext* ctx, const RecordBatch& batch, const Array& filter,
+              std::shared_ptr<RecordBatch>* out);
+
 /// \brief Filter an array with a boolean selection filter
 ///
 /// \param[in] ctx the FunctionContext
@@ -82,7 +97,7 @@ class ARROW_EXPORT FilterKernel : public BinaryKernel {
 
   /// \brief single-array implementation
   virtual Status Filter(FunctionContext* ctx, const Array& values,
-                        const BooleanArray& filter, int64_t length,
+                        const BooleanArray& filter, int64_t out_length,
                         std::shared_ptr<Array>* out) = 0;
 
  protected:

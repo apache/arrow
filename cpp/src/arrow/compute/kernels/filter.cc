@@ -20,9 +20,12 @@
 #include <limits>
 #include <memory>
 #include <utility>
+#include <vector>
 
 #include "arrow/builder.h"
 #include "arrow/compute/kernels/take_internal.h"
+#include "arrow/record_batch.h"
+#include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
@@ -74,6 +77,14 @@ static int64_t OutputSize(const BooleanArray& filter) {
   return size;
 }
 
+static Result<std::shared_ptr<BooleanArray>> GetFilterArray(const Datum& filter) {
+  auto filter_type = filter.type();
+  if (filter_type->id() != Type::BOOL) {
+    return Status::TypeError("filter array must be of boolean type, got ", *filter_type);
+  }
+  return checked_pointer_cast<BooleanArray>(filter.make_array());
+}
+
 class FilterKernelImpl : public FilterKernel {
  public:
   FilterKernelImpl(const std::shared_ptr<DataType>& type,
@@ -81,12 +92,12 @@ class FilterKernelImpl : public FilterKernel {
       : FilterKernel(type), taker_(std::move(taker)) {}
 
   Status Filter(FunctionContext* ctx, const Array& values, const BooleanArray& filter,
-                int64_t length, std::shared_ptr<Array>* out) override {
+                int64_t out_length, std::shared_ptr<Array>* out) override {
     if (values.length() != filter.length()) {
       return Status::Invalid("filter and value array must have identical lengths");
     }
     RETURN_NOT_OK(taker_->SetContext(ctx));
-    RETURN_NOT_OK(taker_->Take(values, FilterIndexSequence(filter, length)));
+    RETURN_NOT_OK(taker_->Take(values, FilterIndexSequence(filter, out_length)));
     return taker_->Finish(out);
   }
 
@@ -105,15 +116,11 @@ Status FilterKernel::Make(const std::shared_ptr<DataType>& value_type,
 Status FilterKernel::Call(FunctionContext* ctx, const Datum& values, const Datum& filter,
                           Datum* out) {
   if (!values.is_array() || !filter.is_array()) {
-    return Status::Invalid("FilterKernel expects array values and filter");
+    return Status::Invalid("FilterKernel::Call expects array values and filter");
   }
-  auto filter_type = filter.type();
-  if (filter_type->id() != Type::BOOL) {
-    return Status::TypeError("filter array must be of boolean type, got ", *filter_type);
-  }
-
   auto values_array = values.make_array();
-  auto filter_array = checked_pointer_cast<BooleanArray>(filter.make_array());
+
+  ARROW_ASSIGN_OR_RAISE(auto filter_array, GetFilterArray(filter));
   std::shared_ptr<Array> out_array;
   RETURN_NOT_OK(this->Filter(ctx, *values_array, *filter_array, OutputSize(*filter_array),
                              &out_array));
@@ -134,6 +141,26 @@ Status Filter(FunctionContext* ctx, const Datum& values, const Datum& filter,
   std::unique_ptr<FilterKernel> kernel;
   RETURN_NOT_OK(FilterKernel::Make(values.type(), &kernel));
   return kernel->Call(ctx, values, filter, out);
+}
+
+Status Filter(FunctionContext* ctx, const RecordBatch& batch, const Array& filter,
+              std::shared_ptr<RecordBatch>* out) {
+  ARROW_ASSIGN_OR_RAISE(auto filter_array, GetFilterArray(Datum(filter.data())));
+
+  std::vector<std::unique_ptr<FilterKernel>> kernels(batch.num_columns());
+  for (int i = 0; i < batch.num_columns(); ++i) {
+    RETURN_NOT_OK(FilterKernel::Make(batch.schema()->field(i)->type(), &kernels[i]));
+  }
+
+  std::vector<std::shared_ptr<Array>> columns(batch.num_columns());
+  auto out_length = OutputSize(*filter_array);
+  for (int i = 0; i < batch.num_columns(); ++i) {
+    RETURN_NOT_OK(kernels[i]->Filter(ctx, *batch.column(i), *filter_array, out_length,
+                                     &columns[i]));
+  }
+
+  *out = RecordBatch::Make(batch.schema(), out_length, columns);
+  return Status::OK();
 }
 
 }  // namespace compute
