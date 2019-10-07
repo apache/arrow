@@ -206,13 +206,19 @@ template <typename AllocateFunction>
 void TestZeroSizeAllocateBuffer(MemoryPool* pool, AllocateFunction&& allocate_func) {
   auto allocated_bytes = pool->bytes_allocated();
   {
-    std::shared_ptr<Buffer> buffer;
+    std::shared_ptr<Buffer> buffer, buffer2;
 
     ASSERT_OK(allocate_func(pool, 0, &buffer));
     ASSERT_EQ(buffer->size(), 0);
     // Even 0-sized buffers should not have a null data pointer
-    ASSERT_NE(buffer->data(), nullptr);
-    ASSERT_EQ(buffer->mutable_data(), buffer->data());
+    auto data = buffer->data();
+    ASSERT_NE(data, nullptr);
+    ASSERT_EQ(buffer->mutable_data(), data);
+
+    // As an optimization, another 0-size buffer should share the same memory "area"
+    ASSERT_OK(allocate_func(pool, 0, &buffer2));
+    ASSERT_EQ(buffer2->size(), 0);
+    ASSERT_EQ(buffer2->data(), data);
 
     ASSERT_GE(pool->bytes_allocated(), allocated_bytes);
   }
