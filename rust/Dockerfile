@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM rust:1.38.0-stretch
+FROM rust:1.38.0-buster
 RUN rustup show
 
 # Install stable rustfmt
