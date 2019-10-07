@@ -20,7 +20,7 @@ from tempfile import mkdtemp, TemporaryDirectory
 
 
 @contextmanager
-def tmpdir(preserve=False, prefix="arrow-bench-"):
+def tmpdir(preserve=False, prefix="arrow-archery-"):
     if preserve:
         yield mkdtemp(prefix=prefix)
     else:

@@ -24,14 +24,14 @@ from .cache import Cache
 from .command import capture_stdout
 
 RAT_VERSION = 0.13
-RAT_JAR = f"apache-rat-{RAT_VERSION}.jar"
+RAT_JAR_FILENAME = f"apache-rat-{RAT_VERSION}.jar"
 RAT_URL_ = f"https://repo1.maven.org/maven2/org/apache/rat/apache-rat"
-RAT_URL = f"{RAT_URL_}/{RAT_VERSION}/{RAT_JAR}"
+RAT_URL = f"{RAT_URL_}/{RAT_VERSION}/{RAT_JAR_FILENAME}"
 
 
 class Rat(Jar):
     def __init__(self):
-        jar = Cache().get_or_insert_from_url(RAT_JAR, RAT_URL)
+        jar = Cache().get_or_insert_from_url(RAT_JAR_FILENAME, RAT_URL)
         Jar.__init__(self, jar)
 
     @capture_stdout(strip=False)
