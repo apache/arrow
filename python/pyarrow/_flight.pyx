@@ -1218,6 +1218,24 @@ cdef class ServerCallContext:
         """
         return tobytes(self.context.peer_identity())
 
+    def get_middleware(self, key):
+        """
+        Get a middleware instance by key.
+
+        Returns None if the middleware was not found.
+        """
+        cdef:
+            CServerMiddleware* c_middleware = \
+                self.context.GetMiddleware(CPyServerMiddlewareName)
+            CPyServerMiddleware* middleware
+        if c_middleware == NULL:
+            return None
+        if c_middleware.name() != CPyServerMiddlewareName:
+            return None
+        middleware = <CPyServerMiddleware*> c_middleware
+        py_middleware = <_ServerMiddlewareWrapper> middleware.py_object()
+        return py_middleware.middleware.get(key)
+
     @staticmethod
     cdef ServerCallContext wrap(const CServerCallContext& context):
         cdef ServerCallContext result = \
@@ -1987,64 +2005,37 @@ cdef class ServerMiddleware:
 
 
 cdef class _ServerMiddlewareFactoryWrapper(ServerMiddlewareFactory):
-    """A wrapper that bundles server middleware into a single C++ one.
-
-    gRPC runs RPCs on C++ threads, so we use PyGilState_Ensure/Release
-    to interact with the GIL before running Python code. However, this
-    has a major shortcoming: it breaks thread locals. When we enter
-    Python, it creates new thread state. When we exit, that thread
-    state is freed (and Python thread locals cleaned up), since the
-    thread isn't persistent from Python's point of view. This makes
-    development of middleware harder than it needs to be.
-
-    This middleware solves this by first incrementing the reference
-    count on the thread state, then running all Python middleware. It
-    then doesn't decrement the reference count until the call is
-    finished.
-
-    """
+    """Wrapper to bundle server middleware into a single C++ one."""
 
     cdef:
-        list factories
+        dict factories
 
-    def __init__(self, factories):
+    def __init__(self, dict factories):
         self.factories = factories
 
     def start_call(self, info, headers):
-        cdef PyGILState_STATE state = PyGILState_Ensure()
-
-        instances = []
-        try:
-            for factory in self.factories:
-                instance = factory.start_call(info, headers)
-                if instance:
-                    instances.append(instance)
-        except:  # noqa: E722
-            # Don't artifically keep thread state around if an error
-            # happens.
-            # We want a bare except since we always want to release
-            # thread state.
-            PyGILState_Release(state)
-            raise
-
-        # Even if there's no middleware, we need to keep thread state
-        # alive
-        wrapper = _ServerMiddlewareWrapper(instances)
-        wrapper.state = state
-        return wrapper
+        instances = {}
+        for key, factory in self.factories.items():
+            instance = factory.start_call(info, headers)
+            if instance:
+                # TODO: prevent duplicate keys
+                instances[key] = instance
+        if instances:
+            wrapper = _ServerMiddlewareWrapper(instances)
+            return wrapper
+        return None
 
 
 cdef class _ServerMiddlewareWrapper(ServerMiddleware):
     cdef:
-        PyGILState_STATE state
-        list middleware
+        dict middleware
 
-    def __init__(self, list middleware):
+    def __init__(self, dict middleware):
         self.middleware = middleware
 
     def sending_headers(self):
         headers = collections.defaultdict(list)
-        for instance in self.middleware:
+        for instance in self.middleware.values():
             more_headers = instance.sending_headers()
             if not more_headers:
                 continue
@@ -2057,11 +2048,8 @@ cdef class _ServerMiddlewareWrapper(ServerMiddleware):
         return headers
 
     def call_completed(self, exception):
-        try:
-            for instance in self.middleware:
-                instance.call_completed(exception)
-        finally:
-            PyGILState_Release(self.state)
+        for instance in self.middleware.values():
+            instance.call_completed(exception)
 
 
 cdef class FlightServerBase:
@@ -2081,7 +2069,10 @@ cdef class FlightServerBase:
     tls_certificates : list optional, default None
         A list of (certificate, key) pairs.
     middleware : list optional, default None
-        A dictionary of :class:`ServerMiddlewareFactory` items.
+        A dictionary of :class:`ServerMiddlewareFactory` items. The
+        keys are used to retrieve the middleware instance during calls
+        (see :meth:`ServerCallContext.get_middleware`).
+
     """
 
     cdef:
@@ -2105,15 +2096,15 @@ cdef class FlightServerBase:
         self.init(location, auth_handler, tls_certificates, middleware)
 
     cdef init(self, Location location, ServerAuthHandler auth_handler,
-              list tls_certificates, list middleware):
+              list tls_certificates, dict middleware):
         cdef:
             PyFlightServerVtable vtable = PyFlightServerVtable()
             PyFlightServer* c_server
             unique_ptr[CFlightServerOptions] c_options
             CCertKeyPair c_cert
-            shared_ptr[CServerMiddlewareFactory] c_middleware
             function[cb_server_middleware_start_call] start_call = \
                 &_server_middleware_start_call
+            pair[c_string, shared_ptr[CServerMiddlewareFactory]] c_middleware
 
         c_options.reset(new CFlightServerOptions(Location.unwrap(location)))
 
@@ -2132,7 +2123,8 @@ cdef class FlightServerBase:
 
         if middleware:
             py_middleware = _ServerMiddlewareFactoryWrapper(middleware)
-            c_middleware.reset(new CPyServerMiddlewareFactory(
+            c_middleware.first = CPyServerMiddlewareName
+            c_middleware.second.reset(new CPyServerMiddlewareFactory(
                 py_middleware,
                 start_call))
             c_options.get().middleware.push_back(c_middleware)

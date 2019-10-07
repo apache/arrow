@@ -24,6 +24,9 @@ from pyarrow.includes.libarrow cimport *
 
 
 cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
+    cdef char* CPyServerMiddlewareName\
+        " arrow::py::flight::kPyServerMiddlewareName"
+
     cdef cppclass CActionType" arrow::flight::ActionType":
         c_string type
         c_string description
@@ -188,6 +191,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
     cdef cppclass CServerCallContext" arrow::flight::ServerCallContext":
         c_string& peer_identity()
+        CServerMiddleware* GetMiddleware(const c_string& key)
 
     cdef cppclass CTimeoutDuration" arrow::flight::TimeoutDuration":
         CTimeoutDuration(double)
@@ -243,7 +247,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         void AddHeader(const c_string& key, const c_string& value)
 
     cdef cppclass CServerMiddleware" arrow::flight::ServerMiddleware":
-        pass
+        c_string name()
 
     cdef cppclass CServerMiddlewareFactory\
             " arrow::flight::ServerMiddlewareFactory":
@@ -261,7 +265,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CLocation location
         unique_ptr[CServerAuthHandler] auth_handler
         vector[CCertKeyPair] tls_certificates
-        vector[shared_ptr[CServerMiddlewareFactory]] middleware
+        vector[pair[c_string, shared_ptr[CServerMiddlewareFactory]]] middleware
 
     cdef cppclass CFlightClientOptions" arrow::flight::FlightClientOptions":
         CFlightClientOptions()
@@ -440,6 +444,7 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
     cdef cppclass CPyServerMiddleware\
             " arrow::py::flight::PyServerMiddleware"(CServerMiddleware):
         CPyServerMiddleware(object middleware, PyServerMiddlewareVtable vtable)
+        void* py_object()
 
     cdef cppclass CPyServerMiddlewareFactory\
             " arrow::py::flight::PyServerMiddlewareFactory"\
@@ -484,12 +489,3 @@ cdef extern from "<utility>" namespace "std":
     unique_ptr[CFlightDataStream] move(unique_ptr[CFlightDataStream]) nogil
     unique_ptr[CServerAuthHandler] move(unique_ptr[CServerAuthHandler]) nogil
     unique_ptr[CClientAuthHandler] move(unique_ptr[CClientAuthHandler]) nogil
-
-# We have to manually write these definitions since they're broken in
-# Cython (until 82a0ed4 is released)
-cdef extern from "Python.h":
-    ctypedef struct PyGILState_STATE:
-        pass
-
-    PyGILState_STATE PyGILState_Ensure()
-    void PyGILState_Release(PyGILState_STATE)

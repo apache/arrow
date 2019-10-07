@@ -29,6 +29,8 @@ namespace arrow {
 namespace py {
 namespace flight {
 
+const char* kPyServerMiddlewareName = "arrow.py_server_middleware";
+
 PyServerAuthHandler::PyServerAuthHandler(PyObject* handler,
                                          const PyServerAuthHandlerVtable& vtable)
     : vtable_(vtable) {
@@ -287,6 +289,10 @@ void PyServerMiddleware::CallCompleted(const Status& call_status) {
     ARROW_LOG(WARNING) << "Python server middleware failed in CallCompleted: " << status;
   }
 }
+
+std::string PyServerMiddleware::name() const { return kPyServerMiddlewareName; }
+
+PyObject* PyServerMiddleware::py_object() const { return middleware_.obj(); }
 
 // Flight Client Middleware
 

@@ -47,10 +47,6 @@ Common Types
    :project: arrow_cpp
    :members:
 
-.. doxygenclass:: arrow::flight::CallHeaders
-   :project: arrow_cpp
-   :members:
-
 .. doxygenstruct:: arrow::flight::Criteria
    :project: arrow_cpp
    :members:

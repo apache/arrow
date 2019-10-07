@@ -591,6 +591,8 @@ class CountingServerMiddleware : public ServerMiddleware {
     }
   }
 
+  std::string name() const override { return "CountingServerMiddleware"; }
+
  private:
   std::atomic<int>* successful_;
   std::atomic<int>* failed_;
@@ -610,7 +612,24 @@ class CountingServerMiddlewareFactory : public ServerMiddlewareFactory {
   std::atomic<int> failed_;
 };
 
+// The current span ID, used to emulate OpenTracing style distributed
+// tracing. Only used for communication between application code and
+// client middleware.
 static thread_local std::string current_span_id = "";
+
+// A server middleware that stores the current span ID, in an
+// emulation of OpenTracing style distributed tracing.
+class TracingServerMiddleware : public ServerMiddleware {
+ public:
+  explicit TracingServerMiddleware(const std::string& current_span_id)
+      : span_id(current_span_id) {}
+  void SendingHeaders(AddCallHeaders* outgoing_headers) override {}
+  void CallCompleted(const Status& status) override {}
+
+  std::string name() const override { return "TracingServerMiddleware"; }
+
+  std::string span_id;
+};
 
 class TracingServerMiddlewareFactory : public ServerMiddlewareFactory {
  public:
@@ -622,7 +641,7 @@ class TracingServerMiddlewareFactory : public ServerMiddlewareFactory {
         incoming_headers.equal_range("x-tracing-span-id");
     if (iter_pair.first != iter_pair.second) {
       const util::string_view& value = (*iter_pair.first).second;
-      current_span_id = std::string(value);
+      *middleware = std::make_shared<TracingServerMiddleware>(std::string(value));
     }
     return Status::OK();
   }
@@ -638,6 +657,11 @@ class PropagatingClientMiddleware : public ClientMiddleware {
       : received_headers_(received_headers), recorded_status_(recorded_status) {}
 
   void SendingHeaders(AddCallHeaders* outgoing_headers) {
+    // Pick up the span ID from thread locals. We have to use a
+    // thread-local for communication, since we aren't even
+    // instantiated until after the application code has already
+    // started the call (and so there's no chance for application code
+    // to pass us parameters directly).
     outgoing_headers->AddHeader("x-tracing-span-id", current_span_id);
   }
 
@@ -673,7 +697,13 @@ class ReportContextTestServer : public FlightServerBase {
   Status DoAction(const ServerCallContext& context, const Action& action,
                   std::unique_ptr<ResultStream>* result) override {
     std::shared_ptr<Buffer> buf;
-    RETURN_NOT_OK(Buffer::FromString(current_span_id, &buf));
+    const ServerMiddleware* middleware = context.GetMiddleware("tracing");
+    if (middleware == nullptr || middleware->name() != "TracingServerMiddleware") {
+      RETURN_NOT_OK(Buffer::FromString("", &buf));
+    } else {
+      RETURN_NOT_OK(
+          Buffer::FromString(((TracingServerMiddleware*)middleware)->span_id, &buf));
+    }
     *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
     return Status::OK();
   }
@@ -686,6 +716,13 @@ class PropagatingTestServer : public FlightServerBase {
 
   Status DoAction(const ServerCallContext& context, const Action& action,
                   std::unique_ptr<ResultStream>* result) override {
+    const ServerMiddleware* middleware = context.GetMiddleware("tracing");
+    if (middleware == nullptr || middleware->name() != "TracingServerMiddleware") {
+      current_span_id = "";
+    } else {
+      current_span_id = ((TracingServerMiddleware*)middleware)->span_id;
+    }
+
     return client_->DoAction(action, result);
   }
 
@@ -700,7 +737,7 @@ class TestRejectServerMiddleware : public ::testing::Test {
         &server_, &client_,
         [](FlightServerOptions* options) {
           options->middleware.push_back(
-              std::make_shared<RejectServerMiddlewareFactory>());
+              {"reject", std::make_shared<RejectServerMiddlewareFactory>()});
           return Status::OK();
         },
         [](FlightClientOptions* options) { return Status::OK(); }));
@@ -720,7 +757,7 @@ class TestCountingServerMiddleware : public ::testing::Test {
     ASSERT_OK(MakeServer<MetadataTestServer>(
         &server_, &client_,
         [&](FlightServerOptions* options) {
-          options->middleware.push_back(request_counter_);
+          options->middleware.push_back({"request_counter", request_counter_});
           return Status::OK();
         },
         [](FlightClientOptions* options) { return Status::OK(); }));
@@ -752,7 +789,7 @@ class TestPropagatingMiddleware : public ::testing::Test {
     ASSERT_OK(MakeServer<ReportContextTestServer>(
         &second_server_, &server_client,
         [&](FlightServerOptions* options) {
-          options->middleware.push_back(server_middleware_);
+          options->middleware.push_back({"tracing", server_middleware_});
           return Status::OK();
         },
         [&](FlightClientOptions* options) {
@@ -763,7 +800,7 @@ class TestPropagatingMiddleware : public ::testing::Test {
     ASSERT_OK(MakeServer<PropagatingTestServer>(
         &first_server_, &client_,
         [&](FlightServerOptions* options) {
-          options->middleware.push_back(server_middleware_);
+          options->middleware.push_back({"tracing", server_middleware_});
           return Status::OK();
         },
         [&](FlightClientOptions* options) {

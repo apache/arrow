@@ -252,11 +252,20 @@ class GrpcServerCallContext : public ServerCallContext {
     return internal::ToGrpcStatus(status);
   }
 
+  ServerMiddleware* GetMiddleware(const std::string& key) const override {
+    const auto& instance = middleware_map_.find(key);
+    if (instance == middleware_map_.end()) {
+      return nullptr;
+    }
+    return instance->second.get();
+  }
+
  private:
   friend class FlightServiceImpl;
   ServerContext* context_;
   std::string peer_identity_;
   std::vector<std::shared_ptr<ServerMiddleware>> middleware_;
+  std::unordered_map<std::string, std::shared_ptr<ServerMiddleware>> middleware_map_;
 };
 
 class GrpcAddCallHeaders : public AddCallHeaders {
@@ -278,11 +287,10 @@ class FlightServiceImpl : public FlightService::Service {
  public:
   explicit FlightServiceImpl(
       std::shared_ptr<ServerAuthHandler> auth_handler,
-      std::vector<std::shared_ptr<ServerMiddlewareFactory>> middleware,
+      std::vector<std::pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>>
+          middleware,
       FlightServerBase* server)
-      : auth_handler_(auth_handler),
-        middleware_(std::move(middleware)),
-        server_(server) {}
+      : auth_handler_(auth_handler), middleware_(middleware), server_(server) {}
 
   template <typename UserType, typename Iterator, typename ProtoType>
   grpc::Status WriteStream(Iterator* iterator, ServerWriter<ProtoType>* writer) {
@@ -360,7 +368,7 @@ class FlightServiceImpl : public FlightService::Service {
     GrpcAddCallHeaders outgoing_headers(context);
     for (const auto& factory : middleware_) {
       std::shared_ptr<ServerMiddleware> instance;
-      Status result = factory->StartCall(info, incoming_headers, &instance);
+      Status result = factory.second->StartCall(info, incoming_headers, &instance);
       if (!result.ok()) {
         // Interceptor rejected call, end the request on all existing
         // interceptors
@@ -368,6 +376,7 @@ class FlightServiceImpl : public FlightService::Service {
       }
       if (instance != nullptr) {
         flight_context.middleware_.push_back(instance);
+        flight_context.middleware_map_.insert({factory.first, instance});
         instance->SendingHeaders(&outgoing_headers);
       }
     }
@@ -568,7 +577,8 @@ class FlightServiceImpl : public FlightService::Service {
 
  private:
   std::shared_ptr<ServerAuthHandler> auth_handler_;
-  std::vector<std::shared_ptr<ServerMiddlewareFactory>> middleware_;
+  std::vector<std::pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>>
+      middleware_;
   FlightServerBase* server_;
 };
 
@@ -635,10 +645,9 @@ FlightServerBase::FlightServerBase() { impl_.reset(new Impl); }
 
 FlightServerBase::~FlightServerBase() {}
 
-Status FlightServerBase::Init(FlightServerOptions& options) {
-  std::shared_ptr<ServerAuthHandler> handler = std::move(options.auth_handler);
+Status FlightServerBase::Init(const FlightServerOptions& options) {
   impl_->service_.reset(
-      new FlightServiceImpl(handler, std::move(options.middleware), this));
+      new FlightServiceImpl(options.auth_handler, options.middleware, this));
 
   grpc::ServerBuilder builder;
   // Allow uploading messages of any length

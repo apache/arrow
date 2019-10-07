@@ -33,6 +33,8 @@ namespace py {
 
 namespace flight {
 
+extern const char* kPyServerMiddlewareName;
+
 /// \brief A table of function pointers for calling from C++ into
 /// Python.
 class ARROW_PYTHON_EXPORT PyFlightServerVtable {
@@ -219,6 +221,9 @@ class ARROW_PYTHON_EXPORT PyServerMiddleware : public arrow::flight::ServerMiddl
 
   void SendingHeaders(arrow::flight::AddCallHeaders* outgoing_headers) override;
   void CallCompleted(const Status& status) override;
+  std::string name() const override;
+  /// \brief Get the underlying Python object.
+  PyObject* py_object() const;
 
  private:
   OwnedRefNoGIL middleware_;

@@ -416,34 +416,33 @@ class TokenClientAuthHandler(ClientAuthHandler):
         return self.token
 
 
-_thread_locals = threading.local()
-_thread_locals.sentinel = "wrong value"
+class HeaderServerMiddleware(ServerMiddleware):
+    """Expose a per-call value to the RPC method body."""
+
+    def __init__(self, special_value):
+        self.special_value = special_value
 
 
-class ThreadLocalServerMiddleware(ServerMiddleware):
-    def sending_headers(self):
-        assert _thread_locals.sentinel == "right value"
-
-    def call_completed(self, exception):
-        ThreadLocalServerMiddlewareFactory.last_sentinel = \
-            _thread_locals.sentinel
-
-
-class ThreadLocalServerMiddlewareFactory(ServerMiddlewareFactory):
-    last_sentinel = None
+class HeaderServerMiddlewareFactory(ServerMiddlewareFactory):
+    """Expose a per-call hard-coded value to the RPC method body."""
 
     def start_call(self, info, headers):
-        _thread_locals.sentinel = "right value"
-        return ThreadLocalServerMiddleware()
+        return HeaderServerMiddleware("right value")
 
 
-class ThreadLocalFlightServer(FlightServerBase):
+class HeaderFlightServer(FlightServerBase):
+    """Echo back the per-call hard-coded value."""
+
     def do_action(self, context, action):
-        sentinel = getattr(_thread_locals, "sentinel", "wrong value")
-        return iter([flight.Result(sentinel.encode())])
+        middleware = context.get_middleware("test")
+        if middleware:
+            return iter([flight.Result(middleware.special_value.encode())])
+        return iter([flight.Result("".encode())])
 
 
 class SelectiveAuthServerMiddlewareFactory(ServerMiddlewareFactory):
+    """Deny access to certain methods based on a header."""
+
     def start_call(self, info, headers):
         if info.method == flight.FlightMethod.LIST_ACTIONS:
             # No auth needed
@@ -457,7 +456,7 @@ class SelectiveAuthServerMiddlewareFactory(ServerMiddlewareFactory):
         if token != b"password":
             raise flight.FlightUnauthenticatedError("Invalid token")
 
-        _thread_locals.sentinel = "password"
+        return HeaderServerMiddleware(token.decode())
 
 
 class SelectiveAuthClientMiddlewareFactory(ClientMiddlewareFactory):
@@ -987,27 +986,27 @@ def test_do_put_independent_read_write():
 
 def test_server_middleware_same_thread():
     """Ensure that server middleware run on the same thread as the RPC."""
-    with ThreadLocalFlightServer(middleware=[
-            ThreadLocalServerMiddlewareFactory(),
-    ]) as server:
+    with HeaderFlightServer(middleware={
+            "test": HeaderServerMiddlewareFactory(),
+    }) as server:
         client = FlightClient(('localhost', server.port))
         results = list(client.do_action(flight.Action(b"test", b"")))
         assert len(results) == 1
         value = results[0].body.to_pybytes()
         assert b"right value" == value
-        assert "right value" == \
-            ThreadLocalServerMiddlewareFactory.last_sentinel
 
 
 def test_middleware_reject():
     """Test rejecting an RPC with server middleware."""
-    with ThreadLocalFlightServer(middleware=[
-            SelectiveAuthServerMiddlewareFactory(),
-    ]) as server:
+    with HeaderFlightServer(middleware={
+            "test": SelectiveAuthServerMiddlewareFactory(),
+    }) as server:
         client = FlightClient(('localhost', server.port))
+        # The middleware allows this through without auth.
         with pytest.raises(pa.ArrowNotImplementedError):
             list(client.list_actions())
 
+        # But not anything else.
         with pytest.raises(flight.FlightUnauthenticatedError):
             list(client.do_action(flight.Action(b"", b"")))
 

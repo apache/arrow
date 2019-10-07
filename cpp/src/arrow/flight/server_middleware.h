@@ -21,6 +21,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 
 #include "arrow/flight/middleware.h"
 #include "arrow/flight/visibility.h"  // IWYU pragma: keep
@@ -36,6 +37,10 @@ namespace flight {
 class ARROW_FLIGHT_EXPORT ServerMiddleware {
  public:
   virtual ~ServerMiddleware() = default;
+
+  /// \brief Unique name of middleware, used as alternative to RTTI
+  /// \return the string name of the middleware
+  virtual std::string name() const = 0;
 
   /// \brief A callback before headers are sent. Extra headers can be
   /// added, but existing ones cannot be read.
