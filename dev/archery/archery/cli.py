@@ -34,12 +34,34 @@ from .utils.tmpdir import tmpdir
 logging.basicConfig(level=logging.INFO)
 
 
+class ArrowBool(click.types.BoolParamType):
+    """
+    ArrowBool supports the 'ON' and 'OFF' values on top of the values
+    supported by BoolParamType. This is convenient to port script which exports
+    CMake options variables.
+    """
+    name = "boolean"
+
+    def convert(self, value, param, ctx):
+        if isinstance(value, str):
+            lowered = value.lower()
+            if lowered == "on":
+                return True
+            elif lowered == "off":
+                return False
+
+        return super().convert(value, param, ctx)
+
+
+BOOL = ArrowBool()
+
+
 @click.group()
-@click.option("--debug", type=bool, is_flag=True, default=False,
+@click.option("--debug", type=BOOL, is_flag=True, default=False,
               help="Increase logging with debugging output.")
-@click.option("--pdb", type=bool, is_flag=True, default=False,
+@click.option("--pdb", type=BOOL, is_flag=True, default=False,
               help="Invoke pdb on uncaught exception.")
-@click.option("-q", "--quiet", type=bool, is_flag=True, default=False,
+@click.option("-q", "--quiet", type=BOOL, is_flag=True, default=False,
               help="Silence executed commands.")
 @click.pass_context
 def archery(ctx, debug, pdb, quiet):
@@ -107,25 +129,25 @@ def _apply_options(cmd, options):
 @click.option("--warn-level", default="production", type=warn_level_type,
               help="Controls compiler warnings -W(no-)error.")
 # components
-@click.option("--with-tests", default=True, type=bool,
+@click.option("--with-tests", default=True, type=BOOL,
               help="Build with tests.")
-@click.option("--with-benchmarks", default=False, type=bool,
+@click.option("--with-benchmarks", default=False, type=BOOL,
               help="Build with benchmarks.")
-@click.option("--with-python", default=True, type=bool,
+@click.option("--with-python", default=True, type=BOOL,
               help="Build with python extension.")
-@click.option("--with-parquet", default=False, type=bool,
+@click.option("--with-parquet", default=False, type=BOOL,
               help="Build with parquet file support.")
-@click.option("--with-gandiva", default=False, type=bool,
+@click.option("--with-gandiva", default=False, type=BOOL,
               help="Build with Gandiva expression compiler support.")
-@click.option("--with-plasma", default=False, type=bool,
+@click.option("--with-plasma", default=False, type=BOOL,
               help="Build with Plasma object store support.")
-@click.option("--with-flight", default=False, type=bool,
+@click.option("--with-flight", default=False, type=BOOL,
               help="Build with Flight rpc support.")
 @click.option("--cmake-extras", type=str, multiple=True,
               help="Extra flags/options to pass to cmake invocation. "
               "Can be stacked")
 # misc
-@click.option("-f", "--force", type=bool, is_flag=True, default=False,
+@click.option("-f", "--force", type=BOOL, is_flag=True, default=False,
               help="Delete existing build directory if found.")
 @click.option("--targets", type=str, multiple=True,
               help="Generator targets to run. Can be stacked.")
@@ -169,23 +191,23 @@ def build(ctx, src, build_dir, force, targets, **kwargs):
 @click.option("--src", metavar="<arrow_src>", default=ArrowSources.find(),
               callback=validate_arrow_sources,
               help="Specify Arrow source directory")
-@click.option("--with-clang-format/--without-clang-format", default=True,
+@click.option("--with-clang-format", default=True, type=BOOL,
               help="Ensure formatting of C++ files.")
-@click.option("--with-cpplint/--without-cpplint", default=True,
+@click.option("--with-cpplint", default=True, type=BOOL,
               help="Ensure linting of C++ files with cpplint.")
-@click.option("--with-clang-tidy/--without-clang-tidy", default=False,
+@click.option("--with-clang-tidy", default=False, type=BOOL,
               help="Lint C++ with clang-tidy.")
-@click.option("--with-iwyu/--without-iwyu", default=False,
+@click.option("--with-iwyu", default=False, type=BOOL,
               help="Lint C++ with Include-What-You-Use (iwyu).")
-@click.option("--with-flake8/--without-flake8", default=True,
+@click.option("--with-flake8", default=True, type=BOOL,
               help="Lint python files with flake8.")
-@click.option("--with-cmake-format/--without-cmake-format", default=False,
+@click.option("--with-cmake-format", default=False, type=BOOL,
               help="Lint CMakeFiles.txt files with cmake-format.py.")
-@click.option("--with-rat/--without-rat", default=True,
+@click.option("--with-rat", default=True, type=BOOL,
               help="Lint files for license violation via apache-rat.")
-@click.option("--with-r/--without-r", default=True,
+@click.option("--with-r", default=True, type=BOOL,
               help="Lint r files.")
-@click.option("--fix", type=bool, default=False,
+@click.option("--fix", type=BOOL, default=False,
               help="Toggle fixing the lint errors if the linter supports it.")
 @click.pass_context
 def lint(ctx, src, **kwargs):
@@ -211,7 +233,7 @@ def benchmark_common_options(cmd):
                      default=ArrowSources.find(),
                      callback=validate_arrow_sources,
                      help="Specify Arrow source directory"),
-        click.option("--preserve", type=bool, default=False, show_default=True,
+        click.option("--preserve", type=BOOL, default=False, show_default=True,
                      is_flag=True,
                      help="Preserve workspace for investigation."),
         click.option("--output", metavar="<output>",
