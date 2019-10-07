@@ -19,7 +19,7 @@ import gzip
 import os
 
 from .tmpdir import tmpdir
-from .command import Command, default_bin
+from .command import Bash, Command, default_bin
 from .logger import logger
 from ..lang.cpp import CppCMakeDefinition, CppConfiguration
 from .rat import Rat, exclusion_from_globs
@@ -125,10 +125,17 @@ def rat_linter(src, root):
     yield LintResult(len(violations) == 0)
 
 
+def r_linter(src):
+    """ Run R linter. """
+    logger.info("Running r linter")
+    r_lint_sh = os.path.join(src.r, "lint.sh")
+    yield LintResult.from_cmd(Bash().run(r_lint_sh, check=False))
+
+
 def linter(src, with_clang_format=True, with_cpplint=True,
            with_clang_tidy=False, with_iwyu=False,
            with_flake8=True, with_cmake_format=False,
-           with_rat=True,
+           with_rat=True, with_r=True,
            fix=False):
     """ Run all linters. """
     with tmpdir(preserve=True, prefix="arrow-lint-") as root:
@@ -155,6 +162,9 @@ def linter(src, with_clang_format=True, with_cpplint=True,
 
         if with_rat:
             results.extend(rat_linter(src, root))
+
+        if with_r:
+            results.extend(r_linter(src))
 
         # Raise error if one linter failed, ensuring calling code can exit with
         # non-zero.

@@ -68,6 +68,11 @@ class ArrowSources:
         return os.path.join(self.python, "pyarrow")
 
     @property
+    def r(self):
+        """ Returns the r directory of an Arrow sources. """
+        return os.path.join(self.path, "r")
+
+    @property
     def git_backed(self):
         """ Indicate if the sources are backed by git. """
         git_path = os.path.join(self.path, ".git")

@@ -84,3 +84,8 @@ class CommandStackMixin:
     def run(self, *argv, **kwargs):
         stacked_args = self.argv + argv
         return super(CommandStackMixin, self).run(*stacked_args, **kwargs)
+
+
+class Bash(Command):
+    def __init__(self, bash_bin=None):
+        self.bin = default_bin(bash_bin, "BASH", "bash")

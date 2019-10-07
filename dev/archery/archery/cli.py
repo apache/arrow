@@ -183,6 +183,8 @@ def build(ctx, src, build_dir, force, targets, **kwargs):
               help="Lint CMakeFiles.txt files with cmake-format.py.")
 @click.option("--with-rat/--without-rat", default=True,
               help="Lint files for license violation via apache-rat.")
+@click.option("--with-r/--without-r", default=True,
+              help="Lint r files.")
 @click.option("--fix", type=bool, default=False,
               help="Toggle fixing the lint errors if the linter supports it.")
 @click.pass_context
