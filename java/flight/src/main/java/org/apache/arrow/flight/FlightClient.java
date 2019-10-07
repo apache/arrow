@@ -77,7 +77,7 @@ public class FlightClient implements AutoCloseable {
   /**
    * Create a Flight client from an allocator and a gRPC channel.
    */
-  private FlightClient(BufferAllocator incomingAllocator, ManagedChannel channel) {
+  FlightClient(BufferAllocator incomingAllocator, ManagedChannel channel) {
     this.allocator = incomingAllocator.newChildAllocator("flight-client", 0, Long.MAX_VALUE);
     this.channel = channel;
     blockingStub = FlightServiceGrpc.newBlockingStub(channel).withInterceptors(authInterceptor);
