@@ -99,7 +99,7 @@ class PARQUET_EXPORT PageReader {
   static std::unique_ptr<PageReader> Open(
       const std::shared_ptr<ArrowInputStream>& stream, int64_t total_num_rows,
       Compression::type codec, ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
-      const CryptoContext* ctx = nullptr);
+      const CryptoContext* ctx = NULLPTR);
 
   // @returns: shared_ptr<Page>(nullptr) on EOS, std::shared_ptr<Page>
   // containing new Page otherwise
