@@ -1692,7 +1692,7 @@ cdef CStatus _middleware_received_headers(
 
 cdef dict convert_headers(const CCallHeaders& c_headers):
     cdef:
-        CHeaderIterator header_iter = c_headers.cbegin()
+        CCallHeaders.const_iterator header_iter = c_headers.cbegin()
     headers = {}
     while header_iter != c_headers.cend():
         header = frombytes(c_string(deref(header_iter).first))

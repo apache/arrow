@@ -618,8 +618,8 @@ class TracingServerMiddlewareFactory : public ServerMiddlewareFactory {
 
   Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
                    std::shared_ptr<ServerMiddleware>* middleware) override {
-    const std::pair<HeaderIterator, HeaderIterator>& iter_pair =
-        incoming_headers.GetHeaders("x-tracing-span-id");
+    const std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator>& iter_pair =
+        incoming_headers.equal_range("x-tracing-span-id");
     if (iter_pair.first != iter_pair.second) {
       const util::string_view& value = (*iter_pair.first).second;
       current_span_id = std::string(value);
@@ -1406,62 +1406,6 @@ TEST_F(TestPropagatingMiddleware, DoPut) {
   const Status status = stream->Close();
   ASSERT_RAISES(NotImplemented, status);
   ValidateStatus(status, FlightMethod::DoPut);
-}
-
-// Validate the implementation of the call headers wrapper
-TEST_F(TestPropagatingMiddleware, CallHeaders) {
-  std::string header1 = "x-header";
-  std::string header1_value1 = "value";
-  std::string header1_value2 = "value";
-  std::string header2 = "x-header-two";
-  std::string header2_value1 = "value-two";
-
-  internal::GrpcMetadataMap headers;
-  headers.insert({header1, header1_value1});
-  headers.insert({header2, header2_value1});
-  headers.insert({header1, header1_value2});
-
-  internal::GrpcCallHeaders incoming_headers(&headers);
-
-  // Make sure that we didn't implement HeaderIterator::Impl
-  // incorrectly
-  ASSERT_EQ(incoming_headers.cbegin(), incoming_headers.cbegin());
-  ASSERT_EQ(incoming_headers.cend(), incoming_headers.cend());
-  ASSERT_EQ(2, incoming_headers.Count(header1));
-  ASSERT_EQ(1, incoming_headers.Count(header2));
-  {
-    const auto& header_pair = incoming_headers.GetHeaders("x-invalid");
-    ASSERT_EQ(header_pair.first, header_pair.second);
-  }
-  {
-    std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator> header_pair =
-        incoming_headers.GetHeaders(header1);
-    auto& current = header_pair.first;
-    ASSERT_NE(current, header_pair.second);
-    CheckHeader(header1, header1_value1, current);
-    ++current;
-    ASSERT_NE(current, header_pair.second);
-    CheckHeader(header1, header1_value2, current);
-    ++current;
-    ASSERT_EQ(current, header_pair.second);
-  }
-  {
-    std::pair<CallHeaders::const_iterator, CallHeaders::const_iterator> header_pair =
-        incoming_headers.GetHeaders(header2);
-    auto& current = header_pair.first;
-    ASSERT_NE(current, header_pair.second);
-    CheckHeader(header2, header2_value1, current);
-    ++current;
-    ASSERT_EQ(current, header_pair.second);
-  }
-  CallHeaders::const_iterator it = incoming_headers.cbegin();
-  ASSERT_NE(it, incoming_headers.cend());
-  it++;
-  ASSERT_NE(it, incoming_headers.cend());
-  it++;
-  ASSERT_NE(it, incoming_headers.cend());
-  it++;
-  ASSERT_EQ(it, incoming_headers.cend());
 }
 
 }  // namespace flight

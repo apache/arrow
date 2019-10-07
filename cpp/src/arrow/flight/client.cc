@@ -125,7 +125,11 @@ class GrpcClientInterceptorAdapter : public grpc::experimental::Interceptor {
     // (grpc-java and grpc-core differ on this point, it seems)
     if (methods->QueryInterceptionHookPoint(
             InterceptionHookPoints::POST_RECV_INITIAL_METADATA)) {
-      internal::GrpcCallHeaders headers(methods->GetRecvInitialMetadata());
+      CallHeaders headers;
+      for (const auto& entry : *methods->GetRecvInitialMetadata()) {
+        headers.insert({util::string_view(entry.first.data(), entry.first.length()),
+                        util::string_view(entry.second.data(), entry.second.length())});
+      }
       for (const auto& middleware : middleware_) {
         middleware->ReceivedHeaders(headers);
       }

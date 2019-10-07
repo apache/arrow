@@ -350,7 +350,13 @@ class FlightServiceImpl : public FlightService::Service {
                                GrpcServerCallContext& flight_context) {
     // Run server middleware
     const CallInfo info{method};
-    const internal::GrpcCallHeaders incoming_headers(&context->client_metadata());
+    CallHeaders incoming_headers;
+    for (const auto& entry : context->client_metadata()) {
+      incoming_headers.insert(
+          {util::string_view(entry.first.data(), entry.first.length()),
+           util::string_view(entry.second.data(), entry.second.length())});
+    }
+
     GrpcAddCallHeaders outgoing_headers(context);
     for (const auto& factory : middleware_) {
       std::shared_ptr<ServerMiddleware> instance;

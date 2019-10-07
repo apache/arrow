@@ -226,16 +226,18 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
     cdef cppclass CCallInfo" arrow::flight::CallInfo":
         CFlightMethod method
 
-    cdef cppclass CHeaderIterator" arrow::flight::HeaderIterator":
-        CHeaderIterator& operator++()
-        const pair[c_string, c_string] operator*()
-        bint operator==(const CHeaderIterator& r)
-        bint operator!=(const CHeaderIterator& r)
-
+    # This is really std::unordered_multimap, but Cython has no
+    # bindings for it, so treat it as an opaque class and bind the
+    # methods we need
     cdef cppclass CCallHeaders" arrow::flight::CallHeaders":
-        size_t Count(const c_string& key)
-        CHeaderIterator cbegin()
-        CHeaderIterator cend()
+        cppclass const_iterator:
+            pair[c_string, c_string] operator*()
+            const_iterator operator++()
+            bint operator==(const_iterator)
+            bint operator!=(const_iterator)
+
+        const_iterator cbegin()
+        const_iterator cend()
 
     cdef cppclass CAddCallHeaders" arrow::flight::AddCallHeaders":
         void AddHeader(const c_string& key, const c_string& value)

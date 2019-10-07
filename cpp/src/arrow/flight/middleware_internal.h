@@ -39,26 +39,7 @@ namespace arrow {
 
 namespace flight {
 
-namespace internal {
-
-typedef std::multimap<grpc::string_ref, grpc::string_ref> GrpcMetadataMap;
-
-class ARROW_FLIGHT_EXPORT GrpcCallHeaders : public CallHeaders {
- public:
-  explicit GrpcCallHeaders(const GrpcMetadataMap* metadata) : metadata_(metadata) {}
-  ~GrpcCallHeaders() override = default;
-
-  std::pair<const_iterator, const_iterator> GetHeaders(
-      const std::string& key) const override;
-  std::size_t Count(const std::string& key) const override;
-  const_iterator cbegin() const noexcept override;
-  const_iterator cend() const noexcept override;
-
- private:
-  const GrpcMetadataMap* metadata_;
-};
-
-}  // namespace internal
+namespace internal {}  // namespace internal
 
 }  // namespace flight
 

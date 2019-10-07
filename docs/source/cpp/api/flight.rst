@@ -43,7 +43,7 @@ Common Types
    :project: arrow_cpp
    :members:
 
-.. doxygenclass:: arrow::flight::CallInfo
+.. doxygenstruct:: arrow::flight::CallInfo
    :project: arrow_cpp
    :members:
 

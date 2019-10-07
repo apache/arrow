@@ -32,46 +32,5 @@
 #include "arrow/util/stl.h"
 
 namespace arrow {
-namespace flight {
-
-HeaderIterator::HeaderIterator() : impl_(nullptr) {}
-
-HeaderIterator::HeaderIterator(std::unique_ptr<Impl> impl) : impl_(impl.release()) {}
-
-HeaderIterator::HeaderIterator(const HeaderIterator& copy)
-    : HeaderIterator(copy.impl_->Clone()) {}
-
-const HeaderIterator::value_type& HeaderIterator::operator*() const {
-  ARROW_CHECK_NE(impl_, nullptr);
-  return impl_->Dereference();
-}
-
-HeaderIterator& HeaderIterator::operator=(const HeaderIterator& other) {
-  impl_ = other.impl_->Clone();
-  return *this;
-}
-
-HeaderIterator& HeaderIterator::operator++() {
-  ARROW_CHECK_NE(impl_, nullptr);
-  impl_->Next();
-  return *this;
-}
-
-HeaderIterator HeaderIterator::operator++(int) {
-  HeaderIterator ret = *this;
-  this->operator++();
-  return ret;
-}
-
-bool HeaderIterator::operator==(const HeaderIterator& r) const {
-  ARROW_CHECK_NE(impl_, nullptr);
-  return impl_->Equals(r.impl_.get());
-}
-
-bool HeaderIterator::operator!=(const HeaderIterator& r) const {
-  ARROW_CHECK_NE(impl_, nullptr);
-  return !(*this == r);
-}
-
-}  // namespace flight
+namespace flight {}  // namespace flight
 }  // namespace arrow
