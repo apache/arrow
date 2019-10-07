@@ -30,6 +30,14 @@ RUN rustup default "$(cat /tmp/rust-toolchain)"
 # Enable stable rustfmt for nightly Rust
 RUN rustup component add rustfmt --toolchain stable-x86_64-unknown-linux-gnu
 
+# Enable caching of dependencies
+RUN cargo install sccache
+RUN USER=root cargo init arrow-deps
+COPY rust/rust-toolchain arrow-deps
+COPY rust/Cargo.toml.cache arrow-deps/Cargo.toml
+ENV RUSTC_WRAPPER=sccache
+RUN cd arrow-deps && cargo build --verbose
+
 # Set environment variables for location of test data required by unit and integration tests
 ENV ARROW_TEST_DATA=/arrow/testing/data
 ENV PARQUET_TEST_DATA=/arrow/cpp/submodules/parquet-testing/data

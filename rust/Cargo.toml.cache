@@ -1,0 +1,51 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+[package]
+name = "arrow-dependencies"
+version = "0.0.0"
+
+[dependencies]
+brotli = "2.5"
+byteorder = "1"
+chrono = "0.4.7"
+clap = "2.33.0"
+crossbeam = "0.7.1"
+csv = "1.0"
+indexmap = "1.0"
+flatbuffers = "0.5.0"
+flate2 = "1.0.2"
+fnv = "1.0.3"
+lazy_static = "1.2"
+libc = "0.2"
+lz4 = "1.23"
+num = "0.2"
+num-bigint = "0.2"
+packed_simd = { version = "0.3.1", optional = true }
+parquet-format = "~2.5"
+prettytable-rs = "0.8.0"
+quick-error = "1.2.2"
+rand = "0.6"
+regex = "1.1"
+rustyline = {version = "4.1.0", optional = true}
+serde = { version = "1.0.80", features = ["rc"] }
+serde_derive = "1.0.80"
+serde_json = { version = "1.0.13", features = ["preserve_order"] }
+snap = "0.2"
+sqlparser = "0.2.0"
+thrift = "0.0.4"
+zstd = "0.4"

@@ -31,8 +31,12 @@ echo "Running formatting checks ..."
 cargo +stable fmt --all -- --check
 echo "Formatting checks completed"
 
+# set up Rust env
+export RUSTC_WRAPPER=sccache
+export RUSTFLAGS="-D warnings"
+
 # build entire project
-RUSTFLAGS="-D warnings" cargo build --all-targets
+cargo build --all-targets
 
 # run tests
 cargo test
