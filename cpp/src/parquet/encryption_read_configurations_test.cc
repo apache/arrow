@@ -178,7 +178,6 @@ class TestDecryptionConfiguration
 
     // Get the number of RowGroups
     int num_row_groups = file_metadata->num_row_groups();
-    ASSERT_EQ(num_row_groups, 1);
 
     // Get the number of Columns
     int num_columns = file_metadata->num_columns();

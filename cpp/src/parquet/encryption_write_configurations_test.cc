@@ -76,6 +76,7 @@ class TestEncryptionConfiguration : public ::testing::Test {
   std::string path_to_double_field_ = "double_field";
   std::string path_to_float_field_ = "float_field";
   std::string file_name_;
+  int num_rgs = 5;
   int rows_per_rowgroup_ = 50;
   std::shared_ptr<GroupNode> schema_;
   std::string kFooterEncryptionKey_ = std::string(kFooterEncryptionKey);
@@ -100,96 +101,98 @@ class TestEncryptionConfiguration : public ::testing::Test {
     std::shared_ptr<parquet::ParquetFileWriter> file_writer =
         parquet::ParquetFileWriter::Open(out_file, schema_, writer_properties);
 
-    RowGroupWriter* row_group_writer;
-    row_group_writer = file_writer->AppendRowGroup();
+    for (int r = 0; r < num_rgs; r++) {
+      auto row_group_writer = file_writer->AppendRowGroup();
 
-    // Write the Bool column
-    parquet::BoolWriter* bool_writer =
-        static_cast<parquet::BoolWriter*>(row_group_writer->NextColumn());
-    for (int i = 0; i < rows_per_rowgroup_; i++) {
-      bool value = ((i % 2) == 0) ? true : false;
-      bool_writer->WriteBatch(1, nullptr, nullptr, &value);
-    }
-
-    // Write the Int32 column
-    parquet::Int32Writer* int32_writer =
-        static_cast<parquet::Int32Writer*>(row_group_writer->NextColumn());
-    for (int i = 0; i < rows_per_rowgroup_; i++) {
-      int32_t value = i;
-      int32_writer->WriteBatch(1, nullptr, nullptr, &value);
-    }
-
-    // Write the Int64 column. Each row has repeats twice.
-    parquet::Int64Writer* int64_writer =
-        static_cast<parquet::Int64Writer*>(row_group_writer->NextColumn());
-    for (int i = 0; i < 2 * rows_per_rowgroup_; i++) {
-      int64_t value = i * 1000 * 1000;
-      value *= 1000 * 1000;
-      int16_t definition_level = 1;
-      int16_t repetition_level = 0;
-      if ((i % 2) == 0) {
-        repetition_level = 1;  // start of a new record
+      // Write the Bool column
+      parquet::BoolWriter* bool_writer =
+          static_cast<parquet::BoolWriter*>(row_group_writer->NextColumn());
+      for (int i = 0; i < rows_per_rowgroup_; i++) {
+        bool value = ((i % 2) == 0) ? true : false;
+        bool_writer->WriteBatch(1, nullptr, nullptr, &value);
       }
-      int64_writer->WriteBatch(1, &definition_level, &repetition_level, &value);
-    }
 
-    // Write the INT96 column.
-    parquet::Int96Writer* int96_writer =
-        static_cast<parquet::Int96Writer*>(row_group_writer->NextColumn());
-    for (int i = 0; i < rows_per_rowgroup_; i++) {
-      parquet::Int96 value;
-      value.value[0] = i;
-      value.value[1] = i + 1;
-      value.value[2] = i + 2;
-      int96_writer->WriteBatch(1, nullptr, nullptr, &value);
-    }
+      // Write the Int32 column
+      parquet::Int32Writer* int32_writer =
+          static_cast<parquet::Int32Writer*>(row_group_writer->NextColumn());
+      for (int i = 0; i < rows_per_rowgroup_; i++) {
+        int32_t value = i;
+        int32_writer->WriteBatch(1, nullptr, nullptr, &value);
+      }
 
-    // Write the Float column
-    parquet::FloatWriter* float_writer =
-        static_cast<parquet::FloatWriter*>(row_group_writer->NextColumn());
-    for (int i = 0; i < rows_per_rowgroup_; i++) {
-      float value = static_cast<float>(i) * 1.1f;
-      float_writer->WriteBatch(1, nullptr, nullptr, &value);
-    }
-
-    // Write the Double column
-    parquet::DoubleWriter* double_writer =
-        static_cast<parquet::DoubleWriter*>(row_group_writer->NextColumn());
-    for (int i = 0; i < rows_per_rowgroup_; i++) {
-      double value = i * 1.1111111;
-      double_writer->WriteBatch(1, nullptr, nullptr, &value);
-    }
-
-    // Write the ByteArray column. Make every alternate values NULL
-    parquet::ByteArrayWriter* ba_writer =
-        static_cast<parquet::ByteArrayWriter*>(row_group_writer->NextColumn());
-    for (int i = 0; i < rows_per_rowgroup_; i++) {
-      parquet::ByteArray value;
-      char hello[kFixedLength] = "parquet";
-      hello[7] = static_cast<char>(static_cast<int>('0') + i / 100);
-      hello[8] = static_cast<char>(static_cast<int>('0') + (i / 10) % 10);
-      hello[9] = static_cast<char>(static_cast<int>('0') + i % 10);
-      if (i % 2 == 0) {
+      // Write the Int64 column. Each row has repeats twice.
+      parquet::Int64Writer* int64_writer =
+          static_cast<parquet::Int64Writer*>(row_group_writer->NextColumn());
+      for (int i = 0; i < 2 * rows_per_rowgroup_; i++) {
+        int64_t value = i * 1000 * 1000;
+        value *= 1000 * 1000;
         int16_t definition_level = 1;
-        value.ptr = reinterpret_cast<const uint8_t*>(&hello[0]);
-        value.len = kFixedLength;
-        ba_writer->WriteBatch(1, &definition_level, nullptr, &value);
-      } else {
-        int16_t definition_level = 0;
-        ba_writer->WriteBatch(1, &definition_level, nullptr, nullptr);
+        int16_t repetition_level = 0;
+        if ((i % 2) == 0) {
+          repetition_level = 1;  // start of a new record
+        }
+        int64_writer->WriteBatch(1, &definition_level, &repetition_level, &value);
+      }
+
+      // Write the INT96 column.
+      parquet::Int96Writer* int96_writer =
+          static_cast<parquet::Int96Writer*>(row_group_writer->NextColumn());
+      for (int i = 0; i < rows_per_rowgroup_; i++) {
+        parquet::Int96 value;
+        value.value[0] = i;
+        value.value[1] = i + 1;
+        value.value[2] = i + 2;
+        int96_writer->WriteBatch(1, nullptr, nullptr, &value);
+      }
+
+      // Write the Float column
+      parquet::FloatWriter* float_writer =
+          static_cast<parquet::FloatWriter*>(row_group_writer->NextColumn());
+      for (int i = 0; i < rows_per_rowgroup_; i++) {
+        float value = static_cast<float>(i) * 1.1f;
+        float_writer->WriteBatch(1, nullptr, nullptr, &value);
+      }
+
+      // Write the Double column
+      parquet::DoubleWriter* double_writer =
+          static_cast<parquet::DoubleWriter*>(row_group_writer->NextColumn());
+      for (int i = 0; i < rows_per_rowgroup_; i++) {
+        double value = i * 1.1111111;
+        double_writer->WriteBatch(1, nullptr, nullptr, &value);
+      }
+
+      // Write the ByteArray column. Make every alternate values NULL
+      parquet::ByteArrayWriter* ba_writer =
+          static_cast<parquet::ByteArrayWriter*>(row_group_writer->NextColumn());
+      for (int i = 0; i < rows_per_rowgroup_; i++) {
+        parquet::ByteArray value;
+        char hello[kFixedLength] = "parquet";
+        hello[7] = static_cast<char>(static_cast<int>('0') + i / 100);
+        hello[8] = static_cast<char>(static_cast<int>('0') + (i / 10) % 10);
+        hello[9] = static_cast<char>(static_cast<int>('0') + i % 10);
+        if (i % 2 == 0) {
+          int16_t definition_level = 1;
+          value.ptr = reinterpret_cast<const uint8_t*>(&hello[0]);
+          value.len = kFixedLength;
+          ba_writer->WriteBatch(1, &definition_level, nullptr, &value);
+        } else {
+          int16_t definition_level = 0;
+          ba_writer->WriteBatch(1, &definition_level, nullptr, nullptr);
+        }
+      }
+
+      // Write the FixedLengthByteArray column
+      parquet::FixedLenByteArrayWriter* flba_writer =
+          static_cast<parquet::FixedLenByteArrayWriter*>(row_group_writer->NextColumn());
+      for (int i = 0; i < rows_per_rowgroup_; i++) {
+        parquet::FixedLenByteArray value;
+        char v = static_cast<char>(i);
+        char flba[kFixedLength] = {v, v, v, v, v, v, v, v, v, v};
+        value.ptr = reinterpret_cast<const uint8_t*>(&flba[0]);
+        flba_writer->WriteBatch(1, nullptr, nullptr, &value);
       }
     }
-    // Write the FixedLengthByteArray column
-    parquet::FixedLenByteArrayWriter* flba_writer =
-        static_cast<parquet::FixedLenByteArrayWriter*>(row_group_writer->NextColumn());
-    for (int i = 0; i < rows_per_rowgroup_; i++) {
-      parquet::FixedLenByteArray value;
-      char v = static_cast<char>(i);
-      char flba[kFixedLength] = {v, v, v, v, v, v, v, v, v, v};
-      value.ptr = reinterpret_cast<const uint8_t*>(&flba[0]);
 
-      flba_writer->WriteBatch(1, nullptr, nullptr, &value);
-    }
     // Close the ParquetFileWriter
     file_writer->Close();
 

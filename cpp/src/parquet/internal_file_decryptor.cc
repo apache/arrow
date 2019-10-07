@@ -165,11 +165,15 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
   // first look if we already got the decryptor from before
   if (metadata) {
     if (column_metadata_map_.find(column_path) != column_metadata_map_.end()) {
-      return column_metadata_map_.at(column_path);
+      auto res(column_metadata_map_.at(column_path));
+      res->UpdateAad(aad);
+      return res;
     }
   } else {
     if (column_data_map_.find(column_path) != column_data_map_.end()) {
-      return column_data_map_.at(column_path);
+      auto res(column_data_map_.at(column_path));
+      res->UpdateAad(aad);
+      return res;
     }
   }
 
