@@ -41,6 +41,7 @@ use crate::execution::physical_plan::expressions::{
     Avg, BinaryExpr, CastExpr, Column, Count, Literal, Max, Min, Sum,
 };
 use crate::execution::physical_plan::hash_aggregate::HashAggregateExec;
+use crate::execution::physical_plan::limit::LimitExec;
 use crate::execution::physical_plan::merge::MergeExec;
 use crate::execution::physical_plan::projection::ProjectionExec;
 use crate::execution::physical_plan::selection::SelectionExec;
@@ -288,6 +289,43 @@ impl ExecutionContext {
                 let input_schema = input.as_ref().schema().clone();
                 let runtime_expr = self.create_physical_expr(expr, &input_schema)?;
                 Ok(Arc::new(SelectionExec::try_new(runtime_expr, input)?))
+            }
+            LogicalPlan::Limit { input, expr, .. } => {
+                let input = self.create_physical_plan(input, batch_size)?;
+                let input_schema = input.as_ref().schema().clone();
+
+                match expr {
+                    &Expr::Literal(ref scalar_value) => {
+                        let limit: usize = match scalar_value {
+                            ScalarValue::Int8(limit) if *limit >= 0 => Ok(*limit as usize),
+                            ScalarValue::Int16(limit) if *limit >= 0 => {
+                                Ok(*limit as usize)
+                            }
+                            ScalarValue::Int32(limit) if *limit >= 0 => {
+                                Ok(*limit as usize)
+                            }
+                            ScalarValue::Int64(limit) if *limit >= 0 => {
+                                Ok(*limit as usize)
+                            }
+                            ScalarValue::UInt8(limit) => Ok(*limit as usize),
+                            ScalarValue::UInt16(limit) => Ok(*limit as usize),
+                            ScalarValue::UInt32(limit) => Ok(*limit as usize),
+                            ScalarValue::UInt64(limit) => Ok(*limit as usize),
+                            _ => Err(ExecutionError::ExecutionError(
+                                "Limit only supports non-negative integer literals"
+                                    .to_string(),
+                            )),
+                        }?;
+                        Ok(Arc::new(LimitExec::new(
+                            input_schema.clone(),
+                            input.partitions()?,
+                            limit,
+                        )))
+                    }
+                    _ => Err(ExecutionError::ExecutionError(
+                        "Limit only supports non-negative integer literals".to_string(),
+                    )),
+                }
             }
             _ => Err(ExecutionError::General(
                 "Unsupported logical plan variant".to_string(),

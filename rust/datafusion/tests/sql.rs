@@ -15,9 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::cell::RefCell;
 use std::env;
-use std::rc::Rc;
 use std::sync::Arc;
 
 extern crate arrow;
@@ -25,10 +23,10 @@ extern crate datafusion;
 
 use arrow::array::*;
 use arrow::datatypes::{DataType, Field, Schema};
+use arrow::record_batch::RecordBatch;
 
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
-use datafusion::execution::relation::Relation;
 use datafusion::logicalplan::LogicalPlan;
 
 const DEFAULT_BATCH_SIZE: usize = 1024 * 1024;
@@ -101,9 +99,11 @@ fn parquet_single_nan_schema() {
     ctx.register_parquet("single_nan", &format!("{}/single_nan.parquet", testdata))
         .unwrap();
     let sql = "SELECT mycol FROM single_nan";
-    let relation = ctx.sql(&sql, 1024 * 1024).unwrap();
-    let mut results = relation.borrow_mut();
-    while let Some(batch) = results.next().unwrap() {
+    let plan = ctx.create_logical_plan(&sql).unwrap();
+    let plan = ctx.optimize(&plan).unwrap();
+    let plan = ctx.create_physical_plan(&plan, DEFAULT_BATCH_SIZE).unwrap();
+    let results = ctx.collect(plan.as_ref()).unwrap();
+    for batch in results {
         assert_eq!(1, batch.num_rows());
         assert_eq!(1, batch.num_columns());
     }
@@ -430,14 +430,14 @@ fn register_alltypes_parquet(ctx: &mut ExecutionContext) {
 fn execute(ctx: &mut ExecutionContext, sql: &str) -> String {
     let plan = ctx.create_logical_plan(&sql).unwrap();
     let plan = ctx.optimize(&plan).unwrap();
-    let results = ctx.execute(&plan, DEFAULT_BATCH_SIZE).unwrap();
+    let plan = ctx.create_physical_plan(&plan, DEFAULT_BATCH_SIZE).unwrap();
+    let results = ctx.collect(plan.as_ref()).unwrap();
     result_str(&results)
 }
 
-fn result_str(results: &Rc<RefCell<dyn Relation>>) -> String {
-    let mut relation = results.borrow_mut();
+fn result_str(results: &Vec<RecordBatch>) -> String {
     let mut str = String::new();
-    while let Some(batch) = relation.next().unwrap() {
+    for batch in results {
         for row_index in 0..batch.num_rows() {
             for column_index in 0..batch.num_columns() {
                 if column_index > 0 {
