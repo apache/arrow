@@ -49,15 +49,6 @@ matrix:
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
     - $TRAVIS_BUILD_DIR/ci/travis_release_test.sh
-  - name: "C++ unit tests w/ clang 7.0, system packages"
-    os: linux
-    language: cpp
-    before_script:
-    - if [ $ARROW_CI_CPP_AFFECTED != "1" ]; then exit; fi
-    - git submodule update --init
-    - docker-compose build --pull cpp-system-deps
-    script:
-    - docker-compose run cpp-system-deps
 
   # -------------------------------------------------------------------------
   # Separating Valgrind and C++ coverage makes individual jobs shorter
