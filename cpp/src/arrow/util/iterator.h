@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <cassert>
+#include <functional>
 #include <memory>
 #include <type_traits>
 #include <utility>
@@ -310,6 +312,127 @@ class FlattenIterator {
 template <typename T>
 Iterator<T> MakeFlattenIterator(Iterator<Iterator<T>> it) {
   return Iterator<T>(FlattenIterator<T>(std::move(it)));
+}
+
+namespace detail {
+
+// A type-erased promise object for ReadaheadQueue.
+struct ARROW_EXPORT ReadaheadPromise {
+  virtual ~ReadaheadPromise();
+  virtual void Call() = 0;
+};
+
+template <typename T>
+struct ReadaheadIteratorPromise : ReadaheadPromise {
+  ~ReadaheadIteratorPromise() override {}
+
+  explicit ReadaheadIteratorPromise(Iterator<T>* it) : it_(it) {}
+
+  void Call() override {
+    assert(!called_);
+    status_ = it_->Next(&out_);
+    called_ = true;
+  }
+
+  Iterator<T>* it_;
+  Status status_;
+  T out_ = IterationTraits<T>::End();
+  bool called_ = false;
+};
+
+class ARROW_EXPORT ReadaheadQueue {
+ public:
+  explicit ReadaheadQueue(int readahead_queue_size);
+  ~ReadaheadQueue();
+
+  Status Append(std::unique_ptr<ReadaheadPromise>);
+  Status PopDone(std::unique_ptr<ReadaheadPromise>*);
+  Status Pump(std::function<std::unique_ptr<ReadaheadPromise>()> factory);
+  Status Shutdown();
+  void EnsureShutdownOrDie();
+
+ protected:
+  class Impl;
+  std::shared_ptr<Impl> impl_;
+};
+
+}  // namespace detail
+
+/// \brief Readahead iterator that iterates on the underlying iterator in a
+/// separate thread, getting up to N values in advance.
+template <typename T>
+class ReadaheadIterator {
+  using PromiseType = typename detail::ReadaheadIteratorPromise<T>;
+
+ public:
+  // Public default constructor creates an empty iterator
+  ReadaheadIterator() : done_(true) {}
+
+  ~ReadaheadIterator() {
+    if (queue_) {
+      // Make sure the queue doesn't call any promises after this object
+      // is destroyed.
+      queue_->EnsureShutdownOrDie();
+    }
+  }
+
+  ARROW_DEFAULT_MOVE_AND_ASSIGN(ReadaheadIterator);
+  ARROW_DISALLOW_COPY_AND_ASSIGN(ReadaheadIterator);
+
+  Status Next(T* out) {
+    if (done_) {
+      *out = IterationTraits<T>::End();
+      return Status::OK();
+    }
+
+    std::unique_ptr<detail::ReadaheadPromise> promise;
+    ARROW_RETURN_NOT_OK(queue_->PopDone(&promise));
+    auto it_promise = static_cast<PromiseType*>(promise.get());
+
+    ARROW_RETURN_NOT_OK(queue_->Append(MakePromise()));
+
+    ARROW_RETURN_NOT_OK(it_promise->status_);
+    *out = std::move(it_promise->out_);
+    if (*out == IterationTraits<T>::End()) {
+      done_ = true;
+    }
+    return Status::OK();
+  }
+
+  static Status Make(Iterator<T> it, int readahead_queue_size, ReadaheadIterator* out) {
+    ReadaheadIterator rh(std::move(it), readahead_queue_size);
+    ARROW_RETURN_NOT_OK(rh.Pump());
+    *out = std::move(rh);
+    return Status::OK();
+  }
+
+ private:
+  explicit ReadaheadIterator(Iterator<T> it, int readahead_queue_size)
+      : it_(new Iterator<T>(std::move(it))),
+        queue_(new detail::ReadaheadQueue(readahead_queue_size)) {}
+
+  Status Pump() {
+    return queue_->Pump([this]() { return MakePromise(); });
+  }
+
+  std::unique_ptr<detail::ReadaheadPromise> MakePromise() {
+    return std::unique_ptr<detail::ReadaheadPromise>(new PromiseType{it_.get()});
+  }
+
+  // The underlying iterator is referenced by pointer in ReadaheadPromise,
+  // so make sure it doesn't move.
+  std::unique_ptr<Iterator<T>> it_;
+  std::unique_ptr<detail::ReadaheadQueue> queue_;
+  bool done_ = false;
+};
+
+template <typename T>
+Status MakeReadaheadIterator(Iterator<T> it, int readahead_queue_size, Iterator<T>* out) {
+  ReadaheadIterator<T> rh;
+  ARROW_RETURN_NOT_OK(
+      ReadaheadIterator<T>::Make(std::move(it), readahead_queue_size, &rh));
+  *out = Iterator<T>(std::move(rh));
+  return Status::OK();
 }
 
 }  // namespace arrow
