@@ -108,6 +108,8 @@ class ARROW_EXPORT PlasmaClient {
   Status CreateAndSeal(const ObjectID& object_id, const std::string& data,
                        const std::string& metadata);
 
+  Status CreateAndSealBatch(const std::vector<ObjectID>& object_ids, const std::vector<std::string>& data, const std::vector<std::string>& metadata);
+
   /// Get some objects from the Plasma Store. This function will block until the
   /// objects have all been created and sealed in the Plasma Store or the
   /// timeout expires.
