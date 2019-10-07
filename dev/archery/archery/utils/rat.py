@@ -19,7 +19,7 @@ import fnmatch
 import re
 from xml.etree import ElementTree
 
-from .java import Jar
+from ..lang.java import Jar
 from .cache import Cache
 from .command import capture_stdout
 

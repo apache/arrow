@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from .command import Command, CommandStackMixin, default_bin
+from ..utils.command import Command, CommandStackMixin, default_bin
 
 
 class Java(Command):
