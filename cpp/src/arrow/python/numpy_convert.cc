@@ -324,7 +324,7 @@ Status SparseCOOTensorToNdarray(const std::shared_ptr<SparseCOOTensor>& sparse_t
   // Wrap tensor data
   OwnedRef result_data;
   RETURN_NOT_OK(SparseTensorDataToNdarray(
-      *sparse_tensor, {sparse_index.non_zero_length(), 1}, base, result_data.ref()));
+      *sparse_tensor, {sparse_tensor->non_zero_length(), 1}, base, result_data.ref()));
 
   // Wrap indices
   PyObject* result_coords;
@@ -344,7 +344,7 @@ Status SparseCSRMatrixToNdarray(const std::shared_ptr<SparseCSRMatrix>& sparse_t
   // Wrap tensor data
   OwnedRef result_data;
   RETURN_NOT_OK(SparseTensorDataToNdarray(
-      *sparse_tensor, {sparse_index.non_zero_length(), 1}, base, result_data.ref()));
+      *sparse_tensor, {sparse_tensor->non_zero_length(), 1}, base, result_data.ref()));
 
   // Wrap indices
   OwnedRef result_indptr;
