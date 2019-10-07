@@ -100,6 +100,9 @@ class FlightServer(flight.FlightServerBase):
         ]
 
     def do_action(self, context, action):
+        trace_middleware = context.get_middleware("trace")
+        if trace_middleware:
+            TraceContext.set_trace_id(trace_middleware.trace_id)
         if action.type == "get-trace-id":
             if self.delegate:
                 for result in self.delegate.do_action(action):
@@ -145,7 +148,7 @@ def main():
         server = FlightServer(
             args.delegate,
             location=args.listen,
-            middleware=[TracingServerMiddlewareFactory()])
+            middleware={"trace": TracingServerMiddlewareFactory()})
         server.serve()
     elif args.command == "client":
         client = flight.connect(
