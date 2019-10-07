@@ -15,7 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
+FROM hadolint/hadolint:v1.17.2 AS hadolint
+
 FROM ubuntu:18.04
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 RUN apt-get update && \
       apt-get install -y -q \
@@ -39,7 +43,15 @@ RUN apt-get update && \
 
 # Use python3 by default in scripts
 RUN ln -s /usr/bin/python3 /usr/local/bin/python
-
 RUN pip3 install flake8
+
+# Rust linter
+RUN curl https://sh.rustup.rs -sSf | \
+    sh -s -- --default-toolchain stable -y
+ENV PATH /root/.cargo/bin:$PATH
+RUN rustup component add rustfmt
+
+# Docker linter
+COPY --from=hadolint /bin/hadolint /usr/bin/hadolint
 
 CMD ["/arrow/ci/docker/lint.sh"]
