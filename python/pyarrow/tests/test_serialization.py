@@ -537,24 +537,13 @@ def test_numpy_subclass_serialization():
     assert np.alltrue(new_x.view(np.ndarray) == np.zeros(3))
 
 
-def test_sparse_tensor_coo_components_serialization(large_buffer):
-    data = np.array([[1, 1, 1, 1, 1, 1, 1]]).T
-    row = np.array([0, 0, 1, 3, 1, 0, 0])
-    col = np.array([0, 2, 1, 3, 1, 0, 0])
-    shape = (4, 4)
-
-    coords = np.vstack([row, col]).T
-    sparse_tensor = pa.SparseTensorCOO.from_numpy(data, coords, shape)
-    serialization_roundtrip(sparse_tensor, large_buffer)
-
-
 def test_sparse_tensor_coo_serialization(large_buffer):
-    data = np.array([[1, 1, 1, 1, 1, 1, 1]]).T
-    row = np.array([0, 0, 1, 3, 1, 0, 0])
-    col = np.array([0, 2, 1, 3, 1, 0, 0])
-    shape = (4, 4)
-
+    data = np.array([[1, 2, 3, 4, 5, 6, 7]]).T
+    row = np.array([0, 0, 2, 3, 1, 3, 0])
+    col = np.array([0, 2, 0, 4, 5, 5, 0])
     coords = np.vstack([row, col]).T
+    shape = (4, 6)
+
     sparse_tensor = pa.SparseTensorCOO.from_numpy(data, coords, shape)
 
     serialized = pa.serialize(sparse_tensor)
@@ -565,11 +554,36 @@ def test_sparse_tensor_coo_serialization(large_buffer):
     assert np.array_equal(coords_result, coords)
 
 
+def test_sparse_tensor_coo_components_serialization(large_buffer):
+    data = np.array([1, 2, 3, 4, 5, 6, 7])
+    row = np.array([0, 0, 2, 3, 1, 3, 0])
+    col = np.array([0, 2, 0, 4, 5, 5, 0])
+    coords = np.vstack([row, col]).T
+    shape = (4, 6)
+
+    sparse_tensor = pa.SparseTensorCOO.from_numpy(data, coords, shape)
+    serialization_roundtrip(sparse_tensor, large_buffer)
+
+
+@pytest.mark.skipif(not coo_matrix, reason="requires scipy")
+def test_scipy_sparse_tensor_coo_serialization():
+    data = np.array([1, 2, 3, 4, 5, 6, 7])
+    row = np.array([0, 0, 2, 3, 1, 3, 0])
+    col = np.array([0, 2, 0, 4, 5, 5, 0])
+    shape = (4, 6)
+
+    sparse_array = coo_matrix((data, (row, col)), shape=shape)
+    serialized = pa.serialize(sparse_array)
+    result = serialized.deserialize()
+
+    assert np.array_equal(sparse_array.toarray(), result.toarray())
+
+
 def test_sparse_tensor_csr_serialization(large_buffer):
-    data = np.array([[1, 2, 3, 4, 5, 6]]).T
-    indptr = np.array([0, 2, 3, 6])
-    indices = np.array([0, 2, 2, 0, 1, 2])
-    shape = (3, 3)
+    data = np.array([[8, 2, 5, 3, 4, 6]]).T
+    indptr = np.array([0, 2, 3, 4, 6])
+    indices = np.array([0, 2, 5, 0, 4, 5])
+    shape = (4, 6)
 
     sparse_tensor = pa.SparseTensorCSR.from_numpy(data, indptr, indices, shape)
 
@@ -584,57 +598,27 @@ def test_sparse_tensor_csr_serialization(large_buffer):
 
 @pytest.mark.skipif(os.name == 'nt', reason="equality check fails on windows")
 def test_sparse_tensor_csr_components_serialization(large_buffer):
-    data = np.array([[1, 2, 3, 4, 5, 6]]).T
-    indptr = np.array([0, 2, 3, 6])
-    indices = np.array([0, 2, 2, 0, 1, 2])
-    shape = (3, 3)
+    data = np.array([8, 2, 5, 3, 4, 6])
+    indptr = np.array([0, 2, 3, 4, 6])
+    indices = np.array([0, 2, 5, 0, 4, 5])
+    shape = (4, 6)
 
     sparse_tensor = pa.SparseTensorCSR.from_numpy(data, indptr, indices, shape)
     serialization_roundtrip(sparse_tensor, large_buffer)
 
 
-@pytest.mark.skipif(not coo_matrix, reason="requires scipy")
-def test_scipy_sparse_tensor_coo_serialization():
-    data = np.array([1, 1, 1, 1, 1, 1, 1])
-    row = np.array([0, 0, 1, 3, 1, 0, 0])
-    col = np.array([0, 2, 1, 3, 1, 0, 0])
-    shape = (4, 4)
-
-    sparse_array = coo_matrix((data, (row, col)), shape=shape)
-    serialized = pa.serialize(sparse_array)
-    result = serialized.deserialize()
-
-    assert np.array_equal(sparse_array.toarray(), result.toarray())
-
-
 @pytest.mark.skipif(not csr_matrix, reason="requires scipy")
 def test_scipy_sparse_tensor_csr_serialization():
-    data = np.array([1, 2, 3, 4, 5, 6])
-    indptr = np.array([0, 2, 3, 6])
-    indices = np.array([0, 2, 2, 0, 1, 2])
-    shape = (3, 3)
+    data = np.array([8, 2, 5, 3, 4, 6])
+    indptr = np.array([0, 2, 3, 4, 6])
+    indices = np.array([0, 2, 5, 0, 4, 5])
+    shape = (4, 6)
 
     sparse_array = csr_matrix((data, indices, indptr), shape=shape)
     serialized = pa.serialize(sparse_array)
     result = serialized.deserialize()
 
     assert np.array_equal(sparse_array.toarray(), result.toarray())
-
-
-@pytest.mark.skipif(not sparse, reason="requires pydata/sparse")
-def test_pydata_sparse__sparse_tensor_coo_serialization():
-    data = np.array([1, 1, 1, 1, 1, 1, 1])
-    coords = np.array([
-        [0, 0, 1, 3, 2, 1, 0],
-        [0, 2, 1, 3, 2, 0, 1],
-    ])
-    shape = (4, 4)
-
-    sparse_array = sparse.COO(data=data, coords=coords, shape=shape)
-    serialized = pa.serialize(sparse_array)
-    result = serialized.deserialize()
-
-    assert np.array_equal(sparse_array.todense(), result.todense())
 
 
 @pytest.mark.filterwarnings(
