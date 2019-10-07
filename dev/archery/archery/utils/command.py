@@ -38,17 +38,21 @@ def default_bin(name, env, default):
 
 # Decorator running a command and returning stdout
 class capture_stdout:
-    def __init__(self, strip=False):
+    def __init__(self, strip=False, listify=False):
         self.strip = strip
+        self.listify = listify
 
     def __call__(self, f):
         def strip_it(x):
             return x.strip() if self.strip else x
 
+        def list_it(x):
+            return x.decode('utf-8').splitlines() if self.listify else x
+
         def wrapper(*argv, **kwargs):
             # Ensure stdout is captured
             kwargs["stdout"] = subprocess.PIPE
-            return strip_it(f(*argv, **kwargs).stdout)
+            return list_it(strip_it(f(*argv, **kwargs).stdout))
         return wrapper
 
 

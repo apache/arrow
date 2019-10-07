@@ -18,12 +18,13 @@
 import gzip
 import os
 
-from .tmpdir import tmpdir
 from .command import Bash, Command, default_bin
+from .git import git
 from .logger import logger
 from ..lang.cpp import CppCMakeDefinition, CppConfiguration
 from ..lang.rust import Cargo
 from .rat import Rat, exclusion_from_globs
+from .tmpdir import tmpdir
 
 
 class LintValidationException(Exception):
@@ -141,10 +142,36 @@ def rust_linter(src):
                                           check=False))
 
 
+class Hadolint(Command):
+    def __init__(self, hadolint_bin=None):
+        self.bin = default_bin(hadolint_bin, "HADOLINT", "hadolint")
+
+
+def is_docker_image(path):
+    dirname = os.path.dirname(path)
+    filename = os.path.basename(path)
+
+    excluded = dirname.startswith(
+        "dev") or dirname.startswith("python/manylinux")
+
+    return filename.startswith("Dockerfile") and not excluded
+
+
+def docker_linter(src):
+    """ Run Hadolint docker linter. """
+    logger.info("Running docker linter")
+
+    for path in git.ls_files(git_dir=src.path):
+        if is_docker_image(path):
+            yield LintResult.from_cmd(Hadolint().run(path, check=False,
+                                                     cwd=src.path))
+
+
 def linter(src, with_clang_format=True, with_cpplint=True,
            with_clang_tidy=False, with_iwyu=False,
            with_flake8=True, with_cmake_format=False,
            with_rat=True, with_r=True, with_rust=True,
+           with_docker=True,
            fix=False):
     """ Run all linters. """
     with tmpdir(preserve=True, prefix="arrow-lint-") as root:
@@ -177,6 +204,9 @@ def linter(src, with_clang_format=True, with_cpplint=True,
 
         if with_rust:
             results.extend(rust_linter(src))
+
+        if with_docker:
+            results.extend(docker_linter(src))
 
         # Raise error if one linter failed, ensuring calling code can exit with
         # non-zero.

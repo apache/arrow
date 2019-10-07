@@ -61,6 +61,12 @@ class Git(Command):
     def log(self, *argv, **kwargs):
         return self.run_cmd(*argv, **kwargs)
 
+    @capture_stdout(strip=True, listify=True)
+    @git_cmd
+    def ls_files(self, *argv, listify=False, **kwargs):
+        stdout = self.run_cmd(*argv, **kwargs)
+        return stdout
+
     @capture_stdout(strip=True)
     @git_cmd
     def rev_parse(self, *argv, **kwargs):
