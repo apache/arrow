@@ -20,9 +20,13 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/dataset/filter.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "parquet/arrow/writer.h"
 
 namespace arrow {
@@ -184,6 +188,39 @@ TEST_F(TestParquetFileFormat, Inspect) {
   std::shared_ptr<Schema> actual;
   ASSERT_OK(format.Inspect(*source.get(), &actual));
   EXPECT_EQ(*actual, *schema_);
+}
+
+TEST_F(TestParquetFileFormat, FilterRecordBatch) {
+  auto schm = schema({field("i32", int32())});
+
+  auto unfiltered_column = ArrayFromJSON(schm->field(0)->type(), "[1, 2, 3, 4, 5, 6]");
+  auto unfiltered_batch =
+      RecordBatch::Make(schm, unfiltered_column->length(), {unfiltered_column});
+
+  opts_->filter = ("i32"_ > 3).Copy();
+
+  auto filtered_column = ArrayFromJSON(schm->field(0)->type(), "[4, 5, 6]");
+  auto filtered_batch =
+      RecordBatch::Make(schm, filtered_column->length(), {filtered_column});
+
+  auto reader = MakeGeneratedRecordBatch(schm, [&](std::shared_ptr<RecordBatch>* out) {
+    *out = unfiltered_batch;
+    return Status::OK();
+  });
+
+  auto source = GetFileSource(reader.get());
+  auto fragment = std::make_shared<ParquetFragment>(*source, opts_);
+
+  ScanTaskIterator it;
+  ASSERT_OK(fragment->Scan(ctx_, &it));
+
+  ASSERT_OK(it.Visit([&](std::unique_ptr<ScanTask> task) -> Status {
+    auto batch_it = task->Scan();
+    return batch_it.Visit([&](std::shared_ptr<RecordBatch> batch) -> Status {
+      ASSERT_BATCHES_EQUAL(*filtered_batch, *batch);
+      return Status::OK();
+    });
+  }));
 }
 
 }  // namespace dataset

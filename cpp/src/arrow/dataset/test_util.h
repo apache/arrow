@@ -67,6 +67,12 @@ class GeneratedRecordBatch : public RecordBatchReader {
   Gen gen_;
 };
 
+template <typename Gen>
+std::unique_ptr<GeneratedRecordBatch<Gen>> MakeGeneratedRecordBatch(
+    std::shared_ptr<Schema> schema, Gen&& gen) {
+  return internal::make_unique<GeneratedRecordBatch<Gen>>(schema, std::forward<Gen>(gen));
+}
+
 void EnsureRecordBatchReaderDrained(RecordBatchReader* reader) {
   std::shared_ptr<RecordBatch> batch = nullptr;
 
@@ -179,12 +185,6 @@ class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
   std::shared_ptr<Schema> schema_;
   std::shared_ptr<ScanOptions> options_ = std::make_shared<ScanOptions>();
 };
-
-template <typename Gen>
-std::unique_ptr<GeneratedRecordBatch<Gen>> MakeGeneratedRecordBatch(
-    std::shared_ptr<Schema> schema, Gen&& gen) {
-  return internal::make_unique<GeneratedRecordBatch<Gen>>(schema, std::forward<Gen>(gen));
-}
 
 /// \brief A dummy FileFormat implementation
 class DummyFileFormat : public FileFormat {

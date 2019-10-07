@@ -30,8 +30,11 @@
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernels/boolean.h"
 #include "arrow/compute/kernels/compare.h"
+#include "arrow/compute/kernels/filter.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/record_batch.h"
+#include "arrow/scalar.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
@@ -952,6 +955,34 @@ Result<std::shared_ptr<DataType>> FieldExpression::Validate(const Schema& schema
     return field->type();
   }
   return null();
+}
+
+RecordBatchIterator FilterBatches(RecordBatchIterator unfiltered,
+                                  const std::shared_ptr<Expression>& filter,
+                                  compute::FunctionContext* ctx) {
+  auto filter_batches = [filter, ctx](const std::shared_ptr<RecordBatch>& unfiltered,
+                                      std::shared_ptr<RecordBatch>* filtered) {
+    ARROW_ASSIGN_OR_RAISE(auto selection, filter->Evaluate(ctx, *unfiltered));
+    if (selection.is_array()) {
+      auto selection_array = selection.make_array();
+      return compute::Filter(ctx, *unfiltered, *selection_array, filtered);
+    }
+
+    if (!selection.is_scalar() || selection.type()->id() != Type::BOOL) {
+      return Status::NotImplemented("Filtering batches against DatumKind::",
+                                    selection.kind(), " of type ", *selection.type());
+    }
+
+    if (BooleanScalar(true).Equals(selection.scalar())) {
+      *filtered = unfiltered;
+    } else {
+      *filtered = unfiltered->Slice(0, 0);
+    }
+
+    return Status::OK();
+  };
+
+  return MakeMaybeMapIterator(std::move(filter_batches), std::move(unfiltered));
 }
 
 }  // namespace dataset

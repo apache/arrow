@@ -15,7 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/dataset/filter.h"
 #pragma once
 
 #include <memory>
@@ -23,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compute/context.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/memory_pool.h"
@@ -36,6 +36,7 @@ namespace dataset {
 /// \brief Shared state for a Scan operation
 struct ARROW_DS_EXPORT ScanContext {
   MemoryPool* pool = arrow::default_memory_pool();
+  compute::FunctionContext compute_context;
 };
 
 class ARROW_DS_EXPORT ScanOptions {

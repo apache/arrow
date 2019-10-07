@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
 #pragma once
 
@@ -440,6 +441,13 @@ bool Expression::Equals(T&& t) const {
   auto s = MakeScalar(std::forward<T>(t));
   return internal::checked_cast<const ScalarExpression&>(*this).value()->Equals(s);
 }
+
+/// Wrap an iterator of record batches with a filter expression. The resulting iterator
+/// will yield record batches filtered by the given expression.
+ARROW_DS_EXPORT
+RecordBatchIterator FilterBatches(RecordBatchIterator unfiltered,
+                                  const std::shared_ptr<Expression>& filter,
+                                  compute::FunctionContext* ctx);
 
 }  // namespace dataset
 }  // namespace arrow
