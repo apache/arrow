@@ -443,10 +443,10 @@ test_integration() {
 
   pushd integration
 
-  INTEGRATION_TEST_ARGS=
+  INTEGRATION_TEST_ARGS="--enable-c++=${TEST_INTEGRATION_CPP} --enable-java=${TEST_INTEGRATION_JAVA} --enable-js=${TEST_INTEGRATION_JS} --enable-go=${TEST_INTEGRATION_GO}"
 
   if [ "${ARROW_FLIGHT}" = "ON" ]; then
-    INTEGRATION_TEST_ARGS=--run_flight
+    INTEGRATION_TEST_ARGS="${INTEGRATION_TEST_ARGS} --run_flight"
   fi
 
   # Flight integration test executable have runtime dependency on
@@ -541,12 +541,19 @@ test_binary_distribution() {
 : ${TEST_APT:=${TEST_DEFAULT}}
 : ${TEST_YUM:=${TEST_DEFAULT}}
 
+# For selective Integration testing, set TEST_DEFAULT=0 TEST_INTEGRATION_X=1 TEST_INTEGRATION_Y=1
+: ${TEST_INTEGRATION_CPP:=${TEST_INTEGRATION}}
+: ${TEST_INTEGRATION_JAVA:=${TEST_INTEGRATION}}
+: ${TEST_INTEGRATION_JS:=${TEST_INTEGRATION}}
+: ${TEST_INTEGRATION_GO:=${TEST_INTEGRATION}}
+
 # Automatically test if its activated by a dependent
 TEST_GLIB=$((${TEST_GLIB} + ${TEST_RUBY}))
-TEST_PYTHON=$((${TEST_PYTHON} + ${TEST_INTEGRATION}))
-TEST_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON}))
-TEST_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION}))
-TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION}))
+TEST_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON} + ${TEST_INTEGRATION_CPP}))
+TEST_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION_JAVA}))
+TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION_JS}))
+TEST_GO=$((${TEST_GO} + ${TEST_INTEGRATION_GO}))
+TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP} + ${TEST_INTEGRATION_JAVA} + ${TEST_INTEGRATION_JS} + ${TEST_INTEGRATION_GO}))
 
 : ${TEST_ARCHIVE:=apache-arrow-${VERSION}.tar.gz}
 case "${TEST_ARCHIVE}" in
