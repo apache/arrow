@@ -44,7 +44,6 @@ fix many of the errors reported by ``flake8``:
 
 .. code-block:: shell
 
-   autopep8 --in-place ../integration/integration_test.py
    autopep8 --in-place --global-config=.flake8.cython pyarrow/table.pxi
 
 Unit Testing
