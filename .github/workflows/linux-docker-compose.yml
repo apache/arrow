@@ -26,11 +26,16 @@ jobs:
       matrix:
         label:
           - C++ w/ clang-7 & system packages
+          - Rust
         include:
           - label: C++ w/ clang-7 & system packages
             image: cpp-system-deps
             skip_expression: |
               ${ARROW_CI_CPP_AFFECTED} != "1"
+          - label: Rust
+            image: rust
+            skip_expression: |
+              ${ARROW_CI_RUST_AFFECTED} != "1"
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@master
