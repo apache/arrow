@@ -169,7 +169,7 @@ def docker_linter(src):
 
 def linter(src, with_clang_format=True, with_cpplint=True,
            with_clang_tidy=False, with_iwyu=False,
-           with_flake8=True, with_cmake_format=False,
+           with_flake8=True, with_cmake_format=True,
            with_rat=True, with_r=True, with_rust=True,
            with_docker=True,
            fix=False):

@@ -43,7 +43,7 @@ RUN apt-get update && \
 
 # Use python3 by default in scripts
 RUN ln -s /usr/bin/python3 /usr/local/bin/python
-RUN pip3 install flake8
+RUN pip3 install flake8 cmake_format==0.5.2
 
 # Rust linter
 RUN curl https://sh.rustup.rs -sSf | \

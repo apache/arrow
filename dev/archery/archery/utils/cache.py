@@ -21,7 +21,7 @@ from urllib.request import urlopen
 
 from .logger import logger
 
-ARCHERY_CACHE_DIR = Path.home()/".cache"/"archery"
+ARCHERY_CACHE_DIR = Path.home() / ".cache" / "archery"
 
 
 class Cache:

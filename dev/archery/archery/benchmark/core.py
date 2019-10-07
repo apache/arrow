@@ -16,13 +16,23 @@
 # under the License.
 
 
+def median(values):
+    n = len(values)
+    if n == 0:
+        raise ValueError("median requires at least one value")
+    elif n % 2 == 0:
+        return (values[(n // 2) - 1] + values[n // 2]) / 2
+    else:
+        return values[n // 2]
+
+
 class Benchmark:
     def __init__(self, name, unit, less_is_better, values, stats=None):
         self.name = name
         self.unit = unit
         self.less_is_better = less_is_better
         self.values = sorted(values)
-        self.median = self.values[len(values)/2]
+        self.median = median(self.values)
 
     @property
     def value(self):

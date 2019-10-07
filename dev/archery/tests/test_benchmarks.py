@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from archery.benchmark.core import Benchmark
+from archery.benchmark.core import Benchmark, median
 from archery.benchmark.compare import BenchmarkComparator
 
 
@@ -37,3 +37,16 @@ def test_benchmark_comparator():
     assert not BenchmarkComparator(
         Benchmark("contender", unit, False, [20]),
         Benchmark("baseline", unit, False, [10])).regression
+
+
+def test_benchmark_median():
+    assert median([10]) == 10
+    assert median([1, 2, 3]) == 2
+    assert median([1, 2]) == 1.5
+    assert median([1, 2, 3, 4]) == 2.5
+    assert median([1, 1, 1, 1]) == 1
+    try:
+        median([])
+        assert False
+    except ValueError:
+        pass

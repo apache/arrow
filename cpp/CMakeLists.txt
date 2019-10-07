@@ -251,9 +251,7 @@ if(UNIX)
   add_custom_target(iwyu ${BUILD_SUPPORT_DIR}/iwyu/iwyu.sh)
 endif(UNIX)
 
-add_custom_target(lint_cpp_cli
-                  ${PYTHON_EXECUTABLE}
-                  ${BUILD_SUPPORT_DIR}/lint_cpp_cli.py
+add_custom_target(lint_cpp_cli ${PYTHON_EXECUTABLE} ${BUILD_SUPPORT_DIR}/lint_cpp_cli.py
                   ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 #

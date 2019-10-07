@@ -201,7 +201,7 @@ def build(ctx, src, build_dir, force, targets, **kwargs):
               help="Lint C++ with Include-What-You-Use (iwyu).")
 @click.option("--with-flake8", default=True, type=BOOL,
               help="Lint python files with flake8.")
-@click.option("--with-cmake-format", default=False, type=BOOL,
+@click.option("--with-cmake-format", default=True, type=BOOL,
               help="Lint CMakeFiles.txt files with cmake-format.py.")
 @click.option("--with-rat", default=True, type=BOOL,
               help="Lint files for license violation via apache-rat.")
