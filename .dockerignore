@@ -20,6 +20,7 @@ docker_cache
 docs/_build
 
 # IDE
+.idea
 .vscode
 */.vscode
 
@@ -94,6 +95,9 @@ js/test/data/**/*.arrow
 
 # Rust
 rust/target
+rust/arrow/target
+rust/parquet/target
+rust/datafusion/target
 
 # Site
 site/

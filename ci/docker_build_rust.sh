@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -19,17 +18,18 @@
 
 set -e
 
-source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
-
-RUST_DIR=${TRAVIS_BUILD_DIR}/rust
-
-pushd $RUST_DIR
+cd /arrow/rust
 
 # show activated toolchain
 rustup show
 
+# clean first
+cargo clean
+
 # raises on any formatting errors
+echo "Running formatting checks ..."
 cargo +stable fmt --all -- --check
+echo "Formatting checks completed"
 
 # build entire project
 RUSTFLAGS="-D warnings" cargo build --all-targets
