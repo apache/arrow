@@ -24,8 +24,8 @@ RUN rustup component add rustfmt
 
 # Install the specific version of Rust nightly that we need so that we don't need to download it for every CI run
 COPY rust/rust-toolchain /tmp
-RUN rustup install `cat /tmp/rust-toolchain`
-RUN rustup default `cat /tmp/rust-toolchain`
+RUN rustup install $(cat /tmp/rust-toolchain)
+RUN rustup default $(cat /tmp/rust-toolchain)
 
 # Enable stable rustfmt for nightly Rust
 RUN rustup component add rustfmt --toolchain stable-x86_64-unknown-linux-gnu
