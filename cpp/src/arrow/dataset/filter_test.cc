@@ -33,6 +33,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 
 namespace arrow {
 namespace dataset {
@@ -112,8 +113,12 @@ TEST_F(ExpressionsTest, SimplificationToNull) {
 
   AssertSimplifiesTo(*equal(field_ref("b"), null32), "b"_ == 3, *null);
   AssertSimplifiesTo(*not_equal(field_ref("b"), null32), "b"_ == 3, *null);
-  AssertSimplifiesTo(*not_equal(field_ref("b"), null32) and "b"_ > 3, "b"_ == 3, *null);
-  AssertSimplifiesTo("b"_ > 3 and *not_equal(field_ref("b"), null32), "b"_ == 3, *null);
+
+  // Kleene logic applies here
+  AssertSimplifiesTo(*not_equal(field_ref("b"), null32) and "b"_ > 3, "b"_ == 3, *never);
+  AssertSimplifiesTo(*not_equal(field_ref("b"), null32) and "b"_ > 2, "b"_ == 3, *null);
+  AssertSimplifiesTo(*not_equal(field_ref("b"), null32) or "b"_ > 3, "b"_ == 3, *null);
+  AssertSimplifiesTo(*not_equal(field_ref("b"), null32) or "b"_ > 2, "b"_ == 3, *always);
 }
 
 class FilterTest : public ::testing::Test {
@@ -243,6 +248,32 @@ TEST_F(FilterTest, ConditionOnAbsentColumn) {
       {"a": 0, "b":  0.1, "in": null},
       {"a": 0, "b": null, "in": null},
       {"a": 0, "b":  1.0, "in": null}
+  ])");
+}
+
+TEST_F(FilterTest, DISABLED_KleeneTruthTables) {
+  // FIXME(bkietz) enable this test after ARROW-6396
+  // TODO(bkietz) also test various ranks against each other
+  AssertFilter("a"_ and "b"_, {field("a", boolean()), field("b", boolean())}, R"([
+    {"a":null,  "b":null,  "in":null},
+    {"a":null,  "b":true,  "in":null},
+    {"a":null,  "b":false, "in":false},
+
+    {"a":true,  "b":true,  "in":true},
+    {"a":true,  "b":false, "in":false},
+
+    {"a":false,  "b":false,  "in":false}
+  ])");
+
+  AssertFilter("a"_ and "b"_, {field("a", boolean()), field("b", boolean())}, R"([
+    {"a":null,  "b":null,  "in":null},
+    {"a":null,  "b":true,  "in":true},
+    {"a":null,  "b":false, "in":null},
+
+    {"a":true,  "b":true,  "in":true},
+    {"a":true,  "b":false, "in":true},
+
+    {"a":false,  "b":false,  "in":false}
   ])");
 }
 

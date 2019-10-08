@@ -77,26 +77,6 @@ bool IsNullDatum(const Datum& datum) {
   return array_data->GetNullCount() == array_data->length;
 }
 
-bool IsTrivialConditionDatum(const Datum& datum, bool* condition = nullptr) {
-  if (!datum.is_scalar()) {
-    return false;
-  }
-
-  auto scalar = datum.scalar();
-  if (!scalar->is_valid) {
-    return false;
-  }
-
-  if (scalar->type->id() != Type::BOOL) {
-    return false;
-  }
-
-  if (condition) {
-    *condition = checked_cast<const BooleanScalar&>(*scalar).value;
-  }
-  return true;
-}
-
 Result<Datum> NotExpression::Evaluate(compute::FunctionContext* ctx,
                                       const RecordBatch& batch) const {
   ARROW_ASSIGN_OR_RAISE(auto to_invert, operand_->Evaluate(ctx, batch));
@@ -104,8 +84,9 @@ Result<Datum> NotExpression::Evaluate(compute::FunctionContext* ctx,
     return NullDatum();
   }
 
-  bool trivial_condition;
-  if (IsTrivialConditionDatum(to_invert, &trivial_condition)) {
+  if (to_invert.is_scalar()) {
+    bool trivial_condition =
+        checked_cast<const BooleanScalar&>(*to_invert.scalar()).value;
     return Datum(std::make_shared<BooleanScalar>(!trivial_condition));
   }
 
@@ -135,16 +116,14 @@ Result<Datum> AndExpression::Evaluate(compute::FunctionContext* ctx,
                  checked_cast<const BooleanScalar&>(*rhs.scalar()).value);
   }
 
-  auto array_operand = (lhs.is_array() ? lhs : rhs).make_array();
+  // One scalar, one array
   bool scalar_operand =
       checked_cast<const BooleanScalar&>(*(lhs.is_scalar() ? lhs : rhs).scalar()).value;
-
   if (!scalar_operand) {
-    // FIXME(bkietz) this is an error if array_operand contains nulls
     return Datum(false);
   }
 
-  return Datum(array_operand);
+  return lhs.is_array() ? std::move(lhs) : std::move(rhs);
 }
 
 Result<Datum> OrExpression::Evaluate(compute::FunctionContext* ctx,
@@ -167,16 +146,14 @@ Result<Datum> OrExpression::Evaluate(compute::FunctionContext* ctx,
                  checked_cast<const BooleanScalar&>(*rhs.scalar()).value);
   }
 
-  auto array_operand = (lhs.is_array() ? lhs : rhs).make_array();
+  // One scalar, one array
   bool scalar_operand =
       checked_cast<const BooleanScalar&>(*(lhs.is_scalar() ? lhs : rhs).scalar()).value;
-
   if (!scalar_operand) {
-    // FIXME(bkietz) this is an error if array_operand contains nulls
     return Datum(true);
   }
 
-  return Datum(array_operand);
+  return lhs.is_array() ? std::move(lhs) : std::move(rhs);
 }
 
 Result<Datum> ComparisonExpression::Evaluate(compute::FunctionContext* ctx,
@@ -571,62 +548,52 @@ std::shared_ptr<Expression> AndExpression::Assume(const Expression& given) const
   auto left_operand = left_operand_->Assume(given);
   auto right_operand = right_operand_->Assume(given);
 
+  // if either of the operands is trivially false then so is this AND
+  if (left_operand->Equals(false) || right_operand->Equals(false)) {
+    return scalar(false);
+  }
+
   // if either operand is trivially null then so is this AND
   if (left_operand->IsNull() || right_operand->IsNull()) {
     return NullExpression();
   }
 
-  bool left_trivial, right_trivial;
-  bool left_is_trivial = left_operand->IsTrivialCondition(&left_trivial);
-  bool right_is_trivial = right_operand->IsTrivialCondition(&right_trivial);
+  // if one of the operands is trivially true then drop it
+  if (left_operand->Equals(true)) {
+    return right_operand;
+  }
+  if (right_operand->Equals(true)) {
+    return left_operand;
+  }
 
   // if neither of the operands is trivial, simply construct a new AND
-  if (!left_is_trivial && !right_is_trivial) {
-    return std::make_shared<AndExpression>(std::move(left_operand),
-                                           std::move(right_operand));
-  }
-
-  // if either of the operands is trivially false then so is this AND
-  if ((left_is_trivial && left_trivial == false) ||
-      (right_is_trivial && right_trivial == false)) {
-    // FIXME(bkietz) if left is false and right is a column conaining nulls, this is an
-    // error because we should be yielding null there rather than false
-    return scalar(false);
-  }
-
-  // at least one of the operands is trivially true; return the other operand
-  return right_is_trivial ? std::move(left_operand) : std::move(right_operand);
+  return and_(std::move(left_operand), std::move(right_operand));
 }
 
 std::shared_ptr<Expression> OrExpression::Assume(const Expression& given) const {
   auto left_operand = left_operand_->Assume(given);
   auto right_operand = right_operand_->Assume(given);
 
+  // if either of the operands is trivially true then so is this OR
+  if (left_operand->Equals(true) || right_operand->Equals(true)) {
+    return scalar(true);
+  }
+
   // if either operand is trivially null then so is this OR
   if (left_operand->IsNull() || right_operand->IsNull()) {
     return NullExpression();
   }
 
-  bool left_trivial, right_trivial;
-  bool left_is_trivial = left_operand->IsTrivialCondition(&left_trivial);
-  bool right_is_trivial = right_operand->IsTrivialCondition(&right_trivial);
+  // if one of the operands is trivially false then drop it
+  if (left_operand->Equals(false)) {
+    return right_operand;
+  }
+  if (right_operand->Equals(false)) {
+    return left_operand;
+  }
 
   // if neither of the operands is trivial, simply construct a new OR
-  if (!left_is_trivial && !right_is_trivial) {
-    return std::make_shared<OrExpression>(std::move(left_operand),
-                                          std::move(right_operand));
-  }
-
-  // if either of the operands is trivially true then so is this OR
-  if ((left_is_trivial && left_trivial == true) ||
-      (right_is_trivial && right_trivial == true)) {
-    // FIXME(bkietz) if left is true but right is a column conaining nulls, this is an
-    // error because we should be yielding null there rather than true
-    return scalar(true);
-  }
-
-  // at least one of the operands is trivially false; return the other operand
-  return right_is_trivial ? std::move(left_operand) : std::move(right_operand);
+  return or_(std::move(left_operand), std::move(right_operand));
 }
 
 std::shared_ptr<Expression> NotExpression::Assume(const Expression& given) const {
@@ -635,11 +602,11 @@ std::shared_ptr<Expression> NotExpression::Assume(const Expression& given) const
   if (operand->IsNull()) {
     return NullExpression();
   }
-
-  // TODO(bkietz) I think I can just invert the simplified operand
-  bool trivial;
-  if (operand->IsTrivialCondition(&trivial)) {
-    return scalar(!trivial);
+  if (operand->Equals(true)) {
+    return scalar(false);
+  }
+  if (operand->Equals(false)) {
+    return scalar(true);
   }
 
   return Copy();
@@ -787,26 +754,6 @@ bool Expression::IsNull() const {
   }
 
   return false;
-}
-
-bool Expression::IsTrivialCondition(bool* out) const {
-  if (type_ != ExpressionType::SCALAR) {
-    return false;
-  }
-
-  const auto& scalar = checked_cast<const ScalarExpression&>(*this).value();
-  if (!scalar->is_valid) {
-    return false;
-  }
-
-  if (scalar->type->id() != Type::BOOL) {
-    return false;
-  }
-
-  if (out) {
-    *out = checked_cast<const BooleanScalar&>(*scalar).value;
-  }
-  return true;
 }
 
 std::shared_ptr<Expression> FieldExpression::Copy() const {

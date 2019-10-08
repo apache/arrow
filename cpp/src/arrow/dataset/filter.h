@@ -93,9 +93,6 @@ class ARROW_DS_EXPORT Expression {
   /// If true, this Expression is a ScalarExpression wrapping a null scalar.
   bool IsNull() const;
 
-  // TODO(bkietz) remove in favor of Equals()
-  bool IsTrivialCondition(bool* out = NULLPTR) const;
-
   /// Validate this expression for execution against a schema. This will check that all
   /// reference fields are present (fields not in the schema will be replaced with null)
   /// and all subexpressions are executable. Returns the type to which this expression
