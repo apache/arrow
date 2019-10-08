@@ -93,18 +93,11 @@ public class HashTableDictionaryEncoder<E extends BaseIntVector, D extends Eleme
    * Constructs a dictionary encoder.
    * @param dictionary the dictionary.
    * @param encodeNull a flag indicating if null should be encoded.
-    *     It determines the behaviors for processing null values in the input during encoding/decoding.
-    *    <li>
-    *      For encoding, when a null is encountered in the input,
-    *      1) If the flag is set to true, the encoder searches for the value in the dictionary,
-    *      and outputs the index in the dictionary.
-    *      2) If the flag is set to false, the encoder simply produces a null in the output.
-    *    </li>
-    *    <li>
-    *      For decoding, when a null is encountered in the input,
-    *      1) If the flag is set to true, the decoder should never expect a null in the input.
-    *      2) If set to false, the decoder simply produces a null in the output.
-    *    </li>
+    *     It determines the behaviors for processing null values in the input during encoding.
+    *     When a null is encountered in the input,
+    *     1) If the flag is set to true, the encoder searches for the value in the dictionary,
+    *     and outputs the index in the dictionary.
+    *     2) If the flag is set to false, the encoder simply produces a null in the output.
    * @param hasher the hasher used to calculate the hash code.
    */
   public HashTableDictionaryEncoder(D dictionary, boolean encodeNull, ArrowBufHasher hasher) {
