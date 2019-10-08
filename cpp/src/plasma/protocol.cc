@@ -296,6 +296,18 @@ Status ReadCreateAndSealBatchRequest(uint8_t* data, size_t size, std::vector<Obj
     ConvertToVector(message->object_ids(), object_ids, [](const flatbuffers::String& element) {
             return ObjectID::from_binary(element.str());
     });
+ 
+    ConvertToVector(message->data(), object_data, [](const flatbuffers::String& element) {
+            return element.str();
+    });
+
+    ConvertToVector(message->metadata(), metadata, [](const flatbuffers::String& element) {
+            return element.str();
+    });
+
+    ConvertToVector(message->digest(), digests, [](const flatbuffers::String& element) {
+            return element.str();
+    });
 
     return Status::OK();
 }
