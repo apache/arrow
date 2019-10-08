@@ -441,12 +441,13 @@ struct PyDateTimeTraits<DurationType> {
   static constexpr const char* const np_name = "timedelta64";
 };
 
-template <NullCoding null_coding, typename Type>
+template <NullCoding null_coding, typename ArrowType>
 class TemporalConverter
-    : public TypedConverter<Type, TemporalConverter<null_coding, Type>, null_coding> {
+    : public TypedConverter<ArrowType, TemporalConverter<null_coding, ArrowType>,
+                            null_coding> {
  public:
   explicit TemporalConverter(TimeUnit::type unit) : unit_(unit) {}
-  using traits = PyDateTimeTraits<Type>;
+  using traits = PyDateTimeTraits<ArrowType>;
 
   Status AppendItem(PyObject* obj) {
     int64_t t;
@@ -476,10 +477,10 @@ class TemporalConverter
 
       std::shared_ptr<DataType> type;
       RETURN_NOT_OK(NumPyDtypeToArrow(PyArray_DescrFromScalar(obj), &type));
-      if (type->id() != Type::type_id) {
+      if (type->id() != ArrowType::type_id) {
         return Status::Invalid("Expected np.", np_name, " but got: ", type->ToString());
       }
-      const Type& ttype = checked_cast<const Type&>(*type);
+      const ArrowType& ttype = checked_cast<const ArrowType&>(*type);
       if (unit_ != ttype.unit()) {
         return Status::NotImplemented("Cannot convert NumPy ", np_name,
                                       " objects with differing unit");
