@@ -63,6 +63,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_TIMESTAMP" arrow::Type::TIMESTAMP"
         _Type_TIME32" arrow::Type::TIME32"
         _Type_TIME64" arrow::Type::TIME64"
+        _Type_DURATION" arrow::Type::DURATION"
+
         _Type_BINARY" arrow::Type::BINARY"
         _Type_STRING" arrow::Type::STRING"
         _Type_LARGE_BINARY" arrow::Type::LARGE_BINARY"
@@ -198,6 +200,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     shared_ptr[CDataType] ctime32" arrow::time32"(TimeUnit unit)
     shared_ptr[CDataType] ctime64" arrow::time64"(TimeUnit unit)
+
+    cdef cppclass CDurationType" arrow::DurationType"(CFixedWidthType):
+        TimeUnit unit()
+
+    shared_ptr[CDataType] cduration" arrow::duration"(TimeUnit unit)
 
     cdef cppclass CDictionaryType" arrow::DictionaryType"(CFixedWidthType):
         CDictionaryType(const shared_ptr[CDataType]& index_type,
@@ -405,6 +412,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int64_t Value(int i)
 
     cdef cppclass CTimestampArray" arrow::TimestampArray"(CArray):
+        int64_t Value(int i)
+
+    cdef cppclass CDurationArray" arrow::DurationArray"(CArray):
         int64_t Value(int i)
 
     cdef cppclass CHalfFloatArray" arrow::HalfFloatArray"(CArray):

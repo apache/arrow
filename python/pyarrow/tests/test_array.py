@@ -300,7 +300,11 @@ def test_struct_array_slice():
 
 
 def test_array_factory_invalid_type():
-    arr = np.array([datetime.timedelta(1), datetime.timedelta(2)])
+
+    class MyObject:
+        pass
+
+    arr = np.array([MyObject()])
     with pytest.raises(ValueError):
         pa.array(arr)
 
@@ -823,6 +827,7 @@ def test_cast_from_null():
         pa.timestamp('us'),
         pa.timestamp('us', tz='UTC'),
         pa.timestamp('us', tz='Europe/Paris'),
+        pa.duration('us'),
         pa.struct([pa.field('a', pa.int32()),
                    pa.field('b', pa.list_(pa.int8())),
                    pa.field('c', pa.string())]),
@@ -940,6 +945,16 @@ def test_cast_date32_to_int():
 
     assert result1.equals(expected1)
     assert result2.equals(arr)
+
+
+@pytest.mark.xfail(strict=True)  # TODO implement duration cast
+def test_cast_duration_to_int():
+    arr = pa.array(np.array([0, 1, 2], dtype='int64'),
+                   type=pa.duration('us'))
+    expected = pa.array([0, 1, 2], type='i8')
+
+    result = arr.cast('i8')
+    assert result.equals(expected)
 
 
 def test_cast_binary_to_utf8():
@@ -1165,6 +1180,7 @@ def test_pandas_null_sentinels_raise_error():
         ([0, np.nan], pa.time32('s')),
         ([0, np.nan], pa.time64('us')),
         ([0, np.nan], pa.timestamp('us')),
+        ([0, np.nan], pa.duration('us')),
     ]
     for case, ty in cases:
         # Both types of exceptions are raised. May want to clean that up
@@ -1243,6 +1259,49 @@ def test_array_from_timestamp_with_generic_unit():
     with pytest.raises(pa.ArrowNotImplementedError,
                        match='Unbound or generic datetime64 time unit'):
         pa.array([n, x, y])
+
+
+@pytest.mark.parametrize(('dtype', 'type'), [
+    ('timedelta64[s]', pa.duration('s')),
+    ('timedelta64[ms]', pa.duration('ms')),
+    ('timedelta64[us]', pa.duration('us')),
+    ('timedelta64[ns]', pa.duration('ns'))
+])
+def test_array_from_numpy_timedelta(dtype, type):
+    data = [
+        None,
+        datetime.timedelta(1),
+        datetime.timedelta(0, 1)
+    ]
+
+    # from numpy array
+    np_arr = np.array(data, dtype=dtype)
+    arr = pa.array(np_arr)
+    assert isinstance(arr, pa.DurationArray)
+    assert arr.type == type
+    expected = pa.array(data, type=type)
+    assert arr.equals(expected)
+    assert arr.to_pylist() == data
+
+    # from list of numpy scalars
+    arr = pa.array(list(np.array(data, dtype=dtype)))
+    assert arr.equals(expected)
+    assert arr.to_pylist() == data
+
+
+def test_array_from_numpy_timedelta_incorrect_unit():
+    # generic (no unit)
+    td = np.timedelta64(1)
+
+    for data in [[td], np.array([td])]:
+        with pytest.raises(NotImplementedError):
+            pa.array(data)
+
+    # unsupported unit
+    td = np.timedelta64(1, 'M')
+    for data in [[td], np.array([td])]:
+        with pytest.raises(NotImplementedError):
+            pa.array(data)
 
 
 def test_array_from_numpy_ascii():

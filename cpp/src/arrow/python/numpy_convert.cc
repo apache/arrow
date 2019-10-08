@@ -173,6 +173,28 @@ Status NumPyDtypeToArrow(PyArray_Descr* descr, std::shared_ptr<DataType>* out) {
           return Status::NotImplemented("Unsupported datetime64 time unit");
       }
     } break;
+    case NPY_TIMEDELTA: {
+      auto timedelta_dtype =
+          reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(descr->c_metadata);
+      switch (timedelta_dtype->meta.base) {
+        case NPY_FR_s:
+          *out = duration(TimeUnit::SECOND);
+          break;
+        case NPY_FR_ms:
+          *out = duration(TimeUnit::MILLI);
+          break;
+        case NPY_FR_us:
+          *out = duration(TimeUnit::MICRO);
+          break;
+        case NPY_FR_ns:
+          *out = duration(TimeUnit::NANO);
+          break;
+        case NPY_FR_GENERIC:
+          return Status::NotImplemented("Unbound or generic timedelta64 time unit");
+        default:
+          return Status::NotImplemented("Unsupported timedelta64 time unit");
+      }
+    } break;
     default: {
       return Status::NotImplemented("Unsupported numpy type ", descr->type_num);
     }
