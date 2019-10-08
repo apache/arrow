@@ -51,6 +51,7 @@
 #include "arrow/python/helpers.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/numpy_internal.h"
+#include "arrow/python/pyarrow.h"
 #include "arrow/python/python_to_arrow.h"
 #include "arrow/python/type_traits.h"
 
@@ -307,7 +308,8 @@ class PandasBlock {
     DATETIME,
     DATETIME_WITH_TZ,
     TIMEDELTA,
-    CATEGORICAL
+    CATEGORICAL,
+    EXTENSION
   };
 
   PandasBlock(const PandasOptions& options, int64_t num_rows, int num_columns)
@@ -1459,6 +1461,55 @@ class CategoricalBlock : public PandasBlock {
   bool needs_copy_;
 };
 
+class ExtensionBlock : public PandasBlock {
+ public:
+  using PandasBlock::PandasBlock;
+
+  // Don't create a block array here, only the placement array
+  Status Allocate() override {
+    PyAcquireGIL lock;
+
+    npy_intp placement_dims[1] = {num_columns_};
+    PyObject* placement_arr = PyArray_SimpleNew(1, placement_dims, NPY_INT64);
+
+    RETURN_IF_PYERROR();
+
+    placement_arr_.reset(placement_arr);
+
+    placement_data_ = reinterpret_cast<int64_t*>(
+        PyArray_DATA(reinterpret_cast<PyArrayObject*>(placement_arr)));
+
+    return Status::OK();
+  }
+
+  Status Write(std::shared_ptr<ChunkedArray> data, int64_t abs_placement,
+               int64_t rel_placement) override {
+    PyAcquireGIL lock;
+
+    PyObject* py_array;
+    py_array = wrap_chunked_array(data);
+    py_array_.reset(py_array);
+
+    placement_data_[rel_placement] = abs_placement;
+    return Status::OK();
+  }
+
+  Status GetPyResult(PyObject** output) override {
+    PyObject* result = PyDict_New();
+    RETURN_IF_PYERROR();
+
+    PyDict_SetItemString(result, "py_array", py_array_.obj());
+    PyDict_SetItemString(result, "placement", placement_arr_.obj());
+
+    *output = result;
+
+    return Status::OK();
+  }
+
+ protected:
+  OwnedRefNoGIL py_array_;
+};
+
 Status MakeBlock(const PandasOptions& options, PandasBlock::type type, int64_t num_rows,
                  int num_columns, std::shared_ptr<PandasBlock>* block) {
 #define BLOCK_CASE(NAME, TYPE)                                       \
@@ -1591,8 +1642,9 @@ static Status GetPandasBlockType(const ChunkedArray& data, const PandasOptions& 
 class DataFrameBlockCreator {
  public:
   explicit DataFrameBlockCreator(const PandasOptions& options,
+                                 const std::unordered_set<std::string>& extension_columns,
                                  const std::shared_ptr<Table>& table)
-      : table_(table), options_(options) {}
+      : table_(table), options_(options), extension_columns_(extension_columns) {}
 
   Status Convert(PyObject** output) {
     column_types_.resize(table_->num_columns());
@@ -1610,7 +1662,11 @@ class DataFrameBlockCreator {
     for (int i = 0; i < table_->num_columns(); ++i) {
       std::shared_ptr<ChunkedArray> col = table_->column(i);
       PandasBlock::type output_type = PandasBlock::OBJECT;
-      RETURN_NOT_OK(GetPandasBlockType(*col, options_, &output_type));
+      if (extension_columns_.count(table_->field(i)->name())) {
+        output_type = PandasBlock::EXTENSION;
+      } else {
+        RETURN_NOT_OK(GetPandasBlockType(*col, options_, &output_type));
+      }
 
       int block_placement = 0;
       std::shared_ptr<PandasBlock> block;
@@ -1623,6 +1679,10 @@ class DataFrameBlockCreator {
                                                   table_->num_rows());
         RETURN_NOT_OK(block->Allocate());
         datetimetz_blocks_[i] = block;
+      } else if (output_type == PandasBlock::EXTENSION) {
+        block = std::make_shared<ExtensionBlock>(options_, table_->num_rows(), 1);
+        RETURN_NOT_OK(block->Allocate());
+        extension_blocks_[i] = block;
       } else {
         auto it = type_counts_.find(output_type);
         if (it != type_counts_.end()) {
@@ -1662,6 +1722,12 @@ class DataFrameBlockCreator {
       auto it = this->datetimetz_blocks_.find(i);
       if (it == this->datetimetz_blocks_.end()) {
         return Status::KeyError("No datetimetz block allocated");
+      }
+      *block = it->second;
+    } else if (output_type == PandasBlock::EXTENSION) {
+      auto it = this->extension_blocks_.find(i);
+      if (it == this->extension_blocks_.end()) {
+        return Status::KeyError("No extension block allocated");
       }
       *block = it->second;
     } else {
@@ -1714,6 +1780,7 @@ class DataFrameBlockCreator {
     RETURN_NOT_OK(AppendBlocks(blocks_, result));
     RETURN_NOT_OK(AppendBlocks(categorical_blocks_, result));
     RETURN_NOT_OK(AppendBlocks(datetimetz_blocks_, result));
+    RETURN_NOT_OK(AppendBlocks(extension_blocks_, result));
 
     *out = result;
     return Status::OK();
@@ -1732,6 +1799,7 @@ class DataFrameBlockCreator {
   std::unordered_map<int, int> type_counts_;
 
   PandasOptions options_;
+  std::unordered_set<std::string> extension_columns_;
 
   // block type -> block
   BlockMap blocks_;
@@ -1741,6 +1809,9 @@ class DataFrameBlockCreator {
 
   // column number -> datetimetz block
   BlockMap datetimetz_blocks_;
+
+  // column number -> extension block
+  BlockMap extension_blocks_;
 };
 
 class ArrowDeserializer {
@@ -2119,6 +2190,14 @@ Status ConvertTableToPandas(const PandasOptions& options,
 Status ConvertTableToPandas(const PandasOptions& options,
                             const std::unordered_set<std::string>& categorical_columns,
                             const std::shared_ptr<Table>& table, PyObject** out) {
+  return ConvertTableToPandas(options, categorical_columns,
+                              std::unordered_set<std::string>(), table, out);
+}
+
+Status ConvertTableToPandas(const PandasOptions& options,
+                            const std::unordered_set<std::string>& categorical_columns,
+                            const std::unordered_set<std::string>& extension_columns,
+                            const std::shared_ptr<Table>& table, PyObject** out) {
   std::shared_ptr<Table> current_table = table;
   if (!categorical_columns.empty()) {
     FunctionContext ctx;
@@ -2140,7 +2219,7 @@ Status ConvertTableToPandas(const PandasOptions& options,
     }
   }
 
-  DataFrameBlockCreator helper(options, current_table);
+  DataFrameBlockCreator helper(options, extension_columns, current_table);
   return helper.Convert(out);
 }
 

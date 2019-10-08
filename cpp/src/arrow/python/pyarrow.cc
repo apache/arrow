@@ -113,6 +113,10 @@ PyObject* wrap_array(const std::shared_ptr<Array>& array) {
   return ::pyarrow_wrap_array(array);
 }
 
+PyObject* wrap_chunked_array(const std::shared_ptr<ChunkedArray>& array) {
+  return ::pyarrow_wrap_chunked_array(array);
+}
+
 bool is_tensor(PyObject* tensor) { return ::pyarrow_is_tensor(tensor) != 0; }
 
 Status unwrap_tensor(PyObject* tensor, std::shared_ptr<Tensor>* out) {

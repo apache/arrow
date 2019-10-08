@@ -3199,6 +3199,51 @@ def test_array_protocol():
 
 
 # ----------------------------------------------------------------------
+# Pandas ExtensionArray support
+
+
+def _to_pandas(table, extension_columns=None):
+    # temporary test function as long as we have no public API to do this
+    from pyarrow.pandas_compat import table_to_blockmanager
+
+    options = dict(
+        pool=None,
+        strings_to_categorical=False,
+        zero_copy_only=False,
+        integer_object_nulls=False,
+        date_as_object=True,
+        use_threads=True,
+        deduplicate_objects=True)
+
+    mgr = table_to_blockmanager(
+        options, table, extension_columns=extension_columns)
+    return pd.DataFrame(mgr)
+
+
+def test_convert_to_extension_array():
+    if LooseVersion(pd.__version__) < '0.24.0':
+        pytest.skip(reason='IntegerArray only introduced in 0.24')
+
+    import pandas.core.internals as _int
+
+    table = pa.table({'a': [1, 2, 3], 'b': [2, 3, 4]})
+
+    df = _to_pandas(table)
+    assert len(df._data.blocks) == 1
+    assert isinstance(df._data.blocks[0], _int.IntBlock)
+
+    df = _to_pandas(table, extension_columns=['b'])
+    assert isinstance(df._data.blocks[0], _int.IntBlock)
+    assert isinstance(df._data.blocks[1], _int.ExtensionBlock)
+
+    table = pa.table({'a': [1, 2, None]})
+    df = _to_pandas(table, extension_columns=['a'])
+    assert isinstance(df._data.blocks[0], _int.ExtensionBlock)
+    expected = pd.DataFrame({'a': pd.Series([1, 2, None], dtype='Int64')})
+    tm.assert_frame_equal(df, expected)
+
+
+# ----------------------------------------------------------------------
 # Legacy metadata compatibility tests
 
 

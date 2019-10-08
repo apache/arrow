@@ -1440,6 +1440,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     CStatus ConvertTableToPandas(
         const PandasOptions& options,
         const unordered_set[c_string]& categorical_columns,
+        const unordered_set[c_string]& extension_columns,
         const shared_ptr[CTable]& table,
         PyObject** out)
 
