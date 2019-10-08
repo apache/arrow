@@ -15,9 +15,9 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-=========================
-The Arrow C data protocol
-=========================
+==========================
+The Arrow C data interface
+==========================
 
 Rationale
 =========
@@ -29,7 +29,7 @@ Arrow C++ library, or having to implement adapters for data interchange
 (for example by reimplementing the Arrow IPC format, which is non-trivial
 and does not allow cross-runtime zero-copy).
 
-The Arrow C data protocol defines a very small, stable set of C definitions
+The Arrow C data interface defines a very small, stable set of C definitions
 that can be easily *copied* in any project's source code and used for columnar
 data interchange in the Arrow format.  For non-C/C++ languages and runtimes,
 it should be almost as easy to translate the C definitions into the
@@ -56,7 +56,7 @@ Goals
 * Allow integration without an explicit dependency (either at compile-time
   or runtime) on the Arrow software project.
 
-Ideally, the Arrow C data protocol can become a low-level *lingua franca*
+Ideally, the Arrow C data interface can become a low-level *lingua franca*
 for sharing columnar data at runtime and establish Arrow as the universal
 building block in the columnar processing ecosystem.
 
@@ -70,14 +70,14 @@ Non-goals
 Comparison with the Arrow IPC format
 ------------------------------------
 
-Pros of the C data protocol vs. the IPC format:
+Pros of the C data interface vs. the IPC format:
 
 * No dependency on Flatbuffers.
 * No buffer reassembly (data is already exposed in logical Arrow format).
 * Zero-copy by design.
 * Easy to reimplement from scratch.
 
-Pros of the IPC format vs. the data protocol:
+Pros of the IPC format vs. the data interface:
 
 * Works accross processes and machines.
 * Allows data storage and persistency.
@@ -125,21 +125,21 @@ strings:
 | ``g``           | float64                  |            |
 +-----------------+--------------------------+------------+
 
-+-----------------+-----------------------------------+------------+
-| Format string   | Arrow data type                   | Notes      |
-+=================+===================================+============+
-| ``z``           | binary                            |            |
-+-----------------+-----------------------------------+------------+
-| ``Z``           | large binary                      |            |
-+-----------------+-----------------------------------+------------+
-| ``u``           | utf-8 string                      |            |
-+-----------------+-----------------------------------+------------+
-| ``U``           | large utf-8 string                |            |
-+-----------------+-----------------------------------+------------+
-| ``d``           | decimal128                        |            |
-+-----------------+-----------------------------------+------------+
-| ``w:42``        | fixed-width binary [42 bytes]     |            |
-+-----------------+-----------------------------------+------------+
++-----------------+---------------------------------------+------------+
+| Format string   | Arrow data type                       | Notes      |
++=================+=======================================+============+
+| ``z``           | binary                                |            |
++-----------------+---------------------------------------+------------+
+| ``Z``           | large binary                          |            |
++-----------------+---------------------------------------+------------+
+| ``u``           | utf-8 string                          |            |
++-----------------+---------------------------------------+------------+
+| ``U``           | large utf-8 string                    |            |
++-----------------+---------------------------------------+------------+
+| ``d:19,10``     | decimal128 [precision 19, scale 10]   |            |
++-----------------+---------------------------------------+------------+
+| ``w:42``        | fixed-width binary [42 bytes]         |            |
++-----------------+---------------------------------------+------------+
 
 Temporal types have multi-character format strings starting with ``t``:
 
@@ -218,8 +218,9 @@ Notes:
 Examples
 --------
 
-* A dictionary-encoded ``decimal128`` array with ``int16`` indices has format
-  string ``s``, and its dependent dictionary array has format string ``d``.
+* A dictionary-encoded ``decimal128(precision = 12, scale = 5)`` array
+  with ``int16`` indices has format string ``s``, and its dependent dictionary
+  array has format string ``d:12,5``.
 * A ``list<uint64>`` array has format string ``+l``, and its single child
   has format string ``L``.
 * A ``struct<ints: int32, floats: float32>`` has format string ``+s``; its two
@@ -237,7 +238,7 @@ Structure definitions
 =====================
 
 The following free-standing definitions are enough to support the Arrow
-C data protocol in your project.  Like the rest of the Arrow project, they
+C data interface in your project.  Like the rest of the Arrow project, they
 are available under the Apache License 2.0.
 
 .. code-block:: c
@@ -491,6 +492,39 @@ The release callback MUST mark the array as released, by setting
 Additionally, the release callback MUST be idempotent, which is commonly
 achieved by setting itself to NULL.
 
+Below is a blueprint for implementing a release callback, where the TODO area
+must be filled with producer-specific deallocation code:
+
+.. code-block:: c
+
+   static void ReleaseExportedArray(struct ArrowArray* array) {
+     if (array->format == nullptr) {
+       // Array already released
+       return;
+     }
+     // Release children
+     for (int64_t i = 0; i < array->n_children; ++i) {
+       struct ArrowArray* child = array->children[i];
+       if (child->format != nullptr && child->release != nullptr) {
+         child->release(child);
+       }
+       assert(child->format == nullptr);
+     }
+     // Release dictionary
+     struct ArrowArray* dict = array->dictionary;
+     if (dict != nullptr && dict->format != nullptr && dict->release != nullptr) {
+       dict->release(dict);
+       assert(dict->format == nullptr);
+     }
+
+     // TODO here: deallocate all data directly owned by the ArrowArray struct,
+     // such as the private_data.
+
+     // Mark array released
+     array->format = nullptr;
+   }
+
+
 Movability
 ''''''''''
 
@@ -519,13 +553,13 @@ Example use case
 
 A C++ database engine wants to provide the option to deliver results in Arrow
 format, but without imposing themselves a dependency on the Arrow software
-libraries.  With the Arrow C data protocol, the engine can let the caller pass
+libraries.  With the Arrow C data interface, the engine can let the caller pass
 a pointer to a ``ArrowArray`` structure, and fill it with the next chunk of
 results.
 
 It can do so without including the Arrow C++ headers or linking with the
 Arrow DLLs.  Furthermore, the database engine's C API can benefit other
-runtimes and libraries that know about the Arrow C data protocol,
+runtimes and libraries that know about the Arrow C data interface,
 through e.g. a C FFI layer.
 
 If the database wants to return a multi-column result set, it can easily
@@ -703,12 +737,12 @@ new :c:member:`ArrowArray.flags` values or expanded possibilities for
 the :c:member:`ArrowArray.format` string.
 
 Any incompatible changes should be part of a new specification, for example
-"Arrow C data protocol v2".
+"Arrow C data interface v2".
 
 Inspiration
 ===========
 
-The Arrow C data protocol is inspired by the `Python buffer protocol`_,
+The Arrow C data interface is inspired by the `Python buffer protocol`_,
 which has proven immensely successful in allowing various Python libraries
 exchange numerical data with no knowledge of each other and near-zero
 adaptation cost.
