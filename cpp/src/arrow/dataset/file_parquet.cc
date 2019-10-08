@@ -62,11 +62,13 @@ class ParquetScanTask : public ScanTask {
 
   RecordBatchIterator Scan() {
     auto record_batch_it = MakePointerIterator(std::move(record_batch_reader_));
+    if (options_ == nullptr || options_->filter == nullptr || context_ == nullptr) {
+      return record_batch_it;
+    }
     return FilterBatches(std::move(record_batch_it), options_->filter,
-                         context_->compute_context);
+                         &context_->compute_context);
   }
 
- private:
   ParquetScanTask(RowGroupSet row_groups,
                   std::shared_ptr<parquet::arrow::FileReader> reader,
                   RecordBatchReaderPtr record_batch_reader,
@@ -78,6 +80,7 @@ class ParquetScanTask : public ScanTask {
         options_(std::move(options)),
         context_(std::move(context)) {}
 
+ private:
   // List of RowGroup identifiers this ScanTask is associated with.
   RowGroupSet row_groups_;
 

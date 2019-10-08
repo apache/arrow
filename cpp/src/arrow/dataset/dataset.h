@@ -58,16 +58,18 @@ class ARROW_DS_EXPORT DataFragment {
 /// RecordBatch.
 class ARROW_DS_EXPORT SimpleDataFragment : public DataFragment {
  public:
-  explicit SimpleDataFragment(std::vector<std::shared_ptr<RecordBatch>> record_batches);
+  explicit SimpleDataFragment(std::vector<std::shared_ptr<RecordBatch>> record_batches,
+                              std::shared_ptr<ScanOptions> options = NULLPTR);
 
   Status Scan(std::shared_ptr<ScanContext> scan_context, ScanTaskIterator* out) override;
 
   bool splittable() const override { return false; }
 
-  std::shared_ptr<ScanOptions> scan_options() const override { return NULLPTR; }
+  std::shared_ptr<ScanOptions> scan_options() const override { return options_; }
 
  protected:
   std::vector<std::shared_ptr<RecordBatch>> record_batches_;
+  std::shared_ptr<ScanOptions> options_;
 };
 
 /// \brief A basic component of a Dataset which yields zero or more

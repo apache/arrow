@@ -81,10 +81,19 @@ class ARROW_DS_EXPORT SimpleScanTask : public ScanTask {
   explicit SimpleScanTask(std::vector<std::shared_ptr<RecordBatch>> record_batches)
       : record_batches_(std::move(record_batches)) {}
 
+  SimpleScanTask(std::vector<std::shared_ptr<RecordBatch>> record_batches,
+                 std::shared_ptr<ScanOptions> options,
+                 std::shared_ptr<ScanContext> context)
+      : record_batches_(std::move(record_batches)),
+        options_(std::move(options)),
+        context_(std::move(context)) {}
+
   RecordBatchIterator Scan() override;
 
  protected:
   std::vector<std::shared_ptr<RecordBatch>> record_batches_;
+  std::shared_ptr<ScanOptions> options_;
+  std::shared_ptr<ScanContext> context_;
 };
 
 /// \brief Scanner is a materialized scan operation with context and options
@@ -150,7 +159,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// \brief Set
   ScannerBuilder* Project(const std::vector<std::string>& columns);
 
-  ScannerBuilder* AddFilter(const std::shared_ptr<Expression>& filter);
+  ScannerBuilder* Filter(const std::shared_ptr<Expression>& filter);
 
   ScannerBuilder* SetGlobalFileOptions(std::shared_ptr<FileScanOptions> options);
 

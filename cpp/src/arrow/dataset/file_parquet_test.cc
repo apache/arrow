@@ -17,12 +17,14 @@
 
 #include "arrow/dataset/file_parquet.h"
 
+#include <memory>
 #include <utility>
 #include <vector>
 
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
+#include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
@@ -129,22 +131,13 @@ class ParquetBufferFixtureMixin : public ArrowParquetWriterMixin {
   }
 
   std::unique_ptr<RecordBatchReader> GetRecordBatchReader() {
-    auto batch = GetRecordBatch();
+    auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
     int64_t i = 0;
     return MakeGeneratedRecordBatch(
         batch->schema(), [batch, i](std::shared_ptr<RecordBatch>* out) mutable {
           *out = i++ < kBatchRepetitions ? batch : nullptr;
           return Status::OK();
         });
-  }
-
-  std::shared_ptr<RecordBatch> GetRecordBatch() {
-    ASSERT_OK_AND_ASSIGN(auto f64, ArrayFromBuilderVisitor(float64(), kBatchSize,
-                                                           [](DoubleBuilder* builder) {
-                                                             builder->UnsafeAppend(0.0);
-                                                           }));
-
-    return RecordBatch::Make(schema_, kBatchSize, {f64});
   }
 
  protected:
@@ -197,14 +190,17 @@ TEST_F(TestParquetFileFormat, FilterRecordBatch) {
   auto unfiltered_batch =
       RecordBatch::Make(schm, unfiltered_column->length(), {unfiltered_column});
 
+  opts_ = std::make_shared<ScanOptions>();
   opts_->filter = ("i32"_ > 3).Copy();
 
   auto filtered_column = ArrayFromJSON(schm->field(0)->type(), "[4, 5, 6]");
   auto filtered_batch =
       RecordBatch::Make(schm, filtered_column->length(), {filtered_column});
 
+  bool done = false;
   auto reader = MakeGeneratedRecordBatch(schm, [&](std::shared_ptr<RecordBatch>* out) {
-    *out = unfiltered_batch;
+    *out = done ? nullptr : unfiltered_batch;
+    done = true;
     return Status::OK();
   });
 

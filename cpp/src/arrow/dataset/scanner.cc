@@ -28,7 +28,14 @@
 namespace arrow {
 namespace dataset {
 
-RecordBatchIterator SimpleScanTask::Scan() { return MakeVectorIterator(record_batches_); }
+RecordBatchIterator SimpleScanTask::Scan() {
+  auto record_batch_it = MakeVectorIterator(record_batches_);
+  if (options_ == nullptr || options_->filter == nullptr || context_ == nullptr) {
+    return record_batch_it;
+  }
+  return FilterBatches(std::move(record_batch_it), options_->filter,
+                       &context_->compute_context);
+}
 
 /// \brief GetScanTaskIterator transforms an Iterator<DataFragment> in a
 /// flattened Iterator<ScanTask>.
@@ -66,7 +73,8 @@ ScannerBuilder* ScannerBuilder::Project(const std::vector<std::string>& columns)
   return this;
 }
 
-ScannerBuilder* ScannerBuilder::AddFilter(const std::shared_ptr<Expression>& filter) {
+ScannerBuilder* ScannerBuilder::Filter(const std::shared_ptr<Expression>& filter) {
+  filter_ = filter;
   return this;
 }
 
@@ -82,6 +90,7 @@ ScannerBuilder* ScannerBuilder::IncludePartitionKeys(bool include) {
 
 Status ScannerBuilder::Finish(std::unique_ptr<Scanner>* out) const {
   auto options = std::make_shared<ScanOptions>();
+  options->filter = std::move(filter_);
   out->reset(new SimpleScanner(dataset_->sources(), options, scan_context_));
   return Status::OK();
 }
