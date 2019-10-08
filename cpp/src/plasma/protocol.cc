@@ -56,10 +56,10 @@ ToFlatbuffer(flatbuffers::FlatBufferBuilder* fbb, const ObjectID* object_ids,
 flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>>
 ToFlatbuffer(flatbuffers::FlatBufferBuilder* fbb,
              const std::vector<std::string>& strings) {
-    std::vector<flatbuffers::Offset<flatbuffers::String> > results;
-    for (size_t i = 0; i < strings.size(); i++) {
-        results.push_back(fbb->CreateString(strings[i]));
-    }
+  std::vector<flatbuffers::Offset<flatbuffers::String>> results;
+  for (size_t i = 0; i < strings.size(); i++) {
+    results.push_back(fbb->CreateString(strings[i]));
+  }
 
   return fbb->CreateVector(arrow::util::MakeNonNull(results.data()), results.size());
 }
@@ -88,11 +88,11 @@ void ToVector(const Data& request, std::vector<T>* out, const Getter& getter) {
 template <typename T, typename FlatbufferVectorPointer, typename Converter>
 void ConvertToVector(const FlatbufferVectorPointer fbvector, std::vector<T>* out,
                      const Converter& converter) {
-    out->clear();
-    out->reserve(fbvector->size());
-    for (size_t i = 0; i < fbvector->size(); ++i) {
-        out->push_back(converter(*fbvector->Get(i)));
-    }
+  out->clear();
+  out->reserve(fbvector->size());
+  for (size_t i = 0; i < fbvector->size(); ++i) {
+    out->push_back(converter(*fbvector->Get(i)));
+  }
 }
 
 template <typename Message>
@@ -286,17 +286,14 @@ Status SendCreateAndSealBatchRequest(int sock, const std::vector<ObjectID>& obje
                                      const std::vector<std::string>& data,
                                      const std::vector<std::string>& metadata,
                                      const std::vector<std::string>& digests) {
-    flatbuffers::FlatBufferBuilder fbb;
+  flatbuffers::FlatBufferBuilder fbb;
 
-    auto message =
-        fb::CreatePlasmaCreateAndSealBatchRequest(fbb,
-                                                  ToFlatbuffer(&fbb, object_ids.data(),
-                                                               object_ids.size()),
-                                                  ToFlatbuffer(&fbb, data),
-                                                  ToFlatbuffer(&fbb, metadata),
-                                                  ToFlatbuffer(&fbb, digests));
+  auto message = fb::CreatePlasmaCreateAndSealBatchRequest(
+      fbb, ToFlatbuffer(&fbb, object_ids.data(), object_ids.size()),
+      ToFlatbuffer(&fbb, data), ToFlatbuffer(&fbb, metadata),
+      ToFlatbuffer(&fbb, digests));
 
-    return PlasmaSend(sock, MessageType::PlasmaCreateAndSealBatchRequest, &fbb, message);
+  return PlasmaSend(sock, MessageType::PlasmaCreateAndSealBatchRequest, &fbb, message);
 }
 
 Status ReadCreateAndSealBatchRequest(uint8_t* data, size_t size,
@@ -304,31 +301,25 @@ Status ReadCreateAndSealBatchRequest(uint8_t* data, size_t size,
                                      std::vector<std::string>* object_data,
                                      std::vector<std::string>* metadata,
                                      std::vector<std::string>* digests) {
-    DCHECK(data);
-    auto message = flatbuffers::GetRoot<fb::PlasmaCreateAndSealBatchRequest>(data);
-    DCHECK(VerifyFlatbuffer(message, data, size));
+  DCHECK(data);
+  auto message = flatbuffers::GetRoot<fb::PlasmaCreateAndSealBatchRequest>(data);
+  DCHECK(VerifyFlatbuffer(message, data, size));
 
-    ConvertToVector(message->object_ids(), object_ids,
-                    [](const flatbuffers::String& element) {
-            return ObjectID::from_binary(element.str());
-    });
+  ConvertToVector(message->object_ids(), object_ids,
+                  [](const flatbuffers::String& element) {
+                    return ObjectID::from_binary(element.str());
+                  });
 
-    ConvertToVector(message->data(), object_data,
-                    [](const flatbuffers::String& element) {
-            return element.str();
-    });
+  ConvertToVector(message->data(), object_data,
+                  [](const flatbuffers::String& element) { return element.str(); });
 
-    ConvertToVector(message->metadata(), metadata,
-                    [](const flatbuffers::String& element) {
-            return element.str();
-    });
+  ConvertToVector(message->metadata(), metadata,
+                  [](const flatbuffers::String& element) { return element.str(); });
 
-    ConvertToVector(message->digest(), digests,
-                   [](const flatbuffers::String& element) {
-            return element.str();
-    });
+  ConvertToVector(message->digest(), digests,
+                  [](const flatbuffers::String& element) { return element.str(); });
 
-    return Status::OK();
+  return Status::OK();
 }
 
 Status SendCreateAndSealReply(int sock, PlasmaError error) {
@@ -346,8 +337,8 @@ Status ReadCreateAndSealReply(uint8_t* data, size_t size) {
 
 Status SendCreateAndSealBatchReply(int sock, PlasmaError error) {
   flatbuffers::FlatBufferBuilder fbb;
-  auto message = fb::CreatePlasmaCreateAndSealBatchReply(
-                         fbb, static_cast<PlasmaError>(error));
+  auto message =
+      fb::CreatePlasmaCreateAndSealBatchReply(fbb, static_cast<PlasmaError>(error));
   return PlasmaSend(sock, MessageType::PlasmaCreateAndSealBatchReply, &fbb, message);
 }
 

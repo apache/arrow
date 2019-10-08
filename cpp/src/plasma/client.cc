@@ -515,14 +515,14 @@ Status PlasmaClient::Impl::CreateAndSealBatch(const std::vector<ObjectID>& objec
     // CreateAndSeal currently only supports device_num = 0, which corresponds to
     // the host.
     uint64_t hash = ComputeObjectHash(
-      reinterpret_cast<const uint8_t*>(data.data()), data.size(),
-      reinterpret_cast<const uint8_t*>(metadata.data()), metadata.size(), device_num);
+        reinterpret_cast<const uint8_t*>(data.data()), data.size(),
+        reinterpret_cast<const uint8_t*>(metadata.data()), metadata.size(), device_num);
     digest.assign(reinterpret_cast<char*>(&hash), sizeof(hash));
     digests.push_back(digest);
   }
 
-  RETURN_NOT_OK(SendCreateAndSealBatchRequest(store_conn_, object_ids, data, metadata,
-                                              digests));
+  RETURN_NOT_OK(
+      SendCreateAndSealBatchRequest(store_conn_, object_ids, data, metadata, digests));
   std::vector<uint8_t> buffer;
   RETURN_NOT_OK(
       PlasmaReceive(store_conn_, MessageType::PlasmaCreateAndSealBatchReply, &buffer));
@@ -1102,7 +1102,7 @@ Status PlasmaClient::CreateAndSeal(const ObjectID& object_id, const std::string&
 Status PlasmaClient::CreateAndSealBatch(const std::vector<ObjectID>& object_ids,
                                         const std::vector<std::string>& data,
                                         const std::vector<std::string>& metadata) {
-    return impl_->CreateAndSealBatch(object_ids, data, metadata);
+  return impl_->CreateAndSealBatch(object_ids, data, metadata);
 }
 
 Status PlasmaClient::Get(const std::vector<ObjectID>& object_ids, int64_t timeout_ms,
