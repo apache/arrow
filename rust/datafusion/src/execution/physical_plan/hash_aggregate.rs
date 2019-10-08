@@ -91,6 +91,12 @@ impl ExecutionPlan for HashAggregateExec {
             })
             .collect();
 
+        if partitions.len() == 1 {
+            // if there is only a single partition then it isn't necessary to perform any
+            // additional logic
+            return Ok(partitions);
+        }
+
         // create partition to combine and aggregate the results
         let final_group: Vec<Arc<dyn PhysicalExpr>> = (0..self.group_expr.len())
             .map(|i| Arc::new(Column::new(i)) as Arc<dyn PhysicalExpr>)
