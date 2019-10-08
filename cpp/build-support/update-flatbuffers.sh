@@ -24,13 +24,13 @@ CWD="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SOURCE_DIR=$CWD/../src
 FORMAT_DIR=$CWD/../..
 
-#flatc -c -o $SOURCE_DIR/generated \
-#      $FORMAT_DIR/Message.fbs \
-#      $FORMAT_DIR/File.fbs \
-#      $FORMAT_DIR/Schema.fbs \
-#      $FORMAT_DIR/Tensor.fbs \
-#      $FORMAT_DIR/SparseTensor.fbs \
-#      src/arrow/ipc/feather.fbs
+flatc -c -o $SOURCE_DIR/generated \
+      $FORMAT_DIR/Message.fbs \
+      $FORMAT_DIR/File.fbs \
+      $FORMAT_DIR/Schema.fbs \
+      $FORMAT_DIR/Tensor.fbs \
+      $FORMAT_DIR/SparseTensor.fbs \
+      src/arrow/ipc/feather.fbs
 
 flatc -c -o $SOURCE_DIR/plasma \
       --gen-object-api \

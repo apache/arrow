@@ -86,9 +86,16 @@ Status ReadCreateAndSealRequest(uint8_t* data, size_t size, ObjectID* object_id,
                                 std::string* object_data, std::string* metadata,
                                 unsigned char* digest);
 
-Status SendCreateAndSealBatchRequest(int sock, const std::vector<ObjectID>& object_ids, const std::vector<std::string>& data, const std::vector<std::string>& metadata, const std::vector<std::string>& digests);
+Status SendCreateAndSealBatchRequest(int sock, const std::vector<ObjectID>& object_ids,
+                                     const std::vector<std::string>& data,
+                                     const std::vector<std::string>& metadata,
+                                     const std::vector<std::string>& digests);
 
-Status ReadCreateAndSealBatchRequest(uint8_t* data, size_t size, std::vector<ObjectID>* object_id, std::vector<std::string>* object_data, std::vector<std::string>* metadata, std::vector<std::string>* digests);
+Status ReadCreateAndSealBatchRequest(uint8_t* data, size_t size,
+                                     std::vector<ObjectID>* object_id,
+                                     std::vector<std::string>* object_data,
+                                     std::vector<std::string>* metadata,
+                                     std::vector<std::string>* digests);
 
 Status SendCreateAndSealReply(int sock, PlasmaError error);
 

@@ -229,7 +229,9 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
   Status CreateAndSeal(const ObjectID& object_id, const std::string& data,
                        const std::string& metadata);
 
-  Status CreateAndSealBatch(const std::vector<ObjectID>& object_ids, const std::vector<std::string>& data, const std::vector<std::string>& metadata);
+  Status CreateAndSealBatch(const std::vector<ObjectID>& object_ids,
+                            const std::vector<std::string>& data,
+                            const std::vector<std::string>& metadata);
 
   Status Get(const std::vector<ObjectID>& object_ids, int64_t timeout_ms,
              std::vector<ObjectBuffer>* object_buffers);
@@ -498,7 +500,9 @@ Status PlasmaClient::Impl::CreateAndSeal(const ObjectID& object_id,
   return Status::OK();
 }
 
-Status PlasmaClient::Impl::CreateAndSealBatch(const std::vector<ObjectID>& object_ids, const std::vector<std::string>& data, const std::vector<std::string>& metadata) {
+Status PlasmaClient::Impl::CreateAndSealBatch(const std::vector<ObjectID>& object_ids,
+                                              const std::vector<std::string>& data,
+                                              const std::vector<std::string>& metadata) {
   std::lock_guard<std::recursive_mutex> guard(client_mutex_);
 
   ARROW_LOG(DEBUG) << "called CreateAndSealBatch on conn " << store_conn_;
@@ -517,7 +521,8 @@ Status PlasmaClient::Impl::CreateAndSealBatch(const std::vector<ObjectID>& objec
     digests.push_back(digest);
   }
 
-  RETURN_NOT_OK(SendCreateAndSealBatchRequest(store_conn_, object_ids, data, metadata, digests));
+  RETURN_NOT_OK(SendCreateAndSealBatchRequest(store_conn_, object_ids, data, metadata,
+                                              digests));
   std::vector<uint8_t> buffer;
   RETURN_NOT_OK(
       PlasmaReceive(store_conn_, MessageType::PlasmaCreateAndSealBatchReply, &buffer));
@@ -1094,7 +1099,9 @@ Status PlasmaClient::CreateAndSeal(const ObjectID& object_id, const std::string&
   return impl_->CreateAndSeal(object_id, data, metadata);
 }
 
-Status PlasmaClient::CreateAndSealBatch(const std::vector<ObjectID>& object_ids, const std::vector<std::string>& data, const std::vector<std::string>& metadata) {
+Status PlasmaClient::CreateAndSealBatch(const std::vector<ObjectID>& object_ids,
+                                        const std::vector<std::string>& data,
+                                        const std::vector<std::string>& metadata) {
     return impl_->CreateAndSealBatch(object_ids, data, metadata);
 }
 
