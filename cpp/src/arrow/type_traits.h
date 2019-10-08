@@ -624,6 +624,7 @@ static inline bool is_primitive(Type::type type_id) {
     case Type::TIME32:
     case Type::TIME64:
     case Type::TIMESTAMP:
+    case Type::DURATION:
     case Type::INTERVAL:
       return true;
     default:
