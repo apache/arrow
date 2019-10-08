@@ -382,6 +382,10 @@ TEST(TestCodecMisc, SpecifyCompressionLevel) {
   std::vector<uint8_t> data = MakeRandomData(2000);
   for (const auto& combination : combinations) {
     const auto compression = combination.codec;
+    if (!Codec::IsAvailable(compression)) {
+      // Support for this codec hasn't been built
+      continue;
+    }
     const auto level = combination.level;
     const auto expect_success = combination.expect_success;
     std::unique_ptr<Codec> c1, c2;
