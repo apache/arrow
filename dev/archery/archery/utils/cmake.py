@@ -19,12 +19,12 @@ import os
 import re
 from shutil import rmtree, which
 
-from .command import Command
+from .command import Command, default_bin
 
 
 class CMake(Command):
     def __init__(self, cmake_bin=None):
-        self.bin = cmake_bin if cmake_bin else os.environ.get("CMAKE", "cmake")
+        self.bin = default_bin(cmake_bin, "CMAKE", "cmake")
 
     @staticmethod
     def default_generator():
@@ -85,7 +85,7 @@ class CMakeDefinition:
         ]
         return arguments
 
-    def build(self, build_dir, force=False, **kwargs):
+    def build(self, build_dir, force=False, cmd_kwargs=None, **kwargs):
         """ Invoke cmake into a build directory.
 
         Parameters
@@ -106,7 +106,8 @@ class CMakeDefinition:
 
         os.mkdir(build_dir)
 
-        cmake(*self.arguments, cwd=build_dir, env=self.env)
+        cmd_kwargs = cmd_kwargs if cmd_kwargs else {}
+        cmake(*self.arguments, cwd=build_dir, env=self.env, **cmd_kwargs)
         return CMakeBuild(build_dir, self.build_type, definition=self,
                           **kwargs)
 
@@ -152,8 +153,8 @@ class CMakeBuild(CMake):
         if verbose:
             extra.append("-v" if self.bin.endswith("ninja") else "VERBOSE=1")
         # Commands must be ran under the build directory
-        super().run(*cmake_args, *extra, *argv, **kwargs, cwd=self.build_dir)
-        return self
+        return super().run(*cmake_args, *extra,
+                           *argv, **kwargs, cwd=self.build_dir)
 
     def all(self):
         return self.run("all")

@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,25 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import sys
-from setuptools import setup
+from ..utils.command import Command, CommandStackMixin, default_bin
 
 
-if sys.version_info < (3, 5):
-    sys.exit('Python < 3.5 is not supported')
+class Java(Command):
+    def __init__(self, java_bin=None):
+        self.bin = default_bin(java_bin, "JAVA", "java")
 
 
-setup(
-    name='archery',
-    version="0.1.0",
-    description='Apache Arrow Developers Tools',
-    url='http://github.com/apache/arrow',
-    maintainer='Arrow Developers',
-    maintainer_email='dev@arrow.apache.org',
-    packages=['archery'],
-    install_requires=['click'],
-    entry_points='''
-        [console_scripts]
-        archery=archery.cli:archery
-    ''',
-)
+class Jar(CommandStackMixin, Java):
+    def __init__(self, jar, *args, **kwargs):
+        self.jar = jar
+        self.argv = ("-jar", jar)
+        Java.__init__(self, *args, **kwargs)

@@ -21,6 +21,7 @@ cpp/build-support/iwyu/*
 cpp/cmake_modules/FindPythonLibsNew.cmake
 cpp/cmake_modules/SnappyCMakeLists.txt
 cpp/cmake_modules/SnappyConfig.h
+cpp/examples/parquet/parquet-arrow/cmake_modules/FindArrow.cmake
 cpp/src/parquet/.parquetcppversion
 cpp/src/plasma/thirdparty/ae/ae.c
 cpp/src/plasma/thirdparty/ae/ae.h
@@ -146,6 +147,7 @@ go/*.s
 js/.npmignore
 js/closure-compiler-scripts/*
 js/src/fb/*.ts
+python/cmake_modules
 python/cmake_modules/FindPythonLibsNew.cmake
 python/cmake_modules/SnappyCMakeLists.txt
 python/cmake_modules/SnappyConfig.h

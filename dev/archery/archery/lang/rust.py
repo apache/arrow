@@ -1,4 +1,3 @@
-#!/bin/bash
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,20 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+from ..utils.command import Command, default_bin
 
-mkdir -p /build/lint
-pushd /build/lint
-  cmake -GNinja /arrow/cpp
-  ninja check-format
-  ninja lint
-popd
 
-pushd /arrow/python
-  flake8 --count pyarrow
-  flake8 --count --config=.flake8.cython pyarrow
-popd
-
-pushd /arrow/r
-  ./lint.sh
-popd
+class Cargo(Command):
+    def __init__(self, cargo_bin=None):
+        self.bin = default_bin(cargo_bin, "CARGO", "cargo")

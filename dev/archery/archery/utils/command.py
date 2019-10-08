@@ -24,22 +24,35 @@ from .logger import logger, ctx
 
 def find_exec(executable):
     exec_exists = os.path.exists(executable)
-    return executable if exec_exists else shutil.which(executable)
+    executable = executable if exec_exists else shutil.which(executable)
+
+    if executable is None:
+        raise FileNotFoundError(executable)
+
+    return executable
+
+
+def default_bin(name, env, default):
+    return name if name else os.environ.get(env, default)
 
 
 # Decorator running a command and returning stdout
 class capture_stdout:
-    def __init__(self, strip=False):
+    def __init__(self, strip=False, listify=False):
         self.strip = strip
+        self.listify = listify
 
     def __call__(self, f):
         def strip_it(x):
             return x.strip() if self.strip else x
 
+        def list_it(x):
+            return x.decode('utf-8').splitlines() if self.listify else x
+
         def wrapper(*argv, **kwargs):
             # Ensure stdout is captured
             kwargs["stdout"] = subprocess.PIPE
-            return strip_it(f(*argv, **kwargs).stdout)
+            return list_it(strip_it(f(*argv, **kwargs).stdout))
         return wrapper
 
 
@@ -68,4 +81,15 @@ class Command:
         return subprocess.run(invocation, **kwargs)
 
     def __call__(self, *argv, **kwargs):
-        self.run(*argv, **kwargs)
+        return self.run(*argv, **kwargs)
+
+
+class CommandStackMixin:
+    def run(self, *argv, **kwargs):
+        stacked_args = self.argv + argv
+        return super(CommandStackMixin, self).run(*stacked_args, **kwargs)
+
+
+class Bash(Command):
+    def __init__(self, bash_bin=None):
+        self.bin = default_bin(bash_bin, "BASH", "bash")
