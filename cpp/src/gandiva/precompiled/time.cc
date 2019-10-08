@@ -16,6 +16,7 @@
 // under the License.
 
 #include "./epoch_time_point.h"
+#include "gandiva/logging.h"
 
 extern "C" {
 
@@ -711,8 +712,8 @@ const char* castVARCHAR_timestamp_int64(int64 context, timestamp in, int64 lengt
                      ":%02" PRId64 ".%03" PRId64,
                      year, month, day, hour, minute, second, millis);
   if (res < 0) {
-    // prevent warning on release build with gcc. should be unreachable.
-    return "";
+    DCHECK(false);  // should be unreachable.
+    return ""; // prevent warning on release build with gcc.
   }
 
   *out_len = static_cast<int32>(length);
