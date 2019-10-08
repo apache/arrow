@@ -248,18 +248,18 @@ std::shared_ptr<RecordBatch> RecordBatch::Slice(int64_t offset) const {
 
 Status RecordBatch::Validate() const {
   for (int i = 0; i < num_columns(); ++i) {
-    auto arr_shared = this->column_data(i);
-    const ArrayData& arr = *arr_shared;
-    if (arr.length != num_rows_) {
+    const auto& array = *this->column(i);
+    if (array.length() != num_rows_) {
       return Status::Invalid("Number of rows in column ", i,
-                             " did not match batch: ", arr.length, " vs ", num_rows_);
+                             " did not match batch: ", array.length(), " vs ", num_rows_);
     }
     const auto& schema_type = *schema_->field(i)->type();
-    if (!arr.type->Equals(schema_type)) {
+    if (!array.type()->Equals(schema_type)) {
       return Status::Invalid("Column ", i,
-                             " type not match schema: ", arr.type->ToString(), " vs ",
+                             " type not match schema: ", array.type()->ToString(), " vs ",
                              schema_type.ToString());
     }
+    RETURN_NOT_OK(array.Validate());
   }
   return Status::OK();
 }

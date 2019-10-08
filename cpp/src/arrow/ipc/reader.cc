@@ -111,8 +111,9 @@ class IpcComponentSource {
     const flatbuf::Buffer* buffer = buffers->Get(buffer_index);
 
     if (buffer->length() == 0) {
-      *out = nullptr;
-      return Status::OK();
+      // Should never return a null buffer here.
+      // (zero-sized buffer allocations are cheap)
+      return AllocateBuffer(0, out);
     } else {
       if (!BitUtil::IsMultipleOf8(buffer->offset())) {
         return Status::Invalid(
