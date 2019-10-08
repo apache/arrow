@@ -228,6 +228,9 @@ int main(int argc, char** argv) {
       std::shared_ptr<parquet::ColumnReader> column_reader;
       int col_id = 0;
 
+      // prevent warning in release build
+      (void)rows_read;
+
       // Get the Column Reader for the boolean column
       column_reader = row_group_reader->Column(col_id);
       parquet::BoolReader* bool_reader =
@@ -317,6 +320,7 @@ int main(int argc, char** argv) {
         expected_value.value[1] = col_row_counts[col_id] + 1;
         expected_value.value[2] = col_row_counts[col_id] + 2;
         for (int j = 0; j < 3; j++) {
+          (void)expected_value; // prevent warning in release build
           assert(value.value[j] == expected_value.value[j]);
         }
         col_row_counts[col_id]++;
@@ -380,6 +384,7 @@ int main(int argc, char** argv) {
         assert(rows_read == 1);
         // Verify the value written
         char expected_value[FIXED_LENGTH] = "parquet";
+        (void)expected_value; // prevent warning in release build
         expected_value[7] = static_cast<char>('0' + col_row_counts[col_id] / 100);
         expected_value[8] = static_cast<char>('0' + (col_row_counts[col_id] / 10) % 10);
         expected_value[9] = static_cast<char>('0' + col_row_counts[col_id] % 10);
