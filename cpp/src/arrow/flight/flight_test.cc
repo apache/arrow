@@ -701,8 +701,8 @@ class ReportContextTestServer : public FlightServerBase {
     if (middleware == nullptr || middleware->name() != "TracingServerMiddleware") {
       RETURN_NOT_OK(Buffer::FromString("", &buf));
     } else {
-      RETURN_NOT_OK(
-          Buffer::FromString(((TracingServerMiddleware*)middleware)->span_id, &buf));
+      RETURN_NOT_OK(Buffer::FromString(
+          ((const TracingServerMiddleware*)middleware)->span_id, &buf));
     }
     *result = std::unique_ptr<ResultStream>(new SimpleResultStream({Result{buf}}));
     return Status::OK();
@@ -720,7 +720,7 @@ class PropagatingTestServer : public FlightServerBase {
     if (middleware == nullptr || middleware->name() != "TracingServerMiddleware") {
       current_span_id = "";
     } else {
-      current_span_id = ((TracingServerMiddleware*)middleware)->span_id;
+      current_span_id = ((const TracingServerMiddleware*)middleware)->span_id;
     }
 
     return client_->DoAction(action, result);
@@ -1351,8 +1351,6 @@ TEST_F(TestCountingServerMiddleware, Count) {
   std::unique_ptr<FlightStreamReader> stream;
   ASSERT_OK(client_->DoGet(ticket, &stream));
 
-  // The DoGet hasn't finished yet here.
-  ASSERT_EQ(0, request_counter_->successful_);
   ASSERT_EQ(1, request_counter_->failed_);
 
   while (true) {

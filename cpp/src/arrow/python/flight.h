@@ -33,6 +33,7 @@ namespace py {
 
 namespace flight {
 
+ARROW_PYTHON_EXPORT
 extern const char* kPyServerMiddlewareName;
 
 /// \brief A table of function pointers for calling from C++ into
