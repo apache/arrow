@@ -970,7 +970,7 @@ Status PlasmaStore::ProcessMessage(Client* client) {
       // to the host.
       int device_num = 0;
       size_t i = 0;
-      PlasmaError error_code;
+      PlasmaError error_code = PlasmaError::OK;
       for (i=0; i < object_ids.size(); i++) {
         error_code = CreateObject(object_ids[i], data[i].size(), metadata[i].size(),
                                             device_num, client, &object);
@@ -990,7 +990,7 @@ Status PlasmaStore::ProcessMessage(Client* client) {
           // Write the inlined data and metadata into the allocated object.
           std::memcpy(entry->pointer, data[i].data(), data[i].size());
           std::memcpy(entry->pointer + data[i].size(), metadata[i].data(), metadata[i].size());
-          SealObject(object_ids[i], (unsigned char*)&digests[i].c_str()[0]);
+          SealObject(object_ids[i], reinterpret_cast<unsigned char*>(const_cast<char*>(digests[i].c_str())));
           // Remove the client from the object's array of clients because the
           // object is not being used by any client. The client was added to the
           // object's array of clients in CreateObject. This is analogous to the
