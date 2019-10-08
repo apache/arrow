@@ -19,6 +19,7 @@
 
   <artifactId>arrow-flight-grpc</artifactId>
   <name>Arrow Flight GRPC</name>
+  <description>(Experimental)Contains utility class to expose Flight gRPC service and client</description>
   <packaging>jar</packaging>
 
   <properties>

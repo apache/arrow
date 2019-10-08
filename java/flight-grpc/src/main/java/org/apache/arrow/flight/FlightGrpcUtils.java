@@ -25,18 +25,32 @@ import org.apache.arrow.memory.BufferAllocator;
 import io.grpc.ManagedChannel;
 
 /**
- * Exposes Flight service & client.
+ * Exposes Flight GRPC service & client.
  */
 public class FlightGrpcUtils {
 
   private FlightGrpcUtils() {}
 
-  public static FlightBindingService getFlightService(BufferAllocator allocator, FlightProducer producer,
+  /**
+   * Creates a Flight service.
+   * @param allocator Memory allocator
+   * @param producer Specifies the service api
+   * @param authHandler Authentication handler
+   * @param executor Executor service
+   * @return FlightBindingService
+   */
+  public static FlightBindingService createFlightService(BufferAllocator allocator, FlightProducer producer,
                                                       ServerAuthHandler authHandler, ExecutorService executor) {
     return new FlightBindingService(allocator, producer, authHandler, executor);
   }
 
-  public static FlightClient getFlightClient(BufferAllocator incomingAllocator, ManagedChannel channel) {
+  /**
+   * Creates a Flight client.
+   * @param incomingAllocator  Memory allocator
+   * @param channel provides a connection to a gRPC server
+   * @return FlightClient
+   */
+  public static FlightClient createFlightClient(BufferAllocator incomingAllocator, ManagedChannel channel) {
     return new FlightClient(incomingAllocator, channel);
   }
 }
