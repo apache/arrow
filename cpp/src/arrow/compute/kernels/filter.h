@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/record_batch.h"
 #pragma once
 
 #include <memory>
 
 #include "arrow/compute/kernel.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
 

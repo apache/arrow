@@ -26,10 +26,13 @@
 #include <gtest/gtest.h>
 
 #include "arrow/compute/api.h"
+#include "arrow/compute/context.h"
+#include "arrow/compute/kernels/take.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/type.h"
 
 namespace arrow {
 namespace dataset {
@@ -45,6 +48,13 @@ class ExpressionsTest : public ::testing::Test {
  public:
   void AssertSimplifiesTo(const Expression& expr, const Expression& given,
                           const Expression& expected) {
+    ASSERT_OK_AND_ASSIGN(auto expr_type, expr.Validate(*schema_));
+    ASSERT_OK_AND_ASSIGN(auto given_type, given.Validate(*schema_));
+    ASSERT_OK_AND_ASSIGN(auto expected_type, expected.Validate(*schema_));
+
+    EXPECT_TRUE(expr_type->Equals(expected_type));
+    EXPECT_TRUE(given_type->Equals(boolean()));
+
     auto simplified = expr.Assume(given);
     if (!simplified->Equals(expected)) {
       FAIL() << "  simplification of: " << expr.ToString() << std::endl
@@ -54,13 +64,8 @@ class ExpressionsTest : public ::testing::Test {
     }
   }
 
-  void AssertOperandsAre(const BinaryExpression& expr, ExpressionType::type type,
-                         const Expression& lhs, const Expression& rhs) {
-    ASSERT_EQ(expr.type(), type);
-    ASSERT_TRUE(expr.left_operand()->Equals(lhs));
-    ASSERT_TRUE(expr.right_operand()->Equals(rhs));
-  }
-
+  std::shared_ptr<Schema> schema_ =
+      schema({field("a", int32()), field("b", int32()), field("f", float64())});
   std::shared_ptr<ScalarExpression> always = scalar(true);
   std::shared_ptr<ScalarExpression> never = scalar(false);
 };
@@ -74,14 +79,11 @@ TEST_F(ExpressionsTest, Equality) {
   ASSERT_FALSE(("b"_ == 3).Equals("b"_));
 
   // ordering matters
+  ASSERT_TRUE(("b"_ > 2 and "b"_ < 3).Equals("b"_ > 2 and "b"_ < 3));
   ASSERT_FALSE(("b"_ > 2 and "b"_ < 3).Equals("b"_ < 3 and "b"_ > 2));
 }
 
 TEST_F(ExpressionsTest, SimplificationOfCompoundQuery) {
-  // chained "and" expressions are flattened
-  auto multi_and = "b"_ > 5 and "b"_ < 10 and "b"_ != 7;
-  AssertOperandsAre(multi_and, ExpressionType::AND, ("b"_ > 5 and "b"_ < 10), "b"_ != 7);
-
   AssertSimplifiesTo("b"_ > 5 and "b"_ < 10, "b"_ == 3, *never);
   AssertSimplifiesTo("b"_ > 5 and "b"_ < 10, "b"_ == 6, *always);
 
@@ -90,8 +92,8 @@ TEST_F(ExpressionsTest, SimplificationOfCompoundQuery) {
   AssertSimplifiesTo("b"_ == 3 or "b"_ == 4, "b"_ > 3, "b"_ == 4);
   AssertSimplifiesTo("b"_ == 3 or "b"_ == 4, "b"_ >= 3, "b"_ == 3 or "b"_ == 4);
 
-  AssertSimplifiesTo("b"_ > 0.5 and "b"_ < 1.5, not("b"_ < 0.0 or "b"_ > 1.0),
-                     "b"_ > 0.5);
+  AssertSimplifiesTo("f"_ > 0.5 and "f"_ < 1.5, not("f"_ < 0.0 or "f"_ > 1.0),
+                     "f"_ > 0.5);
 
   AssertSimplifiesTo("b"_ == 4, "a"_ == 0, "b"_ == 4);
 
@@ -105,8 +107,8 @@ TEST_F(ExpressionsTest, SimplificationAgainstCompoundCondition) {
 }
 
 TEST_F(ExpressionsTest, SimplificationToNull) {
-  auto null = scalar(std::shared_ptr<Scalar>(new BooleanScalar));
-  auto null32 = scalar(std::shared_ptr<Scalar>(new Int32Scalar));
+  auto null = scalar(std::make_shared<BooleanScalar>());
+  auto null32 = scalar(std::make_shared<Int32Scalar>());
 
   AssertSimplifiesTo(*equal(field_ref("b"), null32), "b"_ == 3, *null);
   AssertSimplifiesTo(*not_equal(field_ref("b"), null32), "b"_ == 3, *null);
@@ -130,6 +132,9 @@ class FilterTest : public ::testing::Test {
     if (expected_mask) {
       *expected_mask = checked_pointer_cast<BooleanArray>(batch->GetColumnByName("in"));
     }
+
+    ASSERT_OK_AND_ASSIGN(auto expr_type, expr.Validate(*batch->schema()));
+    EXPECT_TRUE(expr_type->Equals(boolean()));
 
     return expr.Evaluate(&ctx_, *batch);
   }
@@ -238,6 +243,93 @@ TEST_F(FilterTest, ConditionOnAbsentColumn) {
       {"a": 0, "b":  0.1, "in": null},
       {"a": 0, "b": null, "in": null},
       {"a": 0, "b":  1.0, "in": null}
+  ])");
+}
+
+class TakeExpression
+    : public ExpressionImpl<UnaryExpression, TakeExpression, ExpressionType::CUSTOM> {
+ public:
+  TakeExpression(std::shared_ptr<Expression> operand, std::shared_ptr<Array> dictionary)
+      : ExpressionImpl(std::move(operand)), dictionary_(std::move(dictionary)) {}
+
+  std::string ToString() const override {
+    return dictionary_->ToString() + "[" + operand_->ToString() + "]";
+  }
+
+  bool Equals(const Expression& other) const override {
+    return other.type() == ExpressionType::CUSTOM && ToString() == other.ToString();
+  }
+
+  Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override {
+    ARROW_ASSIGN_OR_RAISE(auto operand_type, operand()->Validate(schema));
+    if (!is_integer(operand_type->id())) {
+      return Status::TypeError("Take indices must be integral, not ", *operand_type);
+    }
+    return dictionary_->type();
+  }
+
+  Result<compute::Datum> Evaluate(compute::FunctionContext* ctx,
+                                  const RecordBatch& batch) const override {
+    ARROW_ASSIGN_OR_RAISE(auto indices, operand()->Evaluate(ctx, batch));
+
+    if (indices.kind() == Datum::SCALAR) {
+      std::shared_ptr<Array> indices_array;
+      RETURN_NOT_OK(MakeArrayFromScalar(ctx->memory_pool(), *indices.scalar(),
+                                        batch.num_rows(), &indices_array));
+      indices = compute::Datum(indices_array->data());
+    }
+
+    DCHECK_EQ(indices.kind(), Datum::ARRAY);
+    compute::Datum out;
+    RETURN_NOT_OK(compute::Take(ctx, compute::Datum(dictionary_->data()), indices,
+                                compute::TakeOptions(), &out));
+    return std::move(out);
+  }
+
+ private:
+  std::shared_ptr<Array> dictionary_;
+};
+
+TEST_F(ExpressionsTest, TakeAssumeYieldsNothing) {
+  auto dict = ArrayFromJSON(float64(), "[0.0, 0.25, 0.5, 0.75, 1.0]");
+  auto take_b_is_half = (TakeExpression(field_ref("b"), dict) == 0.5);
+
+  // no special Assume logic was provided for TakeExpression so we should just ignore it
+  // (logically the below *could* be simplified to false but we haven't implemented that)
+  AssertSimplifiesTo(take_b_is_half, "b"_ == 3, take_b_is_half);
+
+  // custom expressions will not interfere with simplification of other subexpressions and
+  // can be dropped if other subexpressions simplify trivially
+
+  // ("b"_ > 5).Assume("b"_ == 3) simplifies to false regardless of take, so the and will
+  // be false
+  AssertSimplifiesTo("b"_ > 5 and take_b_is_half, "b"_ == 3, *never);
+
+  // ("b"_ > 5).Assume("b"_ == 6) simplifies to true regardless of take, so it can be
+  // dropped
+  AssertSimplifiesTo("b"_ > 5 and take_b_is_half, "b"_ == 6, take_b_is_half);
+
+  // ("b"_ > 5).Assume("b"_ == 6) simplifies to true regardless of take, so the or will be
+  // true
+  AssertSimplifiesTo(take_b_is_half or "b"_ > 5, "b"_ == 6, *always);
+
+  // ("b"_ > 5).Assume("b"_ == 3) simplifies to true regardless of take, so it can be
+  // dropped
+  AssertSimplifiesTo(take_b_is_half or "b"_ > 5, "b"_ == 3, take_b_is_half);
+}
+
+TEST_F(FilterTest, EvaluateTakeExpression) {
+  auto dict = ArrayFromJSON(float64(), "[0.0, 0.25, 0.5, 0.75, 1.0]");
+
+  AssertFilter(TakeExpression(field_ref("b"), dict) == 0.5,
+               {field("b", int32()), field("f", float64())}, R"([
+      {"b": 3, "f": -0.1, "in": 0},
+      {"b": 2, "f":  0.3, "in": 1},
+      {"b": 1, "f":  0.2, "in": 0},
+      {"b": 2, "f": -0.1, "in": 1},
+      {"b": 4, "f":  0.1, "in": 0},
+      {"b": null, "f": 0.0, "in": null},
+      {"b": 0, "f":  1.0, "in": 0}
   ])");
 }
 

@@ -34,6 +34,8 @@
 #include "arrow/dataset/dataset.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
@@ -358,9 +360,8 @@ std::shared_ptr<Expression> ComparisonExpression::Assume(const Expression& given
     }
 
     case ExpressionType::NOT: {
-      const auto& to_invert = checked_cast<const NotExpression&>(given).operand();
-      // FIXME(bkietz) I think this is wrong
-      if (auto inverted = Invert(*to_invert)) {
+      const auto& given_not = checked_cast<const NotExpression&>(given);
+      if (auto inverted = Invert(*given_not.operand())) {
         return Assume(*inverted);
       }
       return Copy();
@@ -369,38 +370,13 @@ std::shared_ptr<Expression> ComparisonExpression::Assume(const Expression& given
     case ExpressionType::OR: {
       const auto& given_or = checked_cast<const OrExpression&>(given);
 
-      bool simplify_to_always = true;
-      bool simplify_to_never = true;
-      for (const auto& operand : {given_or.left_operand(), given_or.right_operand()}) {
-        auto simplified = Assume(*operand);
+      auto left_simplified = Assume(*given_or.left_operand());
+      auto right_simplified = Assume(*given_or.right_operand());
 
-        if (simplified->IsNull()) {
-          // some subexpression of given is always null, return null
-          return NullExpression();
-        }
-
-        bool trivial;
-        if (!simplified->IsTrivialCondition(&trivial)) {
-          // Or cannot be simplified unless all of its operands simplify to the same
-          // trivial condition
-          simplify_to_never = false;
-          simplify_to_always = false;
-          continue;
-        }
-
-        if (trivial == true) {
-          simplify_to_never = false;
-        } else {
-          simplify_to_always = false;
-        }
-      }
-
-      if (simplify_to_always) {
-        return scalar(true);
-      }
-
-      if (simplify_to_never) {
-        return scalar(false);
+      // The result of simplification against the operands of an OrExpression
+      // cannot be used unless they are identical
+      if (left_simplified->Equals(right_simplified)) {
+        return left_simplified;
       }
 
       return Copy();
@@ -410,17 +386,8 @@ std::shared_ptr<Expression> ComparisonExpression::Assume(const Expression& given
       const auto& given_and = checked_cast<const AndExpression&>(given);
 
       auto simplified = Copy();
-      for (const auto& operand : {given_and.left_operand(), given_and.right_operand()}) {
-        if (simplified->IsNull()) {
-          return NullExpression();
-        }
-
-        if (simplified->IsTrivialCondition()) {
-          return simplified;
-        }
-
-        simplified = simplified->Assume(*operand);
-      }
+      simplified = simplified->Assume(*given_and.left_operand());
+      simplified = simplified->Assume(*given_and.right_operand());
       return simplified;
     }
 
@@ -438,10 +405,14 @@ std::shared_ptr<Expression> ComparisonExpression::Assume(const Expression& given
 // If simplification to (true) or (false) is not possible, pass e through unchanged.
 std::shared_ptr<Expression> ComparisonExpression::AssumeGivenComparison(
     const ComparisonExpression& given) const {
-  const auto& this_lhs = checked_cast<const FieldExpression&>(*left_operand_);
-  const auto& given_lhs = checked_cast<const FieldExpression&>(*given.left_operand_);
-  if (this_lhs.name() != given_lhs.name()) {
+  if (!left_operand_->Equals(given.left_operand_)) {
     return Copy();
+  }
+
+  for (auto rhs : {right_operand_, given.right_operand_}) {
+    if (rhs->type() != ExpressionType::SCALAR) {
+      return Copy();
+    }
   }
 
   const auto& this_rhs = checked_cast<const ScalarExpression&>(*right_operand_).value();
@@ -894,19 +865,16 @@ NotExpression operator!(const Expression& rhs) { return NotExpression(rhs.Copy()
 
 Result<std::shared_ptr<DataType>> ComparisonExpression::Validate(
     const Schema& schema) const {
-  if (left_operand_->type() != ExpressionType::FIELD) {
-    return Status::NotImplemented("comparison with non-FIELD RHS");
-  }
-
   ARROW_ASSIGN_OR_RAISE(auto lhs_type, left_operand_->Validate(schema));
   ARROW_ASSIGN_OR_RAISE(auto rhs_type, right_operand_->Validate(schema));
+
+  if (lhs_type->id() == Type::NA || rhs_type->id() == Type::NA) {
+    return boolean();
+  }
+
   if (!lhs_type->Equals(rhs_type)) {
     return Status::TypeError("cannot compare expressions of differing type, ", *lhs_type,
                              " vs ", *rhs_type);
-  }
-
-  if (lhs_type->id() == Type::NA || rhs_type->id() == Type::NA) {
-    return null();
   }
 
   return boolean();
@@ -922,16 +890,12 @@ Status EnsureNullOrBool(const std::string& msg_prefix,
 
 Result<std::shared_ptr<DataType>> ValidateBoolean(const ExpressionVector& operands,
                                                   const Schema& schema) {
-  auto out = boolean();
-  for (auto operand : operands) {
+  for (const auto& operand : operands) {
     ARROW_ASSIGN_OR_RAISE(auto type, operand->Validate(schema));
     RETURN_NOT_OK(
         EnsureNullOrBool("cannot combine expressions including one of type ", type));
-    if (type->id() == Type::NA) {
-      out = null();
-    }
   }
-  return std::move(out);
+  return boolean();
 }
 
 Result<std::shared_ptr<DataType>> AndExpression::Validate(const Schema& schema) const {

@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/type_fwd.h"
-#include "arrow/util/checked_cast.h"
 #pragma once
 
 #include <memory>
@@ -30,6 +28,8 @@
 #include "arrow/dataset/visibility.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/checked_cast.h"
 
 namespace arrow {
 namespace dataset {
@@ -66,6 +66,9 @@ struct ExpressionType {
 
     /// extract validity as a boolean expression
     // TODO(bkietz) IS_VALID,
+
+    /// custom user defined expression
+    CUSTOM,
   };
 };
 
@@ -104,8 +107,7 @@ class ARROW_DS_EXPORT Expression {
   }
 
   /// \brief Simplify to an equivalent Expression given assumed constraints on input.
-  /// This can be used to do less filtering work when partition conditions guarantee
-  /// some of a filter.
+  /// This can be used to do less filtering work using predicate push down.
   ///
   /// Both expressions must pass validation against a schema before Assume may be used.
   ///
@@ -400,18 +402,17 @@ auto scalar(T&& value) -> decltype(scalar(MakeScalar(std::forward<T>(value)))) {
   return scalar(MakeScalar(std::forward<T>(value)));
 }
 
-#define COMPARISON_FACTORY(NAME, FACTORY_NAME, OP)                                     \
-  inline std::shared_ptr<ComparisonExpression> FACTORY_NAME(                           \
-      const std::shared_ptr<FieldExpression>& lhs,                                     \
-      const std::shared_ptr<Expression>& rhs) {                                        \
-    return std::make_shared<ComparisonExpression>(compute::CompareOperator::NAME, lhs, \
-                                                  rhs);                                \
-  }                                                                                    \
-                                                                                       \
-  template <typename T>                                                                \
-  ComparisonExpression operator OP(const FieldExpression& lhs, T&& rhs) {              \
-    return ComparisonExpression(compute::CompareOperator::NAME, lhs.Copy(),            \
-                                scalar(std::forward<T>(rhs)));                         \
+#define COMPARISON_FACTORY(NAME, FACTORY_NAME, OP)                                      \
+  inline std::shared_ptr<ComparisonExpression> FACTORY_NAME(                            \
+      const std::shared_ptr<Expression>& lhs, const std::shared_ptr<Expression>& rhs) { \
+    return std::make_shared<ComparisonExpression>(compute::CompareOperator::NAME, lhs,  \
+                                                  rhs);                                 \
+  }                                                                                     \
+                                                                                        \
+  template <typename T>                                                                 \
+  ComparisonExpression operator OP(const Expression& lhs, T&& rhs) {                    \
+    return ComparisonExpression(compute::CompareOperator::NAME, lhs.Copy(),             \
+                                scalar(std::forward<T>(rhs)));                          \
   }
 COMPARISON_FACTORY(EQUAL, equal, ==)
 COMPARISON_FACTORY(NOT_EQUAL, not_equal, !=)
