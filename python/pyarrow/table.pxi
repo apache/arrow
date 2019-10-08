@@ -1147,24 +1147,32 @@ cdef class Table(_PandasConvertible):
 
         """
         arrays = []
-        if schema is not None:
-            for field in schema:
-                try:
-                    v = mapping[field.name]
-                except KeyError as e:
-                    try:
-                        v = mapping[tobytes(field.name)]
-                    except KeyError as e2:
-                        raise e
-                arrays.append(asarray(v, type=field.type))
-            # Will raise if metadata is not None
-            return Table.from_arrays(arrays, schema=schema, metadata=metadata)
-        else:
+        if schema is None:
             names = []
             for k, v in mapping.items():
                 names.append(k)
                 arrays.append(asarray(v))
             return Table.from_arrays(arrays, names, metadata=metadata)
+        elif isinstance(schema, Schema):
+            for field in schema:
+                try:
+                    v = mapping[field.name]
+                except KeyError:
+                    try:
+                        v = mapping[tobytes(field.name)]
+                    except KeyError:
+                        present = mapping.keys()
+                        missing = [n for n in schema.names if n not in present]
+                        raise KeyError(
+                            "The passed mapping doesn't contain the "
+                            "following field(s) of the schema: {}".
+                            format(', '.join(missing))
+                        )
+                arrays.append(asarray(v, type=field.type))
+            # Will raise if metadata is not None
+            return Table.from_arrays(arrays, schema=schema, metadata=metadata)
+        else:
+            raise TypeError('Schema must be an instance of pyarrow.Schema')
 
     @staticmethod
     def from_batches(batches, Schema schema=None):
