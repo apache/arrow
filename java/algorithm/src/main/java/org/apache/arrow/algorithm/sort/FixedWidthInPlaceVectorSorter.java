@@ -17,8 +17,6 @@
 
 package org.apache.arrow.algorithm.sort;
 
-import java.util.Stack;
-
 import org.apache.arrow.vector.BaseFixedWidthVector;
 
 /**
@@ -57,21 +55,22 @@ public class FixedWidthInPlaceVectorSorter<V extends BaseFixedWidthVector> imple
   }
 
   private void quickSort() {
-    Stack<Integer> rangeStack = new Stack<>();
-    rangeStack.push(0);
-    rangeStack.push(vec.getValueCount() - 1);
-    
-    while (!rangeStack.isEmpty()) {
-      int high = rangeStack.pop();
-      int low = rangeStack.pop();
-      if (low < high) {
-        int mid = partition(low, high);
+    try (OffHeapIntStack rangeStack = new OffHeapIntStack(vec.getAllocator())) {
+      rangeStack.push(0);
+      rangeStack.push(vec.getValueCount() - 1);
 
-        rangeStack.push(low);
-        rangeStack.push(mid - 1);
-        
-        rangeStack.push(mid + 1);
-        rangeStack.push(high);
+      while (!rangeStack.isEmpty()) {
+        int high = rangeStack.pop();
+        int low = rangeStack.pop();
+        if (low < high) {
+          int mid = partition(low, high);
+
+          rangeStack.push(low);
+          rangeStack.push(mid - 1);
+
+          rangeStack.push(mid + 1);
+          rangeStack.push(high);
+        }
       }
     }
   }
