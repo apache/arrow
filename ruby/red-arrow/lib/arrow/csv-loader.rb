@@ -94,9 +94,9 @@ module Arrow
         case key
         when :headers
           if value
-            options.n_header_rows = 1
+            options.n_skip_rows = 1
           else
-            options.n_header_rows = 0
+            options.n_skip_rows = 0
           end
         when :column_types
           value.each do |name, type|

@@ -121,6 +121,31 @@ class CSVLoaderTest < Test::Unit::TestCase
       Arrow::CSVLoader.load(data, options)
     end
 
+    test("headers: true") do
+      input = <<-CSV
+value
+2
+      CSV
+      expected = <<-REFERENCE
+	2
+      REFERENCE
+
+      assert_equal(expected,load_csv(input,headers: true).to_s)
+    end
+
+    test("headers: false") do
+      input = <<-CSV
+value
+2
+      CSV
+      expected = <<-REFERENCE
+	value
+0	    2
+      REFERENCE
+
+      assert_equal(expected,load_csv(input,headers: false).to_s)
+    end
+
     test(":column_types") do
       assert_equal(Arrow::Table.new(:count => Arrow::UInt16Array.new([1, 2, 4])),
                    load_csv(<<-CSV, column_types: {count: :uint16}))
