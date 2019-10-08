@@ -174,7 +174,7 @@ def linter(src, with_clang_format=True, with_cpplint=True,
            with_docker=True,
            fix=False):
     """ Run all linters. """
-    with tmpdir(preserve=True, prefix="arrow-lint-") as root:
+    with tmpdir(prefix="arrow-lint-") as root:
         build_dir = os.path.join(root, "cpp-build")
 
         # Linters yield LintResult without raising exceptions on failure.
