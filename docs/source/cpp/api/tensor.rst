@@ -48,6 +48,6 @@ Sparse Tensors
 .. doxygenclass:: arrow::SparseTensorImpl
    :members:
 
-.. doxygentypedef:: arrow::SparseTensorCOO
+.. doxygentypedef:: arrow::SparseCOOTensor
 
-.. doxygentypedef:: arrow::SparseTensorCSR
+.. doxygentypedef:: arrow::SparseCSRMatrix

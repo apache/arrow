@@ -1151,8 +1151,8 @@ class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture 
   void SetUp() { IpcTestFixture::SetUp(); }
   void TearDown() { IpcTestFixture::TearDown(); }
 
-  void CheckSparseTensorRoundTrip(const SparseTensorCOO& sparse_tensor);
-  void CheckSparseTensorRoundTrip(const SparseTensorCSR& sparse_tensor);
+  void CheckSparseTensorRoundTrip(const SparseCOOTensor& sparse_tensor);
+  void CheckSparseTensorRoundTrip(const SparseCSRMatrix& sparse_tensor);
 
  protected:
   std::shared_ptr<SparseCOOIndex> MakeSparseCOOIndex(
@@ -1166,19 +1166,19 @@ class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture 
   }
 
   template <typename ValueType>
-  std::shared_ptr<SparseTensorCOO> MakeSparseTensorCOO(
+  std::shared_ptr<SparseCOOTensor> MakeSparseCOOTensor(
       const std::shared_ptr<SparseCOOIndex>& si, std::vector<ValueType>& sparse_values,
       const std::vector<int64_t>& shape,
       const std::vector<std::string>& dim_names = {}) const {
     auto data = Buffer::Wrap(sparse_values);
-    return std::make_shared<SparseTensorCOO>(si, CTypeTraits<ValueType>::type_singleton(),
+    return std::make_shared<SparseCOOTensor>(si, CTypeTraits<ValueType>::type_singleton(),
                                              data, shape, dim_names);
   }
 };
 
 template <typename IndexValueType>
 void TestSparseTensorRoundTrip<IndexValueType>::CheckSparseTensorRoundTrip(
-    const SparseTensorCOO& sparse_tensor) {
+    const SparseCOOTensor& sparse_tensor) {
   const auto& type = checked_cast<const FixedWidthType&>(*sparse_tensor.type());
   const int elem_size = type.bit_width() / 8;
   const int index_elem_size = sizeof(typename IndexValueType::c_type);
@@ -1214,7 +1214,7 @@ void TestSparseTensorRoundTrip<IndexValueType>::CheckSparseTensorRoundTrip(
 
 template <typename IndexValueType>
 void TestSparseTensorRoundTrip<IndexValueType>::CheckSparseTensorRoundTrip(
-    const SparseTensorCSR& sparse_tensor) {
+    const SparseCSRMatrix& sparse_tensor) {
   const auto& type = checked_cast<const FixedWidthType&>(*sparse_tensor.type());
   const int elem_size = type.bit_width() / 8;
   const int index_elem_size = sizeof(typename IndexValueType::c_type);
@@ -1291,7 +1291,7 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor) {
   std::vector<int64_t> shape = {2, 3, 4};
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
   std::vector<int64_t> values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
-  auto st = this->MakeSparseTensorCOO(si, values, shape, dim_names);
+  auto st = this->MakeSparseCOOTensor(si, values, shape, dim_names);
 
   this->CheckSparseTensorRoundTrip(*st);
 }
@@ -1334,7 +1334,7 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexColumnMajor) {
   std::vector<int64_t> shape = {2, 3, 4};
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
   std::vector<int64_t> values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
-  auto st = this->MakeSparseTensorCOO(si, values, shape, dim_names);
+  auto st = this->MakeSparseCOOTensor(si, values, shape, dim_names);
 
   this->CheckSparseTensorRoundTrip(*st);
 }
@@ -1353,7 +1353,7 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCSRIndex) {
 
   auto data = Buffer::Wrap(values);
   NumericTensor<Int64Type> t(data, shape, {}, dim_names);
-  SparseTensorImpl<SparseCSRIndex> st(t, TypeTraits<IndexValueType>::type_singleton());
+  SparseCSRMatrix st(t, TypeTraits<IndexValueType>::type_singleton());
 
   this->CheckSparseTensorRoundTrip(st);
 }

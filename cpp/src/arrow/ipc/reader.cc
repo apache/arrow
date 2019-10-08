@@ -920,8 +920,7 @@ Status MakeSparseTensorWithSparseCOOIndex(
     const std::vector<std::string>& dim_names,
     const std::shared_ptr<SparseCOOIndex>& sparse_index, int64_t non_zero_length,
     const std::shared_ptr<Buffer>& data, std::shared_ptr<SparseTensor>* out) {
-  *out = std::make_shared<SparseTensorImpl<SparseCOOIndex>>(sparse_index, type, data,
-                                                            shape, dim_names);
+  *out = std::make_shared<SparseCOOTensor>(sparse_index, type, data, shape, dim_names);
   return Status::OK();
 }
 
@@ -930,8 +929,7 @@ Status MakeSparseTensorWithSparseCSRIndex(
     const std::vector<std::string>& dim_names,
     const std::shared_ptr<SparseCSRIndex>& sparse_index, int64_t non_zero_length,
     const std::shared_ptr<Buffer>& data, std::shared_ptr<SparseTensor>* out) {
-  *out = std::make_shared<SparseTensorImpl<SparseCSRIndex>>(sparse_index, type, data,
-                                                            shape, dim_names);
+  *out = std::make_shared<SparseCSRMatrix>(sparse_index, type, data, shape, dim_names);
   return Status::OK();
 }
 
