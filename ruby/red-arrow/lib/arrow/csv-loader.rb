@@ -93,11 +93,13 @@ module Arrow
       @options.each do |key, value|
         case key
         when :headers
-          if value
-            options.n_skip_rows = 1
-          else
-            options.n_skip_rows = 0
-          end
+          raise ArgumentError, <<~HEADERS_WILL_NOT_WORK
+            There is no safe way to interpret the legacy :headers option in
+            modern libarrow.  Please replace with some combination of
+            :autogenerate_column_names, :column_names, :column_types, :schema,
+            or no column descriptions at all (which will function as headers:
+            true did in the past).
+            HEADERS_WILL_NOT_WORK
         when :column_types
           value.each do |name, type|
             options.add_column_type(name, type)

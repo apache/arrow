@@ -1,0 +1,52 @@
+PATH
+  remote: .
+  specs:
+    red-arrow (1.0.0.SNAPSHOT)
+      extpp (>= 0.0.7)
+      gio2 (>= 3.3.6)
+      native-package-installer
+      pkg-config
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    benchmark-driver (0.1.0)
+      benchmark_driver
+    benchmark_driver (0.15.6)
+    concurrent-ruby (1.1.5)
+    extpp (0.0.8)
+    faker (2.5.0)
+      i18n (~> 1.6.0)
+    gio2 (3.3.8)
+      gobject-introspection (= 3.3.8)
+    glib2 (3.3.8)
+      native-package-installer (>= 1.0.3)
+      pkg-config (>= 1.3.5)
+    gobject-introspection (3.3.8)
+      glib2 (= 3.3.8)
+    i18n (1.6.0)
+      concurrent-ruby (~> 1.0)
+    native-package-installer (1.0.7)
+    pkg-config (1.3.9)
+    power_assert (1.1.5)
+    rake (13.0.0)
+    redcarpet (3.5.0)
+    test-unit (3.3.4)
+      power_assert
+    yard (0.9.20)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  benchmark-driver
+  bundler
+  faker
+  rake
+  red-arrow!
+  redcarpet
+  test-unit
+  yard
+
+BUNDLED WITH
+   2.0.1

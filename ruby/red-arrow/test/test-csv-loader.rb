@@ -121,29 +121,9 @@ class CSVLoaderTest < Test::Unit::TestCase
       Arrow::CSVLoader.load(data, options)
     end
 
-    test("headers: true") do
-      input = <<-CSV
-value
-2
-      CSV
-      expected = <<-REFERENCE
-	2
-      REFERENCE
-
-      assert_equal(expected,load_csv(input,headers: true).to_s)
-    end
-
-    test("headers: false") do
-      input = <<-CSV
-value
-2
-      CSV
-      expected = <<-REFERENCE
-	value
-0	    2
-      REFERENCE
-
-      assert_equal(expected,load_csv(input,headers: false).to_s)
+    test("headers option is removed") do
+      assert_raise(ArgumentError) { load_csv("/path/should/be/ignored", headers: true) }
+      assert_raise(ArgumentError) { load_csv("/path/should/be/ignored", headers: false) }
     end
 
     test(":column_types") do
