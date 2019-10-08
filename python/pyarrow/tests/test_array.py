@@ -947,7 +947,6 @@ def test_cast_date32_to_int():
     assert result2.equals(arr)
 
 
-@pytest.mark.xfail(strict=True)  # TODO implement duration cast
 def test_cast_duration_to_int():
     arr = pa.array(np.array([0, 1, 2], dtype='int64'),
                    type=pa.duration('us'))
