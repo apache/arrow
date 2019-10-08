@@ -38,7 +38,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/hash_util.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
 
@@ -55,15 +55,10 @@ namespace internal {
 typedef uint64_t hash_t;
 
 // Notes about the choice of a hash function.
-// - xxHash64 is extremely fast on large enough data
-// - for small- to medium-sized data, there are better choices
-//   (see comprehensive benchmarks results at
-//    https://aras-p.info/blog/2016/08/09/More-Hash-Function-Tests/)
-// - for very small fixed-size data (<= 16 bytes, e.g. Decimal128), it is
-//   beneficial to define specialized hash functions
-// - while xxHash and others have good statistical properties, we can relax those
-//   a bit if it helps performance (especially if the hash table implementation
-//   has a good collision resolution strategy)
+// - XXH3 is extremely fast on most data sizes, from small to huge;
+//   faster even than HW CRC-based hashing schemes
+// - our custom hash function for tiny values (< 16 bytes) is still
+//   significantly faster (~30%), at least on this machine and compiler
 
 template <uint64_t AlgNum>
 inline hash_t ComputeStringHash(const void* data, int64_t length);
