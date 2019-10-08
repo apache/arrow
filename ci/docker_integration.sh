@@ -37,6 +37,9 @@ mkdir -p $CPP_DIR
 cp -r /arrow/dev/archery /archery
 pip install -e /archery
 
+# archery requires NumPy
+pip install numpy
+
 # Archery integration test environment variables
 export ARROW_ROOT=/build
 export ARROW_TEST_DATA=/arrow/testing/data

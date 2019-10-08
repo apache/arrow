@@ -480,6 +480,8 @@ def _set_default(opt, default):
               help='Generate test JSON to indicated path')
 @click.option('--run-flight', is_flag=True, default=False,
               help='Run Flight integration tests')
+@click.option('--debug', type=bool, default=False,
+              help='Run executables in debug mode as relevant')
 @click.option('--tempdir', default=None,
               help=('Directory to use for writing '
                     'integration test temporary files'))
@@ -488,8 +490,7 @@ def _set_default(opt, default):
               help='Stop on first error')
 @click.option('--gold_dirs', multiple=True,
               help="gold integration test file paths")
-@click.pass_context
-def integration(ctx, with_all=False, random_seed=12345, **args):
+def integration(with_all=False, random_seed=12345, **args):
     from .integration.runner import write_js_test_json, run_all_tests
     import numpy as np
 
@@ -519,7 +520,7 @@ def integration(ctx, with_all=False, random_seed=12345, **args):
     else:
         if enabled_languages == 0:
             raise Exception("Must enable at least 1 language to test")
-        run_all_tests(debug=ctx.debug, **args)
+        run_all_tests(**args)
 
 
 if __name__ == "__main__":
