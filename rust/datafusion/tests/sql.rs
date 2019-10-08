@@ -170,9 +170,9 @@ fn csv_query_avg_multi_batch() {
     let sql = "SELECT avg(c12) FROM aggregate_test_100";
     let plan = ctx.create_logical_plan(&sql).unwrap();
     let plan = ctx.optimize(&plan).unwrap();
-    let results = ctx.execute(&plan, 4).unwrap();
-    let mut relation = results.borrow_mut();
-    let batch = relation.next().unwrap().unwrap();
+    let plan = ctx.create_physical_plan(&plan, DEFAULT_BATCH_SIZE).unwrap();
+    let results = ctx.collect(plan.as_ref()).unwrap();
+    let batch = &results[0];
     let column = batch.column(0);
     let array = column.as_any().downcast_ref::<Float64Array>().unwrap();
     let actual = array.value(0);
