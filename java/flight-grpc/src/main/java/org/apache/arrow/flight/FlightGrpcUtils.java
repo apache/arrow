@@ -22,6 +22,7 @@ import java.util.concurrent.ExecutorService;
 import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.memory.BufferAllocator;
 
+import io.grpc.BindableService;
 import io.grpc.ManagedChannel;
 
 /**
@@ -39,8 +40,8 @@ public class FlightGrpcUtils {
    * @param executor Executor service
    * @return FlightBindingService
    */
-  public static FlightBindingService createFlightService(BufferAllocator allocator, FlightProducer producer,
-                                                      ServerAuthHandler authHandler, ExecutorService executor) {
+  public static BindableService createFlightService(BufferAllocator allocator, FlightProducer producer,
+                                                    ServerAuthHandler authHandler, ExecutorService executor) {
     return new FlightBindingService(allocator, producer, authHandler, executor);
   }
 

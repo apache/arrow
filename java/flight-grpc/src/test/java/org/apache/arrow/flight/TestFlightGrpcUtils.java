@@ -31,6 +31,7 @@ import org.junit.Test;
 
 import com.google.protobuf.Empty;
 
+import io.grpc.BindableService;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
 import io.grpc.inprocess.InProcessChannelBuilder;
@@ -55,7 +56,7 @@ public class TestFlightGrpcUtils {
     final NoOpFlightProducer producer = new NoOpFlightProducer();
     final ServerAuthHandler authHandler = ServerAuthHandler.NO_OP;
     final ExecutorService exec = Executors.newCachedThreadPool();
-    final FlightBindingService flightBindingService = FlightGrpcUtils.createFlightService(allocator, producer,
+    final BindableService flightBindingService = FlightGrpcUtils.createFlightService(allocator, producer,
             authHandler, exec);
 
     //initializes server with 2 services - FlightBindingService & TestService
