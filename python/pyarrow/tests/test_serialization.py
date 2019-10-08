@@ -51,6 +51,11 @@ try:
 except ImportError:
     sparse = None
 
+try:
+    import sparse
+except ImportError:
+    sparse = None
+
 
 def assert_equal(obj1, obj2):
     if torch is not None and torch.is_tensor(obj1) and torch.is_tensor(obj2):
@@ -619,6 +624,21 @@ def test_scipy_sparse_tensor_csr_serialization():
     result = serialized.deserialize()
 
     assert np.array_equal(sparse_array.toarray(), result.toarray())
+
+
+@pytest.mark.skipif(not sparse, reason="requires pydata/sparse")
+def test_pydata_sparse__sparse_tensor_coo_serialization():
+    data = np.array([1, 2, 3, 4, 5, 6, 7])
+    row = np.array([0, 0, 2, 3, 1, 3, 0])
+    col = np.array([0, 2, 0, 4, 5, 5, 0])
+    coords = np.vstack([row, col]).T
+    shape = (4, 6)
+
+    sparse_array = sparse.COO(data=data, coords=coords, shape=shape)
+    serialized = pa.serialize(sparse_array)
+    result = serialized.deserialize()
+
+    assert np.array_equal(sparse_array.todense(), result.todense())
 
 
 @pytest.mark.filterwarnings(
