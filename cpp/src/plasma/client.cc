@@ -509,7 +509,7 @@ Status PlasmaClient::Impl::CreateAndSealBatch(const std::vector<ObjectID>& objec
 
   int device_num = 0;
   std::vector<std::string> digests;
-  for (size_t i = 0; i<object_ids.size(); i++) {
+  for (size_t i = 0; i < object_ids.size(); i++) {
     // Compute the object hash.
     std::string digest;
     // CreateAndSeal currently only supports device_num = 0, which corresponds to

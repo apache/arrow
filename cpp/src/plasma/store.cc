@@ -992,7 +992,7 @@ Status PlasmaStore::ProcessMessage(Client* client) {
           std::memcpy(entry->pointer, data[i].data(), data[i].size());
           std::memcpy(entry->pointer + data[i].size(), metadata[i].data(),
                       metadata[i].size());
-          SealObject(object_ids[i], 
+          SealObject(object_ids[i],
                      reinterpret_cast<unsigned char*>(
                          const_cast<char*>(digests[i].c_str())));
           // Remove the client from the object's array of clients because the
@@ -1002,7 +1002,7 @@ Status PlasmaStore::ProcessMessage(Client* client) {
           ARROW_CHECK(RemoveFromClientObjectIds(object_ids[i], entry, client) == 1);
         }
       } else {
-          for (size_t j=0; j < i; j++ ) {
+          for (size_t j = 0; j < i; j++) {
             AbortObject(object_ids[j], client);
           }
       }
