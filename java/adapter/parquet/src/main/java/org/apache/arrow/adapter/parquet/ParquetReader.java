@@ -19,7 +19,6 @@
 package org.apache.arrow.adapter.parquet;
 
 import java.io.IOException;
-import java.lang.Exception;
 import java.util.List;
 
 import org.apache.arrow.vector.FieldVector;
@@ -44,9 +43,10 @@ public class ParquetReader {
    * @param columnIndices An array to indicate which column to read.
    * @param batchSize how many rows will be read in one batch.
    * @param useHdfs3 A flag to tell if ArrowParquetReader should use hdfs3.
+   * @throws IOException throws exception in case of io issues.
    */
   public ParquetReader(ParquetReaderJniWrapper wrapper, String path, int[] rowGroupIndices,
-                       int[] columnIndices, long batchSize, boolean useHdfs3) {
+                       int[] columnIndices, long batchSize, boolean useHdfs3) throws IOException {
     this.wrapper = wrapper;
     parquetReaderHandler = wrapper.openParquetFile(path, rowGroupIndices, columnIndices,
                                                    batchSize, useHdfs3);
@@ -59,9 +59,10 @@ public class ParquetReader {
    * @param rowGroupIndices An array to indicate which rowGroup to read.
    * @param columnIndices An array to indicate which column to read.
    * @param batchSize how many rows will be read in one batch.
+   * @throws IOException throws exception in case of io issues.
    */
   public ParquetReader(ParquetReaderJniWrapper wrapper, String path, int[] rowGroupIndices,
-                       int[] columnIndices, long batchSize) {
+                       int[] columnIndices, long batchSize) throws IOException {
     this.wrapper = wrapper;
     parquetReaderHandler = wrapper.openParquetFile(path, rowGroupIndices, columnIndices,
                                                    batchSize, true);
@@ -76,9 +77,11 @@ public class ParquetReader {
    * @param endPos A end position to indicate rowGroup.
    * @param batchSize how many rows will be read in one batch.
    * @param useHdfs3 A flag to tell if ArrowParquetReader should use hdfs3.
+   * @throws IOException throws exception in case of io issues.
    */
   public ParquetReader(ParquetReaderJniWrapper wrapper, String path, int[] columnIndices,
-                       long startPos, long endPos, long batchSize, boolean useHdfs3) {
+                       long startPos, long endPos, long batchSize, boolean useHdfs3)
+      throws IOException {
     this.wrapper = wrapper;
     parquetReaderHandler = wrapper.openParquetFile(path, columnIndices, startPos, endPos,
                                                    batchSize, useHdfs3);
@@ -92,9 +95,10 @@ public class ParquetReader {
    * @param startPos A start position to indicate rowGroup.
    * @param endPos A end position to indicate rowGroup.
    * @param batchSize how many rows will be read in one batch.
+   * @throws IOException throws exception in case of io issues.
    */
   public ParquetReader(ParquetReaderJniWrapper wrapper, String path, int[] columnIndices,
-                       long startPos, long endPos, long batchSize) {
+                       long startPos, long endPos, long batchSize) throws IOException {
     this.wrapper = wrapper;
     parquetReaderHandler = wrapper.openParquetFile(path, columnIndices, startPos, endPos,
                                                    batchSize, true);
@@ -110,9 +114,9 @@ public class ParquetReader {
   /**
    * Read Next ArrowRecordBatch from ParquetReader.
    * @return readed ArrowRecordBatch.
-   * @throws Exception throws exception in case of io issues.
+   * @throws IOException throws exception in case of io issues.
    */
-  public ArrowRecordBatch readNext() throws Exception {
+  public ArrowRecordBatch readNext() throws IOException {
     ArrowRecordBatch batch = wrapper.readNext(parquetReaderHandler);
     if (batch == null) {
       return null;
@@ -133,9 +137,9 @@ public class ParquetReader {
   /**
    * Read Next ValueVectorList from ParquetReader.
    * @return readed ValueVectorList.
-   * @throws Exception throws exception in case of io issues.
+   * @throws IOException throws exception in case of io issues.
    */
-  public List<FieldVector> readNextVectors(VectorSchemaRoot root) throws Exception {
+  public List<FieldVector> readNextVectors(VectorSchemaRoot root) throws IOException {
     ArrowRecordBatch batch = readNext();
     if (batch == null) {
       return null;

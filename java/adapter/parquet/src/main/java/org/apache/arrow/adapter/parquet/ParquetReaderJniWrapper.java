@@ -19,7 +19,6 @@
 package org.apache.arrow.adapter.parquet;
 
 import java.io.IOException;
-import java.lang.Exception;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.ipc.ReadChannel;
@@ -57,7 +56,7 @@ public class ParquetReaderJniWrapper {
    * @param allocator An pre-created BufferAllocator.
    */
   public ParquetReaderJniWrapper(BufferAllocator allocator)
-      throws IOException, IllegalAccessException {
+      throws IOException {
     ParquetJniUtils.getInstance();
     this.allocator = allocator;
   }
@@ -70,9 +69,10 @@ public class ParquetReaderJniWrapper {
    * @param batchSize how many rows will be read in one batch.
    * @param useHdfs3 A flag to tell if ArrowParquetReader should use hdfs3.
    * @return native ParquetReader handler.
+   * @throws IOException throws exception in case of io issues.
    */
-  long openParquetFile(
-      String path, int[] rowGroupIndices, int[] columnIndices, long batchSize, boolean useHdfs3) {
+  long openParquetFile(String path, int[] rowGroupIndices, int[] columnIndices, long batchSize,
+                       boolean useHdfs3) throws IOException {
     long nativeHandler = nativeOpenParquetReader(path);
     nativeInitParquetReader(nativeHandler, columnIndices, rowGroupIndices, batchSize, useHdfs3);
     return nativeHandler;
@@ -87,9 +87,10 @@ public class ParquetReaderJniWrapper {
    * @param batchSize how many rows will be read in one batch.
    * @param useHdfs3 A flag to tell if ArrowParquetReader should use hdfs3.
    * @return native ParquetReader handler.
+   * @throws IOException throws exception in case of io issues.
    */
   long openParquetFile(String path, int[] columnIndices, long startPos, long endPos,
-                       long batchSize, boolean useHdfs3) {
+                       long batchSize, boolean useHdfs3) throws IOException {
     long nativeHandler = nativeOpenParquetReader(path);
     nativeInitParquetReader2(nativeHandler, columnIndices, startPos, endPos, batchSize, useHdfs3);
     return nativeHandler;
@@ -130,9 +131,9 @@ public class ParquetReaderJniWrapper {
    * Read Next ArrowRecordBatch from ParquetReader.
    * @param nativeHandler native ParquetReader handler.
    * @return readed ArrowRecordBatch.
-   * @throws Exception throws exception in case of io issues.
+   * @throws IOException throws exception in case of io issues.
    */
-  ArrowRecordBatch readNext(long nativeHandler) throws Exception {
+  ArrowRecordBatch readNext(long nativeHandler) throws IOException {
     ArrowRecordBatchBuilder recordBatchBuilder = nativeReadNext(nativeHandler);
     ArrowRecordBatchBuilderImpl recordBatchBuilderImpl =
         new ArrowRecordBatchBuilderImpl(recordBatchBuilder);

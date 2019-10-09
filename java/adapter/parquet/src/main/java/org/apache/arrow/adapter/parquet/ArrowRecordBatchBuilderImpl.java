@@ -17,7 +17,7 @@
 
 package org.apache.arrow.adapter.parquet;
 
-import java.lang.Exception;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -44,9 +44,9 @@ public class ArrowRecordBatchBuilderImpl {
 
   /**
    * Build ArrowRecordBatch from ArrowRecordBatchBuilder instance.
-   * @throws Exception throws exception
+   * @throws IOException throws exception
    */
-  public ArrowRecordBatch build() throws Exception {
+  public ArrowRecordBatch build() throws IOException {
     if (recordBatchBuilder.length == 0) {
       return null;
     }

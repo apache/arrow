@@ -17,7 +17,7 @@
 
 package org.apache.arrow.adapter.parquet;
 
-import java.lang.Exception;
+import java.io.IOException;
 import java.lang.UnsupportedOperationException;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -39,7 +39,8 @@ public class AdaptorReferenceManager implements ReferenceManager {
   private long nativeMemoryHolder;
   private int size = 0;
 
-  AdaptorReferenceManager(long nativeMemoryHolder, int size) throws Exception {
+  AdaptorReferenceManager(long nativeMemoryHolder, int size)
+      throws IOException {
     ParquetJniUtils.getInstance();
     this.nativeMemoryHolder = nativeMemoryHolder;
     this.size = size;

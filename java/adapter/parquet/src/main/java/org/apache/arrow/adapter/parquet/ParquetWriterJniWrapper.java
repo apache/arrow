@@ -47,9 +47,8 @@ public class ParquetWriterJniWrapper {
   /**
    * Create an instance for ParquetWriterJniWrapper.
    * @throws IOException throws exception in case failed to open library.
-   * @throws IllegalAccessException throws exception in case errors of accessing library file.
    */
-  public ParquetWriterJniWrapper() throws IOException, IllegalAccessException {
+  public ParquetWriterJniWrapper() throws IOException {
     ParquetJniUtils.getInstance();
   }
 
@@ -76,7 +75,7 @@ public class ParquetWriterJniWrapper {
    * close native ParquetWriter Instance.
    * @param nativeHandler native ParquetWriter Handler.
    */
-  void closeParquetFile(long nativeHandler) {
+  void closeParquetFile(long nativeHandler) throws IOException {
     nativeCloseParquetWriter(nativeHandler);
   }
 
@@ -85,7 +84,7 @@ public class ParquetWriterJniWrapper {
    * @param nativeHandler native ParquetWriter Handler.
    * @param recordBatch next ArrowRecordBatch to write.
    */
-  void writeNext(long nativeHandler, ArrowRecordBatch recordBatch) {
+  void writeNext(long nativeHandler, ArrowRecordBatch recordBatch) throws IOException {
     // convert ArrowRecordBatch to buffer List
     int numRows = recordBatch.getLength();
     List<ArrowBuf> buffers = recordBatch.getBuffers();

@@ -61,16 +61,18 @@ public class ParquetWriter {
 
   /**
    * close native ParquetWriter Instance.
+   * @throws IOException throws exception in case of io issues.
    */
-  public void close() {
+  public void close() throws IOException {
     wrapper.closeParquetFile(parquetWriterHandler);
   }
 
   /**
    * Write Next ArrowRecordBatch to ParquetWriter.
    * @param recordBatch next ArrowRecordBatch to write.
+   * @throws IOException throws exception in case of io issues.
    */
-  public void writeNext(ArrowRecordBatch recordBatch) {
+  public void writeNext(ArrowRecordBatch recordBatch) throws IOException {
     wrapper.writeNext(parquetWriterHandler, recordBatch);
   }
 }

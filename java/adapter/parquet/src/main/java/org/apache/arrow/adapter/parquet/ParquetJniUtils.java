@@ -32,11 +32,15 @@ class ParquetJniUtils {
   private static boolean isLoaded = false;
   private static volatile ParquetJniUtils INSTANCE;
 
-  static ParquetJniUtils getInstance() throws IOException, IllegalAccessException {
+  static ParquetJniUtils getInstance() throws IOException {
     if (INSTANCE == null) {
       synchronized (ParquetJniUtils.class) {
         if (INSTANCE == null) {
-          INSTANCE = new ParquetJniUtils();
+          try {
+            INSTANCE = new ParquetJniUtils();
+          } catch (IllegalAccessException ex) {
+            throw new IOException("IllegalAccess");
+          }
         }
       }
     }
