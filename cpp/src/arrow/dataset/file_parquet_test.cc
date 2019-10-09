@@ -149,7 +149,7 @@ class TestParquetFileFormat : public ParquetBufferFixtureMixin {
   TestParquetFileFormat() : ctx_(std::make_shared<ScanContext>()) {}
 
  protected:
-  std::shared_ptr<ScanOptions> opts_;
+  std::shared_ptr<ScanOptions> opts_ = ScanOptions::Defaults();
   std::shared_ptr<ScanContext> ctx_;
 };
 
@@ -190,7 +190,7 @@ TEST_F(TestParquetFileFormat, FilterRecordBatch) {
   auto unfiltered_batch =
       RecordBatch::Make(schm, unfiltered_column->length(), {unfiltered_column});
 
-  opts_ = std::make_shared<ScanOptions>();
+  opts_ = ScanOptions::Defaults();
   opts_->filter = ("i32"_ > 3).Copy();
 
   auto filtered_column = ArrayFromJSON(schm->field(0)->type(), "[4, 5, 6]");

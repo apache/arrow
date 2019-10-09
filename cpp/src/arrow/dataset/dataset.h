@@ -58,8 +58,10 @@ class ARROW_DS_EXPORT DataFragment {
 /// RecordBatch.
 class ARROW_DS_EXPORT SimpleDataFragment : public DataFragment {
  public:
-  explicit SimpleDataFragment(std::vector<std::shared_ptr<RecordBatch>> record_batches,
-                              std::shared_ptr<ScanOptions> options = NULLPTR);
+  explicit SimpleDataFragment(std::vector<std::shared_ptr<RecordBatch>> record_batches);
+
+  SimpleDataFragment(std::vector<std::shared_ptr<RecordBatch>> record_batches,
+                     std::shared_ptr<ScanOptions> options);
 
   Status Scan(std::shared_ptr<ScanContext> scan_context, ScanTaskIterator* out) override;
 

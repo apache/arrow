@@ -18,6 +18,7 @@
 #include "arrow/dataset/scanner.h"
 
 #include <algorithm>
+#include <memory>
 
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
@@ -28,12 +29,14 @@
 namespace arrow {
 namespace dataset {
 
+ScanOptions::ScanOptions() : filter(scalar(true)) {}
+
+std::shared_ptr<ScanOptions> ScanOptions::Defaults() {
+  return std::shared_ptr<ScanOptions>(new ScanOptions);
+}
+
 RecordBatchIterator SimpleScanTask::Scan() {
-  auto record_batch_it = MakeVectorIterator(record_batches_);
-  if (options_ == nullptr || options_->filter == nullptr || context_ == nullptr) {
-    return record_batch_it;
-  }
-  return FilterBatches(std::move(record_batch_it), options_->filter,
+  return FilterBatches(MakeVectorIterator(record_batches_), options_->filter,
                        &context_->compute_context);
 }
 
@@ -89,7 +92,7 @@ ScannerBuilder* ScannerBuilder::IncludePartitionKeys(bool include) {
 }
 
 Status ScannerBuilder::Finish(std::unique_ptr<Scanner>* out) const {
-  auto options = std::make_shared<ScanOptions>();
+  auto options = ScanOptions::Defaults();
   options->filter = std::move(filter_);
   out->reset(new SimpleScanner(dataset_->sources(), options, scan_context_));
   return Status::OK();

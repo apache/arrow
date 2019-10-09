@@ -92,7 +92,7 @@ TEST_F(TestSimpleScanner, FilteredScan) {
   const int64_t total_batches = sources.size() * kNumberBatches * kNumberFragments;
   auto reader = ConstantArrayGenerator::Repeat(total_batches, batch_filtered);
 
-  options_ = std::make_shared<ScanOptions>();
+  options_ = ScanOptions::Defaults();
   options_->filter = ("f64"_ > 0.0).Copy();
   SimpleScanner scanner{sources, options_, ctx_};
 

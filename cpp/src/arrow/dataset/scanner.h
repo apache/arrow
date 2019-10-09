@@ -41,25 +41,20 @@ struct ARROW_DS_EXPORT ScanContext {
 
 class ARROW_DS_EXPORT ScanOptions {
  public:
-  ScanOptions() = default;
-
-  ScanOptions(std::shared_ptr<Expression> filter, std::shared_ptr<Schema> schema,
-              std::vector<std::shared_ptr<FileScanOptions>> options = {})
-      : filter(std::move(filter)), schema(std::move(schema)) {}
-
   virtual ~ScanOptions() = default;
 
-  MemoryPool* pool() const { return pool_; }
+  static std::shared_ptr<ScanOptions> Defaults();
 
-  // Filters
+  // Filter
   std::shared_ptr<Expression> filter;
 
-  // Schema to which record batches will be reconciled
+  // Schema to which record batches will be projected
   std::shared_ptr<Schema> schema;
 
-  MemoryPool* pool_ = default_memory_pool();
-
   std::vector<std::shared_ptr<FileScanOptions>> options;
+
+ private:
+  ScanOptions();
 };
 
 /// \brief Read record batches from a range of a single data fragment. A

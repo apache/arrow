@@ -30,6 +30,10 @@ namespace arrow {
 namespace dataset {
 
 SimpleDataFragment::SimpleDataFragment(
+    std::vector<std::shared_ptr<RecordBatch>> record_batches)
+    : SimpleDataFragment(std::move(record_batches), ScanOptions::Defaults()) {}
+
+SimpleDataFragment::SimpleDataFragment(
     std::vector<std::shared_ptr<RecordBatch>> record_batches,
     std::shared_ptr<ScanOptions> options)
     : record_batches_(std::move(record_batches)), options_(std::move(options)) {}
