@@ -38,6 +38,7 @@ use arrow::array::{
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 
+use crate::execution::physical_plan::common::get_scalar_value;
 use crate::execution::physical_plan::expressions::Column;
 use crate::execution::physical_plan::merge::MergeExec;
 use crate::logicalplan::ScalarValue;
@@ -104,7 +105,7 @@ impl ExecutionPlan for HashAggregateExec {
 
         let final_aggr: Vec<Arc<dyn AggregateExpr>> = (0..self.aggr_expr.len())
             .map(|i| {
-                let aggr = self.aggr_expr[i].create_combiner(i + self.group_expr.len());
+                let aggr = self.aggr_expr[i].create_reducer(i + self.group_expr.len());
                 aggr as Arc<dyn AggregateExpr>
             })
             .collect();
@@ -305,7 +306,9 @@ impl BatchIterator for GroupedHashAggregateIterator {
                             .iter()
                             .zip(aggr_input_values.iter())
                             .map(|(accum, input)| {
-                                accum.borrow_mut().accumulate(&batch, input, row)
+                                accum
+                                    .borrow_mut()
+                                    .accumulate_scalar(get_scalar_value(input, row)?)
                             })
                             .collect::<Result<Vec<_>>>()?;
                         Ok(true)
@@ -324,7 +327,9 @@ impl BatchIterator for GroupedHashAggregateIterator {
                         .iter()
                         .zip(aggr_input_values.iter())
                         .map(|(accum, input)| {
-                            accum.borrow_mut().accumulate(&batch, input, row)
+                            accum
+                                .borrow_mut()
+                                .accumulate_scalar(get_scalar_value(input, row)?)
                         })
                         .collect::<Result<Vec<_>>>()?;
 
@@ -538,15 +543,11 @@ impl BatchIterator for HashAggregateIterator {
                 .collect::<Result<Vec<_>>>()?;
 
             // iterate over each row in the batch
-            for row in 0..batch.num_rows() {
-                let _ = accumulators
-                    .iter()
-                    .zip(aggr_input_values.iter())
-                    .map(|(accum, input)| {
-                        accum.borrow_mut().accumulate(&batch, input, row)
-                    })
-                    .collect::<Result<Vec<_>>>()?;
-            }
+            let _ = accumulators
+                .iter()
+                .zip(aggr_input_values.iter())
+                .map(|(accum, input)| accum.borrow_mut().accumulate_batch(input))
+                .collect::<Result<Vec<_>>>()?;
         }
 
         let input_schema = input.schema();

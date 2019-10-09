@@ -72,18 +72,15 @@ pub trait AggregateExpr: Send + Sync {
     /// Create an aggregate expression for combining the results of accumulators from partitions.
     /// For example, to combine the results of a parallel SUM we just need to do another SUM, but
     /// to combine the results of parallel COUNT we would also use SUM.
-    fn create_combiner(&self, column_index: usize) -> Arc<dyn AggregateExpr>;
+    fn create_reducer(&self, column_index: usize) -> Arc<dyn AggregateExpr>;
 }
 
 /// Aggregate accumulator
 pub trait Accumulator {
     /// Update the accumulator based on a row in a batch
-    fn accumulate(
-        &mut self,
-        batch: &RecordBatch,
-        input: &ArrayRef,
-        row_index: usize,
-    ) -> Result<()>;
+    fn accumulate_scalar(&mut self, value: Option<ScalarValue>) -> Result<()>;
+    /// Update the accumulator based on an array in a batch
+    fn accumulate_batch(&mut self, array: &ArrayRef) -> Result<()>;
     /// Get the final value for the accumulator
     fn get_value(&self) -> Result<Option<ScalarValue>>;
 }
