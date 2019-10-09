@@ -23,15 +23,12 @@
 #include <string>
 #include <vector>
 
+#include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class Buffer;
-class Status;
-
 namespace io {
 
 struct FileMode {
@@ -237,6 +234,16 @@ class ARROW_EXPORT ReadWriteFileInterface : public RandomAccessFile, public Writ
  protected:
   ReadWriteFileInterface() { RandomAccessFile::set_mode(FileMode::READWRITE); }
 };
+
+/// \brief Return an iterator on an input stream
+///
+/// The iterator yields a fixed-size block on each Next() call, except the
+/// last block in the stream which may be smaller.
+/// Once the end of stream is reached, Next() returns nullptr
+/// (unlike InputStream::Read() which returns an empty buffer).
+ARROW_EXPORT
+Status MakeInputStreamIterator(std::shared_ptr<InputStream> stream, int64_t block_size,
+                               Iterator<std::shared_ptr<Buffer>>* out);
 
 }  // namespace io
 }  // namespace arrow
