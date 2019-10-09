@@ -886,6 +886,86 @@ TEST_F(TestCast, DateToCompatible) {
   CheckFails<Date64Type>(date64(), v8, is_valid, date32(), options);
 }
 
+TEST_F(TestCast, DurationToCompatible) {
+  CastOptions options;
+
+  auto CheckDurationCast =
+      [this](const CastOptions& options, TimeUnit::type from_unit, TimeUnit::type to_unit,
+             const std::vector<int64_t>& from_values,
+             const std::vector<int64_t>& to_values, const std::vector<bool>& is_valid) {
+        CheckCase<DurationType, int64_t, DurationType, int64_t>(
+            duration(from_unit), from_values, is_valid, duration(to_unit), to_values,
+            options);
+      };
+
+  std::vector<bool> is_valid = {true, false, true, true, true};
+
+  // Multiply promotions
+  std::vector<int64_t> v1 = {0, 100, 200, 1, 2};
+  std::vector<int64_t> e1 = {0, 100000, 200000, 1000, 2000};
+  CheckDurationCast(options, TimeUnit::SECOND, TimeUnit::MILLI, v1, e1, is_valid);
+
+  std::vector<int64_t> v2 = {0, 100, 200, 1, 2};
+  std::vector<int64_t> e2 = {0, 100000000L, 200000000L, 1000000, 2000000};
+  CheckDurationCast(options, TimeUnit::SECOND, TimeUnit::MICRO, v2, e2, is_valid);
+
+  std::vector<int64_t> v3 = {0, 100, 200, 1, 2};
+  std::vector<int64_t> e3 = {0, 100000000000L, 200000000000L, 1000000000L, 2000000000L};
+  CheckDurationCast(options, TimeUnit::SECOND, TimeUnit::NANO, v3, e3, is_valid);
+
+  std::vector<int64_t> v4 = {0, 100, 200, 1, 2};
+  std::vector<int64_t> e4 = {0, 100000, 200000, 1000, 2000};
+  CheckDurationCast(options, TimeUnit::MILLI, TimeUnit::MICRO, v4, e4, is_valid);
+
+  std::vector<int64_t> v5 = {0, 100, 200, 1, 2};
+  std::vector<int64_t> e5 = {0, 100000000L, 200000000L, 1000000, 2000000};
+  CheckDurationCast(options, TimeUnit::MILLI, TimeUnit::NANO, v5, e5, is_valid);
+
+  std::vector<int64_t> v6 = {0, 100, 200, 1, 2};
+  std::vector<int64_t> e6 = {0, 100000, 200000, 1000, 2000};
+  CheckDurationCast(options, TimeUnit::MICRO, TimeUnit::NANO, v6, e6, is_valid);
+
+  // Zero copy
+  std::vector<int64_t> v7 = {0, 70000, 2000, 1000, 0};
+  std::shared_ptr<Array> arr;
+  ArrayFromVector<DurationType, int64_t>(duration(TimeUnit::SECOND), is_valid, v7, &arr);
+  CheckZeroCopy(*arr, duration(TimeUnit::SECOND));
+  CheckZeroCopy(*arr, int64());
+
+  // Divide, truncate
+  std::vector<int64_t> v8 = {0, 100123, 200456, 1123, 2456};
+  std::vector<int64_t> e8 = {0, 100, 200, 1, 2};
+
+  options.allow_time_truncate = true;
+  CheckDurationCast(options, TimeUnit::MILLI, TimeUnit::SECOND, v8, e8, is_valid);
+  CheckDurationCast(options, TimeUnit::MICRO, TimeUnit::MILLI, v8, e8, is_valid);
+  CheckDurationCast(options, TimeUnit::NANO, TimeUnit::MICRO, v8, e8, is_valid);
+
+  std::vector<int64_t> v9 = {0, 100123000, 200456000, 1123000, 2456000};
+  std::vector<int64_t> e9 = {0, 100, 200, 1, 2};
+  CheckDurationCast(options, TimeUnit::MICRO, TimeUnit::SECOND, v9, e9, is_valid);
+  CheckDurationCast(options, TimeUnit::NANO, TimeUnit::MILLI, v9, e9, is_valid);
+
+  std::vector<int64_t> v10 = {0, 100123000000L, 200456000000L, 1123000000L, 2456000000};
+  std::vector<int64_t> e10 = {0, 100, 200, 1, 2};
+  CheckDurationCast(options, TimeUnit::NANO, TimeUnit::SECOND, v10, e10, is_valid);
+
+  // Disallow truncate, failures
+  options.allow_time_truncate = false;
+  CheckFails<DurationType>(duration(TimeUnit::MILLI), v8, is_valid,
+                           duration(TimeUnit::SECOND), options);
+  CheckFails<DurationType>(duration(TimeUnit::MICRO), v8, is_valid,
+                           duration(TimeUnit::MILLI), options);
+  CheckFails<DurationType>(duration(TimeUnit::NANO), v8, is_valid,
+                           duration(TimeUnit::MICRO), options);
+  CheckFails<DurationType>(duration(TimeUnit::MICRO), v9, is_valid,
+                           duration(TimeUnit::SECOND), options);
+  CheckFails<DurationType>(duration(TimeUnit::NANO), v9, is_valid,
+                           duration(TimeUnit::MILLI), options);
+  CheckFails<DurationType>(duration(TimeUnit::NANO), v10, is_valid,
+                           duration(TimeUnit::SECOND), options);
+}
+
 TEST_F(TestCast, ToDouble) {
   CastOptions options;
   std::vector<bool> is_valid = {true, false, true, true, true};
@@ -968,6 +1048,7 @@ TEST_F(TestCast, DateTimeZeroCopy) {
   CheckZeroCopy(*arr, time64(TimeUnit::MICRO));
   CheckZeroCopy(*arr, date64());
   CheckZeroCopy(*arr, timestamp(TimeUnit::NANO));
+  CheckZeroCopy(*arr, duration(TimeUnit::MILLI));
 }
 
 TEST_F(TestCast, PreallocatedMemory) {

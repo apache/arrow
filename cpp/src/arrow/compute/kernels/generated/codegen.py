@@ -30,7 +30,8 @@ FLOATING_TYPES = ['Float', 'Double']
 NUMERIC_TYPES = ['Boolean'] + INTEGER_TYPES + FLOATING_TYPES
 STRING_TYPES = ['String', 'LargeString']
 
-DATE_TIME_TYPES = ['Date32', 'Date64', 'Time32', 'Time64', 'Timestamp']
+DATE_TIME_TYPES = ['Date32', 'Date64', 'Time32', 'Time64', 'Timestamp',
+                   'Duration']
 
 
 def _format_type(name):
@@ -85,6 +86,7 @@ CAST_GENERATORS = [
                       parametric=True),
     CastCodeGenerator('Timestamp', ['Date32', 'Date64', 'Timestamp'],
                       parametric=True),
+    CastCodeGenerator('Duration', ['Duration'], parametric=True),
     CastCodeGenerator('Binary', ['String']),
     CastCodeGenerator('LargeBinary', ['LargeString']),
     CastCodeGenerator('String', NUMERIC_TYPES + ['Timestamp']),
