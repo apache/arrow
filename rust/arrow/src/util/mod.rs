@@ -16,4 +16,5 @@
 // under the License.
 
 pub mod bit_util;
+pub mod string_writer;
 pub mod test_util;
