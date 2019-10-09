@@ -41,7 +41,6 @@ Building requires:
   sufficient. For Windows, at least Visual Studio 2015 is required.
 * CMake 3.2 or higher
 * On Linux and macOS, either ``make`` or ``ninja`` build utilities
-* Boost 1.58 or higher, though some unit tests require 1.64 or newer.
 
 On Ubuntu/Debian you can install the requirements with:
 
@@ -49,10 +48,7 @@ On Ubuntu/Debian you can install the requirements with:
 
    sudo apt-get install \
         build-essential \
-        cmake \
-        libboost-filesystem-dev \
-        libboost-regex-dev \
-        libboost-system-dev
+        cmake
 
 On Alpine Linux:
 
@@ -60,7 +56,6 @@ On Alpine Linux:
 
    apk add autoconf \
            bash \
-           boost-dev \
            cmake \
            g++ \
            gcc \
@@ -178,6 +173,12 @@ boolean flags to ``cmake``.
   building pyarrow). This library must be built against the same Python version
   for which you are building pyarrow, e.g. Python 2.7 or Python 3.6. NumPy must
   also be installed.
+* ``-DARROW_WITH_BZ2=ON``: Build support for BZ2 compression
+* ``-DARROW_WITH_ZLIB=ON``: Build suport for zlib (gzip) compression
+* ``-DARROW_WITH_LZ4=ON``: Build suport for lz4 compression
+* ``-DARROW_WITH_SNAPPY=ON``: Build suport for Snappy compression
+* ``-DARROW_WITH_ZSTD=ON``: Build suport for ZSTD compression
+* ``-DARROW_WITH_BROTLI=ON``: Build suport for Brotli compression
 
 Some features of the core Arrow shared library can be switched off for improved
 build times if they are not required for your application:

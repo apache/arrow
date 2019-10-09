@@ -239,23 +239,12 @@ Deprecated. Use BOOST_SOURCE=BUNDLED instead." OFF)
   define_option(ARROW_USE_GLOG "Build libraries with glog support for pluggable logging"
                 ON)
 
-  define_option(ARROW_WITH_BROTLI "Build with Brotli compression" ON)
-
+  define_option(ARROW_WITH_BROTLI "Build with Brotli compression" OFF)
   define_option(ARROW_WITH_BZ2 "Build with BZ2 compression" OFF)
-
-  define_option(ARROW_WITH_LZ4 "Build with lz4 compression" ON)
-
-  define_option(ARROW_WITH_SNAPPY "Build with Snappy compression" ON)
-
-  define_option(ARROW_WITH_ZLIB "Build with zlib compression" ON)
-
-  if(CMAKE_VERSION VERSION_LESS 3.7)
-    set(ARROW_WITH_ZSTD_DEFAULT OFF)
-  else()
-    # ExternalProject_Add(SOURCE_SUBDIR) is available since CMake 3.7.
-    set(ARROW_WITH_ZSTD_DEFAULT ON)
-  endif()
-  define_option(ARROW_WITH_ZSTD "Build with zstd compression" ${ARROW_WITH_ZSTD_DEFAULT})
+  define_option(ARROW_WITH_LZ4 "Build with lz4 compression" OFF)
+  define_option(ARROW_WITH_SNAPPY "Build with Snappy compression" OFF)
+  define_option(ARROW_WITH_ZLIB "Build with zlib compression" OFF)
+  define_option(ARROW_WITH_ZSTD "Build with zstd compression" OFF)
 
   #----------------------------------------------------------------------
   if(MSVC)

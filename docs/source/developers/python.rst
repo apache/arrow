@@ -269,6 +269,12 @@ Now build and install the Arrow C++ libraries:
          -DARROW_FLIGHT=ON \
          -DARROW_GANDIVA=ON \
          -DARROW_ORC=ON \
+         -DARROW_WITH_BZ2=ON \
+         -DARROW_WITH_ZLIB=ON \
+         -DARROW_WITH_ZSTD=ON \
+         -DARROW_WITH_LZ4=ON \
+         -DARROW_WITH_SNAPPY=ON \
+         -DARROW_WITH_BROTLI=ON \
          -DARROW_PARQUET=ON \
          -DARROW_PYTHON=ON \
          -DARROW_PLASMA=ON \
@@ -286,6 +292,9 @@ to ``OFF``:
 * ``ARROW_ORC``: Support for Apache ORC file format
 * ``ARROW_PARQUET``: Support for Apache Parquet file format
 * ``ARROW_PLASMA``: Shared memory object store
+* ``ARROW_WITH_{BZ2, ZLIB, ZSTD, LZ4, SNAPPY, BROTLI}``: Build support for
+  compression libraries, used for reading and writing Parquet files and other
+  things.
 
 If multiple versions of Python are installed in your environment, you may have
 to pass additional parameters to cmake so that it can find the right

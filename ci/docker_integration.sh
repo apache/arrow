@@ -59,13 +59,7 @@ function build_cpp() {
         -DARROW_HDFS=OFF \
         -DARROW_JEMALLOC=OFF \
         -DARROW_JSON=OFF \
-        -DARROW_USE_GLOG=OFF \
-        -DARROW_WITH_BZ2=OFF \
-        -DARROW_WITH_ZLIB=OFF \
-        -DARROW_WITH_ZSTD=OFF \
-        -DARROW_WITH_LZ4=OFF \
-        -DARROW_WITH_SNAPPY=OFF \
-        -DARROW_WITH_BROTLI=OFF
+        -DARROW_USE_GLOG=OFF
 
   make -j4 arrow-integration
   export ARROW_CPP_EXE_PATH=$CPP_DIR/debug

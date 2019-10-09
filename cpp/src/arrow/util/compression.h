@@ -116,6 +116,9 @@ class ARROW_EXPORT Codec {
   static Status Create(Compression::type codec, int compression_level,
                        std::unique_ptr<Codec>* out);
 
+  /// \brief Return true if support for indicated codec has been enabled
+  static bool IsAvailable(Compression::type codec);
+
   /// \brief One-shot decompression function
   ///
   /// output_buffer_len must be correct and therefore be obtained in advance.
