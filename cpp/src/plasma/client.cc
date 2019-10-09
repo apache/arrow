@@ -229,6 +229,10 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
   Status CreateAndSeal(const ObjectID& object_id, const std::string& data,
                        const std::string& metadata);
 
+  Status CreateAndSealBatch(const std::vector<ObjectID>& object_ids,
+                            const std::vector<std::string>& data,
+                            const std::vector<std::string>& metadata);
+
   Status Get(const std::vector<ObjectID>& object_ids, int64_t timeout_ms,
              std::vector<ObjectBuffer>* object_buffers);
 
@@ -493,6 +497,37 @@ Status PlasmaClient::Impl::CreateAndSeal(const ObjectID& object_id,
   RETURN_NOT_OK(
       PlasmaReceive(store_conn_, MessageType::PlasmaCreateAndSealReply, &buffer));
   RETURN_NOT_OK(ReadCreateAndSealReply(buffer.data(), buffer.size()));
+  return Status::OK();
+}
+
+Status PlasmaClient::Impl::CreateAndSealBatch(const std::vector<ObjectID>& object_ids,
+                                              const std::vector<std::string>& data,
+                                              const std::vector<std::string>& metadata) {
+  std::lock_guard<std::recursive_mutex> guard(client_mutex_);
+
+  ARROW_LOG(DEBUG) << "called CreateAndSealBatch on conn " << store_conn_;
+
+  int device_num = 0;
+  std::vector<std::string> digests;
+  for (size_t i = 0; i < object_ids.size(); i++) {
+    // Compute the object hash.
+    std::string digest;
+    // CreateAndSeal currently only supports device_num = 0, which corresponds to
+    // the host.
+    uint64_t hash = ComputeObjectHash(
+        reinterpret_cast<const uint8_t*>(data.data()), data.size(),
+        reinterpret_cast<const uint8_t*>(metadata.data()), metadata.size(), device_num);
+    digest.assign(reinterpret_cast<char*>(&hash), sizeof(hash));
+    digests.push_back(digest);
+  }
+
+  RETURN_NOT_OK(
+      SendCreateAndSealBatchRequest(store_conn_, object_ids, data, metadata, digests));
+  std::vector<uint8_t> buffer;
+  RETURN_NOT_OK(
+      PlasmaReceive(store_conn_, MessageType::PlasmaCreateAndSealBatchReply, &buffer));
+  RETURN_NOT_OK(ReadCreateAndSealBatchReply(buffer.data(), buffer.size()));
+
   return Status::OK();
 }
 
@@ -1062,6 +1097,12 @@ Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
 Status PlasmaClient::CreateAndSeal(const ObjectID& object_id, const std::string& data,
                                    const std::string& metadata) {
   return impl_->CreateAndSeal(object_id, data, metadata);
+}
+
+Status PlasmaClient::CreateAndSealBatch(const std::vector<ObjectID>& object_ids,
+                                        const std::vector<std::string>& data,
+                                        const std::vector<std::string>& metadata) {
+  return impl_->CreateAndSealBatch(object_ids, data, metadata);
 }
 
 Status PlasmaClient::Get(const std::vector<ObjectID>& object_ids, int64_t timeout_ms,

@@ -53,6 +53,17 @@ ToFlatbuffer(flatbuffers::FlatBufferBuilder* fbb, const ObjectID* object_ids,
   return fbb->CreateVector(arrow::util::MakeNonNull(results.data()), results.size());
 }
 
+flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>>
+ToFlatbuffer(flatbuffers::FlatBufferBuilder* fbb,
+             const std::vector<std::string>& strings) {
+  std::vector<flatbuffers::Offset<flatbuffers::String>> results;
+  for (size_t i = 0; i < strings.size(); i++) {
+    results.push_back(fbb->CreateString(strings[i]));
+  }
+
+  return fbb->CreateVector(arrow::util::MakeNonNull(results.data()), results.size());
+}
+
 Status PlasmaReceive(int sock, MessageType message_type, std::vector<uint8_t>* buffer) {
   MessageType type;
   RETURN_NOT_OK(ReadMessage(sock, &type, buffer));
@@ -71,6 +82,16 @@ void ToVector(const Data& request, std::vector<T>* out, const Getter& getter) {
   out->reserve(count);
   for (int i = 0; i < count; ++i) {
     out->push_back(getter(request, i));
+  }
+}
+
+template <typename T, typename FlatbufferVectorPointer, typename Converter>
+void ConvertToVector(const FlatbufferVectorPointer fbvector, std::vector<T>* out,
+                     const Converter& converter) {
+  out->clear();
+  out->reserve(fbvector->size());
+  for (size_t i = 0; i < fbvector->size(); ++i) {
+    out->push_back(converter(*fbvector->Get(i)));
   }
 }
 
@@ -261,6 +282,46 @@ Status ReadCreateAndSealRequest(uint8_t* data, size_t size, ObjectID* object_id,
   return Status::OK();
 }
 
+Status SendCreateAndSealBatchRequest(int sock, const std::vector<ObjectID>& object_ids,
+                                     const std::vector<std::string>& data,
+                                     const std::vector<std::string>& metadata,
+                                     const std::vector<std::string>& digests) {
+  flatbuffers::FlatBufferBuilder fbb;
+
+  auto message = fb::CreatePlasmaCreateAndSealBatchRequest(
+      fbb, ToFlatbuffer(&fbb, object_ids.data(), object_ids.size()),
+      ToFlatbuffer(&fbb, data), ToFlatbuffer(&fbb, metadata),
+      ToFlatbuffer(&fbb, digests));
+
+  return PlasmaSend(sock, MessageType::PlasmaCreateAndSealBatchRequest, &fbb, message);
+}
+
+Status ReadCreateAndSealBatchRequest(uint8_t* data, size_t size,
+                                     std::vector<ObjectID>* object_ids,
+                                     std::vector<std::string>* object_data,
+                                     std::vector<std::string>* metadata,
+                                     std::vector<std::string>* digests) {
+  DCHECK(data);
+  auto message = flatbuffers::GetRoot<fb::PlasmaCreateAndSealBatchRequest>(data);
+  DCHECK(VerifyFlatbuffer(message, data, size));
+
+  ConvertToVector(message->object_ids(), object_ids,
+                  [](const flatbuffers::String& element) {
+                    return ObjectID::from_binary(element.str());
+                  });
+
+  ConvertToVector(message->data(), object_data,
+                  [](const flatbuffers::String& element) { return element.str(); });
+
+  ConvertToVector(message->metadata(), metadata,
+                  [](const flatbuffers::String& element) { return element.str(); });
+
+  ConvertToVector(message->digest(), digests,
+                  [](const flatbuffers::String& element) { return element.str(); });
+
+  return Status::OK();
+}
+
 Status SendCreateAndSealReply(int sock, PlasmaError error) {
   flatbuffers::FlatBufferBuilder fbb;
   auto message = fb::CreatePlasmaCreateAndSealReply(fbb, static_cast<PlasmaError>(error));
@@ -270,6 +331,20 @@ Status SendCreateAndSealReply(int sock, PlasmaError error) {
 Status ReadCreateAndSealReply(uint8_t* data, size_t size) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<fb::PlasmaCreateAndSealReply>(data);
+  DCHECK(VerifyFlatbuffer(message, data, size));
+  return PlasmaErrorStatus(message->error());
+}
+
+Status SendCreateAndSealBatchReply(int sock, PlasmaError error) {
+  flatbuffers::FlatBufferBuilder fbb;
+  auto message =
+      fb::CreatePlasmaCreateAndSealBatchReply(fbb, static_cast<PlasmaError>(error));
+  return PlasmaSend(sock, MessageType::PlasmaCreateAndSealBatchReply, &fbb, message);
+}
+
+Status ReadCreateAndSealBatchReply(uint8_t* data, size_t size) {
+  DCHECK(data);
+  auto message = flatbuffers::GetRoot<fb::PlasmaCreateAndSealBatchReply>(data);
   DCHECK(VerifyFlatbuffer(message, data, size));
   return PlasmaErrorStatus(message->error());
 }
