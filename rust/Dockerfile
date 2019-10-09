@@ -39,6 +39,7 @@ COPY rust/Cargo.toml.cache arrow-deps/Cargo.toml
 ENV RUSTC_WRAPPER=sccache
 WORKDIR /tmp/arrow-deps
 RUN cargo build --verbose
+WORKDIR /
 
 # Set environment variables for location of test data required by unit and integration tests
 ENV ARROW_TEST_DATA=/arrow/testing/data
