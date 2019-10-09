@@ -300,6 +300,15 @@ services:
       dockerfile: go/Dockerfile
     volumes: *ubuntu-volumes
 
+  integration:
+    image: arrowdev/arrow-integration:latest
+    build:
+      context: .
+      dockerfile: integration/Dockerfile
+    volumes:
+      - .:/arrow:ro  # ensures that docker won't contaminate the host directory
+      - maven-cache:/root/.m2:delegated
+
   java:
     # Usage:
     #   docker-compose build java

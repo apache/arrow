@@ -17,8 +17,10 @@
 # under the License.
 
 import click
+import errno
 import json
 import logging
+import os
 import sys
 
 from .benchmark.compare import RunnerComparator, DEFAULT_THRESHOLD
@@ -76,6 +78,8 @@ def archery(ctx, debug, pdb, quiet):
     log_ctx.quiet = quiet
     if debug:
         logger.setLevel(logging.DEBUG)
+
+    ctx.debug = debug
 
     if pdb:
         import pdb
@@ -447,6 +451,76 @@ def benchmark_diff(ctx, src, preserve, output, cmake_extras,
         for comparator in runner_comp.comparisons:
             json.dump(comparator, output, cls=JsonEncoder)
             output.write("\n")
+
+
+# ----------------------------------------------------------------------
+# Integration testing
+
+def _set_default(opt, default):
+    if opt is None:
+        return default
+    return opt
+
+
+@archery.command(short_help="Execute protocol and Flight integration tests")
+@click.option('--with-all', is_flag=True, default=False,
+              help=('Include all known lanauges by default '
+                    ' in integration tests'))
+@click.option('--random-seed', type=int, default=12345,
+              help="Seed for PRNG when generating test data")
+@click.option('--with-cpp', type=bool, default=False,
+              help='Include C++ in integration tests')
+@click.option('--with-java', type=bool, default=False,
+              help='Include Java in integration tests')
+@click.option('--with-js', type=bool, default=False,
+              help='Include JavaScript in integration tests')
+@click.option('--with-go', type=bool, default=False,
+              help='Include Go in integration tests')
+@click.option('--write_generated_json', default=False,
+              help='Generate test JSON to indicated path')
+@click.option('--run-flight', is_flag=True, default=False,
+              help='Run Flight integration tests')
+@click.option('--debug', type=bool, default=False,
+              help='Run executables in debug mode as relevant')
+@click.option('--tempdir', default=None,
+              help=('Directory to use for writing '
+                    'integration test temporary files'))
+@click.option('stop_on_error', '-x', '--stop-on-error',
+              is_flag=True, default=False,
+              help='Stop on first error')
+@click.option('--gold_dirs', multiple=True,
+              help="gold integration test file paths")
+def integration(with_all=False, random_seed=12345, **args):
+    from .integration.runner import write_js_test_json, run_all_tests
+    import numpy as np
+
+    # Make runs involving data generation deterministic
+    np.random.seed(random_seed)
+
+    gen_path = args['write_generated_json']
+
+    languages = ['cpp', 'java', 'js', 'go']
+
+    enabled_languages = 0
+    for lang in languages:
+        param = 'with_{}'.format(lang)
+        if with_all:
+            args[param] = with_all
+
+        if args[param]:
+            enabled_languages += 1
+
+    if gen_path:
+        try:
+            os.makedirs(gen_path)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+        write_js_test_json(gen_path)
+    else:
+        if enabled_languages == 0:
+            raise Exception("Must enable at least 1 language to test")
+        run_all_tests(**args)
 
 
 if __name__ == "__main__":

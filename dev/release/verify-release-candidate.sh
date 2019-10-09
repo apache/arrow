@@ -441,20 +441,23 @@ test_integration() {
   export ARROW_JAVA_INTEGRATION_JAR=$JAVA_DIR/tools/target/arrow-tools-$VERSION-jar-with-dependencies.jar
   export ARROW_CPP_EXE_PATH=$CPP_BUILD_DIR/release
 
-  pushd integration
+  pip3 install -e dev/archery
 
-  INTEGRATION_TEST_ARGS="--enable-c++=${TEST_INTEGRATION_CPP} --enable-java=${TEST_INTEGRATION_JAVA} --enable-js=${TEST_INTEGRATION_JS} --enable-go=${TEST_INTEGRATION_GO}"
+  INTEGRATION_TEST_ARGS=""
 
   if [ "${ARROW_FLIGHT}" = "ON" ]; then
-    INTEGRATION_TEST_ARGS="${INTEGRATION_TEST_ARGS} --run_flight"
+    INTEGRATION_TEST_ARGS="${INTEGRATION_TEST_ARGS} --run-flight"
   fi
 
   # Flight integration test executable have runtime dependency on
   # release/libgtest.so
   LD_LIBRARY_PATH=$ARROW_CPP_EXE_PATH:$LD_LIBRARY_PATH \
-      python integration_test.py $INTEGRATION_TEST_ARGS
-
-  popd
+      archery integration \
+              --with-cpp=${TEST_INTEGRATION_CPP} \
+              --with-java=${TEST_INTEGRATION_JAVA} \
+              --with-js=${TEST_INTEGRATION_JS} \
+              --with-go=${TEST_INTEGRATION_GO} \
+              $INTEGRATION_TEST_ARGS
 }
 
 test_source_distribution() {
