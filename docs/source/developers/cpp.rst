@@ -169,16 +169,16 @@ boolean flags to ``cmake``.
 * ``-DARROW_PARQUET=ON``: Apache Parquet libraries and Arrow integration
 * ``-DARROW_PLASMA=ON``: Plasma Shared Memory Object Store
 * ``-DARROW_PLASMA_JAVA_CLIENT=ON``: Build Java client for Plasma
+* ``-DARROW_PYTHON=ON``: Arrow Python C++ integration library (required for
+  building pyarrow). This library must be built against the same Python version
+  for which you are building pyarrow, e.g. Python 2.7 or Python 3.6. NumPy must
+  also be installed.
 * ``-DARROW_WITH_BZ2=ON``: Build support for BZ2 compression
 * ``-DARROW_WITH_ZLIB=ON``: Build suport for zlib (gzip) compression
 * ``-DARROW_WITH_LZ4=ON``: Build suport for lz4 compression
 * ``-DARROW_WITH_SNAPPY=ON``: Build suport for Snappy compression
 * ``-DARROW_WITH_ZSTD=ON``: Build suport for ZSTD compression
 * ``-DARROW_WITH_BROTLI=ON``: Build suport for Brotli compression
-* ``-DARROW_PYTHON=ON``: Arrow Python C++ integration library (required for
-  building pyarrow). This library must be built against the same Python version
-  for which you are building pyarrow, e.g. Python 2.7 or Python 3.6. NumPy must
-  also be installed.
 
 Some features of the core Arrow shared library can be switched off for improved
 build times if they are not required for your application:
