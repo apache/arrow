@@ -102,7 +102,7 @@ pub struct Writer<W: Write> {
     /// The time format for time arrays
     time_format: String,
     /// Is the beginning-of-writer
-    bow: bool,
+    beginning: bool,
 }
 
 impl<'a, 'b: 'a, W: Write + 'b> Writer<W>
@@ -118,7 +118,7 @@ where
             date_format: DEFAULT_DATE_FORMAT.to_string(),
             time_format: DEFAULT_TIME_FORMAT.to_string(),
             timestamp_format: DEFAULT_TIMESTAMP_FORMAT.to_string(),
-            bow: true,
+            beginning: true,
         }
     }
 
@@ -253,7 +253,7 @@ where
         let mut builder = csv_crate::WriterBuilder::new();
         let mut wtr = builder.delimiter(self.delimiter).from_writer(&self.writer);
         let num_columns = batch.num_columns();
-        if self.bow {
+        if self.beginning {
             if self.has_headers {
                 let mut headers: Vec<String> = Vec::with_capacity(num_columns);
                 &batch
@@ -263,11 +263,11 @@ where
                     .for_each(|field| headers.push(field.name().to_string()));
                 wtr.write_record(&headers[..])?;
             }
-            self.bow = false;
+            self.beginning = false;
         }
 
         for row_index in 0..batch.num_rows() {
-            let record = self.convert(batch, row_index).unwrap();
+            let record = self.convert(batch, row_index)?;
             wtr.write_record(&record[..])?;
         }
         wtr.flush()?;
@@ -370,7 +370,7 @@ impl WriterBuilder {
             timestamp_format: self
                 .timestamp_format
                 .unwrap_or(DEFAULT_TIMESTAMP_FORMAT.to_string()),
-            bow: false,
+            beginning: false,
         }
     }
 }
