@@ -15,34 +15,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
-
 #include <string>
+#include <utility>
+#include <vector>
 
-#include "arrow/util/string_view.h"
-#include "arrow/util/visibility.h"
+#include <gtest/gtest.h>
+
+#include "arrow/util/string.h"
 
 namespace arrow {
-
-class Status;
-
-ARROW_EXPORT std::string HexEncode(const uint8_t* data, size_t length);
-
-ARROW_EXPORT std::string Escape(const char* data, size_t length);
-
-ARROW_EXPORT std::string HexEncode(const char* data, size_t length);
-
-ARROW_EXPORT std::string HexEncode(util::string_view str);
-
-ARROW_EXPORT std::string Escape(util::string_view str);
-
-ARROW_EXPORT Status ParseHexValue(const char* data, uint8_t* out);
-
 namespace internal {
 
-/// \brief Trim whitespace from left and right sides of string
-ARROW_EXPORT
-std::string TrimString(std::string value);
+TEST(Trim, Basics) {
+  std::vector<std::pair<std::string, std::string>> test_cases = {
+      {"", ""},         {" ", ""},     {"  ", ""},       {"\t ", ""},
+      {" \ta\t ", "a"}, {" \ta", "a"}, {"ab   \t", "ab"}};
+  for (auto case_ : test_cases) {
+    EXPECT_EQ(case_.second, TrimString(case_.first));
+  }
+}
 
 }  // namespace internal
 }  // namespace arrow
