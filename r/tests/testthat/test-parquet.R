@@ -51,6 +51,7 @@ test_that("read_parquet() with raw data", {
 })
 
 test_that("write_parquet() handles various compression= specs", {
+  skip_if_not_available("snappy")
   tab <- Table$create(x1 = 1:5, x2 = 1:5, y = 1:5)
 
   expect_parquet_roundtrip(tab, compression = "snappy")
@@ -59,6 +60,7 @@ test_that("write_parquet() handles various compression= specs", {
 })
 
 test_that("write_parquet() handles various compression_level= specs", {
+  skip_if_not_available("gzip")
   tab <- Table$create(x1 = 1:5, x2 = 1:5, y = 1:5)
 
   expect_parquet_roundtrip(tab, compression = "gzip", compression_level = 4)
