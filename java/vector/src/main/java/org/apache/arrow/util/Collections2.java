@@ -1,6 +1,4 @@
 /**
- * Portions Copyright (C) 2017-2018 Dremio Corporation
- *
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
