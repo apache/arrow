@@ -18,6 +18,7 @@
 #include "arrow/dataset/scanner.h"
 #include <memory>
 
+#include "arrow/compute/context.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/generator.h"
@@ -62,7 +63,7 @@ TEST_F(TestSimpleScanner, FilteredScan) {
 
   double value = 0.5;
   ASSERT_OK_AND_ASSIGN(auto f64,
-                       ArrayFromBuilderVisitor(float64(), kBatchSize / 2, kBatchSize,
+                       ArrayFromBuilderVisitor(float64(), kBatchSize, kBatchSize / 2,
                                                [&](DoubleBuilder* builder) {
                                                  builder->UnsafeAppend(value);
                                                  builder->UnsafeAppend(-value);
@@ -77,11 +78,15 @@ TEST_F(TestSimpleScanner, FilteredScan) {
       }));
 
   auto s = schema({field("f64", float64())});
-  auto batch = RecordBatch::Make(s, kBatchSize, {f64});
-  auto batch_filtered = RecordBatch::Make(s, kBatchSize, {f64});
+  auto batch = RecordBatch::Make(s, f64->length(), {f64});
+  auto batch_filtered = RecordBatch::Make(s, f64_filtered->length(), {f64_filtered});
 
   std::vector<std::shared_ptr<RecordBatch>> batches{kNumberBatches, batch};
-  auto fragment = std::make_shared<SimpleDataFragment>(batches);
+
+  options_ = ScanOptions::Defaults();
+  options_->filter = ("f64"_ > 0.0).Copy();
+
+  auto fragment = std::make_shared<SimpleDataFragment>(batches, options_);
   DataFragmentVector fragments{kNumberFragments, fragment};
 
   std::vector<std::shared_ptr<DataSource>> sources = {
@@ -92,8 +97,8 @@ TEST_F(TestSimpleScanner, FilteredScan) {
   const int64_t total_batches = sources.size() * kNumberBatches * kNumberFragments;
   auto reader = ConstantArrayGenerator::Repeat(total_batches, batch_filtered);
 
-  options_ = ScanOptions::Defaults();
-  options_->filter = ("f64"_ > 0.0).Copy();
+  compute::FunctionContext ctx;
+  options_->evaluator = std::make_shared<DepthFirstEvaluator>(&ctx);
   SimpleScanner scanner{sources, options_, ctx_};
 
   // Verifies that the unified BatchReader is equivalent to flattening all the

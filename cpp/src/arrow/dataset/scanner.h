@@ -36,7 +36,6 @@ namespace dataset {
 /// \brief Shared state for a Scan operation
 struct ARROW_DS_EXPORT ScanContext {
   MemoryPool* pool = arrow::default_memory_pool();
-  compute::FunctionContext compute_context;
 };
 
 class ARROW_DS_EXPORT ScanOptions {
@@ -47,6 +46,9 @@ class ARROW_DS_EXPORT ScanOptions {
 
   // Filter
   std::shared_ptr<Expression> filter;
+
+  // Evaluator for Filter
+  std::shared_ptr<ExpressionEvaluator> evaluator;
 
   // Schema to which record batches will be projected
   std::shared_ptr<Schema> schema;

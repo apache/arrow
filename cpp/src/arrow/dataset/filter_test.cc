@@ -34,6 +34,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/checked_cast.h"
 
 namespace arrow {
 namespace dataset {
@@ -123,6 +124,8 @@ TEST_F(ExpressionsTest, SimplificationToNull) {
 
 class FilterTest : public ::testing::Test {
  public:
+  FilterTest() { evaluator_ = std::make_shared<DepthFirstEvaluator>(&ctx_); }
+
   Result<Datum> DoFilter(const Expression& expr,
                          std::vector<std::shared_ptr<Field>> fields,
                          std::string batch_json,
@@ -141,7 +144,7 @@ class FilterTest : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(auto expr_type, expr.Validate(*batch->schema()));
     EXPECT_TRUE(expr_type->Equals(boolean()));
 
-    return expr.Evaluate(&ctx_, *batch);
+    return evaluator_->Evaluate(expr, *batch);
   }
 
   void AssertFilter(const Expression& expr, std::vector<std::shared_ptr<Field>> fields,
@@ -177,6 +180,7 @@ class FilterTest : public ::testing::Test {
   }
 
   arrow::compute::FunctionContext ctx_;
+  std::shared_ptr<ExpressionEvaluator> evaluator_;
 };
 
 TEST_F(FilterTest, Trivial) {
@@ -277,47 +281,60 @@ TEST_F(FilterTest, DISABLED_KleeneTruthTables) {
   ])");
 }
 
-class TakeExpression
-    : public ExpressionImpl<UnaryExpression, TakeExpression, ExpressionType::CUSTOM> {
+class TakeExpression : public CustomExpression {
  public:
   TakeExpression(std::shared_ptr<Expression> operand, std::shared_ptr<Array> dictionary)
-      : ExpressionImpl(std::move(operand)), dictionary_(std::move(dictionary)) {}
+      : operand_(std::move(operand)), dictionary_(std::move(dictionary)) {}
 
   std::string ToString() const override {
     return dictionary_->ToString() + "[" + operand_->ToString() + "]";
   }
 
+  std::shared_ptr<Expression> Copy() const override {
+    return std::make_shared<TakeExpression>(*this);
+  }
+
   bool Equals(const Expression& other) const override {
+    // in a real CustomExpression this would need to be more sophisticated
     return other.type() == ExpressionType::CUSTOM && ToString() == other.ToString();
   }
 
   Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override {
-    ARROW_ASSIGN_OR_RAISE(auto operand_type, operand()->Validate(schema));
+    ARROW_ASSIGN_OR_RAISE(auto operand_type, operand_->Validate(schema));
     if (!is_integer(operand_type->id())) {
       return Status::TypeError("Take indices must be integral, not ", *operand_type);
     }
     return dictionary_->type();
   }
 
-  Result<compute::Datum> Evaluate(compute::FunctionContext* ctx,
-                                  const RecordBatch& batch) const override {
-    ARROW_ASSIGN_OR_RAISE(auto indices, operand()->Evaluate(ctx, batch));
+  class Evaluator : public DepthFirstEvaluator {
+   public:
+    using DepthFirstEvaluator::DepthFirstEvaluator;
 
-    if (indices.kind() == Datum::SCALAR) {
-      std::shared_ptr<Array> indices_array;
-      RETURN_NOT_OK(MakeArrayFromScalar(ctx->memory_pool(), *indices.scalar(),
-                                        batch.num_rows(), &indices_array));
-      indices = compute::Datum(indices_array->data());
+    using DepthFirstEvaluator::Evaluate;
+
+    Result<compute::Datum> Evaluate(const CustomExpression& expr,
+                                    const RecordBatch& batch) const override {
+      const auto& take_expr = checked_cast<const TakeExpression&>(expr);
+      ARROW_ASSIGN_OR_RAISE(auto indices, Evaluate(*take_expr.operand_, batch));
+
+      if (indices.kind() == Datum::SCALAR) {
+        std::shared_ptr<Array> indices_array;
+        RETURN_NOT_OK(MakeArrayFromScalar(ctx_->memory_pool(), *indices.scalar(),
+                                          batch.num_rows(), &indices_array));
+        indices = compute::Datum(indices_array->data());
+      }
+
+      DCHECK_EQ(indices.kind(), Datum::ARRAY);
+      compute::Datum out;
+      RETURN_NOT_OK(compute::Take(ctx_, compute::Datum(take_expr.dictionary_->data()),
+                                  indices, compute::TakeOptions(), &out));
+      return std::move(out);
     }
-
-    DCHECK_EQ(indices.kind(), Datum::ARRAY);
-    compute::Datum out;
-    RETURN_NOT_OK(compute::Take(ctx, compute::Datum(dictionary_->data()), indices,
-                                compute::TakeOptions(), &out));
-    return std::move(out);
-  }
+  };
 
  private:
+  std::shared_ptr<Expression> operand_;
   std::shared_ptr<Array> dictionary_;
 };
 
@@ -350,6 +367,8 @@ TEST_F(ExpressionsTest, TakeAssumeYieldsNothing) {
 }
 
 TEST_F(FilterTest, EvaluateTakeExpression) {
+  evaluator_ = std::make_shared<TakeExpression::Evaluator>(&ctx_);
+
   auto dict = ArrayFromJSON(float64(), "[0.0, 0.25, 0.5, 0.75, 1.0]");
 
   AssertFilter(TakeExpression(field_ref("b"), dict) == 0.5,

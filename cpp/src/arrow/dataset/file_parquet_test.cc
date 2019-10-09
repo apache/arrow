@@ -183,41 +183,5 @@ TEST_F(TestParquetFileFormat, Inspect) {
   EXPECT_EQ(*actual, *schema_);
 }
 
-TEST_F(TestParquetFileFormat, FilterRecordBatch) {
-  auto schm = schema({field("i32", int32())});
-
-  auto unfiltered_column = ArrayFromJSON(schm->field(0)->type(), "[1, 2, 3, 4, 5, 6]");
-  auto unfiltered_batch =
-      RecordBatch::Make(schm, unfiltered_column->length(), {unfiltered_column});
-
-  opts_ = ScanOptions::Defaults();
-  opts_->filter = ("i32"_ > 3).Copy();
-
-  auto filtered_column = ArrayFromJSON(schm->field(0)->type(), "[4, 5, 6]");
-  auto filtered_batch =
-      RecordBatch::Make(schm, filtered_column->length(), {filtered_column});
-
-  bool done = false;
-  auto reader = MakeGeneratedRecordBatch(schm, [&](std::shared_ptr<RecordBatch>* out) {
-    *out = done ? nullptr : unfiltered_batch;
-    done = true;
-    return Status::OK();
-  });
-
-  auto source = GetFileSource(reader.get());
-  auto fragment = std::make_shared<ParquetFragment>(*source, opts_);
-
-  ScanTaskIterator it;
-  ASSERT_OK(fragment->Scan(ctx_, &it));
-
-  ASSERT_OK(it.Visit([&](std::unique_ptr<ScanTask> task) -> Status {
-    auto batch_it = task->Scan();
-    return batch_it.Visit([&](std::shared_ptr<RecordBatch> batch) -> Status {
-      ASSERT_BATCHES_EQUAL(*filtered_batch, *batch);
-      return Status::OK();
-    });
-  }));
-}
-
 }  // namespace dataset
 }  // namespace arrow

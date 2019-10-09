@@ -73,15 +73,14 @@ Status Dataset::NewScan(std::unique_ptr<ScannerBuilder>* out) {
 bool DataSource::AssumePartitionExpression(
     const std::shared_ptr<ScanOptions>& scan_options,
     std::shared_ptr<ScanOptions>* simplified_scan_options) const {
-  auto filter = scan_options->filter;
-  if (filter == nullptr || partition_expression_ == nullptr) {
+  if (partition_expression_ == nullptr) {
     if (simplified_scan_options != nullptr) {
       *simplified_scan_options = scan_options;
     }
     return true;
   }
 
-  auto expr = filter->Assume(*partition_expression_);
+  auto expr = scan_options->filter->Assume(*partition_expression_);
   if (expr->IsNull() || expr->Equals(false)) {
     // selector is not satisfiable; yield no fragments
     return false;

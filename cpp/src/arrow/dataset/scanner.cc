@@ -29,15 +29,16 @@
 namespace arrow {
 namespace dataset {
 
-ScanOptions::ScanOptions() : filter(scalar(true)) {}
+ScanOptions::ScanOptions()
+    : filter(scalar(true)), evaluator(ExpressionEvaluator::Null()) {}
 
 std::shared_ptr<ScanOptions> ScanOptions::Defaults() {
   return std::shared_ptr<ScanOptions>(new ScanOptions);
 }
 
 RecordBatchIterator SimpleScanTask::Scan() {
-  return FilterBatches(MakeVectorIterator(record_batches_), options_->filter,
-                       &context_->compute_context);
+  return options_->evaluator->FilterBatches(MakeVectorIterator(record_batches_),
+                                            options_->filter);
 }
 
 /// \brief GetScanTaskIterator transforms an Iterator<DataFragment> in a

@@ -61,6 +61,7 @@ class NotExpression;
 class ScalarExpression;
 class FieldReferenceExpression;
 using ExpressionVector = std::vector<std::shared_ptr<Expression>>;
+class ExpressionEvaluator;
 
 class Partition;
 class PartitionKey;

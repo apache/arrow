@@ -61,8 +61,8 @@ class ParquetScanTask : public ScanTask {
   }
 
   RecordBatchIterator Scan() {
-    return FilterBatches(MakePointerIterator(std::move(record_batch_reader_)),
-                         options_->filter, &context_->compute_context);
+    return options_->evaluator->FilterBatches(
+        MakePointerIterator(std::move(record_batch_reader_)), options_->filter);
   }
 
   ParquetScanTask(RowGroupSet row_groups,

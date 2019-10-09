@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <memory>
 #include <numeric>
 #include <string>
 #include <unordered_map>
@@ -33,6 +34,7 @@
 #include "arrow/compute/kernels/filter.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/record_batch.h"
+#include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
@@ -47,25 +49,11 @@ using arrow::compute::Datum;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
-Result<Datum> ScalarExpression::Evaluate(compute::FunctionContext* ctx,
-                                         const RecordBatch& batch) const {
-  return value_;
-}
-
 inline std::shared_ptr<ScalarExpression> NullExpression() {
   return std::make_shared<ScalarExpression>(std::make_shared<BooleanScalar>());
 }
 
 inline Datum NullDatum() { return Datum(std::make_shared<NullScalar>()); }
-
-Result<Datum> FieldExpression::Evaluate(compute::FunctionContext* ctx,
-                                        const RecordBatch& batch) const {
-  auto column = batch.GetColumnByName(name_);
-  if (column == nullptr) {
-    return NullDatum();
-  }
-  return std::move(column);
-}
 
 bool IsNullDatum(const Datum& datum) {
   if (datum.is_scalar()) {
@@ -75,104 +63,6 @@ bool IsNullDatum(const Datum& datum) {
 
   auto array_data = datum.array();
   return array_data->GetNullCount() == array_data->length;
-}
-
-Result<Datum> NotExpression::Evaluate(compute::FunctionContext* ctx,
-                                      const RecordBatch& batch) const {
-  ARROW_ASSIGN_OR_RAISE(auto to_invert, operand_->Evaluate(ctx, batch));
-  if (IsNullDatum(to_invert)) {
-    return NullDatum();
-  }
-
-  if (to_invert.is_scalar()) {
-    bool trivial_condition =
-        checked_cast<const BooleanScalar&>(*to_invert.scalar()).value;
-    return Datum(std::make_shared<BooleanScalar>(!trivial_condition));
-  }
-
-  DCHECK(to_invert.is_array());
-  Datum out;
-  RETURN_NOT_OK(arrow::compute::Invert(ctx, Datum(to_invert), &out));
-  return std::move(out);
-}
-
-Result<Datum> AndExpression::Evaluate(compute::FunctionContext* ctx,
-                                      const RecordBatch& batch) const {
-  ARROW_ASSIGN_OR_RAISE(auto lhs, left_operand_->Evaluate(ctx, batch));
-  ARROW_ASSIGN_OR_RAISE(auto rhs, right_operand_->Evaluate(ctx, batch));
-
-  if (IsNullDatum(lhs) || IsNullDatum(rhs)) {
-    return NullDatum();
-  }
-
-  if (lhs.is_array() && rhs.is_array()) {
-    Datum out;
-    RETURN_NOT_OK(arrow::compute::And(ctx, lhs, rhs, &out));
-    return std::move(out);
-  }
-
-  if (lhs.is_scalar() && rhs.is_scalar()) {
-    return Datum(checked_cast<const BooleanScalar&>(*lhs.scalar()).value &&
-                 checked_cast<const BooleanScalar&>(*rhs.scalar()).value);
-  }
-
-  // One scalar, one array
-  bool scalar_operand =
-      checked_cast<const BooleanScalar&>(*(lhs.is_scalar() ? lhs : rhs).scalar()).value;
-  if (!scalar_operand) {
-    return Datum(false);
-  }
-
-  return lhs.is_array() ? std::move(lhs) : std::move(rhs);
-}
-
-Result<Datum> OrExpression::Evaluate(compute::FunctionContext* ctx,
-                                     const RecordBatch& batch) const {
-  ARROW_ASSIGN_OR_RAISE(auto lhs, left_operand_->Evaluate(ctx, batch));
-  ARROW_ASSIGN_OR_RAISE(auto rhs, right_operand_->Evaluate(ctx, batch));
-
-  if (IsNullDatum(lhs) || IsNullDatum(rhs)) {
-    return NullDatum();
-  }
-
-  if (lhs.is_array() && rhs.is_array()) {
-    Datum out;
-    RETURN_NOT_OK(arrow::compute::Or(ctx, lhs, rhs, &out));
-    return std::move(out);
-  }
-
-  if (lhs.is_scalar() && rhs.is_scalar()) {
-    return Datum(checked_cast<const BooleanScalar&>(*lhs.scalar()).value &&
-                 checked_cast<const BooleanScalar&>(*rhs.scalar()).value);
-  }
-
-  // One scalar, one array
-  bool scalar_operand =
-      checked_cast<const BooleanScalar&>(*(lhs.is_scalar() ? lhs : rhs).scalar()).value;
-  if (!scalar_operand) {
-    return Datum(true);
-  }
-
-  return lhs.is_array() ? std::move(lhs) : std::move(rhs);
-}
-
-Result<Datum> ComparisonExpression::Evaluate(compute::FunctionContext* ctx,
-                                             const RecordBatch& batch) const {
-  ARROW_ASSIGN_OR_RAISE(auto lhs, left_operand_->Evaluate(ctx, batch));
-  ARROW_ASSIGN_OR_RAISE(auto rhs, right_operand_->Evaluate(ctx, batch));
-
-  if (IsNullDatum(lhs) || IsNullDatum(rhs)) {
-    return NullDatum();
-  }
-
-  if (lhs.is_scalar()) {
-    return Status::NotImplemented("comparison with scalar LHS");
-  }
-
-  Datum out;
-  RETURN_NOT_OK(
-      arrow::compute::Compare(ctx, lhs, rhs, arrow::compute::CompareOptions(op_), &out));
-  return std::move(out);
 }
 
 struct Comparison {
@@ -868,32 +758,181 @@ Result<std::shared_ptr<DataType>> FieldExpression::Validate(const Schema& schema
   return null();
 }
 
-RecordBatchIterator FilterBatches(RecordBatchIterator unfiltered,
-                                  const std::shared_ptr<Expression>& filter,
-                                  compute::FunctionContext* ctx) {
-  auto filter_batches = [filter, ctx](const std::shared_ptr<RecordBatch>& unfiltered,
-                                      std::shared_ptr<RecordBatch>* filtered) {
-    ARROW_ASSIGN_OR_RAISE(auto selection, filter->Evaluate(ctx, *unfiltered));
-    if (selection.is_array()) {
-      auto selection_array = selection.make_array();
-      return compute::Filter(ctx, *unfiltered, *selection_array, filtered);
-    }
-
-    if (!selection.is_scalar() || selection.type()->id() != Type::BOOL) {
-      return Status::NotImplemented("Filtering batches against DatumKind::",
-                                    selection.kind(), " of type ", *selection.type());
-    }
-
-    if (BooleanScalar(true).Equals(selection.scalar())) {
-      *filtered = unfiltered;
-    } else {
-      *filtered = unfiltered->Slice(0, 0);
-    }
-
-    return Status::OK();
+RecordBatchIterator ExpressionEvaluator::FilterBatches(
+    RecordBatchIterator unfiltered, std::shared_ptr<Expression> filter) {
+  auto filter_batches = [filter, this](const std::shared_ptr<RecordBatch>& unfiltered,
+                                       std::shared_ptr<RecordBatch>* filtered) {
+    ARROW_ASSIGN_OR_RAISE(auto selection, Evaluate(*filter, *unfiltered));
+    return Filter(selection, unfiltered, filtered);
   };
 
   return MakeMaybeMapIterator(std::move(filter_batches), std::move(unfiltered));
+}
+
+std::shared_ptr<ExpressionEvaluator> ExpressionEvaluator::Null() {
+  struct Impl : ExpressionEvaluator {
+    Result<Datum> Evaluate(const Expression& expr,
+                           const RecordBatch& batch) const override {
+      ARROW_ASSIGN_OR_RAISE(auto type, expr.Validate(*batch.schema()));
+      std::shared_ptr<Scalar> out;
+      RETURN_NOT_OK(MakeNullScalar(type, &out));
+      return Datum(std::move(out));
+    }
+
+    Result<std::shared_ptr<RecordBatch>> Filter(
+        const Datum& selection,
+        const std::shared_ptr<RecordBatch>& batch) const override {
+      return batch;
+    }
+  };
+
+  return std::make_shared<Impl>();
+}
+
+struct DepthFirstEvaluator::Impl {
+  template <typename E>
+  Result<Datum> operator()(const E& expr) const {
+    return this_->Evaluate(expr, batch_);
+  }
+
+  const DepthFirstEvaluator* this_;
+  const RecordBatch& batch_;
+};
+
+Result<Datum> DepthFirstEvaluator::Evaluate(const Expression& expr,
+                                            const RecordBatch& batch) const {
+  return VisitExpression(expr, Impl{this, batch});
+}
+
+Result<Datum> DepthFirstEvaluator::Evaluate(const ScalarExpression& expr,
+                                            const RecordBatch& batch) const {
+  return Datum(expr.value());
+}
+
+Result<Datum> DepthFirstEvaluator::Evaluate(const FieldExpression& expr,
+                                            const RecordBatch& batch) const {
+  auto column = batch.GetColumnByName(expr.name());
+  if (column == nullptr) {
+    return NullDatum();
+  }
+  return std::move(column);
+}
+
+Result<Datum> DepthFirstEvaluator::Evaluate(const NotExpression& expr,
+                                            const RecordBatch& batch) const {
+  ARROW_ASSIGN_OR_RAISE(auto to_invert, Evaluate(*expr.operand(), batch));
+  if (IsNullDatum(to_invert)) {
+    return NullDatum();
+  }
+
+  if (to_invert.is_scalar()) {
+    bool trivial_condition =
+        checked_cast<const BooleanScalar&>(*to_invert.scalar()).value;
+    return Datum(std::make_shared<BooleanScalar>(!trivial_condition));
+  }
+
+  DCHECK(to_invert.is_array());
+  Datum out;
+  RETURN_NOT_OK(arrow::compute::Invert(ctx_, to_invert, &out));
+  return std::move(out);
+}
+
+Result<Datum> DepthFirstEvaluator::Evaluate(const AndExpression& expr,
+                                            const RecordBatch& batch) const {
+  ARROW_ASSIGN_OR_RAISE(auto lhs, Evaluate(*expr.left_operand(), batch));
+  ARROW_ASSIGN_OR_RAISE(auto rhs, Evaluate(*expr.right_operand(), batch));
+
+  if (IsNullDatum(lhs) || IsNullDatum(rhs)) {
+    return NullDatum();
+  }
+
+  if (lhs.is_array() && rhs.is_array()) {
+    Datum out;
+    RETURN_NOT_OK(arrow::compute::And(ctx_, lhs, rhs, &out));
+    return std::move(out);
+  }
+
+  if (lhs.is_scalar() && rhs.is_scalar()) {
+    return Datum(checked_cast<const BooleanScalar&>(*lhs.scalar()).value &&
+                 checked_cast<const BooleanScalar&>(*rhs.scalar()).value);
+  }
+
+  // One scalar, one array
+  bool scalar_operand =
+      checked_cast<const BooleanScalar&>(*(lhs.is_scalar() ? lhs : rhs).scalar()).value;
+  if (!scalar_operand) {
+    return Datum(false);
+  }
+
+  return lhs.is_array() ? std::move(lhs) : std::move(rhs);
+}
+
+Result<Datum> DepthFirstEvaluator::Evaluate(const OrExpression& expr,
+                                            const RecordBatch& batch) const {
+  ARROW_ASSIGN_OR_RAISE(auto lhs, Evaluate(*expr.left_operand(), batch));
+  ARROW_ASSIGN_OR_RAISE(auto rhs, Evaluate(*expr.right_operand(), batch));
+
+  if (IsNullDatum(lhs) || IsNullDatum(rhs)) {
+    return NullDatum();
+  }
+
+  if (lhs.is_array() && rhs.is_array()) {
+    Datum out;
+    RETURN_NOT_OK(arrow::compute::Or(ctx_, lhs, rhs, &out));
+    return std::move(out);
+  }
+
+  if (lhs.is_scalar() && rhs.is_scalar()) {
+    return Datum(checked_cast<const BooleanScalar&>(*lhs.scalar()).value &&
+                 checked_cast<const BooleanScalar&>(*rhs.scalar()).value);
+  }
+
+  // One scalar, one array
+  bool scalar_operand =
+      checked_cast<const BooleanScalar&>(*(lhs.is_scalar() ? lhs : rhs).scalar()).value;
+  if (!scalar_operand) {
+    return Datum(true);
+  }
+
+  return lhs.is_array() ? std::move(lhs) : std::move(rhs);
+}
+
+Result<Datum> DepthFirstEvaluator::Evaluate(const ComparisonExpression& expr,
+                                            const RecordBatch& batch) const {
+  ARROW_ASSIGN_OR_RAISE(auto lhs, Evaluate(*expr.left_operand(), batch));
+  ARROW_ASSIGN_OR_RAISE(auto rhs, Evaluate(*expr.right_operand(), batch));
+
+  if (IsNullDatum(lhs) || IsNullDatum(rhs)) {
+    return NullDatum();
+  }
+
+  DCHECK(lhs.is_array());
+
+  Datum out;
+  RETURN_NOT_OK(arrow::compute::Compare(ctx_, lhs, rhs,
+                                        arrow::compute::CompareOptions(expr.op()), &out));
+  return std::move(out);
+}
+
+Result<std::shared_ptr<RecordBatch>> DepthFirstEvaluator::Filter(
+    const compute::Datum& selection, const std::shared_ptr<RecordBatch>& batch) const {
+  if (selection.is_array()) {
+    auto selection_array = selection.make_array();
+    std::shared_ptr<RecordBatch> filtered;
+    RETURN_NOT_OK(compute::Filter(ctx_, *batch, *selection_array, &filtered));
+    return std::move(filtered);
+  }
+
+  if (!selection.is_scalar() || selection.type()->id() != Type::BOOL) {
+    return Status::NotImplemented("Filtering batches against DatumKind::",
+                                  selection.kind(), " of type ", *selection.type());
+  }
+
+  if (BooleanScalar(true).Equals(selection.scalar())) {
+    return batch;
+  }
+
+  return batch->Slice(0, 0);
 }
 
 }  // namespace dataset

@@ -178,19 +178,6 @@ class ARROW_DS_EXPORT Expression {
     return Copy();
   }
 
-  /// Evaluate this expression against each row of a RecordBatch.
-  /// Returned Datum will be of either SCALAR or ARRAY kind.
-  /// A return value of ARRAY kind will have length == batch.num_rows()
-  /// An return value of SCALAR kind is equivalent to an array of the same type whose
-  /// slots contain a single repeated value.
-  virtual Result<compute::Datum> Evaluate(compute::FunctionContext* ctx,
-                                          const RecordBatch& batch) const = 0;
-
-  Status Evaluate(compute::FunctionContext* ctx, const RecordBatch& batch,
-                  compute::Datum* out) const {
-    return Evaluate(ctx, batch).Value(out);
-  }
-
   /// returns a debug string representing this expression
   virtual std::string ToString() const = 0;
 
@@ -268,9 +255,6 @@ class ARROW_DS_EXPORT ComparisonExpression final
 
   compute::CompareOperator op() const { return op_; }
 
-  Result<compute::Datum> Evaluate(compute::FunctionContext* ctx,
-                                  const RecordBatch& batch) const override;
-
   Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
 
  private:
@@ -289,9 +273,6 @@ class ARROW_DS_EXPORT AndExpression final
 
   std::shared_ptr<Expression> Assume(const Expression& given) const override;
 
-  Result<compute::Datum> Evaluate(compute::FunctionContext* ctx,
-                                  const RecordBatch& batch) const override;
-
   Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
 };
 
@@ -304,9 +285,6 @@ class ARROW_DS_EXPORT OrExpression final
 
   std::shared_ptr<Expression> Assume(const Expression& given) const override;
 
-  Result<compute::Datum> Evaluate(compute::FunctionContext* ctx,
-                                  const RecordBatch& batch) const override;
-
   Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
 };
 
@@ -318,9 +296,6 @@ class ARROW_DS_EXPORT NotExpression final
   std::string ToString() const override;
 
   std::shared_ptr<Expression> Assume(const Expression& given) const override;
-
-  Result<compute::Datum> Evaluate(compute::FunctionContext* ctx,
-                                  const RecordBatch& batch) const override;
 
   Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
 };
@@ -338,9 +313,6 @@ class ARROW_DS_EXPORT ScalarExpression final : public Expression {
   bool Equals(const Expression& other) const override;
 
   Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
-
-  Result<compute::Datum> Evaluate(compute::FunctionContext* ctx,
-                                  const RecordBatch& batch) const override;
 
   std::shared_ptr<Expression> Copy() const override;
 
@@ -363,13 +335,15 @@ class ARROW_DS_EXPORT FieldExpression final : public Expression {
 
   Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
 
-  Result<compute::Datum> Evaluate(compute::FunctionContext* ctx,
-                                  const RecordBatch& batch) const override;
-
   std::shared_ptr<Expression> Copy() const override;
 
  private:
   std::string name_;
+};
+
+class ARROW_DS_EXPORT CustomExpression : public Expression {
+ protected:
+  CustomExpression() : Expression(ExpressionType::CUSTOM) {}
 };
 
 ARROW_DS_EXPORT std::shared_ptr<AndExpression> and_(std::shared_ptr<Expression> lhs,
@@ -440,12 +414,117 @@ bool Expression::Equals(T&& t) const {
   return internal::checked_cast<const ScalarExpression&>(*this).value()->Equals(s);
 }
 
-/// Wrap an iterator of record batches with a filter expression. The resulting iterator
-/// will yield record batches filtered by the given expression.
-ARROW_DS_EXPORT
-RecordBatchIterator FilterBatches(RecordBatchIterator unfiltered,
-                                  const std::shared_ptr<Expression>& filter,
-                                  compute::FunctionContext* ctx);
+template <typename Visitor>
+auto VisitExpression(const Expression& expr, Visitor&& visitor)
+    -> decltype(visitor(expr)) {
+  switch (expr.type()) {
+    case ExpressionType::FIELD:
+      return visitor(internal::checked_cast<const FieldExpression&>(expr));
+
+    case ExpressionType::SCALAR:
+      return visitor(internal::checked_cast<const ScalarExpression&>(expr));
+
+    case ExpressionType::NOT:
+      return visitor(internal::checked_cast<const NotExpression&>(expr));
+
+    case ExpressionType::AND:
+      return visitor(internal::checked_cast<const AndExpression&>(expr));
+
+    case ExpressionType::OR:
+      return visitor(internal::checked_cast<const OrExpression&>(expr));
+
+    case ExpressionType::COMPARISON:
+      return visitor(internal::checked_cast<const ComparisonExpression&>(expr));
+
+    case ExpressionType::CUSTOM:
+      return visitor(internal::checked_cast<const CustomExpression&>(expr));
+
+    default:
+      break;
+  }
+  return visitor(expr);
+}
+
+/// Interface for evaluation of expressions against record batches.
+class ARROW_DS_EXPORT ExpressionEvaluator {
+ public:
+  virtual ~ExpressionEvaluator() = default;
+
+  /// Evaluate expr against each row of a RecordBatch.
+  /// Returned Datum will be of either SCALAR or ARRAY kind.
+  /// A return value of ARRAY kind will have length == batch.num_rows()
+  /// An return value of SCALAR kind is equivalent to an array of the same type whose
+  /// slots contain a single repeated value.
+  ///
+  /// expr must be validated against the schema of batch before calling this method.
+  virtual Result<compute::Datum> Evaluate(const Expression& expr,
+                                          const RecordBatch& batch) const = 0;
+
+  Status Evaluate(const Expression& expr, const RecordBatch& batch,
+                  compute::Datum* out) const {
+    return Evaluate(expr, batch).Value(out);
+  }
+
+  virtual Result<std::shared_ptr<RecordBatch>> Filter(
+      const compute::Datum& selection,
+      const std::shared_ptr<RecordBatch>& batch) const = 0;
+
+  Status Filter(const compute::Datum& selection,
+                const std::shared_ptr<RecordBatch>& batch,
+                std::shared_ptr<RecordBatch>* out) const {
+    return Filter(selection, batch).Value(out);
+  }
+
+  /// Wrap an iterator of record batches with a filter expression. The resulting
+  /// iterator will yield record batches filtered by the given expression.
+  virtual RecordBatchIterator FilterBatches(RecordBatchIterator unfiltered,
+                                            std::shared_ptr<Expression> filter);
+
+  /// construct an Evaluator which evaluates all expressions to null and does no
+  /// filtering
+  static std::shared_ptr<ExpressionEvaluator> Null();
+};
+
+/// construct an Evaluator which uses compute kernels to evaluate expressions and
+/// filter record batches in depth first order
+class ARROW_DS_EXPORT DepthFirstEvaluator : public ExpressionEvaluator {
+ public:
+  explicit DepthFirstEvaluator(compute::FunctionContext* ctx) : ctx_(ctx) {}
+
+  Result<compute::Datum> Evaluate(const Expression& expr,
+                                  const RecordBatch& batch) const override;
+
+  Result<compute::Datum> Evaluate(const ScalarExpression& expr,
+                                  const RecordBatch& batch) const;
+
+  Result<compute::Datum> Evaluate(const FieldExpression& expr,
+                                  const RecordBatch& batch) const;
+
+  Result<compute::Datum> Evaluate(const NotExpression& expr,
+                                  const RecordBatch& batch) const;
+
+  Result<compute::Datum> Evaluate(const AndExpression& expr,
+                                  const RecordBatch& batch) const;
+
+  Result<compute::Datum> Evaluate(const OrExpression& expr,
+                                  const RecordBatch& batch) const;
+
+  Result<compute::Datum> Evaluate(const ComparisonExpression& expr,
+                                  const RecordBatch& batch) const;
+
+  virtual Result<compute::Datum> Evaluate(const CustomExpression& expr,
+                                          const RecordBatch& batch) const {
+    return Status::NotImplemented("evaluation of ", expr.ToString());
+  }
+
+  Result<std::shared_ptr<RecordBatch>> Filter(
+      const compute::Datum& selection,
+      const std::shared_ptr<RecordBatch>& batch) const override;
+
+ protected:
+  struct Impl;
+  compute::FunctionContext* ctx_;
+};
 
 }  // namespace dataset
 }  // namespace arrow
