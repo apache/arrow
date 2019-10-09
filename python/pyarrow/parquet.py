@@ -116,7 +116,7 @@ class ParquetFile(object):
     ----------
     source : str, pathlib.Path, pyarrow.NativeFile, or file-like object
         Readable source. For passing bytes or buffer-like file containing a
-        Parquet file, use pyarorw.BufferReader
+        Parquet file, use pyarrow.BufferReader
     metadata : FileMetaData, default None
         Use existing metadata object, rather than reading from file.
     common_metadata : FileMetaData, default None
