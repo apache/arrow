@@ -112,12 +112,6 @@ if(ARROW_PACKAGE_PREFIX)
   endif()
 endif()
 
-if(ARROW_BOOST_VENDORED AND "${BOOST_SOURCE}" STREQUAL "")
-  message(
-    DEPRECATION "ARROW_BOOST_VENDORED is deprecated. Use BOOST_SOURCE=BUNDLED instead.")
-  set(BOOST_SOURCE "BUNDLED")
-endif()
-
 # For each dependency, set dependency source to global default, if unset
 foreach(DEPENDENCY ${ARROW_THIRDPARTY_DEPENDENCIES})
   if("${${DEPENDENCY}_SOURCE}" STREQUAL "")
@@ -615,36 +609,48 @@ set(Boost_ADDITIONAL_VERSIONS
     "1.60.0"
     "1.60")
 
-if(BOOST_SOURCE STREQUAL "AUTO")
-  find_package(BoostAlt ${ARROW_BOOST_REQUIRED_VERSION})
-  if(NOT BoostAlt_FOUND)
-    build_boost()
-  endif()
-elseif(BOOST_SOURCE STREQUAL "BUNDLED")
-  build_boost()
-elseif(BOOST_SOURCE STREQUAL "SYSTEM")
-  find_package(BoostAlt ${ARROW_BOOST_REQUIRED_VERSION} REQUIRED)
-endif()
-
-if(TARGET Boost::system)
-  set(BOOST_SYSTEM_LIBRARY Boost::system)
-  set(BOOST_FILESYSTEM_LIBRARY Boost::filesystem)
-  set(BOOST_REGEX_LIBRARY Boost::regex)
-elseif(BoostAlt_FOUND)
-  set(BOOST_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY})
-  set(BOOST_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY})
-  set(BOOST_REGEX_LIBRARY ${Boost_REGEX_LIBRARY})
+if(ARROW_BUILD_INTEGRATION
+   OR ARROW_BUILD_TESTS
+   OR ARROW_HDFS
+   OR ARROW_GANDIVA
+   OR ARROW_PARQUET)
+  set(ARROW_BOOST_REQUIRED TRUE)
 else()
-  set(BOOST_SYSTEM_LIBRARY boost_system_static)
-  set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
-  set(BOOST_REGEX_LIBRARY boost_regex_static)
+  set(ARROW_BOOST_REQUIRED FALSE)
 endif()
-set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
 
-message(STATUS "Boost include dir: ${Boost_INCLUDE_DIR}")
-message(STATUS "Boost libraries: ${ARROW_BOOST_LIBS}")
+if(ARROW_BOOST_REQUIRED)
+  if(BOOST_SOURCE STREQUAL "AUTO")
+    find_package(BoostAlt ${ARROW_BOOST_REQUIRED_VERSION})
+    if(NOT BoostAlt_FOUND)
+      build_boost()
+    endif()
+  elseif(BOOST_SOURCE STREQUAL "BUNDLED")
+    build_boost()
+  elseif(BOOST_SOURCE STREQUAL "SYSTEM")
+    find_package(BoostAlt ${ARROW_BOOST_REQUIRED_VERSION} REQUIRED)
+  endif()
 
-include_directories(SYSTEM ${Boost_INCLUDE_DIR})
+  if(TARGET Boost::system)
+    set(BOOST_SYSTEM_LIBRARY Boost::system)
+    set(BOOST_FILESYSTEM_LIBRARY Boost::filesystem)
+    set(BOOST_REGEX_LIBRARY Boost::regex)
+  elseif(BoostAlt_FOUND)
+    set(BOOST_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY})
+    set(BOOST_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY})
+    set(BOOST_REGEX_LIBRARY ${Boost_REGEX_LIBRARY})
+  else()
+    set(BOOST_SYSTEM_LIBRARY boost_system_static)
+    set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
+    set(BOOST_REGEX_LIBRARY boost_regex_static)
+  endif()
+  set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
+
+  message(STATUS "Boost include dir: ${Boost_INCLUDE_DIR}")
+  message(STATUS "Boost libraries: ${ARROW_BOOST_LIBS}")
+
+  include_directories(SYSTEM ${Boost_INCLUDE_DIR})
+endif()
 
 # ----------------------------------------------------------------------
 # Google double-conversion

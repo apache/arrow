@@ -39,6 +39,7 @@ add_arrow_test(utility-test
                parsing_util_test.cc
                range_test.cc
                stl_util_test.cc
+               string_test.cc
                trie_test.cc
                utf8_util_test.cc)
 

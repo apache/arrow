@@ -27,8 +27,7 @@ NPROC=$(nproc)
 mkdir $BUILD_DIR
 pushd $BUILD_DIR
 
-cmake /arrow/cpp -DBOOST_SOURCE=BUNDLED \
-      -DARROW_BOOST_USE_SHARED=OFF \
+cmake /arrow/cpp \
       -DARROW_COMPUTE=OFF \
       -DARROW_DATASET=OFF \
       -DARROW_FILESYSTEM=OFF \
