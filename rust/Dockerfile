@@ -32,11 +32,12 @@ RUN rustup component add rustfmt --toolchain stable-x86_64-unknown-linux-gnu
 
 # Enable caching of dependencies
 RUN cargo install sccache
+WORKDIR /tmp
 RUN USER=root cargo init arrow-deps
 COPY rust/rust-toolchain arrow-deps
 COPY rust/Cargo.toml.cache arrow-deps/Cargo.toml
 ENV RUSTC_WRAPPER=sccache
-WORKDIR arrow-deps
+WORKDIR /tmp/arrow-deps
 RUN cargo build --verbose
 
 # Set environment variables for location of test data required by unit and integration tests
