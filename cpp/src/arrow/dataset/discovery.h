@@ -34,14 +34,6 @@
 namespace arrow {
 namespace dataset {
 
-struct ARROW_DS_EXPORT BuildOptions {
-  /// Schema to conform to.
-  std::shared_ptr<Schema> schema = NULLPTR;
-  /// The partition scheme indicate how to discover partitions for the data
-  /// source and fragments.
-  std::shared_ptr<PartitionScheme> partition_scheme = NULLPTR;
-};
-
 /// \brief DataSourceDiscovery provides a way to inspect a DataSource potential
 /// schema before materializing it. Thus, the user can peek the schema for
 /// data sources and decide on a unified schema. The pseudocode would look like
@@ -55,7 +47,8 @@ struct ARROW_DS_EXPORT BuildOptions {
 ///
 ///   sources = []
 ///   for f in factories:
-///     sources.append(f.Discover({schema: common_schema}))
+///     f.SetSchema(common_schema)
+///     sources.append(f.Finish())
 ///
 ///   return Dataset(sources, common_schema)
 class ARROW_DS_EXPORT DataSourceDiscovery {
@@ -63,12 +56,33 @@ class ARROW_DS_EXPORT DataSourceDiscovery {
   /// \brief Get the schema for the resulting DataSource.
   virtual Status Inspect(std::shared_ptr<Schema>* out) = 0;
 
+  std::shared_ptr<Schema> schema() const { return schema_; }
+  Status SetSchema(std::shared_ptr<Schema> schema) {
+    schema_ = schema;
+    return Status::OK();
+  }
+
+  std::shared_ptr<PartitionScheme> partition_scheme() const { return partition_scheme_; }
+  Status SetPartitionScheme(std::shared_ptr<PartitionScheme> partition_scheme) {
+    partition_scheme_ = partition_scheme;
+    return Status::OK();
+  }
+
+  std::shared_ptr<Expression> root_partition() const { return root_partition_; }
+  Status SetRootPartition(std::shared_ptr<Expression> partition) {
+    root_partition_ = partition;
+    return Status::OK();
+  }
+
   /// \brief Create a DataSource with a given partition.
-  virtual Status Build(const BuildOptions& options,
-                       std::shared_ptr<Expression> source_partition,
-                       std::shared_ptr<DataSource>* out) = 0;
+  virtual Status Finish(std::shared_ptr<DataSource>* out) = 0;
 
   virtual ~DataSourceDiscovery() = default;
+
+ protected:
+  std::shared_ptr<Schema> schema_;
+  std::shared_ptr<PartitionScheme> partition_scheme_;
+  std::shared_ptr<Expression> root_partition_;
 };
 
 /// \brief FileSystemDataSourceFactory creates a DataSource from a vector
@@ -85,8 +99,7 @@ class ARROW_DS_EXPORT FileSystemDataSourceDiscovery : public DataSourceDiscovery
 
   Status Inspect(std::shared_ptr<Schema>* out) override;
 
-  Status Build(const BuildOptions& options, std::shared_ptr<Expression> source_partition,
-               std::shared_ptr<DataSource>* out) override;
+  Status Finish(std::shared_ptr<DataSource>* out) override;
 
  protected:
   FileSystemDataSourceDiscovery(fs::FileSystem* filesystem,
