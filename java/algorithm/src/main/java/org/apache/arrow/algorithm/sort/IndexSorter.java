@@ -70,11 +70,21 @@ public class IndexSorter<V extends ValueVector> {
         if (low < high) {
           int mid = partition(low, high, indices, comparator);
 
-          rangeStack.push(low);
-          rangeStack.push(mid - 1);
+          // push the larger part to stack first,
+          // to reduce the required stack size
+          if (high - mid < mid - low) {
+            rangeStack.push(low);
+            rangeStack.push(mid - 1);
 
-          rangeStack.push(mid + 1);
-          rangeStack.push(high);
+            rangeStack.push(mid + 1);
+            rangeStack.push(high);
+          } else {
+            rangeStack.push(mid + 1);
+            rangeStack.push(high);
+
+            rangeStack.push(low);
+            rangeStack.push(mid - 1);
+          }
         }
       }
     }
