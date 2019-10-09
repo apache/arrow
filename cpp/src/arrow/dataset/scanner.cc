@@ -109,10 +109,10 @@ Status ScannerBuilder::Finish(std::unique_ptr<Scanner>* out) const {
   return Status::OK();
 }
 
-Status Scanner::ToTable(std::shared_ptr<Scanner> scanner, std::shared_ptr<Table>* out) {
+Status Scanner::ToTable(std::shared_ptr<Table>* out) {
   std::vector<std::shared_ptr<RecordBatch>> batches;
 
-  auto it_scantasks = scanner->Scan();
+  auto it_scantasks = Scan();
   RETURN_NOT_OK(it_scantasks.Visit([&batches](std::unique_ptr<ScanTask> task) -> Status {
     auto it = task->Scan();
     return it.Visit([&batches](std::shared_ptr<RecordBatch> batch) {

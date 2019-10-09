@@ -115,9 +115,9 @@ class ARROW_DS_EXPORT Scanner {
 
   /// \brief Convert a Scanner into a Table.
   ///
-  /// Use this convenience utility with care. This will serially materialize the
+  /// Use this convenience utility with care. This will serialy materialize the
   /// Scan result in memory before creating the Table.
-  static Status ToTable(std::shared_ptr<Scanner> scanner, std::shared_ptr<Table>* out);
+  Status ToTable(std::shared_ptr<Table>* out);
 };
 
 /// \brief SimpleScanner is a trivial Scanner implementation that flattens

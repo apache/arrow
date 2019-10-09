@@ -126,7 +126,7 @@ TEST_F(TestSimpleScanner, ToTable) {
 
   auto scanner = std::make_shared<SimpleScanner>(sources, options_, ctx_);
   std::shared_ptr<Table> actual;
-  ASSERT_OK(Scanner::ToTable(scanner, &actual));
+  ASSERT_OK(scanner->ToTable(&actual));
 
   AssertTablesEqual(*expected, *actual);
 }
