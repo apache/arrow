@@ -931,6 +931,39 @@ TEST_F(TestCast, DurationToCompatible) {
   ArrayFromVector<DurationType, int64_t>(duration(TimeUnit::SECOND), is_valid, v7, &arr);
   CheckZeroCopy(*arr, duration(TimeUnit::SECOND));
   CheckZeroCopy(*arr, int64());
+
+  // Divide, truncate
+  std::vector<int64_t> v8 = {0, 100123, 200456, 1123, 2456};
+  std::vector<int64_t> e8 = {0, 100, 200, 1, 2};
+
+  options.allow_time_truncate = true;
+  CheckDurationCast(options, TimeUnit::MILLI, TimeUnit::SECOND, v8, e8, is_valid);
+  CheckDurationCast(options, TimeUnit::MICRO, TimeUnit::MILLI, v8, e8, is_valid);
+  CheckDurationCast(options, TimeUnit::NANO, TimeUnit::MICRO, v8, e8, is_valid);
+
+  std::vector<int64_t> v9 = {0, 100123000, 200456000, 1123000, 2456000};
+  std::vector<int64_t> e9 = {0, 100, 200, 1, 2};
+  CheckDurationCast(options, TimeUnit::MICRO, TimeUnit::SECOND, v9, e9, is_valid);
+  CheckDurationCast(options, TimeUnit::NANO, TimeUnit::MILLI, v9, e9, is_valid);
+
+  std::vector<int64_t> v10 = {0, 100123000000L, 200456000000L, 1123000000L, 2456000000};
+  std::vector<int64_t> e10 = {0, 100, 200, 1, 2};
+  CheckDurationCast(options, TimeUnit::NANO, TimeUnit::SECOND, v10, e10, is_valid);
+
+  // Disallow truncate, failures
+  options.allow_time_truncate = false;
+  CheckFails<DurationType>(duration(TimeUnit::MILLI), v8, is_valid,
+                           duration(TimeUnit::SECOND), options);
+  CheckFails<DurationType>(duration(TimeUnit::MICRO), v8, is_valid,
+                           duration(TimeUnit::MILLI), options);
+  CheckFails<DurationType>(duration(TimeUnit::NANO), v8, is_valid,
+                           duration(TimeUnit::MICRO), options);
+  CheckFails<DurationType>(duration(TimeUnit::MICRO), v9, is_valid,
+                           duration(TimeUnit::SECOND), options);
+  CheckFails<DurationType>(duration(TimeUnit::NANO), v9, is_valid,
+                           duration(TimeUnit::MILLI), options);
+  CheckFails<DurationType>(duration(TimeUnit::NANO), v10, is_valid,
+                           duration(TimeUnit::SECOND), options);
 }
 
 TEST_F(TestCast, ToDouble) {
