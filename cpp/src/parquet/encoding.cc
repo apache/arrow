@@ -1104,7 +1104,7 @@ int PlainBooleanDecoder::DecodeArrow(
   for (int i = 0; i < num_values; ++i) {
     if (valid_reader.IsSet()) {
       bool value;
-      (void)bit_reader_->GetValue(1, &value);
+      ARROW_IGNORE_EXPR(bit_reader_->GetValue(1, &value));
       builder->UnsafeAppend(value);
     } else {
       builder->UnsafeAppendNull();
