@@ -37,19 +37,12 @@ try:
 except ImportError:
     # Package is not installed, parse git tag at runtime
     try:
+        import subprocess
         import setuptools_scm
-        # Code duplicated from setup.py to avoid a dependency on each other
-        def parse_git(root, **kwargs):
-            """
-            Parse function for setuptools_scm that ignores tags for non-C++
-            subprojects, e.g. apache-arrow-js-XXX tags.
-            """
-            from setuptools_scm.git import parse
-            kwargs['describe_command'] = \
-                "git describe --dirty --tags --long --match 'apache-arrow-[0-9].*'"
-            return parse(root, **kwargs)
-        __version__ = setuptools_scm.get_version('../',
-                                                 parse=parse_git)
+        __version__ = setuptools_scm.get_version(_os.path.join(_os.path.dirname(__file__), '../..'),
+                                        git_describe_command="git describe --dirty --tags --long --match 'apache-arrow-[0-9].*'")
+        __release_version__ = subprocess.check_output(["git", "describe", "--tags", "--abbrev=0"]).decode("utf-8").rstrip()
+
     except ImportError:
         __version__ = None
 
