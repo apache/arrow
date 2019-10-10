@@ -114,50 +114,74 @@ pub fn get_scalar_value(array: &ArrayRef, row: usize) -> Result<Option<ScalarVal
     }
     let value: Option<ScalarValue> = match array.data_type() {
         DataType::UInt8 => {
-            let z = array.as_any().downcast_ref::<array::UInt8Array>().unwrap();
-            Some(ScalarValue::UInt8(z.value(row)))
+            let array = array
+                .as_any()
+                .downcast_ref::<array::UInt8Array>()
+                .expect("Failed to cast array");
+            Some(ScalarValue::UInt8(array.value(row)))
         }
         DataType::UInt16 => {
-            let z = array.as_any().downcast_ref::<array::UInt16Array>().unwrap();
-            Some(ScalarValue::UInt16(z.value(row)))
+            let array = array
+                .as_any()
+                .downcast_ref::<array::UInt16Array>()
+                .expect("Failed to cast array");
+            Some(ScalarValue::UInt16(array.value(row)))
         }
         DataType::UInt32 => {
-            let z = array.as_any().downcast_ref::<array::UInt32Array>().unwrap();
-            Some(ScalarValue::UInt32(z.value(row)))
+            let array = array
+                .as_any()
+                .downcast_ref::<array::UInt32Array>()
+                .expect("Failed to cast array");
+            Some(ScalarValue::UInt32(array.value(row)))
         }
         DataType::UInt64 => {
-            let z = array.as_any().downcast_ref::<array::UInt64Array>().unwrap();
-            Some(ScalarValue::UInt64(z.value(row)))
+            let array = array
+                .as_any()
+                .downcast_ref::<array::UInt64Array>()
+                .expect("Failed to cast array");
+            Some(ScalarValue::UInt64(array.value(row)))
         }
         DataType::Int8 => {
-            let z = array.as_any().downcast_ref::<array::Int8Array>().unwrap();
-            Some(ScalarValue::Int8(z.value(row)))
+            let array = array
+                .as_any()
+                .downcast_ref::<array::Int8Array>()
+                .expect("Failed to cast array");
+            Some(ScalarValue::Int8(array.value(row)))
         }
         DataType::Int16 => {
-            let z = array.as_any().downcast_ref::<array::Int16Array>().unwrap();
-            Some(ScalarValue::Int16(z.value(row)))
+            let array = array
+                .as_any()
+                .downcast_ref::<array::Int16Array>()
+                .expect("Failed to cast array");
+            Some(ScalarValue::Int16(array.value(row)))
         }
         DataType::Int32 => {
-            let z = array.as_any().downcast_ref::<array::Int32Array>().unwrap();
-            Some(ScalarValue::Int32(z.value(row)))
+            let array = array
+                .as_any()
+                .downcast_ref::<array::Int32Array>()
+                .expect("Failed to cast array");
+            Some(ScalarValue::Int32(array.value(row)))
         }
         DataType::Int64 => {
-            let z = array.as_any().downcast_ref::<array::Int64Array>().unwrap();
-            Some(ScalarValue::Int64(z.value(row)))
+            let array = array
+                .as_any()
+                .downcast_ref::<array::Int64Array>()
+                .expect("Failed to cast array");
+            Some(ScalarValue::Int64(array.value(row)))
         }
         DataType::Float32 => {
-            let z = array
+            let array = array
                 .as_any()
                 .downcast_ref::<array::Float32Array>()
                 .unwrap();
-            Some(ScalarValue::Float32(z.value(row)))
+            Some(ScalarValue::Float32(array.value(row)))
         }
         DataType::Float64 => {
-            let z = array
+            let array = array
                 .as_any()
                 .downcast_ref::<array::Float64Array>()
                 .unwrap();
-            Some(ScalarValue::Float64(z.value(row)))
+            Some(ScalarValue::Float64(array.value(row)))
         }
         other => {
             return Err(ExecutionError::ExecutionError(format!(
