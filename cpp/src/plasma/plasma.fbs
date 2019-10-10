@@ -315,6 +315,10 @@ table PlasmaEvictReply {
 table PlasmaSubscribeRequest {
 }
 
+table PlasmaNotification {
+  object_info: [ObjectInfo];
+}
+
 table PlasmaDataRequest {
   // ID of the object that is requested.
   object_id: string;

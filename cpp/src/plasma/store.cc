@@ -604,6 +604,37 @@ void PlasmaStore::SealObject(const ObjectID& object_id, unsigned char digest[]) 
   UpdateObjectGetRequests(object_id);
 }
 
+void PlasmaStore::SealObjects(const std::vector<ObjectID>& object_ids,
+                              const std::vector<std::string>& digests) {
+
+  std::vector<ObjectInfoT> infos;
+  infos.reserve(object_ids.size());
+
+  ARROW_LOG(DEBUG) << "sealing " << object_ids.size() << " objects";
+  for (size_t i = 0; i < object_ids.size(); ++i) {
+    auto entry = GetObjectTableEntry(&store_info_, object_ids[i]);
+    ARROW_CHECK(entry != nullptr);
+    ARROW_CHECK(entry->state == ObjectState::PLASMA_CREATED);
+    // Set the state of object to SEALED.
+    entry->state = ObjectState::PLASMA_SEALED;
+    // Set the object digest.
+    std::memcpy(&entry->digest[0], digests[i].c_str(), kDigestSize);
+    // Set object construction duration.
+    entry->construct_duration = std::time(nullptr) - entry->create_time;
+    
+    infos[i].object_id = object_ids[i].binary();
+    infos[i].data_size = entry->data_size;
+    infos[i].metadata_size = entry->metadata_size;
+    infos[i].digest = digests[i];
+  }
+
+  PushNotifications(infos);
+
+  for (size_t i = 0; i < object_ids.size(); ++i) {
+    UpdateObjectGetRequests(object_ids[i]);
+  }
+}
+
 int PlasmaStore::AbortObject(const ObjectID& object_id, Client* client) {
   auto entry = GetObjectTableEntry(&store_info_, object_id);
   ARROW_CHECK(entry != nullptr) << "To abort an object it must be in the object table.";
@@ -843,8 +874,19 @@ PlasmaStore::NotificationMap::iterator PlasmaStore::SendNotifications(
 void PlasmaStore::PushNotification(fb::ObjectInfoT* object_info) {
   auto it = pending_notifications_.begin();
   while (it != pending_notifications_.end()) {
-    auto notification = CreateObjectInfoBuffer(object_info);
+    std::vector<fb::ObjectInfoT> info;
+    info.push_back(*object_info);
+    auto notification = CreatePlasmaNotificationBuffer(info);
     it->second.object_notifications.emplace_back(std::move(notification));
+    it = SendNotifications(it);
+  }
+}
+
+void PlasmaStore::PushNotifications(std::vector<fb::ObjectInfoT>& object_info) {
+  auto it = pending_notifications_.begin();
+  while (it != pending_notifications_.end()) {
+    auto notifications = CreatePlasmaNotificationBuffer(object_info);
+    it->second.object_notifications.emplace_back(std::move(notifications));
     it = SendNotifications(it);
   }
 }
@@ -852,7 +894,9 @@ void PlasmaStore::PushNotification(fb::ObjectInfoT* object_info) {
 void PlasmaStore::PushNotification(fb::ObjectInfoT* object_info, int client_fd) {
   auto it = pending_notifications_.find(client_fd);
   if (it != pending_notifications_.end()) {
-    auto notification = CreateObjectInfoBuffer(object_info);
+    std::vector<fb::ObjectInfoT> info;
+    info.push_back(*object_info);
+    auto notification = CreatePlasmaNotificationBuffer(info);
     it->second.object_notifications.emplace_back(std::move(notification));
     SendNotifications(it);
   }

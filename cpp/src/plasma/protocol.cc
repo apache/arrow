@@ -64,6 +64,11 @@ ToFlatbuffer(flatbuffers::FlatBufferBuilder* fbb,
   return fbb->CreateVector(arrow::util::MakeNonNull(results.data()), results.size());
 }
 
+flatbuffers::Offset<flatbuffers::Vector<long int>>
+ToFlatbuffer(flatbuffers::FlatBufferBuilder* fbb, const std::vector<int64_t>& data) {
+  return fbb->CreateVector(arrow::util::MakeNonNull(data.data()), data.size());
+}
+
 Status PlasmaReceive(int sock, MessageType message_type, std::vector<uint8_t>* buffer) {
   MessageType type;
   RETURN_NOT_OK(ReadMessage(sock, &type, buffer));

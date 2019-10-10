@@ -40,6 +40,18 @@ bool VerifyFlatbuffer(T* object, uint8_t* data, size_t size) {
   return object->Verify(verifier);
 }
 
+flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>>
+ToFlatbuffer(flatbuffers::FlatBufferBuilder* fbb, const ObjectID* object_ids,
+             int64_t num_objects);
+
+flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>>
+ToFlatbuffer(flatbuffers::FlatBufferBuilder* fbb,
+             const std::vector<std::string>& strings);
+
+flatbuffers::Offset<flatbuffers::Vector<long int>>
+ToFlatbuffer(flatbuffers::FlatBufferBuilder* fbb,
+             const std::vector<int64_t>& data);
+
 /* Plasma receive message. */
 
 Status PlasmaReceive(int sock, MessageType message_type, std::vector<uint8_t>* buffer);

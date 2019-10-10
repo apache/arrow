@@ -137,6 +137,9 @@ class PlasmaStore {
   /// objects with the same object ID are the same.
   void SealObject(const ObjectID& object_id, unsigned char digest[]);
 
+  void SealObjects(const std::vector<ObjectID>& object_id,
+                   const std::vector<std::string>& digests);
+
   /// Check if the plasma store contains an object:
   ///
   /// @param object_id Object ID that will be checked.
@@ -171,6 +174,8 @@ class PlasmaStore {
 
  private:
   void PushNotification(ObjectInfoT* object_notification);
+
+  void PushNotifications(std::vector<ObjectInfoT>& object_notifications);
 
   void PushNotification(ObjectInfoT* object_notification, int client_fd);
 
