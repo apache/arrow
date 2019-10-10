@@ -24,6 +24,16 @@ import sys as _sys
 
 try:
     from ._generated_version import version as __version__
+    # Obtain MAJOR.MINOR.PATH from full development version
+    release = __version__.split(".")[0:3]
+    if release[2] != 0:
+    # If there is distance from actual tag, decrement by 1
+    # REF: https://github.com/pypa/setuptools_scm#default-versioning-scheme
+        release = list(map(int, release))
+        release[2] = release[2] - 1
+        release = list(map(str, release))
+
+    __release_version__ = ".".join(release)
 except ImportError:
     # Package is not installed, parse git tag at runtime
     try:
