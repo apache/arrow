@@ -23,24 +23,63 @@ import java.sql.SQLException;
 import org.apache.arrow.vector.Float8Vector;
 
 /**
- * Consumer which consume double type values from {@link ResultSet}.
+ * Wrapper for consumers which consume double type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.Float8Vector}.
  */
-public class DoubleConsumer extends BaseJdbcConsumer<Float8Vector> {
+public class DoubleConsumer {
 
   /**
-   * Instantiate a DoubleConsumer.
+   * Creates a consumer for {@link Float8Vector}.
    */
-  public DoubleConsumer(Float8Vector vector, int index, boolean nullable) {
-    super(vector, index, nullable);
+  public static JdbcConsumer<Float8Vector> createConsumer(Float8Vector vector, int index, boolean nullable) {
+    if (nullable) {
+      return new NullableDoubleConsumer(vector, index);
+    } else {
+      return new NonNullableDoubleConsumer(vector, index);
+    }
   }
 
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    double value = resultSet.getDouble(columnIndexInResultSet);
-    if (!nullable || !resultSet.wasNull()) {
-      vector.setSafe(currentIndex, value);
+  /**
+   * Nullable double consumer.
+   */
+  static class NullableDoubleConsumer extends BaseJdbcConsumer<Float8Vector> {
+
+    /**
+     * Instantiate a DoubleConsumer.
+     */
+    public NullableDoubleConsumer(Float8Vector vector, int index) {
+      super(vector, index);
     }
-    currentIndex++;
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      double value = resultSet.getDouble(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        vector.setSafe(currentIndex, value);
+      }
+      currentIndex++;
+    }
+  }
+
+  /**
+   * Non-nullable double consumer.
+   */
+  static class NonNullableDoubleConsumer extends BaseJdbcConsumer<Float8Vector> {
+
+    /**
+     * Instantiate a DoubleConsumer.
+     */
+    public NonNullableDoubleConsumer(Float8Vector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      double value = resultSet.getDouble(columnIndexInResultSet);
+      vector.setSafe(currentIndex, value);
+      currentIndex++;
+    }
   }
 }
+
+

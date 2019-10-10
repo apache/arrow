@@ -23,24 +23,61 @@ import java.sql.SQLException;
 import org.apache.arrow.vector.IntVector;
 
 /**
- * Consumer which consume int type values from {@link ResultSet}.
- * Write the data to {@link org.apache.arrow.vector.IntVector}.
+ * Wrapper for consumers which consume int type values from {@link ResultSet}.
+ * Write the data to {@link IntVector}.
  */
-public class IntConsumer extends BaseJdbcConsumer<IntVector> {
+public class IntConsumer {
 
   /**
-   * Instantiate a IntConsumer.
+   * Creates a consumer for {@link IntVector}.
    */
-  public IntConsumer(IntVector vector, int index, boolean nullable) {
-    super(vector, index, nullable);
+  public static JdbcConsumer<IntVector> createConsumer(IntVector vector, int index, boolean nullable) {
+    if (nullable) {
+      return new NullableIntConsumer(vector, index);
+    } else {
+      return new NonNullableIntConsumer(vector, index);
+    }
   }
 
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    int value = resultSet.getInt(columnIndexInResultSet);
-    if (!nullable || !resultSet.wasNull()) {
-      vector.setSafe(currentIndex, value);
+  /**
+   * Nullable consumer for int.
+   */
+  static class NullableIntConsumer extends BaseJdbcConsumer<IntVector> {
+
+    /**
+     * Instantiate a IntConsumer.
+     */
+    public NullableIntConsumer(IntVector vector, int index) {
+      super(vector, index);
     }
-    currentIndex++;
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      int value = resultSet.getInt(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        vector.setSafe(currentIndex, value);
+      }
+      currentIndex++;
+    }
+  }
+
+  /**
+   * Non-nullable consumer for int.
+   */
+  static class NonNullableIntConsumer extends BaseJdbcConsumer<IntVector> {
+
+    /**
+     * Instantiate a IntConsumer.
+     */
+    public NonNullableIntConsumer(IntVector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      int value = resultSet.getInt(columnIndexInResultSet);
+      vector.setSafe(currentIndex, value);
+      currentIndex++;
+    }
   }
 }

@@ -23,24 +23,62 @@ import java.sql.SQLException;
 import org.apache.arrow.vector.BigIntVector;
 
 /**
- * Consumer which consume bigint type values from {@link ResultSet}.
+ * Wrapper for consumers which consume bigint type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.BigIntVector}.
  */
-public class BigIntConsumer extends BaseJdbcConsumer<BigIntVector> {
+public class BigIntConsumer {
 
   /**
-   * Instantiate a BigIntConsumer.
+   * Creates a consumer for {@link BigIntVector}.
    */
-  public BigIntConsumer(BigIntVector vector, int index, boolean nullable) {
-    super(vector, index, nullable);
+  public static JdbcConsumer<BigIntVector> createConsumer(BigIntVector vector, int index, boolean nullable) {
+    if (nullable) {
+      return new NullableBigIntConsumer(vector, index);
+    } else {
+      return new NonNullableBigIntConsumer(vector, index);
+    }
   }
 
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    long value = resultSet.getLong(columnIndexInResultSet);
-    if (!nullable || !resultSet.wasNull()) {
-      vector.setSafe(currentIndex, value);
+  /**
+   * Nullable consumer for big int.
+   */
+  static class NullableBigIntConsumer extends BaseJdbcConsumer<BigIntVector> {
+
+    /**
+     * Instantiate a BigIntConsumer.
+     */
+    public NullableBigIntConsumer(BigIntVector vector, int index) {
+      super(vector, index);
     }
-    currentIndex++;
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      long value = resultSet.getLong(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        vector.setSafe(currentIndex, value);
+      }
+      currentIndex++;
+    }
+  }
+
+  /**
+   * Non-nullable consumer for big int.
+   */
+  static class NonNullableBigIntConsumer extends BaseJdbcConsumer<BigIntVector> {
+
+    /**
+     * Instantiate a BigIntConsumer.
+     */
+    public NonNullableBigIntConsumer(BigIntVector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      long value = resultSet.getLong(columnIndexInResultSet);
+      vector.setSafe(currentIndex, value);
+      currentIndex++;
+    }
   }
 }
+

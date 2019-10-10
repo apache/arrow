@@ -30,14 +30,25 @@ import org.apache.arrow.vector.VarBinaryVector;
  */
 public class BlobConsumer extends BaseJdbcConsumer<VarBinaryVector> {
 
-  private BinaryConsumer delegate;
+  private final boolean nullable;
+
+  /**
+   * Creates a consumer for {@link VarBinaryVector}.
+   */
+  public static JdbcConsumer<VarBinaryVector> createConsumer(
+          JdbcConsumer<VarBinaryVector> delegate, int index, boolean nullable) {
+    return new BlobConsumer(delegate, index, nullable);
+  }
+
+  private BinaryConsumer.NullableBinaryConsumer delegate;
 
   /**
    * Instantiate a BlobConsumer.
    */
-  public BlobConsumer(BinaryConsumer delegate, int index, boolean nullable) {
-    super(null, index, nullable);
-    this.delegate = delegate;
+  public BlobConsumer(JdbcConsumer<VarBinaryVector> delegate, int index, boolean nullable) {
+    super(null, index);
+    this.nullable = nullable;
+    this.delegate = (BinaryConsumer.NullableBinaryConsumer) delegate;
   }
 
   @Override
@@ -51,6 +62,7 @@ public class BlobConsumer extends BaseJdbcConsumer<VarBinaryVector> {
 
   @Override
   public void resetValueVector(VarBinaryVector vector) {
-    delegate = new BinaryConsumer(vector, columnIndexInResultSet, nullable);
+    delegate = (BinaryConsumer.NullableBinaryConsumer) BinaryConsumer.createConsumer(
+            vector, columnIndexInResultSet, nullable);
   }
 }

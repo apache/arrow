@@ -29,27 +29,97 @@ import io.netty.buffer.ArrowBuf;
 import io.netty.util.internal.PlatformDependent;
 
 /**
- * Consumer which consume clob type values from {@link ResultSet}.
+ * Wrapper for consumers which consume clob type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.VarCharVector}.
  */
-public class ClobConsumer extends BaseJdbcConsumer<VarCharVector> {
-
-  private static final int BUFFER_SIZE = 256;
+public class ClobConsumer {
 
   /**
-   * Instantiate a ClobConsumer.
+   * Creates a consumer for {@link VarCharVector}.
    */
-  public ClobConsumer(VarCharVector vector, int index, boolean nullable) {
-    super(vector, index, nullable);
-    if (vector != null) {
-      vector.allocateNewSafe();
+  public static JdbcConsumer<VarCharVector> createConsumer(VarCharVector vector, int index, boolean nullable) {
+    if (nullable) {
+      return new NullableClobConsumer(vector, index);
+    } else {
+      return new NonNullableClobConsumer(vector, index);
     }
   }
 
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    Clob clob = resultSet.getClob(columnIndexInResultSet);
-    if (!nullable || !resultSet.wasNull()) {
+  /**
+   * Nullable consumer for clob data.
+   */
+  static class NullableClobConsumer extends BaseJdbcConsumer<VarCharVector> {
+
+    protected static final int BUFFER_SIZE = 256;
+
+    /**
+     * Instantiate a ClobConsumer.
+     */
+    public NullableClobConsumer(VarCharVector vector, int index) {
+      super(vector, index);
+      if (vector != null) {
+        vector.allocateNewSafe();
+      }
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      Clob clob = resultSet.getClob(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        if (clob != null) {
+          long length = clob.length();
+
+          int read = 1;
+          int readSize = length < BUFFER_SIZE ? (int) length : BUFFER_SIZE;
+          int totalBytes = 0;
+
+          ArrowBuf dataBuffer = vector.getDataBuffer();
+          ArrowBuf offsetBuffer = vector.getOffsetBuffer();
+          int startIndex = offsetBuffer.getInt(currentIndex * 4);
+          while (read <= length) {
+            String str = clob.getSubString(read, readSize);
+            byte[] bytes = str.getBytes(StandardCharsets.UTF_8);
+
+            while ((dataBuffer.writerIndex() + bytes.length) > dataBuffer.capacity()) {
+              vector.reallocDataBuffer();
+            }
+            PlatformDependent.copyMemory(bytes, 0,
+                    dataBuffer.memoryAddress() + startIndex + totalBytes, bytes.length);
+
+            totalBytes += bytes.length;
+            read += readSize;
+          }
+          offsetBuffer.setInt((currentIndex + 1) * 4, startIndex + totalBytes);
+          BitVectorHelper.setValidityBitToOne(vector.getValidityBuffer(), currentIndex);
+          vector.setLastSet(currentIndex);
+        }
+      }
+      currentIndex++;
+    }
+
+    @Override
+    public void resetValueVector(VarCharVector vector) {
+      this.vector = vector;
+      this.vector.allocateNewSafe();
+      this.currentIndex = 0;
+    }
+  }
+
+  /**
+   * Non-nullable consumer for clob data.
+   */
+  static class NonNullableClobConsumer extends NullableClobConsumer {
+
+    /**
+     * Instantiate a ClobConsumer.
+     */
+    public NonNullableClobConsumer(VarCharVector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      Clob clob = resultSet.getClob(columnIndexInResultSet);
       if (clob != null) {
         long length = clob.length();
 
@@ -68,7 +138,7 @@ public class ClobConsumer extends BaseJdbcConsumer<VarCharVector> {
             vector.reallocDataBuffer();
           }
           PlatformDependent.copyMemory(bytes, 0,
-              dataBuffer.memoryAddress() + startIndex + totalBytes, bytes.length);
+                  dataBuffer.memoryAddress() + startIndex + totalBytes, bytes.length);
 
           totalBytes += bytes.length;
           read += readSize;
@@ -77,14 +147,9 @@ public class ClobConsumer extends BaseJdbcConsumer<VarCharVector> {
         BitVectorHelper.setValidityBitToOne(vector.getValidityBuffer(), currentIndex);
         vector.setLastSet(currentIndex);
       }
+      currentIndex++;
     }
-    currentIndex++;
-  }
-
-  @Override
-  public void resetValueVector(VarCharVector vector) {
-    this.vector = vector;
-    this.vector.allocateNewSafe();
-    this.currentIndex = 0;
   }
 }
+
+

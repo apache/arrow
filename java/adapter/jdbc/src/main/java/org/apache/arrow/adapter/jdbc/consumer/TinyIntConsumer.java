@@ -23,24 +23,63 @@ import java.sql.SQLException;
 import org.apache.arrow.vector.TinyIntVector;
 
 /**
- * Consumer which consume tinyInt type values from {@link ResultSet}.
+ * Wrapper for consumers which consume tinyInt type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.TinyIntVector}.
  */
-public class TinyIntConsumer extends BaseJdbcConsumer<TinyIntVector> {
+public class TinyIntConsumer {
 
   /**
-   * Instantiate a TinyIntConsumer.
+   * Creates a consumer for {@link TinyIntVector}.
    */
-  public TinyIntConsumer(TinyIntVector vector, int index, boolean nullable) {
-    super(vector, index, nullable);
+  public static JdbcConsumer<TinyIntVector> createConsumer(TinyIntVector vector, int index, boolean nullable) {
+    if (nullable) {
+      return new NullableTinyIntConsumer(vector, index);
+    } else {
+      return new NonNullableTinyIntConsumer(vector, index);
+    }
   }
 
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    byte value = resultSet.getByte(columnIndexInResultSet);
-    if (!nullable || !resultSet.wasNull()) {
-      vector.setSafe(currentIndex, value);
+  /**
+   * Nullable consumer for tiny int.
+   */
+  static class NullableTinyIntConsumer extends BaseJdbcConsumer<TinyIntVector> {
+
+    /**
+     * Instantiate a TinyIntConsumer.
+     */
+    public NullableTinyIntConsumer(TinyIntVector vector, int index) {
+      super(vector, index);
     }
-    currentIndex++;
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      byte value = resultSet.getByte(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        vector.setSafe(currentIndex, value);
+      }
+      currentIndex++;
+    }
+  }
+
+  /**
+   * Non-nullable consumer for tiny int.
+   */
+  static class NonNullableTinyIntConsumer extends BaseJdbcConsumer<TinyIntVector> {
+
+    /**
+     * Instantiate a TinyIntConsumer.
+     */
+    public NonNullableTinyIntConsumer(TinyIntVector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      byte value = resultSet.getByte(columnIndexInResultSet);
+      vector.setSafe(currentIndex, value);
+      currentIndex++;
+    }
   }
 }
+
+

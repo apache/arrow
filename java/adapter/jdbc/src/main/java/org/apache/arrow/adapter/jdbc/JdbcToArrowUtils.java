@@ -372,40 +372,40 @@ public class JdbcToArrowUtils {
     switch (jdbcColType) {
       case Types.BOOLEAN:
       case Types.BIT:
-        return new BitConsumer((BitVector) vector, columnIndex, nullable);
+        return BitConsumer.createConsumer((BitVector) vector, columnIndex, nullable);
       case Types.TINYINT:
-        return new TinyIntConsumer((TinyIntVector) vector, columnIndex, nullable);
+        return TinyIntConsumer.createConsumer((TinyIntVector) vector, columnIndex, nullable);
       case Types.SMALLINT:
-        return new SmallIntConsumer((SmallIntVector) vector, columnIndex, nullable);
+        return SmallIntConsumer.createConsumer((SmallIntVector) vector, columnIndex, nullable);
       case Types.INTEGER:
-        return new IntConsumer((IntVector) vector, columnIndex, nullable);
+        return IntConsumer.createConsumer((IntVector) vector, columnIndex, nullable);
       case Types.BIGINT:
-        return new BigIntConsumer((BigIntVector) vector, columnIndex, nullable);
+        return BigIntConsumer.createConsumer((BigIntVector) vector, columnIndex, nullable);
       case Types.NUMERIC:
       case Types.DECIMAL:
-        return new DecimalConsumer((DecimalVector) vector, columnIndex, nullable);
+        return DecimalConsumer.createConsumer((DecimalVector) vector, columnIndex, nullable);
       case Types.REAL:
       case Types.FLOAT:
-        return new FloatConsumer((Float4Vector) vector, columnIndex, nullable);
+        return FloatConsumer.createConsumer((Float4Vector) vector, columnIndex, nullable);
       case Types.DOUBLE:
-        return new DoubleConsumer((Float8Vector) vector, columnIndex, nullable);
+        return DoubleConsumer.createConsumer((Float8Vector) vector, columnIndex, nullable);
       case Types.CHAR:
       case Types.NCHAR:
       case Types.VARCHAR:
       case Types.NVARCHAR:
       case Types.LONGVARCHAR:
       case Types.LONGNVARCHAR:
-        return new VarCharConsumer((VarCharVector) vector, columnIndex, nullable);
+        return VarCharConsumer.createConsumer((VarCharVector) vector, columnIndex, nullable);
       case Types.DATE:
-        return new DateConsumer((DateMilliVector) vector, columnIndex, nullable, calendar);
+        return DateConsumer.createConsumer((DateMilliVector) vector, columnIndex, nullable, calendar);
       case Types.TIME:
-        return new TimeConsumer((TimeMilliVector) vector, columnIndex, nullable, calendar);
+        return TimeConsumer.createConsumer((TimeMilliVector) vector, columnIndex, nullable, calendar);
       case Types.TIMESTAMP:
-        return new TimestampConsumer((TimeStampMilliTZVector) vector, columnIndex, nullable, calendar);
+        return TimestampConsumer.createConsumer((TimeStampMilliTZVector) vector, columnIndex, nullable, calendar);
       case Types.BINARY:
       case Types.VARBINARY:
       case Types.LONGVARBINARY:
-        return new BinaryConsumer((VarBinaryVector) vector, columnIndex, nullable);
+        return BinaryConsumer.createConsumer((VarBinaryVector) vector, columnIndex, nullable);
       case Types.ARRAY:
         final JdbcFieldInfo fieldInfo = getJdbcFieldInfoForArraySubType(resultSet.getMetaData(), columnIndex, config);
         if (fieldInfo == null) {
@@ -413,12 +413,13 @@ public class JdbcToArrowUtils {
         }
         JdbcConsumer delegate = getConsumer(resultSet, JDBC_ARRAY_VALUE_COLUMN,
             fieldInfo.getJdbcType(), ((ListVector)vector).getDataVector(), config);
-        return new ArrayConsumer((ListVector) vector, delegate, columnIndex, nullable);
+        return ArrayConsumer.createConsumer((ListVector) vector, delegate, columnIndex, nullable);
       case Types.CLOB:
-        return new ClobConsumer((VarCharVector) vector, columnIndex, nullable);
+        return ClobConsumer.createConsumer((VarCharVector) vector, columnIndex, nullable);
       case Types.BLOB:
-        BinaryConsumer blobDelegate = new BinaryConsumer((VarBinaryVector) vector, columnIndex, nullable);
-        return new BlobConsumer(blobDelegate, columnIndex, nullable);
+        JdbcConsumer<VarBinaryVector> blobDelegate =
+                BinaryConsumer.createConsumer((VarBinaryVector) vector, columnIndex, nullable);
+        return BlobConsumer.createConsumer(blobDelegate, columnIndex, nullable);
       default:
         // no-op, shouldn't get here
         throw new UnsupportedOperationException();

@@ -23,24 +23,62 @@ import java.sql.SQLException;
 import org.apache.arrow.vector.BitVector;
 
 /**
- * Consumer which consume bit type values from {@link ResultSet}.
+ * Wrapper for consumers which consume bit type values from {@link ResultSet}.
  * Write the data to {@link BitVector}.
  */
-public class BitConsumer extends BaseJdbcConsumer<BitVector> {
+public class BitConsumer {
 
   /**
-   * Instantiate a BitConsumer.
+   * Creates a consumer for {@link BitVector}.
    */
-  public BitConsumer(BitVector vector, int index, boolean nullable) {
-    super(vector, index, nullable);
+  public static JdbcConsumer<BitVector> createConsumer(BitVector vector, int index, boolean nullable) {
+    if (nullable) {
+      return new NullableBitConsumer(vector, index);
+    } else {
+      return new NonNullableBitConsumer(vector, index);
+    }
   }
 
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    boolean value = resultSet.getBoolean(columnIndexInResultSet);
-    if (!nullable || !resultSet.wasNull()) {
-      vector.setSafe(currentIndex, value ? 1 : 0);
+  /**
+   * Nullable consumer for {@link BitVector}.
+   */
+  static class NullableBitConsumer extends BaseJdbcConsumer<BitVector> {
+
+    /**
+     * Instantiate a BitConsumer.
+     */
+    public NullableBitConsumer(BitVector vector, int index) {
+      super(vector, index);
     }
-    currentIndex++;
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      boolean value = resultSet.getBoolean(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        vector.setSafe(currentIndex, value ? 1 : 0);
+      }
+      currentIndex++;
+    }
+  }
+
+  /**
+   * Non-nullable consumer for {@link BitVector}.
+   */
+  static class NonNullableBitConsumer extends BaseJdbcConsumer<BitVector> {
+
+    /**
+     * Instantiate a BitConsumer.
+     */
+    public NonNullableBitConsumer(BitVector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      boolean value = resultSet.getBoolean(columnIndexInResultSet);
+      vector.setSafe(currentIndex, value ? 1 : 0);
+      currentIndex++;
+    }
   }
 }
+
