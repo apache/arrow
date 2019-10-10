@@ -20,6 +20,7 @@ context("Parquet file reading/writing")
 pq_file <- system.file("v0.7.1.parquet", package="arrow")
 
 test_that("reading a known Parquet file to tibble", {
+  skip_if_not_available("parquet")
   df <- read_parquet(pq_file)
   expect_true(tibble::is_tibble(df))
   expect_identical(dim(df), c(10L, 11L))
@@ -37,6 +38,7 @@ test_that("simple int column roundtrip", {
 })
 
 test_that("read_parquet() supports col_select", {
+  skip_if_not_available("parquet")
   df <- read_parquet(pq_file, col_select = c(x, y, z))
   expect_equal(names(df), c("x", "y", "z"))
 
@@ -45,6 +47,7 @@ test_that("read_parquet() supports col_select", {
 })
 
 test_that("read_parquet() with raw data", {
+  skip_if_not_available("parquet")
   test_raw <- readBin(pq_file, what = "raw", n = 5000)
   df <- read_parquet(test_raw)
   expect_identical(dim(df), c(10L, 11L))
