@@ -202,6 +202,24 @@ TEST(TestVectorIterator, RangeForLoop) {
   ASSERT_EQ(ints_it, ints.end());
 }
 
+TEST(TestFunctionIterator, RangeForLoop) {
+  int i = 0;
+  auto fails_at_3 = MakeFunctionIterator([&](TestInt* out) {
+    if (i >= 3) {
+      return Status::IndexError("fails at 3");
+    }
+    out->value = i++;
+    return Status::OK();
+  });
+  Status status;
+  int j = 0;
+  for (TestInt i : fails_at_3.AsRange(&status)) {
+    ASSERT_LT(i.value, 3);
+    ASSERT_EQ(i.value, j++);
+  }
+  ASSERT_RAISES(IndexError, status);
+}
+
 TEST(FilterIterator, Basic) {
   AssertIteratorMatch({1, 2, 3, 4}, FilterIt(VectorIt({1, 2, 3, 4}),
                                              [](TestInt i, TestInt* o, bool* accept) {
