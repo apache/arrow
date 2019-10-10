@@ -92,6 +92,53 @@ class Iterator {
 
   explicit operator bool() const { return ptr_ != NULLPTR; }
 
+  class Range {
+   public:
+    Range(Iterator iterator, Status* status)
+        : iterator_(std::move(iterator)), status_(status) {}
+
+    class iterator {
+     public:
+      iterator() = default;
+
+      explicit iterator(Range* r)
+          : iterator_(std::move(r->iterator_)), status_(r->status_) {
+        Next();
+      }
+
+      bool operator!=(const iterator& other) const { return !(value_ == other.value_); }
+
+      iterator& operator++() {
+        Next();
+        return *this;
+      }
+
+      T operator*() { return std::move(value_); }
+
+     private:
+      void Next() {
+        *status_ = iterator_.Next(&value_);
+        if (!status_->ok()) {
+          value_ = IterationTraits<T>::End();
+        }
+      }
+
+      T value_ = IterationTraits<T>::End();
+      Iterator iterator_;
+      Status* status_ = NULLPTR;
+    };
+
+    iterator begin() { return iterator(this); }
+
+    iterator end() { return iterator(); }
+
+   private:
+    Iterator iterator_;
+    Status* status_;
+  };
+
+  Range AsRange(Status* status) { return Range{std::move(*this), status}; }
+
  private:
   /// Implementation of deleter for ptr_: Casts from void* to the wrapped type and
   /// deletes that.

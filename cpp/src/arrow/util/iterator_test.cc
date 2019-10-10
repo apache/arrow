@@ -177,6 +177,31 @@ TEST(TestVectorIterator, Basic) {
   AssertIteratorNoMatch({1, 2, 3, 1}, VectorIt({1, 2, 3}));
 }
 
+TEST(TestVectorIterator, RangeForLoop) {
+  std::vector<TestInt> ints = {1, 2, 3, 4};
+
+  auto ints_it = ints.begin();
+  Status status;
+  for (auto v : VectorIt(ints).AsRange(&status)) {
+    ASSERT_EQ(v, *ints_it++);
+  }
+  ASSERT_OK(status);
+  ASSERT_EQ(ints_it, ints.end());
+
+  std::vector<std::unique_ptr<TestInt>> vec;
+  for (TestInt i : ints) {
+    vec.emplace_back(new TestInt(i));
+  }
+
+  // also works with move only types
+  ints_it = ints.begin();
+  for (auto v : MakeVectorIterator(std::move(vec)).AsRange(&status)) {
+    ASSERT_EQ(*v, *ints_it++);
+  }
+  ASSERT_OK(status);
+  ASSERT_EQ(ints_it, ints.end());
+}
+
 TEST(FilterIterator, Basic) {
   AssertIteratorMatch({1, 2, 3, 4}, FilterIt(VectorIt({1, 2, 3, 4}),
                                              [](TestInt i, TestInt* o, bool* accept) {
