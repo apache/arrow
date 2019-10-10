@@ -632,15 +632,6 @@ class EncodingAdHocTyped<std::pair<ArrowType, ParquetType>> : public ::testing::
       return;
     }
 
-    /*
-    auto dict_values =
-        arrow::ArrayFromJSON(arrow::binary(), "[\"foo\", \"bar\", \"baz\"]");
-
-    auto expected = arrow::ArrayFromJSON(arrow::binary(),
-                                         "[\"foo\", \"bar\", \"baz\", null, "
-                                         "\"foo\", \"bar\", null, \"baz\"]");
-                                         */
-
     auto dict_values =
         arrow::ArrayFromJSON(arrow_type(), std::is_same<ParquetType, FLBAType>::value
                                                ? R"(["abcdefgh", "ijklmnop", "qrstuvwx"])"
