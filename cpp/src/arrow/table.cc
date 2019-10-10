@@ -511,12 +511,13 @@ Status ConcatenateTables(const std::vector<std::shared_ptr<Table>>& tables,
   return Status::OK();
 }
 
-Status ConcatenateTablesWithPromotion(MemoryPool* pool,
-                                      const std::vector<std::shared_ptr<Table>>& tables,
-                                      std::shared_ptr<Table>* out) {
+Status ConcatenateTablesWithPromotion(const std::vector<std::shared_ptr<Table>>& tables,
+                                      MemoryPool* pool, std::shared_ptr<Table>* out) {
   std::vector<std::shared_ptr<Schema>> schemas;
   schemas.reserve(tables.size());
-  for (const auto& t : tables) schemas.push_back(t->schema());
+  for (const auto& t : tables) {
+    schemas.push_back(t->schema());
+  }
   std::shared_ptr<Schema> unified_schema;
   RETURN_NOT_OK(UnifySchemas(schemas, &unified_schema));
 
@@ -524,15 +525,14 @@ Status ConcatenateTablesWithPromotion(MemoryPool* pool,
   promoted_tables.reserve(tables.size());
   for (const auto& t : tables) {
     promoted_tables.emplace_back();
-    RETURN_NOT_OK(PromoteTableToSchema(pool, t, unified_schema, &promoted_tables.back()));
+    RETURN_NOT_OK(PromoteTableToSchema(t, unified_schema, pool, &promoted_tables.back()));
   }
 
   return ConcatenateTables(promoted_tables, out);
 }
 
-ARROW_EXPORT
-Status PromoteTableToSchema(MemoryPool* pool, const std::shared_ptr<Table>& table,
-                            const std::shared_ptr<Schema>& schema,
+Status PromoteTableToSchema(const std::shared_ptr<Table>& table,
+                            const std::shared_ptr<Schema>& schema, MemoryPool* pool,
                             std::shared_ptr<Table>* out) {
   const std::shared_ptr<Schema> current_schema = table->schema();
   if (current_schema->Equals(*schema, /*check_metadata=*/false)) {

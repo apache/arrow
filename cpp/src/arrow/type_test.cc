@@ -437,7 +437,8 @@ class TestUnifySchemas : public TestSchema {
       auto lhs_field = lhs.field(i);
       auto rhs_field = rhs.GetFieldByName(lhs_field->name());
       ASSERT_NE(nullptr, rhs_field);
-      ASSERT_TRUE(lhs_field->Equals(rhs_field, true));
+      ASSERT_TRUE(lhs_field->Equals(rhs_field, true))
+          << lhs_field->ToString() << " vs " << rhs_field->ToString();
     }
   }
 };
@@ -489,18 +490,18 @@ TEST_F(TestUnifySchemas, PromoteNullTypeField) {
   auto metadata =
       std::shared_ptr<KeyValueMetadata>(new KeyValueMetadata({"foo"}, {"bar"}));
   auto null_field = field("f", null());
-  auto int32_field = field("f", int32());
+  auto int32_field = field("f", int32(), /*nullable=*/false);
 
   auto schema1 = schema({null_field->WithMetadata(metadata)});
   auto schema2 = schema({int32_field});
 
   std::shared_ptr<Schema> result;
   ASSERT_OK(UnifySchemas({schema1, schema2}, &result));
-  AssertSchemaEqualsUnorderedFields(*result,
-                                    *schema({int32_field->WithMetadata(metadata)}));
+  AssertSchemaEqualsUnorderedFields(
+      *result, *schema({int32_field->WithMetadata(metadata)->WithNullable(true)}));
 
   ASSERT_OK(UnifySchemas({schema2, schema1}, &result));
-  AssertSchemaEqualsUnorderedFields(*result, *schema({int32_field}));
+  AssertSchemaEqualsUnorderedFields(*result, *schema({int32_field->WithNullable(true)}));
 }
 
 TEST_F(TestUnifySchemas, MoreSchemas) {
@@ -511,8 +512,9 @@ TEST_F(TestUnifySchemas, MoreSchemas) {
   std::shared_ptr<Schema> result;
   ASSERT_OK(UnifySchemas(
       {schema({int32_field}), schema({uint8_field}), schema({utf8_field})}, &result));
-  AssertSchemaEqualsUnorderedFields(*result,
-                                    *schema({int32_field, uint8_field, utf8_field}));
+  AssertSchemaEqualsUnorderedFields(
+      *result, *schema({int32_field->WithNullable(true), uint8_field->WithNullable(true),
+                        utf8_field->WithNullable(true)}));
 }
 
 TEST_F(TestUnifySchemas, IncompatibleTypes) {

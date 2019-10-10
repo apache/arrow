@@ -432,8 +432,8 @@ TEST_F(TestPromoteTableToSchema, IdenticalSchema) {
   std::shared_ptr<Table> table = Table::Make(schema_, arrays_);
 
   std::shared_ptr<Table> result;
-  ASSERT_OK(PromoteTableToSchema(default_memory_pool(), table,
-                                 schema_->WithMetadata(metadata), &result));
+  ASSERT_OK(PromoteTableToSchema(table, schema_->WithMetadata(metadata),
+                                 default_memory_pool(), &result));
 
   std::shared_ptr<Table> expected = table->ReplaceSchemaMetadata(metadata);
 
@@ -449,8 +449,8 @@ TEST_F(TestPromoteTableToSchema, PromoteNullTypeField) {
   auto promoted_schema = schema({field("field", int32())});
 
   std::shared_ptr<Table> result;
-  ASSERT_OK(PromoteTableToSchema(default_memory_pool(), table_with_null_column,
-                                 promoted_schema, &result));
+  ASSERT_OK(PromoteTableToSchema(table_with_null_column, promoted_schema,
+                                 default_memory_pool(), &result));
 
   ASSERT_TRUE(
       result->Equals(*MakeTableWithOneNullFilledColumn("field", int32(), length)));
@@ -463,7 +463,7 @@ TEST_F(TestPromoteTableToSchema, AddMissingField) {
   auto promoted_schema = schema({field("field", int32())});
 
   std::shared_ptr<Table> result;
-  ASSERT_OK(PromoteTableToSchema(default_memory_pool(), table, promoted_schema, &result));
+  ASSERT_OK(PromoteTableToSchema(table, promoted_schema, default_memory_pool(), &result));
 
   ASSERT_TRUE(
       result->Equals(*MakeTableWithOneNullFilledColumn("field", int32(), length)));
@@ -475,13 +475,12 @@ TEST_F(TestPromoteTableToSchema, IncompatibleTypes) {
 
   std::shared_ptr<Table> result;
   // Invalid promotion: int32 to null.
-  ASSERT_RAISES(Invalid, PromoteTableToSchema(default_memory_pool(), table,
-                                              schema({field("field", null())}), &result));
+  ASSERT_RAISES(Invalid, PromoteTableToSchema(table, schema({field("field", null())}),
+                                              default_memory_pool(), &result));
 
   // Invalid promotion: int32 to uint32.
-  ASSERT_RAISES(Invalid,
-                PromoteTableToSchema(default_memory_pool(), table,
-                                     schema({field("field", uint32())}), &result));
+  ASSERT_RAISES(Invalid, PromoteTableToSchema(table, schema({field("field", uint32())}),
+                                              default_memory_pool(), &result));
 }
 
 TEST_F(TestPromoteTableToSchema, DuplicateFieldNames) {
@@ -492,9 +491,8 @@ TEST_F(TestPromoteTableToSchema, DuplicateFieldNames) {
       {MakeRandomArray<Int32Array>(length), MakeRandomArray<NullArray>(length)});
 
   std::shared_ptr<Table> result;
-  ASSERT_RAISES(Invalid,
-                PromoteTableToSchema(default_memory_pool(), table,
-                                     schema({field("field", int32())}), &result));
+  ASSERT_RAISES(Invalid, PromoteTableToSchema(table, schema({field("field", int32())}),
+                                              default_memory_pool(), &result));
 }
 
 TEST_F(TestPromoteTableToSchema, TableFieldAbsentFromSchema) {
@@ -504,8 +502,8 @@ TEST_F(TestPromoteTableToSchema, TableFieldAbsentFromSchema) {
       Table::Make(schema({field("f0", int32())}), {MakeRandomArray<Int32Array>(length)});
 
   std::shared_ptr<Table> result;
-  ASSERT_RAISES(Invalid, PromoteTableToSchema(default_memory_pool(), table,
-                                              schema({field("f1", int32())}), &result));
+  ASSERT_RAISES(Invalid, PromoteTableToSchema(table, schema({field("f1", int32())}),
+                                              default_memory_pool(), &result));
 }
 
 class ConcatenateTablesWithPromotionTest : public TestTable {
@@ -565,11 +563,11 @@ TEST_F(ConcatenateTablesWithPromotionTest, Simple) {
   ASSERT_OK(Table::FromRecordBatches({batch2}, &t2));
   ASSERT_OK(Table::FromRecordBatches({batch2_null_filled}, &t3));
 
-  ASSERT_OK(ConcatenateTablesWithPromotion(default_memory_pool(), {t1, t2}, &result));
+  ASSERT_OK(ConcatenateTablesWithPromotion({t1, t2}, default_memory_pool(), &result));
   ASSERT_OK(ConcatenateTables({t1, t3}, &expected));
   AssertTablesEqualUnorderedFields(*expected, *result);
 
-  ASSERT_OK(ConcatenateTablesWithPromotion(default_memory_pool(), {t2, t1}, &result));
+  ASSERT_OK(ConcatenateTablesWithPromotion({t2, t1}, default_memory_pool(), &result));
   ASSERT_OK(ConcatenateTables({t3, t1}, &expected));
   AssertTablesEqualUnorderedFields(*expected, *result);
 }

@@ -318,9 +318,12 @@ Status ConcatenateTables(const std::vector<std::shared_ptr<Table>>& tables,
 /// - if the corresponding column's type is not compatible with the
 ///   schema.
 /// - if there is a column in the table that does not exist in the schema.
+///
+/// \param[in] pool The memory pool to be used if null-filled arrays need to
+/// be created.
 ARROW_EXPORT
-Status PromoteTableToSchema(MemoryPool* pool, const std::shared_ptr<Table>& table,
-                            const std::shared_ptr<Schema>& schema,
+Status PromoteTableToSchema(const std::shared_ptr<Table>& table,
+                            const std::shared_ptr<Schema>& schema, MemoryPool* pool,
                             std::shared_ptr<Table>* out);
 
 /// \brief Concatenate tables with null-filling and type promotion.
@@ -328,17 +331,17 @@ Status PromoteTableToSchema(MemoryPool* pool, const std::shared_ptr<Table>& tabl
 /// Columns of the same name will be concatenated. They should be of the
 /// same type, or be of type NULL, in which case it will be promoted to
 /// the type of other corresponding columns with null values filled.
-/// If some table is missing a column, a null values filled column will
-/// be created to participate the concatenation. The new schema will share
-/// the metadata with the first table. Each field in the new schema will share
-/// the metadata with the first table which has the field defined.
-
+/// If a table is missing a particular field, null values of the appropriate
+//  type will be generated to take the place of the missing field
+/// The new schema will share the metadata with the first table. Each field in
+/// the new schema will share the metadata with the first table which has the
+/// field defined.
+///
 /// \param[in] pool The memory pool to be used if null-filled arrays need to
 /// be created.
 ARROW_EXPORT
-Status ConcatenateTablesWithPromotion(MemoryPool* pool,
-                                      const std::vector<std::shared_ptr<Table>>& tables,
-                                      std::shared_ptr<Table>* table);
+Status ConcatenateTablesWithPromotion(const std::vector<std::shared_ptr<Table>>& tables,
+                                      MemoryPool* pool, std::shared_ptr<Table>* table);
 
 }  // namespace arrow
 

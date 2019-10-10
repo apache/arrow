@@ -359,6 +359,9 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
   /// \brief Return a copy of this field with the replaced name.
   std::shared_ptr<Field> WithName(const std::string& name) const;
 
+  /// \brief Return a copy of this field with the replaced nullability.
+  std::shared_ptr<Field> WithNullable(bool nullable) const;
+
   std::vector<std::shared_ptr<Field>> Flatten() const;
 
   bool Equals(const Field& other, bool check_metadata = true) const;
@@ -1535,7 +1538,7 @@ std::shared_ptr<Schema> schema(
 
 /// @}
 
-/// \brief Unifies schemas
+/// \brief Unifies schemas by unifying fields by name and promoting Null fields.
 ///
 /// The resulting schema will contain the union of fields from all schemas.
 /// Fields with the same name will be unified:
