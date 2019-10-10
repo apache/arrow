@@ -20,4 +20,4 @@ from ..utils.command import Command, default_bin
 
 class Cargo(Command):
     def __init__(self, cargo_bin=None):
-        self.bin = default_bin(cargo_bin, "CARGO", "cargo")
+        self.bin = default_bin(cargo_bin, "cargo")

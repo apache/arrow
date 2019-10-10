@@ -20,7 +20,7 @@ from ..utils.command import Command, CommandStackMixin, default_bin
 
 class Java(Command):
     def __init__(self, java_bin=None):
-        self.bin = default_bin(java_bin, "JAVA", "java")
+        self.bin = default_bin(java_bin, "java")
 
 
 class Jar(CommandStackMixin, Java):

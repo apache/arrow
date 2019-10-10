@@ -31,7 +31,7 @@ def git_cmd(fn):
 
 class Git(Command):
     def __init__(self, git_bin=None):
-        self.bin = default_bin(git_bin, "GIT", "git")
+        self.bin = default_bin(git_bin, "git")
 
     def run_cmd(self, cmd, *argv, git_dir=None, **kwargs):
         """ Inject flags before sub-command in argv. """

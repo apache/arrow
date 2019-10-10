@@ -24,7 +24,7 @@ from .command import Command, default_bin
 
 class CMake(Command):
     def __init__(self, cmake_bin=None):
-        self.bin = default_bin(cmake_bin, "CMAKE", "cmake")
+        self.bin = default_bin(cmake_bin, "cmake")
 
     @staticmethod
     def default_generator():

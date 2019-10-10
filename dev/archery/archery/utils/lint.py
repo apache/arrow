@@ -53,7 +53,10 @@ def cpp_linter(src, build_dir, clang_format=True, cpplint=True,
     # which in turn is required by clang-tidy. It also provides a convenient
     # way to hide clang-format/clang-tidy invocation via the Generate
     # (ninja/make) targets.
-    cmake_args = {"with_python": False}
+
+    # ARROW_LINT_ONLY exits early but ignore building compile_command.json
+    lint_only = not (iwyu or clang_tidy)
+    cmake_args = {"with_python": False, "with_lint_only": lint_only}
     cmake_def = CppCMakeDefinition(src.cpp, CppConfiguration(**cmake_args))
 
     build = cmake_def.build(build_dir)
@@ -89,7 +92,7 @@ def cmake_linter(src, fix=False):
 
 class Flake8(Command):
     def __init__(self, flake8_bin=None):
-        self.bin = default_bin(flake8_bin, "FLAKE8", "flake8")
+        self.bin = default_bin(flake8_bin, "flake8")
 
 
 def python_linter(src):
@@ -144,7 +147,7 @@ def rust_linter(src):
 
 class Hadolint(Command):
     def __init__(self, hadolint_bin=None):
-        self.bin = default_bin(hadolint_bin, "HADOLINT", "hadolint")
+        self.bin = default_bin(hadolint_bin, "hadolint")
 
 
 def is_docker_image(path):
