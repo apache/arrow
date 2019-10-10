@@ -19,6 +19,7 @@ import gzip
 import os
 
 from .command import Bash, Command, default_bin
+from .cmake import CMake
 from .git import git
 from .logger import logger
 from ..lang.cpp import CppCMakeDefinition, CppConfiguration
@@ -48,6 +49,11 @@ def cpp_linter(src, build_dir, clang_format=True, cpplint=True,
                clang_tidy=False, iwyu=False, fix=False):
     """ Run clang-format, cpplint and clang-tidy on cpp/ codebase. """
     logger.info("Running C++ linters")
+
+    cmake = CMake()
+    if not cmake.available:
+        logger.error("cpp linter requested but cmake binary not found.")
+        return
 
     # A cmake build directory is required to populate `compile_commands.json`
     # which in turn is required by clang-tidy. It also provides a convenient
@@ -83,8 +89,10 @@ class CMakeFormat(Command):
 def cmake_linter(src, fix=False):
     """ Run cmake-format.py on all CMakeFiles.txt """
     logger.info("Running cmake-format linters")
+
     if not fix:
         logger.warn("run-cmake-format modifies files, irregardless of --fix")
+
     arrow_cmake_format = os.path.join(src.path, "run-cmake-format.py")
     cmake_format = CMakeFormat(cmake_format_bin=arrow_cmake_format)
     yield LintResult.from_cmd(cmake_format("--check"))
@@ -99,6 +107,10 @@ def python_linter(src):
     """ Run flake8 linter on python/pyarrow, and dev/. """
     logger.info("Running python linters")
     flake8 = Flake8()
+
+    if not flake8.available:
+        logger.error("python linter requested but flake8 binary not found.")
+        return
 
     yield LintResult.from_cmd(flake8(src.pyarrow, src.dev, check=False))
     config = os.path.join(src.pyarrow, ".flake8.cython")
@@ -140,9 +152,15 @@ def r_linter(src):
 def rust_linter(src):
     """ Run Rust linter. """
     logger.info("Running rust linter")
-    yield LintResult.from_cmd(Cargo().run("+stable", "fmt", "--all", "--",
-                                          "--check", cwd=src.rust,
-                                          check=False))
+    cargo = Cargo()
+
+    if not cargo.available:
+        logger.error("rust linter requested but cargo executable not found.")
+        return
+
+    yield LintResult.from_cmd(cargo.run("+stable", "fmt", "--all", "--",
+                                        "--check", cwd=src.rust,
+                                        check=False))
 
 
 class Hadolint(Command):
@@ -164,10 +182,17 @@ def docker_linter(src):
     """ Run Hadolint docker linter. """
     logger.info("Running docker linter")
 
+    hadolint = Hadolint()
+
+    if not hadolint.available:
+        logger.error(
+            "hadolint linter requested but hadolint binary not found.")
+        return
+
     for path in git.ls_files(git_dir=src.path):
         if is_docker_image(path):
-            yield LintResult.from_cmd(Hadolint().run(path, check=False,
-                                                     cwd=src.path))
+            yield LintResult.from_cmd(hadolint.run(path, check=False,
+                                                   cwd=src.path))
 
 
 def linter(src, with_clang_format=True, with_cpplint=True,

@@ -17,6 +17,7 @@
 
 import os
 import shlex
+import shutil
 import subprocess
 
 from .logger import logger, ctx
@@ -71,6 +72,12 @@ class Command:
 
         logger.debug(f"Executing `{invocation}`")
         return subprocess.run(invocation, **kwargs)
+
+    @property
+    def available(self):
+        """ Indicate if the command binary is found in PATH. """
+        binary = shlex.split(self.bin)[0]
+        return shutil.which(binary) is not None
 
     def __call__(self, *argv, **kwargs):
         return self.run(*argv, **kwargs)
