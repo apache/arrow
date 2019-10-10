@@ -40,7 +40,9 @@ use crate::execution::physical_plan::limit::LimitExec;
 use crate::execution::physical_plan::merge::MergeExec;
 use crate::execution::physical_plan::projection::ProjectionExec;
 use crate::execution::physical_plan::selection::SelectionExec;
-use crate::execution::physical_plan::{AggregateExpr, ExecutionPlan, PhysicalExpr};
+use crate::execution::physical_plan::{
+    AggregateExpr, ExecutionPlan, Partition, PhysicalExpr,
+};
 use crate::execution::table_impl::TableImpl;
 use crate::logicalplan::*;
 use crate::optimizer::optimizer::OptimizerRule;
@@ -278,6 +280,7 @@ impl ExecutionContext {
             } => {
                 let input = self.create_physical_plan(input, batch_size)?;
                 let input_schema = input.as_ref().schema().clone();
+
                 let group_expr = group_expr
                     .iter()
                     .map(|e| self.create_physical_expr(e, &input_schema))
@@ -286,11 +289,45 @@ impl ExecutionContext {
                     .iter()
                     .map(|e| self.create_aggregate_expr(e, &input_schema))
                     .collect::<Result<Vec<_>>>()?;
-                Ok(Arc::new(HashAggregateExec::try_new(
+
+                let final_group: Vec<Arc<dyn PhysicalExpr>> = (0..group_expr.len())
+                    .map(|i| Arc::new(Column::new(i)) as Arc<dyn PhysicalExpr>)
+                    .collect();
+                let final_aggr: Vec<Arc<dyn AggregateExpr>> = (0..aggr_expr.len())
+                    .map(|i| {
+                        aggr_expr[i].create_combiner(i + group_expr.len())
+                            as Arc<dyn AggregateExpr>
+                    })
+                    .collect();
+
+                let partitions = HashAggregateExec::try_new(
                     group_expr,
                     aggr_expr,
                     input,
                     schema.clone(),
+                )?
+                .partitions()?;
+
+                let mut fields = vec![];
+
+                for expr in &final_group {
+                    let name = expr.name();
+                    fields.push(Field::new(&name, expr.data_type(&schema)?, true));
+                }
+
+                for expr in &final_aggr {
+                    let name = expr.name();
+                    fields.push(Field::new(&name, expr.data_type(&schema)?, true));
+                }
+
+                let schema = Arc::new(Schema::new(fields));
+                let merge = Arc::new(MergeExec::new(schema.clone(), partitions));
+
+                Ok(Arc::new(HashAggregateExec::try_new(
+                    final_group,
+                    final_aggr,
+                    merge,
+                    schema,
                 )?))
             }
             LogicalPlan::Selection { input, expr, .. } => {
@@ -306,7 +343,9 @@ impl ExecutionContext {
                 match expr {
                     &Expr::Literal(ref scalar_value) => {
                         let limit: usize = match scalar_value {
-                            ScalarValue::Int8(limit) if *limit >= 0 => Ok(*limit as usize),
+                            ScalarValue::Int8(limit) if *limit >= 0 => {
+                                Ok(*limit as usize)
+                            }
                             ScalarValue::Int16(limit) if *limit >= 0 => {
                                 Ok(*limit as usize)
                             }
