@@ -236,6 +236,10 @@ util___Codec__name <- function(codec){
     .Call(`_arrow_util___Codec__name` , codec)
 }
 
+util___Codec__IsAvailable <- function(codec){
+    .Call(`_arrow_util___Codec__IsAvailable` , codec)
+}
+
 io___CompressedOutputStream__Make <- function(codec, raw){
     .Call(`_arrow_io___CompressedOutputStream__Make` , codec, raw)
 }
