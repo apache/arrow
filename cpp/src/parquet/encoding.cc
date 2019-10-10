@@ -44,11 +44,6 @@ using arrow::internal::checked_cast;
 
 namespace parquet {
 
-template <typename StatusReturnBlock>
-void ThrowNotOk(StatusReturnBlock&& b) {
-  PARQUET_THROW_NOT_OK(b());
-}
-
 constexpr int64_t kInMemoryDefaultCapacity = 1024;
 
 class EncoderImpl : virtual public Encoder {
@@ -756,16 +751,22 @@ void DictEncoderImpl<ByteArrayType>::Put(const arrow::Array& values) {
 }
 
 template <typename DType>
-void DictEncoderImpl<DType>::PutDictionary(const arrow::Array& values) {
-  if (this->num_entries() > 0) {
+void AssertCanPutDictionary(DictEncoderImpl<DType>* encoder, const arrow::Array& dict) {
+  if (dict.null_count() > 0) {
+    throw ParquetException("Inserted dictionary cannot cannot contain nulls");
+  }
+
+  if (encoder->num_entries() > 0) {
     throw ParquetException("Can only call PutDictionary on an empty DictEncoder");
   }
+}
+
+template <typename DType>
+void DictEncoderImpl<DType>::PutDictionary(const arrow::Array& values) {
+  AssertCanPutDictionary(this, values);
 
   using ArrayType = typename arrow::CTypeTraits<typename DType::c_type>::ArrayType;
   const auto& data = checked_cast<const ArrayType&>(values);
-  if (data.null_count() > 0) {
-    throw ParquetException("Inserted dictionary cannot cannot contain nulls");
-  }
 
   dict_encoded_size_ += static_cast<int>(sizeof(typename DType::c_type) * data.length());
   for (int64_t i = 0; i < data.length(); i++) {
@@ -779,14 +780,9 @@ void DictEncoderImpl<DType>::PutDictionary(const arrow::Array& values) {
 template <>
 void DictEncoderImpl<FLBAType>::PutDictionary(const arrow::Array& values) {
   AssertFixedSizeBinary(values, type_length_);
-  if (this->num_entries() > 0) {
-    throw ParquetException("Can only call PutDictionary on an empty DictEncoder");
-  }
+  AssertCanPutDictionary(this, values);
 
   const auto& data = checked_cast<const arrow::FixedSizeBinaryArray&>(values);
-  if (data.null_count() > 0) {
-    throw ParquetException("Inserted dictionary cannot cannot contain nulls");
-  }
 
   dict_encoded_size_ += static_cast<int>(type_length_ * data.length());
   for (int64_t i = 0; i < data.length(); i++) {
@@ -800,14 +796,9 @@ void DictEncoderImpl<FLBAType>::PutDictionary(const arrow::Array& values) {
 template <>
 void DictEncoderImpl<ByteArrayType>::PutDictionary(const arrow::Array& values) {
   AssertBinary(values);
-  if (this->num_entries() > 0) {
-    throw ParquetException("Can only call PutDictionary on an empty DictEncoder");
-  }
+  AssertCanPutDictionary(this, values);
 
   const auto& data = checked_cast<const arrow::BinaryArray&>(values);
-  if (data.null_count() > 0) {
-    throw ParquetException("Inserted binary dictionary cannot cannot contain nulls");
-  }
 
   for (int64_t i = 0; i < data.length(); i++) {
     auto v = data.GetView(i);
@@ -900,7 +891,7 @@ class DecoderImpl : virtual public Decoder {
 };
 
 template <typename DType>
-class PlainDecoder : public DecoderImpl, virtual public EncodingTraits<DType>::Decoder {
+class PlainDecoder : public DecoderImpl, virtual public TypedDecoder<DType> {
  public:
   using T = typename DType::c_type;
   explicit PlainDecoder(const ColumnDescriptor* descr);
@@ -910,6 +901,10 @@ class PlainDecoder : public DecoderImpl, virtual public EncodingTraits<DType>::D
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<DType>::Accumulator* builder) override;
+
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<DType>::DictAccumulator* builder) override;
 };
 
 template <>
@@ -917,6 +912,20 @@ inline int PlainDecoder<Int96Type>::DecodeArrow(
     int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
     typename EncodingTraits<Int96Type>::Accumulator* builder) {
   ParquetException::NYI("DecodeArrow not supported for Int96");
+}
+
+template <>
+inline int PlainDecoder<Int96Type>::DecodeArrow(
+    int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
+    typename EncodingTraits<Int96Type>::DictAccumulator* builder) {
+  ParquetException::NYI("DecodeArrow not supported for Int96");
+}
+
+template <>
+inline int PlainDecoder<BooleanType>::DecodeArrow(
+    int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
+    typename EncodingTraits<BooleanType>::DictAccumulator* builder) {
+  ParquetException::NYI("dictionaries of BooleanType");
 }
 
 template <typename DType>
@@ -940,6 +949,36 @@ int PlainDecoder<DType>::DecodeArrow(
       data_ += sizeof(value_type);
     } else {
       builder->UnsafeAppendNull();
+    }
+    bit_reader.Next();
+  }
+
+  num_values_ -= values_decoded;
+  len_ -= sizeof(value_type) * values_decoded;
+  return values_decoded;
+}
+
+template <typename DType>
+int PlainDecoder<DType>::DecodeArrow(
+    int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
+    typename EncodingTraits<DType>::DictAccumulator* builder) {
+  using value_type = typename DType::c_type;
+
+  constexpr int value_size = static_cast<int>(sizeof(value_type));
+  int values_decoded = num_values - null_count;
+  if (ARROW_PREDICT_FALSE(len_ < value_size * values_decoded)) {
+    ParquetException::EofException();
+  }
+
+  PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
+
+  arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
+  for (int i = 0; i < num_values; ++i) {
+    if (bit_reader.IsSet()) {
+      PARQUET_THROW_NOT_OK(builder->Append(arrow::util::SafeLoadAs<value_type>(data_)));
+      data_ += sizeof(value_type);
+    } else {
+      PARQUET_THROW_NOT_OK(builder->AppendNull());
     }
     bit_reader.Next();
   }
@@ -1035,6 +1074,10 @@ class PlainBooleanDecoder : public DecoderImpl,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<BooleanType>::Accumulator* out) override;
 
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<BooleanType>::DictAccumulator* out) override;
+
  private:
   std::unique_ptr<arrow::BitUtil::BitReader> bit_reader_;
 };
@@ -1071,6 +1114,12 @@ int PlainBooleanDecoder::DecodeArrow(
 
   num_values_ -= values_decoded;
   return values_decoded;
+}
+
+inline int PlainBooleanDecoder::DecodeArrow(
+    int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
+    typename EncodingTraits<BooleanType>::DictAccumulator* builder) {
+  ParquetException::NYI("dictionaries of BooleanType");
 }
 
 int PlainBooleanDecoder::Decode(uint8_t* buffer, int max_values) {
@@ -1145,6 +1194,13 @@ inline int PlainDecoder<ByteArrayType>::DecodeArrow(
 }
 
 template <>
+inline int PlainDecoder<ByteArrayType>::DecodeArrow(
+    int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
+    typename EncodingTraits<ByteArrayType>::DictAccumulator* builder) {
+  ParquetException::NYI();
+}
+
+template <>
 inline int PlainDecoder<FLBAType>::DecodeArrow(
     int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
     typename EncodingTraits<FLBAType>::Accumulator* builder) {
@@ -1162,6 +1218,33 @@ inline int PlainDecoder<FLBAType>::DecodeArrow(
       data_ += descr_->type_length();
     } else {
       builder->UnsafeAppendNull();
+    }
+    bit_reader.Next();
+  }
+
+  num_values_ -= values_decoded;
+  len_ -= descr_->type_length() * values_decoded;
+  return values_decoded;
+}
+
+template <>
+inline int PlainDecoder<FLBAType>::DecodeArrow(
+    int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
+    typename EncodingTraits<FLBAType>::DictAccumulator* builder) {
+  int values_decoded = num_values - null_count;
+  if (ARROW_PREDICT_FALSE(len_ < descr_->type_length() * values_decoded)) {
+    ParquetException::EofException();
+  }
+
+  PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
+
+  arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
+  for (int i = 0; i < num_values; ++i) {
+    if (bit_reader.IsSet()) {
+      PARQUET_THROW_NOT_OK(builder->Append(data_));
+      data_ += descr_->type_length();
+    } else {
+      PARQUET_THROW_NOT_OK(builder->AppendNull());
     }
     bit_reader.Next();
   }
@@ -1395,6 +1478,10 @@ class DictDecoderImpl : public DecoderImpl, virtual public DictDecoder<Type> {
                   int64_t valid_bits_offset,
                   typename EncodingTraits<Type>::Accumulator* out) override;
 
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<Type>::DictAccumulator* out) override;
+
   void InsertDictionary(arrow::ArrayBuilder* builder) override;
 
   int DecodeIndicesSpaced(int num_values, int null_count, const uint8_t* valid_bits,
@@ -1543,21 +1630,61 @@ inline void DictDecoderImpl<FLBAType>::SetDict(TypedDecoder<FLBAType>* dictionar
 }
 
 template <>
-int DictDecoderImpl<Int96Type>::DecodeArrow(
+inline int DictDecoderImpl<Int96Type>::DecodeArrow(
     int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
     typename EncodingTraits<Int96Type>::Accumulator* builder) {
   ParquetException::NYI("DecodeArrow to Int96Type");
 }
 
 template <>
-int DictDecoderImpl<ByteArrayType>::DecodeArrow(
+inline int DictDecoderImpl<Int96Type>::DecodeArrow(
+    int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
+    typename EncodingTraits<Int96Type>::DictAccumulator* builder) {
+  ParquetException::NYI("DecodeArrow to Int96Type");
+}
+
+template <>
+inline int DictDecoderImpl<ByteArrayType>::DecodeArrow(
     int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
     typename EncodingTraits<ByteArrayType>::Accumulator* builder) {
   ParquetException::NYI("DecodeArrow implemented elsewhere");
 }
 
 template <>
-int DictDecoderImpl<FLBAType>::DecodeArrow(
+inline int DictDecoderImpl<ByteArrayType>::DecodeArrow(
+    int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
+    typename EncodingTraits<ByteArrayType>::DictAccumulator* builder) {
+  ParquetException::NYI("DecodeArrow implemented elsewhere");
+}
+
+template <typename DType>
+int DictDecoderImpl<DType>::DecodeArrow(
+    int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
+    typename EncodingTraits<DType>::DictAccumulator* builder) {
+  PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
+  arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
+
+  auto dict_values = reinterpret_cast<const typename DType::c_type*>(dictionary_->data());
+
+  for (int i = 0; i < num_values; ++i) {
+    bool is_valid = bit_reader.IsSet();
+    bit_reader.Next();
+    if (is_valid) {
+      int32_t index;
+      if (ARROW_PREDICT_FALSE(!idx_decoder_.Get(&index))) {
+        throw ParquetException("");
+      }
+      PARQUET_THROW_NOT_OK(builder->Append(dict_values[index]));
+    } else {
+      PARQUET_THROW_NOT_OK(builder->AppendNull());
+    }
+  }
+
+  return num_values - null_count;
+}
+
+template <>
+inline int DictDecoderImpl<FLBAType>::DecodeArrow(
     int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
     typename EncodingTraits<FLBAType>::Accumulator* builder) {
   if (builder->byte_width() != descr_->type_length()) {
@@ -1582,6 +1709,42 @@ int DictDecoderImpl<FLBAType>::DecodeArrow(
       builder->UnsafeAppend(dict_values[index].ptr);
     } else {
       builder->UnsafeAppendNull();
+    }
+  }
+
+  return num_values - null_count;
+}
+
+template <>
+int DictDecoderImpl<FLBAType>::DecodeArrow(
+    int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
+    typename EncodingTraits<FLBAType>::DictAccumulator* builder) {
+  auto value_type =
+      checked_cast<const arrow::DictionaryType&>(*builder->type()).value_type();
+  auto byte_width =
+      checked_cast<const arrow::FixedSizeBinaryType&>(*value_type).byte_width();
+  if (byte_width != descr_->type_length()) {
+    throw ParquetException("Byte width mismatch: builder was " +
+                           std::to_string(byte_width) + " but decoder was " +
+                           std::to_string(descr_->type_length()));
+  }
+
+  PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
+  arrow::internal::BitmapReader bit_reader(valid_bits, valid_bits_offset, num_values);
+
+  auto dict_values = reinterpret_cast<const FLBA*>(dictionary_->data());
+
+  for (int i = 0; i < num_values; ++i) {
+    bool is_valid = bit_reader.IsSet();
+    bit_reader.Next();
+    if (is_valid) {
+      int32_t index;
+      if (ARROW_PREDICT_FALSE(!idx_decoder_.Get(&index))) {
+        throw ParquetException("");
+      }
+      PARQUET_THROW_NOT_OK(builder->Append(dict_values[index].ptr));
+    } else {
+      PARQUET_THROW_NOT_OK(builder->AppendNull());
     }
   }
 
@@ -1870,6 +2033,21 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
     return num_values;
   }
 
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<DType>::DictAccumulator* out) override {
+    if (null_count != 0) {
+      ParquetException::NYI("Delta bit pack DecodeArrow with null slots");
+    }
+    std::vector<T> values(num_values);
+    GetInternal(values.data(), num_values);
+    PARQUET_THROW_NOT_OK(out->Reserve(num_values));
+    for (T value : values) {
+      PARQUET_THROW_NOT_OK(out->Append(value));
+    }
+    return num_values;
+  }
+
  private:
   void InitBlock() {
     int32_t block_size;
@@ -1977,6 +2155,12 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<ByteArrayType>::Accumulator* out) override {
+    ParquetException::NYI("DecodeArrow for DeltaLengthByteArrayDecoder");
+  }
+
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<ByteArrayType>::DictAccumulator* out) override {
     ParquetException::NYI("DecodeArrow for DeltaLengthByteArrayDecoder");
   }
 

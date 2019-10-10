@@ -38,6 +38,7 @@ class Int32Type;
 class Int64Type;
 class FloatType;
 class DoubleType;
+class FixedSizeBinaryType;
 template <typename T>
 class NumericBuilder;
 class FixedSizeBinaryBuilder;
@@ -149,7 +150,7 @@ struct EncodingTraits<FLBAType> {
   using Decoder = FLBADecoder;
 
   using Accumulator = ::arrow::FixedSizeBinaryBuilder;
-  struct DictAccumulator {};
+  using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::FixedSizeBinaryType>;
 };
 
 class ColumnDescriptor;
@@ -322,9 +323,7 @@ class TypedDecoder : virtual public Decoder {
   /// \return number of values decoded
   virtual int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                           int64_t valid_bits_offset,
-                          typename EncodingTraits<DType>::DictAccumulator* builder) {
-    ParquetException::NYI("FIXME");
-  }
+                          typename EncodingTraits<DType>::DictAccumulator* builder) = 0;
 
   /// \brief Decode into a DictionaryBuilder ignoring nulls
   ///
@@ -425,8 +424,7 @@ std::unique_ptr<typename EncodingTraits<DType>::Decoder> MakeTypedDecoder(
     Encoding::type encoding, const ColumnDescriptor* descr = NULLPTR) {
   using OutType = typename EncodingTraits<DType>::Decoder;
   std::unique_ptr<Decoder> base = MakeDecoder(DType::type_num, encoding, descr);
-  auto out = dynamic_cast<OutType*>(base.release());
-  return std::unique_ptr<OutType>(out);
+  return std::unique_ptr<OutType>(dynamic_cast<OutType*>(base.release()));
 }
 
 }  // namespace parquet

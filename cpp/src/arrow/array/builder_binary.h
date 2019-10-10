@@ -399,8 +399,8 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
  public:
   using TypeClass = FixedSizeBinaryType;
 
-  FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& type,
-                         MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+  explicit FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& type,
+                                  MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
   Status Append(const uint8_t* value) {
     ARROW_RETURN_NOT_OK(Reserve(1));
