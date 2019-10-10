@@ -83,6 +83,11 @@ Status FileSystemDataSourceDiscovery::Inspect(std::shared_ptr<Schema>* out) {
 
 Status FileSystemDataSourceDiscovery::Finish(std::shared_ptr<DataSource>* out) {
   PathPartitions partitions;
+
+  if (partition_scheme_ != nullptr) {
+    RETURN_NOT_OK(ApplyPartitionScheme(*partition_scheme_, files_, &partitions));
+  }
+
   return FileSystemBasedDataSource::Make(fs_, files_, root_partition(),
                                          std::move(partitions), format_, out);
 }

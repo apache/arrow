@@ -25,6 +25,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/dataset/dataset.h"
+#include "arrow/dataset/partition.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
@@ -168,9 +169,6 @@ class ARROW_DS_EXPORT FileBasedDataFragment : public DataFragment {
   FileSource source_;
   std::shared_ptr<FileFormat> format_;
 };
-
-/// \brief Mapping from path to partition expressions.
-using PathPartitions = std::unordered_map<std::string, std::shared_ptr<Expression>>;
 
 /// \brief A DataSource of FileBasedDataFragments.
 class ARROW_DS_EXPORT FileSystemBasedDataSource : public DataSource {

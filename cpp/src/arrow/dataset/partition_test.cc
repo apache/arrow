@@ -70,8 +70,8 @@ TEST_F(TestPartitionScheme, Schema) {
       schema({field("alpha", int32()), field("beta", utf8())}));
 
   AssertParse("/0/hello", "alpha"_ == int32_t(0) and "beta"_ == "hello");
+  AssertParse("/3", "alpha"_ == int32_t(3));
   AssertParseError("/world/0");  // reversed order
-  AssertParseError("/3");        // valid alpha, but missing beta
   AssertParseError("/0.0/foo");  // invalid alpha
   AssertParseError("/3.25");     // invalid alpha with missing beta
   AssertParseError("");          // no segments to parse
