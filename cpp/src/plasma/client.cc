@@ -42,6 +42,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <tuple>
 
 #include "arrow/buffer.h"
 #include "arrow/util/thread_pool.h"
@@ -257,19 +258,8 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
 
   Status Subscribe(int* fd);
 
-  Status DecodeNotification(const uint8_t* buffer, ObjectID* object_id,
-                            int64_t* data_size, int64_t* metadata_size);
-
   Status GetNotification(int fd, ObjectID* object_id, int64_t* data_size,
                          int64_t* metadata_size);
-  
-  Status GetNotifications(int fd, std::vector<ObjectID>* object_ids,
-                          std::vector<int64_t>* data_sizes,
-                          std::vector<int64_t>* metadata_sizes);
-
-  Status DecodeNotifications(const uint8_t* buffer, std::vector<ObjectID>* object_ids,
-                             std::vector<int64_t>* data_sizes,
-                             std::vector<int64_t>* metadata_sizes);
   
   Status Disconnect();
 
@@ -316,6 +306,8 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
                              const uint8_t* metadata, int64_t metadata_size,
                              int device_num);
 
+  void DecodeNotifications(const uint8_t* buffer); 
+
   /// File descriptor of the Unix domain socket that connects to the store.
   int store_conn_;
   /// Table of dlmalloc buffer files that have been memory mapped so far. This
@@ -331,6 +323,8 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
   int64_t store_capacity_;
   /// A hash set to record the ids that users want to delete but still in use.
   std::unordered_set<ObjectID> deletion_cache_;
+  /// A queue of notification
+  std::deque<std::tuple<ObjectID, int64_t, int64_t>> pending_notification_;
   /// A mutex which protects this class.
   std::recursive_mutex client_mutex_;
 
@@ -988,69 +982,46 @@ Status PlasmaClient::Impl::Subscribe(int* fd) {
   return Status::OK();
 }
 
-Status PlasmaClient::Impl::DecodeNotification(const uint8_t* buffer, ObjectID* object_id,
-                                              int64_t* data_size,
-                                              int64_t* metadata_size) {
-  std::lock_guard<std::recursive_mutex> guard(client_mutex_);
-
-  auto object_info = flatbuffers::GetRoot<fb::ObjectInfo>(buffer);
-  ARROW_CHECK(object_info->object_id()->size() == sizeof(ObjectID));
-  memcpy(object_id, object_info->object_id()->data(), sizeof(ObjectID));
-  if (object_info->is_deletion()) {
-    *data_size = -1;
-    *metadata_size = -1;
-  } else {
-    *data_size = object_info->data_size();
-    *metadata_size = object_info->metadata_size();
-  }
-  return Status::OK();
-}
-
 Status PlasmaClient::Impl::GetNotification(int fd, ObjectID* object_id,
                                            int64_t* data_size, int64_t* metadata_size) {
   std::lock_guard<std::recursive_mutex> guard(client_mutex_);
 
-  auto notification = ReadMessageAsync(fd);
-  if (notification == NULL) {
-    return Status::IOError("Failed to read object notification from Plasma socket");
+  if (pending_notification_.empty()) {
+    auto message = ReadMessageAsync(fd);
+    if (message == NULL) {
+      return Status::IOError("Failed to read object notification from Plasma socket");
+    }
+    DecodeNotifications(message.get());
   }
-  return DecodeNotification(notification.get(), object_id, data_size, metadata_size);
+
+  auto notification = pending_notification_.front();
+  memcpy(object_id, &(std::get<0>(notification)), sizeof(ObjectID));
+  *data_size = std::get<1>(notification);
+  *metadata_size = std::get<2>(notification);
+
+  pending_notification_.pop_front();
+
+  return Status::OK();
 }
 
-Status PlasmaClient::Impl::DecodeNotifications(const uint8_t* buffer,
-                                               std::vector<ObjectID>* object_ids,
-                                               std::vector<int64_t>* data_sizes,
-                                               std::vector<int64_t>* metadata_sizes) {
+void PlasmaClient::Impl::DecodeNotifications(const uint8_t* buffer) {
   std::lock_guard<std::recursive_mutex> guard(client_mutex_);
 
   auto object_info = flatbuffers::GetRoot<fb::PlasmaNotification>(buffer);
   
   for (size_t i = 0; i < object_info->object_info()->size(); ++i) {
+
     ObjectID id;
     memcpy(&id, object_info->object_info()->Get(i)->object_id()->data(), sizeof(ObjectID));
-    object_ids->push_back(id);
 
     if (object_info->object_info()->Get(i)->is_deletion()) {
-      data_sizes->push_back(-1);
-      metadata_sizes->push_back(-1);
+      pending_notification_.push_back(std::make_tuple(id, -1, -1));
     } else {
-      data_sizes->push_back(object_info->object_info()->Get(i)->data_size());
-      metadata_sizes->push_back(object_info->object_info()->Get(i)->metadata_size());
+      pending_notification_.push_back(std::make_tuple(id,
+            object_info->object_info()->Get(i)->data_size(),
+            object_info->object_info()->Get(i)->metadata_size()));
     }
   }
-  return Status::OK();
-}
-
-Status PlasmaClient::Impl::GetNotifications(int fd, std::vector<ObjectID>* object_ids,
-                                            std::vector<int64_t>* data_sizes,
-                                            std::vector<int64_t>* metadata_sizes) {
-  std::lock_guard<std::recursive_mutex> guard(client_mutex_);
-
-  auto notification = ReadMessageAsync(fd);
-  if (notification == NULL) {
-    return Status::IOError("Failed to read object notification from Plasma socket");
-  }
-  return DecodeNotifications(notification.get(), object_ids, data_sizes, metadata_sizes);
 }
 
 Status PlasmaClient::Impl::Connect(const std::string& store_socket_name,
@@ -1194,24 +1165,6 @@ Status PlasmaClient::Subscribe(int* fd) { return impl_->Subscribe(fd); }
 Status PlasmaClient::GetNotification(int fd, ObjectID* object_id, int64_t* data_size,
                                      int64_t* metadata_size) {
   return impl_->GetNotification(fd, object_id, data_size, metadata_size);
-}
-
-Status PlasmaClient::DecodeNotification(const uint8_t* buffer, ObjectID* object_id,
-                                        int64_t* data_size, int64_t* metadata_size) {
-  return impl_->DecodeNotification(buffer, object_id, data_size, metadata_size);
-}
-
-Status PlasmaClient::GetNotifications(int fd, std::vector<ObjectID>* object_ids,
-                                      std::vector<int64_t>* data_sizes,
-                                      std::vector<int64_t>* metadata_sizes) {
-  return impl_->GetNotifications(fd, object_ids, data_sizes, metadata_sizes);
-}
-
-Status PlasmaClient::DecodeNotifications(const uint8_t* buffer,
-                                      std::vector<ObjectID>* object_ids,
-                                      std::vector<int64_t>* data_sizes,
-                                      std::vector<int64_t>* metadata_sizes) {
-  return impl_->DecodeNotifications(buffer, object_ids, data_sizes, metadata_sizes);
 }
 
 Status PlasmaClient::Disconnect() { return impl_->Disconnect(); }
