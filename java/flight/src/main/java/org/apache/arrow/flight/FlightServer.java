@@ -258,9 +258,7 @@ public class FlightServer implements AutoCloseable {
         return null;
       });
 
-      if (!interceptors.isEmpty()) {
-        builder.intercept(new ServerInterceptorAdapter(interceptors));
-      }
+      builder.intercept(new ServerInterceptorAdapter(interceptors));
       return new FlightServer(location, builder.build());
     }
 
