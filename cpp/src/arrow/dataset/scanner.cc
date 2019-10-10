@@ -69,6 +69,17 @@ ScanTaskIterator SimpleScanner::Scan() {
   return GetScanTaskIterator(std::move(fragments_it), context_);
 }
 
+Status ScanTaskIteratorFromRecordBatch(std::vector<std::shared_ptr<RecordBatch>> batches,
+                                       ScanTaskIterator* out) {
+  std::unique_ptr<ScanTask> scan_task = internal::make_unique<SimpleScanTask>(batches);
+
+  std::vector<std::unique_ptr<ScanTask>> tasks;
+  tasks.emplace_back(std::move(scan_task));
+
+  *out = MakeVectorIterator(std::move(tasks));
+  return Status::OK();
+}
+
 ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset,
                                std::shared_ptr<ScanContext> scan_context)
     : dataset_(std::move(dataset)),

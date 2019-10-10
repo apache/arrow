@@ -95,6 +95,9 @@ class ARROW_DS_EXPORT SimpleScanTask : public ScanTask {
   std::shared_ptr<ScanContext> context_;
 };
 
+Status ScanTaskIteratorFromRecordBatch(std::vector<std::shared_ptr<RecordBatch>> batches,
+                                       ScanTaskIterator* out);
+
 /// \brief Scanner is a materialized scan operation with context and options
 /// bound. A scanner is the class that glues ScanTask, DataFragment,
 /// and DataSource. In python pseudo code, it performs the following:
