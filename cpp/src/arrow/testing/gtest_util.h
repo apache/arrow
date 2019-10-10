@@ -208,7 +208,10 @@ void FinishAndCheckPadding(BuilderType* builder, std::shared_ptr<Array>* out) {
 
 ARROW_EXPORT
 std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>&,
-                                     const std::string& json);
+                                     util::string_view json);
+
+ARROW_EXPORT std::shared_ptr<RecordBatch> RecordBatchFromJSON(
+    const std::shared_ptr<Schema>&, util::string_view);
 
 // ArrayFromVector: construct an Array from vectors of C values
 

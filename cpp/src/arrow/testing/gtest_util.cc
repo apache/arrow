@@ -145,10 +145,23 @@ void AssertDatumsEqual(const Datum& expected, const Datum& actual) {
 }
 
 std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>& type,
-                                     const std::string& json) {
+                                     util::string_view json) {
   std::shared_ptr<Array> out;
   ABORT_NOT_OK(ipc::internal::json::ArrayFromJSON(type, json, &out));
   return out;
+}
+
+std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>& schema,
+                                                 util::string_view json) {
+  // Parses as a StructArray
+  auto struct_type = struct_(schema->fields());
+  std::shared_ptr<Array> struct_array = ArrayFromJSON(struct_type, json);
+
+  // Converts StructArray to RecordBatch
+  std::shared_ptr<RecordBatch> record_batch;
+  ABORT_NOT_OK(RecordBatch::FromStructArray(struct_array, &record_batch));
+
+  return record_batch;
 }
 
 void AssertTablesEqual(const Table& expected, const Table& actual,

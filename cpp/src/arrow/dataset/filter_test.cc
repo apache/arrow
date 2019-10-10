@@ -132,11 +132,9 @@ class FilterTest : public ::testing::Test {
                          std::shared_ptr<BooleanArray>* expected_mask = nullptr) {
     // expected filter result is in the "in" field
     fields.push_back(field("in", boolean()));
+    auto schema_ = schema(fields);
 
-    auto batch_array = ArrayFromJSON(struct_(std::move(fields)), std::move(batch_json));
-    std::shared_ptr<RecordBatch> batch;
-    RETURN_NOT_OK(RecordBatch::FromStructArray(batch_array, &batch));
-
+    auto batch = RecordBatchFromJSON(schema_, batch_json);
     if (expected_mask) {
       *expected_mask = checked_pointer_cast<BooleanArray>(batch->GetColumnByName("in"));
     }
