@@ -43,7 +43,7 @@ void AssertFileContents(const std::string& path, const std::string& contents) {
 
   ASSERT_OK(ReadableFile::Open(path, &rf));
   ASSERT_OK(rf->GetSize(&size));
-  ASSERT_EQ(size, contents.size());
+  ASSERT_EQ(size, static_cast<int64_t>(contents.size()));
 
   std::shared_ptr<Buffer> actual_data;
   ASSERT_OK(rf->Read(size, &actual_data));

@@ -26,6 +26,17 @@
 #ifdef ARROW_USE_GLOG
 #include <signal.h>
 #include <vector>
+
+// GLog redefines those unconditionally, which is an error on some preprocessors
+#undef DCHECK
+#undef DCHECK_OK
+#undef DCHECK_EQ
+#undef DCHECK_NE
+#undef DCHECK_LE
+#undef DCHECK_LT
+#undef DCHECK_GE
+#undef DCHECK_GT
+
 #include "glog/logging.h"
 #endif
 
