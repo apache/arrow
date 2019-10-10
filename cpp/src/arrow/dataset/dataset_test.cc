@@ -18,7 +18,10 @@
 #include "arrow/dataset/dataset.h"
 
 #include "arrow/dataset/dataset_internal.h"
+#include "arrow/dataset/discovery.h"
+#include "arrow/dataset/partition.h"
 #include "arrow/dataset/test_util.h"
+#include "arrow/filesystem/mockfs.h"
 #include "arrow/testing/generator.h"
 
 namespace arrow {
@@ -228,6 +231,165 @@ TEST(TestProjector, NonTrivial) {
   ASSERT_OK(projector.Project(*batch, &reconciled_batch));
 
   AssertBatchesEqual(*expected_batch, *reconciled_batch);
+}
+
+class TestEndToEnd : public TestDataset {
+  void SetUp() {
+    schema_ = schema({
+        field("country", utf8()),
+        field("region", utf8()),
+        field("model", utf8()),
+        field("sales", int32()),
+    });
+
+    using PathAndContent = std::vector<std::pair<std::string, std::string>>;
+    auto files = PathAndContent{{"/US/NY/2019.json", R"([
+        {"country": "US", "region": "NY", "model": "3", "sales": 742},
+        {"country": "US", "region": "NY", "model": "S", "sales": 304},
+        {"country": "US", "region": "NY", "model": "X", "sales": 136},
+        {"country": "US", "region": "NY", "model": "Y", "sales": 27}
+      ])"},
+                                {"/US/CA/2019.json", R"([
+        {"country": "US", "region": "CA", "model": "3", "sales": 512},
+        {"country": "US", "region": "CA", "model": "S", "sales": 978},
+        {"country": "US", "region": "CA", "model": "X", "sales": 1},
+        {"country": "US", "region": "CA", "model": "Y", "sales": 69}
+      ])"},
+                                {"/CA/QC/2019.json", R"([
+        {"country": "CA", "region": "QC", "model": "3", "sales": 273},
+        {"country": "CA", "region": "QC", "model": "S", "sales": 13},
+        {"country": "CA", "region": "QC", "model": "X", "sales": 54},
+        {"country": "CA", "region": "QC", "model": "Y", "sales": 21}
+      ])"},
+                                {"/CA/ON/2019.json", R"([
+        {"country": "CA", "region": "QC", "model": "3", "sales": 152},
+        {"country": "CA", "region": "QC", "model": "S", "sales": 10},
+        {"country": "CA", "region": "QC", "model": "X", "sales": 42},
+        {"country": "CA", "region": "QC", "model": "Y", "sales": 37}
+      ])"}};
+
+    auto fs = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
+    for (const auto& f : files) {
+      ARROW_EXPECT_OK(fs->CreateFile(f.first, f.second, /* recursive */ true));
+    }
+
+    fs_ = fs;
+  }
+
+ protected:
+  std::shared_ptr<fs::FileSystem> fs_;
+  std::shared_ptr<Schema> schema_;
+};
+
+TEST_F(TestEndToEnd, EndToEndSingleSource) {
+  // The dataset API is divided in two parts:
+  //  - Creation
+  //  - Querying
+
+  // Creation.
+  //
+  // A Dataset is the union of one or more DataSources with the same schema.
+  // Example of DataSource, FileSystemDataSource, OdbcDataSource,
+  // FlightDataSource.
+
+  // A DataSource is composed of DataFragments. Each DataFragment can yield
+  // multiple RecordBatch. DataSource can be created manually or "discovered"
+  // via the DataSourceDiscovery interface.
+  //
+  // Each DataSourceDiscovery will have custom options.
+  std::shared_ptr<DataSourceDiscovery> discovery;
+
+  // The user must specify which FileFormat is used to create FileFragment.
+  // This option is specific to FileSystemBasedDataSource (and the builder).
+  //
+  // Note the JSONRecordBatchFileFormat requires a schema before creating the Discovery
+  // class which is used to discover the schema. This chicken-and-egg problem
+  // is only required for JSONRecordBatchFileFormat because it doesn't do
+  // schema inspection.
+  auto format = std::make_shared<JSONRecordBatchFileFormat>(schema_);
+  // A selector is used to filter (or crawl) the files/directories of a
+  // filesystem. If the options in Selector are not enough, the
+  // FileSystemDataSourceDiscovery class also supports an explicit list of
+  // fs::FileStats instead of the selector.
+  fs::Selector s;
+  s.base_dir = "/";
+  s.recursive = true;
+  ASSERT_OK(FileSystemDataSourceDiscovery::Make(fs_.get(), s, format, &discovery));
+
+  // DataFragments might have compatible but slightly different schemas, e.g.
+  // schema evolved by adding/renaming columns. In this case, the schema is
+  // passed to the dataset constructor.
+  std::shared_ptr<Schema> inspected_schema;
+  ASSERT_OK(discovery->Inspect(&inspected_schema));
+  EXPECT_EQ(*schema_, *inspected_schema);
+
+  // Partitions expressions can be discovered for DataSource and DataFragments.
+  // This metadata is then used in conjuction with the query filter to apply
+  // the pushdown predicate optimization.
+  auto partition_schema = schema({field("country", utf8()), field("region", utf8())});
+  // The SchemaPartitionScheme is a simple scheme where the path is split with
+  // the directory separator character and the components are typed and named
+  // with the equivalent index in the schema, e.g.
+  // (with the previous defined schema):
+  //
+  // - "/US" -> {"country": "US"}
+  // - "/US/CA/file.json -> {"country": "US, "region": "CA"}
+  // - "/US/CA/San Francisco/file.json -> {"country": "US, "region": "CA"}
+  auto partition_scheme = std::make_shared<SchemaPartitionScheme>(partition_schema);
+  ASSERT_OK(discovery->SetPartitionScheme(partition_scheme));
+
+  // Build the DataSource where partitions are attached to fragments (files).
+  std::shared_ptr<DataSource> parquet_fs_datasource;
+  ASSERT_OK(discovery->Finish(&parquet_fs_datasource));
+
+  // Create the Dataset from our single DataSource.
+  std::shared_ptr<Dataset> dataset = std::make_shared<Dataset>(
+      DataSourceVector{parquet_fs_datasource}, inspected_schema);
+
+  // Querying.
+  //
+  // The Scan operator materialize data from io into memory. Avoiding data
+  // transfer is a critical optimization done by analytical engine. Thus, a
+  // Scan can take multiple options, notably a subset of columns and a filter
+  // expression.
+  std::unique_ptr<ScannerBuilder> scanner_builder;
+  ASSERT_OK(dataset->NewScan(&scanner_builder));
+
+  // An optional subset of columns can be provided. This will trickle to
+  // DataFragment drivers. The net effect is that only columns of interest will
+  // be materialized if the DataFragment supports it. This is the major benefit
+  // of using a colum-wise format versus a row-wise format.
+  //
+  // This API decouples the DataSource/DataFragment implementation and column
+  // projection from the query part.
+  //
+  // For example, a ParquetFileDataFragment can only read the necessary bytes
+  // ranges, or an OdbcDataFragment could craft the query with proper SELECT
+  // statement. The CsvFileDataFragment wouldn't benefit from this as much, but
+  // could still skip converting un-needed columns.
+  scanner_builder->Project({"sales", "model"});
+
+  // An optional filter expression may also be specified. The filter expression
+  // is matched on input rows and only matching rows are returned.
+  // Predicate pushdown optimization is applied on partitions if possible.
+  //
+  // This API decouples predicate pushdown from the DataSource implementation
+  // and partition discovery.
+  auto filter = ("country"_ == "US" && ("model"_ == "X" || "model"_ == "Y")).Copy();
+  scanner_builder->AddFilter(filter);
+
+  std::unique_ptr<Scanner> scanner;
+  ASSERT_OK(scanner_builder->Finish(&scanner));
+
+  // Consuming.
+  std::shared_ptr<Table> table;
+  ASSERT_OK(scanner->ToTable(&table));
+
+  auto expected_schema = schema({field("sales", int32()), field("model", utf8())});
+  ASSERT_EQ(*expected_schema, *table->schema());
+  ASSERT_EQ(4, table->num_rows());
+
+  // DoSomethingWith(table);
 }
 
 }  // namespace dataset
