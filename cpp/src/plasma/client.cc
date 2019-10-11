@@ -1014,6 +1014,9 @@ void PlasmaClient::Impl::DecodeNotifications(const uint8_t* buffer) {
     if (object_info->object_info()->Get(i)->is_deletion()) {
       pending_notification_.push_back(std::make_tuple(id, -1, -1));
     } else {
+      fprintf(stderr, "%ld, %ld\n",
+          object_info->object_info()->Get(i)->data_size(),
+            object_info->object_info()->Get(i)->metadata_size());
       pending_notification_.push_back(std::make_tuple(id,
             object_info->object_info()->Get(i)->data_size(),
             object_info->object_info()->Get(i)->metadata_size()));

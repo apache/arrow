@@ -159,6 +159,10 @@ TEST_F(TestPlasmaStore, BatchNotificationTest) {
   ARROW_CHECK_OK(local_client.Connect(store_socket_name_, ""));
   ARROW_CHECK_OK(local_client2.Connect(store_socket_name_, ""));
 
+  int fd = -1;
+  ARROW_CHECK_OK(local_client2.Subscribe(&fd));
+  ASSERT_GT(fd, 0);
+
   ObjectID object_id1 = random_object_id();
   ObjectID object_id2 = random_object_id();
 
@@ -169,25 +173,20 @@ TEST_F(TestPlasmaStore, BatchNotificationTest) {
   ARROW_CHECK_OK(
       local_client.CreateAndSealBatch(object_ids, data, metadata));
 
-  // Test that new subscriber client2 can receive notifications about existing objects.
-  int fd = -1;
-  ARROW_CHECK_OK(local_client2.Subscribe(&fd));
-  ASSERT_GT(fd, 0);
-
   ObjectID object_id = random_object_id();
   int64_t data_size = 0;
   int64_t metadata_size = 0;
   ARROW_CHECK_OK(
       local_client2.GetNotification(fd, &object_id, &data_size, &metadata_size));
-  ASSERT_EQ(object_id, object_id2);
-  ASSERT_EQ(data_size, 6);
-  ASSERT_EQ(metadata_size, 2);
-
-  ARROW_CHECK_OK(
-      local_client2.GetNotification(fd, &object_id, &data_size, &metadata_size));
   ASSERT_EQ(object_id, object_id1);
   ASSERT_EQ(data_size, 5);
   ASSERT_EQ(metadata_size, 1);
+
+  ARROW_CHECK_OK(
+      local_client2.GetNotification(fd, &object_id, &data_size, &metadata_size));
+  ASSERT_EQ(object_id, object_id2);
+  ASSERT_EQ(data_size, 6);
+  ASSERT_EQ(metadata_size, 2);
 
   ARROW_CHECK_OK(local_client2.Disconnect());
   ARROW_CHECK_OK(local_client.Disconnect());
