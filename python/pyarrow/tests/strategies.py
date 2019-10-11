@@ -82,7 +82,12 @@ timestamp_types = st.builds(
     unit=st.sampled_from(['s', 'ms', 'us', 'ns']),
     tz=tzst.timezones()
 )
-temporal_types = st.one_of(date_types, time_types, timestamp_types)
+duration_types = st.builds(
+    pa.duration,
+    unit=st.sampled_from(['s', 'ms', 'us', 'ns'])
+)
+temporal_types = st.one_of(
+    date_types, time_types, timestamp_types, duration_types)
 
 primitive_types = st.one_of(
     null_type,
@@ -198,6 +203,8 @@ def arrays(draw, type, size=None):
     elif pa.types.is_timestamp(type):
         tz = pytz.timezone(type.tz) if type.tz is not None else None
         value = st.datetimes(timezones=st.just(tz))
+    elif pa.types.is_duration(type):
+        value = st.timedeltas()
     elif pa.types.is_binary(type) or pa.types.is_large_binary(type):
         value = st.binary()
     elif pa.types.is_string(type) or pa.types.is_large_string(type):

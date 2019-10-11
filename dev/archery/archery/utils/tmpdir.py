@@ -1,4 +1,3 @@
-#!/bin/bash
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,10 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-set -ex
+from contextlib import contextmanager
+from tempfile import mkdtemp, TemporaryDirectory
 
-mkdir -p /build/lint
-pushd /build/lint
-  cmake -GNinja /arrow/cpp
-  ninja format
-popd
+
+@contextmanager
+def tmpdir(preserve=False, prefix="arrow-archery-"):
+    if preserve:
+        yield mkdtemp(prefix=prefix)
+    else:
+        with TemporaryDirectory(prefix=prefix) as tmp:
+            yield tmp

@@ -247,9 +247,12 @@ if(${CLANG_TIDY_FOUND})
                     ${ARROW_LINT_QUIET})
 endif()
 
-if(ARROW_ONLY_LINT)
-  return()
-endif()
+if(UNIX)
+  add_custom_target(iwyu ${BUILD_SUPPORT_DIR}/iwyu/iwyu.sh)
+endif(UNIX)
+
+add_custom_target(lint_cpp_cli ${PYTHON_EXECUTABLE} ${BUILD_SUPPORT_DIR}/lint_cpp_cli.py
+                  ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 #
 # Set up various options
@@ -578,13 +581,6 @@ if(${INFER_FOUND})
                     ${CMAKE_BINARY_DIR}/compile_commands.json
                     3)
 endif()
-
-#
-# "make iwyu" target
-#
-if(UNIX)
-  add_custom_target(iwyu ${BUILD_SUPPORT_DIR}/iwyu/iwyu.sh)
-endif(UNIX)
 
 #
 # Linker and Dependencies

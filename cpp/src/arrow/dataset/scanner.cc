@@ -21,6 +21,7 @@
 
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
+#include "arrow/table.h"
 #include "arrow/util/iterator.h"
 
 namespace arrow {
@@ -82,6 +83,21 @@ Status ScannerBuilder::Finish(std::unique_ptr<Scanner>* out) const {
   auto options = std::make_shared<ScanOptions>();
   out->reset(new SimpleScanner(dataset_->sources(), options, scan_context_));
   return Status::OK();
+}
+
+Status Scanner::ToTable(std::shared_ptr<Scanner> scanner, std::shared_ptr<Table>* out) {
+  std::vector<std::shared_ptr<RecordBatch>> batches;
+
+  auto it_scantasks = scanner->Scan();
+  RETURN_NOT_OK(it_scantasks.Visit([&batches](std::unique_ptr<ScanTask> task) -> Status {
+    auto it = task->Scan();
+    return it.Visit([&batches](std::shared_ptr<RecordBatch> batch) {
+      batches.push_back(batch);
+      return Status::OK();
+    });
+  }));
+
+  return Table::FromRecordBatches(batches, out);
 }
 
 }  // namespace dataset

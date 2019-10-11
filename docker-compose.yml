@@ -432,16 +432,26 @@ services:
 
   lint:
     # Usage:
-    #   export PYTHON_VERSION=3.6
-    #   docker-compose build cpp
-    #   docker-compose build python
     #   docker-compose build lint
     #   docker-compose run lint
     image: arrowdev/arrow-lint:latest
     build:
       context: .
+      dockerfile: ci/docker/Dockerfile.lint
+    volumes: *ubuntu-volumes
+
+  iwyu:
+    # Usage:
+    #   export PYTHON_VERSION=3.6
+    #   docker-compose build cpp
+    #   docker-compose build python
+    #   docker-compose build iwyu
+    #   docker-compose run iwyu
+    image: arrowdev/arrow-iwyu:latest
+    build:
+      context: .
       dockerfile: dev/lint/Dockerfile
-    command: arrow/dev/lint/run_linters.sh
+    command: arrow/dev/lint/run_iwyu.sh
     volumes: *ubuntu-volumes
 
   fuzzit:
@@ -492,37 +502,6 @@ services:
       CI_ARROW_SHA: ${CI_ARROW_SHA}
       CI_ARROW_BRANCH: ${CI_ARROW_BRANCH}
       FUZZIT_JOB_TYPE: local-regression
-    volumes: *ubuntu-volumes
-
-  iwyu:
-    # Usage:
-    #   export PYTHON_VERSION=3.6
-    #   docker-compose build cpp
-    #   docker-compose build python
-    #   docker-compose build lint
-    #   docker-compose run iwyu
-    image: arrowdev/arrow-lint:latest
-    command: arrow/dev/lint/run_iwyu.sh
-    volumes: *ubuntu-volumes
-
-  clang-format:
-    # Usage:
-    #   docker-compose build cpp
-    #   docker-compose build python
-    #   docker-compose build lint
-    #   docker-compose run clang-format
-    image: arrowdev/arrow-lint:latest
-    command: arrow/dev/lint/run_clang_format.sh
-    volumes: *ubuntu-volumes
-
-  clang-tidy:
-    # Usage:
-    #   docker-compose build cpp
-    #   docker-compose build python
-    #   docker-compose build lint
-    #   docker-compose run clang-tidy
-    image: arrowdev/arrow-lint:latest
-    command: arrow/dev/lint/run_clang_tidy.sh
     volumes: *ubuntu-volumes
 
   docs:

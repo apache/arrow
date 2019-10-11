@@ -120,6 +120,10 @@ def test_type_for_alias():
         ('timestamp[ms]', pa.timestamp('ms')),
         ('timestamp[us]', pa.timestamp('us')),
         ('timestamp[ns]', pa.timestamp('ns')),
+        ('duration[s]', pa.duration('s')),
+        ('duration[ms]', pa.duration('ms')),
+        ('duration[us]', pa.duration('us')),
+        ('duration[ns]', pa.duration('ns')),
     ]
 
     for val, expected in cases:
@@ -177,7 +181,11 @@ def test_from_numpy_dtype():
         (np.dtype('datetime64[s]'), pa.timestamp('s')),
         (np.dtype('datetime64[ms]'), pa.timestamp('ms')),
         (np.dtype('datetime64[us]'), pa.timestamp('us')),
-        (np.dtype('datetime64[ns]'), pa.timestamp('ns'))
+        (np.dtype('datetime64[ns]'), pa.timestamp('ns')),
+        (np.dtype('timedelta64[s]'), pa.duration('s')),
+        (np.dtype('timedelta64[ms]'), pa.duration('ms')),
+        (np.dtype('timedelta64[us]'), pa.duration('us')),
+        (np.dtype('timedelta64[ns]'), pa.duration('ns')),
     ]
 
     for dt, pt in cases:

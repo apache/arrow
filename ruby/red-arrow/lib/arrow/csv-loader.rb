@@ -93,13 +93,19 @@ module Arrow
       @options.each do |key, value|
         case key
         when :headers
-          raise ArgumentError, <<~HEADERS_WILL_NOT_WORK
-            There is no safe way to interpret the legacy :headers option in
-            modern libarrow.  Please replace with some combination of
-            :autogenerate_column_names, :column_names, :column_types, :schema,
-            or no column descriptions at all (which will function as headers:
-            true did in the past).
-            HEADERS_WILL_NOT_WORK
+          case value
+          when ::Array
+            options.column_names = value
+          when ::String
+            return nil
+          when false, nil
+            options.generate_column_names = true
+          when :first_line, true
+            options.generate_column_names = false
+          else
+            # Undocumented in Ruby CSV, but it treats truthy as true
+            options.generate_column_names = false
+          end
         when :column_types
           value.each do |name, type|
             options.add_column_type(name, type)

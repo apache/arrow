@@ -105,6 +105,11 @@ cdef class Time64Type(DataType):
         const CTime64Type* time_type
 
 
+cdef class DurationType(DataType):
+    cdef:
+        const CDurationType* duration_type
+
+
 cdef class FixedSizeBinaryType(DataType):
     cdef:
         const CFixedSizeBinaryType* fixed_size_binary_type

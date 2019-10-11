@@ -20,6 +20,8 @@
 # This script requires Python 3 and clang-format, which should already be
 # on your system. See r/README.md for further guidance
 
+set -e
+
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 CPP_BUILD_SUPPORT=$SOURCE_DIR/../cpp/build-support
 

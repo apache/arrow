@@ -25,8 +25,8 @@ class ApacheArrow < Formula
 
   bottle do
     cellar :any
-    sha256 "b00e518cda38f90ecefaf542d4c030a966eae50623b057e9edb6fbe93fc3f4ab" => :el_capitan_or_later
-    root_url "https://jeroen.github.io/bottles"
+    sha256 "a55211ba6f464681b7ca1b48defdad9cfbe1cf6fad8ff9ec875dc5a3c8f3c5ed" => :el_capitan_or_later
+    root_url "https://autobrew.github.io/bottles"
   end
 
   depends_on "cmake" => :build

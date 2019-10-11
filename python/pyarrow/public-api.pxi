@@ -92,6 +92,8 @@ cdef api object pyarrow_wrap_data_type(
         out = UnionType.__new__(UnionType)
     elif type.get().id() == _Type_TIMESTAMP:
         out = TimestampType.__new__(TimestampType)
+    elif type.get().id() == _Type_DURATION:
+        out = DurationType.__new__(DurationType)
     elif type.get().id() == _Type_FIXED_SIZE_BINARY:
         out = FixedSizeBinaryType.__new__(FixedSizeBinaryType)
     elif type.get().id() == _Type_DECIMAL:

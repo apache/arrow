@@ -131,6 +131,20 @@ struct npy_traits<NPY_DATETIME> {
 };
 
 template <>
+struct npy_traits<NPY_TIMEDELTA> {
+  typedef int64_t value_type;
+  using TypeClass = DurationType;
+  using BuilderClass = DurationBuilder;
+
+  static constexpr bool supports_nulls = true;
+
+  static inline bool isnull(int64_t v) {
+    // NaT = -2**63 = std::numeric_limits<int64_t>::min()
+    return v == std::numeric_limits<int64_t>::min();
+  }
+};
+
+template <>
 struct npy_traits<NPY_OBJECT> {
   typedef PyObject* value_type;
   static constexpr bool supports_nulls = true;
@@ -206,6 +220,16 @@ struct arrow_traits<Type::TIMESTAMP> {
   static constexpr bool supports_nulls = true;
   static constexpr int64_t na_value = kPandasTimestampNull;
   typedef typename npy_traits<NPY_DATETIME>::value_type T;
+};
+
+template <>
+struct arrow_traits<Type::DURATION> {
+  static constexpr int npy_type = NPY_TIMEDELTA;
+  static constexpr int64_t npy_shift = 1;
+
+  static constexpr bool supports_nulls = true;
+  static constexpr int64_t na_value = kPandasTimestampNull;
+  typedef typename npy_traits<NPY_TIMEDELTA>::value_type T;
 };
 
 template <>
