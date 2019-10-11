@@ -475,8 +475,10 @@ class ARROW_DS_EXPORT ExpressionEvaluator {
     return Filter(selection, batch).Value(out);
   }
 
-  /// Wrap an iterator of record batches with a filter expression. The resulting
+  /// \brief Wrap an iterator of record batches with a filter expression. The resulting
   /// iterator will yield record batches filtered by the given expression.
+  ///
+  /// \note The ExpressionEvaluator must outlive the returned iterator.
   virtual RecordBatchIterator FilterBatches(RecordBatchIterator unfiltered,
                                             std::shared_ptr<Expression> filter);
 

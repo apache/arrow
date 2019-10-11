@@ -761,12 +761,16 @@ Result<std::shared_ptr<DataType>> FieldExpression::Validate(const Schema& schema
 RecordBatchIterator ExpressionEvaluator::FilterBatches(
     RecordBatchIterator unfiltered, std::shared_ptr<Expression> filter) {
   auto filter_batches = [filter, this](const std::shared_ptr<RecordBatch>& unfiltered,
-                                       std::shared_ptr<RecordBatch>* filtered) {
+                                       std::shared_ptr<RecordBatch>* filtered,
+                                       bool* accept) {
     ARROW_ASSIGN_OR_RAISE(auto selection, Evaluate(*filter, *unfiltered));
-    return Filter(selection, unfiltered, filtered);
+    RETURN_NOT_OK(Filter(selection, unfiltered, filtered));
+    // drop empty batches
+    *accept = (*filtered)->num_rows() > 0;
+    return Status::OK();
   };
 
-  return MakeMaybeMapIterator(std::move(filter_batches), std::move(unfiltered));
+  return MakeFilterIterator(std::move(filter_batches), std::move(unfiltered));
 }
 
 std::shared_ptr<ExpressionEvaluator> ExpressionEvaluator::Null() {
