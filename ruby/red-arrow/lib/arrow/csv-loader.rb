@@ -94,14 +94,17 @@ module Arrow
         case key
         when :headers
           case value
-          when true, :first_line
-            options.generate_column_names = false
           when ::Array
             options.column_names = value
           when ::String
             return nil
-          else
+          when false, nil
             options.generate_column_names = true
+          when :first_line, true
+            options.generate_column_names = false
+          else
+            # Undocumented in Ruby CSV, but it treats truthy as true
+            options.generate_column_names = false
           end
         when :column_types
           value.each do |name, type|

@@ -144,6 +144,17 @@ c
                      CSV
       end
 
+      test("truthy") do
+        values = Arrow::StringArray.new(["a", "b", "c"])
+        assert_equal(Arrow::Table.new(value: values),
+                     load_csv(<<-CSV, headers: 0))
+value
+a
+b
+c
+                     CSV
+      end
+
       test("Array of column names") do
         values = Arrow::StringArray.new(["a", "b", "c"])
         assert_equal(Arrow::Table.new(column: values),
@@ -154,11 +165,20 @@ c
                      CSV
       end
 
-
       test("false") do
         values = Arrow::StringArray.new(["a", "b", "c"])
         assert_equal(Arrow::Table.new(f0: values),
                      load_csv(<<-CSV, headers: false))
+a
+b
+c
+                     CSV
+      end
+
+      test("nil") do
+        values = Arrow::StringArray.new(["a", "b", "c"])
+        assert_equal(Arrow::Table.new(f0: values),
+                     load_csv(<<-CSV, headers: nil))
 a
 b
 c
