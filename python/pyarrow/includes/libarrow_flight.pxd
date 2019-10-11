@@ -373,7 +373,9 @@ ctypedef CStatus cb_client_middleware_start_call(
     const CCallInfo&,
     unique_ptr[CClientMiddleware]*)
 
-cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
+cdef extern from "arrow/flight/python_bind.h" \
+        namespace "arrow::py::flight" nogil:
+
     cdef cppclass PyFlightServerVtable:
         PyFlightServerVtable()
         function[cb_list_flights] list_flights

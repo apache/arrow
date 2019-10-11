@@ -41,7 +41,11 @@ cd /arrow/python
 # PyArrow build configuration
 export PYARROW_BUILD_TYPE='release'
 export PYARROW_CMAKE_GENERATOR='Ninja'
-export PYARROW_WITH_ORC=1
+
+# ARROW-6860: Disabling ORC in wheels until Protobuf static linking issues
+# across projects is resolved
+export PYARROW_WITH_ORC=0
+
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PLASMA=1
 export PYARROW_BUNDLE_ARROW_CPP=1
@@ -97,7 +101,8 @@ cmake -DCMAKE_BUILD_TYPE=Release \
     -DPythonInterp_FIND_VERSION=${PYTHON_VERSION} \
     -DARROW_PLASMA=ON \
     -DARROW_TENSORFLOW=ON \
-    -DARROW_ORC=ON \
+    -DARROW_ORC=OFF \
+    -DORC_SOURCE=BUNDLED \
     -DARROW_WITH_BZ2=ON \
     -DARROW_WITH_ZLIB=ON \
     -DARROW_WITH_ZSTD=ON \
@@ -110,7 +115,6 @@ cmake -DCMAKE_BUILD_TYPE=Release \
     -DBoost_NAMESPACE=arrow_boost \
     -DBOOST_ROOT=/arrow_boost_dist \
     -DOPENSSL_USE_STATIC_LIBS=ON \
-    -DORC_SOURCE=BUNDLED \
     -GNinja /arrow/cpp
 ninja
 ninja install
@@ -149,7 +153,6 @@ else
   $PYTHON_INTERPRETER -c "
 import sys
 import pyarrow
-import pyarrow.orc
 import pyarrow.parquet
 import pyarrow.plasma
 
