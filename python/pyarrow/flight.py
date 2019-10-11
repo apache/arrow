@@ -34,6 +34,7 @@ from pyarrow._flight import (  # noqa
     FlightEndpoint,
     FlightInfo,
     SchemaResult,
+    FlightMethod,
     FlightServerBase,
     FlightError,
     FlightInternalError,
@@ -49,5 +50,10 @@ from pyarrow._flight import (  # noqa
     Result,
     ClientAuthHandler,
     ServerAuthHandler,
+    CallInfo,
+    ClientMiddleware,
+    ClientMiddlewareFactory,
+    ServerMiddleware,
+    ServerMiddlewareFactory,
     BasicAuth
 )

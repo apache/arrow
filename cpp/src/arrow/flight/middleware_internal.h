@@ -15,13 +15,32 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Interfaces for defining middleware for Flight clients and
+// servers. Currently experimental.
+
 #pragma once
 
-#include "arrow/flight/client.h"
-#include "arrow/flight/client_auth.h"
-#include "arrow/flight/client_middleware.h"
+#include "arrow/flight/platform.h"
+#include "arrow/flight/visibility.h"  // IWYU pragma: keep
+
+#include <map>
+#include <string>
+#include <utility>
+
+#ifdef GRPCPP_PP_INCLUDE
+#include <grpcpp/grpcpp.h>
+#else
+#include <grpc++/grpc++.h>
+#endif
+
 #include "arrow/flight/middleware.h"
-#include "arrow/flight/server.h"
-#include "arrow/flight/server_auth.h"
-#include "arrow/flight/server_middleware.h"
-#include "arrow/flight/types.h"
+
+namespace arrow {
+
+namespace flight {
+
+namespace internal {}  // namespace internal
+
+}  // namespace flight
+
+}  // namespace arrow

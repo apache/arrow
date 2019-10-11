@@ -33,6 +33,9 @@ namespace py {
 
 namespace flight {
 
+ARROW_PYTHON_EXPORT
+extern const char* kPyServerMiddlewareName;
+
 /// \brief A table of function pointers for calling from C++ into
 /// Python.
 class ARROW_PYTHON_EXPORT PyFlightServerVtable {
@@ -178,6 +181,102 @@ class ARROW_PYTHON_EXPORT PyFlightDataStream : public arrow::flight::FlightDataS
  private:
   OwnedRefNoGIL data_source_;
   std::unique_ptr<arrow::flight::FlightDataStream> stream_;
+};
+
+class ARROW_PYTHON_EXPORT PyServerMiddlewareFactory
+    : public arrow::flight::ServerMiddlewareFactory {
+ public:
+  /// \brief A callback to create the middleware instance in Python
+  typedef std::function<Status(
+      PyObject*, const arrow::flight::CallInfo& info,
+      const arrow::flight::CallHeaders& incoming_headers,
+      std::shared_ptr<arrow::flight::ServerMiddleware>* middleware)>
+      StartCallCallback;
+
+  /// \brief Must only be called while holding the GIL.
+  explicit PyServerMiddlewareFactory(PyObject* factory, StartCallCallback start_call);
+
+  Status StartCall(const arrow::flight::CallInfo& info,
+                   const arrow::flight::CallHeaders& incoming_headers,
+                   std::shared_ptr<arrow::flight::ServerMiddleware>* middleware) override;
+
+ private:
+  OwnedRefNoGIL factory_;
+  StartCallCallback start_call_;
+};
+
+class ARROW_PYTHON_EXPORT PyServerMiddleware : public arrow::flight::ServerMiddleware {
+ public:
+  typedef std::function<Status(PyObject*,
+                               arrow::flight::AddCallHeaders* outgoing_headers)>
+      SendingHeadersCallback;
+  typedef std::function<Status(PyObject*, const Status& status)> CallCompletedCallback;
+
+  struct Vtable {
+    SendingHeadersCallback sending_headers;
+    CallCompletedCallback call_completed;
+  };
+
+  /// \brief Must only be called while holding the GIL.
+  explicit PyServerMiddleware(PyObject* middleware, Vtable vtable);
+
+  void SendingHeaders(arrow::flight::AddCallHeaders* outgoing_headers) override;
+  void CallCompleted(const Status& status) override;
+  std::string name() const override;
+  /// \brief Get the underlying Python object.
+  PyObject* py_object() const;
+
+ private:
+  OwnedRefNoGIL middleware_;
+  Vtable vtable_;
+};
+
+class ARROW_PYTHON_EXPORT PyClientMiddlewareFactory
+    : public arrow::flight::ClientMiddlewareFactory {
+ public:
+  /// \brief A callback to create the middleware instance in Python
+  typedef std::function<Status(
+      PyObject*, const arrow::flight::CallInfo& info,
+      std::unique_ptr<arrow::flight::ClientMiddleware>* middleware)>
+      StartCallCallback;
+
+  /// \brief Must only be called while holding the GIL.
+  explicit PyClientMiddlewareFactory(PyObject* factory, StartCallCallback start_call);
+
+  void StartCall(const arrow::flight::CallInfo& info,
+                 std::unique_ptr<arrow::flight::ClientMiddleware>* middleware) override;
+
+ private:
+  OwnedRefNoGIL factory_;
+  StartCallCallback start_call_;
+};
+
+class ARROW_PYTHON_EXPORT PyClientMiddleware : public arrow::flight::ClientMiddleware {
+ public:
+  typedef std::function<Status(PyObject*,
+                               arrow::flight::AddCallHeaders* outgoing_headers)>
+      SendingHeadersCallback;
+  typedef std::function<Status(PyObject*,
+                               const arrow::flight::CallHeaders& incoming_headers)>
+      ReceivedHeadersCallback;
+  typedef std::function<Status(PyObject*, const Status& status)> CallCompletedCallback;
+
+  struct Vtable {
+    SendingHeadersCallback sending_headers;
+    ReceivedHeadersCallback received_headers;
+    CallCompletedCallback call_completed;
+  };
+
+  /// \brief Must only be called while holding the GIL.
+  explicit PyClientMiddleware(PyObject* factory, Vtable vtable);
+
+  void SendingHeaders(arrow::flight::AddCallHeaders* outgoing_headers) override;
+  void ReceivedHeaders(const arrow::flight::CallHeaders& incoming_headers) override;
+  void CallCompleted(const Status& status) override;
+
+ private:
+  OwnedRefNoGIL middleware_;
+  Vtable vtable_;
 };
 
 /// \brief A callback that obtains the next payload from a Flight result stream.
