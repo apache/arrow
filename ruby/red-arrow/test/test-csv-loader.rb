@@ -184,6 +184,16 @@ b
 c
                      CSV
       end
+
+      test("string") do
+        values = Arrow::StringArray.new(["a", "b", "c"])
+        assert_equal(Arrow::Table.new(column: values),
+                     load_csv(<<-CSV, headers: "column"))
+a
+b
+c
+                     CSV
+      end
     end
 
     test(":column_types") do
