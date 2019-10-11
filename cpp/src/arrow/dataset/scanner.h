@@ -55,6 +55,8 @@ class ARROW_DS_EXPORT ScanOptions {
 
   std::vector<std::shared_ptr<FileScanOptions>> options;
 
+  bool include_partition_keys = true;
+
  private:
   ScanOptions();
 };
@@ -156,7 +158,10 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// \brief Set
   ScannerBuilder* Project(const std::vector<std::string>& columns);
 
-  ScannerBuilder* Filter(const std::shared_ptr<Expression>& filter);
+  ScannerBuilder* Filter(std::shared_ptr<Expression> filter);
+  ScannerBuilder* Filter(const Expression& filter);
+
+  ScannerBuilder* FilterEvaluator(std::shared_ptr<ExpressionEvaluator> evaluator);
 
   ScannerBuilder* SetGlobalFileOptions(std::shared_ptr<FileScanOptions> options);
 
@@ -170,10 +175,9 @@ class ARROW_DS_EXPORT ScannerBuilder {
 
  private:
   std::shared_ptr<Dataset> dataset_;
+  std::shared_ptr<ScanOptions> scan_options_;
   std::shared_ptr<ScanContext> scan_context_;
   std::vector<std::string> project_columns_;
-  std::shared_ptr<Expression> filter_;
-  bool include_partition_keys_;
 };
 
 }  // namespace dataset

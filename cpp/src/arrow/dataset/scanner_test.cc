@@ -98,7 +98,7 @@ TEST_F(TestSimpleScanner, FilteredScan) {
   auto reader = ConstantArrayGenerator::Repeat(total_batches, batch_filtered);
 
   compute::FunctionContext ctx;
-  options_->evaluator = std::make_shared<DepthFirstEvaluator>(&ctx);
+  options_->evaluator = std::make_shared<TreeEvaluator>(&ctx);
   SimpleScanner scanner{sources, options_, ctx_};
 
   // Verifies that the unified BatchReader is equivalent to flattening all the

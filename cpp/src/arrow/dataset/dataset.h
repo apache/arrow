@@ -49,9 +49,16 @@ class ARROW_DS_EXPORT DataFragment {
   /// scanning this fragment. May be nullptr, which indicates that no filtering
   /// or schema reconciliation will be performed and all partitions will be
   /// scanned.
-  virtual std::shared_ptr<ScanOptions> scan_options() const = 0;
+  std::shared_ptr<ScanOptions> scan_options() const { return scan_options_; }
 
   virtual ~DataFragment() = default;
+
+ protected:
+  DataFragment();
+  explicit DataFragment(std::shared_ptr<ScanOptions> scan_options)
+      : scan_options_(std::move(scan_options)) {}
+
+  std::shared_ptr<ScanOptions> scan_options_;
 };
 
 /// \brief A trivial DataFragment that yields ScanTask out of a fixed set of
@@ -61,17 +68,14 @@ class ARROW_DS_EXPORT SimpleDataFragment : public DataFragment {
   explicit SimpleDataFragment(std::vector<std::shared_ptr<RecordBatch>> record_batches);
 
   SimpleDataFragment(std::vector<std::shared_ptr<RecordBatch>> record_batches,
-                     std::shared_ptr<ScanOptions> options);
+                     std::shared_ptr<ScanOptions> scan_options);
 
   Status Scan(std::shared_ptr<ScanContext> scan_context, ScanTaskIterator* out) override;
 
   bool splittable() const override { return false; }
 
-  std::shared_ptr<ScanOptions> scan_options() const override { return options_; }
-
  protected:
   std::vector<std::shared_ptr<RecordBatch>> record_batches_;
-  std::shared_ptr<ScanOptions> options_;
 };
 
 /// \brief A basic component of a Dataset which yields zero or more

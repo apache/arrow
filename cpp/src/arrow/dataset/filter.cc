@@ -789,28 +789,28 @@ std::shared_ptr<ExpressionEvaluator> ExpressionEvaluator::Null() {
   return std::make_shared<Impl>();
 }
 
-struct DepthFirstEvaluator::Impl {
+struct TreeEvaluator::Impl {
   template <typename E>
   Result<Datum> operator()(const E& expr) const {
     return this_->Evaluate(expr, batch_);
   }
 
-  const DepthFirstEvaluator* this_;
+  const TreeEvaluator* this_;
   const RecordBatch& batch_;
 };
 
-Result<Datum> DepthFirstEvaluator::Evaluate(const Expression& expr,
-                                            const RecordBatch& batch) const {
+Result<Datum> TreeEvaluator::Evaluate(const Expression& expr,
+                                      const RecordBatch& batch) const {
   return VisitExpression(expr, Impl{this, batch});
 }
 
-Result<Datum> DepthFirstEvaluator::Evaluate(const ScalarExpression& expr,
-                                            const RecordBatch& batch) const {
+Result<Datum> TreeEvaluator::Evaluate(const ScalarExpression& expr,
+                                      const RecordBatch& batch) const {
   return Datum(expr.value());
 }
 
-Result<Datum> DepthFirstEvaluator::Evaluate(const FieldExpression& expr,
-                                            const RecordBatch& batch) const {
+Result<Datum> TreeEvaluator::Evaluate(const FieldExpression& expr,
+                                      const RecordBatch& batch) const {
   auto column = batch.GetColumnByName(expr.name());
   if (column == nullptr) {
     return NullDatum();
@@ -818,8 +818,8 @@ Result<Datum> DepthFirstEvaluator::Evaluate(const FieldExpression& expr,
   return std::move(column);
 }
 
-Result<Datum> DepthFirstEvaluator::Evaluate(const NotExpression& expr,
-                                            const RecordBatch& batch) const {
+Result<Datum> TreeEvaluator::Evaluate(const NotExpression& expr,
+                                      const RecordBatch& batch) const {
   ARROW_ASSIGN_OR_RAISE(auto to_invert, Evaluate(*expr.operand(), batch));
   if (IsNullDatum(to_invert)) {
     return NullDatum();
@@ -837,8 +837,8 @@ Result<Datum> DepthFirstEvaluator::Evaluate(const NotExpression& expr,
   return std::move(out);
 }
 
-Result<Datum> DepthFirstEvaluator::Evaluate(const AndExpression& expr,
-                                            const RecordBatch& batch) const {
+Result<Datum> TreeEvaluator::Evaluate(const AndExpression& expr,
+                                      const RecordBatch& batch) const {
   ARROW_ASSIGN_OR_RAISE(auto lhs, Evaluate(*expr.left_operand(), batch));
   ARROW_ASSIGN_OR_RAISE(auto rhs, Evaluate(*expr.right_operand(), batch));
 
@@ -867,8 +867,8 @@ Result<Datum> DepthFirstEvaluator::Evaluate(const AndExpression& expr,
   return lhs.is_array() ? std::move(lhs) : std::move(rhs);
 }
 
-Result<Datum> DepthFirstEvaluator::Evaluate(const OrExpression& expr,
-                                            const RecordBatch& batch) const {
+Result<Datum> TreeEvaluator::Evaluate(const OrExpression& expr,
+                                      const RecordBatch& batch) const {
   ARROW_ASSIGN_OR_RAISE(auto lhs, Evaluate(*expr.left_operand(), batch));
   ARROW_ASSIGN_OR_RAISE(auto rhs, Evaluate(*expr.right_operand(), batch));
 
@@ -897,8 +897,8 @@ Result<Datum> DepthFirstEvaluator::Evaluate(const OrExpression& expr,
   return lhs.is_array() ? std::move(lhs) : std::move(rhs);
 }
 
-Result<Datum> DepthFirstEvaluator::Evaluate(const ComparisonExpression& expr,
-                                            const RecordBatch& batch) const {
+Result<Datum> TreeEvaluator::Evaluate(const ComparisonExpression& expr,
+                                      const RecordBatch& batch) const {
   ARROW_ASSIGN_OR_RAISE(auto lhs, Evaluate(*expr.left_operand(), batch));
   ARROW_ASSIGN_OR_RAISE(auto rhs, Evaluate(*expr.right_operand(), batch));
 
@@ -914,7 +914,7 @@ Result<Datum> DepthFirstEvaluator::Evaluate(const ComparisonExpression& expr,
   return std::move(out);
 }
 
-Result<std::shared_ptr<RecordBatch>> DepthFirstEvaluator::Filter(
+Result<std::shared_ptr<RecordBatch>> TreeEvaluator::Filter(
     const compute::Datum& selection, const std::shared_ptr<RecordBatch>& batch) const {
   if (selection.is_array()) {
     auto selection_array = selection.make_array();

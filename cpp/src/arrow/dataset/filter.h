@@ -487,9 +487,9 @@ class ARROW_DS_EXPORT ExpressionEvaluator {
 
 /// construct an Evaluator which uses compute kernels to evaluate expressions and
 /// filter record batches in depth first order
-class ARROW_DS_EXPORT DepthFirstEvaluator : public ExpressionEvaluator {
+class ARROW_DS_EXPORT TreeEvaluator : public ExpressionEvaluator {
  public:
-  explicit DepthFirstEvaluator(compute::FunctionContext* ctx) : ctx_(ctx) {}
+  explicit TreeEvaluator(compute::FunctionContext* ctx) : ctx_(ctx) {}
 
   Result<compute::Datum> Evaluate(const Expression& expr,
                                   const RecordBatch& batch) const override;

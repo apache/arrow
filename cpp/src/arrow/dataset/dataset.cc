@@ -29,14 +29,16 @@
 namespace arrow {
 namespace dataset {
 
-SimpleDataFragment::SimpleDataFragment(
-    std::vector<std::shared_ptr<RecordBatch>> record_batches)
-    : SimpleDataFragment(std::move(record_batches), ScanOptions::Defaults()) {}
+DataFragment::DataFragment() : scan_options_(ScanOptions::Defaults()) {}
 
 SimpleDataFragment::SimpleDataFragment(
     std::vector<std::shared_ptr<RecordBatch>> record_batches,
-    std::shared_ptr<ScanOptions> options)
-    : record_batches_(std::move(record_batches)), options_(std::move(options)) {}
+    std::shared_ptr<ScanOptions> scan_options)
+    : DataFragment(std::move(scan_options)), record_batches_(std::move(record_batches)) {}
+
+SimpleDataFragment::SimpleDataFragment(
+    std::vector<std::shared_ptr<RecordBatch>> record_batches)
+    : SimpleDataFragment(std::move(record_batches), ScanOptions::Defaults()) {}
 
 Status SimpleDataFragment::Scan(std::shared_ptr<ScanContext> scan_context,
                                 ScanTaskIterator* out) {
@@ -45,11 +47,11 @@ Status SimpleDataFragment::Scan(std::shared_ptr<ScanContext> scan_context,
   auto batches_it = MakeVectorIterator(record_batches_);
 
   // RecordBatch -> ScanTask
-  auto options = options_;
+  auto scan_options = scan_options_;
   auto fn = [=](std::shared_ptr<RecordBatch> batch) -> std::unique_ptr<ScanTask> {
     std::vector<std::shared_ptr<RecordBatch>> batches{batch};
     return ::arrow::internal::make_unique<SimpleScanTask>(
-        std::move(batches), std::move(options), std::move(scan_context));
+        std::move(batches), std::move(scan_options), std::move(scan_context));
   };
 
   *out = MakeMapIterator(fn, std::move(batches_it));

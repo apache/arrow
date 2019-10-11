@@ -124,7 +124,7 @@ TEST_F(ExpressionsTest, SimplificationToNull) {
 
 class FilterTest : public ::testing::Test {
  public:
-  FilterTest() { evaluator_ = std::make_shared<DepthFirstEvaluator>(&ctx_); }
+  FilterTest() { evaluator_ = std::make_shared<TreeEvaluator>(&ctx_); }
 
   Result<Datum> DoFilter(const Expression& expr,
                          std::vector<std::shared_ptr<Field>> fields,
@@ -307,11 +307,11 @@ class TakeExpression : public CustomExpression {
     return dictionary_->type();
   }
 
-  class Evaluator : public DepthFirstEvaluator {
+  class Evaluator : public TreeEvaluator {
    public:
-    using DepthFirstEvaluator::DepthFirstEvaluator;
+    using TreeEvaluator::TreeEvaluator;
 
-    using DepthFirstEvaluator::Evaluate;
+    using TreeEvaluator::Evaluate;
 
     Result<compute::Datum> Evaluate(const CustomExpression& expr,
                                     const RecordBatch& batch) const override {
