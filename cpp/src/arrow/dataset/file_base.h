@@ -62,11 +62,13 @@ class ARROW_DS_EXPORT FileSource {
   bool operator==(const FileSource& other) const {
     if (type_ != other.type_) {
       return false;
-    } else if (type_ == FileSource::PATH) {
-      return path_ == other.path_ && filesystem_ == other.filesystem_;
-    } else {
-      return buffer_->Equals(*other.buffer_);
     }
+
+    if (type_ == FileSource::PATH) {
+      return path_ == other.path_ && filesystem_ == other.filesystem_;
+    }
+
+    return buffer_->Equals(*other.buffer_);
   }
 
   /// \brief The kind of file, whether stored in a filesystem, memory
@@ -153,21 +155,18 @@ class ARROW_DS_EXPORT FileBasedDataFragment : public DataFragment {
  public:
   FileBasedDataFragment(const FileSource& source, std::shared_ptr<FileFormat> format,
                         std::shared_ptr<ScanOptions> scan_options)
-      : source_(source),
-        format_(std::move(format)),
-        scan_options_(std::move(scan_options)) {}
+      : DataFragment(std::move(scan_options)),
+        source_(source),
+        format_(std::move(format)) {}
 
   Status Scan(std::shared_ptr<ScanContext> scan_context, ScanTaskIterator* out) override;
 
   const FileSource& source() const { return source_; }
   std::shared_ptr<FileFormat> format() const { return format_; }
 
-  std::shared_ptr<ScanOptions> scan_options() const override { return scan_options_; }
-
  protected:
   FileSource source_;
   std::shared_ptr<FileFormat> format_;
-  std::shared_ptr<ScanOptions> scan_options_;
 };
 
 /// \brief Mapping from path to partition expressions.

@@ -43,7 +43,6 @@ class Dataset;
 class DataFragment;
 class DataSource;
 using DataSourceVector = std::vector<std::shared_ptr<DataSource>>;
-struct DataSelector;
 using DataFragmentIterator = Iterator<std::shared_ptr<DataFragment>>;
 using DataFragmentVector = std::vector<std::shared_ptr<DataFragment>>;
 
@@ -55,10 +54,6 @@ class FileScanOptions;
 class FileWriteOptions;
 
 class Expression;
-class Filter;
-using FilterVector = std::vector<std::shared_ptr<Filter>>;
-
-class Expression;
 class ComparisonExpression;
 class AndExpression;
 class OrExpression;
@@ -66,6 +61,7 @@ class NotExpression;
 class ScalarExpression;
 class FieldReferenceExpression;
 using ExpressionVector = std::vector<std::shared_ptr<Expression>>;
+class ExpressionEvaluator;
 
 class Partition;
 class PartitionKey;

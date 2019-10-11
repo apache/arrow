@@ -17,12 +17,18 @@
 
 #include "arrow/dataset/file_parquet.h"
 
+#include <memory>
 #include <utility>
 #include <vector>
 
+#include "arrow/dataset/filter.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
+#include "arrow/testing/generator.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "parquet/arrow/writer.h"
 
 namespace arrow {
@@ -125,22 +131,13 @@ class ParquetBufferFixtureMixin : public ArrowParquetWriterMixin {
   }
 
   std::unique_ptr<RecordBatchReader> GetRecordBatchReader() {
-    auto batch = GetRecordBatch();
+    auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
     int64_t i = 0;
     return MakeGeneratedRecordBatch(
         batch->schema(), [batch, i](std::shared_ptr<RecordBatch>* out) mutable {
           *out = i++ < kBatchRepetitions ? batch : nullptr;
           return Status::OK();
         });
-  }
-
-  std::shared_ptr<RecordBatch> GetRecordBatch() {
-    ASSERT_OK_AND_ASSIGN(auto f64, ArrayFromBuilderVisitor(float64(), kBatchSize,
-                                                           [](DoubleBuilder* builder) {
-                                                             builder->UnsafeAppend(0.0);
-                                                           }));
-
-    return RecordBatch::Make(schema_, kBatchSize, {f64});
   }
 
  protected:
@@ -152,7 +149,7 @@ class TestParquetFileFormat : public ParquetBufferFixtureMixin {
   TestParquetFileFormat() : ctx_(std::make_shared<ScanContext>()) {}
 
  protected:
-  std::shared_ptr<ScanOptions> opts_;
+  std::shared_ptr<ScanOptions> opts_ = ScanOptions::Defaults();
   std::shared_ptr<ScanContext> ctx_;
 };
 

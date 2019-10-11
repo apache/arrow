@@ -17,9 +17,12 @@
 
 #include "arrow/dataset/file_parquet.h"
 
+#include <memory>
 #include <utility>
 #include <vector>
 
+#include "arrow/dataset/filter.h"
+#include "arrow/dataset/scanner.h"
 #include "arrow/table.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/range.h"
@@ -42,7 +45,8 @@ class ParquetScanTask : public ScanTask {
  public:
   static Status Make(RowGroupSet row_groups, const std::vector<int>& columns_projection,
                      std::shared_ptr<parquet::arrow::FileReader> reader,
-                     ScanTaskPtr* out) {
+                     std::shared_ptr<ScanOptions> options,
+                     std::shared_ptr<ScanContext> context, ScanTaskPtr* out) {
     RecordBatchReaderPtr record_batch_reader;
     // TODO(fsaintjacques): Ensure GetRecordBatchReader is truly streaming and
     // not using a TableBatchReader (materializing the full partition instead
@@ -50,23 +54,29 @@ class ParquetScanTask : public ScanTask {
     RETURN_NOT_OK(reader->GetRecordBatchReader(row_groups, columns_projection,
                                                &record_batch_reader));
 
-    out->reset(new ParquetScanTask(row_groups, std::move(reader),
-                                   std::move(record_batch_reader)));
+    *out = internal::make_unique<ParquetScanTask>(row_groups, std::move(reader),
+                                                  std::move(record_batch_reader),
+                                                  std::move(options), std::move(context));
     return Status::OK();
   }
 
   RecordBatchIterator Scan() {
-    return MakePointerIterator(std::move(record_batch_reader_));
+    return options_->evaluator->FilterBatches(
+        MakePointerIterator(std::move(record_batch_reader_)), options_->filter);
   }
 
- private:
   ParquetScanTask(RowGroupSet row_groups,
                   std::shared_ptr<parquet::arrow::FileReader> reader,
-                  RecordBatchReaderPtr record_batch_reader)
+                  RecordBatchReaderPtr record_batch_reader,
+                  std::shared_ptr<ScanOptions> options,
+                  std::shared_ptr<ScanContext> context)
       : row_groups_(std::move(row_groups)),
         reader_(reader),
-        record_batch_reader_(std::move(record_batch_reader)) {}
+        record_batch_reader_(std::move(record_batch_reader)),
+        options_(std::move(options)),
+        context_(std::move(context)) {}
 
+ private:
   // List of RowGroup identifiers this ScanTask is associated with.
   RowGroupSet row_groups_;
 
@@ -75,6 +85,8 @@ class ParquetScanTask : public ScanTask {
   // contract required by record_batch_reader_
   std::shared_ptr<parquet::arrow::FileReader> reader_;
   RecordBatchReaderPtr record_batch_reader_;
+  std::shared_ptr<ScanOptions> options_;
+  std::shared_ptr<ScanContext> context_;
 };
 
 constexpr int64_t kDefaultRowCountPerPartition = 1U << 16;
@@ -123,8 +135,8 @@ class ParquetScanTaskIterator {
                                                    &arrow_reader));
 
     *out = ScanTaskIterator(
-        ParquetScanTaskIterator(columns_projection, metadata, std::move(arrow_reader)));
-
+        ParquetScanTaskIterator(std::move(options), std::move(context),
+                                columns_projection, metadata, std::move(arrow_reader)));
     return Status::OK();
   }
 
@@ -138,7 +150,7 @@ class ParquetScanTaskIterator {
     }
 
     return ParquetScanTask::Make(std::move(partition), columns_projection_, reader_,
-                                 task);
+                                 options_, context_, task);
   }
 
  private:
@@ -153,13 +165,19 @@ class ParquetScanTaskIterator {
     return Status::OK();
   }
 
-  ParquetScanTaskIterator(std::vector<int> columns_projection,
+  ParquetScanTaskIterator(std::shared_ptr<ScanOptions> options,
+                          std::shared_ptr<ScanContext> context,
+                          std::vector<int> columns_projection,
                           std::shared_ptr<parquet::FileMetaData> metadata,
                           std::unique_ptr<parquet::arrow::FileReader> reader)
-      : columns_projection_(columns_projection),
+      : options_(std::move(options)),
+        context_(std::move(context)),
+        columns_projection_(columns_projection),
         partitioner_(std::move(metadata)),
         reader_(std::move(reader)) {}
 
+  std::shared_ptr<ScanOptions> options_;
+  std::shared_ptr<ScanContext> context_;
   std::vector<int> columns_projection_;
   ParquetRowGroupPartitioner partitioner_;
   std::shared_ptr<parquet::arrow::FileReader> reader_;

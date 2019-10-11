@@ -18,16 +18,28 @@
 #include "arrow/dataset/scanner.h"
 
 #include <algorithm>
+#include <memory>
 
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
+#include "arrow/dataset/filter.h"
 #include "arrow/table.h"
 #include "arrow/util/iterator.h"
 
 namespace arrow {
 namespace dataset {
 
-RecordBatchIterator SimpleScanTask::Scan() { return MakeVectorIterator(record_batches_); }
+ScanOptions::ScanOptions()
+    : filter(scalar(true)), evaluator(ExpressionEvaluator::Null()) {}
+
+std::shared_ptr<ScanOptions> ScanOptions::Defaults() {
+  return std::shared_ptr<ScanOptions>(new ScanOptions);
+}
+
+RecordBatchIterator SimpleScanTask::Scan() {
+  return options_->evaluator->FilterBatches(MakeVectorIterator(record_batches_),
+                                            options_->filter);
+}
 
 /// \brief GetScanTaskIterator transforms an Iterator<DataFragment> in a
 /// flattened Iterator<ScanTask>.
@@ -59,13 +71,26 @@ ScanTaskIterator SimpleScanner::Scan() {
 
 ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset,
                                std::shared_ptr<ScanContext> scan_context)
-    : dataset_(std::move(dataset)), scan_context_(std::move(scan_context)) {}
+    : dataset_(std::move(dataset)),
+      scan_options_(ScanOptions::Defaults()),
+      scan_context_(std::move(scan_context)) {}
 
 ScannerBuilder* ScannerBuilder::Project(const std::vector<std::string>& columns) {
   return this;
 }
 
-ScannerBuilder* ScannerBuilder::AddFilter(const std::shared_ptr<Filter>& filter) {
+ScannerBuilder* ScannerBuilder::Filter(std::shared_ptr<Expression> filter) {
+  scan_options_->filter = std::move(filter);
+  return this;
+}
+
+ScannerBuilder* ScannerBuilder::Filter(const Expression& filter) {
+  return Filter(filter.Copy());
+}
+
+ScannerBuilder* ScannerBuilder::FilterEvaluator(
+    std::shared_ptr<ExpressionEvaluator> evaluator) {
+  scan_options_->evaluator = std::move(evaluator);
   return this;
 }
 
@@ -75,13 +100,12 @@ ScannerBuilder* ScannerBuilder::SetGlobalFileOptions(
 }
 
 ScannerBuilder* ScannerBuilder::IncludePartitionKeys(bool include) {
-  include_partition_keys_ = include;
+  scan_options_->include_partition_keys = include;
   return this;
 }
 
 Status ScannerBuilder::Finish(std::unique_ptr<Scanner>* out) const {
-  auto options = std::make_shared<ScanOptions>();
-  out->reset(new SimpleScanner(dataset_->sources(), options, scan_context_));
+  out->reset(new SimpleScanner(dataset_->sources(), scan_options_, scan_context_));
   return Status::OK();
 }
 

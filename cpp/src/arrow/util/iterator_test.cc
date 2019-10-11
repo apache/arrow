@@ -133,6 +133,11 @@ inline Iterator<T> VectorIt(std::vector<T> v) {
   return MakeVectorIterator<T>(std::move(v));
 }
 
+template <typename Fn, typename T>
+inline Iterator<T> FilterIt(Iterator<T> it, Fn&& fn) {
+  return MakeFilterIterator(std::forward<Fn>(fn), std::move(it));
+}
+
 template <typename T>
 inline Iterator<T> FlattenIt(Iterator<Iterator<T>> its) {
   return MakeFlattenIterator(std::move(its));
@@ -170,6 +175,28 @@ TEST(TestVectorIterator, Basic) {
   AssertIteratorNoMatch({}, VectorIt({1, 2, 3}));
   AssertIteratorNoMatch({1, 2, 2}, VectorIt({1, 2, 3}));
   AssertIteratorNoMatch({1, 2, 3, 1}, VectorIt({1, 2, 3}));
+}
+
+TEST(FilterIterator, Basic) {
+  AssertIteratorMatch({1, 2, 3, 4}, FilterIt(VectorIt({1, 2, 3, 4}),
+                                             [](TestInt i, TestInt* o, bool* accept) {
+                                               *o = std::move(i);
+                                               return Status::OK();
+                                             }));
+
+  AssertIteratorMatch(
+      {}, FilterIt(VectorIt({1, 2, 3, 4}), [](TestInt i, TestInt* o, bool* accept) {
+        *o = std::move(i);
+        *accept = false;
+        return Status::OK();
+      }));
+
+  AssertIteratorMatch(
+      {2, 4}, FilterIt(VectorIt({1, 2, 3, 4}), [](TestInt i, TestInt* o, bool* accept) {
+        *o = std::move(i);
+        *accept = (i.value % 2 == 0);
+        return Status::OK();
+      }));
 }
 
 TEST(FlattenVectorIterator, Basic) {

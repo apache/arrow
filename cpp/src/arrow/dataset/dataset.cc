@@ -29,23 +29,32 @@
 namespace arrow {
 namespace dataset {
 
+DataFragment::DataFragment() : scan_options_(ScanOptions::Defaults()) {}
+
+SimpleDataFragment::SimpleDataFragment(
+    std::vector<std::shared_ptr<RecordBatch>> record_batches,
+    std::shared_ptr<ScanOptions> scan_options)
+    : DataFragment(std::move(scan_options)), record_batches_(std::move(record_batches)) {}
+
 SimpleDataFragment::SimpleDataFragment(
     std::vector<std::shared_ptr<RecordBatch>> record_batches)
-    : record_batches_(std::move(record_batches)) {}
+    : SimpleDataFragment(std::move(record_batches), ScanOptions::Defaults()) {}
 
 Status SimpleDataFragment::Scan(std::shared_ptr<ScanContext> scan_context,
                                 ScanTaskIterator* out) {
   // Make an explicit copy of record_batches_ to ensure Scan can be called
   // multiple times.
-  auto it = MakeVectorIterator(record_batches_);
+  auto batches_it = MakeVectorIterator(record_batches_);
 
   // RecordBatch -> ScanTask
-  auto fn = [](std::shared_ptr<RecordBatch> batch) -> std::unique_ptr<ScanTask> {
+  auto scan_options = scan_options_;
+  auto fn = [=](std::shared_ptr<RecordBatch> batch) -> std::unique_ptr<ScanTask> {
     std::vector<std::shared_ptr<RecordBatch>> batches{batch};
-    return ::arrow::internal::make_unique<SimpleScanTask>(std::move(batches));
+    return ::arrow::internal::make_unique<SimpleScanTask>(
+        std::move(batches), std::move(scan_options), std::move(scan_context));
   };
 
-  *out = MakeMapIterator(fn, std::move(it));
+  *out = MakeMapIterator(fn, std::move(batches_it));
   return Status::OK();
 }
 
@@ -66,19 +75,15 @@ Status Dataset::NewScan(std::unique_ptr<ScannerBuilder>* out) {
 bool DataSource::AssumePartitionExpression(
     const std::shared_ptr<ScanOptions>& scan_options,
     std::shared_ptr<ScanOptions>* simplified_scan_options) const {
-  auto filter = scan_options->filter;
-  if (filter == nullptr || partition_expression_ == nullptr) {
+  if (partition_expression_ == nullptr) {
     if (simplified_scan_options != nullptr) {
       *simplified_scan_options = scan_options;
     }
     return true;
   }
 
-  auto c = filter->Assume(*partition_expression_);
-  DCHECK_OK(c.status());
-  auto expr = std::move(c).ValueOrDie();
-
-  if (expr->IsNull() || expr->IsTrivialFalseCondition()) {
+  auto expr = scan_options->filter->Assume(*partition_expression_);
+  if (expr->IsNull() || expr->Equals(false)) {
     // selector is not satisfiable; yield no fragments
     return false;
   }
