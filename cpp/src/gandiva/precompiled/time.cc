@@ -713,7 +713,7 @@ const char* castVARCHAR_timestamp_int64(int64 context, timestamp in, int64 lengt
                      year, month, day, hour, minute, second, millis);
   if (res < 0) {
     DCHECK(false);  // should be unreachable.
-    return ""; // prevent warning on release build with gcc.
+    return "";      // prevent warning on release build with gcc.
   }
 
   *out_len = static_cast<int32>(length);
