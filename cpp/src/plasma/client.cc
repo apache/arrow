@@ -260,7 +260,11 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
 
   Status GetNotification(int fd, ObjectID* object_id, int64_t* data_size,
                          int64_t* metadata_size);
-  
+ 
+  Status DecodeNotifications(const uint8_t* buffer, std::vector<ObjectID>* object_ids,
+                            std::vector<int64_t>* data_sizes,
+                            std::vector<int64_t>* metadata_sizes);
+
   Status Disconnect();
 
   std::string DebugString();
@@ -305,8 +309,6 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
   uint64_t ComputeObjectHash(const uint8_t* data, int64_t data_size,
                              const uint8_t* metadata, int64_t metadata_size,
                              int device_num);
-
-  void DecodeNotifications(const uint8_t* buffer); 
 
   /// File descriptor of the Unix domain socket that connects to the store.
   int store_conn_;
@@ -991,7 +993,16 @@ Status PlasmaClient::Impl::GetNotification(int fd, ObjectID* object_id,
     if (message == NULL) {
       return Status::IOError("Failed to read object notification from Plasma socket");
     }
-    DecodeNotifications(message.get());
+
+    std::vector<ObjectID> object_ids;
+    std::vector<int64_t> data_sizes;
+    std::vector<int64_t> metadata_sizes;
+    DecodeNotifications(message.get(), &object_ids, &data_sizes, &metadata_sizes);
+    for (size_t i = 0; i < object_ids.size(); ++i) {
+      pending_notification_.push_back(std::make_tuple(object_ids[i],
+                                                      data_sizes[i],
+                                                      metadata_sizes[i]));
+    }
   }
 
   auto notification = pending_notification_.front();
@@ -1004,21 +1015,27 @@ Status PlasmaClient::Impl::GetNotification(int fd, ObjectID* object_id,
   return Status::OK();
 }
 
-void PlasmaClient::Impl::DecodeNotifications(const uint8_t* buffer) {
+Status PlasmaClient::Impl::DecodeNotifications(const uint8_t* buffer,
+                                             std::vector<ObjectID>* object_ids,
+                                             std::vector<int64_t>* data_sizes,
+                                             std::vector<int64_t>* metadata_sizes) {
   std::lock_guard<std::recursive_mutex> guard(client_mutex_);
   auto object_info = flatbuffers::GetRoot<fb::PlasmaNotification>(buffer);
   
   for (size_t i = 0; i < object_info->object_info()->size(); ++i) {
     ObjectID id;
     memcpy(&id, object_info->object_info()->Get(i)->object_id()->data(), sizeof(ObjectID));
+    object_ids->push_back(id);
     if (object_info->object_info()->Get(i)->is_deletion()) {
-      pending_notification_.push_back(std::make_tuple(id, -1, -1));
+      data_sizes->push_back(-1);
+      metadata_sizes->push_back(-1);
     } else {
-      pending_notification_.push_back(std::make_tuple(id,
-            object_info->object_info()->Get(i)->data_size(),
-            object_info->object_info()->Get(i)->metadata_size()));
+      data_sizes->push_back(object_info->object_info()->Get(i)->data_size());
+      metadata_sizes->push_back(object_info->object_info()->Get(i)->metadata_size());
     }
   }
+
+  return Status::OK();
 }
 
 Status PlasmaClient::Impl::Connect(const std::string& store_socket_name,
@@ -1162,6 +1179,13 @@ Status PlasmaClient::Subscribe(int* fd) { return impl_->Subscribe(fd); }
 Status PlasmaClient::GetNotification(int fd, ObjectID* object_id, int64_t* data_size,
                                      int64_t* metadata_size) {
   return impl_->GetNotification(fd, object_id, data_size, metadata_size);
+}
+
+Status PlasmaClient::DecodeNotifications(const uint8_t* buffer,
+                                         std::vector<ObjectID>* object_ids,
+                                         std::vector<int64_t>* data_sizes,
+                                         std::vector<int64_t>* metadata_sizes) {
+  return impl_->DecodeNotifications(buffer, object_ids, data_sizes, metadata_sizes);
 }
 
 Status PlasmaClient::Disconnect() { return impl_->Disconnect(); }
