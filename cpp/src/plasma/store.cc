@@ -826,7 +826,7 @@ PlasmaStore::NotificationMap::iterator PlasmaStore::SendNotifications(
     auto& notification = notifications.at(i);
     // Decode the length, which is the first bytes of the message.
     int64_t size = *(reinterpret_cast<int64_t*>(notification.get()));
-
+    
     // Attempt to send a notification about this object ID.
     ssize_t nbytes = send(client_fd, notification.get(), sizeof(int64_t) + size, 0);
     if (nbytes >= 0) {

@@ -1006,14 +1006,11 @@ Status PlasmaClient::Impl::GetNotification(int fd, ObjectID* object_id,
 
 void PlasmaClient::Impl::DecodeNotifications(const uint8_t* buffer) {
   std::lock_guard<std::recursive_mutex> guard(client_mutex_);
-
   auto object_info = flatbuffers::GetRoot<fb::PlasmaNotification>(buffer);
   
   for (size_t i = 0; i < object_info->object_info()->size(); ++i) {
-
     ObjectID id;
     memcpy(&id, object_info->object_info()->Get(i)->object_id()->data(), sizeof(ObjectID));
-
     if (object_info->object_info()->Get(i)->is_deletion()) {
       pending_notification_.push_back(std::make_tuple(id, -1, -1));
     } else {

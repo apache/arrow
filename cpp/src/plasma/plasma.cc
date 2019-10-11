@@ -71,16 +71,15 @@ std::unique_ptr<uint8_t[]> CreateObjectInfoBuffer(fb::ObjectInfoT* object_info) 
 
 std::unique_ptr<uint8_t[]> CreatePlasmaNotificationBuffer(
     std::vector<fb::ObjectInfoT>& object_info) {
-
   flatbuffers::FlatBufferBuilder fbb;
   std::vector<flatbuffers::Offset<plasma::flatbuf::ObjectInfo>> info;
-  info.reserve(object_info.size());
   for (size_t i = 0; i < object_info.size(); ++i) {
-    info[i] = fb::CreateObjectInfo(fbb, &object_info[i]);
+    info.push_back(fb::CreateObjectInfo(fbb, &object_info[i]));
   }
 
   auto info_array = fbb.CreateVector(info);
   auto message = fb::CreatePlasmaNotification(fbb, info_array);
+  fbb.Finish(message);
   auto notification =
       std::unique_ptr<uint8_t[]>(new uint8_t[sizeof(int64_t) + fbb.GetSize()]);
   *(reinterpret_cast<int64_t*>(notification.get())) = fbb.GetSize();
