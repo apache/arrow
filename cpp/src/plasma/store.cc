@@ -608,10 +608,10 @@ void PlasmaStore::SealObjects(const std::vector<ObjectID>& object_ids,
                               const std::vector<std::string>& digests) {
 
   std::vector<ObjectInfoT> infos;
-  infos.reserve(object_ids.size());
 
   ARROW_LOG(DEBUG) << "sealing " << object_ids.size() << " objects";
   for (size_t i = 0; i < object_ids.size(); ++i) {
+    ObjectInfoT object_info;
     auto entry = GetObjectTableEntry(&store_info_, object_ids[i]);
     ARROW_CHECK(entry != nullptr);
     ARROW_CHECK(entry->state == ObjectState::PLASMA_CREATED);
@@ -622,10 +622,11 @@ void PlasmaStore::SealObjects(const std::vector<ObjectID>& object_ids,
     // Set object construction duration.
     entry->construct_duration = std::time(nullptr) - entry->create_time;
     
-    infos[i].object_id = object_ids[i].binary();
-    infos[i].data_size = entry->data_size;
-    infos[i].metadata_size = entry->metadata_size;
-    infos[i].digest = digests[i];
+    object_info.object_id = object_ids[i].binary();
+    object_info.data_size = entry->data_size;
+    object_info.metadata_size = entry->metadata_size;
+    object_info.digest = digests[i];
+    infos.push_back(object_info);
   }
 
   PushNotifications(infos);
@@ -1036,12 +1037,15 @@ Status PlasmaStore::ProcessMessage(Client* client) {
           std::memcpy(entry->pointer, data[i].data(), data[i].size());
           std::memcpy(entry->pointer + data[i].size(), metadata[i].data(),
                       metadata[i].size());
-          SealObject(object_ids[i], reinterpret_cast<unsigned char*>(
-                                        const_cast<char*>(digests[i].c_str())));
-          // Remove the client from the object's array of clients because the
-          // object is not being used by any client. The client was added to the
-          // object's array of clients in CreateObject. This is analogous to the
-          // Release call that happens in the client's Seal method.
+        }
+
+        SealObjects(object_ids, digests);
+        // Remove the client from the object's array of clients because the
+        // object is not being used by any client. The client was added to the
+        // object's array of clients in CreateObject. This is analogous to the
+        // Release call that happens in the client's Seal method.
+        for (i = 0; i < object_ids.size(); i++) {
+          auto entry = GetObjectTableEntry(&store_info_, object_ids[i]);
           ARROW_CHECK(RemoveFromClientObjectIds(object_ids[i], entry, client) == 1);
         }
       } else {
