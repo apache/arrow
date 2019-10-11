@@ -16,24 +16,17 @@
 # under the License.
 
 import os
+import shlex
 import shutil
 import subprocess
 
 from .logger import logger, ctx
 
 
-def find_exec(executable):
-    exec_exists = os.path.exists(executable)
-    executable = executable if exec_exists else shutil.which(executable)
-
-    if executable is None:
-        raise FileNotFoundError(executable)
-
-    return executable
-
-
-def default_bin(name, env, default):
-    return name if name else os.environ.get(env, default)
+def default_bin(name, default):
+    assert(default)
+    env_name = "ARCHERY_%s_BIN".format(default.upper())
+    return name if name else os.environ.get(env_name, default)
 
 
 # Decorator running a command and returning stdout
@@ -65,7 +58,7 @@ class Command:
 
     def run(self, *argv, **kwargs):
         assert(hasattr(self, "bin"))
-        invocation = [find_exec(self.bin)]
+        invocation = shlex.split(self.bin)
         invocation.extend(argv)
 
         for key in ["stdout", "stderr"]:
@@ -80,6 +73,12 @@ class Command:
         logger.debug(f"Executing `{invocation}`")
         return subprocess.run(invocation, **kwargs)
 
+    @property
+    def available(self):
+        """ Indicate if the command binary is found in PATH. """
+        binary = shlex.split(self.bin)[0]
+        return shutil.which(binary) is not None
+
     def __call__(self, *argv, **kwargs):
         return self.run(*argv, **kwargs)
 
@@ -92,4 +91,4 @@ class CommandStackMixin:
 
 class Bash(Command):
     def __init__(self, bash_bin=None):
-        self.bin = default_bin(bash_bin, "BASH", "bash")
+        self.bin = default_bin(bash_bin, "bash")

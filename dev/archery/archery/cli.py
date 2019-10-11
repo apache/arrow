@@ -196,26 +196,36 @@ def build(ctx, src, build_dir, force, targets, **kwargs):
               callback=validate_arrow_sources,
               help="Specify Arrow source directory")
 @click.option("--with-clang-format", default=True, type=BOOL,
+              show_default=True,
               help="Ensure formatting of C++ files.")
 @click.option("--with-cpplint", default=True, type=BOOL,
+              show_default=True,
               help="Ensure linting of C++ files with cpplint.")
 @click.option("--with-clang-tidy", default=False, type=BOOL,
+              show_default=True,
               help="Lint C++ with clang-tidy.")
 @click.option("--with-iwyu", default=False, type=BOOL,
+              show_default=True,
               help="Lint C++ with Include-What-You-Use (iwyu).")
 @click.option("--with-flake8", default=True, type=BOOL,
+              show_default=True,
               help="Lint python files with flake8.")
 @click.option("--with-cmake-format", default=True, type=BOOL,
+              show_default=True,
               help="Lint CMakeFiles.txt files with cmake-format.py.")
 @click.option("--with-rat", default=True, type=BOOL,
+              show_default=True,
               help="Lint files for license violation via apache-rat.")
 @click.option("--with-r", default=True, type=BOOL,
+              show_default=True,
               help="Lint r files.")
 @click.option("--with-rust", default=True, type=BOOL,
+              show_default=True,
               help="Lint rust files.")
 @click.option("--with-docker", default=True, type=BOOL,
+              show_default=True,
               help="Lint docker images with hadolint.")
-@click.option("--fix", type=BOOL, default=False,
+@click.option("--fix", is_flag=True, type=BOOL, default=False,
               help="Toggle fixing the lint errors if the linter supports it.")
 @click.pass_context
 def lint(ctx, src, **kwargs):

@@ -40,6 +40,7 @@ class CppConfiguration:
                  with_parquet=False, with_gandiva=False, with_plasma=False,
                  with_flight=False,
                  # extras
+                 with_lint_only=False,
                  cmake_extras=None):
         self.cc = cc
         self.cxx = cxx
@@ -59,6 +60,8 @@ class CppConfiguration:
         self.with_plasma = with_plasma
         self.with_flight = with_flight
 
+        self.with_lint_only = with_lint_only
+
         self.cmake_extras = cmake_extras
 
     def _gen_defs(self):
@@ -68,7 +71,9 @@ class CppConfiguration:
         yield ("CMAKE_EXPORT_COMPILE_COMMANDS", truthifier(True))
         yield ("CMAKE_BUILD_TYPE", or_else(self.build_type, "debug"))
 
-        yield ("BUILD_WARNING_LEVEL", or_else(self.warn_level, "production"))
+        if not self.with_lint_only:
+            yield ("BUILD_WARNING_LEVEL",
+                   or_else(self.warn_level, "production"))
 
         # if not ctx.quiet:
         #   yield ("ARROW_VERBOSE_THIRDPARTY_BUILD", "ON")
@@ -89,6 +94,8 @@ class CppConfiguration:
         yield ("ARROW_GANDIVA", truthifier(self.with_gandiva))
         yield ("ARROW_PLASMA", truthifier(self.with_plasma))
         yield ("ARROW_FLIGHT", truthifier(self.with_flight))
+
+        yield ("ARROW_LINT_ONLY", truthifier(self.with_lint_only))
 
         # Detect custom conda toolchain
         if self.use_conda:
