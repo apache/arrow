@@ -629,7 +629,6 @@ void PlasmaStore::SealObjects(const std::vector<ObjectID>& object_ids,
     infos.push_back(object_info);
   }
 
-  fprintf(stderr, "push %ld notifications\n", infos.size());
   PushNotifications(infos);
 
   for (size_t i = 0; i < object_ids.size(); ++i) {
