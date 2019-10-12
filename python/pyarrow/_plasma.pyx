@@ -691,9 +691,9 @@ cdef class PlasmaClient:
         cdef c_vector[int64_t] metadata_sizes
         with nogil:
             status = self.client.get().DecodeNotifications(buf,
-                                                          &ids,
-                                                          &data_sizes,
-                                                          &metadata_sizes)
+                                                           &ids,
+                                                           &data_sizes,
+                                                           &metadata_sizes)
             plasma_check_status(status)
         object_ids = []
         for object_id in ids:
