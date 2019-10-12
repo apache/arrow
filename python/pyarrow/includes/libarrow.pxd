@@ -663,6 +663,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CSparseCOOTensor" arrow::SparseCOOTensor":
         shared_ptr[CDataType] type()
         shared_ptr[CBuffer] data()
+        const shared_ptr[CTensor] ToTensor()
 
         const vector[int64_t]& shape()
         int64_t size()
@@ -679,6 +680,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CSparseCSRMatrix" arrow::SparseCSRMatrix":
         shared_ptr[CDataType] type()
         shared_ptr[CBuffer] data()
+        const shared_ptr[CTensor] ToTensor()
 
         const vector[int64_t]& shape()
         int64_t size()

@@ -202,6 +202,16 @@ shape: {0.shape}""".format(self)
                                               &out_data, &out_coords))
         return PyObject_to_object(out_data), PyObject_to_object(out_coords)
 
+    def to_tensor(self):
+        """
+        Convert arrow::SparseTensorCOO to arrow::Tensor
+        """
+
+        cdef shared_ptr[CTensor] ctensor
+        ctensor = self.stp.ToTensor()
+
+        return pyarrow_wrap_tensor(ctensor)
+
     def equals(self, SparseCOOTensor other):
         """
         Return true if sparse tensors contains exactly equal data
@@ -325,6 +335,16 @@ shape: {0.shape}""".format(self)
                      &out_data, &out_indptr, &out_indices))
         return (PyObject_to_object(out_data), PyObject_to_object(out_indptr),
                 PyObject_to_object(out_indices))
+
+    def to_tensor(self):
+        """
+        Convert arrow::SparseTensorCSR to arrow::Tensor
+        """
+
+        cdef shared_ptr[CTensor] ctensor
+        ctensor = self.stp.ToTensor()
+
+        return pyarrow_wrap_tensor(ctensor)
 
     def equals(self, SparseCSRMatrix other):
         """
