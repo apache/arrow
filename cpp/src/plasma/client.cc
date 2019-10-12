@@ -997,7 +997,7 @@ Status PlasmaClient::Impl::GetNotification(int fd, ObjectID* object_id,
     std::vector<ObjectID> object_ids;
     std::vector<int64_t> data_sizes;
     std::vector<int64_t> metadata_sizes;
-    DecodeNotifications(message.get(), &object_ids, &data_sizes, &metadata_sizes);
+    RETURN_NOT_OK(DecodeNotifications(message.get(), &object_ids, &data_sizes, &metadata_sizes));
     for (size_t i = 0; i < object_ids.size(); ++i) {
       pending_notification_.push_back(std::make_tuple(object_ids[i],
                                                       data_sizes[i],
