@@ -679,12 +679,12 @@ cdef class PlasmaClient:
 
         Returns
         -------
-        ObjectID
-            The object ID of the object that was stored.
-        int
-            The data size of the object that was stored.
-        int
-            The metadata size of the object that was stored.
+        [ObjectID]
+            The list of object IDs in the notification message.
+        c_vector[int64_t]
+            The data sizes of the objects in the notification message.
+        c_vector[int64_t]
+            The metadata sizes of the objects in the notification message.
         """
         cdef c_vector[CUniqueID] ids
         cdef c_vector[int64_t] data_sizes
