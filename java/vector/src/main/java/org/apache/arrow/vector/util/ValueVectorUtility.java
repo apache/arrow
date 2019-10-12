@@ -27,6 +27,20 @@ public class ValueVectorUtility {
 
   /**
    * Get the toString() representation of vector suitable for debugging.
+   * Note since vectors may have millions of values, this method only show max 20 values.
+   * Examples as below (v represents value):
+   * <li>
+   *   vector with 0 value:
+   *   []
+   * </li>
+   * <li>
+   *   vector with 5 values (no more than 20 values):
+   *   [v0, v1, v2, v3, v4]
+   * </li>
+   * <li>
+   *  vector with 100 values (more than 20 values):
+   *  [v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, ..., v90, v91, v92, v93, v94, v95, v96, v97, v98, v99]
+   * </li>
    */
   public static String getToString(ValueVector vector, int start, int end) {
     Preconditions.checkNotNull(vector);
