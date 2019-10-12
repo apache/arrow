@@ -24,7 +24,9 @@ use std::sync::{Arc, Mutex};
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::BatchIterator;
 
-use arrow::datatypes::Schema;
+use crate::logicalplan::ScalarValue;
+use arrow::array::{self, ArrayRef};
+use arrow::datatypes::{DataType, Schema};
 use arrow::record_batch::RecordBatch;
 
 /// Iterator over a vector of record batches
@@ -103,4 +105,90 @@ pub fn build_file_list(dir: &str, filenames: &mut Vec<String>, ext: &str) -> Res
         }
     }
     Ok(())
+}
+
+/// Get a value from an array as a ScalarValue
+pub fn get_scalar_value(array: &ArrayRef, row: usize) -> Result<Option<ScalarValue>> {
+    if array.is_null(row) {
+        return Ok(None);
+    }
+    let value: Option<ScalarValue> = match array.data_type() {
+        DataType::UInt8 => {
+            let array = array
+                .as_any()
+                .downcast_ref::<array::UInt8Array>()
+                .expect("Failed to cast array");
+            Some(ScalarValue::UInt8(array.value(row)))
+        }
+        DataType::UInt16 => {
+            let array = array
+                .as_any()
+                .downcast_ref::<array::UInt16Array>()
+                .expect("Failed to cast array");
+            Some(ScalarValue::UInt16(array.value(row)))
+        }
+        DataType::UInt32 => {
+            let array = array
+                .as_any()
+                .downcast_ref::<array::UInt32Array>()
+                .expect("Failed to cast array");
+            Some(ScalarValue::UInt32(array.value(row)))
+        }
+        DataType::UInt64 => {
+            let array = array
+                .as_any()
+                .downcast_ref::<array::UInt64Array>()
+                .expect("Failed to cast array");
+            Some(ScalarValue::UInt64(array.value(row)))
+        }
+        DataType::Int8 => {
+            let array = array
+                .as_any()
+                .downcast_ref::<array::Int8Array>()
+                .expect("Failed to cast array");
+            Some(ScalarValue::Int8(array.value(row)))
+        }
+        DataType::Int16 => {
+            let array = array
+                .as_any()
+                .downcast_ref::<array::Int16Array>()
+                .expect("Failed to cast array");
+            Some(ScalarValue::Int16(array.value(row)))
+        }
+        DataType::Int32 => {
+            let array = array
+                .as_any()
+                .downcast_ref::<array::Int32Array>()
+                .expect("Failed to cast array");
+            Some(ScalarValue::Int32(array.value(row)))
+        }
+        DataType::Int64 => {
+            let array = array
+                .as_any()
+                .downcast_ref::<array::Int64Array>()
+                .expect("Failed to cast array");
+            Some(ScalarValue::Int64(array.value(row)))
+        }
+        DataType::Float32 => {
+            let array = array
+                .as_any()
+                .downcast_ref::<array::Float32Array>()
+                .unwrap();
+            Some(ScalarValue::Float32(array.value(row)))
+        }
+        DataType::Float64 => {
+            let array = array
+                .as_any()
+                .downcast_ref::<array::Float64Array>()
+                .unwrap();
+            Some(ScalarValue::Float64(array.value(row)))
+        }
+        other => {
+            return Err(ExecutionError::ExecutionError(format!(
+                "Unsupported data type {:?} for result of aggregate expression",
+                other
+            )));
+        }
+    };
+    Ok(value)
 }
