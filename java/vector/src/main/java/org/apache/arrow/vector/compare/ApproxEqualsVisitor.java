@@ -36,6 +36,15 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
 
   /**
    * Constructs a new instance.
+   * @param left left vector
+   * @param right right vector
+   */
+  public ApproxEqualsVisitor(ValueVector left, ValueVector right) {
+    this (left, right, 1.0E-6f, 1.0E-6f);
+  }
+
+  /**
+   * Constructs a new instance.
    *
    * @param left left vector
    * @param right right vector

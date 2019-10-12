@@ -28,6 +28,9 @@ import java.util.stream.StreamSupport;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.compare.ApproxEqualsVisitor;
+import org.apache.arrow.vector.compare.Range;
+import org.apache.arrow.vector.compare.VectorEqualsVisitor;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.TransferPair;
@@ -312,5 +315,63 @@ public class VectorSchemaRoot implements AutoCloseable {
     return new VectorSchemaRoot(sliceVectors);
   }
 
+  /**
+   * Determine if two record batches are exactly equal.
+   */
+  public boolean equals(VectorSchemaRoot other) {
+    if (other == null) {
+      return false;
+    }
+
+    if (!this.schema.equals(other.schema)) {
+      return false;
+    }
+
+    if (this.rowCount != other.rowCount) {
+      return false;
+    }
+
+    for (int i = 0; i < fieldVectors.size(); i++) {
+      FieldVector vector = fieldVectors.get(i);
+      FieldVector otherVector = other.fieldVectors.get(i);
+      if (!VectorEqualsVisitor.vectorEquals(vector, otherVector)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Determine if two record batches are approximately equal.
+   */
+  public boolean approxEquals(VectorSchemaRoot other) {
+    if (other == null) {
+      return false;
+    }
+
+    if (!this.schema.equals(other.schema)) {
+      return false;
+    }
+
+    if (this.rowCount != other.rowCount) {
+      return false;
+    }
+
+    for (int i = 0; i < fieldVectors.size(); i++) {
+      FieldVector vector = fieldVectors.get(i);
+      FieldVector otherVector = other.fieldVectors.get(i);
+      if (vector.getValueCount() != otherVector.getValueCount()) {
+        return false;
+      }
+      ApproxEqualsVisitor visitor = new ApproxEqualsVisitor(vector, otherVector);
+      Range range = new Range(0, 0, vector.getValueCount());
+      if (!visitor.rangeEquals(range)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
 }
 
