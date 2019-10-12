@@ -24,6 +24,7 @@ import org.apache.arrow.memory.RootAllocator;
 import org.junit.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Scope;
@@ -40,50 +41,92 @@ import io.netty.buffer.ArrowBuf;
 /**
  * Benchmarks for {@link ByteFunctionHelpers}.
  */
-@State(Scope.Benchmark)
 public class ByteFunctionHelpersBenchmarks {
-
-  private static final int BUFFER_CAPACITY = 7;
 
   private static final int ALLOCATOR_CAPACITY = 1024 * 1024;
 
-  private BufferAllocator allocator;
-
-  private ArrowBuf buffer1;
-
-  private ArrowBuf buffer2;
-
   /**
-   * Setup benchmarks.
+   * State object for the {@link ByteFunctionHelpersBenchmarks#arrowBufEquals(ArrowEqualState)} benchmark.
    */
-  @Setup
-  public void prepare() {
-    allocator = new RootAllocator(ALLOCATOR_CAPACITY);
-    buffer1 = allocator.buffer(BUFFER_CAPACITY);
-    buffer2 = allocator.buffer(BUFFER_CAPACITY);
+  @State(Scope.Benchmark)
+  public static class ArrowEqualState {
 
-    for (int i = 0; i < BUFFER_CAPACITY; i++) {
-      buffer1.setByte(i, i);
-      buffer2.setByte(i, i);
+    private static final int BUFFER_CAPACITY = 7;
+
+    private BufferAllocator allocator;
+
+    private ArrowBuf buffer1;
+
+    private ArrowBuf buffer2;
+
+    @Setup(Level.Trial)
+    public void prepare() {
+      allocator = new RootAllocator(ALLOCATOR_CAPACITY);
+      buffer1 = allocator.buffer(BUFFER_CAPACITY);
+      buffer2 = allocator.buffer(BUFFER_CAPACITY);
+
+      for (int i = 0; i < BUFFER_CAPACITY; i++) {
+        buffer1.setByte(i, i);
+        buffer2.setByte(i, i);
+      }
     }
-  }
 
-  /**
-   * Tear down benchmarks.
-   */
-  @TearDown
-  public void tearDown() {
-    buffer1.close();
-    buffer2.close();
-    allocator.close();
+    @TearDown(Level.Trial)
+    public void tearDown() {
+      buffer1.close();
+      buffer2.close();
+      allocator.close();
+    }
   }
 
   @Benchmark
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.NANOSECONDS)
-  public void equals() {
-    ByteFunctionHelpers.equal(buffer1, 0, BUFFER_CAPACITY - 1, buffer2, 0, BUFFER_CAPACITY - 1);
+  public void arrowBufEquals(ArrowEqualState state) {
+    ByteFunctionHelpers.equal(state.buffer1, 0, ArrowEqualState.BUFFER_CAPACITY - 1,
+            state.buffer2, 0, ArrowEqualState.BUFFER_CAPACITY - 1);
+  }
 
+  /**
+   * State object for the {@link ByteFunctionHelpersBenchmarks#arrowBufArrayEquals(ArrowArrayEqualState)} benchmark.
+   */
+  @State(Scope.Benchmark)
+  public static class ArrowArrayEqualState {
+
+    private static final int BUFFER_CAPACITY = 1024;
+
+    private BufferAllocator allocator;
+
+    private ArrowBuf buffer1;
+
+    private byte[] buffer2;
+
+    @Setup(Level.Trial)
+    public void prepare() {
+      allocator = new RootAllocator(ALLOCATOR_CAPACITY);
+      buffer1 = allocator.buffer(BUFFER_CAPACITY);
+      buffer2 = new byte[BUFFER_CAPACITY];
+
+      for (int i = 0; i < BUFFER_CAPACITY; i++) {
+        buffer1.setByte(i, i);
+        buffer2[i] = (byte) i;
+      }
+    }
+
+    @TearDown(Level.Trial)
+    public void tearDown() {
+      buffer1.close();
+      allocator.close();
+    }
+  }
+
+  @Benchmark
+  @BenchmarkMode(Mode.AverageTime)
+  @OutputTimeUnit(TimeUnit.NANOSECONDS)
+  public int arrowBufArrayEquals(ArrowArrayEqualState state) {
+    return ByteFunctionHelpers.compare(
+            state.buffer1, 0, ArrowArrayEqualState.BUFFER_CAPACITY,
+            state.buffer2, 0, ArrowArrayEqualState.BUFFER_CAPACITY);
   }
 
   @Test
