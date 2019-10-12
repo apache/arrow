@@ -27,6 +27,27 @@
 #include "arrow/python/common.h"
 #include "arrow/python/config.h"
 
+#if defined(_WIN32) || defined(__CYGWIN__)  // Windows
+#if defined(_MSC_VER)
+#pragma warning(disable : 4251)
+#else
+#pragma GCC diagnostic ignored "-Wattributes"
+#endif
+
+#ifdef ARROW_STATIC
+#define ARROW_PYFLIGHT_EXPORT
+#elif defined(ARROW_PYFLIGHT_EXPORTING)
+#define ARROW_PYFLIGHT_EXPORT __declspec(dllexport)
+#else
+#define ARROW_PYFLIGHT_EXPORT __declspec(dllimport)
+#endif
+
+#else  // Not Windows
+#ifndef ARROW_PYFLIGHT_EXPORT
+#define ARROW_PYFLIGHT_EXPORT __attribute__((visibility("default")))
+#endif
+#endif  // Non-Windows
+
 namespace arrow {
 
 namespace py {
@@ -35,7 +56,7 @@ namespace flight {
 
 /// \brief A table of function pointers for calling from C++ into
 /// Python.
-class ARROW_PYTHON_EXPORT PyFlightServerVtable {
+class ARROW_PYFLIGHT_EXPORT PyFlightServerVtable {
  public:
   std::function<Status(PyObject*, const arrow::flight::ServerCallContext&,
                        const arrow::flight::Criteria*,
@@ -66,7 +87,7 @@ class ARROW_PYTHON_EXPORT PyFlightServerVtable {
       list_actions;
 };
 
-class ARROW_PYTHON_EXPORT PyServerAuthHandlerVtable {
+class ARROW_PYFLIGHT_EXPORT PyServerAuthHandlerVtable {
  public:
   std::function<Status(PyObject*, arrow::flight::ServerAuthSender*,
                        arrow::flight::ServerAuthReader*)>
@@ -74,7 +95,7 @@ class ARROW_PYTHON_EXPORT PyServerAuthHandlerVtable {
   std::function<Status(PyObject*, const std::string&, std::string*)> is_valid;
 };
 
-class ARROW_PYTHON_EXPORT PyClientAuthHandlerVtable {
+class ARROW_PYFLIGHT_EXPORT PyClientAuthHandlerVtable {
  public:
   std::function<Status(PyObject*, arrow::flight::ClientAuthSender*,
                        arrow::flight::ClientAuthReader*)>
@@ -83,7 +104,8 @@ class ARROW_PYTHON_EXPORT PyClientAuthHandlerVtable {
 };
 
 /// \brief A helper to implement an auth mechanism in Python.
-class ARROW_PYTHON_EXPORT PyServerAuthHandler : public arrow::flight::ServerAuthHandler {
+class ARROW_PYFLIGHT_EXPORT PyServerAuthHandler
+    : public arrow::flight::ServerAuthHandler {
  public:
   explicit PyServerAuthHandler(PyObject* handler,
                                const PyServerAuthHandlerVtable& vtable);
@@ -97,7 +119,8 @@ class ARROW_PYTHON_EXPORT PyServerAuthHandler : public arrow::flight::ServerAuth
 };
 
 /// \brief A helper to implement an auth mechanism in Python.
-class ARROW_PYTHON_EXPORT PyClientAuthHandler : public arrow::flight::ClientAuthHandler {
+class ARROW_PYFLIGHT_EXPORT PyClientAuthHandler
+    : public arrow::flight::ClientAuthHandler {
  public:
   explicit PyClientAuthHandler(PyObject* handler,
                                const PyClientAuthHandlerVtable& vtable);
@@ -110,7 +133,7 @@ class ARROW_PYTHON_EXPORT PyClientAuthHandler : public arrow::flight::ClientAuth
   PyClientAuthHandlerVtable vtable_;
 };
 
-class ARROW_PYTHON_EXPORT PyFlightServer : public arrow::flight::FlightServerBase {
+class ARROW_PYFLIGHT_EXPORT PyFlightServer : public arrow::flight::FlightServerBase {
  public:
   explicit PyFlightServer(PyObject* server, const PyFlightServerVtable& vtable);
 
@@ -149,7 +172,7 @@ typedef std::function<Status(PyObject*, std::unique_ptr<arrow::flight::Result>*)
     PyFlightResultStreamCallback;
 
 /// \brief A ResultStream built around a Python callback.
-class ARROW_PYTHON_EXPORT PyFlightResultStream : public arrow::flight::ResultStream {
+class ARROW_PYFLIGHT_EXPORT PyFlightResultStream : public arrow::flight::ResultStream {
  public:
   /// \brief Construct a FlightResultStream from a Python object and callback.
   /// Must only be called while holding the GIL.
@@ -164,7 +187,7 @@ class ARROW_PYTHON_EXPORT PyFlightResultStream : public arrow::flight::ResultStr
 
 /// \brief A wrapper around a FlightDataStream that keeps alive a
 /// Python object backing it.
-class ARROW_PYTHON_EXPORT PyFlightDataStream : public arrow::flight::FlightDataStream {
+class ARROW_PYFLIGHT_EXPORT PyFlightDataStream : public arrow::flight::FlightDataStream {
  public:
   /// \brief Construct a FlightDataStream from a Python object and underlying stream.
   /// Must only be called while holding the GIL.
@@ -185,7 +208,7 @@ typedef std::function<Status(PyObject*, arrow::flight::FlightPayload*)>
     PyGeneratorFlightDataStreamCallback;
 
 /// \brief A FlightDataStream built around a Python callback.
-class ARROW_PYTHON_EXPORT PyGeneratorFlightDataStream
+class ARROW_PYFLIGHT_EXPORT PyGeneratorFlightDataStream
     : public arrow::flight::FlightDataStream {
  public:
   /// \brief Construct a FlightDataStream from a Python object and underlying stream.
@@ -205,22 +228,22 @@ class ARROW_PYTHON_EXPORT PyGeneratorFlightDataStream
   PyGeneratorFlightDataStreamCallback callback_;
 };
 
-ARROW_PYTHON_EXPORT
+ARROW_PYFLIGHT_EXPORT
 Status CreateFlightInfo(const std::shared_ptr<arrow::Schema>& schema,
                         const arrow::flight::FlightDescriptor& descriptor,
                         const std::vector<arrow::flight::FlightEndpoint>& endpoints,
                         int64_t total_records, int64_t total_bytes,
                         std::unique_ptr<arrow::flight::FlightInfo>* out);
 
-ARROW_PYTHON_EXPORT
+ARROW_PYFLIGHT_EXPORT
 Status DeserializeBasicAuth(const std::string& buf,
                             std::unique_ptr<arrow::flight::BasicAuth>* out);
 
-ARROW_PYTHON_EXPORT
+ARROW_PYFLIGHT_EXPORT
 Status SerializeBasicAuth(const arrow::flight::BasicAuth& basic_auth, std::string* out);
 
 /// \brief Create a SchemaResult from schema.
-ARROW_PYTHON_EXPORT
+ARROW_PYFLIGHT_EXPORT
 Status CreateSchemaResult(const std::shared_ptr<arrow::Schema>& schema,
                           std::unique_ptr<arrow::flight::SchemaResult>* out);
 
