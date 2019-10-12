@@ -48,9 +48,8 @@ flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>
 ToFlatbuffer(flatbuffers::FlatBufferBuilder* fbb,
              const std::vector<std::string>& strings);
 
-flatbuffers::Offset<flatbuffers::Vector<int64_t>>
-ToFlatbuffer(flatbuffers::FlatBufferBuilder* fbb,
-             const std::vector<int64_t>& data);
+flatbuffers::Offset<flatbuffers::Vector<int64_t>> ToFlatbuffer(
+    flatbuffers::FlatBufferBuilder* fbb, const std::vector<int64_t>& data);
 
 /* Plasma receive message. */
 
