@@ -49,6 +49,7 @@ import org.apache.arrow.adapter.jdbc.consumer.DoubleConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.FloatConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.IntConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.JdbcConsumer;
+import org.apache.arrow.adapter.jdbc.consumer.NullConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.SmallIntConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.TimeConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.TimestampConsumer;
@@ -64,6 +65,7 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TimeMilliVector;
 import org.apache.arrow.vector.TimeStampMilliTZVector;
@@ -213,6 +215,7 @@ public class JdbcToArrowUtils {
    *   <li>TIMESTAMP --> ArrowType.Timestamp(TimeUnit.MILLISECOND, calendar timezone)</li>
    *   <li>CLOB --> ArrowType.Utf8</li>
    *   <li>BLOB --> ArrowType.Binary</li>
+   *   <li>NULL --> ArrowType.Null</li>
    * </ul>
    *
    * @param fieldInfo The field information to construct the <code>ArrowType</code> from.
@@ -274,6 +277,8 @@ public class JdbcToArrowUtils {
         return new ArrowType.Binary();
       case Types.ARRAY:
         return new ArrowType.List();
+      case Types.NULL:
+        return new ArrowType.Null();
       default:
         // no-op, shouldn't get here
         return null;
@@ -416,6 +421,8 @@ public class JdbcToArrowUtils {
       case Types.BLOB:
         BinaryConsumer blobDelegate = new BinaryConsumer((VarBinaryVector) vector, columnIndex);
         return new BlobConsumer(blobDelegate, columnIndex);
+      case Types.NULL:
+        return new NullConsumer((NullVector) vector);
       default:
         // no-op, shouldn't get here
         throw new UnsupportedOperationException();

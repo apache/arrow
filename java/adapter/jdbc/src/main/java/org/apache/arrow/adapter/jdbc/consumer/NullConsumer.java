@@ -15,44 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.consumers;
+package org.apache.arrow.adapter.jdbc.consumer;
 
-import java.io.IOException;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 
-import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.NullVector;
-import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which consume null type values from avro decoder.
- * Corresponding to {@link org.apache.arrow.vector.ZeroVector}.
+ * Consumer which consume null type values from ResultSet.
+ * Corresponding to {@link org.apache.arrow.vector.NullVector}.
  */
-public class AvroNullConsumer implements Consumer<NullVector> {
+public class NullConsumer implements JdbcConsumer<NullVector> {
 
   private NullVector vector;
 
-  public AvroNullConsumer(NullVector vector) {
+  public NullConsumer(NullVector vector) {
     this.vector = vector;
   }
 
   @Override
-  public void consume(Decoder decoder) throws IOException {
+  public void consume(ResultSet resultSet) throws SQLException {
   }
 
   @Override
-  public void addNull() {}
-
-  @Override
-  public void setPosition(int index) {}
-
-  @Override
-  public FieldVector getVector() {
-    return this.vector;
-  }
-
-  @Override
-  public void close() {
-    vector.close();
+  public void close() throws Exception {
+    this.vector.close();
   }
 
   @Override

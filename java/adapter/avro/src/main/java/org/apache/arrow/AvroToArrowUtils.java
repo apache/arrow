@@ -102,6 +102,10 @@ public class AvroToArrowUtils {
    *   <li>ARRAY --> ArrowType.List</li>
    *   <li>MAP --> ArrowType.Map</li>
    *   <li>FIXED --> ArrowType.FixedSizeBinary</li>
+   *   <li>NULL --> ArrowType.Null</li>
+   *   <li>RECORD --> ArrowType.Struct</li>
+   *   <li>UNION --> ArrowType.Union</li>
+   *   <li>ENUM --> ArrowType.Int(32, signed)</li>
    * </ul>
    */
 
@@ -212,7 +216,7 @@ public class AvroToArrowUtils {
         break;
       default:
         // no-op, shouldn't get here
-        throw new RuntimeException("Can't convert avro type %s to arrow type." + type.getName());
+        throw new UnsupportedOperationException("Can't convert avro type %s to arrow type." + type.getName());
     }
 
     if (nullable) {
@@ -232,8 +236,6 @@ public class AvroToArrowUtils {
         Consumer consumer = createConsumer(field.schema(), field.name(), config);
         consumers.add(consumer);
       }
-    } else if (type == Type.ENUM) {
-      throw new UnsupportedOperationException();
     } else {
       Consumer consumer = createConsumer(schema, "", config);
       consumers.add(consumer);
