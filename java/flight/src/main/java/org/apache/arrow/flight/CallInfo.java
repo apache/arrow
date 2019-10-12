@@ -18,29 +18,16 @@
 package org.apache.arrow.flight;
 
 /**
- * An exception raised from a Flight RPC.
- *
- * <p>In service implementations, raising an instance of this exception will provide clients with a more detailed
- * message and error code.
+ * A description of a Flight call for middleware to inspect.
  */
-public class FlightRuntimeException extends RuntimeException {
-  private final CallStatus status;
+public final class CallInfo {
+  private final FlightMethod method;
 
-  /**
-   * Create a new exception from the given status.
-   */
-  FlightRuntimeException(CallStatus status) {
-    super(status.description(), status.cause());
-    this.status = status;
+  public CallInfo(FlightMethod method) {
+    this.method = method;
   }
 
-  public CallStatus status() {
-    return status;
-  }
-
-  @Override
-  public String toString() {
-    String s = getClass().getName();
-    return String.format("%s: %s", s, status);
+  public FlightMethod method() {
+    return method;
   }
 }

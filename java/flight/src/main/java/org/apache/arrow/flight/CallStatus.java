@@ -112,4 +112,13 @@ public class CallStatus {
   public FlightRuntimeException toRuntimeException() {
     return new FlightRuntimeException(this);
   }
+
+  @Override
+  public String toString() {
+    return "CallStatus{" +
+        "code=" + code +
+        ", cause=" + cause +
+        ", description='" + description + '\'' +
+        '}';
+  }
 }

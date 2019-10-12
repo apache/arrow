@@ -19,7 +19,9 @@ package org.apache.arrow.flight;
 
 import java.io.InputStream;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import javax.net.ssl.SSLException;
@@ -29,6 +31,7 @@ import org.apache.arrow.flight.auth.BasicClientAuthHandler;
 import org.apache.arrow.flight.auth.ClientAuthHandler;
 import org.apache.arrow.flight.auth.ClientAuthInterceptor;
 import org.apache.arrow.flight.auth.ClientAuthWrapper;
+import org.apache.arrow.flight.grpc.ClientInterceptorAdapter;
 import org.apache.arrow.flight.grpc.StatusUtils;
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.flight.impl.Flight.Empty;
@@ -43,7 +46,10 @@ import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
+import io.grpc.Channel;
 import io.grpc.ClientCall;
+import io.grpc.ClientInterceptor;
+import io.grpc.ClientInterceptors;
 import io.grpc.ManagedChannel;
 import io.grpc.MethodDescriptor;
 import io.grpc.StatusRuntimeException;
@@ -68,6 +74,7 @@ public class FlightClient implements AutoCloseable {
   private static final int MAX_CHANNEL_TRACE_EVENTS = 0;
   private final BufferAllocator allocator;
   private final ManagedChannel channel;
+  private final Channel interceptedChannel;
   private final FlightServiceBlockingStub blockingStub;
   private final FlightServiceStub asyncStub;
   private final ClientAuthInterceptor authInterceptor = new ClientAuthInterceptor();
@@ -77,11 +84,19 @@ public class FlightClient implements AutoCloseable {
   /**
    * Create a Flight client from an allocator and a gRPC channel.
    */
-  FlightClient(BufferAllocator incomingAllocator, ManagedChannel channel) {
+  FlightClient(BufferAllocator incomingAllocator, ManagedChannel channel,
+      List<FlightClientMiddleware.Factory> middleware) {
     this.allocator = incomingAllocator.newChildAllocator("flight-client", 0, Long.MAX_VALUE);
     this.channel = channel;
-    blockingStub = FlightServiceGrpc.newBlockingStub(channel).withInterceptors(authInterceptor);
-    asyncStub = FlightServiceGrpc.newStub(channel).withInterceptors(authInterceptor);
+
+    final ClientInterceptor[] interceptors;
+    interceptors = new ClientInterceptor[]{authInterceptor, new ClientInterceptorAdapter(middleware)};
+
+    // Create a channel with interceptors pre-applied for DoGet and DoPut
+    this.interceptedChannel = ClientInterceptors.intercept(channel, interceptors);
+
+    blockingStub = FlightServiceGrpc.newBlockingStub(interceptedChannel);
+    asyncStub = FlightServiceGrpc.newStub(interceptedChannel);
     doGetDescriptor = FlightBindingService.getDoGetDescriptor(allocator);
     doPutDescriptor = FlightBindingService.getDoPutDescriptor(allocator);
   }
@@ -193,7 +208,7 @@ public class FlightClient implements AutoCloseable {
       final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
       ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
           ClientCalls.asyncBidiStreamingCall(
-              authInterceptor.interceptCall(doPutDescriptor, callOptions, channel), resultObserver);
+              interceptedChannel.newCall(doPutDescriptor, callOptions), resultObserver);
       // send the schema to start.
       DictionaryUtils.generateSchemaMessages(root.getSchema(), descriptor, provider, observer::onNext);
       return new PutObserver(new VectorUnloader(
@@ -237,8 +252,7 @@ public class FlightClient implements AutoCloseable {
    */
   public FlightStream getStream(Ticket ticket, CallOption... options) {
     final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
-    ClientCall<Flight.Ticket, ArrowMessage> call =
-        authInterceptor.interceptCall(doGetDescriptor, callOptions, channel);
+    ClientCall<Flight.Ticket, ArrowMessage> call = interceptedChannel.newCall(doGetDescriptor, callOptions);
     FlightStream stream = new FlightStream(
         allocator,
         PENDING_REQUESTS,
@@ -443,6 +457,7 @@ public class FlightClient implements AutoCloseable {
     private InputStream clientCertificate = null;
     private InputStream clientKey = null;
     private String overrideHostname = null;
+    private List<FlightClientMiddleware.Factory> middleware = new ArrayList<>();
 
     private Builder() {
     }
@@ -494,6 +509,11 @@ public class FlightClient implements AutoCloseable {
 
     public Builder location(Location location) {
       this.location = Preconditions.checkNotNull(location);
+      return this;
+    }
+
+    public Builder intercept(FlightClientMiddleware.Factory factory) {
+      middleware.add(factory);
       return this;
     }
 
@@ -567,7 +587,7 @@ public class FlightClient implements AutoCloseable {
       builder
           .maxTraceEvents(MAX_CHANNEL_TRACE_EVENTS)
           .maxInboundMessageSize(maxInboundMessageSize);
-      return new FlightClient(allocator, builder.build());
+      return new FlightClient(allocator, builder.build(), middleware);
     }
   }
 }

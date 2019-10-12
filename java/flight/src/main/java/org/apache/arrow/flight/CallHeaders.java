@@ -17,30 +17,35 @@
 
 package org.apache.arrow.flight;
 
+import java.util.Set;
+
 /**
- * An exception raised from a Flight RPC.
+ * A set of headers for a call (request or response).
  *
- * <p>In service implementations, raising an instance of this exception will provide clients with a more detailed
- * message and error code.
+ * <p>Only text (ASCII) headers are supported.
  */
-public class FlightRuntimeException extends RuntimeException {
-  private final CallStatus status;
+public interface CallHeaders {
 
   /**
-   * Create a new exception from the given status.
+   * Get the value of a header. If multiple values are present, then get the last one.
    */
-  FlightRuntimeException(CallStatus status) {
-    super(status.description(), status.cause());
-    this.status = status;
-  }
+  String get(String key);
 
-  public CallStatus status() {
-    return status;
-  }
+  /**
+   * Get all values present for the given header.
+   */
+  Iterable<String> getAll(String key);
 
-  @Override
-  public String toString() {
-    String s = getClass().getName();
-    return String.format("%s: %s", s, status);
-  }
+  /**
+   * Insert a header with the given value.
+   *
+   * <p>Duplicate headers are permitted.
+   */
+  void insert(String key, String value);
+
+  /** Get a set of all the headers. */
+  Set<String> keys();
+
+  /** Check whether the given header is present. */
+  boolean containsKey(String key);
 }
