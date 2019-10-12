@@ -606,7 +606,6 @@ void PlasmaStore::SealObject(const ObjectID& object_id, unsigned char digest[]) 
 
 void PlasmaStore::SealObjects(const std::vector<ObjectID>& object_ids,
                               const std::vector<std::string>& digests) {
-
   std::vector<ObjectInfoT> infos;
 
   ARROW_LOG(DEBUG) << "sealing " << object_ids.size() << " objects";
@@ -621,7 +620,7 @@ void PlasmaStore::SealObjects(const std::vector<ObjectID>& object_ids,
     std::memcpy(&entry->digest[0], digests[i].c_str(), kDigestSize);
     // Set object construction duration.
     entry->construct_duration = std::time(nullptr) - entry->create_time;
-    
+
     object_info.object_id = object_ids[i].binary();
     object_info.data_size = entry->data_size;
     object_info.metadata_size = entry->metadata_size;
@@ -827,7 +826,7 @@ PlasmaStore::NotificationMap::iterator PlasmaStore::SendNotifications(
     auto& notification = notifications.at(i);
     // Decode the length, which is the first bytes of the message.
     int64_t size = *(reinterpret_cast<int64_t*>(notification.get()));
-    
+
     // Attempt to send a notification about this object ID.
     ssize_t nbytes = send(client_fd, notification.get(), sizeof(int64_t) + size, 0);
     if (nbytes >= 0) {

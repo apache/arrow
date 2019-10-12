@@ -64,7 +64,7 @@ ToFlatbuffer(flatbuffers::FlatBufferBuilder* fbb,
   return fbb->CreateVector(arrow::util::MakeNonNull(results.data()), results.size());
 }
 
-flatbuffers::Offset<flatbuffers::Vector<long int>>
+flatbuffers::Offset<flatbuffers::Vector<int64_t>>
 ToFlatbuffer(flatbuffers::FlatBufferBuilder* fbb, const std::vector<int64_t>& data) {
   return fbb->CreateVector(arrow::util::MakeNonNull(data.data()), data.size());
 }

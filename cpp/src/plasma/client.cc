@@ -39,10 +39,10 @@
 #include <algorithm>
 #include <deque>
 #include <mutex>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <tuple>
 
 #include "arrow/buffer.h"
 #include "arrow/util/thread_pool.h"
@@ -260,10 +260,10 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
 
   Status GetNotification(int fd, ObjectID* object_id, int64_t* data_size,
                          int64_t* metadata_size);
- 
+
   Status DecodeNotifications(const uint8_t* buffer, std::vector<ObjectID>* object_ids,
-                            std::vector<int64_t>* data_sizes,
-                            std::vector<int64_t>* metadata_sizes);
+                             std::vector<int64_t>* data_sizes,
+                             std::vector<int64_t>* metadata_sizes);
 
   Status Disconnect();
 
@@ -997,11 +997,11 @@ Status PlasmaClient::Impl::GetNotification(int fd, ObjectID* object_id,
     std::vector<ObjectID> object_ids;
     std::vector<int64_t> data_sizes;
     std::vector<int64_t> metadata_sizes;
-    RETURN_NOT_OK(DecodeNotifications(message.get(), &object_ids, &data_sizes, &metadata_sizes));
+    RETURN_NOT_OK(
+        DecodeNotifications(message.get(), &object_ids, &data_sizes, &metadata_sizes));
     for (size_t i = 0; i < object_ids.size(); ++i) {
-      pending_notification_.push_back(std::make_tuple(object_ids[i],
-                                                      data_sizes[i],
-                                                      metadata_sizes[i]));
+      pending_notification_.push_back(
+          std::make_tuple(object_ids[i], data_sizes[i], metadata_sizes[i]));
     }
   }
 
@@ -1016,15 +1016,16 @@ Status PlasmaClient::Impl::GetNotification(int fd, ObjectID* object_id,
 }
 
 Status PlasmaClient::Impl::DecodeNotifications(const uint8_t* buffer,
-                                             std::vector<ObjectID>* object_ids,
-                                             std::vector<int64_t>* data_sizes,
-                                             std::vector<int64_t>* metadata_sizes) {
+                                               std::vector<ObjectID>* object_ids,
+                                               std::vector<int64_t>* data_sizes,
+                                               std::vector<int64_t>* metadata_sizes) {
   std::lock_guard<std::recursive_mutex> guard(client_mutex_);
   auto object_info = flatbuffers::GetRoot<fb::PlasmaNotification>(buffer);
-  
+
   for (size_t i = 0; i < object_info->object_info()->size(); ++i) {
     ObjectID id;
-    memcpy(&id, object_info->object_info()->Get(i)->object_id()->data(), sizeof(ObjectID));
+    memcpy(&id, object_info->object_info()->Get(i)->object_id()->data(),
+           sizeof(ObjectID));
     object_ids->push_back(id);
     if (object_info->object_info()->Get(i)->is_deletion()) {
       data_sizes->push_back(-1);
