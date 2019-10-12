@@ -40,7 +40,7 @@
 //! let mut record_batch_reader = arrow_reader.get_record_reader(2048).unwrap();
 //!
 //! loop {
-//!    let record_batch = record_batch_reader.next_batch().unwrap();
+//!    let record_batch = record_batch_reader.next_batch().unwrap().unwrap();
 //!    if record_batch.num_rows() > 0 {
 //!        println!("Read {} records.", record_batch.num_rows());
 //!    } else {

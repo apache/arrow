@@ -152,7 +152,7 @@ impl RecordBatchReader for ParquetRecordBatchReader {
         self.schema.clone()
     }
 
-    fn next_batch(&mut self) -> ArrowResult<RecordBatch> {
+    fn next_batch(&mut self) -> ArrowResult<Option<RecordBatch>> {
         self.array_reader
             .next_batch(self.batch_size)
             .map_err(|err| err.into())
@@ -170,6 +170,13 @@ impl RecordBatchReader for ParquetRecordBatchReader {
                             struct_array.columns_ref(),
                         )
                     })
+            })
+            .map(|record_batch| {
+                if record_batch.num_rows() > 0 {
+                    Some(record_batch)
+                } else {
+                    None
+                }
             })
     }
 }
@@ -233,20 +240,21 @@ mod tests {
             .expect("Failed to read into array!");
 
         for i in 0..20 {
-            let array: StructArray = record_batch_reader
+            let array: Option<StructArray> = record_batch_reader
                 .next_batch()
                 .expect("Failed to read record batch!")
-                .into();
+                .map(|r| r.into());
 
             let (start, end) = (i * 60 as usize, (i + 1) * 60 as usize);
 
             if start < max_len {
-                assert_ne!(0, array.len());
+                assert!(array.is_some());
+                assert_ne!(0, array.as_ref().unwrap().len());
                 let end = min(end, max_len);
                 let json = JArray(Vec::from(&json_values[start..end]));
-                assert_eq!(array, json)
+                assert_eq!(array.unwrap(), json)
             } else {
-                assert_eq!(0, array.len());
+                assert!(array.is_none());
             }
         }
     }
