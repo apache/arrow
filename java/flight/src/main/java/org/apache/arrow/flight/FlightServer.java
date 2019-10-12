@@ -40,6 +40,7 @@ import org.apache.arrow.flight.grpc.ServerInterceptorAdapter;
 import org.apache.arrow.flight.grpc.ServerInterceptorAdapter.KeyFactory;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.util.VisibleForTesting;
 
 import io.grpc.Server;
 import io.grpc.ServerInterceptors;
@@ -58,14 +59,19 @@ public class FlightServer implements AutoCloseable {
 
   private final Location location;
   private final Server server;
+  // The executor used by the gRPC server. We don't use it here, but we do need to clean it up with the server.
+  // May be null, if a user-supplied executor was provided (as we do not want to clean that up)
+  @VisibleForTesting
+  final ExecutorService grpcExecutor;
 
   /** The maximum size of an individual gRPC message. This effectively disables the limit. */
   static final int MAX_GRPC_MESSAGE_SIZE = Integer.MAX_VALUE;
 
   /** Create a new instance from a gRPC server. For internal use only. */
-  private FlightServer(Location location, Server server) {
+  private FlightServer(Location location, Server server, ExecutorService grpcExecutor) {
     this.location = location;
     this.server = server;
+    this.grpcExecutor = grpcExecutor;
   }
 
   /** Start the server. */
@@ -103,6 +109,9 @@ public class FlightServer implements AutoCloseable {
   /** Request that the server shut down. */
   public void shutdown() {
     server.shutdown();
+    if (grpcExecutor != null) {
+      grpcExecutor.shutdown();
+    }
   }
 
   /**
@@ -227,13 +236,24 @@ public class FlightServer implements AutoCloseable {
       }
 
       // Share one executor between the gRPC service, DoPut, and Handshake
-      final ExecutorService exec = executor != null ? executor : Executors.newCachedThreadPool();
+      final ExecutorService exec;
+      // We only want to have FlightServer close the gRPC executor if we created it here. We should not close
+      // user-supplied executors.
+      final ExecutorService grpcExecutor;
+      if (executor != null) {
+        exec = executor;
+        grpcExecutor = null;
+      } else {
+        exec = Executors.newCachedThreadPool();
+        grpcExecutor = exec;
+      }
+      final FlightBindingService flightService = new FlightBindingService(allocator, producer, authHandler, exec);
       builder
           .executor(exec)
           .maxInboundMessageSize(maxInboundMessageSize)
           .addService(
               ServerInterceptors.intercept(
-                  new FlightBindingService(allocator, producer, authHandler, exec),
+                  flightService,
                   new ServerAuthInterceptor(authHandler)));
 
       // Allow hooking into the gRPC builder. This is not guaranteed to be available on all Arrow versions or
@@ -259,7 +279,7 @@ public class FlightServer implements AutoCloseable {
       });
 
       builder.intercept(new ServerInterceptorAdapter(interceptors));
-      return new FlightServer(location, builder.build());
+      return new FlightServer(location, builder.build(), grpcExecutor);
     }
 
     /**
@@ -294,6 +314,9 @@ public class FlightServer implements AutoCloseable {
 
     /**
      * Set the executor used by the server.
+     *
+     * <p>Flight will NOT take ownership of the executor. The application must clean it up if one is provided. (If not
+     * provided, Flight will use a default executor which it will clean up.)
      */
     public Builder executor(ExecutorService executor) {
       this.executor = executor;
