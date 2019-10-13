@@ -274,7 +274,7 @@ impl ExecutionContext {
                 input,
                 group_expr,
                 aggr_expr,
-                schema,
+                ..
             } => {
                 let input = self.create_physical_plan(input, batch_size)?;
                 let input_schema = input.as_ref().schema().clone();
@@ -287,10 +287,7 @@ impl ExecutionContext {
                     .map(|e| self.create_aggregate_expr(e, &input_schema))
                     .collect::<Result<Vec<_>>>()?;
                 Ok(Arc::new(HashAggregateExec::try_new(
-                    group_expr,
-                    aggr_expr,
-                    input,
-                    schema.clone(),
+                    group_expr, aggr_expr, input,
                 )?))
             }
             LogicalPlan::Selection { input, expr, .. } => {
