@@ -195,11 +195,11 @@ impl Partition for HashAggregatePartition {
 
 /// Create array from `key` attribute in map entry (representing a grouping scalar value)
 macro_rules! group_array_from_map_entries {
-    ($BUILDER:ident, $TY:ident, $ENTRIES:expr, $COL_INDEX:expr) => {{
-        let mut builder = $BUILDER::new($ENTRIES.len());
+    ($BUILDER:ident, $TY:ident, $MAP:expr, $COL_INDEX:expr) => {{
+        let mut builder = $BUILDER::new($MAP.len());
         let mut err = false;
-        for j in 0..$ENTRIES.len() {
-            match $ENTRIES[j].k[$COL_INDEX] {
+        for k in $MAP.keys() {
+            match k[$COL_INDEX] {
                 GroupByScalar::$TY(n) => builder.append_value(n).unwrap(),
                 _ => err = true,
             }
@@ -218,11 +218,11 @@ macro_rules! group_array_from_map_entries {
 /// Create array from `value` attribute in map entry (representing an aggregate scalar
 /// value)
 macro_rules! aggr_array_from_map_entries {
-    ($BUILDER:ident, $TY:ident, $TY2:ty, $ENTRIES:expr, $COL_INDEX:expr) => {{
-        let mut builder = $BUILDER::new($ENTRIES.len());
+    ($BUILDER:ident, $TY:ident, $TY2:ty, $MAP:expr, $COL_INDEX:expr) => {{
+        let mut builder = $BUILDER::new($MAP.len());
         let mut err = false;
-        for j in 0..$ENTRIES.len() {
-            match $ENTRIES[j].v[$COL_INDEX] {
+        for v in $MAP.values() {
+            match v[$COL_INDEX].as_ref().borrow().get_value()? {
                 Some(ScalarValue::$TY(n)) => builder.append_value(n as $TY2).unwrap(),
                 None => builder.append_null().unwrap(),
                 _ => err = true,
@@ -235,6 +235,27 @@ macro_rules! aggr_array_from_map_entries {
             ))
         } else {
             Ok(Arc::new(builder.finish()) as ArrayRef)
+        }
+    }};
+}
+
+/// Create array from single accumulator value
+macro_rules! aggr_array_from_accumulator {
+    ($BUILDER:ident, $TY:ident, $TY2:ty, $VALUE:expr) => {{
+        let mut builder = $BUILDER::new(1);
+        match $VALUE {
+            Some(ScalarValue::$TY(n)) => {
+                builder.append_value(n as $TY2)?;
+                Ok(Arc::new(builder.finish()) as ArrayRef)
+            }
+            None => {
+                builder.append_null()?;
+                Ok(Arc::new(builder.finish()) as ArrayRef)
+            }
+            _ => Err(ExecutionError::ExecutionError(
+                "unexpected type when creating aggregate array from aggregate map"
+                    .to_string(),
+            )),
         }
     }};
 }
@@ -322,15 +343,16 @@ impl BatchIterator for GroupedHashAggregateIterator {
                 .map(|expr| expr.evaluate_input(&batch))
                 .collect::<Result<Vec<_>>>()?;
 
-            // iterate over each row in the batch
+            // create vector large enough to hold the grouping key
             let mut key = Vec::with_capacity(group_values.len());
             for _ in 0..group_values.len() {
                 key.push(GroupByScalar::UInt32(0));
             }
 
-            // create the accumulators for each grouping key
+            // iterate over each row in the batch and create the accumulators for each grouping key
             let mut accumulators: Vec<Rc<AccumulatorSet>> =
                 Vec::with_capacity(batch.num_rows());
+
             for row in 0..batch.num_rows() {
                 // create grouping key for this row
                 create_key(&group_values, row, &mut key)?;
@@ -351,6 +373,8 @@ impl BatchIterator for GroupedHashAggregateIterator {
                 }
             }
 
+            // iterate over each non-grouping column in the batch and update the accumulator
+            // for each row
             for col in 0..aggr_input_values.len() {
                 let array = &aggr_input_values[col];
 
@@ -437,25 +461,6 @@ impl BatchIterator for GroupedHashAggregateIterator {
 
         let input_schema = input.schema();
 
-        // convert the map to a vec to make it easier to build arrays
-        let entries: Vec<MapEntry> = map
-            .iter()
-            .map(|(k, v)| {
-                let aggr_values = v
-                    .iter()
-                    .map(|accum| {
-                        let accum = accum.borrow_mut();
-                        accum.get_value()
-                    })
-                    .collect::<Result<Vec<_>>>()?;
-
-                Ok(MapEntry {
-                    k: k.clone(),
-                    v: aggr_values,
-                })
-            })
-            .collect::<Result<Vec<_>>>()?;
-
         // build the result arrays
         let mut result_arrays: Vec<ArrayRef> =
             Vec::with_capacity(self.group_expr.len() + self.aggr_expr.len());
@@ -466,35 +471,39 @@ impl BatchIterator for GroupedHashAggregateIterator {
                 .data_type(&input_schema)?
             {
                 DataType::UInt8 => {
-                    group_array_from_map_entries!(UInt8Builder, UInt8, entries, i)
+                    group_array_from_map_entries!(UInt8Builder, UInt8, map, i)
                 }
                 DataType::UInt16 => {
-                    group_array_from_map_entries!(UInt16Builder, UInt16, entries, i)
+                    group_array_from_map_entries!(UInt16Builder, UInt16, map, i)
                 }
                 DataType::UInt32 => {
-                    group_array_from_map_entries!(UInt32Builder, UInt32, entries, i)
+                    group_array_from_map_entries!(UInt32Builder, UInt32, map, i)
                 }
                 DataType::UInt64 => {
-                    group_array_from_map_entries!(UInt64Builder, UInt64, entries, i)
+                    group_array_from_map_entries!(UInt64Builder, UInt64, map, i)
                 }
                 DataType::Int8 => {
-                    group_array_from_map_entries!(Int8Builder, Int8, entries, i)
+                    group_array_from_map_entries!(Int8Builder, Int8, map, i)
                 }
                 DataType::Int16 => {
-                    group_array_from_map_entries!(Int16Builder, Int16, entries, i)
+                    group_array_from_map_entries!(Int16Builder, Int16, map, i)
                 }
                 DataType::Int32 => {
-                    group_array_from_map_entries!(Int32Builder, Int32, entries, i)
+                    group_array_from_map_entries!(Int32Builder, Int32, map, i)
                 }
                 DataType::Int64 => {
-                    group_array_from_map_entries!(Int64Builder, Int64, entries, i)
+                    group_array_from_map_entries!(Int64Builder, Int64, map, i)
                 }
                 DataType::Utf8 => {
                     let mut builder = BinaryBuilder::new(1);
-                    for j in 0..entries.len() {
-                        match &entries[j].k[i] {
+                    for k in map.keys() {
+                        match &k[i] {
                             GroupByScalar::Utf8(s) => builder.append_string(&s).unwrap(),
-                            _ => {}
+                            _ => {
+                                return Err(ExecutionError::ExecutionError(
+                                    "Unexpected value for Utf8 group column".to_string(),
+                                ))
+                            }
                         }
                     }
                     Ok(Arc::new(builder.finish()) as ArrayRef)
@@ -509,60 +518,36 @@ impl BatchIterator for GroupedHashAggregateIterator {
             for i in 0..self.aggr_expr.len() {
                 let aggr_data_type = self.aggr_expr[i].data_type(&input_schema)?;
                 let array = match aggr_data_type {
-                    DataType::UInt8 => aggr_array_from_map_entries!(
-                        UInt64Builder,
-                        UInt8,
-                        u64,
-                        entries,
-                        i
-                    ),
-                    DataType::UInt16 => aggr_array_from_map_entries!(
-                        UInt64Builder,
-                        UInt16,
-                        u64,
-                        entries,
-                        i
-                    ),
-                    DataType::UInt32 => aggr_array_from_map_entries!(
-                        UInt64Builder,
-                        UInt32,
-                        u64,
-                        entries,
-                        i
-                    ),
-                    DataType::UInt64 => aggr_array_from_map_entries!(
-                        UInt64Builder,
-                        UInt64,
-                        u64,
-                        entries,
-                        i
-                    ),
+                    DataType::UInt8 => {
+                        aggr_array_from_map_entries!(UInt64Builder, UInt8, u64, map, i)
+                    }
+                    DataType::UInt16 => {
+                        aggr_array_from_map_entries!(UInt64Builder, UInt16, u64, map, i)
+                    }
+                    DataType::UInt32 => {
+                        aggr_array_from_map_entries!(UInt64Builder, UInt32, u64, map, i)
+                    }
+                    DataType::UInt64 => {
+                        aggr_array_from_map_entries!(UInt64Builder, UInt64, u64, map, i)
+                    }
                     DataType::Int8 => {
-                        aggr_array_from_map_entries!(Int64Builder, Int8, i64, entries, i)
+                        aggr_array_from_map_entries!(Int64Builder, Int8, i64, map, i)
                     }
                     DataType::Int16 => {
-                        aggr_array_from_map_entries!(Int64Builder, Int16, i64, entries, i)
+                        aggr_array_from_map_entries!(Int64Builder, Int16, i64, map, i)
                     }
                     DataType::Int32 => {
-                        aggr_array_from_map_entries!(Int64Builder, Int32, i64, entries, i)
+                        aggr_array_from_map_entries!(Int64Builder, Int32, i64, map, i)
                     }
                     DataType::Int64 => {
-                        aggr_array_from_map_entries!(Int64Builder, Int64, i64, entries, i)
+                        aggr_array_from_map_entries!(Int64Builder, Int64, i64, map, i)
                     }
-                    DataType::Float32 => aggr_array_from_map_entries!(
-                        Float32Builder,
-                        Float32,
-                        f32,
-                        entries,
-                        i
-                    ),
-                    DataType::Float64 => aggr_array_from_map_entries!(
-                        Float64Builder,
-                        Float64,
-                        f64,
-                        entries,
-                        i
-                    ),
+                    DataType::Float32 => {
+                        aggr_array_from_map_entries!(Float32Builder, Float32, f32, map, i)
+                    }
+                    DataType::Float64 => {
+                        aggr_array_from_map_entries!(Float64Builder, Float64, f64, map, i)
+                    }
                     _ => Err(ExecutionError::ExecutionError(
                         "Unsupported aggregate expr".to_string(),
                     )),
@@ -642,47 +627,40 @@ impl BatchIterator for HashAggregateIterator {
         // build the result arrays
         let mut result_arrays: Vec<ArrayRef> = Vec::with_capacity(self.aggr_expr.len());
 
-        let entries = vec![MapEntry {
-            k: vec![],
-            v: accumulators
-                .iter()
-                .map(|accum| accum.borrow_mut().get_value())
-                .collect::<Result<Vec<_>>>()?,
-        }];
-
         // aggregate values
         for i in 0..self.aggr_expr.len() {
             let aggr_data_type = self.aggr_expr[i].data_type(&input_schema)?;
+            let value = accumulators[i].borrow_mut().get_value()?;
             let array = match aggr_data_type {
                 DataType::UInt8 => {
-                    aggr_array_from_map_entries!(UInt64Builder, UInt8, u64, entries, i)
+                    aggr_array_from_accumulator!(UInt64Builder, UInt8, u64, value)
                 }
                 DataType::UInt16 => {
-                    aggr_array_from_map_entries!(UInt64Builder, UInt16, u64, entries, i)
+                    aggr_array_from_accumulator!(UInt64Builder, UInt16, u64, value)
                 }
                 DataType::UInt32 => {
-                    aggr_array_from_map_entries!(UInt64Builder, UInt32, u64, entries, i)
+                    aggr_array_from_accumulator!(UInt64Builder, UInt32, u64, value)
                 }
                 DataType::UInt64 => {
-                    aggr_array_from_map_entries!(UInt64Builder, UInt64, u64, entries, i)
+                    aggr_array_from_accumulator!(UInt64Builder, UInt64, u64, value)
                 }
                 DataType::Int8 => {
-                    aggr_array_from_map_entries!(Int64Builder, Int8, i64, entries, i)
+                    aggr_array_from_accumulator!(Int64Builder, Int8, i64, value)
                 }
                 DataType::Int16 => {
-                    aggr_array_from_map_entries!(Int64Builder, Int16, i64, entries, i)
+                    aggr_array_from_accumulator!(Int64Builder, Int16, i64, value)
                 }
                 DataType::Int32 => {
-                    aggr_array_from_map_entries!(Int64Builder, Int32, i64, entries, i)
+                    aggr_array_from_accumulator!(Int64Builder, Int32, i64, value)
                 }
                 DataType::Int64 => {
-                    aggr_array_from_map_entries!(Int64Builder, Int64, i64, entries, i)
+                    aggr_array_from_accumulator!(Int64Builder, Int64, i64, value)
                 }
                 DataType::Float32 => {
-                    aggr_array_from_map_entries!(Float32Builder, Float32, f32, entries, i)
+                    aggr_array_from_accumulator!(Float32Builder, Float32, f32, value)
                 }
                 DataType::Float64 => {
-                    aggr_array_from_map_entries!(Float64Builder, Float64, f64, entries, i)
+                    aggr_array_from_accumulator!(Float64Builder, Float64, f64, value)
                 }
                 _ => Err(ExecutionError::ExecutionError(
                     "Unsupported aggregate expr".to_string(),
