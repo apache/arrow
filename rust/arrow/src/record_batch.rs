@@ -115,16 +115,18 @@ impl From<&StructArray> for RecordBatch {
 
 impl Into<StructArray> for RecordBatch {
     fn into(self) -> StructArray {
-         self.schema.fields.iter().zip(self.columns.iter())
-             .map(|t| (t.0.clone(), t.1.clone()))
+        self.schema
+            .fields
+            .iter()
+            .zip(self.columns.iter())
+            .map(|t| (t.0.clone(), t.1.clone()))
             .collect::<Vec<(Field, ArrayRef)>>()
-             .into()
+            .into()
     }
 }
 
 unsafe impl Send for RecordBatch {}
 unsafe impl Sync for RecordBatch {}
-
 
 /// Definition of record batch reader.
 pub trait RecordBatchReader {

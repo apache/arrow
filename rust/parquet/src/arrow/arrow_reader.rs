@@ -222,7 +222,8 @@ mod tests {
     fn test_arrow_reader() {
         let json_values = match serde_json::from_reader(get_test_file(
             "parquet/generated_simple_numerics/blogs.json",
-        )).expect("Failed to read json value from file!")
+        ))
+        .expect("Failed to read json value from file!")
         {
             JArray(values) => values,
             _ => panic!("Input should be json array!"),
