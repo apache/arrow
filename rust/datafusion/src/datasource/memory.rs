@@ -66,8 +66,8 @@ impl MemTable {
 }
 
 impl TableProvider for MemTable {
-    fn schema(&self) -> &Arc<Schema> {
-        &self.schema
+    fn schema(&self) -> Arc<Schema> {
+        self.schema.clone()
     }
 
     fn scan(
