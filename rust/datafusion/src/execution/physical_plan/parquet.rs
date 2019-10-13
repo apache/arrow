@@ -25,7 +25,7 @@ use std::thread;
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::{BatchIterator, ExecutionPlan, Partition};
-use arrow::array::ArrayRef;
+use arrow::array::{ArrayRef, StructArray};
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 use parquet::arrow::array_reader::*;
@@ -47,6 +47,7 @@ pub struct ParquetExec {
 }
 
 impl ParquetExec {
+    /// Create a new Parquet reader execution plan
     pub fn try_new(
         path: &str,
         projection: Option<Vec<usize>>,
@@ -160,7 +161,12 @@ impl ParquetPartition {
                     .iter_mut()
                     .map(|r| {
                         println!("read array batch");
-                        r.next_batch(batch_size).unwrap()
+                        let array = r.next_batch(batch_size).unwrap();
+                        let struct_array = array
+                            .as_any()
+                            .downcast_ref::<StructArray>()
+                            .expect("failed to cast to StructArray");
+                        struct_array.column(0).clone()
                     })
                     .collect();
 
@@ -169,7 +175,12 @@ impl ParquetPartition {
 
                 let batch =
                     RecordBatch::try_new(projected_schema.clone(), arrays).unwrap();
-                response_tx.send(Ok(Some(batch))).unwrap();
+
+                if batch.num_rows() > 0 {
+                    response_tx.send(Ok(Some(batch))).unwrap();
+                } else {
+                    response_tx.send(Ok(None)).unwrap();
+                }
             }
         });
 
@@ -219,7 +230,6 @@ impl BatchIterator for ParquetIterator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test;
     use std::env;
 
     #[test]
