@@ -57,8 +57,20 @@ impl HashAggregateExec {
         group_expr: Vec<Arc<dyn PhysicalExpr>>,
         aggr_expr: Vec<Arc<dyn AggregateExpr>>,
         input: Arc<dyn ExecutionPlan>,
-        schema: Arc<Schema>,
     ) -> Result<Self> {
+        let input_schema = input.schema();
+
+        let mut fields = Vec::with_capacity(group_expr.len() + aggr_expr.len());
+        for expr in &group_expr {
+            let name = expr.name();
+            fields.push(Field::new(&name, expr.data_type(&input_schema)?, true))
+        }
+        for expr in &aggr_expr {
+            let name = expr.name();
+            fields.push(Field::new(&name, expr.data_type(&input_schema)?, true))
+        }
+        let schema = Arc::new(Schema::new(fields));
+
         Ok(HashAggregateExec {
             group_expr,
             aggr_expr,
@@ -559,18 +571,7 @@ impl BatchIterator for GroupedHashAggregateIterator {
             }
         }
 
-        let mut fields = vec![];
-        for expr in &self.group_expr {
-            let name = expr.name();
-            fields.push(Field::new(&name, expr.data_type(&input_schema)?, true))
-        }
-        for expr in &self.aggr_expr {
-            let name = expr.name();
-            fields.push(Field::new(&name, expr.data_type(&input_schema)?, true))
-        }
-        let schema = Schema::new(fields);
-
-        let batch = RecordBatch::try_new(Arc::new(schema), result_arrays)?;
+        let batch = RecordBatch::try_new(self.schema.clone(), result_arrays)?;
         Ok(Some(batch))
     }
 }
@@ -690,14 +691,7 @@ impl BatchIterator for HashAggregateIterator {
             result_arrays.push(array?);
         }
 
-        let mut fields = vec![];
-        for expr in &self.aggr_expr {
-            let name = expr.name();
-            fields.push(Field::new(&name, expr.data_type(&input_schema)?, true))
-        }
-        let schema = Schema::new(fields);
-
-        let batch = RecordBatch::try_new(Arc::new(schema), result_arrays)?;
+        let batch = RecordBatch::try_new(self.schema.clone(), result_arrays)?;
         Ok(Some(batch))
     }
 }
@@ -781,7 +775,6 @@ mod tests {
     use crate::execution::physical_plan::csv::CsvExec;
     use crate::execution::physical_plan::expressions::{col, sum};
     use crate::test;
-    use arrow::datatypes::Field;
 
     #[test]
     fn aggregate() -> Result<()> {
@@ -796,16 +789,10 @@ mod tests {
 
         let aggr_expr: Vec<Arc<dyn AggregateExpr>> = vec![sum(col(3))];
 
-        let schema = Arc::new(Schema::new(vec![
-            Field::new("a", DataType::UInt32, true),
-            Field::new("b", DataType::Int64, true),
-        ]));
-
         let partition_aggregate = HashAggregateExec::try_new(
             group_expr.clone(),
             aggr_expr.clone(),
             Arc::new(csv),
-            schema.clone(),
         )?;
 
         let result = test::execute(&partition_aggregate)?;
