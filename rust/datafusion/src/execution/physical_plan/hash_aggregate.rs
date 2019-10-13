@@ -296,9 +296,14 @@ impl BatchIterator for GroupedHashAggregateIterator {
                 .collect::<Result<Vec<_>>>()?;
 
             // iterate over each row in the batch
+            let mut key = Vec::with_capacity(group_values.len());
+            for _ in 0..group_values.len() {
+                key.push(GroupByScalar::UInt32(0));
+            }
+
             for row in 0..batch.num_rows() {
                 // create grouping key for this row
-                let key = create_key(&group_values, row)?;
+                create_key(&group_values, row, &mut key)?;
 
                 let updated: Result<bool> = match map.get(&key) {
                     Some(accumulators) => {
@@ -366,45 +371,45 @@ impl BatchIterator for GroupedHashAggregateIterator {
         for i in 0..self.group_expr.len() {
             let array: Result<ArrayRef> = match self.group_expr[i]
                 .data_type(&input_schema)?
-            {
-                DataType::UInt8 => {
-                    group_array_from_map_entries!(UInt8Builder, UInt8, entries, i)
-                }
-                DataType::UInt16 => {
-                    group_array_from_map_entries!(UInt16Builder, UInt16, entries, i)
-                }
-                DataType::UInt32 => {
-                    group_array_from_map_entries!(UInt32Builder, UInt32, entries, i)
-                }
-                DataType::UInt64 => {
-                    group_array_from_map_entries!(UInt64Builder, UInt64, entries, i)
-                }
-                DataType::Int8 => {
-                    group_array_from_map_entries!(Int8Builder, Int8, entries, i)
-                }
-                DataType::Int16 => {
-                    group_array_from_map_entries!(Int16Builder, Int16, entries, i)
-                }
-                DataType::Int32 => {
-                    group_array_from_map_entries!(Int32Builder, Int32, entries, i)
-                }
-                DataType::Int64 => {
-                    group_array_from_map_entries!(Int64Builder, Int64, entries, i)
-                }
-                DataType::Utf8 => {
-                    let mut builder = BinaryBuilder::new(1);
-                    for j in 0..entries.len() {
-                        match &entries[j].k[i] {
-                            GroupByScalar::Utf8(s) => builder.append_string(&s).unwrap(),
-                            _ => {}
-                        }
+                {
+                    DataType::UInt8 => {
+                        group_array_from_map_entries!(UInt8Builder, UInt8, entries, i)
                     }
-                    Ok(Arc::new(builder.finish()) as ArrayRef)
-                }
-                _ => Err(ExecutionError::ExecutionError(
-                    "Unsupported group by expr".to_string(),
-                )),
-            };
+                    DataType::UInt16 => {
+                        group_array_from_map_entries!(UInt16Builder, UInt16, entries, i)
+                    }
+                    DataType::UInt32 => {
+                        group_array_from_map_entries!(UInt32Builder, UInt32, entries, i)
+                    }
+                    DataType::UInt64 => {
+                        group_array_from_map_entries!(UInt64Builder, UInt64, entries, i)
+                    }
+                    DataType::Int8 => {
+                        group_array_from_map_entries!(Int8Builder, Int8, entries, i)
+                    }
+                    DataType::Int16 => {
+                        group_array_from_map_entries!(Int16Builder, Int16, entries, i)
+                    }
+                    DataType::Int32 => {
+                        group_array_from_map_entries!(Int32Builder, Int32, entries, i)
+                    }
+                    DataType::Int64 => {
+                        group_array_from_map_entries!(Int64Builder, Int64, entries, i)
+                    }
+                    DataType::Utf8 => {
+                        let mut builder = BinaryBuilder::new(1);
+                        for j in 0..entries.len() {
+                            match &entries[j].k[i] {
+                                GroupByScalar::Utf8(s) => builder.append_string(&s).unwrap(),
+                                _ => {}
+                            }
+                        }
+                        Ok(Arc::new(builder.finish()) as ArrayRef)
+                    }
+                    _ => Err(ExecutionError::ExecutionError(
+                        "Unsupported group by expr".to_string(),
+                    )),
+                };
             result_arrays.push(array?);
 
             // aggregate values
@@ -632,53 +637,60 @@ enum GroupByScalar {
 }
 
 /// Create a Vec<GroupByScalar> that can be used as a map key
-fn create_key(group_by_keys: &Vec<ArrayRef>, row: usize) -> Result<Vec<GroupByScalar>> {
-    group_by_keys
-        .iter()
-        .map(|col| match col.data_type() {
+fn create_key(
+    group_by_keys: &Vec<ArrayRef>,
+    row: usize,
+    vec: &mut Vec<GroupByScalar>,
+) -> Result<()> {
+    for i in 0..group_by_keys.len() {
+        let col = &group_by_keys[i];
+        match col.data_type() {
             DataType::UInt8 => {
                 let array = col.as_any().downcast_ref::<UInt8Array>().unwrap();
-                Ok(GroupByScalar::UInt8(array.value(row)))
+                vec[i] = GroupByScalar::UInt8(array.value(row))
             }
             DataType::UInt16 => {
                 let array = col.as_any().downcast_ref::<UInt16Array>().unwrap();
-                Ok(GroupByScalar::UInt16(array.value(row)))
+                vec[i] = GroupByScalar::UInt16(array.value(row))
             }
             DataType::UInt32 => {
                 let array = col.as_any().downcast_ref::<UInt32Array>().unwrap();
-                Ok(GroupByScalar::UInt32(array.value(row)))
+                vec[i] = GroupByScalar::UInt32(array.value(row))
             }
             DataType::UInt64 => {
                 let array = col.as_any().downcast_ref::<UInt64Array>().unwrap();
-                Ok(GroupByScalar::UInt64(array.value(row)))
+                vec[i] = GroupByScalar::UInt64(array.value(row))
             }
             DataType::Int8 => {
                 let array = col.as_any().downcast_ref::<Int8Array>().unwrap();
-                Ok(GroupByScalar::Int8(array.value(row)))
+                vec[i] = GroupByScalar::Int8(array.value(row))
             }
             DataType::Int16 => {
                 let array = col.as_any().downcast_ref::<Int16Array>().unwrap();
-                Ok(GroupByScalar::Int16(array.value(row)))
+                vec[i] = GroupByScalar::Int16(array.value(row))
             }
             DataType::Int32 => {
                 let array = col.as_any().downcast_ref::<Int32Array>().unwrap();
-                Ok(GroupByScalar::Int32(array.value(row)))
+                vec[i] = GroupByScalar::Int32(array.value(row))
             }
             DataType::Int64 => {
                 let array = col.as_any().downcast_ref::<Int64Array>().unwrap();
-                Ok(GroupByScalar::Int64(array.value(row)))
+                vec[i] = GroupByScalar::Int64(array.value(row))
             }
             DataType::Utf8 => {
                 let array = col.as_any().downcast_ref::<BinaryArray>().unwrap();
-                Ok(GroupByScalar::Utf8(String::from(
+                vec[i] = GroupByScalar::Utf8(String::from(
                     str::from_utf8(array.value(row)).unwrap(),
-                )))
+                ))
             }
-            _ => Err(ExecutionError::ExecutionError(
-                "Unsupported GROUP BY data type".to_string(),
-            )),
-        })
-        .collect::<Result<Vec<GroupByScalar>>>()
+            _ => {
+                return Err(ExecutionError::ExecutionError(
+                    "Unsupported GROUP BY data type".to_string(),
+                ))
+            }
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
