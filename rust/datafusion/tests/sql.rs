@@ -165,6 +165,17 @@ fn csv_query_group_by_avg() {
 }
 
 #[test]
+fn csv_query_group_by_avg_with_projection() {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx);
+    let sql = "SELECT avg(c12), c1 FROM aggregate_test_100 GROUP BY c1";
+    let mut actual = execute(&mut ctx, sql);
+    actual.sort();
+    let expected = "0.41040709263815384\t\"b\"\n0.48600669271341534\t\"e\"\n0.48754517466109415\t\"a\"\n0.48855379387549824\t\"d\"\n0.6600456536439784\t\"c\"".to_string();
+    assert_eq!(expected, actual.join("\n"));
+}
+
+#[test]
 fn csv_query_avg_multi_batch() {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx);
@@ -199,7 +210,7 @@ fn csv_query_group_by_int_count() {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx);
     //TODO add ORDER BY once supported, to make this test determistic
-    let sql = "SELECT count(c12) FROM aggregate_test_100 GROUP BY c1";
+    let sql = "SELECT c1, count(c12) FROM aggregate_test_100 GROUP BY c1";
     let actual = execute(&mut ctx, sql).join("\n");
     let expected = "\"a\"\t21\n\"e\"\t21\n\"d\"\t18\n\"c\"\t21\n\"b\"\t19".to_string();
     assert_eq!(expected, actual);
