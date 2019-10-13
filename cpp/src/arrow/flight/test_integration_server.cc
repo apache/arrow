@@ -15,7 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Example server implementation for integration testing purposes
+// Server for integration testing.
+
+// Integration testing covers files and scenarios. The former
+// validates that Arrow data survives a round-trip through a Flight
+// service. The latter tests specific features of Arrow Flight.
 
 #include <signal.h>
 #include <iostream>
@@ -33,9 +37,11 @@
 #include "arrow/flight/internal.h"
 #include "arrow/flight/server.h"
 #include "arrow/flight/server_auth.h"
+#include "arrow/flight/test_integration.h"
 #include "arrow/flight/test_util.h"
 
 DEFINE_int32(port, 31337, "Server port to listen on");
+DEFINE_string(scenario, "", "Integration test senario to run");
 
 namespace arrow {
 namespace flight {
@@ -150,19 +156,46 @@ class FlightIntegrationTestServer : public FlightServerBase {
   std::unordered_map<std::string, IntegrationDataset> uploaded_chunks;
 };
 
+class IntegrationTestScenario : public Scenario {
+ public:
+  Status MakeServer(std::unique_ptr<FlightServerBase>* server,
+                    FlightServerOptions* options) override {
+    server->reset(new FlightIntegrationTestServer());
+    return Status::OK();
+  }
+
+  Status MakeClient(FlightClientOptions* options) override {
+    ARROW_UNUSED(options);
+    return Status::NotImplemented("Not implemented, see test_integration_client.cc");
+  }
+
+  Status RunClient(std::unique_ptr<FlightClient> client) override {
+    ARROW_UNUSED(client);
+    return Status::NotImplemented("Not implemented, see test_integration_client.cc");
+  }
+};
+
 }  // namespace flight
 }  // namespace arrow
 
-std::unique_ptr<arrow::flight::FlightIntegrationTestServer> g_server;
+std::unique_ptr<arrow::flight::FlightServerBase> g_server;
 
 int main(int argc, char** argv) {
   gflags::SetUsageMessage("Integration testing server for Flight.");
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
-  g_server.reset(new arrow::flight::FlightIntegrationTestServer);
+  std::shared_ptr<arrow::flight::Scenario> scenario;
+
+  if (!FLAGS_scenario.empty()) {
+    ARROW_CHECK_OK(arrow::flight::GetScenario(FLAGS_scenario, &scenario));
+  } else {
+    scenario = std::make_shared<arrow::flight::IntegrationTestScenario>();
+  }
   arrow::flight::Location location;
   ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port, &location));
   arrow::flight::FlightServerOptions options(location);
+
+  ARROW_CHECK_OK(scenario->MakeServer(&g_server, &options));
 
   ARROW_CHECK_OK(g_server->Init(options));
   // Exit with a clean error code (0) on SIGTERM
