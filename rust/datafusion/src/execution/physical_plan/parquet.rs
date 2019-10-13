@@ -32,11 +32,14 @@ use parquet::arrow::array_reader::*;
 use parquet::file::reader::{FileReader, SerializedFileReader};
 
 use crossbeam::channel::{unbounded, Receiver, Sender};
+use parquet::arrow::parquet_to_arrow_schema;
 
 /// Execution plan for scanning a Parquet file
 pub struct ParquetExec {
     /// Path to directory containing partitioned Parquet files with the same schema
-    path: String,
+    filenames: Vec<String>,
+    /// Schema after projection is applied
+    schema: Arc<Schema>,
     /// Projection for which columns to load
     projection: Vec<usize>,
     /// Batch size
@@ -44,31 +47,61 @@ pub struct ParquetExec {
 }
 
 impl ParquetExec {
-    pub fn new(path: &str, projection: Option<Vec<usize>>, batch_size: usize) -> Self {
-        //TODO load first file to determine schema
-        //TODO handle projection=None (map to projection of all columns)
-        Self {
-            path: path.to_string(),
-            projection: projection.unwrap(),
-            batch_size,
+    pub fn try_new(
+        path: &str,
+        projection: Option<Vec<usize>>,
+        batch_size: usize,
+    ) -> Result<Self> {
+        let mut filenames: Vec<String> = vec![];
+        common::build_file_list(path, &mut filenames, ".parquet")?;
+        if filenames.is_empty() {
+            Err(ExecutionError::General("No files found".to_string()))
+        } else {
+            let file = File::open(&filenames[0])?;
+            let reader = SerializedFileReader::new(file)?;
+            let metadata = reader.metadata();
+            let schema =
+                parquet_to_arrow_schema(metadata.file_metadata().schema_descr_ptr())?;
+
+            let projection = match projection {
+                Some(p) => p,
+                None => vec![], //TODO select all
+            };
+
+            let projected_schema = Schema::new(
+                projection
+                    .iter()
+                    .map(|i| schema.field(*i).clone())
+                    .collect(),
+            );
+
+            println!("projection: {:?}", projection);
+            println!("projected schema: {:?}", projected_schema);
+
+            Ok(Self {
+                filenames,
+                schema: Arc::new(projected_schema),
+                projection,
+                batch_size,
+            })
         }
     }
 }
 
 impl ExecutionPlan for ParquetExec {
     fn schema(&self) -> Arc<Schema> {
-        unimplemented!()
+        self.schema.clone()
     }
 
     fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
-        let mut filenames: Vec<String> = vec![];
-        common::build_file_list(&self.path, &mut filenames, ".parquet")?;
-        let partitions = filenames
+        let partitions = self
+            .filenames
             .iter()
             .map(|filename| {
                 Arc::new(ParquetPartition::new(
                     &filename,
                     self.projection.clone(),
+                    self.schema.clone(),
                     self.batch_size,
                 )) as Arc<dyn Partition>
             })
@@ -83,11 +116,12 @@ struct ParquetPartition {
 
 impl ParquetPartition {
     /// Create a new Parquet partition
-    pub fn new(filename: &str, projection: Vec<usize>, batch_size: usize) -> Self {
-        //TODO determine arrow schema after projection is applied
-        let projected_schema = Arc::new(Schema::new(vec![]));
-        let schema = projected_schema.clone();
-
+    pub fn new(
+        filename: &str,
+        projection: Vec<usize>,
+        schema: Arc<Schema>,
+        batch_size: usize,
+    ) -> Self {
         // because the parquet implementation is not thread-safe, it is necessary to execute
         // on a thread and communicate with channels
         let (request_tx, request_rx): (Sender<()>, Receiver<()>) = unbounded();
@@ -97,6 +131,7 @@ impl ParquetPartition {
         ) = unbounded();
         let filename = filename.to_string();
 
+        let projected_schema = schema.clone();
         thread::spawn(move || {
             //TODO error handling, remove unwraps
 
@@ -109,6 +144,8 @@ impl ParquetPartition {
             // create array readers
             let mut array_readers = Vec::with_capacity(projection.len());
             for i in projection {
+                println!("create array reader");
+
                 let array_reader = build_array_reader(
                     parquet_schema.clone(),
                     vec![i].into_iter(),
@@ -121,16 +158,23 @@ impl ParquetPartition {
             while let Ok(_) = request_rx.recv() {
                 let arrays: Vec<ArrayRef> = array_readers
                     .iter_mut()
-                    .map(|r| r.next_batch(batch_size).unwrap())
+                    .map(|r| {
+                        println!("read array batch");
+                        r.next_batch(batch_size).unwrap()
+                    })
                     .collect();
 
-                let batch = RecordBatch::try_new(schema.clone(), arrays).unwrap();
+                println!("read {} arrays", arrays.len());
+                //println!("schema has {} fields", projected_schema.fields().len());
+
+                let batch =
+                    RecordBatch::try_new(projected_schema.clone(), arrays).unwrap();
                 response_tx.send(Ok(Some(batch))).unwrap();
             }
         });
 
         let iterator = Arc::new(Mutex::new(ParquetIterator {
-            schema: projected_schema,
+            schema,
             request_tx,
             response_rx,
         }));
@@ -175,8 +219,6 @@ impl BatchIterator for ParquetIterator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::execution::physical_plan::csv::CsvExec;
-    use crate::execution::physical_plan::expressions::{col, sum};
     use crate::test;
     use std::env;
 
@@ -185,15 +227,21 @@ mod tests {
         let testdata =
             env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
         let filename = format!("{}/alltypes_plain.parquet", testdata);
-        let parquet_exec = ParquetExec::new(&filename, Some(vec![0]), 1024);
+        let parquet_exec = ParquetExec::try_new(&filename, Some(vec![0, 1, 2]), 1024)?;
         let partitions = parquet_exec.partitions()?;
         assert_eq!(partitions.len(), 1);
 
         let results = partitions[0].execute()?;
         let mut results = results.lock().unwrap();
         while let Some(batch) = results.next()? {
-            println!("got batch");
+            println!(
+                "got batch with {} rows and {} columns",
+                batch.num_rows(),
+                batch.num_columns()
+            );
         }
+
+        //TODO assertions
 
         Ok(())
     }
