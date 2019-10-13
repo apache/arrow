@@ -61,7 +61,13 @@ func (a *Struct) setData(data *Data) {
 	a.array.setData(data)
 	a.fields = make([]Interface, len(data.childData))
 	for i, child := range data.childData {
-		a.fields[i] = MakeFromData(child)
+		if data.offset != 0 || child.length != data.length {
+			sub := NewSliceData(child, int64(data.offset), int64(data.offset+data.length))
+			defer sub.Release()
+			a.fields[i] = MakeFromData(sub)
+		} else {
+			a.fields[i] = MakeFromData(child)
+		}
 	}
 }
 
