@@ -19,13 +19,17 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fs;
+use std::path::Path;
 use std::rc::Rc;
 use std::string::String;
 use std::sync::Arc;
+use std::thread::{self, JoinHandle};
 
+use arrow::csv;
 use arrow::datatypes::*;
+use arrow::record_batch::RecordBatch;
 
-use crate::arrow::record_batch::RecordBatch;
 use crate::datasource::csv::CsvFile;
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
@@ -425,6 +429,49 @@ impl ExecutionContext {
                 }
             }
         }
+    }
+
+    /// Execute a query and write the results to a partitioned CSV file
+    pub fn write_csv(&self, plan: &dyn ExecutionPlan, path: &str) -> Result<()> {
+        // create directory to contain the CSV files (one per partition)
+        let path = path.to_string();
+        fs::create_dir(&path)?;
+
+        let threads: Vec<JoinHandle<Result<()>>> = plan
+            .partitions()?
+            .iter()
+            .enumerate()
+            .map(|(i, p)| {
+                let p = p.clone();
+                let path = path.clone();
+                thread::spawn(move || {
+                    let filename = format!("part-{}", i);
+                    let path = Path::new(&path).join(&filename);
+                    let file = fs::File::create(path)?;
+                    let mut writer = csv::Writer::new(file);
+                    let it = p.execute()?;
+                    let mut it = it.lock().unwrap();
+                    loop {
+                        match it.next() {
+                            Ok(Some(batch)) => {
+                                writer.write(&batch)?;
+                            }
+                            Ok(None) => break,
+                            Err(e) => return Err(e),
+                        }
+                    }
+                    Ok(())
+                })
+            })
+            .collect();
+
+        // combine the results from each thread
+        for thread in threads {
+            let join = thread.join().expect("Failed to join thread");
+            join?;
+        }
+
+        Ok(())
     }
 }
 
