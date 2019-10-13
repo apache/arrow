@@ -20,14 +20,18 @@
 use std::fs::File;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
+use std::thread;
 
-use crate::error::Result;
+use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::{BatchIterator, ExecutionPlan, Partition};
+use arrow::array::ArrayRef;
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 use parquet::arrow::array_reader::*;
 use parquet::file::reader::{FileReader, SerializedFileReader};
+
+use crossbeam::channel::{unbounded, Receiver, Sender};
 
 /// Execution plan for scanning a Parquet file
 pub struct ParquetExec {
@@ -43,7 +47,11 @@ impl ParquetExec {
     pub fn new(path: &str, projection: Option<Vec<usize>>, batch_size: usize) -> Self {
         //TODO load first file to determine schema
         //TODO handle projection=None (map to projection of all columns)
-        Self { path: path.to_string(), projection: projection.unwrap(), batch_size }
+        Self {
+            path: path.to_string(),
+            projection: projection.unwrap(),
+            batch_size,
+        }
     }
 }
 
@@ -70,79 +78,110 @@ impl ExecutionPlan for ParquetExec {
 }
 
 struct ParquetPartition {
-    /// Parquet filename
-    filename: String,
-    /// Projection for which columns to load
-    projection: Vec<usize>,
-    /// Batch size
-    batch_size: usize,
+    iterator: Arc<Mutex<dyn BatchIterator>>,
 }
 
 impl ParquetPartition {
     /// Create a new Parquet partition
     pub fn new(filename: &str, projection: Vec<usize>, batch_size: usize) -> Self {
-        Self { filename: filename.to_string(), projection, batch_size }
+        //TODO determine arrow schema after projection is applied
+        let projected_schema = Arc::new(Schema::new(vec![]));
+        let schema = projected_schema.clone();
+
+        // because the parquet implementation is not thread-safe, it is necessary to execute
+        // on a thread and communicate with channels
+        let (request_tx, request_rx): (Sender<()>, Receiver<()>) = unbounded();
+        let (response_tx, response_rx): (
+            Sender<Result<Option<RecordBatch>>>,
+            Receiver<Result<Option<RecordBatch>>>,
+        ) = unbounded();
+        let filename = filename.to_string();
+
+        thread::spawn(move || {
+            //TODO error handling, remove unwraps
+
+            // open file
+            let file = File::open(&filename).unwrap();
+            let file_reader = Rc::new(SerializedFileReader::new(file).unwrap());
+            let parquet_schema =
+                file_reader.metadata().file_metadata().schema_descr_ptr();
+
+            // create array readers
+            let mut array_readers = Vec::with_capacity(projection.len());
+            for i in projection {
+                let array_reader = build_array_reader(
+                    parquet_schema.clone(),
+                    vec![i].into_iter(),
+                    file_reader.clone(),
+                )
+                .unwrap();
+                array_readers.push(array_reader);
+            }
+
+            while let Ok(_) = request_rx.recv() {
+                let arrays: Vec<ArrayRef> = array_readers
+                    .iter_mut()
+                    .map(|r| r.next_batch(batch_size).unwrap())
+                    .collect();
+
+                let batch = RecordBatch::try_new(schema.clone(), arrays).unwrap();
+                response_tx.send(Ok(Some(batch))).unwrap();
+            }
+        });
+
+        let iterator = Arc::new(Mutex::new(ParquetIterator {
+            schema: projected_schema,
+            request_tx,
+            response_rx,
+        }));
+
+        Self { iterator }
     }
 }
 
 impl Partition for ParquetPartition {
     fn execute(&self) -> Result<Arc<Mutex<dyn BatchIterator>>> {
-
-        let file = File::open(&self.filename)?;
-        let file_reader = Rc::new(SerializedFileReader::new(file)?);
-        let parquet_schema = file_reader.metadata().file_metadata().schema_descr_ptr();
-
-        let mut array_readers = vec![];
-        for i in &self.projection {
-
-            //TODO this method returns Box<> which is not thread-safe so we'll need to introduce channels
-            let array_reader = build_array_reader(
-                parquet_schema.clone(),
-                vec![*i].into_iter(), //TODO I don't understand the usage of `vec![i]` .. presumably for primitive types this is always a single column and for structs it can be more?
-                file_reader.clone(),
-            )?;
-
-            array_readers.push(array_reader);
-        }
-
-
-        unimplemented!()
-        //Ok(Arc::new(Mutex::new(ParquetIterator::new(array_readers))))
+        Ok(self.iterator.clone())
     }
 }
 
-//struct ParquetIterator {
-//    //readers: Vec<Box<dyn ArrayReader>>
-//}
-//
-//impl ParquetIterator {
-//    pub fn new(readers: Vec<Box<dyn ArrayReader>>) -> Self {
-//        Self { readers }
-//    }
-//}
-//
-//impl BatchIterator for ParquetIterator {
-//    fn schema(&self) -> Arc<Schema> {
-//        unimplemented!()
-//    }
-//
-//    fn next(&mut self) -> Result<Option<RecordBatch>> {
-//        unimplemented!()
-//    }
-//}
+struct ParquetIterator {
+    schema: Arc<Schema>,
+    request_tx: Sender<()>,
+    response_rx: Receiver<Result<Option<RecordBatch>>>,
+}
 
+impl BatchIterator for ParquetIterator {
+    fn schema(&self) -> Arc<Schema> {
+        self.schema.clone()
+    }
+
+    fn next(&mut self) -> Result<Option<RecordBatch>> {
+        match self.request_tx.send(()) {
+            Ok(_) => match self.response_rx.recv() {
+                Ok(batch) => batch,
+                Err(e) => Err(ExecutionError::General(format!(
+                    "Error receiving batch: {:?}",
+                    e
+                ))),
+            },
+            _ => Err(ExecutionError::General(
+                "Error sending request for next batch".to_string(),
+            )),
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
-    use std::env;
     use super::*;
     use crate::execution::physical_plan::csv::CsvExec;
     use crate::execution::physical_plan::expressions::{col, sum};
     use crate::test;
+    use std::env;
 
     #[test]
     fn test() -> Result<()> {
-
         let testdata =
             env::var("PARQUET_TEST_DATA").expect("PARQUET_TEST_DATA not defined");
         let filename = format!("{}/alltypes_plain.parquet", testdata);
@@ -158,5 +197,4 @@ mod tests {
 
         Ok(())
     }
-
 }
