@@ -28,8 +28,8 @@ use crate::execution::physical_plan::{
 };
 
 use arrow::array::{
-    ArrayRef, BinaryArray, Int16Array, Int32Array, Int64Array, Int8Array, UInt16Array,
-    UInt32Array, UInt64Array, UInt8Array,
+    ArrayRef, BinaryArray, Float32Array, Float64Array, Int16Array, Int32Array,
+    Int64Array, Int8Array, UInt16Array, UInt32Array, UInt64Array, UInt8Array,
 };
 use arrow::array::{
     BinaryBuilder, Float32Builder, Float64Builder, Int16Builder, Int32Builder,
@@ -38,7 +38,6 @@ use arrow::array::{
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 
-use crate::execution::physical_plan::common::get_scalar_value;
 use crate::execution::physical_plan::expressions::Column;
 use crate::execution::physical_plan::merge::MergeExec;
 use crate::logicalplan::ScalarValue;
@@ -260,6 +259,22 @@ impl GroupedHashAggregateIterator {
     }
 }
 
+type AccumulatorSet = Vec<Rc<RefCell<dyn Accumulator>>>;
+
+macro_rules! update_accumulators {
+    ($ARRAY:ident, $ARRAY_TY:ident, $SCALAR_TY:expr, $COL:expr, $ACCUM:expr) => {{
+        let primitive_array = $ARRAY.as_any().downcast_ref::<$ARRAY_TY>().unwrap();
+
+        for row in 0..$ARRAY.len() {
+            if $ARRAY.is_valid(row) {
+                let value = Some($SCALAR_TY(primitive_array.value(row)));
+                let mut accum = $ACCUM[row][$COL].borrow_mut();
+                accum.accumulate_scalar(value)?;
+            }
+        }
+    }};
+}
+
 impl BatchIterator for GroupedHashAggregateIterator {
     fn schema(&self) -> Arc<Schema> {
         self.schema.clone()
@@ -273,7 +288,7 @@ impl BatchIterator for GroupedHashAggregateIterator {
         self.finished = true;
 
         // create map to store accumulators for each unique grouping key
-        let mut map: FnvHashMap<Vec<GroupByScalar>, Vec<Rc<RefCell<dyn Accumulator>>>> =
+        let mut map: FnvHashMap<Vec<GroupByScalar>, Rc<AccumulatorSet>> =
             FnvHashMap::default();
 
         // iterate over all input batches and update the accumulators
@@ -301,47 +316,113 @@ impl BatchIterator for GroupedHashAggregateIterator {
                 key.push(GroupByScalar::UInt32(0));
             }
 
+            // create the accumulators for each grouping key
+            let mut accumulators: Vec<Rc<AccumulatorSet>> =
+                Vec::with_capacity(batch.num_rows());
             for row in 0..batch.num_rows() {
                 // create grouping key for this row
                 create_key(&group_values, row, &mut key)?;
 
-                let updated: Result<bool> = match map.get(&key) {
-                    Some(accumulators) => {
-                        let _ = accumulators
-                            .iter()
-                            .zip(aggr_input_values.iter())
-                            .map(|(accum, input)| {
-                                accum
-                                    .borrow_mut()
-                                    .accumulate_scalar(get_scalar_value(input, row)?)
-                            })
-                            .collect::<Result<Vec<_>>>()?;
-                        Ok(true)
-                    }
-                    None => Ok(false),
-                };
-
-                if !updated? {
-                    let accumulators: Vec<Rc<RefCell<dyn Accumulator>>> = self
+                if let Some(accumulator_set) = map.get(&key) {
+                    accumulators.push(accumulator_set.clone());
+                } else {
+                    let accumulator_set: AccumulatorSet = self
                         .aggr_expr
                         .iter()
                         .map(|expr| expr.create_accumulator())
                         .collect();
 
-                    let _ = accumulators
-                        .iter()
-                        .zip(aggr_input_values.iter())
-                        .map(|(accum, input)| {
-                            accum
-                                .borrow_mut()
-                                .accumulate_scalar(get_scalar_value(input, row)?)
-                        })
-                        .collect::<Result<Vec<_>>>()?;
+                    let accumulator_set = Rc::new(accumulator_set);
 
-                    map.insert(key.clone(), accumulators);
+                    map.insert(key.clone(), accumulator_set.clone());
+                    accumulators.push(accumulator_set);
                 }
             }
+
+            for col in 0..aggr_input_values.len() {
+                let array = &aggr_input_values[col];
+
+                match array.data_type() {
+                    DataType::Int8 => update_accumulators!(
+                        array,
+                        Int8Array,
+                        ScalarValue::Int8,
+                        col,
+                        accumulators
+                    ),
+                    DataType::Int16 => update_accumulators!(
+                        array,
+                        Int16Array,
+                        ScalarValue::Int16,
+                        col,
+                        accumulators
+                    ),
+                    DataType::Int32 => update_accumulators!(
+                        array,
+                        Int32Array,
+                        ScalarValue::Int32,
+                        col,
+                        accumulators
+                    ),
+                    DataType::Int64 => update_accumulators!(
+                        array,
+                        Int64Array,
+                        ScalarValue::Int64,
+                        col,
+                        accumulators
+                    ),
+                    DataType::UInt8 => update_accumulators!(
+                        array,
+                        UInt8Array,
+                        ScalarValue::UInt8,
+                        col,
+                        accumulators
+                    ),
+                    DataType::UInt16 => update_accumulators!(
+                        array,
+                        UInt16Array,
+                        ScalarValue::UInt16,
+                        col,
+                        accumulators
+                    ),
+                    DataType::UInt32 => update_accumulators!(
+                        array,
+                        UInt32Array,
+                        ScalarValue::UInt32,
+                        col,
+                        accumulators
+                    ),
+                    DataType::UInt64 => update_accumulators!(
+                        array,
+                        UInt64Array,
+                        ScalarValue::UInt64,
+                        col,
+                        accumulators
+                    ),
+                    DataType::Float32 => update_accumulators!(
+                        array,
+                        Float32Array,
+                        ScalarValue::Float32,
+                        col,
+                        accumulators
+                    ),
+                    DataType::Float64 => update_accumulators!(
+                        array,
+                        Float64Array,
+                        ScalarValue::Float64,
+                        col,
+                        accumulators
+                    ),
+                    other => {
+                        return Err(ExecutionError::ExecutionError(format!(
+                            "Unsupported data type {:?} for result of aggregate expression",
+                            other
+                        )));
+                    }
+                };
+            }
         }
+
         let input_schema = input.schema();
 
         // convert the map to a vec to make it easier to build arrays
@@ -371,45 +452,45 @@ impl BatchIterator for GroupedHashAggregateIterator {
         for i in 0..self.group_expr.len() {
             let array: Result<ArrayRef> = match self.group_expr[i]
                 .data_type(&input_schema)?
-                {
-                    DataType::UInt8 => {
-                        group_array_from_map_entries!(UInt8Builder, UInt8, entries, i)
-                    }
-                    DataType::UInt16 => {
-                        group_array_from_map_entries!(UInt16Builder, UInt16, entries, i)
-                    }
-                    DataType::UInt32 => {
-                        group_array_from_map_entries!(UInt32Builder, UInt32, entries, i)
-                    }
-                    DataType::UInt64 => {
-                        group_array_from_map_entries!(UInt64Builder, UInt64, entries, i)
-                    }
-                    DataType::Int8 => {
-                        group_array_from_map_entries!(Int8Builder, Int8, entries, i)
-                    }
-                    DataType::Int16 => {
-                        group_array_from_map_entries!(Int16Builder, Int16, entries, i)
-                    }
-                    DataType::Int32 => {
-                        group_array_from_map_entries!(Int32Builder, Int32, entries, i)
-                    }
-                    DataType::Int64 => {
-                        group_array_from_map_entries!(Int64Builder, Int64, entries, i)
-                    }
-                    DataType::Utf8 => {
-                        let mut builder = BinaryBuilder::new(1);
-                        for j in 0..entries.len() {
-                            match &entries[j].k[i] {
-                                GroupByScalar::Utf8(s) => builder.append_string(&s).unwrap(),
-                                _ => {}
-                            }
+            {
+                DataType::UInt8 => {
+                    group_array_from_map_entries!(UInt8Builder, UInt8, entries, i)
+                }
+                DataType::UInt16 => {
+                    group_array_from_map_entries!(UInt16Builder, UInt16, entries, i)
+                }
+                DataType::UInt32 => {
+                    group_array_from_map_entries!(UInt32Builder, UInt32, entries, i)
+                }
+                DataType::UInt64 => {
+                    group_array_from_map_entries!(UInt64Builder, UInt64, entries, i)
+                }
+                DataType::Int8 => {
+                    group_array_from_map_entries!(Int8Builder, Int8, entries, i)
+                }
+                DataType::Int16 => {
+                    group_array_from_map_entries!(Int16Builder, Int16, entries, i)
+                }
+                DataType::Int32 => {
+                    group_array_from_map_entries!(Int32Builder, Int32, entries, i)
+                }
+                DataType::Int64 => {
+                    group_array_from_map_entries!(Int64Builder, Int64, entries, i)
+                }
+                DataType::Utf8 => {
+                    let mut builder = BinaryBuilder::new(1);
+                    for j in 0..entries.len() {
+                        match &entries[j].k[i] {
+                            GroupByScalar::Utf8(s) => builder.append_string(&s).unwrap(),
+                            _ => {}
                         }
-                        Ok(Arc::new(builder.finish()) as ArrayRef)
                     }
-                    _ => Err(ExecutionError::ExecutionError(
-                        "Unsupported group by expr".to_string(),
-                    )),
-                };
+                    Ok(Arc::new(builder.finish()) as ArrayRef)
+                }
+                _ => Err(ExecutionError::ExecutionError(
+                    "Unsupported group by expr".to_string(),
+                )),
+            };
             result_arrays.push(array?);
 
             // aggregate values
