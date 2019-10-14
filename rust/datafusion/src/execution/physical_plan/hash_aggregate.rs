@@ -39,7 +39,6 @@ use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 
 use crate::execution::physical_plan::expressions::Column;
-use crate::execution::physical_plan::merge::MergeExec;
 use crate::logicalplan::ScalarValue;
 use fnv::FnvHashMap;
 
@@ -79,6 +78,8 @@ impl HashAggregateExec {
         })
     }
 
+    /// Create the final group and aggregate expressions from the initial group and aggregate
+    /// expressions
     pub fn make_final_expr(
         &self,
     ) -> (Vec<Arc<dyn PhysicalExpr>>, Vec<Arc<dyn AggregateExpr>>) {
@@ -726,6 +727,7 @@ mod tests {
     use super::*;
     use crate::execution::physical_plan::csv::CsvExec;
     use crate::execution::physical_plan::expressions::{col, sum};
+    use crate::execution::physical_plan::merge::MergeExec;
     use crate::test;
 
     #[test]
@@ -747,7 +749,16 @@ mod tests {
             Arc::new(csv),
         )?;
 
-        let result = test::execute(&partition_aggregate)?;
+        let schema = partition_aggregate.schema();
+        let partitions = partition_aggregate.partitions()?;
+        let (final_group, final_aggr) = partition_aggregate.make_final_expr();
+
+        let merge = Arc::new(MergeExec::new(schema.clone(), partitions));
+
+        let merged_aggregate =
+            HashAggregateExec::try_new(final_group, final_aggr, merge)?;
+
+        let result = test::execute(&merged_aggregate)?;
         assert_eq!(result.len(), 1);
 
         let batch = &result[0];

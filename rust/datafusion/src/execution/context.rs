@@ -40,9 +40,7 @@ use crate::execution::physical_plan::limit::LimitExec;
 use crate::execution::physical_plan::merge::MergeExec;
 use crate::execution::physical_plan::projection::ProjectionExec;
 use crate::execution::physical_plan::selection::SelectionExec;
-use crate::execution::physical_plan::{
-    AggregateExpr, ExecutionPlan, Partition, PhysicalExpr,
-};
+use crate::execution::physical_plan::{AggregateExpr, ExecutionPlan, PhysicalExpr};
 use crate::execution::table_impl::TableImpl;
 use crate::logicalplan::*;
 use crate::optimizer::optimizer::OptimizerRule;
@@ -278,8 +276,7 @@ impl ExecutionContext {
                 aggr_expr,
                 ..
             } => {
-                // Initially need to perform the aggregate and if the partitions len greater than 1
-                // need to merge
+                // Initially need to perform the aggregate and then merge the partitions
                 let input = self.create_physical_plan(input, batch_size)?;
                 let input_schema = input.as_ref().schema().clone();
 
@@ -320,9 +317,7 @@ impl ExecutionContext {
                 match expr {
                     &Expr::Literal(ref scalar_value) => {
                         let limit: usize = match scalar_value {
-                            ScalarValue::Int8(limit) if *limit >= 0 => {
-                                Ok(*limit as usize)
-                            }
+                            ScalarValue::Int8(limit) if *limit >= 0 => Ok(*limit as usize),
                             ScalarValue::Int16(limit) if *limit >= 0 => {
                                 Ok(*limit as usize)
                             }
