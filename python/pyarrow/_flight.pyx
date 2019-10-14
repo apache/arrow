@@ -1583,14 +1583,8 @@ cdef CStatus _do_action_result_next(
 
     try:
         action_result = next(<object> self)
-        if isinstance(action_result, str):
-            action_result = Result(action_result.encode('utf-8'))
-        elif isinstance(action_result, (bytes, Buffer)):
+        if not isinstance(action_result, Result):
             action_result = Result(action_result)
-        elif not isinstance(action_result, Result):
-            raise TypeError("Result of FlightServerBase.do_action must "
-                            "return an iterator of Result or "
-                            "bytes-like objects")
         c_result = (<Result> action_result).result.get()
         result.reset(new CFlightResult(deref(c_result)))
     except StopIteration:

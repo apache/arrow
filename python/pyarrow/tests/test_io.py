@@ -427,6 +427,7 @@ def test_buffer_equals():
 def test_buffer_eq_bytes():
     buf = pa.py_buffer(b'some data')
     assert buf == b'some data'
+    assert buf == bytearray(b'some data')
     assert buf != b'some dat1'
 
 

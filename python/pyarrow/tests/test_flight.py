@@ -599,6 +599,8 @@ class ConvenienceServer(FlightServerBase):
             return iter(self.simple_action_results)
         elif action.type == 'echo':
             return iter([action.body])
+        elif action.type == 'bad-action':
+            return iter(['foo'])
 
 
 def test_do_action_result_convenience():
@@ -613,6 +615,10 @@ def test_do_action_result_convenience():
         body = b'the-body'
         results = [x.body for x in client.do_action(('echo', body))]
         assert results == [body]
+
+        # ARROW-6884 raise a more specific and helpful exception
+        with pytest.raises(Exception):
+            list(client.do_action('bad-action'))
 
 
 def test_get_port():
