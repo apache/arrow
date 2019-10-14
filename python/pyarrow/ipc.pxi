@@ -244,6 +244,12 @@ cdef class _CRecordBatchWriter:
         with nogil:
             check_status(self.writer.get().Close())
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
 
 cdef class _RecordBatchStreamWriter(_CRecordBatchWriter):
     cdef:
@@ -325,6 +331,12 @@ cdef class _CRecordBatchReader:
         with nogil:
             check_status(self.reader.get().ReadAll(&table))
         return pyarrow_wrap_table(table)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
 
 
 cdef class _RecordBatchStreamReader(_CRecordBatchReader):
@@ -433,6 +445,12 @@ cdef class _RecordBatchFileReader:
                                                   batches, &table))
 
         return pyarrow_wrap_table(table)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
 
 
 def get_tensor_size(Tensor tensor):
