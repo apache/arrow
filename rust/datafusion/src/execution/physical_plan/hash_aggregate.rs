@@ -78,6 +78,23 @@ impl HashAggregateExec {
             schema,
         })
     }
+
+    pub fn make_final_expr(
+        &self,
+    ) -> (Vec<Arc<dyn PhysicalExpr>>, Vec<Arc<dyn AggregateExpr>>) {
+        let final_group: Vec<Arc<dyn PhysicalExpr>> = (0..self.group_expr.len())
+            .map(|i| Arc::new(Column::new(i)) as Arc<dyn PhysicalExpr>)
+            .collect();
+
+        let final_aggr: Vec<Arc<dyn AggregateExpr>> = (0..self.aggr_expr.len())
+            .map(|i| {
+                let aggr = self.aggr_expr[i].create_reducer(i + self.group_expr.len());
+                aggr as Arc<dyn AggregateExpr>
+            })
+            .collect();
+
+        (final_group, final_aggr)
+    }
 }
 
 impl ExecutionPlan for HashAggregateExec {

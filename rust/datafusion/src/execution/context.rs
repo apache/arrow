@@ -292,35 +292,13 @@ impl ExecutionContext {
                     .map(|e| self.create_aggregate_expr(e, &input_schema))
                     .collect::<Result<Vec<_>>>()?;
 
-                let final_group: Vec<Arc<dyn PhysicalExpr>> = (0..group_expr.len())
-                    .map(|i| Arc::new(Column::new(i)) as Arc<dyn PhysicalExpr>)
-                    .collect();
-
-                let final_aggr: Vec<Arc<dyn AggregateExpr>> = (0..aggr_expr.len())
-                    .map(|i| {
-                        let aggr = aggr_expr[i].create_reducer(i + group_expr.len());
-                        aggr as Arc<dyn AggregateExpr>
-                    })
-                    .collect();
-
                 let initial_aggr =
                     HashAggregateExec::try_new(group_expr, aggr_expr, input)?;
+
                 let schema = initial_aggr.schema();
                 let partitions = initial_aggr.partitions()?;
+                let (final_group, final_aggr) = initial_aggr.make_final_expr();
 
-                let mut fields = vec![];
-
-                for expr in &final_group {
-                    let name = expr.name();
-                    fields.push(Field::new(&name, expr.data_type(&schema)?, true));
-                }
-
-                for expr in &final_aggr {
-                    let name = expr.name();
-                    fields.push(Field::new(&name, expr.data_type(&schema)?, true));
-                }
-
-                let schema = Arc::new(Schema::new(fields));
                 let merge = Arc::new(MergeExec::new(schema.clone(), partitions));
 
                 Ok(Arc::new(HashAggregateExec::try_new(
