@@ -18,7 +18,7 @@
 from __future__ import absolute_import
 
 from libcpp.memory cimport shared_ptr
-from pyarrow.includes.libarrow cimport (CArray, CBuffer, CColumn, CDataType,
+from pyarrow.includes.libarrow cimport (CArray, CBuffer, CDataType,
                                         CField, CRecordBatch, CSchema,
                                         CTable, CTensor,
                                         CSparseTensorCSR, CSparseTensorCOO)
@@ -36,6 +36,5 @@ cdef extern from "arrow/python/pyarrow.h" namespace "arrow::py":
         const shared_ptr[CSparseTensorCOO]& sp_sparse_tensor)
     cdef object wrap_sparse_tensor_csr(
         const shared_ptr[CSparseTensorCSR]& sp_sparse_tensor)
-    cdef object wrap_column(const shared_ptr[CColumn]& ccolumn)
     cdef object wrap_table(const shared_ptr[CTable]& ctable)
     cdef object wrap_batch(const shared_ptr[CRecordBatch]& cbatch)
