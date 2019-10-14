@@ -28,6 +28,7 @@ LinkingTo:
 Imports:
     assertthat,
     bit64,
+    dplyr,
     methods,
     purrr,
     R6,
@@ -62,6 +63,7 @@ Collate:
     'compute.R'
     'csv.R'
     'dictionary.R'
+    'dplyr.R'
     'expression.R'
     'feather.R'
     'field.R'

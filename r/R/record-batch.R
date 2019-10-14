@@ -138,7 +138,9 @@ RecordBatch <- R6Class("RecordBatch", inherit = Object,
       assert_is(options, "CastOptions")
       assert_that(identical(self$schema$names, target_schema$names), msg = "incompatible schemas")
       shared_ptr(RecordBatch, RecordBatch__cast(self, target_schema, options))
-    }
+    },
+    selected_columns = list(),
+    filtered_rows = list()
   ),
 
   active = list(
