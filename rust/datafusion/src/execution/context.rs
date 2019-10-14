@@ -19,13 +19,17 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fs;
+use std::path::Path;
 use std::rc::Rc;
 use std::string::String;
 use std::sync::Arc;
+use std::thread::{self, JoinHandle};
 
+use arrow::csv;
 use arrow::datatypes::*;
+use arrow::record_batch::RecordBatch;
 
-use crate::arrow::record_batch::RecordBatch;
 use crate::datasource::csv::CsvFile;
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
@@ -426,6 +430,49 @@ impl ExecutionContext {
             }
         }
     }
+
+    /// Execute a query and write the results to a partitioned CSV file
+    pub fn write_csv(&self, plan: &dyn ExecutionPlan, path: &str) -> Result<()> {
+        // create directory to contain the CSV files (one per partition)
+        let path = path.to_string();
+        fs::create_dir(&path)?;
+
+        let threads: Vec<JoinHandle<Result<()>>> = plan
+            .partitions()?
+            .iter()
+            .enumerate()
+            .map(|(i, p)| {
+                let p = p.clone();
+                let path = path.clone();
+                thread::spawn(move || {
+                    let filename = format!("part-{}.csv", i);
+                    let path = Path::new(&path).join(&filename);
+                    let file = fs::File::create(path)?;
+                    let mut writer = csv::Writer::new(file);
+                    let it = p.execute()?;
+                    let mut it = it.lock().unwrap();
+                    loop {
+                        match it.next() {
+                            Ok(Some(batch)) => {
+                                writer.write(&batch)?;
+                            }
+                            Ok(None) => break,
+                            Err(e) => return Err(e),
+                        }
+                    }
+                    Ok(())
+                })
+            })
+            .collect();
+
+        // combine the results from each thread
+        for thread in threads {
+            let join = thread.join().expect("Failed to join thread");
+            join?;
+        }
+
+        Ok(())
+    }
 }
 
 struct ExecutionContextSchemaProvider {
@@ -644,17 +691,73 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn write_csv_results() -> Result<()> {
+        // create partitioned input file and context
+        let tmp_dir = TempDir::new("write_csv_results_temp")?;
+        let mut ctx = create_ctx(&tmp_dir, 4)?;
+
+        // execute a simple query and write the results to CSV
+        let out_dir = tmp_dir.as_ref().to_str().unwrap().to_string() + "/out";
+        write_csv(&mut ctx, "SELECT c1, c2 FROM test", &out_dir)?;
+
+        // create a new context and verify that the results were saved to a partitioned csv file
+        let mut ctx = ExecutionContext::new();
+
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("c1", DataType::UInt32, false),
+            Field::new("c2", DataType::UInt64, false),
+        ]));
+
+        // register each partition as well as the top level dir
+        ctx.register_csv("part0", &format!("{}/part-0.csv", out_dir), &schema, true);
+        ctx.register_csv("part1", &format!("{}/part-1.csv", out_dir), &schema, true);
+        ctx.register_csv("part2", &format!("{}/part-2.csv", out_dir), &schema, true);
+        ctx.register_csv("part3", &format!("{}/part-3.csv", out_dir), &schema, true);
+        ctx.register_csv("allparts", &out_dir, &schema, true);
+
+        let part0 = collect(&mut ctx, "SELECT c1, c2 FROM part0")?;
+        let part1 = collect(&mut ctx, "SELECT c1, c2 FROM part1")?;
+        let part2 = collect(&mut ctx, "SELECT c1, c2 FROM part2")?;
+        let part3 = collect(&mut ctx, "SELECT c1, c2 FROM part3")?;
+        let allparts = collect(&mut ctx, "SELECT c1, c2 FROM allparts")?;
+
+        let part0_count: usize = part0.iter().map(|batch| batch.num_rows()).sum();
+        let part1_count: usize = part1.iter().map(|batch| batch.num_rows()).sum();
+        let part2_count: usize = part2.iter().map(|batch| batch.num_rows()).sum();
+        let part3_count: usize = part3.iter().map(|batch| batch.num_rows()).sum();
+        let allparts_count: usize = allparts.iter().map(|batch| batch.num_rows()).sum();
+
+        assert_eq!(part0_count, 10);
+        assert_eq!(part1_count, 10);
+        assert_eq!(part2_count, 10);
+        assert_eq!(part3_count, 10);
+        assert_eq!(allparts_count, 40);
+
+        Ok(())
+    }
+
+    /// Execute SQL and return results
+    fn collect(ctx: &mut ExecutionContext, sql: &str) -> Result<Vec<RecordBatch>> {
+        let logical_plan = ctx.create_logical_plan(sql)?;
+        let logical_plan = ctx.optimize(&logical_plan)?;
+        let physical_plan = ctx.create_physical_plan(&logical_plan, 1024)?;
+        ctx.collect(physical_plan.as_ref())
+    }
+
     /// Execute SQL and return results
     fn execute(sql: &str, partition_count: usize) -> Result<Vec<RecordBatch>> {
         let tmp_dir = TempDir::new("execute")?;
         let mut ctx = create_ctx(&tmp_dir, partition_count)?;
+        collect(&mut ctx, sql)
+    }
 
+    /// Execute SQL and write results to partitioned csv files
+    fn write_csv(ctx: &mut ExecutionContext, sql: &str, out_dir: &str) -> Result<()> {
         let logical_plan = ctx.create_logical_plan(sql)?;
         let logical_plan = ctx.optimize(&logical_plan)?;
-
         let physical_plan = ctx.create_physical_plan(&logical_plan, 1024)?;
-
-        ctx.collect(physical_plan.as_ref())
+        ctx.write_csv(physical_plan.as_ref(), out_dir)
     }
 
     /// Generate a partitioned CSV file and register it with an execution context
