@@ -131,5 +131,29 @@ TEST_F(TestSimpleScanner, ToTable) {
   AssertTablesEqual(*expected, *actual);
 }
 
+class TestScannerBuilder : public ::testing::Test {
+  void SetUp() {
+    std::vector<std::shared_ptr<DataSource>> sources;
+
+    schema_ = schema({});
+    dataset_ = std::make_shared<Dataset>(sources, schema_);
+  }
+
+ protected:
+  std::shared_ptr<ScanContext> ctx_;
+  std::shared_ptr<Schema> schema_;
+  std::shared_ptr<Dataset> dataset_;
+};
+
+TEST_F(TestScannerBuilder, TestProject) {
+  ScannerBuilder builder(dataset_, ctx_);
+
+  // It is valid to request no columns, e.g. `SELECT 1 FROM t WHERE t.a > 0`.
+  // still needs to touch the `a` column.
+  ASSERT_OK(builder.Project({}));
+
+  ASSERT_RAISES(Invalid, builder.Project({"not_found_column"}));
+}
+
 }  // namespace dataset
 }  // namespace arrow

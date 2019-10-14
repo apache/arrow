@@ -71,10 +71,10 @@ TEST_F(TestPartitionScheme, Schema) {
 
   AssertParse("/0/hello", "alpha"_ == int32_t(0) and "beta"_ == "hello");
   AssertParse("/3", "alpha"_ == int32_t(3));
-  AssertParseError("/world/0");  // reversed order
-  AssertParseError("/0.0/foo");  // invalid alpha
-  AssertParseError("/3.25");     // invalid alpha with missing beta
-  AssertParseError("");          // no segments to parse
+  AssertParseError("/world/0");   // reversed order
+  AssertParseError("/0.0/foo");   // invalid alpha
+  AssertParseError("/3.25");      // invalid alpha with missing beta
+  AssertParse("", scalar(true));  // no segments to parse
 
   // gotcha someday:
   AssertParse("/0/dat.parquet", "alpha"_ == int32_t(0) and "beta"_ == "dat.parquet");

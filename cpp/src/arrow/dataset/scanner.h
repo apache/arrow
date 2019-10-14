@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/compute/context.h"
+#include "arrow/dataset/dataset.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/memory_pool.h"
@@ -38,6 +39,8 @@ struct ARROW_DS_EXPORT ScanContext {
   MemoryPool* pool = arrow::default_memory_pool();
 };
 
+class RecordBatchProjector;
+
 class ARROW_DS_EXPORT ScanOptions {
  public:
   virtual ~ScanOptions() = default;
@@ -50,8 +53,10 @@ class ARROW_DS_EXPORT ScanOptions {
   // Evaluator for Filter
   std::shared_ptr<ExpressionEvaluator> evaluator;
 
-  // Schema to which record batches will be projected
+  // Schema to which record batches will be reconciled
   std::shared_ptr<Schema> schema;
+  // Projecting the final RecordBatch to the requested schema.
+  std::shared_ptr<RecordBatchProjector> projector;
 
   std::vector<std::shared_ptr<FileScanOptions>> options;
 
@@ -159,22 +164,17 @@ class ARROW_DS_EXPORT ScannerBuilder {
                  std::shared_ptr<ScanContext> scan_context);
 
   /// \brief Set
-  ScannerBuilder* Project(const std::vector<std::string>& columns);
+  Status Project(const std::vector<std::string>& columns);
+
 
   ScannerBuilder* Filter(std::shared_ptr<Expression> filter);
   ScannerBuilder* Filter(const Expression& filter);
-
   ScannerBuilder* FilterEvaluator(std::shared_ptr<ExpressionEvaluator> evaluator);
-
-  ScannerBuilder* SetGlobalFileOptions(std::shared_ptr<FileScanOptions> options);
-
-  /// \brief If true (default), add partition keys to the
-  /// RecordBatches that the scan produces if they are not in the data
-  /// otherwise
-  ScannerBuilder* IncludePartitionKeys(bool include = true);
 
   /// \brief Return the constructed now-immutable Scanner object
   Status Finish(std::unique_ptr<Scanner>* out) const;
+
+  std::shared_ptr<Schema> schema() const { return dataset_->schema(); }
 
  private:
   std::shared_ptr<Dataset> dataset_;

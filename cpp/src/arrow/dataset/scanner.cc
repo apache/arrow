@@ -58,6 +58,41 @@ static ScanTaskIterator GetScanTaskIterator(DataFragmentIterator fragments,
   return MakeFlattenIterator(std::move(maybe_scantask_it));
 }
 
+template <typename Fn>
+class MapScanTask : public ScanTask {
+ public:
+  MapScanTask(std::unique_ptr<ScanTask> task, Fn map)
+      : task_(std::move(task)), map_(std::move(map)) {}
+
+  RecordBatchIterator Scan() override {
+    return MakeMaybeMapIterator(map_, task_->Scan());
+  }
+
+ private:
+  std::unique_ptr<ScanTask> task_;
+  Fn map_;
+};
+
+static ScanTaskIterator ProjectScanTask(ScanTaskIterator it,
+                                        std::shared_ptr<RecordBatchProjector> projector) {
+  if (projector == nullptr) {
+    return it;
+  }
+
+  // Project a RecordBatch in an Iterator<std::shared_ptr<RecordBatch>>
+  auto project = [projector](std::shared_ptr<RecordBatch> in,
+                             std::shared_ptr<RecordBatch>* out) {
+    return projector->Project(*in, out);
+  };
+  auto wrap_scan_task =
+      [project](std::unique_ptr<ScanTask> in) -> std::unique_ptr<ScanTask> {
+    return internal::make_unique<MapScanTask<decltype(project)>>(std::move(in),
+                                                                 std::move(project));
+  };
+
+  return MakeMapIterator(std::move(wrap_scan_task), std::move(it));
+}
+
 ScanTaskIterator SimpleScanner::Scan() {
   // First, transforms DataSources in a flat Iterator<DataFragment>. This
   // iterator is lazily constructed, i.e. DataSource::GetFragments is never
@@ -66,7 +101,12 @@ ScanTaskIterator SimpleScanner::Scan() {
   // Second, transforms Iterator<DataFragment> into a unified
   // Iterator<ScanTask>. The first Iterator::Next invocation is going to do
   // all the work of unwinding the chained iterators.
-  return GetScanTaskIterator(std::move(fragments_it), context_);
+  auto scan_task_it = GetScanTaskIterator(std::move(fragments_it), context_);
+  // Finally, apply the final projection to scan_task_it if necessary. The
+  // schema returned to the user might not be the same as given by the
+  // DataFragment, e.g. due to columns required by the filter but not in the
+  // final schema.
+  return ProjectScanTask(std::move(scan_task_it), options_->projector);
 }
 
 Status ScanTaskIteratorFromRecordBatch(std::vector<std::shared_ptr<RecordBatch>> batches,
@@ -86,8 +126,17 @@ ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset,
       scan_options_(ScanOptions::Defaults()),
       scan_context_(std::move(scan_context)) {}
 
-ScannerBuilder* ScannerBuilder::Project(const std::vector<std::string>& columns) {
-  return this;
+Status ScannerBuilder::Project(const std::vector<std::string>& columns) {
+  for (const auto& column : columns) {
+    if (schema()->GetFieldByName(column) == nullptr) {
+      return Status::Invalid("Requested column ", column,
+                             " not found in dataset's schema.");
+    }
+  }
+
+  project_columns_ = columns;
+
+  return Status::OK();
 }
 
 ScannerBuilder* ScannerBuilder::Filter(std::shared_ptr<Expression> filter) {
@@ -105,17 +154,22 @@ ScannerBuilder* ScannerBuilder::FilterEvaluator(
   return this;
 }
 
-ScannerBuilder* ScannerBuilder::SetGlobalFileOptions(
-    std::shared_ptr<FileScanOptions> options) {
-  return this;
-}
+std::shared_ptr<Schema> SchemaFromColumnNames(
+    const std::shared_ptr<Schema>& input, const std::vector<std::string>& column_names) {
+  std::vector<std::shared_ptr<Field>> columns;
+  for (const auto& name : column_names) {
+    columns.push_back(input->GetFieldByName(name));
+  }
 
-ScannerBuilder* ScannerBuilder::IncludePartitionKeys(bool include) {
-  scan_options_->include_partition_keys = include;
-  return this;
+  return std::make_shared<Schema>(columns);
 }
 
 Status ScannerBuilder::Finish(std::unique_ptr<Scanner>* out) const {
+  if (!project_columns_.empty()) {
+    scan_options_->projector = std::make_shared<RecordBatchProjector>(
+        scan_context_->pool, SchemaFromColumnNames(schema(), project_columns_));
+  }
+
   out->reset(new SimpleScanner(dataset_->sources(), scan_options_, scan_context_));
   return Status::OK();
 }
