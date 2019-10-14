@@ -381,16 +381,25 @@ static Status LoadRecordBatchFromSource(const std::shared_ptr<Schema>& schema,
                              /*buffer_index=*/0, max_recursion_depth};
 
   std::vector<std::shared_ptr<ArrayData>> arrays(schema->num_fields());
+
+  bool need_slice = false;
   for (int i = 0; i < schema->num_fields(); ++i) {
     auto arr = std::make_shared<ArrayData>();
     RETURN_NOT_OK(LoadArray(*schema->field(i), &context, arr.get()));
-    if (num_rows != arr->length) {
-      return Status::IOError("Array length did not match record batch length");
+    if (arr->length < num_rows) {
+      return Status::IOError("Array length insufficient for record batch length");
+    }
+    else if (arr->length > num_rows) {
+      need_slice = true;
     }
     arrays[i] = std::move(arr);
   }
 
   *out = RecordBatch::Make(schema, num_rows, std::move(arrays));
+  if (need_slice) {
+    // slice down to the utilized portion of the batch
+    *out = (*out)->Slice(0,num_rows);
+  }
   return Status::OK();
 }
 
