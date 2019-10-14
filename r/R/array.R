@@ -191,8 +191,13 @@ filter_rows <- function(x, i, ...) {
     i <- as.vector(i)
   }
   if (is.logical(i)) {
-    i <- rep_len(i, nrows) # For R recycling behavior; consider vctrs::vec_recycle()
-    x$Filter(i)
+    if (isTRUE(i)) {
+      # Shortcut without doing any work
+      x
+    } else {
+      i <- rep_len(i, nrows) # For R recycling behavior; consider vctrs::vec_recycle()
+      x$Filter(i)
+    }
   } else if (is.numeric(i)) {
     if (all(i < 0)) {
       # in R, negative i means "everything but i"

@@ -25,22 +25,19 @@ select.RecordBatch <- function(.data, ...) {
 #' @importFrom dplyr filter
 #' @export
 filter.RecordBatch <- function(.data, ..., .preserve = FALSE) {
-  .data$filtered_rows <- c(.data$filtered_rows, list(quos(...)))
+  .data$filtered_rows <- c(.data$filtered_rows, quos(...))
   .data
 }
 
 #' @importFrom dplyr collect
 #' @export
 collect.RecordBatch <- function(x, ...) {
+  filters <- evaluate_filters(x)
   colnames <- names(x)
   for (q in x$selected_columns) {
     colnames <- vars_select(colnames, !!!q)
   }
-  # TODO: evaluate filters before as.data.frame
-  df <- as.data.frame(x[, colnames])
-  for (f in x$filtered_rows) {
-    df <- filter(df, !!!f)
-  }
+  df <- as.data.frame(x[filters, colnames])
   # Slight hack: since x is R6, each select/filter modified the object in place,
   # which is not standard R behavior. Let's zero out x$selected_columns and
   # x$filtered_rows and hope that this side effect cancels out the other
@@ -48,6 +45,25 @@ collect.RecordBatch <- function(x, ...) {
   x$selected_columns <- list()
   x$filtered_rows <- list()
   df
+}
+
+evaluate_filters <- function(x) {
+  if (length(x$filtered_rows) == 0) {
+    # Keep everything
+    return(TRUE)
+  }
+  # Cache the columns we need here
+  filter_data <- new.env()
+  for (v in unique(unlist(lapply(x$filtered_rows, all.vars)))) {
+    assign(v, x[[v]], env = filter_data)
+  }
+  # Evaluate to get Expressions, then pull to R
+  filters <- lapply(x$filtered_rows, function (f) {
+    expr <- eval_tidy(f, new_data_mask(filter_data))
+    # TODO: Call something else that tries to construct a C++ expression
+    as.vector(expr)
+  })
+  Reduce("&", filters)
 }
 
 #' @importFrom dplyr summarise summarize
