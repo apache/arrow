@@ -18,6 +18,7 @@
 package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -41,6 +42,17 @@ public class TestSplitAndTransfer {
   public void terminate() throws Exception {
     allocator.close();
   }
+
+  private void populateVarcharVector(final VarCharVector vector, int valueCount, String[] compareArray) {
+    for (int i = 0; i < valueCount; i += 3) {
+      final String s = String.format("%010d", i);
+      vector.set(i, s.getBytes());
+      if (compareArray != null) {
+        compareArray[i] = s;
+      }
+    }
+    vector.setValueCount(valueCount);
+  }
   
   @Test /* VarCharVector */
   public void test() throws Exception {
@@ -50,12 +62,7 @@ public class TestSplitAndTransfer {
       final int valueCount = 500;
       final String[] compareArray = new String[valueCount];
   
-      for (int i = 0; i < valueCount; i += 3) {
-        final String s = String.format("%010d", i);
-        varCharVector.set(i, s.getBytes());
-        compareArray[i] = s;
-      }
-      varCharVector.setValueCount(valueCount);
+      populateVarcharVector(varCharVector, valueCount, compareArray);
   
       final TransferPair tp = varCharVector.getTransferPair(allocator);
       final VarCharVector newVarCharVector = (VarCharVector) tp.getTo();
@@ -89,11 +96,7 @@ public class TestSplitAndTransfer {
 
       final int valueCount = 1000;
 
-      for (int i = 0; i < valueCount; i += 3) {
-        final String s = String.format("%010d", i);
-        varCharVector.set(i, s.getBytes());
-      }
-      varCharVector.setValueCount(valueCount);
+      populateVarcharVector(varCharVector, valueCount, null);
 
       final TransferPair tp = varCharVector.getTransferPair(allocator);
       final VarCharVector newVarCharVector = (VarCharVector) tp.getTo();
@@ -105,6 +108,153 @@ public class TestSplitAndTransfer {
         tp.splitAndTransfer(start, length);
         newVarCharVector.clear();
       }
+    }
+  }
+
+  @Test
+  public void testTransfer() {
+    try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator)) {
+      varCharVector.allocateNew(10000, 1000);
+
+      final int valueCount = 500;
+      final String[] compareArray = new String[valueCount];
+      populateVarcharVector(varCharVector, valueCount, compareArray);
+
+      final TransferPair tp = varCharVector.getTransferPair(allocator);
+      final VarCharVector newVarCharVector = (VarCharVector) tp.getTo();
+      tp.transfer();
+
+      assertEquals(0, varCharVector.valueCount);
+      assertEquals(valueCount, newVarCharVector.valueCount);
+
+      for (int i = 0; i < valueCount; i++) {
+        final boolean expectedSet = (i % 3) == 0;
+        if (expectedSet) {
+          final byte[] expectedValue = compareArray[i].getBytes();
+          assertFalse(newVarCharVector.isNull(i));
+          assertArrayEquals(expectedValue, newVarCharVector.get(i));
+        } else {
+          assertTrue(newVarCharVector.isNull(i));
+        }
+      }
+
+      newVarCharVector.clear();
+    }
+  }
+
+  @Test
+  public void testCopyValueSafe() {
+    try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator);
+         final VarCharVector newVarCharVector = new VarCharVector("newvector", allocator)) {
+      varCharVector.allocateNew(10000, 1000);
+
+      final int valueCount = 500;
+      populateVarcharVector(varCharVector, valueCount, null);
+
+      final TransferPair tp = varCharVector.makeTransferPair(newVarCharVector);
+
+      // new vector memory is not pre-allocated, we expect copyValueSafe work fine.
+      for (int i = 0; i < valueCount; i++) {
+        tp.copyValueSafe(i, i);
+      }
+      newVarCharVector.setValueCount(valueCount);
+
+      for (int i = 0; i < valueCount; i++) {
+        final boolean expectedSet = (i % 3) == 0;
+        if (expectedSet) {
+          assertFalse(varCharVector.isNull(i));
+          assertFalse(newVarCharVector.isNull(i));
+          assertArrayEquals(varCharVector.get(i), newVarCharVector.get(i));
+        } else {
+          assertTrue(newVarCharVector.isNull(i));
+        }
+      }
+    }
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testInvalidCopyValueSafe() {
+    try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator);
+        final VarCharVector newVarCharVector = new VarCharVector("newvector", allocator)) {
+      varCharVector.allocateNew(10000, 1000);
+
+      final int valueCount = 500;
+      populateVarcharVector(varCharVector, valueCount, null);
+
+      final TransferPair tp = varCharVector.makeTransferPair(newVarCharVector);
+
+      // fromIndex is invalid.
+      tp.copyValueSafe(valueCount, 0);
+    }
+  }
+
+  @Test
+  public void testSplitAndTransferNon() {
+    try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator)) {
+
+      varCharVector.allocateNew(10000, 1000);
+      final int valueCount = 500;
+      populateVarcharVector(varCharVector, valueCount, null);
+
+      final TransferPair tp = varCharVector.getTransferPair(allocator);
+      VarCharVector newVarCharVector = (VarCharVector) tp.getTo();
+
+      tp.splitAndTransfer(0, 0);
+      assertEquals(0, newVarCharVector.getValueCount());
+
+      newVarCharVector.clear();
+    }
+  }
+
+  @Test
+  public void testSplitAndTransferAll() {
+    try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator)) {
+
+      varCharVector.allocateNew(10000, 1000);
+      final int valueCount = 500;
+      populateVarcharVector(varCharVector, valueCount, null);
+
+      final TransferPair tp = varCharVector.getTransferPair(allocator);
+      VarCharVector newVarCharVector = (VarCharVector) tp.getTo();
+
+      tp.splitAndTransfer(0, valueCount);
+      assertEquals(valueCount, newVarCharVector.getValueCount());
+
+      newVarCharVector.clear();
+    }
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testInvalidStartIndex() {
+    try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator);
+        final VarCharVector newVarCharVector = new VarCharVector("newvector", allocator)) {
+
+      varCharVector.allocateNew(10000, 1000);
+      final int valueCount = 500;
+      populateVarcharVector(varCharVector, valueCount, null);
+
+      final TransferPair tp = varCharVector.makeTransferPair(newVarCharVector);
+
+      tp.splitAndTransfer(valueCount, 10);
+
+      newVarCharVector.clear();
+    }
+  }
+
+  @Test(expected = IllegalArgumentException.class)
+  public void testInvalidLength() {
+    try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator);
+        final VarCharVector newVarCharVector = new VarCharVector("newvector", allocator)) {
+
+      varCharVector.allocateNew(10000, 1000);
+      final int valueCount = 500;
+      populateVarcharVector(varCharVector, valueCount, null);
+
+      final TransferPair tp = varCharVector.makeTransferPair(newVarCharVector);
+
+      tp.splitAndTransfer(0, valueCount * 2);
+
+      newVarCharVector.clear();
     }
   }
 }

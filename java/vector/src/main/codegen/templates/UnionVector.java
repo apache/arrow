@@ -408,6 +408,8 @@ public class UnionVector implements FieldVector {
   @Override
   public void copyFrom(int inIndex, int outIndex, ValueVector from) {
     Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
+    Preconditions.checkArgument(inIndex >= 0 && inIndex < from.getValueCount(),
+        "Invalid inIndex: %s", inIndex);
     UnionVector fromCast = (UnionVector) from;
     fromCast.getReader().setPosition(inIndex);
     getWriter().setPosition(outIndex);
@@ -469,7 +471,10 @@ public class UnionVector implements FieldVector {
 
     @Override
     public void splitAndTransfer(int startIndex, int length) {
-      Preconditions.checkArgument(startIndex + length <= valueCount);
+      Preconditions.checkArgument(startIndex >= 0 && startIndex < valueCount,
+          "Invalid startIndex: %s", startIndex);
+      Preconditions.checkArgument(startIndex + length <= valueCount,
+          "Invalid length: %s", length);
       to.clear();
       internalStructVectorTransferPair.splitAndTransfer(startIndex, length);
       final int startPoint = startIndex * TYPE_WIDTH;

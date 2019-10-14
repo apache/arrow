@@ -195,7 +195,10 @@ public class StructVector extends NonNullableStructVector implements FieldVector
 
     @Override
     public void splitAndTransfer(int startIndex, int length) {
-      Preconditions.checkArgument(startIndex + length <= valueCount);
+      Preconditions.checkArgument(startIndex >= 0 && startIndex < valueCount,
+          "Invalid startIndex: %s", startIndex);
+      Preconditions.checkArgument(startIndex + length <= valueCount,
+          "Invalid length: %s", length);
       target.clear();
       splitAndTransferValidityBuffer(startIndex, length, target);
       super.splitAndTransfer(startIndex, length);

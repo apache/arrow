@@ -364,6 +364,8 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   @Override
   public void copyFrom(int inIndex, int outIndex, ValueVector from) {
     Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
+    Preconditions.checkArgument(inIndex >= 0 && inIndex < from.getValueCount(),
+        "Invalid inIndex: %s", inIndex);
     FieldReader in = from.getReader();
     in.setPosition(inIndex);
     FieldWriter out = getWriter();
@@ -493,7 +495,10 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
      */
     @Override
     public void splitAndTransfer(int startIndex, int length) {
-      Preconditions.checkArgument(startIndex + length <= valueCount);
+      Preconditions.checkArgument(startIndex >= 0 && startIndex < valueCount,
+          "Invalid startIndex: %s", startIndex);
+      Preconditions.checkArgument(startIndex + length <= valueCount,
+          "Invalid length: %s", length);
       final int startPoint = offsetBuffer.getInt(startIndex * OFFSET_WIDTH);
       final int sliceLength = offsetBuffer.getInt((startIndex + length) * OFFSET_WIDTH) - startPoint;
       to.clear();
