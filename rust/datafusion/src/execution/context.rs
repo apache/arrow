@@ -435,7 +435,6 @@ impl ExecutionContext {
     pub fn write_csv(&self, plan: &dyn ExecutionPlan, path: &str) -> Result<()> {
         // create directory to contain the CSV files (one per partition)
         let path = path.to_string();
-        println!("Creating {}", path);
         fs::create_dir(&path)?;
 
         let threads: Vec<JoinHandle<Result<()>>> = plan
@@ -448,7 +447,6 @@ impl ExecutionContext {
                 thread::spawn(move || {
                     let filename = format!("part-{}.csv", i);
                     let path = Path::new(&path).join(&filename);
-                    println!("Writing {}", path.to_str().unwrap());
                     let file = fs::File::create(path)?;
                     let mut writer = csv::Writer::new(file);
                     let it = p.execute()?;
