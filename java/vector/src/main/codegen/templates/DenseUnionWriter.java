@@ -16,6 +16,7 @@
  */
 
 import org.apache.arrow.vector.complex.impl.NullableStructWriterFactory;
+import org.apache.arrow.vector.types.Types;
 
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/impl/DenseUnionWriter.java" />
@@ -36,9 +37,8 @@ import org.apache.arrow.vector.complex.impl.NullableStructWriterFactory;
 public class DenseUnionWriter extends AbstractFieldWriter implements FieldWriter {
 
   DenseUnionVector data;
-  private StructWriter structWriter;
-  private UnionListWriter listWriter;
-  private List<BaseWriter> writers = new java.util.ArrayList<>();
+
+  private BaseWriter[] writers = new BaseWriter[Byte.MAX_VALUE + 1];
   private final NullableStructWriterFactory nullableStructWriterFactory;
 
   public DenseUnionWriter(DenseUnionVector vector) {
@@ -61,60 +61,64 @@ public class DenseUnionWriter extends AbstractFieldWriter implements FieldWriter
 
   @Override
   public void start() {
-    data.setType(idx(), MinorType.STRUCT);
-    getStructWriter().start();
+    int typeId = data.getTypeValue(idx());
+    data.setType(idx(), typeId);
+    getStructWriter(idx()).start();
   }
 
   @Override
   public void end() {
-    getStructWriter().end();
+    getStructWriter(idx()).end();
   }
 
   @Override
   public void startList() {
-    getListWriter().startList();
-    data.setType(idx(), MinorType.LIST);
+    int typeId = data.getTypeValue(idx());
+    getListWriter(idx()).startList();
+    data.setType(idx(), typeId);
   }
 
   @Override
   public void endList() {
-    getListWriter().endList();
+    getListWriter(idx()).endList();
   }
 
-  private StructWriter getStructWriter() {
+  private StructWriter getStructWriter(int typeId) {
+    StructWriter structWriter = (StructWriter) writers[typeId];
     if (structWriter == null) {
-      structWriter = nullableStructWriterFactory.build(data.getStruct());
+      structWriter = nullableStructWriterFactory.build(data.getStruct(typeId));
       structWriter.setPosition(idx());
-      writers.add(structWriter);
+      writers[typeId] = structWriter;
     }
     return structWriter;
   }
 
-  public StructWriter asStruct() {
-    data.setType(idx(), MinorType.STRUCT);
-    return getStructWriter();
+  public StructWriter asStruct(int typeId) {
+    data.setType(idx(), typeId);
+    return getStructWriter(typeId);
   }
 
-  private ListWriter getListWriter() {
+  private ListWriter getListWriter(int typeId) {
+    ListWriter listWriter = (ListWriter) writers[typeId];
     if (listWriter == null) {
-      listWriter = new UnionListWriter(data.getList(), nullableStructWriterFactory);
+      listWriter = new UnionListWriter(data.getList(idx()), nullableStructWriterFactory);
       listWriter.setPosition(idx());
-      writers.add(listWriter);
+      writers[typeId] = listWriter;
     }
     return listWriter;
   }
 
-  public ListWriter asList() {
-    data.setType(idx(), MinorType.LIST);
-    return getListWriter();
+  public ListWriter asList(int typeId) {
+    data.setType(idx(), typeId);
+    return getListWriter(typeId);
   }
 
-  BaseWriter getWriter(MinorType minorType) {
+  BaseWriter getWriter(MinorType minorType, int typeId) {
     switch (minorType) {
       case STRUCT:
-        return getStructWriter();
+        return getStructWriter(typeId);
       case LIST:
-        return getListWriter();
+        return getListWriter(typeId);
     <#list vv.types as type>
       <#list type.minor as minor>
         <#assign name = minor.class?cap_first />
@@ -143,7 +147,7 @@ public class DenseUnionWriter extends AbstractFieldWriter implements FieldWriter
     if (${uncappedName}Writer == null) {
       ${uncappedName}Writer = new ${name}WriterImpl(data.get${name}Vector());
       ${uncappedName}Writer.setPosition(idx());
-      writers.add(${uncappedName}Writer);
+      writers[idx()] = ${uncappedName}Writer;
     }
     return ${uncappedName}Writer;
   }
@@ -174,30 +178,34 @@ public class DenseUnionWriter extends AbstractFieldWriter implements FieldWriter
 
   @Override
   public StructWriter struct() {
-    data.setType(idx(), MinorType.LIST);
-    getListWriter().setPosition(idx());
-    return getListWriter().struct();
+    int typeId = data.getTypeValue(idx());
+    data.setType(idx(), typeId);
+    getListWriter(typeId).setPosition(idx());
+    return getListWriter(typeId).struct();
   }
 
   @Override
   public ListWriter list() {
-    data.setType(idx(), MinorType.LIST);
-    getListWriter().setPosition(idx());
-    return getListWriter().list();
+    int typeId = data.getTypeValue(idx());
+    data.setType(idx(), typeId);
+    getListWriter(typeId).setPosition(idx());
+    return getListWriter(typeId).list();
   }
 
   @Override
   public ListWriter list(String name) {
-    data.setType(idx(), MinorType.STRUCT);
-    getStructWriter().setPosition(idx());
-    return getStructWriter().list(name);
+    int typeId = data.getTypeValue(idx());
+    data.setType(idx(), typeId);
+    getStructWriter(typeId).setPosition(idx());
+    return getStructWriter(typeId).list(name);
   }
 
   @Override
   public StructWriter struct(String name) {
-    data.setType(idx(), MinorType.STRUCT);
-    getStructWriter().setPosition(idx());
-    return getStructWriter().struct(name);
+    int typeId = data.getTypeValue(idx());
+    data.setType(idx(), typeId);
+    getStructWriter(typeId).setPosition(idx());
+    return getStructWriter(typeId).struct(name);
   }
 
   <#list vv.types as type><#list type.minor as minor>
@@ -208,16 +216,18 @@ public class DenseUnionWriter extends AbstractFieldWriter implements FieldWriter
   <#if !minor.typeParams?? >
   @Override
   public ${capName}Writer ${lowerName}(String name) {
-    data.setType(idx(), MinorType.STRUCT);
-    getStructWriter().setPosition(idx());
-    return getStructWriter().${lowerName}(name);
+    int typeId = data.getTypeValue(idx());
+    data.setType(idx(), typeId);
+    getStructWriter(typeId).setPosition(idx());
+    return getStructWriter(typeId).${lowerName}(name);
   }
 
   @Override
   public ${capName}Writer ${lowerName}() {
-    data.setType(idx(), MinorType.LIST);
-    getListWriter().setPosition(idx());
-    return getListWriter().${lowerName}();
+    int typeId = data.getTypeValue(idx());
+    data.setType(idx(), typeId);
+    getListWriter(typeId).setPosition(idx());
+    return getListWriter(typeId).${lowerName}();
   }
   </#if>
   </#list></#list>

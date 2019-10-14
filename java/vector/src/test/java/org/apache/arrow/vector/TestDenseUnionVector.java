@@ -28,6 +28,7 @@ import java.util.Map;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.DenseUnionVector;
+import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.holders.NullableBitHolder;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
@@ -37,6 +38,8 @@ import org.apache.arrow.vector.types.UnionMode;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.util.JsonStringHashMap;
+import org.apache.arrow.vector.util.Text;
 import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Before;
@@ -380,6 +383,98 @@ public class TestDenseUnionVector {
       assertEquals(2, buffers.size());
       assertEquals(bitAddress, buffers.get(0).memoryAddress());
       assertEquals(offsetAddress, buffers.get(1).memoryAddress());
+    }
+  }
+
+  /**
+   * Test adding two struct vectors to the dense union vector.
+   */
+  @Test
+  public void testMultipleStructs() {
+    FieldType type = new FieldType(true, ArrowType.Struct.INSTANCE, null, null);
+    try (StructVector structVector1 = new StructVector("struct", allocator, type, null);
+         StructVector structVector2 = new StructVector("struct", allocator, type, null);
+         DenseUnionVector unionVector = DenseUnionVector.empty("union", allocator)) {
+
+      // prepare sub vectors
+
+      // first struct vector: (int, int)
+      IntVector subVector11 = structVector1
+              .addOrGet("sub11", FieldType.nullable(MinorType.INT.getType()), IntVector.class);
+      subVector11.allocateNew();
+      subVector11.setSafe(0, 0);
+      subVector11.setSafe(1, 1);
+      subVector11.setValueCount(2);
+
+      IntVector subVector12 =  structVector1
+              .addOrGet("sub12", FieldType.nullable(MinorType.INT.getType()), IntVector.class);
+      subVector12.allocateNew();
+      subVector12.setSafe(0, 0);
+      subVector12.setSafe(1, 10);
+      subVector12.setValueCount(2);
+
+      structVector1.setIndexDefined(0);
+      structVector1.setIndexDefined(1);
+      structVector1.setValueCount(2);
+
+      // second struct vector: (string, string)
+      VarCharVector subVector21 = structVector2
+              .addOrGet("sub21", FieldType.nullable(MinorType.VARCHAR.getType()), VarCharVector.class);
+      subVector21.allocateNew();
+      subVector21.setSafe(0, "a0".getBytes());
+      subVector21.setValueCount(1);
+
+      VarCharVector subVector22 = structVector2
+              .addOrGet("sub22", FieldType.nullable(MinorType.VARCHAR.getType()), VarCharVector.class);
+      subVector22.allocateNew();
+      subVector22.setSafe(0, "b0".getBytes());
+      subVector22.setValueCount(1);
+
+      structVector2.setIndexDefined(0);
+      structVector2.setValueCount(1);
+
+      // register relative types
+      int typeId1 = unionVector.getOrAllocateTypeId(structVector1.getField());
+      int typeId2 = unionVector.getOrAllocateTypeId(structVector2.getField());
+      assertEquals(typeId1, MinorType.values().length);
+      assertEquals(typeId2, MinorType.values().length + 1);
+
+      // add two struct vectors to union vector
+      unionVector.addVector(structVector1);
+      unionVector.addVector(structVector2);
+      unionVector.setValueCount(3);
+
+      ArrowBuf offsetBuf = unionVector.getOffsetBuffer();
+
+      unionVector.setType(0, typeId1);
+      offsetBuf.setInt(0, 0);
+      BitVectorHelper.setValidityBitToOne(unionVector.getValidityBuffer(), 0);
+
+      unionVector.setType(1, typeId2);
+      offsetBuf.setInt(DenseUnionVector.OFFSET_WIDTH, 0);
+      BitVectorHelper.setValidityBitToOne(unionVector.getValidityBuffer(), 1);
+
+      unionVector.setType(2, typeId1);
+      offsetBuf.setInt(DenseUnionVector.OFFSET_WIDTH * 2, 1);
+      BitVectorHelper.setValidityBitToOne(unionVector.getValidityBuffer(), 2);
+
+      Map<String, Integer> value0 = new JsonStringHashMap<>();
+      value0.put("sub11", 0);
+      value0.put("sub12", 0);
+
+      assertEquals(value0, unionVector.getObject(0));
+
+      Map<String, Text> value1 = new JsonStringHashMap<>();
+      value1.put("sub21", new Text("a0"));
+      value1.put("sub22", new Text("b0"));
+
+      assertEquals(value1, unionVector.getObject(1));
+
+      Map<String, Integer> value2 = new JsonStringHashMap<>();
+      value2.put("sub11", 1);
+      value2.put("sub12", 10);
+
+      assertEquals(value2, unionVector.getObject(2));
     }
   }
 

@@ -20,7 +20,9 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseValueVector;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.types.Types;
@@ -84,8 +86,21 @@ public class DenseUnionVector implements FieldVector {
   private ArrowBuf typeBuffer;
   private ArrowBuf offsetBuffer;
 
-  private StructVector structVector;
-  private ListVector listVector;
+  /**
+   * The key is type Id, and the value is vector.
+   */
+  private java.util.Map<Integer, StructVector> structVectors = new java.util.HashMap<>();
+  private java.util.Map<Integer, ListVector> listVectors = new java.util.HashMap<>();
+
+  /**
+   * The index is the type id, and the value is the type field.
+   */
+  private Field[] typeFields = new Field[Byte.MAX_VALUE + 1];
+
+  /**
+   * The next typd id to allocate.
+   */
+  private int nextTypeId = Types.MinorType.values().length;
 
   private FieldReader reader;
 
@@ -99,7 +114,7 @@ public class DenseUnionVector implements FieldVector {
   private final FieldType fieldType;
 
   private static final byte TYPE_WIDTH = 1;
-  private static final byte OFFSET_WIDTH = 4;
+  public static final byte OFFSET_WIDTH = 4;
 
   private static final FieldType INTERNAL_STRUCT_TYPE = new FieldType(false /*nullable*/,
           ArrowType.Struct.INSTANCE, null /*dictionary*/, null /*metadata*/);
@@ -189,12 +204,57 @@ public class DenseUnionVector implements FieldVector {
     return type.name().toLowerCase();
   }
 
+  private String fieldName(int typeId, MinorType type) {
+    return type.name().toLowerCase() + typeId;
+  }
+
   private FieldType fieldType(MinorType type) {
     return FieldType.nullable(type.getType());
   }
 
+  private synchronized int registerNewTypeId(Field field) {
+    if (nextTypeId == typeFields.length) {
+      throw new IllegalStateException("Dense union vector support at most " +
+              typeFields.length + " relative types. Please use union of union instead");
+    }
+    int typeId = nextTypeId;
+    typeFields[typeId] = field;
+    this.nextTypeId += 1;
+    return typeId;
+  }
+
+  /**
+   * Try to get the type id of the given field.
+   * If the field is not used before, a new type id will be allocated.
+   * @param field the field for which to get type id.
+   * @return the typd id for the field.
+   */
+  public int getOrAllocateTypeId(Field field) {
+    ArrowType fieldType = field.getFieldType().getType();
+    if (fieldType instanceof Struct || fieldType instanceof  List) {
+      // TODO: make this process faster
+
+      // search for a matching registered type id
+      for (int i = Types.MinorType.values().length; i < nextTypeId; i++) {
+        if (typeFields[i].relativeTypeEquals(field)) {
+          return i;
+        }
+      }
+
+      // not registered yet, allocate a new type id
+      return registerNewTypeId(field);
+    } else {
+      // for built-in types
+      return Types.getMinorTypeForArrowType(field.getFieldType().getType()).ordinal();
+    }
+  }
+
   private <T extends FieldVector> T addOrGet(MinorType minorType, Class<T> c) {
     return internalStruct.addOrGet(fieldName(minorType), fieldType(minorType), c);
+  }
+
+  private <T extends FieldVector> T addOrGet(int typeId, MinorType minorType, Class<T> c) {
+    return internalStruct.addOrGet(fieldName(typeId, minorType), fieldType(minorType), c);
   }
 
   @Override
@@ -221,12 +281,14 @@ public class DenseUnionVector implements FieldVector {
   @Override
   public ArrowBuf getDataBuffer() { throw new UnsupportedOperationException(); }
 
-  public StructVector getStruct() {
+  public StructVector getStruct(int typeId) {
+    StructVector structVector = structVectors.get(typeId);
     if (structVector == null) {
       int vectorCount = internalStruct.size();
-      structVector = addOrGet(MinorType.STRUCT, StructVector.class);
+      structVector = addOrGet(typeId, MinorType.STRUCT, StructVector.class);
       if (internalStruct.size() > vectorCount) {
         structVector.allocateNew();
+        structVectors.put(typeId, structVector);
         if (callBack != null) {
           callBack.doWork();
         }
@@ -234,6 +296,7 @@ public class DenseUnionVector implements FieldVector {
     }
     return structVector;
   }
+
   <#list vv.types as type>
     <#list type.minor as minor>
       <#assign name = minor.class?cap_first />
@@ -261,12 +324,14 @@ public class DenseUnionVector implements FieldVector {
     </#list>
   </#list>
 
-  public ListVector getList() {
+  public ListVector getList(int typeId) {
+    ListVector listVector = listVectors.get(typeId);
     if (listVector == null) {
       int vectorCount = internalStruct.size();
-      listVector = addOrGet(MinorType.LIST, ListVector.class);
+      listVector = addOrGet(typeId, MinorType.LIST, ListVector.class);
       if (internalStruct.size() > vectorCount) {
         listVector.allocateNew();
+        listVectors.put(typeId, listVector);
         if (callBack != null) {
           callBack.doWork();
         }
@@ -468,11 +533,18 @@ public class DenseUnionVector implements FieldVector {
   }
 
   public FieldVector addVector(FieldVector v) {
-    String name = v.getMinorType().name().toLowerCase();
+    int typeId = getOrAllocateTypeId(v.getField());
+    String name = typeId < Types.MinorType.values().length ? fieldName(v.getMinorType()) :
+            fieldName(typeId, v.getMinorType());
     Preconditions.checkState(internalStruct.getChild(name) == null, String.format("%s vector already exists", name));
     final FieldVector newVector = internalStruct.addOrGet(name, v.getField().getFieldType(), v.getClass());
     v.makeTransferPair(newVector).transfer();
     internalStruct.putChild(name, newVector);
+    if (newVector instanceof StructVector) {
+      structVectors.put(typeId, (StructVector) newVector);
+    } else if (newVector instanceof ListVector) {
+      listVectors.put(typeId, (ListVector) newVector);
+    }
     if (callBack != null) {
       callBack.doWork();
     }
@@ -644,26 +716,32 @@ public class DenseUnionVector implements FieldVector {
 
   private ValueVector getVector(int index) {
     int type = typeBuffer.getByte(index * TYPE_WIDTH);
-    switch (MinorType.values()[type]) {
-      case NULL:
-        return null;
+    if (type < Types.MinorType.values().length) {
+      switch (MinorType.values()[type]) {
+        case NULL:
+          return null;
       <#list vv.types as type>
         <#list type.minor as minor>
           <#assign name = minor.class?cap_first />
-          <#assign fields = minor.fields!type.fields />
-          <#assign uncappedName = name?uncap_first/>
-          <#if !minor.typeParams?? >
-      case ${name?upper_case}:
-      return get${name}Vector();
+          <#assign fields = minor.fields !type.fields />
+          <#assign uncappedName = name?uncap_first />
+          <#if !minor.typeParams ??>
+        case ${name?upper_case}:
+        return get${name}Vector();
           </#if>
         </#list>
       </#list>
-      case STRUCT:
-        return getStruct();
-      case LIST:
-        return getList();
-      default:
-        throw new UnsupportedOperationException("Cannot support type: " + MinorType.values()[type]);
+        default:
+          throw new UnsupportedOperationException("Cannot support type: " + MinorType.values()[type]);
+      }
+    } else {
+      if (typeFields[type].getType() instanceof Struct) {
+        return getStruct(type);
+      } else if (typeFields[type].getType() instanceof List) {
+        return getList(type);
+      } else {
+        throw new UnsupportedOperationException("Cannot support type: " + type);
+      }
     }
   }
 
@@ -774,11 +852,15 @@ public class DenseUnionVector implements FieldVector {
       </#list>
     </#list>
 
-  public void setType(int index, MinorType type) {
+  public void setType(int index, int typeId) {
     while (index >= getTypeBufferValueCapacity()) {
       reallocTypeBuffer();
     }
-    typeBuffer.setByte(index * TYPE_WIDTH , (byte) type.ordinal());
+    typeBuffer.setByte(index * TYPE_WIDTH , typeId);
+  }
+
+  public void setType(int index, MinorType minorType) {
+    setType(index, minorType.ordinal());
   }
 
   private int getTypeBufferValueCapacity() {

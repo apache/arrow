@@ -16,6 +16,7 @@
  */
 
 
+import org.apache.arrow.vector.complex.impl.UnionListReader;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 
@@ -34,7 +35,7 @@ import org.apache.arrow.vector.types.pojo.Field;
 @SuppressWarnings("unused")
 public class DenseUnionReader extends AbstractFieldReader {
 
-  private BaseReader[] readers = new BaseReader[43];
+  private BaseReader[] readers = new BaseReader[Byte.MAX_VALUE + 1];
   public DenseUnionVector data;
 
   public DenseUnionReader(DenseUnionVector data) {
@@ -68,7 +69,7 @@ public class DenseUnionReader extends AbstractFieldReader {
   }
 
   public void read(int index, DenseUnionHolder holder) {
-    getList().read(index, holder);
+    getList(idx()).read(index, holder);
   }
 
   private FieldReader getReaderForIndex(int index) {
@@ -81,9 +82,9 @@ public class DenseUnionReader extends AbstractFieldReader {
       case NULL:
         return NullReader.INSTANCE;
       case STRUCT:
-        return (FieldReader) getStruct();
+        return (FieldReader) getStruct(typeValue);
       case LIST:
-        return (FieldReader) getList();
+        return (FieldReader) getList(typeValue);
     <#list vv.types as type>
       <#list type.minor as minor>
         <#assign name = minor.class?cap_first />
@@ -101,29 +102,31 @@ public class DenseUnionReader extends AbstractFieldReader {
 
   private SingleStructReaderImpl structReader;
 
-  private StructReader getStruct() {
+  private StructReader getStruct(int typeId) {
+    StructReader structReader = (StructReader) readers[typeId];
     if (structReader == null) {
-      structReader = (SingleStructReaderImpl) data.getStruct().getReader();
+      structReader = (SingleStructReaderImpl) data.getStruct(typeId).getReader();
       structReader.setPosition(idx());
-      readers[MinorType.STRUCT.ordinal()] = structReader;
+      readers[typeId] = structReader;
     }
     return structReader;
   }
 
   private UnionListReader listReader;
 
-  private FieldReader getList() {
+  private FieldReader getList(int typeId) {
+    UnionListReader listReader = (UnionListReader) readers[typeId];
     if (listReader == null) {
-      listReader = new UnionListReader(data.getList());
+      listReader = new UnionListReader(data.getList(typeId));
       listReader.setPosition(idx());
-      readers[MinorType.LIST.ordinal()] = listReader;
+      readers[typeId] = listReader;
     }
     return listReader;
   }
 
   @Override
   public java.util.Iterator<String> iterator() {
-    return getStruct().iterator();
+    throw new UnsupportedOperationException();
   }
 
   @Override
@@ -196,12 +199,12 @@ public class DenseUnionReader extends AbstractFieldReader {
     }
   }
 
-  public FieldReader reader(String name){
-    return getStruct().reader(name);
+  public FieldReader reader(int typeId, String name){
+    return getStruct(typeId).reader(name);
   }
 
-  public FieldReader reader() {
-    return getList().reader();
+  public FieldReader reader(int typeId) {
+    return getList(typeId).reader();
   }
 
   public boolean next() {

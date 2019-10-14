@@ -281,6 +281,44 @@ public class Field {
         Objects.equals(this.children, that.children);
   }
 
+  /**
+   * Checks type equality, without considering field names.
+   * @param that the other field to compare.
+   * @return true if the two fields have equal types, or false otherwise.
+   */
+  public boolean relativeTypeEquals(Field that) {
+    if (that == null) {
+      return false;
+    }
+    if (!(Objects.equals(this.isNullable(), that.isNullable()) &&
+            Objects.equals(this.getType(), that.getType()) &&
+            Objects.equals(this.getDictionary(), that.getDictionary()) &&
+            Objects.equals(this.getMetadata(), that.getMetadata()))) {
+      return false;
+    }
+
+    // compare children types
+    if (this.children == null || that.children == null) {
+      if (this.children == null && that.children == null) {
+        return true;
+      } else {
+        return false;
+      }
+    }
+
+    // now both fields have non-null children
+    if (this.children.size() != that.children.size()) {
+      return false;
+    }
+
+    for (int i = 0; i < this.children.size(); i++) {
+      if (!this.children.get(i).relativeTypeEquals(that.children.get(i))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
