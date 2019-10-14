@@ -661,12 +661,19 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
     }
     footer_ = flatbuf::GetFooter(data);
 
+    auto fb_metadata = footer_->custom_metadata();
+    if (fb_metadata != nullptr) {
+      RETURN_NOT_OK(internal::KeyValueMetadataFromFlatbuffer(fb_metadata, &metadata_));
+    }
+
     return Status::OK();
   }
 
   int num_dictionaries() const { return footer_->dictionaries()->size(); }
 
   int num_record_batches() const { return footer_->recordBatches()->size(); }
+
+  std::shared_ptr<const KeyValueMetadata> metadata() const { return metadata_; }
 
   MetadataVersion version() const {
     return internal::GetMetadataVersion(footer_->version());
@@ -752,6 +759,7 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
   // Footer metadata
   std::shared_ptr<Buffer> footer_buffer_;
   const flatbuf::Footer* footer_;
+  std::shared_ptr<KeyValueMetadata> metadata_;
 
   bool read_dictionaries_ = false;
   DictionaryMemo dictionary_memo_;
@@ -797,6 +805,10 @@ std::shared_ptr<Schema> RecordBatchFileReader::schema() const { return impl_->sc
 
 int RecordBatchFileReader::num_record_batches() const {
   return impl_->num_record_batches();
+}
+
+std::shared_ptr<const KeyValueMetadata> RecordBatchFileReader::metadata() const {
+  return impl_->metadata();
 }
 
 MetadataVersion RecordBatchFileReader::version() const { return impl_->version(); }

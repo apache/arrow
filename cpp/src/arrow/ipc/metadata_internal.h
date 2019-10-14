@@ -40,6 +40,18 @@
 
 namespace arrow {
 
+namespace ipc {
+namespace internal {
+
+namespace flatbuf = org::apache::arrow::flatbuf;
+using KeyValueOffset = flatbuffers::Offset<flatbuf::KeyValue>;
+using KVVector = flatbuffers::Vector<KeyValueOffset>;
+Status KeyValueMetadataFromFlatbuffer(const KVVector* fb_metadata,
+                                      std::shared_ptr<KeyValueMetadata>* out);
+
+}  // namespace internal
+}  // namespace ipc
+
 class DataType;
 class Schema;
 class Tensor;
@@ -156,6 +168,7 @@ Status WriteSparseTensorMessage(const SparseTensor& sparse_tensor, int64_t body_
 
 Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dictionaries,
                        const std::vector<FileBlock>& record_batches,
+                       const std::shared_ptr<const KeyValueMetadata>& metadata,
                        io::OutputStream* out);
 
 Status WriteDictionaryMessage(const int64_t id, const int64_t length,

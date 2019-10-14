@@ -151,6 +151,9 @@ class ARROW_EXPORT RecordBatchFileReader {
   /// \brief Return the metadata version from the file metadata
   MetadataVersion version() const;
 
+  /// \brief Return the custom user metadata from the file metadata
+  std::shared_ptr<const KeyValueMetadata> metadata() const;
+
   /// \brief Read a particular record batch from the file. Does not copy memory
   /// if the input source supports zero-copy.
   ///

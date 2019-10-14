@@ -148,7 +148,8 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
   /// \param[out] out the created stream writer
   /// \return Status
   static Status Open(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-                     std::shared_ptr<RecordBatchWriter>* out);
+                     std::shared_ptr<RecordBatchWriter>* out,
+                     const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
 
   /// Create a new writer from stream sink and schema
   ///
@@ -156,10 +157,12 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
   /// \param[in] schema the schema of the record batches to be written
   /// \return Status
   static Result<std::shared_ptr<RecordBatchWriter>> Open(
-      io::OutputStream* sink, const std::shared_ptr<Schema>& schema);
+      io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+      const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
   static Result<std::shared_ptr<RecordBatchWriter>> Open(
       io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-      const IpcOptions& options);
+      const IpcOptions& options,
+	  const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
 
   /// \brief Write a record batch to the file
   ///

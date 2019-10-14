@@ -300,10 +300,16 @@ class IpcTestFixture : public io::MemoryMapFixture {
     }
     RETURN_NOT_OK(mmap_->Seek(0));
 
+    std::shared_ptr<KeyValueMetadata> custom_metadata 
+            = std::make_shared<KeyValueMetadata>();
+    custom_metadata->Append("key1","val1");
+    custom_metadata->Append("key2","val2");
+
     auto options = options_;
     options.allow_64bit = true;
 
-    auto res = RecordBatchFileWriter::Open(mmap_.get(), batch.schema(), options);
+    auto res = RecordBatchFileWriter::Open(mmap_.get(), batch.schema(), options,
+                                           custom_metadata);
     RETURN_NOT_OK(res.status());
     std::shared_ptr<RecordBatchWriter> file_writer = *res;
     RETURN_NOT_OK(file_writer->WriteRecordBatch(batch));
@@ -314,6 +320,12 @@ class IpcTestFixture : public io::MemoryMapFixture {
 
     std::shared_ptr<RecordBatchFileReader> file_reader;
     RETURN_NOT_OK(RecordBatchFileReader::Open(mmap_.get(), offset, &file_reader));
+
+	if(!file_reader->metadata())
+		return Status::SerializationError("Footer custom_metadata empty");
+    if(!file_reader->metadata()->Equals(*custom_metadata))
+		return Status::SerializationError(file_reader->metadata()->ToString() + " != "
+				+ custom_metadata->ToString());
 
     return file_reader->ReadRecordBatch(0, result);
   }

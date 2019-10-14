@@ -83,6 +83,28 @@ MetadataVersion GetMetadataVersion(flatbuf::MetadataVersion version) {
   }
 }
 
+Status KeyValueMetadataFromFlatbuffer(const KVVector* fb_metadata,
+                                      std::shared_ptr<KeyValueMetadata>* out) {
+  auto metadata = std::make_shared<KeyValueMetadata>();
+
+  metadata->reserve(fb_metadata->size());
+  for (const auto& pair : *fb_metadata) {
+    if (pair->key() == nullptr) {
+      return Status::IOError(
+          "Key-pointer in custom metadata of flatbuffer-encoded Schema is null.");
+    }
+    if (pair->value() == nullptr) {
+      return Status::IOError(
+          "Value-pointer in custom metadata of flatbuffer-encoded Schema is null.");
+    }
+    metadata->Append(pair->key()->str(), pair->value()->str());
+  }
+
+  *out = metadata;
+
+  return Status::OK();
+}
+
 namespace {
 
 Status IntFromFlatbuffer(const flatbuf::Int* int_data, std::shared_ptr<DataType>* out) {
@@ -464,28 +486,6 @@ void AppendKeyValueMetadata(FBB& fbb, const KeyValueMetadata& metadata,
   for (int i = 0; i < metadata.size(); ++i) {
     key_values->push_back(AppendKeyValue(fbb, metadata.key(i), metadata.value(i)));
   }
-}
-
-Status KeyValueMetadataFromFlatbuffer(const KVVector* fb_metadata,
-                                      std::shared_ptr<KeyValueMetadata>* out) {
-  auto metadata = std::make_shared<KeyValueMetadata>();
-
-  metadata->reserve(fb_metadata->size());
-  for (const auto& pair : *fb_metadata) {
-    if (pair->key() == nullptr) {
-      return Status::IOError(
-          "Key-pointer in custom metadata of flatbuffer-encoded Schema is null.");
-    }
-    if (pair->value() == nullptr) {
-      return Status::IOError(
-          "Value-pointer in custom metadata of flatbuffer-encoded Schema is null.");
-    }
-    metadata->Append(pair->key()->str(), pair->value()->str());
-  }
-
-  *out = metadata;
-
-  return Status::OK();
 }
 
 class FieldToFlatbufferVisitor {
@@ -1116,6 +1116,7 @@ FileBlocksToFlatbuffer(FBB& fbb, const std::vector<FileBlock>& blocks) {
 
 Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dictionaries,
                        const std::vector<FileBlock>& record_batches,
+                       const std::shared_ptr<const KeyValueMetadata>& metadata,
                        io::OutputStream* out) {
   FBB fbb;
 
@@ -1140,8 +1141,16 @@ Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dicti
   auto fb_dictionaries = FileBlocksToFlatbuffer(fbb, dictionaries);
   auto fb_record_batches = FileBlocksToFlatbuffer(fbb, record_batches);
 
+  flatbuffers::Offset<KVVector> fb_custom_metadata;
+  std::vector<KeyValueOffset> key_values;
+  if (metadata != nullptr) {
+    AppendKeyValueMetadata(fbb, *metadata, &key_values);
+    fb_custom_metadata = fbb.CreateVector(key_values);
+  }
+
   auto footer = flatbuf::CreateFooter(fbb, kCurrentMetadataVersion, fb_schema,
-                                      fb_dictionaries, fb_record_batches);
+                                      fb_dictionaries, fb_record_batches,
+                                      fb_custom_metadata);
   fbb.Finish(footer);
 
   int32_t size = fbb.GetSize();

@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/type.h"
 #include "arrow/ipc/writer.h"
 
 #include <algorithm>
@@ -1059,8 +1060,9 @@ class PayloadStreamWriter : public internal::IpcPayloadWriter,
 class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBookKeeper {
  public:
   PayloadFileWriter(const IpcOptions& options, const std::shared_ptr<Schema>& schema,
-                    io::OutputStream* sink)
-      : StreamBookKeeper(options, sink), schema_(schema) {}
+                    io::OutputStream* sink,
+					const std::shared_ptr<const KeyValueMetadata>& metadata)
+      : StreamBookKeeper(options, sink), schema_(schema), metadata_(metadata) {}
 
   ~PayloadFileWriter() override = default;
 
@@ -1110,7 +1112,7 @@ class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBoo
     // Write file footer
     RETURN_NOT_OK(UpdatePosition());
     int64_t initial_position = position_;
-    RETURN_NOT_OK(WriteFileFooter(*schema_, dictionaries_, record_batches_, sink_));
+    RETURN_NOT_OK(WriteFileFooter(*schema_, dictionaries_, record_batches_, metadata_, sink_));
 
     // Write footer length
     RETURN_NOT_OK(UpdatePosition());
@@ -1129,6 +1131,7 @@ class PayloadFileWriter : public internal::IpcPayloadWriter, protected StreamBoo
   std::shared_ptr<Schema> schema_;
   std::vector<FileBlock> dictionaries_;
   std::vector<FileBlock> record_batches_;
+  std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
 }  // namespace
@@ -1149,9 +1152,10 @@ class RecordBatchStreamWriter::RecordBatchStreamWriterImpl
 class RecordBatchFileWriter::RecordBatchFileWriterImpl : public RecordBatchPayloadWriter {
  public:
   RecordBatchFileWriterImpl(io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-                            const IpcOptions& options)
+                            const IpcOptions& options,
+							const std::shared_ptr<const KeyValueMetadata>& metadata)
       : RecordBatchPayloadWriter(std::unique_ptr<internal::IpcPayloadWriter>(
-                                     new PayloadFileWriter(options, schema, sink)),
+                                     new PayloadFileWriter(options, schema, sink, metadata)),
                                  schema, options) {}
 
   ~RecordBatchFileWriterImpl() = default;
@@ -1199,17 +1203,19 @@ RecordBatchFileWriter::~RecordBatchFileWriter() {}
 
 Status RecordBatchFileWriter::Open(io::OutputStream* sink,
                                    const std::shared_ptr<Schema>& schema,
-                                   std::shared_ptr<RecordBatchWriter>* out) {
-  ASSIGN_OR_RAISE(*out, Open(sink, schema));
+                                   std::shared_ptr<RecordBatchWriter>* out,
+                                   const std::shared_ptr<const KeyValueMetadata>& metadata) {
+  ASSIGN_OR_RAISE(*out, Open(sink, schema, metadata));
   return Status::OK();
 }
 
 Result<std::shared_ptr<RecordBatchWriter>> RecordBatchFileWriter::Open(
     io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
-    const IpcOptions& options) {
+    const IpcOptions& options,
+	const std::shared_ptr<const KeyValueMetadata>& metadata) {
   // ctor is private
   auto result = std::shared_ptr<RecordBatchFileWriter>(new RecordBatchFileWriter());
-  result->file_impl_.reset(new RecordBatchFileWriterImpl(sink, schema, options));
+  result->file_impl_.reset(new RecordBatchFileWriterImpl(sink, schema, options, metadata));
   return std::move(result);
 }
 
