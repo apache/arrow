@@ -27,7 +27,6 @@
 #include <utility>
 #include <vector>
 
-#include <iostream>
 #include "arrow/array.h"
 #include "arrow/array/dict_internal.h"
 #include "arrow/buffer.h"
@@ -98,7 +97,6 @@ struct MatchMemoTableRight {
 
   using MemoTable = typename HashTraits<T>::MemoTableType;
   std::unique_ptr<MemoTable> memo_table_;
-  int64_t right_null_count{};
 };
 
 // ----------------------------------------------------------------------
@@ -109,7 +107,8 @@ class MatchKernel : public MatchKernelImpl {
   MatchKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool)
       : type_(type), pool_(pool) {}
 
-  // \brief if left array has a null return the index, else null
+  // \brief if left array has a null and right array has null,
+  // return the index, else null
   Status VisitNull() {
     if (memo_table_->GetNull() != -1) {
       indices_builder_.UnsafeAppend(memo_table_->GetNull());
@@ -183,7 +182,7 @@ class NullMatchKernel : public MatchKernelImpl {
   NullMatchKernel(const std::shared_ptr<DataType>& type, MemoryPool* pool) {}
 
   // \brief When array is NullType, based on the null count for the arrays,
-  // return index, else propagate to all nulls
+  // return index, else nulls
   Status Compute(FunctionContext* ctx, const Datum& left, Datum* out) override {
     const ArrayData& left_data = *left.array();
     left_null_count = left_data.GetNullCount();
@@ -308,8 +307,7 @@ Status Match(FunctionContext* ctx, const Datum& left, const Datum& right, Datum*
   std::unique_ptr<MatchKernelImpl> lkernel;
 
   RETURN_NOT_OK(GetMatchKernel(ctx, left.type(), right, &lkernel));
-  detail::PrimitiveAllocatingUnaryKernel kernel(lkernel.get());
-  RETURN_NOT_OK(detail::InvokeUnaryArrayKernel(ctx, &kernel, left, &outputs));
+  RETURN_NOT_OK(detail::InvokeUnaryArrayKernel(ctx, lkernel.get(), left, &outputs));
 
   *out = detail::WrapDatumsLike(left, outputs);
   return Status::OK();
