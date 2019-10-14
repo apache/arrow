@@ -25,14 +25,12 @@ use std::thread;
 use crate::error::{ExecutionError, Result};
 use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::{BatchIterator, ExecutionPlan, Partition};
-use arrow::array::{ArrayRef, StructArray};
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
-use parquet::arrow::array_reader::*;
 use parquet::file::reader::{FileReader, SerializedFileReader};
 
 use crossbeam::channel::{unbounded, Receiver, Sender};
-use parquet::arrow::parquet_to_arrow_schema;
+use parquet::arrow::{parquet_to_arrow_schema, ParquetFileArrowReader, ArrowReader};
 
 /// Execution plan for scanning a Parquet file
 pub struct ParquetExec {
@@ -130,56 +128,32 @@ impl ParquetPartition {
             Sender<Result<Option<RecordBatch>>>,
             Receiver<Result<Option<RecordBatch>>>,
         ) = unbounded();
+
         let filename = filename.to_string();
 
-        let projected_schema = schema.clone();
         thread::spawn(move || {
+
             //TODO error handling, remove unwraps
 
             // open file
             let file = File::open(&filename).unwrap();
             let file_reader = Rc::new(SerializedFileReader::new(file).unwrap());
-            let parquet_schema =
-                file_reader.metadata().file_metadata().schema_descr_ptr();
-
-            // create array readers
-            let mut array_readers = Vec::with_capacity(projection.len());
-            for i in projection {
-                println!("create array reader");
-
-                let array_reader = build_array_reader(
-                    parquet_schema.clone(),
-                    vec![i].into_iter(),
-                    file_reader.clone(),
-                )
-                .unwrap();
-                array_readers.push(array_reader);
-            }
+            let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
+            let mut batch_reader = arrow_reader.get_record_reader_by_columns(projection, batch_size).unwrap();
 
             while let Ok(_) = request_rx.recv() {
-                let arrays: Vec<ArrayRef> = array_readers
-                    .iter_mut()
-                    .map(|r| {
-                        println!("read array batch");
-                        let array = r.next_batch(batch_size).unwrap();
-                        let struct_array = array
-                            .as_any()
-                            .downcast_ref::<StructArray>()
-                            .expect("failed to cast to StructArray");
-                        struct_array.column(0).clone()
-                    })
-                    .collect();
-
-                println!("read {} arrays", arrays.len());
-                //println!("schema has {} fields", projected_schema.fields().len());
-
-                let batch =
-                    RecordBatch::try_new(projected_schema.clone(), arrays).unwrap();
-
-                if batch.num_rows() > 0 {
-                    response_tx.send(Ok(Some(batch))).unwrap();
-                } else {
-                    response_tx.send(Ok(None)).unwrap();
+                match batch_reader.next_batch() {
+                    Ok(Some(batch)) => {
+                        response_tx.send(Ok(Some(batch))).unwrap();
+                    },
+                    Ok(None) => {
+                        response_tx.send(Ok(None)).unwrap();
+                        break;
+                    },
+                    Err(e) => {
+                        response_tx.send(Err(ExecutionError::General(format!("{:?}", e)))).unwrap();
+                        break;
+                    }
                 }
             }
         });
