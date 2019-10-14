@@ -110,6 +110,10 @@ class ARROW_EXPORT StatusDetail {
   virtual const char* type_id() const = 0;
   /// \brief Produce a human-readable description of this status.
   virtual std::string ToString() const = 0;
+
+  bool operator==(const StatusDetail& other) const noexcept {
+    return std::string(type_id()) == other.type_id() && ToString() == other.ToString();
+  }
 };
 
 /// \brief Status outcome object (success or error)
@@ -144,6 +148,8 @@ class ARROW_EXPORT Status {
   inline Status(Status&& s) noexcept;
   inline Status& operator=(Status&& s) noexcept;
 
+  inline bool operator==(const Status& s) const noexcept;
+
   // AND the statuses.
   inline Status operator&(const Status& s) const noexcept;
   inline Status operator&(Status&& s) const noexcept;
@@ -152,12 +158,6 @@ class ARROW_EXPORT Status {
 
   /// Return a success status
   static Status OK() { return Status(); }
-
-  /// Return a success status with a specific message
-  template <typename... Args>
-  static Status OK(Args&&... args) {
-    return Status(StatusCode::OK, util::StringBuilder(std::forward<Args>(args)...));
-  }
 
   /// Return an error status for out-of-memory conditions
   template <typename... Args>
@@ -375,6 +375,22 @@ Status::Status(Status&& s) noexcept : state_(s.state_) { s.state_ = NULLPTR; }
 Status& Status::operator=(Status&& s) noexcept {
   MoveFrom(s);
   return *this;
+}
+
+bool Status::operator==(const Status& s) const noexcept {
+  if (state_ == s.state_) {
+    return true;
+  }
+
+  if (ok() || s.ok()) {
+    return false;
+  }
+
+  if (detail() != s.detail() && !(*detail() == *s.detail())) {
+    return false;
+  }
+
+  return code() == s.code() && message() == s.message();
 }
 
 /// \cond FALSE

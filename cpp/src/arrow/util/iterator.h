@@ -24,6 +24,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
@@ -92,52 +93,46 @@ class Iterator {
 
   explicit operator bool() const { return ptr_ != NULLPTR; }
 
-  class Range {
+  class RangeIterator {
    public:
-    Range(Iterator iterator, Status* status)
-        : iterator_(std::move(iterator)), status_(status) {}
+    RangeIterator() = default;
 
-    class iterator {
-     public:
-      iterator() = default;
+    explicit RangeIterator(Iterator i) : iterator_(std::move(i)) { Next(); }
 
-      explicit iterator(Range* r)
-          : iterator_(std::move(r->iterator_)), status_(r->status_) {
-        Next();
+    bool operator!=(const RangeIterator& other) const {
+      return !(status_ == other.status_ && value_ == other.value_);
+    }
+
+    RangeIterator& operator++() {
+      Next();
+      return *this;
+    }
+
+    Result<T> operator*() {
+      if (status_.ok()) {
+        return std::move(value_);
       }
-
-      bool operator!=(const iterator& other) const { return !(value_ == other.value_); }
-
-      iterator& operator++() {
-        Next();
-        return *this;
-      }
-
-      T operator*() { return std::move(value_); }
-
-     private:
-      void Next() {
-        *status_ = iterator_.Next(&value_);
-        if (!status_->ok()) {
-          value_ = IterationTraits<T>::End();
-        }
-      }
-
-      T value_ = IterationTraits<T>::End();
-      Iterator iterator_;
-      Status* status_ = NULLPTR;
-    };
-
-    iterator begin() { return iterator(this); }
-
-    iterator end() { return iterator(); }
+      return status_;
+    }
 
    private:
+    void Next() {
+      if (!status_.ok()) {
+        status_ = Status::OK();
+        value_ = IterationTraits<T>::End();
+        return;
+      }
+      status_ = iterator_.Next(&value_);
+    }
+
+    T value_ = IterationTraits<T>::End();
     Iterator iterator_;
-    Status* status_;
+    Status status_;
   };
 
-  Range AsRange(Status* status) { return Range{std::move(*this), status}; }
+  RangeIterator begin() { return RangeIterator(std::move(*this)); }
+
+  RangeIterator end() { return RangeIterator(); }
 
  private:
   /// Implementation of deleter for ptr_: Casts from void* to the wrapped type and

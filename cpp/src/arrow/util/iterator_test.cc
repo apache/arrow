@@ -181,11 +181,10 @@ TEST(TestVectorIterator, RangeForLoop) {
   std::vector<TestInt> ints = {1, 2, 3, 4};
 
   auto ints_it = ints.begin();
-  Status status;
-  for (auto v : VectorIt(ints).AsRange(&status)) {
+  for (auto v_result : VectorIt(ints)) {
+    ASSERT_OK_AND_ASSIGN(TestInt v, v_result);
     ASSERT_EQ(v, *ints_it++);
   }
-  ASSERT_OK(status);
   ASSERT_EQ(ints_it, ints.end());
 
   std::vector<std::unique_ptr<TestInt>> vec;
@@ -195,10 +194,10 @@ TEST(TestVectorIterator, RangeForLoop) {
 
   // also works with move only types
   ints_it = ints.begin();
-  for (auto v : MakeVectorIterator(std::move(vec)).AsRange(&status)) {
+  for (auto v_result : MakeVectorIterator(std::move(vec))) {
+    ASSERT_OK_AND_ASSIGN(std::unique_ptr<TestInt> v, std::move(v_result));
     ASSERT_EQ(*v, *ints_it++);
   }
-  ASSERT_OK(status);
   ASSERT_EQ(ints_it, ints.end());
 }
 
@@ -211,13 +210,13 @@ TEST(TestFunctionIterator, RangeForLoop) {
     out->value = i++;
     return Status::OK();
   });
-  Status status;
-  int j = 0;
-  for (TestInt i : fails_at_3.AsRange(&status)) {
-    ASSERT_LT(i.value, 3);
-    ASSERT_EQ(i.value, j++);
+
+  std::vector<Result<TestInt>> actual,
+      expected{0, 1, 2, Status::IndexError("fails at 3")};
+  for (auto r : fails_at_3) {
+    actual.push_back(std::move(r));
   }
-  ASSERT_RAISES(IndexError, status);
+  ASSERT_EQ(actual, expected);
 }
 
 TEST(FilterIterator, Basic) {

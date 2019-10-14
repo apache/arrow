@@ -215,6 +215,9 @@ class Result {
     return *this;
   }
 
+  /// Compare to another Result.
+  bool operator==(const Result& other) const { return variant_ == other.variant_; }
+
   /// Indicates whether the object contains a `T` value.  Generally instead
   /// of accessing this directly you will want to use ASSIGN_OR_RAISE defined
   /// below.
