@@ -35,6 +35,19 @@
 namespace arrow {
 namespace dataset {
 
+bool operator==(const std::shared_ptr<Expression>& lhs,
+                const std::shared_ptr<Expression>& rhs) {
+  if (lhs == nullptr && rhs == nullptr) {
+    return true;
+  }
+
+  if (lhs != nullptr && rhs != nullptr) {
+    return lhs->Equals(*rhs);
+  }
+
+  return false;
+}
+
 class TestPartitionScheme : public ::testing::Test {
  public:
   void AssertParseError(const std::string& path) {
@@ -42,13 +55,8 @@ class TestPartitionScheme : public ::testing::Test {
   }
 
   void AssertParse(const std::string& path, std::shared_ptr<Expression> expected) {
-    for (std::string suffix : {"", "/dat.parquet"}) {
-      ASSERT_OK_AND_ASSIGN(auto parsed, scheme_->Parse(path + suffix));
-
-      ASSERT_NE(parsed, nullptr);
-      ASSERT_TRUE(parsed->Equals(*expected)) << parsed->ToString() << "\n"
-                                             << expected->ToString();
-    }
+    ASSERT_OK_AND_ASSIGN(auto parsed, scheme_->Parse(path));
+    ASSERT_EQ(parsed, expected);
   }
 
   void AssertParse(const std::string& path, const Expression& expected) {
