@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <deque>
 #include <functional>
@@ -114,11 +115,12 @@ struct ReaderContext {
   ::arrow::MemoryPool* pool;
   FileColumnIteratorFactory iterator_factory;
   bool filter_leaves;
-  std::unordered_set<int> included_leaves;
+  std::vector<int> included_leaves;
 
   bool IncludesLeaf(int leaf_index) const {
     return (!this->filter_leaves ||
-            (included_leaves.find(leaf_index) != included_leaves.end()));
+            std::find(included_leaves.begin(), included_leaves.end(), leaf_index) !=
+                included_leaves.end());
   }
 };
 
@@ -134,7 +136,7 @@ struct PARQUET_EXPORT SchemaField {
 
   bool is_leaf() const { return column_index != -1; }
 
-  Status GetReader(const ReaderContext& context,
+  Status GetReader(const std::shared_ptr<ReaderContext>& context,
                    std::unique_ptr<ColumnReaderImpl>* out) const;
 };
 
