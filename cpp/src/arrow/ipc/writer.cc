@@ -1212,7 +1212,7 @@ Status RecordBatchFileWriter::Open(io::OutputStream* sink,
 Result<std::shared_ptr<RecordBatchWriter>> RecordBatchFileWriter::Open(
     io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
     const IpcOptions& options,
-	const std::shared_ptr<const KeyValueMetadata>& metadata) {
+    const std::shared_ptr<const KeyValueMetadata>& metadata) {
   // ctor is private
   auto result = std::shared_ptr<RecordBatchFileWriter>(new RecordBatchFileWriter());
   result->file_impl_.reset(new RecordBatchFileWriterImpl(sink, schema, options, metadata));
@@ -1220,9 +1220,10 @@ Result<std::shared_ptr<RecordBatchWriter>> RecordBatchFileWriter::Open(
 }
 
 Result<std::shared_ptr<RecordBatchWriter>> RecordBatchFileWriter::Open(
-    io::OutputStream* sink, const std::shared_ptr<Schema>& schema) {
+    io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+    const std::shared_ptr<const KeyValueMetadata>& metadata) {
   auto options = IpcOptions::Defaults();
-  return Open(sink, schema, options);
+  return Open(sink, schema, options, metadata);
 }
 
 Status RecordBatchFileWriter::WriteRecordBatch(const RecordBatch& batch) {
