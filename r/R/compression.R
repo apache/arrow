@@ -52,6 +52,10 @@ Codec$create <- function(type = "gzip", compression_level = NA) {
   type
 }
 
+codec_is_available <- function(type) {
+  util___Codec__IsAvailable(compression_from_name(type))
+}
+
 compression_from_name <- function(name) {
   map_int(name, ~CompressionType[[match.arg(toupper(.x), names(CompressionType))]])
 }

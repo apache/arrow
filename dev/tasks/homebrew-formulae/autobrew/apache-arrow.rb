@@ -29,9 +29,9 @@ class ApacheArrow < Formula
     root_url "https://autobrew.github.io/bottles"
   end
 
+  # NOTE: if you add something here, be sure to add to PKG_LIBS in r/tools/autobrew
   depends_on "cmake" => :build
   depends_on "flatbuffers" => :build
-  depends_on "aws-sdk-cpp"
   depends_on "boost"
   depends_on "double-conversion"
   depends_on "lz4"
@@ -42,17 +42,14 @@ class ApacheArrow < Formula
     ENV.cxx11
     args = %W[
       -DARROW_PARQUET=ON
-      -DARROW_PLASMA=OFF
       -DARROW_HDFS=OFF
-      -DARROW_BUILD_TESTS=OFF
-      -DARROW_TEST_LINKAGE="static"
       -DARROW_BUILD_SHARED=OFF
       -DARROW_JEMALLOC=OFF
-      -DARROW_WITH_BROTLI=OFF
       -DARROW_USE_GLOG=OFF
       -DARROW_PYTHON=OFF
-      -DARROW_S3=ON
-      -DARROW_WITH_ZSTD=OFF
+      -DARROW_S3=OFF
+      -DARROW_WITH_LZ4=ON
+      -DARROW_WITH_ZLIB=ON
       -DARROW_WITH_SNAPPY=ON
       -DARROW_BUILD_UTILITIES=ON
       -DPARQUET_BUILD_EXECUTABLES=ON

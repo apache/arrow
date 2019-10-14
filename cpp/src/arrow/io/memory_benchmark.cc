@@ -198,7 +198,6 @@ BENCHMARK_TEMPLATE(MemoryBandwidth, PlatformMemcpy)->Apply(SetMemoryBandwidthArg
 
 #endif  // _MSC_VER
 #endif  // ARROW_WITH_BENCHMARKS_REFERENCE
-#endif  // ARROW_HAVE_SSE4_2
 
 static void ParallelMemoryCopy(benchmark::State& state) {  // NOLINT non-const reference
   const int64_t n_threads = state.range(0);
@@ -272,3 +271,4 @@ BENCHMARK(BufferOutputStreamSmallWrites)->UseRealTime();
 BENCHMARK(BufferOutputStreamLargeWrites)->UseRealTime();
 
 }  // namespace arrow
+#endif  // ARROW_HAVE_SSE4_2

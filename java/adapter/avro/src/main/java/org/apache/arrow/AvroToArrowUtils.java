@@ -58,10 +58,10 @@ import org.apache.arrow.vector.FixedSizeBinaryVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.StructVector;
@@ -207,8 +207,8 @@ public class AvroToArrowUtils {
       case NULL:
         arrowType = new ArrowType.Null();
         fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
-        vector = createVector(consumerVector, fieldType, name, allocator);
-        consumer = new AvroNullConsumer((ZeroVector) vector);
+        vector = fieldType.createNewSingleVector(name, allocator, /*schemaCallback=*/null);
+        consumer = new AvroNullConsumer((NullVector) vector);
         break;
       default:
         // no-op, shouldn't get here

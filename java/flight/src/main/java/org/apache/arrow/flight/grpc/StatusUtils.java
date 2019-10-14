@@ -46,6 +46,8 @@ public class StatusUtils {
    */
   public static Status.Code toGrpcStatusCode(FlightStatusCode code) {
     switch (code) {
+      case OK:
+        return Code.OK;
       case UNKNOWN:
         return Code.UNKNOWN;
       case INTERNAL:
@@ -78,6 +80,8 @@ public class StatusUtils {
    */
   public static FlightStatusCode fromGrpcStatusCode(Status.Code code) {
     switch (code) {
+      case OK:
+        return FlightStatusCode.OK;
       case CANCELLED:
         return FlightStatusCode.CANCELLED;
       case UNKNOWN:

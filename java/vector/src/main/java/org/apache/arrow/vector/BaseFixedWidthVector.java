@@ -579,6 +579,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    */
   public void splitAndTransferTo(int startIndex, int length,
                                  BaseFixedWidthVector target) {
+    Preconditions.checkArgument(startIndex + length <= valueCount);
     compareTypes(target, "splitAndTransferTo");
     target.clear();
     splitAndTransferValidityBuffer(startIndex, length, target);
@@ -603,7 +604,6 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
    */
   private void splitAndTransferValidityBuffer(int startIndex, int length,
                                               BaseFixedWidthVector target) {
-    assert startIndex + length <= valueCount;
     int firstByteSource = BitVectorHelper.byteIndex(startIndex);
     int lastByteSource = BitVectorHelper.byteIndex(valueCount - 1);
     int byteSizeTarget = getValidityBufferSizeFromCount(length);

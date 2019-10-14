@@ -80,4 +80,37 @@ public class TestIndexSorter {
       indices.close();
     }
   }
+
+  /**
+   * Tests the worst case for quick sort.
+   * It may cause stack overflow if the algorithm is implemented as a recursive algorithm.
+   */
+  @Test
+  public void testSortLargeIncreasingInt() {
+    final int vectorLength = 20000;
+    try (IntVector vec = new IntVector("", allocator)) {
+      vec.allocateNew(vectorLength);
+      vec.setValueCount(vectorLength);
+
+      // fill data to sort
+      for (int i = 0; i < vectorLength; i++) {
+        vec.set(i, i);
+      }
+
+      // sort the vector
+      IndexSorter<IntVector> indexSorter = new IndexSorter<>();
+      DefaultVectorComparators.IntComparator intComparator = new DefaultVectorComparators.IntComparator();
+      intComparator.attachVector(vec);
+
+      try (IntVector indices = new IntVector("", allocator)) {
+        indices.setValueCount(vectorLength);
+        indexSorter.sort(vec, indices, intComparator);
+
+        for (int i = 0; i < vectorLength; i++) {
+          assertTrue(!indices.isNull(i));
+          assertEquals(i, indices.get(i));
+        }
+      }
+    }
+  }
 }

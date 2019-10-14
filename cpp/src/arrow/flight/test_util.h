@@ -66,22 +66,6 @@ class ARROW_FLIGHT_EXPORT TestServer {
   std::shared_ptr<::boost::process::child> server_process_;
 };
 
-class ARROW_FLIGHT_EXPORT InProcessTestServer {
- public:
-  explicit InProcessTestServer(std::unique_ptr<FlightServerBase> server,
-                               const Location& location)
-      : server_(std::move(server)), location_(location), thread_() {}
-  ~InProcessTestServer();
-  Status Start();
-  void Stop();
-  const Location& location() const;
-
- private:
-  std::unique_ptr<FlightServerBase> server_;
-  Location location_;
-  std::thread thread_;
-};
-
 /// \brief Create a simple Flight server for testing
 ARROW_FLIGHT_EXPORT
 std::unique_ptr<FlightServerBase> ExampleTestServer();

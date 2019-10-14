@@ -211,6 +211,14 @@ if(${CLANG_FORMAT_FOUND})
                     ${ARROW_LINT_QUIET})
 endif()
 
+add_custom_target(lint_cpp_cli ${PYTHON_EXECUTABLE} ${BUILD_SUPPORT_DIR}/lint_cpp_cli.py
+                  ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+if(ARROW_LINT_ONLY)
+  message("ARROW_LINT_ONLY was specified, this is only a partial build directory")
+  return()
+endif()
+
 #
 # "make clang-tidy" and "make check-clang-tidy" targets
 #
@@ -250,9 +258,6 @@ endif()
 if(UNIX)
   add_custom_target(iwyu ${BUILD_SUPPORT_DIR}/iwyu/iwyu.sh)
 endif(UNIX)
-
-add_custom_target(lint_cpp_cli ${PYTHON_EXECUTABLE} ${BUILD_SUPPORT_DIR}/lint_cpp_cli.py
-                  ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 #
 # Set up various options

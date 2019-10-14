@@ -20,23 +20,25 @@ package org.apache.arrow.consumers;
 import java.io.IOException;
 
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.ZeroVector;
+import org.apache.arrow.vector.NullVector;
 import org.apache.avro.io.Decoder;
 
 /**
  * Consumer which consume null type values from avro decoder.
  * Corresponding to {@link org.apache.arrow.vector.ZeroVector}.
  */
-public class AvroNullConsumer implements Consumer<ZeroVector> {
+public class AvroNullConsumer implements Consumer<NullVector> {
 
-  private ZeroVector vector;
+  private NullVector vector;
 
-  public AvroNullConsumer(ZeroVector vector) {
+  public AvroNullConsumer(NullVector vector) {
     this.vector = vector;
   }
 
   @Override
-  public void consume(Decoder decoder) throws IOException {}
+  public void consume(Decoder decoder) throws IOException {
+    vector.setValueCount(vector.getValueCount() + 1);
+  }
 
   @Override
   public void addNull() {}
@@ -55,7 +57,7 @@ public class AvroNullConsumer implements Consumer<ZeroVector> {
   }
 
   @Override
-  public void resetValueVector(ZeroVector vector) {
+  public void resetValueVector(NullVector vector) {
     this.vector = vector;
   }
 }

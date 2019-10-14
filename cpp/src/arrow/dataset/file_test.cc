@@ -94,8 +94,7 @@ TEST_F(TestFileSystemBasedDataSource, RootPartitionPruning) {
   auto source_partition = ("a"_ == 5).Copy();
   MakeSource({fs::File("a"), fs::File("b")}, source_partition);
 
-  // No filter should always return all data.
-  options_->filter = nullptr;
+  // Default filter should always return all data.
   AssertFragmentsAreFromPath(source_->GetFragments(options_), {"a", "b"});
 
   // filter == partition
@@ -144,8 +143,7 @@ TEST_F(TestFileSystemBasedDataSource, TreePartitionPruning) {
   std::vector<std::string> ca_cities = {"CA/San Francisco", "CA/Franklin"};
   std::vector<std::string> franklins = {"CA/Franklin", "NY/Franklin"};
 
-  // No filter should always return all data.
-  options_->filter = nullptr;
+  // Default filter should always return all data.
   AssertFragmentsAreFromPath(source_->GetFragments(options_), all_cities);
 
   // Data source partition is respected

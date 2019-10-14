@@ -61,6 +61,8 @@ Flight Client
 
     FlightCallOptions
     FlightClient
+    ClientMiddlewareFactory
+    ClientMiddleware
 
 Flight Server
 -------------
@@ -71,6 +73,8 @@ Flight Server
     FlightServerBase
     GeneratorStream
     RecordBatchStream
+    ServerMiddlewareFactory
+    ServerMiddleware
 
 Authentication
 --------------
@@ -80,3 +84,12 @@ Authentication
 
     ClientAuthHandler
     ServerAuthHandler
+
+Middleware
+----------
+
+.. autosummary::
+   :toctree: ../generated/
+
+    FlightMethod
+    CallInfo

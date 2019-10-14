@@ -269,6 +269,53 @@ Iterator<O> MakeMaybeMapIterator(Fn map, Iterator<I> it) {
   return Iterator<O>(MaybeMapIterator<Fn, I, O>(std::move(map), std::move(it)));
 }
 
+/// \brief Like MapIterator, but where the function can fail or reject elements.
+template <
+    typename Fn,
+    typename I =
+        typename std::remove_pointer<internal::call_traits::argument_type<0, Fn>>::type,
+    typename O =
+        typename std::remove_pointer<internal::call_traits::argument_type<1, Fn>>::type>
+class FilterIterator {
+ public:
+  explicit FilterIterator(Fn filter, Iterator<I> it)
+      : filter_(filter), it_(std::move(it)) {}
+
+  Status Next(O* out) {
+    bool accept = true;
+    do {
+      I i;
+
+      ARROW_RETURN_NOT_OK(it_.Next(&i));
+      if (i == IterationTraits<I>::End()) {
+        *out = IterationTraits<O>::End();
+        return Status::OK();
+      }
+
+      ARROW_RETURN_NOT_OK(filter_(std::move(i), out, &accept));
+    } while (!accept);
+
+    return Status::OK();
+  }
+
+ private:
+  Fn filter_;
+  Iterator<I> it_;
+};
+
+template <
+    typename Fn,
+    typename I =
+        typename std::remove_pointer<internal::call_traits::argument_type<0, Fn>>::type,
+    typename O =
+        typename std::remove_pointer<internal::call_traits::argument_type<1, Fn>>::type,
+    typename Enable = typename std::enable_if<std::is_same<
+        bool, typename std::remove_pointer<
+                  internal::call_traits::argument_type<2, Fn>>::type>::value>::type>
+Iterator<O> MakeFilterIterator(Fn filter, Iterator<I> it) {
+  return Iterator<O>(FilterIterator<Fn, I, O>(std::move(filter), std::move(it)));
+}
+
 /// \brief FlattenIterator takes an iterator generating iterators and yields a
 /// unified iterator that flattens/concatenates in a single stream.
 template <typename T>

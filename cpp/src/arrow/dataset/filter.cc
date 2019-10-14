@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <memory>
 #include <numeric>
 #include <string>
 #include <unordered_map>
@@ -30,8 +31,14 @@
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernels/boolean.h"
 #include "arrow/compute/kernels/compare.h"
+#include "arrow/compute/kernels/filter.h"
 #include "arrow/dataset/dataset.h"
 #include "arrow/record_batch.h"
+#include "arrow/result.h"
+#include "arrow/scalar.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/checked_cast.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
@@ -42,25 +49,11 @@ using arrow::compute::Datum;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
-Result<Datum> ScalarExpression::Evaluate(compute::FunctionContext* ctx,
-                                         const RecordBatch& batch) const {
-  return value_;
-}
-
 inline std::shared_ptr<ScalarExpression> NullExpression() {
   return std::make_shared<ScalarExpression>(std::make_shared<BooleanScalar>());
 }
 
 inline Datum NullDatum() { return Datum(std::make_shared<NullScalar>()); }
-
-Result<Datum> FieldExpression::Evaluate(compute::FunctionContext* ctx,
-                                        const RecordBatch& batch) const {
-  auto column = batch.GetColumnByName(name_);
-  if (column == nullptr) {
-    return NullDatum();
-  }
-  return std::move(column);
-}
 
 bool IsNullDatum(const Datum& datum) {
   if (datum.is_scalar()) {
@@ -70,127 +63,6 @@ bool IsNullDatum(const Datum& datum) {
 
   auto array_data = datum.array();
   return array_data->GetNullCount() == array_data->length;
-}
-
-bool IsTrivialConditionDatum(const Datum& datum, bool* condition = nullptr) {
-  if (!datum.is_scalar()) {
-    return false;
-  }
-
-  auto scalar = datum.scalar();
-  if (!scalar->is_valid) {
-    return false;
-  }
-
-  if (scalar->type->id() != Type::BOOL) {
-    return false;
-  }
-
-  if (condition) {
-    *condition = checked_cast<const BooleanScalar&>(*scalar).value;
-  }
-  return true;
-}
-
-Result<Datum> NotExpression::Evaluate(compute::FunctionContext* ctx,
-                                      const RecordBatch& batch) const {
-  ARROW_ASSIGN_OR_RAISE(auto to_invert, operand_->Evaluate(ctx, batch));
-  if (IsNullDatum(to_invert)) {
-    return NullDatum();
-  }
-
-  bool trivial_condition;
-  if (IsTrivialConditionDatum(to_invert, &trivial_condition)) {
-    return Datum(std::make_shared<BooleanScalar>(!trivial_condition));
-  }
-
-  DCHECK(to_invert.is_array());
-  Datum out;
-  RETURN_NOT_OK(arrow::compute::Invert(ctx, Datum(to_invert), &out));
-  return std::move(out);
-}
-
-Result<Datum> AndExpression::Evaluate(compute::FunctionContext* ctx,
-                                      const RecordBatch& batch) const {
-  ARROW_ASSIGN_OR_RAISE(auto lhs, left_operand_->Evaluate(ctx, batch));
-  ARROW_ASSIGN_OR_RAISE(auto rhs, right_operand_->Evaluate(ctx, batch));
-
-  if (IsNullDatum(lhs) || IsNullDatum(rhs)) {
-    return NullDatum();
-  }
-
-  if (lhs.is_array() && rhs.is_array()) {
-    Datum out;
-    RETURN_NOT_OK(arrow::compute::And(ctx, lhs, rhs, &out));
-    return std::move(out);
-  }
-
-  if (lhs.is_scalar() && rhs.is_scalar()) {
-    return Datum(checked_cast<const BooleanScalar&>(*lhs.scalar()).value &&
-                 checked_cast<const BooleanScalar&>(*rhs.scalar()).value);
-  }
-
-  auto array_operand = (lhs.is_array() ? lhs : rhs).make_array();
-  bool scalar_operand =
-      checked_cast<const BooleanScalar&>(*(lhs.is_scalar() ? lhs : rhs).scalar()).value;
-
-  if (!scalar_operand) {
-    // FIXME(bkietz) this is an error if array_operand contains nulls
-    return Datum(false);
-  }
-
-  return Datum(array_operand);
-}
-
-Result<Datum> OrExpression::Evaluate(compute::FunctionContext* ctx,
-                                     const RecordBatch& batch) const {
-  ARROW_ASSIGN_OR_RAISE(auto lhs, left_operand_->Evaluate(ctx, batch));
-  ARROW_ASSIGN_OR_RAISE(auto rhs, right_operand_->Evaluate(ctx, batch));
-
-  if (IsNullDatum(lhs) || IsNullDatum(rhs)) {
-    return NullDatum();
-  }
-
-  if (lhs.is_array() && rhs.is_array()) {
-    Datum out;
-    RETURN_NOT_OK(arrow::compute::Or(ctx, lhs, rhs, &out));
-    return std::move(out);
-  }
-
-  if (lhs.is_scalar() && rhs.is_scalar()) {
-    return Datum(checked_cast<const BooleanScalar&>(*lhs.scalar()).value &&
-                 checked_cast<const BooleanScalar&>(*rhs.scalar()).value);
-  }
-
-  auto array_operand = (lhs.is_array() ? lhs : rhs).make_array();
-  bool scalar_operand =
-      checked_cast<const BooleanScalar&>(*(lhs.is_scalar() ? lhs : rhs).scalar()).value;
-
-  if (!scalar_operand) {
-    // FIXME(bkietz) this is an error if array_operand contains nulls
-    return Datum(true);
-  }
-
-  return Datum(array_operand);
-}
-
-Result<Datum> ComparisonExpression::Evaluate(compute::FunctionContext* ctx,
-                                             const RecordBatch& batch) const {
-  ARROW_ASSIGN_OR_RAISE(auto lhs, left_operand_->Evaluate(ctx, batch));
-  ARROW_ASSIGN_OR_RAISE(auto rhs, right_operand_->Evaluate(ctx, batch));
-
-  if (IsNullDatum(lhs) || IsNullDatum(rhs)) {
-    return NullDatum();
-  }
-
-  if (lhs.is_scalar()) {
-    return Status::NotImplemented("comparison with scalar LHS");
-  }
-
-  Datum out;
-  RETURN_NOT_OK(
-      arrow::compute::Compare(ctx, lhs, rhs, arrow::compute::CompareOptions(op_), &out));
-  return std::move(out);
 }
 
 struct Comparison {
@@ -264,6 +136,7 @@ struct CompareVisitor {
 
 // Compare two scalars
 // if either is null, return is null
+// TODO(bkietz) extract this to scalar.h
 Result<Comparison::type> Compare(const Scalar& lhs, const Scalar& rhs) {
   if (!lhs.type->Equals(*rhs.type)) {
     return Status::TypeError("Cannot compare scalars of differing type: ", *lhs.type,
@@ -308,9 +181,9 @@ compute::CompareOperator InvertCompareOperator(compute::CompareOperator op) {
 }
 
 template <typename Boolean>
-Result<std::shared_ptr<Expression>> InvertBoolean(const Boolean& expr) {
-  ARROW_ASSIGN_OR_RAISE(auto lhs, Invert(*expr.left_operand()));
-  ARROW_ASSIGN_OR_RAISE(auto rhs, Invert(*expr.right_operand()));
+std::shared_ptr<Expression> InvertBoolean(const Boolean& expr) {
+  auto lhs = Invert(*expr.left_operand());
+  auto rhs = Invert(*expr.right_operand());
 
   if (std::is_same<Boolean, AndExpression>::value) {
     return std::make_shared<OrExpression>(std::move(lhs), std::move(rhs));
@@ -320,10 +193,10 @@ Result<std::shared_ptr<Expression>> InvertBoolean(const Boolean& expr) {
     return std::make_shared<AndExpression>(std::move(lhs), std::move(rhs));
   }
 
-  return Status::Invalid("unknown boolean expression ", expr.ToString());
+  return nullptr;
 }
 
-Result<std::shared_ptr<Expression>> Invert(const Expression& expr) {
+std::shared_ptr<Expression> Invert(const Expression& expr) {
   switch (expr.type()) {
     case ExpressionType::NOT:
       return checked_cast<const NotExpression&>(expr).operand();
@@ -344,60 +217,33 @@ Result<std::shared_ptr<Expression>> Invert(const Expression& expr) {
     default:
       break;
   }
-  return Status::NotImplemented("can't invert this expression");
+  return nullptr;
 }
 
-Result<std::shared_ptr<Expression>> ComparisonExpression::Assume(
-    const Expression& given) const {
+std::shared_ptr<Expression> ComparisonExpression::Assume(const Expression& given) const {
   switch (given.type()) {
     case ExpressionType::COMPARISON: {
       return AssumeGivenComparison(checked_cast<const ComparisonExpression&>(given));
     }
 
     case ExpressionType::NOT: {
-      const auto& to_invert = checked_cast<const NotExpression&>(given).operand();
-      auto inverted = Invert(*to_invert);
-      if (!inverted.ok()) {
-        return Copy();
+      const auto& given_not = checked_cast<const NotExpression&>(given);
+      if (auto inverted = Invert(*given_not.operand())) {
+        return Assume(*inverted);
       }
-      return Assume(*inverted.ValueOrDie());
+      return Copy();
     }
 
     case ExpressionType::OR: {
       const auto& given_or = checked_cast<const OrExpression&>(given);
 
-      bool simplify_to_always = true;
-      bool simplify_to_never = true;
-      for (const auto& operand : {given_or.left_operand(), given_or.right_operand()}) {
-        ARROW_ASSIGN_OR_RAISE(auto simplified, Assume(*operand));
+      auto left_simplified = Assume(*given_or.left_operand());
+      auto right_simplified = Assume(*given_or.right_operand());
 
-        if (simplified->IsNull()) {
-          // some subexpression of given is always null, return null
-          return NullExpression();
-        }
-
-        bool trivial;
-        if (!simplified->IsTrivialCondition(&trivial)) {
-          // Or cannot be simplified unless all of its operands simplify to the same
-          // trivial condition
-          simplify_to_never = false;
-          simplify_to_always = false;
-          continue;
-        }
-
-        if (trivial == true) {
-          simplify_to_never = false;
-        } else {
-          simplify_to_always = false;
-        }
-      }
-
-      if (simplify_to_always) {
-        return scalar(true);
-      }
-
-      if (simplify_to_never) {
-        return scalar(false);
+      // The result of simplification against the operands of an OrExpression
+      // cannot be used unless they are identical
+      if (left_simplified->Equals(right_simplified)) {
+        return left_simplified;
       }
 
       return Copy();
@@ -407,18 +253,9 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::Assume(
       const auto& given_and = checked_cast<const AndExpression&>(given);
 
       auto simplified = Copy();
-      for (const auto& operand : {given_and.left_operand(), given_and.right_operand()}) {
-        if (simplified->IsNull()) {
-          return NullExpression();
-        }
-
-        if (simplified->IsTrivialCondition()) {
-          return std::move(simplified);
-        }
-
-        ARROW_ASSIGN_OR_RAISE(simplified, simplified->Assume(*operand));
-      }
-      return std::move(simplified);
+      simplified = simplified->Assume(*given_and.left_operand());
+      simplified = simplified->Assume(*given_and.right_operand());
+      return simplified;
     }
 
     default:
@@ -430,31 +267,26 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::Assume(
 
 // Try to simplify one comparison against another comparison.
 // For example,
-// (x > 3) is a subset of (x > 2), so (x > 2).Assume(x > 3) == (true)
-// (x < 0) is disjoint with (x > 2), so (x > 2).Assume(x < 0) == (false)
+// ("x"_ > 3) is a subset of ("x"_ > 2), so ("x"_ > 2).Assume("x"_ > 3) == (true)
+// ("x"_ < 0) is disjoint with ("x"_ > 2), so ("x"_ > 2).Assume("x"_ < 0) == (false)
 // If simplification to (true) or (false) is not possible, pass e through unchanged.
-Result<std::shared_ptr<Expression>> ComparisonExpression::AssumeGivenComparison(
+std::shared_ptr<Expression> ComparisonExpression::AssumeGivenComparison(
     const ComparisonExpression& given) const {
-  for (auto comparison : {this, &given}) {
-    if (comparison->left_operand_->type() != ExpressionType::FIELD) {
-      return Status::Invalid("left hand side of comparison must be a field reference");
-    }
-
-    if (comparison->right_operand_->type() != ExpressionType::SCALAR) {
-      return Status::Invalid("right hand side of comparison must be a scalar");
-    }
+  if (!left_operand_->Equals(given.left_operand_)) {
+    return Copy();
   }
 
-  const auto& this_lhs = checked_cast<const FieldExpression&>(*left_operand_);
-  const auto& given_lhs = checked_cast<const FieldExpression&>(*given.left_operand_);
-  if (this_lhs.name() != given_lhs.name()) {
-    return Copy();
+  for (auto rhs : {right_operand_, given.right_operand_}) {
+    if (rhs->type() != ExpressionType::SCALAR) {
+      return Copy();
+    }
   }
 
   const auto& this_rhs = checked_cast<const ScalarExpression&>(*right_operand_).value();
   const auto& given_rhs =
       checked_cast<const ScalarExpression&>(*given.right_operand_).value();
-  ARROW_ASSIGN_OR_RAISE(auto cmp, Compare(*this_rhs, *given_rhs));
+
+  auto cmp = Compare(*this_rhs, *given_rhs).ValueOrDie();
 
   if (cmp == Comparison::NULL_) {
     // the RHS of e or given was null
@@ -602,78 +434,69 @@ Result<std::shared_ptr<Expression>> ComparisonExpression::AssumeGivenComparison(
   return Copy();
 }
 
-Result<std::shared_ptr<Expression>> AndExpression::Assume(const Expression& given) const {
-  ARROW_ASSIGN_OR_RAISE(auto left_operand, left_operand_->Assume(given));
-  ARROW_ASSIGN_OR_RAISE(auto right_operand, right_operand_->Assume(given));
+std::shared_ptr<Expression> AndExpression::Assume(const Expression& given) const {
+  auto left_operand = left_operand_->Assume(given);
+  auto right_operand = right_operand_->Assume(given);
+
+  // if either of the operands is trivially false then so is this AND
+  if (left_operand->Equals(false) || right_operand->Equals(false)) {
+    return scalar(false);
+  }
 
   // if either operand is trivially null then so is this AND
   if (left_operand->IsNull() || right_operand->IsNull()) {
     return NullExpression();
   }
 
-  bool left_trivial, right_trivial;
-  bool left_is_trivial = left_operand->IsTrivialCondition(&left_trivial);
-  bool right_is_trivial = right_operand->IsTrivialCondition(&right_trivial);
+  // if one of the operands is trivially true then drop it
+  if (left_operand->Equals(true)) {
+    return right_operand;
+  }
+  if (right_operand->Equals(true)) {
+    return left_operand;
+  }
 
   // if neither of the operands is trivial, simply construct a new AND
-  if (!left_is_trivial && !right_is_trivial) {
-    return std::make_shared<AndExpression>(std::move(left_operand),
-                                           std::move(right_operand));
-  }
-
-  // if either of the operands is trivially false then so is this AND
-  if ((left_is_trivial && left_trivial == false) ||
-      (right_is_trivial && right_trivial == false)) {
-    // FIXME(bkietz) if left is false and right is a column conaining nulls, this is an
-    // error because we should be yielding null there rather than false
-    return scalar(false);
-  }
-
-  // at least one of the operands is trivially true; return the other operand
-  return right_is_trivial ? std::move(left_operand) : std::move(right_operand);
+  return and_(std::move(left_operand), std::move(right_operand));
 }
 
-Result<std::shared_ptr<Expression>> OrExpression::Assume(const Expression& given) const {
-  ARROW_ASSIGN_OR_RAISE(auto left_operand, left_operand_->Assume(given));
-  ARROW_ASSIGN_OR_RAISE(auto right_operand, right_operand_->Assume(given));
+std::shared_ptr<Expression> OrExpression::Assume(const Expression& given) const {
+  auto left_operand = left_operand_->Assume(given);
+  auto right_operand = right_operand_->Assume(given);
+
+  // if either of the operands is trivially true then so is this OR
+  if (left_operand->Equals(true) || right_operand->Equals(true)) {
+    return scalar(true);
+  }
 
   // if either operand is trivially null then so is this OR
   if (left_operand->IsNull() || right_operand->IsNull()) {
     return NullExpression();
   }
 
-  bool left_trivial, right_trivial;
-  bool left_is_trivial = left_operand->IsTrivialCondition(&left_trivial);
-  bool right_is_trivial = right_operand->IsTrivialCondition(&right_trivial);
+  // if one of the operands is trivially false then drop it
+  if (left_operand->Equals(false)) {
+    return right_operand;
+  }
+  if (right_operand->Equals(false)) {
+    return left_operand;
+  }
 
   // if neither of the operands is trivial, simply construct a new OR
-  if (!left_is_trivial && !right_is_trivial) {
-    return std::make_shared<OrExpression>(std::move(left_operand),
-                                          std::move(right_operand));
-  }
-
-  // if either of the operands is trivially true then so is this OR
-  if ((left_is_trivial && left_trivial == true) ||
-      (right_is_trivial && right_trivial == true)) {
-    // FIXME(bkietz) if left is true but right is a column conaining nulls, this is an
-    // error because we should be yielding null there rather than true
-    return scalar(true);
-  }
-
-  // at least one of the operands is trivially false; return the other operand
-  return right_is_trivial ? std::move(left_operand) : std::move(right_operand);
+  return or_(std::move(left_operand), std::move(right_operand));
 }
 
-Result<std::shared_ptr<Expression>> NotExpression::Assume(const Expression& given) const {
-  ARROW_ASSIGN_OR_RAISE(auto operand, operand_->Assume(given));
+std::shared_ptr<Expression> NotExpression::Assume(const Expression& given) const {
+  auto operand = operand_->Assume(given);
 
   if (operand->IsNull()) {
     return NullExpression();
   }
-
-  bool trivial;
-  if (operand->IsTrivialCondition(&trivial)) {
-    return scalar(!trivial);
+  if (operand->Equals(true)) {
+    return scalar(false);
+  }
+  if (operand->Equals(false)) {
+    return scalar(true);
   }
 
   return Copy();
@@ -823,36 +646,6 @@ bool Expression::IsNull() const {
   return false;
 }
 
-bool Expression::IsTrivialCondition(bool* out) const {
-  if (type_ != ExpressionType::SCALAR) {
-    return false;
-  }
-
-  const auto& scalar = checked_cast<const ScalarExpression&>(*this).value();
-  if (!scalar->is_valid) {
-    return false;
-  }
-
-  if (scalar->type->id() != Type::BOOL) {
-    return false;
-  }
-
-  if (out) {
-    *out = checked_cast<const BooleanScalar&>(*scalar).value;
-  }
-  return true;
-}
-
-bool Expression::IsTrivialTrueCondition() const {
-  bool value = false;
-  return IsTrivialCondition(&value) && value;
-}
-
-bool Expression::IsTrivialFalseCondition() const {
-  bool value = false;
-  return IsTrivialCondition(&value) && !value;
-}
-
 std::shared_ptr<Expression> FieldExpression::Copy() const {
   return std::make_shared<FieldExpression>(*this);
 }
@@ -909,19 +702,16 @@ NotExpression operator!(const Expression& rhs) { return NotExpression(rhs.Copy()
 
 Result<std::shared_ptr<DataType>> ComparisonExpression::Validate(
     const Schema& schema) const {
-  if (left_operand_->type() != ExpressionType::FIELD) {
-    return Status::NotImplemented("comparison with non-FIELD RHS");
-  }
-
   ARROW_ASSIGN_OR_RAISE(auto lhs_type, left_operand_->Validate(schema));
   ARROW_ASSIGN_OR_RAISE(auto rhs_type, right_operand_->Validate(schema));
+
+  if (lhs_type->id() == Type::NA || rhs_type->id() == Type::NA) {
+    return boolean();
+  }
+
   if (!lhs_type->Equals(rhs_type)) {
     return Status::TypeError("cannot compare expressions of differing type, ", *lhs_type,
                              " vs ", *rhs_type);
-  }
-
-  if (lhs_type->id() == Type::NA || rhs_type->id() == Type::NA) {
-    return null();
   }
 
   return boolean();
@@ -937,16 +727,12 @@ Status EnsureNullOrBool(const std::string& msg_prefix,
 
 Result<std::shared_ptr<DataType>> ValidateBoolean(const ExpressionVector& operands,
                                                   const Schema& schema) {
-  auto out = boolean();
-  for (auto operand : operands) {
+  for (const auto& operand : operands) {
     ARROW_ASSIGN_OR_RAISE(auto type, operand->Validate(schema));
     RETURN_NOT_OK(
         EnsureNullOrBool("cannot combine expressions including one of type ", type));
-    if (type->id() == Type::NA) {
-      out = null();
-    }
   }
-  return std::move(out);
+  return boolean();
 }
 
 Result<std::shared_ptr<DataType>> AndExpression::Validate(const Schema& schema) const {
@@ -970,6 +756,187 @@ Result<std::shared_ptr<DataType>> FieldExpression::Validate(const Schema& schema
     return field->type();
   }
   return null();
+}
+
+RecordBatchIterator ExpressionEvaluator::FilterBatches(
+    RecordBatchIterator unfiltered, std::shared_ptr<Expression> filter) {
+  auto filter_batches = [filter, this](const std::shared_ptr<RecordBatch>& unfiltered,
+                                       std::shared_ptr<RecordBatch>* filtered,
+                                       bool* accept) {
+    ARROW_ASSIGN_OR_RAISE(auto selection, Evaluate(*filter, *unfiltered));
+    RETURN_NOT_OK(Filter(selection, unfiltered, filtered));
+    // drop empty batches
+    *accept = (*filtered)->num_rows() > 0;
+    return Status::OK();
+  };
+
+  return MakeFilterIterator(std::move(filter_batches), std::move(unfiltered));
+}
+
+std::shared_ptr<ExpressionEvaluator> ExpressionEvaluator::Null() {
+  struct Impl : ExpressionEvaluator {
+    Result<Datum> Evaluate(const Expression& expr,
+                           const RecordBatch& batch) const override {
+      ARROW_ASSIGN_OR_RAISE(auto type, expr.Validate(*batch.schema()));
+      std::shared_ptr<Scalar> out;
+      RETURN_NOT_OK(MakeNullScalar(type, &out));
+      return Datum(std::move(out));
+    }
+
+    Result<std::shared_ptr<RecordBatch>> Filter(
+        const Datum& selection,
+        const std::shared_ptr<RecordBatch>& batch) const override {
+      return batch;
+    }
+  };
+
+  return std::make_shared<Impl>();
+}
+
+struct TreeEvaluator::Impl {
+  template <typename E>
+  Result<Datum> operator()(const E& expr) const {
+    return this_->Evaluate(expr, batch_);
+  }
+
+  const TreeEvaluator* this_;
+  const RecordBatch& batch_;
+};
+
+Result<Datum> TreeEvaluator::Evaluate(const Expression& expr,
+                                      const RecordBatch& batch) const {
+  return VisitExpression(expr, Impl{this, batch});
+}
+
+Result<Datum> TreeEvaluator::Evaluate(const ScalarExpression& expr,
+                                      const RecordBatch& batch) const {
+  return Datum(expr.value());
+}
+
+Result<Datum> TreeEvaluator::Evaluate(const FieldExpression& expr,
+                                      const RecordBatch& batch) const {
+  auto column = batch.GetColumnByName(expr.name());
+  if (column == nullptr) {
+    return NullDatum();
+  }
+  return std::move(column);
+}
+
+Result<Datum> TreeEvaluator::Evaluate(const NotExpression& expr,
+                                      const RecordBatch& batch) const {
+  ARROW_ASSIGN_OR_RAISE(auto to_invert, Evaluate(*expr.operand(), batch));
+  if (IsNullDatum(to_invert)) {
+    return NullDatum();
+  }
+
+  if (to_invert.is_scalar()) {
+    bool trivial_condition =
+        checked_cast<const BooleanScalar&>(*to_invert.scalar()).value;
+    return Datum(std::make_shared<BooleanScalar>(!trivial_condition));
+  }
+
+  DCHECK(to_invert.is_array());
+  Datum out;
+  RETURN_NOT_OK(arrow::compute::Invert(ctx_, to_invert, &out));
+  return std::move(out);
+}
+
+Result<Datum> TreeEvaluator::Evaluate(const AndExpression& expr,
+                                      const RecordBatch& batch) const {
+  ARROW_ASSIGN_OR_RAISE(auto lhs, Evaluate(*expr.left_operand(), batch));
+  ARROW_ASSIGN_OR_RAISE(auto rhs, Evaluate(*expr.right_operand(), batch));
+
+  if (IsNullDatum(lhs) || IsNullDatum(rhs)) {
+    return NullDatum();
+  }
+
+  if (lhs.is_array() && rhs.is_array()) {
+    Datum out;
+    RETURN_NOT_OK(arrow::compute::And(ctx_, lhs, rhs, &out));
+    return std::move(out);
+  }
+
+  if (lhs.is_scalar() && rhs.is_scalar()) {
+    return Datum(checked_cast<const BooleanScalar&>(*lhs.scalar()).value &&
+                 checked_cast<const BooleanScalar&>(*rhs.scalar()).value);
+  }
+
+  // One scalar, one array
+  bool scalar_operand =
+      checked_cast<const BooleanScalar&>(*(lhs.is_scalar() ? lhs : rhs).scalar()).value;
+  if (!scalar_operand) {
+    return Datum(false);
+  }
+
+  return lhs.is_array() ? std::move(lhs) : std::move(rhs);
+}
+
+Result<Datum> TreeEvaluator::Evaluate(const OrExpression& expr,
+                                      const RecordBatch& batch) const {
+  ARROW_ASSIGN_OR_RAISE(auto lhs, Evaluate(*expr.left_operand(), batch));
+  ARROW_ASSIGN_OR_RAISE(auto rhs, Evaluate(*expr.right_operand(), batch));
+
+  if (IsNullDatum(lhs) || IsNullDatum(rhs)) {
+    return NullDatum();
+  }
+
+  if (lhs.is_array() && rhs.is_array()) {
+    Datum out;
+    RETURN_NOT_OK(arrow::compute::Or(ctx_, lhs, rhs, &out));
+    return std::move(out);
+  }
+
+  if (lhs.is_scalar() && rhs.is_scalar()) {
+    return Datum(checked_cast<const BooleanScalar&>(*lhs.scalar()).value &&
+                 checked_cast<const BooleanScalar&>(*rhs.scalar()).value);
+  }
+
+  // One scalar, one array
+  bool scalar_operand =
+      checked_cast<const BooleanScalar&>(*(lhs.is_scalar() ? lhs : rhs).scalar()).value;
+  if (!scalar_operand) {
+    return Datum(true);
+  }
+
+  return lhs.is_array() ? std::move(lhs) : std::move(rhs);
+}
+
+Result<Datum> TreeEvaluator::Evaluate(const ComparisonExpression& expr,
+                                      const RecordBatch& batch) const {
+  ARROW_ASSIGN_OR_RAISE(auto lhs, Evaluate(*expr.left_operand(), batch));
+  ARROW_ASSIGN_OR_RAISE(auto rhs, Evaluate(*expr.right_operand(), batch));
+
+  if (IsNullDatum(lhs) || IsNullDatum(rhs)) {
+    return NullDatum();
+  }
+
+  DCHECK(lhs.is_array());
+
+  Datum out;
+  RETURN_NOT_OK(arrow::compute::Compare(ctx_, lhs, rhs,
+                                        arrow::compute::CompareOptions(expr.op()), &out));
+  return std::move(out);
+}
+
+Result<std::shared_ptr<RecordBatch>> TreeEvaluator::Filter(
+    const compute::Datum& selection, const std::shared_ptr<RecordBatch>& batch) const {
+  if (selection.is_array()) {
+    auto selection_array = selection.make_array();
+    std::shared_ptr<RecordBatch> filtered;
+    RETURN_NOT_OK(compute::Filter(ctx_, *batch, *selection_array, &filtered));
+    return std::move(filtered);
+  }
+
+  if (!selection.is_scalar() || selection.type()->id() != Type::BOOL) {
+    return Status::NotImplemented("Filtering batches against DatumKind::",
+                                  selection.kind(), " of type ", *selection.type());
+  }
+
+  if (BooleanScalar(true).Equals(selection.scalar())) {
+    return batch;
+  }
+
+  return batch->Slice(0, 0);
 }
 
 }  // namespace dataset
