@@ -430,6 +430,9 @@ def test_buffer_eq_bytes():
     assert buf == bytearray(b'some data')
     assert buf != b'some dat1'
 
+    with pytest.raises(TypeError):
+        buf == 'some data'
+
 
 def test_buffer_getitem():
     data = bytearray(b'some data!')

@@ -1000,10 +1000,8 @@ cdef class Buffer:
     def __eq__(self, other):
         if isinstance(other, Buffer):
             return self.equals(other)
-        elif isinstance(other, bytes):
-            return self.equals(py_buffer(other))
         else:
-            return NotImplemented
+            return self.equals(py_buffer(other))
 
     def __reduce_ex__(self, protocol):
         if protocol >= 5:
