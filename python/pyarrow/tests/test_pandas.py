@@ -1220,18 +1220,6 @@ class TestConvertDateTimeLikeTypes(object):
         assert a1[0].as_py() == expected
         assert a2[0].as_py() == expected
 
-    @pytest.mark.xfail(reason="not supported ATM",
-                       raises=NotImplementedError)
-    def test_timedelta(self):
-        # TODO(jreback): Pandas only support ns resolution
-        # Arrow supports ??? for resolution
-        df = pd.DataFrame({
-            'timedelta': np.arange(start=0, stop=3 * 86400000,
-                                   step=86400000,
-                                   dtype='timedelta64[ms]')
-        })
-        pa.Table.from_pandas(df)
-
     def test_pytime_from_pandas(self):
         pytimes = [time(1, 2, 3, 1356),
                    time(4, 5, 6, 1356)]
