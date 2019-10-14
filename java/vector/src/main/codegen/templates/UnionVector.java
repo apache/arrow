@@ -691,8 +691,8 @@ public class UnionVector implements FieldVector {
 
     @Override
     public int hashCode(int index, ArrowBufHasher hasher) {
-    return getVector(index).hashCode(index, hasher);
-  }
+      return getVector(index).hashCode(index, hasher);
+    }
 
     @Override
     public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
