@@ -36,12 +36,12 @@ test_that("basic select/filter/collect", {
   t2 <- collect(b2)
   expect_equal(t2, tbl[tbl$int > 5, c("int", "chr")])
   # Test that the original object is not affected
-  expect_equal(collect(batch), tbl)
+  expect_identical(collect(batch), tbl)
 })
 
 test_that("More complex select/filter", {
   out <- batch %>%
-    # TODO: work out how to declare match as an S3 generic
+    # TODO: work out how to declare match() as an S3 generic
     filter(dbl > 2, chr == "d" | chr == "f") %>%
     select(chr, int) %>%
     filter(int < 5) %>%
@@ -55,4 +55,20 @@ test_that("summarize on RecordBatch works", {
     filter(int > 5) %>%
     summarize(min_int = min(int))
   expect_identical(m_i$min_int, 6L)
+})
+
+test_that("group_by groupings are recorded", {
+  m_i <- batch %>%
+    group_by(chr) %>%
+    select(int, chr) %>%
+    filter(int > 5) %>%
+    summarize(min_int = min(int))
+  expect_identical(m_i,
+    tibble::tibble(
+      chr = tbl$chr[tbl$int > 5],
+      min_int = tbl$int[tbl$int > 5]
+    )
+  )
+  # Test that the original object is not affected
+  expect_identical(collect(batch), tbl)
 })

@@ -29,7 +29,7 @@ filter.RecordBatch <- function(.data, ..., .preserve = FALSE) {
   .data
 }
 
-#' @importFrom dplyr collect
+#' @importFrom dplyr collect grouped_df
 #' @export
 collect.RecordBatch <- function(x, ...) {
   filters <- evaluate_filters(x)
@@ -38,12 +38,16 @@ collect.RecordBatch <- function(x, ...) {
     colnames <- vars_select(colnames, !!!q)
   }
   df <- as.data.frame(x[filters, colnames])
+  if (length(x$group_by_vars)) {
+    df <- grouped_df(df, groups(x)$group_names)
+  }
   # Slight hack: since x is R6, each select/filter modified the object in place,
   # which is not standard R behavior. Let's zero out x$selected_columns and
   # x$filtered_rows and hope that this side effect cancels out the other
   # unexpected side effects.
   x$selected_columns <- list()
   x$filtered_rows <- list()
+  ungroup(x)
   df
 }
 
@@ -68,7 +72,25 @@ evaluate_filters <- function(x) {
 
 #' @importFrom dplyr summarise summarize
 #' @export
-summarise.RecordBatch <- function (.data, ...) {
-    # TODO: determine whether work can be pushed down to Arrow
-    return(summarise(collect(.data), ...))
+summarise.RecordBatch <- function(.data, ...) {
+  # TODO: determine whether work can be pushed down to Arrow
+  return(summarise(collect(.data), ...))
+}
+
+#' @importFrom dplyr group_by group_by_prepare
+#' @export
+group_by.RecordBatch <- function(.data, ..., add = FALSE) {
+  .data$group_by_vars <- group_by_prepare(.data, ..., add = add)
+  .data
+}
+
+#' @importFrom dplyr groups
+#' @export
+groups.RecordBatch <- function(x) x$group_by_vars
+
+#' @importFrom dplyr ungroup
+#' @export
+ungroup.RecordBatch <- function(x, ...) {
+  x$group_by_vars <- list()
+  x
 }
