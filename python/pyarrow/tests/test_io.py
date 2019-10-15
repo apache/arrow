@@ -424,6 +424,16 @@ def test_buffer_equals():
     eq(buf2, buf5)
 
 
+def test_buffer_eq_bytes():
+    buf = pa.py_buffer(b'some data')
+    assert buf == b'some data'
+    assert buf == bytearray(b'some data')
+    assert buf != b'some dat1'
+
+    with pytest.raises(TypeError):
+        buf == u'some data'
+
+
 def test_buffer_getitem():
     data = bytearray(b'some data!')
     buf = pa.py_buffer(data)

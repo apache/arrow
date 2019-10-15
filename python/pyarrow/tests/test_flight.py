@@ -586,6 +586,41 @@ def test_list_actions():
             ListActionsFlightServer.expected_actions()
 
 
+class ConvenienceServer(FlightServerBase):
+    """
+    Server for testing various implementation conveniences (auto-boxing, etc.)
+    """
+    @property
+    def simple_action_results(self):
+        return [b'foo', b'bar', b'baz']
+
+    def do_action(self, context, action):
+        if action.type == 'simple-action':
+            return iter(self.simple_action_results)
+        elif action.type == 'echo':
+            return iter([action.body])
+        elif action.type == 'bad-action':
+            return iter(['foo'])
+
+
+def test_do_action_result_convenience():
+    with ConvenienceServer() as server:
+        client = FlightClient(('localhost', server.port))
+
+        # do_action as action type without body
+        results = [x.body for x in client.do_action('simple-action')]
+        assert results == server.simple_action_results
+
+        # do_action with tuple of type and body
+        body = b'the-body'
+        results = [x.body for x in client.do_action(('echo', body))]
+        assert results == [body]
+
+        # ARROW-6884 raise a more specific and helpful exception
+        with pytest.raises(Exception):
+            list(client.do_action('bad-action'))
+
+
 def test_get_port():
     """Make sure port() works."""
     server = GetInfoFlightServer("grpc://localhost:0")

@@ -1010,13 +1010,35 @@ cdef class FlightClient:
 
         return result
 
-    def do_action(self, action: Action, options: FlightCallOptions = None):
-        """Execute an action on a service."""
+    def do_action(self, action, options: FlightCallOptions = None):
+        """
+        Execute an action on a service.
+
+        Parameters
+        ----------
+        action : str, tuple, or Action
+            Can be action type name (no body), type and body, or any Action
+            object
+        options : FlightCallOptions
+            RPC options
+
+        Returns
+        -------
+        results : iterator of Result values
+        """
         cdef:
             unique_ptr[CResultStream] results
             Result result
-            CAction c_action = Action.unwrap(action)
             CFlightCallOptions* c_options = FlightCallOptions.unwrap(options)
+
+        if isinstance(action, (str, bytes)):
+            action = Action(action, b'')
+        elif isinstance(action, tuple):
+            action = Action(*action)
+        elif not isinstance(action, Action):
+            raise TypeError("Action must be Action instance, string, or tuple")
+
+        cdef CAction c_action = Action.unwrap(<Action> action)
         with nogil:
             check_flight_status(
                 self.client.get().DoAction(deref(c_options), c_action,
@@ -1562,8 +1584,7 @@ cdef CStatus _do_action_result_next(
     try:
         action_result = next(<object> self)
         if not isinstance(action_result, Result):
-            raise TypeError("Result of FlightServerBase.do_action must "
-                            "return an iterator of Result objects")
+            action_result = Result(action_result)
         c_result = (<Result> action_result).result.get()
         result.reset(new CFlightResult(deref(c_result)))
     except StopIteration:
