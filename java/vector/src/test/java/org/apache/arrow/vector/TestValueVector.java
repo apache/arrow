@@ -28,8 +28,10 @@ import static org.junit.Assert.assertTrue;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.arrow.memory.BaseAllocator;
@@ -2637,6 +2639,62 @@ public class TestValueVector {
       vector2.setSafe(1, 2);
 
       assertTrue(new RangeEqualsVisitor(vector1, vector2).rangeEquals(new Range(2, 3, 1)));
+    }
+  }
+
+  @Test
+  public void testToString() {
+    try (final IntVector intVector = new IntVector("intVector", allocator);
+         final ListVector listVector = ListVector.empty("listVector", allocator);
+         final StructVector structVector = StructVector.empty("structVector", allocator)) {
+
+      // validate intVector toString
+      assertEquals("[]", intVector.toString());
+      intVector.setValueCount(3);
+      intVector.setSafe(0, 1);
+      intVector.setSafe(1, 2);
+      intVector.setSafe(2, 3);
+      assertEquals("[1, 2, 3]", intVector.toString());
+
+      // validate intVector with plenty values
+      intVector.setValueCount(100);
+      for (int i = 0; i < 100; i++) {
+        intVector.setSafe(i, i);
+      }
+      assertEquals("[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, ... 90, 91, 92, 93, 94, 95, 96, 97, 98, 99]",
+          intVector.toString());
+
+      // validate listVector toString
+      listVector.allocateNewSafe();
+      listVector.initializeChildrenFromFields(
+          Collections.singletonList(Field.nullable("child", ArrowType.Utf8.INSTANCE)));
+      VarCharVector dataVector = (VarCharVector) listVector.getDataVector();
+
+      listVector.startNewValue(0);
+      dataVector.setSafe(0, "aaa".getBytes(StandardCharsets.UTF_8));
+      dataVector.setSafe(1, "bbb".getBytes(StandardCharsets.UTF_8));
+      listVector.endValue(0, 2);
+
+      listVector.startNewValue(1);
+      dataVector.setSafe(2, "ccc".getBytes(StandardCharsets.UTF_8));
+      dataVector.setSafe(3, "ddd".getBytes(StandardCharsets.UTF_8));
+      listVector.endValue(1, 2);
+      listVector.setValueCount(2);
+
+      assertEquals("[[\"aaa\",\"bbb\"], [\"ccc\",\"ddd\"]]", listVector.toString());
+
+      // validate structVector toString
+      structVector.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
+      structVector.addOrGet("f1", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
+
+      NullableStructWriter structWriter = structVector.getWriter();
+      structWriter.allocate();
+
+      writeStructVector(structWriter, 1, 10L);
+      writeStructVector(structWriter, 2, 20L);
+      structWriter.setValueCount(2);
+
+      assertEquals("[{\"f0\":1,\"f1\":10}, {\"f0\":2,\"f1\":20}]", structVector.toString());
     }
   }
 
