@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 
 <@pp.dropOutputFile />
