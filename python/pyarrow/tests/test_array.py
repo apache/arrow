@@ -529,6 +529,14 @@ def test_dictionary_from_arrays_boundscheck():
     pa.DictionaryArray.from_arrays(indices2, dictionary, safe=False)
 
 
+def test_dictionary_indices():
+    # https://issues.apache.org/jira/browse/ARROW-6882
+    indices = pa.array([0, 1, 2, 0, 1, 2])
+    dictionary = pa.array(['foo', 'bar', 'baz'])
+    arr = pa.DictionaryArray.from_arrays(indices, dictionary)
+    arr.indices.validate()
+
+
 @pytest.mark.parametrize(('list_array_type', 'list_type_factory'),
                          [(pa.ListArray, pa.list_),
                           (pa.LargeListArray, pa.large_list)])
