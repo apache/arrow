@@ -34,6 +34,7 @@ use serde_derive::{Deserialize, Serialize};
 use serde_json::{json, Number, Value, Value::Number as VNumber};
 
 use crate::error::{ArrowError, Result};
+use std::sync::Arc;
 
 /// The possible relative types that are supported.
 ///
@@ -868,6 +869,8 @@ impl fmt::Display for Schema {
         )
     }
 }
+
+pub type SchemaRef = Arc<Schema>;
 
 #[cfg(test)]
 mod tests {

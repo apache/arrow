@@ -52,9 +52,12 @@ use crate::schema::types::{
     ColumnDescPtr, ColumnDescriptor, ColumnPath, SchemaDescPtr, Type, TypePtr,
 };
 use crate::schema::visitor::TypeVisitor;
+use std::any::Any;
 
 /// Array reader reads parquet data into arrow array.
 pub trait ArrayReader {
+    fn as_any(&self) -> &dyn Any;
+
     /// Returns the arrow type of this array reader.
     fn get_data_type(&self) -> &ArrowType;
 
@@ -115,6 +118,10 @@ impl<T: DataType> PrimitiveArrayReader<T> {
 
 /// Implementation of primitive array reader.
 impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     /// Returns data type of primitive array.
     fn get_data_type(&self) -> &ArrowType {
         &self.data_type
@@ -232,7 +239,7 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
 }
 
 /// Implementation of struct array reader.
-struct StructArrayReader {
+pub struct StructArrayReader {
     children: Vec<Box<dyn ArrayReader>>,
     data_type: ArrowType,
     struct_def_level: i16,
@@ -261,6 +268,10 @@ impl StructArrayReader {
 }
 
 impl ArrayReader for StructArrayReader {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     /// Returns data type.
     /// This must be a struct.
     fn get_data_type(&self) -> &ArrowType {
@@ -705,6 +716,7 @@ mod tests {
     use arrow::array::{Array, ArrayRef, PrimitiveArray, StructArray};
     use arrow::datatypes::{DataType as ArrowType, Field, Int32Type as ArrowInt32};
     use rand::distributions::range::SampleRange;
+    use std::any::Any;
     use std::collections::VecDeque;
     use std::rc::Rc;
     use std::sync::Arc;
@@ -953,6 +965,10 @@ mod tests {
     }
 
     impl ArrayReader for InMemoryArrayReader {
+        fn as_any(&self) -> &Any {
+            self
+        }
+
         fn get_data_type(&self) -> &ArrowType {
             &self.data_type
         }

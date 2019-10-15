@@ -1159,4 +1159,17 @@ TEST(TestDictionary, CanCompareIndices) {
   }
 }
 
+TEST(TestDictionary, IndicesArray) {
+  auto dict = ArrayFromJSON(utf8(), "[\"foo\", \"bar\", \"baz\"]");
+  auto dict_type = dictionary(int16(), utf8());
+  auto indices = ArrayFromJSON(int16(), "[1, 2, null, 0, 2, 0]");
+  auto arr = std::make_shared<DictionaryArray>(dict_type, indices, dict);
+
+  // The indices array should not have dictionary data
+  ASSERT_EQ(arr->indices()->data()->dictionary, nullptr);
+
+  // Validate the indices array
+  ASSERT_OK(arr->indices()->Validate());
+}
+
 }  // namespace arrow

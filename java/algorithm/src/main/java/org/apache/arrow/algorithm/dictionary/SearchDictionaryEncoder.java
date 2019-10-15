@@ -59,18 +59,11 @@ public class SearchDictionaryEncoder<E extends BaseIntVector, D extends ValueVec
    * @param dictionary the dictionary. It must be in sorted order.
    * @param comparator the criteria for sorting.
    * @param encodeNull a flag indicating if null should be encoded.
-   *     It determines the behaviors for processing null values in the input during encoding/decoding.
-   *     <li>
-   *       For encoding, when a null is encountered in the input,
-   *       1) If the flag is set to true, the encoder searches for the value in the dictionary, 
-   *       and outputs the index in the dictionary.
-   *       2) If the flag is set to false, the encoder simply produces a null in the output.
-   *     </li>
-   *     <li>
-   *       For decoding, when a null is encountered in the input, 
-   *       1) If the flag is set to true, the decoder should never expect a null in the input.
-   *       2) If set to false, the decoder simply produces a null in the output.
-   *     </li>
+   *     It determines the behaviors for processing null values in the input during encoding.
+   *     When a null is encountered in the input,
+   *     1) If the flag is set to true, the encoder searches for the value in the dictionary,
+   *     and outputs the index in the dictionary.
+   *     2) If the flag is set to false, the encoder simply produces a null in the output.
    */
   public SearchDictionaryEncoder(D dictionary, VectorValueComparator<D> comparator, boolean encodeNull) {
     this.dictionary = dictionary;

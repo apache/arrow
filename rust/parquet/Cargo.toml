@@ -41,6 +41,7 @@ zstd = "0.4"
 chrono = "0.4"
 num-bigint = "0.2"
 arrow = { path = "../arrow", version = "1.0.0-SNAPSHOT" }
+serde_json = { version = "1.0.13", features = ["preserve_order"] }
 
 [dev-dependencies]
 lazy_static = "1"
