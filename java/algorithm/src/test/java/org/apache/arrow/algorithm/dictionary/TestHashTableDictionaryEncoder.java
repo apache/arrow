@@ -18,18 +18,16 @@
 package org.apache.arrow.algorithm.dictionary;
 
 import static junit.framework.TestCase.assertTrue;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Random;
 
-import org.apache.arrow.algorithm.sort.DefaultVectorComparators;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VarCharVector;
@@ -37,14 +35,13 @@ import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryEncoder;
 import org.apache.arrow.vector.types.pojo.DictionaryEncoding;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 /**
- * Test cases for {@link SearchDictionaryEncoder}.
+ * Test cases for {@link HashTableDictionaryEncoder}.
  */
-public class TestSearchDictionaryEncoder {
+public class TestHashTableDictionaryEncoder {
 
   private final int VECTOR_LENGTH = 50;
 
@@ -91,9 +88,8 @@ public class TestSearchDictionaryEncoder {
       }
       rawVector.setValueCount(VECTOR_LENGTH);
 
-      SearchDictionaryEncoder<IntVector, VarCharVector> encoder =
-              new SearchDictionaryEncoder<>(
-                dictionary, DefaultVectorComparators.createDefaultComparator(rawVector), false);
+      HashTableDictionaryEncoder<IntVector, VarCharVector> encoder =
+              new HashTableDictionaryEncoder<>(dictionary, false);
 
       // perform encoding
       encodedVector.allocateNew();
@@ -107,7 +103,7 @@ public class TestSearchDictionaryEncoder {
 
       // perform decoding
       Dictionary dict = new Dictionary(dictionary, new DictionaryEncoding(1L, false, null));
-      try (VarCharVector decodedVector = (VarCharVector) DictionaryEncoder.decode(encodedVector, dict)) {
+      try (VarCharVector decodedVector  = (VarCharVector) DictionaryEncoder.decode(encodedVector, dict)) {
 
         // verify decoding results
         assertEquals(encodedVector.getValueCount(), decodedVector.getValueCount());
@@ -146,9 +142,8 @@ public class TestSearchDictionaryEncoder {
       }
       rawVector.setValueCount(VECTOR_LENGTH);
 
-      SearchDictionaryEncoder<IntVector, VarCharVector> encoder =
-              new SearchDictionaryEncoder<>(
-                dictionary, DefaultVectorComparators.createDefaultComparator(rawVector), true);
+      HashTableDictionaryEncoder<IntVector, VarCharVector> encoder =
+              new HashTableDictionaryEncoder<>(dictionary, true);
 
       // perform encoding
       encodedVector.allocateNew();
@@ -166,8 +161,7 @@ public class TestSearchDictionaryEncoder {
 
       // perform decoding
       Dictionary dict = new Dictionary(dictionary, new DictionaryEncoding(1L, false, null));
-      try (VarCharVector decodedVector = (VarCharVector) DictionaryEncoder.decode(encodedVector, dict)) {
-
+      try (VarCharVector  decodedVector = (VarCharVector) DictionaryEncoder.decode(encodedVector, dict)) {
         // verify decoding results
         assertEquals(encodedVector.getValueCount(), decodedVector.getValueCount());
         for (int i = 0; i < VECTOR_LENGTH; i++) {
@@ -202,9 +196,8 @@ public class TestSearchDictionaryEncoder {
 
       encodedVector.allocateNew();
 
-      SearchDictionaryEncoder<IntVector, VarCharVector> encoder =
-              new SearchDictionaryEncoder<>(
-                dictionary, DefaultVectorComparators.createDefaultComparator(rawVector), true);
+      HashTableDictionaryEncoder<IntVector, VarCharVector> encoder =
+              new HashTableDictionaryEncoder<>(dictionary, true);
 
       // the encoder should encode null, but no null in the dictionary,
       // so an exception should be thrown.
@@ -239,9 +232,8 @@ public class TestSearchDictionaryEncoder {
       dictionaryVector.setSafe(2, two, 0, zero.length);
       dictionaryVector.setValueCount(3);
 
-      SearchDictionaryEncoder<IntVector, VarCharVector> encoder =
-              new SearchDictionaryEncoder<>(
-                      dictionaryVector, DefaultVectorComparators.createDefaultComparator(vector));
+      HashTableDictionaryEncoder<IntVector, VarCharVector> encoder =
+              new HashTableDictionaryEncoder<>(dictionaryVector);
       encoder.encode(vector, encoded);
 
       // verify indices
@@ -255,9 +247,10 @@ public class TestSearchDictionaryEncoder {
       // now run through the decoder and verify we get the original back
       Dictionary dict = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
       try (VarCharVector decoded = (VarCharVector) DictionaryEncoder.decode(encoded, dict)) {
+
         assertEquals(vector.getValueCount(), decoded.getValueCount());
         for (int i = 0; i < 5; i++) {
-          assertEquals(vector.getObject(i), decoded.getObject(i));
+          assertEquals(vector.getObject(i), ((VarCharVector) decoded).getObject(i));
         }
       }
     }
@@ -285,9 +278,8 @@ public class TestSearchDictionaryEncoder {
       dictionaryVector.setSafe(2, two, 0, zero.length);
       dictionaryVector.setValueCount(3);
 
-      SearchDictionaryEncoder<IntVector, VarCharVector> encoder =
-              new SearchDictionaryEncoder<>(
-                      dictionaryVector, DefaultVectorComparators.createDefaultComparator(vector));
+      HashTableDictionaryEncoder<IntVector, VarCharVector> encoder =
+              new HashTableDictionaryEncoder<>(dictionaryVector);
       encoder.encode(vector, encoded);
 
       assertEquals(count, encoded.getValueCount());
@@ -332,9 +324,8 @@ public class TestSearchDictionaryEncoder {
       dictionaryVector.setSafe(2, two, 0, zero.length);
       dictionaryVector.setValueCount(3);
 
-      SearchDictionaryEncoder<IntVector, VarBinaryVector> encoder =
-              new SearchDictionaryEncoder<>(
-                      dictionaryVector, DefaultVectorComparators.createDefaultComparator(vector));
+      HashTableDictionaryEncoder<IntVector, VarBinaryVector> encoder =
+              new HashTableDictionaryEncoder<>(dictionaryVector);
       encoder.encode(vector, encoded);
 
       assertEquals(5, encoded.getValueCount());
@@ -347,10 +338,11 @@ public class TestSearchDictionaryEncoder {
       // now run through the decoder and verify we get the original back
       Dictionary dict = new Dictionary(dictionaryVector, new DictionaryEncoding(1L, false, null));
       try (VarBinaryVector decoded = (VarBinaryVector) DictionaryEncoder.decode(encoded, dict)) {
+
         assertEquals(vector.getClass(), decoded.getClass());
         assertEquals(vector.getValueCount(), decoded.getValueCount());
         for (int i = 0; i < 5; i++) {
-          Assert.assertTrue(Arrays.equals(vector.getObject(i), decoded.getObject(i)));
+          assertTrue(Arrays.equals(vector.getObject(i), decoded.getObject(i)));
         }
       }
     }
