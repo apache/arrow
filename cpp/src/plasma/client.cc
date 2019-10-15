@@ -1000,13 +1000,12 @@ Status PlasmaClient::Impl::GetNotification(int fd, ObjectID* object_id,
     RETURN_NOT_OK(
         DecodeNotifications(message.get(), &object_ids, &data_sizes, &metadata_sizes));
     for (size_t i = 0; i < object_ids.size(); ++i) {
-      pending_notification_.push_back(
-          std::make_tuple(object_ids[i], data_sizes[i], metadata_sizes[i]));
+      pending_notification_.emplace_back(object_ids[i], data_sizes[i], metadata_sizes[i]);
     }
   }
 
   auto notification = pending_notification_.front();
-  memcpy(object_id, &(std::get<0>(notification)), sizeof(ObjectID));
+  *object_id = std::get<0>(notification);
   *data_size = std::get<1>(notification);
   *metadata_size = std::get<2>(notification);
 
@@ -1023,16 +1022,15 @@ Status PlasmaClient::Impl::DecodeNotifications(const uint8_t* buffer,
   auto object_info = flatbuffers::GetRoot<fb::PlasmaNotification>(buffer);
 
   for (size_t i = 0; i < object_info->object_info()->size(); ++i) {
-    ObjectID id;
-    memcpy(&id, object_info->object_info()->Get(i)->object_id()->data(),
-           sizeof(ObjectID));
+    auto info = object_info->object_info()->Get(i);
+    ObjectID id = ObjectID::from_binary(info->object_id()->str());
     object_ids->push_back(id);
-    if (object_info->object_info()->Get(i)->is_deletion()) {
+    if (info->is_deletion()) {
       data_sizes->push_back(-1);
       metadata_sizes->push_back(-1);
     } else {
-      data_sizes->push_back(object_info->object_info()->Get(i)->data_size());
-      metadata_sizes->push_back(object_info->object_info()->Get(i)->metadata_size());
+      data_sizes->push_back(info->data_size());
+      metadata_sizes->push_back(info->metadata_size());
     }
   }
 
