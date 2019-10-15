@@ -1386,6 +1386,36 @@ TEST(TestRecordBatchStreamReader, MalformedInput) {
   ASSERT_RAISES(Invalid, RecordBatchStreamReader::Open(&garbage_reader, &batch_reader));
 }
 
+TEST(TestRecordBatchStreamReader, BatchLengthNotArrayLength) {
+  // create batch
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntBatchSized(36, &batch)); // 36x2
+
+  // the expected data is a slice of the first 30 rows
+  auto expected = batch->Slice(0,30);
+
+  // change the batch length without changing the array length
+  class TruncatedBatch : public RecordBatch
+  {
+  public:
+    void setNumRows(int rows) { num_rows_ = rows; }
+  };
+  reinterpret_cast<TruncatedBatch *>(batch.get())->setNumRows(30);
+
+  // write batch
+  FileWriterHelper helper;
+  ASSERT_OK(helper.Init(batch->schema(), IpcOptions::Defaults()));
+  ASSERT_OK(helper.WriteBatch(batch));
+  ASSERT_OK(helper.Finish());
+
+  // read batch, which should get sliced to 30 rows
+  BatchVector out_batches;
+  ASSERT_OK(helper.ReadBatches(&out_batches));
+  ASSERT_EQ(out_batches.size(),1);
+
+  ASSERT_TRUE(expected->Equals(*out_batches[0]));
+}
+
 // ----------------------------------------------------------------------
 // DictionaryMemo miscellanea
 
