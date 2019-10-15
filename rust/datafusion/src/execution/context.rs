@@ -294,6 +294,11 @@ impl ExecutionContext {
 
                 let schema = initial_aggr.schema();
                 let partitions = initial_aggr.partitions()?;
+
+                if partitions.len() == 1 {
+                    return Ok(Arc::new(initial_aggr));
+                }
+
                 let (final_group, final_aggr) = initial_aggr.make_final_expr();
 
                 let merge = Arc::new(MergeExec::new(schema.clone(), partitions));

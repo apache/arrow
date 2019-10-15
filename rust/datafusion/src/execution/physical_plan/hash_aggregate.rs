@@ -104,7 +104,7 @@ impl ExecutionPlan for HashAggregateExec {
     }
 
     fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
-        let partitions: Vec<Arc<dyn Partition>> = self
+        Ok(self
             .input
             .partitions()?
             .iter()
@@ -119,9 +119,7 @@ impl ExecutionPlan for HashAggregateExec {
 
                 aggregate
             })
-            .collect();
-
-        Ok(partitions)
+            .collect::<Vec<Arc<dyn Partition>>>())
     }
 }
 
