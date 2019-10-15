@@ -579,7 +579,8 @@ def test_list_actions():
         client = FlightClient(('localhost', server.port))
         with pytest.raises(
                 flight.FlightServerError,
-                match="Results of list_actions must be ActionType or tuple"
+                match=("TypeError: Results of list_actions must be "
+                       "ActionType or tuple")
         ):
             list(client.list_actions())
 
@@ -624,7 +625,7 @@ def test_nicer_server_exceptions():
     with ConvenienceServer() as server:
         client = FlightClient(('localhost', server.port))
         with pytest.raises(flight.FlightServerError,
-                           match="a bytes-like object is required"):
+                           match="TypeError: a bytes-like object is required"):
             list(client.do_action('bad-action'))
 
 
