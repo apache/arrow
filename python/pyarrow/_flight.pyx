@@ -57,6 +57,8 @@ cdef int check_flight_status(const CStatus& status) nogil except -1:
             message = frombytes(status.message())
             if detail.get().code() == CFlightStatusInternal:
                 raise FlightInternalError(message)
+            elif detail.get().code() == CFlightStatusFailed:
+                raise FlightServerError(message)
             elif detail.get().code() == CFlightStatusTimedOut:
                 raise FlightTimedOutError(message)
             elif detail.get().code() == CFlightStatusCancelled:
@@ -128,6 +130,11 @@ cdef class FlightTimedOutError(FlightError, ArrowException):
 cdef class FlightCancelledError(FlightError, ArrowException):
     cdef CStatus to_status(self):
         return MakeFlightError(CFlightStatusCancelled, tobytes(str(self)))
+
+
+cdef class FlightServerError(FlightError, ArrowException):
+    cdef CStatus to_status(self):
+        return MakeFlightError(CFlightStatusFailed, tobytes(str(self)))
 
 
 cdef class FlightUnauthenticatedError(FlightError, ArrowException):
