@@ -827,6 +827,10 @@ class MyDatetime(datetime.datetime):
     pass
 
 
+class MyTimedelta(datetime.timedelta):
+    pass
+
+
 def test_datetime_subclassing():
     data = [
         MyDate(2007, 7, 13),
@@ -862,6 +866,34 @@ def test_datetime_subclassing():
     assert arr_us.type == us
     assert arr_us[0].as_py() == datetime.datetime(2007, 7, 13, 1,
                                                   23, 34, 123456)
+
+    data = [
+        MyTimedelta(123, 456, 1002),
+    ]
+
+    s = pa.duration('s')
+    ms = pa.duration('ms')
+    us = pa.duration('us')
+
+    arr_s = pa.array(data)
+    assert len(arr_s) == 1
+    assert arr_s.type == us
+    assert arr_s[0].as_py() == datetime.timedelta(123, 456, 1002)
+
+    arr_s = pa.array(data, type=s)
+    assert len(arr_s) == 1
+    assert arr_s.type == s
+    assert arr_s[0].as_py() == datetime.timedelta(123, 456)
+
+    arr_ms = pa.array(data, type=ms)
+    assert len(arr_ms) == 1
+    assert arr_ms.type == ms
+    assert arr_ms[0].as_py() == datetime.timedelta(123, 456, 1000)
+
+    arr_us = pa.array(data, type=us)
+    assert len(arr_us) == 1
+    assert arr_us.type == us
+    assert arr_us[0].as_py() == datetime.timedelta(123, 456, 1002)
 
 
 @pytest.mark.xfail(not _pandas_api.have_pandas,
@@ -930,6 +962,91 @@ def test_sequence_timestamp_from_int_with_unit():
     for ty in [ns, pa.date32(), pa.date64()]:
         with pytest.raises(expected_exc):
             pa.array([1, CustomClass()], type=ty)
+
+
+@pytest.mark.parametrize('np_scalar', [True, False])
+def test_sequence_duration(np_scalar):
+    td1 = datetime.timedelta(2, 3601, 1)
+    td2 = datetime.timedelta(1, 100, 1000)
+    if np_scalar:
+        data = [np.timedelta64(td1), None, np.timedelta64(td2)]
+    else:
+        data = [td1, None, td2]
+
+    arr = pa.array(data)
+    assert len(arr) == 3
+    assert arr.type == pa.duration('us')
+    assert arr.null_count == 1
+    assert arr[0].as_py() == td1
+    assert arr[1].as_py() is None
+    assert arr[2].as_py() == td2
+
+
+@pytest.mark.parametrize('unit', ['s', 'ms', 'us', 'ns'])
+def test_sequence_duration_with_unit(unit):
+    data = [
+        datetime.timedelta(3, 22, 1001),
+    ]
+    expected = {'s': datetime.timedelta(3, 22),
+                'ms': datetime.timedelta(3, 22, 1000),
+                'us': datetime.timedelta(3, 22, 1001),
+                'ns': datetime.timedelta(3, 22, 1001)}
+
+    ty = pa.duration(unit)
+
+    arr_s = pa.array(data, type=ty)
+    assert len(arr_s) == 1
+    assert arr_s.type == ty
+    assert arr_s[0].as_py() == expected[unit]
+
+
+@pytest.mark.parametrize('unit', ['s', 'ms', 'us', 'ns'])
+def test_sequence_duration_from_int_with_unit(unit):
+    data = [5]
+
+    ty = pa.duration(unit)
+    arr = pa.array(data, type=ty)
+    assert len(arr) == 1
+    assert arr.type == ty
+    assert arr[0].value == 5
+
+
+def test_sequence_duration_nested_lists():
+    td1 = datetime.timedelta(1, 1, 1000)
+    td2 = datetime.timedelta(1, 100)
+
+    data = [[td1, None], [td1, td2]]
+
+    arr = pa.array(data)
+    assert len(arr) == 2
+    assert arr.type == pa.list_(pa.duration('us'))
+    assert arr.to_pylist() == data
+
+    arr = pa.array(data, type=pa.list_(pa.duration('ms')))
+    assert len(arr) == 2
+    assert arr.type == pa.list_(pa.duration('ms'))
+    assert arr.to_pylist() == data
+
+
+def test_sequence_duration_nested_lists_numpy():
+    td1 = datetime.timedelta(1, 1, 1000)
+    td2 = datetime.timedelta(1, 100)
+
+    data = [[np.timedelta64(td1), None],
+            [np.timedelta64(td1), np.timedelta64(td2)]]
+
+    arr = pa.array(data)
+    assert len(arr) == 2
+    assert arr.type == pa.list_(pa.duration('us'))
+    assert arr.to_pylist() == [[td1, None], [td1, td2]]
+
+    data = [np.array([np.timedelta64(td1), None], dtype='timedelta64[us]'),
+            np.array([np.timedelta64(td1), np.timedelta64(td2)])]
+
+    arr = pa.array(data)
+    assert len(arr) == 2
+    assert arr.type == pa.list_(pa.duration('us'))
+    assert arr.to_pylist() == [[td1, None], [td1, td2]]
 
 
 def test_sequence_nesting_levels():

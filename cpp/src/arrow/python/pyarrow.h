@@ -66,6 +66,8 @@ ARROW_PYTHON_EXPORT PyObject* wrap_schema(const std::shared_ptr<Schema>& schema)
 ARROW_PYTHON_EXPORT bool is_array(PyObject* array);
 ARROW_PYTHON_EXPORT Status unwrap_array(PyObject* array, std::shared_ptr<Array>* out);
 ARROW_PYTHON_EXPORT PyObject* wrap_array(const std::shared_ptr<Array>& array);
+ARROW_PYTHON_EXPORT PyObject* wrap_chunked_array(
+    const std::shared_ptr<ChunkedArray>& array);
 
 ARROW_PYTHON_EXPORT bool is_tensor(PyObject* tensor);
 ARROW_PYTHON_EXPORT Status unwrap_tensor(PyObject* tensor, std::shared_ptr<Tensor>* out);

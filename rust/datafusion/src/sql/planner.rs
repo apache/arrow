@@ -88,10 +88,7 @@ impl SqlToRel {
                 // collect aggregate expressions
                 let aggr_expr: Vec<Expr> = expr
                     .iter()
-                    .filter(|e| match e {
-                        Expr::AggregateFunction { .. } => true,
-                        _ => false,
-                    })
+                    .filter(|e| is_aggregate_expr(e))
                     .map(|e| e.clone())
                     .collect();
 
@@ -117,28 +114,57 @@ impl SqlToRel {
                         input_schema,
                     )?);
 
-                    //TODO: selection, projection, everything else
-                    Ok(Arc::new(LogicalPlan::Aggregate {
+                    let group_by_count = group_expr.len();
+                    let aggr_count = aggr_expr.len();
+
+                    let aggregate = Arc::new(LogicalPlan::Aggregate {
                         input: aggregate_input,
                         group_expr,
                         aggr_expr,
                         schema: Arc::new(aggr_schema),
-                    }))
+                    });
+
+                    // wrap in projection to preserve final order of fields
+                    let mut projected_fields =
+                        Vec::with_capacity(group_by_count + aggr_count);
+                    let mut group_expr_index = 0;
+                    let mut aggr_expr_index = 0;
+                    for i in 0..expr.len() {
+                        if is_aggregate_expr(&expr[i]) {
+                            projected_fields.push(group_by_count + aggr_expr_index);
+                            aggr_expr_index += 1;
+                        } else {
+                            projected_fields.push(group_expr_index);
+                            group_expr_index += 1;
+                        }
+                    }
+
+                    // determine if projection is needed or not
+                    // NOTE this would be better done later in a query optimizer rule
+                    let mut projection_needed = false;
+                    for i in 0..projected_fields.len() {
+                        if projected_fields[i] != i {
+                            projection_needed = true;
+                            break;
+                        }
+                    }
+
+                    if projection_needed {
+                        let projection = create_projection(
+                            projected_fields.iter().map(|i| Expr::Column(*i)).collect(),
+                            aggregate,
+                        )?;
+                        Ok(Arc::new(projection))
+                    } else {
+                        Ok(aggregate)
+                    }
                 } else {
                     let projection_input: Arc<LogicalPlan> = match selection_plan {
                         Some(s) => Arc::new(s),
                         _ => input.clone(),
                     };
 
-                    let projection_schema = Arc::new(Schema::new(
-                        utils::exprlist_to_fields(&expr, input_schema.as_ref())?,
-                    ));
-
-                    let projection = LogicalPlan::Projection {
-                        expr: expr,
-                        input: projection_input,
-                        schema: projection_schema.clone(),
-                    };
+                    let projection = create_projection(expr, projection_input)?;
 
                     if let &Some(_) = having {
                         return Err(ExecutionError::General(
@@ -374,6 +400,30 @@ impl SqlToRel {
                 sql
             ))),
         }
+    }
+}
+
+/// Create a projection
+fn create_projection(expr: Vec<Expr>, input: Arc<LogicalPlan>) -> Result<LogicalPlan> {
+    let input_schema = input.schema();
+
+    let schema = Arc::new(Schema::new(utils::exprlist_to_fields(
+        &expr,
+        input_schema.as_ref(),
+    )?));
+
+    Ok(LogicalPlan::Projection {
+        expr,
+        input,
+        schema,
+    })
+}
+
+/// Determine if an expression is an aggregate expression or not
+fn is_aggregate_expr(e: &Expr) -> bool {
+    match e {
+        Expr::AggregateFunction { .. } => true,
+        _ => false,
     }
 }
 

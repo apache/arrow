@@ -15,15 +15,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM rustlang/rust:nightly
+FROM rust:1.38.0-buster
+RUN rustup show
 
-# sadly cargo doesn't have a command to fetch and build the
-# dependencies without building the library itself
-ENV CARGO_TARGET_DIR=/build/rust
-COPY rust/Cargo.toml /arrow/rust/Cargo.toml
-WORKDIR /arrow/rust
+# Install stable rustfmt
+RUN rustup install stable
+RUN rustup component add rustfmt
 
+# Install the specific version of Rust nightly that we need so that we don't need to download it for every CI run
+COPY rust/rust-toolchain /tmp
+RUN rustup install "$(cat /tmp/rust-toolchain)"
+RUN rustup default "$(cat /tmp/rust-toolchain)"
+
+# Enable stable rustfmt for nightly Rust
+RUN rustup component add rustfmt --toolchain stable-x86_64-unknown-linux-gnu
+
+# Set environment variables for location of test data required by unit and integration tests
 ENV ARROW_TEST_DATA=/arrow/testing/data
 ENV PARQUET_TEST_DATA=/arrow/cpp/submodules/parquet-testing/data
 
-CMD ["cargo", "test"]
+CMD ["/bin/bash", "-c", "arrow/ci/docker_build_rust.sh"]

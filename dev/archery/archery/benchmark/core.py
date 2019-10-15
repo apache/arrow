@@ -15,7 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import pandas as pa
+
+def median(values):
+    n = len(values)
+    if n == 0:
+        raise ValueError("median requires at least one value")
+    elif n % 2 == 0:
+        return (values[(n // 2) - 1] + values[n // 2]) / 2
+    else:
+        return values[n // 2]
 
 
 class Benchmark:
@@ -23,13 +31,12 @@ class Benchmark:
         self.name = name
         self.unit = unit
         self.less_is_better = less_is_better
-        self.values = pa.Series(values)
-        self.statistics = self.values.describe()
+        self.values = sorted(values)
+        self.median = median(self.values)
 
     @property
     def value(self):
-        median = "50%"
-        return float(self.statistics[median])
+        return self.median
 
     def __repr__(self):
         return f"Benchmark[name={self.name},value={self.value}]"

@@ -24,8 +24,8 @@ import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
@@ -171,7 +171,7 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
   }
 
   @Override
-  public Boolean visit(ZeroVector left, Range range) {
+  public Boolean visit(NullVector left, Range range) {
     if (!validate(left)) {
       return false;
     }

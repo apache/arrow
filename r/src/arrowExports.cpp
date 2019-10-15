@@ -922,6 +922,21 @@ RcppExport SEXP _arrow_util___Codec__name(SEXP codec_sexp){
 
 // compression.cpp
 #if defined(ARROW_R_WITH_ARROW)
+bool util___Codec__IsAvailable(arrow::Compression::type codec);
+RcppExport SEXP _arrow_util___Codec__IsAvailable(SEXP codec_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<arrow::Compression::type>::type codec(codec_sexp);
+	return Rcpp::wrap(util___Codec__IsAvailable(codec));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_util___Codec__IsAvailable(SEXP codec_sexp){
+	Rf_error("Cannot call util___Codec__IsAvailable(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// compression.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::io::CompressedOutputStream> io___CompressedOutputStream__Make(const std::unique_ptr<arrow::util::Codec>& codec, const std::shared_ptr<arrow::io::OutputStream>& raw);
 RcppExport SEXP _arrow_io___CompressedOutputStream__Make(SEXP codec_sexp, SEXP raw_sexp){
 BEGIN_RCPP
@@ -5009,6 +5024,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ChunkedArray__Equals", (DL_FUNC) &_arrow_ChunkedArray__Equals, 2}, 
 		{ "_arrow_util___Codec__Create", (DL_FUNC) &_arrow_util___Codec__Create, 2}, 
 		{ "_arrow_util___Codec__name", (DL_FUNC) &_arrow_util___Codec__name, 1}, 
+		{ "_arrow_util___Codec__IsAvailable", (DL_FUNC) &_arrow_util___Codec__IsAvailable, 1}, 
 		{ "_arrow_io___CompressedOutputStream__Make", (DL_FUNC) &_arrow_io___CompressedOutputStream__Make, 2}, 
 		{ "_arrow_io___CompressedInputStream__Make", (DL_FUNC) &_arrow_io___CompressedInputStream__Make, 2}, 
 		{ "_arrow_compute___CastOptions__initialize", (DL_FUNC) &_arrow_compute___CastOptions__initialize, 3}, 

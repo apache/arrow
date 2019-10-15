@@ -28,8 +28,10 @@
 #include <cstdlib>
 #include <iostream>
 #include <limits>
+#include <locale>
 #include <memory>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -193,6 +195,26 @@ void CompareBatch(const RecordBatch& left, const RecordBatch& right,
     }
   }
 }
+
+class LocaleGuard::Impl {
+ public:
+  explicit Impl(const char* new_locale) : global_locale_(std::locale()) {
+    try {
+      std::locale::global(std::locale(new_locale));
+    } catch (std::runtime_error&) {
+      ARROW_LOG(WARNING) << "Locale unavailable (ignored): '" << new_locale << "'";
+    }
+  }
+
+  ~Impl() { std::locale::global(global_locale_); }
+
+ protected:
+  std::locale global_locale_;
+};
+
+LocaleGuard::LocaleGuard(const char* new_locale) : impl_(new Impl(new_locale)) {}
+
+LocaleGuard::~LocaleGuard() {}
 
 namespace {
 

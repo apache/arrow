@@ -350,6 +350,23 @@ garrow_integer_data_type_class_init(GArrowIntegerDataTypeClass *klass)
 {
 }
 
+/**
+ * garrow_integer_data_type_is_signed:
+ * @data_type: A #GArrowIntegerDataType.
+ *
+ * Returns: %TRUE if the data type is signed, %FALSE otherwise.
+ *
+ * Since: 1.0.0
+ */
+gboolean
+garrow_integer_data_type_is_signed(GArrowIntegerDataType *data_type)
+{
+  const auto arrow_data_type =
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  const auto arrow_integer_type =
+    std::static_pointer_cast<arrow::IntegerType>(arrow_data_type);
+  return arrow_integer_type->is_signed();
+}
 
 G_DEFINE_TYPE(GArrowInt8DataType,
               garrow_int8_data_type,

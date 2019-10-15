@@ -227,6 +227,12 @@ ${ARROW_CMAKE_OPTIONS:-}
 -DARROW_GANDIVA=ON
 -DARROW_PARQUET=ON
 -DPARQUET_REQUIRE_ENCRYPTION=ON
+-DARROW_WITH_BZ2=ON
+-DARROW_WITH_ZLIB=ON
+-DARROW_WITH_ZSTD=ON
+-DARROW_WITH_LZ4=ON
+-DARROW_WITH_SNAPPY=ON
+-DARROW_WITH_BROTLI=ON
 -DARROW_BOOST_USE_SHARED=ON
 -DCMAKE_BUILD_TYPE=release
 -DARROW_BUILD_TESTS=ON
@@ -442,20 +448,23 @@ test_integration() {
   export ARROW_JAVA_INTEGRATION_JAR=$JAVA_DIR/tools/target/arrow-tools-$VERSION-jar-with-dependencies.jar
   export ARROW_CPP_EXE_PATH=$CPP_BUILD_DIR/release
 
-  pushd integration
+  pip3 install -e dev/archery
 
-  INTEGRATION_TEST_ARGS=
+  INTEGRATION_TEST_ARGS=""
 
   if [ "${ARROW_FLIGHT}" = "ON" ]; then
-    INTEGRATION_TEST_ARGS=--run_flight
+    INTEGRATION_TEST_ARGS="${INTEGRATION_TEST_ARGS} --run-flight"
   fi
 
   # Flight integration test executable have runtime dependency on
   # release/libgtest.so
   LD_LIBRARY_PATH=$ARROW_CPP_EXE_PATH:$LD_LIBRARY_PATH \
-      python integration_test.py $INTEGRATION_TEST_ARGS
-
-  popd
+      archery integration \
+              --with-cpp=${TEST_INTEGRATION_CPP} \
+              --with-java=${TEST_INTEGRATION_JAVA} \
+              --with-js=${TEST_INTEGRATION_JS} \
+              --with-go=${TEST_INTEGRATION_GO} \
+              $INTEGRATION_TEST_ARGS
 }
 
 test_source_distribution() {
@@ -542,12 +551,19 @@ test_binary_distribution() {
 : ${TEST_APT:=${TEST_DEFAULT}}
 : ${TEST_YUM:=${TEST_DEFAULT}}
 
+# For selective Integration testing, set TEST_DEFAULT=0 TEST_INTEGRATION_X=1 TEST_INTEGRATION_Y=1
+: ${TEST_INTEGRATION_CPP:=${TEST_INTEGRATION}}
+: ${TEST_INTEGRATION_JAVA:=${TEST_INTEGRATION}}
+: ${TEST_INTEGRATION_JS:=${TEST_INTEGRATION}}
+: ${TEST_INTEGRATION_GO:=${TEST_INTEGRATION}}
+
 # Automatically test if its activated by a dependent
 TEST_GLIB=$((${TEST_GLIB} + ${TEST_RUBY}))
-TEST_PYTHON=$((${TEST_PYTHON} + ${TEST_INTEGRATION}))
-TEST_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON}))
-TEST_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION}))
-TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION}))
+TEST_CPP=$((${TEST_CPP} + ${TEST_GLIB} + ${TEST_PYTHON} + ${TEST_INTEGRATION_CPP}))
+TEST_JAVA=$((${TEST_JAVA} + ${TEST_INTEGRATION_JAVA}))
+TEST_JS=$((${TEST_JS} + ${TEST_INTEGRATION_JS}))
+TEST_GO=$((${TEST_GO} + ${TEST_INTEGRATION_GO}))
+TEST_INTEGRATION=$((${TEST_INTEGRATION} + ${TEST_INTEGRATION_CPP} + ${TEST_INTEGRATION_JAVA} + ${TEST_INTEGRATION_JS} + ${TEST_INTEGRATION_GO}))
 
 : ${TEST_ARCHIVE:=apache-arrow-${VERSION}.tar.gz}
 case "${TEST_ARCHIVE}" in

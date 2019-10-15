@@ -23,6 +23,7 @@
 #include <chrono>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/ipc/reader.h"
@@ -41,6 +42,8 @@ class Schema;
 namespace flight {
 
 class ClientAuthHandler;
+class ClientMiddleware;
+class ClientMiddlewareFactory;
 
 /// \brief A duration type for Flight call timeouts.
 typedef std::chrono::duration<double, std::chrono::seconds::period> TimeoutDuration;
@@ -64,6 +67,8 @@ class ARROW_FLIGHT_EXPORT FlightClientOptions {
   std::string tls_root_certs;
   /// \brief Override the hostname checked by TLS. Use with caution.
   std::string override_hostname;
+  /// \brief A list of client middleware to apply.
+  std::vector<std::shared_ptr<ClientMiddlewareFactory>> middleware;
 };
 
 /// \brief A RecordBatchReader exposing Flight metadata and cancel

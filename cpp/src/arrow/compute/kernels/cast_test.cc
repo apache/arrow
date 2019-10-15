@@ -18,9 +18,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <functional>
-#include <locale>
 #include <memory>
-#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -160,6 +158,41 @@ class TestCast : public ComputeFixture, public TestBase {
         src_type, strings, all, dest_type, strings, options);
   }
 
+  template <typename DestType>
+  void TestCastNumberToString() {
+    auto dest_type = TypeTraits<DestType>::type_singleton();
+
+    CheckCaseJSON(int8(), dest_type, "[0, 1, 127, -128, null]",
+                  R"(["0", "1", "127", "-128", null])");
+    CheckCaseJSON(uint8(), dest_type, "[0, 1, 255, null]", R"(["0", "1", "255", null])");
+    CheckCaseJSON(int16(), dest_type, "[0, 1, 32767, -32768, null]",
+                  R"(["0", "1", "32767", "-32768", null])");
+    CheckCaseJSON(uint16(), dest_type, "[0, 1, 65535, null]",
+                  R"(["0", "1", "65535", null])");
+    CheckCaseJSON(int32(), dest_type, "[0, 1, 2147483647, -2147483648, null]",
+                  R"(["0", "1", "2147483647", "-2147483648", null])");
+    CheckCaseJSON(uint32(), dest_type, "[0, 1, 4294967295, null]",
+                  R"(["0", "1", "4294967295", null])");
+    CheckCaseJSON(int64(), dest_type,
+                  "[0, 1, 9223372036854775807, -9223372036854775808, null]",
+                  R"(["0", "1", "9223372036854775807", "-9223372036854775808", null])");
+    CheckCaseJSON(uint64(), dest_type, "[0, 1, 18446744073709551615, null]",
+                  R"(["0", "1", "18446744073709551615", null])");
+
+    CheckCaseJSON(float32(), dest_type, "[0.0, -0.0, 1.5, -Inf, Inf, NaN, null]",
+                  R"(["0", "-0", "1.5", "-inf", "inf", "nan", null])");
+    CheckCaseJSON(float64(), dest_type, "[0.0, -0.0, 1.5, -Inf, Inf, NaN, null]",
+                  R"(["0", "-0", "1.5", "-inf", "inf", "nan", null])");
+  }
+
+  template <typename DestType>
+  void TestCastBooleanToString() {
+    auto dest_type = TypeTraits<DestType>::type_singleton();
+
+    CheckCaseJSON(boolean(), dest_type, "[true, true, false, null]",
+                  R"(["true", "true", "false", null])");
+  }
+
   template <typename SourceType>
   void TestCastStringToNumber() {
     CastOptions options;
@@ -224,23 +257,16 @@ class TestCast : public ComputeFixture, public TestBase {
     CheckCase<SourceType, std::string, DoubleType, double>(src_type, v_float, is_valid,
                                                            float64(), e_double, options);
 
-#ifndef _WIN32
+#if !defined(_WIN32) || defined(NDEBUG)
     // Test that casting is locale-independent
-    // ARROW-6108: can't run this test on Windows.  std::locale() will simply throw
-    // on release builds, but may crash with an assertion failure on debug builds.
-    // (similar issue here: https://gerrit.libreoffice.org/#/c/54110/)
-    auto global_locale = std::locale();
-    try {
+    {
       // French locale uses the comma as decimal point
-      std::locale::global(std::locale("fr_FR.UTF-8"));
-    } catch (std::runtime_error&) {
-      // Locale unavailable, ignore
+      LocaleGuard locale_guard("fr_FR.UTF-8");
+      CheckCase<SourceType, std::string, FloatType, float>(src_type, v_float, is_valid,
+                                                           float32(), e_float, options);
+      CheckCase<SourceType, std::string, DoubleType, double>(
+          src_type, v_float, is_valid, float64(), e_double, options);
     }
-    CheckCase<SourceType, std::string, FloatType, float>(src_type, v_float, is_valid,
-                                                         float32(), e_float, options);
-    CheckCase<SourceType, std::string, DoubleType, double>(src_type, v_float, is_valid,
-                                                           float64(), e_double, options);
-    std::locale::global(global_locale);
 #endif
   }
 
@@ -860,6 +886,86 @@ TEST_F(TestCast, DateToCompatible) {
   CheckFails<Date64Type>(date64(), v8, is_valid, date32(), options);
 }
 
+TEST_F(TestCast, DurationToCompatible) {
+  CastOptions options;
+
+  auto CheckDurationCast =
+      [this](const CastOptions& options, TimeUnit::type from_unit, TimeUnit::type to_unit,
+             const std::vector<int64_t>& from_values,
+             const std::vector<int64_t>& to_values, const std::vector<bool>& is_valid) {
+        CheckCase<DurationType, int64_t, DurationType, int64_t>(
+            duration(from_unit), from_values, is_valid, duration(to_unit), to_values,
+            options);
+      };
+
+  std::vector<bool> is_valid = {true, false, true, true, true};
+
+  // Multiply promotions
+  std::vector<int64_t> v1 = {0, 100, 200, 1, 2};
+  std::vector<int64_t> e1 = {0, 100000, 200000, 1000, 2000};
+  CheckDurationCast(options, TimeUnit::SECOND, TimeUnit::MILLI, v1, e1, is_valid);
+
+  std::vector<int64_t> v2 = {0, 100, 200, 1, 2};
+  std::vector<int64_t> e2 = {0, 100000000L, 200000000L, 1000000, 2000000};
+  CheckDurationCast(options, TimeUnit::SECOND, TimeUnit::MICRO, v2, e2, is_valid);
+
+  std::vector<int64_t> v3 = {0, 100, 200, 1, 2};
+  std::vector<int64_t> e3 = {0, 100000000000L, 200000000000L, 1000000000L, 2000000000L};
+  CheckDurationCast(options, TimeUnit::SECOND, TimeUnit::NANO, v3, e3, is_valid);
+
+  std::vector<int64_t> v4 = {0, 100, 200, 1, 2};
+  std::vector<int64_t> e4 = {0, 100000, 200000, 1000, 2000};
+  CheckDurationCast(options, TimeUnit::MILLI, TimeUnit::MICRO, v4, e4, is_valid);
+
+  std::vector<int64_t> v5 = {0, 100, 200, 1, 2};
+  std::vector<int64_t> e5 = {0, 100000000L, 200000000L, 1000000, 2000000};
+  CheckDurationCast(options, TimeUnit::MILLI, TimeUnit::NANO, v5, e5, is_valid);
+
+  std::vector<int64_t> v6 = {0, 100, 200, 1, 2};
+  std::vector<int64_t> e6 = {0, 100000, 200000, 1000, 2000};
+  CheckDurationCast(options, TimeUnit::MICRO, TimeUnit::NANO, v6, e6, is_valid);
+
+  // Zero copy
+  std::vector<int64_t> v7 = {0, 70000, 2000, 1000, 0};
+  std::shared_ptr<Array> arr;
+  ArrayFromVector<DurationType, int64_t>(duration(TimeUnit::SECOND), is_valid, v7, &arr);
+  CheckZeroCopy(*arr, duration(TimeUnit::SECOND));
+  CheckZeroCopy(*arr, int64());
+
+  // Divide, truncate
+  std::vector<int64_t> v8 = {0, 100123, 200456, 1123, 2456};
+  std::vector<int64_t> e8 = {0, 100, 200, 1, 2};
+
+  options.allow_time_truncate = true;
+  CheckDurationCast(options, TimeUnit::MILLI, TimeUnit::SECOND, v8, e8, is_valid);
+  CheckDurationCast(options, TimeUnit::MICRO, TimeUnit::MILLI, v8, e8, is_valid);
+  CheckDurationCast(options, TimeUnit::NANO, TimeUnit::MICRO, v8, e8, is_valid);
+
+  std::vector<int64_t> v9 = {0, 100123000, 200456000, 1123000, 2456000};
+  std::vector<int64_t> e9 = {0, 100, 200, 1, 2};
+  CheckDurationCast(options, TimeUnit::MICRO, TimeUnit::SECOND, v9, e9, is_valid);
+  CheckDurationCast(options, TimeUnit::NANO, TimeUnit::MILLI, v9, e9, is_valid);
+
+  std::vector<int64_t> v10 = {0, 100123000000L, 200456000000L, 1123000000L, 2456000000};
+  std::vector<int64_t> e10 = {0, 100, 200, 1, 2};
+  CheckDurationCast(options, TimeUnit::NANO, TimeUnit::SECOND, v10, e10, is_valid);
+
+  // Disallow truncate, failures
+  options.allow_time_truncate = false;
+  CheckFails<DurationType>(duration(TimeUnit::MILLI), v8, is_valid,
+                           duration(TimeUnit::SECOND), options);
+  CheckFails<DurationType>(duration(TimeUnit::MICRO), v8, is_valid,
+                           duration(TimeUnit::MILLI), options);
+  CheckFails<DurationType>(duration(TimeUnit::NANO), v8, is_valid,
+                           duration(TimeUnit::MICRO), options);
+  CheckFails<DurationType>(duration(TimeUnit::MICRO), v9, is_valid,
+                           duration(TimeUnit::SECOND), options);
+  CheckFails<DurationType>(duration(TimeUnit::NANO), v9, is_valid,
+                           duration(TimeUnit::MILLI), options);
+  CheckFails<DurationType>(duration(TimeUnit::NANO), v10, is_valid,
+                           duration(TimeUnit::SECOND), options);
+}
+
 TEST_F(TestCast, ToDouble) {
   CastOptions options;
   std::vector<bool> is_valid = {true, false, true, true, true};
@@ -923,7 +1029,7 @@ TEST_F(TestCast, UnsupportedTarget) {
   ArrayFromVector<Int32Type, int32_t>(int32(), is_valid, v1, &arr);
 
   std::shared_ptr<Array> result;
-  ASSERT_RAISES(NotImplemented, Cast(&this->ctx_, *arr, utf8(), {}, &result));
+  ASSERT_RAISES(NotImplemented, Cast(&this->ctx_, *arr, list(utf8()), {}, &result));
 }
 
 TEST_F(TestCast, DateTimeZeroCopy) {
@@ -942,6 +1048,7 @@ TEST_F(TestCast, DateTimeZeroCopy) {
   CheckZeroCopy(*arr, time64(TimeUnit::MICRO));
   CheckZeroCopy(*arr, date64());
   CheckZeroCopy(*arr, timestamp(TimeUnit::NANO));
+  CheckZeroCopy(*arr, duration(TimeUnit::MILLI));
 }
 
 TEST_F(TestCast, PreallocatedMemory) {
@@ -1114,6 +1221,14 @@ TEST_F(TestCast, BinaryToString) { TestCastBinaryToString<BinaryType, StringType
 TEST_F(TestCast, LargeBinaryToLargeString) {
   TestCastBinaryToString<LargeBinaryType, LargeStringType>();
 }
+
+TEST_F(TestCast, NumberToString) { TestCastNumberToString<StringType>(); }
+
+TEST_F(TestCast, NumberToLargeString) { TestCastNumberToString<LargeStringType>(); }
+
+TEST_F(TestCast, BooleanToString) { TestCastBooleanToString<StringType>(); }
+
+TEST_F(TestCast, BooleanToLargeString) { TestCastBooleanToString<LargeStringType>(); }
 
 TEST_F(TestCast, ListToList) {
   CastOptions options;

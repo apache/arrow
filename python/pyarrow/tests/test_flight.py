@@ -33,12 +33,17 @@ from pyarrow.util import pathlib, find_free_port
 try:
     from pyarrow import flight
     from pyarrow.flight import (
-        FlightClient, FlightServerBase, ServerAuthHandler, ClientAuthHandler
+        FlightClient, FlightServerBase,
+        ServerAuthHandler, ClientAuthHandler,
+        ServerMiddleware, ServerMiddlewareFactory,
+        ClientMiddleware, ClientMiddlewareFactory,
     )
 except ImportError:
     flight = None
     FlightClient, FlightServerBase = object, object
     ServerAuthHandler, ClientAuthHandler = object, object
+    ServerMiddleware, ServerMiddlewareFactory = object, object
+    ClientMiddleware, ClientMiddlewareFactory = object, object
 
 
 # Marks all of the tests in this module
@@ -411,6 +416,61 @@ class TokenClientAuthHandler(ClientAuthHandler):
         return self.token
 
 
+class HeaderServerMiddleware(ServerMiddleware):
+    """Expose a per-call value to the RPC method body."""
+
+    def __init__(self, special_value):
+        self.special_value = special_value
+
+
+class HeaderServerMiddlewareFactory(ServerMiddlewareFactory):
+    """Expose a per-call hard-coded value to the RPC method body."""
+
+    def start_call(self, info, headers):
+        return HeaderServerMiddleware("right value")
+
+
+class HeaderFlightServer(FlightServerBase):
+    """Echo back the per-call hard-coded value."""
+
+    def do_action(self, context, action):
+        middleware = context.get_middleware("test")
+        if middleware:
+            return iter([flight.Result(middleware.special_value.encode())])
+        return iter([flight.Result("".encode())])
+
+
+class SelectiveAuthServerMiddlewareFactory(ServerMiddlewareFactory):
+    """Deny access to certain methods based on a header."""
+
+    def start_call(self, info, headers):
+        if info.method == flight.FlightMethod.LIST_ACTIONS:
+            # No auth needed
+            return
+
+        token = headers.get("x-auth-token")
+        if not token:
+            raise flight.FlightUnauthenticatedError("No token")
+
+        token = token[0]
+        if token != "password":
+            raise flight.FlightUnauthenticatedError("Invalid token")
+
+        return HeaderServerMiddleware(token)
+
+
+class SelectiveAuthClientMiddlewareFactory(ClientMiddlewareFactory):
+    def start_call(self, info):
+        return SelectiveAuthClientMiddleware()
+
+
+class SelectiveAuthClientMiddleware(ClientMiddleware):
+    def sending_headers(self):
+        return {
+            "x-auth-token": "password",
+        }
+
+
 def test_flight_server_location_argument():
     locations = [
         None,
@@ -710,13 +770,12 @@ def test_tls_fails():
     with ConstantFlightServer(tls_certificates=certs["certificates"]) as s:
         # Ensure client doesn't connect when certificate verification
         # fails (this is a slow test since gRPC does retry a few times)
-        client = FlightServerBase(('localhost', s.port),
-                                  tls_root_certs=certs["root_cert"])
+        client = FlightClient("grpc+tls://localhost:" + str(s.port))
 
         # gRPC error messages change based on version, so don't look
         # for a particular error
         with pytest.raises(flight.FlightUnavailableError):
-            client.do_get(flight.Ticket(b'ints'))
+            client.do_get(flight.Ticket(b'ints')).read_all()
 
 
 @pytest.mark.requires_testing_data
@@ -923,3 +982,37 @@ def test_do_put_independent_read_write():
         # writer.close() won't segfault since reader thread has
         # stopped
         assert count[0] == len(batches)
+
+
+def test_server_middleware_same_thread():
+    """Ensure that server middleware run on the same thread as the RPC."""
+    with HeaderFlightServer(middleware={
+            "test": HeaderServerMiddlewareFactory(),
+    }) as server:
+        client = FlightClient(('localhost', server.port))
+        results = list(client.do_action(flight.Action(b"test", b"")))
+        assert len(results) == 1
+        value = results[0].body.to_pybytes()
+        assert b"right value" == value
+
+
+def test_middleware_reject():
+    """Test rejecting an RPC with server middleware."""
+    with HeaderFlightServer(middleware={
+            "test": SelectiveAuthServerMiddlewareFactory(),
+    }) as server:
+        client = FlightClient(('localhost', server.port))
+        # The middleware allows this through without auth.
+        with pytest.raises(pa.ArrowNotImplementedError):
+            list(client.list_actions())
+
+        # But not anything else.
+        with pytest.raises(flight.FlightUnauthenticatedError):
+            list(client.do_action(flight.Action(b"", b"")))
+
+        client = FlightClient(
+            ('localhost', server.port),
+            middleware=[SelectiveAuthClientMiddlewareFactory()]
+        )
+        response = next(client.do_action(flight.Action(b"", b"")))
+        assert b"password" == response.body.to_pybytes()

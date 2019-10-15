@@ -32,6 +32,7 @@ import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.io.BinaryDecoder;
 import org.apache.avro.io.BinaryEncoder;
 import org.apache.avro.io.DatumWriter;
 import org.apache.avro.io.Decoder;
@@ -62,7 +63,7 @@ public class AvroAdapterBenchmarks {
   private AvroToArrowConfig config;
 
   private Schema schema;
-  private Decoder decoder;
+  private BinaryDecoder decoder;
 
   /**
    * Setup benchmarks.
@@ -85,8 +86,6 @@ public class AvroAdapterBenchmarks {
     BinaryEncoder encoder = new EncoderFactory().directBinaryEncoder(out, null);
     DatumWriter writer = new GenericDatumWriter(schema);
 
-    decoder = new DecoderFactory().directBinaryDecoder(new ByteArrayInputStream(out.toByteArray()), null);
-
     for (int i = 0; i < valueCount; i++) {
       GenericRecord record = new GenericData.Record(schema);
       record.put(0, "test" + i);
@@ -97,6 +96,7 @@ public class AvroAdapterBenchmarks {
       writer.write(record, encoder);
     }
 
+    decoder = new DecoderFactory().directBinaryDecoder(new ByteArrayInputStream(out.toByteArray()), null);
   }
 
   /**
@@ -115,6 +115,7 @@ public class AvroAdapterBenchmarks {
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.NANOSECONDS)
   public int testAvroToArrow() throws Exception {
+    decoder.inputStream().reset();
     int sum = 0;
     try (AvroToArrowVectorIterator iter = AvroToArrow.avroToArrowIterator(schema, decoder, config)) {
       while (iter.hasNext()) {

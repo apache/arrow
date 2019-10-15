@@ -35,6 +35,8 @@
 namespace arrow {
 namespace dataset {
 
+constexpr int kNoMatch = -1;
+
 /// \brief Project a RecordBatch to a given schema.
 ///
 /// Projected record batches will reorder columns from input record batches when possible,
@@ -124,8 +126,6 @@ class RecordBatchProjector {
   }
 
  private:
-  static constexpr int kNoMatch = -1;
-
   Status ResizeMissingColumns(int64_t new_length) {
     // TODO(bkietz) MakeArrayOfNull could use fewer buffers by reusing a single zeroed
     // buffer for every buffer in every column which is null
@@ -152,8 +152,6 @@ class RecordBatchProjector {
   std::vector<int> column_indices_;
   std::vector<std::shared_ptr<Scalar>> scalars_;
 };
-
-constexpr int RecordBatchProjector::kNoMatch;
 
 /// Wraps a RecordBatchIterator and projects each yielded batch using the given projector.
 ///
@@ -190,6 +188,26 @@ class ProjectedRecordBatchReader : public RecordBatchReader {
   RecordBatchProjector projector_;
   RecordBatchIterator wrapped_;
 };
+
+/// \brief GetFragmentsFromSources transforms a vector<DataSource> into a
+/// flattened DataFragmentIterator.
+static inline DataFragmentIterator GetFragmentsFromSources(
+    const std::vector<std::shared_ptr<DataSource>>& sources,
+    std::shared_ptr<ScanOptions> options) {
+  // Iterator<DataSource>
+  auto sources_it = MakeVectorIterator(sources);
+
+  // DataSource -> Iterator<DataFragment>
+  auto fn = [options](std::shared_ptr<DataSource> source) -> DataFragmentIterator {
+    return source->GetFragments(options);
+  };
+
+  // Iterator<Iterator<DataFragment>>
+  auto fragments_it = MakeMapIterator(fn, std::move(sources_it));
+
+  // Iterator<DataFragment>
+  return MakeFlattenIterator(std::move(fragments_it));
+}
 
 }  // namespace dataset
 }  // namespace arrow

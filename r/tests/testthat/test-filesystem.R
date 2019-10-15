@@ -28,7 +28,9 @@ test_that("LocalFilesystem", {
   info <- file.info(DESCRIPTION)
 
   expect_equal(stat$size, info$size)
-  expect_equal(stat$mtime, info$mtime)
+  # This fails due to a subsecond difference on Appveyor on Windows with R 3.3 only
+  # So add a greater tolerance to allow for that
+  expect_equal(stat$mtime, info$mtime, tolerance = 1)
 
   tf <- tempfile(fileext = ".txt")
   fs$CopyFile(DESCRIPTION, tf)

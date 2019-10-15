@@ -37,4 +37,10 @@ public class FlightRuntimeException extends RuntimeException {
   public CallStatus status() {
     return status;
   }
+
+  @Override
+  public String toString() {
+    String s = getClass().getName();
+    return String.format("%s: %s", s, status);
+  }
 }

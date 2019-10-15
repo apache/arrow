@@ -21,6 +21,13 @@ class TestInt8DataType < Test::Unit::TestCase
     assert_equal(Arrow::Type::INT8, data_type.id)
   end
 
+  def test_signed?
+    data_type = Arrow::Int8DataType.new
+    assert do
+      data_type.signed?
+    end
+  end
+
   def test_to_s
     data_type = Arrow::Int8DataType.new
     assert_equal("int8", data_type.to_s)

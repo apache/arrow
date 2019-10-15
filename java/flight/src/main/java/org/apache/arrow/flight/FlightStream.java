@@ -226,6 +226,10 @@ public class FlightStream implements AutoCloseable {
           return true;
         }
       }
+    } catch (RuntimeException e) {
+      throw e;
+    } catch (ExecutionException e) {
+      throw StatusUtils.fromThrowable(e.getCause());
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
@@ -314,6 +318,11 @@ public class FlightStream implements AutoCloseable {
 
     @Override
     public void onCompleted() {
+      // Depends on gRPC calling onNext and onCompleted non-concurrently
+      if (!root.isDone()) {
+        root.setException(
+            CallStatus.INTERNAL.withDescription("Stream completed without receiving schema.").toRuntimeException());
+      }
       queue.add(DONE);
     }
   }

@@ -308,7 +308,7 @@ def test_recordbatch_column_sets_private_name():
 def test_recordbatch_from_arrays_validate_schema():
     # ARROW-6263
     arr = pa.array([1, 2])
-    schema = pa.schema([pa.field('f0', pa.utf8())])
+    schema = pa.schema([pa.field('f0', pa.list_(pa.utf8()))])
     with pytest.raises(NotImplementedError):
         pa.record_batch([arr], schema=schema)
 
@@ -1008,6 +1008,21 @@ def test_table_from_pydict():
     with pytest.raises(TypeError):
         pa.Table.from_pydict({'c0': [0, 1, 2]},
                              schema=pa.schema([("c0", pa.string())]))
+
+    # Missing schema fields from the passed mapping
+    with pytest.raises(KeyError, match="doesn\'t contain.* c, d"):
+        pa.Table.from_pydict(
+            {'a': [1, 2, 3], 'b': [3, 4, 5]},
+            schema=pa.schema([
+                ('a', pa.int64()),
+                ('c', pa.int32()),
+                ('d', pa.int16())
+            ])
+        )
+
+    # Passed wrong schema type
+    with pytest.raises(TypeError):
+        pa.Table.from_pydict({'a': [1, 2, 3]}, schema={})
 
 
 @pytest.mark.parametrize('data, klass', [

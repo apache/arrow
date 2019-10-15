@@ -164,5 +164,52 @@ Status Codec::Create(Compression::type codec_type, int compression_level,
   return Status::OK();
 }
 
+bool Codec::IsAvailable(Compression::type codec_type) {
+  switch (codec_type) {
+    case Compression::UNCOMPRESSED:
+      return true;
+    case Compression::SNAPPY:
+#ifdef ARROW_WITH_SNAPPY
+      return true;
+#else
+      return false;
+#endif
+    case Compression::GZIP:
+#ifdef ARROW_WITH_ZLIB
+      return true;
+#else
+      return false;
+#endif
+    case Compression::LZO:
+      return false;
+    case Compression::BROTLI:
+#ifdef ARROW_WITH_BROTLI
+      return true;
+#else
+      return false;
+#endif
+    case Compression::LZ4:
+#ifdef ARROW_WITH_LZ4
+      return true;
+#else
+      return false;
+#endif
+    case Compression::ZSTD:
+#ifdef ARROW_WITH_ZSTD
+      return true;
+#else
+      return false;
+#endif
+    case Compression::BZ2:
+#ifdef ARROW_WITH_BZ2
+      return true;
+#else
+      return false;
+#endif
+    default:
+      return false;
+  }
+}
+
 }  // namespace util
 }  // namespace arrow

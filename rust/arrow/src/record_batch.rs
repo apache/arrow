@@ -113,8 +113,31 @@ impl From<&StructArray> for RecordBatch {
     }
 }
 
+impl Into<StructArray> for RecordBatch {
+    fn into(self) -> StructArray {
+        self.schema
+            .fields
+            .iter()
+            .zip(self.columns.iter())
+            .map(|t| (t.0.clone(), t.1.clone()))
+            .collect::<Vec<(Field, ArrayRef)>>()
+            .into()
+    }
+}
+
 unsafe impl Send for RecordBatch {}
 unsafe impl Sync for RecordBatch {}
+
+/// Definition of record batch reader.
+pub trait RecordBatchReader {
+    /// Returns schemas of this record batch reader.
+    /// Implementation of this trait should guarantee that all record batches returned
+    /// by this reader should have same schema as returned from this method.
+    fn schema(&mut self) -> SchemaRef;
+
+    /// Returns next record batch.
+    fn next_batch(&mut self) -> Result<Option<RecordBatch>>;
+}
 
 #[cfg(test)]
 mod tests {

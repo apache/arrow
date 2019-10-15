@@ -42,6 +42,7 @@ cdef dict _pandas_type_map = {
     _Type_DATE32: np.dtype('datetime64[ns]'),
     _Type_DATE64: np.dtype('datetime64[ns]'),
     _Type_TIMESTAMP: np.dtype('datetime64[ns]'),
+    _Type_DURATION: np.dtype('timedelta64[ns]'),
     _Type_BINARY: np.object_,
     _Type_FIXED_SIZE_BINARY: np.object_,
     _Type_STRING: np.object_,
@@ -464,6 +465,23 @@ cdef class Time64Type(DataType):
         The time unit ('s', 'ms', 'us' or 'ns').
         """
         return timeunit_to_string(self.time_type.unit())
+
+
+cdef class DurationType(DataType):
+    """
+    Concrete class for duration data types.
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        DataType.init(self, type)
+        self.duration_type = <const CDurationType*> type.get()
+
+    @property
+    def unit(self):
+        """
+        The duration unit ('s', 'ms', 'us' or 'ns').
+        """
+        return timeunit_to_string(self.duration_type.unit())
 
 
 cdef class FixedSizeBinaryType(DataType):
@@ -1388,6 +1406,7 @@ def int64():
 
 cdef dict _timestamp_type_cache = {}
 cdef dict _time_type_cache = {}
+cdef dict _duration_type_cache = {}
 
 
 cdef timeunit_to_string(TimeUnit unit):
@@ -1605,6 +1624,48 @@ def time64(unit):
 
     out.init(ctime64(unit_code))
     _time_type_cache[unit_code] = out
+
+    return out
+
+
+def duration(unit):
+    """
+    Create instance of a duration type with unit resolution.
+
+    Parameters
+    ----------
+    unit : string
+        one of 's' [second], 'ms' [millisecond], 'us' [microsecond], or 'ns'
+        [nanosecond]
+
+    Examples
+    --------
+    ::
+
+        t1 = pa.duration('us')
+        t2 = pa.duration('s')
+    """
+    cdef:
+        TimeUnit unit_code
+
+    if unit == "s":
+        unit_code = TimeUnit_SECOND
+    elif unit == 'ms':
+        unit_code = TimeUnit_MILLI
+    elif unit == 'us':
+        unit_code = TimeUnit_MICRO
+    elif unit == 'ns':
+        unit_code = TimeUnit_NANO
+    else:
+        raise ValueError('Invalid TimeUnit string')
+
+    if unit_code in _duration_type_cache:
+        return _duration_type_cache[unit_code]
+
+    cdef DurationType out = DurationType.__new__(DurationType)
+
+    out.init(cduration(unit_code))
+    _duration_type_cache[unit_code] = out
 
     return out
 
@@ -1960,6 +2021,10 @@ cdef dict _type_aliases = {
     'timestamp[ms]': timestamp('ms'),
     'timestamp[us]': timestamp('us'),
     'timestamp[ns]': timestamp('ns'),
+    'duration[s]': duration('s'),
+    'duration[ms]': duration('ms'),
+    'duration[us]': duration('us'),
+    'duration[ns]': duration('ns'),
 }
 
 

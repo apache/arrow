@@ -347,6 +347,21 @@ void AssertSortedEquals(std::vector<T> u, std::vector<T> v) {
   ASSERT_EQ(u, v);
 }
 
+// A RAII-style object that switches to a new locale, and switches back
+// to the old locale when going out of scope.  Doesn't do anything if the
+// new locale doesn't exist on the local machine.
+// ATTENTION: may crash with an assertion failure on Windows debug builds.
+// See ARROW-6108, also https://gerrit.libreoffice.org/#/c/54110/
+class ARROW_EXPORT LocaleGuard {
+ public:
+  explicit LocaleGuard(const char* new_locale);
+  ~LocaleGuard();
+
+ protected:
+  class Impl;
+  std::unique_ptr<Impl> impl_;
+};
+
 #ifndef ARROW_LARGE_MEMORY_TESTS
 #define LARGE_MEMORY_TEST(name) DISABLED_##name
 #else

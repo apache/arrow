@@ -33,6 +33,12 @@ class ApacheArrow < Formula
       -DARROW_PROTOBUF_USE_SHARED=ON
       -DARROW_PYTHON=ON
       -DARROW_S3=ON
+      -DARROW_WITH_BZ2=ON
+      -DARROW_WITH_ZLIB=ON
+      -DARROW_WITH_ZSTD=ON
+      -DARROW_WITH_LZ4=ON
+      -DARROW_WITH_SNAPPY=ON
+      -DARROW_WITH_BROTLI=ON
       -DARROW_INSTALL_NAME_RPATH=OFF
       -DPYTHON_EXECUTABLE=#{Formula["python"].bin/"python3"}
     ]

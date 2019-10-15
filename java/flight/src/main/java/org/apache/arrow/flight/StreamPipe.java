@@ -17,6 +17,7 @@
 
 package org.apache.arrow.flight;
 
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import org.apache.arrow.flight.FlightProducer.StreamListener;
@@ -34,16 +35,29 @@ class StreamPipe<FROM, TO> implements StreamListener<FROM> {
 
   private StreamObserver<TO> delegate;
   private Function<FROM, TO> mapFunction;
+  private final Consumer<Throwable> errorHandler;
   private boolean closed = false;
 
-  public static <FROM, TO> StreamPipe<FROM, TO> wrap(StreamObserver<TO> delegate, Function<FROM, TO> func) {
-    return new StreamPipe<>(delegate, func);
+  /**
+   * Wrap the given gRPC StreamObserver with a transformation function.
+   *
+   * @param delegate The {@link StreamObserver} to wrap.
+   * @param func The transformation function.
+   * @param errorHandler A handler for uncaught exceptions (e.g. if something tries to double-close this stream).
+   * @param <FROM> The source type.
+   * @param <TO> The output type.
+   * @return A wrapped listener.
+   */
+  public static <FROM, TO> StreamPipe<FROM, TO> wrap(StreamObserver<TO> delegate, Function<FROM, TO> func,
+      Consumer<Throwable> errorHandler) {
+    return new StreamPipe<>(delegate, func, errorHandler);
   }
 
-  public StreamPipe(StreamObserver<TO> delegate, Function<FROM, TO> func) {
+  public StreamPipe(StreamObserver<TO> delegate, Function<FROM, TO> func, Consumer<Throwable> errorHandler) {
     super();
     this.delegate = delegate;
     this.mapFunction = func;
+    this.errorHandler = errorHandler;
   }
 
   @Override
@@ -53,12 +67,20 @@ class StreamPipe<FROM, TO> implements StreamListener<FROM> {
 
   @Override
   public void onError(Throwable t) {
+    if (closed) {
+      errorHandler.accept(t);
+      return;
+    }
     delegate.onError(StatusUtils.toGrpcException(t));
     closed = true;
   }
 
   @Override
   public void onCompleted() {
+    if (closed) {
+      errorHandler.accept(new IllegalStateException("Tried to complete already-completed call"));
+      return;
+    }
     delegate.onCompleted();
     closed = true;
   }
@@ -66,7 +88,7 @@ class StreamPipe<FROM, TO> implements StreamListener<FROM> {
   /**
    * Ensure this stream has been completed.
    */
-  public void ensureCompleted() {
+  void ensureCompleted() {
     if (!closed) {
       onCompleted();
     }

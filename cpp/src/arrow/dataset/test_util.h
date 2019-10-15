@@ -67,6 +67,12 @@ class GeneratedRecordBatch : public RecordBatchReader {
   Gen gen_;
 };
 
+template <typename Gen>
+std::unique_ptr<GeneratedRecordBatch<Gen>> MakeGeneratedRecordBatch(
+    std::shared_ptr<Schema> schema, Gen&& gen) {
+  return internal::make_unique<GeneratedRecordBatch<Gen>>(schema, std::forward<Gen>(gen));
+}
+
 void EnsureRecordBatchReaderDrained(RecordBatchReader* reader) {
   std::shared_ptr<RecordBatch> batch = nullptr;
 
@@ -163,7 +169,7 @@ class DatasetFixtureMixin : public ::testing::Test {
   }
 
  protected:
-  std::shared_ptr<ScanOptions> options_ = std::make_shared<ScanOptions>();
+  std::shared_ptr<ScanOptions> options_ = ScanOptions::Defaults();
   std::shared_ptr<ScanContext> ctx_;
 };
 
@@ -177,14 +183,8 @@ class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
   std::shared_ptr<fs::FileSystem> fs_;
   std::shared_ptr<FileFormat> format_;
   std::shared_ptr<Schema> schema_;
-  std::shared_ptr<ScanOptions> options_ = std::make_shared<ScanOptions>();
+  std::shared_ptr<ScanOptions> options_ = ScanOptions::Defaults();
 };
-
-template <typename Gen>
-std::unique_ptr<GeneratedRecordBatch<Gen>> MakeGeneratedRecordBatch(
-    std::shared_ptr<Schema> schema, Gen&& gen) {
-  return internal::make_unique<GeneratedRecordBatch<Gen>>(schema, std::forward<Gen>(gen));
-}
 
 /// \brief A dummy FileFormat implementation
 class DummyFileFormat : public FileFormat {
@@ -235,8 +235,6 @@ Status DummyFileFormat::MakeFragment(const FileSource& source,
 
 class TestFileSystemBasedDataSource : public ::testing::Test {
  public:
-  void SetUp() { options_ = std::make_shared<ScanOptions>(); }
-
   void MakeFileSystem(const std::vector<fs::FileStats>& stats) {
     ASSERT_OK(fs::internal::MockFileSystem::Make(fs::kNoTime, stats, &fs_));
   }
@@ -261,7 +259,7 @@ class TestFileSystemBasedDataSource : public ::testing::Test {
  protected:
   std::shared_ptr<fs::FileSystem> fs_;
   std::shared_ptr<DataSource> source_;
-  std::shared_ptr<ScanOptions> options_;
+  std::shared_ptr<ScanOptions> options_ = ScanOptions::Defaults();
 };
 
 void AssertFragmentsAreFromPath(DataFragmentIterator it,

@@ -129,8 +129,10 @@ set(ARROW_SRCS
     util/compression.cc
     util/cpu_info.cc
     util/decimal.cc
+    util/formatting.cc
     util/int_util.cc
     util/io_util.cc
+    util/iterator.cc
     util/logging.cc
     util/key_value_metadata.cc
     util/memory.cc
@@ -142,6 +144,40 @@ set(ARROW_SRCS
     util/utf8.cc
     vendored/base64.cpp
     vendored/datetime/tz.cpp)
+
+if(ARROW_WITH_BOOST_FILESYSTEM)
+  add_definitions(-DARROW_WITH_BOOST_FILESYSTEM)
+endif()
+
+if(ARROW_WITH_BROTLI)
+  add_definitions(-DARROW_WITH_BROTLI)
+  list(APPEND ARROW_SRCS util/compression_brotli.cc)
+endif()
+
+if(ARROW_WITH_BZ2)
+  add_definitions(-DARROW_WITH_BZ2)
+  list(APPEND ARROW_SRCS util/compression_bz2.cc)
+endif()
+
+if(ARROW_WITH_LZ4)
+  add_definitions(-DARROW_WITH_LZ4)
+  list(APPEND ARROW_SRCS util/compression_lz4.cc)
+endif()
+
+if(ARROW_WITH_SNAPPY)
+  add_definitions(-DARROW_WITH_SNAPPY)
+  list(APPEND ARROW_SRCS util/compression_snappy.cc)
+endif()
+
+if(ARROW_WITH_ZLIB)
+  add_definitions(-DARROW_WITH_ZLIB)
+  list(APPEND ARROW_SRCS util/compression_zlib.cc)
+endif()
+
+if(ARROW_WITH_ZSTD)
+  add_definitions(-DARROW_WITH_ZSTD)
+  list(APPEND ARROW_SRCS util/compression_zstd.cc)
+endif()
 
 set(ARROW_TESTING_SRCS
     io/test_common.cc
@@ -297,40 +333,6 @@ if(ARROW_WITH_URIPARSER)
   list(APPEND ARROW_SRCS util/uri.cc)
 endif()
 
-if(ARROW_WITH_BOOST_FILESYSTEM)
-  add_definitions(-DARROW_WITH_BOOST_FILESYSTEM)
-endif()
-
-if(ARROW_WITH_BROTLI)
-  add_definitions(-DARROW_WITH_BROTLI)
-  list(APPEND ARROW_SRCS util/compression_brotli.cc)
-endif()
-
-if(ARROW_WITH_BZ2)
-  add_definitions(-DARROW_WITH_BZ2)
-  list(APPEND ARROW_SRCS util/compression_bz2.cc)
-endif()
-
-if(ARROW_WITH_LZ4)
-  add_definitions(-DARROW_WITH_LZ4)
-  list(APPEND ARROW_SRCS util/compression_lz4.cc)
-endif()
-
-if(ARROW_WITH_SNAPPY)
-  add_definitions(-DARROW_WITH_SNAPPY)
-  list(APPEND ARROW_SRCS util/compression_snappy.cc)
-endif()
-
-if(ARROW_WITH_ZLIB)
-  add_definitions(-DARROW_WITH_ZLIB)
-  list(APPEND ARROW_SRCS util/compression_zlib.cc)
-endif()
-
-if(ARROW_WITH_ZSTD)
-  add_definitions(-DARROW_WITH_ZSTD)
-  list(APPEND ARROW_SRCS util/compression_zstd.cc)
-endif()
-
 if(NOT APPLE AND NOT MSVC)
   # Localize thirdparty symbols using a linker version script. This hides them
   # from the client application. The OS X linker does not support the
@@ -414,7 +416,6 @@ arrow_add_pkg_config("arrow")
 # Unit tests
 #
 
-add_arrow_test(allocator_test)
 add_arrow_test(array_test
                SOURCES
                array_test.cc

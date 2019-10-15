@@ -27,6 +27,7 @@ import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
+import org.apache.arrow.vector.util.ValueVectorUtility;
 
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/UnionVector.java" />
@@ -44,6 +45,7 @@ import java.util.Iterator;
 import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.util.CallBack;
+import org.apache.arrow.vector.util.ValueVectorUtility;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.vector.BaseValueVector;
@@ -462,6 +464,7 @@ public class UnionVector implements FieldVector {
 
     @Override
     public void splitAndTransfer(int startIndex, int length) {
+      Preconditions.checkArgument(startIndex + length <= valueCount);
       to.clear();
       internalStructVectorTransferPair.splitAndTransfer(startIndex, length);
       final int startPoint = startIndex * TYPE_WIDTH;
@@ -694,5 +697,10 @@ public class UnionVector implements FieldVector {
     @Override
     public String getName() {
       return name;
+    }
+
+    @Override
+    public String toString() {
+      return ValueVectorUtility.getToString(this, 0, getValueCount());
     }
 }

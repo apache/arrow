@@ -38,9 +38,6 @@
 
 #endif
 
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/algorithm/string/trim.hpp>
-
 #include <algorithm>
 #include <cstdint>
 #include <fstream>
@@ -49,9 +46,8 @@
 #include <string>
 
 #include "arrow/util/logging.h"
+#include "arrow/util/string.h"
 
-using boost::algorithm::contains;
-using boost::algorithm::trim;
 using std::max;
 
 #if defined(__MINGW64_VERSION_MAJOR) && __MINGW64_VERSION_MAJOR < 5
@@ -87,7 +83,7 @@ namespace {
 int64_t ParseCPUFlags(const std::string& values) {
   int64_t flags = 0;
   for (int i = 0; i < num_flags; ++i) {
-    if (contains(values, flag_mappings[i].name)) {
+    if (values.find(flag_mappings[i].name) != std::string::npos) {
       flags |= flag_mappings[i].flag;
     }
   }
@@ -224,10 +220,8 @@ void CpuInfo::Init() {
     getline(cpuinfo, line);
     size_t colon = line.find(':');
     if (colon != std::string::npos) {
-      name = line.substr(0, colon - 1);
-      value = line.substr(colon + 1, std::string::npos);
-      trim(name);
-      trim(value);
+      name = TrimString(line.substr(0, colon - 1));
+      value = TrimString(line.substr(colon + 1, std::string::npos));
       if (name.compare("flags") == 0) {
         hardware_flags_ |= ParseCPUFlags(value);
       } else if (name.compare("cpu MHz") == 0) {

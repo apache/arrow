@@ -87,4 +87,24 @@ Status ParseHexValue(const char* data, uint8_t* out) {
   return Status::OK();
 }
 
+namespace internal {
+
+constexpr bool IsWhitespace(char c) { return c == ' ' || c == '\t'; }
+
+std::string TrimString(std::string value) {
+  size_t ltrim_chars = 0;
+  while (ltrim_chars < value.size() && IsWhitespace(value[ltrim_chars])) {
+    ++ltrim_chars;
+  }
+  value.erase(0, ltrim_chars);
+  size_t rtrim_chars = 0;
+  while (rtrim_chars < value.size() &&
+         IsWhitespace(value[value.size() - 1 - rtrim_chars])) {
+    ++rtrim_chars;
+  }
+  value.erase(value.size() - rtrim_chars, rtrim_chars);
+  return value;
+}
+
+}  // namespace internal
 }  // namespace arrow

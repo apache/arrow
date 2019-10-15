@@ -22,13 +22,14 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
-#include "arrow/io/readahead.h"
+#include "arrow/io/interfaces.h"
 #include "arrow/json/chunked_builder.h"
 #include "arrow/json/chunker.h"
 #include "arrow/json/converter.h"
 #include "arrow/json/parser.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/task_group.h"
@@ -42,31 +43,33 @@ using internal::GetCpuThreadPool;
 using internal::TaskGroup;
 using internal::ThreadPool;
 
-using io::internal::ReadaheadBuffer;
-using io::internal::ReadaheadSpooler;
-
 namespace json {
 
 class TableReaderImpl : public TableReader,
                         public std::enable_shared_from_this<TableReaderImpl> {
  public:
-  TableReaderImpl(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
-                  const ReadOptions& read_options, const ParseOptions& parse_options,
+  TableReaderImpl(MemoryPool* pool, const ReadOptions& read_options,
+                  const ParseOptions& parse_options,
                   std::shared_ptr<TaskGroup> task_group)
       : pool_(pool),
         read_options_(read_options),
         parse_options_(parse_options),
         chunker_(Chunker::Make(parse_options_)),
-        task_group_(std::move(task_group)),
-        readahead_(pool_, std::move(input), read_options_.block_size,
-                   task_group_->parallelism()) {}
+        task_group_(std::move(task_group)) {}
+
+  Status Init(std::shared_ptr<io::InputStream> input) {
+    Iterator<std::shared_ptr<Buffer>> it;
+    RETURN_NOT_OK(io::MakeInputStreamIterator(input, read_options_.block_size, &it));
+    return MakeReadaheadIterator(std::move(it), task_group_->parallelism(),
+                                 &block_iterator_);
+  }
 
   Status Read(std::shared_ptr<Table>* out) override {
     RETURN_NOT_OK(MakeBuilder());
 
-    ReadaheadBuffer rh;
-    RETURN_NOT_OK(readahead_.Read(&rh));
-    if (rh.buffer == nullptr) {
+    std::shared_ptr<Buffer> block;
+    RETURN_NOT_OK(block_iterator_.Next(&block));
+    if (!block) {
       return Status::Invalid("Empty JSON file");
     }
 
@@ -76,13 +79,12 @@ class TableReaderImpl : public TableReader,
     int64_t block_index = 0;
     std::shared_ptr<Buffer> partial = empty;
 
-    while (rh.buffer) {
-      std::shared_ptr<Buffer> block, whole, completion, next_partial;
+    while (block) {
+      std::shared_ptr<Buffer> next_block, whole, completion, next_partial;
 
-      block = rh.buffer;
-      RETURN_NOT_OK(readahead_.Read(&rh));
+      RETURN_NOT_OK(block_iterator_.Next(&next_block));
 
-      if (!rh.buffer) {
+      if (!next_block) {
         // End of file reached => compute completion from penultimate block
         RETURN_NOT_OK(chunker_->ProcessFinal(partial, block, &completion, &whole));
       } else {
@@ -102,6 +104,7 @@ class TableReaderImpl : public TableReader,
       block_index++;
 
       partial = next_partial;
+      block = next_block;
     }
 
     std::shared_ptr<ChunkedArray> array;
@@ -158,7 +161,7 @@ class TableReaderImpl : public TableReader,
   ParseOptions parse_options_;
   std::unique_ptr<Chunker> chunker_;
   std::shared_ptr<TaskGroup> task_group_;
-  ReadaheadSpooler readahead_;
+  Iterator<std::shared_ptr<Buffer>> block_iterator_;
   std::shared_ptr<ChunkedArrayBuilder> builder_;
 };
 
@@ -166,13 +169,16 @@ Status TableReader::Make(MemoryPool* pool, std::shared_ptr<io::InputStream> inpu
                          const ReadOptions& read_options,
                          const ParseOptions& parse_options,
                          std::shared_ptr<TableReader>* out) {
+  std::shared_ptr<TableReaderImpl> ptr;
   if (read_options.use_threads) {
-    *out = std::make_shared<TableReaderImpl>(pool, input, read_options, parse_options,
-                                             TaskGroup::MakeThreaded(GetCpuThreadPool()));
+    ptr = std::make_shared<TableReaderImpl>(pool, read_options, parse_options,
+                                            TaskGroup::MakeThreaded(GetCpuThreadPool()));
   } else {
-    *out = std::make_shared<TableReaderImpl>(pool, input, read_options, parse_options,
-                                             TaskGroup::MakeSerial());
+    ptr = std::make_shared<TableReaderImpl>(pool, read_options, parse_options,
+                                            TaskGroup::MakeSerial());
   }
+  RETURN_NOT_OK(ptr->Init(input));
+  *out = std::move(ptr);
   return Status::OK();
 }
 

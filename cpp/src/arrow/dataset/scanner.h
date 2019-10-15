@@ -22,11 +22,15 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compute/context.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/memory_pool.h"
 
 namespace arrow {
+
+class Table;
+
 namespace dataset {
 
 /// \brief Shared state for a Scan operation
@@ -36,25 +40,25 @@ struct ARROW_DS_EXPORT ScanContext {
 
 class ARROW_DS_EXPORT ScanOptions {
  public:
-  ScanOptions() = default;
-
-  ScanOptions(std::shared_ptr<Expression> filter, std::shared_ptr<Schema> schema,
-              std::vector<std::shared_ptr<FileScanOptions>> options = {})
-      : filter(std::move(filter)), schema(std::move(schema)) {}
-
   virtual ~ScanOptions() = default;
 
-  MemoryPool* pool() const { return pool_; }
+  static std::shared_ptr<ScanOptions> Defaults();
 
-  // Filters
+  // Filter
   std::shared_ptr<Expression> filter;
 
-  // Schema to which record batches will be reconciled
+  // Evaluator for Filter
+  std::shared_ptr<ExpressionEvaluator> evaluator;
+
+  // Schema to which record batches will be projected
   std::shared_ptr<Schema> schema;
 
-  MemoryPool* pool_ = default_memory_pool();
-
   std::vector<std::shared_ptr<FileScanOptions>> options;
+
+  bool include_partition_keys = true;
+
+ private:
+  ScanOptions();
 };
 
 /// \brief Read record batches from a range of a single data fragment. A
@@ -76,10 +80,19 @@ class ARROW_DS_EXPORT SimpleScanTask : public ScanTask {
   explicit SimpleScanTask(std::vector<std::shared_ptr<RecordBatch>> record_batches)
       : record_batches_(std::move(record_batches)) {}
 
+  SimpleScanTask(std::vector<std::shared_ptr<RecordBatch>> record_batches,
+                 std::shared_ptr<ScanOptions> options,
+                 std::shared_ptr<ScanContext> context)
+      : record_batches_(std::move(record_batches)),
+        options_(std::move(options)),
+        context_(std::move(context)) {}
+
   RecordBatchIterator Scan() override;
 
  protected:
   std::vector<std::shared_ptr<RecordBatch>> record_batches_;
+  std::shared_ptr<ScanOptions> options_;
+  std::shared_ptr<ScanContext> context_;
 };
 
 /// \brief Scanner is a materialized scan operation with context and options
@@ -99,6 +112,12 @@ class ARROW_DS_EXPORT Scanner {
   virtual ScanTaskIterator Scan() = 0;
 
   virtual ~Scanner() = default;
+
+  /// \brief Convert a Scanner into a Table.
+  ///
+  /// Use this convenience utility with care. This will serially materialize the
+  /// Scan result in memory before creating the Table.
+  static Status ToTable(std::shared_ptr<Scanner> scanner, std::shared_ptr<Table>* out);
 };
 
 /// \brief SimpleScanner is a trivial Scanner implementation that flattens
@@ -139,7 +158,10 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// \brief Set
   ScannerBuilder* Project(const std::vector<std::string>& columns);
 
-  ScannerBuilder* AddFilter(const std::shared_ptr<Filter>& filter);
+  ScannerBuilder* Filter(std::shared_ptr<Expression> filter);
+  ScannerBuilder* Filter(const Expression& filter);
+
+  ScannerBuilder* FilterEvaluator(std::shared_ptr<ExpressionEvaluator> evaluator);
 
   ScannerBuilder* SetGlobalFileOptions(std::shared_ptr<FileScanOptions> options);
 
@@ -153,10 +175,9 @@ class ARROW_DS_EXPORT ScannerBuilder {
 
  private:
   std::shared_ptr<Dataset> dataset_;
+  std::shared_ptr<ScanOptions> scan_options_;
   std::shared_ptr<ScanContext> scan_context_;
   std::vector<std::string> project_columns_;
-  FilterVector filters_;
-  bool include_partition_keys_;
 };
 
 }  // namespace dataset

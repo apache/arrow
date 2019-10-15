@@ -60,6 +60,41 @@ TEST_F(TestSimpleDataSource, GetFragments) {
   AssertDataSourceEquals(reader.get(), &source);
 }
 
+class TestTreeDataSource : public DatasetFixtureMixin {};
+
+TEST_F(TestTreeDataSource, GetFragments) {
+  constexpr int64_t kBatchSize = 1024;
+  constexpr int64_t kNumberBatches = 16;
+  constexpr int64_t kChildPerNode = 2;
+  constexpr int64_t kCompleteBinaryTreeDepth = 4;
+
+  auto s = schema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, s);
+
+  auto n_leaves = 1U << kCompleteBinaryTreeDepth;
+  auto reader = ConstantArrayGenerator::Repeat(kNumberBatches * n_leaves, batch);
+
+  std::vector<std::shared_ptr<RecordBatch>> batches{kNumberBatches, batch};
+  auto fragment = std::make_shared<SimpleDataFragment>(batches);
+
+  // Creates a complete binary tree of depth kCompleteBinaryTreeDepth where the
+  // leaves are SimpleDataSource containing kChildPerNode fragments.
+
+  auto l1_leaf_source =
+      std::make_shared<SimpleDataSource>(DataFragmentVector{kChildPerNode, fragment});
+
+  auto l2_leaf_tree_source =
+      std::make_shared<TreeDataSource>(DataSourceVector{kChildPerNode, l1_leaf_source});
+
+  auto l3_middle_tree_source = std::make_shared<TreeDataSource>(
+      DataSourceVector{kChildPerNode, l2_leaf_tree_source});
+
+  auto root_source = std::make_shared<TreeDataSource>(
+      DataSourceVector{kChildPerNode, l3_middle_tree_source});
+
+  AssertDataSourceEquals(reader.get(), root_source.get());
+}
+
 class TestDataset : public DatasetFixtureMixin {};
 
 TEST_F(TestDataset, TrivialScan) {

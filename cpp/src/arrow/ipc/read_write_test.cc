@@ -319,6 +319,7 @@ class IpcTestFixture : public io::MemoryMapFixture {
   }
 
   void CheckReadResult(const RecordBatch& result, const RecordBatch& expected) {
+    ASSERT_OK(result.Validate());
     EXPECT_EQ(expected.num_rows(), result.num_rows());
 
     ASSERT_TRUE(expected.schema()->Equals(*result.schema()));
@@ -793,6 +794,27 @@ class ReaderWriterMixin {
     }
   }
 
+  template <typename Param>
+  void TestZeroLengthRoundTrip(Param&& param, const IpcOptions& options) {
+    std::shared_ptr<RecordBatch> batch1;
+    std::shared_ptr<RecordBatch> batch2;
+    ASSERT_OK(param(&batch1));  // NOLINT clang-tidy gtest issue
+    ASSERT_OK(param(&batch2));  // NOLINT clang-tidy gtest issue
+    batch1 = batch1->Slice(0, 0);
+    batch2 = batch2->Slice(0, 0);
+
+    BatchVector in_batches = {batch1, batch2};
+    BatchVector out_batches;
+
+    ASSERT_OK(RoundTripHelper(in_batches, options, &out_batches));
+    ASSERT_EQ(out_batches.size(), in_batches.size());
+
+    // Compare batches
+    for (size_t i = 0; i < in_batches.size(); ++i) {
+      CompareBatch(*in_batches[i], *out_batches[i]);
+    }
+  }
+
   void TestDictionaryRoundtrip() {
     std::shared_ptr<RecordBatch> batch;
     ASSERT_OK(MakeDictionary(&batch));
@@ -846,7 +868,11 @@ class ReaderWriterMixin {
       RETURN_NOT_OK(writer_helper.WriteBatch(batch));
     }
     RETURN_NOT_OK(writer_helper.Finish());
-    return writer_helper.ReadBatches(out_batches);
+    RETURN_NOT_OK(writer_helper.ReadBatches(out_batches));
+    for (const auto& batch : *out_batches) {
+      RETURN_NOT_OK(batch->Validate());
+    }
+    return Status::OK();
   }
 
   void CheckBatchDictionaries(const RecordBatch& batch) {
@@ -873,18 +899,22 @@ class TestStreamFormat : public ReaderWriterMixin<StreamWriterHelper>,
 
 TEST_P(TestFileFormat, RoundTrip) {
   TestRoundTrip(*GetParam(), IpcOptions::Defaults());
+  TestZeroLengthRoundTrip(*GetParam(), IpcOptions::Defaults());
 
   IpcOptions options;
   options.write_legacy_ipc_format = true;
   TestRoundTrip(*GetParam(), options);
+  TestZeroLengthRoundTrip(*GetParam(), options);
 }
 
 TEST_P(TestStreamFormat, RoundTrip) {
   TestRoundTrip(*GetParam(), IpcOptions::Defaults());
+  TestZeroLengthRoundTrip(*GetParam(), IpcOptions::Defaults());
 
   IpcOptions options;
   options.write_legacy_ipc_format = true;
   TestRoundTrip(*GetParam(), options);
+  TestZeroLengthRoundTrip(*GetParam(), options);
 }
 
 INSTANTIATE_TEST_CASE_P(GenericIpcRoundTripTests, TestIpcRoundTrip, BATCH_CASES());
