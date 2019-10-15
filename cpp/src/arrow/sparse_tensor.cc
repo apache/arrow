@@ -521,7 +521,8 @@ Status SparseCOOIndex::Make(std::shared_ptr<DataType> indices_type,
       {non_zero_length, static_cast<int64_t>(shape.size())});
   const int64_t elsize = sizeof(int64_t);
   std::vector<int64_t> indices_strides({elsize, elsize * non_zero_length});
-  return SparseCOOIndex::Make(indices_type, indices_shape, indices_strides, indices_data, out);
+  return SparseCOOIndex::Make(indices_type, indices_shape, indices_strides, indices_data,
+                              out);
 }
 
 // Constructor with a contiguous NumericTensor
@@ -536,6 +537,29 @@ std::string SparseCOOIndex::ToString() const { return std::string("SparseCOOInde
 
 // ----------------------------------------------------------------------
 // SparseCSRIndex
+
+Status SparseCSRIndex::Make(const std::shared_ptr<DataType> indices_type,
+                            const std::vector<int64_t>& indptr_shape,
+                            const std::vector<int64_t>& indices_shape,
+                            std::shared_ptr<Buffer> indptr_data,
+                            std::shared_ptr<Buffer> indices_data,
+                            std::shared_ptr<SparseCSRIndex>* out) {
+  *out = std::make_shared<SparseCSRIndex>(
+      std::make_shared<Tensor>(indices_type, indptr_data, indptr_shape),
+      std::make_shared<Tensor>(indices_type, indices_data, indices_shape));
+  return Status::OK();
+}
+
+Status SparseCSRIndex::Make(const std::shared_ptr<DataType> indices_type,
+                            const std::vector<int64_t>& shape, int64_t non_zero_length,
+                            std::shared_ptr<Buffer> indptr_data,
+                            std::shared_ptr<Buffer> indices_data,
+                            std::shared_ptr<SparseCSRIndex>* out) {
+  std::vector<int64_t> indptr_shape({shape[0] + 1});
+  std::vector<int64_t> indices_shape({non_zero_length});
+  return SparseCSRIndex::Make(indices_type, indptr_shape, indices_shape, indptr_data,
+                              indices_data, out);
+}
 
 // Constructor with two index vectors
 SparseCSRIndex::SparseCSRIndex(const std::shared_ptr<Tensor>& indptr,

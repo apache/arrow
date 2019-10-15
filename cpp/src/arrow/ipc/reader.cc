@@ -887,19 +887,6 @@ Status ReadSparseCOOIndex(const flatbuf::SparseTensor* sparse_tensor,
   return Status::OK();
 }
 
-Status MakeSparseCSRIndex(std::shared_ptr<Buffer> indptr_data,
-                          std::shared_ptr<Buffer> indices_data,
-                          std::shared_ptr<DataType> indices_type,
-                          const std::vector<int64_t>& shape, int64_t non_zero_length,
-                          std::shared_ptr<SparseIndex>* out) {
-  std::vector<int64_t> indptr_shape({shape[0] + 1});
-  std::vector<int64_t> indices_shape({non_zero_length});
-  *out = std::make_shared<SparseCSRIndex>(
-      std::make_shared<Tensor>(indices_type, indptr_data, indptr_shape),
-      std::make_shared<Tensor>(indices_type, indices_data, indices_shape));
-  return Status::OK();
-}
-
 Status ReadSparseCSRIndex(const flatbuf::SparseTensor* sparse_tensor,
                           const std::vector<int64_t>& shape, int64_t non_zero_length,
                           io::RandomAccessFile* file, std::shared_ptr<SparseIndex>* out) {
@@ -1052,9 +1039,10 @@ Status ReadSparseTensorPayload(const IpcPayload& payload,
     }
 
     case SparseTensorFormat::CSR: {
-      std::shared_ptr<SparseIndex> sparse_index;
-      RETURN_NOT_OK(MakeSparseCSRIndex(payload.body_buffers[0], payload.body_buffers[1],
-                                       type, shape, non_zero_length, &sparse_index));
+      std::shared_ptr<SparseCSRIndex> sparse_index;
+      RETURN_NOT_OK(SparseCSRIndex::Make(type, shape, non_zero_length,
+                                         payload.body_buffers[0], payload.body_buffers[1],
+                                         &sparse_index));
       return MakeSparseTensorWithSparseCSRIndex(
           type, shape, dim_names, checked_pointer_cast<SparseCSRIndex>(sparse_index),
           non_zero_length, payload.body_buffers[2], out);
