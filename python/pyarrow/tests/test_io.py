@@ -431,7 +431,7 @@ def test_buffer_eq_bytes():
     assert buf != b'some dat1'
 
     with pytest.raises(TypeError):
-        buf == 'some data'
+        buf == u'some data'
 
 
 def test_buffer_getitem():
