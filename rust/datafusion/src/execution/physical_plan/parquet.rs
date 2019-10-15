@@ -27,10 +27,10 @@ use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::{BatchIterator, ExecutionPlan, Partition};
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
-use parquet::file::reader::{FileReader, SerializedFileReader};
+use parquet::file::reader::SerializedFileReader;
 
 use crossbeam::channel::{unbounded, Receiver, Sender};
-use parquet::arrow::{parquet_to_arrow_schema, ParquetFileArrowReader, ArrowReader};
+use parquet::arrow::{ParquetFileArrowReader, ArrowReader};
 
 /// Execution plan for scanning a Parquet file
 pub struct ParquetExec {
@@ -57,14 +57,13 @@ impl ParquetExec {
             Err(ExecutionError::General("No files found".to_string()))
         } else {
             let file = File::open(&filenames[0])?;
-            let reader = SerializedFileReader::new(file)?;
-            let metadata = reader.metadata();
-            let schema =
-                parquet_to_arrow_schema(metadata.file_metadata().schema_descr_ptr())?;
+            let file_reader = Rc::new(SerializedFileReader::new(file)?);
+            let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
+            let schema = arrow_reader.get_schema()?;
 
             let projection = match projection {
                 Some(p) => p,
-                None => vec![], //TODO select all
+                None => (0..schema.fields().len()).collect()
             };
 
             let projected_schema = Schema::new(
