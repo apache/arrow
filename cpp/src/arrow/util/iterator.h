@@ -26,6 +26,7 @@
 
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/compare.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -45,7 +46,7 @@ struct IterationTraits {
 
 /// \brief A generic Iterator that can return errors
 template <typename T>
-class Iterator {
+class Iterator : public util::EqualityComparable<Iterator<T>> {
  public:
   /// \brief Iterator may be constructed from any type which has a member function
   /// with signature Status Next(T*);
@@ -89,7 +90,7 @@ class Iterator {
   }
 
   /// Iterators will only compare equal if they are both null
-  bool operator==(const Iterator& other) const { return ptr_ == other.ptr_; }
+  bool Equals(const Iterator& other) const { return ptr_ == other.ptr_; }
 
   explicit operator bool() const { return ptr_ != NULLPTR; }
 

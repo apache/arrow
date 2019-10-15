@@ -21,6 +21,7 @@
 #include <string>
 #include <utility>
 
+#include "arrow/util/compare.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_builder.h"
 #include "arrow/util/visibility.h"
@@ -124,7 +125,7 @@ class ARROW_EXPORT StatusDetail {
 ///
 /// Additionally, if an error occurred, a specific error message is generally
 /// attached.
-class ARROW_EXPORT Status {
+class ARROW_EXPORT Status : public util::EqualityComparable<Status> {
  public:
   // Create a success status.
   Status() noexcept : state_(NULLPTR) {}
@@ -148,7 +149,7 @@ class ARROW_EXPORT Status {
   inline Status(Status&& s) noexcept;
   inline Status& operator=(Status&& s) noexcept;
 
-  inline bool operator==(const Status& s) const noexcept;
+  inline bool Equals(const Status& s) const;
 
   // AND the statuses.
   inline Status operator&(const Status& s) const noexcept;
@@ -377,7 +378,7 @@ Status& Status::operator=(Status&& s) noexcept {
   return *this;
 }
 
-bool Status::operator==(const Status& s) const noexcept {
+bool Status::Equals(const Status& s) const {
   if (state_ == s.state_) {
     return true;
   }
