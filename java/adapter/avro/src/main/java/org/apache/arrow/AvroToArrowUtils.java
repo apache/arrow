@@ -49,8 +49,8 @@ import org.apache.arrow.consumers.AvroUnionsConsumer;
 import org.apache.arrow.consumers.CompositeAvroConsumer;
 import org.apache.arrow.consumers.Consumer;
 import org.apache.arrow.consumers.NullableTypeConsumer;
+import org.apache.arrow.consumers.SkipConsumer;
 import org.apache.arrow.consumers.SkipFunction;
-import org.apache.arrow.consumers.SkippableConsumer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseIntVector;
@@ -227,8 +227,7 @@ public class AvroToArrowUtils {
     return consumer;
   }
 
-
-  private static Consumer createSkippableConsumer(Schema schema) {
+  private static Consumer createSkipConsumer(Schema schema) {
 
     SkipFunction skipFunction;
     Type type = schema.getType();
@@ -238,26 +237,26 @@ public class AvroToArrowUtils {
         int size = schema.getTypes().size();
         long nullCount = schema.getTypes().stream().filter(s -> s.getType() == Type.NULL).count();
         if (size == 1) {
-          return createSkippableConsumer(schema.getTypes().get(0));
+          return createSkipConsumer(schema.getTypes().get(0));
           // nullable primitive type
         } else if (size == 2 && nullCount == 1) {
           Schema nullSchema = schema.getTypes().stream().filter(s -> s.getType() == Type.NULL).findFirst().get();
           int nullIndex = schema.getTypes().indexOf(nullSchema);
           Schema subSchema = schema.getTypes().stream().filter(s -> s.getType() != Type.NULL).findFirst().get();
           Preconditions.checkNotNull(subSchema, "schema should not be null.");
-          final Consumer consumer = createSkippableConsumer(subSchema);
+          final Consumer consumer = createSkipConsumer(subSchema);
           return new NullableTypeConsumer(consumer, nullIndex);
           // real union type
         } else {
 
           List<Consumer> delegates = schema.getTypes().stream().map(s ->
-              createSkippableConsumer(s)).collect(Collectors.toList());
+              createSkipConsumer(s)).collect(Collectors.toList());
           skipFunction =  decoder -> delegates.get(decoder.readInt()).consume(decoder);
 
           break;
         }
       case ARRAY:
-        Consumer elementDelegate = createSkippableConsumer(schema.getElementType());
+        Consumer elementDelegate = createSkipConsumer(schema.getElementType());
         skipFunction = decoder -> {
           for (long i = decoder.skipArray(); i != 0; i = decoder.skipArray()) {
             for (long j = 0; j < i; j++) {
@@ -267,7 +266,7 @@ public class AvroToArrowUtils {
         };
         break;
       case MAP:
-        Consumer valueDelegate = createSkippableConsumer(schema.getElementType());
+        Consumer valueDelegate = createSkipConsumer(schema.getElementType());
         skipFunction = decoder -> {
           for (long i = decoder.skipMap(); i != 0; i = decoder.skipMap()) {
             for (long j = 0; j < i; j++) {
@@ -279,7 +278,7 @@ public class AvroToArrowUtils {
         break;
       case RECORD:
         List<Consumer> delegates = schema.getFields().stream().map(field ->
-            createSkippableConsumer(field.schema())).collect(Collectors.toList());
+            createSkipConsumer(field.schema())).collect(Collectors.toList());
 
         skipFunction = decoder -> {
           for (Consumer consumer : delegates) {
@@ -323,7 +322,7 @@ public class AvroToArrowUtils {
         throw new UnsupportedOperationException("Invalid avro type: " + type.getName());
     }
 
-    return new SkippableConsumer(skipFunction);
+    return new SkipConsumer(skipFunction);
   }
 
   static CompositeAvroConsumer createCompositeConsumer(
@@ -336,15 +335,13 @@ public class AvroToArrowUtils {
     if (type == Type.RECORD) {
       for (Schema.Field field : schema.getFields()) {
         if (skipFieldNames.contains(field.name())) {
-          consumers.add(createSkippableConsumer(field.schema()));
+          consumers.add(createSkipConsumer(field.schema()));
         } else {
           Consumer consumer = createConsumer(field.schema(), field.name(), config);
           consumers.add(consumer);
         }
 
       }
-    } else if (type == Type.ENUM) {
-      throw new UnsupportedOperationException();
     } else {
       Consumer consumer = createConsumer(schema, "", config);
       consumers.add(consumer);
@@ -407,8 +404,9 @@ public class AvroToArrowUtils {
         for (int i = 0; i < schema.getFields().size(); i++) {
           final Schema.Field field = schema.getFields().get(i);
           Schema childSchema = field.schema();
-          if (!skipFieldNames.contains(field.name())) {
-            childFields.add(avroSchemaToField(childSchema, field.name(), config));
+          String fullChildName = String.format("%s.%s", name, field.name());
+          if (!skipFieldNames.contains(fullChildName)) {
+            childFields.add(avroSchemaToField(childSchema, fullChildName, config));
           }
         }
         arrowType = new ArrowType.Struct();
@@ -501,11 +499,13 @@ public class AvroToArrowUtils {
     for (int i = 0; i < schema.getFields().size(); i++) {
       Schema.Field childField = schema.getFields().get(i);
       Consumer delegate;
-      if (skipFieldNames.contains(childField.name())) {
-        delegate = createSkippableConsumer(childField.schema());
+      // use full name to distinguish fields have same names between parent and child fields.
+      final String fullChildName = String.format("%s.%s", name, childField.name());
+      if (skipFieldNames.contains(fullChildName)) {
+        delegate = createSkipConsumer(childField.schema());
       } else {
-        delegate = createConsumer(childField.schema(), childField.name(),
-            config, structVector.getChildrenFromFields().get(vectorIndex++));
+        delegate = createConsumer(childField.schema(), fullChildName, config,
+            structVector.getChildrenFromFields().get(vectorIndex++));
       }
 
       delegates[i] = delegate;
@@ -637,7 +637,7 @@ public class AvroToArrowUtils {
     if (type == Type.RECORD) {
       for (Schema.Field field : schema.getFields()) {
         if (skipFieldNames.contains(field.name())) {
-          consumers.add(createSkippableConsumer(field.schema()));
+          consumers.add(createSkipConsumer(field.schema()));
         } else {
           Consumer consumer = createConsumer(field.schema(), field.name(), config);
           consumers.add(consumer);
@@ -650,7 +650,7 @@ public class AvroToArrowUtils {
       vectors.add(consumer.getVector());
     }
 
-    long validConsumerCount = consumers.stream().filter(c -> !(c instanceof SkippableConsumer)).count();
+    long validConsumerCount = consumers.stream().filter(c -> !(c instanceof SkipConsumer)).count();
     Preconditions.checkArgument(vectors.size() == validConsumerCount,
         "vectors size not equals consumers size.");
 

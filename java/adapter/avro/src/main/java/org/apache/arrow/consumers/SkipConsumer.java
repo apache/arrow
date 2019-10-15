@@ -23,13 +23,13 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer which skip values in avro decoder.
+ * Consumer which skip (throw away) data from the decoder.
  */
-public class SkippableConsumer implements Consumer {
+public class SkipConsumer implements Consumer {
 
   private final SkipFunction skipFunction;
 
-  public SkippableConsumer(SkipFunction skipFunction) {
+  public SkipConsumer(SkipFunction skipFunction) {
     this.skipFunction = skipFunction;
   }
 

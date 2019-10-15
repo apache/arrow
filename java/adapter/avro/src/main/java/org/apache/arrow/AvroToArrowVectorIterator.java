@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import org.apache.arrow.consumers.CompositeAvroConsumer;
-import org.apache.arrow.consumers.SkippableConsumer;
+import org.apache.arrow.consumers.SkipConsumer;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -119,7 +119,7 @@ public class AvroToArrowVectorIterator implements Iterator<VectorSchemaRoot>, Au
   private void load(VectorSchemaRoot root) {
 
     long validConsumerCount = compositeConsumer.getConsumers().stream().filter(c ->
-        !(c instanceof SkippableConsumer)).count();
+        !(c instanceof SkipConsumer)).count();
     Preconditions.checkArgument(root.getFieldVectors().size() == validConsumerCount,
         "Schema root vectors size not equals to consumers size.");
 

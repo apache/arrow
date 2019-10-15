@@ -155,7 +155,7 @@ public class AvroToArrowTest extends AvroTestBase {
   @Test
   public void testSkipNestedFields() throws Exception {
     Set<String> skipFieldNames = new HashSet<>();
-    skipFieldNames.add("f0");
+    skipFieldNames.add("f0.f0");
     config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
     Schema schema = getSchema("test_nested_record.avsc");
     Schema nestedSchema = schema.getFields().get(0).schema();
