@@ -165,6 +165,17 @@ fn csv_query_group_by_avg() {
 }
 
 #[test]
+fn csv_query_group_by_avg_with_projection() {
+    let mut ctx = ExecutionContext::new();
+    register_aggregate_csv(&mut ctx);
+    let sql = "SELECT avg(c12), c1 FROM aggregate_test_100 GROUP BY c1";
+    let mut actual = execute(&mut ctx, sql);
+    actual.sort();
+    let expected = "0.41040709263815384\t\"b\"\n0.48600669271341534\t\"e\"\n0.48754517466109415\t\"a\"\n0.48855379387549824\t\"d\"\n0.6600456536439784\t\"c\"".to_string();
+    assert_eq!(expected, actual.join("\n"));
+}
+
+#[test]
 fn csv_query_avg_multi_batch() {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx);
@@ -187,7 +198,6 @@ fn csv_query_avg_multi_batch() {
 fn csv_query_count() {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx);
-    //TODO add ORDER BY once supported, to make this test determistic
     let sql = "SELECT count(c12) FROM aggregate_test_100";
     let actual = execute(&mut ctx, sql).join("\n");
     let expected = "100".to_string();
@@ -198,23 +208,23 @@ fn csv_query_count() {
 fn csv_query_group_by_int_count() {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx);
-    //TODO add ORDER BY once supported, to make this test determistic
-    let sql = "SELECT count(c12) FROM aggregate_test_100 GROUP BY c1";
-    let actual = execute(&mut ctx, sql).join("\n");
-    let expected = "\"a\"\t21\n\"e\"\t21\n\"d\"\t18\n\"c\"\t21\n\"b\"\t19".to_string();
-    assert_eq!(expected, actual);
+    let sql = "SELECT c1, count(c12) FROM aggregate_test_100 GROUP BY c1";
+    let mut actual = execute(&mut ctx, sql);
+    actual.sort();
+    let expected = "\"a\"\t21\n\"b\"\t19\n\"c\"\t21\n\"d\"\t18\n\"e\"\t21".to_string();
+    assert_eq!(expected, actual.join("\n"));
 }
 
 #[test]
 fn csv_query_group_by_string_min_max() {
     let mut ctx = ExecutionContext::new();
     register_aggregate_csv(&mut ctx);
-    //TODO add ORDER BY once supported, to make this test determistic
     let sql = "SELECT c2, MIN(c12), MAX(c12) FROM aggregate_test_100 GROUP BY c1";
-    let actual = execute(&mut ctx, sql).join("\n");
+    let mut actual = execute(&mut ctx, sql);
+    actual.sort();
     let expected =
-        "\"a\"\t0.02182578039211991\t0.9800193410444061\n\"e\"\t0.01479305307777301\t0.9965400387585364\n\"d\"\t0.061029375346466685\t0.9748360509016578\n\"c\"\t0.0494924465469434\t0.991517828651004\n\"b\"\t0.04893135681998029\t0.9185813970744787".to_string();
-    assert_eq!(expected, actual);
+        "\"a\"\t0.02182578039211991\t0.9800193410444061\n\"b\"\t0.04893135681998029\t0.9185813970744787\n\"c\"\t0.0494924465469434\t0.991517828651004\n\"d\"\t0.061029375346466685\t0.9748360509016578\n\"e\"\t0.01479305307777301\t0.9965400387585364".to_string();
+    assert_eq!(expected, actual.join("\n"));
 }
 
 #[test]
