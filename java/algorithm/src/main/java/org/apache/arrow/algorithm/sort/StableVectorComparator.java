@@ -59,5 +59,10 @@ public class StableVectorComparator<V extends ValueVector> extends VectorValueCo
     return result != 0 ? result : index1 - index2;
   }
 
+  @Override
+  public VectorValueComparator<V> copy() {
+    return new StableVectorComparator<V>(innerComparator.copy());
+  }
+
 
 }
