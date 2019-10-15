@@ -1829,9 +1829,9 @@ void MakeDoubleTable(int num_columns, int num_rows, int nchunks,
   *out = Table::Make(schema, columns);
 }
 
-void MakeListArray(int num_rows, int max_value_length, const std::string& item_name,
-                   std::shared_ptr<DataType>* out_type,
-                   std::shared_ptr<Array>* out_array) {
+void MakeSimpleListArray(int num_rows, int max_value_length, const std::string& item_name,
+                         std::shared_ptr<DataType>* out_type,
+                         std::shared_ptr<Array>* out_array) {
   std::vector<int32_t> length_draws;
   randint(num_rows, 0, max_value_length, &length_draws);
 
@@ -2022,7 +2022,7 @@ TEST(TestArrowReadWrite, ListLargeRecords) {
   std::shared_ptr<Array> list_array;
   std::shared_ptr<DataType> list_type;
 
-  MakeListArray(num_rows, 20, "item", &list_type, &list_array);
+  MakeSimpleListArray(num_rows, 20, "item", &list_type, &list_array);
 
   auto schema = ::arrow::schema({::arrow::field("a", list_type)});
 
@@ -2098,7 +2098,7 @@ auto GenerateInt32 = [](int length, std::shared_ptr<DataType>* type,
 
 auto GenerateList = [](int length, std::shared_ptr<DataType>* type,
                        std::shared_ptr<Array>* array) {
-  MakeListArray(length, 100, "element", type, array);
+  MakeSimpleListArray(length, 100, "element", type, array);
 };
 
 std::shared_ptr<Table> InvalidTable() {
