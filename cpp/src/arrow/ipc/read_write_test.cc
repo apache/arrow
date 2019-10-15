@@ -1155,16 +1155,6 @@ class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture 
   void CheckSparseTensorRoundTrip(const SparseCSRMatrix& sparse_tensor);
 
  protected:
-  std::shared_ptr<SparseCOOIndex> MakeSparseCOOIndex(
-      const std::vector<int64_t>& coords_shape,
-      const std::vector<int64_t>& coords_strides,
-      std::vector<typename IndexValueType::c_type>& coords_values) const {
-    auto coords_data = Buffer::Wrap(coords_values);
-    auto coords = std::make_shared<NumericTensor<IndexValueType>>(
-        coords_data, coords_shape, coords_strides);
-    return std::make_shared<SparseCOOIndex>(coords);
-  }
-
   template <typename ValueType>
   std::shared_ptr<SparseCOOTensor> MakeSparseCOOTensor(
       const std::shared_ptr<SparseCOOIndex>& si, std::vector<ValueType>& sparse_values,
@@ -1285,8 +1275,10 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor) {
                                                    0, 2, 0, 0, 2, 2, 1, 0, 1, 1, 0, 3,
                                                    1, 1, 0, 1, 1, 2, 1, 2, 1, 1, 2, 3};
   const int sizeof_index_value = sizeof(c_index_value_type);
-  auto si = this->MakeSparseCOOIndex(
-      {12, 3}, {sizeof_index_value * 3, sizeof_index_value}, coords_values);
+  std::shared_ptr<SparseCOOIndex> si;
+  ASSERT_OK(SparseCOOIndex::Make(TypeTraits<IndexValueType>::type_singleton(), {12, 3},
+                                 {sizeof_index_value * 3, sizeof_index_value},
+                                 Buffer::Wrap(coords_values), &si));
 
   std::vector<int64_t> shape = {2, 3, 4};
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
@@ -1328,8 +1320,10 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexColumnMajor) {
                                                    0, 0, 1, 1, 2, 2, 0, 0, 1, 1, 2, 2,
                                                    0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3};
   const int sizeof_index_value = sizeof(c_index_value_type);
-  auto si = this->MakeSparseCOOIndex(
-      {12, 3}, {sizeof_index_value, sizeof_index_value * 12}, coords_values);
+  std::shared_ptr<SparseCOOIndex> si;
+  ASSERT_OK(SparseCOOIndex::Make(TypeTraits<IndexValueType>::type_singleton(), {12, 3},
+                                 {sizeof_index_value, sizeof_index_value * 12},
+                                 Buffer::Wrap(coords_values), &si));
 
   std::vector<int64_t> shape = {2, 3, 4};
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};

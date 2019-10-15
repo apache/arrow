@@ -88,6 +88,19 @@ class ARROW_EXPORT SparseCOOIndex : public internal::SparseIndexBase<SparseCOOIn
  public:
   static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::COO;
 
+  /// \brief Make SparseCOOIndex from raw properties
+  static Status Make(const std::shared_ptr<DataType> indices_type,
+                     const std::vector<int64_t>& indices_shape,
+                     const std::vector<int64_t>& indices_strides,
+                     std::shared_ptr<Buffer> indices_data,
+                     std::shared_ptr<SparseCOOIndex>* out);
+
+  /// \brief Make SparseCOOIndex from sparse tensor's shape properties and data
+  static Status Make(const std::shared_ptr<DataType> indices_type,
+                     const std::vector<int64_t>& shape, int64_t non_zero_length,
+                     std::shared_ptr<Buffer> indices_data,
+                     std::shared_ptr<SparseCOOIndex>* out);
+
   /// \brief Construct SparseCOOIndex from column-major NumericTensor
   explicit SparseCOOIndex(const std::shared_ptr<Tensor>& coords);
 

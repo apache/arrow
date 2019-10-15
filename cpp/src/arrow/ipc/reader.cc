@@ -863,19 +863,6 @@ Status ReadTensor(const Message& message, std::shared_ptr<Tensor>* out) {
 
 namespace {
 
-Status MakeSparseCOOIndex(std::shared_ptr<Buffer> indices_data,
-                          std::shared_ptr<DataType> indices_type,
-                          const std::vector<int64_t>& shape, int64_t non_zero_length,
-                          std::shared_ptr<SparseIndex>* out) {
-  std::vector<int64_t> indices_shape(
-      {non_zero_length, static_cast<int64_t>(shape.size())});
-  const int64_t elsize = sizeof(int64_t);
-  std::vector<int64_t> strides({elsize, elsize * non_zero_length});
-  *out = std::make_shared<SparseCOOIndex>(
-      std::make_shared<Tensor>(indices_type, indices_data, indices_shape, strides));
-  return Status::OK();
-}
-
 Status ReadSparseCOOIndex(const flatbuf::SparseTensor* sparse_tensor,
                           const std::vector<int64_t>& shape, int64_t non_zero_length,
                           io::RandomAccessFile* file, std::shared_ptr<SparseIndex>* out) {
@@ -1054,21 +1041,24 @@ Status ReadSparseTensorPayload(const IpcPayload& payload,
 
   RETURN_NOT_OK(CheckSparseTensorBodyBufferCount(payload, sparse_tensor_format_id));
 
-  std::shared_ptr<SparseIndex> sparse_index;
   switch (sparse_tensor_format_id) {
-    case SparseTensorFormat::COO:
-      RETURN_NOT_OK(MakeSparseCOOIndex(payload.body_buffers[0], type, shape,
-                                       non_zero_length, &sparse_index));
-      return MakeSparseTensorWithSparseCOOIndex(
-          type, shape, dim_names, checked_pointer_cast<SparseCOOIndex>(sparse_index),
-          non_zero_length, payload.body_buffers[1], out);
+    case SparseTensorFormat::COO: {
+      std::shared_ptr<SparseCOOIndex> sparse_index;
+      RETURN_NOT_OK(SparseCOOIndex::Make(type, shape, non_zero_length,
+                                         payload.body_buffers[0], &sparse_index));
+      return MakeSparseTensorWithSparseCOOIndex(type, shape, dim_names, sparse_index,
+                                                non_zero_length, payload.body_buffers[1],
+                                                out);
+    }
 
-    case SparseTensorFormat::CSR:
+    case SparseTensorFormat::CSR: {
+      std::shared_ptr<SparseIndex> sparse_index;
       RETURN_NOT_OK(MakeSparseCSRIndex(payload.body_buffers[0], payload.body_buffers[1],
                                        type, shape, non_zero_length, &sparse_index));
       return MakeSparseTensorWithSparseCSRIndex(
           type, shape, dim_names, checked_pointer_cast<SparseCSRIndex>(sparse_index),
           non_zero_length, payload.body_buffers[2], out);
+    }
 
     default:
       return Status::Invalid("Unsupported sparse index format");

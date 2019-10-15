@@ -503,6 +503,27 @@ Status MakeTensorFromSparseTensor(MemoryPool* pool, const SparseTensor* sparse_t
 // ----------------------------------------------------------------------
 // SparseCOOIndex
 
+Status SparseCOOIndex::Make(std::shared_ptr<DataType> indices_type,
+                            const std::vector<int64_t>& indices_shape,
+                            const std::vector<int64_t>& indices_strides,
+                            std::shared_ptr<Buffer> indices_data,
+                            std::shared_ptr<SparseCOOIndex>* out) {
+  *out = std::make_shared<SparseCOOIndex>(std::make_shared<Tensor>(
+      indices_type, indices_data, indices_shape, indices_strides));
+  return Status::OK();
+}
+
+Status SparseCOOIndex::Make(std::shared_ptr<DataType> indices_type,
+                            const std::vector<int64_t>& shape, int64_t non_zero_length,
+                            std::shared_ptr<Buffer> indices_data,
+                            std::shared_ptr<SparseCOOIndex>* out) {
+  std::vector<int64_t> indices_shape(
+      {non_zero_length, static_cast<int64_t>(shape.size())});
+  const int64_t elsize = sizeof(int64_t);
+  std::vector<int64_t> indices_strides({elsize, elsize * non_zero_length});
+  return SparseCOOIndex::Make(indices_type, indices_shape, indices_strides, indices_data, out);
+}
+
 // Constructor with a contiguous NumericTensor
 SparseCOOIndex::SparseCOOIndex(const std::shared_ptr<Tensor>& coords)
     : SparseIndexBase(coords->shape()[0]), coords_(coords) {
