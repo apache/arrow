@@ -37,6 +37,7 @@ public class AvroNullConsumer implements Consumer<NullVector> {
 
   @Override
   public void consume(Decoder decoder) throws IOException {
+    vector.setValueCount(vector.getValueCount() + 1);
   }
 
   @Override
