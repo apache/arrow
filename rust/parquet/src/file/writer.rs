@@ -930,7 +930,8 @@ mod tests {
             if let Some(mut writer) = col_writer {
                 match writer {
                     ColumnWriter::Int32ColumnWriter(ref mut typed) => {
-                        rows += typed.write_batch(&subset[..], None, None).unwrap() as i64;
+                        rows +=
+                            typed.write_batch(&subset[..], None, None).unwrap() as i64;
                     }
                     _ => {
                         unimplemented!();
@@ -945,7 +946,11 @@ mod tests {
 
         let reader = SerializedFileReader::new(file).unwrap();
         assert_eq!(reader.num_row_groups(), data.len());
-        assert_eq!(reader.metadata().file_metadata().num_rows(), rows, "row count in metadata not equal to number of rows written");
+        assert_eq!(
+            reader.metadata().file_metadata().num_rows(),
+            rows,
+            "row count in metadata not equal to number of rows written"
+        );
         for i in 0..reader.num_row_groups() {
             let row_group_reader = reader.get_row_group(i).unwrap();
             let iter = row_group_reader.get_row_iter(None).unwrap();
