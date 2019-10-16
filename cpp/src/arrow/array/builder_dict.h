@@ -239,12 +239,6 @@ class DictionaryBuilderBase : public ArrayBuilder {
   Status Resize(int64_t capacity) override {
     ARROW_RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
     capacity = std::max(capacity, kMinBuilderCapacity);
-
-    if (capacity_ == 0) {
-      // Initialize hash table
-      // XXX should we let the user pass additional size heuristics?
-      delta_offset_ = 0;
-    }
     ARROW_RETURN_NOT_OK(indices_builder_.Resize(capacity));
     capacity_ = indices_builder_.capacity();
     return Status::OK();
@@ -266,6 +260,10 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
     // Update internals for further uses of this DictionaryBuilder
     delta_offset_ = memo_table_->size();
+
+    // ARROW-6861: Manually set capacity/length/null count until we can fix up
+    // Reset to not reset the memo table in ARROW-6869
+    capacity_ = length_ = null_count_ = 0;
     indices_builder_.Reset();
 
     return Status::OK();
@@ -380,6 +378,7 @@ class DictionaryBuilder : public internal::DictionaryBuilderBase<AdaptiveIntBuil
                        const uint8_t* valid_bytes = NULLPTR) {
     int64_t null_count_before = this->indices_builder_.null_count();
     ARROW_RETURN_NOT_OK(this->indices_builder_.AppendValues(values, length, valid_bytes));
+    this->capacity_ = this->indices_builder_.capacity();
     this->length_ += length;
     this->null_count_ += this->indices_builder_.null_count() - null_count_before;
     return Status::OK();
@@ -402,6 +401,7 @@ class Dictionary32Builder : public internal::DictionaryBuilderBase<Int32Builder,
                        const uint8_t* valid_bytes = NULLPTR) {
     int64_t null_count_before = this->indices_builder_.null_count();
     ARROW_RETURN_NOT_OK(this->indices_builder_.AppendValues(values, length, valid_bytes));
+    this->capacity_ = this->indices_builder_.capacity();
     this->length_ += length;
     this->null_count_ += this->indices_builder_.null_count() - null_count_before;
     return Status::OK();
