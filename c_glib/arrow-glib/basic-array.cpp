@@ -1608,7 +1608,7 @@ garrow_large_binary_array_class_init(GArrowLargeBinaryArrayClass *klass)
  *
  * Returns: A newly created #GArrowLargeBinaryArray.
  *
- * Since: 0.15.0
+ * Since: 1.0.0
  */
 GArrowLargeBinaryArray *
 garrow_large_binary_array_new(gint64 length,
@@ -1638,7 +1638,7 @@ garrow_large_binary_array_new(gint64 length,
  *
  * Returns: (transfer full): The i-th value.
  *
- * Since: 0.15.0
+ * Since: 1.0.0
  */
 GBytes *
 garrow_large_binary_array_get_value(GArrowLargeBinaryArray *array,
@@ -1659,7 +1659,7 @@ garrow_large_binary_array_get_value(GArrowLargeBinaryArray *array,
  *
  * Returns: (transfer full): The data of the array as #GArrowBuffer.
  *
- * Since: 0.15.0
+ * Since: 1.0.0
  */
 GArrowBuffer *
 garrow_large_binary_array_get_buffer(GArrowLargeBinaryArray *array)
@@ -1677,7 +1677,7 @@ garrow_large_binary_array_get_buffer(GArrowLargeBinaryArray *array)
  *
  * Returns: (transfer full): The offsets of the array as #GArrowBuffer.
  *
- * Since: 0.15.0
+ * Since: 1.0.0
  */
 GArrowBuffer *
 garrow_large_binary_array_get_offsets_buffer(GArrowLargeBinaryArray *array)
@@ -1790,7 +1790,7 @@ garrow_large_string_array_class_init(GArrowLargeStringArrayClass *klass)
  *
  * Returns: A newly created #GArrowLargeStringArray.
  *
- * Since: 0.15.0
+ * Since: 1.0.0
  */
 GArrowLargeStringArray *
 garrow_large_string_array_new(gint64 length,
@@ -1820,7 +1820,7 @@ garrow_large_string_array_new(gint64 length,
  *
  * Returns: The i-th UTF-8 encoded string.
  *
- * Since: 0.15.0
+ * Since: 1.0.0
  */
 gchar *
 garrow_large_string_array_get_string(GArrowLargeStringArray *array,
