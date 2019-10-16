@@ -46,6 +46,8 @@ using string_literals::operator"" _;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
+using E = TestExpression;
+
 class ExpressionsTest : public ::testing::Test {
  public:
   void AssertSimplifiesTo(const Expression& expr, const Expression& given,
@@ -58,12 +60,9 @@ class ExpressionsTest : public ::testing::Test {
     EXPECT_TRUE(given_type->Equals(boolean()));
 
     auto simplified = expr.Assume(given);
-    if (!simplified->Equals(expected)) {
-      FAIL() << "  simplification of: " << expr.ToString() << std::endl
-             << "              given: " << given.ToString() << std::endl
-             << "           expected: " << expected.ToString() << std::endl
-             << "                was: " << simplified->ToString();
-    }
+    ASSERT_EQ(E{simplified}, E{expected})
+        << "  simplification of: " << expr.ToString() << std::endl
+        << "              given: " << given.ToString() << std::endl;
   }
 
   std::shared_ptr<Schema> schema_ =
@@ -73,16 +72,20 @@ class ExpressionsTest : public ::testing::Test {
 };
 
 TEST_F(ExpressionsTest, Equality) {
-  ASSERT_TRUE("a"_.Equals("a"_));
-  ASSERT_FALSE("a"_.Equals("b"_));
+  ASSERT_EQ(E{"a"_}, E{"a"_});
+  ASSERT_NE(E{"a"_}, E{"b"_});
 
-  ASSERT_TRUE(("b"_ == 3).Equals("b"_ == 3));
-  ASSERT_FALSE(("b"_ == 3).Equals("b"_ < 3));
-  ASSERT_FALSE(("b"_ == 3).Equals("b"_));
+  ASSERT_EQ(E{"b"_ == 3}, E{"b"_ == 3});
+  ASSERT_NE(E{"b"_ == 3}, E{"b"_ < 3});
+  ASSERT_NE(E{"b"_ == 3}, E{"b"_});
 
   // ordering matters
-  ASSERT_TRUE(("b"_ > 2 and "b"_ < 3).Equals("b"_ > 2 and "b"_ < 3));
-  ASSERT_FALSE(("b"_ > 2 and "b"_ < 3).Equals("b"_ < 3 and "b"_ > 2));
+  ASSERT_EQ(E{"b"_ == 3}, E{"b"_ == 3});
+  ASSERT_NE(E{"b"_ == 3}, E{"b"_ < 3});
+  ASSERT_NE(E{"b"_ == 3}, E{"b"_});
+
+  ASSERT_EQ(E("b"_ > 2 and "b"_ < 3), E("b"_ > 2 and "b"_ < 3));
+  ASSERT_NE(E("b"_ > 2 and "b"_ < 3), E("b"_ < 3 and "b"_ > 2));
 }
 
 TEST_F(ExpressionsTest, SimplificationOfCompoundQuery) {
@@ -397,6 +400,7 @@ TEST(FieldsInExpressionTest, Basic) {
 
   AssertFieldsInExpression(("a"_).Copy(), {"a"});
   AssertFieldsInExpression(("a"_ == 1).Copy(), {"a"});
+  AssertFieldsInExpression(("a"_ == "b"_).Copy(), {"a", "b"});
 
   AssertFieldsInExpression(("a"_ == 1 || "a"_ == 2).Copy(), {"a", "a"});
   AssertFieldsInExpression(("a"_ == 1 || "b"_ == 2).Copy(), {"a", "b"});

@@ -374,17 +374,23 @@ auto scalar(T&& value) -> decltype(scalar(MakeScalar(std::forward<T>(value)))) {
   return scalar(MakeScalar(std::forward<T>(value)));
 }
 
-#define COMPARISON_FACTORY(NAME, FACTORY_NAME, OP)                                      \
-  inline std::shared_ptr<ComparisonExpression> FACTORY_NAME(                            \
-      const std::shared_ptr<Expression>& lhs, const std::shared_ptr<Expression>& rhs) { \
-    return std::make_shared<ComparisonExpression>(compute::CompareOperator::NAME, lhs,  \
-                                                  rhs);                                 \
-  }                                                                                     \
-                                                                                        \
-  template <typename T>                                                                 \
-  ComparisonExpression operator OP(const Expression& lhs, T&& rhs) {                    \
-    return ComparisonExpression(compute::CompareOperator::NAME, lhs.Copy(),             \
-                                scalar(std::forward<T>(rhs)));                          \
+#define COMPARISON_FACTORY(NAME, FACTORY_NAME, OP)                                       \
+  inline std::shared_ptr<ComparisonExpression> FACTORY_NAME(                             \
+      const std::shared_ptr<Expression>& lhs, const std::shared_ptr<Expression>& rhs) {  \
+    return std::make_shared<ComparisonExpression>(compute::CompareOperator::NAME, lhs,   \
+                                                  rhs);                                  \
+  }                                                                                      \
+                                                                                         \
+  template <typename T, typename Enable = typename std::enable_if<!std::is_base_of<      \
+                            Expression, typename std::decay<T>::type>::value>::type>     \
+  ComparisonExpression operator OP(const Expression& lhs, T&& rhs) {                     \
+    return ComparisonExpression(compute::CompareOperator::NAME, lhs.Copy(),              \
+                                scalar(std::forward<T>(rhs)));                           \
+  }                                                                                      \
+                                                                                         \
+  inline ComparisonExpression operator OP(const Expression& lhs,                         \
+                                          const Expression& rhs) {                       \
+    return ComparisonExpression(compute::CompareOperator::NAME, lhs.Copy(), rhs.Copy()); \
   }
 COMPARISON_FACTORY(EQUAL, equal, ==)
 COMPARISON_FACTORY(NOT_EQUAL, not_equal, !=)

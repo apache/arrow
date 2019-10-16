@@ -35,18 +35,7 @@
 namespace arrow {
 namespace dataset {
 
-bool operator==(const std::shared_ptr<Expression>& lhs,
-                const std::shared_ptr<Expression>& rhs) {
-  if (lhs == nullptr && rhs == nullptr) {
-    return true;
-  }
-
-  if (lhs != nullptr && rhs != nullptr) {
-    return lhs->Equals(*rhs);
-  }
-
-  return false;
-}
+using E = TestExpression;
 
 class TestPartitionScheme : public ::testing::Test {
  public:
@@ -56,7 +45,7 @@ class TestPartitionScheme : public ::testing::Test {
 
   void AssertParse(const std::string& path, std::shared_ptr<Expression> expected) {
     ASSERT_OK_AND_ASSIGN(auto parsed, scheme_->Parse(path));
-    ASSERT_EQ(parsed, expected);
+    ASSERT_EQ(E{parsed}, E{expected});
   }
 
   void AssertParse(const std::string& path, const Expression& expected) {

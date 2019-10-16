@@ -336,5 +336,20 @@ void AssertFragmentsAreFromPath(DataFragmentIterator it,
   EXPECT_THAT(actual, testing::UnorderedElementsAreArray(expected));
 }
 
+// A frozen shared_ptr<Expression> with behavior expected by GTest
+struct TestExpression : util::EqualityComparable<TestExpression>, util::ToStringOstreamable<TestExpression> {
+  // NOLINTNEXTLINE runtime/explicit
+  TestExpression(std::shared_ptr<Expression> e) : expression(std::move(e)) {}
+
+  // NOLINTNEXTLINE runtime/explicit
+  TestExpression(const Expression& e) : expression(e.Copy()) {}
+
+  std::shared_ptr<Expression> expression;
+
+  bool Equals(const TestExpression& other) const { return expression->Equals(other.expression); }
+
+  std::string ToString() const { return expression->ToString(); }
+};
+
 }  // namespace dataset
 }  // namespace arrow
