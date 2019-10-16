@@ -253,7 +253,17 @@ public class ByteFunctionHelpers {
    */
   public static final int hash(final ArrowBuf buf, int start, int end) {
 
-    ArrowBufHasher hasher = SimpleHasher.INSTANCE;
+    return hash(SimpleHasher.INSTANCE, buf, start, end);
+  }
+
+  /**
+   * Compute hashCode with the given {@link ArrowBufHasher}, {@link ArrowBuf} and start/end index.
+   */
+  public static final int hash(ArrowBufHasher hasher, final ArrowBuf buf, int start, int end) {
+
+    if (hasher == null) {
+      hasher = SimpleHasher.INSTANCE;
+    }
 
     return hasher.hashCode(buf, start, end - start);
   }

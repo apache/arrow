@@ -18,6 +18,8 @@
 package org.apache.arrow.vector.dictionary;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.util.hash.ArrowBufHasher;
+import org.apache.arrow.memory.util.hash.SimpleHasher;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.FieldVector;
@@ -38,15 +40,20 @@ public class DictionaryEncoder {
   private final Dictionary dictionary;
   private final BufferAllocator allocator;
 
-  //TODO pass custom hasher.
-
   /**
    * Construct an instance.
    */
   public DictionaryEncoder(Dictionary dictionary, BufferAllocator allocator) {
+    this (dictionary, allocator, SimpleHasher.INSTANCE);
+  }
+
+  /**
+   * Construct an instance.
+   */
+  public DictionaryEncoder(Dictionary dictionary, BufferAllocator allocator, ArrowBufHasher hasher) {
     this.dictionary = dictionary;
     this.allocator = allocator;
-    hashTable = new DictionaryHashTable(dictionary.getVector());
+    hashTable = new DictionaryHashTable(dictionary.getVector(), hasher);
   }
 
   /**

@@ -18,6 +18,7 @@
 import io.netty.buffer.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
+import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.StructVector;
@@ -48,6 +49,7 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.ValueVectorUtility;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.memory.BaseAllocator;
+import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.util.Preconditions;
@@ -686,7 +688,12 @@ public class UnionVector implements FieldVector {
 
     @Override
     public int hashCode(int index) {
-      return getVector(index).hashCode(index);
+      return hashCode(index, null);
+    }
+
+    @Override
+    public int hashCode(int index, ArrowBufHasher hasher) {
+      return getVector(index).hashCode(index, hasher);
     }
 
     @Override
