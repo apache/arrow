@@ -36,10 +36,7 @@ std::shared_ptr<ScanOptions> ScanOptions::Defaults() {
   return std::shared_ptr<ScanOptions>(new ScanOptions);
 }
 
-RecordBatchIterator SimpleScanTask::Scan() {
-  return options_->evaluator->FilterBatches(MakeVectorIterator(record_batches_),
-                                            options_->filter);
-}
+RecordBatchIterator SimpleScanTask::Scan() { return MakeVectorIterator(record_batches_); }
 
 /// \brief GetScanTaskIterator transforms an Iterator<DataFragment> in a
 /// flattened Iterator<ScanTask>.
@@ -73,6 +70,27 @@ class MapScanTask : public ScanTask {
   Fn map_;
 };
 
+static ScanTaskIterator FilterScanTask(ScanTaskIterator it,
+                                       std::shared_ptr<ExpressionEvaluator> evaluator,
+                                       std::shared_ptr<Expression> filter) {
+  if (evaluator == nullptr || filter == nullptr) {
+    return it;
+  }
+
+  auto filter_fn = [evaluator, filter](std::shared_ptr<RecordBatch> in,
+                                       std::shared_ptr<RecordBatch>* out) {
+    ARROW_ASSIGN_OR_RAISE(auto selection_datum, evaluator->Evaluate(*filter, *in));
+    return evaluator->Filter(selection_datum, in, out);
+  };
+  auto wrap_scan_task =
+      [filter_fn](std::unique_ptr<ScanTask> in) -> std::unique_ptr<ScanTask> {
+    return internal::make_unique<MapScanTask<decltype(filter_fn)>>(std::move(in),
+                                                                   std::move(filter_fn));
+  };
+
+  return MakeMapIterator(std::move(wrap_scan_task), std::move(it));
+}
+
 static ScanTaskIterator ProjectScanTask(ScanTaskIterator it,
                                         std::shared_ptr<RecordBatchProjector> projector) {
   if (projector == nullptr) {
@@ -102,11 +120,14 @@ ScanTaskIterator SimpleScanner::Scan() {
   // Iterator<ScanTask>. The first Iterator::Next invocation is going to do
   // all the work of unwinding the chained iterators.
   auto scan_task_it = GetScanTaskIterator(std::move(fragments_it), context_);
+  // Third, apply the filter evaluator to incoming RecordBatches.
+  auto filter_it =
+      FilterScanTask(std::move(scan_task_it), options_->evaluator, options_->filter);
   // Finally, apply the final projection to scan_task_it if necessary. The
   // schema returned to the user might not be the same as given by the
   // DataFragment, e.g. due to columns required by the filter but not in the
   // final schema.
-  return ProjectScanTask(std::move(scan_task_it), options_->projector);
+  return ProjectScanTask(std::move(filter_it), options_->projector);
 }
 
 Status ScanTaskIteratorFromRecordBatch(std::vector<std::shared_ptr<RecordBatch>> batches,
@@ -124,7 +145,8 @@ ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset,
                                std::shared_ptr<ScanContext> scan_context)
     : dataset_(std::move(dataset)),
       scan_options_(ScanOptions::Defaults()),
-      scan_context_(std::move(scan_context)) {}
+      scan_context_(std::move(scan_context)),
+      pool_(default_memory_pool()) {}
 
 Status ScannerBuilder::Project(const std::vector<std::string>& columns) {
   for (const auto& column : columns) {
@@ -139,20 +161,17 @@ Status ScannerBuilder::Project(const std::vector<std::string>& columns) {
   return Status::OK();
 }
 
-ScannerBuilder* ScannerBuilder::Filter(std::shared_ptr<Expression> filter) {
+Status ScannerBuilder::SetMemoryPool(MemoryPool* pool) {
+  pool_ = pool;
+  return Status::OK();
+}
+
+Status ScannerBuilder::Filter(std::shared_ptr<Expression> filter) {
   scan_options_->filter = std::move(filter);
-  return this;
+  return Status::OK();
 }
 
-ScannerBuilder* ScannerBuilder::Filter(const Expression& filter) {
-  return Filter(filter.Copy());
-}
-
-ScannerBuilder* ScannerBuilder::FilterEvaluator(
-    std::shared_ptr<ExpressionEvaluator> evaluator) {
-  scan_options_->evaluator = std::move(evaluator);
-  return this;
-}
+Status ScannerBuilder::Filter(const Expression& filter) { return Filter(filter.Copy()); }
 
 std::shared_ptr<Schema> SchemaFromColumnNames(
     const std::shared_ptr<Schema>& input, const std::vector<std::string>& column_names) {
@@ -168,6 +187,10 @@ Status ScannerBuilder::Finish(std::unique_ptr<Scanner>* out) const {
   if (!project_columns_.empty()) {
     scan_options_->projector = std::make_shared<RecordBatchProjector>(
         scan_context_->pool, SchemaFromColumnNames(schema(), project_columns_));
+  }
+
+  if (scan_options_->filter != nullptr) {
+    scan_options_->evaluator = std::make_shared<TreeEvaluator>(pool_);
   }
 
   out->reset(new SimpleScanner(dataset_->sources(), scan_options_, scan_context_));

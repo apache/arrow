@@ -239,33 +239,34 @@ class TestEndToEnd : public TestDataset {
         field("country", utf8()),
         field("region", utf8()),
         field("model", utf8()),
+        field("year", int32()),
         field("sales", int32()),
     });
 
     using PathAndContent = std::vector<std::pair<std::string, std::string>>;
-    auto files = PathAndContent{{"/US/NY/2019.json", R"([
-        {"country": "US", "region": "NY", "model": "3", "sales": 742},
-        {"country": "US", "region": "NY", "model": "S", "sales": 304},
-        {"country": "US", "region": "NY", "model": "X", "sales": 136},
-        {"country": "US", "region": "NY", "model": "Y", "sales": 27}
+    auto files = PathAndContent{{"/2018/01/US.json", R"([
+        {"country": "US", "region": "NY", "year": 2018, "model": "3", "sales": 742},
+        {"country": "US", "region": "NY", "year": 2018, "model": "S", "sales": 304},
+        {"country": "US", "region": "NY", "year": 2018, "model": "X", "sales": 136},
+        {"country": "US", "region": "NY", "year": 2018, "model": "Y", "sales": 27}
       ])"},
-                                {"/US/CA/2019.json", R"([
-        {"country": "US", "region": "CA", "model": "3", "sales": 512},
-        {"country": "US", "region": "CA", "model": "S", "sales": 978},
-        {"country": "US", "region": "CA", "model": "X", "sales": 1},
-        {"country": "US", "region": "CA", "model": "Y", "sales": 69}
+                                {"/2018/01/CA.json", R"([
+        {"country": "US", "region": "CA", "year": 2018, "model": "3", "sales": 512},
+        {"country": "US", "region": "CA", "year": 2018, "model": "S", "sales": 978},
+        {"country": "US", "region": "CA", "year": 2018, "model": "X", "sales": 1},
+        {"country": "US", "region": "CA", "year": 2018, "model": "Y", "sales": 69}
       ])"},
-                                {"/CA/QC/2019.json", R"([
-        {"country": "CA", "region": "QC", "model": "3", "sales": 273},
-        {"country": "CA", "region": "QC", "model": "S", "sales": 13},
-        {"country": "CA", "region": "QC", "model": "X", "sales": 54},
-        {"country": "CA", "region": "QC", "model": "Y", "sales": 21}
+                                {"/2019/01/US.json", R"([
+        {"country": "CA", "region": "QC", "year": 2019, "model": "3", "sales": 273},
+        {"country": "CA", "region": "QC", "year": 2019, "model": "S", "sales": 13},
+        {"country": "CA", "region": "QC", "year": 2019, "model": "X", "sales": 54},
+        {"country": "CA", "region": "QC", "year": 2019, "model": "Y", "sales": 21}
       ])"},
-                                {"/CA/ON/2019.json", R"([
-        {"country": "CA", "region": "QC", "model": "3", "sales": 152},
-        {"country": "CA", "region": "QC", "model": "S", "sales": 10},
-        {"country": "CA", "region": "QC", "model": "X", "sales": 42},
-        {"country": "CA", "region": "QC", "model": "Y", "sales": 37}
+                                {"/2019/01/CA.json", R"([
+        {"country": "CA", "region": "QC", "year": 2019, "model": "3", "sales": 152},
+        {"country": "CA", "region": "QC", "year": 2019, "model": "S", "sales": 10},
+        {"country": "CA", "region": "QC", "year": 2019, "model": "X", "sales": 42},
+        {"country": "CA", "region": "QC", "year": 2019, "model": "Y", "sales": 37}
       ])"}};
 
     auto fs = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
@@ -282,9 +283,10 @@ class TestEndToEnd : public TestDataset {
 };
 
 TEST_F(TestEndToEnd, EndToEndSingleSource) {
-  // The dataset API is divided in two parts:
+  // The dataset API is divided in 3 parts:
   //  - Creation
   //  - Querying
+  //  - Consuming
 
   // Creation.
   //
@@ -326,7 +328,8 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   // Partitions expressions can be discovered for DataSource and DataFragments.
   // This metadata is then used in conjuction with the query filter to apply
   // the pushdown predicate optimization.
-  auto partition_schema = schema({field("country", utf8()), field("region", utf8())});
+  auto partition_schema =
+      schema({field("year", int32()), field("month", int32()), field("country", utf8())});
   // The SchemaPartitionScheme is a simple scheme where the path is split with
   // the directory separator character and the components are typed and named
   // with the equivalent index in the schema, e.g.
@@ -378,8 +381,8 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   //
   // The following filter tests both predicate pushdown and post filtering
   // without partition information.
-  auto filter = ("country"_ == "US" && ("model"_ == "X" || "model"_ == "Y"));
-  scanner_builder->Filter(filter);
+  auto filter = ("year"_ == 2019 && "sales"_ > 100);
+  ASSERT_OK(scanner_builder->Filter(filter));
 
   std::unique_ptr<Scanner> scanner;
   ASSERT_OK(scanner_builder->Finish(&scanner));
@@ -389,13 +392,9 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   ASSERT_OK(scanner->ToTable(&table));
 
   auto expected_schema = schema({field("sales", int32()), field("model", utf8())});
+
   ASSERT_EQ(*expected_schema, *table->schema());
-
-  // Pending ARROW-6711
-  // ASSERT_EQ(4, table->num_rows());
-  ASSERT_EQ(8, table->num_rows());
-
-  // DoSomethingWith(table);
+  ASSERT_EQ(2, table->num_rows());
 }
 
 }  // namespace dataset

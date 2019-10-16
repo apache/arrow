@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/compare.h"
 #include "arrow/dataset/type_fwd.h"
@@ -485,13 +486,16 @@ class ARROW_DS_EXPORT ExpressionEvaluator {
   /// construct an Evaluator which evaluates all expressions to null and does no
   /// filtering
   static std::shared_ptr<ExpressionEvaluator> Null();
+
+ protected:
+  std::shared_ptr<Expression> expr_;
 };
 
 /// construct an Evaluator which uses compute kernels to evaluate expressions and
 /// filter record batches in depth first order
 class ARROW_DS_EXPORT TreeEvaluator : public ExpressionEvaluator {
  public:
-  explicit TreeEvaluator(compute::FunctionContext* ctx) : ctx_(ctx) {}
+  explicit TreeEvaluator(MemoryPool* pool) : pool_(pool) {}
 
   Result<compute::Datum> Evaluate(const Expression& expr,
                                   const RecordBatch& batch) const override;
@@ -525,7 +529,7 @@ class ARROW_DS_EXPORT TreeEvaluator : public ExpressionEvaluator {
 
  protected:
   struct Impl;
-  compute::FunctionContext* ctx_;
+  MemoryPool* pool_;
 };
 
 }  // namespace dataset

@@ -124,7 +124,7 @@ TEST_F(ExpressionsTest, SimplificationToNull) {
 
 class FilterTest : public ::testing::Test {
  public:
-  FilterTest() { evaluator_ = std::make_shared<TreeEvaluator>(&ctx_); }
+  FilterTest() { evaluator_ = std::make_shared<TreeEvaluator>(default_memory_pool()); }
 
   Result<Datum> DoFilter(const Expression& expr,
                          std::vector<std::shared_ptr<Field>> fields,
@@ -145,8 +145,14 @@ class FilterTest : public ::testing::Test {
     return evaluator_->Evaluate(expr, *batch);
   }
 
+  void AssertFilter(const std::shared_ptr<Expression>& expr,
+                    std::vector<std::shared_ptr<Field>> fields,
+                    const std::string& batch_json) {
+    AssertFilter(*expr, std::move(fields), batch_json);
+  }
+
   void AssertFilter(const Expression& expr, std::vector<std::shared_ptr<Field>> fields,
-                    std::string batch_json) {
+                    const std::string& batch_json) {
     std::shared_ptr<BooleanArray> expected_mask;
     auto mask_res =
         DoFilter(expr, std::move(fields), std::move(batch_json), &expected_mask);
@@ -177,14 +183,13 @@ class FilterTest : public ::testing::Test {
     ASSERT_ARRAYS_EQUAL(*expected_mask, BooleanArray(expected_mask->length(), values));
   }
 
-  arrow::compute::FunctionContext ctx_;
   std::shared_ptr<ExpressionEvaluator> evaluator_;
 };
 
 TEST_F(FilterTest, Trivial) {
   // Note that we should expect these trivial expressions will never be evaluated against
   // record batches; since they're trivial, evaluation is not necessary.
-  AssertFilter(*scalar(true), {field("a", int32()), field("b", float64())}, R"([
+  AssertFilter(scalar(true), {field("a", int32()), field("b", float64())}, R"([
       {"a": 0, "b": -0.1, "in": 1},
       {"a": 0, "b":  0.3, "in": 1},
       {"a": 1, "b":  0.2, "in": 1},
@@ -194,7 +199,7 @@ TEST_F(FilterTest, Trivial) {
       {"a": 0, "b":  1.0, "in": 1}
   ])");
 
-  AssertFilter(*scalar(false), {field("a", int32()), field("b", float64())}, R"([
+  AssertFilter(scalar(false), {field("a", int32()), field("b", float64())}, R"([
       {"a": 0, "b": -0.1, "in": 0},
       {"a": 0, "b":  0.3, "in": 0},
       {"a": 1, "b":  0.2, "in": 0},
@@ -318,14 +323,15 @@ class TakeExpression : public CustomExpression {
 
       if (indices.kind() == Datum::SCALAR) {
         std::shared_ptr<Array> indices_array;
-        RETURN_NOT_OK(MakeArrayFromScalar(ctx_->memory_pool(), *indices.scalar(),
+        RETURN_NOT_OK(MakeArrayFromScalar(default_memory_pool(), *indices.scalar(),
                                           batch.num_rows(), &indices_array));
         indices = compute::Datum(indices_array->data());
       }
 
       DCHECK_EQ(indices.kind(), Datum::ARRAY);
       compute::Datum out;
-      RETURN_NOT_OK(compute::Take(ctx_, compute::Datum(take_expr.dictionary_->data()),
+      compute::FunctionContext ctx{default_memory_pool()};
+      RETURN_NOT_OK(compute::Take(&ctx, compute::Datum(take_expr.dictionary_->data()),
                                   indices, compute::TakeOptions(), &out));
       return std::move(out);
     }
@@ -365,7 +371,7 @@ TEST_F(ExpressionsTest, TakeAssumeYieldsNothing) {
 }
 
 TEST_F(FilterTest, EvaluateTakeExpression) {
-  evaluator_ = std::make_shared<TakeExpression::Evaluator>(&ctx_);
+  evaluator_ = std::make_shared<TakeExpression::Evaluator>(default_memory_pool());
 
   auto dict = ArrayFromJSON(float64(), "[0.0, 0.25, 0.5, 0.75, 1.0]");
 

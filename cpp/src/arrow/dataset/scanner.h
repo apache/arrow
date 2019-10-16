@@ -49,7 +49,6 @@ class ARROW_DS_EXPORT ScanOptions {
 
   // Filter
   std::shared_ptr<Expression> filter;
-
   // Evaluator for Filter
   std::shared_ptr<ExpressionEvaluator> evaluator;
 
@@ -57,10 +56,6 @@ class ARROW_DS_EXPORT ScanOptions {
   std::shared_ptr<Schema> schema;
   // Projecting the final RecordBatch to the requested schema.
   std::shared_ptr<RecordBatchProjector> projector;
-
-  std::vector<std::shared_ptr<FileScanOptions>> options;
-
-  bool include_partition_keys = true;
 
  private:
   ScanOptions();
@@ -123,7 +118,7 @@ class ARROW_DS_EXPORT Scanner {
 
   /// \brief Convert a Scanner into a Table.
   ///
-  /// Use this convenience utility with care. This will serialy materialize the
+  /// Use this convenience utility with care. This will serially materialize the
   /// Scan result in memory before creating the Table.
   Status ToTable(std::shared_ptr<Table>* out);
 };
@@ -166,10 +161,10 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// \brief Set
   Status Project(const std::vector<std::string>& columns);
 
+  Status Filter(std::shared_ptr<Expression> filter);
+  Status Filter(const Expression& filter);
 
-  ScannerBuilder* Filter(std::shared_ptr<Expression> filter);
-  ScannerBuilder* Filter(const Expression& filter);
-  ScannerBuilder* FilterEvaluator(std::shared_ptr<ExpressionEvaluator> evaluator);
+  Status SetMemoryPool(MemoryPool* pool);
 
   /// \brief Return the constructed now-immutable Scanner object
   Status Finish(std::unique_ptr<Scanner>* out) const;
@@ -181,6 +176,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
   std::shared_ptr<ScanOptions> scan_options_;
   std::shared_ptr<ScanContext> scan_context_;
   std::vector<std::string> project_columns_;
+  MemoryPool* pool_;
 };
 
 }  // namespace dataset
