@@ -58,7 +58,9 @@ export UPLOAD_PACKAGES="${UPLOAD_PACKAGES:-True}"
 docker run ${DOCKER_RUN_ARGS} \
            --shm-size=2G \
            -v "${ARROW_ROOT}":/arrow:rw,z \
+           -v "${ARTIFACTS}":/build_artifacts:rw,z \
            -e FEEDSTOCK_ROOT="/arrow/dev/tasks/conda-recipes" \
+           -e OUTPUT_FOLDER="/build_artifacts" \
            -e CONFIG \
            -e HOST_USER_ID \
            -e UPLOAD_PACKAGES \
