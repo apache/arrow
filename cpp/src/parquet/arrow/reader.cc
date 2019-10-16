@@ -154,12 +154,12 @@ class FileReaderImpl : public FileReader {
   Status GetFieldReader(int i, const std::vector<int>& indices,
                         const std::vector<int>& row_groups,
                         std::unique_ptr<ColumnReaderImpl>* out) {
-    ReaderContext ctx;
-    ctx.reader = reader_.get();
-    ctx.pool = pool_;
-    ctx.iterator_factory = SomeRowGroupsFactory(row_groups);
-    ctx.filter_leaves = true;
-    ctx.included_leaves.insert(indices.begin(), indices.end());
+    auto ctx = std::make_shared<ReaderContext>();
+    ctx->reader = reader_.get();
+    ctx->pool = pool_;
+    ctx->iterator_factory = SomeRowGroupsFactory(row_groups);
+    ctx->filter_leaves = true;
+    ctx->included_leaves.insert(indices.begin(), indices.end());
     return manifest_.schema_fields[i].GetReader(ctx, out);
   }
 
@@ -379,10 +379,11 @@ class RowGroupReaderImpl : public RowGroupReader {
 // Leaf reader is for primitive arrays and primitive children of nested arrays
 class LeafReader : public ColumnReaderImpl {
  public:
-  LeafReader(const ReaderContext& ctx, const std::shared_ptr<Field>& field,
+  LeafReader(const std::shared_ptr<ReaderContext>& ctx,
+             const std::shared_ptr<Field>& field,
              std::unique_ptr<FileColumnIterator> input)
       : ctx_(ctx), field_(field), input_(std::move(input)), descr_(input_->descr()) {
-    record_reader_ = RecordReader::Make(descr_, ctx_.pool,
+    record_reader_ = RecordReader::Make(descr_, ctx_->pool,
                                         field->type()->id() == ::arrow::Type::DICTIONARY);
     NextRowGroup();
   }
@@ -416,8 +417,8 @@ class LeafReader : public ColumnReaderImpl {
         NextRowGroup();
       }
     }
-    RETURN_NOT_OK(
-        TransferColumnData(record_reader_.get(), field_->type(), descr_, ctx_.pool, out));
+    RETURN_NOT_OK(TransferColumnData(record_reader_.get(), field_->type(), descr_,
+                                     ctx_->pool, out));
     return Status::OK();
     END_PARQUET_CATCH_EXCEPTIONS
   }
@@ -433,7 +434,7 @@ class LeafReader : public ColumnReaderImpl {
     record_reader_->SetPageReader(std::move(page_reader));
   }
 
-  ReaderContext ctx_;
+  std::shared_ptr<ReaderContext> ctx_;
   std::shared_ptr<Field> field_;
   std::unique_ptr<FileColumnIterator> input_;
   const ColumnDescriptor* descr_;
@@ -442,8 +443,9 @@ class LeafReader : public ColumnReaderImpl {
 
 class NestedListReader : public ColumnReaderImpl {
  public:
-  NestedListReader(const ReaderContext& ctx, std::shared_ptr<Field> field,
-                   int16_t max_definition_level, int16_t max_repetition_level,
+  NestedListReader(const std::shared_ptr<ReaderContext>& ctx,
+                   std::shared_ptr<Field> field, int16_t max_definition_level,
+                   int16_t max_repetition_level,
                    std::unique_ptr<ColumnReaderImpl> item_reader)
       : ctx_(ctx),
         field_(field),
@@ -481,7 +483,7 @@ class NestedListReader : public ColumnReaderImpl {
     std::shared_ptr<Array> result;
     RETURN_NOT_OK(ReconstructNestedList((*out)->chunk(0), field_, max_definition_level_,
                                         max_repetition_level_, def_levels, rep_levels,
-                                        num_levels, ctx_.pool, &result));
+                                        num_levels, ctx_->pool, &result));
     *out = std::make_shared<ChunkedArray>(result);
     return Status::OK();
   }
@@ -493,7 +495,7 @@ class NestedListReader : public ColumnReaderImpl {
   ReaderType type() const override { return LIST; }
 
  private:
-  ReaderContext ctx_;
+  std::shared_ptr<ReaderContext> ctx_;
   std::shared_ptr<Field> field_;
   int16_t max_definition_level_;
   int16_t max_repetition_level_;
@@ -502,7 +504,8 @@ class NestedListReader : public ColumnReaderImpl {
 
 class PARQUET_NO_EXPORT StructReader : public ColumnReaderImpl {
  public:
-  explicit StructReader(const ReaderContext& ctx, const SchemaField& schema_field,
+  explicit StructReader(const std::shared_ptr<ReaderContext>& ctx,
+                        const SchemaField& schema_field,
                         std::shared_ptr<Field> filtered_field,
                         std::vector<std::unique_ptr<ColumnReaderImpl>>&& children)
       : ctx_(ctx),
@@ -519,7 +522,7 @@ class PARQUET_NO_EXPORT StructReader : public ColumnReaderImpl {
   ReaderType type() const override { return STRUCT; }
 
  private:
-  ReaderContext ctx_;
+  std::shared_ptr<ReaderContext> ctx_;
   SchemaField schema_field_;
   std::shared_ptr<Field> filtered_field_;
   int16_t struct_def_level_;
@@ -535,7 +538,7 @@ Status StructReader::DefLevelsToNullArray(std::shared_ptr<Buffer>* null_bitmap_o
   const int16_t* def_levels_data;
   int64_t def_levels_length;
   RETURN_NOT_OK(GetDefLevels(&def_levels_data, &def_levels_length));
-  RETURN_NOT_OK(AllocateEmptyBitmap(ctx_.pool, def_levels_length, &null_bitmap));
+  RETURN_NOT_OK(AllocateEmptyBitmap(ctx_->pool, def_levels_length, &null_bitmap));
   uint8_t* null_bitmap_ptr = null_bitmap->mutable_data();
   for (int64_t i = 0; i < def_levels_length; i++) {
     if (def_levels_data[i] < struct_def_level_) {
@@ -576,7 +579,7 @@ Status StructReader::GetDefLevels(const int16_t** data, int64_t* length) {
     }
     RETURN_NOT_OK(children_[child_index]->GetDefLevels(&child_def_levels, &child_length));
     auto size = child_length * sizeof(int16_t);
-    RETURN_NOT_OK(AllocateResizableBuffer(ctx_.pool, size, &def_levels_buffer_));
+    RETURN_NOT_OK(AllocateResizableBuffer(ctx_->pool, size, &def_levels_buffer_));
     // Initialize with the minimal def level
     std::memset(def_levels_buffer_->mutable_data(), -1, size);
     result_levels = reinterpret_cast<int16_t*>(def_levels_buffer_->mutable_data());
@@ -677,12 +680,12 @@ Status StructReader::NextBatch(int64_t records_to_read,
 // ----------------------------------------------------------------------
 // File reader implementation
 
-Status SchemaField::GetReader(const ReaderContext& ctx,
+Status SchemaField::GetReader(const std::shared_ptr<ReaderContext>& ctx,
                               std::unique_ptr<ColumnReaderImpl>* out) const {
   auto type_id = this->field->type()->id();
   if (this->children.size() == 0) {
     std::unique_ptr<FileColumnIterator> input(
-        ctx.iterator_factory(this->column_index, ctx.reader));
+        ctx->iterator_factory(this->column_index, ctx->reader));
     out->reset(new LeafReader(ctx, this->field, std::move(input)));
   } else if (type_id == ::arrow::Type::LIST) {
     // We can only read lists-of-lists or structs at the moment
@@ -697,7 +700,7 @@ Status SchemaField::GetReader(const ReaderContext& ctx,
           "not yet supported: ",
           this->field->ToString());
     }
-    if (!ctx.IncludesLeaf(child->column_index)) {
+    if (!ctx->IncludesLeaf(child->column_index)) {
       *out = nullptr;
       return Status::OK();
     }
@@ -711,7 +714,7 @@ Status SchemaField::GetReader(const ReaderContext& ctx,
     std::vector<std::shared_ptr<Field>> child_fields;
     std::vector<std::unique_ptr<ColumnReaderImpl>> child_readers;
     for (const auto& child : this->children) {
-      if (child.is_leaf() && !ctx.IncludesLeaf(child.column_index)) {
+      if (child.is_leaf() && !ctx->IncludesLeaf(child.column_index)) {
         // Excluded leaf
         continue;
       }
@@ -751,11 +754,11 @@ Status FileReaderImpl::GetRecordBatchReader(const std::vector<int>& row_group_in
 Status FileReaderImpl::GetColumn(int i, FileColumnIteratorFactory iterator_factory,
                                  std::unique_ptr<ColumnReader>* out) {
   RETURN_NOT_OK(BoundsCheckColumn(i));
-  ReaderContext ctx;
-  ctx.reader = reader_.get();
-  ctx.pool = pool_;
-  ctx.iterator_factory = AllRowGroupsFactory();
-  ctx.filter_leaves = false;
+  auto ctx = std::make_shared<ReaderContext>();
+  ctx->reader = reader_.get();
+  ctx->pool = pool_;
+  ctx->iterator_factory = AllRowGroupsFactory();
+  ctx->filter_leaves = false;
   std::unique_ptr<ColumnReaderImpl> result;
   RETURN_NOT_OK(manifest_.schema_fields[i].GetReader(ctx, &result));
   out->reset(result.release());
