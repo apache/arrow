@@ -159,38 +159,29 @@ public class VectorSchemaRoot implements AutoCloseable {
   }
 
   /**
-   * Add vector to the record batch, producing a new VectorSchemaRoot.
-   * @param index field index
-   * @param vector vector to be added.
-   * @return out VectorSchemaRoot with vector added
+   * Add a vector to the record batch.
+   * @param index position of the new vector.
+   * @param vector the vector to be added.
    */
-  public VectorSchemaRoot addVector(int index, FieldVector vector) {
+  public void addVector(int index, FieldVector vector) {
     Preconditions.checkNotNull(vector);
     Preconditions.checkArgument(index >= 0 && index < fieldVectors.size());
-    List<FieldVector> newVectors = new ArrayList<>();
-    for (int i = 0; i < fieldVectors.size(); i++) {
-      if (i == index) {
-        newVectors.add(vector);
-      }
-      newVectors.add(fieldVectors.get(i));
-    }
-    return new VectorSchemaRoot(newVectors);
+
+    fieldVectors.add(index, vector);
+    syncSchema();
   }
 
   /**
-   * Remove vector from the record batch, producing a new VectorSchemaRoot.
-   * @param index field index
-   * @return out VectorSchemaRoot with vector removed
+   * Remove a vector from the record batch.
+   * @param index the index of the vector to remove
+   * @return the removed vector.
    */
-  public VectorSchemaRoot removeVector(int index) {
+  public FieldVector removeVector(int index) {
     Preconditions.checkArgument(index >= 0 && index < fieldVectors.size());
-    List<FieldVector> newVectors = new ArrayList<>();
-    for (int i = 0; i < fieldVectors.size(); i++) {
-      if (i != index) {
-        newVectors.add(fieldVectors.get(i));
-      }
-    }
-    return new VectorSchemaRoot(newVectors);
+
+    FieldVector ret = fieldVectors.remove(index);
+    syncSchema();
+    return ret;
   }
 
   public Schema getSchema() {

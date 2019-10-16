@@ -160,15 +160,14 @@ public class TestVectorSchemaRoot {
          final IntVector intVector2 = new IntVector("intVector2", allocator);
          final IntVector intVector3 = new IntVector("intVector3", allocator);) {
 
-      VectorSchemaRoot original = new VectorSchemaRoot(Arrays.asList(intVector1, intVector2));
-      assertEquals(2, original.getFieldVectors().size());
+      try (VectorSchemaRoot original = new VectorSchemaRoot(Arrays.asList(intVector1, intVector2))) {
+        assertEquals(2, original.getFieldVectors().size());
 
-      VectorSchemaRoot newRecordBatch = original.addVector(1, intVector3);
-      assertEquals(3, newRecordBatch.getFieldVectors().size());
-      assertEquals(intVector3, newRecordBatch.getFieldVectors().get(1));
+        original.addVector(1, intVector3);
 
-      original.close();
-      newRecordBatch.close();
+        assertEquals(3, original.getFieldVectors().size());
+        assertTrue(intVector3 == original.getFieldVectors().get(1));
+      }
     }
   }
 
@@ -178,17 +177,16 @@ public class TestVectorSchemaRoot {
         final IntVector intVector2 = new IntVector("intVector2", allocator);
         final IntVector intVector3 = new IntVector("intVector3", allocator);) {
 
-      VectorSchemaRoot original =
-          new VectorSchemaRoot(Arrays.asList(intVector1, intVector2, intVector3));
-      assertEquals(3, original.getFieldVectors().size());
+      try (VectorSchemaRoot original =
+          new VectorSchemaRoot(Arrays.asList(intVector1, intVector2, intVector3))) {
+        assertEquals(3, original.getFieldVectors().size());
 
-      VectorSchemaRoot newRecordBatch = original.removeVector(0);
-      assertEquals(2, newRecordBatch.getFieldVectors().size());
-      assertEquals(intVector2, newRecordBatch.getFieldVectors().get(0));
-      assertEquals(intVector3, newRecordBatch.getFieldVectors().get(1));
-
-      original.close();
-      newRecordBatch.close();
+        IntVector removed = (IntVector) original.removeVector(0);
+        assertEquals(2, original.getFieldVectors().size());
+        assertTrue(intVector2 == original.getFieldVectors().get(0));
+        assertTrue(intVector3 == original.getFieldVectors().get(1));
+        assertTrue(intVector1 == removed);
+      }
     }
   }
 
