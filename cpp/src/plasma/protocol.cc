@@ -274,7 +274,7 @@ Status SendCreateAndSealRequest(int sock, const ObjectID& object_id,
 
 Status ReadCreateAndSealRequest(uint8_t* data, size_t size, ObjectID* object_id,
                                 std::string* object_data, std::string* metadata,
-                                unsigned char* digest) {
+                                std::string* digest) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<fb::PlasmaCreateAndSealRequest>(data);
   DCHECK(VerifyFlatbuffer(message, data, size));
@@ -283,7 +283,7 @@ Status ReadCreateAndSealRequest(uint8_t* data, size_t size, ObjectID* object_id,
   *object_data = message->data()->str();
   *metadata = message->metadata()->str();
   ARROW_CHECK(message->digest()->size() == kDigestSize);
-  memcpy(digest, message->digest()->data(), kDigestSize);
+  digest->assign(message->digest()->data(), kDigestSize);
   return Status::OK();
 }
 
@@ -393,13 +393,13 @@ Status SendSealRequest(int sock, ObjectID object_id, unsigned char* digest) {
 }
 
 Status ReadSealRequest(uint8_t* data, size_t size, ObjectID* object_id,
-                       unsigned char* digest) {
+                       std::string* digest) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<fb::PlasmaSealRequest>(data);
   DCHECK(VerifyFlatbuffer(message, data, size));
   *object_id = ObjectID::from_binary(message->object_id()->str());
   ARROW_CHECK(message->digest()->size() == kDigestSize);
-  memcpy(digest, message->digest()->data(), kDigestSize);
+  digest->assign(message->digest()->data(), kDigestSize);
   return Status::OK();
 }
 

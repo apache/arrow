@@ -130,13 +130,11 @@ class PlasmaStore {
   void ProcessGetRequest(Client* client, const std::vector<ObjectID>& object_ids,
                          int64_t timeout_ms);
 
-  /// Seal an object. The object is now immutable and can be accessed with get.
+  /// Seal a vector of objects. The objects are now immutable and can be accessed with get.
   ///
-  /// @param object_id Object ID of the object to be sealed.
-  /// @param digest The digest of the object. This is used to tell if two
+  /// @param object_id The vector of Object IDs of the objects to be sealed.
+  /// @param digest The vector of digests of the objects. This is used to tell if two
   /// objects with the same object ID are the same.
-  void SealObject(const ObjectID& object_id, unsigned char digest[]);
-
   void SealObjects(const std::vector<ObjectID>& object_id,
                    const std::vector<std::string>& digests);
 

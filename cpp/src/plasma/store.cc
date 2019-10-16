@@ -579,31 +579,6 @@ ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id) {
              : ObjectStatus::OBJECT_NOT_FOUND;
 }
 
-// Seal an object that has been created in the hash table.
-void PlasmaStore::SealObject(const ObjectID& object_id, unsigned char digest[]) {
-  ARROW_LOG(DEBUG) << "sealing object " << object_id.hex();
-  auto entry = GetObjectTableEntry(&store_info_, object_id);
-  ARROW_CHECK(entry != nullptr);
-  ARROW_CHECK(entry->state == ObjectState::PLASMA_CREATED);
-  // Set the state of object to SEALED.
-  entry->state = ObjectState::PLASMA_SEALED;
-  // Set the object digest.
-  std::memcpy(&entry->digest[0], &digest[0], kDigestSize);
-  // Set object construction duration.
-  entry->construct_duration = std::time(nullptr) - entry->create_time;
-
-  // Inform all subscribers that a new object has been sealed.
-  ObjectInfoT info;
-  info.object_id = object_id.binary();
-  info.data_size = entry->data_size;
-  info.metadata_size = entry->metadata_size;
-  info.digest = std::string(reinterpret_cast<char*>(&digest[0]), kDigestSize);
-  PushNotification(&info);
-
-  // Update all get requests that involve this object.
-  UpdateObjectGetRequests(object_id);
-}
-
 void PlasmaStore::SealObjects(const std::vector<ObjectID>& object_ids,
                               const std::vector<std::string>& digests) {
   std::vector<ObjectInfoT> infos;
@@ -976,9 +951,10 @@ Status PlasmaStore::ProcessMessage(Client* client) {
     case fb::MessageType::PlasmaCreateAndSealRequest: {
       std::string data;
       std::string metadata;
-      unsigned char digest[kDigestSize];
+      std::string digest;
+      digest.reserve(kDigestSize);
       RETURN_NOT_OK(ReadCreateAndSealRequest(input, input_size, &object_id, &data,
-                                             &metadata, &digest[0]));
+                                             &metadata, &digest));
       // CreateAndSeal currently only supports device_num = 0, which corresponds
       // to the host.
       int device_num = 0;
@@ -994,7 +970,11 @@ Status PlasmaStore::ProcessMessage(Client* client) {
         // Write the inlined data and metadata into the allocated object.
         std::memcpy(entry->pointer, data.data(), data.size());
         std::memcpy(entry->pointer + data.size(), metadata.data(), metadata.size());
-        SealObject(object_id, &digest[0]);
+        std::vector<ObjectID> object_ids;
+        object_ids.push_back(object_id);
+        std::vector<std::string> digests;
+        digests.push_back(digest);
+        SealObjects(object_ids, digests);
         // Remove the client from the object's array of clients because the
         // object is not being used by any client. The client was added to the
         // object's array of clients in CreateObject. This is analogous to the
@@ -1093,9 +1073,13 @@ Status PlasmaStore::ProcessMessage(Client* client) {
       HANDLE_SIGPIPE(SendListReply(client->fd, store_info_.objects), client->fd);
     } break;
     case fb::MessageType::PlasmaSealRequest: {
-      unsigned char digest[kDigestSize];
-      RETURN_NOT_OK(ReadSealRequest(input, input_size, &object_id, &digest[0]));
-      SealObject(object_id, &digest[0]);
+      std::string digest;
+      RETURN_NOT_OK(ReadSealRequest(input, input_size, &object_id, &digest));
+      std::vector<ObjectID> object_ids;
+      object_ids.push_back(object_id);
+      std::vector<std::string> digests;
+      digests.push_back(digest);
+      SealObjects(object_ids, digests);
     } break;
     case fb::MessageType::PlasmaEvictRequest: {
       // This code path should only be used for testing.

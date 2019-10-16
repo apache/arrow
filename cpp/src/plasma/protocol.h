@@ -95,7 +95,7 @@ Status SendCreateAndSealRequest(int sock, const ObjectID& object_id,
 
 Status ReadCreateAndSealRequest(uint8_t* data, size_t size, ObjectID* object_id,
                                 std::string* object_data, std::string* metadata,
-                                unsigned char* digest);
+                                std::string* digest);
 
 Status SendCreateAndSealBatchRequest(int sock, const std::vector<ObjectID>& object_ids,
                                      const std::vector<std::string>& data,
@@ -129,7 +129,7 @@ Status ReadAbortReply(uint8_t* data, size_t size, ObjectID* object_id);
 Status SendSealRequest(int sock, ObjectID object_id, unsigned char* digest);
 
 Status ReadSealRequest(uint8_t* data, size_t size, ObjectID* object_id,
-                       unsigned char* digest);
+                       std::string* digest);
 
 Status SendSealReply(int sock, ObjectID object_id, PlasmaError error);
 
