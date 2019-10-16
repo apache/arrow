@@ -672,7 +672,7 @@ G_DECLARE_DERIVABLE_TYPE(GArrowLargeStringArrayBuilder,
                          garrow_large_string_array_builder,
                          GARROW,
                          LARGE_STRING_ARRAY_BUILDER,
-                         GArrowBinaryArrayBuilder)
+                         GArrowLargeBinaryArrayBuilder)
 struct _GArrowLargeStringArrayBuilderClass
 {
   GArrowLargeBinaryArrayBuilderClass parent_class;
