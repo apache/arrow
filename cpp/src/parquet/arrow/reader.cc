@@ -159,7 +159,7 @@ class FileReaderImpl : public FileReader {
     ctx->pool = pool_;
     ctx->iterator_factory = SomeRowGroupsFactory(row_groups);
     ctx->filter_leaves = true;
-    ctx->included_leaves = indices;
+    ctx->included_leaves.insert(indices.begin(), indices.end());
     return manifest_.schema_fields[i].GetReader(ctx, out);
   }
 
