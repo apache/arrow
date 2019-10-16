@@ -20,6 +20,7 @@ package org.apache.arrow.vector;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -266,6 +267,23 @@ public class TestFixedSizeListVector {
   }
 
   @Test(expected = IllegalStateException.class)
+  public void testDecimalIndexCheck() throws Exception {
+    try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", 3, allocator)) {
+
+      UnionFixedSizeListWriter writer1 = vector1.getWriter();
+      writer1.allocate();
+
+      writer1.startList();
+      writer1.decimal().writeDecimal(new BigDecimal(1));
+      writer1.decimal().writeDecimal(new BigDecimal(2));
+      writer1.decimal().writeDecimal(new BigDecimal(3));
+      writer1.decimal().writeDecimal(new BigDecimal(4));
+      writer1.endList();
+    }
+  }
+
+
+  @Test(expected = IllegalStateException.class)
   public void testWriteIllegalData() throws Exception {
     try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", 3, allocator)) {
 
@@ -285,6 +303,7 @@ public class TestFixedSizeListVector {
       assertTrue(Arrays.equals(values1, realValue1));
       int[] realValue2 = convertListToIntArray((JsonStringArrayList) vector1.getObject(1));
       assertTrue(Arrays.equals(values2, realValue2));
+      System.out.println("hehe");
     }
   }
 

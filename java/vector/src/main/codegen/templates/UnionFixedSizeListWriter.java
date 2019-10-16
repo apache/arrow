@@ -174,16 +174,25 @@ public class UnionFixedSizeListWriter extends AbstractFieldWriter {
 
   @Override
   public void write(DecimalHolder holder) {
+    if (writer.idx() >= (idx() + 1) * listSize) {
+      throw new IllegalStateException(String.format("values at index %s exceed listSize %s", idx(), listSize));
+    }
     writer.write(holder);
     writer.setPosition(writer.idx() + 1);
   }
 
   public void writeDecimal(int start, ArrowBuf buffer) {
+    if (writer.idx() >= (idx() + 1) * listSize) {
+      throw new IllegalStateException(String.format("values at index %s exceed listSize %s", idx(), listSize));
+    }
     writer.writeDecimal(start, buffer);
     writer.setPosition(writer.idx() + 1);
   }
 
   public void writeDecimal(BigDecimal value) {
+    if (writer.idx() >= (idx() + 1) * listSize) {
+      throw new IllegalStateException(String.format("values at index %s exceed listSize %s", idx(), listSize));
+    }
     writer.writeDecimal(value);
     writer.setPosition(writer.idx() + 1);
   }
@@ -197,7 +206,7 @@ public class UnionFixedSizeListWriter extends AbstractFieldWriter {
   @Override
   public void write${name}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
     if (writer.idx() >= (idx() + 1) * listSize) {
-      throw new IllegalStateException(String.format("values at index %s is greater than listSize %s", idx(), listSize));
+      throw new IllegalStateException(String.format("values at index %s exceed listSize %s", idx(), listSize));
     }
     writer.write${name}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
     writer.setPosition(writer.idx() + 1);
