@@ -122,7 +122,7 @@ pub struct SerializedFileWriter {
     schema: TypePtr,
     descr: SchemaDescPtr,
     props: WriterPropertiesPtr,
-    total_num_rows: u64,
+    total_num_rows: i64,
     row_groups: Vec<RowGroupMetaDataPtr>,
     previous_writer_closed: bool,
     is_closed: bool,
@@ -160,6 +160,7 @@ impl SerializedFileWriter {
         mut row_group_writer: Box<RowGroupWriter>,
     ) -> Result<()> {
         let row_group_metadata = row_group_writer.close()?;
+        self.total_num_rows += row_group_metadata.num_rows();
         self.row_groups.push(row_group_metadata);
         Ok(())
     }
