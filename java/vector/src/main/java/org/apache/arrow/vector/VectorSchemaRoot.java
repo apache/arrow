@@ -165,7 +165,7 @@ public class VectorSchemaRoot implements AutoCloseable {
    */
   public void addVector(int index, FieldVector vector) {
     Preconditions.checkNotNull(vector);
-    Preconditions.checkArgument(index >= 0 && index < fieldVectors.size());
+    Preconditions.checkArgument(index >= 0 && index <= fieldVectors.size());
 
     fieldVectors.add(index, vector);
     syncSchema();

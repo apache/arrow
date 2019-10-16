@@ -163,10 +163,12 @@ public class TestVectorSchemaRoot {
       try (VectorSchemaRoot original = new VectorSchemaRoot(Arrays.asList(intVector1, intVector2))) {
         assertEquals(2, original.getFieldVectors().size());
 
-        original.addVector(1, intVector3);
+        original.addVector(2, intVector3);
 
         assertEquals(3, original.getFieldVectors().size());
-        assertTrue(intVector3 == original.getFieldVectors().get(1));
+        assertTrue(intVector1 == original.getFieldVectors().get(0));
+        assertTrue(intVector2 == original.getFieldVectors().get(1));
+        assertTrue(intVector3 == original.getFieldVectors().get(2));
       }
     }
   }
