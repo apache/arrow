@@ -15,7 +15,7 @@
 # limitations under the License.
 
 os: osx
-osx_image: xcode9.3
+osx_image: xcode9.2
 language: r
 cache: packages
 r: {{ r_version }}
