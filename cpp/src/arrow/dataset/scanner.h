@@ -54,7 +54,7 @@ class ARROW_DS_EXPORT ScanOptions {
 
   // Schema to which record batches will be reconciled
   std::shared_ptr<Schema> schema;
-  // Projecting the final RecordBatch to the requested schema.
+  // Projector for reconciling the final RecordBatch to the requested schema.
   std::shared_ptr<RecordBatchProjector> projector;
 
  private:
@@ -163,27 +163,27 @@ class ARROW_DS_EXPORT ScannerBuilder {
 
   /// \brief Set the subset of columns to materialize.
   ///
-  /// This columns be passed down to DataSources and corresponding DataFragments.
-  /// The goal is to avoid copying/deserializing columns that will be
-  /// ignored/dropped further down the compute chain.
+  /// This subset wil be passed down to DataSources and corresponding DataFragments.
+  /// The goal is to avoid loading/copying/deserializing columns that will
+  /// not be required further down the compute chain.
   ///
   /// \param[in] columns list of columns to project. Order and duplicates will
   ///            be preserved.
   ///
-  /// \return Failure if any column names does not exists in the dataset's
+  /// \return Failure if any column name does not exists in the dataset's
   ///         Schema.
   Status Project(const std::vector<std::string>& columns);
 
   /// \brief Set the filter expression to return only rows matching the filter.
   ///
   /// The predicate will be passed down to DataSources and corresponding
-  /// DataFragments to exploit pushdown predicate if possible either due to
-  /// partitions information, or DataFragment internal knowledge, e.g. Parquet
+  /// DataFragments to exploit predicate pushdown if possible using
+  /// partition information or DataFragment internal metadata, e.g. Parquet statistics.
   /// statistics.
   ///
   /// \param[in] filter expression to filter rows with.
   ///
-  /// \return Failure if any referenced columns does not exists in the dataset's
+  /// \return Failure if any referenced columns does not exist in the dataset's
   ///         Schema.
   Status Filter(std::shared_ptr<Expression> filter);
   Status Filter(const Expression& filter);

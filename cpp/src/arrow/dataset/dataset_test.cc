@@ -295,7 +295,7 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   // FlightDataSource.
 
   // A DataSource is composed of DataFragments. Each DataFragment can yield
-  // multiple RecordBatch. DataSource can be created manually or "discovered"
+  // multiple RecordBatches. DataSource can be created manually or "discovered"
   // via the DataSourceDiscovery interface.
   //
   // Each DataSourceDiscovery will have custom options.
@@ -305,11 +305,12 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   // This option is specific to FileSystemBasedDataSource (and the builder).
   //
   // Note the JSONRecordBatchFileFormat requires a schema before creating the Discovery
-  // class which is used to discover the schema. This chicken-and-egg problem
+  // class which is used to discover the schema. This is a chicken-and-egg problem
+  // which only applies to the JSONRecordBatchFileFormat.
   // is only required for JSONRecordBatchFileFormat because it doesn't do
   // schema inspection.
   auto format = std::make_shared<JSONRecordBatchFileFormat>(schema_);
-  // A selector is used to filter (or crawl) the files/directories of a
+  // A selector is used to crawl files and directories of a
   // filesystem. If the options in Selector are not enough, the
   // FileSystemDataSourceDiscovery class also supports an explicit list of
   // fs::FileStats instead of the selector.
@@ -352,7 +353,7 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
 
   // Querying.
   //
-  // The Scan operator materialize data from io into memory. Avoiding data
+  // The Scan operator materializes data from io into memory. Avoiding data
   // transfer is a critical optimization done by analytical engine. Thus, a
   // Scan can take multiple options, notably a subset of columns and a filter
   // expression.
@@ -362,20 +363,20 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   // An optional subset of columns can be provided. This will trickle to
   // DataFragment drivers. The net effect is that only columns of interest will
   // be materialized if the DataFragment supports it. This is the major benefit
-  // of using a colum-wise format versus a row-wise format.
+  // of using a column-major format versus a row-major format.
   //
   // This API decouples the DataSource/DataFragment implementation and column
   // projection from the query part.
   //
-  // For example, a ParquetFileDataFragment can only read the necessary bytes
-  // ranges, or an OdbcDataFragment could craft the query with proper SELECT
+  // For example, a ParquetFileDataFragment may read the necessary byte ranges exclusively,
+  // ranges, or an OdbcDataFragment could convert the projection to a SELECT
   // statement. The CsvFileDataFragment wouldn't benefit from this as much, but
-  // could still skip converting un-needed columns.
+  // can still benefit from skipping conversion of unneeded columns.
   ASSERT_OK(scanner_builder->Project({"sales", "model"}));
 
   // An optional filter expression may also be specified. The filter expression
-  // is matched on input rows and only matching rows are returned.
-  // Predicate pushdown optimization is applied on partitions if possible.
+  // is evaluated against input rows. Only rows for which the filter evauates to true are yielded.
+  // Predicate pushdown optimizations are applied using partition information if available.
   //
   // This API decouples predicate pushdown from the DataSource implementation
   // and partition discovery.
@@ -388,7 +389,7 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   std::unique_ptr<Scanner> scanner;
   ASSERT_OK(scanner_builder->Finish(&scanner));
 
-  // Consuming.
+  // In the simplest case, consumption is simply conversion to a Table.
   std::shared_ptr<Table> table;
   ASSERT_OK(scanner->ToTable(&table));
 
