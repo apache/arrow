@@ -132,10 +132,10 @@ class PlasmaStore {
 
   /// Seal a vector of objects. The objects are now immutable and can be accessed with get.
   ///
-  /// @param object_id The vector of Object IDs of the objects to be sealed.
-  /// @param digest The vector of digests of the objects. This is used to tell if two
+  /// @param object_ids The vector of Object IDs of the objects to be sealed.
+  /// @param digests The vector of digests of the objects. This is used to tell if two
   /// objects with the same object ID are the same.
-  void SealObjects(const std::vector<ObjectID>& object_id,
+  void SealObjects(const std::vector<ObjectID>& object_ids,
                    const std::vector<std::string>& digests);
 
   /// Check if the plasma store contains an object:
