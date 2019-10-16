@@ -125,7 +125,8 @@ class ARROW_EXPORT StatusDetail {
 ///
 /// Additionally, if an error occurred, a specific error message is generally
 /// attached.
-class ARROW_EXPORT Status : public util::EqualityComparable<Status> {
+class ARROW_EXPORT Status : public util::EqualityComparable<Status>,
+                            public util::ToStringOstreamable<Status> {
  public:
   // Create a success status.
   Status() noexcept : state_(NULLPTR) {}
@@ -347,11 +348,6 @@ class ARROW_EXPORT Status : public util::EqualityComparable<Status> {
   void CopyFrom(const Status& s);
   inline void MoveFrom(Status& s);
 };
-
-static inline std::ostream& operator<<(std::ostream& os, const Status& x) {
-  os << x.ToString();
-  return os;
-}
 
 void Status::MoveFrom(Status& s) {
   delete state_;
