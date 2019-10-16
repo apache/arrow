@@ -280,8 +280,10 @@ impl ExecutionContext {
                 aggr_expr,
                 ..
             } => {
+                // Initially need to perform the aggregate and then merge the partitions
                 let input = self.create_physical_plan(input, batch_size)?;
                 let input_schema = input.as_ref().schema().clone();
+
                 let group_expr = group_expr
                     .iter()
                     .map(|e| self.create_physical_expr(e, &input_schema))
@@ -290,8 +292,25 @@ impl ExecutionContext {
                     .iter()
                     .map(|e| self.create_aggregate_expr(e, &input_schema))
                     .collect::<Result<Vec<_>>>()?;
+
+                let initial_aggr =
+                    HashAggregateExec::try_new(group_expr, aggr_expr, input)?;
+
+                let schema = initial_aggr.schema();
+                let partitions = initial_aggr.partitions()?;
+
+                if partitions.len() == 1 {
+                    return Ok(Arc::new(initial_aggr));
+                }
+
+                let (final_group, final_aggr) = initial_aggr.make_final_expr();
+
+                let merge = Arc::new(MergeExec::new(schema.clone(), partitions));
+
                 Ok(Arc::new(HashAggregateExec::try_new(
-                    group_expr, aggr_expr, input,
+                    final_group,
+                    final_aggr,
+                    merge,
                 )?))
             }
             LogicalPlan::Selection { input, expr, .. } => {
