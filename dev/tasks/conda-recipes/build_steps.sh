@@ -25,6 +25,10 @@ setup_conda_rc "${FEEDSTOCK_ROOT}" "${FEEDSTOCK_ROOT}" "${CONFIG_FILE}"
 
 source run_conda_forge_build_setup
 
+# pin conda build, 3.18.10 has introduced issue:
+# "Can't merge/copy source into subdirectory of itself."
+conda install -y conda-build=3.18.9
+
 # make the build number clobber
 make_build_number "${FEEDSTOCK_ROOT}" "${FEEDSTOCK_ROOT}" "${CONFIG_FILE}"
 
