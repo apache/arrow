@@ -89,7 +89,9 @@ class Iterator : public util::EqualityComparable<Iterator<T>> {
     return status;
   }
 
-  /// Iterators will only compare equal if they are both null
+  /// Iterators will only compare equal if they are both null.
+  /// Equality comparability is required to make an Iterator of Iterators
+  /// (to check for the end condition).
   bool Equals(const Iterator& other) const { return ptr_ == other.ptr_; }
 
   explicit operator bool() const { return ptr_ != NULLPTR; }
