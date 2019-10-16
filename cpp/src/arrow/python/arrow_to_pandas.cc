@@ -257,15 +257,14 @@ inline void set_numpy_metadata(int type, const DataType* datatype, PyArray_Descr
 
 namespace {
 
-Status PyArray_NewFromPool(int nd, npy_intp* dims, int typenum,
+Status PyArray_NewFromPool(int nd, npy_intp* dims, PyArray_Descr* descr,
                            const DataType* arrow_type, MemoryPool* pool, PyObject** out) {
   // ARROW-6570: Allocate memory from MemoryPool for a couple reasons
   //
   // * Track allocations
   // * Get better performance through custom allocators
-  PyArray_Descr* descr = internal::GetSafeNumPyDtype(typenum);
   if (arrow_type != nullptr) {
-    set_numpy_metadata(typenum, arrow_type, descr);
+    set_numpy_metadata(descr->type_num, arrow_type, descr);
   }
 
   int64_t total_size = descr->elsize;
@@ -347,8 +346,17 @@ class PandasBlock {
     } else {
       block_dims[0] = num_rows_;
     }
-    RETURN_NOT_OK(PyArray_NewFromPool(ndim, block_dims, npy_type,
-                                      /*arrow_type=*/nullptr, options_.pool, &block_arr));
+    PyArray_Descr* descr = internal::GetSafeNumPyDtype(npy_type);
+    if (PyDataType_REFCHK(descr)) {
+      // ARROW-6876: if the array has refcounted items, let Numpy
+      // own the array memory so as to decref elements on array destruction
+      block_arr = PyArray_SimpleNewFromDescr(ndim, block_dims, descr);
+      RETURN_IF_PYERROR();
+    } else {
+      RETURN_NOT_OK(PyArray_NewFromPool(ndim, block_dims, descr,
+                                        /*arrow_type=*/nullptr, options_.pool,
+                                        &block_arr));
+    }
 
     npy_intp placement_dims[1] = {num_columns_};
     PyObject* placement_arr = PyArray_SimpleNew(1, placement_dims, NPY_INT64);
@@ -1824,8 +1832,20 @@ class ArrowDeserializer {
     PyAcquireGIL lock;
 
     npy_intp dims[1] = {data_->length()};
-    RETURN_NOT_OK(
-        PyArray_NewFromPool(1, dims, type, data_->type().get(), options_.pool, &result_));
+    PyArray_Descr* descr = internal::GetSafeNumPyDtype(type);
+    if (descr == nullptr) {
+      RETURN_IF_PYERROR();
+    }
+    if (PyDataType_REFCHK(descr)) {
+      // ARROW-6876: if the array has refcounted items, let Numpy
+      // own the array memory so as to decref elements on array destruction
+      set_numpy_metadata(type, data_->type().get(), descr);
+      result_ = PyArray_SimpleNewFromDescr(1, dims, descr);
+      RETURN_IF_PYERROR();
+    } else {
+      RETURN_NOT_OK(PyArray_NewFromPool(1, dims, descr, data_->type().get(),
+                                        options_.pool, &result_));
+    }
     arr_ = reinterpret_cast<PyArrayObject*>(result_);
     return Status::OK();
   }
