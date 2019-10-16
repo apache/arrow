@@ -18,6 +18,7 @@
 package org.apache.arrow.vector.complex.impl;
 
 import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -82,7 +83,7 @@ public class TestComplexCopier {
     }
   }
 
-  @Test(expected = IllegalStateException.class)
+  @Test
   public void testInvalidCopyFixedSizeListVector() {
     try (FixedSizeListVector from = FixedSizeListVector.empty("from", 3, allocator);
         FixedSizeListVector to = FixedSizeListVector.empty("to", 2, allocator)) {
@@ -105,11 +106,9 @@ public class TestComplexCopier {
       // copy values
       FieldReader in = from.getReader();
       FieldWriter out = to.getWriter();
-      for (int i = 0; i < COUNT; i++) {
-        in.setPosition(i);
-        out.setPosition(i);
-        ComplexCopier.copy(in, out);
-      }
+      IllegalStateException e = assertThrows(IllegalStateException.class,
+          () -> ComplexCopier.copy(in, out));
+      assertTrue(e.getMessage().contains("greater than listSize"));
     }
   }
 }
