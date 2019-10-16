@@ -63,6 +63,24 @@ std::string StringBuilder(Args&&... args) {
   return ss.str();
 }
 
+/// CRTP helper for declaring string representation. Defines operator<<
+template <typename T>
+class ToStringOstreamable {
+ public:
+  ~ToStringOstreamable() {
+    static_assert(
+        std::is_same<decltype(std::declval<const T>().ToString()), std::string>::value,
+        "ToStringOstreamable depends on the method T::ToString() const");
+  }
+
+ private:
+  const T& cast() const { return static_cast<const T&>(*this); }
+
+  friend inline std::ostream& operator<<(std::ostream& os, const ToStringOstreamable& t) {
+    return os << t.cast().ToString();
+  }
+};
+
 }  // namespace util
 }  // namespace arrow
 

@@ -177,6 +177,48 @@ TEST(TestVectorIterator, Basic) {
   AssertIteratorNoMatch({1, 2, 3, 1}, VectorIt({1, 2, 3}));
 }
 
+TEST(TestVectorIterator, RangeForLoop) {
+  std::vector<TestInt> ints = {1, 2, 3, 4};
+
+  auto ints_it = ints.begin();
+  for (auto v_result : VectorIt(ints)) {
+    ASSERT_OK_AND_ASSIGN(TestInt v, v_result);
+    ASSERT_EQ(v, *ints_it++);
+  }
+  ASSERT_EQ(ints_it, ints.end());
+
+  std::vector<std::unique_ptr<TestInt>> vec;
+  for (TestInt i : ints) {
+    vec.emplace_back(new TestInt(i));
+  }
+
+  // also works with move only types
+  ints_it = ints.begin();
+  for (auto v_result : MakeVectorIterator(std::move(vec))) {
+    ASSERT_OK_AND_ASSIGN(std::unique_ptr<TestInt> v, std::move(v_result));
+    ASSERT_EQ(*v, *ints_it++);
+  }
+  ASSERT_EQ(ints_it, ints.end());
+}
+
+TEST(TestFunctionIterator, RangeForLoop) {
+  int i = 0;
+  auto fails_at_3 = MakeFunctionIterator([&](TestInt* out) {
+    if (i >= 3) {
+      return Status::IndexError("fails at 3");
+    }
+    out->value = i++;
+    return Status::OK();
+  });
+
+  std::vector<Result<TestInt>> actual,
+      expected{0, 1, 2, Status::IndexError("fails at 3")};
+  for (auto r : fails_at_3) {
+    actual.push_back(std::move(r));
+  }
+  ASSERT_EQ(actual, expected);
+}
+
 TEST(FilterIterator, Basic) {
   AssertIteratorMatch({1, 2, 3, 4}, FilterIt(VectorIt({1, 2, 3, 4}),
                                              [](TestInt i, TestInt* o, bool* accept) {

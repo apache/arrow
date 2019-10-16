@@ -22,6 +22,7 @@
 #include <utility>
 
 #include "arrow/status.h"
+#include "arrow/util/compare.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/variant.h"
 
@@ -86,7 +87,7 @@ ARROW_EXPORT void DieWithMessage(const std::string& msg);
 ///   arrow::Result<int> CalculateFoo();
 /// ```
 template <class T>
-class Result {
+class Result : public util::EqualityComparable<Result<T>> {
   template <typename U>
   friend class Result;
   using VariantType = arrow::util::variant<T, Status, const char*>;
@@ -214,6 +215,9 @@ class Result {
 
     return *this;
   }
+
+  /// Compare to another Result.
+  bool Equals(const Result& other) const { return variant_ == other.variant_; }
 
   /// Indicates whether the object contains a `T` value.  Generally instead
   /// of accessing this directly you will want to use ASSIGN_OR_RAISE defined
