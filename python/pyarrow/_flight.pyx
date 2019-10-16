@@ -23,6 +23,7 @@ from __future__ import absolute_import
 import collections
 import contextlib
 import enum
+import re
 import socket
 import time
 import threading
@@ -74,11 +75,15 @@ cdef int check_flight_status(const CStatus& status) nogil except -1:
     return check_status(status)
 
 
+_FLIGHT_SERVER_ERROR_REGEX = re.compile(
+    r'Flight RPC failed with message: (.*). Detail: '
+    r'Python exception: (.*)',
+    re.DOTALL
+)
+
+
 def _munge_grpc_python_error(message):
-    import re
-    pat = re.compile(r'Flight RPC failed with message: (.*). Detail: '
-                     r'Python exception: (.*)')
-    m = pat.match(message)
+    m = _FLIGHT_SERVER_ERROR_REGEX.match(message)
     if m:
         return ('Flight RPC failed with Python exception \"{}: {}\"'
                 .format(m.group(2), m.group(1)))
