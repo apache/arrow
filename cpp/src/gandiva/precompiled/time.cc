@@ -706,10 +706,14 @@ const char* castVARCHAR_timestamp_int64(int64 context, timestamp in, int64 lengt
   char char_buffer[char_buffer_length];
 
   // yyyy-MM-dd hh:mm:ss.sss
-  snprintf(char_buffer, char_buffer_length,
-           "%04" PRId64 "-%02" PRId64 "-%02" PRId64 " %02" PRId64 ":%02" PRId64
-           ":%02" PRId64 ".%03" PRId64,
-           year, month, day, hour, minute, second, millis);
+  int res = snprintf(char_buffer, char_buffer_length,
+                     "%04" PRId64 "-%02" PRId64 "-%02" PRId64 " %02" PRId64 ":%02" PRId64
+                     ":%02" PRId64 ".%03" PRId64,
+                     year, month, day, hour, minute, second, millis);
+  if (res < 0) {
+    gdv_fn_context_set_error_msg(context, "Could not format the timestamp");
+    return "";
+  }
 
   *out_len = static_cast<int32>(length);
   if (*out_len > kTimeStampStringLen) {

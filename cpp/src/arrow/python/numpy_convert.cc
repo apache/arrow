@@ -241,7 +241,7 @@ Status NdarrayToTensor(MemoryPool* pool, PyObject* ao,
 
 Status TensorToNdarray(const std::shared_ptr<Tensor>& tensor, PyObject* base,
                        PyObject** out) {
-  int type_num;
+  int type_num = 0;
   RETURN_NOT_OK(GetNumPyType(*tensor->type(), &type_num));
   PyArray_Descr* dtype = PyArray_DescrNewFromType(type_num);
   RETURN_IF_PYERROR();
@@ -293,7 +293,7 @@ Status TensorToNdarray(const std::shared_ptr<Tensor>& tensor, PyObject* base,
 static Status SparseTensorDataToNdarray(const SparseTensor& sparse_tensor,
                                         std::vector<npy_intp> data_shape, PyObject* base,
                                         PyObject** out_data) {
-  int type_num_data;
+  int type_num_data = 0;
   RETURN_NOT_OK(GetNumPyType(*sparse_tensor.type(), &type_num_data));
   PyArray_Descr* dtype_data = PyArray_DescrNewFromType(type_num_data);
   RETURN_IF_PYERROR();
