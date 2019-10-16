@@ -134,7 +134,13 @@ class TestScannerBuilder : public ::testing::Test {
   void SetUp() {
     std::vector<std::shared_ptr<DataSource>> sources;
 
-    schema_ = schema({});
+    schema_ = schema({
+        field("b", boolean()),
+        field("i8", int8()),
+        field("i16", int16()),
+        field("i32", int16()),
+        field("i64", int16()),
+    });
     dataset_ = std::make_shared<Dataset>(sources, schema_);
   }
 
@@ -150,8 +156,22 @@ TEST_F(TestScannerBuilder, TestProject) {
   // It is valid to request no columns, e.g. `SELECT 1 FROM t WHERE t.a > 0`.
   // still needs to touch the `a` column.
   ASSERT_OK(builder.Project({}));
+  ASSERT_OK(builder.Project({"i64", "b", "i8"}));
+  ASSERT_OK(builder.Project({"i16", "i16"}));
 
   ASSERT_RAISES(Invalid, builder.Project({"not_found_column"}));
+  ASSERT_RAISES(Invalid, builder.Project({"i8", "not_found_column"}));
+}
+
+TEST_F(TestScannerBuilder, TestFilter) {
+  ScannerBuilder builder(dataset_, ctx_);
+
+  ASSERT_OK(builder.Filter(scalar(true)));
+  ASSERT_OK(builder.Filter("i64"_ == 10));
+  ASSERT_OK(builder.Filter("i64"_ == 10 || "b"_ == true));
+
+  ASSERT_RAISES(Invalid, builder.Filter("not_a_column"_ == true));
+  ASSERT_RAISES(Invalid, builder.Filter("i64"_ == 10 || "not_a_column"_ == true));
 }
 
 }  // namespace dataset

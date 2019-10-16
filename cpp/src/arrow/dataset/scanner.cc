@@ -148,26 +148,34 @@ ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset,
       scan_context_(std::move(scan_context)),
       pool_(default_memory_pool()) {}
 
-Status ScannerBuilder::Project(const std::vector<std::string>& columns) {
+Status EnsureColumnsInSchema(const std::shared_ptr<Schema>& schema,
+                             const std::vector<std::string>& columns) {
   for (const auto& column : columns) {
-    if (schema()->GetFieldByName(column) == nullptr) {
+    if (schema->GetFieldByName(column) == nullptr) {
       return Status::Invalid("Requested column ", column,
                              " not found in dataset's schema.");
     }
   }
 
-  project_columns_ = columns;
+  return Status::OK();
+}
 
+Status ScannerBuilder::Project(const std::vector<std::string>& columns) {
+  RETURN_NOT_OK(EnsureColumnsInSchema(schema(), columns));
+  project_columns_ = columns;
+  return Status::OK();
+}
+
+Status ScannerBuilder::Filter(std::shared_ptr<Expression> filter) {
+  if (filter != nullptr) {
+    RETURN_NOT_OK(EnsureColumnsInSchema(schema(), FieldsInExpression(*filter)));
+  }
+  scan_options_->filter = std::move(filter);
   return Status::OK();
 }
 
 Status ScannerBuilder::SetMemoryPool(MemoryPool* pool) {
   pool_ = pool;
-  return Status::OK();
-}
-
-Status ScannerBuilder::Filter(std::shared_ptr<Expression> filter) {
-  scan_options_->filter = std::move(filter);
   return Status::OK();
 }
 

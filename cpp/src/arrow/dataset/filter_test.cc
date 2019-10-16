@@ -387,5 +387,22 @@ TEST_F(FilterTest, EvaluateTakeExpression) {
   ])");
 }
 
+void AssertFieldsInExpression(std::shared_ptr<Expression> expr,
+                              std::vector<std::string> expected) {
+  EXPECT_THAT(FieldsInExpression(expr), testing::ContainerEq(expected));
+}
+
+TEST(FieldsInExpressionTest, Basic) {
+  AssertFieldsInExpression(scalar(true), {});
+
+  AssertFieldsInExpression(("a"_).Copy(), {"a"});
+  AssertFieldsInExpression(("a"_ == 1).Copy(), {"a"});
+
+  AssertFieldsInExpression(("a"_ == 1 || "a"_ == 2).Copy(), {"a", "a"});
+  AssertFieldsInExpression(("a"_ == 1 || "b"_ == 2).Copy(), {"a", "b"});
+  AssertFieldsInExpression((not("a"_ == 1) && ("b"_ == 2 || not("c"_ < 3))).Copy(),
+                           {"a", "b", "c"});
+}
+
 }  // namespace dataset
 }  // namespace arrow

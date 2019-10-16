@@ -758,6 +758,46 @@ Result<std::shared_ptr<DataType>> FieldExpression::Validate(const Schema& schema
   return null();
 }
 
+struct AccumulateFieldsVisitor {
+  void operator()(const FieldExpression& expr) { fields.push_back(expr.name()); }
+
+  void operator()(const NotExpression& expr) { VisitExpression(*expr.operand(), *this); }
+
+  void operator()(const AndExpression& expr) {
+    VisitExpression(*expr.left_operand(), *this);
+    VisitExpression(*expr.right_operand(), *this);
+  }
+
+  void operator()(const OrExpression& expr) {
+    VisitExpression(*expr.left_operand(), *this);
+    VisitExpression(*expr.right_operand(), *this);
+  }
+
+  void operator()(const ComparisonExpression& expr) {
+    VisitExpression(*expr.left_operand(), *this);
+    VisitExpression(*expr.right_operand(), *this);
+  }
+
+  template <typename E>
+  void operator()(const E& expr) const {}
+
+  std::vector<std::string> fields;
+};
+
+std::vector<std::string> FieldsInExpression(const Expression& expr) {
+  AccumulateFieldsVisitor visitor;
+  VisitExpression(expr, visitor);
+  return visitor.fields;
+}
+
+std::vector<std::string> FieldsInExpression(const std::shared_ptr<Expression>& expr) {
+  if (expr == nullptr) {
+    return {};
+  }
+
+  return FieldsInExpression(*expr);
+}
+
 RecordBatchIterator ExpressionEvaluator::FilterBatches(
     RecordBatchIterator unfiltered, std::shared_ptr<Expression> filter) {
   auto filter_batches = [filter, this](const std::shared_ptr<RecordBatch>& unfiltered,

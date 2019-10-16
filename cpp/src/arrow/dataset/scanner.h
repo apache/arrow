@@ -153,17 +153,42 @@ class ARROW_DS_EXPORT SimpleScanner : public Scanner {
   std::shared_ptr<ScanContext> context_;
 };
 
+/// \brief ScannerBuilder is a factory class to construct a Scanner. It is used
+/// to pass information, notably a potential filter expression and a subset of
+/// columns to materialize.
 class ARROW_DS_EXPORT ScannerBuilder {
  public:
   ScannerBuilder(std::shared_ptr<Dataset> dataset,
                  std::shared_ptr<ScanContext> scan_context);
 
-  /// \brief Set
+  /// \brief Set the subset of columns to materialize.
+  ///
+  /// This columns be passed down to DataSources and corresponding DataFragments.
+  /// The goal is to avoid copying/deserializing columns that will be
+  /// ignored/dropped further down the compute chain.
+  ///
+  /// \param[in] columns list of columns to project. Order and duplicates will
+  ///            be preserved.
+  ///
+  /// \return Failure if any column names does not exists in the dataset's
+  ///         Schema.
   Status Project(const std::vector<std::string>& columns);
 
+  /// \brief Set the filter expression to return only rows matching the filter.
+  ///
+  /// The predicate will be passed down to DataSources and corresponding
+  /// DataFragments to exploit pushdown predicate if possible either due to
+  /// partitions information, or DataFragment internal knowledge, e.g. Parquet
+  /// statistics.
+  ///
+  /// \param[in] filter expression to filter rows with.
+  ///
+  /// \return Failure if any referenced columns does not exists in the dataset's
+  ///         Schema.
   Status Filter(std::shared_ptr<Expression> filter);
   Status Filter(const Expression& filter);
 
+  /// \brief Set the MemoryPool used internally to allocate memory.
   Status SetMemoryPool(MemoryPool* pool);
 
   /// \brief Return the constructed now-immutable Scanner object

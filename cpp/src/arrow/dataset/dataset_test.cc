@@ -335,9 +335,10 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   // with the equivalent index in the schema, e.g.
   // (with the previous defined schema):
   //
-  // - "/US" -> {"country": "US"}
-  // - "/US/CA/file.json -> {"country": "US, "region": "CA"}
-  // - "/US/CA/San Francisco/file.json -> {"country": "US, "region": "CA"}
+  // - "/2019" -> {"year": 2019}
+  // - "/2019/01 -> {"year": 2019, "month": 1}
+  // - "/2019/01/CA -> {"year": 2019, "month": 1, "country": "CA"}
+  // - "/2019/01/CA/a_file.json -> {"year": 2019, "month": 1, "country": "CA"}
   auto partition_scheme = std::make_shared<SchemaPartitionScheme>(partition_schema);
   ASSERT_OK(discovery->SetPartitionScheme(partition_scheme));
 

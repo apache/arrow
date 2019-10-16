@@ -446,6 +446,12 @@ auto VisitExpression(const Expression& expr, Visitor&& visitor)
   return visitor(expr);
 }
 
+/// \brief Returns field names referenced in the expression.
+ARROW_DS_EXPORT std::vector<std::string> FieldsInExpression(const Expression& expr);
+
+ARROW_DS_EXPORT std::vector<std::string> FieldsInExpression(
+    const std::shared_ptr<Expression>& expr);
+
 /// Interface for evaluation of expressions against record batches.
 class ARROW_DS_EXPORT ExpressionEvaluator {
  public:
