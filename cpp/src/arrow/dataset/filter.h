@@ -498,9 +498,6 @@ class ARROW_DS_EXPORT ExpressionEvaluator {
   /// construct an Evaluator which evaluates all expressions to null and does no
   /// filtering
   static std::shared_ptr<ExpressionEvaluator> Null();
-
- protected:
-  std::shared_ptr<Expression> expr_;
 };
 
 /// construct an Evaluator which uses compute kernels to evaluate expressions and

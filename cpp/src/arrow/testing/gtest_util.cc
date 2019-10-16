@@ -164,9 +164,19 @@ std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>& 
   return record_batch;
 }
 
-void AssertTablesEqual(const Table& expected, const Table& actual,
-                       bool same_chunk_layout) {
+void AssertTablesEqual(const Table& expected, const Table& actual, bool same_chunk_layout,
+                       bool combine_chunks) {
   ASSERT_EQ(expected.num_columns(), actual.num_columns());
+
+  if (combine_chunks) {
+    auto pool = default_memory_pool();
+    std::shared_ptr<Table> new_expected, new_actual;
+    ASSERT_OK(expected.CombineChunks(pool, &new_expected));
+    ASSERT_OK(actual.CombineChunks(pool, &new_actual));
+
+    AssertTablesEqual(*new_expected, *new_actual, false, false);
+    return;
+  }
 
   if (same_chunk_layout) {
     for (int i = 0; i < actual.num_columns(); ++i) {

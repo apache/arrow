@@ -337,7 +337,8 @@ void AssertFragmentsAreFromPath(DataFragmentIterator it,
 }
 
 // A frozen shared_ptr<Expression> with behavior expected by GTest
-struct TestExpression : util::EqualityComparable<TestExpression>, util::ToStringOstreamable<TestExpression> {
+struct TestExpression : util::EqualityComparable<TestExpression>,
+                        util::ToStringOstreamable<TestExpression> {
   // NOLINTNEXTLINE runtime/explicit
   TestExpression(std::shared_ptr<Expression> e) : expression(std::move(e)) {}
 
@@ -346,7 +347,9 @@ struct TestExpression : util::EqualityComparable<TestExpression>, util::ToString
 
   std::shared_ptr<Expression> expression;
 
-  bool Equals(const TestExpression& other) const { return expression->Equals(other.expression); }
+  bool Equals(const TestExpression& other) const {
+    return expression->Equals(other.expression);
+  }
 
   std::string ToString() const { return expression->ToString(); }
 };

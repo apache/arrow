@@ -169,7 +169,7 @@ ARROW_EXPORT void AssertBufferEqual(const Buffer& buffer, const Buffer& expected
 ARROW_EXPORT void AssertSchemaEqual(const Schema& lhs, const Schema& rhs);
 
 ARROW_EXPORT void AssertTablesEqual(const Table& expected, const Table& actual,
-                                    bool same_chunk_layout = true);
+                                    bool same_chunk_layout = true, bool flatten = false);
 
 ARROW_EXPORT void AssertDatumsEqual(const Datum& expected, const Datum& actual);
 

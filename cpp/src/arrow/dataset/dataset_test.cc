@@ -17,11 +17,14 @@
 
 #include "arrow/dataset/dataset.h"
 
+#include <tuple>
+
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/filesystem/mockfs.h"
+#include "arrow/stl.h"
 #include "arrow/testing/generator.h"
 
 namespace arrow {
@@ -235,12 +238,13 @@ TEST(TestProjector, NonTrivial) {
 
 class TestEndToEnd : public TestDataset {
   void SetUp() {
+    bool nullable = false;
     schema_ = schema({
-        field("country", utf8()),
-        field("region", utf8()),
-        field("model", utf8()),
-        field("year", int32()),
-        field("sales", int32()),
+        field("country", utf8(), nullable),
+        field("region", utf8(), nullable),
+        field("model", utf8(), nullable),
+        field("year", int32(), nullable),
+        field("sales", int32(), nullable),
     });
 
     using PathAndContent = std::vector<std::pair<std::string, std::string>>;
@@ -368,21 +372,24 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   // This API decouples the DataSource/DataFragment implementation and column
   // projection from the query part.
   //
-  // For example, a ParquetFileDataFragment may read the necessary byte ranges exclusively,
-  // ranges, or an OdbcDataFragment could convert the projection to a SELECT
+  // For example, a ParquetFileDataFragment may read the necessary byte ranges
+  // exclusively, ranges, or an OdbcDataFragment could convert the projection to a SELECT
   // statement. The CsvFileDataFragment wouldn't benefit from this as much, but
   // can still benefit from skipping conversion of unneeded columns.
-  ASSERT_OK(scanner_builder->Project({"sales", "model"}));
+  std::vector<std::string> columns{"sales", "model"};
+  ASSERT_OK(scanner_builder->Project(columns));
 
   // An optional filter expression may also be specified. The filter expression
-  // is evaluated against input rows. Only rows for which the filter evauates to true are yielded.
-  // Predicate pushdown optimizations are applied using partition information if available.
+  // is evaluated against input rows. Only rows for which the filter evauates to true are
+  // yielded. Predicate pushdown optimizations are applied using partition information if
+  // available.
   //
   // This API decouples predicate pushdown from the DataSource implementation
   // and partition discovery.
   //
   // The following filter tests both predicate pushdown and post filtering
-  // without partition information.
+  // without partition information because `year` is a partition and `sales` is
+  // not.
   auto filter = ("year"_ == 2019 && "sales"_ > 100);
   ASSERT_OK(scanner_builder->Filter(filter));
 
@@ -393,10 +400,14 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   std::shared_ptr<Table> table;
   ASSERT_OK(scanner->ToTable(&table));
 
-  auto expected_schema = schema({field("sales", int32()), field("model", utf8())});
-
-  ASSERT_EQ(*expected_schema, *table->schema());
-  ASSERT_EQ(2, table->num_rows());
+  using row_type = std::tuple<int32_t, std::string>;
+  std::vector<row_type> rows{
+      {152, "3"},
+      {273, "3"},
+  };
+  std::shared_ptr<Table> expected;
+  ASSERT_OK(stl::TableFromTupleRange(default_memory_pool(), rows, columns, &expected));
+  AssertTablesEqual(*expected, *table, false, true);
 }
 
 }  // namespace dataset
