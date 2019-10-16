@@ -1685,11 +1685,17 @@ class RepeatedArrayFactory {
     return builder.Finish(out);
   }
 
+  Status CreateValidityBuffer(std::shared_ptr<Buffer>* out) {
+    return BitUtil::BytesToBits({1}, pool_, out);
+  }
+
   Status FinishFixedWidth(const void* data, size_t data_length) {
+    std::shared_ptr<Buffer> null_buffer;
+    RETURN_NOT_OK(CreateValidityBuffer(&null_buffer));
     std::shared_ptr<Buffer> buffer;
     RETURN_NOT_OK(CreateBufferOf(data, data_length, &buffer));
-    *out_ = MakeArray(
-        ArrayData::Make(scalar_.type, length_, {nullptr, std::move(buffer)}, 0));
+    *out_ = MakeArray(ArrayData::Make(scalar_.type, length_,
+                                      {std::move(null_buffer), std::move(buffer)}, 0));
     return Status::OK();
   }
 
