@@ -695,9 +695,6 @@ TEST_F(TestCast, TimestampToTimestamp) {
                               946684800000000000, -8032952073709551616,
                               -4389808147419103232};
 
-  options.allow_time_truncate = true;
-  CheckTimestampCast(options, TimeUnit::SECOND, TimeUnit::NANO, v11, e11, is_valid);
-
   options.allow_time_truncate = false;
   CheckFails<TimestampType>(timestamp(TimeUnit::SECOND), v11, is_valid,
                             timestamp(TimeUnit::NANO), options);

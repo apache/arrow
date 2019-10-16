@@ -443,20 +443,20 @@ void ShiftTime(FunctionContext* ctx, const CastOptions& options, const bool is_m
         internal::BitmapReader bit_reader(input.buffers[0]->data(), input.offset,
                                           input.length);
         for (int64_t i = 0; i < input.length; i++) {
-          out_data[i] = static_cast<out_type>(in_data[i] * factor);
           if (bit_reader.IsSet() && (in_data[i] < min_val || in_data[i] > max_val)) {
             RAISE_OVERFLOW_CAST(in_data[i]);
             break;
           }
+          out_data[i] = static_cast<out_type>(in_data[i] * factor);
           bit_reader.Next();
         }
       } else {
         for (int64_t i = 0; i < input.length; i++) {
-          out_data[i] = static_cast<out_type>(in_data[i] * factor);
           if (in_data[i] < min_val || in_data[i] > max_val) {
             RAISE_OVERFLOW_CAST(in_data[i]);
             break;
           }
+          out_data[i] = static_cast<out_type>(in_data[i] * factor);
         }
       }
 
