@@ -364,7 +364,7 @@ garrow_array_equal_range(GArrowArray *array,
  * @array: A #GArrowArray.
  * @i: The index of the target value.
  *
- * Returns: Whether the i-th value is null or not.
+ * Returns: Whether the @i-th value is null or not.
  *
  * Since: 0.3.0
  */
@@ -380,7 +380,7 @@ garrow_array_is_null(GArrowArray *array, gint64 i)
  * @array: A #GArrowArray.
  * @i: The index of the target value.
  *
- * Returns: Whether the i-th value is valid (not null) or not.
+ * Returns: Whether the @i-th value is valid (not null) or not.
  *
  * Since: 0.8.0
  */
@@ -692,7 +692,7 @@ garrow_boolean_array_new(gint64 length,
  * @array: A #GArrowBooleanArray.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  */
 gboolean
 garrow_boolean_array_get_value(GArrowBooleanArray *array,
@@ -790,7 +790,7 @@ garrow_int8_array_new(gint64 length,
  * @array: A #GArrowInt8Array.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  */
 gint8
 garrow_int8_array_get_value(GArrowInt8Array *array,
@@ -862,7 +862,7 @@ garrow_uint8_array_new(gint64 length,
  * @array: A #GArrowUInt8Array.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  */
 guint8
 garrow_uint8_array_get_value(GArrowUInt8Array *array,
@@ -935,7 +935,7 @@ garrow_int16_array_new(gint64 length,
  * @array: A #GArrowInt16Array.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  */
 gint16
 garrow_int16_array_get_value(GArrowInt16Array *array,
@@ -1008,7 +1008,7 @@ garrow_uint16_array_new(gint64 length,
  * @array: A #GArrowUInt16Array.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  */
 guint16
 garrow_uint16_array_get_value(GArrowUInt16Array *array,
@@ -1081,7 +1081,7 @@ garrow_int32_array_new(gint64 length,
  * @array: A #GArrowInt32Array.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  */
 gint32
 garrow_int32_array_get_value(GArrowInt32Array *array,
@@ -1154,7 +1154,7 @@ garrow_uint32_array_new(gint64 length,
  * @array: A #GArrowUInt32Array.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  */
 guint32
 garrow_uint32_array_get_value(GArrowUInt32Array *array,
@@ -1227,7 +1227,7 @@ garrow_int64_array_new(gint64 length,
  * @array: A #GArrowInt64Array.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  */
 gint64
 garrow_int64_array_get_value(GArrowInt64Array *array,
@@ -1302,7 +1302,7 @@ garrow_uint64_array_new(gint64 length,
  * @array: A #GArrowUInt64Array.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  */
 guint64
 garrow_uint64_array_get_value(GArrowUInt64Array *array,
@@ -1377,7 +1377,7 @@ garrow_float_array_new(gint64 length,
  * @array: A #GArrowFloatArray.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  */
 gfloat
 garrow_float_array_get_value(GArrowFloatArray *array,
@@ -1450,7 +1450,7 @@ garrow_double_array_new(gint64 length,
  * @array: A #GArrowDoubleArray.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  */
 gdouble
 garrow_double_array_get_value(GArrowDoubleArray *array,
@@ -1532,7 +1532,7 @@ garrow_binary_array_new(gint64 length,
  * @array: A #GArrowBinaryArray.
  * @i: The index of the target value.
  *
- * Returns: (transfer full): The i-th value.
+ * Returns: (transfer full): The @i-th value.
  */
 GBytes *
 garrow_binary_array_get_value(GArrowBinaryArray *array,
@@ -1636,7 +1636,7 @@ garrow_large_binary_array_new(gint64 length,
  * @array: A #GArrowLargeBinaryArray.
  * @i: The index of the target value.
  *
- * Returns: (transfer full): The i-th value.
+ * Returns: (transfer full): The @i-th value.
  *
  * Since: 1.0.0
  */
@@ -1746,7 +1746,7 @@ garrow_string_array_new(gint64 length,
  * @array: A #GArrowStringArray.
  * @i: The index of the target value.
  *
- * Returns: The i-th UTF-8 encoded string.
+ * Returns: The @i-th UTF-8 encoded string.
  */
 gchar *
 garrow_string_array_get_string(GArrowStringArray *array,
@@ -1818,7 +1818,7 @@ garrow_large_string_array_new(gint64 length,
  * @array: A #GArrowLargeStringArray.
  * @i: The index of the target value.
  *
- * Returns: The i-th UTF-8 encoded string.
+ * Returns: The @i-th UTF-8 encoded string.
  *
  * Since: 1.0.0
  */
@@ -1883,7 +1883,7 @@ garrow_date32_array_new(gint64 length,
  * @array: A #GArrowDate32Array.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  *
  * Since: 0.7.0
  */
@@ -1960,7 +1960,7 @@ garrow_date64_array_new(gint64 length,
  * @array: A #GArrowDate64Array.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  *
  * Since: 0.7.0
  */
@@ -2043,7 +2043,7 @@ garrow_timestamp_array_new(GArrowTimestampDataType *data_type,
  * @array: A #GArrowTimestampArray.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  *
  * Since: 0.7.0
  */
@@ -2126,7 +2126,7 @@ garrow_time32_array_new(GArrowTime32DataType *data_type,
  * @array: A #GArrowTime32Array.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  *
  * Since: 0.7.0
  */
@@ -2207,7 +2207,7 @@ garrow_time64_array_new(GArrowTime64DataType *data_type,
  * @array: A #GArrowTime64Array.
  * @i: The index of the target value.
  *
- * Returns: The i-th value.
+ * Returns: The @i-th value.
  *
  * Since: 0.7.0
  */
@@ -2271,7 +2271,7 @@ garrow_decimal128_array_class_init(GArrowDecimal128ArrayClass *klass)
  * @array: A #GArrowDecimal128Array.
  * @i: The index of the target value.
  *
- * Returns: (transfer full): The formatted i-th value.
+ * Returns: (transfer full): The formatted @i-th value.
  *
  *   The returned string should be freed with g_free() when no longer
  *   needed.
@@ -2294,7 +2294,7 @@ garrow_decimal128_array_format_value(GArrowDecimal128Array *array,
  * @array: A #GArrowDecimal128Array.
  * @i: The index of the target value.
  *
- * Returns: (transfer full): The i-th value.
+ * Returns: (transfer full): The @i-th value.
  *
  * Since: 0.10.0
  */

@@ -2631,12 +2631,12 @@ garrow_binary_array_builder_append_value_bytes(GArrowBinaryArrayBuilder *builder
  * garrow_binary_array_builder_append_values:
  * @builder: A #GArrowLargeBinaryArrayBuilder.
  * @values: (array length=values_length): The array of #GBytes.
- * @values_length: The length of `values`.
+ * @values_length: The length of @values.
  * @is_valids: (nullable) (array length=is_valids_length): The array of
  *   boolean that shows whether the Nth value is valid or not. If the
- *   Nth `is_valids` is %TRUE, the Nth `values` is valid value. Otherwise
+ *   Nth @is_valids is %TRUE, the Nth @values is valid value. Otherwise
  *   the Nth value is null value.
- * @is_valids_length: The length of `is_valids`.
+ * @is_valids_length: The length of @is_valids.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Append multiple values at once. It's more efficient than multiple
@@ -2721,7 +2721,7 @@ garrow_large_binary_array_builder_class_init(GArrowLargeBinaryArrayBuilderClass 
 /**
  * garrow_large_binary_array_builder_new:
  *
- * Returns: A newly created #GArrowBinaryArrayBuilder.
+ * Returns: A newly created #GArrowLargeBinaryArrayBuilder.
  *
  * Since: 1.0.0
  */
@@ -2793,12 +2793,12 @@ garrow_large_binary_array_builder_append_value_bytes(GArrowLargeBinaryArrayBuild
  * garrow_large_binary_array_builder_append_values:
  * @builder: A #GArrowLargeBinaryArrayBuilder.
  * @values: (array length=values_length): The array of #GBytes.
- * @values_length: The length of `values`.
+ * @values_length: The length of @values.
  * @is_valids: (nullable) (array length=is_valids_length): The array of
  *   boolean that shows whether the Nth value is valid or not. If the
- *   Nth `is_valids` is %TRUE, the Nth `values` is valid value. Otherwise
+ *   Nth @is_valids is %TRUE, the Nth @values is valid value. Otherwise
  *   the Nth value is null value.
- * @is_valids_length: The length of `is_valids`.
+ * @is_valids_length: The length of @is_valids.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Append multiple values at once. It's more efficient than multiple
@@ -2966,12 +2966,12 @@ garrow_string_array_builder_append_string(GArrowStringArrayBuilder *builder,
  * garrow_string_array_builder_append_values: (skip)
  * @builder: A #GArrowStringArrayBuilder.
  * @values: (array length=values_length): The array of strings.
- * @values_length: The length of `values`.
+ * @values_length: The length of @values.
  * @is_valids: (nullable) (array length=is_valids_length): The array of
  *   boolean that shows whether the Nth value is valid or not. If the
- *   Nth `is_valids` is %TRUE, the Nth `values` is valid value. Otherwise
+ *   Nth @is_valids is %TRUE, the Nth @values is valid value. Otherwise
  *   the Nth value is null value.
- * @is_valids_length: The length of `is_valids`.
+ * @is_valids_length: The length of @is_valids.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Append multiple values at once. It's more efficient than multiple
@@ -3004,12 +3004,12 @@ garrow_string_array_builder_append_values(GArrowStringArrayBuilder *builder,
  * garrow_string_array_builder_append_strings:
  * @builder: A #GArrowStringArrayBuilder.
  * @values: (array length=values_length): The array of strings.
- * @values_length: The length of `values`.
+ * @values_length: The length of @values.
  * @is_valids: (nullable) (array length=is_valids_length): The array of
  *   boolean that shows whether the Nth value is valid or not. If the
- *   Nth `is_valids` is %TRUE, the Nth `values` is valid value. Otherwise
+ *   Nth @is_valids is %TRUE, the Nth @values is valid value. Otherwise
  *   the Nth value is null value.
- * @is_valids_length: The length of `is_valids`.
+ * @is_valids_length: The length of @is_valids.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Append multiple values at once. It's more efficient than multiple
@@ -3096,12 +3096,12 @@ garrow_large_string_array_builder_append_string(GArrowLargeStringArrayBuilder *b
  * garrow_large_string_array_builder_append_strings:
  * @builder: A #GArrowLargeStringArrayBuilder.
  * @values: (array length=values_length): The array of strings.
- * @values_length: The length of `values`.
+ * @values_length: The length of @values.
  * @is_valids: (nullable) (array length=is_valids_length): The array of
  *   boolean that shows whether the Nth value is valid or not. If the
- *   Nth `is_valids` is %TRUE, the Nth `values` is valid value. Otherwise
+ *   Nth @is_valids is %TRUE, the Nth @values is valid value. Otherwise
  *   the Nth value is null value.
- * @is_valids_length: The length of `is_valids`.
+ * @is_valids_length: The length of @is_valids.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Append multiple values at once. It's more efficient than multiple
