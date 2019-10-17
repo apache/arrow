@@ -93,6 +93,11 @@ impl RecordBatch {
     pub fn column(&self, i: usize) -> &ArrayRef {
         &self.columns[i]
     }
+
+    /// Get a reference to all columns
+    pub fn columns(&self) -> &Vec<ArrayRef> {
+        &self.columns
+    }
 }
 
 impl From<&StructArray> for RecordBatch {

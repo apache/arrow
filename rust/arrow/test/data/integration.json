@@ -1,0 +1,425 @@
+{
+  "schema": {
+    "fields": [
+      {
+        "name": "bools",
+        "type": {
+          "name": "bool"
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "int8s",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 8
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "int16s",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 16
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "int32s",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 32
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "int64s",
+        "type": {
+          "name": "int",
+          "isSigned": true,
+          "bitWidth": 64
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "uint8s",
+        "type": {
+          "name": "int",
+          "isSigned": false,
+          "bitWidth": 8
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "uint16s",
+        "type": {
+          "name": "int",
+          "isSigned": false,
+          "bitWidth": 16
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "uint32s",
+        "type": {
+          "name": "int",
+          "isSigned": false,
+          "bitWidth": 32
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "uint64s",
+        "type": {
+          "name": "int",
+          "isSigned": false,
+          "bitWidth": 64
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "float32s",
+        "type": {
+          "name": "floatingpoint",
+          "precision": "SINGLE"
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "float64s",
+        "type": {
+          "name": "floatingpoint",
+          "precision": "DOUBLE"
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "utf8s",
+        "type": {
+          "name": "utf8"
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "lists",
+        "type": {
+          "name": "list"
+        },
+        "nullable": true,
+        "children": [
+          {
+            "name": "item",
+            "type": {
+              "name": "int",
+              "isSigned": true,
+              "bitWidth": 32
+            },
+            "nullable": true,
+            "children": []
+          }
+        ]
+      },
+      {
+        "name": "structs",
+        "type": {
+          "name": "struct"
+        },
+        "nullable": true,
+        "children": [
+          {
+            "name": "int32s",
+            "type": {
+              "name": "int",
+              "isSigned": true,
+              "bitWidth": 32
+            },
+            "nullable": true,
+            "children": []
+          },
+          {
+            "name": "utf8s",
+            "type": {
+              "name": "utf8"
+            },
+            "nullable": true,
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  "batches": [
+    {
+      "count": 3,
+      "columns": [
+        {
+          "name": "bools",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            0,
+            1
+          ],
+          "DATA": [
+            true,
+            true,
+            false
+          ]
+        },
+        {
+          "name": "int8s",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            0,
+            1
+          ],
+          "DATA": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "name": "int16s",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            0,
+            1
+          ],
+          "DATA": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "name": "int32s",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            0,
+            1
+          ],
+          "DATA": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "name": "int64s",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            0,
+            1
+          ],
+          "DATA": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "name": "uint8s",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            0,
+            1
+          ],
+          "DATA": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "name": "uint16s",
+          "count": 5,
+          "VALIDITY": [
+            1,
+            0,
+            1
+          ],
+          "DATA": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "name": "uint32s",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            0,
+            1
+          ],
+          "DATA": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "name": "uint64s",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            0,
+            1
+          ],
+          "DATA": [
+            1,
+            2,
+            3
+          ]
+        },
+        {
+          "name": "float32s",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            0,
+            1
+          ],
+          "DATA": [
+            1.0,
+            2.0,
+            3.0
+          ]
+        },
+        {
+          "name": "float64s",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            0,
+            1
+          ],
+          "DATA": [
+            1.0,
+            2.0,
+            3.0
+          ]
+        },
+        {
+          "name": "utf8s",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            0,
+            1
+          ],
+          "OFFSET": [
+            0,
+            2,
+            2,
+            5
+          ],
+          "DATA": [
+            "aa",
+            "",
+            "bbb"
+          ]
+        },
+        {
+          "name": "lists",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            1,
+            0
+          ],
+          "OFFSET": [
+            0,
+            3,
+            4,
+            4
+          ],
+          "children": [
+            {
+              "name": "item",
+              "count": 4,
+              "VALIDITY": [
+                0,
+                1,
+                0,
+                0
+              ],
+              "DATA": [
+                1,
+                2,
+                3,
+                4
+              ]
+            }
+          ]
+        },
+        {
+          "name": "structs",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            1,
+            0
+          ],
+          "children": [
+            {
+              "name": "int32s",
+              "count": 3,
+              "VALIDITY": [
+                0,
+                1,
+                0
+              ],
+              "DATA": [
+                -1,
+                -2,
+                -3
+              ]
+            },
+            {
+              "name": "utf8s",
+              "count": 3,
+              "VALIDITY": [
+                0,
+                0,
+                1
+              ],
+              "OFFSET": [
+                0,
+                0,
+                0,
+                7
+              ],
+              "DATA": [
+                "",
+                "",
+                "aaaaaa"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
