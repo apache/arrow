@@ -2600,6 +2600,34 @@ garrow_binary_array_builder_append_value(GArrowBinaryArrayBuilder *builder,
 }
 
 /**
+ * garrow_binary_array_builder_append_value_bytes:
+ * @builder: A #GArrowBinaryArrayBuilder.
+ * @value: A binary value.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 1.0.0
+ */
+gboolean
+garrow_binary_array_builder_append_value_bytes(GArrowBinaryArrayBuilder *builder,
+                                               GBytes *value,
+                                               GError **error)
+{
+  auto arrow_builder =
+    static_cast<arrow::BinaryBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+
+  gsize size;
+  gconstpointer data = g_bytes_get_data(value, &size);
+  auto status = arrow_builder->Append(static_cast<const uint8_t *>(data),
+                                      size);
+  return garrow_error_check(error,
+                            status,
+                            "[binary-array-builder][append-value-bytes]");
+}
+
+/**
  * garrow_binary_array_builder_append_values:
  * @builder: A #GArrowLargeBinaryArrayBuilder.
  * @values: (array length=values_length): The array of #GBytes.
@@ -2731,6 +2759,34 @@ garrow_large_binary_array_builder_append_value(GArrowLargeBinaryArrayBuilder *bu
   return garrow_error_check(error,
                             status,
                             "[large-binary-array-builder][append-value]");
+}
+
+/**
+ * garrow_large_binary_array_builder_append_value_bytes:
+ * @builder: A #GArrowLargeBinaryArrayBuilder.
+ * @value: A binary value.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 1.0.0
+ */
+gboolean
+garrow_large_binary_array_builder_append_value_bytes(GArrowLargeBinaryArrayBuilder *builder,
+                                                     GBytes *value,
+                                                     GError **error)
+{
+  auto arrow_builder =
+    static_cast<arrow::LargeBinaryBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+
+  gsize size;
+  gconstpointer data = g_bytes_get_data(value, &size);
+  auto status = arrow_builder->Append(static_cast<const uint8_t *>(data),
+                                      size);
+  return garrow_error_check(error,
+                            status,
+                            "[large-binary-array-builder][append-value-bytes]");
 }
 
 /**

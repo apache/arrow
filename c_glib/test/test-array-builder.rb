@@ -15,6 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
+module ArrayBuilderAppendValueBytesTests
+  def test_append
+    builder = create_builder
+    value = "\x00\xff"
+    builder.append_value_bytes(GLib::Bytes.new(value))
+    assert_equal(build_array([value]),
+                 builder.finish)
+  end
+end
+
 module ArrayBuilderAppendValuesTests
   def test_empty
     require_gi(1, 42, 0)
@@ -783,6 +793,10 @@ class TestArrayBuilder < Test::Unit::TestCase
       include ArrayBuilderValueTypeTests
     end
 
+    sub_test_case("#append_value_bytes") do
+      include ArrayBuilderAppendValueBytesTests
+    end
+
     sub_test_case("#append_values") do
       include ArrayBuilderAppendValuesTests
 
@@ -819,6 +833,10 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("value type") do
       include ArrayBuilderValueTypeTests
+    end
+
+    sub_test_case("#append_value_bytes") do
+      include ArrayBuilderAppendValueBytesTests
     end
 
     sub_test_case("#append_values") do

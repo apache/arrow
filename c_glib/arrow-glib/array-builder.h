@@ -568,6 +568,10 @@ gboolean garrow_binary_array_builder_append_value(GArrowBinaryArrayBuilder *buil
                                                   gint32 length,
                                                   GError **error);
 GARROW_AVAILABLE_IN_1_0
+gboolean garrow_binary_array_builder_append_value_bytes(GArrowBinaryArrayBuilder *builder,
+                                                        GBytes *value,
+                                                        GError **error);
+GARROW_AVAILABLE_IN_1_0
 gboolean garrow_binary_array_builder_append_values(GArrowBinaryArrayBuilder *builder,
                                                    GBytes **values,
                                                    gint64 values_length,
@@ -601,6 +605,10 @@ gboolean garrow_large_binary_array_builder_append_value(GArrowLargeBinaryArrayBu
                                                         const guint8 *value,
                                                         gint64 length,
                                                         GError **error);
+GARROW_AVAILABLE_IN_1_0
+gboolean garrow_large_binary_array_builder_append_value_bytes(GArrowLargeBinaryArrayBuilder *builder,
+                                                              GBytes *value,
+                                                              GError **error);
 GARROW_AVAILABLE_IN_1_0
 gboolean garrow_large_binary_array_builder_append_values(GArrowLargeBinaryArrayBuilder *builder,
                                                          GBytes **values,
