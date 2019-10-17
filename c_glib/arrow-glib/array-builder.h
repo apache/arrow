@@ -638,8 +638,8 @@ gboolean garrow_string_array_builder_append(GArrowStringArrayBuilder *builder,
                                             GError **error);
 #endif
 #ifndef GARROW_DISABLE_DEPRECATED
-GARROW_AVAILABLE_IN_0_12
 GARROW_DEPRECATED_IN_1_0_FOR(garrow_string_array_builder_append_string)
+GARROW_AVAILABLE_IN_0_12
 gboolean garrow_string_array_builder_append_value(GArrowStringArrayBuilder *builder,
                                                   const gchar *value,
                                                   GError **error);
