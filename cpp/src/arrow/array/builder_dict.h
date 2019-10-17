@@ -226,8 +226,8 @@ class DictionaryBuilderBase : public ArrayBuilder {
   }
 
   void Reset() override {
-    // Perform a partial reset. Also call ResetDictionary to reset the
-    // accumulated dictionary values
+    // Perform a partial reset. Call ResetFull to also reset the accumulated
+    // dictionary values
     ArrayBuilder::Reset();
     indices_builder_.Reset();
   }
@@ -251,21 +251,9 @@ class DictionaryBuilderBase : public ArrayBuilder {
   /// (except the memo table)
   Status FinishDelta(std::shared_ptr<Array>* out_indices,
                      std::shared_ptr<Array>* out_delta) {
-    std::shared_ptr<Array> dictionary;
     std::shared_ptr<ArrayData> indices_data;
     ARROW_RETURN_NOT_OK(FinishWithDictOffset(delta_offset_, &indices_data, out_delta));
-
     *out_indices = MakeArray(indices_data);
-    return Status::OK();
-  }
-
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
-    std::shared_ptr<Array> dictionary;
-    ARROW_RETURN_NOT_OK(FinishWithDictOffset(/*offset=*/0, out, &dictionary));
-
-    // Set type of array data to the right dictionary type
-    (*out)->type = type();
-    (*out)->dictionary = dictionary;
     return Status::OK();
   }
 
@@ -280,6 +268,16 @@ class DictionaryBuilderBase : public ArrayBuilder {
   }
 
  protected:
+  Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
+    std::shared_ptr<Array> dictionary;
+    ARROW_RETURN_NOT_OK(FinishWithDictOffset(/*offset=*/0, out, &dictionary));
+
+    // Set type of array data to the right dictionary type
+    (*out)->type = type();
+    (*out)->dictionary = dictionary;
+    return Status::OK();
+  }
+
   Status FinishWithDictOffset(int64_t dict_offset,
                               std::shared_ptr<ArrayData>* out_indices,
                               std::shared_ptr<Array>* out_dictionary) {

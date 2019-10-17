@@ -1270,8 +1270,8 @@ class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
       PARQUET_THROW_NOT_OK(builder_.Finish(&chunk));
       result_chunks_.emplace_back(std::move(chunk));
 
-      // Reset clears the dictionary memo table
-      builder_.Reset();
+      // Also clears the dictionary memo table
+      builder_.ResetFull();
     }
   }
 

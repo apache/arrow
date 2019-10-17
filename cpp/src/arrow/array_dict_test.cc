@@ -342,12 +342,14 @@ TYPED_TEST(TestDictionaryBuilder, ResetFull) {
   ASSERT_OK(builder.Finish(&result));
 
   // Dictionary expanded
-  ASSERT_EQ(3, static_cast<const DictionaryArray&>(*result).dictionary()->length());
+  AssertArraysEqual(*ArrayFromJSON(type, "[1, 2, 3]"),
+                    *static_cast<const DictionaryArray&>(*result).dictionary());
 
   builder.ResetFull();
   ASSERT_OK(builder.Append(static_cast<c_type>(4)));
   ASSERT_OK(builder.Finish(&result));
-  ASSERT_EQ(1, static_cast<const DictionaryArray&>(*result).dictionary()->length());
+  AssertArraysEqual(*ArrayFromJSON(type, "[4]"),
+                    *static_cast<const DictionaryArray&>(*result).dictionary());
 }
 
 TEST(TestDictionaryBuilderAdHoc, AppendIndicesUpdateCapacity) {
