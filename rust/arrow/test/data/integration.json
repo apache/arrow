@@ -108,6 +108,100 @@
         "children": []
       },
       {
+        "name": "date_days",
+        "type": {
+          "name": "date",
+          "unit": "DAY"
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "date_millis",
+        "type": {
+          "name": "date",
+          "unit": "MILLISECOND"
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "time_secs",
+        "type": {
+          "name": "time",
+          "unit": "SECOND",
+          "bitWidth": 32
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "time_millis",
+        "type": {
+          "name": "time",
+          "unit": "MILLISECOND",
+          "bitWidth": 32
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "time_micros",
+        "type": {
+          "name": "time",
+          "unit": "MICROSECOND",
+          "bitWidth": 64
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "time_nanos",
+        "type": {
+          "name": "time",
+          "unit": "NANOSECOND",
+          "bitWidth": 64
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "ts_secs",
+        "type": {
+          "name": "timestamp",
+          "unit": "SECOND"
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "ts_millis",
+        "type": {
+          "name": "timestamp",
+          "unit": "MILLISECOND"
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "ts_micros",
+        "type": {
+          "name": "timestamp",
+          "unit": "MICROSECOND"
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
+        "name": "ts_nanos",
+        "type": {
+          "name": "timestamp",
+          "unit": "NANOSECOND"
+        },
+        "nullable": true,
+        "children": []
+      },
+      {
         "name": "utf8s",
         "type": {
           "name": "utf8"
@@ -319,6 +413,146 @@
             1.0,
             2.0,
             3.0
+          ]
+        },
+        {
+          "name": "date_days",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            0,
+            0
+          ],
+          "DATA": [
+            1196848,
+            2319603,
+            2755982
+          ]
+        },
+        {
+          "name": "date_millis",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            167903550396207,
+            29923997007884,
+            30612271819236
+          ]
+        },
+        {
+          "name": "time_secs",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            27974,
+            78592,
+            43207
+          ]
+        },
+        {
+          "name": "time_millis",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            1,
+            1
+          ],
+          "DATA": [
+            6613125,
+            74667230,
+            52260079
+          ]
+        },
+        {
+          "name": "time_micros",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            0,
+            0
+          ],
+          "DATA": [
+            62522958593,
+            13470380050,
+            50797036705
+          ]
+        },
+        {
+          "name": "time_nanos",
+          "count": 3,
+          "VALIDITY": [
+            1,
+            0,
+            1
+          ],
+          "DATA": [
+            73380123595985,
+            52520995325145,
+            16584393546415
+          ]
+        },
+        {
+          "name": "ts_secs",
+          "count": 3,
+          "VALIDITY": [
+            0,
+            1,
+            0
+          ],
+          "DATA": [
+            209869064422,
+            193438817552,
+            51757838205
+          ]
+        },
+        {
+          "name": "ts_millis",
+          "count": 3,
+          "VALIDITY": [
+            0,
+            1,
+            1
+          ],
+          "DATA": [
+            228315043570185,
+            38606916383008,
+            58113709376587
+          ]
+        },
+        {
+          "name": "ts_micros",
+          "count": 3,
+          "VALIDITY": [
+            0,
+            0,
+            0
+          ],
+          "DATA": [
+            133457416537791415,
+            129522736067409280,
+            177110451066832967
+          ]
+        },
+        {
+          "name": "ts_nanos",
+          "count": 3,
+          "VALIDITY": [
+            0,
+            0,
+            1
+          ],
+          "DATA": [
+            -804525722984600007,
+            8166038652634779458,
+            -6473623571954960143
           ]
         },
         {

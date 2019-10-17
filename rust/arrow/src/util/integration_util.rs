@@ -112,12 +112,15 @@ impl ArrowJsonBatch {
                         let arr = arr.as_any().downcast_ref::<Int16Array>().unwrap();
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
                     }
-                    DataType::Int32 => {
-                        let arr = arr.as_any().downcast_ref::<Int32Array>().unwrap();
+                    DataType::Int32 | DataType::Date32(_) | DataType::Time32(_) => {
+                        let arr = Int32Array::from(arr.data());
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
                     }
-                    DataType::Int64 => {
-                        let arr = arr.as_any().downcast_ref::<Int64Array>().unwrap();
+                    DataType::Int64
+                    | DataType::Date64(_)
+                    | DataType::Time64(_)
+                    | DataType::Timestamp(_) => {
+                        let arr = Int64Array::from(arr.data());
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
                     }
                     DataType::UInt8 => {
@@ -324,6 +327,24 @@ mod tests {
             Field::new("uint64s", DataType::UInt64, true),
             Field::new("float32s", DataType::Float32, true),
             Field::new("float64s", DataType::Float64, true),
+            Field::new("date_days", DataType::Date32(DateUnit::Day), true),
+            Field::new("date_millis", DataType::Date64(DateUnit::Millisecond), true),
+            Field::new("time_secs", DataType::Time32(TimeUnit::Second), true),
+            Field::new("time_millis", DataType::Time32(TimeUnit::Millisecond), true),
+            Field::new("time_micros", DataType::Time64(TimeUnit::Microsecond), true),
+            Field::new("time_nanos", DataType::Time64(TimeUnit::Nanosecond), true),
+            Field::new("ts_secs", DataType::Timestamp(TimeUnit::Second), true),
+            Field::new(
+                "ts_millis",
+                DataType::Timestamp(TimeUnit::Millisecond),
+                true,
+            ),
+            Field::new(
+                "ts_micros",
+                DataType::Timestamp(TimeUnit::Microsecond),
+                true,
+            ),
+            Field::new("ts_nanos", DataType::Timestamp(TimeUnit::Nanosecond), true),
             Field::new("utf8s", DataType::Utf8, true),
             Field::new("lists", DataType::List(Box::new(DataType::Int32)), true),
             Field::new(
@@ -347,6 +368,35 @@ mod tests {
         let uint64s = UInt64Array::from(vec![Some(1), None, Some(3)]);
         let float32s = Float32Array::from(vec![Some(1.0), None, Some(3.0)]);
         let float64s = Float64Array::from(vec![Some(1.0), None, Some(3.0)]);
+        let date_days = Date32Array::from(vec![Some(1196848), None, None]);
+        let date_millis = Date64Array::from(vec![
+            Some(167903550396207),
+            Some(29923997007884),
+            Some(30612271819236),
+        ]);
+        let time_secs =
+            Time32SecondArray::from(vec![Some(27974), Some(78592), Some(43207)]);
+        let time_millis = Time32MillisecondArray::from(vec![
+            Some(6613125),
+            Some(74667230),
+            Some(52260079),
+        ]);
+        let time_micros =
+            Time64MicrosecondArray::from(vec![Some(62522958593), None, None]);
+        let time_nanos = Time64NanosecondArray::from(vec![
+            Some(73380123595985),
+            None,
+            Some(16584393546415),
+        ]);
+        let ts_secs = TimestampSecondArray::from(vec![None, Some(193438817552), None]);
+        let ts_millis = TimestampMillisecondArray::from(vec![
+            None,
+            Some(38606916383008),
+            Some(58113709376587),
+        ]);
+        let ts_micros = TimestampMicrosecondArray::from(vec![None, None, None]);
+        let ts_nanos =
+            TimestampNanosecondArray::from(vec![None, None, Some(-6473623571954960143)]);
         let utf8s = BinaryArray::try_from(vec![Some("aa"), None, Some("bbb")]).unwrap();
 
         let value_data = Int32Array::from(vec![None, Some(2), None, None]);
@@ -387,6 +437,16 @@ mod tests {
                 Arc::new(uint64s),
                 Arc::new(float32s),
                 Arc::new(float64s),
+                Arc::new(date_days),
+                Arc::new(date_millis),
+                Arc::new(time_secs),
+                Arc::new(time_millis),
+                Arc::new(time_micros),
+                Arc::new(time_nanos),
+                Arc::new(ts_secs),
+                Arc::new(ts_millis),
+                Arc::new(ts_micros),
+                Arc::new(ts_nanos),
                 Arc::new(utf8s),
                 Arc::new(lists),
                 Arc::new(structs),

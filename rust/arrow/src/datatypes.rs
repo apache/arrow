@@ -578,8 +578,8 @@ impl DataType {
                         )),
                     };
                     match map.get("bitWidth") {
-                        Some(p) if p == "32" => Ok(DataType::Time32(unit?)),
-                        Some(p) if p == "64" => Ok(DataType::Time64(unit?)),
+                        Some(p) if p == 32 => Ok(DataType::Time32(unit?)),
+                        Some(p) if p == 64 => Ok(DataType::Time64(unit?)),
                         _ => Err(ArrowError::ParseError(
                             "time bitWidth missing or invalid".to_string(),
                         )),
@@ -668,7 +668,7 @@ impl DataType {
             DataType::Struct(_) => json!({"name": "struct"}),
             DataType::List(_) => json!({ "name": "list"}),
             DataType::Time32(unit) => {
-                json!({"name": "time", "bitWidth": "32", "unit": match unit {
+                json!({"name": "time", "bitWidth": 32, "unit": match unit {
                     TimeUnit::Second => "SECOND",
                     TimeUnit::Millisecond => "MILLISECOND",
                     TimeUnit::Microsecond => "MICROSECOND",
@@ -676,7 +676,7 @@ impl DataType {
                 }})
             }
             DataType::Time64(unit) => {
-                json!({"name": "time", "bitWidth": "64", "unit": match unit {
+                json!({"name": "time", "bitWidth": 64, "unit": match unit {
                     TimeUnit::Second => "SECOND",
                     TimeUnit::Millisecond => "MILLISECOND",
                     TimeUnit::Microsecond => "MICROSECOND",
@@ -743,7 +743,6 @@ impl Field {
                 let nullable = match map.get("nullable") {
                     Some(&Value::Bool(b)) => b,
                     _ => {
-                        println!("error field: {:?}", map);
                         return Err(ArrowError::ParseError(
                             "Field missing 'nullable' attribute".to_string(),
                         ));
@@ -1127,14 +1126,14 @@ mod tests {
         {\"name\":\"c2\",\"nullable\":false,\"type\":{\"name\":\"bool\"},\"children\":[]},\
         {\"name\":\"c3\",\"nullable\":false,\"type\":{\"name\":\"date\",\"unit\":\"DAY\"},\"children\":[]},\
         {\"name\":\"c4\",\"nullable\":false,\"type\":{\"name\":\"date\",\"unit\":\"MILLISECOND\"},\"children\":[]},\
-        {\"name\":\"c7\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":\"32\",\"unit\":\"SECOND\"},\"children\":[]},\
-        {\"name\":\"c8\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":\"32\",\"unit\":\"MILLISECOND\"},\"children\":[]},\
-        {\"name\":\"c9\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":\"32\",\"unit\":\"MICROSECOND\"},\"children\":[]},\
-        {\"name\":\"c10\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":\"32\",\"unit\":\"NANOSECOND\"},\"children\":[]},\
-        {\"name\":\"c11\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":\"64\",\"unit\":\"SECOND\"},\"children\":[]},\
-        {\"name\":\"c12\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":\"64\",\"unit\":\"MILLISECOND\"},\"children\":[]},\
-        {\"name\":\"c13\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":\"64\",\"unit\":\"MICROSECOND\"},\"children\":[]},\
-        {\"name\":\"c14\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":\"64\",\"unit\":\"NANOSECOND\"},\"children\":[]},\
+        {\"name\":\"c7\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":32,\"unit\":\"SECOND\"},\"children\":[]},\
+        {\"name\":\"c8\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":32,\"unit\":\"MILLISECOND\"},\"children\":[]},\
+        {\"name\":\"c9\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":32,\"unit\":\"MICROSECOND\"},\"children\":[]},\
+        {\"name\":\"c10\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":32,\"unit\":\"NANOSECOND\"},\"children\":[]},\
+        {\"name\":\"c11\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":64,\"unit\":\"SECOND\"},\"children\":[]},\
+        {\"name\":\"c12\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":64,\"unit\":\"MILLISECOND\"},\"children\":[]},\
+        {\"name\":\"c13\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":64,\"unit\":\"MICROSECOND\"},\"children\":[]},\
+        {\"name\":\"c14\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":64,\"unit\":\"NANOSECOND\"},\"children\":[]},\
         {\"name\":\"c15\",\"nullable\":false,\"type\":{\"name\":\"timestamp\",\"unit\":\"SECOND\"},\"children\":[]},\
         {\"name\":\"c16\",\"nullable\":false,\"type\":{\"name\":\"timestamp\",\"unit\":\"MILLISECOND\"},\"children\":[]},\
         {\"name\":\"c17\",\"nullable\":false,\"type\":{\"name\":\"timestamp\",\"unit\":\"MICROSECOND\"},\"children\":[]},\
