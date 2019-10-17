@@ -62,14 +62,14 @@ ENV LD_LIBRARY_PATH=/opt/conda/lib/:/build/cpp/src/arrow:/arrow/r/src
 
 # Ensure parallel R package installation, set CRAN repo mirror,
 # and use pre-built binaries where possible
-# RUN printf "options(Ncpus = parallel::detectCores(), repos = 'https://demo.rstudiopm.com/all/__linux__/bionic/latest')\n" >> /etc/R/Rprofile.site
 RUN printf "\
     options(Ncpus = parallel::detectCores(), \
             repos = 'https://demo.rstudiopm.com/all/__linux__/bionic/latest', \
             HTTPUserAgent = sprintf(\
-                'R/%s R (%s)', getRversion(), \
-                paste(getRversion(), R.version$platform, R.version$arch, R.version$os)))\n" \
+                'R/%%s R (%%s)', getRversion(), \
+                paste(getRversion(), R.version\$platform, R.version\$arch, R.version\$os)))\n" \
     >> /etc/R/Rprofile.site
+
 # Also ensure parallel compilation of each individual package
 RUN printf "MAKEFLAGS=-j8\n" >> /usr/lib/R/etc/Makeconf
 ENV MAKEFLAGS=-j8
