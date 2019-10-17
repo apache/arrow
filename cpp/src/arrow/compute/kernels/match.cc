@@ -135,7 +135,7 @@ class MatchKernel : public MatchKernelImpl {
     const ArrayData& left_data = *left.array();
 
     indices_builder_.Reset();
-    indices_builder_.Reserve(left_data.length);
+    RETURN_NOT_OK(indices_builder_.Reserve(left_data.length));
 
     RETURN_NOT_OK(ArrayDataVisitor<Type>::Visit(left_data, this));
 
@@ -187,7 +187,7 @@ class NullMatchKernel : public MatchKernelImpl {
     const ArrayData& left_data = *left.array();
     left_null_count = left_data.GetNullCount();
     indices_builder_.Reset();
-    indices_builder_.Reserve(left_data.length);
+    RETURN_NOT_OK(indices_builder_.Reserve(left_data.length));
 
     if (left_null_count != 0 && right_null_count == 0) {
       for (int64_t i = 0; i < left_data.length; ++i) {
