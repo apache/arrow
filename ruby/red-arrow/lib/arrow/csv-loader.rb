@@ -93,10 +93,17 @@ module Arrow
       @options.each do |key, value|
         case key
         when :headers
-          if value
-            options.n_header_rows = 1
+          case value
+          when ::Array
+            options.column_names = value
+          when String
+            return nil
           else
-            options.n_header_rows = 0
+            if value
+              options.generate_column_names = false
+            else
+              options.generate_column_names = true
+            end
           end
         when :column_types
           value.each do |name, type|
