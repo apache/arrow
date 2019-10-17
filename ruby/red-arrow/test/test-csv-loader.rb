@@ -121,6 +121,81 @@ class CSVLoaderTest < Test::Unit::TestCase
       Arrow::CSVLoader.load(data, options)
     end
 
+    sub_test_case(":headers") do
+      test("true") do
+        values = Arrow::StringArray.new(["a", "b", "c"])
+        assert_equal(Arrow::Table.new(value: values),
+                     load_csv(<<-CSV, headers: true))
+value
+a
+b
+c
+                     CSV
+      end
+
+      test(":first_line") do
+        values = Arrow::StringArray.new(["a", "b", "c"])
+        assert_equal(Arrow::Table.new(value: values),
+                     load_csv(<<-CSV, headers: :first_line))
+value
+a
+b
+c
+                     CSV
+      end
+
+      test("truthy") do
+        values = Arrow::StringArray.new(["a", "b", "c"])
+        assert_equal(Arrow::Table.new(value: values),
+                     load_csv(<<-CSV, headers: 0))
+value
+a
+b
+c
+                     CSV
+      end
+
+      test("Array of column names") do
+        values = Arrow::StringArray.new(["a", "b", "c"])
+        assert_equal(Arrow::Table.new(column: values),
+                     load_csv(<<-CSV, headers: ["column"]))
+a
+b
+c
+                     CSV
+      end
+
+      test("false") do
+        values = Arrow::StringArray.new(["a", "b", "c"])
+        assert_equal(Arrow::Table.new(f0: values),
+                     load_csv(<<-CSV, headers: false))
+a
+b
+c
+                     CSV
+      end
+
+      test("nil") do
+        values = Arrow::StringArray.new(["a", "b", "c"])
+        assert_equal(Arrow::Table.new(f0: values),
+                     load_csv(<<-CSV, headers: nil))
+a
+b
+c
+                     CSV
+      end
+
+      test("string") do
+        values = Arrow::StringArray.new(["a", "b", "c"])
+        assert_equal(Arrow::Table.new(column: values),
+                     load_csv(<<-CSV, headers: "column"))
+a
+b
+c
+                     CSV
+      end
+    end
+
     test(":column_types") do
       assert_equal(Arrow::Table.new(:count => Arrow::UInt16Array.new([1, 2, 4])),
                    load_csv(<<-CSV, column_types: {count: :uint16}))
