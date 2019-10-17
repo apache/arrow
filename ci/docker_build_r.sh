@@ -28,9 +28,8 @@ pushd /arrow/r
 if [ "$R_CONDA" = "" ]; then
   # Install R package dependencies
   # NOTE: any changes here should also be done in docker_build_r_sanitizer.sh
-  ${R_BIN} -e "install.packages(c('remotes', 'dplyr', 'glue'))"
+  # XXX ideally this sould be done from the Dockerfile, but I can't get it to work (AP)
   ${R_BIN} -e "remotes::install_deps(dependencies = TRUE)"
-  ${R_BIN} -e "remotes::install_github('romainfrancois/decor')"
 fi
 
 make clean
