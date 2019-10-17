@@ -138,7 +138,7 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Take(
   for (R_xlen_t chk = 0; chk < num_chunks; chk++) {
     current_chunk = values->chunk(chk);
     len = current_chunk->length();
-    if (min_i >= offset & max_i < offset + len) {
+    if (min_i >= offset && max_i < offset + len) {
       for (R_xlen_t i = 0; i < indices.size(); i++) {
         // Subtract offset from all indices
         indices[i] -= offset;
