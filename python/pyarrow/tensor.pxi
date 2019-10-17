@@ -175,7 +175,8 @@ shape: {0.shape}""".format(self)
                              "SparseCOOTensor indices")
 
         check_status(NdarraysToSparseCOOTensor(c_default_memory_pool(),
-                     data, coords, c_shape, c_dim_names, &csparse_tensor))
+                                               data, coords, c_shape,
+                                               c_dim_names, &csparse_tensor))
         return pyarrow_wrap_sparse_coo_tensor(csparse_tensor)
 
     @staticmethod
@@ -204,11 +205,11 @@ shape: {0.shape}""".format(self)
 
     def to_tensor(self):
         """
-        Convert arrow::SparseTensorCOO to arrow::Tensor
+        Convert arrow::SparseCOOTensor to arrow::Tensor
         """
 
         cdef shared_ptr[CTensor] ctensor
-        ctensor = self.stp.ToTensor()
+        check_status(self.stp.ToTensor(&ctensor))
 
         return pyarrow_wrap_tensor(ctensor)
 
@@ -306,8 +307,8 @@ shape: {0.shape}""".format(self)
                              "SparseCSRMatrix indices")
 
         check_status(NdarraysToSparseCSRMatrix(c_default_memory_pool(),
-                     data, indptr, indices, c_shape, c_dim_names,
-                     &csparse_tensor))
+                                               data, indptr, indices, c_shape,
+                                               c_dim_names, &csparse_tensor))
         return pyarrow_wrap_sparse_csr_matrix(csparse_tensor)
 
     @staticmethod
@@ -332,17 +333,18 @@ shape: {0.shape}""".format(self)
         cdef PyObject* out_indices
 
         check_status(SparseCSRMatrixToNdarray(self.sp_sparse_tensor, self,
-                     &out_data, &out_indptr, &out_indices))
+                                              &out_data, &out_indptr,
+                                              &out_indices))
         return (PyObject_to_object(out_data), PyObject_to_object(out_indptr),
                 PyObject_to_object(out_indices))
 
     def to_tensor(self):
         """
-        Convert arrow::SparseTensorCSR to arrow::Tensor
+        Convert arrow::SparseCSRMatrix to arrow::Tensor
         """
 
         cdef shared_ptr[CTensor] ctensor
-        ctensor = self.stp.ToTensor()
+        check_status(self.stp.ToTensor(&ctensor))
 
         return pyarrow_wrap_tensor(ctensor)
 

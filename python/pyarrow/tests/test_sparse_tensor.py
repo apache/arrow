@@ -222,8 +222,8 @@ def test_sparse_tensor_csr_numpy_roundtrip(dtype_str, arrow_type):
 
 
 @pytest.mark.parametrize('sparse_tensor_type', [
-    pa.SparseTensorCSR,
-    pa.SparseTensorCOO,
+    pa.SparseCSRMatrix,
+    pa.SparseCOOTensor,
 ])
 @pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
 def test_dense_to_sparse_tensor(dtype_str, arrow_type, sparse_tensor_type):
