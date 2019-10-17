@@ -23,15 +23,15 @@ import java.sql.SQLException;
 import org.apache.arrow.vector.IntVector;
 
 /**
- * Wrapper for consumers which consume int type values from {@link ResultSet}.
- * Write the data to {@link IntVector}.
+ * Consumer which consume int type values from {@link ResultSet}.
+ * Write the data to {@link org.apache.arrow.vector.IntVector}.
  */
-public class IntConsumer {
+public abstract class IntConsumer implements JdbcConsumer<IntVector> {
 
   /**
    * Creates a consumer for {@link IntVector}.
    */
-  public static JdbcConsumer<IntVector> createConsumer(IntVector vector, int index, boolean nullable) {
+  public static IntConsumer createConsumer(IntVector vector, int index, boolean nullable) {
     if (nullable) {
       return new NullableIntConsumer(vector, index);
     } else {
@@ -39,10 +39,43 @@ public class IntConsumer {
     }
   }
 
+  private IntVector vector;
+  private final int columnIndexInResultSet;
+
+  private int currentIndex;
+
+  /**
+   * Instantiate a IntConsumer.
+   */
+  public IntConsumer(IntVector vector, int index) {
+    this.vector = vector;
+    this.columnIndexInResultSet = index;
+  }
+
+  @Override
+  public void consume(ResultSet resultSet) throws SQLException {
+    int value = resultSet.getInt(columnIndexInResultSet);
+    if (!wasNull(resultSet)) {
+      vector.setSafe(currentIndex, value);
+    }
+    currentIndex++;
+  }
+
+  @Override
+  public void close() throws Exception {
+    this.vector.close();
+  }
+
+  @Override
+  public void resetValueVector(IntVector vector) {
+    this.vector = vector;
+    this.currentIndex = 0;
+  }
+
   /**
    * Nullable consumer for int.
    */
-  static class NullableIntConsumer extends BaseJdbcConsumer<IntVector> {
+  static class NullableIntConsumer extends IntConsumer {
 
     /**
      * Instantiate a IntConsumer.
@@ -52,19 +85,15 @@ public class IntConsumer {
     }
 
     @Override
-    public void consume(ResultSet resultSet) throws SQLException {
-      int value = resultSet.getInt(columnIndexInResultSet);
-      if (!resultSet.wasNull()) {
-        vector.setSafe(currentIndex, value);
-      }
-      currentIndex++;
+    public boolean wasNull(ResultSet resultSet) throws SQLException {
+      return resultSet.wasNull();
     }
   }
 
   /**
    * Non-nullable consumer for int.
    */
-  static class NonNullableIntConsumer extends BaseJdbcConsumer<IntVector> {
+  static class NonNullableIntConsumer extends IntConsumer {
 
     /**
      * Instantiate a IntConsumer.
@@ -74,10 +103,8 @@ public class IntConsumer {
     }
 
     @Override
-    public void consume(ResultSet resultSet) throws SQLException {
-      int value = resultSet.getInt(columnIndexInResultSet);
-      vector.setSafe(currentIndex, value);
-      currentIndex++;
+    public boolean wasNull(ResultSet resultSet) throws SQLException {
+      return false;
     }
   }
 }

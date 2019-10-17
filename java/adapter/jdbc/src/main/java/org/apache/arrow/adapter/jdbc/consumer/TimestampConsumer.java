@@ -25,15 +25,15 @@ import java.util.Calendar;
 import org.apache.arrow.vector.TimeStampMilliTZVector;
 
 /**
- * Wrapper for consumers which consume timestamp type values from {@link ResultSet}.
+ * Consumer which consume timestamp type values from {@link ResultSet}.
  * Write the data to {@link TimeStampMilliTZVector}.
  */
-public class TimestampConsumer {
+public abstract class TimestampConsumer implements JdbcConsumer<TimeStampMilliTZVector> {
 
   /**
    * Creates a consumer for {@link TimeStampMilliTZVector}.
    */
-  public static JdbcConsumer<TimeStampMilliTZVector> createConsumer(
+  public static TimestampConsumer createConsumer(
           TimeStampMilliTZVector vector, int index, boolean nullable, Calendar calendar) {
     if (nullable) {
       return new NullableTimestampConsumer(vector, index, calendar);
@@ -42,68 +42,96 @@ public class TimestampConsumer {
     }
   }
 
+  private TimeStampMilliTZVector vector;
+  private final int columnIndexInResultSet;
+  private final Calendar calendar;
+
+  private int currentIndex;
+
+  /**
+   * Instantiate a TimestampConsumer.
+   */
+  public TimestampConsumer(TimeStampMilliTZVector vector, int index) {
+    this(vector, index, null);
+  }
+
+  /**
+   * Instantiate a TimestampConsumer.
+   */
+  public TimestampConsumer(TimeStampMilliTZVector vector, int index, Calendar calendar) {
+    this.vector = vector;
+    this.columnIndexInResultSet = index;
+    this.calendar = calendar;
+  }
+
+  @Override
+  public void consume(ResultSet resultSet) throws SQLException {
+    Timestamp timestamp = calendar == null ? resultSet.getTimestamp(columnIndexInResultSet) :
+        resultSet.getTimestamp(columnIndexInResultSet, calendar);
+    if (!wasNull(resultSet)) {
+      vector.setSafe(currentIndex, timestamp.getTime());
+    }
+    currentIndex++;
+  }
+
+  @Override
+  public void close() throws Exception {
+    this.vector.close();
+  }
+
+  @Override
+  public void resetValueVector(TimeStampMilliTZVector vector) {
+    this.vector = vector;
+    this.currentIndex = 0;
+  }
+
   /**
    * Nullable consumer for timestamp.
    */
-  static class NullableTimestampConsumer extends BaseJdbcConsumer<TimeStampMilliTZVector> {
-
-    private final Calendar calendar;
+  static class NullableTimestampConsumer extends TimestampConsumer {
 
     /**
      * Instantiate a TimestampConsumer.
      */
     public NullableTimestampConsumer(TimeStampMilliTZVector vector, int index) {
-      this(vector, index, null);
+      super(vector, index);
     }
 
     /**
      * Instantiate a TimestampConsumer.
      */
     public NullableTimestampConsumer(TimeStampMilliTZVector vector, int index, Calendar calendar) {
-      super(vector, index);
-      this.calendar = calendar;
+      super(vector, index, calendar);
     }
 
     @Override
-    public void consume(ResultSet resultSet) throws SQLException {
-      Timestamp timestamp = calendar == null ? resultSet.getTimestamp(columnIndexInResultSet) :
-              resultSet.getTimestamp(columnIndexInResultSet, calendar);
-      if (!resultSet.wasNull()) {
-        vector.setSafe(currentIndex, timestamp.getTime());
-      }
-      currentIndex++;
+    public boolean wasNull(ResultSet resultSet) throws SQLException {
+      return resultSet.wasNull();
     }
   }
 
   /**
    * Non-nullable consumer for timestamp.
    */
-  static class NonNullableTimestampConsumer extends BaseJdbcConsumer<TimeStampMilliTZVector> {
-
-    private final Calendar calendar;
+  static class NonNullableTimestampConsumer extends TimestampConsumer {
 
     /**
      * Instantiate a TimestampConsumer.
      */
     public NonNullableTimestampConsumer(TimeStampMilliTZVector vector, int index) {
-      this(vector, index, null);
+      super(vector, index);
     }
 
     /**
      * Instantiate a TimestampConsumer.
      */
     public NonNullableTimestampConsumer(TimeStampMilliTZVector vector, int index, Calendar calendar) {
-      super(vector, index);
-      this.calendar = calendar;
+      super(vector, index, calendar);
     }
 
     @Override
-    public void consume(ResultSet resultSet) throws SQLException {
-      Timestamp timestamp = calendar == null ? resultSet.getTimestamp(columnIndexInResultSet) :
-              resultSet.getTimestamp(columnIndexInResultSet, calendar);
-      vector.setSafe(currentIndex, timestamp.getTime());
-      currentIndex++;
+    public boolean wasNull(ResultSet resultSet) throws SQLException {
+      return false;
     }
   }
 }
-

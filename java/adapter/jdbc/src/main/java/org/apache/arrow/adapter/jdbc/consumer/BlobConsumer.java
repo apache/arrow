@@ -28,27 +28,29 @@ import org.apache.arrow.vector.VarBinaryVector;
  * Consumer which consume blob type values from {@link ResultSet}.
  * Write the data to {@link VarBinaryVector}.
  */
-public class BlobConsumer extends BaseJdbcConsumer<VarBinaryVector> {
+public class BlobConsumer implements JdbcConsumer<VarBinaryVector> {
+
+  private final int columnIndexInResultSet;
+
+  private BinaryConsumer delegate;
 
   private final boolean nullable;
 
   /**
    * Creates a consumer for {@link VarBinaryVector}.
    */
-  public static JdbcConsumer<VarBinaryVector> createConsumer(
-          JdbcConsumer<VarBinaryVector> delegate, int index, boolean nullable) {
+  public static BlobConsumer createConsumer(
+          BinaryConsumer delegate, int index, boolean nullable) {
     return new BlobConsumer(delegate, index, nullable);
   }
-
-  private BinaryConsumer.NullableBinaryConsumer delegate;
 
   /**
    * Instantiate a BlobConsumer.
    */
-  public BlobConsumer(JdbcConsumer<VarBinaryVector> delegate, int index, boolean nullable) {
-    super(null, index);
+  public BlobConsumer(BinaryConsumer delegate, int index, boolean nullable) {
+    this.columnIndexInResultSet = index;
+    this.delegate = delegate;
     this.nullable = nullable;
-    this.delegate = (BinaryConsumer.NullableBinaryConsumer) delegate;
   }
 
   @Override
@@ -61,8 +63,17 @@ public class BlobConsumer extends BaseJdbcConsumer<VarBinaryVector> {
   }
 
   @Override
+  public void close() throws Exception {
+    delegate.close();
+  }
+
+  @Override
   public void resetValueVector(VarBinaryVector vector) {
-    delegate = (BinaryConsumer.NullableBinaryConsumer) BinaryConsumer.createConsumer(
-            vector, columnIndexInResultSet, nullable);
+    delegate = BinaryConsumer.createConsumer(vector, columnIndexInResultSet, nullable);
+  }
+
+  @Override
+  public boolean wasNull(ResultSet resultSet) throws SQLException {
+    return resultSet.wasNull();
   }
 }

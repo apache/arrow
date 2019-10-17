@@ -417,7 +417,7 @@ public class JdbcToArrowUtils {
       case Types.CLOB:
         return ClobConsumer.createConsumer((VarCharVector) vector, columnIndex, nullable);
       case Types.BLOB:
-        JdbcConsumer<VarBinaryVector> blobDelegate =
+        BinaryConsumer blobDelegate =
                 BinaryConsumer.createConsumer((VarBinaryVector) vector, columnIndex, nullable);
         return BlobConsumer.createConsumer(blobDelegate, columnIndex, nullable);
       default:

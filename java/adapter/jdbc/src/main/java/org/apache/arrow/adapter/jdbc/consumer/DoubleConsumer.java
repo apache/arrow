@@ -23,15 +23,15 @@ import java.sql.SQLException;
 import org.apache.arrow.vector.Float8Vector;
 
 /**
- * Wrapper for consumers which consume double type values from {@link ResultSet}.
+ * Consumer which consume double type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.Float8Vector}.
  */
-public class DoubleConsumer {
+public abstract class DoubleConsumer implements JdbcConsumer<Float8Vector> {
 
   /**
    * Creates a consumer for {@link Float8Vector}.
    */
-  public static JdbcConsumer<Float8Vector> createConsumer(Float8Vector vector, int index, boolean nullable) {
+  public static DoubleConsumer createConsumer(Float8Vector vector, int index, boolean nullable) {
     if (nullable) {
       return new NullableDoubleConsumer(vector, index);
     } else {
@@ -39,10 +39,43 @@ public class DoubleConsumer {
     }
   }
 
+  private Float8Vector vector;
+  private final int columnIndexInResultSet;
+
+  private int currentIndex;
+
+  /**
+   * Instantiate a DoubleConsumer.
+   */
+  public DoubleConsumer(Float8Vector vector, int index) {
+    this.vector = vector;
+    this.columnIndexInResultSet = index;
+  }
+
+  @Override
+  public void consume(ResultSet resultSet) throws SQLException {
+    double value = resultSet.getDouble(columnIndexInResultSet);
+    if (!wasNull(resultSet)) {
+      vector.setSafe(currentIndex, value);
+    }
+    currentIndex++;
+  }
+
+  @Override
+  public void close() throws Exception {
+    this.vector.close();
+  }
+
+  @Override
+  public void resetValueVector(Float8Vector vector) {
+    this.vector = vector;
+    this.currentIndex = 0;
+  }
+
   /**
    * Nullable double consumer.
    */
-  static class NullableDoubleConsumer extends BaseJdbcConsumer<Float8Vector> {
+  static class NullableDoubleConsumer extends DoubleConsumer {
 
     /**
      * Instantiate a DoubleConsumer.
@@ -52,19 +85,15 @@ public class DoubleConsumer {
     }
 
     @Override
-    public void consume(ResultSet resultSet) throws SQLException {
-      double value = resultSet.getDouble(columnIndexInResultSet);
-      if (!resultSet.wasNull()) {
-        vector.setSafe(currentIndex, value);
-      }
-      currentIndex++;
+    public boolean wasNull(ResultSet resultSet) throws SQLException {
+      return resultSet.wasNull();
     }
   }
 
   /**
    * Non-nullable double consumer.
    */
-  static class NonNullableDoubleConsumer extends BaseJdbcConsumer<Float8Vector> {
+  static class NonNullableDoubleConsumer extends DoubleConsumer {
 
     /**
      * Instantiate a DoubleConsumer.
@@ -74,12 +103,9 @@ public class DoubleConsumer {
     }
 
     @Override
-    public void consume(ResultSet resultSet) throws SQLException {
-      double value = resultSet.getDouble(columnIndexInResultSet);
-      vector.setSafe(currentIndex, value);
-      currentIndex++;
+    public boolean wasNull(ResultSet resultSet) throws SQLException {
+      return false;
     }
+
   }
 }
-
-

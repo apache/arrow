@@ -24,15 +24,15 @@ import java.sql.SQLException;
 import org.apache.arrow.vector.DecimalVector;
 
 /**
- * Wrapper for consumers which consume decimal type values from {@link ResultSet}.
+ * Consumer which consume decimal type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.DecimalVector}.
  */
-public class DecimalConsumer {
+public abstract class DecimalConsumer implements JdbcConsumer<DecimalVector> {
 
   /**
    * Creates a consumer for {@link DecimalVector}.
    */
-  public static JdbcConsumer<DecimalVector> createConsumer(DecimalVector vector, int index, boolean nullable) {
+  public static DecimalConsumer createConsumer(DecimalVector vector, int index, boolean nullable) {
     if (nullable) {
       return new NullableDecimalConsumer(vector, index);
     } else {
@@ -40,10 +40,43 @@ public class DecimalConsumer {
     }
   }
 
+  private DecimalVector vector;
+  private final int columnIndexInResultSet;
+
+  private int currentIndex;
+
+  /**
+   * Instantiate a DecimalConsumer.
+   */
+  public DecimalConsumer(DecimalVector vector, int index) {
+    this.vector = vector;
+    this.columnIndexInResultSet = index;
+  }
+
+  @Override
+  public void consume(ResultSet resultSet) throws SQLException {
+    BigDecimal value = resultSet.getBigDecimal(columnIndexInResultSet);
+    if (!wasNull(resultSet)) {
+      vector.setSafe(currentIndex, value);
+    }
+    currentIndex++;
+  }
+
+  @Override
+  public void close() throws Exception {
+    this.vector.close();
+  }
+
+  @Override
+  public void resetValueVector(DecimalVector vector) {
+    this.vector = vector;
+    this.currentIndex = 0;
+  }
+
   /**
    * Consumer for nullable decimal.
    */
-  static class NullableDecimalConsumer extends BaseJdbcConsumer<DecimalVector> {
+  static class NullableDecimalConsumer extends DecimalConsumer {
 
     /**
      * Instantiate a DecimalConsumer.
@@ -53,19 +86,15 @@ public class DecimalConsumer {
     }
 
     @Override
-    public void consume(ResultSet resultSet) throws SQLException {
-      BigDecimal value = resultSet.getBigDecimal(columnIndexInResultSet);
-      if (!resultSet.wasNull()) {
-        vector.setSafe(currentIndex, value);
-      }
-      currentIndex++;
+    public boolean wasNull(ResultSet resultSet) throws SQLException {
+      return resultSet.wasNull();
     }
   }
 
   /**
    * Consumer for non-nullable decimal.
    */
-  static class NonNullableDecimalConsumer extends BaseJdbcConsumer<DecimalVector> {
+  static class NonNullableDecimalConsumer extends DecimalConsumer {
 
     /**
      * Instantiate a DecimalConsumer.
@@ -75,12 +104,8 @@ public class DecimalConsumer {
     }
 
     @Override
-    public void consume(ResultSet resultSet) throws SQLException {
-      BigDecimal value = resultSet.getBigDecimal(columnIndexInResultSet);
-      vector.setSafe(currentIndex, value);
-      currentIndex++;
+    public boolean wasNull(ResultSet resultSet) throws SQLException {
+      return false;
     }
   }
 }
-
-

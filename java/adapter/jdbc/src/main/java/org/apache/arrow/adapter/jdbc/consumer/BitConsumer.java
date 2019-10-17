@@ -23,15 +23,15 @@ import java.sql.SQLException;
 import org.apache.arrow.vector.BitVector;
 
 /**
- * Wrapper for consumers which consume bit type values from {@link ResultSet}.
+ * Consumer which consume bit type values from {@link ResultSet}.
  * Write the data to {@link BitVector}.
  */
-public class BitConsumer {
+public abstract class BitConsumer implements JdbcConsumer<BitVector> {
 
   /**
    * Creates a consumer for {@link BitVector}.
    */
-  public static JdbcConsumer<BitVector> createConsumer(BitVector vector, int index, boolean nullable) {
+  public static BitConsumer createConsumer(BitVector vector, int index, boolean nullable) {
     if (nullable) {
       return new NullableBitConsumer(vector, index);
     } else {
@@ -39,10 +39,43 @@ public class BitConsumer {
     }
   }
 
+  private BitVector vector;
+  private final int columnIndexInResultSet;
+
+  private int currentIndex;
+
+  /**
+   * Instantiate a BitConsumer.
+   */
+  public BitConsumer(BitVector vector, int index) {
+    this.vector = vector;
+    this.columnIndexInResultSet = index;
+  }
+
+  @Override
+  public void consume(ResultSet resultSet) throws SQLException {
+    boolean value = resultSet.getBoolean(columnIndexInResultSet);
+    if (!wasNull(resultSet)) {
+      vector.setSafe(currentIndex, value ? 1 : 0);
+    }
+    currentIndex++;
+  }
+
+  @Override
+  public void close() throws Exception {
+    this.vector.close();
+  }
+
+  @Override
+  public void resetValueVector(BitVector vector) {
+    this.vector = vector;
+    this.currentIndex = 0;
+  }
+
   /**
    * Nullable consumer for {@link BitVector}.
    */
-  static class NullableBitConsumer extends BaseJdbcConsumer<BitVector> {
+  static class NullableBitConsumer extends BitConsumer {
 
     /**
      * Instantiate a BitConsumer.
@@ -52,19 +85,15 @@ public class BitConsumer {
     }
 
     @Override
-    public void consume(ResultSet resultSet) throws SQLException {
-      boolean value = resultSet.getBoolean(columnIndexInResultSet);
-      if (!resultSet.wasNull()) {
-        vector.setSafe(currentIndex, value ? 1 : 0);
-      }
-      currentIndex++;
+    public boolean wasNull(ResultSet resultSet) throws SQLException {
+      return resultSet.wasNull();
     }
   }
 
   /**
    * Non-nullable consumer for {@link BitVector}.
    */
-  static class NonNullableBitConsumer extends BaseJdbcConsumer<BitVector> {
+  static class NonNullableBitConsumer extends BitConsumer {
 
     /**
      * Instantiate a BitConsumer.
@@ -74,11 +103,8 @@ public class BitConsumer {
     }
 
     @Override
-    public void consume(ResultSet resultSet) throws SQLException {
-      boolean value = resultSet.getBoolean(columnIndexInResultSet);
-      vector.setSafe(currentIndex, value ? 1 : 0);
-      currentIndex++;
+    public boolean wasNull(ResultSet resultSet) throws SQLException {
+      return false;
     }
   }
 }
-

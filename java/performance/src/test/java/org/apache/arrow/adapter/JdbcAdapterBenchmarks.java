@@ -29,7 +29,6 @@ import org.apache.arrow.adapter.jdbc.JdbcToArrow;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
 import org.apache.arrow.adapter.jdbc.JdbcToArrowConfigBuilder;
 import org.apache.arrow.adapter.jdbc.consumer.IntConsumer;
-import org.apache.arrow.adapter.jdbc.consumer.JdbcConsumer;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
@@ -143,7 +142,7 @@ public class JdbcAdapterBenchmarks {
 
     private IntVector intVector;
 
-    private JdbcConsumer<IntVector> intConsumer;
+    private IntConsumer intConsumer;
 
     private JdbcToArrowConfig config;
 
@@ -176,7 +175,7 @@ public class JdbcAdapterBenchmarks {
 
       intVector = new IntVector("", allocator);
       intVector.allocateNew(VALUE_COUNT);
-      intConsumer = IntConsumer.createConsumer(intVector, 1, true);
+      intConsumer = IntConsumer.createConsumer(intVector, 1, false);
     }
 
     @TearDown(Level.Trial)

@@ -23,15 +23,15 @@ import java.sql.SQLException;
 import org.apache.arrow.vector.SmallIntVector;
 
 /**
- * Wrapper for consumers which consume smallInt type values from {@link ResultSet}.
- * Write the data to {@link SmallIntVector}.
+ * Consumer which consume smallInt type values from {@link ResultSet}.
+ * Write the data to {@link org.apache.arrow.vector.SmallIntVector}.
  */
-public class SmallIntConsumer {
+public abstract class SmallIntConsumer implements JdbcConsumer<SmallIntVector> {
 
   /**
    * Creates a consumer for {@link SmallIntVector}.
    */
-  public static JdbcConsumer<SmallIntVector> createConsumer(SmallIntVector vector, int index, boolean nullable) {
+  public static SmallIntConsumer createConsumer(SmallIntVector vector, int index, boolean nullable) {
     if (nullable) {
       return new NullableSmallIntConsumer(vector, index);
     } else {
@@ -39,10 +39,43 @@ public class SmallIntConsumer {
     }
   }
 
+  private SmallIntVector vector;
+  private final int columnIndexInResultSet;
+
+  private int currentIndex;
+
+  /**
+   * Instantiate a SmallIntConsumer.
+   */
+  public SmallIntConsumer(SmallIntVector vector, int index) {
+    this.vector = vector;
+    this.columnIndexInResultSet = index;
+  }
+
+  @Override
+  public void consume(ResultSet resultSet) throws SQLException {
+    short value = resultSet.getShort(columnIndexInResultSet);
+    if (!wasNull(resultSet)) {
+      vector.setSafe(currentIndex, value);
+    }
+    currentIndex++;
+  }
+
+  @Override
+  public void close() throws Exception {
+    this.vector.close();
+  }
+
+  @Override
+  public void resetValueVector(SmallIntVector vector) {
+    this.vector = vector;
+    this.currentIndex = 0;
+  }
+
   /**
    * Nullable consumer for small int.
    */
-  static class NullableSmallIntConsumer extends BaseJdbcConsumer<SmallIntVector> {
+  static class NullableSmallIntConsumer extends SmallIntConsumer {
 
     /**
      * Instantiate a SmallIntConsumer.
@@ -52,19 +85,15 @@ public class SmallIntConsumer {
     }
 
     @Override
-    public void consume(ResultSet resultSet) throws SQLException {
-      short value = resultSet.getShort(columnIndexInResultSet);
-      if (!resultSet.wasNull()) {
-        vector.setSafe(currentIndex, value);
-      }
-      currentIndex++;
+    public boolean wasNull(ResultSet resultSet) throws SQLException {
+      return resultSet.wasNull();
     }
   }
 
   /**
    * Non-nullable consumer for small int.
    */
-  static class NonNullableSmallIntConsumer extends BaseJdbcConsumer<SmallIntVector> {
+  static class NonNullableSmallIntConsumer extends SmallIntConsumer {
 
     /**
      * Instantiate a SmallIntConsumer.
@@ -74,13 +103,8 @@ public class SmallIntConsumer {
     }
 
     @Override
-    public void consume(ResultSet resultSet) throws SQLException {
-      short value = resultSet.getShort(columnIndexInResultSet);
-      vector.setSafe(currentIndex, value);
-      currentIndex++;
+    public boolean wasNull(ResultSet resultSet) throws SQLException {
+      return false;
     }
   }
 }
-
-
-

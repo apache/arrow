@@ -62,4 +62,9 @@ public class CompositeJdbcConsumer implements JdbcConsumer {
   public void resetValueVector(ValueVector vector) {
 
   }
+
+  @Override
+  public boolean wasNull(ResultSet resultSet) throws SQLException {
+    return resultSet.wasNull();
+  }
 }

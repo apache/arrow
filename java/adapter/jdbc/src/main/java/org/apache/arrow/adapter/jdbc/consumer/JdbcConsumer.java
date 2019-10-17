@@ -44,4 +44,10 @@ public interface JdbcConsumer<T extends ValueVector> extends AutoCloseable {
    */
   void resetValueVector(T vector);
 
+  /**
+   * Checks if the last value is null.
+   * @param resultSet the result set to check.
+   * @return ture if the last value is null; false otherwise.
+   */
+  boolean wasNull(ResultSet resultSet) throws SQLException;
 }

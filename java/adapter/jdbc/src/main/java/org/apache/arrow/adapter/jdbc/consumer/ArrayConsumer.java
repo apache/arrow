@@ -25,80 +25,42 @@ import java.sql.SQLException;
 import org.apache.arrow.vector.complex.ListVector;
 
 /**
- * Wrapper for consumers which consume array type values from {@link ResultSet}.
- * Write the data to {@link ListVector}.
+ * Consumer which consume array type values from {@link ResultSet}.
+ * Write the data to {@link org.apache.arrow.vector.complex.ListVector}.
  */
-public class ArrayConsumer {
+public abstract class ArrayConsumer implements JdbcConsumer<ListVector> {
 
   /**
    * Creates a consumer for {@link ListVector}.
    */
-  public static JdbcConsumer<ListVector> createConsumer(
+  public static ArrayConsumer createConsumer(
           ListVector vector, JdbcConsumer delegate, int index, boolean nullable) {
     if (nullable) {
-      return new NullableArrayConsumer(vector, delegate, index);
+      return new ArrayConsumer.NullableArrayConsumer(vector, delegate, index);
     } else {
-      return new NonNullableArrayConsumer(vector, delegate, index);
+      return new ArrayConsumer.NonNullableArrayConsumer(vector, delegate, index);
     }
   }
 
+  private final JdbcConsumer delegate;
+  private final int columnIndexInResultSet;
+
+  private ListVector vector;
+  private int currentIndex;
+
   /**
-   * Nullable consumer for {@link ListVector}.
+   * Instantiate a ArrayConsumer.
    */
-  static class NullableArrayConsumer extends BaseJdbcConsumer<ListVector> {
-
-    private final JdbcConsumer delegate;
-
-    /**
-     * Instantiate a nullable array consumer.
-     */
-    public NullableArrayConsumer(ListVector vector, JdbcConsumer delegate, int index) {
-      super(vector, index);
-      this.delegate = delegate;
-    }
-
-    @Override
-    public void consume(ResultSet resultSet) throws SQLException, IOException {
-      final Array array = resultSet.getArray(columnIndexInResultSet);
-      if (!resultSet.wasNull()) {
-        vector.startNewValue(currentIndex);
-        int count = 0;
-        try (ResultSet rs = array.getResultSet()) {
-          while (rs.next()) {
-            delegate.consume(rs);
-            count++;
-          }
-        }
-        vector.endValue(currentIndex, count);
-      }
-      currentIndex++;
-    }
-
-    @Override
-    public void close() throws Exception {
-      this.vector.close();
-      this.delegate.close();
-    }
+  public ArrayConsumer(ListVector vector, JdbcConsumer delegate, int index) {
+    this.columnIndexInResultSet = index;
+    this.delegate = delegate;
+    this.vector = vector;
   }
 
-  /**
-   * Non-nullable consumer for {@link ListVector}.
-   */
-  static class NonNullableArrayConsumer extends BaseJdbcConsumer<ListVector> {
-
-    private final JdbcConsumer delegate;
-
-    /**
-     * Instantiate a nullable array consumer.
-     */
-    public NonNullableArrayConsumer(ListVector vector, JdbcConsumer delegate, int index) {
-      super(vector, index);
-      this.delegate = delegate;
-    }
-
-    @Override
-    public void consume(ResultSet resultSet) throws SQLException, IOException {
-      final Array array = resultSet.getArray(columnIndexInResultSet);
+  @Override
+  public void consume(ResultSet resultSet) throws SQLException, IOException {
+    final Array array = resultSet.getArray(columnIndexInResultSet);
+    if (!wasNull(resultSet)) {
 
       vector.startNewValue(currentIndex);
       int count = 0;
@@ -109,13 +71,55 @@ public class ArrayConsumer {
         }
       }
       vector.endValue(currentIndex, count);
-      currentIndex++;
+    }
+    currentIndex++;
+  }
+
+  @Override
+  public void close() throws Exception {
+    this.vector.close();
+    this.delegate.close();
+  }
+
+  @Override
+  public void resetValueVector(ListVector vector) {
+    this.vector = vector;
+    this.currentIndex = 0;
+  }
+
+  /**
+   * Nullable consumer for {@link ListVector}.
+   */
+  static class NullableArrayConsumer extends ArrayConsumer {
+
+    /**
+     * Instantiate a nullable array consumer.
+     */
+    public NullableArrayConsumer(ListVector vector, JdbcConsumer delegate, int index) {
+      super(vector, delegate, index);
     }
 
     @Override
-    public void close() throws Exception {
-      this.vector.close();
-      this.delegate.close();
+    public boolean wasNull(ResultSet resultSet) throws SQLException {
+      return resultSet.wasNull();
+    }
+  }
+
+  /**
+   * Non-nullable consumer for {@link ListVector}.
+   */
+  static class NonNullableArrayConsumer extends ArrayConsumer {
+
+    /**
+     * Instantiate a nullable array consumer.
+     */
+    public NonNullableArrayConsumer(ListVector vector, JdbcConsumer delegate, int index) {
+      super(vector, delegate, index);
+    }
+
+    @Override
+    public boolean wasNull(ResultSet resultSet) throws SQLException {
+      return false;
     }
   }
 }

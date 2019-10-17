@@ -23,15 +23,15 @@ import java.sql.SQLException;
 import org.apache.arrow.vector.TinyIntVector;
 
 /**
- * Wrapper for consumers which consume tinyInt type values from {@link ResultSet}.
+ * Consumer which consume tinyInt type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.TinyIntVector}.
  */
-public class TinyIntConsumer {
+public abstract class TinyIntConsumer implements JdbcConsumer<TinyIntVector> {
 
   /**
    * Creates a consumer for {@link TinyIntVector}.
    */
-  public static JdbcConsumer<TinyIntVector> createConsumer(TinyIntVector vector, int index, boolean nullable) {
+  public static TinyIntConsumer createConsumer(TinyIntVector vector, int index, boolean nullable) {
     if (nullable) {
       return new NullableTinyIntConsumer(vector, index);
     } else {
@@ -39,10 +39,43 @@ public class TinyIntConsumer {
     }
   }
 
+  private TinyIntVector vector;
+  private final int columnIndexInResultSet;
+
+  private int currentIndex;
+
+  /**
+   * Instantiate a TinyIntConsumer.
+   */
+  public TinyIntConsumer(TinyIntVector vector, int index) {
+    this.vector = vector;
+    this.columnIndexInResultSet = index;
+  }
+
+  @Override
+  public void consume(ResultSet resultSet) throws SQLException {
+    byte value = resultSet.getByte(columnIndexInResultSet);
+    if (!wasNull(resultSet)) {
+      vector.setSafe(currentIndex, value);
+    }
+    currentIndex++;
+  }
+
+  @Override
+  public void close() throws Exception {
+    this.vector.close();
+  }
+
+  @Override
+  public void resetValueVector(TinyIntVector vector) {
+    this.vector = vector;
+    this.currentIndex = 0;
+  }
+
   /**
    * Nullable consumer for tiny int.
    */
-  static class NullableTinyIntConsumer extends BaseJdbcConsumer<TinyIntVector> {
+  static class NullableTinyIntConsumer extends TinyIntConsumer {
 
     /**
      * Instantiate a TinyIntConsumer.
@@ -52,19 +85,15 @@ public class TinyIntConsumer {
     }
 
     @Override
-    public void consume(ResultSet resultSet) throws SQLException {
-      byte value = resultSet.getByte(columnIndexInResultSet);
-      if (!resultSet.wasNull()) {
-        vector.setSafe(currentIndex, value);
-      }
-      currentIndex++;
+    public boolean wasNull(ResultSet resultSet) throws SQLException {
+      return resultSet.wasNull();
     }
   }
 
   /**
    * Non-nullable consumer for tiny int.
    */
-  static class NonNullableTinyIntConsumer extends BaseJdbcConsumer<TinyIntVector> {
+  static class NonNullableTinyIntConsumer extends TinyIntConsumer {
 
     /**
      * Instantiate a TinyIntConsumer.
@@ -74,12 +103,8 @@ public class TinyIntConsumer {
     }
 
     @Override
-    public void consume(ResultSet resultSet) throws SQLException {
-      byte value = resultSet.getByte(columnIndexInResultSet);
-      vector.setSafe(currentIndex, value);
-      currentIndex++;
+    public boolean wasNull(ResultSet resultSet) throws SQLException {
+      return false;
     }
   }
 }
-
-

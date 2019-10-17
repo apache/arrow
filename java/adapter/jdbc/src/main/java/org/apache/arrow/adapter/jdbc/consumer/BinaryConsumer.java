@@ -29,15 +29,15 @@ import io.netty.buffer.ArrowBuf;
 import io.netty.util.internal.PlatformDependent;
 
 /**
- * Wrapper for consumers which consume binary type values from {@link ResultSet}.
- * Write the data to {@link VarBinaryVector}.
+ * Consumer which consume binary type values from {@link ResultSet}.
+ * Write the data to {@link org.apache.arrow.vector.VarBinaryVector}.
  */
-public class BinaryConsumer {
+public abstract class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
 
   /**
    * Creates a consumer for {@link VarBinaryVector}.
    */
-  public static JdbcConsumer<VarBinaryVector> createConsumer(VarBinaryVector vector, int index, boolean nullable) {
+  public static BinaryConsumer createConsumer(VarBinaryVector vector, int index, boolean nullable) {
     if (nullable) {
       return new NullableBinaryConsumer(vector, index);
     } else {
@@ -45,75 +45,98 @@ public class BinaryConsumer {
     }
   }
 
+  private static final int BUFFER_SIZE = 1024;
+
+  private VarBinaryVector vector;
+  private final int columnIndexInResultSet;
+
+  private int currentIndex;
+
+  /**
+   * Instantiate a BinaryConsumer.
+   */
+  public BinaryConsumer(VarBinaryVector vector, int index) {
+    if (vector != null) {
+      vector.allocateNewSafe();
+    }
+    this.vector = vector;
+    this.columnIndexInResultSet = index;
+  }
+
+  /**
+   * consume a InputStream.
+   */
+  public void consume(InputStream is) throws IOException {
+    if (is != null) {
+
+      int read;
+      byte[] bytes = new byte[BUFFER_SIZE];
+      int totalBytes = 0;
+
+      ArrowBuf dataBuffer = vector.getDataBuffer();
+      ArrowBuf offsetBuffer = vector.getOffsetBuffer();
+      int startIndex = offsetBuffer.getInt(currentIndex * 4);
+      while ((read = is.read(bytes)) != -1) {
+        while ((dataBuffer.writerIndex() + read) > dataBuffer.capacity()) {
+          vector.reallocDataBuffer();
+        }
+        PlatformDependent.copyMemory(bytes, 0,
+                dataBuffer.memoryAddress() + startIndex + totalBytes, read);
+        totalBytes += read;
+      }
+      offsetBuffer.setInt((currentIndex + 1) * 4, startIndex + totalBytes);
+      BitVectorHelper.setValidityBitToOne(vector.getValidityBuffer(), currentIndex);
+      vector.setLastSet(currentIndex);
+    }
+  }
+
+  @Override
+  public void consume(ResultSet resultSet) throws SQLException, IOException {
+    InputStream is = resultSet.getBinaryStream(columnIndexInResultSet);
+    if (!wasNull(resultSet)) {
+      consume(is);
+    }
+    currentIndex++;
+  }
+
+  public void moveWriterPosition() {
+    currentIndex++;
+  }
+
+  @Override
+  public void close() throws Exception {
+    this.vector.close();
+  }
+
+  @Override
+  public void resetValueVector(VarBinaryVector vector) {
+    this.vector = vector;
+    this.vector.allocateNewSafe();
+    this.currentIndex = 0;
+  }
+
   /**
    * Consumer for nullable binary data.
    */
-  static class NullableBinaryConsumer extends BaseJdbcConsumer<VarBinaryVector> {
-
-    private static final int BUFFER_SIZE = 1024;
-
+  static class NullableBinaryConsumer extends BinaryConsumer {
+    
     /**
      * Instantiate a BinaryConsumer.
      */
     public NullableBinaryConsumer(VarBinaryVector vector, int index) {
       super(vector, index);
-      if (vector != null) {
-        vector.allocateNewSafe();
-      }
-    }
-
-    /**
-     * consume a InputStream.
-     */
-    public void consume(InputStream is) throws IOException {
-      if (is != null) {
-
-        int read;
-        byte[] bytes = new byte[BUFFER_SIZE];
-        int totalBytes = 0;
-
-        ArrowBuf dataBuffer = vector.getDataBuffer();
-        ArrowBuf offsetBuffer = vector.getOffsetBuffer();
-        int startIndex = offsetBuffer.getInt(currentIndex * 4);
-        while ((read = is.read(bytes)) != -1) {
-          while ((dataBuffer.writerIndex() + read) > dataBuffer.capacity()) {
-            vector.reallocDataBuffer();
-          }
-          PlatformDependent.copyMemory(bytes, 0,
-                  dataBuffer.memoryAddress() + startIndex + totalBytes, read);
-          totalBytes += read;
-        }
-        offsetBuffer.setInt((currentIndex + 1) * 4, startIndex + totalBytes);
-        BitVectorHelper.setValidityBitToOne(vector.getValidityBuffer(), currentIndex);
-        vector.setLastSet(currentIndex);
-      }
     }
 
     @Override
-    public void consume(ResultSet resultSet) throws SQLException, IOException {
-      InputStream is = resultSet.getBinaryStream(columnIndexInResultSet);
-      if (!resultSet.wasNull()) {
-        consume(is);
-      }
-      currentIndex++;
-    }
-
-    public void moveWriterPosition() {
-      currentIndex++;
-    }
-
-    @Override
-    public void resetValueVector(VarBinaryVector vector) {
-      this.vector = vector;
-      this.vector.allocateNewSafe();
-      this.currentIndex = 0;
+    public boolean wasNull(ResultSet resultSet) throws SQLException {
+      return resultSet.wasNull();
     }
   }
 
   /**
    * Consumer for non-nullable binary data.
    */
-  static class NonNullableBinaryConsumer extends NullableBinaryConsumer {
+  static class NonNullableBinaryConsumer extends BinaryConsumer {
 
     /**
      * Instantiate a BinaryConsumer.
@@ -122,11 +145,10 @@ public class BinaryConsumer {
       super(vector, index);
     }
 
+
     @Override
-    public void consume(ResultSet resultSet) throws SQLException, IOException {
-      InputStream is = resultSet.getBinaryStream(columnIndexInResultSet);
-      consume(is);
-      currentIndex++;
+    public boolean wasNull(ResultSet resultSet) throws SQLException {
+      return false;
     }
   }
 }

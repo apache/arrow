@@ -25,15 +25,15 @@ import java.util.Date;
 import org.apache.arrow.vector.DateMilliVector;
 
 /**
- * Wrapper for consumers which consume date type values from {@link ResultSet}.
+ * Consumer which consume date type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.DateMilliVector}.
  */
-public class DateConsumer {
+public abstract class DateConsumer implements JdbcConsumer<DateMilliVector> {
 
   /**
    * Creates a consumer for {@link DateMilliVector}.
    */
-  public static JdbcConsumer<DateMilliVector> createConsumer(
+  public static DateConsumer createConsumer(
           DateMilliVector vector, int index, boolean nullable, Calendar calendar) {
     if (nullable) {
       return new NullableDateConsumer(vector, index, calendar);
@@ -42,67 +42,96 @@ public class DateConsumer {
     }
   }
 
+  private DateMilliVector vector;
+  private final int columnIndexInResultSet;
+  private final Calendar calendar;
+
+  private int currentIndex;
+
+  /**
+   * Instantiate a DateConsumer.
+   */
+  public DateConsumer(DateMilliVector vector, int index) {
+    this (vector, index, null);
+  }
+
+  /**
+   * Instantiate a DateConsumer.
+   */
+  public DateConsumer(DateMilliVector vector, int index, Calendar calendar) {
+    this.vector = vector;
+    this.columnIndexInResultSet = index;
+    this.calendar = calendar;
+  }
+
+  @Override
+  public void consume(ResultSet resultSet) throws SQLException {
+    Date date = calendar == null ? resultSet.getDate(columnIndexInResultSet) :
+        resultSet.getDate(columnIndexInResultSet, calendar);
+    if (!wasNull(resultSet)) {
+      vector.setSafe(currentIndex, date.getTime());
+    }
+    currentIndex++;
+  }
+
+  @Override
+  public void close() throws Exception {
+    this.vector.close();
+  }
+
+  @Override
+  public void resetValueVector(DateMilliVector vector) {
+    this.vector = vector;
+    this.currentIndex = 0;
+  }
+
   /**
    * Nullable consumer for date.
    */
-  static class NullableDateConsumer extends BaseJdbcConsumer<DateMilliVector> {
-
-    private final Calendar calendar;
+  static class NullableDateConsumer extends DateConsumer {
 
     /**
      * Instantiate a DateConsumer.
      */
     public NullableDateConsumer(DateMilliVector vector, int index) {
-      this (vector, index, null);
+      super(vector, index);
     }
 
     /**
      * Instantiate a DateConsumer.
      */
     public NullableDateConsumer(DateMilliVector vector, int index, Calendar calendar) {
-      super(vector, index);
-      this.calendar = calendar;
+      super(vector, index, calendar);
     }
 
     @Override
-    public void consume(ResultSet resultSet) throws SQLException {
-      Date date = calendar == null ? resultSet.getDate(columnIndexInResultSet) :
-              resultSet.getDate(columnIndexInResultSet, calendar);
-      if (!resultSet.wasNull()) {
-        vector.setSafe(currentIndex, date.getTime());
-      }
-      currentIndex++;
+    public boolean wasNull(ResultSet resultSet) throws SQLException {
+      return resultSet.wasNull();
     }
   }
 
   /**
    * Non-nullable consumer for date.
    */
-  static class NonNullableDateConsumer extends BaseJdbcConsumer<DateMilliVector> {
-
-    private final Calendar calendar;
+  static class NonNullableDateConsumer extends DateConsumer {
 
     /**
      * Instantiate a DateConsumer.
      */
     public NonNullableDateConsumer(DateMilliVector vector, int index) {
-      this (vector, index, null);
+      super(vector, index);
     }
 
     /**
      * Instantiate a DateConsumer.
      */
     public NonNullableDateConsumer(DateMilliVector vector, int index, Calendar calendar) {
-      super(vector, index);
-      this.calendar = calendar;
+      super(vector, index, calendar);
     }
 
     @Override
-    public void consume(ResultSet resultSet) throws SQLException {
-      Date date = calendar == null ? resultSet.getDate(columnIndexInResultSet) :
-              resultSet.getDate(columnIndexInResultSet, calendar);
-      vector.setSafe(currentIndex, date.getTime());
-      currentIndex++;
+    public boolean wasNull(ResultSet resultSet) throws SQLException {
+      return false;
     }
   }
 }

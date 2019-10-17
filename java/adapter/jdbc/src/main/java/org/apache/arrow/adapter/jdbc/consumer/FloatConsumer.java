@@ -23,15 +23,15 @@ import java.sql.SQLException;
 import org.apache.arrow.vector.Float4Vector;
 
 /**
- * Wrapper for consumers which consume float type values from {@link ResultSet}.
- * Write the data to {@link Float4Vector}.
+ * Consumer which consume float type values from {@link ResultSet}.
+ * Write the data to {@link org.apache.arrow.vector.Float4Vector}.
  */
-public class FloatConsumer {
+public abstract class FloatConsumer implements JdbcConsumer<Float4Vector> {
 
   /**
    * Creates a consumer for {@link Float4Vector}.
    */
-  public static JdbcConsumer<Float4Vector> createConsumer(Float4Vector vector, int index, boolean nullable) {
+  public static FloatConsumer createConsumer(Float4Vector vector, int index, boolean nullable) {
     if (nullable) {
       return new NullableFloatConsumer(vector, index);
     } else {
@@ -39,10 +39,43 @@ public class FloatConsumer {
     }
   }
 
+  private Float4Vector vector;
+  private final int columnIndexInResultSet;
+
+  private int currentIndex;
+
+  /**
+   * Instantiate a FloatConsumer.
+   */
+  public FloatConsumer(Float4Vector vector, int index) {
+    this.vector = vector;
+    this.columnIndexInResultSet = index;
+  }
+
+  @Override
+  public void consume(ResultSet resultSet) throws SQLException {
+    float value = resultSet.getFloat(columnIndexInResultSet);
+    if (!wasNull(resultSet)) {
+      vector.setSafe(currentIndex, value);
+    }
+    currentIndex++;
+  }
+
+  @Override
+  public void close() throws Exception {
+    this.vector.close();
+  }
+
+  @Override
+  public void resetValueVector(Float4Vector vector) {
+    this.vector = vector;
+    this.currentIndex = 0;
+  }
+
   /**
    * Nullable float consumer.
    */
-  static class NullableFloatConsumer extends BaseJdbcConsumer<Float4Vector> {
+  static class NullableFloatConsumer extends FloatConsumer {
 
     /**
      * Instantiate a FloatConsumer.
@@ -52,19 +85,15 @@ public class FloatConsumer {
     }
 
     @Override
-    public void consume(ResultSet resultSet) throws SQLException {
-      float value = resultSet.getFloat(columnIndexInResultSet);
-      if (!resultSet.wasNull()) {
-        vector.setSafe(currentIndex, value);
-      }
-      currentIndex++;
+    public boolean wasNull(ResultSet resultSet) throws SQLException {
+      return resultSet.wasNull();
     }
   }
 
   /**
    * Non-nullable float consumer.
    */
-  static class NonNullableFloatConsumer extends BaseJdbcConsumer<Float4Vector> {
+  static class NonNullableFloatConsumer extends FloatConsumer {
 
     /**
      * Instantiate a FloatConsumer.
@@ -74,12 +103,8 @@ public class FloatConsumer {
     }
 
     @Override
-    public void consume(ResultSet resultSet) throws SQLException {
-      float value = resultSet.getFloat(columnIndexInResultSet);
-      vector.setSafe(currentIndex, value);
-      currentIndex++;
+    public boolean wasNull(ResultSet resultSet) throws SQLException {
+      return false;
     }
   }
 }
-
-

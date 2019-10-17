@@ -25,15 +25,15 @@ import java.util.Calendar;
 import org.apache.arrow.vector.TimeMilliVector;
 
 /**
- * Wrapper for consumers which consume time type values from {@link ResultSet}.
- * Write the data to {@link TimeMilliVector}.
+ * Consumer which consume time type values from {@link ResultSet}.
+ * Write the data to {@link org.apache.arrow.vector.TimeMilliVector}.
  */
-public class TimeConsumer {
+public abstract class TimeConsumer implements JdbcConsumer<TimeMilliVector> {
 
   /**
    * Creates a consumer for {@link TimeMilliVector}.
    */
-  public static JdbcConsumer<TimeMilliVector> createConsumer(
+  public static TimeConsumer createConsumer(
           TimeMilliVector vector, int index, boolean nullable, Calendar calendar) {
     if (nullable) {
       return new NullableTimeConsumer(vector, index, calendar);
@@ -42,69 +42,96 @@ public class TimeConsumer {
     }
   }
 
+  private TimeMilliVector vector;
+  private final int columnIndexInResultSet;
+  private final Calendar calendar;
+
+  private int currentIndex;
+
+  /**
+   * Instantiate a TimeConsumer.
+   */
+  public TimeConsumer(TimeMilliVector vector, int index) {
+    this(vector, index, null);
+  }
+
+  /**
+   * Instantiate a TimeConsumer.
+   */
+  public TimeConsumer(TimeMilliVector vector, int index, Calendar calendar) {
+    this.vector = vector;
+    this.columnIndexInResultSet = index;
+    this.calendar = calendar;
+  }
+
+  @Override
+  public void consume(ResultSet resultSet) throws SQLException {
+    Time time = calendar == null ? resultSet.getTime(columnIndexInResultSet) :
+        resultSet.getTime(columnIndexInResultSet, calendar);
+    if (!wasNull(resultSet)) {
+      vector.setSafe(currentIndex, (int) time.getTime());
+    }
+    currentIndex++;
+  }
+
+  @Override
+  public void close() throws Exception {
+    this.vector.close();
+  }
+
+  @Override
+  public void resetValueVector(TimeMilliVector vector) {
+    this.vector = vector;
+    this.currentIndex = 0;
+  }
+
   /**
    * Nullable consumer for {@link TimeMilliVector}.
    */
-  static class NullableTimeConsumer extends BaseJdbcConsumer<TimeMilliVector> {
-
-    private final Calendar calendar;
+  static class NullableTimeConsumer extends TimeConsumer {
 
     /**
      * Instantiate a TimeConsumer.
      */
     public NullableTimeConsumer(TimeMilliVector vector, int index) {
-      this(vector, index, null);
+      super(vector, index);
     }
 
     /**
      * Instantiate a TimeConsumer.
      */
     public NullableTimeConsumer(TimeMilliVector vector, int index, Calendar calendar) {
-      super(vector, index);
-      this.calendar = calendar;
+      super(vector, index, calendar);
     }
 
     @Override
-    public void consume(ResultSet resultSet) throws SQLException {
-      Time time = calendar == null ? resultSet.getTime(columnIndexInResultSet) :
-              resultSet.getTime(columnIndexInResultSet, calendar);
-      if (!resultSet.wasNull()) {
-        vector.setSafe(currentIndex, (int) time.getTime());
-      }
-      currentIndex++;
+    public boolean wasNull(ResultSet resultSet) throws SQLException {
+      return resultSet.wasNull();
     }
   }
 
   /**
    * Non-nullable consumer for {@link TimeMilliVector}.
    */
-  static class NonNullableTimeConsumer extends BaseJdbcConsumer<TimeMilliVector> {
-
-    private final Calendar calendar;
+  static class NonNullableTimeConsumer extends TimeConsumer {
 
     /**
      * Instantiate a TimeConsumer.
      */
     public NonNullableTimeConsumer(TimeMilliVector vector, int index) {
-      this(vector, index, null);
+      super(vector, index);
     }
 
     /**
      * Instantiate a TimeConsumer.
      */
     public NonNullableTimeConsumer(TimeMilliVector vector, int index, Calendar calendar) {
-      super(vector, index);
-      this.calendar = calendar;
+      super(vector, index, calendar);
     }
 
     @Override
-    public void consume(ResultSet resultSet) throws SQLException {
-      Time time = calendar == null ? resultSet.getTime(columnIndexInResultSet) :
-              resultSet.getTime(columnIndexInResultSet, calendar);
-      vector.setSafe(currentIndex, (int) time.getTime());
-      currentIndex++;
+    public boolean wasNull(ResultSet resultSet) throws SQLException {
+      return false;
     }
   }
 }
-
-
