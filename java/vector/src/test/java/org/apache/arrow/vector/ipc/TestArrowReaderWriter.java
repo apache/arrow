@@ -66,6 +66,7 @@ import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.ByteArrayReadableSeekableByteChannel;
 import org.apache.arrow.vector.util.DictionaryUtility;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -104,6 +105,13 @@ public class TestArrowReaderWriter {
     dictionary2 = new Dictionary(dictionary2Vector, new DictionaryEncoding(2L, false, null));
   }
 
+  @After
+  public void terminate() throws Exception {
+    dictionary.getVector().close();
+    dictionary2.getVector().close();
+    allocator.close();
+  }
+
   ArrowBuf buf(byte[] bytes) {
     ArrowBuf buffer = allocator.buffer(bytes.length);
     buffer.writeBytes(bytes);
@@ -137,6 +145,10 @@ public class TestArrowReaderWriter {
       VectorLoader loader = new VectorLoader(root);
       loader.load(batch);
       writer.writeBatch();
+
+      validityb.close();
+      valuesb.close();
+      batch.close();
     }
 
     byte[] byteArray = out.toByteArray();
@@ -174,6 +186,8 @@ public class TestArrowReaderWriter {
       FieldNode nodeFB = recordBatchFB.nodes(0);
       assertEquals(16, nodeFB.length());
       assertEquals(8, nodeFB.nullCount());
+
+      recordBatch.close();
     }
   }
 
@@ -245,24 +259,25 @@ public class TestArrowReaderWriter {
 
     List<Field> fields = Arrays.asList(encodedVector1.getField(), encodedVector2.getField());
     List<FieldVector> vectors = Collections2.asImmutableList(encodedVector1, encodedVector2);
-    VectorSchemaRoot root =  new VectorSchemaRoot(fields, vectors, encodedVector1.getValueCount());
+    try (VectorSchemaRoot root =  new VectorSchemaRoot(fields, vectors, encodedVector1.getValueCount());
+         ByteArrayOutputStream out = new ByteArrayOutputStream();
+         ArrowFileWriter writer = new ArrowFileWriter(root, provider, newChannel(out));) {
 
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    ArrowFileWriter writer = new ArrowFileWriter(root, provider, newChannel(out));
-    writer.start();
-    writer.writeBatch();
-    writer.end();
+      writer.start();
+      writer.writeBatch();
+      writer.end();
 
-    try (SeekableReadChannel channel = new SeekableReadChannel(
-        new ByteArrayReadableSeekableByteChannel(out.toByteArray()));
-        ArrowFileReader reader = new ArrowFileReader(channel, allocator)) {
-      Schema readSchema = reader.getVectorSchemaRoot().getSchema();
-      assertEquals(root.getSchema(), readSchema);
-      assertEquals(1, reader.getDictionaryBlocks().size());
-      assertEquals(1, reader.getRecordBlocks().size());
+      try (SeekableReadChannel channel = new SeekableReadChannel(
+          new ByteArrayReadableSeekableByteChannel(out.toByteArray()));
+          ArrowFileReader reader = new ArrowFileReader(channel, allocator)) {
+        Schema readSchema = reader.getVectorSchemaRoot().getSchema();
+        assertEquals(root.getSchema(), readSchema);
+        assertEquals(1, reader.getDictionaryBlocks().size());
+        assertEquals(1, reader.getRecordBlocks().size());
 
-      reader.loadNextBatch();
-      assertEquals(2, reader.getVectorSchemaRoot().getFieldVectors().size());
+        reader.loadNextBatch();
+        assertEquals(2, reader.getVectorSchemaRoot().getFieldVectors().size());
+      }
     }
   }
 
@@ -286,22 +301,25 @@ public class TestArrowReaderWriter {
 
     List<Field> fields = Arrays.asList(encodedVector1A.getField());
     List<FieldVector> vectors = Collections2.asImmutableList(encodedVector1A);
-    VectorSchemaRoot root =  new VectorSchemaRoot(fields, vectors, encodedVector1A.getValueCount());
 
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    ArrowFileWriter writer = new ArrowFileWriter(root, provider, newChannel(out));
-    writer.start();
-    writer.end();
+    try (VectorSchemaRoot root =  new VectorSchemaRoot(fields, vectors, encodedVector1A.getValueCount());
+         ByteArrayOutputStream out = new ByteArrayOutputStream();
+         ArrowFileWriter writer = new ArrowFileWriter(root, provider, newChannel(out))) {
 
-    try (SeekableReadChannel channel = new SeekableReadChannel(
-        new ByteArrayReadableSeekableByteChannel(out.toByteArray()));
-        ArrowFileReader reader = new ArrowFileReader(channel, allocator)) {
-      Schema readSchema = reader.getVectorSchemaRoot().getSchema();
-      assertEquals(root.getSchema(), readSchema);
-      assertEquals(1, reader.getDictionaryVectors().size());
-      assertEquals(0, reader.getDictionaryBlocks().size());
-      assertEquals(0, reader.getRecordBlocks().size());
+      writer.start();
+      writer.end();
+
+      try (SeekableReadChannel channel = new SeekableReadChannel(
+           new ByteArrayReadableSeekableByteChannel(out.toByteArray()));
+           ArrowFileReader reader = new ArrowFileReader(channel, allocator)) {
+        Schema readSchema = reader.getVectorSchemaRoot().getSchema();
+        assertEquals(root.getSchema(), readSchema);
+        assertEquals(1, reader.getDictionaryVectors().size());
+        assertEquals(0, reader.getDictionaryBlocks().size());
+        assertEquals(0, reader.getRecordBlocks().size());
+      }
     }
+
   }
 
   @Test
@@ -323,21 +341,24 @@ public class TestArrowReaderWriter {
     vector.close();
 
     List<Field> fields = Arrays.asList(encodedVector.getField());
-    List<FieldVector> vectors = Collections2.asImmutableList(encodedVector);
-    VectorSchemaRoot root =  new VectorSchemaRoot(fields, vectors, encodedVector.getValueCount());
+    try (VectorSchemaRoot root =
+        new VectorSchemaRoot(fields, Arrays.asList(encodedVector), encodedVector.getValueCount());
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ArrowStreamWriter writer = new ArrowStreamWriter(root, provider, newChannel(out))) {
 
-    ByteArrayOutputStream out = new ByteArrayOutputStream();
-    ArrowStreamWriter writer = new ArrowStreamWriter(root, provider, newChannel(out));
-    writer.start();
-    writer.end();
+      writer.start();
+      writer.end();
 
-    try (ArrowStreamReader reader = new ArrowStreamReader(
-        new ByteArrayReadableSeekableByteChannel(out.toByteArray()), allocator)) {
-      Schema readSchema = reader.getVectorSchemaRoot().getSchema();
-      assertEquals(root.getSchema(), readSchema);
-      assertEquals(1, reader.getDictionaryVectors().size());
-      assertFalse(reader.loadNextBatch());
+
+      try (ArrowStreamReader reader = new ArrowStreamReader(
+          new ByteArrayReadableSeekableByteChannel(out.toByteArray()), allocator)) {
+        Schema readSchema = reader.getVectorSchemaRoot().getSchema();
+        assertEquals(root.getSchema(), readSchema);
+        assertEquals(1, reader.getDictionaryVectors().size());
+        assertFalse(reader.loadNextBatch());
+      }
     }
+
   }
 
   @Test
@@ -356,7 +377,11 @@ public class TestArrowReaderWriter {
         Collections.singletonList(dictVector1.getField()),
         Collections.singletonList(dictVector1),
         dictVector1.getValueCount());
-    MessageSerializer.serialize(out, new ArrowDictionaryBatch(1, new VectorUnloader(dictRoot1).getRecordBatch()));
+    ArrowDictionaryBatch dictionaryBatch1 =
+        new ArrowDictionaryBatch(1, new VectorUnloader(dictRoot1).getRecordBatch());
+    MessageSerializer.serialize(out, dictionaryBatch1);
+    dictionaryBatch1.close();
+    dictRoot1.close();
 
     // write recordBatch1
     MessageSerializer.serialize(out, batches.get(0));
@@ -367,7 +392,11 @@ public class TestArrowReaderWriter {
         Collections.singletonList(dictVector2.getField()),
         Collections.singletonList(dictVector2),
         dictVector2.getValueCount());
-    MessageSerializer.serialize(out, new ArrowDictionaryBatch(2, new VectorUnloader(dictRoot2).getRecordBatch()));
+    ArrowDictionaryBatch dictionaryBatch2 =
+        new ArrowDictionaryBatch(2, new VectorUnloader(dictRoot2).getRecordBatch());
+    MessageSerializer.serialize(out, dictionaryBatch2);
+    dictionaryBatch2.close();
+    dictRoot2.close();
 
     // write recordBatch1
     MessageSerializer.serialize(out, batches.get(1));
@@ -384,8 +413,9 @@ public class TestArrowReaderWriter {
       assertTrue(reader.loadNextBatch());
       assertFalse(reader.loadNextBatch());
     }
-  }
 
+    batches.forEach(batch -> batch.close());
+  }
 
   private List<ArrowRecordBatch> createRecordBatches() {
     List<ArrowRecordBatch> batches = new ArrayList<>();
@@ -415,6 +445,7 @@ public class TestArrowReaderWriter {
     VectorSchemaRoot root =  new VectorSchemaRoot(fields, vectors, encodedVectorA1.getValueCount());
     VectorUnloader unloader = new VectorUnloader(root);
     batches.add(unloader.getRecordBatch());
+    root.close();
 
     VarCharVector vectorB1 = newVarCharVector("varcharB1", allocator);
     vectorB1.setValueCount(6);
@@ -438,6 +469,7 @@ public class TestArrowReaderWriter {
     VectorSchemaRoot rootB =  new VectorSchemaRoot(fieldsB, vectorsB, 6);
     VectorUnloader unloaderB = new VectorUnloader(rootB);
     batches.add(unloaderB.getRecordBatch());
+    rootB.close();
 
     List<Field> schemaFields = new ArrayList<>();
     schemaFields.add(DictionaryUtility.toMessageFormat(encodedVectorA1.getField(), provider, new HashSet<>()));
@@ -475,6 +507,7 @@ public class TestArrowReaderWriter {
     ArrowRecordBatch readBatch = MessageSerializer.deserializeRecordBatch(in, allocator);
     assertEquals(batch.getLength(), readBatch.getLength());
     assertEquals(batch.computeBodyLength(), readBatch.computeBodyLength());
+    readBatch.close();
 
     // write ipc format with continuation
     option.write_legacy_ipc_format = false;
@@ -487,5 +520,9 @@ public class TestArrowReaderWriter {
     ArrowRecordBatch readBatch2 = MessageSerializer.deserializeRecordBatch(in2, allocator);
     assertEquals(batch.getLength(), readBatch2.getLength());
     assertEquals(batch.computeBodyLength(), readBatch2.computeBodyLength());
+    readBatch2.close();
+
+    batch.close();
+    vector.close();
   }
 }
