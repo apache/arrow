@@ -85,25 +85,43 @@ TYPED_TEST(TestMatchKernelPrimitive, Match) {
   auto type = TypeTraits<TypeParam>::type_singleton();
 
   // No Nulls
-  CheckMatch<TypeParam, T>(&this->ctx_, type, {2, 1, 2, 1, 2, 3},
-                           {true, true, true, true, true, true}, {2, 1, 2, 3},
-                           {true, true, true, true}, {0, 1, 0, 1, 0, 2}, {});
+  CheckMatch<TypeParam, T>(&this->ctx_, type,
+                           /* in_values= */ {2, 1, 2, 1, 2, 3},
+                           /* in_is_valid= */ {},
+                           /* member_set_values= */ {2, 1, 2, 3},
+                           /* member_set_is_valid= */ {},
+                           /* out_values= */ {0, 1, 0, 1, 0, 2},
+                           /* out_is_valid= */ {});
   // Nulls in left array
   CheckMatch<TypeParam, T>(
-      &this->ctx_, type, {2, 1, 2, 1, 2, 3}, {false, false, false, false, false, false},
-      {2, 1, 3}, {}, {0, 0, 0, 0, 0, 0}, {false, false, false, false, false, false});
+      &this->ctx_, type,
+      /* in_values= */ {2, 1, 2, 1, 2, 3},
+      /* in_is_valid= */ {false, false, false, false, false, false},
+      /* member_set_values= */ {2, 1, 3},
+      /* member_set_is_valid= */ {},
+      /* out_values= */ {0, 0, 0, 0, 0, 0},
+      /* out_is_valid= */ {false, false, false, false, false, false});
   // Nulls in right array
-  CheckMatch<TypeParam, T>(&this->ctx_, type, {2, 1, 2, 1, 2, 3}, {}, {2, 1, 2, 3},
-                           {false, false, false, false}, {0, 0, 0, 0, 0, 0},
-                           {false, false, false, false, false, false});
+  CheckMatch<TypeParam, T>(
+      &this->ctx_, type,
+      /* in_values= */ {2, 1, 2, 1, 2, 3},
+      /* in_is_valid= */ {},
+      /* member_set_values= */ {2, 1, 2, 3},
+      /* member_set_is_valid= */ {false, false, false, false},
+      /* out_values= */ {0, 0, 0, 0, 0, 0},
+      /* out_is_valid= */ {false, false, false, false, false, false});
   // Nulls in both the arrays
   CheckMatch<TypeParam, T>(&this->ctx_, type, {2, 1, 2, 3}, {false, false, false, false},
                            {2, 1}, {false, false}, {0, 0, 0, 0}, {});
   // No Match
-  CheckMatch<TypeParam, T>(&this->ctx_, type, {2, 1, 7, 3, 8},
-                           {true, false, true, true, true}, {2, 1, 2, 1, 6, 3, 3},
-                           {true, false, true, false, true, true, true}, {0, 1, 1, 3, 3},
-                           {true, true, false, true, false});
+  CheckMatch<TypeParam, T>(
+      &this->ctx_, type,
+      /* in_values= */ {2, 1, 7, 3, 8},
+      /* in_is_valid= */ {true, false, true, true, true},
+      /* member_set_values= */ {2, 1, 2, 1, 6, 3, 3},
+      /* member_set_is_valid= */ {true, false, true, false, true, true, true},
+      /* out_values= */ {0, 1, 1, 3, 3},
+      /* out_is_valid= */ {true, true, false, true, false});
 
   // Empty Arrays
   CheckMatch<TypeParam, T>(&this->ctx_, type, {}, {}, {}, {}, {}, {});
@@ -153,10 +171,13 @@ TEST_F(TestMatchKernel, MatchNull) {
 }
 
 TEST_F(TestMatchKernel, MatchTimeTimestamp) {
-  CheckMatch<Time32Type, int32_t>(&this->ctx_, time32(TimeUnit::SECOND), {1, 2, 5, 1, 2},
-                                  {true, false, true, true, true}, {2, 1, 2, 1},
-                                  {true, true, false, true}, {1, 2, 2, 1, 0},
-                                  {true, true, false, true, true});
+  CheckMatch<Time32Type, int32_t>(&this->ctx_, time32(TimeUnit::SECOND),
+                                  /* in_values= */ {1, 2, 5, 1, 2},
+                                  /* in_is_valid= */ {true, false, true, true, true},
+                                  /* member_set_values= */ {2, 1, 2, 1},
+                                  /* member_set_is_valid= */ {true, true, false, true},
+                                  /* out_values= */ {1, 2, 2, 1, 0},
+                                  /* out_is_valid= */ {true, true, false, true, true});
 
   // Right array has no Nulls
   CheckMatch<Time32Type, int32_t>(
@@ -165,9 +186,8 @@ TEST_F(TestMatchKernel, MatchTimeTimestamp) {
 
   // No match
   CheckMatch<Time32Type, int32_t>(&this->ctx_, time32(TimeUnit::SECOND), {3, 5, 5, 3},
-                                  {true, false, true, true}, {2, 1, 2, 1, 2},
-                                  {true, true, true, true, true}, {0, 0, 0, 0},
-                                  {false, false, false, false});
+                                  {true, false, true, true}, {2, 1, 2, 1, 2}, {},
+                                  {0, 0, 0, 0}, {false, false, false, false});
 
   // Empty arrays
   CheckMatch<Time32Type, int32_t>(&this->ctx_, time32(TimeUnit::SECOND), {}, {}, {}, {},
@@ -197,9 +217,12 @@ TEST_F(TestMatchKernel, MatchTimeTimestamp) {
 }
 
 TEST_F(TestMatchKernel, MatchBoolean) {
-  CheckMatch<BooleanType, bool>(&this->ctx_, boolean(), {false, true, false, true},
-                                {true, false, true, true}, {true, false, true},
-                                {false, true, true}, {1, 0, 1, 2}, {});
+  CheckMatch<BooleanType, bool>(&this->ctx_, boolean(),
+                                /* in_values= */ {false, true, false, true},
+                                /* in_is_valid= */ {true, false, true, true},
+                                /* member_set_values= */ {true, false, true},
+                                /* member_set_is_valid= */ {false, true, true},
+                                /* out_values= */ {1, 0, 1, 2}, /* out_is_valid= */ {});
 
   CheckMatch<BooleanType, bool>(&this->ctx_, boolean(), {false, true, false, true},
                                 {true, false, true, true},
@@ -216,7 +239,7 @@ TEST_F(TestMatchKernel, MatchBoolean) {
 
   // No match
   CheckMatch<BooleanType, bool>(&this->ctx_, boolean(), {true, true, true, true}, {},
-                                {false, false, false, false, false}, {}, {0, 0, 0, 0},
+                                {false, false, false}, {}, {0, 0, 0, 0},
                                 {false, false, false, false});
 
   // Nulls in left array
@@ -250,26 +273,36 @@ TYPED_TEST(TestMatchKernelBinary, MatchBinary) {
 
   // No match
   CheckMatch<TypeParam, std::string>(
-      &this->ctx_, type, {"test", "", "test2", "test"}, {true, false, true, true},
-      {"test3", "test4", "test3", "test4"}, {true, true, true, true}, {0, 0, 0, 0},
-      {false, false, false, false});
+      &this->ctx_, type,
+      /* in_values= */ {"test", "", "test2", "test"},
+      /* in_is_valid= */ {true, false, true, true},
+      /* member_set_values= */ {"test3", "test4", "test3", "test4"},
+      /* member_set_is_valid= */ {true, true, true, true},
+      /* out_values= */ {0, 0, 0, 0},
+      /* out_is_valid= */ {false, false, false, false});
 
   // Nulls in left array
-  CheckMatch<TypeParam, std::string>(&this->ctx_, type, {"test", "", "test2", "test"},
-                                     {false, false, false, false},
-                                     {"test", "test2", "test"}, {true, true, true},
-                                     {0, 0, 0, 0}, {false, false, false, false});
+  CheckMatch<TypeParam, std::string>(&this->ctx_, type,
+                                     /* in_values= */ {"test", "", "test2", "test"},
+                                     /* in_is_valid= */ {false, false, false, false},
+                                     /* member_set_values= */ {"test", "test2", "test"},
+                                     /* member_set_is_valid= */ {true, true, true},
+                                     /* out_values= */ {0, 0, 0, 0},
+                                     /* out_is_valid= */ {false, false, false, false});
 
   // Nulls in right array
-  CheckMatch<TypeParam, std::string>(&this->ctx_, type, {"test", "test2", "test"},
-                                     {true, true, true}, {"test", "", "test2", "test"},
-                                     {false, false, false, false}, {0, 0, 0},
-                                     {false, false, false});
+  CheckMatch<TypeParam, std::string>(
+      &this->ctx_, type, {"test", "test2", "test"}, {true, true, true},
+      {"test", "", "test2"}, {false, false, false}, {0, 0, 0}, {false, false, false});
 
   // Both array have Nulls
   CheckMatch<TypeParam, std::string>(
-      &this->ctx_, type, {"test", "", "test2", "test"}, {false, false, false, false},
-      {"test", "", "test2", "test"}, {false, false, false, false}, {0, 0, 0, 0}, {});
+      &this->ctx_, type,
+      /* in_values= */ {"test", "", "test2", "test"},
+      /* in_is_valid= */ {false, false, false, false},
+      /* member_set_values= */ {"test", "", "test2", "test"},
+      /* member_set_is_valid= */ {false, false, false, false},
+      /* out_values= */ {0, 0, 0, 0}, /* out_is_valid= */ {});
 
   // Empty arrays
   CheckMatch<TypeParam, std::string>(&this->ctx_, type, {}, {}, {}, {}, {}, {});
@@ -317,34 +350,51 @@ TEST_F(TestMatchKernel, BinaryResizeTable) {
 
 TEST_F(TestMatchKernel, MatchFixedSizeBinary) {
   CheckMatch<FixedSizeBinaryType, std::string>(
-      &this->ctx_, fixed_size_binary(5), {"bbbbb", "", "aaaaa", "ccccc"},
-      {true, false, true, true}, {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
-      {true, false, true, true, true}, {0, 1, 2, 3}, {});
+      &this->ctx_, fixed_size_binary(5),
+      /* in_values= */ {"bbbbb", "", "aaaaa", "ccccc"},
+      /* in_is_valid= */ {true, false, true, true},
+      /* member_set_values= */ {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
+      /* member_set_is_valid= */ {true, false, true, true, true},
+      /* out_values= */ {0, 1, 2, 3}, /* out_is_valid*/ {});
 
   // Nulls in left
   CheckMatch<FixedSizeBinaryType, std::string>(
-      &this->ctx_, fixed_size_binary(5), {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
-      {false, false, false, false, false}, {"bbbbb", "aabbb", "bbbbb", "aaaaa", "ccccc"},
-      {true, true, true, true, true}, {0, 0, 0, 0, 0},
-      {false, false, false, false, false});
+      &this->ctx_, fixed_size_binary(5),
+      /* in_values= */ {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
+      /* in_is_valid= */ {false, false, false, false, false},
+      /* member_set_values= */ {"bbbbb", "aabbb", "bbbbb", "aaaaa", "ccccc"},
+      /* member_set_is_valid= */ {true, true, true, true, true},
+      /* out_values= */ {0, 0, 0, 0, 0},
+      /* out_is_valid= */ {false, false, false, false, false});
 
   // Nulls in right
   CheckMatch<FixedSizeBinaryType, std::string>(
-      &this->ctx_, fixed_size_binary(5), {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
-      {true, false, true, true, true}, {"bbbbb", "", "bbbbb"}, {false, false, false},
-      {0, 0, 0, 0, 0}, {false, true, false, false, false});
+      &this->ctx_, fixed_size_binary(5),
+      /* in_values= */ {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
+      /* in_is_valid= */ {true, false, true, true, true},
+      /* member_set_values= */ {"bbbbb", "", "bbbbb"},
+      /* member_set_is_valid= */ {false, false, false},
+      /* out_values= */ {0, 0, 0, 0, 0},
+      /* out_is_valid= */ {false, true, false, false, false});
 
   // Both array have Nulls
   CheckMatch<FixedSizeBinaryType, std::string>(
-      &this->ctx_, fixed_size_binary(5), {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
-      {false, false, false, false, false}, {"", "", "bbbbb", "aaaaa"},
-      {false, false, false, false}, {0, 0, 0, 0, 0}, {});
+      &this->ctx_, fixed_size_binary(5),
+      /* in_values= */ {"bbbbb", "", "bbbbb", "aaaaa", "ccccc"},
+      /* in_is_valid= */ {false, false, false, false, false},
+      /* member_set_values= */ {"", "", "bbbbb", "aaaaa"},
+      /* member_set_is_valid= */ {false, false, false, false},
+      /* out_values= */ {0, 0, 0, 0, 0}, /* out_is_valid= */ {});
 
   // No match
   CheckMatch<FixedSizeBinaryType, std::string>(
-      &this->ctx_, fixed_size_binary(5), {"bbbbc", "bbbbc", "aaaad", "cccca"},
-      {true, true, true, true}, {"bbbbb", "", "bbbbb", "aaaaa", "ddddd"},
-      {true, false, true, true, true}, {0, 0, 0, 0}, {false, false, false, false});
+      &this->ctx_, fixed_size_binary(5),
+      /* in_values= */ {"bbbbc", "bbbbc", "aaaad", "cccca"},
+      /* in_is_valid= */ {},
+      /* member_set_values= */ {"bbbbb", "", "bbbbb", "aaaaa", "ddddd"},
+      /* member_set_is_valid= */ {true, false, true, true, true},
+      /* out_values= */ {0, 0, 0, 0},
+      /* out_is_valid= */ {false, false, false, false});
 
   // Empty left array
   CheckMatch<FixedSizeBinaryType, std::string>(&this->ctx_, fixed_size_binary(5), {}, {},
