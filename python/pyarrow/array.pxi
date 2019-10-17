@@ -639,7 +639,7 @@ cdef class Array(_PandasConvertible):
 
         Parameters
         ----------
-        sequence : ndarray, Inded Series
+        sequence : ndarray, Indexed Series
         mask : array (boolean), optional
             Indicate which values are null (True) or not null (False)
         type : pyarrow.DataType
@@ -1315,6 +1315,54 @@ cdef class LargeListArray(Array):
         return pyarrow_wrap_array(arr.values())
 
 
+cdef class MapArray(Array):
+    """
+    Concrete class for Arrow arrays of a map data type.
+    """
+
+    @staticmethod
+    def from_arrays(offsets, keys, items, MemoryPool pool=None):
+        """
+        Construct MapArray from arrays of int32 offsets and key, item arrays
+
+        Parameters
+        ----------
+        offsets : Array (int32 type)
+        keys : Array (any type)
+        items : Array (any type)
+
+        Returns
+        -------
+        map_array : MapArray
+        """
+        cdef:
+            Array _offsets, _keys, _items
+            shared_ptr[CArray] out
+        cdef CMemoryPool* cpool = maybe_unbox_memory_pool(pool)
+
+        _offsets = asarray(offsets, type='int32')
+        _keys = asarray(keys)
+        _items = asarray(items)
+
+        with nogil:
+            check_status(CMapArray.FromArrays(_offsets.sp_array,
+                                              _keys.sp_array, _items.sp_array,
+                                              cpool, &out))
+        cdef Array result = pyarrow_wrap_array(out)
+        result.validate()
+        return result
+
+    @property
+    def keys(self):
+        cdef CMapArray* arr = <CMapArray*> self.ap
+        return pyarrow_wrap_array(arr.keys())
+
+    @property
+    def items(self):
+        cdef CMapArray* arr = <CMapArray*> self.ap
+        return pyarrow_wrap_array(arr.items())
+
+
 cdef class UnionArray(Array):
     """
     Concrete class for Arrow arrays of a Union data type.
@@ -1768,6 +1816,7 @@ cdef dict _array_classes = {
     _Type_DOUBLE: DoubleArray,
     _Type_LIST: ListArray,
     _Type_LARGE_LIST: LargeListArray,
+    _Type_MAP: MapArray,
     _Type_UNION: UnionArray,
     _Type_BINARY: BinaryArray,
     _Type_STRING: StringArray,

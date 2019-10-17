@@ -46,6 +46,7 @@ namespace arrow {
 
 using internal::BitmapAnd;
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 using internal::CopyBitmap;
 using internal::CountSetBits;
 
@@ -380,6 +381,75 @@ MapArray::MapArray(const std::shared_ptr<DataType>& type, int64_t length,
   SetData(map_data);
 }
 
+Status MapArray::FromArrays(const std::shared_ptr<Array>& offsets,
+                            const std::shared_ptr<Array>& keys,
+                            const std::shared_ptr<Array>& items,
+                            MemoryPool* pool, std::shared_ptr<Array>* out) {
+  using offset_type = typename MapType::offset_type;
+  using OffsetArrowType = typename CTypeTraits<offset_type>::ArrowType;
+  using OffsetArrayType = typename TypeTraits<OffsetArrowType>::ArrayType;
+
+  if (offsets->length() == 0) {
+    return Status::Invalid("Map offsets must have non-zero length");
+  }
+
+  if (offsets->type_id() != OffsetArrowType::type_id) {
+    return Status::TypeError("Map offsets must be ", OffsetArrowType::type_name());
+  }
+
+  if (keys->length() != items->length()) {
+    return Status::Invalid("Map key and item arrays must be equal length");
+  }
+
+  std::shared_ptr<Buffer> offset_buf, validity_buf;
+
+  const auto typed_offsets = checked_pointer_cast<const OffsetArrayType>(offsets);
+
+  const int64_t num_offsets = offsets->length();
+
+  if (offsets->null_count() > 0) {
+    if (!offsets->IsValid(num_offsets - 1)) {
+      return Status::Invalid("Last map offset should be non-null");
+    }
+
+    /* TODO: Copied from ListArray::FromArrays, not sure why?
+    std::shared_ptr<Buffer> clean_offsets, clean_valid_bits;
+    RETURN_NOT_OK(
+        AllocateBuffer(pool, num_offsets * sizeof(offset_type), &clean_offsets));
+
+    // Copy valid bits, zero out the bit for the final offset
+    // XXX why?
+    RETURN_NOT_OK(offsets.null_bitmap()->Copy(0, BitUtil::BytesForBits(num_offsets - 1),
+                                              &clean_valid_bits));
+    BitUtil::ClearBit(clean_valid_bits->mutable_data(), num_offsets);
+    buffers.emplace_back(std::move(clean_valid_bits));
+
+    const offset_type* raw_offsets = typed_offsets.raw_values();
+    auto clean_raw_offsets =
+        reinterpret_cast<offset_type*>(clean_offsets->mutable_data());
+
+    // Must work backwards so we can tell how many values were in the last non-null value
+    offset_type current_offset = raw_offsets[num_offsets - 1];
+    for (int64_t i = num_offsets - 1; i >= 0; --i) {
+      if (offsets.IsValid(i)) {
+        current_offset = raw_offsets[i];
+      }
+      clean_raw_offsets[i] = current_offset;
+    }
+
+    buffers.emplace_back(std::move(clean_offsets));*/
+  } else {
+    validity_buf = offsets->null_bitmap();
+    offset_buf = typed_offsets->values();
+  }
+
+  auto map_type = std::make_shared<MapType>(keys->type(), items->type());
+  *out = std::make_shared<MapArray>(map_type, num_offsets - 1, offset_buf,
+                                    keys, items, validity_buf,
+                                    offsets->null_count(), offsets->offset());
+  return Status::OK();
+}
+
 void MapArray::SetData(const std::shared_ptr<ArrayData>& data) {
   ARROW_CHECK_EQ(data->type->id(), Type::MAP);
   auto pair_data = data->child_data[0];
@@ -391,7 +461,7 @@ void MapArray::SetData(const std::shared_ptr<ArrayData>& data) {
   auto pair_list_data = data->Copy();
   pair_list_data->type = list(pair_data->type);
   this->ListArray::SetData(pair_list_data);
-  data_->type = data->type;
+  data_->type = pair_list_data->type;
 
   keys_ = MakeArray(pair_data->child_data[0]);
   items_ = MakeArray(pair_data->child_data[1]);
