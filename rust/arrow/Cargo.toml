@@ -57,6 +57,7 @@ default = ["simd"]
 [dev-dependencies]
 criterion = "0.2"
 lazy_static = "1"
+flate2 = "1"
 
 [[bench]]
 name = "array_from_vec"

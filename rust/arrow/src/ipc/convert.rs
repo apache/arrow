@@ -129,7 +129,7 @@ fn get_data_type(field: ipc::Field) -> DataType {
                 }
                 (64, ipc::TimeUnit::NANOSECOND) => DataType::Time64(TimeUnit::Nanosecond),
                 z @ _ => panic!(
-                    "Time type with bit witdh of {} and unit of {:?} not supported",
+                    "Time type with bit width of {} and unit of {:?} not supported",
                     z.0, z.1
                 ),
             }

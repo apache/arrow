@@ -24,11 +24,11 @@ use serde_json::Value;
 
 use crate::array::*;
 use crate::datatypes::*;
-use crate::record_batch::RecordBatch;
+use crate::record_batch::{RecordBatch, RecordBatchReader};
 
 /// A struct that represents an Arrow file with a schema and record batches
 #[derive(Deserialize)]
-struct ArrowJson {
+pub(crate) struct ArrowJson {
     schema: ArrowJsonSchema,
     batches: Vec<ArrowJsonBatch>,
 }
@@ -60,6 +60,22 @@ struct ArrowJsonColumn {
     #[serde(rename = "OFFSET")]
     offset: Option<Vec<Value>>, // leaving as Value as 64-bit offsets are strings
     children: Option<Vec<ArrowJsonColumn>>,
+}
+
+impl ArrowJson {
+    // Compare the Arrow JSON with a record batch reader
+    pub fn equals_reader(&self, reader: &mut RecordBatchReader) -> bool {
+        if !self.schema.equals_schema(&reader.schema()) {
+            return false;
+        }
+        self.batches.iter().all(|col| {
+            let batch = reader.next_batch();
+            match batch {
+                Ok(Some(batch)) => col.equals_batch(&batch),
+                _ => false,
+            }
+        })
+    }
 }
 
 impl ArrowJsonSchema {

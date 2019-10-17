@@ -23,10 +23,10 @@ use std::sync::Arc;
 use crate::array::*;
 use crate::buffer::Buffer;
 use crate::compute::cast;
-use crate::datatypes::{DataType, Schema};
+use crate::datatypes::{DataType, Schema, SchemaRef};
 use crate::error::{ArrowError, Result};
 use crate::ipc;
-use crate::record_batch::RecordBatch;
+use crate::record_batch::{RecordBatch, RecordBatchReader};
 use DataType::*;
 
 static ARROW_MAGIC: [u8; 6] = [b'A', b'R', b'R', b'O', b'W', b'1'];
@@ -381,7 +381,7 @@ impl<R: Read + Seek> Reader<R> {
     }
 
     /// Return the schema of the file
-    pub fn schema(&self) -> Arc<Schema> {
+    pub fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 
@@ -428,18 +428,27 @@ impl<R: Read + Seek> Reader<R> {
 
     /// Read a specific record batch
     ///
-    /// Sets the current block to the batch number, and reads the record batch at that
-    /// block
-    pub fn read_batch(&mut self, batch_num: usize) -> Result<Option<RecordBatch>> {
-        if batch_num >= self.total_blocks {
+    /// Sets the current block to the index, allowing random reads
+    pub fn set_index(&mut self, index: usize) -> Result<()> {
+        if index >= self.total_blocks {
             Err(ArrowError::IoError(format!(
-                "Cannot read batch at index {} from {} total batches",
-                batch_num, self.total_blocks
+                "Cannot set batch to index {} from {} total batches",
+                index, self.total_blocks
             )))
         } else {
-            self.current_block = batch_num;
-            self.next()
+            self.current_block = index;
+            Ok(())
         }
+    }
+}
+
+impl<R: Read + Seek> RecordBatchReader for Reader<R> {
+    fn schema(&mut self) -> SchemaRef {
+        self.schema.clone()
+    }
+
+    fn next_batch(&mut self) -> Result<Option<RecordBatch>> {
+        self.next()
     }
 }
 
@@ -447,214 +456,51 @@ impl<R: Read + Seek> Reader<R> {
 mod tests {
     use super::*;
 
-    use crate::datatypes::*;
+    use flate2::read::GzDecoder;
+
+    use crate::util::integration_util::*;
     use std::env;
     use std::fs::File;
 
-    use DataType::*;
-
     #[test]
-    fn test_read_primitive_file() {
+    fn read_generated_files() {
         let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
-        let file = File::open(format!(
-            "{}/data/arrow-ipc/rust/primitive_types.file.arrow",
-            testdata
-        ))
-        .unwrap();
+        // the test is repetitive, thus we can read all supported files at once
+        let paths = vec![
+            "generated_datetime",
+            "generated_nested",
+            "generated_primitive_no_batches",
+            "generated_primitive_zerolength",
+            "generated_primitive",
+        ];
+        paths.iter().for_each(|path| {
+            let file = File::open(format!(
+                "{}/data/arrow-ipc/integration/0.14.1/{}.arrow_file",
+                testdata, path
+            ))
+            .unwrap();
 
-        let mut reader = Reader::try_new(file).unwrap();
-        assert_eq!(3, reader.num_batches());
-        for _ in 0..reader.num_batches() {
-            let batch = reader.next().unwrap().unwrap();
-            validate_primitive_batch(batch);
-        }
-        // try read a batch after all batches are exhausted
-        let batch = reader.next().unwrap();
-        assert!(batch.is_none());
+            let mut reader = Reader::try_new(file).unwrap();
 
-        // seek a specific batch
-        let batch = reader.read_batch(4).unwrap().unwrap();
-        validate_primitive_batch(batch);
-        // try read a batch after seeking to the last batch
-        let batch = reader.next().unwrap();
-        assert!(batch.is_none());
+            // read expected JSON output
+            let arrow_json = read_gzip_json(path);
+            assert!(arrow_json.equals_reader(&mut reader));
+        });
     }
 
-    #[test]
-    fn test_read_list_file() {
+    /// Read gzipped JSON file
+    fn read_gzip_json(path: &str) -> ArrowJson {
         let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
         let file = File::open(format!(
-            "{}/data/arrow-ipc/rust/list_types.file.arrow",
-            testdata
+            "{}/data/arrow-ipc/integration/0.14.1/{}.json.gz",
+            testdata, path
         ))
         .unwrap();
-
-        let mut reader = Reader::try_new(file).unwrap();
-        assert_eq!(3, reader.num_batches());
-        for _ in 0..reader.num_batches() {
-            let batch = reader.next().unwrap().unwrap();
-            validate_primitive_batch(batch);
-        }
-    }
-
-    #[test]
-    fn test_read_struct_file() {
-        let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
-        let file = File::open(format!(
-            "{}/data/arrow-ipc/rust/struct_types.file.arrow",
-            testdata
-        ))
-        .unwrap();
-
-        let schema = Schema::new(vec![Field::new(
-            "structs",
-            Struct(vec![
-                Field::new("bools", Boolean, true),
-                Field::new("int8s", Int8, true),
-                Field::new("varbinary", Utf8, true),
-                Field::new("numericlist", List(Box::new(Int8)), true),
-                Field::new("floatlist", List(Box::new(Float32)), true),
-            ]),
-            true,
-        )]);
-
-        // batch contents
-        let list_values_builder = Int8Builder::new(10);
-        let mut list_builder = ListBuilder::new(list_values_builder);
-        // [[1,2,3,4], null, [5,6], [7], [8,9,10]]
-        list_builder.values().append_value(1).unwrap();
-        list_builder.values().append_value(2).unwrap();
-        list_builder.values().append_value(3).unwrap();
-        list_builder.values().append_value(4).unwrap();
-        list_builder.append(true).unwrap();
-        list_builder.append(false).unwrap();
-        list_builder.values().append_value(5).unwrap();
-        list_builder.values().append_value(6).unwrap();
-        list_builder.append(true).unwrap();
-        list_builder.values().append_value(7).unwrap();
-        list_builder.append(true).unwrap();
-        list_builder.values().append_value(8).unwrap();
-        list_builder.values().append_value(9).unwrap();
-        list_builder.values().append_value(10).unwrap();
-        list_builder.append(true).unwrap();
-        let list_array: ListArray = list_builder.finish();
-
-        // floats
-        let list_values_builder = Float32Builder::new(10);
-        let mut list_builder = ListBuilder::new(list_values_builder);
-        // [[1.1,2.2,3.3,4.4], null, [5.5,6.6], [7.7], [8.8,9.9,10.0]]
-        list_builder.values().append_value(1.1).unwrap();
-        list_builder.values().append_value(2.2).unwrap();
-        list_builder.values().append_value(3.3).unwrap();
-        list_builder.values().append_value(4.4).unwrap();
-        list_builder.append(true).unwrap();
-        list_builder.append(false).unwrap();
-        list_builder.values().append_value(5.5).unwrap();
-        list_builder.values().append_value(6.6).unwrap();
-        list_builder.append(true).unwrap();
-        list_builder.values().append_value(7.7).unwrap();
-        list_builder.append(true).unwrap();
-        list_builder.values().append_value(8.8).unwrap();
-        list_builder.values().append_value(9.9).unwrap();
-        list_builder.values().append_value(10.0).unwrap();
-        list_builder.append(true).unwrap();
-        let float_list_array: ListArray = list_builder.finish();
-
-        let mut binary_builder = BinaryBuilder::new(100);
-        binary_builder.append_string("foo").unwrap();
-        binary_builder.append_string("bar").unwrap();
-        binary_builder.append_string("baz").unwrap();
-        binary_builder.append_string("qux").unwrap();
-        binary_builder.append_string("quux").unwrap();
-        let binary_array = binary_builder.finish();
-        // create struct array
-        let struct_array = StructArray::from(vec![
-            (
-                Field::new("bools", Boolean, true),
-                Arc::new(BooleanArray::from(vec![
-                    Some(true),
-                    None,
-                    None,
-                    Some(false),
-                    Some(true),
-                ])) as Arc<Array>,
-            ),
-            (
-                Field::new("int8s", Int8, true),
-                Arc::new(Int8Array::from(vec![
-                    Some(-1),
-                    None,
-                    None,
-                    Some(-4),
-                    Some(-5),
-                ])),
-            ),
-            (Field::new("varbinary", Utf8, true), Arc::new(binary_array)),
-            (
-                Field::new("numericlist", List(Box::new(Int8)), true),
-                Arc::new(list_array),
-            ),
-            (
-                Field::new("floatlist", List(Box::new(Float32)), true),
-                Arc::new(float_list_array),
-            ),
-        ]);
-
-        let mut reader = Reader::try_new(file).unwrap();
-        assert_eq!(3, reader.num_batches());
-        for _ in 0..reader.num_batches() {
-            let batch: RecordBatch = reader.next().unwrap().unwrap();
-            assert_eq!(&Arc::new(schema.clone()), batch.schema());
-            assert_eq!(1, batch.num_columns());
-            assert_eq!(5, batch.num_rows());
-            let struct_col: &StructArray = batch
-                .column(0)
-                .as_any()
-                .downcast_ref::<StructArray>()
-                .unwrap();
-            // test equality of struct columns
-            assert!(struct_col.equals(&struct_array));
-        }
-        // try read a batch after all batches are exhausted
-        let batch = reader.next().unwrap();
-        assert!(batch.is_none());
-
-        // seek a specific batch
-        reader.read_batch(2).unwrap().unwrap();
-        // validate_batch(batch);
-        // try read a batch after seeking to the last batch
-        let batch = reader.next().unwrap();
-        assert!(batch.is_none());
-    }
-
-    /// Validate the `RecordBatch` of primitive arrays
-    fn validate_primitive_batch(batch: RecordBatch) {
-        assert_eq!(5, batch.num_rows());
-        assert_eq!(1, batch.num_columns());
-        let arr_1 = batch.column(0);
-        let int32_array = arr_1.as_any().downcast_ref::<BooleanArray>().unwrap();
-        assert_eq!(
-            "PrimitiveArray<Boolean>\n[\n  true,\n  null,\n  null,\n  false,\n  true,\n]",
-            format!("{:?}", int32_array)
-        );
-        let arr_2 = batch.column(1);
-        let binary_array = BinaryArray::from(arr_2.data());
-        assert_eq!("foo", std::str::from_utf8(binary_array.value(0)).unwrap());
-        assert_eq!("bar", std::str::from_utf8(binary_array.value(1)).unwrap());
-        assert_eq!("baz", std::str::from_utf8(binary_array.value(2)).unwrap());
-        assert!(binary_array.is_null(3));
-        assert_eq!("quux", std::str::from_utf8(binary_array.value(4)).unwrap());
-        let arr_3 = batch.column(2);
-        let f32_array = Float32Array::from(arr_3.data());
-        assert_eq!(
-            "PrimitiveArray<Float32>\n[\n  1.0,\n  2.0,\n  null,\n  4.0,\n  5.0,\n]",
-            format!("{:?}", f32_array)
-        );
-        let arr_4 = batch.column(3);
-        let bool_array = BooleanArray::from(arr_4.data());
-        assert_eq!(
-            "PrimitiveArray<Boolean>\n[\n  true,\n  null,\n  false,\n  true,\n  false,\n]",
-            format!("{:?}", bool_array)
-        );
+        let mut gz = GzDecoder::new(&file);
+        let mut s = String::new();
+        gz.read_to_string(&mut s).unwrap();
+        // convert to Arrow JSON
+        let arrow_json: ArrowJson = serde_json::from_str(&s).unwrap();
+        arrow_json
     }
 }
