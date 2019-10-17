@@ -6,6 +6,9 @@
 # benefit from the improvement.
 
 set -xeuo pipefail
+
+output_dir=${1}
+
 export PYTHONUNBUFFERED=1
 export FEEDSTOCK_ROOT="${FEEDSTOCK_ROOT:-/home/conda/feedstock_root}"
 export CI_SUPPORT="${FEEDSTOCK_ROOT}/.ci_support"
@@ -14,7 +17,7 @@ export CONFIG_FILE="${CI_SUPPORT}/${CONFIG}.yaml"
 cat >~/.condarc <<CONDARC
 
 conda-build:
- root-dir: ${FEEDSTOCK_ROOT}/build_artifacts
+ root-dir: ${output_dir}
 
 CONDARC
 
@@ -25,10 +28,6 @@ setup_conda_rc "${FEEDSTOCK_ROOT}" "${FEEDSTOCK_ROOT}" "${CONFIG_FILE}"
 
 source run_conda_forge_build_setup
 
-# pin conda build, 3.18.10 has introduced issue:
-# "Can't merge/copy source into subdirectory of itself."
-conda install -y conda-build=3.18.9
-
 # make the build number clobber
 make_build_number "${FEEDSTOCK_ROOT}" "${FEEDSTOCK_ROOT}" "${CONFIG_FILE}"
 
@@ -38,6 +37,6 @@ conda build \
     "${FEEDSTOCK_ROOT}/pyarrow" \
     -m "${CI_SUPPORT}/${CONFIG}.yaml" \
     --clobber-file "${CI_SUPPORT}/clobber_${CONFIG}.yaml" \
-    --output-folder "${OUTPUT_FOLDER}"
+    --output-folder "${output_dir}"
 
-touch "${OUTPUT_FOLDER}/conda-forge-build-done-${CONFIG}"
+touch "${output_dir}/conda-forge-build-done-${CONFIG}"
