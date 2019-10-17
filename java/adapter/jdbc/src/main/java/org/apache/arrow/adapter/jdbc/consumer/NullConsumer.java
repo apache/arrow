@@ -47,4 +47,9 @@ public class NullConsumer implements JdbcConsumer<NullVector> {
   public void resetValueVector(NullVector vector) {
     this.vector = vector;
   }
+
+  @Override
+  public boolean wasNull(ResultSet resultSet) throws SQLException {
+    return true;
+  }
 }
