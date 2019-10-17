@@ -95,8 +95,8 @@ impl RecordBatch {
     }
 
     /// Get a reference to all columns
-    pub fn columns(&self) -> &Vec<ArrayRef> {
-        &self.columns
+    pub fn columns(&self) -> &[ArrayRef] {
+        &self.columns[..]
     }
 }
 
