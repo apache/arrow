@@ -304,6 +304,57 @@ TYPED_TEST(TestDictionaryBuilder, Dictionary32_BasicPrimitive) {
   ASSERT_TRUE(expected.Equals(result));
 }
 
+TYPED_TEST(TestDictionaryBuilder, FinishResetBehavior) {
+  // ARROW-6861
+  using c_type = typename TypeParam::c_type;
+  auto type = std::make_shared<TypeParam>();
+
+  Dictionary32Builder<TypeParam> builder;
+
+  ASSERT_OK(builder.Append(static_cast<c_type>(1)));
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_OK(builder.Append(static_cast<c_type>(1)));
+  ASSERT_OK(builder.Append(static_cast<c_type>(2)));
+
+  // Properties from indices_builder propagated
+  ASSERT_LT(0, builder.capacity());
+  ASSERT_LT(0, builder.null_count());
+  ASSERT_EQ(4, builder.length());
+
+  std::shared_ptr<Array> result;
+  ASSERT_OK(builder.Finish(&result));
+
+  // Everything reset
+  ASSERT_EQ(0, builder.capacity());
+  ASSERT_EQ(0, builder.length());
+  ASSERT_EQ(0, builder.null_count());
+
+  // Use the builder again
+  ASSERT_OK(builder.Append(static_cast<c_type>(3)));
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_OK(builder.Append(static_cast<c_type>(4)));
+
+  ASSERT_OK(builder.Finish(&result));
+
+  // Dictionary has 4 elements because the dictionary memo was not reset. This
+  // behavior will change after ARROW-6869
+  ASSERT_EQ(2, static_cast<const DictionaryArray&>(*result).dictionary()->length());
+}
+
+TEST(TestDictionaryBuilderAdHoc, AppendIndicesUpdateCapacity) {
+  DictionaryBuilder<Int32Type> builder;
+  Dictionary32Builder<Int32Type> builder32;
+
+  std::vector<int32_t> indices_i32 = {0, 1, 2};
+  std::vector<int64_t> indices_i64 = {0, 1, 2};
+
+  ASSERT_OK(builder.AppendIndices(indices_i64.data(), 3));
+  ASSERT_OK(builder32.AppendIndices(indices_i32.data(), 3));
+
+  ASSERT_LT(0, builder.capacity());
+  ASSERT_LT(0, builder32.capacity());
+}
+
 TEST(TestStringDictionaryBuilder, Basic) {
   // Build the dictionary Array
   StringDictionaryBuilder builder;
