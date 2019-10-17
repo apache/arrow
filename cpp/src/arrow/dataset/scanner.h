@@ -188,9 +188,6 @@ class ARROW_DS_EXPORT ScannerBuilder {
   Status Filter(std::shared_ptr<Expression> filter);
   Status Filter(const Expression& filter);
 
-  /// \brief Set the MemoryPool used internally to allocate memory.
-  Status SetMemoryPool(MemoryPool* pool);
-
   /// \brief Return the constructed now-immutable Scanner object
   Status Finish(std::unique_ptr<Scanner>* out) const;
 
@@ -200,8 +197,8 @@ class ARROW_DS_EXPORT ScannerBuilder {
   std::shared_ptr<Dataset> dataset_;
   std::shared_ptr<ScanOptions> scan_options_;
   std::shared_ptr<ScanContext> scan_context_;
+  bool has_projection_ = false;
   std::vector<std::string> project_columns_;
-  MemoryPool* pool_;
 };
 
 }  // namespace dataset

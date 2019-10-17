@@ -135,9 +135,7 @@ class FilterTest : public ::testing::Test {
                          std::shared_ptr<BooleanArray>* expected_mask = nullptr) {
     // expected filter result is in the "in" field
     fields.push_back(field("in", boolean()));
-    auto schema_ = schema(fields);
-
-    auto batch = RecordBatchFromJSON(schema_, batch_json);
+    auto batch = RecordBatchFromJSON(schema(fields), batch_json);
     if (expected_mask) {
       *expected_mask = checked_pointer_cast<BooleanArray>(batch->GetColumnByName("in"));
     }
