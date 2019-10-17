@@ -22,12 +22,11 @@ The Arrow C data interface
 Rationale
 =========
 
-Apache Arrow aims to be a universal in-memory format for the representation
-of tabular ("columnar") data, but some projects may face a difficult
-choice between either depending on a fast-evolving dependency such as the
-Arrow C++ library, or having to implement adapters for data interchange
-(for example by reimplementing the Arrow IPC format, which is non-trivial
-and does not allow cross-runtime zero-copy).
+Apache Arrow is designed to be a universal in-memory format for the representation
+of tabular ("columnar") data. However, some projects may face a difficult
+choice between either depending on a fast-evolving project such as the
+Arrow C++ library, or having to reimplement adapters for data interchange,
+which may require significant, redundant development effort.
 
 The Arrow C data interface defines a very small, stable set of C definitions
 that can be easily *copied* in any project's source code and used for columnar
@@ -35,25 +34,27 @@ data interchange in the Arrow format.  For non-C/C++ languages and runtimes,
 it should be almost as easy to translate the C definitions into the
 corresponding C FFI declarations.
 
-Applications and libraries can therefore choose between tight integration
+Applications and libraries can therefore work with Arrow memory without
+necessarily using Arrow libraries or reinventing the wheel. Developers can
+choose between tight integration
 with the Arrow *software project* (benefitting from the growing array of
 facilities exposed by e.g. the C++ or Java implementations of Apache Arrow,
 but with the cost of a dependency) or minimal integration with the Arrow
-*format*.
+*format* only.
 
 Goals
 -----
 
 * Expose an ABI-stable interface.
-* Easy for third-party projects to implement support for (including partial
+* Make it easy for third-party projects to implement support for (including partial
   support where sufficient), with little initial investment.
-* Zero-copy sharing of Arrow data between independent runtimes
+* Allow zero-copy sharing of Arrow data between independent runtimes
   and components running in the same process.
-* Match the Arrow array concepts closely, to avoid the development of
+* Match the Arrow array concepts closely to avoid the development of
   yet another marshalling layer.
 * Avoid the need for one-to-one adaptation layers such as the limited
   JPype-based bridge between Java and Python.
-* Allow integration without an explicit dependency (either at compile-time
+* Enable integration without an explicit dependency (either at compile-time
   or runtime) on the Arrow software project.
 
 Ideally, the Arrow C data interface can become a low-level *lingua franca*
@@ -79,9 +80,9 @@ Pros of the C data interface vs. the IPC format:
 
 Pros of the IPC format vs. the data interface:
 
-* Works accross processes and machines.
-* Allows data storage and persistency.
-* Being a streamable format, has room for composing more features (such as
+* Works across processes and machines.
+* Allows data storage and persistence.
+* Being a streamable format, the IPC format has room for composing more features (such as
   integrity checks, compression...).
 
 Data type description -- format strings
