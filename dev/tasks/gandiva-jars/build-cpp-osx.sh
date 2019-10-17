@@ -33,6 +33,8 @@ pushd cpp
           -DARROW_BUILD_UTILITIES=OFF \
           -DPARQUET_BUILD_ENCRYPTION=OFF \
           -DARROW_PARQUET=OFF \
+          -DARROW_FILESYSTEM=OFF \
+          -DARROW_DATASET=OFF \
           -DARROW_BOOST_USE_SHARED=OFF"
 
     if [ $TRAVIS_OS_NAME == "osx" ]; then
