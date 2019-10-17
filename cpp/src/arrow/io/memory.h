@@ -104,6 +104,9 @@ class ARROW_EXPORT MockOutputStream : public OutputStream {
   bool closed() const override;
   Status Tell(int64_t* position) const override;
   Status Write(const void* data, int64_t nbytes) override;
+  /// \cond FALSE
+  using Writable::Write;
+  /// \endcond
 
   int64_t GetExtentBytesWritten() const { return extent_bytes_written_; }
 
@@ -124,6 +127,10 @@ class ARROW_EXPORT FixedSizeBufferWriter : public WritableFile {
   Status Seek(int64_t position) override;
   Status Tell(int64_t* position) const override;
   Status Write(const void* data, int64_t nbytes) override;
+  /// \cond FALSE
+  using Writable::Write;
+  /// \endcond
+
   Status WriteAt(int64_t position, const void* data, int64_t nbytes) override;
 
   void set_memcopy_threads(int num_threads);
