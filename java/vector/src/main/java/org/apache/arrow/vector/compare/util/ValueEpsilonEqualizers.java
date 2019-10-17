@@ -64,6 +64,11 @@ public class ValueEpsilonEqualizers {
 
       return Math.abs(d1 - d2) <= epsilon;
     }
+
+    @Override
+    public VectorValueEqualizer<FloatingPointVector> copy() {
+      return new FloatingPointEpsilonEqualizer(epsilon);
+    }
   }
 
   /**
@@ -97,6 +102,11 @@ public class ValueEpsilonEqualizers {
 
       return Math.abs(f1 - f2) <= epsilon;
     }
+
+    @Override
+    public VectorValueEqualizer<Float4Vector> copy() {
+      return new Float4EpsilonEqualizer(epsilon);
+    }
   }
 
   /**
@@ -129,6 +139,11 @@ public class ValueEpsilonEqualizers {
       }
 
       return Math.abs(d1 - d2) <= epsilon;
+    }
+
+    @Override
+    public VectorValueEqualizer<Float8Vector> copy() {
+      return new Float8EpsilonEqualizer(epsilon);
     }
   }
 }

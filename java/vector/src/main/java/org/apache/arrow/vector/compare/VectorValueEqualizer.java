@@ -35,4 +35,10 @@ public interface VectorValueEqualizer<V extends ValueVector> {
    * @return true if the two values are considered to be equal, and false otherwise.
    */
   boolean valuesEqual(V vector1, int index1, V vector2, int index2);
+
+  /**
+   * Creates a equalizer of the same type.
+   * @return the newly created equalizer.
+   */
+  VectorValueEqualizer<V> copy();
 }

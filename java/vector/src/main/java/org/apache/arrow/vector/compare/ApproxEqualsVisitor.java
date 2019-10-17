@@ -29,12 +29,6 @@ import org.apache.arrow.vector.compare.util.ValueEpsilonEqualizers;
 public class ApproxEqualsVisitor extends RangeEqualsVisitor {
 
   /**
-   * The float/double values are treated as equal as long as the difference calculated by function is <= epsilon.
-   */
-  private final float floatEpsilon;
-  private final double doubleEpsilon;
-
-  /**
    * Functions to calculate difference between float/double values.
    */
   private final VectorValueEqualizer<Float4Vector> floatDiffFunction;
@@ -50,11 +44,24 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
    */
   public ApproxEqualsVisitor(ValueVector left, ValueVector right, float floatEpsilon, double doubleEpsilon) {
     super(left, right, true);
-    this.floatEpsilon = floatEpsilon;
-    this.doubleEpsilon = doubleEpsilon;
 
     floatDiffFunction = new ValueEpsilonEqualizers.Float4EpsilonEqualizer(floatEpsilon);
     doubleDiffFunction = new ValueEpsilonEqualizers.Float8EpsilonEqualizer(doubleEpsilon);
+  }
+
+  /**
+   * Constructs a new instance.
+   * @param left the left vector.
+   * @param right the right vector.
+   * @param floatDiffFunction the equalizer for float values.
+   * @param doubleDiffFunction the equalizer for double values.
+   */
+  public ApproxEqualsVisitor(ValueVector left, ValueVector right,
+                             VectorValueEqualizer<Float4Vector> floatDiffFunction,
+                             VectorValueEqualizer<Float8Vector> doubleDiffFunction) {
+    super(left, right, true);
+    this.floatDiffFunction = floatDiffFunction;
+    this.doubleDiffFunction = doubleDiffFunction;
   }
 
   @Override
@@ -76,7 +83,7 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
 
   @Override
   protected ApproxEqualsVisitor createInnerVisitor(ValueVector left, ValueVector right) {
-    return new ApproxEqualsVisitor(left, right, floatEpsilon, doubleEpsilon);
+    return new ApproxEqualsVisitor(left, right, floatDiffFunction.copy(), doubleDiffFunction.copy());
   }
 
   private boolean float4ApproxEquals(Range range) {
