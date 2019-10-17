@@ -11,33 +11,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-pkg_check_modules(GRPC_PC grpc)
-if(GRPC_PC_FOUND)
-  set(GRPC_INCLUDE_DIR "${GRPC_PC_INCLUDEDIR}")
-  list(APPEND GRPC_PC_LIBRARY_DIRS "${GRPC_PC_LIBDIR}")
-  message(STATUS "${GRPC_PC_LIBRARY_DIRS}")
-
-  find_library(GRPC_GPR_LIB gpr
-               PATHS ${GRPC_PC_LIBRARY_DIRS}
-               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
-               NO_DEFAULT_PATH)
-  find_library(GRPC_GRPC_LIB grpc
-               PATHS ${GRPC_PC_LIBRARY_DIRS}
-               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
-               NO_DEFAULT_PATH)
-  find_library(GRPC_GRPCPP_LIB grpc++
-               PATHS ${GRPC_PC_LIBRARY_DIRS}
-               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
-               NO_DEFAULT_PATH)
-  find_library(GRPC_ADDRESS_SORTING_LIB address_sorting
-               PATHS ${GRPC_PC_LIBRARY_DIRS}
-               PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
-               NO_DEFAULT_PATH)
-  find_program(GRPC_CPP_PLUGIN grpc_cpp_plugin
-               HINTS ${GRPC_PC_PREFIX}
-               NO_DEFAULT_PATH
-               PATH_SUFFIXES "bin")
-elseif(gRPC_ROOT)
+unset(GRPC_ALT_VERSION)
+if(gRPC_ROOT)
   find_library(GRPC_GPR_LIB gpr
                PATHS ${gRPC_ROOT}
                PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
@@ -63,22 +38,56 @@ elseif(gRPC_ROOT)
             NO_DEFAULT_PATH
             PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
 else()
-  find_library(GRPC_GPR_LIB gpr PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
-  find_library(GRPC_GRPC_LIB grpc PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
-  find_library(GRPC_GRPCPP_LIB grpc++ PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
-  find_library(GRPC_ADDRESS_SORTING_LIB address_sorting
-               PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
-  find_program(GRPC_CPP_PLUGIN grpc_cpp_plugin PATH_SUFFIXES "bin")
-  find_path(GRPC_INCLUDE_DIR NAMES grpc/grpc.h PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
+  pkg_check_modules(GRPC_PC grpc++)
+  if(GRPC_PC_FOUND)
+    set(GRPC_ALT_VERSION "${GRPC_PC_VERSION}")
+    set(GRPC_INCLUDE_DIR "${GRPC_PC_INCLUDEDIR}")
+    list(APPEND GRPC_PC_LIBRARY_DIRS "${GRPC_PC_LIBDIR}")
+    message(STATUS "${GRPC_PC_LIBRARY_DIRS}")
+
+    find_library(GRPC_GPR_LIB gpr
+                 PATHS ${GRPC_PC_LIBRARY_DIRS}
+                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+                 NO_DEFAULT_PATH)
+    find_library(GRPC_GRPC_LIB grpc
+                 PATHS ${GRPC_PC_LIBRARY_DIRS}
+                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+                 NO_DEFAULT_PATH)
+    find_library(GRPC_GRPCPP_LIB grpc++
+                 PATHS ${GRPC_PC_LIBRARY_DIRS}
+                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+                 NO_DEFAULT_PATH)
+    find_library(GRPC_ADDRESS_SORTING_LIB address_sorting
+                 PATHS ${GRPC_PC_LIBRARY_DIRS}
+                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES}
+                 NO_DEFAULT_PATH)
+    find_program(GRPC_CPP_PLUGIN grpc_cpp_plugin
+                 HINTS ${GRPC_PC_PREFIX}
+                 NO_DEFAULT_PATH
+                 PATH_SUFFIXES "bin")
+  else()
+    find_library(GRPC_GPR_LIB gpr PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+    find_library(GRPC_GRPC_LIB grpc PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+    find_library(GRPC_GRPCPP_LIB grpc++ PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+    find_library(GRPC_ADDRESS_SORTING_LIB address_sorting
+                 PATH_SUFFIXES ${LIB_PATH_SUFFIXES})
+    find_program(GRPC_CPP_PLUGIN grpc_cpp_plugin PATH_SUFFIXES "bin")
+    find_path(GRPC_INCLUDE_DIR NAMES grpc/grpc.h PATH_SUFFIXES ${INCLUDE_PATH_SUFFIXES})
+  endif()
 endif()
 
-find_package_handle_standard_args(gRPCAlt
-                                  REQUIRED_VARS
-                                  GRPC_INCLUDE_DIR
-                                  GRPC_GPR_LIB
-                                  GRPC_GRPC_LIB
-                                  GRPC_GRPCPP_LIB
-                                  GRPC_CPP_PLUGIN)
+set(GRPC_ALT_FIND_PACKAGE_ARGS
+    gRPCAlt
+    REQUIRED_VARS
+    GRPC_INCLUDE_DIR
+    GRPC_GPR_LIB
+    GRPC_GRPC_LIB
+    GRPC_GRPCPP_LIB
+    GRPC_CPP_PLUGIN)
+if(GRPC_ALT_VERSION)
+  list(APPEND GRPC_ALT_FIND_PACKAGE_ARGS VERSION_VAR GRPC_ALT_VERSION)
+endif()
+find_package_handle_standard_args(${GRPC_ALT_FIND_PACKAGE_ARGS})
 
 if(gRPCAlt_FOUND)
   add_library(gRPC::gpr UNKNOWN IMPORTED)
@@ -97,7 +106,7 @@ if(gRPCAlt_FOUND)
                                    INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
 
   if(GRPC_ADDRESS_SORTING_LIB)
-    # Address sorting is optional and not always requird.
+    # Address sorting is optional and not always required.
     add_library(gRPC::address_sorting UNKNOWN IMPORTED)
     set_target_properties(gRPC::address_sorting
                           PROPERTIES IMPORTED_LOCATION "${GRPC_ADDRESS_SORTING_LIB}"
