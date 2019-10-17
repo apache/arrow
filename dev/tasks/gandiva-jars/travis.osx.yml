@@ -39,7 +39,6 @@ before_script:
 
   - export TRAVIS_BUILD_DIR=$TRAVIS_BUILD_DIR/arrow
   - brew update
-    #  - brew upgrade cmake
   - brew install bison flex llvm@7
 
 script:
