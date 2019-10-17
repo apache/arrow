@@ -824,7 +824,8 @@ class StructConverter
     num_fields_ = this->typed_builder_->num_fields();
     DCHECK_EQ(num_fields_, struct_type->num_children());
 
-    field_name_list_.reset(PyList_New(num_fields_));
+    field_name_bytes_list_.reset(PyList_New(num_fields_));
+    field_name_unicode_list_.reset(PyList_New(num_fields_));
     RETURN_IF_PYERROR();
 
     // Initialize the child converters and field names
@@ -839,10 +840,13 @@ class StructConverter
       value_converters_.push_back(std::move(value_converter));
 
       // Store the field name as a PyObject, for dict matching
-      PyObject* nameobj =
+      PyObject* bytesobj =
+          PyBytes_FromStringAndSize(field_name.c_str(), field_name.size());
+      PyObject* unicodeobj =
           PyUnicode_FromStringAndSize(field_name.c_str(), field_name.size());
       RETURN_IF_PYERROR();
-      PyList_SET_ITEM(field_name_list_.obj(), i, nameobj);
+      PyList_SET_ITEM(field_name_bytes_list_.obj(), i, bytesobj);
+      PyList_SET_ITEM(field_name_unicode_list_.obj(), i, unicodeobj);
     }
 
     return Status::OK();
@@ -851,16 +855,16 @@ class StructConverter
   Status AppendItem(PyObject* obj) {
     RETURN_NOT_OK(this->typed_builder_->Append());
     // Note heterogenous sequences are not allowed
-    if (ARROW_PREDICT_FALSE(source_kind_ == UNKNOWN)) {
+    if (ARROW_PREDICT_FALSE(source_kind_ == SourceKind::UNKNOWN)) {
       if (PyDict_Check(obj)) {
-        source_kind_ = DICTS;
+        source_kind_ = SourceKind::DICTS;
       } else if (PyTuple_Check(obj)) {
-        source_kind_ = TUPLES;
+        source_kind_ = SourceKind::TUPLES;
       }
     }
-    if (PyDict_Check(obj) && source_kind_ == DICTS) {
+    if (PyDict_Check(obj) && source_kind_ == SourceKind::DICTS) {
       return AppendDictItem(obj);
-    } else if (PyTuple_Check(obj) && source_kind_ == TUPLES) {
+    } else if (PyTuple_Check(obj) && source_kind_ == SourceKind::TUPLES) {
       return AppendTupleItem(obj);
     } else {
       return internal::InvalidType(obj,
@@ -882,11 +886,52 @@ class StructConverter
 
  protected:
   Status AppendDictItem(PyObject* obj) {
+    if (dict_key_kind_ == DictKeyKind::UNICODE) {
+      return AppendDictItemWithUnicodeKeys(obj);
+    }
+    if (dict_key_kind_ == DictKeyKind::BYTES) {
+      return AppendDictItemWithBytesKeys(obj);
+    }
+    for (int i = 0; i < num_fields_; i++) {
+      PyObject* nameobj = PyList_GET_ITEM(field_name_unicode_list_.obj(), i);
+      PyObject* valueobj = PyDict_GetItem(obj, nameobj);
+      if (valueobj != NULL) {
+        dict_key_kind_ = DictKeyKind::UNICODE;
+        return AppendDictItemWithUnicodeKeys(obj);
+      }
+      RETURN_IF_PYERROR();
+      // Unicode key not present, perhaps bytes key is?
+      nameobj = PyList_GET_ITEM(field_name_bytes_list_.obj(), i);
+      valueobj = PyDict_GetItem(obj, nameobj);
+      if (valueobj != NULL) {
+        dict_key_kind_ = DictKeyKind::BYTES;
+        return AppendDictItemWithBytesKeys(obj);
+      }
+      RETURN_IF_PYERROR();
+    }
+    // If we come here, it means all keys are absent
+    for (int i = 0; i < num_fields_; i++) {
+      RETURN_NOT_OK(value_converters_[i]->AppendSingleVirtual(Py_None));
+    }
+    return Status::OK();
+  }
+
+  Status AppendDictItemWithBytesKeys(PyObject* obj) {
+    return AppendDictItem(obj, field_name_bytes_list_.obj());
+  }
+
+  Status AppendDictItemWithUnicodeKeys(PyObject* obj) {
+    return AppendDictItem(obj, field_name_unicode_list_.obj());
+  }
+
+  Status AppendDictItem(PyObject* obj, PyObject* field_name_list) {
     // NOTE we're ignoring any extraneous dict items
     for (int i = 0; i < num_fields_; i++) {
-      PyObject* nameobj = PyList_GET_ITEM(field_name_list_.obj(), i);
-      PyObject* valueobj = PyDict_GetItem(obj, nameobj);  // borrowed
-      RETURN_IF_PYERROR();
+      PyObject* nameobj = PyList_GET_ITEM(field_name_list, i);  // borrowed
+      PyObject* valueobj = PyDict_GetItem(obj, nameobj);        // borrowed
+      if (valueobj == NULL) {
+        RETURN_IF_PYERROR();
+      }
       RETURN_NOT_OK(
           value_converters_[i]->AppendSingleVirtual(valueobj ? valueobj : Py_None));
     }
@@ -905,10 +950,16 @@ class StructConverter
   }
 
   std::vector<std::unique_ptr<SeqConverter>> value_converters_;
-  OwnedRef field_name_list_;
+  OwnedRef field_name_unicode_list_;
+  OwnedRef field_name_bytes_list_;
   int num_fields_;
   // Whether we're converting from a sequence of dicts or tuples
-  enum { UNKNOWN, DICTS, TUPLES } source_kind_ = UNKNOWN;
+  enum class SourceKind { UNKNOWN, DICTS, TUPLES } source_kind_ = SourceKind::UNKNOWN;
+  enum class DictKeyKind {
+    UNKNOWN,
+    BYTES,
+    UNICODE
+  } dict_key_kind_ = DictKeyKind::UNKNOWN;
   bool from_pandas_;
   bool strict_conversions_;
 };
