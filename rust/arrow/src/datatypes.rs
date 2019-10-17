@@ -1004,21 +1004,54 @@ mod tests {
             ]),
             false,
         );
-        assert_eq!(
-            "{\"name\":\"address\",\"nullable\":false,\"type\":{\"name\":\"struct\"},\"children\":[\
-            {\"name\":\"street\",\"nullable\":false,\"type\":{\"name\":\"utf8\"},\"children\":[]},\
-            {\"name\":\"zip\",\"nullable\":false,\"type\":{\"name\":\"int\",\"bitWidth\":16,\"isSigned\":false},\"children\":[]}]}",
-            f.to_json().to_string()
-        );
+        let value: Value = serde_json::from_str(
+            r#"{
+                "name": "address",
+                "nullable": false,
+                "type": {
+                    "name": "struct"
+                },
+                "children": [
+                    {
+                        "name": "street",
+                        "nullable": false,
+                        "type": {
+                            "name": "utf8"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "zip",
+                        "nullable": false,
+                        "type": {
+                            "name": "int",
+                            "bitWidth": 16,
+                            "isSigned": false
+                        },
+                        "children": []
+                    }
+                ]
+            }"#,
+        )
+        .unwrap();
+        assert_eq!(value, f.to_json());
     }
 
     #[test]
     fn primitive_field_to_json() {
         let f = Field::new("first_name", DataType::Utf8, false);
-        assert_eq!(
-            "{\"name\":\"first_name\",\"nullable\":false,\"type\":{\"name\":\"utf8\"},\"children\":[]}",
-            f.to_json().to_string()
-        );
+        let value: Value = serde_json::from_str(
+            r#"{
+                "name": "first_name",
+                "nullable": false,
+                "type": {
+                    "name": "utf8"
+                },
+                "children": []
+            }"#,
+        )
+        .unwrap();
+        assert_eq!(value, f.to_json());
     }
     #[test]
     fn parse_struct_from_json() {
@@ -1121,33 +1154,251 @@ mod tests {
             ),
         ]);
 
-        let json = schema.to_json().to_string();
-        assert_eq!(json, "{\"fields\":[{\"name\":\"c1\",\"nullable\":false,\"type\":{\"name\":\"utf8\"},\"children\":[]},\
-        {\"name\":\"c2\",\"nullable\":false,\"type\":{\"name\":\"bool\"},\"children\":[]},\
-        {\"name\":\"c3\",\"nullable\":false,\"type\":{\"name\":\"date\",\"unit\":\"DAY\"},\"children\":[]},\
-        {\"name\":\"c4\",\"nullable\":false,\"type\":{\"name\":\"date\",\"unit\":\"MILLISECOND\"},\"children\":[]},\
-        {\"name\":\"c7\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":32,\"unit\":\"SECOND\"},\"children\":[]},\
-        {\"name\":\"c8\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":32,\"unit\":\"MILLISECOND\"},\"children\":[]},\
-        {\"name\":\"c9\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":32,\"unit\":\"MICROSECOND\"},\"children\":[]},\
-        {\"name\":\"c10\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":32,\"unit\":\"NANOSECOND\"},\"children\":[]},\
-        {\"name\":\"c11\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":64,\"unit\":\"SECOND\"},\"children\":[]},\
-        {\"name\":\"c12\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":64,\"unit\":\"MILLISECOND\"},\"children\":[]},\
-        {\"name\":\"c13\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":64,\"unit\":\"MICROSECOND\"},\"children\":[]},\
-        {\"name\":\"c14\",\"nullable\":false,\"type\":{\"name\":\"time\",\"bitWidth\":64,\"unit\":\"NANOSECOND\"},\"children\":[]},\
-        {\"name\":\"c15\",\"nullable\":false,\"type\":{\"name\":\"timestamp\",\"unit\":\"SECOND\"},\"children\":[]},\
-        {\"name\":\"c16\",\"nullable\":false,\"type\":{\"name\":\"timestamp\",\"unit\":\"MILLISECOND\"},\"children\":[]},\
-        {\"name\":\"c17\",\"nullable\":false,\"type\":{\"name\":\"timestamp\",\"unit\":\"MICROSECOND\"},\"children\":[]},\
-        {\"name\":\"c18\",\"nullable\":false,\"type\":{\"name\":\"timestamp\",\"unit\":\"NANOSECOND\"},\"children\":[]},\
-        {\"name\":\"c19\",\"nullable\":false,\"type\":{\"name\":\"interval\",\"unit\":\"DAY_TIME\"},\"children\":[]},\
-        {\"name\":\"c20\",\"nullable\":false,\"type\":{\"name\":\"interval\",\"unit\":\"YEAR_MONTH\"},\"children\":[]},\
-        {\"name\":\"c21\",\"nullable\":false,\"type\":{\"name\":\"list\"},\"children\":[\
-        {\"name\":\"item\",\"nullable\":false,\"type\":{\"name\":\"bool\"},\"children\":[]}]},\
-        {\"name\":\"c22\",\"nullable\":true,\"type\":{\"name\":\"list\"},\"children\":[\
-        {\"name\":\"item\",\"nullable\":true,\"type\":{\"name\":\"list\"},\"children\":[\
-        {\"name\":\"item\",\"nullable\":true,\"type\":{\"name\":\"struct\"},\"children\":[]}]}]},\
-        {\"name\":\"c23\",\"nullable\":false,\"type\":{\"name\":\"struct\"},\"children\":[\
-        {\"name\":\"a\",\"nullable\":false,\"type\":{\"name\":\"utf8\"},\"children\":[]},\
-        {\"name\":\"b\",\"nullable\":false,\"type\":{\"name\":\"int\",\"bitWidth\":16,\"isSigned\":false},\"children\":[]}]}]}");
+        let expected = schema.to_json();
+        let json = r#"{
+                "fields": [
+                    {
+                        "name": "c1",
+                        "nullable": false,
+                        "type": {
+                            "name": "utf8"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c2",
+                        "nullable": false,
+                        "type": {
+                            "name": "bool"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c3",
+                        "nullable": false,
+                        "type": {
+                            "name": "date",
+                            "unit": "DAY"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c4",
+                        "nullable": false,
+                        "type": {
+                            "name": "date",
+                            "unit": "MILLISECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c7",
+                        "nullable": false,
+                        "type": {
+                            "name": "time",
+                            "bitWidth": 32,
+                            "unit": "SECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c8",
+                        "nullable": false,
+                        "type": {
+                            "name": "time",
+                            "bitWidth": 32,
+                            "unit": "MILLISECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c9",
+                        "nullable": false,
+                        "type": {
+                            "name": "time",
+                            "bitWidth": 32,
+                            "unit": "MICROSECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c10",
+                        "nullable": false,
+                        "type": {
+                            "name": "time",
+                            "bitWidth": 32,
+                            "unit": "NANOSECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c11",
+                        "nullable": false,
+                        "type": {
+                            "name": "time",
+                            "bitWidth": 64,
+                            "unit": "SECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c12",
+                        "nullable": false,
+                        "type": {
+                            "name": "time",
+                            "bitWidth": 64,
+                            "unit": "MILLISECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c13",
+                        "nullable": false,
+                        "type": {
+                            "name": "time",
+                            "bitWidth": 64,
+                            "unit": "MICROSECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c14",
+                        "nullable": false,
+                        "type": {
+                            "name": "time",
+                            "bitWidth": 64,
+                            "unit": "NANOSECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c15",
+                        "nullable": false,
+                        "type": {
+                            "name": "timestamp",
+                            "unit": "SECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c16",
+                        "nullable": false,
+                        "type": {
+                            "name": "timestamp",
+                            "unit": "MILLISECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c17",
+                        "nullable": false,
+                        "type": {
+                            "name": "timestamp",
+                            "unit": "MICROSECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c18",
+                        "nullable": false,
+                        "type": {
+                            "name": "timestamp",
+                            "unit": "NANOSECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c19",
+                        "nullable": false,
+                        "type": {
+                            "name": "interval",
+                            "unit": "DAY_TIME"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c20",
+                        "nullable": false,
+                        "type": {
+                            "name": "interval",
+                            "unit": "YEAR_MONTH"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c21",
+                        "nullable": false,
+                        "type": {
+                            "name": "list"
+                        },
+                        "children": [
+                            {
+                                "name": "item",
+                                "nullable": false,
+                                "type": {
+                                    "name": "bool"
+                                },
+                                "children": []
+                            }
+                        ]
+                    },
+                    {
+                        "name": "c22",
+                        "nullable": true,
+                        "type": {
+                            "name": "list"
+                        },
+                        "children": [
+                            {
+                                "name": "item",
+                                "nullable": true,
+                                "type": {
+                                    "name": "list"
+                                },
+                                "children": [
+                                    {
+                                        "name": "item",
+                                        "nullable": true,
+                                        "type": {
+                                            "name": "struct"
+                                        },
+                                        "children": []
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "name": "c23",
+                        "nullable": false,
+                        "type": {
+                            "name": "struct"
+                        },
+                        "children": [
+                            {
+                                "name": "a",
+                                "nullable": false,
+                                "type": {
+                                    "name": "utf8"
+                                },
+                                "children": []
+                            },
+                            {
+                                "name": "b",
+                                "nullable": false,
+                                "type": {
+                                    "name": "int",
+                                    "bitWidth": 16,
+                                    "isSigned": false
+                                },
+                                "children": []
+                            }
+                        ]
+                    }
+                ]
+            }"#;
+        let value: Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(expected, value);
 
         // convert back to a schema
         let value: Value = serde_json::from_str(&json).unwrap();
