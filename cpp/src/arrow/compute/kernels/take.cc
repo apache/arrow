@@ -99,5 +99,21 @@ Status Take(FunctionContext* ctx, const Datum& values, const Datum& indices,
   return kernel->Call(ctx, values, indices, out);
 }
 
+Status Take(FunctionContext* ctx, const RecordBatch& batch, const Array& indices,
+              const TakeOptions& options, std::shared_ptr<RecordBatch>* out) {
+
+
+  auto ncols = batch.num_columns();
+  auto nrows = indices.length();
+
+  std::vector<std::shared_ptr<arrow::Array>> columns(ncols);
+
+  for (int j = 0; j < ncols; j++) {
+    RETURN_NOT_OK(Take(ctx, *batch.column(j), indices, options, &columns[j]));
+  }
+  *out = RecordBatch::Make(batch.schema(), nrows, columns);
+  return Status::OK();
+}
+
 }  // namespace compute
 }  // namespace arrow

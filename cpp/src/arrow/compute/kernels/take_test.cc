@@ -527,5 +527,70 @@ TEST_F(TestPermutationsWithTake, InvertPermutation) {
   }
 }
 
+class TestTakeKernelWithRecordBatch : public TestTakeKernel<RecordBatch> {
+ public:
+  void AssertTake(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
+                  const std::string& indices, const std::string& expected_batch) {
+    std::shared_ptr<RecordBatch> actual;
+
+    for (auto index_type : {int8(), uint32()}) {
+      ASSERT_OK(this->Take(schm, batch_json, index_type, indices, &actual));
+      ASSERT_OK(actual->Validate());
+      ASSERT_BATCHES_EQUAL(*MakeBatch(schm, expected_batch), *actual);
+    }
+  }
+
+  std::shared_ptr<RecordBatch> MakeBatch(const std::shared_ptr<Schema>& schm, const std::string& batch_json) {
+    auto struct_array = ArrayFromJSON(struct_(schm->fields()), batch_json);
+    std::shared_ptr<RecordBatch> batch;
+    ARROW_EXPECT_OK(RecordBatch::FromStructArray(struct_array, &batch));
+    return batch;
+  }
+
+  Status Take(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
+              const std::shared_ptr<DataType>& index_type, const std::string& indices,
+              std::shared_ptr<RecordBatch>* out) {
+    auto batch = MakeBatch(schm, batch_json);
+    TakeOptions options;
+    return arrow::compute::Take(&this->ctx_, *batch,
+                                *ArrayFromJSON(index_type, indices), options, out);
+  }
+};
+
+TEST_F(TestTakeKernelWithRecordBatch, TakeRecordBatch) {
+  std::vector<std::shared_ptr<Field>> fields = {field("a", int32()), field("b", utf8())};
+  auto schm = schema(fields);
+
+  auto struct_json = R"([
+    {"a": null, "b": "yo"},
+    {"a": 1, "b": ""},
+    {"a": 2, "b": "hello"},
+    {"a": 4, "b": "eh"}
+  ])";
+  this->AssertTake(schm, struct_json, "[]", "[]");
+  this->AssertTake(schm, struct_json, "[3, 1, 3, 1, 3]", R"([
+    {"a": 4, "b": "eh"},
+    {"a": 1, "b": ""},
+    {"a": 4, "b": "eh"},
+    {"a": 1, "b": ""},
+    {"a": 4, "b": "eh"}
+  ])");
+  this->AssertTake(schm, struct_json, "[3, 1, 0]", R"([
+    {"a": 4, "b": "eh"},
+    {"a": 1, "b": ""},
+    {"a": null, "b": "yo"}
+  ])");
+  this->AssertTake(schm, struct_json, "[0, 1, 2, 3]", struct_json);
+  this->AssertTake(schm, struct_json, "[0, 2, 2, 2, 2, 2, 2]", R"([
+    {"a": null, "b": "yo"},
+    {"a": 2, "b": "hello"},
+    {"a": 2, "b": "hello"},
+    {"a": 2, "b": "hello"},
+    {"a": 2, "b": "hello"},
+    {"a": 2, "b": "hello"},
+    {"a": 2, "b": "hello"}
+  ])");
+}
+
 }  // namespace compute
 }  // namespace arrow

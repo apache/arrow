@@ -96,16 +96,11 @@ std::shared_ptr<arrow::Array> Array__Take(const std::shared_ptr<arrow::Array>& v
 std::shared_ptr<arrow::RecordBatch> RecordBatch__Take(
     const std::shared_ptr<arrow::RecordBatch>& batch,
     const std::shared_ptr<arrow::Array>& indices) {
-  int ncols = batch->num_columns();
-  auto nrows = indices->length();
-
-  std::vector<std::shared_ptr<arrow::Array>> columns(ncols);
-
-  for (R_xlen_t j = 0; j < ncols; j++) {
-    columns[j] = Array__Take(batch->column(j), indices);
-  }
-
-  return arrow::RecordBatch::Make(batch->schema(), nrows, columns);
+  std::shared_ptr<arrow::RecordBatch> out;
+  arrow::compute::FunctionContext context;
+  arrow::compute::TakeOptions options;
+  STOP_IF_NOT_OK(arrow::compute::Take(&context, *batch, *indices, options, &out));
+  return out;
 }
 
 // [[arrow::export]]

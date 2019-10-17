@@ -53,6 +53,21 @@ ARROW_EXPORT
 Status Take(FunctionContext* ctx, const Array& values, const Array& indices,
             const TakeOptions& options, std::shared_ptr<Array>* out);
 
+/// \brief Take from a record batch at indices in another array
+///
+/// The output batch will have the same schema as the input batch,
+/// with rows taken from the values array at the given
+/// indices. If an index is null then the taken element will be null.
+///
+/// \param[in] ctx the FunctionContext
+/// \param[in] batch array from which to take
+/// \param[in] indices which values to take
+/// \param[in] options options
+/// \param[out] out resulting record batch
+ARROW_EXPORT
+Status Take(FunctionContext* ctx, const RecordBatch& batch, const Array& indices,
+            const TakeOptions& options, std::shared_ptr<RecordBatch>* out);
+
 /// \brief Take from an array of values at indices in another array
 ///
 /// \param[in] ctx the FunctionContext
