@@ -812,7 +812,7 @@ garrow_large_binary_data_type_class_init(GArrowLargeBinaryDataTypeClass *klass)
  *
  * Returns: The newly created #GArrowLargeBinaryDataType.
  *
- * Since: 0.15.0
+ * Since: 1.0.0
  */
 GArrowLargeBinaryDataType *
 garrow_large_binary_data_type_new(void)
@@ -878,7 +878,7 @@ garrow_large_string_data_type_class_init(GArrowLargeStringDataTypeClass *klass)
  *
  * Returns: The newly created #GArrowLargeStringDataType.
  *
- * Since: 0.15.0
+ * Since: 1.0.0
  */
 GArrowLargeStringDataType *
 garrow_large_string_data_type_new(void)

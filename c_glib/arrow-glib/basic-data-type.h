@@ -311,7 +311,7 @@ struct _GArrowLargeBinaryDataTypeClass
   GArrowDataTypeClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_0_15
+GARROW_AVAILABLE_IN_1_0
 GArrowLargeBinaryDataType *garrow_large_binary_data_type_new(void);
 
 
@@ -340,7 +340,7 @@ struct _GArrowLargeStringDataTypeClass
   GArrowLargeBinaryDataTypeClass parent_class;
 };
 
-GARROW_AVAILABLE_IN_0_15
+GARROW_AVAILABLE_IN_1_0
 GArrowLargeStringDataType *garrow_large_string_data_type_new(void);
 
 
