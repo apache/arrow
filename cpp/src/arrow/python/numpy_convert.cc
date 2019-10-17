@@ -315,7 +315,7 @@ static Status SparseTensorDataToNdarray(const SparseTensor& sparse_tensor,
   return Status::OK();
 }
 
-Status SparseTensorCOOToNdarray(const std::shared_ptr<SparseTensorCOO>& sparse_tensor,
+Status SparseCOOTensorToNdarray(const std::shared_ptr<SparseCOOTensor>& sparse_tensor,
                                 PyObject* base, PyObject** out_data,
                                 PyObject** out_coords) {
   const auto& sparse_index = arrow::internal::checked_cast<const SparseCOOIndex&>(
@@ -335,7 +335,7 @@ Status SparseTensorCOOToNdarray(const std::shared_ptr<SparseTensorCOO>& sparse_t
   return Status::OK();
 }
 
-Status SparseTensorCSRToNdarray(const std::shared_ptr<SparseTensorCSR>& sparse_tensor,
+Status SparseCSRMatrixToNdarray(const std::shared_ptr<SparseCSRMatrix>& sparse_tensor,
                                 PyObject* base, PyObject** out_data,
                                 PyObject** out_indptr, PyObject** out_indices) {
   const auto& sparse_index = arrow::internal::checked_cast<const SparseCSRIndex&>(
@@ -358,10 +358,10 @@ Status SparseTensorCSRToNdarray(const std::shared_ptr<SparseTensorCSR>& sparse_t
   return Status::OK();
 }
 
-Status NdarraysToSparseTensorCOO(MemoryPool* pool, PyObject* data_ao, PyObject* coords_ao,
+Status NdarraysToSparseCOOTensor(MemoryPool* pool, PyObject* data_ao, PyObject* coords_ao,
                                  const std::vector<int64_t>& shape,
                                  const std::vector<std::string>& dim_names,
-                                 std::shared_ptr<SparseTensorCOO>* out) {
+                                 std::shared_ptr<SparseCOOTensor>* out) {
   if (!PyArray_Check(data_ao) || !PyArray_Check(coords_ao)) {
     return Status::TypeError("Did not pass ndarray object");
   }
@@ -383,10 +383,10 @@ Status NdarraysToSparseTensorCOO(MemoryPool* pool, PyObject* data_ao, PyObject* 
   return Status::OK();
 }
 
-Status NdarraysToSparseTensorCSR(MemoryPool* pool, PyObject* data_ao, PyObject* indptr_ao,
+Status NdarraysToSparseCSRMatrix(MemoryPool* pool, PyObject* data_ao, PyObject* indptr_ao,
                                  PyObject* indices_ao, const std::vector<int64_t>& shape,
                                  const std::vector<std::string>& dim_names,
-                                 std::shared_ptr<SparseTensorCSR>* out) {
+                                 std::shared_ptr<SparseCSRMatrix>* out) {
   if (!PyArray_Check(data_ao) || !PyArray_Check(indptr_ao) ||
       !PyArray_Check(indices_ao)) {
     return Status::TypeError("Did not pass ndarray object");
@@ -412,15 +412,15 @@ Status NdarraysToSparseTensorCSR(MemoryPool* pool, PyObject* data_ao, PyObject* 
   return Status::OK();
 }
 
-Status TensorToSparseTensorCOO(const std::shared_ptr<Tensor>& tensor,
-                               std::shared_ptr<SparseTensorCOO>* out) {
-  *out = std::make_shared<SparseTensorCOO>(*tensor);
+Status TensorToSparseCOOTensor(const std::shared_ptr<Tensor>& tensor,
+                               std::shared_ptr<SparseCOOTensor>* out) {
+  *out = std::make_shared<SparseCOOTensor>(*tensor);
   return Status::OK();
 }
 
-Status TensorToSparseTensorCSR(const std::shared_ptr<Tensor>& tensor,
-                               std::shared_ptr<SparseTensorCSR>* out) {
-  *out = std::make_shared<SparseTensorCSR>(*tensor);
+Status TensorToSparseCSRMatrix(const std::shared_ptr<Tensor>& tensor,
+                               std::shared_ptr<SparseCSRMatrix>* out) {
+  *out = std::make_shared<SparseCSRMatrix>(*tensor);
   return Status::OK();
 }
 

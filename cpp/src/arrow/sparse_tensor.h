@@ -273,11 +273,10 @@ class SparseTensorImpl : public SparseTensor {
 };
 
 /// \brief EXPERIMENTAL: Type alias for COO sparse tensor
-using SparseTensorCOO = SparseTensorImpl<SparseCOOIndex>;
+using SparseCOOTensor = SparseTensorImpl<SparseCOOIndex>;
 
 /// \brief EXPERIMENTAL: Type alias for CSR sparse matrix
-using SparseTensorCSR = SparseTensorImpl<SparseCSRIndex>;
-using SparseMatrixCSR = SparseTensorImpl<SparseCSRIndex>;
+using SparseCSRMatrix = SparseTensorImpl<SparseCSRIndex>;
 
 }  // namespace arrow
 

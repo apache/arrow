@@ -132,42 +132,42 @@ PyObject* wrap_tensor(const std::shared_ptr<Tensor>& tensor) {
   return ::pyarrow_wrap_tensor(tensor);
 }
 
-bool is_sparse_tensor_csr(PyObject* sparse_tensor) {
-  return ::pyarrow_is_sparse_tensor_csr(sparse_tensor) != 0;
+bool is_sparse_csr_matrix(PyObject* sparse_tensor) {
+  return ::pyarrow_is_sparse_csr_matrix(sparse_tensor) != 0;
 }
 
-Status unwrap_sparse_tensor_csr(PyObject* sparse_tensor,
-                                std::shared_ptr<SparseTensorCSR>* out) {
-  *out = ::pyarrow_unwrap_sparse_tensor_csr(sparse_tensor);
+Status unwrap_sparse_csr_matrix(PyObject* sparse_tensor,
+                                std::shared_ptr<SparseCSRMatrix>* out) {
+  *out = ::pyarrow_unwrap_sparse_csr_matrix(sparse_tensor);
   if (*out) {
     return Status::OK();
   } else {
     return Status::Invalid(
-        "Could not unwrap SparseTensorCSR from the passed Python object.");
+        "Could not unwrap SparseCSRMatrix from the passed Python object.");
   }
 }
 
-PyObject* wrap_sparse_tensor_csr(const std::shared_ptr<SparseTensorCSR>& sparse_tensor) {
-  return ::pyarrow_wrap_sparse_tensor_csr(sparse_tensor);
+PyObject* wrap_sparse_csr_matrix(const std::shared_ptr<SparseCSRMatrix>& sparse_tensor) {
+  return ::pyarrow_wrap_sparse_csr_matrix(sparse_tensor);
 }
 
-bool is_sparse_tensor_coo(PyObject* sparse_tensor) {
-  return ::pyarrow_is_sparse_tensor_coo(sparse_tensor) != 0;
+bool is_sparse_coo_tensor(PyObject* sparse_tensor) {
+  return ::pyarrow_is_sparse_coo_tensor(sparse_tensor) != 0;
 }
 
-Status unwrap_sparse_tensor_coo(PyObject* sparse_tensor,
-                                std::shared_ptr<SparseTensorCOO>* out) {
-  *out = ::pyarrow_unwrap_sparse_tensor_coo(sparse_tensor);
+Status unwrap_sparse_coo_tensor(PyObject* sparse_tensor,
+                                std::shared_ptr<SparseCOOTensor>* out) {
+  *out = ::pyarrow_unwrap_sparse_coo_tensor(sparse_tensor);
   if (*out) {
     return Status::OK();
   } else {
     return Status::Invalid(
-        "Could not unwrap SparseTensorCOO from the passed Python object.");
+        "Could not unwrap SparseCOOTensor from the passed Python object.");
   }
 }
 
-PyObject* wrap_sparse_tensor_coo(const std::shared_ptr<SparseTensorCOO>& sparse_tensor) {
-  return ::pyarrow_wrap_sparse_tensor_coo(sparse_tensor);
+PyObject* wrap_sparse_coo_tensor(const std::shared_ptr<SparseCOOTensor>& sparse_tensor) {
+  return ::pyarrow_wrap_sparse_coo_tensor(sparse_tensor);
 }
 
 bool is_table(PyObject* table) { return ::pyarrow_is_table(table) != 0; }

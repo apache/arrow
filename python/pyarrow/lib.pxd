@@ -261,26 +261,26 @@ cdef class Tensor:
     cdef void init(self, const shared_ptr[CTensor]& sp_tensor)
 
 
-cdef class SparseTensorCSR:
+cdef class SparseCSRMatrix:
     cdef:
-        shared_ptr[CSparseTensorCSR] sp_sparse_tensor
-        CSparseTensorCSR* stp
+        shared_ptr[CSparseCSRMatrix] sp_sparse_tensor
+        CSparseCSRMatrix* stp
 
     cdef readonly:
         DataType type
 
-    cdef void init(self, const shared_ptr[CSparseTensorCSR]& sp_sparse_tensor)
+    cdef void init(self, const shared_ptr[CSparseCSRMatrix]& sp_sparse_tensor)
 
 
-cdef class SparseTensorCOO:
+cdef class SparseCOOTensor:
     cdef:
-        shared_ptr[CSparseTensorCOO] sp_sparse_tensor
-        CSparseTensorCOO* stp
+        shared_ptr[CSparseCOOTensor] sp_sparse_tensor
+        CSparseCOOTensor* stp
 
     cdef readonly:
         DataType type
 
-    cdef void init(self, const shared_ptr[CSparseTensorCOO]& sp_sparse_tensor)
+    cdef void init(self, const shared_ptr[CSparseCOOTensor]& sp_sparse_tensor)
 
 
 cdef class NullArray(Array):
@@ -519,10 +519,10 @@ cdef public object pyarrow_wrap_resizable_buffer(
 cdef public object pyarrow_wrap_schema(const shared_ptr[CSchema]& type)
 cdef public object pyarrow_wrap_table(const shared_ptr[CTable]& ctable)
 cdef public object pyarrow_wrap_tensor(const shared_ptr[CTensor]& sp_tensor)
-cdef public object pyarrow_wrap_sparse_tensor_coo(
-    const shared_ptr[CSparseTensorCOO]& sp_sparse_tensor)
-cdef public object pyarrow_wrap_sparse_tensor_csr(
-    const shared_ptr[CSparseTensorCSR]& sp_sparse_tensor)
+cdef public object pyarrow_wrap_sparse_coo_tensor(
+    const shared_ptr[CSparseCOOTensor]& sp_sparse_tensor)
+cdef public object pyarrow_wrap_sparse_csr_matrix(
+    const shared_ptr[CSparseCSRMatrix]& sp_sparse_tensor)
 
 cdef public shared_ptr[CArray] pyarrow_unwrap_array(object array)
 cdef public shared_ptr[CRecordBatch] pyarrow_unwrap_batch(object batch)
@@ -532,7 +532,7 @@ cdef public shared_ptr[CField] pyarrow_unwrap_field(object field)
 cdef public shared_ptr[CSchema] pyarrow_unwrap_schema(object schema)
 cdef public shared_ptr[CTable] pyarrow_unwrap_table(object table)
 cdef public shared_ptr[CTensor] pyarrow_unwrap_tensor(object tensor)
-cdef public shared_ptr[CSparseTensorCOO] pyarrow_unwrap_sparse_tensor_coo(
+cdef public shared_ptr[CSparseCOOTensor] pyarrow_unwrap_sparse_coo_tensor(
     object sparse_tensor)
-cdef public shared_ptr[CSparseTensorCSR] pyarrow_unwrap_sparse_tensor_csr(
+cdef public shared_ptr[CSparseCSRMatrix] pyarrow_unwrap_sparse_csr_matrix(
     object sparse_tensor)
