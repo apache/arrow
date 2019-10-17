@@ -31,6 +31,8 @@ source run_conda_forge_build_setup
 # make the build number clobber
 make_build_number "${FEEDSTOCK_ROOT}" "${FEEDSTOCK_ROOT}" "${CONFIG_FILE}"
 
+export CONDA_BLD_PATH="${output_dir}"
+
 conda build \
     "${FEEDSTOCK_ROOT}/arrow-cpp" \
     "${FEEDSTOCK_ROOT}/parquet-cpp" \
