@@ -19,43 +19,38 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fs;
+use std::path::Path;
 use std::rc::Rc;
 use std::string::String;
 use std::sync::Arc;
+use std::thread::{self, JoinHandle};
 
+use arrow::csv;
 use arrow::datatypes::*;
+use arrow::record_batch::RecordBatch;
 
-use crate::arrow::array::{ArrayRef, BooleanBuilder};
-use crate::arrow::record_batch::RecordBatch;
 use crate::datasource::csv::CsvFile;
 use crate::datasource::parquet::ParquetTable;
 use crate::datasource::TableProvider;
 use crate::error::{ExecutionError, Result};
-use crate::execution::aggregate::AggregateRelation;
-use crate::execution::expression::*;
-use crate::execution::filter::FilterRelation;
-use crate::execution::limit::LimitRelation;
 use crate::execution::physical_plan::common;
 use crate::execution::physical_plan::datasource::DatasourceExec;
 use crate::execution::physical_plan::expressions::{
     Avg, BinaryExpr, CastExpr, Column, Count, Literal, Max, Min, Sum,
 };
 use crate::execution::physical_plan::hash_aggregate::HashAggregateExec;
+use crate::execution::physical_plan::limit::LimitExec;
 use crate::execution::physical_plan::merge::MergeExec;
 use crate::execution::physical_plan::projection::ProjectionExec;
 use crate::execution::physical_plan::selection::SelectionExec;
 use crate::execution::physical_plan::{AggregateExpr, ExecutionPlan, PhysicalExpr};
-use crate::execution::projection::ProjectRelation;
-use crate::execution::relation::{DataSourceRelation, Relation};
-use crate::execution::scalar_relation::ScalarRelation;
 use crate::execution::table_impl::TableImpl;
 use crate::logicalplan::*;
 use crate::optimizer::optimizer::OptimizerRule;
 use crate::optimizer::projection_push_down::ProjectionPushDown;
 use crate::optimizer::type_coercion::TypeCoercionRule;
-use crate::optimizer::utils;
-use crate::sql::parser::FileType;
-use crate::sql::parser::{DFASTNode, DFParser};
+use crate::sql::parser::{DFASTNode, DFParser, FileType};
 use crate::sql::planner::{SchemaProvider, SqlToRel};
 use crate::table::Table;
 use sqlparser::sqlast::{SQLColumnDef, SQLType};
@@ -75,14 +70,33 @@ impl ExecutionContext {
 
     /// Execute a SQL query and produce a Relation (a schema-aware iterator over a series
     /// of RecordBatch instances)
-    pub fn sql(
-        &mut self,
-        sql: &str,
-        batch_size: usize,
-    ) -> Result<Rc<RefCell<dyn Relation>>> {
+    pub fn sql(&mut self, sql: &str, batch_size: usize) -> Result<Vec<RecordBatch>> {
         let plan = self.create_logical_plan(sql)?;
-        let plan = self.optimize(&plan)?;
-        Ok(self.execute(&plan, batch_size)?)
+
+        match plan.as_ref() {
+            LogicalPlan::CreateExternalTable {
+                ref schema,
+                ref name,
+                ref location,
+                ref file_type,
+                ref header_row,
+            } => match file_type {
+                FileType::CSV => {
+                    self.register_csv(name, location, schema, *header_row);
+                    Ok(vec![])
+                }
+                _ => Err(ExecutionError::ExecutionError(format!(
+                    "Unsupported file type {:?}.",
+                    file_type
+                ))),
+            },
+
+            plan => {
+                let plan = self.optimize(&plan)?;
+                let plan = self.create_physical_plan(&plan, batch_size)?;
+                Ok(self.collect(plan.as_ref())?)
+            }
+        }
     }
 
     /// Creates a logical plan
@@ -264,10 +278,12 @@ impl ExecutionContext {
                 input,
                 group_expr,
                 aggr_expr,
-                schema,
+                ..
             } => {
+                // Initially need to perform the aggregate and then merge the partitions
                 let input = self.create_physical_plan(input, batch_size)?;
                 let input_schema = input.as_ref().schema().clone();
+
                 let group_expr = group_expr
                     .iter()
                     .map(|e| self.create_physical_expr(e, &input_schema))
@@ -276,11 +292,25 @@ impl ExecutionContext {
                     .iter()
                     .map(|e| self.create_aggregate_expr(e, &input_schema))
                     .collect::<Result<Vec<_>>>()?;
+
+                let initial_aggr =
+                    HashAggregateExec::try_new(group_expr, aggr_expr, input)?;
+
+                let schema = initial_aggr.schema();
+                let partitions = initial_aggr.partitions()?;
+
+                if partitions.len() == 1 {
+                    return Ok(Arc::new(initial_aggr));
+                }
+
+                let (final_group, final_aggr) = initial_aggr.make_final_expr();
+
+                let merge = Arc::new(MergeExec::new(schema.clone(), partitions));
+
                 Ok(Arc::new(HashAggregateExec::try_new(
-                    group_expr,
-                    aggr_expr,
-                    input,
-                    schema.clone(),
+                    final_group,
+                    final_aggr,
+                    merge,
                 )?))
             }
             LogicalPlan::Selection { input, expr, .. } => {
@@ -288,6 +318,43 @@ impl ExecutionContext {
                 let input_schema = input.as_ref().schema().clone();
                 let runtime_expr = self.create_physical_expr(expr, &input_schema)?;
                 Ok(Arc::new(SelectionExec::try_new(runtime_expr, input)?))
+            }
+            LogicalPlan::Limit { input, expr, .. } => {
+                let input = self.create_physical_plan(input, batch_size)?;
+                let input_schema = input.as_ref().schema().clone();
+
+                match expr {
+                    &Expr::Literal(ref scalar_value) => {
+                        let limit: usize = match scalar_value {
+                            ScalarValue::Int8(limit) if *limit >= 0 => Ok(*limit as usize),
+                            ScalarValue::Int16(limit) if *limit >= 0 => {
+                                Ok(*limit as usize)
+                            }
+                            ScalarValue::Int32(limit) if *limit >= 0 => {
+                                Ok(*limit as usize)
+                            }
+                            ScalarValue::Int64(limit) if *limit >= 0 => {
+                                Ok(*limit as usize)
+                            }
+                            ScalarValue::UInt8(limit) => Ok(*limit as usize),
+                            ScalarValue::UInt16(limit) => Ok(*limit as usize),
+                            ScalarValue::UInt32(limit) => Ok(*limit as usize),
+                            ScalarValue::UInt64(limit) => Ok(*limit as usize),
+                            _ => Err(ExecutionError::ExecutionError(
+                                "Limit only supports non-negative integer literals"
+                                    .to_string(),
+                            )),
+                        }?;
+                        Ok(Arc::new(LimitExec::new(
+                            input_schema.clone(),
+                            input.partitions()?,
+                            limit,
+                        )))
+                    }
+                    _ => Err(ExecutionError::ExecutionError(
+                        "Limit only supports non-negative integer literals".to_string(),
+                    )),
+                }
             }
             _ => Err(ExecutionError::General(
                 "Unsupported logical plan variant".to_string(),
@@ -383,180 +450,47 @@ impl ExecutionContext {
         }
     }
 
-    /// Execute a logical plan and produce a Relation (a schema-aware iterator over a
-    /// series of RecordBatch instances)
-    pub fn execute(
-        &mut self,
-        plan: &LogicalPlan,
-        batch_size: usize,
-    ) -> Result<Rc<RefCell<dyn Relation>>> {
-        match *plan {
-            LogicalPlan::TableScan {
-                ref table_name,
-                ref projection,
-                ..
-            } => match (*self.datasources).borrow().get(table_name) {
-                Some(provider) => {
-                    let ds = provider.scan(projection, batch_size)?;
-                    if ds.len() == 1 {
-                        Ok(Rc::new(RefCell::new(DataSourceRelation::new(
-                            ds[0].clone(),
-                        ))))
-                    } else {
-                        Err(ExecutionError::General(
-                            "Execution engine only supports single partition".to_string(),
-                        ))
+    /// Execute a query and write the results to a partitioned CSV file
+    pub fn write_csv(&self, plan: &dyn ExecutionPlan, path: &str) -> Result<()> {
+        // create directory to contain the CSV files (one per partition)
+        let path = path.to_string();
+        fs::create_dir(&path)?;
+
+        let threads: Vec<JoinHandle<Result<()>>> = plan
+            .partitions()?
+            .iter()
+            .enumerate()
+            .map(|(i, p)| {
+                let p = p.clone();
+                let path = path.clone();
+                thread::spawn(move || {
+                    let filename = format!("part-{}.csv", i);
+                    let path = Path::new(&path).join(&filename);
+                    let file = fs::File::create(path)?;
+                    let mut writer = csv::Writer::new(file);
+                    let it = p.execute()?;
+                    let mut it = it.lock().unwrap();
+                    loop {
+                        match it.next() {
+                            Ok(Some(batch)) => {
+                                writer.write(&batch)?;
+                            }
+                            Ok(None) => break,
+                            Err(e) => return Err(e),
+                        }
                     }
-                }
-                _ => Err(ExecutionError::General(format!(
-                    "No table registered as '{}'",
-                    table_name
-                ))),
-            },
-            LogicalPlan::Selection {
-                ref expr,
-                ref input,
-            } => {
-                let input_rel = self.execute(input, batch_size)?;
-                let input_schema = input_rel.as_ref().borrow().schema().clone();
-                let runtime_expr = compile_expr(&self, expr, &input_schema)?;
-                let rel = FilterRelation::new(input_rel, runtime_expr, input_schema);
-                Ok(Rc::new(RefCell::new(rel)))
-            }
-            LogicalPlan::Projection {
-                ref expr,
-                ref input,
-                ..
-            } => {
-                let input_rel = self.execute(input, batch_size)?;
+                    Ok(())
+                })
+            })
+            .collect();
 
-                let input_schema = input_rel.as_ref().borrow().schema().clone();
-
-                let project_columns: Vec<Field> =
-                    utils::exprlist_to_fields(&expr, &input_schema)?;
-
-                let project_schema = Arc::new(Schema::new(project_columns));
-
-                let compiled_expr: Result<Vec<CompiledExpr>> = expr
-                    .iter()
-                    .map(|e| compile_expr(&self, e, &input_schema))
-                    .collect();
-
-                let rel = ProjectRelation::new(input_rel, compiled_expr?, project_schema);
-
-                Ok(Rc::new(RefCell::new(rel)))
-            }
-            LogicalPlan::Aggregate {
-                ref input,
-                ref group_expr,
-                ref aggr_expr,
-                ..
-            } => {
-                let input_rel = self.execute(&input, batch_size)?;
-
-                let input_schema = input_rel.as_ref().borrow().schema().clone();
-
-                let compiled_group_expr_result: Result<Vec<CompiledExpr>> = group_expr
-                    .iter()
-                    .map(|e| compile_expr(&self, e, &input_schema))
-                    .collect();
-                let compiled_group_expr = compiled_group_expr_result?;
-
-                let compiled_aggr_expr_result: Result<Vec<CompiledAggregateExpression>> =
-                    aggr_expr
-                        .iter()
-                        .map(|e| compile_aggregate_expr(&self, e, &input_schema))
-                        .collect();
-                let compiled_aggr_expr = compiled_aggr_expr_result?;
-
-                let mut output_fields: Vec<Field> = vec![];
-                for expr in group_expr {
-                    output_fields
-                        .push(utils::expr_to_field(expr, input_schema.as_ref())?);
-                }
-                for expr in aggr_expr {
-                    output_fields
-                        .push(utils::expr_to_field(expr, input_schema.as_ref())?);
-                }
-                let rel = AggregateRelation::new(
-                    Arc::new(Schema::new(output_fields)),
-                    input_rel,
-                    compiled_group_expr,
-                    compiled_aggr_expr,
-                );
-
-                Ok(Rc::new(RefCell::new(rel)))
-            }
-            LogicalPlan::Limit {
-                ref expr,
-                ref input,
-                ..
-            } => {
-                let input_rel = self.execute(input, batch_size)?;
-
-                let input_schema = input_rel.as_ref().borrow().schema().clone();
-
-                match expr {
-                    &Expr::Literal(ref scalar_value) => {
-                        let limit: usize = match scalar_value {
-                            ScalarValue::Int8(x) => Ok(*x as usize),
-                            ScalarValue::Int16(x) => Ok(*x as usize),
-                            ScalarValue::Int32(x) => Ok(*x as usize),
-                            ScalarValue::Int64(x) => Ok(*x as usize),
-                            ScalarValue::UInt8(x) => Ok(*x as usize),
-                            ScalarValue::UInt16(x) => Ok(*x as usize),
-                            ScalarValue::UInt32(x) => Ok(*x as usize),
-                            ScalarValue::UInt64(x) => Ok(*x as usize),
-                            _ => Err(ExecutionError::ExecutionError(
-                                "Limit only support positive integer literals"
-                                    .to_string(),
-                            )),
-                        }?;
-                        let rel = LimitRelation::new(input_rel, limit, input_schema);
-                        Ok(Rc::new(RefCell::new(rel)))
-                    }
-                    _ => Err(ExecutionError::ExecutionError(
-                        "Limit only support positive integer literals".to_string(),
-                    )),
-                }
-            }
-
-            LogicalPlan::CreateExternalTable {
-                ref schema,
-                ref name,
-                ref location,
-                ref file_type,
-                ref header_row,
-            } => {
-                match file_type {
-                    FileType::CSV => {
-                        self.register_csv(name, location, schema, *header_row)
-                    }
-                    _ => {
-                        return Err(ExecutionError::ExecutionError(format!(
-                            "Unsupported file type {:?}.",
-                            file_type
-                        )));
-                    }
-                }
-                let mut builder = BooleanBuilder::new(1);
-                builder.append_value(true)?;
-
-                let columns = vec![Arc::new(builder.finish()) as ArrayRef];
-                Ok(Rc::new(RefCell::new(ScalarRelation::new(
-                    Arc::new(Schema::new(vec![Field::new(
-                        "result",
-                        DataType::Boolean,
-                        false,
-                    )])),
-                    columns,
-                ))))
-            }
-
-            _ => Err(ExecutionError::NotImplemented(
-                "Unsupported logical plan for execution".to_string(),
-            )),
+        // combine the results from each thread
+        for thread in threads {
+            let join = thread.join().expect("Failed to join thread");
+            join?;
         }
+
+        Ok(())
     }
 }
 
@@ -776,17 +710,73 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn write_csv_results() -> Result<()> {
+        // create partitioned input file and context
+        let tmp_dir = TempDir::new("write_csv_results_temp")?;
+        let mut ctx = create_ctx(&tmp_dir, 4)?;
+
+        // execute a simple query and write the results to CSV
+        let out_dir = tmp_dir.as_ref().to_str().unwrap().to_string() + "/out";
+        write_csv(&mut ctx, "SELECT c1, c2 FROM test", &out_dir)?;
+
+        // create a new context and verify that the results were saved to a partitioned csv file
+        let mut ctx = ExecutionContext::new();
+
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("c1", DataType::UInt32, false),
+            Field::new("c2", DataType::UInt64, false),
+        ]));
+
+        // register each partition as well as the top level dir
+        ctx.register_csv("part0", &format!("{}/part-0.csv", out_dir), &schema, true);
+        ctx.register_csv("part1", &format!("{}/part-1.csv", out_dir), &schema, true);
+        ctx.register_csv("part2", &format!("{}/part-2.csv", out_dir), &schema, true);
+        ctx.register_csv("part3", &format!("{}/part-3.csv", out_dir), &schema, true);
+        ctx.register_csv("allparts", &out_dir, &schema, true);
+
+        let part0 = collect(&mut ctx, "SELECT c1, c2 FROM part0")?;
+        let part1 = collect(&mut ctx, "SELECT c1, c2 FROM part1")?;
+        let part2 = collect(&mut ctx, "SELECT c1, c2 FROM part2")?;
+        let part3 = collect(&mut ctx, "SELECT c1, c2 FROM part3")?;
+        let allparts = collect(&mut ctx, "SELECT c1, c2 FROM allparts")?;
+
+        let part0_count: usize = part0.iter().map(|batch| batch.num_rows()).sum();
+        let part1_count: usize = part1.iter().map(|batch| batch.num_rows()).sum();
+        let part2_count: usize = part2.iter().map(|batch| batch.num_rows()).sum();
+        let part3_count: usize = part3.iter().map(|batch| batch.num_rows()).sum();
+        let allparts_count: usize = allparts.iter().map(|batch| batch.num_rows()).sum();
+
+        assert_eq!(part0_count, 10);
+        assert_eq!(part1_count, 10);
+        assert_eq!(part2_count, 10);
+        assert_eq!(part3_count, 10);
+        assert_eq!(allparts_count, 40);
+
+        Ok(())
+    }
+
+    /// Execute SQL and return results
+    fn collect(ctx: &mut ExecutionContext, sql: &str) -> Result<Vec<RecordBatch>> {
+        let logical_plan = ctx.create_logical_plan(sql)?;
+        let logical_plan = ctx.optimize(&logical_plan)?;
+        let physical_plan = ctx.create_physical_plan(&logical_plan, 1024)?;
+        ctx.collect(physical_plan.as_ref())
+    }
+
     /// Execute SQL and return results
     fn execute(sql: &str, partition_count: usize) -> Result<Vec<RecordBatch>> {
         let tmp_dir = TempDir::new("execute")?;
         let mut ctx = create_ctx(&tmp_dir, partition_count)?;
+        collect(&mut ctx, sql)
+    }
 
+    /// Execute SQL and write results to partitioned csv files
+    fn write_csv(ctx: &mut ExecutionContext, sql: &str, out_dir: &str) -> Result<()> {
         let logical_plan = ctx.create_logical_plan(sql)?;
         let logical_plan = ctx.optimize(&logical_plan)?;
-
         let physical_plan = ctx.create_physical_plan(&logical_plan, 1024)?;
-
-        ctx.collect(physical_plan.as_ref())
+        ctx.write_csv(physical_plan.as_ref(), out_dir)
     }
 
     /// Generate a partitioned CSV file and register it with an execution context

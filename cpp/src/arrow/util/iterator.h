@@ -17,12 +17,16 @@
 
 #pragma once
 
+#include <cassert>
+#include <functional>
 #include <memory>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
+#include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/compare.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -42,7 +46,7 @@ struct IterationTraits {
 
 /// \brief A generic Iterator that can return errors
 template <typename T>
-class Iterator {
+class Iterator : public util::EqualityComparable<Iterator<T>> {
  public:
   /// \brief Iterator may be constructed from any type which has a member function
   /// with signature Status Next(T*);
@@ -85,10 +89,53 @@ class Iterator {
     return status;
   }
 
-  /// Iterators will only compare equal if they are both null
-  bool operator==(const Iterator& other) const { return ptr_ == other.ptr_; }
+  /// Iterators will only compare equal if they are both null.
+  /// Equality comparability is required to make an Iterator of Iterators
+  /// (to check for the end condition).
+  bool Equals(const Iterator& other) const { return ptr_ == other.ptr_; }
 
   explicit operator bool() const { return ptr_ != NULLPTR; }
+
+  class RangeIterator {
+   public:
+    RangeIterator() = default;
+
+    explicit RangeIterator(Iterator i) : iterator_(std::move(i)) { Next(); }
+
+    bool operator!=(const RangeIterator& other) const {
+      return !(status_ == other.status_ && value_ == other.value_);
+    }
+
+    RangeIterator& operator++() {
+      Next();
+      return *this;
+    }
+
+    Result<T> operator*() {
+      if (status_.ok()) {
+        return std::move(value_);
+      }
+      return status_;
+    }
+
+   private:
+    void Next() {
+      if (!status_.ok()) {
+        status_ = Status::OK();
+        value_ = IterationTraits<T>::End();
+        return;
+      }
+      status_ = iterator_.Next(&value_);
+    }
+
+    T value_ = IterationTraits<T>::End();
+    Iterator iterator_;
+    Status status_;
+  };
+
+  RangeIterator begin() { return RangeIterator(std::move(*this)); }
+
+  RangeIterator end() { return RangeIterator(); }
 
  private:
   /// Implementation of deleter for ptr_: Casts from void* to the wrapped type and
@@ -267,6 +314,53 @@ Iterator<O> MakeMaybeMapIterator(Fn map, Iterator<I> it) {
   return Iterator<O>(MaybeMapIterator<Fn, I, O>(std::move(map), std::move(it)));
 }
 
+/// \brief Like MapIterator, but where the function can fail or reject elements.
+template <
+    typename Fn,
+    typename I =
+        typename std::remove_pointer<internal::call_traits::argument_type<0, Fn>>::type,
+    typename O =
+        typename std::remove_pointer<internal::call_traits::argument_type<1, Fn>>::type>
+class FilterIterator {
+ public:
+  explicit FilterIterator(Fn filter, Iterator<I> it)
+      : filter_(filter), it_(std::move(it)) {}
+
+  Status Next(O* out) {
+    bool accept = true;
+    do {
+      I i;
+
+      ARROW_RETURN_NOT_OK(it_.Next(&i));
+      if (i == IterationTraits<I>::End()) {
+        *out = IterationTraits<O>::End();
+        return Status::OK();
+      }
+
+      ARROW_RETURN_NOT_OK(filter_(std::move(i), out, &accept));
+    } while (!accept);
+
+    return Status::OK();
+  }
+
+ private:
+  Fn filter_;
+  Iterator<I> it_;
+};
+
+template <
+    typename Fn,
+    typename I =
+        typename std::remove_pointer<internal::call_traits::argument_type<0, Fn>>::type,
+    typename O =
+        typename std::remove_pointer<internal::call_traits::argument_type<1, Fn>>::type,
+    typename Enable = typename std::enable_if<std::is_same<
+        bool, typename std::remove_pointer<
+                  internal::call_traits::argument_type<2, Fn>>::type>::value>::type>
+Iterator<O> MakeFilterIterator(Fn filter, Iterator<I> it) {
+  return Iterator<O>(FilterIterator<Fn, I, O>(std::move(filter), std::move(it)));
+}
+
 /// \brief FlattenIterator takes an iterator generating iterators and yields a
 /// unified iterator that flattens/concatenates in a single stream.
 template <typename T>
@@ -310,6 +404,127 @@ class FlattenIterator {
 template <typename T>
 Iterator<T> MakeFlattenIterator(Iterator<Iterator<T>> it) {
   return Iterator<T>(FlattenIterator<T>(std::move(it)));
+}
+
+namespace detail {
+
+// A type-erased promise object for ReadaheadQueue.
+struct ARROW_EXPORT ReadaheadPromise {
+  virtual ~ReadaheadPromise();
+  virtual void Call() = 0;
+};
+
+template <typename T>
+struct ReadaheadIteratorPromise : ReadaheadPromise {
+  ~ReadaheadIteratorPromise() override {}
+
+  explicit ReadaheadIteratorPromise(Iterator<T>* it) : it_(it) {}
+
+  void Call() override {
+    assert(!called_);
+    status_ = it_->Next(&out_);
+    called_ = true;
+  }
+
+  Iterator<T>* it_;
+  Status status_;
+  T out_ = IterationTraits<T>::End();
+  bool called_ = false;
+};
+
+class ARROW_EXPORT ReadaheadQueue {
+ public:
+  explicit ReadaheadQueue(int readahead_queue_size);
+  ~ReadaheadQueue();
+
+  Status Append(std::unique_ptr<ReadaheadPromise>);
+  Status PopDone(std::unique_ptr<ReadaheadPromise>*);
+  Status Pump(std::function<std::unique_ptr<ReadaheadPromise>()> factory);
+  Status Shutdown();
+  void EnsureShutdownOrDie();
+
+ protected:
+  class Impl;
+  std::shared_ptr<Impl> impl_;
+};
+
+}  // namespace detail
+
+/// \brief Readahead iterator that iterates on the underlying iterator in a
+/// separate thread, getting up to N values in advance.
+template <typename T>
+class ReadaheadIterator {
+  using PromiseType = typename detail::ReadaheadIteratorPromise<T>;
+
+ public:
+  // Public default constructor creates an empty iterator
+  ReadaheadIterator() : done_(true) {}
+
+  ~ReadaheadIterator() {
+    if (queue_) {
+      // Make sure the queue doesn't call any promises after this object
+      // is destroyed.
+      queue_->EnsureShutdownOrDie();
+    }
+  }
+
+  ARROW_DEFAULT_MOVE_AND_ASSIGN(ReadaheadIterator);
+  ARROW_DISALLOW_COPY_AND_ASSIGN(ReadaheadIterator);
+
+  Status Next(T* out) {
+    if (done_) {
+      *out = IterationTraits<T>::End();
+      return Status::OK();
+    }
+
+    std::unique_ptr<detail::ReadaheadPromise> promise;
+    ARROW_RETURN_NOT_OK(queue_->PopDone(&promise));
+    auto it_promise = static_cast<PromiseType*>(promise.get());
+
+    ARROW_RETURN_NOT_OK(queue_->Append(MakePromise()));
+
+    ARROW_RETURN_NOT_OK(it_promise->status_);
+    *out = std::move(it_promise->out_);
+    if (*out == IterationTraits<T>::End()) {
+      done_ = true;
+    }
+    return Status::OK();
+  }
+
+  static Status Make(Iterator<T> it, int readahead_queue_size, ReadaheadIterator* out) {
+    ReadaheadIterator rh(std::move(it), readahead_queue_size);
+    ARROW_RETURN_NOT_OK(rh.Pump());
+    *out = std::move(rh);
+    return Status::OK();
+  }
+
+ private:
+  explicit ReadaheadIterator(Iterator<T> it, int readahead_queue_size)
+      : it_(new Iterator<T>(std::move(it))),
+        queue_(new detail::ReadaheadQueue(readahead_queue_size)) {}
+
+  Status Pump() {
+    return queue_->Pump([this]() { return MakePromise(); });
+  }
+
+  std::unique_ptr<detail::ReadaheadPromise> MakePromise() {
+    return std::unique_ptr<detail::ReadaheadPromise>(new PromiseType{it_.get()});
+  }
+
+  // The underlying iterator is referenced by pointer in ReadaheadPromise,
+  // so make sure it doesn't move.
+  std::unique_ptr<Iterator<T>> it_;
+  std::unique_ptr<detail::ReadaheadQueue> queue_;
+  bool done_ = false;
+};
+
+template <typename T>
+Status MakeReadaheadIterator(Iterator<T> it, int readahead_queue_size, Iterator<T>* out) {
+  ReadaheadIterator<T> rh;
+  ARROW_RETURN_NOT_OK(
+      ReadaheadIterator<T>::Make(std::move(it), readahead_queue_size, &rh));
+  *out = Iterator<T>(std::move(rh));
+  return Status::OK();
 }
 
 }  // namespace arrow

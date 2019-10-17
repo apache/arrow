@@ -71,21 +71,21 @@ class TestSparseCOOTensorBase : public ::testing::Test {
                                          0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
     auto dense_data = Buffer::Wrap(dense_values);
     NumericTensor<Int64Type> dense_tensor(dense_data, shape_, {}, dim_names_);
-    sparse_tensor_from_dense_ = std::make_shared<SparseTensorCOO>(
+    sparse_tensor_from_dense_ = std::make_shared<SparseCOOTensor>(
         dense_tensor, TypeTraits<IndexValueType>::type_singleton());
   }
 
  protected:
   std::vector<int64_t> shape_;
   std::vector<std::string> dim_names_;
-  std::shared_ptr<SparseTensorCOO> sparse_tensor_from_dense_;
+  std::shared_ptr<SparseCOOTensor> sparse_tensor_from_dense_;
 };
 
 class TestSparseCOOTensor : public TestSparseCOOTensorBase<Int64Type> {};
 
 TEST_F(TestSparseCOOTensor, CreationEmptyTensor) {
-  SparseTensorImpl<SparseCOOIndex> st1(int64(), this->shape_);
-  SparseTensorImpl<SparseCOOIndex> st2(int64(), this->shape_, this->dim_names_);
+  SparseCOOTensor st1(int64(), this->shape_);
+  SparseCOOTensor st2(int64(), this->shape_, this->dim_names_);
 
   ASSERT_EQ(0, st1.non_zero_length());
   ASSERT_EQ(0, st2.non_zero_length());
@@ -134,7 +134,7 @@ TEST_F(TestSparseCOOTensor, CreationFromNumericTensor1D) {
   auto dense_data = Buffer::Wrap(dense_values);
   std::vector<int64_t> dense_shape({static_cast<int64_t>(dense_values.size())});
   NumericTensor<Int64Type> dense_vector(dense_data, dense_shape);
-  SparseTensorImpl<SparseCOOIndex> st(dense_vector);
+  SparseCOOTensor st(dense_vector);
 
   ASSERT_EQ(12, st.non_zero_length());
   ASSERT_TRUE(st.is_mutable());
@@ -158,7 +158,7 @@ TEST_F(TestSparseCOOTensor, CreationFromTensor) {
                                  0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
   std::shared_ptr<Buffer> buffer = Buffer::Wrap(values);
   Tensor tensor(int64(), buffer, this->shape_, {}, this->dim_names_);
-  SparseTensorImpl<SparseCOOIndex> st(tensor);
+  SparseCOOTensor st(tensor);
 
   ASSERT_EQ(12, st.non_zero_length());
   ASSERT_TRUE(st.is_mutable());
@@ -178,7 +178,7 @@ TEST_F(TestSparseCOOTensor, CreationFromNonContiguousTensor) {
   std::vector<int64_t> strides = {192, 64, 16};
   std::shared_ptr<Buffer> buffer = Buffer::Wrap(values);
   Tensor tensor(int64(), buffer, this->shape_, strides);
-  SparseTensorImpl<SparseCOOIndex> st(tensor);
+  SparseCOOTensor st(tensor);
 
   ASSERT_EQ(12, st.non_zero_length());
   ASSERT_TRUE(st.is_mutable());
@@ -195,8 +195,8 @@ TEST_F(TestSparseCOOTensor, TensorEquality) {
   std::shared_ptr<Buffer> buffer2 = Buffer::Wrap(values2);
   NumericTensor<Int64Type> tensor1(buffer1, this->shape_);
   NumericTensor<Int64Type> tensor2(buffer2, this->shape_);
-  SparseTensorImpl<SparseCOOIndex> st1(tensor1);
-  SparseTensorImpl<SparseCOOIndex> st2(tensor2);
+  SparseCOOTensor st1(tensor1);
+  SparseCOOTensor st2(tensor2);
 
   ASSERT_TRUE(st1.Equals(*this->sparse_tensor_from_dense_));
   ASSERT_FALSE(st1.Equals(st2));
@@ -217,11 +217,11 @@ class TestSparseCOOTensorForIndexValueType
   }
 
   template <typename CValueType>
-  std::shared_ptr<SparseTensorCOO> MakeSparseTensor(
+  std::shared_ptr<SparseCOOTensor> MakeSparseTensor(
       const std::shared_ptr<SparseCOOIndex>& si,
       std::vector<CValueType>& sparse_values) const {
     auto data = Buffer::Wrap(sparse_values);
-    return std::make_shared<SparseTensorCOO>(si,
+    return std::make_shared<SparseCOOTensor>(si,
                                              CTypeTraits<CValueType>::type_singleton(),
                                              data, this->shape_, this->dim_names_);
   }
@@ -357,14 +357,14 @@ class TestSparseCSRMatrixBase : public ::testing::Test {
                                          0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
     auto dense_data = Buffer::Wrap(dense_values);
     NumericTensor<Int64Type> dense_tensor(dense_data, shape_, {}, dim_names_);
-    sparse_tensor_from_dense_ = std::make_shared<SparseTensorCSR>(
+    sparse_tensor_from_dense_ = std::make_shared<SparseCSRMatrix>(
         dense_tensor, TypeTraits<IndexValueType>::type_singleton());
   }
 
  protected:
   std::vector<int64_t> shape_;
   std::vector<std::string> dim_names_;
-  std::shared_ptr<SparseTensorCSR> sparse_tensor_from_dense_;
+  std::shared_ptr<SparseCSRMatrix> sparse_tensor_from_dense_;
 };
 
 class TestSparseCSRMatrix : public TestSparseCSRMatrixBase<Int64Type> {};
@@ -375,8 +375,8 @@ TEST_F(TestSparseCSRMatrix, CreationFromNumericTensor2D) {
   std::shared_ptr<Buffer> buffer = Buffer::Wrap(values);
   NumericTensor<Int64Type> tensor(buffer, this->shape_);
 
-  SparseTensorImpl<SparseCSRIndex> st1(tensor);
-  SparseTensorImpl<SparseCSRIndex>& st2 = *this->sparse_tensor_from_dense_;
+  SparseCSRMatrix st1(tensor);
+  SparseCSRMatrix& st2 = *this->sparse_tensor_from_dense_;
 
   CheckSparseIndexFormatType(SparseTensorFormat::CSR, st1);
 
@@ -423,7 +423,7 @@ TEST_F(TestSparseCSRMatrix, CreationFromNonContiguousTensor) {
   std::vector<int64_t> strides = {64, 16};
   std::shared_ptr<Buffer> buffer = Buffer::Wrap(values);
   Tensor tensor(int64(), buffer, this->shape_, strides);
-  SparseTensorImpl<SparseCSRIndex> st(tensor);
+  SparseCSRMatrix st(tensor);
 
   ASSERT_EQ(12, st.non_zero_length());
   ASSERT_TRUE(st.is_mutable());
@@ -462,8 +462,8 @@ TEST_F(TestSparseCSRMatrix, TensorEquality) {
   std::shared_ptr<Buffer> buffer2 = Buffer::Wrap(values2);
   NumericTensor<Int64Type> tensor1(buffer1, this->shape_);
   NumericTensor<Int64Type> tensor2(buffer2, this->shape_);
-  SparseTensorImpl<SparseCSRIndex> st1(tensor1);
-  SparseTensorImpl<SparseCSRIndex> st2(tensor2);
+  SparseCSRMatrix st1(tensor1);
+  SparseCSRMatrix st2(tensor2);
 
   ASSERT_TRUE(st1.Equals(*this->sparse_tensor_from_dense_));
   ASSERT_FALSE(st1.Equals(st2));

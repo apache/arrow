@@ -33,6 +33,11 @@ std::string util___Codec__name(const std::unique_ptr<arrow::util::Codec>& codec)
 }
 
 // [[arrow::export]]
+bool util___Codec__IsAvailable(arrow::Compression::type codec) {
+  return arrow::util::Codec::IsAvailable(codec);
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::io::CompressedOutputStream> io___CompressedOutputStream__Make(
     const std::unique_ptr<arrow::util::Codec>& codec,
     const std::shared_ptr<arrow::io::OutputStream>& raw) {

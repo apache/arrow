@@ -20,6 +20,7 @@ context("Parquet file reading/writing")
 pq_file <- system.file("v0.7.1.parquet", package="arrow")
 
 test_that("reading a known Parquet file to tibble", {
+  skip_if_not_available("snappy")
   df <- read_parquet(pq_file)
   expect_true(tibble::is_tibble(df))
   expect_identical(dim(df), c(10L, 11L))
@@ -37,6 +38,7 @@ test_that("simple int column roundtrip", {
 })
 
 test_that("read_parquet() supports col_select", {
+  skip_if_not_available("snappy")
   df <- read_parquet(pq_file, col_select = c(x, y, z))
   expect_equal(names(df), c("x", "y", "z"))
 
@@ -45,12 +47,14 @@ test_that("read_parquet() supports col_select", {
 })
 
 test_that("read_parquet() with raw data", {
+  skip_if_not_available("snappy")
   test_raw <- readBin(pq_file, what = "raw", n = 5000)
   df <- read_parquet(test_raw)
   expect_identical(dim(df), c(10L, 11L))
 })
 
 test_that("write_parquet() handles various compression= specs", {
+  skip_if_not_available("snappy")
   tab <- Table$create(x1 = 1:5, x2 = 1:5, y = 1:5)
 
   expect_parquet_roundtrip(tab, compression = "snappy")
@@ -59,6 +63,7 @@ test_that("write_parquet() handles various compression= specs", {
 })
 
 test_that("write_parquet() handles various compression_level= specs", {
+  skip_if_not_available("gzip")
   tab <- Table$create(x1 = 1:5, x2 = 1:5, y = 1:5)
 
   expect_parquet_roundtrip(tab, compression = "gzip", compression_level = 4)

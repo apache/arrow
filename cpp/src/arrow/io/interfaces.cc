@@ -29,6 +29,7 @@
 #include "arrow/io/concurrency.h"
 #include "arrow/io/util_internal.h"
 #include "arrow/status.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string_view.h"
 
@@ -38,6 +39,31 @@ namespace io {
 FileInterface::~FileInterface() = default;
 
 Status FileInterface::Abort() { return Close(); }
+
+class InputStreamBlockIterator {
+ public:
+  InputStreamBlockIterator(std::shared_ptr<InputStream> stream, int64_t block_size)
+      : stream_(stream), block_size_(block_size) {}
+
+  Status Next(std::shared_ptr<Buffer>* out) {
+    if (done_) {
+      out->reset();
+      return Status::OK();
+    }
+    RETURN_NOT_OK(stream_->Read(block_size_, out));
+    if ((*out)->size() == 0) {
+      done_ = true;
+      stream_.reset();
+      out->reset();
+    }
+    return Status::OK();
+  }
+
+ protected:
+  std::shared_ptr<InputStream> stream_;
+  int64_t block_size_;
+  bool done_ = false;
+};
 
 Status InputStream::Advance(int64_t nbytes) {
   std::shared_ptr<Buffer> temp;
@@ -50,6 +76,16 @@ Status InputStream::Peek(int64_t ARROW_ARG_UNUSED(nbytes),
 }
 
 bool InputStream::supports_zero_copy() const { return false; }
+
+Status MakeInputStreamIterator(std::shared_ptr<InputStream> stream, int64_t block_size,
+                               Iterator<std::shared_ptr<Buffer>>* out) {
+  if (stream->closed()) {
+    return Status::Invalid("Cannot take iterator on closed stream");
+  }
+  DCHECK_GT(block_size, 0);
+  *out = Iterator<std::shared_ptr<Buffer>>(InputStreamBlockIterator(stream, block_size));
+  return Status::OK();
+}
 
 struct RandomAccessFile::RandomAccessFileImpl {
   std::mutex lock_;

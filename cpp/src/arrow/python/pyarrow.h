@@ -66,6 +66,8 @@ ARROW_PYTHON_EXPORT PyObject* wrap_schema(const std::shared_ptr<Schema>& schema)
 ARROW_PYTHON_EXPORT bool is_array(PyObject* array);
 ARROW_PYTHON_EXPORT Status unwrap_array(PyObject* array, std::shared_ptr<Array>* out);
 ARROW_PYTHON_EXPORT PyObject* wrap_array(const std::shared_ptr<Array>& array);
+ARROW_PYTHON_EXPORT PyObject* wrap_chunked_array(
+    const std::shared_ptr<ChunkedArray>& array);
 
 ARROW_PYTHON_EXPORT bool is_tensor(PyObject* tensor);
 ARROW_PYTHON_EXPORT Status unwrap_tensor(PyObject* tensor, std::shared_ptr<Tensor>* out);
@@ -73,15 +75,15 @@ ARROW_PYTHON_EXPORT PyObject* wrap_tensor(const std::shared_ptr<Tensor>& tensor)
 
 ARROW_PYTHON_EXPORT bool is_sparse_tensor_coo(PyObject* sparse_tensor);
 ARROW_PYTHON_EXPORT Status
-unwrap_sparse_tensor_coo(PyObject* sparse_tensor, std::shared_ptr<SparseTensorCOO>* out);
-ARROW_PYTHON_EXPORT PyObject* wrap_sparse_tensor_coo(
-    const std::shared_ptr<SparseTensorCOO>& sparse_tensor);
+unwrap_sparse_coo_tensor(PyObject* sparse_tensor, std::shared_ptr<SparseCOOTensor>* out);
+ARROW_PYTHON_EXPORT PyObject* wrap_sparse_coo_tensor(
+    const std::shared_ptr<SparseCOOTensor>& sparse_tensor);
 
 ARROW_PYTHON_EXPORT bool is_sparse_tensor_csr(PyObject* sparse_tensor);
 ARROW_PYTHON_EXPORT Status
-unwrap_sparse_tensor_csr(PyObject* sparse_tensor, std::shared_ptr<SparseTensorCSR>* out);
-ARROW_PYTHON_EXPORT PyObject* wrap_sparse_tensor_csr(
-    const std::shared_ptr<SparseTensorCSR>& sparse_tensor);
+unwrap_sparse_csr_matrix(PyObject* sparse_tensor, std::shared_ptr<SparseCSRMatrix>* out);
+ARROW_PYTHON_EXPORT PyObject* wrap_sparse_csr_matrix(
+    const std::shared_ptr<SparseCSRMatrix>& sparse_tensor);
 
 ARROW_PYTHON_EXPORT bool is_table(PyObject* table);
 ARROW_PYTHON_EXPORT Status unwrap_table(PyObject* table, std::shared_ptr<Table>* out);

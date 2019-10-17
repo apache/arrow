@@ -370,6 +370,8 @@ class build_ext(_build_ext):
                     move_shared_libs(build_prefix, build_lib, "arrow_cuda")
                 if self.with_flight:
                     move_shared_libs(build_prefix, build_lib, "arrow_flight")
+                    move_shared_libs(build_prefix, build_lib,
+                                     "arrow_python_flight")
                 if self.with_plasma:
                     move_shared_libs(build_prefix, build_lib, "plasma")
                 if self.with_gandiva:

@@ -958,6 +958,54 @@ Status PlasmaStore::ProcessMessage(Client* client) {
         ARROW_CHECK(RemoveFromClientObjectIds(object_id, entry, client) == 1);
       }
     } break;
+    case fb::MessageType::PlasmaCreateAndSealBatchRequest: {
+      std::vector<ObjectID> object_ids;
+      std::vector<std::string> data;
+      std::vector<std::string> metadata;
+      std::vector<std::string> digests;
+
+      RETURN_NOT_OK(ReadCreateAndSealBatchRequest(input, input_size, &object_ids, &data,
+                                                  &metadata, &digests));
+
+      // CreateAndSeal currently only supports device_num = 0, which corresponds
+      // to the host.
+      int device_num = 0;
+      size_t i = 0;
+      PlasmaError error_code = PlasmaError::OK;
+      for (i = 0; i < object_ids.size(); i++) {
+        error_code = CreateObject(object_ids[i], data[i].size(), metadata[i].size(),
+                                  device_num, client, &object);
+        if (error_code != PlasmaError::OK) {
+          break;
+        }
+      }
+
+      HANDLE_SIGPIPE(SendCreateAndSealBatchReply(client->fd, error_code), client->fd);
+
+      // if OK, seal all the objects,
+      // if error, abort the previous i objects immediately
+      if (error_code == PlasmaError::OK) {
+        for (i = 0; i < object_ids.size(); i++) {
+          auto entry = GetObjectTableEntry(&store_info_, object_ids[i]);
+          ARROW_CHECK(entry != nullptr);
+          // Write the inlined data and metadata into the allocated object.
+          std::memcpy(entry->pointer, data[i].data(), data[i].size());
+          std::memcpy(entry->pointer + data[i].size(), metadata[i].data(),
+                      metadata[i].size());
+          SealObject(object_ids[i], reinterpret_cast<unsigned char*>(
+                                        const_cast<char*>(digests[i].c_str())));
+          // Remove the client from the object's array of clients because the
+          // object is not being used by any client. The client was added to the
+          // object's array of clients in CreateObject. This is analogous to the
+          // Release call that happens in the client's Seal method.
+          ARROW_CHECK(RemoveFromClientObjectIds(object_ids[i], entry, client) == 1);
+        }
+      } else {
+        for (size_t j = 0; j < i; j++) {
+          AbortObject(object_ids[j], client);
+        }
+      }
+    } break;
     case fb::MessageType::PlasmaAbortRequest: {
       RETURN_NOT_OK(ReadAbortRequest(input, input_size, &object_id));
       ARROW_CHECK(AbortObject(object_id, client) == 1) << "To abort an object, the only "

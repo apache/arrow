@@ -21,6 +21,7 @@ import java.io.Closeable;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
+import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.types.Types.MinorType;
@@ -240,9 +241,14 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
   boolean isNull(int index);
 
   /**
-   * Returns hashCode of element in index.
+   * Returns hashCode of element in index with the default hasher.
    */
   int hashCode(int index);
+
+  /**
+   * Returns hashCode of element in index with the given hasher.
+   */
+  int hashCode(int index, ArrowBufHasher hasher);
 
   /**
    * Copy a cell value from a particular index in source vector to a particular

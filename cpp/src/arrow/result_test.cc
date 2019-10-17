@@ -585,5 +585,23 @@ TEST(ResultTest, TemplateMoveConstruct) {
   //  NOLINTNEXTLINE use after move.
 }
 
+TEST(ResultTest, Equality) {
+  EXPECT_EQ(Result<int>(), Result<int>());
+  EXPECT_EQ(Result<int>(3), Result<int>(3));
+  EXPECT_EQ(Result<int>(Status::Invalid("error")), Result<int>(Status::Invalid("error")));
+
+  EXPECT_NE(Result<int>(), Result<int>(3));
+  EXPECT_NE(Result<int>(Status::Invalid("error")), Result<int>(3));
+  EXPECT_NE(Result<int>(3333), Result<int>(0));
+  EXPECT_NE(Result<int>(Status::Invalid("error")),
+            Result<int>(Status::Invalid("other error")));
+
+  Result<int> moved_from(3);
+  auto moved_to = std::move(moved_from);
+  //  NOLINTNEXTLINE use after move.
+  EXPECT_NE(Result<int>(3), moved_from);
+  //  NOLINTNEXTLINE use after move.
+}
+
 }  // namespace
 }  // namespace arrow

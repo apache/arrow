@@ -20,11 +20,12 @@ extern crate datafusion;
 
 use arrow::array::{BinaryArray, Float64Array, Int32Array};
 
+use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
 
 /// This example demonstrates executing a simple query against an Arrow data source (Parquet) and
 /// fetching results
-fn main() {
+fn main() -> Result<()> {
     // create local execution context
     let mut ctx = ExecutionContext::new();
 
@@ -35,19 +36,21 @@ fn main() {
     ctx.register_parquet(
         "alltypes_plain",
         &format!("{}/alltypes_plain.parquet", testdata),
-    )
-    .unwrap();
+    )?;
 
     // simple selection
     let sql = "SELECT int_col, double_col, date_string_col FROM alltypes_plain WHERE id > 1 AND tinyint_col < double_col";
 
+    // create the query plan
+    let plan = ctx.create_logical_plan(&sql)?;
+    let plan = ctx.optimize(&plan)?;
+    let plan = ctx.create_physical_plan(&plan, 1024 * 1024)?;
+
     // execute the query
-    let relation = ctx.sql(&sql, 1024 * 1024).unwrap();
+    let results = ctx.collect(plan.as_ref())?;
 
-    // display the relation
-    let mut results = relation.borrow_mut();
-
-    while let Some(batch) = results.next().unwrap() {
+    // iterate over the results
+    results.iter().for_each(|batch| {
         println!(
             "RecordBatch has {} rows and {} columns",
             batch.num_rows(),
@@ -82,5 +85,7 @@ fn main() {
                 double.value(i)
             );
         }
-    }
+    });
+
+    Ok(())
 }

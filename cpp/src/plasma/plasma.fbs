@@ -28,6 +28,8 @@ enum MessageType:long {
   PlasmaCreateReply,
   PlasmaCreateAndSealRequest,
   PlasmaCreateAndSealReply,
+  PlasmaCreateAndSealBatchRequest,
+  PlasmaCreateAndSealBatchReply,
   PlasmaAbortRequest,
   PlasmaAbortReply,
   // Seal an object.
@@ -173,6 +175,18 @@ table PlasmaCreateAndSealRequest {
 }
 
 table PlasmaCreateAndSealReply {
+  // Error that occurred for this call.
+  error: PlasmaError;
+}
+
+table PlasmaCreateAndSealBatchRequest {
+    object_ids: [string];
+    data: [string];
+    metadata: [string];
+    digest: [string];
+}
+
+table PlasmaCreateAndSealBatchReply {
   // Error that occurred for this call.
   error: PlasmaError;
 }

@@ -90,10 +90,10 @@ Buffer Builders
 STL Integration
 ---------------
 
-.. doxygenclass:: arrow::stl_allocator
+.. doxygenclass:: arrow::stl::allocator
    :project: arrow_cpp
    :members:
 
-.. doxygenclass:: arrow::STLMemoryPool
+.. doxygenclass:: arrow::stl::STLMemoryPool
    :project: arrow_cpp
    :members:

@@ -33,6 +33,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/formatting.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/parsing.h"  // IWYU pragma: keep
@@ -477,13 +478,19 @@ const std::pair<bool, int64_t> kTimeConversionTable[4][4] = {
 
 }  // namespace
 
-template <>
-struct CastFunctor<TimestampType, TimestampType> {
+// <TimestampType, TimestampType> and <DurationType, DurationType>
+template <typename O, typename I>
+struct CastFunctor<
+    O, I,
+    typename std::enable_if<(std::is_base_of<O, TimestampType>::value &&
+                             std::is_base_of<I, TimestampType>::value) ||
+                            (std::is_base_of<O, DurationType>::value &&
+                             std::is_base_of<I, DurationType>::value)>::type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     // If units are the same, zero copy, otherwise convert
-    const auto& in_type = checked_cast<const TimestampType&>(*input.type);
-    const auto& out_type = checked_cast<const TimestampType&>(*output->type);
+    const auto& in_type = checked_cast<const I&>(*input.type);
+    const auto& out_type = checked_cast<const O&>(*output->type);
 
     if (in_type.unit() == out_type.unit()) {
       ZeroCopyData(input, output);
@@ -1005,6 +1012,49 @@ struct CastFunctor<TimestampType, I,
 };
 
 // ----------------------------------------------------------------------
+// Number / Boolean to String
+
+template <typename I, typename O>
+struct CastFunctor<O, I,
+                   typename std::enable_if<is_any_string_type<O>::value &&
+                                           (is_number_type<I>::value ||
+                                            std::is_same<I, BooleanType>::value)>::type> {
+  void operator()(FunctionContext* ctx, const CastOptions& options,
+                  const ArrayData& input, ArrayData* output) {
+    ctx->SetStatus(Convert(ctx, options, input, output));
+  }
+
+  Status Convert(FunctionContext* ctx, const CastOptions& options, const ArrayData& input,
+                 ArrayData* output) {
+    using value_type = typename TypeTraits<I>::CType;
+    using BuilderType = typename TypeTraits<O>::BuilderType;
+    using FormatterType = typename internal::StringFormatter<I>;
+
+    struct Visitor {
+      Visitor(FunctionContext* ctx, const ArrayData& input)
+          : formatter_(input.type), builder_(input.type, ctx->memory_pool()) {}
+
+      Status VisitNull() { return builder_.AppendNull(); }
+
+      Status VisitValue(value_type value) {
+        return formatter_(value,
+                          [this](util::string_view v) { return builder_.Append(v); });
+      }
+
+      FormatterType formatter_;
+      BuilderType builder_;
+    };
+
+    Visitor visitor(ctx, input);
+    RETURN_NOT_OK(ArrayDataVisitor<I>::Visit(input, &visitor));
+    std::shared_ptr<Array> output_array;
+    RETURN_NOT_OK(visitor.builder_.Finish(&output_array));
+    *output = std::move(*output_array->data());
+    return Status::OK();
+  }
+};
+
+// ----------------------------------------------------------------------
 // Binary to String
 //
 
@@ -1151,6 +1201,7 @@ GET_CAST_FUNCTION(DATE64_CASES, Date64Type)
 GET_CAST_FUNCTION(TIME32_CASES, Time32Type)
 GET_CAST_FUNCTION(TIME64_CASES, Time64Type)
 GET_CAST_FUNCTION(TIMESTAMP_CASES, TimestampType)
+GET_CAST_FUNCTION(DURATION_CASES, DurationType)
 GET_CAST_FUNCTION(BINARY_CASES, BinaryType)
 GET_CAST_FUNCTION(STRING_CASES, StringType)
 GET_CAST_FUNCTION(LARGEBINARY_CASES, LargeBinaryType)
@@ -1189,13 +1240,14 @@ inline bool IsZeroCopyCast(Type::type in_type, Type::type out_type) {
       return (out_type == Type::DATE32) || (out_type == Type::TIME32);
     case Type::INT64:
       return ((out_type == Type::DATE64) || (out_type == Type::TIME64) ||
-              (out_type == Type::TIMESTAMP));
+              (out_type == Type::TIMESTAMP) || (out_type == Type::DURATION));
     case Type::DATE32:
     case Type::TIME32:
       return out_type == Type::INT32;
     case Type::DATE64:
     case Type::TIME64:
     case Type::TIMESTAMP:
+    case Type::DURATION:
       return out_type == Type::INT64;
     default:
       break;
@@ -1237,6 +1289,7 @@ Status GetCastFunction(const DataType& in_type, std::shared_ptr<DataType> out_ty
     CAST_FUNCTION_CASE(Time32Type);
     CAST_FUNCTION_CASE(Time64Type);
     CAST_FUNCTION_CASE(TimestampType);
+    CAST_FUNCTION_CASE(DurationType);
     CAST_FUNCTION_CASE(BinaryType);
     CAST_FUNCTION_CASE(StringType);
     CAST_FUNCTION_CASE(LargeBinaryType);

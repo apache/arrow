@@ -27,7 +27,7 @@ gflags
 glog
 gmock>=1.8.1
 grpc-cpp>=1.21.4
-gtest>=1.8.1
+gtest=1.8.1
 libprotobuf
 lz4-c
 ninja

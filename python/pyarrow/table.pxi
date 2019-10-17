@@ -782,21 +782,25 @@ def _reconstruct_record_batch(columns, schema):
     return RecordBatch.from_arrays(columns, schema=schema)
 
 
-def table_to_blocks(options, Table table, categories):
+def table_to_blocks(options, Table table, categories, extension_columns):
     cdef:
         PyObject* result_obj
         shared_ptr[CTable] c_table = table.sp_table
         CMemoryPool* pool
         unordered_set[c_string] categorical_columns
         PandasOptions c_options = _convert_pandas_options(options)
+        unordered_set[c_string] c_extension_columns
 
     if categories is not None:
         categorical_columns = {tobytes(cat) for cat in categories}
+    if extension_columns is not None:
+        c_extension_columns = {tobytes(col) for col in extension_columns}
 
     with nogil:
         check_status(
             libarrow.ConvertTableToPandas(
-                c_options, categorical_columns, c_table, &result_obj)
+                c_options, categorical_columns, c_extension_columns, c_table,
+                &result_obj)
         )
 
     return PyObject_to_object(result_obj)
@@ -1147,24 +1151,32 @@ cdef class Table(_PandasConvertible):
 
         """
         arrays = []
-        if schema is not None:
-            for field in schema:
-                try:
-                    v = mapping[field.name]
-                except KeyError as e:
-                    try:
-                        v = mapping[tobytes(field.name)]
-                    except KeyError as e2:
-                        raise e
-                arrays.append(asarray(v, type=field.type))
-            # Will raise if metadata is not None
-            return Table.from_arrays(arrays, schema=schema, metadata=metadata)
-        else:
+        if schema is None:
             names = []
             for k, v in mapping.items():
                 names.append(k)
                 arrays.append(asarray(v))
             return Table.from_arrays(arrays, names, metadata=metadata)
+        elif isinstance(schema, Schema):
+            for field in schema:
+                try:
+                    v = mapping[field.name]
+                except KeyError:
+                    try:
+                        v = mapping[tobytes(field.name)]
+                    except KeyError:
+                        present = mapping.keys()
+                        missing = [n for n in schema.names if n not in present]
+                        raise KeyError(
+                            "The passed mapping doesn't contain the "
+                            "following field(s) of the schema: {}".
+                            format(', '.join(missing))
+                        )
+                arrays.append(asarray(v, type=field.type))
+            # Will raise if metadata is not None
+            return Table.from_arrays(arrays, schema=schema, metadata=metadata)
+        else:
+            raise TypeError('Schema must be an instance of pyarrow.Schema')
 
     @staticmethod
     def from_batches(batches, Schema schema=None):

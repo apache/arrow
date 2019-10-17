@@ -27,8 +27,10 @@ import java.util.stream.StreamSupport;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.AutoCloseables;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
+import org.apache.arrow.vector.util.TransferPair;
 
 /**
  * Holder for a set of vectors to be loaded/unloaded.
@@ -47,8 +49,7 @@ public class VectorSchemaRoot implements AutoCloseable {
   public VectorSchemaRoot(Iterable<FieldVector> vectors) {
     this(
         StreamSupport.stream(vectors.spliterator(), false).map(t -> t.getField()).collect(Collectors.toList()),
-        StreamSupport.stream(vectors.spliterator(), false).collect(Collectors.toList()),
-        0
+        StreamSupport.stream(vectors.spliterator(), false).collect(Collectors.toList())
         );
   }
 
@@ -57,6 +58,16 @@ public class VectorSchemaRoot implements AutoCloseable {
    */
   public VectorSchemaRoot(FieldVector parent) {
     this(parent.getField().getChildren(), parent.getChildrenFromFields(), parent.getValueCount());
+  }
+
+  /**
+   * Constructs a new instance.
+   *
+   * @param fields The types of each vector.
+   * @param fieldVectors The data vectors (must be equal in size to <code>fields</code>.
+   */
+  public VectorSchemaRoot(List<Field> fields, List<FieldVector> fieldVectors) {
+    this(new Schema(fields), fieldVectors, fieldVectors.size() == 0 ? 0 : fieldVectors.get(0).getValueCount());
   }
 
   /**
@@ -140,6 +151,46 @@ public class VectorSchemaRoot implements AutoCloseable {
 
   public FieldVector getVector(String name) {
     return fieldVectorsMap.get(name);
+  }
+
+  public FieldVector getVector(int index) {
+    Preconditions.checkArgument(index >= 0 && index < fieldVectors.size());
+    return fieldVectors.get(index);
+  }
+
+  /**
+   * Add vector to the record batch, producing a new VectorSchemaRoot.
+   * @param index field index
+   * @param vector vector to be added.
+   * @return out VectorSchemaRoot with vector added
+   */
+  public VectorSchemaRoot addVector(int index, FieldVector vector) {
+    Preconditions.checkNotNull(vector);
+    Preconditions.checkArgument(index >= 0 && index < fieldVectors.size());
+    List<FieldVector> newVectors = new ArrayList<>();
+    for (int i = 0; i < fieldVectors.size(); i++) {
+      if (i == index) {
+        newVectors.add(vector);
+      }
+      newVectors.add(fieldVectors.get(i));
+    }
+    return new VectorSchemaRoot(newVectors);
+  }
+
+  /**
+   * Remove vector from the record batch, producing a new VectorSchemaRoot.
+   * @param index field index
+   * @return out VectorSchemaRoot with vector removed
+   */
+  public VectorSchemaRoot removeVector(int index) {
+    Preconditions.checkArgument(index >= 0 && index < fieldVectors.size());
+    List<FieldVector> newVectors = new ArrayList<>();
+    for (int i = 0; i < fieldVectors.size(); i++) {
+      if (i != index) {
+        newVectors.add(fieldVectors.get(i));
+      }
+    }
+    return new VectorSchemaRoot(newVectors);
   }
 
   public Schema getSchema() {
@@ -226,4 +277,40 @@ public class VectorSchemaRoot implements AutoCloseable {
     }
     return false;
   }
+
+  /**
+   * Slice this root from desired index.
+   * @param index start position of the slice
+   * @return the sliced root
+   */
+  public VectorSchemaRoot slice(int index) {
+    return slice(index, this.rowCount - index);
+  }
+
+  /**
+   * Slice this root at desired index and length.
+   * @param index start position of the slice
+   * @param length length of the slice
+   * @return the sliced root
+   */
+  public VectorSchemaRoot slice(int index, int length) {
+    Preconditions.checkArgument(index >= 0, "expecting non-negative index");
+    Preconditions.checkArgument(length >= 0, "expecting non-negative length");
+    Preconditions.checkArgument(index + length <= rowCount,
+        "index + length should <= rowCount");
+
+    if (index == 0 && length == rowCount) {
+      return this;
+    }
+
+    List<FieldVector> sliceVectors = fieldVectors.stream().map(v -> {
+      TransferPair transferPair = v.getTransferPair(v.getAllocator());
+      transferPair.splitAndTransfer(index, length);
+      return (FieldVector) transferPair.getTo();
+    }).collect(Collectors.toList());
+
+    return new VectorSchemaRoot(sliceVectors);
+  }
+
 }
+

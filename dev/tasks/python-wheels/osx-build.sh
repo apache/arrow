@@ -129,6 +129,12 @@ function build_wheel {
           -DARROW_PLASMA=ON \
           -DARROW_RPATH_ORIGIN=ON \
           -DARROW_PYTHON=ON \
+          -DARROW_WITH_BZ2=ON \
+          -DARROW_WITH_ZLIB=ON \
+          -DARROW_WITH_ZSTD=ON \
+          -DARROW_WITH_LZ4=ON \
+          -DARROW_WITH_SNAPPY=ON \
+          -DARROW_WITH_BROTLI=ON \
           -DARROW_PARQUET=ON \
           -DARROW_GANDIVA=${BUILD_ARROW_GANDIVA} \
           -DARROW_ORC=OFF \

@@ -38,4 +38,11 @@ ARROW_EXPORT std::string Escape(util::string_view str);
 
 ARROW_EXPORT Status ParseHexValue(const char* data, uint8_t* out);
 
+namespace internal {
+
+/// \brief Trim whitespace from left and right sides of string
+ARROW_EXPORT
+std::string TrimString(std::string value);
+
+}  // namespace internal
 }  // namespace arrow

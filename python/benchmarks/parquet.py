@@ -131,3 +131,26 @@ class ParquetWriteDictionaries(object):
 
     def time_write_sequential(self, nunique):
         pq.write_table(self.table_sequential, pa.BufferOutputStream())
+
+
+class ParquetManyColumns(object):
+
+    total_cells = 10000000
+    param_names = ('num_cols',)
+    params = [100, 1000, 10000]
+
+    def setup(self, num_cols):
+        num_rows = self.total_cells // num_cols
+        self.table = pa.table({'c' + str(i): np.random.randn(num_rows)
+                               for i in range(num_cols)})
+
+        out = pa.BufferOutputStream()
+        pq.write_table(self.table, out)
+        self.buf = out.getvalue()
+
+    def time_write(self, num_cols):
+        out = pa.BufferOutputStream()
+        pq.write_table(self.table, out)
+
+    def time_read(self, num_cols):
+        pq.read_table(self.buf)

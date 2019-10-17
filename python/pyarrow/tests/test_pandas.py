@@ -21,6 +21,7 @@ import six
 import decimal
 import json
 import multiprocessing as mp
+import sys
 
 from collections import OrderedDict
 from datetime import date, datetime, time, timedelta
@@ -1220,18 +1221,6 @@ class TestConvertDateTimeLikeTypes(object):
         assert a1[0].as_py() == expected
         assert a2[0].as_py() == expected
 
-    @pytest.mark.xfail(reason="not supported ATM",
-                       raises=NotImplementedError)
-    def test_timedelta(self):
-        # TODO(jreback): Pandas only support ns resolution
-        # Arrow supports ??? for resolution
-        df = pd.DataFrame({
-            'timedelta': np.arange(start=0, stop=3 * 86400000,
-                                   step=86400000,
-                                   dtype='timedelta64[ms]')
-        })
-        pa.Table.from_pandas(df)
-
     def test_pytime_from_pandas(self):
         pytimes = [time(1, 2, 3, 1356),
                    time(4, 5, 6, 1356)]
@@ -1382,6 +1371,31 @@ class TestConvertDateTimeLikeTypes(object):
              })
         _check_pandas_roundtrip(df)
         _check_serialize_components_roundtrip(df)
+
+    def test_timedeltas_no_nulls(self):
+        df = pd.DataFrame({
+            'timedelta64': np.array([0, 3600000000000, 7200000000000],
+                                    dtype='timedelta64[ns]')
+        })
+        field = pa.field('timedelta64', pa.duration('ns'))
+        schema = pa.schema([field])
+        _check_pandas_roundtrip(
+            df,
+            expected_schema=schema,
+        )
+
+    def test_timedeltas_nulls(self):
+        df = pd.DataFrame({
+            'timedelta64': np.array([0, None, 7200000000000],
+                                    dtype='timedelta64[ns]')
+        })
+        field = pa.field('timedelta64', pa.duration('ns'))
+        schema = pa.schema([field])
+        _check_pandas_roundtrip(
+            df,
+            expected_schema=schema,
+        )
+
 
 # ----------------------------------------------------------------------
 # Conversion tests for string and binary types.
@@ -2184,6 +2198,10 @@ class TestZeroCopyConversion(object):
         arr = np.array(['2007-07-13'], dtype='datetime64[ns]')
         self.check_zero_copy_failure(pa.array(arr))
 
+    def test_zero_copy_failure_on_duration_types(self):
+        arr = np.array([1], dtype='timedelta64[ns]')
+        self.check_zero_copy_failure(pa.array(arr))
+
 
 # This function must be at the top-level for Python 2.7's multiprocessing
 def _non_threaded_conversion():
@@ -2542,16 +2560,13 @@ def _pytime_to_micros(pytime):
 def test_convert_unsupported_type_error_message():
     # ARROW-1454
 
+    # period as yet unsupported
     df = pd.DataFrame({
-        't1': pd.date_range('2000-01-01', periods=20),
-        't2': pd.date_range('2000-05-01', periods=20)
+        'a': pd.period_range('2000-01-01', periods=20),
     })
 
-    # timedelta64 as yet unsupported
-    df['diff'] = df.t2 - df.t1
-
-    expected_msg = 'Conversion failed for column diff with type timedelta64'
-    with pytest.raises(pa.ArrowNotImplementedError, match=expected_msg):
+    expected_msg = 'Conversion failed for column a with type period'
+    with pytest.raises(pa.ArrowInvalid, match=expected_msg):
         pa.Table.from_pandas(df)
 
 
@@ -2979,6 +2994,31 @@ def test_table_uses_memory_pool():
     assert pa.total_allocated_bytes() == prior_allocation
 
 
+def test_object_leak_in_numpy_array():
+    # ARROW-6876
+    arr = pa.array([{'a': 1}])
+    np_arr = arr.to_pandas()
+    assert np_arr.dtype == np.dtype('object')
+    obj = np_arr[0]
+    refcount = sys.getrefcount(obj)
+    assert sys.getrefcount(obj) == refcount
+    del np_arr
+    assert sys.getrefcount(obj) == refcount - 1
+
+
+def test_object_leak_in_dataframe():
+    # ARROW-6876
+    arr = pa.array([{'a': 1}])
+    table = pa.table([arr], ['f0'])
+    col = table.to_pandas()['f0']
+    assert col.dtype == np.dtype('object')
+    obj = col[0]
+    refcount = sys.getrefcount(obj)
+    assert sys.getrefcount(obj) == refcount
+    del col
+    assert sys.getrefcount(obj) == refcount - 1
+
+
 # ----------------------------------------------------------------------
 # Some nested array tests array tests
 
@@ -3170,6 +3210,51 @@ def test_array_protocol():
         assert result.equals(expected)
         result = pa.array(df['a'].values, type=pa.float64())
         assert result.equals(expected2)
+
+
+# ----------------------------------------------------------------------
+# Pandas ExtensionArray support
+
+
+def _to_pandas(table, extension_columns=None):
+    # temporary test function as long as we have no public API to do this
+    from pyarrow.pandas_compat import table_to_blockmanager
+
+    options = dict(
+        pool=None,
+        strings_to_categorical=False,
+        zero_copy_only=False,
+        integer_object_nulls=False,
+        date_as_object=True,
+        use_threads=True,
+        deduplicate_objects=True)
+
+    mgr = table_to_blockmanager(
+        options, table, extension_columns=extension_columns)
+    return pd.DataFrame(mgr)
+
+
+def test_convert_to_extension_array():
+    if LooseVersion(pd.__version__) < '0.24.0':
+        pytest.skip(reason='IntegerArray only introduced in 0.24')
+
+    import pandas.core.internals as _int
+
+    table = pa.table({'a': [1, 2, 3], 'b': [2, 3, 4]})
+
+    df = _to_pandas(table)
+    assert len(df._data.blocks) == 1
+    assert isinstance(df._data.blocks[0], _int.IntBlock)
+
+    df = _to_pandas(table, extension_columns=['b'])
+    assert isinstance(df._data.blocks[0], _int.IntBlock)
+    assert isinstance(df._data.blocks[1], _int.ExtensionBlock)
+
+    table = pa.table({'a': [1, 2, None]})
+    df = _to_pandas(table, extension_columns=['a'])
+    assert isinstance(df._data.blocks[0], _int.ExtensionBlock)
+    expected = pd.DataFrame({'a': pd.Series([1, 2, None], dtype='Int64')})
+    tm.assert_frame_equal(df, expected)
 
 
 # ----------------------------------------------------------------------

@@ -182,7 +182,7 @@ public class TestSearchDictionaryEncoder {
   }
 
   @Test
-  public void testEncodeNoNullInDictionary() {
+  public void testEncodeNullWithoutNullInDictionary() {
     try (VarCharVector rawVector = new VarCharVector("original vector", allocator);
          IntVector encodedVector = new IntVector("encoded vector", allocator);
          VarCharVector dictionary = new VarCharVector("dictionary", allocator)) {

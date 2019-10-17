@@ -22,6 +22,10 @@ package org.apache.arrow.flight;
  */
 public enum FlightStatusCode {
   /**
+   * The call completed successfully. Generally clients will not see this, but middleware may.
+   */
+  OK,
+  /**
    * An unknown error occurred. This may also be the result of an implementation error on the server-side; by default,
    * unhandled server exceptions result in this code.
    */

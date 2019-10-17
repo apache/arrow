@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <deque>
 #include <functional>
@@ -134,7 +135,7 @@ struct PARQUET_EXPORT SchemaField {
 
   bool is_leaf() const { return column_index != -1; }
 
-  Status GetReader(const ReaderContext& context,
+  Status GetReader(const std::shared_ptr<ReaderContext>& context,
                    std::unique_ptr<ColumnReaderImpl>* out) const;
 };
 

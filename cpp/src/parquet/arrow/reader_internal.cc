@@ -1264,6 +1264,7 @@ Status ReconstructNestedList(const std::shared_ptr<Array>& arr,
                              const int16_t* rep_levels, int64_t total_levels,
                              ::arrow::MemoryPool* pool, std::shared_ptr<Array>* out) {
   // Walk downwards to extract nullability
+  std::vector<std::string> item_names;
   std::vector<bool> nullable;
   std::vector<std::shared_ptr<::arrow::Int32Builder>> offset_builders;
   std::vector<std::shared_ptr<::arrow::BooleanBuilder>> valid_bits_builders;
@@ -1277,6 +1278,7 @@ Status ReconstructNestedList(const std::shared_ptr<Array>& arr,
       }
       field = field->type()->child(0);
     }
+    item_names.push_back(field->name());
     offset_builders.emplace_back(
         std::make_shared<::arrow::Int32Builder>(::arrow::int32(), pool));
     valid_bits_builders.emplace_back(
@@ -1360,7 +1362,7 @@ Status ReconstructNestedList(const std::shared_ptr<Array>& arr,
   // TODO(wesm): Use passed-in field
   for (int64_t j = list_depth - 1; j >= 0; j--) {
     auto list_type =
-        ::arrow::list(::arrow::field("item", (*out)->type(), nullable[j + 1]));
+        ::arrow::list(::arrow::field(item_names[j], (*out)->type(), nullable[j + 1]));
     *out = std::make_shared<::arrow::ListArray>(list_type, list_lengths[j], offsets[j],
                                                 *out, valid_bits[j], null_counts[j]);
   }

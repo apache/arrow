@@ -31,6 +31,7 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.MapWithOrdinal;
+import org.apache.arrow.vector.util.ValueVectorUtility;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -327,5 +328,10 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
       }
     }
     return actualBufSize;
+  }
+
+  @Override
+  public String toString() {
+    return ValueVectorUtility.getToString(this, 0 , getValueCount());
   }
 }

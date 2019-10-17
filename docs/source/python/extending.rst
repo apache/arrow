@@ -111,15 +111,15 @@ C++ objects.
    Return whether *obj* wraps an Arrow C++ :class:`Tensor` pointer;
    in other words, whether *obj* is a :py:class:`pyarrow.Tensor` instance.
 
-.. function:: bool is_sparse_tensor_coo(PyObject* obj)
+.. function:: bool is_sparse_coo_tensor(PyObject* obj)
 
-   Return whether *obj* wraps an Arrow C++ :class:`SparseTensorCOO` pointer;
-   in other words, whether *obj* is a :py:class:`pyarrow.SparseTensorCOO` instance.
+   Return whether *obj* wraps an Arrow C++ :class:`SparseCOOTensor` pointer;
+   in other words, whether *obj* is a :py:class:`pyarrow.SparseCOOTensor` instance.
 
-.. function:: bool is_sparse_tensor_csr(PyObject* obj)
+.. function:: bool is_sparse_csr_matrix(PyObject* obj)
 
-   Return whether *obj* wraps an Arrow C++ :class:`SparseTensorCSR` pointer;
-   in other words, whether *obj* is a :py:class:`pyarrow.SparseTensorCSR` instance.
+   Return whether *obj* wraps an Arrow C++ :class:`SparseCSRMatrix` pointer;
+   in other words, whether *obj* is a :py:class:`pyarrow.SparseCSRMatrix` instance.
 
 The following functions expect a pyarrow object, unwrap the underlying
 Arrow C++ API pointer, and put it in the *out* parameter.  The returned
@@ -158,13 +158,13 @@ occurred.  If successful, *out* is guaranteed to be non-NULL.
 
    Unwrap the Arrow C++ :class:`Tensor` pointer from *obj* and put it in *out*.
 
-.. function:: Status unwrap_sparse_tensor_coo(PyObject* obj, std::shared_ptr<SparseTensorCOO>* out)
+.. function:: Status unwrap_sparse_coo_tensor(PyObject* obj, std::shared_ptr<SparseCOOTensor>* out)
 
-   Unwrap the Arrow C++ :class:`SparseTensorCOO` pointer from *obj* and put it in *out*.
+   Unwrap the Arrow C++ :class:`SparseCOOTensor` pointer from *obj* and put it in *out*.
 
-.. function:: Status unwrap_sparse_tensor_csr(PyObject* obj, std::shared_ptr<SparseTensorCSR>* out)
+.. function:: Status unwrap_sparse_csr_matrix(PyObject* obj, std::shared_ptr<SparseCSRMatrix>* out)
 
-   Unwrap the Arrow C++ :class:`SparseTensorCSR` pointer from *obj* and put it in *out*.
+   Unwrap the Arrow C++ :class:`SparseCSRMatrix` pointer from *obj* and put it in *out*.
 
 The following functions take an Arrow C++ API pointer and wrap it in a
 pyarray object of the corresponding type.  A new reference is returned.
@@ -202,13 +202,13 @@ On error, NULL is returned and a Python exception is set.
 
    Wrap the Arrow C++ *tensor* in a :py:class:`pyarrow.Tensor` instance.
 
-.. function:: PyObject* wrap_sparse_tensor_coo(const std::shared_ptr<SparseTensorCOO>& sparse_tensor)
+.. function:: PyObject* wrap_sparse_coo_tensor(const std::shared_ptr<SparseCOOTensor>& sparse_tensor)
 
-   Wrap the Arrow C++ *COO sparse tensor* in a :py:class:`pyarrow.SparseTensorCOO` instance.
+   Wrap the Arrow C++ *COO sparse tensor* in a :py:class:`pyarrow.SparseCOOTensor` instance.
 
-.. function:: PyObject* wrap_sparse_tensor_csr(const std::shared_ptr<SparseTensorCSR>& sparse_tensor)
+.. function:: PyObject* wrap_sparse_csr_matrix(const std::shared_ptr<SparseCSRMatrix>& sparse_tensor)
 
-   Wrap the Arrow C++ *CSR sparse tensor* in a :py:class:`pyarrow.SparseTensorCSR` instance.
+   Wrap the Arrow C++ *CSR sparse tensor* in a :py:class:`pyarrow.SparseCSRMatrix` instance.
 
 
 Cython API
@@ -268,11 +268,11 @@ an exception) if the input is not of the right type.
 
 .. function:: pyarrow_unwrap_sparse_tensor_coo(obj) -> shared_ptr[CSparseTensorCOO]
 
-   Unwrap the Arrow C++ :cpp:class:`SparseTensorCOO` pointer from *obj*.
+   Unwrap the Arrow C++ :cpp:class:`SparseCOOTensor` pointer from *obj*.
 
 .. function:: pyarrow_unwrap_sparse_tensor_csr(obj) -> shared_ptr[CSparseTensorCSR]
 
-   Unwrap the Arrow C++ :cpp:class:`SparseTensorCSR` pointer from *obj*.
+   Unwrap the Arrow C++ :cpp:class:`SparseCSRMatrix` pointer from *obj*.
 
 The following functions take a Arrow C++ API pointer and wrap it in a
 pyarray object of the corresponding type.  An exception is raised on error.
@@ -315,11 +315,11 @@ pyarray object of the corresponding type.  An exception is raised on error.
 
 .. function:: pyarrow_wrap_sparse_tensor_coo(sp_array: const shared_ptr[CSparseTensorCOO]& sparse_tensor) -> object
 
-   Wrap the Arrow C++ *COO sparse tensor* in a Python :class:`pyarrow.SparseTensorCOO` instance.
+   Wrap the Arrow C++ *COO sparse tensor* in a Python :class:`pyarrow.SparseCOOTensor` instance.
 
 .. function:: pyarrow_wrap_sparse_tensor_csr(sp_array: const shared_ptr[CSparseTensorCSR]& sparse_tensor) -> object
 
-   Wrap the Arrow C++ *CSR sparse tensor* in a Python :class:`pyarrow.SparseTensorCSR` instance.
+   Wrap the Arrow C++ *CSR sparse tensor* in a Python :class:`pyarrow.SparseCSRMatrix` instance.
 
 Example
 ~~~~~~~

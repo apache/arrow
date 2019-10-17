@@ -18,9 +18,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <functional>
-#include <locale>
 #include <memory>
-#include <stdexcept>
 #include <string>
 #include <vector>
 

@@ -392,50 +392,102 @@ class Time64Converter
   TimeUnit::type unit_;
 };
 
-template <NullCoding null_coding>
-class TimestampConverter
-    : public TypedConverter<TimestampType, TimestampConverter<null_coding>, null_coding> {
+template <typename ArrowType>
+struct PyDateTimeTraits {};
+
+template <>
+struct PyDateTimeTraits<TimestampType> {
+  static inline int PyTypeCheck(PyObject* obj) { return PyDateTime_Check(obj); }
+  using PyDateTimeObject = PyDateTime_DateTime;
+
+  static inline int64_t py_to_s(PyDateTime_DateTime* pydatetime) {
+    return internal::PyDateTime_to_s(pydatetime);
+  }
+  static inline int64_t py_to_ms(PyDateTime_DateTime* pydatetime) {
+    return internal::PyDateTime_to_ms(pydatetime);
+  }
+  static inline int64_t py_to_us(PyDateTime_DateTime* pydatetime) {
+    return internal::PyDateTime_to_us(pydatetime);
+  }
+  static inline int64_t py_to_ns(PyDateTime_DateTime* pydatetime) {
+    return internal::PyDateTime_to_ns(pydatetime);
+  }
+
+  using np_traits = internal::npy_traits<NPY_DATETIME>;
+  using NpScalarObject = PyDatetimeScalarObject;
+  static constexpr const char* const np_name = "datetime64";
+};
+
+template <>
+struct PyDateTimeTraits<DurationType> {
+  static inline int PyTypeCheck(PyObject* obj) { return PyDelta_Check(obj); }
+  using PyDateTimeObject = PyDateTime_Delta;
+
+  static inline int64_t py_to_s(PyDateTime_Delta* pytimedelta) {
+    return internal::PyDelta_to_s(pytimedelta);
+  }
+  static inline int64_t py_to_ms(PyDateTime_Delta* pytimedelta) {
+    return internal::PyDelta_to_ms(pytimedelta);
+  }
+  static inline int64_t py_to_us(PyDateTime_Delta* pytimedelta) {
+    return internal::PyDelta_to_us(pytimedelta);
+  }
+  static inline int64_t py_to_ns(PyDateTime_Delta* pytimedelta) {
+    return internal::PyDelta_to_ns(pytimedelta);
+  }
+
+  using np_traits = internal::npy_traits<NPY_TIMEDELTA>;
+  using NpScalarObject = PyTimedeltaScalarObject;
+  static constexpr const char* const np_name = "timedelta64";
+};
+
+template <NullCoding null_coding, typename ArrowType>
+class TemporalConverter
+    : public TypedConverter<ArrowType, TemporalConverter<null_coding, ArrowType>,
+                            null_coding> {
  public:
-  explicit TimestampConverter(TimeUnit::type unit) : unit_(unit) {}
+  explicit TemporalConverter(TimeUnit::type unit) : unit_(unit) {}
+  using traits = PyDateTimeTraits<ArrowType>;
 
   Status AppendItem(PyObject* obj) {
     int64_t t;
-    if (PyDateTime_Check(obj)) {
-      auto pydatetime = reinterpret_cast<PyDateTime_DateTime*>(obj);
+    if (traits::PyTypeCheck(obj)) {
+      auto pydatetime = reinterpret_cast<typename traits::PyDateTimeObject*>(obj);
 
       switch (unit_) {
         case TimeUnit::SECOND:
-          t = internal::PyDateTime_to_s(pydatetime);
+          t = traits::py_to_s(pydatetime);
           break;
         case TimeUnit::MILLI:
-          t = internal::PyDateTime_to_ms(pydatetime);
+          t = traits::py_to_ms(pydatetime);
           break;
         case TimeUnit::MICRO:
-          t = internal::PyDateTime_to_us(pydatetime);
+          t = traits::py_to_us(pydatetime);
           break;
         case TimeUnit::NANO:
-          t = internal::PyDateTime_to_ns(pydatetime);
+          t = traits::py_to_ns(pydatetime);
           break;
         default:
           return Status::UnknownError("Invalid time unit");
       }
     } else if (PyArray_CheckAnyScalarExact(obj)) {
       // numpy.datetime64
-      using traits = internal::npy_traits<NPY_DATETIME>;
+      using npy_traits = typename traits::np_traits;
+      static constexpr const char* const np_name = traits::np_name;
 
       std::shared_ptr<DataType> type;
       RETURN_NOT_OK(NumPyDtypeToArrow(PyArray_DescrFromScalar(obj), &type));
-      if (type->id() != Type::TIMESTAMP) {
-        return Status::Invalid("Expected np.datetime64 but got: ", type->ToString());
+      if (type->id() != ArrowType::type_id) {
+        return Status::Invalid("Expected np.", np_name, " but got: ", type->ToString());
       }
-      const TimestampType& ttype = checked_cast<const TimestampType&>(*type);
+      const ArrowType& ttype = checked_cast<const ArrowType&>(*type);
       if (unit_ != ttype.unit()) {
-        return Status::NotImplemented(
-            "Cannot convert NumPy datetime64 objects with differing unit");
+        return Status::NotImplemented("Cannot convert NumPy ", np_name,
+                                      " objects with differing unit");
       }
 
-      t = reinterpret_cast<PyDatetimeScalarObject*>(obj)->obval;
-      if (traits::isnull(t)) {
+      t = reinterpret_cast<typename traits::NpScalarObject*>(obj)->obval;
+      if (npy_traits::isnull(t)) {
         // checks numpy NaT sentinel after conversion
         return this->typed_builder_->AppendNull();
       }
@@ -652,7 +704,7 @@ class ListConverter
 
     const bool null_sentinels_possible =
         // Always treat Numpy's NaT as null
-        NUMPY_TYPE == NPY_DATETIME ||
+        NUMPY_TYPE == NPY_DATETIME || NUMPY_TYPE == NPY_TIMEDELTA ||
         // Observing pandas's null sentinels
         (from_pandas_ && traits::supports_nulls);
 
@@ -700,6 +752,7 @@ class ListConverter
       LIST_SLOW_CASE(TIME32)
       LIST_SLOW_CASE(TIME64)
       LIST_FAST_CASE(TIMESTAMP, NPY_DATETIME, TimestampType)
+      LIST_FAST_CASE(DURATION, NPY_TIMEDELTA, DurationType)
       LIST_FAST_CASE(HALF_FLOAT, NPY_FLOAT16, HalfFloatType)
       LIST_FAST_CASE(FLOAT, NPY_FLOAT, FloatType)
       LIST_FAST_CASE(DOUBLE, NPY_DOUBLE, DoubleType)
@@ -947,8 +1000,15 @@ Status GetConverterFlat(const std::shared_ptr<DataType>& type, bool strict_conve
       break;
     }
     case Type::TIMESTAMP: {
-      *out = std::unique_ptr<SeqConverter>(new TimestampConverter<null_coding>(
-          checked_cast<const TimestampType&>(*type).unit()));
+      *out =
+          std::unique_ptr<SeqConverter>(new TemporalConverter<null_coding, TimestampType>(
+              checked_cast<const TimestampType&>(*type).unit()));
+      break;
+    }
+    case Type::DURATION: {
+      *out =
+          std::unique_ptr<SeqConverter>(new TemporalConverter<null_coding, DurationType>(
+              checked_cast<const DurationType&>(*type).unit()));
       break;
     }
     default:

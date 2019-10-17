@@ -27,6 +27,7 @@ import java.util.Map;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
+import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.DensityAwareVector;
 import org.apache.arrow.vector.FieldVector;
@@ -298,11 +299,16 @@ public class NonNullableStructVector extends AbstractStructVector {
 
   @Override
   public int hashCode(int index) {
+    return hashCode(index, null);
+  }
+
+  @Override
+  public int hashCode(int index, ArrowBufHasher hasher) {
     int hash = 0;
     for (String child : getChildFieldNames()) {
       ValueVector v = getChild(child);
       if (v != null && index < v.getValueCount()) {
-        hash = ByteFunctionHelpers.combineHash(hash, v.hashCode(index));
+        hash = ByteFunctionHelpers.combineHash(hash, v.hashCode(index, hasher));
       }
     }
     return hash;

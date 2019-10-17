@@ -673,6 +673,7 @@
     <module>performance</module>
     <module>algorithm</module>
     <module>adapter/avro</module>
+    <module>flight-grpc</module>
   </modules>
 
   <profiles>

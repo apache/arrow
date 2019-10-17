@@ -592,6 +592,30 @@ TEST_F(TestPlasmaStore, MultipleGetTest) {
   ASSERT_EQ(object_buffers[1].data->data()[0], 2);
 }
 
+TEST_F(TestPlasmaStore, BatchCreateTest) {
+  ObjectID object_id1 = random_object_id();
+  ObjectID object_id2 = random_object_id();
+  std::vector<ObjectID> object_ids = {object_id1, object_id2};
+
+  std::vector<std::string> data = {"hello", "world"};
+  std::vector<std::string> metadata = {"1", "2"};
+
+  ARROW_CHECK_OK(client_.CreateAndSealBatch(object_ids, data, metadata));
+
+  std::vector<ObjectBuffer> object_buffers;
+
+  ARROW_CHECK_OK(client_.Get(object_ids, -1, &object_buffers));
+
+  std::string out1, out2;
+  out1.assign(reinterpret_cast<const char*>(object_buffers[0].data->data()),
+              object_buffers[0].data->size());
+  out2.assign(reinterpret_cast<const char*>(object_buffers[1].data->data()),
+              object_buffers[1].data->size());
+
+  ASSERT_STREQ(out1.c_str(), "hello");
+  ASSERT_STREQ(out2.c_str(), "world");
+}
+
 TEST_F(TestPlasmaStore, AbortTest) {
   ObjectID object_id = random_object_id();
   std::vector<ObjectBuffer> object_buffers;

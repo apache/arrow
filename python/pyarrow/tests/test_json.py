@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from collections import OrderedDict
 import io
 import itertools
 import json
@@ -43,7 +44,7 @@ def make_random_json(num_cols=2, num_rows=10, linesep=u'\r\n'):
     col_names = list(itertools.islice(generate_col_names(), num_cols))
     lines = []
     for row in arr.T:
-        json_obj = {k: int(v) for (k, v) in zip(col_names, row)}
+        json_obj = OrderedDict([(k, int(v)) for (k, v) in zip(col_names, row)])
         lines.append(json.dumps(json_obj))
     data = linesep.join(lines).encode()
     columns = [pa.array(col, type=pa.int64()) for col in arr]

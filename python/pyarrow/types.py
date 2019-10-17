@@ -34,7 +34,8 @@ _INTEGER_TYPES = _SIGNED_INTEGER_TYPES | _UNSIGNED_INTEGER_TYPES
 _FLOATING_TYPES = {lib.Type_HALF_FLOAT, lib.Type_FLOAT, lib.Type_DOUBLE}
 _DATE_TYPES = {lib.Type_DATE32, lib.Type_DATE64}
 _TIME_TYPES = {lib.Type_TIME32, lib.Type_TIME64}
-_TEMPORAL_TYPES = {lib.Type_TIMESTAMP} | _TIME_TYPES | _DATE_TYPES
+_TEMPORAL_TYPES = {lib.Type_TIMESTAMP,
+                   lib.Type_DURATION} | _TIME_TYPES | _DATE_TYPES
 _NESTED_TYPES = {lib.Type_LIST, lib.Type_LARGE_LIST, lib.Type_STRUCT,
                  lib.Type_UNION, lib.Type_MAP}
 
@@ -206,6 +207,13 @@ def is_timestamp(t):
     Return True if value is an instance of a timestamp type
     """
     return t.id == lib.Type_TIMESTAMP
+
+
+def is_duration(t):
+    """
+    Return True if value is an instance of a duration type
+    """
+    return t.id == lib.Type_DURATION
 
 
 def is_time(t):

@@ -39,6 +39,14 @@ Common Types
    :project: arrow_cpp
    :members:
 
+.. doxygenclass:: arrow::flight::AddCallHeaders
+   :project: arrow_cpp
+   :members:
+
+.. doxygenstruct:: arrow::flight::CallInfo
+   :project: arrow_cpp
+   :members:
+
 .. doxygenstruct:: arrow::flight::Criteria
    :project: arrow_cpp
    :members:
@@ -62,6 +70,9 @@ Common Types
 .. doxygenclass:: arrow::flight::FlightListing
    :project: arrow_cpp
    :members:
+
+.. doxygenenum:: arrow::flight::FlightMethod
+   :project: arrow_cpp
 
 .. doxygenstruct:: arrow::flight::Location
    :project: arrow_cpp
@@ -99,6 +110,14 @@ Clients
    :members:
 
 .. doxygenclass:: arrow::flight::ClientAuthHandler
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::flight::ClientMiddleware
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::flight::ClientMiddlewareFactory
    :project: arrow_cpp
    :members:
 
@@ -149,6 +168,14 @@ Servers
    :members:
 
 .. doxygenclass:: arrow::flight::ServerCallContext
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::flight::ServerMiddleware
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::flight::ServerMiddlewareFactory
    :project: arrow_cpp
    :members:
 

@@ -154,6 +154,7 @@ struct TypeTraits<DurationType> {
   using ArrayType = DurationArray;
   using BuilderType = DurationBuilder;
   using ScalarType = DurationScalar;
+  using CType = DurationType::c_type;
 
   static constexpr int64_t bytes_required(int64_t elements) {
     return elements * static_cast<int64_t>(sizeof(int64_t));
@@ -623,6 +624,7 @@ static inline bool is_primitive(Type::type type_id) {
     case Type::TIME32:
     case Type::TIME64:
     case Type::TIMESTAMP:
+    case Type::DURATION:
     case Type::INTERVAL:
       return true;
     default:

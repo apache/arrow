@@ -20,7 +20,6 @@ jobs:
   build:
     machine:
       image: ubuntu-1604:201903-01
-      docker_layer_caching: true
     steps:
       - run: docker -v
       - run: docker-compose -v

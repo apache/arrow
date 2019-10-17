@@ -1056,6 +1056,11 @@ impl StructArray {
         self.boxed_fields.iter().collect()
     }
 
+    /// Returns child array refs of the struct array
+    pub fn columns_ref(&self) -> Vec<ArrayRef> {
+        self.boxed_fields.clone()
+    }
+
     /// Return field names in this struct array
     pub fn column_names(&self) -> Vec<&str> {
         match self.data.data_type() {

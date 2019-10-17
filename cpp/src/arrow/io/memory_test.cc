@@ -32,6 +32,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/iterator.h"
 
 namespace arrow {
 
@@ -348,6 +349,41 @@ void TestSlowInputStream() {
 TEST(TestSlowInputStream, Basics) { TestSlowInputStream<SlowInputStream>(); }
 
 TEST(TestSlowRandomAccessFile, Basics) { TestSlowInputStream<SlowRandomAccessFile>(); }
+
+TEST(TestInputStreamIterator, Basics) {
+  auto reader = std::make_shared<BufferReader>(Buffer::FromString("data123456"));
+  Iterator<std::shared_ptr<Buffer>> it;
+  ASSERT_OK(MakeInputStreamIterator(reader, /*block_size=*/3, &it));
+  std::shared_ptr<Buffer> buf;
+  ASSERT_OK(it.Next(&buf));
+  AssertBufferEqual(*buf, "dat");
+  ASSERT_OK(it.Next(&buf));
+  AssertBufferEqual(*buf, "a12");
+  ASSERT_OK(it.Next(&buf));
+  AssertBufferEqual(*buf, "345");
+  ASSERT_OK(it.Next(&buf));
+  AssertBufferEqual(*buf, "6");
+  ASSERT_OK(it.Next(&buf));
+  ASSERT_EQ(buf, nullptr);
+  ASSERT_OK(it.Next(&buf));
+  ASSERT_EQ(buf, nullptr);
+}
+
+TEST(TestInputStreamIterator, Closed) {
+  Iterator<std::shared_ptr<Buffer>> it;
+  auto reader = std::make_shared<BufferReader>(Buffer::FromString("data123456"));
+  ASSERT_OK(reader->Close());
+  ASSERT_RAISES(Invalid, MakeInputStreamIterator(reader, 3, &it));
+
+  reader = std::make_shared<BufferReader>(Buffer::FromString("data123456"));
+  std::shared_ptr<Buffer> buf;
+  ASSERT_OK(MakeInputStreamIterator(reader, /*block_size=*/3, &it));
+  ASSERT_OK(it.Next(&buf));
+  AssertBufferEqual(*buf, "dat");
+  // Close stream and read from iterator
+  ASSERT_OK(reader->Close());
+  ASSERT_RAISES(Invalid, it.Next(&buf));
+}
 
 }  // namespace io
 }  // namespace arrow

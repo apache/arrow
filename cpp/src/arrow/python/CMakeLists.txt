@@ -48,25 +48,11 @@ set(ARROW_PYTHON_SRCS
 
 set(ARROW_PYTHON_DEPENDENCIES arrow_dependencies)
 
-if(ARROW_FLIGHT)
-  set(ARROW_PYTHON_DEPENDENCIES ${ARROW_PYTHON_DEPENDENCIES} flight_grpc_gen)
-  set(ARROW_PYTHON_SRCS ${ARROW_PYTHON_SRCS} flight.cc)
-endif()
-
 if("${COMPILER_FAMILY}" STREQUAL "clang")
   set_property(SOURCE pyarrow.cc APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-cast-qual ")
 endif()
 
 set(ARROW_PYTHON_SHARED_LINK_LIBS arrow_shared ${PYTHON_OTHER_LIBS})
-
-if(ARROW_FLIGHT)
-  # Must link shared: we don't want to link more than one copy of gRPC
-  # into the eventual Cython shared object, otherwise gRPC calls fail
-  # with weird errors due to multiple copies of global static state
-  # (The other solution is to link gRPC shared everywhere instead of
-  # statically only in Flight)
-  set(ARROW_PYTHON_SHARED_LINK_LIBS ${ARROW_PYTHON_SHARED_LINK_LIBS} arrow_flight_shared)
-endif()
 
 if(WIN32)
   set(ARROW_PYTHON_SHARED_LINK_LIBS ${ARROW_PYTHON_SHARED_LINK_LIBS} ${PYTHON_LIBRARIES})
@@ -98,6 +84,40 @@ endforeach()
 
 if(ARROW_BUILD_STATIC AND MSVC)
   target_compile_definitions(arrow_python_static PUBLIC ARROW_STATIC)
+endif()
+
+if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
+  # Must link to shared libarrow_flight: we don't want to link more than one
+  # copy of gRPC into the eventual Cython shared object, otherwise gRPC calls
+  # fail with weird errors due to multiple copies of global static state (The
+  # other solution is to link gRPC shared everywhere instead of statically only
+  # in Flight)
+  add_arrow_lib(arrow_python_flight
+                SOURCES
+                flight.cc
+                OUTPUTS
+                ARROW_PYFLIGHT_LIBRARIES
+                DEPENDENCIES
+                flight_grpc_gen
+                SHARED_LINK_FLAGS
+                ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
+                SHARED_LINK_LIBS
+                arrow_python_shared
+                arrow_flight_shared
+                STATIC_LINK_LIBS
+                ${PYTHON_OTHER_LIBS}
+                EXTRA_INCLUDES
+                "${ARROW_PYTHON_INCLUDES}")
+
+  add_dependencies(arrow_python ${ARROW_PYFLIGHT_LIBRARIES})
+
+  foreach(LIB_TARGET ${ARROW_PYFLIGHT_LIBRARIES})
+    target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_PYFLIGHT_EXPORTING)
+  endforeach()
+
+  if(ARROW_BUILD_STATIC AND MSVC)
+    target_compile_definitions(arrow_python_flight_static PUBLIC ARROW_STATIC)
+  endif()
 endif()
 
 if("${COMPILER_FAMILY}" STREQUAL "clang")

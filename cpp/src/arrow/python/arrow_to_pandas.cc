@@ -51,6 +51,7 @@
 #include "arrow/python/helpers.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/numpy_internal.h"
+#include "arrow/python/pyarrow.h"
 #include "arrow/python/python_to_arrow.h"
 #include "arrow/python/type_traits.h"
 
@@ -131,6 +132,7 @@ static inline bool ListTypeSupported(const DataType& type) {
     case Type::TIME32:
     case Type::TIME64:
     case Type::TIMESTAMP:
+    case Type::DURATION:
     case Type::NA:  // empty list
       // The above types are all supported.
       return true;
@@ -230,20 +232,39 @@ inline void set_numpy_metadata(int type, const DataType* datatype, PyArray_Descr
       // datatype->type == Type::DATE64
       date_dtype->meta.base = NPY_FR_D;
     }
+  } else if (type == NPY_TIMEDELTA) {
+    DCHECK_EQ(datatype->id(), Type::DURATION);
+    auto timedelta_dtype =
+        reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(out->c_metadata);
+    const auto& duration_type = checked_cast<const DurationType&>(*datatype);
+
+    switch (duration_type.unit()) {
+      case DurationType::Unit::SECOND:
+        timedelta_dtype->meta.base = NPY_FR_s;
+        break;
+      case DurationType::Unit::MILLI:
+        timedelta_dtype->meta.base = NPY_FR_ms;
+        break;
+      case DurationType::Unit::MICRO:
+        timedelta_dtype->meta.base = NPY_FR_us;
+        break;
+      case DurationType::Unit::NANO:
+        timedelta_dtype->meta.base = NPY_FR_ns;
+        break;
+    }
   }
 }
 
 namespace {
 
-Status PyArray_NewFromPool(int nd, npy_intp* dims, int typenum,
+Status PyArray_NewFromPool(int nd, npy_intp* dims, PyArray_Descr* descr,
                            const DataType* arrow_type, MemoryPool* pool, PyObject** out) {
   // ARROW-6570: Allocate memory from MemoryPool for a couple reasons
   //
   // * Track allocations
   // * Get better performance through custom allocators
-  PyArray_Descr* descr = internal::GetSafeNumPyDtype(typenum);
   if (arrow_type != nullptr) {
-    set_numpy_metadata(typenum, arrow_type, descr);
+    set_numpy_metadata(descr->type_num, arrow_type, descr);
   }
 
   int64_t total_size = descr->elsize;
@@ -285,7 +306,9 @@ class PandasBlock {
     BOOL,
     DATETIME,
     DATETIME_WITH_TZ,
-    CATEGORICAL
+    TIMEDELTA,
+    CATEGORICAL,
+    EXTENSION
   };
 
   PandasBlock(const PandasOptions& options, int64_t num_rows, int num_columns)
@@ -323,8 +346,17 @@ class PandasBlock {
     } else {
       block_dims[0] = num_rows_;
     }
-    RETURN_NOT_OK(PyArray_NewFromPool(ndim, block_dims, npy_type,
-                                      /*arrow_type=*/nullptr, options_.pool, &block_arr));
+    PyArray_Descr* descr = internal::GetSafeNumPyDtype(npy_type);
+    if (PyDataType_REFCHK(descr)) {
+      // ARROW-6876: if the array has refcounted items, let Numpy
+      // own the array memory so as to decref elements on array destruction
+      block_arr = PyArray_SimpleNewFromDescr(ndim, block_dims, descr);
+      RETURN_IF_PYERROR();
+    } else {
+      RETURN_NOT_OK(PyArray_NewFromPool(ndim, block_dims, descr,
+                                        /*arrow_type=*/nullptr, options_.pool,
+                                        &block_arr));
+    }
 
     npy_intp placement_dims[1] = {num_columns_};
     PyObject* placement_arr = PyArray_SimpleNew(1, placement_dims, NPY_INT64);
@@ -709,7 +741,7 @@ inline void ConvertNumericNullableCast(const ChunkedArray& data, OutType na_valu
 }
 
 template <typename T, int64_t SHIFT>
-inline void ConvertDatetimeNanos(const ChunkedArray& data, int64_t* out_values) {
+inline void ConvertDatetimeLikeNanos(const ChunkedArray& data, int64_t* out_values) {
   for (int c = 0; c < data.num_chunks(); c++) {
     const auto& arr = *data.chunk(c);
     const T* in_values = GetPrimitiveValues<T>(arr);
@@ -846,6 +878,7 @@ class ObjectBlock : public PandasBlock {
         CONVERTLISTSLIKE_CASE(Time32Type, TIME32)
         CONVERTLISTSLIKE_CASE(Time64Type, TIME64)
         CONVERTLISTSLIKE_CASE(TimestampType, TIMESTAMP)
+        CONVERTLISTSLIKE_CASE(DurationType, DURATION)
         CONVERTLISTSLIKE_CASE(FloatType, FLOAT)
         CONVERTLISTSLIKE_CASE(DoubleType, DOUBLE)
         CONVERTLISTSLIKE_CASE(DecimalType, DECIMAL)
@@ -1052,22 +1085,22 @@ class DatetimeBlock : public PandasBlock {
 
     if (type == Type::DATE32) {
       // Convert from days since epoch to datetime64[ns]
-      ConvertDatetimeNanos<int32_t, kNanosecondsInDay>(*data, out_buffer);
+      ConvertDatetimeLikeNanos<int32_t, kNanosecondsInDay>(*data, out_buffer);
     } else if (type == Type::DATE64) {
       // Date64Type is millisecond timestamp stored as int64_t
       // TODO(wesm): Do we want to make sure to zero out the milliseconds?
-      ConvertDatetimeNanos<int64_t, 1000000L>(*data, out_buffer);
+      ConvertDatetimeLikeNanos<int64_t, 1000000L>(*data, out_buffer);
     } else if (type == Type::TIMESTAMP) {
       const auto& ts_type = checked_cast<const TimestampType&>(*data->type());
 
       if (ts_type.unit() == TimeUnit::NANO) {
         ConvertNumericNullable<int64_t>(*data, kPandasTimestampNull, out_buffer);
       } else if (ts_type.unit() == TimeUnit::MICRO) {
-        ConvertDatetimeNanos<int64_t, 1000L>(*data, out_buffer);
+        ConvertDatetimeLikeNanos<int64_t, 1000L>(*data, out_buffer);
       } else if (ts_type.unit() == TimeUnit::MILLI) {
-        ConvertDatetimeNanos<int64_t, 1000000L>(*data, out_buffer);
+        ConvertDatetimeLikeNanos<int64_t, 1000000L>(*data, out_buffer);
       } else if (ts_type.unit() == TimeUnit::SECOND) {
-        ConvertDatetimeNanos<int64_t, 1000000000L>(*data, out_buffer);
+        ConvertDatetimeLikeNanos<int64_t, 1000000000L>(*data, out_buffer);
       } else {
         return Status::NotImplemented("Unsupported time unit");
       }
@@ -1075,6 +1108,53 @@ class DatetimeBlock : public PandasBlock {
       return Status::NotImplemented("Cannot write Arrow data of type ",
                                     data->type()->ToString(),
                                     " to a Pandas datetime block.");
+    }
+
+    placement_data_[rel_placement] = abs_placement;
+    return Status::OK();
+  }
+};
+
+class TimedeltaBlock : public PandasBlock {
+ public:
+  using PandasBlock::PandasBlock;
+  Status AllocateDatetime(int ndim) {
+    RETURN_NOT_OK(AllocateNDArray(NPY_TIMEDELTA, ndim));
+
+    PyAcquireGIL lock;
+    auto date_dtype = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(
+        PyArray_DESCR(reinterpret_cast<PyArrayObject*>(block_arr_.obj()))->c_metadata);
+    date_dtype->meta.base = NPY_FR_ns;
+    return Status::OK();
+  }
+
+  Status Allocate() override { return AllocateDatetime(2); }
+
+  Status Write(std::shared_ptr<ChunkedArray> data, int64_t abs_placement,
+               int64_t rel_placement) override {
+    Type::type type = data->type()->id();
+
+    int64_t* out_buffer =
+        reinterpret_cast<int64_t*>(block_data_) + rel_placement * num_rows_;
+
+    if (type == Type::DURATION) {
+      const auto& ts_type = checked_cast<const DurationType&>(*data->type());
+
+      if (ts_type.unit() == TimeUnit::NANO) {
+        ConvertNumericNullable<int64_t>(*data, kPandasTimestampNull, out_buffer);
+      } else if (ts_type.unit() == TimeUnit::MICRO) {
+        ConvertDatetimeLikeNanos<int64_t, 1000L>(*data, out_buffer);
+      } else if (ts_type.unit() == TimeUnit::MILLI) {
+        ConvertDatetimeLikeNanos<int64_t, 1000000L>(*data, out_buffer);
+      } else if (ts_type.unit() == TimeUnit::SECOND) {
+        ConvertDatetimeLikeNanos<int64_t, 1000000000L>(*data, out_buffer);
+      } else {
+        return Status::NotImplemented("Unsupported time unit");
+      }
+    } else {
+      return Status::NotImplemented("Cannot write Arrow data of type ",
+                                    data->type()->ToString(),
+                                    " to a Pandas timedelta block.");
     }
 
     placement_data_[rel_placement] = abs_placement;
@@ -1389,6 +1469,55 @@ class CategoricalBlock : public PandasBlock {
   bool needs_copy_;
 };
 
+class ExtensionBlock : public PandasBlock {
+ public:
+  using PandasBlock::PandasBlock;
+
+  // Don't create a block array here, only the placement array
+  Status Allocate() override {
+    PyAcquireGIL lock;
+
+    npy_intp placement_dims[1] = {num_columns_};
+    PyObject* placement_arr = PyArray_SimpleNew(1, placement_dims, NPY_INT64);
+
+    RETURN_IF_PYERROR();
+
+    placement_arr_.reset(placement_arr);
+
+    placement_data_ = reinterpret_cast<int64_t*>(
+        PyArray_DATA(reinterpret_cast<PyArrayObject*>(placement_arr)));
+
+    return Status::OK();
+  }
+
+  Status Write(std::shared_ptr<ChunkedArray> data, int64_t abs_placement,
+               int64_t rel_placement) override {
+    PyAcquireGIL lock;
+
+    PyObject* py_array;
+    py_array = wrap_chunked_array(data);
+    py_array_.reset(py_array);
+
+    placement_data_[rel_placement] = abs_placement;
+    return Status::OK();
+  }
+
+  Status GetPyResult(PyObject** output) override {
+    PyObject* result = PyDict_New();
+    RETURN_IF_PYERROR();
+
+    PyDict_SetItemString(result, "py_array", py_array_.obj());
+    PyDict_SetItemString(result, "placement", placement_arr_.obj());
+
+    *output = result;
+
+    return Status::OK();
+  }
+
+ protected:
+  OwnedRefNoGIL py_array_;
+};
+
 Status MakeBlock(const PandasOptions& options, PandasBlock::type type, int64_t num_rows,
                  int num_columns, std::shared_ptr<PandasBlock>* block) {
 #define BLOCK_CASE(NAME, TYPE)                                       \
@@ -1411,6 +1540,7 @@ Status MakeBlock(const PandasOptions& options, PandasBlock::type type, int64_t n
     BLOCK_CASE(DOUBLE, Float64Block);
     BLOCK_CASE(BOOL, BoolBlock);
     BLOCK_CASE(DATETIME, DatetimeBlock);
+    BLOCK_CASE(TIMEDELTA, TimedeltaBlock);
     default:
       return Status::NotImplemented("Unsupported block type");
   }
@@ -1488,6 +1618,9 @@ static Status GetPandasBlockType(const ChunkedArray& data, const PandasOptions& 
         *output_type = PandasBlock::DATETIME;
       }
     } break;
+    case Type::DURATION:
+      *output_type = PandasBlock::TIMEDELTA;
+      break;
     case Type::LIST: {
       auto list_type = std::static_pointer_cast<ListType>(data.type());
       if (!ListTypeSupported(*list_type->value_type())) {
@@ -1517,8 +1650,9 @@ static Status GetPandasBlockType(const ChunkedArray& data, const PandasOptions& 
 class DataFrameBlockCreator {
  public:
   explicit DataFrameBlockCreator(const PandasOptions& options,
+                                 const std::unordered_set<std::string>& extension_columns,
                                  const std::shared_ptr<Table>& table)
-      : table_(table), options_(options) {}
+      : table_(table), options_(options), extension_columns_(extension_columns) {}
 
   Status Convert(PyObject** output) {
     column_types_.resize(table_->num_columns());
@@ -1536,7 +1670,11 @@ class DataFrameBlockCreator {
     for (int i = 0; i < table_->num_columns(); ++i) {
       std::shared_ptr<ChunkedArray> col = table_->column(i);
       PandasBlock::type output_type = PandasBlock::OBJECT;
-      RETURN_NOT_OK(GetPandasBlockType(*col, options_, &output_type));
+      if (extension_columns_.count(table_->field(i)->name())) {
+        output_type = PandasBlock::EXTENSION;
+      } else {
+        RETURN_NOT_OK(GetPandasBlockType(*col, options_, &output_type));
+      }
 
       int block_placement = 0;
       std::shared_ptr<PandasBlock> block;
@@ -1549,6 +1687,10 @@ class DataFrameBlockCreator {
                                                   table_->num_rows());
         RETURN_NOT_OK(block->Allocate());
         datetimetz_blocks_[i] = block;
+      } else if (output_type == PandasBlock::EXTENSION) {
+        block = std::make_shared<ExtensionBlock>(options_, table_->num_rows(), 1);
+        RETURN_NOT_OK(block->Allocate());
+        extension_blocks_[i] = block;
       } else {
         auto it = type_counts_.find(output_type);
         if (it != type_counts_.end()) {
@@ -1588,6 +1730,12 @@ class DataFrameBlockCreator {
       auto it = this->datetimetz_blocks_.find(i);
       if (it == this->datetimetz_blocks_.end()) {
         return Status::KeyError("No datetimetz block allocated");
+      }
+      *block = it->second;
+    } else if (output_type == PandasBlock::EXTENSION) {
+      auto it = this->extension_blocks_.find(i);
+      if (it == this->extension_blocks_.end()) {
+        return Status::KeyError("No extension block allocated");
       }
       *block = it->second;
     } else {
@@ -1640,6 +1788,7 @@ class DataFrameBlockCreator {
     RETURN_NOT_OK(AppendBlocks(blocks_, result));
     RETURN_NOT_OK(AppendBlocks(categorical_blocks_, result));
     RETURN_NOT_OK(AppendBlocks(datetimetz_blocks_, result));
+    RETURN_NOT_OK(AppendBlocks(extension_blocks_, result));
 
     *out = result;
     return Status::OK();
@@ -1658,6 +1807,7 @@ class DataFrameBlockCreator {
   std::unordered_map<int, int> type_counts_;
 
   PandasOptions options_;
+  std::unordered_set<std::string> extension_columns_;
 
   // block type -> block
   BlockMap blocks_;
@@ -1667,6 +1817,9 @@ class DataFrameBlockCreator {
 
   // column number -> datetimetz block
   BlockMap datetimetz_blocks_;
+
+  // column number -> extension block
+  BlockMap extension_blocks_;
 };
 
 class ArrowDeserializer {
@@ -1679,8 +1832,20 @@ class ArrowDeserializer {
     PyAcquireGIL lock;
 
     npy_intp dims[1] = {data_->length()};
-    RETURN_NOT_OK(
-        PyArray_NewFromPool(1, dims, type, data_->type().get(), options_.pool, &result_));
+    PyArray_Descr* descr = internal::GetSafeNumPyDtype(type);
+    if (descr == nullptr) {
+      RETURN_IF_PYERROR();
+    }
+    if (PyDataType_REFCHK(descr)) {
+      // ARROW-6876: if the array has refcounted items, let Numpy
+      // own the array memory so as to decref elements on array destruction
+      set_numpy_metadata(type, data_->type().get(), descr);
+      result_ = PyArray_SimpleNewFromDescr(1, dims, descr);
+      RETURN_IF_PYERROR();
+    } else {
+      RETURN_NOT_OK(PyArray_NewFromPool(1, dims, descr, data_->type().get(),
+                                        options_.pool, &result_));
+    }
     arr_ = reinterpret_cast<PyArrayObject*>(result_);
     return Status::OK();
   }
@@ -1795,7 +1960,9 @@ class ArrowDeserializer {
   }
 
   template <typename Type>
-  typename std::enable_if<std::is_base_of<TimestampType, Type>::value, Status>::type
+  typename std::enable_if<std::is_base_of<TimestampType, Type>::value ||
+                              std::is_base_of<DurationType, Type>::value,
+                          Status>::type
   Visit(const Type& type) {
     if (options_.zero_copy_only) {
       return Status::Invalid("Copy Needed, but zero_copy_only was True");
@@ -1968,6 +2135,7 @@ class ArrowDeserializer {
       CONVERTVALUES_LISTSLIKE_CASE(Time32Type, TIME32)
       CONVERTVALUES_LISTSLIKE_CASE(Time64Type, TIME64)
       CONVERTVALUES_LISTSLIKE_CASE(TimestampType, TIMESTAMP)
+      CONVERTVALUES_LISTSLIKE_CASE(DurationType, DURATION)
       CONVERTVALUES_LISTSLIKE_CASE(FloatType, FLOAT)
       CONVERTVALUES_LISTSLIKE_CASE(DoubleType, DOUBLE)
       CONVERTVALUES_LISTSLIKE_CASE(BinaryType, BINARY)
@@ -2042,6 +2210,14 @@ Status ConvertTableToPandas(const PandasOptions& options,
 Status ConvertTableToPandas(const PandasOptions& options,
                             const std::unordered_set<std::string>& categorical_columns,
                             const std::shared_ptr<Table>& table, PyObject** out) {
+  return ConvertTableToPandas(options, categorical_columns,
+                              std::unordered_set<std::string>(), table, out);
+}
+
+Status ConvertTableToPandas(const PandasOptions& options,
+                            const std::unordered_set<std::string>& categorical_columns,
+                            const std::unordered_set<std::string>& extension_columns,
+                            const std::shared_ptr<Table>& table, PyObject** out) {
   std::shared_ptr<Table> current_table = table;
   if (!categorical_columns.empty()) {
     FunctionContext ctx;
@@ -2063,7 +2239,7 @@ Status ConvertTableToPandas(const PandasOptions& options,
     }
   }
 
-  DataFrameBlockCreator helper(options, current_table);
+  DataFrameBlockCreator helper(options, extension_columns, current_table);
   return helper.Convert(out);
 }
 

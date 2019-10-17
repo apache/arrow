@@ -122,7 +122,7 @@ pub struct SerializedFileWriter {
     schema: TypePtr,
     descr: SchemaDescPtr,
     props: WriterPropertiesPtr,
-    total_num_rows: u64,
+    total_num_rows: i64,
     row_groups: Vec<RowGroupMetaDataPtr>,
     previous_writer_closed: bool,
     is_closed: bool,
@@ -160,6 +160,7 @@ impl SerializedFileWriter {
         mut row_group_writer: Box<RowGroupWriter>,
     ) -> Result<()> {
         let row_group_metadata = row_group_writer.close()?;
+        self.total_num_rows += row_group_metadata.num_rows();
         self.row_groups.push(row_group_metadata);
         Ok(())
     }
@@ -921,6 +922,7 @@ mod tests {
         let props = Rc::new(WriterProperties::builder().build());
         let mut file_writer =
             SerializedFileWriter::new(file.try_clone().unwrap(), schema, props).unwrap();
+        let mut rows: i64 = 0;
 
         for subset in &data {
             let mut row_group_writer = file_writer.next_row_group().unwrap();
@@ -928,7 +930,8 @@ mod tests {
             if let Some(mut writer) = col_writer {
                 match writer {
                     ColumnWriter::Int32ColumnWriter(ref mut typed) => {
-                        typed.write_batch(&subset[..], None, None).unwrap();
+                        rows +=
+                            typed.write_batch(&subset[..], None, None).unwrap() as i64;
                     }
                     _ => {
                         unimplemented!();
@@ -943,6 +946,11 @@ mod tests {
 
         let reader = SerializedFileReader::new(file).unwrap();
         assert_eq!(reader.num_row_groups(), data.len());
+        assert_eq!(
+            reader.metadata().file_metadata().num_rows(),
+            rows,
+            "row count in metadata not equal to number of rows written"
+        );
         for i in 0..reader.num_row_groups() {
             let row_group_reader = reader.get_row_group(i).unwrap();
             let iter = row_group_reader.get_row_iter(None).unwrap();

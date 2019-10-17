@@ -214,6 +214,23 @@ ggandiva_node_class_init(GGandivaNodeClass *klass)
   g_object_class_install_property(gobject_class, PROP_RETURN_TYPE, spec);
 }
 
+/**
+ * ggandiva_node_to_string:
+ * @node: A #GGandivaNode.
+ *
+ * Returns: (transfer full): The string representation of the node.
+ *
+ *   It should be freed with g_free() when no longer needed.
+ *
+ * Since: 1.0.0
+ */
+gchar *
+ggandiva_node_to_string(GGandivaNode *node)
+{
+  auto gandiva_node = ggandiva_node_get_raw(node);
+  auto string = gandiva_node->ToString();
+  return g_strndup(string.data(), string.size());
+}
 
 typedef struct GGandivaFieldNodePrivate_ {
   GArrowField *field;

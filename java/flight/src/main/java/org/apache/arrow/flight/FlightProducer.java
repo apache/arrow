@@ -17,6 +17,8 @@
 
 package org.apache.arrow.flight;
 
+import java.util.Map;
+
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 
@@ -181,5 +183,15 @@ public interface FlightProducer {
 
     /** Whether the call has been cancelled by the client. */
     boolean isCancelled();
+
+    /**
+     * Get the middleware instance of the given type for this call.
+     *
+     * <p>Returns null if not found.
+     */
+    <T extends FlightServerMiddleware> T getMiddleware(FlightServerMiddleware.Key<T> key);
+
+    /** Get an immutable map of middleware for this call. */
+    Map<FlightServerMiddleware.Key<?>, FlightServerMiddleware> getMiddleware();
   }
 }

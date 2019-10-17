@@ -35,12 +35,10 @@ use datafusion::execution::context::ExecutionContext;
 fn aggregate_query(ctx: &Rc<RefCell<ExecutionContext>>, sql: &str) {
     // execute the query
     let mut mut_ctx = ctx.borrow_mut();
-    let relation = mut_ctx.sql(&sql, 1024 * 1024).unwrap();
+    let results = mut_ctx.sql(&sql, 1024 * 1024).unwrap();
 
     // display the relation
-    let mut results = relation.borrow_mut();
-
-    while let Some(_) = results.next().unwrap() {}
+    for _batch in results {}
 }
 
 fn create_context() -> Rc<RefCell<ExecutionContext>> {

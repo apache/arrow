@@ -17,7 +17,29 @@
 
 package org.apache.arrow.adapter.jdbc.h2;
 
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertBigIntVectorValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertBitVectorValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertBooleanVectorValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertDateVectorValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertDecimalVectorValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertFloat4VectorValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertFloat8VectorValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertIntVectorValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertNullValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertSmallIntVectorValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertTimeStampVectorValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertTimeVectorValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertTinyIntVectorValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertVarBinaryVectorValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertVarcharVectorValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getBinaryValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getBooleanValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getCharArray;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getDecimalValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getDoubleValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getFloatValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getIntValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.getLongValues;
 
 import java.io.IOException;
 import java.sql.ResultSetMetaData;
@@ -62,11 +84,13 @@ import org.junit.runners.Parameterized.Parameters;
 public class JdbcToArrowNullTest extends AbstractJdbcToArrowTest {
 
   private static final String NULL = "null";
+  private static final String SELECTED_NULL_ROW = "selected_null_row";
   private static final String SELECTED_NULL_COLUMN = "selected_null_column";
 
   private static final String[] testFiles = {
     "h2/test1_all_datatypes_null_h2.yml",
-    "h2/test1_selected_datatypes_null_h2.yml"
+    "h2/test1_selected_datatypes_null_h2.yml",
+    "h2/test1_all_datatypes_selected_null_rows_h2.yml"
   };
 
   /**
@@ -137,10 +161,68 @@ public class JdbcToArrowNullTest extends AbstractJdbcToArrowTest {
       case SELECTED_NULL_COLUMN:
         sqlToArrowTestSelectedNullColumnsValues(table.getVectors(), root, table.getRowCount());
         break;
+      case SELECTED_NULL_ROW:
+        testAllVectorValues(root);
+        break;
       default:
         // do nothing
         break;
     }
+  }
+
+  private void testAllVectorValues(VectorSchemaRoot root) {
+    JdbcToArrowTestHelper.assertFieldMetadataIsEmpty(root);
+
+    assertBigIntVectorValues((BigIntVector) root.getVector(BIGINT), table.getRowCount(),
+        getLongValues(table.getValues(), BIGINT));
+
+    assertTinyIntVectorValues((TinyIntVector) root.getVector(TINYINT), table.getRowCount(),
+        getIntValues(table.getValues(), TINYINT));
+
+    assertSmallIntVectorValues((SmallIntVector) root.getVector(SMALLINT), table.getRowCount(),
+        getIntValues(table.getValues(), SMALLINT));
+
+    assertVarBinaryVectorValues((VarBinaryVector) root.getVector(BINARY), table.getRowCount(),
+        getBinaryValues(table.getValues(), BINARY));
+
+    assertVarBinaryVectorValues((VarBinaryVector) root.getVector(BLOB), table.getRowCount(),
+        getBinaryValues(table.getValues(), BLOB));
+
+    assertVarcharVectorValues((VarCharVector) root.getVector(CLOB), table.getRowCount(),
+        getCharArray(table.getValues(), CLOB));
+
+    assertVarcharVectorValues((VarCharVector) root.getVector(VARCHAR), table.getRowCount(),
+        getCharArray(table.getValues(), VARCHAR));
+
+    assertVarcharVectorValues((VarCharVector) root.getVector(CHAR), table.getRowCount(),
+        getCharArray(table.getValues(), CHAR));
+
+    assertIntVectorValues((IntVector) root.getVector(INT), table.getRowCount(),
+        getIntValues(table.getValues(), INT));
+
+    assertBitVectorValues((BitVector) root.getVector(BIT), table.getRowCount(),
+        getIntValues(table.getValues(), BIT));
+
+    assertBooleanVectorValues((BitVector) root.getVector(BOOL), table.getRowCount(),
+        getBooleanValues(table.getValues(), BOOL));
+
+    assertDateVectorValues((DateMilliVector) root.getVector(DATE), table.getRowCount(),
+        getLongValues(table.getValues(), DATE));
+
+    assertTimeVectorValues((TimeMilliVector) root.getVector(TIME), table.getRowCount(),
+        getLongValues(table.getValues(), TIME));
+
+    assertTimeStampVectorValues((TimeStampVector) root.getVector(TIMESTAMP), table.getRowCount(),
+        getLongValues(table.getValues(), TIMESTAMP));
+
+    assertDecimalVectorValues((DecimalVector) root.getVector(DECIMAL), table.getRowCount(),
+        getDecimalValues(table.getValues(), DECIMAL));
+
+    assertFloat8VectorValues((Float8Vector) root.getVector(DOUBLE), table.getRowCount(),
+        getDoubleValues(table.getValues(), DOUBLE));
+
+    assertFloat4VectorValues((Float4Vector) root.getVector(REAL), table.getRowCount(),
+        getFloatValues(table.getValues(), REAL));
   }
 
   /**

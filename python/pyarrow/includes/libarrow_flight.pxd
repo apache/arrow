@@ -24,6 +24,9 @@ from pyarrow.includes.libarrow cimport *
 
 
 cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
+    cdef char* CPyServerMiddlewareName\
+        " arrow::py::flight::kPyServerMiddlewareName"
+
     cdef cppclass CActionType" arrow::flight::ActionType":
         c_string type
         c_string description
@@ -188,6 +191,7 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
 
     cdef cppclass CServerCallContext" arrow::flight::ServerCallContext":
         c_string& peer_identity()
+        CServerMiddleware* GetMiddleware(const c_string& key)
 
     cdef cppclass CTimeoutDuration" arrow::flight::TimeoutDuration":
         CTimeoutDuration(double)
@@ -201,16 +205,73 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         c_string pem_cert
         c_string pem_key
 
+    cdef cppclass CFlightMethod" arrow::flight::FlightMethod":
+        bint operator==(CFlightMethod)
+
+    CFlightMethod CFlightMethodInvalid\
+        " arrow::flight::FlightMethod::Invalid"
+    CFlightMethod CFlightMethodHandshake\
+        " arrow::flight::FlightMethod::Handshake"
+    CFlightMethod CFlightMethodListFlights\
+        " arrow::flight::FlightMethod::ListFlights"
+    CFlightMethod CFlightMethodGetFlightInfo\
+        " arrow::flight::FlightMethod::GetFlightInfo"
+    CFlightMethod CFlightMethodGetSchema\
+        " arrow::flight::FlightMethod::GetSchema"
+    CFlightMethod CFlightMethodDoGet\
+        " arrow::flight::FlightMethod::DoGet"
+    CFlightMethod CFlightMethodDoPut\
+        " arrow::flight::FlightMethod::DoPut"
+    CFlightMethod CFlightMethodDoAction\
+        " arrow::flight::FlightMethod::DoAction"
+    CFlightMethod CFlightMethodListActions\
+        " arrow::flight::FlightMethod::ListActions"
+
+    cdef cppclass CCallInfo" arrow::flight::CallInfo":
+        CFlightMethod method
+
+    # This is really std::unordered_multimap, but Cython has no
+    # bindings for it, so treat it as an opaque class and bind the
+    # methods we need
+    cdef cppclass CCallHeaders" arrow::flight::CallHeaders":
+        cppclass const_iterator:
+            pair[c_string, c_string] operator*()
+            const_iterator operator++()
+            bint operator==(const_iterator)
+            bint operator!=(const_iterator)
+
+        const_iterator cbegin()
+        const_iterator cend()
+
+    cdef cppclass CAddCallHeaders" arrow::flight::AddCallHeaders":
+        void AddHeader(const c_string& key, const c_string& value)
+
+    cdef cppclass CServerMiddleware" arrow::flight::ServerMiddleware":
+        c_string name()
+
+    cdef cppclass CServerMiddlewareFactory\
+            " arrow::flight::ServerMiddlewareFactory":
+        pass
+
+    cdef cppclass CClientMiddleware" arrow::flight::ClientMiddleware":
+        pass
+
+    cdef cppclass CClientMiddlewareFactory\
+            " arrow::flight::ClientMiddlewareFactory":
+        pass
+
     cdef cppclass CFlightServerOptions" arrow::flight::FlightServerOptions":
         CFlightServerOptions(const CLocation& location)
         CLocation location
         unique_ptr[CServerAuthHandler] auth_handler
         vector[CCertKeyPair] tls_certificates
+        vector[pair[c_string, shared_ptr[CServerMiddlewareFactory]]] middleware
 
     cdef cppclass CFlightClientOptions" arrow::flight::FlightClientOptions":
         CFlightClientOptions()
         c_string tls_root_certs
         c_string override_hostname
+        vector[shared_ptr[CClientMiddlewareFactory]] middleware
 
     cdef cppclass CFlightClient" arrow::flight::FlightClient":
         @staticmethod
@@ -298,6 +359,20 @@ ctypedef CStatus cb_client_authenticate(object, CClientAuthSender*,
                                         CClientAuthReader*)
 ctypedef CStatus cb_get_token(object, c_string*)
 
+ctypedef CStatus cb_middleware_sending_headers(object, CAddCallHeaders*)
+ctypedef CStatus cb_middleware_call_completed(object, const CStatus&)
+ctypedef CStatus cb_client_middleware_received_headers(
+    object, const CCallHeaders&)
+ctypedef CStatus cb_server_middleware_start_call(
+    object,
+    const CCallInfo&,
+    const CCallHeaders&,
+    shared_ptr[CServerMiddleware]*)
+ctypedef CStatus cb_client_middleware_start_call(
+    object,
+    const CCallInfo&,
+    unique_ptr[CClientMiddleware]*)
+
 cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
     cdef cppclass PyFlightServerVtable:
         PyFlightServerVtable()
@@ -352,6 +427,42 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
         CPyGeneratorFlightDataStream(object generator,
                                      shared_ptr[CSchema] schema,
                                      function[cb_data_stream_next] callback)
+
+    cdef cppclass PyServerMiddlewareVtable\
+            " arrow::py::flight::PyServerMiddleware::Vtable":
+        PyServerMiddlewareVtable()
+        function[cb_middleware_sending_headers] sending_headers
+        function[cb_middleware_call_completed] call_completed
+
+    cdef cppclass PyClientMiddlewareVtable\
+            " arrow::py::flight::PyClientMiddleware::Vtable":
+        PyClientMiddlewareVtable()
+        function[cb_middleware_sending_headers] sending_headers
+        function[cb_client_middleware_received_headers] received_headers
+        function[cb_middleware_call_completed] call_completed
+
+    cdef cppclass CPyServerMiddleware\
+            " arrow::py::flight::PyServerMiddleware"(CServerMiddleware):
+        CPyServerMiddleware(object middleware, PyServerMiddlewareVtable vtable)
+        void* py_object()
+
+    cdef cppclass CPyServerMiddlewareFactory\
+            " arrow::py::flight::PyServerMiddlewareFactory"\
+            (CServerMiddlewareFactory):
+        CPyServerMiddlewareFactory(
+            object factory,
+            function[cb_server_middleware_start_call] start_call)
+
+    cdef cppclass CPyClientMiddleware\
+            " arrow::py::flight::PyClientMiddleware"(CClientMiddleware):
+        CPyClientMiddleware(object middleware, PyClientMiddlewareVtable vtable)
+
+    cdef cppclass CPyClientMiddlewareFactory\
+            " arrow::py::flight::PyClientMiddlewareFactory"\
+            (CClientMiddlewareFactory):
+        CPyClientMiddlewareFactory(
+            object factory,
+            function[cb_client_middleware_start_call] start_call)
 
     cdef CStatus CreateFlightInfo" arrow::py::flight::CreateFlightInfo"(
         shared_ptr[CSchema] schema,
