@@ -53,6 +53,7 @@ public abstract class AbstractJdbcToArrowTest {
   protected static final String TIMESTAMP = "TIMESTAMP_FIELD11";
   protected static final String TINYINT = "TINYINT_FIELD3";
   protected static final String VARCHAR = "VARCHAR_FIELD13";
+  protected static final String NULL = "NULL_FIELD18";
 
   protected Connection conn = null;
   protected Table table;
