@@ -320,9 +320,34 @@ TYPED_TEST(TestDictionaryBuilder, FinishResetBehavior) {
 
   ASSERT_OK(builder.Finish(&result));
 
-  // Dictionary has 2 elements because the dictionary memo was not reset. This
-  // behavior will change after ARROW-6869
-  ASSERT_EQ(2, static_cast<const DictionaryArray&>(*result).dictionary()->length());
+  // Dictionary has 4 elements because the dictionary memo was not reset
+  ASSERT_EQ(4, static_cast<const DictionaryArray&>(*result).dictionary()->length());
+}
+
+TYPED_TEST(TestDictionaryBuilder, ResetFull) {
+  using c_type = typename TypeParam::c_type;
+  auto type = std::make_shared<TypeParam>();
+
+  Dictionary32Builder<TypeParam> builder;
+
+  ASSERT_OK(builder.Append(static_cast<c_type>(1)));
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_OK(builder.Append(static_cast<c_type>(1)));
+  ASSERT_OK(builder.Append(static_cast<c_type>(2)));
+
+  std::shared_ptr<Array> result;
+  ASSERT_OK(builder.Finish(&result));
+
+  ASSERT_OK(builder.Append(static_cast<c_type>(3)));
+  ASSERT_OK(builder.Finish(&result));
+
+  // Dictionary expanded
+  ASSERT_EQ(3, static_cast<const DictionaryArray&>(*result).dictionary()->length());
+
+  builder.ResetFull();
+  ASSERT_OK(builder.Append(static_cast<c_type>(4)));
+  ASSERT_OK(builder.Finish(&result));
+  ASSERT_EQ(1, static_cast<const DictionaryArray&>(*result).dictionary()->length());
 }
 
 TEST(TestDictionaryBuilderAdHoc, AppendIndicesUpdateCapacity) {
