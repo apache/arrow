@@ -19,6 +19,7 @@ package org.apache.arrow.consumers;
 
 import java.io.IOException;
 
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.avro.io.Decoder;
 
@@ -26,17 +27,48 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume double type values from avro decoder.
  * Write the data to {@link Float8Vector}.
  */
-public class AvroDoubleConsumer extends BaseAvroConsumer<Float8Vector> {
+public class AvroDoubleConsumer implements Consumer<Float8Vector> {
+
+  private Float8Vector vector;
+
+  private int currentIndex;
 
   /**
    * Instantiate a AvroDoubleConsumer.
    */
   public AvroDoubleConsumer(Float8Vector vector) {
-    super(vector);
+    this.vector = vector;
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
     vector.setSafe(currentIndex++, decoder.readDouble());
+  }
+
+  @Override
+  public void addNull() {
+    currentIndex++;
+  }
+
+  @Override
+  public void setPosition(int index) {
+    currentIndex = index;
+  }
+
+  @Override
+  public FieldVector getVector() {
+    return vector;
+  }
+
+  @Override
+  public void close() throws Exception {
+    vector.close();
+  }
+
+  @Override
+  public boolean resetValueVector(Float8Vector vector) {
+    this.vector = vector;
+    this.currentIndex = 0;
+    return true;
   }
 }

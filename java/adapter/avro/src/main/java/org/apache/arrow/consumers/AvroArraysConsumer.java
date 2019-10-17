@@ -19,6 +19,7 @@ package org.apache.arrow.consumers;
 
 import java.io.IOException;
 
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.avro.io.Decoder;
 
@@ -26,15 +27,18 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume array type values from avro decoder.
  * Write the data to {@link ListVector}.
  */
-public class AvroArraysConsumer extends BaseAvroConsumer<ListVector> {
+public class AvroArraysConsumer implements Consumer<ListVector> {
 
+  private ListVector vector;
   private final Consumer delegate;
+
+  private int currentIndex = 0;
 
   /**
    * Instantiate a ArrayConsumer.
    */
   public AvroArraysConsumer(ListVector vector, Consumer delegate) {
-    super(vector);
+    this.vector = vector;
     this.delegate = delegate;
   }
 
@@ -54,14 +58,30 @@ public class AvroArraysConsumer extends BaseAvroConsumer<ListVector> {
   }
 
   @Override
+  public void addNull() {
+    currentIndex++;
+  }
+
+  @Override
+  public void setPosition(int index) {
+    currentIndex = index;
+  }
+
+  @Override
+  public FieldVector getVector() {
+    return this.vector;
+  }
+
+  @Override
   public void close() throws Exception {
-    super.close();
+    vector.close();
     delegate.close();
   }
 
   @Override
   public boolean resetValueVector(ListVector vector) {
-    super.resetValueVector(vector);
+    this.currentIndex = 0;
+    this.vector = vector;
     this.delegate.resetValueVector(vector.getDataVector());
     return true;
   }

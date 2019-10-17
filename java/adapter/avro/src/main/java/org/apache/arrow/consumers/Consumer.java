@@ -61,4 +61,11 @@ public interface Consumer<T extends FieldVector> extends AutoCloseable {
    */
   boolean resetValueVector(T vector);
 
+  /**
+   * Indicates whether the consumer is type of {@link SkipConsumer}.
+   */
+  default boolean skippable() {
+    return false;
+  }
+
 }

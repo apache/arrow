@@ -36,6 +36,8 @@ import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
+import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.types.Types;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumWriter;
@@ -182,6 +184,56 @@ public class AvroToArrowTest extends AvroTestBase {
 
     VectorSchemaRoot root = writeAndRead(schema, data);
     checkNestedRecordResult(expectedSchema, expectedData, root);
+  }
+
+  @Test
+  public void testSkipThirdLevelField() throws Exception {
+    Schema firstLevelSchema = getSchema("test_skip_third_level_fields.avsc");
+    Schema secondLevelSchema = firstLevelSchema.getFields().get(0).schema();
+    Schema thirdLevelSchema = secondLevelSchema.getFields().get(0).schema();
+
+    ArrayList<GenericRecord> data = new ArrayList<>();
+    for (int i = 0; i < 5; i++) {
+      GenericRecord firstLevelRecord = new GenericData.Record(firstLevelSchema);
+      GenericRecord secondLevelRecord = new GenericData.Record(secondLevelSchema);
+      GenericRecord thirdLevelRecord = new GenericData.Record(thirdLevelSchema);
+
+      thirdLevelRecord.put(0, i);
+      thirdLevelRecord.put(1, "test" + i);
+      thirdLevelRecord.put(2, i % 2 == 0);
+
+      secondLevelRecord.put(0, thirdLevelRecord);
+      firstLevelRecord.put(0, secondLevelRecord);
+      data.add(firstLevelRecord);
+    }
+
+    // do not skip any fields first
+    VectorSchemaRoot root1 = writeAndRead(firstLevelSchema, data);
+
+    assertEquals(1, root1.getFieldVectors().size());
+    assertEquals(Types.MinorType.STRUCT, root1.getFieldVectors().get(0).getMinorType());
+    StructVector secondLevelVector = (StructVector) root1.getFieldVectors().get(0);
+    assertEquals(1, secondLevelVector.getChildrenFromFields().size());
+    assertEquals(Types.MinorType.STRUCT, secondLevelVector.getChildrenFromFields().get(0).getMinorType());
+    StructVector thirdLevelVector = (StructVector) secondLevelVector.getChildrenFromFields().get(0);
+    assertEquals(3, thirdLevelVector.getChildrenFromFields().size());
+
+    // skip third level field and validate
+    Set<String> skipFieldNames = new HashSet<>();
+    skipFieldNames.add("f0.f0.f0");
+    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
+    VectorSchemaRoot root2 = writeAndRead(firstLevelSchema, data);
+
+    assertEquals(1, root2.getFieldVectors().size());
+    assertEquals(Types.MinorType.STRUCT, root2.getFieldVectors().get(0).getMinorType());
+    StructVector secondStruct = (StructVector) root2.getFieldVectors().get(0);
+    assertEquals(1, secondStruct.getChildrenFromFields().size());
+    assertEquals(Types.MinorType.STRUCT, secondStruct.getChildrenFromFields().get(0).getMinorType());
+    StructVector thirdStruct = (StructVector) secondStruct.getChildrenFromFields().get(0);
+    assertEquals(2, thirdStruct.getChildrenFromFields().size());
+
+    assertEquals(Types.MinorType.INT, thirdStruct.getChildrenFromFields().get(0).getMinorType());
+    assertEquals(Types.MinorType.BIT, thirdStruct.getChildrenFromFields().get(1).getMinorType());
   }
 
   @Test

@@ -19,6 +19,7 @@ package org.apache.arrow.consumers;
 
 import java.io.IOException;
 
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.avro.io.Decoder;
 
@@ -26,15 +27,18 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume map type values from avro decoder.
  * Write the data to {@link MapVector}.
  */
-public class AvroMapConsumer extends BaseAvroConsumer<MapVector> {
+public class AvroMapConsumer implements Consumer<MapVector> {
 
+  private MapVector vector;
   private final Consumer delegate;
+
+  private int currentIndex;
 
   /**
    * Instantiate a AvroMapConsumer.
    */
   public AvroMapConsumer(MapVector vector, Consumer delegate) {
-    super(vector);
+    this.vector = vector;
     this.delegate = delegate;
   }
 
@@ -54,14 +58,30 @@ public class AvroMapConsumer extends BaseAvroConsumer<MapVector> {
   }
 
   @Override
+  public void addNull() {
+    vector.setValueCount(vector.getValueCount() + 1);
+  }
+
+  @Override
+  public void setPosition(int index) {
+    this.currentIndex = index;
+  }
+
+  @Override
+  public FieldVector getVector() {
+    return this.vector;
+  }
+
+  @Override
   public void close() throws Exception {
-    super.close();
+    vector.close();
     delegate.close();
   }
 
   @Override
   public boolean resetValueVector(MapVector vector) {
-    super.resetValueVector(vector);
+    this.vector = vector;
+    this.currentIndex = 0;
     this.delegate.resetValueVector(vector.getDataVector());
     return true;
   }

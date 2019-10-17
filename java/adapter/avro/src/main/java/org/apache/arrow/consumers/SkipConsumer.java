@@ -59,4 +59,9 @@ public class SkipConsumer implements Consumer {
   public boolean resetValueVector(FieldVector vector) {
     return false;
   }
+
+  @Override
+  public boolean skippable() {
+    return true;
+  }
 }
