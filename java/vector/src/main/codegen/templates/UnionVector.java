@@ -550,7 +550,7 @@ public class UnionVector implements FieldVector {
     return vectors.iterator();
   }
 
-    private ValueVector getVector(int index) {
+    public ValueVector getVector(int index) {
       int type = typeBuffer.getByte(index * TYPE_WIDTH);
       switch (MinorType.values()[type]) {
         case NULL:

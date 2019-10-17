@@ -2320,7 +2320,7 @@ public class TestValueVector {
       VectorEqualsVisitor visitor2 = new VectorEqualsVisitor();
 
       assertTrue(visitor1.vectorEquals(vector1, vector2));
-      assertFalse(visitor2.vectorEquals(vector1, vector3));
+      assertTrue(visitor2.vectorEquals(vector1, vector3));
     }
   }
 
