@@ -52,7 +52,7 @@ such topics as:
    format/Columnar
    format/Flight
    format/Integration
-   format/CProtocol
+   format/CDataInterface
    format/Other
 
 .. _toc.usage:

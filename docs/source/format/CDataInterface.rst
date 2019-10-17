@@ -492,36 +492,36 @@ The release callback MUST mark the array as released, by setting
 Additionally, the release callback MUST be idempotent, which is commonly
 achieved by setting itself to NULL.
 
-Below is a blueprint for implementing a release callback, where the TODO area
-must be filled with producer-specific deallocation code:
+Below is a good starting point for implementing a release callback, where the
+TODO area must be filled with producer-specific deallocation code:
 
 .. code-block:: c
 
    static void ReleaseExportedArray(struct ArrowArray* array) {
-     if (array->format == nullptr) {
-       // Array already released
-       return;
-     }
+     // This should not be called on already released array
+     assert(array->format != NULL);
+
      // Release children
      for (int64_t i = 0; i < array->n_children; ++i) {
        struct ArrowArray* child = array->children[i];
-       if (child->format != nullptr && child->release != nullptr) {
+       if (child->format != NULL && child->release != NULL) {
          child->release(child);
+         assert(child->format == NULL);
        }
-       assert(child->format == nullptr);
      }
+
      // Release dictionary
      struct ArrowArray* dict = array->dictionary;
-     if (dict != nullptr && dict->format != nullptr && dict->release != nullptr) {
+     if (dict != NULL && dict->format != NULL && dict->release != NULL) {
        dict->release(dict);
-       assert(dict->format == nullptr);
+       assert(dict->format == NULL);
      }
 
-     // TODO here: deallocate all data directly owned by the ArrowArray struct,
-     // such as the private_data.
+     // TODO here: release and/or deallocate all data directly owned by
+     // the ArrowArray struct, such as the private_data.
 
      // Mark array released
-     array->format = nullptr;
+     array->format = NULL;
    }
 
 
@@ -628,7 +628,7 @@ transferring ownership to the consumer:
       int i;
       for (i = 0; i < array->n_children; ++i) {
          struct ArrowArray* child = &array->children[i];
-         if (child->release != NULL) {
+         if (child->format != NULL && child->release != NULL) {
             child->release(child);
          }
       }
