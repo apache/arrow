@@ -577,7 +577,11 @@ def test_list_actions():
     # ARROW-6392
     with ListActionsErrorFlightServer() as server:
         client = FlightClient(('localhost', server.port))
-        with pytest.raises(pa.ArrowException, match=".*unknown error.*"):
+        with pytest.raises(
+                flight.FlightServerError,
+                match=("TypeError: Results of list_actions must be "
+                       "ActionType or tuple")
+        ):
             list(client.list_actions())
 
     with ListActionsFlightServer() as server:
@@ -616,8 +620,12 @@ def test_do_action_result_convenience():
         results = [x.body for x in client.do_action(('echo', body))]
         assert results == [body]
 
-        # ARROW-6884 raise a more specific and helpful exception
-        with pytest.raises(Exception):
+
+def test_nicer_server_exceptions():
+    with ConvenienceServer() as server:
+        client = FlightClient(('localhost', server.port))
+        with pytest.raises(flight.FlightServerError,
+                           match="TypeError: a bytes-like object is required"):
             list(client.do_action('bad-action'))
 
 

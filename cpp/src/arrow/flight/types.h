@@ -65,6 +65,8 @@ enum class FlightStatusCode : int8_t {
   Unauthorized,
   /// The remote service cannot handle this request at the moment.
   Unavailable,
+  /// A request failed for some other reason
+  Failed
 };
 
 // Silence warning

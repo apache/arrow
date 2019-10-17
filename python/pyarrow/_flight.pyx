@@ -23,6 +23,7 @@ from __future__ import absolute_import
 import collections
 import contextlib
 import enum
+import re
 import socket
 import time
 import threading
@@ -57,6 +58,9 @@ cdef int check_flight_status(const CStatus& status) nogil except -1:
             message = frombytes(status.message())
             if detail.get().code() == CFlightStatusInternal:
                 raise FlightInternalError(message)
+            elif detail.get().code() == CFlightStatusFailed:
+                message = _munge_grpc_python_error(message)
+                raise FlightServerError(message)
             elif detail.get().code() == CFlightStatusTimedOut:
                 raise FlightTimedOutError(message)
             elif detail.get().code() == CFlightStatusCancelled:
@@ -69,6 +73,22 @@ cdef int check_flight_status(const CStatus& status) nogil except -1:
                 raise FlightUnavailableError(message)
 
     return check_status(status)
+
+
+_FLIGHT_SERVER_ERROR_REGEX = re.compile(
+    r'Flight RPC failed with message: (.*). Detail: '
+    r'Python exception: (.*)',
+    re.DOTALL
+)
+
+
+def _munge_grpc_python_error(message):
+    m = _FLIGHT_SERVER_ERROR_REGEX.match(message)
+    if m:
+        return ('Flight RPC failed with Python exception \"{}: {}\"'
+                .format(m.group(2), m.group(1)))
+    else:
+        return message
 
 
 cdef class FlightCallOptions:
@@ -128,6 +148,11 @@ cdef class FlightTimedOutError(FlightError, ArrowException):
 cdef class FlightCancelledError(FlightError, ArrowException):
     cdef CStatus to_status(self):
         return MakeFlightError(CFlightStatusCancelled, tobytes(str(self)))
+
+
+cdef class FlightServerError(FlightError, ArrowException):
+    cdef CStatus to_status(self):
+        return MakeFlightError(CFlightStatusFailed, tobytes(str(self)))
 
 
 cdef class FlightUnauthenticatedError(FlightError, ArrowException):

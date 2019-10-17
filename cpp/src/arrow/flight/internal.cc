@@ -21,6 +21,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -57,9 +58,12 @@ Status FromGrpcStatus(const grpc::Status& grpc_status) {
       return Status::IOError("gRPC cancelled call, with message: ",
                              grpc_status.error_message())
           .WithDetail(std::make_shared<FlightStatusDetail>(FlightStatusCode::Cancelled));
-    case grpc::StatusCode::UNKNOWN:
-      return Status::UnknownError("gRPC returned unknown error, with message: ",
-                                  grpc_status.error_message());
+    case grpc::StatusCode::UNKNOWN: {
+      std::stringstream ss;
+      ss << "Flight RPC failed with message: " << grpc_status.error_message();
+      return Status::UnknownError(ss.str()).WithDetail(
+          std::make_shared<FlightStatusDetail>(FlightStatusCode::Failed));
+    }
     case grpc::StatusCode::INVALID_ARGUMENT:
       return Status::Invalid("gRPC returned invalid argument error, with message: ",
                              grpc_status.error_message());

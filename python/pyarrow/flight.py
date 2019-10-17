@@ -40,6 +40,7 @@ from pyarrow._flight import (  # noqa
     FlightInternalError,
     FlightTimedOutError,
     FlightCancelledError,
+    FlightServerError,
     FlightUnauthenticatedError,
     FlightUnauthorizedError,
     FlightUnavailableError,
