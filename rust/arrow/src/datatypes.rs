@@ -780,9 +780,9 @@ impl Field {
                     },
                     DataType::Struct(mut fields) => match map.get("children") {
                         Some(Value::Array(values)) => {
-                            let mut struct_fields =
-                                values.iter().map(|v| Field::from(v).unwrap()).collect();
-                            fields.append(&mut struct_fields);
+                            let struct_fields: Result<Vec<Field>> =
+                                values.iter().map(|v| Field::from(v)).collect();
+                            fields.append(&mut struct_fields?);
                             DataType::Struct(fields)
                         }
                         Some(_) => {
