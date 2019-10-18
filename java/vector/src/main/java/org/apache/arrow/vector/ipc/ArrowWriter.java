@@ -162,11 +162,15 @@ public abstract class ArrowWriter implements AutoCloseable {
     if (!dictWritten) {
       dictWritten = true;
       // write out any dictionaries
-      for (ArrowDictionaryBatch batch : dictionaries) {
-        try {
+      try {
+        for (ArrowDictionaryBatch batch : dictionaries) {
           writeDictionaryBatch(batch);
-        } finally {
-          batch.close();
+        }
+      } finally {
+        try {
+          AutoCloseables.close(dictionaries);
+        } catch (Exception e) {
+          throw new RuntimeException("Error occurred while closing dictionaries.", e);
         }
       }
     }
