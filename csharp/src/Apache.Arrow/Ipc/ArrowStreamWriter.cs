@@ -81,12 +81,8 @@ namespace Apache.Arrow.Ipc
             public void Visit(DoubleArray array) => CreateBuffers(array);
             public void Visit(TimestampArray array) => CreateBuffers(array);
             public void Visit(BooleanArray array) => CreateBuffers(array);
-            public void Visit(Date32Array array)
-            {
-                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
-                _buffers.Add(CreateBuffer(array.ValueBuffer));
-            }
-            public void Visit(Date64Array array) => throw new NotSupportedException();
+            public void Visit(Date32Array array) => CreateBuffers(array);
+            public void Visit(Date64Array array) => CreateBuffers(array);
 
             public void Visit(ListArray array)
             {
