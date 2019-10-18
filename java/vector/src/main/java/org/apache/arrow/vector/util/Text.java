@@ -31,6 +31,8 @@ import java.text.CharacterIterator;
 import java.text.StringCharacterIterator;
 import java.util.Arrays;
 
+import org.apache.arrow.memory.util.ByteFunctionHelpers;
+
 import com.fasterxml.jackson.core.JsonGenerationException;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.SerializerProvider;
@@ -335,14 +337,7 @@ public class Text {
       return false;
     }
 
-    // copied from Arrays.equals so we don'thave to copy the byte arrays
-    for (int i = 0; i < length; i++) {
-      if (bytes[i] != that.bytes[i]) {
-        return false;
-      }
-    }
-
-    return true;
+    return ByteFunctionHelpers.equal(bytes, 0, bytes.length, that.bytes, 0, that.bytes.length) == 1;
   }
 
   /**

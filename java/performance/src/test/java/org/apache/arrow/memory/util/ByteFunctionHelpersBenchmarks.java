@@ -17,6 +17,7 @@
 
 package org.apache.arrow.memory.util;
 
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -127,6 +128,43 @@ public class ByteFunctionHelpersBenchmarks {
     return ByteFunctionHelpers.compare(
             state.buffer1, 0, ArrowArrayEqualState.BUFFER_CAPACITY,
             state.buffer2, 0, ArrowArrayEqualState.BUFFER_CAPACITY);
+  }
+
+  /**
+   * State object for the {@link ByteFunctionHelpersBenchmarks#byteArrayEquals(ByteArrayEqualState)} benchmark.
+   */
+  @State(Scope.Benchmark)
+  public static class ByteArrayEqualState {
+
+    private static final int ARRAY_LENGTH = 1024;
+
+    private byte[] buffer1 = new byte[ARRAY_LENGTH];
+
+    private byte[] buffer2 = new byte[ARRAY_LENGTH];
+
+    @Setup(Level.Trial)
+    public void prepare() {
+      for (int i = 0; i < ARRAY_LENGTH; i++) {
+        buffer1[i] = (byte) i;
+        buffer2[i] = (byte) i;
+      }
+    }
+  }
+
+  @Benchmark
+  @BenchmarkMode(Mode.AverageTime)
+  @OutputTimeUnit(TimeUnit.NANOSECONDS)
+  public int byteArrayEquals(ByteArrayEqualState state) {
+    return ByteFunctionHelpers.equal(
+            state.buffer1, 0, ByteArrayEqualState.ARRAY_LENGTH,
+            state.buffer2, 0, ByteArrayEqualState.ARRAY_LENGTH);
+  }
+
+  @Benchmark
+  @BenchmarkMode(Mode.AverageTime)
+  @OutputTimeUnit(TimeUnit.NANOSECONDS)
+  public boolean builtInByteArrayEquals(ByteArrayEqualState state) {
+    return Arrays.equals(state.buffer1, state.buffer2);
   }
 
   @Test

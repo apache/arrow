@@ -20,6 +20,7 @@ package org.apache.arrow.memory.util;
 import org.apache.arrow.memory.BoundsChecking;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.memory.util.hash.SimpleHasher;
+import org.apache.arrow.util.Preconditions;
 
 import io.netty.buffer.ArrowBuf;
 import io.netty.util.internal.PlatformDependent;
@@ -84,6 +85,69 @@ public class ByteFunctionHelpers {
       while (n-- != 0) {
         byte leftByte = PlatformDependent.getByte(lPos);
         byte rightByte = PlatformDependent.getByte(rPos);
+        if (leftByte != rightByte) {
+          return 0;
+        }
+        lPos++;
+        rPos++;
+      }
+      return 1;
+    } else {
+      return 0;
+    }
+  }
+
+  /**
+   * Helper function to check for equality of bytes in two byte arrays.
+   *
+   * @param left   Left byte array for comparison
+   * @param lStart start offset in the buffer
+   * @param lEnd   end offset in the buffer
+   * @param right  Right byte array for comparison
+   * @param rStart start offset in the buffer
+   * @param rEnd   end offset in the buffer
+   * @return 1 if equals, 0 otherwise
+   */
+  public static final int equal(final byte[] left, int lStart, int lEnd, final byte[] right, int rStart, int rEnd) {
+    if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
+      Preconditions.checkPositionIndexes(lStart, lEnd, left.length);
+      Preconditions.checkPositionIndexes(rStart, rEnd, left.length);
+    }
+    return memEqual(left, lStart, lEnd, right, rStart, rEnd);
+  }
+
+  private static int memEqual(final byte[] left, int lStart, int lEnd, final byte[] right, int rStart,
+                              final int rEnd) {
+    int n = lEnd - lStart;
+    if (n == rEnd - rStart) {
+      int lPos = lStart;
+      int rPos = rStart;
+
+      while (n > 7) {
+        long leftLong = PlatformDependent.getLong(left, lPos);
+        long rightLong = PlatformDependent.getLong(right, rPos);
+        if (leftLong != rightLong) {
+          return 0;
+        }
+        lPos += 8;
+        rPos += 8;
+        n -= 8;
+      }
+
+      while (n > 3) {
+        int leftInt = PlatformDependent.getInt(left, lPos);
+        int rightInt = PlatformDependent.getInt(right, rPos);
+        if (leftInt != rightInt) {
+          return 0;
+        }
+        lPos += 4;
+        rPos += 4;
+        n -= 4;
+      }
+
+      while (n-- != 0) {
+        byte leftByte = PlatformDependent.getByte(left, lPos);
+        byte rightByte = PlatformDependent.getByte(right, rPos);
         if (leftByte != rightByte) {
           return 0;
         }

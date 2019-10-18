@@ -24,6 +24,7 @@ import java.util.List;
 
 import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.flight.impl.Flight.FlightDescriptor.DescriptorType;
+import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.util.Preconditions;
 
 import com.google.common.base.Joiner;
@@ -160,7 +161,8 @@ public class FlightDescriptor {
       if (other.cmd != null) {
         return false;
       }
-    } else if (!Arrays.equals(cmd, other.cmd)) {
+    } else if (ByteFunctionHelpers.equal(
+            cmd, 0, cmd.length, other.cmd, 0, other.cmd.length) == 0) {
       return false;
     }
     if (isCmd != other.isCmd) {
