@@ -56,6 +56,7 @@ class RecordBatchStreamReader(lib._RecordBatchStreamReader, _ReadPandasOption):
     source : bytes/buffer-like, pyarrow.NativeFile, or file-like Python object
         Either an in-memory buffer, or a readable file object
     """
+
     def __init__(self, source):
         self._open(source)
 
@@ -177,9 +178,8 @@ def serialize_pandas(df, nthreads=None, preserve_index=None):
     batch = pa.RecordBatch.from_pandas(df, nthreads=nthreads,
                                        preserve_index=preserve_index)
     sink = pa.BufferOutputStream()
-    writer = pa.RecordBatchStreamWriter(sink, batch.schema)
-    writer.write_batch(batch)
-    writer.close()
+    with pa.RecordBatchStreamWriter(sink, batch.schema) as writer:
+        writer.write_batch(batch)
     return sink.getvalue()
 
 
@@ -198,6 +198,6 @@ def deserialize_pandas(buf, use_threads=True):
     df : pandas.DataFrame
     """
     buffer_reader = pa.BufferReader(buf)
-    reader = pa.RecordBatchStreamReader(buffer_reader)
-    table = reader.read_all()
+    with pa.RecordBatchStreamReader(buffer_reader) as reader:
+        table = reader.read_all()
     return table.to_pandas(use_threads=use_threads)

@@ -225,9 +225,8 @@ def test_stream_categorical_roundtrip(stream_fixture):
                               ordered=True)
     })
     batch = pa.RecordBatch.from_pandas(df)
-    writer = stream_fixture._get_writer(stream_fixture.sink, batch.schema)
-    writer.write_batch(batch)
-    writer.close()
+    with stream_fixture._get_writer(stream_fixture.sink, batch.schema) as wr:
+        wr.write_batch(batch)
 
     table = (pa.ipc.open_stream(pa.BufferReader(stream_fixture.get_source()))
              .read_all())
@@ -261,10 +260,9 @@ def test_stream_write_dispatch(stream_fixture):
     })
     table = pa.Table.from_pandas(df, preserve_index=False)
     batch = pa.RecordBatch.from_pandas(df, preserve_index=False)
-    writer = stream_fixture._get_writer(stream_fixture.sink, table.schema)
-    writer.write(table)
-    writer.write(batch)
-    writer.close()
+    with stream_fixture._get_writer(stream_fixture.sink, table.schema) as wr:
+        wr.write(table)
+        wr.write(batch)
 
     table = (pa.ipc.open_stream(pa.BufferReader(stream_fixture.get_source()))
              .read_all())
@@ -283,9 +281,8 @@ def test_stream_write_table_batches(stream_fixture):
 
     table = pa.Table.from_batches([b1, b2, b1])
 
-    writer = stream_fixture._get_writer(stream_fixture.sink, table.schema)
-    writer.write_table(table, max_chunksize=15)
-    writer.close()
+    with stream_fixture._get_writer(stream_fixture.sink, table.schema) as wr:
+        wr.write_table(table, max_chunksize=15)
 
     batches = list(pa.ipc.open_stream(stream_fixture.get_source()))
 
@@ -414,9 +411,8 @@ def test_message_read_from_compressed(example_messages):
     _, messages = example_messages
     for message in messages:
         raw_out = pa.BufferOutputStream()
-        compressed_out = pa.output_stream(raw_out, compression='gzip')
-        message.serialize_to(compressed_out)
-        compressed_out.close()
+        with pa.output_stream(raw_out, compression='gzip') as compressed_out:
+            message.serialize_to(compressed_out)
 
         compressed_buf = raw_out.getvalue()
 
@@ -581,12 +577,12 @@ def test_ipc_stream_no_batches():
                                  names=['a', 'b'])
 
     sink = pa.BufferOutputStream()
-    writer = pa.RecordBatchStreamWriter(sink, table.schema)
-    writer.close()
+    with pa.RecordBatchStreamWriter(sink, table.schema):
+        pass
 
     source = sink.getvalue()
-    reader = pa.ipc.open_stream(source)
-    result = reader.read_all()
+    with pa.ipc.open_stream(source) as reader:
+        result = reader.read_all()
 
     assert result.schema.equals(table.schema)
     assert len(result) == 0
@@ -721,15 +717,13 @@ def test_schema_serialization_with_metadata():
 
 
 def write_file(batch, sink):
-    writer = pa.RecordBatchFileWriter(sink, batch.schema)
-    writer.write_batch(batch)
-    writer.close()
+    with pa.RecordBatchFileWriter(sink, batch.schema) as writer:
+        writer.write_batch(batch)
 
 
 def read_file(source):
-    reader = pa.ipc.open_file(source)
-    return [reader.get_batch(i)
-            for i in range(reader.num_record_batches)]
+    with pa.ipc.open_file(source) as reader:
+        return [reader.get_batch(i) for i in range(reader.num_record_batches)]
 
 
 def test_write_empty_ipc_file():
@@ -738,11 +732,11 @@ def test_write_empty_ipc_file():
     schema = pa.schema([('field', pa.int64())])
 
     sink = pa.BufferOutputStream()
-    writer = pa.RecordBatchFileWriter(sink, schema)
-    writer.close()
+    with pa.RecordBatchFileWriter(sink, schema):
+        pass
 
     buf = sink.getvalue()
-    reader = pa.RecordBatchFileReader(pa.BufferReader(buf))
-    table = reader.read_all()
+    with pa.RecordBatchFileReader(pa.BufferReader(buf)) as reader:
+        table = reader.read_all()
     assert len(table) == 0
     assert table.schema.equals(schema)
