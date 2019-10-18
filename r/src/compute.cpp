@@ -93,6 +93,17 @@ std::shared_ptr<arrow::Array> Array__Take(const std::shared_ptr<arrow::Array>& v
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::ChunkedArray> Array__TakeChunked(
+    const std::shared_ptr<arrow::Array>& values, const std::shared_ptr<arrow::ChunkedArray>& indices) {
+  std::shared_ptr<arrow::ChunkedArray> out;
+  arrow::compute::FunctionContext context;
+  arrow::compute::TakeOptions options;
+
+  STOP_IF_NOT_OK(arrow::compute::Take(&context, *values, *indices, options, &out));
+  return out;
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> RecordBatch__Take(
     const std::shared_ptr<arrow::RecordBatch>& batch,
     const std::shared_ptr<arrow::Array>& indices) {

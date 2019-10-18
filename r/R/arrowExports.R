@@ -272,6 +272,10 @@ Array__Take <- function(values, indices){
     .Call(`_arrow_Array__Take` , values, indices)
 }
 
+Array__TakeChunked <- function(values, indices){
+    .Call(`_arrow_Array__TakeChunked` , values, indices)
+}
+
 RecordBatch__Take <- function(batch, indices){
     .Call(`_arrow_RecordBatch__Take` , batch, indices)
 }
