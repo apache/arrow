@@ -1024,13 +1024,9 @@ Schematically we have: ::
 In the file format, there is no requirement that dictionary keys
 should be defined in a ``DictionaryBatch`` before they are used in a
 ``RecordBatch``, as long as the keys are defined somewhere in the
-file. Further more, it is invalid to have more then one non-delta
+file. Further more, it is invalid to have more then one **non-delta**
 dictionary batch per dictionary ID.  Delta dictionaries are applied
 in the order they appear in the file footer.
-
-.. note:: Implementations should check to ensure the dictionary constraints
-  are satisfied.  In future revisions of the specification this requirement
-  might be relaxed.
 
 Dictionary Messages
 -------------------
