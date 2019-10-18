@@ -26,6 +26,7 @@
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/count.h"
 #include "arrow/compute/kernels/mean.h"
+#include "arrow/compute/kernels/minmax.h"
 #include "arrow/compute/kernels/sum.h"
 #include "arrow/compute/kernels/sum_internal.h"
 #include "arrow/compute/test_util.h"
@@ -38,6 +39,9 @@
 #include "arrow/testing/random.h"
 
 namespace arrow {
+
+using internal::checked_pointer_cast;
+
 namespace compute {
 
 ///
@@ -306,6 +310,49 @@ TYPED_TEST(TestRandomNumericCountKernel, RandomArrayCount) {
       }
     }
   }
+}
+
+///
+/// Min / Max
+///
+
+template <typename ArrowType>
+class TestNumericMinMaxKernel : public ComputeFixture, public TestBase {
+  using Traits = TypeTraits<ArrowType>;
+  using ArrayType = typename Traits::ArrayType;
+  using c_type = typename ArrayType::value_type;
+  using ScalarType = typename Traits::ScalarType;
+
+ public:
+  template <typename T>
+  void AssertMinIs(std::string array_json, T expected_min, const MinMaxOptions& options) {
+    auto array = ArrayFromJSON(Traits::type_singleton(), array_json);
+    Datum out;
+    ASSERT_OK(MinMax(&this->ctx_, options, *array, &out));
+    ASSERT_TRUE(out.is_scalar());
+    auto scalar = checked_pointer_cast<ScalarType>(out.scalar());
+    ASSERT_EQ(scalar->value, static_cast<c_type>(expected_min));
+  }
+};
+
+template <typename ArrowType>
+class TestFloatingMinMaxKernel : public TestNumericMinMaxKernel<ArrowType> {};
+
+TYPED_TEST_CASE(TestNumericMinMaxKernel, IntegralArrowTypes);
+TYPED_TEST(TestNumericMinMaxKernel, Basics) {
+  MinMaxOptions options;
+  this->AssertMinIs("[5, 1, 2, 3, 4]", 1, options);
+  this->AssertMinIs("[5, null, 2, 3, 4]", 2, options);
+}
+
+TYPED_TEST_CASE(TestFloatingMinMaxKernel, RealArrowTypes);
+TYPED_TEST(TestFloatingMinMaxKernel, Floats) {
+  MinMaxOptions options;
+  this->AssertMinIs("[5, 1, 2, 3, 4]", 1, options);
+  this->AssertMinIs("[5, null, 2, 3, 4]", 2, options);
+  this->AssertMinIs("[5, Inf, 2, 3, 4]", 2, options);
+  this->AssertMinIs("[5, NaN, 2, 3, 4]", 2, options);
+  this->AssertMinIs("[5, -Inf, 2, 3, 4]", -INFINITY, options);
 }
 
 }  // namespace compute
