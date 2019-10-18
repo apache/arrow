@@ -280,6 +280,10 @@ ChunkedArray__Take <- function(values, indices){
     .Call(`_arrow_ChunkedArray__Take` , values, indices)
 }
 
+ChunkedArray__TakeChunked <- function(values, indices){
+    .Call(`_arrow_ChunkedArray__TakeChunked` , values, indices)
+}
+
 Table__Take <- function(table, indices){
     .Call(`_arrow_Table__Take` , table, indices)
 }

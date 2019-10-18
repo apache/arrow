@@ -123,6 +123,23 @@ Status Take(FunctionContext* ctx, const ChunkedArray& values, const Array& indic
   return Status::OK();
 }
 
+// TODO: There should be Take(Array, ChunkedArray) too
+Status Take(FunctionContext* ctx, const ChunkedArray& values, const ChunkedArray& indices,
+            const TakeOptions& options, std::shared_ptr<ChunkedArray>* out) {
+  auto num_chunks = indices.num_chunks();
+  std::vector<std::shared_ptr<arrow::Array>> new_chunks(num_chunks);
+  std::shared_ptr<arrow::ChunkedArray> current_chunk;
+
+  for (int i = 0; i < num_chunks; i++) {
+    // Take with that indices chunk
+    RETURN_NOT_OK(Take(ctx, values, *indices.chunk(i), options, &current_chunk));
+    // Concatenate the result to make a single array for this chunk
+    RETURN_NOT_OK(Concatenate(current_chunk->chunks(), default_memory_pool(), &new_chunks[i]));
+  }
+  *out = std::make_shared<arrow::ChunkedArray>(std::move(new_chunks));
+  return Status::OK();
+}
+
 Status Take(FunctionContext* ctx, const RecordBatch& batch, const Array& indices,
               const TakeOptions& options, std::shared_ptr<RecordBatch>* out) {
 

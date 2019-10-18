@@ -75,6 +75,9 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = Object,
       if (is.integer(i)) {
         i <- Array$create(i)
       }
+      if (inherits(i, "ChunkedArray")) {
+        return(shared_ptr(ChunkedArray, ChunkedArray__TakeChunked(self, i)))
+      }
       assert_is(i, "Array")
       return(shared_ptr(ChunkedArray, ChunkedArray__Take(self, i)))
     },

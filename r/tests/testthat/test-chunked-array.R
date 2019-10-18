@@ -361,6 +361,12 @@ test_that("[ ChunkedArray", {
   expect_vector(x[c(11, 15, 12)], c(31, 35, 32))
   # Take from multiple chunks (calls Concatenate)
   expect_vector(x[c(2, 11, 15, 12, 3)], c(2, 31, 35, 32, 3))
+  # Take with Array (note these are 0-based)
+  take1 <- Array$create(c(10L, 14L, 11L))
+  expect_vector(x[take1], c(31, 35, 32))
+  # Take with ChunkedArray
+  take2 <- ChunkedArray$create(c(10L, 14L), 11L)
+  expect_vector(x[take2], c(31, 35, 32))
 
   # Filter (with recycling)
   expect_vector(
