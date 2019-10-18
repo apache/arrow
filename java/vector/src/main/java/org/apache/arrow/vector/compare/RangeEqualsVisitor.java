@@ -24,6 +24,7 @@ import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
+import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.complex.BaseRepeatedValueVector;
@@ -31,6 +32,7 @@ import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.UnionVector;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 
 /**
  * Visitor to compare a range of values for vectors.
@@ -244,7 +246,23 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
     return true;
   }
 
+  private boolean compareDecimalVectorTypes() {
+    ArrowType.Decimal leftType = (ArrowType.Decimal) left.getField().getType();
+    ArrowType.Decimal rightType = (ArrowType.Decimal) right.getField().getType();
+
+    if (leftType.getPrecision() != rightType.getPrecision() || leftType.getScale() != rightType.getScale()) {
+      return false;
+    }
+    return true;
+  }
+
   protected boolean compareBaseFixedWidthVectors(Range range) {
+    if (left instanceof DecimalVector) {
+      if (!compareDecimalVectorTypes()) {
+        return false;
+      }
+    }
+
     BaseFixedWidthVector leftVector = (BaseFixedWidthVector) left;
     BaseFixedWidthVector rightVector = (BaseFixedWidthVector) right;
 
