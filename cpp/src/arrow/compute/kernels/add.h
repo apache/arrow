@@ -34,13 +34,11 @@ class FunctionContext;
 /// \brief Summarizes two arrays.
 ///
 /// Summarizes two arrays with the same length.
-/// The output is an array with same length as input.
-/// Nulls are prohibited. The type size of result array will be equal
-/// to the max size of lhs and rhs types and will be unsigned if both
-/// lhs and rhs are unsigned.
+/// The output is an array with same length and type as input.
+/// Types of both input arrays should be equal
 ///
-/// For example given lhs = [1, 2, 3], rhs = [4, 5, 6], the output
-/// will be [5, 6, 7]
+/// For example given lhs = [1, null, 3], rhs = [4, 5, 6], the output
+/// will be [5, null, 7]
 ///
 /// \param[in] ctx the FunctionContext
 /// \param[in] values array to sort
@@ -71,10 +69,8 @@ class ARROW_EXPORT AddKernel : public BinaryKernel {
   ///
   /// \param[in] value_type constructed AddKernel
   /// \param[out] out created kernel
-  static Status Make(const std::shared_ptr<DataType>& lhs_type,
-                     const std::shared_ptr<DataType>& rhs_type,
+  static Status Make(const std::shared_ptr<DataType>& value_type,
                      std::unique_ptr<AddKernel>* out);
 };
-
 }  // namespace compute
 }  // namespace arrow

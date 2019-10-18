@@ -26,7 +26,7 @@
 #include "arrow/array.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/add.h"
-#include "arrow/compute/test-util.h"
+#include "arrow/compute/test_util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
@@ -38,49 +38,69 @@
 namespace arrow {
 namespace compute {
 
-template <typename ResultType, typename LhsType, typename RhsType>
-class TestAddKernel : public ComputeFixture, public TestBase {
+template <typename ArrowType>
+class TestArithmeticKernel : public ComputeFixture, public TestBase {
  private:
   void AssertAddArrays(const std::shared_ptr<Array> lhs, const std::shared_ptr<Array> rhs,
                        const std::shared_ptr<Array> expected) {
     std::shared_ptr<Array> actual;
     ASSERT_OK(arrow::compute::Add(&this->ctx_, *lhs, *rhs, &actual));
-    ASSERT_OK(ValidateArray(*actual));
+    ASSERT_OK(actual->Validate());
     AssertArraysEqual(*expected, *actual);
   }
 
  protected:
   virtual void AssertAdd(const std::string& lhs, const std::string& rhs,
                          const std::string& expected) {
-    auto lhs_type = TypeTraits<LhsType>::type_singleton();
-    auto rhs_type = TypeTraits<RhsType>::type_singleton();
-    auto result_type = TypeTraits<ResultType>::type_singleton();
-    AssertAddArrays(ArrayFromJSON(lhs_type, lhs), ArrayFromJSON(rhs_type, rhs),
-                    ArrayFromJSON(result_type, expected));
+    auto type = TypeTraits<ArrowType>::type_singleton();
+    AssertAddArrays(ArrayFromJSON(type, lhs), ArrayFromJSON(type, rhs),
+                    ArrayFromJSON(type, expected));
   }
 };
 
-#define ARITHMETIC_KERNEL_TYPE_INFERENCE_TEST(T1, T2, T3)                                \
-  class TestAddKernel##T1##T2##T3 : public TestAddKernel<T1##Type, T2##Type, T3##Type> { \
-  };                                                                                     \
-  TEST_F(TestAddKernel##T1##T2##T3, TestAdd) {                                           \
-    this->AssertAdd("[2, 5, 1]", "[5, 3, 12]", "[7, 8, 13]");                            \
-  }
+template <typename ArrowType>
+class TestArithmeticKernelForReal : public TestArithmeticKernel<ArrowType> {};
+TYPED_TEST_CASE(TestArithmeticKernelForReal, RealArrowTypes);
 
-ARITHMETIC_KERNEL_TYPE_INFERENCE_TEST(Int32, Int32, Int32)
-ARITHMETIC_KERNEL_TYPE_INFERENCE_TEST(UInt32, UInt32, UInt32)
-ARITHMETIC_KERNEL_TYPE_INFERENCE_TEST(Int32, UInt32, Int32)
-ARITHMETIC_KERNEL_TYPE_INFERENCE_TEST(Int32, Int32, UInt32)
-ARITHMETIC_KERNEL_TYPE_INFERENCE_TEST(Int64, Int64, UInt32)
-ARITHMETIC_KERNEL_TYPE_INFERENCE_TEST(UInt64, UInt64, UInt64)
-ARITHMETIC_KERNEL_TYPE_INFERENCE_TEST(UInt64, UInt8, UInt64)
-ARITHMETIC_KERNEL_TYPE_INFERENCE_TEST(Int8, UInt8, Int8)
-ARITHMETIC_KERNEL_TYPE_INFERENCE_TEST(Int16, UInt8, Int16)
-ARITHMETIC_KERNEL_TYPE_INFERENCE_TEST(Int16, UInt16, Int8)
-ARITHMETIC_KERNEL_TYPE_INFERENCE_TEST(UInt16, UInt8, UInt16)
-ARITHMETIC_KERNEL_TYPE_INFERENCE_TEST(Double, Double, UInt16)
-ARITHMETIC_KERNEL_TYPE_INFERENCE_TEST(Double, Float, Double)
-ARITHMETIC_KERNEL_TYPE_INFERENCE_TEST(Float, Float, UInt16)
+template <typename ArrowType>
+class TestArithmeticKernelForIntegral : public TestArithmeticKernel<ArrowType> {};
+TYPED_TEST_CASE(TestArithmeticKernelForIntegral, IntegralArrowTypes);
+
+TYPED_TEST(TestArithmeticKernelForReal, SortReal) {
+  this->AssertAdd("[]", "[]", "[]");
+
+  this->AssertAdd("[3.4, 2.6, 6.3]", "[1, 0, 2]", "[4.4, 2.6, 8.3]");
+
+  this->AssertAdd("[1.1, 2.4, 3.5, 4.3, 5.1, 6.8, 7.3]", "[0, 1, 2, 3, 4, 5, 6]",
+                  "[1.1, 3.4, 5.5, 7.3, 9.1, 11.8, 13.3]");
+
+  this->AssertAdd("[7, 6, 5, 4, 3, 2, 1]", "[6, 5, 4, 3, 2, 1, 0]",
+                  "[13, 11, 9, 7, 5, 3, 1]");
+
+  this->AssertAdd("[10.4, 12, 4.2, 50, 50.3, 32, 11]", "[2, 0, 6, 1, 5, 3, 4]",
+                  "[12.4, 12, 10.2, 51, 55.3, 35, 15]");
+
+  this->AssertAdd("[null, 1, 3.3, null, 2, 5.3]", "[1, 4, 2, 5, 0, 3]",
+                  "[null, 5, 5.3, null, 2, 8.3]");
+}
+
+TYPED_TEST(TestArithmeticKernelForIntegral, SortIntegral) {
+  this->AssertAdd("[]", "[]", "[]");
+
+  this->AssertAdd("[3, 2, 6]", "[1, 0, 2]", "[4, 2, 8]");
+
+  this->AssertAdd("[1, 2, 3, 4, 5, 6, 7]", "[0, 1, 2, 3, 4, 5, 6]",
+                  "[1, 3, 5, 7, 9, 11, 13]");
+
+  this->AssertAdd("[7, 6, 5, 4, 3, 2, 1]", "[6, 5, 4, 3, 2, 1, 0]",
+                  "[13, 11, 9, 7, 5, 3, 1]");
+
+  this->AssertAdd("[10, 12, 4, 50, 50, 32, 11]", "[2, 0, 6, 1, 5, 3, 4]",
+                  "[12, 12, 10, 51, 55, 35, 15]");
+
+  this->AssertAdd("[null, 1, 3, null, 2, 5]", "[1, 4, 2, 5, 0, 3]",
+                  "[null, 5, 5, null, 2, 8]");
+}
 
 }  // namespace compute
 }  // namespace arrow
