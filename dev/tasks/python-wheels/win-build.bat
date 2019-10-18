@@ -92,10 +92,10 @@ call conda create -n wheel-test -c conda-forge -q -y ^
 call activate wheel-test
 
 @rem install the built wheel
-@rem pip install -vv --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow || exit /B
+pip install -vv --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow || exit /B
 
 @rem test the imports
-@rem python -c "import pyarrow; import pyarrow.parquet; import pyarrow.flight; import pyarrow.gandiva;" || exit /B
+python -c "import pyarrow; import pyarrow.parquet; import pyarrow.flight; import pyarrow.gandiva;" || exit /B
 
 @rem run the python tests
-@rem pytest -rs --pyargs pyarrow || exit /B
+pytest -rs --pyargs pyarrow || exit /B
