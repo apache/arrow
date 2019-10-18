@@ -681,9 +681,7 @@ impl DataType {
             DataType::Utf8 => json!({"name": "utf8"}),
             DataType::Struct(_) => json!({"name": "struct"}),
             DataType::List(_) => json!({ "name": "list"}),
-            DataType::FixedSizeList((_, length)) => {
-                json!({"name":"fixedsizelist", "listSize": length})
-            }
+            DataType::FixedSizeList((_, length)) => json!({"name":"fixedsizelist", "listSize": length}),
             DataType::Time32(unit) => {
                 json!({"name": "time", "bitWidth": 32, "unit": match unit {
                     TimeUnit::Second => "SECOND",
