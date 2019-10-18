@@ -163,5 +163,29 @@ Status Filter(FunctionContext* ctx, const RecordBatch& batch, const Array& filte
   return Status::OK();
 }
 
+Status Filter(FunctionContext* ctx, const ChunkedArray& values, const Array& filter,
+              std::shared_ptr<ChunkedArray>* out) {
+  // Datum out_datum;
+  // RETURN_NOT_OK(Filter(ctx, Datum(values.data()), Datum(filter.data()), &out_datum));
+  // *out = out_datum.make_array();
+  // return Status::OK();
+
+  auto num_chunks = values.num_chunks();
+  std::vector<std::shared_ptr<arrow::Array>> new_chunks(num_chunks);
+  std::shared_ptr<arrow::Array> current_chunk;
+  int offset = 0;
+  int len;
+
+  for (int i = 0; i < num_chunks; i++) {
+    current_chunk = values.chunk(i);
+    len = current_chunk->length();
+    RETURN_NOT_OK(Filter(ctx, *current_chunk, *filter.Slice(offset, len), &new_chunks[i]));
+    offset += len;
+  }
+
+  *out = std::make_shared<arrow::ChunkedArray>(std::move(new_chunks));
+  return Status::OK();
+}
+
 }  // namespace compute
 }  // namespace arrow

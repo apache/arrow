@@ -518,5 +518,8 @@ TEST_F(TestFilterKernelWithRecordBatch, FilterRecordBatch) {
   ])");
 }
 
+// TODO (npr): add test for Filter(ChunkedArray, Array)
+// See cast_test.cc for test setup with chunked arrays
+
 }  // namespace compute
 }  // namespace arrow
