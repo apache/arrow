@@ -111,6 +111,8 @@ struct _GArrowIntegerDataTypeClass
   GArrowNumericDataTypeClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_1_0
+gboolean garrow_integer_data_type_is_signed(GArrowIntegerDataType *data_type);
 
 #define GARROW_TYPE_INT8_DATA_TYPE (garrow_int8_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowInt8DataType,

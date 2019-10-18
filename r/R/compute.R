@@ -17,7 +17,7 @@
 
 #' @include array.R
 
-`arrow::compute::CastOptions` <- R6Class("arrow::compute::CastOptions", inherit = `arrow::Object`)
+CastOptions <- R6Class("CastOptions", inherit = Object)
 
 #' Cast options
 #'
@@ -33,7 +33,7 @@ cast_options <- function(
   allow_time_truncate = !safe,
   allow_float_truncate = !safe
 ){
-  shared_ptr(`arrow::compute::CastOptions`,
+  shared_ptr(CastOptions,
     compute___CastOptions__initialize(allow_int_overflow, allow_time_truncate, allow_float_truncate)
   )
 }

@@ -18,7 +18,6 @@
 #pragma once
 
 #include <cstdint>
-#include <iostream>
 #include <string>
 #include "arrow/util/decimal.h"
 #include "gandiva/basic_decimal_scalar.h"

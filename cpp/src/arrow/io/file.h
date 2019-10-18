@@ -24,6 +24,7 @@
 #include <memory>
 #include <string>
 
+#include "arrow/io/concurrency.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/util/visibility.h"
 
@@ -35,6 +36,7 @@ class Status;
 
 namespace io {
 
+/// \brief An operating system file open in write-only mode.
 class ARROW_EXPORT FileOutputStream : public OutputStream {
  public:
   ~FileOutputStream() override;
@@ -94,8 +96,9 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
 
   // Write bytes to the stream. Thread-safe
   Status Write(const void* data, int64_t nbytes) override;
-
+  /// \cond FALSE
   using Writable::Write;
+  /// \endcond
 
   int file_descriptor() const;
 
@@ -106,8 +109,13 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
   std::unique_ptr<FileOutputStreamImpl> impl_;
 };
 
-// Operating system file
-class ARROW_EXPORT ReadableFile : public RandomAccessFile {
+/// \brief An operating system file open in read-only mode.
+///
+/// Reads through this implementation are unbuffered.  If many small reads
+/// need to be issued, it is recommended to use a buffering layer for good
+/// performance.
+class ARROW_EXPORT ReadableFile
+    : public internal::RandomAccessFileConcurrencyWrapper<ReadableFile> {
  public:
   ~ReadableFile() override;
 
@@ -144,39 +152,40 @@ class ARROW_EXPORT ReadableFile : public RandomAccessFile {
   /// on Close() or destruction.
   static Status Open(int fd, MemoryPool* pool, std::shared_ptr<ReadableFile>* file);
 
-  Status Close() override;
   bool closed() const override;
-  Status Tell(int64_t* position) const override;
-
-  // Read bytes from the file. Thread-safe
-  Status Read(int64_t nbytes, int64_t* bytes_read, void* buffer) override;
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
-
-  /// \brief Thread-safe implementation of ReadAt
-  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                void* out) override;
-
-  /// \brief Thread-safe implementation of ReadAt
-  Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
-
-  Status GetSize(int64_t* size) override;
-  Status Seek(int64_t position) override;
 
   int file_descriptor() const;
 
  private:
+  friend RandomAccessFileConcurrencyWrapper<ReadableFile>;
+
   explicit ReadableFile(MemoryPool* pool);
+
+  Status DoClose();
+  Status DoTell(int64_t* position) const;
+  Status DoRead(int64_t nbytes, int64_t* bytes_read, void* buffer);
+  Status DoRead(int64_t nbytes, std::shared_ptr<Buffer>* out);
+
+  /// \brief Thread-safe implementation of ReadAt
+  Status DoReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, void* out);
+
+  /// \brief Thread-safe implementation of ReadAt
+  Status DoReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out);
+
+  Status DoGetSize(int64_t* size);
+  Status DoSeek(int64_t position);
 
   class ARROW_NO_EXPORT ReadableFileImpl;
   std::unique_ptr<ReadableFileImpl> impl_;
 };
 
-// A file interface that uses memory-mapped files for memory interactions,
-// supporting zero copy reads. The same class is used for both reading and
-// writing.
-//
-// If opening a file in a writable mode, it is not truncated first as with
-// FileOutputStream
+/// \brief A file interface that uses memory-mapped files for memory interactions
+///
+/// This implementation supports zero-copy reads. The same class is used
+/// for both reading and writing.
+///
+/// If opening a file in a writable mode, it is not truncated first as with
+/// FileOutputStream.
 class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
  public:
   ~MemoryMappedFile() override;
@@ -185,8 +194,13 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
   static Status Create(const std::string& path, int64_t size,
                        std::shared_ptr<MemoryMappedFile>* out);
 
+  // mmap() with whole file
   static Status Open(const std::string& path, FileMode::type mode,
                      std::shared_ptr<MemoryMappedFile>* out);
+
+  // mmap() with a region of file, the offset must be a multiple of the page size
+  static Status Open(const std::string& path, FileMode::type mode, const int64_t offset,
+                     const int64_t length, std::shared_ptr<MemoryMappedFile>* out);
 
   Status Close() override;
 
@@ -216,6 +230,9 @@ class ARROW_EXPORT MemoryMappedFile : public ReadWriteFileInterface {
 
   /// Write data at the current position in the file. Thread-safe
   Status Write(const void* data, int64_t nbytes) override;
+  /// \cond FALSE
+  using Writable::Write;
+  /// \endcond
 
   /// Set the size of the map to new_size.
   Status Resize(int64_t new_size);

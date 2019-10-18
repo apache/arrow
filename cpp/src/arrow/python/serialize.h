@@ -21,6 +21,7 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/ipc/options.h"
 #include "arrow/python/visibility.h"
 #include "arrow/status.h"
 
@@ -52,6 +53,9 @@ struct ARROW_PYTHON_EXPORT SerializedPyObject {
   std::vector<std::shared_ptr<Tensor>> tensors;
   std::vector<std::shared_ptr<Tensor>> ndarrays;
   std::vector<std::shared_ptr<Buffer>> buffers;
+  ipc::IpcOptions ipc_options;
+
+  SerializedPyObject();
 
   /// \brief Write serialized Python object to OutputStream
   /// \param[in,out] dst an OutputStream

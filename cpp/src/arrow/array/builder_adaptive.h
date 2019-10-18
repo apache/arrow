@@ -58,14 +58,14 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
   virtual Status CommitPendingData() = 0;
 
   std::shared_ptr<ResizableBuffer> data_;
-  uint8_t* raw_data_;
-  uint8_t int_size_;
+  uint8_t* raw_data_ = NULLPTR;
+  uint8_t int_size_ = sizeof(uint8_t);
 
   static constexpr int32_t pending_size_ = 1024;
   uint8_t pending_valid_[pending_size_];
   uint64_t pending_data_[pending_size_];
-  int32_t pending_pos_;
-  bool pending_has_nulls_;
+  int32_t pending_pos_ = 0;
+  bool pending_has_nulls_ = false;
 };
 
 }  // namespace internal
@@ -100,6 +100,8 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
+  std::shared_ptr<DataType> type() const override;
+
  protected:
   Status CommitPendingData() override;
   Status ExpandIntSize(uint8_t new_int_size);
@@ -110,11 +112,9 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
   template <typename new_type, typename old_type>
   typename std::enable_if<sizeof(old_type) >= sizeof(new_type), Status>::type
   ExpandIntSizeInternal();
-#define __LESS(a, b) (a) < (b)
   template <typename new_type, typename old_type>
-  typename std::enable_if<__LESS(sizeof(old_type), sizeof(new_type)), Status>::type
+  typename std::enable_if<(sizeof(old_type) < sizeof(new_type)), Status>::type
   ExpandIntSizeInternal();
-#undef __LESS
 
   template <typename new_type>
   Status ExpandIntSizeN();
@@ -152,6 +152,8 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
 
+  std::shared_ptr<DataType> type() const override;
+
  protected:
   Status CommitPendingData() override;
   Status ExpandIntSize(uint8_t new_int_size);
@@ -162,11 +164,9 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
   template <typename new_type, typename old_type>
   typename std::enable_if<sizeof(old_type) >= sizeof(new_type), Status>::type
   ExpandIntSizeInternal();
-#define __LESS(a, b) (a) < (b)
   template <typename new_type, typename old_type>
-  typename std::enable_if<__LESS(sizeof(old_type), sizeof(new_type)), Status>::type
+  typename std::enable_if<(sizeof(old_type) < sizeof(new_type)), Status>::type
   ExpandIntSizeInternal();
-#undef __LESS
 
   template <typename new_type>
   Status ExpandIntSizeN();

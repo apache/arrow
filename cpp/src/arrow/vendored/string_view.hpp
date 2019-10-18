@@ -1,4 +1,4 @@
-// Vendored from git tag 062acda5e35c8922dbbccf81300a58edea521b45
+// Vendored from git tag v1.3.0
 
 // Copyright 2017-2019 by Martin Moene
 //
@@ -14,7 +14,7 @@
 #define NONSTD_SV_LITE_H_INCLUDED
 
 #define string_view_lite_MAJOR  1
-#define string_view_lite_MINOR  1
+#define string_view_lite_MINOR  3
 #define string_view_lite_PATCH  0
 
 #define string_view_lite_VERSION  nssv_STRINGIFY(string_view_lite_MAJOR) "." nssv_STRINGIFY(string_view_lite_MINOR) "." nssv_STRINGIFY(string_view_lite_PATCH)
@@ -406,6 +406,22 @@ nssv_DISABLE_MSVC_WARNINGS( 4455 26481 26472 )
 
 namespace nonstd { namespace sv_lite {
 
+#if nssv_CPP11_OR_GREATER
+
+namespace detail {
+
+// Expect tail call optimization to make length() non-recursive:
+
+template< typename CharT >
+inline constexpr std::size_t length( CharT * s, std::size_t result = 0 )
+{
+    return *s == '\0' ? result : length( s + 1, result + 1 );
+}
+
+} // namespace detail
+
+#endif // nssv_CPP11_OR_GREATER
+
 template
 <
     class CharT,
@@ -466,7 +482,13 @@ public:
 
     nssv_constexpr basic_string_view( CharT const * s) nssv_noexcept // non-standard noexcept
         : data_( s )
+#if nssv_CPP17_OR_GREATER
         , size_( Traits::length(s) )
+#elif nssv_CPP11_OR_GREATER
+        , size_( detail::length(s) )
+#else
+        , size_( Traits::length(s) )
+#endif
     {}
 
     // Assignment:
@@ -522,7 +544,7 @@ public:
 #else
         if ( pos >= size() )
         {
-            throw std::out_of_range("nonst::string_view::at()");
+            throw std::out_of_range("nonstd::string_view::at()");
         }
 #endif
         return data_at( pos );
@@ -564,7 +586,7 @@ public:
 #else
         if ( pos > size() )
         {
-            throw std::out_of_range("nonst::string_view::copy()");
+            throw std::out_of_range("nonstd::string_view::copy()");
         }
 #endif
         const size_type rlen = (std::min)( n, size() - pos );
@@ -581,7 +603,7 @@ public:
 #else
         if ( pos > size() )
         {
-            throw std::out_of_range("nonst::string_view::substr()");
+            throw std::out_of_range("nonstd::string_view::substr()");
         }
 #endif
         return basic_string_view( data() + pos, (std::min)( n, size() - pos ) );

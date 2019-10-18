@@ -18,7 +18,7 @@
 #' @importFrom R6 R6Class
 #' @importFrom purrr map map_int map2
 #' @importFrom assertthat assert_that
-#' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos
+#' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish
 #' @importFrom Rcpp sourceCpp
 #' @importFrom tidyselect vars_select
 #' @useDynLib arrow, .registration = TRUE
@@ -41,4 +41,45 @@ arrow_available <- function() {
 
 option_use_threads <- function() {
   !is_false(getOption("arrow.use_threads"))
+}
+
+#' @include enums.R
+Object <- R6Class("Object",
+  public = list(
+    initialize = function(xp) self$set_pointer(xp),
+
+    pointer = function() self$`.:xp:.`,
+    `.:xp:.` = NULL,
+    set_pointer = function(xp){
+      self$`.:xp:.` <- xp
+    },
+    print = function(...){
+      cat(class(self)[[1]], "\n", sep = "")
+      if (!is.null(self$ToString)){
+        cat(self$ToString(), "\n", sep = "")
+      }
+      invisible(self)
+    }
+  )
+)
+
+#' @export
+`!=.Object` <- function(lhs, rhs) !(lhs == rhs)
+
+#' @export
+`==.Object` <- function(x, y) {
+  x$Equals(y)
+}
+
+#' @export
+all.equal.Object <- function(target, current, ...) {
+  target == current
+}
+
+shared_ptr <- function(class, xp) {
+  if (!shared_ptr_is_null(xp)) class$new(xp)
+}
+
+unique_ptr <- function(class, xp) {
+  if (!unique_ptr_is_null(xp)) class$new(xp)
 }

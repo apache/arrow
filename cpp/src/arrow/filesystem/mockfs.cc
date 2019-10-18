@@ -18,13 +18,14 @@
 #include <algorithm>
 #include <iterator>
 #include <map>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "arrow/buffer.h"
 #include "arrow/filesystem/mockfs.h"
-#include "arrow/filesystem/path-util.h"
+#include "arrow/filesystem/path_util.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/util/logging.h"
@@ -179,6 +180,18 @@ class MockFSOutputStream : public io::OutputStream {
     return Status::OK();
   }
 
+  Status Abort() override {
+    if (!closed_) {
+      // MockFSOutputStream is mainly used for debugging and testing, so
+      // mark an aborted file's contents explicitly.
+      std::stringstream ss;
+      ss << "MockFSOutputStream aborted after " << file_->data.size() << " bytes written";
+      file_->data = ss.str();
+      closed_ = true;
+    }
+    return Status::OK();
+  }
+
   bool closed() const override { return closed_; }
 
   Status Tell(int64_t* position) const override {
@@ -225,6 +238,8 @@ class MockFileSystem::Impl {
 
   explicit Impl(TimePoint current_time)
       : current_time(current_time), root(Directory("", current_time)) {}
+
+  Directory& RootDir() { return root.as_dir(); }
 
   template <typename It>
   Entry* FindEntry(It it, It end, size_t* nconsumed) {
@@ -273,15 +288,16 @@ class MockFileSystem::Impl {
     return (consumed == parts.size() - 1) ? entry : nullptr;
   }
 
-  void GatherStats(const std::string& base_path, Directory& base_dir, bool recursive,
+  void GatherStats(const Selector& select, const std::string& base_path,
+                   Directory& base_dir, int32_t nesting_depth,
                    std::vector<FileStats>* stats) {
     for (const auto& pair : base_dir.entries) {
       Entry* child = pair.second.get();
       stats->push_back(child->GetStats(base_path));
-      if (recursive && child->is_dir()) {
+      if (select.recursive && nesting_depth < select.max_recursion && child->is_dir()) {
         Directory& child_dir = child->as_dir();
         std::string child_path = stats->back().path();
-        GatherStats(std::move(child_path), child_dir, recursive, stats);
+        GatherStats(select, std::move(child_path), child_dir, nesting_depth + 1, stats);
       }
     }
   }
@@ -410,8 +426,30 @@ Status MockFileSystem::DeleteDir(const std::string& path) {
   if (!child->is_dir()) {
     return NotADir(path);
   }
+
   bool deleted = parent_dir.DeleteEntry(parts.back());
   DCHECK(deleted);
+  return Status::OK();
+}
+
+Status MockFileSystem::DeleteDirContents(const std::string& path) {
+  auto parts = SplitAbstractPath(path);
+  RETURN_NOT_OK(ValidateAbstractPathParts(parts));
+
+  if (parts.empty()) {
+    // Wipe filesystem
+    impl_->RootDir().entries.clear();
+    return Status::OK();
+  }
+
+  Entry* entry = impl_->FindEntry(parts);
+  if (entry == nullptr) {
+    return PathNotFound(path);
+  }
+  if (!entry->is_dir()) {
+    return NotADir(path);
+  }
+  entry->as_dir().entries.clear();
   return Status::OK();
 }
 
@@ -473,7 +511,7 @@ Status MockFileSystem::GetTargetStats(const Selector& selector,
     return NotADir(selector.base_dir);
   }
 
-  impl_->GatherStats(selector.base_dir, base_dir->as_dir(), selector.recursive, out);
+  impl_->GatherStats(selector, selector.base_dir, base_dir->as_dir(), 0, out);
   return Status::OK();
 }
 
@@ -608,14 +646,48 @@ Status MockFileSystem::OpenAppendStream(const std::string& path,
 
 std::vector<DirInfo> MockFileSystem::AllDirs() {
   std::vector<DirInfo> result;
-  impl_->DumpDirs("", impl_->root.as_dir(), &result);
+  impl_->DumpDirs("", impl_->RootDir(), &result);
   return result;
 }
 
 std::vector<FileInfo> MockFileSystem::AllFiles() {
   std::vector<FileInfo> result;
-  impl_->DumpFiles("", impl_->root.as_dir(), &result);
+  impl_->DumpFiles("", impl_->RootDir(), &result);
   return result;
+}
+
+Status MockFileSystem::CreateFile(const std::string& path, const std::string& contents,
+                                  bool recursive) {
+  auto parent = fs::internal::GetAbstractPathParent(path).first;
+  if (parent != "") {
+    RETURN_NOT_OK(CreateDir(parent, recursive));
+  }
+
+  std::shared_ptr<io::OutputStream> file;
+  RETURN_NOT_OK(OpenOutputStream(path, &file));
+  RETURN_NOT_OK(file->Write(contents));
+  return file->Close();
+}
+
+Status MockFileSystem::Make(TimePoint current_time, const std::vector<FileStats>& stats,
+                            std::shared_ptr<FileSystem>* out) {
+  auto fs = std::make_shared<MockFileSystem>(current_time);
+  for (const auto& s : stats) {
+    switch (s.type()) {
+      case FileType::Directory:
+        RETURN_NOT_OK(fs->CreateDir(s.path(), /*recursive*/ true));
+        break;
+      case FileType::File:
+        RETURN_NOT_OK(fs->CreateFile(s.path(), "", /*recursive*/ true));
+        break;
+      default:
+        break;
+    }
+  }
+
+  *out = fs;
+
+  return Status::OK();
 }
 
 }  // namespace internal

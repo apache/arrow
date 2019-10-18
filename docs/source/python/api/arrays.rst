@@ -57,6 +57,8 @@ may expose data type-specific methods or properties.
    BinaryArray
    StringArray
    FixedSizeBinaryArray
+   LargeBinaryArray
+   LargeStringArray
    Time32Array
    Time64Array
    Date32Array
@@ -65,8 +67,10 @@ may expose data type-specific methods or properties.
    Decimal128Array
    DictionaryArray
    ListArray
+   LargeListArray
    StructArray
    UnionArray
+   ExtensionArray
 
 .. _api.scalar:
 
@@ -97,6 +101,8 @@ any of those classes directly.
    BinaryValue
    StringValue
    FixedSizeBinaryValue
+   LargeBinaryValue
+   LargeStringValue
    Time32Value
    Time64Value
    Date32Value
@@ -105,5 +111,6 @@ any of those classes directly.
    DecimalValue
    DictionaryValue
    ListValue
+   LargeListValue
    StructValue
    UnionValue

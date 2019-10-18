@@ -147,7 +147,9 @@ gplasma_object_id_to_hex(GPlasmaObjectID *id)
 typedef struct GPlasmaObjectPrivate_ {
   GPlasmaClient *client;
   GPlasmaObjectID *id;
+  std::shared_ptr<arrow::Buffer> raw_data;
   GArrowBuffer *data;
+  std::shared_ptr<arrow::Buffer> raw_metadata;
   GArrowBuffer *metadata;
   gint gpu_device;
 } GPlasmaObjectPrivate;
@@ -155,7 +157,9 @@ typedef struct GPlasmaObjectPrivate_ {
 enum {
   PROP_CLIENT = 1,
   PROP_ID,
+  PROP_RAW_DATA,
   PROP_DATA,
+  PROP_RAW_METADATA,
   PROP_METADATA,
   PROP_GPU_DEVICE
 };
@@ -185,6 +189,17 @@ gplasma_object_dispose(GObject *object)
 }
 
 static void
+gplasma_object_finalize(GObject *object)
+{
+  auto priv = GPLASMA_OBJECT_GET_PRIVATE(object);
+
+  priv->raw_data = nullptr;
+  priv->raw_metadata = nullptr;
+
+  G_OBJECT_CLASS(gplasma_object_parent_class)->finalize(object);
+}
+
+static void
 gplasma_object_set_property(GObject *object,
                             guint prop_id,
                             const GValue *value,
@@ -199,8 +214,23 @@ gplasma_object_set_property(GObject *object,
   case PROP_ID:
     priv->id = GPLASMA_OBJECT_ID(g_value_dup_object(value));
     break;
+  case PROP_RAW_DATA:
+    priv->raw_data =
+      *static_cast<std::shared_ptr<arrow::Buffer> *>(g_value_get_pointer(value));
+    break;
   case PROP_DATA:
     priv->data = GARROW_BUFFER(g_value_dup_object(value));
+    break;
+  case PROP_RAW_METADATA:
+    {
+      auto raw_metadata =
+        static_cast<std::shared_ptr<arrow::Buffer> *>(g_value_get_pointer(value));
+      if (raw_metadata) {
+        priv->raw_metadata = *raw_metadata;
+      } else {
+        priv->raw_metadata = nullptr;
+      }
+    }
     break;
   case PROP_METADATA:
     priv->metadata = GARROW_BUFFER(g_value_dup_object(value));
@@ -255,6 +285,7 @@ gplasma_object_class_init(GPlasmaObjectClass *klass)
   auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->dispose      = gplasma_object_dispose;
+  gobject_class->finalize     = gplasma_object_finalize;
   gobject_class->set_property = gplasma_object_set_property;
   gobject_class->get_property = gplasma_object_get_property;
 
@@ -275,6 +306,13 @@ gplasma_object_class_init(GPlasmaObjectClass *klass)
                                                       G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_ID, spec);
 
+  spec = g_param_spec_pointer("raw-data",
+                              "Raw data",
+                              "The raw data of this object",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_RAW_DATA, spec);
+
   spec = g_param_spec_object("data",
                              "Data",
                              "The data of this object",
@@ -282,6 +320,13 @@ gplasma_object_class_init(GPlasmaObjectClass *klass)
                              static_cast<GParamFlags>(G_PARAM_READWRITE |
                                                       G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_DATA, spec);
+
+  spec = g_param_spec_pointer("raw-metadata",
+                              "Raw metadata",
+                              "The raw metadata of this object",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_RAW_METADATA, spec);
 
   spec = g_param_spec_object("metadata",
                              "Metadata",
@@ -506,14 +551,18 @@ gplasma_object_id_get_raw(GPlasmaObjectID *id)
 GPlasmaCreatedObject *
 gplasma_created_object_new_raw(GPlasmaClient *client,
                                GPlasmaObjectID *id,
+                               std::shared_ptr<arrow::Buffer> *raw_data,
                                GArrowBuffer *data,
+                               std::shared_ptr<arrow::Buffer> *raw_metadata,
                                GArrowBuffer *metadata,
                                gint gpu_device)
 {
   auto object = g_object_new(GPLASMA_TYPE_CREATED_OBJECT,
                              "client", client,
                              "id", id,
+                             "raw-data", raw_data,
                              "data", data,
+                             "raw-metadata", raw_metadata,
                              "metadata", metadata,
                              "gpu-device", gpu_device,
                              NULL);
@@ -523,14 +572,18 @@ gplasma_created_object_new_raw(GPlasmaClient *client,
 GPlasmaReferredObject *
 gplasma_referred_object_new_raw(GPlasmaClient *client,
                                 GPlasmaObjectID *id,
+                                std::shared_ptr<arrow::Buffer> *raw_data,
                                 GArrowBuffer *data,
+                                std::shared_ptr<arrow::Buffer> *raw_metadata,
                                 GArrowBuffer *metadata,
                                 gint gpu_device)
 {
   auto object = g_object_new(GPLASMA_TYPE_REFERRED_OBJECT,
                              "client", client,
                              "id", id,
+                             "raw-data", raw_data,
                              "data", data,
+                             "raw-metadata", raw_metadata,
                              "metadata", metadata,
                              "gpu-device", gpu_device,
                              NULL);

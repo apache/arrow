@@ -19,6 +19,7 @@
     <artifactId>arrow-performance</artifactId>
     <packaging>jar</packaging>
     <name>Arrow Performance Benchmarks</name>
+    <description>JMH Performance benchmarks for other Arrow libraries.</description>
 
     <dependencies>
         <dependency>
@@ -48,10 +49,32 @@
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-vector</artifactId>
             <version>${project.version}</version>
+            <classifier>${arrow.vector.classifier}</classifier>
         </dependency>
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-memory</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.avro</groupId>
+            <artifactId>avro</artifactId>
+            <version>1.9.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.arrow</groupId>
+            <artifactId>arrow-avro</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <version>1.4.196</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.arrow</groupId>
+            <artifactId>arrow-jdbc</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>
@@ -68,8 +91,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.1</version>
-                <configuration>
+                <configuration combine.self="override">
                     <compilerVersion>${javac.target}</compilerVersion>
                     <source>${javac.target}</source>
                     <target>${javac.target}</target>
@@ -143,11 +165,10 @@
                 </plugin>
                 <plugin>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>2.17</version>
+                    <version>3.0.0-M3</version>
                 </plugin>
             </plugins>
         </pluginManagement>
     </build>
 
 </project>
-

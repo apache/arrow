@@ -16,6 +16,7 @@
 using Apache.Arrow.Ipc;
 using System;
 using System.IO;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace Apache.Arrow.Tests
@@ -47,6 +48,38 @@ namespace Apache.Arrow.Tests
             var stream = new MemoryStream();
             new ArrowFileWriter(stream, originalBatch.Schema, leaveOpen: true).Dispose();
             Assert.Equal(0, stream.Position);
+        }
+
+        /// <summary>
+        /// Tests that writing an arrow file will always align the Block lengths
+        /// to 8 bytes. There are asserts in both the reader and writer which will fail
+        /// if this isn't the case.
+        /// </summary>
+        /// <returns></returns>
+        [Fact]
+        public async Task WritesFooterAlignedMulitpleOf8()
+        {
+            RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
+
+            var stream = new MemoryStream();
+            var writer = new ArrowFileWriter(
+                stream,
+                originalBatch.Schema,
+                leaveOpen: true,
+                // use WriteLegacyIpcFormat, which only uses a 4-byte length prefix
+                // which causes the length prefix to not be 8-byte aligned by default
+                new IpcOptions() { WriteLegacyIpcFormat = true });
+
+            await writer.WriteRecordBatchAsync(originalBatch);
+            await writer.WriteEndAsync();
+
+            stream.Position = 0;
+
+            var reader = new ArrowFileReader(stream);
+            int count = await reader.RecordBatchCountAsync();
+            Assert.Equal(1, count);
+            RecordBatch readBatch = await reader.ReadRecordBatchAsync(0);
+            ArrowReaderVerifier.CompareBatches(originalBatch, readBatch);
         }
     }
 }

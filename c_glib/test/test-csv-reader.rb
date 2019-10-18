@@ -220,6 +220,23 @@ message1,message2
         options.add_column_name("score")
         assert_equal(column_names + ["score"], options.column_names)
       end
+
+      def test_generate_column_names
+        options = Arrow::CSVReadOptions.new
+        options.generate_column_names = true
+
+        table = Arrow::CSVReader.new(open_input(<<-CSV), options)
+"Start",2
+"Shutdown",9
+"Reboot",5
+        CSV
+        columns = {
+          "f0" => build_string_array(["Start", "Shutdown", "Reboot"]),
+          "f1" => build_int64_array([2, 9, 5]),
+        }
+        assert_equal(build_table(columns),
+                     table.read)
+      end
     end
   end
 end

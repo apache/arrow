@@ -31,6 +31,7 @@ pub enum ArrowError {
     JsonError(String),
     IoError(String),
     InvalidArgumentError(String),
+    ParquetError(String),
 }
 
 impl From<::std::io::Error> for ArrowError {

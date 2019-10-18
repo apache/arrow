@@ -26,6 +26,7 @@ import collections
 import datetime
 import decimal
 import itertools
+import math
 import traceback
 import sys
 
@@ -205,10 +206,22 @@ def test_nested_lists(seq):
 
 
 @parametrize_with_iterable_types
+def test_nested_large_lists(seq):
+    data = [[], [1, 2], None]
+    arr = pa.array(seq(data), type=pa.large_list(pa.int16()))
+    assert len(arr) == 3
+    assert arr.null_count == 1
+    assert arr.type == pa.large_list(pa.int16())
+    assert arr.to_pylist() == data
+
+
+@parametrize_with_iterable_types
 def test_list_with_non_list(seq):
     # List types don't accept non-sequences
     with pytest.raises(TypeError):
         pa.array(seq([[], [1, 2], 3]), type=pa.list_(pa.int64()))
+    with pytest.raises(TypeError):
+        pa.array(seq([[], [1, 2], 3]), type=pa.large_list(pa.int64()))
 
 
 @parametrize_with_iterable_types
@@ -605,7 +618,7 @@ def test_sequence_unicode():
     assert arr.to_pylist() == data
 
 
-def test_array_mixed_unicode_bytes():
+def check_array_mixed_unicode_bytes(binary_type, string_type):
     values = [u'qux', b'foo', bytearray(b'barz')]
     b_values = [b'qux', b'foo', b'barz']
     u_values = [u'qux', u'foo', u'barz']
@@ -615,10 +628,47 @@ def test_array_mixed_unicode_bytes():
     assert arr.type == pa.binary()
     assert arr.equals(expected)
 
-    arr = pa.array(values, type=pa.string())
-    expected = pa.array(u_values, type=pa.string())
-    assert arr.type == pa.string()
+    arr = pa.array(values, type=binary_type)
+    expected = pa.array(b_values, type=binary_type)
+    assert arr.type == binary_type
     assert arr.equals(expected)
+
+    arr = pa.array(values, type=string_type)
+    expected = pa.array(u_values, type=string_type)
+    assert arr.type == string_type
+    assert arr.equals(expected)
+
+
+def test_array_mixed_unicode_bytes():
+    check_array_mixed_unicode_bytes(pa.binary(), pa.string())
+    check_array_mixed_unicode_bytes(pa.large_binary(), pa.large_string())
+
+
+@pytest.mark.large_memory
+@pytest.mark.parametrize("ty", [pa.large_binary(), pa.large_string()])
+def test_large_binary_array(ty):
+    # Construct a large binary array with more than 4GB of data
+    s = b"0123456789abcdefghijklmnopqrstuvwxyz" * 10
+    nrepeats = math.ceil((2**32 + 5) / len(s))
+    data = [s] * nrepeats
+    arr = pa.array(data, type=ty)
+    assert isinstance(arr, pa.Array)
+    assert arr.type == ty
+    assert len(arr) == nrepeats
+
+
+@pytest.mark.large_memory
+@pytest.mark.parametrize("ty", [pa.large_binary(), pa.large_string()])
+def test_large_binary_value(ty):
+    # Construct a large binary array with a single value larger than 4GB
+    s = b"0123456789abcdefghijklmnopqrstuvwxyz"
+    nrepeats = math.ceil((2**32 + 5) / len(s))
+    arr = pa.array([b"foo", s * nrepeats, None, b"bar"], type=ty)
+    assert isinstance(arr, pa.Array)
+    assert arr.type == ty
+    assert len(arr) == 4
+    buf = arr[1].as_buffer()
+    assert len(buf) == len(s) * nrepeats
 
 
 def test_sequence_bytes():
@@ -627,24 +677,26 @@ def test_sequence_bytes():
             u1.decode('utf-8'),  # unicode gets encoded,
             bytearray(b'bar'),
             None]
-    for ty in [None, pa.binary()]:
+    for ty in [None, pa.binary(), pa.large_binary()]:
         arr = pa.array(data, type=ty)
         assert len(arr) == 4
         assert arr.null_count == 1
-        assert arr.type == pa.binary()
+        assert arr.type == ty or pa.binary()
         assert arr.to_pylist() == [b'foo', u1, b'bar', None]
 
 
-def test_sequence_utf8_to_unicode():
+@pytest.mark.parametrize("ty", [pa.string(), pa.large_string()])
+def test_sequence_utf8_to_unicode(ty):
     # ARROW-1225
     data = [b'foo', None, b'bar']
-    arr = pa.array(data, type=pa.string())
+    arr = pa.array(data, type=ty)
+    assert arr.type == ty
     assert arr[0].as_py() == u'foo'
 
     # test a non-utf8 unicode string
     val = (u'mañana').encode('utf-16-le')
     with pytest.raises(pa.ArrowInvalid):
-        pa.array([val], type=pa.string())
+        pa.array([val], type=ty)
 
 
 def test_sequence_fixed_size_bytes():
@@ -775,6 +827,10 @@ class MyDatetime(datetime.datetime):
     pass
 
 
+class MyTimedelta(datetime.timedelta):
+    pass
+
+
 def test_datetime_subclassing():
     data = [
         MyDate(2007, 7, 13),
@@ -811,6 +867,34 @@ def test_datetime_subclassing():
     assert arr_us[0].as_py() == datetime.datetime(2007, 7, 13, 1,
                                                   23, 34, 123456)
 
+    data = [
+        MyTimedelta(123, 456, 1002),
+    ]
+
+    s = pa.duration('s')
+    ms = pa.duration('ms')
+    us = pa.duration('us')
+
+    arr_s = pa.array(data)
+    assert len(arr_s) == 1
+    assert arr_s.type == us
+    assert arr_s[0].as_py() == datetime.timedelta(123, 456, 1002)
+
+    arr_s = pa.array(data, type=s)
+    assert len(arr_s) == 1
+    assert arr_s.type == s
+    assert arr_s[0].as_py() == datetime.timedelta(123, 456)
+
+    arr_ms = pa.array(data, type=ms)
+    assert len(arr_ms) == 1
+    assert arr_ms.type == ms
+    assert arr_ms[0].as_py() == datetime.timedelta(123, 456, 1000)
+
+    arr_us = pa.array(data, type=us)
+    assert len(arr_us) == 1
+    assert arr_us.type == us
+    assert arr_us[0].as_py() == datetime.timedelta(123, 456, 1002)
+
 
 @pytest.mark.xfail(not _pandas_api.have_pandas,
                    reason="pandas required for nanosecond conversion")
@@ -844,19 +928,19 @@ def test_sequence_timestamp_from_int_with_unit():
     arr_s = pa.array(data, type=s)
     assert len(arr_s) == 1
     assert arr_s.type == s
-    assert repr(arr_s[0]) == "Timestamp('1970-01-01 00:00:01')"
+    assert repr(arr_s[0]) == "datetime.datetime(1970, 1, 1, 0, 0, 1)"
     assert str(arr_s[0]) == "1970-01-01 00:00:01"
 
     arr_ms = pa.array(data, type=ms)
     assert len(arr_ms) == 1
     assert arr_ms.type == ms
-    assert repr(arr_ms[0]) == "Timestamp('1970-01-01 00:00:00.001000')"
+    assert repr(arr_ms[0]) == "datetime.datetime(1970, 1, 1, 0, 0, 0, 1000)"
     assert str(arr_ms[0]) == "1970-01-01 00:00:00.001000"
 
     arr_us = pa.array(data, type=us)
     assert len(arr_us) == 1
     assert arr_us.type == us
-    assert repr(arr_us[0]) == "Timestamp('1970-01-01 00:00:00.000001')"
+    assert repr(arr_us[0]) == "datetime.datetime(1970, 1, 1, 0, 0, 0, 1)"
     assert str(arr_us[0]) == "1970-01-01 00:00:00.000001"
 
     arr_ns = pa.array(data, type=ns)
@@ -878,6 +962,91 @@ def test_sequence_timestamp_from_int_with_unit():
     for ty in [ns, pa.date32(), pa.date64()]:
         with pytest.raises(expected_exc):
             pa.array([1, CustomClass()], type=ty)
+
+
+@pytest.mark.parametrize('np_scalar', [True, False])
+def test_sequence_duration(np_scalar):
+    td1 = datetime.timedelta(2, 3601, 1)
+    td2 = datetime.timedelta(1, 100, 1000)
+    if np_scalar:
+        data = [np.timedelta64(td1), None, np.timedelta64(td2)]
+    else:
+        data = [td1, None, td2]
+
+    arr = pa.array(data)
+    assert len(arr) == 3
+    assert arr.type == pa.duration('us')
+    assert arr.null_count == 1
+    assert arr[0].as_py() == td1
+    assert arr[1].as_py() is None
+    assert arr[2].as_py() == td2
+
+
+@pytest.mark.parametrize('unit', ['s', 'ms', 'us', 'ns'])
+def test_sequence_duration_with_unit(unit):
+    data = [
+        datetime.timedelta(3, 22, 1001),
+    ]
+    expected = {'s': datetime.timedelta(3, 22),
+                'ms': datetime.timedelta(3, 22, 1000),
+                'us': datetime.timedelta(3, 22, 1001),
+                'ns': datetime.timedelta(3, 22, 1001)}
+
+    ty = pa.duration(unit)
+
+    arr_s = pa.array(data, type=ty)
+    assert len(arr_s) == 1
+    assert arr_s.type == ty
+    assert arr_s[0].as_py() == expected[unit]
+
+
+@pytest.mark.parametrize('unit', ['s', 'ms', 'us', 'ns'])
+def test_sequence_duration_from_int_with_unit(unit):
+    data = [5]
+
+    ty = pa.duration(unit)
+    arr = pa.array(data, type=ty)
+    assert len(arr) == 1
+    assert arr.type == ty
+    assert arr[0].value == 5
+
+
+def test_sequence_duration_nested_lists():
+    td1 = datetime.timedelta(1, 1, 1000)
+    td2 = datetime.timedelta(1, 100)
+
+    data = [[td1, None], [td1, td2]]
+
+    arr = pa.array(data)
+    assert len(arr) == 2
+    assert arr.type == pa.list_(pa.duration('us'))
+    assert arr.to_pylist() == data
+
+    arr = pa.array(data, type=pa.list_(pa.duration('ms')))
+    assert len(arr) == 2
+    assert arr.type == pa.list_(pa.duration('ms'))
+    assert arr.to_pylist() == data
+
+
+def test_sequence_duration_nested_lists_numpy():
+    td1 = datetime.timedelta(1, 1, 1000)
+    td2 = datetime.timedelta(1, 100)
+
+    data = [[np.timedelta64(td1), None],
+            [np.timedelta64(td1), np.timedelta64(td2)]]
+
+    arr = pa.array(data)
+    assert len(arr) == 2
+    assert arr.type == pa.list_(pa.duration('us'))
+    assert arr.to_pylist() == [[td1, None], [td1, td2]]
+
+    data = [np.array([np.timedelta64(td1), None], dtype='timedelta64[us]'),
+            np.array([np.timedelta64(td1), np.timedelta64(td2)])]
+
+    arr = pa.array(data)
+    assert len(arr) == 2
+    assert arr.type == pa.list_(pa.duration('us'))
+    assert arr.to_pylist() == [[td1, None], [td1, td2]]
 
 
 def test_sequence_nesting_levels():
@@ -1047,6 +1216,23 @@ def test_struct_from_dicts():
     assert arr.to_pylist() == expected
 
 
+def test_struct_from_dicts_bytes_keys():
+    # ARROW-6878
+    ty = pa.struct([pa.field('a', pa.int32()),
+                    pa.field('b', pa.string()),
+                    pa.field('c', pa.bool_())])
+    arr = pa.array([], type=ty)
+    assert arr.to_pylist() == []
+
+    data = [{b'a': 5, b'b': 'foo'},
+            {b'a': 6, b'c': False}]
+    arr = pa.array(data, type=ty)
+    assert arr.to_pylist() == [
+        {'a': 5, 'b': 'foo', 'c': None},
+        {'a': 6, 'b': None, 'c': False},
+    ]
+
+
 def test_struct_from_tuples():
     ty = pa.struct([pa.field('a', pa.int32()),
                     pa.field('b', pa.string()),
@@ -1167,11 +1353,16 @@ def test_structarray_from_arrays_coerce():
 
 def test_decimal_array_with_none_and_nan():
     values = [decimal.Decimal('1.234'), None, np.nan, decimal.Decimal('nan')]
-    array = pa.array(values)
+
+    with pytest.raises(TypeError):
+        # ARROW-6227: Without from_pandas=True, NaN is considered a float
+        array = pa.array(values)
+
+    array = pa.array(values, from_pandas=True)
     assert array.type == pa.decimal128(4, 3)
     assert array.to_pylist() == values[:2] + [None, None]
 
-    array = pa.array(values, type=pa.decimal128(10, 4))
+    array = pa.array(values, type=pa.decimal128(10, 4), from_pandas=True)
     assert array.to_pylist() == [decimal.Decimal('1.2340'), None, None, None]
 
 

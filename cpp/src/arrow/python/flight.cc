@@ -20,7 +20,7 @@
 
 #include "arrow/flight/internal.h"
 #include "arrow/python/flight.h"
-#include "arrow/util/io-util.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 
 using arrow::flight::FlightPayload;
@@ -28,6 +28,8 @@ using arrow::flight::FlightPayload;
 namespace arrow {
 namespace py {
 namespace flight {
+
+const char* kPyServerMiddlewareName = "arrow.py_server_middleware";
 
 PyServerAuthHandler::PyServerAuthHandler(PyObject* handler,
                                          const PyServerAuthHandlerVtable& vtable)
@@ -101,6 +103,16 @@ Status PyFlightServer::GetFlightInfo(const arrow::flight::ServerCallContext& con
                                      std::unique_ptr<arrow::flight::FlightInfo>* info) {
   return SafeCallIntoPython([&] {
     const Status status = vtable_.get_flight_info(server_.obj(), context, request, info);
+    RETURN_NOT_OK(CheckPyError());
+    return status;
+  });
+}
+
+Status PyFlightServer::GetSchema(const arrow::flight::ServerCallContext& context,
+                                 const arrow::flight::FlightDescriptor& request,
+                                 std::unique_ptr<arrow::flight::SchemaResult>* result) {
+  return SafeCallIntoPython([&] {
+    const Status status = vtable_.get_schema(server_.obj(), context, request, result);
     RETURN_NOT_OK(CheckPyError());
     return status;
   });
@@ -209,7 +221,7 @@ Status PyFlightDataStream::Next(FlightPayload* payload) { return stream_->Next(p
 PyGeneratorFlightDataStream::PyGeneratorFlightDataStream(
     PyObject* generator, std::shared_ptr<arrow::Schema> schema,
     PyGeneratorFlightDataStreamCallback callback)
-    : schema_(schema), callback_(callback) {
+    : schema_(schema), options_(ipc::IpcOptions::Defaults()), callback_(callback) {
   Py_INCREF(generator);
   generator_.reset(generator);
 }
@@ -217,7 +229,7 @@ PyGeneratorFlightDataStream::PyGeneratorFlightDataStream(
 std::shared_ptr<Schema> PyGeneratorFlightDataStream::schema() { return schema_; }
 
 Status PyGeneratorFlightDataStream::GetSchemaPayload(FlightPayload* payload) {
-  return ipc::internal::GetSchemaPayload(*schema_, &dictionary_memo_,
+  return ipc::internal::GetSchemaPayload(*schema_, options_, &dictionary_memo_,
                                          &payload->ipc_message);
 }
 
@@ -227,6 +239,121 @@ Status PyGeneratorFlightDataStream::Next(FlightPayload* payload) {
     RETURN_NOT_OK(CheckPyError());
     return status;
   });
+}
+
+// Flight Server Middleware
+
+PyServerMiddlewareFactory::PyServerMiddlewareFactory(PyObject* factory,
+                                                     StartCallCallback start_call)
+    : start_call_(start_call) {
+  Py_INCREF(factory);
+  factory_.reset(factory);
+}
+
+Status PyServerMiddlewareFactory::StartCall(
+    const arrow::flight::CallInfo& info,
+    const arrow::flight::CallHeaders& incoming_headers,
+    std::shared_ptr<arrow::flight::ServerMiddleware>* middleware) {
+  return SafeCallIntoPython([&] {
+    const Status status = start_call_(factory_.obj(), info, incoming_headers, middleware);
+    RETURN_NOT_OK(CheckPyError());
+    return status;
+  });
+}
+
+PyServerMiddleware::PyServerMiddleware(PyObject* middleware, Vtable vtable)
+    : vtable_(vtable) {
+  Py_INCREF(middleware);
+  middleware_.reset(middleware);
+}
+
+void PyServerMiddleware::SendingHeaders(arrow::flight::AddCallHeaders* outgoing_headers) {
+  const Status& status = SafeCallIntoPython([&] {
+    const Status status = vtable_.sending_headers(middleware_.obj(), outgoing_headers);
+    RETURN_NOT_OK(CheckPyError());
+    return status;
+  });
+
+  if (!status.ok()) {
+    ARROW_LOG(WARNING) << "Python server middleware failed in SendingHeaders: " << status;
+  }
+}
+
+void PyServerMiddleware::CallCompleted(const Status& call_status) {
+  const Status& status = SafeCallIntoPython([&] {
+    const Status status = vtable_.call_completed(middleware_.obj(), call_status);
+    RETURN_NOT_OK(CheckPyError());
+    return status;
+  });
+  if (!status.ok()) {
+    ARROW_LOG(WARNING) << "Python server middleware failed in CallCompleted: " << status;
+  }
+}
+
+std::string PyServerMiddleware::name() const { return kPyServerMiddlewareName; }
+
+PyObject* PyServerMiddleware::py_object() const { return middleware_.obj(); }
+
+// Flight Client Middleware
+
+PyClientMiddlewareFactory::PyClientMiddlewareFactory(PyObject* factory,
+                                                     StartCallCallback start_call)
+    : start_call_(start_call) {
+  Py_INCREF(factory);
+  factory_.reset(factory);
+}
+
+void PyClientMiddlewareFactory::StartCall(
+    const arrow::flight::CallInfo& info,
+    std::unique_ptr<arrow::flight::ClientMiddleware>* middleware) {
+  const Status& status = SafeCallIntoPython([&] {
+    const Status status = start_call_(factory_.obj(), info, middleware);
+    RETURN_NOT_OK(CheckPyError());
+    return status;
+  });
+  if (!status.ok()) {
+    ARROW_LOG(WARNING) << "Python client middleware failed in StartCall: " << status;
+  }
+}
+
+PyClientMiddleware::PyClientMiddleware(PyObject* middleware, Vtable vtable)
+    : vtable_(vtable) {
+  Py_INCREF(middleware);
+  middleware_.reset(middleware);
+}
+
+void PyClientMiddleware::SendingHeaders(arrow::flight::AddCallHeaders* outgoing_headers) {
+  const Status& status = SafeCallIntoPython([&] {
+    const Status status = vtable_.sending_headers(middleware_.obj(), outgoing_headers);
+    RETURN_NOT_OK(CheckPyError());
+    return status;
+  });
+  if (!status.ok()) {
+    ARROW_LOG(WARNING) << "Python client middleware failed in StartCall: " << status;
+  }
+}
+
+void PyClientMiddleware::ReceivedHeaders(
+    const arrow::flight::CallHeaders& incoming_headers) {
+  const Status& status = SafeCallIntoPython([&] {
+    const Status status = vtable_.received_headers(middleware_.obj(), incoming_headers);
+    RETURN_NOT_OK(CheckPyError());
+    return status;
+  });
+  if (!status.ok()) {
+    ARROW_LOG(WARNING) << "Python client middleware failed in StartCall: " << status;
+  }
+}
+
+void PyClientMiddleware::CallCompleted(const Status& call_status) {
+  const Status& status = SafeCallIntoPython([&] {
+    const Status status = vtable_.call_completed(middleware_.obj(), call_status);
+    RETURN_NOT_OK(CheckPyError());
+    return status;
+  });
+  if (!status.ok()) {
+    ARROW_LOG(WARNING) << "Python client middleware failed in StartCall: " << status;
+  }
 }
 
 Status CreateFlightInfo(const std::shared_ptr<arrow::Schema>& schema,
@@ -243,6 +370,27 @@ Status CreateFlightInfo(const std::shared_ptr<arrow::Schema>& schema,
   arrow::flight::FlightInfo value(flight_data);
   *out = std::unique_ptr<arrow::flight::FlightInfo>(new arrow::flight::FlightInfo(value));
   return Status::OK();
+}
+
+Status CreateSchemaResult(const std::shared_ptr<arrow::Schema>& schema,
+                          std::unique_ptr<arrow::flight::SchemaResult>* out) {
+  std::string schema_in;
+  RETURN_NOT_OK(arrow::flight::internal::SchemaToString(*schema, &schema_in));
+  arrow::flight::SchemaResult value(schema_in);
+  *out = std::unique_ptr<arrow::flight::SchemaResult>(
+      new arrow::flight::SchemaResult(value));
+  return Status::OK();
+}
+
+Status DeserializeBasicAuth(const std::string& buf,
+                            std::unique_ptr<arrow::flight::BasicAuth>* out) {
+  auto basic_auth = new arrow::flight::BasicAuth();
+  *out = std::unique_ptr<arrow::flight::BasicAuth>(basic_auth);
+  return arrow::flight::BasicAuth::Deserialize(buf, basic_auth);
+}
+
+Status SerializeBasicAuth(const arrow::flight::BasicAuth& basic_auth, std::string* out) {
+  return arrow::flight::BasicAuth::Serialize(basic_auth, out);
 }
 
 }  // namespace flight

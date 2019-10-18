@@ -20,41 +20,60 @@ package org.apache.arrow.consumers;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VarBinaryVector;
-import org.apache.arrow.vector.complex.impl.VarBinaryWriterImpl;
-import org.apache.arrow.vector.complex.writer.VarBinaryWriter;
-import org.apache.arrow.vector.holders.VarBinaryHolder;
 import org.apache.avro.io.Decoder;
 
 /**
  * Consumer which consume bytes type values from avro decoder.
  * Write the data to {@link VarBinaryVector}.
  */
-public class AvroBytesConsumer implements Consumer {
+public class AvroBytesConsumer implements Consumer<VarBinaryVector> {
 
-  private final VarBinaryWriter writer;
-  private final VarBinaryVector vector;
+  private VarBinaryVector vector;
   private ByteBuffer cacheBuffer;
 
+  private int currentIndex;
+
+  /**
+   * Instantiate a AvroBytesConsumer.
+   */
   public AvroBytesConsumer(VarBinaryVector vector) {
     this.vector = vector;
-    this.writer = new VarBinaryWriterImpl(vector);
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    VarBinaryHolder holder = new VarBinaryHolder();
-
     // cacheBuffer is initialized null and create in the first consume,
     // if its capacity < size to read, decoder will create a new one with new capacity.
     cacheBuffer = decoder.readBytes(cacheBuffer);
+    vector.setSafe(currentIndex, cacheBuffer, 0, cacheBuffer.limit());
+    currentIndex++;
+  }
 
-    holder.start = 0;
-    holder.end = cacheBuffer.limit();
-    holder.buffer = vector.getAllocator().buffer(cacheBuffer.limit());
-    holder.buffer.setBytes(0, cacheBuffer, 0,  cacheBuffer.limit());
+  @Override
+  public void addNull() {
+    currentIndex++;
+  }
 
-    writer.write(holder);
-    writer.setPosition(writer.getPosition() + 1);
+  @Override
+  public void setPosition(int index) {
+    currentIndex = index;
+  }
+
+  @Override
+  public FieldVector getVector() {
+    return vector;
+  }
+
+  @Override
+  public void close() throws Exception {
+    vector.close();
+  }
+
+  @Override
+  public void resetValueVector(VarBinaryVector vector) {
+    this.vector = vector;
+    this.currentIndex = 0;
   }
 }

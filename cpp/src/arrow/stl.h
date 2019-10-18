@@ -18,17 +18,25 @@
 #ifndef ARROW_STL_H
 #define ARROW_STL_H
 
+#include <algorithm>
+#include <cstddef>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <tuple>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "arrow/builder.h"
 #include "arrow/compute/api.h"
+#include "arrow/memory_pool.h"
+#include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 
@@ -36,23 +44,76 @@ class Schema;
 
 namespace stl {
 
-/// Traits meta class to map standard C/C++ types to equivalent Arrow types.
+namespace internal {
+
+template <typename T, typename = void>
+struct is_optional_like : public std::false_type {};
+
+template <typename T, typename = void>
+struct is_dereferencable : public std::false_type {};
+
 template <typename T>
+struct is_dereferencable<T, arrow::internal::void_t<decltype(*std::declval<T>())>>
+    : public std::true_type {};
+
+template <typename T>
+struct is_optional_like<
+    T, typename std::enable_if<
+           std::is_constructible<bool, T>::value && is_dereferencable<T>::value &&
+           !std::is_array<typename std::remove_reference<T>::type>::value>::type>
+    : public std::true_type {};
+
+template <size_t N, typename Tuple>
+using BareTupleElement =
+    typename std::decay<typename std::tuple_element<N, Tuple>::type>::type;
+
+}  // namespace internal
+
+template <typename T, typename R = void>
+using enable_if_optional_like =
+    typename std::enable_if<internal::is_optional_like<T>::value, R>::type;
+
+/// Traits meta class to map standard C/C++ types to equivalent Arrow types.
+template <typename T, typename Enable = void>
 struct ConversionTraits {};
 
-#define ARROW_STL_CONVERSION(c_type, ArrowType_)                                    \
+/// Returns builder type for given standard C/C++ type.
+template <typename CType>
+using CBuilderType =
+    typename TypeTraits<typename ConversionTraits<CType>::ArrowType>::BuilderType;
+
+/// Default implementation of AppendListValues.
+///
+/// This function can be specialized by user to take advantage of appending
+/// contigiuous ranges while appending. This default implementation will call
+/// ConversionTraits<ValueCType>::AppendRow() for each value in the range.
+template <typename ValueCType, typename Range>
+Status AppendListValues(CBuilderType<ValueCType>& value_builder, Range&& cell_range) {
+  for (auto const& value : cell_range) {
+    ARROW_RETURN_NOT_OK(ConversionTraits<ValueCType>::AppendRow(value_builder, value));
+  }
+  return Status::OK();
+}
+
+#define ARROW_STL_CONVERSION(CType_, ArrowType_)                                    \
   template <>                                                                       \
-  struct ConversionTraits<c_type> : public CTypeTraits<c_type> {                    \
+  struct ConversionTraits<CType_> : public CTypeTraits<CType_> {                    \
     static Status AppendRow(typename TypeTraits<ArrowType_>::BuilderType& builder,  \
-                            c_type cell) {                                          \
+                            CType_ cell) {                                          \
       return builder.Append(cell);                                                  \
     }                                                                               \
-    static c_type GetEntry(const typename TypeTraits<ArrowType_>::ArrayType& array, \
+    static CType_ GetEntry(const typename TypeTraits<ArrowType_>::ArrayType& array, \
                            size_t j) {                                              \
       return array.Value(j);                                                        \
     }                                                                               \
-    constexpr static bool nullable = false;                                         \
-  };
+  };                                                                                \
+                                                                                    \
+  template <>                                                                       \
+  Status AppendListValues<CType_, const std::vector<CType_>&>(                      \
+      typename TypeTraits<ArrowType_>::BuilderType & value_builder,                 \
+      const std::vector<CType_>& cell_range) {                                      \
+    return value_builder.AppendValues(cell_range);                                  \
+  }
 
 ARROW_STL_CONVERSION(bool, BooleanType)
 ARROW_STL_CONVERSION(int8_t, Int8Type)
@@ -74,41 +135,71 @@ struct ConversionTraits<std::string> : public CTypeTraits<std::string> {
   static std::string GetEntry(const StringArray& array, size_t j) {
     return array.GetString(j);
   }
-  constexpr static bool nullable = false;
 };
 
-template <typename value_c_type>
-struct ConversionTraits<std::vector<value_c_type>>
-    : public CTypeTraits<std::vector<value_c_type>> {
-  static Status AppendRow(ListBuilder& builder, std::vector<value_c_type> cell) {
-    using ElementBuilderType = typename TypeTraits<
-        typename ConversionTraits<value_c_type>::ArrowType>::BuilderType;
-    ARROW_RETURN_NOT_OK(builder.Append());
-    ElementBuilderType& value_builder =
-        ::arrow::internal::checked_cast<ElementBuilderType&>(*builder.value_builder());
-    for (auto const& value : cell) {
-      ARROW_RETURN_NOT_OK(
-          ConversionTraits<value_c_type>::AppendRow(value_builder, value));
-    }
-    return Status::OK();
+/// Append cell range elements as a single value to the list builder.
+///
+/// Cell range will be added to child builder using AppendListValues<ValueCType>()
+/// if provided. AppendListValues<ValueCType>() has a default implementation, but
+/// it can be specialized by users.
+template <typename ValueCType, typename ListBuilderType, typename Range>
+Status AppendCellRange(ListBuilderType& builder, Range&& cell_range) {
+  constexpr bool is_list_builder = std::is_same<ListBuilderType, ListBuilder>::value;
+  constexpr bool is_large_list_builder =
+      std::is_same<ListBuilderType, LargeListBuilder>::value;
+  static_assert(
+      is_list_builder || is_large_list_builder,
+      "Builder type must be either ListBuilder or LargeListBuilder for appending "
+      "multiple rows.");
+
+  using ChildBuilderType = CBuilderType<ValueCType>;
+  ARROW_RETURN_NOT_OK(builder.Append());
+  auto& value_builder =
+      ::arrow::internal::checked_cast<ChildBuilderType&>(*builder.value_builder());
+
+  // XXX: Remove appended value before returning if status isn't OK?
+  return AppendListValues<ValueCType>(value_builder, std::forward<Range>(cell_range));
+}
+
+template <typename ValueCType>
+struct ConversionTraits<std::vector<ValueCType>>
+    : public CTypeTraits<std::vector<ValueCType>> {
+  static Status AppendRow(ListBuilder& builder, const std::vector<ValueCType>& cell) {
+    return AppendCellRange<ValueCType>(builder, cell);
   }
 
-  static std::vector<value_c_type> GetEntry(const ListArray& array, size_t j) {
-    using ElementArrayType = typename TypeTraits<
-        typename ConversionTraits<value_c_type>::ArrowType>::ArrayType;
+  static std::vector<ValueCType> GetEntry(const ListArray& array, size_t j) {
+    using ElementArrayType =
+        typename TypeTraits<typename ConversionTraits<ValueCType>::ArrowType>::ArrayType;
 
     const ElementArrayType& value_array =
         ::arrow::internal::checked_cast<const ElementArrayType&>(*array.values());
 
-    std::vector<value_c_type> vec(array.value_length(j));
+    std::vector<ValueCType> vec(array.value_length(j));
     for (int64_t i = 0; i < array.value_length(j); i++) {
-      vec[i] = ConversionTraits<value_c_type>::GetEntry(value_array,
-                                                        array.value_offset(j) + i);
+      vec[i] =
+          ConversionTraits<ValueCType>::GetEntry(value_array, array.value_offset(j) + i);
     }
     return vec;
   }
+};
 
-  constexpr static bool nullable = false;
+template <typename Optional>
+struct ConversionTraits<Optional, enable_if_optional_like<Optional>>
+    : public CTypeTraits<typename std::decay<decltype(*std::declval<Optional>())>::type> {
+  using OptionalInnerType =
+      typename std::decay<decltype(*std::declval<Optional>())>::type;
+  using typename CTypeTraits<OptionalInnerType>::ArrowType;
+  using CTypeTraits<OptionalInnerType>::type_singleton;
+
+  static Status AppendRow(typename TypeTraits<ArrowType>::BuilderType& builder,
+                          const Optional& cell) {
+    if (cell) {
+      return ConversionTraits<OptionalInnerType>::AppendRow(builder, *cell);
+    } else {
+      return builder.AppendNull();
+    }
+  }
 };
 
 /// Build an arrow::Schema based upon the types defined in a std::tuple-like structure.
@@ -117,7 +208,7 @@ struct ConversionTraits<std::vector<value_c_type>>
 /// column names at runtime, thus these methods are not constexpr.
 template <typename Tuple, std::size_t N = std::tuple_size<Tuple>::value>
 struct SchemaFromTuple {
-  using Element = typename std::tuple_element<N - 1, Tuple>::type;
+  using Element = internal::BareTupleElement<N - 1, Tuple>;
 
   // Implementations that take a vector-like object for the column names.
 
@@ -128,8 +219,8 @@ struct SchemaFromTuple {
       const std::vector<std::string>& names) {
     std::vector<std::shared_ptr<Field>> ret =
         SchemaFromTuple<Tuple, N - 1>::MakeSchemaRecursion(names);
-    std::shared_ptr<DataType> type = CTypeTraits<Element>::type_singleton();
-    ret.push_back(field(names[N - 1], type, false /* nullable */));
+    auto type = ConversionTraits<Element>::type_singleton();
+    ret.push_back(field(names[N - 1], type, internal::is_optional_like<Element>::value));
     return ret;
   }
 
@@ -160,7 +251,8 @@ struct SchemaFromTuple {
     std::vector<std::shared_ptr<Field>> ret =
         SchemaFromTuple<Tuple, N - 1>::MakeSchemaRecursionT(names);
     std::shared_ptr<DataType> type = ConversionTraits<Element>::type_singleton();
-    ret.push_back(field(get<N - 1>(names), type, ConversionTraits<Element>::nullable));
+    ret.push_back(
+        field(get<N - 1>(names), type, internal::is_optional_like<Element>::value));
     return ret;
   }
 
@@ -199,11 +291,12 @@ struct SchemaFromTuple<Tuple, 0> {
 };
 
 namespace internal {
+
 template <typename Tuple, std::size_t N = std::tuple_size<Tuple>::value>
 struct CreateBuildersRecursive {
   static Status Make(MemoryPool* pool,
                      std::vector<std::unique_ptr<ArrayBuilder>>* builders) {
-    using Element = typename std::tuple_element<N - 1, Tuple>::type;
+    using Element = BareTupleElement<N - 1, Tuple>;
     std::shared_ptr<DataType> type = ConversionTraits<Element>::type_singleton();
     ARROW_RETURN_NOT_OK(MakeBuilder(pool, type, &builders->at(N - 1)));
 
@@ -223,7 +316,7 @@ struct RowIterator {
   static Status Append(const std::vector<std::unique_ptr<ArrayBuilder>>& builders,
                        const Tuple& row) {
     using std::get;
-    using Element = typename std::tuple_element<N - 1, Tuple>::type;
+    using Element = BareTupleElement<N - 1, Tuple>;
     using BuilderType =
         typename TypeTraits<typename ConversionTraits<Element>::ArrowType>::BuilderType;
 
@@ -249,7 +342,7 @@ struct EnsureColumnTypes {
                      const compute::CastOptions& cast_options,
                      compute::FunctionContext* ctx,
                      std::reference_wrapper<const ::arrow::Table>* result) {
-    using Element = typename std::tuple_element<N - 1, Tuple>::type;
+    using Element = BareTupleElement<N - 1, Tuple>;
     std::shared_ptr<DataType> expected_type = ConversionTraits<Element>::type_singleton();
 
     if (!table.schema()->field(N - 1)->type()->Equals(*expected_type)) {
@@ -307,7 +400,7 @@ struct TupleSetter<Range, Tuple, 0> {
 }  // namespace internal
 
 template <typename Range>
-Status TableFromTupleRange(MemoryPool* pool, const Range& rows,
+Status TableFromTupleRange(MemoryPool* pool, Range&& rows,
                            const std::vector<std::string>& names,
                            std::shared_ptr<Table>* table) {
   using row_type = typename std::iterator_traits<decltype(std::begin(rows))>::value_type;
@@ -367,7 +460,127 @@ Status TupleRangeFromTable(const Table& table, const compute::CastOptions& cast_
   return Status::OK();
 }
 
+/// \brief A STL allocator delegating allocations to a Arrow MemoryPool
+template <class T>
+class allocator {
+ public:
+  using value_type = T;
+  using pointer = T*;
+  using const_pointer = const T*;
+  using reference = T&;
+  using const_reference = const T&;
+  using size_type = std::size_t;
+  using difference_type = std::ptrdiff_t;
+
+  template <class U>
+  struct rebind {
+    using other = allocator<U>;
+  };
+
+  /// \brief Construct an allocator from the default MemoryPool
+  allocator() noexcept : pool_(default_memory_pool()) {}
+  /// \brief Construct an allocator from the given MemoryPool
+  explicit allocator(MemoryPool* pool) noexcept : pool_(pool) {}
+
+  template <class U>
+  allocator(const allocator<U>& rhs) noexcept : pool_(rhs.pool_) {}
+
+  ~allocator() { pool_ = NULLPTR; }
+
+  pointer address(reference r) const noexcept { return std::addressof(r); }
+
+  const_pointer address(const_reference r) const noexcept { return std::addressof(r); }
+
+  pointer allocate(size_type n, const void* /*hint*/ = NULLPTR) {
+    uint8_t* data;
+    Status s = pool_->Allocate(n * sizeof(T), &data);
+    if (!s.ok()) throw std::bad_alloc();
+    return reinterpret_cast<pointer>(data);
+  }
+
+  void deallocate(pointer p, size_type n) {
+    pool_->Free(reinterpret_cast<uint8_t*>(p), n * sizeof(T));
+  }
+
+  size_type size_max() const noexcept { return size_type(-1) / sizeof(T); }
+
+  template <class U, class... Args>
+  void construct(U* p, Args&&... args) {
+    new (reinterpret_cast<void*>(p)) U(std::forward<Args>(args)...);
+  }
+
+  template <class U>
+  void destroy(U* p) {
+    p->~U();
+  }
+
+  MemoryPool* pool() const noexcept { return pool_; }
+
+ private:
+  MemoryPool* pool_;
+};
+
+/// \brief A MemoryPool implementation delegating allocations to a STL allocator
+///
+/// Note that STL allocators don't provide a resizing operation, and therefore
+/// any buffer resizes will do a full reallocation and copy.
+template <typename Allocator = std::allocator<uint8_t>>
+class STLMemoryPool : public MemoryPool {
+ public:
+  /// \brief Construct a memory pool from the given allocator
+  explicit STLMemoryPool(const Allocator& alloc) : alloc_(alloc) {}
+
+  Status Allocate(int64_t size, uint8_t** out) override {
+    try {
+      *out = alloc_.allocate(size);
+    } catch (std::bad_alloc& e) {
+      return Status::OutOfMemory(e.what());
+    }
+    stats_.UpdateAllocatedBytes(size);
+    return Status::OK();
+  }
+
+  Status Reallocate(int64_t old_size, int64_t new_size, uint8_t** ptr) override {
+    uint8_t* old_ptr = *ptr;
+    try {
+      *ptr = alloc_.allocate(new_size);
+    } catch (std::bad_alloc& e) {
+      return Status::OutOfMemory(e.what());
+    }
+    memcpy(*ptr, old_ptr, std::min(old_size, new_size));
+    alloc_.deallocate(old_ptr, old_size);
+    stats_.UpdateAllocatedBytes(new_size - old_size);
+    return Status::OK();
+  }
+
+  void Free(uint8_t* buffer, int64_t size) override {
+    alloc_.deallocate(buffer, size);
+    stats_.UpdateAllocatedBytes(-size);
+  }
+
+  int64_t bytes_allocated() const override { return stats_.bytes_allocated(); }
+
+  int64_t max_memory() const override { return stats_.max_memory(); }
+
+  std::string backend_name() const override { return "stl"; }
+
+ private:
+  Allocator alloc_;
+  arrow::internal::MemoryPoolStats stats_;
+};
+
+template <class T1, class T2>
+bool operator==(const allocator<T1>& lhs, const allocator<T2>& rhs) noexcept {
+  return lhs.pool() == rhs.pool();
+}
+
+template <class T1, class T2>
+bool operator!=(const allocator<T1>& lhs, const allocator<T2>& rhs) noexcept {
+  return !(lhs == rhs);
+}
+
 }  // namespace stl
+
 }  // namespace arrow
 
 #endif  // ARROW_STL_H

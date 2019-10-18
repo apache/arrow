@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_TYPE_TRAITS_H
-#define ARROW_TYPE_TRAITS_H
+#pragma once
 
 #include <memory>
 #include <string>
@@ -24,7 +23,7 @@
 #include <vector>
 
 #include "arrow/type_fwd.h"
-#include "arrow/util/bit-util.h"
+#include "arrow/util/bit_util.h"
 
 namespace arrow {
 
@@ -155,6 +154,7 @@ struct TypeTraits<DurationType> {
   using ArrayType = DurationArray;
   using BuilderType = DurationBuilder;
   using ScalarType = DurationScalar;
+  using CType = DurationType::c_type;
 
   static constexpr int64_t bytes_required(int64_t elements) {
     return elements * static_cast<int64_t>(sizeof(int64_t));
@@ -172,6 +172,7 @@ struct TypeTraits<DayTimeIntervalType> {
     return elements * static_cast<int64_t>(sizeof(DayTimeIntervalType::DayMilliseconds));
   }
   constexpr static bool is_parameter_free = true;
+  static std::shared_ptr<DataType> type_singleton() { return day_time_interval(); }
 };
 
 template <>
@@ -184,6 +185,7 @@ struct TypeTraits<MonthIntervalType> {
     return elements * static_cast<int64_t>(sizeof(int32_t));
   }
   constexpr static bool is_parameter_free = true;
+  static std::shared_ptr<DataType> type_singleton() { return month_interval(); }
 };
 
 template <>
@@ -284,9 +286,10 @@ struct CTypeTraits<std::string> : public TypeTraits<StringType> {
 };
 
 template <>
-struct CTypeTraits<char*> : public TypeTraits<StringType> {
-  using ArrowType = StringType;
-};
+struct CTypeTraits<const char*> : public CTypeTraits<std::string> {};
+
+template <size_t N>
+struct CTypeTraits<const char (&)[N]> : public CTypeTraits<std::string> {};
 
 template <>
 struct CTypeTraits<DayTimeIntervalType::DayMilliseconds>
@@ -299,6 +302,20 @@ struct TypeTraits<ListType> {
   using ArrayType = ListArray;
   using BuilderType = ListBuilder;
   using ScalarType = ListScalar;
+  using OffsetType = Int32Type;
+  using OffsetArrayType = Int32Array;
+  using OffsetBuilderType = Int32Builder;
+  constexpr static bool is_parameter_free = false;
+};
+
+template <>
+struct TypeTraits<LargeListType> {
+  using ArrayType = LargeListArray;
+  using BuilderType = LargeListBuilder;
+  using ScalarType = LargeListScalar;
+  using OffsetType = Int64Type;
+  using OffsetArrayType = Int64Array;
+  using OffsetBuilderType = Int64Builder;
   constexpr static bool is_parameter_free = false;
 };
 
@@ -353,6 +370,18 @@ struct TypeTraits<ExtensionType> {
   using ArrayType = ExtensionArray;
   constexpr static bool is_parameter_free = false;
 };
+
+namespace internal {
+
+template <typename... Ts>
+struct make_void {
+  using type = void;
+};
+
+template <typename... Ts>
+using void_t = typename make_void<Ts...>::type;
+
+}  // namespace internal
 
 //
 // Useful type predicates
@@ -460,7 +489,7 @@ using enable_if_boolean =
 
 template <typename T, typename R = void>
 using enable_if_binary_like =
-    typename std::enable_if<std::is_base_of<BinaryType, T>::value ||
+    typename std::enable_if<std::is_base_of<BaseBinaryType, T>::value ||
                                 std::is_base_of<FixedSizeBinaryType, T>::value,
                             R>::type;
 
@@ -469,8 +498,16 @@ using enable_if_fixed_size_binary =
     typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T>::value, R>::type;
 
 template <typename T, typename R = void>
+using enable_if_base_list =
+    typename std::enable_if<std::is_base_of<BaseListType, T>::value, R>::type;
+
+template <typename T, typename R = void>
 using enable_if_list =
     typename std::enable_if<std::is_base_of<ListType, T>::value, R>::type;
+
+template <typename T, typename R = void>
+using enable_if_large_list =
+    typename std::enable_if<std::is_base_of<LargeListType, T>::value, R>::type;
 
 template <typename T, typename R = void>
 using enable_if_fixed_size_list =
@@ -479,24 +516,18 @@ using enable_if_fixed_size_list =
 template <typename T, typename R = void>
 using enable_if_number = typename std::enable_if<is_number_type<T>::value, R>::type;
 
-namespace detail {
-
-// Not all type classes have a c_type
-template <typename T>
-struct as_void {
-  using type = void;
-};
+namespace internal {
 
 // The partial specialization will match if T has the ATTR_NAME member
-#define GET_ATTR(ATTR_NAME, DEFAULT)                                             \
-  template <typename T, typename Enable = void>                                  \
-  struct GetAttr_##ATTR_NAME {                                                   \
-    using type = DEFAULT;                                                        \
-  };                                                                             \
-                                                                                 \
-  template <typename T>                                                          \
-  struct GetAttr_##ATTR_NAME<T, typename as_void<typename T::ATTR_NAME>::type> { \
-    using type = typename T::ATTR_NAME;                                          \
+#define GET_ATTR(ATTR_NAME, DEFAULT)                             \
+  template <typename T, typename Enable = void>                  \
+  struct GetAttr_##ATTR_NAME {                                   \
+    using type = DEFAULT;                                        \
+  };                                                             \
+                                                                 \
+  template <typename T>                                          \
+  struct GetAttr_##ATTR_NAME<T, void_t<typename T::ATTR_NAME>> { \
+    using type = typename T::ATTR_NAME;                          \
   };
 
 GET_ATTR(c_type, void)
@@ -504,13 +535,13 @@ GET_ATTR(TypeClass, void)
 
 #undef GET_ATTR
 
-}  // namespace detail
+}  // namespace internal
 
-#define PRIMITIVE_TRAITS(T)                                                         \
-  using TypeClass =                                                                 \
-      typename std::conditional<std::is_base_of<DataType, T>::value, T,             \
-                                typename detail::GetAttr_TypeClass<T>::type>::type; \
-  using c_type = typename detail::GetAttr_c_type<TypeClass>::type
+#define PRIMITIVE_TRAITS(T)                                                           \
+  using TypeClass =                                                                   \
+      typename std::conditional<std::is_base_of<DataType, T>::value, T,               \
+                                typename internal::GetAttr_TypeClass<T>::type>::type; \
+  using c_type = typename internal::GetAttr_c_type<TypeClass>::type
 
 template <typename T>
 struct IsUnsignedInt {
@@ -593,6 +624,7 @@ static inline bool is_primitive(Type::type type_id) {
     case Type::TIME32:
     case Type::TIME64:
     case Type::TIMESTAMP:
+    case Type::DURATION:
     case Type::INTERVAL:
       return true;
     default:
@@ -643,5 +675,3 @@ static inline bool is_fixed_width(Type::type type_id) {
 }
 
 }  // namespace arrow
-
-#endif  // ARROW_TYPE_TRAITS_H

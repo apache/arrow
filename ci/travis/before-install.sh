@@ -30,6 +30,11 @@ if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
   echo -e 'Acquire::Retries 10; Acquire::http::Timeout \"20\";' | \
     sudo tee /etc/apt/apt.conf.d/99-travis-retry
   sudo apt-get update -qq
+
+  export CCACHE_COMPRESS=1
+  export CCACHE_COMPRESSLEVEL=5
+  export CCACHE_COMPILERCHECK=content
+  export PATH=/usr/lib/ccache/:$PATH
   ccache --show-stats
 fi
 

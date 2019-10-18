@@ -25,22 +25,23 @@
 #include <utility>
 #include <vector>
 
-#include "flatbuffers/flatbuffers.h"
+#include <flatbuffers/flatbuffers.h>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
-#include "arrow/ipc/feather-internal.h"
-#include "arrow/ipc/feather_generated.h"
+#include "arrow/ipc/feather_internal.h"
 #include "arrow/ipc/util.h"  // IWYU pragma: keep
 #include "arrow/status.h"
 #include "arrow/table.h"  // IWYU pragma: keep
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit-util.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor.h"
+
+#include "generated/feather_generated.h"
 
 namespace arrow {
 

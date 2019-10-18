@@ -19,12 +19,12 @@ import os
 import re
 from shutil import rmtree, which
 
-from .command import Command
+from .command import Command, default_bin
 
 
 class CMake(Command):
     def __init__(self, cmake_bin=None):
-        self.bin = cmake_bin if cmake_bin else os.environ.get("CMAKE", "cmake")
+        self.bin = default_bin(cmake_bin, "cmake")
 
     @staticmethod
     def default_generator():
@@ -34,7 +34,7 @@ class CMake(Command):
         in the search path.
         """
         found_ninja = which("ninja")
-        return "Ninja" if found_ninja else "Make"
+        return "Ninja" if found_ninja else "Unix Makefiles"
 
 
 cmake = CMake()
@@ -85,7 +85,7 @@ class CMakeDefinition:
         ]
         return arguments
 
-    def build(self, build_dir, force=False, **kwargs):
+    def build(self, build_dir, force=False, cmd_kwargs=None, **kwargs):
         """ Invoke cmake into a build directory.
 
         Parameters
@@ -106,9 +106,10 @@ class CMakeDefinition:
 
         os.mkdir(build_dir)
 
-        cmake(*self.arguments, cwd=build_dir, env=self.env)
-        return CMakeBuild(build_dir, self.generator.lower(), self.build_type,
-                          definition=self, **kwargs)
+        cmd_kwargs = cmd_kwargs if cmd_kwargs else {}
+        cmake(*self.arguments, cwd=build_dir, env=self.env, **cmd_kwargs)
+        return CMakeBuild(build_dir, self.build_type, definition=self,
+                          **kwargs)
 
     def __repr__(self):
         return f"CMakeDefinition[source={self.source}]"
@@ -117,14 +118,14 @@ class CMakeDefinition:
 CMAKE_BUILD_TYPE_RE = re.compile("CMAKE_BUILD_TYPE:STRING=([a-zA-Z]+)")
 
 
-class CMakeBuild(Command):
+class CMakeBuild(CMake):
     """ CMakeBuild represents a build directory initialized by cmake.
 
     The build instance can be used to build/test/install. It alleviates the
     user to know which generator is used.
     """
 
-    def __init__(self, build_dir, generator, build_type, definition=None):
+    def __init__(self, build_dir, build_type, definition=None):
         """ Initialize a CMakeBuild.
 
         The caller must ensure that cmake was invoked in the build directory.
@@ -137,8 +138,8 @@ class CMakeBuild(Command):
                     The build directory to setup into.
         """
         assert CMakeBuild.is_build_dir(build_dir)
+        super().__init__()
         self.build_dir = os.path.abspath(build_dir)
-        self.bin = generator
         self.build_type = build_type
         self.definition = definition
 
@@ -147,12 +148,13 @@ class CMakeBuild(Command):
         return os.path.join(self.build_dir, self.build_type)
 
     def run(self, *argv, verbose=False, **kwargs):
+        cmake_args = ["--build", self.build_dir, "--"]
         extra = []
         if verbose:
             extra.append("-v" if self.bin.endswith("ninja") else "VERBOSE=1")
         # Commands must be ran under the build directory
-        super().run(*extra, *argv, **kwargs, cwd=self.build_dir)
-        return self
+        return super().run(*cmake_args, *extra,
+                           *argv, **kwargs, cwd=self.build_dir)
 
     def all(self):
         return self.run("all")
@@ -185,14 +187,10 @@ class CMakeBuild(Command):
         with or without CMakeBuild).
 
         Note that this method is not idempotent as the original definition will
-        be lost. Only some parameters are recovered (generator and build_type).
+        be lost. Only build_type is recovered.
         """
         if not CMakeBuild.is_build_dir(path):
             raise ValueError(f"Not a valid CMakeBuild path: {path}")
-
-        generator = "make"
-        if os.path.exists(os.path.join(path, "build.ninja")):
-            generator = "ninja"
 
         build_type = None
         # Infer build_type by looking at CMakeCache.txt and looking for a magic
@@ -202,7 +200,7 @@ class CMakeBuild(Command):
             candidates = CMAKE_BUILD_TYPE_RE.findall(cmake_cache.read())
             build_type = candidates[0].lower() if candidates else "release"
 
-        return CMakeBuild(path, generator, build_type)
+        return CMakeBuild(path, build_type)
 
     def __repr__(self):
         return ("CMakeBuild["

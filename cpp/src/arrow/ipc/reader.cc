@@ -31,19 +31,21 @@
 #include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
-#include "arrow/ipc/File_generated.h"  // IWYU pragma: export
-#include "arrow/ipc/Message_generated.h"
-#include "arrow/ipc/Schema_generated.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/message.h"
-#include "arrow/ipc/metadata-internal.h"
+#include "arrow/ipc/metadata_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 #include "arrow/tensor.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
+
+#include "generated/File_generated.h"  // IWYU pragma: export
+#include "generated/Message_generated.h"
+#include "generated/Schema_generated.h"
 
 using arrow::internal::checked_pointer_cast;
 
@@ -60,7 +62,7 @@ namespace {
 
 Status InvalidMessageType(Message::Type expected, Message::Type actual) {
   return Status::IOError("Expected IPC message of type ", FormatMessageType(expected),
-                         " got ", FormatMessageType(actual));
+                         " but got ", FormatMessageType(actual));
 }
 
 #define CHECK_MESSAGE_TYPE(expected, actual)           \
@@ -103,11 +105,15 @@ class IpcComponentSource {
       return Status::IOError(
           "Buffers-pointer of flatbuffer-encoded RecordBatch is null.");
     }
+    if (buffer_index >= static_cast<int>(buffers->size())) {
+      return Status::IOError("buffer_index out of range.");
+    }
     const flatbuf::Buffer* buffer = buffers->Get(buffer_index);
 
     if (buffer->length() == 0) {
-      *out = nullptr;
-      return Status::OK();
+      // Should never return a null buffer here.
+      // (zero-sized buffer allocations are cheap)
+      return AllocateBuffer(0, out);
     } else {
       if (!BitUtil::IsMultipleOf8(buffer->offset())) {
         return Status::Invalid(
@@ -213,6 +219,21 @@ class ArrayLoader {
     return GetBuffer(context_->buffer_index++, &out_->buffers[2]);
   }
 
+  template <typename TYPE>
+  Status LoadList(const TYPE& type) {
+    out_->buffers.resize(2);
+
+    RETURN_NOT_OK(LoadCommon());
+    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &out_->buffers[1]));
+
+    const int num_children = type.num_children();
+    if (num_children != 1) {
+      return Status::Invalid("Wrong number of children: ", num_children);
+    }
+
+    return LoadChildren(type.children());
+  }
+
   Status LoadChild(const Field& field, ArrayData* out) {
     ArrayLoader loader(field, out, context_);
     --context_->max_recursion_depth;
@@ -234,8 +255,9 @@ class ArrayLoader {
 
   Status Visit(const NullType& type) {
     out_->buffers.resize(1);
-    RETURN_NOT_OK(LoadCommon());
-    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &out_->buffers[0]));
+
+    // ARROW-6379: NullType has no buffers in the IPC payload
+    RETURN_NOT_OK(context_->source->GetFieldMetadata(context_->field_index++, out_));
     return Status::OK();
   }
 
@@ -262,18 +284,9 @@ class ArrayLoader {
     return GetBuffer(context_->buffer_index++, &out_->buffers[1]);
   }
 
-  Status Visit(const ListType& type) {
-    out_->buffers.resize(2);
-
-    RETURN_NOT_OK(LoadCommon());
-    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &out_->buffers[1]));
-
-    const int num_children = type.num_children();
-    if (num_children != 1) {
-      return Status::Invalid("Wrong number of children: ", num_children);
-    }
-
-    return LoadChildren(type.children());
+  template <typename T>
+  enable_if_base_list<T, Status> Visit(const T& type) {
+    return LoadList(type);
   }
 
   Status Visit(const FixedSizeListType& type) {
@@ -341,17 +354,19 @@ static Status LoadArray(const Field& field, ArrayLoaderContext* context, ArrayDa
 Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& schema,
                        const DictionaryMemo* dictionary_memo, io::RandomAccessFile* file,
                        std::shared_ptr<RecordBatch>* out) {
-  return ReadRecordBatch(metadata, schema, dictionary_memo, kMaxNestingDepth, file, out);
+  auto options = IpcOptions::Defaults();
+  return ReadRecordBatch(metadata, schema, dictionary_memo, options, file, out);
 }
 
 Status ReadRecordBatch(const Message& message, const std::shared_ptr<Schema>& schema,
                        const DictionaryMemo* dictionary_memo,
                        std::shared_ptr<RecordBatch>* out) {
-  CHECK_MESSAGE_TYPE(message.type(), Message::RECORD_BATCH);
+  CHECK_MESSAGE_TYPE(Message::RECORD_BATCH, message.type());
   CHECK_HAS_BODY(message);
+  auto options = IpcOptions::Defaults();
   io::BufferReader reader(message.body());
-  return ReadRecordBatch(*message.metadata(), schema, dictionary_memo, kMaxNestingDepth,
-                         &reader, out);
+  return ReadRecordBatch(*message.metadata(), schema, dictionary_memo, options, &reader,
+                         out);
 }
 
 // ----------------------------------------------------------------------
@@ -382,15 +397,17 @@ static Status LoadRecordBatchFromSource(const std::shared_ptr<Schema>& schema,
 static inline Status ReadRecordBatch(const flatbuf::RecordBatch* metadata,
                                      const std::shared_ptr<Schema>& schema,
                                      const DictionaryMemo* dictionary_memo,
-                                     int max_recursion_depth, io::RandomAccessFile* file,
+                                     const IpcOptions& options,
+                                     io::RandomAccessFile* file,
                                      std::shared_ptr<RecordBatch>* out) {
   IpcComponentSource source(metadata, file);
-  return LoadRecordBatchFromSource(schema, metadata->length(), max_recursion_depth,
-                                   &source, dictionary_memo, out);
+  return LoadRecordBatchFromSource(schema, metadata->length(),
+                                   options.max_recursion_depth, &source, dictionary_memo,
+                                   out);
 }
 
 Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& schema,
-                       const DictionaryMemo* dictionary_memo, int max_recursion_depth,
+                       const DictionaryMemo* dictionary_memo, const IpcOptions& options,
                        io::RandomAccessFile* file, std::shared_ptr<RecordBatch>* out) {
   const flatbuf::Message* message;
   RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
@@ -399,11 +416,13 @@ Status ReadRecordBatch(const Buffer& metadata, const std::shared_ptr<Schema>& sc
     return Status::IOError(
         "Header-type of flatbuffer-encoded Message is not RecordBatch.");
   }
-  return ReadRecordBatch(batch, schema, dictionary_memo, max_recursion_depth, file, out);
+  return ReadRecordBatch(batch, schema, dictionary_memo, options, file, out);
 }
 
 Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
                       io::RandomAccessFile* file) {
+  auto options = IpcOptions::Defaults();
+
   const flatbuf::Message* message;
   RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
   auto dictionary_batch = message->header_as_DictionaryBatch();
@@ -425,7 +444,7 @@ Status ReadDictionary(const Buffer& metadata, DictionaryMemo* dictionary_memo,
   std::shared_ptr<RecordBatch> batch;
   auto batch_meta = dictionary_batch->data();
   RETURN_NOT_OK(ReadRecordBatch(batch_meta, ::arrow::schema({value_field}),
-                                dictionary_memo, kMaxNestingDepth, file, &batch));
+                                dictionary_memo, options, file, &batch));
   if (batch->num_columns() != 1) {
     return Status::Invalid("Dictionary record batch must only contain one field");
   }
@@ -482,19 +501,26 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
     for (int i = 0; i < dictionary_memo_.num_fields(); ++i) {
       RETURN_NOT_OK(message_reader_->ReadNextMessage(&message));
       if (!message) {
-        /// ARROW-6006: If we fail to find any dictionaries in the stream, then
-        /// it may be that the stream has a schema but no actual data. In such
-        /// case we communicate that we were unable to find the dictionaries
-        /// (but there was no failure otherwise), so the caller can decide what
-        /// to do
-        empty_stream_ = true;
-        break;
+        if (i == 0) {
+          /// ARROW-6006: If we fail to find any dictionaries in the stream, then
+          /// it may be that the stream has a schema but no actual data. In such
+          /// case we communicate that we were unable to find the dictionaries
+          /// (but there was no failure otherwise), so the caller can decide what
+          /// to do
+          empty_stream_ = true;
+          break;
+        } else {
+          // ARROW-6126, the stream terminated before receiving the expected
+          // number of dictionaries
+          return Status::Invalid("IPC stream ended without reading the expected number (",
+                                 dictionary_memo_.num_fields(), ") of dictionaries");
+        }
       }
 
       if (message->type() != Message::DICTIONARY_BATCH) {
-        return Status::Invalid(
-            "IPC stream did not find the expected number of "
-            "dictionaries at the start of the stream");
+        return Status::Invalid("IPC stream did not have the expected number (",
+                               dictionary_memo_.num_fields(),
+                               ") of dictionaries at the start of the stream");
       }
       RETURN_NOT_OK(ParseDictionary(*message));
     }
@@ -797,7 +823,7 @@ Status ReadSchema(io::InputStream* stream, DictionaryMemo* dictionary_memo,
   if (!message) {
     return Status::Invalid("Tried reading schema message, was null or length 0");
   }
-  CHECK_MESSAGE_TYPE(message->type(), Message::SCHEMA);
+  CHECK_MESSAGE_TYPE(Message::SCHEMA, message->type());
   return ReadSchema(*message, dictionary_memo, out);
 }
 
@@ -810,10 +836,11 @@ Status ReadSchema(const Message& message, DictionaryMemo* dictionary_memo,
 Status ReadRecordBatch(const std::shared_ptr<Schema>& schema,
                        const DictionaryMemo* dictionary_memo, io::InputStream* file,
                        std::shared_ptr<RecordBatch>* out) {
+  auto options = IpcOptions::Defaults();
   std::unique_ptr<Message> message;
   RETURN_NOT_OK(ReadContiguousPayload(file, &message));
   io::BufferReader buffer_reader(message->body());
-  return ReadRecordBatch(*message->metadata(), schema, dictionary_memo, kMaxNestingDepth,
+  return ReadRecordBatch(*message->metadata(), schema, dictionary_memo, options,
                          &buffer_reader, out);
 }
 
@@ -836,26 +863,38 @@ Status ReadTensor(const Message& message, std::shared_ptr<Tensor>* out) {
 
 namespace {
 
-Status ReadSparseCOOIndex(const flatbuf::SparseTensor* sparse_tensor, int64_t ndim,
-                          int64_t non_zero_length, io::RandomAccessFile* file,
-                          std::shared_ptr<SparseIndex>* out) {
+Status ReadSparseCOOIndex(const flatbuf::SparseTensor* sparse_tensor,
+                          const std::vector<int64_t>& shape, int64_t non_zero_length,
+                          io::RandomAccessFile* file, std::shared_ptr<SparseIndex>* out) {
   auto* sparse_index = sparse_tensor->sparseIndex_as_SparseTensorIndexCOO();
+
+  std::shared_ptr<DataType> indices_type;
+  RETURN_NOT_OK(internal::GetSparseCOOIndexMetadata(sparse_index, &indices_type));
+
   auto* indices_buffer = sparse_index->indicesBuffer();
   std::shared_ptr<Buffer> indices_data;
   RETURN_NOT_OK(
       file->ReadAt(indices_buffer->offset(), indices_buffer->length(), &indices_data));
-  std::vector<int64_t> shape({non_zero_length, ndim});
-  const int64_t elsize = sizeof(int64_t);
-  std::vector<int64_t> strides({elsize, elsize * non_zero_length});
+  std::vector<int64_t> indices_shape(
+      {non_zero_length, static_cast<int64_t>(shape.size())});
+  auto* indices_strides = sparse_index->indicesStrides();
+  std::vector<int64_t> strides;
+  // Assume indices_strides is a 2-length array.
+  strides.push_back(indices_strides->Get(0));
+  strides.push_back(indices_strides->Get(1));
   *out = std::make_shared<SparseCOOIndex>(
-      std::make_shared<SparseCOOIndex::CoordsTensor>(indices_data, shape, strides));
+      std::make_shared<Tensor>(indices_type, indices_data, indices_shape, strides));
   return Status::OK();
 }
 
-Status ReadSparseCSRIndex(const flatbuf::SparseTensor* sparse_tensor, int64_t ndim,
-                          int64_t non_zero_length, io::RandomAccessFile* file,
-                          std::shared_ptr<SparseIndex>* out) {
+Status ReadSparseCSRIndex(const flatbuf::SparseTensor* sparse_tensor,
+                          const std::vector<int64_t>& shape, int64_t non_zero_length,
+                          io::RandomAccessFile* file, std::shared_ptr<SparseIndex>* out) {
   auto* sparse_index = sparse_tensor->sparseIndex_as_SparseMatrixIndexCSR();
+
+  std::shared_ptr<DataType> indptr_type, indices_type;
+  RETURN_NOT_OK(
+      internal::GetSparseCSRIndexMetadata(sparse_index, &indptr_type, &indices_type));
 
   auto* indptr_buffer = sparse_index->indptrBuffer();
   std::shared_ptr<Buffer> indptr_data;
@@ -867,11 +906,12 @@ Status ReadSparseCSRIndex(const flatbuf::SparseTensor* sparse_tensor, int64_t nd
   RETURN_NOT_OK(
       file->ReadAt(indices_buffer->offset(), indices_buffer->length(), &indices_data));
 
-  std::vector<int64_t> indptr_shape({ndim + 1});
+  std::vector<int64_t> indptr_shape({shape[0] + 1});
   std::vector<int64_t> indices_shape({non_zero_length});
+
   *out = std::make_shared<SparseCSRIndex>(
-      std::make_shared<SparseCSRIndex::IndexTensor>(indptr_data, indptr_shape),
-      std::make_shared<SparseCSRIndex::IndexTensor>(indices_data, indices_shape));
+      std::make_shared<Tensor>(indptr_type, indptr_data, indptr_shape),
+      std::make_shared<Tensor>(indices_type, indices_data, indices_shape));
   return Status::OK();
 }
 
@@ -880,8 +920,7 @@ Status MakeSparseTensorWithSparseCOOIndex(
     const std::vector<std::string>& dim_names,
     const std::shared_ptr<SparseCOOIndex>& sparse_index, int64_t non_zero_length,
     const std::shared_ptr<Buffer>& data, std::shared_ptr<SparseTensor>* out) {
-  *out = std::make_shared<SparseTensorImpl<SparseCOOIndex>>(sparse_index, type, data,
-                                                            shape, dim_names);
+  *out = std::make_shared<SparseCOOTensor>(sparse_index, type, data, shape, dim_names);
   return Status::OK();
 }
 
@@ -890,8 +929,7 @@ Status MakeSparseTensorWithSparseCSRIndex(
     const std::vector<std::string>& dim_names,
     const std::shared_ptr<SparseCSRIndex>& sparse_index, int64_t non_zero_length,
     const std::shared_ptr<Buffer>& data, std::shared_ptr<SparseTensor>* out) {
-  *out = std::make_shared<SparseTensorImpl<SparseCSRIndex>>(sparse_index, type, data,
-                                                            shape, dim_names);
+  *out = std::make_shared<SparseCSRMatrix>(sparse_index, type, data, shape, dim_names);
   return Status::OK();
 }
 
@@ -928,15 +966,15 @@ Status ReadSparseTensor(const Buffer& metadata, io::RandomAccessFile* file,
   std::shared_ptr<SparseIndex> sparse_index;
   switch (sparse_tensor_format_id) {
     case SparseTensorFormat::COO:
-      RETURN_NOT_OK(ReadSparseCOOIndex(sparse_tensor, shape.size(), non_zero_length, file,
-                                       &sparse_index));
+      RETURN_NOT_OK(
+          ReadSparseCOOIndex(sparse_tensor, shape, non_zero_length, file, &sparse_index));
       return MakeSparseTensorWithSparseCOOIndex(
           type, shape, dim_names, checked_pointer_cast<SparseCOOIndex>(sparse_index),
           non_zero_length, data, out);
 
     case SparseTensorFormat::CSR:
-      RETURN_NOT_OK(ReadSparseCSRIndex(sparse_tensor, shape.size(), non_zero_length, file,
-                                       &sparse_index));
+      RETURN_NOT_OK(
+          ReadSparseCSRIndex(sparse_tensor, shape, non_zero_length, file, &sparse_index));
       return MakeSparseTensorWithSparseCSRIndex(
           type, shape, dim_names, checked_pointer_cast<SparseCSRIndex>(sparse_index),
           non_zero_length, data, out);
@@ -954,7 +992,7 @@ Status ReadSparseTensor(const Message& message, std::shared_ptr<SparseTensor>* o
 Status ReadSparseTensor(io::InputStream* file, std::shared_ptr<SparseTensor>* out) {
   std::unique_ptr<Message> message;
   RETURN_NOT_OK(ReadContiguousPayload(file, &message));
-  CHECK_MESSAGE_TYPE(message->type(), Message::SPARSE_TENSOR);
+  CHECK_MESSAGE_TYPE(Message::SPARSE_TENSOR, message->type());
   CHECK_HAS_BODY(*message);
   io::BufferReader buffer_reader(message->body());
   return ReadSparseTensor(*message->metadata(), &buffer_reader, out);

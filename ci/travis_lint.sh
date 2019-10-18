@@ -23,7 +23,8 @@ set -ex
 export ARROW_TRAVIS_USE_TOOLCHAIN=0
 source $TRAVIS_BUILD_DIR/ci/travis_env_common.sh
 
-pip install pre_commit
+# pytest, requests, and jira are needed to run the PR merge script unit tests
+pip install pre_commit cmake_format==0.5.2 pytest requests jira
 pre-commit install
 
 # TODO: Move more checks into pre-commit as this gives a nice summary
@@ -31,7 +32,6 @@ pre-commit install
 pre-commit run hadolint -a
 
 # CMake formatting check
-pip install cmake_format==0.5.2
 $TRAVIS_BUILD_DIR/run-cmake-format.py --check
 
 # C++ code linting
@@ -54,7 +54,10 @@ FLAKE8="python3 -m flake8"
 python3 -m pip install -q flake8
 
 if [ "$ARROW_CI_DEV_AFFECTED" != "0" ]; then
-  $FLAKE8 --count $ARROW_DEV_DIR
+  pushd $ARROW_DEV_DIR
+  $FLAKE8 --count .
+  py.test test_merge_arrow_pr.py
+  popd
 fi
 
 if [ "$ARROW_CI_INTEGRATION_AFFECTED" != "0" ]; then

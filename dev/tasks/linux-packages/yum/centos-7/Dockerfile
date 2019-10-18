@@ -15,7 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM centos:7
+ARG FROM=centos:7
+FROM ${FROM}
+
+COPY qemu-* /usr/bin/
 
 ARG DEBUG
 

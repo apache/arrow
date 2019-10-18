@@ -58,3 +58,8 @@ if "%USE_CLCACHE%" == "true" (
     clcache -s
     powershell.exe -Command "Start-Process clcache-server"
 )
+
+if "%ARROW_S3%" == "ON" (
+    @rem Download Minio somewhere on PATH, for unit tests
+    appveyor DownloadFile https://dl.min.io/server/minio/release/windows-amd64/minio.exe -FileName C:\Windows\Minio.exe || exit /B
+)

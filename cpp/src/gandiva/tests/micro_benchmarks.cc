@@ -139,7 +139,7 @@ static void TimedTestFilterAdd2(benchmark::State& state) {
 
   // Build expression
   auto sum = TreeExprBuilder::MakeFunction(
-      "add", {TreeExprBuilder::MakeField(field1), TreeExprBuilder::MakeField(field2)},
+      "add", {TreeExprBuilder::MakeField(field1), TreeExprBuilder::MakeField(field0)},
       int64());
   auto less_than = TreeExprBuilder::MakeFunction(
       "less_than", {sum, TreeExprBuilder::MakeField(field2)}, boolean());
@@ -391,7 +391,6 @@ static void DecimalAdd3Large(benchmark::State& state) {
 }
 
 BENCHMARK(TimedTestAdd3)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
-BENCHMARK(TimedTestBigNested)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestBigNested)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestExtractYear)->MinTime(1.0)->Unit(benchmark::kMicrosecond);
 BENCHMARK(TimedTestFilterAdd2)->MinTime(1.0)->Unit(benchmark::kMicrosecond);

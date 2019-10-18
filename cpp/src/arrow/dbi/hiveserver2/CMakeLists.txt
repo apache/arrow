@@ -22,12 +22,12 @@ add_custom_target(arrow_hiveserver2-tests)
 arrow_install_all_headers("arrow/dbi/hiveserver2")
 
 set(ARROW_HIVESERVER2_SRCS
-    columnar-row-set.cc
+    columnar_row_set.cc
     service.cc
     session.cc
     operation.cc
-    sample-usage.cc
-    thrift-internal.cc
+    sample_usage.cc
+    thrift_internal.cc
     types.cc
     util.cc)
 
@@ -105,7 +105,7 @@ set(ARROW_HIVESERVER2_TEST_LINK_LIBS arrow_hiveserver2_static arrow_hiveserver2_
                                      ${ARROW_TEST_LINK_LIBS} Thrift::thrift)
 
 if(ARROW_BUILD_TESTS)
-  add_test_case(hiveserver2-test
+  add_test_case(hiveserver2_test
                 STATIC_LINK_LIBS
                 "${ARROW_HIVESERVER2_TEST_LINK_LIBS}"
                 LABELS

@@ -318,7 +318,8 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
 
         for (int i = 0; i < count; i++) {
           parser.nextToken();
-          buf.writeLong(parser.getLongValue());
+          String value = parser.getValueAsString();
+          buf.writeLong(Long.valueOf(value));
         }
 
         return buf;
@@ -378,7 +379,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
 
         for (int i = 0; i < count; i++) {
           parser.nextToken();
-          BigInteger value = parser.getBigIntegerValue();
+          BigInteger value = new BigInteger(parser.getValueAsString());
           buf.writeLong(value.longValue());
         }
 
@@ -650,6 +651,11 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
         }
 
         vectorBuffers[v] = readIntoBuffer(allocator, bufferType, vector.getMinorType(), innerBufferValueCount);
+      }
+
+      if (vectorBuffers.length == 0) {
+        readToken(END_OBJECT);
+        return;
       }
 
       final int nullCount = BitVectorHelper.getNullCount(vectorBuffers[0], valueCount);

@@ -20,10 +20,21 @@
 #if defined(ARROW_R_WITH_ARROW)
 
 // [[arrow::export]]
-std::unique_ptr<arrow::util::Codec> util___Codec__Create(arrow::Compression::type codec) {
+std::unique_ptr<arrow::util::Codec> util___Codec__Create(arrow::Compression::type codec,
+                                                         int compression_level) {
   std::unique_ptr<arrow::util::Codec> out;
-  STOP_IF_NOT_OK(arrow::util::Codec::Create(codec, &out));
+  STOP_IF_NOT_OK(arrow::util::Codec::Create(codec, compression_level, &out));
   return out;
+}
+
+// [[arrow::export]]
+std::string util___Codec__name(const std::unique_ptr<arrow::util::Codec>& codec) {
+  return codec->name();
+}
+
+// [[arrow::export]]
+bool util___Codec__IsAvailable(arrow::Compression::type codec) {
+  return arrow::util::Codec::IsAvailable(codec);
 }
 
 // [[arrow::export]]

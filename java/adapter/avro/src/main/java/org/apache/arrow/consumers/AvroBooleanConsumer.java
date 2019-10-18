@@ -20,25 +20,55 @@ package org.apache.arrow.consumers;
 import java.io.IOException;
 
 import org.apache.arrow.vector.BitVector;
-import org.apache.arrow.vector.complex.impl.BitWriterImpl;
-import org.apache.arrow.vector.complex.writer.BitWriter;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.avro.io.Decoder;
 
 /**
  * Consumer which consume boolean type values from avro decoder.
  * Write the data to {@link BitVector}.
  */
-public class AvroBooleanConsumer implements Consumer {
+public class AvroBooleanConsumer implements Consumer<BitVector> {
 
-  private final BitWriter writer;
+  private BitVector vector;
+  private int currentIndex = 0;
 
+  /**
+   * Instantiate a AvroBooleanConsumer.
+   */
   public AvroBooleanConsumer(BitVector vector) {
-    this.writer = new BitWriterImpl(vector);
+    this.vector = vector;
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    writer.writeBit(decoder.readBoolean() ? 1 : 0);
-    writer.setPosition(writer.getPosition() + 1);
+    vector.setSafe(currentIndex, decoder.readBoolean() ? 1 : 0);
+    currentIndex++;
   }
+
+  @Override
+  public void addNull() {
+    currentIndex++;
+  }
+
+  @Override
+  public void setPosition(int index) {
+    currentIndex = index;
+  }
+
+  @Override
+  public FieldVector getVector() {
+    return this.vector;
+  }
+
+  @Override
+  public void close() throws Exception {
+    vector.close();
+  }
+
+  @Override
+  public void resetValueVector(BitVector vector) {
+    this.vector = vector;
+    this.currentIndex = 0;
+  }
+
 }

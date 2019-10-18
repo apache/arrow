@@ -34,8 +34,7 @@
 namespace arrow {
 namespace util {
 
-constexpr int kGZipDefaultCompressionLevel = 9;
-
+namespace {
 // ----------------------------------------------------------------------
 // gzip implementation
 
@@ -43,15 +42,15 @@ constexpr int kGZipDefaultCompressionLevel = 9;
 // there.
 
 // Maximum window size
-static constexpr int WINDOW_BITS = 15;
+constexpr int WINDOW_BITS = 15;
 
 // Output Gzip.
-static constexpr int GZIP_CODEC = 16;
+constexpr int GZIP_CODEC = 16;
 
 // Determine if this is libz or gzip from header.
-static constexpr int DETECT_CODEC = 32;
+constexpr int DETECT_CODEC = 32;
 
-static int CompressionWindowBitsForFormat(GZipCodec::Format format) {
+int CompressionWindowBitsForFormat(GZipCodec::Format format) {
   int window_bits = WINDOW_BITS;
   switch (format) {
     case GZipCodec::DEFLATE:
@@ -66,7 +65,7 @@ static int CompressionWindowBitsForFormat(GZipCodec::Format format) {
   return window_bits;
 }
 
-static int DecompressionWindowBitsForFormat(GZipCodec::Format format) {
+int DecompressionWindowBitsForFormat(GZipCodec::Format format) {
   if (format == GZipCodec::DEFLATE) {
     return -WINDOW_BITS;
   } else {
@@ -75,16 +74,19 @@ static int DecompressionWindowBitsForFormat(GZipCodec::Format format) {
   }
 }
 
-static Status ZlibErrorPrefix(const char* prefix_msg, const char* msg) {
+Status ZlibErrorPrefix(const char* prefix_msg, const char* msg) {
   return Status::IOError(prefix_msg, (msg) ? msg : "(unknown error)");
 }
+
+}  // namespace
 
 // ----------------------------------------------------------------------
 // gzip decompressor implementation
 
 class GZipDecompressor : public Decompressor {
  public:
-  GZipDecompressor() : initialized_(false), finished_(false) {}
+  explicit GZipDecompressor(GZipCodec::Format format)
+      : format_(format), initialized_(false), finished_(false) {}
 
   ~GZipDecompressor() override {
     if (initialized_) {
@@ -92,17 +94,28 @@ class GZipDecompressor : public Decompressor {
     }
   }
 
-  Status Init(GZipCodec::Format format) {
+  Status Init() {
     DCHECK(!initialized_);
     memset(&stream_, 0, sizeof(stream_));
     finished_ = false;
 
     int ret;
-    int window_bits = DecompressionWindowBitsForFormat(format);
+    int window_bits = DecompressionWindowBitsForFormat(format_);
     if ((ret = inflateInit2(&stream_, window_bits)) != Z_OK) {
       return ZlibError("zlib inflateInit failed: ");
     } else {
       initialized_ = true;
+      return Status::OK();
+    }
+  }
+
+  Status Reset() override {
+    DCHECK(initialized_);
+    finished_ = false;
+    int ret;
+    if ((ret = inflateReset(&stream_)) != Z_OK) {
+      return ZlibError("zlib inflateReset failed: ");
+    } else {
       return Status::OK();
     }
   }
@@ -149,6 +162,7 @@ class GZipDecompressor : public Decompressor {
   }
 
   z_stream stream_;
+  GZipCodec::Format format_;
   bool initialized_;
   bool finished_;
 };
@@ -158,7 +172,8 @@ class GZipDecompressor : public Decompressor {
 
 class GZipCompressor : public Compressor {
  public:
-  GZipCompressor() : initialized_(false) {}
+  explicit GZipCompressor(int compression_level)
+      : initialized_(false), compression_level_(compression_level) {}
 
   ~GZipCompressor() override {
     if (initialized_) {
@@ -174,7 +189,7 @@ class GZipCompressor : public Compressor {
     // Initialize to run specified format
     int window_bits = CompressionWindowBitsForFormat(format);
     if ((ret = deflateInit2(&stream_, Z_DEFAULT_COMPRESSION, Z_DEFLATED, window_bits,
-                            kGZipDefaultCompressionLevel, Z_DEFAULT_STRATEGY)) != Z_OK) {
+                            compression_level_, Z_DEFAULT_STRATEGY)) != Z_OK) {
       return ZlibError("zlib deflateInit failed: ");
     } else {
       initialized_ = true;
@@ -198,6 +213,7 @@ class GZipCompressor : public Compressor {
 
   z_stream stream_;
   bool initialized_;
+  int compression_level_;
 };
 
 Status GZipCompressor::Compress(int64_t input_len, const uint8_t* input,
@@ -300,10 +316,11 @@ Status GZipCompressor::End(int64_t output_len, uint8_t* output, int64_t* bytes_w
 
 class GZipCodec::GZipCodecImpl {
  public:
-  explicit GZipCodecImpl(GZipCodec::Format format)
+  explicit GZipCodecImpl(int compression_level, GZipCodec::Format format)
       : format_(format),
         compressor_initialized_(false),
-        decompressor_initialized_(false) {}
+        decompressor_initialized_(false),
+        compression_level_(compression_level) {}
 
   ~GZipCodecImpl() {
     EndCompressor();
@@ -311,15 +328,15 @@ class GZipCodec::GZipCodecImpl {
   }
 
   Status MakeCompressor(std::shared_ptr<Compressor>* out) {
-    auto ptr = std::make_shared<GZipCompressor>();
+    auto ptr = std::make_shared<GZipCompressor>(compression_level_);
     RETURN_NOT_OK(ptr->Init(format_));
     *out = ptr;
     return Status::OK();
   }
 
   Status MakeDecompressor(std::shared_ptr<Decompressor>* out) {
-    auto ptr = std::make_shared<GZipDecompressor>();
-    RETURN_NOT_OK(ptr->Init(format_));
+    auto ptr = std::make_shared<GZipDecompressor>(format_);
+    RETURN_NOT_OK(ptr->Init());
     *out = ptr;
     return Status::OK();
   }
@@ -332,7 +349,7 @@ class GZipCodec::GZipCodecImpl {
     // Initialize to run specified format
     int window_bits = CompressionWindowBitsForFormat(format_);
     if ((ret = deflateInit2(&stream_, Z_DEFAULT_COMPRESSION, Z_DEFLATED, window_bits,
-                            kGZipDefaultCompressionLevel, Z_DEFAULT_STRATEGY)) != Z_OK) {
+                            compression_level_, Z_DEFAULT_STRATEGY)) != Z_OK) {
       return ZlibErrorPrefix("zlib deflateInit failed: ", stream_.msg);
     }
     compressor_initialized_ = true;
@@ -484,9 +501,23 @@ class GZipCodec::GZipCodecImpl {
   // perform the refactoring then
   bool compressor_initialized_;
   bool decompressor_initialized_;
+  int compression_level_;
 };
 
-GZipCodec::GZipCodec(Format format) { impl_.reset(new GZipCodecImpl(format)); }
+GZipCodec::GZipCodec(int compression_level, Format format) {
+  compression_level = compression_level == kUseDefaultCompressionLevel
+                          ? kGZipDefaultCompressionLevel
+                          : compression_level;
+  impl_.reset(new GZipCodecImpl(compression_level, format));
+}
+
+Status GZipCodec::Init() {
+  const Status init_compressor_status = impl_->InitCompressor();
+  if (!init_compressor_status.ok()) {
+    return init_compressor_status;
+  }
+  return impl_->InitDecompressor();
+}
 
 GZipCodec::~GZipCodec() {}
 

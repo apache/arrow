@@ -62,6 +62,8 @@ std::shared_ptr<DataType> GetPrimitiveType(Type::type type) {
       GET_PRIMITIVE_TYPE(DOUBLE, float64);
       GET_PRIMITIVE_TYPE(BINARY, binary);
       GET_PRIMITIVE_TYPE(STRING, utf8);
+      GET_PRIMITIVE_TYPE(LARGE_BINARY, large_binary);
+      GET_PRIMITIVE_TYPE(LARGE_STRING, large_utf8);
     default:
       return nullptr;
   }
@@ -297,6 +299,13 @@ Status InvalidValue(PyObject* obj, const std::string& why) {
   RETURN_NOT_OK(internal::PyObject_StdStringStr(obj, &obj_as_str));
   return Status::Invalid("Could not convert ", obj_as_str, " with type ",
                          Py_TYPE(obj)->tp_name, ": ", why);
+}
+
+Status InvalidType(PyObject* obj, const std::string& why) {
+  std::string obj_as_str;
+  RETURN_NOT_OK(internal::PyObject_StdStringStr(obj, &obj_as_str));
+  return Status::TypeError("Could not convert ", obj_as_str, " with type ",
+                           Py_TYPE(obj)->tp_name, ": ", why);
 }
 
 Status UnboxIntegerAsInt64(PyObject* obj, int64_t* out) {

@@ -24,7 +24,9 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/ipc/dictionary.h"  // IWYU pragma: export
 #include "arrow/ipc/message.h"
+#include "arrow/ipc/options.h"
 #include "arrow/result.h"
 #include "arrow/util/visibility.h"
 
@@ -48,8 +50,6 @@ class OutputStream;
 
 namespace ipc {
 
-class DictionaryMemo;
-
 /// \class RecordBatchWriter
 /// \brief Abstract interface for writing a stream of record batches
 class ARROW_EXPORT RecordBatchWriter {
@@ -59,10 +59,8 @@ class ARROW_EXPORT RecordBatchWriter {
   /// \brief Write a record batch to the stream
   ///
   /// \param[in] batch the record batch to write to the stream
-  /// \param[in] allow_64bit if true, allow field lengths that don't fit
-  ///    in a signed 32-bit int
   /// \return Status
-  virtual Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) = 0;
+  virtual Status WriteRecordBatch(const RecordBatch& batch) = 0;
 
   /// \brief Write possibly-chunked table by creating sequence of record batches
   /// \param[in] table table to write
@@ -112,13 +110,15 @@ class ARROW_EXPORT RecordBatchStreamWriter : public RecordBatchWriter {
   /// \return Result<std::shared_ptr<RecordBatchWriter>>
   static Result<std::shared_ptr<RecordBatchWriter>> Open(
       io::OutputStream* sink, const std::shared_ptr<Schema>& schema);
+  static Result<std::shared_ptr<RecordBatchWriter>> Open(
+      io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+      const IpcOptions& options);
 
   /// \brief Write a record batch to the stream
   ///
   /// \param[in] batch the record batch to write
-  /// \param[in] allow_64bit allow array lengths over INT32_MAX - 1
   /// \return Status
-  Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override;
+  Status WriteRecordBatch(const RecordBatch& batch) override;
 
   /// \brief Close the stream by writing a 4-byte int32 0 EOS market
   /// \return Status
@@ -157,13 +157,15 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
   /// \return Status
   static Result<std::shared_ptr<RecordBatchWriter>> Open(
       io::OutputStream* sink, const std::shared_ptr<Schema>& schema);
+  static Result<std::shared_ptr<RecordBatchWriter>> Open(
+      io::OutputStream* sink, const std::shared_ptr<Schema>& schema,
+      const IpcOptions& options);
 
   /// \brief Write a record batch to the file
   ///
   /// \param[in] batch the record batch to write
-  /// \param[in] allow_64bit allow array lengths over INT32_MAX - 1
   /// \return Status
-  Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override;
+  Status WriteRecordBatch(const RecordBatch& batch) override;
 
   /// \brief Close the file stream by writing the file footer and magic number
   /// \return Status
@@ -175,7 +177,9 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
   std::unique_ptr<RecordBatchFileWriterImpl> file_impl_;
 };
 
-/// \brief Low-level API for writing a record batch (without schema) to an OutputStream
+/// \brief Low-level API for writing a record batch (without schema)
+/// to an OutputStream as encapsulated IPC message. See Arrow format
+/// documentation for more detail.
 ///
 /// \param[in] batch the record batch to write
 /// \param[in] buffer_start_offset the start offset to use in the buffer metadata,
@@ -184,32 +188,14 @@ class ARROW_EXPORT RecordBatchFileWriter : public RecordBatchStreamWriter {
 /// \param[out] metadata_length the size of the length-prefixed flatbuffer
 /// including padding to a 64-byte boundary
 /// \param[out] body_length the size of the contiguous buffer block plus
+/// \param[in] options options for serialization
 /// \param[in] pool the memory pool to allocate memory from
-/// \param[in] max_recursion_depth the maximum permitted nesting schema depth
-/// \param[in] allow_64bit permit field lengths exceeding INT32_MAX. May not be
-/// readable by other Arrow implementations
-/// padding bytes
 /// \return Status
-///
-/// Write the RecordBatch (collection of equal-length Arrow arrays) to the
-/// output stream in a contiguous block. The record batch metadata is written as
-/// a flatbuffer (see format/Message.fbs -- the RecordBatch message type)
-/// prefixed by its size, followed by each of the memory buffers in the batch
-/// written end to end (with appropriate alignment and padding):
-///
-/// \code
-/// <int32: metadata size> <uint8*: metadata> <buffers ...>
-/// \endcode
-///
-/// Finally, the absolute offsets (relative to the start of the output stream)
-/// to the end of the body and end of the metadata / data header (suffixed by
-/// the header size) is returned in out-variables
 ARROW_EXPORT
 Status WriteRecordBatch(const RecordBatch& batch, int64_t buffer_start_offset,
                         io::OutputStream* dst, int32_t* metadata_length,
-                        int64_t* body_length, MemoryPool* pool,
-                        int max_recursion_depth = kMaxNestingDepth,
-                        bool allow_64bit = false);
+                        int64_t* body_length, const IpcOptions& options,
+                        MemoryPool* pool);
 
 /// \brief Serialize record batch as encapsulated IPC message in a new buffer
 ///
@@ -247,11 +233,12 @@ Status SerializeSchema(const Schema& schema, DictionaryMemo* dictionary_memo,
 
 /// \brief Write multiple record batches to OutputStream, including schema
 /// \param[in] batches a vector of batches. Must all have same schema
+/// \param[in] options options for serialization
 /// \param[out] dst an OutputStream
 /// \return Status
 ARROW_EXPORT
 Status WriteRecordBatchStream(const std::vector<std::shared_ptr<RecordBatch>>& batches,
-                              io::OutputStream* dst);
+                              const IpcOptions& options, io::OutputStream* dst);
 
 /// \brief Compute the number of bytes needed to write a record batch including metadata
 ///
@@ -354,36 +341,47 @@ Status OpenRecordBatchWriter(std::unique_ptr<IpcPayloadWriter> sink,
 ///
 /// \param[in] sink the IpcPayloadWriter to write to
 /// \param[in] schema the schema of the record batches to be written
+/// \param[in] options options for serialization
 /// \return Result<std::unique_ptr<RecordBatchWriter>>
 ARROW_EXPORT
 Result<std::unique_ptr<RecordBatchWriter>> OpenRecordBatchWriter(
-    std::unique_ptr<IpcPayloadWriter> sink, const std::shared_ptr<Schema>& schema);
+    std::unique_ptr<IpcPayloadWriter> sink, const std::shared_ptr<Schema>& schema,
+    const IpcOptions& options);
 
 /// \brief Compute IpcPayload for the given schema
 /// \param[in] schema the Schema that is being serialized
+/// \param[in] options options for serialization
 /// \param[in,out] dictionary_memo class to populate with assigned dictionary ids
 /// \param[out] out the returned vector of IpcPayloads
 /// \return Status
 ARROW_EXPORT
-Status GetSchemaPayload(const Schema& schema, DictionaryMemo* dictionary_memo,
-                        IpcPayload* out);
+Status GetSchemaPayload(const Schema& schema, const IpcOptions& options,
+                        DictionaryMemo* dictionary_memo, IpcPayload* out);
 
 /// \brief Compute IpcPayload for a dictionary
 /// \param[in] id the dictionary id
 /// \param[in] dictionary the dictionary values
+/// \param[in] options options for serialization
 /// \param[out] payload the output IpcPayload
 /// \return Status
 ARROW_EXPORT
 Status GetDictionaryPayload(int64_t id, const std::shared_ptr<Array>& dictionary,
-                            MemoryPool* pool, IpcPayload* payload);
+                            const IpcOptions& options, MemoryPool* pool,
+                            IpcPayload* payload);
 
 /// \brief Compute IpcPayload for the given record batch
 /// \param[in] batch the RecordBatch that is being serialized
+/// \param[in] options options for serialization
 /// \param[in,out] pool for any required temporary memory allocations
 /// \param[out] out the returned IpcPayload
 /// \return Status
 ARROW_EXPORT
-Status GetRecordBatchPayload(const RecordBatch& batch, MemoryPool* pool, IpcPayload* out);
+Status GetRecordBatchPayload(const RecordBatch& batch, const IpcOptions& options,
+                             MemoryPool* pool, IpcPayload* out);
+
+ARROW_EXPORT
+Status WriteIpcPayload(const IpcPayload& payload, const IpcOptions& options,
+                       io::OutputStream* dst, int32_t* metadata_length);
 
 }  // namespace internal
 

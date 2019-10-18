@@ -41,7 +41,7 @@ class ARROW_EXPORT ChunkedArray {
  public:
   /// \brief Construct a chunked array from a vector of arrays
   ///
-  /// The vector should be non-empty and all its elements should have the same
+  /// The vector must be non-empty and all its elements must have the same
   /// data type.
   explicit ChunkedArray(const ArrayVector& chunks);
 
@@ -87,6 +87,12 @@ class ARROW_EXPORT ChunkedArray {
   /// \param[in] pool The pool for buffer allocations, if any
   /// \param[out] out The resulting vector of arrays
   Status Flatten(MemoryPool* pool, std::vector<std::shared_ptr<ChunkedArray>>* out) const;
+
+  /// Construct a zero-copy view of this chunked array with the given
+  /// type. Calls Array::View on each constituent chunk. Always succeeds if
+  /// there are zero chunks
+  Status View(const std::shared_ptr<DataType>& type,
+              std::shared_ptr<ChunkedArray>* out) const;
 
   std::shared_ptr<DataType> type() const { return type_; }
 
@@ -271,8 +277,6 @@ class ARROW_EXPORT Table {
 /// of the table's columns.
 class ARROW_EXPORT TableBatchReader : public RecordBatchReader {
  public:
-  ~TableBatchReader() override;
-
   /// \brief Construct a TableBatchReader for the given table
   explicit TableBatchReader(const Table& table);
 
@@ -287,8 +291,12 @@ class ARROW_EXPORT TableBatchReader : public RecordBatchReader {
   void set_chunksize(int64_t chunksize);
 
  private:
-  class TableBatchReaderImpl;
-  std::unique_ptr<TableBatchReaderImpl> impl_;
+  const Table& table_;
+  std::vector<ChunkedArray*> column_data_;
+  std::vector<int> chunk_numbers_;
+  std::vector<int64_t> chunk_offsets_;
+  int64_t absolute_row_position_;
+  int64_t max_chunksize_;
 };
 
 /// \brief Construct table from multiple input tables.

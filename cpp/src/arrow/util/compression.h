@@ -15,11 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_UTIL_COMPRESSION_H
-#define ARROW_UTIL_COMPRESSION_H
+#pragma once
 
 #include <cstdint>
+#include <limits>
 #include <memory>
+#include <string>
 
 #include "arrow/util/visibility.h"
 
@@ -28,10 +29,13 @@ namespace arrow {
 class Status;
 
 struct Compression {
+  /// \brief Compression algorithm
   enum type { UNCOMPRESSED, SNAPPY, GZIP, BROTLI, ZSTD, LZ4, LZO, BZ2 };
 };
 
 namespace util {
+
+constexpr int kUseDefaultCompressionLevel = std::numeric_limits<int>::min();
 
 /// \brief Streaming compressor interface
 ///
@@ -87,14 +91,33 @@ class ARROW_EXPORT Decompressor {
   /// simply be that the underlying library isn't able to provide the information.
   virtual bool IsFinished() = 0;
 
+  /// \brief Reinitialize decompressor, making it ready for a new compressed stream.
+  virtual Status Reset() = 0;
+
   // XXX add methods for buffer size heuristics?
 };
 
+/// \brief Compression codec
 class ARROW_EXPORT Codec {
  public:
   virtual ~Codec();
 
+  /// \brief Return special value to indicate that a codec implementation
+  /// should use its default compression level
+  static int UseDefaultCompressionLevel();
+
+  /// \brief Return a string name for compression type
+  static std::string GetCodecAsString(Compression::type t);
+
+  /// \brief Create a codec for the given compression algorithm
   static Status Create(Compression::type codec, std::unique_ptr<Codec>* out);
+
+  /// \brief Create a codec for the given compression algorithm and level
+  static Status Create(Compression::type codec, int compression_level,
+                       std::unique_ptr<Codec>* out);
+
+  /// \brief Return true if support for indicated codec has been enabled
+  static bool IsAvailable(Compression::type codec);
 
   /// \brief One-shot decompression function
   ///
@@ -145,9 +168,11 @@ class ARROW_EXPORT Codec {
   virtual Status MakeDecompressor(std::shared_ptr<Decompressor>* out) = 0;
 
   virtual const char* name() const = 0;
+
+ private:
+  /// \brief Initializes the codec's resources.
+  virtual Status Init();
 };
 
 }  // namespace util
 }  // namespace arrow
-
-#endif

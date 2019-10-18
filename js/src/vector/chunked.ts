@@ -267,9 +267,9 @@ const typedSet = (src: TypedArray, dst: TypedArray, offset: number) => {
 
 /** @ignore */
 const arraySet = (src: any[], dst: any[], offset: number) => {
-    let idx = offset - 1;
+    let idx = offset;
     for (let i = -1, n = src.length; ++i < n;) {
-        dst[++idx] = src[i];
+        dst[idx++] = src[i];
     }
     return idx;
 };

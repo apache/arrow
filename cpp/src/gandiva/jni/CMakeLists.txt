@@ -84,7 +84,7 @@ add_arrow_lib(gandiva_jni
               EXTRA_INCLUDES
               $<INSTALL_INTERFACE:include>
               $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
-              ${JNI_HEADERS_DIR}
+              $<BUILD_INTERFACE:${JNI_HEADERS_DIR}>
               PRIVATE_INCLUDES
               ${JNI_INCLUDE_DIRS}
               ${CMAKE_CURRENT_BINARY_DIR})

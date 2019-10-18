@@ -47,8 +47,6 @@ pushd /spark
   build/mvn -B -Dtest=none -DwildcardSuites=$(IFS=,; echo "${SPARK_SCALA_TESTS[*]}") test
 
   # Run pyarrow related Python tests only
-  echo "Testing PySpark:"
-
   SPARK_PYTHON_TESTS=(
     "pyspark.sql.tests.test_arrow"
     "pyspark.sql.tests.test_pandas_udf"
@@ -58,5 +56,5 @@ pushd /spark
     "pyspark.sql.tests.test_pandas_udf_window")
 
   (echo "Testing PySpark:"; IFS=$'\n'; echo "${SPARK_PYTHON_TESTS[*]}")
-  python/run-tests --testnames "$(IFS=,; echo "${SPARK_PYTHON_TESTS[*]}")"
+  python/run-tests --testnames "$(IFS=,; echo "${SPARK_PYTHON_TESTS[*]}")" --python-executables python
 popd

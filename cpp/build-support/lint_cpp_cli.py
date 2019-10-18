@@ -49,6 +49,7 @@ def lint_file(path):
     fail_rules = [
         # rule, error message, rule-specific exclusions list
         (lambda x: '<mutex>' in x, 'Uses <mutex>', []),
+        (lambda x: '<iostream>' in x, 'Uses <iostream>', []),
         (lambda x: re.match(_NULLPTR_REGEX, x), 'Uses nullptr', []),
         (lambda x: re.match(_RETURN_NOT_OK_REGEX, x),
          'Use ARROW_RETURN_NOT_OK in header files', _paths('''\
@@ -86,7 +87,8 @@ EXCLUSIONS = _paths('''\
     gandiva/jni
     jni/
     test
-    internal''')
+    internal
+    _generated''')
 
 
 def lint_files():
@@ -102,6 +104,13 @@ def lint_files():
 
             if exclude:
                 continue
+
+            # Lint file name, except for pkgconfig templates
+            if not filename.endswith('.pc.in'):
+                if '-' in filename:
+                    why = ("Please user underscores, not hyphens, "
+                           "in source file names")
+                    yield full_path, why, 0, full_path
 
             # Only run on header files
             if filename.endswith('.h'):

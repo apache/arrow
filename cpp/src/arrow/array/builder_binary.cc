@@ -31,7 +31,7 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit-util.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
@@ -41,32 +41,17 @@ namespace arrow {
 using internal::checked_cast;
 
 // ----------------------------------------------------------------------
-// String and binary
-
-BinaryBuilder::BinaryBuilder(MemoryPool* pool) : BaseBinaryBuilder(binary(), pool) {}
-
-StringBuilder::StringBuilder(MemoryPool* pool) : BinaryBuilder(utf8(), pool) {}
-
-LargeBinaryBuilder::LargeBinaryBuilder(MemoryPool* pool)
-    : BaseBinaryBuilder(large_binary(), pool) {}
-
-LargeStringBuilder::LargeStringBuilder(MemoryPool* pool)
-    : LargeBinaryBuilder(large_utf8(), pool) {}
-
-// ----------------------------------------------------------------------
 // Fixed width binary
 
 FixedSizeBinaryBuilder::FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& type,
                                                MemoryPool* pool)
-    : ArrayBuilder(type, pool),
+    : ArrayBuilder(pool),
       byte_width_(checked_cast<const FixedSizeBinaryType&>(*type).byte_width()),
       byte_builder_(pool) {}
 
-#ifndef NDEBUG
 void FixedSizeBinaryBuilder::CheckValueSize(int64_t size) {
   DCHECK_EQ(size, byte_width_) << "Appending wrong size to FixedSizeBinaryBuilder";
 }
-#endif
 
 Status FixedSizeBinaryBuilder::AppendValues(const uint8_t* data, int64_t length,
                                             const uint8_t* valid_bytes) {
@@ -84,7 +69,7 @@ Status FixedSizeBinaryBuilder::AppendNull() {
 Status FixedSizeBinaryBuilder::AppendNulls(int64_t length) {
   RETURN_NOT_OK(Reserve(length));
   UnsafeAppendToBitmap(length, false);
-  byte_builder_.UnsafeAdvance(length * byte_width_);
+  byte_builder_.UnsafeAppend(/*num_copies=*/length * byte_width_, 0);
   return Status::OK();
 }
 
@@ -105,7 +90,7 @@ Status FixedSizeBinaryBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 
   std::shared_ptr<Buffer> null_bitmap;
   RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
-  *out = ArrayData::Make(type_, length_, {null_bitmap, data}, null_count_);
+  *out = ArrayData::Make(type(), length_, {null_bitmap, data}, null_count_);
 
   capacity_ = length_ = null_count_ = 0;
   return Status::OK();
@@ -129,14 +114,15 @@ namespace internal {
 
 ChunkedBinaryBuilder::ChunkedBinaryBuilder(int32_t max_chunk_value_length,
                                            MemoryPool* pool)
-    : max_chunk_value_length_(max_chunk_value_length),
-      builder_(new BinaryBuilder(pool)) {}
+    : max_chunk_value_length_(max_chunk_value_length), builder_(new BinaryBuilder(pool)) {
+  DCHECK_LE(max_chunk_value_length, kBinaryMemoryLimit);
+}
 
 ChunkedBinaryBuilder::ChunkedBinaryBuilder(int32_t max_chunk_value_length,
                                            int32_t max_chunk_length, MemoryPool* pool)
-    : max_chunk_value_length_(max_chunk_value_length),
-      max_chunk_length_(max_chunk_length),
-      builder_(new BinaryBuilder(pool)) {}
+    : ChunkedBinaryBuilder(max_chunk_value_length, pool) {
+  max_chunk_length_ = max_chunk_length;
+}
 
 Status ChunkedBinaryBuilder::Finish(ArrayVector* out) {
   if (builder_->length() > 0 || chunks_.size() == 0) {
@@ -179,14 +165,19 @@ Status ChunkedBinaryBuilder::Reserve(int64_t values) {
     return Status::OK();
   }
 
+  auto current_capacity = builder_->capacity();
   auto min_capacity = builder_->length() + values;
-  auto new_capacity = BufferBuilder::GrowByFactor(builder_->capacity(), min_capacity);
-  if (ARROW_PREDICT_TRUE(new_capacity <= kListMaximumElements)) {
+  if (current_capacity >= min_capacity) {
+    return Status::OK();
+  }
+
+  auto new_capacity = BufferBuilder::GrowByFactor(current_capacity, min_capacity);
+  if (ARROW_PREDICT_TRUE(new_capacity <= max_chunk_length_)) {
     return builder_->Resize(new_capacity);
   }
 
-  extra_capacity_ = new_capacity - kListMaximumElements;
-  return builder_->Resize(kListMaximumElements);
+  extra_capacity_ = new_capacity - max_chunk_length_;
+  return builder_->Resize(max_chunk_length_);
 }
 
 }  // namespace internal

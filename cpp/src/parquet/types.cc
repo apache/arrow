@@ -17,12 +17,9 @@
 
 #include <cmath>
 #include <cstdint>
-#include <cstring>
-#include <iomanip>
 #include <memory>
 #include <sstream>
 #include <string>
-#include <utility>
 
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/compression.h"
@@ -37,32 +34,34 @@ using arrow::util::Codec;
 
 namespace parquet {
 
-std::unique_ptr<Codec> GetCodecFromArrow(Compression::type codec) {
-  std::unique_ptr<Codec> result;
+bool IsCodecSupported(Compression::type codec) {
   switch (codec) {
     case Compression::UNCOMPRESSED:
-      break;
     case Compression::SNAPPY:
-      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::SNAPPY, &result));
-      break;
     case Compression::GZIP:
-      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::GZIP, &result));
-      break;
-    case Compression::LZO:
-      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::LZO, &result));
-      break;
     case Compression::BROTLI:
-      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::BROTLI, &result));
-      break;
-    case Compression::LZ4:
-      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::LZ4, &result));
-      break;
     case Compression::ZSTD:
-      PARQUET_THROW_NOT_OK(Codec::Create(::arrow::Compression::ZSTD, &result));
-      break;
+    case Compression::LZ4:
+      return true;
     default:
-      break;
+      return false;
   }
+}
+
+std::unique_ptr<Codec> GetCodec(Compression::type codec) {
+  return GetCodec(codec, Codec::UseDefaultCompressionLevel());
+}
+
+std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level) {
+  std::unique_ptr<Codec> result;
+  if (!IsCodecSupported(codec)) {
+    std::stringstream ss;
+    ss << "Codec type " << Codec::GetCodecAsString(codec)
+       << " not supported in Parquet format";
+    throw ParquetException(ss.str());
+  }
+
+  PARQUET_THROW_NOT_OK(Codec::Create(codec, compression_level, &result));
   return result;
 }
 
@@ -158,27 +157,6 @@ std::string EncodingToString(Encoding::type t) {
       return "DELTA_BYTE_ARRAY";
     case Encoding::RLE_DICTIONARY:
       return "RLE_DICTIONARY";
-    default:
-      return "UNKNOWN";
-  }
-}
-
-std::string CompressionToString(Compression::type t) {
-  switch (t) {
-    case Compression::UNCOMPRESSED:
-      return "UNCOMPRESSED";
-    case Compression::SNAPPY:
-      return "SNAPPY";
-    case Compression::GZIP:
-      return "GZIP";
-    case Compression::LZO:
-      return "LZO";
-    case Compression::BROTLI:
-      return "BROTLI";
-    case Compression::LZ4:
-      return "LZ4";
-    case Compression::ZSTD:
-      return "ZSTD";
     default:
       return "UNKNOWN";
   }
@@ -1610,5 +1588,81 @@ class LogicalType::Impl::Unknown final : public LogicalType::Impl::SimpleCompati
 };
 
 GENERATE_MAKE(Unknown)
+
+namespace internal {
+
+/// \brief Compute the number of bytes required to represent a decimal of a
+/// given precision. Taken from the Apache Impala codebase. The comments next
+/// to the return values are the maximum value that can be represented in 2's
+/// complement with the returned number of bytes.
+int32_t DecimalSize(int32_t precision) {
+  DCHECK_GE(precision, 1) << "decimal precision must be greater than or equal to 1, got "
+                          << precision;
+  DCHECK_LE(precision, 38) << "decimal precision must be less than or equal to 38, got "
+                           << precision;
+
+  switch (precision) {
+    case 1:
+    case 2:
+      return 1;  // 127
+    case 3:
+    case 4:
+      return 2;  // 32,767
+    case 5:
+    case 6:
+      return 3;  // 8,388,607
+    case 7:
+    case 8:
+    case 9:
+      return 4;  // 2,147,483,427
+    case 10:
+    case 11:
+      return 5;  // 549,755,813,887
+    case 12:
+    case 13:
+    case 14:
+      return 6;  // 140,737,488,355,327
+    case 15:
+    case 16:
+      return 7;  // 36,028,797,018,963,967
+    case 17:
+    case 18:
+      return 8;  // 9,223,372,036,854,775,807
+    case 19:
+    case 20:
+    case 21:
+      return 9;  // 2,361,183,241,434,822,606,847
+    case 22:
+    case 23:
+      return 10;  // 604,462,909,807,314,587,353,087
+    case 24:
+    case 25:
+    case 26:
+      return 11;  // 154,742,504,910,672,534,362,390,527
+    case 27:
+    case 28:
+      return 12;  // 39,614,081,257,132,168,796,771,975,167
+    case 29:
+    case 30:
+    case 31:
+      return 13;  // 10,141,204,801,825,835,211,973,625,643,007
+    case 32:
+    case 33:
+      return 14;  // 2,596,148,429,267,413,814,265,248,164,610,047
+    case 34:
+    case 35:
+      return 15;  // 664,613,997,892,457,936,451,903,530,140,172,287
+    case 36:
+    case 37:
+    case 38:
+      return 16;  // 170,141,183,460,469,231,731,687,303,715,884,105,727
+    default:
+      break;
+  }
+  DCHECK(false);
+  return -1;
+}
+
+}  // namespace internal
 
 }  // namespace parquet

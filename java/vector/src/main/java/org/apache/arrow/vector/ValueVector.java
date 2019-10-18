@@ -21,6 +21,8 @@ import java.io.Closeable;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
+import org.apache.arrow.memory.util.hash.ArrowBufHasher;
+import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -239,16 +241,46 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
   boolean isNull(int index);
 
   /**
-   * Returns hashCode of element in index.
+   * Returns hashCode of element in index with the default hasher.
    */
   int hashCode(int index);
 
   /**
-   * Check whether the element in index equals to the element in targetIndex from the target vector.
-   * @param index index to compare in this vector
-   * @param target target vector
-   * @param targetIndex index to compare in target vector
-   * @return true if equals, otherwise false.
+   * Returns hashCode of element in index with the given hasher.
    */
-  boolean equals(int index, ValueVector target, int targetIndex);
+  int hashCode(int index, ArrowBufHasher hasher);
+
+  /**
+   * Copy a cell value from a particular index in source vector to a particular
+   * position in this vector.
+   *
+   * @param fromIndex position to copy from in source vector
+   * @param thisIndex position to copy to in this vector
+   * @param from      source vector
+   */
+  void copyFrom(int fromIndex, int thisIndex, ValueVector from);
+
+  /**
+   * Same as {@link #copyFrom(int, int, ValueVector)} except that
+   * it handles the case when the capacity of the vector needs to be expanded
+   * before copy.
+   *
+   * @param fromIndex position to copy from in source vector
+   * @param thisIndex position to copy to in this vector
+   * @param from      source vector
+   */
+  void copyFromSafe(int fromIndex, int thisIndex, ValueVector from);
+
+  /**
+   * Accept a generic {@link VectorVisitor} and return the result.
+   * @param <OUT> the output result type.
+   * @param <IN> the input data together with visitor.
+   */
+  <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value);
+
+  /**
+   * Gets the name of the vector.
+   * @return the name of the vector.
+   */
+  String getName();
 }

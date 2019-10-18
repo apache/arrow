@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM arrow:cpp
+FROM arrowdev/arrow-cpp:latest
 
 # install python specific packages
 ARG PYTHON_VERSION=3.6

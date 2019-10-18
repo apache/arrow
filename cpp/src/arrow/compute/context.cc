@@ -20,7 +20,7 @@
 #include <memory>
 
 #include "arrow/buffer.h"
-#include "arrow/util/cpu-info.h"
+#include "arrow/util/cpu_info.h"
 
 namespace arrow {
 namespace compute {

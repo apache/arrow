@@ -16,75 +16,95 @@
 # under the License.
 
 #' @include enums.R
-#' @include R6.R
+#' @include arrow-package.R
 #' @include io.R
 
-`arrow::util::Codec` <- R6Class("arrow::util::Codec", inherit = `arrow::Object`)
+#' @title Compression Codec class
+#' @usage NULL
+#' @format NULL
+#' @docType class
+#' @description Codecs allow you to create [compressed input and output
+#' streams][compression].
+#' @section Factory:
+#' The `Codec$create()` factory method takes the following argument:
+#' * `type`: string name of the compression method. See [CompressionType] for
+#'    a list of possible values. `type` may be upper- or lower-cased. Support
+#'    for compression methods depends on build-time flags for the C++ library.
+#'    Most builds support at least "gzip" and "snappy".
+#' * `compression_level`: compression level, the default value (`NA`) uses the default
+#'    compression level for the selected compression `type`.
+#' @rdname Codec
+#' @name Codec
+#' @export
+Codec <- R6Class("Codec", inherit = Object,
+  active = list(
+    name = function() util___Codec__name(self),
+    level = function() abort("Codec$level() not yet implemented")
+  )
+)
+Codec$create <- function(type = "gzip", compression_level = NA) {
+  if (is.character(type)) {
+    type <- unique_ptr(Codec, util___Codec__Create(
+      compression_from_name(type), compression_level
+    ))
+  }
+  assert_is(type, "Codec")
+  type
+}
 
-`arrow::io::CompressedOutputStream` <- R6Class("arrow::io::CompressedOutputStream", inherit = `arrow::io::OutputStream`)
-`arrow::io::CompressedInputStream` <- R6Class("arrow::io::CompressedInputStream", inherit = `arrow::io::InputStream`)
+codec_is_available <- function(type) {
+  util___Codec__IsAvailable(compression_from_name(type))
+}
 
-#' codec
+compression_from_name <- function(name) {
+  map_int(name, ~CompressionType[[match.arg(toupper(.x), names(CompressionType))]])
+}
+
+#' @title Compressed stream classes
+#' @rdname compression
+#' @name compression
+#' @aliases CompressedInputStream CompressedOutputStream
+#' @docType class
+#' @usage NULL
+#' @format NULL
+#' @description `CompressedInputStream` and `CompressedOutputStream`
+#' allow you to apply a compression [Codec] to an
+#' input or output stream.
 #'
-#' @param type type of codec
+#' @section Factory:
 #'
-#' @export
-compression_codec <- function(type = "GZIP") {
-  type <- CompressionType[[match.arg(type, names(CompressionType))]]
-  unique_ptr(`arrow::util::Codec`, util___Codec__Create(type))
-}
-
-
-#' Compressed output stream
+#' The `CompressedInputStream$create()` and `CompressedOutputStream$create()`
+#' factory methods instantiate the object and take the following arguments:
 #'
-#' @details This function is not supported in Windows.
+#' - `stream` An [InputStream] or [OutputStream], respectively
+#' - `codec` A `Codec`, either a [Codec][Codec] instance or a string
+#' - `compression_level` compression level for when the `codec` argument is given as a string
 #'
-#' @param stream Underlying raw output stream
-#' @param codec a codec
-#' @export
-CompressedOutputStream <- function(stream, codec = compression_codec("GZIP")){
-  if (.Platform$OS.type == "windows") stop("'CompressedOutputStream' is unsupported in Windows.")
-
-  UseMethod("CompressedOutputStream")
-}
-
-#' @export
-CompressedOutputStream.character <- function(stream, codec = compression_codec("GZIP")){
-  CompressedOutputStream(fs::path_abs(stream), codec = codec)
-}
-
-#' @export
-CompressedOutputStream.fs_path <- function(stream, codec = compression_codec("GZIP")){
-  CompressedOutputStream(FileOutputStream(stream), codec = codec)
-}
-
-#' @export
-`CompressedOutputStream.arrow::io::OutputStream` <- function(stream, codec = compression_codec("GZIP")) {
-  assert_that(inherits(codec, "arrow::util::Codec"))
-  shared_ptr(`arrow::io::CompressedOutputStream`, io___CompressedOutputStream__Make(codec, stream))
-}
-
-#' Compressed input stream
+#' @section Methods:
 #'
-#' @param stream Underlying raw input stream
-#' @param codec a codec
+#' Methods are inherited from [InputStream] and [OutputStream], respectively
 #' @export
-CompressedInputStream <- function(stream, codec = codec("GZIP")){
-  UseMethod("CompressedInputStream")
+#' @include arrow-package.R
+CompressedOutputStream <- R6Class("CompressedOutputStream", inherit = OutputStream)
+CompressedOutputStream$create <- function(stream, codec = "gzip", compression_level = NA){
+  codec <- Codec$create(codec, compression_level = compression_level)
+  if (is.character(stream)) {
+    stream <- FileOutputStream$create(stream)
+  }
+  assert_is(stream, "OutputStream")
+  shared_ptr(CompressedOutputStream, io___CompressedOutputStream__Make(codec, stream))
 }
 
+#' @rdname compression
+#' @usage NULL
+#' @format NULL
 #' @export
-CompressedInputStream.character <- function(stream, codec = compression_codec("GZIP")){
-  CompressedInputStream(fs::path_abs(stream), codec = codec)
-}
-
-#' @export
-CompressedInputStream.fs_path <- function(stream, codec = compression_codec("GZIP")){
-  CompressedInputStream(ReadableFile(stream), codec = codec)
-}
-
-#' @export
-`CompressedInputStream.arrow::io::InputStream` <- function(stream, codec = compression_codec("GZIP")) {
-  assert_that(inherits(codec, "arrow::util::Codec"))
-  shared_ptr(`arrow::io::CompressedInputStream`, io___CompressedInputStream__Make(codec, stream))
+CompressedInputStream <- R6Class("CompressedInputStream", inherit = InputStream)
+CompressedInputStream$create <- function(stream, codec = "gzip", compression_level = NA){
+  codec <- Codec$create(codec, compression_level = compression_level)
+  if (is.character(stream)) {
+    stream <- ReadableFile$create(stream)
+  }
+  assert_is(stream, "InputStream")
+  shared_ptr(CompressedInputStream, io___CompressedInputStream__Make(codec, stream))
 }

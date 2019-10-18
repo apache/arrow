@@ -26,6 +26,9 @@ public interface ArrowMessage extends FBSerializable, AutoCloseable {
 
   <T> T accepts(ArrowMessageVisitor<T> visitor);
 
+  /** Returns the flatbuffer enum value indicating the type of the message. */
+  byte getMessageType();
+
   /**
    * Visitor interface for implementations of {@link ArrowMessage}.
    *

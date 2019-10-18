@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { float64ToUint16 } from '../util/math';
 import { FixedWidthBuilder } from '../builder';
 import { Float, Float16, Float32, Float64 } from '../type';
 
@@ -22,7 +23,12 @@ import { Float, Float16, Float32, Float64 } from '../type';
 export class FloatBuilder<T extends Float = Float, TNull = any> extends FixedWidthBuilder<T, TNull> {}
 
 /** @ignore */
-export class Float16Builder<TNull = any> extends FloatBuilder<Float16, TNull> {}
+export class Float16Builder<TNull = any> extends FloatBuilder<Float16, TNull> {
+    public setValue(index: number, value: number) {
+        // convert JS float64 to a uint16
+        this._values.set(index, float64ToUint16(value));
+    }
+}
 
 /** @ignore */
 export class Float32Builder<TNull = any> extends FloatBuilder<Float32, TNull> {

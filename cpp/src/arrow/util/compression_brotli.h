@@ -28,9 +28,14 @@
 namespace arrow {
 namespace util {
 
+// Brotli compression quality is max (11) by default, which is slow.
+// We use 8 as a default as it is the best trade-off for Parquet workload.
+constexpr int kBrotliDefaultCompressionLevel = 8;
+
 // Brotli codec.
 class ARROW_EXPORT BrotliCodec : public Codec {
  public:
+  explicit BrotliCodec(int compression_level = kBrotliDefaultCompressionLevel);
   Status Decompress(int64_t input_len, const uint8_t* input, int64_t output_buffer_len,
                     uint8_t* output_buffer) override;
 
@@ -47,6 +52,9 @@ class ARROW_EXPORT BrotliCodec : public Codec {
   Status MakeDecompressor(std::shared_ptr<Decompressor>* out) override;
 
   const char* name() const override { return "brotli"; }
+
+ private:
+  int compression_level_;
 };
 
 }  // namespace util

@@ -17,7 +17,9 @@
 
 #[macro_use]
 extern crate criterion;
+use arrow::error::ArrowError;
 use criterion::Criterion;
+use num::Zero;
 
 use std::sync::Arc;
 
@@ -63,6 +65,12 @@ fn multiply_simd(size: usize) {
     criterion::black_box(multiply(&arr_a, &arr_b).unwrap());
 }
 
+fn divide_simd(size: usize) {
+    let arr_a = create_array(size);
+    let arr_b = create_array(size);
+    criterion::black_box(divide(&arr_a, &arr_b).unwrap());
+}
+
 fn sum_no_simd(size: usize) {
     let arr_a = create_array(size);
     criterion::black_box(sum(&arr_a).unwrap());
@@ -86,6 +94,18 @@ fn add_benchmark(c: &mut Criterion) {
         b.iter(|| bin_op_no_simd(512, |a, b| Ok(a * b)))
     });
     c.bench_function("multiply 512 simd", |b| b.iter(|| multiply_simd(512)));
+    c.bench_function("divide 512", |b| {
+        b.iter(|| {
+            bin_op_no_simd(512, |a, b| {
+                if b.is_zero() {
+                    Err(ArrowError::DivideByZero)
+                } else {
+                    Ok(a / b)
+                }
+            })
+        })
+    });
+    c.bench_function("divide 512 simd", |b| b.iter(|| divide_simd(512)));
     c.bench_function("sum 512 no simd", |b| b.iter(|| sum_no_simd(512)));
     c.bench_function("limit 512, 256 no simd", |b| {
         b.iter(|| limit_no_simd(512, 256))

@@ -20,8 +20,10 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/flight/server_auth.h"
@@ -38,6 +40,9 @@ class Schema;
 class Status;
 
 namespace flight {
+
+class ServerMiddleware;
+class ServerMiddlewareFactory;
 
 /// \brief Interface that produces a sequence of IPC payloads to be sent in
 /// FlightData protobuf messages
@@ -97,15 +102,42 @@ class ARROW_FLIGHT_EXPORT ServerCallContext {
   virtual ~ServerCallContext() = default;
   /// \brief The name of the authenticated peer (may be the empty string)
   virtual const std::string& peer_identity() const = 0;
+  /// \brief Look up a middleware by key. Do not maintain a reference
+  /// to the object beyond the request body.
+  /// \return The middleware, or nullptr if not found.
+  virtual ServerMiddleware* GetMiddleware(const std::string& key) const = 0;
 };
 
 class ARROW_FLIGHT_EXPORT FlightServerOptions {
  public:
   explicit FlightServerOptions(const Location& location_);
 
+  ~FlightServerOptions();
+
+  /// \brief The host & port (or domain socket path) to listen on.
+  /// Use port 0 to bind to an available port.
   Location location;
-  std::unique_ptr<ServerAuthHandler> auth_handler;
+  /// \brief The authentication handler to use.
+  std::shared_ptr<ServerAuthHandler> auth_handler;
+  /// \brief A list of TLS certificate+key pairs to use.
   std::vector<CertKeyPair> tls_certificates;
+
+  /// \brief A list of server middleware to apply, along with a key to
+  /// identify them by.
+  ///
+  /// Middleware are always applied in the order provided. Duplicate
+  /// keys are an error.
+  std::vector<std::pair<std::string, std::shared_ptr<ServerMiddlewareFactory>>>
+      middleware;
+
+  /// \brief A Flight implementation-specific callback to customize
+  /// transport-specific options.
+  ///
+  /// Not guaranteed to be called. The type of the parameter is
+  /// specific to the Flight implementation. Users should take care to
+  /// link to the same transport implementation as Flight to avoid
+  /// runtime problems.
+  std::function<void(void*)> builder_hook;
 };
 
 /// \brief Skeleton RPC server implementation which can be used to create
@@ -120,7 +152,13 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   /// \brief Initialize a Flight server listening at the given location.
   /// This method must be called before any other method.
   /// \param[in] options The configuration for this server.
-  Status Init(FlightServerOptions& options);
+  Status Init(const FlightServerOptions& options);
+
+  /// \brief Get the port that the Flight server is listening on.
+  /// This method must only be called after Init().  Will return a
+  /// non-positive value if no port exists (e.g. when listening on a
+  /// domain socket).
+  int port() const;
 
   /// \brief Set the server to stop when receiving any of the given signal
   /// numbers.
@@ -144,6 +182,9 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   /// TODO(wesm): Shutdown with deadline
   Status Shutdown();
 
+  /// \brief Block until server is terminated with Shutdown.
+  Status Wait();
+
   // Implement these methods to create your own server. The default
   // implementations will return a not-implemented result to the client
 
@@ -165,6 +206,15 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   virtual Status GetFlightInfo(const ServerCallContext& context,
                                const FlightDescriptor& request,
                                std::unique_ptr<FlightInfo>* info);
+
+  /// \brief Retrieve the schema for the indicated descriptor
+  /// \param[in] context The call context.
+  /// \param[in] request may be null
+  /// \param[out] schema the returned flight schema provider
+  /// \return Status
+  virtual Status GetSchema(const ServerCallContext& context,
+                           const FlightDescriptor& request,
+                           std::unique_ptr<SchemaResult>* schema);
 
   /// \brief Get a stream of IPC payloads to put on the wire
   /// \param[in] context The call context.

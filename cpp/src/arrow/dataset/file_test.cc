@@ -15,23 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Licensed to the Apache Software Foundation (ASF) under one
-// or more contributor license agreements.  See the NOTICE file
-// distributed with this work for additional information
-// regarding copyright ownership.  The ASF licenses this file
-// to you under the Apache License, Version 2.0 (the
-// "License"); you may not use this file except in compliance
-// with the License.  You may obtain a copy of the License at
-//
-//   http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -40,14 +23,20 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/dataset/api.h"
+#include "arrow/dataset/partition.h"
+#include "arrow/dataset/test_util.h"
+#include "arrow/filesystem/path_util.h"
+#include "arrow/filesystem/test_util.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
-
-#include "arrow/dataset/api.h"
-#include "arrow/filesystem/localfs.h"
+#include "arrow/util/io_util.h"
 
 namespace arrow {
 namespace dataset {
+
+using fs::internal::GetAbstractPathExtension;
+using internal::TemporaryDir;
 
 TEST(FileSource, PathBased) {
   fs::LocalFileSystem localfs;
@@ -87,6 +76,89 @@ TEST(FileSource, BufferBased) {
   ASSERT_EQ(FileSource::BUFFER, source2.type());
   ASSERT_TRUE(source2.buffer()->Equals(*buf));
   ASSERT_EQ(Compression::LZ4, source2.compression());
+}
+
+TEST_F(TestFileSystemBasedDataSource, Basic) {
+  MakeSource({});
+  AssertFragmentsAreFromPath(source_->GetFragments(options_), {});
+
+  MakeSource({fs::File("a"), fs::File("b"), fs::File("c")});
+  AssertFragmentsAreFromPath(source_->GetFragments(options_), {"a", "b", "c"});
+
+  // Should not create fragment from directories.
+  MakeSource({fs::Dir("A"), fs::Dir("A/B"), fs::File("A/a"), fs::File("A/B/b")});
+  AssertFragmentsAreFromPath(source_->GetFragments(options_), {"A/a", "A/B/b"});
+}
+
+TEST_F(TestFileSystemBasedDataSource, RootPartitionPruning) {
+  auto source_partition = ("a"_ == 5).Copy();
+  MakeSource({fs::File("a"), fs::File("b")}, source_partition);
+
+  // Default filter should always return all data.
+  AssertFragmentsAreFromPath(source_->GetFragments(options_), {"a", "b"});
+
+  // filter == partition
+  options_->filter = source_partition;
+  AssertFragmentsAreFromPath(source_->GetFragments(options_), {"a", "b"});
+
+  // Same partition key, but non matching filter
+  options_->filter = ("a"_ == 6).Copy();
+  AssertFragmentsAreFromPath(source_->GetFragments(options_), {});
+
+  options_->filter = ("a"_ > 1).Copy();
+  AssertFragmentsAreFromPath(source_->GetFragments(options_), {"a", "b"});
+
+  // different key shouldn't prune
+  options_->filter = ("b"_ == 6).Copy();
+  AssertFragmentsAreFromPath(source_->GetFragments(options_), {"a", "b"});
+
+  // No partition should match
+  MakeSource({fs::File("a"), fs::File("b")});
+  options_->filter = ("b"_ == 6).Copy();
+  AssertFragmentsAreFromPath(source_->GetFragments(options_), {"a", "b"});
+}
+
+TEST_F(TestFileSystemBasedDataSource, TreePartitionPruning) {
+  auto source_partition = ("country"_ == "US").Copy();
+  std::vector<fs::FileStats> regions = {
+      fs::Dir("NY"), fs::File("NY/New York"),      fs::File("NY/Franklin"),
+      fs::Dir("CA"), fs::File("CA/San Francisco"), fs::File("CA/Franklin"),
+  };
+  // Explicitly _don't_ set the state partition in the leaves to test if
+  // sub-tree pruning works. This implies that `state` predicate won't apply to
+  // files.
+  PathPartitions partitions = {
+      {"CA", ("state"_ == "CA").Copy()},
+      {"CA/San Francisco", ("city"_ == "San Francisco").Copy()},
+      {"CA/Franklin", ("city"_ == "Franklin").Copy()},
+      {"NY", ("state"_ == "NY").Copy()},
+      {"NY/New York", ("city"_ == "New York").Copy()},
+      {"NY/Franklin", ("city"_ == "Franklin").Copy()},
+  };
+
+  MakeSource(regions, source_partition, partitions);
+
+  std::vector<std::string> all_cities = {"CA/San Francisco", "CA/Franklin", "NY/New York",
+                                         "NY/Franklin"};
+  std::vector<std::string> ca_cities = {"CA/San Francisco", "CA/Franklin"};
+  std::vector<std::string> franklins = {"CA/Franklin", "NY/Franklin"};
+
+  // Default filter should always return all data.
+  AssertFragmentsAreFromPath(source_->GetFragments(options_), all_cities);
+
+  // Data source partition is respected
+  options_->filter = ("country"_ == "US").Copy();
+  AssertFragmentsAreFromPath(source_->GetFragments(options_), all_cities);
+  options_->filter = ("country"_ == "FR").Copy();
+  AssertFragmentsAreFromPath(source_->GetFragments(options_), {});
+
+  options_->filter = ("state"_ == "CA").Copy();
+  AssertFragmentsAreFromPath(source_->GetFragments(options_), ca_cities);
+
+  // Filter where no decisions can be made on inner nodes when filter don't
+  // apply to inner partitions.
+  options_->filter = ("city"_ == "Franklin").Copy();
+  AssertFragmentsAreFromPath(source_->GetFragments(options_), franklins);
 }
 
 }  // namespace dataset

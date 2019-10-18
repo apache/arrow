@@ -126,15 +126,6 @@ export namespace org.apache.arrow.flatbuf {
         }
 
         /**
-         * @param flatbuffers.ByteBuffer bb
-         * @param RecordBatch= obj
-         * @returns RecordBatch
-         */
-        static getSizePrefixedRootAsRecordBatch(bb: flatbuffers.ByteBuffer, obj?: RecordBatch): RecordBatch {
-            return (obj || new RecordBatch).__init(bb.readInt32(bb.position()) + bb.position(), bb);
-        }
-
-        /**
          * number of records / rows. The arrays in the batch should all have this
          * length
          *
@@ -291,15 +282,6 @@ export namespace org.apache.arrow.flatbuf {
         }
 
         /**
-         * @param flatbuffers.ByteBuffer bb
-         * @param DictionaryBatch= obj
-         * @returns DictionaryBatch
-         */
-        static getSizePrefixedRootAsDictionaryBatch(bb: flatbuffers.ByteBuffer, obj?: DictionaryBatch): DictionaryBatch {
-            return (obj || new DictionaryBatch).__init(bb.readInt32(bb.position()) + bb.position(), bb);
-        }
-
-        /**
          * @returns flatbuffers.Long
          */
         id(): flatbuffers.Long {
@@ -401,15 +383,6 @@ export namespace org.apache.arrow.flatbuf {
          * @returns Message
          */
         static getRootAsMessage(bb: flatbuffers.ByteBuffer, obj?: Message): Message {
-            return (obj || new Message).__init(bb.readInt32(bb.position()) + bb.position(), bb);
-        }
-
-        /**
-         * @param flatbuffers.ByteBuffer bb
-         * @param Message= obj
-         * @returns Message
-         */
-        static getSizePrefixedRootAsMessage(bb: flatbuffers.ByteBuffer, obj?: Message): Message {
             return (obj || new Message).__init(bb.readInt32(bb.position()) + bb.position(), bb);
         }
 
@@ -547,14 +520,6 @@ export namespace org.apache.arrow.flatbuf {
          */
         static finishMessageBuffer(builder: flatbuffers.Builder, offset: flatbuffers.Offset) {
             builder.finish(offset);
-        }
-
-        /**
-         * @param flatbuffers.Builder builder
-         * @param flatbuffers.Offset offset
-         */
-        static finishSizePrefixedMessageBuffer(builder: flatbuffers.Builder, offset: flatbuffers.Offset) {
-            builder.finish(offset, undefined);
         }
 
         static createMessage(builder: flatbuffers.Builder, version: NS7624605610262437867.org.apache.arrow.flatbuf.MetadataVersion, headerType: org.apache.arrow.flatbuf.MessageHeader, headerOffset: flatbuffers.Offset, bodyLength: flatbuffers.Long, customMetadataOffset: flatbuffers.Offset): flatbuffers.Offset {

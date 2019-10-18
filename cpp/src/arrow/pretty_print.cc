@@ -33,7 +33,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/int-util.h"
+#include "arrow/util/int_util.h"
 #include "arrow/util/string.h"
 #include "arrow/vendored/datetime.h"
 #include "arrow/visitor_inline.h"
@@ -247,6 +247,7 @@ class ArrayPrinter : public PrettyPrinter {
 
   template <typename T>
   inline typename std::enable_if<std::is_base_of<ListArray, T>::value ||
+                                     std::is_base_of<LargeListArray, T>::value ||
                                      std::is_base_of<FixedSizeListArray, T>::value,
                                  Status>::type
   WriteDataValues(const T& array) {
@@ -320,6 +321,7 @@ class ArrayPrinter : public PrettyPrinter {
                               std::is_base_of<BinaryArray, T>::value ||
                               std::is_base_of<LargeBinaryArray, T>::value ||
                               std::is_base_of<ListArray, T>::value ||
+                              std::is_base_of<LargeListArray, T>::value ||
                               std::is_base_of<MapArray, T>::value ||
                               std::is_base_of<FixedSizeListArray, T>::value,
                           Status>::type
@@ -534,6 +536,21 @@ Status PrettyPrint(const RecordBatch& batch, int indent, std::ostream* sink) {
   return Status::OK();
 }
 
+Status PrettyPrint(const RecordBatch& batch, const PrettyPrintOptions& options,
+                   std::ostream* sink) {
+  for (int i = 0; i < batch.num_columns(); ++i) {
+    const std::string& name = batch.column_name(i);
+    PrettyPrintOptions column_options = options;
+    column_options.indent += 2;
+
+    (*sink) << name << ": ";
+    RETURN_NOT_OK(PrettyPrint(*batch.column(i), column_options, sink));
+    (*sink) << "\n";
+  }
+  (*sink) << std::flush;
+  return Status::OK();
+}
+
 Status PrettyPrint(const Table& table, const PrettyPrintOptions& options,
                    std::ostream* sink) {
   RETURN_NOT_OK(PrettyPrint(*table.schema(), options, sink));
@@ -572,6 +589,8 @@ class SchemaPrinter : public PrettyPrinter {
     for (int i = 0; i < schema_.num_fields(); ++i) {
       if (i > 0) {
         Newline();
+      } else {
+        Indent();
       }
       RETURN_NOT_OK(PrintField(*schema_.field(i)));
     }

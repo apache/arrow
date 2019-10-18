@@ -60,9 +60,9 @@ class ARROW_DS_EXPORT CsvFileFormat : public FileFormat {
   bool IsKnownExtension(const std::string& ext) const override;
 
   /// \brief Open a file for scanning
-  Status ScanFile(const FileSource& location, std::shared_ptr<ScanOptions> scan_options,
+  Status ScanFile(const FileSource& source, std::shared_ptr<ScanOptions> scan_options,
                   std::shared_ptr<ScanContext> scan_context,
-                  std::unique_ptr<ScanTaskIterator>* out) const override;
+                  ScanTaskIterator* out) const override;
 };
 
 }  // namespace dataset

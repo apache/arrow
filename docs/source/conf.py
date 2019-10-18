@@ -102,7 +102,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Apache Arrow'
-copyright = u'2016-2018 Apache Software Foundation'
+copyright = u'2016-2019 Apache Software Foundation'
 author = u'Apache Software Foundation'
 
 # The version info for the project you're documenting, acts as replacement for

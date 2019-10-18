@@ -204,6 +204,14 @@ class ConcatenateImpl {
         .Concatenate(out_.child_data[0].get());
   }
 
+  Status Visit(const LargeListType&) {
+    std::vector<Range> value_ranges;
+    RETURN_NOT_OK(ConcatenateOffsets<int64_t>(Buffers(1, sizeof(int64_t)), pool_,
+                                              &out_.buffers[1], &value_ranges));
+    return ConcatenateImpl(ChildData(0, value_ranges), pool_)
+        .Concatenate(out_.child_data[0].get());
+  }
+
   Status Visit(const FixedSizeListType&) {
     return ConcatenateImpl(ChildData(0), pool_).Concatenate(out_.child_data[0].get());
   }

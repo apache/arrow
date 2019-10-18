@@ -19,26 +19,55 @@ package org.apache.arrow.consumers;
 
 import java.io.IOException;
 
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.Float8Vector;
-import org.apache.arrow.vector.complex.impl.Float8WriterImpl;
-import org.apache.arrow.vector.complex.writer.Float8Writer;
 import org.apache.avro.io.Decoder;
 
 /**
  * Consumer which consume double type values from avro decoder.
  * Write the data to {@link Float8Vector}.
  */
-public class AvroDoubleConsumer implements Consumer {
+public class AvroDoubleConsumer implements Consumer<Float8Vector> {
 
-  private final Float8Writer writer;
+  private Float8Vector vector;
 
+  private int currentIndex;
+
+  /**
+   * Instantiate a AvroDoubleConsumer.
+   */
   public AvroDoubleConsumer(Float8Vector vector) {
-    this.writer = new Float8WriterImpl(vector);
+    this.vector = vector;
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    writer.writeFloat8(decoder.readDouble());
-    writer.setPosition(writer.getPosition() + 1);
+    vector.setSafe(currentIndex++, decoder.readDouble());
+  }
+
+  @Override
+  public void addNull() {
+    currentIndex++;
+  }
+
+  @Override
+  public void setPosition(int index) {
+    currentIndex = index;
+  }
+
+  @Override
+  public FieldVector getVector() {
+    return vector;
+  }
+
+  @Override
+  public void close() throws Exception {
+    vector.close();
+  }
+
+  @Override
+  public void resetValueVector(Float8Vector vector) {
+    this.vector = vector;
+    this.currentIndex = 0;
   }
 }

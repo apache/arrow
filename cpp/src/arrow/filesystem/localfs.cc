@@ -31,9 +31,9 @@
 #include <boost/filesystem.hpp>
 
 #include "arrow/filesystem/localfs.h"
-#include "arrow/filesystem/util-internal.h"
+#include "arrow/filesystem/util_internal.h"
 #include "arrow/io/file.h"
-#include "arrow/util/io-util.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -188,7 +188,7 @@ Status StatFile(const std::string& path, FileStats* out) {
 #endif
 
 Status StatSelector(const NativePathString& path, const Selector& select,
-                    std::vector<FileStats>* out) {
+                    int32_t nesting_depth, std::vector<FileStats>* out) {
   bfs::path p(path);
 
   if (select.allow_non_existent) {
@@ -209,8 +209,9 @@ Status StatSelector(const NativePathString& path, const Selector& select,
     if (st.type() != FileType::NonExistent) {
       out->push_back(std::move(st));
     }
-    if (select.recursive && st.type() == FileType::Directory) {
-      RETURN_NOT_OK(StatSelector(ns, select, out));
+    if (nesting_depth < select.max_recursion && select.recursive &&
+        st.type() == FileType::Directory) {
+      RETURN_NOT_OK(StatSelector(ns, select, nesting_depth + 1, out));
     }
   }
   BOOST_FILESYSTEM_CATCH
@@ -235,7 +236,7 @@ Status LocalFileSystem::GetTargetStats(const Selector& select,
   PlatformFilename fn;
   RETURN_NOT_OK(PlatformFilename::FromString(select.base_dir, &fn));
   out->clear();
-  return StatSelector(fn.ToNative(), select, out);
+  return StatSelector(fn.ToNative(), select, 0, out);
 }
 
 Status LocalFileSystem::CreateDir(const std::string& path, bool recursive) {
@@ -253,6 +254,18 @@ Status LocalFileSystem::DeleteDir(const std::string& path) {
   PlatformFilename fn;
   RETURN_NOT_OK(PlatformFilename::FromString(path, &fn));
   RETURN_NOT_OK(::arrow::internal::DeleteDirTree(fn, &deleted));
+  if (deleted) {
+    return Status::OK();
+  } else {
+    return Status::IOError("Directory does not exist: '", path, "'");
+  }
+}
+
+Status LocalFileSystem::DeleteDirContents(const std::string& path) {
+  bool deleted = false;
+  PlatformFilename fn;
+  RETURN_NOT_OK(PlatformFilename::FromString(path, &fn));
+  RETURN_NOT_OK(::arrow::internal::DeleteDirContents(fn, &deleted));
   if (deleted) {
     return Status::OK();
   } else {

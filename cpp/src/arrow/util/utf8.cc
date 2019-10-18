@@ -69,12 +69,10 @@ static void InitializeLargeTable() {
   }
 }
 
-#ifndef NDEBUG
 ARROW_EXPORT void CheckUTF8Initialized() {
   DCHECK_EQ(utf8_large_table[0], 0)
       << "InitializeUTF8() must be called before calling UTF8 routines";
 }
-#endif
 
 }  // namespace internal
 

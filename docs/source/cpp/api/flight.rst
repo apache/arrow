@@ -15,15 +15,18 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. default-domain:: cpp
+.. highlight:: cpp
+
 ================
 Arrow Flight RPC
 ================
 
-.. warning:: Flight is currently unstable. APIs are subject to change,
-             though we don't expect drastic changes.
+.. note:: Flight is currently unstable. APIs are subject to change,
+          though we don't expect drastic changes.
 
-.. warning:: Flight is currently only available when built from source
-             appropriately.
+.. note:: Flight is currently only available when built from source
+          appropriately.
 
 Common Types
 ============
@@ -33,6 +36,14 @@ Common Types
    :members:
 
 .. doxygenstruct:: arrow::flight::ActionType
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::flight::AddCallHeaders
+   :project: arrow_cpp
+   :members:
+
+.. doxygenstruct:: arrow::flight::CallInfo
    :project: arrow_cpp
    :members:
 
@@ -60,11 +71,14 @@ Common Types
    :project: arrow_cpp
    :members:
 
+.. doxygenenum:: arrow::flight::FlightMethod
+   :project: arrow_cpp
+
 .. doxygenstruct:: arrow::flight::Location
    :project: arrow_cpp
    :members:
 
-.. doxygenstruct:: arrow::flight::PutResult
+.. doxygenclass:: arrow::flight::MetadataRecordBatchReader
    :project: arrow_cpp
    :members:
 
@@ -87,6 +101,10 @@ Clients
    :project: arrow_cpp
    :members:
 
+.. doxygenclass:: arrow::flight::FlightClientOptions
+   :project: arrow_cpp
+   :members:
+
 .. doxygenclass:: arrow::flight::FlightCallOptions
    :project: arrow_cpp
    :members:
@@ -95,8 +113,24 @@ Clients
    :project: arrow_cpp
    :members:
 
+.. doxygenclass:: arrow::flight::ClientMiddleware
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::flight::ClientMiddlewareFactory
+   :project: arrow_cpp
+   :members:
+
 .. doxygentypedef:: arrow::flight::TimeoutDuration
    :project: arrow_cpp
+
+.. doxygenclass:: arrow::flight::FlightStreamReader
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::flight::FlightStreamWriter
+   :project: arrow_cpp
+   :members:
 
 Servers
 =======
@@ -105,11 +139,23 @@ Servers
    :project: arrow_cpp
    :members:
 
+.. doxygenclass:: arrow::flight::FlightServerOptions
+   :project: arrow_cpp
+   :members:
+
+.. doxygenstruct:: arrow::flight::CertKeyPair
+   :project: arrow_cpp
+   :members:
+
 .. doxygenclass:: arrow::flight::FlightDataStream
    :project: arrow_cpp
    :members:
 
 .. doxygenclass:: arrow::flight::FlightMessageReader
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::flight::FlightMetadataWriter
    :project: arrow_cpp
    :members:
 
@@ -124,3 +170,36 @@ Servers
 .. doxygenclass:: arrow::flight::ServerCallContext
    :project: arrow_cpp
    :members:
+
+.. doxygenclass:: arrow::flight::ServerMiddleware
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::flight::ServerMiddlewareFactory
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::flight::SimpleFlightListing
+   :project: arrow_cpp
+   :members:
+
+.. doxygenclass:: arrow::flight::SimpleResultStream
+   :project: arrow_cpp
+   :members:
+
+Error Handling
+==============
+
+Error handling uses the normal :class:`arrow::Status` class, combined
+with a custom :class:`arrow::StatusDetail` object for Flight-specific
+error codes.
+
+.. doxygenenum:: arrow::flight::FlightStatusCode
+   :project: arrow_cpp
+
+.. doxygenclass:: arrow::flight::FlightStatusDetail
+   :project: arrow_cpp
+   :members:
+
+.. doxygenfunction:: arrow::flight::MakeFlightError
+   :project: arrow_cpp

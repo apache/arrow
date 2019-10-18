@@ -28,6 +28,8 @@
 namespace arrow {
 namespace util {
 
+constexpr int kGZipDefaultCompressionLevel = 9;
+
 // GZip codec.
 class ARROW_EXPORT GZipCodec : public Codec {
  public:
@@ -38,8 +40,11 @@ class ARROW_EXPORT GZipCodec : public Codec {
     GZIP,
   };
 
-  explicit GZipCodec(Format format = GZIP);
+  explicit GZipCodec(int compression_level = kGZipDefaultCompressionLevel,
+                     Format format = GZIP);
   ~GZipCodec() override;
+
+  Status Init() override;
 
   Status Decompress(int64_t input_len, const uint8_t* input, int64_t output_buffer_len,
                     uint8_t* output_buffer) override;

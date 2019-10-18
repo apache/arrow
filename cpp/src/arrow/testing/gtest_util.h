@@ -24,17 +24,21 @@
 #include <memory>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
 
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/testing/util.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit-util.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/stl.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -109,6 +113,15 @@ inline Status GenericToStatus(const Result<T>& res) {
     }                                                               \
   } while (false);
 
+#define ASSERT_OK_AND_ASSIGN_IMPL(status_name, lhs, rexpr) \
+  auto status_name = (rexpr);                              \
+  ARROW_EXPECT_OK(status_name.status());                   \
+  lhs = std::move(status_name).ValueOrDie();
+
+#define ASSERT_OK_AND_ASSIGN(lhs, rexpr)                                              \
+  ASSERT_OK_AND_ASSIGN_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
+                            lhs, rexpr);
+
 namespace arrow {
 
 // ----------------------------------------------------------------------
@@ -117,6 +130,12 @@ namespace arrow {
 typedef ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type,
                          Int16Type, Int32Type, Int64Type, FloatType, DoubleType>
     NumericArrowTypes;
+
+typedef ::testing::Types<FloatType, DoubleType> RealArrowTypes;
+
+typedef testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
+                       Int32Type, Int64Type>
+    IntegralArrowTypes;
 
 class Array;
 class ChunkedArray;
@@ -134,7 +153,9 @@ using ArrayVector = std::vector<std::shared_ptr<Array>>;
 #define ASSERT_ARRAYS_EQUAL(lhs, rhs) AssertArraysEqual((lhs), (rhs))
 #define ASSERT_BATCHES_EQUAL(lhs, rhs) AssertBatchesEqual((lhs), (rhs))
 
-ARROW_EXPORT void AssertArraysEqual(const Array& expected, const Array& actual);
+// If verbose is true, then the arrays will be pretty printed
+ARROW_EXPORT void AssertArraysEqual(const Array& expected, const Array& actual,
+                                    bool verbose = false);
 ARROW_EXPORT void AssertBatchesEqual(const RecordBatch& expected,
                                      const RecordBatch& actual);
 ARROW_EXPORT void AssertChunkedEqual(const ChunkedArray& expected,
@@ -325,5 +346,26 @@ void AssertSortedEquals(std::vector<T> u, std::vector<T> v) {
   std::sort(v.begin(), v.end());
   ASSERT_EQ(u, v);
 }
+
+// A RAII-style object that switches to a new locale, and switches back
+// to the old locale when going out of scope.  Doesn't do anything if the
+// new locale doesn't exist on the local machine.
+// ATTENTION: may crash with an assertion failure on Windows debug builds.
+// See ARROW-6108, also https://gerrit.libreoffice.org/#/c/54110/
+class ARROW_EXPORT LocaleGuard {
+ public:
+  explicit LocaleGuard(const char* new_locale);
+  ~LocaleGuard();
+
+ protected:
+  class Impl;
+  std::unique_ptr<Impl> impl_;
+};
+
+#ifndef ARROW_LARGE_MEMORY_TESTS
+#define LARGE_MEMORY_TEST(name) DISABLED_##name
+#else
+#define LARGE_MEMORY_TEST(name) name
+#endif
 
 }  // namespace arrow

@@ -29,6 +29,7 @@
 #include "arrow/util/logging.h"
 
 #include "arrow/python/common.h"
+#include "arrow/python/pyarrow.h"
 
 namespace arrow {
 namespace py {
@@ -40,20 +41,35 @@ namespace py {
 // calling any methods
 class PythonFile {
  public:
-  explicit PythonFile(PyObject* file) : file_(file) { Py_INCREF(file_); }
+  explicit PythonFile(PyObject* file) : file_(file) { Py_INCREF(file); }
 
-  ~PythonFile() { Py_DECREF(file_); }
+  Status CheckClosed() const {
+    if (!file_) {
+      return Status::Invalid("operation on closed Python file");
+    }
+    return Status::OK();
+  }
 
   Status Close() {
-    // whence: 0 for relative to start of file, 2 for end of file
-    PyObject* result = cpp_PyObject_CallMethod(file_, "close", "()");
-    Py_XDECREF(result);
-    PY_RETURN_IF_ERROR(StatusCode::IOError);
+    if (file_) {
+      PyObject* result = cpp_PyObject_CallMethod(file_.obj(), "close", "()");
+      Py_XDECREF(result);
+      file_.reset();
+      PY_RETURN_IF_ERROR(StatusCode::IOError);
+    }
+    return Status::OK();
+  }
+
+  Status Abort() {
+    file_.reset();
     return Status::OK();
   }
 
   bool closed() const {
-    PyObject* result = PyObject_GetAttrString(file_, "closed");
+    if (!file_) {
+      return true;
+    }
+    PyObject* result = PyObject_GetAttrString(file_.obj(), "closed");
     if (result == NULL) {
       // Can't propagate the error, so write it out and return an arbitrary value
       PyErr_WriteUnraisable(NULL);
@@ -69,8 +85,10 @@ class PythonFile {
   }
 
   Status Seek(int64_t position, int whence) {
+    RETURN_NOT_OK(CheckClosed());
+
     // whence: 0 for relative to start of file, 2 for end of file
-    PyObject* result = cpp_PyObject_CallMethod(file_, "seek", "(ni)",
+    PyObject* result = cpp_PyObject_CallMethod(file_.obj(), "seek", "(ni)",
                                                static_cast<Py_ssize_t>(position), whence);
     Py_XDECREF(result);
     PY_RETURN_IF_ERROR(StatusCode::IOError);
@@ -78,27 +96,56 @@ class PythonFile {
   }
 
   Status Read(int64_t nbytes, PyObject** out) {
-    PyObject* result =
-        cpp_PyObject_CallMethod(file_, "read", "(n)", static_cast<Py_ssize_t>(nbytes));
+    RETURN_NOT_OK(CheckClosed());
+
+    PyObject* result = cpp_PyObject_CallMethod(file_.obj(), "read", "(n)",
+                                               static_cast<Py_ssize_t>(nbytes));
     PY_RETURN_IF_ERROR(StatusCode::IOError);
     *out = result;
     return Status::OK();
   }
 
   Status Write(const void* data, int64_t nbytes) {
+    RETURN_NOT_OK(CheckClosed());
+
+    // Since the data isn't owned, we have to make a copy
     PyObject* py_data =
         PyBytes_FromStringAndSize(reinterpret_cast<const char*>(data), nbytes);
     PY_RETURN_IF_ERROR(StatusCode::IOError);
 
-    PyObject* result = cpp_PyObject_CallMethod(file_, "write", "(O)", py_data);
+    PyObject* result = cpp_PyObject_CallMethod(file_.obj(), "write", "(O)", py_data);
     Py_XDECREF(py_data);
     Py_XDECREF(result);
     PY_RETURN_IF_ERROR(StatusCode::IOError);
     return Status::OK();
   }
 
+  Status Write(const std::shared_ptr<Buffer>& buffer) {
+    RETURN_NOT_OK(CheckClosed());
+
+#if PY_MAJOR_VERSION < 3
+    // On Python 2, a write() method can typically call str() on its argument
+    // to get its bytes payload (this is the case with socket.makefile()).
+    // Unfortunately, on non-bytes buffer-like objects this will give out
+    // the repr() of the object rather than its data.  So fall back on
+    // copying the data to a bytes object.
+    return Write(buffer->data(), buffer->size());
+#else
+    PyObject* py_data = wrap_buffer(buffer);
+    PY_RETURN_IF_ERROR(StatusCode::IOError);
+
+    PyObject* result = cpp_PyObject_CallMethod(file_.obj(), "write", "(O)", py_data);
+    Py_XDECREF(py_data);
+    Py_XDECREF(result);
+    PY_RETURN_IF_ERROR(StatusCode::IOError);
+    return Status::OK();
+#endif
+  }
+
   Status Tell(int64_t* position) {
-    PyObject* result = cpp_PyObject_CallMethod(file_, "tell", "()");
+    RETURN_NOT_OK(CheckClosed());
+
+    PyObject* result = cpp_PyObject_CallMethod(file_.obj(), "tell", "()");
     PY_RETURN_IF_ERROR(StatusCode::IOError);
 
     *position = PyLong_AsLongLong(result);
@@ -114,7 +161,7 @@ class PythonFile {
 
  private:
   std::mutex lock_;
-  PyObject* file_;
+  OwnedRefNoGIL file_;
 };
 
 // ----------------------------------------------------------------------
@@ -122,7 +169,14 @@ class PythonFile {
 
 PyReadableFile::PyReadableFile(PyObject* file) { file_.reset(new PythonFile(file)); }
 
+// The destructor does not close the underlying Python file object, as
+// there may be multiple references to it.  Instead let the Python
+// destructor do its job.
 PyReadableFile::~PyReadableFile() {}
+
+Status PyReadableFile::Abort() {
+  return SafeCallIntoPython([this]() { return file_->Abort(); });
+}
 
 Status PyReadableFile::Close() {
   return SafeCallIntoPython([this]() { return file_->Close(); });
@@ -216,7 +270,14 @@ PyOutputStream::PyOutputStream(PyObject* file) : position_(0) {
   file_.reset(new PythonFile(file));
 }
 
+// The destructor does not close the underlying Python file object, as
+// there may be multiple references to it.  Instead let the Python
+// destructor do its job.
 PyOutputStream::~PyOutputStream() {}
+
+Status PyOutputStream::Abort() {
+  return SafeCallIntoPython([=]() { return file_->Abort(); });
+}
 
 Status PyOutputStream::Close() {
   return SafeCallIntoPython([=]() { return file_->Close(); });
@@ -240,6 +301,13 @@ Status PyOutputStream::Write(const void* data, int64_t nbytes) {
   return SafeCallIntoPython([=]() {
     position_ += nbytes;
     return file_->Write(data, nbytes);
+  });
+}
+
+Status PyOutputStream::Write(const std::shared_ptr<Buffer>& buffer) {
+  return SafeCallIntoPython([=]() {
+    position_ += buffer->size();
+    return file_->Write(buffer);
   });
 }
 

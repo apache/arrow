@@ -38,7 +38,7 @@ import io.netty.buffer.ArrowBuf;
  * integer values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public class UInt8Vector extends BaseFixedWidthVector implements BaseIntVector {
+public final class UInt8Vector extends BaseFixedWidthVector implements BaseIntVector {
   private static final byte TYPE_WIDTH = 8;
   private final FieldReader reader;
 
@@ -239,18 +239,6 @@ public class UInt8Vector extends BaseFixedWidthVector implements BaseIntVector {
   public void setSafe(int index, UInt8Holder holder) {
     handleSafe(index);
     set(index, holder);
-  }
-
-  /**
-   * Set the element at the given index to null.
-   *
-   * @param index   position of element
-   */
-  public void setNull(int index) {
-    handleSafe(index);
-    // not really needed to set the bit to 0 as long as
-    // the buffer always starts from 0.
-    BitVectorHelper.setValidityBit(validityBuffer, index, 0);
   }
 
   /** Sets value at index is isSet is positive otherwise sets the index to invalid/null. */

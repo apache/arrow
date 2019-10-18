@@ -89,6 +89,12 @@ cd cpp/build
   -DARROW_PLASMA=ON \
   -DARROW_PYTHON=ON \
   -DARROW_VERBOSE_THIRDPARTY_BUILD=ON \
+  -DARROW_WITH_BROTLI=ON \
+  -DARROW_WITH_BZ2=ON \
+  -DARROW_WITH_LZ4=ON \
+  -DARROW_WITH_SNAPPY=ON \
+  -DARROW_WITH_ZLIB=ON \
+  -DARROW_WITH_ZSTD=ON \
   -DCMAKE_BUILD_TYPE=$build_type \
   -DPythonInterp_FIND_VERSION=ON \
   -DPythonInterp_FIND_VERSION_MAJOR=3
@@ -253,7 +259,7 @@ This package contains the server for Plasma in-memory object store.
 %files -n plasma-store-server
 %defattr(-,root,root,-)
 %doc README.md LICENSE.txt NOTICE.txt
-%{_bindir}/plasma_store_server
+%{_bindir}/plasma-store-server
 
 %package -n plasma-devel
 Summary:	Libraries and header files for Plasma in-memory object store
@@ -449,6 +455,9 @@ Documentation for Apache Parquet GLib.
 %endif
 
 %changelog
+* Mon Sep 30 2019 Krisztián Szűcs <szucs.krisztian@gmail.com> - 0.15.0-1
+- New upstream release.
+
 * Fri Jun 28 2019 Sutou Kouhei <kou@clear-code.com> - 0.14.0-1
 - New upstream release.
 

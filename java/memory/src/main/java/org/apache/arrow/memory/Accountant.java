@@ -81,8 +81,7 @@ class Accountant implements AutoCloseable {
       if (!outcome.isOk()) {
         throw new OutOfMemoryException(String.format(
             "Failure trying to allocate initial reservation for Allocator. " +
-                "Attempted to allocate %d bytes.", reservation,
-            outcome.getStatus().name()), outcome.getDetails());
+                "Attempted to allocate %d bytes.", reservation), outcome.getDetails());
       }
     }
   }

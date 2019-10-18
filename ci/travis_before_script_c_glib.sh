@@ -36,8 +36,6 @@ else
   conda install -q -y ninja
 fi
 
-gem install test-unit gobject-introspection
-
 if [ $TRAVIS_OS_NAME = "osx" ]; then
   sudo env PKG_CONFIG_PATH=$PKG_CONFIG_PATH luarocks install lgi
 else
@@ -47,14 +45,15 @@ fi
 
 pushd $ARROW_C_GLIB_DIR
 
+bundle install
+
 export PKG_CONFIG_PATH=$PKG_CONFIG_PATH:$ARROW_CPP_INSTALL/lib/pkgconfig
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ARROW_CPP_INSTALL/lib
 
 # Build with GNU Autotools
 ./autogen.sh
 CONFIGURE_OPTIONS="--prefix=$ARROW_C_GLIB_INSTALL_AUTOTOOLS"
-# TODO(ARROW-5307): Enable this
-# CONFIGURE_OPTIONS="$CONFIGURE_OPTIONS --enable-gtk-doc"
+CONFIGURE_OPTIONS="$CONFIGURE_OPTIONS --enable-gtk-doc"
 CONFIGURE_OPTIONS="$CONFIGURE_OPTIONS CFLAGS=-DARROW_NO_DEPRECATED_API"
 CONFIGURE_OPTIONS="$CONFIGURE_OPTIONS CXXFLAGS=-DARROW_NO_DEPRECATED_API"
 mkdir -p build
@@ -67,8 +66,7 @@ rm -rf build
 
 # Build with Meson
 MESON_OPTIONS="--prefix=$ARROW_C_GLIB_INSTALL_MESON"
-# TODO(ARROW-5307): Enable this
-# MESON_OPTIONS="$MESON_OPTIONS -Dgtk_doc=true"
+MESON_OPTIONS="$MESON_OPTIONS -Dgtk_doc=true"
 mkdir -p build
 env \
   CFLAGS="-DARROW_NO_DEPRECATED_API" \

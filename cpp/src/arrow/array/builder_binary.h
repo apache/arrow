@@ -27,7 +27,7 @@
 
 #include "arrow/array.h"
 #include "arrow/array/builder_base.h"
-#include "arrow/buffer-builder.h"
+#include "arrow/buffer_builder.h"
 #include "arrow/status.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/macros.h"
@@ -46,8 +46,11 @@ class BaseBinaryBuilder : public ArrayBuilder {
   using TypeClass = TYPE;
   using offset_type = typename TypeClass::offset_type;
 
+  explicit BaseBinaryBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
+      : ArrayBuilder(pool), offsets_builder_(pool), value_data_builder_(pool) {}
+
   BaseBinaryBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : ArrayBuilder(type, pool), offsets_builder_(pool), value_data_builder_(pool) {}
+      : BaseBinaryBuilder(pool) {}
 
   Status Append(const uint8_t* value, offset_type length) {
     ARROW_RETURN_NOT_OK(Reserve(1));
@@ -260,16 +263,21 @@ class BaseBinaryBuilder : public ArrayBuilder {
     ARROW_RETURN_NOT_OK(value_data_builder_.Finish(&value_data));
     ARROW_RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
 
-    *out = ArrayData::Make(type_, length_, {null_bitmap, offsets, value_data},
+    *out = ArrayData::Make(type(), length_, {null_bitmap, offsets, value_data},
                            null_count_, 0);
     Reset();
     return Status::OK();
   }
 
+  /// \return data pointer of the value date builder
+  const uint8_t* value_data() const { return value_data_builder_.data(); }
   /// \return size of values buffer so far
   int64_t value_data_length() const { return value_data_builder_.length(); }
   /// \return capacity of values buffer
   int64_t value_data_capacity() const { return value_data_builder_.capacity(); }
+
+  /// \return data pointer of the value date builder
+  const offset_type* offsets_data() const { return offsets_builder_.data(); }
 
   /// Temporary access to a value.
   ///
@@ -285,6 +293,8 @@ class BaseBinaryBuilder : public ArrayBuilder {
     return value_data_builder_.data() + offset;
   }
 
+  offset_type offset(int64_t i) const { return offsets_data()[i]; }
+
   /// Temporary access to a value.
   ///
   /// This view becomes invalid on the next modifying operation.
@@ -292,6 +302,11 @@ class BaseBinaryBuilder : public ArrayBuilder {
     offset_type value_length;
     const uint8_t* value_data = GetValue(i, &value_length);
     return util::string_view(reinterpret_cast<const char*>(value_data), value_length);
+  }
+
+  // Cannot make this a static attribute because of linking issues
+  static constexpr int64_t memory_limit() {
+    return std::numeric_limits<offset_type>::max() - 1;
   }
 
  protected:
@@ -315,18 +330,13 @@ class BaseBinaryBuilder : public ArrayBuilder {
     const int64_t num_bytes = value_data_builder_.length();
     offsets_builder_.UnsafeAppend(static_cast<offset_type>(num_bytes));
   }
-
-  // Cannot make this a static attribute because of linking issues
-  static constexpr int64_t memory_limit() {
-    return std::numeric_limits<offset_type>::max() - 1;
-  }
 };
 
 /// \class BinaryBuilder
 /// \brief Builder class for variable-length binary data
 class ARROW_EXPORT BinaryBuilder : public BaseBinaryBuilder<BinaryType> {
  public:
-  explicit BinaryBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+  using BaseBinaryBuilder::BaseBinaryBuilder;
 
   /// \cond FALSE
   using ArrayBuilder::Finish;
@@ -334,8 +344,7 @@ class ARROW_EXPORT BinaryBuilder : public BaseBinaryBuilder<BinaryType> {
 
   Status Finish(std::shared_ptr<BinaryArray>* out) { return FinishTyped(out); }
 
- protected:
-  using BaseBinaryBuilder::BaseBinaryBuilder;
+  std::shared_ptr<DataType> type() const override { return binary(); }
 };
 
 /// \class StringBuilder
@@ -343,20 +352,21 @@ class ARROW_EXPORT BinaryBuilder : public BaseBinaryBuilder<BinaryType> {
 class ARROW_EXPORT StringBuilder : public BinaryBuilder {
  public:
   using BinaryBuilder::BinaryBuilder;
-  explicit StringBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
   /// \cond FALSE
   using ArrayBuilder::Finish;
   /// \endcond
 
   Status Finish(std::shared_ptr<StringArray>* out) { return FinishTyped(out); }
+
+  std::shared_ptr<DataType> type() const override { return utf8(); }
 };
 
 /// \class LargeBinaryBuilder
 /// \brief Builder class for large variable-length binary data
 class ARROW_EXPORT LargeBinaryBuilder : public BaseBinaryBuilder<LargeBinaryType> {
  public:
-  explicit LargeBinaryBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+  using BaseBinaryBuilder::BaseBinaryBuilder;
 
   /// \cond FALSE
   using ArrayBuilder::Finish;
@@ -364,8 +374,7 @@ class ARROW_EXPORT LargeBinaryBuilder : public BaseBinaryBuilder<LargeBinaryType
 
   Status Finish(std::shared_ptr<LargeBinaryArray>* out) { return FinishTyped(out); }
 
- protected:
-  using BaseBinaryBuilder::BaseBinaryBuilder;
+  std::shared_ptr<DataType> type() const override { return large_binary(); }
 };
 
 /// \class LargeStringBuilder
@@ -373,13 +382,14 @@ class ARROW_EXPORT LargeBinaryBuilder : public BaseBinaryBuilder<LargeBinaryType
 class ARROW_EXPORT LargeStringBuilder : public LargeBinaryBuilder {
  public:
   using LargeBinaryBuilder::LargeBinaryBuilder;
-  explicit LargeStringBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
   /// \cond FALSE
   using ArrayBuilder::Finish;
   /// \endcond
 
   Status Finish(std::shared_ptr<LargeStringArray>* out) { return FinishTyped(out); }
+
+  std::shared_ptr<DataType> type() const override { return large_utf8(); }
 };
 
 // ----------------------------------------------------------------------
@@ -387,6 +397,8 @@ class ARROW_EXPORT LargeStringBuilder : public LargeBinaryBuilder {
 
 class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
  public:
+  using TypeClass = FixedSizeBinaryType;
+
   FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& type,
                          MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
@@ -443,7 +455,7 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
 
   void UnsafeAppendNull() {
     UnsafeAppendToBitmap(false);
-    byte_builder_.UnsafeAdvance(byte_width_);
+    byte_builder_.UnsafeAppend(/*num_copies=*/byte_width_, 0);
   }
 
   void Reset() override;
@@ -471,6 +483,14 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
   /// This view becomes invalid on the next modifying operation.
   util::string_view GetView(int64_t i) const;
 
+  static constexpr int64_t memory_limit() {
+    return std::numeric_limits<int64_t>::max() - 1;
+  }
+
+  std::shared_ptr<DataType> type() const override {
+    return fixed_size_binary(byte_width_);
+  }
+
  protected:
   int32_t byte_width_;
   BufferBuilder byte_builder_;
@@ -483,9 +503,7 @@ class ARROW_EXPORT FixedSizeBinaryBuilder : public ArrayBuilder {
     return data_ptr + i * byte_width_;
   }
 
-#ifndef NDEBUG
   void CheckValueSize(int64_t size);
-#endif
 };
 
 // ----------------------------------------------------------------------
@@ -496,8 +514,8 @@ namespace internal {
 
 class ARROW_EXPORT ChunkedBinaryBuilder {
  public:
-  ChunkedBinaryBuilder(int32_t max_chunk_value_length,
-                       MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+  explicit ChunkedBinaryBuilder(int32_t max_chunk_value_length,
+                                MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
   ChunkedBinaryBuilder(int32_t max_chunk_value_length, int32_t max_chunk_length,
                        MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
@@ -521,9 +539,8 @@ class ARROW_EXPORT ChunkedBinaryBuilder {
     }
 
     if (ARROW_PREDICT_FALSE(builder_->length() == max_chunk_length_)) {
-      // The current item would cause builder_->value_data_length() to exceed
-      // max_chunk_size_, so finish this chunk and append the current item to the next
-      // chunk
+      // The current item would cause builder_->length() to exceed max_chunk_length_, so
+      // finish this chunk and append the current item to the next chunk
       ARROW_RETURN_NOT_OK(NextChunk());
     }
 

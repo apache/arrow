@@ -63,6 +63,7 @@ end
 
 require "fileutils"
 require "rbconfig"
+require "stringio"
 require "tempfile"
 require "zlib"
 require_relative "helper/buildable"

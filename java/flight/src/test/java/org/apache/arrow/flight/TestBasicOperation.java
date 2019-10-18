@@ -127,6 +127,14 @@ public class TestBasicOperation {
   }
 
   @Test
+  public void getSchema() throws Exception {
+    test(c -> {
+      System.out.println(c.getSchema(FlightDescriptor.path("hello")).getSchema());
+    });
+  }
+
+
+  @Test
   public void listActions() throws Exception {
     test(c -> {
       for (ActionType at : c.listActions()) {

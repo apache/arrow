@@ -30,8 +30,9 @@ cdef class _PandasAPIShim(object):
         object _loose_version, _version
         object _pd, _types_api, _compat_module
         object _data_frame, _index, _series, _categorical_type
-        object _datetimetz_type
+        object _datetimetz_type, _extension_array
         object _array_like_types
+        bint has_sparse
 
     def __init__(self):
         self._tried_importing_pandas = False
@@ -49,18 +50,25 @@ cdef class _PandasAPIShim(object):
                 return
 
         self._pd = pd
+        self._version = pd.__version__
+        from distutils.version import LooseVersion
+        self._loose_version = LooseVersion(pd.__version__)
+
         self._compat_module = pdcompat
         self._data_frame = pd.DataFrame
         self._index = pd.Index
         self._categorical_type = pd.Categorical
         self._series = pd.Series
+        if self._loose_version >= LooseVersion('0.23.0'):
+            self._extension_array = pd.api.extensions.ExtensionArray
+            self._array_like_types = (
+                self._series, self._index, self._categorical_type,
+                self._extension_array)
+        else:
+            self._extension_array = None
+            self._array_like_types = (
+                self._series, self._index, self._categorical_type)
 
-        self._array_like_types = (self._series, self._index,
-                                  self._categorical_type)
-
-        self._version = pd.__version__
-        from distutils.version import LooseVersion
-        self._loose_version = LooseVersion(pd.__version__)
         if self._loose_version >= LooseVersion('0.20.0'):
             from pandas.api.types import DatetimeTZDtype
             self._types_api = pd.api.types
@@ -74,6 +82,11 @@ cdef class _PandasAPIShim(object):
         self._datetimetz_type = DatetimeTZDtype
         self._have_pandas = True
 
+        if self._loose_version > LooseVersion('0.25'):
+            self.has_sparse = False
+        else:
+            self.has_sparse = True
+
     cdef inline _check_import(self, bint raise_=True):
         if self._tried_importing_pandas:
             if not self._have_pandas and raise_:
@@ -83,7 +96,7 @@ cdef class _PandasAPIShim(object):
         self._tried_importing_pandas = True
         self._import_pandas(raise_)
 
-    def make_series(self, *args, **kwargs):
+    def series(self, *args, **kwargs):
         self._check_import()
         return self._series(*args, **kwargs)
 

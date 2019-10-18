@@ -516,6 +516,63 @@ garrow_array_to_string(GArrowArray *array, GError **error)
   }
 }
 
+/**
+ * garrow_array_view:
+ * @array: A #GArrowArray.
+ * @return_type: A #GArrowDataType of the returned view.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): A zero-copy view of this array
+ *   with the given type. This method checks if the `return_type` are
+ *   layout-compatible.
+ *
+ * Since: 0.15.0
+ */
+GArrowArray *
+garrow_array_view(GArrowArray *array,
+                  GArrowDataType *return_type,
+                  GError **error)
+{
+  auto arrow_array_raw = garrow_array_get_raw(array);
+  auto arrow_return_type = garrow_data_type_get_raw(return_type);
+  std::shared_ptr<arrow::Array> arrow_array;
+  auto status = arrow_array_raw->View(arrow_return_type, &arrow_array);
+  if (garrow_error_check(error, status, "[array][view]")) {
+    return garrow_array_new_raw(&arrow_array);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_array_diff_unified:
+ * @array: A #GArrowArray.
+ * @other_array: A #GArrowArray to be compared.
+ *
+ * Returns: (nullable) (transfer full): The string representation of
+ *   the difference between two arrays as unified format. If there is
+ *   no difference, the return value is %NULL.
+ *
+ *   It should be freed with g_free() when no longer needed.
+ *
+ * Since: 0.15.0
+ */
+gchar *
+garrow_array_diff_unified(GArrowArray *array, GArrowArray *other_array)
+{
+  const auto arrow_array = garrow_array_get_raw(array);
+  const auto arrow_other_array = garrow_array_get_raw(other_array);
+  std::stringstream diff;
+  arrow_array->Equals(arrow_other_array,
+                      arrow::EqualOptions().diff_sink(&diff));
+  auto string = diff.str();
+  if (string.empty()) {
+    return NULL;
+  } else {
+    return g_strndup(string.data(), string.size());
+  }
+}
+
 
 G_DEFINE_TYPE(GArrowNullArray,
               garrow_null_array,

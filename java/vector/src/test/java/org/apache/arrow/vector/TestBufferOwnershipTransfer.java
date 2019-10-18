@@ -49,6 +49,12 @@ public class TestBufferOwnershipTransfer {
 
     assertEquals(0, childAllocator1.getAllocatedMemory());
     assertEquals(totalAllocatedMemory, childAllocator2.getAllocatedMemory());
+
+    v1.close();
+    v2.close();
+    childAllocator1.close();
+    childAllocator2.close();
+    allocator.close();
   }
 
   @Test
@@ -69,6 +75,12 @@ public class TestBufferOwnershipTransfer {
 
     assertEquals(0, childAllocator1.getAllocatedMemory());
     assertEquals(memoryBeforeTransfer, childAllocator2.getAllocatedMemory());
+
+    v1.close();
+    v2.close();
+    childAllocator1.close();
+    childAllocator2.close();
+    allocator.close();
   }
 
   private static class Pointer<T> {
@@ -111,5 +123,9 @@ public class TestBufferOwnershipTransfer {
 
     assertFalse(trigger1.value);
     assertFalse(trigger2.value);
+
+    v1.close();
+    v2.close();
+    allocator.close();
   }
 }

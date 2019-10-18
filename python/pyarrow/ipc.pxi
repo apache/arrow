@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import warnings
+
+
 cdef class Message:
     """
     Container for an Arrow IPC message with metadata and optional body
@@ -60,6 +63,29 @@ cdef class Message:
             result = self.message.get().Equals(deref(other.message.get()))
         return result
 
+    def serialize_to(self, NativeFile sink, alignment=8, memory_pool=None):
+        """
+        Write message to generic OutputStream
+
+        Parameters
+        ----------
+        sink : NativeFile
+        alignment : int, default 8
+            Byte alignment for metadata and body
+        memory_pool : MemoryPool, default None
+            Uses default memory pool if not specified
+        """
+        cdef:
+            int64_t output_length = 0
+            COutputStream* out
+            CIpcOptions options
+
+        options.alignment = alignment
+        out = sink.get_output_stream().get()
+        with nogil:
+            check_status(self.message.get()
+                         .SerializeTo(out, options, &output_length))
+
     def serialize(self, alignment=8, memory_pool=None):
         """
         Write message as encapsulated IPC message
@@ -75,19 +101,14 @@ cdef class Message:
         -------
         serialized : Buffer
         """
-        cdef:
-            BufferOutputStream stream = BufferOutputStream(memory_pool)
-            int64_t output_length = 0
-            int32_t c_alignment = alignment
-
-        handle = stream.get_output_stream()
-        with nogil:
-            check_status(self.message.get()
-                         .SerializeTo(handle.get(), c_alignment,
-                                      &output_length))
+        stream = BufferOutputStream(memory_pool)
+        self.serialize_to(stream, alignment=alignment, memory_pool=memory_pool)
         return stream.getvalue()
 
     def __repr__(self):
+        if self.message == nullptr:
+            return """pyarrow.Message(unitialized)"""
+
         metadata_len = self.metadata.size
         body = self.body
         body_len = 0 if body is None else body.size
@@ -116,9 +137,11 @@ cdef class MessageReader:
 
     @staticmethod
     def open_stream(source):
-        cdef MessageReader result = MessageReader.__new__(MessageReader)
-        cdef shared_ptr[InputStream] in_stream
-        cdef unique_ptr[CMessageReader] reader
+        cdef:
+            MessageReader result = MessageReader.__new__(MessageReader)
+            shared_ptr[CInputStream] in_stream
+            unique_ptr[CMessageReader] reader
+
         _get_input_stream(source, &in_stream)
         with nogil:
             reader = CMessageReader.Open(in_stream)
@@ -182,26 +205,37 @@ cdef class _CRecordBatchWriter:
         """
         with nogil:
             check_status(self.writer.get()
-                         .WriteRecordBatch(deref(batch.batch), 1))
+                         .WriteRecordBatch(deref(batch.batch)))
 
-    def write_table(self, Table table, chunksize=None):
+    def write_table(self, Table table, max_chunksize=None, **kwargs):
         """
-        Write RecordBatch to stream
+        Write Table to stream in (contiguous) RecordBatch objects, with maximum
+        chunk size
 
         Parameters
         ----------
-        batch : RecordBatch
+        table : Table
+        max_chunksize : int, default None
+            Maximum size for RecordBatch chunks. Individual chunks may be
+            smaller depending on the chunk layout of individual columns
         """
         cdef:
-            # Chunksize must be > 0 to have any impact
-            int64_t c_chunksize = -1
+            # max_chunksize must be > 0 to have any impact
+            int64_t c_max_chunksize = -1
 
-        if chunksize is not None:
-            c_chunksize = chunksize
+        if 'chunksize' in kwargs:
+            max_chunksize = kwargs['chunksize']
+            msg = ('The parameter chunksize is deprecated for the write_table '
+                   'methods as of 0.15, please use parameter '
+                   'max_chunksize instead')
+            warnings.warn(msg, FutureWarning)
+
+        if max_chunksize is not None:
+            c_max_chunksize = max_chunksize
 
         with nogil:
             check_status(self.writer.get().WriteTable(table.table[0],
-                                                      c_chunksize))
+                                                      c_max_chunksize))
 
     def close(self):
         """
@@ -219,7 +253,8 @@ cdef class _CRecordBatchWriter:
 
 cdef class _RecordBatchStreamWriter(_CRecordBatchWriter):
     cdef:
-        shared_ptr[OutputStream] sink
+        shared_ptr[COutputStream] sink
+        CIpcOptions options
         bint closed
 
     def __cinit__(self):
@@ -228,28 +263,30 @@ cdef class _RecordBatchStreamWriter(_CRecordBatchWriter):
     def __dealloc__(self):
         pass
 
-    def _open(self, sink, Schema schema):
+    @property
+    def _use_legacy_format(self):
+        return self.options.write_legacy_ipc_format
+
+    def _open(self, sink, Schema schema, use_legacy_format=False):
+        cdef:
+            CResult[shared_ptr[CRecordBatchWriter]] result
+
+        self.options.write_legacy_ipc_format = use_legacy_format
         get_writer(sink, &self.sink)
-
         with nogil:
-            check_status(
-                CRecordBatchStreamWriter.Open(self.sink.get(),
-                                              schema.sp_schema,
-                                              &self.writer))
+            result = CRecordBatchStreamWriter.Open(
+                self.sink.get(), schema.sp_schema, self.options)
+        self.writer = GetResultValue(result)
 
 
-cdef _get_input_stream(object source, shared_ptr[InputStream]* out):
-    cdef:
-        shared_ptr[RandomAccessFile] file_handle
-
+cdef _get_input_stream(object source, shared_ptr[CInputStream]* out):
     try:
         source = as_buffer(source)
     except TypeError:
         # Non-buffer-like
         pass
 
-    get_reader(source, True, &file_handle)
-    out[0] = <shared_ptr[InputStream]> file_handle
+    get_input_stream(source, True, out)
 
 
 cdef class _CRecordBatchReader:
@@ -298,7 +335,7 @@ cdef class _CRecordBatchReader:
 
 cdef class _RecordBatchStreamReader(_CRecordBatchReader):
     cdef:
-        shared_ptr[InputStream] in_stream
+        shared_ptr[CInputStream] in_stream
 
     cdef readonly:
         Schema schema
@@ -317,19 +354,23 @@ cdef class _RecordBatchStreamReader(_CRecordBatchReader):
 
 cdef class _RecordBatchFileWriter(_RecordBatchStreamWriter):
 
-    def _open(self, sink, Schema schema):
-        get_writer(sink, &self.sink)
+    def _open(self, sink, Schema schema, use_legacy_format=False):
+        cdef:
+            CResult[shared_ptr[CRecordBatchWriter]] result
 
+        self.options.write_legacy_ipc_format = use_legacy_format
+        get_writer(sink, &self.sink)
         with nogil:
-            check_status(
-                CRecordBatchFileWriter.Open(self.sink.get(), schema.sp_schema,
-                                            &self.writer))
+            result = CRecordBatchFileWriter.Open(self.sink.get(),
+                                                 schema.sp_schema,
+                                                 self.options)
+        self.writer = GetResultValue(result)
 
 
 cdef class _RecordBatchFileReader:
     cdef:
         shared_ptr[CRecordBatchFileReader] reader
-        shared_ptr[RandomAccessFile] file
+        shared_ptr[CRandomAccessFile] file
 
     cdef readonly:
         Schema schema
@@ -448,7 +489,20 @@ def write_tensor(Tensor tensor, NativeFile dest):
     return metadata_length + body_length
 
 
-def read_tensor(NativeFile source):
+cdef NativeFile as_native_file(source):
+    if not isinstance(source, NativeFile):
+        if hasattr(source, 'read'):
+            source = PythonFile(source)
+        else:
+            source = BufferReader(source)
+
+    if not isinstance(source, NativeFile):
+        raise ValueError('Unable to read message from object with type: {0}'
+                         .format(type(source)))
+    return source
+
+
+def read_tensor(source):
     """Read pyarrow.Tensor from pyarrow.NativeFile object from current
     position. If the file source supports zero copy (e.g. a memory map), then
     this operation does not allocate any memory. This function not assume that
@@ -465,11 +519,12 @@ def read_tensor(NativeFile source):
     """
     cdef:
         shared_ptr[CTensor] sp_tensor
-        RandomAccessFile* rd_file
+        CInputStream* c_stream
+        NativeFile nf = as_native_file(source)
 
-    rd_file = source.get_random_access_file().get()
+    c_stream = nf.get_input_stream().get()
     with nogil:
-        check_status(ReadTensor(rd_file, &sp_tensor))
+        check_status(ReadTensor(c_stream, &sp_tensor))
     return pyarrow_wrap_tensor(sp_tensor)
 
 
@@ -487,24 +542,16 @@ def read_message(source):
     """
     cdef:
         Message result = Message.__new__(Message)
-        NativeFile cpp_file
-        RandomAccessFile* rd_file
+        CInputStream* c_stream
 
-    if not isinstance(source, NativeFile):
-        if hasattr(source, 'read'):
-            source = PythonFile(source)
-        else:
-            source = BufferReader(source)
-
-    if not isinstance(source, NativeFile):
-        raise ValueError('Unable to read message from object with type: {0}'
-                         .format(type(source)))
-
-    cpp_file = source
-    rd_file = cpp_file.get_random_access_file().get()
+    cdef NativeFile nf = as_native_file(source)
+    c_stream = nf.get_input_stream().get()
 
     with nogil:
-        check_status(ReadMessage(rd_file, &result.message))
+        check_status(ReadMessage(c_stream, &result.message))
+
+    if result.message == nullptr:
+        raise EOFError("End of Arrow stream")
 
     return result
 
@@ -526,7 +573,7 @@ def read_schema(obj, DictionaryMemo dictionary_memo=None):
     """
     cdef:
         shared_ptr[CSchema] result
-        shared_ptr[RandomAccessFile] cpp_file
+        shared_ptr[CRandomAccessFile] cpp_file
         CDictionaryMemo temp_memo
         CDictionaryMemo* arg_dict_memo
 
@@ -549,7 +596,8 @@ def read_schema(obj, DictionaryMemo dictionary_memo=None):
 def read_record_batch(obj, Schema schema,
                       DictionaryMemo dictionary_memo=None):
     """
-    Read RecordBatch from message, given a known schema
+    Read RecordBatch from message, given a known schema. If reading data from a
+    complete IPC stream, use ipc.open_stream instead
 
     Parameters
     ----------

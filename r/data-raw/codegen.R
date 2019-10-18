@@ -41,6 +41,7 @@ suppressPackageStartupMessages({
   library(dplyr)
   library(purrr)
   library(glue)
+  library(vctrs)
 })
 
 if (packageVersion("decor") < '0.0.0.9001') {
@@ -53,7 +54,7 @@ decorations <- cpp_decorations() %>%
   # more concisely
   # rap(            ~ decor:::parse_cpp_function(context))
   mutate(functions = map(context, decor:::parse_cpp_function)) %>%
-  { bind_cols(., bind_rows(pull(., functions))) } %>%
+  { vec_cbind(., vec_rbind(!!!pull(., functions))) } %>%
   select(-functions)
 
 message(glue("*** > {n} functions decorated with [[arrow::export]]", n = nrow(decorations)))

@@ -107,6 +107,22 @@ def test_jira_fix_versions():
     assert default_versions == ['0.11.0']
 
 
+def test_jira_no_suggest_patch_release():
+    versions_json = [
+        {'version': '0.11.1', 'released': False},
+        {'version': '0.12.0', 'released': False},
+    ]
+
+    versions = [FakeProjectVersion(raw['version'], raw)
+                for raw in versions_json]
+
+    jira = FakeJIRA(project_versions=versions, transitions=TRANSITIONS)
+    issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
+    all_versions, default_versions = issue.get_candidate_fix_versions()
+    assert all_versions == versions
+    assert default_versions == ['0.12.0']
+
+
 def test_jira_invalid_issue():
     class Mock:
 
@@ -166,6 +182,31 @@ def test_jira_resolve_released_fix_version():
     assert fix_versions_json == [RAW_VERSION_JSON[-1]]
 
 
+def test_multiple_authors_bad_input():
+    a0 = 'Jimbob Crawfish <jimbob.crawfish@gmail.com>'
+    a1 = 'Jarvis McCratchett <jarvis.mccratchett@hotmail.com>'
+    a2 = 'Hank Miller <hank.miller@protonmail.com>'
+    distinct_authors = [a0, a1]
+
+    cmd = FakeCLI(responses=[''])
+    primary_author, new_distinct_authors = merge_arrow_pr.get_primary_author(
+        cmd, distinct_authors)
+    assert primary_author == a0
+    assert new_distinct_authors == [a0, a1]
+
+    cmd = FakeCLI(responses=['oops', a1])
+    primary_author, new_distinct_authors = merge_arrow_pr.get_primary_author(
+        cmd, distinct_authors)
+    assert primary_author == a1
+    assert new_distinct_authors == [a1, a0]
+
+    cmd = FakeCLI(responses=[a2])
+    primary_author, new_distinct_authors = merge_arrow_pr.get_primary_author(
+        cmd, distinct_authors)
+    assert primary_author == a2
+    assert new_distinct_authors == [a2, a0, a1]
+
+
 def test_jira_already_resolved():
     status = FakeStatus('Resolved')
     fields = FakeFields(status, 'issue summary', FakeAssignee('groundhog'),
@@ -188,7 +229,7 @@ def test_jira_output_no_components():
     # ARROW-5472
     status = 'Interesting work'
     components = []
-    output = merge_arrow_pr.format_resolved_issue_status(
+    output = merge_arrow_pr.format_jira_output(
         'ARROW-1234', 'Resolved', status, FakeAssignee('Foo Bar'),
         components)
 
@@ -199,7 +240,7 @@ Components\tNO COMPONENTS!!!
 Status\t\tResolved
 URL\t\thttps://issues.apache.org/jira/browse/ARROW-1234"""
 
-    output = merge_arrow_pr.format_resolved_issue_status(
+    output = merge_arrow_pr.format_jira_output(
         'ARROW-1234', 'Resolved', status, FakeAssignee('Foo Bar'),
         [FakeComponent('C++'), FakeComponent('Python')])
 

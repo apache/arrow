@@ -19,8 +19,8 @@
 #include <memory>
 #include <utility>
 
-#include "arrow/compute/kernels/take-internal.h"
 #include "arrow/compute/kernels/take.h"
+#include "arrow/compute/kernels/take_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 

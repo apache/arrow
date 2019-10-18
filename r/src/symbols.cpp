@@ -25,6 +25,16 @@ SEXP symbols::dot_Internal = Rf_install(".Internal");
 SEXP symbols::inspect = Rf_install("inspect");
 SEXP symbols::row_names = Rf_install("row.names");
 
+SEXP get_classes_POSIXct() {
+  SEXP classes = Rf_allocVector(STRSXP, 2);
+  R_PreserveObject(classes);
+  SET_STRING_ELT(classes, 0, Rf_mkChar("POSIXct"));
+  SET_STRING_ELT(classes, 1, Rf_mkChar("POSIXt"));
+  return classes;
+}
+
+SEXP data::classes_POSIXct = get_classes_POSIXct();
+
 void inspect(SEXP obj) {
   Rcpp::Shield<SEXP> call_inspect(Rf_lang2(symbols::inspect, obj));
   Rcpp::Shield<SEXP> call_internal(Rf_lang2(symbols::dot_Internal, call_inspect));

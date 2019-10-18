@@ -25,6 +25,7 @@ import os
 import shutil
 import string
 import tempfile
+import time
 import unittest
 
 import pytest
@@ -60,6 +61,13 @@ def make_random_csv(num_cols=2, num_rows=10, linesep=u'\r\n'):
     return csv, expected
 
 
+def make_empty_csv(column_names):
+    csv = io.StringIO()
+    csv.write(u",".join(column_names))
+    csv.write(u"\n")
+    return csv.getvalue().encode()
+
+
 def test_read_options():
     cls = ReadOptions
     opts = cls()
@@ -80,12 +88,23 @@ def test_read_options():
     opts.column_names = ["ab", "cd"]
     assert opts.column_names == ["ab", "cd"]
 
+    assert opts.autogenerate_column_names is False
+    opts.autogenerate_column_names = True
+    assert opts.autogenerate_column_names is True
+
     opts = cls(block_size=1234, use_threads=False, skip_rows=42,
                column_names=["a", "b", "c"])
     assert opts.block_size == 1234
     assert opts.use_threads is False
     assert opts.skip_rows == 42
     assert opts.column_names == ["a", "b", "c"]
+    assert opts.autogenerate_column_names is False
+
+    opts = cls(autogenerate_column_names=True)
+    assert opts.use_threads is True
+    assert opts.skip_rows == 0
+    assert opts.column_names == []
+    assert opts.autogenerate_column_names is True
 
 
 def test_parse_options():
@@ -176,15 +195,27 @@ def test_convert_options():
     opts.false_values = ['xxx', 'yyy']
     assert opts.false_values == ['xxx', 'yyy']
 
+    assert opts.include_columns == []
+    opts.include_columns = ['def', 'abc']
+    assert opts.include_columns == ['def', 'abc']
+
+    assert opts.include_missing_columns is False
+    opts.include_missing_columns = True
+    assert opts.include_missing_columns is True
+
     opts = cls(check_utf8=False, column_types={'a': pa.null()},
                null_values=['N', 'nn'], true_values=['T', 'tt'],
-               false_values=['F', 'ff'], strings_can_be_null=True)
+               false_values=['F', 'ff'], strings_can_be_null=True,
+               include_columns=['abc', 'def'],
+               include_missing_columns=True)
     assert opts.check_utf8 is False
     assert opts.column_types == {'a': pa.null()}
     assert opts.null_values == ['N', 'nn']
     assert opts.false_values == ['F', 'ff']
     assert opts.true_values == ['T', 'tt']
     assert opts.strings_can_be_null is True
+    assert opts.include_columns == ['abc', 'def']
+    assert opts.include_missing_columns is True
 
 
 class BaseTestCSVRead:
@@ -304,6 +335,105 @@ class BaseTestCSVRead:
         assert table.to_pydict() == {
             "x": ["ij", "mn"],
             "y": ["kl", "op"],
+            }
+
+    def test_header_autogenerate_column_names(self):
+        rows = b"ab,cd\nef,gh\nij,kl\nmn,op\n"
+
+        opts = ReadOptions()
+        opts.autogenerate_column_names = True
+        table = self.read_bytes(rows, read_options=opts)
+        self.check_names(table, ["f0", "f1"])
+        assert table.to_pydict() == {
+            "f0": ["ab", "ef", "ij", "mn"],
+            "f1": ["cd", "gh", "kl", "op"],
+            }
+
+        opts.skip_rows = 3
+        table = self.read_bytes(rows, read_options=opts)
+        self.check_names(table, ["f0", "f1"])
+        assert table.to_pydict() == {
+            "f0": ["mn"],
+            "f1": ["op"],
+            }
+
+        # Not enough rows, impossible to infer number of columns
+        opts.skip_rows = 4
+        with pytest.raises(pa.ArrowInvalid):
+            table = self.read_bytes(rows, read_options=opts)
+
+    def test_include_columns(self):
+        rows = b"ab,cd\nef,gh\nij,kl\nmn,op\n"
+
+        convert_options = ConvertOptions()
+        convert_options.include_columns = ['ab']
+        table = self.read_bytes(rows, convert_options=convert_options)
+        self.check_names(table, ["ab"])
+        assert table.to_pydict() == {
+            "ab": ["ef", "ij", "mn"],
+            }
+
+        # Order of include_columns is respected, regardless of CSV order
+        convert_options.include_columns = ['cd', 'ab']
+        table = self.read_bytes(rows, convert_options=convert_options)
+        schema = pa.schema([('cd', pa.string()),
+                            ('ab', pa.string())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            "cd": ["gh", "kl", "op"],
+            "ab": ["ef", "ij", "mn"],
+            }
+
+        # Include a column not in the CSV file => raises by default
+        convert_options.include_columns = ['xx', 'ab', 'yy']
+        with pytest.raises(KeyError,
+                           match="Column 'xx' in include_columns "
+                                 "does not exist in CSV file"):
+            self.read_bytes(rows, convert_options=convert_options)
+
+    def test_include_missing_columns(self):
+        rows = b"ab,cd\nef,gh\nij,kl\nmn,op\n"
+
+        read_options = ReadOptions()
+        convert_options = ConvertOptions()
+        convert_options.include_columns = ['xx', 'ab', 'yy']
+        convert_options.include_missing_columns = True
+        table = self.read_bytes(rows, read_options=read_options,
+                                convert_options=convert_options)
+        schema = pa.schema([('xx', pa.null()),
+                            ('ab', pa.string()),
+                            ('yy', pa.null())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            "xx": [None, None, None],
+            "ab": ["ef", "ij", "mn"],
+            "yy": [None, None, None],
+            }
+
+        # Combining with `column_names`
+        read_options.column_names = ["xx", "yy"]
+        convert_options.include_columns = ["yy", "cd"]
+        table = self.read_bytes(rows, read_options=read_options,
+                                convert_options=convert_options)
+        schema = pa.schema([('yy', pa.string()),
+                            ('cd', pa.null())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            "yy": ["cd", "gh", "kl", "op"],
+            "cd": [None, None, None, None],
+            }
+
+        # And with `column_types` as well
+        convert_options.column_types = {"yy": pa.binary(),
+                                        "cd": pa.int32()}
+        table = self.read_bytes(rows, read_options=read_options,
+                                convert_options=convert_options)
+        schema = pa.schema([('yy', pa.binary()),
+                            ('cd', pa.int32())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            "yy": [b"cd", b"gh", b"kl", b"op"],
+            "cd": [None, None, None, None],
             }
 
     def test_simple_ints(self):
@@ -471,6 +601,22 @@ class BaseTestCSVRead:
         assert "In CSV column #1: " in err
         assert "CSV conversion error to float: invalid value 'XXX'" in err
 
+    def test_column_types_with_column_names(self):
+        # When both `column_names` and `column_types` are given, names
+        # in `column_types` should refer to names in `column_names`
+        rows = b"a,b\nc,d\ne,f\n"
+        read_options = ReadOptions(column_names=['x', 'y'])
+        convert_options = ConvertOptions(column_types={'x': pa.binary()})
+        table = self.read_bytes(rows, read_options=read_options,
+                                convert_options=convert_options)
+        schema = pa.schema([('x', pa.binary()),
+                            ('y', pa.string())])
+        assert table.schema == schema
+        assert table.to_pydict() == {
+            'x': [b'a', b'c', b'e'],
+            'y': ['b', 'd', 'f'],
+            }
+
     def test_no_ending_newline(self):
         # No \n after last line
         rows = b"a,b,c\n1,2,3\n4,5,6"
@@ -486,6 +632,27 @@ class BaseTestCSVRead:
         rows = b",\n\n"
         table = self.read_bytes(rows)
         assert table.to_pydict() == {'': []}
+
+    def test_empty_lines(self):
+        rows = b"a,b\n\r1,2\r\n\r\n3,4\r\n"
+        table = self.read_bytes(rows)
+        assert table.to_pydict() == {
+            'a': [1, 3],
+            'b': [2, 4],
+            }
+        parse_options = ParseOptions(ignore_empty_lines=False)
+        table = self.read_bytes(rows, parse_options=parse_options)
+        assert table.to_pydict() == {
+            'a': [None, 1, None, 3],
+            'b': [None, 2, None, 4],
+            }
+        read_options = ReadOptions(skip_rows=2)
+        table = self.read_bytes(rows, parse_options=parse_options,
+                                read_options=read_options)
+        assert table.to_pydict() == {
+            '1': [None, 3],
+            '2': [None, 4],
+            }
 
     def test_invalid_csv(self):
         # Various CSV errors
@@ -534,6 +701,30 @@ class BaseTestCSVRead:
                     # Better error output
                     assert table.to_pydict() == expected.to_pydict()
 
+    def test_stress_convert_options_blowup(self):
+        # ARROW-6481: A convert_options with a very large number of columns
+        # should not blow memory and CPU time.
+        try:
+            clock = time.thread_time
+        except AttributeError:
+            clock = time.time
+        num_columns = 10000
+        col_names = ["K{0}".format(i) for i in range(num_columns)]
+        csv = make_empty_csv(col_names)
+        t1 = clock()
+        convert_options = ConvertOptions(
+            column_types={k: pa.string() for k in col_names[::2]})
+        table = self.read_bytes(csv, convert_options=convert_options)
+        dt = clock() - t1
+        # Check that processing time didn't blow up.
+        # This is a conservative check (it takes less than 300 ms
+        # in debug mode on my local machine).
+        assert dt <= 10.0
+        # Check result
+        assert table.num_columns == num_columns
+        assert table.num_rows == 0
+        assert table.column_names == col_names
+
 
 class TestSerialCSVRead(BaseTestCSVRead, unittest.TestCase):
 
@@ -541,7 +732,7 @@ class TestSerialCSVRead(BaseTestCSVRead, unittest.TestCase):
         read_options = kwargs.setdefault('read_options', ReadOptions())
         read_options.use_threads = False
         table = read_csv(*args, **kwargs)
-        table._validate()
+        table.validate()
         return table
 
 
@@ -551,7 +742,7 @@ class TestParallelCSVRead(BaseTestCSVRead, unittest.TestCase):
         read_options = kwargs.setdefault('read_options', ReadOptions())
         read_options.use_threads = True
         table = read_csv(*args, **kwargs)
-        table._validate()
+        table.validate()
         return table
 
 
@@ -563,16 +754,18 @@ class BaseTestCompressedCSVRead:
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
 
+    def read_csv(self, csv_path):
+        try:
+            return read_csv(csv_path)
+        except pa.ArrowNotImplementedError as e:
+            pytest.skip(str(e))
+
     def test_random_csv(self):
         csv, expected = make_random_csv(num_cols=2, num_rows=100)
         csv_path = os.path.join(self.tmpdir, self.csv_filename)
         self.write_file(csv_path, csv)
-        try:
-            table = read_csv(csv_path)
-        except pa.ArrowNotImplementedError as e:
-            pytest.skip(str(e))
-            return
-        table._validate()
+        table = self.read_csv(csv_path)
+        table.validate()
         assert table.schema == expected.schema
         assert table.equals(expected)
         assert table.to_pydict() == expected.to_pydict()
@@ -584,6 +777,19 @@ class TestGZipCSVRead(BaseTestCompressedCSVRead, unittest.TestCase):
     def write_file(self, path, contents):
         with gzip.open(path, 'wb', 3) as f:
             f.write(contents)
+
+    def test_concatenated(self):
+        # ARROW-5974
+        csv_path = os.path.join(self.tmpdir, self.csv_filename)
+        with gzip.open(csv_path, 'wb', 3) as f:
+            f.write(b"ab,cd\nef,gh\n")
+        with gzip.open(csv_path, 'ab', 3) as f:
+            f.write(b"ij,kl\nmn,op\n")
+        table = self.read_csv(csv_path)
+        assert table.to_pydict() == {
+            'ab': ['ef', 'ij', 'mn'],
+            'cd': ['gh', 'kl', 'op'],
+            }
 
 
 class TestBZ2CSVRead(BaseTestCompressedCSVRead, unittest.TestCase):

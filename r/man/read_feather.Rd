@@ -4,20 +4,39 @@
 \alias{read_feather}
 \title{Read a Feather file}
 \usage{
-read_feather(file, col_select = NULL, as_tibble = TRUE, ...)
+read_feather(file, col_select = NULL, as_data_frame = TRUE, ...)
 }
 \arguments{
-\item{file}{an \code{arrow::ipc::feather::TableReader} or whatever the \code{\link[=FeatherTableReader]{FeatherTableReader()}} function can handle}
+\item{file}{A character file path, a raw vector, or \code{InputStream}, passed to
+\code{FeatherTableReader$create()}.}
 
-\item{col_select}{\link[tidyselect:vars_select]{tidy selection} of columns to read.}
+\item{col_select}{A character vector of column names to keep, as in the
+"select" argument to \code{data.table::fread()}, or a
+\link[tidyselect:vars_select]{tidy selection specification}
+of columns, as used in \code{dplyr::select()}.}
 
-\item{as_tibble}{should the \link[=arrow__Table]{arrow::Table} be converted to a tibble.}
+\item{as_data_frame}{Should the function return a \code{data.frame} or an
+\link[=Table]{arrow::Table}?}
 
 \item{...}{additional parameters}
 }
 \value{
-A \code{data.frame} if \code{as_tibble} is \code{TRUE} (the default), or a \link[=arrow__Table]{arrow::Table} otherwise
+A \code{data.frame} if \code{as_data_frame} is \code{TRUE} (the default), or an
+\link[=Table]{arrow::Table} otherwise
 }
 \description{
 Read a Feather file
+}
+\examples{
+\donttest{
+try({
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  write_feather(iris, tf)
+  df <- read_feather(tf)
+  dim(df)
+  # Can select columns
+  df <- read_feather(tf, col_select = starts_with("Sepal"))
+})
+}
 }

@@ -39,7 +39,7 @@ import io.netty.buffer.ArrowBuf;
  * date values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public class DateMilliVector extends BaseFixedWidthVector {
+public final class DateMilliVector extends BaseFixedWidthVector {
   private static final byte TYPE_WIDTH = 8;
   private final FieldReader reader;
 
@@ -239,18 +239,6 @@ public class DateMilliVector extends BaseFixedWidthVector {
   public void setSafe(int index, DateMilliHolder holder) {
     handleSafe(index);
     set(index, holder);
-  }
-
-  /**
-   * Set the element at the given index to null.
-   *
-   * @param index   position of element
-   */
-  public void setNull(int index) {
-    handleSafe(index);
-    // not really needed to set the bit to 0 as long as
-    // the buffer always starts from 0.
-    BitVectorHelper.setValidityBit(validityBuffer, index, 0);
   }
 
   /**

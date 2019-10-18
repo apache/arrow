@@ -31,7 +31,12 @@ namespace arrow {
 
 struct SparseTensorFormat {
   /// EXPERIMENTAL: The index format type of SparseTensor
-  enum type { COO, CSR };
+  enum type {
+    /// Coordinate list (COO) format.
+    COO,
+    /// Compressed sparse row (CSR) format.
+    CSR
+  };
 };
 
 /// \brief EXPERIMENTAL: The base class for the index of a sparse tensor
@@ -81,15 +86,18 @@ class SparseIndexBase : public SparseIndex {
 /// coordinates.
 class ARROW_EXPORT SparseCOOIndex : public internal::SparseIndexBase<SparseCOOIndex> {
  public:
-  using CoordsTensor = NumericTensor<Int64Type>;
-
   static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::COO;
 
-  // Constructor with a column-major NumericTensor
-  explicit SparseCOOIndex(const std::shared_ptr<CoordsTensor>& coords);
+  /// \brief Construct SparseCOOIndex from column-major NumericTensor
+  explicit SparseCOOIndex(const std::shared_ptr<Tensor>& coords);
 
   /// \brief Return a tensor that has the coordinates of the non-zero values
-  const std::shared_ptr<CoordsTensor>& indices() const { return coords_; }
+  ///
+  /// The returned tensor is a Nx3 tensor where N is the number of non-zero
+  /// values.  Each 3-element column has the form `{row, column, index}`,
+  /// indicating that the value for the logical element at `{row, column}`
+  /// should be found at the given physical index.
+  const std::shared_ptr<Tensor>& indices() const { return coords_; }
 
   /// \brief Return a string representation of the sparse index
   std::string ToString() const override;
@@ -100,7 +108,7 @@ class ARROW_EXPORT SparseCOOIndex : public internal::SparseIndexBase<SparseCOOIn
   }
 
  protected:
-  std::shared_ptr<CoordsTensor> coords_;
+  std::shared_ptr<Tensor> coords_;
 };
 
 // ----------------------------------------------------------------------
@@ -120,19 +128,17 @@ class ARROW_EXPORT SparseCOOIndex : public internal::SparseIndexBase<SparseCOOIn
 /// as the number of non-zero-values.
 class ARROW_EXPORT SparseCSRIndex : public internal::SparseIndexBase<SparseCSRIndex> {
  public:
-  using IndexTensor = NumericTensor<Int64Type>;
-
   static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::CSR;
 
-  // Constructor with two index vectors
-  explicit SparseCSRIndex(const std::shared_ptr<IndexTensor>& indptr,
-                          const std::shared_ptr<IndexTensor>& indices);
+  /// \brief Construct SparseCSRIndex from two index vectors
+  explicit SparseCSRIndex(const std::shared_ptr<Tensor>& indptr,
+                          const std::shared_ptr<Tensor>& indices);
 
   /// \brief Return a 1D tensor of indptr vector
-  const std::shared_ptr<IndexTensor>& indptr() const { return indptr_; }
+  const std::shared_ptr<Tensor>& indptr() const { return indptr_; }
 
   /// \brief Return a 1D tensor of indices vector
-  const std::shared_ptr<IndexTensor>& indices() const { return indices_; }
+  const std::shared_ptr<Tensor>& indices() const { return indices_; }
 
   /// \brief Return a string representation of the sparse index
   std::string ToString() const override;
@@ -143,8 +149,8 @@ class ARROW_EXPORT SparseCSRIndex : public internal::SparseIndexBase<SparseCSRIn
   }
 
  protected:
-  std::shared_ptr<IndexTensor> indptr_;
-  std::shared_ptr<IndexTensor> indices_;
+  std::shared_ptr<Tensor> indptr_;
+  std::shared_ptr<Tensor> indices_;
 };
 
 // ----------------------------------------------------------------------
@@ -222,6 +228,7 @@ namespace internal {
 ARROW_EXPORT
 void MakeSparseTensorFromTensor(const Tensor& tensor,
                                 SparseTensorFormat::type sparse_format_id,
+                                const std::shared_ptr<DataType>& index_value_type,
                                 std::shared_ptr<SparseIndex>* sparse_index,
                                 std::shared_ptr<Buffer>* data);
 
@@ -234,37 +241,42 @@ class SparseTensorImpl : public SparseTensor {
  public:
   virtual ~SparseTensorImpl() = default;
 
-  // Constructor with all attributes
+  /// \brief Construct a sparse tensor from physical data buffer and logical index
   SparseTensorImpl(const std::shared_ptr<SparseIndexType>& sparse_index,
                    const std::shared_ptr<DataType>& type,
                    const std::shared_ptr<Buffer>& data, const std::vector<int64_t>& shape,
                    const std::vector<std::string>& dim_names)
       : SparseTensor(type, data, shape, sparse_index, dim_names) {}
 
-  // Constructor for empty sparse tensor
+  /// \brief Construct an empty sparse tensor
   SparseTensorImpl(const std::shared_ptr<DataType>& type,
                    const std::vector<int64_t>& shape,
                    const std::vector<std::string>& dim_names = {})
       : SparseTensorImpl(NULLPTR, type, NULLPTR, shape, dim_names) {}
 
-  // Constructor with a dense tensor
-  explicit SparseTensorImpl(const Tensor& tensor)
+  /// \brief Construct a sparse tensor from a dense tensor
+  ///
+  /// The dense tensor is re-encoded as a sparse index and a physical
+  /// data buffer for the non-zero value.
+  SparseTensorImpl(const Tensor& tensor,
+                   const std::shared_ptr<DataType>& index_value_type)
       : SparseTensorImpl(NULLPTR, tensor.type(), NULLPTR, tensor.shape(),
                          tensor.dim_names_) {
     internal::MakeSparseTensorFromTensor(tensor, SparseIndexType::format_id,
-                                         &sparse_index_, &data_);
+                                         index_value_type, &sparse_index_, &data_);
   }
+
+  explicit SparseTensorImpl(const Tensor& tensor) : SparseTensorImpl(tensor, int64()) {}
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(SparseTensorImpl);
 };
 
 /// \brief EXPERIMENTAL: Type alias for COO sparse tensor
-using SparseTensorCOO = SparseTensorImpl<SparseCOOIndex>;
+using SparseCOOTensor = SparseTensorImpl<SparseCOOIndex>;
 
 /// \brief EXPERIMENTAL: Type alias for CSR sparse matrix
-using SparseTensorCSR = SparseTensorImpl<SparseCSRIndex>;
-using SparseMatrixCSR = SparseTensorImpl<SparseCSRIndex>;
+using SparseCSRMatrix = SparseTensorImpl<SparseCSRIndex>;
 
 }  // namespace arrow
 

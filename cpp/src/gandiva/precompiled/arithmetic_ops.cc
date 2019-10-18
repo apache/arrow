@@ -93,14 +93,16 @@ NUMERIC_DATE_TYPES(BINARY_RELATIONAL, greater_than_or_equal_to, >=)
 // cast fns : takes one param type, returns another type.
 #define CAST_UNARY(NAME, IN_TYPE, OUT_TYPE) \
   FORCE_INLINE                              \
-  OUT_TYPE NAME##_##IN_TYPE(IN_TYPE in) { return (OUT_TYPE)in; }
+  OUT_TYPE NAME##_##IN_TYPE(IN_TYPE in) { return static_cast<OUT_TYPE>(in); }
 
 CAST_UNARY(castBIGINT, int32, int64)
+CAST_UNARY(castINT, int64, int32)
 CAST_UNARY(castFLOAT4, int32, float32)
 CAST_UNARY(castFLOAT4, int64, float32)
 CAST_UNARY(castFLOAT8, int32, float64)
 CAST_UNARY(castFLOAT8, int64, float64)
 CAST_UNARY(castFLOAT8, float32, float64)
+CAST_UNARY(castFLOAT4, float64, float32)
 
 // simple nullable functions, result value = fn(input validity)
 #define VALIDITY_OP(NAME, TYPE, OP) \

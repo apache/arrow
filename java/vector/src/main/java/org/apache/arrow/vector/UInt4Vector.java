@@ -36,7 +36,7 @@ import io.netty.buffer.ArrowBuf;
  * integer values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public class UInt4Vector extends BaseFixedWidthVector implements BaseIntVector {
+public final class UInt4Vector extends BaseFixedWidthVector implements BaseIntVector {
   private static final byte TYPE_WIDTH = 4;
   private final FieldReader reader;
 
@@ -84,7 +84,7 @@ public class UInt4Vector extends BaseFixedWidthVector implements BaseIntVector {
    */
   public static long getNoOverflow(final ArrowBuf buffer, final int index) {
     long l =  buffer.getInt(index * TYPE_WIDTH);
-    return ((long)0xFFFFFFFF) & l;
+    return (0x00000000FFFFFFFFL) & l;
   }
 
   /**
@@ -234,18 +234,6 @@ public class UInt4Vector extends BaseFixedWidthVector implements BaseIntVector {
   public void setSafe(int index, UInt4Holder holder) {
     handleSafe(index);
     set(index, holder);
-  }
-
-  /**
-   * Set the element at the given index to null.
-   *
-   * @param index   position of element
-   */
-  public void setNull(int index) {
-    handleSafe(index);
-    // not really needed to set the bit to 0 as long as
-    // the buffer always starts from 0.
-    BitVectorHelper.setValidityBit(validityBuffer, index, 0);
   }
 
   /**

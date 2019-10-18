@@ -28,12 +28,16 @@ import java.util.List;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
+import org.apache.arrow.memory.util.ByteFunctionHelpers;
+import org.apache.arrow.memory.util.hash.ArrowBufHasher;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.BufferBacked;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
+import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.complex.impl.UnionListReader;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
@@ -61,7 +65,7 @@ import io.netty.buffer.ArrowBuf;
  * </ol>
  * The latter two are managed by its superclass.
  */
-public class ListVector extends BaseRepeatedValueVector implements FieldVector, PromotableVector {
+public class ListVector extends BaseRepeatedValueVector implements PromotableVector {
 
   public static ListVector empty(String name, BufferAllocator allocator) {
     return new ListVector(name, allocator, FieldType.nullable(ArrowType.List.INSTANCE), null);
@@ -331,14 +335,15 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
   }
 
   /**
-   * Same as {@link #copyFrom(int, int, ListVector)} except that
+   * Same as {@link #copyFrom(int, int, ValueVector)} except that
    * it handles the case when the capacity of the vector needs to be expanded
    * before copy.
    * @param inIndex position to copy from in source vector
    * @param outIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFromSafe(int inIndex, int outIndex, ListVector from) {
+  @Override
+  public void copyFromSafe(int inIndex, int outIndex, ValueVector from) {
     copyFrom(inIndex, outIndex, from);
   }
 
@@ -349,7 +354,9 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
    * @param outIndex position to copy to in this vector
    * @param from source vector
    */
-  public void copyFrom(int inIndex, int outIndex, ListVector from) {
+  @Override
+  public void copyFrom(int inIndex, int outIndex, ValueVector from) {
+    Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
     FieldReader in = from.getReader();
     in.setPosition(inIndex);
     FieldWriter out = getWriter();
@@ -413,6 +420,11 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
 
   @Override
   public int hashCode(int index) {
+    return hashCode(index, null);
+  }
+
+  @Override
+  public int hashCode(int index, ArrowBufHasher hasher) {
     if (isSet(index) == 0) {
       return 0;
     }
@@ -420,38 +432,14 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     final int start = offsetBuffer.getInt(index * OFFSET_WIDTH);
     final int end = offsetBuffer.getInt((index + 1) * OFFSET_WIDTH);
     for (int i = start; i < end; i++) {
-      hash = 31 * vector.hashCode(i);
+      hash = ByteFunctionHelpers.combineHash(hash, vector.hashCode(i, hasher));
     }
     return hash;
   }
 
   @Override
-  public boolean equals(int index, ValueVector to, int toIndex) {
-    if (to == null) {
-      return false;
-    }
-    if (this.getClass() != to.getClass()) {
-      return false;
-    }
-
-    ListVector that = (ListVector) to;
-    final int leftStart = offsetBuffer.getInt(index * OFFSET_WIDTH);
-    final int leftEnd = offsetBuffer.getInt((index + 1) * OFFSET_WIDTH);
-
-    final int rightStart = that.offsetBuffer.getInt(toIndex * OFFSET_WIDTH);
-    final int rightEnd = that.offsetBuffer.getInt((toIndex + 1) * OFFSET_WIDTH);
-
-    if ((leftEnd - leftStart) != (rightEnd - rightStart)) {
-      return false;
-    }
-
-    for (int i = 0; i < (leftEnd - leftStart); i++) {
-      if (!vector.equals(leftStart + i, that.vector, rightStart + i)) {
-        return false;
-      }
-    }
-
-    return true;
+  public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
+    return visitor.visit(this, value);
   }
 
   private class TransferImpl implements TransferPair {
@@ -498,6 +486,7 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
      */
     @Override
     public void splitAndTransfer(int startIndex, int length) {
+      Preconditions.checkArgument(startIndex + length <= valueCount);
       final int startPoint = offsetBuffer.getInt(startIndex * OFFSET_WIDTH);
       final int sliceLength = offsetBuffer.getInt((startIndex + length) * OFFSET_WIDTH) - startPoint;
       to.clear();
@@ -519,7 +508,6 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
      * transfer the validity.
      */
     private void splitAndTransferValidityBuffer(int startIndex, int length, ListVector target) {
-      assert startIndex + length <= valueCount;
       int firstByteSource = BitVectorHelper.byteIndex(startIndex);
       int lastByteSource = BitVectorHelper.byteIndex(valueCount - 1);
       int byteSizeTarget = getValidityBufferSizeFromCount(length);
@@ -613,6 +601,16 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
     final int offsetBufferSize = (valueCount + 1) * OFFSET_WIDTH;
     final int validityBufferSize = getValidityBufferSizeFromCount(valueCount);
     return offsetBufferSize + validityBufferSize + vector.getBufferSize();
+  }
+
+  @Override
+  public int getBufferSizeFor(int valueCount) {
+    if (valueCount == 0) {
+      return 0;
+    }
+    final int validityBufferSize = getValidityBufferSizeFromCount(valueCount);
+
+    return super.getBufferSizeFor(valueCount) + validityBufferSize;
   }
 
   @Override
@@ -836,5 +834,15 @@ public class ListVector extends BaseRepeatedValueVector implements FieldVector, 
 
   public int getLastSet() {
     return lastSet;
+  }
+
+  @Override
+  public int getElementStartIndex(int index) {
+    return offsetBuffer.getInt(index * OFFSET_WIDTH);
+  }
+
+  @Override
+  public int getElementEndIndex(int index) {
+    return offsetBuffer.getInt((index + 1) * OFFSET_WIDTH);
   }
 }

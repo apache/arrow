@@ -19,26 +19,55 @@ package org.apache.arrow.consumers;
 
 import java.io.IOException;
 
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.Float4Vector;
-import org.apache.arrow.vector.complex.impl.Float4WriterImpl;
-import org.apache.arrow.vector.complex.writer.Float4Writer;
 import org.apache.avro.io.Decoder;
 
 /**
  * Consumer which consume float type values from avro decoder.
  * Write the data to {@link Float4Vector}.
  */
-public class AvroFloatConsumer implements Consumer {
+public class AvroFloatConsumer implements Consumer<Float4Vector> {
 
-  private final Float4Writer writer;
+  private Float4Vector vector;
 
+  private int currentIndex;
+
+  /**
+   * Instantiate a AvroFloatConsumer.
+   */
   public AvroFloatConsumer(Float4Vector vector) {
-    this.writer = new Float4WriterImpl(vector);
+    this.vector = vector;
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    writer.writeFloat4(decoder.readFloat());
-    writer.setPosition(writer.getPosition() + 1);
+    vector.setSafe(currentIndex++, decoder.readFloat());
+  }
+
+  @Override
+  public void addNull() {
+    currentIndex++;
+  }
+
+  @Override
+  public void setPosition(int index) {
+    currentIndex = index;
+  }
+
+  @Override
+  public FieldVector getVector() {
+    return this.vector;
+  }
+
+  @Override
+  public void close() throws Exception {
+    vector.close();
+  }
+
+  @Override
+  public void resetValueVector(Float4Vector vector) {
+    this.vector = vector;
+    this.currentIndex = 0;
   }
 }

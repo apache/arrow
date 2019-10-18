@@ -1,27 +1,9 @@
 ## Test environments
-* local OS X install, R 3.5.3
-* win-builder (devel and release)
+* Debian Linux, R-devel, GCC ASAN/UBSAN
+* Ubuntu Linux 16.04 LTS, R-release, GCC
+* win-builder (R-devel and R-release)
+* macOS (10.11, 10.14), R-release
 
 ## R CMD check results
 
-0 errors | 0 warnings | 1 note
-
-* This is a new release.
-
-## Platform support
-
-This package supports Windows and macOS but not Linux.
-
-The Arrow project is cross-language development platform
-for in-memory data, it spans several languages and
-their code base is quite large (about 150K lines of C
-sources and more than 600K lines across all languages).
-
-In the future, the Apache Arrow project will release
-binaries in the official Fedora and Debian repos;
-we're working on hard on this, but due to the size,
-this is likely to be implemented until next year.
-
-In the meantime, R users can install the Linux binaries
-from custom repos or build Arrow from source when using
-Linux.
+There were no ERRORs or WARNINGs. On some platforms, there is a NOTE about the installed package size.

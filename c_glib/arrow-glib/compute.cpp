@@ -25,6 +25,7 @@
 
 #include <arrow-glib/array.hpp>
 #include <arrow-glib/compute.hpp>
+#include <arrow-glib/chunked-array.hpp>
 #include <arrow-glib/data-type.hpp>
 #include <arrow-glib/enums.h>
 #include <arrow-glib/error.hpp>
@@ -1377,6 +1378,141 @@ garrow_double_array_compare(GArrowDoubleArray *array,
                                       "[double-array][compare]");
 }
 
+/**
+ * garrow_array_filter:
+ * @array: A #GArrowArray.
+ * @filter: The values indicates which values should be filtered out.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowArray filterd
+ *   with a boolean selection filter. Nulls in the filter will
+ *   result in nulls in the output.
+ *
+ * Since: 0.15.0
+ */
+GArrowArray *
+garrow_array_filter(GArrowArray *array,
+                    GArrowBooleanArray *filter,
+                    GError **error)
+{
+  auto arrow_array = garrow_array_get_raw(array);
+  auto arrow_array_raw = arrow_array.get();
+  auto arrow_filter = garrow_array_get_raw(GARROW_ARRAY(filter));
+  auto arrow_filter_raw = arrow_filter.get();
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  std::shared_ptr<arrow::Array> arrow_filtered_array;
+  auto status = arrow::compute::Filter(&context,
+                                       *arrow_array_raw,
+                                       *arrow_filter_raw,
+                                       &arrow_filtered_array);
+  if (garrow_error_check(error, status, "[array][filter]")) {
+    return garrow_array_new_raw(&arrow_filtered_array);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_array_is_in:
+ * @left: A left hand side #GArrowArray.
+ * @right: A right hand side #GArrowArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowBooleanArray
+ *   showing whether each element in the left array is contained
+ *   in right array.
+ *
+ * Since: 0.15.0
+ */
+GArrowBooleanArray *
+garrow_array_is_in(GArrowArray *left,
+                   GArrowArray *right,
+                   GError **error)
+{
+  auto arrow_left = garrow_array_get_raw(left);
+  auto arrow_left_datum = arrow::compute::Datum(arrow_left);
+  auto arrow_right = garrow_array_get_raw(right);
+  auto arrow_right_datum = arrow::compute::Datum(arrow_right);
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  arrow::compute::Datum arrow_datum;
+  auto status = arrow::compute::IsIn(&context,
+                                     arrow_left_datum,
+                                     arrow_right_datum,
+                                     &arrow_datum);
+  if (garrow_error_check(error, status, "[array][is-in]")) {
+    auto arrow_array = arrow_datum.make_array();
+    return GARROW_BOOLEAN_ARRAY(garrow_array_new_raw(&arrow_array));
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_array_is_in_chunked_array:
+ * @left: A left hand side #GArrowArray.
+ * @right: A right hand side #GArrowChunkedArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowBooleanArray
+ *   showing whether each element in the left array is contained
+ *   in right chunked array.
+ *
+ * Since: 0.15.0
+ */
+GArrowBooleanArray *
+garrow_array_is_in_chunked_array(GArrowArray *left,
+                                 GArrowChunkedArray *right,
+                                 GError **error)
+{
+  auto arrow_left = garrow_array_get_raw(left);
+  auto arrow_left_datum = arrow::compute::Datum(arrow_left);
+  auto arrow_right = garrow_chunked_array_get_raw(right);
+  auto arrow_right_datum = arrow::compute::Datum(arrow_right);
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  arrow::compute::Datum arrow_datum;
+  auto status = arrow::compute::IsIn(&context,
+                                     arrow_left_datum,
+                                     arrow_right_datum,
+                                     &arrow_datum);
+  if (garrow_error_check(error, status, "[array][is-in-chunked-array]")) {
+    auto arrow_array = arrow_datum.make_array();
+    return GARROW_BOOLEAN_ARRAY(garrow_array_new_raw(&arrow_array));
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_array_sort_to_indices:
+ * @array: A #GArrowArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The indices that would sort
+ *   an array on success, %NULL on error.
+ *
+ * Since: 0.15.0
+ */
+GArrowUInt64Array *
+garrow_array_sort_to_indices(GArrowArray *array,
+                             GError **error)
+{
+  auto arrow_array = garrow_array_get_raw(array);
+  auto arrow_array_raw = arrow_array.get();
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  std::shared_ptr<arrow::Array> arrow_indices;
+  auto status = arrow::compute::SortToIndices(&context,
+                                              *arrow_array_raw,
+                                              &arrow_indices);
+  if (garrow_error_check(error, status, "[array][sort-to-indices]")) {
+    return GARROW_UINT64_ARRAY(garrow_array_new_raw(&arrow_indices));
+  } else {
+    return NULL;
+  }
+}
 
 G_END_DECLS
 

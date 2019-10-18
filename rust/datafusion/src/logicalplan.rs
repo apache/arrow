@@ -15,7 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Logical query plan
+//! This module provides a logical query plan enum that can describe queries. Logical query
+//! plans can be created from a SQL statement or built programmatically via the Table API.
+//!
+//! Logical query plans can then be optimized and executed directly, or translated into
+//! physical query plans and executed.
 
 use std::fmt;
 use std::sync::Arc;
@@ -571,15 +575,15 @@ pub fn can_coerce_from(type_into: &DataType, type_from: &DataType) -> bool {
             _ => false,
         },
         Int16 => match type_from {
-            Int8 | Int16 => true,
+            Int8 | Int16 | UInt8 => true,
             _ => false,
         },
         Int32 => match type_from {
-            Int8 | Int16 | Int32 => true,
+            Int8 | Int16 | Int32 | UInt8 | UInt16 => true,
             _ => false,
         },
         Int64 => match type_from {
-            Int8 | Int16 | Int32 | Int64 => true,
+            Int8 | Int16 | Int32 | Int64 | UInt8 | UInt16 | UInt32 => true,
             _ => false,
         },
         UInt8 => match type_from {
@@ -637,5 +641,4 @@ mod tests {
             println!("plan: {:?}", plan1);
         });
     }
-
 }

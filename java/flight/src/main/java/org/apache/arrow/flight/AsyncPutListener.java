@@ -44,8 +44,10 @@ public class AsyncPutListener implements FlightClient.PutListener {
   public final void getResult() {
     try {
       completed.get();
-    } catch (InterruptedException | ExecutionException e) {
-      throw new RuntimeException(e);
+    } catch (ExecutionException e) {
+      throw StatusUtils.fromThrowable(e.getCause());
+    } catch (InterruptedException e) {
+      throw StatusUtils.fromThrowable(e);
     }
   }
 

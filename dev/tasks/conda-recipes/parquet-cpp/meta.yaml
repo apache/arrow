@@ -24,14 +24,14 @@ test:
     - test -f $PREFIX/include/parquet/api/reader.h               # [unix]
     - if not exist %LIBRARY_INC%\\parquet\\api\\reader.h exit 1  # [win]
 
-    # static
-    - test -f $PREFIX/lib/libparquet.a                                # [unix]
-    - if not exist %PREFIX%\\Library\\lib\\parquet_static.lib exit 1  # [win]
-
     # shared
     - test -f $PREFIX/lib/libparquet.so                        # [linux]
     - test -f $PREFIX/lib/libparquet.dylib                     # [osx]
     - if not exist %PREFIX%\\Library\\bin\\parquet.dll exit 1  # [win]
+
+    # absence of static libraries
+    - test ! -f $PREFIX/lib/libparquet.a                          # [unix]
+    - if exist %PREFIX%\\Library\\lib\\parquet_static.lib exit 1  # [win]
 
 about:
   home: http://github.com/apache/arrow

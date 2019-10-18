@@ -36,7 +36,7 @@ module Helper
                    "-s", socket_path)
       until File.exist?(socket_path)
         if Process.waitpid(@pid, Process::WNOHANG)
-          raise "Failed to run plasma_store_server: #{@path}"
+          raise "Failed to run plasma-store-server: #{@path}"
         end
       end
     end

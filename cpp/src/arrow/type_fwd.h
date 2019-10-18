@@ -20,10 +20,15 @@
 
 #include <memory>
 
-#include "arrow/util/iterator.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+template <typename T>
+class Iterator;
+
+template <typename T>
+class Result;
 
 class Status;
 
@@ -89,6 +94,11 @@ class ListType;
 class ListArray;
 class ListBuilder;
 struct ListScalar;
+
+class LargeListType;
+class LargeListArray;
+class LargeListBuilder;
+struct LargeListScalar;
 
 class MapType;
 class MapArray;

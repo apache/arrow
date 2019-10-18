@@ -43,8 +43,6 @@ add_arrow_lib(arrow_cuda
               ${ARROW_CUDA_SRCS}
               OUTPUTS
               ARROW_CUDA_LIBRARIES
-              DEPENDENCIES
-              metadata_fbs
               SHARED_LINK_FLAGS
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
@@ -71,11 +69,11 @@ arrow_add_pkg_config("arrow-cuda")
 set(ARROW_CUDA_TEST_LINK_LIBS arrow_cuda_shared ${ARROW_TEST_LINK_LIBS})
 
 if(ARROW_BUILD_TESTS)
-  add_arrow_test(cuda-test STATIC_LINK_LIBS ${ARROW_CUDA_TEST_LINK_LIBS} NO_VALGRIND)
+  add_arrow_test(cuda_test STATIC_LINK_LIBS ${ARROW_CUDA_TEST_LINK_LIBS} NO_VALGRIND)
 endif()
 
 if(ARROW_BUILD_BENCHMARKS)
-  cuda_add_executable(arrow-cuda-benchmark cuda-benchmark.cc)
+  cuda_add_executable(arrow-cuda-benchmark cuda_benchmark.cc)
   target_link_libraries(arrow-cuda-benchmark arrow_cuda_shared GTest::GTest
                         ${ARROW_BENCHMARK_LINK_LIBS})
   add_dependencies(arrow_cuda-benchmarks arrow-cuda-benchmark)

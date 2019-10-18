@@ -26,6 +26,11 @@ import org.apache.arrow.vector.ValueVector;
 public final class VectorSearcher {
 
   /**
+   * Result returned when a search fails.
+   */
+  public static final int SEARCH_FAIL_RESULT = -1;
+
+  /**
    * Search for a particular element from the key vector in the target vector by binary search.
    * The target vector must be sorted.
    * @param targetVector the vector from which to perform the sort.
@@ -44,13 +49,7 @@ public final class VectorSearcher {
     int high = targetVector.getValueCount() - 1;
 
     while (low <= high) {
-      int mid = (high + low) / 2;
-
-      if (mid < 0) {
-        // overflow has occurred, so calculate the mid by converting to long first
-        mid = (int) (((long) high + (long) low) / 2L);
-      }
-
+      int mid = low + (high - low) / 2;
       int cmp = comparator.compare(keyIndex, mid);
       if (cmp < 0) {
         high = mid - 1;
@@ -60,7 +59,7 @@ public final class VectorSearcher {
         return mid;
       }
     }
-    return -1;
+    return SEARCH_FAIL_RESULT;
   }
 
   /**
@@ -80,7 +79,7 @@ public final class VectorSearcher {
         return i;
       }
     }
-    return -1;
+    return SEARCH_FAIL_RESULT;
   }
 
   private VectorSearcher() {

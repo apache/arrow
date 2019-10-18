@@ -23,7 +23,7 @@
 #include <string>
 #include <vector>
 
-#include "parquet/metadata.h"  // IWYU pragma:: keep
+#include "parquet/metadata.h"  // IWYU pragma: keep
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 

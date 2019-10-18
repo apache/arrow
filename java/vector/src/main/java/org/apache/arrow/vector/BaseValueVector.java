@@ -26,6 +26,7 @@ import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.util.TransferPair;
+import org.apache.arrow.vector.util.ValueVectorUtility;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,11 +56,15 @@ public abstract class BaseValueVector implements ValueVector {
     this.allocator = Preconditions.checkNotNull(allocator, "allocator cannot be null");
   }
 
+  @Override
   public abstract String getName();
 
+  /**
+   * Representation of vector suitable for debugging.
+   */
   @Override
   public String toString() {
-    return super.toString() + "[name = " + getName() + ", ...]";
+    return ValueVectorUtility.getToString(this, 0, getValueCount());
   }
 
   @Override
@@ -212,6 +217,16 @@ public abstract class BaseValueVector implements ValueVector {
   public static ArrowBuf transferBuffer(final ArrowBuf srcBuffer, final BufferAllocator targetAllocator) {
     final ReferenceManager referenceManager = srcBuffer.getReferenceManager();
     return referenceManager.transferOwnership(srcBuffer, targetAllocator).getTransferredBuffer();
+  }
+
+  @Override
+  public void copyFrom(int fromIndex, int thisIndex, ValueVector from) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void copyFromSafe(int fromIndex, int thisIndex, ValueVector from) {
+    throw new UnsupportedOperationException();
   }
 }
 

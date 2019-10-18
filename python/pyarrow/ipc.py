@@ -60,19 +60,26 @@ class RecordBatchStreamReader(lib._RecordBatchStreamReader, _ReadPandasOption):
         self._open(source)
 
 
-class RecordBatchStreamWriter(lib._RecordBatchStreamWriter):
-    """
-    Writer for the Arrow streaming binary format
+_ipc_writer_class_doc = """\
+Parameters
+----------
+sink : str, pyarrow.NativeFile, or file-like Python object
+    Either a file path, or a writable file object
+schema : pyarrow.Schema
+    The Arrow schema for data to be written to the file
+use_legacy_format : boolean, default None
+    If None, use True unless overridden by ARROW_PRE_0_15_IPC_FORMAT=1
+    environment variable"""
 
-    Parameters
-    ----------
-    sink : str, pyarrow.NativeFile, or file-like Python object
-        Either a file path, or a writable file object
-    schema : pyarrow.Schema
-        The Arrow schema for data to be written to the file
-    """
-    def __init__(self, sink, schema):
-        self._open(sink, schema)
+
+class RecordBatchStreamWriter(lib._RecordBatchStreamWriter):
+    __doc__ = """Writer for the Arrow streaming binary format
+
+{}""".format(_ipc_writer_class_doc)
+
+    def __init__(self, sink, schema, use_legacy_format=None):
+        use_legacy_format = _get_legacy_format_default(use_legacy_format)
+        self._open(sink, schema, use_legacy_format=use_legacy_format)
 
 
 class RecordBatchFileReader(lib._RecordBatchFileReader, _ReadPandasOption):
@@ -92,18 +99,22 @@ class RecordBatchFileReader(lib._RecordBatchFileReader, _ReadPandasOption):
 
 
 class RecordBatchFileWriter(lib._RecordBatchFileWriter):
-    """
-    Writer to create the Arrow binary file format
 
-    Parameters
-    ----------
-    sink : str, pyarrow.NativeFile, or file-like Python object
-        Either a file path, or a writable file object
-    schema : pyarrow.Schema
-        The Arrow schema for data to be written to the file
-    """
-    def __init__(self, sink, schema):
-        self._open(sink, schema)
+    __doc__ = """Writer to create the Arrow binary file format
+
+{}""".format(_ipc_writer_class_doc)
+
+    def __init__(self, sink, schema, use_legacy_format=None):
+        use_legacy_format = _get_legacy_format_default(use_legacy_format)
+        self._open(sink, schema, use_legacy_format=use_legacy_format)
+
+
+def _get_legacy_format_default(use_legacy_format):
+    if use_legacy_format is None:
+        import os
+        return bool(int(os.environ.get('ARROW_PRE_0_15_IPC_FORMAT', '0')))
+    else:
+        return use_legacy_format
 
 
 def open_stream(source):

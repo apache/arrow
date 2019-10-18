@@ -61,7 +61,7 @@ Exposing Apache Arrow data on the wire.
     ```
     mkdir target/generated-python
     pip install grpcio-tools # or conda install grpcio
-    python -m grpc_tools.protoc -I./src/main/protobuf/ --python_out=./target/generated-python --grpc_python_out=./target/generated-python src/main/protobuf/flight.proto
+    python -m grpc_tools.protoc -I./src/main/protobuf/ --python_out=./target/generated-python --grpc_python_out=./target/generated-python ../../format/Flight.proto
     ```
 
 * Connect to the Flight Service

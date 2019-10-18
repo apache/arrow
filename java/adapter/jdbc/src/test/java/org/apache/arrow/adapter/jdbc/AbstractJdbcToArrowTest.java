@@ -35,6 +35,26 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
  * Class to abstract out some common test functionality for testing JDBC to Arrow.
  */
 public abstract class AbstractJdbcToArrowTest {
+
+  protected static final String BIGINT = "BIGINT_FIELD5";
+  protected static final String BINARY = "BINARY_FIELD12";
+  protected static final String BIT = "BIT_FIELD17";
+  protected static final String BLOB = "BLOB_FIELD14";
+  protected static final String BOOL = "BOOL_FIELD2";
+  protected static final String CHAR = "CHAR_FIELD16";
+  protected static final String CLOB = "CLOB_FIELD15";
+  protected static final String DATE = "DATE_FIELD10";
+  protected static final String DECIMAL = "DECIMAL_FIELD6";
+  protected static final String DOUBLE = "DOUBLE_FIELD7";
+  protected static final String INT = "INT_FIELD1";
+  protected static final String REAL = "REAL_FIELD8";
+  protected static final String SMALLINT = "SMALLINT_FIELD4";
+  protected static final String TIME = "TIME_FIELD9";
+  protected static final String TIMESTAMP = "TIMESTAMP_FIELD11";
+  protected static final String TINYINT = "TINYINT_FIELD3";
+  protected static final String VARCHAR = "VARCHAR_FIELD13";
+  protected static final String NULL = "NULL_FIELD18";
+
   protected Connection conn = null;
   protected Table table;
 
@@ -111,7 +131,7 @@ public abstract class AbstractJdbcToArrowTest {
    * @throws IOException on error
    */
   @Test
-  public abstract void testJdbcToArroValues() throws SQLException, IOException;
+  public abstract void testJdbcToArrowValues() throws SQLException, IOException;
 
   /**
    * Abstract method to implement logic to assert test various datatype values.

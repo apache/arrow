@@ -17,10 +17,11 @@
 
 #include "arrow/flight/internal.h"
 #include "arrow/flight/platform.h"
-#include "arrow/flight/protocol-internal.h"
+#include "arrow/flight/protocol_internal.h"
 
 #include <cstddef>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -57,9 +58,12 @@ Status FromGrpcStatus(const grpc::Status& grpc_status) {
       return Status::IOError("gRPC cancelled call, with message: ",
                              grpc_status.error_message())
           .WithDetail(std::make_shared<FlightStatusDetail>(FlightStatusCode::Cancelled));
-    case grpc::StatusCode::UNKNOWN:
-      return Status::UnknownError("gRPC returned unknown error, with message: ",
-                                  grpc_status.error_message());
+    case grpc::StatusCode::UNKNOWN: {
+      std::stringstream ss;
+      ss << "Flight RPC failed with message: " << grpc_status.error_message();
+      return Status::UnknownError(ss.str()).WithDetail(
+          std::make_shared<FlightStatusDetail>(FlightStatusCode::Failed));
+    }
     case grpc::StatusCode::INVALID_ARGUMENT:
       return Status::Invalid("gRPC returned invalid argument error, with message: ",
                              grpc_status.error_message());
@@ -187,7 +191,9 @@ Status FromProto(const pb::Action& pb_action, Action* action) {
 
 Status ToProto(const Action& action, pb::Action* pb_action) {
   pb_action->set_type(action.type);
-  pb_action->set_body(action.body->ToString());
+  if (action.body) {
+    pb_action->set_body(action.body->ToString());
+  }
   return Status::OK();
 }
 
@@ -218,6 +224,12 @@ Status FromProto(const pb::Location& pb_location, Location* location) {
 
 void ToProto(const Location& location, pb::Location* pb_location) {
   pb_location->set_uri(location.ToString());
+}
+
+Status ToProto(const BasicAuth& basic_auth, pb::BasicAuth* pb_basic_auth) {
+  pb_basic_auth->set_username(basic_auth.username);
+  pb_basic_auth->set_password(basic_auth.password);
+  return Status::OK();
 }
 
 // Ticket
@@ -314,6 +326,18 @@ Status FromProto(const pb::FlightInfo& pb_info, FlightInfo::Data* info) {
   return Status::OK();
 }
 
+Status FromProto(const pb::BasicAuth& pb_basic_auth, BasicAuth* basic_auth) {
+  basic_auth->password = pb_basic_auth.password();
+  basic_auth->username = pb_basic_auth.username();
+
+  return Status::OK();
+}
+
+Status FromProto(const pb::SchemaResult& pb_result, std::string* result) {
+  *result = pb_result.schema();
+  return Status::OK();
+}
+
 Status SchemaToString(const Schema& schema, std::string* out) {
   // TODO(wesm): Do we care about better memory efficiency here?
   std::shared_ptr<Buffer> serialized_schema;
@@ -341,6 +365,11 @@ Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info) {
 
   pb_info->set_total_records(info.total_records());
   pb_info->set_total_bytes(info.total_bytes());
+  return Status::OK();
+}
+
+Status ToProto(const SchemaResult& result, pb::SchemaResult* pb_result) {
+  pb_result->set_schema(result.serialized_schema());
   return Status::OK();
 }
 

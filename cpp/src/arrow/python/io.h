@@ -42,6 +42,7 @@ class ARROW_PYTHON_EXPORT PyReadableFile : public io::RandomAccessFile {
   ~PyReadableFile() override;
 
   Status Close() override;
+  Status Abort() override;
   bool closed() const override;
 
   Status Read(int64_t nbytes, int64_t* bytes_read, void* out) override;
@@ -70,9 +71,11 @@ class ARROW_PYTHON_EXPORT PyOutputStream : public io::OutputStream {
   ~PyOutputStream() override;
 
   Status Close() override;
+  Status Abort() override;
   bool closed() const override;
   Status Tell(int64_t* position) const override;
   Status Write(const void* data, int64_t nbytes) override;
+  Status Write(const std::shared_ptr<Buffer>& buffer) override;
 
  private:
   std::unique_ptr<PythonFile> file_;

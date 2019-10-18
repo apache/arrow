@@ -30,6 +30,12 @@
   void operator=(const TypeName&) = delete
 #endif
 
+#ifndef ARROW_DEFAULT_MOVE_AND_ASSIGN
+#define ARROW_DEFAULT_MOVE_AND_ASSIGN(TypeName) \
+  TypeName(TypeName&&) = default;               \
+  TypeName& operator=(TypeName&&) = default
+#endif
+
 #define ARROW_UNUSED(x) (void)x
 #define ARROW_ARG_UNUSED(x)
 //

@@ -28,15 +28,17 @@
 #include <cstdlib>
 #include <iostream>
 #include <limits>
+#include <locale>
 #include <memory>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/compute/kernel.h"
-#include "arrow/ipc/json-simple.h"
+#include "arrow/ipc/json_simple.h"
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
@@ -49,7 +51,8 @@ static void PrintChunkedArray(const ChunkedArray& carr, std::stringstream* ss) {
   for (int i = 0; i < carr.num_chunks(); ++i) {
     auto c1 = carr.chunk(i);
     *ss << "Chunk " << i << std::endl;
-    ARROW_EXPECT_OK(::arrow::PrettyPrint(*c1, 0, ss));
+    ::arrow::PrettyPrintOptions options(/*indent=*/2);
+    ARROW_EXPECT_OK(::arrow::PrettyPrint(*c1, options, ss));
     *ss << std::endl;
   }
 }
@@ -59,19 +62,27 @@ void AssertTsEqual(const T& expected, const T& actual) {
   if (!expected.Equals(actual)) {
     std::stringstream pp_expected;
     std::stringstream pp_actual;
-    ARROW_EXPECT_OK(PrettyPrint(expected, 0, &pp_expected));
-    ARROW_EXPECT_OK(PrettyPrint(actual, 0, &pp_actual));
+    ::arrow::PrettyPrintOptions options(/*indent=*/2);
+    options.window = 50;
+    ARROW_EXPECT_OK(PrettyPrint(expected, options, &pp_expected));
+    ARROW_EXPECT_OK(PrettyPrint(actual, options, &pp_actual));
     FAIL() << "Got: \n" << pp_actual.str() << "\nExpected: \n" << pp_expected.str();
   }
 }
 
-void AssertArraysEqual(const Array& expected, const Array& actual) {
-  if (!expected.type()->Equals(actual.type())) {
-    FAIL() << "Got: \n"
-           << actual.type()->name() << "\nExpected: \n"
-           << expected.type()->name();
+void AssertArraysEqual(const Array& expected, const Array& actual, bool verbose) {
+  std::stringstream diff;
+  if (!expected.Equals(actual, EqualOptions().diff_sink(&diff))) {
+    if (verbose) {
+      ::arrow::PrettyPrintOptions options(/*indent=*/2);
+      options.window = 50;
+      diff << "Expected:\n";
+      ARROW_EXPECT_OK(PrettyPrint(expected, options, &diff));
+      diff << "\nActual:\n";
+      ARROW_EXPECT_OK(PrettyPrint(actual, options, &diff));
+    }
+    FAIL() << diff.str();
   }
-  AssertTsEqual(expected, actual);
 }
 
 void AssertBatchesEqual(const RecordBatch& expected, const RecordBatch& actual) {
@@ -81,19 +92,14 @@ void AssertBatchesEqual(const RecordBatch& expected, const RecordBatch& actual) 
 void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual) {
   ASSERT_EQ(expected.num_chunks(), actual.num_chunks()) << "# chunks unequal";
   if (!actual.Equals(expected)) {
-    std::stringstream pp_result;
-    std::stringstream pp_expected;
-
+    std::stringstream diff;
     for (int i = 0; i < actual.num_chunks(); ++i) {
       auto c1 = actual.chunk(i);
       auto c2 = expected.chunk(i);
-      if (!c1->Equals(*c2)) {
-        ARROW_EXPECT_OK(::arrow::PrettyPrint(*c1, 0, &pp_result));
-        ARROW_EXPECT_OK(::arrow::PrettyPrint(*c2, 0, &pp_expected));
-        FAIL() << "Chunk " << i << " Got: " << pp_result.str()
-               << "\nExpected: " << pp_expected.str();
-      }
+      diff << "# chunk " << i << std::endl;
+      ARROW_IGNORE_EXPR(c1->Equals(c2, EqualOptions().diff_sink(&diff)));
     }
+    FAIL() << diff.str();
   }
 }
 
@@ -189,6 +195,26 @@ void CompareBatch(const RecordBatch& left, const RecordBatch& right,
     }
   }
 }
+
+class LocaleGuard::Impl {
+ public:
+  explicit Impl(const char* new_locale) : global_locale_(std::locale()) {
+    try {
+      std::locale::global(std::locale(new_locale));
+    } catch (std::runtime_error&) {
+      ARROW_LOG(WARNING) << "Locale unavailable (ignored): '" << new_locale << "'";
+    }
+  }
+
+  ~Impl() { std::locale::global(global_locale_); }
+
+ protected:
+  std::locale global_locale_;
+};
+
+LocaleGuard::LocaleGuard(const char* new_locale) : impl_(new Impl(new_locale)) {}
+
+LocaleGuard::~LocaleGuard() {}
 
 namespace {
 

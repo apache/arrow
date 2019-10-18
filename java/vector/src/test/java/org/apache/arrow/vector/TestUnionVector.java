@@ -21,7 +21,10 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.UnionVector;
@@ -30,6 +33,10 @@ import org.apache.arrow.vector.holders.NullableFloat4Holder;
 import org.apache.arrow.vector.holders.NullableIntHolder;
 import org.apache.arrow.vector.holders.NullableUInt4Holder;
 import org.apache.arrow.vector.types.Types.MinorType;
+import org.apache.arrow.vector.types.UnionMode;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Before;
@@ -298,6 +305,30 @@ public class TestUnionVector {
         }
       }
     }
+  }
+
+  @Test
+  public void testGetFieldTypeInfo() throws Exception {
+    Map<String, String> metadata = new HashMap<>();
+    metadata.put("key1", "value1");
+
+    int[] typeIds = new int[2];
+    typeIds[0] = MinorType.INT.ordinal();
+    typeIds[1] = MinorType.VARCHAR.ordinal();
+
+    List<Field> children = new ArrayList<>();
+    children.add(new Field("int", FieldType.nullable(MinorType.INT.getType()), null));
+    children.add(new Field("varchar", FieldType.nullable(MinorType.VARCHAR.getType()), null));
+
+    final FieldType fieldType =  new FieldType(false, new ArrowType.Union(UnionMode.Sparse, typeIds),
+        /*dictionary=*/null, metadata);
+    final Field field = new Field("union", fieldType, children);
+
+    MinorType minorType = MinorType.UNION;
+    UnionVector vector = (UnionVector) minorType.getNewVector(field, allocator, null);
+    vector.initializeChildrenFromFields(children);
+
+    assertTrue(vector.getField().equals(field));
   }
 
   @Test

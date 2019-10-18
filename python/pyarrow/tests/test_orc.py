@@ -87,7 +87,7 @@ def check_example_file(orc_path, expected_df, need_fix=False):
     # Exercise ORCFile.read()
     table = orc_file.read()
     assert isinstance(table, pa.Table)
-    table._validate()
+    table.validate()
 
     # This workaround needed because of ARROW-3080
     orc_df = pd.DataFrame(table.to_pydict())

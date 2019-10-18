@@ -25,6 +25,7 @@
 #include <utility>
 
 #include "arrow/buffer.h"
+#include "arrow/io/util_internal.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/util/compression.h"
@@ -43,20 +44,21 @@ namespace io {
 
 class CompressedOutputStream::Impl {
  public:
-  Impl(MemoryPool* pool, Codec* codec, const std::shared_ptr<OutputStream>& raw)
-      : pool_(pool), raw_(raw), codec_(codec), is_open_(true), compressed_pos_(0) {}
+  Impl(MemoryPool* pool, const std::shared_ptr<OutputStream>& raw)
+      : pool_(pool), raw_(raw), is_open_(false), compressed_pos_(0), total_pos_(0) {}
 
-  ~Impl() { ARROW_CHECK_OK(Close()); }
-
-  Status Init() {
-    RETURN_NOT_OK(codec_->MakeCompressor(&compressor_));
+  Status Init(Codec* codec) {
+    RETURN_NOT_OK(codec->MakeCompressor(&compressor_));
     RETURN_NOT_OK(AllocateResizableBuffer(pool_, kChunkSize, &compressed_));
     compressed_pos_ = 0;
+    is_open_ = true;
     return Status::OK();
   }
 
   Status Tell(int64_t* position) const {
-    return Status::NotImplemented("Cannot tell() a compressed stream");
+    std::lock_guard<std::mutex> guard(lock_);
+    *position = total_pos_;
+    return Status::OK();
   }
 
   std::shared_ptr<OutputStream> raw() const { return raw_; }
@@ -95,6 +97,7 @@ class CompressedOutputStream::Impl {
       }
       input += bytes_read;
       nbytes -= bytes_read;
+      total_pos_ += bytes_read;
       if (compressed_pos_ == compressed_->size()) {
         // Output buffer full, flush it
         RETURN_NOT_OK(FlushCompressed());
@@ -169,6 +172,17 @@ class CompressedOutputStream::Impl {
     }
   }
 
+  Status Abort() {
+    std::lock_guard<std::mutex> guard(lock_);
+
+    if (is_open_) {
+      is_open_ = false;
+      return raw_->Abort();
+    } else {
+      return Status::OK();
+    }
+  }
+
   bool closed() {
     std::lock_guard<std::mutex> guard(lock_);
     return !is_open_;
@@ -180,11 +194,12 @@ class CompressedOutputStream::Impl {
 
   MemoryPool* pool_;
   std::shared_ptr<OutputStream> raw_;
-  Codec* codec_;
   bool is_open_;
   std::shared_ptr<Compressor> compressor_;
   std::shared_ptr<ResizableBuffer> compressed_;
   int64_t compressed_pos_;
+  // Total number of bytes compressed
+  int64_t total_pos_;
 
   mutable std::mutex lock_;
 };
@@ -198,16 +213,19 @@ Status CompressedOutputStream::Make(util::Codec* codec,
 Status CompressedOutputStream::Make(MemoryPool* pool, util::Codec* codec,
                                     const std::shared_ptr<OutputStream>& raw,
                                     std::shared_ptr<CompressedOutputStream>* out) {
+  // CAUTION: codec is not owned
   std::shared_ptr<CompressedOutputStream> res(new CompressedOutputStream);
-  res->impl_ = std::unique_ptr<Impl>(new Impl(pool, codec, std::move(raw)));
-  RETURN_NOT_OK(res->impl_->Init());
+  res->impl_.reset(new Impl(pool, std::move(raw)));
+  RETURN_NOT_OK(res->impl_->Init(codec));
   *out = res;
   return Status::OK();
 }
 
-CompressedOutputStream::~CompressedOutputStream() {}
+CompressedOutputStream::~CompressedOutputStream() { internal::CloseFromDestructor(this); }
 
 Status CompressedOutputStream::Close() { return impl_->Close(); }
+
+Status CompressedOutputStream::Abort() { return impl_->Abort(); }
 
 bool CompressedOutputStream::closed() const { return impl_->closed(); }
 
@@ -228,23 +246,21 @@ std::shared_ptr<OutputStream> CompressedOutputStream::raw() const { return impl_
 
 class CompressedInputStream::Impl {
  public:
-  Impl(MemoryPool* pool, Codec* codec, const std::shared_ptr<InputStream>& raw)
+  Impl(MemoryPool* pool, const std::shared_ptr<InputStream>& raw)
       : pool_(pool),
         raw_(raw),
-        codec_(codec),
         is_open_(true),
         compressed_pos_(0),
-        decompressed_pos_(0) {}
+        decompressed_pos_(0),
+        total_pos_(0) {}
 
-  Status Init() {
-    RETURN_NOT_OK(codec_->MakeDecompressor(&decompressor_));
+  Status Init(Codec* codec) {
+    RETURN_NOT_OK(codec->MakeDecompressor(&decompressor_));
+    fresh_decompressor_ = true;
     return Status::OK();
   }
 
-  ~Impl() { ARROW_CHECK_OK(Close()); }
-
   Status Close() {
-    std::lock_guard<std::mutex> guard(lock_);
     if (is_open_) {
       is_open_ = false;
       return raw_->Close();
@@ -253,13 +269,20 @@ class CompressedInputStream::Impl {
     }
   }
 
-  bool closed() {
-    std::lock_guard<std::mutex> guard(lock_);
-    return !is_open_;
+  Status Abort() {
+    if (is_open_) {
+      is_open_ = false;
+      return raw_->Abort();
+    } else {
+      return Status::OK();
+    }
   }
 
+  bool closed() { return !is_open_; }
+
   Status Tell(int64_t* position) const {
-    return Status::NotImplemented("Cannot tell() a compressed stream");
+    *position = total_pos_;
+    return Status::OK();
   }
 
   // Read compressed data if necessary
@@ -273,6 +296,8 @@ class CompressedInputStream::Impl {
     return Status::OK();
   }
 
+  // Decompress some data from the compressed_ buffer.
+  // Call this function only if the decompressed_ buffer is empty.
   Status DecompressData() {
     int64_t decompress_size = kDecompressSize;
 
@@ -291,6 +316,9 @@ class CompressedInputStream::Impl {
                                               &bytes_read, &bytes_written,
                                               &need_more_output));
       compressed_pos_ += bytes_read;
+      if (bytes_read > 0) {
+        fresh_decompressor_ = false;
+      }
       if (bytes_written > 0 || !need_more_output || input_len == 0) {
         RETURN_NOT_OK(decompressed_->Resize(bytes_written));
         break;
@@ -302,51 +330,72 @@ class CompressedInputStream::Impl {
     return Status::OK();
   }
 
-  Status Read(int64_t nbytes, int64_t* bytes_read, void* out) {
-    std::lock_guard<std::mutex> guard(lock_);
+  // Read a given number of bytes from the decompressed_ buffer.
+  int64_t ReadFromDecompressed(int64_t nbytes, uint8_t* out) {
+    int64_t readable = decompressed_ ? (decompressed_->size() - decompressed_pos_) : 0;
+    int64_t read_bytes = std::min(readable, nbytes);
 
-    *bytes_read = 0;
-    auto out_data = reinterpret_cast<uint8_t*>(out);
+    if (read_bytes > 0) {
+      memcpy(out, decompressed_->data() + decompressed_pos_, read_bytes);
+      decompressed_pos_ += read_bytes;
 
-    while (nbytes > 0) {
-      int64_t avail = decompressed_ ? (decompressed_->size() - decompressed_pos_) : 0;
-      if (avail > 0) {
-        // Pending decompressed data is available, use it
-        avail = std::min(avail, nbytes);
-        memcpy(out_data, decompressed_->data() + decompressed_pos_, avail);
-        decompressed_pos_ += avail;
-        out_data += avail;
-        *bytes_read += avail;
-        nbytes -= avail;
-        if (decompressed_pos_ == decompressed_->size()) {
-          // Decompressed data is exhausted, release buffer
-          decompressed_.reset();
-        }
-        if (nbytes == 0) {
-          // We're done
-          break;
-        }
-      }
-
-      // At this point, no more decompressed data remains,
-      // so we need to decompress more
-      if (decompressor_->IsFinished()) {
-        break;
-      }
-      // First try to read data from the decompressor
-      if (compressed_) {
-        RETURN_NOT_OK(DecompressData());
-      }
-      if (!decompressed_ || decompressed_->size() == 0) {
-        // Got nothing, need to read more compressed data
-        RETURN_NOT_OK(EnsureCompressedData());
-        if (compressed_pos_ == compressed_->size()) {
-          // Compressed stream unexpectedly exhausted
-          return Status::IOError("Truncated compressed stream");
-        }
-        RETURN_NOT_OK(DecompressData());
+      if (decompressed_pos_ == decompressed_->size()) {
+        // Decompressed data is exhausted, release buffer
+        decompressed_.reset();
       }
     }
+
+    return read_bytes;
+  }
+
+  // Try to feed more data into the decompressed_ buffer.
+  Status RefillDecompressed(bool* has_data) {
+    // First try to read data from the decompressor
+    if (compressed_) {
+      if (decompressor_->IsFinished()) {
+        // We just went over the end of a previous compressed stream.
+        RETURN_NOT_OK(decompressor_->Reset());
+        fresh_decompressor_ = true;
+      }
+      RETURN_NOT_OK(DecompressData());
+    }
+    if (!decompressed_ || decompressed_->size() == 0) {
+      // Got nothing, need to read more compressed data
+      RETURN_NOT_OK(EnsureCompressedData());
+      if (compressed_pos_ == compressed_->size()) {
+        // No more data to decompress
+        if (!fresh_decompressor_) {
+          return Status::IOError("Truncated compressed stream");
+        }
+        *has_data = false;
+        return Status::OK();
+      }
+      RETURN_NOT_OK(DecompressData());
+    }
+    *has_data = true;
+    return Status::OK();
+  }
+
+  Status Read(int64_t nbytes, int64_t* bytes_read, void* out) {
+    auto out_data = reinterpret_cast<uint8_t*>(out);
+
+    int64_t total_read = 0;
+    bool decompressor_has_data = true;
+
+    while (nbytes - total_read > 0 && decompressor_has_data) {
+      total_read += ReadFromDecompressed(nbytes - total_read, out_data + total_read);
+
+      if (nbytes == total_read) {
+        break;
+      }
+
+      // At this point, no more decompressed data remains, so we need to
+      // decompress more
+      RETURN_NOT_OK(RefillDecompressed(&decompressor_has_data));
+    }
+
+    total_pos_ += total_read;
+    *bytes_read = total_read;
     return Status::OK();
   }
 
@@ -370,15 +419,18 @@ class CompressedInputStream::Impl {
 
   MemoryPool* pool_;
   std::shared_ptr<InputStream> raw_;
-  Codec* codec_;
   bool is_open_;
   std::shared_ptr<Decompressor> decompressor_;
   std::shared_ptr<Buffer> compressed_;
+  // Position in compressed buffer
   int64_t compressed_pos_;
   std::shared_ptr<ResizableBuffer> decompressed_;
+  // Position in decompressed buffer
   int64_t decompressed_pos_;
-
-  mutable std::mutex lock_;
+  // True if the decompressor hasn't read any data yet.
+  bool fresh_decompressor_;
+  // Total number of bytes decompressed
+  int64_t total_pos_;
 };
 
 Status CompressedInputStream::Make(Codec* codec, const std::shared_ptr<InputStream>& raw,
@@ -389,28 +441,31 @@ Status CompressedInputStream::Make(Codec* codec, const std::shared_ptr<InputStre
 Status CompressedInputStream::Make(MemoryPool* pool, Codec* codec,
                                    const std::shared_ptr<InputStream>& raw,
                                    std::shared_ptr<CompressedInputStream>* out) {
+  // CAUTION: codec is not owned
   std::shared_ptr<CompressedInputStream> res(new CompressedInputStream);
-  res->impl_ = std::unique_ptr<Impl>(new Impl(pool, codec, std::move(raw)));
-  RETURN_NOT_OK(res->impl_->Init());
+  res->impl_.reset(new Impl(pool, std::move(raw)));
+  RETURN_NOT_OK(res->impl_->Init(codec));
   *out = res;
   return Status::OK();
 }
 
-CompressedInputStream::~CompressedInputStream() {}
+CompressedInputStream::~CompressedInputStream() { internal::CloseFromDestructor(this); }
 
-Status CompressedInputStream::Close() { return impl_->Close(); }
+Status CompressedInputStream::DoClose() { return impl_->Close(); }
+
+Status CompressedInputStream::DoAbort() { return impl_->Abort(); }
 
 bool CompressedInputStream::closed() const { return impl_->closed(); }
 
-Status CompressedInputStream::Tell(int64_t* position) const {
+Status CompressedInputStream::DoTell(int64_t* position) const {
   return impl_->Tell(position);
 }
 
-Status CompressedInputStream::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
+Status CompressedInputStream::DoRead(int64_t nbytes, int64_t* bytes_read, void* out) {
   return impl_->Read(nbytes, bytes_read, out);
 }
 
-Status CompressedInputStream::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+Status CompressedInputStream::DoRead(int64_t nbytes, std::shared_ptr<Buffer>* out) {
   return impl_->Read(nbytes, out);
 }
 

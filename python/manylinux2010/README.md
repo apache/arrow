@@ -70,7 +70,7 @@ publish a build image that you built locally.
 
 ```bash
 $ docker push python-manylinux2010
-The push refers to repository [ursalab/arrow_manylinux2010_x86_64_base]
+The push refers to repository [arrowdev/arrow_manylinux2010_x86_64_base]
 a1ab88d27acc: Pushing [==============>                                    ]  492.5MB/1.645GB
 [... etc. ...]
 ```

@@ -18,7 +18,7 @@
 #include <vector>
 
 #include "arrow/util/memory.h"
-#include "arrow/util/thread-pool.h"
+#include "arrow/util/thread_pool.h"
 
 namespace arrow {
 namespace internal {

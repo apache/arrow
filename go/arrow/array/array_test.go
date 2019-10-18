@@ -286,6 +286,16 @@ func TestArraySliceTypes(t *testing.T) {
 			if got, want := slice.Len(), 3; got != want {
 				t.Fatalf("invalid slice length: got=%d, want=%d", got, want)
 			}
+
+			shortSlice := array.NewSlice(arr, 2, 3)
+			defer shortSlice.Release()
+
+			sliceOfShortSlice := array.NewSlice(shortSlice, 0, 1)
+			defer sliceOfShortSlice.Release()
+
+			if got, want := sliceOfShortSlice.Len(), 1; got != want {
+				t.Fatalf("invalid short slice length: got=%d, want=%d", got, want)
+			}
 		})
 	}
 }

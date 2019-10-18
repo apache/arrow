@@ -20,24 +20,11 @@
 
 #include <cstdint>
 #include <memory>
-#include <ostream>
 
-#include "parquet/exception.h"
 #include "parquet/metadata.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/schema.h"
-
-namespace arrow {
-
-class MemoryPool;
-
-namespace io {
-
-class OutputStream;
-
-}  // namespace io
-}  // namespace arrow
 
 namespace parquet {
 

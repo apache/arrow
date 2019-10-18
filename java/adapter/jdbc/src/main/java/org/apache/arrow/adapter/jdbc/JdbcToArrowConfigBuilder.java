@@ -21,8 +21,7 @@ import java.util.Calendar;
 import java.util.Map;
 
 import org.apache.arrow.memory.BaseAllocator;
-
-import com.google.common.base.Preconditions;
+import org.apache.arrow.util.Preconditions;
 
 /**
  * This class builds {@link JdbcToArrowConfig}s.
@@ -33,6 +32,8 @@ public class JdbcToArrowConfigBuilder {
   private boolean includeMetadata;
   private Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex;
   private Map<String, JdbcFieldInfo> arraySubTypesByColumnName;
+
+  private int targetBatchSize;
 
   /**
    * Default constructor for the <code>JdbcToArrowConfigBuilder}</code>.
@@ -154,6 +155,11 @@ public class JdbcToArrowConfigBuilder {
     return this;
   }
 
+  public JdbcToArrowConfigBuilder setTargetBatchSize(int targetBatchSize) {
+    this.targetBatchSize = targetBatchSize;
+    return this;
+  }
+
   /**
    * This builds the {@link JdbcToArrowConfig} from the provided
    * {@link BaseAllocator} and {@link Calendar}.
@@ -167,6 +173,7 @@ public class JdbcToArrowConfigBuilder {
         calendar,
         includeMetadata,
         arraySubTypesByColumnIndex,
-        arraySubTypesByColumnName);
+        arraySubTypesByColumnName,
+        targetBatchSize);
   }
 }

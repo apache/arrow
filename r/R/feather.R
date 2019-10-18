@@ -15,9 +15,67 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include R6.R
+#' Write data in the Feather format
+#'
+#' @param x `data.frame` or RecordBatch
+#' @param sink A file path or an OutputStream
+#'
+#' @export
+#' @examples
+#' \donttest{
+#' try({
+#'   tf <- tempfile()
+#'   on.exit(unlink(tf))
+#'   write_feather(mtcars, tf)
+#' })
+#' }
+#' @include arrow-package.R
+write_feather <- function(x, sink) {
+  if (is.data.frame(x)) {
+    x <- record_batch(x)
+  }
+  assert_is(x, "RecordBatch")
 
-`arrow::ipc::feather::TableWriter` <- R6Class("arrow::ipc::feather::TableWriter", inherit = `arrow::Object`,
+  if (is.character(sink)) {
+    sink <- FileOutputStream$create(sink)
+    on.exit(sink$close())
+  }
+  assert_is(sink, "OutputStream")
+
+  writer <- FeatherTableWriter$create(sink)
+  ipc___TableWriter__RecordBatch__WriteFeather(writer, x)
+}
+
+#' @title FeatherTableWriter class
+#' @rdname FeatherTableWriter
+#' @name FeatherTableWriter
+#' @docType class
+#' @usage NULL
+#' @format NULL
+#' @description This class enables you to write Feather files. See its usage in
+#' [write_feather()].
+#'
+#' @section Factory:
+#'
+#' The `FeatherTableWriter$create()` factory method instantiates the object and
+#' takes the following argument:
+#'
+#' - `stream` An `OutputStream`
+#'
+#' @section Methods:
+#'
+#' - `$GetDescription()`
+#' - `$HasDescription()`
+#' - `$version()`
+#' - `$num_rows()`
+#' - `$num_columns()`
+#' - `$GetColumnName()`
+#' - `$GetColumn()`
+#' - `$Read(columns)`
+#'
+#' @export
+#' @include arrow-package.R
+FeatherTableWriter <- R6Class("FeatherTableWriter", inherit = Object,
   public = list(
     SetDescription = function(description) ipc___feather___TableWriter__SetDescription(self, description),
     SetNumRows = function(num_rows) ipc___feather___TableWriter__SetNumRows(self, num_rows),
@@ -26,151 +84,36 @@
   )
 )
 
-`arrow::ipc::feather::TableReader` <- R6Class("arrow::ipc::feather::TableReader", inherit = `arrow::Object`,
-  public = list(
-    GetDescription = function() ipc___feather___TableReader__GetDescription(self),
-    HasDescription = function() ipc__feather___TableReader__HasDescription(self),
-    version = function() ipc___feather___TableReader__version(self),
-    num_rows = function() ipc___feather___TableReader__num_rows(self),
-    num_columns = function() ipc___feather___TableReader__num_columns(self),
-    GetColumnName = function(i) ipc___feather___TableReader__GetColumnName(self, i),
-    GetColumn = function(i) shared_ptr(`arrow::Array`, ipc___feather___TableReader__GetColumn(self, i)),
-    Read = function(columns) {
-      shared_ptr(`arrow::Table`, ipc___feather___TableReader__Read(self, columns))
-    }
-  )
-)
-
-#' Create `TableWriter` that writes into a stream
-#'
-#' @param stream an `OutputStream`
-#'
-#' @export
-FeatherTableWriter <- function(stream) {
-  UseMethod("FeatherTableWriter")
-}
-
-#' @export
-`FeatherTableWriter.arrow::io::OutputStream` <- function(stream){
-  unique_ptr(`arrow::ipc::feather::TableWriter`, ipc___feather___TableWriter__Open(stream))
-}
-
-#' Write data in the Feather format
-#'
-#' @param data `data.frame` or `arrow::RecordBatch`
-#' @param stream A file path or an `arrow::io::OutputStream`
-#'
-#' @export
-write_feather <- function(data, stream) {
-  UseMethod("write_feather", data)
-}
-
-#' @export
-write_feather.default <- function(data, stream) {
-  stop("unsupported")
-}
-
-#' @export
-write_feather.data.frame <- function(data, stream) {
-  write_feather(record_batch(data), stream)
-}
-
-#' @method write_feather arrow::RecordBatch
-#' @export
-`write_feather.arrow::RecordBatch` <- function(data, stream) {
-  write_feather_RecordBatch(data, stream)
-}
-
-#' Write a record batch in the feather format
-#'
-#' @param data `data.frame` or `arrow::RecordBatch`
-#' @param stream A file path or an `arrow::io::OutputStream`
-#'
-#' @export
-#' @keywords internal
-write_feather_RecordBatch <- function(data, stream) {
-  UseMethod("write_feather_RecordBatch", stream)
-}
-
-#' @export
-#' @method write_feather_RecordBatch default
-`write_feather_RecordBatch.default` <- function(data, stream) {
-  stop("unsupported")
-}
-
-#' @export
-#' @method write_feather_RecordBatch character
-`write_feather_RecordBatch.character` <- function(data, stream) {
-  `write_feather_RecordBatch.fs_path`(data, fs::path_abs(stream))
-}
-
-#' @export
-#' @method write_feather_RecordBatch fs_path
-`write_feather_RecordBatch.fs_path` <- function(data, stream) {
-  file_stream <- FileOutputStream(stream)
-  on.exit(file_stream$close())
-  `write_feather_RecordBatch.arrow::io::OutputStream`(data, file_stream)
-}
-
-#' @export
-#' @method write_feather_RecordBatch arrow::io::OutputStream
-`write_feather_RecordBatch.arrow::io::OutputStream` <- function(data, stream) {
-  ipc___TableWriter__RecordBatch__WriteFeather(FeatherTableWriter(stream), data)
-}
-
-#' A `arrow::ipc::feather::TableReader` to read from a file
-#'
-#' @param file A file path or `arrow::io::RandomAccessFile`
-#' @param mmap Is the file memory mapped (applicable to the `character` and `fs_path` methods)
-#' @param ... extra parameters
-#'
-#' @export
-FeatherTableReader <- function(file, mmap = TRUE, ...){
-  UseMethod("FeatherTableReader")
-}
-
-#' @export
-FeatherTableReader.default <- function(file, mmap = TRUE, ...) {
-  stop("unsupported")
-}
-
-#' @export
-FeatherTableReader.character <- function(file, mmap = TRUE, ...) {
-  FeatherTableReader(fs::path_abs(file), mmap = mmap, ...)
-}
-
-#' @export
-FeatherTableReader.fs_path <- function(file, mmap = TRUE, ...) {
-  if (isTRUE(mmap)) {
-    stream <- mmap_open(file, ...)
-  } else {
-    stream <- ReadableFile(file, ...)
-  }
-  FeatherTableReader(stream)
-}
-
-#' @export
-`FeatherTableReader.arrow::io::RandomAccessFile` <- function(file, mmap = TRUE, ...){
-  unique_ptr(`arrow::ipc::feather::TableReader`, ipc___feather___TableReader__Open(file))
-}
-
-#' @export
-`FeatherTableReader.arrow::ipc::feather::TableReader` <- function(file, mmap = TRUE, ...){
-  file
+FeatherTableWriter$create <- function(stream) {
+  assert_is(stream, "OutputStream")
+  unique_ptr(FeatherTableWriter, ipc___feather___TableWriter__Open(stream))
 }
 
 #' Read a Feather file
 #'
-#' @param file an `arrow::ipc::feather::TableReader` or whatever the [FeatherTableReader()] function can handle
-#' @param col_select [tidy selection][tidyselect::vars_select()] of columns to read.
-#' @param as_tibble should the [arrow::Table][arrow__Table] be converted to a tibble.
+#' @param file A character file path, a raw vector, or `InputStream`, passed to
+#' `FeatherTableReader$create()`.
+#' @inheritParams read_delim_arrow
 #' @param ... additional parameters
 #'
-#' @return A `data.frame` if `as_tibble` is `TRUE` (the default), or a [arrow::Table][arrow__Table] otherwise
+#' @return A `data.frame` if `as_data_frame` is `TRUE` (the default), or an
+#' [arrow::Table][Table] otherwise
 #'
 #' @export
-read_feather <- function(file, col_select = NULL, as_tibble = TRUE, ...){
-  reader <- FeatherTableReader(file, ...)
+#' @examples
+#' \donttest{
+#' try({
+#'   tf <- tempfile()
+#'   on.exit(unlink(tf))
+#'   write_feather(iris, tf)
+#'   df <- read_feather(tf)
+#'   dim(df)
+#'   # Can select columns
+#'   df <- read_feather(tf, col_select = starts_with("Sepal"))
+#' })
+#' }
+read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
+  reader <- FeatherTableReader$create(file, ...)
 
   all_columns <- ipc___feather___TableReader__column_names(reader)
   col_select <- enquo(col_select)
@@ -179,8 +122,61 @@ read_feather <- function(file, col_select = NULL, as_tibble = TRUE, ...){
   }
 
   out <- reader$Read(columns)
-  if (isTRUE(as_tibble)) {
+  if (isTRUE(as_data_frame)) {
     out <- as.data.frame(out)
   }
   out
+}
+
+#' @title FeatherTableReader class
+#' @rdname FeatherTableReader
+#' @name FeatherTableReader
+#' @docType class
+#' @usage NULL
+#' @format NULL
+#' @description This class enables you to interact with Feather files. Create
+#' one to connect to a file or other InputStream, and call `Read()` on it to
+#' make an `arrow::Table`. See its usage in [`read_feather()`].
+#'
+#' @section Factory:
+#'
+#' The `FeatherTableReader$create()` factory method instantiates the object and
+#' takes the following arguments:
+#'
+#' - `file` A character file name, raw vector, or Arrow file connection object
+#'    (e.g. `RandomAccessFile`).
+#' - `mmap` Logical: whether to memory-map the file (default `TRUE`)
+#' - `...` Additional arguments, currently ignored
+#'
+#' @section Methods:
+#'
+#' - `$GetDescription()`
+#' - `$HasDescription()`
+#' - `$version()`
+#' - `$num_rows()`
+#' - `$num_columns()`
+#' - `$GetColumnName()`
+#' - `$GetColumn()`
+#' - `$Read(columns)`
+#'
+#' @export
+#' @include arrow-package.R
+FeatherTableReader <- R6Class("FeatherTableReader", inherit = Object,
+  public = list(
+    GetDescription = function() ipc___feather___TableReader__GetDescription(self),
+    HasDescription = function() ipc__feather___TableReader__HasDescription(self),
+    version = function() ipc___feather___TableReader__version(self),
+    num_rows = function() ipc___feather___TableReader__num_rows(self),
+    num_columns = function() ipc___feather___TableReader__num_columns(self),
+    GetColumnName = function(i) ipc___feather___TableReader__GetColumnName(self, i),
+    GetColumn = function(i) shared_ptr(Array, ipc___feather___TableReader__GetColumn(self, i)),
+    Read = function(columns) {
+      shared_ptr(Table, ipc___feather___TableReader__Read(self, columns))
+    }
+  )
+)
+
+FeatherTableReader$create <- function(file, mmap = TRUE, ...) {
+  file <- make_readable_file(file, mmap)
+  unique_ptr(FeatherTableReader, ipc___feather___TableReader__Open(file))
 }

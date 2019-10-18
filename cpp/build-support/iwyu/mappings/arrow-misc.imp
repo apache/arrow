@@ -27,6 +27,7 @@
   { include: ["<ext/alloc_traits.h>", private, "<unordered_map>", public ] },
   { include: ["<ext/alloc_traits.h>", private, "<unordered_set>", public ] },
   { include: ["<ext/alloc_traits.h>", private, "<vector>", public ] },
+  { include: ["<bits/exception.h>", private, "<exception>", public ] },
   { include: ["<bits/stdint-intn.h>", private, "<cstdint>", public ] },
   { include: ["<bits/stdint-uintn.h>", private, "<cstdint>", public ] },
   { include: ["<bits/shared_ptr.h>", private, "<memory>", public ] },
@@ -49,7 +50,9 @@
   { symbol: ["shared_ptr", private, "<memory>", public ] },
   { symbol: ["_Node_const_iterator", private, "<flatbuffers/flatbuffers.h>", public ] },
   { symbol: ["unordered_map<>::mapped_type", private, "<flatbuffers/flatbuffers.h>", public ] },
+  { symbol: ["std::copy", private, "<algorithm>", public ] },
   { symbol: ["std::move", private, "<utility>", public ] },
+  { symbol: ["std::transform", private, "<algorithm>", public ] },
   { symbol: ["pair", private, "<utility>", public ] },
   { symbol: ["errno", private, "<cerrno>", public ] },
   { symbol: ["posix_memalign", private, "<cstdlib>", public ] }

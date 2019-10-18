@@ -53,9 +53,6 @@ import org.junit.runners.Parameterized.Parameters;
  */
 @RunWith(Parameterized.class)
 public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
-  private static final String VARCHAR = "VARCHAR_FIELD13";
-  private static final String CHAR = "CHAR_FIELD16";
-  private static final String CLOB = "CLOB_FIELD15";
 
   private static final String[] testFiles = {
     "h2/test1_charset_h2.yml",
@@ -111,7 +108,7 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
    * the multi-byte CJK characters.
    */
   @Test
-  public void testJdbcToArroValues() throws SQLException, IOException {
+  public void testJdbcToArrowValues() throws SQLException, IOException {
     testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
         Calendar.getInstance()));
     testDataSets(JdbcToArrow.sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE)));

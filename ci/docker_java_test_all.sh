@@ -28,6 +28,7 @@ export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 export ARROW_JAVADOC=1
 bash $SOURCE_DIR/docker_build_java.sh
 
+export ARROW_JAVA_SHADE_FLATBUFS=1
 export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
 export ARROW_JAVADOC=0
 bash $SOURCE_DIR/docker_build_java.sh

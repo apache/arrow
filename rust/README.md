@@ -29,7 +29,7 @@
 
 ## Prerequisites
 
-Before running tests and examples it is necessary to set up the local development enviroment.
+Before running tests and examples it is necessary to set up the local development environment.
 
 ### Git Submodules
 

@@ -18,7 +18,10 @@
 #ifndef ARROW_UTIL_STL_H
 #define ARROW_UTIL_STL_H
 
+#include <algorithm>
+#include <cstdint>
 #include <memory>
+#include <numeric>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -87,6 +90,15 @@ inline std::vector<T> ReplaceVectorElement(const std::vector<T>& values, size_t 
     out.push_back(values[i]);
   }
   return out;
+}
+
+template <typename T>
+std::vector<int64_t> ArgSort(const std::vector<T>& values) {
+  std::vector<int64_t> indices(values.size());
+  std::iota(indices.begin(), indices.end(), 0);
+  std::sort(indices.begin(), indices.end(),
+            [&](int64_t i, int64_t j) -> bool { return values[i] < values[j]; });
+  return indices;
 }
 
 }  // namespace internal

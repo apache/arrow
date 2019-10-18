@@ -17,6 +17,7 @@
 
 #include "arrow/type.h"
 
+#include <algorithm>
 #include <climits>
 #include <cstddef>
 #include <ostream>
@@ -39,11 +40,13 @@ namespace arrow {
 
 using internal::checked_cast;
 
+Field::~Field() {}
+
 bool Field::HasMetadata() const {
   return (metadata_ != nullptr) && (metadata_->size() > 0);
 }
 
-std::shared_ptr<Field> Field::AddMetadata(
+std::shared_ptr<Field> Field::WithMetadata(
     const std::shared_ptr<const KeyValueMetadata>& metadata) const {
   return std::make_shared<Field>(name_, type_, nullable_, metadata);
 }
@@ -146,6 +149,12 @@ FloatingPointType::Precision DoubleType::precision() const {
 std::string ListType::ToString() const {
   std::stringstream s;
   s << "list<" << value_field()->ToString() << ">";
+  return s.str();
+}
+
+std::string LargeListType::ToString() const {
+  std::stringstream s;
+  s << "large_list<" << value_field()->ToString() << ">";
   return s.str();
 }
 
@@ -407,6 +416,11 @@ std::vector<std::shared_ptr<Field>> StructType::GetAllFieldsByName(
 
 // Deprecated methods
 
+std::shared_ptr<Field> Field::AddMetadata(
+    const std::shared_ptr<const KeyValueMetadata>& metadata) const {
+  return WithMetadata(metadata);
+}
+
 std::shared_ptr<Field> StructType::GetChildByName(const std::string& name) const {
   return GetFieldByName(name);
 }
@@ -420,8 +434,17 @@ int StructType::GetChildIndex(const std::string& name) const {
 
 Decimal128Type::Decimal128Type(int32_t precision, int32_t scale)
     : DecimalType(16, precision, scale) {
-  ARROW_CHECK_GE(precision, 1);
-  ARROW_CHECK_LE(precision, 38);
+  ARROW_CHECK_GE(precision, kMinPrecision);
+  ARROW_CHECK_LE(precision, kMaxPrecision);
+}
+
+Status Decimal128Type::Make(int32_t precision, int32_t scale,
+                            std::shared_ptr<DataType>* out) {
+  if (precision < kMinPrecision || precision > kMaxPrecision) {
+    return Status::Invalid("Decimal precision out of range: ", precision);
+  }
+  *out = std::make_shared<Decimal128Type>(precision, scale);
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------
@@ -485,13 +508,14 @@ class Schema::Impl {
 
 Schema::Schema(const std::vector<std::shared_ptr<Field>>& fields,
                const std::shared_ptr<const KeyValueMetadata>& metadata)
-    : impl_(new Impl(fields, metadata)) {}
+    : detail::Fingerprintable(), impl_(new Impl(fields, metadata)) {}
 
 Schema::Schema(std::vector<std::shared_ptr<Field>>&& fields,
                const std::shared_ptr<const KeyValueMetadata>& metadata)
-    : impl_(new Impl(std::move(fields), metadata)) {}
+    : detail::Fingerprintable(), impl_(new Impl(std::move(fields), metadata)) {}
 
-Schema::Schema(const Schema& schema) : impl_(new Impl(*schema.impl_)) {}
+Schema::Schema(const Schema& schema)
+    : detail::Fingerprintable(), impl_(new Impl(*schema.impl_)) {}
 
 Schema::~Schema() {}
 
@@ -516,22 +540,30 @@ bool Schema::Equals(const Schema& other, bool check_metadata) const {
   if (num_fields() != other.num_fields()) {
     return false;
   }
+
+  if (check_metadata) {
+    const auto& metadata_fp = metadata_fingerprint();
+    const auto& other_metadata_fp = other.metadata_fingerprint();
+    if (metadata_fp != other_metadata_fp) {
+      return false;
+    }
+  }
+
+  // Fast path using fingerprints, if possible
+  const auto& fp = fingerprint();
+  const auto& other_fp = other.fingerprint();
+  if (!fp.empty() && !other_fp.empty()) {
+    return fp == other_fp;
+  }
+
+  // Fall back on field-by-field comparison
   for (int i = 0; i < num_fields(); ++i) {
     if (!field(i)->Equals(*other.field(i).get(), check_metadata)) {
       return false;
     }
   }
 
-  // check metadata equality
-  if (!check_metadata) {
-    return true;
-  } else if (this->HasMetadata() && other.HasMetadata()) {
-    return impl_->metadata_->Equals(*other.impl_->metadata_);
-  } else if (!this->HasMetadata() && !other.HasMetadata()) {
-    return true;
-  } else {
-    return false;
-  }
+  return true;
 }
 
 std::shared_ptr<Field> Schema::GetFieldByName(const std::string& name) const {
@@ -588,9 +620,15 @@ bool Schema::HasMetadata() const {
   return (impl_->metadata_ != nullptr) && (impl_->metadata_->size() > 0);
 }
 
-std::shared_ptr<Schema> Schema::AddMetadata(
+std::shared_ptr<Schema> Schema::WithMetadata(
     const std::shared_ptr<const KeyValueMetadata>& metadata) const {
   return std::make_shared<Schema>(impl_->fields_, metadata);
+}
+
+// deprecated method
+std::shared_ptr<Schema> Schema::AddMetadata(
+    const std::shared_ptr<const KeyValueMetadata>& metadata) const {
+  return WithMetadata(metadata);
 }
 
 std::shared_ptr<const KeyValueMetadata> Schema::metadata() const {
@@ -623,7 +661,7 @@ std::string Schema::ToString() const {
     ++i;
   }
 
-  if (impl_->metadata_) {
+  if (HasMetadata()) {
     buffer << impl_->metadata_->ToString();
   }
 
@@ -646,6 +684,324 @@ std::shared_ptr<Schema> schema(const std::vector<std::shared_ptr<Field>>& fields
 std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>>&& fields,
                                const std::shared_ptr<const KeyValueMetadata>& metadata) {
   return std::make_shared<Schema>(std::move(fields), metadata);
+}
+
+// ----------------------------------------------------------------------
+// Fingerprint computations
+
+namespace detail {
+
+Fingerprintable::~Fingerprintable() {
+  delete fingerprint_.load();
+  delete metadata_fingerprint_.load();
+}
+
+template <typename ComputeFingerprint>
+static const std::string& LoadFingerprint(std::atomic<std::string*>* fingerprint,
+                                          ComputeFingerprint&& compute_fingerprint) {
+  auto new_p = new std::string(std::forward<ComputeFingerprint>(compute_fingerprint)());
+  // Since fingerprint() and metadata_fingerprint() return a *reference* to the
+  // allocated string, the first allocation ever should never be replaced by another
+  // one.  Hence the compare_exchange_strong() against nullptr.
+  std::string* expected = nullptr;
+  if (fingerprint->compare_exchange_strong(expected, new_p)) {
+    return *new_p;
+  } else {
+    delete new_p;
+    DCHECK_NE(expected, nullptr);
+    return *expected;
+  }
+}
+
+const std::string& Fingerprintable::LoadFingerprintSlow() const {
+  return LoadFingerprint(&fingerprint_, [this]() { return ComputeFingerprint(); });
+}
+
+const std::string& Fingerprintable::LoadMetadataFingerprintSlow() const {
+  return LoadFingerprint(&metadata_fingerprint_,
+                         [this]() { return ComputeMetadataFingerprint(); });
+}
+
+}  // namespace detail
+
+static inline std::string TypeIdFingerprint(const DataType& type) {
+  auto c = static_cast<int>(type.id()) + 'A';
+  DCHECK_GE(c, 0);
+  DCHECK_LT(c, 128);  // Unlikely to happen any soon
+  // Prefix with an unusual character in order to disambiguate
+  std::string s{'@', static_cast<char>(c)};
+  return s;
+}
+
+static char TimeUnitFingerprint(TimeUnit::type unit) {
+  switch (unit) {
+    case TimeUnit::SECOND:
+      return 's';
+    case TimeUnit::MILLI:
+      return 'm';
+    case TimeUnit::MICRO:
+      return 'u';
+    case TimeUnit::NANO:
+      return 'n';
+    default:
+      DCHECK(false) << "Unexpected TimeUnit";
+      return '\0';
+  }
+}
+
+static char IntervalTypeFingerprint(IntervalType::type unit) {
+  switch (unit) {
+    case IntervalType::DAY_TIME:
+      return 'd';
+    case IntervalType::MONTHS:
+      return 'M';
+    default:
+      DCHECK(false) << "Unexpected IntervalType::type";
+      return '\0';
+  }
+}
+
+static void AppendMetadataFingerprint(const KeyValueMetadata& metadata,
+                                      std::stringstream* ss) {
+  // Compute metadata fingerprint.  KeyValueMetadata is not immutable,
+  // so we don't cache the result on the metadata instance.
+  const auto pairs = metadata.sorted_pairs();
+  if (!pairs.empty()) {
+    *ss << "!{";
+    for (const auto& p : pairs) {
+      const auto& k = p.first;
+      const auto& v = p.second;
+      // Since metadata strings can contain arbitrary characters, prefix with
+      // string length to disambiguate.
+      *ss << k.length() << ':' << k << ':';
+      *ss << v.length() << ':' << v << ';';
+    }
+    *ss << '}';
+  }
+}
+
+static void AppendEmptyMetadataFingerprint(std::stringstream* ss) {}
+
+std::string Field::ComputeFingerprint() const {
+  const auto& type_fingerprint = type_->fingerprint();
+  if (type_fingerprint.empty()) {
+    // Underlying DataType doesn't support fingerprinting.
+    return "";
+  }
+  std::stringstream ss;
+  ss << 'F';
+  if (nullable_) {
+    ss << 'n';
+  } else {
+    ss << 'N';
+  }
+  ss << name_;
+  ss << '{' << type_fingerprint << '}';
+  return ss.str();
+}
+
+std::string Field::ComputeMetadataFingerprint() const {
+  std::stringstream ss;
+  if (metadata_) {
+    AppendMetadataFingerprint(*metadata_, &ss);
+  } else {
+    AppendEmptyMetadataFingerprint(&ss);
+  }
+  return ss.str();
+}
+
+std::string Schema::ComputeFingerprint() const {
+  std::stringstream ss;
+  ss << "S{";
+  for (const auto& field : fields()) {
+    const auto& field_fingerprint = field->fingerprint();
+    if (field_fingerprint.empty()) {
+      return "";
+    }
+    ss << field_fingerprint << ";";
+  }
+  ss << "}";
+  return ss.str();
+}
+
+std::string Schema::ComputeMetadataFingerprint() const {
+  std::stringstream ss;
+  if (HasMetadata()) {
+    AppendMetadataFingerprint(*metadata(), &ss);
+  } else {
+    AppendEmptyMetadataFingerprint(&ss);
+  }
+  ss << "S{";
+  for (const auto& field : fields()) {
+    const auto& field_fingerprint = field->metadata_fingerprint();
+    ss << field_fingerprint << ";";
+  }
+  ss << "}";
+  return ss.str();
+}
+
+std::string DataType::ComputeFingerprint() const {
+  // Default implementation returns empty string, signalling non-implemented
+  // functionality.
+  return "";
+}
+
+std::string DataType::ComputeMetadataFingerprint() const {
+  // Whatever the data type, metadata can only be found on child fields
+  std::string s;
+  for (const auto& child : children_) {
+    s += child->metadata_fingerprint();
+  }
+  return s;
+}
+
+#define PARAMETER_LESS_FINGERPRINT(TYPE_CLASS)               \
+  std::string TYPE_CLASS##Type::ComputeFingerprint() const { \
+    return TypeIdFingerprint(*this);                         \
+  }
+
+PARAMETER_LESS_FINGERPRINT(Null)
+PARAMETER_LESS_FINGERPRINT(Boolean)
+PARAMETER_LESS_FINGERPRINT(Int8)
+PARAMETER_LESS_FINGERPRINT(Int16)
+PARAMETER_LESS_FINGERPRINT(Int32)
+PARAMETER_LESS_FINGERPRINT(Int64)
+PARAMETER_LESS_FINGERPRINT(UInt8)
+PARAMETER_LESS_FINGERPRINT(UInt16)
+PARAMETER_LESS_FINGERPRINT(UInt32)
+PARAMETER_LESS_FINGERPRINT(UInt64)
+PARAMETER_LESS_FINGERPRINT(HalfFloat)
+PARAMETER_LESS_FINGERPRINT(Float)
+PARAMETER_LESS_FINGERPRINT(Double)
+PARAMETER_LESS_FINGERPRINT(Binary)
+PARAMETER_LESS_FINGERPRINT(LargeBinary)
+PARAMETER_LESS_FINGERPRINT(String)
+PARAMETER_LESS_FINGERPRINT(LargeString)
+PARAMETER_LESS_FINGERPRINT(Date32)
+PARAMETER_LESS_FINGERPRINT(Date64)
+
+#undef PARAMETER_LESS_FINGERPRINT
+
+std::string DictionaryType::ComputeFingerprint() const {
+  const auto& index_fingerprint = index_type_->fingerprint();
+  const auto& value_fingerprint = value_type_->fingerprint();
+  std::string ordered_fingerprint = ordered_ ? "1" : "0";
+
+  DCHECK(!index_fingerprint.empty());  // it's an integer type
+  if (!value_fingerprint.empty()) {
+    return TypeIdFingerprint(*this) + index_fingerprint + value_fingerprint +
+           ordered_fingerprint;
+  }
+  return ordered_fingerprint;
+}
+
+std::string ListType::ComputeFingerprint() const {
+  const auto& child_fingerprint = children_[0]->fingerprint();
+  if (!child_fingerprint.empty()) {
+    return TypeIdFingerprint(*this) + "{" + child_fingerprint + "}";
+  }
+  return "";
+}
+
+std::string LargeListType::ComputeFingerprint() const {
+  const auto& child_fingerprint = children_[0]->fingerprint();
+  if (!child_fingerprint.empty()) {
+    return TypeIdFingerprint(*this) + "{" + child_fingerprint + "}";
+  }
+  return "";
+}
+
+std::string MapType::ComputeFingerprint() const {
+  const auto& child_fingerprint = children_[0]->fingerprint();
+  if (!child_fingerprint.empty()) {
+    if (keys_sorted_) {
+      return TypeIdFingerprint(*this) + "s{" + child_fingerprint + "}";
+    } else {
+      return TypeIdFingerprint(*this) + "{" + child_fingerprint + "}";
+    }
+  }
+  return "";
+}
+
+std::string FixedSizeBinaryType::ComputeFingerprint() const {
+  std::stringstream ss;
+  ss << TypeIdFingerprint(*this) << "[" << byte_width_ << "]";
+  return ss.str();
+}
+
+std::string DecimalType::ComputeFingerprint() const {
+  std::stringstream ss;
+  ss << TypeIdFingerprint(*this) << "[" << byte_width_ << "," << precision_ << ","
+     << scale_ << "]";
+  return ss.str();
+}
+
+std::string StructType::ComputeFingerprint() const {
+  std::stringstream ss;
+  ss << TypeIdFingerprint(*this) << "{";
+  for (const auto& child : children_) {
+    const auto& child_fingerprint = child->fingerprint();
+    if (child_fingerprint.empty()) {
+      return "";
+    }
+    ss << child_fingerprint << ";";
+  }
+  ss << "}";
+  return ss.str();
+}
+
+std::string UnionType::ComputeFingerprint() const {
+  std::stringstream ss;
+  ss << TypeIdFingerprint(*this);
+  switch (mode_) {
+    case UnionMode::SPARSE:
+      ss << "[s";
+      break;
+    case UnionMode::DENSE:
+      ss << "[d";
+      break;
+    default:
+      DCHECK(false) << "Unexpected UnionMode";
+  }
+  for (const auto code : type_codes_) {
+    // Represent code as integer, not raw character
+    ss << ':' << static_cast<uint32_t>(code);
+  }
+  ss << "]{";
+  for (const auto& child : children_) {
+    const auto& child_fingerprint = child->fingerprint();
+    if (child_fingerprint.empty()) {
+      return "";
+    }
+    ss << child_fingerprint << ";";
+  }
+  ss << "}";
+  return ss.str();
+}
+
+std::string TimeType::ComputeFingerprint() const {
+  std::stringstream ss;
+  ss << TypeIdFingerprint(*this) << TimeUnitFingerprint(unit_);
+  return ss.str();
+}
+
+std::string TimestampType::ComputeFingerprint() const {
+  std::stringstream ss;
+  ss << TypeIdFingerprint(*this) << TimeUnitFingerprint(unit_) << timezone_.length()
+     << ':' << timezone_;
+  return ss.str();
+}
+
+std::string IntervalType::ComputeFingerprint() const {
+  std::stringstream ss;
+  ss << TypeIdFingerprint(*this) << IntervalTypeFingerprint(interval_type());
+  return ss.str();
+}
+
+std::string DurationType::ComputeFingerprint() const {
+  std::stringstream ss;
+  ss << TypeIdFingerprint(*this) << TimeUnitFingerprint(unit_);
+  return ss.str();
 }
 
 // ----------------------------------------------------------------------
@@ -721,6 +1077,14 @@ std::shared_ptr<DataType> list(const std::shared_ptr<Field>& value_field) {
   return std::make_shared<ListType>(value_field);
 }
 
+std::shared_ptr<DataType> large_list(const std::shared_ptr<DataType>& value_type) {
+  return std::make_shared<LargeListType>(value_type);
+}
+
+std::shared_ptr<DataType> large_list(const std::shared_ptr<Field>& value_field) {
+  return std::make_shared<LargeListType>(value_field);
+}
+
 std::shared_ptr<DataType> map(const std::shared_ptr<DataType>& key_type,
                               const std::shared_ptr<DataType>& value_type,
                               bool keys_sorted) {
@@ -751,21 +1115,21 @@ std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Array>>& chil
                                  const std::vector<std::string>& field_names,
                                  const std::vector<uint8_t>& given_type_codes,
                                  UnionMode::type mode) {
-  std::vector<std::shared_ptr<Field>> types;
+  std::vector<std::shared_ptr<Field>> fields;
   std::vector<uint8_t> type_codes(given_type_codes);
   uint8_t counter = 0;
   for (const auto& child : children) {
     if (field_names.size() == 0) {
-      types.push_back(field(std::to_string(counter), child->type()));
+      fields.push_back(field(std::to_string(counter), child->type()));
     } else {
-      types.push_back(field(field_names[counter], child->type()));
+      fields.push_back(field(std::move(field_names[counter]), child->type()));
     }
     if (given_type_codes.size() == 0) {
       type_codes.push_back(counter);
     }
     counter++;
   }
-  return union_(types, type_codes, mode);
+  return union_(fields, std::move(type_codes), mode);
 }
 
 std::shared_ptr<DataType> dictionary(const std::shared_ptr<DataType>& index_type,

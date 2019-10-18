@@ -424,7 +424,7 @@ cdef class HadoopFileSystem:
                                   c_replication, c_default_block_size,
                                   &wr_handle))
 
-            out.set_output_stream(<shared_ptr[OutputStream]> wr_handle)
+            out.set_output_stream(<shared_ptr[COutputStream]> wr_handle)
             out.is_writable = True
         else:
             with nogil:
@@ -432,7 +432,7 @@ cdef class HadoopFileSystem:
                              .OpenReadable(c_path, &rd_handle))
 
             out.set_random_access_file(
-                <shared_ptr[RandomAccessFile]> rd_handle)
+                <shared_ptr[CRandomAccessFile]> rd_handle)
             out.is_readable = True
 
         assert not out.closed

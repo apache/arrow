@@ -23,6 +23,7 @@ if sys.version_info < (3,):
     raise ImportError("Python Flight bindings require Python 3")
 
 from pyarrow._flight import (  # noqa
+    connect,
     Action,
     ActionType,
     CertKeyPair,
@@ -32,11 +33,14 @@ from pyarrow._flight import (  # noqa
     FlightDescriptor,
     FlightEndpoint,
     FlightInfo,
+    SchemaResult,
+    FlightMethod,
     FlightServerBase,
     FlightError,
     FlightInternalError,
     FlightTimedOutError,
     FlightCancelledError,
+    FlightServerError,
     FlightUnauthenticatedError,
     FlightUnauthorizedError,
     FlightUnavailableError,
@@ -47,4 +51,10 @@ from pyarrow._flight import (  # noqa
     Result,
     ClientAuthHandler,
     ServerAuthHandler,
+    CallInfo,
+    ClientMiddleware,
+    ClientMiddlewareFactory,
+    ServerMiddleware,
+    ServerMiddlewareFactory,
+    BasicAuth
 )

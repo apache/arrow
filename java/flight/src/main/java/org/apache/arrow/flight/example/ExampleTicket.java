@@ -21,13 +21,13 @@ import java.io.IOException;
 import java.util.List;
 
 import org.apache.arrow.flight.Ticket;
+import org.apache.arrow.util.Preconditions;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 
 /**

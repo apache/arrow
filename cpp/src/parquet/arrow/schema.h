@@ -18,11 +18,8 @@
 #ifndef PARQUET_ARROW_SCHEMA_H
 #define PARQUET_ARROW_SCHEMA_H
 
-#include <cstdint>
 #include <memory>
-#include <vector>
 
-#include "parquet/metadata.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 
@@ -30,58 +27,15 @@ namespace arrow {
 
 class Field;
 class Schema;
-class Status;
 
 }  // namespace arrow
 
 namespace parquet {
 
+class ArrowWriterProperties;
 class WriterProperties;
 
 namespace arrow {
-
-class ArrowReaderProperties;
-class ArrowWriterProperties;
-
-PARQUET_EXPORT
-::arrow::Status NodeToField(const schema::Node& node,
-                            std::shared_ptr<::arrow::Field>* out);
-
-/// Convert parquet schema to arrow schema with selected indices
-/// \param parquet_schema to be converted
-/// \param column_indices indices of leaf nodes in parquet schema tree. Appearing ordering
-///                       matters for the converted schema. Repeated indices are ignored
-///                       except for the first one
-/// \param properties reader options for FileReader
-/// \param key_value_metadata optional metadata, can be nullptr
-/// \param out the corresponding arrow schema
-/// \return Status::OK() on a successful conversion.
-PARQUET_EXPORT
-::arrow::Status FromParquetSchema(
-    const SchemaDescriptor* parquet_schema, const std::vector<int>& column_indices,
-    const ArrowReaderProperties& properties,
-    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
-    std::shared_ptr<::arrow::Schema>* out);
-
-// Without indices
-PARQUET_EXPORT
-::arrow::Status FromParquetSchema(
-    const SchemaDescriptor* parquet_schema, const ArrowReaderProperties& properties,
-    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
-    std::shared_ptr<::arrow::Schema>* out);
-
-// Without metadata
-PARQUET_EXPORT
-::arrow::Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
-                                  const std::vector<int>& column_indices,
-                                  const ArrowReaderProperties& properties,
-                                  std::shared_ptr<::arrow::Schema>* out);
-
-// Without metadata or indices
-PARQUET_EXPORT
-::arrow::Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
-                                  const ArrowReaderProperties& properties,
-                                  std::shared_ptr<::arrow::Schema>* out);
 
 PARQUET_EXPORT
 ::arrow::Status FieldToNode(const std::shared_ptr<::arrow::Field>& field,
@@ -100,11 +54,7 @@ PARQUET_EXPORT
                                 const WriterProperties& properties,
                                 std::shared_ptr<SchemaDescriptor>* out);
 
-PARQUET_EXPORT
-int32_t DecimalSize(int32_t precision);
-
 }  // namespace arrow
-
 }  // namespace parquet
 
 #endif  // PARQUET_ARROW_SCHEMA_H

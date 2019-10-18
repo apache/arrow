@@ -114,6 +114,7 @@ public class TestBaseAllocator {
       final ArrowBuf arrowBuf = rootAllocator.buffer(0);
       assertNotNull("allocation failed", arrowBuf);
       assertEquals("capacity was non-zero", 0, arrowBuf.capacity());
+      assertTrue("address should be valid", arrowBuf.memoryAddress() != 0);
       arrowBuf.getReferenceManager().release();
     }
   }
@@ -914,8 +915,8 @@ public class TestBaseAllocator {
       assertNotEquals(arrowBuf2, arrowBuf1);
       assertEquiv(arrowBuf1, arrowBuf2);
 
-      final ReferenceManager refMananger1 = arrowBuf1.getReferenceManager();
-      final OwnershipTransferResult result1 = refMananger1.transferOwnership(arrowBuf1, childAllocator3);
+      final ReferenceManager refManager1 = arrowBuf1.getReferenceManager();
+      final OwnershipTransferResult result1 = refManager1.transferOwnership(arrowBuf1, childAllocator3);
       allocationFit = result1.getAllocationFit();
       final ArrowBuf arrowBuf3 = result1.getTransferredBuffer();
       assertTrue(allocationFit);

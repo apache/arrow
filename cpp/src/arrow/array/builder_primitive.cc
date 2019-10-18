@@ -29,8 +29,8 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit-util.h"
-#include "arrow/util/int-util.h"
+#include "arrow/util/bit_util.h"
+#include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -45,7 +45,7 @@ Status NullBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 }
 
 BooleanBuilder::BooleanBuilder(MemoryPool* pool)
-    : ArrayBuilder(boolean(), pool), data_builder_(pool) {}
+    : ArrayBuilder(pool), data_builder_(pool) {}
 
 BooleanBuilder::BooleanBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
     : BooleanBuilder(pool) {

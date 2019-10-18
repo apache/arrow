@@ -41,7 +41,7 @@ import io.netty.util.internal.PlatformDependent;
  * decimal values which could be null. A validity buffer (bit vector) is
  * maintained to track which elements in the vector are null.
  */
-public class DecimalVector extends BaseFixedWidthVector {
+public final class DecimalVector extends BaseFixedWidthVector {
   public static final byte TYPE_WIDTH = 16;
   private final FieldReader reader;
 
@@ -446,18 +446,6 @@ public class DecimalVector extends BaseFixedWidthVector {
   }
 
   /**
-   * Set the element at the given index to null.
-   *
-   * @param index   position of element
-   */
-  public void setNull(int index) {
-    handleSafe(index);
-    // not really needed to set the bit to 0 as long as
-    // the buffer always starts from 0.
-    BitVectorHelper.setValidityBit(validityBuffer, index, 0);
-  }
-
-  /**
    * Store the given value at a particular position in the vector. isSet indicates
    * whether the value is NULL or not.
    *
@@ -488,7 +476,6 @@ public class DecimalVector extends BaseFixedWidthVector {
     handleSafe(index);
     set(index, isSet, start, buffer);
   }
-
 
   /*----------------------------------------------------------------*
    |                                                                |

@@ -17,8 +17,8 @@
 
 #include <utility>
 
-#include "arrow/compute/kernels/sum-internal.h"
 #include "arrow/compute/kernels/sum.h"
+#include "arrow/compute/kernels/sum_internal.h"
 
 namespace arrow {
 namespace compute {

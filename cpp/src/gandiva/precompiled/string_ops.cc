@@ -19,6 +19,7 @@
 
 extern "C" {
 
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -115,15 +116,22 @@ void set_error_for_invalid_utf(int64_t execution_context, char val) {
 }
 
 // Count the number of utf8 characters
+// return 0 for invalid/incomplete input byte sequences
 FORCE_INLINE
 int32 utf8_length(int64 context, const char* data, int32 data_len) {
   int char_len = 0;
   int count = 0;
   for (int i = 0; i < data_len; i += char_len) {
     char_len = utf8_char_length(data[i]);
-    if (char_len == 0) {
+    if (char_len == 0 || i + char_len > data_len) {  // invalid byte or incomplete glyph
       set_error_for_invalid_utf(context, data[i]);
       return 0;
+    }
+    for (int j = 1; j < char_len; ++j) {
+      if ((data[i + j] & 0xC0) != 0x80) {  // bytes following head-byte of glyph
+        set_error_for_invalid_utf(context, data[i + j]);
+        return 0;
+      }
     }
     ++count;
   }
@@ -165,8 +173,9 @@ FORCE_INLINE
 char* castVARCHAR_utf8_int64(int64 context, const char* data, int32 data_len,
                              int64_t out_len, int32_t* out_length) {
   // TODO: handle allocation failures
-  int32_t len = data_len <= static_cast<int32_t>(out_len) ? data_len
-                                                          : static_cast<int32_t>(out_len);
+  int32_t len = data_len <= static_cast<int32_t>(out_len) || out_len == 0
+                    ? data_len
+                    : static_cast<int32_t>(out_len);
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, len));
   memcpy(ret, data, len);
   *out_length = len;
@@ -188,5 +197,138 @@ VAR_LEN_TYPES(IS_NULL, isnull)
 VAR_LEN_TYPES(IS_NOT_NULL, isnotnull)
 
 #undef IS_NOT_NULL
+
+/*
+ We follow Oracle semantics for offset:
+ - If position is positive, then the first glyph in the substring is determined by
+ counting that many glyphs forward from the beginning of the input. (i.e., for position ==
+ 1 the first glyph in the substring will be identical to the first glyph in the input)
+
+ - If position is negative, then the first glyph in the substring is determined by
+ counting that many glyphs backward from the end of the input. (i.e., for position == -1
+ the first glyph in the substring will be identical to the last glyph in the input)
+
+ - If position is 0 then it is treated as 1.
+ */
+FORCE_INLINE
+const char* substr_utf8_int64_int64(int64 context, const char* input, int32 in_data_len,
+                                    int64 position, int64 substring_length,
+                                    int32* out_data_len) {
+  if (substring_length <= 0 || input == nullptr || in_data_len <= 0) {
+    *out_data_len = 0;
+    return "";
+  }
+
+  int64 in_glyphs_count = static_cast<int64>(utf8_length(context, input, in_data_len));
+
+  // in_glyphs_count is zero if input has invalid glyphs
+  if (in_glyphs_count == 0) {
+    *out_data_len = 0;
+    return "";
+  }
+
+  int64 from_glyph;  // from_glyph==0 indicates the first glyph of the input
+  if (position > 0) {
+    from_glyph = position - 1;
+  } else if (position < 0) {
+    from_glyph = in_glyphs_count + position;
+  } else {
+    from_glyph = 0;
+  }
+
+  if (from_glyph < 0 || from_glyph >= in_glyphs_count) {
+    *out_data_len = 0;
+    return "";
+  }
+
+  int64 out_glyphs_count = substring_length;
+  if (substring_length > in_glyphs_count - from_glyph) {
+    out_glyphs_count = in_glyphs_count - from_glyph;
+  }
+
+  int64 in_data_len64 = static_cast<int64>(in_data_len);
+  int64 start_pos = 0;
+  int64 end_pos = in_data_len64;
+
+  int64 current_glyph = 0;
+  int64 pos = 0;
+  while (pos < in_data_len64) {
+    if (current_glyph == from_glyph) {
+      start_pos = pos;
+    }
+    pos += static_cast<int64>(utf8_char_length(input[pos]));
+    if (current_glyph - from_glyph + 1 == out_glyphs_count) {
+      end_pos = pos;
+    }
+    current_glyph++;
+  }
+
+  if (end_pos > in_data_len64 || end_pos > INT_MAX) {
+    end_pos = in_data_len64;
+  }
+
+  *out_data_len = static_cast<int32>(end_pos - start_pos);
+  char* ret =
+      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_data_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_data_len = 0;
+    return "";
+  }
+  memcpy(ret, input + start_pos, *out_data_len);
+  return ret;
+}
+
+FORCE_INLINE
+const char* substr_utf8_int64(int64 context, const char* input, int32 in_len,
+                              int64 offset64, int32* out_len) {
+  return substr_utf8_int64_int64(context, input, in_len, offset64, in_len, out_len);
+}
+
+FORCE_INLINE
+const char* concat_utf8_utf8(int64 context, const char* left, int32 left_len,
+                             bool left_validity, const char* right, int32 right_len,
+                             bool right_validity, int32* out_len) {
+  if (!left_validity) {
+    left_len = 0;
+  }
+  if (!right_validity) {
+    right_len = 0;
+  }
+  return concatOperator_utf8_utf8(context, left, left_len, right, right_len, out_len);
+}
+
+FORCE_INLINE
+const char* concatOperator_utf8_utf8(int64 context, const char* left, int32 left_len,
+                                     const char* right, int32 right_len, int32* out_len) {
+  *out_len = left_len + right_len;
+  if (*out_len <= 0) {
+    *out_len = 0;
+    return "";
+  }
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  memcpy(ret, left, left_len);
+  memcpy(ret + left_len, right, right_len);
+  return ret;
+}
+
+FORCE_INLINE
+const char* convert_fromUTF8_binary(int64 context, const char* bin_in, int32 len,
+                                    int32* out_len) {
+  *out_len = len;
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+  memcpy(ret, bin_in, *out_len);
+  return ret;
+}
 
 }  // extern "C"

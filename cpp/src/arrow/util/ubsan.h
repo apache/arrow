@@ -40,7 +40,8 @@ static uint8_t non_null_filler;
 /// method to wrap locations where this could happen.
 ///
 /// Note: Flatbuffers has UBSan warnings if a zero length vector is passed.
-/// https://github.com/google/flatbuffers/pull/5355 is trying to resolve them.
+/// https://github.com/google/flatbuffers/pull/5355 is trying to resolve
+/// them.
 template <typename T>
 inline T* MakeNonNull(T* maybe_null) {
   if (ARROW_PREDICT_TRUE(maybe_null != NULLPTR)) {

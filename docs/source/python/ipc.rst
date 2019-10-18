@@ -160,6 +160,12 @@ objects. While not a complete replacement for the ``pickle`` module, these
 functions can be significantly faster, particular when dealing with collections
 of NumPy arrays.
 
+.. warning::
+
+   While the functions in this section utilize the Arrow stream protocol
+   internally, they do not produce data that is compatible with the above
+   ``ipc.open_file`` and ``ipc.open_stream`` functions.
+
 As an example, consider a dictionary containing NumPy arrays:
 
 .. ipython:: python

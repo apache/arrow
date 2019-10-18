@@ -26,7 +26,7 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/buffer-builder.h"
+#include "arrow/buffer_builder.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -53,8 +53,7 @@ constexpr int64_t kListMaximumElements = std::numeric_limits<int32_t>::max() - 1
 /// For example, ArrayBuilder* pointing to BinaryBuilder should be downcast before use.
 class ARROW_EXPORT ArrayBuilder {
  public:
-  explicit ArrayBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
-      : type_(type), pool_(pool), null_bitmap_builder_(pool) {}
+  explicit ArrayBuilder(MemoryPool* pool) : pool_(pool), null_bitmap_builder_(pool) {}
 
   virtual ~ArrayBuilder() = default;
 
@@ -79,9 +78,12 @@ class ARROW_EXPORT ArrayBuilder {
   /// \return Status
   virtual Status Resize(int64_t capacity);
 
-  /// \brief Ensure that there is enough space allocated to add the indicated
-  /// number of elements without any further calls to Resize. Overallocation is
+  /// \brief Ensure that there is enough space allocated to append the indicated
+  /// number of elements without any further reallocation. Overallocation is
   /// used in order to minimize the impact of incremental Reserve() calls.
+  /// Note that additional_capacity is relative to the current number of elements
+  /// rather than to the current capacity, so calls to Reserve() which are not
+  /// interspersed with addition of new elements may not increase the capacity.
   ///
   /// \param[in] additional_capacity the number of additional array values
   /// \return Status
@@ -121,7 +123,8 @@ class ARROW_EXPORT ArrayBuilder {
   /// \return Status
   Status Finish(std::shared_ptr<Array>* out);
 
-  std::shared_ptr<DataType> type() const { return type_; }
+  /// \brief Return the type of the built Array
+  virtual std::shared_ptr<DataType> type() const = 0;
 
  protected:
   /// Append to null bitmap
@@ -199,7 +202,6 @@ class ARROW_EXPORT ArrayBuilder {
     return Status::OK();
   }
 
-  std::shared_ptr<DataType> type_;
   MemoryPool* pool_;
 
   TypedBufferBuilder<bool> null_bitmap_builder_;

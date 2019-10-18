@@ -1,0 +1,86 @@
+---
+title: "Using the Arrow C++ Library in R"
+description: "This document describes the low-level interface to the Apache Arrow C++ library in R and reviews the patterns and conventions of the R package."
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Using the Arrow C++ Library in R}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+The Apache Arrow C++ library provides rich, powerful features for working with columnar data. The `arrow` R package provides both a low-level interface to the C++ library and some higher-level, R-flavored tools for working with it. This vignette provides an overview of how the pieces fit together, and it describes the conventions that the classes and methods follow in R.
+
+# Reading and writing files
+
+The `arrow` package provides some simple functions for using the Arrow C++ library to read and write files. These functions are designed to drop into your normal R workflow without requiring any knowledge of the Arrow C++ library and use naming conventions and arguments that follow popular R packages, particularly `readr`. The readers return `data.frame`s (or if you use the `tibble` package, they will act like `tbl_df`s), and the writers take `data.frame`s.
+
+Importantly, `arrow` provides basic read and write support for the [Apache
+Parquet](https://parquet.apache.org/) columnar data file format, without having to set up a database.
+
+```r
+library(arrow)
+df <- read_parquet("path/to/file.parquet")
+```
+
+This function, along with the other readers in the package, takes an optional
+`col_select` argument, inspired by the
+[`vroom`](https://vroom.r-lib.org/reference/vroom.html) package. This argument
+lets you use the ["tidyselect" helper functions](https://tidyselect.r-lib.org/reference/select_helpers.html), as you can do in `dplyr::select()`, to specify that you only want to keep certain columns. You may also provide a character vector of column names to keep, as in the "select" argument to `data.table::fread()`. By narrowing your selection at read time, you can load a `data.frame` with less memory overhead.
+
+For example, suppose you had written the `iris` dataset to Parquet. You could
+read a `data.frame` with only the columns `c("Sepal.Length", "Sepal.Width")` by
+doing
+
+```r
+df <- read_parquet("iris.parquet", col_select = starts_with("Sepal"))
+```
+
+Just as you can read, you can write Parquet files:
+
+```r
+write_parquet(df, "path/to/different_file.parquet")
+```
+
+The `arrow` package also includes a faster and more robust implementation of the
+Feather file format, providing `read_feather()` and
+`write_feather()`. [Feather](https://github.com/wesm/feather) was one of the
+initial applications of Apache Arrow for Python and R, providing an efficient,
+common file format language-agnostic data frame storage, along with
+implementations in R and Python.
+
+As Arrow progressed, development of Feather moved to the
+[`apache/arrow`](https://github.com/apache/arrow) project, and for the last two
+years, the Python implementation of Feather has just been a wrapper around
+`pyarrow`. This meant that as Arrow progressed and bugs were fixed, the Python
+version of Feather got the improvements but sadly R did not.
+
+In the `arrow` package, the R implementation of Feather depends
+on the same underlying C++ library as the Python version does. This should
+result in more reliable and consistent behavior across the two languages, as
+well as [improved performance](https://wesmckinney.com/blog/feather-arrow-future/).
+
+In addition to these readers and writers, the `arrow` package has wrappers for
+other readers in the C++ library; see `?read_csv_arrow` and
+`?read_json_arrow`. These readers are being developed to optimize for the
+memory layout of the Arrow columnar format and are not intended as a direct
+replacement for existing R CSV readers (`base::read.csv`, `readr::read_csv`,
+`data.table::fread`) that return an R `data.frame`.
+
+# Access to Arrow messages, buffers, and streams
+
+The `arrow` package also provides many lower-level bindings to the C++ library, which enable you
+to access and manipulate Arrow objects. You can use these to build connectors
+to other applications and services that use Arrow. One example is Spark: the
+[`sparklyr`](https://spark.rstudio.com/) package has support for using Arrow to
+move data to and from Spark, yielding [significant performance
+gains](http://arrow.apache.org/blog/2019/01/25/r-spark-improvements/).
+
+# Class structure and package conventions
+
+C++ is an object-oriented language, so the core logic of the Arrow library is encapsulated in classes and methods. In the R package, these classes are implemented as `R6` reference classes, most of which are exported from the namespace.
+
+In order to match the C++ naming conventions, the `R6` classes are in TitleCase, e.g. `RecordBatch`. This makes it easy to look up the relevant C++ implementations in the [code](https://github.com/apache/arrow/tree/master/cpp) or [documentation](https://arrow.apache.org/docs/cpp/). To simplify things in R, the C++ library namespaces are generally dropped or flattened; that is, where the C++ library has `arrow::io::FileOutputStream`, it is just `FileOutputStream` in the R package. One exception is for the file readers, where the namespace is necessary to disambiguate. So `arrow::csv::TableReader` becomes `CsvTableReader`, and `arrow::json::TableReader` becomes `JsonTableReader`.
+
+Some of these classes are not meant to be instantiated directly; they may be base classes or other kinds of helpers. For those that you should be able to create, use the `$create()` method to instantiate an object. For example, `rb <- RecordBatch$create(int = 1:10, dbl = as.numeric(1:10))` will create a `RecordBatch`. Many of these factory methods that an R user might most often encounter also have a `snake_case` alias, in order to be more familiar for contemporary R users. So `record_batch(int = 1:10, dbl = as.numeric(1:10))` would do the same as `RecordBatch$create()` above.
+
+The typical user of the `arrow` R package may never deal directly with the `R6` objects. We provide more R-friendly wrapper functions as a higher-level interface to the C++ library. An R user can call `read_parquet()` without knowing or caring that they're instantiating a `ParquetFileReader` object and calling the `$ReadFile()` method on it. The classes are there and available to the advanced programmer who wants fine-grained control over how the C++ library is used.

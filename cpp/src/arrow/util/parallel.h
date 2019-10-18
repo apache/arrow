@@ -24,7 +24,7 @@
 #include <vector>
 
 #include "arrow/status.h"
-#include "arrow/util/thread-pool.h"
+#include "arrow/util/thread_pool.h"
 
 namespace arrow {
 namespace internal {

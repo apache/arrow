@@ -22,6 +22,7 @@ mkdir -p /build/lint
 pushd /build/lint
 
 cmake -GNinja \
+      -DCMAKE_BUILD_TYPE=debug \
       -DARROW_FLIGHT=ON \
       -DARROW_GANDIVA=ON \
       -DARROW_PARQUET=ON \

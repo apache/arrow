@@ -168,6 +168,15 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     if("${COMPILER_VERSION}" VERSION_GREATER "3.9")
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-zero-as-null-pointer-constant")
     endif()
+
+    if("${COMPILER_VERSION}" VERSION_GREATER "7.0")
+      # ARROW-6259: Flatbuffers generates code with superfluous semicolons, so
+      # we suppress this warning for now. See upstream bug report
+      # https://github.com/google/flatbuffers/issues/5482
+      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-extra-semi-stmt \
+-Wno-shadow-field -Wno-c++2a-compat")
+    endif()
+
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unknown-warning-option")
   elseif("${COMPILER_FAMILY}" STREQUAL "gcc")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall \
@@ -257,7 +266,7 @@ if(BUILD_WARNING_FLAGS)
 endif(BUILD_WARNING_FLAGS)
 
 # Only enable additional instruction sets if they are supported
-if(CXX_SUPPORTS_SSE4_2)
+if(CXX_SUPPORTS_SSE4_2 AND ARROW_SSE42)
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -msse4.2")
 endif()
 

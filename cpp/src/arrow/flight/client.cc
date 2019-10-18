@@ -20,7 +20,9 @@
 // Platform-specific defines
 #include "arrow/flight/platform.h"
 
+#include <map>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -39,11 +41,15 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/stl.h"
 #include "arrow/util/uri.h"
 
 #include "arrow/flight/client_auth.h"
+#include "arrow/flight/client_middleware.h"
 #include "arrow/flight/internal.h"
-#include "arrow/flight/serialization-internal.h"
+#include "arrow/flight/middleware.h"
+#include "arrow/flight/middleware_internal.h"
+#include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/types.h"
 
 namespace pb = arrow::flight::protocol;
@@ -83,6 +89,114 @@ struct ClientRpc {
     }
     return Status::OK();
   }
+};
+
+class GrpcAddCallHeaders : public AddCallHeaders {
+ public:
+  explicit GrpcAddCallHeaders(std::multimap<grpc::string, grpc::string>* metadata)
+      : metadata_(metadata) {}
+  ~GrpcAddCallHeaders() override = default;
+
+  void AddHeader(const std::string& key, const std::string& value) override {
+    metadata_->insert(std::make_pair(key, value));
+  }
+
+ private:
+  std::multimap<grpc::string, grpc::string>* metadata_;
+};
+
+class GrpcClientInterceptorAdapter : public grpc::experimental::Interceptor {
+ public:
+  explicit GrpcClientInterceptorAdapter(
+      std::vector<std::unique_ptr<ClientMiddleware>> middleware)
+      : middleware_(std::move(middleware)) {}
+
+  void Intercept(grpc::experimental::InterceptorBatchMethods* methods) {
+    using InterceptionHookPoints = grpc::experimental::InterceptionHookPoints;
+    if (methods->QueryInterceptionHookPoint(
+            InterceptionHookPoints::PRE_SEND_INITIAL_METADATA)) {
+      GrpcAddCallHeaders add_headers(methods->GetSendInitialMetadata());
+      for (const auto& middleware : middleware_) {
+        middleware->SendingHeaders(&add_headers);
+      }
+    }
+
+    // TODO: also check for trailing metadata if call failed?
+    // (grpc-java and grpc-core differ on this point, it seems)
+    if (methods->QueryInterceptionHookPoint(
+            InterceptionHookPoints::POST_RECV_INITIAL_METADATA)) {
+      CallHeaders headers;
+      for (const auto& entry : *methods->GetRecvInitialMetadata()) {
+        headers.insert({util::string_view(entry.first.data(), entry.first.length()),
+                        util::string_view(entry.second.data(), entry.second.length())});
+      }
+      for (const auto& middleware : middleware_) {
+        middleware->ReceivedHeaders(headers);
+      }
+    }
+
+    if (methods->QueryInterceptionHookPoint(InterceptionHookPoints::POST_RECV_STATUS)) {
+      DCHECK_NE(nullptr, methods->GetRecvStatus());
+      const Status status = internal::FromGrpcStatus(*methods->GetRecvStatus());
+
+      for (const auto& middleware : middleware_) {
+        middleware->CallCompleted(status);
+      }
+    }
+
+    methods->Proceed();
+  }
+
+ private:
+  std::vector<std::unique_ptr<ClientMiddleware>> middleware_;
+};
+
+class GrpcClientInterceptorAdapterFactory
+    : public grpc::experimental::ClientInterceptorFactoryInterface {
+ public:
+  GrpcClientInterceptorAdapterFactory(
+      std::vector<std::shared_ptr<ClientMiddlewareFactory>> middleware)
+      : middleware_(middleware) {}
+
+  grpc::experimental::Interceptor* CreateClientInterceptor(
+      grpc::experimental::ClientRpcInfo* info) override {
+    std::vector<std::unique_ptr<ClientMiddleware>> middleware;
+
+    FlightMethod flight_method = FlightMethod::Invalid;
+    util::string_view method(info->method());
+    if (method.ends_with("/Handshake")) {
+      flight_method = FlightMethod::Handshake;
+    } else if (method.ends_with("/ListFlights")) {
+      flight_method = FlightMethod::ListFlights;
+    } else if (method.ends_with("/GetFlightInfo")) {
+      flight_method = FlightMethod::GetFlightInfo;
+    } else if (method.ends_with("/GetSchema")) {
+      flight_method = FlightMethod::GetSchema;
+    } else if (method.ends_with("/DoGet")) {
+      flight_method = FlightMethod::DoGet;
+    } else if (method.ends_with("/DoPut")) {
+      flight_method = FlightMethod::DoPut;
+    } else if (method.ends_with("/DoAction")) {
+      flight_method = FlightMethod::DoAction;
+    } else if (method.ends_with("/ListActions")) {
+      flight_method = FlightMethod::ListActions;
+    } else {
+      DCHECK(false) << "Unknown Flight method: " << info->method();
+    }
+
+    const CallInfo flight_info{flight_method};
+    for (auto& factory : middleware_) {
+      std::unique_ptr<ClientMiddleware> instance;
+      factory->StartCall(flight_info, &instance);
+      if (instance) {
+        middleware.push_back(std::move(instance));
+      }
+    }
+    return new GrpcClientInterceptorAdapter(std::move(middleware));
+  }
+
+ private:
+  std::vector<std::shared_ptr<ClientMiddlewareFactory>> middleware_;
 };
 
 class GrpcClientAuthSender : public ClientAuthSender {
@@ -243,21 +357,34 @@ class GrpcStreamWriter : public FlightStreamWriter {
  public:
   ~GrpcStreamWriter() override = default;
 
-  GrpcStreamWriter() : app_metadata_(nullptr), batch_writer_(nullptr) {}
+  explicit GrpcStreamWriter(
+      std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> writer)
+      : app_metadata_(nullptr), batch_writer_(nullptr), writer_(writer) {}
 
   static Status Open(
       const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema,
       std::unique_ptr<ClientRpc> rpc, std::unique_ptr<pb::PutResult> response,
+      std::shared_ptr<std::mutex> read_mutex,
       std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> writer,
       std::unique_ptr<FlightStreamWriter>* out);
 
-  Status WriteRecordBatch(const RecordBatch& batch, bool allow_64bit = false) override {
-    return WriteWithMetadata(batch, nullptr, allow_64bit);
+  Status WriteRecordBatch(const RecordBatch& batch) override {
+    return WriteWithMetadata(batch, nullptr);
   }
-  Status WriteWithMetadata(const RecordBatch& batch, std::shared_ptr<Buffer> app_metadata,
-                           bool allow_64bit = false) override {
+  Status WriteWithMetadata(const RecordBatch& batch,
+                           std::shared_ptr<Buffer> app_metadata) override {
     app_metadata_ = app_metadata;
-    return batch_writer_->WriteRecordBatch(batch, allow_64bit);
+    return batch_writer_->WriteRecordBatch(batch);
+  }
+  Status DoneWriting() override {
+    if (done_writing_) {
+      return Status::OK();
+    }
+    done_writing_ = true;
+    if (!writer_->WritesDone()) {
+      return Status::IOError("Could not flush pending record batches.");
+    }
+    return Status::OK();
   }
   void set_memory_pool(MemoryPool* pool) override {
     batch_writer_->set_memory_pool(pool);
@@ -268,6 +395,8 @@ class GrpcStreamWriter : public FlightStreamWriter {
   friend class DoPutPayloadWriter;
   std::shared_ptr<Buffer> app_metadata_;
   std::unique_ptr<ipc::RecordBatchWriter> batch_writer_;
+  std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> writer_;
+  bool done_writing_ = false;
 };
 
 /// A IpcPayloadWriter implementation that writes to a DoPut stream
@@ -275,12 +404,13 @@ class DoPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
  public:
   DoPutPayloadWriter(
       const FlightDescriptor& descriptor, std::unique_ptr<ClientRpc> rpc,
-      std::unique_ptr<pb::PutResult> response,
+      std::unique_ptr<pb::PutResult> response, std::shared_ptr<std::mutex> read_mutex,
       std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> writer,
       GrpcStreamWriter* stream_writer)
       : descriptor_(descriptor),
         rpc_(std::move(rpc)),
         response_(std::move(response)),
+        read_mutex_(read_mutex),
         writer_(std::move(writer)),
         first_payload_(true),
         stream_writer_(stream_writer) {}
@@ -320,8 +450,12 @@ class DoPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
   }
 
   Status Close() override {
-    bool finished_writes = writer_->WritesDone();
+    bool finished_writes = stream_writer_->done_writing_ ? true : writer_->WritesDone();
     // Drain the read side to avoid hanging
+    std::unique_lock<std::mutex> guard(*read_mutex_, std::try_to_lock);
+    if (!guard.owns_lock()) {
+      return Status::IOError("Cannot close stream with pending read operation.");
+    }
     pb::PutResult message;
     while (writer_->Read(&message)) {
     }
@@ -338,6 +472,7 @@ class DoPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
   const FlightDescriptor descriptor_;
   std::unique_ptr<ClientRpc> rpc_;
   std::unique_ptr<pb::PutResult> response_;
+  std::shared_ptr<std::mutex> read_mutex_;
   std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> writer_;
   bool first_payload_;
   GrpcStreamWriter* stream_writer_;
@@ -346,11 +481,12 @@ class DoPutPayloadWriter : public ipc::internal::IpcPayloadWriter {
 Status GrpcStreamWriter::Open(
     const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema,
     std::unique_ptr<ClientRpc> rpc, std::unique_ptr<pb::PutResult> response,
+    std::shared_ptr<std::mutex> read_mutex,
     std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> writer,
     std::unique_ptr<FlightStreamWriter>* out) {
-  std::unique_ptr<GrpcStreamWriter> result(new GrpcStreamWriter);
+  std::unique_ptr<GrpcStreamWriter> result(new GrpcStreamWriter(writer));
   std::unique_ptr<ipc::internal::IpcPayloadWriter> payload_writer(new DoPutPayloadWriter(
-      descriptor, std::move(rpc), std::move(response), writer, result.get()));
+      descriptor, std::move(rpc), std::move(response), read_mutex, writer, result.get()));
   RETURN_NOT_OK(ipc::internal::OpenRecordBatchWriter(std::move(payload_writer), schema,
                                                      &result->batch_writer_));
   *out = std::move(result);
@@ -362,10 +498,12 @@ FlightMetadataReader::~FlightMetadataReader() = default;
 class GrpcMetadataReader : public FlightMetadataReader {
  public:
   explicit GrpcMetadataReader(
-      std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> reader)
-      : reader_(reader) {}
+      std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> reader,
+      std::shared_ptr<std::mutex> read_mutex)
+      : reader_(reader), read_mutex_(read_mutex) {}
 
   Status ReadMetadata(std::shared_ptr<Buffer>* out) override {
+    std::lock_guard<std::mutex> guard(*read_mutex_);
     pb::PutResult message;
     if (reader_->Read(&message)) {
       *out = Buffer::FromString(std::move(*message.mutable_app_metadata()));
@@ -378,6 +516,7 @@ class GrpcMetadataReader : public FlightMetadataReader {
 
  private:
   std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> reader_;
+  std::shared_ptr<std::mutex> read_mutex_;
 };
 
 class FlightClient::FlightClientImpl {
@@ -416,8 +555,15 @@ class FlightClient::FlightClientImpl {
       args.SetSslTargetNameOverride(options.override_hostname);
     }
 
+    std::vector<std::unique_ptr<grpc::experimental::ClientInterceptorFactoryInterface>>
+        interceptors;
+    interceptors.emplace_back(
+        new GrpcClientInterceptorAdapterFactory(std::move(options.middleware)));
+
     stub_ = pb::FlightService::NewStub(
-        grpc::CreateCustomChannel(grpc_uri.str(), creds, args));
+        grpc::experimental::CreateCustomChannelWithInterceptors(
+            grpc_uri.str(), creds, args, std::move(interceptors)));
+
     return Status::OK();
   }
 
@@ -523,6 +669,25 @@ class FlightClient::FlightClientImpl {
     return Status::OK();
   }
 
+  Status GetSchema(const FlightCallOptions& options, const FlightDescriptor& descriptor,
+                   std::unique_ptr<SchemaResult>* schema_result) {
+    pb::FlightDescriptor pb_descriptor;
+    pb::SchemaResult pb_response;
+
+    RETURN_NOT_OK(internal::ToProto(descriptor, &pb_descriptor));
+
+    ClientRpc rpc(options);
+    RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
+    Status s = internal::FromGrpcStatus(
+        stub_->GetSchema(&rpc.context, pb_descriptor, &pb_response));
+    RETURN_NOT_OK(s);
+
+    std::string str;
+    RETURN_NOT_OK(internal::FromProto(pb_response, &str));
+    schema_result->reset(new SchemaResult(str));
+    return Status::OK();
+  }
+
   Status DoGet(const FlightCallOptions& options, const Ticket& ticket,
                std::unique_ptr<FlightStreamReader>* out) {
     pb::Ticket pb_ticket;
@@ -549,9 +714,11 @@ class FlightClient::FlightClientImpl {
     std::shared_ptr<grpc::ClientReaderWriter<pb::FlightData, pb::PutResult>> writer(
         stub_->DoPut(&rpc->context));
 
-    *reader = std::unique_ptr<FlightMetadataReader>(new GrpcMetadataReader(writer));
+    std::shared_ptr<std::mutex> read_mutex = std::make_shared<std::mutex>();
+    *reader =
+        std::unique_ptr<FlightMetadataReader>(new GrpcMetadataReader(writer, read_mutex));
     return GrpcStreamWriter::Open(descriptor, schema, std::move(rpc), std::move(response),
-                                  writer, out);
+                                  read_mutex, writer, out);
   }
 
  private:
@@ -593,6 +760,12 @@ Status FlightClient::GetFlightInfo(const FlightCallOptions& options,
                                    const FlightDescriptor& descriptor,
                                    std::unique_ptr<FlightInfo>* info) {
   return impl_->GetFlightInfo(options, descriptor, info);
+}
+
+Status FlightClient::GetSchema(const FlightCallOptions& options,
+                               const FlightDescriptor& descriptor,
+                               std::unique_ptr<SchemaResult>* schema_result) {
+  return impl_->GetSchema(options, descriptor, schema_result);
 }
 
 Status FlightClient::ListFlights(std::unique_ptr<FlightListing>* listing) {

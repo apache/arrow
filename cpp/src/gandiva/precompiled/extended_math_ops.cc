@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "gandiva/precompiled/decimal_ops.h"
+
 extern "C" {
 
 #include <math.h>
@@ -107,5 +109,18 @@ LOG_WITH_BASE(float64, float64, float64)
   }
 
 POWER(float64, float64, float64)
+
+FORCE_INLINE
+int64 truncate_int64_int32(int64 in, int32 out_scale) {
+  bool overflow = false;
+  arrow::BasicDecimal128 decimal = gandiva::decimalops::FromInt64(in, 38, 0, &overflow);
+  arrow::BasicDecimal128 decimal_with_outscale = gandiva::decimalops::Truncate(
+      gandiva::BasicDecimalScalar128(decimal, 38, 0), out_scale, &overflow);
+  if (out_scale < 0) {
+    out_scale = 0;
+  }
+  return gandiva::decimalops::ToInt64(
+      gandiva::BasicDecimalScalar128(decimal_with_outscale, 38, out_scale), &overflow);
+}
 
 }  // extern "C"

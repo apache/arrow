@@ -24,7 +24,7 @@ from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport (CChunkedArray, CSchema, CStatus,
                                         CTable, CMemoryPool, CBuffer,
                                         CKeyValueMetadata,
-                                        RandomAccessFile, OutputStream,
+                                        CRandomAccessFile, COutputStream,
                                         TimeUnit)
 
 
@@ -316,26 +316,30 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         unique_ptr[CRowGroupMetaData] RowGroup(int i)
         const SchemaDescriptor* schema()
         shared_ptr[const CKeyValueMetadata] key_value_metadata() const
-        void WriteTo(OutputStream* dst) const
+        void WriteTo(COutputStream* dst) const
 
     cdef shared_ptr[CFileMetaData] CFileMetaData_Make \
         " parquet::FileMetaData::Make"(const void* serialized_metadata,
                                        uint32_t* metadata_len)
 
-    cdef cppclass ReaderProperties:
-        pass
+    cdef cppclass CReaderProperties" parquet::ReaderProperties":
+        void enable_buffered_stream()
+        void disable_buffered_stream()
+        void set_buffer_size(int64_t buf_size)
+        int64_t buffer_size() const
 
-    ReaderProperties default_reader_properties()
+    CReaderProperties default_reader_properties()
+
+    cdef cppclass ArrowReaderProperties:
+        ArrowReaderProperties()
+        void set_read_dictionary(int column_index, c_bool read_dict)
+        c_bool read_dictionary()
+        void set_batch_size()
+        int64_t batch_size()
+
+    ArrowReaderProperties default_arrow_reader_properties()
 
     cdef cppclass ParquetFileReader:
-        @staticmethod
-        unique_ptr[ParquetFileReader] Open(
-            const shared_ptr[RandomAccessFile]& file,
-            const ReaderProperties& props,
-            const shared_ptr[CFileMetaData]& metadata)
-
-        @staticmethod
-        unique_ptr[ParquetFileReader] OpenFile(const c_string& path)
         shared_ptr[CFileMetaData] metadata()
 
 
@@ -346,6 +350,9 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* compression(ParquetCompression codec)
             Builder* compression(const c_string& path,
                                  ParquetCompression codec)
+            Builder* compression_level(int compression_level)
+            Builder* compression_level(const c_string& path,
+                                       int compression_level)
             Builder* disable_dictionary()
             Builder* enable_dictionary()
             Builder* enable_dictionary(const c_string& path)
@@ -356,19 +363,20 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* write_batch_size(int64_t batch_size)
             shared_ptr[WriterProperties] build()
 
+    cdef cppclass ArrowWriterProperties:
+        cppclass Builder:
+            Builder()
+            Builder* disable_deprecated_int96_timestamps()
+            Builder* enable_deprecated_int96_timestamps()
+            Builder* coerce_timestamps(TimeUnit unit)
+            Builder* allow_truncated_timestamps()
+            Builder* disallow_truncated_timestamps()
+            Builder* store_schema()
+            shared_ptr[ArrowWriterProperties] build()
+        c_bool support_deprecated_int96_timestamps()
+
 
 cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
-    cdef cppclass ArrowReaderProperties:
-        pass
-
-    ArrowReaderProperties default_arrow_reader_properties()
-
-    CStatus OpenFile(const shared_ptr[RandomAccessFile]& file,
-                     CMemoryPool* allocator,
-                     const ReaderProperties& properties,
-                     const shared_ptr[CFileMetaData]& metadata,
-                     unique_ptr[FileReader]* reader)
-
     cdef cppclass FileReader:
         FileReader(CMemoryPool* pool, unique_ptr[ParquetFileReader] reader)
         CStatus ReadColumn(int i, shared_ptr[CChunkedArray]* out)
@@ -378,6 +386,12 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
         CStatus ReadRowGroup(int i, shared_ptr[CTable]* out)
         CStatus ReadRowGroup(int i, const vector[int]& column_indices,
                              shared_ptr[CTable]* out)
+
+        CStatus ReadRowGroups(const vector[int]& row_groups,
+                              shared_ptr[CTable]* out)
+        CStatus ReadRowGroups(const vector[int]& row_groups,
+                              const vector[int]& column_indices,
+                              shared_ptr[CTable]* out)
 
         CStatus ReadTable(shared_ptr[CTable]* out)
         CStatus ReadTable(const vector[int]& column_indices,
@@ -390,13 +404,24 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
 
         void set_use_threads(c_bool use_threads)
 
+    cdef cppclass FileReaderBuilder:
+        FileReaderBuilder()
+        CStatus Open(const shared_ptr[CRandomAccessFile]& file,
+                     const CReaderProperties& properties,
+                     const shared_ptr[CFileMetaData]& metadata)
 
-cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
+        ParquetFileReader* raw_reader()
+        FileReaderBuilder* memory_pool(CMemoryPool*)
+        FileReaderBuilder* properties(const ArrowReaderProperties&)
+        CStatus Build(unique_ptr[FileReader]* out)
+
     CStatus FromParquetSchema(
         const SchemaDescriptor* parquet_schema,
         const ArrowReaderProperties& properties,
         const shared_ptr[const CKeyValueMetadata]& key_value_metadata,
         shared_ptr[CSchema]* out)
+
+cdef extern from "parquet/arrow/schema.h" namespace "parquet::arrow" nogil:
 
     CStatus ToParquetSchema(
         const CSchema* arrow_schema,
@@ -410,7 +435,7 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
 
         @staticmethod
         CStatus Open(const CSchema& schema, CMemoryPool* pool,
-                     const shared_ptr[OutputStream]& sink,
+                     const shared_ptr[COutputStream]& sink,
                      const shared_ptr[WriterProperties]& properties,
                      const shared_ptr[ArrowWriterProperties]& arrow_properties,
                      unique_ptr[FileWriter]* writer)
@@ -421,17 +446,6 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
 
         const shared_ptr[CFileMetaData] metadata() const
 
-    cdef cppclass ArrowWriterProperties:
-        cppclass Builder:
-            Builder()
-            Builder* disable_deprecated_int96_timestamps()
-            Builder* enable_deprecated_int96_timestamps()
-            Builder* coerce_timestamps(TimeUnit unit)
-            Builder* allow_truncated_timestamps()
-            Builder* disallow_truncated_timestamps()
-            shared_ptr[ArrowWriterProperties] build()
-        c_bool support_deprecated_int96_timestamps()
-
     CStatus WriteMetaDataFile(
         const CFileMetaData& file_metadata,
-        const OutputStream* sink)
+        const COutputStream* sink)

@@ -23,7 +23,6 @@
 #include <vector>
 
 #include "arrow/buffer.h"
-#include "arrow/ipc/Message_generated.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/reader.h"
@@ -31,6 +30,8 @@
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
+
+#include "generated/Message_generated.h"
 
 #include "arrow/gpu/cuda_context.h"
 #include "arrow/gpu/cuda_memory.h"
@@ -63,31 +64,7 @@ Status SerializeRecordBatch(const RecordBatch& batch, CudaContext* ctx,
 
 Status ReadMessage(CudaBufferReader* reader, MemoryPool* pool,
                    std::unique_ptr<ipc::Message>* out) {
-  int32_t message_length = 0;
-  int64_t bytes_read = 0;
-
-  RETURN_NOT_OK(reader->Read(sizeof(int32_t), &bytes_read,
-                             reinterpret_cast<uint8_t*>(&message_length)));
-  if (bytes_read != sizeof(int32_t)) {
-    *out = nullptr;
-    return Status::OK();
-  }
-
-  if (message_length == 0) {
-    // Optional 0 EOS control message
-    *out = nullptr;
-    return Status::OK();
-  }
-
-  std::shared_ptr<Buffer> metadata;
-  RETURN_NOT_OK(AllocateBuffer(pool, message_length, &metadata));
-  RETURN_NOT_OK(reader->Read(message_length, &bytes_read, metadata->mutable_data()));
-  if (bytes_read != message_length) {
-    return Status::IOError("Expected ", message_length, " metadata bytes, but only got ",
-                           bytes_read);
-  }
-
-  return ipc::Message::ReadFrom(metadata, reader, out);
+  return ipc::ReadMessageCopy(reader, pool, out);
 }
 
 Status ReadRecordBatch(const std::shared_ptr<Schema>& schema,

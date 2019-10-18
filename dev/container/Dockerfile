@@ -40,7 +40,7 @@ ENV PATH="/miniconda/bin:$PATH"
 # create conda env with deps
 RUN conda create -y -q -n pyarrow-dev \
 	python=3.6 numpy six setuptools cython pandas pytest \
-	cmake flatbuffers rapidjson boost-cpp thrift-cpp snappy zlib \
+	cmake rapidjson boost-cpp thrift-cpp snappy zlib \
   	gflags brotli lz4-c zstd -c conda-forge \
 	&& conda clean --all
 

@@ -31,6 +31,7 @@ import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.MapWithOrdinal;
+import org.apache.arrow.vector.util.ValueVectorUtility;
 
 import io.netty.buffer.ArrowBuf;
 
@@ -226,7 +227,10 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
     return children;
   }
 
-  protected List<String> getChildFieldNames() {
+  /**
+   * Get child field names.
+   */
+  public List<String> getChildFieldNames() {
     return getChildren().stream()
         .map(child -> child.getField().getName())
         .collect(Collectors.toList());
@@ -252,15 +256,32 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
    */
   public List<ValueVector> getPrimitiveVectors() {
     final List<ValueVector> primitiveVectors = new ArrayList<>();
-    for (final ValueVector v : vectors.values()) {
-      if (v instanceof AbstractStructVector) {
-        AbstractStructVector structVector = (AbstractStructVector) v;
-        primitiveVectors.addAll(structVector.getPrimitiveVectors());
-      } else {
-        primitiveVectors.add(v);
-      }
+    for (final FieldVector v : vectors.values()) {
+      primitiveVectors.addAll(getPrimitiveVectors(v));
     }
     return primitiveVectors;
+  }
+
+  private List<ValueVector> getPrimitiveVectors(FieldVector v) {
+    final List<ValueVector> primitives = new ArrayList<>();
+    if (v instanceof AbstractStructVector) {
+      AbstractStructVector structVector = (AbstractStructVector) v;
+      primitives.addAll(structVector.getPrimitiveVectors());
+    } else if (v instanceof ListVector) {
+      ListVector listVector = (ListVector) v;
+      primitives.addAll(getPrimitiveVectors(listVector.getDataVector()));
+    } else if (v instanceof FixedSizeListVector) {
+      ListVector listVector = (ListVector) v;
+      primitives.addAll(getPrimitiveVectors(listVector.getDataVector()));
+    } else if (v instanceof UnionVector) {
+      UnionVector unionVector = (UnionVector) v;
+      for (final FieldVector vector : unionVector.getChildrenFromFields()) {
+        primitives.addAll(getPrimitiveVectors(vector));
+      }
+    } else {
+      primitives.add(v);
+    }
+    return primitives;
   }
 
   /**
@@ -307,5 +328,10 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
       }
     }
     return actualBufSize;
+  }
+
+  @Override
+  public String toString() {
+    return ValueVectorUtility.getToString(this, 0 , getValueCount());
   }
 }

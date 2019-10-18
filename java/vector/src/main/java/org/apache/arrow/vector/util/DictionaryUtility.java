@@ -45,12 +45,11 @@ public class DictionaryUtility {
    * in the memory format, they have the index type
    */
   public static Field toMessageFormat(Field field, DictionaryProvider provider, Set<Long> dictionaryIdsUsed) {
-    DictionaryEncoding encoding = field.getDictionary();
-    List<Field> children = field.getChildren();
-
-    if (encoding == null && children.isEmpty()) {
+    if (!needConvertToMessageFormat(field)) {
       return field;
     }
+    DictionaryEncoding encoding = field.getDictionary();
+    List<Field> children = field.getChildren();
 
     List<Field> updatedChildren = new ArrayList<>(children.size());
     for (Field child : children) {
@@ -73,6 +72,29 @@ public class DictionaryUtility {
 
     return new Field(field.getName(), new FieldType(field.isNullable(), type, encoding, field.getMetadata()),
       updatedChildren);
+  }
+
+  /**
+   * Checks if it is required to convert the field to message format.
+   * @param field the field to check.
+   * @return true if a conversion is required, and false otherwise.
+   */
+  public static boolean needConvertToMessageFormat(Field field) {
+    DictionaryEncoding encoding = field.getDictionary();
+
+    if (encoding != null) {
+      // when encoding is not null, the type must be determined from the
+      // dictionary, so conversion must be performed.
+      return true;
+    }
+
+    List<Field> children = field.getChildren();
+    for (Field child : children) {
+      if (needConvertToMessageFormat(child)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

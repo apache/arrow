@@ -19,6 +19,9 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <algorithm>
+#include <string>
+#include <unordered_set>
 
 namespace gandiva {
 
@@ -46,4 +49,48 @@ TEST_F(TestFunctionRegistry, TestNotFound) {
   EXPECT_EQ(registry_.LookupSignature(add_i32_i32_ret64), nullptr);
 }
 
+// one nativefunction object per precompiled function
+TEST_F(TestFunctionRegistry, TestNoDuplicates) {
+  std::unordered_set<std::string> pc_func_sigs;
+  std::unordered_set<std::string> native_func_duplicates;
+  std::unordered_set<std::string> func_sigs;
+  std::unordered_set<std::string> func_sig_duplicates;
+  for (auto native_func_it = registry_.begin(); native_func_it != registry_.end();
+       ++native_func_it) {
+    auto& first_sig = native_func_it->signatures().front();
+    auto pc_func_sig = FunctionSignature(native_func_it->pc_name(),
+                                         first_sig.param_types(), first_sig.ret_type())
+                           .ToString();
+    if (pc_func_sigs.count(pc_func_sig) == 0) {
+      pc_func_sigs.insert(pc_func_sig);
+    } else {
+      native_func_duplicates.insert(pc_func_sig);
+    }
+
+    for (auto& sig : native_func_it->signatures()) {
+      auto sig_str = sig.ToString();
+      if (func_sigs.count(sig_str) == 0) {
+        func_sigs.insert(sig_str);
+      } else {
+        func_sig_duplicates.insert(sig_str);
+      }
+    }
+  }
+  std::ostringstream stream;
+  std::copy(native_func_duplicates.begin(), native_func_duplicates.end(),
+            std::ostream_iterator<std::string>(stream, "\n"));
+  std::string result = stream.str();
+  EXPECT_TRUE(native_func_duplicates.empty())
+      << "Registry has duplicates.\nMultiple NativeFunction objects refer to the "
+         "following precompiled functions:\n"
+      << result;
+
+  stream.clear();
+  std::copy(func_sig_duplicates.begin(), func_sig_duplicates.end(),
+            std::ostream_iterator<std::string>(stream, "\n"));
+  EXPECT_TRUE(func_sig_duplicates.empty())
+      << "The following signatures are defined more than once possibly pointing to "
+         "different precompiled functions:\n"
+      << stream.str();
+}
 }  // namespace gandiva

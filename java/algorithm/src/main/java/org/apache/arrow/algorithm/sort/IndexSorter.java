@@ -55,18 +55,54 @@ public class IndexSorter<V extends ValueVector> {
 
     this.comparator = comparator;
 
-    quickSort(0, indices.getValueCount() - 1);
+    quickSort();
   }
 
-  private void quickSort(int low, int high) {
-    if (low < high) {
-      int mid = partition(low, high);
-      quickSort(low, mid - 1);
-      quickSort(mid + 1, high);
+  private void quickSort() {
+    try (OffHeapIntStack rangeStack = new OffHeapIntStack(indices.getAllocator())) {
+      rangeStack.push(0);
+      rangeStack.push(indices.getValueCount() - 1);
+
+      while (!rangeStack.isEmpty()) {
+        int high = rangeStack.pop();
+        int low = rangeStack.pop();
+
+        if (low < high) {
+          int mid = partition(low, high, indices, comparator);
+
+          // push the larger part to stack first,
+          // to reduce the required stack size
+          if (high - mid < mid - low) {
+            rangeStack.push(low);
+            rangeStack.push(mid - 1);
+
+            rangeStack.push(mid + 1);
+            rangeStack.push(high);
+          } else {
+            rangeStack.push(mid + 1);
+            rangeStack.push(high);
+
+            rangeStack.push(low);
+            rangeStack.push(mid - 1);
+          }
+        }
+      }
     }
   }
 
-  private int partition(int low, int high) {
+  /**
+   * Partition a range of values in a vector into two parts, with elements in one part smaller than
+   * elements from the other part. The partition is based on the element indices, so it does
+   * not modify the underlying vector.
+   * @param low the lower bound of the range.
+   * @param high the upper bound of the range.
+   * @param indices vector element indices.
+   * @param comparator criteria for comparison.
+   * @param <T> the vector type.
+   * @return the index of the split point.
+   */
+  public static <T extends ValueVector> int partition(
+          int low, int high, IntVector indices, VectorValueComparator<T> comparator) {
     int pivotIndex = indices.get(low);
 
     while (low < high) {

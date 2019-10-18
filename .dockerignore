@@ -20,6 +20,7 @@ docker_cache
 docs/_build
 
 # IDE
+.idea
 .vscode
 */.vscode
 
@@ -38,6 +39,9 @@ cpp/.idea
 cpp/build
 cpp/*-build
 cpp/*_build
+cpp/build-debug
+cpp/build-release
+cpp/build-test
 cpp/Testing
 cpp/thirdparty
 !cpp/thirdparty/jemalloc
@@ -91,6 +95,9 @@ js/test/data/**/*.arrow
 
 # Rust
 rust/target
+rust/arrow/target
+rust/parquet/target
+rust/datafusion/target
 
-# site
+# Site
 site/

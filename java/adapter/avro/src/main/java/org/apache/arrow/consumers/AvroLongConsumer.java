@@ -20,25 +20,54 @@ package org.apache.arrow.consumers;
 import java.io.IOException;
 
 import org.apache.arrow.vector.BigIntVector;
-import org.apache.arrow.vector.complex.impl.BigIntWriterImpl;
-import org.apache.arrow.vector.complex.writer.BigIntWriter;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.avro.io.Decoder;
 
 /**
  * Consumer which consume long type values from avro decoder.
  * Write the data to {@link BigIntVector}.
  */
-public class AvroLongConsumer implements Consumer {
+public class AvroLongConsumer implements Consumer<BigIntVector> {
 
-  private final BigIntWriter writer;
+  private BigIntVector vector;
 
+  private int currentIndex;
+
+  /**
+   * Instantiate a AvroLongConsumer.
+   */
   public AvroLongConsumer(BigIntVector vector) {
-    this.writer = new BigIntWriterImpl(vector);
+    this.vector = vector;
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    writer.writeBigInt(decoder.readLong());
-    writer.setPosition(writer.getPosition() + 1);
+    vector.setSafe(currentIndex++, decoder.readLong());
+  }
+
+  @Override
+  public void addNull() {
+    currentIndex++;
+  }
+
+  @Override
+  public void setPosition(int index) {
+    currentIndex = index;
+  }
+
+  @Override
+  public FieldVector getVector() {
+    return this.vector;
+  }
+
+  @Override
+  public void close() throws Exception {
+    vector.close();
+  }
+
+  @Override
+  public void resetValueVector(BigIntVector vector) {
+    this.vector = vector;
+    this.currentIndex = 0;
   }
 }

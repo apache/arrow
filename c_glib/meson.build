@@ -36,7 +36,7 @@ version_minor = version_numbers[1].to_int()
 version_micro = version_numbers[2].to_int()
 
 api_version = '1.0'
-so_version = version_minor
+so_version = version_major * 100 + version_minor
 so_version_patch = version_micro
 library_version = '@0@.@1@.@2@'.format(so_version, so_version_patch, 0)
 

@@ -31,11 +31,11 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 
+#include "arrow/python/datetime.h"
 #include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/iterators.h"
 #include "arrow/python/numpy_convert.h"
-#include "arrow/python/util/datetime.h"
 
 namespace arrow {
 namespace py {
@@ -299,6 +299,7 @@ class TypeInferrer {
         timestamp_milli_count_(0),
         timestamp_micro_count_(0),
         timestamp_nano_count_(0),
+        duration_count_(0),
         float_count_(0),
         binary_count_(0),
         unicode_count_(0),
@@ -331,6 +332,9 @@ class TypeInferrer {
       ++int_count_;
     } else if (PyDateTime_Check(obj)) {
       ++timestamp_micro_count_;
+      *keep_going = make_unions_;
+    } else if (PyDelta_Check(obj)) {
+      ++duration_count_;
       *keep_going = make_unions_;
     } else if (PyDate_Check(obj)) {
       ++date_count_;
@@ -460,6 +464,8 @@ class TypeInferrer {
       *out = timestamp(TimeUnit::MILLI);
     } else if (timestamp_second_count_) {
       *out = timestamp(TimeUnit::SECOND);
+    } else if (duration_count_) {
+      *out = duration(TimeUnit::MICRO);
     } else if (bool_count_) {
       *out = boolean();
     } else if (binary_count_) {
@@ -593,6 +599,7 @@ class TypeInferrer {
   int64_t timestamp_milli_count_;
   int64_t timestamp_micro_count_;
   int64_t timestamp_nano_count_;
+  int64_t duration_count_;
   int64_t float_count_;
   int64_t binary_count_;
   int64_t unicode_count_;
@@ -617,7 +624,6 @@ class TypeInferrer {
 // Non-exhaustive type inference
 Status InferArrowType(PyObject* obj, PyObject* mask, bool pandas_null_sentinels,
                       std::shared_ptr<DataType>* out_type) {
-  PyDateTime_IMPORT;
   TypeInferrer inferrer(pandas_null_sentinels);
   RETURN_NOT_OK(inferrer.VisitSequence(obj, mask));
   RETURN_NOT_OK(inferrer.GetType(out_type));

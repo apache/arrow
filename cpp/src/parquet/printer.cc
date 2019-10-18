@@ -121,7 +121,7 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
         stream << "  Statistics Not Set";
       }
       stream << std::endl
-             << "  Compression: " << CompressionToString(column_chunk->compression())
+             << "  Compression: " << Codec::GetCodecAsString(column_chunk->compression())
              << ", Encodings:";
       for (auto encoding : column_chunk->encodings()) {
         stream << " " << EncodingToString(encoding);
@@ -255,7 +255,7 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
         stream << "\"False\",";
       }
       stream << "\n           \"Compression\": \""
-             << CompressionToString(column_chunk->compression())
+             << Codec::GetCodecAsString(column_chunk->compression())
              << "\", \"Encodings\": \"";
       for (auto encoding : column_chunk->encodings()) {
         stream << EncodingToString(encoding) << " ";

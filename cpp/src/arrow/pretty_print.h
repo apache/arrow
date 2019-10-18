@@ -61,6 +61,10 @@ struct PrettyPrintOptions {
 ARROW_EXPORT
 Status PrettyPrint(const RecordBatch& batch, int indent, std::ostream* sink);
 
+ARROW_EXPORT
+Status PrettyPrint(const RecordBatch& batch, const PrettyPrintOptions& options,
+                   std::ostream* sink);
+
 /// \brief Print human-readable representation of Table
 ARROW_EXPORT
 Status PrettyPrint(const Table& table, const PrettyPrintOptions& options,

@@ -99,7 +99,11 @@ fn rewrite_expr(expr: &Expr, schema: &Schema) -> Result<Expr> {
             let left_type = left.get_type(schema);
             let right_type = right.get_type(schema);
             if left_type == right_type {
-                Ok(expr.clone())
+                Ok(Expr::BinaryExpr {
+                    left: Arc::new(left),
+                    op: op.clone(),
+                    right: Arc::new(right),
+                })
             } else {
                 let super_type = utils::get_supertype(&left_type, &right_type)?;
                 Ok(Expr::BinaryExpr {
@@ -191,6 +195,20 @@ mod tests {
             DataType::Float32,
             DataType::Int32,
             "#0 Plus CAST(#1 AS Float32)",
+        );
+    }
+
+    #[test]
+    fn test_add_u32_i64() {
+        binary_cast_test(
+            DataType::UInt32,
+            DataType::Int64,
+            "CAST(#0 AS Int64) Plus #1",
+        );
+        binary_cast_test(
+            DataType::Int64,
+            DataType::UInt32,
+            "#0 Plus CAST(#1 AS Int64)",
         );
     }
 

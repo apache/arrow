@@ -129,9 +129,15 @@ function build_wheel {
           -DARROW_PLASMA=ON \
           -DARROW_RPATH_ORIGIN=ON \
           -DARROW_PYTHON=ON \
+          -DARROW_WITH_BZ2=ON \
+          -DARROW_WITH_ZLIB=ON \
+          -DARROW_WITH_ZSTD=ON \
+          -DARROW_WITH_LZ4=ON \
+          -DARROW_WITH_SNAPPY=ON \
+          -DARROW_WITH_BROTLI=ON \
           -DARROW_PARQUET=ON \
           -DARROW_GANDIVA=${BUILD_ARROW_GANDIVA} \
-          -DARROW_ORC=ON \
+          -DARROW_ORC=OFF \
           -DBOOST_ROOT="$arrow_boost_dist" \
           -DBoost_NAMESPACE=arrow_boost \
           -DARROW_FLIGHT=ON \
@@ -140,6 +146,7 @@ function build_wheel {
           -Dzlib_SOURCE=BUNDLED \
           -DARROW_PROTOBUF_USE_SHARED=OFF \
           -DOPENSSL_USE_STATIC_LIBS=ON  \
+          -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@1.1) \
           -DMAKE=make \
           ..
     make -j5
@@ -157,7 +164,7 @@ function build_wheel {
     export PYARROW_WITH_FLIGHT=1
     export PYARROW_WITH_PLASMA=1
     export PYARROW_WITH_PARQUET=1
-    export PYARROW_WITH_ORC=1
+    export PYARROW_WITH_ORC=0
     export PYARROW_WITH_JEMALLOC=1
     export PYARROW_WITH_PLASMA=1
     export PYARROW_BUNDLE_BOOST=1
@@ -204,7 +211,6 @@ function run_import_tests {
     python -c "
 import sys
 import pyarrow
-import pyarrow.orc
 import pyarrow.parquet
 import pyarrow.plasma
 

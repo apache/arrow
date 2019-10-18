@@ -60,6 +60,7 @@ namespace Apache.Arrow.Tests
             {
                 ArrowStreamWriter writer = new ArrowStreamWriter(stream, originalBatch.Schema);
                 await writer.WriteRecordBatchAsync(originalBatch);
+                await writer.WriteEndAsync();
 
                 stream.Position = 0;
 
@@ -83,23 +84,29 @@ namespace Apache.Arrow.Tests
             }
         }
 
-        [Fact]
-        public async Task ReadRecordBatch_Memory()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task ReadRecordBatch_Memory(bool writeEnd)
         {
             await TestReaderFromMemory((reader, originalBatch) =>
             {
                 ArrowReaderVerifier.VerifyReader(reader, originalBatch);
                 return Task.CompletedTask;
-            });
+            }, writeEnd);
         }
 
-        [Fact]
-        public async Task ReadRecordBatchAsync_Memory()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task ReadRecordBatchAsync_Memory(bool writeEnd)
         {
-            await TestReaderFromMemory(ArrowReaderVerifier.VerifyReaderAsync);
+            await TestReaderFromMemory(ArrowReaderVerifier.VerifyReaderAsync, writeEnd);
         }
 
-        private static async Task TestReaderFromMemory(Func<ArrowStreamReader, RecordBatch, Task> verificationFunc)
+        private static async Task TestReaderFromMemory(
+            Func<ArrowStreamReader, RecordBatch, Task> verificationFunc,
+            bool writeEnd)
         {
             RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
 
@@ -108,6 +115,10 @@ namespace Apache.Arrow.Tests
             {
                 ArrowStreamWriter writer = new ArrowStreamWriter(stream, originalBatch.Schema);
                 await writer.WriteRecordBatchAsync(originalBatch);
+                if (writeEnd)
+                {
+                    await writer.WriteEndAsync();
+                }
                 buffer = stream.GetBuffer();
             }
 
@@ -115,23 +126,29 @@ namespace Apache.Arrow.Tests
             await verificationFunc(reader, originalBatch);
         }
 
-        [Fact]
-        public async Task ReadRecordBatch_Stream()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task ReadRecordBatch_Stream(bool writeEnd)
         {
             await TestReaderFromStream((reader, originalBatch) =>
             {
                 ArrowReaderVerifier.VerifyReader(reader, originalBatch);
                 return Task.CompletedTask;
-            });
+            }, writeEnd);
         }
 
-        [Fact]
-        public async Task ReadRecordBatchAsync_Stream()
+        [Theory]
+        [InlineData(true)]
+        [InlineData(false)]
+        public async Task ReadRecordBatchAsync_Stream(bool writeEnd)
         {
-            await TestReaderFromStream(ArrowReaderVerifier.VerifyReaderAsync);
+            await TestReaderFromStream(ArrowReaderVerifier.VerifyReaderAsync, writeEnd);
         }
 
-        private static async Task TestReaderFromStream(Func<ArrowStreamReader, RecordBatch, Task> verificationFunc)
+        private static async Task TestReaderFromStream(
+            Func<ArrowStreamReader, RecordBatch, Task> verificationFunc,
+            bool writeEnd)
         {
             RecordBatch originalBatch = TestData.CreateSampleRecordBatch(length: 100);
 
@@ -139,6 +156,10 @@ namespace Apache.Arrow.Tests
             {
                 ArrowStreamWriter writer = new ArrowStreamWriter(stream, originalBatch.Schema);
                 await writer.WriteRecordBatchAsync(originalBatch);
+                if (writeEnd)
+                {
+                    await writer.WriteEndAsync();
+                }
 
                 stream.Position = 0;
 
@@ -175,6 +196,7 @@ namespace Apache.Arrow.Tests
             {
                 ArrowStreamWriter writer = new ArrowStreamWriter(stream, originalBatch.Schema);
                 await writer.WriteRecordBatchAsync(originalBatch);
+                await writer.WriteEndAsync();
 
                 stream.Position = 0;
 

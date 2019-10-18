@@ -21,12 +21,11 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <ostream>
 #include <string>
 #include <utility>
 
-#include "arrow/buffer.h"
 #include "arrow/io/file.h"
-#include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 

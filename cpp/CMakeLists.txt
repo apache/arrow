@@ -22,12 +22,14 @@ set(ARROW_VERSION "1.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
-project(arrow VERSION "${ARROW_BASE_VERSION}")
-
 # if no build build type is specified, default to release builds
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release)
-endif(NOT CMAKE_BUILD_TYPE)
+if(NOT DEFINED CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build.")
+endif()
+string(TOLOWER ${CMAKE_BUILD_TYPE} LOWERCASE_BUILD_TYPE)
+string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_BUILD_TYPE)
+
+project(arrow VERSION "${ARROW_BASE_VERSION}")
 
 set(ARROW_VERSION_MAJOR "${arrow_VERSION_MAJOR}")
 set(ARROW_VERSION_MINOR "${arrow_VERSION_MINOR}")
@@ -209,6 +211,14 @@ if(${CLANG_FORMAT_FOUND})
                     ${ARROW_LINT_QUIET})
 endif()
 
+add_custom_target(lint_cpp_cli ${PYTHON_EXECUTABLE} ${BUILD_SUPPORT_DIR}/lint_cpp_cli.py
+                  ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+if(ARROW_LINT_ONLY)
+  message("ARROW_LINT_ONLY was specified, this is only a partial build directory")
+  return()
+endif()
+
 #
 # "make clang-tidy" and "make check-clang-tidy" targets
 #
@@ -245,9 +255,9 @@ if(${CLANG_TIDY_FOUND})
                     ${ARROW_LINT_QUIET})
 endif()
 
-if(ARROW_ONLY_LINT)
-  return()
-endif()
+if(UNIX)
+  add_custom_target(iwyu ${BUILD_SUPPORT_DIR}/iwyu/iwyu.sh)
+endif(UNIX)
 
 #
 # Set up various options
@@ -262,14 +272,16 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   set(ARROW_WITH_ZLIB ON)
 endif()
 
-if(ARROW_BUILD_TESTS)
-  # JSON parsing of arrays is required for Arrow unit tests
+if(ARROW_BUILD_TESTS OR ARROW_BUILD_INTEGRATION)
+  set(ARROW_JSON ON)
+endif()
+
+if(ARROW_CUDA OR ARROW_FLIGHT OR ARROW_PARQUET OR ARROW_BUILD_TESTS)
   set(ARROW_IPC ON)
 endif()
 
-if(PARQUET_BUILD_EXAMPLES OR PARQUET_BUILD_EXECUTABLES)
-  set(ARROW_PARQUET ON)
-  set(ARROW_BUILD_STATIC ON)
+if(ARROW_DATASET)
+  set(ARROW_FILESYSTEM ON)
 endif()
 
 if(MSVC)
@@ -319,6 +331,10 @@ endif()
 
 if(NOT ARROW_FUZZING)
   set(NO_FUZZING 1)
+endif()
+
+if(ARROW_LARGE_MEMORY_TESTS)
+  add_definitions(-DARROW_LARGE_MEMORY_TESTS)
 endif()
 
 if(MSVC
@@ -387,6 +403,17 @@ set(LIBRARY_OUTPUT_DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 # where to put generated binaries
 set(EXECUTABLE_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 
+if(CMAKE_GENERATOR STREQUAL Xcode)
+  # Xcode projects support multi-configuration builds.  This forces a single output directory
+  # when building with Xcode that is consistent with single-configuration Makefile driven build.
+  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${UPPERCASE_BUILD_TYPE}
+      "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${UPPERCASE_BUILD_TYPE}
+      "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${UPPERCASE_BUILD_TYPE}
+      "${BUILD_OUTPUT_ROOT_DIRECTORY}")
+endif()
+
 #
 # Dependencies
 #
@@ -428,6 +455,9 @@ message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/src)
 include_directories(src)
+
+# Compiled flatbuffers files
+include_directories(src/generated)
 
 #
 # Visibility
@@ -558,13 +588,6 @@ if(${INFER_FOUND})
 endif()
 
 #
-# "make iwyu" target
-#
-if(UNIX)
-  add_custom_target(iwyu ${BUILD_SUPPORT_DIR}/iwyu/iwyu.sh)
-endif(UNIX)
-
-#
 # Linker and Dependencies
 #
 
@@ -636,6 +659,10 @@ if(ARROW_USE_GLOG)
   add_definitions("-DARROW_USE_GLOG")
 endif()
 
+if(ARROW_S3)
+  list(APPEND ARROW_LINK_LIBS ${AWSSDK_LINK_LIBRARIES})
+endif()
+
 add_custom_target(arrow_dependencies)
 add_custom_target(arrow_benchmark_dependencies)
 add_custom_target(arrow_test_dependencies)
@@ -650,13 +677,19 @@ if(ARROW_STATIC_LINK_LIBS)
   add_dependencies(arrow_dependencies ${ARROW_STATIC_LINK_LIBS})
 endif()
 
-set(ARROW_SHARED_PRIVATE_LINK_LIBS ${ARROW_STATIC_LINK_LIBS} ${BOOST_SYSTEM_LIBRARY}
-                                   ${BOOST_FILESYSTEM_LIBRARY} ${BOOST_REGEX_LIBRARY})
+set(ARROW_SHARED_PRIVATE_LINK_LIBS ${ARROW_STATIC_LINK_LIBS})
 
-list(APPEND ARROW_STATIC_LINK_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY}
-            ${BOOST_REGEX_LIBRARY})
+# Is boost::filesystem needed?
+if(ARROW_BUILD_INTEGRATION OR ARROW_BUILD_TESTS OR ARROW_FILESYSTEM OR ARROW_HDFS)
+  set(ARROW_WITH_BOOST_FILESYSTEM ON)
 
-list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS boost_system boost_filesystem boost_regex)
+  list(APPEND ARROW_SHARED_PRIVATE_LINK_LIBS ${BOOST_FILESYSTEM_LIBRARY}
+              ${BOOST_SYSTEM_LIBRARY})
+
+  list(APPEND ARROW_STATIC_LINK_LIBS ${BOOST_FILESYSTEM_LIBRARY} ${BOOST_SYSTEM_LIBRARY})
+
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS boost_filesystem boost_system)
+endif()
 
 if(NOT MSVC)
   list(APPEND ARROW_LINK_LIBS ${CMAKE_DL_LIBS})
@@ -683,9 +716,8 @@ set(ARROW_TEST_SHARED_LINK_LIBS
     arrow_shared
     ${ARROW_LINK_LIBS}
     ${double-conversion_LIBRARIES}
-    ${BOOST_SYSTEM_LIBRARY}
     ${BOOST_FILESYSTEM_LIBRARY}
-    ${BOOST_REGEX_LIBRARY}
+    ${BOOST_SYSTEM_LIBRARY}
     ${ARROW_TEST_LINK_TOOLCHAIN})
 
 if(NOT MSVC)
@@ -731,10 +763,20 @@ if(ARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC)
   add_definitions(-DARROW_JEMALLOC_INCLUDE_DIR=${JEMALLOC_INCLUDE_DIR})
   list(APPEND ARROW_SYSTEM_LINK_LIBS jemalloc::jemalloc)
-endif(ARROW_JEMALLOC)
+endif()
+
+if(ARROW_MIMALLOC)
+  add_definitions(-DARROW_MIMALLOC)
+  list(APPEND ARROW_SYSTEM_LINK_LIBS mimalloc::mimalloc)
+endif()
 
 if(THREADS_FOUND)
   list(APPEND ARROW_SYSTEM_LINK_LIBS Threads::Threads)
+endif()
+
+if(WIN32)
+  # Winsock
+  list(APPEND ARROW_SYSTEM_LINK_LIBS "Ws2_32.dll")
 endif()
 
 if(NOT WIN32 AND NOT APPLE)
@@ -782,6 +824,7 @@ include(CMakePackageConfigHelpers)
 # Makes the project importable from the build directory
 export(EXPORT ${PROJECT_NAME}-targets
        FILE "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Targets.cmake")
+
 configure_package_config_file(${PROJECT_NAME}Config.cmake.in
                               "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
                               INSTALL_DESTINATION
@@ -790,12 +833,17 @@ write_basic_package_version_file(
   ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
   VERSION ${${PROJECT_NAME}_VERSION}
   COMPATIBILITY AnyNewerVersion)
+config_summary_cmake_setters("${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Options.cmake")
 
 install(EXPORT ${PROJECT_NAME}-targets
         FILE ${PROJECT_NAME}Targets.cmake
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
               ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+              ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Options.cmake
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
 
-config_summary()
+config_summary_message()
+if(${ARROW_BUILD_CONFIG_SUMMARY_JSON})
+  config_summary_json()
+endif()

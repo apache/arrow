@@ -17,13 +17,17 @@
 
 #include "parquet/file_writer.h"
 
+#include <cstddef>
+#include <ostream>
 #include <utility>
 #include <vector>
 
 #include "parquet/column_writer.h"
 #include "parquet/deprecated_io.h"
+#include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
+#include "parquet/types.h"
 
 using arrow::MemoryPool;
 
@@ -84,7 +88,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
         properties_(properties),
         total_bytes_written_(0),
         closed_(false),
-        current_column_index_(0),
+        next_column_index_(0),
         num_rows_(0),
         buffered_row_group_(buffered_row_group) {
     if (buffered_row_group) {
@@ -119,12 +123,12 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
       total_bytes_written_ += column_writers_[0]->Close();
     }
 
-    ++current_column_index_;
+    ++next_column_index_;
 
-    const ColumnDescriptor* column_descr = col_meta->descr();
-    std::unique_ptr<PageWriter> pager =
-        PageWriter::Open(sink_, properties_->compression(column_descr->path()), col_meta,
-                         properties_->memory_pool());
+    const auto& path = col_meta->descr()->path();
+    std::unique_ptr<PageWriter> pager = PageWriter::Open(
+        sink_, properties_->compression(path), properties_->compression_level(path),
+        col_meta, properties_->memory_pool());
     column_writers_[0] = ColumnWriter::Make(col_meta, std::move(pager), properties_);
     return column_writers_[0].get();
   }
@@ -189,7 +193,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
   const WriterProperties* properties_;
   int64_t total_bytes_written_;
   bool closed_;
-  int current_column_index_;
+  int next_column_index_;
   mutable int64_t num_rows_;
   bool buffered_row_group_;
 
@@ -200,7 +204,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
       if (num_rows_ == 0) {
         num_rows_ = current_col_rows;
       } else if (num_rows_ != current_col_rows) {
-        ThrowRowsMisMatchError(current_column_index_, current_col_rows, num_rows_);
+        ThrowRowsMisMatchError(next_column_index_, current_col_rows, num_rows_);
       }
     } else if (buffered_row_group_ &&
                column_writers_.size() > 0) {  // when buffered_row_group = true
@@ -218,10 +222,10 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
   void InitColumns() {
     for (int i = 0; i < num_columns(); i++) {
       auto col_meta = metadata_->NextColumnChunk();
-      const ColumnDescriptor* column_descr = col_meta->descr();
-      std::unique_ptr<PageWriter> pager =
-          PageWriter::Open(sink_, properties_->compression(column_descr->path()),
-                           col_meta, properties_->memory_pool(), buffered_row_group_);
+      const auto& path = col_meta->descr()->path();
+      std::unique_ptr<PageWriter> pager = PageWriter::Open(
+          sink_, properties_->compression(path), properties_->compression_level(path),
+          col_meta, properties_->memory_pool(), buffered_row_group_);
       column_writers_.push_back(
           ColumnWriter::Make(col_meta, std::move(pager), properties_));
     }

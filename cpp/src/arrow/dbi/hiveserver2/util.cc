@@ -22,8 +22,8 @@
 #include <sstream>
 #include <vector>
 
-#include "arrow/dbi/hiveserver2/columnar-row-set.h"
-#include "arrow/dbi/hiveserver2/thrift-internal.h"
+#include "arrow/dbi/hiveserver2/columnar_row_set.h"
+#include "arrow/dbi/hiveserver2/thrift_internal.h"
 
 #include "arrow/dbi/hiveserver2/TCLIService.h"
 #include "arrow/dbi/hiveserver2/TCLIService_types.h"

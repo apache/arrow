@@ -16,9 +16,19 @@
  */
 
 import io.netty.buffer.ArrowBuf;
+import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
+import org.apache.arrow.memory.util.hash.ArrowBufHasher;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.compare.VectorVisitor;
+import org.apache.arrow.vector.types.UnionMode;
+import org.apache.arrow.vector.compare.RangeEqualsVisitor;
+import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.util.CallBack;
+import org.apache.arrow.vector.util.ValueVectorUtility;
 
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/UnionVector.java" />
@@ -33,12 +43,16 @@ import io.netty.buffer.ArrowBuf;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
+import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.impl.ComplexCopier;
 import org.apache.arrow.vector.util.CallBack;
+import org.apache.arrow.vector.util.ValueVectorUtility;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.memory.BaseAllocator;
+import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.util.OversizedAllocationException;
+import org.apache.arrow.util.Preconditions;
 
 import static org.apache.arrow.vector.types.UnionMode.Sparse;
 
@@ -79,13 +93,27 @@ public class UnionVector implements FieldVector {
   private final CallBack callBack;
   private int typeBufferAllocationSizeInBytes;
 
+  private final FieldType fieldType;
+
   private static final byte TYPE_WIDTH = 1;
   private static final FieldType INTERNAL_STRUCT_TYPE = new FieldType(false /*nullable*/,
       ArrowType.Struct.INSTANCE, null /*dictionary*/, null /*metadata*/);
 
+  public static UnionVector empty(String name, BufferAllocator allocator) {
+    FieldType fieldType = FieldType.nullable(new ArrowType.Union(
+        UnionMode.Sparse, null));
+    return new UnionVector(name, allocator, fieldType, null);
+  }
+
+  @Deprecated
   public UnionVector(String name, BufferAllocator allocator, CallBack callBack) {
+    this(name, allocator, null, callBack);
+  }
+
+  public UnionVector(String name, BufferAllocator allocator, FieldType fieldType, CallBack callBack) {
     this.name = name;
     this.allocator = allocator;
+    this.fieldType = fieldType;
     this.internalStruct = new NonNullableStructVector("internal", allocator, INTERNAL_STRUCT_TYPE,
         callBack);
     this.typeBuffer = allocator.getEmpty();
@@ -341,7 +369,17 @@ public class UnionVector implements FieldVector {
       typeIds[childFields.size()] = v.getMinorType().ordinal();
       childFields.add(v.getField());
     }
-    return new Field(name, FieldType.nullable(new ArrowType.Union(Sparse, typeIds)), childFields);
+
+    FieldType fieldType;
+    if (this.fieldType == null) {
+      fieldType = FieldType.nullable(new ArrowType.Union(Sparse, typeIds));
+    } else {
+      final UnionMode mode = ((ArrowType.Union)this.fieldType.getType()).getMode();
+      fieldType = new FieldType(this.fieldType.isNullable(), new ArrowType.Union(mode, typeIds),
+          this.fieldType.getDictionary(), this.fieldType.getMetadata());
+    }
+
+    return new Field(name, fieldType, childFields);
   }
 
   @Override
@@ -364,13 +402,17 @@ public class UnionVector implements FieldVector {
     return new TransferImpl((UnionVector) target);
   }
 
-  public void copyFrom(int inIndex, int outIndex, UnionVector from) {
-    from.getReader().setPosition(inIndex);
+  @Override
+  public void copyFrom(int inIndex, int outIndex, ValueVector from) {
+    Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
+    UnionVector fromCast = (UnionVector) from;
+    fromCast.getReader().setPosition(inIndex);
     getWriter().setPosition(outIndex);
-    ComplexCopier.copy(from.reader, writer);
+    ComplexCopier.copy(fromCast.reader, writer);
   }
 
-  public void copyFromSafe(int inIndex, int outIndex, UnionVector from) {
+  @Override
+  public void copyFromSafe(int inIndex, int outIndex, ValueVector from) {
     copyFrom(inIndex, outIndex, from);
   }
 
@@ -384,6 +426,18 @@ public class UnionVector implements FieldVector {
       callBack.doWork();
     }
     return newVector;
+  }
+
+  /**
+   * Directly put a vector to internalStruct without creating a new one with same type.
+   */
+  public void directAddVector(FieldVector v) {
+    String name = v.getMinorType().name().toLowerCase();
+    Preconditions.checkState(internalStruct.getChild(name) == null, String.format("%s vector already exists", name));
+    internalStruct.putChild(name, v);
+    if (callBack != null) {
+      callBack.doWork();
+    }
   }
 
   private class TransferImpl implements TransferPair {
@@ -412,6 +466,7 @@ public class UnionVector implements FieldVector {
 
     @Override
     public void splitAndTransfer(int startIndex, int length) {
+      Preconditions.checkArgument(startIndex + length <= valueCount);
       to.clear();
       internalStructVectorTransferPair.splitAndTransfer(startIndex, length);
       final int startPoint = startIndex * TYPE_WIDTH;
@@ -633,24 +688,26 @@ public class UnionVector implements FieldVector {
 
     @Override
     public int hashCode(int index) {
-      return getVector(index).hashCode(index);
+      return hashCode(index, null);
     }
 
     @Override
-    public boolean equals(int index, ValueVector to, int toIndex) {
-      if (to == null) {
-        return false;
-      }
-      if (this.getClass() != to.getClass()) {
-        return false;
-      }
-      UnionVector that = (UnionVector) to;
-      ValueVector leftVector = getVector(index);
-      ValueVector rightVector = that.getVector(toIndex);
+    public int hashCode(int index, ArrowBufHasher hasher) {
+      return getVector(index).hashCode(index, hasher);
+    }
 
-      if (leftVector.getClass() != rightVector.getClass()) {
-        return false;
-      }
-      return leftVector.equals(index, rightVector, toIndex);
+    @Override
+    public <OUT, IN> OUT accept(VectorVisitor<OUT, IN> visitor, IN value) {
+      return visitor.visit(this, value);
+    }
+
+    @Override
+    public String getName() {
+      return name;
+    }
+
+    @Override
+    public String toString() {
+      return ValueVectorUtility.getToString(this, 0, getValueCount());
     }
 }

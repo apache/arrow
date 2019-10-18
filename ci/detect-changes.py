@@ -129,10 +129,20 @@ def list_appveyor_affected_files():
     return list_affected_files("{0}..HEAD".format(merge_base))
 
 
+def list_github_actions_affected_files():
+    """
+    Return a list of files affected in the current GitHub Actions build.
+    """
+    # GitHub Actions checkout `refs/remotes/pull/$PR/merge` where `HEAD` points
+    # to the merge commit while `HEAD^` points to the commit before. Hence,
+    # `..HEAD^` points to all commit between master and the PR.
+    return list_affected_files("HEAD^..")
+
+
 LANGUAGE_TOPICS = ['c_glib', 'cpp', 'docs', 'go', 'java', 'js', 'python',
                    'r', 'ruby', 'rust', 'csharp']
 
-ALL_TOPICS = LANGUAGE_TOPICS + ['integration', 'site', 'dev']
+ALL_TOPICS = LANGUAGE_TOPICS + ['integration', 'dev']
 
 
 AFFECTED_DEPENDENCIES = {
@@ -143,11 +153,14 @@ AFFECTED_DEPENDENCIES = {
     'format': LANGUAGE_TOPICS,
     'go': ['integration'],
     '.travis.yml': ALL_TOPICS,
+    # In theory, it should ignore CONTRIBUTING.md and ISSUE_TEMPLATE.md, but in
+    # practice it's going to be CI
+    '.github': ALL_TOPICS,
     'c_glib': ['ruby']
 }
 
 COMPONENTS = {'cpp', 'java', 'c_glib', 'r', 'ruby', 'integration', 'js',
-              'rust', 'csharp', 'site', 'go', 'docs', 'python', 'dev'}
+              'rust', 'csharp', 'go', 'docs', 'python', 'dev'}
 
 
 def get_affected_topics(affected_files):
@@ -255,6 +268,23 @@ def run_from_appveyor():
     return get_windows_shell_eval(make_env_for_topics(affected))
 
 
+def run_from_github():
+    perr("Environment variables (excerpt):")
+    dump_env_vars('GITHUB_', '(REPOSITORY|ACTOR|SHA|REF|HEAD_REF|BASE_REF|EVENT_NAME)')
+    if os.environ['GITHUB_EVENT_NAME'] != 'pull_request':
+        # Not a PR build, test everything
+        affected = dict.fromkeys(ALL_TOPICS, True)
+    else:
+        affected_files = list_github_actions_affected_files()
+        perr("Affected files:", affected_files)
+        affected = get_affected_topics(affected_files)
+        assert set(affected) <= set(ALL_TOPICS), affected
+
+    perr("Affected topics:")
+    perr(pprint.pformat(affected))
+    return get_unix_shell_eval(make_env_for_topics(affected))
+
+
 def test_get_affected_topics():
     affected_topics = get_affected_topics(['cpp/CMakeLists.txt'])
     assert affected_topics == {
@@ -270,7 +300,6 @@ def test_get_affected_topics():
         'rust': False,
         'csharp': False,
         'integration': True,
-        'site': False,
         'dev': False
     }
 
@@ -288,8 +317,24 @@ def test_get_affected_topics():
         'rust': True,
         'csharp': True,
         'integration': True,
-        'site': False,
         'dev': False
+    }
+
+    affected_topics = get_affected_topics(['.github/workflows'])
+    assert affected_topics == {
+        'c_glib': True,
+        'cpp': True,
+        'docs': True,
+        'go': True,
+        'java': True,
+        'js': True,
+        'python': True,
+        'r': True,
+        'ruby': True,
+        'rust': True,
+        'csharp': True,
+        'integration': True,
+        'dev': True,
     }
 
 
@@ -309,5 +354,11 @@ if __name__ == "__main__":
         except Exception:
             print("exit 1")
             raise
+    elif os.environ.get('GITHUB_WORKFLOW'):
+        try:
+            print(run_from_github())
+        except Exception:
+            print("exit 1")
+            raise
     else:
-        sys.exit("Script must be run under Travis-CI or AppVeyor")
+        sys.exit("Script must be run under Travis-CI, AppVeyor or GitHub Actions")

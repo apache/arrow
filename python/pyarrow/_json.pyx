@@ -135,7 +135,7 @@ cdef class ParseOptions:
         self.options.newlines_in_values = value
 
 
-cdef _get_reader(input_file, shared_ptr[InputStream]* out):
+cdef _get_reader(input_file, shared_ptr[CInputStream]* out):
     use_memory_map = False
     get_input_stream(input_file, use_memory_map, out)
 
@@ -175,7 +175,7 @@ def read_json(input_file, read_options=None, parse_options=None,
         Contents of the JSON file as a in-memory table.
     """
     cdef:
-        shared_ptr[InputStream] stream
+        shared_ptr[CInputStream] stream
         CJSONReadOptions c_read_options
         CJSONParseOptions c_parse_options
         shared_ptr[CJSONReader] reader

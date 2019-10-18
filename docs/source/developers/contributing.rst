@@ -52,22 +52,37 @@ In addition, the project's `Confluence site <https://cwiki.apache.org/confluence
 has some useful higher-level views of the JIRA issues.
 
 To create a JIRA issue, you'll need to have an account on the ASF JIRA, which
-you can `sign yourself up for <https://issues.apache.org/jira/secure/Signup!default.jspa>`_. No
-additional permissions are needed to create issues. Only once you are involved
-in the project and want to do more on JIRA, such as assign yourself an issue,
-will you need "Contributor" permissions on the Apache Arrow JIRA. To get this
-role, ask on the mailing list for a project maintainer's help.
+you can `sign yourself up for <https://issues.apache.org/jira/secure/Signup!default.jspa>`_.
+The JIRA server hosts bugs and issues for multiple Apache projects.  The JIRA
+project name for Arrow is "ARROW".
+
+Before you create a new bug entry, we recommend you first
+`search <https://issues.apache.org/jira/projects/ARROW/issues/ARROW-5140?filter=allopenissues>`_
+among existing Arrow issues.
 
 When reporting a new issue, follow these conventions to help make sure the
 right people see it:
 
-* If the issue is specific to a language binding or other key component, prefix the issue name with it, like ``[Python] issue name``.
-* If you're reporting something that used to work in a previous version but doesn't work in the current release, you can add the "Affects version" field. For feature requests and other proposals, "Affects version" isn't appropriate.
+* Enter the component your issue pertains to (for example "Python" or "C++").
+* Also prefix the issue title with the component name in brackets, for example
+  ``[Python] issue name`` ; this helps when navigating lists of open issues.
+* If you're reporting something that used to work in a previous version
+  but doesn't work in the current release, you can add the "Affects version"
+  field. For feature requests and other proposals, "Affects version" isn't
+  appropriate.
 
 Project maintainers may later tweak formatting and labels to help improve their
 visibility. They may add a "Fix version" to indicate that they're considering
 it for inclusion in the next release, though adding that tag is not a
 commitment that it will be done in the next release.
+
+Advanced use
+------------
+
+Once you are involved in the project and want to do more on JIRA, such as
+assign yourself an issue, you will need "Contributor" permissions on the
+Apache Arrow JIRA. To get this role, ask on the mailing list for a project
+maintainer's help.
 
 GitHub issues
 -------------

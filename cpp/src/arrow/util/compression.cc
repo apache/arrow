@@ -17,7 +17,9 @@
 
 #include "arrow/util/compression.h"
 
+#include <limits>
 #include <memory>
+#include <string>
 
 #ifdef ARROW_WITH_BROTLI
 #include "arrow/util/compression_brotli.h"
@@ -54,50 +56,97 @@ Decompressor::~Decompressor() {}
 
 Codec::~Codec() {}
 
+int Codec::UseDefaultCompressionLevel() { return kUseDefaultCompressionLevel; }
+
+Status Codec::Init() { return Status::OK(); }
+
+std::string Codec::GetCodecAsString(Compression::type t) {
+  switch (t) {
+    case Compression::UNCOMPRESSED:
+      return "UNCOMPRESSED";
+    case Compression::SNAPPY:
+      return "SNAPPY";
+    case Compression::GZIP:
+      return "GZIP";
+    case Compression::LZO:
+      return "LZO";
+    case Compression::BROTLI:
+      return "BROTLI";
+    case Compression::LZ4:
+      return "LZ4";
+    case Compression::ZSTD:
+      return "ZSTD";
+    case Compression::BZ2:
+      return "BZ2";
+    default:
+      return "UNKNOWN";
+  }
+}
+
 Status Codec::Create(Compression::type codec_type, std::unique_ptr<Codec>* result) {
+  return Codec::Create(codec_type, Codec::UseDefaultCompressionLevel(), result);
+}
+
+Status Codec::Create(Compression::type codec_type, int compression_level,
+                     std::unique_ptr<Codec>* result) {
+  std::unique_ptr<Codec> codec;
+  const bool compression_level_set{compression_level !=
+                                   Codec::UseDefaultCompressionLevel()};
   switch (codec_type) {
     case Compression::UNCOMPRESSED:
+      if (compression_level_set) {
+        return Status::Invalid("Compression level cannot be specified for UNCOMPRESSED.");
+      }
       break;
     case Compression::SNAPPY:
 #ifdef ARROW_WITH_SNAPPY
-      result->reset(new SnappyCodec());
+      if (compression_level_set) {
+        return Status::Invalid("Snappy doesn't support setting a compression level.");
+      }
+      codec.reset(new SnappyCodec());
       break;
 #else
       return Status::NotImplemented("Snappy codec support not built");
 #endif
     case Compression::GZIP:
 #ifdef ARROW_WITH_ZLIB
-      result->reset(new GZipCodec());
+      codec.reset(new GZipCodec(compression_level));
       break;
 #else
       return Status::NotImplemented("Gzip codec support not built");
 #endif
     case Compression::LZO:
+      if (compression_level_set) {
+        return Status::Invalid("LZ0 doesn't support setting a compression level.");
+      }
       return Status::NotImplemented("LZO codec not implemented");
     case Compression::BROTLI:
 #ifdef ARROW_WITH_BROTLI
-      result->reset(new BrotliCodec());
+      codec.reset(new BrotliCodec(compression_level));
       break;
 #else
       return Status::NotImplemented("Brotli codec support not built");
 #endif
     case Compression::LZ4:
 #ifdef ARROW_WITH_LZ4
-      result->reset(new Lz4Codec());
+      if (compression_level_set) {
+        return Status::Invalid("LZ4 doesn't support setting a compression level.");
+      }
+      codec.reset(new Lz4Codec());
       break;
 #else
       return Status::NotImplemented("LZ4 codec support not built");
 #endif
     case Compression::ZSTD:
 #ifdef ARROW_WITH_ZSTD
-      result->reset(new ZSTDCodec());
+      codec.reset(new ZSTDCodec(compression_level));
       break;
 #else
       return Status::NotImplemented("ZSTD codec support not built");
 #endif
     case Compression::BZ2:
 #ifdef ARROW_WITH_BZ2
-      result->reset(new BZ2Codec());
+      codec.reset(new BZ2Codec(compression_level));
       break;
 #else
       return Status::NotImplemented("BZ2 codec support not built");
@@ -105,7 +154,61 @@ Status Codec::Create(Compression::type codec_type, std::unique_ptr<Codec>* resul
     default:
       return Status::Invalid("Unrecognized codec");
   }
+  if (codec) {
+    const auto status = codec->Init();
+    if (status.ok()) {
+      result->reset(codec.release());
+    }
+    return status;
+  }
   return Status::OK();
+}
+
+bool Codec::IsAvailable(Compression::type codec_type) {
+  switch (codec_type) {
+    case Compression::UNCOMPRESSED:
+      return true;
+    case Compression::SNAPPY:
+#ifdef ARROW_WITH_SNAPPY
+      return true;
+#else
+      return false;
+#endif
+    case Compression::GZIP:
+#ifdef ARROW_WITH_ZLIB
+      return true;
+#else
+      return false;
+#endif
+    case Compression::LZO:
+      return false;
+    case Compression::BROTLI:
+#ifdef ARROW_WITH_BROTLI
+      return true;
+#else
+      return false;
+#endif
+    case Compression::LZ4:
+#ifdef ARROW_WITH_LZ4
+      return true;
+#else
+      return false;
+#endif
+    case Compression::ZSTD:
+#ifdef ARROW_WITH_ZSTD
+      return true;
+#else
+      return false;
+#endif
+    case Compression::BZ2:
+#ifdef ARROW_WITH_BZ2
+      return true;
+#else
+      return false;
+#endif
+    default:
+      return false;
+  }
 }
 
 }  // namespace util

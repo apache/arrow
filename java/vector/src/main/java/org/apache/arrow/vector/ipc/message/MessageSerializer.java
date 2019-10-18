@@ -30,6 +30,7 @@ import org.apache.arrow.flatbuf.MessageHeader;
 import org.apache.arrow.flatbuf.MetadataVersion;
 import org.apache.arrow.flatbuf.RecordBatch;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.ipc.ReadChannel;
 import org.apache.arrow.vector.ipc.WriteChannel;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -55,6 +56,9 @@ import io.netty.buffer.ArrowBuf;
  */
 public class MessageSerializer {
 
+  // This 0xFFFFFFFF value is the first 4 bytes of a valid IPC message
+  public static final int IPC_CONTINUATION_TOKEN = -1;
+
   /**
    * Convert an array of 4 bytes to a little endian i32 value.
    *
@@ -63,9 +67,9 @@ public class MessageSerializer {
    */
   public static int bytesToInt(byte[] bytes) {
     return ((bytes[3] & 255) << 24) +
-        ((bytes[2] & 255) << 16) +
-        ((bytes[1] & 255) << 8) +
-        ((bytes[0] & 255) << 0);
+           ((bytes[2] & 255) << 16) +
+           ((bytes[1] & 255) << 8) +
+           ((bytes[0] & 255));
   }
 
   /**
@@ -78,7 +82,29 @@ public class MessageSerializer {
     bytes[3] = (byte) (value >>> 24);
     bytes[2] = (byte) (value >>> 16);
     bytes[1] = (byte) (value >>> 8);
-    bytes[0] = (byte) (value >>> 0);
+    bytes[0] = (byte) (value);
+  }
+
+  /**
+   * Convert a long to a 8 byte array.
+   *
+   * @param value long value input
+   * @param bytes existing byte array with minimum length of 8 to contain the conversion output
+   */
+  public static void longToBytes(long value, byte[] bytes) {
+    bytes[7] = (byte) (value >>> 56);
+    bytes[6] = (byte) (value >>> 48);
+    bytes[5] = (byte) (value >>> 40);
+    bytes[4] = (byte) (value >>> 32);
+    bytes[3] = (byte) (value >>> 24);
+    bytes[2] = (byte) (value >>> 16);
+    bytes[1] = (byte) (value >>> 8);
+    bytes[0] = (byte) (value);
+  }
+
+  public static int writeMessageBuffer(WriteChannel out, int messageLength, ByteBuffer messageBuffer)
+      throws IOException {
+    return writeMessageBuffer(out, messageLength, messageBuffer, new IpcOption());
   }
 
   /**
@@ -90,22 +116,36 @@ public class MessageSerializer {
    * @param messageLength Number of bytes in the message buffer, written as little Endian prefix
    * @param messageBuffer Message metadata buffer to be written, this does not include any
    *                      message body data which should be subsequently written to the Channel
+   * @param option IPC write options
    * @return Number of bytes written
    * @throws IOException on error
    */
-  public static int writeMessageBuffer(WriteChannel out, int messageLength, ByteBuffer messageBuffer)
+  public static int writeMessageBuffer(WriteChannel out, int messageLength, ByteBuffer messageBuffer, IpcOption option)
       throws IOException {
 
-    // ensure that message aligns to 8 byte padding - 4 bytes for size, then message body
-    if ((messageLength + 4) % 8 != 0) {
-      messageLength += 8 - (messageLength + 4) % 8;
+    // if write the pre-0.15.0 encapsulated IPC message format consisting of a 4-byte prefix instead of 8 byte
+    int prefixSize = option.write_legacy_ipc_format ? 4 : 8;
+
+    // ensure that message aligns to 8 byte padding - prefix_size bytes, then message body
+    if ((messageLength + prefixSize ) % 8 != 0) {
+      messageLength += 8 - (messageLength + prefixSize) % 8;
+    }
+    if (!option.write_legacy_ipc_format) {
+      out.writeIntLittleEndian(IPC_CONTINUATION_TOKEN);
     }
     out.writeIntLittleEndian(messageLength);
     out.write(messageBuffer);
     out.align();
 
     // any bytes written are already captured by our size modification above
-    return messageLength + 4;
+    return messageLength + prefixSize;
+  }
+
+  /**
+   * Serialize a schema object.
+   */
+  public static long serialize(WriteChannel out, Schema schema) throws IOException {
+    return serialize(out, schema, new IpcOption());
   }
 
   /**
@@ -116,19 +156,26 @@ public class MessageSerializer {
    * @return the number of bytes written
    * @throws IOException if something went wrong
    */
-  public static long serialize(WriteChannel out, Schema schema) throws IOException {
+  public static long serialize(WriteChannel out, Schema schema, IpcOption option) throws IOException {
     long start = out.getCurrentPosition();
     assert start % 8 == 0;
 
-    FlatBufferBuilder builder = new FlatBufferBuilder();
-    int schemaOffset = schema.getSchema(builder);
-    ByteBuffer serializedMessage = serializeMessage(builder, MessageHeader.Schema, schemaOffset, 0);
+    ByteBuffer serializedMessage = serializeMetadata(schema);
 
     int messageLength = serializedMessage.remaining();
 
-    int bytesWritten = writeMessageBuffer(out, messageLength, serializedMessage);
+    int bytesWritten = writeMessageBuffer(out, messageLength, serializedMessage, option);
     assert bytesWritten % 8 == 0;
     return bytesWritten;
+  }
+
+  /**
+   * Returns the serialized flatbuffer bytes of the schema wrapped in a message table.
+   */
+  public static ByteBuffer serializeMetadata(Schema schema) {
+    FlatBufferBuilder builder = new FlatBufferBuilder();
+    int schemaOffset = schema.getSchema(builder);
+    return MessageSerializer.serializeMessage(builder, org.apache.arrow.flatbuf.MessageHeader.Schema, schemaOffset, 0);
   }
 
   /**
@@ -138,8 +185,10 @@ public class MessageSerializer {
    * @return the deserialized Arrow Schema
    */
   public static Schema deserializeSchema(Message schemaMessage) {
+    Preconditions.checkArgument(schemaMessage.headerType() == MessageHeader.Schema,
+        "Expected schema but result was:  %s", schemaMessage.headerType());
     return Schema.convertSchema((org.apache.arrow.flatbuf.Schema)
-      schemaMessage.header(new org.apache.arrow.flatbuf.Schema()));
+        schemaMessage.header(new org.apache.arrow.flatbuf.Schema()));
   }
 
   /**
@@ -157,8 +206,24 @@ public class MessageSerializer {
     if (result.getMessage().headerType() != MessageHeader.Schema) {
       throw new IOException("Expected schema but header was " + result.getMessage().headerType());
     }
+    return deserializeSchema(result);
+  }
 
-    return deserializeSchema(result.getMessage());
+  /**
+   * Deserializes an Arrow Schema object from a {@link MessageMetadataResult}. Format is from serialize().
+   *
+   * @param message a Message of type MessageHeader.Schema
+   * @return the deserialized Arrow Schema
+   */
+  public static Schema deserializeSchema(MessageMetadataResult message) {
+    return deserializeSchema(message.getMessage());
+  }
+
+  /**
+   * Serializes an ArrowRecordBatch. Returns the offset and length of the written batch.
+   */
+  public static ArrowBlock serialize(WriteChannel out, ArrowRecordBatch batch) throws IOException {
+    return serialize(out, batch, new IpcOption());
   }
 
   /**
@@ -169,21 +234,24 @@ public class MessageSerializer {
    * @return the serialized block metadata
    * @throws IOException if something went wrong
    */
-  public static ArrowBlock serialize(WriteChannel out, ArrowRecordBatch batch) throws IOException {
+  public static ArrowBlock serialize(WriteChannel out, ArrowRecordBatch batch, IpcOption option) throws IOException {
 
     long start = out.getCurrentPosition();
     int bodyLength = batch.computeBodyLength();
     assert bodyLength % 8 == 0;
 
-    FlatBufferBuilder builder = new FlatBufferBuilder();
-    int batchOffset = batch.writeTo(builder);
-
-    ByteBuffer serializedMessage = serializeMessage(builder, MessageHeader.RecordBatch, batchOffset, bodyLength);
+    ByteBuffer serializedMessage = serializeMetadata(batch);
 
     int metadataLength = serializedMessage.remaining();
 
+    int prefixSize = 4;
+    if (!option.write_legacy_ipc_format) {
+      out.writeIntLittleEndian(IPC_CONTINUATION_TOKEN);
+      prefixSize = 8;
+    }
+
     // calculate alignment bytes so that metadata length points to the correct location after alignment
-    int padding = (int) ((start + metadataLength + 4) % 8);
+    int padding = (int) ((start + metadataLength + prefixSize) % 8);
     if (padding != 0) {
       metadataLength += (8 - padding);
     }
@@ -198,7 +266,7 @@ public class MessageSerializer {
     assert bufferLength % 8 == 0;
 
     // Metadata size in the Block account for the size prefix
-    return new ArrowBlock(start, metadataLength + 4, bufferLength);
+    return new ArrowBlock(start, metadataLength + prefixSize, bufferLength);
   }
 
   /**
@@ -224,11 +292,21 @@ public class MessageSerializer {
       out.write(buffer);
       if (out.getCurrentPosition() != startPosition + layout.getSize()) {
         throw new IllegalStateException("wrong buffer size: " + out.getCurrentPosition() +
-            " != " + startPosition + layout.getSize());
+                                        " != " + startPosition + layout.getSize());
       }
     }
     out.align();
     return out.getCurrentPosition() - bufferStart;
+  }
+
+  /**
+   * Returns the serialized form of {@link RecordBatch} wrapped in a {@link org.apache.arrow.flatbuf.Message}.
+   */
+  public static ByteBuffer serializeMetadata(ArrowMessage message) {
+    FlatBufferBuilder builder = new FlatBufferBuilder();
+    int batchOffset = message.writeTo(builder);
+    return serializeMessage(builder, message.getMessageType(), batchOffset,
+            message.computeBodyLength());
   }
 
   /**
@@ -279,7 +357,7 @@ public class MessageSerializer {
    */
   public static ArrowRecordBatch deserializeRecordBatch(ReadChannel in, ArrowBlock block, BufferAllocator alloc)
       throws IOException {
-    // Metadata length contains integer prefix plus byte padding
+    // Metadata length contains prefix_size bytes plus byte padding
     long totalLen = block.getMetadataLength() + block.getBodyLength();
 
     if (totalLen > Integer.MAX_VALUE) {
@@ -291,7 +369,9 @@ public class MessageSerializer {
       throw new IOException("Unexpected end of input trying to read batch.");
     }
 
-    ArrowBuf metadataBuffer = buffer.slice(4, block.getMetadataLength() - 4);
+    int prefixSize = buffer.getInt(0) == IPC_CONTINUATION_TOKEN ? 8 : 4;
+
+    ArrowBuf metadataBuffer = buffer.slice(prefixSize, block.getMetadataLength() - prefixSize);
 
     Message messageFB =
         Message.getRootAsMessage(metadataBuffer.nioBuffer().asReadOnlyBuffer());
@@ -321,7 +401,7 @@ public class MessageSerializer {
       if ((int) node.length() != node.length() ||
           (int) node.nullCount() != node.nullCount()) {
         throw new IOException("Cannot currently deserialize record batches with " +
-            "node length larger than Int.MAX_VALUE");
+                              "node length larger than Int.MAX_VALUE");
       }
       nodes.add(new ArrowFieldNode((int) node.length(), (int) node.nullCount()));
     }
@@ -341,27 +421,45 @@ public class MessageSerializer {
   }
 
   /**
+   * Reads a record batch based on the metadata in serializedMessage and the underlying data buffer.
+   */
+  public static ArrowRecordBatch deserializeRecordBatch(MessageMetadataResult serializedMessage,
+      ArrowBuf underlying) throws
+      IOException {
+    return deserializeRecordBatch(serializedMessage.getMessage(), underlying);
+  }
+
+  public static ArrowBlock serialize(WriteChannel out, ArrowDictionaryBatch batch) throws IOException {
+    return serialize(out, batch, new IpcOption());
+  }
+
+  /**
    * Serializes a dictionary ArrowRecordBatch. Returns the offset and length of the written batch.
    *
    * @param out   where to serialize
    * @param batch the batch to serialize
+   * @param option options for IPC
    * @return the metadata of the serialized block
    * @throws IOException if something went wrong
    */
-  public static ArrowBlock serialize(WriteChannel out, ArrowDictionaryBatch batch) throws IOException {
+  public static ArrowBlock serialize(WriteChannel out, ArrowDictionaryBatch batch, IpcOption option)
+      throws IOException {
     long start = out.getCurrentPosition();
     int bodyLength = batch.computeBodyLength();
     assert bodyLength % 8 == 0;
 
-    FlatBufferBuilder builder = new FlatBufferBuilder();
-    int batchOffset = batch.writeTo(builder);
-
-    ByteBuffer serializedMessage = serializeMessage(builder, MessageHeader.DictionaryBatch, batchOffset, bodyLength);
+    ByteBuffer serializedMessage = serializeMetadata(batch);
 
     int metadataLength = serializedMessage.remaining();
 
+    int prefixSize = 4;
+    if (!option.write_legacy_ipc_format) {
+      out.writeIntLittleEndian(IPC_CONTINUATION_TOKEN);
+      prefixSize = 8;
+    }
+
     // calculate alignment bytes so that metadata length points to the correct location after alignment
-    int padding = (int) ((start + metadataLength + 4) % 8);
+    int padding = (int) ((start + metadataLength + prefixSize) % 8);
     if (padding != 0) {
       metadataLength += (8 - padding);
     }
@@ -377,7 +475,7 @@ public class MessageSerializer {
     assert bufferLength % 8 == 0;
 
     // Metadata size in the Block account for the size prefix
-    return new ArrowBlock(start, metadataLength + 4, bufferLength);
+    return new ArrowBlock(start, metadataLength + prefixSize, bufferLength);
   }
 
   /**
@@ -394,6 +492,20 @@ public class MessageSerializer {
     DictionaryBatch dictionaryBatchFB = (DictionaryBatch) message.header(new DictionaryBatch());
     ArrowRecordBatch recordBatch = deserializeRecordBatch(dictionaryBatchFB.data(), bodyBuffer);
     return new ArrowDictionaryBatch(dictionaryBatchFB.id(), recordBatch);
+  }
+
+  /**
+   * Deserializes an ArrowDictionaryBatch from a dictionary batch Message and data in an ArrowBuf.
+   *
+   * @param message a message of type MessageHeader.DictionaryBatch
+   * @param bodyBuffer Arrow buffer containing the DictionaryBatch data
+   *                   of type MessageHeader.DictionaryBatch
+   * @return the deserialized ArrowDictionaryBatch
+   * @throws IOException if something went wrong
+   */
+  public static ArrowDictionaryBatch deserializeDictionaryBatch(MessageMetadataResult message, ArrowBuf bodyBuffer)
+      throws IOException {
+    return deserializeDictionaryBatch(message.getMessage(), bodyBuffer);
   }
 
   /**
@@ -445,7 +557,9 @@ public class MessageSerializer {
       throw new IOException("Unexpected end of input trying to read batch.");
     }
 
-    ArrowBuf metadataBuffer = buffer.slice(4, block.getMetadataLength() - 4);
+    int prefixSize = buffer.getInt(0) == IPC_CONTINUATION_TOKEN ? 8 : 4;
+
+    ArrowBuf metadataBuffer = buffer.slice(prefixSize, block.getMetadataLength() - prefixSize);
 
     Message messageFB =
         Message.getRootAsMessage(metadataBuffer.nioBuffer().asReadOnlyBuffer());
@@ -538,7 +652,15 @@ public class MessageSerializer {
     // Read the message size. There is an i32 little endian prefix.
     ByteBuffer buffer = ByteBuffer.allocate(4);
     if (in.readFully(buffer) == 4) {
+
       int messageLength = MessageSerializer.bytesToInt(buffer.array());
+      if (messageLength == IPC_CONTINUATION_TOKEN) {
+        buffer.clear();
+        // ARROW-6313, if the first 4 bytes are continuation message, read the next 4 for the length
+        if (in.readFully(buffer) == 4) {
+          messageLength = MessageSerializer.bytesToInt(buffer.array());
+        }
+      }
 
       // Length of 0 indicates end of stream
       if (messageLength != 0) {
@@ -547,7 +669,7 @@ public class MessageSerializer {
         ByteBuffer messageBuffer = ByteBuffer.allocate(messageLength);
         if (in.readFully(messageBuffer) != messageLength) {
           throw new IOException(
-            "Unexpected end of stream trying to read message.");
+              "Unexpected end of stream trying to read message.");
         }
         messageBuffer.rewind();
 

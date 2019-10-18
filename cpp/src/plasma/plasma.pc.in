@@ -22,7 +22,7 @@ includedir=${prefix}/include
 so_version=@PLASMA_SO_VERSION@
 abi_version=@PLASMA_SO_VERSION@
 full_so_version=@PLASMA_FULL_SO_VERSION@
-executable=${prefix}/@CMAKE_INSTALL_BINDIR@/plasma_store_server
+executable=${prefix}/@CMAKE_INSTALL_BINDIR@/plasma-store-server
 
 Name: Plasma
 Description: Plasma is an in-memory object store and cache for big data.

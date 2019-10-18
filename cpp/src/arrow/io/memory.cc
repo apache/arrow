@@ -23,6 +23,7 @@
 #include <mutex>
 
 #include "arrow/buffer.h"
+#include "arrow/io/util_internal.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -63,9 +64,8 @@ Status BufferOutputStream::Reset(int64_t initial_capacity, MemoryPool* pool) {
 }
 
 BufferOutputStream::~BufferOutputStream() {
-  // This can fail, better to explicitly call close
   if (buffer_) {
-    ARROW_CHECK_OK(Close());
+    internal::CloseFromDestructor(this);
   }
 }
 
@@ -101,7 +101,9 @@ Status BufferOutputStream::Write(const void* data, int64_t nbytes) {
   }
   DCHECK(buffer_);
   if (ARROW_PREDICT_TRUE(nbytes > 0)) {
-    RETURN_NOT_OK(Reserve(nbytes));
+    if (ARROW_PREDICT_FALSE(position_ + nbytes >= capacity_)) {
+      RETURN_NOT_OK(Reserve(nbytes));
+    }
     memcpy(mutable_data_ + position_, data, nbytes);
     position_ += nbytes;
   }
@@ -109,15 +111,19 @@ Status BufferOutputStream::Write(const void* data, int64_t nbytes) {
 }
 
 Status BufferOutputStream::Reserve(int64_t nbytes) {
-  int64_t new_capacity = capacity_;
-  while (position_ + nbytes > new_capacity) {
-    new_capacity = std::max(kBufferMinimumSize, new_capacity * 2);
+  // Always overallocate by doubling.  It seems that it is a better growth
+  // strategy, at least for memory_benchmark.cc.
+  // This may be because it helps match the allocator's allocation buckets
+  // more exactly.  Or perhaps it hits a sweet spot in jemalloc.
+  int64_t new_capacity = std::max(kBufferMinimumSize, capacity_);
+  while (new_capacity < position_ + nbytes) {
+    new_capacity = new_capacity * 2;
   }
   if (new_capacity > capacity_) {
     RETURN_NOT_OK(buffer_->Resize(new_capacity));
     capacity_ = new_capacity;
+    mutable_data_ = buffer_->mutable_data();
   }
-  mutable_data_ = buffer_->mutable_data();
   return Status::OK();
 }
 
@@ -190,9 +196,9 @@ class FixedSizeBufferWriter::FixedSizeBufferWriterImpl {
       return Status::IOError("Write out of bounds");
     }
     if (nbytes > memcopy_threshold_ && memcopy_num_threads_ > 1) {
-      internal::parallel_memcopy(mutable_data_ + position_,
-                                 reinterpret_cast<const uint8_t*>(data), nbytes,
-                                 memcopy_blocksize_, memcopy_num_threads_);
+      ::arrow::internal::parallel_memcopy(mutable_data_ + position_,
+                                          reinterpret_cast<const uint8_t*>(data), nbytes,
+                                          memcopy_blocksize_, memcopy_num_threads_);
     } else {
       memcpy(mutable_data_ + position_, data, nbytes);
     }
@@ -281,7 +287,7 @@ BufferReader::BufferReader(const util::string_view& data)
     : BufferReader(reinterpret_cast<const uint8_t*>(data.data()),
                    static_cast<int64_t>(data.size())) {}
 
-Status BufferReader::Close() {
+Status BufferReader::DoClose() {
   is_open_ = false;
   return Status::OK();
 }
@@ -295,13 +301,13 @@ Status BufferReader::CheckClosed() const {
   return Status::OK();
 }
 
-Status BufferReader::Tell(int64_t* position) const {
+Status BufferReader::DoTell(int64_t* position) const {
   RETURN_NOT_OK(CheckClosed());
   *position = position_;
   return Status::OK();
 }
 
-Status BufferReader::Peek(int64_t nbytes, util::string_view* out) {
+Status BufferReader::DoPeek(int64_t nbytes, util::string_view* out) {
   RETURN_NOT_OK(CheckClosed());
 
   const int64_t bytes_available = std::min(nbytes, size_ - position_);
@@ -312,8 +318,8 @@ Status BufferReader::Peek(int64_t nbytes, util::string_view* out) {
 
 bool BufferReader::supports_zero_copy() const { return true; }
 
-Status BufferReader::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                            void* buffer) {
+Status BufferReader::DoReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
+                              void* buffer) {
   RETURN_NOT_OK(CheckClosed());
 
   if (nbytes < 0) {
@@ -326,8 +332,8 @@ Status BufferReader::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_rea
   return Status::OK();
 }
 
-Status BufferReader::ReadAt(int64_t position, int64_t nbytes,
-                            std::shared_ptr<Buffer>* out) {
+Status BufferReader::DoReadAt(int64_t position, int64_t nbytes,
+                              std::shared_ptr<Buffer>* out) {
   RETURN_NOT_OK(CheckClosed());
 
   if (nbytes < 0) {
@@ -343,27 +349,27 @@ Status BufferReader::ReadAt(int64_t position, int64_t nbytes,
   return Status::OK();
 }
 
-Status BufferReader::Read(int64_t nbytes, int64_t* bytes_read, void* buffer) {
+Status BufferReader::DoRead(int64_t nbytes, int64_t* bytes_read, void* buffer) {
   RETURN_NOT_OK(CheckClosed());
-  RETURN_NOT_OK(ReadAt(position_, nbytes, bytes_read, buffer));
+  RETURN_NOT_OK(DoReadAt(position_, nbytes, bytes_read, buffer));
   position_ += *bytes_read;
   return Status::OK();
 }
 
-Status BufferReader::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+Status BufferReader::DoRead(int64_t nbytes, std::shared_ptr<Buffer>* out) {
   RETURN_NOT_OK(CheckClosed());
-  RETURN_NOT_OK(ReadAt(position_, nbytes, out));
+  RETURN_NOT_OK(DoReadAt(position_, nbytes, out));
   position_ += (*out)->size();
   return Status::OK();
 }
 
-Status BufferReader::GetSize(int64_t* size) {
+Status BufferReader::DoGetSize(int64_t* size) {
   RETURN_NOT_OK(CheckClosed());
   *size = size_;
   return Status::OK();
 }
 
-Status BufferReader::Seek(int64_t position) {
+Status BufferReader::DoSeek(int64_t position) {
   RETURN_NOT_OK(CheckClosed());
 
   if (position < 0 || position > size_) {

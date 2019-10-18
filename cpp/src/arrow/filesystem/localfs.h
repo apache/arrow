@@ -29,20 +29,25 @@ namespace fs {
 /// \brief EXPERIMENTAL: a FileSystem implementation accessing files
 /// on the local machine.
 ///
-/// Details such as symlinks are abstracted away (symlinks are always followed,
-/// except when deleting an entry).
+/// This class handles only `/`-separated paths.  If desired, conversion
+/// from Windows backslash-separated paths should be done by the caller.
+/// Details such as symlinks are abstracted away (symlinks are always
+/// followed, except when deleting an entry).
 class ARROW_EXPORT LocalFileSystem : public FileSystem {
  public:
   LocalFileSystem();
   ~LocalFileSystem() override;
 
+  /// \cond FALSE
   using FileSystem::GetTargetStats;
+  /// \endcond
   Status GetTargetStats(const std::string& path, FileStats* out) override;
   Status GetTargetStats(const Selector& select, std::vector<FileStats>* out) override;
 
   Status CreateDir(const std::string& path, bool recursive = true) override;
 
   Status DeleteDir(const std::string& path) override;
+  Status DeleteDirContents(const std::string& path) override;
 
   Status DeleteFile(const std::string& path) override;
 
