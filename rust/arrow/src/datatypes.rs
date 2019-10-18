@@ -773,26 +773,41 @@ impl Field {
                 };
                 // if data_type is a struct or list, get its children
                 let data_type = match data_type {
-                    DataType::List(_) => match map.get("children") {
-                        Some(Value::Array(values)) => {
-                            if values.len() != 1 {
-                                return Err(ArrowError::ParseError(
+                    DataType::List(_) | DataType::FixedSizeList(_) => {
+                        match map.get("children") {
+                            Some(Value::Array(values)) => {
+                                if values.len() != 1 {
+                                    return Err(ArrowError::ParseError(
                                     "Field 'children' must have one element for a list data type".to_string(),
                                 ));
+                                }
+                                match data_type {
+                                    DataType::List(_) => DataType::List(Box::new(
+                                        Self::from(&values[0])?.data_type,
+                                    )),
+                                    DataType::FixedSizeList((_, int)) => {
+                                        DataType::FixedSizeList((
+                                            Box::new(Self::from(&values[0])?.data_type),
+                                            int,
+                                        ))
+                                    }
+                                    _ => unreachable!(
+                                        "Data type should be a list or fixedsizelist"
+                                    ),
+                                }
                             }
-                            DataType::List(Box::new(Self::from(&values[0])?.data_type))
+                            Some(_) => {
+                                return Err(ArrowError::ParseError(
+                                    "Field 'children' must be an array".to_string(),
+                                ))
+                            }
+                            None => {
+                                return Err(ArrowError::ParseError(
+                                    "Field missing 'children' attribute".to_string(),
+                                ));
+                            }
                         }
-                        Some(_) => {
-                            return Err(ArrowError::ParseError(
-                                "Field 'children' must be an array".to_string(),
-                            ))
-                        }
-                        None => {
-                            return Err(ArrowError::ParseError(
-                                "Field missing 'children' attribute".to_string(),
-                            ));
-                        }
-                    },
+                    }
                     DataType::Struct(mut fields) => match map.get("children") {
                         Some(Value::Array(values)) => {
                             let struct_fields: Result<Vec<Field>> =
@@ -830,6 +845,10 @@ impl Field {
         let children: Vec<Value> = match self.data_type() {
             DataType::Struct(fields) => fields.iter().map(|f| f.to_json()).collect(),
             DataType::List(dtype) => {
+                let item = Field::new("item", *dtype.clone(), self.nullable);
+                vec![item.to_json()]
+            }
+            DataType::FixedSizeList((dtype, _)) => {
                 let item = Field::new("item", *dtype.clone(), self.nullable);
                 vec![item.to_json()]
             }
@@ -1154,13 +1173,18 @@ mod tests {
             Field::new("c21", DataType::List(Box::new(DataType::Boolean)), false),
             Field::new(
                 "c22",
+                DataType::FixedSizeList((Box::new(DataType::Boolean), 5)),
+                false,
+            ),
+            Field::new(
+                "c23",
                 DataType::List(Box::new(DataType::List(Box::new(DataType::Struct(
                     vec![],
                 ))))),
                 true,
             ),
             Field::new(
-                "c23",
+                "c24",
                 DataType::Struct(vec![
                     Field::new("a", DataType::Utf8, false),
                     Field::new("b", DataType::UInt16, false),
@@ -1359,6 +1383,24 @@ mod tests {
                     },
                     {
                         "name": "c22",
+                        "nullable": false,
+                        "type": {
+                            "name": "fixedsizelist",
+                            "listSize": 5
+                        },
+                        "children": [
+                            {
+                                "name": "item",
+                                "nullable": false,
+                                "type": {
+                                    "name": "bool"
+                                },
+                                "children": []
+                            }
+                        ]
+                    },
+                    {
+                        "name": "c23",
                         "nullable": true,
                         "type": {
                             "name": "list"
@@ -1384,7 +1426,7 @@ mod tests {
                         ]
                     },
                     {
-                        "name": "c23",
+                        "name": "c24",
                         "nullable": false,
                         "type": {
                             "name": "struct"

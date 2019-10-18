@@ -211,10 +211,6 @@ impl ArrayEqual for FixedSizeListArray {
 
         let other = other.as_any().downcast_ref::<FixedSizeListArray>().unwrap();
 
-        if !value_offset_equal(self, other) {
-            return false;
-        }
-
         if !self.values().range_equals(
             &*other.values(),
             self.value_offset(0) as usize,
@@ -581,7 +577,7 @@ impl JsonEqual for FixedSizeListArray {
 
         let result = (0..self.len()).all(|i| match json[i] {
             Value::Array(v) => self.is_valid(i) && self.value(i).equals_json_values(v),
-            Value::Null => self.is_null(i) || self.value_length(i) == 0,
+            Value::Null => self.is_null(i) || self.value_length() == 0,
             _ => false,
         });
 
@@ -852,6 +848,89 @@ mod tests {
     }
 
     #[test]
+    fn test_fixed_size_list_equal() {
+        let mut a_builder = FixedSizeListBuilder::new(Int32Builder::new(10), 3);
+        let mut b_builder = FixedSizeListBuilder::new(Int32Builder::new(10), 3);
+
+        let a = create_fixed_size_list_array(
+            &mut a_builder,
+            &[Some(&[1, 2, 3]), Some(&[4, 5, 6])],
+        )
+        .unwrap();
+        let b = create_fixed_size_list_array(
+            &mut b_builder,
+            &[Some(&[1, 2, 3]), Some(&[4, 5, 6])],
+        )
+        .unwrap();
+
+        assert!(a.equals(&b));
+        assert!(b.equals(&a));
+
+        let b = create_fixed_size_list_array(
+            &mut a_builder,
+            &[Some(&[1, 2, 3]), Some(&[4, 5, 7])],
+        )
+        .unwrap();
+        assert!(!a.equals(&b));
+        assert!(!b.equals(&a));
+
+        // Test the case where null_count > 0
+
+        let a = create_fixed_size_list_array(
+            &mut a_builder,
+            &[Some(&[1, 2, 3]), None, None, Some(&[4, 5, 6]), None, None],
+        )
+        .unwrap();
+        let b = create_fixed_size_list_array(
+            &mut a_builder,
+            &[Some(&[1, 2, 3]), None, None, Some(&[4, 5, 6]), None, None],
+        )
+        .unwrap();
+        assert!(a.equals(&b));
+        assert!(b.equals(&a));
+
+        let b = create_fixed_size_list_array(
+            &mut a_builder,
+            &[
+                Some(&[1, 2, 3]),
+                None,
+                Some(&[7, 8, 9]),
+                Some(&[4, 5, 6]),
+                None,
+                None,
+            ],
+        )
+        .unwrap();
+        assert!(!a.equals(&b));
+        assert!(!b.equals(&a));
+
+        let b = create_fixed_size_list_array(
+            &mut a_builder,
+            &[Some(&[1, 2, 3]), None, None, Some(&[3, 6, 9]), None, None],
+        )
+        .unwrap();
+        assert!(!a.equals(&b));
+        assert!(!b.equals(&a));
+
+        // Test the case where offset != 0
+
+        let a_slice = a.slice(0, 3);
+        let b_slice = b.slice(0, 3);
+        assert!(a_slice.equals(&*b_slice));
+        assert!(b_slice.equals(&*a_slice));
+
+        // let a_slice = a.slice(0, 5);
+        // let b_slice = b.slice(0, 5);
+        // assert!(!a_slice.equals(&*b_slice));
+        // assert!(!b_slice.equals(&*a_slice));
+
+        // let a_slice = a.slice(4, 1);
+        // let b_slice = b.slice(4, 1);
+        // assert!(a_slice.equals(&*b_slice));
+        // assert!(b_slice.equals(&*a_slice));
+    }
+
+    #[test]
     fn test_binary_equal() {
         let a = BinaryArray::from(vec!["hello", "world"]);
         let b = BinaryArray::from(vec!["hello", "world"]);
@@ -976,6 +1055,25 @@ mod tests {
         Ok(builder.finish())
     }
 
+    /// Create a fixed size list of 2 value lengths
+    fn create_fixed_size_list_array<'a, U: AsRef<[i32]>, T: AsRef<[Option<U>]>>(
+        builder: &'a mut FixedSizeListBuilder<Int32Builder>,
+        data: T,
+    ) -> Result<FixedSizeListArray> {
+        for d in data.as_ref() {
+            if let Some(v) = d {
+                builder.values().append_slice(v.as_ref())?;
+                builder.append(true)?
+            } else {
+                for _ in 0..builder.value_length() {
+                    builder.values().append_null()?;
+                }
+                builder.append(false)?
+            }
+        }
+        Ok(builder.finish())
+    }
+
     #[test]
     fn test_primitive_json_equal() {
         // Test equaled array
@@ -1074,6 +1172,64 @@ mod tests {
         // Test incorrect type case
         let arrow_array = create_list_array(
             &mut ListBuilder::new(Int32Builder::new(10)),
+            &[Some(&[1, 2, 3]), None, Some(&[4, 5, 6])],
+        )
+        .unwrap();
+        let json_array: Value = serde_json::from_str(
+            r#"
+            {
+               "a": 1
+            }
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+    }
+
+    #[test]
+    fn test_fixed_size_list_json_equal() {
+        // Test equal case
+        let arrow_array = create_fixed_size_list_array(
+            &mut FixedSizeListBuilder::new(Int32Builder::new(10), 3),
+            &[Some(&[1, 2, 3]), None, Some(&[4, 5, 6])],
+        )
+        .unwrap();
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                [1, 2, 3],
+                null,
+                [4, 5, 6]
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.eq(&json_array));
+        assert!(json_array.eq(&arrow_array));
+
+        // Test unequal case
+        let arrow_array = create_fixed_size_list_array(
+            &mut FixedSizeListBuilder::new(Int32Builder::new(10), 3),
+            &[Some(&[1, 2, 3]), None, Some(&[4, 5, 6])],
+        )
+        .unwrap();
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                [1, 2, 3],
+                [7, 8, 9],
+                [4, 5, 6]
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+
+        // Test incorrect type case
+        let arrow_array = create_fixed_size_list_array(
+            &mut FixedSizeListBuilder::new(Int32Builder::new(10), 3),
             &[Some(&[1, 2, 3]), None, Some(&[4, 5, 6])],
         )
         .unwrap();

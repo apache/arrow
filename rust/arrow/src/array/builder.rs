@@ -493,6 +493,10 @@ where
         &mut self.values_builder
     }
 
+    pub fn value_length(&self) -> i32 {
+        self.list_len
+    }
+
     /// Finish the current variable-length list array slot
     pub fn append(&mut self, is_valid: bool) -> Result<()> {
         self.bitmap_builder.append(is_valid)?;
@@ -521,13 +525,15 @@ where
         );
 
         let null_bit_buffer = self.bitmap_builder.finish();
-        let data =
-            ArrayData::builder(DataType::List(Box::new(values_data.data_type().clone())))
-                .len(len)
-                .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
-                .add_child_data(values_data)
-                .null_bit_buffer(null_bit_buffer)
-                .build();
+        let data = ArrayData::builder(DataType::FixedSizeList((
+            Box::new(values_data.data_type().clone()),
+            self.list_len,
+        )))
+        .len(len)
+        .null_count(len - bit_util::count_set_bits(null_bit_buffer.data()))
+        .add_child_data(values_data)
+        .null_bit_buffer(null_bit_buffer)
+        .build();
 
         FixedSizeListArray::from(data)
     }
@@ -1250,13 +1256,34 @@ mod tests {
         assert_eq!(4, list_array.len());
         assert_eq!(1, list_array.null_count());
         assert_eq!(6, list_array.value_offset(2));
-        assert_eq!(3, list_array.value_length(1));
+        assert_eq!(3, list_array.value_length());
     }
 
     #[test]
     fn test_list_array_builder_finish() {
         let values_builder = Int32Array::builder(5);
         let mut builder = ListBuilder::new(values_builder);
+
+        builder.values().append_slice(&[1, 2, 3]).unwrap();
+        builder.append(true).unwrap();
+        builder.values().append_slice(&[4, 5, 6]).unwrap();
+        builder.append(true).unwrap();
+
+        let mut arr = builder.finish();
+        assert_eq!(2, arr.len());
+        assert_eq!(0, builder.len());
+
+        builder.values().append_slice(&[7, 8, 9]).unwrap();
+        builder.append(true).unwrap();
+        arr = builder.finish();
+        assert_eq!(1, arr.len());
+        assert_eq!(0, builder.len());
+    }
+
+    #[test]
+    fn test_fixed_size_list_array_builder_finish() {
+        let values_builder = Int32Array::builder(5);
+        let mut builder = FixedSizeListBuilder::new(values_builder, 3);
 
         builder.values().append_slice(&[1, 2, 3]).unwrap();
         builder.append(true).unwrap();

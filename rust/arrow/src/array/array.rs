@@ -95,9 +95,7 @@ pub type ArrayRef = Arc<Array>;
 /// Constructs an array using the input `data`. Returns a reference-counted `Array`
 /// instance.
 pub fn make_array(data: ArrayDataRef) -> ArrayRef {
-    // TODO: here data_type() needs to clone the type - maybe add a type tag enum to
-    // avoid the cloning.
-    match data.data_type().clone() {
+    match data.data_type() {
         DataType::Boolean => Arc::new(BooleanArray::from(data)) as ArrayRef,
         DataType::Int8 => Arc::new(Int8Array::from(data)) as ArrayRef,
         DataType::Int16 => Arc::new(Int16Array::from(data)) as ArrayRef,
@@ -871,7 +869,7 @@ impl FixedSizeListArray {
     /// Returns ith value of this list array.
     pub fn value(&self, i: usize) -> ArrayRef {
         self.values
-            .slice(i * self.length as usize, self.value_length(i) as usize)
+            .slice(i * self.length as usize, self.value_length() as usize)
     }
 
     /// Returns the offset for value at index `i`.
@@ -886,9 +884,8 @@ impl FixedSizeListArray {
     ///
     /// Note this doesn't do any bound checking, for performance reason.
     #[inline]
-    pub fn value_length(&self, mut i: usize) -> i32 {
-        i += self.data.offset();
-        self.value_offset_at(i + 1) - self.value_offset_at(i)
+    pub fn value_length(&self) -> i32 {
+        self.length
     }
 
     #[inline]
@@ -911,10 +908,20 @@ impl From<ArrayDataRef> for FixedSizeListArray {
             "FixedSizeListArray should contain a single child array (values array)"
         );
         let values = make_array(data.child_data()[0].clone());
-        let length = if data.len() == 0 {
-            0
-        } else {
-            (values.len() / data.len()) as i32
+        let length = match data.data_type() {
+            DataType::FixedSizeList((_, len)) => {
+                // check that child data is multiple of length
+                assert_eq!(
+                    values.len() % *len as usize,
+                    0,
+                    "FixedSizeListArray child array length should be a multiple of {}",
+                    len
+                );
+                *len
+            }
+            _ => {
+                panic!("FixedSizeListArray data should contain a FixedSizeList data type")
+            }
         };
         Self {
             data: data.clone(),
@@ -940,7 +947,7 @@ impl Array for FixedSizeListArray {
 
 impl fmt::Debug for FixedSizeListArray {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "FixedSizeListArray\n[\n")?;
+        write!(f, "FixedSizeListArray<{}>\n[\n", self.value_length())?;
         print_long_array(self, f, |array, index, f| {
             fmt::Debug::fmt(&array.value(index), f)
         })?;
@@ -1667,7 +1674,71 @@ mod tests {
     }
 
     #[test]
+    fn test_fixed_size_list_array() {
+        // Construct a value array
+        let value_data = ArrayData::builder(DataType::Int32)
+            .len(9)
+            .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7, 8].to_byte_slice()))
+            .build();
 
+        // Construct a list array from the above two
+        let list_data_type = DataType::FixedSizeList((Box::new(DataType::Int32), 3));
+        let list_data = ArrayData::builder(list_data_type.clone())
+            .len(3)
+            .add_child_data(value_data.clone())
+            .build();
+        let list_array = FixedSizeListArray::from(list_data);
+
+        let values = list_array.values();
+        assert_eq!(value_data, values.data());
+        assert_eq!(DataType::Int32, list_array.value_type());
+        assert_eq!(3, list_array.len());
+        assert_eq!(0, list_array.null_count());
+        assert_eq!(6, list_array.value_offset(2));
+        assert_eq!(3, list_array.value_length());
+        for i in 0..3 {
+            assert!(list_array.is_valid(i));
+            assert!(!list_array.is_null(i));
+        }
+
+        // Now test with a non-zero offset
+        let list_data = ArrayData::builder(list_data_type)
+            .len(3)
+            .offset(1)
+            .add_child_data(value_data.clone())
+            .build();
+        let list_array = FixedSizeListArray::from(list_data);
+
+        let values = list_array.values();
+        assert_eq!(value_data, values.data());
+        assert_eq!(DataType::Int32, list_array.value_type());
+        assert_eq!(3, list_array.len());
+        assert_eq!(0, list_array.null_count());
+        assert_eq!(6, list_array.value_offset(1));
+        assert_eq!(3, list_array.value_length());
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "FixedSizeListArray child array length should be a multiple of 3"
+    )]
+    fn test_fixed_size_list_array_unequal_children() {
+        // Construct a value array
+        let value_data = ArrayData::builder(DataType::Int32)
+            .len(8)
+            .add_buffer(Buffer::from(&[0, 1, 2, 3, 4, 5, 6, 7].to_byte_slice()))
+            .build();
+
+        // Construct a list array from the above two
+        let list_data_type = DataType::FixedSizeList((Box::new(DataType::Int32), 3));
+        let list_data = ArrayData::builder(list_data_type.clone())
+            .len(3)
+            .add_child_data(value_data.clone())
+            .build();
+        FixedSizeListArray::from(list_data);
+    }
+
+    #[test]
     fn test_list_array_slice() {
         // Construct a value array
         let value_data = ArrayData::builder(DataType::Int32)
@@ -1729,6 +1800,64 @@ mod tests {
         assert_eq!(2, sliced_list_array.value_length(3));
         assert_eq!(6, sliced_list_array.value_offset(5));
         assert_eq!(3, sliced_list_array.value_length(5));
+    }
+
+    #[test]
+    fn test_fixed_size_list_array_slice() {
+        // Construct a value array
+        let value_data = ArrayData::builder(DataType::Int32)
+            .len(10)
+            .add_buffer(Buffer::from(
+                &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].to_byte_slice(),
+            ))
+            .build();
+
+        // Set null buts for the nested array:
+        //  [[0, 1], null, null, [6, 7], [8, 9]]
+        // 01011001 00000001
+        let mut null_bits: [u8; 1] = [0; 1];
+        bit_util::set_bit(&mut null_bits, 0);
+        bit_util::set_bit(&mut null_bits, 3);
+        bit_util::set_bit(&mut null_bits, 4);
+
+        // Construct a fixed size list array from the above two
+        let list_data_type = DataType::FixedSizeList((Box::new(DataType::Int32), 2));
+        let list_data = ArrayData::builder(list_data_type.clone())
+            .len(5)
+            .add_child_data(value_data.clone())
+            .null_bit_buffer(Buffer::from(null_bits))
+            .build();
+        let list_array = FixedSizeListArray::from(list_data);
+
+        let values = list_array.values();
+        assert_eq!(value_data, values.data());
+        assert_eq!(DataType::Int32, list_array.value_type());
+        assert_eq!(5, list_array.len());
+        assert_eq!(2, list_array.null_count());
+        assert_eq!(6, list_array.value_offset(3));
+        assert_eq!(2, list_array.value_length());
+
+        let sliced_array = list_array.slice(1, 4);
+        assert_eq!(4, sliced_array.len());
+        assert_eq!(1, sliced_array.offset());
+        assert_eq!(2, sliced_array.null_count());
+
+        for i in 0..sliced_array.len() {
+            if bit_util::get_bit(&null_bits, sliced_array.offset() + i) {
+                assert!(sliced_array.is_valid(i));
+            } else {
+                assert!(sliced_array.is_null(i));
+            }
+        }
+
+        // Check offset and length for each non-null value.
+        let sliced_list_array = sliced_array
+            .as_any()
+            .downcast_ref::<FixedSizeListArray>()
+            .unwrap();
+        assert_eq!(2, sliced_list_array.value_length());
+        assert_eq!(6, sliced_list_array.value_offset(2));
+        assert_eq!(8, sliced_list_array.value_offset(3));
     }
 
     #[test]
