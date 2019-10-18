@@ -140,6 +140,9 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
         DataType::Utf8 => Arc::new(BinaryArray::from(data)) as ArrayRef,
         DataType::List(_) => Arc::new(ListArray::from(data)) as ArrayRef,
         DataType::Struct(_) => Arc::new(StructArray::from(data)) as ArrayRef,
+        DataType::FixedSizeList(_) => {
+            Arc::new(FixedSizeListArray::from(data)) as ArrayRef
+        }
         dt => panic!("Unexpected data type {:?}", dt),
     }
 }
@@ -688,12 +691,18 @@ impl<T: ArrowPrimitiveType> From<ArrayDataRef> for PrimitiveArray<T> {
     }
 }
 
-/// Common operations for List types, currently `ListArray` and `BinaryArray`.
+/// Common operations for List types, currently `ListArray`, `FixedSizeListArray` and `BinaryArray`.
 pub trait ListArrayOps {
     fn value_offset_at(&self, i: usize) -> i32;
 }
 
 impl ListArrayOps for ListArray {
+    fn value_offset_at(&self, i: usize) -> i32 {
+        self.value_offset_at(i)
+    }
+}
+
+impl ListArrayOps for FixedSizeListArray {
     fn value_offset_at(&self, i: usize) -> i32 {
         self.value_offset_at(i)
     }
@@ -833,6 +842,105 @@ where
 impl fmt::Debug for ListArray {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "ListArray\n[\n")?;
+        print_long_array(self, f, |array, index, f| {
+            fmt::Debug::fmt(&array.value(index), f)
+        })?;
+        write!(f, "]")
+    }
+}
+
+/// A list array where each element is a fixed-size sequence of values with the same
+/// type.
+pub struct FixedSizeListArray {
+    data: ArrayDataRef,
+    values: ArrayRef,
+    length: i32,
+}
+
+impl FixedSizeListArray {
+    /// Returns an reference to the values of this list.
+    pub fn values(&self) -> ArrayRef {
+        self.values.clone()
+    }
+
+    /// Returns a clone of the value type of this list.
+    pub fn value_type(&self) -> DataType {
+        self.values.data().data_type().clone()
+    }
+
+    /// Returns ith value of this list array.
+    pub fn value(&self, i: usize) -> ArrayRef {
+        self.values
+            .slice(i * self.length as usize, self.value_length(i) as usize)
+    }
+
+    /// Returns the offset for value at index `i`.
+    ///
+    /// Note this doesn't do any bound checking, for performance reason.
+    #[inline]
+    pub fn value_offset(&self, i: usize) -> i32 {
+        self.value_offset_at(self.data.offset() + i)
+    }
+
+    /// Returns the length for value at index `i`.
+    ///
+    /// Note this doesn't do any bound checking, for performance reason.
+    #[inline]
+    pub fn value_length(&self, mut i: usize) -> i32 {
+        i += self.data.offset();
+        self.value_offset_at(i + 1) - self.value_offset_at(i)
+    }
+
+    #[inline]
+    fn value_offset_at(&self, i: usize) -> i32 {
+        i as i32 * self.length
+    }
+}
+
+/// Constructs a `ListArray` from an array data reference.
+impl From<ArrayDataRef> for FixedSizeListArray {
+    fn from(data: ArrayDataRef) -> Self {
+        assert_eq!(
+            data.buffers().len(),
+            0,
+            "FixedSizeListArray data should not contain a buffer for value offsets"
+        );
+        assert_eq!(
+            data.child_data().len(),
+            1,
+            "FixedSizeListArray should contain a single child array (values array)"
+        );
+        let values = make_array(data.child_data()[0].clone());
+        let length = if data.len() == 0 {
+            0
+        } else {
+            (values.len() / data.len()) as i32
+        };
+        Self {
+            data: data.clone(),
+            values,
+            length,
+        }
+    }
+}
+
+impl Array for FixedSizeListArray {
+    fn as_any(&self) -> &Any {
+        self
+    }
+
+    fn data(&self) -> ArrayDataRef {
+        self.data.clone()
+    }
+
+    fn data_ref(&self) -> &ArrayDataRef {
+        &self.data
+    }
+}
+
+impl fmt::Debug for FixedSizeListArray {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "FixedSizeListArray\n[\n")?;
         print_long_array(self, f, |array, index, f| {
             fmt::Debug::fmt(&array.value(index), f)
         })?;

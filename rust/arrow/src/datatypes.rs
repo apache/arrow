@@ -69,6 +69,7 @@ pub enum DataType {
     Interval(IntervalUnit),
     Utf8,
     List(Box<DataType>),
+    FixedSizeList((Box<DataType>, i32)),
     Struct(Vec<Field>),
 }
 
@@ -633,6 +634,19 @@ impl DataType {
                     // return a list with any type as its child isn't defined in the map
                     Ok(DataType::List(Box::new(DataType::Boolean)))
                 }
+                Some(s) if s == "fixedsizelist" => {
+                    // return a list with any type as its child isn't defined in the map
+                    if let Some(Value::Number(size)) = map.get("listSize") {
+                        Ok(DataType::FixedSizeList((
+                            Box::new(DataType::Boolean),
+                            size.as_i64().unwrap() as i32,
+                        )))
+                    } else {
+                        Err(ArrowError::ParseError(format!(
+                            "Expecting a listSize for fixedsizelist",
+                        )))
+                    }
+                }
                 Some(s) if s == "struct" => {
                     // return an empty `struct` type as its children aren't defined in the map
                     Ok(DataType::Struct(vec![]))
@@ -667,6 +681,9 @@ impl DataType {
             DataType::Utf8 => json!({"name": "utf8"}),
             DataType::Struct(_) => json!({"name": "struct"}),
             DataType::List(_) => json!({ "name": "list"}),
+            DataType::FixedSizeList((_, length)) => {
+                json!({"name":"fixedsizelist", "listSize": length})
+            }
             DataType::Time32(unit) => {
                 json!({"name": "time", "bitWidth": 32, "unit": match unit {
                     TimeUnit::Second => "SECOND",
