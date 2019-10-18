@@ -212,5 +212,31 @@ Status Filter(FunctionContext* ctx, const ChunkedArray& values, const ChunkedArr
   return Status::OK();
 }
 
+Status Filter(FunctionContext* ctx, const Table& table, const Array& filter,
+              std::shared_ptr<Table>* out) {
+  auto ncols = table.num_columns();
+
+  std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(ncols);
+
+  for (int j = 0; j < ncols; j++) {
+    RETURN_NOT_OK(Filter(ctx, *table.column(j), filter, &columns[j]));
+  }
+  *out = Table::Make(table.schema(), columns);
+  return Status::OK();
+}
+
+Status Filter(FunctionContext* ctx, const Table& table, const ChunkedArray& filter,
+              std::shared_ptr<Table>* out) {
+  auto ncols = table.num_columns();
+
+  std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(ncols);
+
+  for (int j = 0; j < ncols; j++) {
+    RETURN_NOT_OK(Filter(ctx, *table.column(j), filter, &columns[j]));
+  }
+  *out = Table::Make(table.schema(), columns);
+  return Status::OK();
+}
+
 }  // namespace compute
 }  // namespace arrow

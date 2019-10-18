@@ -212,27 +212,19 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__FilterChunked(
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__Filter(const std::shared_ptr<arrow::Table>& table,
                                             const std::shared_ptr<arrow::Array>& filter) {
-  auto ncols = table->num_columns();
-  std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(ncols);
-
-  for (R_xlen_t j = 0; j < ncols; j++) {
-    columns[j] = ChunkedArray__Filter(table->column(j), filter);
-  }
-
-  return arrow::Table::Make(table->schema(), columns);
+  std::shared_ptr<arrow::Table> out;
+  arrow::compute::FunctionContext context;
+  STOP_IF_NOT_OK(arrow::compute::Filter(&context, *table, *filter, &out));
+  return out;
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__FilterChunked(
     const std::shared_ptr<arrow::Table>& table,
     const std::shared_ptr<arrow::ChunkedArray>& filter) {
-  auto ncols = table->num_columns();
-  std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(ncols);
-
-  for (R_xlen_t j = 0; j < ncols; j++) {
-    columns[j] = ChunkedArray__FilterChunked(table->column(j), filter);
-  }
-
-  return arrow::Table::Make(table->schema(), columns);
+  std::shared_ptr<arrow::Table> out;
+  arrow::compute::FunctionContext context;
+  STOP_IF_NOT_OK(arrow::compute::Filter(&context, *table, *filter, &out));
+  return out;
 }
 #endif
