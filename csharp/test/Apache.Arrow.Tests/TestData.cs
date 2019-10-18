@@ -42,11 +42,11 @@ namespace Apache.Arrow.Tests
                 builder.Field(CreateField(Int64Type.Default, i));
                 builder.Field(CreateField(FloatType.Default, i));
                 builder.Field(CreateField(DoubleType.Default, i));
+                builder.Field(CreateField(Date32Type.Default, i));
+                builder.Field(CreateField(Date64Type.Default, i));
                 //builder.Field(CreateField(new DecimalType(19, 2)));
                 //builder.Field(CreateField(HalfFloatType.Default));
                 //builder.Field(CreateField(StringType.Default));
-                //builder.Field(CreateField(Date32Type.Default));
-                //builder.Field(CreateField(Date64Type.Default));
                 //builder.Field(CreateField(Time32Type.Default));
                 //builder.Field(CreateField(Time64Type.Default));
                 //builder.Field(CreateField(TimestampType.Default));
@@ -89,6 +89,8 @@ namespace Apache.Arrow.Tests
 
         private class ArrayBufferCreator :
             IArrowTypeVisitor<BooleanType>,
+            IArrowTypeVisitor<Date32Type>,
+            IArrowTypeVisitor<Date64Type>,
             IArrowTypeVisitor<Int8Type>,
             IArrowTypeVisitor<Int16Type>,
             IArrowTypeVisitor<Int32Type>,
@@ -159,6 +161,8 @@ namespace Apache.Arrow.Tests
             public void Visit(UInt64Type type) => CreateNumberArray<ulong>(type);
             public void Visit(FloatType type) => CreateNumberArray<float>(type);
             public void Visit(DoubleType type) => CreateNumberArray<double>(type);
+            public void Visit(Date32Type type) => CreateNumberArray<int>(type);
+            public void Visit(Date64Type type) => CreateNumberArray<long>(type);
 
             private void CreateNumberArray<T>(IArrowType type)
                 where T : struct
