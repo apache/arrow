@@ -217,16 +217,10 @@ TYPED_TEST(TestDictionaryBuilder, DeltaDictionary) {
   ASSERT_OK(builder.Append(static_cast<c_type>(1)));
   ASSERT_OK(builder.Append(static_cast<c_type>(3)));
 
-  std::shared_ptr<Array> result_delta;
-  ASSERT_OK(builder.Finish(&result_delta));
-
-  // Build expected data for the delta dictionary
-  auto ex_dict2 = ArrayFromJSON(type, "[3]");
-  auto dict_type2 = dictionary(int8(), type);
-  DictionaryArray expected_delta(dict_type2, ArrayFromJSON(int8(), "[1, 2, 2, 0, 2]"),
-                                 ex_dict2);
-
-  ASSERT_TRUE(expected_delta.Equals(result_delta));
+  std::shared_ptr<Array> result_indices, result_delta;
+  ASSERT_OK(builder.FinishDelta(&result_indices, &result_delta));
+  AssertArraysEqual(*ArrayFromJSON(int8(), "[1, 2, 2, 0, 2]"), *result_indices);
+  AssertArraysEqual(*ArrayFromJSON(type, "[3]"), *result_delta);
 }
 
 TYPED_TEST(TestDictionaryBuilder, DoubleDeltaDictionary) {
@@ -256,15 +250,10 @@ TYPED_TEST(TestDictionaryBuilder, DoubleDeltaDictionary) {
   ASSERT_OK(builder.Append(static_cast<c_type>(1)));
   ASSERT_OK(builder.Append(static_cast<c_type>(3)));
 
-  std::shared_ptr<Array> result_delta1;
-  ASSERT_OK(builder.Finish(&result_delta1));
-
-  // Build expected data for the delta dictionary
-  auto ex_dict2 = ArrayFromJSON(type, "[3]");
-  DictionaryArray expected_delta1(dict_type, ArrayFromJSON(int8(), "[1, 2, 2, 0, 2]"),
-                                  ex_dict2);
-
-  ASSERT_TRUE(expected_delta1.Equals(result_delta1));
+  std::shared_ptr<Array> result_indices1, result_delta1;
+  ASSERT_OK(builder.FinishDelta(&result_indices1, &result_delta1));
+  AssertArraysEqual(*ArrayFromJSON(int8(), "[1, 2, 2, 0, 2]"), *result_indices1);
+  AssertArraysEqual(*ArrayFromJSON(type, "[3]"), *result_delta1);
 
   // extend the dictionary builder with new data again
   ASSERT_OK(builder.Append(static_cast<c_type>(1)));
@@ -273,15 +262,10 @@ TYPED_TEST(TestDictionaryBuilder, DoubleDeltaDictionary) {
   ASSERT_OK(builder.Append(static_cast<c_type>(4)));
   ASSERT_OK(builder.Append(static_cast<c_type>(5)));
 
-  std::shared_ptr<Array> result_delta2;
-  ASSERT_OK(builder.Finish(&result_delta2));
-
-  // Build expected data for the delta dictionary again
-  auto ex_dict3 = ArrayFromJSON(type, "[4, 5]");
-  DictionaryArray expected_delta2(dict_type, ArrayFromJSON(int8(), "[0, 1, 2, 3, 4]"),
-                                  ex_dict3);
-
-  ASSERT_TRUE(expected_delta2.Equals(result_delta2));
+  std::shared_ptr<Array> result_indices2, result_delta2;
+  ASSERT_OK(builder.FinishDelta(&result_indices2, &result_delta2));
+  AssertArraysEqual(*ArrayFromJSON(int8(), "[0, 1, 2, 3, 4]"), *result_indices2);
+  AssertArraysEqual(*ArrayFromJSON(type, "[4, 5]"), *result_delta2);
 }
 
 TYPED_TEST(TestDictionaryBuilder, Dictionary32_BasicPrimitive) {
@@ -336,9 +320,39 @@ TYPED_TEST(TestDictionaryBuilder, FinishResetBehavior) {
 
   ASSERT_OK(builder.Finish(&result));
 
-  // Dictionary has 4 elements because the dictionary memo was not reset. This
-  // behavior will change after ARROW-6869
-  ASSERT_EQ(2, static_cast<const DictionaryArray&>(*result).dictionary()->length());
+  // Dictionary has 4 elements because the dictionary memo was not reset
+  ASSERT_EQ(4, static_cast<const DictionaryArray&>(*result).dictionary()->length());
+}
+
+TYPED_TEST(TestDictionaryBuilder, ResetFull) {
+  using c_type = typename TypeParam::c_type;
+  auto type = std::make_shared<TypeParam>();
+
+  Dictionary32Builder<TypeParam> builder;
+
+  ASSERT_OK(builder.Append(static_cast<c_type>(1)));
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_OK(builder.Append(static_cast<c_type>(1)));
+  ASSERT_OK(builder.Append(static_cast<c_type>(2)));
+
+  std::shared_ptr<Array> result;
+  ASSERT_OK(builder.Finish(&result));
+
+  ASSERT_OK(builder.Append(static_cast<c_type>(3)));
+  ASSERT_OK(builder.Finish(&result));
+
+  // Dictionary expanded
+  const auto& dict_result = static_cast<const DictionaryArray&>(*result);
+  AssertArraysEqual(*ArrayFromJSON(int32(), "[2]"), *dict_result.indices());
+  AssertArraysEqual(*ArrayFromJSON(type, "[1, 2, 3]"),
+                    *static_cast<const DictionaryArray&>(*result).dictionary());
+
+  builder.ResetFull();
+  ASSERT_OK(builder.Append(static_cast<c_type>(4)));
+  ASSERT_OK(builder.Finish(&result));
+  const auto& dict_result2 = static_cast<const DictionaryArray&>(*result);
+  AssertArraysEqual(*ArrayFromJSON(int32(), "[0]"), *dict_result2.indices());
+  AssertArraysEqual(*ArrayFromJSON(type, "[4]"), *dict_result2.dictionary());
 }
 
 TEST(TestDictionaryBuilderAdHoc, AppendIndicesUpdateCapacity) {
@@ -533,14 +547,12 @@ TEST(TestStringDictionaryBuilder, DeltaDictionary) {
   ASSERT_OK(builder.Append("test3"));
   ASSERT_OK(builder.Append("test2"));
 
-  std::shared_ptr<Array> result_delta;
-  FinishAndCheckPadding(&builder, &result_delta);
+  std::shared_ptr<Array> result_indices, result_delta;
+  ASSERT_OK(builder.FinishDelta(&result_indices, &result_delta));
 
   // Build expected data
-  DictionaryArray expected_delta(dtype, ArrayFromJSON(int8(), "[1, 2, 1]"),
-                                 ArrayFromJSON(utf8(), "[\"test3\"]"));
-
-  ASSERT_TRUE(expected_delta.Equals(result_delta));
+  AssertArraysEqual(*ArrayFromJSON(int8(), "[1, 2, 1]"), *result_indices);
+  AssertArraysEqual(*ArrayFromJSON(utf8(), "[\"test3\"]"), *result_delta);
 }
 
 TEST(TestStringDictionaryBuilder, BigDeltaDictionary) {
@@ -588,18 +600,17 @@ TEST(TestStringDictionaryBuilder, BigDeltaDictionary) {
   }
   ASSERT_OK(str_builder2.Append("test_new_value1"));
 
-  std::shared_ptr<Array> result2;
-  ASSERT_OK(builder.Finish(&result2));
+  std::shared_ptr<Array> indices2, delta2;
+  ASSERT_OK(builder.FinishDelta(&indices2, &delta2));
 
   std::shared_ptr<Array> str_array2;
   ASSERT_OK(str_builder2.Finish(&str_array2));
-  auto dtype2 = dictionary(int16(), utf8());
 
   std::shared_ptr<Array> int_array2;
   ASSERT_OK(int_builder2.Finish(&int_array2));
 
-  DictionaryArray expected2(dtype2, int_array2, str_array2);
-  ASSERT_TRUE(expected2.Equals(result2));
+  AssertArraysEqual(*int_array2, *indices2);
+  AssertArraysEqual(*str_array2, *delta2);
 
   // build delta 2
   StringBuilder str_builder3;
@@ -616,18 +627,17 @@ TEST(TestStringDictionaryBuilder, BigDeltaDictionary) {
   }
   ASSERT_OK(str_builder3.Append("test_new_value2"));
 
-  std::shared_ptr<Array> result3;
-  ASSERT_OK(builder.Finish(&result3));
+  std::shared_ptr<Array> indices3, delta3;
+  ASSERT_OK(builder.FinishDelta(&indices3, &delta3));
 
   std::shared_ptr<Array> str_array3;
   ASSERT_OK(str_builder3.Finish(&str_array3));
-  auto dtype3 = dictionary(int16(), utf8());
 
   std::shared_ptr<Array> int_array3;
   ASSERT_OK(int_builder3.Finish(&int_array3));
 
-  DictionaryArray expected3(dtype3, int_array3, str_array3);
-  ASSERT_TRUE(expected3.Equals(result3));
+  AssertArraysEqual(*int_array3, *indices3);
+  AssertArraysEqual(*str_array3, *delta3);
 }
 
 TEST(TestFixedSizeBinaryDictionaryBuilder, Basic) {
@@ -744,8 +754,8 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, DeltaDictionary) {
   ASSERT_OK(builder.Append(test2.data()));
   ASSERT_OK(builder.Append(test3.data()));
 
-  std::shared_ptr<Array> result2;
-  FinishAndCheckPadding(&builder, &result2);
+  std::shared_ptr<Array> indices2, delta2;
+  ASSERT_OK(builder.FinishDelta(&indices2, &delta2));
 
   // Build expected data
   FixedSizeBinaryBuilder fsb_builder2(value_type);
@@ -757,11 +767,12 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, DeltaDictionary) {
   ASSERT_OK(int_builder2.Append(0));
   ASSERT_OK(int_builder2.Append(1));
   ASSERT_OK(int_builder2.Append(2));
+
   std::shared_ptr<Array> int_array2;
   ASSERT_OK(int_builder2.Finish(&int_array2));
 
-  DictionaryArray expected2(dict_type, int_array2, fsb_array2);
-  ASSERT_TRUE(expected2.Equals(result2));
+  AssertArraysEqual(*int_array2, *indices2);
+  AssertArraysEqual(*fsb_array2, *delta2);
 }
 
 TEST(TestFixedSizeBinaryDictionaryBuilder, DoubleTableSize) {
