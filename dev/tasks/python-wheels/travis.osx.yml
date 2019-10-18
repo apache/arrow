@@ -15,7 +15,7 @@
 # limitations under the License.
 
 os: osx
-osx_image: xcode8.3
+osx_image: xcode9.3
 language: generic
 
 # don't build twice
@@ -47,7 +47,7 @@ before_install:
   - brew uninstall boost cgal postgis sfcgal
   - brew update
   - brew upgrade cmake
-  - brew install bison flex grpc openssl@1.1 llvm@7 zlib gperftools
+  - travis_wait 30 brew install bison flex grpc openssl@1.1 llvm@7 zlib gperftools
   # Remove shared grpc libraries installed by brew to make sure
   # we are linked against the static ones.
   - rm -f /usr/local/opt/grpc/lib/*.dylib
@@ -81,7 +81,7 @@ install:
   # move built wheels to a top level directory
   - mv -v arrow/python/dist/* dist/
   # reinstall openssl because travis' deployment script depends on it
-  - brew install openssl
+  - brew install openssl@1.1
 
 deploy:
   provider: releases
