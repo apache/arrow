@@ -987,7 +987,7 @@ a ``RecordBatch`` it should be defined in a ``DictionaryBatch``. ::
     <EOS [optional]: 0xFFFFFFFF 0x00000000>
 
 .. note:: An edge-case for interleaved dictionary and record batches occurs
-   when the record batches contain dictionary encoded arrays that are
+   when the the record batches contain dictionary encoded arrays that are
    completely null. In this case, the dictionary for the encoded column might
    appear after the first record batch.
 
