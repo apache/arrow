@@ -518,7 +518,7 @@ TEST_F(TestFilterKernelWithRecordBatch, FilterRecordBatch) {
   ])");
 }
 
-// TODO (npr): add test for Filter(ChunkedArray, Array)
+// TODO (npr): add test for Filter(ChunkedArray, Array) and Filter(ChunkedArray, ChunkedArray)
 // See cast_test.cc for test setup with chunked arrays
 
 }  // namespace compute

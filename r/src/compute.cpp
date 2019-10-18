@@ -203,31 +203,10 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Filter(
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__FilterChunked(
     const std::shared_ptr<arrow::ChunkedArray>& values,
     const std::shared_ptr<arrow::ChunkedArray>& filter) {
-  int num_chunks = values->num_chunks();
-  std::vector<std::shared_ptr<arrow::Array>> new_chunks(num_chunks);
-  std::shared_ptr<arrow::Array> current_chunk;
-  std::shared_ptr<arrow::ChunkedArray> current_chunked_filter;
-  std::shared_ptr<arrow::Array> current_filter;
-
-  int offset = 0;
-  int len;
-
-  for (R_xlen_t i = 0; i < num_chunks; i++) {
-    current_chunk = values->chunk(i);
-    len = current_chunk->length();
-    current_chunked_filter = filter->Slice(offset, len);
-    if (current_chunked_filter->num_chunks() == 1) {
-      current_filter = current_chunked_filter->chunk(0);
-    } else {
-      // Concatenate the chunks of the filter so we have an Array
-      STOP_IF_NOT_OK(arrow::Concatenate(current_chunked_filter->chunks(),
-                                        arrow::default_memory_pool(), &current_filter));
-    }
-    new_chunks[i] = Array__Filter(current_chunk, current_filter);
-    offset += len;
-  }
-
-  return std::make_shared<arrow::ChunkedArray>(std::move(new_chunks));
+  std::shared_ptr<arrow::ChunkedArray> out;
+  arrow::compute::FunctionContext context;
+  STOP_IF_NOT_OK(arrow::compute::Filter(&context, *values, *filter, &out));
+  return out;
 }
 
 // [[arrow::export]]

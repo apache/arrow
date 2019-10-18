@@ -68,6 +68,24 @@ ARROW_EXPORT
 Status Filter(FunctionContext* ctx, const ChunkedArray& values, const Array& filter,
               std::shared_ptr<ChunkedArray>* out);
 
+/// \brief Filter a chunked array with a boolean selection filter
+///
+/// The output chunked array will be populated with values from the input at positions
+/// where the selection filter is not 0. Nulls in the filter will result in nulls
+/// in the output.
+///
+/// For example given values = ["a", "b", "c", null, "e", "f"] and
+/// filter = [0, 1, 1, 0, null, 1], the output will be
+/// = ["b", "c", null, "f"]
+///
+/// \param[in] ctx the FunctionContext
+/// \param[in] values chunked array to filter
+/// \param[in] filter indicates which values should be filtered out
+/// \param[out] out resulting chunked array
+ARROW_EXPORT
+Status Filter(FunctionContext* ctx, const ChunkedArray& values, const ChunkedArray& filter,
+              std::shared_ptr<ChunkedArray>* out);
+
 /// \brief Filter a record batch with a boolean selection filter
 ///
 /// The output record batch's columns will be populated with values from corresponding
