@@ -139,14 +139,23 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__TakeChunked(
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__Take(const std::shared_ptr<arrow::Table>& table,
                                           const std::shared_ptr<arrow::Array>& indices) {
-  auto ncols = table->num_columns();
-  std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(ncols);
+  std::shared_ptr<arrow::Table> out;
+  arrow::compute::FunctionContext context;
+  arrow::compute::TakeOptions options;
 
-  for (R_xlen_t j = 0; j < ncols; j++) {
-    columns[j] = ChunkedArray__Take(table->column(j), indices);
-  }
+  STOP_IF_NOT_OK(arrow::compute::Take(&context, *table, *indices, options, &out));
+  return out;
+}
 
-  return arrow::Table::Make(table->schema(), columns);
+// [[arrow::export]]
+std::shared_ptr<arrow::Table> Table__TakeChunked(const std::shared_ptr<arrow::Table>& table,
+                                          const std::shared_ptr<arrow::ChunkedArray>& indices) {
+  std::shared_ptr<arrow::Table> out;
+  arrow::compute::FunctionContext context;
+  arrow::compute::TakeOptions options;
+
+  STOP_IF_NOT_OK(arrow::compute::Take(&context, *table, *indices, options, &out));
+  return out;
 }
 
 // [[arrow::export]]

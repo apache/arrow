@@ -145,6 +145,9 @@ Table <- R6Class("Table", inherit = Object,
       if (is.integer(i)) {
         i <- Array$create(i)
       }
+      if (inherits(i, "ChunkedArray")) {
+        return(shared_ptr(Table, Table__TakeChunked(self, i)))
+      }
       assert_is(i, "Array")
       shared_ptr(Table, Table__Take(self, i))
     },

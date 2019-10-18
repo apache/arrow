@@ -292,6 +292,10 @@ Table__Take <- function(table, indices){
     .Call(`_arrow_Table__Take` , table, indices)
 }
 
+Table__TakeChunked <- function(table, indices){
+    .Call(`_arrow_Table__TakeChunked` , table, indices)
+}
+
 Array__Filter <- function(values, filter){
     .Call(`_arrow_Array__Filter` , values, filter)
 }

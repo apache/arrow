@@ -154,8 +154,6 @@ Status Take(FunctionContext* ctx, const Array& values, const ChunkedArray& indic
 
 Status Take(FunctionContext* ctx, const RecordBatch& batch, const Array& indices,
               const TakeOptions& options, std::shared_ptr<RecordBatch>* out) {
-
-
   auto ncols = batch.num_columns();
   auto nrows = indices.length();
 
@@ -165,6 +163,30 @@ Status Take(FunctionContext* ctx, const RecordBatch& batch, const Array& indices
     RETURN_NOT_OK(Take(ctx, *batch.column(j), indices, options, &columns[j]));
   }
   *out = RecordBatch::Make(batch.schema(), nrows, columns);
+  return Status::OK();
+}
+
+Status Take(FunctionContext* ctx, const Table& table, const Array& indices,
+              const TakeOptions& options, std::shared_ptr<Table>* out) {
+  auto ncols = table.num_columns();
+  std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(ncols);
+
+  for (int j = 0; j < ncols; j++) {
+    RETURN_NOT_OK(Take(ctx, *table.column(j), indices, options, &columns[j]));
+  }
+  *out = Table::Make(table.schema(), columns);
+  return Status::OK();
+}
+
+Status Take(FunctionContext* ctx, const Table& table, const ChunkedArray& indices,
+              const TakeOptions& options, std::shared_ptr<Table>* out) {
+  auto ncols = table.num_columns();
+  std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(ncols);
+
+  for (int j = 0; j < ncols; j++) {
+    RETURN_NOT_OK(Take(ctx, *table.column(j), indices, options, &columns[j]));
+  }
+  *out = Table::Make(table.schema(), columns);
   return Status::OK();
 }
 
