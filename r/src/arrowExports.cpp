@@ -1086,11 +1086,11 @@ RcppExport SEXP _arrow_RecordBatch__Take(SEXP batch_sexp, SEXP indices_sexp){
 
 // compute.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Take(const std::shared_ptr<arrow::ChunkedArray>& values, Rcpp::IntegerVector& indices);
+std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Take(const std::shared_ptr<arrow::ChunkedArray>& values, const std::shared_ptr<arrow::Array>& indices);
 RcppExport SEXP _arrow_ChunkedArray__Take(SEXP values_sexp, SEXP indices_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::ChunkedArray>&>::type values(values_sexp);
-	Rcpp::traits::input_parameter<Rcpp::IntegerVector&>::type indices(indices_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type indices(indices_sexp);
 	return Rcpp::wrap(ChunkedArray__Take(values, indices));
 END_RCPP
 }
@@ -1102,11 +1102,11 @@ RcppExport SEXP _arrow_ChunkedArray__Take(SEXP values_sexp, SEXP indices_sexp){
 
 // compute.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Table> Table__Take(const std::shared_ptr<arrow::Table>& table, Rcpp::IntegerVector& indices);
+std::shared_ptr<arrow::Table> Table__Take(const std::shared_ptr<arrow::Table>& table, const std::shared_ptr<arrow::Array>& indices);
 RcppExport SEXP _arrow_Table__Take(SEXP table_sexp, SEXP indices_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Table>&>::type table(table_sexp);
-	Rcpp::traits::input_parameter<Rcpp::IntegerVector&>::type indices(indices_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type indices(indices_sexp);
 	return Rcpp::wrap(Table__Take(table, indices));
 END_RCPP
 }

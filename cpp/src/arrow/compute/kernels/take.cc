@@ -19,6 +19,7 @@
 #include <memory>
 #include <utility>
 
+#include "arrow/array/concatenate.h"
 #include "arrow/compute/kernels/take.h"
 #include "arrow/compute/kernels/take_internal.h"
 #include "arrow/util/logging.h"
@@ -97,6 +98,29 @@ Status Take(FunctionContext* ctx, const Datum& values, const Datum& indices,
   std::unique_ptr<TakeKernel> kernel;
   RETURN_NOT_OK(TakeKernel::Make(values.type(), indices.type(), &kernel));
   return kernel->Call(ctx, values, indices, out);
+}
+
+Status Take(FunctionContext* ctx, const ChunkedArray& values, const Array& indices,
+            const TakeOptions& options, std::shared_ptr<ChunkedArray>* out) {
+  auto num_chunks = values.num_chunks();
+  std::vector<std::shared_ptr<arrow::Array>> new_chunks(1); // Hard-coded 1 for now
+  std::shared_ptr<arrow::Array> current_chunk;
+
+  // Case 1: `values` has a single chunk, so just use it
+  if (num_chunks == 1) {
+    current_chunk = values.chunk(0);
+  } else {
+    // TODO Case 2: See if all `indices` fall in the same chunk and call Array Take on it
+    // See https://github.com/apache/arrow/blob/6f2c9041137001f7a9212f244b51bc004efc29af/r/src/compute.cpp#L123-L151
+    // TODO Case 3: If indices are sorted, can slice them and call Array Take
+
+    // Case 4: Else, concatenate chunks and call Array Take
+    RETURN_NOT_OK(Concatenate(values.chunks(), default_memory_pool(), &current_chunk));
+  }
+  // Call Array Take on our single chunk
+  RETURN_NOT_OK(Take(ctx, *current_chunk, indices, options, &new_chunks[0]));
+  *out = std::make_shared<arrow::ChunkedArray>(std::move(new_chunks));
+  return Status::OK();
 }
 
 Status Take(FunctionContext* ctx, const RecordBatch& batch, const Array& indices,

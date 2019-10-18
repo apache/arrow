@@ -105,60 +105,18 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__Take(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Take(
-    const std::shared_ptr<arrow::ChunkedArray>& values, Rcpp::IntegerVector& indices) {
-  int num_chunks = values->num_chunks();
-  std::vector<std::shared_ptr<arrow::Array>> new_chunks(1);  // Hard-coded 1 for now
-  // 1) If there's only one chunk, just take from it
-  if (num_chunks == 1) {
-    new_chunks[0] = Array__Take(
-        values->chunk(0), arrow::r::Array__from_vector(indices, arrow::int32(), true));
-    return std::make_shared<arrow::ChunkedArray>(std::move(new_chunks));
-  }
+    const std::shared_ptr<arrow::ChunkedArray>& values, const std::shared_ptr<arrow::Array>& indices) {
+  std::shared_ptr<arrow::ChunkedArray> out;
+  arrow::compute::FunctionContext context;
+  arrow::compute::TakeOptions options;
 
-  std::shared_ptr<arrow::Array> current_chunk;
-  std::shared_ptr<arrow::Array> current_indices;
-  int offset = 0;
-  int len;
-  int min_i = indices[0];
-  int max_i = indices[0];
-
-  // 2) See if all i are in the same chunk, call Array__Take on that
-  for (R_xlen_t i = 1; i < indices.size(); i++) {
-    if (indices[i] < min_i) {
-      min_i = indices[i];
-    } else if (indices[i] > max_i) {
-      max_i = indices[i];
-    }
-  }
-  for (R_xlen_t chk = 0; chk < num_chunks; chk++) {
-    current_chunk = values->chunk(chk);
-    len = current_chunk->length();
-    if (min_i >= offset && max_i < offset + len) {
-      for (R_xlen_t i = 0; i < indices.size(); i++) {
-        // Subtract offset from all indices
-        indices[i] -= offset;
-      }
-      current_indices = arrow::r::Array__from_vector(indices, arrow::int32(), true);
-      new_chunks[0] = Array__Take(current_chunk, current_indices);
-      return std::make_shared<arrow::ChunkedArray>(std::move(new_chunks));
-    }
-    offset += len;
-  }
-
-  // TODO 3) If they're not all in the same chunk but are sorted, we can slice
-  // the indices (offset appropriately) and take from each chunk
-
-  // 4) Last resort: concatenate the chunks
-  STOP_IF_NOT_OK(
-      arrow::Concatenate(values->chunks(), arrow::default_memory_pool(), &current_chunk));
-  current_indices = arrow::r::Array__from_vector(indices, arrow::int32(), true);
-  new_chunks[0] = Array__Take(current_chunk, current_indices);
-  return std::make_shared<arrow::ChunkedArray>(std::move(new_chunks));
+  STOP_IF_NOT_OK(arrow::compute::Take(&context, *values, *indices, options, &out));
+  return out;
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> Table__Take(const std::shared_ptr<arrow::Table>& table,
-                                          Rcpp::IntegerVector& indices) {
+                                          const std::shared_ptr<arrow::Array>& indices) {
   auto ncols = table->num_columns();
   std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(ncols);
 

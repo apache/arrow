@@ -69,13 +69,13 @@ ChunkedArray <- R6Class("ChunkedArray", inherit = Object,
       }
     },
     Take = function(i) {
-      if (inherits(i, c("Array", "ChunkedArray"))) {
-        # Hack because ChunkedArray__Take doesn't take Arrays
-        i <- as.vector(i)
-      } else if (is.numeric(i)) {
+      if (is.numeric(i)) {
         i <- as.integer(i)
       }
-      assert_is(i, "integer")
+      if (is.integer(i)) {
+        i <- Array$create(i)
+      }
+      assert_is(i, "Array")
       return(shared_ptr(ChunkedArray, ChunkedArray__Take(self, i)))
     },
     Filter = function(i) {

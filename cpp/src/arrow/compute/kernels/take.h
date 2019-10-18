@@ -53,6 +53,26 @@ ARROW_EXPORT
 Status Take(FunctionContext* ctx, const Array& values, const Array& indices,
             const TakeOptions& options, std::shared_ptr<Array>* out);
 
+/// \brief Take from a chunked array of values at indices in another array
+///
+/// The output chunked array will be of the same type as the input values
+/// array, with elements taken from the values array at the given
+/// indices. If an index is null then the taken element will be null.
+///
+/// For example given values = ["a", "b", "c", null, "e", "f"] and
+/// indices = [2, 1, null, 3], the output will be
+/// = [values[2], values[1], null, values[3]]
+/// = ["c", "b", null, null]
+///
+/// \param[in] ctx the FunctionContext
+/// \param[in] values chunked array from which to take
+/// \param[in] indices which values to take
+/// \param[in] options options
+/// \param[out] out resulting chunked array
+ARROW_EXPORT
+Status Take(FunctionContext* ctx, const ChunkedArray& values, const Array& indices,
+            const TakeOptions& options, std::shared_ptr<ChunkedArray>* out);
+
 /// \brief Take from a record batch at indices in another array
 ///
 /// The output batch will have the same schema as the input batch,
