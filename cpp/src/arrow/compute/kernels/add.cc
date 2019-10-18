@@ -32,7 +32,7 @@ class AddKernelImpl : public AddKernel {
   Status Add(FunctionContext* ctx, const std::shared_ptr<ArrayType>& lhs,
              const std::shared_ptr<ArrayType>& rhs, std::shared_ptr<Array>* result) {
     NumericBuilder<ArrowType> builder;
-    builder.Reserve(lhs->length());
+    RETURN_NOT_OK(builder.Reserve(lhs->length()));
     for (int i = 0; i < lhs->length(); i++) {
       if (lhs->IsNull(i) || rhs->IsNull(i)) {
         builder.UnsafeAppendNull();
@@ -44,9 +44,11 @@ class AddKernelImpl : public AddKernel {
   }
 
  public:
-  explicit AddKernelImpl(std::shared_ptr<DataType> result_type) : result_type_(result_type) {}
+  explicit AddKernelImpl(std::shared_ptr<DataType> result_type)
+      : result_type_(result_type) {}
 
-  Status Call(FunctionContext* ctx, const Datum& lhs, const Datum& rhs, Datum* out) {
+  Status Call(FunctionContext* ctx, const Datum& lhs, const Datum& rhs,
+              Datum* out) override {
     if (!lhs.is_array() || !rhs.is_array()) {
       return Status::Invalid("AddKernel expects array values");
     }
@@ -63,8 +65,8 @@ class AddKernelImpl : public AddKernel {
 
   std::shared_ptr<DataType> out_type() const override { return result_type_; }
 
-  virtual Status Add(FunctionContext* ctx, const std::shared_ptr<Array>& lhs,
-                     const std::shared_ptr<Array>& rhs, std::shared_ptr<Array>* result) {
+  Status Add(FunctionContext* ctx, const std::shared_ptr<Array>& lhs,
+             const std::shared_ptr<Array>& rhs, std::shared_ptr<Array>* result) override {
     auto lhs_array = std::static_pointer_cast<ArrayType>(lhs);
     auto rhs_array = std::static_pointer_cast<ArrayType>(rhs);
     return Add(ctx, lhs_array, rhs_array, result);

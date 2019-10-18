@@ -41,8 +41,9 @@ class FunctionContext;
 /// will be [5, null, 7]
 ///
 /// \param[in] ctx the FunctionContext
-/// \param[in] values array to sort
-/// \param[out] offsets indices that would sort an array
+/// \param[in] lhs the first array
+/// \param[in] rhs the second array
+/// \param[out] result the sum of first and second arrays
 
 ARROW_EXPORT
 Status Add(FunctionContext* ctx, const Array& lhs, const Array& rhs,
