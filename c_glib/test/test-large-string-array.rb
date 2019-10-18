@@ -15,29 +15,29 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TestStringArray < Test::Unit::TestCase
+class TestLargeStringArray < Test::Unit::TestCase
   include Helper::Buildable
 
   def test_new
-    value_offsets = Arrow::Buffer.new([0, 5, 11, 11].pack("l*"))
+    value_offsets = Arrow::Buffer.new([0, 5, 11, 11].pack("q*"))
     data = Arrow::Buffer.new("HelloWorld!")
-    assert_equal(build_string_array(["Hello", "World!", nil]),
-                 Arrow::StringArray.new(3,
-                                        value_offsets,
-                                        data,
-                                        Arrow::Buffer.new([0b011].pack("C*")),
-                                        -1))
+    assert_equal(build_large_string_array(["Hello", "World!", nil]),
+                 Arrow::LargeStringArray.new(3,
+                                             value_offsets,
+                                             data,
+                                             Arrow::Buffer.new([0b011].pack("C*")),
+                                             -1))
   end
 
   def test_value
-    builder = Arrow::StringArrayBuilder.new
-    builder.append_string("Hello")
+    builder = Arrow::LargeStringArrayBuilder.new
+    builder.append_string("Hello World")
     array = builder.finish
-    assert_equal("Hello", array.get_string(0))
+    assert_equal("Hello World", array.get_string(0))
   end
 
   def test_buffer
-    builder = Arrow::StringArrayBuilder.new
+    builder = Arrow::LargeStringArrayBuilder.new
     builder.append_string("Hello")
     builder.append_string("World")
     array = builder.finish
