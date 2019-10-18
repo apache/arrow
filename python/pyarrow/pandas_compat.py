@@ -227,8 +227,10 @@ def construct_metadata(df, column_names, index_levels, index_descriptors,
 
         column_indexes = []
 
-        for level in getattr(df.columns, 'levels', [df.columns]):
-            metadata = _get_simple_index_descriptor(level)
+        levels = getattr(df.columns, 'levels', [df.columns])
+        names = getattr(df.columns, 'names', [df.columns.name])
+        for level, name in zip(levels, names):
+            metadata = _get_simple_index_descriptor(level, name)
             column_indexes.append(metadata)
     else:
         index_descriptors = index_column_metadata = column_indexes = []
@@ -247,7 +249,7 @@ def construct_metadata(df, column_names, index_levels, index_descriptors,
     }
 
 
-def _get_simple_index_descriptor(level):
+def _get_simple_index_descriptor(level, name):
     string_dtype, extra_metadata = get_extension_dtype_info(level)
     pandas_type = get_logical_type_from_numpy(level)
     if 'mixed' in pandas_type:
@@ -259,8 +261,8 @@ def _get_simple_index_descriptor(level):
         assert not extra_metadata
         extra_metadata = {'encoding': 'UTF-8'}
     return {
-        'name': level.name,
-        'field_name': level.name,
+        'name': name,
+        'field_name': name,
         'pandas_type': pandas_type,
         'numpy_type': string_dtype,
         'metadata': extra_metadata,
