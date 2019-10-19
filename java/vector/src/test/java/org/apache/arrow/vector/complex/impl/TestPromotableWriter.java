@@ -26,6 +26,7 @@ import org.apache.arrow.vector.DirtyRootAllocator;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
+import org.apache.arrow.vector.complex.reader.BaseReader.StructReader;
 import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -115,4 +116,54 @@ public class TestPromotableWriter {
           childField2.getName(), ArrowTypeID.Decimal, childField2.getType().getTypeID());
     }
   }
+
+  @Test
+  public void testNoPromoteToUnionOnNullVector() throws Exception {
+
+    try (final NonNullableStructVector container = NonNullableStructVector.empty(EMPTY_SCHEMA_PATH, allocator);
+         final StructVector v = container.addOrGetStruct("test");
+         final PromotableWriter writer = new PromotableWriter(v, container)) {
+
+      container.allocateNew();
+
+      writer.start();
+      writer.integer("A").writeInt(0);
+      writer.list("list").startList();
+      writer.list("list").endList();
+      writer.end();
+
+      writer.start();
+      writer.integer("A").writeInt(1);
+      writer.list("list").startList();
+      writer.list("list").bigInt().writeBigInt(254);
+      writer.list("list").endList();
+      writer.end();
+
+      container.setValueCount(2);
+
+      assertFalse("row0 shouldn't be null", v.isNull(0));
+      assertFalse("row1 shouldn't be null", v.isNull(1));
+
+      StructReader rootReader = new SingleStructReaderImpl(container).reader("test");
+
+      rootReader.setPosition(0);
+      assertTrue("row 0 int is not set", rootReader.reader("A").isSet());
+      assertEquals(0, rootReader.reader("A").readInteger().intValue());
+      assertTrue("row 0 list is set", rootReader.reader("list").isSet());
+
+      rootReader.setPosition(1);
+      assertTrue("row 1 int is not set", rootReader.reader("A").isSet());
+      assertEquals(1, rootReader.reader("A").readInteger().intValue());
+      assertTrue("row 1 list is not set", rootReader.reader("list").isSet());
+      assertEquals(254L, rootReader.reader("list").reader().readLong().longValue());
+
+      Field childField1 = container.getField().getChildren().get(0).getChildren().get(0);
+      Field childField2 = container.getField().getChildren().get(0).getChildren().get(1);
+      assertEquals("Child1 field should be int type: " +
+              childField1.getName(), ArrowTypeID.Int, childField1.getType().getTypeID());
+      assertEquals("Child2 field should be IntList type: " +
+              childField2.getName(), ArrowTypeID.Int, childField2.getChildren().get(0).getType().getTypeID());
+    }
+  }
+
 }

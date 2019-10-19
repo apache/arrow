@@ -281,7 +281,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
    */
   public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(FieldType fieldType) {
     boolean created = false;
-    if (vector instanceof ZeroVector || vector instanceof NullVector) {
+    if (vector instanceof NullVector) {
       vector = fieldType.createNewSingleVector(defaultDataVectorName, allocator, callBack);
       // returned vector must have the same field
       created = true;
