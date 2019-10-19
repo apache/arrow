@@ -152,6 +152,18 @@ fn get_data_type(field: ipc::Field) -> DataType {
             // returning int16 for now, to test, not sure how to get data type
             DataType::List(Box::new(get_data_type(child_field)))
         }
+        ipc::Type::FixedSizeList => {
+            let children = field.children().unwrap();
+            if children.len() != 1 {
+                panic!("expect a list to have one child")
+            }
+            let child_field = children.get(0);
+            let fsl = field.type__as_fixed_size_list().unwrap();
+            DataType::FixedSizeList((
+                Box::new(get_data_type(child_field)),
+                fsl.listSize(),
+            ))
+        }
         ipc::Type::Struct_ => {
             let mut fields = vec![];
             if let Some(children) = field.children() {

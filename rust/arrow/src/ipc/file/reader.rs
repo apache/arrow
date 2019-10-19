@@ -92,6 +92,27 @@ fn create_array(
 
             create_list_array(list_node, data_type, &list_buffers[..], triple.0)
         }
+        FixedSizeList((ref list_data_type, _)) => {
+            let list_node = &nodes[node_index];
+            let list_buffers: Vec<Buffer> = buffers[buffer_index..buffer_index + 1]
+                .iter()
+                .map(|buf| read_buffer(buf, data))
+                .collect();
+            node_index = node_index + 1;
+            buffer_index = buffer_index + 1;
+            let triple = create_array(
+                nodes,
+                list_data_type,
+                data,
+                buffers,
+                node_index,
+                buffer_index,
+            );
+            node_index = triple.1;
+            buffer_index = triple.2;
+
+            create_list_array(list_node, data_type, &list_buffers[..], triple.0)
+        }
         Struct(struct_fields) => {
             let struct_node = &nodes[node_index];
             let null_buffer: Buffer = read_buffer(&buffers[buffer_index], data);
@@ -253,6 +274,19 @@ fn create_list_array(
         let mut builder = ArrayData::builder(data_type.clone())
             .len(field_node.length() as usize)
             .buffers(buffers[1..2].to_vec())
+            .offset(0)
+            .child_data(vec![child_array.data()]);
+        if null_count > 0 {
+            builder = builder
+                .null_count(null_count)
+                .null_bit_buffer(buffers[0].clone())
+        }
+        make_array(builder.build())
+    } else if let &DataType::FixedSizeList(_) = data_type {
+        let null_count = field_node.null_count() as usize;
+        let mut builder = ArrayData::builder(data_type.clone())
+            .len(field_node.length() as usize)
+            .buffers(buffers[1..1].to_vec())
             .offset(0)
             .child_data(vec![child_array.data()]);
         if null_count > 0 {
@@ -467,11 +501,11 @@ mod tests {
         let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
         // the test is repetitive, thus we can read all supported files at once
         let paths = vec![
-            "generated_datetime",
+            // "generated_datetime",
             "generated_nested",
-            "generated_primitive_no_batches",
-            "generated_primitive_zerolength",
-            "generated_primitive",
+            // "generated_primitive_no_batches",
+            // "generated_primitive_zerolength",
+            // "generated_primitive",
         ];
         paths.iter().for_each(|path| {
             let file = File::open(format!(
