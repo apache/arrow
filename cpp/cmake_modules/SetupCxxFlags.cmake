@@ -286,7 +286,7 @@ if(ARROW_USE_SIMD)
   add_definitions(-DARROW_USE_SIMD)
 endif()
 
-if(APPLE)
+if(APPLE AND "${COMPILER_FAMILY}" STREQUAL "clang")
   # Depending on the default OSX_DEPLOYMENT_TARGET (< 10.9), libstdc++ may be
   # the default standard library which does not support C++11. libc++ is the
   # default from 10.9 onward.
