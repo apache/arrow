@@ -2,14 +2,12 @@
 # TODO add docs!!!
 
 abstract type AbstractBitPrimitive{J} <: ArrowVector{J} end
-export BitPrimitive
 
 
 struct BitPrimitive <: AbstractBitPrimitive{Bool}
     length::Int64
     values::Primitive{UInt8}  # in principle this can be anything, but don't see the need
 end
-export BitPrimitive
 
 function BitPrimitive(data::Vector{UInt8}, i::Integer, len::Integer)
     BitPrimitive(len, Primitive{UInt8}(data, i, bytesforbits(len)))
@@ -42,7 +40,6 @@ struct NullableBitPrimitive <: AbstractBitPrimitive{Union{Bool,Missing}}
     bitmask::Primitive{UInt8}
     values::Primitive{UInt8}
 end
-export NullableBitPrimitive
 
 function NullableBitPrimitive(data::Vector{UInt8}, bitmask_idx::Integer, values_idx::Integer,
                               len::Integer)

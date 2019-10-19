@@ -1,10 +1,6 @@
 using Arrow
-using Compat, Compat.Test, Compat.Random, Compat.Dates
+using Test, Random, Dates
 using CategoricalArrays
-
-if VERSION < v"0.7.0-"
-    using Missings
-end
 
 const ≅ = isequal
 
@@ -22,11 +18,7 @@ const MAX_STRING_LENGTH = 32
 const PRIMITIVE_ELTYPES = [Float32, Float64, Int32, Int64, UInt16]
 const OFFSET_ELTYPES = [Int8, Int16, Int32, Int64, UInt8, UInt16, UInt32, UInt64]
 
-if VERSION < v"0.7-"
-    Compat.Random.srand(SEED)
-else
-    Compat.Random.seed!(SEED)
-end
+Random.seed!(SEED)
 
 include("testutils.jl")
 

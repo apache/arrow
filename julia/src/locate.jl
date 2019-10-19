@@ -6,10 +6,6 @@ module Locate
     import Arrow
     using Arrow: ALIGNMENT, DefaultOffset
 
-    if VERSION < v"0.7.0-"
-        using Missings
-    end
-
     abstract type Abstract end
 
     function checkalignment(loc::Integer)
@@ -52,7 +48,6 @@ module Locate
     Offsets{J}(x) where {J} = Offsets{J}(offsets(x))
     Offsets(x) = Offsets{DefaultOffset}(offsets(x))
 end
-export Locate
 
 # type constructor methods
 function locate(data::Vector{UInt8}, vals::Locate.Values{J}, len::Integer) where J
@@ -101,5 +96,4 @@ function locate(::Type{NullableBitPrimitive}, data::Vector{UInt8}, ::Type{Union{
     vals = Locate.Values{Bool}(vec)
     NullableBitPrimitive(data, bmask.loc, vals.loc, Locate.length(vec))
 end
-export locate
 

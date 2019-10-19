@@ -1,0 +1,15 @@
+name = "Arrow"
+uuid = "69666777-d1a9-59fb-9406-91d4454c9d45"
+authors = ["ExpandingMan <expandingman@protonmail.com"]
+version = "0.2.4"
+
+[deps]
+CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+
+[targets]
+test = ["Test", "Random"]

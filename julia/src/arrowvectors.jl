@@ -2,14 +2,13 @@
 #================================================================================================
     functions common to both lists and primitives
 ================================================================================================#
-values(A::Primitive) = A
-values(A::ArrowVector) = A.values
+Base.values(A::Primitive) = A
+Base.values(A::ArrowVector) = A.values
 bitmask(A::ArrowVector) = A.bitmask
 offsets(A::ArrowVector) = A.offsets
-export values, bitmask, offsets
 
 
-copy(A::T) where T<:ArrowVector = T(A)
+Base.copy(A::T) where T<:ArrowVector = A[:]
 
 
 """
@@ -43,7 +42,6 @@ Gets a `Vector{UInt8}` of the raw values associated with the indices `idx`.
 """
 rawvalues(A::ArrowVector, i) = rawvalues(A.values, i)
 rawvalues(A::ArrowVector) = rawvalues(A.values)
-export rawvalues
 
 
 # TODO this actually gets fucked up if bitmask has trailing ones (that's also why this is backwards)
@@ -60,7 +58,6 @@ function nullcount(A::ArrowVector{Union{T,Missing}}) where T
     end
     length(A) - s
 end
-export nullcount
 
 
 function unsafe_getbit(A::Primitive{J}, i::Integer) where J
@@ -136,7 +133,6 @@ isnull(A::ArrowVector, i) = false
 isnull(A::ArrowVector{Union{J,Missing}}, i::Integer) where J = !getbit(bitmask(A), i)
 isnull(A::ArrowVector, idx::AbstractVector{<:Integer}) = Bool[isnull(A, i) for i ∈ idx]
 isnull(A::ArrowVector, idx::AbstractVector{Bool}) = Bool[isnull(A, i) for i ∈ 1:length(A) if idx[i]]
-export isnull
 
 
 """
@@ -223,9 +219,9 @@ function setnonmissing!(A::ArrowVector{J}, v::AbstractVector{T}) where {J,T<:Uni
 end
 
 
-length(A::ArrowVector) = A.length
-size(A::ArrowVector) = (length(A),)
-function size(A::ArrowVector, i::Integer)
+Base.length(A::ArrowVector) = A.length
+Base.size(A::ArrowVector) = (length(A),)
+function Base.size(A::ArrowVector, i::Integer)
     if i == 1
         return length(A)
     else
@@ -235,10 +231,10 @@ function size(A::ArrowVector, i::Integer)
 end
 
 
-convert(::Type{Array{T}}, A::ArrowVector{T}) where T = A[:]
-convert(::Type{Vector{T}}, A::ArrowVector{T}) where T = A[:]
+Base.convert(::Type{Array{T}}, A::ArrowVector{T}) where T = A[:]
+Base.convert(::Type{Vector{T}}, A::ArrowVector{T}) where T = A[:]
 
-IndexStyle(::Type{<:ArrowVector}) = IndexLinear()
+Base.IndexStyle(::Type{<:ArrowVector}) = IndexLinear()
 
 # macro for creating arrowformat functions
 macro _formats(constructor, argtype, w...)
@@ -274,28 +270,27 @@ function arrowformat end
 @_formats DictEncoding CategoricalArray{T,1,U} T<:Any U
 @_formats BitPrimitive AbstractVector{J} J<:Bool
 @_formats NullableBitPrimitive AbstractVector{J} J<:Union{Bool,Missing}
-arrowformat(A::ArrowVector) = copy(A)
-export arrowformat
+arrowformat(A::T) where {T<:ArrowVector} = T(A)
 
 # TODO clean up bounds checking
 
-@inline function getindex(l::ArrowVector{J}, i::Union{<:Integer,AbstractVector{<:Integer}}) where J
+@inline function Base.getindex(l::ArrowVector{J}, i::Union{<:Integer,AbstractVector{<:Integer}}) where J
     @boundscheck checkbounds(l, i)
     @inbounds o = unsafe_getvalue(l, i)
     o
 end
-@inline function getindex(l::ArrowVector{Union{J,Missing}}, i::Integer)::Union{J,Missing} where J
+@inline function Base.getindex(l::ArrowVector{Union{J,Missing}}, i::Integer)::Union{J,Missing} where J
     @boundscheck checkbounds(l, i)
     @inbounds o = unsafe_isnull(l, i) ? missing : unsafe_getvalue(l, i)
     o
 end
-@inline function getindex(l::ArrowVector{Union{J,Missing}}, idx::AbstractVector{<:Integer}) where J
+@inline function Base.getindex(l::ArrowVector{Union{J,Missing}}, idx::AbstractVector{<:Integer}) where J
     @boundscheck checkbounds(l, idx)
     @inbounds v = convert(Vector{Union{J,Missing}}, unsafe_getvalue(l, idx))
     @inbounds unsafe_fillmissings!(v, l, idx)
     v
 end
-@inline getindex(l::ArrowVector, ::Colon) = l[1:end]
+@inline Base.getindex(l::ArrowVector, ::Colon) = l[1:end]
 
 
 """
@@ -318,7 +313,6 @@ function writepadded(io::IO, A::ArrowVector, subbuffs::Function...)
     end
     s
 end
-export writepadded
 
 
 """
@@ -332,4 +326,3 @@ function rawpadded(A::Primitive, idx::Union{<:Integer,AbstractVector{<:Integer}}
 end
 rawpadded(A::Primitive) = rawpadded(A, 1:length(A))
 rawpadded(A::ArrowVector, subbuffs::Function...) = reduce(vcat, (rawpadded(sb(A)) for sb ∈ subbuffs))
-export rawpadded

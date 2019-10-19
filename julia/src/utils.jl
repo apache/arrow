@@ -6,7 +6,6 @@ Determines the total number of bytes needed to store `n` bytes with padding.
 Note that the Arrow standard requires buffers to be aligned to 8-byte boundaries.
 """
 padding(n::Integer) = ((n + ALIGNMENT - 1) ÷ ALIGNMENT)*ALIGNMENT
-export padding
 
 
 paddinglength(n::Integer) = padding(n) - n
@@ -32,7 +31,6 @@ function writepadded(io::IO, x)
     write(io, zeros(UInt8, diff))
     bw + diff
 end
-export writepadded
 
 
 """
@@ -41,7 +39,6 @@ export writepadded
 Get the number of bytes required to store `n` bits.
 """
 bytesforbits(n::Integer) = div(((n + 7) & ~7), 8)
-export bytesforbits
 
 getbit(byte::UInt8, i::Integer) = (byte & BITMASK[i] > 0x00)
 function setbit(byte::UInt8, x::Bool, i::Integer)
@@ -70,6 +67,32 @@ function encode(::Type{C}, v::AbstractVector{Union{J,Missing}}) where {C,J}
     mapreduce(vcat, v) do x
         ismissing(x) ? Vector{C}(undef, 0) : _encodesingle(C, x)
     end
+end
+
+function encode(::Type{C}, v::AbstractVector{J}) where {C, J <: AbstractString}
+    N   = mapreduce(length ∘ codeunits, +, v)
+    enc = Vector{C}(undef, N)
+    i   = 0
+    for val in v, c in codeunits(val)
+       i += 1
+       enc[i] = convert(C, c)
+    end
+    return enc
+end
+
+function encode(::Type{C}, v::AbstractVector{Union{J, Missing}}) where {C, J <: AbstractString}
+    N   = mapreduce(x -> ismissing(x) ? 0 : length(codeunits(x)) , +, v)
+    enc = Vector{C}(undef, N)
+    i   = 0
+    for val in v
+        if !ismissing(val)
+            for c in codeunits(val)
+                i += 1
+                enc[i] = convert(C, c)
+            end
+        end
+    end
+    return enc
 end
 
 
@@ -111,7 +134,6 @@ function bitpack(A::AbstractVector{Bool})
     v
 end
 bitpack(A::AbstractVector{Union{Bool,Missing}}) = bitpack(replace_missing_vals(A))
-export bitpack
 
 
 function bitpackpadded(A::AbstractVector{Bool})
@@ -119,7 +141,6 @@ function bitpackpadded(A::AbstractVector{Bool})
     npad = paddinglength(length(v))
     vcat(v, zeros(UInt8, npad))
 end
-export bitpackpadded
 
 
 function bitmaskpadded(A::AbstractVector)
@@ -142,7 +163,6 @@ function unbitpack(A::AbstractVector{UInt8})
     end
     v
 end
-export unbitpack
 
 
 function checkinputsize(v::AbstractVector, idx::AbstractVector{<:Integer})

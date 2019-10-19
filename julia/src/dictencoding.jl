@@ -1,8 +1,6 @@
 
 # TODO is this really a reasonable default way of doing nulls?
 
-import CategoricalArrays.categorical
-
 
 const ReferenceType{J} = AbstractPrimitive{T} where {J<:Integer,T<:Union{J,Union{J,Missing}}}
 
@@ -14,7 +12,6 @@ struct DictEncoding{J,R<:ReferenceType,P<:ArrowVector} <: ArrowVector{J}
     refs::R
     pool::P
 end
-export DictEncoding
 
 function DictEncoding{J}(refs::R, pool::P) where {J,R<:ReferenceType,P<:ArrowVector}
     DictEncoding{J,R,P}(refs, pool)
@@ -74,25 +71,19 @@ end
 
 DictEncoding(v::AbstractVector) = DictEncoding(CategoricalArray(v))
 
-
+DictEncoding{J,R,P}(d::DictEncoding{J,R,P}) where {J,R,P} = DictEncoding{J,R,P}(d.refs, d.pool)
 DictEncoding{J,P}(d::DictEncoding{J,P}) where {J,P} = DictEncoding{J,P}(d.refs, d.pool)
 DictEncoding{J}(d::DictEncoding{J}) where J = DictEncoding{J}(d.refs, d.pool)
 DictEncoding{J}(d::DictEncoding{T}) where {J,T} = DictEncoding{J}(convert(AbstractVector{J}, d[:]))
 DictEncoding(d::DictEncoding{J}) where J = DictEncoding{J}(d)
 
-
-copy(d::DictEncoding) = DictEncoding(d)
-
+Base.length(d::DictEncoding) = length(d.refs)
 
 referencetype(d::DictEncoding{J,R,P}) where {J,K,R<:ReferenceType{K},P} = K
-export referencetype
 
-
-length(d::DictEncoding) = length(d.refs)
 
 references(d::DictEncoding) = d.refs
-levels(d::DictEncoding) = d.pool
-export references, levels
+CategoricalArrays.levels(d::DictEncoding) = d.pool
 
 
 function createpool(data::Vector{UInt8}, i::Integer, x::CategoricalArray{J,1,U}) where {J,U}
@@ -131,31 +122,31 @@ end
 
 
 # for now this always transfers the entire pool
-function categorical(d::DictEncoding{J,R}, idx::AbstractVector{<:Integer}
+function CategoricalArrays.categorical(d::DictEncoding{J,R}, idx::AbstractVector{<:Integer}
                     ) where {J,K,R<:ReferenceType{K}}
     CategoricalArray{J,1}(_getrefsvec(d, idx), pool(d))
 end
-categorical(d::DictEncoding) = categorical(d, 1:length(d))
+CategoricalArrays.categorical(d::DictEncoding) = categorical(d, 1:length(d))
 
 
-convert(::Type{CategoricalArray}, d::DictEncoding{J,R}) where {J,K,R<:ReferenceType{K}} = categorical(d)
+Base.convert(::Type{CategoricalArray}, d::DictEncoding{J,R}) where {J,K,R<:ReferenceType{K}} = categorical(d)
 
 
-@inline function getindex(d::DictEncoding{J}, i::Integer)::J where J
+@inline function Base.getindex(d::DictEncoding{J}, i::Integer)::J where J
     @boundscheck checkbounds(d, i)
     unsafe_isnull(d, i) ? missing : d.pool[d.refs[i]+1]
 end
-function getindex(d::DictEncoding{J}, idx::AbstractVector{<:Integer}) where J
+function Base.getindex(d::DictEncoding{J}, idx::AbstractVector{<:Integer}) where J
     @boundscheck checkbounds(d, idx)
     @inbounds o = J[getindex(d, i) for i ∈ idx]
     o
 end
-function getindex(d::DictEncoding{J}, idx::AbstractVector{Bool}) where J
+function Base.getindex(d::DictEncoding{J}, idx::AbstractVector{Bool}) where J
     @boundscheck checkbounds(d, idx)
     @inbounds o = J[getindex(d, i) for i ∈ 1:length(d) if idx[i]]
     o
 end
-getindex(d::DictEncoding, ::Colon) = categorical(d)
+Base.getindex(d::DictEncoding, ::Colon) = categorical(d)
 
 
 nullcount(d::DictEncoding{Union{J,Missing}}) where J = nullcount(d.refs)

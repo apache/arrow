@@ -2,7 +2,6 @@
 # TODO bounds checking in constructors for all indices
 
 abstract type AbstractPrimitive{J} <: ArrowVector{J} end
-export AbstractPrimitive
 
 
 """
@@ -30,7 +29,6 @@ struct Primitive{J} <: AbstractPrimitive{J}
     values_idx::Int64
     data::Vector{UInt8}
 end
-export Primitive
 
 function Primitive{J}(data::AbstractVector{UInt8}, i::Integer, len::Integer) where J
     @boundscheck check_buffer_bounds(J, data, i, len)
@@ -114,7 +112,6 @@ struct NullablePrimitive{J} <: AbstractPrimitive{Union{J,Missing}}
     bitmask::Primitive{UInt8}
     values::Primitive{J}
 end
-export NullablePrimitive
 
 # Primitive constructors
 function NullablePrimitive{J}(bmask::Primitive{UInt8}, vals::Primitive{J}) where J
@@ -209,7 +206,6 @@ type the string will be converted to (e.g. `UInt8`).
 valuesbytes(::Type{J}, len::Integer) where J = padding(sizeof(J)*len)
 valuesbytes(A::AbstractVector{J}) where J = valuesbytes(J, length(A))
 valuesbytes(A::AbstractVector{Union{J,Missing}}) where J = valuesbytes(J, length(A))
-export valuesbytes
 
 """
     bitmaskbytes(A::AbstractVector)
@@ -225,7 +221,6 @@ function minbitmaskbytes(::Type{Union{J,Missing}}, A::AbstractVector{Union{J,Mis
     bitmaskbytes(length(A))
 end
 bitmaskbytes(A::AbstractVector{Union{J,Missing}}) where J = bitmaskbytes(length(A))
-export bitmaskbytes
 
 minbitmaskbytes(len::Integer) = bytesforbits(len)
 minbitmaskbytes(A::AbstractVector) = minbitmaskbytes(length(A))
@@ -248,7 +243,6 @@ end
 function totalbytes(::Type{Union{J,Missing}}, A::AbstractVector{Union{J,Missing}}) where J
     bitmaskbytes(Union{J,Missing}, A) + valuesbytes(A)
 end
-export totalbytes
 
 
 @inline function unsafe_contiguous(A::Union{Primitive{J},NullablePrimitive{J}},
@@ -436,39 +430,38 @@ Return another `ArrowVector` which is a view into `p` for the index range `idx`.
 This can only be done with contiguous indices.
 """
 arrowview(p::Primitive, idx::UnitRange) = arrowview_contiguous(p, idx)
-export arrowview
 
 
-function setindex!(A::Primitive{J}, x, i::Integer) where J
+function Base.setindex!(A::Primitive{J}, x, i::Integer) where J
     @boundscheck checkbounds(A, i)
     setvalue!(A, convert(J, x), i)  # should this conversion really be here?
 end
 # TODO inefficient in some cases because of conversion to Vector{J}
-function setindex!(A::Primitive{J}, x::AbstractVector, idx::AbstractVector{<:Integer}) where J
+function Base.setindex!(A::Primitive{J}, x::AbstractVector, idx::AbstractVector{<:Integer}) where J
     @boundscheck (checkbounds(A, idx); checkinputsize(x, idx))
     setvalue!(A, convert(Vector{J}, x), idx)
 end
-setindex!(A::Primitive, x::AbstractVector, ::Colon) = (A[1:end] = x)
+Base.setindex!(A::Primitive, x::AbstractVector, ::Colon) = (A[1:end] = x)
 
-function setindex!(A::NullablePrimitive{J}, x, i::Integer) where J
+function Base.setindex!(A::NullablePrimitive{J}, x, i::Integer) where J
     @boundscheck checkbounds(A, i)
     o = setvalue!(A, convert(J, x), i)
     setnull!(A, false, i)  # important that this is last in case above fails
     o
 end
-function setindex!(A::NullablePrimitive{J}, x::Missing, i::Integer) where J
+function Base.setindex!(A::NullablePrimitive{J}, x::Missing, i::Integer) where J
     @boundscheck checkbounds(A, i)
     setnull!(A, true, i)
     missing
 end
 # TODO this is horribly inefficient but really hard to do right for non-consecutive
-function setindex!(A::NullablePrimitive, x::AbstractVector, idx::AbstractVector{<:Integer})
+function Base.setindex!(A::NullablePrimitive, x::AbstractVector, idx::AbstractVector{<:Integer})
     @boundscheck (checkbounds(A, idx); checkinputsize(x, idx))
     for (ξ,i) ∈ zip(x, idx)
         @inbounds setindex!(A, ξ, i)
     end
 end
-function setindex!(A::NullablePrimitive, x::AbstractVector, idx::AbstractVector{Bool})
+function Base.setindex!(A::NullablePrimitive, x::AbstractVector, idx::AbstractVector{Bool})
     @boundscheck (checkbounds(A, idx); checkinputsize(x, idx))
     j = 1
     for i ∈ 1:length(A)
@@ -480,7 +473,7 @@ function setindex!(A::NullablePrimitive, x::AbstractVector, idx::AbstractVector{
     x
 end
 # TODO this probably isn't really much more efficient, should test
-function setindex!(A::NullablePrimitive{J}, x::AbstractVector, ::Colon) where J
+function Base.setindex!(A::NullablePrimitive{J}, x::AbstractVector, ::Colon) where J
     @boundscheck checkinputsize(x, A)
     setnulls!(A, ismissing.(x))
     for i ∈ 1:length(A)

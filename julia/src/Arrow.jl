@@ -1,30 +1,13 @@
-VERSION < v"0.7.0-beta2.199" && __precompile__()
 module Arrow
 
-using CategoricalArrays, Compat, Compat.Dates
+using CategoricalArrays, Dates
 
 
 const BITMASK = UInt8[1, 2, 4, 8, 16, 32, 64, 128]
 const ALIGNMENT = 8
 
 
-import Base: getindex, setindex!
-import Base: convert, show, unsafe_string, checkbounds, write, values, copy
-import Base: length, size, eltype, getindex, isassigned, view
-import Base: IndexStyle
-import Base: >, ≥, <, ≤, ==
-import CategoricalArrays: levels
-
-
-if VERSION ≥ v"0.7.0-"
-else
-    using Missings
-    import Base: isnull
-end
-
-
 abstract type ArrowVector{T} <: AbstractVector{T} end
-export ArrowVector
 
 
 include("utils.jl")
@@ -35,6 +18,18 @@ include("datetime.jl")
 include("dictencoding.jl")
 include("bitprimitives.jl")
 include("locate.jl")
+
+
+export ArrowVector
+export padding, writepadded, bytesforbits, bitpack, bitpackpadded, unbitpack
+export Primitive, NullablePrimitive, valuesbytes, bitmaskbytes, totalbytes, arrowview
+export List, NullableList, offsetsbytes, offsets, getoffset
+export values, bitmask, offsets, rawvalues, nullcount, isnull, arrowformat, writepadded,
+    rawpadded
+export Timestamp, TimeOfDay, Datestamp
+export DictEncoding, referencetype, references
+export BitPrimitive, NullableBitPrimitive
+export Locate, locate
 
 
 end  # module Arrow
