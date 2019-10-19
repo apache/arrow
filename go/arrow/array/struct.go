@@ -17,6 +17,7 @@
 package array
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 	"sync/atomic"
@@ -47,32 +48,47 @@ func (a *Struct) Field(i int) Interface { return a.fields[i] }
 func (a *Struct) String() string {
 	o := new(strings.Builder)
 	o.WriteString("{")
-	// for i, v := range a.fields {
-	// 	if i > 0 {
-	// 		o.WriteString(" ")
-	// 	}
-	// 	fmt.Fprintf(o, "%v", v)
-	// 	switch {
-	// 	case a.IsNull(i):
-	// 		o.WriteString("(null)")
-	// 	default:
-	// 		fmt.Fprintf(o, "%v", v)
-	// 	}
-	// }
 
+	structBitmap := a.NullBitmapBytes()
 	for i, v := range a.fields {
 		if i > 0 {
 			o.WriteString(" ")
 		}
-		switch {
-		case a.IsNull(i):
-			o.WriteString("(null)")
-		default:
-			fmt.Fprintf(o, "%v", v)
+		if !bytes.Equal(structBitmap, v.NullBitmapBytes()) {
+			masked := newStructFieldWithParentValidityMask(a, i)
+			fmt.Fprintf(o, "%v", masked)
+			masked.Release()
+			continue
 		}
+		fmt.Fprintf(o, "%v", v)
 	}
 	o.WriteString("}")
 	return o.String()
+}
+
+// newStructFieldWithParentValidityMask returns the Interface at fieldIndex
+// with a nullBitmapBytes adjusted according on the parent struct nullBitmapBytes.
+// From the docs:
+//   "When reading the struct array the parent validity bitmap takes priority."
+func newStructFieldWithParentValidityMask(a *Struct, fieldIndex int) Interface {
+	field := a.Field(fieldIndex)
+	nullBitmapBytes := field.NullBitmapBytes()
+	maskedNullBitmapBytes := make([]byte, len(nullBitmapBytes))
+	copy(maskedNullBitmapBytes, nullBitmapBytes)
+	for i := 0; i < field.Len(); i++ {
+		if !a.IsValid(i) {
+			bitutil.ClearBit(maskedNullBitmapBytes, i)
+		}
+	}
+	data := NewSliceData(field.Data(), 0, int64(field.Len()))
+	bufs := make([]*memory.Buffer, len(data.buffers))
+	copy(bufs, data.buffers)
+	bufs[0].Release()
+	bufs[0] = memory.NewBufferBytes(maskedNullBitmapBytes)
+	data.buffers = bufs
+	maskedField := MakeFromData(data)
+	data.Release()
+	return maskedField
 }
 
 func (a *Struct) setData(data *Data) {
@@ -81,8 +97,8 @@ func (a *Struct) setData(data *Data) {
 	for i, child := range data.childData {
 		if data.offset != 0 || child.length != data.length {
 			sub := NewSliceData(child, int64(data.offset), int64(data.offset+data.length))
-			defer sub.Release()
 			a.fields[i] = MakeFromData(sub)
+			sub.Release()
 		} else {
 			a.fields[i] = MakeFromData(child)
 		}
