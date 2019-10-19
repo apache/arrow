@@ -463,7 +463,7 @@ class FileWriterImpl : public FileWriter {
     ColumnWriter* column_writer;
     PARQUET_CATCH_NOT_OK(column_writer = row_group_writer_->NextColumn());
 
-    const SchemaField* schema_field;
+    const SchemaField* schema_field = nullptr;
     RETURN_NOT_OK(schema_manifest_.GetColumnField(row_group_writer_->current_column(),
                                                   &schema_field));
     ArrowColumnWriter arrow_writer(&column_write_context_, column_writer, schema_field,

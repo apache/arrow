@@ -23,7 +23,7 @@ import sys
 
 import numpy as np
 
-import pyarrow
+import pyarrow as pa
 from pyarrow.compat import builtin_pickle, descr_to_dtype
 from pyarrow.lib import SerializationContext, py_buffer
 
@@ -81,18 +81,15 @@ def _deserialize_numpy_matrix(data):
 # pyarrow.RecordBatch-specific serialization matters
 
 def _serialize_pyarrow_recordbatch(batch):
-    output_stream = pyarrow.BufferOutputStream()
-    writer = pyarrow.RecordBatchStreamWriter(output_stream,
-                                             schema=batch.schema)
-    writer.write_batch(batch)
-    writer.close()
+    output_stream = pa.BufferOutputStream()
+    with pa.RecordBatchStreamWriter(output_stream, schema=batch.schema) as wr:
+        wr.write_batch(batch)
     return output_stream.getvalue()  # This will also close the stream.
 
 
 def _deserialize_pyarrow_recordbatch(buf):
-    reader = pyarrow.RecordBatchStreamReader(buf)
-    batch = reader.read_next_batch()
-    return batch
+    with pa.RecordBatchStreamReader(buf) as reader:
+        return reader.read_next_batch()
 
 
 # ----------------------------------------------------------------------
@@ -100,7 +97,7 @@ def _deserialize_pyarrow_recordbatch(buf):
 
 def _serialize_pyarrow_array(array):
     # TODO(suquark): implement more effcient array serialization.
-    batch = pyarrow.RecordBatch.from_arrays([array], [''])
+    batch = pa.RecordBatch.from_arrays([array], [''])
     return _serialize_pyarrow_recordbatch(batch)
 
 
@@ -114,18 +111,15 @@ def _deserialize_pyarrow_array(buf):
 # pyarrow.Table-specific serialization matters
 
 def _serialize_pyarrow_table(table):
-    output_stream = pyarrow.BufferOutputStream()
-    writer = pyarrow.RecordBatchStreamWriter(output_stream,
-                                             schema=table.schema)
-    writer.write_table(table)
-    writer.close()
+    output_stream = pa.BufferOutputStream()
+    with pa.RecordBatchStreamWriter(output_stream, schema=table.schema) as wr:
+        wr.write_table(table)
     return output_stream.getvalue()  # This will also close the stream.
 
 
 def _deserialize_pyarrow_table(buf):
-    reader = pyarrow.RecordBatchStreamReader(buf)
-    table = reader.read_all()
-    return table
+    with pa.RecordBatchStreamReader(buf) as reader:
+        return reader.read_all()
 
 
 def _pickle_to_buffer(x):
@@ -341,17 +335,17 @@ def register_default_serialization_handlers(serialization_context):
         custom_deserializer=_deserialize_numpy_array_list)
 
     serialization_context.register_type(
-        pyarrow.Array, 'pyarrow.Array',
+        pa.Array, 'pyarrow.Array',
         custom_serializer=_serialize_pyarrow_array,
         custom_deserializer=_deserialize_pyarrow_array)
 
     serialization_context.register_type(
-        pyarrow.RecordBatch, 'pyarrow.RecordBatch',
+        pa.RecordBatch, 'pyarrow.RecordBatch',
         custom_serializer=_serialize_pyarrow_recordbatch,
         custom_deserializer=_deserialize_pyarrow_recordbatch)
 
     serialization_context.register_type(
-        pyarrow.Table, 'pyarrow.Table',
+        pa.Table, 'pyarrow.Table',
         custom_serializer=_serialize_pyarrow_table,
         custom_deserializer=_deserialize_pyarrow_table)
 

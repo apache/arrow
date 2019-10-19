@@ -189,6 +189,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         pass
 
     cdef cppclass CTimestampType" arrow::TimestampType"(CFixedWidthType):
+        CTimestampType(TimeUnit unit)
         TimeUnit unit()
         const c_string& timezone()
 
@@ -591,6 +592,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const vector[shared_ptr[CChunkedArray]]& columns)
 
         @staticmethod
+        shared_ptr[CTable] MakeFromArrays" Make"(
+            const shared_ptr[CSchema]& schema,
+            const vector[shared_ptr[CArray]]& arrays)
+
+        @staticmethod
         CStatus FromRecordBatches(
             const shared_ptr[CSchema]& schema,
             const vector[shared_ptr[CRecordBatch]]& batches,
@@ -654,7 +660,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         Type type_id()
         c_bool Equals(const CTensor& other)
 
-    cdef cppclass CSparseTensorCOO" arrow::SparseTensorCOO":
+    cdef cppclass CSparseCOOTensor" arrow::SparseCOOTensor":
         shared_ptr[CDataType] type()
         shared_ptr[CBuffer] data()
 
@@ -668,9 +674,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         c_bool is_mutable()
         Type type_id()
-        c_bool Equals(const CSparseTensorCOO& other)
+        c_bool Equals(const CSparseCOOTensor& other)
 
-    cdef cppclass CSparseTensorCSR" arrow::SparseTensorCSR":
+    cdef cppclass CSparseCSRMatrix" arrow::SparseCSRMatrix":
         shared_ptr[CDataType] type()
         shared_ptr[CBuffer] data()
 
@@ -684,7 +690,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         c_bool is_mutable()
         Type type_id()
-        c_bool Equals(const CSparseTensorCSR& other)
+        c_bool Equals(const CSparseCSRMatrix& other)
 
     cdef cppclass CScalar" arrow::Scalar":
         shared_ptr[CDataType] type
@@ -722,23 +728,85 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     CStatus ConcatenateTables(const vector[shared_ptr[CTable]]& tables,
                               shared_ptr[CTable]* result)
 
-    cdef extern from "arrow/builder.h" namespace "arrow" nogil:
+cdef extern from "arrow/builder.h" namespace "arrow" nogil:
 
-        cdef cppclass CArrayBuilder" arrow::ArrayBuilder":
-            CArrayBuilder(shared_ptr[CDataType], CMemoryPool* pool)
+    cdef cppclass CArrayBuilder" arrow::ArrayBuilder":
+        CArrayBuilder(shared_ptr[CDataType], CMemoryPool* pool)
 
-        cdef cppclass CBinaryBuilder" arrow::BinaryBuilder"(CArrayBuilder):
-            CArrayBuilder(shared_ptr[CDataType], CMemoryPool* pool)
+        int64_t length()
+        int64_t null_count()
+        CStatus AppendNull()
+        CStatus Finish(shared_ptr[CArray]* out)
+        CStatus Reserve(int64_t additional_capacity)
 
-        cdef cppclass CStringBuilder" arrow::StringBuilder"(CBinaryBuilder):
-            CStringBuilder(CMemoryPool* pool)
+    cdef cppclass CBooleanBuilder" arrow::BooleanBuilder"(CArrayBuilder):
+        CBooleanBuilder(CMemoryPool* pool)
+        CStatus Append(const bint val)
+        CStatus Append(const uint8_t val)
 
-            int64_t length()
-            int64_t null_count()
+    cdef cppclass CInt8Builder" arrow::Int8Builder"(CArrayBuilder):
+        CInt8Builder(CMemoryPool* pool)
+        CStatus Append(const int8_t value)
 
-            CStatus Append(const c_string& value)
-            CStatus AppendNull()
-            CStatus Finish(shared_ptr[CArray]* out)
+    cdef cppclass CInt16Builder" arrow::Int16Builder"(CArrayBuilder):
+        CInt16Builder(CMemoryPool* pool)
+        CStatus Append(const int16_t value)
+
+    cdef cppclass CInt32Builder" arrow::Int32Builder"(CArrayBuilder):
+        CInt32Builder(CMemoryPool* pool)
+        CStatus Append(const int32_t value)
+
+    cdef cppclass CInt64Builder" arrow::Int64Builder"(CArrayBuilder):
+        CInt64Builder(CMemoryPool* pool)
+        CStatus Append(const int64_t value)
+
+    cdef cppclass CUInt8Builder" arrow::UInt8Builder"(CArrayBuilder):
+        CUInt8Builder(CMemoryPool* pool)
+        CStatus Append(const uint8_t value)
+
+    cdef cppclass CUInt16Builder" arrow::UInt16Builder"(CArrayBuilder):
+        CUInt16Builder(CMemoryPool* pool)
+        CStatus Append(const uint16_t value)
+
+    cdef cppclass CUInt32Builder" arrow::UInt32Builder"(CArrayBuilder):
+        CUInt32Builder(CMemoryPool* pool)
+        CStatus Append(const uint32_t value)
+
+    cdef cppclass CUInt64Builder" arrow::UInt64Builder"(CArrayBuilder):
+        CUInt64Builder(CMemoryPool* pool)
+        CStatus Append(const uint64_t value)
+
+    cdef cppclass CHalfFloatBuilder" arrow::HalfFloatBuilder"(CArrayBuilder):
+        CHalfFloatBuilder(CMemoryPool* pool)
+
+    cdef cppclass CFloatBuilder" arrow::FloatBuilder"(CArrayBuilder):
+        CFloatBuilder(CMemoryPool* pool)
+        CStatus Append(const float value)
+
+    cdef cppclass CDoubleBuilder" arrow::DoubleBuilder"(CArrayBuilder):
+        CDoubleBuilder(CMemoryPool* pool)
+        CStatus Append(const double value)
+
+    cdef cppclass CBinaryBuilder" arrow::BinaryBuilder"(CArrayBuilder):
+        CArrayBuilder(shared_ptr[CDataType], CMemoryPool* pool)
+        CStatus Append(const char* value, int32_t length)
+
+    cdef cppclass CStringBuilder" arrow::StringBuilder"(CBinaryBuilder):
+        CStringBuilder(CMemoryPool* pool)
+
+        CStatus Append(const c_string& value)
+
+    cdef cppclass CTimestampBuilder "arrow::TimestampBuilder"(CArrayBuilder):
+        CTimestampBuilder(const shared_ptr[CDataType] typ, CMemoryPool* pool)
+        CStatus Append(const int64_t value)
+
+    cdef cppclass CDate32Builder "arrow::Date32Builder"(CArrayBuilder):
+        CDate32Builder(CMemoryPool* pool)
+        CStatus Append(const int32_t value)
+
+    cdef cppclass CDate64Builder "arrow::Date64Builder"(CArrayBuilder):
+        CDate64Builder(CMemoryPool* pool)
+        CStatus Append(const int64_t value)
 
 
 cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
@@ -1365,7 +1433,6 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py":
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     shared_ptr[CDataType] GetPrimitiveType(Type type)
-    shared_ptr[CDataType] GetTimestampType(TimeUnit unit)
 
     object PyHalf_FromHalf(npy_half value)
 
@@ -1403,31 +1470,31 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     CStatus TensorToNdarray(const shared_ptr[CTensor]& tensor, object base,
                             PyObject** out)
 
-    CStatus SparseTensorCOOToNdarray(
-        const shared_ptr[CSparseTensorCOO]& sparse_tensor, object base,
+    CStatus SparseCOOTensorToNdarray(
+        const shared_ptr[CSparseCOOTensor]& sparse_tensor, object base,
         PyObject** out_data, PyObject** out_coords)
 
-    CStatus SparseTensorCSRToNdarray(
-        const shared_ptr[CSparseTensorCSR]& sparse_tensor, object base,
+    CStatus SparseCSRMatrixToNdarray(
+        const shared_ptr[CSparseCSRMatrix]& sparse_tensor, object base,
         PyObject** out_data, PyObject** out_indptr, PyObject** out_indices)
 
-    CStatus NdarraysToSparseTensorCOO(CMemoryPool* pool, object data_ao,
+    CStatus NdarraysToSparseCOOTensor(CMemoryPool* pool, object data_ao,
                                       object coords_ao,
                                       const vector[int64_t]& shape,
                                       const vector[c_string]& dim_names,
-                                      shared_ptr[CSparseTensorCOO]* out)
+                                      shared_ptr[CSparseCOOTensor]* out)
 
-    CStatus NdarraysToSparseTensorCSR(CMemoryPool* pool, object data_ao,
+    CStatus NdarraysToSparseCSRMatrix(CMemoryPool* pool, object data_ao,
                                       object indptr_ao, object indices_ao,
                                       const vector[int64_t]& shape,
                                       const vector[c_string]& dim_names,
-                                      shared_ptr[CSparseTensorCSR]* out)
+                                      shared_ptr[CSparseCSRMatrix]* out)
 
-    CStatus TensorToSparseTensorCOO(shared_ptr[CTensor],
-                                    shared_ptr[CSparseTensorCOO]* out)
+    CStatus TensorToSparseCOOTensor(shared_ptr[CTensor],
+                                    shared_ptr[CSparseCOOTensor]* out)
 
-    CStatus TensorToSparseTensorCSR(shared_ptr[CTensor],
-                                    shared_ptr[CSparseTensorCSR]* out)
+    CStatus TensorToSparseCSRMatrix(shared_ptr[CTensor],
+                                    shared_ptr[CSparseCSRMatrix]* out)
 
     CStatus ConvertArrayToPandas(const PandasOptions& options,
                                  const shared_ptr[CArray]& arr,

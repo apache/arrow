@@ -37,6 +37,7 @@ import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TimeMilliVector;
 import org.apache.arrow.vector.TimeStampVector;
@@ -218,6 +219,10 @@ public class JdbcToArrowTestHelper {
         assertArrayEquals(values[j], varCharVector.get(j));
       }
     }
+  }
+
+  public static void assertNullVectorValues(NullVector vector, int rowCount) {
+    assertEquals(rowCount, vector.getValueCount());
   }
 
   public static void assertNullValues(BaseValueVector vector, int rowCount) {

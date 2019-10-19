@@ -106,4 +106,12 @@ TEST(StatusTest, AndStatus) {
   ASSERT_TRUE(res.IsInvalid());
 }
 
+TEST(StatusTest, TestEquality) {
+  ASSERT_EQ(Status(), Status::OK());
+  ASSERT_EQ(Status::Invalid("error"), Status::Invalid("error"));
+
+  ASSERT_NE(Status::Invalid("error"), Status::OK());
+  ASSERT_NE(Status::Invalid("error"), Status::Invalid("other error"));
+}
+
 }  // namespace arrow

@@ -1001,7 +1001,7 @@ cdef class Buffer:
         if isinstance(other, Buffer):
             return self.equals(other)
         else:
-            return NotImplemented
+            return self.equals(py_buffer(other))
 
     def __reduce_ex__(self, protocol):
         if protocol >= 5:

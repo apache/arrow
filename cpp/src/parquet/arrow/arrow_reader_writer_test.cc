@@ -545,7 +545,7 @@ class TestParquetIO : public ::testing::Test {
     // Also test that slice offsets are respected
     values = values->Slice(5, values->length() - 5);
     std::shared_ptr<ListArray> lists;
-    ASSERT_OK(MakeListArray(values, size, nullable_lists ? null_count : 0,
+    ASSERT_OK(MakeListArray(values, size, nullable_lists ? null_count : 0, "element",
                             nullable_elements, &lists));
     *out = MakeSimpleTable(lists->Slice(3, size - 6), nullable_lists);
   }
@@ -564,10 +564,10 @@ class TestParquetIO : public ::testing::Test {
     ASSERT_OK(NullableArray<TestType>(size * 6, nullable_elements ? null_count : 0,
                                       kDefaultSeed, &values));
     std::shared_ptr<ListArray> lists;
-    ASSERT_OK(MakeListArray(values, size * 3, nullable_lists ? null_count : 0,
+    ASSERT_OK(MakeListArray(values, size * 3, nullable_lists ? null_count : 0, "item",
                             nullable_elements, &lists));
     std::shared_ptr<ListArray> parent_lists;
-    ASSERT_OK(MakeListArray(lists, size, nullable_parent_lists ? null_count : 0,
+    ASSERT_OK(MakeListArray(lists, size, nullable_parent_lists ? null_count : 0, "item",
                             nullable_lists, &parent_lists));
     *out = MakeSimpleTable(parent_lists, nullable_parent_lists);
   }
@@ -1829,9 +1829,9 @@ void MakeDoubleTable(int num_columns, int num_rows, int nchunks,
   *out = Table::Make(schema, columns);
 }
 
-void MakeListArray(int num_rows, int max_value_length,
-                   std::shared_ptr<DataType>* out_type,
-                   std::shared_ptr<Array>* out_array) {
+void MakeSimpleListArray(int num_rows, int max_value_length, const std::string& item_name,
+                         std::shared_ptr<DataType>* out_type,
+                         std::shared_ptr<Array>* out_array) {
   std::vector<int32_t> length_draws;
   randint(num_rows, 0, max_value_length, &length_draws);
 
@@ -1859,10 +1859,9 @@ void MakeListArray(int num_rows, int max_value_length,
                                                       value_draws, &values);
   ::arrow::ArrayFromVector<::arrow::Int32Type, int32_t>(offset_values, &offsets);
 
-  ASSERT_OK(::arrow::ListArray::FromArrays(*offsets, *values, default_memory_pool(),
-                                           out_array));
-
-  *out_type = ::arrow::list(::arrow::int8());
+  *out_type = ::arrow::list(::arrow::field(item_name, ::arrow::int8()));
+  *out_array = std::make_shared<ListArray>(*out_type, offsets->length() - 1,
+                                           offsets->data()->buffers[1], values);
 }
 
 TEST(TestArrowReadWrite, MultithreadedRead) {
@@ -2023,7 +2022,7 @@ TEST(TestArrowReadWrite, ListLargeRecords) {
   std::shared_ptr<Array> list_array;
   std::shared_ptr<DataType> list_type;
 
-  MakeListArray(num_rows, 20, &list_type, &list_array);
+  MakeSimpleListArray(num_rows, 20, "item", &list_type, &list_array);
 
   auto schema = ::arrow::schema({::arrow::field("a", list_type)});
 
@@ -2099,7 +2098,7 @@ auto GenerateInt32 = [](int length, std::shared_ptr<DataType>* type,
 
 auto GenerateList = [](int length, std::shared_ptr<DataType>* type,
                        std::shared_ptr<Array>* array) {
-  MakeListArray(length, 100, type, array);
+  MakeSimpleListArray(length, 100, "element", type, array);
 };
 
 std::shared_ptr<Table> InvalidTable() {

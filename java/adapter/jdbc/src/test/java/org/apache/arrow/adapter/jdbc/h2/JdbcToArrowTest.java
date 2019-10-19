@@ -25,6 +25,7 @@ import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertDecimalV
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertFloat4VectorValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertFloat8VectorValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertIntVectorValues;
+import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertNullVectorValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertSmallIntVectorValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertTimeStampVectorValues;
 import static org.apache.arrow.adapter.jdbc.JdbcToArrowTestHelper.assertTimeVectorValues;
@@ -83,6 +84,7 @@ import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TimeMilliVector;
 import org.apache.arrow.vector.TimeStampVector;
@@ -217,6 +219,8 @@ public class JdbcToArrowTest extends AbstractJdbcToArrowTest {
 
     assertFloat4VectorValues((Float4Vector) root.getVector(REAL), table.getRowCount(),
         getFloatValues(table.getValues(), REAL));
+
+    assertNullVectorValues((NullVector) root.getVector(NULL), table.getRowCount());
   }
 
   @Test

@@ -859,6 +859,7 @@ void DictionaryArray::SetData(const std::shared_ptr<ArrayData>& data) {
   this->Array::SetData(data);
   auto indices_data = data_->Copy();
   indices_data->type = dict_type_->index_type();
+  indices_data->dictionary = nullptr;
   indices_ = MakeArray(indices_data);
 }
 

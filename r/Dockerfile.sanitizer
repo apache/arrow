@@ -51,6 +51,25 @@ RUN apt-get update -y -q && \
       tzdata && \
       apt-get clean && rm -rf /var/lib/apt/lists*
 
+# Ensure parallel R package installation, set CRAN repo mirror,
+# and use pre-built binaries where possible
+RUN printf "\
+    options(Ncpus = parallel::detectCores(), \
+            repos = 'https://demo.rstudiopm.com/all/__linux__/bionic/latest', \
+            HTTPUserAgent = sprintf(\
+                'R/%%s R (%%s)', getRversion(), \
+                paste(getRversion(), R.version\$platform, R.version\$arch, R.version\$os)))\n" \
+    >> /usr/local/RDsan/lib/R/etc/Rprofile.site
+
+# Also ensure parallel compilation of each individual package
+RUN printf "MAKEFLAGS=-j8\n" >> /usr/local/RDsan/lib/R/etc/Makeconf
+ENV MAKEFLAGS=-j8
+
+# Install R package dependencies
+# NOTE: any changes here should also be done in Dockerfile
+RUN RDsan -e "install.packages(c('remotes', 'dplyr', 'glue'))"
+RUN RDsan -e "remotes::install_github('romainfrancois/decor')"
+
 # The following dependencies will be downloaded due to missing/invalid packages
 # provided by the distribution:
 # - libc-ares-dev does not install CMake config files
@@ -81,10 +100,10 @@ ENV ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_WITH_ZSTD=OFF \
     ARROW_R_DEV=TRUE
 
-# Ensure parallel R package installation and set CRAN repo mirror
-RUN printf "options(Ncpus = parallel::detectCores(), repos = 'https://demo.rstudiopm.com/all/__linux__/bionic/latest')\n" >> /etc/R/Rprofile.site
-# Also ensure parallel compilation of each individual package
-RUN printf "MAKEFLAGS=-j8\n" >> /usr/lib/R/etc/Makeconf
+ENV ARROW_BUILD_BENCHMARKS=off
+ENV ARROW_BUILD_EXAMPLES=off
+ENV ARROW_BUILD_TESTS=off
+ENV ARROW_BUILD_UTILITIES=off
 
 CMD ["/bin/bash", "-c", "/arrow/ci/docker_build_cpp.sh && \
     /arrow/ci/docker_build_r_sanitizer.sh"]

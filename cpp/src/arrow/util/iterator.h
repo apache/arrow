@@ -24,7 +24,9 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/compare.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -44,7 +46,7 @@ struct IterationTraits {
 
 /// \brief A generic Iterator that can return errors
 template <typename T>
-class Iterator {
+class Iterator : public util::EqualityComparable<Iterator<T>> {
  public:
   /// \brief Iterator may be constructed from any type which has a member function
   /// with signature Status Next(T*);
@@ -87,10 +89,53 @@ class Iterator {
     return status;
   }
 
-  /// Iterators will only compare equal if they are both null
-  bool operator==(const Iterator& other) const { return ptr_ == other.ptr_; }
+  /// Iterators will only compare equal if they are both null.
+  /// Equality comparability is required to make an Iterator of Iterators
+  /// (to check for the end condition).
+  bool Equals(const Iterator& other) const { return ptr_ == other.ptr_; }
 
   explicit operator bool() const { return ptr_ != NULLPTR; }
+
+  class RangeIterator {
+   public:
+    RangeIterator() = default;
+
+    explicit RangeIterator(Iterator i) : iterator_(std::move(i)) { Next(); }
+
+    bool operator!=(const RangeIterator& other) const {
+      return !(status_ == other.status_ && value_ == other.value_);
+    }
+
+    RangeIterator& operator++() {
+      Next();
+      return *this;
+    }
+
+    Result<T> operator*() {
+      if (status_.ok()) {
+        return std::move(value_);
+      }
+      return status_;
+    }
+
+   private:
+    void Next() {
+      if (!status_.ok()) {
+        status_ = Status::OK();
+        value_ = IterationTraits<T>::End();
+        return;
+      }
+      status_ = iterator_.Next(&value_);
+    }
+
+    T value_ = IterationTraits<T>::End();
+    Iterator iterator_;
+    Status status_;
+  };
+
+  RangeIterator begin() { return RangeIterator(std::move(*this)); }
+
+  RangeIterator end() { return RangeIterator(); }
 
  private:
   /// Implementation of deleter for ptr_: Casts from void* to the wrapped type and

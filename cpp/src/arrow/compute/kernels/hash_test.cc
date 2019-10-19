@@ -478,5 +478,30 @@ TEST_F(TestHashKernel, ChunkedArrayInvoke) {
   AssertChunkedEqual(*dict_carr, *encoded_out.chunked_array());
 }
 
+TEST_F(TestHashKernel, ChunkedArrayZeroChunk) {
+  // ARROW-6857
+  auto chunked_array = std::make_shared<ChunkedArray>(ArrayVector{}, utf8());
+
+  std::shared_ptr<Array> result_array, expected;
+  Datum result_datum;
+
+  ASSERT_OK(Unique(&this->ctx_, chunked_array, &result_array));
+  expected = ArrayFromJSON(chunked_array->type(), "[]");
+  AssertArraysEqual(*expected, *result_array);
+
+  ASSERT_OK(ValueCounts(&this->ctx_, chunked_array, &result_array));
+  expected = ArrayFromJSON(struct_({field(kValuesFieldName, chunked_array->type()),
+                                    field(kCountsFieldName, int64())}),
+                           "[]");
+  AssertArraysEqual(*expected, *result_array);
+
+  ASSERT_OK(DictionaryEncode(&this->ctx_, chunked_array, &result_datum));
+  auto dict_type = dictionary(int32(), chunked_array->type());
+  ASSERT_EQ(result_datum.kind(), Datum::CHUNKED_ARRAY);
+
+  AssertChunkedEqual(*std::make_shared<ChunkedArray>(ArrayVector{}, dict_type),
+                     *result_datum.chunked_array());
+}
+
 }  // namespace compute
 }  // namespace arrow

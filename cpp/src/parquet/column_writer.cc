@@ -1102,7 +1102,7 @@ Status WriteArrowSerialize(const arrow::Array& array, int64_t num_levels,
                            TypedColumnWriter<ParquetType>* writer) {
   using ParquetCType = typename ParquetType::c_type;
 
-  ParquetCType* buffer;
+  ParquetCType* buffer = nullptr;
   PARQUET_THROW_NOT_OK(ctx->GetScratchData<ParquetCType>(array.length(), &buffer));
 
   bool no_nulls =

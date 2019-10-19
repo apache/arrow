@@ -25,6 +25,7 @@ import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
+import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.impl.NullReader;
@@ -231,6 +232,11 @@ public class NullVector implements FieldVector {
 
   @Override
   public int hashCode(int index) {
+    return 31 * valueCount;
+  }
+
+  @Override
+  public int hashCode(int index, ArrowBufHasher hasher) {
     return 31 * valueCount;
   }
 

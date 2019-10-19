@@ -39,7 +39,6 @@ use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
 
 use crate::execution::physical_plan::expressions::Column;
-use crate::execution::physical_plan::merge::MergeExec;
 use crate::logicalplan::ScalarValue;
 use fnv::FnvHashMap;
 
@@ -78,6 +77,25 @@ impl HashAggregateExec {
             schema,
         })
     }
+
+    /// Create the final group and aggregate expressions from the initial group and aggregate
+    /// expressions
+    pub fn make_final_expr(
+        &self,
+    ) -> (Vec<Arc<dyn PhysicalExpr>>, Vec<Arc<dyn AggregateExpr>>) {
+        let final_group: Vec<Arc<dyn PhysicalExpr>> = (0..self.group_expr.len())
+            .map(|i| Arc::new(Column::new(i)) as Arc<dyn PhysicalExpr>)
+            .collect();
+
+        let final_aggr: Vec<Arc<dyn AggregateExpr>> = (0..self.aggr_expr.len())
+            .map(|i| {
+                let aggr = self.aggr_expr[i].create_reducer(i + self.group_expr.len());
+                aggr as Arc<dyn AggregateExpr>
+            })
+            .collect();
+
+        (final_group, final_aggr)
+    }
 }
 
 impl ExecutionPlan for HashAggregateExec {
@@ -86,7 +104,7 @@ impl ExecutionPlan for HashAggregateExec {
     }
 
     fn partitions(&self) -> Result<Vec<Arc<dyn Partition>>> {
-        let partitions: Vec<Arc<dyn Partition>> = self
+        Ok(self
             .input
             .partitions()?
             .iter()
@@ -101,52 +119,7 @@ impl ExecutionPlan for HashAggregateExec {
 
                 aggregate
             })
-            .collect();
-
-        if partitions.len() == 1 {
-            // if there is only a single partition then it isn't necessary to perform any
-            // additional logic
-            return Ok(partitions);
-        }
-
-        // create partition to combine and aggregate the results
-        let final_group: Vec<Arc<dyn PhysicalExpr>> = (0..self.group_expr.len())
-            .map(|i| Arc::new(Column::new(i)) as Arc<dyn PhysicalExpr>)
-            .collect();
-
-        let final_aggr: Vec<Arc<dyn AggregateExpr>> = (0..self.aggr_expr.len())
-            .map(|i| {
-                let aggr = self.aggr_expr[i].create_reducer(i + self.group_expr.len());
-                aggr as Arc<dyn AggregateExpr>
-            })
-            .collect();
-
-        let mut fields = vec![];
-        for expr in &final_group {
-            let name = expr.name();
-            fields.push(Field::new(&name, expr.data_type(&self.schema)?, true));
-        }
-        for expr in &final_aggr {
-            let name = expr.name();
-            fields.push(Field::new(&name, expr.data_type(&self.schema)?, true));
-        }
-        let schema = Arc::new(Schema::new(fields));
-
-        let merge = MergeExec::new(schema.clone(), partitions);
-        let merged: Vec<Arc<dyn Partition>> = merge.partitions()?;
-        if merged.len() == 1 {
-            Ok(vec![Arc::new(HashAggregatePartition::new(
-                final_group,
-                final_aggr,
-                merged[0].clone(),
-                schema,
-            ))])
-        } else {
-            Err(ExecutionError::InternalError(format!(
-                "MergeExec returned {} partitions",
-                merged.len()
-            )))
-        }
+            .collect::<Vec<Arc<dyn Partition>>>())
     }
 }
 
@@ -752,6 +725,7 @@ mod tests {
     use super::*;
     use crate::execution::physical_plan::csv::CsvExec;
     use crate::execution::physical_plan::expressions::{col, sum};
+    use crate::execution::physical_plan::merge::MergeExec;
     use crate::test;
 
     #[test]
@@ -773,7 +747,16 @@ mod tests {
             Arc::new(csv),
         )?;
 
-        let result = test::execute(&partition_aggregate)?;
+        let schema = partition_aggregate.schema();
+        let partitions = partition_aggregate.partitions()?;
+        let (final_group, final_aggr) = partition_aggregate.make_final_expr();
+
+        let merge = Arc::new(MergeExec::new(schema.clone(), partitions));
+
+        let merged_aggregate =
+            HashAggregateExec::try_new(final_group, final_aggr, merge)?;
+
+        let result = test::execute(&merged_aggregate)?;
         assert_eq!(result.len(), 1);
 
         let batch = &result[0];

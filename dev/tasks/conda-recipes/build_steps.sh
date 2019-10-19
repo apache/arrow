@@ -6,6 +6,9 @@
 # benefit from the improvement.
 
 set -xeuo pipefail
+
+output_dir=${1}
+
 export PYTHONUNBUFFERED=1
 export FEEDSTOCK_ROOT="${FEEDSTOCK_ROOT:-/home/conda/feedstock_root}"
 export CI_SUPPORT="${FEEDSTOCK_ROOT}/.ci_support"
@@ -14,7 +17,7 @@ export CONFIG_FILE="${CI_SUPPORT}/${CONFIG}.yaml"
 cat >~/.condarc <<CONDARC
 
 conda-build:
- root-dir: ${FEEDSTOCK_ROOT}/build_artifacts
+ root-dir: ${output_dir}
 
 CONDARC
 
@@ -28,12 +31,14 @@ source run_conda_forge_build_setup
 # make the build number clobber
 make_build_number "${FEEDSTOCK_ROOT}" "${FEEDSTOCK_ROOT}" "${CONFIG_FILE}"
 
+export CONDA_BLD_PATH="${output_dir}"
+
 conda build \
     "${FEEDSTOCK_ROOT}/arrow-cpp" \
     "${FEEDSTOCK_ROOT}/parquet-cpp" \
     "${FEEDSTOCK_ROOT}/pyarrow" \
     -m "${CI_SUPPORT}/${CONFIG}.yaml" \
     --clobber-file "${CI_SUPPORT}/clobber_${CONFIG}.yaml" \
-    --output-folder "${FEEDSTOCK_ROOT}/build_artifacts"
+    --output-folder "${output_dir}"
 
-touch "${FEEDSTOCK_ROOT}/build_artifacts/conda-forge-build-done-${CONFIG}"
+touch "${output_dir}/conda-forge-build-done-${CONFIG}"

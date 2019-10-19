@@ -66,10 +66,15 @@ G_BEGIN_DECLS
  *
  * #GArrowBinaryDataType is a class for binary data type.
  *
+ * #GArrowLargeBinaryDataType is a class for 64-bit offsets binary data type.
+ *
  * #GArrowFixedSizeBinaryDataType is a class for fixed-size binary data type.
  *
  * #GArrowStringDataType is a class for UTF-8 encoded string data
  * type.
+ *
+ * #GArrowLargeStringDataType is a class for 64-bit offsets UTF-8 encoded string
+ * data type.
  *
  * #GArrowDate32DataType is a class for the number of days since UNIX
  * epoch in 32-bit signed integer data type.
@@ -788,6 +793,40 @@ garrow_fixed_size_binary_data_type_get_byte_width(GArrowFixedSizeBinaryDataType 
 }
 
 
+G_DEFINE_TYPE(GArrowLargeBinaryDataType,
+              garrow_large_binary_data_type,
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_large_binary_data_type_init(GArrowLargeBinaryDataType *object)
+{
+}
+
+static void
+garrow_large_binary_data_type_class_init(GArrowLargeBinaryDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_large_binary_data_type_new:
+ *
+ * Returns: The newly created #GArrowLargeBinaryDataType.
+ *
+ * Since: 1.0.0
+ */
+GArrowLargeBinaryDataType *
+garrow_large_binary_data_type_new(void)
+{
+  auto arrow_data_type = arrow::large_binary();
+
+  GArrowLargeBinaryDataType *data_type =
+    GARROW_LARGE_BINARY_DATA_TYPE(g_object_new(GARROW_TYPE_LARGE_BINARY_DATA_TYPE,
+                                               "data-type", &arrow_data_type,
+                                               NULL));
+  return data_type;
+}
+
+
 G_DEFINE_TYPE(GArrowStringDataType,
               garrow_string_data_type,
               GARROW_TYPE_DATA_TYPE)
@@ -816,6 +855,40 @@ garrow_string_data_type_new(void)
     GARROW_STRING_DATA_TYPE(g_object_new(GARROW_TYPE_STRING_DATA_TYPE,
                                          "data-type", &arrow_data_type,
                                          NULL));
+  return data_type;
+}
+
+
+G_DEFINE_TYPE(GArrowLargeStringDataType,
+              garrow_large_string_data_type,
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_large_string_data_type_init(GArrowLargeStringDataType *object)
+{
+}
+
+static void
+garrow_large_string_data_type_class_init(GArrowLargeStringDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_large_string_data_type_new:
+ *
+ * Returns: The newly created #GArrowLargeStringDataType.
+ *
+ * Since: 1.0.0
+ */
+GArrowLargeStringDataType *
+garrow_large_string_data_type_new(void)
+{
+  auto arrow_data_type = arrow::large_utf8();
+
+  GArrowLargeStringDataType *data_type =
+    GARROW_LARGE_STRING_DATA_TYPE(g_object_new(GARROW_TYPE_LARGE_STRING_DATA_TYPE,
+                                               "data-type", &arrow_data_type,
+                                               NULL));
   return data_type;
 }
 
@@ -1269,11 +1342,17 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
   case arrow::Type::type::BINARY:
     type = GARROW_TYPE_BINARY_DATA_TYPE;
     break;
+  case arrow::Type::type::LARGE_BINARY:
+    type = GARROW_TYPE_LARGE_BINARY_DATA_TYPE;
+    break;
   case arrow::Type::type::FIXED_SIZE_BINARY:
     type = GARROW_TYPE_FIXED_SIZE_BINARY_DATA_TYPE;
     break;
   case arrow::Type::type::STRING:
     type = GARROW_TYPE_STRING_DATA_TYPE;
+    break;
+  case arrow::Type::type::LARGE_STRING:
+    type = GARROW_TYPE_LARGE_STRING_DATA_TYPE;
     break;
   case arrow::Type::type::DATE32:
     type = GARROW_TYPE_DATE32_DATA_TYPE;

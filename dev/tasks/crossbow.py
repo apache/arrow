@@ -952,11 +952,12 @@ class EmailReport(Report):
         return '{}/branches/all?query={}'.format(repo_url, query)
 
     def listing(self, tasks):
-        entries = (
-            self.TASK.format(name=task_name, url=self.url(task.branch))
-            for task_name, task in tasks.items()
+        return '\n'.join(
+            sorted(
+                self.TASK.format(name=task_name, url=self.url(task.branch))
+                for task_name, task in tasks.items()
+            )
         )
-        return '\n'.join(entries)
 
     def header(self):
         url = self.url(self.job.branch)

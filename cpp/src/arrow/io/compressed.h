@@ -62,6 +62,9 @@ class ARROW_EXPORT CompressedOutputStream : public OutputStream {
   Status Tell(int64_t* position) const override;
 
   Status Write(const void* data, int64_t nbytes) override;
+  /// \cond FALSE
+  using Writable::Write;
+  /// \endcond
   Status Flush() override;
 
   /// \brief Return the underlying raw output stream.

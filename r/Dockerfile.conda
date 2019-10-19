@@ -26,9 +26,28 @@ RUN conda install -q \
         nomkl && \
     conda clean --all
 
-ENV ARROW_PYTHON=OFF \
-    ARROW_BUILD_TESTS=OFF \
-    R_CONDA=1
+# Ensure parallel compilation of each individual package
+RUN printf "\nMAKEFLAGS=-j8\n" >> /opt/conda/lib/R/etc/Makeconf
+
+ENV MAKEFLAGS=-j8
+ENV R_CONDA=1
+
+# Arrow build flags
+ENV ARROW_FLIGHT=OFF \
+    ARROW_GANDIVA=OFF \
+    ARROW_HDFS=OFF \
+    ARROW_ORC=OFF \
+    ARROW_PARQUET=ON \
+    ARROW_PLASMA=OFF \
+    ARROW_USE_ASAN=OFF \
+    ARROW_USE_UBSAN=OFF \
+    ARROW_NO_DEPRECATED_API=ON \
+    ARROW_R_DEV=TRUE
+
+ENV ARROW_BUILD_BENCHMARKS=off
+ENV ARROW_BUILD_EXAMPLES=off
+ENV ARROW_BUILD_TESTS=off
+ENV ARROW_BUILD_UTILITIES=off
 
 # build, install, test R package
 CMD ["/bin/bash", "-c", "/arrow/ci/docker_build_cpp.sh && \

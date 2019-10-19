@@ -26,6 +26,7 @@ import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.util.TransferPair;
+import org.apache.arrow.vector.util.ValueVectorUtility;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,8 +57,14 @@ public abstract class BaseValueVector implements ValueVector {
   }
 
   @Override
+  public abstract String getName();
+
+  /**
+   * Representation of vector suitable for debugging.
+   */
+  @Override
   public String toString() {
-    return super.toString() + "[name = " + getName() + ", ...]";
+    return ValueVectorUtility.getToString(this, 0, getValueCount());
   }
 
   @Override

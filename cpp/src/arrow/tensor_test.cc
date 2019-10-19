@@ -178,10 +178,16 @@ TEST(TestTensor, ElementAccessInt32) {
     int32_t x = 3;
     EXPECT_EQ(*reinterpret_cast<int8_t*>(&x), tc.Value<Int8Type>({0, 2}));
 
-    int64_t y;
-    reinterpret_cast<int32_t*>(&y)[0] = 4;
-    reinterpret_cast<int32_t*>(&y)[1] = 5;
-    EXPECT_EQ(y, tc.Value<Int64Type>({1, 0}));
+    union {
+      int64_t i64;
+      struct {
+        int32_t first;
+        int32_t second;
+      } i32;
+    } y;
+    y.i32.first = 4;
+    y.i32.second = 5;
+    EXPECT_EQ(y.i64, tc.Value<Int64Type>({1, 0}));
   });
 }
 

@@ -586,6 +586,12 @@ if(MSVC AND ARROW_USE_STATIC_CRT)
   set(Boost_USE_STATIC_RUNTIME ON)
 endif()
 set(Boost_ADDITIONAL_VERSIONS
+    "1.73.0"
+    "1.73"
+    "1.72.0"
+    "1.72"
+    "1.71.0"
+    "1.71"
     "1.70.0"
     "1.70"
     "1.69.0"
@@ -2209,11 +2215,12 @@ macro(build_grpc)
 endmacro()
 
 if(ARROW_WITH_GRPC)
+  set(ARROW_GRPC_REQUIRED_VERSION "1.17.0")
   if(gRPC_SOURCE STREQUAL "AUTO")
-    find_package(gRPC QUIET)
+    find_package(gRPC ${ARROW_GRPC_REQUIRED_VERSION} QUIET)
     if(NOT gRPC_FOUND)
       # Ubuntu doesn't package the CMake config
-      find_package(gRPCAlt)
+      find_package(gRPCAlt ${ARROW_GRPC_REQUIRED_VERSION})
     endif()
     if(NOT gRPC_FOUND AND NOT gRPCAlt_FOUND)
       build_grpc()
@@ -2221,10 +2228,10 @@ if(ARROW_WITH_GRPC)
   elseif(gRPC_SOURCE STREQUAL "BUNDLED")
     build_grpc()
   elseif(gRPC_SOURCE STREQUAL "SYSTEM")
-    find_package(gRPC QUIET)
+    find_package(gRPC ${ARROW_GRPC_REQUIRED_VERSION} QUIET)
     if(NOT gRPC_FOUND)
       # Ubuntu doesn't package the CMake config
-      find_package(gRPCAlt REQUIRED)
+      find_package(gRPCAlt ${ARROW_GRPC_REQUIRED_VERSION} REQUIRED)
     endif()
   endif()
 

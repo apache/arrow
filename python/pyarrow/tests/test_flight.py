@@ -577,13 +577,56 @@ def test_list_actions():
     # ARROW-6392
     with ListActionsErrorFlightServer() as server:
         client = FlightClient(('localhost', server.port))
-        with pytest.raises(pa.ArrowException, match=".*unknown error.*"):
+        with pytest.raises(
+                flight.FlightServerError,
+                match=("TypeError: Results of list_actions must be "
+                       "ActionType or tuple")
+        ):
             list(client.list_actions())
 
     with ListActionsFlightServer() as server:
         client = FlightClient(('localhost', server.port))
         assert list(client.list_actions()) == \
             ListActionsFlightServer.expected_actions()
+
+
+class ConvenienceServer(FlightServerBase):
+    """
+    Server for testing various implementation conveniences (auto-boxing, etc.)
+    """
+    @property
+    def simple_action_results(self):
+        return [b'foo', b'bar', b'baz']
+
+    def do_action(self, context, action):
+        if action.type == 'simple-action':
+            return iter(self.simple_action_results)
+        elif action.type == 'echo':
+            return iter([action.body])
+        elif action.type == 'bad-action':
+            return iter(['foo'])
+
+
+def test_do_action_result_convenience():
+    with ConvenienceServer() as server:
+        client = FlightClient(('localhost', server.port))
+
+        # do_action as action type without body
+        results = [x.body for x in client.do_action('simple-action')]
+        assert results == server.simple_action_results
+
+        # do_action with tuple of type and body
+        body = b'the-body'
+        results = [x.body for x in client.do_action(('echo', body))]
+        assert results == [body]
+
+
+def test_nicer_server_exceptions():
+    with ConvenienceServer() as server:
+        client = FlightClient(('localhost', server.port))
+        with pytest.raises(flight.FlightServerError,
+                           match="TypeError: a bytes-like object is required"):
+            list(client.do_action('bad-action'))
 
 
 def test_get_port():

@@ -136,9 +136,10 @@ public class Field {
       ExtensionType extensionType = ExtensionTypeRegistry.lookup(extensionName);
       if (extensionType != null) {
         type = extensionType.deserialize(type, extensionMetadata);
+      } else {
+        // Otherwise, we haven't registered the type
+        logger.info("Unrecognized extension type: {}", extensionName);
       }
-      // Otherwise, we haven't registered the type
-      logger.info("Unrecognized extension type: {}", extensionName);
     }
 
     DictionaryEncoding dictionary = null;

@@ -318,6 +318,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         " arrow::flight::FlightStatusCode::Unauthorized"
     CFlightStatusCode CFlightStatusUnavailable \
         " arrow::flight::FlightStatusCode::Unavailable"
+    CFlightStatusCode CFlightStatusFailed \
+        " arrow::flight::FlightStatusCode::Failed"
 
     cdef cppclass FlightStatusDetail" arrow::flight::FlightStatusDetail":
         CFlightStatusCode code()

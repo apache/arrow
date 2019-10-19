@@ -332,6 +332,12 @@ cdef class _CRecordBatchReader:
             check_status(self.reader.get().ReadAll(&table))
         return pyarrow_wrap_table(table)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
 
 cdef class _RecordBatchStreamReader(_CRecordBatchReader):
     cdef:
@@ -439,6 +445,12 @@ cdef class _RecordBatchFileReader:
                                                   batches, &table))
 
         return pyarrow_wrap_table(table)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
 
 
 def get_tensor_size(Tensor tensor):

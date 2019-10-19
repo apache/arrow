@@ -89,11 +89,7 @@ class ARROW_EXPORT DictionaryMemoTable {
 /// dense array
 ///
 /// Unlike other builders, dictionary builder does not completely
-/// reset the state on Finish calls. The arrays built after the
-/// initial Finish call will reuse the previously created encoding and
-/// build a delta dictionary when new terms occur.
-///
-/// data
+/// reset the state on Finish calls.
 template <typename BuilderType, typename T>
 class DictionaryBuilderBase : public ArrayBuilder {
  public:
@@ -230,44 +226,34 @@ class DictionaryBuilderBase : public ArrayBuilder {
   }
 
   void Reset() override {
+    // Perform a partial reset. Call ResetFull to also reset the accumulated
+    // dictionary values
     ArrayBuilder::Reset();
     indices_builder_.Reset();
+  }
+
+  /// \brief Reset and also clear accumulated dictionary values in memo table
+  void ResetFull() {
+    Reset();
     memo_table_.reset(new internal::DictionaryMemoTable(value_type_));
-    delta_offset_ = 0;
   }
 
   Status Resize(int64_t capacity) override {
     ARROW_RETURN_NOT_OK(CheckCapacity(capacity, capacity_));
     capacity = std::max(capacity, kMinBuilderCapacity);
-
-    if (capacity_ == 0) {
-      // Initialize hash table
-      // XXX should we let the user pass additional size heuristics?
-      delta_offset_ = 0;
-    }
     ARROW_RETURN_NOT_OK(indices_builder_.Resize(capacity));
     capacity_ = indices_builder_.capacity();
     return Status::OK();
   }
 
-  Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
-    // Finalize indices array
-    ARROW_RETURN_NOT_OK(indices_builder_.FinishInternal(out));
-
-    // Generate dictionary array from hash table contents
-    std::shared_ptr<ArrayData> dictionary_data;
-
-    ARROW_RETURN_NOT_OK(
-        memo_table_->GetArrayData(pool_, delta_offset_, &dictionary_data));
-
-    // Set type of array data to the right dictionary type
-    (*out)->type = type();
-    (*out)->dictionary = MakeArray(dictionary_data);
-
-    // Update internals for further uses of this DictionaryBuilder
-    delta_offset_ = memo_table_->size();
-    indices_builder_.Reset();
-
+  /// \brief Return dictionary indices and a delta dictionary since the last
+  /// time that Finish or FinishDelta were called, and reset state of builder
+  /// (except the memo table)
+  Status FinishDelta(std::shared_ptr<Array>* out_indices,
+                     std::shared_ptr<Array>* out_delta) {
+    std::shared_ptr<ArrayData> indices_data;
+    ARROW_RETURN_NOT_OK(FinishWithDictOffset(delta_offset_, &indices_data, out_delta));
+    *out_indices = MakeArray(indices_data);
     return Status::OK();
   }
 
@@ -277,17 +263,45 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
   Status Finish(std::shared_ptr<DictionaryArray>* out) { return FinishTyped(out); }
 
-  /// is the dictionary builder in the delta building mode
-  bool is_building_delta() { return delta_offset_ > 0; }
-
   std::shared_ptr<DataType> type() const override {
     return ::arrow::dictionary(indices_builder_.type(), value_type_);
   }
 
  protected:
+  Status FinishInternal(std::shared_ptr<ArrayData>* out) override {
+    std::shared_ptr<Array> dictionary;
+    ARROW_RETURN_NOT_OK(FinishWithDictOffset(/*offset=*/0, out, &dictionary));
+
+    // Set type of array data to the right dictionary type
+    (*out)->type = type();
+    (*out)->dictionary = dictionary;
+    return Status::OK();
+  }
+
+  Status FinishWithDictOffset(int64_t dict_offset,
+                              std::shared_ptr<ArrayData>* out_indices,
+                              std::shared_ptr<Array>* out_dictionary) {
+    // Finalize indices array
+    ARROW_RETURN_NOT_OK(indices_builder_.FinishInternal(out_indices));
+
+    // Generate dictionary array from hash table contents
+    std::shared_ptr<ArrayData> dictionary_data;
+    ARROW_RETURN_NOT_OK(memo_table_->GetArrayData(pool_, dict_offset, &dictionary_data));
+
+    *out_dictionary = MakeArray(dictionary_data);
+    delta_offset_ = memo_table_->size();
+
+    // Update internals for further uses of this DictionaryBuilder
+    ArrayBuilder::Reset();
+    return Status::OK();
+  }
+
   std::unique_ptr<DictionaryMemoTable> memo_table_;
 
+  // The size of the dictionary memo at last invocation of Finish, to use in
+  // FinishDelta for computing dictionary deltas
   int32_t delta_offset_;
+
   // Only used for FixedSizeBinaryType
   int32_t byte_width_;
 
@@ -380,6 +394,7 @@ class DictionaryBuilder : public internal::DictionaryBuilderBase<AdaptiveIntBuil
                        const uint8_t* valid_bytes = NULLPTR) {
     int64_t null_count_before = this->indices_builder_.null_count();
     ARROW_RETURN_NOT_OK(this->indices_builder_.AppendValues(values, length, valid_bytes));
+    this->capacity_ = this->indices_builder_.capacity();
     this->length_ += length;
     this->null_count_ += this->indices_builder_.null_count() - null_count_before;
     return Status::OK();
@@ -402,6 +417,7 @@ class Dictionary32Builder : public internal::DictionaryBuilderBase<Int32Builder,
                        const uint8_t* valid_bytes = NULLPTR) {
     int64_t null_count_before = this->indices_builder_.null_count();
     ARROW_RETURN_NOT_OK(this->indices_builder_.AppendValues(values, length, valid_bytes));
+    this->capacity_ = this->indices_builder_.capacity();
     this->length_ += length;
     this->null_count_ += this->indices_builder_.null_count() - null_count_before;
     return Status::OK();

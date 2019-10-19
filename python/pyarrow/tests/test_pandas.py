@@ -21,6 +21,7 @@ import six
 import decimal
 import json
 import multiprocessing as mp
+import sys
 
 from collections import OrderedDict
 from datetime import date, datetime, time, timedelta
@@ -1219,18 +1220,6 @@ class TestConvertDateTimeLikeTypes(object):
         expected = date(2017, 4, 3)
         assert a1[0].as_py() == expected
         assert a2[0].as_py() == expected
-
-    @pytest.mark.xfail(reason="not supported ATM",
-                       raises=NotImplementedError)
-    def test_timedelta(self):
-        # TODO(jreback): Pandas only support ns resolution
-        # Arrow supports ??? for resolution
-        df = pd.DataFrame({
-            'timedelta': np.arange(start=0, stop=3 * 86400000,
-                                   step=86400000,
-                                   dtype='timedelta64[ms]')
-        })
-        pa.Table.from_pandas(df)
 
     def test_pytime_from_pandas(self):
         pytimes = [time(1, 2, 3, 1356),
@@ -3003,6 +2992,31 @@ def test_table_uses_memory_pool():
     x = None  # noqa
     gc.collect()
     assert pa.total_allocated_bytes() == prior_allocation
+
+
+def test_object_leak_in_numpy_array():
+    # ARROW-6876
+    arr = pa.array([{'a': 1}])
+    np_arr = arr.to_pandas()
+    assert np_arr.dtype == np.dtype('object')
+    obj = np_arr[0]
+    refcount = sys.getrefcount(obj)
+    assert sys.getrefcount(obj) == refcount
+    del np_arr
+    assert sys.getrefcount(obj) == refcount - 1
+
+
+def test_object_leak_in_dataframe():
+    # ARROW-6876
+    arr = pa.array([{'a': 1}])
+    table = pa.table([arr], ['f0'])
+    col = table.to_pandas()['f0']
+    assert col.dtype == np.dtype('object')
+    obj = col[0]
+    refcount = sys.getrefcount(obj)
+    assert sys.getrefcount(obj) == refcount
+    del col
+    assert sys.getrefcount(obj) == refcount - 1
 
 
 # ----------------------------------------------------------------------
