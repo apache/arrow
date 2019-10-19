@@ -41,6 +41,11 @@ echo %ARROW_HOME%
 mkdir %ARROW_SRC%\cpp\build
 pushd %ARROW_SRC%\cpp\build
 
+@rem ARROW-6938(wesm): bz2 is disabled on Windows because the build
+@rem currently selects the shared lib for linking. Using the zstd lib from
+@rem conda-forge also results in a broken build so we use the BUNDLED
+@rem dependency resolution strategy for now
+
 cmake -G "%GENERATOR%" ^
       -DCMAKE_INSTALL_PREFIX=%ARROW_HOME% ^
       -DARROW_BOOST_USE_SHARED=OFF ^
@@ -49,7 +54,7 @@ cmake -G "%GENERATOR%" ^
       -DARROW_DEPENDENCY_SOURCE=CONDA ^
       -DOPENSSL_ROOT_DIR=%CONDA_PREFIX%/Library ^
       -DARROW_CXXFLAGS="/MP" ^
-      -DARROW_WITH_BZ2=ON ^
+      -DARROW_WITH_BZ2=OFF ^
       -DARROW_WITH_ZLIB=ON ^
       -DARROW_WITH_ZSTD=ON ^
       -DARROW_WITH_LZ4=ON ^
@@ -60,6 +65,7 @@ cmake -G "%GENERATOR%" ^
       -DARROW_PARQUET=ON ^
       -DARROW_GANDIVA=ON ^
       -Duriparser_SOURCE=BUNDLED ^
+      -DZSTD_SOURCE=BUNDLED ^
       .. || exit /B
 cmake --build . --target install --config Release || exit /B
 popd
