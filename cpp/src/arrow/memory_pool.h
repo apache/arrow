@@ -160,6 +160,16 @@ ARROW_EXPORT MemoryPool* system_memory_pool();
 /// May return NotImplemented if jemalloc is not available.
 ARROW_EXPORT Status jemalloc_memory_pool(MemoryPool** out);
 
+/// \brief Set jemalloc memory page purging behavior for future-created arenas
+/// to the indicated number of milliseconds. See dirty_decay_ms and
+/// muzzy_decay_ms options in jemalloc for a description of what these do. The
+/// default is configured to 0 which releases memory more aggressively to the
+/// operating system. If you have a long-running application that uses a lot of
+/// memory, you may wish to set this to a higher value. The jemalloc default is
+/// 10000 (10 seconds)
+ARROW_EXPORT
+Status jemalloc_set_decay_ms(int ms);
+
 /// Return a process-wide memory pool based on mimalloc.
 ///
 /// May return NotImplemented if mimalloc is not available.

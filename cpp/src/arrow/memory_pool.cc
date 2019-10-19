@@ -46,7 +46,7 @@
 // See discussion in https://github.com/jemalloc/jemalloc/issues/1621
 
 #ifdef NDEBUG
-const char* je_arrow_malloc_conf = "oversize_threshold:0";
+const char* je_arrow_malloc_conf = "oversize_threshold:0,dirty_decay_ms:0,muzzy_decay_ms:0";
 #else
 // In debug mode, add memory poisoning on alloc / free
 const char* je_arrow_malloc_conf = "oversize_threshold:0,junk:true";
@@ -386,6 +386,30 @@ MemoryPool* default_memory_pool() {
   return &mimalloc_pool;
 #else
   return &system_pool;
+#endif
+}
+
+#define RETURN_IF_JEMALLOC_ERROR(ERR)                  \
+  do {                                                 \
+    if (err != 0) {                                    \
+      return Status::UnknownError(std::strerror(ERR)); \
+    }                                                  \
+  } while (0)
+
+Status jemalloc_set_decay_ms(int ms) {
+#ifdef ARROW_JEMALLOC
+  ssize_t decay_time_ms = static_cast<ssize_t>(ms);
+
+  int err = mallctl("arenas.dirty_decay_ms", nullptr, nullptr, &decay_time_ms,
+                    sizeof(decay_time_ms));
+  RETURN_IF_JEMALLOC_ERROR(err);
+  err = mallctl("arenas.muzzy_decay_ms", nullptr, nullptr, &decay_time_ms,
+                sizeof(decay_time_ms));
+  RETURN_IF_JEMALLOC_ERROR(err);
+
+  return Status::OK();
+#else
+  return Status::Invalid("jemalloc support is not built");
 #endif
 }
 

@@ -260,6 +260,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef CMemoryPool* c_default_memory_pool" arrow::default_memory_pool"()
 
+    CStatus c_jemalloc_set_decay_ms" arrow::jemalloc_set_decay_ms"(int ms)
+
     cdef cppclass CListType" arrow::ListType"(CDataType):
         CListType(const shared_ptr[CDataType]& value_type)
         CListType(const shared_ptr[CField]& field)
