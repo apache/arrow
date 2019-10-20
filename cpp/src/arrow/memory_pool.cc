@@ -46,10 +46,19 @@
 // See discussion in https://github.com/jemalloc/jemalloc/issues/1621
 
 #ifdef NDEBUG
-const char* je_arrow_malloc_conf = "oversize_threshold:0,dirty_decay_ms:0,muzzy_decay_ms:0";
+const char* je_arrow_malloc_conf =
+    ("oversize_threshold:0,"
+     "dirty_decay_ms:1000,"
+     "muzzy_decay_ms:1000,"
+     "background_thread:true");
 #else
 // In debug mode, add memory poisoning on alloc / free
-const char* je_arrow_malloc_conf = "oversize_threshold:0,junk:true";
+const char* je_arrow_malloc_conf =
+    ("oversize_threshold:0,"
+     "junk:true,"
+     "dirty_decay_ms:1000,"
+     "muzzy_decay_ms:1000,"
+     "background_thread:true");
 #endif
 #endif
 
