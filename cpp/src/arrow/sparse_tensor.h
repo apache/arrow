@@ -204,6 +204,15 @@ class ARROW_EXPORT SparseTensor {
   /// \brief Return whether sparse tensors are equal
   bool Equals(const SparseTensor& other) const;
 
+  /// \brief Return dense representation of sparse tensor as tensor
+  Status ToTensor(std::shared_ptr<Tensor>* out) const {
+    return ToTensor(default_memory_pool(), out);
+  }
+
+  /// \brief Return dense representation of sparse tensor as tensor
+  /// using specified memory pool
+  Status ToTensor(MemoryPool* pool, std::shared_ptr<Tensor>* out) const;
+
  protected:
   // Constructor with all attributes
   SparseTensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,

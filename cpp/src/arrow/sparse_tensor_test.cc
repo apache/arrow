@@ -202,6 +202,21 @@ TEST_F(TestSparseCOOTensor, TensorEquality) {
   ASSERT_FALSE(st1.Equals(st2));
 }
 
+TEST_F(TestSparseCOOTensor, TestToTensor) {
+  std::vector<int64_t> values = {1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+                                 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4};
+  std::vector<int64_t> shape({4, 3, 2, 1});
+  std::shared_ptr<Buffer> buffer = Buffer::Wrap(values);
+  Tensor tensor(int64(), buffer, shape, {}, this->dim_names_);
+  SparseTensorImpl<SparseCOOIndex> sparse_tensor(tensor);
+
+  ASSERT_EQ(5, sparse_tensor.non_zero_length());
+  ASSERT_TRUE(sparse_tensor.is_mutable());
+  std::shared_ptr<Tensor> dense_tensor;
+  ASSERT_OK(sparse_tensor.ToTensor(&dense_tensor));
+  ASSERT_TRUE(tensor.Equals(*dense_tensor));
+}
+
 template <typename IndexValueType>
 class TestSparseCOOTensorForIndexValueType
     : public TestSparseCOOTensorBase<IndexValueType> {
@@ -469,4 +484,18 @@ TEST_F(TestSparseCSRMatrix, TensorEquality) {
   ASSERT_FALSE(st1.Equals(st2));
 }
 
+TEST_F(TestSparseCSRMatrix, TestToTensor) {
+  std::vector<int64_t> values = {1, 0, 0, 0, 0, 0, 2, 1, 0, 0, 0, 1,
+                                 0, 2, 0, 0, 0, 0, 0, 3, 0, 0, 0, 1};
+  std::vector<int64_t> shape({6, 4});
+  std::shared_ptr<Buffer> buffer = Buffer::Wrap(values);
+  Tensor tensor(int64(), buffer, shape, {}, this->dim_names_);
+  SparseTensorImpl<SparseCSRIndex> sparse_tensor(tensor);
+
+  ASSERT_EQ(7, sparse_tensor.non_zero_length());
+  ASSERT_TRUE(sparse_tensor.is_mutable());
+  std::shared_ptr<Tensor> dense_tensor;
+  ASSERT_OK(sparse_tensor.ToTensor(&dense_tensor));
+  ASSERT_TRUE(tensor.Equals(*dense_tensor));
+}
 }  // namespace arrow

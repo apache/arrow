@@ -219,3 +219,24 @@ def test_sparse_tensor_csr_numpy_roundtrip(dtype_str, arrow_type):
     assert np.array_equal(indptr, result_indptr)
     assert np.array_equal(indices, result_indices)
     assert sparse_tensor.dim_names == dim_names
+
+
+@pytest.mark.parametrize('sparse_tensor_type', [
+    pa.SparseCSRMatrix,
+    pa.SparseCOOTensor,
+])
+@pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
+def test_dense_to_sparse_tensor(dtype_str, arrow_type, sparse_tensor_type):
+    dtype = np.dtype(dtype_str)
+    array = np.array([[4, 0, 9, 0],
+                      [0, 7, 0, 0],
+                      [0, 0, 0, 0],
+                      [0, 0, 0, 5]]).astype(dtype)
+
+    sparse_tensor = sparse_tensor_type.from_dense_numpy(array)
+    tensor = sparse_tensor.to_tensor()
+    result_array = tensor.to_numpy()
+
+    assert sparse_tensor.type == arrow_type
+    assert tensor.type == arrow_type
+    assert np.array_equal(array, result_array)
