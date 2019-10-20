@@ -70,6 +70,7 @@ pub use self::data::ArrayDataBuilder;
 pub use self::data::ArrayDataRef;
 
 pub use self::array::BinaryArray;
+pub use self::array::FixedSizeListArray;
 pub use self::array::ListArray;
 pub use self::array::PrimitiveArray;
 pub use self::array::StructArray;
@@ -133,6 +134,7 @@ pub type Time64NanosecondBufferBuilder = BufferBuilder<Time64NanosecondType>;
 
 pub use self::builder::ArrayBuilder;
 pub use self::builder::BinaryBuilder;
+pub use self::builder::FixedSizeListBuilder;
 pub use self::builder::ListBuilder;
 pub use self::builder::PrimitiveBuilder;
 pub use self::builder::StructBuilder;

@@ -203,6 +203,74 @@ impl ArrayEqual for ListArray {
     }
 }
 
+impl ArrayEqual for FixedSizeListArray {
+    fn equals(&self, other: &dyn Array) -> bool {
+        if !base_equal(&self.data(), &other.data()) {
+            return false;
+        }
+
+        let other = other.as_any().downcast_ref::<FixedSizeListArray>().unwrap();
+
+        if !self.values().range_equals(
+            &*other.values(),
+            self.value_offset(0) as usize,
+            self.value_offset(self.len()) as usize,
+            other.value_offset(0) as usize,
+        ) {
+            return false;
+        }
+
+        true
+    }
+
+    fn range_equals(
+        &self,
+        other: &dyn Array,
+        start_idx: usize,
+        end_idx: usize,
+        other_start_idx: usize,
+    ) -> bool {
+        assert!(other_start_idx + (end_idx - start_idx) <= other.len());
+        let other = other.as_any().downcast_ref::<FixedSizeListArray>().unwrap();
+
+        let mut j = other_start_idx;
+        for i in start_idx..end_idx {
+            let is_null = self.is_null(i);
+            let other_is_null = other.is_null(j);
+
+            if is_null != other_is_null {
+                return false;
+            }
+
+            if is_null {
+                continue;
+            }
+
+            let start_offset = self.value_offset(i) as usize;
+            let end_offset = self.value_offset(i + 1) as usize;
+            let other_start_offset = other.value_offset(j) as usize;
+            let other_end_offset = other.value_offset(j + 1) as usize;
+
+            if end_offset - start_offset != other_end_offset - other_start_offset {
+                return false;
+            }
+
+            if !self.values().range_equals(
+                &*other.values(),
+                start_offset,
+                end_offset,
+                other_start_offset,
+            ) {
+                return false;
+            }
+
+            j += 1;
+        }
+
+        true
+    }
+}
+
 impl ArrayEqual for BinaryArray {
     fn equals(&self, other: &dyn Array) -> bool {
         if !base_equal(&self.data(), &other.data()) {
@@ -501,6 +569,40 @@ impl PartialEq<ListArray> for Value {
     }
 }
 
+impl JsonEqual for FixedSizeListArray {
+    fn equals_json(&self, json: &[&Value]) -> bool {
+        if self.len() != json.len() {
+            return false;
+        }
+
+        let result = (0..self.len()).all(|i| match json[i] {
+            Value::Array(v) => self.is_valid(i) && self.value(i).equals_json_values(v),
+            Value::Null => self.is_null(i) || self.value_length() == 0,
+            _ => false,
+        });
+
+        result
+    }
+}
+
+impl PartialEq<Value> for FixedSizeListArray {
+    fn eq(&self, json: &Value) -> bool {
+        match json {
+            Value::Array(json_array) => self.equals_json_values(json_array),
+            _ => false,
+        }
+    }
+}
+
+impl PartialEq<FixedSizeListArray> for Value {
+    fn eq(&self, arrow: &FixedSizeListArray) -> bool {
+        match self {
+            Value::Array(json_array) => arrow.equals_json_values(json_array),
+            _ => false,
+        }
+    }
+}
+
 impl JsonEqual for StructArray {
     fn equals_json(&self, json: &[&Value]) -> bool {
         if self.len() != json.len() {
@@ -746,6 +848,89 @@ mod tests {
     }
 
     #[test]
+    fn test_fixed_size_list_equal() {
+        let mut a_builder = FixedSizeListBuilder::new(Int32Builder::new(10), 3);
+        let mut b_builder = FixedSizeListBuilder::new(Int32Builder::new(10), 3);
+
+        let a = create_fixed_size_list_array(
+            &mut a_builder,
+            &[Some(&[1, 2, 3]), Some(&[4, 5, 6])],
+        )
+        .unwrap();
+        let b = create_fixed_size_list_array(
+            &mut b_builder,
+            &[Some(&[1, 2, 3]), Some(&[4, 5, 6])],
+        )
+        .unwrap();
+
+        assert!(a.equals(&b));
+        assert!(b.equals(&a));
+
+        let b = create_fixed_size_list_array(
+            &mut a_builder,
+            &[Some(&[1, 2, 3]), Some(&[4, 5, 7])],
+        )
+        .unwrap();
+        assert!(!a.equals(&b));
+        assert!(!b.equals(&a));
+
+        // Test the case where null_count > 0
+
+        let a = create_fixed_size_list_array(
+            &mut a_builder,
+            &[Some(&[1, 2, 3]), None, None, Some(&[4, 5, 6]), None, None],
+        )
+        .unwrap();
+        let b = create_fixed_size_list_array(
+            &mut a_builder,
+            &[Some(&[1, 2, 3]), None, None, Some(&[4, 5, 6]), None, None],
+        )
+        .unwrap();
+        assert!(a.equals(&b));
+        assert!(b.equals(&a));
+
+        let b = create_fixed_size_list_array(
+            &mut a_builder,
+            &[
+                Some(&[1, 2, 3]),
+                None,
+                Some(&[7, 8, 9]),
+                Some(&[4, 5, 6]),
+                None,
+                None,
+            ],
+        )
+        .unwrap();
+        assert!(!a.equals(&b));
+        assert!(!b.equals(&a));
+
+        let b = create_fixed_size_list_array(
+            &mut a_builder,
+            &[Some(&[1, 2, 3]), None, None, Some(&[3, 6, 9]), None, None],
+        )
+        .unwrap();
+        assert!(!a.equals(&b));
+        assert!(!b.equals(&a));
+
+        // Test the case where offset != 0
+
+        let a_slice = a.slice(0, 3);
+        let b_slice = b.slice(0, 3);
+        assert!(a_slice.equals(&*b_slice));
+        assert!(b_slice.equals(&*a_slice));
+
+        // let a_slice = a.slice(0, 5);
+        // let b_slice = b.slice(0, 5);
+        // assert!(!a_slice.equals(&*b_slice));
+        // assert!(!b_slice.equals(&*a_slice));
+
+        // let a_slice = a.slice(4, 1);
+        // let b_slice = b.slice(4, 1);
+        // assert!(a_slice.equals(&*b_slice));
+        // assert!(b_slice.equals(&*a_slice));
+    }
+
+    #[test]
     fn test_binary_equal() {
         let a = BinaryArray::from(vec!["hello", "world"]);
         let b = BinaryArray::from(vec!["hello", "world"]);
@@ -870,6 +1055,25 @@ mod tests {
         Ok(builder.finish())
     }
 
+    /// Create a fixed size list of 2 value lengths
+    fn create_fixed_size_list_array<'a, U: AsRef<[i32]>, T: AsRef<[Option<U>]>>(
+        builder: &'a mut FixedSizeListBuilder<Int32Builder>,
+        data: T,
+    ) -> Result<FixedSizeListArray> {
+        for d in data.as_ref() {
+            if let Some(v) = d {
+                builder.values().append_slice(v.as_ref())?;
+                builder.append(true)?
+            } else {
+                for _ in 0..builder.value_length() {
+                    builder.values().append_null()?;
+                }
+                builder.append(false)?
+            }
+        }
+        Ok(builder.finish())
+    }
+
     #[test]
     fn test_primitive_json_equal() {
         // Test equaled array
@@ -968,6 +1172,64 @@ mod tests {
         // Test incorrect type case
         let arrow_array = create_list_array(
             &mut ListBuilder::new(Int32Builder::new(10)),
+            &[Some(&[1, 2, 3]), None, Some(&[4, 5, 6])],
+        )
+        .unwrap();
+        let json_array: Value = serde_json::from_str(
+            r#"
+            {
+               "a": 1
+            }
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+    }
+
+    #[test]
+    fn test_fixed_size_list_json_equal() {
+        // Test equal case
+        let arrow_array = create_fixed_size_list_array(
+            &mut FixedSizeListBuilder::new(Int32Builder::new(10), 3),
+            &[Some(&[1, 2, 3]), None, Some(&[4, 5, 6])],
+        )
+        .unwrap();
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                [1, 2, 3],
+                null,
+                [4, 5, 6]
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.eq(&json_array));
+        assert!(json_array.eq(&arrow_array));
+
+        // Test unequal case
+        let arrow_array = create_fixed_size_list_array(
+            &mut FixedSizeListBuilder::new(Int32Builder::new(10), 3),
+            &[Some(&[1, 2, 3]), None, Some(&[4, 5, 6])],
+        )
+        .unwrap();
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                [1, 2, 3],
+                [7, 8, 9],
+                [4, 5, 6]
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+
+        // Test incorrect type case
+        let arrow_array = create_fixed_size_list_array(
+            &mut FixedSizeListBuilder::new(Int32Builder::new(10), 3),
             &[Some(&[1, 2, 3]), None, Some(&[4, 5, 6])],
         )
         .unwrap();
