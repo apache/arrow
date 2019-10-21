@@ -72,6 +72,7 @@ pub fn get_temp_filename() -> PathBuf {
     path_buf.push("target");
     path_buf.push("debug");
     path_buf.push("testdata");
+    fs::create_dir_all(&path_buf).unwrap();
     path_buf.push(rand::random::<i16>().to_string());
 
     path_buf
