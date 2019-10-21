@@ -122,7 +122,7 @@ Status Add(FunctionContext* ctx, const Array& lhs, const Array& rhs,
       !lhs.type()->Equals(rhs.type()),
       Status::Invalid("Array types should be equal to use arithmetic kernels"));
   RETURN_NOT_OK(AddKernel::Make(lhs.type(), &kernel));
-  kernel->Call(ctx, Datum(lhs.data()), Datum(rhs.data()), &result_datum);
+  RETURN_NOT_OK(kernel->Call(ctx, Datum(lhs.data()), Datum(rhs.data()), &result_datum));
   *result = result_datum.make_array();
   return Status::OK();
 }
