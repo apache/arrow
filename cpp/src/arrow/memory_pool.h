@@ -163,10 +163,11 @@ ARROW_EXPORT Status jemalloc_memory_pool(MemoryPool** out);
 /// \brief Set jemalloc memory page purging behavior for future-created arenas
 /// to the indicated number of milliseconds. See dirty_decay_ms and
 /// muzzy_decay_ms options in jemalloc for a description of what these do. The
-/// default is configured to 0 which releases memory more aggressively to the
-/// operating system. If you have a long-running application that uses a lot of
-/// memory, you may wish to set this to a higher value. The jemalloc default is
-/// 10000 (10 seconds)
+/// default is configured to 1000 (1 second) which releases memory more
+/// aggressively to the operating system than the jemalloc default of 10
+/// seconds. If you set the value to 0, dirty / muzzy pages will be released
+/// immediately rather than with a time decay, but this may reduce application
+/// performance.
 ARROW_EXPORT
 Status jemalloc_set_decay_ms(int ms);
 

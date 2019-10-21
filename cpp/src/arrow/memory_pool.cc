@@ -45,6 +45,14 @@
 // building jemalloc.
 // See discussion in https://github.com/jemalloc/jemalloc/issues/1621
 
+// ARROW-6910(wesm): we found that jemalloc's default behavior with respect to
+// dirty / muzzy pages (see definitions of these in the jemalloc documentation)
+// conflicted with user expectations, and would even cause memory use problems
+// in some cases. By enabling the background_thread option and reducing the
+// decay time from 10 seconds to 1 seconds, memory is released more
+// aggressively (and in the background) to the OS. This can be configured
+// further by using the arrow::jemalloc_set_decay_ms API
+
 #ifdef NDEBUG
 const char* je_arrow_malloc_conf =
     ("oversize_threshold:0,"
