@@ -88,12 +88,12 @@ ruby c_glib\test\run-test.rb || exit /B
 
 pushd ruby\red-arrow
 ruby -S bundle install || exit /B
-pacman --remove --noconfirm "%MINGW_PACKAGE_PREFIX%-arrow" || exit /B
+pacman --remove --noconfirm "%MINGW_PACKAGE_PREFIX%-arrow"
 ruby -rdevkit test\run-test.rb || exit /B
 popd
 
 pushd ruby\red-parquet
 ruby -S bundle install || exit /B
-pacman --remove --noconfirm "%MINGW_PACKAGE_PREFIX%-arrow" || exit /B
+pacman --remove --noconfirm "%MINGW_PACKAGE_PREFIX%-arrow"
 ruby test\run-test.rb || exit /B
 popd

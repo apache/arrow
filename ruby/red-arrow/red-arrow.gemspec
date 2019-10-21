@@ -59,5 +59,7 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency("test-unit")
   spec.add_development_dependency("yard")
 
-  spec.metadata["msys2_mingw_dependencies"] = "arrow"
+  required_msys2_package_version = version_components[0, 3].join(".")
+  spec.metadata["msys2_mingw_dependencies"] =
+    "arrow>=#{required_msys2_package_version}"
 end
