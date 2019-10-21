@@ -273,12 +273,12 @@ class TestEndToEnd : public TestDataset {
         {"country": "CA", "region": "QC", "year": 2019, "model": "Y", "sales": 37}
       ])"}};
 
-    auto fs = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
+    auto mock_fs = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
     for (const auto& f : files) {
-      ARROW_EXPECT_OK(fs->CreateFile(f.first, f.second, /* recursive */ true));
+      ARROW_EXPECT_OK(mock_fs->CreateFile(f.first, f.second, /* recursive */ true));
     }
 
-    fs_ = fs;
+    fs_ = mock_fs;
   }
 
  protected:
@@ -299,20 +299,18 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   // FlightDataSource.
 
   // A DataSource is composed of DataFragments. Each DataFragment can yield
-  // multiple RecordBatches. DataSource can be created manually or "discovered"
+  // multiple RecordBatches. DataSources can be created manually or "discovered"
   // via the DataSourceDiscovery interface.
   //
-  // Each DataSourceDiscovery will have custom options.
+  // Each DataSourceDiscovery may have different options.
   std::shared_ptr<DataSourceDiscovery> discovery;
 
-  // The user must specify which FileFormat is used to create FileFragment.
+  // The user must specify which FileFormat is used to create FileFragments.
   // This option is specific to FileSystemBasedDataSource (and the builder).
   //
   // Note the JSONRecordBatchFileFormat requires a schema before creating the Discovery
   // class which is used to discover the schema. This is a chicken-and-egg problem
   // which only applies to the JSONRecordBatchFileFormat.
-  // is only required for JSONRecordBatchFileFormat because it doesn't do
-  // schema inspection.
   auto format = std::make_shared<JSONRecordBatchFileFormat>(schema_);
   // A selector is used to crawl files and directories of a
   // filesystem. If the options in Selector are not enough, the
