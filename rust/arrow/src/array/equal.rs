@@ -131,6 +131,12 @@ impl<T: ArrowNumericType> PartialEq for PrimitiveArray<T> {
     }
 }
 
+impl PartialEq for BooleanArray {
+    fn eq(&self, other: &BooleanArray) -> bool {
+        self.equals(other)
+    }
+}
+
 impl ArrayEqual for ListArray {
     fn equals(&self, other: &dyn Array) -> bool {
         if !base_equal(&self.data(), &other.data()) {

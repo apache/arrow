@@ -26,6 +26,7 @@ pub use self::rand_gen::random_numbers_range;
 pub use self::rand_gen::RandGen;
 
 pub use self::file_util::get_temp_file;
+pub use self::file_util::get_temp_filename;
 pub use self::file_util::get_test_file;
 pub use self::file_util::get_test_path;
 

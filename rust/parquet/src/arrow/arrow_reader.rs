@@ -208,14 +208,24 @@ impl ParquetRecordBatchReader {
 #[cfg(test)]
 mod tests {
     use crate::arrow::arrow_reader::{ArrowReader, ParquetFileArrowReader};
+    use crate::column::writer::ColumnWriter;
+    use crate::data_type::{BoolType, DataType};
+    use crate::errors::ParquetError;
+    use crate::errors::Result;
+    use crate::file::properties::WriterProperties;
     use crate::file::reader::{FileReader, SerializedFileReader};
-    use arrow::array::Array;
+    use crate::file::writer::{FileWriter, SerializedFileWriter};
+    use crate::schema::parser::parse_message_type;
+    use crate::schema::types::TypePtr;
+    use crate::util::test_common::{get_temp_filename, random_bools};
     use arrow::array::StructArray;
+    use arrow::array::{Array, BooleanArray};
     use serde_json::Value::Array as JArray;
     use std::cmp::min;
+    use std::convert::TryFrom;
     use std::env;
     use std::fs::File;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     use std::rc::Rc;
 
     #[test]
@@ -258,6 +268,103 @@ mod tests {
                 assert!(array.is_none());
             }
         }
+    }
+
+    #[test]
+    fn test_single_column_boolean() {
+        let values = vec![random_bools(100), random_bools(100)];
+
+        let path = get_temp_filename();
+
+        let message_type = "
+        message test_schema {
+          REQUIRED BOOLEAN leaf;
+        }
+        ";
+
+        let schema = parse_message_type(message_type)
+            .map(|t| Rc::new(t))
+            .unwrap();
+
+        generate_single_column_file::<BoolType>(
+            path.as_path(),
+            schema,
+            2,
+            &mut |column_writer: &mut ColumnWriter, row_group_idx: usize| -> Result<()> {
+                match column_writer {
+                    ColumnWriter::BoolColumnWriter(ref mut r) => r
+                        .write_batch(values[row_group_idx].as_slice(), None, None)
+                        .map(|_x| ()),
+                    _ => Err(general_err!("Should be a bool column writer!")),
+                }
+            },
+        )
+        .unwrap();
+
+        let parquet_reader =
+            SerializedFileReader::try_from(File::open(&path).unwrap()).unwrap();
+        let mut arrow_reader = ParquetFileArrowReader::new(Rc::new(parquet_reader));
+
+        let record_batch_size = 15;
+        let mut record_reader =
+            arrow_reader.get_record_reader(record_batch_size).unwrap();
+
+        let expected_data: Vec<Option<bool>> = values
+            .iter()
+            .flat_map(|v| v.iter())
+            .map(|b| Some(*b))
+            .collect();
+
+        for i in 0..50 {
+            let start = i * record_batch_size;
+
+            let batch = record_reader.next_batch().unwrap();
+            if start < expected_data.len() {
+                let end = min(start + record_batch_size, expected_data.len());
+                assert!(batch.is_some());
+
+                let mut data = vec![];
+                data.extend_from_slice(&expected_data[start..end]);
+
+                assert_eq!(
+                    &BooleanArray::from(data),
+                    batch
+                        .unwrap()
+                        .column(0)
+                        .as_any()
+                        .downcast_ref::<BooleanArray>()
+                        .unwrap()
+                );
+            } else {
+                assert!(batch.is_none());
+            }
+        }
+    }
+
+    fn generate_single_column_file<T: DataType>(
+        path: &Path,
+        schema: TypePtr,
+        num_row_group: usize,
+        column_writer_func: &mut dyn FnMut(&mut ColumnWriter, usize) -> Result<()>,
+    ) -> Result<()> {
+        let file = File::create(path)?;
+        let writer_props = Rc::new(WriterProperties::builder().build());
+
+        let mut writer = SerializedFileWriter::new(file, schema, writer_props.clone())?;
+
+        for i in 0..num_row_group {
+            let mut row_group_writer = writer.next_row_group()?;
+            let mut column_writer = row_group_writer
+                .next_column()?
+                .expect("Column writer is none!");
+
+            column_writer_func(&mut column_writer, i)?;
+
+            row_group_writer.close_column(column_writer)?;
+            writer.close_row_group(row_group_writer)?
+        }
+
+        writer.close()
     }
 
     fn get_test_reader(file_name: &str) -> Rc<dyn FileReader> {
