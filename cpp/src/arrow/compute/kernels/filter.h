@@ -102,14 +102,14 @@ Status Filter(FunctionContext* ctx, const RecordBatch& batch, const Array& filte
 
 /// \brief Filter a table with a boolean selection filter
 ///
-/// The output record batch's columns will be populated with values from corresponding
+/// The output table's columns will be populated with values from corresponding
 /// columns of the input at positions where the selection filter is not 0. Nulls in the
-/// filter will result in nulls in the output.
+/// filter will result in nulls in each column of the output.
 ///
 /// \param[in] ctx the FunctionContext
-/// \param[in] table record batch to filter
+/// \param[in] table table to filter
 /// \param[in] filter indicates which values should be filtered out
-/// \param[out] out resulting record batch
+/// \param[out] out resulting table
 ARROW_EXPORT
 Status Filter(FunctionContext* ctx, const Table& table, const Array& filter,
               std::shared_ptr<Table>* out);
