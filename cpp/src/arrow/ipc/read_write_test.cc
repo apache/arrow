@@ -1353,9 +1353,10 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCSRIndex) {
 
   auto data = Buffer::Wrap(values);
   NumericTensor<Int64Type> t(data, shape, {}, dim_names);
-  SparseCSRMatrix st(t, TypeTraits<IndexValueType>::type_singleton());
+  std::shared_ptr<SparseCSRMatrix> st;
+  ASSERT_OK(SparseCSRMatrix::Make(t, TypeTraits<IndexValueType>::type_singleton(), &st));
 
-  this->CheckSparseTensorRoundTrip(st);
+  this->CheckSparseTensorRoundTrip(*st);
 }
 
 REGISTER_TYPED_TEST_CASE_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor,

@@ -414,14 +414,12 @@ Status NdarraysToSparseCSRMatrix(MemoryPool* pool, PyObject* data_ao, PyObject* 
 
 Status TensorToSparseCOOTensor(const std::shared_ptr<Tensor>& tensor,
                                std::shared_ptr<SparseCOOTensor>* out) {
-  *out = std::make_shared<SparseCOOTensor>(*tensor);
-  return Status::OK();
+  return SparseCOOTensor::Make(*tensor, out);
 }
 
 Status TensorToSparseCSRMatrix(const std::shared_ptr<Tensor>& tensor,
                                std::shared_ptr<SparseCSRMatrix>* out) {
-  *out = std::make_shared<SparseCSRMatrix>(*tensor);
-  return Status::OK();
+  return SparseCSRMatrix::Make(*tensor, out);
 }
 
 }  // namespace py
