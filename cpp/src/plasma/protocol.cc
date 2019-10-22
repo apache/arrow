@@ -397,7 +397,7 @@ Status ReadSealRequest(uint8_t* data, size_t size, ObjectID* object_id,
   auto message = flatbuffers::GetRoot<fb::PlasmaSealRequest>(data);
   DCHECK(VerifyFlatbuffer(message, data, size));
   *object_id = ObjectID::from_binary(message->object_id()->str());
-  ARROW_CHECK(message->digest()->size() == kDigestSize);
+  ARROW_CHECK_EQ(message->digest()->size(), kDigestSize);
   digest->assign(message->digest()->data(), kDigestSize);
   return Status::OK();
 }

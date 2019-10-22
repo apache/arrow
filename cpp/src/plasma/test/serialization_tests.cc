@@ -136,7 +136,7 @@ TEST_F(TestPlasmaSerialization, CreateReply) {
 TEST_F(TestPlasmaSerialization, SealRequest) {
   int fd = CreateTemporaryFile();
   ObjectID object_id1 = random_object_id();
-  std::string digest1 = std::string(7, kDigestSize);
+  std::string digest1 = std::string(kDigestSize, 7);
   ASSERT_OK(SendSealRequest(fd, object_id1, digest1));
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType::PlasmaSealRequest);
   ObjectID object_id2;
