@@ -143,7 +143,7 @@ TEST_F(TestPlasmaSerialization, SealRequest) {
   std::string digest2;
   ASSERT_OK(ReadSealRequest(data.data(), data.size(), &object_id2, &digest2));
   ASSERT_EQ(object_id1, object_id2);
-  ASSERT_EQ(digest1, digest2);
+  ASSERT_EQ(memcmp(digest1.data(), digest2.data(), kDigestSize), 0);
   close(fd);
 }
 
