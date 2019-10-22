@@ -46,6 +46,7 @@ RUN \
     centos-release-scl && \
   yum install -y ${quiet} \
     cmake3 \
+    bzip2-devel \
     devtoolset-6 \
     gflags-devel \
     git \

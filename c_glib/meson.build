@@ -56,7 +56,8 @@ arrow_cpp_build_type = get_option('arrow_cpp_build_type')
 if arrow_cpp_build_dir == ''
   arrow_cpp_build_lib_dir = ''
 else
-  arrow_cpp_build_lib_dir = join_paths(arrow_cpp_build_dir,
+  arrow_cpp_build_lib_dir = join_paths(meson.source_root(),
+                                       arrow_cpp_build_dir,
                                        arrow_cpp_build_type.to_lower())
 endif
 
@@ -129,6 +130,9 @@ if get_option('gtk_doc')
     subdir('doc/plasma-glib')
   endif
 endif
+
+install_data('README.md',
+             install_dir: join_paths(data_dir, 'doc', meson.project_name()))
 
 run_test = find_program('test/run-test.sh')
 test('unit test',

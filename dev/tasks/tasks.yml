@@ -57,6 +57,7 @@ groups:
     - ubuntu-disco
     - centos-6
     - centos-7
+    - centos-8
 
   linux-arm:
     - debian-stretch-arm64
@@ -65,6 +66,7 @@ groups:
     - ubuntu-bionic-arm64
     - ubuntu-disco-arm64
     - centos-7-aarch64
+    - centos-8-aarch64
 
   gandiva:
     - gandiva-jar-trusty
@@ -166,6 +168,7 @@ groups:
     - ubuntu-disco
     - centos-6
     - centos-7
+    - centos-8
     - homebrew-cpp
     - gandiva-jar-trusty
     - gandiva-jar-osx
@@ -1081,6 +1084,7 @@ tasks:
       - plasma-glib-doc-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
       - plasma-glib-libs-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
       - plasma-libs-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
+      - plasma-store-server-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
 
   centos-7-aarch64:
     ci: azure
@@ -1112,6 +1116,111 @@ tasks:
       - plasma-glib-doc-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
       - plasma-glib-libs-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
       - plasma-libs-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
+      - plasma-store-server-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
+
+  centos-8:
+    ci: azure
+    platform: linux
+    template: linux-packages/azure.linux.yml
+    params:
+      build_command: rake yum:build YUM_TARGETS=centos-8
+      upload_extensions:
+        - .rpm
+    artifacts:
+      - arrow-{no_rc_version}-1.el8.src.rpm
+      - arrow-dataset-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-dataset-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-dataset-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-flight-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-flight-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-flight-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-glib-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-glib-doc-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-glib-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-glib-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-python-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-python-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-python-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - gandiva-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - gandiva-glib-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - gandiva-glib-doc-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - gandiva-glib-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - gandiva-glib-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - gandiva-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - gandiva-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - parquet-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - parquet-glib-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - parquet-glib-doc-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - parquet-glib-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - parquet-glib-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - parquet-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - parquet-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - plasma-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - plasma-glib-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - plasma-glib-doc-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - plasma-glib-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - plasma-glib-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - plasma-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - plasma-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - plasma-store-server-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - plasma-store-server-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+
+  centos-8-aarch64:
+    ci: azure
+    platform: linux
+    template: linux-packages/azure.linux.arm64.yml
+    params:
+      build_command: rake yum:build YUM_TARGETS=centos-8-aarch64
+      upload_extensions:
+        - .rpm
+    artifacts:
+      - arrow-{no_rc_version}-1.el8.src.rpm
+      - arrow-dataset-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-dataset-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-dataset-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-flight-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-flight-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-flight-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-glib-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-glib-doc-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-glib-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-glib-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-python-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-python-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-python-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - gandiva-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - gandiva-glib-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - gandiva-glib-doc-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - gandiva-glib-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - gandiva-glib-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - gandiva-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - gandiva-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - parquet-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - parquet-glib-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - parquet-glib-doc-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - parquet-glib-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - parquet-glib-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - parquet-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - parquet-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - plasma-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - plasma-glib-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - plasma-glib-doc-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - plasma-glib-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - plasma-glib-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - plasma-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - plasma-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - plasma-store-server-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - plasma-store-server-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
 
   ############################## Homebrew Tasks ################################
 

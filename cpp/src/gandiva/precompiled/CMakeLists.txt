@@ -80,7 +80,7 @@ add_custom_command(OUTPUT ${GANDIVA_PRECOMPILED_BC_PATH}
 
 # turn the bitcode file into a C++ static data variable.
 add_custom_command(OUTPUT ${GANDIVA_PRECOMPILED_CC_PATH}
-                   COMMAND python
+                   COMMAND ${PYTHON_EXECUTABLE}
                            "${CMAKE_CURRENT_SOURCE_DIR}/../make_precompiled_bitcode.py"
                            ${GANDIVA_PRECOMPILED_CC_IN_PATH}
                            ${GANDIVA_PRECOMPILED_BC_PATH}
