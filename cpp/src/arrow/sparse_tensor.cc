@@ -55,10 +55,6 @@ struct SparseTensorConverterBase {
                             MemoryPool* pool)
       : tensor_(tensor), index_value_type_(index_value_type), pool_(pool) {}
 
-  SparseTensorConverterBase(const NumericTensor<TYPE>& tensor,
-                            const std::shared_ptr<DataType>& data_type)
-      : SparseTensorConverterBase(tensor, data_type, default_memory_pool()) {}
-
   const NumericTensorType& tensor_;
   const std::shared_ptr<DataType>& index_value_type_;
   MemoryPool* pool_;
@@ -71,10 +67,6 @@ class SparseTensorConverter<TYPE, SparseCOOIndex>
   using BaseClass = SparseTensorConverterBase<TYPE>;
   using typename BaseClass::NumericTensorType;
   using typename BaseClass::value_type;
-
-  SparseTensorConverter(const NumericTensorType& tensor,
-                        const std::shared_ptr<DataType>& index_value_type)
-      : BaseClass(tensor, index_value_type) {}
 
   SparseTensorConverter(const NumericTensorType& tensor,
                         const std::shared_ptr<DataType>& index_value_type,
@@ -186,10 +178,6 @@ class SparseTensorConverter<TYPE, SparseCSRIndex>
   using BaseClass = SparseTensorConverterBase<TYPE>;
   using NumericTensorType = typename BaseClass::NumericTensorType;
   using value_type = typename BaseClass::value_type;
-
-  SparseTensorConverter(const NumericTensorType& tensor,
-                        const std::shared_ptr<DataType>& index_value_type)
-      : BaseClass(tensor, index_value_type) {}
 
   SparseTensorConverter(const NumericTensorType& tensor,
                         const std::shared_ptr<DataType>& index_value_type,
