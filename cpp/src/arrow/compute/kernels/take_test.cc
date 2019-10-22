@@ -592,5 +592,61 @@ TEST_F(TestTakeKernelWithRecordBatch, TakeRecordBatch) {
   ])");
 }
 
+class TestTakeKernelWithChunkedArray : public TestTakeKernel<ChunkedArray> {
+ public:
+  void AssertTake(const std::shared_ptr<DataType>& type,
+                    const std::vector<std::string>& values,
+                    const std::string& filter, const std::vector<std::string>& expected) {
+    std::shared_ptr<ChunkedArray> actual;
+    ASSERT_OK(this->TakeWithArray(type, values, filter, &actual));
+    ASSERT_OK(actual->Validate());
+    AssertChunkedEqual(*ChunkedArrayFromJSON(type, expected), *actual);
+  }
+
+  void AssertChunkedTake(const std::shared_ptr<DataType>& type,
+                           const std::vector<std::string>& values,
+                           const std::vector<std::string>& filter,
+                           const std::vector<std::string>& expected) {
+    std::shared_ptr<ChunkedArray> actual;
+    ASSERT_OK(this->TakeWithChunkedArray(type, values, filter, &actual));
+    ASSERT_OK(actual->Validate());
+    AssertChunkedEqual(*ChunkedArrayFromJSON(type, expected), *actual);
+  }
+
+  Status TakeWithArray(const std::shared_ptr<DataType>& type,
+                         const std::vector<std::string>& values,
+                         const std::string& filter, std::shared_ptr<ChunkedArray>* out) {
+    TakeOptions options;
+    return arrow::compute::Take(&this->ctx_, *ChunkedArrayFromJSON(type, values),
+                                  *ArrayFromJSON(int8(), filter), options, out);
+  }
+
+  Status TakeWithChunkedArray(const std::shared_ptr<DataType>& type,
+                                const std::vector<std::string>& values,
+                                const std::vector<std::string>& filter,
+                                std::shared_ptr<ChunkedArray>* out) {
+    TakeOptions options;
+    return arrow::compute::Take(&this->ctx_, *ChunkedArrayFromJSON(type, values),
+                                  *ChunkedArrayFromJSON(int8(), filter), options, out);
+  }
+};
+
+TEST_F(TestTakeKernelWithChunkedArray, TakeChunkedArray) {
+  this->AssertTake(int8(), {"[]"}, "[]", {"[]"});
+  this->AssertChunkedTake(int8(), {"[]"}, {"[]"}, {"[]"});
+
+  this->AssertTake(int8(), {"[7]", "[8, 9]"}, "[0, 1, 0, 2]", {"[7, 8, 7, 9]"});
+  this->AssertChunkedTake(int8(), {"[7]", "[8, 9]"}, {"[0, 1, 0]", "[]", "[2]"}, {"[7, 8, 7]", "[]", "[9]"});
+  this->AssertTake(int8(), {"[7]", "[8, 9]"}, "[2, 1]", {"[9, 8]"});
+
+  std::shared_ptr<ChunkedArray> arr;
+  ASSERT_RAISES(IndexError, this->TakeWithArray(int8(), {"[7]", "[8, 9]"}, "[0, 5]", &arr));
+  ASSERT_RAISES(IndexError, this->TakeWithChunkedArray(int8(), {"[7]", "[8, 9]"}, {"[0, 1, 0]", "[5, 1]"}, &arr));
+}
+
+// TODO (npr): add tests for:
+// * Take(Table, Array)
+// * Take(Table, ChunkedArray)
+
 }  // namespace compute
 }  // namespace arrow

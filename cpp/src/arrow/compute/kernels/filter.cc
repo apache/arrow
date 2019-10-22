@@ -166,6 +166,9 @@ Status Filter(FunctionContext* ctx, const RecordBatch& batch, const Array& filte
 
 Status Filter(FunctionContext* ctx, const ChunkedArray& values, const Array& filter,
               std::shared_ptr<ChunkedArray>* out) {
+  if (values.length() != filter.length()) {
+    return Status::Invalid("filter and value array must have identical lengths");
+  }
   auto num_chunks = values.num_chunks();
   std::vector<std::shared_ptr<arrow::Array>> new_chunks(num_chunks);
   std::shared_ptr<arrow::Array> current_chunk;
@@ -185,6 +188,9 @@ Status Filter(FunctionContext* ctx, const ChunkedArray& values, const Array& fil
 
 Status Filter(FunctionContext* ctx, const ChunkedArray& values, const ChunkedArray& filter,
               std::shared_ptr<ChunkedArray>* out) {
+  if (values.length() != filter.length()) {
+    return Status::Invalid("filter and value array must have identical lengths");
+  }
   auto num_chunks = values.num_chunks();
   std::vector<std::shared_ptr<arrow::Array>> new_chunks(num_chunks);
   std::shared_ptr<arrow::Array> current_chunk;
@@ -196,16 +202,21 @@ Status Filter(FunctionContext* ctx, const ChunkedArray& values, const ChunkedArr
   for (int i = 0; i < num_chunks; i++) {
     current_chunk = values.chunk(i);
     len = current_chunk->length();
-    current_chunked_filter = filter.Slice(offset, len);
-    if (current_chunked_filter->num_chunks() == 1) {
-      current_filter = current_chunked_filter->chunk(0);
+    if (len > 0) {
+      current_chunked_filter = filter.Slice(offset, len);
+      if (current_chunked_filter->num_chunks() == 1) {
+        current_filter = current_chunked_filter->chunk(0);
+      } else {
+        // Concatenate the chunks of the filter so we have an Array
+        RETURN_NOT_OK(Concatenate(current_chunked_filter->chunks(),
+                                          default_memory_pool(), &current_filter));
+      }
+      RETURN_NOT_OK(Filter(ctx, *current_chunk, *current_filter, &new_chunks[i]));
+      offset += len;
     } else {
-      // Concatenate the chunks of the filter so we have an Array
-      RETURN_NOT_OK(Concatenate(current_chunked_filter->chunks(),
-                                        default_memory_pool(), &current_filter));
+      // Put a zero length array there, which we know our current chunk to be
+      new_chunks[i] = current_chunk;
     }
-    RETURN_NOT_OK(Filter(ctx, *current_chunk, *current_filter, &new_chunks[i]));
-    offset += len;
   }
 
   *out = std::make_shared<arrow::ChunkedArray>(std::move(new_chunks));

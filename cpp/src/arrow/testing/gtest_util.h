@@ -271,6 +271,12 @@ void ArrayFromVector(const std::vector<C_TYPE>& values, std::shared_ptr<Array>* 
   ArrayFromVector<TYPE, C_TYPE>(type, values, out);
 }
 
+// ChunkedArrayFromJSON: construct an ChunkedArray from a simple JSON representation
+
+ARROW_EXPORT
+std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataType>&,
+                                                   const std::vector<std::string>& json);
+
 // ChunkedArrayFromVector: construct a ChunkedArray from vectors of C values
 
 template <typename TYPE, typename C_TYPE = typename TYPE::c_type>

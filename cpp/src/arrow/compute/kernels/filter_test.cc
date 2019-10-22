@@ -518,12 +518,59 @@ TEST_F(TestFilterKernelWithRecordBatch, FilterRecordBatch) {
   ])");
 }
 
+class TestFilterKernelWithChunkedArray : public TestFilterKernel<ChunkedArray> {
+ public:
+  void AssertFilter(const std::shared_ptr<DataType>& type,
+                    const std::vector<std::string>& values,
+                    const std::string& filter, const std::vector<std::string>& expected) {
+    std::shared_ptr<ChunkedArray> actual;
+    ASSERT_OK(this->FilterWithArray(type, values, filter, &actual));
+    ASSERT_OK(actual->Validate());
+    AssertChunkedEqual(*ChunkedArrayFromJSON(type, expected), *actual);
+  }
+
+  void AssertChunkedFilter(const std::shared_ptr<DataType>& type,
+                           const std::vector<std::string>& values,
+                           const std::vector<std::string>& filter,
+                           const std::vector<std::string>& expected) {
+    std::shared_ptr<ChunkedArray> actual;
+    ASSERT_OK(this->FilterWithChunkedArray(type, values, filter, &actual));
+    ASSERT_OK(actual->Validate());
+    AssertChunkedEqual(*ChunkedArrayFromJSON(type, expected), *actual);
+  }
+
+  Status FilterWithArray(const std::shared_ptr<DataType>& type,
+                         const std::vector<std::string>& values,
+                         const std::string& filter, std::shared_ptr<ChunkedArray>* out) {
+    return arrow::compute::Filter(&this->ctx_, *ChunkedArrayFromJSON(type, values),
+                                  *ArrayFromJSON(boolean(), filter), out);
+  }
+
+  Status FilterWithChunkedArray(const std::shared_ptr<DataType>& type,
+                                const std::vector<std::string>& values,
+                                const std::vector<std::string>& filter,
+                                std::shared_ptr<ChunkedArray>* out) {
+    return arrow::compute::Filter(&this->ctx_, *ChunkedArrayFromJSON(type, values),
+                                  *ChunkedArrayFromJSON(boolean(), filter), out);
+  }
+};
+
+TEST_F(TestFilterKernelWithChunkedArray, FilterChunkedArray) {
+  this->AssertFilter(int8(), {"[]"}, "[]", {"[]"});
+  this->AssertChunkedFilter(int8(), {"[]"}, {"[]"}, {"[]"});
+
+  this->AssertFilter(int8(), {"[7]", "[8, 9]"}, "[0, 1, 0]", {"[]", "[8]"});
+  this->AssertChunkedFilter(int8(), {"[7]", "[8, 9]"}, {"[0]", "[1, 0]"}, {"[]", "[8]"});
+  this->AssertChunkedFilter(int8(), {"[7]", "[8, 9]"}, {"[0, 1]", "[0]"}, {"[8]", "[]"});
+
+  std::shared_ptr<ChunkedArray> arr;
+  ASSERT_RAISES(Invalid, this->FilterWithArray(int8(), {"[7]", "[8, 9]"}, "[0, 1, 0, 1, 1]", &arr));
+  ASSERT_RAISES(Invalid, this->FilterWithChunkedArray(int8(), {"[7]", "[8, 9]"}, {"[0, 1, 0]", "[1, 1]"}, &arr));
+}
+
 // TODO (npr): add tests for:
-// * Filter(ChunkedArray, Array)
-// * Filter(ChunkedArray, ChunkedArray)
 // * Filter(Table, Array)
 // * Filter(Table, ChunkedArray)
-// See cast_test.cc for test setup with chunked arrays
 
 }  // namespace compute
 }  // namespace arrow
