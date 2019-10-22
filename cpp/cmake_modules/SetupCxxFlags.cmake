@@ -138,19 +138,7 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     # https://docs.microsoft.com/en-us/cpp/error-messages/compiler-warnings/compiler-warnings-by-compiler-version
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /W3 /wd4365 /wd4267 /wd4838")
   elseif("${COMPILER_FAMILY}" STREQUAL "clang")
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything -Wdocumentation \
--Wno-c++98-compat \
--Wno-c++98-compat-pedantic -Wno-deprecated -Wno-weak-vtables -Wno-padded \
--Wno-comma -Wno-unused-macros -Wno-unused-parameter -Wno-unused-template -Wno-undef \
--Wno-shadow -Wno-switch-enum -Wno-exit-time-destructors \
--Wno-global-constructors -Wno-weak-template-vtables -Wno-undefined-reinterpret-cast \
--Wno-implicit-fallthrough -Wno-unreachable-code -Wno-unreachable-code-return \
--Wno-float-equal -Wno-missing-prototypes -Wno-documentation-unknown-command \
--Wno-old-style-cast -Wno-covered-switch-default \
--Wno-cast-align -Wno-vla-extension -Wno-shift-sign-overflow \
--Wno-used-but-marked-unused -Wno-missing-variable-declarations \
--Wno-gnu-zero-variadic-macro-arguments -Wno-conversion -Wno-sign-conversion \
--Wno-disabled-macro-expansion -Wno-format-nonliteral -Wno-missing-noreturn")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything -Wdocumentation")
 
     # Version numbers where warnings are introduced
     if("${COMPILER_VERSION}" VERSION_GREATER "3.3")
@@ -256,6 +244,24 @@ if("${COMPILER_FAMILY}" STREQUAL "clang")
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unknown-warning-option")
   # Add colors when paired with ninja
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcolor-diagnostics")
+
+  # Avoid all kinds of annoying warnings
+  set(_clang_flags "\
+    -Wno-c++98-compat \
+    -Wno-c++98-compat-pedantic -Wno-deprecated -Wno-weak-vtables -Wno-padded \
+    -Wno-comma -Wno-unused-macros -Wno-unused-parameter -Wno-unused-template -Wno-undef \
+    -Wno-shadow -Wno-switch-enum -Wno-exit-time-destructors \
+    -Wno-global-constructors -Wno-weak-template-vtables -Wno-undefined-reinterpret-cast \
+    -Wno-implicit-fallthrough -Wno-unreachable-code -Wno-unreachable-code-return \
+    -Wno-float-equal -Wno-missing-prototypes -Wno-documentation-unknown-command \
+    -Wno-old-style-cast -Wno-covered-switch-default \
+    -Wno-cast-align -Wno-vla-extension -Wno-shift-sign-overflow \
+    -Wno-used-but-marked-unused -Wno-missing-variable-declarations \
+    -Wno-gnu-zero-variadic-macro-arguments -Wno-conversion -Wno-sign-conversion \
+    -Wno-disabled-macro-expansion -Wno-format-nonliteral -Wno-missing-noreturn")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${_clang_flags}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${_clang_flags}")
+
 endif()
 
 # if build warning flags is set, add to CXX_COMMON_FLAGS
