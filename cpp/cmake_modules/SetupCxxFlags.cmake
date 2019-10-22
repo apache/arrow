@@ -100,9 +100,8 @@ endif()
 # BUILD_WARNING_LEVEL add warning/error compiler flags. The possible values are
 # - PRODUCTION: Build with `-Wall` but do not add `-Werror`, so warnings do not
 #   halt the build.
-# - CHECKIN: Imply `-Weverything` with certain pedantic warnings
-#   disabled. `-Werror` is added in debug builds so that any warnings fail the
-#   build
+# - CHECKIN: Build with `-Wall` and `-Wextra`.  Also, add `-Werror` in debug mode
+#   so that any important warnings fail the build.
 # - EVERYTHING: Like `CHECKIN`, but possible extra flags depending on the
 #               compiler, including `-Wextra`, `-Weverything`, `-pedantic`.
 #               This is the most aggressive warning level.
@@ -138,7 +137,7 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     # https://docs.microsoft.com/en-us/cpp/error-messages/compiler-warnings/compiler-warnings-by-compiler-version
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /W3 /wd4365 /wd4267 /wd4838")
   elseif("${COMPILER_FAMILY}" STREQUAL "clang")
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything -Wdocumentation \
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall -Wextra -Wdocumentation \
 -Wno-c++98-compat \
 -Wno-c++98-compat-pedantic -Wno-deprecated -Wno-weak-vtables -Wno-padded \
 -Wno-comma -Wno-unused-macros -Wno-unused-parameter -Wno-unused-template -Wno-undef \
