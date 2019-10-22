@@ -50,6 +50,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_lint.sh
     - $TRAVIS_BUILD_DIR/ci/travis_release_test.sh
 
+  # -------------------------------------------------------------------------
   - name: "C++ unit tests w/ conda-forge toolchain, coverage"
     compiler: gcc
     language: cpp
@@ -230,7 +231,8 @@ matrix:
     env:
     - ARROW_TRAVIS_FLIGHT=1
     - ARROW_TRAVIS_GANDIVA=1
-    - ARROW_TRAVIS_ORC=1
+    # Disabled until either ORC-480 or ORC-561 is fixed
+    - ARROW_TRAVIS_ORC=0
     - ARROW_TRAVIS_PARQUET=1
     - ARROW_TRAVIS_PLASMA=1
     - ARROW_TRAVIS_PYTHON=1
