@@ -119,7 +119,8 @@ class ARROW_EXPORT ThreadPool {
     // Trying to templatize std::packaged_task with Function doesn't seem
     // to work, so go through std::bind to simplify the packaged signature
     using PackagedTask = std::packaged_task<Result()>;
-    auto task = PackagedTask(std::bind(std::forward<Function>(func), args...));
+    auto task = PackagedTask(
+        std::bind(std::forward<Function>(func), std::forward<Args>(args)...));
     auto fut = task.get_future();
 
     Status st = SpawnReal(detail::packaged_task_wrapper<Result>(std::move(task)));
