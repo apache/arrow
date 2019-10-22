@@ -88,6 +88,8 @@ garrow_type_from_raw(arrow::Type::type type)
     return GARROW_TYPE_DECIMAL;
   case arrow::Type::type::LIST:
     return GARROW_TYPE_LIST;
+  case arrow::Type::type::LARGE_LIST:
+    return GARROW_TYPE_LARGE_LIST;
   case arrow::Type::type::STRUCT:
     return GARROW_TYPE_STRUCT;
   case arrow::Type::type::UNION:

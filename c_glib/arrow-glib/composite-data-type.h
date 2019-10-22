@@ -46,6 +46,23 @@ GARROW_AVAILABLE_IN_0_13
 GArrowField *garrow_list_data_type_get_field (GArrowListDataType *list_data_type);
 
 
+#define GARROW_TYPE_LARGE_LIST_DATA_TYPE (garrow_large_list_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowLargeListDataType,
+                         garrow_large_list_data_type,
+                         GARROW,
+                         LARGE_LIST_DATA_TYPE,
+                         GArrowDataType)
+struct _GArrowLargeListDataTypeClass
+{
+  GArrowDataTypeClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_1_0
+GArrowLargeListDataType *garrow_large_list_data_type_new(GArrowField *field);
+GARROW_AVAILABLE_IN_1_0
+GArrowField *garrow_large_list_data_type_get_field(GArrowLargeListDataType *large_list_data_type);
+
+
 #define GARROW_TYPE_STRUCT_DATA_TYPE (garrow_struct_data_type_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowStructDataType,
                          garrow_struct_data_type,

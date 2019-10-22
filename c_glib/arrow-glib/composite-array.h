@@ -49,6 +49,32 @@ GArrowArray *garrow_list_array_get_value(GArrowListArray *array,
                                          gint64 i);
 
 
+#define GARROW_TYPE_LARGE_LIST_ARRAY (garrow_large_list_array_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowLargeListArray,
+                         garrow_large_list_array,
+                         GARROW,
+                         LARGE_LIST_ARRAY,
+                         GArrowArray)
+struct _GArrowLargeListArrayClass
+{
+  GArrowArrayClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_1_0
+GArrowLargeListArray *garrow_large_list_array_new(GArrowDataType *data_type,
+                                                  gint64 length,
+                                                  GArrowBuffer *value_offsets,
+                                                  GArrowArray *values,
+                                                  GArrowBuffer *null_bitmap,
+                                                  gint64 n_nulls);
+
+GARROW_AVAILABLE_IN_1_0
+GArrowDataType *garrow_large_list_array_get_value_type(GArrowLargeListArray *array);
+GARROW_AVAILABLE_IN_1_0
+GArrowArray *garrow_large_list_array_get_value(GArrowLargeListArray *array,
+                                               gint64 i);
+
+
 #define GARROW_TYPE_STRUCT_ARRAY (garrow_struct_array_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowStructArray,
                          garrow_struct_array,
