@@ -384,11 +384,10 @@ Status ReadAbortReply(uint8_t* data, size_t size, ObjectID* object_id) {
 
 // Seal messages.
 
-Status SendSealRequest(int sock, ObjectID object_id, unsigned char* digest) {
+Status SendSealRequest(int sock, ObjectID object_id, const std::string& digest) {
   flatbuffers::FlatBufferBuilder fbb;
-  auto digest_string = fbb.CreateString(reinterpret_cast<char*>(digest), kDigestSize);
   auto message = fb::CreatePlasmaSealRequest(fbb, fbb.CreateString(object_id.binary()),
-                                             digest_string);
+                                             fbb.CreateString(digest));
   return PlasmaSend(sock, MessageType::PlasmaSealRequest, &fbb, message);
 }
 
