@@ -35,6 +35,8 @@
 namespace arrow {
 namespace dataset {
 
+using E = TestExpression;
+
 class TestPartitionScheme : public ::testing::Test {
  public:
   void AssertParseError(const std::string& path) {
@@ -42,13 +44,8 @@ class TestPartitionScheme : public ::testing::Test {
   }
 
   void AssertParse(const std::string& path, std::shared_ptr<Expression> expected) {
-    for (std::string suffix : {"", "/dat.parquet"}) {
-      ASSERT_OK_AND_ASSIGN(auto parsed, scheme_->Parse(path + suffix));
-
-      ASSERT_NE(parsed, nullptr);
-      ASSERT_TRUE(parsed->Equals(*expected)) << parsed->ToString() << "\n"
-                                             << expected->ToString();
-    }
+    ASSERT_OK_AND_ASSIGN(auto parsed, scheme_->Parse(path));
+    ASSERT_EQ(E{parsed}, E{expected});
   }
 
   void AssertParse(const std::string& path, const Expression& expected) {
@@ -70,11 +67,11 @@ TEST_F(TestPartitionScheme, Schema) {
       schema({field("alpha", int32()), field("beta", utf8())}));
 
   AssertParse("/0/hello", "alpha"_ == int32_t(0) and "beta"_ == "hello");
-  AssertParseError("/world/0");  // reversed order
-  AssertParseError("/3");        // valid alpha, but missing beta
-  AssertParseError("/0.0/foo");  // invalid alpha
-  AssertParseError("/3.25");     // invalid alpha with missing beta
-  AssertParseError("");          // no segments to parse
+  AssertParse("/3", "alpha"_ == int32_t(3));
+  AssertParseError("/world/0");   // reversed order
+  AssertParseError("/0.0/foo");   // invalid alpha
+  AssertParseError("/3.25");      // invalid alpha with missing beta
+  AssertParse("", scalar(true));  // no segments to parse
 
   // gotcha someday:
   AssertParse("/0/dat.parquet", "alpha"_ == int32_t(0) and "beta"_ == "dat.parquet");

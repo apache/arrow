@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/compute/context.h"
+#include "arrow/dataset/dataset.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/memory_pool.h"
@@ -38,6 +39,8 @@ struct ARROW_DS_EXPORT ScanContext {
   MemoryPool* pool = arrow::default_memory_pool();
 };
 
+class RecordBatchProjector;
+
 class ARROW_DS_EXPORT ScanOptions {
  public:
   virtual ~ScanOptions() = default;
@@ -46,16 +49,13 @@ class ARROW_DS_EXPORT ScanOptions {
 
   // Filter
   std::shared_ptr<Expression> filter;
-
   // Evaluator for Filter
   std::shared_ptr<ExpressionEvaluator> evaluator;
 
-  // Schema to which record batches will be projected
+  // Schema to which record batches will be reconciled
   std::shared_ptr<Schema> schema;
-
-  std::vector<std::shared_ptr<FileScanOptions>> options;
-
-  bool include_partition_keys = true;
+  // Projector for reconciling the final RecordBatch to the requested schema.
+  std::shared_ptr<RecordBatchProjector> projector;
 
  private:
   ScanOptions();
@@ -95,6 +95,9 @@ class ARROW_DS_EXPORT SimpleScanTask : public ScanTask {
   std::shared_ptr<ScanContext> context_;
 };
 
+Status ScanTaskIteratorFromRecordBatch(std::vector<std::shared_ptr<RecordBatch>> batches,
+                                       ScanTaskIterator* out);
+
 /// \brief Scanner is a materialized scan operation with context and options
 /// bound. A scanner is the class that glues ScanTask, DataFragment,
 /// and DataSource. In python pseudo code, it performs the following:
@@ -117,7 +120,7 @@ class ARROW_DS_EXPORT Scanner {
   ///
   /// Use this convenience utility with care. This will serially materialize the
   /// Scan result in memory before creating the Table.
-  static Status ToTable(std::shared_ptr<Scanner> scanner, std::shared_ptr<Table>* out);
+  Status ToTable(std::shared_ptr<Table>* out);
 };
 
 /// \brief SimpleScanner is a trivial Scanner implementation that flattens
@@ -150,33 +153,51 @@ class ARROW_DS_EXPORT SimpleScanner : public Scanner {
   std::shared_ptr<ScanContext> context_;
 };
 
+/// \brief ScannerBuilder is a factory class to construct a Scanner. It is used
+/// to pass information, notably a potential filter expression and a subset of
+/// columns to materialize.
 class ARROW_DS_EXPORT ScannerBuilder {
  public:
   ScannerBuilder(std::shared_ptr<Dataset> dataset,
                  std::shared_ptr<ScanContext> scan_context);
 
-  /// \brief Set
-  ScannerBuilder* Project(const std::vector<std::string>& columns);
+  /// \brief Set the subset of columns to materialize.
+  ///
+  /// This subset wil be passed down to DataSources and corresponding DataFragments.
+  /// The goal is to avoid loading/copying/deserializing columns that will
+  /// not be required further down the compute chain.
+  ///
+  /// \param[in] columns list of columns to project. Order and duplicates will
+  ///            be preserved.
+  ///
+  /// \return Failure if any column name does not exists in the dataset's
+  ///         Schema.
+  Status Project(const std::vector<std::string>& columns);
 
-  ScannerBuilder* Filter(std::shared_ptr<Expression> filter);
-  ScannerBuilder* Filter(const Expression& filter);
-
-  ScannerBuilder* FilterEvaluator(std::shared_ptr<ExpressionEvaluator> evaluator);
-
-  ScannerBuilder* SetGlobalFileOptions(std::shared_ptr<FileScanOptions> options);
-
-  /// \brief If true (default), add partition keys to the
-  /// RecordBatches that the scan produces if they are not in the data
-  /// otherwise
-  ScannerBuilder* IncludePartitionKeys(bool include = true);
+  /// \brief Set the filter expression to return only rows matching the filter.
+  ///
+  /// The predicate will be passed down to DataSources and corresponding
+  /// DataFragments to exploit predicate pushdown if possible using
+  /// partition information or DataFragment internal metadata, e.g. Parquet statistics.
+  /// statistics.
+  ///
+  /// \param[in] filter expression to filter rows with.
+  ///
+  /// \return Failure if any referenced columns does not exist in the dataset's
+  ///         Schema.
+  Status Filter(std::shared_ptr<Expression> filter);
+  Status Filter(const Expression& filter);
 
   /// \brief Return the constructed now-immutable Scanner object
   Status Finish(std::unique_ptr<Scanner>* out) const;
+
+  std::shared_ptr<Schema> schema() const { return dataset_->schema(); }
 
  private:
   std::shared_ptr<Dataset> dataset_;
   std::shared_ptr<ScanOptions> scan_options_;
   std::shared_ptr<ScanContext> scan_context_;
+  bool has_projection_ = false;
   std::vector<std::string> project_columns_;
 };
 

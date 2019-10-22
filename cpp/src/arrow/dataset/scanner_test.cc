@@ -97,8 +97,7 @@ TEST_F(TestSimpleScanner, FilteredScan) {
   const int64_t total_batches = sources.size() * kNumberBatches * kNumberFragments;
   auto reader = ConstantArrayGenerator::Repeat(total_batches, batch_filtered);
 
-  compute::FunctionContext ctx;
-  options_->evaluator = std::make_shared<TreeEvaluator>(&ctx);
+  options_->evaluator = std::make_shared<TreeEvaluator>(default_memory_pool());
   SimpleScanner scanner{sources, options_, ctx_};
 
   // Verifies that the unified BatchReader is equivalent to flattening all the
@@ -126,9 +125,53 @@ TEST_F(TestSimpleScanner, ToTable) {
 
   auto scanner = std::make_shared<SimpleScanner>(sources, options_, ctx_);
   std::shared_ptr<Table> actual;
-  ASSERT_OK(Scanner::ToTable(scanner, &actual));
+  ASSERT_OK(scanner->ToTable(&actual));
 
   AssertTablesEqual(*expected, *actual);
+}
+
+class TestScannerBuilder : public ::testing::Test {
+  void SetUp() {
+    std::vector<std::shared_ptr<DataSource>> sources;
+
+    schema_ = schema({
+        field("b", boolean()),
+        field("i8", int8()),
+        field("i16", int16()),
+        field("i32", int16()),
+        field("i64", int16()),
+    });
+    dataset_ = std::make_shared<Dataset>(sources, schema_);
+  }
+
+ protected:
+  std::shared_ptr<ScanContext> ctx_;
+  std::shared_ptr<Schema> schema_;
+  std::shared_ptr<Dataset> dataset_;
+};
+
+TEST_F(TestScannerBuilder, TestProject) {
+  ScannerBuilder builder(dataset_, ctx_);
+
+  // It is valid to request no columns, e.g. `SELECT 1 FROM t WHERE t.a > 0`.
+  // still needs to touch the `a` column.
+  ASSERT_OK(builder.Project({}));
+  ASSERT_OK(builder.Project({"i64", "b", "i8"}));
+  ASSERT_OK(builder.Project({"i16", "i16"}));
+
+  ASSERT_RAISES(Invalid, builder.Project({"not_found_column"}));
+  ASSERT_RAISES(Invalid, builder.Project({"i8", "not_found_column"}));
+}
+
+TEST_F(TestScannerBuilder, TestFilter) {
+  ScannerBuilder builder(dataset_, ctx_);
+
+  ASSERT_OK(builder.Filter(scalar(true)));
+  ASSERT_OK(builder.Filter("i64"_ == 10));
+  ASSERT_OK(builder.Filter("i64"_ == 10 || "b"_ == true));
+
+  ASSERT_RAISES(Invalid, builder.Filter("not_a_column"_ == true));
+  ASSERT_RAISES(Invalid, builder.Filter("i64"_ == 10 || "not_a_column"_ == true));
 }
 
 }  // namespace dataset

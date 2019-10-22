@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/compare.h"
 #include "arrow/dataset/type_fwd.h"
@@ -373,17 +374,23 @@ auto scalar(T&& value) -> decltype(scalar(MakeScalar(std::forward<T>(value)))) {
   return scalar(MakeScalar(std::forward<T>(value)));
 }
 
-#define COMPARISON_FACTORY(NAME, FACTORY_NAME, OP)                                      \
-  inline std::shared_ptr<ComparisonExpression> FACTORY_NAME(                            \
-      const std::shared_ptr<Expression>& lhs, const std::shared_ptr<Expression>& rhs) { \
-    return std::make_shared<ComparisonExpression>(compute::CompareOperator::NAME, lhs,  \
-                                                  rhs);                                 \
-  }                                                                                     \
-                                                                                        \
-  template <typename T>                                                                 \
-  ComparisonExpression operator OP(const Expression& lhs, T&& rhs) {                    \
-    return ComparisonExpression(compute::CompareOperator::NAME, lhs.Copy(),             \
-                                scalar(std::forward<T>(rhs)));                          \
+#define COMPARISON_FACTORY(NAME, FACTORY_NAME, OP)                                       \
+  inline std::shared_ptr<ComparisonExpression> FACTORY_NAME(                             \
+      const std::shared_ptr<Expression>& lhs, const std::shared_ptr<Expression>& rhs) {  \
+    return std::make_shared<ComparisonExpression>(compute::CompareOperator::NAME, lhs,   \
+                                                  rhs);                                  \
+  }                                                                                      \
+                                                                                         \
+  template <typename T, typename Enable = typename std::enable_if<!std::is_base_of<      \
+                            Expression, typename std::decay<T>::type>::value>::type>     \
+  ComparisonExpression operator OP(const Expression& lhs, T&& rhs) {                     \
+    return ComparisonExpression(compute::CompareOperator::NAME, lhs.Copy(),              \
+                                scalar(std::forward<T>(rhs)));                           \
+  }                                                                                      \
+                                                                                         \
+  inline ComparisonExpression operator OP(const Expression& lhs,                         \
+                                          const Expression& rhs) {                       \
+    return ComparisonExpression(compute::CompareOperator::NAME, lhs.Copy(), rhs.Copy()); \
   }
 COMPARISON_FACTORY(EQUAL, equal, ==)
 COMPARISON_FACTORY(NOT_EQUAL, not_equal, !=)
@@ -445,6 +452,12 @@ auto VisitExpression(const Expression& expr, Visitor&& visitor)
   return visitor(expr);
 }
 
+/// \brief Returns field names referenced in the expression.
+ARROW_DS_EXPORT std::vector<std::string> FieldsInExpression(const Expression& expr);
+
+ARROW_DS_EXPORT std::vector<std::string> FieldsInExpression(
+    const std::shared_ptr<Expression>& expr);
+
 /// Interface for evaluation of expressions against record batches.
 class ARROW_DS_EXPORT ExpressionEvaluator {
  public:
@@ -491,7 +504,7 @@ class ARROW_DS_EXPORT ExpressionEvaluator {
 /// filter record batches in depth first order
 class ARROW_DS_EXPORT TreeEvaluator : public ExpressionEvaluator {
  public:
-  explicit TreeEvaluator(compute::FunctionContext* ctx) : ctx_(ctx) {}
+  explicit TreeEvaluator(MemoryPool* pool) : pool_(pool) {}
 
   Result<compute::Datum> Evaluate(const Expression& expr,
                                   const RecordBatch& batch) const override;
@@ -525,7 +538,7 @@ class ARROW_DS_EXPORT TreeEvaluator : public ExpressionEvaluator {
 
  protected:
   struct Impl;
-  compute::FunctionContext* ctx_;
+  MemoryPool* pool_;
 };
 
 }  // namespace dataset

@@ -48,8 +48,7 @@ class FileSystemDataSourceDiscoveryTest : public TestFileSystemBasedDataSource {
 TEST_F(FileSystemDataSourceDiscoveryTest, Basic) {
   MakeDiscovery({fs::File("a"), fs::File("b")});
 
-  BuildOptions options;
-  ASSERT_OK(discovery_->Build(options, nullptr, &source_));
+  ASSERT_OK(discovery_->Finish(&source_));
   AssertFragmentsAreFromPath(source_->GetFragments(options_), {"a", "b"});
 }
 
@@ -59,8 +58,7 @@ TEST_F(FileSystemDataSourceDiscoveryTest, Selector) {
   selector.base_dir = "A";
   MakeDiscovery({fs::File("0"), fs::File("A/a")}, selector);
 
-  BuildOptions options;
-  ASSERT_OK(discovery_->Build(options, nullptr, &source_));
+  ASSERT_OK(discovery_->Finish(&source_));
   AssertFragmentsAreFromPath(source_->GetFragments(options_), {"A/a"});
 }
 

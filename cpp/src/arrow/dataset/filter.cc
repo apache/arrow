@@ -758,6 +758,46 @@ Result<std::shared_ptr<DataType>> FieldExpression::Validate(const Schema& schema
   return null();
 }
 
+struct AccumulateFieldsVisitor {
+  void operator()(const FieldExpression& expr) { fields.push_back(expr.name()); }
+
+  void operator()(const NotExpression& expr) { VisitExpression(*expr.operand(), *this); }
+
+  void operator()(const AndExpression& expr) {
+    VisitExpression(*expr.left_operand(), *this);
+    VisitExpression(*expr.right_operand(), *this);
+  }
+
+  void operator()(const OrExpression& expr) {
+    VisitExpression(*expr.left_operand(), *this);
+    VisitExpression(*expr.right_operand(), *this);
+  }
+
+  void operator()(const ComparisonExpression& expr) {
+    VisitExpression(*expr.left_operand(), *this);
+    VisitExpression(*expr.right_operand(), *this);
+  }
+
+  template <typename E>
+  void operator()(const E& expr) const {}
+
+  std::vector<std::string> fields;
+};
+
+std::vector<std::string> FieldsInExpression(const Expression& expr) {
+  AccumulateFieldsVisitor visitor;
+  VisitExpression(expr, visitor);
+  return visitor.fields;
+}
+
+std::vector<std::string> FieldsInExpression(const std::shared_ptr<Expression>& expr) {
+  if (expr == nullptr) {
+    return {};
+  }
+
+  return FieldsInExpression(*expr);
+}
+
 RecordBatchIterator ExpressionEvaluator::FilterBatches(
     RecordBatchIterator unfiltered, std::shared_ptr<Expression> filter) {
   auto filter_batches = [filter, this](const std::shared_ptr<RecordBatch>& unfiltered,
@@ -837,7 +877,8 @@ Result<Datum> TreeEvaluator::Evaluate(const NotExpression& expr,
 
   DCHECK(to_invert.is_array());
   Datum out;
-  RETURN_NOT_OK(arrow::compute::Invert(ctx_, to_invert, &out));
+  compute::FunctionContext ctx{pool_};
+  RETURN_NOT_OK(arrow::compute::Invert(&ctx, to_invert, &out));
   return std::move(out);
 }
 
@@ -852,7 +893,8 @@ Result<Datum> TreeEvaluator::Evaluate(const AndExpression& expr,
 
   if (lhs.is_array() && rhs.is_array()) {
     Datum out;
-    RETURN_NOT_OK(arrow::compute::And(ctx_, lhs, rhs, &out));
+    compute::FunctionContext ctx{pool_};
+    RETURN_NOT_OK(arrow::compute::And(&ctx, lhs, rhs, &out));
     return std::move(out);
   }
 
@@ -882,7 +924,8 @@ Result<Datum> TreeEvaluator::Evaluate(const OrExpression& expr,
 
   if (lhs.is_array() && rhs.is_array()) {
     Datum out;
-    RETURN_NOT_OK(arrow::compute::Or(ctx_, lhs, rhs, &out));
+    compute::FunctionContext ctx{pool_};
+    RETURN_NOT_OK(arrow::compute::Or(&ctx, lhs, rhs, &out));
     return std::move(out);
   }
 
@@ -913,7 +956,8 @@ Result<Datum> TreeEvaluator::Evaluate(const ComparisonExpression& expr,
   DCHECK(lhs.is_array());
 
   Datum out;
-  RETURN_NOT_OK(arrow::compute::Compare(ctx_, lhs, rhs,
+  compute::FunctionContext ctx{pool_};
+  RETURN_NOT_OK(arrow::compute::Compare(&ctx, lhs, rhs,
                                         arrow::compute::CompareOptions(expr.op()), &out));
   return std::move(out);
 }
@@ -923,7 +967,8 @@ Result<std::shared_ptr<RecordBatch>> TreeEvaluator::Filter(
   if (selection.is_array()) {
     auto selection_array = selection.make_array();
     std::shared_ptr<RecordBatch> filtered;
-    RETURN_NOT_OK(compute::Filter(ctx_, *batch, *selection_array, &filtered));
+    compute::FunctionContext ctx{pool_};
+    RETURN_NOT_OK(compute::Filter(&ctx, *batch, *selection_array, &filtered));
     return std::move(filtered);
   }
 

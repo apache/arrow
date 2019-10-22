@@ -233,6 +233,64 @@ Status DummyFileFormat::MakeFragment(const FileSource& source,
   return Status::OK();
 }
 
+class JSONRecordBatchFileFormat : public FileFormat {
+ public:
+  explicit JSONRecordBatchFileFormat(std::shared_ptr<Schema> schema)
+      : schema_(std::move(schema)) {}
+
+  std::string name() const override { return "json_record_batch"; }
+
+  /// \brief Return true if the given file extension
+  bool IsKnownExtension(const std::string& ext) const override { return ext == name(); }
+
+  Status Inspect(const FileSource& source, std::shared_ptr<Schema>* out) const override {
+    *out = schema_;
+    return Status::OK();
+  }
+
+  /// \brief Open a file for scanning (always returns an empty iterator)
+  Status ScanFile(const FileSource& source, std::shared_ptr<ScanOptions> scan_options,
+                  std::shared_ptr<ScanContext> scan_context,
+                  ScanTaskIterator* out) const override {
+    std::shared_ptr<io::RandomAccessFile> file;
+    RETURN_NOT_OK(source.Open(&file));
+
+    int64_t size;
+    RETURN_NOT_OK(file->GetSize(&size));
+
+    std::shared_ptr<Buffer> buffer;
+    RETURN_NOT_OK(file->Read(size, &buffer));
+
+    util::string_view view{*buffer};
+    std::shared_ptr<RecordBatch> batch = RecordBatchFromJSON(schema_, view);
+    return ScanTaskIteratorFromRecordBatch({batch}, out);
+  }
+
+  inline Status MakeFragment(const FileSource& location,
+                             std::shared_ptr<ScanOptions> opts,
+                             std::unique_ptr<DataFragment>* out) override;
+
+ protected:
+  std::shared_ptr<Schema> schema_;
+};
+
+class JSONRecordBatchFragment : public FileBasedDataFragment {
+ public:
+  JSONRecordBatchFragment(const FileSource& source, std::shared_ptr<Schema> schema,
+                          std::shared_ptr<ScanOptions> options)
+      : FileBasedDataFragment(source, std::make_shared<JSONRecordBatchFileFormat>(schema),
+                              options) {}
+
+  bool splittable() const override { return false; }
+};
+
+Status JSONRecordBatchFileFormat::MakeFragment(const FileSource& source,
+                                               std::shared_ptr<ScanOptions> opts,
+                                               std::unique_ptr<DataFragment>* out) {
+  *out = internal::make_unique<JSONRecordBatchFragment>(source, schema_, opts);
+  return Status::OK();
+}
+
 class TestFileSystemBasedDataSource : public ::testing::Test {
  public:
   void MakeFileSystem(const std::vector<fs::FileStats>& stats) {
@@ -277,6 +335,24 @@ void AssertFragmentsAreFromPath(DataFragmentIterator it,
   // Ordering is not guaranteed.
   EXPECT_THAT(actual, testing::UnorderedElementsAreArray(expected));
 }
+
+// A frozen shared_ptr<Expression> with behavior expected by GTest
+struct TestExpression : util::EqualityComparable<TestExpression>,
+                        util::ToStringOstreamable<TestExpression> {
+  // NOLINTNEXTLINE runtime/explicit
+  TestExpression(std::shared_ptr<Expression> e) : expression(std::move(e)) {}
+
+  // NOLINTNEXTLINE runtime/explicit
+  TestExpression(const Expression& e) : expression(e.Copy()) {}
+
+  std::shared_ptr<Expression> expression;
+
+  bool Equals(const TestExpression& other) const {
+    return expression->Equals(other.expression);
+  }
+
+  std::string ToString() const { return expression->ToString(); }
+};
 
 }  // namespace dataset
 }  // namespace arrow

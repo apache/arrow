@@ -25,6 +25,7 @@
 
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/file_base.h"
+#include "arrow/dataset/partition.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/filesystem/path_tree.h"
 #include "arrow/status.h"
@@ -80,11 +81,15 @@ Status FileSystemDataSourceDiscovery::Inspect(std::shared_ptr<Schema>* out) {
   return InspectSchema(fs_, files_, format_, out);
 }
 
-Status FileSystemDataSourceDiscovery::Build(const BuildOptions& options,
-                                            std::shared_ptr<Expression> source_partition,
-                                            std::shared_ptr<DataSource>* out) {
-  return FileSystemBasedDataSource::Make(fs_, files_, std::move(source_partition),
-                                         PathPartitions{}, format_, out);
+Status FileSystemDataSourceDiscovery::Finish(std::shared_ptr<DataSource>* out) {
+  PathPartitions partitions;
+
+  if (partition_scheme_ != nullptr) {
+    RETURN_NOT_OK(ApplyPartitionScheme(*partition_scheme_, files_, &partitions));
+  }
+
+  return FileSystemBasedDataSource::Make(fs_, files_, root_partition(),
+                                         std::move(partitions), format_, out);
 }
 
 }  // namespace dataset
