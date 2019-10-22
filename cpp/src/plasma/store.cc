@@ -1071,11 +1071,7 @@ Status PlasmaStore::ProcessMessage(Client* client) {
     case fb::MessageType::PlasmaSealRequest: {
       std::string digest;
       RETURN_NOT_OK(ReadSealRequest(input, input_size, &object_id, &digest));
-      std::vector<ObjectID> object_ids;
-      object_ids.push_back(object_id);
-      std::vector<std::string> digests;
-      digests.push_back(digest);
-      SealObjects(object_ids, digests);
+      SealObjects({object_id}, {digest});
     } break;
     case fb::MessageType::PlasmaEvictRequest: {
       // This code path should only be used for testing.
