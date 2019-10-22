@@ -970,11 +970,7 @@ Status PlasmaStore::ProcessMessage(Client* client) {
         // Write the inlined data and metadata into the allocated object.
         std::memcpy(entry->pointer, data.data(), data.size());
         std::memcpy(entry->pointer + data.size(), metadata.data(), metadata.size());
-        std::vector<ObjectID> object_ids;
-        object_ids.push_back(object_id);
-        std::vector<std::string> digests;
-        digests.push_back(digest);
-        SealObjects(object_ids, digests);
+        SealObjects({object_id}, {digest});
         // Remove the client from the object's array of clients because the
         // object is not being used by any client. The client was added to the
         // object's array of clients in CreateObject. This is analogous to the
