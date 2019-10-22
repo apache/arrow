@@ -276,6 +276,9 @@ TEST(TestStringOps, TestLower) {
   EXPECT_EQ(std::string(out_str, out_len), "Ç††abd");
   EXPECT_FALSE(ctx.has_error());
 
+  out_str = lower_utf8(ctx_ptr, "", 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
 }
 
 }  // namespace gandiva
