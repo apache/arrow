@@ -860,8 +860,8 @@ Status PlasmaClient::Impl::Seal(const ObjectID& object_id) {
   /// Send the seal request to Plasma.
   std::vector<uint8_t> digest(kDigestSize);
   RETURN_NOT_OK(Hash(object_id, &digest[0]));
-  RETURN_NOT_OK(SendSealRequest(
-    store_conn_, object_id, std::string(digest.begin(), digest.end())));
+  RETURN_NOT_OK(
+    SendSealRequest(store_conn_, object_id, std::string(digest.begin(), digest.end())));
   // We call PlasmaClient::Release to decrement the number of instances of this
   // object
   // that are currently being used by this client. The corresponding increment
