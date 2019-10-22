@@ -151,3 +151,21 @@ def total_allocated_bytes():
     """
     cdef CMemoryPool* pool = c_get_memory_pool()
     return pool.bytes_allocated()
+
+
+def jemalloc_set_decay_ms(decay_ms):
+    """
+    Set arenas.dirty_decay_ms and arenas.muzzy_decay_ms to indicated number of
+    milliseconds. A value of 0 (the default) results in dirty / muzzy memory
+    pages being released right away to the OS, while a higher value will result
+    in a time-based decay. See the jemalloc docs for more information
+
+    It's best to set this at the start of your application.
+
+    Parameters
+    ----------
+    decay_ms : int
+        Number of milliseconds to set for jemalloc decay conf parameters. Note
+        that this change will only affect future memory arenas
+    """
+    check_status(c_jemalloc_set_decay_ms(decay_ms))

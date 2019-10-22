@@ -143,4 +143,14 @@ TEST(ProxyMemoryPool, Logging) {
   ASSERT_EQ(0, pool->bytes_allocated());
   ASSERT_EQ(0, pp.bytes_allocated());
 }
+
+TEST(Jemalloc, SetDirtyPageDecayMillis) {
+  // ARROW-6910
+#ifdef ARROW_JEMALLOC
+  ASSERT_OK(jemalloc_set_decay_ms(0));
+#else
+  ASSERT_RAISES(Invalid, jemalloc_set_decay_ms(0));
+#endif
+}
+
 }  // namespace arrow
