@@ -100,8 +100,8 @@ endif()
 # BUILD_WARNING_LEVEL add warning/error compiler flags. The possible values are
 # - PRODUCTION: Build with `-Wall` but do not add `-Werror`, so warnings do not
 #   halt the build.
-# - CHECKIN: Build with `-Wall` (and `-Werror` in debug mode so that any
-#   important warnings fail the build)
+# - CHECKIN: Build with `-Wall` and `-Wextra`.  Also, add `-Werror` in debug mode
+#   so that any important warnings fail the build.
 # - EVERYTHING: Like `CHECKIN`, but possible extra flags depending on the
 #               compiler, including `-Wextra`, `-Weverything`, `-pedantic`.
 #               This is the most aggressive warning level.
