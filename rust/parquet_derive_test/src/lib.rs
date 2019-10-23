@@ -100,7 +100,7 @@ mod tests {
         let chunks = &drs[..];
 
         let mut row_group = writer.next_row_group().unwrap();
-        chunks.write_to_row_group(&mut row_group);
+        chunks.write_to_row_group(&mut row_group).unwrap();
         writer.close_row_group(row_group).unwrap();
         writer.close().unwrap();
     }

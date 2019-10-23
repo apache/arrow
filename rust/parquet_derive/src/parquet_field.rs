@@ -266,33 +266,32 @@ impl Type {
     fn column_writer(&self) -> syn::TypePath {
         use parquet::basic::Type as BasicType;
 
-        let path = match self.physical_type() {
+        match self.physical_type() {
             BasicType::BOOLEAN => {
-                syn::parse_str("parquet::column::writer::ColumnWriter::BoolColumnWriter")
+                syn::parse_quote!(parquet::column::writer::ColumnWriter::BoolColumnWriter)
             }
             BasicType::INT32 => {
-                syn::parse_str("parquet::column::writer::ColumnWriter::Int32ColumnWriter")
+                syn::parse_quote!(parquet::column::writer::ColumnWriter::Int32ColumnWriter)
             }
             BasicType::INT64 => {
-                syn::parse_str("parquet::column::writer::ColumnWriter::Int64ColumnWriter")
+                syn::parse_quote!(parquet::column::writer::ColumnWriter::Int64ColumnWriter)
             }
             BasicType::INT96 => {
-                syn::parse_str("parquet::column::writer::ColumnWriter::Int96ColumnWriter")
+                syn::parse_quote!(parquet::column::writer::ColumnWriter::Int96ColumnWriter)
             }
             BasicType::FLOAT => {
-                syn::parse_str("parquet::column::writer::ColumnWriter::FloatColumnWriter")
+                syn::parse_quote!(parquet::column::writer::ColumnWriter::FloatColumnWriter)
             }
-            BasicType::DOUBLE => syn::parse_str(
-                "parquet::column::writer::ColumnWriter::DoubleColumnWriter",
+            BasicType::DOUBLE => syn::parse_quote!(
+                parquet::column::writer::ColumnWriter::DoubleColumnWriter
             ),
-            BasicType::BYTE_ARRAY => syn::parse_str(
-                "parquet::column::writer::ColumnWriter::ByteArrayColumnWriter",
+            BasicType::BYTE_ARRAY => syn::parse_quote!(
+                parquet::column::writer::ColumnWriter::ByteArrayColumnWriter
             ),
-            BasicType::FIXED_LEN_BYTE_ARRAY => syn::parse_str(
-                "parquet::column::writer::ColumnWriter::FixedLenByteArrayColumnWriter",
-            ),
-        };
-        path.unwrap()
+            BasicType::FIXED_LEN_BYTE_ARRAY => syn::parse_quote!(
+                parquet::column::writer::ColumnWriter::FixedLenByteArrayColumnWriter
+            )
+        }
     }
 
     /// Helper to simplify a nested field definition to its leaf type
