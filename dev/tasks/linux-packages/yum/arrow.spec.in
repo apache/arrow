@@ -237,7 +237,9 @@ Libraries and header files for Apache Arrow C++.
 %doc README.md LICENSE.txt NOTICE.txt
 %{_includedir}/arrow/
 %exclude %{_includedir}/arrow/dataset/
+%if %{use_flight}
 %exclude %{_includedir}/arrow/flight/
+%endif
 %exclude %{_includedir}/arrow/python/
 %{_libdir}/libarrow.a
 %{_libdir}/libarrow.so
