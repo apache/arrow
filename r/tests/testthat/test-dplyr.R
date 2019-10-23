@@ -59,6 +59,15 @@ test_that("summarize on RecordBatch works", {
   expect_identical(m_i$min_int, 6L)
 })
 
+test_that("mutate", {
+  m_i <- batch %>%
+    select(int, chr) %>%
+    filter(int > 5) %>%
+    mutate(int = int + 6L) %>%
+    summarize(min_int = min(int))
+  expect_identical(m_i$min_int, 12L)
+})
+
 test_that("group_by groupings are recorded", {
   m_i <- batch %>%
     group_by(chr) %>%

@@ -34,6 +34,7 @@
   s3_register("dplyr::group_by", "RecordBatch")
   s3_register("dplyr::groups", "RecordBatch")
   s3_register("dplyr::ungroup", "RecordBatch")
+  s3_register("dplyr::mutate", "RecordBatch")
   invisible()
 }
 

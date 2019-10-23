@@ -65,8 +65,14 @@ evaluate_filters <- function(x) {
 }
 
 summarise.RecordBatch <- function(.data, ...) {
+  # Only retain the columns we need to do our aggregations
+  vars_to_keep <- unique(c(
+    unlist(lapply(quos(...), all.vars)), # vars referenced in summarise
+    dplyr::groups(.data)$group_names     # vars needed for grouping
+  ))
+  .data <- dplyr::select(.data, vars_to_keep)
   # TODO: determine whether work can be pushed down to Arrow
-  return(dplyr::summarise(dplyr::collect(.data), ...))
+  dplyr::summarise(dplyr::collect(.data), ...)
 }
 
 group_by.RecordBatch <- function(.data, ..., add = FALSE) {
@@ -79,4 +85,8 @@ groups.RecordBatch <- function(x) x$group_by_vars
 ungroup.RecordBatch <- function(x, ...) {
   x$group_by_vars <- list()
   x
+}
+
+mutate.RecordBatch <- function(.data, ...) {
+  dplyr::mutate(dplyr::collect(.data), ...)
 }
