@@ -143,6 +143,12 @@ impl Field {
             },
         };
 
+        // "vals" is the run of primitive data being written for the column
+        // "definition_levels" is a vector of bools which controls whether a value is missing or present
+        // this TokenStream is only one part of the code for writing a column and
+        // it relies on values calculated in prior code snippets, namely "definition_levels" and "vals_builder".
+        // All the context is put together in this functions final quote and
+        // this expression just switches between non-nullable and nullable write statements
         let write_batch_expr = if definition_levels.is_some() {
             quote! {
                 if let #column_writer(ref mut typed) = column_writer {
