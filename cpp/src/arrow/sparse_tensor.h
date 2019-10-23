@@ -235,11 +235,12 @@ class ARROW_EXPORT SparseTensor {
 namespace internal {
 
 ARROW_EXPORT
-void MakeSparseTensorFromTensor(const Tensor& tensor,
-                                SparseTensorFormat::type sparse_format_id,
-                                const std::shared_ptr<DataType>& index_value_type,
-                                std::shared_ptr<SparseIndex>* sparse_index,
-                                std::shared_ptr<Buffer>* data);
+Status MakeSparseTensorFromTensor(const Tensor& tensor,
+                                  SparseTensorFormat::type sparse_format_id,
+                                  const std::shared_ptr<DataType>& index_value_type,
+                                  MemoryPool* pool,
+                                  std::shared_ptr<SparseIndex>* out_sparse_index,
+                                  std::shared_ptr<Buffer>* out_data);
 
 }  // namespace internal
 
@@ -267,15 +268,35 @@ class SparseTensorImpl : public SparseTensor {
   ///
   /// The dense tensor is re-encoded as a sparse index and a physical
   /// data buffer for the non-zero value.
-  SparseTensorImpl(const Tensor& tensor,
-                   const std::shared_ptr<DataType>& index_value_type)
-      : SparseTensorImpl(NULLPTR, tensor.type(), NULLPTR, tensor.shape(),
-                         tensor.dim_names_) {
-    internal::MakeSparseTensorFromTensor(tensor, SparseIndexType::format_id,
-                                         index_value_type, &sparse_index_, &data_);
+  static Status Make(const Tensor& tensor,
+                     const std::shared_ptr<DataType>& index_value_type, MemoryPool* pool,
+                     std::shared_ptr<SparseTensorImpl<SparseIndexType>>* out) {
+    std::shared_ptr<SparseIndex> sparse_index;
+    std::shared_ptr<Buffer> data;
+    ARROW_RETURN_NOT_OK(internal::MakeSparseTensorFromTensor(
+        tensor, SparseIndexType::format_id, index_value_type, pool, &sparse_index,
+        &data));
+    *out = std::make_shared<SparseTensorImpl<SparseIndexType>>(
+        internal::checked_pointer_cast<SparseIndexType>(sparse_index), tensor.type(),
+        data, tensor.shape(), tensor.dim_names_);
+    return Status::OK();
   }
 
-  explicit SparseTensorImpl(const Tensor& tensor) : SparseTensorImpl(tensor, int64()) {}
+  static Status Make(const Tensor& tensor,
+                     const std::shared_ptr<DataType>& index_value_type,
+                     std::shared_ptr<SparseTensorImpl<SparseIndexType>>* out) {
+    return Make(tensor, index_value_type, default_memory_pool(), out);
+  }
+
+  static Status Make(const Tensor& tensor, MemoryPool* pool,
+                     std::shared_ptr<SparseTensorImpl<SparseIndexType>>* out) {
+    return Make(tensor, int64(), pool, out);
+  }
+
+  static Status Make(const Tensor& tensor,
+                     std::shared_ptr<SparseTensorImpl<SparseIndexType>>* out) {
+    return Make(tensor, default_memory_pool(), out);
+  }
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(SparseTensorImpl);
