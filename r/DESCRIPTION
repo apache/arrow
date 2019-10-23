@@ -28,7 +28,6 @@ LinkingTo:
 Imports:
     assertthat,
     bit64,
-    dplyr,
     methods,
     purrr,
     R6,

@@ -15,19 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @export
 select.RecordBatch <- function(.data, ...) {
   .data$selected_columns <- c(.data$selected_columns, list(quos(...)))
   .data
 }
 
-#' @export
 filter.RecordBatch <- function(.data, ..., .preserve = FALSE) {
   .data$filtered_rows <- c(.data$filtered_rows, quos(...))
   .data
 }
 
-#' @export
 collect.RecordBatch <- function(x, ...) {
   filters <- evaluate_filters(x)
   colnames <- names(x)
@@ -36,7 +33,7 @@ collect.RecordBatch <- function(x, ...) {
   }
   df <- as.data.frame(x[filters, colnames])
   if (length(x$group_by_vars)) {
-    df <- dplyr::grouped_df(df, groups(x)$group_names)
+    df <- dplyr::grouped_df(df, dplyr::groups(x)$group_names)
   }
   # Slight hack: since x is R6, each select/filter modified the object in place,
   # which is not standard R behavior. Let's zero out x$selected_columns and
@@ -44,7 +41,7 @@ collect.RecordBatch <- function(x, ...) {
   # unexpected side effects.
   x$selected_columns <- list()
   x$filtered_rows <- list()
-  ungroup(x)
+  dplyr::ungroup(x)
   df
 }
 
@@ -56,7 +53,7 @@ evaluate_filters <- function(x) {
   # Cache the columns we need here
   filter_data <- new.env()
   for (v in unique(unlist(lapply(x$filtered_rows, all.vars)))) {
-    assign(v, x[[v]], env = filter_data)
+    assign(v, x[[v]], envir = filter_data)
   }
   # Evaluate to get Expressions, then pull to R
   filters <- lapply(x$filtered_rows, function (f) {
@@ -67,22 +64,18 @@ evaluate_filters <- function(x) {
   Reduce("&", filters)
 }
 
-#' @export
 summarise.RecordBatch <- function(.data, ...) {
   # TODO: determine whether work can be pushed down to Arrow
-  return(summarise(collect(.data), ...))
+  return(dplyr::summarise(dplyr::collect(.data), ...))
 }
 
-#' @export
 group_by.RecordBatch <- function(.data, ..., add = FALSE) {
   .data$group_by_vars <- dplyr::group_by_prepare(.data, ..., add = add)
   .data
 }
 
-#' @export
 groups.RecordBatch <- function(x) x$group_by_vars
 
-#' @export
 ungroup.RecordBatch <- function(x, ...) {
   x$group_by_vars <- list()
   x
