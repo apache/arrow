@@ -1902,3 +1902,8 @@ the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 
 René Nyffenegger rene.nyffenegger@adp-gmbh.ch
+
+-----------------------------------------------------------------------
+
+cpp/src/bazel/double-conversion.BUILD was adapted from the tensor flow
+libraries (licensed under Apache 2)
