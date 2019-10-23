@@ -1339,6 +1339,16 @@ class TestConvertDateTimeLikeTypes(object):
                 dtype='datetime64[s]')
         _check_array_from_pandas_roundtrip(datetime64_s)
 
+    def test_timestamp_to_pandas_ns(self):
+        # non-ns timestamp gets cast to ns on conversion to pandas
+        arr = pa.array([1, 2, 3], pa.timestamp('ms'))
+        expected = pd.Series(pd.to_datetime([1, 2, 3], unit='ms'))
+        s = arr.to_pandas()
+        tm.assert_series_equal(s, expected)
+        arr = pa.chunked_array([arr])
+        s = arr.to_pandas()
+        tm.assert_series_equal(s, expected)
+
     @pytest.mark.parametrize('dtype', [pa.date32(), pa.date64()])
     def test_numpy_datetime64_day_unit(self, dtype):
         datetime64_d = np.array([

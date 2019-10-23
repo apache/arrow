@@ -156,12 +156,19 @@ cdef class ChunkedArray(_PandasConvertible):
         cdef:
             PyObject* out
             PandasOptions c_options = _convert_pandas_options(options)
+            ChunkedArray array
+
+        if self.type.id == _Type_TIMESTAMP and self.type.unit != 'ns':
+            # pandas only stores ns data - casting here is faster
+            array = self.cast(timestamp('ns'))
+        else:
+            array = self
 
         with nogil:
             check_status(libarrow.ConvertChunkedArrayToPandas(
                 c_options,
-                self.sp_chunked_array,
-                self, &out))
+                array.sp_chunked_array,
+                array, &out))
 
         result = pandas_api.series(wrap_array_output(out), name=self._name)
 
