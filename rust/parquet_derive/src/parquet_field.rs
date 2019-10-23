@@ -146,7 +146,7 @@ impl Field {
         let write_batch_expr = if definition_levels.is_some() {
             quote! {
                 if let #column_writer(ref mut typed) = column_writer {
-                    typed.write_batch(&vals[..], Some(&definition_levels[..]), None).unwrap();
+                    typed.write_batch(&vals[..], Some(&definition_levels[..]), None)?;
                 } else {
                     panic!("schema and struct disagree on type for {}", stringify!{#ident})
                 }
@@ -154,7 +154,7 @@ impl Field {
         } else {
             quote! {
                 if let #column_writer(ref mut typed) = column_writer {
-                    typed.write_batch(&vals[..], None, None).unwrap();
+                    typed.write_batch(&vals[..], None, None)?;
                 } else {
                     panic!("schema and struct disagree on type for {}", stringify!{#ident})
                 }
@@ -520,7 +520,7 @@ mod test {
                             let vals : Vec < _ > = records . iter ( ) . map ( | x | x . counter ) . collect ( );
 
                             if let parquet::column::writer::ColumnWriter::Int64ColumnWriter ( ref mut typed ) = column_writer {
-                                typed . write_batch ( & vals [ .. ] , None , None ) . unwrap ( );
+                                typed . write_batch ( & vals [ .. ] , None , None ) ?;
                             }  else {
                                 panic!("schema and struct disagree on type for {}" , stringify!{ counter } )
                             }
@@ -557,7 +557,7 @@ mod test {
                 }).collect();
 
                 if let parquet::column::writer::ColumnWriter::ByteArrayColumnWriter ( ref mut typed ) = column_writer {
-                    typed . write_batch ( & vals [ .. ] , Some(&definition_levels[..]) , None ) . unwrap ( ) ;
+                    typed . write_batch ( & vals [ .. ] , Some(&definition_levels[..]) , None ) ? ;
                 } else {
                     panic!("schema and struct disagree on type for {}" , stringify ! { optional_str } )
                 }
@@ -581,7 +581,7 @@ mod test {
                         }).collect();
 
                         if let parquet::column::writer::ColumnWriter::ByteArrayColumnWriter ( ref mut typed ) = column_writer {
-                            typed . write_batch ( & vals [ .. ] , Some(&definition_levels[..]) , None ) . unwrap ( ) ;
+                            typed . write_batch ( & vals [ .. ] , Some(&definition_levels[..]) , None ) ? ;
                         } else {
                             panic!("schema and struct disagree on type for {}" , stringify ! { optional_string } )
                         }
@@ -604,7 +604,7 @@ mod test {
                         }).collect();
 
                         if let parquet::column::writer::ColumnWriter::Int32ColumnWriter ( ref mut typed ) = column_writer {
-                            typed . write_batch ( & vals [ .. ] , Some(&definition_levels[..]) , None ) . unwrap ( ) ;
+                            typed . write_batch ( & vals [ .. ] , Some(&definition_levels[..]) , None ) ? ;
                         }  else {
                             panic!("schema and struct disagree on type for {}" , stringify ! { optional_dumb_int } )
                         }
@@ -630,12 +630,10 @@ mod test {
         assert_eq!(
             column_writers,
             vec![
-                syn::parse_str("parquet::column::writer::ColumnWriter::BoolColumnWriter")
-                    .unwrap(),
-                syn::parse_str(
-                    "parquet::column::writer::ColumnWriter::ByteArrayColumnWriter"
+                syn::parse_quote!(parquet::column::writer::ColumnWriter::BoolColumnWriter),
+                syn::parse_quote!(
+                    parquet::column::writer::ColumnWriter::ByteArrayColumnWriter
                 )
-                .unwrap()
             ]
         );
     }
@@ -658,13 +656,13 @@ mod test {
             vec![
                 Field {
                     ident: syn::Ident::new("yes_no", proc_macro2::Span::call_site()),
-                    ty: Type::TypePath(syn::parse_str("bool").unwrap()),
+                    ty: Type::TypePath(syn::parse_quote!(bool)),
                     is_a_byte_buf: false,
                     third_party_type: None,
                 },
                 Field {
                     ident: syn::Ident::new("name", proc_macro2::Span::call_site()),
-                    ty: Type::TypePath(syn::parse_str("String").unwrap()),
+                    ty: Type::TypePath(syn::parse_quote!(String)),
                     is_a_byte_buf: true,
                     third_party_type: None,
                 }
@@ -755,16 +753,16 @@ mod test {
             converted_fields,
             vec![
                 Type::Vec(Box::new(Type::TypePath(
-                    syn::parse_str::<syn::Type>("u8").unwrap()
+                    syn::parse_quote!(u8)
                 ))),
                 Type::Option(Box::new(Type::TypePath(
-                    syn::parse_str::<syn::Type>("bool").unwrap()
+                    syn::parse_quote!(bool)
                 ))),
                 Type::TypePath(
-                    syn::parse_str::<syn::Type>("std::string::String").unwrap()
+                    syn::parse_quote!(std::string::String)
                 ),
                 Type::Option(Box::new(Type::TypePath(
-                    syn::parse_str::<syn::Type>("std::result::Result<(),()>").unwrap()
+                    syn::parse_quote!(std::result::Result<(),()>)
                 ))),
             ]
         );
@@ -788,19 +786,19 @@ mod test {
             vec![
                 Type::Reference(
                     Some(syn::Lifetime::new("'a", proc_macro2::Span::call_site())),
-                    Box::new(Type::TypePath(syn::parse_str("str").unwrap()))
+                    Box::new(Type::TypePath(syn::parse_quote!(str)))
                 ),
                 Type::Reference(
                     Some(syn::Lifetime::new("'a", proc_macro2::Span::call_site())),
                     Box::new(Type::Option(Box::new(Type::TypePath(
-                        syn::parse_str("bool").unwrap()
+                        syn::parse_quote!(bool)
                     ))))
                 ),
                 Type::Reference(
                     Some(syn::Lifetime::new("'a", proc_macro2::Span::call_site())),
                     Box::new(Type::Option(Box::new(Type::Reference(
                         Some(syn::Lifetime::new("'a", proc_macro2::Span::call_site())),
-                        Box::new(Type::TypePath(syn::parse_str("str").unwrap()))
+                        Box::new(Type::TypePath(syn::parse_quote!(str)))
                     ))))
                 ),
             ]
@@ -823,7 +821,7 @@ mod test {
             {
                 let vals : Vec<_> = records.iter().map(|x| x.henceforth.timestamp_millis() ).collect();
                 if let parquet::column::writer::ColumnWriter::Int64ColumnWriter(ref mut typed) = column_writer {
-                    typed.write_batch(&vals[..], None, None).unwrap();
+                    typed.write_batch(&vals[..], None, None) ?;
                 } else {
                     panic!("schema and struct disagree on type for {}" , stringify!{ henceforth })
                 }
@@ -843,7 +841,7 @@ mod test {
                 }).collect();
 
                 if let parquet::column::writer::ColumnWriter::Int64ColumnWriter(ref mut typed) = column_writer {
-                    typed.write_batch(&vals[..], Some(&definition_levels[..]), None).unwrap();
+                    typed.write_batch(&vals[..], Some(&definition_levels[..]), None) ?;
                 } else {
                     panic!("schema and struct disagree on type for {}" , stringify!{ maybe_happened })
                 }
@@ -867,7 +865,7 @@ mod test {
             {
                 let vals : Vec<_> = records.iter().map(|x| x.henceforth.signed_duration_since(chrono::NaiveDate::from_ymd(1970, 1, 1)).num_days() as i32).collect();
                 if let parquet::column::writer::ColumnWriter::Int32ColumnWriter(ref mut typed) = column_writer {
-                    typed.write_batch(&vals[..], None, None).unwrap();
+                    typed.write_batch(&vals[..], None, None) ?;
                 } else {
                     panic!("schema and struct disagree on type for {}" , stringify!{ henceforth })
                 }
@@ -887,7 +885,7 @@ mod test {
                 }).collect();
 
                 if let parquet::column::writer::ColumnWriter::Int32ColumnWriter(ref mut typed) = column_writer {
-                    typed.write_batch(&vals[..], Some(&definition_levels[..]), None).unwrap();
+                    typed.write_batch(&vals[..], Some(&definition_levels[..]), None) ?;
                 } else {
                     panic!("schema and struct disagree on type for {}" , stringify!{ maybe_happened })
                 }
@@ -911,7 +909,7 @@ mod test {
             {
                 let vals : Vec<_> = records.iter().map(|x| (&x.unique_id.to_string()[..]).into() ).collect();
                 if let parquet::column::writer::ColumnWriter::ByteArrayColumnWriter(ref mut typed) = column_writer {
-                    typed.write_batch(&vals[..], None, None).unwrap();
+                    typed.write_batch(&vals[..], None, None) ?;
                 } else {
                     panic!("schema and struct disagree on type for {}" , stringify!{ unique_id })
                 }
@@ -931,7 +929,7 @@ mod test {
                 }).collect();
 
                 if let parquet::column::writer::ColumnWriter::ByteArrayColumnWriter(ref mut typed) = column_writer {
-                    typed.write_batch(&vals[..], Some(&definition_levels[..]), None).unwrap();
+                    typed.write_batch(&vals[..], Some(&definition_levels[..]), None) ?;
                 } else {
                     panic!("schema and struct disagree on type for {}" , stringify!{ maybe_unique_id })
                 }
