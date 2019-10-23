@@ -27,16 +27,22 @@
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/memory_pool.h"
+#include "arrow/util/thread_pool.h"
 
 namespace arrow {
 
 class Table;
+
+namespace internal {
+class TaskGroup;
+};
 
 namespace dataset {
 
 /// \brief Shared state for a Scan operation
 struct ARROW_DS_EXPORT ScanContext {
   MemoryPool* pool = arrow::default_memory_pool();
+  internal::ThreadPool* thread_pool = arrow::internal::GetCpuThreadPool();
 };
 
 class RecordBatchProjector;
@@ -46,6 +52,10 @@ class ARROW_DS_EXPORT ScanOptions {
   virtual ~ScanOptions() = default;
 
   static std::shared_ptr<ScanOptions> Defaults();
+
+  // Indicate if the Scanner should make use of the ThreadPool found in the
+  // ScanContext.
+  bool use_threads = false;
 
   // Filter
   std::shared_ptr<Expression> filter;
@@ -109,18 +119,34 @@ Status ScanTaskIteratorFromRecordBatch(std::vector<std::shared_ptr<RecordBatch>>
 ///          yield scan_task
 class ARROW_DS_EXPORT Scanner {
  public:
+  Scanner(DataSourceVector sources, std::shared_ptr<ScanOptions> options,
+          std::shared_ptr<ScanContext> context)
+      : sources_(std::move(sources)),
+        options_(std::move(options)),
+        context_(std::move(context)) {}
+
+  virtual ~Scanner() = default;
+
   /// \brief The Scan operator returns a stream of ScanTask. The caller is
   /// responsible to dispatch/schedule said tasks. Tasks should be safe to run
   /// in a concurrent fashion and outlive the iterator.
   virtual ScanTaskIterator Scan() = 0;
 
-  virtual ~Scanner() = default;
-
   /// \brief Convert a Scanner into a Table.
+  ///
+  /// \param[out] out output parameter
   ///
   /// Use this convenience utility with care. This will serially materialize the
   /// Scan result in memory before creating the Table.
   Status ToTable(std::shared_ptr<Table>* out);
+
+ protected:
+  /// \brief Return a TaskGroup according to ScanContext thread rules.
+  std::shared_ptr<internal::TaskGroup> TaskGroup() const;
+
+  DataSourceVector sources_;
+  std::shared_ptr<ScanOptions> options_;
+  std::shared_ptr<ScanContext> context_;
 };
 
 /// \brief SimpleScanner is a trivial Scanner implementation that flattens
@@ -141,16 +167,9 @@ class ARROW_DS_EXPORT SimpleScanner : public Scanner {
   SimpleScanner(std::vector<std::shared_ptr<DataSource>> sources,
                 std::shared_ptr<ScanOptions> options,
                 std::shared_ptr<ScanContext> context)
-      : sources_(std::move(sources)),
-        options_(std::move(options)),
-        context_(std::move(context)) {}
+      : Scanner(std::move(sources), std::move(options), std::move(context)) {}
 
   ScanTaskIterator Scan() override;
-
- private:
-  std::vector<std::shared_ptr<DataSource>> sources_;
-  std::shared_ptr<ScanOptions> options_;
-  std::shared_ptr<ScanContext> context_;
 };
 
 /// \brief ScannerBuilder is a factory class to construct a Scanner. It is used
@@ -187,6 +206,10 @@ class ARROW_DS_EXPORT ScannerBuilder {
   ///         Schema.
   Status Filter(std::shared_ptr<Expression> filter);
   Status Filter(const Expression& filter);
+
+  /// \brief Indicate if the Scanner should make use of the available
+  ///        ThreadPool found in ScanContext;
+  Status UseThreads(bool use_threads = true);
 
   /// \brief Return the constructed now-immutable Scanner object
   Status Finish(std::unique_ptr<Scanner>* out) const;

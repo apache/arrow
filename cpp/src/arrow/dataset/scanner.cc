@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <mutex>
 
 #include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
@@ -26,6 +27,8 @@
 #include "arrow/dataset/scanner_internal.h"
 #include "arrow/table.h"
 #include "arrow/util/iterator.h"
+#include "arrow/util/task_group.h"
+#include "arrow/util/thread_pool.h"
 
 namespace arrow {
 namespace dataset {
@@ -135,6 +138,11 @@ std::shared_ptr<Schema> SchemaFromColumnNames(
   return std::make_shared<Schema>(columns);
 }
 
+Status ScannerBuilder::UseThreads(bool use_threads) {
+  scan_options_->use_threads = use_threads;
+  return Status::OK();
+}
+
 Status ScannerBuilder::Finish(std::unique_ptr<Scanner>* out) const {
   if (has_projection_ && !project_columns_.empty()) {
     scan_options_->projector = std::make_shared<RecordBatchProjector>(
@@ -151,19 +159,54 @@ Status ScannerBuilder::Finish(std::unique_ptr<Scanner>* out) const {
   return Status::OK();
 }
 
-Status Scanner::ToTable(std::shared_ptr<Table>* out) {
+using arrow::internal::TaskGroup;
+
+std::shared_ptr<TaskGroup> Scanner::TaskGroup() const {
+  return options_->use_threads ? TaskGroup::MakeThreaded(context_->thread_pool)
+                               : TaskGroup::MakeSerial();
+}
+
+struct TableAggregator {
+  void Append(std::shared_ptr<RecordBatch> batch) {
+    std::lock_guard<std::mutex> lock(m);
+    batches.emplace_back(std::move(batch));
+  }
+
+  Status Finish(std::shared_ptr<Table>* out) {
+    return Table::FromRecordBatches(batches, out);
+  }
+
+  std::mutex m;
   std::vector<std::shared_ptr<RecordBatch>> batches;
+};
 
-  auto it_scantasks = Scan();
-  RETURN_NOT_OK(it_scantasks.Visit([&batches](std::unique_ptr<ScanTask> task) -> Status {
-    auto it = task->Scan();
-    return it.Visit([&batches](std::shared_ptr<RecordBatch> batch) {
-      batches.push_back(batch);
-      return Status::OK();
-    });
-  }));
+struct ScanTaskPromise {
+  Status operator()() {
+    for (auto maybe_batch : task->Scan()) {
+      ARROW_ASSIGN_OR_RAISE(auto batch, std::move(maybe_batch));
+      aggregator.Append(std::move(batch));
+    }
 
-  return Table::FromRecordBatches(batches, out);
+    return Status::OK();
+  }
+
+  TableAggregator& aggregator;
+  std::shared_ptr<ScanTask> task;
+};
+
+Status Scanner::ToTable(std::shared_ptr<Table>* out) {
+  auto task_group = TaskGroup();
+
+  TableAggregator aggregator;
+  for (auto maybe_scan_task : Scan()) {
+    ARROW_ASSIGN_OR_RAISE(auto scan_task, std::move(maybe_scan_task));
+    task_group->Append(ScanTaskPromise{aggregator, std::move(scan_task)});
+  }
+
+  // Wait for all tasks to complete, or the first error.
+  RETURN_NOT_OK(task_group->Finish());
+
+  return aggregator.Finish(out);
 }
 
 }  // namespace dataset
