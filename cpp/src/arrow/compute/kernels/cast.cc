@@ -427,7 +427,7 @@ void ShiftTime(FunctionContext* ctx, const CastOptions& options, const bool is_m
       out_data[i] = static_cast<out_type>(in_data[i]);
     }
   } else if (is_multiply) {
-    if (options.allow_time_truncate) {
+    if (options.allow_time_overflow) {
       for (int64_t i = 0; i < input.length; i++) {
         out_data[i] = static_cast<out_type>(in_data[i] * factor);
       }

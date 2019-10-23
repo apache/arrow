@@ -691,11 +691,8 @@ TEST_F(TestCast, TimestampToTimestamp) {
   // 1000-01-01, 1800-01-01 , 2000-01-01, 2300-01-01, 3000-01-01
   std::vector<int64_t> v11 = {-30610224000, -5364662400, 946684800, 10413792000,
                               32503680000};
-  std::vector<int64_t> e11 = {6283264147419103232, -5364662400000000000,
-                              946684800000000000, -8032952073709551616,
-                              -4389808147419103232};
 
-  options.allow_time_truncate = false;
+  options.allow_time_overflow = false;
   CheckFails<TimestampType>(timestamp(TimeUnit::SECOND), v11, is_valid,
                             timestamp(TimeUnit::NANO), options);
 }
@@ -977,6 +974,15 @@ TEST_F(TestCast, DurationToCompatible) {
                            duration(TimeUnit::MILLI), options);
   CheckFails<DurationType>(duration(TimeUnit::NANO), v10, is_valid,
                            duration(TimeUnit::SECOND), options);
+
+  // Multiply overflow
+
+  // 1000-01-01, 1800-01-01 , 2000-01-01, 2300-01-01, 3000-01-01
+  std::vector<int64_t> v11 = {10000000000, 1, 2, 3, 10000000000};
+
+  options.allow_time_overflow = false;
+  CheckFails<DurationType>(duration(TimeUnit::SECOND), v11, is_valid,
+                           duration(TimeUnit::NANO), options);
 }
 
 TEST_F(TestCast, ToDouble) {
