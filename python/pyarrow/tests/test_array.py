@@ -145,6 +145,22 @@ def test_to_numpy_unsupported_types():
         null_arr.to_numpy()
 
 
+@pytest.mark.parametrize('unit', ['s', 'ms', 'us', 'ns'])
+def test_to_numpy_datetime64(unit):
+    arr = pa.array([1, 2, 3], pa.timestamp(unit))
+    expected = np.array([1, 2, 3], dtype="datetime64[{}]".format(unit))
+    np_arr = arr.to_numpy()
+    np.testing.assert_array_equal(np_arr, expected)
+
+
+@pytest.mark.parametrize('unit', ['s', 'ms', 'us', 'ns'])
+def test_to_numpy_timedelta64(unit):
+    arr = pa.array([1, 2, 3], pa.duration(unit))
+    expected = np.array([1, 2, 3], dtype="timedelta64[{}]".format(unit))
+    np_arr = arr.to_numpy()
+    np.testing.assert_array_equal(np_arr, expected)
+
+
 @pytest.mark.pandas
 def test_to_pandas_zero_copy():
     import gc

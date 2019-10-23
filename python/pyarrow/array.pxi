@@ -967,10 +967,18 @@ cdef class Array(_PandasConvertible):
         if not is_primitive(self.type.id) or self.type.id == _Type_BOOL:
             raise NotImplementedError('NumPy array view is only supported '
                                       'for primitive types.')
-        buflist = self.buffers()
-        assert len(buflist) == 2
-        return np.frombuffer(buflist[-1], dtype=self.type.to_pandas_dtype())[
-            self.offset:self.offset + len(self)]
+
+        cdef:
+            PyObject* out
+            PandasOptions c_options
+            object values
+
+        c_options.zero_copy_only = True
+
+        with nogil:
+            check_status(ConvertArrayToPandas(c_options, self.sp_array,
+                                              self, &out))
+        return PyObject_to_object(out)
 
     def to_pylist(self):
         """
