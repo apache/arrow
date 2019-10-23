@@ -16,7 +16,8 @@
 // under the License.
 
 use super::super::file::writer::RowGroupWriter;
+use super::super::errors::ParquetError;
 
 pub trait RecordWriter<T> {
-    fn write_to_row_group(&self, row_group_writer: &mut Box<RowGroupWriter>);
+    fn write_to_row_group(&self, row_group_writer: &mut Box<RowGroupWriter>) -> Result<(),ParquetError>;
 }
