@@ -303,34 +303,19 @@ impl Type {
     ///
     /// Useful in determining the physical type of a field and the
     /// definition levels.
-    fn leaf_type(&self) -> &Type {
-        match &self {
-            Type::TypePath(_) => &self,
+    fn leaf_type_recursive(&self) -> &Type {
+        self.leaf_type_recursive_helper(self, None)
+    }
+
+    fn leaf_type_recursive_helper<'a>(&'a self, ty: &'a Type, parent_ty: Option<&'a Type>) -> &Type {
+        match ty {
+            Type::TypePath(_) => parent_ty.unwrap_or(ty),
             Type::Option(ref first_type)
             | Type::Vec(ref first_type)
             | Type::Array(ref first_type)
-            | Type::Reference(_, ref first_type) => match **first_type {
-                Type::TypePath(_) => &self,
-                Type::Option(ref second_type)
-                | Type::Vec(ref second_type)
-                | Type::Array(ref second_type)
-                | Type::Reference(_, ref second_type) => match **second_type {
-                    Type::TypePath(_) => first_type,
-                    Type::Option(ref third_type)
-                    | Type::Vec(ref third_type)
-                    | Type::Array(ref third_type)
-                    | Type::Reference(_, ref third_type) => match **third_type {
-                        Type::TypePath(_) => second_type,
-                        Type::Option(ref fourth_type)
-                        | Type::Vec(ref fourth_type)
-                        | Type::Array(ref fourth_type)
-                        | Type::Reference(_, ref fourth_type) => match **fourth_type {
-                            Type::TypePath(_) => third_type,
-                            _ => unimplemented!("sorry, I don't descend this far"),
-                        },
-                    },
-                },
-            },
+            | Type::Reference(_, ref first_type) => {
+                self.leaf_type_recursive_helper(first_type, Some(ty))
+            }
         }
     }
 
@@ -338,7 +323,7 @@ impl Type {
     /// type information, useful for determining the physical type
     /// and normalizing the type paths.
     fn inner_type(&self) -> &syn::Type {
-        let leaf_type = self.leaf_type();
+        let leaf_type = self.leaf_type_recursive();
 
         match leaf_type {
             Type::TypePath(ref type_) => type_,
@@ -387,7 +372,7 @@ impl Type {
         use parquet::basic::Type as BasicType;
 
         let last_part = self.last_part();
-        let leaf_type = self.leaf_type();
+        let leaf_type = self.leaf_type_recursive();
 
         match leaf_type {
             Type::Array(ref first_type) => {
