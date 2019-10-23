@@ -192,9 +192,9 @@ impl Field {
         };
 
         let binding = if copy_to_vec {
-            quote! { let Some(inner) = x.#field_name }
+            quote! { let Some(inner) = rec.#field_name }
         } else {
-            quote! { let Some(ref inner) = x.#field_name }
+            quote! { let Some(ref inner) = rec.#field_name }
         };
 
         let some = if is_a_timestamp {
@@ -210,7 +210,7 @@ impl Field {
         };
 
         quote! {
-            let vals: Vec<_> = records.iter().filter_map(|x| {
+            let vals: Vec<_> = records.iter().filter_map(|rec| {
                 if #binding {
                     #some
                 } else {
@@ -229,19 +229,19 @@ impl Field {
         let is_a_uuid = self.third_party_type == Some(ThirdPartyType::Uuid);
 
         let access = if is_a_timestamp {
-            quote! { x.#field_name.timestamp_millis() }
+            quote! { rec.#field_name.timestamp_millis() }
         } else if is_a_date {
-            quote! { x.#field_name.signed_duration_since(chrono::NaiveDate::from_ymd(1970, 1, 1)).num_days() as i32 }
+            quote! { rec.#field_name.signed_duration_since(chrono::NaiveDate::from_ymd(1970, 1, 1)).num_days() as i32 }
         } else if is_a_uuid {
-            quote! { (&x.#field_name.to_string()[..]).into() }
+            quote! { (&rec.#field_name.to_string()[..]).into() }
         } else if is_a_byte_buf {
-            quote! { (&x.#field_name[..]).into() }
+            quote! { (&rec.#field_name[..]).into() }
         } else {
-            quote! { x.#field_name }
+            quote! { rec.#field_name }
         };
 
         quote! {
-            let vals: Vec<_> = records.iter().map(|x| #access).collect();
+            let vals: Vec<_> = records.iter().map(|rec| #access).collect();
         }
     }
 
@@ -251,7 +251,7 @@ impl Field {
         quote! {
             let definition_levels: Vec<i16> = self
               .iter()
-              .map(|x| if x.#field_name.is_some() { 1 } else { 0 })
+              .map(|rec| if rec.#field_name.is_some() { 1 } else { 0 })
               .collect();
         }
     }
@@ -490,7 +490,7 @@ mod test {
             _ => panic!("input must be a struct"),
         };
 
-        fields.iter().map(|x| x.to_owned()).collect()
+        fields.iter().map(|field| field.to_owned()).collect()
     }
 
     #[test]
@@ -508,7 +508,7 @@ mod test {
         assert_eq!(snippet,
                    (quote!{
                         {
-                            let vals : Vec < _ > = records . iter ( ) . map ( | x | x . counter ) . collect ( );
+                            let vals : Vec < _ > = records . iter ( ) . map ( | rec | rec . counter ) . collect ( );
 
                             if let parquet::column::writer::ColumnWriter::Int64ColumnWriter ( ref mut typed ) = column_writer {
                                 typed . write_batch ( & vals [ .. ] , None , None ) ?;
@@ -537,10 +537,10 @@ mod test {
         assert_eq!(snippet.to_string(),
           (quote! {
           {
-                let definition_levels : Vec < i16 > = self . iter ( ) . map ( | x | if x . optional_str . is_some ( ) { 1 } else { 0 } ) . collect ( ) ;
+                let definition_levels : Vec < i16 > = self . iter ( ) . map ( | rec | if rec . optional_str . is_some ( ) { 1 } else { 0 } ) . collect ( ) ;
 
-                let vals: Vec <_> = records.iter().filter_map( |x| {
-                    if let Some ( ref inner ) = x . optional_str {
+                let vals: Vec <_> = records.iter().filter_map( |rec| {
+                    if let Some ( ref inner ) = rec . optional_str {
                         Some ( (&inner[..]).into() )
                     } else {
                         None
@@ -561,10 +561,10 @@ mod test {
         assert_eq!(snippet.to_string(),
                    (quote!{
                    {
-                        let definition_levels : Vec < i16 > = self . iter ( ) . map ( | x | if x . optional_string . is_some ( ) { 1 } else { 0 } ) . collect ( ) ;
+                        let definition_levels : Vec < i16 > = self . iter ( ) . map ( | rec | if rec . optional_string . is_some ( ) { 1 } else { 0 } ) . collect ( ) ;
 
-                        let vals: Vec <_> = records.iter().filter_map( |x| {
-                            if let Some ( ref inner ) = x . optional_string {
+                        let vals: Vec <_> = records.iter().filter_map( |rec| {
+                            if let Some ( ref inner ) = rec . optional_string {
                                 Some ( (&inner[..]).into() )
                             } else {
                                 None
@@ -584,10 +584,10 @@ mod test {
         assert_eq!(snippet.to_string(),
                    (quote!{
                     {
-                        let definition_levels : Vec < i16 > = self . iter ( ) . map ( | x | if x . optional_dumb_int . is_some ( ) { 1 } else { 0 } ) . collect ( ) ;
+                        let definition_levels : Vec < i16 > = self . iter ( ) . map ( | rec | if rec . optional_dumb_int . is_some ( ) { 1 } else { 0 } ) . collect ( ) ;
 
-                        let vals: Vec <_> = records.iter().filter_map( |x| {
-                            if let Some ( inner ) = x . optional_dumb_int {
+                        let vals: Vec <_> = records.iter().filter_map( |rec| {
+                            if let Some ( inner ) = rec . optional_dumb_int {
                                 Some ( inner )
                             } else {
                                 None
@@ -613,10 +613,10 @@ mod test {
         };
 
         let fields = extract_fields(snippet);
-        let processed: Vec<_> = fields.iter().map(|x| Field::from(x)).collect();
+        let processed: Vec<_> = fields.iter().map(|field| Field::from(field)).collect();
 
         let column_writers: Vec<_> =
-            processed.iter().map(|x| x.ty.column_writer()).collect();
+            processed.iter().map(|field| field.ty.column_writer()).collect();
 
         assert_eq!(
             column_writers,
@@ -639,7 +639,7 @@ mod test {
         };
 
         let fields = extract_fields(snippet);
-        let processed: Vec<_> = fields.iter().map(|x| Field::from(x)).collect();
+        let processed: Vec<_> = fields.iter().map(|field| Field::from(field)).collect();
         assert_eq!(processed.len(), 2);
 
         assert_eq!(
@@ -673,12 +673,12 @@ mod test {
         };
 
         let fields = extract_fields(snippet);
-        let converted_fields: Vec<_> = fields.iter().map(|x| Type::from(x)).collect();
+        let converted_fields: Vec<_> = fields.iter().map(|field| Type::from(field)).collect();
         let inner_types: Vec<_> =
-            converted_fields.iter().map(|x| x.inner_type()).collect();
+            converted_fields.iter().map(|field| field.inner_type()).collect();
         let inner_types_strs: Vec<_> = inner_types
             .iter()
-            .map(|x| (quote! { #x }).to_string())
+            .map(|ty| (quote! { #ty }).to_string())
             .collect();
 
         assert_eq!(
@@ -708,9 +708,9 @@ mod test {
         };
 
         let fields = extract_fields(snippet);
-        let converted_fields: Vec<_> = fields.iter().map(|x| Type::from(x)).collect();
+        let converted_fields: Vec<_> = fields.iter().map(|field| Type::from(field)).collect();
         let physical_types: Vec<_> =
-            converted_fields.iter().map(|x| x.physical_type()).collect();
+            converted_fields.iter().map(|ty| ty.physical_type()).collect();
 
         assert_eq!(
             physical_types,
@@ -738,7 +738,7 @@ mod test {
         };
 
         let fields = extract_fields(snippet);
-        let converted_fields: Vec<_> = fields.iter().map(|x| Type::from(x)).collect();
+        let converted_fields: Vec<_> = fields.iter().map(|field| Type::from(field)).collect();
 
         assert_eq!(
             converted_fields,
@@ -770,7 +770,7 @@ mod test {
         };
 
         let fields = extract_fields(snippet);
-        let types: Vec<_> = fields.iter().map(|x| Type::from(x)).collect();
+        let types: Vec<_> = fields.iter().map(|field| Type::from(field)).collect();
 
         assert_eq!(
             types,
@@ -810,7 +810,7 @@ mod test {
         let when = Field::from(&fields[0]);
         assert_eq!(when.writer_snippet().to_string(),(quote!{
             {
-                let vals : Vec<_> = records.iter().map(|x| x.henceforth.timestamp_millis() ).collect();
+                let vals : Vec<_> = records.iter().map(|rec| rec.henceforth.timestamp_millis() ).collect();
                 if let parquet::column::writer::ColumnWriter::Int64ColumnWriter(ref mut typed) = column_writer {
                     typed.write_batch(&vals[..], None, None) ?;
                 } else {
@@ -822,9 +822,9 @@ mod test {
         let maybe_happened = Field::from(&fields[1]);
         assert_eq!(maybe_happened.writer_snippet().to_string(),(quote!{
             {
-                let definition_levels : Vec<i16> = self.iter().map(|x| if x.maybe_happened.is_some() { 1 } else { 0 }).collect();
-                let vals : Vec<_> = records.iter().filter_map(|x| {
-                    if let Some(inner) = x.maybe_happened {
+                let definition_levels : Vec<i16> = self.iter().map(|rec| if rec.maybe_happened.is_some() { 1 } else { 0 }).collect();
+                let vals : Vec<_> = records.iter().filter_map(|rec| {
+                    if let Some(inner) = rec.maybe_happened {
                         Some( inner.timestamp_millis() )
                     } else {
                         None
@@ -854,7 +854,7 @@ mod test {
         let when = Field::from(&fields[0]);
         assert_eq!(when.writer_snippet().to_string(),(quote!{
             {
-                let vals : Vec<_> = records.iter().map(|x| x.henceforth.signed_duration_since(chrono::NaiveDate::from_ymd(1970, 1, 1)).num_days() as i32).collect();
+                let vals : Vec<_> = records.iter().map(|rec| rec.henceforth.signed_duration_since(chrono::NaiveDate::from_ymd(1970, 1, 1)).num_days() as i32).collect();
                 if let parquet::column::writer::ColumnWriter::Int32ColumnWriter(ref mut typed) = column_writer {
                     typed.write_batch(&vals[..], None, None) ?;
                 } else {
@@ -866,9 +866,9 @@ mod test {
         let maybe_happened = Field::from(&fields[1]);
         assert_eq!(maybe_happened.writer_snippet().to_string(),(quote!{
             {
-                let definition_levels : Vec<i16> = self.iter().map(|x| if x.maybe_happened.is_some() { 1 } else { 0 }).collect();
-                let vals : Vec<_> = records.iter().filter_map(|x| {
-                    if let Some(inner) = x.maybe_happened {
+                let definition_levels : Vec<i16> = self.iter().map(|rec| if rec.maybe_happened.is_some() { 1 } else { 0 }).collect();
+                let vals : Vec<_> = records.iter().filter_map(|rec| {
+                    if let Some(inner) = rec.maybe_happened {
                         Some( inner.signed_duration_since(chrono::NaiveDate::from_ymd(1970, 1, 1)).num_days() as i32 )
                     } else {
                         None
@@ -898,7 +898,7 @@ mod test {
         let when = Field::from(&fields[0]);
         assert_eq!(when.writer_snippet().to_string(),(quote!{
             {
-                let vals : Vec<_> = records.iter().map(|x| (&x.unique_id.to_string()[..]).into() ).collect();
+                let vals : Vec<_> = records.iter().map(|rec| (&rec.unique_id.to_string()[..]).into() ).collect();
                 if let parquet::column::writer::ColumnWriter::ByteArrayColumnWriter(ref mut typed) = column_writer {
                     typed.write_batch(&vals[..], None, None) ?;
                 } else {
@@ -910,9 +910,9 @@ mod test {
         let maybe_happened = Field::from(&fields[1]);
         assert_eq!(maybe_happened.writer_snippet().to_string(),(quote!{
             {
-                let definition_levels : Vec<i16> = self.iter().map(|x| if x.maybe_unique_id.is_some() { 1 } else { 0 }).collect();
-                let vals : Vec<_> = records.iter().filter_map(|x| {
-                    if let Some(ref inner) = x.maybe_unique_id {
+                let definition_levels : Vec<i16> = self.iter().map(|rec| if rec.maybe_unique_id.is_some() { 1 } else { 0 }).collect();
+                let vals : Vec<_> = records.iter().filter_map(|rec| {
+                    if let Some(ref inner) = rec.maybe_unique_id {
                         Some( (&inner.to_string()[..]).into() )
                     } else {
                         None
