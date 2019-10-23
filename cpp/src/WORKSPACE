@@ -1,0 +1,30 @@
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "double-conversion",
+    build_file = "//bazel:double_conversion.BUILD",
+    sha256 = "a63ecb93182134ba4293fd5f22d6e08ca417caafa244afaa751cbfddf6415b13",
+    strip_prefix = "double-conversion-3.1.5",
+    urls = ["https://github.com/google/double-conversion/archive/v3.1.5.tar.gz"],
+)
+
+http_archive(
+    name = "googletest",
+    sha256 = "9dc9157a9a1551ec7a7e43daea9a694a0bb5fb8bec81235d8a1e6ef64c716dcb",
+    strip_prefix = "googletest-release-1.10.0",
+    urls = ["https://github.com/google/googletest/archive/release-1.10.0.tar.gz"],
+)
+
+http_archive(
+    name = "rapidjson",
+    build_file = "//bazel:rapidjson.BUILD",
+    sha256 = "de623a7577defec15b55f82813a05a6f0fe60e337ffa8a5ee4b2c13bd8417028",
+    strip_prefix = "rapidjson-2bbd33b33217ff4a73434ebf10cdac41e2ef5e34/include",
+    urls = ["https://github.com/miloyip/rapidjson/archive/2bbd33b33217ff4a73434ebf10cdac41e2ef5e34.tar.gz"],
+)
+
+new_local_repository(
+    name = "flatbuffers",
+    build_file = "//bazel:flatbuffers.BUILD",
+    path = "../thirdparty/flatbuffers/include",
+)
