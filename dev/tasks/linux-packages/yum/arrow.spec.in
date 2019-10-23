@@ -333,6 +333,7 @@ This package contains the libraries for Gandiva.
 Summary:	Libraries and header files for Gandiva.
 License:	Apache-2.0
 Requires:	gandiva-libs = %{version}-%{release}
+Requires:	llvm-devel
 
 %description -n gandiva-devel
 Libraries and header files for Gandiva.
