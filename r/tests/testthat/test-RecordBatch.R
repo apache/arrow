@@ -234,11 +234,13 @@ test_that("record_batch() handles data frame columns", {
 
 test_that("record_batch() handles data frame columns with schema spec", {
   tib <- tibble::tibble(x = 1:10, y = 1:10)
+  tib_float <- tib
+  tib_float$y <- as.numeric(tib_float$y)
   schema <- schema(a = int32(), b = struct(x = int16(), y = float64()))
   batch <- record_batch(a = 1:10, b = tib, schema = schema)
   expect_equal(batch$schema, schema)
   out <- as.data.frame(batch)
-  expect_equivalent(out, tibble::tibble(a = 1:10, b = tib))
+  expect_equivalent(out, tibble::tibble(a = 1:10, b = tib_float))
 
   schema <- schema(a = int32(), b = struct(x = int16(), y = utf8()))
   expect_error(record_batch(a = 1:10, b = tib, schema = schema))
@@ -259,18 +261,20 @@ test_that("record_batch() auto splices (ARROW-5718)", {
   expect_equivalent(as.data.frame(batch3), cbind(df, data.frame(z = 1:10)))
 
   s <- schema(x = float64(), y = utf8())
+  df_float <- df
+  df_float$x <- as.numeric(df_float$x)
   batch5 <- record_batch(df, schema = s)
   batch6 <- record_batch(!!!df, schema = s)
   expect_equal(batch5, batch6)
   expect_equal(batch5$schema, s)
-  expect_equivalent(as.data.frame(batch5), df)
+  expect_equivalent(as.data.frame(batch5), df_float)
 
   s2 <- schema(x = float64(), y = utf8(), z = int16())
   batch7 <- record_batch(df, z = 1:10, schema = s2)
   batch8 <- record_batch(!!!df, z = 1:10, schema = s2)
   expect_equal(batch7, batch8)
   expect_equal(batch7$schema, s2)
-  expect_equivalent(as.data.frame(batch7), cbind(df, data.frame(z = 1:10)))
+  expect_equivalent(as.data.frame(batch7), cbind(df_float, data.frame(z = 1:10)))
 })
 
 test_that("record_batch() only auto splice data frames", {

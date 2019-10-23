@@ -17,6 +17,8 @@
 
 context("dplyr verbs")
 
+library(dplyr)
+
 test_that("basic select/filter/collect", {
   # Note that these get recycled throughout the tests
   tbl <- tibble::tibble(

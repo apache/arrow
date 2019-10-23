@@ -35,20 +35,21 @@ Imports:
     Rcpp (>= 1.0.1),
     rlang,
     tidyselect,
-    utils
+    utils,
+    vctrs
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.1.1
 VignetteBuilder: knitr
 Suggests:
     covr,
+    dplyr,
     fs,
     hms,
     knitr,
     lubridate,
     rmarkdown,
     testthat,
-    tibble,
-    vctrs
+    tibble
 Collate:
     'enums.R'
     'arrow-package.R'

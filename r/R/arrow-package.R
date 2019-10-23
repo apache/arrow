@@ -25,6 +25,18 @@
 #' @keywords internal
 "_PACKAGE"
 
+#' @importFrom vctrs s3_register
+.onLoad <- function(...) {
+  s3_register("dplyr::select", "RecordBatch")
+  s3_register("dplyr::filter", "RecordBatch")
+  s3_register("dplyr::collect", "RecordBatch")
+  s3_register("dplyr::summarise", "RecordBatch")
+  s3_register("dplyr::group_by", "RecordBatch")
+  s3_register("dplyr::groups", "RecordBatch")
+  s3_register("dplyr::ungroup", "RecordBatch")
+  invisible()
+}
+
 #' Is the C++ Arrow library available?
 #'
 #' You won't generally need to call this function, but it's here in case it

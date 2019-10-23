@@ -15,21 +15,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @importFrom dplyr select
 #' @export
 select.RecordBatch <- function(.data, ...) {
   .data$selected_columns <- c(.data$selected_columns, list(quos(...)))
   .data
 }
 
-#' @importFrom dplyr filter
 #' @export
 filter.RecordBatch <- function(.data, ..., .preserve = FALSE) {
   .data$filtered_rows <- c(.data$filtered_rows, quos(...))
   .data
 }
 
-#' @importFrom dplyr collect grouped_df
 #' @export
 collect.RecordBatch <- function(x, ...) {
   filters <- evaluate_filters(x)
@@ -39,7 +36,7 @@ collect.RecordBatch <- function(x, ...) {
   }
   df <- as.data.frame(x[filters, colnames])
   if (length(x$group_by_vars)) {
-    df <- grouped_df(df, groups(x)$group_names)
+    df <- dplyr::grouped_df(df, groups(x)$group_names)
   }
   # Slight hack: since x is R6, each select/filter modified the object in place,
   # which is not standard R behavior. Let's zero out x$selected_columns and
@@ -70,25 +67,21 @@ evaluate_filters <- function(x) {
   Reduce("&", filters)
 }
 
-#' @importFrom dplyr summarise summarize
 #' @export
 summarise.RecordBatch <- function(.data, ...) {
   # TODO: determine whether work can be pushed down to Arrow
   return(summarise(collect(.data), ...))
 }
 
-#' @importFrom dplyr group_by group_by_prepare
 #' @export
 group_by.RecordBatch <- function(.data, ..., add = FALSE) {
-  .data$group_by_vars <- group_by_prepare(.data, ..., add = add)
+  .data$group_by_vars <- dplyr::group_by_prepare(.data, ..., add = add)
   .data
 }
 
-#' @importFrom dplyr groups
 #' @export
 groups.RecordBatch <- function(x) x$group_by_vars
 
-#' @importFrom dplyr ungroup
 #' @export
 ungroup.RecordBatch <- function(x, ...) {
   x$group_by_vars <- list()

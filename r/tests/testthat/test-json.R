@@ -120,8 +120,8 @@ test_that("Can read json file with nested columns (ARROW-5503)", {
   expect_equal(struct_array$GetFieldByName("ps"), ps)
   expect_equal(struct_array$Flatten(), list(ps, hello))
   expect_equal(
-    struct_array$as_vector(),
-    data.frame(ps = ps$as_vector(), hello = hello$as_vector(), stringsAsFactors = FALSE)
+    as.vector(struct_array),
+    tibble::tibble(ps = ps$as_vector(), hello = hello$as_vector())
   )
 
   list_array_r <- list(
@@ -139,11 +139,11 @@ test_that("Can read json file with nested columns (ARROW-5503)", {
   )
 
   tib <- as.data.frame(tab1)
-  expect_identical(
+  expect_equivalent(
     tib,
     tibble::tibble(
       arr = list_array_r,
-      nuf = data.frame(ps = ps$as_vector(), hello = hello$as_vector(), stringsAsFactors = FALSE)
+      nuf = tibble::tibble(ps = ps$as_vector(), hello = hello$as_vector())
     )
   )
 })

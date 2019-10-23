@@ -222,11 +222,13 @@ test_that("table() auto splices (ARROW-5718)", {
   expect_equivalent(as.data.frame(tab1), df)
 
   s <- schema(x = float64(), y = utf8())
+  df_float <- df
+  df_float$x <- as.numeric(df_float$x)
   tab3 <- Table$create(df, schema = s)
   tab4 <- Table$create(!!!df, schema = s)
   expect_equal(tab3, tab4)
   expect_equal(tab3$schema, s)
-  expect_equivalent(as.data.frame(tab3), df)
+  expect_equivalent(as.data.frame(tab3), df_float)
 })
 
 test_that("==.Table", {
