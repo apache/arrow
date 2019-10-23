@@ -1,24 +1,6 @@
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+
 package(default_visibility = ["//arrow:__pkg__"])
-
-cc_library(
-    name = "diff",
-    srcs = ["diff.cc"],
-    hdrs = ["diff.h"],
-    deps = [
-        "//arrow:array_hdrs",
-        "//arrow:buffer_builder",
-        "//arrow/util:range",
-    ],
-)
-
-cc_library(
-    name = "concatenate",
-    srcs = ["concatenate.cc"],
-    hdrs = ["concatenate.h"],
-    deps = [
-        "//arrow:array_hdrs",
-    ],
-)
 
 cc_library(
     name = "builder_adaptive",
@@ -62,13 +44,6 @@ cc_library(
 )
 
 cc_library(
-    name = "builder_primitive",
-    srcs = ["builder_primitive.cc"],
-    hdrs = ["builder_primitive.h"],
-    deps = [":builder_base"],
-)
-
-cc_library(
     name = "builder_dict",
     srcs = [
         "builder_dict.cc",
@@ -83,6 +58,11 @@ cc_library(
     ],
 )
 
+filegroup(
+    name = "builder_hdrs",
+    srcs = glob(["builder_*.h"]),
+)
+
 cc_library(
     name = "builder_nested",
     srcs = ["builder_nested.cc"],
@@ -90,6 +70,13 @@ cc_library(
     deps = [
         ":builder_base",
     ],
+)
+
+cc_library(
+    name = "builder_primitive",
+    srcs = ["builder_primitive.cc"],
+    hdrs = ["builder_primitive.h"],
+    deps = [":builder_base"],
 )
 
 cc_library(
@@ -101,9 +88,39 @@ cc_library(
     ],
 )
 
-filegroup(
-    name = "builder_hdrs",
-    srcs = glob(["builder_*.h"]),
+cc_library(
+    name = "concatenate",
+    srcs = ["concatenate.cc"],
+    hdrs = ["concatenate.h"],
+    deps = [
+        "//arrow:array_hdrs",
+    ],
+)
+
+cc_test(
+    name = "concatenate_test",
+    srcs = ["concatenate_test.cc"],
+    deps = [
+        "//arrow:array",
+        "//arrow:array_builder",
+        "//arrow/compute:context",
+        "//arrow/testing:gtest_common",
+        "//arrow/testing:gtest_util",
+        "@flatbuffers",
+        "@googletest//:gtest_main",
+    ],
+)
+
+
+cc_library(
+    name = "diff",
+    srcs = ["diff.cc"],
+    hdrs = ["diff.h"],
+    deps = [
+        "//arrow:array_hdrs",
+        "//arrow:buffer_builder",
+        "//arrow/util:range",
+    ],
 )
 
 cc_test(

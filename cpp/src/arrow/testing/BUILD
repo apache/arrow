@@ -1,16 +1,6 @@
-package(default_visibility = ["//visibility:public"])
+load("@rules_cc//cc:defs.bzl", "cc_library")
 
-cc_library(
-    name = "gtest_util_hdr",
-    hdrs = [
-        "gtest_util.h",
-        "util.h",
-    ],
-    deps = [
-        "//arrow:array_builder",
-        "//arrow:buffer",
-    ],
-)
+package(default_visibility = ["//visibility:public"])
 
 cc_library(
     name = "gtest_common",
@@ -34,12 +24,12 @@ cc_library(
 )
 
 cc_library(
-    name = "util",
-    testonly = True,
-    srcs = ["util.cc"],
-    hdrs = ["util.h"],
+    name = "gtest_util_hdr",
+    hdrs = [
+        "gtest_util.h",
+        "util.h",
+    ],
     deps = [
-        ":random",
         "//arrow:array_builder",
         "//arrow:buffer",
     ],
@@ -55,5 +45,18 @@ cc_library(
         "//arrow:array",
         "//arrow/util:visibility",
         "@googletest//:gtest",
+    ],
+)
+
+
+cc_library(
+    name = "util",
+    testonly = True,
+    srcs = ["util.cc"],
+    hdrs = ["util.h"],
+    deps = [
+        ":random",
+        "//arrow:array_builder",
+        "//arrow:buffer",
     ],
 )

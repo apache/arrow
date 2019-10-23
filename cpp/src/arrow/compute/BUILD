@@ -1,10 +1,6 @@
-package(default_visibility = ["//visibility:public"])
+load("@rules_cc//cc:defs.bzl", "cc_library")
 
-cc_library(
-    name = "kernel",
-    hdrs = ["kernel.h"],
-    deps = ["//arrow:array"],
-)
+package(default_visibility = ["//visibility:public"])
 
 cc_library(
     name = "context",
@@ -15,4 +11,11 @@ cc_library(
         "//arrow:memory_pool",
         "//arrow/util:cpu_info",
     ],
+)
+
+
+cc_library(
+    name = "kernel",
+    hdrs = ["kernel.h"],
+    deps = ["//arrow:array"],
 )

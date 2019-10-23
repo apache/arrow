@@ -1,3 +1,12 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
+cc_library(
+    name = "datetime",
+    hdrs = ["datetime.h"],
+    visibility = ["//visibility:public"],
+    deps = ["//arrow/vendored/datetime"],
+)
+
 cc_library(
     name = "string_view",
     hdrs = ["string_view.hpp"],
@@ -11,15 +20,9 @@ cc_library(
 )
 
 cc_library(
-    name = "datetime",
-    hdrs = ["datetime.h"],
-    visibility = ["//visibility:public"],
-    deps = ["//arrow/vendored/datetime"],
-)
-
-cc_library(
     name = "xxhash",
     hdrs = ["xxhash.h"],
     visibility = ["//visibility:public"],
     deps = ["//arrow/vendored/xxhash"],
 )
+

@@ -1,3 +1,5 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
@@ -5,3 +7,4 @@ cc_library(
     hdrs = ["rapidjson_defs.h"],
     deps = ["//arrow/util:sse_util"],
 )
+

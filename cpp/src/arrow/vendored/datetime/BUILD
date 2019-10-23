@@ -1,3 +1,5 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+
 cc_library(
     name = "datetime",
     srcs = ["tz.cpp"],
@@ -10,3 +12,4 @@ cc_library(
     ],
     visibility = ["//arrow/vendored:__pkg__"],
 )
+

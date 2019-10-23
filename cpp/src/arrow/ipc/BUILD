@@ -1,3 +1,5 @@
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
@@ -7,17 +9,6 @@ cc_library(
     deps = [
         "//arrow:array",
         "//arrow:status",
-    ],
-)
-
-cc_library(
-    name = "json_simple",
-    srcs = ["json_simple.cc"],
-    hdrs = ["json_simple.h"],
-    deps = [
-        ":json_internal",
-        "//arrow:array",
-        "//arrow:array_builder",
     ],
 )
 
@@ -36,9 +27,14 @@ cc_library(
 )
 
 cc_library(
-    name = "message_hdr",
-    hdrs = ["message.h"],
-    deps = [":options"],
+    name = "json_simple",
+    srcs = ["json_simple.cc"],
+    hdrs = ["json_simple.h"],
+    deps = [
+        ":json_internal",
+        "//arrow:array",
+        "//arrow:array_builder",
+    ],
 )
 
 cc_library(
@@ -54,6 +50,12 @@ cc_library(
         "//generated",
         "@flatbuffers",
     ],
+)
+
+cc_library(
+    name = "message_hdr",
+    hdrs = ["message.h"],
+    deps = [":options"],
 )
 
 cc_library(
@@ -77,15 +79,25 @@ cc_library(
     deps = ["//arrow/util:visibility"],
 )
 
-cc_library(
-    name = "util",
-    hdrs = ["util.h"],
+cc_test(
+    name = "read_write_test",
+    srcs = ["read_write_test.cc"],
     deps = [
+        ":message",
+        ":reader",
+        ":test_common",
+        ":writer",
         "//arrow:array",
-        "//arrow:status",
-        "//arrow/io:interfaces",
+        "//arrow:array_builder",
+        "//arrow/io:file",
+        "//arrow/io:memory",
+        "//arrow/io:test_common",
+        "//arrow/testing:gtest_util",
+        "@flatbuffers",
+        "@googletest//:gtest_main",
     ],
 )
+
 
 cc_library(
     name = "reader",
@@ -103,6 +115,28 @@ cc_library(
 )
 
 cc_library(
+    name = "test_common",
+    testonly = True,
+    srcs = ["test_common.cc"],
+    hdrs = ["test_common.h"],
+    deps = [
+        "//arrow:array",
+        "//arrow:array_builder",
+        "//arrow/testing:gtest_util",
+    ],
+)
+
+cc_library(
+    name = "util",
+    hdrs = ["util.h"],
+    deps = [
+        "//arrow:array",
+        "//arrow:status",
+        "//arrow/io:interfaces",
+    ],
+)
+
+cc_library(
     name = "writer",
     srcs = ["writer.cc"],
     hdrs = ["writer.h"],
@@ -115,36 +149,5 @@ cc_library(
         "//arrow:result_internal",
         "//arrow/io:memory",
         "//arrow/util:visibility",
-    ],
-)
-
-cc_library(
-    name = "test_common",
-    testonly = True,
-    srcs = ["test_common.cc"],
-    hdrs = ["test_common.h"],
-    deps = [
-        "//arrow:array",
-        "//arrow:array_builder",
-        "//arrow/testing:gtest_util",
-    ],
-)
-
-cc_test(
-    name = "read_write_test",
-    srcs = ["read_write_test.cc"],
-    deps = [
-        ":message",
-        ":reader",
-        ":test_common",
-        ":writer",
-        "//arrow:array",
-        "//arrow:array_builder",
-        "//arrow/io:file",
-        "//arrow/io:memory",
-        "//arrow/io:test_common",
-        "//arrow/testing:gtest_util",
-        "@flatbuffers",
-        "@googletest//:gtest_main",
     ],
 )

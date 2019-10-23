@@ -1,17 +1,51 @@
+load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+
 package(default_visibility = ["//visibility:public"])
 
 cc_library(
-    name = "interfaces_hdr",
-    hdrs = ["interfaces.h"],
-    deps =
-        [
-            ":util_internal",
-            "//arrow:type_fwd",
-            "//arrow/util:macros",
-            "//arrow/util:string_view",
-            "//arrow/util:visibility",
-        ],
+    name = "buffered",
+    srcs = ["buffered.cc"],
+    hdrs = ["buffered.h"],
+    deps = [
+        ":concurrency",
+        "//arrow:buffer",
+        "//arrow:status",
+    ],
 )
+
+cc_library(
+    name = "concurrency",
+    hdrs = ["concurrency.h"],
+    deps = [
+        ":interfaces_hdr",
+        "//arrow/util:checked_cast",
+    ],
+)
+
+cc_library(
+    name = "file",
+    srcs = ["file.cc"],
+    hdrs = ["file.h"],
+    deps = [
+        ":concurrency",
+        ":util_internal",
+        "//arrow:buffer",
+        "//arrow:status",
+        "//arrow/util:memory",
+    ],
+)
+
+cc_test(
+    name = "file_test",
+    srcs = ["file_test.cc"],
+    deps = [
+        ":file",
+        ":test_common",
+        "//arrow/testing:gtest_util",
+        "@googletest//:gtest_main",
+    ],
+)
+
 
 cc_library(
     name = "interfaces",
@@ -29,33 +63,22 @@ cc_library(
 )
 
 cc_library(
+    name = "interfaces_hdr",
+    hdrs = ["interfaces.h"],
+    deps =
+        [
+            ":util_internal",
+            "//arrow:type_fwd",
+            "//arrow/util:macros",
+            "//arrow/util:string_view",
+            "//arrow/util:visibility",
+        ],
+)
+
+cc_library(
     name = "memory",
     srcs = ["memory.cc"],
     hdrs = ["memory.h"],
-    deps = [
-        ":concurrency",
-        ":util_internal",
-        "//arrow:buffer",
-        "//arrow:status",
-        "//arrow/util:memory",
-    ],
-)
-
-cc_library(
-    name = "buffered",
-    srcs = ["buffered.cc"],
-    hdrs = ["buffered.h"],
-    deps = [
-        ":concurrency",
-        "//arrow:buffer",
-        "//arrow:status",
-    ],
-)
-
-cc_library(
-    name = "file",
-    srcs = ["file.cc"],
-    hdrs = ["file.h"],
     deps = [
         ":concurrency",
         ":util_internal",
@@ -81,24 +104,4 @@ cc_library(
 cc_library(
     name = "util_internal",
     hdrs = ["util_internal.h"],
-)
-
-cc_library(
-    name = "concurrency",
-    hdrs = ["concurrency.h"],
-    deps = [
-        ":interfaces_hdr",
-        "//arrow/util:checked_cast",
-    ],
-)
-
-cc_test(
-    name = "file_test",
-    srcs = ["file_test.cc"],
-    deps = [
-        ":file",
-        ":test_common",
-        "//arrow/testing:gtest_util",
-        "@googletest//:gtest_main",
-    ],
 )
