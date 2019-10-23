@@ -36,16 +36,16 @@
     echo 3; \
   fi)
 
-%define use_flight %{_centos_ver} >= 8
-%define use_gandiva %{_centos_ver} >= 8
-%define use_parquet %{_centos_ver} >= 7
+%define use_flight (%{_centos_ver} >= 8)
+%define use_gandiva (%{_centos_ver} >= 8)
+%define use_parquet (%{_centos_ver} >= 7)
 
-%define use_glib %{_centos_ver} >= 7
-%define use_meson %{_centos_ver} >= 8
+%define use_glib (%{_centos_ver} >= 7)
+%define use_meson (%{_centos_ver} >= 8)
 
-%define have_double_conversion %{_centos_ver} == 7
-%define have_rapidjson %{_centos_ver} == 7
-%define have_thrift %{_centos_ver} == 7
+%define have_double_conversion (%{_centos_ver} == 7)
+%define have_rapidjson (%{_centos_ver} == 7)
+%define have_thrift (%{_centos_ver} == 7)
 
 Name:		@PACKAGE@
 Version:	@VERSION@
