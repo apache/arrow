@@ -310,10 +310,11 @@ LargeListArray::LargeListArray(const std::shared_ptr<DataType>& type, int64_t le
   SetData(internal_data);
 }
 
-void ListArray::SetData(const std::shared_ptr<ArrayData>& data) {
+void ListArray::SetData(const std::shared_ptr<ArrayData>& data,
+                        Type::type expected_type_id) {
   this->Array::SetData(data);
   ARROW_CHECK_EQ(data->buffers.size(), 2);
-  ARROW_CHECK_EQ(data->type->id(), Type::LIST);
+  ARROW_CHECK_EQ(data->type->id(), expected_type_id);
   list_type_ = checked_cast<const ListType*>(data->type.get());
 
   auto value_offsets = data->buffers[1];
@@ -451,17 +452,12 @@ Status MapArray::FromArrays(const std::shared_ptr<Array>& offsets,
 }
 
 void MapArray::SetData(const std::shared_ptr<ArrayData>& data) {
-  ARROW_CHECK_EQ(data->type->id(), Type::MAP);
+  this->ListArray::SetData(data, Type::MAP);
   auto pair_data = data->child_data[0];
   ARROW_CHECK_EQ(pair_data->type->id(), Type::STRUCT);
   ARROW_CHECK_EQ(pair_data->null_count, 0);
   ARROW_CHECK_EQ(pair_data->child_data.size(), 2);
   ARROW_CHECK_EQ(pair_data->child_data[0]->null_count, 0);
-
-  auto pair_list_data = data->Copy();
-  pair_list_data->type = list(pair_data->type);
-  this->ListArray::SetData(pair_list_data);
-  data_->type = pair_list_data->type;
 
   keys_ = MakeArray(pair_data->child_data[0]);
   items_ = MakeArray(pair_data->child_data[1]);

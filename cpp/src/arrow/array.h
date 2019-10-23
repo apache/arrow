@@ -595,7 +595,8 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
  protected:
   // This constructor defers SetData to a derived array class
   ListArray() = default;
-  void SetData(const std::shared_ptr<ArrayData>& data);
+  void SetData(const std::shared_ptr<ArrayData>& data,
+               Type::type expected_type_id = Type::LIST);
 };
 
 /// Concrete Array class for large list data (with 64-bit offsets)
