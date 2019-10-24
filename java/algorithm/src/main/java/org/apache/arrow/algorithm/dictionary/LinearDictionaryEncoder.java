@@ -30,8 +30,7 @@ import org.apache.arrow.vector.compare.RangeEqualsVisitor;
 public class LinearDictionaryEncoder<E extends BaseIntVector, D extends ValueVector> {
 
   /**
-   * The dictionary for encoding/decoding.
-   * It must be sorted.
+   * The dictionary for encoding.
    */
   private final D dictionary;
 
@@ -45,8 +44,9 @@ public class LinearDictionaryEncoder<E extends BaseIntVector, D extends ValueVec
   private Range range;
 
   /**
-   * Constructs a dictionary encoder.
+   * Constructs a dictionary encoder, with the encode null flag set to false.
    * @param dictionary the dictionary. Its entries should be sorted in the non-increasing order of their frequency.
+   *     Otherwise, the encoder still produces correct results, but at the expense of performance overhead.
    */
   public LinearDictionaryEncoder(D dictionary) {
     this(dictionary, false);
@@ -55,6 +55,7 @@ public class LinearDictionaryEncoder<E extends BaseIntVector, D extends ValueVec
   /**
    * Constructs a dictionary encoder.
    * @param dictionary the dictionary. Its entries should be sorted in the non-increasing order of their frequency.
+   *     Otherwise, the encoder still produces correct results, but at the expense of performance overhead.
    * @param encodeNull a flag indicating if null should be encoded.
    *     It determines the behaviors for processing null values in the input during encoding.
    *     When a null is encountered in the input,
