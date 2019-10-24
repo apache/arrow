@@ -53,22 +53,29 @@
 // aggressively (and in the background) to the OS. This can be configured
 // further by using the arrow::jemalloc_set_decay_ms API
 
-#ifdef NDEBUG
-const char* je_arrow_malloc_conf =
-    ("oversize_threshold:0,"
-     "dirty_decay_ms:1000,"
-     "muzzy_decay_ms:1000,"
-     "background_thread:true");
-#else
+#undef USE_JEMALLOC_BACKGROUND_THREAD
+#ifndef __APPLE__
+// ARROW-6977: jemalloc's background_thread isn't always enabled on macOS
+#define USE_JEMALLOC_BACKGROUND_THREAD
+#endif
+
 // In debug mode, add memory poisoning on alloc / free
+#ifdef NDEBUG
+#define JEMALLOC_DEBUG_OPTIONS ""
+#else
+#define JEMALLOC_DEBUG_OPTIONS ",junk:true"
+#endif
+
 const char* je_arrow_malloc_conf =
-    ("oversize_threshold:0,"
-     "junk:true,"
-     "dirty_decay_ms:1000,"
-     "muzzy_decay_ms:1000,"
-     "background_thread:true");
+    ("oversize_threshold:0"
+     ",dirty_decay_ms:1000"
+     ",muzzy_decay_ms:1000"
+#ifdef USE_JEMALLOC_BACKGROUND_THREAD
+     ",background_thread:true"
 #endif
-#endif
+     JEMALLOC_DEBUG_OPTIONS);  // NOLINT: whitespace/parens
+
+#endif  // ARROW_JEMALLOC
 
 namespace arrow {
 
