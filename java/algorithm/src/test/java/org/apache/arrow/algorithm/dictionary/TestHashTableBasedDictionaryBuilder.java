@@ -33,7 +33,7 @@ import org.junit.Test;
 /**
  * Test cases for {@link HashTableBasedDictionaryBuilder}.
  */
-public class TestHashTableBasedDictionaryEncoder {
+public class TestHashTableBasedDictionaryBuilder {
 
   private BufferAllocator allocator;
 

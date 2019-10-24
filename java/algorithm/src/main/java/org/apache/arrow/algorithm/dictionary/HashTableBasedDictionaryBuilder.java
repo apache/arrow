@@ -25,37 +25,13 @@ import org.apache.arrow.memory.util.hash.SimpleHasher;
 import org.apache.arrow.vector.ElementAddressableVector;
 
 /**
- * A dictionary builder is intended for the scenario frequently encountered in practice:
- * the dictionary is not known a priori, so it is generated dynamically.
- * In particular, when a new value arrives, it is tested to check if it is already
- * in the dictionary. If so, it is simply neglected, otherwise, it is added to the dictionary.
- *
- * <p>
  * This class builds the dictionary based on a hash table.
  * Each add operation can be finished in O(1) time,
  * where n is the current dictionary size.
- * </p>
- * <p>
- * The dictionary builder is intended to build a single dictionary.
- * So it cannot be used for different dictionaries.
- * </p>
- * <p>Below gives the sample code for using the dictionary builder
- * <pre>{@code
- * HashTableBasedDictionaryBuilder dictionaryBuilder = ...
- * ...
- * dictionaryBuild.addValue(newValue);
- * ...
- * }</pre>
- * </p>
- * <p>
- *   With the above code, the dictionary vector will be populated,
- *   and it can be retrieved by the {@link HashTableBasedDictionaryBuilder#getDictionary()} method.
- *   After that, dictionary encoding can proceed with the populated dictionary encoder.
- * </p>
  *
  * @param <V> the dictionary vector type.
  */
-public class HashTableBasedDictionaryBuilder<V extends ElementAddressableVector> {
+public class HashTableBasedDictionaryBuilder<V extends ElementAddressableVector> implements DictionaryBuilder<V> {
 
   /**
    * The dictionary to be built.
@@ -121,6 +97,7 @@ public class HashTableBasedDictionaryBuilder<V extends ElementAddressableVector>
    *
    * @return the dictionary.
    */
+  @Override
   public V getDictionary() {
     return dictionary;
   }
@@ -131,6 +108,7 @@ public class HashTableBasedDictionaryBuilder<V extends ElementAddressableVector>
    * @param targetVector the target vector containing values to probe.
    * @return the number of values actually added to the dictionary.
    */
+  @Override
   public int addValues(V targetVector) {
     int oldDictSize = dictionary.getValueCount();
     for (int i = 0; i < targetVector.getValueCount(); i++) {
@@ -150,6 +128,7 @@ public class HashTableBasedDictionaryBuilder<V extends ElementAddressableVector>
    * @param targetIndex  the index of the new element in the target vector.
    * @return the index of the new element in the dictionary.
    */
+  @Override
   public int addValue(V targetVector, int targetIndex) {
     targetVector.getDataPointer(targetIndex, nextPointer);
 
