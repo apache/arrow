@@ -22,3 +22,7 @@
 if(ARROW_ORC)
   add_subdirectory(orc)
 endif()
+
+if(ARROW_PARQUET)
+  add_subdirectory(parquet)
+endif()

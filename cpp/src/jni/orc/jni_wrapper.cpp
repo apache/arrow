@@ -29,7 +29,7 @@
 #include "org_apache_arrow_adapter_orc_OrcReaderJniWrapper.h"
 #include "org_apache_arrow_adapter_orc_OrcStripeReaderJniWrapper.h"
 
-#include "./concurrent_map.h"
+#include "../concurrent_map.h"
 
 using ORCFileReader = arrow::adapters::orc::ORCFileReader;
 using RecordBatchReader = arrow::RecordBatchReader;
