@@ -64,7 +64,6 @@ Collate:
     'csv.R'
     'dictionary.R'
     'dplyr.R'
-    'expression.R'
     'feather.R'
     'field.R'
     'filesystem.R'
