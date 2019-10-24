@@ -330,6 +330,9 @@ where
     /// Loads a slice into a SIMD register
     fn load(slice: &[Self::Native]) -> Self::Simd;
 
+    /// Extracts the value at `idx`
+    fn get(simd: &Self::Simd, idx: usize) -> Self::Native;
+
     /// Creates a new SIMD mask for this SIMD type filling it with `value`
     fn mask_init(value: bool) -> Self::SimdMask;
 
@@ -398,6 +401,10 @@ macro_rules! make_numeric_type {
 
             fn load(slice: &[Self::Native]) -> Self::Simd {
                 unsafe { Self::Simd::from_slice_unaligned_unchecked(slice) }
+            }
+
+            fn get(simd: &Self::Simd, idx: usize) -> Self::Native {
+                unsafe { simd.extract_unchecked(idx)}
             }
 
             fn mask_init(value: bool) -> Self::SimdMask {

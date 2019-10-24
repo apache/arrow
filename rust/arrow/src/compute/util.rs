@@ -147,7 +147,6 @@ pub(super) unsafe fn simd_load_set_invalid<T>(
 ) -> T::Simd
 where
     T: ArrowNumericType,
-    T::Native: One,
 {
     let simd_with_zeros = T::load(array.value_slice(i, simd_width));
     T::mask_select(

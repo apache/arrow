@@ -15,12 +15,27 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! Computation kernels on Arrow Arrays
+#[macro_use]
+extern crate criterion;
+use criterion::Criterion;
 
-pub mod arithmetic;
-pub mod boolean;
-pub mod cast;
-pub mod comparison;
-pub mod reductions;
-pub mod take;
-pub mod temporal;
+extern crate arrow;
+
+use arrow::array::*;
+use arrow::compute::kernels::reductions::*;
+
+fn create_array(size: usize) -> Float32Array {
+    let mut builder = Float32Builder::new(size);
+    for _i in 0..size {
+        builder.append_value(1.0).unwrap();
+    }
+    builder.finish()
+}
+
+fn add_benchmark(c: &mut Criterion) {
+    c.bench_function("add 512", |b| {b.iter(|| no_simd_sum(&create_array(50000)))});
+    c.bench_function("add 512 simd", |b| {b.iter(|| simd_sum(&create_array(50000)))});
+}
+
+criterion_group!(benches, add_benchmark);
+criterion_main!(benches);
