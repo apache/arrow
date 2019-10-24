@@ -178,6 +178,9 @@ const char* concatOperator_utf8_utf8(int64 context, const char* left, int32 left
 
 char* castVARCHAR_utf8_int64(int64 context, const char* data, int32 data_len,
                              int64_t out_len, int32_t* out_length);
+
+const char* lower_utf8(int64 context, const char* data, int32 data_len,
+                       int32_t* out_length);
 }  // extern "C"
 
 #endif  // PRECOMPILED_TYPES_H

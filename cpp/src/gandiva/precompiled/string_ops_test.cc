@@ -258,4 +258,23 @@ TEST(TestStringOps, TestConcat) {
   EXPECT_EQ(std::string(out_str, out_len), "abcd\na");
   EXPECT_FALSE(ctx.has_error());
 }
+
+TEST(TestStringOps, TestLower) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<int64>(&ctx);
+  int32 out_len = 0;
+
+  const char* out_str = lower_utf8(ctx_ptr, "AsDfJ", 5, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "asdfj");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = lower_utf8(ctx_ptr, "asdfj", 5, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "asdfj");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = lower_utf8(ctx_ptr, "Ç††AbD", 11, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Ç††abd");
+  EXPECT_FALSE(ctx.has_error());
+}
+
 }  // namespace gandiva
