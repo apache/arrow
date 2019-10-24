@@ -80,7 +80,7 @@ install:
   - deactivate
   # crossbow dependencies for deployment
   - unset MACOSX_DEPLOYMENT_TARGET
-  - pip3 install click ruamel.yaml setuptools_scm github3.py toolz
+  - pip3 install click ruamel.yaml setuptools_scm github3.py toolz requests[security]
   - python3 arrow/dev/tasks/crossbow.py --queue-path $(pwd) --queue-remote {{ queue.remote_url }} upload-artifacts --sha {{ task.branch }} --tag {{ task.tag }} --pattern "arrow/python/dist/*.whl"
 
 notifications:
