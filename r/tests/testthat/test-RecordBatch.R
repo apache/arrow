@@ -261,20 +261,18 @@ test_that("record_batch() auto splices (ARROW-5718)", {
   expect_equivalent(as.data.frame(batch3), cbind(df, data.frame(z = 1:10)))
 
   s <- schema(x = float64(), y = utf8())
-  df_float <- df
-  df_float$x <- as.numeric(df_float$x)
   batch5 <- record_batch(df, schema = s)
   batch6 <- record_batch(!!!df, schema = s)
   expect_equal(batch5, batch6)
   expect_equal(batch5$schema, s)
-  expect_equivalent(as.data.frame(batch5), df_float)
+  expect_equivalent(as.data.frame(batch5), df)
 
   s2 <- schema(x = float64(), y = utf8(), z = int16())
   batch7 <- record_batch(df, z = 1:10, schema = s2)
   batch8 <- record_batch(!!!df, z = 1:10, schema = s2)
   expect_equal(batch7, batch8)
   expect_equal(batch7$schema, s2)
-  expect_equivalent(as.data.frame(batch7), cbind(df_float, data.frame(z = 1:10)))
+  expect_equivalent(as.data.frame(batch7), cbind(df, data.frame(z = 1:10)))
 })
 
 test_that("record_batch() only auto splice data frames", {
