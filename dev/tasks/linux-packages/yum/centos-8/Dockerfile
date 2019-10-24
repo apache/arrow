@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG FROM=centos:7
+ARG FROM=centos:8
 FROM ${FROM}
 
 COPY qemu-* /usr/bin/
@@ -24,34 +24,41 @@ ARG DEBUG
 
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
-  yum update -y ${quiet} && \
-  yum install -y ${quiet} epel-release && \
-  yum groupinstall -y ${quiet} "Development Tools" && \
-  yum install -y ${quiet} \
-    autoconf-archive \
+  dnf install -y ${quiet} epel-release && \
+  dnf install --enablerepo=PowerTools -y ${quiet} \
     bison \
-    boost169-devel \
+    boost-devel \
     brotli-devel \
     bzip2-devel \
-    cmake3 \
-    double-conversion-devel \
+    clang \
+    cmake \
+    # double-conversion-devel \
     flex \
+    gcc-c++ \
     gflags-devel \
     git \
     glog-devel \
     gobject-introspection-devel \
     gtk-doc \
     libzstd-devel \
+    llvm-devel \
+    llvm-static \
     lz4-devel \
+    make \
+    ncurses-devel \
+    ninja-build \
+    openssl-devel \
     pkg-config \
-    python36 \
-    python36-devel \
-    python36-numpy \
-    rapidjson-devel \
+    python3 \
+    python3-devel \
+    python3-numpy \
+    python3-pip \
+    re2-devel \
+    # rapidjson-devel \
     rpm-build \
     rpmdevtools \
     snappy-devel \
     tar \
-    thrift-devel \
+    # thrift-devel \
     zlib-devel && \
-  yum clean ${quiet} all
+  dnf clean ${quiet} all
