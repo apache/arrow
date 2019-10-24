@@ -160,7 +160,11 @@ Table <- R6Class("Table", inherit = Object,
 
     Equals = function(other) {
       Table__Equals(self, other)
-    }
+    },
+
+    selected_columns = list(),
+    filtered_rows = list(),
+    group_by_vars = list()
   ),
 
   active = list(

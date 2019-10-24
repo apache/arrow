@@ -27,15 +27,18 @@
 
 #' @importFrom vctrs s3_register
 .onLoad <- function(...) {
-  s3_register("dplyr::select", "RecordBatch")
-  s3_register("dplyr::filter", "RecordBatch")
-  s3_register("dplyr::collect", "RecordBatch")
-  s3_register("dplyr::summarise", "RecordBatch")
-  s3_register("dplyr::group_by", "RecordBatch")
-  s3_register("dplyr::groups", "RecordBatch")
-  s3_register("dplyr::group_vars", "RecordBatch")
-  s3_register("dplyr::ungroup", "RecordBatch")
-  s3_register("dplyr::mutate", "RecordBatch")
+  dplyr_methods <- paste0(
+    "dplyr::",
+    c(
+      "select", "filter", "collect", "summarise", "group_by", "groups",
+      "group_vars", "ungroup", "mutate"
+    )
+  )
+  for (cl in c("RecordBatch", "Table")) {
+    for (m in dplyr_methods) {
+      s3_register(m, cl)
+    }
+  }
   invisible()
 }
 

@@ -83,3 +83,25 @@ test_that("group_by groupings are recorded", {
   # Test that the original object is not affected
   expect_identical(collect(batch), tbl)
 })
+
+test_that("dplyr methods on Table", {
+  tab <- Table$create(tbl)
+  m_i <- tab %>%
+    select(int, chr) %>%
+    filter(int > 5) %>%
+    mutate(int = int + 6L) %>%
+    summarize(min_int = min(int))
+  expect_identical(m_i$min_int, 12L)
+
+  m_i <- tab %>%
+    group_by(chr) %>%
+    select(int, chr) %>%
+    filter(int > 5) %>%
+    summarize(min_int = min(int))
+  expect_identical(m_i,
+    tibble::tibble(
+      chr = tbl$chr[tbl$int > 5],
+      min_int = tbl$int[tbl$int > 5]
+    )
+  )
+})

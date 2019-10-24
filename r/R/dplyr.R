@@ -21,6 +21,7 @@ select.RecordBatch <- function(.data, ...) {
   .data$selected_columns <- c(.data$selected_columns, list(quos(...)))
   .data
 }
+select.Table <- select.RecordBatch
 
 filter.RecordBatch <- function(.data, ..., .preserve = FALSE) {
   # This S3 method is registered on load if dplyr is present
@@ -28,6 +29,7 @@ filter.RecordBatch <- function(.data, ..., .preserve = FALSE) {
   .data$filtered_rows <- c(.data$filtered_rows, quos(...))
   .data
 }
+filter.Table <- filter.RecordBatch
 
 collect.RecordBatch <- function(x, ...) {
   # This S3 method is registered on load if dplyr is present
@@ -42,6 +44,7 @@ collect.RecordBatch <- function(x, ...) {
   }
   df
 }
+collect.Table <- collect.RecordBatch
 
 evaluate_filters <- function(x) {
   if (length(x$filtered_rows) == 0) {
@@ -77,6 +80,7 @@ summarise.RecordBatch <- function(.data, ...) {
   # TODO: determine whether work can be pushed down to Arrow
   dplyr::summarise(dplyr::collect(.data), ...)
 }
+summarise.Table <- summarise.RecordBatch
 
 group_by.RecordBatch <- function(.data, ..., add = FALSE) {
   # This S3 method is registered on load if dplyr is present
@@ -84,19 +88,25 @@ group_by.RecordBatch <- function(.data, ..., add = FALSE) {
   .data$group_by_vars <- dplyr::group_by_prepare(.data, ..., add = add)$group_names
   .data
 }
+group_by.Table <- group_by.RecordBatch
 
 # This S3 method is registered on load if dplyr is present
 groups.RecordBatch <- function(x) syms(dplyr::group_vars(x))
+groups.Table <- groups.RecordBatch
 
 # This S3 method is registered on load if dplyr is present
 group_vars.RecordBatch <- function(x) x$group_by_vars
+group_vars.Table <- group_vars.RecordBatch
 
 ungroup.RecordBatch <- function(x, ...) {
   # This S3 method is registered on load if dplyr is present
   x$group_by_vars <- list()
   x
 }
+ungroup.Table <- ungroup.RecordBatch
 
 mutate.RecordBatch <- function(.data, ...) {
+  # This S3 method is registered on load if dplyr is present
   dplyr::mutate(dplyr::collect(.data), ...)
 }
+mutate.Table <- mutate.RecordBatch
