@@ -427,8 +427,40 @@ void ShiftTime(FunctionContext* ctx, const CastOptions& options, const bool is_m
       out_data[i] = static_cast<out_type>(in_data[i]);
     }
   } else if (is_multiply) {
-    for (int64_t i = 0; i < input.length; i++) {
-      out_data[i] = static_cast<out_type>(in_data[i] * factor);
+    if (options.allow_time_overflow) {
+      for (int64_t i = 0; i < input.length; i++) {
+        out_data[i] = static_cast<out_type>(in_data[i] * factor);
+      }
+    } else {
+#define RAISE_OVERFLOW_CAST(VAL)                                                  \
+  ctx->SetStatus(Status::Invalid("Casting from ", input.type->ToString(), " to ", \
+                                 output->type->ToString(), " would result in ",   \
+                                 "out of bounds timestamp: ", VAL));
+
+      int64_t max_val = std::numeric_limits<int64_t>::max() / factor;
+      int64_t min_val = std::numeric_limits<int64_t>::min() / factor;
+      if (input.null_count != 0) {
+        internal::BitmapReader bit_reader(input.buffers[0]->data(), input.offset,
+                                          input.length);
+        for (int64_t i = 0; i < input.length; i++) {
+          if (bit_reader.IsSet() && (in_data[i] < min_val || in_data[i] > max_val)) {
+            RAISE_OVERFLOW_CAST(in_data[i]);
+            break;
+          }
+          out_data[i] = static_cast<out_type>(in_data[i] * factor);
+          bit_reader.Next();
+        }
+      } else {
+        for (int64_t i = 0; i < input.length; i++) {
+          if (in_data[i] < min_val || in_data[i] > max_val) {
+            RAISE_OVERFLOW_CAST(in_data[i]);
+            break;
+          }
+          out_data[i] = static_cast<out_type>(in_data[i] * factor);
+        }
+      }
+
+#undef RAISE_OVERFLOW_CAST
     }
   } else {
     if (options.allow_time_truncate) {

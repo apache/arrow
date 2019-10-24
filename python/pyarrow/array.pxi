@@ -897,10 +897,17 @@ cdef class Array(_PandasConvertible):
         cdef:
             PyObject* out
             PandasOptions c_options = _convert_pandas_options(options)
+            Array array
+
+        if self.type.id == _Type_TIMESTAMP and self.type.unit != 'ns':
+            # pandas only stores ns data - casting here is faster
+            array = self.cast(timestamp('ns'))
+        else:
+            array = self
 
         with nogil:
-            check_status(ConvertArrayToPandas(c_options, self.sp_array,
-                                              self, &out))
+            check_status(ConvertArrayToPandas(c_options, array.sp_array,
+                                              array, &out))
         result = pandas_api.series(wrap_array_output(out), name=self._name)
 
         if isinstance(self.type, TimestampType) and self.type.tz is not None:
