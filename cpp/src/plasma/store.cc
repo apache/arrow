@@ -579,29 +579,35 @@ ObjectStatus PlasmaStore::ContainsObject(const ObjectID& object_id) {
              : ObjectStatus::OBJECT_NOT_FOUND;
 }
 
-// Seal an object that has been created in the hash table.
-void PlasmaStore::SealObject(const ObjectID& object_id, unsigned char digest[]) {
-  ARROW_LOG(DEBUG) << "sealing object " << object_id.hex();
-  auto entry = GetObjectTableEntry(&store_info_, object_id);
-  ARROW_CHECK(entry != nullptr);
-  ARROW_CHECK(entry->state == ObjectState::PLASMA_CREATED);
-  // Set the state of object to SEALED.
-  entry->state = ObjectState::PLASMA_SEALED;
-  // Set the object digest.
-  std::memcpy(&entry->digest[0], &digest[0], kDigestSize);
-  // Set object construction duration.
-  entry->construct_duration = std::time(nullptr) - entry->create_time;
+void PlasmaStore::SealObjects(const std::vector<ObjectID>& object_ids,
+                              const std::vector<std::string>& digests) {
+  std::vector<ObjectInfoT> infos;
 
-  // Inform all subscribers that a new object has been sealed.
-  ObjectInfoT info;
-  info.object_id = object_id.binary();
-  info.data_size = entry->data_size;
-  info.metadata_size = entry->metadata_size;
-  info.digest = std::string(reinterpret_cast<char*>(&digest[0]), kDigestSize);
-  PushNotification(&info);
+  ARROW_LOG(DEBUG) << "sealing " << object_ids.size() << " objects";
+  for (size_t i = 0; i < object_ids.size(); ++i) {
+    ObjectInfoT object_info;
+    auto entry = GetObjectTableEntry(&store_info_, object_ids[i]);
+    ARROW_CHECK(entry != nullptr);
+    ARROW_CHECK(entry->state == ObjectState::PLASMA_CREATED);
+    // Set the state of object to SEALED.
+    entry->state = ObjectState::PLASMA_SEALED;
+    // Set the object digest.
+    std::memcpy(&entry->digest[0], digests[i].c_str(), kDigestSize);
+    // Set object construction duration.
+    entry->construct_duration = std::time(nullptr) - entry->create_time;
 
-  // Update all get requests that involve this object.
-  UpdateObjectGetRequests(object_id);
+    object_info.object_id = object_ids[i].binary();
+    object_info.data_size = entry->data_size;
+    object_info.metadata_size = entry->metadata_size;
+    object_info.digest = digests[i];
+    infos.push_back(object_info);
+  }
+
+  PushNotifications(infos);
+
+  for (size_t i = 0; i < object_ids.size(); ++i) {
+    UpdateObjectGetRequests(object_ids[i]);
+  }
 }
 
 int PlasmaStore::AbortObject(const ObjectID& object_id, Client* client) {
@@ -843,8 +849,19 @@ PlasmaStore::NotificationMap::iterator PlasmaStore::SendNotifications(
 void PlasmaStore::PushNotification(fb::ObjectInfoT* object_info) {
   auto it = pending_notifications_.begin();
   while (it != pending_notifications_.end()) {
-    auto notification = CreateObjectInfoBuffer(object_info);
+    std::vector<fb::ObjectInfoT> info;
+    info.push_back(*object_info);
+    auto notification = CreatePlasmaNotificationBuffer(info);
     it->second.object_notifications.emplace_back(std::move(notification));
+    it = SendNotifications(it);
+  }
+}
+
+void PlasmaStore::PushNotifications(std::vector<fb::ObjectInfoT>& object_info) {
+  auto it = pending_notifications_.begin();
+  while (it != pending_notifications_.end()) {
+    auto notifications = CreatePlasmaNotificationBuffer(object_info);
+    it->second.object_notifications.emplace_back(std::move(notifications));
     it = SendNotifications(it);
   }
 }
@@ -852,7 +869,9 @@ void PlasmaStore::PushNotification(fb::ObjectInfoT* object_info) {
 void PlasmaStore::PushNotification(fb::ObjectInfoT* object_info, int client_fd) {
   auto it = pending_notifications_.find(client_fd);
   if (it != pending_notifications_.end()) {
-    auto notification = CreateObjectInfoBuffer(object_info);
+    std::vector<fb::ObjectInfoT> info;
+    info.push_back(*object_info);
+    auto notification = CreatePlasmaNotificationBuffer(info);
     it->second.object_notifications.emplace_back(std::move(notification));
     SendNotifications(it);
   }
@@ -932,9 +951,10 @@ Status PlasmaStore::ProcessMessage(Client* client) {
     case fb::MessageType::PlasmaCreateAndSealRequest: {
       std::string data;
       std::string metadata;
-      unsigned char digest[kDigestSize];
+      std::string digest;
+      digest.reserve(kDigestSize);
       RETURN_NOT_OK(ReadCreateAndSealRequest(input, input_size, &object_id, &data,
-                                             &metadata, &digest[0]));
+                                             &metadata, &digest));
       // CreateAndSeal currently only supports device_num = 0, which corresponds
       // to the host.
       int device_num = 0;
@@ -950,7 +970,7 @@ Status PlasmaStore::ProcessMessage(Client* client) {
         // Write the inlined data and metadata into the allocated object.
         std::memcpy(entry->pointer, data.data(), data.size());
         std::memcpy(entry->pointer + data.size(), metadata.data(), metadata.size());
-        SealObject(object_id, &digest[0]);
+        SealObjects({object_id}, {digest});
         // Remove the client from the object's array of clients because the
         // object is not being used by any client. The client was added to the
         // object's array of clients in CreateObject. This is analogous to the
@@ -992,12 +1012,15 @@ Status PlasmaStore::ProcessMessage(Client* client) {
           std::memcpy(entry->pointer, data[i].data(), data[i].size());
           std::memcpy(entry->pointer + data[i].size(), metadata[i].data(),
                       metadata[i].size());
-          SealObject(object_ids[i], reinterpret_cast<unsigned char*>(
-                                        const_cast<char*>(digests[i].c_str())));
-          // Remove the client from the object's array of clients because the
-          // object is not being used by any client. The client was added to the
-          // object's array of clients in CreateObject. This is analogous to the
-          // Release call that happens in the client's Seal method.
+        }
+
+        SealObjects(object_ids, digests);
+        // Remove the client from the object's array of clients because the
+        // object is not being used by any client. The client was added to the
+        // object's array of clients in CreateObject. This is analogous to the
+        // Release call that happens in the client's Seal method.
+        for (i = 0; i < object_ids.size(); i++) {
+          auto entry = GetObjectTableEntry(&store_info_, object_ids[i]);
           ARROW_CHECK(RemoveFromClientObjectIds(object_ids[i], entry, client) == 1);
         }
       } else {
@@ -1046,9 +1069,9 @@ Status PlasmaStore::ProcessMessage(Client* client) {
       HANDLE_SIGPIPE(SendListReply(client->fd, store_info_.objects), client->fd);
     } break;
     case fb::MessageType::PlasmaSealRequest: {
-      unsigned char digest[kDigestSize];
-      RETURN_NOT_OK(ReadSealRequest(input, input_size, &object_id, &digest[0]));
-      SealObject(object_id, &digest[0]);
+      std::string digest;
+      RETURN_NOT_OK(ReadSealRequest(input, input_size, &object_id, &digest));
+      SealObjects({object_id}, {digest});
     } break;
     case fb::MessageType::PlasmaEvictRequest: {
       // This code path should only be used for testing.

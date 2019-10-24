@@ -40,6 +40,17 @@ bool VerifyFlatbuffer(T* object, uint8_t* data, size_t size) {
   return object->Verify(verifier);
 }
 
+flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>>
+ToFlatbuffer(flatbuffers::FlatBufferBuilder* fbb, const ObjectID* object_ids,
+             int64_t num_objects);
+
+flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>>
+ToFlatbuffer(flatbuffers::FlatBufferBuilder* fbb,
+             const std::vector<std::string>& strings);
+
+flatbuffers::Offset<flatbuffers::Vector<int64_t>> ToFlatbuffer(
+    flatbuffers::FlatBufferBuilder* fbb, const std::vector<int64_t>& data);
+
 /* Plasma receive message. */
 
 Status PlasmaReceive(int sock, MessageType message_type, std::vector<uint8_t>* buffer);
@@ -84,7 +95,7 @@ Status SendCreateAndSealRequest(int sock, const ObjectID& object_id,
 
 Status ReadCreateAndSealRequest(uint8_t* data, size_t size, ObjectID* object_id,
                                 std::string* object_data, std::string* metadata,
-                                unsigned char* digest);
+                                std::string* digest);
 
 Status SendCreateAndSealBatchRequest(int sock, const std::vector<ObjectID>& object_ids,
                                      const std::vector<std::string>& data,
@@ -115,10 +126,10 @@ Status ReadAbortReply(uint8_t* data, size_t size, ObjectID* object_id);
 
 /* Plasma Seal message functions. */
 
-Status SendSealRequest(int sock, ObjectID object_id, unsigned char* digest);
+Status SendSealRequest(int sock, ObjectID object_id, const std::string& digest);
 
 Status ReadSealRequest(uint8_t* data, size_t size, ObjectID* object_id,
-                       unsigned char* digest);
+                       std::string* digest);
 
 Status SendSealReply(int sock, ObjectID object_id, PlasmaError error);
 

@@ -767,11 +767,11 @@ class TestPlasmaClient(object):
                 # so we always get the data size instead of -1.
                 msg_len, = struct.unpack('L', rsock.recv(8))
                 content = rsock.recv(msg_len)
-                recv_objid, recv_dsize, recv_msize = (
-                    self.plasma_client.decode_notification(content))
-                assert object_ids[j] == recv_objid
-                assert data_sizes[j] == recv_dsize
-                assert metadata_sizes[j] == recv_msize
+                recv_objids, recv_dsizes, recv_msizes = (
+                    self.plasma_client.decode_notifications(content))
+                assert object_ids[j] == recv_objids[0]
+                assert data_sizes[j] == recv_dsizes[0]
+                assert metadata_sizes[j] == recv_msizes[0]
 
     def test_subscribe_deletions(self):
         # Subscribe to notifications from the Plasma Store. We use

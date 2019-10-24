@@ -127,9 +127,10 @@ cdef extern from "plasma/client.h" nogil:
 
         CStatus Subscribe(int* fd)
 
-        CStatus DecodeNotification(const uint8_t* buffer,
-                                   CUniqueID* object_id, int64_t* data_size,
-                                   int64_t* metadata_size)
+        CStatus DecodeNotifications(const uint8_t* buffer,
+                                    c_vector[CUniqueID]* object_ids,
+                                    c_vector[int64_t]* data_sizes,
+                                    c_vector[int64_t]* metadata_sizes)
 
         CStatus GetNotification(int fd, CUniqueID* object_id,
                                 int64_t* data_size, int64_t* metadata_size)
@@ -672,29 +673,32 @@ cdef class PlasmaClient:
                                          family=socket.AF_UNIX,
                                          type=socket.SOCK_STREAM)
 
-    def decode_notification(self, const uint8_t* buf):
+    def decode_notifications(self, const uint8_t* buf):
         """
         Get the notification from the buffer.
 
         Returns
         -------
-        ObjectID
-            The object ID of the object that was stored.
-        int
-            The data size of the object that was stored.
-        int
-            The metadata size of the object that was stored.
+        [ObjectID]
+            The list of object IDs in the notification message.
+        c_vector[int64_t]
+            The data sizes of the objects in the notification message.
+        c_vector[int64_t]
+            The metadata sizes of the objects in the notification message.
         """
-        cdef CUniqueID object_id
-        cdef int64_t data_size
-        cdef int64_t metadata_size
+        cdef c_vector[CUniqueID] ids
+        cdef c_vector[int64_t] data_sizes
+        cdef c_vector[int64_t] metadata_sizes
         with nogil:
-            status = self.client.get().DecodeNotification(buf,
-                                                          &object_id,
-                                                          &data_size,
-                                                          &metadata_size)
+            status = self.client.get().DecodeNotifications(buf,
+                                                           &ids,
+                                                           &data_sizes,
+                                                           &metadata_sizes)
             plasma_check_status(status)
-        return ObjectID(object_id.binary()), data_size, metadata_size
+        object_ids = []
+        for object_id in ids:
+            object_ids.append(ObjectID(object_id.binary()))
+        return object_ids, data_sizes, metadata_sizes
 
     def get_next_notification(self):
         """

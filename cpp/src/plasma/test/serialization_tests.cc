@@ -136,15 +136,14 @@ TEST_F(TestPlasmaSerialization, CreateReply) {
 TEST_F(TestPlasmaSerialization, SealRequest) {
   int fd = CreateTemporaryFile();
   ObjectID object_id1 = random_object_id();
-  unsigned char digest1[kDigestSize];
-  memset(&digest1[0], 7, kDigestSize);
-  ASSERT_OK(SendSealRequest(fd, object_id1, &digest1[0]));
+  std::string digest1 = std::string(kDigestSize, 7);
+  ASSERT_OK(SendSealRequest(fd, object_id1, digest1));
   std::vector<uint8_t> data = read_message_from_file(fd, MessageType::PlasmaSealRequest);
   ObjectID object_id2;
-  unsigned char digest2[kDigestSize];
-  ASSERT_OK(ReadSealRequest(data.data(), data.size(), &object_id2, &digest2[0]));
+  std::string digest2;
+  ASSERT_OK(ReadSealRequest(data.data(), data.size(), &object_id2, &digest2));
   ASSERT_EQ(object_id1, object_id2);
-  ASSERT_EQ(memcmp(&digest1[0], &digest2[0], kDigestSize), 0);
+  ASSERT_EQ(memcmp(digest1.data(), digest2.data(), kDigestSize), 0);
   close(fd);
 }
 

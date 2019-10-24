@@ -103,6 +103,9 @@ struct PlasmaEvictReplyT;
 struct PlasmaSubscribeRequest;
 struct PlasmaSubscribeRequestT;
 
+struct PlasmaNotification;
+struct PlasmaNotificationT;
+
 struct PlasmaDataRequest;
 struct PlasmaDataRequestT;
 
@@ -2468,6 +2471,70 @@ inline flatbuffers::Offset<PlasmaSubscribeRequest> CreatePlasmaSubscribeRequest(
 
 flatbuffers::Offset<PlasmaSubscribeRequest> CreatePlasmaSubscribeRequest(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaSubscribeRequestT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
 
+struct PlasmaNotificationT : public flatbuffers::NativeTable {
+  typedef PlasmaNotification TableType;
+  std::vector<std::unique_ptr<plasma::flatbuf::ObjectInfoT>> object_info;
+  PlasmaNotificationT() {
+  }
+};
+
+struct PlasmaNotification FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
+  typedef PlasmaNotificationT NativeTableType;
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_OBJECT_INFO = 4
+  };
+  const flatbuffers::Vector<flatbuffers::Offset<plasma::flatbuf::ObjectInfo>> *object_info() const {
+    return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<plasma::flatbuf::ObjectInfo>> *>(VT_OBJECT_INFO);
+  }
+  bool Verify(flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_OBJECT_INFO) &&
+           verifier.VerifyVector(object_info()) &&
+           verifier.VerifyVectorOfTables(object_info()) &&
+           verifier.EndTable();
+  }
+  PlasmaNotificationT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  void UnPackTo(PlasmaNotificationT *_o, const flatbuffers::resolver_function_t *_resolver = nullptr) const;
+  static flatbuffers::Offset<PlasmaNotification> Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaNotificationT* _o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+};
+
+struct PlasmaNotificationBuilder {
+  flatbuffers::FlatBufferBuilder &fbb_;
+  flatbuffers::uoffset_t start_;
+  void add_object_info(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<plasma::flatbuf::ObjectInfo>>> object_info) {
+    fbb_.AddOffset(PlasmaNotification::VT_OBJECT_INFO, object_info);
+  }
+  explicit PlasmaNotificationBuilder(flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  PlasmaNotificationBuilder &operator=(const PlasmaNotificationBuilder &);
+  flatbuffers::Offset<PlasmaNotification> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = flatbuffers::Offset<PlasmaNotification>(end);
+    return o;
+  }
+};
+
+inline flatbuffers::Offset<PlasmaNotification> CreatePlasmaNotification(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<plasma::flatbuf::ObjectInfo>>> object_info = 0) {
+  PlasmaNotificationBuilder builder_(_fbb);
+  builder_.add_object_info(object_info);
+  return builder_.Finish();
+}
+
+inline flatbuffers::Offset<PlasmaNotification> CreatePlasmaNotificationDirect(
+    flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<flatbuffers::Offset<plasma::flatbuf::ObjectInfo>> *object_info = nullptr) {
+  auto object_info__ = object_info ? _fbb.CreateVector<flatbuffers::Offset<plasma::flatbuf::ObjectInfo>>(*object_info) : 0;
+  return plasma::flatbuf::CreatePlasmaNotification(
+      _fbb,
+      object_info__);
+}
+
+flatbuffers::Offset<PlasmaNotification> CreatePlasmaNotification(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaNotificationT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
+
 struct PlasmaDataRequestT : public flatbuffers::NativeTable {
   typedef PlasmaDataRequest TableType;
   std::string object_id;
@@ -3498,6 +3565,32 @@ inline flatbuffers::Offset<PlasmaSubscribeRequest> CreatePlasmaSubscribeRequest(
   struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const PlasmaSubscribeRequestT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
   return plasma::flatbuf::CreatePlasmaSubscribeRequest(
       _fbb);
+}
+
+inline PlasmaNotificationT *PlasmaNotification::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
+  auto _o = new PlasmaNotificationT();
+  UnPackTo(_o, _resolver);
+  return _o;
+}
+
+inline void PlasmaNotification::UnPackTo(PlasmaNotificationT *_o, const flatbuffers::resolver_function_t *_resolver) const {
+  (void)_o;
+  (void)_resolver;
+  { auto _e = object_info(); if (_e) { _o->object_info.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->object_info[_i] = std::unique_ptr<plasma::flatbuf::ObjectInfoT>(_e->Get(_i)->UnPack(_resolver)); } } }
+}
+
+inline flatbuffers::Offset<PlasmaNotification> PlasmaNotification::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaNotificationT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
+  return CreatePlasmaNotification(_fbb, _o, _rehasher);
+}
+
+inline flatbuffers::Offset<PlasmaNotification> CreatePlasmaNotification(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaNotificationT *_o, const flatbuffers::rehasher_function_t *_rehasher) {
+  (void)_rehasher;
+  (void)_o;
+  struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const PlasmaNotificationT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
+  auto _object_info = _o->object_info.size() ? _fbb.CreateVector<flatbuffers::Offset<plasma::flatbuf::ObjectInfo>> (_o->object_info.size(), [](size_t i, _VectorArgs *__va) { return CreateObjectInfo(*__va->__fbb, __va->__o->object_info[i].get(), __va->__rehasher); }, &_va ) : 0;
+  return plasma::flatbuf::CreatePlasmaNotification(
+      _fbb,
+      _object_info);
 }
 
 inline PlasmaDataRequestT *PlasmaDataRequest::UnPack(const flatbuffers::resolver_function_t *_resolver) const {
