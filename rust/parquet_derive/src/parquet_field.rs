@@ -276,18 +276,18 @@ impl Type {
             BasicType::BOOLEAN => {
                 syn::parse_quote!(parquet::column::writer::ColumnWriter::BoolColumnWriter)
             }
-            BasicType::INT32 => {
-                syn::parse_quote!(parquet::column::writer::ColumnWriter::Int32ColumnWriter)
-            }
-            BasicType::INT64 => {
-                syn::parse_quote!(parquet::column::writer::ColumnWriter::Int64ColumnWriter)
-            }
-            BasicType::INT96 => {
-                syn::parse_quote!(parquet::column::writer::ColumnWriter::Int96ColumnWriter)
-            }
-            BasicType::FLOAT => {
-                syn::parse_quote!(parquet::column::writer::ColumnWriter::FloatColumnWriter)
-            }
+            BasicType::INT32 => syn::parse_quote!(
+                parquet::column::writer::ColumnWriter::Int32ColumnWriter
+            ),
+            BasicType::INT64 => syn::parse_quote!(
+                parquet::column::writer::ColumnWriter::Int64ColumnWriter
+            ),
+            BasicType::INT96 => syn::parse_quote!(
+                parquet::column::writer::ColumnWriter::Int96ColumnWriter
+            ),
+            BasicType::FLOAT => syn::parse_quote!(
+                parquet::column::writer::ColumnWriter::FloatColumnWriter
+            ),
             BasicType::DOUBLE => syn::parse_quote!(
                 parquet::column::writer::ColumnWriter::DoubleColumnWriter
             ),
@@ -296,7 +296,7 @@ impl Type {
             ),
             BasicType::FIXED_LEN_BYTE_ARRAY => syn::parse_quote!(
                 parquet::column::writer::ColumnWriter::FixedLenByteArrayColumnWriter
-            )
+            ),
         }
     }
 
@@ -313,7 +313,11 @@ impl Type {
         self.leaf_type_recursive_helper(self, None)
     }
 
-    fn leaf_type_recursive_helper<'a>(&'a self, ty: &'a Type, parent_ty: Option<&'a Type>) -> &Type {
+    fn leaf_type_recursive_helper<'a>(
+        &'a self,
+        ty: &'a Type,
+        parent_ty: Option<&'a Type>,
+    ) -> &Type {
         match ty {
             Type::TypePath(_) => parent_ty.unwrap_or(ty),
             Type::Option(ref first_type)
@@ -615,13 +619,17 @@ mod test {
         let fields = extract_fields(snippet);
         let processed: Vec<_> = fields.iter().map(|field| Field::from(field)).collect();
 
-        let column_writers: Vec<_> =
-            processed.iter().map(|field| field.ty.column_writer()).collect();
+        let column_writers: Vec<_> = processed
+            .iter()
+            .map(|field| field.ty.column_writer())
+            .collect();
 
         assert_eq!(
             column_writers,
             vec![
-                syn::parse_quote!(parquet::column::writer::ColumnWriter::BoolColumnWriter),
+                syn::parse_quote!(
+                    parquet::column::writer::ColumnWriter::BoolColumnWriter
+                ),
                 syn::parse_quote!(
                     parquet::column::writer::ColumnWriter::ByteArrayColumnWriter
                 )
@@ -673,9 +681,12 @@ mod test {
         };
 
         let fields = extract_fields(snippet);
-        let converted_fields: Vec<_> = fields.iter().map(|field| Type::from(field)).collect();
-        let inner_types: Vec<_> =
-            converted_fields.iter().map(|field| field.inner_type()).collect();
+        let converted_fields: Vec<_> =
+            fields.iter().map(|field| Type::from(field)).collect();
+        let inner_types: Vec<_> = converted_fields
+            .iter()
+            .map(|field| field.inner_type())
+            .collect();
         let inner_types_strs: Vec<_> = inner_types
             .iter()
             .map(|ty| (quote! { #ty }).to_string())
@@ -708,9 +719,12 @@ mod test {
         };
 
         let fields = extract_fields(snippet);
-        let converted_fields: Vec<_> = fields.iter().map(|field| Type::from(field)).collect();
-        let physical_types: Vec<_> =
-            converted_fields.iter().map(|ty| ty.physical_type()).collect();
+        let converted_fields: Vec<_> =
+            fields.iter().map(|field| Type::from(field)).collect();
+        let physical_types: Vec<_> = converted_fields
+            .iter()
+            .map(|ty| ty.physical_type())
+            .collect();
 
         assert_eq!(
             physical_types,
@@ -738,20 +752,15 @@ mod test {
         };
 
         let fields = extract_fields(snippet);
-        let converted_fields: Vec<_> = fields.iter().map(|field| Type::from(field)).collect();
+        let converted_fields: Vec<_> =
+            fields.iter().map(|field| Type::from(field)).collect();
 
         assert_eq!(
             converted_fields,
             vec![
-                Type::Vec(Box::new(Type::TypePath(
-                    syn::parse_quote!(u8)
-                ))),
-                Type::Option(Box::new(Type::TypePath(
-                    syn::parse_quote!(bool)
-                ))),
-                Type::TypePath(
-                    syn::parse_quote!(std::string::String)
-                ),
+                Type::Vec(Box::new(Type::TypePath(syn::parse_quote!(u8)))),
+                Type::Option(Box::new(Type::TypePath(syn::parse_quote!(bool)))),
+                Type::TypePath(syn::parse_quote!(std::string::String)),
                 Type::Option(Box::new(Type::TypePath(
                     syn::parse_quote!(std::result::Result<(),()>)
                 ))),
@@ -781,9 +790,9 @@ mod test {
                 ),
                 Type::Reference(
                     Some(syn::Lifetime::new("'a", proc_macro2::Span::call_site())),
-                    Box::new(Type::Option(Box::new(Type::TypePath(
-                        syn::parse_quote!(bool)
-                    ))))
+                    Box::new(Type::Option(Box::new(Type::TypePath(syn::parse_quote!(
+                        bool
+                    )))))
                 ),
                 Type::Reference(
                     Some(syn::Lifetime::new("'a", proc_macro2::Span::call_site())),
