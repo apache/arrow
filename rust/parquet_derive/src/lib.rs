@@ -42,11 +42,42 @@ mod parquet_field;
 /// ```ignore
 /// use parquet;
 /// use parquet::record::RecordWriter;
+/// use parquet::schema::parser::parse_message_type;
+///
+/// use std::rc::Rc;
 //
 /// #[derive(ParquetRecordWriter)]
 /// struct ACompleteRecord<'a> {
 ///   pub a_bool: bool,
 ///   pub a_str: &'a str,
+/// }
+///
+/// let schema_str = "message schema {
+///   REQUIRED boolean         a_bool;
+///   REQUIRED BINARY          a_str (UTF8);
+/// }";
+///
+/// pub fn write_some_records() {
+///   let samples = vec![
+///     ACompleteRecord {
+///       a_bool: true,
+///       a_str: "I'm true"
+///     },
+///     ACompleteRecord {
+///       a_bool: false,
+///       a_str: "I'm false"
+///     }
+///   ];
+///
+///  let schema = Rc::new(parse_message_type(schema_str).unwrap());
+///
+///  let props = Rc::new(WriterProperties::builder().build());
+///  let mut writer = SerializedFileWriter::new(file, schema, props).unwrap();
+///
+///  let mut row_group = writer.next_row_group().unwrap();
+///  samples.as_slice().write_to_row_group(&mut row_group).unwrap();
+///  writer.close_row_group(row_group).unwrap();
+///  writer.close().unwrap();
 /// }
 /// ```
 ///

@@ -98,10 +98,9 @@ mod tests {
             borrowed_maybe_a_str: &maybe_a_str,
             //      unsigned_magic_number: 1000,
         }];
-        let chunks = &drs[..];
 
         let mut row_group = writer.next_row_group().unwrap();
-        chunks.write_to_row_group(&mut row_group).unwrap();
+        drs.as_slice().write_to_row_group(&mut row_group).unwrap();
         writer.close_row_group(row_group).unwrap();
         writer.close().unwrap();
     }
