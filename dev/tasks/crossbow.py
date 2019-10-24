@@ -32,12 +32,22 @@ from collections import namedtuple
 
 import click
 import toolz
-import pygit2
-import github3
-import jira.client
-from jinja2 import Template, StrictUndefined
 from setuptools_scm.git import parse as parse_git_version
 from ruamel.yaml import YAML
+
+try:
+    import github3
+except ImportError:
+    github3 = object
+
+try:
+    import pygit2
+except ImportError:
+    PygitRepository = str
+    PygitRemoteCallbacks = object
+else:
+    PygitRepository = pygit2.Repository
+    PygitRemoteCallbacks = pygit2.RemoteCallbacks
 
 
 CWD = Path(__file__).parent.absolute()
@@ -117,6 +127,7 @@ class JiraChangelog:
 
     def __init__(self, version, username, password,
                  server='https://issues.apache.org/jira'):
+        import jira.client
         self.server = server
         # clean version to the first numbers
         self.version = '.'.join(version.split('.')[:3])
@@ -201,7 +212,7 @@ class JiraChangelog:
         return out.getvalue().strip()
 
 
-class GitRemoteCallbacks(pygit2.RemoteCallbacks):
+class GitRemoteCallbacks(PygitRemoteCallbacks):
 
     def __init__(self, token):
         self.token = token
@@ -249,7 +260,7 @@ class Repo:
     def __init__(self, path, github_token=None, remote_url=None,
                  require_https=False):
         self.path = Path(path)
-        self.repo = pygit2.Repository(str(self.path))
+        self.repo = PygitRepository(str(self.path))
         self.github_token = github_token
         self.require_https = require_https
         self._remote_url = remote_url
@@ -398,6 +409,10 @@ class Repo:
 
     def _parse_github_user_repo(self):
         m = re.match(r'.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', self.remote_url)
+        if m is None:
+            raise ValueError("Unable to parse the github owner and repository "
+                             "from the repository's remote url '{}'"
+                             .format(self.remote_url))
         user, repo = m.group(1), m.group(2)
         return user, repo
 
@@ -671,6 +686,7 @@ class Task(Serializable):
         self._status = None  # status cache
 
     def render_files(self, **extra_params):
+        from jinja2 import Template, StrictUndefined
         path = CWD / self.template
         params = toolz.merge(self.params, extra_params)
         template = Template(path.read_text(), undefined=StrictUndefined)
