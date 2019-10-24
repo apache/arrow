@@ -1049,11 +1049,11 @@ DEFAULT_QUEUE_PATH = CWD.parents[2] / 'crossbow'
 @click.option('--github-token', '-t', default=None,
               help='OAuth token for GitHub authentication')
 @click.option('--arrow-path', '-a',
-              type=click.Path(exists=True), default=DEFAULT_ARROW_PATH,
+              type=click.Path(exists=True), default=str(DEFAULT_ARROW_PATH),
               help='Arrow\'s repository path. Defaults to the repository of '
                    'this script')
 @click.option('--queue-path', '-q',
-              type=click.Path(exists=True), default=DEFAULT_QUEUE_PATH,
+              type=click.Path(exists=True), default=str(DEFAULT_QUEUE_PATH),
               help='The repository path used for scheduling the tasks. '
                    'Defaults to crossbow directory placed next to arrow')
 @click.option('--queue-remote', '-qr', default=None,
@@ -1080,7 +1080,7 @@ def crossbow(ctx, github_token, arrow_path, queue_path, queue_remote,
 
 @crossbow.command()
 @click.option('--changelog-path', '-c', type=click.Path(exists=True),
-              default=DEFAULT_ARROW_PATH / 'CHANGELOG.md',
+              default=str(DEFAULT_ARROW_PATH / 'CHANGELOG.md'),
               help='Path of changelog to update')
 @click.option('--arrow-version', '-v', default=None,
               help='Set target version explicitly')
@@ -1253,7 +1253,8 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
 
 @crossbow.command()
 @click.argument('job-name', required=True)
-@click.option('-t', '--target-dir', default=DEFAULT_ARROW_PATH / 'packages',
+@click.option('-t', '--target-dir',
+              default=str(DEFAULT_ARROW_PATH / 'packages'),
               type=click.Path(file_okay=False, dir_okay=True),
               help='Directory to download the build artifacts')
 @click.pass_obj
