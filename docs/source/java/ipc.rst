@@ -28,12 +28,9 @@ Arrow defines two types of binary formats for serializing record batches:
   batches. Supports random access, and thus is very useful when used with
   memory maps
 
-To follow this section, make sure to first read the section on :ref:`Memory and
-    IO <io>`.
-
 Writing and Reading Streaming Format
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-First, let's create a small record batch (:class:`VectorSchemaRoot` in Java implementation)::
+First, let's populate a :class:`VectorSchemaRoot` with a small batch of records::
 
     BitVector bitVector = new BitVector("boolean", allocator);
     VarCharVector varCharVector = new VarCharVector("varchar", allocator);
@@ -49,18 +46,31 @@ First, let's create a small record batch (:class:`VectorSchemaRoot` in Java impl
     VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors);
 
 Now, we can begin writing a stream containing some number of these batches. For this we use
-:class:`ArrowStreamWriter`::
+:class:`ArrowStreamWriter`(DictionaryProvider used for any vectors that are dictionary encoded is
+optional and can be null))::
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
-    ArrowStreamWriter writer = new ArrowStreamWriter(root, null, Channels.newChannel(out));
+    ArrowStreamWriter writer = new ArrowStreamWriter(root, /*DictionaryProvider=*/null, Channels.newChannel(out));
 
 Here we used an in-memory stream, but this could have been a socket or some other IO stream, then we can do::
 
     writer.start();
-    for (int i = 0; i < 5; i++) {
+    writer.writeBatch();
+    for (int i = 0; i < 4; i++) {
+      // populate VectorSchemaRoot data
+      BitVector childVector1 = (BitVector)root.getVector(0);
+      VarCharVector childVector2 = (VarCharVector)root.getVector(1);
+      childVector1.reset();
+      childVector2.reset();
+      ... do some populate work here, could be different for each batch
+
       writer.writeBatch();
     }
     writer.end();
+
+Note since the :class:`VectorSchemaRoot` in writer is a container that can hold batches, batches flow through
+:class:`VectorSchemaRoot` as part of a pipeline, so we need to populated data if necessary before non-first call,
+otherwise several same batches will be written.
 
 Now the :class:`ByteArrayOutputStream` contains the complete stream which contains 5 record batches.
 We can read such a stream with :class:`ArrowStreamReader`, note that :class:`VectorSchemaRoot` within
@@ -84,7 +94,9 @@ The :class:`ArrowFileWriter` has the same API as :class:`ArrowStreamWriter`::
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     ArrowFileWriter writer = new ArrowFileWriter(root, null, Channels.newChannel(out));
     writer.start();
-    for (int i = 0; i < 5; i++) {
+    writer.writeBatch();
+    for (int i = 0; i < 4; i++) {
+      ... do populate work
       writer.writeBatch();
     }
     writer.end();

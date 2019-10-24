@@ -19,17 +19,19 @@
 ValueVector
 ===========
 
-:class:`ValueVector` (which called Array in C++ implementation) is an abstraction
-that is used to store a sequence of values having the same type in an individual
+:class:`ValueVector` (which called Array in C++ implementation and the :doc:`the specification <../format/Columnar.rst>`)
+is an abstraction that is used to store a sequence of values having the same type in an individual
 column. Internally, those values are represented by one or several buffers, the
 number and meaning of which depend on the vector’s data type.
 
-There are concrete subclasses of :class:`ValueVector` for each data type, that help
-you access individual values of the array.
+There are concrete subclasses of :class:`ValueVector` for each primitive data type
+and nested type described in the specification. There are a few differences in naming
+with the type names described in the specification:
+Table with non-intuitive names (BigInt = 64 bit integer, etc).
 
 It is important that vector is allocated before attempting to read or write,
 :class:`ValueVector` "should" strive to guarantee this order of operation:
-allocate > mutate > setvaluecount > access > clear (or allocate to start the process over)
+allocate > mutate > set valuecount > access > clear (or allocate to start the process over)
 
 Building ValueVector
 ====================
@@ -53,7 +55,7 @@ vector of the range 1 to 8 where the element that should hold the value 4 is nul
    vector.set(5, 6);
    vector.set(6, 7);
    vector.set(7, 8);
-   vector.setValueCount(8);
+   vector.setValueCount(8); // this will finalizes the vector by convention.
 
 The :class:`BigIntVector` holds two ArrowBufs. The first buffer holds the null bitmap, which consists
 here of a single byte with the bits 0|0|0|0|1|0|0|0. The second buffer contains all the above values.
@@ -78,6 +80,7 @@ Here is how to build a vector using writer::
    writer.writeBigInt(7);
    writer.setPosition(7);
    writer.writeBigInt(8);
+
 There are get API and concrete subclasses of :class:`FieldReader` for accessing vector values, what needs
 to be declared is that writer/reader is not as efficient as direct access::
 
