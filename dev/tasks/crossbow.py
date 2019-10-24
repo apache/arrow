@@ -32,12 +32,20 @@ from collections import namedtuple
 
 import click
 import toolz
-import pygit2
-import github3
-import jira.client
-from jinja2 import Template, StrictUndefined
 from setuptools_scm.git import parse as parse_git_version
 from ruamel.yaml import YAML
+
+try:
+    import github3
+except ImportError:
+    github3 = object
+
+try:
+    import pygit2
+except ImportError:
+    PygitRemoteCallbacks = object
+else:
+    PygitRemoteCallbacks = pygit2.RemoteCallbacks
 
 
 CWD = Path(__file__).parent.absolute()
@@ -117,6 +125,7 @@ class JiraChangelog:
 
     def __init__(self, version, username, password,
                  server='https://issues.apache.org/jira'):
+        import jira.client
         self.server = server
         # clean version to the first numbers
         self.version = '.'.join(version.split('.')[:3])
@@ -201,7 +210,7 @@ class JiraChangelog:
         return out.getvalue().strip()
 
 
-class GitRemoteCallbacks(pygit2.RemoteCallbacks):
+class GitRemoteCallbacks(PygitRemoteCallbacks):
 
     def __init__(self, token):
         self.token = token
@@ -249,10 +258,10 @@ class Repo:
     def __init__(self, path, github_token=None, remote_url=None,
                  require_https=False):
         self.path = Path(path)
-        self.repo = pygit2.Repository(str(self.path))
         self.github_token = github_token
         self.require_https = require_https
         self._remote_url = remote_url
+        self._pygit_repo = None
         self._github_repo = None  # set by as_github_repo()
         self._updated_refs = []
 
@@ -266,6 +275,12 @@ class Repo:
             branch=self.branch.branch_name,
             head=self.head
         )
+
+    @property
+    def repo(self):
+        if self._pygit_repo is None:
+            self._pygit_repo = pygit2.Repository(str(self.path))
+        return self._pygit_repo
 
     @property
     def origin(self):
@@ -398,6 +413,10 @@ class Repo:
 
     def _parse_github_user_repo(self):
         m = re.match(r'.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', self.remote_url)
+        if m is None:
+            raise ValueError("Unable to parse the github owner and repository "
+                             "from the repository's remote url '{}'"
+                             .format(self.remote_url))
         user, repo = m.group(1), m.group(2)
         return user, repo
 
@@ -671,6 +690,7 @@ class Task(Serializable):
         self._status = None  # status cache
 
     def render_files(self, **extra_params):
+        from jinja2 import Template, StrictUndefined
         path = CWD / self.template
         params = toolz.merge(self.params, extra_params)
         template = Template(path.read_text(), undefined=StrictUndefined)
@@ -1029,11 +1049,11 @@ DEFAULT_QUEUE_PATH = CWD.parents[2] / 'crossbow'
 @click.option('--github-token', '-t', default=None,
               help='OAuth token for GitHub authentication')
 @click.option('--arrow-path', '-a',
-              type=click.Path(exists=True), default=DEFAULT_ARROW_PATH,
+              type=click.Path(exists=True), default=str(DEFAULT_ARROW_PATH),
               help='Arrow\'s repository path. Defaults to the repository of '
                    'this script')
 @click.option('--queue-path', '-q',
-              type=click.Path(exists=True), default=DEFAULT_QUEUE_PATH,
+              type=click.Path(exists=True), default=str(DEFAULT_QUEUE_PATH),
               help='The repository path used for scheduling the tasks. '
                    'Defaults to crossbow directory placed next to arrow')
 @click.option('--queue-remote', '-qr', default=None,
@@ -1060,7 +1080,7 @@ def crossbow(ctx, github_token, arrow_path, queue_path, queue_remote,
 
 @crossbow.command()
 @click.option('--changelog-path', '-c', type=click.Path(exists=True),
-              default=DEFAULT_ARROW_PATH / 'CHANGELOG.md',
+              default=str(DEFAULT_ARROW_PATH / 'CHANGELOG.md'),
               help='Path of changelog to update')
 @click.option('--arrow-version', '-v', default=None,
               help='Set target version explicitly')
@@ -1233,7 +1253,8 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
 
 @crossbow.command()
 @click.argument('job-name', required=True)
-@click.option('-t', '--target-dir', default=DEFAULT_ARROW_PATH / 'packages',
+@click.option('-t', '--target-dir',
+              default=str(DEFAULT_ARROW_PATH / 'packages'),
               type=click.Path(file_okay=False, dir_okay=True),
               help='Directory to download the build artifacts')
 @click.pass_obj
