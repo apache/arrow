@@ -17,13 +17,13 @@
 
 use crate::arrow::record_reader::RecordReader;
 use crate::data_type::DataType;
-use arrow::array::ArrayRef;
+use arrow::array::{ArrayRef, BooleanArray, BooleanBufferBuilder, BufferBuilderTrait};
 use arrow::compute::cast;
 use std::convert::From;
 use std::sync::Arc;
 
 use crate::errors::Result;
-use arrow::datatypes::ArrowPrimitiveType;
+use arrow::datatypes::{ArrowPrimitiveType, DataType as ArrowDataType};
 
 use arrow::array::ArrayDataBuilder;
 use arrow::array::PrimitiveArray;
@@ -34,8 +34,8 @@ use crate::data_type::{
     Int32Type as ParquetInt32Type, Int64Type as ParquetInt64Type,
 };
 use arrow::datatypes::{
-    BooleanType, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type,
-    UInt16Type, UInt32Type, UInt64Type, UInt8Type,
+    Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, UInt16Type,
+    UInt32Type, UInt64Type, UInt8Type,
 };
 
 /// A converter is used to consume record reader's content and convert it to arrow
@@ -80,7 +80,31 @@ where
     }
 }
 
-pub type BooleanConverter = CastConverter<BoolType, BooleanType, BooleanType>;
+pub struct BooleanConverter {}
+
+impl Converter<BoolType> for BooleanConverter {
+    fn convert(record_reader: &mut RecordReader<BoolType>) -> Result<ArrayRef> {
+        let record_data = record_reader.consume_record_data()?;
+
+        let mut boolean_buffer = BooleanBufferBuilder::new(record_data.len());
+
+        for e in record_data.data() {
+            boolean_buffer.append(*e > 0)?;
+        }
+
+        let mut array_data = ArrayDataBuilder::new(ArrowDataType::Boolean)
+            .len(record_data.len())
+            .add_buffer(boolean_buffer.finish());
+
+        if let Some(b) = record_reader.consume_bitmap_buffer()? {
+            array_data = array_data.null_bit_buffer(b);
+        }
+
+        Ok(Arc::new(BooleanArray::from(array_data.build())))
+    }
+}
+
+//pub type BooleanConverter = CastConverter<BoolType, BooleanType, BooleanType>;
 pub type Int8Converter = CastConverter<ParquetInt32Type, Int32Type, Int8Type>;
 pub type UInt8Converter = CastConverter<ParquetInt32Type, Int32Type, UInt8Type>;
 pub type Int16Converter = CastConverter<ParquetInt32Type, Int32Type, Int16Type>;

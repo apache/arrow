@@ -66,3 +66,14 @@ pub fn get_temp_file(file_name: &str, content: &[u8]) -> fs::File {
     assert!(file.is_ok());
     file.unwrap()
 }
+
+pub fn get_temp_filename() -> PathBuf {
+    let mut path_buf = env::current_dir().unwrap();
+    path_buf.push("target");
+    path_buf.push("debug");
+    path_buf.push("testdata");
+    fs::create_dir_all(&path_buf).unwrap();
+    path_buf.push(rand::random::<i16>().to_string());
+
+    path_buf
+}
