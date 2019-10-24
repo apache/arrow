@@ -24,6 +24,7 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.compare.VectorEqualsVisitor;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
+import org.apache.arrow.vector.complex.MapVector;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.complex.writer.FieldWriter;
 import org.apache.arrow.vector.types.Types;
@@ -86,7 +87,7 @@ public class TestComplexCopier {
   @Test
   public void testInvalidCopyFixedSizeListVector() {
     try (FixedSizeListVector from = FixedSizeListVector.empty("from", 3, allocator);
-        FixedSizeListVector to = FixedSizeListVector.empty("to", 2, allocator)) {
+         FixedSizeListVector to = FixedSizeListVector.empty("to", 2, allocator)) {
 
       from.addOrGetVector(FieldType.nullable(Types.MinorType.INT.getType()));
       to.addOrGetVector(FieldType.nullable(Types.MinorType.INT.getType()));
@@ -109,6 +110,46 @@ public class TestComplexCopier {
       IllegalStateException e = assertThrows(IllegalStateException.class,
           () -> ComplexCopier.copy(in, out));
       assertTrue(e.getMessage().contains("greater than listSize"));
+    }
+  }
+
+  @Test
+  public void testCopyMapVector() {
+    try (final MapVector from = MapVector.empty("from", allocator, false);
+         final MapVector to = MapVector.empty("to", allocator, false)) {
+
+      from.allocateNew();
+
+      UnionMapWriter mapWriter = from.getWriter();
+      for (int i = 0; i < COUNT; i++) {
+        mapWriter.setPosition(i);
+        mapWriter.startMap();
+        mapWriter.startEntry();
+        mapWriter.key().integer().writeInt(i);
+        mapWriter.value().integer().writeInt(i);
+        mapWriter.endEntry();
+        mapWriter.startEntry();
+        mapWriter.key().integer().writeInt(i * 2);
+        mapWriter.value().integer().writeInt(i * 2);
+        mapWriter.endEntry();
+        mapWriter.endMap();
+      }
+
+      from.setValueCount(COUNT);
+
+      // copy values
+      FieldReader in = from.getReader();
+      FieldWriter out = to.getWriter();
+      for (int i = 0; i < COUNT; i++) {
+        in.setPosition(i);
+        out.setPosition(i);
+        ComplexCopier.copy(in, out);
+      }
+      to.setValueCount(COUNT);
+
+      // validate equals
+      assertTrue(VectorEqualsVisitor.vectorEquals(from, to));
+
     }
   }
 }
