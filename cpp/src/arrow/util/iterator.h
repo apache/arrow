@@ -219,6 +219,14 @@ Iterator<T> MakeEmptyIterator() {
   });
 }
 
+template <typename T>
+Iterator<T> MakeErrorIterator(Status s) {
+  return MakeFunctionIterator([s](T* out) {
+    *out = IterationTraits<T>::End();
+    return s;
+  });
+}
+
 /// \brief Simple iterator which yields the elements of a std::vector
 template <typename T>
 class VectorIterator {
