@@ -575,31 +575,46 @@ Status HadoopFileSystem::GetTargetStats(const std::string& path, FileStats* out)
   return Status::OK();
 }
 
+inline Selector SetBaseDir(const Selector& selector, std::string d) {
+  Selector out;
+  out.base_dir = std::move(d);
+  out.allow_non_existent = selector.allow_non_existent;
+  out.recursive = selector.recursive;
+  out.max_recursion = selector.max_recursion;
+  return out;
+}
+
 Status HadoopFileSystem::GetTargetStats(const Selector& selector,
                                         std::vector<FileStats>* out) {
-  if (selector.recursive) {
-    return Status::NotImplemented("recursive directory creation in Hdfs");
-  }
   std::vector<std::string> paths;
   RETURN_NOT_OK(impl_->GetChildren(selector.base_dir, &paths));
   std::vector<HdfsPathInfo> infos;
   RETURN_NOT_OK(impl_->ListDirectory(selector.base_dir, &infos));
-  out->resize(infos.size());
+  out->reserve(out->size() + infos.size());
   for (size_t i = 0; i < infos.size(); ++i) {
-    out->at(i).set_path(paths[i]);
-    out->at(i).set_size(infos[i].size);
-    out->at(i).set_type(infos[i].kind == ObjectType::FILE ? FileType::File
-                                                          : FileType::Directory);
-    out->at(i).set_mtime(TimePoint(std::chrono::duration_cast<TimePoint::duration>(
+    out->emplace_back();
+    out->back().set_path(paths[i]);
+    out->back().set_size(infos[i].size);
+    out->back().set_mtime(TimePoint(std::chrono::duration_cast<TimePoint::duration>(
         std::chrono::seconds(infos[i].last_modified_time))));
+
+    if (infos[i].kind == ObjectType::FILE) {
+      out->back().set_type(FileType::File);
+      continue;
+    }
+
+    out->back().set_type(FileType::Directory);
+    if (selector.recursive) {
+      Selector recursive = SetBaseDir(selector, std::move(paths[i]));
+      RETURN_NOT_OK(GetTargetStats(recursive, out));
+    }
   }
   return Status::OK();
 }
 
 Status HadoopFileSystem::CreateDir(const std::string& path, bool recursive) {
-  if (recursive) {
-    return Status::NotImplemented("recursive directory creation in Hdfs");
-  }
+  // XXX hdfsCreateDirectory always creates non existent parents.
+  // Do we need to emit an error if !recursive and non existent parents will be created?
   return impl_->MakeDirectory(path);
 }
 
