@@ -23,7 +23,7 @@ import org.apache.arrow.vector.ValueVector;
  * A function to determine if two vectors are equal at specified positions.
  * @param <V> the vector type.
  */
-public interface VectorValueEqualizer<V extends ValueVector> {
+public interface VectorValueEqualizer<V extends ValueVector> extends Cloneable {
 
   /**
    * Checks if the vectors are equal at the given positions, given that the values
@@ -40,5 +40,5 @@ public interface VectorValueEqualizer<V extends ValueVector> {
    * Creates a equalizer of the same type.
    * @return the newly created equalizer.
    */
-  VectorValueEqualizer<V> copy();
+  VectorValueEqualizer<V> clone();
 }

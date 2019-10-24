@@ -83,7 +83,7 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
 
   @Override
   protected ApproxEqualsVisitor createInnerVisitor(ValueVector left, ValueVector right) {
-    return new ApproxEqualsVisitor(left, right, floatDiffFunction.copy(), doubleDiffFunction.copy());
+    return new ApproxEqualsVisitor(left, right, floatDiffFunction.clone(), doubleDiffFunction.clone());
   }
 
   private boolean float4ApproxEquals(Range range) {

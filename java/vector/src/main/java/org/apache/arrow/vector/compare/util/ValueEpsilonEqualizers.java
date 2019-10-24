@@ -66,7 +66,7 @@ public class ValueEpsilonEqualizers {
     }
 
     @Override
-    public VectorValueEqualizer<FloatingPointVector> copy() {
+    public VectorValueEqualizer<FloatingPointVector> clone() {
       return new FloatingPointEpsilonEqualizer(epsilon);
     }
   }
@@ -104,7 +104,7 @@ public class ValueEpsilonEqualizers {
     }
 
     @Override
-    public VectorValueEqualizer<Float4Vector> copy() {
+    public VectorValueEqualizer<Float4Vector> clone() {
       return new Float4EpsilonEqualizer(epsilon);
     }
   }
@@ -142,7 +142,7 @@ public class ValueEpsilonEqualizers {
     }
 
     @Override
-    public VectorValueEqualizer<Float8Vector> copy() {
+    public VectorValueEqualizer<Float8Vector> clone() {
       return new Float8EpsilonEqualizer(epsilon);
     }
   }
