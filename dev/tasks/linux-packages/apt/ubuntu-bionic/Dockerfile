@@ -42,6 +42,7 @@ RUN \
     libboost-regex-dev \
     libboost-system-dev \
     libbrotli-dev \
+    libbz2-dev \
     libdouble-conversion-dev \
     libgirepository1.0-dev \
     libglib2.0-doc \
@@ -59,7 +60,8 @@ RUN \
     python3-numpy \
     python3-pip \
     rapidjson-dev \
-    tzdata && \
+    tzdata \
+    zlib1g-dev && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \
   fi && \
