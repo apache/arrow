@@ -127,12 +127,155 @@ public class AvroToArrowTest extends AvroTestBase {
   }
 
   @Test
-  public void testSkipFields() throws Exception {
+  public void testSkipUnionWithOneField() throws Exception {
+    Set<String> skipFieldNames = new HashSet<>();
+    skipFieldNames.add("f0");
+    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
+    Schema schema = getSchema("skip/test_skip_union_before.avsc");
+    Schema expectedSchema = getSchema("skip/test_skip_union_one_field_expected.avsc");
+
+    ArrayList<GenericRecord> data = new ArrayList<>();
+    ArrayList<GenericRecord> expectedData = new ArrayList<>();
+
+    for (int i = 0; i < 5; i++) {
+      GenericRecord record = new GenericData.Record(schema);
+      record.put(0, "test" + i);
+      record.put(1, i % 2 == 0 ? "test" + i : null);
+      record.put(2, i % 2 == 0 ? "test" + i : i);
+      record.put(3, i);
+      data.add(record);
+
+      GenericRecord expectedRecord = new GenericData.Record(expectedSchema);
+      expectedRecord.put(0, record.get(1));
+      expectedRecord.put(1, record.get(2));
+      expectedRecord.put(2, record.get(3));
+      expectedData.add(expectedRecord);
+    }
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    checkRecordResult(expectedSchema, expectedData, root);
+  }
+
+  @Test
+  public void testSkipUnionWithNullableOneField() throws Exception {
+    Set<String> skipFieldNames = new HashSet<>();
+    skipFieldNames.add("f1");
+    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
+    Schema schema = getSchema("skip/test_skip_union_before.avsc");
+    Schema expectedSchema = getSchema("skip/test_skip_union_nullable_field_expected.avsc");
+
+    ArrayList<GenericRecord> data = new ArrayList<>();
+    ArrayList<GenericRecord> expectedData = new ArrayList<>();
+
+    for (int i = 0; i < 5; i++) {
+      GenericRecord record = new GenericData.Record(schema);
+      record.put(0, "test" + i);
+      record.put(1, i % 2 == 0 ? "test" + i : null);
+      record.put(2, i % 2 == 0 ? "test" + i : i);
+      record.put(3, i);
+      data.add(record);
+
+      GenericRecord expectedRecord = new GenericData.Record(expectedSchema);
+      expectedRecord.put(0, record.get(0));
+      expectedRecord.put(1, record.get(2));
+      expectedRecord.put(2, record.get(3));
+      expectedData.add(expectedRecord);
+    }
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    checkRecordResult(expectedSchema, expectedData, root);
+  }
+
+  @Test
+  public void testSkipUnionWithMultiFields() throws Exception {
+    Set<String> skipFieldNames = new HashSet<>();
+    skipFieldNames.add("f2");
+    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
+    Schema schema = getSchema("skip/test_skip_union_before.avsc");
+    Schema expectedSchema = getSchema("skip/test_skip_union_multi_fields_expected.avsc");
+
+    ArrayList<GenericRecord> data = new ArrayList<>();
+    ArrayList<GenericRecord> expectedData = new ArrayList<>();
+
+    for (int i = 0; i < 5; i++) {
+      GenericRecord record = new GenericData.Record(schema);
+      record.put(0, "test" + i);
+      record.put(1, i % 2 == 0 ? "test" + i : null);
+      record.put(2, i % 2 == 0 ? "test" + i : i);
+      record.put(3, i);
+      data.add(record);
+
+      GenericRecord expectedRecord = new GenericData.Record(expectedSchema);
+      expectedRecord.put(0, record.get(0));
+      expectedRecord.put(1, record.get(1));
+      expectedRecord.put(2, record.get(3));
+      expectedData.add(expectedRecord);
+    }
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    checkRecordResult(expectedSchema, expectedData, root);
+  }
+
+  @Test
+  public void testSkipArrayField() throws Exception {
+    Set<String> skipFieldNames = new HashSet<>();
+    skipFieldNames.add("f1");
+    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
+    Schema schema = getSchema("skip/test_skip_array_before.avsc");
+    Schema expectedSchema = getSchema("skip/test_skip_array_expected.avsc");
+
+    ArrayList<GenericRecord> data = new ArrayList<>();
+    ArrayList<GenericRecord> expectedData = new ArrayList<>();
+
+    for (int i = 0; i < 5; i++) {
+      GenericRecord record = new GenericData.Record(schema);
+      record.put(0, "test" + i);
+      record.put(1, Arrays.asList("test" + i, "test" + i));
+      record.put(2, i % 2 == 0);
+      data.add(record);
+
+      GenericRecord expectedRecord = new GenericData.Record(expectedSchema);
+      expectedRecord.put(0, record.get(0));
+      expectedRecord.put(1, record.get(2));
+      expectedData.add(expectedRecord);
+    }
+
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    checkRecordResult(expectedSchema, expectedData, root);
+  }
+
+  @Test
+  public void testSkipMultiFields() throws Exception {
+    Set<String> skipFieldNames = new HashSet<>();
+    skipFieldNames.add("f1");
+    skipFieldNames.add("f2");
+    config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
+    Schema schema = getSchema("test_record.avsc");
+    Schema expectedSchema = getSchema("skip/test_skip_multi_fields_expected.avsc");
+
+    ArrayList<GenericRecord> data = new ArrayList<>();
+    ArrayList<GenericRecord> expectedData = new ArrayList<>();
+
+    for (int i = 0; i < 5; i++) {
+      GenericRecord record = new GenericData.Record(schema);
+      record.put(0, "test" + i);
+      record.put(1, i);
+      record.put(2, i % 2 == 0);
+      data.add(record);
+
+      GenericRecord expectedRecord = new GenericData.Record(expectedSchema);
+      expectedRecord.put(0, record.get(0));
+      expectedData.add(expectedRecord);
+    }
+
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    checkRecordResult(expectedSchema, expectedData, root);
+  }
+
+  @Test
+  public void testSkipField() throws Exception {
     Set<String> skipFieldNames = new HashSet<>();
     skipFieldNames.add("f1");
     config = new AvroToArrowConfigBuilder(config.getAllocator()).setSkipFieldNames(skipFieldNames).build();
     Schema schema = getSchema("test_record.avsc");
-    Schema expectedSchema = getSchema("test_skip_fields.avsc");
+    Schema expectedSchema = getSchema("skip/test_skip_single_field_expected.avsc");
 
     ArrayList<GenericRecord> data = new ArrayList<>();
     ArrayList<GenericRecord> expectedData = new ArrayList<>();
@@ -163,7 +306,7 @@ public class AvroToArrowTest extends AvroTestBase {
     Schema nestedSchema = schema.getFields().get(0).schema();
     ArrayList<GenericRecord> data = new ArrayList<>();
 
-    Schema expectedSchema = getSchema("test_skip_nested_fields.avsc");
+    Schema expectedSchema = getSchema("skip/test_skip_second_level_expected.avsc");
     Schema expectedNestedSchema = expectedSchema.getFields().get(0).schema();
     ArrayList<GenericRecord> expectedData = new ArrayList<>();
 
@@ -188,7 +331,7 @@ public class AvroToArrowTest extends AvroTestBase {
 
   @Test
   public void testSkipThirdLevelField() throws Exception {
-    Schema firstLevelSchema = getSchema("test_skip_third_level_fields.avsc");
+    Schema firstLevelSchema = getSchema("skip/test_skip_third_level_expected.avsc");
     Schema secondLevelSchema = firstLevelSchema.getFields().get(0).schema();
     Schema thirdLevelSchema = secondLevelSchema.getFields().get(0).schema();
 
