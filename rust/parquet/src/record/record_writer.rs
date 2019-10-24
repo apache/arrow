@@ -15,9 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use super::super::file::writer::RowGroupWriter;
 use super::super::errors::ParquetError;
+use super::super::file::writer::RowGroupWriter;
 
 pub trait RecordWriter<T> {
-    fn write_to_row_group(&self, row_group_writer: &mut Box<RowGroupWriter>) -> Result<(),ParquetError>;
+    fn write_to_row_group(
+        &self,
+        row_group_writer: &mut Box<RowGroupWriter>,
+    ) -> Result<(), ParquetError>;
 }
