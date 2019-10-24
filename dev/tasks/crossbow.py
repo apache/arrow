@@ -43,10 +43,8 @@ except ImportError:
 try:
     import pygit2
 except ImportError:
-    PygitRepository = str
     PygitRemoteCallbacks = object
 else:
-    PygitRepository = pygit2.Repository
     PygitRemoteCallbacks = pygit2.RemoteCallbacks
 
 
@@ -260,10 +258,10 @@ class Repo:
     def __init__(self, path, github_token=None, remote_url=None,
                  require_https=False):
         self.path = Path(path)
-        self.repo = PygitRepository(str(self.path))
         self.github_token = github_token
         self.require_https = require_https
         self._remote_url = remote_url
+        self._pygit_repo = None
         self._github_repo = None  # set by as_github_repo()
         self._updated_refs = []
 
@@ -277,6 +275,12 @@ class Repo:
             branch=self.branch.branch_name,
             head=self.head
         )
+
+    @property
+    def repo(self):
+        if self._pygit_repo is None:
+            self._pygit_repo = pygit2.Repository(str(self.path))
+        return self._pygit_repo
 
     @property
     def origin(self):
