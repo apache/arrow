@@ -46,6 +46,16 @@ cc_library(
 )
 
 cc_library(
+    name = "compression",
+    srcs = ["compression.cc"],
+    hdrs = ["compression.h"],
+    deps = [
+        ":visibility",
+        "//arrow:status",
+    ],
+)
+
+cc_library(
     name = "config",
     hdrs = [":config_gen"],
 )
@@ -84,6 +94,18 @@ cc_library(
         ":int_util",
         ":parsing",
         "//arrow:status",
+    ],
+)
+
+cc_library(
+    name = "formatting",
+    srcs = ["formatting.cc"],
+    hdrs = ["formatting.h"],
+    deps = [
+        ":utf8",
+        "//arrow:array",
+        "//arrow:status",
+        "@double-conversion//:double-conversion",
     ],
 )
 
@@ -259,6 +281,20 @@ cc_library(
 )
 
 cc_library(
+    name = "utf8",
+    srcs = [
+        "utf8.cc",
+        "//arrow/vendored:utf8cpp",
+    ],
+    hdrs = ["utf8.h"],
+    deps = [
+        ":logging",
+        ":string_view",
+        "//arrow:status",
+    ],
+)
+
+cc_library(
     name = "variant",
     hdrs = ["variant.h"],
     deps = ["//arrow/vendored:variant"],
@@ -273,4 +309,3 @@ cc_library(
     name = "windows_compatibility",
     hdrs = ["windows_compatibility.h"],
 )
-

@@ -13,6 +13,15 @@ cc_library(
     visibility = ["//arrow/util:__pkg__"],
 )
 
+filegroup(
+    name = "utf8cpp",
+    srcs = [
+        "utf8cpp/checked.h",
+        "utf8cpp/core.h",
+    ],
+    visibility = ["//arrow/util:__pkg__"],
+)
+
 cc_library(
     name = "variant",
     hdrs = ["variant.hpp"],
@@ -25,4 +34,3 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = ["//arrow/vendored/xxhash"],
 )
-

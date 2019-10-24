@@ -13,6 +13,25 @@ cc_library(
 )
 
 cc_library(
+    name = "feather",
+    srcs = ["feather.cc"],
+    hdrs = ["feather.h"],
+    deps = [
+        ":feather_internal",
+        ":util",
+        "//arrow:array",
+        "//arrow/util:visibility",
+        "//generated",
+        "@flatbuffers",
+    ],
+)
+
+cc_library(
+    name = "feather_internal",
+    hdrs = ["feather_internal.h"],
+)
+
+cc_library(
     name = "json_internal",
     srcs = ["json_internal.cc"],
     hdrs = ["json_internal.h"],
@@ -79,6 +98,17 @@ cc_library(
     deps = ["//arrow/util:visibility"],
 )
 
+cc_library(
+    name = "public_api",
+    hdrs = ["api.h"],
+    deps = [
+        ":feather",
+        ":message",
+        ":reader",
+        ":writer",
+    ],
+)
+
 cc_test(
     name = "read_write_test",
     srcs = ["read_write_test.cc"],
@@ -97,7 +127,6 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
-
 
 cc_library(
     name = "reader",

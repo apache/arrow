@@ -14,10 +14,22 @@ cc_library(
 )
 
 cc_library(
+    name = "compressed",
+    srcs = ["compressed.cc"],
+    hdrs = ["compressed.h"],
+    deps = [
+        ":concurrency",
+        "//arrow:buffer",
+        "//arrow/util:compression",
+    ],
+)
+
+cc_library(
     name = "concurrency",
     hdrs = ["concurrency.h"],
     deps = [
         ":interfaces_hdr",
+        "//arrow:status",
         "//arrow/util:checked_cast",
     ],
 )
@@ -46,6 +58,10 @@ cc_test(
     ],
 )
 
+cc_library(
+    name = "hdfs",
+    hdrs = ["hdfs.h"],
+)
 
 cc_library(
     name = "interfaces",
@@ -85,6 +101,18 @@ cc_library(
         "//arrow:buffer",
         "//arrow:status",
         "//arrow/util:memory",
+    ],
+)
+
+cc_library(
+    name = "public_api",
+    hdrs = ["api.h"],
+    deps = [
+        ":buffered",
+        ":compressed",
+        ":file",
+        ":hdfs",
+        ":memory",
     ],
 )
 

@@ -111,6 +111,16 @@ cc_test(
     ],
 )
 
+cc_library(
+    name = "dict_internal",
+    srcs = ["dict_internal.cc"],
+    hdrs = ["dict_internal.h"],
+    visibility = [
+        "//arrow:__pkg__",
+        "//arrow/compute/kernels:__pkg__",
+    ],
+    deps = [":builder_dict"],
+)
 
 cc_library(
     name = "diff",
