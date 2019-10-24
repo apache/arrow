@@ -130,7 +130,7 @@ public class TestStableVectorComparator {
     }
 
     @Override
-    public VectorValueComparator<VarCharVector> copy() {
+    public VectorValueComparator<VarCharVector> clone() {
       return new TestVarCharSorter();
     }
   }

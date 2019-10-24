@@ -99,7 +99,7 @@ public class DefaultVectorComparators {
     }
 
     @Override
-    public VectorValueComparator<TinyIntVector> copy() {
+    public VectorValueComparator<TinyIntVector> clone() {
       return new ByteComparator();
     }
   }
@@ -122,7 +122,7 @@ public class DefaultVectorComparators {
     }
 
     @Override
-    public VectorValueComparator<SmallIntVector> copy() {
+    public VectorValueComparator<SmallIntVector> clone() {
       return new ShortComparator();
     }
   }
@@ -145,7 +145,7 @@ public class DefaultVectorComparators {
     }
 
     @Override
-    public VectorValueComparator<IntVector> copy() {
+    public VectorValueComparator<IntVector> clone() {
       return new IntComparator();
     }
   }
@@ -169,7 +169,7 @@ public class DefaultVectorComparators {
     }
 
     @Override
-    public VectorValueComparator<BigIntVector> copy() {
+    public VectorValueComparator<BigIntVector> clone() {
       return new LongComparator();
     }
   }
@@ -193,7 +193,7 @@ public class DefaultVectorComparators {
     }
 
     @Override
-    public VectorValueComparator<UInt1Vector> copy() {
+    public VectorValueComparator<UInt1Vector> clone() {
       return new UInt1Comparator();
     }
   }
@@ -216,7 +216,7 @@ public class DefaultVectorComparators {
     }
 
     @Override
-    public VectorValueComparator<UInt2Vector> copy() {
+    public VectorValueComparator<UInt2Vector> clone() {
       return new UInt2Comparator();
     }
   }
@@ -239,7 +239,7 @@ public class DefaultVectorComparators {
     }
 
     @Override
-    public VectorValueComparator<UInt4Vector> copy() {
+    public VectorValueComparator<UInt4Vector> clone() {
       return new UInt4Comparator();
     }
   }
@@ -262,7 +262,7 @@ public class DefaultVectorComparators {
     }
 
     @Override
-    public VectorValueComparator<UInt8Vector> copy() {
+    public VectorValueComparator<UInt8Vector> clone() {
       return new UInt8Comparator();
     }
   }
@@ -299,7 +299,7 @@ public class DefaultVectorComparators {
     }
 
     @Override
-    public VectorValueComparator<Float4Vector> copy() {
+    public VectorValueComparator<Float4Vector> clone() {
       return new Float4Comparator();
     }
   }
@@ -336,7 +336,7 @@ public class DefaultVectorComparators {
     }
 
     @Override
-    public VectorValueComparator<Float8Vector> copy() {
+    public VectorValueComparator<Float8Vector> clone() {
       return new Float8Comparator();
     }
   }
@@ -366,7 +366,7 @@ public class DefaultVectorComparators {
     }
 
     @Override
-    public VectorValueComparator<BaseVariableWidthVector> copy() {
+    public VectorValueComparator<BaseVariableWidthVector> clone() {
       return new VariableWidthComparator();
     }
   }
@@ -408,8 +408,8 @@ public class DefaultVectorComparators {
     }
 
     @Override
-    public VectorValueComparator<BaseRepeatedValueVector> copy() {
-      VectorValueComparator<T> newInnerComparator = innerComparator.copy();
+    public VectorValueComparator<BaseRepeatedValueVector> clone() {
+      VectorValueComparator<T> newInnerComparator = innerComparator.clone();
       return new RepeatedValueComparator(newInnerComparator);
     }
 

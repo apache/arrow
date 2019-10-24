@@ -24,7 +24,7 @@ import org.apache.arrow.vector.ValueVector;
  * This is used for vector sorting.
  * @param <V> type of the vector.
  */
-public abstract class VectorValueComparator<V extends ValueVector> {
+public abstract class VectorValueComparator<V extends ValueVector> implements Cloneable {
 
   /**
    * The first vector to compare.
@@ -119,5 +119,6 @@ public abstract class VectorValueComparator<V extends ValueVector> {
    * Creates a comparator of the same type.
    * @return the newly created comparator.
    */
-  public abstract VectorValueComparator<V> copy();
+  @Override
+  public abstract VectorValueComparator<V> clone();
 }

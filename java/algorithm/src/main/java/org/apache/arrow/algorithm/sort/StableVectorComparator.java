@@ -60,8 +60,8 @@ public class StableVectorComparator<V extends ValueVector> extends VectorValueCo
   }
 
   @Override
-  public VectorValueComparator<V> copy() {
-    return new StableVectorComparator<V>(innerComparator.copy());
+  public VectorValueComparator<V> clone() {
+    return new StableVectorComparator<V>(innerComparator.clone());
   }
 
 
