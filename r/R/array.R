@@ -186,6 +186,10 @@ filter_rows <- function(x, i, ...) {
   # General purpose function for [ row subsetting with R semantics
   # Based on the input for `i`, calls x$Filter, x$Slice, or x$Take
   nrows <- x$num_rows %||% x$length() # Depends on whether Array or Table-like
+  if (inherits(i, "Expression")) {
+    # Evaluate it
+    i <- as.vector(i)
+  }
   if (is.logical(i)) {
     i <- rep_len(i, nrows) # For R recycling behavior; consider vctrs::vec_recycle()
     x$Filter(i)

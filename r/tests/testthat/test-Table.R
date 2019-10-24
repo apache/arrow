@@ -110,6 +110,8 @@ test_that("[, [[, $ for Table", {
   expect_data_frame(tab[ca,], tbl[c(1, 3, 4, 8, 9),])
   # int Array
   expect_data_frame(tab[Array$create(5:6), 2:4], tbl[6:7, 2:4])
+  # Expression
+  expect_data_frame(tab[tab$int > 6,], tbl[tbl$int > 6,])
 
   expect_vector(tab[["int"]], tbl$int)
   expect_vector(tab$int, tbl$int)

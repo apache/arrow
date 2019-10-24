@@ -62,6 +62,7 @@ Collate:
     'compute.R'
     'csv.R'
     'dictionary.R'
+    'expression.R'
     'feather.R'
     'field.R'
     'filesystem.R'
