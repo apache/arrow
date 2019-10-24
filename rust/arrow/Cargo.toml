@@ -48,6 +48,7 @@ lazy_static = "1.2"
 packed_simd = { version = "0.3.1", optional = true }
 chrono = "0.4"
 flatbuffers = "0.6.0"
+hex = "0.4"
 
 [features]
 simd = ["packed_simd"]

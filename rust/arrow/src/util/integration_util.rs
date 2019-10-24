@@ -24,11 +24,11 @@ use serde_json::Value;
 
 use crate::array::*;
 use crate::datatypes::*;
-use crate::record_batch::RecordBatch;
+use crate::record_batch::{RecordBatch, RecordBatchReader};
 
 /// A struct that represents an Arrow file with a schema and record batches
 #[derive(Deserialize)]
-struct ArrowJson {
+pub(crate) struct ArrowJson {
     schema: ArrowJsonSchema,
     batches: Vec<ArrowJsonBatch>,
 }
@@ -60,6 +60,22 @@ struct ArrowJsonColumn {
     #[serde(rename = "OFFSET")]
     offset: Option<Vec<Value>>, // leaving as Value as 64-bit offsets are strings
     children: Option<Vec<ArrowJsonColumn>>,
+}
+
+impl ArrowJson {
+    // Compare the Arrow JSON with a record batch reader
+    pub fn equals_reader(&self, reader: &mut RecordBatchReader) -> bool {
+        if !self.schema.equals_schema(&reader.schema()) {
+            return false;
+        }
+        self.batches.iter().all(|col| {
+            let batch = reader.next_batch();
+            match batch {
+                Ok(Some(batch)) => col.equals_batch(&batch),
+                _ => false,
+            }
+        })
+    }
 }
 
 impl ArrowJsonSchema {
@@ -147,12 +163,27 @@ impl ArrowJsonBatch {
                         let arr = arr.as_any().downcast_ref::<Float64Array>().unwrap();
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
                     }
-                    DataType::Utf8 => {
+                    DataType::Binary => {
                         let arr = arr.as_any().downcast_ref::<BinaryArray>().unwrap();
+                        arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
+                    }
+                    DataType::Utf8 => {
+                        let arr = arr.as_any().downcast_ref::<StringArray>().unwrap();
+                        arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
+                    }
+                    DataType::FixedSizeBinary(_) => {
+                        let arr =
+                            arr.as_any().downcast_ref::<FixedSizeBinaryArray>().unwrap();
+                        println!("fixed size bin json: {:?}", json_array);
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
                     }
                     DataType::List(_) => {
                         let arr = arr.as_any().downcast_ref::<ListArray>().unwrap();
+                        arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
+                    }
+                    DataType::FixedSizeList(_) => {
+                        let arr =
+                            arr.as_any().downcast_ref::<FixedSizeListArray>().unwrap();
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
                     }
                     DataType::Struct(_) => {
@@ -169,6 +200,9 @@ impl ArrowJsonBatch {
 fn json_from_col(col: &ArrowJsonColumn, data_type: &DataType) -> Vec<Value> {
     match data_type {
         DataType::List(dt) => json_from_list_col(col, &**dt),
+        DataType::FixedSizeList((dt, list_size)) => {
+            json_from_fixed_size_list_col(col, &**dt, *list_size as usize)
+        }
         DataType::Struct(fields) => json_from_struct_col(col, fields),
         _ => merge_json_array(&col.validity, &col.data.clone().unwrap()),
     }
@@ -241,6 +275,36 @@ fn json_from_list_col(col: &ArrowJsonColumn, data_type: &DataType) -> Vec<Value>
         match col.validity[i] {
             0 => values.push(Value::Null),
             1 => values.push(Value::Array(inner[offsets[i]..offsets[i + 1]].to_vec())),
+            _ => panic!("Validity data should be 0 or 1"),
+        }
+    }
+
+    values
+}
+
+/// Convert an Arrow JSON column/array of a `DataType::List` into a vector of `Value`
+fn json_from_fixed_size_list_col(
+    col: &ArrowJsonColumn,
+    data_type: &DataType,
+    list_size: usize,
+) -> Vec<Value> {
+    let mut values = Vec::with_capacity(col.count);
+
+    // get the inner array
+    let child = &col.children.clone().expect("list type must have children")[0];
+    let inner = match data_type {
+        DataType::List(ref dt) => json_from_col(child, &**dt),
+        DataType::FixedSizeList((ref dt, _)) => json_from_col(child, &**dt),
+        DataType::Struct(fields) => json_from_struct_col(col, fields),
+        _ => merge_json_array(&child.validity, &child.data.clone().unwrap()),
+    };
+
+    for i in 0..col.count {
+        match col.validity[i] {
+            0 => values.push(Value::Null),
+            1 => values.push(Value::Array(
+                inner[(list_size * i)..(list_size * (i + 1))].to_vec(),
+            )),
             _ => panic!("Validity data should be 0 or 1"),
         }
     }
@@ -397,7 +461,7 @@ mod tests {
         let ts_micros = TimestampMicrosecondArray::from(vec![None, None, None]);
         let ts_nanos =
             TimestampNanosecondArray::from(vec![None, None, Some(-6473623571954960143)]);
-        let utf8s = BinaryArray::try_from(vec![Some("aa"), None, Some("bbb")]).unwrap();
+        let utf8s = StringArray::try_from(vec![Some("aa"), None, Some("bbb")]).unwrap();
 
         let value_data = Int32Array::from(vec![None, Some(2), None, None]);
         let value_offsets = Buffer::from(&[0, 3, 4, 4].to_byte_slice());
@@ -411,7 +475,7 @@ mod tests {
 
         let structs_int32s = Int32Array::from(vec![None, Some(-2), None]);
         let structs_utf8s =
-            BinaryArray::try_from(vec![None, None, Some("aaaaaa")]).unwrap();
+            StringArray::try_from(vec![None, None, Some("aaaaaa")]).unwrap();
         let structs = StructArray::from(vec![
             (
                 Field::new("int32s", DataType::Int32, true),

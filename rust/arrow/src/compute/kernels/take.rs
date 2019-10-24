@@ -88,7 +88,7 @@ pub fn take(
         DataType::Timestamp(Nanosecond) => {
             take_primitive::<TimestampNanosecondType>(values, indices)
         }
-        DataType::Utf8 => take_binary(values, indices),
+        DataType::Utf8 => take_string(values, indices),
         DataType::List(_) => take_list(values, indices),
         DataType::Struct(fields) => {
             let struct_: &StructArray =
@@ -156,10 +156,10 @@ where
     Ok(Arc::new(builder.finish()) as ArrayRef)
 }
 
-/// `take` implementation for binary arrays
-fn take_binary(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
-    let mut builder = BinaryBuilder::new(indices.len());
-    let a = values.as_any().downcast_ref::<BinaryArray>().unwrap();
+/// `take` implementation for string arrays
+fn take_string(values: &ArrayRef, indices: &UInt32Array) -> Result<ArrayRef> {
+    let mut builder = StringBuilder::new(indices.len());
+    let a = values.as_any().downcast_ref::<StringArray>().unwrap();
     for i in 0..indices.len() {
         if indices.is_null(i) {
             builder.append(false)?;
@@ -318,9 +318,9 @@ mod tests {
     }
 
     #[test]
-    fn test_take_binary() {
+    fn test_take_string() {
         let index = UInt32Array::from(vec![Some(3), None, Some(1), Some(3), Some(4)]);
-        let mut builder: BinaryBuilder = BinaryBuilder::new(6);
+        let mut builder: StringBuilder = StringBuilder::new(6);
         builder.append_string("one").unwrap();
         builder.append_null().unwrap();
         builder.append_string("three").unwrap();

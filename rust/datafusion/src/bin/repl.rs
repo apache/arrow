@@ -158,7 +158,7 @@ fn str_value(column: ArrayRef, row: usize) -> Result<String> {
     match column.data_type() {
         DataType::Utf8 => Ok(column
             .as_any()
-            .downcast_ref::<BinaryArray>()
+            .downcast_ref::<StringArray>()
             .unwrap()
             .get_string(row)),
         DataType::Boolean => make_string!(BooleanArray, column, row),

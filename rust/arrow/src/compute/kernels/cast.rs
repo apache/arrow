@@ -156,7 +156,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             Float64 => cast_bool_to_numeric::<Float64Type>(array),
             Utf8 => {
                 let from = array.as_any().downcast_ref::<BooleanArray>().unwrap();
-                let mut b = BinaryBuilder::new(array.len());
+                let mut b = StringBuilder::new(array.len());
                 for i in 0..array.len() {
                     if array.is_null(i) {
                         b.append(false)?;
@@ -623,12 +623,12 @@ where
     }
 }
 
-fn numeric_to_string_cast<T>(from: &PrimitiveArray<T>) -> Result<BinaryArray>
+fn numeric_to_string_cast<T>(from: &PrimitiveArray<T>) -> Result<StringArray>
 where
     T: ArrowPrimitiveType + ArrowNumericType,
     T::Native: ::std::string::ToString,
 {
-    let mut b = BinaryBuilder::new(from.len());
+    let mut b = StringBuilder::new(from.len());
 
     for i in 0..from.len() {
         if from.is_null(i) {
@@ -647,17 +647,16 @@ where
     TO: ArrowNumericType,
 {
     match string_to_numeric_cast::<TO>(
-        from.as_any().downcast_ref::<BinaryArray>().unwrap(),
+        from.as_any().downcast_ref::<StringArray>().unwrap(),
     ) {
         Ok(to) => Ok(Arc::new(to) as ArrayRef),
         Err(e) => Err(e),
     }
 }
 
-fn string_to_numeric_cast<T>(from: &BinaryArray) -> Result<PrimitiveArray<T>>
+fn string_to_numeric_cast<T>(from: &StringArray) -> Result<PrimitiveArray<T>>
 where
     T: ArrowNumericType,
-    // T::Native: ::std::string::ToString,
 {
     let mut b = PrimitiveBuilder::<T>::new(from.len());
 
@@ -901,8 +900,8 @@ mod tests {
     }
 
     #[test]
-    fn test_cast_utf_to_i32() {
-        let a = BinaryArray::from(vec!["5", "6", "seven", "8", "9.1"]);
+    fn test_cast_utf8_to_i32() {
+        let a = StringArray::from(vec!["5", "6", "seven", "8", "9.1"]);
         let array = Arc::new(a) as ArrayRef;
         let b = cast(&array, &DataType::Int32).unwrap();
         let c = b.as_any().downcast_ref::<Int32Array>().unwrap();

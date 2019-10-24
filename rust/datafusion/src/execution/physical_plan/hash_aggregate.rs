@@ -28,12 +28,13 @@ use crate::execution::physical_plan::{
 };
 
 use arrow::array::{
-    ArrayRef, BinaryArray, Float32Array, Float64Array, Int16Array, Int32Array,
-    Int64Array, Int8Array, UInt16Array, UInt32Array, UInt64Array, UInt8Array,
+    ArrayRef, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array, Int8Array,
+    StringArray, UInt16Array, UInt32Array, UInt64Array, UInt8Array,
 };
 use arrow::array::{
-    BinaryBuilder, Float32Builder, Float64Builder, Int16Builder, Int32Builder,
-    Int64Builder, Int8Builder, UInt16Builder, UInt32Builder, UInt64Builder, UInt8Builder,
+    Float32Builder, Float64Builder, Int16Builder, Int32Builder, Int64Builder,
+    Int8Builder, StringBuilder, UInt16Builder, UInt32Builder, UInt64Builder,
+    UInt8Builder,
 };
 use arrow::datatypes::{DataType, Field, Schema};
 use arrow::record_batch::RecordBatch;
@@ -468,7 +469,7 @@ impl BatchIterator for GroupedHashAggregateIterator {
                     group_array_from_map_entries!(Int64Builder, Int64, map, i)
                 }
                 DataType::Utf8 => {
-                    let mut builder = BinaryBuilder::new(1);
+                    let mut builder = StringBuilder::new(1);
                     for k in map.keys() {
                         match &k[i] {
                             GroupByScalar::Utf8(s) => builder.append_string(&s).unwrap(),
@@ -704,7 +705,7 @@ fn create_key(
                 vec[i] = GroupByScalar::Int64(array.value(row))
             }
             DataType::Utf8 => {
-                let array = col.as_any().downcast_ref::<BinaryArray>().unwrap();
+                let array = col.as_any().downcast_ref::<StringArray>().unwrap();
                 vec[i] = GroupByScalar::Utf8(String::from(
                     str::from_utf8(array.value(row)).unwrap(),
                 ))

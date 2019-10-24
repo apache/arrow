@@ -418,7 +418,7 @@ impl<R: Read> Reader<R> {
                     }
                     DataType::UInt8 => self.build_primitive_array::<UInt8Type>(rows, field.name()),
                     DataType::Utf8 => {
-                        let mut builder = BinaryBuilder::new(rows.len());
+                        let mut builder = StringBuilder::new(rows.len());
                         for row_index in 0..rows.len() {
                             match rows[row_index].get(field.name()) {
                                 Some(value) => {
@@ -446,7 +446,7 @@ impl<R: Read> Reader<R> {
                         DataType::Float64 => self.build_list_array::<Float64Type>(rows, field.name()),
                         DataType::Boolean => self.build_boolean_list_array(rows, field.name()),
                         DataType::Utf8 => {
-                            let values_builder = BinaryBuilder::new(rows.len() * 5);
+                            let values_builder = StringBuilder::new(rows.len() * 5);
                             let mut builder = ListBuilder::new(values_builder);
                             for row_index in 0..rows.len() {
                                 match rows[row_index].get(field.name()) {
@@ -805,7 +805,7 @@ mod tests {
         let dd = batch
             .column(d.0)
             .as_any()
-            .downcast_ref::<BinaryArray>()
+            .downcast_ref::<StringArray>()
             .unwrap();
         assert_eq!("4", String::from_utf8(dd.value(0).to_vec()).unwrap());
         assert_eq!("text", String::from_utf8(dd.value(8).to_vec()).unwrap());
@@ -862,7 +862,7 @@ mod tests {
         let dd = batch
             .column(d.0)
             .as_any()
-            .downcast_ref::<BinaryArray>()
+            .downcast_ref::<StringArray>()
             .unwrap();
         assert_eq!(false, dd.is_valid(0));
         assert_eq!(true, dd.is_valid(1));
@@ -1111,7 +1111,7 @@ mod tests {
             .downcast_ref::<ListArray>()
             .unwrap();
         let dd = dd.values();
-        let dd = dd.as_any().downcast_ref::<BinaryArray>().unwrap();
+        let dd = dd.as_any().downcast_ref::<StringArray>().unwrap();
         assert_eq!(7, dd.len());
         assert_eq!(false, dd.is_valid(1));
         assert_eq!("text", &String::from_utf8(dd.value(2).to_vec()).unwrap());

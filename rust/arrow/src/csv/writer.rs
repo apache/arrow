@@ -37,7 +37,7 @@
 //!     Field::new("c3", DataType::UInt32, false),
 //!     Field::new("c3", DataType::Boolean, true),
 //! ]);
-//! let c1 = BinaryArray::from(vec![
+//! let c1 = StringArray::from(vec![
 //!     "Lorem ipsum dolor sit amet",
 //!     "consectetur adipiscing elit",
 //!     "sed do eiusmod tempor",
@@ -149,7 +149,7 @@ where
                     c.value(row_index).to_string()
                 }
                 DataType::Utf8 => {
-                    let c = col.as_any().downcast_ref::<BinaryArray>().unwrap();
+                    let c = col.as_any().downcast_ref::<StringArray>().unwrap();
                     String::from_utf8(c.value(row_index).to_vec())?
                 }
                 DataType::Date32(DateUnit::Day) => {
@@ -397,7 +397,7 @@ mod tests {
             Field::new("c6", DataType::Time32(TimeUnit::Second), false),
         ]);
 
-        let c1 = BinaryArray::from(vec![
+        let c1 = StringArray::from(vec![
             "Lorem ipsum dolor sit amet",
             "consectetur adipiscing elit",
             "sed do eiusmod tempor",
@@ -465,7 +465,7 @@ sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03
             Field::new("c6", DataType::Time32(TimeUnit::Second), false),
         ]);
 
-        let c1 = BinaryArray::from(vec![
+        let c1 = StringArray::from(vec![
             "Lorem ipsum dolor sit amet",
             "consectetur adipiscing elit",
             "sed do eiusmod tempor",
@@ -526,7 +526,7 @@ sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03
             Field::new("c6", DataType::Time32(TimeUnit::Second), false),
         ]);
 
-        let c1 = BinaryArray::from(vec![
+        let c1 = StringArray::from(vec![
             "Lorem ipsum dolor sit amet",
             "consectetur adipiscing elit",
             "sed do eiusmod tempor",
