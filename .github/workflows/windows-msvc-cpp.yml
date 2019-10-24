@@ -36,6 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@master
       - name: CMake
+        shell: cmd
         run: |
           mkdir build\cpp
           cmake ^
@@ -48,5 +49,6 @@ jobs:
             -S cpp ^
             -B build\cpp
       - name: Install
+        shell: cmd
         run: |
           cmake --build build\cpp --config Debug --target Install
