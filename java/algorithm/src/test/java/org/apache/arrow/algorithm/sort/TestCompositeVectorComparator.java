@@ -69,7 +69,7 @@ public class TestCompositeVectorComparator {
         intVec1.set(i, i);
         strVec1.set(i, new String("a" + i).getBytes());
         intVec2.set(i, i);
-        strVec2.set(i, new String("a" + i).getBytes());
+        strVec2.set(i, new String("a5").getBytes());
       }
 
       VectorValueComparator<IntVector> innerComparator1 =
@@ -83,22 +83,30 @@ public class TestCompositeVectorComparator {
           new VectorValueComparator[]{innerComparator1, innerComparator2}
       );
 
-      for (int i = 0; i < vectorLength; i++) {
-        for (int j = 0; j < vectorLength; j++) {
-          int result1 = comparator.compare(i, j);
-          int result2 = comparator.compareNotNull(i, j);
-          if (i < j) {
-            assertTrue(result1 < 0);
-            assertTrue(result2 < 0);
-          } else if (i == j) {
-            assertTrue(result1 == 0);
-            assertTrue(result2 == 0);
-          } else {
-            assertTrue(result1 > 0);
-            assertTrue(result2 > 0);
-          }
-        }
-      }
+      // verify results
+
+      // both elements are equal, the result is equal
+      assertTrue(comparator.compare(5, 5) == 0);
+
+      // the first element being equal, the second is smaller, and the result is smaller
+      assertTrue(comparator.compare(1, 1) < 0);
+      assertTrue(comparator.compare(2, 2) < 0);
+      assertTrue(comparator.compare(3, 3) < 0);
+
+      // the first element being equal, the second is larger, and the result is larger
+      assertTrue(comparator.compare(7, 7) > 0);
+      assertTrue(comparator.compare(8, 8) > 0);
+      assertTrue(comparator.compare(9, 9) > 0);
+
+      // the first element is smaller, the result is always smaller
+      assertTrue(comparator.compare(1, 2) < 0);
+      assertTrue(comparator.compare(3, 7) < 0);
+      assertTrue(comparator.compare(4, 9) < 0);
+
+      // the first element is larger, the result is always larger
+      assertTrue(comparator.compare(2, 0) > 0);
+      assertTrue(comparator.compare(8, 7) > 0);
+      assertTrue(comparator.compare(4, 1) > 0);
     }
   }
 }
