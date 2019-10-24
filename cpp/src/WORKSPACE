@@ -31,15 +31,6 @@ new_local_repository(
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
-all_content = """
-package(default_visibility = ["//visibility:public"])
-filegroup(name = "all", srcs = glob(["**"]))
-
-cc_library(name = "boost_headers", hdrs = glob(["**/*.hpp"]),
-includes = ["."]
-   )
-"""
-
 http_archive(
     name = "rules_foreign_cc",
     sha256 = "bdfc2734367a1242514251c7ed2dd12f65dd6d19a97e6a2c61106851be8e7fb8",
@@ -53,7 +44,7 @@ rules_foreign_cc_dependencies()
 
 http_archive(
     name = "boost",
-    build_file_content = all_content,
+    build_file = "//bazel:boost.BUILD",
     sha256 = "da3411ea45622579d419bfda66f45cd0f8c32a181d84adfa936f5688388995cf",
     strip_prefix = "boost_1_68_0",
     urls = ["https://dl.bintray.com/boostorg/release/1.68.0/source/boost_1_68_0.tar.gz"],
