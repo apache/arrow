@@ -27,6 +27,7 @@
 #include "arrow/csv/options.h"
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -67,13 +68,23 @@ class ARROW_EXPORT BlockParser {
   ///
   /// Parse a block of CSV data, ingesting up to max_num_rows rows.
   /// The number of bytes actually parsed is returned in out_size.
-  Status Parse(const char* data, uint32_t size, uint32_t* out_size);
+  Status Parse(util::string_view data, uint32_t* out_size);
+
+  /// \brief Parse sequential blocks of data
+  ///
+  /// Only the last block is allowed to be truncated.
+  Status Parse(const std::vector<util::string_view>& data, uint32_t* out_size);
 
   /// \brief Parse the final block of data
   ///
   /// Like Parse(), but called with the final block in a file.
   /// The last row may lack a trailing line separator.
-  Status ParseFinal(const char* data, uint32_t size, uint32_t* out_size);
+  Status ParseFinal(util::string_view data, uint32_t* out_size);
+
+  /// \brief Parse the final sequential blocks of data
+  ///
+  /// Only the last block is allowed to be truncated.
+  Status ParseFinal(const std::vector<util::string_view>& data, uint32_t* out_size);
 
   /// \brief Return the number of parsed rows
   int32_t num_rows() const { return num_rows_; }
@@ -121,9 +132,10 @@ class ARROW_EXPORT BlockParser {
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(BlockParser);
 
-  Status DoParse(const char* data, uint32_t size, bool is_final, uint32_t* out_size);
+  Status DoParse(const std::vector<util::string_view>& data, bool is_final,
+                 uint32_t* out_size);
   template <typename SpecializedOptions>
-  Status DoParseSpecialized(const char* data, uint32_t size, bool is_final,
+  Status DoParseSpecialized(const std::vector<util::string_view>& data, bool is_final,
                             uint32_t* out_size);
 
   template <typename SpecializedOptions, typename ValuesWriter, typename ParsedWriter>

@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <limits>
 #include <utility>
 
 #include "arrow/memory_pool.h"
@@ -405,8 +406,8 @@ Status BlockParser::ParseChunk(ValuesWriter* values_writer, ParsedWriter* parsed
 }
 
 template <typename SpecializedOptions>
-Status BlockParser::DoParseSpecialized(const char* start, uint32_t size, bool is_final,
-                                       uint32_t* out_size) {
+Status BlockParser::DoParseSpecialized(const std::vector<util::string_view>& views,
+                                       bool is_final, uint32_t* out_size) {
   num_rows_ = 0;
   values_size_ = 0;
   parsed_size_ = 0;
@@ -414,47 +415,66 @@ Status BlockParser::DoParseSpecialized(const char* start, uint32_t size, bool is
   parsed_buffer_.reset();
   parsed_ = nullptr;
 
-  const char* data = start;
-  const char* data_end = start + size;
-  bool finished_parsing = false;
-
-  PresizedParsedWriter parsed_writer(pool_, size);
-
-  if (num_cols_ == -1) {
-    // Can't presize values when the number of columns is not known, first parse
-    // a single line
-    const int32_t rows_in_chunk = 1;
-    ResizableValuesWriter values_writer(pool_);
-    values_writer.Start(parsed_writer);
-
-    RETURN_NOT_OK(ParseChunk<SpecializedOptions>(&values_writer, &parsed_writer, data,
-                                                 data_end, is_final, rows_in_chunk, &data,
-                                                 &finished_parsing));
-    if (num_cols_ == -1) {
-      return ParseError("Empty CSV file or block: cannot infer number of columns");
-    }
+  size_t total_view_length = 0;
+  for (const auto& view : views) {
+    total_view_length += view.length();
+  }
+  if (total_view_length > std::numeric_limits<uint32_t>::max()) {
+    return Status::Invalid("CSV block too large");
   }
 
-  while (!finished_parsing && data < data_end && num_rows_ < max_num_rows_) {
-    // We know the number of columns, so can presize a values array for
-    // a given number of rows
-    DCHECK_GE(num_cols_, 0);
+  PresizedParsedWriter parsed_writer(pool_, static_cast<uint32_t>(total_view_length));
+  uint32_t total_parsed_length = 0;
 
-    int32_t rows_in_chunk;
-    constexpr int32_t kTargetChunkSize = 32768;
-    if (num_cols_ > 0) {
-      rows_in_chunk = std::min(std::max(kTargetChunkSize / num_cols_, 512),
-                               max_num_rows_ - num_rows_);
-    } else {
-      rows_in_chunk = std::min(kTargetChunkSize, max_num_rows_ - num_rows_);
+  for (const auto& view : views) {
+    const char* data = view.data();
+    const char* data_end = view.data() + view.length();
+    bool finished_parsing = false;
+
+    if (num_cols_ == -1) {
+      // Can't presize values when the number of columns is not known, first parse
+      // a single line
+      const int32_t rows_in_chunk = 1;
+      ResizableValuesWriter values_writer(pool_);
+      values_writer.Start(parsed_writer);
+
+      RETURN_NOT_OK(ParseChunk<SpecializedOptions>(&values_writer, &parsed_writer, data,
+                                                   data_end, is_final, rows_in_chunk,
+                                                   &data, &finished_parsing));
+      if (num_cols_ == -1) {
+        return ParseError("Empty CSV file or block: cannot infer number of columns");
+      }
     }
 
-    PresizedValuesWriter values_writer(pool_, rows_in_chunk, num_cols_);
-    values_writer.Start(parsed_writer);
+    while (!finished_parsing && data < data_end && num_rows_ < max_num_rows_) {
+      // We know the number of columns, so can presize a values array for
+      // a given number of rows
+      DCHECK_GE(num_cols_, 0);
 
-    RETURN_NOT_OK(ParseChunk<SpecializedOptions>(&values_writer, &parsed_writer, data,
-                                                 data_end, is_final, rows_in_chunk, &data,
-                                                 &finished_parsing));
+      int32_t rows_in_chunk;
+      constexpr int32_t kTargetChunkSize = 32768;
+      if (num_cols_ > 0) {
+        rows_in_chunk = std::min(std::max(kTargetChunkSize / num_cols_, 512),
+                                 max_num_rows_ - num_rows_);
+      } else {
+        rows_in_chunk = std::min(kTargetChunkSize, max_num_rows_ - num_rows_);
+      }
+
+      PresizedValuesWriter values_writer(pool_, rows_in_chunk, num_cols_);
+      values_writer.Start(parsed_writer);
+
+      RETURN_NOT_OK(ParseChunk<SpecializedOptions>(&values_writer, &parsed_writer, data,
+                                                   data_end, is_final, rows_in_chunk,
+                                                   &data, &finished_parsing));
+    }
+    DCHECK_GE(data, view.data());
+    DCHECK_LE(data, data_end);
+    total_parsed_length += static_cast<uint32_t>(data - view.data());
+
+    if (data < data_end) {
+      // Stopped early, for some reason
+      break;
+    }
   }
 
   parsed_writer.Finish(&parsed_buffer_);
@@ -478,37 +498,46 @@ Status BlockParser::DoParseSpecialized(const char* start, uint32_t size, bool is
     DCHECK_EQ(parsed_size_, 0);
   }
 #endif
-  *out_size = static_cast<uint32_t>(data - start);
+  *out_size = static_cast<uint32_t>(total_parsed_length);
   return Status::OK();
 }
 
-Status BlockParser::DoParse(const char* start, uint32_t size, bool is_final,
+Status BlockParser::DoParse(const std::vector<util::string_view>& data, bool is_final,
                             uint32_t* out_size) {
   if (options_.quoting) {
     if (options_.escaping) {
-      return DoParseSpecialized<SpecializedOptions<true, true>>(start, size, is_final,
-                                                                out_size);
+      return DoParseSpecialized<SpecializedOptions<true, true>>(data, is_final, out_size);
     } else {
-      return DoParseSpecialized<SpecializedOptions<true, false>>(start, size, is_final,
+      return DoParseSpecialized<SpecializedOptions<true, false>>(data, is_final,
                                                                  out_size);
     }
   } else {
     if (options_.escaping) {
-      return DoParseSpecialized<SpecializedOptions<false, true>>(start, size, is_final,
+      return DoParseSpecialized<SpecializedOptions<false, true>>(data, is_final,
                                                                  out_size);
     } else {
-      return DoParseSpecialized<SpecializedOptions<false, false>>(start, size, is_final,
+      return DoParseSpecialized<SpecializedOptions<false, false>>(data, is_final,
                                                                   out_size);
     }
   }
 }
 
-Status BlockParser::Parse(const char* data, uint32_t size, uint32_t* out_size) {
-  return DoParse(data, size, false /* is_final */, out_size);
+Status BlockParser::Parse(const std::vector<util::string_view>& data,
+                          uint32_t* out_size) {
+  return DoParse(data, false /* is_final */, out_size);
 }
 
-Status BlockParser::ParseFinal(const char* data, uint32_t size, uint32_t* out_size) {
-  return DoParse(data, size, true /* is_final */, out_size);
+Status BlockParser::ParseFinal(const std::vector<util::string_view>& data,
+                               uint32_t* out_size) {
+  return DoParse(data, true /* is_final */, out_size);
+}
+
+Status BlockParser::Parse(util::string_view data, uint32_t* out_size) {
+  return DoParse({data}, false /* is_final */, out_size);
+}
+
+Status BlockParser::ParseFinal(util::string_view data, uint32_t* out_size) {
+  return DoParse({data}, true /* is_final */, out_size);
 }
 
 BlockParser::BlockParser(MemoryPool* pool, ParseOptions options, int32_t num_cols,

@@ -121,6 +121,33 @@ TEST(NullColumnBuilder, InsertTyped) {
   AssertChunkedEqual(*actual, *expected);
 }
 
+TEST(NullColumnBuilder, EmptyChunks) {
+  std::shared_ptr<DataType> type = int16();
+  auto tg = TaskGroup::MakeSerial();
+
+  std::shared_ptr<ColumnBuilder> builder;
+  ASSERT_OK(ColumnBuilder::MakeNull(default_memory_pool(), type, tg, &builder));
+
+  std::shared_ptr<BlockParser> parser;
+  std::shared_ptr<ChunkedArray> actual, expected;
+  // Those values are indifferent, only the number of rows is used
+  MakeColumnParser({}, &parser);
+  builder->Insert(0, parser);
+  MakeColumnParser({"abc", "def"}, &parser);
+  builder->Insert(1, parser);
+  MakeColumnParser({}, &parser);
+  builder->Insert(2, parser);
+  ASSERT_OK(builder->task_group()->Finish());
+  ASSERT_OK(builder->Finish(&actual));
+  ASSERT_OK(actual->Validate());
+
+  auto chunks =
+      ArrayVector{ArrayFromJSON(type, "[]"), ArrayFromJSON(type, "[null, null]"),
+                  ArrayFromJSON(type, "[]")};
+  expected = std::make_shared<ChunkedArray>(chunks);
+  AssertChunkedEqual(*actual, *expected);
+}
+
 //////////////////////////////////////////////////////////////////////////
 // Tests for fixed-type column builder
 
@@ -202,6 +229,21 @@ TEST(ColumnBuilder, MultipleChunksParallel) {
 
   std::shared_ptr<ChunkedArray> expected;
   ChunkedArrayFromVector<Int32Type>({{1, 2}, {3}, {4, 5}, {6, 7}}, &expected);
+  AssertChunkedEqual(*actual, *expected);
+}
+
+TEST(ColumnBuilder, EmptyChunks) {
+  auto options = ConvertOptions::Defaults();
+  auto tg = TaskGroup::MakeSerial();
+  std::shared_ptr<ColumnBuilder> builder;
+  ASSERT_OK(
+      ColumnBuilder::Make(default_memory_pool(), int32(), 0, options, tg, &builder));
+
+  std::shared_ptr<ChunkedArray> actual;
+  AssertBuilding(builder, {{}, {"1", "2"}, {}}, &actual);
+
+  std::shared_ptr<ChunkedArray> expected;
+  ChunkedArrayFromVector<Int32Type>({{}, {1, 2}, {}}, &expected);
   AssertChunkedEqual(*actual, *expected);
 }
 

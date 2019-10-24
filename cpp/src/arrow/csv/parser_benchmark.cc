@@ -17,6 +17,7 @@
 
 #include "benchmark/benchmark.h"
 
+#include <memory>
 #include <sstream>
 #include <string>
 
@@ -24,6 +25,7 @@
 #include "arrow/csv/options.h"
 #include "arrow/csv/parser.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace csv {
@@ -45,16 +47,16 @@ static std::string BuildCSVData(const std::string& row, int32_t repeat) {
 
 static void BenchmarkCSVChunking(benchmark::State& state,  // NOLINT non-const reference
                                  const std::string& csv, ParseOptions options) {
-  Chunker chunker(options);
-  const uint32_t csv_size = static_cast<uint32_t>(csv.size());
+  auto chunker = MakeChunker(options);
+  auto block = std::make_shared<Buffer>(util::string_view(csv));
 
   while (state.KeepRunning()) {
-    uint32_t chunk_size = 0;
-    ABORT_NOT_OK(chunker.Process(csv.data(), csv_size, &chunk_size));
-    benchmark::DoNotOptimize(chunk_size);
+    std::shared_ptr<Buffer> whole, partial;
+    ABORT_NOT_OK(chunker->Process(block, &whole, &partial));
+    benchmark::DoNotOptimize(whole->size());
   }
 
-  state.SetBytesProcessed(state.iterations() * csv_size);
+  state.SetBytesProcessed(state.iterations() * csv.length());
 }
 
 static void ChunkCSVQuotedBlock(benchmark::State& state) {  // NOLINT non-const reference
@@ -95,11 +97,10 @@ static void BenchmarkCSVParsing(benchmark::State& state,  // NOLINT non-const re
                                 const std::string& csv, int32_t rows,
                                 ParseOptions options) {
   BlockParser parser(options, -1, rows + 1);
-  const uint32_t csv_size = static_cast<uint32_t>(csv.size());
 
   while (state.KeepRunning()) {
     uint32_t parsed_size = 0;
-    ABORT_NOT_OK(parser.Parse(csv.data(), csv_size, &parsed_size));
+    ABORT_NOT_OK(parser.Parse(util::string_view(csv), &parsed_size));
 
     // Include performance of visiting the parsed values, as that might
     // vary depending on the parser's internal data structures.
@@ -117,7 +118,7 @@ static void BenchmarkCSVParsing(benchmark::State& state,  // NOLINT non-const re
     }
   }
 
-  state.SetBytesProcessed(state.iterations() * csv_size);
+  state.SetBytesProcessed(state.iterations() * csv.size());
 }
 
 static void ParseCSVQuotedBlock(benchmark::State& state) {  // NOLINT non-const reference

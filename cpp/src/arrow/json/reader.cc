@@ -54,7 +54,7 @@ class TableReaderImpl : public TableReader,
       : pool_(pool),
         read_options_(read_options),
         parse_options_(parse_options),
-        chunker_(Chunker::Make(parse_options_)),
+        chunker_(MakeChunker(parse_options_)),
         task_group_(std::move(task_group)) {}
 
   Status Init(std::shared_ptr<io::InputStream> input) {
@@ -159,7 +159,7 @@ class TableReaderImpl : public TableReader,
   MemoryPool* pool_;
   ReadOptions read_options_;
   ParseOptions parse_options_;
-  std::unique_ptr<Chunker> chunker_;
+  std::unique_ptr<DelimitedChunker> chunker_;
   std::shared_ptr<TaskGroup> task_group_;
   Iterator<std::shared_ptr<Buffer>> block_iterator_;
   std::shared_ptr<ChunkedArrayBuilder> builder_;
