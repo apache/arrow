@@ -23,6 +23,7 @@
 #include <mutex>
 #include <utility>
 
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/thread_pool.h"
 
@@ -88,13 +89,15 @@ class ThreadedTaskGroup : public TaskGroup {
     // Only if an error occurs is the lock taken
     if (ok_.load(std::memory_order_acquire)) {
       nremaining_.fetch_add(1, std::memory_order_acquire);
-      Status st = thread_pool_->Spawn([this, task]() {
-        if (ok_.load(std::memory_order_acquire)) {
+
+      auto self = checked_pointer_cast<ThreadedTaskGroup>(shared_from_this());
+      Status st = thread_pool_->Spawn([self, task]() {
+        if (self->ok_.load(std::memory_order_acquire)) {
           // XXX what about exceptions?
           Status st = task();
-          UpdateStatus(std::move(st));
+          self->UpdateStatus(std::move(st));
         }
-        OneTaskDone();
+        self->OneTaskDone();
       });
       UpdateStatus(std::move(st));
     }

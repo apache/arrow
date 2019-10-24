@@ -212,6 +212,75 @@ void TestTasksSpawnTasks(std::shared_ptr<TaskGroup> task_group) {
   ASSERT_EQ(count.load(), (1 << (N + 1)) - 1);
 }
 
+// A task that keeps recursing until a barrier is set.
+// Using a lambda for this doesn't play well with Thread Sanitizer.
+struct BarrierTask {
+  std::atomic<bool>* barrier_;
+  std::weak_ptr<TaskGroup> weak_group_ptr_;
+  Status final_status_;
+
+  Status operator()() {
+    if (!barrier_->load()) {
+      sleep_for(1e-5);
+      // Note the TaskGroup should be kept alive by the fact this task
+      // is still running...
+      weak_group_ptr_.lock()->Append(*this);
+    }
+    return final_status_;
+  }
+};
+
+// Try to replicate subtle lifetime issues when destroying a TaskGroup
+// where all tasks may not have finished running.
+void StressTaskGroupLifetime(std::function<std::shared_ptr<TaskGroup>()> factory) {
+  const int NTASKS = 100;
+  auto task_group = factory();
+  auto weak_group_ptr = std::weak_ptr<TaskGroup>(task_group);
+
+  std::atomic<bool> barrier(false);
+
+  BarrierTask task{&barrier, weak_group_ptr, Status::OK()};
+
+  for (int i = 0; i < NTASKS; ++i) {
+    task_group->Append(task);
+  }
+
+  // Lose strong reference
+  barrier.store(true);
+  task_group.reset();
+
+  // Wait for finish
+  while (!weak_group_ptr.expired()) {
+    sleep_for(1e-5);
+  }
+}
+
+// Same, but with also a failing task
+void StressFailingTaskGroupLifetime(std::function<std::shared_ptr<TaskGroup>()> factory) {
+  const int NTASKS = 100;
+  auto task_group = factory();
+  auto weak_group_ptr = std::weak_ptr<TaskGroup>(task_group);
+
+  std::atomic<bool> barrier(false);
+
+  BarrierTask task{&barrier, weak_group_ptr, Status::OK()};
+  BarrierTask failing_task{&barrier, weak_group_ptr, Status::Invalid("XXX")};
+
+  for (int i = 0; i < NTASKS; ++i) {
+    task_group->Append(task);
+  }
+  task_group->Append(failing_task);
+
+  // Lose strong reference
+  barrier.store(true);
+  task_group.reset();
+
+  // Wait for finish
+  while (!weak_group_ptr.expired()) {
+    sleep_for(1e-5);
+  }
+}
+
 TEST(SerialTaskGroup, Success) { TestTaskGroupSuccess(TaskGroup::MakeSerial()); }
 
 TEST(SerialTaskGroup, Errors) { TestTaskGroupErrors(TaskGroup::MakeSerial()); }
@@ -257,6 +326,21 @@ TEST(ThreadedTaskGroup, SubGroupsErrors) {
   ASSERT_OK(ThreadPool::Make(4, &thread_pool));
 
   TestTaskSubGroupsErrors(TaskGroup::MakeThreaded(thread_pool.get()));
+}
+
+TEST(ThreadedTaskGroup, StressTaskGroupLifetime) {
+  std::shared_ptr<ThreadPool> thread_pool;
+  ASSERT_OK(ThreadPool::Make(16, &thread_pool));
+
+  StressTaskGroupLifetime([&] { return TaskGroup::MakeThreaded(thread_pool.get()); });
+}
+
+TEST(ThreadedTaskGroup, StressFailingTaskGroupLifetime) {
+  std::shared_ptr<ThreadPool> thread_pool;
+  ASSERT_OK(ThreadPool::Make(16, &thread_pool));
+
+  StressFailingTaskGroupLifetime(
+      [&] { return TaskGroup::MakeThreaded(thread_pool.get()); });
 }
 
 }  // namespace internal

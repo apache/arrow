@@ -40,7 +40,7 @@ class ThreadPool;
 /// implementation.  When Finish() returns, it is guaranteed that all
 /// tasks have finished, or at least one has errored.
 ///
-class ARROW_EXPORT TaskGroup {
+class ARROW_EXPORT TaskGroup : public std::enable_shared_from_this<TaskGroup> {
  public:
   /// Add a Status-returning function to execute.  Execution order is
   /// undefined.  The function may be executed immediately or later.
