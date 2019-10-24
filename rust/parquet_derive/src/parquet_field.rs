@@ -434,7 +434,6 @@ impl Type {
     }
 
     fn from_type_path(f: &syn::Field, p: &syn::TypePath) -> Self {
-        let field_name = &f.ident;
         let last_segment = p.path.segments.last().unwrap().into_value();
 
         let is_vec =
@@ -445,11 +444,8 @@ impl Type {
         if is_vec || is_option {
             let generic_type = match &last_segment.arguments {
                 syn::PathArguments::AngleBracketed(angle_args) => {
-                    let mut gen_args_iter = angle_args.args.iter();
-                    let first_arg = gen_args_iter.next().unwrap();
-                    if gen_args_iter.next().is_some() {
-                        unimplemented!("parquet derive only works with 0 or 1 generic arguments, field {} has more than 1", quote!{ #field_name }.to_string())
-                    }
+                    assert_eq!(angle_args.args.len(), 1);
+                    let first_arg = &angle_args.args[0];
 
                     match first_arg {
                         syn::GenericArgument::Type(ref typath) => typath.clone(),
