@@ -25,10 +25,10 @@ env:
   global:
     - PLAT=x86_64
     - TRAVIS_TAG={{ task.tag }}
-    - MACOSX_DEPLOYMENT_TARGET="10.9"
     - PYARROW_VERSION={{ arrow.no_rc_version }}
     - PYARROW_BUILD_VERBOSE=1
     - MB_PYTHON_VERSION={{ python_version }}
+    - MACOSX_DEPLOYMENT_TARGET="10.9"
 
 before_install:
   - git clone https://github.com/matthew-brett/multibuild # TODO pin it
@@ -40,29 +40,26 @@ before_install:
 
   # ARROW-3976 Old versions of git can cause failures when Homebrew prints a
   # donation solicitation. Attempt to update git
-  - git --version
-  - brew upgrade git
+  - brew upgrade git python
 
   # Also remove artifacts that depend on Boost
   - brew uninstall boost cgal postgis sfcgal
   - brew update
   - brew upgrade cmake
   - travis_wait 30 brew install bison flex grpc openssl@1.1 llvm@7 zlib gperftools
-  # Remove shared grpc libraries installed by brew to make sure
+  # remove shared grpc libraries installed by brew to make sure
   # we are linked against the static ones.
   - rm -f /usr/local/opt/grpc/lib/*.dylib
 
+  # source utilities required for wheel builds
   - export CONFIG_PATH=`pwd`/arrow/dev/tasks/python-wheels/osx-build.sh
   - source multibuild/common_utils.sh
   - source multibuild/travis_osx_steps.sh
-
   - before_install
   # Fix SSL TLS issue for Python 3.5 on macOS
   - pip install requests[security]
 
 install:
-  - mkdir -p dist
-
   # the following functions are defined in osx-build.sh
   - build_wheel arrow
 
@@ -78,19 +75,13 @@ install:
   # run the import tests
   - run_import_tests
 
-  # move built wheels to a top level directory
-  - mv -v arrow/python/dist/* dist/
-  # reinstall openssl because travis' deployment script depends on it
   - brew install openssl@1.1
-
-deploy:
-  provider: releases
-  api_key: $CROSSBOW_GITHUB_TOKEN
-  file_glob: true
-  file: dist/*.whl
-  skip_cleanup: true
-  on:
-    tags: true
+  # before_install activates a virtualenv but we need the system python3
+  - deactivate
+  # crossbow dependencies for deployment
+  - unset MACOSX_DEPLOYMENT_TARGET
+  - pip3 install click ruamel.yaml setuptools_scm github3.py toolz requests[security]
+  - python3 arrow/dev/tasks/crossbow.py --queue-path $(pwd) --queue-remote {{ queue.remote_url }} upload-artifacts --sha {{ task.branch }} --tag {{ task.tag }} --pattern "arrow/python/dist/*.whl"
 
 notifications:
   email:
