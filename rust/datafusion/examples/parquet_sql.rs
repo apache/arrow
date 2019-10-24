@@ -18,7 +18,7 @@
 extern crate arrow;
 extern crate datafusion;
 
-use arrow::array::{BinaryArray, Float64Array, Int32Array};
+use arrow::array::{Float64Array, Int32Array, StringArray};
 
 use datafusion::error::Result;
 use datafusion::execution::context::ExecutionContext;
@@ -72,7 +72,7 @@ fn main() -> Result<()> {
         let date = batch
             .column(2)
             .as_any()
-            .downcast_ref::<BinaryArray>()
+            .downcast_ref::<StringArray>()
             .unwrap();
 
         for i in 0..batch.num_rows() {
