@@ -16,16 +16,21 @@
 # under the License.
 
 select.RecordBatch <- function(.data, ...) {
+  # This S3 method is registered on load if dplyr is present
+  .data <- .data$clone()
   .data$selected_columns <- c(.data$selected_columns, list(quos(...)))
   .data
 }
 
 filter.RecordBatch <- function(.data, ..., .preserve = FALSE) {
+  # This S3 method is registered on load if dplyr is present
+  .data <- .data$clone()
   .data$filtered_rows <- c(.data$filtered_rows, quos(...))
   .data
 }
 
 collect.RecordBatch <- function(x, ...) {
+  # This S3 method is registered on load if dplyr is present
   filters <- evaluate_filters(x)
   colnames <- names(x)
   for (q in x$selected_columns) {
@@ -33,15 +38,8 @@ collect.RecordBatch <- function(x, ...) {
   }
   df <- as.data.frame(x[filters, colnames])
   if (length(x$group_by_vars)) {
-    df <- dplyr::grouped_df(df, dplyr::groups(x)$group_names)
+    df <- dplyr::grouped_df(df, dplyr::groups(x))
   }
-  # Slight hack: since x is R6, each select/filter modified the object in place,
-  # which is not standard R behavior. Let's zero out x$selected_columns and
-  # x$filtered_rows and hope that this side effect cancels out the other
-  # unexpected side effects.
-  x$selected_columns <- list()
-  x$filtered_rows <- list()
-  dplyr::ungroup(x)
   df
 }
 
@@ -50,39 +48,51 @@ evaluate_filters <- function(x) {
     # Keep everything
     return(TRUE)
   }
-  # Cache the columns we need here
-  filter_data <- new.env()
+  # Grab the Arrow Arrays we need in order to evaluate the filter expressions
+  filter_data <- env()
   for (v in unique(unlist(lapply(x$filtered_rows, all.vars)))) {
-    assign(v, x[[v]], envir = filter_data)
+    # TODO: when we can evaluate these expressions in the C++ lib,
+    # don't as.vector here: just grab the array so that eval_tidy below
+    # yields an Expression
+    assign(v, as.vector(x[[v]]), envir = filter_data)
   }
-  # Evaluate to get Expressions, then pull to R
+  dm <- new_data_mask(filter_data)
   filters <- lapply(x$filtered_rows, function (f) {
-    expr <- eval_tidy(f, new_data_mask(filter_data))
-    # TODO: Call something else that tries to construct a C++ expression
-    as.vector(expr)
+    eval_tidy(f, dm)
+    # TODO: when that's an Expression, call as.vector on it here to evaluate
   })
+  # filters is a list of logical vectors corresponding to each of the exprs.
+  # AND them together and return
   Reduce("&", filters)
 }
 
 summarise.RecordBatch <- function(.data, ...) {
+  # This S3 method is registered on load if dplyr is present
   # Only retain the columns we need to do our aggregations
-  vars_to_keep <- unique(c(
-    unlist(lapply(quos(...), all.vars)), # vars referenced in summarise
-    dplyr::groups(.data)$group_names     # vars needed for grouping
-  ))
+  vars_to_keep <- unique(unlist(c(
+    lapply(quos(...), all.vars), # vars referenced in summarise
+    dplyr::group_vars(.data)     # vars needed for grouping
+  )))
   .data <- dplyr::select(.data, vars_to_keep)
   # TODO: determine whether work can be pushed down to Arrow
   dplyr::summarise(dplyr::collect(.data), ...)
 }
 
 group_by.RecordBatch <- function(.data, ..., add = FALSE) {
-  .data$group_by_vars <- dplyr::group_by_prepare(.data, ..., add = add)
+  # This S3 method is registered on load if dplyr is present
+  .data <- .data$clone()
+  .data$group_by_vars <- dplyr::group_by_prepare(.data, ..., add = add)$group_names
   .data
 }
 
-groups.RecordBatch <- function(x) x$group_by_vars
+# This S3 method is registered on load if dplyr is present
+groups.RecordBatch <- function(x) syms(dplyr::group_vars(x))
+
+# This S3 method is registered on load if dplyr is present
+group_vars.RecordBatch <- function(x) x$group_by_vars
 
 ungroup.RecordBatch <- function(x, ...) {
+  # This S3 method is registered on load if dplyr is present
   x$group_by_vars <- list()
   x
 }

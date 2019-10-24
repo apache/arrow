@@ -43,12 +43,12 @@ test_that("basic select/filter/collect", {
 
 test_that("More complex select/filter", {
   out <- batch %>%
-    # TODO: work out how to declare match() as an S3 generic
-    filter(dbl > 2, chr == "d" | chr == "f") %>%
-    select(chr, int) %>%
+    filter(dbl > 2, chr %in% c("d", "f")) %>%
+    select(chr, int, lgl) %>%
     filter(int < 5) %>%
+    select(int, chr) %>%
     collect()
-  expect_equal(out, tbl[4, c("chr", "int")])
+  expect_equal(out, tbl[4, c("int", "chr")])
 })
 
 test_that("summarize on RecordBatch works", {

@@ -190,14 +190,16 @@ names.RecordBatch <- function(x) {
 #' @importFrom methods as
 #' @export
 `[.RecordBatch` <- function(x, i, j, ..., drop = FALSE) {
-  if (!missing(i)) {
-    x <- filter_rows(x, i, ...)
-  }
   if (!missing(j)) {
+    # Selecting columns is cheaper than filtering rows, so do it first.
+    # That way, if we're filtering too, we have fewer arrays to filter/slice/take
     x <- x$select(j)
     if (drop && ncol(x) == 1L) {
       x <- x$column(0)
     }
+  }
+  if (!missing(i)) {
+    x <- filter_rows(x, i, ...)
   }
   x
 }

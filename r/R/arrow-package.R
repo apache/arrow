@@ -18,7 +18,7 @@
 #' @importFrom R6 R6Class
 #' @importFrom purrr map map_int map2
 #' @importFrom assertthat assert_that
-#' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos eval_tidy new_data_mask
+#' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos eval_tidy new_data_mask syms env
 #' @importFrom Rcpp sourceCpp
 #' @importFrom tidyselect vars_select
 #' @useDynLib arrow, .registration = TRUE
@@ -33,6 +33,7 @@
   s3_register("dplyr::summarise", "RecordBatch")
   s3_register("dplyr::group_by", "RecordBatch")
   s3_register("dplyr::groups", "RecordBatch")
+  s3_register("dplyr::group_vars", "RecordBatch")
   s3_register("dplyr::ungroup", "RecordBatch")
   s3_register("dplyr::mutate", "RecordBatch")
   invisible()
