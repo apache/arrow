@@ -15,32 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.vector;
+package org.apache.arrow.vector.compare;
+
+import org.apache.arrow.vector.ValueVector;
 
 /**
- * The interface for vectors with floating point values.
+ * A function to determine if two vectors are equal at specified positions.
+ * @param <V> the vector type.
  */
-public interface FloatingPointVector extends ValueVector {
+public interface VectorValueEqualizer<V extends ValueVector> extends Cloneable {
 
   /**
-   * Sets the value at the given index, note this value may be truncated internally.
-   * @param index the index to set.
-   * @param value the value to set.
+   * Checks if the vectors are equal at the given positions, given that the values
+   * at both positions are non-null.
+   * @param vector1 the first vector.
+   * @param index1 index in the first vector.
+   * @param vector2 the second vector.
+   * @param index2 index in the second vector.
+   * @return true if the two values are considered to be equal, and false otherwise.
    */
-  void setWithPossibleTruncate(int index, double value);
+  boolean valuesEqual(V vector1, int index1, V vector2, int index2);
 
   /**
-   * Sets the value at the given index, note this value may be truncated internally.
-   * Any expansion/reallocation is handled automatically.
-   * @param index the index to set.
-   * @param value the value to set.
+   * Creates a equalizer of the same type.
+   * @return the newly created equalizer.
    */
-  void setSafeWithPossibleTruncate(int index, double value);
-
-  /**
-   * Gets the value at the given index.
-   * @param index the index to retrieve the value.
-   * @return the value at the index.
-   */
-  double getValueAsDouble(int index);
+  VectorValueEqualizer<V> clone();
 }
