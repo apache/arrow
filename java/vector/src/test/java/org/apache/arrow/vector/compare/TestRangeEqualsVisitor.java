@@ -17,7 +17,7 @@
 
 package org.apache.arrow.vector.compare;
 
-import static org.apache.arrow.vector.ValueVectorDataPopulator.setVector;
+import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 

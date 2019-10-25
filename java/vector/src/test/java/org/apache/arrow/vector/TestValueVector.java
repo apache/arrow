@@ -20,7 +20,7 @@ package org.apache.arrow.vector;
 import static org.apache.arrow.vector.TestUtils.newVarBinaryVector;
 import static org.apache.arrow.vector.TestUtils.newVarCharVector;
 import static org.apache.arrow.vector.TestUtils.newVector;
-import static org.apache.arrow.vector.ValueVectorDataPopulator.setVector;
+import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
