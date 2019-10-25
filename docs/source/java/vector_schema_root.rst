@@ -24,7 +24,7 @@ a :class:`RecordBatch` is a collection of equal-length vector instances and was 
 
 The recommended usage for :class:`VectorSchemaRoot` is creating a single :class:`VectorSchemaRoot` based on
  the known schema and populated data over and over into the same VectorSchemaRoot in a stream of batches rather than
- create a new :class:`VectorSchemaRoot` instance each time (see ``Flight`` or ``ArrowFileWriter`` for better
+ create a new :class:`VectorSchemaRoot` instance each time (see :doc:`IPC <../format/Flight.rst>` or ``ArrowFileWriter`` for better
  understanding). Thus at any one point a VectorSchemaRoot may have data or may have no data (say it was transferred
  downstream or not yet populated).
 
@@ -57,4 +57,9 @@ representation of an RecordBatch :doc:`IPC <../format/IPC.rst>` message). Exampl
     VectorSchemaRoot root2 = VectorSchemaRoot.create(root1.getSchema(), allocator);
     VectorLoader loader = new VectorLoader(root2);
     loader.load(recordBatch);
+
+A new :class:`VectorSchemaRoot` could be sliced from an existing instance with zero-copy::
+
+    // 0 indicates start index and 5 indicated length.
+    VectorSchemaRoot newRoot = vectorSchemaRoot.slice(0, 5);
 

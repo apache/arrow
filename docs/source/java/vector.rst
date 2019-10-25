@@ -102,7 +102,7 @@ to be declared is that writer/reader is not as efficient as direct access::
 
 
 Slicing
-====================
+=======
 Similar with C++ implementation, it is possible to make zero-copy slices of vectors to obtain a vector
 referring to some logical subsequence of the data through :class:`TransferPair`::
 
