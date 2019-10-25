@@ -3940,9 +3940,6 @@ garrow_list_array_builder_dispose(GObject *object)
   priv = GARROW_LIST_ARRAY_BUILDER_GET_PRIVATE(object);
 
   if (priv->value_builder) {
-    GArrowArrayBuilderPrivate *value_builder_priv;
-    value_builder_priv = GARROW_ARRAY_BUILDER_GET_PRIVATE(priv->value_builder);
-    value_builder_priv->array_builder = nullptr;
     g_object_unref(priv->value_builder);
     priv->value_builder = NULL;
   }
@@ -4139,6 +4136,7 @@ garrow_list_array_builder_get_value_builder(GArrowListArrayBuilder *builder)
         garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
     auto arrow_value_builder = arrow_builder->value_builder();
     priv->value_builder = garrow_array_builder_new_raw(arrow_value_builder);
+    garrow_array_builder_release_ownership(priv->value_builder);
   }
   return priv->value_builder;
 }
@@ -4163,8 +4161,6 @@ garrow_large_list_array_builder_dispose(GObject *object)
   auto priv = GARROW_LARGE_LIST_ARRAY_BUILDER_GET_PRIVATE(object);
 
   if (priv->value_builder) {
-    auto value_builder_priv = GARROW_ARRAY_BUILDER_GET_PRIVATE(priv->value_builder);
-    value_builder_priv->array_builder = nullptr;
     g_object_unref(priv->value_builder);
     priv->value_builder = NULL;
   }
@@ -4280,6 +4276,7 @@ garrow_large_list_array_builder_get_value_builder(GArrowLargeListArrayBuilder *b
         garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
     auto arrow_value_builder = arrow_builder->value_builder();
     priv->value_builder = garrow_array_builder_new_raw(arrow_value_builder);
+    garrow_array_builder_release_ownership(priv->value_builder);
   }
   return priv->value_builder;
 }
