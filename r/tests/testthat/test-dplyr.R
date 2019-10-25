@@ -82,6 +82,13 @@ test_that("More complex select/filter", {
   )
 })
 
+test_that("Filtering on a column that doesn't exist errors correctly", {
+  expect_error(
+    batch %>% filter(not_a_col == 42) %>% collect(),
+    "object 'not_a_col' not found"
+  )
+})
+
 test_that("summarize", {
   expect_dplyr_equal(
     input %>%
@@ -162,6 +169,55 @@ test_that("arrange", {
       select(int, chr) %>%
       arrange(desc(int)) %>%
       collect(),
+    tbl
+  )
+})
+
+test_that("select/rename", {
+  expect_dplyr_equal(
+    input %>%
+      select(string = chr, int) %>%
+      collect(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>%
+      rename(string = chr) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("filtering with rename", {
+  skip("Filtering on a renamed column not yet implemented")
+  expect_dplyr_equal(
+    input %>%
+      select(string = chr, int) %>%
+      filter(string == "b") %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("pull", {
+  expect_dplyr_equal(
+    input %>% pull(),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>% pull(1),
+    tbl
+  )
+  expect_dplyr_equal(
+    input %>% pull(chr),
+    tbl
+  )
+  skip("Pull renamed column not yet implemented")
+  expect_dplyr_equal(
+    input %>%
+      filter(int > 4) %>%
+      rename(strng = chr) %>%
+      pull(strng),
     tbl
   )
 })

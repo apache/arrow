@@ -23,6 +23,13 @@ select.RecordBatch <- function(.data, ...) {
 }
 select.Table <- select.RecordBatch
 
+#' @importFrom tidyselect vars_rename
+rename.RecordBatch <- function(.data, ...) {
+  # This S3 method is registered on load if dplyr is present
+  dplyr::select(.data, vars_rename(names(.data), !!!enquos(...)))
+}
+rename.Table <- rename.RecordBatch
+
 filter.RecordBatch <- function(.data, ..., .preserve = FALSE) {
   # This S3 method is registered on load if dplyr is present
   .data <- .data$clone()
@@ -33,20 +40,46 @@ filter.Table <- filter.RecordBatch
 
 collect.RecordBatch <- function(x, ...) {
   # This S3 method is registered on load if dplyr is present
+
+  # First, evaluate any filters and turn into a logical vector
   filters <- evaluate_filters(x)
-  colnames <- names(x)
-  for (q in x$selected_columns) {
-    colnames <- vars_select(colnames, !!!q)
-  }
+
+  # Second, figure out what columns are needed, including possible renamings
+  colnames <- evaluate_select(x)
   # Be sure to retain any group_by vars
-  colnames <- c(colnames, dplyr::group_vars(x))
+  gv <- setdiff(dplyr::group_vars(x), colnames)
+  if (length(gv)) {
+    colnames <- c(colnames, stats::setNames(gv, gv))
+  }
+
+  # Then, pull only the selected rows and cols into R
   df <- as.data.frame(x[filters, colnames])
+  # In case variables were renamed, apply those names
+  names(df) <- names(colnames)
+
+  # Preserve groupings, if present
   if (length(x$group_by_vars)) {
     df <- dplyr::grouped_df(df, dplyr::groups(x))
   }
   df
 }
 collect.Table <- collect.RecordBatch
+
+#' @importFrom tidyselect vars_pull
+pull.RecordBatch <- function(.data, var = -1) {
+  # This S3 method is registered on load if dplyr is present
+  dplyr::collect(dplyr::select(.data, vars_pull(evaluate_select(.data), !!enquo(var))))[[1]]
+}
+pull.Table <- pull.RecordBatch
+
+evaluate_select <- function(x) {
+  colnames <- stats::setNames(names(x), names(x))
+  for (q in x$selected_columns) {
+    # If columns are renamed, the new names appear in names(colnames)
+    colnames <- vars_select(colnames, !!!q)
+  }
+  colnames
+}
 
 evaluate_filters <- function(x) {
   if (length(x$filtered_rows) == 0) {
@@ -56,10 +89,14 @@ evaluate_filters <- function(x) {
   # Grab the Arrow Arrays we need in order to evaluate the filter expressions
   filter_data <- env()
   for (v in unique(unlist(lapply(x$filtered_rows, all.vars)))) {
+    this <- x[[v]]
+    if (is.null(this)) {
+      stop("object '", v, "' not found", call. = FALSE)
+    }
     # TODO: when we can evaluate these expressions in the C++ lib,
     # don't as.vector here: just grab the array so that eval_tidy below
     # yields an Expression
-    assign(v, as.vector(x[[v]]), envir = filter_data)
+    assign(v, as.vector(this), envir = filter_data)
   }
   dm <- new_data_mask(filter_data)
   filters <- lapply(x$filtered_rows, function (f) {
