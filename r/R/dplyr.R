@@ -38,6 +38,8 @@ collect.RecordBatch <- function(x, ...) {
   for (q in x$selected_columns) {
     colnames <- vars_select(colnames, !!!q)
   }
+  # Be sure to retain any group_by vars
+  colnames <- c(colnames, dplyr::group_vars(x))
   df <- as.data.frame(x[filters, colnames])
   if (length(x$group_by_vars)) {
     df <- dplyr::grouped_df(df, dplyr::groups(x))
@@ -72,10 +74,10 @@ evaluate_filters <- function(x) {
 summarise.RecordBatch <- function(.data, ...) {
   # This S3 method is registered on load if dplyr is present
   # Only retain the columns we need to do our aggregations
-  vars_to_keep <- unique(unlist(c(
-    lapply(quos(...), all.vars), # vars referenced in summarise
-    dplyr::group_vars(.data)     # vars needed for grouping
-  )))
+  vars_to_keep <- unique(c(
+    unlist(lapply(quos(...), all.vars)), # vars referenced in summarise
+    dplyr::group_vars(.data)             # vars needed for grouping
+  ))
   .data <- dplyr::select(.data, vars_to_keep)
   # TODO: determine whether work can be pushed down to Arrow
   dplyr::summarise(dplyr::collect(.data), ...)
@@ -100,7 +102,7 @@ group_vars.Table <- group_vars.RecordBatch
 
 ungroup.RecordBatch <- function(x, ...) {
   # This S3 method is registered on load if dplyr is present
-  x$group_by_vars <- list()
+  x$group_by_vars <- character()
   x
 }
 ungroup.Table <- ungroup.RecordBatch
@@ -110,3 +112,9 @@ mutate.RecordBatch <- function(.data, ...) {
   dplyr::mutate(dplyr::collect(.data), ...)
 }
 mutate.Table <- mutate.RecordBatch
+
+arrange.RecordBatch <- function(.data, ...) {
+  # This S3 method is registered on load if dplyr is present
+  dplyr::arrange(dplyr::collect(.data), ...)
+}
+arrange.Table <- arrange.RecordBatch

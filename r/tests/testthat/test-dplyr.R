@@ -19,15 +19,44 @@ context("dplyr verbs")
 
 library(dplyr)
 
+expect_dplyr_equal <- function(expr, # A dplyr pipeline with `input` as its start
+                               tbl,  # A tbl/df as reference, will make RB/Table with
+                               skip_record_batch = NULL, # Msg, if should skip RB test
+                               skip_table = NULL,        # Msg, if should skip Table test
+                               ...) {
+  expr <- rlang::enquo(expr)
+  expected <- rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(input = tbl)))
+
+  if (is.null(skip_record_batch)) {
+    via_batch <- rlang::eval_tidy(
+      expr,
+      rlang::new_data_mask(rlang::env(input = record_batch(tbl)))
+    )
+    expect_equal(via_batch, expected, ...)
+  } else {
+    skip(skip_record_batch)
+  }
+
+  if (is.null(skip_table)) {
+    via_table <- rlang::eval_tidy(
+      expr,
+      rlang::new_data_mask(rlang::env(input = Table$create(tbl)))
+    )
+    expect_equal(via_table, expected, ...)
+  } else {
+    skip(skip_table)
+  }
+}
+
+tbl <- tibble::tibble(
+  int = 1:10,
+  dbl = as.numeric(1:10),
+  lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
+  chr = letters[1:10],
+  fct = factor(letters[1:10])
+)
+
 test_that("basic select/filter/collect", {
-  # Note that these get recycled throughout the tests
-  tbl <- tibble::tibble(
-    int = 1:10,
-    dbl = as.numeric(1:10),
-    lgl = sample(c(TRUE, FALSE, NA), 10, replace = TRUE),
-    chr = letters[1:10],
-    fct = factor(letters[1:10])
-  )
   batch <- record_batch(tbl)
 
   b2 <- batch %>%
@@ -42,66 +71,97 @@ test_that("basic select/filter/collect", {
 })
 
 test_that("More complex select/filter", {
-  out <- batch %>%
-    filter(dbl > 2, chr %in% c("d", "f")) %>%
-    select(chr, int, lgl) %>%
-    filter(int < 5) %>%
-    select(int, chr) %>%
-    collect()
-  expect_equal(out, tbl[4, c("int", "chr")])
+  expect_dplyr_equal(
+    input %>%
+      filter(dbl > 2, chr %in% c("d", "f")) %>%
+      select(chr, int, lgl) %>%
+      filter(int < 5) %>%
+      select(int, chr) %>%
+      collect(),
+    tbl
+  )
 })
 
-test_that("summarize on RecordBatch works", {
-  m_i <- batch %>%
-    select(int, chr) %>%
-    filter(int > 5) %>%
-    summarize(min_int = min(int))
-  expect_identical(m_i$min_int, 6L)
+test_that("summarize", {
+  expect_dplyr_equal(
+    input %>%
+      select(int, chr) %>%
+      filter(int > 5) %>%
+      summarize(min_int = min(int)),
+    tbl
+  )
 })
 
 test_that("mutate", {
-  m_i <- batch %>%
-    select(int, chr) %>%
-    filter(int > 5) %>%
-    mutate(int = int + 6L) %>%
-    summarize(min_int = min(int))
-  expect_identical(m_i$min_int, 12L)
+  expect_dplyr_equal(
+    input %>%
+      select(int, chr) %>%
+      filter(int > 5) %>%
+      mutate(int = int + 6L) %>%
+      summarize(min_int = min(int)),
+    tbl
+  )
+})
+
+test_that("transmute", {
+  expect_dplyr_equal(
+    input %>%
+      select(int, chr) %>%
+      filter(int > 5) %>%
+      transmute(int = int + 6L) %>%
+      summarize(min_int = min(int)),
+    tbl
+  )
 })
 
 test_that("group_by groupings are recorded", {
-  m_i <- batch %>%
-    group_by(chr) %>%
-    select(int, chr) %>%
-    filter(int > 5) %>%
-    summarize(min_int = min(int))
-  expect_identical(m_i,
-    tibble::tibble(
-      chr = tbl$chr[tbl$int > 5],
-      min_int = tbl$int[tbl$int > 5]
-    )
+  expect_dplyr_equal(
+    input %>%
+      group_by(chr) %>%
+      select(int, chr) %>%
+      filter(int > 5) %>%
+      summarize(min_int = min(int)),
+    tbl
   )
   # Test that the original object is not affected
   expect_identical(collect(batch), tbl)
 })
 
-test_that("dplyr methods on Table", {
-  tab <- Table$create(tbl)
-  m_i <- tab %>%
-    select(int, chr) %>%
-    filter(int > 5) %>%
-    mutate(int = int + 6L) %>%
-    summarize(min_int = min(int))
-  expect_identical(m_i$min_int, 12L)
+test_that("ungroup", {
+  expect_dplyr_equal(
+    input %>%
+      group_by(chr) %>%
+      select(int, chr) %>%
+      ungroup() %>%
+      filter(int > 5) %>%
+      summarize(min_int = min(int)),
+    tbl
+  )
+  # Test that the original object is not affected
+  expect_identical(collect(batch), tbl)
+})
 
-  m_i <- tab %>%
-    group_by(chr) %>%
-    select(int, chr) %>%
-    filter(int > 5) %>%
-    summarize(min_int = min(int))
-  expect_identical(m_i,
-    tibble::tibble(
-      chr = tbl$chr[tbl$int > 5],
-      min_int = tbl$int[tbl$int > 5]
-    )
+test_that("Empty select returns no columns", {
+  expect_dplyr_equal(
+    input %>% select() %>% collect(),
+    tbl,
+    skip_table = "Table with 0 cols doesn't know how many rows it should have"
+  )
+})
+test_that("Empty select still includes the group_by columns", {
+  expect_dplyr_equal(
+    input %>% group_by(chr) %>% select() %>% collect(),
+    tbl
+  )
+})
+
+test_that("arrange", {
+  expect_dplyr_equal(
+    input %>%
+      group_by(chr) %>%
+      select(int, chr) %>%
+      arrange(desc(int)) %>%
+      collect(),
+    tbl
   )
 })

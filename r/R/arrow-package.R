@@ -31,7 +31,7 @@
     "dplyr::",
     c(
       "select", "filter", "collect", "summarise", "group_by", "groups",
-      "group_vars", "ungroup", "mutate"
+      "group_vars", "ungroup", "mutate", "arrange"
     )
   )
   for (cl in c("RecordBatch", "Table")) {
