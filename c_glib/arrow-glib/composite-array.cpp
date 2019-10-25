@@ -245,8 +245,7 @@ garrow_large_list_array_get_value(GArrowLargeListArray *array,
   auto arrow_large_list_array =
     static_cast<arrow::LargeListArray *>(arrow_array.get());
   auto arrow_large_list =
-    arrow_large_list_array->values()->Slice(arrow_large_list_array->value_offset(i),
-                                            arrow_large_list_array->value_length(i));
+    arrow_large_list_array->value_slice(i);
   return garrow_array_new_raw(&arrow_large_list);
 }
 
