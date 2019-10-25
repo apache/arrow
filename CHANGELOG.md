@@ -17,6 +17,53 @@
   under the License.
 -->
 
+# Apache Arrow 0.15.1 (25 October 2019)
+
+## Bug
+
+* ARROW-6464 - [Java] Refactor FixedSizeListVector#splitAndTransfer with slice API
+* ARROW-6728 - [C#] Support reading and writing Date32 and Date64 arrays
+* ARROW-6740 - [Python] Unable to delete closed MemoryMappedFile on Windows
+* ARROW-6762 - [C++] JSON reader segfaults on newline
+* ARROW-6795 - [C#] Reading large Arrow files in C# results in an exception
+* ARROW-6806 - [C++] Segfault deserializing ListArray containing null/empty list
+* ARROW-6813 - [Ruby] Arrow::Table.load with headers=true leads to exception in Arrow 0.15
+* ARROW-6834 - [C++] Pin gtest to 1.8.1 to triage failing Appveyor / MSVC build
+* ARROW-6844 - [C++][Parquet][Python] List<scalar type> columns read broken with 0.15.0
+* ARROW-6857 - [Python][C++] Segfault for dictionary\_encode on empty chunked\_array (edge case)
+* ARROW-6860 - [Python] Only link libarrow\_flight.so to pyarrow.\_flight
+* ARROW-6861 - [Python] arrow-0.15.0 reading arrow-0.14.1-output Parquet dictionary column: Failure reading column: IOError: Arrow error: Invalid: Resize cannot downsize
+* ARROW-6869 - [C++] Dictionary "delta" building logic in builder\_dict.h produces invalid arrays
+* ARROW-6873 - [Python] Stale CColumn reference break Cython cimport pyarrow
+* ARROW-6874 - [Python] Memory leak in Table.to\_pandas() when conversion to object dtype
+* ARROW-6876 - [Python] Reading parquet file with many columns becomes slow for 0.15.0
+* ARROW-6877 - [C++] Boost not found from the correct environment
+* ARROW-6878 - [Python] pa.array() does not handle list of dicts with bytes keys correctly under python3
+* ARROW-6882 - [Python] cannot create a chunked\_array from dictionary\_encoding result
+* ARROW-6886 - [C++] arrow::io header nvcc compiler warnings
+* ARROW-6898 - [Java] Fix potential memory leak in ArrowWriter and several test classes
+* ARROW-6903 - [Python] Wheels broken after ARROW-6860 changes
+* ARROW-6905 - [Packaging][OSX] Nightly builds on MacOS are failing because of brew compile timeouts
+* ARROW-6910 - [Python] pyarrow.parquet.read\_table(...) takes up lots of memory which is not released until program exits
+* ARROW-6922 - [Python] Pandas master build is failing (MultiIndex.levels change)
+* ARROW-6937 - [Packaging][Python] Fix conda linux and OSX wheel nightly builds
+* ARROW-6938 - [Python] Windows wheel depends on zstd.dll and libbz2.dll, which are not bundled
+* ARROW-6962 - [C++] [CI] Stop compiling with -Weverything
+* ARROW-6977 - [C++] Only enable jemalloc background\_thread if feature is supported
+* ARROW-6983 - [C++] Threaded task group crashes sometimes
+
+## Improvement
+
+* ARROW-6610 - [C++] Add ARROW\_FILESYSTEM=ON/OFF CMake configuration flag
+* ARROW-6777 - [GLib][CI] Unpin gobject-introspection gem
+* ARROW-6852 - [C++] memory-benchmark build failed on Arm64
+* ARROW-6927 - [C++] Add gRPC version check
+* ARROW-6963 - [Packaging][Wheel][OSX] Use crossbow's command to deploy artifacts from travis builds
+
+## New Feature
+
+* ARROW-6661 - [Java] Implement APIs like slice to enhance VectorSchemaRoot
+
 # Apache Arrow 0.15.0 (30 September 2019)
 
 ## Bug
