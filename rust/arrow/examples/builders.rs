@@ -21,8 +21,8 @@ extern crate arrow;
 use std::sync::Arc;
 
 use arrow::array::{
-    Array, ArrayData, BinaryArray, BooleanArray, Int32Array, Int32Builder, ListArray,
-    PrimitiveArray, StructArray,
+    Array, ArrayData, BooleanArray, Int32Array, Int32Builder, ListArray, PrimitiveArray,
+    StringArray, StructArray,
 };
 use arrow::buffer::Buffer;
 use arrow::datatypes::{DataType, Date64Type, Field, Time64NanosecondType, ToByteSlice};
@@ -83,7 +83,7 @@ fn main() {
         .add_buffer(Buffer::from(&values[..]))
         .null_bit_buffer(Buffer::from([0b00000101]))
         .build();
-    let binary_array = BinaryArray::from(array_data);
+    let binary_array = StringArray::from(array_data);
     println!("{:?}", binary_array);
 
     // ListArrays are similar to ByteArrays: they are arrays of other
