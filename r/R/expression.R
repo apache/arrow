@@ -31,3 +31,6 @@ as.vector.Expression <- function(x, ...) {
   x$args <- lapply(x$args, as.vector)
   do.call(x$fun, x$args)
 }
+
+#' @export
+print.Expression <- function(x, ...) print(as.vector(x))

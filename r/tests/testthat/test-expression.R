@@ -31,3 +31,12 @@ test_that("as.vector(expression)", {
   expect_equal(as.vector(a + 4), 5:9)
   expect_equal(as.vector(a == 4 | a == 3), c(FALSE, FALSE, TRUE, TRUE, FALSE))
 })
+
+test_that("Expression print method", {
+  a <- Array$create(1:5)
+  expect_output(
+    print(a == 4 | a == 3),
+    capture.output(print(c(FALSE, FALSE, TRUE, TRUE, FALSE))),
+    fixed = TRUE
+  )
+})
