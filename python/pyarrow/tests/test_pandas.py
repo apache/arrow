@@ -3231,7 +3231,7 @@ def _Int64Dtype__from_arrow__(self, array):
     # TODO: do we require handling of chunked arrays in the protocol?
     arr = array.chunk(0)
     buflist = arr.buffers()
-    data = np.frombuffer(buflist[-1], dtype=arr.type.to_pandas_dtype())[
+    data = np.frombuffer(buflist[-1], dtype='int64')[
         arr.offset:arr.offset + len(arr)]
     bitmask = buflist[0]
     if bitmask is not None:
@@ -3290,6 +3290,44 @@ def test_convert_to_extension_array():
         result = table2.to_pandas(extension_columns=['a'])
         assert isinstance(result._data.blocks[0], _int.ExtensionBlock)
         tm.assert_frame_equal(result, df2)
+
+    finally:
+        del pd.Int64Dtype.__from_arrow__
+
+
+class MyCustomIntegerType(pa.PyExtensionType):
+
+    def __init__(self):
+        pa.PyExtensionType.__init__(self, pa.int64())
+
+    def __reduce__(self):
+        return MyCustomIntegerType, ()
+
+    def to_pandas_dtype(self):
+        return pd.Int64Dtype()
+
+
+def test_conversion_extensiontype_to_extensionarray():
+    # converting extension type to linked pandas ExtensionDtype/Array
+    import pandas.core.internals as _int
+
+    storage = pa.array([1, 2, 3, 4], pa.int64())
+    arr = pa.ExtensionArray.from_storage(MyCustomIntegerType(), storage)
+    table = pa.table({'a': arr})
+
+    with pytest.raises(ValueError):
+        table.to_pandas()
+
+    try:
+        # patch pandas Int64Dtype to have the protocol method
+        pd.Int64Dtype.__from_arrow__ = _Int64Dtype__from_arrow__
+
+        # extension type points to Int64Dtype, which knows how to create a
+        # pandas ExtensionArray
+        result = table.to_pandas()
+        assert isinstance(result._data.blocks[0], _int.ExtensionBlock)
+        expected = pd.DataFrame({'a': pd.array([1, 2, 3, 4], dtype='Int64')})
+        tm.assert_frame_equal(result, expected)
 
     finally:
         del pd.Int64Dtype.__from_arrow__
