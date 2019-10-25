@@ -977,12 +977,6 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         int64_t block_size
         int16_t permissions
 
-    cdef cppclass HdfsReadableFile(CRandomAccessFile):
-        pass
-
-    cdef cppclass HdfsOutputStream(COutputStream):
-        pass
-
     cdef cppclass CHadoopFileSystem \
             "arrow::io::HadoopFileSystem"(CIOFileSystem):
         @staticmethod
@@ -1012,12 +1006,12 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         CStatus Rename(const c_string& src, const c_string& dst)
 
         CStatus OpenReadable(const c_string& path,
-                             shared_ptr[HdfsReadableFile]* handle)
+                             shared_ptr[CRandomAccessFile]* handle)
 
         CStatus OpenWritable(const c_string& path, c_bool append,
                              int32_t buffer_size, int16_t replication,
                              int64_t default_block_size,
-                             shared_ptr[HdfsOutputStream]* handle)
+                             shared_ptr[COutputStream]* handle)
 
     cdef cppclass CBufferReader \
             " arrow::io::BufferReader"(CRandomAccessFile):

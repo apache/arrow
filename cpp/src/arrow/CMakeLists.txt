@@ -118,7 +118,6 @@ set(ARROW_SRCS
     io/compressed.cc
     io/file.cc
     io/hdfs.cc
-    io/hdfs_internal.cc
     io/interfaces.cc
     io/memory.cc
     io/readahead.cc
@@ -266,6 +265,7 @@ if(ARROW_FILESYSTEM)
 
   list(APPEND ARROW_SRCS
               filesystem/filesystem.cc
+              filesystem/hdfs.cc
               filesystem/localfs.cc
               filesystem/mockfs.cc
               filesystem/path_tree.cc

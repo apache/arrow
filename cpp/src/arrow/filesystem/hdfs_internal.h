@@ -19,9 +19,13 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <mutex>
 
 #include <hdfs.h>
 
+#include "arrow/filesystem/hdfs.h"
+#include "arrow/io/interfaces.h"
+#include "arrow/memory_pool.h"
 #include "arrow/util/visibility.h"
 #include "arrow/util/windows_compatibility.h"  // IWYU pragma: keep
 
@@ -33,8 +37,114 @@ namespace arrow {
 
 class Status;
 
-namespace io {
+namespace fs {
 namespace internal {
+
+#define CHECK_FAILURE(RETURN_VALUE, WHAT)                                               \
+  do {                                                                                  \
+    if (RETURN_VALUE == -1) {                                                           \
+      return Status::IOError("HDFS ", WHAT, " failed, errno: ", TranslateErrno(errno)); \
+    }                                                                                   \
+  } while (0)
+
+struct LibHdfsShim;
+
+class HdfsAnyFileImpl {
+ public:
+  Status DoSeek(int64_t position);
+
+  Status DoTell(int64_t* offset) const;
+
+  bool is_open() const { return is_open_; }
+
+ protected:
+  HdfsAnyFileImpl(const std::string& path, LibHdfsShim* driver, hdfsFS fs,
+                  hdfsFile handle)
+      : path_(path), driver_(driver), fs_(fs), file_(handle) {}
+
+  std::string path_;
+
+  internal::LibHdfsShim* driver_;
+
+  // For threadsafety
+  std::mutex lock_;
+
+  // These are pointers in libhdfs, so OK to copy
+  hdfsFS fs_;
+  hdfsFile file_;
+
+  bool is_open_ = true;
+};
+
+class ARROW_EXPORT HdfsReadableFile : public io::RandomAccessFile,
+                                      public HdfsAnyFileImpl {
+ public:
+  HdfsReadableFile(const std::string& path, LibHdfsShim* driver, hdfsFS fs,
+                   hdfsFile handle, int32_t buffer_size, MemoryPool* pool)
+      : HdfsAnyFileImpl(path, driver, fs, handle),
+        pool_(pool),
+        buffer_size_(buffer_size) {}
+
+  HdfsReadableFile(const std::string& path, LibHdfsShim* driver, hdfsFS fs,
+                   hdfsFile handle, int32_t buffer_size)
+      : HdfsReadableFile(path, driver, fs, handle, buffer_size, default_memory_pool()) {}
+
+  ~HdfsReadableFile();
+
+  Status Close() override;
+
+  bool closed() const override;
+
+  Status GetSize(int64_t* size) override;
+
+  // NOTE: If you wish to read a particular range of a file in a multithreaded
+  // context, you may prefer to use ReadAt to avoid locking issues
+  Status Read(int64_t nbytes, int64_t* bytes_read, void* buffer) override;
+
+  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+
+  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
+                void* buffer) override;
+
+  Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+
+  Status Seek(int64_t position) override;
+  Status Tell(int64_t* position) const override;
+
+  void set_memory_pool(MemoryPool* pool);
+
+ private:
+  MemoryPool* pool_;
+  int32_t buffer_size_;
+
+  ARROW_DISALLOW_COPY_AND_ASSIGN(HdfsReadableFile);
+};
+
+// Naming this file OutputStream because it does not support seeking (like the
+// WritableFile interface)
+class ARROW_EXPORT HdfsOutputStream : public io::OutputStream, public HdfsAnyFileImpl {
+ public:
+  HdfsOutputStream(const std::string& path, LibHdfsShim* driver, hdfsFS fs,
+                   hdfsFile handle)
+      : HdfsAnyFileImpl(path, driver, fs, handle) {}
+
+  ~HdfsOutputStream();
+
+  Status Close() override;
+
+  bool closed() const override;
+
+  using OutputStream::Write;
+  Status Write(const void* buffer, int64_t nbytes) override;
+  Status Write(const void* buffer, int64_t nbytes, int64_t* bytes_written);
+
+  Status Flush() override;
+
+  Status Tell(int64_t* position) const override;
+
+ private:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(HdfsOutputStream);
+};
 
 // NOTE(wesm): cpplint does not like use of short and other imprecise C types
 struct LibHdfsShim {
@@ -217,5 +327,5 @@ Status ARROW_EXPORT ConnectLibHdfs(LibHdfsShim** driver);
 Status ARROW_EXPORT ConnectLibHdfs3(LibHdfsShim** driver);
 
 }  // namespace internal
-}  // namespace io
+}  // namespace fs
 }  // namespace arrow

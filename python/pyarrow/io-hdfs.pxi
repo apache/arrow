@@ -410,8 +410,8 @@ cdef class HadoopFileSystem:
         cdef int16_t c_replication = replication or 0
         cdef int64_t c_default_block_size = default_block_size or 0
 
-        cdef shared_ptr[HdfsOutputStream] wr_handle
-        cdef shared_ptr[HdfsReadableFile] rd_handle
+        cdef shared_ptr[COutputStream] wr_handle
+        cdef shared_ptr[CRandomAccessFile] rd_handle
 
         if mode in ('wb', 'ab'):
             if mode == 'ab':

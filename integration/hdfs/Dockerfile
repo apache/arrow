@@ -24,8 +24,9 @@ ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 \
     HADOOP_OPTS=-Djava.library.path=/usr/local/hadoop/lib/native \
     PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin
 
-ADD https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=hadoop/common/hadoop-$HADOOP_VERSION/hadoop-$HADOOP_VERSION.tar.gz \
-  /hadoop-$HADOOP_VERSION.tar.gz
+#ADD https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=hadoop/common/hadoop-$HADOOP_VERSION/hadoop-$HADOOP_VERSION.tar.gz /hadoop-$HADOOP_VERSION.tar.gz
+
+COPY integration/hdfs/hadoop-$HADOOP_VERSION.tar.gz /hadoop-$HADOOP_VERSION.tar.gz
 RUN tar -zxf /hadoop-$HADOOP_VERSION.tar.gz
 RUN rm /hadoop-$HADOOP_VERSION.tar.gz
 RUN mv /hadoop-$HADOOP_VERSION $HADOOP_HOME
