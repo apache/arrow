@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/table.h"
@@ -167,9 +168,22 @@ class ParquetScanTaskIterator {
   static Status InferColumnProjection(const parquet::FileMetaData& metadata,
                                       const std::shared_ptr<ScanOptions>& options,
                                       std::vector<int>* out) {
-    // TODO(fsaintjacques): Compute intersection _and_ validity
-    *out = internal::Iota(metadata.num_columns());
+    if (options->projector == nullptr || options->schema == nullptr) {
+      *out = internal::Iota(metadata.num_columns());
+      return Status::OK();
+    }
 
+    // union fields in expression and fields in projector
+    auto projector_schema = options->projector->schema();
+    auto filter_schema =
+        SchemaFromColumnNames(options->schema, FieldsInExpression(options->filter));
+    ARROW_ASSIGN_OR_RAISE(auto merged, MergeSchemas({projector_schema, filter_schema}));
+
+    // get column indices
+    out->clear();
+    for (const auto& field : merged->fields()) {
+      out->push_back(options->schema->GetFieldIndex(field->name()));
+    }
     return Status::OK();
   }
 
