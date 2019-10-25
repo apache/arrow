@@ -244,7 +244,7 @@ public class AvroToArrowUtils {
         };
         break;
       case MAP:
-        Consumer valueDelegate = createSkipConsumer(schema.getElementType());
+        Consumer valueDelegate = createSkipConsumer(schema.getValueType());
         skipFunction = decoder -> {
           for (long i = decoder.skipMap(); i != 0; i = decoder.skipMap()) {
             for (long j = 0; j < i; j++) {

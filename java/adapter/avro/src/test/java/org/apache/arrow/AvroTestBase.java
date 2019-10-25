@@ -101,6 +101,8 @@ public class AvroTestBase {
         }
       } else if (value2 instanceof Text) {
         value2 = value2.toString();
+      } else if (value2 instanceof Byte) {
+        value2 = ((Byte) value2).intValue();
       }
       assertEquals(value1, value2);
     }
