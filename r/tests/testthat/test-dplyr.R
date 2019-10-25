@@ -186,14 +186,38 @@ test_that("select/rename", {
       collect(),
     tbl
   )
+  expect_dplyr_equal(
+    input %>%
+      rename(strng = chr) %>%
+      rename(other = strng) %>%
+      collect(),
+    tbl
+  )
 })
 
 test_that("filtering with rename", {
-  skip("Filtering on a renamed column not yet implemented")
+  expect_dplyr_equal(
+    input %>%
+      filter(chr == "b") %>%
+      select(string = chr, int) %>%
+      collect(),
+    tbl
+  )
+  skip("Filter on renamed column not yet implemented")
   expect_dplyr_equal(
     input %>%
       select(string = chr, int) %>%
       filter(string == "b") %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("group_by then rename", {
+  expect_dplyr_equal(
+    input %>%
+      group_by(chr) %>%
+      select(string = chr, int) %>%
       collect(),
     tbl
   )
@@ -212,7 +236,6 @@ test_that("pull", {
     input %>% pull(chr),
     tbl
   )
-  skip("Pull renamed column not yet implemented")
   expect_dplyr_equal(
     input %>%
       filter(int > 4) %>%

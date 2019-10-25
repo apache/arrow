@@ -17,18 +17,38 @@
 
 select.RecordBatch <- function(.data, ...) {
   # This S3 method is registered on load if dplyr is present
-  .data <- .data$clone()
-  .data$selected_columns <- c(.data$selected_columns, list(quos(...)))
-  .data
+  column_select(.data$clone(), !!!enquos(...))
 }
 select.Table <- select.RecordBatch
 
 #' @importFrom tidyselect vars_rename
 rename.RecordBatch <- function(.data, ...) {
-  # This S3 method is registered on load if dplyr is present
-  dplyr::select(.data, vars_rename(names(.data), !!!enquos(...)))
+  # Evaluate column selections eagerly
+  column_select(.data$clone(), !!!enquos(...), .FUN=vars_rename)
 }
 rename.Table <- rename.RecordBatch
+
+column_select <- function(.data, ..., .FUN=vars_select) {
+  if (is.null(.data$selected_columns)) {
+    .data$selected_columns <- stats::setNames(names(.data), names(.data))
+  }
+  out <- .FUN(names(.data$selected_columns), !!!enquos(...))
+  # Make sure that the resulting selected columns map back to the original data
+  # as in when there are multiple renaming steps
+  .data$selected_columns <- stats::setNames(.data$selected_columns[out], names(out))
+
+  renamed <- out[names(out) != out]
+  if (length(renamed)) {
+    # Massage group_by
+    gbv <- .data$group_by_vars
+    renamed_groups <- gbv %in% renamed
+    gbv[renamed_groups] <- names(renamed)[match(gbv[renamed_groups], renamed)]
+    .data$group_by_vars <- gbv
+
+    # TODO: Massage filters
+  }
+  .data
+}
 
 filter.RecordBatch <- function(.data, ..., .preserve = FALSE) {
   # This S3 method is registered on load if dplyr is present
@@ -45,9 +65,12 @@ collect.RecordBatch <- function(x, ...) {
   filters <- evaluate_filters(x)
 
   # Second, figure out what columns are needed, including possible renamings
-  colnames <- evaluate_select(x)
+  if (is.null(x$selected_columns)) {
+    x$selected_columns <- stats::setNames(names(x), names(x))
+  }
+  colnames <- x$selected_columns
   # Be sure to retain any group_by vars
-  gv <- setdiff(dplyr::group_vars(x), colnames)
+  gv <- setdiff(dplyr::group_vars(x), names(colnames))
   if (length(gv)) {
     colnames <- c(colnames, stats::setNames(gv, gv))
   }
@@ -68,18 +91,16 @@ collect.Table <- collect.RecordBatch
 #' @importFrom tidyselect vars_pull
 pull.RecordBatch <- function(.data, var = -1) {
   # This S3 method is registered on load if dplyr is present
-  dplyr::collect(dplyr::select(.data, vars_pull(evaluate_select(.data), !!enquo(var))))[[1]]
+  .data <- .data$clone()
+  # Evaluate selections eagerly
+  if (is.null(.data$selected_columns)) {
+    .data$selected_columns <- stats::setNames(names(.data), names(.data))
+  }
+  var <- vars_pull(names(.data$selected_columns), !!enquo(var))
+  .data$selected_columns <- stats::setNames(.data$selected_columns[var], var)
+  dplyr::collect(.data)[[1]]
 }
 pull.Table <- pull.RecordBatch
-
-evaluate_select <- function(x) {
-  colnames <- stats::setNames(names(x), names(x))
-  for (q in x$selected_columns) {
-    # If columns are renamed, the new names appear in names(colnames)
-    colnames <- vars_select(colnames, !!!q)
-  }
-  colnames
-}
 
 evaluate_filters <- function(x) {
   if (length(x$filtered_rows) == 0) {

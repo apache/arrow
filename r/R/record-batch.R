@@ -140,7 +140,7 @@ RecordBatch <- R6Class("RecordBatch", inherit = Object,
       shared_ptr(RecordBatch, RecordBatch__cast(self, target_schema, options))
     },
 
-    selected_columns = list(),
+    selected_columns = NULL,
     filtered_rows = list(),
     group_by_vars = character()
   ),
