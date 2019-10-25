@@ -266,6 +266,7 @@ if(ARROW_FILESYSTEM)
   list(APPEND ARROW_SRCS
               filesystem/filesystem.cc
               filesystem/hdfs.cc
+              filesystem/hdfs_internal.cc
               filesystem/localfs.cc
               filesystem/mockfs.cc
               filesystem/path_tree.cc

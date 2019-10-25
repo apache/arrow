@@ -53,8 +53,6 @@ struct HadoopOptions {
 
 class ARROW_EXPORT HadoopFileSystem : public FileSystem {
  public:
-  ~HadoopFileSystem() override;
-
   /// Connect to an HDFS cluster given a configuration
   ///
   /// \param config (in): configuration for connecting

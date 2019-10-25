@@ -432,7 +432,18 @@ Status HadoopFileSystem::OpenAppendStream(const std::string& path,
   return OpenWritable(path, true, 0, 0, 0, file);
 }
 
+bool HadoopFileSystem::Exists(const std::string& path) { return impl_->Exists(path); }
+
+Status HadoopFileSystem::GetCapacity(int64_t* nbytes) {
+  return impl_->GetCapacity(nbytes);
+}
+
 Status HadoopFileSystem::GetUsed(int64_t* nbytes) { return impl_->GetUsed(nbytes); }
+
+Status HadoopFileSystem::OpenReadable(const std::string& path,
+                                      std::shared_ptr<io::RandomAccessFile>* file) {
+  return impl_->OpenReadable(path, kDefaultHdfsBufferSize, file);
+}
 
 Status HadoopFileSystem::OpenReadable(const std::string& path, int32_t buffer_size,
                                       std::shared_ptr<io::RandomAccessFile>* file) {

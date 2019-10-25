@@ -40,6 +40,15 @@ class Status;
 namespace fs {
 namespace internal {
 
+inline std::string TranslateErrno(int error_code) {
+  return util::StringBuilder(
+      error_code, " (", strerror(error_code), ")",
+      // Unknown error can occur if the host is correct but the port is not
+      error_code == 255
+          ? " Please check that you are connecting to the correct HDFS RPC port"
+          : "");
+}
+
 #define CHECK_FAILURE(RETURN_VALUE, WHAT)                                               \
   do {                                                                                  \
     if (RETURN_VALUE == -1) {                                                           \
@@ -54,8 +63,6 @@ class HdfsAnyFileImpl {
   Status DoSeek(int64_t position);
 
   Status DoTell(int64_t* offset) const;
-
-  bool is_open() const { return is_open_; }
 
  protected:
   HdfsAnyFileImpl(const std::string& path, LibHdfsShim* driver, hdfsFS fs,
@@ -93,7 +100,7 @@ class ARROW_EXPORT HdfsReadableFile : public io::RandomAccessFile,
 
   Status Close() override;
 
-  bool closed() const override;
+  bool closed() const override { return !is_open_; }
 
   Status GetSize(int64_t* size) override;
 
@@ -108,10 +115,9 @@ class ARROW_EXPORT HdfsReadableFile : public io::RandomAccessFile,
 
   Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
 
-  Status Seek(int64_t position) override;
-  Status Tell(int64_t* position) const override;
+  Status Seek(int64_t position) override { return DoSeek(position); }
 
-  void set_memory_pool(MemoryPool* pool);
+  Status Tell(int64_t* position) const override { return DoTell(position); }
 
  private:
   MemoryPool* pool_;
@@ -132,7 +138,7 @@ class ARROW_EXPORT HdfsOutputStream : public io::OutputStream, public HdfsAnyFil
 
   Status Close() override;
 
-  bool closed() const override;
+  bool closed() const override { return !is_open_; }
 
   using OutputStream::Write;
   Status Write(const void* buffer, int64_t nbytes) override;
@@ -140,7 +146,7 @@ class ARROW_EXPORT HdfsOutputStream : public io::OutputStream, public HdfsAnyFil
 
   Status Flush() override;
 
-  Status Tell(int64_t* position) const override;
+  Status Tell(int64_t* position) const override { return DoTell(position); }
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(HdfsOutputStream);

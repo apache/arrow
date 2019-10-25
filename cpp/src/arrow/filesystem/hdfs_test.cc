@@ -31,15 +31,15 @@
 #include <boost/filesystem.hpp>  // NOLINT
 
 #include "arrow/buffer.h"
-#include "arrow/io/hdfs.h"
-#include "arrow/io/hdfs_internal.h"
+#include "arrow/filesystem/hdfs.h"
+#include "arrow/filesystem/hdfs_internal.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 
 namespace arrow {
-namespace io {
+namespace fs {
 
 std::vector<uint8_t> RandomData(int64_t size) {
   std::vector<uint8_t> buffer(size);
@@ -48,11 +48,11 @@ std::vector<uint8_t> RandomData(int64_t size) {
 }
 
 struct JNIDriver {
-  static HdfsDriver type;
+  static constexpr HadoopDriver type = HadoopDriver::LIBHDFS;
 };
 
 struct PivotalDriver {
-  static HdfsDriver type;
+  static constexpr HadoopDriver type = HadoopDriver::LIBHDFS3;
 };
 
 template <typename DRIVER>
@@ -162,9 +162,6 @@ std::string TestHadoopFileSystem<PivotalDriver>::HdfsAbsPath(const std::string& 
     std::cout << "Driver not loaded, skipping" << std::endl; \
     return;                                                  \
   }
-
-HdfsDriver JNIDriver::type = HdfsDriver::LIBHDFS;
-HdfsDriver PivotalDriver::type = HdfsDriver::LIBHDFS3;
 
 typedef ::testing::Types<JNIDriver, PivotalDriver> DriverTypes;
 TYPED_TEST_CASE(TestHadoopFileSystem, DriverTypes);
@@ -509,5 +506,5 @@ TYPED_TEST(TestHadoopFileSystem, ThreadSafety) {
   ASSERT_EQ(niter * 4, correct_count);
 }
 
-}  // namespace io
+}  // namespace fs
 }  // namespace arrow

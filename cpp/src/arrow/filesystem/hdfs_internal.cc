@@ -45,6 +45,7 @@
 #include <boost/filesystem.hpp>  // NOLINT
 #endif
 
+#include "arrow/buffer.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
@@ -610,8 +611,6 @@ Status HdfsReadableFile::Close() {
   return Status::OK();
 }
 
-bool HdfsReadableFile::closed() const { return !is_open_; }
-
 Status HdfsReadableFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
                                 void* buffer) {
   tSize ret;
@@ -662,7 +661,7 @@ Status HdfsReadableFile::Read(int64_t nbytes, int64_t* bytes_read, void* buffer)
   return Status::OK();
 }
 
-Status HdfsReadableFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* buffer) {
+Status HdfsReadableFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
   std::shared_ptr<ResizableBuffer> buffer;
   RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &buffer));
 
@@ -672,8 +671,14 @@ Status HdfsReadableFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* buffer) {
     RETURN_NOT_OK(buffer->Resize(bytes_read));
   }
 
-  *out = buffer;
+  *out = std::move(buffer);
   return Status::OK();
+}
+
+inline Status GetPathInfoFailed(const std::string& path) {
+  std::stringstream ss;
+  ss << "Calling GetPathInfo for " << path << " failed. errno: " << TranslateErrno(errno);
+  return Status::IOError(ss.str());
 }
 
 Status HdfsReadableFile::GetSize(int64_t* size) {
@@ -690,9 +695,7 @@ Status HdfsReadableFile::GetSize(int64_t* size) {
 // ----------------------------------------------------------------------
 // File writing
 
-HdfsOutputStream::HdfsOutputStream() { impl_.reset(new HdfsOutputStreamImpl()); }
-
-HdfsOutputStream::~HdfsOutputStream() { DCHECK_OK(impl_->Close()); }
+HdfsOutputStream::~HdfsOutputStream() { DCHECK_OK(Close()); }
 
 Status HdfsOutputStream::Close() {
   if (is_open_) {
@@ -703,8 +706,6 @@ Status HdfsOutputStream::Close() {
   }
   return Status::OK();
 }
-
-bool HdfsOutputStream::closed() const { return !is_open_; }
 
 Status HdfsOutputStream::Write(const void* buffer, int64_t nbytes,
                                int64_t* bytes_written) {
@@ -726,8 +727,6 @@ Status HdfsOutputStream::Flush() {
   CHECK_FAILURE(ret, "Flush");
   return Status::OK();
 }
-
-Status HdfsOutputStream::Tell(int64_t* position) const { return impl_->Tell(position); }
 
 }  // namespace internal
 }  // namespace fs

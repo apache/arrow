@@ -61,9 +61,27 @@ struct HdfsPathInfo {
   int16_t permissions;
 };
 
-using fs::HdfsDriver;
+using HdfsDriver = fs::HadoopDriver;
 using HdfsConnectionConfig = fs::HadoopOptions;
-using fs::HadoopFileSystem;
+
+class ARROW_EXPORT HadoopFileSystem : public fs::HadoopFileSystem {
+ public:
+  ~HadoopFileSystem() override;
+
+  /// Connect to an HDFS cluster given a configuration
+  ///
+  /// \param config (in): configuration for connecting
+  /// \param fs (out): the created client
+  /// \returns Status
+  static Status Connect(const HdfsConnectionConfig* options,
+                        std::shared_ptr<HadoopFileSystem>* fs) {
+    // FIXME(bkietz) delete this soon
+    std::shared_ptr<fs::HadoopFileSystem> fs_fs;
+    RETURN_NOT_OK(fs::HadoopFileSystem::Connect(*options, &fs_fs));
+    *fs = std::static_pointer_cast<HadoopFileSystem>(fs_fs);
+    return Status::OK();
+  }
+};
 
 }  // namespace io
 }  // namespace arrow
