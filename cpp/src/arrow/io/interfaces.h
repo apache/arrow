@@ -35,10 +35,6 @@ struct FileMode {
   enum type { READ, WRITE, READWRITE };
 };
 
-struct ObjectType {
-  enum type { FILE, DIRECTORY };
-};
-
 class ARROW_EXPORT FileInterface {
  public:
   virtual ~FileInterface() = 0;

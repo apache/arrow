@@ -43,24 +43,9 @@ using fs::FileType;
 using fs::Selector;
 using fs::TimePoint;
 
-struct HdfsPathInfo {
-  ObjectType::type kind;
+using fs::ObjectType;
 
-  std::string name;
-  std::string owner;
-  std::string group;
-
-  // Access times in UNIX timestamps (seconds)
-  int64_t size;
-  int64_t block_size;
-
-  int32_t last_modified_time;
-  int32_t last_access_time;
-
-  int16_t replication;
-  int16_t permissions;
-};
-
+using HdfsPathInfo = fs::HadoopPathInfo;
 using HdfsDriver = fs::HadoopDriver;
 using HdfsConnectionConfig = fs::HadoopOptions;
 

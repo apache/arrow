@@ -51,6 +51,32 @@ struct HadoopOptions {
   // TODO(bkietz) add replication, buffer_size, ...
 };
 
+// TODO(bkietz) delete this in favor of fs::FileType
+struct ObjectType {
+  using type = FileType;
+  static constexpr type FILE = FileType::File;
+  static constexpr type DIRECTORY = FileType::Directory;
+};
+
+struct HadoopPathInfo {
+  // TODO(bkietz) consolidate with FileStats
+  ObjectType::type kind;
+
+  std::string name;
+  std::string owner;
+  std::string group;
+
+  // Access times in UNIX timestamps (seconds)
+  int64_t size;
+  int64_t block_size;
+
+  int32_t last_modified_time;
+  int32_t last_access_time;
+
+  int16_t replication;
+  int16_t permissions;
+};
+
 class ARROW_EXPORT HadoopFileSystem : public FileSystem {
  public:
   /// Connect to an HDFS cluster given a configuration
@@ -101,7 +127,7 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
   /// \param path (in): absolute HDFS path
   /// \param info (out)
   /// \returns Status
-  // Status GetPathInfo(const std::string& path, HdfsPathInfo* info);
+  Status GetPathInfo(const std::string& path, HadoopPathInfo* info);
 
   /// \param nbytes (out): total capacity of the filesystem
   /// \returns Status

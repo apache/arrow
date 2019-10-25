@@ -472,6 +472,13 @@ Status HadoopFileSystem::Chown(const std::string& path, const char* owner,
   return impl_->Chown(path, owner, group);
 }
 
+Status HadoopFileSystem::GetPathInfo(const std::string& path, HadoopPathInfo* info) {
+  return impl_->GetPathInfo(path, info);
+}
+
+constexpr ObjectType::type ObjectType::FILE;
+constexpr ObjectType::type ObjectType::DIRECTORY;
+
 // ----------------------------------------------------------------------
 // Allow public API users to check whether we are set up correctly
 
