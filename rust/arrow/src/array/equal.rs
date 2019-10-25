@@ -884,8 +884,11 @@ impl JsonEqual for BinaryArray {
 
         (0..self.len()).all(|i| match json[i] {
             JString(s) => {
+                // binary data is sometimes hex encoded, this checks if bytes are equal,
+                // and if not converting to hex is attempted
                 self.is_valid(i)
-                    && Vec::from_hex(s.as_str()) == Ok(self.value(i).to_vec())
+                    && (s.as_str().as_bytes() == self.value(i)
+                        || Vec::from_hex(s.as_str()) == Ok(self.value(i).to_vec()))
             }
             JNull => self.is_null(i),
             _ => false,
@@ -951,8 +954,11 @@ impl JsonEqual for FixedSizeBinaryArray {
 
         (0..self.len()).all(|i| match json[i] {
             JString(s) => {
+                // binary data is sometimes hex encoded, this checks if bytes are equal,
+                // and if not converting to hex is attempted
                 self.is_valid(i)
-                    && Vec::from_hex(s.as_str()) == Ok(self.value(i).to_vec())
+                    && (s.as_str().as_bytes() == self.value(i)
+                        || Vec::from_hex(s.as_str()) == Ok(self.value(i).to_vec()))
             }
             JNull => self.is_null(i),
             _ => false,
@@ -1638,6 +1644,198 @@ mod tests {
                 1,
                 null,
                 null
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+    }
+
+    #[test]
+    fn test_binary_json_equal() {
+        // Test the equal case
+        let arrow_array = StringArray::try_from(vec![
+            Some("hello"),
+            None,
+            None,
+            Some("world"),
+            None,
+            None,
+        ])
+        .unwrap();
+        let arrow_array = BinaryArray::from(arrow_array.data());
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                "hello",
+                null,
+                null,
+                "world",
+                null,
+                null
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.eq(&json_array));
+        assert!(json_array.eq(&arrow_array));
+
+        // Test unequal case
+        let arrow_array = StringArray::try_from(vec![
+            Some("hello"),
+            None,
+            None,
+            Some("world"),
+            None,
+            None,
+        ])
+        .unwrap();
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                "hello",
+                null,
+                null,
+                "arrow",
+                null,
+                null
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+
+        // Test unequal length case
+        let arrow_array =
+            StringArray::try_from(vec![Some("hello"), None, None, Some("world"), None])
+                .unwrap();
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                "hello",
+                null,
+                null,
+                "arrow",
+                null,
+                null
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+
+        // Test incorrect type case
+        let arrow_array =
+            StringArray::try_from(vec![Some("hello"), None, None, Some("world"), None])
+                .unwrap();
+        let json_array: Value = serde_json::from_str(
+            r#"
+            {
+                "a": 1
+            }
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+
+        // Test incorrect value type case
+        let arrow_array =
+            StringArray::try_from(vec![Some("hello"), None, None, Some("world"), None])
+                .unwrap();
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                "hello",
+                null,
+                null,
+                1,
+                null,
+                null
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+    }
+
+    #[test]
+    fn test_fixed_size_binary_json_equal() {
+        // Test the equal case
+        let mut builder = FixedSizeBinaryBuilder::new(15, 5);
+        builder.append_value(b"hello").unwrap();
+        builder.append_null().unwrap();
+        builder.append_value(b"world").unwrap();
+        let arrow_array: FixedSizeBinaryArray = builder.finish();
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                "hello",
+                null,
+                "world"
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.eq(&json_array));
+        assert!(json_array.eq(&arrow_array));
+
+        // Test unequal case
+        builder.append_value(b"hello").unwrap();
+        builder.append_null().unwrap();
+        builder.append_value(b"world").unwrap();
+        let arrow_array: FixedSizeBinaryArray = builder.finish();
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                "hello",
+                null,
+                "arrow"
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+
+        // Test unequal length case
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                "hello",
+                null,
+                null,
+                "world"
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+
+        // Test incorrect type case
+        let json_array: Value = serde_json::from_str(
+            r#"
+            {
+                "a": 1
+            }
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+
+        // Test incorrect value type case
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                "hello",
+                null,
+                1
             ]
         "#,
         )

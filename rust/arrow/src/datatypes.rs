@@ -1168,9 +1168,11 @@ mod tests {
     fn schema_json() {
         let schema = Schema::new(vec![
             Field::new("c1", DataType::Utf8, false),
-            Field::new("c2", DataType::Boolean, false),
-            Field::new("c3", DataType::Date32(DateUnit::Day), false),
-            Field::new("c4", DataType::Date64(DateUnit::Millisecond), false),
+            Field::new("c2", DataType::Binary, false),
+            Field::new("c3", DataType::FixedSizeBinary(3), false),
+            Field::new("c4", DataType::Boolean, false),
+            Field::new("c5", DataType::Date32(DateUnit::Day), false),
+            Field::new("c6", DataType::Date64(DateUnit::Millisecond), false),
             Field::new("c7", DataType::Time32(TimeUnit::Second), false),
             Field::new("c8", DataType::Time32(TimeUnit::Millisecond), false),
             Field::new("c9", DataType::Time32(TimeUnit::Microsecond), false),
@@ -1223,12 +1225,29 @@ mod tests {
                         "name": "c2",
                         "nullable": false,
                         "type": {
-                            "name": "bool"
+                            "name": "binary"
                         },
                         "children": []
                     },
                     {
                         "name": "c3",
+                        "nullable": false,
+                        "type": {
+                            "name": "fixedsizebinary",
+                            "byteWidth": 3
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c4",
+                        "nullable": false,
+                        "type": {
+                            "name": "bool"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c5",
                         "nullable": false,
                         "type": {
                             "name": "date",
@@ -1237,7 +1256,7 @@ mod tests {
                         "children": []
                     },
                     {
-                        "name": "c4",
+                        "name": "c6",
                         "nullable": false,
                         "type": {
                             "name": "date",

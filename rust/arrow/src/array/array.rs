@@ -910,7 +910,7 @@ impl FixedSizeListArray {
     }
 }
 
-/// Constructs a `ListArray` from an array data reference.
+/// Constructs a `FixedSizeListArray` from an array data reference.
 impl From<ArrayDataRef> for FixedSizeListArray {
     fn from(data: ArrayDataRef) -> Self {
         assert_eq!(
@@ -1188,7 +1188,6 @@ impl From<ArrayDataRef> for FixedSizeBinaryArray {
             "FixedSizeBinaryArray data should contain 1 buffer only (values)"
         );
         let value_data = data.buffers()[0].raw_data();
-        println!("Data type: {:?}", data.data_type());
         let length = match data.data_type() {
             DataType::FixedSizeBinary(len) => *len,
             _ => panic!("Expected data type to be FixedSizeBinary"),
@@ -1352,9 +1351,8 @@ impl From<FixedSizeListArray> for FixedSizeBinaryArray {
             "FixedSizeBinaryArray can only be created from FixedSizeList<u8> arrays, mismatched data types."
         );
 
-        let mut builder = ArrayData::builder(DataType::Binary)
+        let mut builder = ArrayData::builder(DataType::FixedSizeBinary(v.value_length()))
             .len(v.len())
-            .add_buffer(v.data().buffers()[0].clone())
             .add_buffer(v.data().child_data()[0].buffers()[0].clone());
         if let Some(bitmap) = v.data().null_bitmap() {
             builder = builder
@@ -1567,35 +1565,6 @@ impl fmt::Debug for StructArray {
     }
 }
 
-impl From<(Vec<(Field, ArrayRef)>, Buffer, usize)> for StructArray {
-    fn from(triple: (Vec<(Field, ArrayRef)>, Buffer, usize)) -> Self {
-        let (field_types, field_values): (Vec<_>, Vec<_>) = triple.0.into_iter().unzip();
-
-        // Check the length of the child arrays
-        let length = field_values[0].len();
-        for i in 1..field_values.len() {
-            assert_eq!(
-                length,
-                field_values[i].len(),
-                "all child arrays of a StructArray must have the same length"
-            );
-            assert_eq!(
-                field_types[i].data_type(),
-                field_values[i].data().data_type(),
-                "the field data types must match the array data in a StructArray"
-            )
-        }
-
-        let data = ArrayData::builder(DataType::Struct(field_types))
-            .null_bit_buffer(triple.1)
-            .child_data(field_values.into_iter().map(|a| a.data()).collect())
-            .len(length)
-            .null_count(triple.2)
-            .build();
-        Self::from(data)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1711,7 +1680,6 @@ mod tests {
             assert_eq!(None, arr.value_as_datetime(i));
             assert_eq!(None, arr.value_as_date(i));
             let time = arr.value_as_time(i).unwrap();
-            dbg!(time);
             assert_eq!(formatted[i], time.format("%H:%M:%S%.3f").to_string());
         }
     }
@@ -2260,7 +2228,7 @@ mod tests {
         }
 
         // Test binary array with offset
-        let array_data = ArrayData::builder(DataType::Utf8)
+        let array_data = ArrayData::builder(DataType::Binary)
             .len(4)
             .offset(1)
             .add_buffer(Buffer::from(offsets.to_byte_slice()))
@@ -2392,8 +2360,96 @@ mod tests {
     }
 
     #[test]
+    fn test_fixed_size_binary_array() {
+        let values: [u8; 15] = *b"hellotherearrow";
+
+        let array_data = ArrayData::builder(DataType::FixedSizeBinary(5))
+            .len(3)
+            .add_buffer(Buffer::from(&values[..]))
+            .build();
+        let fixed_size_binary_array = FixedSizeBinaryArray::from(array_data);
+        assert_eq!(3, fixed_size_binary_array.len());
+        assert_eq!(0, fixed_size_binary_array.null_count());
+        assert_eq!(
+            [b'h', b'e', b'l', b'l', b'o'],
+            fixed_size_binary_array.value(0)
+        );
+        assert_eq!(
+            [b't', b'h', b'e', b'r', b'e'],
+            fixed_size_binary_array.value(1)
+        );
+        assert_eq!(
+            [b'a', b'r', b'r', b'o', b'w'],
+            fixed_size_binary_array.value(2)
+        );
+        assert_eq!(5, fixed_size_binary_array.value_length());
+        assert_eq!(10, fixed_size_binary_array.value_offset(2));
+        for i in 0..3 {
+            assert!(fixed_size_binary_array.is_valid(i));
+            assert!(!fixed_size_binary_array.is_null(i));
+        }
+
+        // Test binary array with offset
+        let array_data = ArrayData::builder(DataType::FixedSizeBinary(5))
+            .len(2)
+            .offset(1)
+            .add_buffer(Buffer::from(&values[..]))
+            .build();
+        let fixed_size_binary_array = FixedSizeBinaryArray::from(array_data);
+        assert_eq!(
+            [b't', b'h', b'e', b'r', b'e'],
+            fixed_size_binary_array.value(0)
+        );
+        assert_eq!(
+            [b'a', b'r', b'r', b'o', b'w'],
+            fixed_size_binary_array.value(1)
+        );
+        assert_eq!(2, fixed_size_binary_array.len());
+        assert_eq!(5, fixed_size_binary_array.value_offset(0));
+        assert_eq!(5, fixed_size_binary_array.value_length());
+        assert_eq!(10, fixed_size_binary_array.value_offset(1));
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "FixedSizeBinaryArray can only be created from list array of u8 values \
+                    (i.e. FixedSizeList<PrimitiveArray<u8>>)."
+    )]
+    fn test_fixed_size_binary_array_from_incorrect_list_array() {
+        let values: [u32; 12] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+        let values_data = ArrayData::builder(DataType::UInt32)
+            .len(12)
+            .add_buffer(Buffer::from(values[..].to_byte_slice()))
+            .add_child_data(ArrayData::builder(DataType::Boolean).build())
+            .build();
+
+        let array_data =
+            ArrayData::builder(DataType::FixedSizeList((Box::new(DataType::Binary), 4)))
+                .len(3)
+                .add_child_data(values_data)
+                .build();
+        let list_array = FixedSizeListArray::from(array_data);
+        FixedSizeBinaryArray::from(list_array);
+    }
+
+    #[test]
     #[should_panic(expected = "BinaryArray out of bounds access")]
     fn test_binary_array_get_value_index_out_of_bound() {
+        let values: [u8; 12] =
+            [104, 101, 108, 108, 111, 112, 97, 114, 113, 117, 101, 116];
+        let offsets: [i32; 4] = [0, 5, 5, 12];
+        let array_data = ArrayData::builder(DataType::Binary)
+            .len(3)
+            .add_buffer(Buffer::from(offsets.to_byte_slice()))
+            .add_buffer(Buffer::from(&values[..]))
+            .build();
+        let binary_array = BinaryArray::from(array_data);
+        binary_array.value(4);
+    }
+
+    #[test]
+    #[should_panic(expected = "StringArray out of bounds access")]
+    fn test_string_array_get_value_index_out_of_bound() {
         let values: [u8; 12] = [
             b'h', b'e', b'l', b'l', b'o', b'p', b'a', b'r', b'q', b'u', b'e', b't',
         ];
@@ -2403,8 +2459,43 @@ mod tests {
             .add_buffer(Buffer::from(offsets.to_byte_slice()))
             .add_buffer(Buffer::from(&values[..]))
             .build();
-        let binary_array = BinaryArray::from(array_data);
-        binary_array.value(4);
+        let string_array = StringArray::from(array_data);
+        string_array.value(4);
+    }
+
+    #[test]
+    fn test_binary_array_fmt_debug() {
+        let values: [u8; 15] = *b"hellotherearrow";
+
+        let array_data = ArrayData::builder(DataType::FixedSizeBinary(5))
+            .len(3)
+            .add_buffer(Buffer::from(&values[..]))
+            .build();
+        let arr = FixedSizeBinaryArray::from(array_data);
+        assert_eq!(
+            "FixedSizeBinaryArray<5>\n[\n  [104, 101, 108, 108, 111],\n  [116, 104, 101, 114, 101],\n  [97, 114, 114, 111, 119],\n]",
+            format!("{:?}", arr)
+        );
+    }
+
+    #[test]
+    fn test_string_array_fmt_debug() {
+        let arr: StringArray =
+            vec![b"hello".to_byte_slice(), b"arrow".to_byte_slice()].into();
+        assert_eq!(
+            "StringArray\n[\n  \"hello\",\n  \"arrow\",\n]",
+            format!("{:?}", arr)
+        );
+    }
+
+    #[test]
+    fn test_fixed_size_binary_array_fmt_debug() {
+        let arr: StringArray =
+            vec![b"hello".to_byte_slice(), b"arrow".to_byte_slice()].into();
+        assert_eq!(
+            "StringArray\n[\n  \"hello\",\n  \"arrow\",\n]",
+            format!("{:?}", arr)
+        );
     }
 
     #[test]
