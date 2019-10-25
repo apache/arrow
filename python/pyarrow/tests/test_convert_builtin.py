@@ -1150,6 +1150,12 @@ def test_sequence_decimal_from_integers():
     assert arr.to_pylist() == expected
 
 
+def test_sequence_decimal_too_high_precision():
+    # ARROW-6989 python decimal created from float has too high precision
+    with pytest.raises(ValueError, match="precision out of range"):
+        pa.array([decimal.Decimal(123.234)])
+
+
 def test_range_types():
     arr1 = pa.array(range(3))
     arr2 = pa.array((0, 1, 2))
