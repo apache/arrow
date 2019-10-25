@@ -73,7 +73,7 @@ Object <- R6Class("Object",
 
 #' @export
 all.equal.Object <- function(target, current, ...) {
-  target == current
+  target$Equals(current)
 }
 
 shared_ptr <- function(class, xp) {

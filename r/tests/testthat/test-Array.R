@@ -513,3 +513,10 @@ test_that("[ accepts Arrays and otherwise handles bad input", {
     "Cannot extract rows with an object of class character"
   )
 })
+
+test_that("[ accepts Expressions", {
+  vec <- 11:20
+  a <- Array$create(vec)
+  b <- Array$create(1:10)
+  expect_vector(a[b > 4], vec[5:10])
+})
