@@ -2385,6 +2385,9 @@ garrow_array_new_raw(std::shared_ptr<arrow::Array> *arrow_array)
   case arrow::Type::type::LIST:
     type = GARROW_TYPE_LIST_ARRAY;
     break;
+  case arrow::Type::type::LARGE_LIST:
+    type = GARROW_TYPE_LARGE_LIST_ARRAY;
+    break;
   case arrow::Type::type::STRUCT:
     type = GARROW_TYPE_STRUCT_ARRAY;
     break;

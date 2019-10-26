@@ -915,6 +915,30 @@ gboolean garrow_list_array_builder_append_null(GArrowListArrayBuilder *builder,
 GArrowArrayBuilder *garrow_list_array_builder_get_value_builder(GArrowListArrayBuilder *builder);
 
 
+#define GARROW_TYPE_LARGE_LIST_ARRAY_BUILDER (garrow_large_list_array_builder_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowLargeListArrayBuilder,
+                         garrow_large_list_array_builder,
+                         GARROW,
+                         LARGE_LIST_ARRAY_BUILDER,
+                         GArrowArrayBuilder)
+struct _GArrowLargeListArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_1_0
+GArrowLargeListArrayBuilder *garrow_large_list_array_builder_new(GArrowLargeListDataType *data_type,
+                                                                 GError **error);
+GARROW_AVAILABLE_IN_1_0
+gboolean garrow_large_list_array_builder_append_value(GArrowLargeListArrayBuilder *builder,
+                                                      GError **error);
+GARROW_AVAILABLE_IN_1_0
+gboolean garrow_large_list_array_builder_append_null(GArrowLargeListArrayBuilder *builder,
+                                                     GError **error);
+GARROW_AVAILABLE_IN_1_0
+GArrowArrayBuilder *garrow_large_list_array_builder_get_value_builder(GArrowLargeListArrayBuilder *builder);
+
+
 #define GARROW_TYPE_STRUCT_ARRAY_BUILDER        \
   (garrow_struct_array_builder_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowStructArrayBuilder,

@@ -304,6 +304,9 @@ G_BEGIN_DECLS
  * #GArrowListArrayBuilder is the class to create a new
  * #GArrowListArray.
  *
+ * #GArrowLargeListArrayBuilder is the class to create a new
+ * #GArrowLargeListArray.
+ *
  * #GArrowStructArrayBuilder is the class to create a new
  * #GArrowStructArray.
  *
@@ -3937,9 +3940,6 @@ garrow_list_array_builder_dispose(GObject *object)
   priv = GARROW_LIST_ARRAY_BUILDER_GET_PRIVATE(object);
 
   if (priv->value_builder) {
-    GArrowArrayBuilderPrivate *value_builder_priv;
-    value_builder_priv = GARROW_ARRAY_BUILDER_GET_PRIVATE(priv->value_builder);
-    value_builder_priv->array_builder = nullptr;
     g_object_unref(priv->value_builder);
     priv->value_builder = NULL;
   }
@@ -4136,6 +4136,147 @@ garrow_list_array_builder_get_value_builder(GArrowListArrayBuilder *builder)
         garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
     auto arrow_value_builder = arrow_builder->value_builder();
     priv->value_builder = garrow_array_builder_new_raw(arrow_value_builder);
+    garrow_array_builder_release_ownership(priv->value_builder);
+  }
+  return priv->value_builder;
+}
+
+
+typedef struct GArrowLargeListArrayBuilderPrivate_ {
+  GArrowArrayBuilder *value_builder;
+} GArrowLargeListArrayBuilderPrivate;
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowLargeListArrayBuilder,
+                           garrow_large_list_array_builder,
+                           GARROW_TYPE_ARRAY_BUILDER)
+
+#define GARROW_LARGE_LIST_ARRAY_BUILDER_GET_PRIVATE(obj)        \
+  static_cast<GArrowLargeListArrayBuilderPrivate *>(            \
+     garrow_large_list_array_builder_get_instance_private(      \
+       GARROW_LARGE_LIST_ARRAY_BUILDER(obj)))
+
+static void
+garrow_large_list_array_builder_dispose(GObject *object)
+{
+  auto priv = GARROW_LARGE_LIST_ARRAY_BUILDER_GET_PRIVATE(object);
+
+  if (priv->value_builder) {
+    g_object_unref(priv->value_builder);
+    priv->value_builder = NULL;
+  }
+
+  G_OBJECT_CLASS(garrow_large_list_array_builder_parent_class)->dispose(object);
+}
+
+static void
+garrow_large_list_array_builder_init(GArrowLargeListArrayBuilder *builder)
+{
+}
+
+static void
+garrow_large_list_array_builder_class_init(GArrowLargeListArrayBuilderClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose = garrow_large_list_array_builder_dispose;
+}
+
+/**
+ * garrow_large_list_array_builder_new:
+ * @data_type: A #GArrowLargeListDataType for value.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: A newly created #GArrowLargeListArrayBuilder.
+ *
+ * Since: 1.0.0
+ */
+GArrowLargeListArrayBuilder *
+garrow_large_list_array_builder_new(GArrowLargeListDataType *data_type,
+                                    GError **error)
+{
+  if (!GARROW_IS_LARGE_LIST_DATA_TYPE(data_type)) {
+    g_set_error(error,
+                GARROW_ERROR,
+                GARROW_ERROR_INVALID,
+                "[large-list-array-builder][new] data type must be large list data type");
+    return NULL;
+  }
+
+  auto arrow_data_type =
+    garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto builder = garrow_array_builder_new(arrow_data_type,
+                                          error,
+                                          "[large-list-array-builder][new]");
+  return GARROW_LARGE_LIST_ARRAY_BUILDER(builder);
+}
+
+/**
+ * garrow_large_list_array_builder_append_value:
+ * @builder: A #GArrowLargeListArrayBuilder.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * It appends a new list element. To append a new list element, you
+ * need to call this function then append list element values to
+ * `value_builder`. `value_builder` is the #GArrowArrayBuilder
+ * specified to constructor. You can get `value_builder` by
+ * garrow_large_list_array_builder_get_value_builder().
+ *
+ * Since: 1.0.0
+ */
+gboolean
+garrow_large_list_array_builder_append_value(GArrowLargeListArrayBuilder *builder,
+                                             GError **error)
+{
+  auto arrow_builder =
+    static_cast<arrow::LargeListBuilder *>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+
+  auto status = arrow_builder->Append();
+  return garrow_error_check(error, status, "[large-list-array-builder][append-value]");
+}
+
+/**
+ * garrow_large_list_array_builder_append_null:
+ * @builder: A #GArrowLargeListArrayBuilder.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * It appends a new NULL element.
+ *
+ * Since: 1.0.0
+ */
+gboolean
+garrow_large_list_array_builder_append_null(GArrowLargeListArrayBuilder *builder,
+                                            GError **error)
+{
+  return garrow_array_builder_append_null<arrow::LargeListBuilder *>
+    (GARROW_ARRAY_BUILDER(builder),
+     error,
+     "[large-list-array-builder][append-null]");
+}
+
+/**
+ * garrow_large_list_array_builder_get_value_builder:
+ * @builder: A #GArrowLargeListArrayBuilder.
+ *
+ * Returns: (transfer none): The #GArrowArrayBuilder for values.
+ *
+ * Since: 1.0.0
+ */
+GArrowArrayBuilder *
+garrow_large_list_array_builder_get_value_builder(GArrowLargeListArrayBuilder *builder)
+{
+  auto priv = GARROW_LARGE_LIST_ARRAY_BUILDER_GET_PRIVATE(builder);
+  if (!priv->value_builder) {
+    auto arrow_builder =
+      static_cast<arrow::LargeListBuilder *>(
+        garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+    auto arrow_value_builder = arrow_builder->value_builder();
+    priv->value_builder = garrow_array_builder_new_raw(arrow_value_builder);
+    garrow_array_builder_release_ownership(priv->value_builder);
   }
   return priv->value_builder;
 }
@@ -4515,6 +4656,9 @@ garrow_array_builder_new_raw(arrow::ArrayBuilder *arrow_builder,
       break;
     case arrow::Type::type::LIST:
       type = GARROW_TYPE_LIST_ARRAY_BUILDER;
+      break;
+    case arrow::Type::type::LARGE_LIST:
+      type = GARROW_TYPE_LARGE_LIST_ARRAY_BUILDER;
       break;
     case arrow::Type::type::STRUCT:
       type = GARROW_TYPE_STRUCT_ARRAY_BUILDER;

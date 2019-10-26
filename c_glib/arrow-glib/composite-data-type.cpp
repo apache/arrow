@@ -38,6 +38,8 @@ G_BEGIN_DECLS
  *
  * #GArrowListDataType is a class for list data type.
  *
+ * #GArrowLargeListDataType is a class for 64-bit offsets list data type.
+ *
  * #GArrowStructDataType is a class for struct data type.
  *
  * #GArrowUnionDataType is a base class for union data types.
@@ -115,6 +117,63 @@ garrow_list_data_type_get_field(GArrowListDataType *list_data_type)
     static_cast<arrow::ListType *>(arrow_data_type.get());
 
   auto arrow_field = arrow_list_data_type->value_field();
+  return garrow_field_new_raw(&arrow_field, nullptr);
+}
+
+
+G_DEFINE_TYPE(GArrowLargeListDataType,
+              garrow_large_list_data_type,
+              GARROW_TYPE_DATA_TYPE)
+
+static void
+garrow_large_list_data_type_init(GArrowLargeListDataType *object)
+{
+}
+
+static void
+garrow_large_list_data_type_class_init(GArrowLargeListDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_large_list_data_type_new:
+ * @field: The field of elements
+ *
+ * Returns: The newly created large list data type.
+ *
+ * Since: 1.0.0
+ */
+GArrowLargeListDataType *
+garrow_large_list_data_type_new(GArrowField *field)
+{
+  auto arrow_field = garrow_field_get_raw(field);
+  auto arrow_data_type =
+    std::make_shared<arrow::LargeListType>(arrow_field);
+
+  GArrowLargeListDataType *data_type =
+    GARROW_LARGE_LIST_DATA_TYPE(g_object_new(GARROW_TYPE_LARGE_LIST_DATA_TYPE,
+                                             "data-type", &arrow_data_type,
+                                             NULL));
+  return data_type;
+}
+
+/**
+ * garrow_large_list_data_type_get_field:
+ * @large_list_data_type: A #GArrowLargeListDataType.
+ *
+ * Returns: (transfer full): The field of value.
+ *
+ * Since: 1.0.0
+ */
+GArrowField *
+garrow_large_list_data_type_get_field(GArrowLargeListDataType *large_list_data_type)
+{
+  auto data_type = GARROW_DATA_TYPE(large_list_data_type);
+  auto arrow_data_type = garrow_data_type_get_raw(data_type);
+  auto arrow_large_list_data_type =
+    static_cast<arrow::LargeListType *>(arrow_data_type.get());
+
+  auto arrow_field = arrow_large_list_data_type->value_field();
   return garrow_field_new_raw(&arrow_field, nullptr);
 }
 

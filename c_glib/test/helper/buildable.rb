@@ -127,6 +127,20 @@ module Helper
       builder.finish
     end
 
+    def build_large_list_array(value_data_type, values_list, field_name: "value")
+      value_field = Arrow::Field.new(field_name, value_data_type)
+      data_type = Arrow::LargeListDataType.new(value_field)
+      builder = Arrow::LargeListArrayBuilder.new(data_type)
+      values_list.each do |values|
+        if values.nil?
+          builder.append_null
+        else
+          append_to_builder(builder, values)
+        end
+      end
+      builder.finish
+    end
+
     def build_struct_array(fields, structs)
       data_type = Arrow::StructDataType.new(fields)
       builder = Arrow::StructArrayBuilder.new(data_type)
@@ -146,7 +160,7 @@ module Helper
       else
         data_type = builder.value_data_type
         case data_type
-        when Arrow::ListDataType
+        when Arrow::ListDataType, Arrow::LargeListDataType
           builder.append_value
           value_builder = builder.value_builder
           value.each do |v|
