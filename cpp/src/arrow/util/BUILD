@@ -201,6 +201,11 @@ cc_library(
 )
 
 cc_library(
+    name = "parallel",
+    hdrs = ["parallel.h"],
+)
+
+cc_library(
     name = "parsing",
     hdrs = ["parsing.h"],
     deps = [
@@ -278,6 +283,11 @@ cc_library(
 cc_library(
     name = "ubsan",
     hdrs = ["ubsan.h"],
+)
+
+cc_library(
+    name = "uri",
+    hdrs = ["uri.h"],
 )
 
 cc_library(

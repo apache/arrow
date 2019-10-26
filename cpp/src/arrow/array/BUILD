@@ -83,6 +83,10 @@ cc_library(
     name = "builder_union",
     srcs = ["builder_union.cc"],
     hdrs = ["builder_union.h"],
+    visibility = [
+        "//arrow:__pkg__",
+        "//arrow/python:__pkg__",
+    ],
     deps = [
         ":builder_base",
     ],
