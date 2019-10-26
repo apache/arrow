@@ -17,13 +17,11 @@
 
 #include <cstring>
 #include <iosfwd>
+#include <memory>
 #include <string>
 #include <utility>
 
-#ifdef ARROW_EXTRA_ERROR_CONTEXT
-#include <sstream>
-#endif
-
+#include "arrow/util/compare.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_builder.h"
 #include "arrow/util/visibility.h"
@@ -31,14 +29,13 @@
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
 
 /// \brief Return with given status if condition is met.
-#define ARROW_RETURN_IF_(condition, status, expr)                                     \
-  do {                                                                                \
-    if (ARROW_PREDICT_FALSE(condition)) {                                             \
-      ::arrow::Status _s = (status);                                                  \
-      std::stringstream ss;                                                           \
-      ss << _s.message() << "\n" << __FILE__ << ":" << __LINE__ << " code: " << expr; \
-      return ::arrow::Status(_s.code(), ss.str());                                    \
-    }                                                                                 \
+#define ARROW_RETURN_IF_(condition, status, expr)   \
+  do {                                              \
+    if (ARROW_PREDICT_FALSE(condition)) {           \
+      ::arrow::Status _st = (status);               \
+      _st.AddContextLine(__FILE__, __LINE__, expr); \
+      return _st;                                   \
+    }                                               \
   } while (0)
 
 #else
@@ -86,27 +83,39 @@ enum class StatusCode : char {
   Invalid = 4,
   IOError = 5,
   CapacityError = 6,
+  IndexError = 7,
   UnknownError = 9,
   NotImplemented = 10,
   SerializationError = 11,
-  PythonError = 12,
   RError = 13,
-  ProtocolError = 14,
-  PlasmaObjectExists = 20,
-  PlasmaObjectNonexistent = 21,
-  PlasmaStoreFull = 22,
-  PlasmaObjectAlreadySealed = 23,
-  StillExecuting = 24,
   // Gandiva range of errors
   CodeGenError = 40,
   ExpressionValidationError = 41,
-  ExecutionError = 42
+  ExecutionError = 42,
+  // Continue generic codes.
+  AlreadyExists = 45
 };
 
 #if defined(__clang__)
 // Only clang supports warn_unused_result as a type annotation.
 class ARROW_MUST_USE_RESULT ARROW_EXPORT Status;
 #endif
+
+/// \brief An opaque class that allows subsystems to retain
+/// additional information inside the Status.
+class ARROW_EXPORT StatusDetail {
+ public:
+  virtual ~StatusDetail() = default;
+  /// \brief Return a unique id for the type of the StatusDetail
+  /// (effectively a poor man's substitude for RTTI).
+  virtual const char* type_id() const = 0;
+  /// \brief Produce a human-readable description of this status.
+  virtual std::string ToString() const = 0;
+
+  bool operator==(const StatusDetail& other) const noexcept {
+    return std::string(type_id()) == other.type_id() && ToString() == other.ToString();
+  }
+};
 
 /// \brief Status outcome object (success or error)
 ///
@@ -116,7 +125,8 @@ class ARROW_MUST_USE_RESULT ARROW_EXPORT Status;
 ///
 /// Additionally, if an error occurred, a specific error message is generally
 /// attached.
-class ARROW_EXPORT Status {
+class ARROW_EXPORT Status : public util::EqualityComparable<Status>,
+                            public util::ToStringOstreamable<Status> {
  public:
   // Create a success status.
   Status() noexcept : state_(NULLPTR) {}
@@ -129,6 +139,8 @@ class ARROW_EXPORT Status {
   }
 
   Status(StatusCode code, const std::string& msg);
+  /// \brief Pluggable constructor for use by sub-systems.  detail cannot be null.
+  Status(StatusCode code, std::string msg, std::shared_ptr<StatusDetail> detail);
 
   // Copy the specified status.
   inline Status(const Status& s);
@@ -138,6 +150,8 @@ class ARROW_EXPORT Status {
   inline Status(Status&& s) noexcept;
   inline Status& operator=(Status&& s) noexcept;
 
+  inline bool Equals(const Status& s) const;
+
   // AND the statuses.
   inline Status operator&(const Status& s) const noexcept;
   inline Status operator&(Status&& s) const noexcept;
@@ -146,12 +160,6 @@ class ARROW_EXPORT Status {
 
   /// Return a success status
   static Status OK() { return Status(); }
-
-  /// Return a success status with a specific message
-  template <typename... Args>
-  static Status OK(Args&&... args) {
-    return Status(StatusCode::OK, util::StringBuilder(std::forward<Args>(args)...));
-  }
 
   /// Return an error status for out-of-memory conditions
   template <typename... Args>
@@ -194,6 +202,13 @@ class ARROW_EXPORT Status {
     return Status(StatusCode::Invalid, util::StringBuilder(std::forward<Args>(args)...));
   }
 
+  /// Return an error status when an index is out of bounds
+  template <typename... Args>
+  static Status IndexError(Args&&... args) {
+    return Status(StatusCode::IndexError,
+                  util::StringBuilder(std::forward<Args>(args)...));
+  }
+
   /// Return an error status when a container's capacity would exceed its limits
   template <typename... Args>
   static Status CapacityError(Args&&... args) {
@@ -220,38 +235,6 @@ class ARROW_EXPORT Status {
   }
 
   template <typename... Args>
-  static Status ProtocolError(Args&&... args) {
-    return Status(StatusCode::ProtocolError,
-                  util::StringBuilder(std::forward<Args>(args)...));
-  }
-
-  template <typename... Args>
-  static Status PlasmaObjectExists(Args&&... args) {
-    return Status(StatusCode::PlasmaObjectExists,
-                  util::StringBuilder(std::forward<Args>(args)...));
-  }
-
-  template <typename... Args>
-  static Status PlasmaObjectNonexistent(Args&&... args) {
-    return Status(StatusCode::PlasmaObjectNonexistent,
-                  util::StringBuilder(std::forward<Args>(args)...));
-  }
-
-  template <typename... Args>
-  static Status PlasmaObjectAlreadySealed(Args&&... args) {
-    return Status(StatusCode::PlasmaObjectAlreadySealed,
-                  util::StringBuilder(std::forward<Args>(args)...));
-  }
-
-  template <typename... Args>
-  static Status PlasmaStoreFull(Args&&... args) {
-    return Status(StatusCode::PlasmaStoreFull,
-                  util::StringBuilder(std::forward<Args>(args)...));
-  }
-
-  static Status StillExecuting() { return Status(StatusCode::StillExecuting, ""); }
-
-  template <typename... Args>
   static Status CodeGenError(Args&&... args) {
     return Status(StatusCode::CodeGenError,
                   util::StringBuilder(std::forward<Args>(args)...));
@@ -269,6 +252,12 @@ class ARROW_EXPORT Status {
                   util::StringBuilder(std::forward<Args>(args)...));
   }
 
+  template <typename... Args>
+  static Status AlreadyExists(Args&&... args) {
+    return Status(StatusCode::AlreadyExists,
+                  util::StringBuilder(std::forward<Args>(args)...));
+  }
+
   /// Return true iff the status indicates success.
   bool ok() const { return (state_ == NULLPTR); }
 
@@ -282,6 +271,8 @@ class ARROW_EXPORT Status {
   bool IsIOError() const { return code() == StatusCode::IOError; }
   /// Return true iff the status indicates a container reaching capacity limits.
   bool IsCapacityError() const { return code() == StatusCode::CapacityError; }
+  /// Return true iff the status indicates an out of bounds index.
+  bool IsIndexError() const { return code() == StatusCode::IndexError; }
   /// Return true iff the status indicates a type error.
   bool IsTypeError() const { return code() == StatusCode::TypeError; }
   /// Return true iff the status indicates an unknown error.
@@ -292,22 +283,6 @@ class ARROW_EXPORT Status {
   bool IsSerializationError() const { return code() == StatusCode::SerializationError; }
   /// Return true iff the status indicates a R-originated error.
   bool IsRError() const { return code() == StatusCode::RError; }
-  /// Return true iff the status indicates a Python-originated error.
-  bool IsPythonError() const { return code() == StatusCode::PythonError; }
-  /// Return true iff the status indicates an already existing Plasma object.
-  bool IsPlasmaObjectExists() const { return code() == StatusCode::PlasmaObjectExists; }
-  /// Return true iff the status indicates a non-existent Plasma object.
-  bool IsPlasmaObjectNonexistent() const {
-    return code() == StatusCode::PlasmaObjectNonexistent;
-  }
-  /// Return true iff the status indicates an already sealed Plasma object.
-  bool IsPlasmaObjectAlreadySealed() const {
-    return code() == StatusCode::PlasmaObjectAlreadySealed;
-  }
-  /// Return true iff the status indicates the Plasma store reached its capacity limit.
-  bool IsPlasmaStoreFull() const { return code() == StatusCode::PlasmaStoreFull; }
-
-  bool IsStillExecuting() const { return code() == StatusCode::StillExecuting; }
 
   bool IsCodeGenError() const { return code() == StatusCode::CodeGenError; }
 
@@ -332,10 +307,35 @@ class ARROW_EXPORT Status {
   /// \brief Return the specific error message attached to this status.
   std::string message() const { return ok() ? "" : state_->msg; }
 
+  /// \brief Return the status detail attached to this message.
+  std::shared_ptr<StatusDetail> detail() const {
+    return state_ == NULLPTR ? NULLPTR : state_->detail;
+  }
+
+  /// \brief Return a new Status copying the existing status, but
+  /// updating with the existing detail.
+  Status WithDetail(std::shared_ptr<StatusDetail> new_detail) const {
+    return Status(code(), message(), std::move(new_detail));
+  }
+
+  /// \brief Return a new Status with changed message, copying the
+  /// existing status code and detail.
+  Status WithMessage(std::string message) const {
+    return Status(code(), std::move(message), detail());
+  }
+
+  [[noreturn]] void Abort() const;
+  [[noreturn]] void Abort(const std::string& message) const;
+
+#ifdef ARROW_EXTRA_ERROR_CONTEXT
+  void AddContextLine(const char* filename, int line, const char* expr);
+#endif
+
  private:
   struct State {
     StatusCode code;
     std::string msg;
+    std::shared_ptr<StatusDetail> detail;
   };
   // OK status has a `NULL` state_.  Otherwise, `state_` points to
   // a `State` structure containing the error code and message(s)
@@ -348,11 +348,6 @@ class ARROW_EXPORT Status {
   void CopyFrom(const Status& s);
   inline void MoveFrom(Status& s);
 };
-
-static inline std::ostream& operator<<(std::ostream& os, const Status& x) {
-  os << x.ToString();
-  return os;
-}
 
 void Status::MoveFrom(Status& s) {
   delete state_;
@@ -377,6 +372,22 @@ Status::Status(Status&& s) noexcept : state_(s.state_) { s.state_ = NULLPTR; }
 Status& Status::operator=(Status&& s) noexcept {
   MoveFrom(s);
   return *this;
+}
+
+bool Status::Equals(const Status& s) const {
+  if (state_ == s.state_) {
+    return true;
+  }
+
+  if (ok() || s.ok()) {
+    return false;
+  }
+
+  if (detail() != s.detail() && !(*detail() == *s.detail())) {
+    return false;
+  }
+
+  return code() == s.code() && message() == s.message();
 }
 
 /// \cond FALSE
