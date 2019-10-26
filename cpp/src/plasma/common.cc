@@ -70,52 +70,6 @@ bool IsPlasmaStatus(const arrow::Status& status, PlasmaErrorCode code) {
 
 }  // namespace
 
-namespace {
-
-const char kErrorDetailTypeId[] = "plasma::PlasmaStatusDetail";
-
-class PlasmaStatusDetail : public arrow::StatusDetail {
- public:
-  explicit PlasmaStatusDetail(PlasmaErrorCode code) : code_(code) {}
-  const char* type_id() const override { return kErrorDetailTypeId; }
-  std::string ToString() const override {
-    const char* type;
-    switch (code()) {
-      case PlasmaErrorCode::PlasmaObjectExists:
-        type = "Plasma object exists";
-        break;
-      case PlasmaErrorCode::PlasmaObjectNonexistent:
-        type = "Plasma object is nonexistent";
-        break;
-      case PlasmaErrorCode::PlasmaStoreFull:
-        type = "Plasma store is full";
-        break;
-      case PlasmaErrorCode::PlasmaObjectAlreadySealed:
-        type = "Plasma object is already sealed";
-        break;
-      default:
-        type = "Unknown plasma error";
-        break;
-    }
-    return std::string(type);
-  }
-  PlasmaErrorCode code() const { return code_; }
-
- private:
-  PlasmaErrorCode code_;
-};
-
-bool IsPlasmaStatus(const arrow::Status& status, PlasmaErrorCode code) {
-  if (status.ok()) {
-    return false;
-  }
-  auto* detail = status.detail().get();
-  return detail != nullptr && detail->type_id() == kErrorDetailTypeId &&
-         static_cast<PlasmaStatusDetail*>(detail)->code() == code;
-}
-
-}  // namespace
-
 using arrow::Status;
 
 arrow::Status MakePlasmaError(PlasmaErrorCode code, std::string message) {

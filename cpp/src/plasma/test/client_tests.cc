@@ -23,13 +23,13 @@
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/io-util.h"
+#include "arrow/util/io_util.h"
 
 #include "plasma/client.h"
 #include "plasma/common.h"
 #include "plasma/plasma.h"
 #include "plasma/protocol.h"
-#include "plasma/test-util.h"
+#include "plasma/test_util.h"
 
 namespace plasma {
 
@@ -56,7 +56,7 @@ class TestPlasmaStore : public ::testing::Test {
     std::string plasma_directory =
         test_executable.substr(0, test_executable.find_last_of("/"));
     std::string plasma_command =
-        plasma_directory + "/plasma_store_server -m 10000000 -s " + store_socket_name_ +
+        plasma_directory + "/plasma-store-server -m 10000000 -s " + store_socket_name_ +
         " 1> /dev/null 2> /dev/null & " + "echo $! > " + store_socket_name_ + ".pid";
     PLASMA_CHECK_SYSTEM(system(plasma_command.c_str()));
     ASSERT_OK(client_.Connect(store_socket_name_, ""));

@@ -34,7 +34,7 @@
 #include <vector>
 
 #include "arrow/buffer.h"
-#include "arrow/util/thread-pool.h"
+#include "arrow/util/thread_pool.h"
 
 #include "plasma/common.h"
 #include "plasma/malloc.h"
@@ -51,7 +51,7 @@ using arrow::cuda::CudaDeviceManager;
 
 #define XXH_INLINE_ALL 1
 #define XXH_NAMESPACE plasma_client_
-#include "arrow/vendored/xxhash/xxhash.h"
+#include "arrow/vendored/xxhash.h"
 
 #define XXH64_DEFAULT_SEED 0
 
@@ -476,6 +476,37 @@ Status PlasmaClient::Impl::CreateAndSeal(const ObjectID& object_id,
   return Status::OK();
 }
 
+Status PlasmaClient::Impl::CreateAndSealBatch(const std::vector<ObjectID>& object_ids,
+                                              const std::vector<std::string>& data,
+                                              const std::vector<std::string>& metadata) {
+  std::lock_guard<std::recursive_mutex> guard(client_mutex_);
+
+  ARROW_LOG(DEBUG) << "called CreateAndSealBatch on conn " << store_conn_;
+
+  int device_num = 0;
+  std::vector<std::string> digests;
+  for (size_t i = 0; i < object_ids.size(); i++) {
+    // Compute the object hash.
+    std::string digest;
+    // CreateAndSeal currently only supports device_num = 0, which corresponds to
+    // the host.
+    uint64_t hash = ComputeObjectHash(
+        reinterpret_cast<const uint8_t*>(data.data()), data.size(),
+        reinterpret_cast<const uint8_t*>(metadata.data()), metadata.size(), device_num);
+    digest.assign(reinterpret_cast<char*>(&hash), sizeof(hash));
+    digests.push_back(digest);
+  }
+
+  RETURN_NOT_OK(
+      SendCreateAndSealBatchRequest(store_conn_, object_ids, data, metadata, digests));
+  std::vector<uint8_t> buffer;
+  RETURN_NOT_OK(
+      PlasmaReceive(store_conn_, MessageType::PlasmaCreateAndSealBatchReply, &buffer));
+  RETURN_NOT_OK(ReadCreateAndSealBatchReply(buffer.data(), buffer.size()));
+
+  return Status::OK();
+}
+
 Status PlasmaClient::Impl::GetBuffers(
     const ObjectID* object_ids, int64_t num_objects, int64_t timeout_ms,
     const std::function<std::shared_ptr<Buffer>(
@@ -805,9 +836,10 @@ Status PlasmaClient::Impl::Seal(const ObjectID& object_id) {
 
   object_entry->second->is_sealed = true;
   /// Send the seal request to Plasma.
-  static unsigned char digest[kDigestSize];
+  std::vector<uint8_t> digest(kDigestSize);
   RETURN_NOT_OK(Hash(object_id, &digest[0]));
-  RETURN_NOT_OK(SendSealRequest(store_conn_, object_id, &digest[0]));
+  RETURN_NOT_OK(
+      SendSealRequest(store_conn_, object_id, std::string(digest.begin(), digest.end())));
   // We call PlasmaClient::Release to decrement the number of instances of this
   // object
   // that are currently being used by this client. The corresponding increment
