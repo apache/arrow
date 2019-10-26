@@ -16,6 +16,7 @@
 # under the License.
 
 #' @include arrow-package.R
+#' @include array.R
 #' @title RecordBatch class
 #' @description A record batch is a collection of equal-length arrays matching
 #' a particular [Schema]. It is a table-like data structure that is semantically
@@ -138,11 +139,7 @@ RecordBatch <- R6Class("RecordBatch", inherit = Object,
       assert_is(options, "CastOptions")
       assert_that(identical(self$schema$names, target_schema$names), msg = "incompatible schemas")
       shared_ptr(RecordBatch, RecordBatch__cast(self, target_schema, options))
-    },
-
-    selected_columns = NULL,
-    filtered_rows = TRUE,
-    group_by_vars = character()
+    }
   ),
 
   active = list(

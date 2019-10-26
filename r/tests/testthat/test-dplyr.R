@@ -63,7 +63,7 @@ test_that("basic select/filter/collect", {
     select(int, chr) %>%
     filter(int > 5)
 
-  expect_is(b2, "RecordBatch")
+  expect_is(b2, "arrow_dplyr_query")
   t2 <- collect(b2)
   expect_equal(t2, tbl[tbl$int > 5, c("int", "chr")])
   # Test that the original object is not affected

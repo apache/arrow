@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+#' @include record-batch.R
 #' @title Table class
 #' @description A Table is a sequence of [chunked arrays][ChunkedArray]. They
 #' have a similar interface to [record batches][RecordBatch], but they can be
@@ -160,11 +161,7 @@ Table <- R6Class("Table", inherit = Object,
 
     Equals = function(other) {
       Table__Equals(self, other)
-    },
-
-    selected_columns = NULL,
-    filtered_rows = TRUE,
-    group_by_vars = character()
+    }
   ),
 
   active = list(
