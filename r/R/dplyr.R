@@ -44,27 +44,61 @@ column_select <- function(.data, ..., .FUN=vars_select) {
     renamed_groups <- gbv %in% renamed
     gbv[renamed_groups] <- names(renamed)[match(gbv[renamed_groups], renamed)]
     .data$group_by_vars <- gbv
-
-    # TODO: Massage filters
+    # No need to massage filters because those contain pointers to Arrays
   }
   .data
 }
 
 filter.RecordBatch <- function(.data, ..., .preserve = FALSE) {
   # This S3 method is registered on load if dplyr is present
+  filts <- quos(...)
+  if (length(filts) == 0) {
+    # Nothing to do
+    return(.data)
+  }
   .data <- .data$clone()
-  .data$filtered_rows <- c(.data$filtered_rows, quos(...))
+  if (is.null(.data$selected_columns)) {
+    .data$selected_columns <- stats::setNames(names(.data), names(.data))
+  }
+  # Eval filters to generate Expressions with references to Arrays.
+  filter_data <- env()
+  for (v in unique(unlist(lapply(filts, all.vars)))) {
+    # Map any renamed vars to their name in the underlying Arrow schema
+    if (!(v %in% names(.data$selected_columns))) {
+      stop("object '", v, "' not found", call. = FALSE)
+    }
+    old_var_name <- .data$selected_columns[v]
+    this <- .data[[old_var_name]]
+    assign(v, this, envir = filter_data)
+  }
+  dm <- new_data_mask(filter_data)
+  filters <- try(lapply(filts, function (f) {
+    # This should yield an Expression
+    eval_tidy(f, dm)
+  }), silent = TRUE)
+  # If that errored, bail out and collect(), with a warning
+  if (inherits(filters, "try-error")) {
+    # TODO: only show this in some debug mode?
+    warning(
+      "Filter expression not implemented in arrow, pulling data into R",
+      call. = FALSE
+    )
+    return(dplyr::filter(dplyr::collect(.data), ...))
+  }
+
+  # filters is a list of Expressions. AND them together and return
+  new_filter <- Reduce("&", filters)
+  if (isTRUE(.data$filtered_rows)) {
+    .data$filtered_rows <- new_filter
+  } else {
+    .data$filtered_rows <- .data$filtered_rows & new_filter
+  }
   .data
 }
 filter.Table <- filter.RecordBatch
 
 collect.RecordBatch <- function(x, ...) {
   # This S3 method is registered on load if dplyr is present
-
-  # First, evaluate any filters and turn into a logical vector
-  filters <- evaluate_filters(x)
-
-  # Second, figure out what columns are needed, including possible renamings
   if (is.null(x$selected_columns)) {
     x$selected_columns <- stats::setNames(names(x), names(x))
   }
@@ -75,8 +109,8 @@ collect.RecordBatch <- function(x, ...) {
     colnames <- c(colnames, stats::setNames(gv, gv))
   }
 
-  # Then, pull only the selected rows and cols into R
-  df <- as.data.frame(x[filters, colnames])
+  # Pull only the selected rows and cols into R
+  df <- as.data.frame(x[x$filtered_rows, colnames])
   # In case variables were renamed, apply those names
   names(df) <- names(colnames)
 
@@ -101,33 +135,6 @@ pull.RecordBatch <- function(.data, var = -1) {
   dplyr::collect(.data)[[1]]
 }
 pull.Table <- pull.RecordBatch
-
-evaluate_filters <- function(x) {
-  if (length(x$filtered_rows) == 0) {
-    # Keep everything
-    return(TRUE)
-  }
-  # Grab the Arrow Arrays we need in order to evaluate the filter expressions
-  filter_data <- env()
-  for (v in unique(unlist(lapply(x$filtered_rows, all.vars)))) {
-    this <- x[[v]]
-    if (is.null(this)) {
-      stop("object '", v, "' not found", call. = FALSE)
-    }
-    # TODO: when we can evaluate these expressions in the C++ lib,
-    # don't as.vector here: just grab the array so that eval_tidy below
-    # yields an Expression
-    assign(v, as.vector(this), envir = filter_data)
-  }
-  dm <- new_data_mask(filter_data)
-  filters <- lapply(x$filtered_rows, function (f) {
-    eval_tidy(f, dm)
-    # TODO: when that's an Expression, call as.vector on it here to evaluate
-  })
-  # filters is a list of logical vectors corresponding to each of the exprs.
-  # AND them together and return
-  Reduce("&", filters)
-}
 
 summarise.RecordBatch <- function(.data, ...) {
   # This S3 method is registered on load if dplyr is present

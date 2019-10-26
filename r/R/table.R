@@ -163,7 +163,7 @@ Table <- R6Class("Table", inherit = Object,
     },
 
     selected_columns = NULL,
-    filtered_rows = list(),
+    filtered_rows = TRUE,
     group_by_vars = character()
   ),
 

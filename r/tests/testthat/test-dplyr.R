@@ -73,7 +73,7 @@ test_that("basic select/filter/collect", {
 test_that("More complex select/filter", {
   expect_dplyr_equal(
     input %>%
-      filter(dbl > 2, chr %in% c("d", "f")) %>%
+      filter(dbl > 2, chr == "d" | chr == "f") %>%
       select(chr, int, lgl) %>%
       filter(int < 5) %>%
       select(int, chr) %>%
@@ -86,6 +86,18 @@ test_that("Filtering on a column that doesn't exist errors correctly", {
   expect_error(
     batch %>% filter(not_a_col == 42) %>% collect(),
     "object 'not_a_col' not found"
+  )
+})
+
+test_that("Filtering with a function that doesn't have an Array/expr method still works", {
+  expect_warning(
+    expect_dplyr_equal(
+      input %>%
+        filter(dbl > 2, chr %in% c("d", "f")) %>%
+        collect(),
+      tbl
+    ),
+    "Filter expression not implemented in arrow, pulling data into R"
   )
 })
 
@@ -203,7 +215,6 @@ test_that("filtering with rename", {
       collect(),
     tbl
   )
-  skip("Filter on renamed column not yet implemented")
   expect_dplyr_equal(
     input %>%
       select(string = chr, int) %>%
