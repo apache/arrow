@@ -42,11 +42,11 @@ select.Table <- select.RecordBatch <- select.arrow_dplyr_query
 #' @importFrom tidyselect vars_rename
 rename.arrow_dplyr_query <- function(.data, ...) {
   # This S3 method is registered on load if dplyr is present
-  column_select(arrow_dplyr_query(.data), !!!enquos(...), .FUN=vars_rename)
+  column_select(arrow_dplyr_query(.data), !!!enquos(...), .FUN = vars_rename)
 }
 rename.Table <- rename.RecordBatch <- rename.arrow_dplyr_query
 
-column_select <- function(.data, ..., .FUN=vars_select) {
+column_select <- function(.data, ..., .FUN = vars_select) {
   out <- .FUN(names(.data$selected_columns), !!!enquos(...))
   # Make sure that the resulting selected columns map back to the original data
   # as in when there are multiple renaming steps
