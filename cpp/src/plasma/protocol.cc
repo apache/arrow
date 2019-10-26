@@ -280,6 +280,20 @@ Status ReadCreateAndSealReply(const uint8_t* data, size_t size) {
   return PlasmaErrorStatus(message->error());
 }
 
+Status SendCreateAndSealBatchReply(int sock, PlasmaError error) {
+  flatbuffers::FlatBufferBuilder fbb;
+  auto message =
+      fb::CreatePlasmaCreateAndSealBatchReply(fbb, static_cast<PlasmaError>(error));
+  return PlasmaSend(sock, MessageType::PlasmaCreateAndSealBatchReply, &fbb, message);
+}
+
+Status ReadCreateAndSealBatchReply(uint8_t* data, size_t size) {
+  DCHECK(data);
+  auto message = flatbuffers::GetRoot<fb::PlasmaCreateAndSealBatchReply>(data);
+  DCHECK(VerifyFlatbuffer(message, data, size));
+  return PlasmaErrorStatus(message->error());
+}
+
 Status SendAbortRequest(const std::shared_ptr<ServerConnection>& client,
                         ObjectID object_id) {
   flatbuffers::FlatBufferBuilder fbb;
@@ -325,13 +339,13 @@ Status SendSealRequest(const std::shared_ptr<ServerConnection>& client,
 }
 
 Status ReadSealRequest(const uint8_t* data, size_t size, ObjectID* object_id,
-                       unsigned char* digest) {
+                       std::string* digest) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<fb::PlasmaSealRequest>(data);
   DCHECK(VerifyFlatbuffer(message, data, size));
   *object_id = ObjectID::from_binary(message->object_id()->str());
-  ARROW_CHECK(message->digest()->size() == kDigestSize);
-  memcpy(digest, message->digest()->data(), kDigestSize);
+  ARROW_CHECK_EQ(message->digest()->size(), kDigestSize);
+  digest->assign(message->digest()->data(), kDigestSize);
   return Status::OK();
 }
 

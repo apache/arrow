@@ -65,8 +65,25 @@ Status ReadCreateAndSealRequest(const uint8_t* data, size_t size, ObjectID* obje
                                 std::string* object_data, std::string* metadata,
                                 unsigned char* digest);
 
+// TODO(suquark): Replace raw socket with client handle.
+Status SendCreateAndSealBatchRequest(int sock, const std::vector<ObjectID>& object_ids,
+                                     const std::vector<std::string>& data,
+                                     const std::vector<std::string>& metadata,
+                                     const std::vector<std::string>& digests);
+
+Status ReadCreateAndSealBatchRequest(uint8_t* data, size_t size,
+                                     std::vector<ObjectID>* object_id,
+                                     std::vector<std::string>* object_data,
+                                     std::vector<std::string>* metadata,
+                                     std::vector<std::string>* digests);
+
+// TODO(suquark): Replace raw socket with client handle.
+Status SendCreateAndSealBatchReply(int sock, PlasmaError error);
+
 Status SendCreateAndSealReply(const std::shared_ptr<ClientConnection>& client,
                               PlasmaError error);
+
+Status ReadCreateAndSealBatchReply(uint8_t* data, size_t size);
 
 Status ReadCreateAndSealReply(const uint8_t* data, size_t size);
 
