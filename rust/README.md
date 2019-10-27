@@ -65,3 +65,19 @@ and check for lint issues:
 ```bash
 cargo +stable fmt --all -- --check
 ```
+
+## CI and Dockerized builds
+
+There are currently multiple CI systems that build the project and they all use the same docker image. It is possible to run the same build locally.
+
+From the root of the Arrow project, run the following command to build the Docker image that the CI system uses to build the project.
+
+```bash
+docker-compose build rust
+```
+
+Run the following command to build the project in the same way that the CI system will build the project. Note that this currently does cause some files to be written to your local workspace.
+
+```bash
+docker run -v `pwd`:/arrow -it arrowdev/arrow-rust
+```

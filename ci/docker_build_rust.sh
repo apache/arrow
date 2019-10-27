@@ -26,6 +26,13 @@ rustup show
 # clean first
 cargo clean
 
+# flatbuffer codegen
+echo Generating IPC
+flatc --rust -o arrow/src/ipc/gen/ ../format/*.fbs
+
+# work around some bugs in flatbuffers
+find arrow/src/ipc/gen/ -name "*_generated.rs" -exec sed -i 's/type__type/type_type/g' {} \;
+
 # raises on any formatting errors
 echo "Running formatting checks ..."
 cargo +stable fmt --all -- --check
