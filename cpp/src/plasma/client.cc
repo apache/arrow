@@ -73,6 +73,9 @@ constexpr int64_t kBytesInMB = 1 << 20;
 // GPU support
 
 #ifdef PLASMA_CUDA
+
+namespace {
+
 struct GpuProcessHandle {
   /// Pointer to CUDA buffer that is backing this GPU object.
   std::shared_ptr<CudaBuffer> ptr;
@@ -83,8 +86,18 @@ struct GpuProcessHandle {
 // This is necessary as IPC handles can only be mapped once per process.
 // Thus if multiple clients in the same process get the same gpu object,
 // they need to access the same mapped CudaBuffer.
-static std::unordered_map<ObjectID, GpuProcessHandle*> gpu_object_map;
-static std::mutex gpu_mutex;
+std::unordered_map<ObjectID, GpuProcessHandle*> gpu_object_map;
+std::mutex gpu_mutex;
+
+// Return a new CudaBuffer pointing to the same data as the GpuProcessHandle,
+// but able to persist after the original IPC-backed buffer is closed
+// (ARROW-5924).
+std::shared_ptr<Buffer> MakeBufferFromGpuProcessHandle(GpuProcessHandle* handle) {
+  return std::make_shared<CudaBuffer>(handle->ptr->mutable_data(), handle->ptr->size(),
+                                      handle->ptr->context());
+}
+
+}  // namespace
 #endif
 
 // ----------------------------------------------------------------------
@@ -196,11 +209,17 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
 
   Status Connect(const std::string& store_socket_name);
 
+  Status SetClientOptions(const std::string& client_name, int64_t output_memory_quota);
+
   Status Create(const ObjectID& object_id, int64_t data_size, const uint8_t* metadata,
                 int64_t metadata_size, std::shared_ptr<Buffer>* data, int device_num = 0);
 
   Status CreateAndSeal(const ObjectID& object_id, const std::string& data,
                        const std::string& metadata);
+
+  Status CreateAndSealBatch(const std::vector<ObjectID>& object_ids,
+                            const std::vector<std::string>& data,
+                            const std::vector<std::string>& metadata);
 
   Status Get(const std::vector<ObjectID>& object_ids, int64_t timeout_ms,
              std::vector<ObjectBuffer>* object_buffers);
@@ -609,18 +628,18 @@ Status PlasmaClient::Impl::GetBuffers(
       } else {
 #ifdef PLASMA_CUDA
         std::lock_guard<std::mutex> lock(gpu_mutex);
-        auto handle = gpu_object_map.find(object_ids[i]);
-        if (handle == gpu_object_map.end()) {
+        auto iter = gpu_object_map.find(object_ids[i]);
+        if (iter == gpu_object_map.end()) {
           std::shared_ptr<CudaContext> context;
           RETURN_NOT_OK(manager_->GetContext(object->device_num - 1, &context));
           GpuProcessHandle* obj_handle = new GpuProcessHandle();
           obj_handle->client_count = 1;
           RETURN_NOT_OK(context->OpenIpcBuffer(*object->ipc_handle, &obj_handle->ptr));
           gpu_object_map[object_ids[i]] = obj_handle;
-          physical_buf = obj_handle->ptr;
+          physical_buf = MakeBufferFromGpuProcessHandle(obj_handle);
         } else {
-          handle->second->client_count++;
-          physical_buf = handle->second->ptr;
+          iter->second->client_count++;
+          physical_buf = MakeBufferFromGpuProcessHandle(iter->second);
         }
 #else
         ARROW_LOG(FATAL) << "Arrow GPU library is not enabled.";
@@ -689,11 +708,8 @@ Status PlasmaClient::Impl::Release(const ObjectID& object_id) {
     return Status::Invalid("Trying to release a non-existing object.");
   }
   auto& entry = *object_entry->second;
-  entry.count -= 1;
-  ARROW_CHECK(entry.count >= 0) << "Got negative ref count.";
-
 #ifdef PLASMA_CUDA
-  if (object_entry->second->object.device_num != 0) {
+  if (entry.object.device_num != 0) {
     std::lock_guard<std::mutex> lock(gpu_mutex);
     auto iter = gpu_object_map.find(object_id);
     ARROW_CHECK(iter != gpu_object_map.end());
@@ -703,7 +719,8 @@ Status PlasmaClient::Impl::Release(const ObjectID& object_id) {
     }
   }
 #endif
-
+  entry.count -= 1;
+  ARROW_CHECK(entry.count >= 0) << "Got negative ref count.";
   // Check if the client is no longer using this object.
   if (entry.count == 0) {
     // Tell the store that the client no longer needs the object.
@@ -1011,6 +1028,15 @@ Status PlasmaClient::Impl::Connect(const std::string& store_socket_name) {
   return Status::OK();
 }
 
+Status PlasmaClient::Impl::SetClientOptions(const std::string& client_name,
+                                            int64_t output_memory_quota) {
+  std::lock_guard<std::recursive_mutex> guard(client_mutex_);
+  RETURN_NOT_OK(SendSetOptionsRequest(store_conn_, client_name, output_memory_quota));
+  std::vector<uint8_t> buffer;
+  RETURN_NOT_OK(PlasmaReceive(store_conn_, MessageType::PlasmaSetOptionsReply, &buffer));
+  return ReadSetOptionsReply(buffer.data(), buffer.size());
+}
+
 Status PlasmaClient::Impl::Disconnect() {
   std::lock_guard<std::recursive_mutex> guard(client_mutex_);
 
@@ -1064,6 +1090,12 @@ Status PlasmaClient::Create(const ObjectID& object_id, int64_t data_size,
 Status PlasmaClient::CreateAndSeal(const ObjectID& object_id, const std::string& data,
                                    const std::string& metadata) {
   return impl_->CreateAndSeal(object_id, data, metadata);
+}
+
+Status PlasmaClient::CreateAndSealBatch(const std::vector<ObjectID>& object_ids,
+                                        const std::vector<std::string>& data,
+                                        const std::vector<std::string>& metadata) {
+  return impl_->CreateAndSealBatch(object_ids, data, metadata);
 }
 
 Status PlasmaClient::Get(const std::vector<ObjectID>& object_ids, int64_t timeout_ms,
