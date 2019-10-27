@@ -41,6 +41,30 @@ bool VerifyFlatbuffer(T* object, const uint8_t* data, size_t size) {
   return object->Verify(verifier);
 }
 
+/* Set options messages. */
+
+// TODO(suquark): Get rid of raw socket handle
+Status SendSetOptionsRequest(int sock, const std::string& client_name,
+                             int64_t output_memory_limit);
+
+Status ReadSetOptionsRequest(uint8_t* data, size_t size, std::string* client_name,
+                             int64_t* output_memory_quota);
+
+// TODO(suquark): Get rid of raw socket handle
+Status SendSetOptionsReply(int sock, PlasmaError error);
+
+Status ReadSetOptionsReply(uint8_t* data, size_t size);
+
+/* Debug string messages. */
+
+// TODO(suquark): Get rid of raw socket handle
+Status SendGetDebugStringRequest(int sock);
+
+// TODO(suquark): Get rid of raw socket handle
+Status SendGetDebugStringReply(int sock, const std::string& debug_string);
+
+Status ReadGetDebugStringReply(uint8_t* data, size_t size, std::string* debug_string);
+
 /* Plasma Create message functions. */
 
 Status SendCreateRequest(const std::shared_ptr<ServerConnection>& client,
