@@ -31,8 +31,8 @@ RUN rustup default "$(cat /tmp/rust-toolchain)"
 RUN rustup component add rustfmt --toolchain stable-x86_64-unknown-linux-gnu
 
 # Install pre-requisites for building flatbuffers
-RUN apt update && \
-    apt install -y build-essential cmake
+RUN apt-get update && \
+    apt-get install -y build-essential cmake
 
 # Install flatbuffers
 RUN wget https://github.com/google/flatbuffers/archive/v1.11.0.tar.gz && \
