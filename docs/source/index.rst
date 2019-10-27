@@ -62,6 +62,7 @@ such topics as:
 
    cpp/index
    python/index
+   java/index
 
 .. _toc.development:
 

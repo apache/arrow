@@ -45,9 +45,8 @@ First, let's populate a :class:`VectorSchemaRoot` with a small batch of records:
     List<FieldVector> vectors = Arrays.asList(bitVector, varCharVector);
     VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors);
 
-Now, we can begin writing a stream containing some number of these batches. For this we use
-:class:`ArrowStreamWriter`(DictionaryProvider used for any vectors that are dictionary encoded is
-optional and can be null))::
+Now, we can begin writing a stream containing some number of these batches. For this we use :class:`ArrowStreamWriter`
+(DictionaryProvider used for any vectors that are dictionary encoded is optional and can be null))::
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     ArrowStreamWriter writer = new ArrowStreamWriter(root, /*DictionaryProvider=*/null, Channels.newChannel(out));

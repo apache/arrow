@@ -22,11 +22,12 @@ A :class:`VectorSchemaRoot` is a container that can hold batches, batches flow t
 as part of a pipeline. Note this is different from other implementations (i.e. in C++ and Python,
 a :class:`RecordBatch` is a collection of equal-length vector instances and was created each time for a new batch).
 
-The recommended usage for :class:`VectorSchemaRoot` is creating a single :class:`VectorSchemaRoot` based on the known
-schema and populated data over and over into the same VectorSchemaRoot in a stream of batches rather than create a
-new :class:`VectorSchemaRoot` instance each time (see :doc:`IPC <../format/Flight.rst>` or ``ArrowFileWriter`` for
-better understanding). Thus at any one point a VectorSchemaRoot may have data or may have no data (say it was
-transferred downstream or not yet populated).
+The recommended usage for :class:`VectorSchemaRoot` is creating a single :class:`VectorSchemaRoot`
+based on the known schema and populated data over and over into the same VectorSchemaRoot in a stream
+of batches rather than create a new :class:`VectorSchemaRoot` instance each time
+(see `Numba <https://github.com/apache/arrow/tree/master/java/flight/src/main/java/org/apache/arrow/flight>`_ or
+``ArrowFileWriter`` for better understanding). Thus at any one point a VectorSchemaRoot may have data or
+may have no data (say it was transferred downstream or not yet populated).
 
 
 Here is the example of building a :class:`VectorSchemaRoot`::

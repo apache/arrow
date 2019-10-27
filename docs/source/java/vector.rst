@@ -19,7 +19,7 @@
 ValueVector
 ===========
 
-:class:`ValueVector` (which called Array in C++ implementation and the :doc:`the specification <../format/Columnar.rst>`)
+:class:`ValueVector` (which called Array in C++ implementation and the :doc:`the specification <../format/Columnar>`)
 is an abstraction that is used to store a sequence of values having the same type in an individual
 column. Internally, those values are represented by one or several buffers, the
 number and meaning of which depend on the vector’s data type.
