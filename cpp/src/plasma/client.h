@@ -231,6 +231,10 @@ class ARROW_EXPORT PlasmaClient {
   /// \return The return status.
   Status Evict(int64_t num_bytes, int64_t& num_bytes_evicted);
 
+  /// Bump objects up in the LRU cache
+  ///
+  Status Refresh(const std::vector<ObjectID>& object_ids);
+
   /// Compute the hash of an object in the object store.
   ///
   /// \param object_id The ID of the object we want to hash.

@@ -254,6 +254,8 @@ class PlasmaClient::Impl : public std::enable_shared_from_this<PlasmaClient::Imp
 
   Status Evict(int64_t num_bytes, int64_t& num_bytes_evicted);
 
+  Status Refresh(const std::vector<ObjectID>& object_ids);
+
   Status Hash(const ObjectID& object_id, uint8_t* digest);
 
   Status Subscribe(int* fd);
@@ -944,6 +946,17 @@ Status PlasmaClient::Impl::Evict(int64_t num_bytes, int64_t& num_bytes_evicted) 
   MessageType type;
   RETURN_NOT_OK(ReadMessage(store_conn_, &type, &buffer));
   return ReadEvictReply(buffer.data(), buffer.size(), num_bytes_evicted);
+}
+
+Status PlasmaClient::Impl::Refresh(const std::vector<ObjectID>& object_ids) {
+  std::lock_guard<std::recursive_mutex> guard(client_mutex_);
+
+  RETURN_NOT_OK(SendRefreshLRURequest(store_conn_, object_ids));
+  std::vector<uint8_t> buffer;
+  MessageType type;
+  RETURN_NOT_OK(ReadMessage(store_conn_, &type, &buffer));
+  std::vector<PlasmaError> error_codes;
+  return ReadRefreshLRUReply(buffer.data(), buffer.size(), &error_codes);
 }
 
 Status PlasmaClient::Impl::Hash(const ObjectID& object_id, uint8_t* digest) {
