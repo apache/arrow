@@ -45,6 +45,8 @@ WORKDIR flatbuffers-1.11.0
 RUN cmake -G "Unix Makefiles" \
     && make install
 
+WORKDIR /
+
 # Set environment variables for location of test data required by unit and integration tests
 ENV ARROW_TEST_DATA=/arrow/testing/data
 ENV PARQUET_TEST_DATA=/arrow/cpp/submodules/parquet-testing/data
