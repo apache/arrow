@@ -40,7 +40,7 @@ RUN apt-get update \
 RUN wget https://github.com/google/flatbuffers/archive/v1.11.0.tar.gz \
     && tar xzf v1.11.0.tar.gz
 
-WORKDIR flatbuffers-1.11.0
+WORKDIR /flatbuffers-1.11.0
 
 RUN cmake -G "Unix Makefiles" \
     && make install
