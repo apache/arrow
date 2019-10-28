@@ -18,18 +18,9 @@
 {
  "namespace": "org.apache.arrow.avro",
  "type": "record",
- "name": "testNestedRecord",
+ "name": "testSkip",
  "fields": [
-  {
-    "name" : "f0",
-    "type" : {
-        "type" : "record",
-        "name" : "nestedInRecord",
-        "fields": [
-             {"name": "f0", "type": "string"},
-             {"name": "f1", "type": "int"}
-        ]
-    }
-  }
-  ]
+     {"name": "f0", "type": "string"},
+     {"name": "f2", "type": "boolean"}
+ ]
 }

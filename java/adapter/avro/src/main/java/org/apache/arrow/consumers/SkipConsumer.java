@@ -20,60 +20,48 @@ package org.apache.arrow.consumers;
 import java.io.IOException;
 
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.ValueVector;
 import org.apache.avro.io.Decoder;
 
 /**
- * Consumer holds a primitive consumer, could consume nullable values from avro decoder.
- * Write data via writer of delegate consumer.
+ * Consumer which skip (throw away) data from the decoder.
  */
-public class NullableTypeConsumer implements Consumer {
+public class SkipConsumer implements Consumer {
 
+  private final SkipFunction skipFunction;
 
-  private final Consumer delegate;
-
-  /**
-   * Null field index in avro schema.
-   */
-  protected int nullIndex;
-
-  public NullableTypeConsumer(Consumer delegate, int nullIndex) {
-    this.delegate = delegate;
-    this.nullIndex = nullIndex;
+  public SkipConsumer(SkipFunction skipFunction) {
+    this.skipFunction = skipFunction;
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
-    if (nullIndex != decoder.readInt()) {
-      delegate.consume(decoder);
-    } else {
-      addNull();
-    }
+    skipFunction.apply(decoder);
   }
 
   @Override
   public void addNull() {
-    delegate.addNull();
   }
 
   @Override
   public void setPosition(int index) {
-    delegate.setPosition(index);
   }
 
   @Override
   public FieldVector getVector() {
-    return delegate.getVector();
+    return null;
   }
 
   @Override
   public void close() throws Exception {
-    delegate.close();
   }
 
   @Override
-  public void resetValueVector(ValueVector vector) {
-    this.delegate.resetValueVector(vector);
+  public boolean resetValueVector(FieldVector vector) {
+    return false;
   }
 
+  @Override
+  public boolean skippable() {
+    return true;
+  }
 }

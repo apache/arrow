@@ -17,6 +17,8 @@
 
 package org.apache.arrow;
 
+import java.util.Set;
+
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
@@ -39,24 +41,23 @@ public class AvroToArrowConfig {
    */
   private final DictionaryProvider.MapDictionaryProvider provider;
 
-  public AvroToArrowConfig(BufferAllocator allocator) {
-    this (allocator, AvroToArrowVectorIterator.DEFAULT_BATCH_SIZE);
-  }
-
-  public AvroToArrowConfig(BufferAllocator allocator, int targetBatchSize) {
-    this (allocator, targetBatchSize, new DictionaryProvider.MapDictionaryProvider());
-  }
+  /**
+   * The field names which to skip when reading decoder values.
+   */
+  private final Set<String> skipFieldNames;
 
   /**
    * Instantiate an instance.
    * @param allocator The memory allocator to construct the Arrow vectors with.
    * @param targetBatchSize The maximum rowCount to read each time when partially convert data.
    * @param provider The dictionary provider used for enum type, adapter will update this provider.
+   * @param skipFieldNames Field names which to skip.
    */
-  public AvroToArrowConfig(
+  AvroToArrowConfig(
       BufferAllocator allocator,
       int targetBatchSize,
-      DictionaryProvider.MapDictionaryProvider provider) {
+      DictionaryProvider.MapDictionaryProvider provider,
+      Set<String> skipFieldNames) {
 
     Preconditions.checkArgument(targetBatchSize == AvroToArrowVectorIterator.NO_LIMIT_BATCH_SIZE ||
         targetBatchSize > 0, "invalid targetBatchSize: %s", targetBatchSize);
@@ -64,6 +65,7 @@ public class AvroToArrowConfig {
     this.allocator = allocator;
     this.targetBatchSize = targetBatchSize;
     this.provider = provider;
+    this.skipFieldNames = skipFieldNames;
   }
 
   public BufferAllocator getAllocator() {
@@ -76,5 +78,9 @@ public class AvroToArrowConfig {
 
   public DictionaryProvider.MapDictionaryProvider getProvider() {
     return provider;
+  }
+
+  public Set<String> getSkipFieldNames() {
+    return skipFieldNames;
   }
 }

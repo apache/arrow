@@ -15,21 +15,16 @@
  * limitations under the License.
  */
 
-{
- "namespace": "org.apache.arrow.avro",
- "type": "record",
- "name": "testNestedRecord",
- "fields": [
-  {
-    "name" : "f0",
-    "type" : {
-        "type" : "record",
-        "name" : "nestedInRecord",
-        "fields": [
-             {"name": "f0", "type": "string"},
-             {"name": "f1", "type": "int"}
-        ]
-    }
-  }
-  ]
+package org.apache.arrow.consumers;
+
+import java.io.IOException;
+
+import org.apache.avro.io.Decoder;
+
+/**
+ * Adapter function to skip (throw away) data from the decoder.
+ */
+@FunctionalInterface
+public interface SkipFunction {
+  void apply(Decoder decoder) throws IOException;
 }

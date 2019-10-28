@@ -85,11 +85,12 @@ public class AvroUnionsConsumer implements Consumer<UnionVector> {
   }
 
   @Override
-  public void resetValueVector(UnionVector vector) {
+  public boolean resetValueVector(UnionVector vector) {
     this.vector = vector;
+    this.currentIndex = 0;
     for (int i = 0; i < delegates.length; i++) {
       delegates[i].resetValueVector(vector.getChildrenFromFields().get(i));
     }
-    this.currentIndex = 0;
+    return true;
   }
 }

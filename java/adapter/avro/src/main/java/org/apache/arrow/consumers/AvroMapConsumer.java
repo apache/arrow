@@ -79,9 +79,10 @@ public class AvroMapConsumer implements Consumer<MapVector> {
   }
 
   @Override
-  public void resetValueVector(MapVector vector) {
+  public boolean resetValueVector(MapVector vector) {
     this.vector = vector;
-    this.delegate.resetValueVector(vector.getDataVector());
     this.currentIndex = 0;
+    this.delegate.resetValueVector(vector.getDataVector());
+    return true;
   }
 }

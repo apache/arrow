@@ -18,16 +18,26 @@
 {
  "namespace": "org.apache.arrow.avro",
  "type": "record",
- "name": "testNestedRecord",
+ "name": "firstLevel",
  "fields": [
   {
     "name" : "f0",
     "type" : {
         "type" : "record",
-        "name" : "nestedInRecord",
+        "name" : "secondLevel",
         "fields": [
-             {"name": "f0", "type": "string"},
-             {"name": "f1", "type": "int"}
+        {
+             "name" : "f0",
+             "type" : {
+                "type" : "record",
+                "name" : "thirdLevel",
+                "fields" : [
+                    {"name": "f1", "type": "int"},
+                    {"name": "f0", "type": "string"},
+                    {"name": "f2", "type": "boolean"}
+                ]
+             }
+        }
         ]
     }
   }

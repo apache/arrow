@@ -23,6 +23,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.arrow.AvroToArrow;
 import org.apache.arrow.AvroToArrowConfig;
+import org.apache.arrow.AvroToArrowConfigBuilder;
 import org.apache.arrow.AvroToArrowVectorIterator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -71,7 +72,7 @@ public class AvroAdapterBenchmarks {
   @Setup
   public void prepare() throws Exception {
     BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE);
-    config = new AvroToArrowConfig(allocator);
+    config = new AvroToArrowConfigBuilder(allocator).build();
 
     String schemaStr = "{\n" + " \"namespace\": \"org.apache.arrow.avro\",\n" +
          " \"type\": \"record\",\n" + " \"name\": \"testBenchmark\",\n" + " \"fields\": [\n" +

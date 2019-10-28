@@ -79,9 +79,10 @@ public class AvroArraysConsumer implements Consumer<ListVector> {
   }
 
   @Override
-  public void resetValueVector(ListVector vector) {
+  public boolean resetValueVector(ListVector vector) {
     this.currentIndex = 0;
     this.vector = vector;
     this.delegate.resetValueVector(vector.getDataVector());
+    return true;
   }
 }

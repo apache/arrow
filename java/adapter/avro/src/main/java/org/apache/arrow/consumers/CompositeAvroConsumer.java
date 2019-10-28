@@ -41,9 +41,9 @@ public class CompositeAvroConsumer implements AutoCloseable {
   }
 
   /**
-   * Consume decoder data and write into {@link VectorSchemaRoot}.
+   * Consume decoder data.
    */
-  public void consume(Decoder decoder, VectorSchemaRoot root) throws IOException {
+  public void consume(Decoder decoder) throws IOException {
     for (Consumer consumer : consumers) {
       consumer.consume(decoder);
     }
@@ -53,8 +53,12 @@ public class CompositeAvroConsumer implements AutoCloseable {
    * Reset vector of consumers with the given {@link VectorSchemaRoot}.
    */
   public void resetConsumerVectors(VectorSchemaRoot root) {
-    for (int i = 0; i < root.getFieldVectors().size(); i++) {
-      consumers.get(i).resetValueVector(root.getFieldVectors().get(i));
+    int index = 0;
+    for (Consumer consumer : consumers) {
+      boolean resetResult = consumer.resetValueVector(root.getFieldVectors().get(index));
+      if (resetResult) {
+        index++;
+      }
     }
   }
 

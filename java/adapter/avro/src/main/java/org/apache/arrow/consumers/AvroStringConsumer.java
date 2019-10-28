@@ -70,8 +70,9 @@ public class AvroStringConsumer implements Consumer<VarCharVector> {
   }
 
   @Override
-  public void resetValueVector(VarCharVector vector) {
+  public boolean resetValueVector(VarCharVector vector) {
     this.vector = vector;
     this.currentIndex = 0;
+    return true;
   }
 }

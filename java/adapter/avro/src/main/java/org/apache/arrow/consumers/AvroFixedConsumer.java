@@ -69,8 +69,9 @@ public class AvroFixedConsumer implements Consumer<FixedSizeBinaryVector> {
   }
 
   @Override
-  public void resetValueVector(FixedSizeBinaryVector vector) {
+  public boolean resetValueVector(FixedSizeBinaryVector vector) {
     this.vector = vector;
     this.currentIndex = 0;
+    return true;
   }
 }

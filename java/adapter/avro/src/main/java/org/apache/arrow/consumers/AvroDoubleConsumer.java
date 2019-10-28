@@ -66,8 +66,9 @@ public class AvroDoubleConsumer implements Consumer<Float8Vector> {
   }
 
   @Override
-  public void resetValueVector(Float8Vector vector) {
+  public boolean resetValueVector(Float8Vector vector) {
     this.vector = vector;
     this.currentIndex = 0;
+    return true;
   }
 }

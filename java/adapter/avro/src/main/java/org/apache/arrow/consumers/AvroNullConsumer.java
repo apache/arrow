@@ -57,7 +57,8 @@ public class AvroNullConsumer implements Consumer<NullVector> {
   }
 
   @Override
-  public void resetValueVector(NullVector vector) {
+  public boolean resetValueVector(NullVector vector) {
     this.vector = vector;
+    return true;
   }
 }

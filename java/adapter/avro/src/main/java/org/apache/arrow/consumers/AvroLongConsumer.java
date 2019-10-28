@@ -66,8 +66,9 @@ public class AvroLongConsumer implements Consumer<BigIntVector> {
   }
 
   @Override
-  public void resetValueVector(BigIntVector vector) {
+  public boolean resetValueVector(BigIntVector vector) {
     this.vector = vector;
     this.currentIndex = 0;
+    return true;
   }
 }

@@ -101,7 +101,7 @@ public class AvroToArrowVectorIterator implements Iterator<VectorSchemaRoot>, Au
     int readRowCount = 0;
     try {
       while ((targetBatchSize == NO_LIMIT_BATCH_SIZE || readRowCount < targetBatchSize)) {
-        compositeConsumer.consume(decoder, root);
+        compositeConsumer.consume(decoder);
         readRowCount++;
       }
       root.setRowCount(readRowCount);
@@ -117,7 +117,9 @@ public class AvroToArrowVectorIterator implements Iterator<VectorSchemaRoot>, Au
   // Loads the next schema root or null if no more rows are available.
   private void load(VectorSchemaRoot root) {
 
-    Preconditions.checkArgument(root.getFieldVectors().size() == compositeConsumer.getConsumers().size(),
+    long validConsumerCount = compositeConsumer.getConsumers().stream().filter(c ->
+        !c.skippable()).count();
+    Preconditions.checkArgument(root.getFieldVectors().size() == validConsumerCount,
         "Schema root vectors size not equals to consumers size.");
 
     compositeConsumer.resetConsumerVectors(root);

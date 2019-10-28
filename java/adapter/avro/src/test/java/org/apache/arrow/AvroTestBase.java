@@ -51,7 +51,7 @@ public class AvroTestBase {
   @Before
   public void init() {
     BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-    config = new AvroToArrowConfig(allocator);
+    config = new AvroToArrowConfigBuilder(allocator).build();
   }
 
   protected Schema getSchema(String schemaName) throws Exception {
@@ -101,6 +101,8 @@ public class AvroTestBase {
         }
       } else if (value2 instanceof Text) {
         value2 = value2.toString();
+      } else if (value2 instanceof Byte) {
+        value2 = ((Byte) value2).intValue();
       }
       assertEquals(value1, value2);
     }

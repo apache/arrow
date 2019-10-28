@@ -18,18 +18,10 @@
 {
  "namespace": "org.apache.arrow.avro",
  "type": "record",
- "name": "testNestedRecord",
+ "name": "testRecord",
  "fields": [
-  {
-    "name" : "f0",
-    "type" : {
-        "type" : "record",
-        "name" : "nestedInRecord",
-        "fields": [
-             {"name": "f0", "type": "string"},
-             {"name": "f1", "type": "int"}
-        ]
-    }
-  }
-  ]
+     {"name": "f0", "type": {"type" : "fixed", "size":5, "name" : "fix"}},
+     {"name": "f1", "type": {"type" : "enum", "name" : "enum", "symbols": ["TEST0", "TEST1"]}},
+     {"name": "f2", "type": "string"}
+ ]
 }

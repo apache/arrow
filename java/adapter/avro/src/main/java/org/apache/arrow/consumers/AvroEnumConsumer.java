@@ -67,8 +67,9 @@ public class AvroEnumConsumer implements Consumer<BaseIntVector> {
   }
 
   @Override
-  public void resetValueVector(BaseIntVector vector) {
+  public boolean resetValueVector(BaseIntVector vector) {
     this.vector = vector;
     this.currentIndex = 0;
+    return true;
   }
 }
