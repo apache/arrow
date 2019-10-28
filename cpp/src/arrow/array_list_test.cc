@@ -520,7 +520,7 @@ TEST_F(TestMapArray, BuildingStringToInt) {
   ASSERT_OK(map_builder.Finish(&actual));
   ASSERT_OK(actual->Validate());
 
-  ASSERT_ARRAYS_EQUAL(*actual, expected);
+  ASSERT_ARRAYS_EQUAL(expected, *actual);
 }
 
 // ----------------------------------------------------------------------

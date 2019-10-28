@@ -240,7 +240,7 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
   /// \brief Start a new variable-length map slot
   ///
   /// This function should be called before beginning to append elements to the
-  /// key and value builders
+  /// key and item builders
   Status Append();
 
   Status AppendNull() final;
@@ -249,10 +249,14 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
 
   ArrayBuilder* key_builder() const { return key_builder_.get(); }
   ArrayBuilder* item_builder() const { return item_builder_.get(); }
+  ArrayBuilder* value_builder() const { return list_builder_->value_builder(); }
 
   std::shared_ptr<DataType> type() const override {
     return map(key_builder_->type(), item_builder_->type(), keys_sorted_);
   }
+
+ protected:
+  Status CheckStructBuilderLength();
 
  protected:
   bool keys_sorted_ = false;
