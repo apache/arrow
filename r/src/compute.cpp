@@ -94,7 +94,8 @@ std::shared_ptr<arrow::Array> Array__Take(const std::shared_ptr<arrow::Array>& v
 
 // [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> Array__TakeChunked(
-    const std::shared_ptr<arrow::Array>& values, const std::shared_ptr<arrow::ChunkedArray>& indices) {
+    const std::shared_ptr<arrow::Array>& values,
+    const std::shared_ptr<arrow::ChunkedArray>& indices) {
   std::shared_ptr<arrow::ChunkedArray> out;
   arrow::compute::FunctionContext context;
   arrow::compute::TakeOptions options;
@@ -116,7 +117,8 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__Take(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Take(
-    const std::shared_ptr<arrow::ChunkedArray>& values, const std::shared_ptr<arrow::Array>& indices) {
+    const std::shared_ptr<arrow::ChunkedArray>& values,
+    const std::shared_ptr<arrow::Array>& indices) {
   std::shared_ptr<arrow::ChunkedArray> out;
   arrow::compute::FunctionContext context;
   arrow::compute::TakeOptions options;
@@ -127,7 +129,8 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Take(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__TakeChunked(
-    const std::shared_ptr<arrow::ChunkedArray>& values, const std::shared_ptr<arrow::ChunkedArray>& indices) {
+    const std::shared_ptr<arrow::ChunkedArray>& values,
+    const std::shared_ptr<arrow::ChunkedArray>& indices) {
   std::shared_ptr<arrow::ChunkedArray> out;
   arrow::compute::FunctionContext context;
   arrow::compute::TakeOptions options;
@@ -148,8 +151,9 @@ std::shared_ptr<arrow::Table> Table__Take(const std::shared_ptr<arrow::Table>& t
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> Table__TakeChunked(const std::shared_ptr<arrow::Table>& table,
-                                          const std::shared_ptr<arrow::ChunkedArray>& indices) {
+std::shared_ptr<arrow::Table> Table__TakeChunked(
+    const std::shared_ptr<arrow::Table>& table,
+    const std::shared_ptr<arrow::ChunkedArray>& indices) {
   std::shared_ptr<arrow::Table> out;
   arrow::compute::FunctionContext context;
   arrow::compute::TakeOptions options;
@@ -181,7 +185,6 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__Filter(
 std::shared_ptr<arrow::ChunkedArray> ChunkedArray__Filter(
     const std::shared_ptr<arrow::ChunkedArray>& values,
     const std::shared_ptr<arrow::Array>& filter) {
-
   std::shared_ptr<arrow::ChunkedArray> out;
   arrow::compute::FunctionContext context;
   STOP_IF_NOT_OK(arrow::compute::Filter(&context, *values, *filter, &out));
