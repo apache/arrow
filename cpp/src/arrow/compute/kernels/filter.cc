@@ -170,8 +170,8 @@ Status Filter(FunctionContext* ctx, const ChunkedArray& values, const Array& fil
     return Status::Invalid("filter and value array must have identical lengths");
   }
   auto num_chunks = values.num_chunks();
-  std::vector<std::shared_ptr<arrow::Array>> new_chunks(num_chunks);
-  std::shared_ptr<arrow::Array> current_chunk;
+  std::vector<std::shared_ptr<Array>> new_chunks(num_chunks);
+  std::shared_ptr<Array> current_chunk;
   int offset = 0;
   int len;
 
@@ -182,7 +182,7 @@ Status Filter(FunctionContext* ctx, const ChunkedArray& values, const Array& fil
     offset += len;
   }
 
-  *out = std::make_shared<arrow::ChunkedArray>(std::move(new_chunks));
+  *out = std::make_shared<ChunkedArray>(std::move(new_chunks));
   return Status::OK();
 }
 
@@ -192,10 +192,10 @@ Status Filter(FunctionContext* ctx, const ChunkedArray& values, const ChunkedArr
     return Status::Invalid("filter and value array must have identical lengths");
   }
   auto num_chunks = values.num_chunks();
-  std::vector<std::shared_ptr<arrow::Array>> new_chunks(num_chunks);
-  std::shared_ptr<arrow::Array> current_chunk;
-  std::shared_ptr<arrow::ChunkedArray> current_chunked_filter;
-  std::shared_ptr<arrow::Array> current_filter;
+  std::vector<std::shared_ptr<Array>> new_chunks(num_chunks);
+  std::shared_ptr<Array> current_chunk;
+  std::shared_ptr<ChunkedArray> current_chunked_filter;
+  std::shared_ptr<Array> current_filter;
   int offset = 0;
   int len;
 
@@ -219,7 +219,7 @@ Status Filter(FunctionContext* ctx, const ChunkedArray& values, const ChunkedArr
     }
   }
 
-  *out = std::make_shared<arrow::ChunkedArray>(std::move(new_chunks));
+  *out = std::make_shared<ChunkedArray>(std::move(new_chunks));
   return Status::OK();
 }
 
@@ -227,7 +227,7 @@ Status Filter(FunctionContext* ctx, const Table& table, const Array& filter,
               std::shared_ptr<Table>* out) {
   auto ncols = table.num_columns();
 
-  std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(ncols);
+  std::vector<std::shared_ptr<ChunkedArray>> columns(ncols);
 
   for (int j = 0; j < ncols; j++) {
     RETURN_NOT_OK(Filter(ctx, *table.column(j), filter, &columns[j]));
@@ -240,7 +240,7 @@ Status Filter(FunctionContext* ctx, const Table& table, const ChunkedArray& filt
               std::shared_ptr<Table>* out) {
   auto ncols = table.num_columns();
 
-  std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(ncols);
+  std::vector<std::shared_ptr<ChunkedArray>> columns(ncols);
 
   for (int j = 0; j < ncols; j++) {
     RETURN_NOT_OK(Filter(ctx, *table.column(j), filter, &columns[j]));

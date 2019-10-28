@@ -103,8 +103,8 @@ Status Take(FunctionContext* ctx, const Datum& values, const Datum& indices,
 Status Take(FunctionContext* ctx, const ChunkedArray& values, const Array& indices,
             const TakeOptions& options, std::shared_ptr<ChunkedArray>* out) {
   auto num_chunks = values.num_chunks();
-  std::vector<std::shared_ptr<arrow::Array>> new_chunks(1); // Hard-coded 1 for now
-  std::shared_ptr<arrow::Array> current_chunk;
+  std::vector<std::shared_ptr<Array>> new_chunks(1); // Hard-coded 1 for now
+  std::shared_ptr<Array> current_chunk;
 
   // Case 1: `values` has a single chunk, so just use it
   if (num_chunks == 1) {
@@ -119,15 +119,15 @@ Status Take(FunctionContext* ctx, const ChunkedArray& values, const Array& indic
   }
   // Call Array Take on our single chunk
   RETURN_NOT_OK(Take(ctx, *current_chunk, indices, options, &new_chunks[0]));
-  *out = std::make_shared<arrow::ChunkedArray>(std::move(new_chunks));
+  *out = std::make_shared<ChunkedArray>(std::move(new_chunks));
   return Status::OK();
 }
 
 Status Take(FunctionContext* ctx, const ChunkedArray& values, const ChunkedArray& indices,
             const TakeOptions& options, std::shared_ptr<ChunkedArray>* out) {
   auto num_chunks = indices.num_chunks();
-  std::vector<std::shared_ptr<arrow::Array>> new_chunks(num_chunks);
-  std::shared_ptr<arrow::ChunkedArray> current_chunk;
+  std::vector<std::shared_ptr<Array>> new_chunks(num_chunks);
+  std::shared_ptr<ChunkedArray> current_chunk;
 
   for (int i = 0; i < num_chunks; i++) {
     // Take with that indices chunk
@@ -135,20 +135,20 @@ Status Take(FunctionContext* ctx, const ChunkedArray& values, const ChunkedArray
     // Concatenate the result to make a single array for this chunk
     RETURN_NOT_OK(Concatenate(current_chunk->chunks(), default_memory_pool(), &new_chunks[i]));
   }
-  *out = std::make_shared<arrow::ChunkedArray>(std::move(new_chunks));
+  *out = std::make_shared<ChunkedArray>(std::move(new_chunks));
   return Status::OK();
 }
 
 Status Take(FunctionContext* ctx, const Array& values, const ChunkedArray& indices,
             const TakeOptions& options, std::shared_ptr<ChunkedArray>* out) {
   auto num_chunks = indices.num_chunks();
-  std::vector<std::shared_ptr<arrow::Array>> new_chunks(num_chunks);
+  std::vector<std::shared_ptr<Array>> new_chunks(num_chunks);
 
   for (int i = 0; i < num_chunks; i++) {
     // Take with that indices chunk
     RETURN_NOT_OK(Take(ctx, values, *indices.chunk(i), options, &new_chunks[i]));
   }
-  *out = std::make_shared<arrow::ChunkedArray>(std::move(new_chunks));
+  *out = std::make_shared<ChunkedArray>(std::move(new_chunks));
   return Status::OK();
 }
 
@@ -157,7 +157,7 @@ Status Take(FunctionContext* ctx, const RecordBatch& batch, const Array& indices
   auto ncols = batch.num_columns();
   auto nrows = indices.length();
 
-  std::vector<std::shared_ptr<arrow::Array>> columns(ncols);
+  std::vector<std::shared_ptr<Array>> columns(ncols);
 
   for (int j = 0; j < ncols; j++) {
     RETURN_NOT_OK(Take(ctx, *batch.column(j), indices, options, &columns[j]));
@@ -169,7 +169,7 @@ Status Take(FunctionContext* ctx, const RecordBatch& batch, const Array& indices
 Status Take(FunctionContext* ctx, const Table& table, const Array& indices,
               const TakeOptions& options, std::shared_ptr<Table>* out) {
   auto ncols = table.num_columns();
-  std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(ncols);
+  std::vector<std::shared_ptr<ChunkedArray>> columns(ncols);
 
   for (int j = 0; j < ncols; j++) {
     RETURN_NOT_OK(Take(ctx, *table.column(j), indices, options, &columns[j]));
@@ -181,7 +181,7 @@ Status Take(FunctionContext* ctx, const Table& table, const Array& indices,
 Status Take(FunctionContext* ctx, const Table& table, const ChunkedArray& indices,
               const TakeOptions& options, std::shared_ptr<Table>* out) {
   auto ncols = table.num_columns();
-  std::vector<std::shared_ptr<arrow::ChunkedArray>> columns(ncols);
+  std::vector<std::shared_ptr<ChunkedArray>> columns(ncols);
 
   for (int j = 0; j < ncols; j++) {
     RETURN_NOT_OK(Take(ctx, *table.column(j), indices, options, &columns[j]));
