@@ -343,15 +343,9 @@ table PlasmaDataReply {
 }
 
 table PlasmaRefreshLRURequest {
-  // The number of objects to refresh.
-  count: int;
   // ID of the objects to be bumped in the LRU cache.
   object_ids: [string];
 }
 
 table PlasmaRefreshLRUReply {
-  // The number of objects to refresh.
-  count: int;
-  // Error code.
-  errors: [PlasmaError];
 }

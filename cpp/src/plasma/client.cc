@@ -955,8 +955,7 @@ Status PlasmaClient::Impl::Refresh(const std::vector<ObjectID>& object_ids) {
   std::vector<uint8_t> buffer;
   MessageType type;
   RETURN_NOT_OK(ReadMessage(store_conn_, &type, &buffer));
-  std::vector<PlasmaError> error_codes;
-  return ReadRefreshLRUReply(buffer.data(), buffer.size(), &error_codes);
+  return ReadRefreshLRUReply(buffer.data(), buffer.size());
 }
 
 Status PlasmaClient::Impl::Hash(const ObjectID& object_id, uint8_t* digest) {
@@ -1181,6 +1180,10 @@ Status PlasmaClient::Delete(const std::vector<ObjectID>& object_ids) {
 
 Status PlasmaClient::Evict(int64_t num_bytes, int64_t& num_bytes_evicted) {
   return impl_->Evict(num_bytes, num_bytes_evicted);
+}
+
+Status PlasmaClient::Refresh(const std::vector<ObjectID>& object_ids) {
+  return impl_->Refresh(object_ids);
 }
 
 Status PlasmaClient::Hash(const ObjectID& object_id, uint8_t* digest) {

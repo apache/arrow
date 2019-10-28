@@ -455,6 +455,51 @@ TEST_F(TestPlasmaStore, SetQuotaCleanupClientDisconnect) {
               std::string::npos);
 }
 
+TEST_F(TestPlasmaStore, RefreshLRUTest) {
+  bool has_object = false;
+  std::vector<ObjectID> object_ids;
+
+  for (int i = 0; i < 10; ++i) {
+    object_ids.push_back(random_object_id());
+  }
+
+  std::vector<uint8_t> small_data(1 * 1000 * 1000, 0);
+
+  // we can fit ten small objects into the store
+  for (const auto& object_id : object_ids) {
+    CreateObject(client_, object_id, {}, small_data, true);
+    ARROW_CHECK_OK(client_.Contains(object_ids[0], &has_object));
+    ASSERT_TRUE(has_object);
+  }
+
+  ObjectID id = random_object_id();
+  CreateObject(client_, id, {}, small_data, true);
+
+  // the first two objects got evicted (20% of the store)
+  ARROW_CHECK_OK(client_.Contains(object_ids[0], &has_object));
+  ASSERT_FALSE(has_object);
+
+  ARROW_CHECK_OK(client_.Contains(object_ids[1], &has_object));
+  ASSERT_FALSE(has_object);
+
+  ARROW_CHECK_OK(client_.Refresh({object_ids[2], object_ids[3]}));
+
+  id = random_object_id();
+  CreateObject(client_, id, {}, small_data, true);
+  id = random_object_id();
+  CreateObject(client_, id, {}, small_data, true);
+
+  // the refreshed objects are not evicted
+  ARROW_CHECK_OK(client_.Contains(object_ids[2], &has_object));
+  ASSERT_TRUE(has_object);
+  ARROW_CHECK_OK(client_.Contains(object_ids[3], &has_object));
+  ASSERT_TRUE(has_object);
+
+  // the next object in LRU order is evicted
+  ARROW_CHECK_OK(client_.Contains(object_ids[4], &has_object));
+  ASSERT_FALSE(has_object);
+}
+
 TEST_F(TestPlasmaStore, DeleteTest) {
   ObjectID object_id = random_object_id();
 

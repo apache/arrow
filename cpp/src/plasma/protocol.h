@@ -238,9 +238,9 @@ Status SendRefreshLRURequest(int sock, const std::vector<ObjectID>& object_ids);
 
 Status ReadRefreshLRURequest(uint8_t* data, size_t size, std::vector<ObjectID>* object_ids);
 
-Status SendRefreshLRUReply(int sock, const std::vector<PlasmaError>& errors);
+Status SendRefreshLRUReply(int sock);
 
-Status ReadRefreshLRUReply(uint8_t* data, size_t size, std::vector<PlasmaError>* errors);
+Status ReadRefreshLRUReply(uint8_t* data, size_t size);
 
 }  // namespace plasma
 

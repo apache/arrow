@@ -786,8 +786,7 @@ Status SendRefreshLRURequest(int sock, const std::vector<ObjectID>& object_ids) 
   flatbuffers::FlatBufferBuilder fbb;
 
   auto message = fb::CreatePlasmaRefreshLRURequest(
-      fbb, static_cast<int32_t>(object_ids.size()),
-      ToFlatbuffer(&fbb, object_ids.data(), object_ids.size()));
+      fbb, ToFlatbuffer(&fbb, object_ids.data(), object_ids.size()));
 
   return PlasmaSend(sock, MessageType::PlasmaRefreshLRURequest, &fbb, message);
 }
@@ -803,22 +802,16 @@ Status ReadRefreshLRURequest(uint8_t* data, size_t size, std::vector<ObjectID>* 
   return Status::OK();
 }
 
-Status SendRefreshLRUReply(int sock, const std::vector<PlasmaError>& errors) {
+Status SendRefreshLRUReply(int sock) {
   flatbuffers::FlatBufferBuilder fbb;
-  auto message = fb::CreatePlasmaRefreshLRUReply(
-    fbb, static_cast<int32_t>(errors.size()), fbb.CreateVector(
-      arrow::util::MakeNonNull(reinterpret_cast<const int32_t*>(errors.data())),
-      errors.size()));
+  auto message = fb::CreatePlasmaRefreshLRUReply(fbb);
   return PlasmaSend(sock, MessageType::PlasmaRefreshLRUReply, &fbb, message);
 }
 
-Status ReadRefreshLRUReply(uint8_t* data, size_t size, std::vector<PlasmaError>* errors) {
+Status ReadRefreshLRUReply(uint8_t* data, size_t size) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<fb::PlasmaRefreshLRUReply>(data);
   DCHECK(VerifyFlatbuffer(message, data, size));
-  ToVector(*message, errors, [](const fb::PlasmaRefreshLRUReply& request, int i) {
-    return static_cast<PlasmaError>(request.errors()->data()[i]);
-  });
   return Status::OK();
 }
 

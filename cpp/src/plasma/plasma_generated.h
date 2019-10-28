@@ -2732,28 +2732,21 @@ flatbuffers::Offset<PlasmaDataReply> CreatePlasmaDataReply(flatbuffers::FlatBuff
 
 struct PlasmaRefreshLRURequestT : public flatbuffers::NativeTable {
   typedef PlasmaRefreshLRURequest TableType;
-  int32_t count;
   std::vector<std::string> object_ids;
-  PlasmaRefreshLRURequestT()
-      : count(0) {
+  PlasmaRefreshLRURequestT() {
   }
 };
 
 struct PlasmaRefreshLRURequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaRefreshLRURequestT NativeTableType;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_COUNT = 4,
-    VT_OBJECT_IDS = 6
+    VT_OBJECT_IDS = 4
   };
-  int32_t count() const {
-    return GetField<int32_t>(VT_COUNT, 0);
-  }
   const flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>> *object_ids() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>> *>(VT_OBJECT_IDS);
   }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int32_t>(verifier, VT_COUNT) &&
            VerifyOffset(verifier, VT_OBJECT_IDS) &&
            verifier.VerifyVector(object_ids()) &&
            verifier.VerifyVectorOfStrings(object_ids()) &&
@@ -2767,9 +2760,6 @@ struct PlasmaRefreshLRURequest FLATBUFFERS_FINAL_CLASS : private flatbuffers::Ta
 struct PlasmaRefreshLRURequestBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_count(int32_t count) {
-    fbb_.AddElement<int32_t>(PlasmaRefreshLRURequest::VT_COUNT, count, 0);
-  }
   void add_object_ids(flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>> object_ids) {
     fbb_.AddOffset(PlasmaRefreshLRURequest::VT_OBJECT_IDS, object_ids);
   }
@@ -2787,22 +2777,18 @@ struct PlasmaRefreshLRURequestBuilder {
 
 inline flatbuffers::Offset<PlasmaRefreshLRURequest> CreatePlasmaRefreshLRURequest(
     flatbuffers::FlatBufferBuilder &_fbb,
-    int32_t count = 0,
     flatbuffers::Offset<flatbuffers::Vector<flatbuffers::Offset<flatbuffers::String>>> object_ids = 0) {
   PlasmaRefreshLRURequestBuilder builder_(_fbb);
   builder_.add_object_ids(object_ids);
-  builder_.add_count(count);
   return builder_.Finish();
 }
 
 inline flatbuffers::Offset<PlasmaRefreshLRURequest> CreatePlasmaRefreshLRURequestDirect(
     flatbuffers::FlatBufferBuilder &_fbb,
-    int32_t count = 0,
     const std::vector<flatbuffers::Offset<flatbuffers::String>> *object_ids = nullptr) {
   auto object_ids__ = object_ids ? _fbb.CreateVector<flatbuffers::Offset<flatbuffers::String>>(*object_ids) : 0;
   return plasma::flatbuf::CreatePlasmaRefreshLRURequest(
       _fbb,
-      count,
       object_ids__);
 }
 
@@ -2810,30 +2796,14 @@ flatbuffers::Offset<PlasmaRefreshLRURequest> CreatePlasmaRefreshLRURequest(flatb
 
 struct PlasmaRefreshLRUReplyT : public flatbuffers::NativeTable {
   typedef PlasmaRefreshLRUReply TableType;
-  int32_t count;
-  std::vector<PlasmaError> errors;
-  PlasmaRefreshLRUReplyT()
-      : count(0) {
+  PlasmaRefreshLRUReplyT() {
   }
 };
 
 struct PlasmaRefreshLRUReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   typedef PlasmaRefreshLRUReplyT NativeTableType;
-  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_COUNT = 4,
-    VT_ERRORS = 6
-  };
-  int32_t count() const {
-    return GetField<int32_t>(VT_COUNT, 0);
-  }
-  const flatbuffers::Vector<int32_t> *errors() const {
-    return GetPointer<const flatbuffers::Vector<int32_t> *>(VT_ERRORS);
-  }
   bool Verify(flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int32_t>(verifier, VT_COUNT) &&
-           VerifyOffset(verifier, VT_ERRORS) &&
-           verifier.VerifyVector(errors()) &&
            verifier.EndTable();
   }
   PlasmaRefreshLRUReplyT *UnPack(const flatbuffers::resolver_function_t *_resolver = nullptr) const;
@@ -2844,12 +2814,6 @@ struct PlasmaRefreshLRUReply FLATBUFFERS_FINAL_CLASS : private flatbuffers::Tabl
 struct PlasmaRefreshLRUReplyBuilder {
   flatbuffers::FlatBufferBuilder &fbb_;
   flatbuffers::uoffset_t start_;
-  void add_count(int32_t count) {
-    fbb_.AddElement<int32_t>(PlasmaRefreshLRUReply::VT_COUNT, count, 0);
-  }
-  void add_errors(flatbuffers::Offset<flatbuffers::Vector<int32_t>> errors) {
-    fbb_.AddOffset(PlasmaRefreshLRUReply::VT_ERRORS, errors);
-  }
   explicit PlasmaRefreshLRUReplyBuilder(flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
@@ -2863,24 +2827,9 @@ struct PlasmaRefreshLRUReplyBuilder {
 };
 
 inline flatbuffers::Offset<PlasmaRefreshLRUReply> CreatePlasmaRefreshLRUReply(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    int32_t count = 0,
-    flatbuffers::Offset<flatbuffers::Vector<int32_t>> errors = 0) {
+    flatbuffers::FlatBufferBuilder &_fbb) {
   PlasmaRefreshLRUReplyBuilder builder_(_fbb);
-  builder_.add_errors(errors);
-  builder_.add_count(count);
   return builder_.Finish();
-}
-
-inline flatbuffers::Offset<PlasmaRefreshLRUReply> CreatePlasmaRefreshLRUReplyDirect(
-    flatbuffers::FlatBufferBuilder &_fbb,
-    int32_t count = 0,
-    const std::vector<int32_t> *errors = nullptr) {
-  auto errors__ = errors ? _fbb.CreateVector<int32_t>(*errors) : 0;
-  return plasma::flatbuf::CreatePlasmaRefreshLRUReply(
-      _fbb,
-      count,
-      errors__);
 }
 
 flatbuffers::Offset<PlasmaRefreshLRUReply> CreatePlasmaRefreshLRUReply(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaRefreshLRUReplyT *_o, const flatbuffers::rehasher_function_t *_rehasher = nullptr);
@@ -3833,7 +3782,6 @@ inline PlasmaRefreshLRURequestT *PlasmaRefreshLRURequest::UnPack(const flatbuffe
 inline void PlasmaRefreshLRURequest::UnPackTo(PlasmaRefreshLRURequestT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = count(); _o->count = _e; };
   { auto _e = object_ids(); if (_e) { _o->object_ids.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->object_ids[_i] = _e->Get(_i)->str(); } } };
 }
 
@@ -3845,11 +3793,9 @@ inline flatbuffers::Offset<PlasmaRefreshLRURequest> CreatePlasmaRefreshLRUReques
   (void)_rehasher;
   (void)_o;
   struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const PlasmaRefreshLRURequestT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _count = _o->count;
   auto _object_ids = _o->object_ids.size() ? _fbb.CreateVectorOfStrings(_o->object_ids) : 0;
   return plasma::flatbuf::CreatePlasmaRefreshLRURequest(
       _fbb,
-      _count,
       _object_ids);
 }
 
@@ -3862,8 +3808,6 @@ inline PlasmaRefreshLRUReplyT *PlasmaRefreshLRUReply::UnPack(const flatbuffers::
 inline void PlasmaRefreshLRUReply::UnPackTo(PlasmaRefreshLRUReplyT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = count(); _o->count = _e; };
-  { auto _e = errors(); if (_e) { _o->errors.resize(_e->size()); for (flatbuffers::uoffset_t _i = 0; _i < _e->size(); _i++) { _o->errors[_i] = static_cast<PlasmaError>(_e->Get(_i)); } } };
 }
 
 inline flatbuffers::Offset<PlasmaRefreshLRUReply> PlasmaRefreshLRUReply::Pack(flatbuffers::FlatBufferBuilder &_fbb, const PlasmaRefreshLRUReplyT* _o, const flatbuffers::rehasher_function_t *_rehasher) {
@@ -3874,12 +3818,8 @@ inline flatbuffers::Offset<PlasmaRefreshLRUReply> CreatePlasmaRefreshLRUReply(fl
   (void)_rehasher;
   (void)_o;
   struct _VectorArgs { flatbuffers::FlatBufferBuilder *__fbb; const PlasmaRefreshLRUReplyT* __o; const flatbuffers::rehasher_function_t *__rehasher; } _va = { &_fbb, _o, _rehasher}; (void)_va;
-  auto _count = _o->count;
-  auto _errors = _o->errors.size() ? _fbb.CreateVectorScalarCast<int32_t>(flatbuffers::data(_o->errors), _o->errors.size()) : 0;
   return plasma::flatbuf::CreatePlasmaRefreshLRUReply(
-      _fbb,
-      _count,
-      _errors);
+      _fbb);
 }
 
 }  // namespace flatbuf
