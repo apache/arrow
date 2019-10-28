@@ -18,7 +18,16 @@
 # Headers: top level
 arrow_install_all_headers("arrow/filesystem")
 
+if(ARROW_HDFS)
+  add_definitions(-DARROW_HDFS)
+endif()
+
+if(ARROW_S3)
+  add_definitions(-DARROW_S3)
+endif()
+
 add_arrow_test(filesystem_test)
+add_arrow_test(filesystem_utils_test)
 add_arrow_test(localfs_test)
 add_arrow_test(path_tree_test)
 
@@ -31,4 +40,8 @@ if(ARROW_S3)
                           ${GFLAGS_LIBRARIES} GTest::GTest)
     add_dependencies(arrow-tests arrow-s3fs-narrative-test)
   endif()
+endif()
+
+if(ARROW_HDFS)
+  add_arrow_test(hdfs_test)
 endif()
