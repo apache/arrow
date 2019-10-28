@@ -47,7 +47,7 @@ regex = "1.1"
 lazy_static = "1.2"
 packed_simd = { version = "0.3.1", optional = true }
 chrono = "0.4"
-flatbuffers = "0.5.0"
+flatbuffers = "0.6.0"
 
 [features]
 simd = ["packed_simd"]
