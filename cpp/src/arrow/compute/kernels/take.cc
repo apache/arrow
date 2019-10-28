@@ -18,6 +18,7 @@
 #include <limits>
 #include <memory>
 #include <utility>
+#include <vector>
 
 #include "arrow/array/concatenate.h"
 #include "arrow/compute/kernels/take.h"
@@ -103,7 +104,7 @@ Status Take(FunctionContext* ctx, const Datum& values, const Datum& indices,
 Status Take(FunctionContext* ctx, const ChunkedArray& values, const Array& indices,
             const TakeOptions& options, std::shared_ptr<ChunkedArray>* out) {
   auto num_chunks = values.num_chunks();
-  std::vector<std::shared_ptr<Array>> new_chunks(1); // Hard-coded 1 for now
+  std::vector<std::shared_ptr<Array>> new_chunks(1);  // Hard-coded 1 for now
   std::shared_ptr<Array> current_chunk;
 
   // Case 1: `values` has a single chunk, so just use it
@@ -111,7 +112,8 @@ Status Take(FunctionContext* ctx, const ChunkedArray& values, const Array& indic
     current_chunk = values.chunk(0);
   } else {
     // TODO Case 2: See if all `indices` fall in the same chunk and call Array Take on it
-    // See https://github.com/apache/arrow/blob/6f2c9041137001f7a9212f244b51bc004efc29af/r/src/compute.cpp#L123-L151
+    // See
+    // https://github.com/apache/arrow/blob/6f2c9041137001f7a9212f244b51bc004efc29af/r/src/compute.cpp#L123-L151
     // TODO Case 3: If indices are sorted, can slice them and call Array Take
 
     // Case 4: Else, concatenate chunks and call Array Take
@@ -133,7 +135,8 @@ Status Take(FunctionContext* ctx, const ChunkedArray& values, const ChunkedArray
     // Take with that indices chunk
     RETURN_NOT_OK(Take(ctx, values, *indices.chunk(i), options, &current_chunk));
     // Concatenate the result to make a single array for this chunk
-    RETURN_NOT_OK(Concatenate(current_chunk->chunks(), default_memory_pool(), &new_chunks[i]));
+    RETURN_NOT_OK(
+        Concatenate(current_chunk->chunks(), default_memory_pool(), &new_chunks[i]));
   }
   *out = std::make_shared<ChunkedArray>(std::move(new_chunks));
   return Status::OK();
@@ -153,7 +156,7 @@ Status Take(FunctionContext* ctx, const Array& values, const ChunkedArray& indic
 }
 
 Status Take(FunctionContext* ctx, const RecordBatch& batch, const Array& indices,
-              const TakeOptions& options, std::shared_ptr<RecordBatch>* out) {
+            const TakeOptions& options, std::shared_ptr<RecordBatch>* out) {
   auto ncols = batch.num_columns();
   auto nrows = indices.length();
 
@@ -167,7 +170,7 @@ Status Take(FunctionContext* ctx, const RecordBatch& batch, const Array& indices
 }
 
 Status Take(FunctionContext* ctx, const Table& table, const Array& indices,
-              const TakeOptions& options, std::shared_ptr<Table>* out) {
+            const TakeOptions& options, std::shared_ptr<Table>* out) {
   auto ncols = table.num_columns();
   std::vector<std::shared_ptr<ChunkedArray>> columns(ncols);
 
@@ -179,7 +182,7 @@ Status Take(FunctionContext* ctx, const Table& table, const Array& indices,
 }
 
 Status Take(FunctionContext* ctx, const Table& table, const ChunkedArray& indices,
-              const TakeOptions& options, std::shared_ptr<Table>* out) {
+            const TakeOptions& options, std::shared_ptr<Table>* out) {
   auto ncols = table.num_columns();
   std::vector<std::shared_ptr<ChunkedArray>> columns(ncols);
 

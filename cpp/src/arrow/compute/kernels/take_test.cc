@@ -545,8 +545,8 @@ class TestTakeKernelWithRecordBatch : public TestTakeKernel<RecordBatch> {
               std::shared_ptr<RecordBatch>* out) {
     auto batch = RecordBatchFromJSON(schm, batch_json);
     TakeOptions options;
-    return arrow::compute::Take(&this->ctx_, *batch,
-                                *ArrayFromJSON(index_type, indices), options, out);
+    return arrow::compute::Take(&this->ctx_, *batch, *ArrayFromJSON(index_type, indices),
+                                options, out);
   }
 };
 
@@ -588,8 +588,8 @@ TEST_F(TestTakeKernelWithRecordBatch, TakeRecordBatch) {
 class TestTakeKernelWithChunkedArray : public TestTakeKernel<ChunkedArray> {
  public:
   void AssertTake(const std::shared_ptr<DataType>& type,
-                  const std::vector<std::string>& values,
-                  const std::string& indices, const std::vector<std::string>& expected) {
+                  const std::vector<std::string>& values, const std::string& indices,
+                  const std::vector<std::string>& expected) {
     std::shared_ptr<ChunkedArray> actual;
     ASSERT_OK(this->TakeWithArray(type, values, indices, &actual));
     ASSERT_OK(actual->Validate());
@@ -607,8 +607,8 @@ class TestTakeKernelWithChunkedArray : public TestTakeKernel<ChunkedArray> {
   }
 
   Status TakeWithArray(const std::shared_ptr<DataType>& type,
-                       const std::vector<std::string>& values,
-                       const std::string& indices, std::shared_ptr<ChunkedArray>* out) {
+                       const std::vector<std::string>& values, const std::string& indices,
+                       std::shared_ptr<ChunkedArray>* out) {
     TakeOptions options;
     return arrow::compute::Take(&this->ctx_, *ChunkedArrayFromJSON(type, values),
                                 *ArrayFromJSON(int8(), indices), options, out);
@@ -629,19 +629,21 @@ TEST_F(TestTakeKernelWithChunkedArray, TakeChunkedArray) {
   this->AssertChunkedTake(int8(), {"[]"}, {"[]"}, {"[]"});
 
   this->AssertTake(int8(), {"[7]", "[8, 9]"}, "[0, 1, 0, 2]", {"[7, 8, 7, 9]"});
-  this->AssertChunkedTake(int8(), {"[7]", "[8, 9]"}, {"[0, 1, 0]", "[]", "[2]"}, {"[7, 8, 7]", "[]", "[9]"});
+  this->AssertChunkedTake(int8(), {"[7]", "[8, 9]"}, {"[0, 1, 0]", "[]", "[2]"},
+                          {"[7, 8, 7]", "[]", "[9]"});
   this->AssertTake(int8(), {"[7]", "[8, 9]"}, "[2, 1]", {"[9, 8]"});
 
   std::shared_ptr<ChunkedArray> arr;
-  ASSERT_RAISES(IndexError, this->TakeWithArray(int8(), {"[7]", "[8, 9]"}, "[0, 5]", &arr));
-  ASSERT_RAISES(IndexError, this->TakeWithChunkedArray(int8(), {"[7]", "[8, 9]"}, {"[0, 1, 0]", "[5, 1]"}, &arr));
+  ASSERT_RAISES(IndexError,
+                this->TakeWithArray(int8(), {"[7]", "[8, 9]"}, "[0, 5]", &arr));
+  ASSERT_RAISES(IndexError, this->TakeWithChunkedArray(int8(), {"[7]", "[8, 9]"},
+                                                       {"[0, 1, 0]", "[5, 1]"}, &arr));
 }
 
 class TestTakeKernelWithTable : public TestTakeKernel<Table> {
  public:
   void AssertTake(const std::shared_ptr<Schema>& schm,
-                  const std::vector<std::string>& table_json,
-                  const std::string& filter,
+                  const std::vector<std::string>& table_json, const std::string& filter,
                   const std::vector<std::string>& expected_table) {
     std::shared_ptr<Table> actual;
 
@@ -662,8 +664,8 @@ class TestTakeKernelWithTable : public TestTakeKernel<Table> {
   }
 
   Status TakeWithArray(const std::shared_ptr<Schema>& schm,
-                       const std::vector<std::string>& values,
-                       const std::string& indices, std::shared_ptr<Table>* out) {
+                       const std::vector<std::string>& values, const std::string& indices,
+                       std::shared_ptr<Table>* out) {
     TakeOptions options;
     return arrow::compute::Take(&this->ctx_, *TableFromJSON(schm, values),
                                 *ArrayFromJSON(int8(), indices), options, out);
@@ -683,11 +685,13 @@ TEST_F(TestTakeKernelWithTable, TakeTable) {
   std::vector<std::shared_ptr<Field>> fields = {field("a", int32()), field("b", utf8())};
   auto schm = schema(fields);
 
-  std::vector<std::string> table_json = {"[{\"a\": null, \"b\": \"yo\"},{\"a\": 1, \"b\": \"\"}]",
-                                        "[{\"a\": 2, \"b\": \"hello\"},{\"a\": 4, \"b\": \"eh\"}]"};
+  std::vector<std::string> table_json = {
+      "[{\"a\": null, \"b\": \"yo\"},{\"a\": 1, \"b\": \"\"}]",
+      "[{\"a\": 2, \"b\": \"hello\"},{\"a\": 4, \"b\": \"eh\"}]"};
 
   this->AssertTake(schm, table_json, "[]", {"[]"});
-  std::vector<std::string> expected_310 = {"[{\"a\": 4, \"b\": \"eh\"},{\"a\": 1, \"b\": \"\"},{\"a\": null, \"b\": \"yo\"}]"};
+  std::vector<std::string> expected_310 = {
+      "[{\"a\": 4, \"b\": \"eh\"},{\"a\": 1, \"b\": \"\"},{\"a\": null, \"b\": \"yo\"}]"};
   this->AssertTake(schm, table_json, "[3, 1, 0]", expected_310);
   this->AssertChunkedTake(schm, table_json, {"[0, 1]", "[2, 3]"}, table_json);
 }

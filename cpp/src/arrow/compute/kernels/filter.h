@@ -83,8 +83,8 @@ Status Filter(FunctionContext* ctx, const ChunkedArray& values, const Array& fil
 /// \param[in] filter indicates which values should be filtered out
 /// \param[out] out resulting chunked array
 ARROW_EXPORT
-Status Filter(FunctionContext* ctx, const ChunkedArray& values, const ChunkedArray& filter,
-              std::shared_ptr<ChunkedArray>* out);
+Status Filter(FunctionContext* ctx, const ChunkedArray& values,
+              const ChunkedArray& filter, std::shared_ptr<ChunkedArray>* out);
 
 /// \brief Filter a record batch with a boolean selection filter
 ///

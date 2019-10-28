@@ -178,7 +178,8 @@ Status Filter(FunctionContext* ctx, const ChunkedArray& values, const Array& fil
   for (int i = 0; i < num_chunks; i++) {
     current_chunk = values.chunk(i);
     len = current_chunk->length();
-    RETURN_NOT_OK(Filter(ctx, *current_chunk, *filter.Slice(offset, len), &new_chunks[i]));
+    RETURN_NOT_OK(
+        Filter(ctx, *current_chunk, *filter.Slice(offset, len), &new_chunks[i]));
     offset += len;
   }
 
@@ -186,8 +187,8 @@ Status Filter(FunctionContext* ctx, const ChunkedArray& values, const Array& fil
   return Status::OK();
 }
 
-Status Filter(FunctionContext* ctx, const ChunkedArray& values, const ChunkedArray& filter,
-              std::shared_ptr<ChunkedArray>* out) {
+Status Filter(FunctionContext* ctx, const ChunkedArray& values,
+              const ChunkedArray& filter, std::shared_ptr<ChunkedArray>* out) {
   if (values.length() != filter.length()) {
     return Status::Invalid("filter and value array must have identical lengths");
   }
@@ -208,8 +209,8 @@ Status Filter(FunctionContext* ctx, const ChunkedArray& values, const ChunkedArr
         current_filter = current_chunked_filter->chunk(0);
       } else {
         // Concatenate the chunks of the filter so we have an Array
-        RETURN_NOT_OK(Concatenate(current_chunked_filter->chunks(),
-                                          default_memory_pool(), &current_filter));
+        RETURN_NOT_OK(Concatenate(current_chunked_filter->chunks(), default_memory_pool(),
+                                  &current_filter));
       }
       RETURN_NOT_OK(Filter(ctx, *current_chunk, *current_filter, &new_chunks[i]));
       offset += len;
