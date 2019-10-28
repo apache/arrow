@@ -404,7 +404,7 @@ macro_rules! make_numeric_type {
             }
 
             fn get(simd: &Self::Simd, idx: usize) -> Self::Native {
-                unsafe { simd.extract_unchecked(idx)}
+                unsafe { simd.extract_unchecked(idx) }
             }
 
             fn mask_init(value: bool) -> Self::SimdMask {

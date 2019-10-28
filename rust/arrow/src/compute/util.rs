@@ -24,8 +24,6 @@ use crate::buffer::Buffer;
 use crate::datatypes::*;
 use crate::error::Result;
 #[cfg(feature = "simd")]
-use num::One;
-#[cfg(feature = "simd")]
 use std::cmp::min;
 
 /// Applies a given binary operation, `op`, to two references to `Option<Bitmap>`'s.

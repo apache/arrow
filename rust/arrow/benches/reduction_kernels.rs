@@ -33,8 +33,10 @@ fn create_array(size: usize) -> Float32Array {
 }
 
 fn add_benchmark(c: &mut Criterion) {
-    c.bench_function("add 512", |b| {b.iter(|| no_simd_sum(&create_array(50000)))});
-    c.bench_function("add 512 simd", |b| {b.iter(|| simd_sum(&create_array(50000)))});
+    c.bench_function("add 512", |b| b.iter(|| no_simd_sum(&create_array(50000))));
+    c.bench_function("add 512 simd", |b| {
+        b.iter(|| simd_sum(&create_array(50000)))
+    });
 }
 
 criterion_group!(benches, add_benchmark);

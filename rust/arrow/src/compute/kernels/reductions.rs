@@ -22,19 +22,16 @@
 //! `RUSTFLAGS="-C target-feature=+avx2"` for example.  See the documentation
 //! [here](https://doc.rust-lang.org/stable/core/arch/) for more information.
 
-
 #[cfg(feature = "simd")]
 use std::iter::Iterator;
-use std::ops::{Add, AddAssign};
+use std::ops::Add;
 
 use num::Zero;
 
-use crate::array::{Array, BooleanArray, PrimitiveArray};
+use crate::array::{Array, PrimitiveArray};
 #[cfg(feature = "simd")]
 use crate::compute::util::simd_load_set_invalid;
 use crate::datatypes::ArrowNumericType;
-use crate::error::{ArrowError, Result};
-
 
 //#[cfg(feature = "simd")]
 //struct SIMDIter<'a, T> where
@@ -78,28 +75,27 @@ use crate::error::{ArrowError, Result};
 //    }
 //}
 
-
 /// Returns the minimum value in the array, according to the natural order.
 pub fn min<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
-    where
-        T: ArrowNumericType,
+where
+    T: ArrowNumericType,
 {
     min_max_helper(array, |a, b| a < b)
 }
 
 /// Returns the maximum value in the array, according to the natural order.
 pub fn max<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
-    where
-        T: ArrowNumericType,
+where
+    T: ArrowNumericType,
 {
     min_max_helper(array, |a, b| a > b)
 }
 
 /// Helper function to perform min/max lambda function on values from a numeric array.
 fn min_max_helper<T, F>(array: &PrimitiveArray<T>, cmp: F) -> Option<T::Native>
-    where
-        T: ArrowNumericType,
-        F: Fn(T::Native, T::Native) -> bool,
+where
+    T: ArrowNumericType,
+    F: Fn(T::Native, T::Native) -> bool,
 {
     let mut n: Option<T::Native> = None;
     let data = array.data();
@@ -124,18 +120,34 @@ fn min_max_helper<T, F>(array: &PrimitiveArray<T>, cmp: F) -> Option<T::Native>
 ///
 /// Returns `None` if the array is empty or only contains null values.
 pub fn simd_sum<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
-    where
-        T: ArrowNumericType,
-        T::Native: Add<Output = T::Native> + Zero,
+where
+    T: ArrowNumericType,
+    T::Native: Add<Output = T::Native> + Zero,
 {
     let null_count = array.null_count();
     if array.len() == null_count || array.len() == 0 {
         None
     } else {
         let lanes = T::lanes();
-        let mut current_simd = unsafe {simd_load_set_invalid(array, array.data().null_bitmap(), 0, lanes, T::Native::zero())};
+        let mut current_simd = unsafe {
+            simd_load_set_invalid(
+                array,
+                array.data().null_bitmap(),
+                0,
+                lanes,
+                T::Native::zero(),
+            )
+        };
         for i in (lanes..array.len()).step_by(lanes) {
-            let next_simd = unsafe {simd_load_set_invalid(array, array.data().null_bitmap(), i, lanes, T::Native::zero())};
+            let next_simd = unsafe {
+                simd_load_set_invalid(
+                    array,
+                    array.data().null_bitmap(),
+                    i,
+                    lanes,
+                    T::Native::zero(),
+                )
+            };
             current_simd = T::bin_op(current_simd, next_simd, |a, b| a + b);
         }
         let mut partial_sum = T::Native::zero();
@@ -150,9 +162,9 @@ pub fn simd_sum<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
 ///
 /// Returns `None` if the array is empty or only contains null values.
 pub fn no_simd_sum<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
-    where
-        T: ArrowNumericType,
-        T::Native: Add<Output = T::Native>,
+where
+    T: ArrowNumericType,
+    T::Native: Add<Output = T::Native>,
 {
     let null_count = array.null_count();
 
@@ -181,9 +193,9 @@ pub fn no_simd_sum<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
 }
 
 pub fn sum<T>(array: &PrimitiveArray<T>) -> Option<T::Native>
-    where
-        T: ArrowNumericType,
-        T::Native: Add<Output = T::Native> + Zero
+where
+    T: ArrowNumericType,
+    T::Native: Add<Output = T::Native> + Zero,
 {
     #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
     return simd_sum(&array);
