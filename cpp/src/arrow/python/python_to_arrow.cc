@@ -1094,7 +1094,20 @@ Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
                                                                     strict_conversions));
       }
       return Status::OK();
-    case Type::STRUCT:
+    case Type::MAP:
+      // Define a MapConverter as a ListConverter that uses MapBuilder.value_builder
+      // to append struct of key/value pairs
+      if (from_pandas) {
+        *out = std::unique_ptr<SeqConverter>(
+            new ListConverter<MapType, NullCoding::PANDAS_SENTINELS>(
+                from_pandas, strict_conversions));
+      } else {
+        *out = std::unique_ptr<SeqConverter>(
+            new ListConverter<MapType, NullCoding::NONE_ONLY>(from_pandas,
+                                                               strict_conversions));
+      }
+      return Status::OK();
+   case Type::STRUCT:
       if (from_pandas) {
         *out = std::unique_ptr<SeqConverter>(
             new StructConverter<NullCoding::PANDAS_SENTINELS>(from_pandas,
