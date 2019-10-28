@@ -231,8 +231,11 @@ class ARROW_EXPORT PlasmaClient {
   /// \return The return status.
   Status Evict(int64_t num_bytes, int64_t& num_bytes_evicted);
 
-  /// Bump objects up in the LRU cache
+  /// Bump objects up in the LRU cache, i.e. treat them as recently accessed.
+  /// Objects that do not exist in the store will be ignored.
   ///
+  /// \param object_ids The IDs of the objects to bump.
+  /// \return The return status.
   Status Refresh(const std::vector<ObjectID>& object_ids);
 
   /// Compute the hash of an object in the object store.
