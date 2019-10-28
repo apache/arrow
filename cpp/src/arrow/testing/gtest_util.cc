@@ -173,6 +173,18 @@ std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>& 
   return record_batch;
 }
 
+std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
+                                     const std::vector<std::string>& json) {
+  std::vector<std::shared_ptr<RecordBatch>> batches;
+  for (const std::string& batch_json : json) {
+      batches.push_back(RecordBatchFromJSON(schema, batch_json));
+  }
+  std::shared_ptr<Table> table;
+  ABORT_NOT_OK(Table::FromRecordBatches(schema, batches, &table));
+
+  return table;
+}
+
 void AssertTablesEqual(const Table& expected, const Table& actual, bool same_chunk_layout,
                        bool combine_chunks) {
   ASSERT_EQ(expected.num_columns(), actual.num_columns());
