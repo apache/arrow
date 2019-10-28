@@ -52,6 +52,12 @@ def test_chunked_array_mismatch_types():
         pa.chunked_array([pa.array([1, 2]), pa.array(['foo', 'bar'])])
 
 
+def test_chunked_array_init_all_non_buffers():
+    # ARROW-7008
+    arr = pa.Array.from_buffers(pa.string(), 0, [None, None, None])
+    pa.chunked_array([arr])
+
+
 def test_chunked_array_str():
     data = [
         pa.array([1, 2, 3]),
