@@ -20,7 +20,6 @@ package org.apache.arrow.consumers;
 import java.io.IOException;
 
 import org.apache.arrow.util.AutoCloseables;
-import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.types.Types;
 import org.apache.avro.io.Decoder;
@@ -29,20 +28,17 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume unions type values from avro decoder.
  * Write the data to {@link org.apache.arrow.vector.complex.UnionVector}.
  */
-public class AvroUnionsConsumer implements Consumer<UnionVector> {
+public class AvroUnionsConsumer extends BaseAvroConsumer<UnionVector> {
 
   private Consumer[] delegates;
   private Types.MinorType[] types;
-
-  private UnionVector vector;
-  private int currentIndex;
 
   /**
    * Instantiate an AvroUnionConsumer.
    */
   public AvroUnionsConsumer(UnionVector vector, Consumer[] delegates, Types.MinorType[] types) {
 
-    this.vector = vector;
+    super(vector);
     this.delegates = delegates;
     this.types = types;
   }
@@ -63,34 +59,16 @@ public class AvroUnionsConsumer implements Consumer<UnionVector> {
   }
 
   @Override
-  public void addNull() {
-    currentIndex++;
-  }
-
-  @Override
-  public void setPosition(int index) {
-    currentIndex = index;
-  }
-
-  @Override
-  public FieldVector getVector() {
-    vector.setValueCount(currentIndex);
-    return this.vector;
-  }
-
-  @Override
   public void close() throws Exception {
-    vector.close();
+    super.close();
     AutoCloseables.close(delegates);
   }
 
   @Override
   public boolean resetValueVector(UnionVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
     for (int i = 0; i < delegates.length; i++) {
       delegates[i].resetValueVector(vector.getChildrenFromFields().get(i));
     }
-    return true;
+    return super.resetValueVector(vector);
   }
 }

@@ -19,7 +19,6 @@ package org.apache.arrow.consumers;
 
 import java.io.IOException;
 
-import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.avro.io.Decoder;
 
@@ -27,48 +26,17 @@ import org.apache.avro.io.Decoder;
  * Consumer which consume float type values from avro decoder.
  * Write the data to {@link Float4Vector}.
  */
-public class AvroFloatConsumer implements Consumer<Float4Vector> {
-
-  private Float4Vector vector;
-
-  private int currentIndex;
+public class AvroFloatConsumer extends BaseAvroConsumer<Float4Vector> {
 
   /**
    * Instantiate a AvroFloatConsumer.
    */
   public AvroFloatConsumer(Float4Vector vector) {
-    this.vector = vector;
+    super(vector);
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
     vector.setSafe(currentIndex++, decoder.readFloat());
-  }
-
-  @Override
-  public void addNull() {
-    currentIndex++;
-  }
-
-  @Override
-  public void setPosition(int index) {
-    currentIndex = index;
-  }
-
-  @Override
-  public FieldVector getVector() {
-    return this.vector;
-  }
-
-  @Override
-  public void close() throws Exception {
-    vector.close();
-  }
-
-  @Override
-  public boolean resetValueVector(Float4Vector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
-    return true;
   }
 }
