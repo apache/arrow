@@ -234,11 +234,13 @@ test_that("record_batch() handles data frame columns", {
 
 test_that("record_batch() handles data frame columns with schema spec", {
   tib <- tibble::tibble(x = 1:10, y = 1:10)
+  tib_float <- tib
+  tib_float$y <- as.numeric(tib_float$y)
   schema <- schema(a = int32(), b = struct(x = int16(), y = float64()))
   batch <- record_batch(a = 1:10, b = tib, schema = schema)
   expect_equal(batch$schema, schema)
   out <- as.data.frame(batch)
-  expect_equivalent(out, tibble::tibble(a = 1:10, b = tib))
+  expect_equivalent(out, tibble::tibble(a = 1:10, b = tib_float))
 
   schema <- schema(a = int32(), b = struct(x = int16(), y = utf8()))
   expect_error(record_batch(a = 1:10, b = tib, schema = schema))

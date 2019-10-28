@@ -373,7 +373,8 @@ class Converter_Struct : public Converter {
     rn[1] = -n;
     Rf_setAttrib(out, symbols::row_names, rn);
     Rf_setAttrib(out, R_NamesSymbol, colnames);
-    Rf_setAttrib(out, R_ClassSymbol, Rf_mkString("data.frame"));
+    Rf_setAttrib(out, R_ClassSymbol,
+                 Rcpp::CharacterVector::create("tbl_df", "tbl", "data.frame"));
     return out;
   }
 

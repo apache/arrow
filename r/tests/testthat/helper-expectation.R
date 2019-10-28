@@ -22,3 +22,16 @@ expect_vector <- function(x, y, ...) {
 expect_data_frame <- function(x, y, ...) {
   expect_equal(as.data.frame(x), y, ...)
 }
+
+expect_equivalent <- function(object, expected, ...) {
+  # HACK: dplyr includes an all.equal.tbl_df method that is causing failures.
+  # They look spurious, like:
+  # `Can't join on 'b' x 'b' because of incompatible types (tbl_df/tbl/data.frame / tbl_df/tbl/data.frame)`
+  if (tibble::is_tibble(object)) {
+    class(object) <- "data.frame"
+  }
+  if (tibble::is_tibble(expected)) {
+    class(expected) <- "data.frame"
+  }
+  testthat::expect_equivalent(object, expected, ...)
+}

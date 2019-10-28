@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+#' @include record-batch.R
 #' @title Table class
 #' @description A Table is a sequence of [chunked arrays][ChunkedArray]. They
 #' have a similar interface to [record batches][RecordBatch], but they can be

@@ -34,20 +34,21 @@ Imports:
     Rcpp (>= 1.0.1),
     rlang,
     tidyselect,
-    utils
+    utils,
+    vctrs
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 6.1.1
 VignetteBuilder: knitr
 Suggests:
     covr,
+    dplyr,
     fs,
     hms,
     knitr,
     lubridate,
     rmarkdown,
     testthat,
-    tibble,
-    vctrs
+    tibble
 Collate:
     'enums.R'
     'arrow-package.R'
@@ -62,6 +63,9 @@ Collate:
     'compute.R'
     'csv.R'
     'dictionary.R'
+    'record-batch.R'
+    'table.R'
+    'dplyr.R'
     'expression.R'
     'feather.R'
     'field.R'
@@ -76,11 +80,9 @@ Collate:
     'read-table.R'
     'record-batch-reader.R'
     'record-batch-writer.R'
-    'record-batch.R'
     'reexports-bit64.R'
     'reexports-tidyselect.R'
     'schema.R'
     'struct.R'
-    'table.R'
     'util.R'
     'write-arrow.R'

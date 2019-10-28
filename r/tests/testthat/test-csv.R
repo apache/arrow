@@ -23,14 +23,13 @@ test_that("Can read csv file", {
 
   write.csv(iris, tf, row.names = FALSE)
 
-  tab1 <- read_csv_arrow(tf, as_data_frame = FALSE)
-  tab2 <- read_csv_arrow(mmap_open(tf), as_data_frame = FALSE)
-  tab3 <- read_csv_arrow(ReadableFile$create(tf), as_data_frame = FALSE)
-
   iris$Species <- as.character(iris$Species)
   tab0 <- Table$create(!!!iris)
+  tab1 <- read_csv_arrow(tf, as_data_frame = FALSE)
   expect_equal(tab0, tab1)
+  tab2 <- read_csv_arrow(mmap_open(tf), as_data_frame = FALSE)
   expect_equal(tab0, tab2)
+  tab3 <- read_csv_arrow(ReadableFile$create(tf), as_data_frame = FALSE)
   expect_equal(tab0, tab3)
 })
 
@@ -39,14 +38,13 @@ test_that("read_csv_arrow(as_data_frame=TRUE)", {
   on.exit(unlink(tf))
 
   write.csv(iris, tf, row.names = FALSE)
+  iris$Species <- as.character(iris$Species)
 
   tab1 <- read_csv_arrow(tf, as_data_frame = TRUE)
-  tab2 <- read_csv_arrow(mmap_open(tf), as_data_frame = TRUE)
-  tab3 <- read_csv_arrow(ReadableFile$create(tf), as_data_frame = TRUE)
-
-  iris$Species <- as.character(iris$Species)
   expect_equivalent(iris, tab1)
+  tab2 <- read_csv_arrow(mmap_open(tf), as_data_frame = TRUE)
   expect_equivalent(iris, tab2)
+  tab3 <- read_csv_arrow(ReadableFile$create(tf), as_data_frame = TRUE)
   expect_equivalent(iris, tab3)
 })
 
