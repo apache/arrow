@@ -1319,12 +1319,6 @@ struct ValidateVisitor {
     using offset_type = typename ArrayType::offset_type;
 
     auto value_offsets = array.value_offsets();
-    if (array.length() && !value_offsets) {
-      return Status::Invalid("value_offsets_ was null");
-    }
-    if (array.length() == 0 && !value_offsets) {
-      // In the case of an empty array value_offset may be omitted.
-      return Status::OK();
     if (value_offsets == nullptr) {
       return array.length() == 0
         // In the case of an empty array value_offset may be omitted.
