@@ -1321,9 +1321,9 @@ struct ValidateVisitor {
     auto value_offsets = array.value_offsets();
     if (value_offsets == nullptr) {
       return array.length() == 0
-        // In the case of an empty array value_offset may be omitted.
-        ? Status::OK()
-        : Status::Invalid("value_offsets_ was null");
+                 // In the case of an empty array value_offset may be omitted.
+                 ? Status::OK()
+                 : Status::Invalid("value_offsets_ was null");
     }
     if (value_offsets->size() / static_cast<int>(sizeof(offset_type)) < array.length()) {
       return Status::Invalid("offset buffer size (bytes): ", value_offsets->size(),
