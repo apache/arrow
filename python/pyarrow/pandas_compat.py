@@ -410,8 +410,8 @@ def _get_columns_to_convert_given_schema(df, schema, preserve_index):
             col = df[name]
             is_index = False
         except KeyError:
-            if preserve_index is not False and name in df.index.names:
-                col = df.index.get_level_values(name)
+            if preserve_index is not False and _is_index_level(df, name):
+                col = _get_index_level(df, name)
                 if (preserve_index is None and
                         isinstance(col, _pandas_api.pd.RangeIndex)):
                     raise ValueError(
@@ -447,6 +447,24 @@ def _get_columns_to_convert_given_schema(df, schema, preserve_index):
 
     return (all_names, column_names, index_column_names, index_descriptors,
             index_levels, columns_to_convert, convert_fields)
+
+
+def _is_index_level(df, name):
+    if name in df.index.names:
+        return True
+    elif _is_generated_index_name(name):
+        return True
+    else:
+        return False
+
+
+def _get_index_level(df, name):
+    if name in df.index.names:
+        level = df.index.get_level_values(name)
+    else:
+        i = int(name.lstrip("__index_level_").rstrip("__"))
+        level = df.index.get_level_values(i)
+    return level
 
 
 def _get_range_index_descriptor(level):

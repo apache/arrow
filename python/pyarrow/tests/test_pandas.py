@@ -2873,6 +2873,27 @@ def test_table_from_pandas_schema_index_columns():
                             expected_schema=schema, expected=expected)
 
 
+def test_table_from_pandas_schema_index_columns__unnamed_index():
+    # ARROW-6999 - unnamed indices in specified schema
+    df = pd.DataFrame({'a': [1, 2, 3], 'b': [0.1, 0.2, 0.3]})
+
+    expected_schema = pa.schema([
+        ('a', pa.int64()),
+        ('b', pa.float64()),
+        ('__index_level_0__', pa.int64()),
+    ])
+
+    schema = pa.Schema.from_pandas(df, preserve_index=True)
+    table = pa.Table.from_pandas(df, preserve_index=True, schema=schema)
+    assert table.schema.remove_metadata().equals(expected_schema)
+
+    # non-RangeIndex (preserved by default)
+    df = pd.DataFrame({'a': [1, 2, 3], 'b': [0.1, 0.2, 0.3]}, index=[0, 1, 2])
+    schema = pa.Schema.from_pandas(df)
+    table = pa.Table.from_pandas(df, schema=schema)
+    assert table.schema.remove_metadata().equals(expected_schema)
+
+
 # ----------------------------------------------------------------------
 # RecordBatch, Table
 
