@@ -1445,6 +1445,51 @@ RcppExport SEXP _arrow_dataset___Dataset__create(SEXP sources_sexp, SEXP schm_se
 }
 #endif
 
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::dataset::ScannerBuilder> dataset___Dataset__NewScan(const std::shared_ptr<arrow::dataset::Dataset>& ds);
+RcppExport SEXP _arrow_dataset___Dataset__NewScan(SEXP ds_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Dataset>&>::type ds(ds_sexp);
+	return Rcpp::wrap(dataset___Dataset__NewScan(ds));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___Dataset__NewScan(SEXP ds_sexp){
+	Rf_error("Cannot call dataset___Dataset__NewScan(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::dataset::Scanner> dataset___ScannerBuilder__Finish(const std::shared_ptr<arrow::dataset::ScannerBuilder>& sb);
+RcppExport SEXP _arrow_dataset___ScannerBuilder__Finish(SEXP sb_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::ScannerBuilder>&>::type sb(sb_sexp);
+	return Rcpp::wrap(dataset___ScannerBuilder__Finish(sb));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___ScannerBuilder__Finish(SEXP sb_sexp){
+	Rf_error("Cannot call dataset___ScannerBuilder__Finish(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Table> dataset___Scanner__ToTable(const std::shared_ptr<arrow::dataset::Scanner>& scn);
+RcppExport SEXP _arrow_dataset___Scanner__ToTable(SEXP scn_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Scanner>&>::type scn(scn_sexp);
+	return Rcpp::wrap(dataset___Scanner__ToTable(scn));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___Scanner__ToTable(SEXP scn_sexp){
+	Rf_error("Cannot call dataset___Scanner__ToTable(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
 // datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 bool shared_ptr_is_null(SEXP xp);
@@ -5212,6 +5257,9 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___DSDiscovery__Finish", (DL_FUNC) &_arrow_dataset___DSDiscovery__Finish, 1}, 
 		{ "_arrow_dataset___DSDiscovery__Inspect", (DL_FUNC) &_arrow_dataset___DSDiscovery__Inspect, 1}, 
 		{ "_arrow_dataset___Dataset__create", (DL_FUNC) &_arrow_dataset___Dataset__create, 2}, 
+		{ "_arrow_dataset___Dataset__NewScan", (DL_FUNC) &_arrow_dataset___Dataset__NewScan, 1}, 
+		{ "_arrow_dataset___ScannerBuilder__Finish", (DL_FUNC) &_arrow_dataset___ScannerBuilder__Finish, 1}, 
+		{ "_arrow_dataset___Scanner__ToTable", (DL_FUNC) &_arrow_dataset___Scanner__ToTable, 1}, 
 		{ "_arrow_shared_ptr_is_null", (DL_FUNC) &_arrow_shared_ptr_is_null, 1}, 
 		{ "_arrow_unique_ptr_is_null", (DL_FUNC) &_arrow_unique_ptr_is_null, 1}, 
 		{ "_arrow_Int8__initialize", (DL_FUNC) &_arrow_Int8__initialize, 0}, 

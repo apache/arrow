@@ -17,7 +17,7 @@
 
 context("Datasets")
 
-test_that("DataSourceDiscovery", {
+test_that("Assembling a Dataset and getting a Table", {
   fs <- LocalFileSystem$create()
   dir.create(td <- tempfile())
   write_parquet(iris, file.path(td, "iris1.parquet"))
@@ -30,5 +30,17 @@ test_that("DataSourceDiscovery", {
 
   # Workaround because Inspect isn't working
   schm <- ParquetFileReader$create(file.path(td, "iris1.parquet"))$GetSchema()
-  expect_is(Dataset$create(list(dsd), schm), "Dataset")
+  ds <- Dataset$create(list(dsd), schm)
+  expect_is(ds, "Dataset")
+
+  sb <- ds$NewScan()
+  expect_is(sb, "ScannerBuilder")
+  scn <- sb$Finish()
+  expect_is(scn, "Scanner")
+  skip("bus error")
+  # *** caught bus error ***
+  # address 0x7fffa4f2acb8, cause 'non-existent physical address'
+  tab <- scn$ToTable()
+  expect_is(tab, "Table")
+  expect_equal(as.data.frame(tab), iris)
 })

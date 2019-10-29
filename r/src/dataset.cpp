@@ -79,4 +79,28 @@ std::shared_ptr<arrow::dataset::Dataset> dataset___Dataset__create(
   return std::make_shared<arrow::dataset::Dataset>(sources, schm);
 }
 
+// [[arrow::export]]
+std::shared_ptr<arrow::dataset::ScannerBuilder> dataset___Dataset__NewScan(
+  const std::shared_ptr<arrow::dataset::Dataset>& ds) {
+  std::unique_ptr<arrow::dataset::ScannerBuilder> out;
+  STOP_IF_NOT_OK(ds->NewScan(&out));
+  return out;
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::dataset::Scanner> dataset___ScannerBuilder__Finish(
+  const std::shared_ptr<arrow::dataset::ScannerBuilder>& sb) {
+  std::unique_ptr<arrow::dataset::Scanner> out;
+  STOP_IF_NOT_OK(sb->Finish(&out));
+  return out;
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Table> dataset___Scanner__ToTable(
+  const std::shared_ptr<arrow::dataset::Scanner>& scn) {
+  std::shared_ptr<arrow::Table> out;
+  STOP_IF_NOT_OK(scn->ToTable(&out));
+  return out;
+}
+
 #endif

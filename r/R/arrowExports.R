@@ -368,6 +368,18 @@ dataset___Dataset__create <- function(sources, schm){
     .Call(`_arrow_dataset___Dataset__create` , sources, schm)
 }
 
+dataset___Dataset__NewScan <- function(ds){
+    .Call(`_arrow_dataset___Dataset__NewScan` , ds)
+}
+
+dataset___ScannerBuilder__Finish <- function(sb){
+    .Call(`_arrow_dataset___ScannerBuilder__Finish` , sb)
+}
+
+dataset___Scanner__ToTable <- function(scn){
+    .Call(`_arrow_dataset___Scanner__ToTable` , scn)
+}
+
 shared_ptr_is_null <- function(xp){
     .Call(`_arrow_shared_ptr_is_null` , xp)
 }
