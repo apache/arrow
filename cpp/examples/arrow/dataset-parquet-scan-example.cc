@@ -27,36 +27,17 @@
 #include <arrow/dataset/filter.h>
 #include <arrow/dataset/scanner.h>
 #include <arrow/filesystem/localfs.h>
-#include <arrow/util/iterator.h>
-#include <arrow/util/task_group.h>
-#include <arrow/util/thread_pool.h>
 
 using arrow::field;
 using arrow::int16;
 using arrow::Schema;
 using arrow::Table;
 
-using arrow::internal::TaskGroup;
-using arrow::internal::ThreadPool;
+namespace fs = arrow::fs;
 
-using arrow::fs::FileSystem;
-using arrow::fs::LocalFileSystem;
-using arrow::fs::Selector;
+namespace ds = arrow::dataset;
 
-using arrow::dataset::Dataset;
-using arrow::dataset::DataSource;
-using arrow::dataset::DataSourceDiscovery;
-using arrow::dataset::DataSourceVector;
-using arrow::dataset::Expression;
-using arrow::dataset::FieldExpression;
-using arrow::dataset::FileFormat;
-using arrow::dataset::FileSystemDataSourceDiscovery;
-using arrow::dataset::ParquetFileFormat;
-using arrow::dataset::PartitionScheme;
-using arrow::dataset::Scanner;
-using arrow::dataset::ScannerBuilder;
-using arrow::dataset::ScanTask;
-using arrow::dataset::string_literals::operator"" _;
+using ds::string_literals::operator"" _;
 
 #define ABORT_ON_FAILURE(expr)                     \
   do {                                             \
@@ -67,30 +48,49 @@ using arrow::dataset::string_literals::operator"" _;
     }                                              \
   } while (0);
 
-std::shared_ptr<Dataset> GetDatasetFromPath(FileSystem* fs,
-                                            std::shared_ptr<FileFormat> format,
-                                            std::string path) {
+struct Configuration {
+  // Increase the ds::DataSet by repeating `repeat` times the ds::DataSource.
+  size_t repeat = 1;
+
+  // Indicates if the Scanner::ToTable should consume in parallel.
+  bool use_threads = true;
+
+  // Indicates to the Scan operator which columns are requested. This
+  // optimization avoid deserializing unneeded columns.
+  std::vector<std::string> projected_columns = {"pickup_at", "dropoff_at",
+                                                "total_amount"};
+
+  // Indicates the filter by which rows will be filtered. This optimization can
+  // make use of partition information and/or file metadata if possible.
+  std::shared_ptr<ds::Expression> filter = ("total_amount"_ > 1000.0f).Copy();
+} conf;
+
+std::shared_ptr<ds::Dataset> GetDatasetFromPath(fs::FileSystem* fs,
+                                                std::shared_ptr<ds::FileFormat> format,
+                                                std::string path) {
   // Find all files under `path`
-  Selector s;
+  fs::Selector s;
   s.base_dir = path;
   s.recursive = true;
 
-  std::shared_ptr<DataSourceDiscovery> discovery;
-  ABORT_ON_FAILURE(FileSystemDataSourceDiscovery::Make(fs, s, format, &discovery));
+  std::shared_ptr<ds::DataSourceDiscovery> discovery;
+  ABORT_ON_FAILURE(ds::FileSystemDataSourceDiscovery::Make(fs, s, format, &discovery));
 
   std::shared_ptr<Schema> inspect_schema;
   ABORT_ON_FAILURE(discovery->Inspect(&inspect_schema));
 
-  std::shared_ptr<DataSource> source;
+  std::shared_ptr<ds::DataSource> source;
   ABORT_ON_FAILURE(discovery->Finish(&source));
 
-  return std::make_shared<Dataset>(DataSourceVector{source}, inspect_schema);
+  return std::make_shared<ds::Dataset>(ds::DataSourceVector{conf.repeat, source},
+                                       inspect_schema);
 }
 
-std::shared_ptr<Scanner> GetScannerFromDataset(std::shared_ptr<Dataset> dataset,
-                                               std::vector<std::string> columns,
-                                               std::shared_ptr<Expression> filter) {
-  std::unique_ptr<ScannerBuilder> scanner_builder;
+std::shared_ptr<ds::Scanner> GetScannerFromDataset(std::shared_ptr<ds::Dataset> dataset,
+                                                   std::vector<std::string> columns,
+                                                   std::shared_ptr<ds::Expression> filter,
+                                                   bool use_threads) {
+  std::unique_ptr<ds::ScannerBuilder> scanner_builder;
   ABORT_ON_FAILURE(dataset->NewScan(&scanner_builder));
 
   if (!columns.empty()) {
@@ -101,21 +101,23 @@ std::shared_ptr<Scanner> GetScannerFromDataset(std::shared_ptr<Dataset> dataset,
     ABORT_ON_FAILURE(scanner_builder->Filter(filter));
   }
 
-  std::unique_ptr<Scanner> scanner;
+  ABORT_ON_FAILURE(scanner_builder->UseThreads(use_threads));
+
+  std::unique_ptr<ds::Scanner> scanner;
   ABORT_ON_FAILURE(scanner_builder->Finish(&scanner));
 
   return scanner;
 }
 
-std::shared_ptr<Table> GetTableFromScanner(std::shared_ptr<Scanner> scanner) {
+std::shared_ptr<Table> GetTableFromScanner(std::shared_ptr<ds::Scanner> scanner) {
   std::shared_ptr<Table> table;
   ABORT_ON_FAILURE(scanner->ToTable(&table));
   return table;
 }
 
 int main(int argc, char** argv) {
-  auto fs = std::make_shared<LocalFileSystem>();
-  auto format = std::make_shared<ParquetFileFormat>();
+  auto fs = std::make_shared<fs::LocalFileSystem>();
+  auto format = std::make_shared<ds::ParquetFileFormat>();
 
   if (argc != 2) {
     // Fake success for CI purposes.
@@ -124,11 +126,8 @@ int main(int argc, char** argv) {
 
   auto dataset = GetDatasetFromPath(fs.get(), format, argv[1]);
 
-  // Limit the number of returned columns
-  std::vector<std::string> columns{"pickup_at", "dropoff_at", "total_amount"};
-  // Filter the rows on a predicate
-  auto filter = ("total_amount"_ > 1000.0f).Copy();
-  auto scanner = GetScannerFromDataset(dataset, columns, filter);
+  auto scanner = GetScannerFromDataset(dataset, conf.projected_columns, conf.filter,
+                                       conf.use_threads);
 
   auto table = GetTableFromScanner(scanner);
   std::cout << "Table size: " << table->num_rows() << "\n";
