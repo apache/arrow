@@ -2643,6 +2643,26 @@ public class TestValueVector {
   }
 
   @Test
+  public void testNullHashCode() {
+    try (IntVector intVec = new IntVector("int vector", allocator);
+    VarCharVector varChVec = new VarCharVector("var char vector", allocator)) {
+      intVec.allocateNew(1);
+      intVec.setValueCount(1);
+      varChVec.allocateNew(100, 1);
+      varChVec.setValueCount(1);
+
+      intVec.set(0, 100);
+      varChVec.set(0, "abc".getBytes());
+
+      intVec.setNull(0);
+      varChVec.setNull(0);
+
+      assertEquals(0, intVec.hashCode(0));
+      assertEquals(0, varChVec.hashCode(0));
+    }
+  }
+
+  @Test
   public void testToString() {
     try (final IntVector intVector = new IntVector("intVector", allocator);
          final ListVector listVector = ListVector.empty("listVector", allocator);

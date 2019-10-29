@@ -1373,6 +1373,9 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
 
   @Override
   public int hashCode(int index, ArrowBufHasher hasher) {
+    if (isNull(index)) {
+      return 0;
+    }
     final int start = getStartOffset(index);
     final int end = getStartOffset(index + 1);
     return ByteFunctionHelpers.hash(hasher, this.getDataBuffer(), start, end);
