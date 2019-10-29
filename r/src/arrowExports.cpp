@@ -1383,6 +1383,68 @@ RcppExport SEXP _arrow_dataset___SimpleDataFragment__create(SEXP batches_sexp){
 }
 #endif
 
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::dataset::DataSourceDiscovery> dataset___FSDSDiscovery__Make(const std::shared_ptr<arrow::fs::FileSystem>& fs, const std::shared_ptr<arrow::fs::Selector>& selector);
+RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make(SEXP fs_sexp, SEXP selector_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type fs(fs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::Selector>&>::type selector(selector_sexp);
+	return Rcpp::wrap(dataset___FSDSDiscovery__Make(fs, selector));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make(SEXP fs_sexp, SEXP selector_sexp){
+	Rf_error("Cannot call dataset___FSDSDiscovery__Make(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::dataset::DataSource> dataset___DSDiscovery__Finish(const std::shared_ptr<arrow::dataset::DataSourceDiscovery>& discovery);
+RcppExport SEXP _arrow_dataset___DSDiscovery__Finish(SEXP discovery_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::DataSourceDiscovery>&>::type discovery(discovery_sexp);
+	return Rcpp::wrap(dataset___DSDiscovery__Finish(discovery));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___DSDiscovery__Finish(SEXP discovery_sexp){
+	Rf_error("Cannot call dataset___DSDiscovery__Finish(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Schema> dataset___DSDiscovery__Inspect(const std::shared_ptr<arrow::dataset::DataSourceDiscovery>& discovery);
+RcppExport SEXP _arrow_dataset___DSDiscovery__Inspect(SEXP discovery_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::DataSourceDiscovery>&>::type discovery(discovery_sexp);
+	return Rcpp::wrap(dataset___DSDiscovery__Inspect(discovery));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___DSDiscovery__Inspect(SEXP discovery_sexp){
+	Rf_error("Cannot call dataset___DSDiscovery__Inspect(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::dataset::Dataset> dataset___Dataset__create(const std::vector<std::shared_ptr<arrow::dataset::DataSource>>& sources, const std::shared_ptr<arrow::Schema>& schm);
+RcppExport SEXP _arrow_dataset___Dataset__create(SEXP sources_sexp, SEXP schm_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::vector<std::shared_ptr<arrow::dataset::DataSource>>&>::type sources(sources_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
+	return Rcpp::wrap(dataset___Dataset__create(sources, schm));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___Dataset__create(SEXP sources_sexp, SEXP schm_sexp){
+	Rf_error("Cannot call dataset___Dataset__create(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
 // datatype.cpp
 #if defined(ARROW_R_WITH_ARROW)
 bool shared_ptr_is_null(SEXP xp);
@@ -5146,6 +5208,10 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___DataFragment__splittable", (DL_FUNC) &_arrow_dataset___DataFragment__splittable, 1}, 
 		{ "_arrow_dataset___DataFragment__scan_options", (DL_FUNC) &_arrow_dataset___DataFragment__scan_options, 1}, 
 		{ "_arrow_dataset___SimpleDataFragment__create", (DL_FUNC) &_arrow_dataset___SimpleDataFragment__create, 1}, 
+		{ "_arrow_dataset___FSDSDiscovery__Make", (DL_FUNC) &_arrow_dataset___FSDSDiscovery__Make, 2}, 
+		{ "_arrow_dataset___DSDiscovery__Finish", (DL_FUNC) &_arrow_dataset___DSDiscovery__Finish, 1}, 
+		{ "_arrow_dataset___DSDiscovery__Inspect", (DL_FUNC) &_arrow_dataset___DSDiscovery__Inspect, 1}, 
+		{ "_arrow_dataset___Dataset__create", (DL_FUNC) &_arrow_dataset___Dataset__create, 2}, 
 		{ "_arrow_shared_ptr_is_null", (DL_FUNC) &_arrow_shared_ptr_is_null, 1}, 
 		{ "_arrow_unique_ptr_is_null", (DL_FUNC) &_arrow_unique_ptr_is_null, 1}, 
 		{ "_arrow_Int8__initialize", (DL_FUNC) &_arrow_Int8__initialize, 0}, 

@@ -352,6 +352,22 @@ dataset___SimpleDataFragment__create <- function(batches){
     .Call(`_arrow_dataset___SimpleDataFragment__create` , batches)
 }
 
+dataset___FSDSDiscovery__Make <- function(fs, selector){
+    .Call(`_arrow_dataset___FSDSDiscovery__Make` , fs, selector)
+}
+
+dataset___DSDiscovery__Finish <- function(discovery){
+    .Call(`_arrow_dataset___DSDiscovery__Finish` , discovery)
+}
+
+dataset___DSDiscovery__Inspect <- function(discovery){
+    .Call(`_arrow_dataset___DSDiscovery__Inspect` , discovery)
+}
+
+dataset___Dataset__create <- function(sources, schm){
+    .Call(`_arrow_dataset___Dataset__create` , sources, schm)
+}
+
 shared_ptr_is_null <- function(xp){
     .Call(`_arrow_shared_ptr_is_null` , xp)
 }

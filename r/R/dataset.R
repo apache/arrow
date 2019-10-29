@@ -34,3 +34,26 @@ DataFragment <- R6Class("DataFragment", inherit = Object,
     scan_options = function() shared_ptr(ScanOptions, dataset___DataFragment__scan_options(self))
   )
 )
+
+#' @export
+Dataset <- R6Class("Dataset", inherit = Object,
+  public = list()
+)
+Dataset$create <- function(sources, schema) {
+  shared_ptr(Dataset, dataset___Dataset__create(sources, schema))
+}
+
+#' @export
+DataSource <- R6Class("DataSource", inherit = Object,
+  public = list()
+)
+
+FileSystemDataSourceDiscovery <- R6Class("FileSystemDataSourceDiscovery", inherit = Object,
+  public = list(
+    Finish = function() shared_ptr(DataSource, dataset___DSDiscovery__Finish(self)),
+    Inspect = function() shared_ptr(Schema, dataset___DSDiscovery__Inspect(self))
+  )
+)
+FileSystemDataSourceDiscovery$create <- function(fs, selector) {
+  shared_ptr(FileSystemDataSourceDiscovery, dataset___FSDSDiscovery__Make(fs, selector))
+}
