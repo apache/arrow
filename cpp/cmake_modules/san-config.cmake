@@ -35,19 +35,22 @@ endif()
 # - disable 'alignment' because unaligned access is really OK on Nehalem and we do it
 #   all over the place.
 # - disable 'function' because it appears to give a false positive https://github.com/google/sanitizers/issues/911
+#   Note: GCC does not support the 'function' flag.
 if(${ARROW_USE_UBSAN})
-  if(NOT
-     (("${COMPILER_FAMILY}" STREQUAL "clang")
-      OR ("${COMPILER_FAMILY}"
-          STREQUAL
-          "gcc"
-          AND "${COMPILER_VERSION}" VERSION_GREATER "4.9")))
-    message(SEND_ERROR "Cannot use UBSAN without clang or gcc >= 4.9")
+  if("${COMPILER_FAMILY}" STREQUAL "clang")
+    set(
+      CMAKE_CXX_FLAGS
+      "${CMAKE_CXX_FLAGS} -fsanitize=undefined -fno-sanitize=alignment,vptr,function -fno-sanitize-recover=all"
+      )
+  elseif("${COMPILER_FAMILY}" STREQUAL "gcc"
+         AND "${COMPILER_VERSION}" VERSION_GREATER_EQUAL "5.1")
+    set(
+      CMAKE_CXX_FLAGS
+      "${CMAKE_CXX_FLAGS} -fsanitize=undefined -fno-sanitize=alignment,vptr -fno-sanitize-recover=all"
+      )
+  else()
+    message(SEND_ERROR "Cannot use UBSAN without clang or gcc >= 5.1")
   endif()
-  set(
-    CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS} -fsanitize=undefined -fno-sanitize=alignment,vptr,function -fno-sanitize-recover=all"
-    )
 endif()
 
 # Flag to enable thread sanitizer (clang or gcc 4.8)
