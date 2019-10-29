@@ -585,7 +585,7 @@ test_wheels() {
   else
     local filter_regex=.*manylinux.*
   fi
-  
+
   conda create -yq -n py3-base python=3.7
   conda activate py3-base
 
