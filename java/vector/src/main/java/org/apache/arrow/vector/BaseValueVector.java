@@ -19,12 +19,15 @@ package org.apache.arrow.vector;
 
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.ReferenceManager;
 import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
+import org.apache.arrow.vector.util.OversizedAllocationException;
 import org.apache.arrow.vector.util.TransferPair;
 import org.apache.arrow.vector.util.ValueVectorUtility;
 import org.slf4j.Logger;
@@ -51,9 +54,20 @@ public abstract class BaseValueVector implements ValueVector {
   public static final int INITIAL_VALUE_ALLOCATION = 3970;
 
   protected final BufferAllocator allocator;
+  protected ArrowBuf validityBuffer;
+  protected int validityAllocationSizeInBytes;
+  protected int nullCount;
 
+  /**
+   * Constructs a new instance.
+   *
+   * @param allocator allocator for memory management.
+   */
   protected BaseValueVector(BufferAllocator allocator) {
+    this.validityBuffer = allocator.getEmpty();
     this.allocator = Preconditions.checkNotNull(allocator, "allocator cannot be null");
+    this.validityAllocationSizeInBytes = getValidityBufferSizeFromCount(INITIAL_VALUE_ALLOCATION);
+    this.nullCount = -1;
   }
 
   @Override
@@ -112,11 +126,278 @@ public abstract class BaseValueVector implements ValueVector {
     }
   }
 
+
+  /**
+   * Load the validityBuffer this vector with provided source buffer.
+   * The caller manages the source buffers and populates them before invoking
+   * this method.
+   *
+   * @param fieldNode  the fieldNode indicating the value count
+   */
+  public void loadValidityBuffer(final ArrowFieldNode fieldNode, ArrowBuf bitBuffer) {
+    validityBuffer.getReferenceManager().release();
+    validityBuffer = bitBuffer.getReferenceManager().retain(bitBuffer, allocator);
+    this.nullCount = fieldNode.getNullCount();
+  }
+
+  public void add(List<ArrowBuf> list) {
+    list.add(validityBuffer);
+  }
+
+  public void setValidityBufferReaderIndex(int index) {
+    validityBuffer.readerIndex(index);
+  }
+
+  public void setValidityBufferWriterIndex(int index) {
+    validityBuffer.writerIndex(index);
+  }
+
+  public void markValidityBitToOne(int index) {
+    BitVectorHelper.setBit(validityBuffer, index);
+  }
+
+  public void markValidityBitToZero(int index) {
+    BitVectorHelper.unsetBit(validityBuffer, index);
+  }
+
+  public void setValidityBit(int index, int value) {
+    BitVectorHelper.setValidityBit(validityBuffer, index, value);
+  }
+
+  void setBitMaskedByte(int byteIndex, byte bitMask) {
+    BitVectorHelper.setBitMaskedByte(validityBuffer, byteIndex, bitMask);
+  }
+
+  void setValidityBufferByte(int byteIndex, int bitMask) {
+    validityBuffer.setByte(byteIndex, bitMask);
+  }
+
+  public void setValidityAllocationSizeInBytes(int size) {
+    this.validityAllocationSizeInBytes = size;
+  }
+
+
+  /**
+   * During splitAndTransfer, if we splitting from a random position within a byte,
+   * we can't just slice the source buffer so we have to explicitly allocate the
+   * validityBuffer of the target vector. This is unlike the databuffer which we can
+   * always slice for the target vector.
+   */
+  public void allocateValidityBuffer(final long size) {
+    final int curSize = (int) size;
+    validityBuffer = allocator.buffer(curSize);
+    validityBuffer.readerIndex(0);
+    validityAllocationSizeInBytes = curSize;
+    validityBuffer.setZero(0, validityBuffer.capacity());
+  }
+
+  /**
+   * Get the memory address of buffer that manages the validity
+   * (NULL or NON-NULL nature) of elements in the vector.
+   * @return starting address of the buffer
+   */
+  public long getValidityBufferAddress() {
+    return (validityBuffer.memoryAddress());
+  }
+
+  /**
+   * Get buffer that manages the validity (NULL or NON-NULL nature) of
+   * elements in the vector. Consider it as a buffer for internal bit vector
+   * data structure.
+   * @return buffer
+   */
+  public ArrowBuf getValidityBuffer() {
+    return validityBuffer;
+  }
+
+  public void setValidityBuffer(ArrowBuf validityBuffer) {
+    this.validityBuffer.getReferenceManager().release();
+    this.validityBuffer = validityBuffer;
+  }
+
+  public int getValidityBufferCapacity() {
+    return this.validityBuffer.capacity();
+  }
+
+  public void transferValidityBuffer(BaseValueVector target) {
+    target.validityBuffer = transferBuffer(validityBuffer, target.allocator);
+  }
+
+  /* zero out the validity buffer */
+  public void initValidityBuffer() {
+    validityBuffer.setZero(0, validityBuffer.capacity());
+  }
+
+  public void clearValidityBuffer() {
+    this.validityBuffer = releaseBuffer(validityBuffer);
+  }
+
+  /**
+   * Validity buffer has multiple cases of split and transfer depending on
+   * the starting position of the source index.
+   */
+  public void splitAndTransferValidityBuffer(int startIndex, int length, int valueCount,
+                                                   BaseValueVector target) {
+    assert startIndex + length <= valueCount;
+    int firstByteSource = BitVectorHelper.byteIndex(startIndex);
+    int lastByteSource = BitVectorHelper.byteIndex(valueCount - 1);
+    int byteSizeTarget = getValidityBufferSizeFromCount(length);
+    int offset = startIndex % 8;
+
+    if (length > 0) {
+      if (offset == 0) {
+        /* slice */
+        if (target.validityBuffer != null) {
+          target.validityBuffer.release();
+        }
+        target.validityBuffer = validityBuffer.slice(firstByteSource, byteSizeTarget);
+        target.validityBuffer.retain(1);
+      } else {
+        /* Copy data
+         * When the first bit starts from the middle of a byte (offset != 0),
+         * copy data from src BitVector.
+         * Each byte in the target is composed by a part in i-th byte,
+         * another part in (i+1)-th byte.
+         */
+        target.allocateValidityBuffer(byteSizeTarget);
+
+        for (int i = 0; i < byteSizeTarget - 1; i++) {
+          byte b1 = BitVectorHelper.getBitsFromCurrentByte(this.validityBuffer,
+                  firstByteSource + i, offset);
+          byte b2 = BitVectorHelper.getBitsFromNextByte(this.validityBuffer,
+                  firstByteSource + i + 1, offset);
+
+          target.validityBuffer.setByte(i, (b1 + b2));
+        }
+
+        /* Copying the last piece is done in the following manner:
+         * if the source vector has 1 or more bytes remaining, we copy
+         * the last piece as a byte formed by shifting data
+         * from the current byte and the next byte.
+         *
+         * if the source vector has no more bytes remaining
+         * (we are at the last byte), we copy the last piece as a byte
+         * by shifting data from the current byte.
+         */
+        if ((firstByteSource + byteSizeTarget - 1) < lastByteSource) {
+          byte b1 = BitVectorHelper.getBitsFromCurrentByte(this.validityBuffer,
+                  firstByteSource + byteSizeTarget - 1, offset);
+          byte b2 = BitVectorHelper.getBitsFromNextByte(this.validityBuffer,
+                  firstByteSource + byteSizeTarget, offset);
+
+          target.validityBuffer.setByte(byteSizeTarget - 1, b1 + b2);
+        } else {
+          byte b1 = BitVectorHelper.getBitsFromCurrentByte(this.validityBuffer,
+                  firstByteSource + byteSizeTarget - 1, offset);
+          target.validityBuffer.setByte(byteSizeTarget - 1, b1);
+        }
+      }
+    }
+  }
+
+  /**
+   * Check if element at given index is null.
+   *
+   * @param index  position of element
+   * @return true if element at given index is null, false otherwise
+   */
+  @Override
+  public boolean isNull(int index) {
+    return (isSet(index) == 0);
+  }
+
+  /**
+   * Same as {@link #isNull(int)}.
+   *
+   * @param index  position of element
+   * @return 1 if element at given index is not null, 0 otherwise
+   */
+  public int isSet(int index) {
+    if (nullCount == 0 && index < getValueCount()) {
+      return 1;
+    }
+    final int byteIndex = index >> 3;
+    final byte b = validityBuffer.getByte(byteIndex);
+    final int bitIndex = index & 7;
+    return (b >> bitIndex) & 0x01;
+  }
+
+  public void releaseValidityBuffer() {
+    validityBuffer = releaseBuffer(validityBuffer);
+  }
+
+  public int getValidityBufferValueCapacity() {
+    return validityBuffer.capacity() * 8;
+  }
+
+  public void setReaderIndex(int index) {
+    validityBuffer.readerIndex(index);
+  }
+
+  public void setWriterIndex(int index) {
+    validityBuffer.writerIndex(index);
+  }
+
+  public int  getValidityAllocationSizeInBytes() {
+    return validityAllocationSizeInBytes;
+  }
+
+  public void setNullCount() {
+    this.setNullCount(getNullCount());
+  }
+
+  public void setNullCount(int nullCount) {
+    this.nullCount = nullCount;
+  }
+
+  @Override
+  public int getNullCount() {
+    if (nullCount == -1) {
+      return BitVectorHelper.getNullCount(validityBuffer, getValueCount());
+    }
+    return this.nullCount;
+  }
+
+
+  /* reallocate the validity buffer */
+  protected void reallocValidityBuffer() {
+    final int currentBufferCapacity = validityBuffer.capacity();
+    long baseSize = validityAllocationSizeInBytes;
+
+    if (baseSize < (long) currentBufferCapacity) {
+      baseSize = (long) currentBufferCapacity;
+    }
+
+    long newAllocationSize = baseSize * 2L;
+    newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
+    assert newAllocationSize >= 1;
+
+    if (newAllocationSize > MAX_ALLOCATION_SIZE) {
+      throw new OversizedAllocationException("Unable to expand the buffer");
+    }
+
+    final ArrowBuf newBuf = allocator.buffer((int) newAllocationSize);
+    newBuf.setBytes(0, validityBuffer, 0, currentBufferCapacity);
+    newBuf.setZero(currentBufferCapacity, newBuf.capacity() - currentBufferCapacity);
+    validityBuffer.getReferenceManager().release(1);
+    validityBuffer = newBuf;
+    validityAllocationSizeInBytes = (int) newAllocationSize;
+  }
+
+  protected void reallocValidityBuffer(ArrowBuf newValidityBuffer) {
+    newValidityBuffer.setBytes(0, validityBuffer, 0, validityBuffer.capacity());
+    newValidityBuffer.setZero(validityBuffer.capacity(), newValidityBuffer.capacity() - validityBuffer.capacity());
+    validityBuffer.getReferenceManager().release();
+    validityBuffer = newValidityBuffer;
+  }
+
   protected ArrowBuf releaseBuffer(ArrowBuf buffer) {
     buffer.getReferenceManager().release();
     buffer = allocator.getEmpty();
     return buffer;
   }
+
+
 
   /* number of bytes for the validity buffer for the given valueCount */
   protected static int getValidityBufferSizeFromCount(final int valueCount) {

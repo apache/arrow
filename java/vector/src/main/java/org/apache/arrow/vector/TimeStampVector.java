@@ -96,7 +96,7 @@ public abstract class TimeStampVector extends BaseFixedWidthVector {
    * @param value   value of element
    */
   public void set(int index, long value) {
-    BitVectorHelper.setBit(validityBuffer, index);
+    markValidityBitToOne(index);
     setValue(index, value);
   }
 
@@ -125,7 +125,7 @@ public abstract class TimeStampVector extends BaseFixedWidthVector {
     if (isSet > 0) {
       set(index, value);
     } else {
-      BitVectorHelper.unsetBit(validityBuffer, index);
+      markValidityBitToZero(index);
     }
   }
 

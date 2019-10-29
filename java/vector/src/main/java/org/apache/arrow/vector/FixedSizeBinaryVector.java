@@ -166,7 +166,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
     assert index >= 0;
     Preconditions.checkNotNull(value, "expecting a valid byte array");
     assert byteWidth <= value.length;
-    BitVectorHelper.setBit(validityBuffer, index);
+    markValidityBitToOne(index);
     valueBuffer.setBytes(index * byteWidth, value, 0, byteWidth);
   }
 
@@ -186,7 +186,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
     if (isSet > 0) {
       set(index, value);
     } else {
-      BitVectorHelper.unsetBit(validityBuffer, index);
+      markValidityBitToZero(index);
     }
   }
 
@@ -204,13 +204,13 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
   public void set(int index, ArrowBuf buffer) {
     assert index >= 0;
     assert byteWidth <= buffer.capacity();
-    BitVectorHelper.setBit(validityBuffer, index);
+    markValidityBitToOne(index);
     valueBuffer.setBytes(index * byteWidth, buffer, 0, byteWidth);
   }
 
   /**
    * Same as {@link #set(int, ArrowBuf)} except that it handles the
-   * case when index is greater than or equal to existing
+   * case when index is greater than or equal to existingm
    * value capacity {@link #getValueCapacity()}.
    *
    * @param index  position of element
@@ -231,7 +231,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
     if (isSet > 0) {
       set(index, buffer);
     } else {
-      BitVectorHelper.unsetBit(validityBuffer, index);
+      markValidityBitToZero(index);
     }
   }
 
@@ -287,7 +287,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
     } else if (holder.isSet > 0) {
       set(index, holder.buffer);
     } else {
-      BitVectorHelper.unsetBit(validityBuffer, index);
+      markValidityBitToZero(index);
     }
   }
 

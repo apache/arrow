@@ -120,7 +120,7 @@ public final class BitVector extends BaseFixedWidthVector {
    */
   @Override
   public int getValueCapacity() {
-    return validityBuffer.capacity() * 8;
+    return getValidityBufferCapacity() * 8;
   }
 
   /**
@@ -160,15 +160,14 @@ public final class BitVector extends BaseFixedWidthVector {
   public void splitAndTransferTo(int startIndex, int length, BaseFixedWidthVector target) {
     compareTypes(target, "splitAndTransferTo");
     target.clear();
-    target.validityBuffer = splitAndTransferBuffer(startIndex, length, target,
-            validityBuffer, target.validityBuffer);
-    target.valueBuffer = splitAndTransferBuffer(startIndex, length, target,
+    splitAndTransferValidityBuffer(startIndex, length, valueCount, target);
+    target.valueBuffer = splitAndTransferValueBuffer(startIndex, length, target,
             valueBuffer, target.valueBuffer);
 
     target.setValueCount(length);
   }
 
-  private ArrowBuf splitAndTransferBuffer(
+  private ArrowBuf splitAndTransferValueBuffer(
       int startIndex,
       int length,
       BaseFixedWidthVector target,
@@ -303,10 +302,10 @@ public final class BitVector extends BaseFixedWidthVector {
     Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
     boolean fromIsSet = BitVectorHelper.get(from.getValidityBuffer(), fromIndex) != 0;
     if (fromIsSet) {
-      BitVectorHelper.setBit(validityBuffer, thisIndex);
+      setValidityBit(thisIndex, 1);
       BitVectorHelper.setValidityBit(valueBuffer, thisIndex, ((BitVector) from).getBit(fromIndex));
     } else {
-      BitVectorHelper.unsetBit(validityBuffer, thisIndex);
+      setValidityBit(thisIndex, 0);
     }
   }
 
@@ -324,7 +323,7 @@ public final class BitVector extends BaseFixedWidthVector {
    * @param value value of element
    */
   public void set(int index, int value) {
-    BitVectorHelper.setBit(validityBuffer, index);
+    markValidityBitToOne(index);
     if (value != 0) {
       BitVectorHelper.setBit(valueBuffer, index);
     } else {
@@ -344,14 +343,14 @@ public final class BitVector extends BaseFixedWidthVector {
     if (holder.isSet < 0) {
       throw new IllegalArgumentException();
     } else if (holder.isSet > 0) {
-      BitVectorHelper.setBit(validityBuffer, index);
+      markValidityBitToOne(index);
       if (holder.value != 0) {
         BitVectorHelper.setBit(valueBuffer, index);
       } else {
         BitVectorHelper.unsetBit(valueBuffer, index);
       }
     } else {
-      BitVectorHelper.unsetBit(validityBuffer, index);
+      setValidityBit(index, 0);
     }
   }
 
@@ -362,11 +361,11 @@ public final class BitVector extends BaseFixedWidthVector {
    * @param holder data holder for value of element
    */
   public void set(int index, BitHolder holder) {
-    BitVectorHelper.setBit(validityBuffer, index);
+    markValidityBitToOne(index);
     if (holder.value != 0) {
       BitVectorHelper.setBit(valueBuffer, index);
     } else {
-      BitVectorHelper.unsetBit(valueBuffer, index);
+      setValidityBit(index, 0);
     }
   }
 
@@ -421,7 +420,7 @@ public final class BitVector extends BaseFixedWidthVector {
     if (isSet > 0) {
       set(index, value);
     } else {
-      BitVectorHelper.unsetBit(validityBuffer, index);
+      setValidityBit(index, 0);
     }
   }
 
@@ -445,8 +444,8 @@ public final class BitVector extends BaseFixedWidthVector {
    * @param index position of element
    */
   public void setToOne(int index) {
-    BitVectorHelper.setBit(validityBuffer, index);
-    BitVectorHelper.setBit(valueBuffer, index);
+    markValidityBitToOne(index);
+    BitVectorHelper.setValidityBitToOne(valueBuffer, index);
   }
 
   /**
@@ -488,26 +487,27 @@ public final class BitVector extends BaseFixedWidthVector {
       for (int i = startByteBitIndex; i < endBytebitIndex; ++i) {
         bitMask |= (byte) (1L << i);
       }
-      BitVectorHelper.setBitMaskedByte(validityBuffer, startByteIndex, bitMask);
+      setBitMaskedByte(startByteIndex, bitMask);
       BitVectorHelper.setBitMaskedByte(valueBuffer, startByteIndex, bitMask);
     } else {
       // fill in first byte (if it's not full)
       if (startByteBitIndex != 0) {
         final byte bitMask = (byte) (0xFFL << startByteBitIndex);
-        BitVectorHelper.setBitMaskedByte(validityBuffer, startByteIndex, bitMask);
+        setBitMaskedByte(startByteIndex, bitMask);
         BitVectorHelper.setBitMaskedByte(valueBuffer, startByteIndex, bitMask);
         ++startByteIndex;
       }
 
       // fill in one full byte at a time
-      validityBuffer.setOne(startByteIndex, endByteIndex - startByteIndex);
-      valueBuffer.setOne(startByteIndex, endByteIndex - startByteIndex);
-
+      for (int i = startByteIndex; i < endByteIndex; i++) {
+        setValidityBufferByte(i, 0xFF);
+        valueBuffer.setByte(i, 0xFF);
+      }
       // fill in the last byte (if it's not full)
       if (endBytebitIndex != 0) {
         final int byteIndex = BitVectorHelper.byteIndex(lastBitIndex - endBytebitIndex);
         final byte bitMask = (byte) (0xFFL >>> ((8 - endBytebitIndex) & 7));
-        BitVectorHelper.setBitMaskedByte(validityBuffer, byteIndex, bitMask);
+        setBitMaskedByte(byteIndex, bitMask);
         BitVectorHelper.setBitMaskedByte(valueBuffer, byteIndex, bitMask);
       }
     }

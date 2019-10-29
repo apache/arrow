@@ -169,7 +169,7 @@ public final class TimeMilliVector extends BaseFixedWidthVector {
    * @param value   value of element
    */
   public void set(int index, int value) {
-    BitVectorHelper.setBit(validityBuffer, index);
+    markValidityBitToOne(index);
     setValue(index, value);
   }
 
@@ -185,10 +185,10 @@ public final class TimeMilliVector extends BaseFixedWidthVector {
     if (holder.isSet < 0) {
       throw new IllegalArgumentException();
     } else if (holder.isSet > 0) {
-      BitVectorHelper.setBit(validityBuffer, index);
+      markValidityBitToOne(index);
       setValue(index, holder.value);
     } else {
-      BitVectorHelper.unsetBit(validityBuffer, index);
+      markValidityBitToZero(index);
     }
   }
 
@@ -199,7 +199,7 @@ public final class TimeMilliVector extends BaseFixedWidthVector {
    * @param holder  data holder for value of element
    */
   public void set(int index, TimeMilliHolder holder) {
-    BitVectorHelper.setBit(validityBuffer, index);
+    markValidityBitToOne(index);
     setValue(index, holder.value);
   }
 
@@ -254,7 +254,7 @@ public final class TimeMilliVector extends BaseFixedWidthVector {
     if (isSet > 0) {
       set(index, value);
     } else {
-      BitVectorHelper.unsetBit(validityBuffer, index);
+      markValidityBitToZero(index);
     }
   }
 

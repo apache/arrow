@@ -163,7 +163,7 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
    * @param value   value of element
    */
   public void set(int index, long value) {
-    BitVectorHelper.setBit(validityBuffer, index);
+    markValidityBitToOne(index);
     setValue(index, value);
   }
 
@@ -179,10 +179,10 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
     if (holder.isSet < 0) {
       throw new IllegalArgumentException();
     } else if (holder.isSet > 0) {
-      BitVectorHelper.setBit(validityBuffer, index);
+      markValidityBitToOne(index);
       setValue(index, holder.value);
     } else {
-      BitVectorHelper.unsetBit(validityBuffer, index);
+      markValidityBitToZero(index);
     }
   }
 
@@ -193,7 +193,7 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
    * @param holder  data holder for value of element
    */
   public void set(int index, BigIntHolder holder) {
-    BitVectorHelper.setBit(validityBuffer, index);
+    markValidityBitToOne(index);
     setValue(index, holder.value);
   }
 
@@ -247,7 +247,7 @@ public final class BigIntVector extends BaseFixedWidthVector implements BaseIntV
     if (isSet > 0) {
       set(index, value);
     } else {
-      BitVectorHelper.unsetBit(validityBuffer, index);
+      markValidityBitToZero(index);
     }
   }
 

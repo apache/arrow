@@ -149,7 +149,7 @@ public final class UInt2Vector extends BaseFixedWidthVector implements BaseIntVe
    * @param value   value of element
    */
   public void set(int index, int value) {
-    BitVectorHelper.setBit(validityBuffer, index);
+    markValidityBitToOne(index);
     setValue(index, value);
   }
 
@@ -160,7 +160,7 @@ public final class UInt2Vector extends BaseFixedWidthVector implements BaseIntVe
    * @param value   value of element
    */
   public void set(int index, char value) {
-    BitVectorHelper.setBit(validityBuffer, index);
+    markValidityBitToOne(index);
     setValue(index, value);
   }
 
@@ -176,10 +176,10 @@ public final class UInt2Vector extends BaseFixedWidthVector implements BaseIntVe
     if (holder.isSet < 0) {
       throw new IllegalArgumentException();
     } else if (holder.isSet > 0) {
-      BitVectorHelper.setBit(validityBuffer, index);
+      markValidityBitToOne(index);
       setValue(index, holder.value);
     } else {
-      BitVectorHelper.unsetBit(validityBuffer, index);
+      markValidityBitToZero(index);
     }
   }
 
@@ -190,7 +190,7 @@ public final class UInt2Vector extends BaseFixedWidthVector implements BaseIntVe
    * @param holder  data holder for value of element
    */
   public void set(int index, UInt2Holder holder) {
-    BitVectorHelper.setBit(validityBuffer, index);
+    markValidityBitToOne(index);
     setValue(index, holder.value);
   }
 
@@ -254,7 +254,7 @@ public final class UInt2Vector extends BaseFixedWidthVector implements BaseIntVe
     if (isSet > 0) {
       set(index, value);
     } else {
-      BitVectorHelper.unsetBit(validityBuffer, index);
+      markValidityBitToZero(index);
     }
   }
 
