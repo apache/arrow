@@ -368,8 +368,20 @@ dataset___Dataset__create <- function(sources, schm){
     .Call(`_arrow_dataset___Dataset__create` , sources, schm)
 }
 
+dataset___Dataset__schema <- function(ds){
+    .Call(`_arrow_dataset___Dataset__schema` , ds)
+}
+
 dataset___Dataset__NewScan <- function(ds){
     .Call(`_arrow_dataset___Dataset__NewScan` , ds)
+}
+
+dataset___ScannerBuilder__Project <- function(sb, cols){
+    invisible(.Call(`_arrow_dataset___ScannerBuilder__Project` , sb, cols))
+}
+
+dataset___ScannerBuilder__schema <- function(sb){
+    .Call(`_arrow_dataset___ScannerBuilder__schema` , sb)
 }
 
 dataset___ScannerBuilder__Finish <- function(sb){

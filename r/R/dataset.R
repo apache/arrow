@@ -38,12 +38,18 @@ DataFragment <- R6Class("DataFragment", inherit = Object,
 #' @export
 Dataset <- R6Class("Dataset", inherit = Object,
   public = list(
-    NewScan = function() shared_ptr(ScannerBuilder, dataset___Dataset__NewScan(self))
+    NewScan = function() unique_ptr(ScannerBuilder, dataset___Dataset__NewScan(self))
+  ),
+  active = list(
+    schema = function() shared_ptr(Schema, dataset___Dataset__schema(self))
   )
 )
 Dataset$create <- function(sources, schema) {
   shared_ptr(Dataset, dataset___Dataset__create(sources, schema))
 }
+
+#' @export
+names.Dataset <- function(x) names(x$schema)
 
 #' @export
 DataSource <- R6Class("DataSource", inherit = Object,
@@ -63,9 +69,19 @@ FileSystemDataSourceDiscovery$create <- function(fs, selector) {
 #' @export
 ScannerBuilder <- R6Class("ScannerBuilder", inherit = Object,
   public = list(
-    Finish = function() shared_ptr(Scanner, dataset___ScannerBuilder__Finish(self))
+    Project = function(cols) {
+      dataset___ScannerBuilder__Project(self, cols)
+      self
+    },
+    Finish = function() unique_ptr(Scanner, dataset___ScannerBuilder__Finish(self))
+  ),
+  active = list(
+    schema = function() shared_ptr(Schema, dataset___ScannerBuilder__schema(self))
   )
 )
+
+#' @export
+names.ScannerBuilder <- function(x) names(x$schema)
 
 #' @export
 Scanner <- R6Class("Scanner", inherit = Object,

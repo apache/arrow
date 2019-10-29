@@ -32,9 +32,14 @@ test_that("Assembling a Dataset and getting a Table", {
   schm <- ParquetFileReader$create(file.path(td, "iris1.parquet"))$GetSchema()
   ds <- Dataset$create(list(dsd), schm)
   expect_is(ds, "Dataset")
+  expect_equal(names(ds), names(iris))
 
   sb <- ds$NewScan()
   expect_is(sb, "ScannerBuilder")
+  expect_equal(sb$schema, schm)
+  expect_equal(names(sb), names(iris))
+  sb$Project(c("Petal.Length", "Petal.Width"))
+  # expect_equal(names(sb), c("Petal.Length", "Petal.Width")) # This does not pass; Project does not affect schema. How can I see what I have projected already?
   scn <- sb$Finish()
   expect_is(scn, "Scanner")
   skip("bus error")
