@@ -558,6 +558,24 @@ test_linux_wheels() {
   done
 }
 
+test_macos_wheels() {
+  local py_arches="2.7mu 3.6m 3.7m"
+
+  for py_arch in ${py_arches}; do
+    local env=_verify_wheel-${py_arch}
+    conda create -yq -n ${env} python=${py_arch//[mu]/}
+    conda activate ${env}
+
+    pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[mu.]/}-cp${py_arch//./}-manylinux1_x86_64.whl
+
+    python -c "import pyarrow.parquet"
+    python -c "import pyarrow.plasma"
+    python -c "import pyarrow.fs"
+
+    # TODO check Flight only for Python 3
+  done
+}
+
 test_wheels() {
   local download_dir=binaries
   mkdir -p ${download_dir}
