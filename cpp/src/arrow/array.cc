@@ -413,32 +413,31 @@ Status MapArray::FromArrays(const std::shared_ptr<Array>& offsets,
       return Status::Invalid("Last map offset should be non-null");
     }
 
-    /* TODO: Copied from ListArray::FromArrays, not sure why?
     std::shared_ptr<Buffer> clean_offsets, clean_valid_bits;
     RETURN_NOT_OK(
         AllocateBuffer(pool, num_offsets * sizeof(offset_type), &clean_offsets));
 
     // Copy valid bits, zero out the bit for the final offset
     // XXX why?
-    RETURN_NOT_OK(offsets.null_bitmap()->Copy(0, BitUtil::BytesForBits(num_offsets - 1),
-                                              &clean_valid_bits));
+    RETURN_NOT_OK(offsets->null_bitmap()->Copy(0, BitUtil::BytesForBits(num_offsets - 1),
+                                               &clean_valid_bits));
     BitUtil::ClearBit(clean_valid_bits->mutable_data(), num_offsets);
-    buffers.emplace_back(std::move(clean_valid_bits));
+    validity_buf = clean_valid_bits;
 
-    const offset_type* raw_offsets = typed_offsets.raw_values();
+    const offset_type* raw_offsets = typed_offsets->raw_values();
     auto clean_raw_offsets =
         reinterpret_cast<offset_type*>(clean_offsets->mutable_data());
 
     // Must work backwards so we can tell how many values were in the last non-null value
     offset_type current_offset = raw_offsets[num_offsets - 1];
     for (int64_t i = num_offsets - 1; i >= 0; --i) {
-      if (offsets.IsValid(i)) {
+      if (offsets->IsValid(i)) {
         current_offset = raw_offsets[i];
       }
       clean_raw_offsets[i] = current_offset;
     }
 
-    buffers.emplace_back(std::move(clean_offsets));*/
+    offset_buf = clean_offsets;
   } else {
     validity_buf = offsets->null_bitmap();
     offset_buf = typed_offsets->values();
