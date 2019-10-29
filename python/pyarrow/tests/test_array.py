@@ -1203,6 +1203,17 @@ def test_pandas_null_sentinels_raise_error():
         assert result.null_count == (1 if ty != 'null' else 2)
 
 
+@pytest.mark.pandas
+def test_pandas_null_sentinels_index():
+    # ARROW-7023 - ensure that when passing a pandas Index, "from_pandas"
+    # semantics are used
+    import pandas as pd
+    idx = pd.Index([1, 2, np.nan], dtype=object)
+    result = pa.array(idx)
+    expected = pa.array([1, 2, np.nan], from_pandas=True)
+    assert result.equals(expected)
+
+
 def test_array_from_numpy_datetimeD():
     arr = np.array([None, datetime.date(2017, 4, 4)], dtype='datetime64[D]')
 

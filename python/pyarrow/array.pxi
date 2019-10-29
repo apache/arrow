@@ -1726,8 +1726,8 @@ cdef dict _array_classes = {
 
 
 cdef object get_series_values(object obj, bint* is_series):
-    if pandas_api.is_series(obj):
-        result = obj.values
+    if pandas_api.is_series(obj) or pandas_api.is_index(obj):
+        result = pandas_api.get_values(obj)
         is_series[0] = True
     elif isinstance(obj, np.ndarray):
         result = obj
