@@ -131,7 +131,7 @@ Status Take(FunctionContext* ctx, const ChunkedArray& values, const ChunkedArray
   std::vector<std::shared_ptr<Array>> new_chunks(num_chunks);
   std::shared_ptr<ChunkedArray> current_chunk;
 
-  for (int64_t i = 0; i < num_chunks; i++) {
+  for (int i = 0; i < num_chunks; i++) {
     // Take with that indices chunk
     RETURN_NOT_OK(Take(ctx, values, *indices.chunk(i), options, &current_chunk));
     // Concatenate the result to make a single array for this chunk
@@ -147,7 +147,7 @@ Status Take(FunctionContext* ctx, const Array& values, const ChunkedArray& indic
   auto num_chunks = indices.num_chunks();
   std::vector<std::shared_ptr<Array>> new_chunks(num_chunks);
 
-  for (int64_t i = 0; i < num_chunks; i++) {
+  for (int i = 0; i < num_chunks; i++) {
     // Take with that indices chunk
     RETURN_NOT_OK(Take(ctx, values, *indices.chunk(i), options, &new_chunks[i]));
   }
@@ -162,7 +162,7 @@ Status Take(FunctionContext* ctx, const RecordBatch& batch, const Array& indices
 
   std::vector<std::shared_ptr<Array>> columns(ncols);
 
-  for (int64_t j = 0; j < ncols; j++) {
+  for (int j = 0; j < ncols; j++) {
     RETURN_NOT_OK(Take(ctx, *batch.column(j), indices, options, &columns[j]));
   }
   *out = RecordBatch::Make(batch.schema(), nrows, columns);
@@ -174,7 +174,7 @@ Status Take(FunctionContext* ctx, const Table& table, const Array& indices,
   auto ncols = table.num_columns();
   std::vector<std::shared_ptr<ChunkedArray>> columns(ncols);
 
-  for (int64_t j = 0; j < ncols; j++) {
+  for (int j = 0; j < ncols; j++) {
     RETURN_NOT_OK(Take(ctx, *table.column(j), indices, options, &columns[j]));
   }
   *out = Table::Make(table.schema(), columns);
@@ -186,7 +186,7 @@ Status Take(FunctionContext* ctx, const Table& table, const ChunkedArray& indice
   auto ncols = table.num_columns();
   std::vector<std::shared_ptr<ChunkedArray>> columns(ncols);
 
-  for (int64_t j = 0; j < ncols; j++) {
+  for (int j = 0; j < ncols; j++) {
     RETURN_NOT_OK(Take(ctx, *table.column(j), indices, options, &columns[j]));
   }
   *out = Table::Make(table.schema(), columns);

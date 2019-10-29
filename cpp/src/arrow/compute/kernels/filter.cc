@@ -149,13 +149,13 @@ Status Filter(FunctionContext* ctx, const RecordBatch& batch, const Array& filte
   ARROW_ASSIGN_OR_RAISE(auto filter_array, GetFilterArray(Datum(filter.data())));
 
   std::vector<std::unique_ptr<FilterKernel>> kernels(batch.num_columns());
-  for (int64_t i = 0; i < batch.num_columns(); ++i) {
+  for (int i = 0; i < batch.num_columns(); ++i) {
     RETURN_NOT_OK(FilterKernel::Make(batch.schema()->field(i)->type(), &kernels[i]));
   }
 
   std::vector<std::shared_ptr<Array>> columns(batch.num_columns());
   auto out_length = OutputSize(*filter_array);
-  for (int64_t i = 0; i < batch.num_columns(); ++i) {
+  for (int i = 0; i < batch.num_columns(); ++i) {
     RETURN_NOT_OK(kernels[i]->Filter(ctx, *batch.column(i), *filter_array, out_length,
                                      &columns[i]));
   }
@@ -175,7 +175,7 @@ Status Filter(FunctionContext* ctx, const ChunkedArray& values, const Array& fil
   int64_t offset = 0;
   int64_t len;
 
-  for (int64_t i = 0; i < num_chunks; i++) {
+  for (int i = 0; i < num_chunks; i++) {
     current_chunk = values.chunk(i);
     len = current_chunk->length();
     RETURN_NOT_OK(
@@ -200,7 +200,7 @@ Status Filter(FunctionContext* ctx, const ChunkedArray& values,
   int64_t offset = 0;
   int64_t len;
 
-  for (int64_t i = 0; i < num_chunks; i++) {
+  for (int i = 0; i < num_chunks; i++) {
     current_chunk = values.chunk(i);
     len = current_chunk->length();
     if (len > 0) {
@@ -230,7 +230,7 @@ Status Filter(FunctionContext* ctx, const Table& table, const Array& filter,
 
   std::vector<std::shared_ptr<ChunkedArray>> columns(ncols);
 
-  for (int64_t j = 0; j < ncols; j++) {
+  for (int j = 0; j < ncols; j++) {
     RETURN_NOT_OK(Filter(ctx, *table.column(j), filter, &columns[j]));
   }
   *out = Table::Make(table.schema(), columns);
@@ -243,7 +243,7 @@ Status Filter(FunctionContext* ctx, const Table& table, const ChunkedArray& filt
 
   std::vector<std::shared_ptr<ChunkedArray>> columns(ncols);
 
-  for (int64_t j = 0; j < ncols; j++) {
+  for (int j = 0; j < ncols; j++) {
     RETURN_NOT_OK(Filter(ctx, *table.column(j), filter, &columns[j]));
   }
   *out = Table::Make(table.schema(), columns);
