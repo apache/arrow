@@ -619,6 +619,41 @@ def test_list_from_arrays(list_array_type, list_type_factory):
     with pytest.raises(ValueError):
         list_array_type.from_arrays(offsets, values)
 
+def test_map_from_arrays():
+    offsets_arr = np.array([0, 2, 5, 8], dtype='i4')
+    offsets = pa.array(offsets_arr, type='int32')
+    pykeys = [b'a', b'b', b'c', b'd', b'e', b'f', b'g', b'h']
+    pyitems = list(range(len(pykeys)))
+    pypairs = list(zip(pykeys, pyitems))
+    pyentries = [pypairs[:2], pypairs[2:5], pypairs[5:8]]
+    keys = pa.array(pykeys, type='binary')
+    items = pa.array(pyitems, type='i4')
+
+    result = pa.MapArray.from_arrays(offsets, keys, items)
+    expected = pa.array(pyentries, type=pa.map_(pa.binary(), pa.int32()))
+
+    assert result.equals(expected)
+
+    # With nulls
+    offsets = [0, None, 2, 6]
+    pykeys = [b'a', b'b', b'c', b'd', b'e', b'f']
+    pyitems = [1, 2, 3, None, 4, 5]
+    pypairs = list(zip(pykeys, pyitems))
+    pyentries = [pypairs[:2], None, pypairs[2:]]
+    keys = pa.array(pykeys, type='binary')
+    items = pa.array(pyitems, type='i4')
+
+    result = pa.MapArray.from_arrays(offsets, keys, items)
+    expected = pa.array(pyentries, type=pa.map_(pa.binary(), pa.int32()))
+
+    assert result.equals(expected)
+
+    # raise on invalid array
+    offsets = [1, 3, 10]
+    keys = np.arange(5)
+    items = np.arange(4)
+    with pytest.raises(ValueError):
+        pa.MapArray.from_arrays(offsets, keys, items)
 
 def test_union_from_dense():
     binary = pa.array([b'a', b'b', b'c', b'd'], type='binary')
