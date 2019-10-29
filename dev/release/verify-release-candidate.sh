@@ -559,14 +559,14 @@ test_linux_wheels() {
 }
 
 test_macos_wheels() {
-  local py_arches="2.7mu 3.6m 3.7m"
+  local py_arches="2.7m 3.6m 3.7m"
 
   for py_arch in ${py_arches}; do
     local env=_verify_wheel-${py_arch}
-    conda create -yq -n ${env} python=${py_arch//[mu]/}
+    conda create -yq -n ${env} python=${py_arch//m/}
     conda activate ${env}
 
-    pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[mu.]/}-cp${py_arch//./}-manylinux1_x86_64.whl
+    pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[m.]/}-cp${py_arch//./}-macosx_10_6_intel.whl
 
     python -c "import pyarrow.parquet"
     python -c "import pyarrow.plasma"
@@ -585,6 +585,9 @@ test_wheels() {
   else
     local filter_regex=.*manylinux.*
   fi
+  
+  conda create -yq -n py3-base python=3.7
+  conda activate py3-base
 
   python3 $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
           --regex=${filter_regex} \
