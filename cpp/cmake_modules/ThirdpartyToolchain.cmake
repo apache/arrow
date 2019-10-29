@@ -1341,7 +1341,8 @@ endmacro()
 
 if(ARROW_WITH_PROTOBUF)
   if(ARROW_WITH_GRPC)
-    set(ARROW_PROTOBUF_REQUIRED_VERSION "3.6.0")
+    # gRPC 1.21.0 or later require Protobuf 3.7.0 or later.
+    set(ARROW_PROTOBUF_REQUIRED_VERSION "3.7.0")
   else()
     set(ARROW_PROTOBUF_REQUIRED_VERSION "2.6.1")
   endif()

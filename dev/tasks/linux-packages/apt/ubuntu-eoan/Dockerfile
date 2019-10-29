@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG FROM=ubuntu:xenial
+ARG FROM=ubuntu:eoan
 FROM ${FROM}
 
 COPY qemu-* /usr/bin/
@@ -30,20 +30,12 @@ RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
-    gnupg \
-    wget && \
-  wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add - && \
-  echo "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-7 main" > \
-    /etc/apt/sources.list.d/llvm.list && \
-  apt update ${quiet} && \
-  apt install -y -V ${quiet} \
-    autoconf-archive \
     bison \
     build-essential \
+    clang-7 \
     cmake \
-    debhelper\
+    debhelper \
     devscripts \
-    dh-autoreconf \
     flex \
     git \
     gtk-doc-tools \
@@ -55,24 +47,27 @@ RUN \
     libdouble-conversion-dev \
     libgirepository1.0-dev \
     libglib2.0-doc \
+    libgmock-dev \
     libgoogle-glog-dev \
+    libgtest-dev \
     liblz4-dev \
-    libprotobuf-dev \
-    libprotoc-dev \
     libre2-dev \
     libsnappy-dev \
     libssl-dev \
+    libzstd-dev \
     lsb-release \
+    ninja-build \
     pkg-config \
-    protobuf-compiler \
     python3-dev \
     python3-numpy \
+    python3-pip \
+    rapidjson-dev \
+    tzdata \
     zlib1g-dev && \
-  if apt list | grep '^clang-7/'; then \
-    apt install -y -V ${quiet} clang-7; \
-  fi && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \
   fi && \
   apt clean && \
+  pip3 install --upgrade meson && \
+  ln -s /usr/local/bin/meson /usr/bin/ && \
   rm -rf /var/lib/apt/lists/*
