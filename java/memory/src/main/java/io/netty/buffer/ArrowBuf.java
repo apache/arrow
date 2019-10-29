@@ -1166,6 +1166,21 @@ public final class ArrowBuf implements AutoCloseable {
   }
 
   /**
+   * Sets all bits to one in the specified range.
+   * @param index index index (0 based relative to the portion of memory
+   *              this ArrowBuf has access to)
+   * @param length length of bytes to set.
+   * @return this ArrowBuf
+   */
+  public ArrowBuf setOne(int index, int length) {
+    if (length != 0) {
+      this.checkIndex(index, length);
+      PlatformDependent.setMemory(this.addr + index, length, (byte) 0xff);
+    }
+    return this;
+  }
+
+  /**
    * Returns <code>this</code> if size is less then {@link #capacity()}, otherwise
    * delegates to {@link BufferManager#replace(ArrowBuf, int)} to get a new buffer.
    */

@@ -288,9 +288,7 @@ public class BitVectorHelper {
       }
       /* all non-NULLs */
       int fullBytesCount = valueCount / 8;
-      for (int i = 0; i < fullBytesCount; ++i) {
-        newBuffer.setByte(i, 0xFF);
-      }
+      newBuffer.setOne(0, fullBytesCount);
       int remainder = valueCount % 8;
       if (remainder > 0) {
         byte bitMask = (byte) (0xFFL >>> ((8 - remainder) & 7));
