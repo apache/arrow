@@ -153,6 +153,11 @@ UTF8_LENGTH(lengthUtf8, binary)
 FORCE_INLINE
 const char* upper_utf8(int64 context, const char* data, int32 data_len,
                        int32_t* out_len) {
+  if (data_len == 0) {
+    *out_len = 0;
+    return "";
+  }
+
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, data_len));
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
@@ -178,6 +183,11 @@ const char* upper_utf8(int64 context, const char* data, int32 data_len,
 FORCE_INLINE
 const char* lower_utf8(int64 context, const char* data, int32 data_len,
                        int32_t* out_len) {
+  if (data_len == 0) {
+    *out_len = 0;
+    return "";
+  }
+
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, data_len));
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
