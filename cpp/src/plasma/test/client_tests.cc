@@ -89,7 +89,7 @@ class TestPlasmaStore : public ::testing::Test {
                     const std::vector<uint8_t>& metadata,
                     const std::vector<uint8_t>& data, bool release = true) {
     std::shared_ptr<Buffer> data_buffer;
-    ARROW_CHECK_OK(client.Create(object_id, data.size(), &metadata[0], metadata.size(),
+    ARROW_CHECK_OK(client.Create(object_id, data.size(), metadata.data(), metadata.size(),
                                  &data_buffer));
     for (size_t i = 0; i < data.size(); i++) {
       data_buffer->mutable_data()[i] = data[i];
