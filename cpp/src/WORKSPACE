@@ -77,11 +77,12 @@ http_archive(
     urls = ["https://dl.bintray.com/boostorg/release/1.68.0/source/boost_1_68_0.tar.gz"],
 )
 
-http_archive(
+new_local_repository(
     name = "numpy",
     build_file = "//bazel:numpy.BUILD",
-    strip_prefix = "numpy-1.17.3",
-    urls = ["https://github.com/numpy/numpy/archive/v1.17.3.tar.gz"],
+    path = "/usr"
+    #strip_prefix = "numpy-1.17.3",
+    #urls = ["https://github.com/numpy/numpy/archive/v1.17.3.tar.gz"],
 )
 
 new_local_repository(
