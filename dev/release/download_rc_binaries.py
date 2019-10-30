@@ -17,6 +17,7 @@
 # limitations under the License.
 #
 
+import re
 import sys
 
 try:
@@ -51,7 +52,8 @@ class Bintray:
         request = urllib.request.urlopen(url).read()
         return json.loads(request)
 
-    def download_files(self, files, dest=None, num_parallel=None):
+    def download_files(self, files, dest=None, num_parallel=None,
+                       re_match=None):
         """
         Download files from Bintray in parallel. If file already exists, will
         overwrite if the checksum does not match what Bintray says it should be
@@ -70,6 +72,10 @@ class Bintray:
             dest = os.getcwd()
         if num_parallel is None:
             num_parallel = DEFAULT_PARALLEL_DOWNLOADS
+
+        if re_match is not None:
+            regex = re.compile(re_match)
+            files = [x for x in files if regex.match(x['path'])]
 
         if num_parallel == 1:
             for path in files:
@@ -134,14 +140,16 @@ def parallel_map_terminate_early(f, iterable, num_parallel):
 ARROW_PACKAGE_TYPES = ['centos', 'debian', 'python', 'ubuntu']
 
 
-def download_rc_binaries(version, rc_number, dest=None, num_parallel=None):
+def download_rc_binaries(version, rc_number, re_match=None, dest=None,
+                         num_parallel=None):
     bintray = Bintray()
 
     version_string = '{}-rc{}'.format(version, rc_number)
     for package_type in ARROW_PACKAGE_TYPES:
         files = bintray.get_file_list('{}-rc'.format(package_type),
                                       version_string)
-        bintray.download_files(files, dest=dest, num_parallel=num_parallel)
+        bintray.download_files(files, re_match=re_match, dest=dest,
+                               num_parallel=num_parallel)
 
 
 if __name__ == '__main__':
@@ -151,6 +159,9 @@ if __name__ == '__main__':
     parser.add_argument('version', type=str, help='The version number')
     parser.add_argument('rc_number', type=int,
                         help='The release candidate number, e.g. 0, 1, etc')
+    parser.add_argument('-e', '--regexp', type=str, default=None,
+                        help=('Regular expression to match on file names '
+                              'to only download certain files'))
     parser.add_argument('--dest', type=str, default=os.getcwd(),
                         help='The output folder for the downloaded files')
     parser.add_argument('--num_parallel', type=int, default=8,
@@ -158,4 +169,4 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     download_rc_binaries(args.version, args.rc_number, dest=args.dest,
-                         num_parallel=args.num_parallel)
+                         re_match=args.regexp, num_parallel=args.num_parallel)

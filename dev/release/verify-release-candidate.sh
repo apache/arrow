@@ -34,8 +34,9 @@ case $# in
      VERSION="$2"
      RC_NUMBER="$3"
      case $ARTIFACT in
-       source|binaries) ;;
-       *) echo "Invalid argument: '${ARTIFACT}', valid options are 'source' or 'binaries'"
+       source|binaries|wheels) ;;
+       *) echo "Invalid argument: '${ARTIFACT}', valid options are \
+'source', 'binaries', or 'wheels'"
           exit 1
           ;;
      esac
@@ -99,16 +100,9 @@ fetch_archive() {
   shasum -a 512 -c ${dist_name}.tar.gz.sha512
 }
 
-test_binary() {
-  local download_dir=binaries
-  mkdir -p ${download_dir}
-
-  python3 $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER --dest=${download_dir}
-
-  pushd ${download_dir}
-
+verify_dir_artifact_signatures() {
   # verify the signature and the checksums of each artifact
-  find . -name '*.asc' | while read sigfile; do
+  find $1 -name '*.asc' | while read sigfile; do
     artifact=${sigfile/.asc/}
     gpg --verify $sigfile $artifact || exit 1
 
@@ -122,8 +116,14 @@ test_binary() {
     shasum -a 512 -c $base_artifact.sha512 || exit 1
     popd
   done
+}
 
-  popd
+test_binary() {
+  local download_dir=binaries
+  mkdir -p ${download_dir}
+
+  python3 $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER --dest=${download_dir}
+  verify_dir_artifact_signatures ${download_dir}
 }
 
 test_apt() {
@@ -188,15 +188,6 @@ setup_miniconda() {
   rm -f miniconda.sh
 
   . $MINICONDA/etc/profile.d/conda.sh
-
-  conda create -n arrow-test -y -q -c conda-forge \
-        python=3.6 \
-        nomkl \
-        numpy \
-        pandas \
-        six \
-        cython
-  conda activate arrow-test
 }
 
 # Build and test Java (Requires newer Maven -- I used 3.3.9)
@@ -213,6 +204,15 @@ test_package_java() {
 # Build and test C++
 
 test_and_install_cpp() {
+  conda create -n arrow-test -y -q -c conda-forge \
+        python=3.6 \
+        nomkl \
+        numpy \
+        pandas \
+        six \
+        cython
+  conda activate arrow-test
+
   mkdir cpp/build
   pushd cpp/build
 
@@ -539,6 +539,86 @@ test_binary_distribution() {
   fi
 }
 
+check_python_imports() {
+  local py_arch=$1
+
+  python -c "import pyarrow.parquet"
+  python -c "import pyarrow.plasma"
+  python -c "import pyarrow.fs"
+
+  if [[ "$py_arch" =~ ^3 ]]; then
+    # Flight and Gandiva are only available for py3
+    python -c "import pyarrow.flight"
+    python -c "import pyarrow.gandiva"
+  fi
+}
+
+test_linux_wheels() {
+  local py_arches="2.7mu 3.6m 3.7m"
+
+  for py_arch in ${py_arches}; do
+    local env=_verify_wheel-${py_arch}
+    conda create -yq -n ${env} python=${py_arch//[mu]/}
+    conda activate ${env}
+
+    pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[mu.]/}-cp${py_arch//./}-manylinux1_x86_64.whl
+
+    check_python_imports py_arch
+
+    pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[mu.]/}-cp${py_arch//./}-manylinux2010_x86_64.whl
+
+    check_python_imports py_arch
+
+    conda deactivate
+  done
+}
+
+test_macos_wheels() {
+  local py_arches="2.7m 3.6m 3.7m"
+
+  for py_arch in ${py_arches}; do
+    local env=_verify_wheel-${py_arch}
+    conda create -yq -n ${env} python=${py_arch//m/}
+    conda activate ${env}
+
+    pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[m.]/}-cp${py_arch//./}-macosx_10_6_intel.whl
+
+    check_python_imports py_arch
+
+    conda deactivate
+  done
+}
+
+test_wheels() {
+  local download_dir=binaries
+  mkdir -p ${download_dir}
+
+  if [ "$(uname)" == "Darwin" ]; then
+    local filter_regex=.*macosx.*
+  else
+    local filter_regex=.*manylinux.*
+  fi
+
+  conda create -yq -n py3-base python=3.7
+  conda activate py3-base
+
+  python3 $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER \
+          --regex=${filter_regex} \
+          --dest=${download_dir}
+
+  verify_dir_artifact_signatures ${download_dir}
+
+  pushd ${download_dir}
+
+  if [ "$(uname)" == "Darwin" ]; then
+    test_macos_wheels
+  else
+    test_linux_wheels
+  fi
+
+  popd
+}
+
 # By default test all functionalities.
 # To deactivate one test, deactivate the test and all of its dependents
 # To explicitly select one test, set TEST_DEFAULT=0 TEST_X=1
@@ -600,6 +680,10 @@ if [ "${ARTIFACT}" == "source" ]; then
   pushd ${dist_name}
   test_source_distribution
   popd
+elif [ "${ARTIFACT}" == "wheels" ]; then
+  import_gpg_keys
+  setup_miniconda
+  test_wheels
 else
   import_gpg_keys
   test_binary_distribution
