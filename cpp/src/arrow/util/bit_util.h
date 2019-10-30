@@ -52,6 +52,7 @@
 #define ARROW_BYTE_SWAP32 __builtin_bswap32
 #endif
 
+#include <array>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -826,6 +827,27 @@ Status InvertBitmap(MemoryPool* pool, const uint8_t* bitmap, int64_t offset,
 /// \return The number of set (1) bits in the range
 ARROW_EXPORT
 int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length);
+
+struct Bitmap {
+  uint8_t* data;
+  int64_t offset, length;
+
+  bool GetBit(int64_t i) const { return BitUtil::GetBit(data, i + offset); }
+
+  void SetBitTo(int64_t i, bool v) const { BitUtil::SetBitTo(data, i + offset, v); }
+
+  template <size_t N, typename Visitor>
+  static void Visit(const Bitmap (&bitmaps)[N], Visitor&& visitor) {
+    auto length = bitmaps[0].length;
+    std::array<bool, N> bits;
+    for (int64_t i = 0; i < length; ++i) {
+      for (size_t bitmap_i = 0; bitmap_i < N; ++bitmap_i) {
+        bits[bitmap_i] = bitmaps[bitmap_i].GetBit(i);
+      }
+      visitor(bits);
+    }
+  }
+};
 
 ARROW_EXPORT
 bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right,

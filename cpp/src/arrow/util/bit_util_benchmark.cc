@@ -17,6 +17,8 @@
 
 #include "benchmark/benchmark.h"
 
+#include <algorithm>
+#include <array>
 #include <vector>
 
 #include "arrow/buffer.h"
@@ -29,8 +31,6 @@
 namespace arrow {
 
 namespace BitUtil {
-
-#ifdef ARROW_WITH_BENCHMARKS_REFERENCE
 
 // A naive bitmap reader implementation, meant as a baseline against
 // internal::BitmapReader
@@ -84,14 +84,54 @@ class NaiveBitmapWriter {
   int64_t position_;
 };
 
-#endif
-
 static std::shared_ptr<Buffer> CreateRandomBuffer(int64_t nbytes) {
   std::shared_ptr<Buffer> buffer;
   ABORT_NOT_OK(AllocateBuffer(nbytes, &buffer));
   memset(buffer->mutable_data(), 0, nbytes);
   random_bytes(nbytes, 0, buffer->mutable_data());
   return buffer;
+}
+
+static void BenchmarkBitmapAnd(benchmark::State& state) {
+  int64_t nbytes = state.range(0);
+  std::shared_ptr<Buffer> buffer_1 = CreateRandomBuffer(nbytes);
+  std::shared_ptr<Buffer> buffer_2 = CreateRandomBuffer(nbytes);
+  std::shared_ptr<Buffer> buffer_3 = CreateRandomBuffer(nbytes);
+
+  const int64_t num_bits = nbytes * 8;
+
+  for (auto _ : state) {
+    internal::BitmapAnd(buffer_1->data(), 0, buffer_2->data(), 0, num_bits, 0,
+                        buffer_3->mutable_data());
+    auto total = internal::CountSetBits(buffer_3->data(), 0, num_bits);
+    benchmark::DoNotOptimize(total);
+  }
+  state.SetBytesProcessed(state.iterations() * nbytes);
+}
+
+static void BenchmarkBitmapVisitAnd(benchmark::State& state) {
+  int64_t nbytes = state.range(0);
+  std::shared_ptr<Buffer> buffer_1 = CreateRandomBuffer(nbytes);
+  std::shared_ptr<Buffer> buffer_2 = CreateRandomBuffer(nbytes);
+  std::shared_ptr<Buffer> buffer_3 = CreateRandomBuffer(nbytes);
+
+  const int64_t num_bits = nbytes * 8;
+
+  internal::Bitmap bitmap_1{buffer_1->mutable_data(), num_bits, 0};
+  internal::Bitmap bitmap_2{buffer_2->mutable_data(), num_bits, 0};
+  internal::Bitmap bitmap_3{buffer_3->mutable_data(), num_bits, 0};
+
+  for (auto _ : state) {
+    int64_t i = 0;
+    internal::Bitmap::Visit({bitmap_1, bitmap_2}, [&](std::array<bool, 2> bits) {
+      bool out_bit =
+          std::accumulate(bits.begin(), bits.end(), true, std::logical_and<bool>{});
+      bitmap_3.SetBitTo(i++, out_bit);
+    });
+    auto total = internal::CountSetBits(bitmap_3.data, bitmap_3.offset, bitmap_3.length);
+    benchmark::DoNotOptimize(total);
+  }
+  state.SetBytesProcessed(state.iterations() * nbytes);
 }
 
 template <typename BitmapReaderType>
@@ -320,6 +360,9 @@ BENCHMARK(GenerateBitsUnrolled)->Arg(kBufferSize);
 
 BENCHMARK(CopyBitmapWithoutOffset)->Arg(kBufferSize);
 BENCHMARK(CopyBitmapWithOffset)->Arg(kBufferSize);
+
+BENCHMARK(BenchmarkBitmapAnd)->Arg(kBufferSize)->MinTime(1.0);
+BENCHMARK(BenchmarkBitmapVisitAnd)->Arg(kBufferSize)->MinTime(1.0);
 
 }  // namespace BitUtil
 }  // namespace arrow
