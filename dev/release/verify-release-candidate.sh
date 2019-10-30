@@ -100,9 +100,9 @@ fetch_archive() {
   shasum -a 512 -c ${dist_name}.tar.gz.sha512
 }
 
-verify_cwd_artifact_signatures() {
+verify_dir_artifact_signatures() {
   # verify the signature and the checksums of each artifact
-  find . -name '*.asc' | while read sigfile; do
+  find $1 -name '*.asc' | while read sigfile; do
     artifact=${sigfile/.asc/}
     gpg --verify $sigfile $artifact || exit 1
 
@@ -123,10 +123,7 @@ test_binary() {
   mkdir -p ${download_dir}
 
   python3 $SOURCE_DIR/download_rc_binaries.py $VERSION $RC_NUMBER --dest=${download_dir}
-
-  pushd ${download_dir}
-  verify_cwd_artifact_signatures
-  popd
+  verify_dir_artifact_signatures ${download_dir}
 }
 
 test_apt() {
@@ -534,6 +531,20 @@ test_binary_distribution() {
   fi
 }
 
+check_python_imports() {
+  local py_arch=$1
+
+  python -c "import pyarrow.parquet"
+  python -c "import pyarrow.plasma"
+  python -c "import pyarrow.fs"
+
+  if [[ "$py_arch" =~ ^3 ]]; then
+    # Flight and Gandiva are only available for py3
+    python -c "import pyarrow.flight"
+    python -c "import pyarrow.gandiva"
+  fi
+}
+
 test_linux_wheels() {
   local py_arches="2.7mu 3.6m 3.7m"
 
@@ -544,17 +555,13 @@ test_linux_wheels() {
 
     pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[mu.]/}-cp${py_arch//./}-manylinux1_x86_64.whl
 
-    python -c "import pyarrow.parquet"
-    python -c "import pyarrow.plasma"
-    python -c "import pyarrow.fs"
+    check_python_imports py_arch
 
     pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[mu.]/}-cp${py_arch//./}-manylinux2010_x86_64.whl
 
-    python -c "import pyarrow.parquet"
-    python -c "import pyarrow.plasma"
-    python -c "import pyarrow.fs"
+    check_python_imports py_arch
 
-    # TODO check Flight only for Python 3
+    conda deactivate
   done
 }
 
@@ -568,11 +575,9 @@ test_macos_wheels() {
 
     pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[m.]/}-cp${py_arch//./}-macosx_10_6_intel.whl
 
-    python -c "import pyarrow.parquet"
-    python -c "import pyarrow.plasma"
-    python -c "import pyarrow.fs"
+    check_python_imports py_arch
 
-    # TODO check Flight only for Python 3
+    conda deactivate
   done
 }
 
@@ -593,8 +598,9 @@ test_wheels() {
           --regex=${filter_regex} \
           --dest=${download_dir}
 
+  verify_dir_artifact_signatures ${download_dir}
+
   pushd ${download_dir}
-  verify_cwd_artifact_signatures
 
   if [ "$(uname)" == "Darwin" ]; then
     test_macos_wheels
