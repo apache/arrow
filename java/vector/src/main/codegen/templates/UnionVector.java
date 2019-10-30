@@ -598,7 +598,11 @@ public class UnionVector implements FieldVector {
     }
 
     public boolean isNull(int index) {
-      return (typeBuffer.getByte(index * TYPE_WIDTH) == 0);
+      ValueVector vec = getVector(index);
+      if (vec == null) {
+        return true;
+      }
+      return vec.isNull(index);
     }
 
     @Override
@@ -693,10 +697,11 @@ public class UnionVector implements FieldVector {
 
     @Override
     public int hashCode(int index, ArrowBufHasher hasher) {
-      if (isNull(index)) {
+      ValueVector vec = getVector(index);
+      if (vec == null) {
         return 0;
       }
-      return getVector(index).hashCode(index, hasher);
+      return vec.hashCode(index, hasher);
     }
 
     @Override
