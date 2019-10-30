@@ -24,7 +24,7 @@ a :class:`RecordBatch` is a collection of equal-length vector instances and was 
 
 The recommended usage for :class:`VectorSchemaRoot` is creating a single :class:`VectorSchemaRoot`
 based on the known schema and populated data over and over into the same VectorSchemaRoot in a stream
-of batches rather than create a new :class:`VectorSchemaRoot` instance each time
+of batches rather than creating a new :class:`VectorSchemaRoot` instance each time
 (see `Numba <https://github.com/apache/arrow/tree/master/java/flight/src/main/java/org/apache/arrow/flight>`_ or
 ``ArrowFileWriter`` for better understanding). Thus at any one point a VectorSchemaRoot may have data or
 may have no data (say it was transferred downstream or not yet populated).
@@ -34,6 +34,8 @@ Here is the example of building a :class:`VectorSchemaRoot`::
 
     BitVector bitVector = new BitVector("boolean", allocator);
     VarCharVector varCharVector = new VarCharVector("varchar", allocator);
+    bitVector.allocateNew();
+    varCharVector.allocateNew();
     for (int i = 0; i < 10; i++) {
       bitVector.setSafe(i, i % 2 == 0 ? 0 : 1);
       varCharVector.setSafe(i, ("test" + i).getBytes(StandardCharsets.UTF_8));
@@ -47,7 +49,7 @@ Here is the example of building a :class:`VectorSchemaRoot`::
 
 The vectors within a :class:`VectorSchemaRoot` could be loaded/unloaded via :class:`VectorLoader` and :class:`VectorUnloader`.
 :class:`VectorLoader` and :class:`VectorUnloader` handles converting between :class:`VectorSchemaRoot` and :class:`ArrowRecordBatch`(
-representation of an RecordBatch :doc:`IPC <../format/IPC.rst>` message). Examples as below::
+representation of a RecordBatch :doc:`IPC <../format/IPC.rst>` message). Examples as below::
 
     // create a VectorSchemaRoot root1 and convert its data into recordBatch
     VectorSchemaRoot root1 = new VectorSchemaRoot(fields, vectors);
@@ -61,6 +63,6 @@ representation of an RecordBatch :doc:`IPC <../format/IPC.rst>` message). Exampl
 
 A new :class:`VectorSchemaRoot` could be sliced from an existing instance with zero-copy::
 
-    // 0 indicates start index and 5 indicated length.
+    // 0 indicates start index (inclusive) and 5 indicated length (exclusive).
     VectorSchemaRoot newRoot = vectorSchemaRoot.slice(0, 5);
 

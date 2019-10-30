@@ -20,12 +20,12 @@ Reading/Writing IPC formats
 ===========================
 Arrow defines two types of binary formats for serializing record batches:
 
-* **Streaming format**: for sending an arbitrary length sequence of record
+* **Streaming format**: for sending an arbitrary number of record
   batches. The format must be processed from start to end, and does not support
   random access
 
 * **File or Random Access format**: for serializing a fixed number of record
-  batches. Supports random access, and thus is very useful when used with
+  batches. It supports random access, and thus is very useful when used with
   memory maps
 
 Writing and Reading Streaming Format
@@ -51,25 +51,30 @@ Now, we can begin writing a stream containing some number of these batches. For 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     ArrowStreamWriter writer = new ArrowStreamWriter(root, /*DictionaryProvider=*/null, Channels.newChannel(out));
 
-Here we used an in-memory stream, but this could have been a socket or some other IO stream, then we can do::
+
+Here we used an in-memory stream, but this could have been a socket or some other IO stream. Then we can do::
 
     writer.start();
+    // write the first batch
     writer.writeBatch();
+
+    // write another four batches.
     for (int i = 0; i < 4; i++) {
-      // populate VectorSchemaRoot data
+      // populate VectorSchemaRoot data and write the second batch
       BitVector childVector1 = (BitVector)root.getVector(0);
       VarCharVector childVector2 = (VarCharVector)root.getVector(1);
       childVector1.reset();
       childVector2.reset();
       ... do some populate work here, could be different for each batch
-
       writer.writeBatch();
     }
+
+    // end
     writer.end();
 
 Note since the :class:`VectorSchemaRoot` in writer is a container that can hold batches, batches flow through
-:class:`VectorSchemaRoot` as part of a pipeline, so we need to populated data if necessary before non-first call,
-otherwise several same batches will be written.
+:class:`VectorSchemaRoot` as part of a pipeline, so we need to populate data before `writeBatch` so that later batches
+could overwrite previous ones.
 
 Now the :class:`ByteArrayOutputStream` contains the complete stream which contains 5 record batches.
 We can read such a stream with :class:`ArrowStreamReader`, note that :class:`VectorSchemaRoot` within
@@ -80,9 +85,63 @@ reader will be loaded with new values on every call to :class:`loadNextBatch()`:
       for (int i = 0; i < 5; i++) {
         // This will be loaded with new values on every call to loadNextBatch
         VectorSchemaRoot readBatch = reader.getVectorSchemaRoot();
-        assertTrue(reader.loadNextBatch());
-        // do something with readBatch
+        reader.loadNextBatch();
+        ... do something with readBatch
       }
+
+    }
+
+Here we also give a simple example with dictionary encoded vectors::
+
+    DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
+    // create dictionary and provider
+    final VarCharVector dictVector = new VarCharVector("dict", allocator);
+    dictVector.allocateNewSafe();
+    dictVector.setSafe(0, "aa".getBytes());
+    dictVector.setSafe(1, "bb".getBytes());
+    dictVector.setSafe(2, "cc".getBytes());
+    dictVector.setValueCount(3);
+
+    Dictionary dictionary =
+        new Dictionary(dictVector, new DictionaryEncoding(1L, false, /*indexType=*/null));
+    provider.put(dictionary);
+
+    // create vector and encode it
+    final VarCharVector vector = new VarCharVector("vector", allocator);
+    vector.allocateNewSafe();
+    vector.setSafe(0, "bb".getBytes());
+    vector.setSafe(1, "bb".getBytes());
+    vector.setSafe(2, "cc".getBytes());
+    vector.setSafe(3, "aa".getBytes());
+    vector.setValueCount(4);
+
+    // get the encoded vector
+    IntVector encodedVector = (IntVector) DictionaryEncoder.encode(vector, dictionary);
+
+    // create VectorSchemaRoot
+    List<Field> fields = Arrays.asList(encodedVector.getField());
+    List<FieldVector> vectors = Arrays.asList(encodedVector);
+    VectorSchemaRoot root = new VectorSchemaRoot(fields, vectors);
+
+    // write data
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    ArrowStreamWriter writer = new ArrowStreamWriter(root, provider, Channels.newChannel(out));
+    writer.start();
+    writer.writeBatch();
+    writer.end();
+
+    // read data
+    try (ArrowStreamReader reader = new ArrowStreamReader(new ByteArrayInputStream(out.toByteArray()), allocator)) {
+      reader.loadNextBatch();
+      VectorSchemaRoot readRoot = reader.getVectorSchemaRoot();
+      // get the encoded vector
+      IntVector intVector = (IntVector) readRoot.getVector(0);
+
+      // get dictionaries and decode the vector
+      Map<Long, Dictionary> dictionaryMap = reader.getDictionaryVectors();
+      long dictionaryId = intVector.getField().getDictionary().getId();
+      VarCharVector varCharVector =
+          (VarCharVector) DictionaryEncoder.decode(intVector, dictionaryMap.get(dictionaryId));
 
     }
 
@@ -93,7 +152,9 @@ The :class:`ArrowFileWriter` has the same API as :class:`ArrowStreamWriter`::
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     ArrowFileWriter writer = new ArrowFileWriter(root, null, Channels.newChannel(out));
     writer.start();
+    // write the first batch
     writer.writeBatch();
+    // write another four batches.
     for (int i = 0; i < 4; i++) {
       ... do populate work
       writer.writeBatch();
