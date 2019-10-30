@@ -546,8 +546,8 @@ Status PromoteTableToSchema(const std::shared_ptr<Table>& table,
   std::vector<std::shared_ptr<ChunkedArray>> columns;
   columns.reserve(schema->num_fields());
   const int64_t num_rows = table->num_rows();
-  auto append_column_of_nulls = [pool, &columns,
-                                 num_rows](const std::shared_ptr<DataType>& type) {
+  auto AppendColumnOfNulls = [pool, &columns,
+                              num_rows](const std::shared_ptr<DataType>& type) {
     std::shared_ptr<Array> array_of_nulls;
     RETURN_NOT_OK(MakeArrayOfNull(pool, type, num_rows, &array_of_nulls));
     columns.push_back(std::make_shared<ChunkedArray>(array_of_nulls));
@@ -558,7 +558,7 @@ Status PromoteTableToSchema(const std::shared_ptr<Table>& table,
     const std::vector<int> field_indices =
         current_schema->GetAllFieldIndices(field->name());
     if (field_indices.empty()) {
-      RETURN_NOT_OK(append_column_of_nulls(field->type()));
+      RETURN_NOT_OK(AppendColumnOfNulls(field->type()));
       continue;
     }
 
@@ -576,7 +576,7 @@ Status PromoteTableToSchema(const std::shared_ptr<Table>& table,
     }
 
     if (current_field->type()->id() == Type::NA) {
-      RETURN_NOT_OK(append_column_of_nulls(field->type()));
+      RETURN_NOT_OK(AppendColumnOfNulls(field->type()));
       continue;
     }
 

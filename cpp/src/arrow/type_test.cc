@@ -461,10 +461,33 @@ TEST_F(TestUnifySchemas, IdenticalSchemas) {
 
   std::shared_ptr<Schema> result;
   ASSERT_OK(UnifySchemas({schema1, schema2}, &result));
-  AssertSchemaEqualsUnorderedFields(*result, *schema1);
+  // Using Schema::Equals to make sure the ordering of fields is not changed.
+  ASSERT_TRUE(result->Equals(*schema1, /*check_metadata=*/true));
 
   ASSERT_OK(UnifySchemas({schema2, schema1}, &result));
-  AssertSchemaEqualsUnorderedFields(*result, *schema2);
+  // Using Schema::Equals to make sure the ordering of fields is not changed.
+  ASSERT_TRUE(result->Equals(*schema2, /*check_metadata=*/true));
+}
+
+TEST_F(TestUnifySchemas, FieldOrderingSameAsTheFirstSchema) {
+  auto int32_field = field("int32_field", int32());
+  auto uint8_field = field("uint8_field", uint8(), false);
+  auto utf8_field = field("utf8_field", utf8());
+  auto binary_field = field("binary_field", binary());
+
+  auto schema1 = schema({int32_field, uint8_field, utf8_field});
+  // schema2 only differs from schema1 in field ordering.
+  auto schema2 = schema({uint8_field, int32_field, utf8_field});
+  auto schema3 = schema({binary_field});
+
+  std::shared_ptr<Schema> result;
+  ASSERT_OK(UnifySchemas({schema1, schema2, schema3}, &result));
+
+  ASSERT_EQ(4, result->num_fields());
+  ASSERT_TRUE(int32_field->Equals(result->field(0)));
+  ASSERT_TRUE(uint8_field->Equals(result->field(1)));
+  ASSERT_TRUE(utf8_field->Equals(result->field(2)));
+  ASSERT_TRUE(binary_field->Equals(result->field(3)));
 }
 
 TEST_F(TestUnifySchemas, MissingField) {
