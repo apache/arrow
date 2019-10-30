@@ -940,7 +940,9 @@ Apache Parquet Development
 ==========================
 
 To build the C++ libraries for Apache Parquet, add the flag
-``-DARROW_PARQUET=ON`` when invoking CMake. The Parquet libraries and unit tests
+``-DARROW_PARQUET=ON`` when invoking CMake.
+To build Apache Parquet with encryption support, add the flag
+``-DPARQUET_REQUIRE_ENCRYPTION=ON`` when invoking CMake. The Parquet libraries and unit tests
 can be built with the ``parquet`` make target:
 
 .. code-block:: shell

@@ -64,6 +64,7 @@ matrix:
     - ARROW_TRAVIS_GANDIVA_JAVA=1
     - ARROW_TRAVIS_ORC=1
     - ARROW_TRAVIS_PARQUET=1
+    - ARROW_TRAVIS_PARQUET_ENCRYPTION=1
     - ARROW_TRAVIS_PLASMA=1
     - ARROW_TRAVIS_S3=1
     - ARROW_TRAVIS_USE_SYSTEM_JAVA=1
@@ -129,6 +130,7 @@ matrix:
     - ARROW_TRAVIS_ORC=1
     - ARROW_TRAVIS_S3=1
     - ARROW_TRAVIS_PARQUET=1
+    - ARROW_TRAVIS_PARQUET_ENCRYPTION=1
     # TODO(ARROW-4763): llvm and llvmdev packages are in conflict:
     # https://github.com/conda-forge/llvmdev-feedstock/issues/60
     # - ARROW_TRAVIS_GANDIVA=1
@@ -274,6 +276,7 @@ matrix:
     dist: xenial
     env:
     - ARROW_TRAVIS_PARQUET=1
+    - ARROW_TRAVIS_PARQUET_ENCRYPTION=1
     - ARROW_TRAVIS_USE_SYSTEM=1
     - ARROW_TRAVIS_MIMALLOC=1
     before_install:

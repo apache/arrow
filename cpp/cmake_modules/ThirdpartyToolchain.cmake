@@ -946,7 +946,6 @@ if(ARROW_WITH_BROTLI)
   include_directories(SYSTEM ${BROTLI_INCLUDE_DIR})
 endif()
 
-set(ARROW_USE_OPENSSL OFF)
 if(PARQUET_REQUIRE_ENCRYPTION AND NOT ARROW_PARQUET)
   set(PARQUET_REQUIRE_ENCRYPTION OFF)
 endif()
@@ -959,19 +958,16 @@ if(BREW_BIN AND NOT OPENSSL_ROOT_DIR)
     set(OPENSSL_ROOT_DIR ${OPENSSL_BREW_PREFIX})
   endif()
 endif()
+
+set(ARROW_USE_OPENSSL OFF)
 if(PARQUET_REQUIRE_ENCRYPTION OR ARROW_FLIGHT OR ARROW_S3)
   # This must work
   find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
   set(ARROW_USE_OPENSSL ON)
-elseif(ARROW_PARQUET)
-  # Enable Parquet encryption if OpenSSL is there, but don't fail if it's not
-  find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} QUIET)
-  if(OPENSSL_FOUND)
-    set(ARROW_USE_OPENSSL ON)
-  endif()
 endif()
 
 if(ARROW_USE_OPENSSL)
+  message(STATUS "Found OpenSSL Crypto Library: ${OPENSSL_CRYPTO_LIBRARY}")
   message(STATUS "Building with OpenSSL (Version: ${OPENSSL_VERSION}) support")
 
   # OpenSSL::SSL and OpenSSL::Crypto were not added to

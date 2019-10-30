@@ -31,6 +31,10 @@ namespace parquet {
 class ColumnWriter;
 class OutputStream;
 
+// FIXME: copied from reader-internal.cc
+static constexpr uint8_t kParquetMagic[4] = {'P', 'A', 'R', '1'};
+static constexpr uint8_t kParquetEMagic[4] = {'P', 'A', 'R', 'E'};
+
 class PARQUET_EXPORT RowGroupWriter {
  public:
   // Forward declare a virtual class 'Contents' to aid dependency injection and more
@@ -103,6 +107,23 @@ void WriteFileMetaData(const FileMetaData& file_metadata,
 PARQUET_EXPORT
 void WriteMetaDataFile(const FileMetaData& file_metadata,
                        ::arrow::io::OutputStream* sink);
+
+PARQUET_EXPORT
+void WriteEncryptedFileMetadata(const FileMetaData& file_metadata,
+                                ArrowOutputStream* sink,
+                                const std::shared_ptr<Encryptor>& encryptor,
+                                bool encrypt_footer);
+
+void WriteFileCryptoMetaData(const FileCryptoMetaData& crypto_metadata,
+                             OutputStream* sink);
+PARQUET_EXPORT
+void WriteEncryptedFileMetadata(const FileMetaData& file_metadata,
+                                ::arrow::io::OutputStream* sink,
+                                const std::shared_ptr<Encryptor>& encryptor = NULLPTR,
+                                bool encrypt_footer = false);
+PARQUET_EXPORT
+void WriteFileCryptoMetaData(const FileCryptoMetaData& crypto_metadata,
+                             ::arrow::io::OutputStream* sink);
 
 class PARQUET_EXPORT ParquetFileWriter {
  public:

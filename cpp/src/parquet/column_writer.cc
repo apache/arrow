@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -37,6 +38,8 @@
 
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
+#include "parquet/encryption_internal.h"
+#include "parquet/internal_file_encryptor.h"
 #include "parquet/metadata.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
@@ -50,6 +53,8 @@ namespace parquet {
 using arrow::Status;
 using arrow::compute::Datum;
 using arrow::internal::checked_cast;
+
+static constexpr int16_t kNonPageOrdinal = static_cast<int16_t>(-1);
 
 using BitWriter = arrow::BitUtil::BitWriter;
 using RleEncoder = arrow::util::RleEncoder;
@@ -137,8 +142,11 @@ class SerializedPageWriter : public PageWriter {
  public:
   SerializedPageWriter(const std::shared_ptr<ArrowOutputStream>& sink,
                        Compression::type codec, int compression_level,
-                       ColumnChunkMetaDataBuilder* metadata,
-                       MemoryPool* pool = arrow::default_memory_pool())
+                       ColumnChunkMetaDataBuilder* metadata, int16_t row_group_ordinal,
+                       int16_t column_chunk_ordinal,
+                       MemoryPool* pool = arrow::default_memory_pool(),
+                       std::shared_ptr<Encryptor> meta_encryptor = nullptr,
+                       std::shared_ptr<Encryptor> data_encryptor = nullptr)
       : sink_(sink),
         metadata_(metadata),
         pool_(pool),
@@ -146,14 +154,22 @@ class SerializedPageWriter : public PageWriter {
         dictionary_page_offset_(0),
         data_page_offset_(0),
         total_uncompressed_size_(0),
-        total_compressed_size_(0) {
+        total_compressed_size_(0),
+        page_ordinal_(0),
+        row_group_ordinal_(row_group_ordinal),
+        column_ordinal_(column_chunk_ordinal),
+        meta_encryptor_(meta_encryptor),
+        data_encryptor_(data_encryptor) {
+    if (data_encryptor_ != nullptr || meta_encryptor_ != nullptr) {
+      InitEncryption();
+    }
     compressor_ = GetCodec(codec, compression_level);
     thrift_serializer_.reset(new ThriftSerializer);
   }
 
   int64_t WriteDictionaryPage(const DictionaryPage& page) override {
     int64_t uncompressed_size = page.size();
-    std::shared_ptr<Buffer> compressed_data = nullptr;
+    std::shared_ptr<Buffer> compressed_data;
     if (has_compressor()) {
       auto buffer = std::static_pointer_cast<ResizableBuffer>(
           AllocateBuffer(pool_, uncompressed_size));
@@ -168,10 +184,23 @@ class SerializedPageWriter : public PageWriter {
     dict_page_header.__set_encoding(ToThrift(page.encoding()));
     dict_page_header.__set_is_sorted(page.is_sorted());
 
+    const uint8_t* output_data_buffer = compressed_data->data();
+    int32_t output_data_len = static_cast<int32_t>(compressed_data->size());
+
+    std::shared_ptr<Buffer> encrypted_data_buffer;
+    if (data_encryptor_.get()) {
+      UpdateEncryption(encryption::kDictionaryPage);
+      encrypted_data_buffer = std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(
+          pool_, data_encryptor_->CiphertextSizeDelta() + output_data_len));
+      output_data_len = data_encryptor_->Encrypt(compressed_data->data(), output_data_len,
+                                                 encrypted_data_buffer->mutable_data());
+      output_data_buffer = encrypted_data_buffer->data();
+    }
+
     format::PageHeader page_header;
     page_header.__set_type(format::PageType::DICTIONARY_PAGE);
     page_header.__set_uncompressed_page_size(static_cast<int32_t>(uncompressed_size));
-    page_header.__set_compressed_page_size(static_cast<int32_t>(compressed_data->size()));
+    page_header.__set_compressed_page_size(static_cast<int32_t>(output_data_len));
     page_header.__set_dictionary_page_header(dict_page_header);
     // TODO(PARQUET-594) crc checksum
 
@@ -180,11 +209,17 @@ class SerializedPageWriter : public PageWriter {
     if (dictionary_page_offset_ == 0) {
       dictionary_page_offset_ = start_pos;
     }
-    int64_t header_size = thrift_serializer_->Serialize(&page_header, sink_.get());
-    PARQUET_THROW_NOT_OK(sink_->Write(compressed_data));
+
+    if (meta_encryptor_) {
+      UpdateEncryption(encryption::kDictionaryPageHeader);
+    }
+    int64_t header_size =
+        thrift_serializer_->Serialize(&page_header, sink_.get(), meta_encryptor_);
+
+    PARQUET_THROW_NOT_OK(sink_->Write(output_data_buffer, output_data_len));
 
     total_uncompressed_size_ += uncompressed_size + header_size;
-    total_compressed_size_ += compressed_data->size() + header_size;
+    total_compressed_size_ += output_data_len + header_size;
 
     int64_t final_pos = -1;
     PARQUET_THROW_NOT_OK(sink_->Tell(&final_pos));
@@ -192,11 +227,13 @@ class SerializedPageWriter : public PageWriter {
   }
 
   void Close(bool has_dictionary, bool fallback) override {
+    if (meta_encryptor_ != nullptr) {
+      UpdateEncryption(encryption::kColumnMetaData);
+    }
     // index_page_offset = -1 since they are not supported
     metadata_->Finish(num_values_, dictionary_page_offset_, -1, data_page_offset_,
                       total_compressed_size_, total_uncompressed_size_, has_dictionary,
-                      fallback);
-
+                      fallback, meta_encryptor_);
     // Write metadata at end of column chunk
     metadata_->WriteTo(sink_.get());
   }
@@ -225,7 +262,6 @@ class SerializedPageWriter : public PageWriter {
   int64_t WriteDataPage(const CompressedDataPage& page) override {
     int64_t uncompressed_size = page.uncompressed_size();
     std::shared_ptr<Buffer> compressed_data = page.buffer();
-
     format::DataPageHeader data_page_header;
     data_page_header.__set_num_values(page.num_values());
     data_page_header.__set_encoding(ToThrift(page.encoding()));
@@ -235,10 +271,23 @@ class SerializedPageWriter : public PageWriter {
         ToThrift(page.repetition_level_encoding()));
     data_page_header.__set_statistics(ToThrift(page.statistics()));
 
+    const uint8_t* output_data_buffer = compressed_data->data();
+    int32_t output_data_len = static_cast<int32_t>(compressed_data->size());
+
+    std::shared_ptr<ResizableBuffer> encrypted_data_buffer = AllocateBuffer(pool_, 0);
+    if (data_encryptor_.get()) {
+      UpdateEncryption(encryption::kDataPage);
+      PARQUET_THROW_NOT_OK(encrypted_data_buffer->Resize(
+          data_encryptor_->CiphertextSizeDelta() + output_data_len));
+      output_data_len = data_encryptor_->Encrypt(compressed_data->data(), output_data_len,
+                                                 encrypted_data_buffer->mutable_data());
+      output_data_buffer = encrypted_data_buffer->data();
+    }
+
     format::PageHeader page_header;
     page_header.__set_type(format::PageType::DATA_PAGE);
     page_header.__set_uncompressed_page_size(static_cast<int32_t>(uncompressed_size));
-    page_header.__set_compressed_page_size(static_cast<int32_t>(compressed_data->size()));
+    page_header.__set_compressed_page_size(static_cast<int32_t>(output_data_len));
     page_header.__set_data_page_header(data_page_header);
     // TODO(PARQUET-594) crc checksum
 
@@ -248,13 +297,18 @@ class SerializedPageWriter : public PageWriter {
       data_page_offset_ = start_pos;
     }
 
-    int64_t header_size = thrift_serializer_->Serialize(&page_header, sink_.get());
-    PARQUET_THROW_NOT_OK(sink_->Write(compressed_data));
+    if (meta_encryptor_) {
+      UpdateEncryption(encryption::kDataPageHeader);
+    }
+    int64_t header_size =
+        thrift_serializer_->Serialize(&page_header, sink_.get(), meta_encryptor_);
+    PARQUET_THROW_NOT_OK(sink_->Write(output_data_buffer, output_data_len));
 
     total_uncompressed_size_ += uncompressed_size + header_size;
-    total_compressed_size_ += compressed_data->size() + header_size;
+    total_compressed_size_ += output_data_len + header_size;
     num_values_ += page.num_values();
 
+    ++page_ordinal_;
     int64_t current_pos = -1;
     PARQUET_THROW_NOT_OK(sink_->Tell(&current_pos));
     return current_pos - start_pos;
@@ -273,6 +327,55 @@ class SerializedPageWriter : public PageWriter {
   int64_t total_uncompressed_size() { return total_uncompressed_size_; }
 
  private:
+  void InitEncryption() {
+    // Prepare the AAD for quick update later.
+    if (data_encryptor_ != nullptr) {
+      data_page_aad_ = encryption::CreateModuleAad(
+          data_encryptor_->file_aad(), encryption::kDataPage, row_group_ordinal_,
+          column_ordinal_, kNonPageOrdinal);
+    }
+    if (meta_encryptor_ != nullptr) {
+      data_page_header_aad_ = encryption::CreateModuleAad(
+          meta_encryptor_->file_aad(), encryption::kDataPageHeader, row_group_ordinal_,
+          column_ordinal_, kNonPageOrdinal);
+    }
+  }
+
+  void UpdateEncryption(int8_t module_type) {
+    switch (module_type) {
+      case encryption::kColumnMetaData: {
+        meta_encryptor_->UpdateAad(encryption::CreateModuleAad(
+            meta_encryptor_->file_aad(), module_type, row_group_ordinal_, column_ordinal_,
+            kNonPageOrdinal));
+        break;
+      }
+      case encryption::kDataPage: {
+        encryption::QuickUpdatePageAad(data_page_aad_, page_ordinal_);
+        data_encryptor_->UpdateAad(data_page_aad_);
+        break;
+      }
+      case encryption::kDataPageHeader: {
+        encryption::QuickUpdatePageAad(data_page_header_aad_, page_ordinal_);
+        meta_encryptor_->UpdateAad(data_page_header_aad_);
+        break;
+      }
+      case encryption::kDictionaryPageHeader: {
+        meta_encryptor_->UpdateAad(encryption::CreateModuleAad(
+            meta_encryptor_->file_aad(), module_type, row_group_ordinal_, column_ordinal_,
+            kNonPageOrdinal));
+        break;
+      }
+      case encryption::kDictionaryPage: {
+        data_encryptor_->UpdateAad(encryption::CreateModuleAad(
+            data_encryptor_->file_aad(), module_type, row_group_ordinal_, column_ordinal_,
+            kNonPageOrdinal));
+        break;
+      }
+      default:
+        throw ParquetException("Unknown module type in UpdateEncryption");
+    }
+  }
+
   std::shared_ptr<ArrowOutputStream> sink_;
   ColumnChunkMetaDataBuilder* metadata_;
   MemoryPool* pool_;
@@ -281,11 +384,20 @@ class SerializedPageWriter : public PageWriter {
   int64_t data_page_offset_;
   int64_t total_uncompressed_size_;
   int64_t total_compressed_size_;
+  int16_t page_ordinal_;
+  int16_t row_group_ordinal_;
+  int16_t column_ordinal_;
 
   std::unique_ptr<ThriftSerializer> thrift_serializer_;
 
   // Compression codec to use.
   std::unique_ptr<arrow::util::Codec> compressor_;
+
+  std::string data_page_aad_;
+  std::string data_page_header_aad_;
+
+  std::shared_ptr<Encryptor> meta_encryptor_;
+  std::shared_ptr<Encryptor> data_encryptor_;
 };
 
 // This implementation of the PageWriter writes to the final sink on Close .
@@ -293,12 +405,16 @@ class BufferedPageWriter : public PageWriter {
  public:
   BufferedPageWriter(const std::shared_ptr<ArrowOutputStream>& sink,
                      Compression::type codec, int compression_level,
-                     ColumnChunkMetaDataBuilder* metadata,
-                     MemoryPool* pool = arrow::default_memory_pool())
+                     ColumnChunkMetaDataBuilder* metadata, int16_t row_group_ordinal,
+                     int16_t current_column_ordinal,
+                     MemoryPool* pool = arrow::default_memory_pool(),
+                     std::shared_ptr<Encryptor> meta_encryptor = nullptr,
+                     std::shared_ptr<Encryptor> data_encryptor = nullptr)
       : final_sink_(sink), metadata_(metadata) {
     in_memory_sink_ = CreateOutputStream(pool);
     pager_ = std::unique_ptr<SerializedPageWriter>(new SerializedPageWriter(
-        in_memory_sink_, codec, compression_level, metadata, pool));
+        in_memory_sink_, codec, compression_level, metadata, row_group_ordinal,
+        current_column_ordinal, pool, meta_encryptor, data_encryptor));
   }
 
   int64_t WriteDictionaryPage(const DictionaryPage& page) override {
@@ -342,14 +458,18 @@ class BufferedPageWriter : public PageWriter {
 
 std::unique_ptr<PageWriter> PageWriter::Open(
     const std::shared_ptr<ArrowOutputStream>& sink, Compression::type codec,
-    int compression_level, ColumnChunkMetaDataBuilder* metadata, MemoryPool* pool,
-    bool buffered_row_group) {
+    int compression_level, ColumnChunkMetaDataBuilder* metadata,
+    int16_t row_group_ordinal, int16_t column_chunk_ordinal, MemoryPool* pool,
+    bool buffered_row_group, std::shared_ptr<Encryptor> meta_encryptor,
+    std::shared_ptr<Encryptor> data_encryptor) {
   if (buffered_row_group) {
-    return std::unique_ptr<PageWriter>(
-        new BufferedPageWriter(sink, codec, compression_level, metadata, pool));
+    return std::unique_ptr<PageWriter>(new BufferedPageWriter(
+        sink, codec, compression_level, metadata, row_group_ordinal, column_chunk_ordinal,
+        pool, meta_encryptor, data_encryptor));
   } else {
-    return std::unique_ptr<PageWriter>(
-        new SerializedPageWriter(sink, codec, compression_level, metadata, pool));
+    return std::unique_ptr<PageWriter>(new SerializedPageWriter(
+        sink, codec, compression_level, metadata, row_group_ordinal, column_chunk_ordinal,
+        pool, meta_encryptor, data_encryptor));
   }
 }
 

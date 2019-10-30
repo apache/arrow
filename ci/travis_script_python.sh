@@ -141,6 +141,7 @@ cmake -GNinja \
       -DARROW_WITH_SNAPPY=ON \
       -DARROW_WITH_BROTLI=ON \
       -DARROW_PARQUET=on \
+      -DPARQUET_REQUIRE_ENCRYPTION=on \
       -DARROW_PLASMA=on \
       -DARROW_TENSORFLOW=on \
       -DARROW_PYTHON=on \

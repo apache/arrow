@@ -23,8 +23,10 @@
 #include <exception>
 #include <iostream>
 #include <memory>
+#include <string>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
@@ -38,6 +40,8 @@
 
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
+#include "parquet/encryption_internal.h"
+#include "parquet/internal_file_decryptor.h"
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"  // IWYU pragma: keep
@@ -107,6 +111,8 @@ ReaderProperties default_reader_properties() {
 // SerializedPageReader deserializes Thrift metadata and pages that have been
 // assembled in a serialized stream for storing in a Parquet files
 
+static constexpr int16_t kNonPageOrdinal = static_cast<int16_t>(-1);
+
 // This subclass delimits pages appearing in a serialized stream, each preceded
 // by a serialized Thrift format::PageHeader indicating the type of each page
 // and the page metadata.
@@ -114,11 +120,17 @@ class SerializedPageReader : public PageReader {
  public:
   SerializedPageReader(const std::shared_ptr<ArrowInputStream>& stream,
                        int64_t total_num_rows, Compression::type codec,
-                       ::arrow::MemoryPool* pool)
+                       ::arrow::MemoryPool* pool, const CryptoContext* crypto_ctx)
       : stream_(stream),
         decompression_buffer_(AllocateBuffer(pool, 0)),
+        page_ordinal_(0),
         seen_num_rows_(0),
-        total_num_rows_(total_num_rows) {
+        total_num_rows_(total_num_rows),
+        decryption_buffer_(AllocateBuffer(pool, 0)) {
+    if (crypto_ctx != nullptr) {
+      crypto_ctx_ = *crypto_ctx;
+      InitDecryption();
+    }
     max_page_header_size_ = kDefaultMaxPageHeaderSize;
     decompressor_ = GetCodec(codec);
   }
@@ -129,6 +141,11 @@ class SerializedPageReader : public PageReader {
   void set_max_page_header_size(uint32_t size) override { max_page_header_size_ = size; }
 
  private:
+  void UpdateDecryption(const std::shared_ptr<Decryptor>& decryptor, int8_t module_type,
+                        const std::string& page_aad);
+
+  void InitDecryption();
+
   std::shared_ptr<ArrowInputStream> stream_;
 
   format::PageHeader current_page_header_;
@@ -138,6 +155,18 @@ class SerializedPageReader : public PageReader {
   std::unique_ptr<::arrow::util::Codec> decompressor_;
   std::shared_ptr<ResizableBuffer> decompression_buffer_;
 
+  // The fields below are used for calculation of AAD (additional authenticated data)
+  // suffix which is part of the Parquet Modular Encryption.
+  // The AAD suffix for a parquet module is built internally by
+  // concatenating different parts some of which include
+  // the row group ordinal, column ordinal and page ordinal.
+  // Please refer to the encryption specification for more details:
+  // https://github.com/apache/parquet-format/blob/encryption/Encryption.md#44-additional-authenticated-data
+
+  // The ordinal fields in the context below are used for AAD suffix calculation.
+  CryptoContext crypto_ctx_;
+  int16_t page_ordinal_;  // page ordinal does not count the dictionary page
+
   // Maximum allowed page size
   uint32_t max_page_header_size_;
 
@@ -146,11 +175,52 @@ class SerializedPageReader : public PageReader {
 
   // Number of rows in all the data pages
   int64_t total_num_rows_;
+
+  // data_page_aad_ and data_page_header_aad_ contain the AAD for data page and data page
+  // header in a single column respectively.
+  // While calculating AAD for different pages in a single column the pages AAD is
+  // updated by only the page ordinal.
+  std::string data_page_aad_;
+  std::string data_page_header_aad_;
+  // Encryption
+  std::shared_ptr<ResizableBuffer> decryption_buffer_;
 };
+
+void SerializedPageReader::InitDecryption() {
+  // Prepare the AAD for quick update later.
+  if (crypto_ctx_.data_decryptor != nullptr) {
+    DCHECK(!crypto_ctx_.data_decryptor->file_aad().empty());
+    data_page_aad_ = encryption::CreateModuleAad(
+        crypto_ctx_.data_decryptor->file_aad(), encryption::kDataPage,
+        crypto_ctx_.row_group_ordinal, crypto_ctx_.column_ordinal, kNonPageOrdinal);
+  }
+  if (crypto_ctx_.meta_decryptor != nullptr) {
+    DCHECK(!crypto_ctx_.meta_decryptor->file_aad().empty());
+    data_page_header_aad_ = encryption::CreateModuleAad(
+        crypto_ctx_.meta_decryptor->file_aad(), encryption::kDataPageHeader,
+        crypto_ctx_.row_group_ordinal, crypto_ctx_.column_ordinal, kNonPageOrdinal);
+  }
+}
+
+void SerializedPageReader::UpdateDecryption(const std::shared_ptr<Decryptor>& decryptor,
+                                            int8_t module_type,
+                                            const std::string& page_aad) {
+  DCHECK(decryptor != nullptr);
+  if (crypto_ctx_.start_decrypt_with_dictionary_page) {
+    std::string aad = encryption::CreateModuleAad(
+        decryptor->file_aad(), module_type, crypto_ctx_.row_group_ordinal,
+        crypto_ctx_.column_ordinal, kNonPageOrdinal);
+    decryptor->UpdateAad(aad);
+  } else {
+    encryption::QuickUpdatePageAad(page_aad, page_ordinal_);
+    decryptor->UpdateAad(page_aad);
+  }
+}
 
 std::shared_ptr<Page> SerializedPageReader::NextPage() {
   // Loop here because there may be unhandled page types that we skip until
   // finding a page that we do know what to do with
+
   while (seen_num_rows_ < total_num_rows_) {
     uint32_t header_size = 0;
     uint32_t allowed_page_size = kDefaultPageHeaderSize;
@@ -168,8 +238,13 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       // This gets used, then set by DeserializeThriftMsg
       header_size = static_cast<uint32_t>(buffer.size());
       try {
+        if (crypto_ctx_.meta_decryptor != nullptr) {
+          UpdateDecryption(crypto_ctx_.meta_decryptor, encryption::kDictionaryPageHeader,
+                           data_page_header_aad_);
+        }
         DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(buffer.data()),
-                             &header_size, &current_page_header_);
+                             &header_size, &current_page_header_,
+                             crypto_ctx_.meta_decryptor);
         break;
       } catch (std::exception& e) {
         // Failed to deserialize. Double the allowed page header size and try again
@@ -187,7 +262,10 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
     int compressed_len = current_page_header_.compressed_page_size;
     int uncompressed_len = current_page_header_.uncompressed_page_size;
-
+    if (crypto_ctx_.data_decryptor != nullptr) {
+      UpdateDecryption(crypto_ctx_.data_decryptor, encryption::kDictionaryPage,
+                       data_page_aad_);
+    }
     // Read the compressed data page.
     std::shared_ptr<Buffer> page_buffer;
     PARQUET_THROW_NOT_OK(stream_->Read(compressed_len, &page_buffer));
@@ -198,6 +276,15 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       ParquetException::EofException(ss.str());
     }
 
+    // Decrypt it if we need to
+    if (crypto_ctx_.data_decryptor != nullptr) {
+      PARQUET_THROW_NOT_OK(decryption_buffer_->Resize(
+          compressed_len - crypto_ctx_.data_decryptor->CiphertextSizeDelta()));
+      compressed_len = crypto_ctx_.data_decryptor->Decrypt(
+          page_buffer->data(), compressed_len, decryption_buffer_->mutable_data());
+
+      page_buffer = decryption_buffer_;
+    }
     // Uncompress it if we need to
     if (decompressor_ != nullptr) {
       // Grow the uncompressed buffer if we need to.
@@ -211,6 +298,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     }
 
     if (current_page_header_.type == format::PageType::DICTIONARY_PAGE) {
+      crypto_ctx_.start_decrypt_with_dictionary_page = false;
       const format::DictionaryPageHeader& dict_header =
           current_page_header_.dictionary_page_header;
 
@@ -220,6 +308,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
                                               FromThrift(dict_header.encoding),
                                               is_sorted);
     } else if (current_page_header_.type == format::PageType::DATA_PAGE) {
+      ++page_ordinal_;
       const format::DataPageHeader& header = current_page_header_.data_page_header;
 
       EncodedStatistics page_statistics;
@@ -246,6 +335,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
           FromThrift(header.definition_level_encoding),
           FromThrift(header.repetition_level_encoding), page_statistics);
     } else if (current_page_header_.type == format::PageType::DATA_PAGE_V2) {
+      ++page_ordinal_;
       const format::DataPageHeaderV2& header = current_page_header_.data_page_header_v2;
       bool is_compressed = header.__isset.is_compressed ? header.is_compressed : false;
 
@@ -266,9 +356,9 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
 std::unique_ptr<PageReader> PageReader::Open(
     const std::shared_ptr<ArrowInputStream>& stream, int64_t total_num_rows,
-    Compression::type codec, ::arrow::MemoryPool* pool) {
+    Compression::type codec, ::arrow::MemoryPool* pool, const CryptoContext* ctx) {
   return std::unique_ptr<PageReader>(
-      new SerializedPageReader(stream, total_num_rows, codec, pool));
+      new SerializedPageReader(stream, total_num_rows, codec, pool, ctx));
 }
 
 // ----------------------------------------------------------------------
