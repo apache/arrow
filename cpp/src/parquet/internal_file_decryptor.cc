@@ -107,9 +107,9 @@ std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptorForColumnDat
 std::shared_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
     const std::string& aad, bool metadata) {
   if (metadata) {
-    if (footer_metadata_decryptor_ != NULLPTR) return footer_metadata_decryptor_;
+    if (footer_metadata_decryptor_ != nullptr) return footer_metadata_decryptor_;
   } else {
-    if (footer_data_decryptor_ != NULLPTR) return footer_data_decryptor_;
+    if (footer_data_decryptor_ != nullptr) return footer_data_decryptor_;
   }
 
   std::string footer_key = properties_->footer_key();
@@ -220,7 +220,7 @@ int InternalFileDecryptor::MapKeyLenToDecryptorArrayIndex(int key_len) {
 encryption::AesDecryptor* InternalFileDecryptor::GetMetaAesDecryptor(size_t key_size) {
   int key_len = static_cast<int>(key_size);
   int index = MapKeyLenToDecryptorArrayIndex(key_len);
-  if (meta_decryptor_[index] == NULLPTR) {
+  if (meta_decryptor_[index] == nullptr) {
     meta_decryptor_[index].reset(
         encryption::AesDecryptor::Make(algorithm_, key_len, true, &all_decryptors_));
   }
@@ -230,7 +230,7 @@ encryption::AesDecryptor* InternalFileDecryptor::GetMetaAesDecryptor(size_t key_
 encryption::AesDecryptor* InternalFileDecryptor::GetDataAesDecryptor(size_t key_size) {
   int key_len = static_cast<int>(key_size);
   int index = MapKeyLenToDecryptorArrayIndex(key_len);
-  if (data_decryptor_[index] == NULLPTR) {
+  if (data_decryptor_[index] == nullptr) {
     data_decryptor_[index].reset(
         encryption::AesDecryptor::Make(algorithm_, key_len, false, &all_decryptors_));
   }

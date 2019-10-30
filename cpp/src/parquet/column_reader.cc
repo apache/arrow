@@ -104,13 +104,14 @@ int LevelDecoder::Decode(int batch_size, int16_t* levels) {
 
 ReaderProperties default_reader_properties() {
   static ReaderProperties default_reader_properties;
-
   return default_reader_properties;
 }
 
 // ----------------------------------------------------------------------
 // SerializedPageReader deserializes Thrift metadata and pages that have been
 // assembled in a serialized stream for storing in a Parquet files
+
+static constexpr int16_t kNonPageOrdinal = static_cast<int16_t>(-1);
 
 // This subclass delimits pages appearing in a serialized stream, each preceded
 // by a serialized Thrift format::PageHeader indicating the type of each page
@@ -126,7 +127,7 @@ class SerializedPageReader : public PageReader {
         seen_num_rows_(0),
         total_num_rows_(total_num_rows),
         decryption_buffer_(AllocateBuffer(pool, 0)) {
-    if (crypto_ctx != NULLPTR) {
+    if (crypto_ctx != nullptr) {
       crypto_ctx_ = *crypto_ctx;
       InitDecryption();
     }
@@ -141,7 +142,7 @@ class SerializedPageReader : public PageReader {
 
  private:
   void UpdateDecryption(const std::shared_ptr<Decryptor>& decryptor, int8_t module_type,
-                        const std::string& pageAAD);
+                        const std::string& page_aad);
 
   void InitDecryption();
 
@@ -175,46 +176,44 @@ class SerializedPageReader : public PageReader {
   // Number of rows in all the data pages
   int64_t total_num_rows_;
 
-  // data_pageAAD_ and data_page_headerAAD_ contain the AAD for data page and data page
+  // data_page_aad_ and data_page_header_aad_ contain the AAD for data page and data page
   // header in a single column respectively.
   // While calculating AAD for different pages in a single column the pages AAD is
   // updated by only the page ordinal.
-  std::string data_pageAAD_;
-  std::string data_page_headerAAD_;
+  std::string data_page_aad_;
+  std::string data_page_header_aad_;
   // Encryption
   std::shared_ptr<ResizableBuffer> decryption_buffer_;
 };
 
 void SerializedPageReader::InitDecryption() {
   // Prepare the AAD for quick update later.
-  if (crypto_ctx_.data_decryptor != NULLPTR) {
+  if (crypto_ctx_.data_decryptor != nullptr) {
     DCHECK(!crypto_ctx_.data_decryptor->file_aad().empty());
-    data_pageAAD_ =
-        encryption::CreateModuleAad(crypto_ctx_.data_decryptor->file_aad(),
-                                    encryption::kDataPage, crypto_ctx_.row_group_ordinal,
-                                    crypto_ctx_.column_ordinal, static_cast<int16_t>(-1));
+    data_page_aad_ = encryption::CreateModuleAad(
+        crypto_ctx_.data_decryptor->file_aad(), encryption::kDataPage,
+        crypto_ctx_.row_group_ordinal, crypto_ctx_.column_ordinal, kNonPageOrdinal);
   }
-  if (crypto_ctx_.meta_decryptor != NULLPTR) {
+  if (crypto_ctx_.meta_decryptor != nullptr) {
     DCHECK(!crypto_ctx_.meta_decryptor->file_aad().empty());
-    data_page_headerAAD_ = encryption::CreateModuleAad(
+    data_page_header_aad_ = encryption::CreateModuleAad(
         crypto_ctx_.meta_decryptor->file_aad(), encryption::kDataPageHeader,
-        crypto_ctx_.row_group_ordinal, crypto_ctx_.column_ordinal,
-        static_cast<int16_t>(-1));
+        crypto_ctx_.row_group_ordinal, crypto_ctx_.column_ordinal, kNonPageOrdinal);
   }
 }
 
 void SerializedPageReader::UpdateDecryption(const std::shared_ptr<Decryptor>& decryptor,
                                             int8_t module_type,
-                                            const std::string& pageAAD) {
-  DCHECK(decryptor != NULLPTR);
+                                            const std::string& page_aad) {
+  DCHECK(decryptor != nullptr);
   if (crypto_ctx_.start_decrypt_with_dictionary_page) {
     std::string aad = encryption::CreateModuleAad(
         decryptor->file_aad(), module_type, crypto_ctx_.row_group_ordinal,
-        crypto_ctx_.column_ordinal, static_cast<int16_t>(-1));
+        crypto_ctx_.column_ordinal, kNonPageOrdinal);
     decryptor->UpdateAad(aad);
   } else {
-    encryption::QuickUpdatePageAad(pageAAD, page_ordinal_);
-    decryptor->UpdateAad(pageAAD);
+    encryption::QuickUpdatePageAad(page_aad, page_ordinal_);
+    decryptor->UpdateAad(page_aad);
   }
 }
 
@@ -233,15 +232,15 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       string_view buffer;
       PARQUET_THROW_NOT_OK(stream_->Peek(allowed_page_size, &buffer));
       if (buffer.size() == 0) {
-        return std::shared_ptr<Page>(NULLPTR);
+        return std::shared_ptr<Page>(nullptr);
       }
 
       // This gets used, then set by DeserializeThriftMsg
       header_size = static_cast<uint32_t>(buffer.size());
       try {
-        if (crypto_ctx_.meta_decryptor != NULLPTR) {
+        if (crypto_ctx_.meta_decryptor != nullptr) {
           UpdateDecryption(crypto_ctx_.meta_decryptor, encryption::kDictionaryPageHeader,
-                           data_page_headerAAD_);
+                           data_page_header_aad_);
         }
         DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(buffer.data()),
                              &header_size, &current_page_header_,
@@ -263,9 +262,9 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
     int compressed_len = current_page_header_.compressed_page_size;
     int uncompressed_len = current_page_header_.uncompressed_page_size;
-    if (crypto_ctx_.data_decryptor != NULLPTR) {
+    if (crypto_ctx_.data_decryptor != nullptr) {
       UpdateDecryption(crypto_ctx_.data_decryptor, encryption::kDictionaryPage,
-                       data_pageAAD_);
+                       data_page_aad_);
     }
     // Read the compressed data page.
     std::shared_ptr<Buffer> page_buffer;
@@ -278,7 +277,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     }
 
     // Decrypt it if we need to
-    if (crypto_ctx_.data_decryptor != NULLPTR) {
+    if (crypto_ctx_.data_decryptor != nullptr) {
       PARQUET_THROW_NOT_OK(decryption_buffer_->Resize(
           compressed_len - crypto_ctx_.data_decryptor->CiphertextSizeDelta()));
       compressed_len = crypto_ctx_.data_decryptor->Decrypt(
@@ -287,7 +286,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       page_buffer = decryption_buffer_;
     }
     // Uncompress it if we need to
-    if (decompressor_ != NULLPTR) {
+    if (decompressor_ != nullptr) {
       // Grow the uncompressed buffer if we need to.
       if (uncompressed_len > static_cast<int>(decompression_buffer_->size())) {
         PARQUET_THROW_NOT_OK(decompression_buffer_->Resize(uncompressed_len, false));
@@ -309,7 +308,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
                                               FromThrift(dict_header.encoding),
                                               is_sorted);
     } else if (current_page_header_.type == format::PageType::DATA_PAGE) {
-      page_ordinal_++;
+      ++page_ordinal_;
       const format::DataPageHeader& header = current_page_header_.data_page_header;
 
       EncodedStatistics page_statistics;
@@ -336,7 +335,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
           FromThrift(header.definition_level_encoding),
           FromThrift(header.repetition_level_encoding), page_statistics);
     } else if (current_page_header_.type == format::PageType::DATA_PAGE_V2) {
-      page_ordinal_++;
+      ++page_ordinal_;
       const format::DataPageHeaderV2& header = current_page_header_.data_page_header_v2;
       bool is_compressed = header.__isset.is_compressed ? header.is_compressed : false;
 
@@ -352,7 +351,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
       continue;
     }
   }
-  return std::shared_ptr<Page>(NULLPTR);
+  return std::shared_ptr<Page>(nullptr);
 }
 
 std::unique_ptr<PageReader> PageReader::Open(
@@ -383,7 +382,7 @@ class ColumnReaderImplBase {
         num_buffered_values_(0),
         num_decoded_values_(0),
         pool_(pool),
-        current_decoder_(NULLPTR),
+        current_decoder_(nullptr),
         current_encoding_(Encoding::UNKNOWN) {}
 
   virtual ~ColumnReaderImplBase() = default;
@@ -567,7 +566,7 @@ class ColumnReaderImplBase {
 
     auto it = decoders_.find(static_cast<int>(encoding));
     if (it != decoders_.end()) {
-      DCHECK(it->second.get() != NULLPTR);
+      DCHECK(it->second.get() != nullptr);
       if (encoding == Encoding::RLE_DICTIONARY) {
         DCHECK(current_decoder_->encoding() == Encoding::RLE_DICTIONARY);
       }
@@ -862,7 +861,7 @@ std::shared_ptr<ColumnReader> ColumnReader::Make(const ColumnDescriptor* descr,
       ParquetException::NYI("type reader not implemented");
   }
   // Unreachable code, but supress compiler warning
-  return std::shared_ptr<ColumnReader>(NULLPTR);
+  return std::shared_ptr<ColumnReader>(nullptr);
 }
 
 // ----------------------------------------------------------------------

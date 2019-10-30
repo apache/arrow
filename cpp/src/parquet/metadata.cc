@@ -180,14 +180,14 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
                                    const ColumnDescriptor* descr,
                                    int16_t row_group_ordinal, int16_t column_ordinal,
                                    const ApplicationVersion* writer_version,
-                                   InternalFileDecryptor* file_decryptor = NULLPTR)
+                                   InternalFileDecryptor* file_decryptor = nullptr)
       : column_(column), descr_(descr), writer_version_(writer_version) {
     column_metadata_ = &column->meta_data;
     if (column->__isset.crypto_metadata) {  // column metadata is encrypted
       format::ColumnCryptoMetaData ccmd = column->crypto_metadata;
 
       if (ccmd.__isset.ENCRYPTION_WITH_COLUMN_KEY) {
-        if (file_decryptor != NULLPTR && file_decryptor->properties() != NULLPTR) {
+        if (file_decryptor != nullptr && file_decryptor->properties() != nullptr) {
           // should decrypt metadata
           std::shared_ptr<schema::ColumnPath> path = std::make_shared<schema::ColumnPath>(
               ccmd.ENCRYPTION_WITH_COLUMN_KEY.path_in_schema);
@@ -399,7 +399,7 @@ class RowGroupMetaData::RowGroupMetaDataImpl {
   inline const SchemaDescriptor* schema() const { return schema_; }
 
   std::unique_ptr<ColumnChunkMetaData> ColumnChunk(
-      int i, int16_t row_group_ordinal, InternalFileDecryptor* file_decryptor = NULLPTR) {
+      int i, int16_t row_group_ordinal, InternalFileDecryptor* file_decryptor = nullptr) {
     if (!(i < num_columns())) {
       std::stringstream ss;
       ss << "The file only has " << num_columns()
@@ -484,7 +484,7 @@ class FileMetaData::FileMetaDataImpl {
     std::string aad = encryption::CreateFooterAad(file_decryptor->file_aad());
 
     auto aes_encryptor = encryption::AesEncryptor::Make(
-        file_decryptor->algorithm(), static_cast<int>(key.size()), true, NULLPTR);
+        file_decryptor->algorithm(), static_cast<int>(key.size()), true, nullptr);
 
     std::shared_ptr<Buffer> encrypted_buffer = std::static_pointer_cast<ResizableBuffer>(
         AllocateBuffer(file_decryptor->pool(),
@@ -948,7 +948,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     const auto& encrypt_md =
         properties_->column_encryption_properties(column_->path()->ToDotString());
     // column is encrypted
-    if (encrypt_md != NULLPTR && encrypt_md->is_encrypted()) {
+    if (encrypt_md != nullptr && encrypt_md->is_encrypted()) {
       column_chunk_->__isset.crypto_metadata = true;
       format::ColumnCryptoMetaData ccmd;
       if (encrypt_md->is_encrypted_with_footer_key()) {
@@ -1121,21 +1121,7 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
          << " columns are initialized";
       throw ParquetException(ss.str());
     }
-    //    int64_t total_byte_size = 0;
 
-    //    for (int i = 0; i < schema_->num_columns(); i++) {
-    //      if (!(row_group_->columns[i].file_offset >= 0)) {
-    //        std::stringstream ss;
-    //        ss << "Column " << i << " is not complete.";
-    //        throw ParquetException(ss.str());
-    //      }
-    //      total_byte_size += row_group_->columns[i].meta_data.total_compressed_size;
-    //    }
-    //    DCHECK(total_bytes_written == total_byte_size)
-    //        << "Total bytes in this RowGroup does not match with compressed sizes of
-    //        columns";
-
-    //    row_group_->__set_total_byte_size(total_byte_size);
     int64_t file_offset = 0;
     int64_t total_compressed_size = 0;
     for (int i = 0; i < schema_->num_columns(); i++) {

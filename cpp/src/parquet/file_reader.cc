@@ -85,7 +85,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
   SerializedRowGroup(const std::shared_ptr<ArrowInputFile>& source,
                      FileMetaData* file_metadata, int row_group_number,
                      const ReaderProperties& props,
-                     InternalFileDecryptor* file_decryptor = NULLPTR)
+                     InternalFileDecryptor* file_decryptor = nullptr)
       : source_(source),
         file_metadata_(file_metadata),
         properties_(props),
@@ -247,7 +247,7 @@ class SerializedFile : public ParquetFileReader::Contents {
 
     auto file_decryption_properties = properties_.file_decryption_properties();
     if (!file_metadata_->is_encryption_algorithm_set()) {  // Non encrypted file.
-      if (file_decryption_properties != NULLPTR) {
+      if (file_decryption_properties != nullptr) {
         if (!file_decryption_properties->plaintext_files_allowed()) {
           throw ParquetException("Applying decryption properties on plaintext file");
         }
@@ -340,7 +340,7 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithEncryptedFooter(
     }
   }
   auto file_decryption_properties = properties_.file_decryption_properties();
-  if (file_decryption_properties == NULLPTR) {
+  if (file_decryption_properties == nullptr) {
     throw ParquetException(
         "No decryption properties are provided. Could not read "
         "encrypted footer metadata");
@@ -375,7 +375,7 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithPlaintextFooter(
     uint32_t read_metadata_len) {
   // Providing decryption properties in plaintext footer mode is not mendatory, for
   // example when reading by legacy reader.
-  if (file_decryption_properties != NULLPTR) {
+  if (file_decryption_properties != nullptr) {
     EncryptionAlgorithm algo = file_metadata_->encryption_algorithm();
     // Handle AAD prefix
     std::string file_aad = HandleAadPrefix(file_decryption_properties, algo);
@@ -425,7 +425,7 @@ std::string SerializedFile::HandleAadPrefix(
     aad_prefix = aad_prefix_in_file;
     std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier =
         file_decryption_properties->aad_prefix_verifier();
-    if (aad_prefix_verifier != NULLPTR) aad_prefix_verifier->Verify(aad_prefix);
+    if (aad_prefix_verifier != nullptr) aad_prefix_verifier->Verify(aad_prefix);
   } else {
     if (!algo.aad.supply_aad_prefix && !aad_prefix_in_properties.empty()) {
       throw ParquetException(
@@ -434,7 +434,7 @@ std::string SerializedFile::HandleAadPrefix(
     }
     std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier =
         file_decryption_properties->aad_prefix_verifier();
-    if (aad_prefix_verifier != NULLPTR) {
+    if (aad_prefix_verifier != nullptr) {
       throw ParquetException(
           "AAD Prefix Verifier is set, but AAD Prefix not found in file");
     }
@@ -464,7 +464,7 @@ std::unique_ptr<ParquetFileReader::Contents> ParquetFileReader::Contents::Open(
   // Access private methods here, but otherwise unavailable
   SerializedFile* file = static_cast<SerializedFile*>(result.get());
 
-  if (metadata == NULLPTR) {
+  if (metadata == nullptr) {
     // Validates magic bytes, parses metadata, and initializes the SchemaDescriptor
     file->ParseMetaData();
   } else {

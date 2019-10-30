@@ -88,7 +88,7 @@ namespace test {
 class TestDecryptionConfiguration
     : public testing::TestWithParam<std::tuple<int, const char*>> {
  public:
-  void SetUp() { createDecryptionConfigurations(); }
+  void SetUp() { CreateDecryptionConfigurations(); }
 
  protected:
   std::string path_to_double_field_ = "double_field";
@@ -101,7 +101,7 @@ class TestDecryptionConfiguration
   std::string kColumnEncryptionKey2_ = std::string(kColumnEncryptionKey2);
   std::string kFileName_ = std::string(kFileName);
 
-  void createDecryptionConfigurations() {
+  void CreateDecryptionConfigurations() {
     /**********************************************************************************
                            Creating a number of Decryption configurations
      **********************************************************************************/
@@ -472,7 +472,7 @@ TEST_P(TestDecryptionConfiguration, TestDecryption) {
 }
 
 INSTANTIATE_TEST_CASE_P(
-    decryptionTests, TestDecryptionConfiguration,
+    DecryptionTests, TestDecryptionConfiguration,
     ::testing::Values(
         std::make_tuple(1, "uniform_encryption.parquet.encrypted"),
         std::make_tuple(2, "encrypt_columns_and_footer.parquet.encrypted"),

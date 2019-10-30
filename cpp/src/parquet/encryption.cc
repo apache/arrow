@@ -143,9 +143,9 @@ FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::footer_key
 
 FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::key_retriever(
     const std::shared_ptr<DecryptionKeyRetriever>& key_retriever) {
-  if (key_retriever == NULLPTR) return this;
+  if (key_retriever == nullptr) return this;
 
-  DCHECK(key_retriever_ == NULLPTR);
+  DCHECK(key_retriever_ == nullptr);
   key_retriever_ = key_retriever;
   return this;
 }
@@ -162,9 +162,9 @@ FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::aad_prefix
 
 FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::aad_prefix_verifier(
     std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier) {
-  if (aad_prefix_verifier == NULLPTR) return this;
+  if (aad_prefix_verifier == nullptr) return this;
 
-  DCHECK(aad_prefix_verifier_ == NULLPTR);
+  DCHECK(aad_prefix_verifier_ == nullptr);
   aad_prefix_verifier_ = aad_prefix_verifier;
   return this;
 }
@@ -319,7 +319,7 @@ FileDecryptionProperties::FileDecryptionProperties(
     std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
     const ColumnPathToDecryptionPropertiesMap& column_decryption_properties,
     bool plaintext_files_allowed) {
-  DCHECK(!footer_key.empty() || NULLPTR != key_retriever ||
+  DCHECK(!footer_key.empty() || nullptr != key_retriever ||
          0 != column_decryption_properties.size());
 
   if (!footer_key.empty()) {
@@ -327,7 +327,7 @@ FileDecryptionProperties::FileDecryptionProperties(
            footer_key.length() == 32);
   }
   if (footer_key.empty() && check_plaintext_footer_integrity) {
-    DCHECK(NULLPTR != key_retriever);
+    DCHECK(nullptr != key_retriever);
   }
   aad_prefix_verifier_ = aad_prefix_verifier;
   footer_key_ = footer_key;

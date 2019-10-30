@@ -58,7 +58,7 @@ void InternalFileEncryptor::WipeOutEncryptionKeys() {
 }
 
 std::shared_ptr<Encryptor> InternalFileEncryptor::GetFooterEncryptor() {
-  if (footer_encryptor_ != NULLPTR) {
+  if (footer_encryptor_ != nullptr) {
     return footer_encryptor_;
   }
 
@@ -72,7 +72,7 @@ std::shared_ptr<Encryptor> InternalFileEncryptor::GetFooterEncryptor() {
 }
 
 std::shared_ptr<Encryptor> InternalFileEncryptor::GetFooterSigningEncryptor() {
-  if (footer_signing_encryptor_ != NULLPTR) {
+  if (footer_signing_encryptor_ != nullptr) {
     return footer_signing_encryptor_;
   }
 
@@ -109,7 +109,7 @@ InternalFileEncryptor::InternalFileEncryptor::GetColumnEncryptor(
     }
   }
   auto column_prop = properties_->column_encryption_properties(column_path);
-  if (column_prop == NULLPTR) {
+  if (column_prop == nullptr) {
     return nullptr;
   }
 
@@ -149,7 +149,7 @@ encryption::AesEncryptor* InternalFileEncryptor::GetMetaAesEncryptor(
     ParquetCipher::type algorithm, size_t key_size) {
   int key_len = static_cast<int>(key_size);
   int index = MapKeyLenToEncryptorArrayIndex(key_len);
-  if (meta_encryptor_[index] == NULLPTR) {
+  if (meta_encryptor_[index] == nullptr) {
     meta_encryptor_[index].reset(
         encryption::AesEncryptor::Make(algorithm, key_len, true, &all_encryptors_));
   }
@@ -160,7 +160,7 @@ encryption::AesEncryptor* InternalFileEncryptor::GetDataAesEncryptor(
     ParquetCipher::type algorithm, size_t key_size) {
   int key_len = static_cast<int>(key_size);
   int index = MapKeyLenToEncryptorArrayIndex(key_len);
-  if (data_encryptor_[index] == NULLPTR) {
+  if (data_encryptor_[index] == nullptr) {
     data_encryptor_[index].reset(
         encryption::AesEncryptor::Make(algorithm, key_len, false, &all_encryptors_));
   }

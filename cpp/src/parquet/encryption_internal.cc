@@ -54,9 +54,9 @@ class AesEncryptor::AesEncryptorImpl {
   explicit AesEncryptorImpl(ParquetCipher::type alg_id, int key_len, bool metadata);
 
   ~AesEncryptorImpl() {
-    if (NULLPTR != ctx_) {
+    if (nullptr != ctx_) {
       EVP_CIPHER_CTX_free(ctx_);
-      ctx_ = NULLPTR;
+      ctx_ = nullptr;
     }
   }
 
@@ -67,9 +67,9 @@ class AesEncryptor::AesEncryptorImpl {
                           int key_len, const uint8_t* aad, int aad_len,
                           const uint8_t* nonce, uint8_t* encrypted_footer);
   void WipeOut() {
-    if (NULLPTR != ctx_) {
+    if (nullptr != ctx_) {
       EVP_CIPHER_CTX_free(ctx_);
-      ctx_ = NULLPTR;
+      ctx_ = nullptr;
     }
   }
 
@@ -307,9 +307,9 @@ class AesDecryptor::AesDecryptorImpl {
   explicit AesDecryptorImpl(ParquetCipher::type alg_id, int key_len, bool metadata);
 
   ~AesDecryptorImpl() {
-    if (NULLPTR != ctx_) {
+    if (nullptr != ctx_) {
       EVP_CIPHER_CTX_free(ctx_);
-      ctx_ = NULLPTR;
+      ctx_ = nullptr;
     }
   }
 
@@ -317,9 +317,9 @@ class AesDecryptor::AesDecryptorImpl {
               int key_len, const uint8_t* aad, int aad_len, uint8_t* plaintext);
 
   void WipeOut() {
-    if (NULLPTR != ctx_) {
+    if (nullptr != ctx_) {
       EVP_CIPHER_CTX_free(ctx_);
-      ctx_ = NULLPTR;
+      ctx_ = nullptr;
     }
   }
 
@@ -402,7 +402,7 @@ AesEncryptor* AesEncryptor::Make(ParquetCipher::type alg_id, int key_len, bool m
   }
 
   AesEncryptor* encryptor = new AesEncryptor(alg_id, key_len, metadata);
-  if (all_encryptors != NULLPTR) all_encryptors->push_back(encryptor);
+  if (all_encryptors != nullptr) all_encryptors->push_back(encryptor);
   return encryptor;
 }
 
@@ -419,7 +419,7 @@ AesDecryptor* AesDecryptor::Make(ParquetCipher::type alg_id, int key_len, bool m
   }
 
   AesDecryptor* decryptor = new AesDecryptor(alg_id, key_len, metadata);
-  if (all_decryptors != NULLPTR) {
+  if (all_decryptors != nullptr) {
     all_decryptors->push_back(decryptor);
   }
   return decryptor;
