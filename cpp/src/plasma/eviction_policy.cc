@@ -159,7 +159,7 @@ void EvictionPolicy::RemoveObject(const ObjectID& object_id) {
 void EvictionPolicy::RefreshObjects(const std::vector<ObjectID>& object_ids) {
   for (const auto& object_id : object_ids) {
     int64_t size = cache_.Remove(object_id);
-    cache_.Add(object_id, size);
+    ARROW_CHECK(cache_.Add(object_id, size) != -1);
   }
 }
 

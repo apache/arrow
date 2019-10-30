@@ -780,7 +780,7 @@ Status ReadDataReply(uint8_t* data, size_t size, ObjectID* object_id,
   return Status::OK();
 }
 
-// RefreshLRU messages
+// RefreshLRU messages.
 
 Status SendRefreshLRURequest(int sock, const std::vector<ObjectID>& object_ids) {
   flatbuffers::FlatBufferBuilder fbb;
@@ -791,7 +791,8 @@ Status SendRefreshLRURequest(int sock, const std::vector<ObjectID>& object_ids) 
   return PlasmaSend(sock, MessageType::PlasmaRefreshLRURequest, &fbb, message);
 }
 
-Status ReadRefreshLRURequest(uint8_t* data, size_t size, std::vector<ObjectID>* object_ids) {
+Status ReadRefreshLRURequest(uint8_t* data, size_t size,
+                             std::vector<ObjectID>* object_ids) {
   DCHECK(data);
   auto message = flatbuffers::GetRoot<fb::PlasmaRefreshLRURequest>(data);
   DCHECK(VerifyFlatbuffer(message, data, size));

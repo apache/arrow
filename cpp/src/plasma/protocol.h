@@ -236,7 +236,8 @@ Status ReadDataReply(uint8_t* data, size_t size, ObjectID* object_id,
 
 Status SendRefreshLRURequest(int sock, const std::vector<ObjectID>& object_ids);
 
-Status ReadRefreshLRURequest(uint8_t* data, size_t size, std::vector<ObjectID>* object_ids);
+Status ReadRefreshLRURequest(uint8_t* data, size_t size,
+                             std::vector<ObjectID>* object_ids);
 
 Status SendRefreshLRUReply(int sock);
 
