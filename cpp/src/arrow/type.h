@@ -1546,6 +1546,8 @@ std::shared_ptr<Schema> schema(
 ///   field will be of that same type.
 /// - The unified field will inherit the metadata from the schema where
 ///   that field is first defined.
+/// - The first N fields in the schema will be ordered the same as the
+///   N fields in the first schema.
 /// The resulting schema will inherit its metadata from the first input schema.
 /// Returns an error if:
 /// - Any input schema contains fields with duplicate names.
