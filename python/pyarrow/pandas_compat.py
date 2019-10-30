@@ -751,6 +751,15 @@ def table_to_blockmanager(options, table, categories=None,
     return BlockManager(blocks, axes)
 
 
+# Set of the string repr of all numpy dtypes that can be stored in a pandas
+# dataframe (complex not included since not supported by Arrow)
+_pandas_supported_numpy_types = set([
+    str(np.dtype(typ))
+    for typ in (np.sctypes['int'] + np.sctypes['uint'] + np.sctypes['float']
+                + ['object', 'bool'])
+])
+
+
 def _get_extension_dtypes(table, columns_metadata, extension_columns):
     """
     Based on the stored column pandas metadata and the extension types
@@ -777,10 +786,14 @@ def _get_extension_dtypes(table, columns_metadata, extension_columns):
         # infer the extension columns from the pandas metadata
         for col_meta in columns_metadata:
             name = col_meta['name']
-            pandas_dtype = _pandas_api.pandas_dtype(col_meta['numpy_type'])
-            if isinstance(pandas_dtype, _pandas_api.extension_dtype):
-                if hasattr(pandas_dtype, "__from_arrow__"):
-                    ext_columns[name] = pandas_dtype
+            dtype = col_meta['numpy_type']
+            if dtype not in _pandas_supported_numpy_types:
+                # pandas_dtype is expensive, so avoid doing this for types
+                # that are certainly numpy dtypes
+                pandas_dtype = _pandas_api.pandas_dtype(dtype)
+                if isinstance(pandas_dtype, _pandas_api.extension_dtype):
+                    if hasattr(pandas_dtype, "__from_arrow__"):
+                        ext_columns[name] = pandas_dtype
         # infer from extension type in the schema
         for field in table.schema:
             typ = field.type
