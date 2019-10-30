@@ -221,7 +221,7 @@ public class ${mode}StructWriter extends AbstractFieldWriter {
   public ${minor.class}Writer ${lowerName}(String name) {
     // returns existing writer
     final FieldWriter writer = fields.get(handleCase(name));
-    assert writer != null;
+    Preconditions.checkNotNull(writer);
     return writer;
   }
 

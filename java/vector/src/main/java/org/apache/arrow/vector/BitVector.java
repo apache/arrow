@@ -174,7 +174,7 @@ public final class BitVector extends BaseFixedWidthVector {
       BaseFixedWidthVector target,
       ArrowBuf sourceBuffer,
       ArrowBuf destBuffer) {
-    assert startIndex + length <= valueCount;
+    Preconditions.checkArgument(startIndex + length <= valueCount);
     int firstByteSource = BitVectorHelper.byteIndex(startIndex);
     int lastByteSource = BitVectorHelper.byteIndex(valueCount - 1);
     int byteSizeTarget = getValidityBufferSizeFromCount(length);

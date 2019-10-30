@@ -23,6 +23,7 @@ import java.util.List;
 
 import org.apache.arrow.plasma.exceptions.DuplicateObjectException;
 import org.apache.arrow.plasma.exceptions.PlasmaOutOfMemoryException;
+import org.apache.arrow.util.Preconditions;
 
 /**
  * The PlasmaClient is used to interface with a plasma store and manager.
@@ -57,7 +58,7 @@ public class PlasmaClient implements ObjectStoreLink {
   @Override
   public List<byte[]> get(byte[][] objectIds, int timeoutMs, boolean isMetadata) {
     ByteBuffer[][] bufs = PlasmaClientJNI.get(conn, objectIds, timeoutMs);
-    assert bufs.length == objectIds.length;
+    Preconditions.checkArgument(bufs.length == objectIds.length);
 
     List<byte[]> ret = new ArrayList<>();
     for (int i = 0; i < bufs.length; i++) {
@@ -81,7 +82,7 @@ public class PlasmaClient implements ObjectStoreLink {
   @Override
   public List<ObjectStoreData> get(byte[][] objectIds, int timeoutMs) {
     ByteBuffer[][] bufs = PlasmaClientJNI.get(conn, objectIds, timeoutMs);
-    assert bufs.length == objectIds.length;
+    Preconditions.checkArgument(bufs.length == objectIds.length);
 
     List<ObjectStoreData> ret = new ArrayList<>();
     for (int i = 0; i < bufs.length; i++) {

@@ -202,32 +202,12 @@ public class TestFixedSizeBinaryVector {
 
   @Test
   public void testSetWithInvalidInput() throws Exception {
-    String errorMsg = "input data needs to be at least " + typeWidth + " bytes";
 
     // test small inputs, byteWidth matches but value or buffer is too small
-    try {
-      vector.set(0, smallValue);
-      failWithException(errorMsg);
-    } catch (AssertionError ignore) {
-    }
-
-    try {
-      vector.set(0, smallHolder);
-      failWithException(errorMsg);
-    } catch (AssertionError ignore) {
-    }
-
-    try {
-      vector.set(0, smallNullableHolder);
-      failWithException(errorMsg);
-    } catch (AssertionError ignore) {
-    }
-
-    try {
-      vector.set(0, smallBuf);
-      failWithException(errorMsg);
-    } catch (AssertionError ignore) {
-    }
+    assertThrows(IllegalArgumentException.class, () -> vector.set(0, smallValue));
+    assertThrows(IllegalArgumentException.class, () -> vector.set(0, smallHolder));
+    assertThrows(IllegalArgumentException.class, () -> vector.set(0, smallNullableHolder));
+    assertThrows(IllegalArgumentException.class, () -> vector.set(0, smallBuf));
 
     // test large inputs, byteWidth matches but value or buffer is bigger than byteWidth
     vector.set(0, largeValue);
@@ -238,32 +218,12 @@ public class TestFixedSizeBinaryVector {
 
   @Test
   public void setSetSafeWithInvalidInput() throws Exception {
-    String errorMsg = "input data needs to be at least " + typeWidth + " bytes";
 
     // test small inputs, byteWidth matches but value or buffer is too small
-    try {
-      vector.setSafe(0, smallValue);
-      failWithException(errorMsg);
-    } catch (AssertionError ignore) {
-    }
-
-    try {
-      vector.setSafe(0, smallHolder);
-      failWithException(errorMsg);
-    } catch (AssertionError ignore) {
-    }
-
-    try {
-      vector.setSafe(0, smallNullableHolder);
-      failWithException(errorMsg);
-    } catch (AssertionError ignore) {
-    }
-
-    try {
-      vector.setSafe(0, smallBuf);
-      failWithException(errorMsg);
-    } catch (AssertionError ignore) {
-    }
+    assertThrows(IllegalArgumentException.class, () -> vector.setSafe(0, smallValue));
+    assertThrows(IllegalArgumentException.class, () -> vector.setSafe(0, smallHolder));
+    assertThrows(IllegalArgumentException.class, () -> vector.setSafe(0, smallNullableHolder));
+    assertThrows(IllegalArgumentException.class, () -> vector.setSafe(0, smallBuf));
 
     // test large inputs, byteWidth matches but value or buffer is bigger than byteWidth
     vector.setSafe(0, largeValue);

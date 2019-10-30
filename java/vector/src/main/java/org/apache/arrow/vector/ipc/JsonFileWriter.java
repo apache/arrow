@@ -28,6 +28,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVectorHelper;
@@ -351,7 +352,7 @@ public class JsonFileWriter implements AutoCloseable {
           generator.writeNumber(BitVectorHelper.get(buffer, index));
           break;
         case VARBINARY: {
-          assert offsetBuffer != null;
+          Preconditions.checkNotNull(offsetBuffer);
           String hexString = Hex.encodeHexString(BaseVariableWidthVector.get(buffer,
                   offsetBuffer, index));
           generator.writeObject(hexString);
@@ -363,7 +364,7 @@ public class JsonFileWriter implements AutoCloseable {
           generator.writeObject(fixedSizeHexString);
           break;
         case VARCHAR: {
-          assert offsetBuffer != null;
+          Preconditions.checkNotNull(offsetBuffer);
           byte[] b = (BaseVariableWidthVector.get(buffer, offsetBuffer, index));
           generator.writeString(new String(b, "UTF-8"));
           break;

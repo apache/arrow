@@ -17,6 +17,7 @@
 
 package org.apache.arrow.vector.complex.impl;
 
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.complex.writer.BaseWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.StructOrListWriter;
 import org.apache.arrow.vector.complex.writer.BigIntWriter;
@@ -79,7 +80,7 @@ public class StructOrListWriterImpl implements StructOrListWriter {
    * Creates a new writer for a struct with the given name.
    */
   public StructOrListWriter struct(final String name) {
-    assert struct != null;
+    Preconditions.checkNotNull(struct);
     return new StructOrListWriterImpl(struct.struct(name));
   }
 
@@ -89,12 +90,12 @@ public class StructOrListWriterImpl implements StructOrListWriter {
    * @param name Unused.
    */
   public StructOrListWriter listoftstruct(final String name) {
-    assert list != null;
+    Preconditions.checkNotNull(list);
     return new StructOrListWriterImpl(list.struct());
   }
 
   public StructOrListWriter list(final String name) {
-    assert struct != null;
+    Preconditions.checkNotNull(struct);
     return new StructOrListWriterImpl(struct.list(name));
   }
 

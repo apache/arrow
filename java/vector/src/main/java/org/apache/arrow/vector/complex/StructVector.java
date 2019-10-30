@@ -429,7 +429,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
 
     long newAllocationSize = baseSize * 2L;
     newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
-    assert newAllocationSize >= 1;
+    Preconditions.checkArgument(newAllocationSize >= 1);
 
     if (newAllocationSize > BaseValueVector.MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Unable to expand the buffer");
@@ -555,7 +555,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
 
   @Override
   public void setValueCount(int valueCount) {
-    assert valueCount >= 0;
+    Preconditions.checkArgument(valueCount >= 0);
     while (valueCount > getValidityBufferValueCapacity()) {
       /* realloc the inner buffers if needed */
       reallocValidityBuffer();

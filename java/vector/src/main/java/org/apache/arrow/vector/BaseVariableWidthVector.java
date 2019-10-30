@@ -393,7 +393,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    */
   @Override
   public void allocateNew(int totalBytes, int valueCount) {
-    assert totalBytes >= 0;
+    Preconditions.checkArgument(totalBytes >= 0);
 
     checkDataBufferSize(totalBytes);
     computeAndCheckOffsetsBufferSize(valueCount);
@@ -501,7 +501,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
       }
     }
     newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
-    assert newAllocationSize >= 1;
+    Preconditions.checkArgument(newAllocationSize >= 1);
 
     checkDataBufferSize(newAllocationSize);
 
@@ -743,7 +743,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    */
   private void splitAndTransferValidityBuffer(int startIndex, int length,
                                               BaseVariableWidthVector target) {
-    assert startIndex + length <= valueCount;
+    Preconditions.checkArgument(startIndex + length <= valueCount);
     int firstByteSource = BitVectorHelper.byteIndex(startIndex);
     int lastByteSource = BitVectorHelper.byteIndex(valueCount - 1);
     int byteSizeTarget = getValidityBufferSizeFromCount(length);
@@ -864,7 +864,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @param valueCount   value count
    */
   public void setValueCount(int valueCount) {
-    assert valueCount >= 0;
+    Preconditions.checkArgument(valueCount >= 0);
     this.valueCount = valueCount;
     while (valueCount > getValueCapacity()) {
       reallocValidityAndOffsetBuffers();
@@ -938,7 +938,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @param length  length of the element
    */
   public void setValueLengthSafe(int index, int length) {
-    assert index >= 0;
+    Preconditions.checkArgument(index >= 0);
     handleSafe(index, length);
     fillHoles(index);
     final int startOffset = getStartOffset(index);
@@ -953,7 +953,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @return greater than 0 length for non-null element, 0 otherwise
    */
   public int getValueLength(int index) {
-    assert index >= 0;
+    Preconditions.checkArgument(index >= 0);
     if (isSet(index) == 0) {
       return 0;
     }
@@ -972,7 +972,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @param value   array of bytes to write
    */
   public void set(int index, byte[] value) {
-    assert index >= 0;
+    Preconditions.checkArgument(index >= 0);
     fillHoles(index);
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);
     setBytes(index, value, 0, value.length);
@@ -988,7 +988,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @param value   array of bytes to write
    */
   public void setSafe(int index, byte[] value) {
-    assert index >= 0;
+    Preconditions.checkArgument(index >= 0);
     fillEmpties(index);
     handleSafe(index, value.length);
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);
@@ -1006,7 +1006,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @param length  length of data in array of bytes
    */
   public void set(int index, byte[] value, int start, int length) {
-    assert index >= 0;
+    Preconditions.checkArgument(index >= 0);
     fillHoles(index);
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);
     setBytes(index, value, start, length);
@@ -1024,7 +1024,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @param length  length of data in array of bytes
    */
   public void setSafe(int index, byte[] value, int start, int length) {
-    assert index >= 0;
+    Preconditions.checkArgument(index >= 0);
     fillEmpties(index);
     handleSafe(index, length);
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);
@@ -1042,7 +1042,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @param length  length of data in ByteBuffer
    */
   public void set(int index, ByteBuffer value, int start, int length) {
-    assert index >= 0;
+    Preconditions.checkArgument(index >= 0);
     fillHoles(index);
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);
     final int startOffset = getStartOffset(index);
@@ -1062,7 +1062,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @param length  length of data in ByteBuffer
    */
   public void setSafe(int index, ByteBuffer value, int start, int length) {
-    assert index >= 0;
+    Preconditions.checkArgument(index >= 0);
     fillEmpties(index);
     handleSafe(index, length);
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);
@@ -1095,7 +1095,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    *               in the vector
    */
   public void set(int index, int isSet, int start, int end, ArrowBuf buffer) {
-    assert index >= 0;
+    Preconditions.checkArgument(index >= 0);
     final int dataLength = end - start;
     fillHoles(index);
     BitVectorHelper.setValidityBit(validityBuffer, index, isSet);
@@ -1117,7 +1117,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    *               in the vector
    */
   public void setSafe(int index, int isSet, int start, int end, ArrowBuf buffer) {
-    assert index >= 0;
+    Preconditions.checkArgument(index >= 0);
     final int dataLength = end - start;
     fillEmpties(index);
     handleSafe(index, dataLength);
@@ -1138,7 +1138,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    *               in the vector
    */
   public void set(int index, int start, int length, ArrowBuf buffer) {
-    assert index >= 0;
+    Preconditions.checkArgument(index >= 0);
     fillHoles(index);
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);
     final int startOffset = offsetBuffer.getInt(index * OFFSET_WIDTH);
@@ -1159,7 +1159,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    *               in the vector
    */
   public void setSafe(int index, int start, int length, ArrowBuf buffer) {
-    assert index >= 0;
+    Preconditions.checkArgument(index >= 0);
     fillEmpties(index);
     handleSafe(index, length);
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);

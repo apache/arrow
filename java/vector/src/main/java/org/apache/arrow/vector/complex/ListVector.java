@@ -321,7 +321,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
 
     long newAllocationSize = baseSize * 2L;
     newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
-    assert newAllocationSize >= 1;
+    Preconditions.checkArgument(newAllocationSize >= 1);
 
     if (newAllocationSize > MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Unable to expand the buffer");
