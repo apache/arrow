@@ -27,6 +27,6 @@ pub use self::kernels::boolean::*;
 pub use self::kernels::cast::*;
 pub use self::kernels::comparison::*;
 pub use self::kernels::filter::*;
-pub use self::kernels::other::*;
+pub use self::kernels::limit::*;
 pub use self::kernels::take::*;
 pub use self::kernels::temporal::*;

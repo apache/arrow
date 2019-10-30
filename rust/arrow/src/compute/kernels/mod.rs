@@ -23,6 +23,6 @@ pub mod boolean;
 pub mod cast;
 pub mod comparison;
 pub mod filter;
-pub mod other;
+pub mod limit;
 pub mod take;
 pub mod temporal;
