@@ -1183,6 +1183,11 @@ def test_table_factory_function_args_pandas():
     assert table.column('a').type == pa.int32()
 
 
+def test_table_factory_function_invalid_input():
+    with pytest.raises(TypeError, match="Expected pandas DataFrame, python"):
+        pa.table("invalid input")
+
+
 def test_table_function_unicode_schema():
     col_a = "äääh"
     col_b = "öööf"

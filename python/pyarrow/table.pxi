@@ -1635,7 +1635,8 @@ def table(data, names=None, schema=None, metadata=None):
                 "passing a pandas DataFrame")
         return Table.from_pandas(data, schema=schema)
     else:
-        return TypeError("Expected pandas DataFrame or python dictionary")
+        raise TypeError(
+            "Expected pandas DataFrame, python dictionary or list of arrays")
 
 
 def concat_tables(tables):
