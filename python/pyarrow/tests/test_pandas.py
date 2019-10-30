@@ -2576,7 +2576,7 @@ def test_convert_unsupported_type_error_message():
     })
 
     expected_msg = 'Conversion failed for column a with type period'
-    with pytest.raises(pa.ArrowInvalid, match=expected_msg):
+    with pytest.raises(TypeError, match=expected_msg):
         pa.Table.from_pandas(df)
 
 

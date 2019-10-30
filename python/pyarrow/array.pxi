@@ -204,9 +204,6 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
             if pandas_api.have_pandas:
                 values, type = pandas_api.compat.get_datetimetz_type(
                     values, obj.dtype, type)
-            if not isinstance(values, np.ndarray):
-                # e.g. pandas extension array that has no __arrow_array__
-                values = np.asarray(values)
             return _ndarray_to_array(values, mask, type, c_from_pandas, safe,
                                      pool)
     else:
