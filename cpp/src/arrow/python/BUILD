@@ -287,7 +287,7 @@ cc_test(
         ":platform",
         "//arrow/testing:gtest_common",
         "//arrow/testing:gtest_util",
-        "@googletest//:gtest_main",
+        "//arrow/python/util:test_main",
         "@python",
     ],
 )
