@@ -20,7 +20,7 @@ package org.apache.arrow.consumers;
 import org.apache.arrow.vector.FieldVector;
 
 /**
- * Base class for all avro consumers.
+ * Base class for non-skippable avro consumers.
  * @param <T> vector type.
  */
 public abstract class BaseAvroConsumer<T extends FieldVector> implements Consumer<T> {
