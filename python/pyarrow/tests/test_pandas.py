@@ -3244,7 +3244,7 @@ def _Int64Dtype__from_arrow__(self, array):
     return int_arr
 
 
-def test_convert_to_extension_array():
+def test_convert_to_extension_array(monkeypatch):
     if LooseVersion(pd.__version__) < "0.26.0.dev":
         pytest.skip("Conversion from IntegerArray to arrow not yet supported")
 
@@ -3262,37 +3262,24 @@ def test_convert_to_extension_array():
     assert len(result._data.blocks) == 1
     assert isinstance(result._data.blocks[0], _int.IntBlock)
 
-    # raise error is explicitly asking for unsupported conversion
-    with pytest.raises(ValueError):
-        table.to_pandas(extension_columns=['b'])
+    # patch pandas Int64Dtype to have the protocol method
+    monkeypatch.setattr(
+        pd.Int64Dtype, '__from_arrow__', _Int64Dtype__from_arrow__,
+        raising=False)
 
-    try:
-        # patch pandas Int64Dtype to have the protocol method
-        pd.Int64Dtype.__from_arrow__ = _Int64Dtype__from_arrow__
+    # Int64Dtype is recognized -> convert to extension block by default
+    # for a proper roundtrip
+    result = table.to_pandas()
+    assert isinstance(result._data.blocks[0], _int.IntBlock)
+    assert isinstance(result._data.blocks[1], _int.ExtensionBlock)
+    tm.assert_frame_equal(result, df)
 
-        # Int64Dtype is recognized -> convert to extension block by default
-        # for a proper roundtrip
-        result = table.to_pandas()
-        assert isinstance(result._data.blocks[0], _int.IntBlock)
-        assert isinstance(result._data.blocks[1], _int.ExtensionBlock)
-        tm.assert_frame_equal(result, df)
-
-        # explicitly specifying the column works as well
-        # TODO is this useful?
-        result = table.to_pandas(extension_columns=['b'])
-        assert isinstance(result._data.blocks[0], _int.IntBlock)
-        assert isinstance(result._data.blocks[1], _int.ExtensionBlock)
-        tm.assert_frame_equal(result, df)
-
-        # test with missing values
-        df2 = pd.DataFrame({'a': pd.array([1, 2, None], dtype='Int64')})
-        table2 = pa.table(df2)
-        result = table2.to_pandas(extension_columns=['a'])
-        assert isinstance(result._data.blocks[0], _int.ExtensionBlock)
-        tm.assert_frame_equal(result, df2)
-
-    finally:
-        del pd.Int64Dtype.__from_arrow__
+    # test with missing values
+    df2 = pd.DataFrame({'a': pd.array([1, 2, None], dtype='Int64')})
+    table2 = pa.table(df2)
+    result = table2.to_pandas()
+    assert isinstance(result._data.blocks[0], _int.ExtensionBlock)
+    tm.assert_frame_equal(result, df2)
 
 
 class MyCustomIntegerType(pa.PyExtensionType):
@@ -3307,7 +3294,7 @@ class MyCustomIntegerType(pa.PyExtensionType):
         return pd.Int64Dtype()
 
 
-def test_conversion_extensiontype_to_extensionarray():
+def test_conversion_extensiontype_to_extensionarray(monkeypatch):
     # converting extension type to linked pandas ExtensionDtype/Array
     import pandas.core.internals as _int
 
@@ -3318,19 +3305,17 @@ def test_conversion_extensiontype_to_extensionarray():
     with pytest.raises(ValueError):
         table.to_pandas()
 
-    try:
-        # patch pandas Int64Dtype to have the protocol method
-        pd.Int64Dtype.__from_arrow__ = _Int64Dtype__from_arrow__
+    # patch pandas Int64Dtype to have the protocol method
+    monkeypatch.setattr(
+        pd.Int64Dtype, '__from_arrow__', _Int64Dtype__from_arrow__,
+        raising=False)
 
-        # extension type points to Int64Dtype, which knows how to create a
-        # pandas ExtensionArray
-        result = table.to_pandas()
-        assert isinstance(result._data.blocks[0], _int.ExtensionBlock)
-        expected = pd.DataFrame({'a': pd.array([1, 2, 3, 4], dtype='Int64')})
-        tm.assert_frame_equal(result, expected)
-
-    finally:
-        del pd.Int64Dtype.__from_arrow__
+    # extension type points to Int64Dtype, which knows how to create a
+    # pandas ExtensionArray
+    result = table.to_pandas()
+    assert isinstance(result._data.blocks[0], _int.ExtensionBlock)
+    expected = pd.DataFrame({'a': pd.array([1, 2, 3, 4], dtype='Int64')})
+    tm.assert_frame_equal(result, expected)
 
 
 # ----------------------------------------------------------------------

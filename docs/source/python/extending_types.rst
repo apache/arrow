@@ -224,3 +224,39 @@ data type from above would look like::
             return PeriodType, (self.freq,)
 
 Also the storage type does not need to be fixed but can be parametrized.
+
+Conversion to pandas
+~~~~~~~~~~~~~~~~~~~~
+
+The conversion to pandas (in :meth:`Table.to_pandas`) of columns with an
+extension type can controlled in case there is a corresponding
+`pandas extension array <https://pandas.pydata.org/pandas-docs/stable/development/extending.html#extension-types>`__
+for your extension type.
+
+For this, the :meth:`ExtensionType.to_pandas_dtype` method needs to be
+implemented, and should return a ``pandas.api.extensions.ExtensionDtype``
+subclass instance.
+
+Using the pandas period type from above as example, this would look like::
+
+    class PeriodType(pa.ExtensionType):
+        ...
+
+        def to_pandas_dtype(self):
+            import pandas as pd
+            return pd.PeriodDtype(freq=self.freq)
+
+Secondly, the pandas ``ExtensionDtype`` on its turn needs to have the
+``__from_arrow__`` method implemented: a method that given a pyarrow Array
+or ChunkedArray of the extesion type can construct the corresponding
+pandas ``ExtensionArray``. This method should have the following signature::
+
+
+    class MyExtensionDtype(pd.api.extensions.ExtensionDtype):
+        ...
+
+        def __from_arrow__(self, array: pyarrow.Array/ChunkedArray) -> pandas.ExtensionArray:
+            ...
+
+This way, you can control the conversion of an pyarrow ``Array`` of your pyarrow
+extension type to a pandas ``ExtensionArray`` that can be stored in a DataFrame.
