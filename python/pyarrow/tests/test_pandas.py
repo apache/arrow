@@ -3232,8 +3232,8 @@ class DummyExtensionType(pa.PyExtensionType):
 
 
 def PandasArray__arrow_array__(self, type=None):
-    # harcode dummy return - we only want to check that this method is
-    # correctly called
+    # harcode dummy return regardless of self - we only want to check that
+    # this method is correctly called
     storage = pa.array([1, 2, 3], type=pa.int64())
     return pa.ExtensionArray.from_storage(DummyExtensionType(), storage)
 
