@@ -2804,7 +2804,7 @@ def test_table_from_pandas_schema_index_columns():
                             expected_schema=schema)
 
     # schema includes correct index name but preserve_index=False
-    with pytest.raises(KeyError):
+    with pytest.raises(ValueError, match="'preserve_index=False' was"):
         pa.Table.from_pandas(df, schema=schema, preserve_index=False)
 
     # in case of preserve_index=None -> RangeIndex serialized as metadata
