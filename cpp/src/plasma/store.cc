@@ -1083,6 +1083,12 @@ Status PlasmaStore::ProcessMessage(Client* client) {
       EvictObjects(objects_to_evict);
       HANDLE_SIGPIPE(SendEvictReply(client->fd, num_bytes_evicted), client->fd);
     } break;
+    case fb::MessageType::PlasmaRefreshLRURequest: {
+      std::vector<ObjectID> object_ids;
+      RETURN_NOT_OK(ReadRefreshLRURequest(input, input_size, &object_ids));
+      eviction_policy_.RefreshObjects(object_ids);
+      HANDLE_SIGPIPE(SendRefreshLRUReply(client->fd), client->fd);
+    } break;
     case fb::MessageType::PlasmaSubscribeRequest:
       SubscribeToUpdates(client);
       break;

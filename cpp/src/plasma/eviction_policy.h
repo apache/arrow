@@ -50,7 +50,7 @@ class LRUCache {
 
   void Add(const ObjectID& key, int64_t size);
 
-  void Remove(const ObjectID& key);
+  int64_t Remove(const ObjectID& key);
 
   int64_t ChooseObjectsToEvict(int64_t num_bytes_required,
                                std::vector<ObjectID>* objects_to_evict);
@@ -188,6 +188,8 @@ class EvictionPolicy {
   ///
   /// @param object_id The ID of the object that is now being used.
   virtual void RemoveObject(const ObjectID& object_id);
+
+  virtual void RefreshObjects(const std::vector<ObjectID>& object_ids);
 
   /// Returns debugging information for this eviction policy.
   virtual std::string DebugString() const;

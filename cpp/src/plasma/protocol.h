@@ -232,6 +232,17 @@ Status SendDataReply(int sock, ObjectID object_id, int64_t object_size,
 Status ReadDataReply(uint8_t* data, size_t size, ObjectID* object_id,
                      int64_t* object_size, int64_t* metadata_size);
 
+/* Plasma refresh LRU cache functions. */
+
+Status SendRefreshLRURequest(int sock, const std::vector<ObjectID>& object_ids);
+
+Status ReadRefreshLRURequest(uint8_t* data, size_t size,
+                             std::vector<ObjectID>* object_ids);
+
+Status SendRefreshLRUReply(int sock);
+
+Status ReadRefreshLRUReply(uint8_t* data, size_t size);
+
 }  // namespace plasma
 
 #endif /* PLASMA_PROTOCOL */
