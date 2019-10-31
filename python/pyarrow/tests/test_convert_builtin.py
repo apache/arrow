@@ -1401,12 +1401,14 @@ def test_map_from_dicts():
     assert arr.to_pylist() == expected
 
     # Invalid dictionary
-    ''' TODO
-    for entry in [[{'value': 5}], [{}], [{'key': 5, 'value': 'foo'}],
-                  [{'k': 1, 'v': 2}]]:
-        with pytest.raises(ValueError, match="(?i)tuple size"):
+    for entry in [[{'value': 5}], [{}], [{'k': 1, 'v': 2}]]:
+        with pytest.raises(ValueError, match="Invalid Map"):
             pa.array([entry], type=pa.map_('i4', 'i4'))
-    '''
+
+    # Invalid dictionary types
+    for entry in [[{'key': '1', 'value': 5}], [{'key': {'value': 2}}]]:
+        with pytest.raises(TypeError, match="integer.*required.*got"):
+            pa.array([entry], type=pa.map_('i4', 'i4'))
 
 
 def test_map_from_tuples():
