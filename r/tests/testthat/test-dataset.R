@@ -25,12 +25,16 @@ test_that("Assembling a Dataset and getting a Table", {
   selector <- Selector$create(td, recursive = TRUE)
   dsd <- FileSystemDataSourceDiscovery$create(fs, selector)
   expect_is(dsd, "FileSystemDataSourceDiscovery")
-  # expect_is(dsd$Inspect(), "Schema") # This segfaults
-  expect_is(dsd$Finish(), "DataSource")
+  schm <- dsd$Inspect()
+  expect_is(schm, "Schema")
+  expect_equal(
+    schm,
+    ParquetFileReader$create(file.path(td, "iris1.parquet"))$GetSchema()
+  )
+  datasource <- dsd$Finish()
+  expect_is(datasource, "DataSource")
 
-  # Workaround because Inspect isn't working
-  schm <- ParquetFileReader$create(file.path(td, "iris1.parquet"))$GetSchema()
-  ds <- Dataset$create(list(dsd), schm)
+  ds <- Dataset$create(list(datasource), schm)
   expect_is(ds, "Dataset")
   expect_equal(names(ds), names(iris))
 
@@ -39,13 +43,15 @@ test_that("Assembling a Dataset and getting a Table", {
   expect_equal(sb$schema, schm)
   expect_equal(names(sb), names(iris))
   sb$Project(c("Petal.Length", "Petal.Width"))
-  # expect_equal(names(sb), c("Petal.Length", "Petal.Width")) # This does not pass; Project does not affect schema. How can I see what I have projected already?
+  # This does not pass; Project does not affect schema. How can I see what I have projected already?
+  # expect_equal(names(sb), c("Petal.Length", "Petal.Width"))
+  sb$Filter(FieldExpression$create("Petal.Width") == 1.8)
   scn <- sb$Finish()
   expect_is(scn, "Scanner")
-  skip("bus error")
-  # *** caught bus error ***
-  # address 0x7fffa4f2acb8, cause 'non-existent physical address'
   tab <- scn$ToTable()
   expect_is(tab, "Table")
-  expect_equal(as.data.frame(tab), iris)
+  expect_equivalent(
+    as.data.frame(tab),
+    iris[iris$Petal.Width == 1.8, c("Petal.Length", "Petal.Width")]
+  )
 })

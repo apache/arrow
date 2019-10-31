@@ -51,8 +51,8 @@ std::shared_ptr<arrow::dataset::DataSourceDiscovery> dataset___FSDSDiscovery__Ma
     const std::shared_ptr<arrow::fs::FileSystem>& fs,
     const std::shared_ptr<arrow::fs::Selector>& selector) {
   std::shared_ptr<arrow::dataset::DataSourceDiscovery> discovery;
-  // TODO: add format as an argument, don't hard-code Parquet
-  std::shared_ptr<arrow::dataset::ParquetFileFormat> format;
+  // TODO(npr): add format as an argument, don't hard-code Parquet
+  auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
 
   STOP_IF_NOT_OK(arrow::dataset::FileSystemDataSourceDiscovery::Make(fs.get(), *selector,
                                                                      format, &discovery));
@@ -103,6 +103,13 @@ void dataset___ScannerBuilder__Project(
     const std::unique_ptr<arrow::dataset::ScannerBuilder>& sb,
     const std::vector<std::string>& cols) {
   STOP_IF_NOT_OK(sb->Project(cols));
+}
+
+// [[arrow::export]]
+void dataset___ScannerBuilder__Filter(
+    const std::unique_ptr<arrow::dataset::ScannerBuilder>& sb,
+    const std::shared_ptr<arrow::dataset::Expression>& expr) {
+  STOP_IF_NOT_OK(sb->Filter(expr));
 }
 
 // [[arrow::export]]

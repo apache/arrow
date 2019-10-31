@@ -1494,6 +1494,23 @@ RcppExport SEXP _arrow_dataset___ScannerBuilder__Project(SEXP sb_sexp, SEXP cols
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
+void dataset___ScannerBuilder__Filter(const std::unique_ptr<arrow::dataset::ScannerBuilder>& sb, const std::shared_ptr<arrow::dataset::Expression>& expr);
+RcppExport SEXP _arrow_dataset___ScannerBuilder__Filter(SEXP sb_sexp, SEXP expr_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::dataset::ScannerBuilder>&>::type sb(sb_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type expr(expr_sexp);
+	dataset___ScannerBuilder__Filter(sb, expr);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___ScannerBuilder__Filter(SEXP sb_sexp, SEXP expr_sexp){
+	Rf_error("Cannot call dataset___ScannerBuilder__Filter(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::Schema> dataset___ScannerBuilder__schema(const std::unique_ptr<arrow::dataset::ScannerBuilder>& sb);
 RcppExport SEXP _arrow_dataset___ScannerBuilder__schema(SEXP sb_sexp){
 BEGIN_RCPP
@@ -2260,6 +2277,52 @@ END_RCPP
 #else
 RcppExport SEXP _arrow_ListType__value_type(SEXP type_sexp){
 	Rf_error("Cannot call ListType__value_type(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// expression.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::dataset::FieldExpression> dataset___expr__field_ref(std::string name);
+RcppExport SEXP _arrow_dataset___expr__field_ref(SEXP name_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<std::string>::type name(name_sexp);
+	return Rcpp::wrap(dataset___expr__field_ref(name));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___expr__field_ref(SEXP name_sexp){
+	Rf_error("Cannot call dataset___expr__field_ref(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// expression.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::dataset::ComparisonExpression> dataset___expr__equal(const std::shared_ptr<arrow::dataset::Expression>& lhs, const std::shared_ptr<arrow::dataset::Expression>& rhs);
+RcppExport SEXP _arrow_dataset___expr__equal(SEXP lhs_sexp, SEXP rhs_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type rhs(rhs_sexp);
+	return Rcpp::wrap(dataset___expr__equal(lhs, rhs));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___expr__equal(SEXP lhs_sexp, SEXP rhs_sexp){
+	Rf_error("Cannot call dataset___expr__equal(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// expression.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::dataset::ScalarExpression> dataset___expr__scalar(Rcpp::NumericVector x);
+RcppExport SEXP _arrow_dataset___expr__scalar(SEXP x_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<Rcpp::NumericVector>::type x(x_sexp);
+	return Rcpp::wrap(dataset___expr__scalar(x));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___expr__scalar(SEXP x_sexp){
+	Rf_error("Cannot call dataset___expr__scalar(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -5307,6 +5370,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___Dataset__schema", (DL_FUNC) &_arrow_dataset___Dataset__schema, 1}, 
 		{ "_arrow_dataset___Dataset__NewScan", (DL_FUNC) &_arrow_dataset___Dataset__NewScan, 1}, 
 		{ "_arrow_dataset___ScannerBuilder__Project", (DL_FUNC) &_arrow_dataset___ScannerBuilder__Project, 2}, 
+		{ "_arrow_dataset___ScannerBuilder__Filter", (DL_FUNC) &_arrow_dataset___ScannerBuilder__Filter, 2}, 
 		{ "_arrow_dataset___ScannerBuilder__schema", (DL_FUNC) &_arrow_dataset___ScannerBuilder__schema, 1}, 
 		{ "_arrow_dataset___ScannerBuilder__Finish", (DL_FUNC) &_arrow_dataset___ScannerBuilder__Finish, 1}, 
 		{ "_arrow_dataset___Scanner__ToTable", (DL_FUNC) &_arrow_dataset___Scanner__ToTable, 1}, 
@@ -5359,6 +5423,9 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_StructType__GetFieldIndex", (DL_FUNC) &_arrow_StructType__GetFieldIndex, 2}, 
 		{ "_arrow_ListType__value_field", (DL_FUNC) &_arrow_ListType__value_field, 1}, 
 		{ "_arrow_ListType__value_type", (DL_FUNC) &_arrow_ListType__value_type, 1}, 
+		{ "_arrow_dataset___expr__field_ref", (DL_FUNC) &_arrow_dataset___expr__field_ref, 1}, 
+		{ "_arrow_dataset___expr__equal", (DL_FUNC) &_arrow_dataset___expr__equal, 2}, 
+		{ "_arrow_dataset___expr__scalar", (DL_FUNC) &_arrow_dataset___expr__scalar, 1}, 
 		{ "_arrow_ipc___feather___TableWriter__SetDescription", (DL_FUNC) &_arrow_ipc___feather___TableWriter__SetDescription, 2}, 
 		{ "_arrow_ipc___feather___TableWriter__SetNumRows", (DL_FUNC) &_arrow_ipc___feather___TableWriter__SetNumRows, 2}, 
 		{ "_arrow_ipc___feather___TableWriter__Append", (DL_FUNC) &_arrow_ipc___feather___TableWriter__Append, 3}, 

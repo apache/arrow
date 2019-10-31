@@ -45,6 +45,7 @@ Dataset <- R6Class("Dataset", inherit = Object,
   )
 )
 Dataset$create <- function(sources, schema) {
+  # TODO: validate inputs
   shared_ptr(Dataset, dataset___Dataset__create(sources, schema))
 }
 
@@ -71,6 +72,10 @@ ScannerBuilder <- R6Class("ScannerBuilder", inherit = Object,
   public = list(
     Project = function(cols) {
       dataset___ScannerBuilder__Project(self, cols)
+      self
+    },
+    Filter = function(expr) {
+      dataset___ScannerBuilder__Filter(self, expr)
       self
     },
     Finish = function() unique_ptr(Scanner, dataset___ScannerBuilder__Finish(self))

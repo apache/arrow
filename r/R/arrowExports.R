@@ -380,6 +380,10 @@ dataset___ScannerBuilder__Project <- function(sb, cols){
     invisible(.Call(`_arrow_dataset___ScannerBuilder__Project` , sb, cols))
 }
 
+dataset___ScannerBuilder__Filter <- function(sb, expr){
+    invisible(.Call(`_arrow_dataset___ScannerBuilder__Filter` , sb, expr))
+}
+
 dataset___ScannerBuilder__schema <- function(sb){
     .Call(`_arrow_dataset___ScannerBuilder__schema` , sb)
 }
@@ -586,6 +590,18 @@ ListType__value_field <- function(type){
 
 ListType__value_type <- function(type){
     .Call(`_arrow_ListType__value_type` , type)
+}
+
+dataset___expr__field_ref <- function(name){
+    .Call(`_arrow_dataset___expr__field_ref` , name)
+}
+
+dataset___expr__equal <- function(lhs, rhs){
+    .Call(`_arrow_dataset___expr__equal` , lhs, rhs)
+}
+
+dataset___expr__scalar <- function(x){
+    .Call(`_arrow_dataset___expr__scalar` , x)
 }
 
 ipc___feather___TableWriter__SetDescription <- function(writer, description){
