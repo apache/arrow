@@ -1551,9 +1551,8 @@ def record_batch(data, names=None, schema=None, metadata=None):
 
     Parameters
     ----------
-    data : pandas.DataFrame, dict, list
-        A DataFrame, mapping of strings to Arrays or Python lists, or list of
-        arrays or chunked arrays
+    data : pandas.DataFrame, list
+        A DataFrame or list of arrays or chunked arrays.
     names : list, default None
         Column names if list of arrays passed as data. Mutually exclusive with
         'schema' argument
@@ -1569,7 +1568,7 @@ def record_batch(data, names=None, schema=None, metadata=None):
 
     See Also
     --------
-    RecordBatch.from_arrays, RecordBatch.from_pandas, Table.from_pydict
+    RecordBatch.from_arrays, RecordBatch.from_pandas, table
     """
     # accept schema as first argument for backwards compatibility / usability
     if isinstance(names, Schema) and schema is None:
@@ -1579,10 +1578,10 @@ def record_batch(data, names=None, schema=None, metadata=None):
     if isinstance(data, (list, tuple)):
         return RecordBatch.from_arrays(data, names=names, schema=schema,
                                        metadata=metadata)
-    elif isinstance(data, _pandas_api.pd.DataFrame):
+    elif _pandas_api.is_data_frame(data):
         return RecordBatch.from_pandas(data, schema=schema)
     else:
-        return TypeError("Expected pandas DataFrame or python dictionary")
+        raise TypeError("Expected pandas DataFrame or list of arrays")
 
 
 def table(data, names=None, schema=None, metadata=None):
@@ -1628,7 +1627,7 @@ def table(data, names=None, schema=None, metadata=None):
             raise ValueError(
                 "The 'names' argument is not valid when passing a dictionary")
         return Table.from_pydict(data, schema=schema, metadata=metadata)
-    elif isinstance(data, _pandas_api.pd.DataFrame):
+    elif _pandas_api.is_data_frame(data):
         if names is not None or metadata is not None:
             raise ValueError(
                 "The 'names' and 'metadata' arguments are not valid when "
