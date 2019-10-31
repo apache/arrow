@@ -40,7 +40,7 @@ LZ4_VERSION=v1.8.3
 # https://github.com/microsoft/mimalloc/pull/145 and
 # https://github.com/microsoft/mimalloc/pull/148
 MIMALLOC_VERSION=270e765454f98e8bab9d42609b153425f749fff6
-ORC_VERSION=1.5.5
+ORC_VERSION=1.5.7
 PROTOBUF_VERSION=v3.7.1
 # Because of https://github.com/Tencent/rapidjson/pull/1323, we require
 # a pre-release version of RapidJSON to build with GCC 8 without
