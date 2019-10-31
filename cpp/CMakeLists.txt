@@ -823,24 +823,33 @@ include(CMakePackageConfigHelpers)
 
 # Makes the project importable from the build directory
 export(EXPORT ${PROJECT_NAME}-targets
-       FILE "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Targets.cmake")
+       FILE "${CMAKE_CURRENT_BINARY_DIR}/ArrowTargets.cmake")
 
-configure_package_config_file(${PROJECT_NAME}Config.cmake.in
-                              "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
+configure_package_config_file(ArrowConfig.cmake.in
+                              "${CMAKE_CURRENT_BINARY_DIR}/ArrowConfig.cmake"
                               INSTALL_DESTINATION
                               "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
-write_basic_package_version_file(
-  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
-  VERSION ${${PROJECT_NAME}_VERSION}
-  COMPATIBILITY AnyNewerVersion)
-config_summary_cmake_setters("${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Options.cmake")
+write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/ArrowConfigVersion.cmake
+                                 VERSION ${${PROJECT_NAME}_VERSION}
+                                 COMPATIBILITY AnyNewerVersion)
+config_summary_cmake_setters("${CMAKE_CURRENT_BINARY_DIR}/ArrowOptions.cmake")
 
 install(EXPORT ${PROJECT_NAME}-targets
-        FILE ${PROJECT_NAME}Targets.cmake
+        FILE ArrowTargets.cmake
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
-              ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
-              ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Options.cmake
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ArrowConfig.cmake
+              ${CMAKE_CURRENT_BINARY_DIR}/ArrowConfigVersion.cmake
+              ${CMAKE_CURRENT_BINARY_DIR}/ArrowOptions.cmake
+              ${CMAKE_CURRENT_SOURCE_DIR}/arrow-config.cmake
+              ${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/FindArrow.cmake
+              ${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/FindArrowCUDA.cmake
+              ${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/FindArrowFlight.cmake
+              ${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/FindArrowDataset.cmake
+              ${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/FindArrowPython.cmake
+              ${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/FindArrowPythonFlight.cmake
+              ${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/FindGandiva.cmake
+              ${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/FindParquet.cmake
+              ${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules/FindPlasma.cmake
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
 
 config_summary_message()

@@ -118,6 +118,9 @@ if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
   if(ARROW_BUILD_STATIC AND MSVC)
     target_compile_definitions(arrow_python_flight_static PUBLIC ARROW_STATIC)
   endif()
+
+  # pkg-config support
+  arrow_add_pkg_config("arrow-python-flight")
 endif()
 
 if("${COMPILER_FAMILY}" STREQUAL "clang")

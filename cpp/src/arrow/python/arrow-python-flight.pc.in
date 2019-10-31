@@ -15,18 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-prefix=@CMAKE_INSTALL_PREFIX@
-libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
-includedir=${prefix}/include
+libdir=@CMAKE_INSTALL_FULL_LIBDIR@
+includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
 
-so_version=@PLASMA_SO_VERSION@
-abi_version=@PLASMA_SO_VERSION@
-full_so_version=@PLASMA_FULL_SO_VERSION@
-plasma_store_server=${prefix}/@CMAKE_INSTALL_BINDIR@/plasma-store-server@CMAKE_EXECUTABLE_SUFFIX@
-executable=${plasma_store_server}
-
-Name: Plasma
-Description: Plasma is an in-memory object store and cache for big data.
-Version: @PLASMA_VERSION@
-Libs: -L${libdir} -lplasma
-Cflags: -I${includedir}
+Name: Apache Arrow Python Flight
+Description: Python integration library for Apache Arrow Flight
+Version: @ARROW_VERSION@
+Requires: arrow-python arrow-flight
+Libs: -L${libdir} -larrow_python_flight

@@ -107,6 +107,8 @@ dev/tasks/linux-packages/debian/libarrow-dataset0.install
 dev/tasks/linux-packages/debian/libarrow-flight-dev.install
 dev/tasks/linux-packages/debian/libarrow-flight0.install
 dev/tasks/linux-packages/debian/libarrow-python-dev.install
+dev/tasks/linux-packages/debian/libarrow-python-flight-dev.install
+dev/tasks/linux-packages/debian/libarrow-python-flight0.install
 dev/tasks/linux-packages/debian/libarrow-python0.install
 dev/tasks/linux-packages/debian/libarrow0.install
 dev/tasks/linux-packages/debian/libgandiva-dev.install

@@ -27,6 +27,17 @@ string(REGEX MATCH "^([0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?)" VERSION ${PARQUET_VERS
 if(NOT VERSION)
   message(FATAL_ERROR "invalid .parquetcppversion")
 endif()
+set(PARQUET_VERSION "${PARQUET_VERSION}" PARENT_SCOPE)
+
+string(REGEX
+       REPLACE "^([0-9]+)\.[0-9]+\.[0-9]+(-.+)?$" "\\1" PARQUET_VERSION_MAJOR
+               "${PARQUET_VERSION}")
+string(REGEX
+       REPLACE "^[0-9]+\.([0-9]+)\.[0-9]+(-.+)?$" "\\1" PARQUET_VERSION_MINOR
+               "${PARQUET_VERSION}")
+string(REGEX
+       REPLACE "^[0-9]+\.[0-9]+\.([0-9]+)(-.+)?$" "\\1" PARQUET_VERSION_PATCH
+               "${PARQUET_VERSION}")
 
 function(ADD_PARQUET_TEST REL_TEST_NAME)
   set(one_value_args)

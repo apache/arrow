@@ -1,7 +1,11 @@
 usr/include/arrow/
+usr/lib/*/cmake/arrow/ArrowConfig*.cmake
+usr/lib/*/cmake/arrow/ArrowOptions.cmake
+usr/lib/*/cmake/arrow/ArrowTargets*.cmake
+usr/lib/*/cmake/arrow/FindArrow.cmake
+usr/lib/*/cmake/arrow/arrow-config.cmake
 usr/lib/*/libarrow.a
 usr/lib/*/libarrow.so
 usr/lib/*/pkgconfig/arrow.pc
 usr/lib/*/pkgconfig/arrow-compute.pc
 usr/lib/*/pkgconfig/arrow-orc.pc
-usr/lib/*/cmake/arrow/
