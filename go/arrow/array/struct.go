@@ -55,7 +55,7 @@ func (a *Struct) String() string {
 			o.WriteString(" ")
 		}
 		if !bytes.Equal(structBitmap, v.NullBitmapBytes()) {
-			masked := newStructFieldWithParentValidityMask(a, i)
+			masked := a.newStructFieldWithParentValidityMask(i)
 			fmt.Fprintf(o, "%v", masked)
 			masked.Release()
 			continue
@@ -70,7 +70,7 @@ func (a *Struct) String() string {
 // with a nullBitmapBytes adjusted according on the parent struct nullBitmapBytes.
 // From the docs:
 //   "When reading the struct array the parent validity bitmap takes priority."
-func newStructFieldWithParentValidityMask(a *Struct, fieldIndex int) Interface {
+func (a *Struct) newStructFieldWithParentValidityMask(fieldIndex int) Interface {
 	field := a.Field(fieldIndex)
 	nullBitmapBytes := field.NullBitmapBytes()
 	maskedNullBitmapBytes := make([]byte, len(nullBitmapBytes))
