@@ -30,6 +30,23 @@ RUN rustup default "$(cat /tmp/rust-toolchain)"
 # Enable stable rustfmt for nightly Rust
 RUN rustup component add rustfmt --toolchain stable-x86_64-unknown-linux-gnu
 
+# Install pre-requisites for building flatbuffers
+RUN apt-get update \
+    && apt-get install -y build-essential cmake \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install flatbuffers
+RUN wget https://github.com/google/flatbuffers/archive/v1.11.0.tar.gz \
+    && tar xzf v1.11.0.tar.gz
+
+WORKDIR /flatbuffers-1.11.0
+
+RUN cmake -G "Unix Makefiles" \
+    && make install
+
+WORKDIR /
+
 # Set environment variables for location of test data required by unit and integration tests
 ENV ARROW_TEST_DATA=/arrow/testing/data
 ENV PARQUET_TEST_DATA=/arrow/cpp/submodules/parquet-testing/data
