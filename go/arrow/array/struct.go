@@ -81,13 +81,13 @@ func newStructFieldWithParentValidityMask(a *Struct, fieldIndex int) Interface {
 		}
 	}
 	data := NewSliceData(field.Data(), 0, int64(field.Len()))
+	defer data.Release()
 	bufs := make([]*memory.Buffer, len(data.buffers))
 	copy(bufs, data.buffers)
 	bufs[0].Release()
 	bufs[0] = memory.NewBufferBytes(maskedNullBitmapBytes)
 	data.buffers = bufs
 	maskedField := MakeFromData(data)
-	data.Release()
 	return maskedField
 }
 
