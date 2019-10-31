@@ -588,9 +588,10 @@ Status PromoteTableToSchema(const std::shared_ptr<Table>& table,
   auto unseen_field_iter = std::find(fields_seen.begin(), fields_seen.end(), false);
   if (unseen_field_iter != fields_seen.end()) {
     const size_t unseen_field_index = unseen_field_iter - fields_seen.begin();
-    return Status::Invalid("Incompatible schemas: field ",
-                           current_schema->field(unseen_field_index)->name(),
-                           " did not exist in the new schema.");
+    return Status::Invalid(
+        "Incompatible schemas: field ",
+        current_schema->field(static_cast<int>(unseen_field_index))->name(),
+        " did not exist in the new schema.");
   }
 
   *out = Table::Make(schema, std::move(columns));
