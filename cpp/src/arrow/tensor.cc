@@ -113,12 +113,13 @@ Status CheckTensorStridesValidity(const std::shared_ptr<Buffer>& data,
 
 }  // namespace
 
-Status Tensor::Make(const std::shared_ptr<DataType>& type,
-                    const std::shared_ptr<Buffer>& data,
-                    const std::vector<int64_t>& shape,
-                    const std::vector<int64_t>& strides,
-                    const std::vector<std::string>& dim_names,
-                    std::shared_ptr<Tensor>* out) {
+namespace internal {
+
+Status ValidateTensorParameters(const std::shared_ptr<DataType>& type,
+                                const std::shared_ptr<Buffer>& data,
+                                const std::vector<int64_t>& shape,
+                                const std::vector<int64_t>& strides,
+                                const std::vector<std::string>& dim_names) {
   RETURN_NOT_OK(CheckTensorValidity(type, data, shape));
   if (!strides.empty()) {
     RETURN_NOT_OK(CheckTensorStridesValidity(data, shape, strides));
@@ -126,22 +127,10 @@ Status Tensor::Make(const std::shared_ptr<DataType>& type,
   if (dim_names.size() > shape.size()) {
     return Status::Invalid("too many dim_names are supplied");
   }
-  *out = std::make_shared<Tensor>(type, data, shape, strides, dim_names);
   return Status::OK();
 }
 
-Status Tensor::Make(const std::shared_ptr<DataType>& type,
-                    const std::shared_ptr<Buffer>& data,
-                    const std::vector<int64_t>& shape,
-                    const std::vector<int64_t>& strides, std::shared_ptr<Tensor>* out) {
-  return Make(type, data, shape, strides, {}, out);
-}
-
-Status Tensor::Make(const std::shared_ptr<DataType>& type,
-                    const std::shared_ptr<Buffer>& data,
-                    const std::vector<int64_t>& shape, std::shared_ptr<Tensor>* out) {
-  return Make(type, data, shape, {}, {}, out);
-}
+}  // namespace internal
 
 /// Constructor with strides and dimension names
 Tensor::Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,

@@ -55,6 +55,16 @@ static inline bool is_tensor_supported(Type::type type_id) {
 template <typename SparseIndexType>
 class SparseTensorImpl;
 
+namespace internal {
+
+Status ValidateTensorParameters(const std::shared_ptr<DataType>& type,
+                                const std::shared_ptr<Buffer>& data,
+                                const std::vector<int64_t>& shape,
+                                const std::vector<int64_t>& strides,
+                                const std::vector<std::string>& dim_names);
+
+}
+
 class ARROW_EXPORT Tensor {
  public:
   /// \brief Create a Tensor with full parameters
@@ -74,7 +84,12 @@ class ARROW_EXPORT Tensor {
                      const std::vector<int64_t>& shape,
                      const std::vector<int64_t>& strides,
                      const std::vector<std::string>& dim_names,
-                     std::shared_ptr<Tensor>* out);
+                     std::shared_ptr<Tensor>* out) {
+    ARROW_RETURN_NOT_OK(
+        internal::ValidateTensorParameters(type, data, shape, strides, dim_names));
+    *out = std::make_shared<Tensor>(type, data, shape, strides, dim_names);
+    return Status::OK();
+  }
 
   /// \brief Create a Tensor with full parameters with empty dim_names
   ///
@@ -89,9 +104,12 @@ class ARROW_EXPORT Tensor {
   static Status Make(const std::shared_ptr<DataType>& type,
                      const std::shared_ptr<Buffer>& data,
                      const std::vector<int64_t>& shape,
-                     const std::vector<int64_t>& strides, std::shared_ptr<Tensor>* out);
+                     const std::vector<int64_t>& strides, std::shared_ptr<Tensor>* out) {
+    return Make(type, data, shape, strides, {}, out);
+  }
 
-  /// \brief Create a Tensor with full parameters with empty strides, the data assumed to be row-major
+  /// \brief Create a Tensor with full parameters with empty strides, the data assumed to
+  /// be row-major
   ///
   /// This factory function will return Status::Invalid when the parameters are
   /// inconsistent
@@ -104,7 +122,8 @@ class ARROW_EXPORT Tensor {
   static Status Make(const std::shared_ptr<DataType>& type,
                      const std::shared_ptr<Buffer>& data,
                      const std::vector<int64_t>& shape,
-                     const std::vector<std::string>& dim_names, std::shared_ptr<Tensor>* out) {
+                     const std::vector<std::string>& dim_names,
+                     std::shared_ptr<Tensor>* out) {
     return Make(type, data, shape, {}, dim_names, out);
   }
 
@@ -120,7 +139,9 @@ class ARROW_EXPORT Tensor {
   /// \param[out] out The result tensor
   static Status Make(const std::shared_ptr<DataType>& type,
                      const std::shared_ptr<Buffer>& data,
-                     const std::vector<int64_t>& shape, std::shared_ptr<Tensor>* out);
+                     const std::vector<int64_t>& shape, std::shared_ptr<Tensor>* out) {
+    return Make(type, data, shape, {}, {}, out);
+  }
 
   virtual ~Tensor() = default;
 
