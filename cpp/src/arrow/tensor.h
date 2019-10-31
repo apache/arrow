@@ -219,6 +219,59 @@ class NumericTensor : public Tensor {
   using TypeClass = TYPE;
   using value_type = typename TypeClass::c_type;
 
+  /// \brief Create a NumericTensor with full parameters
+  ///
+  /// This factory function will return Status::Invalid when the parameters are
+  /// inconsistent
+  ///
+  /// \param[in] data The buffer of the tensor content
+  /// \param[in] shape The shape of the tensor
+  /// \param[in] strides The strides of the tensor
+  ///            (if this is empty, the data assumed to be row-major)
+  /// \param[in] dim_names The names of the tensor dimensions
+  /// \param[out] out The result tensor
+  static Status Make(const std::shared_ptr<Buffer>& data,
+                     const std::vector<int64_t>& shape,
+                     const std::vector<int64_t>& strides,
+                     const std::vector<std::string>& dim_names,
+                     std::shared_ptr<NumericTensor<TYPE>>* out) {
+    ARROW_RETURN_NOT_OK(internal::ValidateTensorParameters(
+        TypeTraits<TYPE>::type_singleton(), data, shape, strides, dim_names));
+    *out = std::make_shared<NumericTensor<TYPE>>(data, shape, strides, dim_names);
+    return Status::OK();
+  }
+
+  /// \brief Create a NumericTensor with full parameters with empty dim_names
+  ///
+  /// This factory function will return Status::Invalid when the parameters are
+  /// inconsistent
+  ///
+  /// \param[in] data The buffer of the tensor content
+  /// \param[in] shape The shape of the tensor
+  /// \param[in] strides The strides of the tensor
+  /// \param[out] out The result tensor
+  static Status Make(const std::shared_ptr<Buffer>& data,
+                     const std::vector<int64_t>& shape,
+                     const std::vector<int64_t>& strides,
+                     std::shared_ptr<NumericTensor<TYPE>>* out) {
+    return Make(data, shape, strides, {}, out);
+  }
+
+  /// \brief Create a NumericTensor with full parameters with empty strides and empty
+  /// dim_names, the data assumed to be row-major
+  ///
+  /// This factory function will return Status::Invalid when the parameters are
+  /// inconsistent
+  ///
+  /// \param[in] data The buffer of the tensor content
+  /// \param[in] shape The shape of the tensor
+  /// \param[out] out The result tensor
+  static Status Make(const std::shared_ptr<Buffer>& data,
+                     const std::vector<int64_t>& shape,
+                     std::shared_ptr<NumericTensor<TYPE>>* out) {
+    return Make(data, shape, {}, {}, out);
+  }
+
   /// Constructor with non-negative strides and dimension names
   NumericTensor(const std::shared_ptr<Buffer>& data, const std::vector<int64_t>& shape,
                 const std::vector<int64_t>& strides,

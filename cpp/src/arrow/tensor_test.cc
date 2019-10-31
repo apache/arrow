@@ -424,6 +424,35 @@ REGISTER_TYPED_TEST_CASE_P(TestFloatTensor, Equals);
 INSTANTIATE_TYPED_TEST_CASE_P(Float32, TestFloatTensor, FloatType);
 INSTANTIATE_TYPED_TEST_CASE_P(Float64, TestFloatTensor, DoubleType);
 
+TEST(TestNumericTensor, Make) {
+  // without strides and dim_names
+  std::vector<int64_t> shape = {3, 6};
+  std::vector<double> values = {1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  auto data = Buffer::Wrap(values);
+  std::shared_ptr<NumericTensor<DoubleType>> tensor1;
+  ASSERT_OK(NumericTensor<DoubleType>::Make(data, shape, &tensor1));
+
+  // without dim_names
+  std::vector<int64_t> strides = {sizeof(double) * 6, sizeof(double)};
+  std::shared_ptr<NumericTensor<DoubleType>> tensor2;
+  ASSERT_OK(NumericTensor<DoubleType>::Make(data, {3, 6}, strides, &tensor2));
+  EXPECT_TRUE(tensor2->Equals(*tensor1));
+
+  // without strides
+  std::vector<std::string> dim_names = {"foo", "bar"};
+  std::shared_ptr<NumericTensor<DoubleType>> tensor3;
+  ASSERT_OK(NumericTensor<DoubleType>::Make(data, {3, 6}, {}, dim_names, &tensor3));
+  EXPECT_TRUE(tensor3->Equals(*tensor1));
+  EXPECT_TRUE(tensor3->Equals(*tensor2));
+
+  // supply all parameters
+  std::shared_ptr<NumericTensor<DoubleType>> tensor4;
+  ASSERT_OK(NumericTensor<DoubleType>::Make(data, {3, 6}, strides, dim_names, &tensor4));
+  EXPECT_TRUE(tensor4->Equals(*tensor1));
+  EXPECT_TRUE(tensor4->Equals(*tensor2));
+  EXPECT_TRUE(tensor4->Equals(*tensor3));
+}
+
 TEST(TestNumericTensor, ElementAccessWithRowMajorStrides) {
   std::vector<int64_t> shape = {3, 4};
 
