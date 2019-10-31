@@ -64,6 +64,7 @@ Status Filter(FunctionContext* ctx, const Array& values, const Array& filter,
 /// \param[in] values chunked array to filter
 /// \param[in] filter indicates which values should be filtered out
 /// \param[out] out resulting chunked array
+/// NOTE: Experimental API
 ARROW_EXPORT
 Status Filter(FunctionContext* ctx, const ChunkedArray& values, const Array& filter,
               std::shared_ptr<ChunkedArray>* out);
@@ -82,6 +83,7 @@ Status Filter(FunctionContext* ctx, const ChunkedArray& values, const Array& fil
 /// \param[in] values chunked array to filter
 /// \param[in] filter indicates which values should be filtered out
 /// \param[out] out resulting chunked array
+/// NOTE: Experimental API
 ARROW_EXPORT
 Status Filter(FunctionContext* ctx, const ChunkedArray& values,
               const ChunkedArray& filter, std::shared_ptr<ChunkedArray>* out);
@@ -96,6 +98,7 @@ Status Filter(FunctionContext* ctx, const ChunkedArray& values,
 /// \param[in] batch record batch to filter
 /// \param[in] filter indicates which values should be filtered out
 /// \param[out] out resulting record batch
+/// NOTE: Experimental API
 ARROW_EXPORT
 Status Filter(FunctionContext* ctx, const RecordBatch& batch, const Array& filter,
               std::shared_ptr<RecordBatch>* out);
@@ -110,6 +113,7 @@ Status Filter(FunctionContext* ctx, const RecordBatch& batch, const Array& filte
 /// \param[in] table table to filter
 /// \param[in] filter indicates which values should be filtered out
 /// \param[out] out resulting table
+/// NOTE: Experimental API
 ARROW_EXPORT
 Status Filter(FunctionContext* ctx, const Table& table, const Array& filter,
               std::shared_ptr<Table>* out);
@@ -124,6 +128,7 @@ Status Filter(FunctionContext* ctx, const Table& table, const Array& filter,
 /// \param[in] table record batch to filter
 /// \param[in] filter indicates which values should be filtered out
 /// \param[out] out resulting record batch
+/// NOTE: Experimental API
 ARROW_EXPORT
 Status Filter(FunctionContext* ctx, const Table& table, const ChunkedArray& filter,
               std::shared_ptr<Table>* out);

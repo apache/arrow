@@ -133,6 +133,8 @@ Status Take(FunctionContext* ctx, const ChunkedArray& values, const ChunkedArray
 
   for (int i = 0; i < num_chunks; i++) {
     // Take with that indices chunk
+    // Note that as currently implemented, this is inefficient because `values`
+    // will get concatenated on every iteration of this loop
     RETURN_NOT_OK(Take(ctx, values, *indices.chunk(i), options, &current_chunk));
     // Concatenate the result to make a single array for this chunk
     RETURN_NOT_OK(

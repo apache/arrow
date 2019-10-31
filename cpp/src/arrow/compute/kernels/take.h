@@ -69,6 +69,7 @@ Status Take(FunctionContext* ctx, const Array& values, const Array& indices,
 /// \param[in] indices which values to take
 /// \param[in] options options
 /// \param[out] out resulting chunked array
+/// NOTE: Experimental API
 ARROW_EXPORT
 Status Take(FunctionContext* ctx, const ChunkedArray& values, const Array& indices,
             const TakeOptions& options, std::shared_ptr<ChunkedArray>* out);
@@ -90,6 +91,7 @@ Status Take(FunctionContext* ctx, const ChunkedArray& values, const Array& indic
 /// \param[in] indices which values to take
 /// \param[in] options options
 /// \param[out] out resulting chunked array
+/// NOTE: Experimental API
 ARROW_EXPORT
 Status Take(FunctionContext* ctx, const ChunkedArray& values, const ChunkedArray& indices,
             const TakeOptions& options, std::shared_ptr<ChunkedArray>* out);
@@ -111,6 +113,7 @@ Status Take(FunctionContext* ctx, const ChunkedArray& values, const ChunkedArray
 /// \param[in] indices which values to take
 /// \param[in] options options
 /// \param[out] out resulting chunked array
+/// NOTE: Experimental API
 ARROW_EXPORT
 Status Take(FunctionContext* ctx, const Array& values, const ChunkedArray& indices,
             const TakeOptions& options, std::shared_ptr<ChunkedArray>* out);
@@ -126,6 +129,7 @@ Status Take(FunctionContext* ctx, const Array& values, const ChunkedArray& indic
 /// \param[in] indices which values to take
 /// \param[in] options options
 /// \param[out] out resulting record batch
+/// NOTE: Experimental API
 ARROW_EXPORT
 Status Take(FunctionContext* ctx, const RecordBatch& batch, const Array& indices,
             const TakeOptions& options, std::shared_ptr<RecordBatch>* out);
@@ -141,6 +145,7 @@ Status Take(FunctionContext* ctx, const RecordBatch& batch, const Array& indices
 /// \param[in] indices which values to take
 /// \param[in] options options
 /// \param[out] out resulting table
+/// NOTE: Experimental API
 ARROW_EXPORT
 Status Take(FunctionContext* ctx, const Table& table, const Array& indices,
             const TakeOptions& options, std::shared_ptr<Table>* out);
@@ -156,6 +161,7 @@ Status Take(FunctionContext* ctx, const Table& table, const Array& indices,
 /// \param[in] indices which values to take
 /// \param[in] options options
 /// \param[out] out resulting table
+/// NOTE: Experimental API
 ARROW_EXPORT
 Status Take(FunctionContext* ctx, const Table& table, const ChunkedArray& indices,
             const TakeOptions& options, std::shared_ptr<Table>* out);
