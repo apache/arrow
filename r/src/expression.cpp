@@ -19,8 +19,6 @@
 
 #if defined(ARROW_R_WITH_ARROW)
 
-#endif
-
 // [[arrow::export]]
 std::shared_ptr<arrow::dataset::FieldExpression> dataset___expr__field_ref(std::string name) {
   return std::make_shared<arrow::dataset::FieldExpression>(std::move(name));
@@ -34,7 +32,60 @@ std::shared_ptr<arrow::dataset::ComparisonExpression> dataset___expr__equal(
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::dataset::ScalarExpression> dataset___expr__scalar(Rcpp::NumericVector x) {
-  // TODO(npr) OMG this is a terrible hack
-  return arrow::dataset::scalar(x[0]);
+std::shared_ptr<arrow::dataset::ComparisonExpression> dataset___expr__not_equal(
+    const std::shared_ptr<arrow::dataset::Expression>& lhs,
+    const std::shared_ptr<arrow::dataset::Expression>& rhs) {
+  return arrow::dataset::not_equal(lhs, rhs);
 }
+
+// [[arrow::export]]
+std::shared_ptr<arrow::dataset::ComparisonExpression> dataset___expr__greater(
+    const std::shared_ptr<arrow::dataset::Expression>& lhs,
+    const std::shared_ptr<arrow::dataset::Expression>& rhs) {
+  return arrow::dataset::greater(lhs, rhs);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::dataset::ComparisonExpression> dataset___expr__greater_equal(
+    const std::shared_ptr<arrow::dataset::Expression>& lhs,
+    const std::shared_ptr<arrow::dataset::Expression>& rhs) {
+  return arrow::dataset::greater_equal(lhs, rhs);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::dataset::ComparisonExpression> dataset___expr__less(
+    const std::shared_ptr<arrow::dataset::Expression>& lhs,
+    const std::shared_ptr<arrow::dataset::Expression>& rhs) {
+  return arrow::dataset::less(lhs, rhs);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::dataset::ComparisonExpression> dataset___expr__less_equal(
+    const std::shared_ptr<arrow::dataset::Expression>& lhs,
+    const std::shared_ptr<arrow::dataset::Expression>& rhs) {
+  return arrow::dataset::less_equal(lhs, rhs);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::dataset::ScalarExpression> dataset___expr__scalar(SEXP x) {
+  switch (TYPEOF(x)) {
+    case LGLSXP:
+      return arrow::dataset::scalar(Rf_asLogical(x));
+    case REALSXP:
+      return arrow::dataset::scalar(Rf_asReal(x));
+    case INTSXP:
+      return arrow::dataset::scalar(Rf_asInteger(x));
+    default:
+      // TODO more types (character, factor, Date, POSIXt, etc.)
+      Rcpp::stop(
+          tfm::format("R object of type %s not supported", Rf_type2char(TYPEOF(x))));
+  }
+  return nullptr;
+}
+
+// [[arrow::export]]
+std::string dataset___expr__ToString(const std::shared_ptr<arrow::dataset::Expression>& x) {
+  return x->ToString();
+}
+
+#endif

@@ -44,6 +44,15 @@ test_that("array_expression print method", {
 test_that("C++ expressions", {
   f <- FieldExpression$create("f")
   g <- FieldExpression$create("g")
-  expect_is(f == g, "CompareExpression")
-  expect_is(f == 4, "CompareExpression")
+  expect_is(f == g, "ComparisonExpression")
+  expect_is(f == 4, "ComparisonExpression")
+  expect_is(f <= 2L, "ComparisonExpression")
+  expect_is(f != FALSE, "ComparisonExpression")
+  expect_is(f > 4, "ComparisonExpression")
+  expect_output(
+    print(f > 4),
+    # We can do better than this right?
+    'ComparisonExpression\nGREATER(field(f), scalar<double>(4.000000))',
+    fixed = TRUE
+  )
 })

@@ -2313,16 +2313,111 @@ RcppExport SEXP _arrow_dataset___expr__equal(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::dataset::ScalarExpression> dataset___expr__scalar(Rcpp::NumericVector x);
+std::shared_ptr<arrow::dataset::ComparisonExpression> dataset___expr__not_equal(const std::shared_ptr<arrow::dataset::Expression>& lhs, const std::shared_ptr<arrow::dataset::Expression>& rhs);
+RcppExport SEXP _arrow_dataset___expr__not_equal(SEXP lhs_sexp, SEXP rhs_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type rhs(rhs_sexp);
+	return Rcpp::wrap(dataset___expr__not_equal(lhs, rhs));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___expr__not_equal(SEXP lhs_sexp, SEXP rhs_sexp){
+	Rf_error("Cannot call dataset___expr__not_equal(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// expression.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::dataset::ComparisonExpression> dataset___expr__greater(const std::shared_ptr<arrow::dataset::Expression>& lhs, const std::shared_ptr<arrow::dataset::Expression>& rhs);
+RcppExport SEXP _arrow_dataset___expr__greater(SEXP lhs_sexp, SEXP rhs_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type rhs(rhs_sexp);
+	return Rcpp::wrap(dataset___expr__greater(lhs, rhs));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___expr__greater(SEXP lhs_sexp, SEXP rhs_sexp){
+	Rf_error("Cannot call dataset___expr__greater(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// expression.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::dataset::ComparisonExpression> dataset___expr__greater_equal(const std::shared_ptr<arrow::dataset::Expression>& lhs, const std::shared_ptr<arrow::dataset::Expression>& rhs);
+RcppExport SEXP _arrow_dataset___expr__greater_equal(SEXP lhs_sexp, SEXP rhs_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type rhs(rhs_sexp);
+	return Rcpp::wrap(dataset___expr__greater_equal(lhs, rhs));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___expr__greater_equal(SEXP lhs_sexp, SEXP rhs_sexp){
+	Rf_error("Cannot call dataset___expr__greater_equal(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// expression.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::dataset::ComparisonExpression> dataset___expr__less(const std::shared_ptr<arrow::dataset::Expression>& lhs, const std::shared_ptr<arrow::dataset::Expression>& rhs);
+RcppExport SEXP _arrow_dataset___expr__less(SEXP lhs_sexp, SEXP rhs_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type rhs(rhs_sexp);
+	return Rcpp::wrap(dataset___expr__less(lhs, rhs));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___expr__less(SEXP lhs_sexp, SEXP rhs_sexp){
+	Rf_error("Cannot call dataset___expr__less(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// expression.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::dataset::ComparisonExpression> dataset___expr__less_equal(const std::shared_ptr<arrow::dataset::Expression>& lhs, const std::shared_ptr<arrow::dataset::Expression>& rhs);
+RcppExport SEXP _arrow_dataset___expr__less_equal(SEXP lhs_sexp, SEXP rhs_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type rhs(rhs_sexp);
+	return Rcpp::wrap(dataset___expr__less_equal(lhs, rhs));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___expr__less_equal(SEXP lhs_sexp, SEXP rhs_sexp){
+	Rf_error("Cannot call dataset___expr__less_equal(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// expression.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::dataset::ScalarExpression> dataset___expr__scalar(SEXP x);
 RcppExport SEXP _arrow_dataset___expr__scalar(SEXP x_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<Rcpp::NumericVector>::type x(x_sexp);
+	Rcpp::traits::input_parameter<SEXP>::type x(x_sexp);
 	return Rcpp::wrap(dataset___expr__scalar(x));
 END_RCPP
 }
 #else
 RcppExport SEXP _arrow_dataset___expr__scalar(SEXP x_sexp){
 	Rf_error("Cannot call dataset___expr__scalar(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// expression.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::string dataset___expr__ToString(const std::shared_ptr<arrow::dataset::Expression>& x);
+RcppExport SEXP _arrow_dataset___expr__ToString(SEXP x_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type x(x_sexp);
+	return Rcpp::wrap(dataset___expr__ToString(x));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___expr__ToString(SEXP x_sexp){
+	Rf_error("Cannot call dataset___expr__ToString(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -5425,7 +5520,13 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ListType__value_type", (DL_FUNC) &_arrow_ListType__value_type, 1}, 
 		{ "_arrow_dataset___expr__field_ref", (DL_FUNC) &_arrow_dataset___expr__field_ref, 1}, 
 		{ "_arrow_dataset___expr__equal", (DL_FUNC) &_arrow_dataset___expr__equal, 2}, 
+		{ "_arrow_dataset___expr__not_equal", (DL_FUNC) &_arrow_dataset___expr__not_equal, 2}, 
+		{ "_arrow_dataset___expr__greater", (DL_FUNC) &_arrow_dataset___expr__greater, 2}, 
+		{ "_arrow_dataset___expr__greater_equal", (DL_FUNC) &_arrow_dataset___expr__greater_equal, 2}, 
+		{ "_arrow_dataset___expr__less", (DL_FUNC) &_arrow_dataset___expr__less, 2}, 
+		{ "_arrow_dataset___expr__less_equal", (DL_FUNC) &_arrow_dataset___expr__less_equal, 2}, 
 		{ "_arrow_dataset___expr__scalar", (DL_FUNC) &_arrow_dataset___expr__scalar, 1}, 
+		{ "_arrow_dataset___expr__ToString", (DL_FUNC) &_arrow_dataset___expr__ToString, 1}, 
 		{ "_arrow_ipc___feather___TableWriter__SetDescription", (DL_FUNC) &_arrow_ipc___feather___TableWriter__SetDescription, 2}, 
 		{ "_arrow_ipc___feather___TableWriter__SetNumRows", (DL_FUNC) &_arrow_ipc___feather___TableWriter__SetNumRows, 2}, 
 		{ "_arrow_ipc___feather___TableWriter__Append", (DL_FUNC) &_arrow_ipc___feather___TableWriter__Append, 3}, 

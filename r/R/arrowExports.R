@@ -600,8 +600,32 @@ dataset___expr__equal <- function(lhs, rhs){
     .Call(`_arrow_dataset___expr__equal` , lhs, rhs)
 }
 
+dataset___expr__not_equal <- function(lhs, rhs){
+    .Call(`_arrow_dataset___expr__not_equal` , lhs, rhs)
+}
+
+dataset___expr__greater <- function(lhs, rhs){
+    .Call(`_arrow_dataset___expr__greater` , lhs, rhs)
+}
+
+dataset___expr__greater_equal <- function(lhs, rhs){
+    .Call(`_arrow_dataset___expr__greater_equal` , lhs, rhs)
+}
+
+dataset___expr__less <- function(lhs, rhs){
+    .Call(`_arrow_dataset___expr__less` , lhs, rhs)
+}
+
+dataset___expr__less_equal <- function(lhs, rhs){
+    .Call(`_arrow_dataset___expr__less_equal` , lhs, rhs)
+}
+
 dataset___expr__scalar <- function(x){
     .Call(`_arrow_dataset___expr__scalar` , x)
+}
+
+dataset___expr__ToString <- function(x){
+    .Call(`_arrow_dataset___expr__ToString` , x)
 }
 
 ipc___feather___TableWriter__SetDescription <- function(writer, description){

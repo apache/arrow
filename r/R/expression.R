@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+#' @include arrowExports.R
 #' @export
 Ops.Array <- function(e1, e2) {
   structure(list(fun = .Generic, args = list(e1, e2)), class = "array_expression")
@@ -39,7 +40,9 @@ print.array_expression <- function(x, ...) print(as.vector(x))
 
 #' @export
 Expression <- R6Class("Expression", inherit = Object,
-  public = list()
+  public = list(
+    ToString = function() dataset___expr__ToString(self)
+  )
 )
 
 #' @export
@@ -61,13 +64,26 @@ ScalarExpression$create <- function(x) {
 }
 
 #' @export
-CompareExpression <- R6Class("CompareExpression", inherit = Expression,
+ComparisonExpression <- R6Class("ComparisonExpression", inherit = Expression,
   public = list()
 )
-CompareExpression$create <- function(FUN, e1, e2) {
+ComparisonExpression$create <- function(FUN, e1, e2) {
   # TODO: map FUN to functions, not just equal
-  shared_ptr(CompareExpression, dataset___expr__equal(e1, e2))
+  comp_func <- comparison_function_map[[FUN]]
+  if (is.null(comp_func)) {
+    stop(FUN, " is not a supported comparison function", call. = FALSE)
+  }
+  shared_ptr(ComparisonExpression, comp_func(e1, e2))
 }
+
+comparison_function_map <- list(
+  "==" = dataset___expr__equal,
+  "!=" = dataset___expr__not_equal,
+  ">" = dataset___expr__greater,
+  ">=" = dataset___expr__greater_equal,
+  "<" = dataset___expr__less,
+  "<=" = dataset___expr__less_equal
+)
 
 Ops.Expression <- function(e1, e2) {
   # Check for non-expressions and convert to ScalarExpressions
@@ -77,5 +93,5 @@ Ops.Expression <- function(e1, e2) {
   if (!inherits(e2, "Expression")) {
     e2 <- ScalarExpression$create(e2)
   }
-  CompareExpression$create(.Generic, e1, e2)
+  ComparisonExpression$create(.Generic, e1, e2)
 }
