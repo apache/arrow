@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.arrow.adapter;
+package org.apache.arrow.adapter.jdbc;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -24,10 +24,6 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.arrow.adapter.jdbc.ArrowVectorIterator;
-import org.apache.arrow.adapter.jdbc.JdbcToArrow;
-import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig;
-import org.apache.arrow.adapter.jdbc.JdbcToArrowConfigBuilder;
 import org.apache.arrow.adapter.jdbc.consumer.IntConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.JdbcConsumer;
 import org.apache.arrow.memory.BaseAllocator;
@@ -197,6 +193,76 @@ public class JdbcAdapterBenchmarks {
   }
 
   /**
+   * State object for the jdbc row consume benchmark.
+   */
+  @State(Scope.Benchmark)
+  public static class RowConsumeState {
+
+    private Connection conn = null;
+
+    private ResultSet resultSet = null;
+
+    private BaseAllocator allocator;
+
+    private Statement statement;
+
+    private JdbcToArrowConfig config;
+
+    private ArrowVectorIterator iter;
+
+    private VectorSchemaRoot root;
+
+    @Setup(Level.Trial)
+    public void prepareState() throws Exception {
+      allocator = new RootAllocator(Integer.MAX_VALUE);
+      config = new JdbcToArrowConfigBuilder().setAllocator(allocator).setTargetBatchSize(1024).build();
+      Class.forName(DRIVER);
+      conn = DriverManager.getConnection(URL);
+
+      try (Statement stmt = conn.createStatement()) {
+        stmt.executeUpdate(CREATE_STATEMENT);
+      }
+
+      for (int i = 0; i < VALUE_COUNT; i++) {
+        // Insert data
+        try (PreparedStatement stmt = conn.prepareStatement(INSERT_STATEMENT)) {
+
+          stmt.setInt(1, i);
+          stmt.setLong(2, i);
+          stmt.setString(3, "test" + i);
+          stmt.setBoolean(4, i % 2 == 0);
+          stmt.executeUpdate();
+        }
+      }
+    }
+
+    @Setup(Level.Invocation)
+    public void prepareInvoke() throws Exception {
+      statement = conn.createStatement();
+      resultSet = statement.executeQuery(QUERY);
+
+      iter = JdbcToArrow.sqlToArrowVectorIterator(resultSet, config);
+      root = iter.next();
+      iter.compositeConsumer.resetVectorSchemaRoot(root);
+    }
+
+    @TearDown(Level.Invocation)
+    public void tearDownInvoke() throws Exception {
+      resultSet.close();
+      statement.close();
+      iter.close();
+    }
+
+    @TearDown(Level.Trial)
+    public void tearDownState() throws Exception {
+      try (Statement stmt = conn.createStatement()) {
+        stmt.executeUpdate(DROP_STATEMENT);
+      }
+      allocator.close();
+    }
+  }
+
+  /**
    * Test {@link JdbcToArrow#sqlToArrowVectorIterator(ResultSet, JdbcToArrowConfig)}
    * @return useless. To avoid DCE by JIT.
    */
@@ -223,6 +289,15 @@ public class JdbcAdapterBenchmarks {
     state.intConsumer.resetValueVector(state.intVector);
     for (int i = 0; i < VALUE_COUNT; i++) {
       state.intConsumer.consume(state.resultSet);
+    }
+  }
+
+  @Benchmark
+  @BenchmarkMode(Mode.AverageTime)
+  @OutputTimeUnit(TimeUnit.MICROSECONDS)
+  public void consumeRowsBenchmark(RowConsumeState state) throws Exception {
+    for (int i = 0; i < VALUE_COUNT; i++) {
+      state.iter.compositeConsumer.consume(state.resultSet);
     }
   }
 
