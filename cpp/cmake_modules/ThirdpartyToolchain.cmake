@@ -2304,6 +2304,9 @@ macro(build_orc)
       set(ORC_CMAKE_CXX_FLAGS " -Wno-zero-as-null-pointer-constant \
 -Wno-inconsistent-missing-destructor-override -Wno-error=undef ")
     endif()
+    if("${Protobuf_VERSION}" VERSION_GREATER_EQUAL "3.9.0")
+      set(ORC_CMAKE_CXX_FLAGS "${ORC_CMAKE_CXX_FLAGS} -Wno-comma ")
+    endif()
   endif()
 
   set(ORC_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} ${ORC_CMAKE_CXX_FLAGS}")
