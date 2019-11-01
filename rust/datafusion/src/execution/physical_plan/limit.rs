@@ -22,7 +22,7 @@ use crate::execution::physical_plan::common::RecordBatchIterator;
 use crate::execution::physical_plan::ExecutionPlan;
 use crate::execution::physical_plan::{BatchIterator, Partition};
 use arrow::array::ArrayRef;
-use arrow::compute::array_ops::limit;
+use arrow::compute::limit;
 use arrow::datatypes::Schema;
 use arrow::record_batch::RecordBatch;
 use std::sync::{Arc, Mutex};
