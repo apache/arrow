@@ -53,13 +53,13 @@ mod tests {
     }
 
     #[test]
-    fn test_limit_binary_array() {
-        let a: ArrayRef = Arc::new(BinaryArray::from(vec!["hello", " ", "world", "!"]));
+    fn test_limit_string_array() {
+        let a: ArrayRef = Arc::new(StringArray::from(vec!["hello", " ", "world", "!"]));
         let b = limit(&a, 2).unwrap();
-        let c = b.as_ref().as_any().downcast_ref::<BinaryArray>().unwrap();
+        let c = b.as_ref().as_any().downcast_ref::<StringArray>().unwrap();
         assert_eq!(2, c.len());
-        assert_eq!("hello", c.get_string(0));
-        assert_eq!(" ", c.get_string(1));
+        assert_eq!("hello", c.value(0));
+        assert_eq!(" ", c.value(1));
     }
 
     #[test]
