@@ -49,6 +49,14 @@ Dataset$create <- function(sources, schema) {
   shared_ptr(Dataset, dataset___Dataset__create(sources, schema))
 }
 
+open_dataset <- function (path, schema = NULL, ...) {
+  dsd <- DataSourceDiscovery$create(path, ...)
+  if (is.null(schema)) {
+    schema <- dsd$Inspect()
+  }
+  Dataset$create(list(dsd$Finish()), schema)
+}
+
 #' @export
 names.Dataset <- function(x) names(x$schema)
 
@@ -57,14 +65,42 @@ DataSource <- R6Class("DataSource", inherit = Object,
   public = list()
 )
 
-FileSystemDataSourceDiscovery <- R6Class("FileSystemDataSourceDiscovery", inherit = Object,
+#' @export
+DataSourceDiscovery <- R6Class("DataSourceDiscovery", inherit = Object,
   public = list(
     Finish = function() shared_ptr(DataSource, dataset___DSDiscovery__Finish(self)),
     Inspect = function() shared_ptr(Schema, dataset___DSDiscovery__Inspect(self))
   )
 )
-FileSystemDataSourceDiscovery$create <- function(fs, selector) {
-  shared_ptr(FileSystemDataSourceDiscovery, dataset___FSDSDiscovery__Make(fs, selector))
+DataSourceDiscovery$create <- function(path,
+                                       filesystem = c("auto", "local"),
+                                       format = c("parquet"),
+                                       allow_non_existent = FALSE,
+                                       recursive = TRUE,
+                                       ...) {
+  format <- match.arg(format) # Only parquet for now
+  if (!inherits(filesystem, "FileSystem")) {
+    filesystem <- match.arg(filesystem)
+    if (filesystem == "auto") {
+      # When there are other FileSystems supported, detect e.g. S3 from path
+      filesystem <- "local"
+    }
+    filesystem <- list(
+      local = LocalFileSystem
+      # We'll register other file systems here
+    )[[filesystem]]$create(...)
+  }
+  selector <- Selector$create(path, allow_non_existent = allow_non_existent, recursive = recursive)
+  # This may also require different initializers
+  FileSystemDataSourceDiscovery$create(filesystem, selector, format)
+}
+
+#' @export
+FileSystemDataSourceDiscovery <- R6Class("FileSystemDataSourceDiscovery", inherit = DataSourceDiscovery)
+FileSystemDataSourceDiscovery$create <- function(filesystem, selector, format = "parquet") {
+  assert_is(filesystem, "LocalFileSystem")
+  assert_is(selector, "Selector")
+  shared_ptr(FileSystemDataSourceDiscovery, dataset___FSDSDiscovery__Make(filesystem, selector))
 }
 
 #' @export

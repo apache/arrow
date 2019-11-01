@@ -17,19 +17,39 @@
 
 context("Datasets")
 
-test_that("Assembling a Dataset and getting a Table", {
-  fs <- LocalFileSystem$create()
-  dir.create(td <- tempfile())
-  write_parquet(iris, file.path(td, "iris1.parquet"))
+library(dplyr)
+
+dataset_dir <- tempfile()
+dir.create(dataset_dir)
+
+test_that("Setup (putting data in the dir)", {
+  write_parquet(iris, file.path(dataset_dir, "iris1.parquet"))
   # write_parquet(iris, file.path(td, "iris2.parquet"))
-  selector <- Selector$create(td, recursive = TRUE)
+  expect_length(dir(dataset_dir), 1)
+})
+
+test_that("Simple interface for datasets", {
+  ds <- open_dataset(dataset_dir)
+  expect_is(ds, "Dataset")
+  expect_equivalent(
+    ds %>%
+      select(Petal.Length, Petal.Width) %>%
+      filter(Petal.Width == 1.8) %>%
+      collect(),
+    iris[iris$Petal.Width == 1.8, c("Petal.Length", "Petal.Width")]
+  )
+})
+
+test_that("Assembling a Dataset manually and getting a Table", {
+  fs <- LocalFileSystem$create()
+  selector <- Selector$create(dataset_dir, recursive = TRUE)
   dsd <- FileSystemDataSourceDiscovery$create(fs, selector)
   expect_is(dsd, "FileSystemDataSourceDiscovery")
   schm <- dsd$Inspect()
   expect_is(schm, "Schema")
   expect_equal(
     schm,
-    ParquetFileReader$create(file.path(td, "iris1.parquet"))$GetSchema()
+    ParquetFileReader$create(file.path(dataset_dir, "iris1.parquet"))$GetSchema()
   )
   datasource <- dsd$Finish()
   expect_is(datasource, "DataSource")
@@ -52,15 +72,6 @@ test_that("Assembling a Dataset and getting a Table", {
   expect_is(tab, "Table")
   expect_equivalent(
     as.data.frame(tab),
-    iris[iris$Petal.Width == 1.8, c("Petal.Length", "Petal.Width")]
-  )
-  # Now in dplyr
-  library(dplyr)
-  expect_equivalent(
-    ds %>%
-      select(Petal.Length, Petal.Width) %>%
-      filter(Petal.Width == 1.8) %>%
-      collect(),
     iris[iris$Petal.Width == 1.8, c("Petal.Length", "Petal.Width")]
   )
 })
