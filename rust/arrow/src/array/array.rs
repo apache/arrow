@@ -499,7 +499,7 @@ impl PrimitiveArray<BooleanType> {
 
     /// Returns the boolean value at index `i`.
     pub fn value(&self, i: usize) -> bool {
-        assert!(i + self.offset() < self.data.len());
+        assert!(i < self.data.len());
         let offset = i + self.offset();
         unsafe { bit_util::get_bit_raw(self.raw_values.get() as *const u8, offset) }
     }
@@ -1145,6 +1145,10 @@ impl From<ArrayDataRef> for BinaryArray {
             "BinaryArray data should contain 2 buffers only (offsets and values)"
         );
         let raw_value_offsets = data.buffers()[0].raw_data();
+        assert!(
+            memory::is_aligned(raw_value_offsets, mem::align_of::<i32>()),
+            "memory is not aligned"
+        );
         let value_data = data.buffers()[1].raw_data();
         Self {
             data: data.clone(),
@@ -1162,6 +1166,10 @@ impl From<ArrayDataRef> for StringArray {
             "StringArray data should contain 2 buffers only (offsets and values)"
         );
         let raw_value_offsets = data.buffers()[0].raw_data();
+        assert!(
+            memory::is_aligned(raw_value_offsets, mem::align_of::<i32>()),
+            "memory is not aligned"
+        );
         let value_data = data.buffers()[1].raw_data();
         Self {
             data: data.clone(),
@@ -2669,7 +2677,7 @@ mod tests {
 
         let values: [u8; 12] = [0; 12];
 
-        let array_data = ArrayData::builder(DataType::Utf8)
+        let array_data = ArrayData::builder(DataType::Binary)
             .add_buffer(buf2)
             .add_buffer(Buffer::from(&values[..]))
             .build();
