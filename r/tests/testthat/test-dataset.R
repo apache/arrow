@@ -22,10 +22,29 @@ library(dplyr)
 dataset_dir <- tempfile()
 dir.create(dataset_dir)
 
+df1 <- tibble(
+  int = 1:10,
+  dbl = as.numeric(1:10),
+  lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+  chr = letters[1:10],
+  fct = factor(LETTERS[1:10]),
+  part = 1
+)
+df2 <- tibble(
+  int = 101:110,
+  dbl = as.numeric(51:60),
+  lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+  chr = letters[10:1],
+  fct = factor(LETTERS[10:1]),
+  part = 2
+)
+
 test_that("Setup (putting data in the dir)", {
-  write_parquet(iris, file.path(dataset_dir, "iris1.parquet"))
-  # write_parquet(iris, file.path(td, "iris2.parquet"))
-  expect_length(dir(dataset_dir), 1)
+  dir.create(file.path(dataset_dir, 1))
+  dir.create(file.path(dataset_dir, 2))
+  write_parquet(df1, file.path(dataset_dir, 1, "file1.parquet"))
+  write_parquet(df2, file.path(dataset_dir, 2, "file2.parquet"))
+  expect_length(dir(dataset_dir, recursive = TRUE), 2)
 })
 
 test_that("Simple interface for datasets", {
@@ -33,10 +52,13 @@ test_that("Simple interface for datasets", {
   expect_is(ds, "Dataset")
   expect_equivalent(
     ds %>%
-      select(Petal.Length, Petal.Width) %>%
-      filter(Petal.Width == 1.8) %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53) %>%
       collect(),
-    iris[iris$Petal.Width == 1.8, c("Petal.Length", "Petal.Width")]
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
   )
 })
 
@@ -49,29 +71,29 @@ test_that("Assembling a Dataset manually and getting a Table", {
   expect_is(schm, "Schema")
   expect_equal(
     schm,
-    ParquetFileReader$create(file.path(dataset_dir, "iris1.parquet"))$GetSchema()
+    ParquetFileReader$create(file.path(dataset_dir, 1, "file1.parquet"))$GetSchema()
   )
+  # dsd$SetPartitionScheme(schema(part = double()))
+  # Invalid: error parsing 'var' as scalar of type double
   datasource <- dsd$Finish()
   expect_is(datasource, "DataSource")
 
   ds <- Dataset$create(list(datasource), schm)
   expect_is(ds, "Dataset")
-  expect_equal(names(ds), names(iris))
+  expect_equal(names(ds), names(df1))
 
   sb <- ds$NewScan()
   expect_is(sb, "ScannerBuilder")
   expect_equal(sb$schema, schm)
-  expect_equal(names(sb), names(iris))
-  sb$Project(c("Petal.Length", "Petal.Width"))
-  # This does not pass; Project does not affect schema. How can I see what I have projected already?
-  # expect_equal(names(sb), c("Petal.Length", "Petal.Width"))
-  sb$Filter(FieldExpression$create("Petal.Width") == 1.8)
+  expect_equal(names(sb), names(df1))
+  sb$Project(c("chr", "lgl"))
+  sb$Filter(FieldExpression$create("dbl") == 8)
   scn <- sb$Finish()
   expect_is(scn, "Scanner")
   tab <- scn$ToTable()
   expect_is(tab, "Table")
   expect_equivalent(
     as.data.frame(tab),
-    iris[iris$Petal.Width == 1.8, c("Petal.Length", "Petal.Width")]
+    df1[8, c("chr", "lgl")]
   )
 })

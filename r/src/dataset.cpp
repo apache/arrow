@@ -63,7 +63,6 @@ std::shared_ptr<arrow::dataset::DataSourceDiscovery> dataset___FSDSDiscovery__Ma
 std::shared_ptr<arrow::dataset::DataSource> dataset___DSDiscovery__Finish(
     const std::shared_ptr<arrow::dataset::DataSourceDiscovery>& discovery) {
   std::shared_ptr<arrow::dataset::DataSource> out;
-
   STOP_IF_NOT_OK(discovery->Finish(&out));
   return out;
 }
@@ -72,9 +71,16 @@ std::shared_ptr<arrow::dataset::DataSource> dataset___DSDiscovery__Finish(
 std::shared_ptr<arrow::Schema> dataset___DSDiscovery__Inspect(
     const std::shared_ptr<arrow::dataset::DataSourceDiscovery>& discovery) {
   std::shared_ptr<arrow::Schema> out;
-
   STOP_IF_NOT_OK(discovery->Inspect(&out));
   return out;
+}
+
+// [[arrow::export]]
+void dataset___DSDiscovery__SetPartitionScheme(
+    const std::shared_ptr<arrow::dataset::DataSourceDiscovery>& discovery,
+    const std::shared_ptr<arrow::Schema>& schm) {
+  STOP_IF_NOT_OK(
+    discovery->SetPartitionScheme(std::make_shared<arrow::dataset::SchemaPartitionScheme>(schm)));
 }
 
 // [[arrow::export]]

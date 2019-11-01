@@ -364,6 +364,10 @@ dataset___DSDiscovery__Inspect <- function(discovery){
     .Call(`_arrow_dataset___DSDiscovery__Inspect` , discovery)
 }
 
+dataset___DSDiscovery__SetPartitionScheme <- function(discovery, schm){
+    invisible(.Call(`_arrow_dataset___DSDiscovery__SetPartitionScheme` , discovery, schm))
+}
+
 dataset___Dataset__create <- function(sources, schm){
     .Call(`_arrow_dataset___Dataset__create` , sources, schm)
 }

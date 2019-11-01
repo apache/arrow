@@ -49,10 +49,13 @@ Dataset$create <- function(sources, schema) {
   shared_ptr(Dataset, dataset___Dataset__create(sources, schema))
 }
 
-open_dataset <- function (path, schema = NULL, ...) {
+open_dataset <- function (path, schema = NULL, partition = NULL, ...) {
   dsd <- DataSourceDiscovery$create(path, ...)
   if (is.null(schema)) {
     schema <- dsd$Inspect()
+  }
+  if (!is.null(partition)) {
+    dsd$SetPartitionScheme(partition)
   }
   Dataset$create(list(dsd$Finish()), schema)
 }
@@ -69,6 +72,10 @@ DataSource <- R6Class("DataSource", inherit = Object,
 DataSourceDiscovery <- R6Class("DataSourceDiscovery", inherit = Object,
   public = list(
     Finish = function() shared_ptr(DataSource, dataset___DSDiscovery__Finish(self)),
+    SetPartitionScheme = function(schema) {
+      dataset___DSDiscovery__SetPartitionScheme(self, schema)
+      self
+    },
     Inspect = function() shared_ptr(Schema, dataset___DSDiscovery__Inspect(self))
   )
 )
