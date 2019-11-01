@@ -34,7 +34,7 @@
       "group_vars", "ungroup", "mutate", "arrange", "rename", "pull"
     )
   )
-  for (cl in c("RecordBatch", "Table", "arrow_dplyr_query")) {
+  for (cl in c("Dataset", "RecordBatch", "Table", "arrow_dplyr_query")) {
     for (m in dplyr_methods) {
       s3_register(m, cl)
     }

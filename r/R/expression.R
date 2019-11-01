@@ -93,5 +93,6 @@ Ops.Expression <- function(e1, e2) {
   if (!inherits(e2, "Expression")) {
     e2 <- ScalarExpression$create(e2)
   }
+  # TODO: and/or/not
   ComparisonExpression$create(.Generic, e1, e2)
 }

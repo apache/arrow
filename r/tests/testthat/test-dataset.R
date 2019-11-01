@@ -54,4 +54,13 @@ test_that("Assembling a Dataset and getting a Table", {
     as.data.frame(tab),
     iris[iris$Petal.Width == 1.8, c("Petal.Length", "Petal.Width")]
   )
+  # Now in dplyr
+  library(dplyr)
+  expect_equivalent(
+    ds %>%
+      select(Petal.Length, Petal.Width) %>%
+      filter(Petal.Width == 1.8) %>%
+      collect(),
+    iris[iris$Petal.Width == 1.8, c("Petal.Length", "Petal.Width")]
+  )
 })
