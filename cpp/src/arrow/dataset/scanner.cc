@@ -144,9 +144,12 @@ Status ScannerBuilder::UseThreads(bool use_threads) {
 }
 
 Status ScannerBuilder::Finish(std::unique_ptr<Scanner>* out) const {
+  scan_options_->schema = dataset_->schema();
   if (has_projection_ && !project_columns_.empty()) {
-    scan_options_->projector = std::make_shared<RecordBatchProjector>(
-        scan_context_->pool, SchemaFromColumnNames(schema(), project_columns_));
+    auto projected_schema = SchemaFromColumnNames(schema(), project_columns_);
+    scan_options_->schema = projected_schema;
+    scan_options_->projector =
+        std::make_shared<RecordBatchProjector>(scan_context_->pool, projected_schema);
   }
 
   if (scan_options_->filter->Equals(true)) {
@@ -172,8 +175,8 @@ struct TableAggregator {
     batches.emplace_back(std::move(batch));
   }
 
-  Status Finish(std::shared_ptr<Table>* out) {
-    return Table::FromRecordBatches(batches, out);
+  Status Finish(const std::shared_ptr<Schema>& schema, std::shared_ptr<Table>* out) {
+    return Table::FromRecordBatches(schema, batches, out);
   }
 
   std::mutex m;
@@ -206,7 +209,7 @@ Status Scanner::ToTable(std::shared_ptr<Table>* out) {
   // Wait for all tasks to complete, or the first error.
   RETURN_NOT_OK(task_group->Finish());
 
-  return aggregator.Finish(out);
+  return aggregator.Finish(options_->schema, out);
 }
 
 }  // namespace dataset

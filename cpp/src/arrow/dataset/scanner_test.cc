@@ -123,9 +123,11 @@ TEST_F(TestSimpleScanner, ToTable) {
       std::make_shared<SimpleDataSource>(fragments),
   };
 
+  options_->schema = s;
   auto scanner = std::make_shared<SimpleScanner>(sources, options_, ctx_);
   std::shared_ptr<Table> actual;
 
+  options_->use_threads = false;
   ASSERT_OK(scanner->ToTable(&actual));
   AssertTablesEqual(*expected, *actual);
 
