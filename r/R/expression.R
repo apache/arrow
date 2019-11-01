@@ -46,9 +46,7 @@ Expression <- R6Class("Expression", inherit = Object,
 )
 
 #' @export
-FieldExpression <- R6Class("FieldExpression", inherit = Expression,
-  public = list()
-)
+FieldExpression <- R6Class("FieldExpression", inherit = Expression)
 FieldExpression$create <- function(name) {
   assert_is(name, "character")
   assert_that(length(name) == 1)
@@ -56,17 +54,13 @@ FieldExpression$create <- function(name) {
 }
 
 #' @export
-ScalarExpression <- R6Class("ScalarExpression", inherit = Expression,
-  public = list()
-)
+ScalarExpression <- R6Class("ScalarExpression", inherit = Expression)
 ScalarExpression$create <- function(x) {
   shared_ptr(ScalarExpression, dataset___expr__scalar(x))
 }
 
 #' @export
-ComparisonExpression <- R6Class("ComparisonExpression", inherit = Expression,
-  public = list()
-)
+ComparisonExpression <- R6Class("ComparisonExpression", inherit = Expression)
 ComparisonExpression$create <- function(FUN, e1, e2) {
   # TODO: map FUN to functions, not just equal
   comp_func <- comparison_function_map[[FUN]]
@@ -74,6 +68,22 @@ ComparisonExpression$create <- function(FUN, e1, e2) {
     stop(FUN, " is not a supported comparison function", call. = FALSE)
   }
   shared_ptr(ComparisonExpression, comp_func(e1, e2))
+}
+
+#' @export
+AndExpression <- R6Class("AndExpression", inherit = Expression)
+AndExpression$create <- function(e1, e2) {
+  shared_ptr(AndExpression, dataset___expr__and(e1, e2))
+}
+#' @export
+OrExpression <- R6Class("OrExpression", inherit = Expression)
+OrExpression$create <- function(e1, e2) {
+  shared_ptr(OrExpression, dataset___expr__or(e1, e2))
+}
+#' @export
+NotExpression <- R6Class("NotExpression", inherit = Expression)
+NotExpression$create <- function(e1) {
+  shared_ptr(NotExpression, dataset___expr__not(e1))
 }
 
 comparison_function_map <- list(
@@ -86,6 +96,9 @@ comparison_function_map <- list(
 )
 
 Ops.Expression <- function(e1, e2) {
+  if (.Generic == "!") {
+    return(NotExpression$create(e1))
+  }
   # Check for non-expressions and convert to ScalarExpressions
   if (!inherits(e1, "Expression")) {
     e1 <- ScalarExpression$create(e1)
@@ -93,6 +106,11 @@ Ops.Expression <- function(e1, e2) {
   if (!inherits(e2, "Expression")) {
     e2 <- ScalarExpression$create(e2)
   }
-  # TODO: and/or/not
-  ComparisonExpression$create(.Generic, e1, e2)
+  if (.Generic == "&") {
+    AndExpression$create(e1, e2)
+  } else if (.Generic == "|") {
+    OrExpression$create(e1, e2)
+  } else {
+    ComparisonExpression$create(.Generic, e1, e2)
+  }
 }

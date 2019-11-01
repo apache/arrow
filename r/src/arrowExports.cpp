@@ -2393,6 +2393,53 @@ RcppExport SEXP _arrow_dataset___expr__less_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::dataset::AndExpression> dataset___expr__and(const std::shared_ptr<arrow::dataset::Expression>& lhs, const std::shared_ptr<arrow::dataset::Expression>& rhs);
+RcppExport SEXP _arrow_dataset___expr__and(SEXP lhs_sexp, SEXP rhs_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type rhs(rhs_sexp);
+	return Rcpp::wrap(dataset___expr__and(lhs, rhs));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___expr__and(SEXP lhs_sexp, SEXP rhs_sexp){
+	Rf_error("Cannot call dataset___expr__and(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// expression.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::dataset::OrExpression> dataset___expr__or(const std::shared_ptr<arrow::dataset::Expression>& lhs, const std::shared_ptr<arrow::dataset::Expression>& rhs);
+RcppExport SEXP _arrow_dataset___expr__or(SEXP lhs_sexp, SEXP rhs_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type rhs(rhs_sexp);
+	return Rcpp::wrap(dataset___expr__or(lhs, rhs));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___expr__or(SEXP lhs_sexp, SEXP rhs_sexp){
+	Rf_error("Cannot call dataset___expr__or(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// expression.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::dataset::NotExpression> dataset___expr__not(const std::shared_ptr<arrow::dataset::Expression>& lhs);
+RcppExport SEXP _arrow_dataset___expr__not(SEXP lhs_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type lhs(lhs_sexp);
+	return Rcpp::wrap(dataset___expr__not(lhs));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___expr__not(SEXP lhs_sexp){
+	Rf_error("Cannot call dataset___expr__not(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// expression.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<arrow::dataset::ScalarExpression> dataset___expr__scalar(SEXP x);
 RcppExport SEXP _arrow_dataset___expr__scalar(SEXP x_sexp){
 BEGIN_RCPP
@@ -5525,6 +5572,9 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___expr__greater_equal", (DL_FUNC) &_arrow_dataset___expr__greater_equal, 2}, 
 		{ "_arrow_dataset___expr__less", (DL_FUNC) &_arrow_dataset___expr__less, 2}, 
 		{ "_arrow_dataset___expr__less_equal", (DL_FUNC) &_arrow_dataset___expr__less_equal, 2}, 
+		{ "_arrow_dataset___expr__and", (DL_FUNC) &_arrow_dataset___expr__and, 2}, 
+		{ "_arrow_dataset___expr__or", (DL_FUNC) &_arrow_dataset___expr__or, 2}, 
+		{ "_arrow_dataset___expr__not", (DL_FUNC) &_arrow_dataset___expr__not, 1}, 
 		{ "_arrow_dataset___expr__scalar", (DL_FUNC) &_arrow_dataset___expr__scalar, 1}, 
 		{ "_arrow_dataset___expr__ToString", (DL_FUNC) &_arrow_dataset___expr__ToString, 1}, 
 		{ "_arrow_ipc___feather___TableWriter__SetDescription", (DL_FUNC) &_arrow_ipc___feather___TableWriter__SetDescription, 2}, 

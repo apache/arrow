@@ -49,6 +49,9 @@ test_that("C++ expressions", {
   expect_is(f <= 2L, "ComparisonExpression")
   expect_is(f != FALSE, "ComparisonExpression")
   expect_is(f > 4, "ComparisonExpression")
+  expect_is(f < 4 & f > 2, "AndExpression")
+  expect_is(f < 4 | f > 2, "OrExpression")
+  expect_is(!(f < 4), "NotExpression")
   expect_output(
     print(f > 4),
     # We can do better than this right?

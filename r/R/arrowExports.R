@@ -620,6 +620,18 @@ dataset___expr__less_equal <- function(lhs, rhs){
     .Call(`_arrow_dataset___expr__less_equal` , lhs, rhs)
 }
 
+dataset___expr__and <- function(lhs, rhs){
+    .Call(`_arrow_dataset___expr__and` , lhs, rhs)
+}
+
+dataset___expr__or <- function(lhs, rhs){
+    .Call(`_arrow_dataset___expr__or` , lhs, rhs)
+}
+
+dataset___expr__not <- function(lhs){
+    .Call(`_arrow_dataset___expr__not` , lhs)
+}
+
 dataset___expr__scalar <- function(x){
     .Call(`_arrow_dataset___expr__scalar` , x)
 }

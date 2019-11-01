@@ -67,6 +67,26 @@ std::shared_ptr<arrow::dataset::ComparisonExpression> dataset___expr__less_equal
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::dataset::AndExpression> dataset___expr__and(
+    const std::shared_ptr<arrow::dataset::Expression>& lhs,
+    const std::shared_ptr<arrow::dataset::Expression>& rhs) {
+  return arrow::dataset::and_(lhs, rhs);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::dataset::OrExpression> dataset___expr__or(
+    const std::shared_ptr<arrow::dataset::Expression>& lhs,
+    const std::shared_ptr<arrow::dataset::Expression>& rhs) {
+  return arrow::dataset::or_(lhs, rhs);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::dataset::NotExpression> dataset___expr__not(
+    const std::shared_ptr<arrow::dataset::Expression>& lhs) {
+  return arrow::dataset::not_(lhs);
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::dataset::ScalarExpression> dataset___expr__scalar(SEXP x) {
   switch (TYPEOF(x)) {
     case LGLSXP:
