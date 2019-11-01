@@ -17,38 +17,6 @@
 
 #' @include arrow-package.R
 
-#' @export
-ScanOptions <- R6Class("ScanOptions", inherit = Object,
-  public = list()
-)
-
-#' @export
-ScanContext <- R6Class("ScanContext", inherit = Object,
-  public = list()
-)
-
-#' @export
-DataFragment <- R6Class("DataFragment", inherit = Object,
-  public = list(
-    splittable = function() dataset___DataFragment__splittable(self),
-    scan_options = function() shared_ptr(ScanOptions, dataset___DataFragment__scan_options(self))
-  )
-)
-
-#' @export
-Dataset <- R6Class("Dataset", inherit = Object,
-  public = list(
-    NewScan = function() unique_ptr(ScannerBuilder, dataset___Dataset__NewScan(self))
-  ),
-  active = list(
-    schema = function() shared_ptr(Schema, dataset___Dataset__schema(self))
-  )
-)
-Dataset$create <- function(sources, schema) {
-  # TODO: validate inputs
-  shared_ptr(Dataset, dataset___Dataset__create(sources, schema))
-}
-
 open_dataset <- function (path, schema = NULL, partition = NULL, ...) {
   dsd <- DataSourceDiscovery$create(path, ...)
   if (is.null(schema)) {
@@ -61,18 +29,33 @@ open_dataset <- function (path, schema = NULL, partition = NULL, ...) {
 }
 
 #' @export
+Dataset <- R6Class("Dataset", inherit = Object,
+  public = list(
+    NewScan = function() unique_ptr(ScannerBuilder, dataset___Dataset__NewScan(self))
+  ),
+  active = list(
+    schema = function() shared_ptr(Schema, dataset___Dataset__schema(self))
+  )
+)
+Dataset$create <- function(sources, schema) {
+  # TODO: validate inputs
+  assert_is_list_of(sources, "DataSource")
+  assert_is(schema, "Schema")
+  shared_ptr(Dataset, dataset___Dataset__create(sources, schema))
+}
+
+#' @export
 names.Dataset <- function(x) names(x$schema)
 
 #' @export
-DataSource <- R6Class("DataSource", inherit = Object,
-  public = list()
-)
+DataSource <- R6Class("DataSource", inherit = Object)
 
 #' @export
 DataSourceDiscovery <- R6Class("DataSourceDiscovery", inherit = Object,
   public = list(
     Finish = function() shared_ptr(DataSource, dataset___DSDiscovery__Finish(self)),
     SetPartitionScheme = function(schema) {
+      assert_is(schema, "Schema")
       dataset___DSDiscovery__SetPartitionScheme(self, schema)
       self
     },
@@ -85,7 +68,6 @@ DataSourceDiscovery$create <- function(path,
                                        allow_non_existent = FALSE,
                                        recursive = TRUE,
                                        ...) {
-  format <- match.arg(format) # Only parquet for now
   if (!inherits(filesystem, "FileSystem")) {
     filesystem <- match.arg(filesystem)
     if (filesystem == "auto") {
@@ -105,8 +87,9 @@ DataSourceDiscovery$create <- function(path,
 #' @export
 FileSystemDataSourceDiscovery <- R6Class("FileSystemDataSourceDiscovery", inherit = DataSourceDiscovery)
 FileSystemDataSourceDiscovery$create <- function(filesystem, selector, format = "parquet") {
-  assert_is(filesystem, "LocalFileSystem")
+  assert_is(filesystem, "FileSystem")
   assert_is(selector, "Selector")
+  format <- match.arg(format) # Only parquet for now
   shared_ptr(FileSystemDataSourceDiscovery, dataset___FSDSDiscovery__Make(filesystem, selector))
 }
 
@@ -114,10 +97,12 @@ FileSystemDataSourceDiscovery$create <- function(filesystem, selector, format = 
 ScannerBuilder <- R6Class("ScannerBuilder", inherit = Object,
   public = list(
     Project = function(cols) {
+      assert_is(cols, "character")
       dataset___ScannerBuilder__Project(self, cols)
       self
     },
     Filter = function(expr) {
+      assert_is(expr, "Expression")
       dataset___ScannerBuilder__Filter(self, expr)
       self
     },
@@ -135,5 +120,16 @@ names.ScannerBuilder <- function(x) names(x$schema)
 Scanner <- R6Class("Scanner", inherit = Object,
   public = list(
     ToTable = function() shared_ptr(Table, dataset___Scanner__ToTable(self))
+  )
+)
+
+ScanOptions <- R6Class("ScanOptions", inherit = Object)
+ScanContext <- R6Class("ScanContext", inherit = Object)
+DataFragment <- R6Class("DataFragment", inherit = Object,
+  public = list(
+    splittable = function() dataset___DataFragment__splittable(self),
+    scan_options = function() {
+      shared_ptr(ScanOptions, dataset___DataFragment__scan_options(self))
+    }
   )
 )

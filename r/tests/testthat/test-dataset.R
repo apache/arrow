@@ -60,6 +60,17 @@ test_that("Simple interface for datasets", {
       df2[1:2, c("chr", "dbl")]
     )
   )
+
+  expect_equivalent(
+    ds %>%
+      select(string = chr, integer = int, part) %>%
+      filter(integer > 6L & part == 1) %>%
+      summarize(mean = mean(integer)),
+    df1 %>%
+      select(string = chr, integer = int) %>%
+      filter(integer > 6) %>%
+      summarize(mean = mean(integer))
+  )
 })
 
 test_that("Assembling a Dataset manually and getting a Table", {
