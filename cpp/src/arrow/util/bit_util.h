@@ -52,24 +52,29 @@
 #define ARROW_BYTE_SWAP32 __builtin_bswap32
 #endif
 
+#include <algorithm>
 #include <array>
+#include <bitset>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <limits>
 #include <memory>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
+#include "arrow/buffer.h"
+#include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/type_traits.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
-class Buffer;
 class MemoryPool;
 class Status;
+class BooleanArray;
 
 namespace detail {
 
@@ -828,25 +833,231 @@ Status InvertBitmap(MemoryPool* pool, const uint8_t* bitmap, int64_t offset,
 ARROW_EXPORT
 int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length);
 
-struct Bitmap {
-  uint8_t* data;
-  int64_t offset, length;
+class ARROW_EXPORT Bitmap {
+ public:
+  Bitmap() = default;
 
-  bool GetBit(int64_t i) const { return BitUtil::GetBit(data, i + offset); }
+  Bitmap(std::shared_ptr<Buffer> buffer, int64_t offset, int64_t length)
+      : buffer_(std::move(buffer)), offset_(offset), length_(length) {}
 
-  void SetBitTo(int64_t i, bool v) const { BitUtil::SetBitTo(data, i + offset, v); }
+  Bitmap Slice(int64_t offset) const {
+    return Bitmap(buffer_, offset_ + offset, length_ - offset);
+  }
+
+  Bitmap Slice(int64_t offset, int64_t length) const {
+    return Bitmap(buffer_, offset_ + offset, length);
+  }
+
+  std::shared_ptr<BooleanArray> ToArray() const;
+
+  std::string ToString() const;
+
+  std::string Diff(const Bitmap& other) const;
+
+  bool GetBit(int64_t i) const { return BitUtil::GetBit(buffer_->data(), i + offset_); }
+
+  void SetBitTo(int64_t i, bool v) const {
+    BitUtil::SetBitTo(buffer_->mutable_data(), i + offset_, v);
+  }
+
+  /*
+  template <typename Word>
+  BitmapWordAlignParams WordAlignParams() const {
+    return BitmapWordAlign<alignof(Word)>(buffer_->data(), offset_, length_);
+  }
+  */
 
   template <size_t N, typename Visitor>
   static void Visit(const Bitmap (&bitmaps)[N], Visitor&& visitor) {
-    auto length = bitmaps[0].length;
-    std::array<bool, N> bits;
-    for (int64_t i = 0; i < length; ++i) {
-      for (size_t bitmap_i = 0; bitmap_i < N; ++bitmap_i) {
-        bits[bitmap_i] = bitmaps[bitmap_i].GetBit(i);
+    VisitImpl(bitmaps, VisitedIs<internal::call_traits::argument_type<0, Visitor&&>>{},
+              std::forward<Visitor>(visitor));
+  }
+
+  /*
+  template <
+      size_t N, typename Visitor,
+      typename Word =
+          typename internal::call_traits::argument_type<0, Visitor&&>::value_type,
+      typename Enable = typename std::enable_if<std::is_integral<Word>::value>::type>
+  static void Visit(const Bitmap (&bitmaps)[N], Visitor&& visitor) {
+    auto bit_length = bitmaps[0].length();
+
+    constexpr size_t kBitWidth = sizeof(Word) * 8;
+
+    BitmapWordAlignParams align_params[N];
+    bool leading_bits = false;
+    for (int i = 0; i < N; ++i) {
+      align_params[i] = bitmaps[i].WordAlignParams();
+
+      auto leading_bytes = CeilDiv(align_params[i].leading_bits, 8);
+      if (align_params[i].aligned_start - leading_bytes < bitmaps[i].buffer()->data()) {
+        // this bitmap's leading_bits do not lie in an accessible word
+        leading_bits = true;
+      }
+    }
+
+    std::array<Word, N> visited_words;
+
+    if (leading_bits) {
+      // consume bits which do not lie in an accessible word first
+      auto length = std::min(kBitWidth, bit_length);
+      for (int i = 0; i < N; ++i) {
+        auto bitmap = bitmaps[i].Slice(0, length);
+        std::memcpy(&visited_words[i], bitmap.byte_offset(), bitmap.byte_length());
+        align_params[i] = bitmap.WordAlignParams();
+      }
+      visitor(visited_words);
+    }
+
+    const Word* words[N];
+    int64_t offsets[N];
+
+    size_t trailing_bits = 0;
+    for (int i = 0; i < N; ++i) {
+      auto trailing_bytes = CeilDiv(align_params[i].trailing_bits, 8);
+      auto aligned_end =
+          align_params[i].aligned_start + align_params[i].aligned_words * sizeof(Word);
+      if (aligned_end + trailing_bytes >
+          bitmaps[i].buffer()->data() + bitmaps[i].buffer()->size()) {
+        // this bitmap's trailing_bits do not lie in an accessible word
+        trailing_bits = std::max(trailing_bits, align_params[i].trailing_bits);
+      }
+
+      words[i] = reinterpret_cast<const Word*>(align_params[i].aligned_start) - 1;
+      offsets[i] = bitmaps[i].offset();
+    }
+
+    for (int i = 0; i < N; ++i) {
+      auto bytes = bitmaps[i].buffer()->data();
+      auto misalignment = reinterpret_cast<size_t>(bytes) % alignof(IntType);
+      values[i] = reinterpret_cast<const IntType*>(bytes - misalignment);
+      offsets[i] = bitmaps[i].offset() + misalignment * 8;
+      auto capacity = bitmaps[i].buffer()->capacity() + misalignment;
+
+      // clamp offsets to [0, kBitWidth)
+      values[i] -= offsets[i] / kBitWidth;
+      offsets[i] %= kBitWidth;
+    }
+
+    for (int64_t int_i = 0; int_i < int_length; ++int_i) {
+      for (int i = 0; i < N; ++i) {
+        if (offsets[i] == 0) {
+          ints[i] = values[i][int_i];
+        } else {
+          ints[i] = values[i][int_i] << offsets[i];
+          ints[i] |= values[i][int_i] >> (kBitWidth - offsets[i]);
+        }
+      }
+      visitor(ints);
+    }
+  }
+  */
+
+  const std::shared_ptr<Buffer>& buffer() const { return buffer_; }
+
+  /// offset of first bit relative to buffer().data()
+  int64_t offset() const { return offset_; }
+
+  int64_t length() const { return length_; }
+
+  /// string_view of all bytes which contain any bit in this bitmap
+  util::basic_string_view<uint8_t> bytes() const {
+    auto byte_offset = offset_ / 8;
+    auto byte_count = BitUtil::CeilDiv(offset_ + length_, 8) - byte_offset;
+    return util::basic_string_view<uint8_t>(buffer_->data() + byte_offset, byte_count);
+  }
+
+  template <typename Word>
+  util::basic_string_view<Word> words() const {
+    auto bytes_addr = AsInt(bytes().data());
+    auto words_addr = bytes_addr - bytes_addr % sizeof(Word);
+    auto word_byte_count =
+        BitUtil::RoundUpToPowerOf2(bytes_addr + bytes().size(), sizeof(Word)) -
+        words_addr;
+    return util::basic_string_view<Word>(reinterpret_cast<const Word*>(words_addr),
+                                         word_byte_count / sizeof(Word));
+  }
+
+  /// offset of first bit relative to words<Word>().data()
+  template <typename Word>
+  int64_t word_offset() const {
+    return offset_ + (AsInt(buffer_->data()) - AsInt(words<Word>().data())) * 8;
+  }
+
+ private:
+  template <typename>
+  struct VisitedIs {};
+
+  static size_t AsInt(const void* ptr) {
+    return reinterpret_cast<size_t>(reinterpret_cast<const char*>(ptr));
+  }
+
+  template <size_t N, typename Visitor>
+  static void VisitImpl(const Bitmap (&bitmaps)[N], VisitedIs<std::bitset<N>>,
+                        Visitor&& visitor) {
+    auto bit_length = bitmaps[0].length();
+    std::bitset<N> bits;
+    for (int64_t bit_i = 0; bit_i < bit_length; ++bit_i) {
+      for (int i = 0; i < N; ++i) {
+        bits[i] = bitmaps[i].GetBit(bit_i);
       }
       visitor(bits);
     }
   }
+
+  template <typename Word, size_t N, typename Visitor>
+  static void VisitImpl(const Bitmap (&bitmaps)[N], VisitedIs<std::array<Word, N>>,
+                        Visitor&& visitor) {
+    util::basic_string_view<Word> words[N];
+    int64_t offsets[N];
+
+    constexpr size_t kBitWidth = sizeof(Word) * 8;
+
+    for (int i = 0; i < N; ++i) {
+      words[i] = bitmaps[i].template words<Word>();
+      offsets[i] = bitmaps[i].offset();
+
+      // clamp offsets to [0, kBitWidth)
+      words[i] = words[i].substr(offsets[i] / kBitWidth);
+      offsets[i] %= kBitWidth;
+    }
+
+    std::array<Word, N> visited_words;
+
+    size_t word_count = 0;
+    for (auto word : words) {
+      // words[i].size() == words[j].size()    if offsets[i] == 0 and offsets[j] == 0
+      // words[i].size() == words[j].size()+1  if offsets[i] != 0 and offsets[j] == 0
+      word_count = std::max(word_count, word.size());
+    }
+
+    for (size_t word_i = 0; word_i < word_count - 1; ++word_i) {
+      for (int i = 0; i < N; ++i) {
+        if (offsets[i] == 0) {
+          visited_words[i] = words[i][word_i];
+        } else {
+          visited_words[i] = words[i][word_i] >> offsets[i];
+          visited_words[i] |= words[i][word_i + 1] << (kBitWidth - offsets[i]);
+        }
+      }
+      visitor(visited_words);
+    }
+
+    // FIXME(bkietz) words.back() or words.front() might not be accessible (for example if
+    // buffer points to unaligned stack bytes). How to test that...?
+
+    // handle last word
+    size_t word_i = word_count - 1;
+    for (int i = 0; i < N; ++i) {
+      if (word_i < words[i].size()) {
+        visited_words[i] = words[i][word_i] >> offsets[i];
+      }
+    }
+    visitor(visited_words);
+  }
+
+  std::shared_ptr<Buffer> buffer_;
+  int64_t offset_ = 0, length_ = 0;
 };
 
 ARROW_EXPORT

@@ -25,6 +25,7 @@
 namespace arrow {
 namespace util {
 
+using nonstd::basic_string_view;
 using nonstd::string_view;
 
 }  // namespace util
