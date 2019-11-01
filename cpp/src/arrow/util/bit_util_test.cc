@@ -1205,7 +1205,7 @@ TEST(Bitmap, VisitAnd) {
 
   constexpr int64_t kBitWidth = 8 * sizeof(uint64_t);
 
-  for (int64_t offset : {0, 1, 2, 5, 17}) {
+  for (int64_t offset : {0, 1, 2, 5, 17, int(kBitWidth + 1), int(kBitWidth + 17)}) {
     for (int64_t num_bits :
          {int64_t(13), int64_t(9), kBitWidth - 1, kBitWidth, kBitWidth + 1,
           nbytes * 8 - offset, nbytes * 6, nbytes * 4}) {

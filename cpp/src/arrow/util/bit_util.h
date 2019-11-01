@@ -14,8 +14,8 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-#ifndef ARROW_UTIL_BIT_UTIL_H
-#define ARROW_UTIL_BIT_UTIL_H
+
+#pragma once
 
 #ifdef _WIN32
 #define ARROW_LITTLE_ENDIAN 1
@@ -860,98 +860,20 @@ class ARROW_EXPORT Bitmap {
     BitUtil::SetBitTo(buffer_->mutable_data(), i + offset_, v);
   }
 
-  /*
-  template <typename Word>
-  BitmapWordAlignParams WordAlignParams() const {
-    return BitmapWordAlign<alignof(Word)>(buffer_->data(), offset_, length_);
-  }
-  */
-
+  /// \brief Visit bits of this bitmap either as bitset<N> or as array<Word, N>.
+  ///
+  /// If visiting by words, note that the every Word containing a bit
+  /// must be accessible (and initialized, or Valgrind will barf).
+  /// This is satisfied by most Buffers in Arrow space (which are allocated with
+  /// maximum alignment and padded to contain whole cache lines).
+  ///
+  /// XXX should I add a dcheck/error return/... for incorrect alignment? I can't
+  /// detect uninit
   template <size_t N, typename Visitor>
   static void Visit(const Bitmap (&bitmaps)[N], Visitor&& visitor) {
     VisitImpl(bitmaps, VisitedIs<internal::call_traits::argument_type<0, Visitor&&>>{},
               std::forward<Visitor>(visitor));
   }
-
-  /*
-  template <
-      size_t N, typename Visitor,
-      typename Word =
-          typename internal::call_traits::argument_type<0, Visitor&&>::value_type,
-      typename Enable = typename std::enable_if<std::is_integral<Word>::value>::type>
-  static void Visit(const Bitmap (&bitmaps)[N], Visitor&& visitor) {
-    auto bit_length = bitmaps[0].length();
-
-    constexpr size_t kBitWidth = sizeof(Word) * 8;
-
-    BitmapWordAlignParams align_params[N];
-    bool leading_bits = false;
-    for (int i = 0; i < N; ++i) {
-      align_params[i] = bitmaps[i].WordAlignParams();
-
-      auto leading_bytes = CeilDiv(align_params[i].leading_bits, 8);
-      if (align_params[i].aligned_start - leading_bytes < bitmaps[i].buffer()->data()) {
-        // this bitmap's leading_bits do not lie in an accessible word
-        leading_bits = true;
-      }
-    }
-
-    std::array<Word, N> visited_words;
-
-    if (leading_bits) {
-      // consume bits which do not lie in an accessible word first
-      auto length = std::min(kBitWidth, bit_length);
-      for (int i = 0; i < N; ++i) {
-        auto bitmap = bitmaps[i].Slice(0, length);
-        std::memcpy(&visited_words[i], bitmap.byte_offset(), bitmap.byte_length());
-        align_params[i] = bitmap.WordAlignParams();
-      }
-      visitor(visited_words);
-    }
-
-    const Word* words[N];
-    int64_t offsets[N];
-
-    size_t trailing_bits = 0;
-    for (int i = 0; i < N; ++i) {
-      auto trailing_bytes = CeilDiv(align_params[i].trailing_bits, 8);
-      auto aligned_end =
-          align_params[i].aligned_start + align_params[i].aligned_words * sizeof(Word);
-      if (aligned_end + trailing_bytes >
-          bitmaps[i].buffer()->data() + bitmaps[i].buffer()->size()) {
-        // this bitmap's trailing_bits do not lie in an accessible word
-        trailing_bits = std::max(trailing_bits, align_params[i].trailing_bits);
-      }
-
-      words[i] = reinterpret_cast<const Word*>(align_params[i].aligned_start) - 1;
-      offsets[i] = bitmaps[i].offset();
-    }
-
-    for (int i = 0; i < N; ++i) {
-      auto bytes = bitmaps[i].buffer()->data();
-      auto misalignment = reinterpret_cast<size_t>(bytes) % alignof(IntType);
-      values[i] = reinterpret_cast<const IntType*>(bytes - misalignment);
-      offsets[i] = bitmaps[i].offset() + misalignment * 8;
-      auto capacity = bitmaps[i].buffer()->capacity() + misalignment;
-
-      // clamp offsets to [0, kBitWidth)
-      values[i] -= offsets[i] / kBitWidth;
-      offsets[i] %= kBitWidth;
-    }
-
-    for (int64_t int_i = 0; int_i < int_length; ++int_i) {
-      for (int i = 0; i < N; ++i) {
-        if (offsets[i] == 0) {
-          ints[i] = values[i][int_i];
-        } else {
-          ints[i] = values[i][int_i] << offsets[i];
-          ints[i] |= values[i][int_i] >> (kBitWidth - offsets[i]);
-        }
-      }
-      visitor(ints);
-    }
-  }
-  */
 
   const std::shared_ptr<Buffer>& buffer() const { return buffer_; }
 
@@ -1008,18 +930,13 @@ class ARROW_EXPORT Bitmap {
   template <typename Word, size_t N, typename Visitor>
   static void VisitImpl(const Bitmap (&bitmaps)[N], VisitedIs<std::array<Word, N>>,
                         Visitor&& visitor) {
-    util::basic_string_view<Word> words[N];
-    int64_t offsets[N];
-
     constexpr size_t kBitWidth = sizeof(Word) * 8;
 
+    util::basic_string_view<Word> words[N];
+    int64_t offsets[N];
     for (int i = 0; i < N; ++i) {
       words[i] = bitmaps[i].template words<Word>();
-      offsets[i] = bitmaps[i].offset();
-
-      // clamp offsets to [0, kBitWidth)
-      words[i] = words[i].substr(offsets[i] / kBitWidth);
-      offsets[i] %= kBitWidth;
+      offsets[i] = bitmaps[i].template word_offset<Word>();
     }
 
     std::array<Word, N> visited_words;
@@ -1042,9 +959,6 @@ class ARROW_EXPORT Bitmap {
       }
       visitor(visited_words);
     }
-
-    // FIXME(bkietz) words.back() or words.front() might not be accessible (for example if
-    // buffer points to unaligned stack bytes). How to test that...?
 
     // handle last word
     size_t word_i = word_count - 1;
@@ -1166,5 +1080,3 @@ class BitsetStack {
 
 }  // namespace internal
 }  // namespace arrow
-
-#endif  // ARROW_UTIL_BIT_UTIL_H
