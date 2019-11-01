@@ -104,7 +104,6 @@ groups:
     - docker-docs
     - docker-lint
     - docker-iwyu
-    - docker-clang-format
     - docker-pandas-master
     - docker-dask-integration
     - docker-hdfs-integration
@@ -176,7 +175,7 @@ groups:
     - gandiva-jar-osx
     - docker-r
     - docker-r-conda
-    - docker-r-sanitizer
+    # - docker-r-sanitizer # ARROW-6957
     - macos-r-autobrew
     - docker-rust
     - docker-cpp
@@ -195,7 +194,6 @@ groups:
     - docker-docs
     - docker-lint
     - docker-iwyu
-    - docker-clang-format
     - docker-pandas-master
     - docker-dask-integration
     - docker-hdfs-integration
@@ -1701,22 +1699,6 @@ tasks:
         - docker-compose build python
         - docker-compose build lint
         - docker-compose run iwyu
-
-  docker-clang-format:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
-    params:
-      environment:
-        PYTHON_VERSION: 3.6
-      commands:
-        - docker-compose pull --ignore-pull-failures cpp
-        - docker-compose pull --ignore-pull-failures python
-        - docker-compose pull --ignore-pull-failures lint
-        - docker-compose build cpp
-        - docker-compose build python
-        - docker-compose build lint
-        - docker-compose run clang-format
 
   ############################## Integration tests ############################
 
