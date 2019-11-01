@@ -62,13 +62,21 @@ ScalarExpression$create <- function(x) {
 #' @export
 ComparisonExpression <- R6Class("ComparisonExpression", inherit = Expression)
 ComparisonExpression$create <- function(FUN, e1, e2) {
-  # TODO: map FUN to functions, not just equal
   comp_func <- comparison_function_map[[FUN]]
   if (is.null(comp_func)) {
     stop(FUN, " is not a supported comparison function", call. = FALSE)
   }
   shared_ptr(ComparisonExpression, comp_func(e1, e2))
 }
+
+comparison_function_map <- list(
+  "==" = dataset___expr__equal,
+  "!=" = dataset___expr__not_equal,
+  ">" = dataset___expr__greater,
+  ">=" = dataset___expr__greater_equal,
+  "<" = dataset___expr__less,
+  "<=" = dataset___expr__less_equal
+)
 
 #' @export
 AndExpression <- R6Class("AndExpression", inherit = Expression)
@@ -85,15 +93,6 @@ NotExpression <- R6Class("NotExpression", inherit = Expression)
 NotExpression$create <- function(e1) {
   shared_ptr(NotExpression, dataset___expr__not(e1))
 }
-
-comparison_function_map <- list(
-  "==" = dataset___expr__equal,
-  "!=" = dataset___expr__not_equal,
-  ">" = dataset___expr__greater,
-  ">=" = dataset___expr__greater_equal,
-  "<" = dataset___expr__less,
-  "<=" = dataset___expr__less_equal
-)
 
 Ops.Expression <- function(e1, e2) {
   if (.Generic == "!") {

@@ -38,7 +38,6 @@ Dataset <- R6Class("Dataset", inherit = Object,
   )
 )
 Dataset$create <- function(sources, schema) {
-  # TODO: validate inputs
   assert_is_list_of(sources, "DataSource")
   assert_is(schema, "Schema")
   shared_ptr(Dataset, dataset___Dataset__create(sources, schema))
