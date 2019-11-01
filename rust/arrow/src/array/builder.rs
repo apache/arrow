@@ -685,7 +685,7 @@ impl BinaryBuilder {
 }
 
 impl StringBuilder {
-    /// Creates a new `BinaryBuilder`, `capacity` is the number of bytes in the values
+    /// Creates a new `StringBuilder`, `capacity` is the number of bytes in the values
     /// array
     pub fn new(capacity: usize) -> Self {
         let values_builder = UInt8Builder::new(capacity);
@@ -694,30 +694,11 @@ impl StringBuilder {
         }
     }
 
-    /// Appends a single byte value into the builder's values array.
-    ///
-    /// Note, when appending individual byte values you must call `append` to delimit each
-    /// distinct list value.
-    pub fn append_byte(&mut self, value: u8) -> Result<()> {
-        self.builder.values().append_value(value)?;
-        Ok(())
-    }
-
-    /// Appends a byte slice into the builder.
-    ///
-    /// Automatically calls the `append` method to delimit the slice appended in as a
-    /// distinct array element.
-    pub fn append_value(&mut self, value: &[u8]) -> Result<()> {
-        self.builder.values().append_slice(value)?;
-        self.builder.append(true)?;
-        Ok(())
-    }
-
-    /// Appends a `&String` or `&str` into the builder.
+    /// Appends a string into the builder.
     ///
     /// Automatically calls the `append` method to delimit the string appended in as a
     /// distinct array element.
-    pub fn append_string(&mut self, value: &str) -> Result<()> {
+    pub fn append_value(&mut self, value: &str) -> Result<()> {
         self.builder.values().append_slice(value.as_bytes())?;
         self.builder.append(true)?;
         Ok(())
@@ -1545,34 +1526,21 @@ mod tests {
     fn test_string_array_builder() {
         let mut builder = StringBuilder::new(20);
 
-        builder.append_byte(b'h').unwrap();
-        builder.append_byte(b'e').unwrap();
-        builder.append_byte(b'l').unwrap();
-        builder.append_byte(b'l').unwrap();
-        builder.append_byte(b'o').unwrap();
+        builder.append_value("hello").unwrap();
         builder.append(true).unwrap();
-        builder.append(true).unwrap();
-        builder.append_byte(b'w').unwrap();
-        builder.append_byte(b'o').unwrap();
-        builder.append_byte(b'r').unwrap();
-        builder.append_byte(b'l').unwrap();
-        builder.append_byte(b'd').unwrap();
-        builder.append(true).unwrap();
+        builder.append_value("world").unwrap();
 
         let array = builder.finish();
 
-        let binary_array = StringArray::from(array);
+        let string_array = StringArray::from(array);
 
-        assert_eq!(3, binary_array.len());
-        assert_eq!(0, binary_array.null_count());
-        assert_eq!([b'h', b'e', b'l', b'l', b'o'], binary_array.value(0));
-        assert_eq!("hello", binary_array.get_string(0));
-        assert_eq!([] as [u8; 0], binary_array.value(1));
-        assert_eq!("", binary_array.get_string(1));
-        assert_eq!([b'w', b'o', b'r', b'l', b'd'], binary_array.value(2));
-        assert_eq!("world", binary_array.get_string(2));
-        assert_eq!(5, binary_array.value_offset(2));
-        assert_eq!(5, binary_array.value_length(2));
+        assert_eq!(3, string_array.len());
+        assert_eq!(0, string_array.null_count());
+        assert_eq!("hello", string_array.value(0));
+        assert_eq!("", string_array.value(1));
+        assert_eq!("world", string_array.value(2));
+        assert_eq!(5, string_array.value_offset(2));
+        assert_eq!(5, string_array.value_length(2));
     }
 
     #[test]
@@ -1599,14 +1567,14 @@ mod tests {
     fn test_string_array_builder_finish() {
         let mut builder = StringBuilder::new(10);
 
-        builder.append_string("hello").unwrap();
-        builder.append_string("world").unwrap();
+        builder.append_value("hello").unwrap();
+        builder.append_value("world").unwrap();
 
         let mut arr = builder.finish();
         assert_eq!(2, arr.len());
         assert_eq!(0, builder.len());
 
-        builder.append_string("arrow").unwrap();
+        builder.append_value("arrow").unwrap();
         arr = builder.finish();
         assert_eq!(1, arr.len());
         assert_eq!(0, builder.len());
@@ -1617,24 +1585,21 @@ mod tests {
         let mut builder = StringBuilder::new(20);
 
         let var = "hello".to_owned();
-        builder.append_string(&var).unwrap();
+        builder.append_value(&var).unwrap();
         builder.append(true).unwrap();
-        builder.append_string("world").unwrap();
+        builder.append_value("world").unwrap();
 
         let array = builder.finish();
 
-        let binary_array = StringArray::from(array);
+        let string_array = StringArray::from(array);
 
-        assert_eq!(3, binary_array.len());
-        assert_eq!(0, binary_array.null_count());
-        assert_eq!([b'h', b'e', b'l', b'l', b'o'], binary_array.value(0));
-        assert_eq!("hello", binary_array.get_string(0));
-        assert_eq!([] as [u8; 0], binary_array.value(1));
-        assert_eq!("", binary_array.get_string(1));
-        assert_eq!([b'w', b'o', b'r', b'l', b'd'], binary_array.value(2));
-        assert_eq!("world", binary_array.get_string(2));
-        assert_eq!(5, binary_array.value_offset(2));
-        assert_eq!(5, binary_array.value_length(2));
+        assert_eq!(3, string_array.len());
+        assert_eq!(0, string_array.null_count());
+        assert_eq!("hello", string_array.value(0));
+        assert_eq!("", string_array.value(1));
+        assert_eq!("world", string_array.value(2));
+        assert_eq!(5, string_array.value_offset(2));
+        assert_eq!(5, string_array.value_length(2));
     }
 
     #[test]
@@ -1655,10 +1620,10 @@ mod tests {
         let string_builder = builder
             .field_builder::<StringBuilder>(0)
             .expect("builder at field 0 should be string builder");
-        string_builder.append_string("joe").unwrap();
+        string_builder.append_value("joe").unwrap();
         string_builder.append_null().unwrap();
         string_builder.append_null().unwrap();
-        string_builder.append_string("mark").unwrap();
+        string_builder.append_value("mark").unwrap();
 
         let int_builder = builder
             .field_builder::<Int32Builder>(1)

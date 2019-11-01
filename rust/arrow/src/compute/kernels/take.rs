@@ -321,19 +321,19 @@ mod tests {
     fn test_take_string() {
         let index = UInt32Array::from(vec![Some(3), None, Some(1), Some(3), Some(4)]);
         let mut builder: StringBuilder = StringBuilder::new(6);
-        builder.append_string("one").unwrap();
+        builder.append_value("one").unwrap();
         builder.append_null().unwrap();
-        builder.append_string("three").unwrap();
-        builder.append_string("four").unwrap();
-        builder.append_string("five").unwrap();
+        builder.append_value("three").unwrap();
+        builder.append_value("four").unwrap();
+        builder.append_value("five").unwrap();
         let array = Arc::new(builder.finish()) as ArrayRef;
         let a = take(&array, &index, None).unwrap();
         assert_eq!(a.len(), index.len());
-        builder.append_string("four").unwrap();
+        builder.append_value("four").unwrap();
         builder.append_null().unwrap();
         builder.append_null().unwrap();
-        builder.append_string("four").unwrap();
-        builder.append_string("five").unwrap();
+        builder.append_value("four").unwrap();
+        builder.append_value("five").unwrap();
         let b = builder.finish();
         assert_eq!(a.data(), b.data());
     }

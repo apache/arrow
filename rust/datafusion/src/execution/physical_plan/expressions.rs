@@ -1245,7 +1245,7 @@ mod tests {
             .as_any()
             .downcast_ref::<StringArray>()
             .expect("failed to downcast to StringArray");
-        assert_eq!(result.value(0), "1".as_bytes());
+        assert_eq!(result.value(0), "1");
 
         Ok(())
     }

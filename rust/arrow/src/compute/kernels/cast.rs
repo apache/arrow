@@ -161,7 +161,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                     if array.is_null(i) {
                         b.append(false)?;
                     } else {
-                        b.append_string(match from.value(i) {
+                        b.append_value(match from.value(i) {
                             true => "1",
                             false => "0",
                         })?;
@@ -634,7 +634,7 @@ where
         if from.is_null(i) {
             b.append(false)?;
         } else {
-            b.append_string(from.value(i).to_string().as_str())?;
+            b.append_value(&from.value(i).to_string())?;
         }
     }
 
@@ -664,10 +664,7 @@ where
         if from.is_null(i) {
             b.append_null()?;
         } else {
-            match std::str::from_utf8(from.value(i))
-                .unwrap_or("")
-                .parse::<T::Native>()
-            {
+            match from.value(i).parse::<T::Native>() {
                 Ok(v) => b.append_value(v)?,
                 _ => b.append_null()?,
             };

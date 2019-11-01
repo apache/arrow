@@ -190,7 +190,7 @@ macro_rules! read_binary_column {
         let mut value_index = 0;
         for i in 0..levels_read {
             if def_levels[i] > 0 {
-                builder.append_string(
+                builder.append_value(
                     &String::from_utf8(read_buffer[value_index].data().to_vec()).unwrap(),
                 )?;
                 value_index += 1;
@@ -762,8 +762,7 @@ mod tests {
             .unwrap();
         let mut values: Vec<String> = vec![];
         for i in 0..batch.num_rows() {
-            let str: String = String::from_utf8(array.value(i).to_vec()).unwrap();
-            values.push(str);
+            values.push(array.value(i).to_string());
         }
 
         assert_eq!(

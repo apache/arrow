@@ -97,9 +97,12 @@ fn main() -> Result<()> {
             .unwrap();
 
         for i in 0..batch.num_rows() {
-            let c1_value: String = String::from_utf8(c1.value(i).to_vec()).unwrap();
-
-            println!("{}, Min: {}, Max: {}", c1_value, min.value(i), max.value(i),);
+            println!(
+                "{}, Min: {}, Max: {}",
+                c1.value(i),
+                min.value(i),
+                max.value(i),
+            );
         }
     });
 

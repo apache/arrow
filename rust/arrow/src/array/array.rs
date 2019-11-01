@@ -499,7 +499,7 @@ impl PrimitiveArray<BooleanType> {
 
     /// Returns the boolean value at index `i`.
     pub fn value(&self, i: usize) -> bool {
-        assert!(i < self.data.len());
+        assert!(i + self.offset() < self.data.len());
         let offset = i + self.offset();
         unsafe { bit_util::get_bit_raw(self.raw_values.get() as *const u8, offset) }
     }
@@ -995,7 +995,10 @@ pub struct FixedSizeBinaryArray {
 impl BinaryArray {
     /// Returns the element at index `i` as a byte slice.
     pub fn value(&self, i: usize) -> &[u8] {
-        assert!(i < self.data.len(), "BinaryArray out of bounds access");
+        assert!(
+            i + self.offset() < self.data.len(),
+            "BinaryArray out of bounds access"
+        );
         let offset = i.checked_add(self.data.offset()).unwrap();
         unsafe {
             let pos = self.value_offset_at(offset);
@@ -1040,25 +1043,21 @@ impl BinaryArray {
 }
 
 impl StringArray {
-    /// Returns the element at index `i` as a byte slice.
-    pub fn value(&self, i: usize) -> &[u8] {
-        assert!(i < self.data.len(), "StringArray out of bounds access");
+    /// Returns the element at index `i` as a string slice.
+    pub fn value(&self, i: usize) -> &str {
+        assert!(
+            i + self.offset() < self.data.len(),
+            "StringArray out of bounds access"
+        );
         let offset = i.checked_add(self.data.offset()).unwrap();
         unsafe {
             let pos = self.value_offset_at(offset);
-            ::std::slice::from_raw_parts(
+            let slice = ::std::slice::from_raw_parts(
                 self.value_data.get().offset(pos as isize),
                 (self.value_offset_at(offset + 1) - pos) as usize,
-            )
+            );
+            std::str::from_utf8_unchecked(slice)
         }
-    }
-
-    /// Returns the element at index `i` as a string.
-    ///
-    /// Note this doesn't do any bound checking, for performance reason.
-    pub fn get_string(&self, i: usize) -> String {
-        let slice = self.value(i);
-        unsafe { String::from_utf8_unchecked(Vec::from(slice)) }
     }
 
     /// Returns the offset for the element at index `i`.
@@ -1146,10 +1145,6 @@ impl From<ArrayDataRef> for BinaryArray {
             "BinaryArray data should contain 2 buffers only (offsets and values)"
         );
         let raw_value_offsets = data.buffers()[0].raw_data();
-        assert!(
-            memory::is_aligned(raw_value_offsets, mem::align_of::<i32>()),
-            "memory is not aligned"
-        );
         let value_data = data.buffers()[1].raw_data();
         Self {
             data: data.clone(),
@@ -1167,10 +1162,6 @@ impl From<ArrayDataRef> for StringArray {
             "StringArray data should contain 2 buffers only (offsets and values)"
         );
         let raw_value_offsets = data.buffers()[0].raw_data();
-        assert!(
-            memory::is_aligned(raw_value_offsets, mem::align_of::<i32>()),
-            "memory is not aligned"
-        );
         let value_data = data.buffers()[1].raw_data();
         Self {
             data: data.clone(),
@@ -1240,26 +1231,6 @@ impl From<Vec<&[u8]>> for BinaryArray {
     }
 }
 
-impl From<Vec<&[u8]>> for StringArray {
-    fn from(v: Vec<&[u8]>) -> Self {
-        let mut offsets = Vec::with_capacity(v.len() + 1);
-        let mut values = Vec::new();
-        let mut length_so_far = 0;
-        offsets.push(length_so_far);
-        for s in &v {
-            length_so_far += s.len() as i32;
-            offsets.push(length_so_far as i32);
-            values.extend_from_slice(s);
-        }
-        let array_data = ArrayData::builder(DataType::Utf8)
-            .len(v.len())
-            .add_buffer(Buffer::from(offsets.to_byte_slice()))
-            .add_buffer(Buffer::from(&values[..]))
-            .build();
-        StringArray::from(array_data)
-    }
-}
-
 impl<'a> TryFrom<Vec<Option<&'a str>>> for StringArray {
     type Error = ArrowError;
 
@@ -1267,7 +1238,7 @@ impl<'a> TryFrom<Vec<Option<&'a str>>> for StringArray {
         let mut builder = StringBuilder::new(v.len());
         for val in v {
             if let Some(s) = val {
-                builder.append_string(s)?;
+                builder.append_value(s)?;
             } else {
                 builder.append(false)?;
             }
@@ -1306,7 +1277,7 @@ impl From<ListArray> for BinaryArray {
     }
 }
 
-/// Creates a `BinaryArray` from `List<u8>` array
+/// Creates a `StringArray` from `List<u8>` array
 impl From<ListArray> for StringArray {
     fn from(v: ListArray) -> Self {
         assert_eq!(
@@ -1379,7 +1350,7 @@ impl fmt::Debug for StringArray {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "StringArray\n[\n")?;
         print_long_array(self, f, |array, index, f| {
-            fmt::Debug::fmt(&array.get_string(index), f)
+            fmt::Debug::fmt(&array.value(index), f)
         })?;
         write!(f, "]")
     }
@@ -2286,31 +2257,21 @@ mod tests {
 
     #[test]
     fn test_string_array_from_u8_slice() {
-        let values: Vec<&[u8]> = vec![
-            &[b'h', b'e', b'l', b'l', b'o'],
-            &[],
-            &[b'p', b'a', b'r', b'q', b'u', b'e', b't'],
-        ];
+        let values: Vec<&str> = vec!["hello", "", "parquet"];
 
         // Array data: ["hello", "", "parquet"]
-        let binary_array = StringArray::from(values);
+        let string_array = StringArray::from(values);
 
-        assert_eq!(3, binary_array.len());
-        assert_eq!(0, binary_array.null_count());
-        assert_eq!([b'h', b'e', b'l', b'l', b'o'], binary_array.value(0));
-        assert_eq!("hello", binary_array.get_string(0));
-        assert_eq!([] as [u8; 0], binary_array.value(1));
-        assert_eq!("", binary_array.get_string(1));
-        assert_eq!(
-            [b'p', b'a', b'r', b'q', b'u', b'e', b't'],
-            binary_array.value(2)
-        );
-        assert_eq!("parquet", binary_array.get_string(2));
-        assert_eq!(5, binary_array.value_offset(2));
-        assert_eq!(7, binary_array.value_length(2));
+        assert_eq!(3, string_array.len());
+        assert_eq!(0, string_array.null_count());
+        assert_eq!("hello", string_array.value(0));
+        assert_eq!("", string_array.value(1));
+        assert_eq!("parquet", string_array.value(2));
+        assert_eq!(5, string_array.value_offset(2));
+        assert_eq!(7, string_array.value_length(2));
         for i in 0..3 {
-            assert!(binary_array.is_valid(i));
-            assert!(!binary_array.is_null(i));
+            assert!(string_array.is_valid(i));
+            assert!(!string_array.is_null(i));
         }
     }
 
@@ -2480,8 +2441,7 @@ mod tests {
 
     #[test]
     fn test_string_array_fmt_debug() {
-        let arr: StringArray =
-            vec![b"hello".to_byte_slice(), b"arrow".to_byte_slice()].into();
+        let arr: StringArray = vec!["hello", "arrow"].into();
         assert_eq!(
             "StringArray\n[\n  \"hello\",\n  \"arrow\",\n]",
             format!("{:?}", arr)
@@ -2490,8 +2450,7 @@ mod tests {
 
     #[test]
     fn test_fixed_size_binary_array_fmt_debug() {
-        let arr: StringArray =
-            vec![b"hello".to_byte_slice(), b"arrow".to_byte_slice()].into();
+        let arr: StringArray = vec!["hello", "arrow"].into();
         assert_eq!(
             "StringArray\n[\n  \"hello\",\n  \"arrow\",\n]",
             format!("{:?}", arr)

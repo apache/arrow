@@ -19,7 +19,6 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::str;
 use std::sync::{Arc, Mutex};
 
 use crate::error::{ExecutionError, Result};
@@ -472,7 +471,7 @@ impl BatchIterator for GroupedHashAggregateIterator {
                     let mut builder = StringBuilder::new(1);
                     for k in map.keys() {
                         match &k[i] {
-                            GroupByScalar::Utf8(s) => builder.append_string(&s).unwrap(),
+                            GroupByScalar::Utf8(s) => builder.append_value(&s).unwrap(),
                             _ => {
                                 return Err(ExecutionError::ExecutionError(
                                     "Unexpected value for Utf8 group column".to_string(),
@@ -706,9 +705,7 @@ fn create_key(
             }
             DataType::Utf8 => {
                 let array = col.as_any().downcast_ref::<StringArray>().unwrap();
-                vec[i] = GroupByScalar::Utf8(String::from(
-                    str::from_utf8(array.value(row)).unwrap(),
-                ))
+                vec[i] = GroupByScalar::Utf8(String::from(array.value(row)))
             }
             _ => {
                 return Err(ExecutionError::ExecutionError(

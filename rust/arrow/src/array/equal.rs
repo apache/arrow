@@ -921,7 +921,7 @@ impl JsonEqual for StringArray {
         }
 
         (0..self.len()).all(|i| match json[i] {
-            JString(s) => self.is_valid(i) && s.as_str().as_bytes() == self.value(i),
+            JString(s) => self.is_valid(i) && s.as_str() == self.value(i),
             JNull => self.is_null(i),
             _ => false,
         })
@@ -1965,7 +1965,7 @@ mod tests {
         let string_builder = builder.field_builder::<StringBuilder>(0).unwrap();
         for v in first.as_ref() {
             if let Some(s) = v {
-                string_builder.append_string(s)?;
+                string_builder.append_value(s)?;
             } else {
                 string_builder.append_null()?;
             }

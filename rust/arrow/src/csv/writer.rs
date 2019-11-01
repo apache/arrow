@@ -150,7 +150,7 @@ where
                 }
                 DataType::Utf8 => {
                     let c = col.as_any().downcast_ref::<StringArray>().unwrap();
-                    String::from_utf8(c.value(row_index).to_vec())?
+                    c.value(row_index).to_owned()
                 }
                 DataType::Date32(DateUnit::Day) => {
                     let c = col.as_any().downcast_ref::<Date32Array>().unwrap();

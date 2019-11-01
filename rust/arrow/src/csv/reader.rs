@@ -324,7 +324,7 @@ impl<R: Read> Reader<R> {
                         let mut builder = StringBuilder::new(rows.len());
                         for row_index in 0..rows.len() {
                             match rows[row_index].get(*i) {
-                                Some(s) => builder.append_string(s).unwrap(),
+                                Some(s) => builder.append_value(s).unwrap(),
                                 _ => builder.append(false).unwrap(),
                             }
                         }
@@ -571,9 +571,7 @@ mod tests {
             .downcast_ref::<StringArray>()
             .unwrap();
 
-        let city_name: String = String::from_utf8(city.value(13).to_vec()).unwrap();
-
-        assert_eq!("Aberdeen, Aberdeen City, UK", city_name);
+        assert_eq!("Aberdeen, Aberdeen City, UK", city.value(13));
     }
 
     #[test]
@@ -634,9 +632,7 @@ mod tests {
             .downcast_ref::<StringArray>()
             .unwrap();
 
-        let city_name: String = String::from_utf8(city.value(13).to_vec()).unwrap();
-
-        assert_eq!("Aberdeen, Aberdeen City, UK", city_name);
+        assert_eq!("Aberdeen, Aberdeen City, UK", city.value(13));
     }
 
     #[test]
@@ -674,9 +670,7 @@ mod tests {
             .downcast_ref::<StringArray>()
             .unwrap();
 
-        let city_name: String = String::from_utf8(city.value(13).to_vec()).unwrap();
-
-        assert_eq!("Aberdeen, Aberdeen City, UK", city_name);
+        assert_eq!("Aberdeen, Aberdeen City, UK", city.value(13));
     }
 
     #[test]

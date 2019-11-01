@@ -76,11 +76,9 @@ fn main() -> Result<()> {
             .unwrap();
 
         for i in 0..batch.num_rows() {
-            let date_value: String = String::from_utf8(date.value(i).to_vec()).unwrap();
-
             println!(
                 "Date: {}, Int: {}, Double: {}",
-                date_value,
+                date.value(i),
                 int.value(i),
                 double.value(i)
             );
