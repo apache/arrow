@@ -468,5 +468,157 @@ TEST_F(TestFilterKernelWithUnion, FilterUnion) {
   }
 }
 
+class TestFilterKernelWithRecordBatch : public TestFilterKernel<RecordBatch> {
+ public:
+  void AssertFilter(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
+                    const std::string& selection, const std::string& expected_batch) {
+    std::shared_ptr<RecordBatch> actual;
+
+    ASSERT_OK(this->Filter(schm, batch_json, selection, &actual));
+    ASSERT_OK(actual->Validate());
+    ASSERT_BATCHES_EQUAL(*RecordBatchFromJSON(schm, expected_batch), *actual);
+  }
+
+  Status Filter(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
+                const std::string& selection, std::shared_ptr<RecordBatch>* out) {
+    auto batch = RecordBatchFromJSON(schm, batch_json);
+    return arrow::compute::Filter(&this->ctx_, *batch,
+                                  *ArrayFromJSON(boolean(), selection), out);
+  }
+};
+
+TEST_F(TestFilterKernelWithRecordBatch, FilterRecordBatch) {
+  std::vector<std::shared_ptr<Field>> fields = {field("a", int32()), field("b", utf8())};
+  auto schm = schema(fields);
+
+  auto struct_json = R"([
+    {"a": null, "b": "yo"},
+    {"a": 1, "b": ""},
+    {"a": 2, "b": "hello"},
+    {"a": 4, "b": "eh"}
+  ])";
+  this->AssertFilter(schm, struct_json, "[0, 0, 0, 0]", "[]");
+  this->AssertFilter(schm, struct_json, "[0, 1, 1, null]", R"([
+    {"a": 1, "b": ""},
+    {"a": 2, "b": "hello"},
+    {"a": null, "b": null}
+  ])");
+  this->AssertFilter(schm, struct_json, "[1, 1, 1, 1]", struct_json);
+  this->AssertFilter(schm, struct_json, "[1, 0, 1, 0]", R"([
+    {"a": null, "b": "yo"},
+    {"a": 2, "b": "hello"}
+  ])");
+}
+
+class TestFilterKernelWithChunkedArray : public TestFilterKernel<ChunkedArray> {
+ public:
+  void AssertFilter(const std::shared_ptr<DataType>& type,
+                    const std::vector<std::string>& values, const std::string& filter,
+                    const std::vector<std::string>& expected) {
+    std::shared_ptr<ChunkedArray> actual;
+    ASSERT_OK(this->FilterWithArray(type, values, filter, &actual));
+    ASSERT_OK(actual->Validate());
+    AssertChunkedEqual(*ChunkedArrayFromJSON(type, expected), *actual);
+  }
+
+  void AssertChunkedFilter(const std::shared_ptr<DataType>& type,
+                           const std::vector<std::string>& values,
+                           const std::vector<std::string>& filter,
+                           const std::vector<std::string>& expected) {
+    std::shared_ptr<ChunkedArray> actual;
+    ASSERT_OK(this->FilterWithChunkedArray(type, values, filter, &actual));
+    ASSERT_OK(actual->Validate());
+    AssertChunkedEqual(*ChunkedArrayFromJSON(type, expected), *actual);
+  }
+
+  Status FilterWithArray(const std::shared_ptr<DataType>& type,
+                         const std::vector<std::string>& values,
+                         const std::string& filter, std::shared_ptr<ChunkedArray>* out) {
+    return arrow::compute::Filter(&this->ctx_, *ChunkedArrayFromJSON(type, values),
+                                  *ArrayFromJSON(boolean(), filter), out);
+  }
+
+  Status FilterWithChunkedArray(const std::shared_ptr<DataType>& type,
+                                const std::vector<std::string>& values,
+                                const std::vector<std::string>& filter,
+                                std::shared_ptr<ChunkedArray>* out) {
+    return arrow::compute::Filter(&this->ctx_, *ChunkedArrayFromJSON(type, values),
+                                  *ChunkedArrayFromJSON(boolean(), filter), out);
+  }
+};
+
+TEST_F(TestFilterKernelWithChunkedArray, FilterChunkedArray) {
+  this->AssertFilter(int8(), {"[]"}, "[]", {"[]"});
+  this->AssertChunkedFilter(int8(), {"[]"}, {"[]"}, {"[]"});
+
+  this->AssertFilter(int8(), {"[7]", "[8, 9]"}, "[0, 1, 0]", {"[]", "[8]"});
+  this->AssertChunkedFilter(int8(), {"[7]", "[8, 9]"}, {"[0]", "[1, 0]"}, {"[]", "[8]"});
+  this->AssertChunkedFilter(int8(), {"[7]", "[8, 9]"}, {"[0, 1]", "[0]"}, {"[8]", "[]"});
+
+  std::shared_ptr<ChunkedArray> arr;
+  ASSERT_RAISES(
+      Invalid, this->FilterWithArray(int8(), {"[7]", "[8, 9]"}, "[0, 1, 0, 1, 1]", &arr));
+  ASSERT_RAISES(Invalid, this->FilterWithChunkedArray(int8(), {"[7]", "[8, 9]"},
+                                                      {"[0, 1, 0]", "[1, 1]"}, &arr));
+}
+
+class TestFilterKernelWithTable : public TestFilterKernel<Table> {
+ public:
+  void AssertFilter(const std::shared_ptr<Schema>& schm,
+                    const std::vector<std::string>& table_json, const std::string& filter,
+                    const std::vector<std::string>& expected_table) {
+    std::shared_ptr<Table> actual;
+
+    ASSERT_OK(this->FilterWithArray(schm, table_json, filter, &actual));
+    ASSERT_OK(actual->Validate());
+    ASSERT_TABLES_EQUAL(*TableFromJSON(schm, expected_table), *actual);
+  }
+
+  void AssertChunkedFilter(const std::shared_ptr<Schema>& schm,
+                           const std::vector<std::string>& table_json,
+                           const std::vector<std::string>& filter,
+                           const std::vector<std::string>& expected_table) {
+    std::shared_ptr<Table> actual;
+
+    ASSERT_OK(this->FilterWithChunkedArray(schm, table_json, filter, &actual));
+    ASSERT_OK(actual->Validate());
+    ASSERT_TABLES_EQUAL(*TableFromJSON(schm, expected_table), *actual);
+  }
+
+  Status FilterWithArray(const std::shared_ptr<Schema>& schm,
+                         const std::vector<std::string>& values,
+                         const std::string& filter, std::shared_ptr<Table>* out) {
+    return arrow::compute::Filter(&this->ctx_, *TableFromJSON(schm, values),
+                                  *ArrayFromJSON(boolean(), filter), out);
+  }
+
+  Status FilterWithChunkedArray(const std::shared_ptr<Schema>& schm,
+                                const std::vector<std::string>& values,
+                                const std::vector<std::string>& filter,
+                                std::shared_ptr<Table>* out) {
+    return arrow::compute::Filter(&this->ctx_, *TableFromJSON(schm, values),
+                                  *ChunkedArrayFromJSON(boolean(), filter), out);
+  }
+};
+
+TEST_F(TestFilterKernelWithTable, FilterTable) {
+  std::vector<std::shared_ptr<Field>> fields = {field("a", int32()), field("b", utf8())};
+  auto schm = schema(fields);
+
+  std::vector<std::string> table_json = {
+      "[{\"a\": null, \"b\": \"yo\"},{\"a\": 1, \"b\": \"\"}]",
+      "[{\"a\": 2, \"b\": \"hello\"},{\"a\": 4, \"b\": \"eh\"}]"};
+  this->AssertFilter(schm, table_json, "[0, 0, 0, 0]", {"[]", "[]"});
+  this->AssertChunkedFilter(schm, table_json, {"[0]", "[0, 0, 0]"}, {"[]", "[]"});
+
+  std::vector<std::string> expected2 = {
+      "[{\"a\": 1, \"b\": \"\"}]",
+      "[{\"a\": 2, \"b\": \"hello\"},{\"a\": null, \"b\": null}]"};
+  this->AssertFilter(schm, table_json, "[0, 1, 1, null]", expected2);
+  this->AssertChunkedFilter(schm, table_json, {"[0, 1, 1]", "[null]"}, expected2);
+  this->AssertFilter(schm, table_json, "[1, 1, 1, 1]", table_json);
+  this->AssertChunkedFilter(schm, table_json, {"[1]", "[1, 1, 1]"}, table_json);
+}
+
 }  // namespace compute
 }  // namespace arrow

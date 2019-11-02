@@ -499,11 +499,7 @@ test_that("[ accepts Arrays and otherwise handles bad input", {
   )
   expect_vector(a[Array$create(ind - 1, type = int8())], vec[ind])
   expect_vector(a[Array$create(ind - 1, type = uint8())], vec[ind])
-  expect_error(
-    # Not currently supported
-    a[ChunkedArray$create(8, 2, 4, type = uint8())],
-    'i must be a "Array"'
-  )
+  expect_vector(a[ChunkedArray$create(8, 2, 4, type = uint8())], vec[ind])
 
   filt <- seq_along(vec) %in% ind
   expect_vector(a[Array$create(filt)], vec[filt])

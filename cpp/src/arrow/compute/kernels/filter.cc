@@ -22,6 +22,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/concatenate.h"
 #include "arrow/builder.h"
 #include "arrow/compute/kernels/take_internal.h"
 #include "arrow/record_batch.h"
@@ -160,6 +161,92 @@ Status Filter(FunctionContext* ctx, const RecordBatch& batch, const Array& filte
   }
 
   *out = RecordBatch::Make(batch.schema(), out_length, columns);
+  return Status::OK();
+}
+
+Status Filter(FunctionContext* ctx, const ChunkedArray& values, const Array& filter,
+              std::shared_ptr<ChunkedArray>* out) {
+  if (values.length() != filter.length()) {
+    return Status::Invalid("filter and value array must have identical lengths");
+  }
+  auto num_chunks = values.num_chunks();
+  std::vector<std::shared_ptr<Array>> new_chunks(num_chunks);
+  std::shared_ptr<Array> current_chunk;
+  int64_t offset = 0;
+  int64_t len;
+
+  for (int i = 0; i < num_chunks; i++) {
+    current_chunk = values.chunk(i);
+    len = current_chunk->length();
+    RETURN_NOT_OK(
+        Filter(ctx, *current_chunk, *filter.Slice(offset, len), &new_chunks[i]));
+    offset += len;
+  }
+
+  *out = std::make_shared<ChunkedArray>(std::move(new_chunks));
+  return Status::OK();
+}
+
+Status Filter(FunctionContext* ctx, const ChunkedArray& values,
+              const ChunkedArray& filter, std::shared_ptr<ChunkedArray>* out) {
+  if (values.length() != filter.length()) {
+    return Status::Invalid("filter and value array must have identical lengths");
+  }
+  auto num_chunks = values.num_chunks();
+  std::vector<std::shared_ptr<Array>> new_chunks(num_chunks);
+  std::shared_ptr<Array> current_chunk;
+  std::shared_ptr<ChunkedArray> current_chunked_filter;
+  std::shared_ptr<Array> current_filter;
+  int64_t offset = 0;
+  int64_t len;
+
+  for (int i = 0; i < num_chunks; i++) {
+    current_chunk = values.chunk(i);
+    len = current_chunk->length();
+    if (len > 0) {
+      current_chunked_filter = filter.Slice(offset, len);
+      if (current_chunked_filter->num_chunks() == 1) {
+        current_filter = current_chunked_filter->chunk(0);
+      } else {
+        // Concatenate the chunks of the filter so we have an Array
+        RETURN_NOT_OK(Concatenate(current_chunked_filter->chunks(), default_memory_pool(),
+                                  &current_filter));
+      }
+      RETURN_NOT_OK(Filter(ctx, *current_chunk, *current_filter, &new_chunks[i]));
+      offset += len;
+    } else {
+      // Put a zero length array there, which we know our current chunk to be
+      new_chunks[i] = current_chunk;
+    }
+  }
+
+  *out = std::make_shared<ChunkedArray>(std::move(new_chunks));
+  return Status::OK();
+}
+
+Status Filter(FunctionContext* ctx, const Table& table, const Array& filter,
+              std::shared_ptr<Table>* out) {
+  auto ncols = table.num_columns();
+
+  std::vector<std::shared_ptr<ChunkedArray>> columns(ncols);
+
+  for (int j = 0; j < ncols; j++) {
+    RETURN_NOT_OK(Filter(ctx, *table.column(j), filter, &columns[j]));
+  }
+  *out = Table::Make(table.schema(), columns);
+  return Status::OK();
+}
+
+Status Filter(FunctionContext* ctx, const Table& table, const ChunkedArray& filter,
+              std::shared_ptr<Table>* out) {
+  auto ncols = table.num_columns();
+
+  std::vector<std::shared_ptr<ChunkedArray>> columns(ncols);
+
+  for (int j = 0; j < ncols; j++) {
+    RETURN_NOT_OK(Filter(ctx, *table.column(j), filter, &columns[j]));
+  }
+  *out = Table::Make(table.schema(), columns);
   return Status::OK();
 }
 

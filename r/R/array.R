@@ -100,7 +100,10 @@ Array <- R6Class("Array",
       if (is.integer(i)) {
         i <- Array$create(i)
       }
-      assert_is(i, "Array") # Support ChunkedArray too?
+      if (inherits(i, "ChunkedArray")) {
+        return(shared_ptr(ChunkedArray, Array__TakeChunked(self, i)))
+      }
+      assert_is(i, "Array")
       shared_ptr(Array, Array__Take(self, i))
     },
     Filter = function(i) {

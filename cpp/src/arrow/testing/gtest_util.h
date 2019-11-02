@@ -152,6 +152,7 @@ using ArrayVector = std::vector<std::shared_ptr<Array>>;
 
 #define ASSERT_ARRAYS_EQUAL(lhs, rhs) AssertArraysEqual((lhs), (rhs))
 #define ASSERT_BATCHES_EQUAL(lhs, rhs) AssertBatchesEqual((lhs), (rhs))
+#define ASSERT_TABLES_EQUAL(lhs, rhs) AssertTablesEqual((lhs), (rhs))
 
 // If verbose is true, then the arrays will be pretty printed
 ARROW_EXPORT void AssertArraysEqual(const Array& expected, const Array& actual,
@@ -212,6 +213,14 @@ std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>&,
 
 ARROW_EXPORT std::shared_ptr<RecordBatch> RecordBatchFromJSON(
     const std::shared_ptr<Schema>&, util::string_view);
+
+ARROW_EXPORT
+std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataType>&,
+                                                   const std::vector<std::string>& json);
+
+ARROW_EXPORT
+std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>&,
+                                     const std::vector<std::string>& json);
 
 // ArrayFromVector: construct an Array from vectors of C values
 

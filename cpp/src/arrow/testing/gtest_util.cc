@@ -151,6 +151,15 @@ std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>& type,
   return out;
 }
 
+std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataType>& type,
+                                                   const std::vector<std::string>& json) {
+  ArrayVector out_chunks;
+  for (const std::string& chunk_json : json) {
+    out_chunks.push_back(ArrayFromJSON(type, chunk_json));
+  }
+  return std::make_shared<ChunkedArray>(std::move(out_chunks));
+}
+
 std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>& schema,
                                                  util::string_view json) {
   // Parses as a StructArray
@@ -162,6 +171,18 @@ std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>& 
   ABORT_NOT_OK(RecordBatch::FromStructArray(struct_array, &record_batch));
 
   return record_batch;
+}
+
+std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
+                                     const std::vector<std::string>& json) {
+  std::vector<std::shared_ptr<RecordBatch>> batches;
+  for (const std::string& batch_json : json) {
+    batches.push_back(RecordBatchFromJSON(schema, batch_json));
+  }
+  std::shared_ptr<Table> table;
+  ABORT_NOT_OK(Table::FromRecordBatches(schema, batches, &table));
+
+  return table;
 }
 
 void AssertTablesEqual(const Table& expected, const Table& actual, bool same_chunk_layout,

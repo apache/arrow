@@ -272,6 +272,10 @@ Array__Take <- function(values, indices){
     .Call(`_arrow_Array__Take` , values, indices)
 }
 
+Array__TakeChunked <- function(values, indices){
+    .Call(`_arrow_Array__TakeChunked` , values, indices)
+}
+
 RecordBatch__Take <- function(batch, indices){
     .Call(`_arrow_RecordBatch__Take` , batch, indices)
 }
@@ -280,8 +284,16 @@ ChunkedArray__Take <- function(values, indices){
     .Call(`_arrow_ChunkedArray__Take` , values, indices)
 }
 
+ChunkedArray__TakeChunked <- function(values, indices){
+    .Call(`_arrow_ChunkedArray__TakeChunked` , values, indices)
+}
+
 Table__Take <- function(table, indices){
     .Call(`_arrow_Table__Take` , table, indices)
+}
+
+Table__TakeChunked <- function(table, indices){
+    .Call(`_arrow_Table__TakeChunked` , table, indices)
 }
 
 Array__Filter <- function(values, filter){
