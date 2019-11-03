@@ -829,8 +829,7 @@ export(EXPORT ${PROJECT_NAME}-targets
 
 configure_package_config_file(ArrowConfig.cmake.in
                               "${CMAKE_CURRENT_BINARY_DIR}/ArrowConfig.cmake"
-                              INSTALL_DESTINATION
-                              "${ARROW_CMAKE_INSTALL_DIR}")
+                              INSTALL_DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
 write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/ArrowConfigVersion.cmake
                                  VERSION ${${PROJECT_NAME}_VERSION}
                                  COMPATIBILITY AnyNewerVersion)
