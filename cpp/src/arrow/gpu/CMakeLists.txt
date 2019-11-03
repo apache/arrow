@@ -64,7 +64,10 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/cuda_version.h"
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/gpu")
 
 arrow_install_all_headers("arrow/gpu")
+
 arrow_add_pkg_config("arrow-cuda")
+
+arrow_install_cmake_find_module("ArrowCUDA")
 
 set(ARROW_CUDA_TEST_LINK_LIBS arrow_cuda_shared ${ARROW_TEST_LINK_LIBS})
 

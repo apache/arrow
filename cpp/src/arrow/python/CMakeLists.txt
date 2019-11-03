@@ -119,8 +119,9 @@ if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
     target_compile_definitions(arrow_python_flight_static PUBLIC ARROW_STATIC)
   endif()
 
-  # pkg-config support
   arrow_add_pkg_config("arrow-python-flight")
+
+  arrow_install_cmake_find_module("ArrowPythonFlight")
 endif()
 
 if("${COMPILER_FAMILY}" STREQUAL "clang")
@@ -132,8 +133,9 @@ endif()
 
 arrow_install_all_headers("arrow/python")
 
-# pkg-config support
 arrow_add_pkg_config("arrow-python")
+
+arrow_install_cmake_find_module("ArrowPython")
 
 # ----------------------------------------------------------------------
 

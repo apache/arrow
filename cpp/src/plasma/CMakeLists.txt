@@ -154,8 +154,9 @@ set_target_properties(plasma-store-server PROPERTIES INSTALL_RPATH_USE_LINK_PATH
 install(TARGETS plasma-store-server ${INSTALL_IS_OPTIONAL} DESTINATION
                 ${CMAKE_INSTALL_BINDIR})
 
-# pkg-config support
 arrow_add_pkg_config("plasma")
+
+arrow_install_cmake_find_module("Plasma")
 
 if(ARROW_PLASMA_JAVA_CLIENT)
   # Plasma java client support

@@ -135,14 +135,11 @@ endif()
 
 add_dependencies(gandiva ${GANDIVA_LIBRARIES})
 
-# install for gandiva
-include(GNUInstallDirs)
-
-# install the header files.
 arrow_install_all_headers("gandiva")
 
-# pkg-config support
 arrow_add_pkg_config("gandiva")
+
+arrow_install_cmake_find_module("Gandiva")
 
 set(GANDIVA_STATIC_TEST_LINK_LIBS gandiva_static RE2::re2 ${ARROW_TEST_LINK_LIBS})
 

@@ -17,11 +17,11 @@
 
 add_custom_target(arrow_dataset)
 
-# Headers: top level
 arrow_install_all_headers("arrow/dataset")
 
-# pkg-config support
 arrow_add_pkg_config("arrow-dataset")
+
+arrow_install_cmake_find_module("ArrowDataset")
 
 set(ARROW_DATASET_SRCS
     dataset.cc

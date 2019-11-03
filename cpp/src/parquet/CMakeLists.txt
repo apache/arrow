@@ -292,8 +292,9 @@ configure_file(parquet_version.h.in "${CMAKE_CURRENT_BINARY_DIR}/parquet_version
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/parquet_version.h"
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet")
 
-# pkg-config support
 arrow_add_pkg_config("parquet")
+
+arrow_install_cmake_find_module("Parquet")
 
 add_parquet_test(internals-test
                  SOURCES
