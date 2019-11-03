@@ -259,7 +259,7 @@ function(arrow_find_package
     arrow_find_package_home()
     set(${prefix}_FIND_APPROACH "HOME: ${home}" PARENT_SCOPE)
   else()
-    arrow_find_cmake_package_config()
+    arrow_find_package_cmake_package_config()
     if(${cmake_package_name}_FOUND)
       set(${prefix}_FIND_APPROACH
           "CMake package configuration: ${cmake_package_name}"
