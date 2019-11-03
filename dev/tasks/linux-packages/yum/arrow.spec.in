@@ -319,6 +319,7 @@ Libraries and header files for Apache Arrow Flight.
 %{_libdir}/libarrow_python_flight.a
 %{_libdir}/libarrow_python_flight.so
 %{_libdir}/pkgconfig/arrow-flight.pc
+%{_libdir}/pkgconfig/arrow-python-flight.pc
 %endif
 
 %if %{use_gandiva}
