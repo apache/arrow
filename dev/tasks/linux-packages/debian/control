@@ -102,6 +102,20 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ library files for Python support.
 
+Package: libarrow-python-flight0
+Section: libs
+Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends:
+  ${misc:Depends},
+  ${shlibs:Depends},
+  libarrow-flight0 (= ${binary:Version}),
+  libarrow-python0 (= ${binary:Version})
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides C++ library files for Flight and Python support.
+
 Package: libarrow-dev
 Section: libdevel
 Architecture: any
@@ -160,6 +174,19 @@ Depends:
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ header files for Python support.
+
+Package: libarrow-python-flight-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends:
+  ${misc:Depends},
+  libarrow-flight-dev (= ${binary:Version}),
+  libarrow-python-dev (= ${binary:Version}),
+  libarrow-python-flight0 (= ${binary:Version})
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides C++ header files for Flight and Python support.
 
 Package: libgandiva0
 Section: libs
