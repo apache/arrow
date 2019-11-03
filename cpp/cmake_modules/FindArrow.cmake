@@ -215,7 +215,7 @@ macro(arrow_find_package_pkg_config)
 
     set(${prefix}_VERSION "${${prefix}_PC_VERSION}" PARENT_SCOPE)
     set(${prefix}_INCLUDE_DIR "${include_dir}" PARENT_SCOPE)
-    set(${prefix}_SHARED_LIB "${first_shared_lib}" PARENT_SCOPE)
+    set(${prefix}_SHARED_LIB "${first_shared_lib_path}" PARENT_SCOPE)
 
     add_library(${target_shared} SHARED IMPORTED)
     set_target_properties(${target_shared}
@@ -224,7 +224,7 @@ macro(arrow_find_package_pkg_config)
                                      INTERFACE_LINK_LIBRARIES
                                      "${rest_shared_lib_names}"
                                      IMPORTED_LOCATION
-                                     "${first_shared_lib}")
+                                     "${first_shared_lib_path}")
 
     find_library(${prefix}_static_lib
                  NAMES "${static_lib_name}"
