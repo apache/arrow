@@ -91,6 +91,9 @@ Result<std::shared_ptr<Expression>> HivePartitionScheme::Parse(
 Status ApplyPartitionScheme(const PartitionScheme& scheme, const fs::Selector& selector,
                             std::vector<fs::FileStats> files, PathPartitions* out) {
   for (const auto& file : files) {
+    // XXX is this the right way to drop the base dir?
+    DCHECK(std::equal(selector.base_dir.begin(), selector.base_dir.end(),
+                      file.path().begin()));
     const auto& path = file.path().substr(selector.base_dir.size());
     std::shared_ptr<Expression> partition;
     RETURN_NOT_OK(scheme.Parse(path, &partition));
