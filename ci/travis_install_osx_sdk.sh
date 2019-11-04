@@ -19,9 +19,7 @@
 
 set -ex
 
-if [ ${using_homebrew} = "yes" ]; then
-  export SDKROOT="$(xcrun --show-sdk-path)"
-else
+if [ ${using_homebrew} != "yes" ]; then
   export MACOSX_DEPLOYMENT_TARGET="10.9"
   export CONDA_BUILD_SYSROOT="$(xcode-select -p)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX${MACOSX_DEPLOYMENT_TARGET}.sdk"
 
