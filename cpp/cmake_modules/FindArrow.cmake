@@ -246,7 +246,13 @@ macro(arrow_find_package_pkg_config)
     set(include_dir "${${prefix}_PC_INCLUDEDIR}")
     set(lib_dir "${${prefix}_PC_LIBDIR}")
     set(shared_lib_paths "${${prefix}_PC_LINK_LIBRARIES}")
+    # Use the first shared library path as the IMPORTED_LOCATION
+    # for ${target_shared}. This assumes that the first shared library
+    # path is the shared library path for this module.
     list(GET shared_lib_paths 0 first_shared_lib_path)
+    # Use the rest shared library paths as the INTERFACE_LINK_LIBRARIES
+    # for ${target_shared}. This assumes that the rest shared library
+    # paths are dependency library paths for this module.
     list(LENGTH shared_lib_paths n_shared_lib_paths)
     if(n_shared_lib_paths LESS_EQUAL 1)
       set(rest_shared_lib_paths)
