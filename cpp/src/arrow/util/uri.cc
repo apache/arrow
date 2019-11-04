@@ -124,31 +124,29 @@ std::string Uri::query_string() const { return TextRangeToString(impl_->uri_.que
 
 Result<std::vector<std::pair<std::string, std::string>>> Uri::query_items() const {
   const auto& query = impl_->uri_.query;
-  UriQueryListA* query_list_start;
+  UriQueryListA* query_list;
   int item_count;
   std::vector<std::pair<std::string, std::string>> items;
 
   if (query.first == nullptr) {
     return items;
   }
-  if (uriDissectQueryMallocA(&query_list_start, &item_count, query.first,
-                             query.afterLast) != URI_SUCCESS) {
+  if (uriDissectQueryMallocA(&query_list, &item_count, query.first, query.afterLast) !=
+      URI_SUCCESS) {
     return Status::Invalid("Cannot parse query string: '", query_string(), "'");
   }
+  std::unique_ptr<UriQueryListA, decltype(&uriFreeQueryListA)> query_guard(
+      query_list, uriFreeQueryListA);
 
   items.reserve(item_count);
-  auto query_list = query_list_start;
   while (query_list != nullptr) {
     if (query_list->value != nullptr) {
       items.emplace_back(query_list->key, query_list->value);
     } else {
-      // XXX This doesn't allow differentiating between an empty value
-      // and a missing value, e.g. between "a&b=1" and "a=&b=1"
       items.emplace_back(query_list->key, "");
     }
     query_list = query_list->next;
   }
-  uriFreeQueryListA(query_list_start);
   return items;
 }
 
