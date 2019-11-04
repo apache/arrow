@@ -33,7 +33,8 @@ set(PARQUET_FULL_SO_VERSION "@ARROW_FULL_SO_VERSION@")
 # ARROW-5575: Move this to PlasmaConfig.cmake when we split target files
 set(PLASMA_STORE_SERVER "@CMAKE_INSTALL_PREFIX@/@CMAKE_INSTALL_BINDIR@/plasma-store-server@CMAKE_EXECUTABLE_SUFFIX@")
 
+include("${CMAKE_CURRENT_LIST_DIR}/ArrowOptions.cmake")
+
 if(NOT (TARGET arrow_shared OR TARGET arrow_static))
   include("${CMAKE_CURRENT_LIST_DIR}/ArrowTargets.cmake")
-  include("${CMAKE_CURRENT_LIST_DIR}/ArrowOptions.cmake")
 endif()
