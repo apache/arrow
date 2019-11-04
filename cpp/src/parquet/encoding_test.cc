@@ -544,20 +544,10 @@ void GetDictDecoder(DictEncoder<T>* encoder, int64_t num_values,
   *out_decoder = std::unique_ptr<TypedDecoder<T>>(released);
 }
 
-template <typename Pair = void>
-class EncodingAdHocTyped {
+template <typename ParquetType>
+class EncodingAdHocTyped : public ::testing::Test {
  public:
-  using Types = ::testing::Types<std::pair<::arrow::BooleanType, BooleanType>,
-                                 std::pair<::arrow::Int32Type, Int32Type>,
-                                 std::pair<::arrow::Int64Type, Int64Type>,
-                                 std::pair<::arrow::FloatType, FloatType>,
-                                 std::pair<::arrow::DoubleType, DoubleType>,
-                                 std::pair<::arrow::FixedSizeBinaryType, FLBAType>>;
-};
-
-template <typename ArrowType, typename ParquetType>
-class EncodingAdHocTyped<std::pair<ArrowType, ParquetType>> : public ::testing::Test {
- public:
+  using ArrowType = typename EncodingTraits<ParquetType>::ArrowType;
   using EncoderType = typename EncodingTraits<ParquetType>::Encoder;
   using DecoderType = typename EncodingTraits<ParquetType>::Decoder;
   using BuilderType = typename EncodingTraits<ParquetType>::Accumulator;
@@ -683,35 +673,30 @@ class EncodingAdHocTyped<std::pair<ArrowType, ParquetType>> : public ::testing::
   const double null_probability_ = 0.25;
 };
 
-template <typename ArrowType, typename ParquetType>
-std::shared_ptr<arrow::DataType>
-EncodingAdHocTyped<std::pair<ArrowType, ParquetType>>::arrow_type() {
+template <typename ParquetType>
+std::shared_ptr<arrow::DataType> EncodingAdHocTyped<ParquetType>::arrow_type() {
   return arrow::TypeTraits<ArrowType>::type_singleton();
 }
 
 template <>
-std::shared_ptr<arrow::DataType>
-EncodingAdHocTyped<std::pair<arrow::FixedSizeBinaryType, FLBAType>>::arrow_type() {
+std::shared_ptr<arrow::DataType> EncodingAdHocTyped<FLBAType>::arrow_type() {
   return arrow::fixed_size_binary(sizeof(uint64_t));
 }
 
-template <typename ArrowType, typename ParquetType>
-std::shared_ptr<arrow::Array>
-EncodingAdHocTyped<std::pair<ArrowType, ParquetType>>::GetValues(int seed) {
+template <typename ParquetType>
+std::shared_ptr<arrow::Array> EncodingAdHocTyped<ParquetType>::GetValues(int seed) {
   arrow::random::RandomArrayGenerator rag(seed);
   return rag.Numeric<ArrowType>(size_, 0, 10, null_probability_);
 }
 
 template <>
-std::shared_ptr<arrow::Array>
-EncodingAdHocTyped<std::pair<arrow::BooleanType, BooleanType>>::GetValues(int seed) {
+std::shared_ptr<arrow::Array> EncodingAdHocTyped<BooleanType>::GetValues(int seed) {
   arrow::random::RandomArrayGenerator rag(seed);
   return rag.Boolean(size_, 0.1, null_probability_);
 }
 
 template <>
-std::shared_ptr<arrow::Array>
-EncodingAdHocTyped<std::pair<arrow::FixedSizeBinaryType, FLBAType>>::GetValues(int seed) {
+std::shared_ptr<arrow::Array> EncodingAdHocTyped<FLBAType>::GetValues(int seed) {
   arrow::random::RandomArrayGenerator rag(seed);
   std::shared_ptr<arrow::Array> values;
   ARROW_EXPECT_OK(
@@ -720,7 +705,10 @@ EncodingAdHocTyped<std::pair<arrow::FixedSizeBinaryType, FLBAType>>::GetValues(i
   return values;
 }
 
-TYPED_TEST_CASE(EncodingAdHocTyped, EncodingAdHocTyped<>::Types);
+using EncodingAdHocTypedCases =
+    ::testing::Types<BooleanType, Int32Type, Int64Type, FloatType, DoubleType, FLBAType>;
+
+TYPED_TEST_CASE(EncodingAdHocTyped, EncodingAdHocTypedCases);
 
 TYPED_TEST(EncodingAdHocTyped, PlainArrowDirectPut) {
   for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {

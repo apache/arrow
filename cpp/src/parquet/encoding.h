@@ -81,6 +81,7 @@ struct EncodingTraits<BooleanType> {
   using Encoder = BooleanEncoder;
   using Decoder = BooleanDecoder;
 
+  using ArrowType = ::arrow::BooleanType;
   using Accumulator = ::arrow::BooleanBuilder;
   struct DictAccumulator {};
 };
@@ -90,6 +91,7 @@ struct EncodingTraits<Int32Type> {
   using Encoder = Int32Encoder;
   using Decoder = Int32Decoder;
 
+  using ArrowType = ::arrow::Int32Type;
   using Accumulator = ::arrow::NumericBuilder<::arrow::Int32Type>;
   using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::Int32Type>;
 };
@@ -99,6 +101,7 @@ struct EncodingTraits<Int64Type> {
   using Encoder = Int64Encoder;
   using Decoder = Int64Decoder;
 
+  using ArrowType = ::arrow::Int64Type;
   using Accumulator = ::arrow::NumericBuilder<::arrow::Int64Type>;
   using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::Int64Type>;
 };
@@ -117,6 +120,7 @@ struct EncodingTraits<FloatType> {
   using Encoder = FloatEncoder;
   using Decoder = FloatDecoder;
 
+  using ArrowType = ::arrow::FloatType;
   using Accumulator = ::arrow::NumericBuilder<::arrow::FloatType>;
   using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::FloatType>;
 };
@@ -126,6 +130,7 @@ struct EncodingTraits<DoubleType> {
   using Encoder = DoubleEncoder;
   using Decoder = DoubleDecoder;
 
+  using ArrowType = ::arrow::DoubleType;
   using Accumulator = ::arrow::NumericBuilder<::arrow::DoubleType>;
   using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::DoubleType>;
 };
@@ -141,6 +146,7 @@ struct EncodingTraits<ByteArrayType> {
     std::unique_ptr<::arrow::BinaryBuilder> builder;
     std::vector<std::shared_ptr<::arrow::Array>> chunks;
   };
+  using ArrowType = ::arrow::BinaryType;
   using DictAccumulator = ::arrow::BinaryDictionary32Builder;
 };
 
@@ -149,6 +155,7 @@ struct EncodingTraits<FLBAType> {
   using Encoder = FLBAEncoder;
   using Decoder = FLBADecoder;
 
+  using ArrowType = ::arrow::FixedSizeBinaryType;
   using Accumulator = ::arrow::FixedSizeBinaryBuilder;
   using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::FixedSizeBinaryType>;
 };
@@ -198,6 +205,8 @@ void TypedEncoder<DType>::Put(const std::vector<T>& src, int num_values) {
 
 template <>
 inline void TypedEncoder<BooleanType>::Put(const std::vector<bool>& src, int num_values) {
+  // NOTE(wesm): This stub is here only to satisfy the compiler; it is
+  // overridden later with the actual implementation
 }
 
 // Base class for dictionary encoders
