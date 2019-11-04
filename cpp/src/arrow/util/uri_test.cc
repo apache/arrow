@@ -17,6 +17,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -52,75 +53,71 @@ TEST(Uri, ParsePath) {
 
   Uri uri;
 
+  auto check_case = [&](std::string uri_string, std::string scheme, bool has_host,
+                        std::string host, std::string path) -> void {
+    ASSERT_OK(uri.Parse(uri_string));
+    ASSERT_EQ(uri.scheme(), scheme);
+    ASSERT_EQ(uri.has_host(), has_host);
+    ASSERT_EQ(uri.host(), host);
+    ASSERT_EQ(uri.path(), path);
+  };
+
   // Relative path
-  ASSERT_OK(uri.Parse("unix:tmp/flight.sock"));
-  ASSERT_EQ(uri.scheme(), "unix");
-  ASSERT_FALSE(uri.has_host());
-  ASSERT_EQ(uri.host(), "");
-  ASSERT_EQ(uri.path(), "tmp/flight.sock");
+  check_case("unix:tmp/flight.sock", "unix", false, "", "tmp/flight.sock");
 
   // Absolute path
-  ASSERT_OK(uri.Parse("unix:/tmp/flight.sock"));
-  ASSERT_EQ(uri.scheme(), "unix");
-  ASSERT_FALSE(uri.has_host());
-  ASSERT_EQ(uri.host(), "");
-  ASSERT_EQ(uri.path(), "/tmp/flight.sock");
-
-  ASSERT_OK(uri.Parse("unix://localhost/tmp/flight.sock"));
-  ASSERT_EQ(uri.scheme(), "unix");
-  ASSERT_TRUE(uri.has_host());
-  ASSERT_EQ(uri.host(), "localhost");
-  ASSERT_EQ(uri.path(), "/tmp/flight.sock");
-
-  ASSERT_OK(uri.Parse("unix:///tmp/flight.sock"));
-  ASSERT_EQ(uri.scheme(), "unix");
-  ASSERT_TRUE(uri.has_host());
-  ASSERT_EQ(uri.host(), "");
-  ASSERT_EQ(uri.path(), "/tmp/flight.sock");
+  check_case("unix:/tmp/flight.sock", "unix", false, "", "/tmp/flight.sock");
+  check_case("unix://localhost/tmp/flight.sock", "unix", true, "localhost",
+             "/tmp/flight.sock");
+  check_case("unix:///tmp/flight.sock", "unix", true, "", "/tmp/flight.sock");
 
   // Empty path
-  ASSERT_OK(uri.Parse("unix:"));
-  ASSERT_EQ(uri.scheme(), "unix");
-  ASSERT_FALSE(uri.has_host());
-  ASSERT_EQ(uri.host(), "");
-  ASSERT_EQ(uri.path(), "");
-
-  ASSERT_OK(uri.Parse("unix://localhost"));
-  ASSERT_EQ(uri.scheme(), "unix");
-  ASSERT_TRUE(uri.has_host());
-  ASSERT_EQ(uri.host(), "localhost");
-  ASSERT_EQ(uri.path(), "");
+  check_case("unix:", "unix", false, "", "");
+  check_case("unix://localhost", "unix", true, "localhost", "");
 
   // With trailing slash
-  ASSERT_OK(uri.Parse("unix:/"));
-  ASSERT_EQ(uri.scheme(), "unix");
-  ASSERT_FALSE(uri.has_host());
-  ASSERT_EQ(uri.host(), "");
-  ASSERT_EQ(uri.path(), "/");
+  check_case("unix:/", "unix", false, "", "/");
+  check_case("unix:tmp/", "unix", false, "", "tmp/");
+  check_case("unix://localhost/", "unix", true, "localhost", "/");
+  check_case("unix:/tmp/flight/", "unix", false, "", "/tmp/flight/");
+  check_case("unix://localhost/tmp/flight/", "unix", true, "localhost", "/tmp/flight/");
+  check_case("unix:///tmp/flight/", "unix", true, "", "/tmp/flight/");
 
-  ASSERT_OK(uri.Parse("unix:tmp/"));
-  ASSERT_EQ(uri.scheme(), "unix");
-  ASSERT_FALSE(uri.has_host());
-  ASSERT_EQ(uri.host(), "");
-  ASSERT_EQ(uri.path(), "tmp/");
+  // With query string
+  check_case("unix:?", "unix", false, "", "");
+  check_case("unix:?foo", "unix", false, "", "");
+  check_case("unix:?foo=bar", "unix", false, "", "");
+  check_case("unix:/?", "unix", false, "", "/");
+  check_case("unix:/?foo", "unix", false, "", "/");
+  check_case("unix:/?foo=bar", "unix", false, "", "/");
+  check_case("unix://localhost/tmp?", "unix", true, "localhost", "/tmp");
+  check_case("unix://localhost/tmp?foo", "unix", true, "localhost", "/tmp");
+  check_case("unix://localhost/tmp?foo=bar", "unix", true, "localhost", "/tmp");
+}
 
-  ASSERT_OK(uri.Parse("unix://localhost/"));
-  ASSERT_EQ(uri.scheme(), "unix");
-  ASSERT_TRUE(uri.has_host());
-  ASSERT_EQ(uri.host(), "localhost");
-  ASSERT_EQ(uri.path(), "/");
+TEST(Uri, ParseQuery) {
+  Uri uri;
 
-  ASSERT_OK(uri.Parse("unix:/tmp/flight/"));
-  ASSERT_EQ(uri.scheme(), "unix");
-  ASSERT_FALSE(uri.has_host());
-  ASSERT_EQ(uri.host(), "");
-  ASSERT_EQ(uri.path(), "/tmp/flight/");
+  auto check_case = [&](std::string uri_string, std::string query_string,
+                        std::vector<std::pair<std::string, std::string>> items) -> void {
+    ASSERT_OK(uri.Parse(uri_string));
+    ASSERT_EQ(uri.query_string(), query_string);
+    auto result = uri.query_items();
+    ASSERT_OK(result);
+    ASSERT_EQ(*result, items);
+  };
 
-  ASSERT_OK(uri.Parse("unix:///tmp/flight/"));
-  ASSERT_EQ(uri.scheme(), "unix");
-  ASSERT_TRUE(uri.has_host());
-  ASSERT_EQ(uri.host(), "");
-  ASSERT_EQ(uri.path(), "/tmp/flight/");
+  check_case("unix://localhost/tmp", "", {});
+  check_case("unix://localhost/tmp?", "", {});
+  check_case("unix://localhost/tmp?foo=bar", "foo=bar", {{"foo", "bar"}});
+  check_case("unix:?foo=bar", "foo=bar", {{"foo", "bar"}});
+  check_case("unix:?a=b&c=d", "a=b&c=d", {{"a", "b"}, {"c", "d"}});
+
+  // With escaped values
+  check_case("unix:?a=some+value&b=c", "a=some+value&b=c",
+             {{"a", "some value"}, {"b", "c"}});
+  check_case("unix:?a=some%20value%2Fanother&b=c", "a=some%20value%2Fanother&b=c",
+             {{"a", "some value/another"}, {"b", "c"}});
 }
 
 TEST(Uri, ParseHostPort) {

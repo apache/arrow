@@ -20,7 +20,10 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <utility>
+#include <vector>
 
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/visibility.h"
 
@@ -54,6 +57,10 @@ class ARROW_EXPORT Uri {
   int32_t port() const;
   /// The URI path component.
   std::string path() const;
+  /// The URI query string
+  std::string query_string() const;
+  /// The URI query items
+  Result<std::vector<std::pair<std::string, std::string>>> query_items() const;
 
   /// Get the string representation of this URI.
   const std::string& ToString() const;
