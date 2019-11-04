@@ -121,7 +121,6 @@ set(ARROW_SRCS
     io/hdfs_internal.cc
     io/interfaces.cc
     io/memory.cc
-    io/readahead.cc
     io/slow.cc
     testing/util.cc
     util/basic_decimal.cc
@@ -129,6 +128,7 @@ set(ARROW_SRCS
     util/compression.cc
     util/cpu_info.cc
     util/decimal.cc
+    util/delimiting.cc
     util/formatting.cc
     util/int_util.cc
     util/io_util.cc

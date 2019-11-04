@@ -119,16 +119,20 @@ void GetLastRow(const BlockParser& parser, std::vector<std::string>* out,
   }
 }
 
+size_t TotalViewLength(const std::vector<util::string_view>& views) {
+  size_t total_view_length = 0;
+  for (const auto& view : views) {
+    total_view_length += view.length();
+  }
+  return total_view_length;
+}
+
 Status Parse(BlockParser& parser, const std::string& str, uint32_t* out_size) {
-  const char* data = str.data();
-  uint32_t size = static_cast<uint32_t>(str.length());
-  return parser.Parse(data, size, out_size);
+  return parser.Parse(util::string_view(str), out_size);
 }
 
 Status ParseFinal(BlockParser& parser, const std::string& str, uint32_t* out_size) {
-  const char* data = str.data();
-  uint32_t size = static_cast<uint32_t>(str.length());
-  return parser.ParseFinal(data, size, out_size);
+  return parser.ParseFinal(util::string_view(str), out_size);
 }
 
 void AssertParseOk(BlockParser& parser, const std::string& str) {
@@ -137,10 +141,22 @@ void AssertParseOk(BlockParser& parser, const std::string& str) {
   ASSERT_EQ(parsed_size, str.size());
 }
 
+void AssertParseOk(BlockParser& parser, const std::vector<util::string_view>& data) {
+  uint32_t parsed_size = static_cast<uint32_t>(-1);
+  ASSERT_OK(parser.Parse(data, &parsed_size));
+  ASSERT_EQ(parsed_size, TotalViewLength(data));
+}
+
 void AssertParseFinal(BlockParser& parser, const std::string& str) {
   uint32_t parsed_size = static_cast<uint32_t>(-1);
   ASSERT_OK(ParseFinal(parser, str, &parsed_size));
   ASSERT_EQ(parsed_size, str.size());
+}
+
+void AssertParseFinal(BlockParser& parser, const std::vector<util::string_view>& data) {
+  uint32_t parsed_size = static_cast<uint32_t>(-1);
+  ASSERT_OK(parser.ParseFinal(data, &parsed_size));
+  ASSERT_EQ(parsed_size, TotalViewLength(data));
 }
 
 void AssertParsePartial(BlockParser& parser, const std::string& str,
@@ -211,11 +227,21 @@ void AssertColumnsEq(const BlockParser& parser,
 }
 
 TEST(BlockParser, Basics) {
-  auto csv = MakeCSVData({"ab,cd,\n", "ef,,gh\n", ",ij,kl\n"});
-  BlockParser parser(ParseOptions::Defaults());
-  AssertParseOk(parser, csv);
-  AssertColumnsEq(parser, {{"ab", "ef", ""}, {"cd", "", "ij"}, {"", "gh", "kl"}});
-  AssertLastRowEq(parser, {"", "ij", "kl"}, {false, false, false});
+  {
+    auto csv = MakeCSVData({"ab,cd,\n", "ef,,gh\n", ",ij,kl\n"});
+    BlockParser parser(ParseOptions::Defaults());
+    AssertParseOk(parser, csv);
+    AssertColumnsEq(parser, {{"ab", "ef", ""}, {"cd", "", "ij"}, {"", "gh", "kl"}});
+    AssertLastRowEq(parser, {"", "ij", "kl"}, {false, false, false});
+  }
+  {
+    auto csv1 = MakeCSVData({"ab,cd,\n", "ef,,gh\n"});
+    auto csv2 = MakeCSVData({",ij,kl\n"});
+    BlockParser parser(ParseOptions::Defaults());
+    AssertParseOk(parser, {csv1, csv2});
+    AssertColumnsEq(parser, {{"ab", "ef", ""}, {"cd", "", "ij"}, {"", "gh", "kl"}});
+    AssertLastRowEq(parser, {"", "ij", "kl"}, {false, false, false});
+  }
 }
 
 TEST(BlockParser, EmptyHeader) {
@@ -360,6 +386,12 @@ TEST(BlockParser, Final) {
   csv = MakeCSVData({"ab,cd"});
   AssertParseFinal(parser, csv);
   AssertColumnsEq(parser, {{"ab"}, {"cd"}});
+
+  // Two blocks
+  auto csv1 = MakeCSVData({"ab,cd\n"});
+  auto csv2 = MakeCSVData({"ef,"});
+  AssertParseFinal(parser, {csv1, csv2});
+  AssertColumnsEq(parser, {{"ab", "ef"}, {"cd", ""}});
 }
 
 TEST(BlockParser, FinalTruncatedData) {

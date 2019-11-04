@@ -54,7 +54,7 @@ class TableReaderImpl : public TableReader,
       : pool_(pool),
         read_options_(read_options),
         parse_options_(parse_options),
-        chunker_(Chunker::Make(parse_options_)),
+        chunker_(MakeChunker(parse_options_)),
         task_group_(std::move(task_group)) {}
 
   Status Init(std::shared_ptr<io::InputStream> input) {

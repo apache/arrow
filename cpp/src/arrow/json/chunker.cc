@@ -37,89 +37,20 @@ namespace rj = arrow::rapidjson;
 using internal::make_unique;
 using util::string_view;
 
-static Status StraddlingTooLarge() {
-  return Status::Invalid(
-      "straddling object straddles two block boundaries (try to increase block size?)");
-}
-
-static size_t ConsumeWhitespace(std::shared_ptr<Buffer>* buf) {
+static size_t ConsumeWhitespace(string_view view) {
 #if defined(ARROW_RAPIDJSON_SKIP_WHITESPACE_SIMD)
-  auto data = reinterpret_cast<const char*>((*buf)->data());
-  auto nonws_begin = rj::SkipWhitespace_SIMD(data, data + (*buf)->size());
-  auto ws_count = nonws_begin - data;
-  *buf = SliceBuffer(*buf, ws_count);
-  return static_cast<size_t>(ws_count);
+  auto data = view.data();
+  auto nonws_begin = rj::SkipWhitespace_SIMD(data, data + view.size());
+  return nonws_begin - data;
 #else
-  auto ws_count = string_view(**buf).find_first_not_of(" \t\r\n");
+  auto ws_count = view.find_first_not_of(" \t\r\n");
   if (ws_count == string_view::npos) {
-    ws_count = (*buf)->size();
+    return 0;
+  } else {
+    return ws_count;
   }
-  *buf = SliceBuffer(*buf, ws_count);
-  return ws_count;
 #endif
 }
-
-// A chunker implementation that assumes JSON objects don't contain raw newlines.
-// This allows fast chunk delimitation using a simple newline search.
-class NewlinesStrictlyDelimitChunker : public Chunker {
- public:
-  Status Process(std::shared_ptr<Buffer> block, std::shared_ptr<Buffer>* whole,
-                 std::shared_ptr<Buffer>* partial) override {
-    auto last_newline = string_view(*block).find_last_of("\n\r");
-    if (last_newline == string_view::npos) {
-      // no newlines in this block, return empty chunk
-      *whole = SliceBuffer(block, 0, 0);
-      *partial = block;
-    } else {
-      *whole = SliceBuffer(block, 0, last_newline + 1);
-      *partial = SliceBuffer(block, last_newline + 1);
-    }
-    return Status::OK();
-  }
-
-  Status ProcessWithPartial(std::shared_ptr<Buffer> partial_original,
-                            std::shared_ptr<Buffer> block,
-                            std::shared_ptr<Buffer>* completion,
-                            std::shared_ptr<Buffer>* rest) override {
-    return DoProcessWithPartial(partial_original, block, false, completion, rest);
-  }
-
-  Status ProcessFinal(std::shared_ptr<Buffer> partial_original,
-                      std::shared_ptr<Buffer> block, std::shared_ptr<Buffer>* completion,
-                      std::shared_ptr<Buffer>* rest) override {
-    return DoProcessWithPartial(partial_original, block, true, completion, rest);
-  }
-
- protected:
-  Status DoProcessWithPartial(std::shared_ptr<Buffer> partial,
-                              std::shared_ptr<Buffer> block, bool is_final,
-                              std::shared_ptr<Buffer>* completion,
-                              std::shared_ptr<Buffer>* rest) {
-    ConsumeWhitespace(&partial);
-    if (partial->size() == 0) {
-      // if partial is empty, don't bother looking for completion
-      *completion = SliceBuffer(block, 0, 0);
-      *rest = block;
-      return Status::OK();
-    }
-    auto first_newline = string_view(*block).find_first_of("\n\r");
-    if (first_newline == string_view::npos) {
-      // no newlines in this block
-      if (is_final) {
-        // => it's entirely a completion of partial
-        *completion = block;
-        *rest = SliceBuffer(block, 0, 0);
-        return Status::OK();
-      } else {
-        // => the current object is too large for block size
-        return StraddlingTooLarge();
-      }
-    }
-    *completion = SliceBuffer(block, 0, first_newline + 1);
-    *rest = SliceBuffer(block, first_newline + 1);
-    return Status::OK();
-  }
-};
 
 /// RapidJson custom stream for reading JSON stored in multiple buffers
 /// http://rapidjson.org/md_doc_stream.html#CustomStream
@@ -187,88 +118,61 @@ static size_t ConsumeWholeObject(Stream&& stream) {
   }
 }
 
-// A chunker implementation that assumes JSON objects can contain raw newlines,
-// and uses actual JSON parsing to delimit chunks.
-class ParsingChunker : public Chunker {
+namespace {
+
+// A BoundaryFinder implementation that assumes JSON objects can contain raw newlines,
+// and uses actual JSON parsing to delimit them.
+class ParsingBoundaryFinder : public BoundaryFinder {
  public:
-  Status Process(std::shared_ptr<Buffer> block, std::shared_ptr<Buffer>* whole,
-                 std::shared_ptr<Buffer>* partial) override {
-    if (block->size() == 0) {
-      *whole = SliceBuffer(block, 0, 0);
-      *partial = block;
-      return Status::OK();
+  Status FindFirst(string_view partial, string_view block, int64_t* out_pos) override {
+    // NOTE: We could bubble up JSON parse errors here, but the actual parsing
+    // step will detect them later anyway.
+    auto length = ConsumeWholeObject(MultiStringStream({partial, block}));
+    if (length == string_view::npos) {
+      *out_pos = -1;
+    } else {
+      DCHECK_GE(length, partial.size());
+      DCHECK_LE(length, partial.size() + block.size());
+      *out_pos = static_cast<int64_t>(length - partial.size());
     }
-    size_t total_length = 0;
-    for (auto consumed = block;; consumed = SliceBuffer(block, total_length)) {
-      rj::MemoryStream ms(reinterpret_cast<const char*>(consumed->data()),
-                          consumed->size());
-      using InputStream = rj::EncodedInputStream<rj::UTF8<>, rj::MemoryStream>;
-      auto length = ConsumeWholeObject(InputStream(ms));
-      if (length == string_view::npos || length == 0) {
-        // found incomplete object or consumed is empty
-        break;
-      }
-      if (static_cast<int64_t>(length) > consumed->size()) {
-        total_length += consumed->size();
-        break;
-      }
-      total_length += length;
-    }
-    *whole = SliceBuffer(block, 0, total_length);
-    *partial = SliceBuffer(block, total_length);
     return Status::OK();
   }
 
-  Status ProcessWithPartial(std::shared_ptr<Buffer> partial_original,
-                            std::shared_ptr<Buffer> block,
-                            std::shared_ptr<Buffer>* completion,
-                            std::shared_ptr<Buffer>* rest) override {
-    return DoProcessWithPartial(partial_original, block, false, completion, rest);
-  }
-
-  Status ProcessFinal(std::shared_ptr<Buffer> partial_original,
-                      std::shared_ptr<Buffer> block, std::shared_ptr<Buffer>* completion,
-                      std::shared_ptr<Buffer>* rest) override {
-    return DoProcessWithPartial(partial_original, block, true, completion, rest);
-  }
-
- protected:
-  Status DoProcessWithPartial(std::shared_ptr<Buffer> partial,
-                              std::shared_ptr<Buffer> block, bool is_final,
-                              std::shared_ptr<Buffer>* completion,
-                              std::shared_ptr<Buffer>* rest) {
-    ConsumeWhitespace(&partial);
-    if (partial->size() == 0) {
-      // if partial is empty, don't bother looking for completion
-      *completion = SliceBuffer(block, 0, 0);
-      *rest = block;
-      return Status::OK();
-    }
-    auto length = ConsumeWholeObject(MultiStringStream({partial, block}));
-    if (length == string_view::npos) {
-      // no newlines in this block
-      if (is_final) {
-        // => it's entirely a completion of partial
-        *completion = block;
-        *rest = SliceBuffer(block, 0, 0);
-        return Status::OK();
-      } else {
-        // => the current object is too large for block size
-        return StraddlingTooLarge();
+  Status FindLast(util::string_view block, int64_t* out_pos) override {
+    const size_t block_length = block.size();
+    size_t consumed_length = 0;
+    while (consumed_length < block_length) {
+      rj::MemoryStream ms(reinterpret_cast<const char*>(block.data()), block.size());
+      using InputStream = rj::EncodedInputStream<rj::UTF8<>, rj::MemoryStream>;
+      auto length = ConsumeWholeObject(InputStream(ms));
+      if (length == string_view::npos || length == 0) {
+        // found incomplete object or block is empty
+        break;
       }
+      consumed_length += length;
+      block = block.substr(length);
     }
-    auto completion_length = length - partial->size();
-    *completion = SliceBuffer(block, 0, completion_length);
-    *rest = SliceBuffer(block, completion_length);
+    if (consumed_length == 0) {
+      *out_pos = -1;
+    } else {
+      consumed_length += ConsumeWhitespace(block);
+      DCHECK_LE(consumed_length, block_length);
+      *out_pos = static_cast<int64_t>(consumed_length);
+    }
     return Status::OK();
   }
 };
 
-std::unique_ptr<Chunker> Chunker::Make(const ParseOptions& options) {
-  if (!options.newlines_in_values) {
-    return make_unique<NewlinesStrictlyDelimitChunker>();
+}  // namespace
+
+std::unique_ptr<Chunker> MakeChunker(const ParseOptions& options) {
+  std::shared_ptr<BoundaryFinder> delimiter;
+  if (options.newlines_in_values) {
+    delimiter = std::make_shared<ParsingBoundaryFinder>();
+  } else {
+    delimiter = MakeNewlineBoundaryFinder();
   }
-  return make_unique<ParsingChunker>();
+  return std::unique_ptr<Chunker>(new Chunker(std::move(delimiter)));
 }
 
 }  // namespace json
