@@ -41,12 +41,12 @@
 #include "arrow/util/logging.h"
 
 #include "arrow/python/common.h"
+#include "arrow/python/datetime.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/iterators.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/platform.h"
 #include "arrow/python/pyarrow.h"
-#include "arrow/python/util/datetime.h"
 
 constexpr int32_t kMaxRecursionDepth = 100;
 
@@ -263,7 +263,10 @@ class SequenceBuilder {
 class DictBuilder {
  public:
   explicit DictBuilder(MemoryPool* pool = nullptr) : keys_(pool), vals_(pool) {
-    builder_.reset(new StructBuilder(nullptr, pool, {keys_.builder(), vals_.builder()}));
+    builder_.reset(
+        new StructBuilder(struct_({field("keys", union_({}, UnionMode::DENSE)),
+                                   field("vals", union_({}, UnionMode::DENSE))}),
+                          pool, {keys_.builder(), vals_.builder()}));
   }
 
   // Builder for the keys of the dictionary
@@ -466,7 +469,7 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
     RETURN_NOT_OK(builder->AppendNone());
   } else if (PyDateTime_Check(elem)) {
     PyDateTime_DateTime* datetime = reinterpret_cast<PyDateTime_DateTime*>(elem);
-    RETURN_NOT_OK(builder->AppendDate64(PyDateTime_to_us(datetime)));
+    RETURN_NOT_OK(builder->AppendDate64(internal::PyDateTime_to_us(datetime)));
   } else if (is_buffer(elem)) {
     RETURN_NOT_OK(builder->AppendBuffer(static_cast<int32_t>(blobs_out->buffers.size())));
     std::shared_ptr<Buffer> buffer;
@@ -530,7 +533,6 @@ std::shared_ptr<RecordBatch> MakeBatch(std::shared_ptr<Array> data) {
 
 Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject* out) {
   PyAcquireGIL lock;
-  PyDateTime_IMPORT;
   SequenceBuilder builder;
   RETURN_NOT_OK(internal::VisitIterable(
       sequence, [&](PyObject* obj, bool* keep_going /* unused */) {

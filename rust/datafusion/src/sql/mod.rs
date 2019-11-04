@@ -15,7 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-//! SQL parser and query planner
+//! This module provides a SQL parser that translates SQL queries into an abstract syntax
+//! tree (AST), and a SQL query planner that creates a logical plan from the AST.
 
 pub mod parser;
 pub mod planner;

@@ -35,12 +35,15 @@ class InputStream;
 
 namespace csv {
 
+/// A class that reads an entire CSV file into a Arrow Table
 class ARROW_EXPORT TableReader {
  public:
   virtual ~TableReader() = default;
 
+  /// Read the entire CSV file and convert it to a Arrow Table
   virtual Status Read(std::shared_ptr<Table>* out) = 0;
 
+  /// Create a TableReader instance
   static Status Make(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
                      const ReadOptions&, const ParseOptions&, const ConvertOptions&,
                      std::shared_ptr<TableReader>* out);

@@ -89,3 +89,9 @@ The devices layer
 
 Basic **CUDA** integration is provided, allowing to describe Arrow data backed
 by GPU-allocated memory.
+
+The filesystem layer
+--------------------
+
+A filesystem abstraction allows reading and writing data from different storage
+backends, such as the local filesystem or a S3 bucket.

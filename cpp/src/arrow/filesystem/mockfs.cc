@@ -288,15 +288,16 @@ class MockFileSystem::Impl {
     return (consumed == parts.size() - 1) ? entry : nullptr;
   }
 
-  void GatherStats(const std::string& base_path, Directory& base_dir, bool recursive,
+  void GatherStats(const Selector& select, const std::string& base_path,
+                   Directory& base_dir, int32_t nesting_depth,
                    std::vector<FileStats>* stats) {
     for (const auto& pair : base_dir.entries) {
       Entry* child = pair.second.get();
       stats->push_back(child->GetStats(base_path));
-      if (recursive && child->is_dir()) {
+      if (select.recursive && nesting_depth < select.max_recursion && child->is_dir()) {
         Directory& child_dir = child->as_dir();
         std::string child_path = stats->back().path();
-        GatherStats(std::move(child_path), child_dir, recursive, stats);
+        GatherStats(select, std::move(child_path), child_dir, nesting_depth + 1, stats);
       }
     }
   }
@@ -510,7 +511,7 @@ Status MockFileSystem::GetTargetStats(const Selector& selector,
     return NotADir(selector.base_dir);
   }
 
-  impl_->GatherStats(selector.base_dir, base_dir->as_dir(), selector.recursive, out);
+  impl_->GatherStats(selector, selector.base_dir, base_dir->as_dir(), 0, out);
   return Status::OK();
 }
 
@@ -653,6 +654,40 @@ std::vector<FileInfo> MockFileSystem::AllFiles() {
   std::vector<FileInfo> result;
   impl_->DumpFiles("", impl_->RootDir(), &result);
   return result;
+}
+
+Status MockFileSystem::CreateFile(const std::string& path, const std::string& contents,
+                                  bool recursive) {
+  auto parent = fs::internal::GetAbstractPathParent(path).first;
+  if (parent != "") {
+    RETURN_NOT_OK(CreateDir(parent, recursive));
+  }
+
+  std::shared_ptr<io::OutputStream> file;
+  RETURN_NOT_OK(OpenOutputStream(path, &file));
+  RETURN_NOT_OK(file->Write(contents));
+  return file->Close();
+}
+
+Status MockFileSystem::Make(TimePoint current_time, const std::vector<FileStats>& stats,
+                            std::shared_ptr<FileSystem>* out) {
+  auto fs = std::make_shared<MockFileSystem>(current_time);
+  for (const auto& s : stats) {
+    switch (s.type()) {
+      case FileType::Directory:
+        RETURN_NOT_OK(fs->CreateDir(s.path(), /*recursive*/ true));
+        break;
+      case FileType::File:
+        RETURN_NOT_OK(fs->CreateFile(s.path(), "", /*recursive*/ true));
+        break;
+      default:
+        break;
+    }
+  }
+
+  *out = fs;
+
+  return Status::OK();
 }
 
 }  // namespace internal

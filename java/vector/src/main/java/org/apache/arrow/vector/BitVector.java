@@ -39,7 +39,7 @@ import io.netty.buffer.ArrowBuf;
  * boolean values which could be null. Each value in the vector corresponds
  * to a single bit in the underlying data stream backing the vector.
  */
-public class BitVector extends BaseFixedWidthVector {
+public final class BitVector extends BaseFixedWidthVector {
   private final FieldReader reader;
 
   /**

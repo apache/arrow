@@ -29,6 +29,7 @@ namespace arrow {
 class Status;
 
 struct Compression {
+  /// \brief Compression algorithm
   enum type { UNCOMPRESSED, SNAPPY, GZIP, BROTLI, ZSTD, LZ4, LZO, BZ2 };
 };
 
@@ -96,6 +97,7 @@ class ARROW_EXPORT Decompressor {
   // XXX add methods for buffer size heuristics?
 };
 
+/// \brief Compression codec
 class ARROW_EXPORT Codec {
  public:
   virtual ~Codec();
@@ -107,9 +109,15 @@ class ARROW_EXPORT Codec {
   /// \brief Return a string name for compression type
   static std::string GetCodecAsString(Compression::type t);
 
+  /// \brief Create a codec for the given compression algorithm
   static Status Create(Compression::type codec, std::unique_ptr<Codec>* out);
+
+  /// \brief Create a codec for the given compression algorithm and level
   static Status Create(Compression::type codec, int compression_level,
                        std::unique_ptr<Codec>* out);
+
+  /// \brief Return true if support for indicated codec has been enabled
+  static bool IsAvailable(Compression::type codec);
 
   /// \brief One-shot decompression function
   ///
@@ -160,6 +168,10 @@ class ARROW_EXPORT Codec {
   virtual Status MakeDecompressor(std::shared_ptr<Decompressor>* out) = 0;
 
   virtual const char* name() const = 0;
+
+ private:
+  /// \brief Initializes the codec's resources.
+  virtual Status Init();
 };
 
 }  // namespace util

@@ -18,7 +18,9 @@
 #include <limits>
 #include <memory>
 #include <utility>
+#include <vector>
 
+#include "arrow/array/concatenate.h"
 #include "arrow/compute/kernels/take.h"
 #include "arrow/compute/kernels/take_internal.h"
 #include "arrow/util/logging.h"
@@ -97,6 +99,100 @@ Status Take(FunctionContext* ctx, const Datum& values, const Datum& indices,
   std::unique_ptr<TakeKernel> kernel;
   RETURN_NOT_OK(TakeKernel::Make(values.type(), indices.type(), &kernel));
   return kernel->Call(ctx, values, indices, out);
+}
+
+Status Take(FunctionContext* ctx, const ChunkedArray& values, const Array& indices,
+            const TakeOptions& options, std::shared_ptr<ChunkedArray>* out) {
+  auto num_chunks = values.num_chunks();
+  std::vector<std::shared_ptr<Array>> new_chunks(1);  // Hard-coded 1 for now
+  std::shared_ptr<Array> current_chunk;
+
+  // Case 1: `values` has a single chunk, so just use it
+  if (num_chunks == 1) {
+    current_chunk = values.chunk(0);
+  } else {
+    // TODO Case 2: See if all `indices` fall in the same chunk and call Array Take on it
+    // See
+    // https://github.com/apache/arrow/blob/6f2c9041137001f7a9212f244b51bc004efc29af/r/src/compute.cpp#L123-L151
+    // TODO Case 3: If indices are sorted, can slice them and call Array Take
+
+    // Case 4: Else, concatenate chunks and call Array Take
+    RETURN_NOT_OK(Concatenate(values.chunks(), default_memory_pool(), &current_chunk));
+  }
+  // Call Array Take on our single chunk
+  RETURN_NOT_OK(Take(ctx, *current_chunk, indices, options, &new_chunks[0]));
+  *out = std::make_shared<ChunkedArray>(std::move(new_chunks));
+  return Status::OK();
+}
+
+Status Take(FunctionContext* ctx, const ChunkedArray& values, const ChunkedArray& indices,
+            const TakeOptions& options, std::shared_ptr<ChunkedArray>* out) {
+  auto num_chunks = indices.num_chunks();
+  std::vector<std::shared_ptr<Array>> new_chunks(num_chunks);
+  std::shared_ptr<ChunkedArray> current_chunk;
+
+  for (int i = 0; i < num_chunks; i++) {
+    // Take with that indices chunk
+    // Note that as currently implemented, this is inefficient because `values`
+    // will get concatenated on every iteration of this loop
+    RETURN_NOT_OK(Take(ctx, values, *indices.chunk(i), options, &current_chunk));
+    // Concatenate the result to make a single array for this chunk
+    RETURN_NOT_OK(
+        Concatenate(current_chunk->chunks(), default_memory_pool(), &new_chunks[i]));
+  }
+  *out = std::make_shared<ChunkedArray>(std::move(new_chunks));
+  return Status::OK();
+}
+
+Status Take(FunctionContext* ctx, const Array& values, const ChunkedArray& indices,
+            const TakeOptions& options, std::shared_ptr<ChunkedArray>* out) {
+  auto num_chunks = indices.num_chunks();
+  std::vector<std::shared_ptr<Array>> new_chunks(num_chunks);
+
+  for (int i = 0; i < num_chunks; i++) {
+    // Take with that indices chunk
+    RETURN_NOT_OK(Take(ctx, values, *indices.chunk(i), options, &new_chunks[i]));
+  }
+  *out = std::make_shared<ChunkedArray>(std::move(new_chunks));
+  return Status::OK();
+}
+
+Status Take(FunctionContext* ctx, const RecordBatch& batch, const Array& indices,
+            const TakeOptions& options, std::shared_ptr<RecordBatch>* out) {
+  auto ncols = batch.num_columns();
+  auto nrows = indices.length();
+
+  std::vector<std::shared_ptr<Array>> columns(ncols);
+
+  for (int j = 0; j < ncols; j++) {
+    RETURN_NOT_OK(Take(ctx, *batch.column(j), indices, options, &columns[j]));
+  }
+  *out = RecordBatch::Make(batch.schema(), nrows, columns);
+  return Status::OK();
+}
+
+Status Take(FunctionContext* ctx, const Table& table, const Array& indices,
+            const TakeOptions& options, std::shared_ptr<Table>* out) {
+  auto ncols = table.num_columns();
+  std::vector<std::shared_ptr<ChunkedArray>> columns(ncols);
+
+  for (int j = 0; j < ncols; j++) {
+    RETURN_NOT_OK(Take(ctx, *table.column(j), indices, options, &columns[j]));
+  }
+  *out = Table::Make(table.schema(), columns);
+  return Status::OK();
+}
+
+Status Take(FunctionContext* ctx, const Table& table, const ChunkedArray& indices,
+            const TakeOptions& options, std::shared_ptr<Table>* out) {
+  auto ncols = table.num_columns();
+  std::vector<std::shared_ptr<ChunkedArray>> columns(ncols);
+
+  for (int j = 0; j < ncols; j++) {
+    RETURN_NOT_OK(Take(ctx, *table.column(j), indices, options, &columns[j]));
+  }
+  *out = Table::Make(table.schema(), columns);
+  return Status::OK();
 }
 
 }  // namespace compute

@@ -55,14 +55,38 @@ public class IndexSorter<V extends ValueVector> {
 
     this.comparator = comparator;
 
-    quickSort(0, indices.getValueCount() - 1);
+    quickSort();
   }
 
-  private void quickSort(int low, int high) {
-    if (low < high) {
-      int mid = partition(low, high, indices, comparator);
-      quickSort(low, mid - 1);
-      quickSort(mid + 1, high);
+  private void quickSort() {
+    try (OffHeapIntStack rangeStack = new OffHeapIntStack(indices.getAllocator())) {
+      rangeStack.push(0);
+      rangeStack.push(indices.getValueCount() - 1);
+
+      while (!rangeStack.isEmpty()) {
+        int high = rangeStack.pop();
+        int low = rangeStack.pop();
+
+        if (low < high) {
+          int mid = partition(low, high, indices, comparator);
+
+          // push the larger part to stack first,
+          // to reduce the required stack size
+          if (high - mid < mid - low) {
+            rangeStack.push(low);
+            rangeStack.push(mid - 1);
+
+            rangeStack.push(mid + 1);
+            rangeStack.push(high);
+          } else {
+            rangeStack.push(mid + 1);
+            rangeStack.push(high);
+
+            rangeStack.push(low);
+            rangeStack.push(mid - 1);
+          }
+        }
+      }
     }
   }
 

@@ -26,8 +26,9 @@ use std::sync::Arc;
 extern crate arrow;
 
 use arrow::array::*;
-use arrow::compute::array_ops::{limit, sum};
+use arrow::compute::kernels::aggregate::*;
 use arrow::compute::kernels::arithmetic::*;
+use arrow::compute::kernels::limit::*;
 use arrow::error::Result;
 
 fn create_array(size: usize) -> Float32Array {

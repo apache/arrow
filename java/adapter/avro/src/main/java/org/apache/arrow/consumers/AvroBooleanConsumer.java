@@ -66,9 +66,9 @@ public class AvroBooleanConsumer implements Consumer<BitVector> {
   }
 
   @Override
-  public void resetValueVector(BitVector vector) {
+  public boolean resetValueVector(BitVector vector) {
     this.vector = vector;
     this.currentIndex = 0;
+    return true;
   }
-
 }

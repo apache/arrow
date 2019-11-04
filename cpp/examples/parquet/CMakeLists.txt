@@ -21,6 +21,15 @@ add_executable(parquet-arrow-example parquet-arrow/reader-writer.cc)
 target_include_directories(parquet-low-level-example PRIVATE low-level-api/)
 target_include_directories(parquet-low-level-example2 PRIVATE low-level-api/)
 
+if (PARQUET_REQUIRE_ENCRYPTION)
+  add_executable(parquet-encryption-example low-level-api/encryption-reader-writer.cc)
+  add_executable(parquet-encryption-example-all-crypto-options low-level-api/encryption-reader-writer-all-crypto-options.cc)
+  target_include_directories(parquet-encryption-example PRIVATE low-level-api/)
+  target_include_directories(parquet-encryption-example-all-crypto-options PRIVATE low-level-api/)
+  target_link_libraries(parquet-encryption-example parquet_static)
+  target_link_libraries(parquet-encryption-example-all-crypto-options parquet_static)
+endif()
+
 # Prefer shared linkage but use static if shared build is deactivated
 if (ARROW_BUILD_SHARED)
   set(PARQUET_EXAMPLE_LINK_LIBS parquet_shared)
@@ -36,3 +45,9 @@ add_dependencies(parquet
   parquet-low-level-example
   parquet-low-level-example2
   parquet-arrow-example)
+
+if (PARQUET_REQUIRE_ENCRYPTION)
+  add_dependencies(parquet
+    parquet-encryption-example
+    parquet-encryption-example-all-crypto-options)
+endif()

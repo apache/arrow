@@ -23,30 +23,28 @@ test_that("Can read csv file", {
 
   write.csv(iris, tf, row.names = FALSE)
 
-  tab1 <- read_csv_arrow(tf, as_tibble = FALSE)
-  tab2 <- read_csv_arrow(mmap_open(tf), as_tibble = FALSE)
-  tab3 <- read_csv_arrow(ReadableFile$create(tf), as_tibble = FALSE)
-
   iris$Species <- as.character(iris$Species)
   tab0 <- Table$create(!!!iris)
+  tab1 <- read_csv_arrow(tf, as_data_frame = FALSE)
   expect_equal(tab0, tab1)
+  tab2 <- read_csv_arrow(mmap_open(tf), as_data_frame = FALSE)
   expect_equal(tab0, tab2)
+  tab3 <- read_csv_arrow(ReadableFile$create(tf), as_data_frame = FALSE)
   expect_equal(tab0, tab3)
 })
 
-test_that("read_csv_arrow(as_tibble=TRUE)", {
+test_that("read_csv_arrow(as_data_frame=TRUE)", {
   tf <- tempfile()
   on.exit(unlink(tf))
 
   write.csv(iris, tf, row.names = FALSE)
-
-  tab1 <- read_csv_arrow(tf, as_tibble = TRUE)
-  tab2 <- read_csv_arrow(mmap_open(tf), as_tibble = TRUE)
-  tab3 <- read_csv_arrow(ReadableFile$create(tf), as_tibble = TRUE)
-
   iris$Species <- as.character(iris$Species)
+
+  tab1 <- read_csv_arrow(tf, as_data_frame = TRUE)
   expect_equivalent(iris, tab1)
+  tab2 <- read_csv_arrow(mmap_open(tf), as_data_frame = TRUE)
   expect_equivalent(iris, tab2)
+  tab3 <- read_csv_arrow(ReadableFile$create(tf), as_data_frame = TRUE)
   expect_equivalent(iris, tab3)
 })
 
@@ -170,9 +168,9 @@ test_that("read_csv_arrow() respects col_select", {
 
   write.csv(iris, tf, row.names = FALSE, quote = FALSE)
 
-  tab <- read_csv_arrow(tf, col_select = starts_with("Sepal"), as_tibble = FALSE)
+  tab <- read_csv_arrow(tf, col_select = starts_with("Sepal"), as_data_frame = FALSE)
   expect_equal(tab, Table$create(Sepal.Length = iris$Sepal.Length, Sepal.Width = iris$Sepal.Width))
 
-  tib <- read_csv_arrow(tf, col_select = starts_with("Sepal"), as_tibble = TRUE)
+  tib <- read_csv_arrow(tf, col_select = starts_with("Sepal"), as_data_frame = TRUE)
   expect_equal(tib, tibble::tibble(Sepal.Length = iris$Sepal.Length, Sepal.Width = iris$Sepal.Width))
 })

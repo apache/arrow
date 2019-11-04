@@ -92,6 +92,22 @@ TEST_P(ReaderTest, Empty) {
   AssertTablesEqual(*expected_table, *table_);
 }
 
+TEST_P(ReaderTest, EmptyNoNewlineAtEnd) {
+  SetUpReader("{}\n{}");
+  ASSERT_OK(reader_->Read(&table_));
+
+  auto expected_table = Table::Make(schema({}), ArrayVector(), 2);
+  AssertTablesEqual(*expected_table, *table_);
+}
+
+TEST_P(ReaderTest, EmptyManyNewlines) {
+  SetUpReader("{}\n\r\n{}\n\r\n");
+  ASSERT_OK(reader_->Read(&table_));
+
+  auto expected_table = Table::Make(schema({}), ArrayVector(), 2);
+  AssertTablesEqual(*expected_table, *table_);
+}
+
 TEST_P(ReaderTest, Basics) {
   parse_options_.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
   auto src = scalars_only_src();

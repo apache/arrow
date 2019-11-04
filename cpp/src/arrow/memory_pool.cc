@@ -38,6 +38,45 @@
 #include <mimalloc.h>
 #endif
 
+#ifdef ARROW_JEMALLOC
+
+// Compile-time configuration for jemalloc options.
+// Note the prefix ("je_arrow_") must match the symbol prefix given when
+// building jemalloc.
+// See discussion in https://github.com/jemalloc/jemalloc/issues/1621
+
+// ARROW-6910(wesm): we found that jemalloc's default behavior with respect to
+// dirty / muzzy pages (see definitions of these in the jemalloc documentation)
+// conflicted with user expectations, and would even cause memory use problems
+// in some cases. By enabling the background_thread option and reducing the
+// decay time from 10 seconds to 1 seconds, memory is released more
+// aggressively (and in the background) to the OS. This can be configured
+// further by using the arrow::jemalloc_set_decay_ms API
+
+#undef USE_JEMALLOC_BACKGROUND_THREAD
+#ifndef __APPLE__
+// ARROW-6977: jemalloc's background_thread isn't always enabled on macOS
+#define USE_JEMALLOC_BACKGROUND_THREAD
+#endif
+
+// In debug mode, add memory poisoning on alloc / free
+#ifdef NDEBUG
+#define JEMALLOC_DEBUG_OPTIONS ""
+#else
+#define JEMALLOC_DEBUG_OPTIONS ",junk:true"
+#endif
+
+const char* je_arrow_malloc_conf =
+    ("oversize_threshold:0"
+     ",dirty_decay_ms:1000"
+     ",muzzy_decay_ms:1000"
+#ifdef USE_JEMALLOC_BACKGROUND_THREAD
+     ",background_thread:true"
+#endif
+     JEMALLOC_DEBUG_OPTIONS);  // NOLINT: whitespace/parens
+
+#endif  // ARROW_JEMALLOC
+
 namespace arrow {
 
 constexpr size_t kAlignment = 64;
@@ -371,6 +410,30 @@ MemoryPool* default_memory_pool() {
   return &mimalloc_pool;
 #else
   return &system_pool;
+#endif
+}
+
+#define RETURN_IF_JEMALLOC_ERROR(ERR)                  \
+  do {                                                 \
+    if (err != 0) {                                    \
+      return Status::UnknownError(std::strerror(ERR)); \
+    }                                                  \
+  } while (0)
+
+Status jemalloc_set_decay_ms(int ms) {
+#ifdef ARROW_JEMALLOC
+  ssize_t decay_time_ms = static_cast<ssize_t>(ms);
+
+  int err = mallctl("arenas.dirty_decay_ms", nullptr, nullptr, &decay_time_ms,
+                    sizeof(decay_time_ms));
+  RETURN_IF_JEMALLOC_ERROR(err);
+  err = mallctl("arenas.muzzy_decay_ms", nullptr, nullptr, &decay_time_ms,
+                sizeof(decay_time_ms));
+  RETURN_IF_JEMALLOC_ERROR(err);
+
+  return Status::OK();
+#else
+  return Status::Invalid("jemalloc support is not built");
 #endif
 }
 

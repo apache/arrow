@@ -34,7 +34,7 @@ namespace arrow {
 template <typename T>
 struct TypeTraits {};
 
-template <typename T, typename Enable = void>
+template <typename T>
 struct CTypeTraits {};
 
 template <>
@@ -154,6 +154,7 @@ struct TypeTraits<DurationType> {
   using ArrayType = DurationArray;
   using BuilderType = DurationBuilder;
   using ScalarType = DurationScalar;
+  using CType = DurationType::c_type;
 
   static constexpr int64_t bytes_required(int64_t elements) {
     return elements * static_cast<int64_t>(sizeof(int64_t));
@@ -171,6 +172,7 @@ struct TypeTraits<DayTimeIntervalType> {
     return elements * static_cast<int64_t>(sizeof(DayTimeIntervalType::DayMilliseconds));
   }
   constexpr static bool is_parameter_free = true;
+  static std::shared_ptr<DataType> type_singleton() { return day_time_interval(); }
 };
 
 template <>
@@ -183,6 +185,7 @@ struct TypeTraits<MonthIntervalType> {
     return elements * static_cast<int64_t>(sizeof(int32_t));
   }
   constexpr static bool is_parameter_free = true;
+  static std::shared_ptr<DataType> type_singleton() { return month_interval(); }
 };
 
 template <>
@@ -283,9 +286,10 @@ struct CTypeTraits<std::string> : public TypeTraits<StringType> {
 };
 
 template <>
-struct CTypeTraits<char*> : public TypeTraits<StringType> {
-  using ArrowType = StringType;
-};
+struct CTypeTraits<const char*> : public CTypeTraits<std::string> {};
+
+template <size_t N>
+struct CTypeTraits<const char (&)[N]> : public CTypeTraits<std::string> {};
 
 template <>
 struct CTypeTraits<DayTimeIntervalType::DayMilliseconds>
@@ -377,38 +381,7 @@ struct make_void {
 template <typename... Ts>
 using void_t = typename make_void<Ts...>::type;
 
-template <typename T, typename = void>
-struct is_dereferencable : public std::false_type {};
-
-template <typename T>
-struct is_dereferencable<T, void_t<decltype(*std::declval<T>())>>
-    : public std::true_type {};
-
-template <typename T, typename = void>
-struct is_optional_like : public std::false_type {};
-
-template <typename T>
-struct is_optional_like<T,
-                        typename std::enable_if<std::is_constructible<bool, T>::value &&
-                                                is_dereferencable<T>::value>::type>
-    : public std::true_type {};
-
 }  // namespace internal
-
-template <typename T, typename R = void>
-using enable_if_optional_like =
-    typename std::enable_if<internal::is_optional_like<T>::value, R>::type;
-
-template <typename Optional>
-struct CTypeTraits<Optional, enable_if_optional_like<Optional>> {
-  using OptionalInnerType =
-      typename std::decay<decltype(*std::declval<Optional>())>::type;
-  using ArrowType = typename CTypeTraits<OptionalInnerType>::ArrowType;
-
-  static std::shared_ptr<::arrow::DataType> type_singleton() {
-    return CTypeTraits<OptionalInnerType>::type_singleton();
-  }
-};
 
 //
 // Useful type predicates
@@ -516,7 +489,7 @@ using enable_if_boolean =
 
 template <typename T, typename R = void>
 using enable_if_binary_like =
-    typename std::enable_if<std::is_base_of<BinaryType, T>::value ||
+    typename std::enable_if<std::is_base_of<BaseBinaryType, T>::value ||
                                 std::is_base_of<FixedSizeBinaryType, T>::value,
                             R>::type;
 
@@ -651,6 +624,7 @@ static inline bool is_primitive(Type::type type_id) {
     case Type::TIME32:
     case Type::TIME64:
     case Type::TIMESTAMP:
+    case Type::DURATION:
     case Type::INTERVAL:
       return true;
     default:

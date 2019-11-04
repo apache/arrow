@@ -17,6 +17,698 @@
   under the License.
 -->
 
+# Apache Arrow 0.15.0 (30 September 2019)
+
+## Bug
+
+* ARROW-1184 - [Java] Dictionary.equals is not working correctly
+* ARROW-2317 - [Python] fix C linkage warning
+* ARROW-2490 - [C++] input stream locking inconsistent
+* ARROW-3176 - [Python] Overflow in Date32 column conversion to pandas
+* ARROW-3203 - [C++] Build error on Debian Buster
+* ARROW-3651 - [Python] Datetimes from non-DateTimeIndex cannot be deserialized
+* ARROW-3652 - [Python] CategoricalIndex is lost after reading back
+* ARROW-3762 - [C++] Parquet arrow::Table reads error when overflowing capacity of BinaryArray
+* ARROW-3933 - [Python] Segfault reading Parquet files from GNOMAD
+* ARROW-4187 - [C++] file-benchmark uses <poll.h>
+* ARROW-4746 - [C++/Python] PyDataTime\_Date wrongly casted to PyDataTime\_DateTime
+* ARROW-4836 - [Python] "Cannot tell() a compressed stream" when using RecordBatchStreamWriter
+* ARROW-4848 - [C++] Static libparquet not compiled with -DARROW\_STATIC on Windows
+* ARROW-4880 - [Python] python/asv-build.sh is probably broken after CMake refactor
+* ARROW-4883 - [Python] read\_csv() returns garbage if given file object in text mode
+* ARROW-5028 - [Python][C++] Creating list<string> with pyarrow.array can overflow child builder
+* ARROW-5085 - [Python/C++] Conversion of dict encoded null column fails in parquet writing when using RowGroups
+* ARROW-5086 - [Python] Space leak in  ParquetFile.read\_row\_group()
+* ARROW-5089 - [C++/Python] Writing dictionary encoded columns to parquet is extremely slow when using chunk size
+* ARROW-5125 - [Python] Cannot roundtrip extreme dates through pyarrow
+* ARROW-5220 - [Python] index / unknown columns in specified schema in Table.from\_pandas
+* ARROW-5292 - [C++] Static libraries are built on AppVeyor
+* ARROW-5300 - [C++] 0.13 FAILED to build with option -DARROW\_NO\_DEFAULT\_MEMORY\_POOL
+* ARROW-5374 - [Python] Misleading error message when calling pyarrow.read\_record\_batch on a complete IPC stream
+* ARROW-5414 - [C++] Using "Ninja" build system generator overrides default Release build type on Windows
+* ARROW-5450 - [Python] TimestampArray.to\_pylist() fails with OverflowError: Python int too large to convert to C long
+* ARROW-5471 - [C++][Gandiva]Array offset is ignored in Gandiva projector
+* ARROW-5522 - [Packaging][Documentation] Comments out of date in python/manylinux1/build\_arrow.sh
+* ARROW-5560 - [C++][Plasma] Cannot create Plasma object after OutOfMemory error
+* ARROW-5562 - [C++][Parquet] parquet writer does not handle negative zero correctly
+* ARROW-5630 - [Python][Parquet] Table of nested arrays doesn't round trip
+* ARROW-5638 - [C++] cmake fails to generate Xcode project when Gandiva JNI bindings are enabled
+* ARROW-5651 - [Python] Incorrect conversion from strided Numpy array when other type is specified
+* ARROW-5682 - [Python] from\_pandas conversion casts values to string inconsistently
+* ARROW-5731 - [CI] Turbodbc integration tests are failing 
+* ARROW-5753 - [Rust] Fix test failure in CI code coverage
+* ARROW-5772 - [GLib][Plasma][CUDA] Plasma::Client#refer\_object test is failed
+* ARROW-5775 - [C++] StructArray : cached boxed fields not thread-safe
+* ARROW-5776 - [Gandiva][Crossbow] Revert template to have commit ids.
+* ARROW-5790 - [Python] Passing zero-dim numpy array to pa.array causes segfault
+* ARROW-5817 - [Python] Use pytest marks for Flight test to avoid silently skipping unit tests due to import failures
+* ARROW-5823 - [Rust] CI scripts miss --all-targets cargo argument
+* ARROW-5824 - [Gandiva] [C++] Fix decimal null
+* ARROW-5836 - [Java][OSX] Flight tests are failing: address already in use
+* ARROW-5838 - [C++][Flight][OSX] Building 3rdparty grpc cannot find OpenSSL
+* ARROW-5848 - [C++] SO versioning schema after release 1.0.0
+* ARROW-5849 - [C++] Compiler warnings on mingw-w64
+* ARROW-5851 - [C++] Compilation of reference benchmarks fails
+* ARROW-5856 - [Python] linking 3rd party cython modules against pyarrow fails since 0.14.0
+* ARROW-5860 - [Java] [Vector] Fix decimal byte setter
+* ARROW-5863 - [Python] Segmentation Fault via pytest-runner
+* ARROW-5868 - [Python] manylinux2010 wheels have shared library dependency on liblz4
+* ARROW-5870 - [C++] Development compile instructions need to include "make"
+* ARROW-5873 - [Python] Segmentation fault when comparing schema with None
+* ARROW-5874 - [Python] pyarrow 0.14.0 macOS wheels depend on shared libs under /usr/local/opt
+* ARROW-5878 - [Python][C++] Parquet reader not forward compatible for timestamps without timezone
+* ARROW-5884 - [Java] Fix the get method of StructVector
+* ARROW-5886 - [Python][Packaging] Manylinux1/2010 compliance issue with libz
+* ARROW-5887 - [C#] ArrowStreamWriter writes FieldNodes in wrong order
+* ARROW-5889 - [Python][C++] Parquet backwards compat for timestamps without timezone broken
+* ARROW-5894 - [C++] libgandiva.so.14 is exporting libstdc++ symbols
+* ARROW-5899 - [Python][Packaging] Bundle uriparser.dll in windows wheels 
+* ARROW-5910 - [Python] read\_tensor() fails on non-seekable streams
+* ARROW-5921 - [C++][Fuzzing] Missing nullptr checks in IPC
+* ARROW-5923 - [C++] Fix int96 comment
+* ARROW-5925 - [Gandiva][C++] cast decimal to int should round up
+* ARROW-5930 - [FlightRPC] [Python] Flight CI tests are failing
+* ARROW-5935 - [C++] ArrayBuilders with mutable type are not robustly supported
+* ARROW-5946 - [Rust] [DataFusion] Projection push down with aggregate producing incorrect results
+* ARROW-5952 - [Python] Segfault when reading empty table with category as pandas dataframe
+* ARROW-5959 - [C++][CI] Fuzzit does not know about branch + commit hash
+* ARROW-5960 - [C++] Boost dependencies are specified in wrong order
+* ARROW-5963 - [R] R Appveyor job does not test changes in the C++ library
+* ARROW-5964 - [C++][Gandiva] Cast double to decimal with rounding returns 0
+* ARROW-5966 - [Python] Capacity error when converting large UTF32 numpy array to arrow array
+* ARROW-5968 - [Java] Remove duplicate Preconditions check in JDBC adapter
+* ARROW-5969 - [CI] [R] Lint failures
+* ARROW-5973 - [Java] Variable width vectors' get methods should return null when the underlying data is null
+* ARROW-5989 - [C++][Python] pyarrow.lib.ArrowIOError: Unable to load libjvm when using openjdk-8
+* ARROW-5990 - [Python] RowGroupMetaData.column misses bounds check
+* ARROW-5992 - [C++] Array::View fails for string/utf8 as binary
+* ARROW-5996 - [Java] Avoid resource leak in flight service
+* ARROW-5999 - [C++] Required header files missing when built with -DARROW\_DATASET=OFF
+* ARROW-6002 - [C++][Gandiva] TestCastFunctions does not test int64 casting\`
+* ARROW-6004 - [C++] CSV reader ignore\_empty\_lines option doesn't handle empty lines
+* ARROW-6005 - [C++] parquet::arrow::FileReader::GetRecordBatchReader() does not behave as documented since ARROW-1012
+* ARROW-6006 - [C++] Empty IPC streams containing a dictionary are corrupt
+* ARROW-6012 - [C++] Fall back on known Apache mirror for Thrift downloads
+* ARROW-6016 - [Python] pyarrow get\_library\_dirs assertion error
+* ARROW-6029 - [R] Improve R docs on how to fix library version mismatch
+* ARROW-6032 - [C++] CountSetBits doesn't ensure 64-bit aligned accesses
+* ARROW-6038 - [Python] pyarrow.Table.from\_batches produces corrupted table if any of the batches were empty
+* ARROW-6040 - [Java] Dictionary entries are required in IPC streams even when empty
+* ARROW-6046 - [C++] Slice RecordBatch of String array with offset 0 returns whole batch
+* ARROW-6047 - [Rust] Rust nightly 1.38.0 builds failing
+* ARROW-6050 - [Java] Update out-of-date java/flight/README.md
+* ARROW-6054 - pyarrow.serialize should respect the value of structured dtype of numpy
+* ARROW-6058 - [Python][Parquet] Failure when reading Parquet file from S3 with s3fs
+* ARROW-6060 - [Python] too large memory cost using pyarrow.parquet.read\_table with use\_threads=True
+* ARROW-6061 - [C++] Cannot build libarrow without rapidjson
+* ARROW-6066 - [Website] Fix blog post author header
+* ARROW-6067 - [Python] Large memory test failures
+* ARROW-6068 - [Python] Hypothesis test failure, Add StructType::Make that accepts vector of fields
+* ARROW-6073 - [C++] Decimal128Builder is not reset in Finish()
+* ARROW-6082 - [Python] create pa.dictionary() type with non-integer indices type crashes
+* ARROW-6092 - [C++] Python 2.7: arrow\_python\_test failure
+* ARROW-6095 - [C++] Python subproject ignores ARROW\_TEST\_LINKAGE
+* ARROW-6108 - [C++] Appveyor Build\_Debug configuration is hanging in C++ unit tests
+* ARROW-6116 - [C++][Gandiva] Fix bug in TimedTestFilterAdd2
+* ARROW-6117 - [Java] Fix the set method of FixedSizeBinaryVector
+* ARROW-6120 - [C++][Gandiva] including some headers causes decimal\_test to fail
+* ARROW-6126 - [C++] IPC stream reader handling of empty streams potentially not robust
+* ARROW-6132 - [Python] ListArray.from\_arrays does not check validity of input arrays
+* ARROW-6135 - [C++] KeyValueMetadata::Equals should not be order-sensitive
+* ARROW-6136 - [FlightRPC][Java] Don't double-close response stream
+* ARROW-6145 - [Java] UnionVector created by MinorType#getNewVector could not keep field type info properly
+* ARROW-6148 - [C++][Packaging]  Improve aarch64 support
+* ARROW-6152 - [C++][Parquet] Write arrow::Array directly into parquet::TypedColumnWriter<T>
+* ARROW-6153 - [R] Address parquet deprecation warning
+* ARROW-6158 - [Python] possible to create StructArray with type that conflicts with child array's types
+* ARROW-6159 - [C++] PrettyPrint of arrow::Schema missing identation for first line
+* ARROW-6160 - [Java] AbstractStructVector#getPrimitiveVectors fails to work with complex child vectors
+* ARROW-6166 - [Go] Slice of slice causes index out of range panic
+* ARROW-6167 - [R] macOS binary R packages on CRAN don't have arrow\_available
+* ARROW-6170 - [R] "docker-compose build r" is slow
+* ARROW-6171 - [R] "docker-compose run r" fails
+* ARROW-6174 - [C++] Validate chunks in ChunkedArray::Validate
+* ARROW-6175 - [Java] Fix MapVector#getMinorType and extend AbstractContainerVector addOrGet complex vector API
+* ARROW-6178 - [Developer] Don't fail in merge script on bad primary author input in multi-author PRs
+* ARROW-6182 - [R] Add note to README about r-arrow conda installation 
+* ARROW-6186 - [Packaging][C++] Plasma headers not included for ubuntu-xenial libplasma-dev debian package
+* ARROW-6190 - [C++] Define and declare functions regardless of NDEBUG
+* ARROW-6200 - [Java] Method getBufferSizeFor in BaseRepeatedValueVector/ListVector not correct
+* ARROW-6202 - [Java] Exception in thread "main" org.apache.arrow.memory.OutOfMemoryException: Unable to allocate buffer of size 4 due to memory limit. Current allocation: 2147483646
+* ARROW-6205 - [C++] ARROW\_DEPRECATED warning when including io/interfaces.h from CUDA (.cu) source
+* ARROW-6208 - [Java] Correct byte order before comparing in ByteFunctionHelpers
+* ARROW-6210 - [Java] remove equals API from ValueVector
+* ARROW-6211 - [Java] Remove dependency on RangeEqualsVisitor from ValueVector interface
+* ARROW-6214 - [R] Sanitizer errors triggered via R bindings
+* ARROW-6215 - [Java] RangeEqualVisitor does not properly compare ZeroVector
+* ARROW-6223 - [C++] Configuration error with Anaconda Python 3.7.4
+* ARROW-6224 - [Python] remaining usages of the 'data' attribute (from previous Column) cause warnings
+* ARROW-6227 - [Python] pyarrow.array() shouldn't coerce np.nan to string
+* ARROW-6234 - [Java] ListVector hashCode() is not correct
+* ARROW-6241 - [Java] Failures on master
+* ARROW-6259 - [C++][CI] Flatbuffers-related failures in CI on macOS
+* ARROW-6263 - [Python] RecordBatch.from\_arrays does not check array types against a passed schema
+* ARROW-6266 - [Java] Resolve the ambiguous method overload in RangeEqualsVisitor
+* ARROW-6268 - Empty buffer should have a valid address
+* ARROW-6269 - [C++][Fuzzing] IPC reads do not check decimal precision
+* ARROW-6270 - [C++][Fuzzing] IPC reads do not check buffer indices
+* ARROW-6290 - [Rust] [DataFusion] sql\_csv example errors when running
+* ARROW-6291 - [C++] CMake ignores ARROW\_PARQUET
+* ARROW-6301 - [Python] atexit: pyarrow.lib.ArrowKeyError: 'No type extension with name arrow.py\_extension\_type found'
+* ARROW-6302 - [Python][Parquet] Reading dictionary type with serialized Arrow schema does not restore "ordered" type property
+* ARROW-6309 - [C++] Parquet tests and executables are linked statically
+* ARROW-6323 - [R] Expand file paths when passing to readers
+* ARROW-6325 - [Python] wrong conversion of DataFrame with boolean values
+* ARROW-6330 - [C++] Include missing headers in api.h
+* ARROW-6332 - [Java][C++][Gandiva] Handle size of varchar vectors correctly
+* ARROW-6339 - [Python][C++] Rowgroup statistics for pd.NaT array ill defined
+* ARROW-6343 - [Java] [Vector] Fix allocation helper
+* ARROW-6344 - [C++][Gandiva] substring does not handle multibyte characters
+* ARROW-6345 - [C++][Python] "ordered" flag seemingly not taken into account when comparing DictionaryType values for equality
+* ARROW-6348 - [R] arrow::read\_csv\_arrow namespace error when package not loaded
+* ARROW-6354 - [C++] Building without Parquet fails
+* ARROW-6363 - [R] segfault in Table\_\_from\_dots with unexpected schema
+* ARROW-6364 - [R] Handling unexpected input to time64() et al
+* ARROW-6369 - [Python] Support list-of-boolean in Array.to\_pandas conversion
+* ARROW-6371 - [Doc] Row to columnar conversion example mentions arrow::Column in comments
+* ARROW-6372 - [Rust][Datafusion] Casting from Un-signed to Signed Integers not supported
+* ARROW-6376 - [Developer] PR merge script has "master" target ref hard-coded
+* ARROW-6387 - [Archery] Errors with make
+* ARROW-6392 - [Python][Flight] list\_actions Server RPC is not tested in test\_flight.py, nor is return value validated
+* ARROW-6406 - [C++] jemalloc\_ep fails for offline build
+* ARROW-6411 - [C++][Parquet] DictEncoderImpl<T>::PutIndicesTyped has bad performance on some systems
+* ARROW-6412 - [C++] arrow-flight-test can crash because of port allocation
+* ARROW-6418 - [C++] Plasma cmake targets are not exported
+* ARROW-6423 - [Python] pyarrow.CompressedOutputStream() never completes with compression='snappy'
+* ARROW-6424 - [C++][Fuzzing] Fuzzit nightly is broken
+* ARROW-6428 - [CI][Crossbow] Nightly turbodbc job fails
+* ARROW-6431 - [Python] Test suite fails without pandas installed
+* ARROW-6432 - [CI][Crossbow] Remove alpine crossbow jobs
+* ARROW-6433 - [CI][Crossbow] Nightly java docker job fails
+* ARROW-6434 - [CI][Crossbow] Nightly HDFS integration job fails
+* ARROW-6435 - [CI][Crossbow] Nightly dask integration job fails
+* ARROW-6440 - [CI][Crossbow] Nightly ubuntu, debian, and centos package builds fail
+* ARROW-6441 - [CI][Crossbow] Nightly Centos 6 job fails
+* ARROW-6443 - [CI][Crossbow] Nightly conda osx builds fail
+* ARROW-6445 - [CI][Crossbow] Nightly Gandiva jar trusty job fails
+* ARROW-6446 - [OSX][Python][Wheel] Turn off ORC feature in the wheel building scripts
+* ARROW-6449 - [R] io "tell()" methods are inconsistently named and untested
+* ARROW-6457 - [C++] CMake build locally fails with MSVC 2015 build generator
+* ARROW-6461 - [Java] EchoServer can close socket before client has finished reading
+* ARROW-6472 - [Java] ValueVector#accept may has potential cast exception
+* ARROW-6476 - [Java][CI] Travis java all-jdks job is broken
+* ARROW-6478 - [C++] Roll back to jemalloc stable-4 branch until performance issues in 5.2.x addressed
+* ARROW-6481 - [Python][C++] Bad performance of read\_csv() with column\_types
+* ARROW-6488 - [Python] pyarrow.NULL equals to itself
+* ARROW-6492 - [Python] file written with latest fastparquet cannot be read with latest pyarrow
+* ARROW-6502 - [GLib][CI] MinGW failure in CI
+* ARROW-6506 - [C++] Validation of ExtensionType with nested type fails
+* ARROW-6509 - [C++][Gandiva] Re-enable Gandiva JNI tests and fix Travis CI failure
+* ARROW-6520 - [Python] Segmentation fault on writing tables with fixed size binary fields 
+* ARROW-6522 - [Python] Test suite fails with pandas 0.23.4, pytest 3.8.1
+* ARROW-6530 - [CI][Crossbow][R] Nightly R job doesn't install all dependencies
+* ARROW-6550 - [C++] Filter expressions PR failing manylinux package builds
+* ARROW-6552 - [C++] boost::optional in STL test fails compiling in gcc 4.8.2
+* ARROW-6560 - [Python] Failures in \*-nopandas integration tests
+* ARROW-6561 - [Python] pandas-master integration test failure
+* ARROW-6562 - [GLib] Fix wrong sliced data of GArrowBuffer
+* ARROW-6564 - [Python] Do not require pandas for invoking Array.\_\_array\_\_
+* ARROW-6565 - [Rust] [DataFusion] Intermittent test failure due to temp dir already existing
+* ARROW-6568 - [C++][Python][Parquet] pyarrow.parquet crash writing zero-chunk dictionary-type column
+* ARROW-6572 - [C++] Reading some Parquet data can return uninitialized memory
+* ARROW-6573 - [Python] Segfault when writing to parquet
+* ARROW-6576 - [R] Fix sparklyr integration tests
+* ARROW-6597 - [Python] Segfault in test\_pandas with Python 2.7
+* ARROW-6618 - [Python] Reading a zero-size buffer can segfault
+* ARROW-6622 - [C++][R] SubTreeFileSystem path error on Windows
+* ARROW-6623 - [CI][Python] Dask docker integration test broken perhaps by statistics-related change
+* ARROW-6639 - [Packaging][RPM] Add support for CentOS 7 on aarch64
+* ARROW-6640 - [C++] Error when BufferedInputStream Peek more than bytes buffered
+* ARROW-6642 - [Python] chained access of ParquetDataset's metadata segfaults
+* ARROW-6651 - [R] Fix R conda job
+* ARROW-6652 - [Python] to\_pandas conversion removes timezone from type
+* ARROW-6660 - [Rust] [DataFusion] Minor docs update for 0.15.0 release
+* ARROW-6670 - [CI][R] Fix fix for R nightly jobs
+* ARROW-6674 - [Python] Fix or ignore the test warnings
+* ARROW-6677 - [FlightRPC][C++] Document using Flight in C++
+* ARROW-6678 - [C++] Regression in Parquet file compatibility introduced by ARROW-3246
+* ARROW-6679 - [RELEASE] autobrew license in LICENSE.txt is not acceptable
+* ARROW-6682 - [C#] Arrow R/C++ hangs reading binary file generated by C#
+* ARROW-6687 - [Rust] [DataFusion] Query returns incorrect row count
+* ARROW-6701 - [C++][R] Lint failing on R cpp code
+* ARROW-6703 - [Packaging][Linux] Restore ARROW\_VERSION environment variable
+* ARROW-6705 - [Rust] [DataFusion] README has invalid github URL
+* ARROW-6709 - [JAVA] Jdbc adapter currentIndex should increment when value is null
+* ARROW-6714 - [R] Fix untested RecordBatchWriter case
+* ARROW-6716 - [CI] [Rust] New 1.40.0 nightly causing builds to fail
+
+## Improvement
+
+* ARROW-1324 - [C++] Support ARROW\_BOOST\_VENDORED on Windows / MSVC
+* ARROW-1789 - [Format] Consolidate specification documents and improve clarity for new implementation authors
+* ARROW-2769 - [C++][Python] Deprecate and rename add\_metadata methods
+* ARROW-3032 - [Python] Clean up NumPy-related C++ headers
+* ARROW-3243 - [C++] Upgrade jemalloc to version 5
+* ARROW-3246 - [Python][Parquet] direct reading/writing of pandas categoricals in parquet
+* ARROW-3325 - [Python] Support reading Parquet binary/string columns directly as DictionaryArray
+* ARROW-3531 - [Python] Deprecate Schema.field\_by\_name in favor of \_\_getitem\_\_ 
+* ARROW-3579 - [Crossbow] Unintuitive error message when remote branch has not been pushed
+* ARROW-3643 - [Rust] Optimize \`push\_slice\` of \`BufferBuilder<bool>\`
+* ARROW-3710 - [Crossbow][Python] Run nightly tests against pandas master
+* ARROW-3772 - [C++] Read Parquet dictionary encoded ColumnChunks directly into an Arrow DictionaryArray
+* ARROW-3829 - [Python] Support protocols to extract Arrow objects from third-party classes
+* ARROW-3943 - [R] Write vignette for R package
+* ARROW-4036 - [C++] Make status codes pluggable
+* ARROW-4095 - [C++] Implement optimizations for dictionary unification where dictionaries are prefixes of the unified dictionary
+* ARROW-4111 - [Python] Create time types from Python sequences of integers
+* ARROW-4220 - [Python] Add buffered input and output stream ASV benchmarks with simulated high latency IO
+* ARROW-4398 - [Python] Add benchmarks for Arrow<>Parquet BYTE\_ARRAY serialization (read and write)
+* ARROW-4473 - [Website] Add instructions to do a test-deploy of Arrow website and fix bugs
+* ARROW-4648 - [C++/Question] Naming/organizational inconsistencies in cpp codebase
+* ARROW-4649 - [C++/CI/R] Add (nightly) job that builds \`brew install apache-arrow --HEAD\`
+* ARROW-4752 - [Rust] Add explicit SIMD vectorization for the divide kernel
+* ARROW-4810 - [Format][C++] Add "LargeList" type with 64-bit offsets
+* ARROW-4841 - [C++] Persist CMake options in generated CMake config
+* ARROW-5134 - [R][CI] Run nightly tests against multiple R versions
+* ARROW-5211 - [Format] Missing documentation under \`Dictionary encoding\` section on MetaData page
+* ARROW-5216 - [CI] Add Appveyor badge to README
+* ARROW-5307 - [CI][GLib] Enable GTK-Doc
+* ARROW-5343 - [C++] Consider using Buffer for transpose maps in DictionaryType::Unify instead of std::vector
+* ARROW-5344 - [C++] Use ArrayDataVisitor in implementation of dictionary unpacking in compute/kernels/cast.cc
+* ARROW-5358 - [Rust] Implement equality check for ArrayData and Array
+* ARROW-5380 - [C++] Fix and enable UBSan for unaligned accesses.
+* ARROW-5439 - [Java] Utilize stream EOS in File format
+* ARROW-5444 - [Release][Website] After 0.14 release, update what is an "official" release
+* ARROW-5458 - [C++] ARMv8 parallel CRC32c computation optimization
+* ARROW-5480 - [Python] Pandas categorical type doesn't survive a round-trip through parquet
+* ARROW-5494 - [Python] Create FileSystem bindings
+* ARROW-5505 - [R] Stop masking base R functions/rethink namespacing
+* ARROW-5527 - [C++] HashTable/MemoTable should use Buffer(s)/Builder(s) for heap data
+* ARROW-5558 - [C++] Support Array::View on arrays with non-zero offsets
+* ARROW-5559 - [C++] Introduce IpcOptions struct object for better API-stability when adding new options
+* ARROW-5564 - [C++] Add uriparser to conda-forge
+* ARROW-5610 - [Python] Define extension type API in Python to "receive" or "send" a foreign extension type
+* ARROW-5646 - [Crossbow][Documentation] Move the user guide to the Sphinx documentation
+* ARROW-5681 - [FlightRPC] Wrap gRPC exceptions/statuses
+* ARROW-5686 - [R] Review R Windows CI build
+* ARROW-5716 - [Developer] Improve merge PR script to acknowledge co-authors
+* ARROW-5717 - [Python] Support dictionary unification when converting variable dictionaries to pandas
+* ARROW-5722 - [Rust] Implement std::fmt::Debug for ListArray, BinaryArray and StructArray
+* ARROW-5734 - [Python] Dispatch to Table.from\_arrays from pyarrow.table factory function
+* ARROW-5736 - [Format][C++] Support small bit-width indices in sparse tensor
+* ARROW-5741 - [JS] Make numeric vector from functions consistent with TypedArray.from
+* ARROW-5743 - [C++] Add CMake option to enable "large memory" unit tests
+* ARROW-5746 - [Website] Move website source out of apache/arrow
+* ARROW-5747 - [C++] Better column name and header support in CSV reader
+* ARROW-5762 - [Integration][JS] Integration Tests for Map Type
+* ARROW-5777 - [C++] BasicDecimal128 is a small object it doesn't always make sense to pass by const ref
+* ARROW-5778 - [Java] Extract the logic for vector data copying to the super classes
+* ARROW-5784 - [Release][GLib] Replace c\_glib/ after running c\_glib/autogen.sh in dev/release/02-source.sh
+* ARROW-5786 - [Release] Use arrow-jni profile in dev/release/01-prepare.sh
+* ARROW-5788 - [Rust] Use { version = "...", path = "../..." } for arrow and parquet dependencies
+* ARROW-5789 - [C++] Small Warning/Linkage cleanups
+* ARROW-5798 - [Packaging][deb] Update doc architecture
+* ARROW-5800 - [R] Dockerize R Travis CI tests so they can be run anywhere via docker-compose 
+* ARROW-5803 - [C++] Dockerize C++ with clang 7 Travis CI unit test logic
+* ARROW-5812 - [Java] Refactor method name and param type in BaseIntVector
+* ARROW-5813 - [C++] Support checking the equality of the different contiguous tensors
+* ARROW-5814 - [Java] Implement a <Object, int> HashMap for DictionaryEncoder
+* ARROW-5827 - [C++] Require c-ares CMake config
+* ARROW-5828 - [C++] Add Protocol Buffers version check
+* ARROW-5830 - [C++] Stop using memcmp in TensorEquals
+* ARROW-5833 - [C++] Factor out status copying code from cast.cc
+* ARROW-5842 - [Java] Revise the semantic of lastSet in ListVector
+* ARROW-5843 - [Java] Improve the readability and performance of BitVectorHelper#getNullCount
+* ARROW-5853 - [Python] Expose boolean filter kernel on Array
+* ARROW-5864 - [Python] simplify cython wrapping of Result
+* ARROW-5865 - [Release] Helper script for rebasing open pull requests on master
+* ARROW-5866 - [C++] Remove duplicate library in cpp/Brewfile
+* ARROW-5876 - [FlightRPC] Implement basic auth across all languages
+* ARROW-5877 - [FlightRPC] Fix auth incompatibilities between Python/Java
+* ARROW-5880 - [C++] Update arrow parquet writer to use TypedBufferBuilder 
+* ARROW-5883 - [Java] Support dictionary encoding for List and Struct type
+* ARROW-5888 - [Python][C++] Add metadata to store Arrow time zones in Parquet file metadata
+* ARROW-5897 - [Java] Remove duplicated logic in MapVector
+* ARROW-5900 - [Gandiva] [Java] Decimal precision,scale bounds check
+* ARROW-5904 - [Java] [Plasma] Fix compilation of Plasma Java client
+* ARROW-5906 - [CI] Set -DARROW\_VERBOSE\_THIRDPARTY\_BUILD=OFF in builds running in Travis CI, maybe all docker-compose builds by default
+* ARROW-5908 - [C#] ArrowStreamWriter doesn't align buffers to 8 bytes
+* ARROW-5909 - [Java] Optimize ByteFunctionHelpers equals & compare logic
+* ARROW-5911 - [Java] Make ListVector and MapVector create reader lazily
+* ARROW-5918 - [Java] Add get to BaseIntVector interface
+* ARROW-5919 - [R] Add nightly tests for building r-arrow with dependencies from conda-forge
+* ARROW-5924 - [C++][Plasma] It is not convenient to release a GPU object
+* ARROW-5937 - [Release] Stop parallel binary upload
+* ARROW-5938 - [Release] Create branch for adding release note automatically
+* ARROW-5939 - [Release] Add support for generating vote email template separately
+* ARROW-5940 - [Release] Add support for re-uploading sign/checksum for binary artifacts
+* ARROW-5941 - [Release] Avoid re-uploading already uploaded binary artifacts
+* ARROW-5943 - [GLib][Gandiva] Add support for function aliases
+* ARROW-5947 - [Rust] [DataFusion] Remove serde\_json dependency
+* ARROW-5948 - [Rust] [DataFusion] create\_logical\_plan should not call optimizer
+* ARROW-5955 - [Plasma] Support setting memory quotas per plasma client for better isolation
+* ARROW-5961 - [R] Be able to run R-only tests even without C++ library
+* ARROW-5962 - [CI][Python] Do not test manylinux1 wheels in Travis CI
+* ARROW-5967 - [Java] DateUtility#timeZoneList is not correct
+* ARROW-5976 - [C++] RETURN\_IF\_ERROR(ctx) should be namespaced
+* ARROW-5977 - [C++] [Python] Method for read\_csv to limit which columns are read?
+* ARROW-5985 - [Developer] Do not suggest setting Fix Version for point releases in dev/merge\_arrow\_pr.py
+* ARROW-5986 - [Java] Code cleanup for dictionary encoding
+* ARROW-5998 - [Java] Open a document to track the API changes
+* ARROW-6000 - [Python] Expose LargeBinaryType and LargeStringType
+* ARROW-6017 - [FlightRPC] Allow creating Locations with unknown schemes
+* ARROW-6020 - [Java] Refactor ByteFunctionHelper#hash with new added ArrowBufHasher
+* ARROW-6021 - [Java] Extract copyFrom and copyFromSafe methods to ValueVector interface
+* ARROW-6036 - [GLib] Add support for skip rows and column\_names CSV read option
+* ARROW-6037 - [GLib] Add a missing version macro
+* ARROW-6041 - [Website] Blog post announcing R package release
+* ARROW-6042 - [C++] Implement alternative DictionaryBuilder that always yields int32 indices
+* ARROW-6045 - [C++] Benchmark for Parquet float and NaN encoding/decoding
+* ARROW-6048 - [C++] Add ChunkedArray::View which calls to Array::View
+* ARROW-6049 - [C++] Support using Array::View from compatible dictionary type to another
+* ARROW-6063 - [FlightRPC] Implement "half-closed" semantics for DoPut
+* ARROW-6065 - [C++] Reorganize parquet/arrow/reader.cc, remove code duplication, improve readability
+* ARROW-6070 - [Java] Avoid creating new schema before IPC sending
+* ARROW-6077 - [C++][Parquet] Build logical schema tree mapping Arrow fields to Parquet schema levels
+* ARROW-6083 - [Java] Refactor Jdbc adapter consume logic
+* ARROW-6084 - [Python] Support LargeList
+* ARROW-6093 - [Java] reduce branches in algo for first match in VectorRangeSearcher
+* ARROW-6096 - [C++] Conditionally depend on boost regex library
+* ARROW-6100 - [Rust] Pin to specific Rust nightly release
+* ARROW-6104 - [Rust] [DataFusion] Don't allow bare\_trait\_objects
+* ARROW-6105 - [C++][Parquet][Python] Add test case showing dictionary-encoded subfields in nested type
+* ARROW-6115 - [Python] support LargeList, LargeString, LargeBinary in conversion to pandas
+* ARROW-6118 - [Java] Replace google Preconditions with Arrow Preconditions
+* ARROW-6121 - [Tools] Improve merge tool cli ergonomic
+* ARROW-6125 - [Python] Remove any APIs deprecated prior to 0.14.x
+* ARROW-6127 - [Website] Add favicons and meta tags
+* ARROW-6128 - [C++] Can't build with g++ 8.3.0 by class-memaccess warning
+* ARROW-6130 - [Release] Use 0.15.0 as the next release
+* ARROW-6139 - [Documentation][R] Build R docs (pkgdown) site and add to arrow-site
+* ARROW-6141 - [C++] Enable memory-mapping a file region that is offset from the beginning of the file
+* ARROW-6143 - [Java] Unify the copyFrom and copyFromSafe methods for all vectors
+* ARROW-6172 - [Java] Provide benchmarks to set IntVector with different methods
+* ARROW-6180 - [C++] Create InputStream that is an isolated reader of a segment of a RandomAccessFile
+* ARROW-6181 - [R] Only allow R package to install without libarrow on linux
+* ARROW-6187 - [C++] fallback to storage type when writing ExtensionType to Parquet
+* ARROW-6192 - [GLib] Use the same SO version as C++
+* ARROW-6194 - [Java] Add non-static approach in DictionaryEncoder making it easy to extend and reuse
+* ARROW-6206 - [Java][Docs] Document environment variables/java properties
+* ARROW-6209 - [Java] Extract set null method to the base class for fixed width vectors
+* ARROW-6216 - [C++] Allow user to select the compression level
+* ARROW-6219 - [Java] Add API for JDBC adapter that can convert less then the full result set at a time.
+* ARROW-6225 - [Website] Update arrow-site/README and any other places to point website contributors in right direction
+* ARROW-6230 - [R] Reading in Parquet files are 20x slower than reading fst files in R
+* ARROW-6231 - [C++][Python] Consider assigning default column names when reading CSV file and header\_rows=0
+* ARROW-6232 - [C++] Rename Argsort kernel to SortToIndices
+* ARROW-6237 - [R] Add option to set CXXFLAGS when compiling R package with $ARROW\_R\_CXXFLAGS
+* ARROW-6240 - [Ruby] Arrow::Decimal128Array returns BigDecimal
+* ARROW-6246 - [Website] Add link to R documentation site
+* ARROW-6249 - [Java] Remove useless class ByteArrayWrapper
+* ARROW-6252 - [Python] Add pyarrow.Array.diff method that exposes arrow::Diff
+* ARROW-6253 - [Python] Expose "enable\_buffered\_stream" option from parquet::ReaderProperties in pyarrow.parquet.read\_table
+* ARROW-6258 - [R] Add macOS build scripts
+* ARROW-6260 - [Website] Use deploy key on Travis to build and push to asf-site
+* ARROW-6262 - [Developer] Show JIRA issue before merging
+* ARROW-6264 - [Java] There is no need to consider byte order in ArrowBufHasher
+* ARROW-6267 - [Ruby] Add Arrow::Time for Arrow::Time{32,64}DataType value
+* ARROW-6271 - [Rust] [DataFusion] Add example for running SQL against Parquet
+* ARROW-6272 - [Rust] [DataFusion] Add register\_parquet convenience method to ExecutionContext
+* ARROW-6279 - [Python] Add Table.slice method or allow slices in \_\_getitem\_\_
+* ARROW-6284 - [C++] Allow references in std::tuple when converting tuple to arrow array
+* ARROW-6289 - [Java] Add empty() in UnionVector to create instance
+* ARROW-6294 - [C++] Use hyphen for plasma-store-server executable 
+* ARROW-6296 - [Java] Cleanup JDBC interfaces and eliminate one memcopy for binary/varchar fields
+* ARROW-6297 - [Java] Compare ArrowBufPointers by unsinged integers
+* ARROW-6303 - [Rust] Add a feature to disable SIMD
+* ARROW-6304 - [Java] Add description to each maven artifact
+* ARROW-6311 - [Java] Make ApproxEqualsVisitor accept DiffFunction to make it more flexible
+* ARROW-6313 - [Format] Tracking for ensuring flatbuffer serialized values are aligned in stream/files.
+* ARROW-6319 - [C++] Extract the core of NumericTensor<T>::Value as Tensor::Value<T>
+* ARROW-6328 - Click.option-s should have help text
+* ARROW-6329 - [Format] Add 4-byte "stream continuation" to IPC message format to align Flatbuffers
+* ARROW-6331 - [Java] Incorporate ErrorProne into the java build
+* ARROW-6334 - [Java] Improve the dictionary builder API to return the position of the value in the dictionary
+* ARROW-6335 - [Java] Improve the performance of DictionaryHashTable
+* ARROW-6336 - [Python] Clarify pyarrow.serialize/deserialize docstrings viz-a-viz relationship with Arrow IPC protocol
+* ARROW-6337 - [R] as\_tibble in R API is a misnomer
+* ARROW-6338 - [R] Type function names don't match type names
+* ARROW-6342 - [Python] Add pyarrow.record\_batch factory function with same basic API / semantics as pyarrow.table
+* ARROW-6350 - [Ruby] Remove Arrow::Struct and use Hash instead
+* ARROW-6351 - [Ruby] Improve Arrow#values performance
+* ARROW-6353 - [Python] Allow user to select compression level in pyarrow.parquet.write\_table
+* ARROW-6355 - [Java] Make range equal visitor reusable
+* ARROW-6357 - [C++] S3: allow for background writes
+* ARROW-6358 - [C++] FileSystem::DeleteDir should make it optional to delete the directory itself
+* ARROW-6360 - [R] Update support for compression
+* ARROW-6362 - [C++] S3: more flexible credential options
+* ARROW-6365 - [R] Should be able to coerce numeric to integer with schema
+* ARROW-6366 - [Java] Make field vectors final explicitly
+* ARROW-6368 - [C++] Add RecordBatch projection functionality
+* ARROW-6373 - [C++] Make FixedWidthBinaryBuilder consistent with other primitive fixed width builders
+* ARROW-6375 - [C++] Extend ConversionTraits to allow efficiently appending list values in STL API
+* ARROW-6379 - [C++] Do not append any buffers when serializing NullType for IPC
+* ARROW-6381 - [C++] BufferOutputStream::Write is slow for many small writes
+* ARROW-6384 - [C++] Bump dependencies
+* ARROW-6391 - [Python][Flight] Add built-in methods on FlightServerBase to start server and wait for it to be available
+* ARROW-6402 - [C++] Suppress sign-compare warning with g++ 9.2.1
+* ARROW-6403 - [Python] Expose FileReader::ReadRowGroups() to Python
+* ARROW-6408 - [Rust] Use "if cfg!" pattern in SIMD kernel implementations
+* ARROW-6413 - [R] Support autogenerating column names
+* ARROW-6415 - [R] Remove usage of R CMD config CXXCPP
+* ARROW-6416 - [Python] Confusing API & documentation regarding chunksizes
+* ARROW-6426 - [FlightRPC] Expose gRPC configuration knobs in Flight
+* ARROW-6447 - [C++] Builds with ARROW\_JEMALLOC=ON wait until jemalloc\_ep is complete before building any libarrow .cc files
+* ARROW-6450 - [C++] Use 2x reallocation strategy in arrow::BufferBuilder instead of 1.5x
+* ARROW-6451 - [Format] Add clarifications to Columnar.rst about the contents of "null" slots in Varbinary or List arrays
+* ARROW-6453 - [C++] More informative error messages from S3
+* ARROW-6454 - [Developer] Add LLVM license to LICENSE.txt due to binary redistribution in packages
+* ARROW-6458 - [Java] Remove value boxing/unboxing for ApproxEqualsVisitor
+* ARROW-6462 - [C++] Can't build with bundled double-conversion on CentOS 6 x86\_64
+* ARROW-6465 - [Python] Improve Windows build instructions
+* ARROW-6475 - [C++] Don't try to dictionary encode dictionary arrays
+* ARROW-6477 - [Packaging][Crossbow] Use Azure Pipelines to build linux packages
+* ARROW-6484 - [Java] Enable create indexType for DictionaryEncoding according to dictionary value count
+* ARROW-6487 - [Rust] [DataFusion] Create test utils module
+* ARROW-6489 - [Developer][Documentation] Fix merge script and readme
+* ARROW-6504 - [Python][Packaging] Add mimalloc to conda packages for better performance
+* ARROW-6505 - [Website] Add new committers
+* ARROW-6518 - [Packaging][Python] Flight failing in OSX Python wheel builds
+* ARROW-6524 - [Developer][Packaging] Nightly build report's subject should contain Arrow
+* ARROW-6526 - [C++] Poison data in PoolBuffer destructor
+* ARROW-6527 - [C++] Add OutputStream::Write() variant taking an owned buffer
+* ARROW-6531 - [Python] Add detach() method to buffered streams
+* ARROW-6532 - [R] Write parquet files with compression
+* ARROW-6533 - [R] Compression codec should take a "level"
+* ARROW-6534 - [Java] Fix typos and spelling
+* ARROW-6540 - [R] Add Validate() methods
+* ARROW-6541 - [Format][C++] Use two-part EOS and amend Format documentation
+* ARROW-6542 - [R] Add View() method to array types
+* ARROW-6544 - [R] Documentation/polishing for 0.15 release
+* ARROW-6545 - [Go] Update Go IPC writer to use two-part EOS per mailing list discussion
+* ARROW-6546 - [C++] Add missing FlatBuffers source dependency
+* ARROW-6556 - [Python] Prepare for pandas release without SparseDataFrame
+* ARROW-6557 - [Python] Always return pandas.Series from Array/ChunkedArray.to\_pandas, propagate field names to Series from RecordBatch, Table
+* ARROW-6558 - [C++] Refactor Iterator to a type erased handle
+* ARROW-6559 - [Developer][C++] Add "archery" option to specify system toolchain for C++ builds
+* ARROW-6569 - [Website] Add support for auto deployment by GitHub Actions
+* ARROW-6570 - [Python] Use MemoryPool to allocate memory for NumPy arrays in to\_pandas calls
+* ARROW-6584 - [Python][Wheel] Bundle zlib again with the windows wheels
+* ARROW-6588 - [C++] Suppress class-memaccess warning with g++ 9.2.1
+* ARROW-6589 - [C++] Support BinaryType in MakeArrayOfNull
+* ARROW-6590 - [C++] Do not require ARROW\_JSON=ON when ARROW\_IPC=ON
+* ARROW-6591 - [R] Ignore .Rhistory files in source control
+* ARROW-6605 - [C++] Add recursion depth control to fs::Selector
+* ARROW-6606 - [C++] Construct tree structure from std::vector<fs::FileStats>
+* ARROW-6609 - [C++] Add minimal build Dockerfile example
+* ARROW-6610 - [C++] Add ARROW\_FILESYSTEM=ON/OFF CMake configuration flag
+* ARROW-6621 - [Rust][DataFusion] Examples for DataFusion are not executed in CI
+* ARROW-6629 - [Doc][C++] Document the FileSystem API
+* ARROW-6630 - [Doc][C++] Document the file readers (CSV, JSON, Parquet, etc.)
+* ARROW-6644 - [JS] Amend NullType IPC protocol to append no buffers
+* ARROW-6647 - [C++] Can't build with g++ 4.8.5 on CentOS 7 by member initializer for shared\_ptr
+* ARROW-6649 - [R] print() methods for Table, RecordBatch, etc.
+* ARROW-6653 - [Developer] Add support for auto JIRA link on pull request
+* ARROW-6664 - [C++] Add option to build without SSE4.2
+* ARROW-6667 - [Python] Avoid Reference Cycles in pyarrow.parquet
+* ARROW-6683 - [Python] Add unit tests that validate cross-compatibility with pyarrow.parquet when fastparquet is installed
+* ARROW-6735 - [C++] Suppress sign-compare warning with g++ 9.2.1
+
+## New Feature
+
+* ARROW-1561 - [C++] Kernel implementations for "isin" (set containment)
+* ARROW-1566 - [C++] Implement non-materializing sort kernels
+* ARROW-1741 - [C++] Comparison function for DictionaryArray to determine if indices are "compatible"
+* ARROW-3204 - [R] Enable package to be made available on CRAN
+* ARROW-3777 - [C++] Implement a mock "high latency" filesystem
+* ARROW-3817 - [R] $ method for RecordBatch
+* ARROW-453 - [C++] Add filesystem implementation for Amazon S3
+* ARROW-517 - [C++] Verbose Array::Equals
+* ARROW-5351 - [Rust] Add support for take kernel functions
+* ARROW-5588 - [C++] Better support for building UnionArrays
+* ARROW-5594 - [C++] add support for UnionArrays to Take and Filter
+* ARROW-5719 - [Java] Support in-place vector sorting
+* ARROW-5792 - [Rust] [Parquet] A visitor trait for parquet types.
+* ARROW-5832 - [Java] Support search operations for vector data
+* ARROW-5834 - [Java] Apply new hash map in DictionaryEncoder
+* ARROW-5835 - [Java] Support Dictionary Encoding for binary type
+* ARROW-5844 - [Java] Support comparison & sort for more numeric types
+* ARROW-5862 - [Java] Provide dictionary builder
+* ARROW-5881 - [Java] Provide functionalities to efficiently determine if a validity buffer has completely 1 bits/0 bits
+* ARROW-5892 - [C++][Gandiva] Support function aliases
+* ARROW-5893 - [C++] Remove arrow::Column class from C++ library
+* ARROW-5898 - [Java] Provide functionality to efficiently compute hash code for arbitrary memory segment
+* ARROW-5901 - [Rust] Implement PartialEq to compare array and json values
+* ARROW-5902 - [Java] Implement hash table and equals & hashCode API for dictionary encoding
+* ARROW-5917 - [Java] Redesign the dictionary encoder
+* ARROW-5920 - [Java] Support sort & compare for all variable width vectors
+* ARROW-5945 - [Rust] [DataFusion] Table trait should support building complete queries
+* ARROW-5970 - [Java] Provide pointer to Arrow buffer
+* ARROW-5974 - [Python][C++] Enable CSV reader to read from concatenated gzip stream
+* ARROW-5979 - [FlightRPC] Expose (de)serialization of protocol types
+* ARROW-5997 - [Java] Support dictionary encoding for Union type
+* ARROW-6013 - [Java] Support range searcher
+* ARROW-6022 - [Java] Support equals API in ValueVector to compare two vectors equal
+* ARROW-6024 - [Java] Provide more hash algorithms 
+* ARROW-6030 - [Java] Efficiently compute hash code for ArrowBufPointer
+* ARROW-6031 - [Java] Support iterating a vector by ArrowBufPointer
+* ARROW-6039 - [GLib] Add garrow\_array\_filter()
+* ARROW-6053 - [Python] RecordBatchStreamReader::Open2 cdef type signature doesn't match C++
+* ARROW-6079 - [Java] Implement/test UnionFixedSizeListWriter for FixedSizeListVector
+* ARROW-6080 - [Java] Support compare and search operation for BaseRepeatedValueVector
+* ARROW-6113 - [Java] Support vector deduplicate function
+* ARROW-6138 - [C++] Add a basic (single RecordBatch) implementation of Dataset
+* ARROW-6155 - [Java] Extract a super interface for vectors whose elements reside in continuous memory segments
+* ARROW-6156 - [Java] Support compare semantics for ArrowBufPointer
+* ARROW-6161 - [C++] Implements dataset::ParquetFile and associated Scan structures
+* ARROW-6185 - [Java] Provide hash table based dictionary builder
+* ARROW-6188 - [GLib] Add garrow\_array\_is\_in()
+* ARROW-6196 - [Ruby] Add support for building Arrow::TimeNNArray by .new
+* ARROW-6197 - [GLib] Add garrow\_decimal128\_rescale()
+* ARROW-6203 - [GLib] Add garrow\_array\_sort\_to\_indices()
+* ARROW-6204 - [GLib] Add garrow\_array\_is\_in\_chunked\_array()
+* ARROW-6212 - [Java] Support vector rank operation
+* ARROW-6229 - [C++] Add a DataSource implementation which scans a directory
+* ARROW-6238 - [C++] Implement SimpleDataSource/SimpleDataFragment
+* ARROW-6242 - [C++] Implements basic Dataset/Scanner/ScannerBuilder
+* ARROW-6243 - [C++] Implement basic Filter expression classes
+* ARROW-6244 - [C++] Implement Partition DataSource
+* ARROW-6247 - [Java] Provide a common interface for float4 and float8 vectors
+* ARROW-6250 - [Java] Implement ApproxEqualsVisitor comparing approx for floating point
+* ARROW-6278 - [R] Read parquet files from raw vector
+* ARROW-6288 - [Java] Implement TypeEqualsVisitor comparing vector type equals considering names and metadata
+* ARROW-6306 - [Java] Support stable sort by stable comparators
+* ARROW-6326 - [C++] Nullable fields when converting std::tuple to Table
+* ARROW-6346 - [GLib] Add garrow\_array\_view()
+* ARROW-6347 - [GLib] Add garrow\_array\_diff\_unified()
+* ARROW-6397 - [C++][CI] Fix S3 minio failure
+* ARROW-6419 - [Website] Blog post about Parquet dictionary performance work coming in 0.15.x release
+* ARROW-6427 - [GLib] Add support for column names autogeneration CSV read option
+* ARROW-6438 - [R] Add bindings for filesystem API
+* ARROW-6480 - [Developer] Add command to generate and send e-mail report for a Crossbow run
+* ARROW-6675 - [JS] Add scanReverse function to dataFrame and filteredDataframe
+* ARROW-750 - [Format] Add LargeBinary and LargeString types
+
+## Sub-task
+
+* ARROW-4218 - [Rust] [Parquet] Implement ColumnReader
+* ARROW-4365 - [Rust] [Parquet] Implement RecordReader
+* ARROW-4507 - [Format] Create outline and introduction for new document.
+* ARROW-4508 - [Format] Copy content from Layout.rst to new document.
+* ARROW-4509 - [Format] Copy content from Metadata.rst to new document.
+* ARROW-4510 - [Format] copy content from IPC.rst to new document.
+* ARROW-4511 - [Format] remove individual documents in favor of new document once all content is moved
+* ARROW-5846 - [Java] Create Avro adapter module and add dependencies
+* ARROW-5861 - [Java] Initial implement to convert Avro record with primitive types
+* ARROW-5988 - [Java] Avro adapter implement simple Record type 
+* ARROW-6035 - [Java] Avro adapter support convert nullable value
+* ARROW-6069 - [Rust] [Parquet] Implement Converter to convert record reader to arrow primitive array.
+* ARROW-6078 - [Java] Implement dictionary-encoded subfields for List type
+* ARROW-6085 - [Rust] [DataFusion] Create traits for phsyical query plan
+* ARROW-6086 - [Rust] [DataFusion] Implement parallel execution for parquet scan
+* ARROW-6087 - [Rust] [DataFusion] Implement parallel execution for CSV scan
+* ARROW-6088 - [Rust] [DataFusion] Implement parallel execution for projection
+* ARROW-6089 - [Rust] [DataFusion] Implement parallel execution for selection
+* ARROW-6090 - [Rust] [DataFusion] Implement parallel execution for hash aggregate
+* ARROW-6097 - [Java] Avro adapter implement unions type
+* ARROW-6101 - [Rust] [DataFusion] Create physical plan from logical plan
+* ARROW-6199 - [Java] Avro adapter avoid potential resource leak.
+* ARROW-6220 - [Java] Add API to avro adapter to limit number of rows returned at a time.
+* ARROW-6265 - [Java] Avro adapter implement Array/Map/Fixed type
+* ARROW-6287 - [Rust] [DataFusion] Refactor TableProvider to return thread-safe BatchIterator
+* ARROW-6310 - [C++] Write 64-bit integers as strings in JSON integration test files
+* ARROW-6314 - [C++] Implement changes to ensure flatbuffer alignment.
+* ARROW-6315 - [Java] Make change to ensure flatbuffer reads are aligned 
+* ARROW-6316 - [Go]  Make change to ensure flatbuffer reads are aligned
+* ARROW-6317 - [JS] Implement changes to ensure flatbuffer alignment
+* ARROW-6318 - [Integration] Update integration test to use generated binaries to ensure backwards compatibility
+* ARROW-6356 - [Java] Avro adapter implement Enum type and nested Record type
+* ARROW-6401 - [Java] Implement dictionary-encoded subfields for Struct type
+* ARROW-6460 - [Java] Add benchmark and large fake data UT for avro adapter
+* ARROW-6474 - [Python] Provide mechanism for python to write out old format
+* ARROW-6519 - [Java] Use IPC continuation token to mark EOS
+* ARROW-6539 - [R] Provide mechanism to write out old format
+* ARROW-6563 - [Rust] [DataFusion] Create "merge" execution plan
+* ARROW-6599 - [Rust] [DataFusion] Implement SUM aggregate expression
+* ARROW-6665 - [Rust] [DataFusion] Implement numeric literal expressions
+* ARROW-6668 - [Rust] [DataFusion] Implement CAST expression
+* ARROW-6669 - [Rust] [DataFusion] Implement physical expression for binary expressions
+
+## Task
+
+* ARROW-1875 - [Java] Write 64-bit ints as strings in integration test JSON files
+* ARROW-2931 - [Crossbow] Windows builds are attempting to run linux and osx packaging tasks
+* ARROW-5483 - [Java] add ValueVector constructors that take a Field object
+* ARROW-5579 - [Java] shade flatbuffer dependency
+* ARROW-5580 - [C++][Gandiva] Correct definitions of timestamp functions in Gandiva
+* ARROW-5758 - [C++][Gandiva] Support casting decimals to varchar and vice versa
+* ARROW-5841 - [Website] Add 0.14.0 release note
+* ARROW-5867 - [C++][Gandiva] Add support for cast int to decimal
+* ARROW-5872 - Support mod(double, double) method in Gandiva
+* ARROW-5891 - [C++][Gandiva] Remove duplicates in function registries
+* ARROW-5903 - [Java] Set methods in DecimalVector are slow
+* ARROW-5934 - [Python] Bundle arrow's LICENSE with the wheels
+* ARROW-5944 - [C++][Gandiva] Remove 'div' alias for 'divide' 
+* ARROW-5957 - [C++][Gandiva] Implement div function in Gandiva
+* ARROW-5958 - [Python] Link zlib statically in the wheels
+* ARROW-5975 - [C++][Gandiva] Add method to cast Date(in Milliseconds) to timestamp
+* ARROW-6008 - [Release] Don't parallelize the bintray upload script
+* ARROW-6009 - [Release][JS] Ignore NPM errors in the javascript release script
+* ARROW-6023 - [C++][Gandiva] Add functions in Gandiva
+* ARROW-6026 - [Doc] Add CONTRIBUTING.md
+* ARROW-6034 - [C++][Gandiva] Add string functions in Gandiva
+* ARROW-6094 - [Format][Flight] Add GetFlightSchema to Flight RPC
+* ARROW-6134 - [C++][Gandiva] Add concat function in Gandiva
+* ARROW-6137 - [C++][Gandiva] Change output format of castVARCHAR(timestamp) in Gandiva
+* ARROW-6144 - [C++][Gandiva] Implement random function in Gandiva
+* ARROW-6162 - [C++][Gandiva] Do not truncate string in castVARCHAR\_varchar when out\_len parameter is zero
+* ARROW-6177 - [C++] Add Array::Validate()
+* ARROW-6217 - [Website] Remove needless \_site/ directory
+* ARROW-6383 - [Java] report outstanding child allocators on parent allocator close
+* ARROW-6385 - [C++] Investigate xxh3
+* ARROW-6422 - [Gandiva] Fix double-conversion linker issue
+* ARROW-6490 - [Java] log error for leak in allocator close
+* ARROW-6491 - [Java] fix master build failure caused by ErrorProne
+* ARROW-6601 - [Java] Improve JDBC adapter performance & add benchmark
+* ARROW-6725 - [CI] Disable 3rdparty fuzzit nightly builds
+
+## Test
+
+* ARROW-5525 - [C++][CI] Enable continuous fuzzing
+* ARROW-5978 - [FlightRPC] [Java] Integration test client doesn't close buffers
+* ARROW-6193 - [GLib] Add missing require in test
+* ARROW-6218 - [Java] Add UINT type test in integration to avoid potential overflow
+
+## Wish
+
+* ARROW-3538 - [Python] ability to override the automated assignment of uuid for filenames when writing datasets
+* ARROW-6142 - [R] Install instructions on linux could be clearer
+* ARROW-6183 - [R] Document that you don't have to use tidyselect if you don't want
+* ARROW-6292 - [C++] Add an option to build with mimalloc
+* ARROW-6300 - [C++] Add io::OutputStream::Abort()
+* ARROW-6525 - [C++] CloseFromDestructor() should perhaps not crash
+* ARROW-6549 - [C++] Switch back to latest jemalloc 5.x
+
 # Apache Arrow 0.14.0 (29 June 2019)
 
 ## Bug

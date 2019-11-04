@@ -38,23 +38,26 @@ jobs:
     # or Ubuntu 18.10 or later.
     - script: |
         sudo apt install -y qemu-user-static unar
-        wget http://archive.ubuntu.com/ubuntu/pool/universe/q/qemu/qemu-user-static_3.1+dfsg-2ubuntu3.4_amd64.deb
+        wget http://archive.ubuntu.com/ubuntu/pool/universe/q/qemu/qemu-user-static_3.1+dfsg-2ubuntu3.5_amd64.deb
         unar *.deb
         rm *.deb
         pushd qemu-user-static*
         unar data.*
-        for arm64_image in ../arrow/dev/tasks/linux-packages/apt/*-arm64/; do
-          cp data/usr/bin/qemu-aarch64-static ${arm64_image}
+        for dockerfile in ../arrow/dev/tasks/linux-packages/*/*/Dockerfile; do
+          cp data/usr/bin/qemu-aarch64-static $(dirname ${dockerfile})
         done
         popd
       displayName: Prepare qemu-user-static
 
     - script: |
+        set -e
         pushd arrow/dev/tasks/linux-packages
         rake version:update
         rake dist
         {{ build_command }}
         popd
+      env:
+        ARROW_VERSION: {{ arrow.version }}
       displayName: Build
 
     # Using github release tries to find a common ancestor between the

@@ -19,7 +19,7 @@ package org.apache.arrow.vector.compare;
 
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
-import org.apache.arrow.vector.ZeroVector;
+import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.NonNullableStructVector;
@@ -44,5 +44,5 @@ public interface VectorVisitor<OUT, IN> {
 
   OUT visit(UnionVector left, IN value);
 
-  OUT visit(ZeroVector left, IN value);
+  OUT visit(NullVector left, IN value);
 }

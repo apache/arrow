@@ -20,8 +20,8 @@ package org.apache.arrow.vector.complex.impl;
 import java.math.BigDecimal;
 
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.ValueVector;
-import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.complex.AbstractStructVector;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
@@ -154,7 +154,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
       state = State.UNION;
       unionVector = (UnionVector) v;
       writer = new UnionWriter(unionVector, nullableStructWriterFactory);
-    } else if (v instanceof ZeroVector) {
+    } else if (v instanceof NullVector) {
       state = State.UNTYPED;
     } else {
       setWriter(v);

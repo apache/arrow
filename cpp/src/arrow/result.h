@@ -22,6 +22,7 @@
 #include <utility>
 
 #include "arrow/status.h"
+#include "arrow/util/compare.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/variant.h"
 
@@ -86,7 +87,7 @@ ARROW_EXPORT void DieWithMessage(const std::string& msg);
 ///   arrow::Result<int> CalculateFoo();
 /// ```
 template <class T>
-class Result {
+class Result : public util::EqualityComparable<Result<T>> {
   template <typename U>
   friend class Result;
   using VariantType = arrow::util::variant<T, Status, const char*>;
@@ -170,9 +171,9 @@ class Result {
   /// `T` must be implicitly constructible from `const U &`.
   ///
   /// \param other The value to copy from.
-  template <typename U,
-            typename E = typename std::enable_if<std::is_constructible<T, U>::value &&
-                                                 std::is_convertible<U, T>::value>::type>
+  template <typename U, typename E = typename std::enable_if<
+                            std::is_constructible<T, const U&>::value &&
+                            std::is_convertible<U, T>::value>::type>
   Result(const Result<U>& other) : variant_("unitialized") {
     AssignVariant(other.variant_);
   }
@@ -191,7 +192,7 @@ class Result {
   ///
   /// \param other The Result object to move from and set to a non-OK status.
   template <typename U,
-            typename E = typename std::enable_if<std::is_constructible<T, U>::value &&
+            typename E = typename std::enable_if<std::is_constructible<T, U&&>::value &&
                                                  std::is_convertible<U, T>::value>::type>
   Result(Result<U>&& other) : variant_("unitialized") {
     AssignVariant(std::move(other.variant_));
@@ -214,6 +215,9 @@ class Result {
 
     return *this;
   }
+
+  /// Compare to another Result.
+  bool Equals(const Result& other) const { return variant_ == other.variant_; }
 
   /// Indicates whether the object contains a `T` value.  Generally instead
   /// of accessing this directly you will want to use ASSIGN_OR_RAISE defined
@@ -283,6 +287,17 @@ class Result {
     return tmp;
   }
   T operator*() && { return ValueOrDie(); }
+
+  /// Helper method for using Results in Status returning out arg functions
+  template <typename U, typename E = typename std::enable_if<
+                            std::is_constructible<U, T>::value>::type>
+  Status Value(U* out) && {
+    if (!ok()) {
+      return status();
+    }
+    *out = U(std::move(arrow::util::get<T>(variant_)));
+    return Status::OK();
+  }
 
  private:
   // Assignment is disabled by default so we need to destruct/reconstruct

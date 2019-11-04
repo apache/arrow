@@ -141,6 +141,8 @@ class build_ext(_build_ext):
             if not hasattr(sys, 'gettotalrefcount'):
                 self.build_type = 'release'
 
+        self.with_s3 = strtobool(
+            os.environ.get('PYARROW_WITH_S3', '0'))
         self.with_cuda = strtobool(
             os.environ.get('PYARROW_WITH_CUDA', '0'))
         self.with_flight = strtobool(
@@ -168,6 +170,7 @@ class build_ext(_build_ext):
 
     CYTHON_MODULE_NAMES = [
         'lib',
+        '_fs',
         '_csv',
         '_json',
         '_cuda',
@@ -175,6 +178,7 @@ class build_ext(_build_ext):
         '_parquet',
         '_orc',
         '_plasma',
+        '_s3fs',
         'gandiva']
 
     def _run_cmake(self):
@@ -214,6 +218,8 @@ class build_ext(_build_ext):
 
             if self.cmake_generator:
                 cmake_options += ['-G', self.cmake_generator]
+            if self.with_s3:
+                cmake_options.append('-DPYARROW_BUILD_S3=on')
             if self.with_cuda:
                 cmake_options.append('-DPYARROW_BUILD_CUDA=on')
             if self.with_flight:
@@ -364,6 +370,8 @@ class build_ext(_build_ext):
                     move_shared_libs(build_prefix, build_lib, "arrow_cuda")
                 if self.with_flight:
                     move_shared_libs(build_prefix, build_lib, "arrow_flight")
+                    move_shared_libs(build_prefix, build_lib,
+                                     "arrow_python_flight")
                 if self.with_plasma:
                     move_shared_libs(build_prefix, build_lib, "plasma")
                 if self.with_gandiva:
@@ -384,6 +392,10 @@ class build_ext(_build_ext):
                         "{}_regex".format(self.boost_namespace),
                         implib_required=False)
                 if sys.platform == 'win32':
+                    # zlib uses zlib.dll for Windows
+                    zlib_lib_name = 'zlib'
+                    move_shared_libs(build_prefix, build_lib, zlib_lib_name,
+                                     implib_required=False)
                     if self.with_flight:
                         # DLL dependencies for gRPC / Flight
                         for lib_name in ['cares', 'libprotobuf',
@@ -408,6 +420,8 @@ class build_ext(_build_ext):
         if name == '_orc' and not self.with_orc:
             return True
         if name == '_flight' and not self.with_flight:
+            return True
+        if name == '_s3fs' and not self.with_s3:
             return True
         if name == '_cuda' and not self.with_cuda:
             return True
@@ -511,7 +525,7 @@ def _move_shared_libs_unix(build_prefix, build_lib, lib_name):
 
 # If the event of not running from a git clone (e.g. from a git archive
 # or a Python sdist), see if we can set the version number ourselves
-default_version = '0.15.0-SNAPSHOT'
+default_version = '1.0.0-SNAPSHOT'
 if (not os.path.exists('../.git')
         and not os.environ.get('SETUPTOOLS_SCM_PRETEND_VERSION')):
     if os.path.exists('PKG-INFO'):

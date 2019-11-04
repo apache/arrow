@@ -38,17 +38,18 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 
+#include "arrow/python/datetime.h"
 #include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/inference.h"
 #include "arrow/python/iterators.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/type_traits.h"
-#include "arrow/python/util/datetime.h"
 
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 
 namespace py {
 
@@ -94,12 +95,12 @@ class SeqConverter {
     return Status::OK();
   }
 
-  virtual Status GetResult(std::vector<std::shared_ptr<Array>>* chunks) {
+  virtual Status GetResult(std::shared_ptr<ChunkedArray>* out) {
     // Still some accumulated data in the builder. If there are no chunks, we
     // always call Finish to deal with the edge case where a size-0 sequence
     // was converted with a specific output type, like array([], type=t)
     RETURN_NOT_OK(Close());
-    *chunks = chunks_;
+    *out = std::make_shared<ChunkedArray>(chunks_, builder_->type());
     return Status::OK();
   }
 
@@ -301,7 +302,7 @@ class Date32Converter
     int32_t t;
     if (PyDate_Check(obj)) {
       auto pydate = reinterpret_cast<PyDateTime_Date*>(obj);
-      t = static_cast<int32_t>(PyDate_to_days(pydate));
+      t = static_cast<int32_t>(internal::PyDate_to_days(pydate));
     } else {
       RETURN_NOT_OK(internal::CIntFromPython(obj, &t, "Integer too large for date32"));
     }
@@ -317,12 +318,12 @@ class Date64Converter
     int64_t t;
     if (PyDateTime_Check(obj)) {
       auto pydate = reinterpret_cast<PyDateTime_DateTime*>(obj);
-      t = PyDateTime_to_ms(pydate);
+      t = internal::PyDateTime_to_ms(pydate);
       // Truncate any intraday milliseconds
       t -= t % 86400000LL;
     } else if (PyDate_Check(obj)) {
       auto pydate = reinterpret_cast<PyDateTime_Date*>(obj);
-      t = PyDate_to_ms(pydate);
+      t = internal::PyDate_to_ms(pydate);
     } else {
       RETURN_NOT_OK(internal::CIntFromPython(obj, &t, "Integer too large for date64"));
     }
@@ -343,10 +344,10 @@ class Time32Converter
       // datetime.time stores microsecond resolution
       switch (unit_) {
         case TimeUnit::SECOND:
-          t = static_cast<int32_t>(PyTime_to_s(obj));
+          t = static_cast<int32_t>(internal::PyTime_to_s(obj));
           break;
         case TimeUnit::MILLI:
-          t = static_cast<int32_t>(PyTime_to_ms(obj));
+          t = static_cast<int32_t>(internal::PyTime_to_ms(obj));
           break;
         default:
           return Status::UnknownError("Invalid time unit");
@@ -373,10 +374,10 @@ class Time64Converter
       // datetime.time stores microsecond resolution
       switch (unit_) {
         case TimeUnit::MICRO:
-          t = PyTime_to_us(obj);
+          t = internal::PyTime_to_us(obj);
           break;
         case TimeUnit::NANO:
-          t = PyTime_to_ns(obj);
+          t = internal::PyTime_to_ns(obj);
           break;
         default:
           return Status::UnknownError("Invalid time unit");
@@ -391,50 +392,102 @@ class Time64Converter
   TimeUnit::type unit_;
 };
 
-template <NullCoding null_coding>
-class TimestampConverter
-    : public TypedConverter<TimestampType, TimestampConverter<null_coding>, null_coding> {
+template <typename ArrowType>
+struct PyDateTimeTraits {};
+
+template <>
+struct PyDateTimeTraits<TimestampType> {
+  static inline int PyTypeCheck(PyObject* obj) { return PyDateTime_Check(obj); }
+  using PyDateTimeObject = PyDateTime_DateTime;
+
+  static inline int64_t py_to_s(PyDateTime_DateTime* pydatetime) {
+    return internal::PyDateTime_to_s(pydatetime);
+  }
+  static inline int64_t py_to_ms(PyDateTime_DateTime* pydatetime) {
+    return internal::PyDateTime_to_ms(pydatetime);
+  }
+  static inline int64_t py_to_us(PyDateTime_DateTime* pydatetime) {
+    return internal::PyDateTime_to_us(pydatetime);
+  }
+  static inline int64_t py_to_ns(PyDateTime_DateTime* pydatetime) {
+    return internal::PyDateTime_to_ns(pydatetime);
+  }
+
+  using np_traits = internal::npy_traits<NPY_DATETIME>;
+  using NpScalarObject = PyDatetimeScalarObject;
+  static constexpr const char* const np_name = "datetime64";
+};
+
+template <>
+struct PyDateTimeTraits<DurationType> {
+  static inline int PyTypeCheck(PyObject* obj) { return PyDelta_Check(obj); }
+  using PyDateTimeObject = PyDateTime_Delta;
+
+  static inline int64_t py_to_s(PyDateTime_Delta* pytimedelta) {
+    return internal::PyDelta_to_s(pytimedelta);
+  }
+  static inline int64_t py_to_ms(PyDateTime_Delta* pytimedelta) {
+    return internal::PyDelta_to_ms(pytimedelta);
+  }
+  static inline int64_t py_to_us(PyDateTime_Delta* pytimedelta) {
+    return internal::PyDelta_to_us(pytimedelta);
+  }
+  static inline int64_t py_to_ns(PyDateTime_Delta* pytimedelta) {
+    return internal::PyDelta_to_ns(pytimedelta);
+  }
+
+  using np_traits = internal::npy_traits<NPY_TIMEDELTA>;
+  using NpScalarObject = PyTimedeltaScalarObject;
+  static constexpr const char* const np_name = "timedelta64";
+};
+
+template <NullCoding null_coding, typename ArrowType>
+class TemporalConverter
+    : public TypedConverter<ArrowType, TemporalConverter<null_coding, ArrowType>,
+                            null_coding> {
  public:
-  explicit TimestampConverter(TimeUnit::type unit) : unit_(unit) {}
+  explicit TemporalConverter(TimeUnit::type unit) : unit_(unit) {}
+  using traits = PyDateTimeTraits<ArrowType>;
 
   Status AppendItem(PyObject* obj) {
     int64_t t;
-    if (PyDateTime_Check(obj)) {
-      auto pydatetime = reinterpret_cast<PyDateTime_DateTime*>(obj);
+    if (traits::PyTypeCheck(obj)) {
+      auto pydatetime = reinterpret_cast<typename traits::PyDateTimeObject*>(obj);
 
       switch (unit_) {
         case TimeUnit::SECOND:
-          t = PyDateTime_to_s(pydatetime);
+          t = traits::py_to_s(pydatetime);
           break;
         case TimeUnit::MILLI:
-          t = PyDateTime_to_ms(pydatetime);
+          t = traits::py_to_ms(pydatetime);
           break;
         case TimeUnit::MICRO:
-          t = PyDateTime_to_us(pydatetime);
+          t = traits::py_to_us(pydatetime);
           break;
         case TimeUnit::NANO:
-          t = PyDateTime_to_ns(pydatetime);
+          t = traits::py_to_ns(pydatetime);
           break;
         default:
           return Status::UnknownError("Invalid time unit");
       }
     } else if (PyArray_CheckAnyScalarExact(obj)) {
       // numpy.datetime64
-      using traits = internal::npy_traits<NPY_DATETIME>;
+      using npy_traits = typename traits::np_traits;
+      static constexpr const char* const np_name = traits::np_name;
 
       std::shared_ptr<DataType> type;
       RETURN_NOT_OK(NumPyDtypeToArrow(PyArray_DescrFromScalar(obj), &type));
-      if (type->id() != Type::TIMESTAMP) {
-        return Status::Invalid("Expected np.datetime64 but got: ", type->ToString());
+      if (type->id() != ArrowType::type_id) {
+        return Status::Invalid("Expected np.", np_name, " but got: ", type->ToString());
       }
-      const TimestampType& ttype = checked_cast<const TimestampType&>(*type);
+      const ArrowType& ttype = checked_cast<const ArrowType&>(*type);
       if (unit_ != ttype.unit()) {
-        return Status::NotImplemented(
-            "Cannot convert NumPy datetime64 objects with differing unit");
+        return Status::NotImplemented("Cannot convert NumPy ", np_name,
+                                      " objects with differing unit");
       }
 
-      t = reinterpret_cast<PyDatetimeScalarObject*>(obj)->obval;
-      if (traits::isnull(t)) {
+      t = reinterpret_cast<typename traits::NpScalarObject*>(obj)->obval;
+      if (npy_traits::isnull(t)) {
         // checks numpy NaT sentinel after conversion
         return this->typed_builder_->AppendNull();
       }
@@ -581,7 +634,7 @@ class StringConverter
     return Status::OK();
   }
 
-  virtual Status GetResult(std::vector<std::shared_ptr<Array>>* out) {
+  virtual Status GetResult(std::shared_ptr<ChunkedArray>* out) {
     RETURN_NOT_OK(SeqConverter::GetResult(out));
 
     // If we saw any non-unicode, cast results to BinaryArray
@@ -589,14 +642,9 @@ class StringConverter
       // We should have bailed out earlier
       DCHECK(!STRICT);
 
-      using EquivalentBinaryType = typename TypeClass::EquivalentBinaryType;
-      using EquivalentBinaryArray = typename TypeTraits<EquivalentBinaryType>::ArrayType;
-
-      for (size_t i = 0; i < out->size(); ++i) {
-        auto binary_data = (*out)[i]->data()->Copy();
-        binary_data->type = TypeTraits<EquivalentBinaryType>::type_singleton();
-        (*out)[i] = std::make_shared<EquivalentBinaryArray>(binary_data);
-      }
+      auto binary_type =
+          TypeTraits<typename TypeClass::EquivalentBinaryType>::type_singleton();
+      return (*out)->View(binary_type, out);
     }
     return Status::OK();
   }
@@ -656,7 +704,7 @@ class ListConverter
 
     const bool null_sentinels_possible =
         // Always treat Numpy's NaT as null
-        NUMPY_TYPE == NPY_DATETIME ||
+        NUMPY_TYPE == NPY_DATETIME || NUMPY_TYPE == NPY_TIMEDELTA ||
         // Observing pandas's null sentinels
         (from_pandas_ && traits::supports_nulls);
 
@@ -704,6 +752,7 @@ class ListConverter
       LIST_SLOW_CASE(TIME32)
       LIST_SLOW_CASE(TIME64)
       LIST_FAST_CASE(TIMESTAMP, NPY_DATETIME, TimestampType)
+      LIST_FAST_CASE(DURATION, NPY_TIMEDELTA, DurationType)
       LIST_FAST_CASE(HALF_FLOAT, NPY_FLOAT16, HalfFloatType)
       LIST_FAST_CASE(FLOAT, NPY_FLOAT, FloatType)
       LIST_FAST_CASE(DOUBLE, NPY_DOUBLE, DoubleType)
@@ -740,14 +789,14 @@ class ListConverter
     return value_converter_->AppendMultiple(obj, list_size);
   }
 
-  virtual Status GetResult(std::vector<std::shared_ptr<Array>>* chunks) {
+  virtual Status GetResult(std::shared_ptr<ChunkedArray>* out) {
     // TODO: Improved handling of chunked children
     if (value_converter_->num_chunks() > 0) {
       return Status::Invalid("List child type ",
                              value_converter_->builder()->type()->ToString(),
                              " overflowed the capacity of a single chunk");
     }
-    return SeqConverter::GetResult(chunks);
+    return SeqConverter::GetResult(out);
   }
 
  protected:
@@ -770,18 +819,19 @@ class StructConverter
   Status Init(ArrayBuilder* builder) {
     this->builder_ = builder;
     this->typed_builder_ = checked_cast<StructBuilder*>(builder);
-    const auto& struct_type = checked_cast<const StructType&>(*builder->type());
+    auto struct_type = checked_pointer_cast<StructType>(builder->type());
 
     num_fields_ = this->typed_builder_->num_fields();
-    DCHECK_EQ(num_fields_, struct_type.num_children());
+    DCHECK_EQ(num_fields_, struct_type->num_children());
 
-    field_name_list_.reset(PyList_New(num_fields_));
+    field_name_bytes_list_.reset(PyList_New(num_fields_));
+    field_name_unicode_list_.reset(PyList_New(num_fields_));
     RETURN_IF_PYERROR();
 
     // Initialize the child converters and field names
     for (int i = 0; i < num_fields_; i++) {
-      const std::string& field_name(struct_type.child(i)->name());
-      std::shared_ptr<DataType> field_type(struct_type.child(i)->type());
+      const std::string& field_name(struct_type->child(i)->name());
+      std::shared_ptr<DataType> field_type(struct_type->child(i)->type());
 
       std::unique_ptr<SeqConverter> value_converter;
       RETURN_NOT_OK(
@@ -790,10 +840,13 @@ class StructConverter
       value_converters_.push_back(std::move(value_converter));
 
       // Store the field name as a PyObject, for dict matching
-      PyObject* nameobj =
+      PyObject* bytesobj =
+          PyBytes_FromStringAndSize(field_name.c_str(), field_name.size());
+      PyObject* unicodeobj =
           PyUnicode_FromStringAndSize(field_name.c_str(), field_name.size());
       RETURN_IF_PYERROR();
-      PyList_SET_ITEM(field_name_list_.obj(), i, nameobj);
+      PyList_SET_ITEM(field_name_bytes_list_.obj(), i, bytesobj);
+      PyList_SET_ITEM(field_name_unicode_list_.obj(), i, unicodeobj);
     }
 
     return Status::OK();
@@ -802,16 +855,16 @@ class StructConverter
   Status AppendItem(PyObject* obj) {
     RETURN_NOT_OK(this->typed_builder_->Append());
     // Note heterogenous sequences are not allowed
-    if (ARROW_PREDICT_FALSE(source_kind_ == UNKNOWN)) {
+    if (ARROW_PREDICT_FALSE(source_kind_ == SourceKind::UNKNOWN)) {
       if (PyDict_Check(obj)) {
-        source_kind_ = DICTS;
+        source_kind_ = SourceKind::DICTS;
       } else if (PyTuple_Check(obj)) {
-        source_kind_ = TUPLES;
+        source_kind_ = SourceKind::TUPLES;
       }
     }
-    if (PyDict_Check(obj) && source_kind_ == DICTS) {
+    if (PyDict_Check(obj) && source_kind_ == SourceKind::DICTS) {
       return AppendDictItem(obj);
-    } else if (PyTuple_Check(obj) && source_kind_ == TUPLES) {
+    } else if (PyTuple_Check(obj) && source_kind_ == SourceKind::TUPLES) {
       return AppendTupleItem(obj);
     } else {
       return internal::InvalidType(obj,
@@ -833,11 +886,52 @@ class StructConverter
 
  protected:
   Status AppendDictItem(PyObject* obj) {
+    if (dict_key_kind_ == DictKeyKind::UNICODE) {
+      return AppendDictItemWithUnicodeKeys(obj);
+    }
+    if (dict_key_kind_ == DictKeyKind::BYTES) {
+      return AppendDictItemWithBytesKeys(obj);
+    }
+    for (int i = 0; i < num_fields_; i++) {
+      PyObject* nameobj = PyList_GET_ITEM(field_name_unicode_list_.obj(), i);
+      PyObject* valueobj = PyDict_GetItem(obj, nameobj);
+      if (valueobj != NULL) {
+        dict_key_kind_ = DictKeyKind::UNICODE;
+        return AppendDictItemWithUnicodeKeys(obj);
+      }
+      RETURN_IF_PYERROR();
+      // Unicode key not present, perhaps bytes key is?
+      nameobj = PyList_GET_ITEM(field_name_bytes_list_.obj(), i);
+      valueobj = PyDict_GetItem(obj, nameobj);
+      if (valueobj != NULL) {
+        dict_key_kind_ = DictKeyKind::BYTES;
+        return AppendDictItemWithBytesKeys(obj);
+      }
+      RETURN_IF_PYERROR();
+    }
+    // If we come here, it means all keys are absent
+    for (int i = 0; i < num_fields_; i++) {
+      RETURN_NOT_OK(value_converters_[i]->AppendSingleVirtual(Py_None));
+    }
+    return Status::OK();
+  }
+
+  Status AppendDictItemWithBytesKeys(PyObject* obj) {
+    return AppendDictItem(obj, field_name_bytes_list_.obj());
+  }
+
+  Status AppendDictItemWithUnicodeKeys(PyObject* obj) {
+    return AppendDictItem(obj, field_name_unicode_list_.obj());
+  }
+
+  Status AppendDictItem(PyObject* obj, PyObject* field_name_list) {
     // NOTE we're ignoring any extraneous dict items
     for (int i = 0; i < num_fields_; i++) {
-      PyObject* nameobj = PyList_GET_ITEM(field_name_list_.obj(), i);
-      PyObject* valueobj = PyDict_GetItem(obj, nameobj);  // borrowed
-      RETURN_IF_PYERROR();
+      PyObject* nameobj = PyList_GET_ITEM(field_name_list, i);  // borrowed
+      PyObject* valueobj = PyDict_GetItem(obj, nameobj);        // borrowed
+      if (valueobj == NULL) {
+        RETURN_IF_PYERROR();
+      }
       RETURN_NOT_OK(
           value_converters_[i]->AppendSingleVirtual(valueobj ? valueobj : Py_None));
     }
@@ -856,10 +950,16 @@ class StructConverter
   }
 
   std::vector<std::unique_ptr<SeqConverter>> value_converters_;
-  OwnedRef field_name_list_;
+  OwnedRef field_name_unicode_list_;
+  OwnedRef field_name_bytes_list_;
   int num_fields_;
   // Whether we're converting from a sequence of dicts or tuples
-  enum { UNKNOWN, DICTS, TUPLES } source_kind_ = UNKNOWN;
+  enum class SourceKind { UNKNOWN, DICTS, TUPLES } source_kind_ = SourceKind::UNKNOWN;
+  enum class DictKeyKind {
+    UNKNOWN,
+    BYTES,
+    UNICODE
+  } dict_key_kind_ = DictKeyKind::UNKNOWN;
   bool from_pandas_;
   bool strict_conversions_;
 };
@@ -874,7 +974,7 @@ class DecimalConverter
 
   Status Init(ArrayBuilder* builder) override {
     RETURN_NOT_OK(BASE::Init(builder));
-    decimal_type_ = checked_cast<const DecimalType*>(this->typed_builder_->type().get());
+    decimal_type_ = checked_pointer_cast<DecimalType>(this->typed_builder_->type());
     return Status::OK();
   }
 
@@ -885,7 +985,7 @@ class DecimalConverter
   }
 
  private:
-  const DecimalType* decimal_type_ = nullptr;
+  std::shared_ptr<DecimalType> decimal_type_;
 };
 
 #define NUMERIC_CONVERTER(TYPE_ENUM, TYPE)                                         \
@@ -951,8 +1051,15 @@ Status GetConverterFlat(const std::shared_ptr<DataType>& type, bool strict_conve
       break;
     }
     case Type::TIMESTAMP: {
-      *out = std::unique_ptr<SeqConverter>(new TimestampConverter<null_coding>(
-          checked_cast<const TimestampType&>(*type).unit()));
+      *out =
+          std::unique_ptr<SeqConverter>(new TemporalConverter<null_coding, TimestampType>(
+              checked_cast<const TimestampType&>(*type).unit()));
+      break;
+    }
+    case Type::DURATION: {
+      *out =
+          std::unique_ptr<SeqConverter>(new TemporalConverter<null_coding, DurationType>(
+              checked_cast<const DurationType&>(*type).unit()));
       break;
     }
     default:
@@ -1060,8 +1167,6 @@ Status ConvertPySequence(PyObject* sequence_source, PyObject* mask,
                          std::shared_ptr<ChunkedArray>* out) {
   PyAcquireGIL lock;
 
-  PyDateTime_IMPORT;
-
   PyObject* seq;
   OwnedRef tmp_seq_nanny;
 
@@ -1105,11 +1210,7 @@ Status ConvertPySequence(PyObject* sequence_source, PyObject* mask,
   }
 
   // Retrieve result. Conversion may yield one or more array values
-  std::vector<std::shared_ptr<Array>> chunks;
-  RETURN_NOT_OK(converter->GetResult(&chunks));
-
-  *out = std::make_shared<ChunkedArray>(chunks);
-  return Status::OK();
+  return converter->GetResult(out);
 }
 
 Status ConvertPySequence(PyObject* obj, const PyConversionOptions& options,

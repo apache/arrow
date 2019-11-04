@@ -78,3 +78,15 @@ MessageType <- enum("Message::Type",
 CompressionType <- enum("Compression::type",
   UNCOMPRESSED = 0L, SNAPPY = 1L, GZIP = 2L, BROTLI = 3L, ZSTD = 4L, LZ4 = 5L, LZO = 6L, BZ2 = 7L
 )
+
+#' @export
+#' @rdname enums
+FileType <- enum("FileType",
+  NonExistent = 0L, Unknown = 1L, File = 2L, Directory = 3L
+)
+
+#' @export
+#' @rdname enums
+ParquetVersionType <- enum("ParquetVersionType",
+  PARQUET_1_0 = 0L, PARQUET_2_0 = 1L
+)

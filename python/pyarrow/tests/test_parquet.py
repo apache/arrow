@@ -203,17 +203,32 @@ def test_chunked_table_write():
 
 
 @pytest.mark.pandas
-def test_no_memory_map(tempdir):
+def test_memory_map(tempdir):
     df = alltypes_sample(size=10)
 
     table = pa.Table.from_pandas(df)
-    _check_roundtrip(table, read_table_kwargs={'memory_map': False},
+    _check_roundtrip(table, read_table_kwargs={'memory_map': True},
                      version='2.0')
 
     filename = str(tempdir / 'tmp_file')
     with open(filename, 'wb') as f:
         _write_table(table, f, version='2.0')
-    table_read = pq.read_pandas(filename, memory_map=False)
+    table_read = pq.read_pandas(filename, memory_map=True)
+    assert table_read.equals(table)
+
+
+@pytest.mark.pandas
+def test_enable_buffered_stream(tempdir):
+    df = alltypes_sample(size=10)
+
+    table = pa.Table.from_pandas(df)
+    _check_roundtrip(table, read_table_kwargs={'buffer_size': 1025},
+                     version='2.0')
+
+    filename = str(tempdir / 'tmp_file')
+    with open(filename, 'wb') as f:
+        _write_table(table, f, version='2.0')
+    table_read = pq.read_pandas(filename, buffer_size=4096)
     assert table_read.equals(table)
 
 
@@ -255,6 +270,17 @@ def test_empty_lists_table_roundtrip():
     arr = pa.array([[], []], type=pa.list_(pa.int32()))
     table = pa.Table.from_arrays([arr], ["A"])
     _check_roundtrip(table)
+
+
+def test_nested_list_nonnullable_roundtrip_bug():
+    # Reproduce failure in ARROW-5630
+    typ = pa.list_(pa.field("item", pa.float32(), False))
+    num_rows = 10000
+    t = pa.table([
+        pa.array(([[0] * ((i + 5) % 10) for i in range(0, 10)]
+                  * (num_rows // 10)), type=typ)
+    ], ['a'])
+    _check_roundtrip(t, data_page_size=4096)
 
 
 @pytest.mark.pandas
@@ -606,6 +632,42 @@ def make_sample_file(table_or_df):
     return pq.ParquetFile(buf)
 
 
+def test_compression_level():
+    arr = pa.array(list(map(int, range(1000))))
+    data = [arr, arr]
+    table = pa.Table.from_arrays(data, names=['a', 'b'])
+
+    # Check one compression level.
+    _check_roundtrip(table, expected=table, compression="gzip",
+                     compression_level=1)
+
+    # Check another one to make sure that compression_level=1 does not
+    # coincide with the default one in Arrow.
+    _check_roundtrip(table, expected=table, compression="gzip",
+                     compression_level=5)
+
+    # Check that the user can provide a compression level per column
+    _check_roundtrip(table, expected=table, compression="gzip",
+                     compression_level=[{'a': 2, 'b': 3}])
+
+    # Check that specifying a compression level for a codec which does allow
+    # specifying one, results into an error.
+    # Uncompressed, snappy, lz4 and lzo do not support specifying a compression
+    # level.
+    # GZIP (zlib) allows for specifying a compression level but as of up
+    # to version 1.2.11 the valid range is [-1, 9].
+    invalid_combinations = [("snappy", 4), ("lz4", 5), ("gzip", -1337),
+                            ("None", 444), ("lzo", 14)]
+    buf = io.BytesIO()
+    for (codec, level) in invalid_combinations:
+        try:
+            _write_table(table, buf, compression=codec,
+                         compression_level=level)
+            assert 0
+        except pa.ArrowException:
+            pass
+
+
 @pytest.mark.pandas
 def test_parquet_metadata_api():
     df = alltypes_sample(size=10000)
@@ -697,6 +759,14 @@ def test_parquet_metadata_api():
         col_meta.index_page_offset
 
 
+def test_parquet_metadata_lifetime(tempdir):
+    # ARROW-6642 - ensure that chained access keeps parent objects alive
+    table = pa.table({'a': [1, 2, 3]})
+    pq.write_table(table, tempdir / 'test_metadata_segfault.parquet')
+    dataset = pq.ParquetDataset(tempdir / 'test_metadata_segfault.parquet')
+    dataset.pieces[0].get_metadata().row_group(0).column(0).statistics
+
+
 @pytest.mark.pandas
 @pytest.mark.parametrize(
     (
@@ -763,6 +833,16 @@ def test_parquet_column_statistics_api(data, type, physical_type, min_value,
     # method, missing distinct_count is represented as zero instead of None
     assert stat.distinct_count == distinct_count
     assert stat.physical_type == physical_type
+
+
+# ARROW-6339
+@pytest.mark.pandas
+def test_parquet_raise_on_unset_statistics():
+    df = pd.DataFrame({"t": pd.Series([pd.NaT], dtype="datetime64[ns]")})
+    meta = make_sample_file(pa.Table.from_pandas(df)).metadata
+
+    assert not meta.row_group(0).column(0).statistics.has_min_max
+    assert meta.row_group(0).column(0).statistics.max is None
 
 
 def _close(type, left, right):
@@ -1763,18 +1843,41 @@ def test_filters_read_table(tempdir):
     assert table.num_rows == 3
 
 
-@pytest.yield_fixture
-def s3_example():
-    access_key = os.environ['PYARROW_TEST_S3_ACCESS_KEY']
-    secret_key = os.environ['PYARROW_TEST_S3_SECRET_KEY']
-    bucket_name = os.environ['PYARROW_TEST_S3_BUCKET']
+@pytest.fixture
+def s3_bucket(request, minio_server):
+    boto3 = pytest.importorskip('boto3')
+    botocore = pytest.importorskip('botocore')
 
-    import s3fs
-    fs = s3fs.S3FileSystem(key=access_key, secret=secret_key)
+    address, access_key, secret_key = minio_server
+    s3 = boto3.resource(
+        's3',
+        endpoint_url='http://{}'.format(address),
+        aws_access_key_id=access_key,
+        aws_secret_access_key=secret_key,
+        config=botocore.client.Config(signature_version='s3v4'),
+        region_name='us-east-1'
+    )
+    bucket = s3.Bucket('test-s3fs')
+    bucket.create()
+    return 'test-s3fs'
+
+
+@pytest.fixture
+def s3_example(minio_server, s3_bucket):
+    s3fs = pytest.importorskip('s3fs')
+
+    address, access_key, secret_key = minio_server
+    fs = s3fs.S3FileSystem(
+        key=access_key,
+        secret=secret_key,
+        client_kwargs={
+            'endpoint_url': 'http://{}'.format(address)
+        }
+    )
 
     test_dir = guid()
+    bucket_uri = 's3://{0}/{1}'.format(s3_bucket, test_dir)
 
-    bucket_uri = 's3://{0}/{1}'.format(bucket_name, test_dir)
     fs.mkdir(bucket_uri)
     yield fs, bucket_uri
     fs.rm(bucket_uri, recursive=True)
@@ -1840,23 +1943,29 @@ def _generate_partition_directories(fs, base_dir, partition_spec, df):
         for value in values:
             this_part_keys = part_keys + [(name, value)]
 
-            level_dir = base_dir / '{0}={1}'.format(name, value)
+            level_dir = fs._path_join(
+                str(base_dir),
+                '{0}={1}'.format(name, value)
+            )
             fs.mkdir(level_dir)
 
             if level == DEPTH - 1:
                 # Generate example data
-                file_path = level_dir / guid()
-
+                file_path = fs._path_join(level_dir, guid())
                 filtered_df = _filter_partition(df, this_part_keys)
                 part_table = pa.Table.from_pandas(filtered_df)
                 with fs.open(file_path, 'wb') as f:
                     _write_table(part_table, f)
                 assert fs.exists(file_path)
 
-                (level_dir / '_SUCCESS').touch()
+                file_success = fs._path_join(level_dir, '_SUCCESS')
+                with fs.open(file_success, 'wb') as f:
+                    pass
             else:
                 _visit_level(level_dir, level + 1, this_part_keys)
-                (level_dir / '_SUCCESS').touch()
+                file_success = fs._path_join(level_dir, '_SUCCESS')
+                with fs.open(file_success, 'wb') as f:
+                    pass
 
     _visit_level(base_dir, 0, [])
 
@@ -2079,8 +2188,8 @@ def test_dataset_read_pandas(tempdir):
 
 
 @pytest.mark.pandas
-def test_dataset_no_memory_map(tempdir):
-    # ARROW-2627: Check that we can use ParquetDataset without memory-mapping
+def test_dataset_memory_map(tempdir):
+    # ARROW-2627: Check that we can use ParquetDataset with memory-mapping
     dirpath = tempdir / guid()
     dirpath.mkdir()
 
@@ -2089,10 +2198,26 @@ def test_dataset_no_memory_map(tempdir):
     table = pa.Table.from_pandas(df)
     _write_table(table, path, version='2.0')
 
-    # TODO(wesm): Not sure how to easily check that memory mapping is _not_
-    # used. Mocking is not especially easy for pa.memory_map
-    dataset = pq.ParquetDataset(dirpath, memory_map=False)
+    dataset = pq.ParquetDataset(dirpath, memory_map=True)
     assert dataset.pieces[0].read().equals(table)
+
+
+@pytest.mark.pandas
+def test_dataset_enable_buffered_stream(tempdir):
+    dirpath = tempdir / guid()
+    dirpath.mkdir()
+
+    df = _test_dataframe(10, seed=0)
+    path = dirpath / '{}.parquet'.format(0)
+    table = pa.Table.from_pandas(df)
+    _write_table(table, path, version='2.0')
+
+    with pytest.raises(ValueError):
+        pq.ParquetDataset(dirpath, buffer_size=-64)
+
+    for buffer_size in [128, 1024]:
+        dataset = pq.ParquetDataset(dirpath, buffer_size=buffer_size)
+        assert dataset.pieces[0].read().equals(table)
 
 
 @pytest.mark.pandas
@@ -2256,9 +2381,7 @@ def test_noncoerced_nanoseconds_written_without_exception(tempdir):
     # nanosecond timestamps by default
     n = 9
     df = pd.DataFrame({'x': range(n)},
-                      index=pd.DatetimeIndex(start='2017-01-01',
-                      freq='1n',
-                      periods=n))
+                      index=pd.date_range('2017-01-01', freq='1n', periods=n))
     tb = pa.Table.from_pandas(df)
 
     filename = tempdir / 'written.parquet'
@@ -2929,7 +3052,7 @@ def test_write_nested_zero_length_array_chunk_failure():
     # Each column is a ChunkedArray with 2 elements
     my_arrays = [pa.array(batch, type=pa.struct(cols)).flatten()
                  for batch in data]
-    my_batches = [pa.RecordBatch.from_arrays(batch, pa.schema(cols))
+    my_batches = [pa.RecordBatch.from_arrays(batch, schema=pa.schema(cols))
                   for batch in my_arrays]
     tbl = pa.Table.from_batches(my_batches, pa.schema(cols))
     _check_roundtrip(tbl)
@@ -3251,3 +3374,42 @@ def test_filter_before_validate_schema(tempdir):
     # read single file using filter
     table = pq.read_table(tempdir, filters=[[('A', '==', 0)]])
     assert table.column('B').equals(pa.chunked_array([[1, 2, 3]]))
+
+
+@pytest.mark.pandas
+@pytest.mark.fastparquet
+@pytest.mark.filterwarnings("ignore:RangeIndex:DeprecationWarning")
+def test_fastparquet_cross_compatibility(tempdir):
+    fp = pytest.importorskip('fastparquet')
+
+    df = pd.DataFrame(
+        {
+            "a": list("abc"),
+            "b": list(range(1, 4)),
+            "c": np.arange(4.0, 7.0, dtype="float64"),
+            "d": [True, False, True],
+            "e": pd.date_range("20130101", periods=3),
+            "f": pd.Categorical(["a", "b", "a"]),
+            # fastparquet writes list as BYTE_ARRAY JSON, so no roundtrip
+            # "g": [[1, 2], None, [1, 2, 3]],
+        }
+    )
+    table = pa.table(df)
+
+    # Arrow -> fastparquet
+    file_arrow = str(tempdir / "cross_compat_arrow.parquet")
+    pq.write_table(table, file_arrow, compression=None)
+
+    fp_file = fp.ParquetFile(file_arrow)
+    df_fp = fp_file.to_pandas()
+    tm.assert_frame_equal(df, df_fp)
+
+    # Fastparquet -> arrow
+    file_fastparquet = str(tempdir / "cross_compat_fastparquet.parquet")
+    fp.write(file_fastparquet, df)
+
+    table_fp = pq.read_pandas(file_fastparquet)
+    # for fastparquet written file, categoricals comes back as strings
+    # (no arrow schema in parquet metadata)
+    df['f'] = df['f'].astype(object)
+    tm.assert_frame_equal(table_fp.to_pandas(), df)

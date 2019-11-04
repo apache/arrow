@@ -46,7 +46,7 @@ cdef class ORCReader:
 
     def open(self, object source, c_bool use_memory_map=True):
         cdef:
-            shared_ptr[RandomAccessFile] rd_handle
+            shared_ptr[CRandomAccessFile] rd_handle
 
         self.source = source
 

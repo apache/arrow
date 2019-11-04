@@ -29,6 +29,7 @@ import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
+import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.AddOrGetResult;
 import org.apache.arrow.vector.BitVectorHelper;
@@ -419,6 +420,11 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
 
   @Override
   public int hashCode(int index) {
+    return hashCode(index, null);
+  }
+
+  @Override
+  public int hashCode(int index, ArrowBufHasher hasher) {
     if (isSet(index) == 0) {
       return 0;
     }
@@ -426,7 +432,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
     final int start = offsetBuffer.getInt(index * OFFSET_WIDTH);
     final int end = offsetBuffer.getInt((index + 1) * OFFSET_WIDTH);
     for (int i = start; i < end; i++) {
-      hash = ByteFunctionHelpers.combineHash(hash, vector.hashCode(i));
+      hash = ByteFunctionHelpers.combineHash(hash, vector.hashCode(i, hasher));
     }
     return hash;
   }
@@ -480,6 +486,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
      */
     @Override
     public void splitAndTransfer(int startIndex, int length) {
+      Preconditions.checkArgument(startIndex + length <= valueCount);
       final int startPoint = offsetBuffer.getInt(startIndex * OFFSET_WIDTH);
       final int sliceLength = offsetBuffer.getInt((startIndex + length) * OFFSET_WIDTH) - startPoint;
       to.clear();
@@ -501,7 +508,6 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
      * transfer the validity.
      */
     private void splitAndTransferValidityBuffer(int startIndex, int length, ListVector target) {
-      assert startIndex + length <= valueCount;
       int firstByteSource = BitVectorHelper.byteIndex(startIndex);
       int lastByteSource = BitVectorHelper.byteIndex(valueCount - 1);
       int byteSizeTarget = getValidityBufferSizeFromCount(length);

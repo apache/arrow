@@ -24,6 +24,10 @@
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 
+namespace parquet {
+class ParquetFileReader;
+}  // namespace parquet
+
 namespace arrow {
 namespace dataset {
 
@@ -47,13 +51,20 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
     return ext == "par" || ext == "parq" || ext == name();
   }
 
+  /// \brief Return the schema of the file if possible.
+  Status Inspect(const FileSource& source, std::shared_ptr<Schema>* out) const override;
+
   /// \brief Open a file for scanning
   Status ScanFile(const FileSource& source, std::shared_ptr<ScanOptions> scan_options,
                   std::shared_ptr<ScanContext> scan_context,
-                  std::unique_ptr<ScanTaskIterator>* out) const override;
+                  ScanTaskIterator* out) const override;
 
   Status MakeFragment(const FileSource& source, std::shared_ptr<ScanOptions> opts,
                       std::unique_ptr<DataFragment>* out) override;
+
+ private:
+  Status OpenReader(const FileSource& source, MemoryPool* pool,
+                    std::unique_ptr<::parquet::ParquetFileReader>* out) const;
 };
 
 class ARROW_DS_EXPORT ParquetFragment : public FileBasedDataFragment {

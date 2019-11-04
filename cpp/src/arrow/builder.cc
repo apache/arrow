@@ -111,11 +111,13 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       BUILDER_CASE(LARGE_BINARY, LargeBinaryBuilder);
       BUILDER_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryBuilder);
       BUILDER_CASE(DECIMAL, Decimal128Builder);
+
     case Type::DICTIONARY: {
       const auto& dict_type = static_cast<const DictionaryType&>(*type);
       DictionaryBuilderCase visitor = {pool, dict_type.value_type(), nullptr, out};
       return visitor.Make();
     }
+
     case Type::INTERVAL: {
       const auto& interval_type = internal::checked_cast<const IntervalType&>(*type);
       if (interval_type.interval_type() == IntervalType::MONTHS) {
@@ -128,6 +130,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       }
       break;
     }
+
     case Type::LIST: {
       std::unique_ptr<ArrayBuilder> value_builder;
       std::shared_ptr<DataType> value_type =
@@ -136,6 +139,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       out->reset(new ListBuilder(pool, std::move(value_builder), type));
       return Status::OK();
     }
+
     case Type::LARGE_LIST: {
       std::unique_ptr<ArrayBuilder> value_builder;
       std::shared_ptr<DataType> value_type =
@@ -144,6 +148,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       out->reset(new LargeListBuilder(pool, std::move(value_builder), type));
       return Status::OK();
     }
+
     case Type::MAP: {
       const auto& map_type = internal::checked_cast<const MapType&>(*type);
       std::unique_ptr<ArrayBuilder> key_builder, item_builder;
@@ -155,9 +160,9 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
     }
 
     case Type::FIXED_SIZE_LIST: {
+      const auto& list_type = internal::checked_cast<const FixedSizeListType&>(*type);
       std::unique_ptr<ArrayBuilder> value_builder;
-      std::shared_ptr<DataType> value_type =
-          internal::checked_cast<const FixedSizeListType&>(*type).value_type();
+      auto value_type = list_type.value_type();
       RETURN_NOT_OK(MakeBuilder(pool, value_type, &value_builder));
       out->reset(new FixedSizeListBuilder(pool, std::move(value_builder), type));
       return Status::OK();
@@ -167,7 +172,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       const std::vector<std::shared_ptr<Field>>& fields = type->children();
       std::vector<std::shared_ptr<ArrayBuilder>> field_builders;
 
-      for (auto it : fields) {
+      for (const auto& it : fields) {
         std::unique_ptr<ArrayBuilder> builder;
         RETURN_NOT_OK(MakeBuilder(pool, it->type(), &builder));
         field_builders.emplace_back(std::move(builder));
@@ -181,7 +186,7 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       const std::vector<std::shared_ptr<Field>>& fields = type->children();
       std::vector<std::shared_ptr<ArrayBuilder>> field_builders;
 
-      for (auto it : fields) {
+      for (const auto& it : fields) {
         std::unique_ptr<ArrayBuilder> builder;
         RETURN_NOT_OK(MakeBuilder(pool, it->type(), &builder));
         field_builders.emplace_back(std::move(builder));
@@ -194,10 +199,8 @@ Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
       return Status::OK();
     }
 
-    default: {
-      return Status::NotImplemented("MakeBuilder: cannot construct builder for type ",
-                                    type->ToString());
-    }
+    default:
+      break;
   }
   return Status::NotImplemented("MakeBuilder: cannot construct builder for type ",
                                 type->ToString());

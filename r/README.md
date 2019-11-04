@@ -69,25 +69,46 @@ Arrow C++ library first.
 library(arrow)
 set.seed(24)
 
-tab <- Table$create(x = 1:10, y = rnorm(10))
-tab$schema
-#> Schema 
-#> x: int32
-#> y: double
+tab <- Table$create(
+  x = 1:10,
+  y = rnorm(10),
+  z = as.factor(rep(c("b", "c"), 5))
+)
 tab
 #> Table
+#> 10 rows x 3 columns
+#> $x <int32>
+#> $y <double>
+#> $z <dictionary<values=string, indices=int8>>
+tab$x
+#> ChunkedArray
+#> <int32>
+#> [
+#>   1,
+#>   2,
+#>   3,
+#>   4,
+#>   5,
+#>   6,
+#>   7,
+#>   8,
+#>   9,
+#>   10
+#> ]
 as.data.frame(tab)
-#>     x            y
-#> 1   1 -0.545880758
-#> 2   2  0.536585304
-#> 3   3  0.419623149
-#> 4   4 -0.583627199
-#> 5   5  0.847460017
-#> 6   6  0.266021979
-#> 7   7  0.444585270
-#> 8   8 -0.466495124
-#> 9   9 -0.848370044
-#> 10 10  0.002311942
+#> # A tibble: 10 x 3
+#>        x        y z    
+#>    <int>    <dbl> <fct>
+#>  1     1 -0.546   b    
+#>  2     2  0.537   c    
+#>  3     3  0.420   b    
+#>  4     4 -0.584   c    
+#>  5     5  0.847   b    
+#>  6     6  0.266   c    
+#>  7     7  0.445   b    
+#>  8     8 -0.466   c    
+#>  9     9 -0.848   b    
+#> 10    10  0.00231 c
 ```
 
 ## Installing a development version
@@ -213,6 +234,20 @@ The codegen.R script has these dependencies:
 remotes::install_github("romainfrancois/decor")
 install.packages(c("dplyr", "purrr", "glue"))
 ```
+
+We use Google C++ style in our C++ code. Check for style errors with
+
+    ./lint.sh
+
+Fix any style issues before committing with
+
+    ./lint.sh --fix
+
+The lint script requires Python 3 and `clang-format-7`. If the command
+isn’t found, you can explicitly provide the path to it like
+`CLANG_FORMAT=$(which clang-format-7) ./lint.sh`. On macOS, you can get
+this by installing LLVM via Homebrew and running the script as
+`CLANG_FORMAT=$(brew --prefix llvm@7)/bin/clang-format ./lint.sh`
 
 ### Useful functions
 

@@ -26,7 +26,10 @@
 #include <utility>
 
 #include "arrow/buffer.h"
+#include "arrow/io/concurrency.h"
+#include "arrow/io/util_internal.h"
 #include "arrow/status.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string_view.h"
 
@@ -36,6 +39,31 @@ namespace io {
 FileInterface::~FileInterface() = default;
 
 Status FileInterface::Abort() { return Close(); }
+
+class InputStreamBlockIterator {
+ public:
+  InputStreamBlockIterator(std::shared_ptr<InputStream> stream, int64_t block_size)
+      : stream_(stream), block_size_(block_size) {}
+
+  Status Next(std::shared_ptr<Buffer>* out) {
+    if (done_) {
+      out->reset();
+      return Status::OK();
+    }
+    RETURN_NOT_OK(stream_->Read(block_size_, out));
+    if ((*out)->size() == 0) {
+      done_ = true;
+      stream_.reset();
+      out->reset();
+    }
+    return Status::OK();
+  }
+
+ protected:
+  std::shared_ptr<InputStream> stream_;
+  int64_t block_size_;
+  bool done_ = false;
+};
 
 Status InputStream::Advance(int64_t nbytes) {
   std::shared_ptr<Buffer> temp;
@@ -48,6 +76,16 @@ Status InputStream::Peek(int64_t ARROW_ARG_UNUSED(nbytes),
 }
 
 bool InputStream::supports_zero_copy() const { return false; }
+
+Status MakeInputStreamIterator(std::shared_ptr<InputStream> stream, int64_t block_size,
+                               Iterator<std::shared_ptr<Buffer>>* out) {
+  if (stream->closed()) {
+    return Status::Invalid("Cannot take iterator on closed stream");
+  }
+  DCHECK_GT(block_size, 0);
+  *out = Iterator<std::shared_ptr<Buffer>>(InputStreamBlockIterator(stream, block_size));
+  return Status::OK();
+}
 
 struct RandomAccessFile::RandomAccessFileImpl {
   std::mutex lock_;
@@ -76,9 +114,14 @@ Status Writable::Write(const std::string& data) {
   return Write(data.c_str(), static_cast<int64_t>(data.size()));
 }
 
+Status Writable::Write(const std::shared_ptr<Buffer>& data) {
+  return Write(data->data(), data->size());
+}
+
 Status Writable::Flush() { return Status::OK(); }
 
-class FileSegmentReader : public InputStream {
+class FileSegmentReader
+    : public internal::InputStreamConcurrencyWrapper<FileSegmentReader> {
  public:
   FileSegmentReader(std::shared_ptr<RandomAccessFile> file, int64_t file_offset,
                     int64_t nbytes)
@@ -97,12 +140,12 @@ class FileSegmentReader : public InputStream {
     return Status::OK();
   }
 
-  Status Close() override {
+  Status DoClose() {
     closed_ = true;
     return Status::OK();
   }
 
-  Status Tell(int64_t* position) const override {
+  Status DoTell(int64_t* position) const {
     RETURN_NOT_OK(CheckOpen());
     *position = position_;
     return Status::OK();
@@ -110,7 +153,7 @@ class FileSegmentReader : public InputStream {
 
   bool closed() const override { return closed_; }
 
-  Status Read(int64_t nbytes, int64_t* bytes_read, void* out) override {
+  Status DoRead(int64_t nbytes, int64_t* bytes_read, void* out) {
     RETURN_NOT_OK(CheckOpen());
     int64_t bytes_to_read = std::min(nbytes, nbytes_ - position_);
     RETURN_NOT_OK(
@@ -119,7 +162,7 @@ class FileSegmentReader : public InputStream {
     return Status::OK();
   }
 
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override {
+  Status DoRead(int64_t nbytes, std::shared_ptr<Buffer>* out) {
     RETURN_NOT_OK(CheckOpen());
     int64_t bytes_to_read = std::min(nbytes, nbytes_ - position_);
     RETURN_NOT_OK(file_->ReadAt(file_offset_ + position_, bytes_to_read, out));
@@ -141,7 +184,7 @@ std::shared_ptr<InputStream> RandomAccessFile::GetStream(
 }
 
 //////////////////////////////////////////////////////////////////////////
-// Implement utilities exported from util_internal.h
+// Implement utilities exported from concurrency.h and util_internal.h
 
 namespace internal {
 
@@ -159,6 +202,63 @@ void CloseFromDestructor(FileInterface* file) {
 #endif
   }
 }
+
+#ifndef NDEBUG
+
+// Debug mode concurrency checking
+
+struct SharedExclusiveChecker::Impl {
+  std::mutex mutex;
+  int64_t n_shared = 0;
+  int64_t n_exclusive = 0;
+};
+
+SharedExclusiveChecker::SharedExclusiveChecker() : impl_(new Impl) {}
+
+void SharedExclusiveChecker::LockShared() {
+  std::lock_guard<std::mutex> lock(impl_->mutex);
+  // XXX The error message doesn't really describe the actual situation
+  // (e.g. ReadAt() called while Read() call in progress)
+  ARROW_CHECK_EQ(impl_->n_exclusive, 0)
+      << "Attempted to take shared lock while locked exclusive";
+  ++impl_->n_shared;
+}
+
+void SharedExclusiveChecker::UnlockShared() {
+  std::lock_guard<std::mutex> lock(impl_->mutex);
+  ARROW_CHECK_GT(impl_->n_shared, 0);
+  --impl_->n_shared;
+}
+
+void SharedExclusiveChecker::LockExclusive() {
+  std::lock_guard<std::mutex> lock(impl_->mutex);
+  ARROW_CHECK_EQ(impl_->n_shared, 0)
+      << "Attempted to take exclusive lock while locked shared";
+  ARROW_CHECK_EQ(impl_->n_exclusive, 0)
+      << "Attempted to take exclusive lock while already locked exclusive";
+  ++impl_->n_exclusive;
+}
+
+void SharedExclusiveChecker::UnlockExclusive() {
+  std::lock_guard<std::mutex> lock(impl_->mutex);
+  ARROW_CHECK_EQ(impl_->n_exclusive, 1);
+  --impl_->n_exclusive;
+}
+
+#else
+
+// Release mode no-op concurrency checking
+
+struct SharedExclusiveChecker::Impl {};
+
+SharedExclusiveChecker::SharedExclusiveChecker() {}
+
+void SharedExclusiveChecker::LockShared() {}
+void SharedExclusiveChecker::UnlockShared() {}
+void SharedExclusiveChecker::LockExclusive() {}
+void SharedExclusiveChecker::UnlockExclusive() {}
+
+#endif
 
 }  // namespace internal
 }  // namespace io

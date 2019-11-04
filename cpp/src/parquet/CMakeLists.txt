@@ -155,8 +155,11 @@ set(PARQUET_SRCS
     column_writer.cc
     deprecated_io.cc
     encoding.cc
+    encryption.cc
     file_reader.cc
     file_writer.cc
+    internal_file_decryptor.cc
+    internal_file_encryptor.cc
     metadata.cc
     murmur3.cc
     parquet_constants.cpp
@@ -167,6 +170,12 @@ set(PARQUET_SRCS
     schema.cc
     statistics.cc
     types.cc)
+
+if(PARQUET_REQUIRE_ENCRYPTION)
+  set(PARQUET_SRCS ${PARQUET_SRCS} encryption_internal.cc)
+else()
+  set(PARQUET_SRCS ${PARQUET_SRCS} encryption_internal_nossl.cc)
+endif()
 
 # Ensure that thrift compilation is done before using its generated headers
 # in parquet code.
@@ -305,6 +314,15 @@ add_parquet_test(arrow-test
                  arrow/arrow_reader_writer_test.cc
                  arrow/arrow_schema_test.cc
                  test_util.cc)
+
+if(PARQUET_REQUIRE_ENCRYPTION)
+  add_parquet_test(encryption-test
+                   SOURCES
+                   encryption_write_configurations_test.cc
+                   encryption_read_configurations_test.cc
+                   encryption_properties_test.cc
+                   test_util.cc)
+endif()
 
 # Those tests need to use static linking as they access thrift-generated
 # symbols which are not exported by parquet.dll on Windows (PARQUET-1420).

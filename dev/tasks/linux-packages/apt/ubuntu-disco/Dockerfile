@@ -15,7 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM ubuntu:19.04
+ARG FROM=ubuntu:disco
+FROM ${FROM}
+
+COPY qemu-* /usr/bin/
 
 RUN \
   echo "debconf debconf/frontend select Noninteractive" | \
@@ -40,31 +43,30 @@ RUN \
     libboost-regex-dev \
     libboost-system-dev \
     libbrotli-dev \
+    libbz2-dev \
     libdouble-conversion-dev \
     libgirepository1.0-dev \
     libglib2.0-doc \
     libgmock-dev \
     libgoogle-glog-dev \
-    libgrpc++-dev \
     libgtest-dev \
     liblz4-dev \
-    libprotobuf-dev \
-    libprotoc-dev \
     libre2-dev \
     libsnappy-dev \
     libssl-dev \
     libzstd-dev \
     lsb-release \
     ninja-build \
-    nvidia-cuda-toolkit \
     pkg-config \
-    protobuf-compiler \
-    protobuf-compiler-grpc \
     python3-dev \
     python3-numpy \
     python3-pip \
     rapidjson-dev \
-    tzdata && \
+    tzdata \
+    zlib1g-dev && \
+  if apt list | grep '^nvidia-cuda-toolkit/'; then \
+    apt install -y -V ${quiet} nvidia-cuda-toolkit; \
+  fi && \
   apt clean && \
   pip3 install --upgrade meson && \
   ln -s /usr/local/bin/meson /usr/bin/ && \

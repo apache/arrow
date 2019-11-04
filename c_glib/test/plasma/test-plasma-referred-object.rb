@@ -16,9 +16,12 @@
 # under the License.
 
 class TestPlasmaReferredObject < Test::Unit::TestCase
+  include Helper::Omittable
+
   def setup
     @store = nil
     omit("Plasma is required") unless defined?(::Plasma)
+    require_gi_bindings(3, 3, 9)
     @store = Helper::PlasmaStore.new
     @store.start
     @client = Plasma::Client.new(@store.socket_path, nil)

@@ -32,12 +32,14 @@
 #include "arrow/array.h"
 #include "arrow/builder.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/base64.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
@@ -575,7 +577,8 @@ Status GetOriginSchema(const std::shared_ptr<const KeyValueMetadata>& metadata,
   // The original Arrow schema was serialized using the store_schema option. We
   // deserialize it here and use it to inform read options such as
   // dictionary-encoded fields
-  auto schema_buf = std::make_shared<Buffer>(metadata->value(schema_index));
+  auto decoded = ::arrow::util::base64_decode(metadata->value(schema_index));
+  auto schema_buf = std::make_shared<Buffer>(decoded);
 
   ::arrow::ipc::DictionaryMemo dict_memo;
   ::arrow::io::BufferReader input(schema_buf);
@@ -619,6 +622,27 @@ Status ApplyOriginalMetadata(std::shared_ptr<Field> field, const Field& origin_f
         static_cast<const ::arrow::DictionaryType&>(*origin_type);
     field = field->WithType(
         ::arrow::dictionary(::arrow::int32(), field->type(), dict_origin_type.ordered()));
+  }
+  // restore field metadata
+  std::shared_ptr<const KeyValueMetadata> field_metadata = origin_field.metadata();
+  if (field_metadata != nullptr) {
+    field = field->WithMetadata(field_metadata);
+
+    // extension type
+    int name_index = field_metadata->FindKey(::arrow::kExtensionTypeKeyName);
+    if (name_index != -1) {
+      std::string type_name = field_metadata->value(name_index);
+      int data_index = field_metadata->FindKey(::arrow::kExtensionMetadataKeyName);
+      std::string type_data = data_index == -1 ? "" : field_metadata->value(data_index);
+
+      std::shared_ptr<::arrow::ExtensionType> ext_type =
+          ::arrow::GetExtensionType(type_name);
+      if (ext_type != nullptr) {
+        std::shared_ptr<DataType> deserialized;
+        RETURN_NOT_OK(ext_type->Deserialize(field->type(), type_data, &deserialized));
+        field = field->WithType(deserialized);
+      }
+    }
   }
   *out = field;
   return Status::OK();
@@ -738,7 +762,13 @@ Status TransferInt96(RecordReader* reader, MemoryPool* pool,
   RETURN_NOT_OK(::arrow::AllocateBuffer(pool, length * sizeof(int64_t), &data));
   auto data_ptr = reinterpret_cast<int64_t*>(data->mutable_data());
   for (int64_t i = 0; i < length; i++) {
-    *data_ptr++ = Int96GetNanoSeconds(values[i]);
+    if (values[i].value[2] == 0) {
+      // Happens for null entries: avoid triggering UBSAN as that Int96 timestamp
+      // isn't representable as a 64-bit Unix timestamp.
+      *data_ptr++ = 0;
+    } else {
+      *data_ptr++ = Int96GetNanoSeconds(values[i]);
+    }
   }
   *out = std::make_shared<TimestampArray>(type, length, data, reader->ReleaseIsValid(),
                                           reader->null_count());
@@ -787,10 +817,13 @@ Status TransferBinary(RecordReader* reader,
   }
   auto binary_reader = dynamic_cast<internal::BinaryRecordReader*>(reader);
   DCHECK(binary_reader);
-  *out = std::make_shared<ChunkedArray>(binary_reader->GetBuilderChunks());
-  if (!logical_value_type->Equals(*(*out)->type())) {
-    RETURN_NOT_OK((*out)->View(logical_value_type, out));
+  auto chunks = binary_reader->GetBuilderChunks();
+  for (const auto& chunk : chunks) {
+    if (!chunk->type()->Equals(*logical_value_type)) {
+      return ChunkedArray(chunks).View(logical_value_type, out);
+    }
   }
+  *out = std::make_shared<ChunkedArray>(chunks, logical_value_type);
   return Status::OK();
 }
 
@@ -1085,7 +1118,26 @@ Status TransferDecimal(RecordReader* reader, MemoryPool* pool,
     // Replace the chunk, which will hopefully also free memory as we go
     chunks[i] = chunk_as_decimal;
   }
-  *out = std::make_shared<ChunkedArray>(chunks);
+  *out = std::make_shared<ChunkedArray>(chunks, type);
+  return Status::OK();
+}
+
+Status TransferExtension(RecordReader* reader, std::shared_ptr<DataType> value_type,
+                         const ColumnDescriptor* descr, MemoryPool* pool, Datum* out) {
+  std::shared_ptr<ChunkedArray> result;
+  auto ext_type = std::static_pointer_cast<::arrow::ExtensionType>(value_type);
+  auto storage_type = ext_type->storage_type();
+  RETURN_NOT_OK(TransferColumnData(reader, storage_type, descr, pool, &result));
+
+  ::arrow::ArrayVector out_chunks(result->num_chunks());
+  for (int i = 0; i < result->num_chunks(); i++) {
+    auto chunk = result->chunk(i);
+    auto ext_data = chunk->data()->Copy();
+    ext_data->type = ext_type;
+    auto ext_result = ext_type->MakeArray(ext_data);
+    out_chunks[i] = ext_result;
+  }
+  *out = std::make_shared<ChunkedArray>(out_chunks);
   return Status::OK();
 }
 
@@ -1185,6 +1237,9 @@ Status TransferColumnData(internal::RecordReader* reader,
           return Status::NotImplemented("TimeUnit not supported");
       }
     } break;
+    case ::arrow::Type::EXTENSION: {
+      RETURN_NOT_OK(TransferExtension(reader, value_type, descr, pool, &result));
+    } break;
     default:
       return Status::NotImplemented("No support for reading columns of type ",
                                     value_type->ToString());
@@ -1209,6 +1264,7 @@ Status ReconstructNestedList(const std::shared_ptr<Array>& arr,
                              const int16_t* rep_levels, int64_t total_levels,
                              ::arrow::MemoryPool* pool, std::shared_ptr<Array>* out) {
   // Walk downwards to extract nullability
+  std::vector<std::string> item_names;
   std::vector<bool> nullable;
   std::vector<std::shared_ptr<::arrow::Int32Builder>> offset_builders;
   std::vector<std::shared_ptr<::arrow::BooleanBuilder>> valid_bits_builders;
@@ -1222,6 +1278,7 @@ Status ReconstructNestedList(const std::shared_ptr<Array>& arr,
       }
       field = field->type()->child(0);
     }
+    item_names.push_back(field->name());
     offset_builders.emplace_back(
         std::make_shared<::arrow::Int32Builder>(::arrow::int32(), pool));
     valid_bits_builders.emplace_back(
@@ -1305,7 +1362,7 @@ Status ReconstructNestedList(const std::shared_ptr<Array>& arr,
   // TODO(wesm): Use passed-in field
   for (int64_t j = list_depth - 1; j >= 0; j--) {
     auto list_type =
-        ::arrow::list(::arrow::field("item", (*out)->type(), nullable[j + 1]));
+        ::arrow::list(::arrow::field(item_names[j], (*out)->type(), nullable[j + 1]));
     *out = std::make_shared<::arrow::ListArray>(list_type, list_lengths[j], offsets[j],
                                                 *out, valid_bits[j], null_counts[j]);
   }

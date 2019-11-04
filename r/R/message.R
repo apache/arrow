@@ -45,9 +45,6 @@ Message <- R6Class("Message", inherit = Object,
   )
 )
 
-#' @export
-`==.Message` <- function(x, y) x$Equals(y)
-
 #' @title class arrow::MessageReader
 #'
 #' @usage NULL

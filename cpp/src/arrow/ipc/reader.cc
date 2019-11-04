@@ -31,9 +31,6 @@
 #include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
-#include "arrow/ipc/File_generated.h"  // IWYU pragma: export
-#include "arrow/ipc/Message_generated.h"
-#include "arrow/ipc/Schema_generated.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/metadata_internal.h"
@@ -45,6 +42,10 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
+
+#include "generated/File_generated.h"  // IWYU pragma: export
+#include "generated/Message_generated.h"
+#include "generated/Schema_generated.h"
 
 using arrow::internal::checked_pointer_cast;
 
@@ -110,8 +111,9 @@ class IpcComponentSource {
     const flatbuf::Buffer* buffer = buffers->Get(buffer_index);
 
     if (buffer->length() == 0) {
-      *out = nullptr;
-      return Status::OK();
+      // Should never return a null buffer here.
+      // (zero-sized buffer allocations are cheap)
+      return AllocateBuffer(0, out);
     } else {
       if (!BitUtil::IsMultipleOf8(buffer->offset())) {
         return Status::Invalid(
@@ -253,8 +255,9 @@ class ArrayLoader {
 
   Status Visit(const NullType& type) {
     out_->buffers.resize(1);
-    RETURN_NOT_OK(LoadCommon());
-    RETURN_NOT_OK(GetBuffer(context_->buffer_index++, &out_->buffers[0]));
+
+    // ARROW-6379: NullType has no buffers in the IPC payload
+    RETURN_NOT_OK(context_->source->GetFieldMetadata(context_->field_index++, out_));
     return Status::OK();
   }
 
@@ -917,8 +920,7 @@ Status MakeSparseTensorWithSparseCOOIndex(
     const std::vector<std::string>& dim_names,
     const std::shared_ptr<SparseCOOIndex>& sparse_index, int64_t non_zero_length,
     const std::shared_ptr<Buffer>& data, std::shared_ptr<SparseTensor>* out) {
-  *out = std::make_shared<SparseTensorImpl<SparseCOOIndex>>(sparse_index, type, data,
-                                                            shape, dim_names);
+  *out = std::make_shared<SparseCOOTensor>(sparse_index, type, data, shape, dim_names);
   return Status::OK();
 }
 
@@ -927,8 +929,7 @@ Status MakeSparseTensorWithSparseCSRIndex(
     const std::vector<std::string>& dim_names,
     const std::shared_ptr<SparseCSRIndex>& sparse_index, int64_t non_zero_length,
     const std::shared_ptr<Buffer>& data, std::shared_ptr<SparseTensor>* out) {
-  *out = std::make_shared<SparseTensorImpl<SparseCSRIndex>>(sparse_index, type, data,
-                                                            shape, dim_names);
+  *out = std::make_shared<SparseCSRMatrix>(sparse_index, type, data, shape, dim_names);
   return Status::OK();
 }
 

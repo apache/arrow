@@ -33,7 +33,7 @@ Our strategy for integration testing between Arrow implementations is as follows
 ## Environment setup
 
 The integration test data generator and runner is written in Python and
-currently requires Python 3.5 or higher. You can create a standalone Python
+currently requires Python 3.6 or higher. You can create a standalone Python
 distribution and environment for running the tests by using [miniconda][1]. On
 Linux this is:
 
@@ -57,35 +57,26 @@ After this, you can follow the instructions in the next section.
 
 ## Running the existing integration tests
 
-First, build the Java and C++ projects. For Java, you must run
+The integration tests are run using the `archery integration` command.
 
 ```
-mvn package
+archery integration --help
 ```
 
-Now, the integration tests rely on two environment variables which point to the
-Java `arrow-tool` JAR and the build path for the C++ executables:
+Depending on which components you have built, you can enable and add them to
+the test run. For example, if you only have the C++ project built, you set:
 
-```bash
-JAVA_DIR=$ARROW_HOME/java
-CPP_BUILD_DIR=$ARROW_HOME/cpp/build
+```
+export ARROW_CPP_EXE_PATH=$CPP_BUILD_DIR/debug
+archery integration --enable-cpp=1
+```
 
+For Java, it may look like:
+
+```
 VERSION=0.11.0-SNAPSHOT
 export ARROW_JAVA_INTEGRATION_JAR=$JAVA_DIR/tools/target/arrow-tools-$VERSION-jar-with-dependencies.jar
-export ARROW_CPP_EXE_PATH=$CPP_BUILD_DIR/debug
-```
-
-Here `$ARROW_HOME` is the location of your Arrow git clone. The
-`$CPP_BUILD_DIR` may be different depending on how you built with CMake
-(in-source or out-of-source).
-
-Once this is done, run the integration tests with (optionally adding `--debug`
-for additional output)
-
-```
-python integration_test.py
-
-python integration_test.py --debug  # additional output
+archery integration --enable-cpp=1 --enable-java=1
 ```
 
 [1]: https://conda.io/miniconda.html

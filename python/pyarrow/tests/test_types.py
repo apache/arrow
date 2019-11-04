@@ -42,6 +42,7 @@ def get_many_types():
         pa.timestamp('us'),
         pa.timestamp('us', tz='UTC'),
         pa.timestamp('us', tz='Europe/Paris'),
+        pa.duration('s'),
         pa.float16(),
         pa.float32(),
         pa.float64(),
@@ -183,24 +184,34 @@ def test_is_temporal_date_time_timestamp():
     date_types = [pa.date32(), pa.date64()]
     time_types = [pa.time32('s'), pa.time64('ns')]
     timestamp_types = [pa.timestamp('ms')]
+    duration_types = [pa.duration('ms')]
 
-    for case in date_types + time_types + timestamp_types:
+    for case in date_types + time_types + timestamp_types + duration_types:
         assert types.is_temporal(case)
 
     for case in date_types:
         assert types.is_date(case)
         assert not types.is_time(case)
         assert not types.is_timestamp(case)
+        assert not types.is_duration(case)
 
     for case in time_types:
         assert types.is_time(case)
         assert not types.is_date(case)
         assert not types.is_timestamp(case)
+        assert not types.is_duration(case)
 
     for case in timestamp_types:
         assert types.is_timestamp(case)
         assert not types.is_date(case)
         assert not types.is_time(case)
+        assert not types.is_duration(case)
+
+    for case in duration_types:
+        assert types.is_duration(case)
+        assert not types.is_date(case)
+        assert not types.is_time(case)
+        assert not types.is_timestamp(case)
 
     assert not types.is_temporal(pa.int32())
 
@@ -242,6 +253,16 @@ def test_time64_units():
         error_msg = 'Invalid TimeUnit for time64: {}'.format(invalid_unit)
         with pytest.raises(ValueError, match=error_msg):
             pa.time64(invalid_unit)
+
+
+def test_duration():
+    for unit in ('s', 'ms', 'us', 'ns'):
+        ty = pa.duration(unit)
+        assert ty.unit == unit
+
+    for invalid_unit in ('m', 'arbit', 'rary'):
+        with pytest.raises(ValueError, match='Invalid TimeUnit string'):
+            pa.duration(invalid_unit)
 
 
 def test_list_type():

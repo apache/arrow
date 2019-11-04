@@ -17,7 +17,7 @@
 
 AC_PREREQ(2.65)
 
-m4_define([arrow_glib_version], 0.15.0-SNAPSHOT)
+m4_define([arrow_glib_version], 1.0.0-SNAPSHOT)
 AC_INIT([arrow-glib],
         arrow_glib_version,
         [https://issues.apache.org/jira/browse/ARROW],
@@ -51,6 +51,15 @@ AC_SUBST(GARROW_VERSION_MAJOR)
 AC_SUBST(GARROW_VERSION_MINOR)
 AC_SUBST(GARROW_VERSION_MICRO)
 AC_SUBST(GARROW_VERSION_TAG)
+
+GGANDIVA_VERSION_MAJOR=${GARROW_VERSION_MAJOR}
+GGANDIVA_VERSION_MINOR=${GARROW_VERSION_MINOR}
+GGANDIVA_VERSION_MICRO=${GARROW_VERSION_MICRO}
+GGANDIVA_VERSION_TAG=${GARROW_VERSION_TAG}
+AC_SUBST(GGANDIVA_VERSION_MAJOR)
+AC_SUBST(GGANDIVA_VERSION_MINOR)
+AC_SUBST(GGANDIVA_VERSION_MICRO)
+AC_SUBST(GGANDIVA_VERSION_TAG)
 
 AC_CANONICAL_HOST
 AC_MSG_CHECKING([for macOS])
@@ -266,6 +275,7 @@ AC_CONFIG_FILES([
   arrow-glib/version.h
   gandiva-glib/Makefile
   gandiva-glib/gandiva-glib.pc
+  gandiva-glib/version.h
   parquet-glib/Makefile
   parquet-glib/parquet-glib.pc
   plasma-glib/Makefile

@@ -17,6 +17,7 @@
 
 import warnings
 
+
 cdef class Message:
     """
     Container for an Arrow IPC message with metadata and optional body
@@ -76,7 +77,7 @@ cdef class Message:
         """
         cdef:
             int64_t output_length = 0
-            OutputStream* out
+            COutputStream* out
             CIpcOptions options
 
         options.alignment = alignment
@@ -105,6 +106,9 @@ cdef class Message:
         return stream.getvalue()
 
     def __repr__(self):
+        if self.message == nullptr:
+            return """pyarrow.Message(unitialized)"""
+
         metadata_len = self.metadata.size
         body = self.body
         body_len = 0 if body is None else body.size
@@ -133,9 +137,11 @@ cdef class MessageReader:
 
     @staticmethod
     def open_stream(source):
-        cdef MessageReader result = MessageReader.__new__(MessageReader)
-        cdef shared_ptr[InputStream] in_stream
-        cdef unique_ptr[CMessageReader] reader
+        cdef:
+            MessageReader result = MessageReader.__new__(MessageReader)
+            shared_ptr[CInputStream] in_stream
+            unique_ptr[CMessageReader] reader
+
         _get_input_stream(source, &in_stream)
         with nogil:
             reader = CMessageReader.Open(in_stream)
@@ -247,7 +253,8 @@ cdef class _CRecordBatchWriter:
 
 cdef class _RecordBatchStreamWriter(_CRecordBatchWriter):
     cdef:
-        shared_ptr[OutputStream] sink
+        shared_ptr[COutputStream] sink
+        CIpcOptions options
         bint closed
 
     def __cinit__(self):
@@ -256,17 +263,23 @@ cdef class _RecordBatchStreamWriter(_CRecordBatchWriter):
     def __dealloc__(self):
         pass
 
-    def _open(self, sink, Schema schema):
+    @property
+    def _use_legacy_format(self):
+        return self.options.write_legacy_ipc_format
+
+    def _open(self, sink, Schema schema, use_legacy_format=False):
+        cdef:
+            CResult[shared_ptr[CRecordBatchWriter]] result
+
+        self.options.write_legacy_ipc_format = use_legacy_format
         get_writer(sink, &self.sink)
-
         with nogil:
-            check_status(
-                CRecordBatchStreamWriter.Open(self.sink.get(),
-                                              schema.sp_schema,
-                                              &self.writer))
+            result = CRecordBatchStreamWriter.Open(
+                self.sink.get(), schema.sp_schema, self.options)
+        self.writer = GetResultValue(result)
 
 
-cdef _get_input_stream(object source, shared_ptr[InputStream]* out):
+cdef _get_input_stream(object source, shared_ptr[CInputStream]* out):
     try:
         source = as_buffer(source)
     except TypeError:
@@ -319,10 +332,16 @@ cdef class _CRecordBatchReader:
             check_status(self.reader.get().ReadAll(&table))
         return pyarrow_wrap_table(table)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
 
 cdef class _RecordBatchStreamReader(_CRecordBatchReader):
     cdef:
-        shared_ptr[InputStream] in_stream
+        shared_ptr[CInputStream] in_stream
 
     cdef readonly:
         Schema schema
@@ -341,19 +360,23 @@ cdef class _RecordBatchStreamReader(_CRecordBatchReader):
 
 cdef class _RecordBatchFileWriter(_RecordBatchStreamWriter):
 
-    def _open(self, sink, Schema schema):
-        get_writer(sink, &self.sink)
+    def _open(self, sink, Schema schema, use_legacy_format=False):
+        cdef:
+            CResult[shared_ptr[CRecordBatchWriter]] result
 
+        self.options.write_legacy_ipc_format = use_legacy_format
+        get_writer(sink, &self.sink)
         with nogil:
-            check_status(
-                CRecordBatchFileWriter.Open(self.sink.get(), schema.sp_schema,
-                                            &self.writer))
+            result = CRecordBatchFileWriter.Open(self.sink.get(),
+                                                 schema.sp_schema,
+                                                 self.options)
+        self.writer = GetResultValue(result)
 
 
 cdef class _RecordBatchFileReader:
     cdef:
         shared_ptr[CRecordBatchFileReader] reader
-        shared_ptr[RandomAccessFile] file
+        shared_ptr[CRandomAccessFile] file
 
     cdef readonly:
         Schema schema
@@ -422,6 +445,12 @@ cdef class _RecordBatchFileReader:
                                                   batches, &table))
 
         return pyarrow_wrap_table(table)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
 
 
 def get_tensor_size(Tensor tensor):
@@ -502,9 +531,8 @@ def read_tensor(source):
     """
     cdef:
         shared_ptr[CTensor] sp_tensor
-        InputStream* c_stream
-
-    cdef NativeFile nf = as_native_file(source)
+        CInputStream* c_stream
+        NativeFile nf = as_native_file(source)
 
     c_stream = nf.get_input_stream().get()
     with nogil:
@@ -526,13 +554,16 @@ def read_message(source):
     """
     cdef:
         Message result = Message.__new__(Message)
-        InputStream* c_stream
+        CInputStream* c_stream
 
     cdef NativeFile nf = as_native_file(source)
     c_stream = nf.get_input_stream().get()
 
     with nogil:
         check_status(ReadMessage(c_stream, &result.message))
+
+    if result.message == nullptr:
+        raise EOFError("End of Arrow stream")
 
     return result
 
@@ -554,7 +585,7 @@ def read_schema(obj, DictionaryMemo dictionary_memo=None):
     """
     cdef:
         shared_ptr[CSchema] result
-        shared_ptr[RandomAccessFile] cpp_file
+        shared_ptr[CRandomAccessFile] cpp_file
         CDictionaryMemo temp_memo
         CDictionaryMemo* arg_dict_memo
 

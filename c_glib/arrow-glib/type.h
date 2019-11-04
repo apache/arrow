@@ -55,6 +55,14 @@ G_BEGIN_DECLS
  * @GARROW_TYPE_STRUCT: Struct of logical types.
  * @GARROW_TYPE_UNION: Unions of logical types.
  * @GARROW_TYPE_DICTIONARY: Dictionary aka Category type.
+ * @GARROW_TYPE_MAP: A repeated struct logical type.
+ * @GARROW_TYPE_EXTENSION: Custom data type, implemented by user.
+ * @GARROW_TYPE_FIXED_SIZE_LIST: Fixed size list of some logical type.
+ * @GARROW_TYPE_DURATION: Measure of elapsed time in either seconds,
+ *   milliseconds, microseconds or nanoseconds.
+ * @GARROW_TYPE_LARGE_STRING: 64bit offsets UTF-8 variable-length string.
+ * @GARROW_TYPE_LARGE_BINARY: 64bit offsets Variable-length bytes (no guarantee of UTF-8-ness).
+ * @GARROW_TYPE_LARGE_LIST: A list of some logical data type with 64-bit offsets.
  *
  * They are corresponding to `arrow::Type::type` values.
  */
@@ -85,7 +93,14 @@ typedef enum {
   GARROW_TYPE_LIST,
   GARROW_TYPE_STRUCT,
   GARROW_TYPE_UNION,
-  GARROW_TYPE_DICTIONARY
+  GARROW_TYPE_DICTIONARY,
+  GARROW_TYPE_MAP,
+  GARROW_TYPE_EXTENSION,
+  GARROW_TYPE_FIXED_SIZE_LIST,
+  GARROW_TYPE_DURATION,
+  GARROW_TYPE_LARGE_STRING,
+  GARROW_TYPE_LARGE_BINARY,
+  GARROW_TYPE_LARGE_LIST
 } GArrowType;
 
 /**

@@ -20,6 +20,7 @@
 // Platform-specific defines
 #include "arrow/flight/platform.h"
 
+#include <map>
 #include <memory>
 #include <mutex>
 #include <sstream>
@@ -40,10 +41,14 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/stl.h"
 #include "arrow/util/uri.h"
 
 #include "arrow/flight/client_auth.h"
+#include "arrow/flight/client_middleware.h"
 #include "arrow/flight/internal.h"
+#include "arrow/flight/middleware.h"
+#include "arrow/flight/middleware_internal.h"
 #include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/types.h"
 
@@ -84,6 +89,114 @@ struct ClientRpc {
     }
     return Status::OK();
   }
+};
+
+class GrpcAddCallHeaders : public AddCallHeaders {
+ public:
+  explicit GrpcAddCallHeaders(std::multimap<grpc::string, grpc::string>* metadata)
+      : metadata_(metadata) {}
+  ~GrpcAddCallHeaders() override = default;
+
+  void AddHeader(const std::string& key, const std::string& value) override {
+    metadata_->insert(std::make_pair(key, value));
+  }
+
+ private:
+  std::multimap<grpc::string, grpc::string>* metadata_;
+};
+
+class GrpcClientInterceptorAdapter : public grpc::experimental::Interceptor {
+ public:
+  explicit GrpcClientInterceptorAdapter(
+      std::vector<std::unique_ptr<ClientMiddleware>> middleware)
+      : middleware_(std::move(middleware)) {}
+
+  void Intercept(grpc::experimental::InterceptorBatchMethods* methods) {
+    using InterceptionHookPoints = grpc::experimental::InterceptionHookPoints;
+    if (methods->QueryInterceptionHookPoint(
+            InterceptionHookPoints::PRE_SEND_INITIAL_METADATA)) {
+      GrpcAddCallHeaders add_headers(methods->GetSendInitialMetadata());
+      for (const auto& middleware : middleware_) {
+        middleware->SendingHeaders(&add_headers);
+      }
+    }
+
+    // TODO: also check for trailing metadata if call failed?
+    // (grpc-java and grpc-core differ on this point, it seems)
+    if (methods->QueryInterceptionHookPoint(
+            InterceptionHookPoints::POST_RECV_INITIAL_METADATA)) {
+      CallHeaders headers;
+      for (const auto& entry : *methods->GetRecvInitialMetadata()) {
+        headers.insert({util::string_view(entry.first.data(), entry.first.length()),
+                        util::string_view(entry.second.data(), entry.second.length())});
+      }
+      for (const auto& middleware : middleware_) {
+        middleware->ReceivedHeaders(headers);
+      }
+    }
+
+    if (methods->QueryInterceptionHookPoint(InterceptionHookPoints::POST_RECV_STATUS)) {
+      DCHECK_NE(nullptr, methods->GetRecvStatus());
+      const Status status = internal::FromGrpcStatus(*methods->GetRecvStatus());
+
+      for (const auto& middleware : middleware_) {
+        middleware->CallCompleted(status);
+      }
+    }
+
+    methods->Proceed();
+  }
+
+ private:
+  std::vector<std::unique_ptr<ClientMiddleware>> middleware_;
+};
+
+class GrpcClientInterceptorAdapterFactory
+    : public grpc::experimental::ClientInterceptorFactoryInterface {
+ public:
+  GrpcClientInterceptorAdapterFactory(
+      std::vector<std::shared_ptr<ClientMiddlewareFactory>> middleware)
+      : middleware_(middleware) {}
+
+  grpc::experimental::Interceptor* CreateClientInterceptor(
+      grpc::experimental::ClientRpcInfo* info) override {
+    std::vector<std::unique_ptr<ClientMiddleware>> middleware;
+
+    FlightMethod flight_method = FlightMethod::Invalid;
+    util::string_view method(info->method());
+    if (method.ends_with("/Handshake")) {
+      flight_method = FlightMethod::Handshake;
+    } else if (method.ends_with("/ListFlights")) {
+      flight_method = FlightMethod::ListFlights;
+    } else if (method.ends_with("/GetFlightInfo")) {
+      flight_method = FlightMethod::GetFlightInfo;
+    } else if (method.ends_with("/GetSchema")) {
+      flight_method = FlightMethod::GetSchema;
+    } else if (method.ends_with("/DoGet")) {
+      flight_method = FlightMethod::DoGet;
+    } else if (method.ends_with("/DoPut")) {
+      flight_method = FlightMethod::DoPut;
+    } else if (method.ends_with("/DoAction")) {
+      flight_method = FlightMethod::DoAction;
+    } else if (method.ends_with("/ListActions")) {
+      flight_method = FlightMethod::ListActions;
+    } else {
+      DCHECK(false) << "Unknown Flight method: " << info->method();
+    }
+
+    const CallInfo flight_info{flight_method};
+    for (auto& factory : middleware_) {
+      std::unique_ptr<ClientMiddleware> instance;
+      factory->StartCall(flight_info, &instance);
+      if (instance) {
+        middleware.push_back(std::move(instance));
+      }
+    }
+    return new GrpcClientInterceptorAdapter(std::move(middleware));
+  }
+
+ private:
+  std::vector<std::shared_ptr<ClientMiddlewareFactory>> middleware_;
 };
 
 class GrpcClientAuthSender : public ClientAuthSender {
@@ -442,8 +555,15 @@ class FlightClient::FlightClientImpl {
       args.SetSslTargetNameOverride(options.override_hostname);
     }
 
+    std::vector<std::unique_ptr<grpc::experimental::ClientInterceptorFactoryInterface>>
+        interceptors;
+    interceptors.emplace_back(
+        new GrpcClientInterceptorAdapterFactory(std::move(options.middleware)));
+
     stub_ = pb::FlightService::NewStub(
-        grpc::CreateCustomChannel(grpc_uri.str(), creds, args));
+        grpc::experimental::CreateCustomChannelWithInterceptors(
+            grpc_uri.str(), creds, args, std::move(interceptors)));
+
     return Status::OK();
   }
 

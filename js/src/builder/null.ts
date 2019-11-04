@@ -22,4 +22,8 @@ import { Builder } from '../builder';
 export class NullBuilder<TNull = any> extends Builder<Null, TNull> {
     // @ts-ignore
     public setValue(index: number, value: null) {}
+    public setValid(index: number, valid: boolean) {
+        this.length = Math.max(index + 1, this.length);
+        return valid;
+    }
 }

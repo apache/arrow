@@ -108,6 +108,17 @@ class ARROW_EXPORT PlasmaClient {
   Status CreateAndSeal(const ObjectID& object_id, const std::string& data,
                        const std::string& metadata);
 
+  /// Create and seal multiple objects in the object store. This is an optimization
+  /// of CreateAndSeal to eliminate the cost of IPC per object.
+  ///
+  /// \param object_ids The vector of IDs of the objects to create.
+  /// \param data The vector of data for the objects to create.
+  /// \param metadata The vector of metadata for the objects to create.
+  /// \return The return status.
+  Status CreateAndSealBatch(const std::vector<ObjectID>& object_ids,
+                            const std::vector<std::string>& data,
+                            const std::vector<std::string>& metadata);
+
   /// Get some objects from the Plasma Store. This function will block until the
   /// objects have all been created and sealed in the Plasma Store or the
   /// timeout expires.
@@ -220,6 +231,13 @@ class ARROW_EXPORT PlasmaClient {
   /// \return The return status.
   Status Evict(int64_t num_bytes, int64_t& num_bytes_evicted);
 
+  /// Bump objects up in the LRU cache, i.e. treat them as recently accessed.
+  /// Objects that do not exist in the store will be ignored.
+  ///
+  /// \param object_ids The IDs of the objects to bump.
+  /// \return The return status.
+  Status Refresh(const std::vector<ObjectID>& object_ids);
+
   /// Compute the hash of an object in the object store.
   ///
   /// \param object_id The ID of the object we want to hash.
@@ -248,8 +266,9 @@ class ARROW_EXPORT PlasmaClient {
   Status GetNotification(int fd, ObjectID* object_id, int64_t* data_size,
                          int64_t* metadata_size);
 
-  Status DecodeNotification(const uint8_t* buffer, ObjectID* object_id,
-                            int64_t* data_size, int64_t* metadata_size);
+  Status DecodeNotifications(const uint8_t* buffer, std::vector<ObjectID>* object_ids,
+                             std::vector<int64_t>* data_sizes,
+                             std::vector<int64_t>* metadata_sizes);
 
   /// Disconnect from the local plasma instance, including the local store and
   /// manager.

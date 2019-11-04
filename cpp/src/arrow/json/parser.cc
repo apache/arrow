@@ -54,10 +54,6 @@ static Status ParseError(T&&... t) {
   return Status::Invalid("JSON parse error: ", std::forward<T>(t)...);
 }
 
-static Status KindChangeError(Kind::type from, Kind::type to) {
-  return ParseError("A column changed from ", Kind::Name(from), " to ", Kind::Name(to));
-}
-
 const std::string& Kind::Name(Kind::type kind) {
   static const std::string names[] = {"null",   "boolean", "number",
                                       "string", "array",   "object"};
@@ -326,6 +322,15 @@ class RawArrayBuilder<Kind::kObject> {
   Status AppendNull() { return null_bitmap_builder_.Append(false); }
 
   Status AppendNull(int64_t count) { return null_bitmap_builder_.Append(count, false); }
+
+  std::string FieldName(int i) const {
+    for (const auto& name_index : name_to_index_) {
+      if (name_index.second == i) {
+        return name_index.first;
+      }
+    }
+    return "";
+  }
 
   int GetFieldIndex(const std::string& name) const {
     auto it = name_to_index_.find(name);
@@ -649,6 +654,25 @@ class HandlerBase : public BlockParser,
     return builder_set_.Finish(scalar_values, builder_, parsed);
   }
 
+  /// \brief Emit path of current field for debugging purposes
+  std::string Path() {
+    std::string path;
+    for (size_t i = 0; i < builder_stack_.size(); ++i) {
+      auto builder = builder_stack_[i];
+      if (builder.kind == Kind::kArray) {
+        path += "/[]";
+      } else {
+        auto struct_builder = Cast<Kind::kObject>(builder);
+        auto field_index = field_index_;
+        if (i + 1 < field_index_stack_.size()) {
+          field_index = field_index_stack_[i + 1];
+        }
+        path += "/" + struct_builder->FieldName(field_index);
+      }
+    }
+    return path;
+  }
+
  protected:
   template <typename Handler, typename Stream>
   Status DoParse(Handler& handler, Stream&& json) {
@@ -672,9 +696,7 @@ class HandlerBase : public BlockParser,
           return handler.Error();
         default:
           // rj emitted an error
-          // FIXME(bkietz) report more error data (at least the byte range of the current
-          // block, and maybe the path to the most recently parsed value?)
-          return ParseError(rj::GetParseError_En(ok.Code()));
+          return ParseError(rj::GetParseError_En(ok.Code()), " in row ", num_rows_);
       }
     }
     return Status::Invalid("Exceeded maximum rows");
@@ -722,10 +744,15 @@ class HandlerBase : public BlockParser,
   ///
   /// sets the field builder with name key, or returns false if
   /// there is no field with that name
-  bool SetFieldBuilder(string_view key) {
+  bool SetFieldBuilder(string_view key, bool* duplicate_keys) {
     auto parent = Cast<Kind::kObject>(builder_stack_.back());
     field_index_ = parent->GetFieldIndex(std::string(key));
     if (ARROW_PREDICT_FALSE(field_index_ == -1)) {
+      return false;
+    }
+    *duplicate_keys = !absent_fields_stack_[field_index_];
+    if (*duplicate_keys) {
+      status_ = ParseError("Column(", Path(), ") was specified twice in row ", num_rows_);
       return false;
     }
     builder_ = parent->field_builder(field_index_);
@@ -790,7 +817,8 @@ class HandlerBase : public BlockParser,
   }
 
   Status IllegallyChangedTo(Kind::type illegally_changed_to) {
-    return KindChangeError(builder_.kind, illegally_changed_to);
+    return ParseError("Column(", Path(), ") changed from ", Kind::Name(builder_.kind),
+                      " to ", Kind::Name(illegally_changed_to), " in row ", num_rows_);
   }
 
   /// Reserve storage for scalars, these can occupy almost all of the JSON buffer
@@ -834,10 +862,13 @@ class Handler<UnexpectedFieldBehavior::Error> : public HandlerBase {
   ///
   /// if an unexpected field is encountered, emit a parse error and bail
   bool Key(const char* key, rj::SizeType len, ...) {
-    if (ARROW_PREDICT_TRUE(SetFieldBuilder(string_view(key, len)))) {
+    bool duplicate_keys = false;
+    if (ARROW_PREDICT_FALSE(SetFieldBuilder(string_view(key, len), &duplicate_keys))) {
       return true;
     }
-    status_ = ParseError("unexpected field");
+    if (!duplicate_keys) {
+      status_ = ParseError("unexpected field");
+    }
     return false;
   }
 };
@@ -895,8 +926,12 @@ class Handler<UnexpectedFieldBehavior::Ignore> : public HandlerBase {
     if (Skipping()) {
       return true;
     }
-    if (ARROW_PREDICT_TRUE(SetFieldBuilder(string_view(key, len)))) {
+    bool duplicate_keys = false;
+    if (ARROW_PREDICT_TRUE(SetFieldBuilder(string_view(key, len), &duplicate_keys))) {
       return true;
+    }
+    if (ARROW_PREDICT_FALSE(duplicate_keys)) {
+      return false;
     }
     skip_depth_ = depth_;
     return true;
@@ -982,8 +1017,12 @@ class Handler<UnexpectedFieldBehavior::InferType> : public HandlerBase {
   /// (parent.length - 1) leading nulls. The next value parsed
   /// will probably trigger promotion of this field from null
   bool Key(const char* key, rj::SizeType len, ...) {
-    if (ARROW_PREDICT_TRUE(SetFieldBuilder(string_view(key, len)))) {
+    bool duplicate_keys = false;
+    if (ARROW_PREDICT_TRUE(SetFieldBuilder(string_view(key, len), &duplicate_keys))) {
       return true;
+    }
+    if (ARROW_PREDICT_FALSE(duplicate_keys)) {
+      return false;
     }
     auto struct_builder = Cast<Kind::kObject>(builder_stack_.back());
     auto leading_nulls = static_cast<uint32_t>(struct_builder->length() - 1);

@@ -27,8 +27,8 @@ test_that("ChunkedArray", {
   y <- x$Slice(8)
   expect_equal(y$type, int32())
   expect_equal(y$num_chunks, 3L)
-  expect_equal(y$length(), 17L)
-  expect_equal(y$as_vector(), c(9:10, 1:10, 1:5))
+  expect_equal(length(y), 17L)
+  expect_equal(as.vector(y), c(9:10, 1:10, 1:5))
 
   z <- x$Slice(8, 5)
   expect_equal(z$type, int32())
@@ -53,6 +53,55 @@ test_that("ChunkedArray", {
   expect_equal(z_dbl$num_chunks, 2L)
   expect_equal(z_dbl$length(), 2L)
   expect_equal(z_dbl$as_vector(), as.numeric(3:4))
+})
+
+test_that("print ChunkedArray", {
+  x1 <- chunked_array(c(1,2,3), c(4,5,6))
+  expect_output(
+    print(x1),
+    paste(
+      "ChunkedArray",
+      "<double>",
+      "[",
+      "  1,",
+      "  2,",
+      "  3,",
+      "  ...",
+      "]",
+      sep = "\n"
+    ),
+    fixed = TRUE
+  )
+  x2 <- chunked_array(1:30, c(4,5,6))
+  expect_output(
+    print(x2),
+    paste(
+      "ChunkedArray",
+      "<int32>",
+      "[",
+      "  1,",
+      "  2,",
+      "  3,",
+      "  4,",
+      "  5,",
+      "  6,",
+      "  7,",
+      "  8,",
+      "  9,",
+      "  10,",
+      "  ...",
+      "]",
+      sep = "\n"
+    ),
+    fixed = TRUE
+  )
+  # If there's only one chunk, it should look like a regular Array
+  x3 <- chunked_array(1:30)
+  expect_output(
+    print(x3),
+    paste0("Chunked", paste(capture.output(print(Array$create(1:30))), collapse = "\n")),
+    fixed = TRUE
+  )
 })
 
 test_that("ChunkedArray handles !!! splicing", {
@@ -286,4 +335,60 @@ test_that("chunked_array() handles data frame -> struct arrays (ARROW-3811)", {
   a <- chunked_array(df, df)
   expect_equal(a$type, struct(x = int32(), y = float64(), z = utf8()))
   expect_equivalent(a$as_vector(), rbind(df, df))
+})
+
+test_that("ChunkedArray$View() (ARROW-6542)", {
+  a <- ChunkedArray$create(1:3, 1:4)
+  b <- a$View(float32())
+  expect_equal(b$type, float32())
+  expect_equal(length(b), 7L)
+  expect_true(all(
+    sapply(b$chunks, function(.x) .x$type == float32())
+  ))
+})
+
+test_that("ChunkedArray$Validate()", {
+  a <- ChunkedArray$create(1:10)
+  expect_error(a$Validate(), NA)
+})
+
+test_that("[ ChunkedArray", {
+  one_chunk <- chunked_array(2:11)
+  x <- chunked_array(1:10, 31:40, 51:55)
+  # Slice
+  expect_vector(x[8:12], c(8:10, 31:32))
+  # Take from same chunk
+  expect_vector(x[c(11, 15, 12)], c(31, 35, 32))
+  # Take from multiple chunks (calls Concatenate)
+  expect_vector(x[c(2, 11, 15, 12, 3)], c(2, 31, 35, 32, 3))
+  # Take with Array (note these are 0-based)
+  take1 <- Array$create(c(10L, 14L, 11L))
+  expect_vector(x[take1], c(31, 35, 32))
+  # Take with ChunkedArray
+  take2 <- ChunkedArray$create(c(10L, 14L), 11L)
+  expect_vector(x[take2], c(31, 35, 32))
+
+  # Filter (with recycling)
+  expect_vector(
+    one_chunk[c(FALSE, TRUE, FALSE, FALSE, TRUE)],
+    c(3, 6, 8, 11)
+  )
+  # Filter where both are 1-chunk
+  expect_vector(
+    one_chunk[ChunkedArray$create(rep(c(FALSE, TRUE, FALSE, FALSE, TRUE), 2))],
+    c(3, 6, 8, 11)
+  )
+  # Filter multi-chunk with logical (-> Array)
+  expect_vector(
+    x[c(FALSE, TRUE, FALSE, FALSE, TRUE)],
+    c(2, 5, 7, 10, 32, 35, 37, 40, 52, 55)
+  )
+  # Filter with a chunked array with different sized chunks
+  p1 <- c(FALSE, TRUE, FALSE, FALSE, TRUE)
+  p2 <- c(TRUE, FALSE, TRUE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE)
+  filt <- ChunkedArray$create(p1, p2, p2)
+  expect_vector(
+    x[filt],
+    c(2, 5, 6, 8, 9, 35, 36, 38, 39, 55)
+  )
 })

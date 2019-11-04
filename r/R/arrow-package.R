@@ -18,12 +18,29 @@
 #' @importFrom R6 R6Class
 #' @importFrom purrr map map_int map2
 #' @importFrom assertthat assert_that
-#' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos
+#' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos eval_tidy new_data_mask syms env
 #' @importFrom Rcpp sourceCpp
 #' @importFrom tidyselect vars_select
 #' @useDynLib arrow, .registration = TRUE
 #' @keywords internal
 "_PACKAGE"
+
+#' @importFrom vctrs s3_register
+.onLoad <- function(...) {
+  dplyr_methods <- paste0(
+    "dplyr::",
+    c(
+      "select", "filter", "collect", "summarise", "group_by", "groups",
+      "group_vars", "ungroup", "mutate", "arrange", "rename", "pull"
+    )
+  )
+  for (cl in c("RecordBatch", "Table", "arrow_dplyr_query")) {
+    for (m in dplyr_methods) {
+      s3_register(m, cl)
+    }
+  }
+  invisible()
+}
 
 #' Is the C++ Arrow library available?
 #'
@@ -54,14 +71,27 @@ Object <- R6Class("Object",
       self$`.:xp:.` <- xp
     },
     print = function(...){
-      cat(class(self)[[1]], "\n")
+      cat(class(self)[[1]], "\n", sep = "")
       if (!is.null(self$ToString)){
-        cat(self$ToString(), "\n")
+        cat(self$ToString(), "\n", sep = "")
       }
       invisible(self)
     }
   )
 )
+
+#' @export
+`!=.Object` <- function(lhs, rhs) !(lhs == rhs)
+
+#' @export
+`==.Object` <- function(x, y) {
+  x$Equals(y)
+}
+
+#' @export
+all.equal.Object <- function(target, current, ...) {
+  target$Equals(current)
+}
 
 shared_ptr <- function(class, xp) {
   if (!shared_ptr_is_null(xp)) class$new(xp)

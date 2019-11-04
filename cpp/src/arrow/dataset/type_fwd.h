@@ -42,7 +42,7 @@ namespace dataset {
 class Dataset;
 class DataFragment;
 class DataSource;
-struct DataSelector;
+using DataSourceVector = std::vector<std::shared_ptr<DataSource>>;
 using DataFragmentIterator = Iterator<std::shared_ptr<DataFragment>>;
 using DataFragmentVector = std::vector<std::shared_ptr<DataFragment>>;
 
@@ -53,9 +53,6 @@ class FileFormat;
 class FileScanOptions;
 class FileWriteOptions;
 
-class Filter;
-using FilterVector = std::vector<std::shared_ptr<Filter>>;
-
 class Expression;
 class ComparisonExpression;
 class AndExpression;
@@ -64,6 +61,7 @@ class NotExpression;
 class ScalarExpression;
 class FieldReferenceExpression;
 using ExpressionVector = std::vector<std::shared_ptr<Expression>>;
+class ExpressionEvaluator;
 
 class Partition;
 class PartitionKey;

@@ -20,14 +20,13 @@ package org.apache.arrow.consumers;
 import java.io.IOException;
 
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.ValueVector;
 import org.apache.avro.io.Decoder;
 
 /**
  * Interface that is used to consume values from avro decoder.
  * @param <T> The vector within consumer or its delegate, used for partially consume purpose.
  */
-public interface Consumer<T extends ValueVector> extends AutoCloseable {
+public interface Consumer<T extends FieldVector> extends AutoCloseable {
 
   /**
    * Consume a specific type value from avro decoder and write it to vector.
@@ -58,7 +57,15 @@ public interface Consumer<T extends ValueVector> extends AutoCloseable {
 
   /**
    * Reset the vector within consumer for partial read purpose.
+   * @return true if reset is successful, false if reset is not needed.
    */
-  void resetValueVector(T vector);
+  boolean resetValueVector(T vector);
+
+  /**
+   * Indicates whether the consumer is type of {@link SkipConsumer}.
+   */
+  default boolean skippable() {
+    return false;
+  }
 
 }

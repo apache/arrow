@@ -227,8 +227,10 @@ def construct_metadata(df, column_names, index_levels, index_descriptors,
 
         column_indexes = []
 
-        for level in getattr(df.columns, 'levels', [df.columns]):
-            metadata = _get_simple_index_descriptor(level)
+        levels = getattr(df.columns, 'levels', [df.columns])
+        names = getattr(df.columns, 'names', [df.columns.name])
+        for level, name in zip(levels, names):
+            metadata = _get_simple_index_descriptor(level, name)
             column_indexes.append(metadata)
     else:
         index_descriptors = index_column_metadata = column_indexes = []
@@ -247,7 +249,7 @@ def construct_metadata(df, column_names, index_levels, index_descriptors,
     }
 
 
-def _get_simple_index_descriptor(level):
+def _get_simple_index_descriptor(level, name):
     string_dtype, extra_metadata = get_extension_dtype_info(level)
     pandas_type = get_logical_type_from_numpy(level)
     if 'mixed' in pandas_type:
@@ -259,8 +261,8 @@ def _get_simple_index_descriptor(level):
         assert not extra_metadata
         extra_metadata = {'encoding': 'UTF-8'}
     return {
-        'name': level.name,
-        'field_name': level.name,
+        'name': name,
+        'field_name': name,
         'pandas_type': pandas_type,
         'numpy_type': string_dtype,
         'metadata': extra_metadata,
@@ -412,14 +414,18 @@ def _get_columns_to_convert_given_schema(df, schema, preserve_index):
                 col = df.index.get_level_values(name)
                 if (preserve_index is None and
                         isinstance(col, _pandas_api.pd.RangeIndex)):
-                    # TODO better error message
-                    raise KeyError("name {} in schema not in columns "
-                                   "or index".format(name))
+                    raise ValueError(
+                        "name '{}' is present in the schema, but it is a "
+                        "RangeIndex which will not be converted as a column "
+                        "in the Table, but saved as metadata-only not in "
+                        "columns. Specify 'preserve_index=True' to force it "
+                        "being added as a column, or remove it from the "
+                        "specified schema".format(name))
                 is_index = True
             else:
-                # TODO better error message
-                raise KeyError("name {} in schema not in columns "
-                               "or index".format(name))
+                raise KeyError(
+                    "name '{}' present in the specified schema is not found "
+                    "in the columns or index".format(name))
 
         name = _column_name_to_strings(name)
 
@@ -645,7 +651,7 @@ def _reconstruct_block(item):
     # categorical types and Timestamps-with-timezones types to the proper
     # pandas Blocks
 
-    block_arr = item['block']
+    block_arr = item.get('block', None)
     placement = item['placement']
     if 'dictionary' in item:
         cat = _pandas_api.categorical_type.from_codes(
@@ -661,6 +667,27 @@ def _reconstruct_block(item):
     elif 'object' in item:
         block = _int.make_block(builtin_pickle.loads(block_arr),
                                 placement=placement, klass=_int.ObjectBlock)
+    elif 'py_array' in item:
+        arr = item['py_array']
+        # TODO have mechanism to know a method to create a
+        # pandas ExtensionArray given the pyarrow type
+        # Now hardcode here to create a pandas IntegerArray for the example
+        arr = arr.chunk(0)
+        buflist = arr.buffers()
+        data = np.frombuffer(buflist[-1], dtype=arr.type.to_pandas_dtype())[
+            arr.offset:arr.offset + len(arr)]
+        bitmask = buflist[0]
+        if bitmask is not None:
+            mask = pa.BooleanArray.from_buffers(
+                pa.bool_(), len(arr), [None, bitmask])
+            mask = np.asarray(mask)
+        else:
+            mask = np.ones(len(arr), dtype=bool)
+        block_arr = _pandas_api.pd.arrays.IntegerArray(
+            data.copy(), ~mask, copy=False)
+        # create ExtensionBlock
+        block = _int.make_block(block_arr, placement=placement,
+                                klass=_int.ExtensionBlock)
     else:
         block = _int.make_block(block_arr, placement=placement)
 
@@ -677,7 +704,7 @@ def make_datetimetz(tz):
 
 
 def table_to_blockmanager(options, table, categories=None,
-                          ignore_metadata=False):
+                          extension_columns=None, ignore_metadata=False):
     from pandas.core.internals import BlockManager
 
     all_columns = []
@@ -695,8 +722,7 @@ def table_to_blockmanager(options, table, categories=None,
         index = _pandas_api.pd.RangeIndex(table.num_rows)
 
     _check_data_column_metadata_consistency(all_columns)
-    blocks = _table_to_blocks(options, table, pa.default_memory_pool(),
-                              categories)
+    blocks = _table_to_blocks(options, table, categories, extension_columns)
     columns = _deserialize_column_index(table, all_columns, column_indexes)
 
     axes = [columns, index]
@@ -964,12 +990,12 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
     return pd.MultiIndex(new_levels, labels, names=columns.names)
 
 
-def _table_to_blocks(options, block_table, memory_pool, categories):
+def _table_to_blocks(options, block_table, categories, extension_columns):
     # Part of table_to_blockmanager
 
     # Convert an arrow table to Block from the internal pandas API
-    result = pa.lib.table_to_blocks(options, block_table, memory_pool,
-                                    categories)
+    result = pa.lib.table_to_blocks(options, block_table, categories,
+                                    extension_columns)
 
     # Defined above
     return [_reconstruct_block(item) for item in result]
@@ -1044,3 +1070,17 @@ def _add_any_metadata(table, pandas_metadata):
         return pa.Table.from_arrays(columns, schema=pa.schema(fields))
     else:
         return table
+
+
+# ----------------------------------------------------------------------
+# Helper functions used in lib
+
+
+def make_tz_aware(series, tz):
+    """
+    Make a datetime64 Series timezone-aware for the given tz
+    """
+    tz = pa.lib.string_to_tzinfo(tz)
+    series = (series.dt.tz_localize('utc')
+                    .dt.tz_convert(tz))
+    return series

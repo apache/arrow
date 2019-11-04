@@ -32,6 +32,7 @@ import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.DensityAwareVector;
 import org.apache.arrow.vector.FieldVector;
+import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.ValueVector;
 import org.apache.arrow.vector.ZeroVector;
@@ -280,7 +281,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
    */
   public <T extends ValueVector> AddOrGetResult<T> addOrGetVector(FieldType fieldType) {
     boolean created = false;
-    if (vector instanceof ZeroVector) {
+    if (vector instanceof NullVector) {
       vector = fieldType.createNewSingleVector(defaultDataVectorName, allocator, callBack);
       // returned vector must have the same field
       created = true;

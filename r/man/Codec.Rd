@@ -15,6 +15,8 @@ The \code{Codec$create()} factory method takes the following argument:
 a list of possible values. \code{type} may be upper- or lower-cased. Support
 for compression methods depends on build-time flags for the C++ library.
 Most builds support at least "gzip" and "snappy".
+\item \code{compression_level}: compression level, the default value (\code{NA}) uses the default
+compression level for the selected compression \code{type}.
 }
 }
 

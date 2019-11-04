@@ -16,3 +16,10 @@
 # under the License.
 
 ADD_ARROW_EXAMPLE(row-wise-conversion-example)
+
+if (ARROW_PARQUET AND ARROW_DATASET)
+  ADD_ARROW_EXAMPLE(dataset-parquet-scan-example
+    EXTRA_LINK_LIBS
+    arrow_dataset_shared)
+  add_dependencies(dataset-parquet-scan-example parquet)
+endif()

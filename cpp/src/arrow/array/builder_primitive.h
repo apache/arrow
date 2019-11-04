@@ -29,8 +29,7 @@ namespace arrow {
 
 class ARROW_EXPORT NullBuilder : public ArrayBuilder {
  public:
-  explicit NullBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
-      : ArrayBuilder(null(), pool) {}
+  explicit NullBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT) : ArrayBuilder(pool) {}
 
   /// \brief Append the specified number of null elements
   Status AppendNulls(int64_t length) final {
@@ -51,6 +50,8 @@ class ARROW_EXPORT NullBuilder : public ArrayBuilder {
   using ArrayBuilder::Finish;
   /// \endcond
 
+  std::shared_ptr<DataType> type() const override { return null(); }
+
   Status Finish(std::shared_ptr<NullArray>* out) { return FinishTyped(out); }
 };
 
@@ -61,13 +62,15 @@ class NumericBuilder : public ArrayBuilder {
   using TypeClass = T;
   using value_type = typename T::c_type;
   using ArrayType = typename TypeTraits<T>::ArrayType;
-  using ArrayBuilder::ArrayBuilder;
 
   template <typename T1 = T>
   explicit NumericBuilder(
       typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type pool
           ARROW_MEMORY_POOL_DEFAULT)
-      : ArrayBuilder(TypeTraits<T1>::type_singleton(), pool) {}
+      : ArrayBuilder(pool), type_(TypeTraits<T>::type_singleton()) {}
+
+  NumericBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
+      : ArrayBuilder(pool), type_(type) {}
 
   /// Append a single scalar and increase the size if necessary.
   Status Append(const value_type val) {
@@ -162,7 +165,7 @@ class NumericBuilder : public ArrayBuilder {
     std::shared_ptr<Buffer> data, null_bitmap;
     ARROW_RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
     ARROW_RETURN_NOT_OK(data_builder_.Finish(&data));
-    *out = ArrayData::Make(type_, length_, {null_bitmap, data}, null_count_);
+    *out = ArrayData::Make(type(), length_, {null_bitmap, data}, null_count_);
     capacity_ = length_ = null_count_ = 0;
     return Status::OK();
   }
@@ -244,7 +247,10 @@ class NumericBuilder : public ArrayBuilder {
     data_builder_.UnsafeAppend(0);
   }
 
+  std::shared_ptr<DataType> type() const override { return type_; }
+
  protected:
+  std::shared_ptr<DataType> type_;
   TypedBufferBuilder<value_type> data_builder_;
 };
 
@@ -271,7 +277,8 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
 
   explicit BooleanBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
-  explicit BooleanBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool);
+  BooleanBuilder(const std::shared_ptr<DataType>& type,
+                 MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
   Status AppendNulls(int64_t length) final {
@@ -424,6 +431,8 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
 
   void Reset() override;
   Status Resize(int64_t capacity) override;
+
+  std::shared_ptr<DataType> type() const override { return boolean(); }
 
  protected:
   TypedBufferBuilder<bool> data_builder_;

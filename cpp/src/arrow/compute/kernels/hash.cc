@@ -583,19 +583,28 @@ Status DictionaryEncode(FunctionContext* ctx, const Datum& value, Datum* out) {
   std::vector<Datum> indices_outputs;
   RETURN_NOT_OK(InvokeHash(ctx, func.get(), value, &indices_outputs, &dictionary));
 
-  // Create the dictionary type
-  DCHECK_EQ(indices_outputs[0].kind(), Datum::ARRAY);
-  std::shared_ptr<DataType> dict_type =
-      ::arrow::dictionary(indices_outputs[0].array()->type, dictionary->type());
-
-  // Create DictionaryArray for each piece yielded by the kernel invocations
+  // Wrap indices in dictionary arrays for result
   std::vector<std::shared_ptr<Array>> dict_chunks;
-  for (const Datum& datum : indices_outputs) {
-    dict_chunks.emplace_back(std::make_shared<DictionaryArray>(
-        dict_type, MakeArray(datum.array()), dictionary));
+  std::shared_ptr<DataType> dict_type;
+
+  if (indices_outputs.size() == 0) {
+    // Special case: empty was an empty chunked array
+    DCHECK_EQ(value.kind(), Datum::CHUNKED_ARRAY);
+    dict_type = ::arrow::dictionary(int32(), dictionary->type());
+    *out = std::make_shared<ChunkedArray>(dict_chunks, dict_type);
+  } else {
+    // Create the dictionary type
+    DCHECK_EQ(indices_outputs[0].kind(), Datum::ARRAY);
+    dict_type = ::arrow::dictionary(indices_outputs[0].array()->type, dictionary->type());
+
+    // Create DictionaryArray for each piece yielded by the kernel invocations
+    for (const Datum& datum : indices_outputs) {
+      dict_chunks.emplace_back(std::make_shared<DictionaryArray>(
+          dict_type, MakeArray(datum.array()), dictionary));
+    }
+    *out = detail::WrapArraysLike(value, dict_chunks);
   }
 
-  *out = detail::WrapArraysLike(value, dict_chunks);
   return Status::OK();
 }
 

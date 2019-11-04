@@ -31,7 +31,6 @@
 #include "arrow/io/file.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/test_common.h"
-#include "arrow/ipc/Message_generated.h"  // IWYU pragma: keep
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/metadata_internal.h"
 #include "arrow/ipc/reader.h"
@@ -49,6 +48,8 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
+
+#include "generated/Message_generated.h"  // IWYU pragma: keep
 
 namespace arrow {
 
@@ -318,6 +319,7 @@ class IpcTestFixture : public io::MemoryMapFixture {
   }
 
   void CheckReadResult(const RecordBatch& result, const RecordBatch& expected) {
+    ASSERT_OK(result.Validate());
     EXPECT_EQ(expected.num_rows(), result.num_rows());
 
     ASSERT_TRUE(expected.schema()->Equals(*result.schema()));
@@ -401,6 +403,18 @@ TEST_F(TestIpcRoundTrip, MetadataVersion) {
   ASSERT_OK(ReadMessage(0, metadata_length, mmap_.get(), &message));
 
   ASSERT_EQ(MetadataVersion::V4, message->metadata_version());
+}
+
+TEST(TestReadMessage, CorruptedSmallInput) {
+  std::string data = "abc";
+  io::BufferReader reader(data);
+  std::unique_ptr<Message> message;
+  ASSERT_RAISES(Invalid, ReadMessage(&reader, &message));
+
+  // But no error on unsignaled EOS
+  io::BufferReader reader2("");
+  ASSERT_OK(ReadMessage(&reader2, &message));
+  ASSERT_EQ(nullptr, message);
 }
 
 TEST_P(TestIpcRoundTrip, SliceRoundTrip) {
@@ -780,6 +794,27 @@ class ReaderWriterMixin {
     }
   }
 
+  template <typename Param>
+  void TestZeroLengthRoundTrip(Param&& param, const IpcOptions& options) {
+    std::shared_ptr<RecordBatch> batch1;
+    std::shared_ptr<RecordBatch> batch2;
+    ASSERT_OK(param(&batch1));  // NOLINT clang-tidy gtest issue
+    ASSERT_OK(param(&batch2));  // NOLINT clang-tidy gtest issue
+    batch1 = batch1->Slice(0, 0);
+    batch2 = batch2->Slice(0, 0);
+
+    BatchVector in_batches = {batch1, batch2};
+    BatchVector out_batches;
+
+    ASSERT_OK(RoundTripHelper(in_batches, options, &out_batches));
+    ASSERT_EQ(out_batches.size(), in_batches.size());
+
+    // Compare batches
+    for (size_t i = 0; i < in_batches.size(); ++i) {
+      CompareBatch(*in_batches[i], *out_batches[i]);
+    }
+  }
+
   void TestDictionaryRoundtrip() {
     std::shared_ptr<RecordBatch> batch;
     ASSERT_OK(MakeDictionary(&batch));
@@ -833,7 +868,11 @@ class ReaderWriterMixin {
       RETURN_NOT_OK(writer_helper.WriteBatch(batch));
     }
     RETURN_NOT_OK(writer_helper.Finish());
-    return writer_helper.ReadBatches(out_batches);
+    RETURN_NOT_OK(writer_helper.ReadBatches(out_batches));
+    for (const auto& batch : *out_batches) {
+      RETURN_NOT_OK(batch->Validate());
+    }
+    return Status::OK();
   }
 
   void CheckBatchDictionaries(const RecordBatch& batch) {
@@ -860,18 +899,22 @@ class TestStreamFormat : public ReaderWriterMixin<StreamWriterHelper>,
 
 TEST_P(TestFileFormat, RoundTrip) {
   TestRoundTrip(*GetParam(), IpcOptions::Defaults());
+  TestZeroLengthRoundTrip(*GetParam(), IpcOptions::Defaults());
 
   IpcOptions options;
   options.write_legacy_ipc_format = true;
   TestRoundTrip(*GetParam(), options);
+  TestZeroLengthRoundTrip(*GetParam(), options);
 }
 
 TEST_P(TestStreamFormat, RoundTrip) {
   TestRoundTrip(*GetParam(), IpcOptions::Defaults());
+  TestZeroLengthRoundTrip(*GetParam(), IpcOptions::Defaults());
 
   IpcOptions options;
   options.write_legacy_ipc_format = true;
   TestRoundTrip(*GetParam(), options);
+  TestZeroLengthRoundTrip(*GetParam(), options);
 }
 
 INSTANTIATE_TEST_CASE_P(GenericIpcRoundTripTests, TestIpcRoundTrip, BATCH_CASES());
@@ -1108,8 +1151,8 @@ class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture 
   void SetUp() { IpcTestFixture::SetUp(); }
   void TearDown() { IpcTestFixture::TearDown(); }
 
-  void CheckSparseTensorRoundTrip(const SparseTensorCOO& sparse_tensor);
-  void CheckSparseTensorRoundTrip(const SparseTensorCSR& sparse_tensor);
+  void CheckSparseTensorRoundTrip(const SparseCOOTensor& sparse_tensor);
+  void CheckSparseTensorRoundTrip(const SparseCSRMatrix& sparse_tensor);
 
  protected:
   std::shared_ptr<SparseCOOIndex> MakeSparseCOOIndex(
@@ -1123,19 +1166,19 @@ class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture 
   }
 
   template <typename ValueType>
-  std::shared_ptr<SparseTensorCOO> MakeSparseTensorCOO(
+  std::shared_ptr<SparseCOOTensor> MakeSparseCOOTensor(
       const std::shared_ptr<SparseCOOIndex>& si, std::vector<ValueType>& sparse_values,
       const std::vector<int64_t>& shape,
       const std::vector<std::string>& dim_names = {}) const {
     auto data = Buffer::Wrap(sparse_values);
-    return std::make_shared<SparseTensorCOO>(si, CTypeTraits<ValueType>::type_singleton(),
+    return std::make_shared<SparseCOOTensor>(si, CTypeTraits<ValueType>::type_singleton(),
                                              data, shape, dim_names);
   }
 };
 
 template <typename IndexValueType>
 void TestSparseTensorRoundTrip<IndexValueType>::CheckSparseTensorRoundTrip(
-    const SparseTensorCOO& sparse_tensor) {
+    const SparseCOOTensor& sparse_tensor) {
   const auto& type = checked_cast<const FixedWidthType&>(*sparse_tensor.type());
   const int elem_size = type.bit_width() / 8;
   const int index_elem_size = sizeof(typename IndexValueType::c_type);
@@ -1171,7 +1214,7 @@ void TestSparseTensorRoundTrip<IndexValueType>::CheckSparseTensorRoundTrip(
 
 template <typename IndexValueType>
 void TestSparseTensorRoundTrip<IndexValueType>::CheckSparseTensorRoundTrip(
-    const SparseTensorCSR& sparse_tensor) {
+    const SparseCSRMatrix& sparse_tensor) {
   const auto& type = checked_cast<const FixedWidthType&>(*sparse_tensor.type());
   const int elem_size = type.bit_width() / 8;
   const int index_elem_size = sizeof(typename IndexValueType::c_type);
@@ -1248,7 +1291,7 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor) {
   std::vector<int64_t> shape = {2, 3, 4};
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
   std::vector<int64_t> values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
-  auto st = this->MakeSparseTensorCOO(si, values, shape, dim_names);
+  auto st = this->MakeSparseCOOTensor(si, values, shape, dim_names);
 
   this->CheckSparseTensorRoundTrip(*st);
 }
@@ -1291,7 +1334,7 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexColumnMajor) {
   std::vector<int64_t> shape = {2, 3, 4};
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
   std::vector<int64_t> values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
-  auto st = this->MakeSparseTensorCOO(si, values, shape, dim_names);
+  auto st = this->MakeSparseCOOTensor(si, values, shape, dim_names);
 
   this->CheckSparseTensorRoundTrip(*st);
 }
@@ -1310,9 +1353,10 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCSRIndex) {
 
   auto data = Buffer::Wrap(values);
   NumericTensor<Int64Type> t(data, shape, {}, dim_names);
-  SparseTensorImpl<SparseCSRIndex> st(t, TypeTraits<IndexValueType>::type_singleton());
+  std::shared_ptr<SparseCSRMatrix> st;
+  ASSERT_OK(SparseCSRMatrix::Make(t, TypeTraits<IndexValueType>::type_singleton(), &st));
 
-  this->CheckSparseTensorRoundTrip(st);
+  this->CheckSparseTensorRoundTrip(*st);
 }
 
 REGISTER_TYPED_TEST_CASE_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor,

@@ -428,7 +428,8 @@ export class List<T extends DataType = any> extends DataType<Type.List, { [0]: T
 export interface Struct<T extends { [key: string]: DataType } = any> extends DataType<Type.Struct> { TArray: IterableArrayLike<RowLike<T>>; TValue: RowLike<T>; dataTypes: T; }
 /** @ignore */
 export class Struct<T extends { [key: string]: DataType } = any> extends DataType<Type.Struct, T> {
-    constructor(public readonly children: Field<T[keyof T]>[]) {
+    public readonly children: Field<T[keyof T]>[];
+    constructor(children: Field<T[keyof T]>[]) {
         super();
         this.children = children;
     }

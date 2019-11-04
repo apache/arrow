@@ -36,6 +36,7 @@
 
 #include <aws/core/Aws.h>
 #include <aws/core/auth/AWSCredentials.h>
+#include <aws/core/auth/AWSCredentialsProviderChain.h>
 #include <aws/core/client/RetryStrategy.h>
 #include <aws/core/utils/logging/ConsoleLogSystem.h>
 #include <aws/core/utils/stream/PreallocatedStreamBuf.h>
@@ -132,6 +133,30 @@ Status FinalizeS3() {
   return Status::OK();
 }
 
+void S3Options::ConfigureDefaultCredentials() {
+  credentials_provider =
+      std::make_shared<Aws::Auth::DefaultAWSCredentialsProviderChain>();
+}
+
+void S3Options::ConfigureAccessKey(const std::string& access_key,
+                                   const std::string& secret_key) {
+  credentials_provider = std::make_shared<Aws::Auth::SimpleAWSCredentialsProvider>(
+      ToAwsString(access_key), ToAwsString(secret_key));
+}
+
+S3Options S3Options::Defaults() {
+  S3Options options;
+  options.ConfigureDefaultCredentials();
+  return options;
+}
+
+S3Options S3Options::FromAccessKey(const std::string& access_key,
+                                   const std::string& secret_key) {
+  S3Options options;
+  options.ConfigureAccessKey(access_key, secret_key);
+  return options;
+}
+
 namespace {
 
 Status CheckS3Initialized() {
@@ -152,17 +177,18 @@ struct S3Path {
   std::vector<std::string> key_parts;
 
   static Status FromString(const std::string& s, S3Path* out) {
-    auto first_sep = s.find_first_of(kSep);
+    const auto src = internal::RemoveTrailingSlash(s);
+    auto first_sep = src.find_first_of(kSep);
     if (first_sep == 0) {
       return Status::Invalid("Path cannot start with a separator ('", s, "')");
     }
     if (first_sep == std::string::npos) {
-      *out = {s, s, "", {}};
+      *out = {std::string(src), std::string(src), "", {}};
       return Status::OK();
     }
-    out->full_path = s;
-    out->bucket = s.substr(0, first_sep);
-    out->key = s.substr(first_sep + 1);
+    out->full_path = std::string(src);
+    out->bucket = std::string(src.substr(0, first_sep));
+    out->key = std::string(src.substr(first_sep + 1));
     out->key_parts = internal::SplitAbstractPath(out->key);
     return internal::ValidateAbstractPathParts(out->key_parts);
   }
@@ -314,6 +340,12 @@ class ObjectInputFile : public io::RandomAccessFile {
                 void* out) override {
     RETURN_NOT_OK(CheckClosed());
     RETURN_NOT_OK(CheckPosition(position, "read"));
+
+    nbytes = std::min(nbytes, content_length_ - position);
+    if (nbytes == 0) {
+      *bytes_read = 0;
+      return Status::OK();
+    }
 
     // Read the desired range of bytes
     S3Model::GetObjectResult result;
@@ -497,7 +529,16 @@ class ObjectOutputStream : public io::OutputStream {
     return Status::OK();
   }
 
+  Status Write(const std::shared_ptr<Buffer>& buffer) override {
+    return DoWrite(buffer->data(), buffer->size(), buffer);
+  }
+
   Status Write(const void* data, int64_t nbytes) override {
+    return DoWrite(data, nbytes);
+  }
+
+  Status DoWrite(const void* data, int64_t nbytes,
+                 std::shared_ptr<Buffer> owned_buffer = nullptr) {
     if (closed_) {
       return Status::Invalid("Operation on closed stream");
     }
@@ -518,8 +559,9 @@ class ObjectOutputStream : public io::OutputStream {
     }
 
     if (!current_part_ && nbytes >= part_upload_threshold_) {
-      // No current part and data large enough, upload it directly without copying
-      RETURN_NOT_OK(UploadPart(data, nbytes));
+      // No current part and data large enough, upload it directly
+      // (without copying if the buffer is owned)
+      RETURN_NOT_OK(UploadPart(data, nbytes, owned_buffer));
       pos_ += nbytes;
       return Status::OK();
     }
@@ -559,7 +601,7 @@ class ObjectOutputStream : public io::OutputStream {
     RETURN_NOT_OK(current_part_->Finish(&buf));
     current_part_.reset();
     current_part_size_ = 0;
-    return UploadPart(std::move(buf));
+    return UploadPart(buf);
   }
 
   Status UploadPart(std::shared_ptr<Buffer> buffer) {
@@ -704,7 +746,7 @@ class S3FileSystem::Impl {
   explicit Impl(S3Options options) : options_(std::move(options)) {}
 
   Status Init() {
-    credentials_ = {ToAwsString(options_.access_key), ToAwsString(options_.secret_key)};
+    credentials_ = options_.credentials_provider->GetAWSCredentials();
     client_config_.region = ToAwsString(options_.region);
     client_config_.endpointOverride = ToAwsString(options_.endpoint_override);
     if (options_.scheme == "http") {
@@ -920,8 +962,10 @@ class S3FileSystem::Impl {
         ListObjectsV2(bucket, key, std::move(handle_results), std::move(handle_error)));
 
     // Recurse
-    for (const auto& child_key : child_keys) {
-      RETURN_NOT_OK(Walk(select, bucket, child_key, nesting_depth + 1, out));
+    if (select.recursive && nesting_depth < select.max_recursion) {
+      for (const auto& child_key : child_keys) {
+        RETURN_NOT_OK(Walk(select, bucket, child_key, nesting_depth + 1, out));
+      }
     }
 
     // If no contents were found, perhaps it's an empty "directory",

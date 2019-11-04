@@ -22,7 +22,11 @@ source_dir=${1:-/arrow/cpp}
 build_dir=${2:-/build/cpp}
 install_dir=${3:-${ARROW_HOME:-/usr/local}}
 
+export CCACHE_COMPRESS=1
+export CCACHE_COMPRESSLEVEL=5
+export CCACHE_COMPILERCHECK=content
 export CCACHE_DIR=/build/ccache
+export PATH=/usr/lib/ccache/:$PATH
 
 rm -rf ${build_dir}
 mkdir -p ${build_dir}
@@ -55,6 +59,10 @@ cmake -GNinja \
       -DARROW_PYTHON=${ARROW_PYTHON:-OFF} \
       -DARROW_GANDIVA=${ARROW_GANDIVA:-OFF} \
       -DARROW_GANDIVA_JAVA=${ARROW_GANDIVA_JAVA:-OFF} \
+      -DARROW_WITH_ZLIB=${ARROW_WITH_ZLIB:-ON} \
+      -DARROW_WITH_SNAPPY=${ARROW_WITH_SNAPPY:-ON} \
+      -DARROW_WITH_LZ4=${ARROW_WITH_LZ4:-ON} \
+      -DARROW_WITH_BROTLI=${ARROW_WITH_BROTLI:-ON} \
       -DARROW_WITH_BZ2=${ARROW_WITH_BZ2:-ON} \
       -DARROW_WITH_ZSTD=${ARROW_WITH_ZSTD:-ON} \
       -DARROW_INSTALL_NAME_RPATH=${ARROW_INSTALL_NAME_RPATH:-ON} \

@@ -66,8 +66,9 @@ public class AvroFloatConsumer implements Consumer<Float4Vector> {
   }
 
   @Override
-  public void resetValueVector(Float4Vector vector) {
+  public boolean resetValueVector(Float4Vector vector) {
     this.vector = vector;
     this.currentIndex = 0;
+    return true;
   }
 }

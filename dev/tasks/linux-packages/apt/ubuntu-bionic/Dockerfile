@@ -15,7 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM ubuntu:18.04
+ARG FROM=ubuntu:bionic
+FROM ${FROM}
+
+COPY qemu-* /usr/bin/
 
 RUN \
   echo "debconf debconf/frontend select Noninteractive" | \
@@ -39,6 +42,7 @@ RUN \
     libboost-regex-dev \
     libboost-system-dev \
     libbrotli-dev \
+    libbz2-dev \
     libdouble-conversion-dev \
     libgirepository1.0-dev \
     libglib2.0-doc \
@@ -51,13 +55,16 @@ RUN \
     libzstd-dev \
     lsb-release \
     ninja-build \
-    nvidia-cuda-toolkit \
     pkg-config \
     python3-dev \
     python3-numpy \
     python3-pip \
     rapidjson-dev \
-    tzdata && \
+    tzdata \
+    zlib1g-dev && \
+  if apt list | grep '^nvidia-cuda-toolkit/'; then \
+    apt install -y -V ${quiet} nvidia-cuda-toolkit; \
+  fi && \
   apt install -y -V -t bionic-backports ${quiet} \
     debhelper && \
   pip3 install --upgrade meson && \

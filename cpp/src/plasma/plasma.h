@@ -31,6 +31,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 #include "plasma/compat.h"
 
@@ -168,6 +169,9 @@ ObjectTableEntry* GetObjectTableEntry(PlasmaStoreInfo* store_info,
 int WarnIfSigpipe(int status, int client_sock);
 
 std::unique_ptr<uint8_t[]> CreateObjectInfoBuffer(flatbuf::ObjectInfoT* object_info);
+
+std::unique_ptr<uint8_t[]> CreatePlasmaNotificationBuffer(
+    std::vector<flatbuf::ObjectInfoT>& object_info);
 
 }  // namespace plasma
 

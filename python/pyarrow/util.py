@@ -19,8 +19,10 @@
 
 from __future__ import absolute_import
 
+import contextlib
 import functools
 import six
+import socket
 import warnings
 
 
@@ -125,3 +127,11 @@ def get_contiguous_span(shape, strides, itemsize):
         if end - start != itemsize * product(shape):
             raise ValueError('array data is non-contiguous')
     return start, end
+
+
+def find_free_port():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    with contextlib.closing(sock) as sock:
+        sock.bind(('', 0))
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        return sock.getsockname()[1]

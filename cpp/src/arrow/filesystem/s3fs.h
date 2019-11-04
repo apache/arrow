@@ -24,26 +24,50 @@
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/util/macros.h"
 
+namespace Aws {
+namespace Auth {
+
+class AWSCredentialsProvider;
+
+}  // namespace Auth
+}  // namespace Aws
+
 namespace arrow {
 namespace fs {
 
 extern ARROW_EXPORT const char* kS3DefaultRegion;
 
+/// Options for the S3FileSystem implementation.
 struct ARROW_EXPORT S3Options {
-  // AWS region to connect to (default "us-east-1")
+  /// AWS region to connect to (default "us-east-1")
   std::string region = kS3DefaultRegion;
 
+  /// If non-empty, override region with a connect string such as "localhost:9000"
   // XXX perhaps instead take a URL like "http://localhost:9000"?
-  // If non-empty, override region with a connect string such as "localhost:9000"
   std::string endpoint_override;
-  // Default "https"
+  /// S3 connection transport, default "https"
   std::string scheme = "https";
 
-  std::string access_key;
-  std::string secret_key;
+  /// AWS credentials provider
+  std::shared_ptr<Aws::Auth::AWSCredentialsProvider> credentials_provider;
 
-  // Whether OutputStream writes will be issued in the background, without blocking.
+  /// Whether OutputStream writes will be issued in the background, without blocking.
   bool background_writes = true;
+
+  /// Configure with the default AWS credentials provider chain.
+  void ConfigureDefaultCredentials();
+
+  /// Configure with explicit access and secret key.
+  void ConfigureAccessKey(const std::string& access_key, const std::string& secret_key);
+
+  /// \brief Initialize with default credentials provider chain
+  ///
+  /// This is recommended if you use the standard AWS environment variables
+  /// and/or configuration file.
+  static S3Options Defaults();
+  /// \brief Initialize with explicit access and secret key
+  static S3Options FromAccessKey(const std::string& access_key,
+                                 const std::string& secret_key);
 };
 
 /// S3-backed FileSystem implementation.
@@ -55,7 +79,9 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
  public:
   ~S3FileSystem() override;
 
+  /// \cond FALSE
   using FileSystem::GetTargetStats;
+  /// \endcond
   Status GetTargetStats(const std::string& path, FileStats* out) override;
   Status GetTargetStats(const Selector& select, std::vector<FileStats>* out) override;
 
@@ -86,16 +112,17 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
 
   /// Create a sequential output stream for writing to a S3 object.
   ///
-  /// NOTE: Writes to the stream will be buffered but synchronous (i.e.
-  /// when a buffer is implicitly flushed, it waits for the upload to
-  /// complete and the server to respond).  You may want to issue writes
-  /// in the background to avoid idle waits.
+  /// NOTE: Writes to the stream will be buffered.  Depending on
+  /// S3Options.background_writes, they can be synchronous or not.
+  /// It is recommended to enable background_writes unless you prefer
+  /// implementing your own background execution strategy.
   Status OpenOutputStream(const std::string& path,
                           std::shared_ptr<io::OutputStream>* out) override;
 
   Status OpenAppendStream(const std::string& path,
                           std::shared_ptr<io::OutputStream>* out) override;
 
+  /// Create a S3FileSystem instance from the given options.
   static Status Make(const S3Options& options, std::shared_ptr<S3FileSystem>* out);
 
  protected:
@@ -105,7 +132,7 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   std::unique_ptr<Impl> impl_;
 };
 
-enum class S3LogLevel { Off, Fatal, Error, Warn, Info, Debug, Trace };
+enum class S3LogLevel : int8_t { Off, Fatal, Error, Warn, Info, Debug, Trace };
 
 struct ARROW_EXPORT S3GlobalOptions {
   S3LogLevel log_level;

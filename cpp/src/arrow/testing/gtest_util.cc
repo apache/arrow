@@ -28,8 +28,10 @@
 #include <cstdlib>
 #include <iostream>
 #include <limits>
+#include <locale>
 #include <memory>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -143,15 +145,59 @@ void AssertDatumsEqual(const Datum& expected, const Datum& actual) {
 }
 
 std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>& type,
-                                     const std::string& json) {
+                                     util::string_view json) {
   std::shared_ptr<Array> out;
   ABORT_NOT_OK(ipc::internal::json::ArrayFromJSON(type, json, &out));
   return out;
 }
 
-void AssertTablesEqual(const Table& expected, const Table& actual,
-                       bool same_chunk_layout) {
+std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataType>& type,
+                                                   const std::vector<std::string>& json) {
+  ArrayVector out_chunks;
+  for (const std::string& chunk_json : json) {
+    out_chunks.push_back(ArrayFromJSON(type, chunk_json));
+  }
+  return std::make_shared<ChunkedArray>(std::move(out_chunks));
+}
+
+std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>& schema,
+                                                 util::string_view json) {
+  // Parses as a StructArray
+  auto struct_type = struct_(schema->fields());
+  std::shared_ptr<Array> struct_array = ArrayFromJSON(struct_type, json);
+
+  // Converts StructArray to RecordBatch
+  std::shared_ptr<RecordBatch> record_batch;
+  ABORT_NOT_OK(RecordBatch::FromStructArray(struct_array, &record_batch));
+
+  return record_batch;
+}
+
+std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
+                                     const std::vector<std::string>& json) {
+  std::vector<std::shared_ptr<RecordBatch>> batches;
+  for (const std::string& batch_json : json) {
+    batches.push_back(RecordBatchFromJSON(schema, batch_json));
+  }
+  std::shared_ptr<Table> table;
+  ABORT_NOT_OK(Table::FromRecordBatches(schema, batches, &table));
+
+  return table;
+}
+
+void AssertTablesEqual(const Table& expected, const Table& actual, bool same_chunk_layout,
+                       bool combine_chunks) {
   ASSERT_EQ(expected.num_columns(), actual.num_columns());
+
+  if (combine_chunks) {
+    auto pool = default_memory_pool();
+    std::shared_ptr<Table> new_expected, new_actual;
+    ASSERT_OK(expected.CombineChunks(pool, &new_expected));
+    ASSERT_OK(actual.CombineChunks(pool, &new_actual));
+
+    AssertTablesEqual(*new_expected, *new_actual, false, false);
+    return;
+  }
 
   if (same_chunk_layout) {
     for (int i = 0; i < actual.num_columns(); ++i) {
@@ -193,6 +239,26 @@ void CompareBatch(const RecordBatch& left, const RecordBatch& right,
     }
   }
 }
+
+class LocaleGuard::Impl {
+ public:
+  explicit Impl(const char* new_locale) : global_locale_(std::locale()) {
+    try {
+      std::locale::global(std::locale(new_locale));
+    } catch (std::runtime_error&) {
+      ARROW_LOG(WARNING) << "Locale unavailable (ignored): '" << new_locale << "'";
+    }
+  }
+
+  ~Impl() { std::locale::global(global_locale_); }
+
+ protected:
+  std::locale global_locale_;
+};
+
+LocaleGuard::LocaleGuard(const char* new_locale) : impl_(new Impl(new_locale)) {}
+
+LocaleGuard::~LocaleGuard() {}
 
 namespace {
 

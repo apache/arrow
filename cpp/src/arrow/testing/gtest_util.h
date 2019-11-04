@@ -152,6 +152,7 @@ using ArrayVector = std::vector<std::shared_ptr<Array>>;
 
 #define ASSERT_ARRAYS_EQUAL(lhs, rhs) AssertArraysEqual((lhs), (rhs))
 #define ASSERT_BATCHES_EQUAL(lhs, rhs) AssertBatchesEqual((lhs), (rhs))
+#define ASSERT_TABLES_EQUAL(lhs, rhs) AssertTablesEqual((lhs), (rhs))
 
 // If verbose is true, then the arrays will be pretty printed
 ARROW_EXPORT void AssertArraysEqual(const Array& expected, const Array& actual,
@@ -169,7 +170,7 @@ ARROW_EXPORT void AssertBufferEqual(const Buffer& buffer, const Buffer& expected
 ARROW_EXPORT void AssertSchemaEqual(const Schema& lhs, const Schema& rhs);
 
 ARROW_EXPORT void AssertTablesEqual(const Table& expected, const Table& actual,
-                                    bool same_chunk_layout = true);
+                                    bool same_chunk_layout = true, bool flatten = false);
 
 ARROW_EXPORT void AssertDatumsEqual(const Datum& expected, const Datum& actual);
 
@@ -208,7 +209,18 @@ void FinishAndCheckPadding(BuilderType* builder, std::shared_ptr<Array>* out) {
 
 ARROW_EXPORT
 std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>&,
-                                     const std::string& json);
+                                     util::string_view json);
+
+ARROW_EXPORT std::shared_ptr<RecordBatch> RecordBatchFromJSON(
+    const std::shared_ptr<Schema>&, util::string_view);
+
+ARROW_EXPORT
+std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataType>&,
+                                                   const std::vector<std::string>& json);
+
+ARROW_EXPORT
+std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>&,
+                                     const std::vector<std::string>& json);
 
 // ArrayFromVector: construct an Array from vectors of C values
 
@@ -346,6 +358,21 @@ void AssertSortedEquals(std::vector<T> u, std::vector<T> v) {
   std::sort(v.begin(), v.end());
   ASSERT_EQ(u, v);
 }
+
+// A RAII-style object that switches to a new locale, and switches back
+// to the old locale when going out of scope.  Doesn't do anything if the
+// new locale doesn't exist on the local machine.
+// ATTENTION: may crash with an assertion failure on Windows debug builds.
+// See ARROW-6108, also https://gerrit.libreoffice.org/#/c/54110/
+class ARROW_EXPORT LocaleGuard {
+ public:
+  explicit LocaleGuard(const char* new_locale);
+  ~LocaleGuard();
+
+ protected:
+  class Impl;
+  std::unique_ptr<Impl> impl_;
+};
 
 #ifndef ARROW_LARGE_MEMORY_TESTS
 #define LARGE_MEMORY_TEST(name) DISABLED_##name

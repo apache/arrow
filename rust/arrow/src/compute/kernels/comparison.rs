@@ -22,11 +22,15 @@
 //! `RUSTFLAGS="-C target-feature=+avx2"` for example.  See the documentation
 //! [here](https://doc.rust-lang.org/stable/core/arch/) for more information.
 
+#[cfg(feature = "simd")]
 use std::sync::Arc;
 
 use crate::array::*;
+#[cfg(feature = "simd")]
 use crate::compute::util::apply_bin_op_to_option_bitmap;
-use crate::datatypes::{ArrowNumericType, BooleanType, DataType};
+use crate::datatypes::ArrowNumericType;
+#[cfg(feature = "simd")]
+use crate::datatypes::{BooleanType, DataType};
 use crate::error::{ArrowError, Result};
 
 /// Helper function to perform boolean lambda function on values from two arrays, this
@@ -65,7 +69,7 @@ where
 
 /// Helper function to perform boolean lambda function on values from two arrays using
 /// SIMD.
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
 fn simd_compare_op<T, F>(
     left: &PrimitiveArray<T>,
     right: &PrimitiveArray<T>,
@@ -116,11 +120,11 @@ pub fn eq<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<Bool
 where
     T: ArrowNumericType,
 {
-    if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
-        simd_compare_op(left, right, |a, b| T::eq(a, b))
-    } else {
-        compare_op(left, right, |a, b| a == b)
-    }
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    return simd_compare_op(left, right, |a, b| T::eq(a, b));
+
+    #[allow(unreachable_code)]
+    compare_op(left, right, |a, b| a == b)
 }
 
 /// Perform `left != right` operation on two arrays.
@@ -128,11 +132,11 @@ pub fn neq<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<Boo
 where
     T: ArrowNumericType,
 {
-    if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
-        simd_compare_op(left, right, |a, b| T::ne(a, b))
-    } else {
-        compare_op(left, right, |a, b| a != b)
-    }
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    return simd_compare_op(left, right, |a, b| T::ne(a, b));
+
+    #[allow(unreachable_code)]
+    compare_op(left, right, |a, b| a != b)
 }
 
 /// Perform `left < right` operation on two arrays. Null values are less than non-null
@@ -141,16 +145,16 @@ pub fn lt<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<Bool
 where
     T: ArrowNumericType,
 {
-    if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
-        simd_compare_op(left, right, |a, b| T::lt(a, b))
-    } else {
-        compare_op(left, right, |a, b| match (a, b) {
-            (None, None) => false,
-            (None, _) => true,
-            (_, None) => false,
-            (Some(aa), Some(bb)) => aa < bb,
-        })
-    }
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    return simd_compare_op(left, right, |a, b| T::lt(a, b));
+
+    #[allow(unreachable_code)]
+    compare_op(left, right, |a, b| match (a, b) {
+        (None, None) => false,
+        (None, _) => true,
+        (_, None) => false,
+        (Some(aa), Some(bb)) => aa < bb,
+    })
 }
 
 /// Perform `left <= right` operation on two arrays. Null values are less than non-null
@@ -162,16 +166,16 @@ pub fn lt_eq<T>(
 where
     T: ArrowNumericType,
 {
-    if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
-        simd_compare_op(left, right, |a, b| T::le(a, b))
-    } else {
-        compare_op(left, right, |a, b| match (a, b) {
-            (None, None) => true,
-            (None, _) => true,
-            (_, None) => false,
-            (Some(aa), Some(bb)) => aa <= bb,
-        })
-    }
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    return simd_compare_op(left, right, |a, b| T::le(a, b));
+
+    #[allow(unreachable_code)]
+    compare_op(left, right, |a, b| match (a, b) {
+        (None, None) => true,
+        (None, _) => true,
+        (_, None) => false,
+        (Some(aa), Some(bb)) => aa <= bb,
+    })
 }
 
 /// Perform `left > right` operation on two arrays. Non-null values are greater than null
@@ -180,16 +184,16 @@ pub fn gt<T>(left: &PrimitiveArray<T>, right: &PrimitiveArray<T>) -> Result<Bool
 where
     T: ArrowNumericType,
 {
-    if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
-        simd_compare_op(left, right, |a, b| T::gt(a, b))
-    } else {
-        compare_op(left, right, |a, b| match (a, b) {
-            (None, None) => false,
-            (None, _) => false,
-            (_, None) => true,
-            (Some(aa), Some(bb)) => aa > bb,
-        })
-    }
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    return simd_compare_op(left, right, |a, b| T::gt(a, b));
+
+    #[allow(unreachable_code)]
+    compare_op(left, right, |a, b| match (a, b) {
+        (None, None) => false,
+        (None, _) => false,
+        (_, None) => true,
+        (Some(aa), Some(bb)) => aa > bb,
+    })
 }
 
 /// Perform `left >= right` operation on two arrays. Non-null values are greater than null
@@ -201,16 +205,16 @@ pub fn gt_eq<T>(
 where
     T: ArrowNumericType,
 {
-    if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
-        simd_compare_op(left, right, |a, b| T::ge(a, b))
-    } else {
-        compare_op(left, right, |a, b| match (a, b) {
-            (None, None) => true,
-            (None, _) => false,
-            (_, None) => true,
-            (Some(aa), Some(bb)) => aa >= bb,
-        })
-    }
+    #[cfg(all(any(target_arch = "x86", target_arch = "x86_64"), feature = "simd"))]
+    return simd_compare_op(left, right, |a, b| T::ge(a, b));
+
+    #[allow(unreachable_code)]
+    compare_op(left, right, |a, b| match (a, b) {
+        (None, None) => true,
+        (None, _) => false,
+        (_, None) => true,
+        (Some(aa), Some(bb)) => aa >= bb,
+    })
 }
 
 #[cfg(test)]

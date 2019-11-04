@@ -520,6 +520,8 @@ def test_numpy_subclass_serialization():
     assert np.alltrue(new_x.view(np.ndarray) == np.zeros(3))
 
 
+@pytest.mark.filterwarnings(
+    "ignore:the matrix subclass:PendingDeprecationWarning")
 def test_numpy_matrix_serialization(tmpdir):
     class CustomType(object):
         def __init__(self, val):

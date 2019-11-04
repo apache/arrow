@@ -97,7 +97,7 @@ test_that("table round trip handles NA in integer and numeric", {
 
   expect_equal(tab$column(0)$type, int32())
   expect_equal(tab$column(1)$type, float64())
-  expect_equal(tab$column(2)$type, int8())
+  expect_equal(tab$column(2)$type, uint8())
 
   tf <- tempfile()
   write_arrow(tbl, tf)

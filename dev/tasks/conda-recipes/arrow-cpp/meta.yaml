@@ -20,11 +20,11 @@ requirements:
     - {{ compiler('c') }}
     - {{ compiler('cxx') }}
   host:
+    - aws-sdk-cpp
     - boost-cpp
     - brotli
     - c-ares
     - double-conversion
-    - flatbuffers
     - gflags
     - glog
     - grpc-cpp
@@ -45,6 +45,7 @@ requirements:
 
   run:
     - {{ pin_compatible('numpy', lower_bound='1.14') }}
+    - aws-sdk-cpp
     - boost-cpp
     - brotli
     - c-ares

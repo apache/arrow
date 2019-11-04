@@ -373,7 +373,8 @@ class Converter_Struct : public Converter {
     rn[1] = -n;
     Rf_setAttrib(out, symbols::row_names, rn);
     Rf_setAttrib(out, R_NamesSymbol, colnames);
-    Rf_setAttrib(out, R_ClassSymbol, Rf_mkString("data.frame"));
+    Rf_setAttrib(out, R_ClassSymbol,
+                 Rcpp::CharacterVector::create("tbl_df", "tbl", "data.frame"));
     return out;
   }
 
@@ -412,7 +413,7 @@ class Converter_Date64 : public Converter {
 
   SEXP Allocate(R_xlen_t n) const {
     Rcpp::NumericVector data(no_init(n));
-    data.attr("class") = Rcpp::CharacterVector::create("POSIXct", "POSIXt");
+    Rf_classgets(data, arrow::r::data::classes_POSIXct);
     return data;
   }
 
@@ -457,7 +458,7 @@ class Converter_Promotion : public Converter {
   }
 };
 
-template <typename value_type>
+template <typename value_type, typename unit_type = TimeType>
 class Converter_Time : public Converter {
  public:
   explicit Converter_Time(const ArrayVector& arrays) : Converter(arrays) {}
@@ -485,7 +486,7 @@ class Converter_Time : public Converter {
 
  private:
   int TimeUnit_multiplier(const std::shared_ptr<Array>& array) const {
-    switch (static_cast<TimeType*>(array->type().get())->unit()) {
+    switch (static_cast<unit_type*>(array->type().get())->unit()) {
       case TimeUnit::SECOND:
         return 1;
       case TimeUnit::MILLI:
@@ -501,14 +502,14 @@ class Converter_Time : public Converter {
 };
 
 template <typename value_type>
-class Converter_Timestamp : public Converter_Time<value_type> {
+class Converter_Timestamp : public Converter_Time<value_type, TimestampType> {
  public:
   explicit Converter_Timestamp(const ArrayVector& arrays)
-      : Converter_Time<value_type>(arrays) {}
+      : Converter_Time<value_type, TimestampType>(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
     Rcpp::NumericVector data(no_init(n));
-    data.attr("class") = Rcpp::CharacterVector::create("POSIXct", "POSIXt");
+    Rf_classgets(data, arrow::r::data::classes_POSIXct);
     return data;
   }
 };

@@ -27,12 +27,13 @@
 
 #include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
-#include "arrow/ipc/Message_generated.h"
 #include "arrow/ipc/metadata_internal.h"
 #include "arrow/ipc/util.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
+
+#include "generated/Message_generated.h"
 
 namespace arrow {
 namespace ipc {
@@ -209,7 +210,7 @@ Status Message::SerializeTo(io::OutputStream* stream, const IpcOptions& options,
 
   auto body_buffer = body();
   if (body_buffer) {
-    RETURN_NOT_OK(stream->Write(body_buffer->data(), body_buffer->size()));
+    RETURN_NOT_OK(stream->Write(body_buffer));
     *output_length += body_buffer->size();
 
     DCHECK_GE(this->body_length(), body_buffer->size());
@@ -329,14 +330,15 @@ Status ReadMessage(io::InputStream* file, MemoryPool* pool, bool copy_metadata,
   RETURN_NOT_OK(file->Read(sizeof(int32_t), &bytes_read,
                            reinterpret_cast<uint8_t*>(&continuation)));
 
-  if (bytes_read != sizeof(int32_t)) {
+  if (bytes_read == 0) {
     // EOS without indication
     *message = nullptr;
     return Status::OK();
+  } else if (bytes_read != sizeof(int32_t)) {
+    return Status::Invalid("Corrupted message, only ", bytes_read, " bytes available");
   }
 
   int32_t flatbuffer_length = -1;
-  bool legacy_format = false;
   if (continuation == internal::kIpcContinuationToken) {
     // Valid IPC message, read the message length now
     RETURN_NOT_OK(file->Read(sizeof(int32_t), &bytes_read,
@@ -345,7 +347,6 @@ Status ReadMessage(io::InputStream* file, MemoryPool* pool, bool copy_metadata,
     // ARROW-6314: Backwards compatibility for reading old IPC
     // messages produced prior to version 0.15.0
     flatbuffer_length = continuation;
-    legacy_format = true;
   }
 
   if (flatbuffer_length == 0) {
@@ -355,7 +356,7 @@ Status ReadMessage(io::InputStream* file, MemoryPool* pool, bool copy_metadata,
   }
 
   std::shared_ptr<Buffer> metadata;
-  if (legacy_format || copy_metadata) {
+  if (copy_metadata) {
     DCHECK_NE(pool, nullptr);
     RETURN_NOT_OK(AllocateBuffer(pool, flatbuffer_length, &metadata));
     RETURN_NOT_OK(file->Read(flatbuffer_length, &bytes_read, metadata->mutable_data()));

@@ -424,6 +424,16 @@ def test_buffer_equals():
     eq(buf2, buf5)
 
 
+def test_buffer_eq_bytes():
+    buf = pa.py_buffer(b'some data')
+    assert buf == b'some data'
+    assert buf == bytearray(b'some data')
+    assert buf != b'some dat1'
+
+    with pytest.raises(TypeError):
+        buf == u'some data'
+
+
 def test_buffer_getitem():
     data = bytearray(b'some data!')
     buf = pa.py_buffer(data)
@@ -631,10 +641,13 @@ def test_nativefile_write_memoryview():
 
     f.write(arr)
     f.write(bytearray(data))
+    f.write(pa.py_buffer(data))
+    with pytest.raises(TypeError):
+        f.write(data.decode('utf8'))
 
     buf = f.getvalue()
 
-    assert buf.to_pybytes() == data * 2
+    assert buf.to_pybytes() == data * 3
 
 
 # ----------------------------------------------------------------------
@@ -834,6 +847,21 @@ def test_memory_zero_length(tmpdir):
 
 def test_memory_map_large_seeks():
     check_large_seeks(pa.memory_map)
+
+
+def test_memory_map_close_remove(tmpdir):
+    # ARROW-6740: should be able to delete closed memory-mapped file (Windows)
+    path = os.path.join(str(tmpdir), guid())
+    mmap = pa.create_memory_map(path, 4096)
+    mmap.close()
+    assert mmap.closed
+    os.remove(path)  # Shouldn't fail
+
+
+def test_memory_map_deref_remove(tmpdir):
+    path = os.path.join(str(tmpdir), guid())
+    pa.create_memory_map(path, 4096)
+    os.remove(path)  # Shouldn't fail
 
 
 def test_os_file_writer(tmpdir):
@@ -1188,7 +1216,7 @@ def test_compressed_recordbatch_stream(compression):
         else:
             raise
     writer = pa.RecordBatchStreamWriter(stream, table.schema)
-    writer.write_table(table, chunksize=3)
+    writer.write_table(table, max_chunksize=3)
     writer.close()
     stream.close()  # Flush data
     buf = raw.getvalue()

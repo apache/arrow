@@ -38,45 +38,6 @@ elseif(ARROW_BUILD_INTEGRATION)
   add_dependencies(arrow-integration arrow-json-integration-test)
 endif()
 
-# make clean will delete the generated file
-set_source_files_properties(Message_generated.h PROPERTIES GENERATED TRUE)
-set_source_files_properties(feather_generated.h PROPERTIES GENERATED TRUE)
-set_source_files_properties(File_generated.h PROPERTIES GENERATED TRUE)
-
-set(OUTPUT_DIR ${ARROW_BINARY_DIR}/src/arrow/ipc)
-set(FBS_OUTPUT_FILES "${OUTPUT_DIR}/File_generated.h" "${OUTPUT_DIR}/Message_generated.h"
-                     "${OUTPUT_DIR}/feather_generated.h")
-
-set(FBS_SRC
-    ${ARROW_SOURCE_DIR}/../format/Message.fbs
-    ${ARROW_SOURCE_DIR}/../format/File.fbs
-    ${ARROW_SOURCE_DIR}/../format/Schema.fbs
-    ${ARROW_SOURCE_DIR}/../format/Tensor.fbs
-    ${ARROW_SOURCE_DIR}/../format/SparseTensor.fbs
-    ${CMAKE_CURRENT_SOURCE_DIR}/feather.fbs)
-
-foreach(FIL ${FBS_SRC})
-  get_filename_component(ABS_FIL ${FIL} ABSOLUTE)
-  list(APPEND ABS_FBS_SRC ${ABS_FIL})
-endforeach()
-
-get_target_property(FLATC_EXECUTABLE flatbuffers::flatc IMPORTED_LOCATION)
-if(NOT FLATC_EXECUTABLE)
-  get_target_property(FLATC_EXECUTABLE flatbuffers::flatc IMPORTED_LOCATION_RELEASE)
-endif()
-message(STATUS "flatc: ${FLATC_EXECUTABLE}")
-add_custom_command(OUTPUT ${FBS_OUTPUT_FILES}
-                   COMMAND ${FLATC_EXECUTABLE}
-                           -c
-                           -o
-                           ${OUTPUT_DIR}
-                           ${ABS_FBS_SRC}
-                   DEPENDS flatbuffers::flatc ${ABS_FBS_SRC}
-                   COMMENT "Running flatc compiler on ${ABS_FBS_SRC}"
-                   VERBATIM)
-
-add_custom_target(metadata_fbs DEPENDS ${FBS_OUTPUT_FILES})
-
 # Headers: top level
 arrow_install_all_headers("arrow/ipc")
 

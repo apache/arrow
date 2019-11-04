@@ -15,7 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM centos:7
+ARG FROM=centos:7
+FROM ${FROM}
+
+COPY qemu-* /usr/bin/
 
 ARG DEBUG
 
@@ -29,6 +32,7 @@ RUN \
     bison \
     boost169-devel \
     brotli-devel \
+    bzip2-devel \
     cmake3 \
     double-conversion-devel \
     flex \

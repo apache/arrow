@@ -29,6 +29,7 @@
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/util/atomic_shared_ptr.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/stl.h"
 
@@ -247,18 +248,18 @@ std::shared_ptr<RecordBatch> RecordBatch::Slice(int64_t offset) const {
 
 Status RecordBatch::Validate() const {
   for (int i = 0; i < num_columns(); ++i) {
-    auto arr_shared = this->column_data(i);
-    const ArrayData& arr = *arr_shared;
-    if (arr.length != num_rows_) {
+    const auto& array = *this->column(i);
+    if (array.length() != num_rows_) {
       return Status::Invalid("Number of rows in column ", i,
-                             " did not match batch: ", arr.length, " vs ", num_rows_);
+                             " did not match batch: ", array.length(), " vs ", num_rows_);
     }
     const auto& schema_type = *schema_->field(i)->type();
-    if (!arr.type->Equals(schema_type)) {
+    if (!array.type()->Equals(schema_type)) {
       return Status::Invalid("Column ", i,
-                             " type not match schema: ", arr.type->ToString(), " vs ",
+                             " type not match schema: ", array.type()->ToString(), " vs ",
                              schema_type.ToString());
     }
+    RETURN_NOT_OK(array.Validate());
   }
   return Status::OK();
 }
@@ -286,7 +287,7 @@ Status RecordBatchReader::ReadAll(std::shared_ptr<Table>* table) {
 
 class SimpleRecordBatchReader : public RecordBatchReader {
  public:
-  SimpleRecordBatchReader(std::unique_ptr<Iterator<std::shared_ptr<RecordBatch>>> it,
+  SimpleRecordBatchReader(Iterator<std::shared_ptr<RecordBatch>> it,
                           std::shared_ptr<Schema> schema)
       : schema_(schema), it_(std::move(it)) {}
 
@@ -295,14 +296,14 @@ class SimpleRecordBatchReader : public RecordBatchReader {
       : schema_(schema), it_(MakeVectorIterator(batches)) {}
 
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
-    return it_->Next(batch);
+    return it_.Next(batch);
   }
 
   std::shared_ptr<Schema> schema() const override { return schema_; }
 
  protected:
   std::shared_ptr<Schema> schema_;
-  std::unique_ptr<Iterator<std::shared_ptr<RecordBatch>>> it_;
+  Iterator<std::shared_ptr<RecordBatch>> it_;
 };
 
 Status MakeRecordBatchReader(const std::vector<std::shared_ptr<RecordBatch>>& batches,

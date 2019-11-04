@@ -35,6 +35,8 @@
 namespace arrow {
 namespace dataset {
 
+constexpr int kNoMatch = -1;
+
 /// \brief Project a RecordBatch to a given schema.
 ///
 /// Projected record batches will reorder columns from input record batches when possible,
@@ -124,8 +126,6 @@ class RecordBatchProjector {
   }
 
  private:
-  static constexpr int kNoMatch = -1;
-
   Status ResizeMissingColumns(int64_t new_length) {
     // TODO(bkietz) MakeArrayOfNull could use fewer buffers by reusing a single zeroed
     // buffer for every buffer in every column which is null
@@ -153,8 +153,6 @@ class RecordBatchProjector {
   std::vector<std::shared_ptr<Scalar>> scalars_;
 };
 
-constexpr int RecordBatchProjector::kNoMatch;
-
 /// Wraps a RecordBatchIterator and projects each yielded batch using the given projector.
 ///
 /// Note that as with RecordBatchProjector, ProjectedRecordBatchReader is most efficient
@@ -163,16 +161,15 @@ constexpr int RecordBatchProjector::kNoMatch;
 class ProjectedRecordBatchReader : public RecordBatchReader {
  public:
   static Status Make(MemoryPool* pool, RecordBatchProjector projector,
-                     std::unique_ptr<RecordBatchIterator> wrapped,
-                     std::unique_ptr<RecordBatchIterator>* out) {
-    out->reset(
-        new ProjectedRecordBatchReader(pool, std::move(projector), std::move(wrapped)));
+                     RecordBatchIterator wrapped, RecordBatchIterator* out) {
+    *out = RecordBatchIterator(
+        ProjectedRecordBatchReader(pool, std::move(projector), std::move(wrapped)));
     return Status::OK();
   }
 
   Status ReadNext(std::shared_ptr<RecordBatch>* out) override {
     std::shared_ptr<RecordBatch> rb;
-    RETURN_NOT_OK(wrapped_->Next(&rb));
+    RETURN_NOT_OK(wrapped_.Next(&rb));
     if (rb == nullptr) {
       *out = nullptr;
       return Status::OK();
@@ -185,12 +182,32 @@ class ProjectedRecordBatchReader : public RecordBatchReader {
 
  private:
   ProjectedRecordBatchReader(MemoryPool* pool, RecordBatchProjector projector,
-                             std::unique_ptr<RecordBatchIterator> wrapped)
+                             RecordBatchIterator wrapped)
       : projector_(std::move(projector)), wrapped_(std::move(wrapped)) {}
 
   RecordBatchProjector projector_;
-  std::unique_ptr<RecordBatchIterator> wrapped_;
+  RecordBatchIterator wrapped_;
 };
+
+/// \brief GetFragmentsFromSources transforms a vector<DataSource> into a
+/// flattened DataFragmentIterator.
+static inline DataFragmentIterator GetFragmentsFromSources(
+    const std::vector<std::shared_ptr<DataSource>>& sources,
+    std::shared_ptr<ScanOptions> options) {
+  // Iterator<DataSource>
+  auto sources_it = MakeVectorIterator(sources);
+
+  // DataSource -> Iterator<DataFragment>
+  auto fn = [options](std::shared_ptr<DataSource> source) -> DataFragmentIterator {
+    return source->GetFragments(options);
+  };
+
+  // Iterator<Iterator<DataFragment>>
+  auto fragments_it = MakeMapIterator(fn, std::move(sources_it));
+
+  // Iterator<DataFragment>
+  return MakeFlattenIterator(std::move(fragments_it));
+}
 
 }  // namespace dataset
 }  // namespace arrow

@@ -63,6 +63,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         _Type_TIMESTAMP" arrow::Type::TIMESTAMP"
         _Type_TIME32" arrow::Type::TIME32"
         _Type_TIME64" arrow::Type::TIME64"
+        _Type_DURATION" arrow::Type::DURATION"
+
         _Type_BINARY" arrow::Type::BINARY"
         _Type_STRING" arrow::Type::STRING"
         _Type_LARGE_BINARY" arrow::Type::LARGE_BINARY"
@@ -187,6 +189,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         pass
 
     cdef cppclass CTimestampType" arrow::TimestampType"(CFixedWidthType):
+        CTimestampType(TimeUnit unit)
         TimeUnit unit()
         const c_string& timezone()
 
@@ -198,6 +201,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     shared_ptr[CDataType] ctime32" arrow::time32"(TimeUnit unit)
     shared_ptr[CDataType] ctime64" arrow::time64"(TimeUnit unit)
+
+    cdef cppclass CDurationType" arrow::DurationType"(CFixedWidthType):
+        TimeUnit unit()
+
+    shared_ptr[CDataType] cduration" arrow::duration"(TimeUnit unit)
 
     cdef cppclass CDictionaryType" arrow::DictionaryType"(CFixedWidthType):
         CDictionaryType(const shared_ptr[CDataType]& index_type,
@@ -251,6 +259,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
                                     shared_ptr[CResizableBuffer]* out)
 
     cdef CMemoryPool* c_default_memory_pool" arrow::default_memory_pool"()
+
+    CStatus c_jemalloc_set_decay_ms" arrow::jemalloc_set_decay_ms"(int ms)
 
     cdef cppclass CListType" arrow::ListType"(CDataType):
         CListType(const shared_ptr[CDataType]& value_type)
@@ -405,6 +415,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int64_t Value(int i)
 
     cdef cppclass CTimestampArray" arrow::TimestampArray"(CArray):
+        int64_t Value(int i)
+
+    cdef cppclass CDurationArray" arrow::DurationArray"(CArray):
         int64_t Value(int i)
 
     cdef cppclass CHalfFloatArray" arrow::HalfFloatArray"(CArray):
@@ -581,6 +594,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             const vector[shared_ptr[CChunkedArray]]& columns)
 
         @staticmethod
+        shared_ptr[CTable] MakeFromArrays" Make"(
+            const shared_ptr[CSchema]& schema,
+            const vector[shared_ptr[CArray]]& arrays)
+
+        @staticmethod
         CStatus FromRecordBatches(
             const shared_ptr[CSchema]& schema,
             const vector[shared_ptr[CRecordBatch]]& batches,
@@ -644,9 +662,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         Type type_id()
         c_bool Equals(const CTensor& other)
 
-    cdef cppclass CSparseTensorCOO" arrow::SparseTensorCOO":
+    cdef cppclass CSparseCOOTensor" arrow::SparseCOOTensor":
         shared_ptr[CDataType] type()
         shared_ptr[CBuffer] data()
+        CStatus ToTensor(shared_ptr[CTensor]*)
 
         const vector[int64_t]& shape()
         int64_t size()
@@ -658,11 +677,12 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         c_bool is_mutable()
         Type type_id()
-        c_bool Equals(const CSparseTensorCOO& other)
+        c_bool Equals(const CSparseCOOTensor& other)
 
-    cdef cppclass CSparseTensorCSR" arrow::SparseTensorCSR":
+    cdef cppclass CSparseCSRMatrix" arrow::SparseCSRMatrix":
         shared_ptr[CDataType] type()
         shared_ptr[CBuffer] data()
+        CStatus ToTensor(shared_ptr[CTensor]*)
 
         const vector[int64_t]& shape()
         int64_t size()
@@ -674,7 +694,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         c_bool is_mutable()
         Type type_id()
-        c_bool Equals(const CSparseTensorCSR& other)
+        c_bool Equals(const CSparseCSRMatrix& other)
 
     cdef cppclass CScalar" arrow::Scalar":
         shared_ptr[CDataType] type
@@ -712,23 +732,85 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     CStatus ConcatenateTables(const vector[shared_ptr[CTable]]& tables,
                               shared_ptr[CTable]* result)
 
-    cdef extern from "arrow/builder.h" namespace "arrow" nogil:
+cdef extern from "arrow/builder.h" namespace "arrow" nogil:
 
-        cdef cppclass CArrayBuilder" arrow::ArrayBuilder":
-            CArrayBuilder(shared_ptr[CDataType], CMemoryPool* pool)
+    cdef cppclass CArrayBuilder" arrow::ArrayBuilder":
+        CArrayBuilder(shared_ptr[CDataType], CMemoryPool* pool)
 
-        cdef cppclass CBinaryBuilder" arrow::BinaryBuilder"(CArrayBuilder):
-            CArrayBuilder(shared_ptr[CDataType], CMemoryPool* pool)
+        int64_t length()
+        int64_t null_count()
+        CStatus AppendNull()
+        CStatus Finish(shared_ptr[CArray]* out)
+        CStatus Reserve(int64_t additional_capacity)
 
-        cdef cppclass CStringBuilder" arrow::StringBuilder"(CBinaryBuilder):
-            CStringBuilder(CMemoryPool* pool)
+    cdef cppclass CBooleanBuilder" arrow::BooleanBuilder"(CArrayBuilder):
+        CBooleanBuilder(CMemoryPool* pool)
+        CStatus Append(const bint val)
+        CStatus Append(const uint8_t val)
 
-            int64_t length()
-            int64_t null_count()
+    cdef cppclass CInt8Builder" arrow::Int8Builder"(CArrayBuilder):
+        CInt8Builder(CMemoryPool* pool)
+        CStatus Append(const int8_t value)
 
-            CStatus Append(const c_string& value)
-            CStatus AppendNull()
-            CStatus Finish(shared_ptr[CArray]* out)
+    cdef cppclass CInt16Builder" arrow::Int16Builder"(CArrayBuilder):
+        CInt16Builder(CMemoryPool* pool)
+        CStatus Append(const int16_t value)
+
+    cdef cppclass CInt32Builder" arrow::Int32Builder"(CArrayBuilder):
+        CInt32Builder(CMemoryPool* pool)
+        CStatus Append(const int32_t value)
+
+    cdef cppclass CInt64Builder" arrow::Int64Builder"(CArrayBuilder):
+        CInt64Builder(CMemoryPool* pool)
+        CStatus Append(const int64_t value)
+
+    cdef cppclass CUInt8Builder" arrow::UInt8Builder"(CArrayBuilder):
+        CUInt8Builder(CMemoryPool* pool)
+        CStatus Append(const uint8_t value)
+
+    cdef cppclass CUInt16Builder" arrow::UInt16Builder"(CArrayBuilder):
+        CUInt16Builder(CMemoryPool* pool)
+        CStatus Append(const uint16_t value)
+
+    cdef cppclass CUInt32Builder" arrow::UInt32Builder"(CArrayBuilder):
+        CUInt32Builder(CMemoryPool* pool)
+        CStatus Append(const uint32_t value)
+
+    cdef cppclass CUInt64Builder" arrow::UInt64Builder"(CArrayBuilder):
+        CUInt64Builder(CMemoryPool* pool)
+        CStatus Append(const uint64_t value)
+
+    cdef cppclass CHalfFloatBuilder" arrow::HalfFloatBuilder"(CArrayBuilder):
+        CHalfFloatBuilder(CMemoryPool* pool)
+
+    cdef cppclass CFloatBuilder" arrow::FloatBuilder"(CArrayBuilder):
+        CFloatBuilder(CMemoryPool* pool)
+        CStatus Append(const float value)
+
+    cdef cppclass CDoubleBuilder" arrow::DoubleBuilder"(CArrayBuilder):
+        CDoubleBuilder(CMemoryPool* pool)
+        CStatus Append(const double value)
+
+    cdef cppclass CBinaryBuilder" arrow::BinaryBuilder"(CArrayBuilder):
+        CArrayBuilder(shared_ptr[CDataType], CMemoryPool* pool)
+        CStatus Append(const char* value, int32_t length)
+
+    cdef cppclass CStringBuilder" arrow::StringBuilder"(CBinaryBuilder):
+        CStringBuilder(CMemoryPool* pool)
+
+        CStatus Append(const c_string& value)
+
+    cdef cppclass CTimestampBuilder "arrow::TimestampBuilder"(CArrayBuilder):
+        CTimestampBuilder(const shared_ptr[CDataType] typ, CMemoryPool* pool)
+        CStatus Append(const int64_t value)
+
+    cdef cppclass CDate32Builder "arrow::Date32Builder"(CArrayBuilder):
+        CDate32Builder(CMemoryPool* pool)
+        CStatus Append(const int32_t value)
+
+    cdef cppclass CDate64Builder "arrow::Date64Builder"(CArrayBuilder):
+        CDate64Builder(CMemoryPool* pool)
+        CStatus Append(const int64_t value)
 
 
 cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
@@ -754,23 +836,27 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
     cdef cppclass Readable:
         # put overload under a different name to avoid cython bug with multiple
         # layers of inheritance
-        CStatus ReadB" Read"(int64_t nbytes, shared_ptr[CBuffer]* out)
+        CStatus ReadBuffer" Read"(int64_t nbytes, shared_ptr[CBuffer]* out)
         CStatus Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out)
 
     cdef cppclass Seekable:
         CStatus Seek(int64_t position)
 
     cdef cppclass Writable:
+        CStatus WriteBuffer" Write"(shared_ptr[CBuffer] data)
         CStatus Write(const uint8_t* data, int64_t nbytes)
         CStatus Flush()
 
-    cdef cppclass OutputStream(FileInterface, Writable):
+    cdef cppclass COutputStream" arrow::io::OutputStream"(FileInterface,
+                                                          Writable):
         pass
 
-    cdef cppclass InputStream(FileInterface, Readable):
+    cdef cppclass CInputStream" arrow::io::InputStream"(FileInterface,
+                                                        Readable):
         pass
 
-    cdef cppclass RandomAccessFile(InputStream, Seekable):
+    cdef cppclass CRandomAccessFile" arrow::io::RandomAccessFile"(CInputStream,
+                                                                  Seekable):
         CStatus GetSize(int64_t* size)
 
         CStatus ReadAt(int64_t position, int64_t nbytes,
@@ -779,24 +865,24 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
                        shared_ptr[CBuffer]* out)
         c_bool supports_zero_copy()
 
-    cdef cppclass WritableFile(OutputStream, Seekable):
+    cdef cppclass WritableFile(COutputStream, Seekable):
         CStatus WriteAt(int64_t position, const uint8_t* data,
                         int64_t nbytes)
 
-    cdef cppclass ReadWriteFileInterface(RandomAccessFile,
+    cdef cppclass ReadWriteFileInterface(CRandomAccessFile,
                                          WritableFile):
         pass
 
-    cdef cppclass FileSystem:
+    cdef cppclass CIOFileSystem" arrow::io::FileSystem":
         CStatus Stat(const c_string& path, FileStatistics* stat)
 
-    cdef cppclass FileOutputStream(OutputStream):
+    cdef cppclass FileOutputStream(COutputStream):
         @staticmethod
-        CStatus Open(const c_string& path, shared_ptr[OutputStream]* file)
+        CStatus Open(const c_string& path, shared_ptr[COutputStream]* file)
 
         int file_descriptor()
 
-    cdef cppclass ReadableFile(RandomAccessFile):
+    cdef cppclass ReadableFile(CRandomAccessFile):
         @staticmethod
         CStatus Open(const c_string& path, shared_ptr[ReadableFile]* file)
 
@@ -822,46 +908,46 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         int file_descriptor()
 
     cdef cppclass CCompressedInputStream \
-            " arrow::io::CompressedInputStream"(InputStream):
+            " arrow::io::CompressedInputStream"(CInputStream):
         @staticmethod
         CStatus Make(CMemoryPool* pool, CCodec* codec,
-                     shared_ptr[InputStream] raw,
+                     shared_ptr[CInputStream] raw,
                      shared_ptr[CCompressedInputStream]* out)
 
         @staticmethod
-        CStatus Make(CCodec* codec, shared_ptr[InputStream] raw,
+        CStatus Make(CCodec* codec, shared_ptr[CInputStream] raw,
                      shared_ptr[CCompressedInputStream]* out)
 
     cdef cppclass CCompressedOutputStream \
-            " arrow::io::CompressedOutputStream"(OutputStream):
+            " arrow::io::CompressedOutputStream"(COutputStream):
         @staticmethod
         CStatus Make(CMemoryPool* pool, CCodec* codec,
-                     shared_ptr[OutputStream] raw,
+                     shared_ptr[COutputStream] raw,
                      shared_ptr[CCompressedOutputStream]* out)
 
         @staticmethod
-        CStatus Make(CCodec* codec, shared_ptr[OutputStream] raw,
+        CStatus Make(CCodec* codec, shared_ptr[COutputStream] raw,
                      shared_ptr[CCompressedOutputStream]* out)
 
     cdef cppclass CBufferedInputStream \
-            " arrow::io::BufferedInputStream"(InputStream):
+            " arrow::io::BufferedInputStream"(CInputStream):
 
         @staticmethod
         CStatus Create(int64_t buffer_size, CMemoryPool* pool,
-                       shared_ptr[InputStream] raw,
+                       shared_ptr[CInputStream] raw,
                        shared_ptr[CBufferedInputStream]* out)
 
-        shared_ptr[InputStream] Detach()
+        shared_ptr[CInputStream] Detach()
 
     cdef cppclass CBufferedOutputStream \
-            " arrow::io::BufferedOutputStream"(OutputStream):
+            " arrow::io::BufferedOutputStream"(COutputStream):
 
         @staticmethod
         CStatus Create(int64_t buffer_size, CMemoryPool* pool,
-                       shared_ptr[OutputStream] raw,
+                       shared_ptr[COutputStream] raw,
                        shared_ptr[CBufferedOutputStream]* out)
 
-        CStatus Detach(shared_ptr[OutputStream]* raw)
+        CStatus Detach(shared_ptr[COutputStream]* raw)
 
     # ----------------------------------------------------------------------
     # HDFS
@@ -893,13 +979,14 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         int64_t block_size
         int16_t permissions
 
-    cdef cppclass HdfsReadableFile(RandomAccessFile):
+    cdef cppclass HdfsReadableFile(CRandomAccessFile):
         pass
 
-    cdef cppclass HdfsOutputStream(OutputStream):
+    cdef cppclass HdfsOutputStream(COutputStream):
         pass
 
-    cdef cppclass CHadoopFileSystem" arrow::io::HadoopFileSystem"(FileSystem):
+    cdef cppclass CHadoopFileSystem \
+            "arrow::io::HadoopFileSystem"(CIOFileSystem):
         @staticmethod
         CStatus Connect(const HdfsConnectionConfig* config,
                         shared_ptr[CHadoopFileSystem]* client)
@@ -935,16 +1022,16 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
                              shared_ptr[HdfsOutputStream]* handle)
 
     cdef cppclass CBufferReader \
-            " arrow::io::BufferReader"(RandomAccessFile):
+            " arrow::io::BufferReader"(CRandomAccessFile):
         CBufferReader(const shared_ptr[CBuffer]& buffer)
         CBufferReader(const uint8_t* data, int64_t nbytes)
 
     cdef cppclass CBufferOutputStream \
-            " arrow::io::BufferOutputStream"(OutputStream):
+            " arrow::io::BufferOutputStream"(COutputStream):
         CBufferOutputStream(const shared_ptr[CResizableBuffer]& buffer)
 
     cdef cppclass CMockOutputStream \
-            " arrow::io::MockOutputStream"(OutputStream):
+            " arrow::io::MockOutputStream"(COutputStream):
         CMockOutputStream()
         int64_t GetExtentBytesWritten()
 
@@ -955,6 +1042,71 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         void set_memcopy_threads(int num_threads)
         void set_memcopy_blocksize(int64_t blocksize)
         void set_memcopy_threshold(int64_t threshold)
+
+
+cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
+
+    ctypedef enum CFileType "arrow::fs::FileType":
+        CFileType_NonExistent "arrow::fs::FileType::NonExistent"
+        CFileType_Unknown "arrow::fs::FileType::Unknown"
+        CFileType_File "arrow::fs::FileType::File"
+        CFileType_Directory "arrow::fs::FileType::Directory"
+
+    cdef cppclass CTimePoint "arrow::fs::TimePoint":
+        pass
+
+    cdef cppclass CFileStats "arrow::fs::FileStats":
+        CFileStats()
+        CFileStats(CFileStats&&)
+        CFileStats& operator=(CFileStats&&)
+        CFileStats(const CFileStats&)
+        CFileStats& operator=(const CFileStats&)
+
+        CFileType type()
+        void set_type(CFileType type)
+        c_string path()
+        void set_path(const c_string& path)
+        c_string base_name()
+        int64_t size()
+        void set_size(int64_t size)
+        c_string extension()
+        CTimePoint mtime()
+        void set_mtime(CTimePoint mtime)
+
+    cdef cppclass CSelector "arrow::fs::Selector":
+        CSelector()
+        c_string base_dir
+        c_bool allow_non_existent
+        c_bool recursive
+
+    cdef cppclass CFileSystem "arrow::fs::FileSystem":
+        CStatus GetTargetStats(const c_string& path, CFileStats* out)
+        CStatus GetTargetStats(const vector[c_string]& paths,
+                               vector[CFileStats]* out)
+        CStatus GetTargetStats(const CSelector& select,
+                               vector[CFileStats]* out)
+        CStatus CreateDir(const c_string& path, c_bool recursive)
+        CStatus DeleteDir(const c_string& path)
+        CStatus DeleteFile(const c_string& path)
+        CStatus DeleteFiles(const vector[c_string]& paths)
+        CStatus Move(const c_string& src, const c_string& dest)
+        CStatus CopyFile(const c_string& src, const c_string& dest)
+        CStatus OpenInputStream(const c_string& path,
+                                shared_ptr[CInputStream]* out)
+        CStatus OpenInputFile(const c_string& path,
+                              shared_ptr[CRandomAccessFile]* out)
+        CStatus OpenOutputStream(const c_string& path,
+                                 shared_ptr[COutputStream]* out)
+        CStatus OpenAppendStream(const c_string& path,
+                                 shared_ptr[COutputStream]* out)
+
+    cdef cppclass CLocalFileSystem "arrow::fs::LocalFileSystem"(CFileSystem):
+        LocalFileSystem()
+
+    cdef cppclass CSubTreeFileSystem \
+            "arrow::fs::SubTreeFileSystem"(CFileSystem):
+        CSubTreeFileSystem(const c_string& base_path,
+                           shared_ptr[CFileSystem] base_fs)
 
 
 cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
@@ -1000,14 +1152,14 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         MetadataVersion metadata_version()
         MessageType type()
 
-        CStatus SerializeTo(OutputStream* stream, const CIpcOptions& options,
+        CStatus SerializeTo(COutputStream* stream, const CIpcOptions& options,
                             int64_t* output_length)
 
     c_string FormatMessageType(MessageType type)
 
     cdef cppclass CMessageReader" arrow::ipc::MessageReader":
         @staticmethod
-        unique_ptr[CMessageReader] Open(const shared_ptr[InputStream]& stream)
+        unique_ptr[CMessageReader] Open(const shared_ptr[CInputStream]& stream)
 
         CStatus ReadNextMessage(unique_ptr[CMessage]* out)
 
@@ -1019,7 +1171,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     cdef cppclass CRecordBatchStreamReader \
             " arrow::ipc::RecordBatchStreamReader"(CRecordBatchReader):
         @staticmethod
-        CStatus Open(const InputStream* stream,
+        CStatus Open(const CInputStream* stream,
                      shared_ptr[CRecordBatchReader]* out)
 
         @staticmethod
@@ -1029,23 +1181,25 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     cdef cppclass CRecordBatchStreamWriter \
             " arrow::ipc::RecordBatchStreamWriter"(CRecordBatchWriter):
         @staticmethod
-        CStatus Open(OutputStream* sink, const shared_ptr[CSchema]& schema,
-                     shared_ptr[CRecordBatchWriter]* out)
+        CResult[shared_ptr[CRecordBatchWriter]] Open(
+            COutputStream* sink, const shared_ptr[CSchema]& schema,
+            CIpcOptions& options)
 
     cdef cppclass CRecordBatchFileWriter \
             " arrow::ipc::RecordBatchFileWriter"(CRecordBatchWriter):
         @staticmethod
-        CStatus Open(OutputStream* sink, const shared_ptr[CSchema]& schema,
-                     shared_ptr[CRecordBatchWriter]* out)
+        CResult[shared_ptr[CRecordBatchWriter]] Open(
+            COutputStream* sink, const shared_ptr[CSchema]& schema,
+            CIpcOptions& options)
 
     cdef cppclass CRecordBatchFileReader \
             " arrow::ipc::RecordBatchFileReader":
         @staticmethod
-        CStatus Open(RandomAccessFile* file,
+        CStatus Open(CRandomAccessFile* file,
                      shared_ptr[CRecordBatchFileReader]* out)
 
         @staticmethod
-        CStatus Open2" Open"(RandomAccessFile* file,
+        CStatus Open2" Open"(CRandomAccessFile* file,
                              int64_t footer_offset,
                              shared_ptr[CRecordBatchFileReader]* out)
 
@@ -1055,16 +1209,16 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
         CStatus ReadRecordBatch(int i, shared_ptr[CRecordBatch]* batch)
 
-    CStatus ReadMessage(InputStream* stream, unique_ptr[CMessage]* message)
+    CStatus ReadMessage(CInputStream* stream, unique_ptr[CMessage]* message)
 
     CStatus GetRecordBatchSize(const CRecordBatch& batch, int64_t* size)
     CStatus GetTensorSize(const CTensor& tensor, int64_t* size)
 
-    CStatus WriteTensor(const CTensor& tensor, OutputStream* dst,
+    CStatus WriteTensor(const CTensor& tensor, COutputStream* dst,
                         int32_t* metadata_length,
                         int64_t* body_length)
 
-    CStatus ReadTensor(InputStream* stream, shared_ptr[CTensor]* out)
+    CStatus ReadTensor(CInputStream* stream, shared_ptr[CTensor]* out)
 
     CStatus ReadRecordBatch(const CMessage& message,
                             const shared_ptr[CSchema]& schema,
@@ -1079,16 +1233,16 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
                                  CMemoryPool* pool,
                                  shared_ptr[CBuffer]* out)
 
-    CStatus ReadSchema(InputStream* stream, CDictionaryMemo* dictionary_memo,
+    CStatus ReadSchema(CInputStream* stream, CDictionaryMemo* dictionary_memo,
                        shared_ptr[CSchema]* out)
 
     CStatus ReadRecordBatch(const shared_ptr[CSchema]& schema,
                             CDictionaryMemo* dictionary_memo,
-                            InputStream* stream,
+                            CInputStream* stream,
                             shared_ptr[CRecordBatch]* out)
 
-    CStatus AlignStream(InputStream* stream, int64_t alignment)
-    CStatus AlignStream(OutputStream* stream, int64_t alignment)
+    CStatus AlignStream(CInputStream* stream, int64_t alignment)
+    CStatus AlignStream(COutputStream* stream, int64_t alignment)
 
     cdef CStatus GetRecordBatchPayload\
         " arrow::ipc::internal::GetRecordBatchPayload"(
@@ -1099,7 +1253,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
     cdef cppclass CFeatherWriter" arrow::ipc::feather::TableWriter":
         @staticmethod
-        CStatus Open(const shared_ptr[OutputStream]& stream,
+        CStatus Open(const shared_ptr[COutputStream]& stream,
                      unique_ptr[CFeatherWriter]* out)
 
         void SetDescription(const c_string& desc)
@@ -1110,7 +1264,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
 
     cdef cppclass CFeatherReader" arrow::ipc::feather::TableReader":
         @staticmethod
-        CStatus Open(const shared_ptr[RandomAccessFile]& file,
+        CStatus Open(const shared_ptr[CRandomAccessFile]& file,
                      unique_ptr[CFeatherReader]* out)
 
         c_string GetDescription()
@@ -1169,7 +1323,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
 
     cdef cppclass CCSVReader" arrow::csv::TableReader":
         @staticmethod
-        CStatus Make(CMemoryPool*, shared_ptr[InputStream],
+        CStatus Make(CMemoryPool*, shared_ptr[CInputStream],
                      CCSVReadOptions, CCSVParseOptions, CCSVConvertOptions,
                      shared_ptr[CCSVReader]* out)
 
@@ -1197,7 +1351,7 @@ cdef extern from "arrow/json/reader.h" namespace "arrow::json" nogil:
 
     cdef cppclass CJSONReader" arrow::json::TableReader":
         @staticmethod
-        CStatus Make(CMemoryPool*, shared_ptr[InputStream],
+        CStatus Make(CMemoryPool*, shared_ptr[CInputStream],
                      CJSONReadOptions, CJSONParseOptions,
                      shared_ptr[CJSONReader]* out)
 
@@ -1283,7 +1437,6 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py":
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     shared_ptr[CDataType] GetPrimitiveType(Type type)
-    shared_ptr[CDataType] GetTimestampType(TimeUnit unit)
 
     object PyHalf_FromHalf(npy_half value)
 
@@ -1321,31 +1474,31 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     CStatus TensorToNdarray(const shared_ptr[CTensor]& tensor, object base,
                             PyObject** out)
 
-    CStatus SparseTensorCOOToNdarray(
-        const shared_ptr[CSparseTensorCOO]& sparse_tensor, object base,
+    CStatus SparseCOOTensorToNdarray(
+        const shared_ptr[CSparseCOOTensor]& sparse_tensor, object base,
         PyObject** out_data, PyObject** out_coords)
 
-    CStatus SparseTensorCSRToNdarray(
-        const shared_ptr[CSparseTensorCSR]& sparse_tensor, object base,
+    CStatus SparseCSRMatrixToNdarray(
+        const shared_ptr[CSparseCSRMatrix]& sparse_tensor, object base,
         PyObject** out_data, PyObject** out_indptr, PyObject** out_indices)
 
-    CStatus NdarraysToSparseTensorCOO(CMemoryPool* pool, object data_ao,
+    CStatus NdarraysToSparseCOOTensor(CMemoryPool* pool, object data_ao,
                                       object coords_ao,
                                       const vector[int64_t]& shape,
                                       const vector[c_string]& dim_names,
-                                      shared_ptr[CSparseTensorCOO]* out)
+                                      shared_ptr[CSparseCOOTensor]* out)
 
-    CStatus NdarraysToSparseTensorCSR(CMemoryPool* pool, object data_ao,
+    CStatus NdarraysToSparseCSRMatrix(CMemoryPool* pool, object data_ao,
                                       object indptr_ao, object indices_ao,
                                       const vector[int64_t]& shape,
                                       const vector[c_string]& dim_names,
-                                      shared_ptr[CSparseTensorCSR]* out)
+                                      shared_ptr[CSparseCSRMatrix]* out)
 
-    CStatus TensorToSparseTensorCOO(shared_ptr[CTensor],
-                                    shared_ptr[CSparseTensorCOO]* out)
+    CStatus TensorToSparseCOOTensor(shared_ptr[CTensor],
+                                    shared_ptr[CSparseCOOTensor]* out)
 
-    CStatus TensorToSparseTensorCSR(shared_ptr[CTensor],
-                                    shared_ptr[CSparseTensorCSR]* out)
+    CStatus TensorToSparseCSRMatrix(shared_ptr[CTensor],
+                                    shared_ptr[CSparseCSRMatrix]* out)
 
     CStatus ConvertArrayToPandas(const PandasOptions& options,
                                  const shared_ptr[CArray]& arr,
@@ -1358,8 +1511,8 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     CStatus ConvertTableToPandas(
         const PandasOptions& options,
         const unordered_set[c_string]& categorical_columns,
+        const unordered_set[c_string]& extension_columns,
         const shared_ptr[CTable]& table,
-        CMemoryPool* pool,
         PyObject** out)
 
     void c_set_default_memory_pool \
@@ -1377,13 +1530,14 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         CStatus Make(const uint8_t* data, int64_t size, object base,
                      shared_ptr[CBuffer]* out)
 
-    cdef cppclass PyReadableFile(RandomAccessFile):
+    cdef cppclass PyReadableFile(CRandomAccessFile):
         PyReadableFile(object fo)
 
-    cdef cppclass PyOutputStream(OutputStream):
+    cdef cppclass PyOutputStream(COutputStream):
         PyOutputStream(object fo)
 
-    cdef struct PandasOptions:
+    cdef cppclass PandasOptions:
+        CMemoryPool* pool
         c_bool strings_to_categorical
         c_bool zero_copy_only
         c_bool integer_object_nulls
@@ -1395,7 +1549,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         shared_ptr[CRecordBatch] batch
         vector[shared_ptr[CTensor]] tensors
 
-        CStatus WriteTo(OutputStream* dst)
+        CStatus WriteTo(COutputStream* dst)
         CStatus GetComponents(CMemoryPool* pool, PyObject** dst)
 
     CStatus SerializeObject(object context, object sequence,
@@ -1405,13 +1559,23 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
                               const CSerializedPyObject& obj,
                               PyObject* base, PyObject** out)
 
-    CStatus ReadSerializedObject(RandomAccessFile* src,
+    CStatus ReadSerializedObject(CRandomAccessFile* src,
                                  CSerializedPyObject* out)
 
     CStatus GetSerializedFromComponents(int num_tensors, int num_ndarrays,
                                         int num_buffers,
                                         object buffers,
                                         CSerializedPyObject* out)
+
+
+cdef extern from "arrow/python/api.h" namespace "arrow::py::internal" nogil:
+
+    cdef cppclass CTimePoint "arrow::py::internal::TimePoint":
+        pass
+
+    cdef CStatus PyDateTime_from_int(int64_t val, const TimeUnit unit,
+                                     PyObject** out)
+    cdef CStatus PyDateTime_from_TimePoint(CTimePoint val, PyObject** out)
 
 
 cdef extern from 'arrow/python/init.h':

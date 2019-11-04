@@ -20,10 +20,7 @@
 set -ex
 
 if [ ${using_homebrew} = "yes" ]; then
-  sudo \
-    installer \
-    -pkg /Library/Developer/CommandLineTools/Packages/macOS_SDK_headers_for_macOS_10.14.pkg \
-    -target /
+  export SDKROOT="$(xcrun --show-sdk-path)"
 else
   export MACOSX_DEPLOYMENT_TARGET="10.9"
   export CONDA_BUILD_SYSROOT="$(xcode-select -p)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX${MACOSX_DEPLOYMENT_TARGET}.sdk"

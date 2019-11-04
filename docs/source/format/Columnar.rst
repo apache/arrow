@@ -940,7 +940,12 @@ table above): ::
 
 The ``Buffer`` Flatbuffers value describes the location and size of a
 piece of memory. Generally these are interpreted relative to the
-**encapsulated message format** defined next.
+**encapsulated message format** defined below.
+
+The ``size`` field of ``Buffer`` is not required to account for padding
+bytes. Since this metadata can be used to communicate in-memory pointer
+addresses between libraries, it is recommended to set ``size`` to the actual
+memory size rather than the padded size.
 
 Byte Order (`Endianness`_)
 ---------------------------

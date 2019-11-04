@@ -405,7 +405,7 @@ pub struct ReaderBuilder {
     /// If schema inference is run on a file with no headers, default column names
     /// are created.
     has_headers: bool,
-    /// An optional column delimiter. Defauits to `b','`
+    /// An optional column delimiter. Defaults to `b','`
     delimiter: Option<u8>,
     /// Optional maximum number of records to read during schema inference
     ///

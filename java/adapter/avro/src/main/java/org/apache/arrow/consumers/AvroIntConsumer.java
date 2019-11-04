@@ -66,8 +66,9 @@ public class AvroIntConsumer implements Consumer<IntVector> {
   }
 
   @Override
-  public void resetValueVector(IntVector vector) {
+  public boolean resetValueVector(IntVector vector) {
     this.vector = vector;
     this.currentIndex = 0;
+    return true;
   }
 }

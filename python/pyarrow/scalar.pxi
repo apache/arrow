@@ -405,6 +405,66 @@ cdef class TimestampValue(ArrayValue):
         return converter(value, tzinfo=tzinfo)
 
 
+cdef dict _TIMEDELTA_CONVERSION_FUNCTIONS = {}
+
+
+def _nanoseconds_to_timedelta_safe(v):
+    if v % 1000 != 0:
+        raise ValueError(
+            "Nanosecond duration {} is not safely convertible to microseconds "
+            "to convert to datetime.timedelta. Install pandas to return as "
+            "Timedelta with nanosecond support or access the .value "
+            "attribute.".format(v))
+    micros = v // 1000
+
+    return datetime.timedelta(microseconds=micros)
+
+
+def _timedelta_conversion_functions():
+    if _TIMEDELTA_CONVERSION_FUNCTIONS:
+        return _TIMEDELTA_CONVERSION_FUNCTIONS
+
+    _TIMEDELTA_CONVERSION_FUNCTIONS.update({
+        TimeUnit_SECOND: lambda v: datetime.timedelta(seconds=v),
+        TimeUnit_MILLI: lambda v: datetime.timedelta(milliseconds=v),
+        TimeUnit_MICRO: lambda v: datetime.timedelta(microseconds=v),
+        TimeUnit_NANO: _nanoseconds_to_timedelta_safe
+    })
+
+    try:
+        import pandas as pd
+        _TIMEDELTA_CONVERSION_FUNCTIONS[TimeUnit_NANO] = (
+            lambda v: pd.Timedelta(v, unit='ns')
+        )
+    except ImportError:
+        pass
+
+    return _TIMEDELTA_CONVERSION_FUNCTIONS
+
+
+cdef class DurationValue(ArrayValue):
+    """
+    Concrete class for duration array elements.
+    """
+
+    @property
+    def value(self):
+        cdef CDurationArray* ap = <CDurationArray*> self.sp_array.get()
+        return ap.Value(self.index)
+
+    def as_py(self):
+        """
+        Return this value as a Pandas Timestamp instance (if available),
+        otherwise as a Python datetime.timedelta instance.
+        """
+        cdef CDurationArray* ap = <CDurationArray*> self.sp_array.get()
+        cdef CDurationType* dtype = <CDurationType*> ap.type().get()
+
+        cdef int64_t value = ap.Value(self.index)
+        converter = _timedelta_conversion_functions()[dtype.unit()]
+        return converter(value)
+
+
 cdef class HalfFloatValue(ArrayValue):
     """
     Concrete class for float16 array elements.
@@ -810,6 +870,7 @@ cdef dict _array_value_classes = {
     _Type_TIME32: Time32Value,
     _Type_TIME64: Time64Value,
     _Type_TIMESTAMP: TimestampValue,
+    _Type_DURATION: DurationValue,
     _Type_HALF_FLOAT: HalfFloatValue,
     _Type_FLOAT: FloatValue,
     _Type_DOUBLE: DoubleValue,

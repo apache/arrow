@@ -15,7 +15,7 @@
 # limitations under the License.
 
 os: osx
-osx_image: xcode8.3
+osx_image: xcode9.4
 sudo: required
 language: cpp
 compiler: clang
@@ -39,7 +39,6 @@ before_script:
 
   - export TRAVIS_BUILD_DIR=$TRAVIS_BUILD_DIR/arrow
   - brew update
-  - brew upgrade cmake
   - brew install bison flex llvm@7
 
 script:

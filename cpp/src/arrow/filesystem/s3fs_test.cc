@@ -254,7 +254,6 @@ class TestS3FS : public S3TestMixin {
   void SetUp() override {
     S3TestMixin::SetUp();
     MakeFileSystem();
-
     // Set up test bucket
     {
       Aws::S3::Model::CreateBucketRequest req;
@@ -280,8 +279,7 @@ class TestS3FS : public S3TestMixin {
   }
 
   void MakeFileSystem() {
-    options_.access_key = minio_.access_key();
-    options_.secret_key = minio_.secret_key();
+    options_.ConfigureAccessKey(minio_.access_key(), minio_.secret_key());
     options_.scheme = "http";
     options_.endpoint_override = minio_.connect_string();
     ASSERT_OK(S3FileSystem::Make(options_, &fs_));
@@ -377,6 +375,10 @@ TEST_F(TestS3FS, GetTargetStatsBucket) {
   AssertFileStats(fs_.get(), "bucket", FileType::Directory);
   AssertFileStats(fs_.get(), "empty-bucket", FileType::Directory);
   AssertFileStats(fs_.get(), "non-existent-bucket", FileType::NonExistent);
+  // Trailing slashes
+  AssertFileStats(fs_.get(), "bucket/", FileType::Directory);
+  AssertFileStats(fs_.get(), "empty-bucket/", FileType::Directory);
+  AssertFileStats(fs_.get(), "non-existent-bucket/", FileType::NonExistent);
 }
 
 TEST_F(TestS3FS, GetTargetStatsObject) {
@@ -395,6 +397,12 @@ TEST_F(TestS3FS, GetTargetStatsObject) {
   AssertFileStats(fs_.get(), "bucket/emptyd", FileType::NonExistent);
   AssertFileStats(fs_.get(), "bucket/somed", FileType::NonExistent);
   AssertFileStats(fs_.get(), "non-existent-bucket/somed", FileType::NonExistent);
+
+  // Trailing slashes
+  AssertFileStats(fs_.get(), "bucket/emptydir/", FileType::Directory, kNoSize);
+  AssertFileStats(fs_.get(), "bucket/somefile/", FileType::File, 9);
+  AssertFileStats(fs_.get(), "bucket/emptyd/", FileType::NonExistent);
+  AssertFileStats(fs_.get(), "non-existent-bucket/somed/", FileType::NonExistent);
 }
 
 TEST_F(TestS3FS, GetTargetStatsSelector) {
@@ -449,6 +457,17 @@ TEST_F(TestS3FS, GetTargetStatsSelector) {
   ASSERT_OK(fs_->GetTargetStats(select, &stats));
   ASSERT_EQ(stats.size(), 0);
   select.allow_non_existent = false;
+
+  // Trailing slashes
+  select.base_dir = "empty-bucket/";
+  ASSERT_OK(fs_->GetTargetStats(select, &stats));
+  ASSERT_EQ(stats.size(), 0);
+  select.base_dir = "non-existent-bucket/";
+  ASSERT_RAISES(IOError, fs_->GetTargetStats(select, &stats));
+  select.base_dir = "bucket/";
+  ASSERT_OK(fs_->GetTargetStats(select, &stats));
+  SortStats(&stats);
+  ASSERT_EQ(stats.size(), 3);
 }
 
 TEST_F(TestS3FS, GetTargetStatsSelectorRecursive) {
@@ -668,7 +687,7 @@ TEST_F(TestS3FS, OpenInputStream) {
 TEST_F(TestS3FS, OpenInputFile) {
   std::shared_ptr<io::RandomAccessFile> file;
   std::shared_ptr<Buffer> buf;
-  int64_t nbytes = -1, pos = -1;
+  int64_t nbytes = -1, pos = -1, bytes_read = 0;
 
   // Non-existent
   ASSERT_RAISES(IOError, fs_->OpenInputFile("non-existent-bucket/somefile", &file));
@@ -693,6 +712,15 @@ TEST_F(TestS3FS, OpenInputFile) {
   AssertBufferEqual(*buf, "data");
   ASSERT_OK(file->ReadAt(9, 20, &buf));
   AssertBufferEqual(*buf, "");
+
+  char result[10];
+  ASSERT_OK(file->ReadAt(2, 5, &bytes_read, &result));
+  ASSERT_EQ(bytes_read, 5);
+  ASSERT_OK(file->ReadAt(5, 20, &bytes_read, &result));
+  ASSERT_EQ(bytes_read, 4);
+  ASSERT_OK(file->ReadAt(9, 0, &bytes_read, &result));
+  ASSERT_EQ(bytes_read, 0);
+
   // Reading past end of file
   ASSERT_RAISES(IOError, file->ReadAt(10, 20, &buf));
 
@@ -746,8 +774,7 @@ class TestS3FSGeneric : public S3TestMixin, public GenericFileSystemTest {
       ASSERT_OK(OutcomeToStatus(client_->CreateBucket(req)));
     }
 
-    options_.access_key = minio_.access_key();
-    options_.secret_key = minio_.secret_key();
+    options_.ConfigureAccessKey(minio_.access_key(), minio_.secret_key());
     options_.scheme = "http";
     options_.endpoint_override = minio_.connect_string();
     ASSERT_OK(S3FileSystem::Make(options_, &s3fs_));

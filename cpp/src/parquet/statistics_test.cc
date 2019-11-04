@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -988,13 +989,46 @@ TEST(TestStatisticsSortOrderDoubleNaN, NaNValues) {
   auto nan_stats = MakeStatistics<DoubleType>(&descr);
   double values[NUM_VALUES] = {std::nan(""), std::nan(""), -3.0, -2.0, -1.0,
                                0.0,          1.0,          2.0,  3.0,  4.0};
-  double* values_ptr = &values[0];
-  nan_stats->Update(values_ptr, NUM_VALUES, 0);
-  double min = nan_stats->min();
-  double max = nan_stats->max();
+  nan_stats->Update(values, NUM_VALUES, 0);
+  ASSERT_EQ(nan_stats->min(), -3.0);
+  ASSERT_EQ(nan_stats->max(), 4.0);
+}
 
-  ASSERT_EQ(min, -3.0);
-  ASSERT_EQ(max, 4.0);
+template <typename ParquetType>
+void CheckNegativeZeroStats() {
+  using T = typename ParquetType::c_type;
+
+  constexpr int NUM_VALUES = 2;
+  NodePtr node = PrimitiveNode::Make("f", Repetition::OPTIONAL, ParquetType::type_num);
+  ColumnDescriptor descr(node, 1, 1);
+  T zero = 0;
+
+  // Test that the min and max are always unsigned
+  {
+    T values[NUM_VALUES] = {-zero, zero};
+    auto stats = MakeStatistics<ParquetType>(&descr);
+    stats->Update(values, NUM_VALUES, 0);
+    // The min and max are unsigned
+    ASSERT_FALSE(std::signbit(stats->min()));
+    ASSERT_FALSE(std::signbit(stats->max()));
+  }
+
+  {
+    T values[NUM_VALUES] = {zero, -zero};
+    auto stats = MakeStatistics<ParquetType>(&descr);
+    stats->Update(values, NUM_VALUES, 0);
+    ASSERT_FALSE(std::signbit(stats->min()));
+    ASSERT_FALSE(std::signbit(stats->max()));
+  }
+}
+
+TEST(TestStatistics, NegativeZero) {
+  // ARROW-5562
+  CheckNegativeZeroStats<FloatType>();
+  CheckNegativeZeroStats<DoubleType>();
+
+  // Modern computers use two's complement encoding of integers which does not
+  // allow for negative zero
 }
 
 // Test statistics for binary column with UNSIGNED sort order

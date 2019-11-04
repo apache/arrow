@@ -27,6 +27,7 @@ import java.util.Map;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
+import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.DensityAwareVector;
 import org.apache.arrow.vector.FieldVector;
@@ -118,14 +119,14 @@ public class NonNullableStructVector extends AbstractStructVector {
 
   @Override
   public void setInitialCapacity(int numRecords) {
-    for (final ValueVector v : (Iterable<ValueVector>) this) {
+    for (final ValueVector v : this) {
       v.setInitialCapacity(numRecords);
     }
   }
 
   @Override
   public void setInitialCapacity(int valueCount, double density) {
-    for (final ValueVector vector : (Iterable<ValueVector>) this) {
+    for (final ValueVector vector : this) {
       if (vector instanceof DensityAwareVector) {
         ((DensityAwareVector)vector).setInitialCapacity(valueCount, density);
       } else {
@@ -140,7 +141,7 @@ public class NonNullableStructVector extends AbstractStructVector {
       return 0;
     }
     long buffer = 0;
-    for (final ValueVector v : (Iterable<ValueVector>) this) {
+    for (final ValueVector v : this) {
       buffer += v.getBufferSize();
     }
 
@@ -154,7 +155,7 @@ public class NonNullableStructVector extends AbstractStructVector {
     }
 
     long bufferSize = 0;
-    for (final ValueVector v : (Iterable<ValueVector>) this) {
+    for (final ValueVector v : this) {
       bufferSize += v.getBufferSizeFor(valueCount);
     }
 
@@ -298,10 +299,14 @@ public class NonNullableStructVector extends AbstractStructVector {
 
   @Override
   public int hashCode(int index) {
+    return hashCode(index, null);
+  }
+
+  @Override
+  public int hashCode(int index, ArrowBufHasher hasher) {
     int hash = 0;
-    for (String child : getChildFieldNames()) {
-      ValueVector v = getChild(child);
-      if (v != null && index < v.getValueCount()) {
+    for (FieldVector v : getChildren()) {
+      if (index < v.getValueCount()) {
         hash = ByteFunctionHelpers.combineHash(hash, v.hashCode(index));
       }
     }

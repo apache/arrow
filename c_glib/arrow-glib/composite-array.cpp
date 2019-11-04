@@ -40,6 +40,10 @@ G_BEGIN_DECLS
  * more list data. If you don't have Arrow format data, you need to
  * use #GArrowListArrayBuilder to create a new array.
  *
+ * #GArrowLargeListArray is a class for 64-bit offsets list array.
+ * It can store zero or more list data. If you don't have Arrow format data,
+ * you need to use #GArrowLargeListArrayBuilder to create a new array.
+ *
  * #GArrowStructArray is a class for struct array. It can store zero
  * or more structs. One struct has one or more fields. If you don't
  * have Arrow format data, you need to use #GArrowStructArrayBuilder
@@ -148,6 +152,101 @@ garrow_list_array_get_value(GArrowListArray *array,
     arrow_list_array->values()->Slice(arrow_list_array->value_offset(i),
                                       arrow_list_array->value_length(i));
   return garrow_array_new_raw(&arrow_list);
+}
+
+
+G_DEFINE_TYPE(GArrowLargeListArray,
+              garrow_large_list_array,
+              GARROW_TYPE_ARRAY)
+
+static void
+garrow_large_list_array_init(GArrowLargeListArray *object)
+{
+}
+
+static void
+garrow_large_list_array_class_init(GArrowLargeListArrayClass *klass)
+{
+}
+
+/**
+ * garrow_large_list_array_new:
+ * @data_type: The data type of the list.
+ * @length: The number of elements.
+ * @value_offsets: The offsets of @values in Arrow format.
+ * @values: The values as #GArrowArray.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowLargeListArray.
+ *
+ * Since: 1.0.0
+ */
+GArrowLargeListArray *
+garrow_large_list_array_new(GArrowDataType *data_type,
+                            gint64 length,
+                            GArrowBuffer *value_offsets,
+                            GArrowArray *values,
+                            GArrowBuffer *null_bitmap,
+                            gint64 n_nulls)
+{
+  const auto arrow_data_type = garrow_data_type_get_raw(data_type);
+  const auto arrow_value_offsets = garrow_buffer_get_raw(value_offsets);
+  const auto arrow_values = garrow_array_get_raw(values);
+  const auto arrow_bitmap = garrow_buffer_get_raw(null_bitmap);
+  auto arrow_large_list_array =
+    std::make_shared<arrow::LargeListArray>(arrow_data_type,
+                                            length,
+                                            arrow_value_offsets,
+                                            arrow_values,
+                                            arrow_bitmap,
+                                            n_nulls);
+  auto arrow_array =
+    std::static_pointer_cast<arrow::Array>(arrow_large_list_array);
+  return GARROW_LARGE_LIST_ARRAY(garrow_array_new_raw(&arrow_array));
+}
+
+/**
+ * garrow_large_list_array_get_value_type:
+ * @array: A #GArrowLargeListArray.
+ *
+ * Returns: (transfer full): The data type of value in each list.
+ *
+ * Since: 1.0.0
+ */
+GArrowDataType *
+garrow_large_list_array_get_value_type(GArrowLargeListArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_large_list_array =
+    static_cast<arrow::LargeListArray *>(arrow_array.get());
+  auto arrow_value_type = arrow_large_list_array->value_type();
+  return garrow_data_type_new_raw(&arrow_value_type);
+}
+
+/**
+ * garrow_large_list_array_get_value:
+ * @array: A #GArrowLargeListArray.
+ * @i: The index of the target value.
+ *
+ * Returns: (transfer full): The @i-th list.
+ *
+ * Since: 1.0.0
+ */
+GArrowArray *
+garrow_large_list_array_get_value(GArrowLargeListArray *array,
+                                  gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_large_list_array =
+    static_cast<arrow::LargeListArray *>(arrow_array.get());
+  auto arrow_large_list =
+    arrow_large_list_array->value_slice(i);
+  return garrow_array_new_raw(&arrow_large_list);
 }
 
 

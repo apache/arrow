@@ -17,12 +17,18 @@
 
 #include "arrow/dataset/file_parquet.h"
 
+#include <memory>
 #include <utility>
 #include <vector>
 
+#include "arrow/dataset/filter.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
+#include "arrow/testing/generator.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "parquet/arrow/writer.h"
 
 namespace arrow {
@@ -41,6 +47,8 @@ using parquet::WriterProperties;
 using parquet::CreateOutputStream;
 using parquet::arrow::FileWriter;
 using parquet::arrow::WriteTable;
+
+using testing::Pointee;
 
 Status WriteRecordBatch(const RecordBatch& batch, FileWriter* writer) {
   auto schema = batch.schema();
@@ -69,9 +77,10 @@ Status WriteRecordBatchReader(RecordBatchReader* reader, FileWriter* writer) {
                            "'");
   }
 
-  return reader->Visit([&](std::shared_ptr<RecordBatch> batch) -> Status {
-    return WriteRecordBatch(*batch, writer);
-  });
+  return MakePointerIterator(reader).Visit(
+      [&](std::shared_ptr<RecordBatch> batch) -> Status {
+        return WriteRecordBatch(*batch, writer);
+      });
 }
 
 Status WriteRecordBatchReader(
@@ -122,7 +131,7 @@ class ParquetBufferFixtureMixin : public ArrowParquetWriterMixin {
   }
 
   std::unique_ptr<RecordBatchReader> GetRecordBatchReader() {
-    auto batch = GetRecordBatch();
+    auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
     int64_t i = 0;
     return MakeGeneratedRecordBatch(
         batch->schema(), [batch, i](std::shared_ptr<RecordBatch>* out) mutable {
@@ -131,15 +140,8 @@ class ParquetBufferFixtureMixin : public ArrowParquetWriterMixin {
         });
   }
 
-  std::shared_ptr<RecordBatch> GetRecordBatch() {
-    ASSERT_OK_AND_ASSIGN(auto f64, ArrayFromBuilderVisitor(float64(), kBatchSize,
-                                                           [](DoubleBuilder* builder) {
-                                                             builder->UnsafeAppend(0.0);
-                                                           }));
-
-    auto schema_ = schema({field("f64", f64->type())});
-    return RecordBatch::Make(schema_, kBatchSize, {f64});
-  }
+ protected:
+  std::shared_ptr<Schema> schema_ = schema({field("f64", float64())});
 };
 
 class TestParquetFileFormat : public ParquetBufferFixtureMixin {
@@ -147,7 +149,7 @@ class TestParquetFileFormat : public ParquetBufferFixtureMixin {
   TestParquetFileFormat() : ctx_(std::make_shared<ScanContext>()) {}
 
  protected:
-  std::shared_ptr<ScanOptions> opts_;
+  std::shared_ptr<ScanOptions> opts_ = ScanOptions::Defaults();
   std::shared_ptr<ScanContext> ctx_;
 };
 
@@ -156,13 +158,13 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
   auto source = GetFileSource(reader.get());
   auto fragment = std::make_shared<ParquetFragment>(*source, opts_);
 
-  std::unique_ptr<ScanTaskIterator> it;
+  ScanTaskIterator it;
   ASSERT_OK(fragment->Scan(ctx_, &it));
   int64_t row_count = 0;
 
-  ASSERT_OK(it->Visit([&row_count](std::unique_ptr<ScanTask> task) -> Status {
+  ASSERT_OK(it.Visit([&row_count](std::unique_ptr<ScanTask> task) -> Status {
     auto batch_it = task->Scan();
-    return batch_it->Visit([&row_count](std::shared_ptr<RecordBatch> batch) -> Status {
+    return batch_it.Visit([&row_count](std::shared_ptr<RecordBatch> batch) -> Status {
       row_count += batch->num_rows();
       return Status::OK();
     });
@@ -171,18 +173,15 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
   ASSERT_EQ(row_count, kNumRows);
 }
 
-class TestParquetFileSystemBasedDataSource
-    : public FileSystemBasedDataSourceMixin<ParquetFileFormat> {
-  std::vector<std::string> file_names() const override {
-    return {"a/b/c.parquet", "a/b/c/d.parquet", "a/b.parquet", "a.parquet"};
-  }
-};
+TEST_F(TestParquetFileFormat, Inspect) {
+  auto reader = GetRecordBatchReader();
+  auto source = GetFileSource(reader.get());
+  auto format = ParquetFileFormat();
 
-TEST_F(TestParquetFileSystemBasedDataSource, NonRecursive) { this->NonRecursive(); }
-
-TEST_F(TestParquetFileSystemBasedDataSource, Recursive) { this->Recursive(); }
-
-TEST_F(TestParquetFileSystemBasedDataSource, DeletedFile) { this->DeletedFile(); }
+  std::shared_ptr<Schema> actual;
+  ASSERT_OK(format.Inspect(*source.get(), &actual));
+  EXPECT_EQ(*actual, *schema_);
+}
 
 }  // namespace dataset
 }  // namespace arrow

@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <chrono>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -26,10 +27,12 @@
 #include "arrow/buffer.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
+#include "arrow/io/slow.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/iterator.h"
 
 namespace arrow {
 
@@ -311,6 +314,75 @@ TEST(TestMemcopy, ParallelMemcopy) {
 
     ASSERT_EQ(0, memcmp(buffer1->data(), buffer2->data(), buffer1->size()));
   }
+}
+
+template <typename SlowStreamType>
+void TestSlowInputStream() {
+  using clock = std::chrono::high_resolution_clock;
+
+  auto stream = std::make_shared<BufferReader>(util::string_view("abcdefghijkl"));
+  const double latency = 0.6;
+  auto slow = std::make_shared<SlowStreamType>(stream, latency);
+
+  ASSERT_FALSE(slow->closed());
+  std::shared_ptr<Buffer> buf;
+  auto t1 = clock::now();
+  ASSERT_OK(slow->Read(6, &buf));
+  auto t2 = clock::now();
+  AssertBufferEqual(*buf, "abcdef");
+  auto dt = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count();
+  ASSERT_LT(dt, latency * 3);  // likely
+  ASSERT_GT(dt, latency / 3);  // likely
+
+  util::string_view view;
+  ASSERT_OK(slow->Peek(4, &view));
+  ASSERT_EQ(view, util::string_view("ghij"));
+
+  ASSERT_OK(slow->Close());
+  ASSERT_TRUE(slow->closed());
+  ASSERT_TRUE(stream->closed());
+  ASSERT_OK(slow->Close());
+  ASSERT_TRUE(slow->closed());
+  ASSERT_TRUE(stream->closed());
+}
+
+TEST(TestSlowInputStream, Basics) { TestSlowInputStream<SlowInputStream>(); }
+
+TEST(TestSlowRandomAccessFile, Basics) { TestSlowInputStream<SlowRandomAccessFile>(); }
+
+TEST(TestInputStreamIterator, Basics) {
+  auto reader = std::make_shared<BufferReader>(Buffer::FromString("data123456"));
+  Iterator<std::shared_ptr<Buffer>> it;
+  ASSERT_OK(MakeInputStreamIterator(reader, /*block_size=*/3, &it));
+  std::shared_ptr<Buffer> buf;
+  ASSERT_OK(it.Next(&buf));
+  AssertBufferEqual(*buf, "dat");
+  ASSERT_OK(it.Next(&buf));
+  AssertBufferEqual(*buf, "a12");
+  ASSERT_OK(it.Next(&buf));
+  AssertBufferEqual(*buf, "345");
+  ASSERT_OK(it.Next(&buf));
+  AssertBufferEqual(*buf, "6");
+  ASSERT_OK(it.Next(&buf));
+  ASSERT_EQ(buf, nullptr);
+  ASSERT_OK(it.Next(&buf));
+  ASSERT_EQ(buf, nullptr);
+}
+
+TEST(TestInputStreamIterator, Closed) {
+  Iterator<std::shared_ptr<Buffer>> it;
+  auto reader = std::make_shared<BufferReader>(Buffer::FromString("data123456"));
+  ASSERT_OK(reader->Close());
+  ASSERT_RAISES(Invalid, MakeInputStreamIterator(reader, 3, &it));
+
+  reader = std::make_shared<BufferReader>(Buffer::FromString("data123456"));
+  std::shared_ptr<Buffer> buf;
+  ASSERT_OK(MakeInputStreamIterator(reader, /*block_size=*/3, &it));
+  ASSERT_OK(it.Next(&buf));
+  AssertBufferEqual(*buf, "dat");
+  // Close stream and read from iterator
+  ASSERT_OK(reader->Close());
+  ASSERT_RAISES(Invalid, it.Next(&buf));
 }
 
 }  // namespace io

@@ -78,6 +78,11 @@ class ARROW_EXPORT BlockParser {
   /// \brief Return the number of parsed rows
   int32_t num_rows() const { return num_rows_; }
 
+  /// \brief Construct a BlockParser
+  ///
+  /// \param[in] pool MemoryPool to use when constructing parsed array
+  /// \param[in] options ParseOptions to use when parsing JSON
+  /// \param[out] out constructed BlockParser
   static Status Make(MemoryPool* pool, const ParseOptions& options,
                      std::unique_ptr<BlockParser>* out);
 

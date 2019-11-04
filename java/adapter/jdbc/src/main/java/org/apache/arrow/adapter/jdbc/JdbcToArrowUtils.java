@@ -49,6 +49,7 @@ import org.apache.arrow.adapter.jdbc.consumer.DoubleConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.FloatConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.IntConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.JdbcConsumer;
+import org.apache.arrow.adapter.jdbc.consumer.NullConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.SmallIntConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.TimeConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.TimestampConsumer;
@@ -56,7 +57,6 @@ import org.apache.arrow.adapter.jdbc.consumer.TinyIntConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.VarCharConsumer;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.Preconditions;
-import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateMilliVector;
@@ -65,6 +65,7 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.NullVector;
 import org.apache.arrow.vector.SmallIntVector;
 import org.apache.arrow.vector.TimeMilliVector;
 import org.apache.arrow.vector.TimeStampMilliTZVector;
@@ -86,8 +87,6 @@ import org.apache.arrow.vector.types.pojo.Schema;
  * @since 0.10.0
  */
 public class JdbcToArrowUtils {
-
-  public static final int DEFAULT_BUFFER_SIZE = 256;
 
   private static final int JDBC_ARRAY_VALUE_COLUMN = 2;
 
@@ -216,6 +215,7 @@ public class JdbcToArrowUtils {
    *   <li>TIMESTAMP --> ArrowType.Timestamp(TimeUnit.MILLISECOND, calendar timezone)</li>
    *   <li>CLOB --> ArrowType.Utf8</li>
    *   <li>BLOB --> ArrowType.Binary</li>
+   *   <li>NULL --> ArrowType.Null</li>
    * </ul>
    *
    * @param fieldInfo The field information to construct the <code>ArrowType</code> from.
@@ -277,6 +277,8 @@ public class JdbcToArrowUtils {
         return new ArrowType.Binary();
       case Types.ARRAY:
         return new ArrowType.List();
+      case Types.NULL:
+        return new ArrowType.Null();
       default:
         // no-op, shouldn't get here
         return null;
@@ -306,18 +308,6 @@ public class JdbcToArrowUtils {
       fieldInfo = config.getArraySubTypeByColumnName(rsmd.getColumnName(arrayColumn));
     }
     return fieldInfo;
-  }
-
-  static void allocateVectors(VectorSchemaRoot root, int size) {
-    List<FieldVector> vectors = root.getFieldVectors();
-    for (FieldVector fieldVector : vectors) {
-      if (fieldVector instanceof BaseFixedWidthVector) {
-        ((BaseFixedWidthVector) fieldVector).allocateNew(size);
-      } else {
-        fieldVector.allocateNew();
-      }
-      fieldVector.setInitialCapacity(size);
-    }
   }
 
   /**
@@ -352,7 +342,6 @@ public class JdbcToArrowUtils {
 
     ResultSetMetaData rsmd = rs.getMetaData();
     int columnCount = rsmd.getColumnCount();
-    allocateVectors(root, DEFAULT_BUFFER_SIZE);
 
     JdbcConsumer[] consumers = new JdbcConsumer[columnCount];
     for (int i = 1; i <= columnCount; i++) {
@@ -432,6 +421,8 @@ public class JdbcToArrowUtils {
       case Types.BLOB:
         BinaryConsumer blobDelegate = new BinaryConsumer((VarBinaryVector) vector, columnIndex);
         return new BlobConsumer(blobDelegate, columnIndex);
+      case Types.NULL:
+        return new NullConsumer((NullVector) vector);
       default:
         // no-op, shouldn't get here
         throw new UnsupportedOperationException();

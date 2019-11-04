@@ -10,19 +10,19 @@ read_delim_arrow(file, delim = ",", quote = "\\"",
   escape_double = TRUE, escape_backslash = FALSE, col_names = TRUE,
   col_select = NULL, na = c("", "NA"), quoted_na = TRUE,
   skip_empty_rows = TRUE, skip = 0L, parse_options = NULL,
-  convert_options = NULL, read_options = NULL, as_tibble = TRUE)
+  convert_options = NULL, read_options = NULL, as_data_frame = TRUE)
 
 read_csv_arrow(file, quote = "\\"", escape_double = TRUE,
   escape_backslash = FALSE, col_names = TRUE, col_select = NULL,
   na = c("", "NA"), quoted_na = TRUE, skip_empty_rows = TRUE,
   skip = 0L, parse_options = NULL, convert_options = NULL,
-  read_options = NULL, as_tibble = TRUE)
+  read_options = NULL, as_data_frame = TRUE)
 
 read_tsv_arrow(file, quote = "\\"", escape_double = TRUE,
   escape_backslash = FALSE, col_names = TRUE, col_select = NULL,
   na = c("", "NA"), quoted_na = TRUE, skip_empty_rows = TRUE,
   skip = 0L, parse_options = NULL, convert_options = NULL,
-  read_options = NULL, as_tibble = TRUE)
+  read_options = NULL, as_data_frame = TRUE)
 }
 \arguments{
 \item{file}{A character file name, raw vector, or an Arrow input stream}
@@ -63,18 +63,19 @@ filled with missings.}
 
 \item{skip}{Number of lines to skip before reading data.}
 
-\item{parse_options}{see \code{\link[=csv_parse_options]{csv_parse_options()}}. If given, this overrides any
+\item{parse_options}{see \link[=CsvReadOptions]{file reader options}.
+If given, this overrides any
 parsing options provided in other arguments (e.g. \code{delim}, \code{quote}, etc.).}
 
-\item{convert_options}{see \code{\link[=csv_convert_options]{csv_convert_options()}}}
+\item{convert_options}{see \link[=CsvReadOptions]{file reader options}}
 
-\item{read_options}{see \code{\link[=csv_read_options]{csv_read_options()}}}
+\item{read_options}{see \link[=CsvReadOptions]{file reader options}}
 
-\item{as_tibble}{Should the function return a \code{data.frame} or an
+\item{as_data_frame}{Should the function return a \code{data.frame} or an
 \link[=Table]{arrow::Table}?}
 }
 \value{
-A \code{data.frame}, or an Table if \code{as_tibble = FALSE}.
+A \code{data.frame}, or an Table if \code{as_data_frame = FALSE}.
 }
 \description{
 These functions uses the Arrow C++ CSV reader to read into a \code{data.frame}.
@@ -91,11 +92,10 @@ an issue if you encounter one that \code{arrow} should support.
 If you need to control Arrow-specific reader parameters that don't have an
 equivalent in \code{readr::read_csv()}, you can either provide them in the
 \code{parse_options}, \code{convert_options}, or \code{read_options} arguments, or you can
-call \code{\link[=csv_table_reader]{csv_table_reader()}} directly for lower-level access.
+use \link{CsvTableReader} directly for lower-level access.
 }
 \examples{
 \donttest{
-try({
   tf <- tempfile()
   on.exit(unlink(tf))
   write.csv(iris, file = tf)
@@ -103,6 +103,5 @@ try({
   dim(df)
   # Can select columns
   df <- read_csv_arrow(tf, col_select = starts_with("Sepal"))
-})
 }
 }

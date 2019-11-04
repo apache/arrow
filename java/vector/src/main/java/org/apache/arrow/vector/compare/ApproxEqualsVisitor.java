@@ -21,25 +21,18 @@ import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.compare.util.ValueEpsilonEqualizers;
 
 /**
- * Visitor to compare floating point.
+ * Visitor to compare floating point vectors approximately.
  */
 public class ApproxEqualsVisitor extends RangeEqualsVisitor {
 
   /**
-   * The float/double values are treated as equal as long as the difference calculated by function is <= epsilon.
-   */
-  private final float floatEpsilon;
-  private final double doubleEpsilon;
-
-  /**
    * Functions to calculate difference between float/double values.
    */
-  private DiffFunction<Float> floatDiffFunction =
-      (Float value1, Float value2) -> Math.abs(value1 - value2);
-  private DiffFunction<Double> doubleDiffFunction =
-      (Double value1, Double value2) -> Math.abs(value1 - value2);
+  private final VectorValueEqualizer<Float4Vector> floatDiffFunction;
+  private final VectorValueEqualizer<Float8Vector> doubleDiffFunction;
 
   /**
    * Constructs a new instance.
@@ -51,23 +44,37 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
    */
   public ApproxEqualsVisitor(ValueVector left, ValueVector right, float floatEpsilon, double doubleEpsilon) {
     super(left, right, true);
-    this.floatEpsilon = floatEpsilon;
-    this.doubleEpsilon = doubleEpsilon;
+
+    floatDiffFunction = new ValueEpsilonEqualizers.Float4EpsilonEqualizer(floatEpsilon);
+    doubleDiffFunction = new ValueEpsilonEqualizers.Float8EpsilonEqualizer(doubleEpsilon);
   }
 
-  public void setFloatDiffFunction(DiffFunction<Float> floatDiffFunction) {
+  /**
+   * Constructs a new instance.
+   * @param left the left vector.
+   * @param right the right vector.
+   * @param floatDiffFunction the equalizer for float values.
+   * @param doubleDiffFunction the equalizer for double values.
+   */
+  public ApproxEqualsVisitor(ValueVector left, ValueVector right,
+                             VectorValueEqualizer<Float4Vector> floatDiffFunction,
+                             VectorValueEqualizer<Float8Vector> doubleDiffFunction) {
+    super(left, right, true);
     this.floatDiffFunction = floatDiffFunction;
-  }
-
-  public void setDoubleDiffFunction(DiffFunction<Double> doubleDiffFunction) {
     this.doubleDiffFunction = doubleDiffFunction;
   }
 
   @Override
   public Boolean visit(BaseFixedWidthVector left, Range range) {
     if (left instanceof Float4Vector) {
+      if (!validate(left)) {
+        return false;
+      }
       return float4ApproxEquals(range);
     } else if (left instanceof Float8Vector) {
+      if (!validate(left)) {
+        return false;
+      }
       return float8ApproxEquals(range);
     } else {
       return super.visit(left, range);
@@ -76,7 +83,7 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
 
   @Override
   protected ApproxEqualsVisitor createInnerVisitor(ValueVector left, ValueVector right) {
-    return new ApproxEqualsVisitor(left, right, floatEpsilon, doubleEpsilon);
+    return new ApproxEqualsVisitor(left, right, floatDiffFunction.clone(), doubleDiffFunction.clone());
   }
 
   private boolean float4ApproxEquals(Range range) {
@@ -87,24 +94,8 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
       int leftIndex = range.getLeftStart() + i;
       int rightIndex = range.getRightStart() + i;
 
-      boolean isNull = leftVector.isNull(leftIndex);
-
-      if (isNull != rightVector.isNull(rightIndex)) {
+      if (!floatDiffFunction.valuesEqual(leftVector, leftIndex, rightVector, rightIndex)) {
         return false;
-      }
-
-      if (!isNull) {
-        Float leftValue = leftVector.get(leftIndex);
-        Float rightValue = rightVector.get(rightIndex);
-        if (leftValue.isNaN()) {
-          return rightValue.isNaN();
-        }
-        if (leftValue.isInfinite()) {
-          return rightValue.isInfinite() && Math.signum(leftValue) == Math.signum(rightValue);
-        }
-        if (floatDiffFunction.apply(leftValue, rightValue) > floatEpsilon) {
-          return false;
-        }
       }
     }
     return true;
@@ -118,29 +109,10 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
       int leftIndex = range.getLeftStart() + i;
       int rightIndex = range.getRightStart() + i;
 
-      boolean isNull = leftVector.isNull(leftIndex);
-
-      if (isNull != rightVector.isNull(rightIndex)) {
+      if (!doubleDiffFunction.valuesEqual(leftVector, leftIndex, rightVector, rightIndex)) {
         return false;
-      }
-
-      if (!isNull) {
-
-        Double leftValue = leftVector.get(leftIndex);
-        Double rightValue = rightVector.get(rightIndex);
-        if (leftValue.isNaN()) {
-          return rightValue.isNaN();
-        }
-        if (leftValue.isInfinite()) {
-          return rightValue.isInfinite() && Math.signum(leftValue) == Math.signum(rightValue);
-        }
-        if (doubleDiffFunction.apply(leftValue, rightValue) > doubleEpsilon) {
-          return false;
-        }
       }
     }
     return true;
   }
 }
-
-

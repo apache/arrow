@@ -23,6 +23,7 @@ add_arrow_test(hash_test PREFIX "arrow-compute")
 add_arrow_test(isin_test PREFIX "arrow-compute")
 add_arrow_test(sort_to_indices_test PREFIX "arrow-compute")
 add_arrow_test(util_internal_test PREFIX "arrow-compute")
+add_arrow_test(add-test PREFIX "arrow-compute")
 add_arrow_benchmark(sort_to_indices_benchmark PREFIX "arrow-compute")
 
 # Aggregates

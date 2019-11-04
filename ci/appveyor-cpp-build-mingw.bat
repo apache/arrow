@@ -45,7 +45,14 @@ cmake ^
     -DARROW_BUILD_STATIC=OFF ^
     -DARROW_BUILD_TESTS=ON ^
     -DARROW_PACKAGE_PREFIX=%MINGW_PREFIX% ^
+    -DARROW_WITH_BZ2=ON ^
+    -DARROW_WITH_ZLIB=ON ^
+    -DARROW_WITH_ZSTD=ON ^
+    -DARROW_WITH_LZ4=ON ^
+    -DARROW_WITH_SNAPPY=ON ^
+    -DARROW_WITH_BROTLI=ON ^
     -DARROW_PARQUET=ON ^
+    -DPARQUET_REQUIRE_ENCRYPTION=ON ^
     -DARROW_PYTHON=ON ^
     -DARROW_USE_GLOG=OFF ^
     -DCMAKE_BUILD_TYPE=%CMAKE_BUILD_TYPE% ^
@@ -82,12 +89,12 @@ ruby c_glib\test\run-test.rb || exit /B
 
 pushd ruby\red-arrow
 ruby -S bundle install || exit /B
-pacman --remove --noconfirm "%MINGW_PACKAGE_PREFIX%-arrow" || exit /B
+pacman --remove --noconfirm "%MINGW_PACKAGE_PREFIX%-arrow"
 ruby -rdevkit test\run-test.rb || exit /B
 popd
 
 pushd ruby\red-parquet
 ruby -S bundle install || exit /B
-pacman --remove --noconfirm "%MINGW_PACKAGE_PREFIX%-arrow" || exit /B
+pacman --remove --noconfirm "%MINGW_PACKAGE_PREFIX%-arrow"
 ruby test\run-test.rb || exit /B
 popd

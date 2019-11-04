@@ -104,6 +104,7 @@ static inline std::string GetNumPyTypeName(int npy_type) {
     TYPE_CASE(FLOAT32, "float32")
     TYPE_CASE(FLOAT64, "float64")
     TYPE_CASE(DATETIME, "datetime64")
+    TYPE_CASE(TIMEDELTA, "timedelta64")
     TYPE_CASE(OBJECT, "object")
     TYPE_CASE(VOID, "void")
     default:
@@ -144,6 +145,7 @@ inline Status VisitNumpyArrayInline(PyArrayObject* arr, VISITOR* visitor) {
     TYPE_VISIT_INLINE(FLOAT32);
     TYPE_VISIT_INLINE(FLOAT64);
     TYPE_VISIT_INLINE(DATETIME);
+    TYPE_VISIT_INLINE(TIMEDELTA);
     TYPE_VISIT_INLINE(OBJECT);
   }
   return Status::NotImplemented("NumPy type not implemented: ",

@@ -34,7 +34,7 @@ import org.apache.arrow.vector.util.TransferPair;
  * timestamp (nanosecond resolution) values which could be null. A validity buffer
  * (bit vector) is maintained to track which elements in the vector are null.
  */
-public class TimeStampNanoTZVector extends TimeStampVector {
+public final class TimeStampNanoTZVector extends TimeStampVector {
   private final FieldReader reader;
   private final String timeZone;
 

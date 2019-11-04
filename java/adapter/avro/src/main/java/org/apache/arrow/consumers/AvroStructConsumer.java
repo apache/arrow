@@ -35,7 +35,6 @@ public class AvroStructConsumer implements Consumer<StructVector> {
 
   private int currentIndex;
 
-
   /**
    * Instantiate a AvroStructConsumer.
    */
@@ -78,11 +77,12 @@ public class AvroStructConsumer implements Consumer<StructVector> {
   }
 
   @Override
-  public void resetValueVector(StructVector vector) {
+  public boolean resetValueVector(StructVector vector) {
     this.vector = vector;
+    this.currentIndex = 0;
     for (int i = 0; i < delegates.length; i++) {
       delegates[i].resetValueVector(vector.getChildrenFromFields().get(i));
     }
-    this.currentIndex = 0;
+    return true;
   }
 }

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// This is a private header for string-to-number parsing utilitiers
+// This is a private header for string-to-number parsing utilities
 
 #ifndef ARROW_UTIL_PARSING_H
 #define ARROW_UTIL_PARSING_H

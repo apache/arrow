@@ -61,9 +61,7 @@ std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level) 
     throw ParquetException(ss.str());
   }
 
-  if (codec != Compression::UNCOMPRESSED) {
-    PARQUET_THROW_NOT_OK(Codec::Create(codec, compression_level, &result));
-  }
+  PARQUET_THROW_NOT_OK(Codec::Create(codec, compression_level, &result));
   return result;
 }
 

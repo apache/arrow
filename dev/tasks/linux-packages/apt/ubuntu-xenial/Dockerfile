@@ -15,7 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM ubuntu:16.04
+ARG FROM=ubuntu:xenial
+FROM ${FROM}
+
+COPY qemu-* /usr/bin/
 
 RUN \
   echo "debconf debconf/frontend select Noninteractive" | \
@@ -37,7 +40,6 @@ RUN \
     autoconf-archive \
     bison \
     build-essential \
-    clang-7 \
     cmake \
     debhelper\
     devscripts \
@@ -49,6 +51,7 @@ RUN \
     libboost-regex-dev \
     libboost-system-dev \
     libbrotli-dev \
+    libbz2-dev \
     libdouble-conversion-dev \
     libgirepository1.0-dev \
     libglib2.0-doc \
@@ -59,12 +62,17 @@ RUN \
     libre2-dev \
     libsnappy-dev \
     libssl-dev \
-    libzstd-dev \
     lsb-release \
-    nvidia-cuda-toolkit \
     pkg-config \
     protobuf-compiler \
     python3-dev \
-    python3-numpy && \
+    python3-numpy \
+    zlib1g-dev && \
+  if apt list | grep '^clang-7/'; then \
+    apt install -y -V ${quiet} clang-7; \
+  fi && \
+  if apt list | grep '^nvidia-cuda-toolkit/'; then \
+    apt install -y -V ${quiet} nvidia-cuda-toolkit; \
+  fi && \
   apt clean && \
   rm -rf /var/lib/apt/lists/*

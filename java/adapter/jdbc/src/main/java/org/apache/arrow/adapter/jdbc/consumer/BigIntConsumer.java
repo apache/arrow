@@ -45,8 +45,9 @@ public class BigIntConsumer implements JdbcConsumer<BigIntVector> {
   public void consume(ResultSet resultSet) throws SQLException {
     long value = resultSet.getLong(columnIndexInResultSet);
     if (!resultSet.wasNull()) {
-      vector.setSafe(currentIndex++, value);
+      vector.setSafe(currentIndex, value);
     }
+    currentIndex++;
   }
 
   @Override

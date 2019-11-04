@@ -38,7 +38,8 @@ using internal::make_unique;
 using util::string_view;
 
 static Status StraddlingTooLarge() {
-  return Status::Invalid("straddling object straddles two block boundaries");
+  return Status::Invalid(
+      "straddling object straddles two block boundaries (try to increase block size?)");
 }
 
 static size_t ConsumeWhitespace(std::shared_ptr<Buffer>* buf) {
@@ -58,9 +59,11 @@ static size_t ConsumeWhitespace(std::shared_ptr<Buffer>* buf) {
 #endif
 }
 
+// A chunker implementation that assumes JSON objects don't contain raw newlines.
+// This allows fast chunk delimitation using a simple newline search.
 class NewlinesStrictlyDelimitChunker : public Chunker {
  public:
-  Status Process(const std::shared_ptr<Buffer>& block, std::shared_ptr<Buffer>* whole,
+  Status Process(std::shared_ptr<Buffer> block, std::shared_ptr<Buffer>* whole,
                  std::shared_ptr<Buffer>* partial) override {
     auto last_newline = string_view(*block).find_last_of("\n\r");
     if (last_newline == string_view::npos) {
@@ -74,11 +77,24 @@ class NewlinesStrictlyDelimitChunker : public Chunker {
     return Status::OK();
   }
 
-  Status ProcessWithPartial(const std::shared_ptr<Buffer>& partial_original,
-                            const std::shared_ptr<Buffer>& block,
+  Status ProcessWithPartial(std::shared_ptr<Buffer> partial_original,
+                            std::shared_ptr<Buffer> block,
                             std::shared_ptr<Buffer>* completion,
                             std::shared_ptr<Buffer>* rest) override {
-    auto partial = partial_original;
+    return DoProcessWithPartial(partial_original, block, false, completion, rest);
+  }
+
+  Status ProcessFinal(std::shared_ptr<Buffer> partial_original,
+                      std::shared_ptr<Buffer> block, std::shared_ptr<Buffer>* completion,
+                      std::shared_ptr<Buffer>* rest) override {
+    return DoProcessWithPartial(partial_original, block, true, completion, rest);
+  }
+
+ protected:
+  Status DoProcessWithPartial(std::shared_ptr<Buffer> partial,
+                              std::shared_ptr<Buffer> block, bool is_final,
+                              std::shared_ptr<Buffer>* completion,
+                              std::shared_ptr<Buffer>* rest) {
     ConsumeWhitespace(&partial);
     if (partial->size() == 0) {
       // if partial is empty, don't bother looking for completion
@@ -88,9 +104,16 @@ class NewlinesStrictlyDelimitChunker : public Chunker {
     }
     auto first_newline = string_view(*block).find_first_of("\n\r");
     if (first_newline == string_view::npos) {
-      // no newlines in this block; straddling object straddles *two* block boundaries.
-      // retry with larger buffer
-      return StraddlingTooLarge();
+      // no newlines in this block
+      if (is_final) {
+        // => it's entirely a completion of partial
+        *completion = block;
+        *rest = SliceBuffer(block, 0, 0);
+        return Status::OK();
+      } else {
+        // => the current object is too large for block size
+        return StraddlingTooLarge();
+      }
     }
     *completion = SliceBuffer(block, 0, first_newline + 1);
     *rest = SliceBuffer(block, first_newline + 1);
@@ -164,9 +187,11 @@ static size_t ConsumeWholeObject(Stream&& stream) {
   }
 }
 
+// A chunker implementation that assumes JSON objects can contain raw newlines,
+// and uses actual JSON parsing to delimit chunks.
 class ParsingChunker : public Chunker {
  public:
-  Status Process(const std::shared_ptr<Buffer>& block, std::shared_ptr<Buffer>* whole,
+  Status Process(std::shared_ptr<Buffer> block, std::shared_ptr<Buffer>* whole,
                  std::shared_ptr<Buffer>* partial) override {
     if (block->size() == 0) {
       *whole = SliceBuffer(block, 0, 0);
@@ -194,11 +219,24 @@ class ParsingChunker : public Chunker {
     return Status::OK();
   }
 
-  Status ProcessWithPartial(const std::shared_ptr<Buffer>& partial_original,
-                            const std::shared_ptr<Buffer>& block,
+  Status ProcessWithPartial(std::shared_ptr<Buffer> partial_original,
+                            std::shared_ptr<Buffer> block,
                             std::shared_ptr<Buffer>* completion,
                             std::shared_ptr<Buffer>* rest) override {
-    auto partial = partial_original;
+    return DoProcessWithPartial(partial_original, block, false, completion, rest);
+  }
+
+  Status ProcessFinal(std::shared_ptr<Buffer> partial_original,
+                      std::shared_ptr<Buffer> block, std::shared_ptr<Buffer>* completion,
+                      std::shared_ptr<Buffer>* rest) override {
+    return DoProcessWithPartial(partial_original, block, true, completion, rest);
+  }
+
+ protected:
+  Status DoProcessWithPartial(std::shared_ptr<Buffer> partial,
+                              std::shared_ptr<Buffer> block, bool is_final,
+                              std::shared_ptr<Buffer>* completion,
+                              std::shared_ptr<Buffer>* rest) {
     ConsumeWhitespace(&partial);
     if (partial->size() == 0) {
       // if partial is empty, don't bother looking for completion
@@ -208,9 +246,16 @@ class ParsingChunker : public Chunker {
     }
     auto length = ConsumeWholeObject(MultiStringStream({partial, block}));
     if (length == string_view::npos) {
-      // straddling object straddles *two* block boundaries.
-      // retry with larger buffer
-      return StraddlingTooLarge();
+      // no newlines in this block
+      if (is_final) {
+        // => it's entirely a completion of partial
+        *completion = block;
+        *rest = SliceBuffer(block, 0, 0);
+        return Status::OK();
+      } else {
+        // => the current object is too large for block size
+        return StraddlingTooLarge();
+      }
     }
     auto completion_length = length - partial->size();
     *completion = SliceBuffer(block, 0, completion_length);

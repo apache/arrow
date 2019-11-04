@@ -17,7 +17,9 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <limits>
 #include <memory>
+#include <new>
 #include <string>
 #include <vector>
 
@@ -25,6 +27,7 @@
 #include <boost/optional.hpp>
 #include <boost/range/adaptor/transformed.hpp>
 
+#include "arrow/memory_pool.h"
 #include "arrow/stl.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
@@ -123,8 +126,6 @@ namespace stl {
 template <>
 struct ConversionTraits<CustomOptionalTypeMock>
     : public CTypeTraits<CustomOptionalTypeMock> {
-  constexpr static bool nullable = true;
-
   static Status AppendRow(typename TypeTraits<ArrowType>::BuilderType& builder,
                           const CustomOptionalTypeMock& cell) {
     if (cell) {
@@ -137,9 +138,7 @@ struct ConversionTraits<CustomOptionalTypeMock>
 
 template <>
 struct ConversionTraits<TestInt32Type> : public CTypeTraits<TestInt32Type> {
-  constexpr static bool nullable = false;
-
-  // AppendRow is not needed, since it shouldn't be called.
+  // AppendRow is not needed, explicitly elide an implementation
 };
 
 template <>
@@ -500,5 +499,61 @@ TEST(TestTupleVectorFromTable, CastingNeeded) {
   ASSERT_EQ(rows, expected_rows);
 }
 
+TEST(STLMemoryPool, Base) {
+  std::allocator<uint8_t> allocator;
+  STLMemoryPool<std::allocator<uint8_t>> pool(allocator);
+
+  uint8_t* data = nullptr;
+  ASSERT_OK(pool.Allocate(100, &data));
+  ASSERT_EQ(pool.max_memory(), 100);
+  ASSERT_EQ(pool.bytes_allocated(), 100);
+  ASSERT_NE(data, nullptr);
+
+  ASSERT_OK(pool.Reallocate(100, 150, &data));
+  ASSERT_EQ(pool.max_memory(), 150);
+  ASSERT_EQ(pool.bytes_allocated(), 150);
+
+  pool.Free(data, 150);
+
+  ASSERT_EQ(pool.max_memory(), 150);
+  ASSERT_EQ(pool.bytes_allocated(), 0);
+}
+
+TEST(allocator, MemoryTracking) {
+  auto pool = default_memory_pool();
+  allocator<uint64_t> alloc;
+  uint64_t* data = alloc.allocate(100);
+
+  ASSERT_EQ(100 * sizeof(uint64_t), pool->bytes_allocated());
+
+  alloc.deallocate(data, 100);
+  ASSERT_EQ(0, pool->bytes_allocated());
+}
+
+#if !(defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) || defined(ARROW_JEMALLOC))
+
+TEST(allocator, TestOOM) {
+  allocator<uint64_t> alloc;
+  uint64_t to_alloc = std::numeric_limits<uint64_t>::max() / 2;
+  ASSERT_THROW(alloc.allocate(to_alloc), std::bad_alloc);
+}
+
+TEST(stl_allocator, MaxMemory) {
+  auto pool = MemoryPool::CreateDefault();
+
+  allocator<uint8_t> alloc(pool.get());
+  uint8_t* data = alloc.allocate(1000);
+  uint8_t* data2 = alloc.allocate(1000);
+
+  alloc.deallocate(data, 1000);
+  alloc.deallocate(data2, 1000);
+
+  ASSERT_EQ(2000, pool->max_memory());
+}
+
+#endif  // !(defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER)
+        // || defined(ARROW_JEMALLOC))
+
 }  // namespace stl
+
 }  // namespace arrow

@@ -40,30 +40,15 @@ Building requires:
 * A C++11-enabled compiler. On Linux, gcc 4.8 and higher should be
   sufficient. For Windows, at least Visual Studio 2015 is required.
 * CMake 3.2 or higher
-* Boost 1.58 or higher, though some unit tests require 1.64 or
-  newer.
-* ``bison`` and ``flex`` (for building Apache Thrift from source only, an
-  Apache Parquet dependency.)
-
-Running the unit tests using ``ctest`` requires:
-
-* python
+* On Linux and macOS, either ``make`` or ``ninja`` build utilities
 
 On Ubuntu/Debian you can install the requirements with:
 
 .. code-block:: shell
 
    sudo apt-get install \
-        autoconf \
         build-essential \
-        cmake \
-        libboost-dev \
-        libboost-filesystem-dev \
-        libboost-regex-dev \
-        libboost-system-dev \
-        python \
-        bison \
-        flex
+        cmake
 
 On Alpine Linux:
 
@@ -71,7 +56,6 @@ On Alpine Linux:
 
    apk add autoconf \
            bash \
-           boost-dev \
            cmake \
            g++ \
            gcc \
@@ -96,7 +80,6 @@ On MSYS2:
      mingw-w64-${MSYSTEM_CARCH}-brotli \
      mingw-w64-${MSYSTEM_CARCH}-cmake \
      mingw-w64-${MSYSTEM_CARCH}-double-conversion \
-     mingw-w64-${MSYSTEM_CARCH}-flatbuffers \
      mingw-w64-${MSYSTEM_CARCH}-gcc \
      mingw-w64-${MSYSTEM_CARCH}-gflags \
      mingw-w64-${MSYSTEM_CARCH}-glog \
@@ -130,10 +113,10 @@ Minimal release build:
    cd arrow/cpp
    mkdir release
    cd release
-   cmake -DARROW_BUILD_TESTS=ON ..
-   make unittest
+   cmake ..
+   make
 
-Minimal debug build:
+Minimal debug build with unit tests:
 
 .. code-block:: shell
 
@@ -144,8 +127,9 @@ Minimal debug build:
    cmake -DCMAKE_BUILD_TYPE=Debug -DARROW_BUILD_TESTS=ON ..
    make unittest
 
-If you do not need to build the test suite, you can omit the
-``ARROW_BUILD_TESTS`` option (the default is not to build the unit tests).
+The unit tests are not built by default. After building, one can also invoke
+the unit tests using the ``ctest`` tool provided by CMake (not that ``test``
+depends on ``python`` being available).
 
 On some Linux distributions, running the test suite might require setting an
 explicit locale. If you see any locale-related errors, try setting the
@@ -189,12 +173,18 @@ boolean flags to ``cmake``.
   building pyarrow). This library must be built against the same Python version
   for which you are building pyarrow, e.g. Python 2.7 or Python 3.6. NumPy must
   also be installed.
+* ``-DARROW_WITH_BZ2=ON``: Build support for BZ2 compression
+* ``-DARROW_WITH_ZLIB=ON``: Build suport for zlib (gzip) compression
+* ``-DARROW_WITH_LZ4=ON``: Build suport for lz4 compression
+* ``-DARROW_WITH_SNAPPY=ON``: Build suport for Snappy compression
+* ``-DARROW_WITH_ZSTD=ON``: Build suport for ZSTD compression
+* ``-DARROW_WITH_BROTLI=ON``: Build suport for Brotli compression
 
 Some features of the core Arrow shared library can be switched off for improved
 build times if they are not required for your application:
 
 * ``-DARROW_COMPUTE=ON``: build the in-memory analytics module
-* ``-DARROW_IPC=ON``: build the IPC extensions (requiring Flatbuffers)
+* ``-DARROW_IPC=ON``: build the IPC extensions
 
 CMake version requirements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -231,7 +221,6 @@ The build system supports a number of third-party dependencies
   * ``GTEST``: Googletest, for testing
   * ``benchmark``: Google benchmark, for testing
   * ``RapidJSON``: for data serialization
-  * ``Flatbuffers``: for data serialization
   * ``ZLIB``: for data compression
   * ``BZip2``: for data compression
   * ``LZ4``: for data compression
@@ -951,12 +940,19 @@ Apache Parquet Development
 ==========================
 
 To build the C++ libraries for Apache Parquet, add the flag
-``-DARROW_PARQUET=ON`` when invoking CMake. The Parquet libraries and unit tests
+``-DARROW_PARQUET=ON`` when invoking CMake.
+To build Apache Parquet with encryption support, add the flag
+``-DPARQUET_REQUIRE_ENCRYPTION=ON`` when invoking CMake. The Parquet libraries and unit tests
 can be built with the ``parquet`` make target:
 
 .. code-block:: shell
 
    make parquet
+
+On Linux and macOS if you do not have Apache Thrift installed on your system,
+or you are building with ``-DThrift_SOURCE=BUNDLED``, you must install
+``bison`` and ``flex`` packages. On Windows we handle these build dependencies
+automatically when building Thrift from source.
 
 Running ``ctest -L unittest`` will run all built C++ unit tests, while ``ctest -L
 parquet`` will run only the Parquet unit tests. The unit tests depend on an

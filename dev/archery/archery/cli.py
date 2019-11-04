@@ -17,29 +17,53 @@
 # under the License.
 
 import click
-from contextlib import contextmanager
+import errno
 import json
 import logging
+import os
 import sys
-from tempfile import mkdtemp, TemporaryDirectory
 
 from .benchmark.compare import RunnerComparator, DEFAULT_THRESHOLD
 from .benchmark.runner import BenchmarkRunner
 from .lang.cpp import CppCMakeDefinition, CppConfiguration
 from .utils.codec import JsonEncoder
+from .utils.lint import linter, LintValidationException
 from .utils.logger import logger, ctx as log_ctx
 from .utils.source import ArrowSources
+from .utils.tmpdir import tmpdir
 
 # Set default logging to INFO in command line.
 logging.basicConfig(level=logging.INFO)
 
 
+class ArrowBool(click.types.BoolParamType):
+    """
+    ArrowBool supports the 'ON' and 'OFF' values on top of the values
+    supported by BoolParamType. This is convenient to port script which exports
+    CMake options variables.
+    """
+    name = "boolean"
+
+    def convert(self, value, param, ctx):
+        if isinstance(value, str):
+            lowered = value.lower()
+            if lowered == "on":
+                return True
+            elif lowered == "off":
+                return False
+
+        return super().convert(value, param, ctx)
+
+
+BOOL = ArrowBool()
+
+
 @click.group()
-@click.option("--debug", type=bool, is_flag=True, default=False,
+@click.option("--debug", type=BOOL, is_flag=True, default=False,
               help="Increase logging with debugging output.")
-@click.option("--pdb", type=bool, is_flag=True, default=False,
+@click.option("--pdb", type=BOOL, is_flag=True, default=False,
               help="Invoke pdb on uncaught exception.")
-@click.option("-q", "--quiet", type=bool, is_flag=True, default=False,
+@click.option("-q", "--quiet", type=BOOL, is_flag=True, default=False,
               help="Silence executed commands.")
 @click.pass_context
 def archery(ctx, debug, pdb, quiet):
@@ -54,6 +78,8 @@ def archery(ctx, debug, pdb, quiet):
     log_ctx.quiet = quiet
     if debug:
         logger.setLevel(logging.DEBUG)
+
+    ctx.debug = debug
 
     if pdb:
         import pdb
@@ -107,25 +133,25 @@ def _apply_options(cmd, options):
 @click.option("--warn-level", default="production", type=warn_level_type,
               help="Controls compiler warnings -W(no-)error.")
 # components
-@click.option("--with-tests", default=True, type=bool,
+@click.option("--with-tests", default=True, type=BOOL,
               help="Build with tests.")
-@click.option("--with-benchmarks", default=False, type=bool,
+@click.option("--with-benchmarks", default=False, type=BOOL,
               help="Build with benchmarks.")
-@click.option("--with-python", default=True, type=bool,
+@click.option("--with-python", default=True, type=BOOL,
               help="Build with python extension.")
-@click.option("--with-parquet", default=False, type=bool,
+@click.option("--with-parquet", default=False, type=BOOL,
               help="Build with parquet file support.")
-@click.option("--with-gandiva", default=False, type=bool,
+@click.option("--with-gandiva", default=False, type=BOOL,
               help="Build with Gandiva expression compiler support.")
-@click.option("--with-plasma", default=False, type=bool,
+@click.option("--with-plasma", default=False, type=BOOL,
               help="Build with Plasma object store support.")
-@click.option("--with-flight", default=False, type=bool,
+@click.option("--with-flight", default=False, type=BOOL,
               help="Build with Flight rpc support.")
 @click.option("--cmake-extras", type=str, multiple=True,
               help="Extra flags/options to pass to cmake invocation. "
               "Can be stacked")
 # misc
-@click.option("-f", "--force", type=bool, is_flag=True, default=False,
+@click.option("-f", "--force", type=BOOL, is_flag=True, default=False,
               help="Delete existing build directory if found.")
 @click.option("--targets", type=str, multiple=True,
               help="Generator targets to run. Can be stacked.")
@@ -165,13 +191,48 @@ def build(ctx, src, build_dir, force, targets, **kwargs):
         build.run(target)
 
 
-@contextmanager
-def tmpdir(preserve, prefix="arrow-bench-"):
-    if preserve:
-        yield mkdtemp(prefix=prefix)
-    else:
-        with TemporaryDirectory(prefix=prefix) as tmp:
-            yield tmp
+@archery.command(short_help="Lint Arrow source directory")
+@click.option("--src", metavar="<arrow_src>", default=ArrowSources.find(),
+              callback=validate_arrow_sources,
+              help="Specify Arrow source directory")
+@click.option("--with-clang-format", default=True, type=BOOL,
+              show_default=True,
+              help="Ensure formatting of C++ files.")
+@click.option("--with-cpplint", default=True, type=BOOL,
+              show_default=True,
+              help="Ensure linting of C++ files with cpplint.")
+@click.option("--with-clang-tidy", default=False, type=BOOL,
+              show_default=True,
+              help="Lint C++ with clang-tidy.")
+@click.option("--with-iwyu", default=False, type=BOOL,
+              show_default=True,
+              help="Lint C++ with Include-What-You-Use (iwyu).")
+@click.option("--with-flake8", default=True, type=BOOL,
+              show_default=True,
+              help="Lint python files with flake8.")
+@click.option("--with-cmake-format", default=True, type=BOOL,
+              show_default=True,
+              help="Lint CMakeFiles.txt files with cmake-format.py.")
+@click.option("--with-rat", default=True, type=BOOL,
+              show_default=True,
+              help="Lint files for license violation via apache-rat.")
+@click.option("--with-r", default=True, type=BOOL,
+              show_default=True,
+              help="Lint r files.")
+@click.option("--with-rust", default=True, type=BOOL,
+              show_default=True,
+              help="Lint rust files.")
+@click.option("--with-docker", default=True, type=BOOL,
+              show_default=True,
+              help="Lint docker images with hadolint.")
+@click.option("--fix", is_flag=True, type=BOOL, default=False,
+              help="Toggle fixing the lint errors if the linter supports it.")
+@click.pass_context
+def lint(ctx, src, **kwargs):
+    try:
+        linter(src, **kwargs)
+    except LintValidationException:
+        sys.exit(1)
 
 
 @archery.group()
@@ -190,7 +251,7 @@ def benchmark_common_options(cmd):
                      default=ArrowSources.find(),
                      callback=validate_arrow_sources,
                      help="Specify Arrow source directory"),
-        click.option("--preserve", type=bool, default=False, show_default=True,
+        click.option("--preserve", type=BOOL, default=False, show_default=True,
                      is_flag=True,
                      help="Preserve workspace for investigation."),
         click.option("--output", metavar="<output>",
@@ -226,7 +287,7 @@ def benchmark_list(ctx, rev_or_path, src, preserve, output, cmake_extras,
                    **kwargs):
     """ List benchmark suite.
     """
-    with tmpdir(preserve) as root:
+    with tmpdir(preserve=preserve) as root:
         logger.debug(f"Running benchmark {rev_or_path}")
 
         conf = CppConfiguration(
@@ -281,7 +342,7 @@ def benchmark_run(ctx, rev_or_path, src, preserve, output, cmake_extras,
     \b
     archery benchmark run --output=run.json
     """
-    with tmpdir(preserve) as root:
+    with tmpdir(preserve=preserve) as root:
         logger.debug(f"Running benchmark {rev_or_path}")
 
         conf = CppConfiguration(
@@ -379,7 +440,7 @@ def benchmark_diff(ctx, src, preserve, output, cmake_extras,
     # This should not recompute the benchmark from run.json
     archery --quiet benchmark diff WORKSPACE run.json > result.json
     """
-    with tmpdir(preserve) as root:
+    with tmpdir(preserve=preserve) as root:
         logger.debug(f"Comparing {contender} (contender) with "
                      f"{baseline} (baseline)")
 
@@ -400,6 +461,76 @@ def benchmark_diff(ctx, src, preserve, output, cmake_extras,
         for comparator in runner_comp.comparisons:
             json.dump(comparator, output, cls=JsonEncoder)
             output.write("\n")
+
+
+# ----------------------------------------------------------------------
+# Integration testing
+
+def _set_default(opt, default):
+    if opt is None:
+        return default
+    return opt
+
+
+@archery.command(short_help="Execute protocol and Flight integration tests")
+@click.option('--with-all', is_flag=True, default=False,
+              help=('Include all known lanauges by default '
+                    ' in integration tests'))
+@click.option('--random-seed', type=int, default=12345,
+              help="Seed for PRNG when generating test data")
+@click.option('--with-cpp', type=bool, default=False,
+              help='Include C++ in integration tests')
+@click.option('--with-java', type=bool, default=False,
+              help='Include Java in integration tests')
+@click.option('--with-js', type=bool, default=False,
+              help='Include JavaScript in integration tests')
+@click.option('--with-go', type=bool, default=False,
+              help='Include Go in integration tests')
+@click.option('--write_generated_json', default=False,
+              help='Generate test JSON to indicated path')
+@click.option('--run-flight', is_flag=True, default=False,
+              help='Run Flight integration tests')
+@click.option('--debug', type=bool, default=False,
+              help='Run executables in debug mode as relevant')
+@click.option('--tempdir', default=None,
+              help=('Directory to use for writing '
+                    'integration test temporary files'))
+@click.option('stop_on_error', '-x', '--stop-on-error',
+              is_flag=True, default=False,
+              help='Stop on first error')
+@click.option('--gold_dirs', multiple=True,
+              help="gold integration test file paths")
+def integration(with_all=False, random_seed=12345, **args):
+    from .integration.runner import write_js_test_json, run_all_tests
+    import numpy as np
+
+    # Make runs involving data generation deterministic
+    np.random.seed(random_seed)
+
+    gen_path = args['write_generated_json']
+
+    languages = ['cpp', 'java', 'js', 'go']
+
+    enabled_languages = 0
+    for lang in languages:
+        param = 'with_{}'.format(lang)
+        if with_all:
+            args[param] = with_all
+
+        if args[param]:
+            enabled_languages += 1
+
+    if gen_path:
+        try:
+            os.makedirs(gen_path)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+        write_js_test_json(gen_path)
+    else:
+        if enabled_languages == 0:
+            raise Exception("Must enable at least 1 language to test")
+        run_all_tests(**args)
 
 
 if __name__ == "__main__":

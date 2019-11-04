@@ -45,8 +45,9 @@ public class IntConsumer implements JdbcConsumer<IntVector> {
   public void consume(ResultSet resultSet) throws SQLException {
     int value = resultSet.getInt(columnIndexInResultSet);
     if (!resultSet.wasNull()) {
-      vector.setSafe(currentIndex++, value);
+      vector.setSafe(currentIndex, value);
     }
+    currentIndex++;
   }
 
   @Override

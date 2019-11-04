@@ -45,8 +45,9 @@ public class DoubleConsumer implements JdbcConsumer<Float8Vector> {
   public void consume(ResultSet resultSet) throws SQLException {
     double value = resultSet.getDouble(columnIndexInResultSet);
     if (!resultSet.wasNull()) {
-      vector.setSafe(currentIndex++, value);
+      vector.setSafe(currentIndex, value);
     }
+    currentIndex++;
   }
 
   @Override

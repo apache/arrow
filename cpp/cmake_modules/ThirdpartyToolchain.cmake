@@ -15,6 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+include(ProcessorCount)
+processorcount(NPROC)
+
 add_custom_target(rapidjson)
 add_custom_target(toolchain)
 add_custom_target(toolchain-benchmarks)
@@ -58,7 +61,6 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     BZip2
     c-ares
     double-conversion
-    Flatbuffers
     gflags
     GLOG
     gRPC
@@ -110,12 +112,6 @@ if(ARROW_PACKAGE_PREFIX)
   endif()
 endif()
 
-if(ARROW_BOOST_VENDORED AND "${BOOST_SOURCE}" STREQUAL "")
-  message(
-    DEPRECATION "ARROW_BOOST_VENDORED is deprecated. Use BOOST_SOURCE=BUNDLED instead.")
-  set(BOOST_SOURCE "BUNDLED")
-endif()
-
 # For each dependency, set dependency source to global default, if unset
 foreach(DEPENDENCY ${ARROW_THIRDPARTY_DEPENDENCIES})
   if("${${DEPENDENCY}_SOURCE}" STREQUAL "")
@@ -138,8 +134,6 @@ macro(build_dependency DEPENDENCY_NAME)
     build_bzip2()
   elseif("${DEPENDENCY_NAME}" STREQUAL "c-ares")
     build_cares()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "Flatbuffers")
-    build_flatbuffers()
   elseif("${DEPENDENCY_NAME}" STREQUAL "gflags")
     build_gflags()
   elseif("${DEPENDENCY_NAME}" STREQUAL "GLOG")
@@ -200,6 +194,9 @@ endmacro()
 
 set(THIRDPARTY_DIR "${arrow_SOURCE_DIR}/thirdparty")
 
+# Include vendored Flatbuffers
+include_directories(SYSTEM "${THIRDPARTY_DIR}/flatbuffers/include")
+
 # ----------------------------------------------------------------------
 # Some EP's require other EP's
 
@@ -216,10 +213,6 @@ endif()
 if(ARROW_FLIGHT)
   set(ARROW_WITH_GRPC ON)
   set(ARROW_WITH_URIPARSER ON)
-endif()
-
-if(ARROW_FLIGHT OR ARROW_IPC)
-  set(ARROW_WITH_FLATBUFFERS ON)
 endif()
 
 if(ARROW_JSON)
@@ -295,13 +288,6 @@ else()
     DOUBLE_CONVERSION_SOURCE_URL
     "https://github.com/google/double-conversion/archive/${DOUBLE_CONVERSION_VERSION}.tar.gz"
     )
-endif()
-
-if(DEFINED ENV{ARROW_FLATBUFFERS_URL})
-  set(FLATBUFFERS_SOURCE_URL "$ENV{ARROW_FLATBUFFERS_URL}")
-else()
-  set(FLATBUFFERS_SOURCE_URL
-      "https://github.com/google/flatbuffers/archive/${FLATBUFFERS_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_GBENCHMARK_URL})
@@ -500,7 +486,7 @@ if(${CMAKE_GENERATOR} MATCHES "Makefiles")
   set(MAKE_BUILD_ARGS "")
 else()
   # limit the maximum number of jobs for ninja
-  set(MAKE_BUILD_ARGS "-j4")
+  set(MAKE_BUILD_ARGS "-j${NPROC}")
 endif()
 
 # ----------------------------------------------------------------------
@@ -560,7 +546,7 @@ macro(build_boost)
   else()
     set(BOOST_BUILD_VARIANT "release")
   endif()
-  set(BOOST_BUILD_COMMAND "./b2" "link=${BOOST_BUILD_LINK}"
+  set(BOOST_BUILD_COMMAND "./b2" "-j${NPROC}" "link=${BOOST_BUILD_LINK}"
                           "variant=${BOOST_BUILD_VARIANT}")
   if(MSVC)
     string(REGEX
@@ -600,6 +586,12 @@ if(MSVC AND ARROW_USE_STATIC_CRT)
   set(Boost_USE_STATIC_RUNTIME ON)
 endif()
 set(Boost_ADDITIONAL_VERSIONS
+    "1.73.0"
+    "1.73"
+    "1.72.0"
+    "1.72"
+    "1.71.0"
+    "1.71"
     "1.70.0"
     "1.70"
     "1.69.0"
@@ -623,32 +615,48 @@ set(Boost_ADDITIONAL_VERSIONS
     "1.60.0"
     "1.60")
 
-if(BOOST_SOURCE STREQUAL "AUTO")
-  find_package(BoostAlt ${ARROW_BOOST_REQUIRED_VERSION})
-  if(NOT BoostAlt_FOUND)
-    build_boost()
-  endif()
-elseif(BOOST_SOURCE STREQUAL "BUNDLED")
-  build_boost()
-elseif(BOOST_SOURCE STREQUAL "SYSTEM")
-  find_package(BoostAlt ${ARROW_BOOST_REQUIRED_VERSION} REQUIRED)
-endif()
-
-if(TARGET Boost::system)
-  set(BOOST_SYSTEM_LIBRARY Boost::system)
-  set(BOOST_FILESYSTEM_LIBRARY Boost::filesystem)
-  set(BOOST_REGEX_LIBRARY Boost::regex)
+if(ARROW_BUILD_INTEGRATION
+   OR ARROW_BUILD_TESTS
+   OR ARROW_HDFS
+   OR ARROW_GANDIVA
+   OR ARROW_PARQUET)
+  set(ARROW_BOOST_REQUIRED TRUE)
 else()
-  set(BOOST_SYSTEM_LIBRARY boost_system_static)
-  set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
-  set(BOOST_REGEX_LIBRARY boost_regex_static)
+  set(ARROW_BOOST_REQUIRED FALSE)
 endif()
-set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
 
-message(STATUS "Boost include dir: " ${Boost_INCLUDE_DIR})
-message(STATUS "Boost libraries: " ${Boost_LIBRARIES})
+if(ARROW_BOOST_REQUIRED)
+  if(BOOST_SOURCE STREQUAL "AUTO")
+    find_package(BoostAlt ${ARROW_BOOST_REQUIRED_VERSION})
+    if(NOT BoostAlt_FOUND)
+      build_boost()
+    endif()
+  elseif(BOOST_SOURCE STREQUAL "BUNDLED")
+    build_boost()
+  elseif(BOOST_SOURCE STREQUAL "SYSTEM")
+    find_package(BoostAlt ${ARROW_BOOST_REQUIRED_VERSION} REQUIRED)
+  endif()
 
-include_directories(SYSTEM ${Boost_INCLUDE_DIR})
+  if(TARGET Boost::system)
+    set(BOOST_SYSTEM_LIBRARY Boost::system)
+    set(BOOST_FILESYSTEM_LIBRARY Boost::filesystem)
+    set(BOOST_REGEX_LIBRARY Boost::regex)
+  elseif(BoostAlt_FOUND)
+    set(BOOST_SYSTEM_LIBRARY ${Boost_SYSTEM_LIBRARY})
+    set(BOOST_FILESYSTEM_LIBRARY ${Boost_FILESYSTEM_LIBRARY})
+    set(BOOST_REGEX_LIBRARY ${Boost_REGEX_LIBRARY})
+  else()
+    set(BOOST_SYSTEM_LIBRARY boost_system_static)
+    set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
+    set(BOOST_REGEX_LIBRARY boost_regex_static)
+  endif()
+  set(ARROW_BOOST_LIBS ${BOOST_SYSTEM_LIBRARY} ${BOOST_FILESYSTEM_LIBRARY})
+
+  message(STATUS "Boost include dir: ${Boost_INCLUDE_DIR}")
+  message(STATUS "Boost libraries: ${ARROW_BOOST_LIBS}")
+
+  include_directories(SYSTEM ${Boost_INCLUDE_DIR})
+endif()
 
 # ----------------------------------------------------------------------
 # Google double-conversion
@@ -938,7 +946,6 @@ if(ARROW_WITH_BROTLI)
   include_directories(SYSTEM ${BROTLI_INCLUDE_DIR})
 endif()
 
-set(ARROW_USE_OPENSSL OFF)
 if(PARQUET_REQUIRE_ENCRYPTION AND NOT ARROW_PARQUET)
   set(PARQUET_REQUIRE_ENCRYPTION OFF)
 endif()
@@ -951,19 +958,16 @@ if(BREW_BIN AND NOT OPENSSL_ROOT_DIR)
     set(OPENSSL_ROOT_DIR ${OPENSSL_BREW_PREFIX})
   endif()
 endif()
+
+set(ARROW_USE_OPENSSL OFF)
 if(PARQUET_REQUIRE_ENCRYPTION OR ARROW_FLIGHT OR ARROW_S3)
   # This must work
   find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} REQUIRED)
   set(ARROW_USE_OPENSSL ON)
-elseif(ARROW_PARQUET)
-  # Enable Parquet encryption if OpenSSL is there, but don't fail if it's not
-  find_package(OpenSSL ${ARROW_OPENSSL_REQUIRED_VERSION} QUIET)
-  if(OPENSSL_FOUND)
-    set(ARROW_USE_OPENSSL ON)
-  endif()
 endif()
 
 if(ARROW_USE_OPENSSL)
+  message(STATUS "Found OpenSSL Crypto Library: ${OPENSSL_CRYPTO_LIBRARY}")
   message(STATUS "Building with OpenSSL (Version: ${OPENSSL_VERSION}) support")
 
   # OpenSSL::SSL and OpenSSL::Crypto were not added to
@@ -1333,7 +1337,8 @@ endmacro()
 
 if(ARROW_WITH_PROTOBUF)
   if(ARROW_WITH_GRPC)
-    set(ARROW_PROTOBUF_REQUIRED_VERSION "3.6.0")
+    # gRPC 1.21.0 or later require Protobuf 3.7.0 or later.
+    set(ARROW_PROTOBUF_REQUIRED_VERSION "3.7.0")
   else()
     set(ARROW_PROTOBUF_REQUIRED_VERSION "2.6.1")
   endif()
@@ -1408,16 +1413,21 @@ if(ARROW_JEMALLOC)
       "${JEMALLOC_PREFIX}/lib/libjemalloc_pic${CMAKE_STATIC_LIBRARY_SUFFIX}")
   externalproject_add(
     jemalloc_ep
-    URL ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/jemalloc/${JEMALLOC_VERSION}.tar.gz
-    PATCH_COMMAND touch doc/jemalloc.3 doc/jemalloc.html
-    CONFIGURE_COMMAND ./autogen.sh
+    URL ${JEMALLOC_SOURCE_URL}
+    PATCH_COMMAND
+      touch doc/jemalloc.3 doc/jemalloc.html
+      # The prefix "je_arrow_" must be kept in sync with the value in memory_pool.cc
+    CONFIGURE_COMMAND ./configure
                       "AR=${CMAKE_AR}"
                       "CC=${CMAKE_C_COMPILER}"
                       "--prefix=${JEMALLOC_PREFIX}"
                       "--with-jemalloc-prefix=je_arrow_"
                       "--with-private-namespace=je_arrow_private_"
-                      "--disable-tls"
-                      ${EP_LOG_OPTIONS}
+                      "--without-export"
+                      # Don't override operator new()
+                      "--disable-cxx" "--disable-libdl"
+                      # See https://github.com/jemalloc/jemalloc/issues/1237
+                      "--disable-initial-exec-tls" ${EP_LOG_OPTIONS}
     BUILD_IN_SOURCE 1
     BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS}
     BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}"
@@ -1655,7 +1665,7 @@ macro(build_benchmark)
     set(GBENCHMARK_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} -std=c++11")
   endif()
 
-  if(APPLE)
+  if(APPLE AND "${COMPILER_FAMILY}" STREQUAL "clang")
     set(GBENCHMARK_CMAKE_CXX_FLAGS "${GBENCHMARK_CMAKE_CXX_FLAGS} -stdlib=libc++")
   endif()
 
@@ -1769,103 +1779,6 @@ if(ARROW_WITH_RAPIDJSON)
 
   # TODO: Don't use global includes but rather target_include_directories
   include_directories(SYSTEM ${RAPIDJSON_INCLUDE_DIR})
-endif()
-
-macro(build_flatbuffers)
-  message(STATUS "Building flatbuffers from source")
-  set(FLATBUFFERS_PREFIX
-      "${CMAKE_CURRENT_BINARY_DIR}/flatbuffers_ep-prefix/src/flatbuffers_ep-install")
-  if(MSVC)
-    set(FLATBUFFERS_CMAKE_CXX_FLAGS /EHsc)
-  else()
-    set(FLATBUFFERS_CMAKE_CXX_FLAGS -fPIC)
-  endif()
-  set(FLATBUFFERS_COMPILER "${FLATBUFFERS_PREFIX}/bin/flatc")
-  set(
-    FLATBUFFERS_STATIC_LIB
-    "${FLATBUFFERS_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}flatbuffers${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-  # We always need to do release builds, otherwise flatc will not be installed.
-  externalproject_add(flatbuffers_ep
-                      URL ${FLATBUFFERS_SOURCE_URL}
-                      BUILD_BYPRODUCTS ${FLATBUFFERS_COMPILER} ${FLATBUFFERS_STATIC_LIB}
-                      CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
-                                 "-DCMAKE_BUILD_TYPE=RELEASE"
-                                 "-DCMAKE_CXX_FLAGS=${FLATBUFFERS_CMAKE_CXX_FLAGS}"
-                                 "-DCMAKE_INSTALL_PREFIX:PATH=${FLATBUFFERS_PREFIX}"
-                                 "-DFLATBUFFERS_BUILD_TESTS=OFF"
-                                 ${EP_LOG_OPTIONS})
-
-  file(MAKE_DIRECTORY "${FLATBUFFERS_PREFIX}/include")
-
-  add_library(flatbuffers::flatbuffers STATIC IMPORTED)
-  set_target_properties(flatbuffers::flatbuffers
-                        PROPERTIES IMPORTED_LOCATION "${FLATBUFFERS_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${FLATBUFFERS_PREFIX}/include")
-  add_executable(flatbuffers::flatc IMPORTED)
-  set_target_properties(flatbuffers::flatc
-                        PROPERTIES IMPORTED_LOCATION "${FLATBUFFERS_COMPILER}")
-
-  add_dependencies(toolchain flatbuffers_ep)
-  add_dependencies(flatbuffers::flatbuffers flatbuffers_ep)
-  add_dependencies(flatbuffers::flatc flatbuffers_ep)
-endmacro()
-
-if(ARROW_WITH_FLATBUFFERS)
-  if(Flatbuffers_SOURCE STREQUAL "AUTO")
-    find_package(Flatbuffers QUIET)
-    # Older versions of Flatbuffers (that are not built using CMake)
-    # don't install a FlatbuffersConfig.cmake
-    # This is only supported from 1.10+ on, we support at least 1.7
-    if(NOT Flatbuffers_FOUND)
-      find_package(FlatbuffersAlt)
-    endif()
-    if(NOT Flatbuffers_FOUND AND NOT FlatbuffersAlt_FOUND)
-      build_flatbuffers()
-    endif()
-  elseif(Flatbuffers_SOURCE STREQUAL "BUNDLED")
-    build_flatbuffers()
-  elseif(Flatbuffers_SOURCE STREQUAL "SYSTEM")
-    find_package(Flatbuffers QUIET)
-    if(NOT Flatbuffers_FOUND)
-      find_package(FlatbuffersAlt REQUIRED)
-    endif()
-  endif()
-
-  if(TARGET flatbuffers::flatbuffers_shared AND NOT TARGET flatbuffers::flatbuffers)
-    get_target_property(FLATBUFFERS_INCLUDE_DIR flatbuffers::flatbuffers_shared
-                        INTERFACE_INCLUDE_DIRECTORIES)
-    get_target_property(FLATBUFFERS_SHARED_LIB flatbuffers::flatbuffers_shared
-                        IMPORTED_LOCATION)
-    add_library(flatbuffers::flatbuffers SHARED IMPORTED)
-    set_target_properties(flatbuffers::flatbuffers
-                          PROPERTIES IMPORTED_LOCATION "${FLATBUFFERS_SHARED_LIB}"
-                                     INTERFACE_INCLUDE_DIRECTORIES
-                                     "${FLATBUFFERS_INCLUDE_DIR}")
-  endif()
-
-  if(TARGET flatbuffers::flatc)
-    get_target_property(FLATBUFFERS_COMPILER_LOCATION_CONFIG flatbuffers::flatc
-                        IMPORTED_LOCATION_${UPPERCASE_BUILD_TYPE})
-    get_target_property(FLATBUFFERS_COMPILER_LOCATION flatbuffers::flatc
-                        IMPORTED_LOCATION)
-    get_target_property(FLATBUFFERS_COMPILER_LOCATION_NOCONFIG flatbuffers::flatc
-                        IMPORTED_LOCATION_NOCONFIG)
-    # mingw-w64-flatbuffers provides location only for "noconfig"
-    if(NOT FLATBUFFERS_COMPILER_LOCATION_CONFIG
-       AND NOT FLATBUFFERS_COMPILER_LOCATION
-       AND FLATBUFFERS_COMPILER_LOCATION_NOCONFIG)
-      set_target_properties(flatbuffers::flatc
-                            PROPERTIES IMPORTED_LOCATION
-                                       "${FLATBUFFERS_COMPILER_LOCATION_NOCONFIG}")
-    endif()
-  endif()
-
-  # TODO: Don't use global includes but rather target_include_directories
-  get_target_property(FLATBUFFERS_INCLUDE_DIR flatbuffers::flatbuffers
-                      INTERFACE_INCLUDE_DIRECTORIES)
-  include_directories(SYSTEM ${FLATBUFFERS_INCLUDE_DIR})
 endif()
 
 macro(build_zlib)
@@ -2299,11 +2212,12 @@ macro(build_grpc)
 endmacro()
 
 if(ARROW_WITH_GRPC)
+  set(ARROW_GRPC_REQUIRED_VERSION "1.17.0")
   if(gRPC_SOURCE STREQUAL "AUTO")
-    find_package(gRPC QUIET)
+    find_package(gRPC ${ARROW_GRPC_REQUIRED_VERSION} QUIET)
     if(NOT gRPC_FOUND)
       # Ubuntu doesn't package the CMake config
-      find_package(gRPCAlt)
+      find_package(gRPCAlt ${ARROW_GRPC_REQUIRED_VERSION})
     endif()
     if(NOT gRPC_FOUND AND NOT gRPCAlt_FOUND)
       build_grpc()
@@ -2311,10 +2225,10 @@ if(ARROW_WITH_GRPC)
   elseif(gRPC_SOURCE STREQUAL "BUNDLED")
     build_grpc()
   elseif(gRPC_SOURCE STREQUAL "SYSTEM")
-    find_package(gRPC QUIET)
+    find_package(gRPC ${ARROW_GRPC_REQUIRED_VERSION} QUIET)
     if(NOT gRPC_FOUND)
       # Ubuntu doesn't package the CMake config
-      find_package(gRPCAlt REQUIRED)
+      find_package(gRPCAlt ${ARROW_GRPC_REQUIRED_VERSION} REQUIRED)
     endif()
   endif()
 
@@ -2389,6 +2303,9 @@ macro(build_orc)
     if("${COMPILER_VERSION}" VERSION_GREATER "4.0")
       set(ORC_CMAKE_CXX_FLAGS " -Wno-zero-as-null-pointer-constant \
 -Wno-inconsistent-missing-destructor-override -Wno-error=undef ")
+    endif()
+    if("${Protobuf_VERSION}" VERSION_GREATER_EQUAL "3.9.0")
+      set(ORC_CMAKE_CXX_FLAGS "${ORC_CMAKE_CXX_FLAGS} -Wno-comma ")
     endif()
   endif()
 
@@ -2530,6 +2447,16 @@ if(ARROW_S3)
   include_directories(SYSTEM ${AWSSDK_INCLUDE_DIR})
   message(STATUS "Found AWS SDK headers: ${AWSSDK_INCLUDE_DIR}")
   message(STATUS "Found AWS SDK libraries: ${AWSSDK_LINK_LIBRARIES}")
+
+  if(APPLE)
+    # CoreFoundation's path is hardcoded in the CMake files provided by
+    # aws-sdk-cpp to use the MacOSX SDK provided by XCode which makes
+    # XCode a hard dependency. Command Line Tools is often used instead
+    # of the full XCode suite, so let the linker to find it.
+    set_target_properties(AWS::aws-c-common
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "-pthread;pthread;-framework CoreFoundation")
+  endif()
 endif()
 
 # Write out the package configurations.

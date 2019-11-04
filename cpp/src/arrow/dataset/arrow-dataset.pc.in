@@ -22,3 +22,4 @@ Name: Apache Arrow Datasets
 Description: Apache Arrow Datasets provides an API to read and write semantic datasets stored in different locations and formats.
 Version: @ARROW_VERSION@
 Requires: arrow
+Libs: -L${libdir} -larrow_dataset

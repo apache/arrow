@@ -59,7 +59,9 @@ namespace Apache.Arrow
                 case ArrowTypeId.Union:
                     return new UnionArray(data);
                 case ArrowTypeId.Date64:
+                    return new Date64Array(data);
                 case ArrowTypeId.Date32:
+                    return new Date32Array(data);
                 case ArrowTypeId.Decimal:
                 case ArrowTypeId.Dictionary:
                 case ArrowTypeId.FixedSizedBinary:

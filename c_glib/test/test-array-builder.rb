@@ -15,6 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
+module ArrayBuilderAppendValueBytesTests
+  def test_append
+    builder = create_builder
+    value = "\x00\xff"
+    builder.append_value_bytes(GLib::Bytes.new(value))
+    assert_equal(build_array([value]),
+                 builder.finish)
+  end
+end
+
 module ArrayBuilderAppendValuesTests
   def test_empty
     require_gi(1, 42, 0)
@@ -60,6 +70,55 @@ module ArrayBuilderAppendValuesTests
       "values length and is_valids length must be equal: <3> != <2>"
     assert_raise(Arrow::Error::Invalid.new(message)) do
       builder.append_values(sample_values, [true, true])
+    end
+  end
+end
+
+module ArrayBuilderAppendStringsTests
+  def test_empty
+    require_gi(1, 42, 0)
+    builder = create_builder
+    builder.append_strings([])
+    assert_equal(build_array([]),
+                 builder.finish)
+  end
+
+  def test_strings_only
+    require_gi(1, 42, 0)
+    builder = create_builder
+    builder.append_strings(sample_values)
+    assert_equal(build_array(sample_values),
+                 builder.finish)
+  end
+
+  def test_with_is_valids
+    builder = create_builder
+    builder.append_strings(sample_values, [true, true, false])
+    sample_values_with_null = sample_values
+    sample_values_with_null[2] = nil
+    assert_equal(build_array(sample_values_with_null),
+                 builder.finish)
+  end
+
+  def test_with_large_is_valids
+    builder = create_builder
+    n = 10000
+    large_sample_values = sample_values * n
+    large_is_valids = [true, true, false] * n
+    builder.append_strings(large_sample_values, large_is_valids)
+    sample_values_with_null = sample_values
+    sample_values_with_null[2] = nil
+    large_sample_values_with_null = sample_values_with_null * n
+    assert_equal(build_array(large_sample_values_with_null),
+                 builder.finish)
+  end
+
+  def test_mismatch_length
+    builder = create_builder
+    message = "[#{builder_class_name}][append-strings]: " +
+      "values length and is_valids length must be equal: <3> != <2>"
+    assert_raise(Arrow::Error::Invalid.new(message)) do
+      builder.append_strings(sample_values, [true, true])
     end
   end
 end
@@ -709,6 +768,90 @@ class TestArrayBuilder < Test::Unit::TestCase
     end
   end
 
+  sub_test_case("BinaryArrayBuilder") do
+    def create_builder
+      Arrow::BinaryArrayBuilder.new
+    end
+
+    def value_data_type
+      Arrow::BinaryDataType.new
+    end
+
+    def builder_class_name
+      "binary-array-builder"
+    end
+
+    def sample_values
+      [
+        "\x00\x01",
+        "\xfe\xff",
+        "",
+      ]
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
+    end
+
+    sub_test_case("#append_value_bytes") do
+      include ArrayBuilderAppendValueBytesTests
+    end
+
+    sub_test_case("#append_values") do
+      include ArrayBuilderAppendValuesTests
+
+      def setup
+        require_gi_bindings(3, 4, 1)
+      end
+    end
+
+    sub_test_case("#append_nulls") do
+      include ArrayBuilderAppendNullsTests
+    end
+  end
+
+  sub_test_case("LargeBinaryArrayBuilder") do
+    def create_builder
+      Arrow::LargeBinaryArrayBuilder.new
+    end
+
+    def value_data_type
+      Arrow::LargeBinaryDataType.new
+    end
+
+    def builder_class_name
+      "large-binary-array-builder"
+    end
+
+    def sample_values
+      [
+        "\x00\x01",
+        "\xfe\xff",
+        "",
+      ]
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
+    end
+
+    sub_test_case("#append_value_bytes") do
+      include ArrayBuilderAppendValueBytesTests
+    end
+
+    sub_test_case("#append_values") do
+      include ArrayBuilderAppendValuesTests
+
+      def setup
+        require_gi_bindings(3, 4, 1)
+      end
+    end
+
+    sub_test_case("#append_nulls") do
+      include ArrayBuilderAppendNullsTests
+    end
+  end
+
   sub_test_case("StringArrayBuilder") do
     def create_builder
       Arrow::StringArrayBuilder.new
@@ -736,6 +879,76 @@ class TestArrayBuilder < Test::Unit::TestCase
 
     sub_test_case("#append_values") do
       include ArrayBuilderAppendValuesTests
+
+      def setup
+        require_gi_bindings(3, 4, 1)
+      end
+
+      def builder_class_name
+        "binary-array-builder"
+      end
+    end
+
+    sub_test_case("#append_strings") do
+      include ArrayBuilderAppendStringsTests
+    end
+
+    sub_test_case("#append_nulls") do
+      include ArrayBuilderAppendNullsTests
+
+      def builder_class_name
+        "binary-array-builder"
+      end
+    end
+  end
+
+  sub_test_case("LargeStringArrayBuilder") do
+    def create_builder
+      Arrow::LargeStringArrayBuilder.new
+    end
+
+    def value_data_type
+      Arrow::LargeStringDataType.new
+    end
+
+    def builder_class_name
+      "large-string-array-builder"
+    end
+
+    def sample_values
+      [
+        "hello",
+        "world!!",
+        "",
+      ]
+    end
+
+    sub_test_case("value type") do
+      include ArrayBuilderValueTypeTests
+    end
+
+    sub_test_case("#append_values") do
+      include ArrayBuilderAppendValuesTests
+
+      def setup
+        require_gi_bindings(3, 4, 1)
+      end
+
+      def builder_class_name
+        "large-binary-array-builder"
+      end
+    end
+
+    sub_test_case("#append_strings") do
+      include ArrayBuilderAppendStringsTests
+    end
+
+    sub_test_case("#append_nulls") do
+      include ArrayBuilderAppendNullsTests
+
+      def builder_class_name
+        "large-binary-array-builder"
+      end
     end
   end
 end

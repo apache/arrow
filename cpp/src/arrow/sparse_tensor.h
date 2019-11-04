@@ -31,7 +31,12 @@ namespace arrow {
 
 struct SparseTensorFormat {
   /// EXPERIMENTAL: The index format type of SparseTensor
-  enum type { COO, CSR };
+  enum type {
+    /// Coordinate list (COO) format.
+    COO,
+    /// Compressed sparse row (CSR) format.
+    CSR
+  };
 };
 
 /// \brief EXPERIMENTAL: The base class for the index of a sparse tensor
@@ -83,10 +88,15 @@ class ARROW_EXPORT SparseCOOIndex : public internal::SparseIndexBase<SparseCOOIn
  public:
   static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::COO;
 
-  // Constructor with a column-major NumericTensor
+  /// \brief Construct SparseCOOIndex from column-major NumericTensor
   explicit SparseCOOIndex(const std::shared_ptr<Tensor>& coords);
 
   /// \brief Return a tensor that has the coordinates of the non-zero values
+  ///
+  /// The returned tensor is a Nx3 tensor where N is the number of non-zero
+  /// values.  Each 3-element column has the form `{row, column, index}`,
+  /// indicating that the value for the logical element at `{row, column}`
+  /// should be found at the given physical index.
   const std::shared_ptr<Tensor>& indices() const { return coords_; }
 
   /// \brief Return a string representation of the sparse index
@@ -120,7 +130,7 @@ class ARROW_EXPORT SparseCSRIndex : public internal::SparseIndexBase<SparseCSRIn
  public:
   static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::CSR;
 
-  // Constructor with two index vectors
+  /// \brief Construct SparseCSRIndex from two index vectors
   explicit SparseCSRIndex(const std::shared_ptr<Tensor>& indptr,
                           const std::shared_ptr<Tensor>& indices);
 
@@ -194,6 +204,15 @@ class ARROW_EXPORT SparseTensor {
   /// \brief Return whether sparse tensors are equal
   bool Equals(const SparseTensor& other) const;
 
+  /// \brief Return dense representation of sparse tensor as tensor
+  Status ToTensor(std::shared_ptr<Tensor>* out) const {
+    return ToTensor(default_memory_pool(), out);
+  }
+
+  /// \brief Return dense representation of sparse tensor as tensor
+  /// using specified memory pool
+  Status ToTensor(MemoryPool* pool, std::shared_ptr<Tensor>* out) const;
+
  protected:
   // Constructor with all attributes
   SparseTensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
@@ -216,11 +235,12 @@ class ARROW_EXPORT SparseTensor {
 namespace internal {
 
 ARROW_EXPORT
-void MakeSparseTensorFromTensor(const Tensor& tensor,
-                                SparseTensorFormat::type sparse_format_id,
-                                const std::shared_ptr<DataType>& index_value_type,
-                                std::shared_ptr<SparseIndex>* sparse_index,
-                                std::shared_ptr<Buffer>* data);
+Status MakeSparseTensorFromTensor(const Tensor& tensor,
+                                  SparseTensorFormat::type sparse_format_id,
+                                  const std::shared_ptr<DataType>& index_value_type,
+                                  MemoryPool* pool,
+                                  std::shared_ptr<SparseIndex>* out_sparse_index,
+                                  std::shared_ptr<Buffer>* out_data);
 
 }  // namespace internal
 
@@ -231,40 +251,62 @@ class SparseTensorImpl : public SparseTensor {
  public:
   virtual ~SparseTensorImpl() = default;
 
-  // Constructor with all attributes
+  /// \brief Construct a sparse tensor from physical data buffer and logical index
   SparseTensorImpl(const std::shared_ptr<SparseIndexType>& sparse_index,
                    const std::shared_ptr<DataType>& type,
                    const std::shared_ptr<Buffer>& data, const std::vector<int64_t>& shape,
                    const std::vector<std::string>& dim_names)
       : SparseTensor(type, data, shape, sparse_index, dim_names) {}
 
-  // Constructor for empty sparse tensor
+  /// \brief Construct an empty sparse tensor
   SparseTensorImpl(const std::shared_ptr<DataType>& type,
                    const std::vector<int64_t>& shape,
                    const std::vector<std::string>& dim_names = {})
       : SparseTensorImpl(NULLPTR, type, NULLPTR, shape, dim_names) {}
 
-  // Constructor with a dense tensor
-  SparseTensorImpl(const Tensor& tensor,
-                   const std::shared_ptr<DataType>& index_value_type)
-      : SparseTensorImpl(NULLPTR, tensor.type(), NULLPTR, tensor.shape(),
-                         tensor.dim_names_) {
-    internal::MakeSparseTensorFromTensor(tensor, SparseIndexType::format_id,
-                                         index_value_type, &sparse_index_, &data_);
+  /// \brief Construct a sparse tensor from a dense tensor
+  ///
+  /// The dense tensor is re-encoded as a sparse index and a physical
+  /// data buffer for the non-zero value.
+  static Status Make(const Tensor& tensor,
+                     const std::shared_ptr<DataType>& index_value_type, MemoryPool* pool,
+                     std::shared_ptr<SparseTensorImpl<SparseIndexType>>* out) {
+    std::shared_ptr<SparseIndex> sparse_index;
+    std::shared_ptr<Buffer> data;
+    ARROW_RETURN_NOT_OK(internal::MakeSparseTensorFromTensor(
+        tensor, SparseIndexType::format_id, index_value_type, pool, &sparse_index,
+        &data));
+    *out = std::make_shared<SparseTensorImpl<SparseIndexType>>(
+        internal::checked_pointer_cast<SparseIndexType>(sparse_index), tensor.type(),
+        data, tensor.shape(), tensor.dim_names_);
+    return Status::OK();
   }
 
-  explicit SparseTensorImpl(const Tensor& tensor) : SparseTensorImpl(tensor, int64()) {}
+  static Status Make(const Tensor& tensor,
+                     const std::shared_ptr<DataType>& index_value_type,
+                     std::shared_ptr<SparseTensorImpl<SparseIndexType>>* out) {
+    return Make(tensor, index_value_type, default_memory_pool(), out);
+  }
+
+  static Status Make(const Tensor& tensor, MemoryPool* pool,
+                     std::shared_ptr<SparseTensorImpl<SparseIndexType>>* out) {
+    return Make(tensor, int64(), pool, out);
+  }
+
+  static Status Make(const Tensor& tensor,
+                     std::shared_ptr<SparseTensorImpl<SparseIndexType>>* out) {
+    return Make(tensor, default_memory_pool(), out);
+  }
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(SparseTensorImpl);
 };
 
 /// \brief EXPERIMENTAL: Type alias for COO sparse tensor
-using SparseTensorCOO = SparseTensorImpl<SparseCOOIndex>;
+using SparseCOOTensor = SparseTensorImpl<SparseCOOIndex>;
 
 /// \brief EXPERIMENTAL: Type alias for CSR sparse matrix
-using SparseTensorCSR = SparseTensorImpl<SparseCSRIndex>;
-using SparseMatrixCSR = SparseTensorImpl<SparseCSRIndex>;
+using SparseCSRMatrix = SparseTensorImpl<SparseCSRIndex>;
 
 }  // namespace arrow
 

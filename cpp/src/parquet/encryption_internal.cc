@@ -54,22 +54,22 @@ class AesEncryptor::AesEncryptorImpl {
   explicit AesEncryptorImpl(ParquetCipher::type alg_id, int key_len, bool metadata);
 
   ~AesEncryptorImpl() {
-    if (NULLPTR != ctx_) {
+    if (nullptr != ctx_) {
       EVP_CIPHER_CTX_free(ctx_);
-      ctx_ = NULLPTR;
+      ctx_ = nullptr;
     }
   }
 
-  int Encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int key_len,
-              uint8_t* aad, int aad_len, uint8_t* ciphertext);
+  int Encrypt(const uint8_t* plaintext, int plaintext_len, const uint8_t* key,
+              int key_len, const uint8_t* aad, int aad_len, uint8_t* ciphertext);
 
-  int SignedFooterEncrypt(const uint8_t* footer, int footer_len, uint8_t* key,
-                          int key_len, uint8_t* aad, int aad_len, uint8_t* nonce,
-                          uint8_t* encrypted_footer);
+  int SignedFooterEncrypt(const uint8_t* footer, int footer_len, const uint8_t* key,
+                          int key_len, const uint8_t* aad, int aad_len,
+                          const uint8_t* nonce, uint8_t* encrypted_footer);
   void WipeOut() {
-    if (NULLPTR != ctx_) {
+    if (nullptr != ctx_) {
       EVP_CIPHER_CTX_free(ctx_);
-      ctx_ = NULLPTR;
+      ctx_ = nullptr;
     }
   }
 
@@ -81,11 +81,12 @@ class AesEncryptor::AesEncryptorImpl {
   int key_length_;
   int ciphertext_size_delta_;
 
-  int GcmEncrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int key_len,
-                 uint8_t* nonce, uint8_t* aad, int aad_len, uint8_t* ciphertext);
+  int GcmEncrypt(const uint8_t* plaintext, int plaintext_len, const uint8_t* key,
+                 int key_len, const uint8_t* nonce, const uint8_t* aad, int aad_len,
+                 uint8_t* ciphertext);
 
-  int CtrEncrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key, int key_len,
-                 uint8_t* nonce, uint8_t* ciphertext);
+  int CtrEncrypt(const uint8_t* plaintext, int plaintext_len, const uint8_t* key,
+                 int key_len, const uint8_t* nonce, uint8_t* ciphertext);
 };
 
 AesEncryptor::AesEncryptorImpl::AesEncryptorImpl(ParquetCipher::type alg_id, int key_len,
@@ -134,11 +135,9 @@ AesEncryptor::AesEncryptorImpl::AesEncryptorImpl(ParquetCipher::type alg_id, int
   }
 }
 
-int AesEncryptor::AesEncryptorImpl::SignedFooterEncrypt(const uint8_t* footer,
-                                                        int footer_len, uint8_t* key,
-                                                        int key_len, uint8_t* aad,
-                                                        int aad_len, uint8_t* nonce,
-                                                        uint8_t* encrypted_footer) {
+int AesEncryptor::AesEncryptorImpl::SignedFooterEncrypt(
+    const uint8_t* footer, int footer_len, const uint8_t* key, int key_len,
+    const uint8_t* aad, int aad_len, const uint8_t* nonce, uint8_t* encrypted_footer) {
   if (key_length_ != key_len) {
     std::stringstream ss;
     ss << "Wrong key length " << key_len << ". Should be " << key_length_;
@@ -154,8 +153,9 @@ int AesEncryptor::AesEncryptorImpl::SignedFooterEncrypt(const uint8_t* footer,
 }
 
 int AesEncryptor::AesEncryptorImpl::Encrypt(const uint8_t* plaintext, int plaintext_len,
-                                            uint8_t* key, int key_len, uint8_t* aad,
-                                            int aad_len, uint8_t* ciphertext) {
+                                            const uint8_t* key, int key_len,
+                                            const uint8_t* aad, int aad_len,
+                                            uint8_t* ciphertext) {
   if (key_length_ != key_len) {
     std::stringstream ss;
     ss << "Wrong key length " << key_len << ". Should be " << key_length_;
@@ -176,9 +176,10 @@ int AesEncryptor::AesEncryptorImpl::Encrypt(const uint8_t* plaintext, int plaint
 }
 
 int AesEncryptor::AesEncryptorImpl::GcmEncrypt(const uint8_t* plaintext,
-                                               int plaintext_len, uint8_t* key,
-                                               int key_len, uint8_t* nonce, uint8_t* aad,
-                                               int aad_len, uint8_t* ciphertext) {
+                                               int plaintext_len, const uint8_t* key,
+                                               int key_len, const uint8_t* nonce,
+                                               const uint8_t* aad, int aad_len,
+                                               uint8_t* ciphertext) {
   int len;
   int ciphertext_len;
 
@@ -230,8 +231,8 @@ int AesEncryptor::AesEncryptorImpl::GcmEncrypt(const uint8_t* plaintext,
 }
 
 int AesEncryptor::AesEncryptorImpl::CtrEncrypt(const uint8_t* plaintext,
-                                               int plaintext_len, uint8_t* key,
-                                               int key_len, uint8_t* nonce,
+                                               int plaintext_len, const uint8_t* key,
+                                               int key_len, const uint8_t* nonce,
                                                uint8_t* ciphertext) {
   int len;
   int ciphertext_len;
@@ -277,11 +278,12 @@ int AesEncryptor::AesEncryptorImpl::CtrEncrypt(const uint8_t* plaintext,
   return kBufferSizeLength + buffer_size;
 }
 
-AesEncryptor::~AesEncryptor() { impl_->~AesEncryptorImpl(); }
+AesEncryptor::~AesEncryptor() {}
 
-int AesEncryptor::SignedFooterEncrypt(const uint8_t* footer, int footer_len, uint8_t* key,
-                                      int key_len, uint8_t* aad, int aad_len,
-                                      uint8_t* nonce, uint8_t* encrypted_footer) {
+int AesEncryptor::SignedFooterEncrypt(const uint8_t* footer, int footer_len,
+                                      const uint8_t* key, int key_len, const uint8_t* aad,
+                                      int aad_len, const uint8_t* nonce,
+                                      uint8_t* encrypted_footer) {
   return impl_->SignedFooterEncrypt(footer, footer_len, key, key_len, aad, aad_len, nonce,
                                     encrypted_footer);
 }
@@ -290,8 +292,9 @@ void AesEncryptor::WipeOut() { impl_->WipeOut(); }
 
 int AesEncryptor::CiphertextSizeDelta() { return impl_->ciphertext_size_delta(); }
 
-int AesEncryptor::Encrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key,
-                          int key_len, uint8_t* aad, int aad_len, uint8_t* ciphertext) {
+int AesEncryptor::Encrypt(const uint8_t* plaintext, int plaintext_len, const uint8_t* key,
+                          int key_len, const uint8_t* aad, int aad_len,
+                          uint8_t* ciphertext) {
   return impl_->Encrypt(plaintext, plaintext_len, key, key_len, aad, aad_len, ciphertext);
 }
 
@@ -304,19 +307,19 @@ class AesDecryptor::AesDecryptorImpl {
   explicit AesDecryptorImpl(ParquetCipher::type alg_id, int key_len, bool metadata);
 
   ~AesDecryptorImpl() {
-    if (NULLPTR != ctx_) {
+    if (nullptr != ctx_) {
       EVP_CIPHER_CTX_free(ctx_);
-      ctx_ = NULLPTR;
+      ctx_ = nullptr;
     }
   }
 
-  int Decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* key, int key_len,
-              uint8_t* aad, int aad_len, uint8_t* plaintext);
+  int Decrypt(const uint8_t* ciphertext, int ciphertext_len, const uint8_t* key,
+              int key_len, const uint8_t* aad, int aad_len, uint8_t* plaintext);
 
   void WipeOut() {
-    if (NULLPTR != ctx_) {
+    if (nullptr != ctx_) {
       EVP_CIPHER_CTX_free(ctx_);
-      ctx_ = NULLPTR;
+      ctx_ = nullptr;
     }
   }
 
@@ -327,21 +330,22 @@ class AesDecryptor::AesDecryptorImpl {
   int aes_mode_;
   int key_length_;
   int ciphertext_size_delta_;
-  int GcmDecrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* key, int key_len,
-                 uint8_t* aad, int aad_len, uint8_t* plaintext);
+  int GcmDecrypt(const uint8_t* ciphertext, int ciphertext_len, const uint8_t* key,
+                 int key_len, const uint8_t* aad, int aad_len, uint8_t* plaintext);
 
-  int CtrDecrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* key, int key_len,
-                 uint8_t* plaintext);
+  int CtrDecrypt(const uint8_t* ciphertext, int ciphertext_len, const uint8_t* key,
+                 int key_len, uint8_t* plaintext);
 };
 
-int AesDecryptor::Decrypt(const uint8_t* plaintext, int plaintext_len, uint8_t* key,
-                          int key_len, uint8_t* aad, int aad_len, uint8_t* ciphertext) {
+int AesDecryptor::Decrypt(const uint8_t* plaintext, int plaintext_len, const uint8_t* key,
+                          int key_len, const uint8_t* aad, int aad_len,
+                          uint8_t* ciphertext) {
   return impl_->Decrypt(plaintext, plaintext_len, key, key_len, aad, aad_len, ciphertext);
 }
 
 void AesDecryptor::WipeOut() { impl_->WipeOut(); }
 
-AesDecryptor::~AesDecryptor() { impl_->~AesDecryptorImpl(); }
+AesDecryptor::~AesDecryptor() {}
 
 AesDecryptor::AesDecryptorImpl::AesDecryptorImpl(ParquetCipher::type alg_id, int key_len,
                                                  bool metadata) {
@@ -389,9 +393,8 @@ AesDecryptor::AesDecryptorImpl::AesDecryptorImpl(ParquetCipher::type alg_id, int
   }
 }
 
-AesEncryptor* AesEncryptor::Make(
-    ParquetCipher::type alg_id, int key_len, bool metadata,
-    std::shared_ptr<std::vector<AesEncryptor*>> all_encryptors) {
+AesEncryptor* AesEncryptor::Make(ParquetCipher::type alg_id, int key_len, bool metadata,
+                                 std::vector<AesEncryptor*>* all_encryptors) {
   if (ParquetCipher::AES_GCM_V1 != alg_id && ParquetCipher::AES_GCM_CTR_V1 != alg_id) {
     std::stringstream ss;
     ss << "Crypto algorithm " << alg_id << " is not supported";
@@ -399,9 +402,7 @@ AesEncryptor* AesEncryptor::Make(
   }
 
   AesEncryptor* encryptor = new AesEncryptor(alg_id, key_len, metadata);
-  if (all_encryptors != NULLPTR) {
-    all_encryptors->push_back(encryptor);
-  }
+  if (all_encryptors != nullptr) all_encryptors->push_back(encryptor);
   return encryptor;
 }
 
@@ -409,9 +410,8 @@ AesDecryptor::AesDecryptor(ParquetCipher::type alg_id, int key_len, bool metadat
     : impl_{std::unique_ptr<AesDecryptorImpl>(
           new AesDecryptorImpl(alg_id, key_len, metadata))} {}
 
-AesDecryptor* AesDecryptor::Make(
-    ParquetCipher::type alg_id, int key_len, bool metadata,
-    std::shared_ptr<std::vector<AesDecryptor*>> all_decryptors) {
+AesDecryptor* AesDecryptor::Make(ParquetCipher::type alg_id, int key_len, bool metadata,
+                                 std::vector<AesDecryptor*>* all_decryptors) {
   if (ParquetCipher::AES_GCM_V1 != alg_id && ParquetCipher::AES_GCM_CTR_V1 != alg_id) {
     std::stringstream ss;
     ss << "Crypto algorithm " << alg_id << " is not supported";
@@ -419,7 +419,7 @@ AesDecryptor* AesDecryptor::Make(
   }
 
   AesDecryptor* decryptor = new AesDecryptor(alg_id, key_len, metadata);
-  if (all_decryptors != NULLPTR) {
+  if (all_decryptors != nullptr) {
     all_decryptors->push_back(decryptor);
   }
   return decryptor;
@@ -428,9 +428,9 @@ AesDecryptor* AesDecryptor::Make(
 int AesDecryptor::CiphertextSizeDelta() { return impl_->ciphertext_size_delta(); }
 
 int AesDecryptor::AesDecryptorImpl::GcmDecrypt(const uint8_t* ciphertext,
-                                               int ciphertext_len, uint8_t* key,
-                                               int key_len, uint8_t* aad, int aad_len,
-                                               uint8_t* plaintext) {
+                                               int ciphertext_len, const uint8_t* key,
+                                               int key_len, const uint8_t* aad,
+                                               int aad_len, uint8_t* plaintext) {
   int len;
   int plaintext_len;
 
@@ -490,7 +490,7 @@ int AesDecryptor::AesDecryptorImpl::GcmDecrypt(const uint8_t* ciphertext,
 }
 
 int AesDecryptor::AesDecryptorImpl::CtrDecrypt(const uint8_t* ciphertext,
-                                               int ciphertext_len, uint8_t* key,
+                                               int ciphertext_len, const uint8_t* key,
                                                int key_len, uint8_t* plaintext) {
   int len;
   int plaintext_len;
@@ -542,8 +542,9 @@ int AesDecryptor::AesDecryptorImpl::CtrDecrypt(const uint8_t* ciphertext,
 }
 
 int AesDecryptor::AesDecryptorImpl::Decrypt(const uint8_t* ciphertext, int ciphertext_len,
-                                            uint8_t* key, int key_len, uint8_t* aad,
-                                            int aad_len, uint8_t* plaintext) {
+                                            const uint8_t* key, int key_len,
+                                            const uint8_t* aad, int aad_len,
+                                            uint8_t* plaintext) {
   if (key_length_ != key_len) {
     std::stringstream ss;
     ss << "Wrong key length " << key_len << ". Should be " << key_length_;
@@ -605,6 +606,8 @@ void QuickUpdatePageAad(const std::string& AAD, int16_t new_page_ordinal) {
   std::memcpy(reinterpret_cast<int16_t*>(const_cast<char*>(AAD.c_str() + length - 2)),
               reinterpret_cast<const int16_t*>(page_ordinal_bytes.c_str()), 2);
 }
+
+void RandBytes(unsigned char* buf, int num) { RAND_bytes(buf, num); }
 
 }  // namespace encryption
 }  // namespace parquet

@@ -20,4 +20,3 @@ library(arrow)
 library(tibble)
 
 test_check("arrow")
-

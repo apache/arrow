@@ -43,8 +43,6 @@ add_arrow_lib(arrow_cuda
               ${ARROW_CUDA_SRCS}
               OUTPUTS
               ARROW_CUDA_LIBRARIES
-              DEPENDENCIES
-              metadata_fbs
               SHARED_LINK_FLAGS
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS

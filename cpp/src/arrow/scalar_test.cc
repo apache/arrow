@@ -15,23 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Licensed to the Apache Software Foundation (ASF) under one
-// or more contributor license agreements.  See the NOTICE file
-// distributed with this work for additional information
-// regarding copyright ownership.  The ASF licenses this file
-// to you under the Apache License, Version 2.0 (the
-// "License"); you may not use this file except in compliance
-// with the License.  You may obtain a copy of the License at
-//
-//   http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
-
 #include <memory>
 #include <string>
 #include <utility>
@@ -87,6 +70,21 @@ TYPED_TEST(TestNumericScalar, Basics) {
   ASSERT_FALSE(stack_val.is_valid);
 }
 
+TYPED_TEST(TestNumericScalar, MakeScalar) {
+  using T = typename TypeParam::c_type;
+  using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
+
+  std::shared_ptr<Scalar> three = MakeScalar(static_cast<T>(3));
+  ASSERT_TRUE(ScalarType(3).Equals(three));
+
+  ASSERT_OK(
+      MakeScalar(TypeTraits<TypeParam>::type_singleton(), static_cast<T>(3), &three));
+  ASSERT_TRUE(ScalarType(3).Equals(three));
+
+  ASSERT_OK(Scalar::Parse(TypeTraits<TypeParam>::type_singleton(), "3", &three));
+  ASSERT_TRUE(ScalarType(3).Equals(three));
+}
+
 TEST(TestBinaryScalar, Basics) {
   std::string data = "test data";
   auto buf = std::make_shared<Buffer>(data);
@@ -121,6 +119,17 @@ TEST(TestBinaryScalar, Basics) {
   ASSERT_FALSE(null_value2.is_valid);
 }
 
+TEST(TestStringScalar, MakeScalar) {
+  auto three = MakeScalar("three");
+  ASSERT_TRUE(StringScalar("three").Equals(three));
+
+  ASSERT_OK(MakeScalar(utf8(), Buffer::FromString("three"), &three));
+  ASSERT_TRUE(StringScalar("three").Equals(three));
+
+  ASSERT_OK(Scalar::Parse(utf8(), "three", &three));
+  ASSERT_TRUE(StringScalar("three").Equals(three));
+}
+
 TEST(TestFixedSizeBinaryScalar, Basics) {
   std::string data = "test data";
   auto buf = std::make_shared<Buffer>(data);
@@ -131,6 +140,23 @@ TEST(TestFixedSizeBinaryScalar, Basics) {
   ASSERT_TRUE(value.value->Equals(*buf));
   ASSERT_TRUE(value.is_valid);
   ASSERT_TRUE(value.type->Equals(*ex_type));
+}
+
+TEST(TestFixedSizeBinaryScalar, MakeScalar) {
+  std::string data = "test data";
+  auto buf = std::make_shared<Buffer>(data);
+  auto type = fixed_size_binary(9);
+
+  std::shared_ptr<Scalar> s;
+  ASSERT_OK(MakeScalar(type, buf, &s));
+  ASSERT_TRUE(FixedSizeBinaryScalar(buf, type).Equals(s));
+
+  ASSERT_OK(Scalar::Parse(type, util::string_view(data), &s));
+  ASSERT_TRUE(FixedSizeBinaryScalar(buf, type).Equals(s));
+
+  // wrong length:
+  ASSERT_RAISES(Invalid, MakeScalar(type, Buffer::FromString(data.substr(3)), &s));
+  ASSERT_RAISES(Invalid, Scalar::Parse(type, util::string_view(data).substr(3), &s));
 }
 
 TEST(TestDateScalars, Basics) {
@@ -149,6 +175,17 @@ TEST(TestDateScalars, Basics) {
   ASSERT_TRUE(date64_val.type->Equals(*date64()));
   ASSERT_TRUE(date64_val.is_valid);
   ASSERT_FALSE(date64_null.is_valid);
+}
+
+TEST(TestDateScalars, MakeScalar) {
+  std::shared_ptr<Scalar> s;
+  ASSERT_OK(MakeScalar(date32(), int32_t(1), &s));
+  ASSERT_TRUE(Date32Scalar(1).Equals(s));
+
+  ASSERT_OK(MakeScalar(date64(), int64_t(1), &s));
+  ASSERT_TRUE(Date64Scalar(1).Equals(s));
+
+  ASSERT_RAISES(NotImplemented, Scalar::Parse(date64(), "", &s));
 }
 
 TEST(TestTimeScalars, Basics) {
@@ -176,6 +213,29 @@ TEST(TestTimeScalars, Basics) {
   ASSERT_TRUE(time64_null.type->Equals(*type4));
 }
 
+TEST(TestTimeScalars, MakeScalar) {
+  auto type1 = time32(TimeUnit::MILLI);
+  auto type2 = time32(TimeUnit::SECOND);
+  auto type3 = time64(TimeUnit::MICRO);
+  auto type4 = time64(TimeUnit::NANO);
+
+  std::shared_ptr<Scalar> s;
+
+  ASSERT_OK(MakeScalar(type1, int32_t(1), &s));
+  ASSERT_TRUE(Time32Scalar(1, type1).Equals(s));
+
+  ASSERT_OK(MakeScalar(type2, int32_t(1), &s));
+  ASSERT_TRUE(Time32Scalar(1, type2).Equals(s));
+
+  ASSERT_OK(MakeScalar(type3, int64_t(1), &s));
+  ASSERT_TRUE(Time64Scalar(1, type3).Equals(s));
+
+  ASSERT_OK(MakeScalar(type4, int64_t(1), &s));
+  ASSERT_TRUE(Time64Scalar(1, type4).Equals(s));
+
+  ASSERT_RAISES(NotImplemented, Scalar::Parse(type4, "", &s));
+}
+
 TEST(TestTimestampScalars, Basics) {
   auto type1 = timestamp(TimeUnit::MILLI);
   auto type2 = timestamp(TimeUnit::SECOND);
@@ -197,6 +257,37 @@ TEST(TestTimestampScalars, Basics) {
   ASSERT_FALSE(ts_val1.Equals(ts_val2));
   ASSERT_FALSE(ts_val1.Equals(ts_null));
   ASSERT_FALSE(ts_val2.Equals(ts_null));
+}
+
+TEST(TestTimestampScalars, MakeScalar) {
+  auto type1 = timestamp(TimeUnit::MILLI);
+  auto type2 = timestamp(TimeUnit::SECOND);
+  auto type3 = timestamp(TimeUnit::MICRO);
+  auto type4 = timestamp(TimeUnit::NANO);
+
+  std::shared_ptr<Scalar> s;
+
+  util::string_view epoch_plus_1s = "1970-01-01 00:00:01";
+
+  ASSERT_OK(MakeScalar(type1, int64_t(1), &s));
+  ASSERT_TRUE(TimestampScalar(1, type1).Equals(s));
+  ASSERT_OK(Scalar::Parse(type1, epoch_plus_1s, &s));
+  ASSERT_TRUE(TimestampScalar(1000, type1).Equals(s));
+
+  ASSERT_OK(MakeScalar(type2, int64_t(1), &s));
+  ASSERT_TRUE(TimestampScalar(1, type2).Equals(s));
+  ASSERT_OK(Scalar::Parse(type2, epoch_plus_1s, &s));
+  ASSERT_TRUE(TimestampScalar(1, type2).Equals(s));
+
+  ASSERT_OK(MakeScalar(type3, int64_t(1), &s));
+  ASSERT_TRUE(TimestampScalar(1, type3).Equals(s));
+  ASSERT_OK(Scalar::Parse(type3, epoch_plus_1s, &s));
+  ASSERT_TRUE(TimestampScalar(1000 * 1000, type3).Equals(s));
+
+  ASSERT_OK(MakeScalar(type4, int64_t(1), &s));
+  ASSERT_TRUE(TimestampScalar(1, type4).Equals(s));
+  ASSERT_OK(Scalar::Parse(type4, epoch_plus_1s, &s));
+  ASSERT_TRUE(TimestampScalar(1000 * 1000 * 1000, type4).Equals(s));
 }
 
 TEST(TestDurationScalars, Basics) {
@@ -227,9 +318,9 @@ TEST(TestMonthIntervalScalars, Basics) {
 
   int32_t val1 = 1;
   int32_t val2 = 2;
-  MonthIntervalScalar ts_val1(val1, type);
-  MonthIntervalScalar ts_val2(val2, type);
-  MonthIntervalScalar ts_null(val2, type, false);
+  MonthIntervalScalar ts_val1(val1);
+  MonthIntervalScalar ts_val2(val2);
+  MonthIntervalScalar ts_null(val2, false);
   ASSERT_EQ(val1, ts_val1.value);
   ASSERT_EQ(val2, ts_null.value);
 
@@ -249,9 +340,9 @@ TEST(TestDayTimeIntervalScalars, Basics) {
 
   DayTimeIntervalType::DayMilliseconds val1 = {1, 1};
   DayTimeIntervalType::DayMilliseconds val2 = {2, 2};
-  DayTimeIntervalScalar ts_val1(val1, type);
-  DayTimeIntervalScalar ts_val2(val2, type);
-  DayTimeIntervalScalar ts_null(val2, type, false);
+  DayTimeIntervalScalar ts_val1(val1);
+  DayTimeIntervalScalar ts_val2(val2);
+  DayTimeIntervalScalar ts_null(val2, false);
   ASSERT_EQ(val1, ts_val1.value);
   ASSERT_EQ(val2, ts_null.value);
 

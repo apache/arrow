@@ -132,7 +132,7 @@ public class AvroToArrowTest extends AvroTestBase {
         new GenericData.EnumSymbol(schema, "CLUBS"),
         new GenericData.EnumSymbol(schema, "SPADES"));
 
-    List<Byte> expectedIndices = Arrays.asList((byte)0, (byte)1, (byte)2, (byte)3, (byte)0);
+    List<Integer> expectedIndices = Arrays.asList(0, 1, 2, 3, 0);
 
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);

@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+
 #' @title RecordBatchWriter classes
 #' @description `RecordBatchFileWriter` and `RecordBatchStreamWriter` are
 #' interfaces for writing record batches to either the binary file or streaming
@@ -57,12 +58,11 @@ RecordBatchWriter <- R6Class("RecordBatchWriter", inherit = Object,
     write_table = function(table) ipc___RecordBatchWriter__WriteTable(self, table),
 
     write = function(x) {
+      x <- to_arrow(x)
       if (inherits(x, "RecordBatch")) {
         self$write_batch(x)
       } else if (inherits(x, "Table")) {
         self$write_table(x)
-      } else if (inherits(x, "data.frame")) {
-        self$write_table(table(x))
       } else {
         abort("unexpected type for RecordBatchWriter$write(), must be an arrow::RecordBatch or an arrow::Table")
       }
@@ -77,14 +77,15 @@ RecordBatchWriter <- R6Class("RecordBatchWriter", inherit = Object,
 #' @rdname RecordBatchWriter
 #' @export
 RecordBatchStreamWriter <- R6Class("RecordBatchStreamWriter", inherit = RecordBatchWriter)
-RecordBatchStreamWriter$create <- function(sink, schema) {
+RecordBatchStreamWriter$create <- function(sink, schema, use_legacy_format = NULL) {
   if (is.character(sink)) {
     sink <- FileOutputStream$create(sink)
   }
+  use_legacy_format <- use_legacy_format %||% identical(Sys.getenv("ARROW_PRE_0_15_IPC_FORMAT"), "1")
   assert_is(sink, "OutputStream")
   assert_is(schema, "Schema")
 
-  shared_ptr(RecordBatchStreamWriter, ipc___RecordBatchStreamWriter__Open(sink, schema))
+  shared_ptr(RecordBatchStreamWriter, ipc___RecordBatchStreamWriter__Open(sink, schema, use_legacy_format))
 }
 
 #' @usage NULL
@@ -92,12 +93,13 @@ RecordBatchStreamWriter$create <- function(sink, schema) {
 #' @rdname RecordBatchWriter
 #' @export
 RecordBatchFileWriter <- R6Class("RecordBatchFileWriter", inherit = RecordBatchStreamWriter)
-RecordBatchFileWriter$create <- function(sink, schema) {
+RecordBatchFileWriter$create <- function(sink, schema, use_legacy_format = NULL) {
   if (is.character(sink)) {
     sink <- FileOutputStream$create(sink)
   }
+  use_legacy_format <- use_legacy_format %||% identical(Sys.getenv("ARROW_PRE_0_15_IPC_FORMAT"), "1")
   assert_is(sink, "OutputStream")
   assert_is(schema, "Schema")
 
-  shared_ptr(RecordBatchFileWriter, ipc___RecordBatchFileWriter__Open(sink, schema))
+  shared_ptr(RecordBatchFileWriter, ipc___RecordBatchFileWriter__Open(sink, schema, use_legacy_format))
 }

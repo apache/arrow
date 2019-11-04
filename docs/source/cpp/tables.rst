@@ -18,9 +18,9 @@
 .. default-domain:: cpp
 .. highlight:: cpp
 
-========================
-Two-dimensional Datasets
-========================
+============
+Tabular Data
+============
 
 While arrays and chunked arrays represent a one-dimensional sequence of
 homogenous values, data often comes in the form of two-dimensional sets of

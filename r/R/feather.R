@@ -17,8 +17,8 @@
 
 #' Write data in the Feather format
 #'
-#' @param data `data.frame` or RecordBatch
-#' @param stream A file path or an OutputStream
+#' @param x `data.frame` or RecordBatch
+#' @param sink A file path or an OutputStream
 #'
 #' @export
 #' @examples
@@ -30,20 +30,20 @@
 #' })
 #' }
 #' @include arrow-package.R
-write_feather <- function(data, stream) {
-  if (is.data.frame(data)) {
-    data <- record_batch(data)
+write_feather <- function(x, sink) {
+  if (is.data.frame(x)) {
+    x <- record_batch(x)
   }
-  assert_is(data, "RecordBatch")
+  assert_is(x, "RecordBatch")
 
-  if (is.character(stream)) {
-    stream <- FileOutputStream$create(stream)
-    on.exit(stream$close())
+  if (is.character(sink)) {
+    sink <- FileOutputStream$create(sink)
+    on.exit(sink$close())
   }
-  assert_is(stream, "OutputStream")
+  assert_is(sink, "OutputStream")
 
-  writer <- FeatherTableWriter$create(stream)
-  ipc___TableWriter__RecordBatch__WriteFeather(writer, data)
+  writer <- FeatherTableWriter$create(sink)
+  ipc___TableWriter__RecordBatch__WriteFeather(writer, x)
 }
 
 #' @title FeatherTableWriter class
@@ -96,7 +96,7 @@ FeatherTableWriter$create <- function(stream) {
 #' @inheritParams read_delim_arrow
 #' @param ... additional parameters
 #'
-#' @return A `data.frame` if `as_tibble` is `TRUE` (the default), or an
+#' @return A `data.frame` if `as_data_frame` is `TRUE` (the default), or an
 #' [arrow::Table][Table] otherwise
 #'
 #' @export
@@ -112,7 +112,7 @@ FeatherTableWriter$create <- function(stream) {
 #'   df <- read_feather(tf, col_select = starts_with("Sepal"))
 #' })
 #' }
-read_feather <- function(file, col_select = NULL, as_tibble = TRUE, ...) {
+read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, ...) {
   reader <- FeatherTableReader$create(file, ...)
 
   all_columns <- ipc___feather___TableReader__column_names(reader)
@@ -122,7 +122,7 @@ read_feather <- function(file, col_select = NULL, as_tibble = TRUE, ...) {
   }
 
   out <- reader$Read(columns)
-  if (isTRUE(as_tibble)) {
+  if (isTRUE(as_data_frame)) {
     out <- as.data.frame(out)
   }
   out

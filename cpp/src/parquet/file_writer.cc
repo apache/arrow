@@ -19,12 +19,15 @@
 
 #include <cstddef>
 #include <ostream>
+#include <string>
 #include <utility>
 #include <vector>
 
 #include "parquet/column_writer.h"
 #include "parquet/deprecated_io.h"
+#include "parquet/encryption_internal.h"
 #include "parquet/exception.h"
+#include "parquet/internal_file_encryptor.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
@@ -34,9 +37,6 @@ using arrow::MemoryPool;
 using parquet::schema::GroupNode;
 
 namespace parquet {
-
-// FIXME: copied from reader-internal.cc
-static constexpr uint8_t PARQUET_MAGIC[4] = {'P', 'A', 'R', '1'};
 
 // ----------------------------------------------------------------------
 // RowGroupWriter public API
@@ -81,16 +81,19 @@ inline void ThrowRowsMisMatchError(int col, int64_t prev, int64_t curr) {
 class RowGroupSerializer : public RowGroupWriter::Contents {
  public:
   RowGroupSerializer(const std::shared_ptr<ArrowOutputStream>& sink,
-                     RowGroupMetaDataBuilder* metadata,
-                     const WriterProperties* properties, bool buffered_row_group = false)
+                     RowGroupMetaDataBuilder* metadata, int16_t row_group_ordinal,
+                     const WriterProperties* properties, bool buffered_row_group = false,
+                     InternalFileEncryptor* file_encryptor = nullptr)
       : sink_(sink),
         metadata_(metadata),
         properties_(properties),
         total_bytes_written_(0),
         closed_(false),
+        row_group_ordinal_(row_group_ordinal),
         next_column_index_(0),
         num_rows_(0),
-        buffered_row_group_(buffered_row_group) {
+        buffered_row_group_(buffered_row_group),
+        file_encryptor_(file_encryptor) {
     if (buffered_row_group) {
       InitColumns();
     } else {
@@ -126,9 +129,16 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
     ++next_column_index_;
 
     const auto& path = col_meta->descr()->path();
+    auto meta_encryptor =
+        file_encryptor_ ? file_encryptor_->GetColumnMetaEncryptor(path->ToDotString())
+                        : nullptr;
+    auto data_encryptor =
+        file_encryptor_ ? file_encryptor_->GetColumnDataEncryptor(path->ToDotString())
+                        : nullptr;
     std::unique_ptr<PageWriter> pager = PageWriter::Open(
         sink_, properties_->compression(path), properties_->compression_level(path),
-        col_meta, properties_->memory_pool());
+        col_meta, row_group_ordinal_, static_cast<int16_t>(next_column_index_ - 1),
+        properties_->memory_pool(), false, meta_encryptor, data_encryptor);
     column_writers_[0] = ColumnWriter::Make(col_meta, std::move(pager), properties_);
     return column_writers_[0].get();
   }
@@ -183,7 +193,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
 
       // Ensures all columns have been written
       metadata_->set_num_rows(num_rows_);
-      metadata_->Finish(total_bytes_written_);
+      metadata_->Finish(total_bytes_written_, row_group_ordinal_);
     }
   }
 
@@ -193,9 +203,11 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
   const WriterProperties* properties_;
   int64_t total_bytes_written_;
   bool closed_;
+  int16_t row_group_ordinal_;
   int next_column_index_;
   mutable int64_t num_rows_;
   bool buffered_row_group_;
+  InternalFileEncryptor* file_encryptor_;
 
   void CheckRowsWritten() const {
     // verify when only one column is written at a time
@@ -223,9 +235,17 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
     for (int i = 0; i < num_columns(); i++) {
       auto col_meta = metadata_->NextColumnChunk();
       const auto& path = col_meta->descr()->path();
+      auto meta_encryptor =
+          file_encryptor_ ? file_encryptor_->GetColumnMetaEncryptor(path->ToDotString())
+                          : nullptr;
+      auto data_encryptor =
+          file_encryptor_ ? file_encryptor_->GetColumnDataEncryptor(path->ToDotString())
+                          : nullptr;
       std::unique_ptr<PageWriter> pager = PageWriter::Open(
           sink_, properties_->compression(path), properties_->compression_level(path),
-          col_meta, properties_->memory_pool(), buffered_row_group_);
+          col_meta, static_cast<int16_t>(row_group_ordinal_),
+          static_cast<int16_t>(next_column_index_), properties_->memory_pool(),
+          buffered_row_group_, meta_encryptor, data_encryptor);
       column_writers_.push_back(
           ColumnWriter::Make(col_meta, std::move(pager), properties_));
     }
@@ -265,8 +285,14 @@ class FileSerializer : public ParquetFileWriter::Contents {
       row_group_writer_.reset();
 
       // Write magic bytes and metadata
-      file_metadata_ = metadata_->Finish();
-      WriteFileMetaData(*file_metadata_, sink_.get());
+      auto file_encryption_properties = properties_->file_encryption_properties();
+
+      if (file_encryption_properties == nullptr) {  // Non encrypted file.
+        file_metadata_ = metadata_->Finish();
+        WriteFileMetaData(*file_metadata_, sink_.get());
+      } else {  // Encrypted file
+        CloseEncryptedFile(file_encryption_properties);
+      }
     }
   }
 
@@ -287,7 +313,8 @@ class FileSerializer : public ParquetFileWriter::Contents {
     num_row_groups_++;
     auto rg_metadata = metadata_->AppendRowGroup();
     std::unique_ptr<RowGroupWriter::Contents> contents(new RowGroupSerializer(
-        sink_, rg_metadata, properties_.get(), buffered_row_group));
+        sink_, rg_metadata, static_cast<int16_t>(num_row_groups_ - 1), properties_.get(),
+        buffered_row_group, file_encryptor_.get()));
     row_group_writer_.reset(new RowGroupWriter(std::move(contents)));
     return row_group_writer_.get();
   }
@@ -318,6 +345,36 @@ class FileSerializer : public ParquetFileWriter::Contents {
     StartFile();
   }
 
+  void CloseEncryptedFile(FileEncryptionProperties* file_encryption_properties) {
+    // Encrypted file with encrypted footer
+    if (file_encryption_properties->encrypted_footer()) {
+      // encrypted footer
+      file_metadata_ = metadata_->Finish();
+
+      int64_t position = -1;
+      PARQUET_THROW_NOT_OK(sink_->Tell(&position));
+      uint64_t metadata_start = static_cast<uint64_t>(position);
+      auto crypto_metadata = metadata_->GetCryptoMetaData();
+      WriteFileCryptoMetaData(*crypto_metadata, sink_.get());
+
+      auto footer_encryptor = file_encryptor_->GetFooterEncryptor();
+      WriteEncryptedFileMetadata(*file_metadata_, sink_.get(), footer_encryptor, true);
+      PARQUET_THROW_NOT_OK(sink_->Tell(&position));
+      uint32_t footer_and_crypto_len = static_cast<uint32_t>(position - metadata_start);
+      PARQUET_THROW_NOT_OK(
+          sink_->Write(reinterpret_cast<uint8_t*>(&footer_and_crypto_len), 4));
+      PARQUET_THROW_NOT_OK(sink_->Write(kParquetEMagic, 4));
+    } else {  // Encrypted file with plaintext footer
+      file_metadata_ = metadata_->Finish();
+      auto footer_signing_encryptor = file_encryptor_->GetFooterSigningEncryptor();
+      WriteEncryptedFileMetadata(*file_metadata_, sink_.get(), footer_signing_encryptor,
+                                 false);
+    }
+    if (file_encryptor_) {
+      file_encryptor_->WipeOutEncryptionKeys();
+    }
+  }
+
   std::shared_ptr<ArrowOutputStream> sink_;
   bool is_open_;
   const std::shared_ptr<WriterProperties> properties_;
@@ -327,9 +384,44 @@ class FileSerializer : public ParquetFileWriter::Contents {
   // Only one of the row group writers is active at a time
   std::unique_ptr<RowGroupWriter> row_group_writer_;
 
+  std::unique_ptr<InternalFileEncryptor> file_encryptor_;
+
   void StartFile() {
-    // Parquet files always start with PAR1
-    PARQUET_THROW_NOT_OK(sink_->Write(PARQUET_MAGIC, 4));
+    auto file_encryption_properties = properties_->file_encryption_properties();
+    if (file_encryption_properties == nullptr) {
+      // Unencrypted parquet files always start with PAR1
+      PARQUET_THROW_NOT_OK(sink_->Write(kParquetMagic, 4));
+    } else {
+      // Check that all columns in columnEncryptionProperties exist in the schema.
+      auto encrypted_columns = file_encryption_properties->encrypted_columns();
+      // if columnEncryptionProperties is empty, every column in file schema will be
+      // encrypted with footer key.
+      if (encrypted_columns.size() != 0) {
+        std::vector<std::string> column_path_vec;
+        // First, save all column paths in schema.
+        for (int i = 0; i < num_columns(); i++) {
+          column_path_vec.push_back(schema_.Column(i)->path()->ToDotString());
+        }
+        // Check if column exists in schema.
+        for (const auto& elem : encrypted_columns) {
+          auto it = std::find(column_path_vec.begin(), column_path_vec.end(), elem.first);
+          if (it == column_path_vec.end()) {
+            std::stringstream ss;
+            ss << "Encrypted column " + elem.first + " not in file schema";
+            throw ParquetException(ss.str());
+          }
+        }
+      }
+
+      file_encryptor_.reset(new InternalFileEncryptor(file_encryption_properties,
+                                                      properties_->memory_pool()));
+      if (file_encryption_properties->encrypted_footer()) {
+        PARQUET_THROW_NOT_OK(sink_->Write(kParquetEMagic, 4));
+      } else {
+        // Encrypted file with plaintext footer mode.
+        PARQUET_THROW_NOT_OK(sink_->Write(kParquetMagic, 4));
+      }
+    }
   }
 };
 
@@ -366,10 +458,9 @@ std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(
 }
 
 void WriteFileMetaData(const FileMetaData& file_metadata, ArrowOutputStream* sink) {
+  // Write MetaData
   int64_t position = -1;
   PARQUET_THROW_NOT_OK(sink->Tell(&position));
-
-  // Write MetaData
   uint32_t metadata_len = static_cast<uint32_t>(position);
 
   file_metadata.WriteTo(sink);
@@ -378,17 +469,56 @@ void WriteFileMetaData(const FileMetaData& file_metadata, ArrowOutputStream* sin
 
   // Write Footer
   PARQUET_THROW_NOT_OK(sink->Write(reinterpret_cast<uint8_t*>(&metadata_len), 4));
-  PARQUET_THROW_NOT_OK(sink->Write(PARQUET_MAGIC, 4));
+  PARQUET_THROW_NOT_OK(sink->Write(kParquetMagic, 4));
 }
 
-void WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink) {
+void WriteMetaDataFile(const FileMetaData& file_metadata, ArrowOutputStream* sink) {
+  PARQUET_THROW_NOT_OK(sink->Write(kParquetMagic, 4));
+  return WriteFileMetaData(file_metadata, sink);
+}
+
+void WriteEncryptedFileMetadata(const FileMetaData& file_metadata,
+                                ArrowOutputStream* sink,
+                                const std::shared_ptr<Encryptor>& encryptor,
+                                bool encrypt_footer) {
+  if (encrypt_footer) {  // Encrypted file with encrypted footer
+    // encrypt and write to sink
+    file_metadata.WriteTo(sink, encryptor);
+  } else {  // Encrypted file with plaintext footer mode.
+    int64_t position = -1;
+    PARQUET_THROW_NOT_OK(sink->Tell(&position));
+    uint32_t metadata_len = static_cast<uint32_t>(position);
+    file_metadata.WriteTo(sink, encryptor);
+    PARQUET_THROW_NOT_OK(sink->Tell(&position));
+    metadata_len = static_cast<uint32_t>(position) - metadata_len;
+
+    PARQUET_THROW_NOT_OK(sink->Write(reinterpret_cast<uint8_t*>(&metadata_len), 4));
+    PARQUET_THROW_NOT_OK(sink->Write(kParquetMagic, 4));
+  }
+}
+
+void WriteFileMetaData(const FileMetaData& file_metadata, OutputStream* sink,
+                       const std::shared_ptr<Encryptor>& encryptor, bool encrypt_footer) {
   ParquetOutputWrapper wrapper(sink);
   return WriteFileMetaData(file_metadata, &wrapper);
 }
 
-void WriteMetaDataFile(const FileMetaData& file_metadata, ArrowOutputStream* sink) {
-  PARQUET_THROW_NOT_OK(sink->Write(PARQUET_MAGIC, 4));
-  return WriteFileMetaData(file_metadata, sink);
+void WriteEncryptedFileMetadata(const FileMetaData& file_metadata, OutputStream* sink,
+                                const std::shared_ptr<Encryptor>& encryptor,
+                                bool encrypt_footer) {
+  ParquetOutputWrapper wrapper(sink);
+  return WriteEncryptedFileMetadata(file_metadata, &wrapper, encryptor, encrypt_footer);
+}
+
+void WriteFileCryptoMetaData(const FileCryptoMetaData& crypto_metadata,
+                             ArrowOutputStream* sink) {
+  crypto_metadata.WriteTo(sink);
+}
+
+void WriteFileCryptoMetaData(const FileCryptoMetaData& crypto_metadata,
+                             OutputStream* sink) {
+  ParquetOutputWrapper wrapper(sink);
+  crypto_metadata.WriteTo(&wrapper);
 }
 
 const SchemaDescriptor* ParquetFileWriter::schema() const { return contents_->schema(); }

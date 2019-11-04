@@ -40,13 +40,14 @@ class BaseListBuilder : public ArrayBuilder {
   /// Use this constructor to incrementally build the value array along with offsets and
   /// null bitmap.
   BaseListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> const& value_builder,
-                  const std::shared_ptr<DataType>& type = NULLPTR)
-      : ArrayBuilder(type ? type
-                          : std::static_pointer_cast<DataType>(
-                                std::make_shared<TypeClass>(value_builder->type())),
-                     pool),
+                  const std::shared_ptr<DataType>& type)
+      : ArrayBuilder(pool),
         offsets_builder_(pool),
-        value_builder_(value_builder) {}
+        value_builder_(value_builder),
+        value_field_(type->child(0)->WithType(NULLPTR)) {}
+
+  BaseListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> const& value_builder)
+      : BaseListBuilder(pool, value_builder, list(value_builder->type())) {}
 
   Status Resize(int64_t capacity) override {
     if (capacity > maximum_elements()) {
@@ -62,7 +63,6 @@ class BaseListBuilder : public ArrayBuilder {
 
   void Reset() override {
     ArrayBuilder::Reset();
-    values_.reset();
     offsets_builder_.Reset();
     value_builder_->Reset();
   }
@@ -106,30 +106,20 @@ class BaseListBuilder : public ArrayBuilder {
     ARROW_RETURN_NOT_OK(AppendNextOffset());
 
     // Offset padding zeroed by BufferBuilder
-    std::shared_ptr<Buffer> offsets;
+    std::shared_ptr<Buffer> offsets, null_bitmap;
     ARROW_RETURN_NOT_OK(offsets_builder_.Finish(&offsets));
+    ARROW_RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
+
+    if (value_builder_->length() == 0) {
+      // Try to make sure we get a non-null values buffer (ARROW-2744)
+      ARROW_RETURN_NOT_OK(value_builder_->Resize(0));
+    }
 
     std::shared_ptr<ArrayData> items;
-    if (values_) {
-      items = values_->data();
-    } else {
-      if (value_builder_->length() == 0) {
-        // Try to make sure we get a non-null values buffer (ARROW-2744)
-        ARROW_RETURN_NOT_OK(value_builder_->Resize(0));
-      }
-      ARROW_RETURN_NOT_OK(value_builder_->FinishInternal(&items));
-    }
+    ARROW_RETURN_NOT_OK(value_builder_->FinishInternal(&items));
 
-    // If the type has not been specified in the constructor, infer it
-    // This is the case if the value_builder contains a DenseUnionBuilder
-    if (!arrow::internal::checked_cast<TypeClass&>(*type_).value_type()) {
-      type_ = std::static_pointer_cast<DataType>(
-          std::make_shared<TypeClass>(value_builder_->type()));
-    }
-    std::shared_ptr<Buffer> null_bitmap;
-    ARROW_RETURN_NOT_OK(null_bitmap_builder_.Finish(&null_bitmap));
-    *out = ArrayData::Make(type_, length_, {null_bitmap, offsets}, null_count_);
-    (*out)->child_data.emplace_back(std::move(items));
+    *out = ArrayData::Make(type(), length_, {null_bitmap, offsets}, {std::move(items)},
+                           null_count_);
     Reset();
     return Status::OK();
   }
@@ -141,10 +131,14 @@ class BaseListBuilder : public ArrayBuilder {
     return std::numeric_limits<offset_type>::max() - 1;
   }
 
+  std::shared_ptr<DataType> type() const override {
+    return std::make_shared<TYPE>(value_field_->WithType(value_builder_->type()));
+  }
+
  protected:
   TypedBufferBuilder<offset_type> offsets_builder_;
   std::shared_ptr<ArrayBuilder> value_builder_;
-  std::shared_ptr<Array> values_;
+  std::shared_ptr<Field> value_field_;
 
   Status CheckNextOffset() const {
     const int64_t num_values = value_builder_->length();
@@ -215,13 +209,14 @@ class ARROW_EXPORT LargeListBuilder : public BaseListBuilder<LargeListType> {
 /// Key uniqueness and ordering are not validated.
 class ARROW_EXPORT MapBuilder : public ArrayBuilder {
  public:
-  /// Use this constructor to incrementally build the key and item arrays along with
-  /// offsets and null bitmap.
+  /// Use this constructor to define the built array's type explicitly. If key_builder
+  /// or item_builder has indeterminate type, this builder will also.
   MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& key_builder,
              const std::shared_ptr<ArrayBuilder>& item_builder,
              const std::shared_ptr<DataType>& type);
 
-  /// Derive built type from key and item builders' types
+  /// Use this constructor to infer the built array's type. If key_builder or
+  /// item_builder has indeterminate type, this builder will also.
   MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& key_builder,
              const std::shared_ptr<ArrayBuilder>& item_builder, bool keys_sorted = false);
 
@@ -255,7 +250,12 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
   ArrayBuilder* key_builder() const { return key_builder_.get(); }
   ArrayBuilder* item_builder() const { return item_builder_.get(); }
 
+  std::shared_ptr<DataType> type() const override {
+    return map(key_builder_->type(), item_builder_->type(), keys_sorted_);
+  }
+
  protected:
+  bool keys_sorted_ = false;
   std::shared_ptr<ListBuilder> list_builder_;
   std::shared_ptr<ArrayBuilder> key_builder_;
   std::shared_ptr<ArrayBuilder> item_builder_;
@@ -268,10 +268,14 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
 /// \brief Builder class for fixed-length list array value types
 class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
  public:
+  /// Use this constructor to define the built array's type explicitly. If value_builder
+  /// has indeterminate type, this builder will also.
   FixedSizeListBuilder(MemoryPool* pool,
                        std::shared_ptr<ArrayBuilder> const& value_builder,
                        int32_t list_size);
 
+  /// Use this constructor to infer the built array's type. If value_builder has
+  /// indeterminate type, this builder will also.
   FixedSizeListBuilder(MemoryPool* pool,
                        std::shared_ptr<ArrayBuilder> const& value_builder,
                        const std::shared_ptr<DataType>& type);
@@ -316,7 +320,12 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
 
   ArrayBuilder* value_builder() const { return value_builder_.get(); }
 
+  std::shared_ptr<DataType> type() const override {
+    return fixed_size_list(value_field_->WithType(value_builder_->type()), list_size_);
+  }
+
  protected:
+  std::shared_ptr<Field> value_field_;
   const int32_t list_size_;
   std::shared_ptr<ArrayBuilder> value_builder_;
 };
@@ -331,6 +340,7 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
 /// called to maintain data-structure consistency.
 class ARROW_EXPORT StructBuilder : public ArrayBuilder {
  public:
+  /// If any of field_builders has indeterminate type, this builder will also
   StructBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool,
                 std::vector<std::shared_ptr<ArrayBuilder>> field_builders);
 
@@ -369,6 +379,11 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
   ArrayBuilder* field_builder(int i) const { return children_[i].get(); }
 
   int num_fields() const { return static_cast<int>(children_.size()); }
+
+  std::shared_ptr<DataType> type() const override;
+
+ private:
+  std::shared_ptr<DataType> type_;
 };
 
 }  // namespace arrow

@@ -21,7 +21,7 @@
  "name": "testNestedRecord",
  "fields": [
   {
-    "name" : "nested",
+    "name" : "f0",
     "type" : {
         "type" : "record",
         "name" : "nestedInRecord",

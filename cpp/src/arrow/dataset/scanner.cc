@@ -18,43 +18,37 @@
 #include "arrow/dataset/scanner.h"
 
 #include <algorithm>
+#include <memory>
+#include <mutex>
 
 #include "arrow/dataset/dataset.h"
+#include "arrow/dataset/dataset_internal.h"
+#include "arrow/dataset/filter.h"
+#include "arrow/dataset/scanner_internal.h"
+#include "arrow/table.h"
+#include "arrow/util/iterator.h"
+#include "arrow/util/task_group.h"
+#include "arrow/util/thread_pool.h"
 
 namespace arrow {
 namespace dataset {
 
-std::unique_ptr<RecordBatchIterator> SimpleScanTask::Scan() {
-  return MakeVectorIterator(record_batches_);
+ScanOptions::ScanOptions()
+    : filter(scalar(true)), evaluator(ExpressionEvaluator::Null()) {}
+
+std::shared_ptr<ScanOptions> ScanOptions::Defaults() {
+  return std::shared_ptr<ScanOptions>(new ScanOptions);
 }
 
-/// \brief GetFragmentsIterator transforms a vector<DataSource> in a flattened
-/// Iterator<DataFragment>.
-static std::unique_ptr<DataFragmentIterator> GetFragmentsIterator(
-    const std::vector<std::shared_ptr<DataSource>>& sources,
-    std::shared_ptr<ScanOptions> options) {
-  // Iterator<DataSource>
-  auto sources_it = MakeVectorIterator(sources);
-
-  // DataSource -> Iterator<DataFragment>
-  auto fn = [options](std::shared_ptr<DataSource> source)
-      -> std::unique_ptr<DataFragmentIterator> { return source->GetFragments(options); };
-
-  // Iterator<Iterator<DataFragment>>
-  auto fragments_it = MakeMapIterator(fn, std::move(sources_it));
-
-  // Iterator<DataFragment>
-  return MakeFlattenIterator(std::move(fragments_it));
-}
+RecordBatchIterator SimpleScanTask::Scan() { return MakeVectorIterator(record_batches_); }
 
 /// \brief GetScanTaskIterator transforms an Iterator<DataFragment> in a
 /// flattened Iterator<ScanTask>.
-static std::unique_ptr<ScanTaskIterator> GetScanTaskIterator(
-    std::unique_ptr<DataFragmentIterator> fragments,
-    std::shared_ptr<ScanContext> context) {
+static ScanTaskIterator GetScanTaskIterator(DataFragmentIterator fragments,
+                                            std::shared_ptr<ScanContext> context) {
   // DataFragment -> ScanTaskIterator
   auto fn = [context](std::shared_ptr<DataFragment> fragment,
-                      std::unique_ptr<ScanTaskIterator>* out) -> Status {
+                      ScanTaskIterator* out) -> Status {
     return fragment->Scan(context, out);
   };
 
@@ -65,42 +59,154 @@ static std::unique_ptr<ScanTaskIterator> GetScanTaskIterator(
   return MakeFlattenIterator(std::move(maybe_scantask_it));
 }
 
-std::unique_ptr<ScanTaskIterator> SimpleScanner::Scan() {
+static ScanTaskIterator ProjectAndFilterScanTaskIterator(
+    ScanTaskIterator it, std::shared_ptr<Expression> filter,
+    std::shared_ptr<ExpressionEvaluator> evaluator,
+    std::shared_ptr<RecordBatchProjector> projector) {
+  // Wrap the scanner ScanTask with a FilterAndProjectScanTask
+  auto wrap_scan_task = [filter, evaluator, projector](
+                            std::unique_ptr<ScanTask> task) -> std::unique_ptr<ScanTask> {
+    return internal::make_unique<FilterAndProjectScanTask>(std::move(task), filter,
+                                                           evaluator, projector);
+  };
+  return MakeMapIterator(wrap_scan_task, std::move(it));
+}
+
+ScanTaskIterator SimpleScanner::Scan() {
   // First, transforms DataSources in a flat Iterator<DataFragment>. This
   // iterator is lazily constructed, i.e. DataSource::GetFragments is never
   // invoked.
-  auto fragments_it = GetFragmentsIterator(sources_, options_);
+  auto fragments_it = GetFragmentsFromSources(sources_, options_);
   // Second, transforms Iterator<DataFragment> into a unified
   // Iterator<ScanTask>. The first Iterator::Next invocation is going to do
   // all the work of unwinding the chained iterators.
-  return GetScanTaskIterator(std::move(fragments_it), context_);
+  auto scan_task_it = GetScanTaskIterator(std::move(fragments_it), context_);
+  // Third, apply the filter and/or projection to incoming RecordBatches.
+  return ProjectAndFilterScanTaskIterator(std::move(scan_task_it), options_->filter,
+                                          options_->evaluator, options_->projector);
 }
+
+Status ScanTaskIteratorFromRecordBatch(std::vector<std::shared_ptr<RecordBatch>> batches,
+                                       ScanTaskIterator* out) {
+  std::unique_ptr<ScanTask> scan_task = internal::make_unique<SimpleScanTask>(batches);
+  std::vector<std::unique_ptr<ScanTask>> tasks;
+  tasks.emplace_back(std::move(scan_task));
+  *out = MakeVectorIterator(std::move(tasks));
+  return Status::OK();
+}
+
 ScannerBuilder::ScannerBuilder(std::shared_ptr<Dataset> dataset,
                                std::shared_ptr<ScanContext> scan_context)
-    : dataset_(std::move(dataset)), scan_context_(std::move(scan_context)) {}
+    : dataset_(std::move(dataset)),
+      scan_options_(ScanOptions::Defaults()),
+      scan_context_(std::move(scan_context)) {}
 
-ScannerBuilder* ScannerBuilder::Project(const std::vector<std::string>& columns) {
-  return this;
+Status EnsureColumnsInSchema(const std::shared_ptr<Schema>& schema,
+                             const std::vector<std::string>& columns) {
+  for (const auto& column : columns) {
+    if (schema->GetFieldByName(column) == nullptr) {
+      return Status::Invalid("Requested column ", column,
+                             " not found in dataset's schema.");
+    }
+  }
+
+  return Status::OK();
 }
 
-ScannerBuilder* ScannerBuilder::AddFilter(const std::shared_ptr<Filter>& filter) {
-  return this;
+Status ScannerBuilder::Project(const std::vector<std::string>& columns) {
+  RETURN_NOT_OK(EnsureColumnsInSchema(schema(), columns));
+  has_projection_ = true;
+  project_columns_ = columns;
+  return Status::OK();
 }
 
-ScannerBuilder* ScannerBuilder::SetGlobalFileOptions(
-    std::shared_ptr<FileScanOptions> options) {
-  return this;
+Status ScannerBuilder::Filter(std::shared_ptr<Expression> filter) {
+  RETURN_NOT_OK(EnsureColumnsInSchema(schema(), FieldsInExpression(*filter)));
+  scan_options_->filter = std::move(filter);
+  return Status::OK();
 }
 
-ScannerBuilder* ScannerBuilder::IncludePartitionKeys(bool include) {
-  include_partition_keys_ = include;
-  return this;
+Status ScannerBuilder::Filter(const Expression& filter) { return Filter(filter.Copy()); }
+
+std::shared_ptr<Schema> SchemaFromColumnNames(
+    const std::shared_ptr<Schema>& input, const std::vector<std::string>& column_names) {
+  std::vector<std::shared_ptr<Field>> columns;
+  for (const auto& name : column_names) {
+    columns.push_back(input->GetFieldByName(name));
+  }
+
+  return std::make_shared<Schema>(columns);
+}
+
+Status ScannerBuilder::UseThreads(bool use_threads) {
+  scan_options_->use_threads = use_threads;
+  return Status::OK();
 }
 
 Status ScannerBuilder::Finish(std::unique_ptr<Scanner>* out) const {
-  auto options = std::make_shared<ScanOptions>();
-  out->reset(new SimpleScanner(dataset_->sources(), options, scan_context_));
+  if (has_projection_ && !project_columns_.empty()) {
+    scan_options_->projector = std::make_shared<RecordBatchProjector>(
+        scan_context_->pool, SchemaFromColumnNames(schema(), project_columns_));
+  }
+
+  if (scan_options_->filter->Equals(true)) {
+    scan_options_->evaluator = ExpressionEvaluator::Null();
+  } else {
+    scan_options_->evaluator = std::make_shared<TreeEvaluator>(scan_context_->pool);
+  }
+
+  out->reset(new SimpleScanner(dataset_->sources(), scan_options_, scan_context_));
   return Status::OK();
+}
+
+using arrow::internal::TaskGroup;
+
+std::shared_ptr<TaskGroup> Scanner::TaskGroup() const {
+  return options_->use_threads ? TaskGroup::MakeThreaded(context_->thread_pool)
+                               : TaskGroup::MakeSerial();
+}
+
+struct TableAggregator {
+  void Append(std::shared_ptr<RecordBatch> batch) {
+    std::lock_guard<std::mutex> lock(m);
+    batches.emplace_back(std::move(batch));
+  }
+
+  Status Finish(std::shared_ptr<Table>* out) {
+    return Table::FromRecordBatches(batches, out);
+  }
+
+  std::mutex m;
+  std::vector<std::shared_ptr<RecordBatch>> batches;
+};
+
+struct ScanTaskPromise {
+  Status operator()() {
+    for (auto maybe_batch : task->Scan()) {
+      ARROW_ASSIGN_OR_RAISE(auto batch, std::move(maybe_batch));
+      aggregator.Append(std::move(batch));
+    }
+
+    return Status::OK();
+  }
+
+  TableAggregator& aggregator;
+  std::shared_ptr<ScanTask> task;
+};
+
+Status Scanner::ToTable(std::shared_ptr<Table>* out) {
+  auto task_group = TaskGroup();
+
+  TableAggregator aggregator;
+  for (auto maybe_scan_task : Scan()) {
+    ARROW_ASSIGN_OR_RAISE(auto scan_task, std::move(maybe_scan_task));
+    task_group->Append(ScanTaskPromise{aggregator, std::move(scan_task)});
+  }
+
+  // Wait for all tasks to complete, or the first error.
+  RETURN_NOT_OK(task_group->Finish());
+
+  return aggregator.Finish(out);
 }
 
 }  // namespace dataset

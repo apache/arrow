@@ -288,6 +288,37 @@ public class TestFixedSizeListVector {
     }
   }
 
+  @Test
+  public void testSplitAndTransfer() throws Exception {
+    try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", 3, allocator)) {
+
+      UnionFixedSizeListWriter writer1 = vector1.getWriter();
+      writer1.allocate();
+
+      int[] values1 = new int[] {1, 2, 3};
+      int[] values2 = new int[] {4, 5, 6};
+      int[] values3 = new int[] {7, 8, 9};
+
+      //set some values
+      writeListVector(writer1, values1);
+      writeListVector(writer1, values2);
+      writeListVector(writer1, values3);
+      writer1.setValueCount(3);
+
+      TransferPair transferPair = vector1.getTransferPair(allocator);
+      transferPair.splitAndTransfer(0, 2);
+      FixedSizeListVector targetVector = (FixedSizeListVector) transferPair.getTo();
+
+      assertEquals(2, targetVector.getValueCount());
+      int[] realValue1 = convertListToIntArray((JsonStringArrayList) targetVector.getObject(0));
+      assertTrue(Arrays.equals(values1, realValue1));
+      int[] realValue2 = convertListToIntArray((JsonStringArrayList) targetVector.getObject(1));
+      assertTrue(Arrays.equals(values2, realValue2));
+
+      targetVector.clear();
+    }
+  }
+
   private int[] convertListToIntArray(JsonStringArrayList list) {
     int[] values = new int[list.size()];
     for (int i = 0; i < list.size(); i++) {

@@ -130,6 +130,25 @@ struct CompareHelper<FLBAType, false> {
   }
 };
 
+template <typename T>
+T CleanStatistic(T val) {
+  return val;
+}
+
+template <>
+float CleanStatistic(float val) {
+  // ARROW-5562: Return positive 0 for -0 and any value within float epsilon of
+  // 0
+  return fabs(val) < 1E-7 ? 0.0f : val;
+}
+
+template <>
+double CleanStatistic(double val) {
+  // ARROW-5562: Return positive 0 for -0 and any value within double epsilon
+  // of 0
+  return fabs(val) < 1E-13 ? 0.0 : val;
+}
+
 template <bool is_signed, typename DType>
 class TypedComparatorImpl : virtual public TypedComparator<DType> {
  public:
@@ -153,8 +172,8 @@ class TypedComparatorImpl : virtual public TypedComparator<DType> {
         max = values[i];
       }
     }
-    *out_min = min;
-    *out_max = max;
+    *out_min = CleanStatistic<T>(min);
+    *out_max = CleanStatistic<T>(max);
   }
 
   void GetMinMaxSpaced(const T* values, int64_t length, const uint8_t* valid_bits,
@@ -182,8 +201,8 @@ class TypedComparatorImpl : virtual public TypedComparator<DType> {
       }
       valid_bits_reader.Next();
     }
-    *out_min = min;
-    *out_max = max;
+    *out_min = CleanStatistic<T>(min);
+    *out_max = CleanStatistic<T>(max);
   }
 
   void GetMinMax(const ::arrow::Array& values, T* out_min, T* out_max) override;

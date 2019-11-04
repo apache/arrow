@@ -45,6 +45,9 @@ public class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
    * Instantiate a BinaryConsumer.
    */
   public BinaryConsumer(VarBinaryVector vector, int index) {
+    if (vector != null) {
+      vector.allocateNewSafe();
+    }
     this.vector = vector;
     this.columnIndexInResultSet = index;
   }
@@ -97,6 +100,7 @@ public class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
   @Override
   public void resetValueVector(VarBinaryVector vector) {
     this.vector = vector;
+    this.vector.allocateNewSafe();
     this.currentIndex = 0;
   }
 }

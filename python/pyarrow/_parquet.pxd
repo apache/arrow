@@ -24,7 +24,7 @@ from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport (CChunkedArray, CSchema, CStatus,
                                         CTable, CMemoryPool, CBuffer,
                                         CKeyValueMetadata,
-                                        RandomAccessFile, OutputStream,
+                                        CRandomAccessFile, COutputStream,
                                         TimeUnit)
 
 
@@ -316,16 +316,19 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         unique_ptr[CRowGroupMetaData] RowGroup(int i)
         const SchemaDescriptor* schema()
         shared_ptr[const CKeyValueMetadata] key_value_metadata() const
-        void WriteTo(OutputStream* dst) const
+        void WriteTo(COutputStream* dst) const
 
     cdef shared_ptr[CFileMetaData] CFileMetaData_Make \
         " parquet::FileMetaData::Make"(const void* serialized_metadata,
                                        uint32_t* metadata_len)
 
-    cdef cppclass ReaderProperties:
-        pass
+    cdef cppclass CReaderProperties" parquet::ReaderProperties":
+        void enable_buffered_stream()
+        void disable_buffered_stream()
+        void set_buffer_size(int64_t buf_size)
+        int64_t buffer_size() const
 
-    ReaderProperties default_reader_properties()
+    CReaderProperties default_reader_properties()
 
     cdef cppclass ArrowReaderProperties:
         ArrowReaderProperties()
@@ -347,6 +350,9 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* compression(ParquetCompression codec)
             Builder* compression(const c_string& path,
                                  ParquetCompression codec)
+            Builder* compression_level(int compression_level)
+            Builder* compression_level(const c_string& path,
+                                       int compression_level)
             Builder* disable_dictionary()
             Builder* enable_dictionary()
             Builder* enable_dictionary(const c_string& path)
@@ -400,8 +406,8 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
 
     cdef cppclass FileReaderBuilder:
         FileReaderBuilder()
-        CStatus Open(const shared_ptr[RandomAccessFile]& file,
-                     const ReaderProperties& properties,
+        CStatus Open(const shared_ptr[CRandomAccessFile]& file,
+                     const CReaderProperties& properties,
                      const shared_ptr[CFileMetaData]& metadata)
 
         ParquetFileReader* raw_reader()
@@ -429,7 +435,7 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
 
         @staticmethod
         CStatus Open(const CSchema& schema, CMemoryPool* pool,
-                     const shared_ptr[OutputStream]& sink,
+                     const shared_ptr[COutputStream]& sink,
                      const shared_ptr[WriterProperties]& properties,
                      const shared_ptr[ArrowWriterProperties]& arrow_properties,
                      unique_ptr[FileWriter]* writer)
@@ -442,4 +448,4 @@ cdef extern from "parquet/arrow/writer.h" namespace "parquet::arrow" nogil:
 
     CStatus WriteMetaDataFile(
         const CFileMetaData& file_metadata,
-        const OutputStream* sink)
+        const COutputStream* sink)

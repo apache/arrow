@@ -64,7 +64,7 @@ public final class VectorSearcher {
 
   /**
    * Search for a particular element from the key vector in the target vector by traversing the vector in sequence.
-   * @param targetVector the vector from which to perform the sort.
+   * @param targetVector the vector from which to perform the search.
    * @param comparator the criterion for element equality.
    * @param keyVector the vector containing the element to search.
    * @param keyIndex the index of the search key in the key vector.

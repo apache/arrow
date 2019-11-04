@@ -26,13 +26,13 @@ test_that("Array", {
   y <- x$Slice(10)
   expect_equal(y$type, int32())
   expect_equal(length(y), 15L)
-  expect_equal(y$as_vector(), c(1:10, 1:5))
+  expect_vector(y, c(1:10, 1:5))
   expect_true(x$RangeEquals(y, 10, 24, 0))
 
   z <- x$Slice(10, 5)
   expect_equal(z$type, int32())
   expect_equal(z$length(), 5L)
-  expect_equal(z$as_vector(), c(1:5))
+  expect_vector(z, c(1:5))
   expect_true(x$RangeEquals(z, 10, 15, 0))
 
   x_dbl <- Array$create(c(1,2,3,4,5,6))
@@ -50,6 +50,11 @@ test_that("Array", {
   expect_equal(z_dbl$type, float64())
   expect_equal(z_dbl$length(), 2L)
   expect_equal(z_dbl$as_vector(), as.numeric(4:5))
+})
+
+test_that("Array print method includes type", {
+  x <- Array$create(c(1:10, 1:10, 1:5))
+  expect_output(print(x), "Array\n<int32>\n[\n", fixed = TRUE)
 })
 
 test_that("Array supports NA", {
@@ -257,7 +262,7 @@ test_that("array supports integer64", {
   expect_true(a$IsNull(3L))
 })
 
-test_that("array$as_vector() correctly handles all NA inte64 (ARROW-3795)", {
+test_that("array$as_vector() correctly handles all NA int64 (ARROW-3795)", {
   x <- bit64::as.integer64(NA)
   a <- Array$create(x)
   expect_true(is.na(a$as_vector()))
@@ -444,4 +449,70 @@ test_that("Array$create() can handle data frame with custom struct type (not inf
 
   type <- struct(x = float64(), y = utf8())
   expect_error(Array$create(df, type = type), regexp = "Cannot convert R object to string array")
+})
+
+test_that("Array$View() (ARROW-6542)", {
+  a <- Array$create(1:3)
+  b <- a$View(float32())
+  expect_equal(b$type, float32())
+  expect_equal(length(b), 3L)
+})
+
+test_that("Array$Validate()", {
+  a <- Array$create(1:10)
+  expect_error(a$Validate(), NA)
+})
+
+test_that("is.Array", {
+  a <- Array$create(1, type = int32())
+  expect_true(is.Array(a))
+  expect_true(is.Array(a, "int32"))
+  expect_true(is.Array(a, c("int32", "int16")))
+  expect_false(is.Array(a, "utf8"))
+  expect_true(is.Array(a$View(float32())), "float32")
+  expect_false(is.Array(1))
+  expect_true(is.Array(ChunkedArray$create(1, 2)))
+})
+
+test_that("Array$Take()", {
+  a <- Array$create(10:20)
+  expect_equal(as.vector(a$Take(c(4, 2))), c(14, 12))
+})
+
+test_that("[ method on Array", {
+  vec <- 11:20
+  a <- Array$create(vec)
+  expect_vector(a[5:9], vec[5:9])
+  expect_vector(a[c(9, 3, 5)], vec[c(9, 3, 5)])
+  expect_vector(a[rep(c(TRUE, FALSE), 5)], vec[c(1, 3, 5, 7, 9)])
+  expect_vector(a[-4], vec[-4])
+  expect_vector(a[-1], vec[-1])
+})
+
+test_that("[ accepts Arrays and otherwise handles bad input", {
+  vec <- 11:20
+  a <- Array$create(vec)
+  ind <- c(9, 3, 5)
+  expect_error(
+    a[Array$create(ind)],
+    "Cannot extract rows with an Array of type double"
+  )
+  expect_vector(a[Array$create(ind - 1, type = int8())], vec[ind])
+  expect_vector(a[Array$create(ind - 1, type = uint8())], vec[ind])
+  expect_vector(a[ChunkedArray$create(8, 2, 4, type = uint8())], vec[ind])
+
+  filt <- seq_along(vec) %in% ind
+  expect_vector(a[Array$create(filt)], vec[filt])
+
+  expect_error(
+    a["string"],
+    "Cannot extract rows with an object of class character"
+  )
+})
+
+test_that("[ accepts Expressions", {
+  vec <- 11:20
+  a <- Array$create(vec)
+  b <- Array$create(1:10)
+  expect_vector(a[b > 4], vec[5:10])
 })

@@ -16,7 +16,9 @@
 # under the License.
 
 #' @include arrow-package.R
-#' @title class arrow::Field
+#' @title Field class
+#' @usage NULL
+#' @format NULL
 #' @docType class
 #' @description `field()` lets you create an `arrow::Field` that maps a
 #' [DataType][data-type] to a column name. Fields are contained in
@@ -32,7 +34,7 @@
 Field <- R6Class("Field", inherit = Object,
   public = list(
     ToString = function() {
-      Field__ToString(self)
+      prettier_dictionary_type(Field__ToString(self))
     },
     Equals = function(other) {
       inherits(other, "Field") && Field__Equals(self, other)
@@ -63,11 +65,6 @@ Field$create <- function(name, type, metadata) {
   }
   assert_that(missing(metadata), msg = "metadata= is currently ignored")
   shared_ptr(Field, Field__initialize(name, type, TRUE))
-}
-
-#' @export
-`==.Field` <- function(lhs, rhs){
-  lhs$Equals(rhs)
 }
 
 #' @param name field name

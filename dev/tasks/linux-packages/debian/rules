@@ -21,11 +21,6 @@ override_dh_auto_configure:
 	  ARROW_CUDA=OFF;					\
 	  ARROW_PLASMA=OFF;					\
 	fi;							\
-	if dpkg -l clang-7 > /dev/null 2>&1; then		\
-	  ARROW_GANDIVA=ON;					\
-	else							\
-	  ARROW_GANDIVA=OFF;					\
-	fi;							\
 	if dpkg -l libprotobuf-dev > /dev/null 2>&1; then	\
 	  cpp_build_system=cmake+ninja;				\
 	else							\
@@ -36,16 +31,21 @@ override_dh_auto_configure:
 	  --builddirectory=cpp_build				\
 	  --buildsystem=$${cpp_build_system}			\
 	  --							\
-	  -DARROW_BUILD_TESTS=OFF				\
 	  -DARROW_CUDA=$${ARROW_CUDA}				\
 	  -DARROW_FLIGHT=ON					\
-	  -DARROW_GANDIVA=$${ARROW_GANDIVA}			\
+	  -DARROW_GANDIVA=ON					\
 	  -DARROW_GANDIVA_JAVA=OFF				\
 	  -DARROW_ORC=ON					\
 	  -DARROW_PARQUET=ON					\
-	  -DARROW_PLASMA=$${ARROW_GANDIVA}			\
+	  -DARROW_PLASMA=$${ARROW_PLASMA}			\
 	  -DARROW_PYTHON=ON					\
 	  -DARROW_VERBOSE_THIRDPARTY_BUILD=ON			\
+	  -DARROW_WITH_BROTLI=ON				\
+	  -DARROW_WITH_BZ2=ON					\
+	  -DARROW_WITH_LZ4=ON					\
+	  -DARROW_WITH_SNAPPY=ON				\
+	  -DARROW_WITH_ZLIB=ON					\
+	  -DARROW_WITH_ZSTD=ON					\
 	  -DCMAKE_BUILD_TYPE=$(BUILD_TYPE)			\
 	  -DPythonInterp_FIND_VERSION=ON			\
 	  -DPythonInterp_FIND_VERSION_MAJOR=3
@@ -60,7 +60,7 @@ override_dh_auto_build:
 	  --buildsystem=meson+ninja			\
 	  --						\
 	  -Darrow_cpp_build_type=$(BUILD_TYPE)		\
-	  -Darrow_cpp_build_dir=$(CURDIR)/cpp_build	\
+	  -Darrow_cpp_build_dir=../cpp_build		\
 	  -Dgtk_doc=true
 	env							\
 	  LD_LIBRARY_PATH=$(CURDIR)/cpp_build/$(BUILD_TYPE)	\

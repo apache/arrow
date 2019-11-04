@@ -7,6 +7,8 @@
 
 set -xeo pipefail
 
+build_dir=${1}
+
 THISDIR="$( cd "$( dirname "$0" )" >/dev/null && pwd )"
 ARROW_ROOT=$(cd "$THISDIR/../../.."; pwd;)
 FEEDSTOCK_ROOT=$THISDIR
@@ -22,8 +24,6 @@ export HOST_USER_ID=$(id -u)
 if hash docker-machine 2> /dev/null && docker-machine active > /dev/null; then
     export HOST_USER_ID=$(docker-machine ssh $(docker-machine active) id -u)
 fi
-
-ARTIFACTS="$FEEDSTOCK_ROOT/build_artifacts"
 
 if [ -z "$CONFIG" ]; then
     set +x
@@ -46,8 +46,8 @@ if [ -z "${DOCKER_IMAGE}" ]; then
     fi
 fi
 
-mkdir -p "$ARTIFACTS"
-DONE_CANARY="$ARTIFACTS/conda-forge-build-done-${CONFIG}"
+mkdir -p "${build_dir}"
+DONE_CANARY="${build_dir}/conda-forge-build-done-${CONFIG}"
 rm -f "$DONE_CANARY"
 
 if [ -z "${CI}" ]; then
@@ -58,6 +58,7 @@ export UPLOAD_PACKAGES="${UPLOAD_PACKAGES:-True}"
 docker run ${DOCKER_RUN_ARGS} \
            --shm-size=2G \
            -v "${ARROW_ROOT}":/arrow:rw,z \
+           -v "${build_dir}":/build:rw \
            -e FEEDSTOCK_ROOT="/arrow/dev/tasks/conda-recipes" \
            -e CONFIG \
            -e HOST_USER_ID \
@@ -65,7 +66,7 @@ docker run ${DOCKER_RUN_ARGS} \
            -e ARROW_VERSION \
            -e CI \
            $DOCKER_IMAGE \
-           bash /arrow/dev/tasks/conda-recipes/build_steps.sh
+           bash /arrow/dev/tasks/conda-recipes/build_steps.sh /build
 
 # verify that the end of the script was reached
 test -f "$DONE_CANARY"

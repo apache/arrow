@@ -48,13 +48,13 @@
 
 #include "arrow/python/common.h"
 #include "arrow/python/config.h"
+#include "arrow/python/datetime.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/iterators.h"
 #include "arrow/python/numpy_convert.h"
 #include "arrow/python/numpy_internal.h"
 #include "arrow/python/python_to_arrow.h"
 #include "arrow/python/type_traits.h"
-#include "arrow/python/util/datetime.h"
 
 namespace arrow {
 
@@ -125,7 +125,7 @@ class NumPyNullsConverter {
 
     const bool null_sentinels_possible =
         // Always treat Numpy's NaT as null
-        TYPE == NPY_DATETIME ||
+        TYPE == NPY_DATETIME || TYPE == NPY_TIMEDELTA ||
         // Observing pandas's null sentinels
         (from_pandas_ && traits::supports_nulls);
 
@@ -218,6 +218,7 @@ class NumPyConverter {
   Status Visit(const TimestampType& type) { return VisitNative<TimestampType>(); }
   Status Visit(const Time32Type& type) { return VisitNative<Int32Type>(); }
   Status Visit(const Time64Type& type) { return VisitNative<Int64Type>(); }
+  Status Visit(const DurationType& type) { return VisitNative<DurationType>(); }
 
   Status Visit(const NullType& type) { return TypeNotImplemented(type.ToString()); }
 

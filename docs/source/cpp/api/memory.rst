@@ -39,6 +39,15 @@ Memory Pools
 .. doxygenfunction:: arrow::default_memory_pool
    :project: arrow_cpp
 
+.. doxygenfunction:: arrow::jemalloc_memory_pool
+   :project: arrow_cpp
+
+.. doxygenfunction:: arrow::mimalloc_memory_pool
+   :project: arrow_cpp
+
+.. doxygenfunction:: arrow::system_memory_pool
+   :project: arrow_cpp
+
 .. doxygenclass:: arrow::MemoryPool
    :project: arrow_cpp
    :members:
@@ -81,10 +90,10 @@ Buffer Builders
 STL Integration
 ---------------
 
-.. doxygenclass:: arrow::stl_allocator
+.. doxygenclass:: arrow::stl::allocator
    :project: arrow_cpp
    :members:
 
-.. doxygenclass:: arrow::STLMemoryPool
+.. doxygenclass:: arrow::stl::STLMemoryPool
    :project: arrow_cpp
    :members:

@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
@@ -161,11 +162,15 @@ public abstract class ArrowWriter implements AutoCloseable {
     if (!dictWritten) {
       dictWritten = true;
       // write out any dictionaries
-      for (ArrowDictionaryBatch batch : dictionaries) {
-        try {
+      try {
+        for (ArrowDictionaryBatch batch : dictionaries) {
           writeDictionaryBatch(batch);
-        } finally {
-          batch.close();
+        }
+      } finally {
+        try {
+          AutoCloseables.close(dictionaries);
+        } catch (Exception e) {
+          throw new RuntimeException("Error occurred while closing dictionaries.", e);
         }
       }
     }
@@ -189,7 +194,10 @@ public abstract class ArrowWriter implements AutoCloseable {
     try {
       end();
       out.close();
-    } catch (IOException e) {
+      if (!dictWritten) {
+        AutoCloseables.close(dictionaries);
+      }
+    } catch (Exception e) {
       throw new RuntimeException(e);
     }
   }

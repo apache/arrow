@@ -358,8 +358,10 @@ if(PYARROW_BUNDLE_ARROW_CPP)
   endif()
 
   if(MSVC)
+    find_package(ZLIB)
     bundle_arrow_implib(ARROW_SHARED_IMP_LIB)
     bundle_arrow_implib(ARROW_PYTHON_SHARED_IMP_LIB)
+    bundle_arrow_dependency(zlib zlib.dll)
   endif()
 endif()
 
@@ -379,9 +381,13 @@ if(UNIX)
   set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
 endif()
 
-set(CYTHON_EXTENSIONS lib _csv _json)
+set(CYTHON_EXTENSIONS lib _fs _csv _json)
 
 set(LINK_LIBS arrow_shared arrow_python_shared)
+
+if(PYARROW_BUILD_S3)
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _s3fs)
+endif()
 
 if(PYARROW_BUILD_CUDA)
   # Arrow CUDA
@@ -404,7 +410,7 @@ if(PYARROW_BUILD_CUDA)
     else()
       add_thirdparty_lib(arrow_cuda SHARED_LIB ${ARROW_CUDA_SHARED_LIB})
     endif()
-    set(LINK_LIBS ${LINK_LIBS} arrow_cuda_shared)
+    set(CUDA_LINK_LIBS arrow_cuda_shared)
     set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _cuda)
   endif()
 endif()
@@ -439,7 +445,7 @@ if(PYARROW_BUILD_PARQUET)
     else()
       add_thirdparty_lib(parquet SHARED_LIB ${PARQUET_SHARED_LIB})
     endif()
-    set(LINK_LIBS ${LINK_LIBS} parquet_shared)
+    set(PARQUET_LINK_LIBS parquet_shared)
   else()
     find_package(Thrift)
     if(PYARROW_BOOST_USE_SHARED)
@@ -451,7 +457,7 @@ if(PYARROW_BUILD_PARQUET)
     add_thirdparty_lib(boost_regex STATIC_LIB ${Boost_REGEX_LIBRARY_RELEASE})
     add_thirdparty_lib(parquet STATIC_LIB ${PARQUET_STATIC_LIB})
     add_thirdparty_lib(thrift STATIC_LIB ${THRIFT_STATIC_LIB})
-    set(LINK_LIBS ${LINK_LIBS} parquet_static thrift_static boost_regex_static)
+    set(PARQUET_LINK_LIBS parquet_static thrift_static boost_regex_static)
   endif()
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _parquet)
 endif()
@@ -477,8 +483,7 @@ if(PYARROW_BUILD_PLASMA)
                      SO_VERSION
                      ${ARROW_SO_VERSION})
   endif()
-  set(LINK_LIBS ${LINK_LIBS} libplasma_shared)
-
+  set(PLASMA_LINK_LIBS libplasma_shared)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _plasma)
   file(COPY ${PLASMA_EXECUTABLE} DESTINATION ${BUILD_OUTPUT_ROOT_DIRECTORY})
 endif()
@@ -492,7 +497,7 @@ endif()
 if(PYARROW_BUILD_FLIGHT)
   # Arrow Flight
   find_package(ArrowFlight)
-  if(NOT ARROW_FLIGHT_FOUND)
+  if(NOT ARROW_PYTHON_FLIGHT_FOUND)
     message(FATAL_ERROR "Unable to locate Arrow Flight libraries")
   else()
     if(PYARROW_BUNDLE_ARROW_CPP)
@@ -501,8 +506,14 @@ if(PYARROW_BUILD_FLIGHT)
                        ${ARROW_ABI_VERSION}
                        SO_VERSION
                        ${ARROW_SO_VERSION})
+      bundle_arrow_lib(ARROW_PYTHON_FLIGHT_SHARED_LIB
+                       ABI_VERSION
+                       ${ARROW_ABI_VERSION}
+                       SO_VERSION
+                       ${ARROW_SO_VERSION})
       if(MSVC)
         bundle_arrow_implib(ARROW_FLIGHT_SHARED_IMP_LIB)
+        bundle_arrow_implib(ARROW_PYTHON_FLIGHT_SHARED_IMP_LIB)
         bundle_arrow_dependency(cares cares.dll)
         bundle_arrow_dependency(libprotobuf libprotobuf.dll)
         # XXX Hardcoded library names because CMake is too stupid to give us
@@ -514,10 +525,13 @@ if(PYARROW_BUILD_FLIGHT)
     endif()
     if(MSVC)
       add_thirdparty_lib(arrow_flight SHARED_LIB ${ARROW_FLIGHT_SHARED_IMP_LIB})
+      add_thirdparty_lib(arrow_python_flight SHARED_LIB
+                         ${ARROW_PYTHON_FLIGHT_SHARED_IMP_LIB})
     else()
       add_thirdparty_lib(arrow_flight SHARED_LIB ${ARROW_FLIGHT_SHARED_LIB})
+      add_thirdparty_lib(arrow_python_flight SHARED_LIB ${ARROW_PYTHON_FLIGHT_SHARED_LIB})
     endif()
-    set(LINK_LIBS ${LINK_LIBS} arrow_flight_shared)
+    set(FLIGHT_LINK_LIBS arrow_flight_shared arrow_python_flight_shared)
     set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _flight)
   endif()
 endif()
@@ -553,7 +567,7 @@ if(PYARROW_BUILD_GANDIVA)
     add_thirdparty_lib(gandiva SHARED_LIB ${GANDIVA_SHARED_LIB})
   endif()
 
-  set(LINK_LIBS ${LINK_LIBS} gandiva_shared)
+  set(GANDIVA_LINK_LIBS gandiva_shared)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} gandiva)
 endif()
 
@@ -616,3 +630,25 @@ foreach(module ${CYTHON_EXTENSIONS})
 
   # Generated files will be moved to the right directory by setup.py.
 endforeach(module)
+
+# Additional link libraries
+
+if(PYARROW_BUILD_CUDA)
+  target_link_libraries(_cuda ${CUDA_LINK_LIBS})
+endif()
+
+if(PYARROW_BUILD_FLIGHT)
+  target_link_libraries(_flight ${FLIGHT_LINK_LIBS})
+endif()
+
+if(PYARROW_BUILD_GANDIVA)
+  target_link_libraries(gandiva ${GANDIVA_LINK_LIBS})
+endif()
+
+if(PYARROW_BUILD_PARQUET)
+  target_link_libraries(_parquet ${PARQUET_LINK_LIBS})
+endif()
+
+if(PYARROW_BUILD_PLASMA)
+  target_link_libraries(_plasma ${PLASMA_LINK_LIBS})
+endif()

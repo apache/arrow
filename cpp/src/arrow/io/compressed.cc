@@ -261,7 +261,6 @@ class CompressedInputStream::Impl {
   }
 
   Status Close() {
-    std::lock_guard<std::mutex> guard(lock_);
     if (is_open_) {
       is_open_ = false;
       return raw_->Close();
@@ -271,7 +270,6 @@ class CompressedInputStream::Impl {
   }
 
   Status Abort() {
-    std::lock_guard<std::mutex> guard(lock_);
     if (is_open_) {
       is_open_ = false;
       return raw_->Abort();
@@ -280,13 +278,9 @@ class CompressedInputStream::Impl {
     }
   }
 
-  bool closed() {
-    std::lock_guard<std::mutex> guard(lock_);
-    return !is_open_;
-  }
+  bool closed() { return !is_open_; }
 
   Status Tell(int64_t* position) const {
-    std::lock_guard<std::mutex> guard(lock_);
     *position = total_pos_;
     return Status::OK();
   }
@@ -383,8 +377,6 @@ class CompressedInputStream::Impl {
   }
 
   Status Read(int64_t nbytes, int64_t* bytes_read, void* out) {
-    std::lock_guard<std::mutex> guard(lock_);
-
     auto out_data = reinterpret_cast<uint8_t*>(out);
 
     int64_t total_read = 0;
@@ -439,8 +431,6 @@ class CompressedInputStream::Impl {
   bool fresh_decompressor_;
   // Total number of bytes decompressed
   int64_t total_pos_;
-
-  mutable std::mutex lock_;
 };
 
 Status CompressedInputStream::Make(Codec* codec, const std::shared_ptr<InputStream>& raw,
@@ -461,21 +451,21 @@ Status CompressedInputStream::Make(MemoryPool* pool, Codec* codec,
 
 CompressedInputStream::~CompressedInputStream() { internal::CloseFromDestructor(this); }
 
-Status CompressedInputStream::Close() { return impl_->Close(); }
+Status CompressedInputStream::DoClose() { return impl_->Close(); }
 
-Status CompressedInputStream::Abort() { return impl_->Abort(); }
+Status CompressedInputStream::DoAbort() { return impl_->Abort(); }
 
 bool CompressedInputStream::closed() const { return impl_->closed(); }
 
-Status CompressedInputStream::Tell(int64_t* position) const {
+Status CompressedInputStream::DoTell(int64_t* position) const {
   return impl_->Tell(position);
 }
 
-Status CompressedInputStream::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
+Status CompressedInputStream::DoRead(int64_t nbytes, int64_t* bytes_read, void* out) {
   return impl_->Read(nbytes, bytes_read, out);
 }
 
-Status CompressedInputStream::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+Status CompressedInputStream::DoRead(int64_t nbytes, std::shared_ptr<Buffer>* out) {
   return impl_->Read(nbytes, out);
 }
 

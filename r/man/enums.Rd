@@ -10,6 +10,8 @@
 \alias{FileMode}
 \alias{MessageType}
 \alias{CompressionType}
+\alias{FileType}
+\alias{ParquetVersionType}
 \title{Arrow enums}
 \format{An object of class \code{TimeUnit::type} (inherits from \code{arrow-enum}) of length 4.}
 \usage{
@@ -26,6 +28,10 @@ FileMode
 MessageType
 
 CompressionType
+
+FileType
+
+ParquetVersionType
 }
 \description{
 Arrow enums

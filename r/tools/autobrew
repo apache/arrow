@@ -19,7 +19,7 @@
 export HOMEBREW_NO_ANALYTICS=1
 export HOMEBREW_NO_AUTO_UPDATE=1
 
-# Offical Homebrew formula can't be statically linked
+# Offical Homebrew no longer supports El-Capitan
 UPSTREAM_ORG="autobrew"
 
 if [ "$DISABLE_AUTOBREW" ]; then return 0; fi
@@ -29,18 +29,19 @@ BREWDIR="$AUTOBREW/build-$PKG_BREW_NAME"
 BREW="$BREWDIR/bin/brew"
 rm -Rf $BREWDIR
 mkdir -p $BREWDIR
-echo "Auto-brewing $PKG_BREW_NAME in $BREWDIR..."
+echo "$(date): Auto-brewing $PKG_BREW_NAME in $BREWDIR..."
 curl -fsSL https://github.com/$UPSTREAM_ORG/brew/tarball/master | tar xz --strip 1 -C $BREWDIR
 
 # Install bottle + dependencies
+export HOMEBREW_CACHE="$AUTOBREW"
 if [ -f "./${PKG_BREW_NAME}.rb" ]; then
   # Use the local brew formula and install --HEAD
   $BREW deps -n "./${PKG_BREW_NAME}.rb" 2>/dev/null
   BREW_DEPS=$($BREW deps -n "./${PKG_BREW_NAME}.rb" 2>/dev/null)
-  HOMEBREW_CACHE="$AUTOBREW" $BREW install --force-bottle $BREW_DEPS 2>&1 | perl -pe 's/Warning/Note/gi'
-  HOMEBREW_CACHE="$AUTOBREW" $BREW install --build-from-source --HEAD "./${PKG_BREW_NAME}.rb" 2>&1 | perl -pe 's/Warning/Note/gi'
+  $BREW install --force-bottle $BREW_DEPS 2>&1 | perl -pe 's/Warning/Note/gi'
+  $BREW install --build-from-source --HEAD "./${PKG_BREW_NAME}.rb" 2>&1 | perl -pe 's/Warning/Note/gi'
 else
-  HOMEBREW_CACHE="$AUTOBREW" $BREW install --force-bottle $BREW_DEPS $PKG_BREW_NAME 2>&1 | perl -pe 's/Warning/Note/gi'
+  $BREW install --force-bottle $BREW_DEPS $PKG_BREW_NAME 2>&1 | perl -pe 's/Warning/Note/gi'
 fi
 
 # Hardcode this for my custom autobrew build
