@@ -17,7 +17,7 @@
 #
 # This module sets the following variables in your project::
 #
-#   arrow_FOUND - true if arrow found on the system
+#   Arrow_FOUND - true if arrow found on the system
 
 @PACKAGE_INIT@
 
