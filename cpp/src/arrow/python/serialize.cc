@@ -156,24 +156,24 @@ class SequenceBuilder {
     return tensor_indices_->Append(tensor_index);
   }
 
-  // Appending a sparse tensor coo to the sequence
+  // Appending a sparse coo tensor to the sequence
   //
-  // \param sparse_tensor_coo_index Index of the sparse tensor coo in the object.
-  Status AppendSparseTensorCOO(const int32_t sparse_tensor_coo_index) {
-    RETURN_NOT_OK(CreateAndUpdate(&sparse_tensor_coo_indices_,
-                                  PythonType::SPARSETENSORCOO,
+  // \param sparse_coo_tensor_index Index of the sparse coo tensor in the object.
+  Status AppendSparseCOOTensor(const int32_t sparse_coo_tensor_index) {
+    RETURN_NOT_OK(CreateAndUpdate(&sparse_coo_tensor_indices_,
+                                  PythonType::SPARSECOOTENSOR,
                                   [this]() { return new Int32Builder(pool_); }));
-    return sparse_tensor_coo_indices_->Append(sparse_tensor_coo_index);
+    return sparse_coo_tensor_indices_->Append(sparse_coo_tensor_index);
   }
 
-  // Appending a sparse tensor csr to the sequence
+  // Appending a sparse csr matrix to the sequence
   //
-  // \param sparse_tensor_csr_index Index of the sparse tensor csr in the object.
-  Status AppendSparseTensorCSR(const int32_t sparse_tensor_csr_index) {
-    RETURN_NOT_OK(CreateAndUpdate(&sparse_tensor_csr_indices_,
-                                  PythonType::SPARSETENSORCSR,
+  // \param sparse_csr_matrix_index Index of the sparse csr matrix in the object.
+  Status AppendSparseCSRMatrix(const int32_t sparse_csr_matrix_index) {
+    RETURN_NOT_OK(CreateAndUpdate(&sparse_csr_matrix_indices_,
+                                  PythonType::SPARSECSRMATRIX,
                                   [this]() { return new Int32Builder(pool_); }));
-    return sparse_tensor_csr_indices_->Append(sparse_tensor_csr_index);
+    return sparse_csr_matrix_indices_->Append(sparse_csr_matrix_index);
   }
 
   // Appending a numpy ndarray to the sequence
@@ -270,8 +270,8 @@ class SequenceBuilder {
   std::shared_ptr<ListBuilder> sets_;
 
   std::shared_ptr<Int32Builder> tensor_indices_;
-  std::shared_ptr<Int32Builder> sparse_tensor_coo_indices_;
-  std::shared_ptr<Int32Builder> sparse_tensor_csr_indices_;
+  std::shared_ptr<Int32Builder> sparse_coo_tensor_indices_;
+  std::shared_ptr<Int32Builder> sparse_csr_matrix_indices_;
   std::shared_ptr<Int32Builder> ndarray_indices_;
   std::shared_ptr<Int32Builder> buffer_indices_;
 
@@ -502,18 +502,18 @@ Status Append(PyObject* context, PyObject* elem, SequenceBuilder* builder,
     std::shared_ptr<Tensor> tensor;
     RETURN_NOT_OK(unwrap_tensor(elem, &tensor));
     blobs_out->tensors.push_back(tensor);
-  } else if (is_sparse_tensor_coo(elem)) {
-    RETURN_NOT_OK(builder->AppendSparseTensorCOO(
+  } else if (is_sparse_coo_tensor(elem)) {
+    RETURN_NOT_OK(builder->AppendSparseCOOTensor(
         static_cast<int32_t>(blobs_out->sparse_tensors.size())));
-    std::shared_ptr<SparseTensorCOO> sparse_tensor_coo;
-    RETURN_NOT_OK(unwrap_sparse_tensor_coo(elem, &sparse_tensor_coo));
-    blobs_out->sparse_tensors.push_back(sparse_tensor_coo);
-  } else if (is_sparse_tensor_csr(elem)) {
-    RETURN_NOT_OK(builder->AppendSparseTensorCSR(
+    std::shared_ptr<SparseCOOTensor> sparse_coo_tensor;
+    RETURN_NOT_OK(unwrap_sparse_coo_tensor(elem, &sparse_coo_tensor));
+    blobs_out->sparse_tensors.push_back(sparse_coo_tensor);
+  } else if (is_sparse_csr_matrix(elem)) {
+    RETURN_NOT_OK(builder->AppendSparseCSRMatrix(
         static_cast<int32_t>(blobs_out->sparse_tensors.size())));
-    std::shared_ptr<SparseTensorCSR> sparse_tensor_csr;
-    RETURN_NOT_OK(unwrap_sparse_tensor_csr(elem, &sparse_tensor_csr));
-    blobs_out->sparse_tensors.push_back(sparse_tensor_csr);
+    std::shared_ptr<SparseCSRMatrix> sparse_csr_matrix;
+    RETURN_NOT_OK(unwrap_sparse_csr_matrix(elem, &sparse_csr_matrix));
+    blobs_out->sparse_tensors.push_back(sparse_csr_matrix);
   } else {
     // Attempt to serialize the object using the custom callback.
     PyObject* serialized_object;

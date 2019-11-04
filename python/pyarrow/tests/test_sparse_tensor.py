@@ -54,7 +54,7 @@ def test_sparse_tensor_attrs(sparse_tensor_type):
         [3, 0, 0, 0, 0, 0],
         [0, 0, 0, 0, 4, 6],
     ])
-    dim_names = ['x', 'y']
+    dim_names = ('x', 'y')
     sparse_tensor = sparse_tensor_type.from_dense_numpy(data, dim_names)
 
     assert sparse_tensor.ndim == 2
@@ -207,11 +207,12 @@ def test_sparse_csr_matrix_from_dense(dtype_str, arrow_type):
 def test_sparse_coo_tensor_numpy_roundtrip(dtype_str, arrow_type):
     dtype = np.dtype(dtype_str)
     data = np.array([[1, 2, 3, 4, 5, 6, 7]]).T.astype(dtype)
-    row = np.array([0, 0, 2, 3, 1, 3, 0])
-    col = np.array([0, 2, 0, 4, 5, 5, 0])
-    coords = np.vstack([row, col]).T
+    coords = np.array([
+        [0, 0, 2, 3, 1, 3, 0],
+        [0, 2, 0, 4, 5, 5, 0],
+    ]).T
     shape = (4, 6)
-    dim_names = ["x", "y"]
+    dim_names = ('x', 'y')
 
     sparse_tensor = pa.SparseCOOTensor.from_numpy(data, coords, shape,
                                                   dim_names)
@@ -230,7 +231,7 @@ def test_sparse_csr_matrix_numpy_roundtrip(dtype_str, arrow_type):
     indptr = np.array([0, 2, 3, 4, 6])
     indices = np.array([0, 2, 5, 0, 4, 5])
     shape = (4, 6)
-    dim_names = ["x", "y"]
+    dim_names = ('x', 'y')
 
     sparse_tensor = pa.SparseCSRMatrix.from_numpy(data, indptr, indices,
                                                   shape, dim_names)
@@ -254,13 +255,15 @@ def test_dense_to_sparse_tensor(dtype_str, arrow_type, sparse_tensor_type):
                       [0, 7, 0, 0],
                       [0, 0, 0, 0],
                       [0, 0, 0, 5]]).astype(dtype)
+    dim_names = ('x', 'y')
 
-    sparse_tensor = sparse_tensor_type.from_dense_numpy(array)
+    sparse_tensor = sparse_tensor_type.from_dense_numpy(array, dim_names)
     tensor = sparse_tensor.to_tensor()
     result_array = tensor.to_numpy()
 
     assert sparse_tensor.type == arrow_type
     assert tensor.type == arrow_type
+    assert sparse_tensor.dim_names == dim_names
     assert np.array_equal(array, result_array)
 
 
@@ -272,7 +275,7 @@ def test_sparse_coo_tensor_scipy_roundtrip(dtype_str, arrow_type):
     row = np.array([0, 0, 2, 3, 1, 3, 0])
     col = np.array([0, 2, 0, 4, 5, 5, 0])
     shape = (4, 6)
-    dim_names = ["x", "y"]
+    dim_names = ('x', 'y')
 
     sparse_array = coo_matrix((data, (row, col)), shape=shape)
     sparse_tensor = pa.SparseCOOTensor.from_scipy(sparse_array,
@@ -295,7 +298,7 @@ def test_sparse_csr_matrix_scipy_roundtrip(dtype_str, arrow_type):
     indptr = np.array([0, 2, 3, 4, 6])
     indices = np.array([0, 2, 5, 0, 4, 5])
     shape = (4, 6)
-    dim_names = ["x", "y"]
+    dim_names = ('x', 'y')
 
     sparse_array = csr_matrix((data, indices, indptr), shape=shape)
     sparse_tensor = pa.SparseCSRMatrix.from_scipy(sparse_array,

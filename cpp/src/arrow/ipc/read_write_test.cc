@@ -1155,6 +1155,16 @@ class TestSparseTensorRoundTrip : public ::testing::Test, public IpcTestFixture 
   void CheckSparseTensorRoundTrip(const SparseCSRMatrix& sparse_tensor);
 
  protected:
+  std::shared_ptr<SparseCOOIndex> MakeSparseCOOIndex(
+      const std::vector<int64_t>& coords_shape,
+      const std::vector<int64_t>& coords_strides,
+      std::vector<typename IndexValueType::c_type>& coords_values) const {
+    auto coords_data = Buffer::Wrap(coords_values);
+    auto coords = std::make_shared<NumericTensor<IndexValueType>>(
+        coords_data, coords_shape, coords_strides);
+    return std::make_shared<SparseCOOIndex>(coords);
+  }
+
   template <typename ValueType>
   std::shared_ptr<SparseCOOTensor> MakeSparseCOOTensor(
       const std::shared_ptr<SparseCOOIndex>& si, std::vector<ValueType>& sparse_values,

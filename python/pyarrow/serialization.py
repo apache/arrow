@@ -228,7 +228,7 @@ def register_torch_serialization_handlers(serialization_context):
 
         def _serialize_torch_tensor(obj):
             if obj.is_sparse:
-                return pyarrow.SparseTensorCOO.from_numpy(
+                return pa.SparseCOOTensor.from_numpy(
                     obj._values().detach().numpy(),
                     obj._indices().detach().numpy().T,
                     shape=list(obj.shape))
@@ -236,7 +236,7 @@ def register_torch_serialization_handlers(serialization_context):
                 return obj.detach().numpy()
 
         def _deserialize_torch_tensor(data):
-            if isinstance(data, pyarrow.SparseTensorCOO):
+            if isinstance(data, pa.SparseCOOTensor):
                 return torch.sparse_coo_tensor(
                     indices=data.to_numpy()[1].T,
                     values=data.to_numpy()[0][:, 0],
@@ -313,13 +313,13 @@ def _register_scipy_handlers(serialization_context):
 
         def _serialize_scipy_sparse(obj):
             if isspmatrix_coo(obj):
-                return 'coo', pyarrow.SparseTensorCOO.from_scipy(obj)
+                return 'coo', pa.SparseCOOTensor.from_scipy(obj)
 
             elif isspmatrix_csr(obj):
-                return 'csr', pyarrow.SparseTensorCSR.from_scipy(obj)
+                return 'csr', pa.SparseCSRMatrix.from_scipy(obj)
 
             elif isspmatrix(obj):
-                return 'csr', pyarrow.SparseTensorCSR.from_scipy(obj.to_csr())
+                return 'csr', pa.SparseCOOTensor.from_scipy(obj.to_coo())
 
             else:
                 raise NotImplementedError(
@@ -347,35 +347,6 @@ def _register_scipy_handlers(serialization_context):
 
     except ImportError:
         # no scipy
-        pass
-
-
-# ----------------------------------------------------------------------
-# Set up serialization for pydata/sparse tensors.
-
-def _register_pydata_sparse_handlers(serialization_context):
-    try:
-        import sparse
-
-        def _serialize_pydata_sparse(obj):
-            if isinstance(obj, sparse.coo.core.COO):
-                return 'coo', pyarrow.SparseTensorCOO.from_numpy(
-                    obj.data, obj.coords.T, shape=obj.shape)
-
-        def _deserialize_pydata_sparse(data):
-            if data[0] == 'coo':
-                data_array, coords = data[1].to_numpy()
-                return sparse.COO(
-                    data=data_array[:, 0],
-                    coords=coords.T, shape=data[1].shape)
-
-        serialization_context.register_type(
-            sparse.coo.core.COO, 'sparse.coo.core.COO',
-            custom_serializer=_serialize_pydata_sparse,
-            custom_deserializer=_deserialize_pydata_sparse)
-
-    except ImportError:
-        # no pydata/sparse
         pass
 
 
@@ -432,7 +403,6 @@ def register_default_serialization_handlers(serialization_context):
     _register_collections_serialization_handlers(serialization_context)
     _register_custom_pandas_handlers(serialization_context)
     _register_scipy_handlers(serialization_context)
-    _register_pydata_sparse_handlers(serialization_context)
 
 
 def default_serialization_context():

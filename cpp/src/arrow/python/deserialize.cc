@@ -184,20 +184,20 @@ Status GetValue(PyObject* context, const Array& arr, int64_t index, int8_t type,
       *result = wrap_tensor(blobs.tensors[ref]);
       return Status::OK();
     }
-    case PythonType::SPARSETENSORCOO: {
+    case PythonType::SPARSECOOTENSOR: {
       int32_t ref = checked_cast<const Int32Array&>(arr).Value(index);
-      const std::shared_ptr<SparseTensorCOO>& sparse_tensor_coo =
-          reinterpret_cast<const std::shared_ptr<SparseTensorCOO>&>(
+      const std::shared_ptr<SparseCOOTensor>& sparse_coo_tensor =
+          reinterpret_cast<const std::shared_ptr<SparseCOOTensor>&>(
               blobs.sparse_tensors[ref]);
-      *result = wrap_sparse_tensor_coo(sparse_tensor_coo);
+      *result = wrap_sparse_coo_tensor(sparse_coo_tensor);
       return Status::OK();
     }
-    case PythonType::SPARSETENSORCSR: {
+    case PythonType::SPARSECSRMATRIX: {
       int32_t ref = checked_cast<const Int32Array&>(arr).Value(index);
-      const std::shared_ptr<SparseTensorCSR>& sparse_tensor_csr =
-          reinterpret_cast<const std::shared_ptr<SparseTensorCSR>&>(
+      const std::shared_ptr<SparseCSRMatrix>& sparse_csr_matrix =
+          reinterpret_cast<const std::shared_ptr<SparseCSRMatrix>&>(
               blobs.sparse_tensors[ref]);
-      *result = wrap_sparse_tensor_csr(sparse_tensor_csr);
+      *result = wrap_sparse_csr_matrix(sparse_csr_matrix);
       return Status::OK();
     }
     case PythonType::NDARRAY: {

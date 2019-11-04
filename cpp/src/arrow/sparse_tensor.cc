@@ -517,9 +517,9 @@ Status SparseCOOIndex::Make(std::shared_ptr<DataType> indices_type,
                             const std::vector<int64_t>& shape, int64_t non_zero_length,
                             std::shared_ptr<Buffer> indices_data,
                             std::shared_ptr<SparseCOOIndex>* out) {
-  std::vector<int64_t> indices_shape(
-      {non_zero_length, static_cast<int64_t>(shape.size())});
-  const int64_t elsize = sizeof(int64_t);
+  auto ndim = static_cast<int64_t>(shape.size());
+  const int64_t elsize = sizeof(indices_type.get());
+  std::vector<int64_t> indices_shape({non_zero_length, ndim});
   std::vector<int64_t> indices_strides({elsize, elsize * non_zero_length});
   return SparseCOOIndex::Make(indices_type, indices_shape, indices_strides, indices_data,
                               out);

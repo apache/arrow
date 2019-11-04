@@ -1031,7 +1031,10 @@ Status ReadSparseTensorPayload(const IpcPayload& payload,
   switch (sparse_tensor_format_id) {
     case SparseTensorFormat::COO: {
       std::shared_ptr<SparseCOOIndex> sparse_index;
-      RETURN_NOT_OK(SparseCOOIndex::Make(type, shape, non_zero_length,
+      std::shared_ptr<DataType> indices_type;
+      RETURN_NOT_OK(internal::GetSparseCOOIndexMetadata(
+          sparse_tensor->sparseIndex_as_SparseTensorIndexCOO(), &indices_type));
+      RETURN_NOT_OK(SparseCOOIndex::Make(indices_type, shape, non_zero_length,
                                          payload.body_buffers[0], &sparse_index));
       return MakeSparseTensorWithSparseCOOIndex(type, shape, dim_names, sparse_index,
                                                 non_zero_length, payload.body_buffers[1],
@@ -1040,12 +1043,18 @@ Status ReadSparseTensorPayload(const IpcPayload& payload,
 
     case SparseTensorFormat::CSR: {
       std::shared_ptr<SparseCSRIndex> sparse_index;
-      RETURN_NOT_OK(SparseCSRIndex::Make(type, shape, non_zero_length,
+      std::shared_ptr<DataType> indptr_type;
+      std::shared_ptr<DataType> indices_type;
+      RETURN_NOT_OK(internal::GetSparseCSRIndexMetadata(
+          sparse_tensor->sparseIndex_as_SparseMatrixIndexCSR(), &indptr_type,
+          &indices_type));
+      ARROW_CHECK_EQ(indptr_type, indices_type);
+      RETURN_NOT_OK(SparseCSRIndex::Make(indices_type, shape, non_zero_length,
                                          payload.body_buffers[0], payload.body_buffers[1],
                                          &sparse_index));
-      return MakeSparseTensorWithSparseCSRIndex(
-          type, shape, dim_names, checked_pointer_cast<SparseCSRIndex>(sparse_index),
-          non_zero_length, payload.body_buffers[2], out);
+      return MakeSparseTensorWithSparseCSRIndex(type, shape, dim_names, sparse_index,
+                                                non_zero_length, payload.body_buffers[2],
+                                                out);
     }
 
     default:

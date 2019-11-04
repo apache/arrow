@@ -835,18 +835,6 @@ Status GetSparseTensorMessage(const SparseTensor& sparse_tensor, MemoryPool* poo
   return Status::OK();
 }
 
-Status WriteDictionary(int64_t dictionary_id, const std::shared_ptr<Array>& dictionary,
-                       int64_t buffer_start_offset, io::OutputStream* dst,
-                       int32_t* metadata_length, int64_t* body_length, MemoryPool* pool) {
-  auto options = IpcOptions::Defaults();
-  internal::IpcPayload payload;
-  RETURN_NOT_OK(GetDictionaryPayload(dictionary_id, dictionary, options, pool, &payload));
-
-  // The body size is computed in the payload
-  *body_length = payload.body_length;
-  return internal::WriteIpcPayload(payload, IpcOptions::Defaults(), dst, metadata_length);
-}
-
 Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size) {
   // emulates the behavior of Write without actually writing
   auto options = IpcOptions::Defaults();
