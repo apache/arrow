@@ -88,10 +88,10 @@ Result<std::shared_ptr<Expression>> HivePartitionScheme::Parse(
   return ConvertPartitionKeys(GetUnconvertedKeys(path), *schema_);
 }
 
-Status ApplyPartitionScheme(const PartitionScheme& scheme,
+Status ApplyPartitionScheme(const PartitionScheme& scheme, const fs::Selector& selector,
                             std::vector<fs::FileStats> files, PathPartitions* out) {
   for (const auto& file : files) {
-    const auto& path = file.path();
+    const auto& path = file.path().substr(selector.base_dir.size());
     std::shared_ptr<Expression> partition;
     RETURN_NOT_OK(scheme.Parse(path, &partition));
     out->emplace(path, std::move(partition));

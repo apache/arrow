@@ -34,7 +34,8 @@ namespace arrow {
 
 namespace fs {
 struct FileStats;
-}
+struct Selector;
+}  // namespace fs
 
 namespace dataset {
 
@@ -168,7 +169,7 @@ class ARROW_DS_EXPORT FunctionPartitionScheme : public PartitionScheme {
 /// \brief Mapping from path to partition expressions.
 using PathPartitions = std::unordered_map<std::string, std::shared_ptr<Expression>>;
 
-Status ApplyPartitionScheme(const PartitionScheme& scheme,
+Status ApplyPartitionScheme(const PartitionScheme& scheme, const fs::Selector& selector,
                             std::vector<fs::FileStats> files, PathPartitions* out);
 
 // TODO(bkietz) use RE2 and named groups to provide RegexpPartitionScheme
