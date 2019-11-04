@@ -34,6 +34,10 @@ import org.apache.arrow.vector.util.TransferPair;
 
 /**
  * Holder for a set of vectors to be loaded/unloaded.
+ * It can be used as the container of a record batch, and it makes sense
+ * to close inner vector by closing the VectorSchemaRoot.
+ * However, please note that it is only a container of record batches, not record batches
+ * in themselves.
  */
 public class VectorSchemaRoot implements AutoCloseable {
 
@@ -63,7 +67,7 @@ public class VectorSchemaRoot implements AutoCloseable {
   /**
    * Constructs a new instance.
    *
-   * @param fields The types of each vector.
+   * @param fields The fields of each vector.
    * @param fieldVectors The data vectors (must be equal in size to <code>fields</code>.
    */
   public VectorSchemaRoot(List<Field> fields, List<FieldVector> fieldVectors) {
@@ -73,7 +77,7 @@ public class VectorSchemaRoot implements AutoCloseable {
   /**
    * Constructs a new instance.
    *
-   * @param fields The types of each vector.
+   * @param fields The fields of each vector.
    * @param fieldVectors The data vectors (must be equal in size to <code>fields</code>.
    * @param rowCount The number of rows contained.
    */
@@ -86,7 +90,7 @@ public class VectorSchemaRoot implements AutoCloseable {
    *
    * @param schema The schema for the vectors.
    * @param fieldVectors The data vectors.
-   * @param rowCount  The number of rows
+   * @param rowCount  The number of rows.
    */
   public VectorSchemaRoot(Schema schema, List<FieldVector> fieldVectors, int rowCount) {
     if (schema.getFields().size() != fieldVectors.size()) {
@@ -125,8 +129,8 @@ public class VectorSchemaRoot implements AutoCloseable {
   }
 
   /**
-   * Do an adaptive allocation of each vector for memory purposes. Sizes will be based on previously
-   * defined initial allocation for each vector (and subsequent size learned).
+   * Do an adaptive allocation of each vector for memory-saving purposes. Vector capacities will be
+   * based on previously defined initial allocation for each vector (and subsequent size learned).
    */
   public void allocateNew() {
     for (FieldVector v : fieldVectors) {
@@ -145,21 +149,35 @@ public class VectorSchemaRoot implements AutoCloseable {
     rowCount = 0;
   }
 
+  /**
+   * Gets the inner vectors for this object.
+   * @return the inner vector list.
+   */
   public List<FieldVector> getFieldVectors() {
     return fieldVectors.stream().collect(Collectors.toList());
   }
 
+  /**
+   * Gets the inner vector, given a name.
+   * @param name the name of the inner vector.
+   * @return the inner vector with the specified name, or null if no such vector exists.
+   */
   public FieldVector getVector(String name) {
     return fieldVectorsMap.get(name);
   }
 
+  /**
+   * Gets the inner vector, given an index.
+   * @param index the index of the inner vector.
+   * @return the inner vector with the specified index.
+   */
   public FieldVector getVector(int index) {
     Preconditions.checkArgument(index >= 0 && index < fieldVectors.size());
     return fieldVectors.get(index);
   }
 
   /**
-   * Add a vector to the record batch.
+   * Adds a vector to the record batch.
    * @param index position of the new vector.
    * @param vector the vector to be added.
    */
@@ -172,8 +190,8 @@ public class VectorSchemaRoot implements AutoCloseable {
   }
 
   /**
-   * Remove a vector from the record batch.
-   * @param index the index of the vector to remove
+   * Removes a vector from the contained record batch.
+   * @param index the index of the vector to remove.
    * @return the removed vector.
    */
   public FieldVector removeVector(int index) {
@@ -184,10 +202,18 @@ public class VectorSchemaRoot implements AutoCloseable {
     return ret;
   }
 
+  /**
+   * Gets the schema of the contained record batch.
+   * @return the schema of the contained record batch.
+   */
   public Schema getSchema() {
     return schema;
   }
 
+  /**
+   * The number of records in the record batch.
+   * @return the number of records.
+   */
   public int getRowCount() {
     return rowCount;
   }
@@ -270,7 +296,7 @@ public class VectorSchemaRoot implements AutoCloseable {
   }
 
   /**
-   * Slice this root from desired index.
+   * Slice this root from the specified index.
    * @param index start position of the slice
    * @return the sliced root
    */
