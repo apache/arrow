@@ -36,6 +36,10 @@
 namespace arrow {
 namespace dataset {
 
+using parquet::arrow::SchemaField;
+using parquet::arrow::SchemaManifest;
+using parquet::arrow::StatisticsAsScalars;
+
 /// \brief A ScanTask backed by a parquet file and a RowGroup within a parquet file.
 class ParquetScanTask : public ScanTask {
  public:
@@ -142,9 +146,9 @@ class ParquetScanTaskIterator {
     RETURN_NOT_OK(parquet::arrow::FileReader::Make(context->pool, std::move(reader),
                                                    &arrow_reader));
 
-    *out = ScanTaskIterator(
-        ParquetScanTaskIterator(std::move(options), std::move(context),
-                                columns_projection, metadata, std::move(arrow_reader)));
+    *out = ScanTaskIterator(ParquetScanTaskIterator(
+        std::move(options), std::move(context), std::move(columns_projection), metadata,
+        std::move(arrow_reader)));
     return Status::OK();
   }
 
@@ -168,22 +172,46 @@ class ParquetScanTaskIterator {
   static Status InferColumnProjection(const parquet::FileMetaData& metadata,
                                       const std::shared_ptr<ScanOptions>& options,
                                       std::vector<int>* out) {
-    if (options->projector == nullptr || options->schema == nullptr) {
+    // fall back to no push down projection
+    auto fall_back = [&] {
       *out = internal::Iota(metadata.num_columns());
       return Status::OK();
-    }
+    };
 
-    // union fields in expression and fields in projector
-    auto projector_schema = options->projector->schema();
-    auto filter_schema =
-        SchemaFromColumnNames(options->schema, FieldsInExpression(options->filter));
-    ARROW_ASSIGN_OR_RAISE(auto merged, MergeSchemas({projector_schema, filter_schema}));
+    if (options->projector == nullptr) return fall_back();
 
     // get column indices
     out->clear();
-    for (const auto& field : merged->fields()) {
-      out->push_back(options->schema->GetFieldIndex(field->name()));
+    auto filter_fields = FieldsInExpression(options->filter);
+
+    SchemaManifest manifest;
+    if (!SchemaManifest::Make(metadata.schema(), nullptr,
+                              parquet::default_arrow_reader_properties(), &manifest)
+             .ok())
+      return fall_back();
+
+    for (const auto& schema_field : manifest.schema_fields) {
+      auto field = schema_field.field;
+      auto parquet_column_index = schema_field.column_index;
+
+      // Ignore nested fields.
+      if (field->type()->num_children() != 0 || parquet_column_index == -1) {
+        continue;
+      }
+
+      if (options->projector->schema()->GetFieldIndex(field->name()) != -1) {
+        // add explicitly projected field
+        out->push_back(parquet_column_index);
+        continue;
+      }
+
+      if (std::find(filter_fields.begin(), filter_fields.end(), field->name()) !=
+          filter_fields.end()) {
+        // add field referenced by filter
+        out->push_back(parquet_column_index);
+      }
     }
+
     return Status::OK();
   }
 
@@ -194,7 +222,7 @@ class ParquetScanTaskIterator {
                           std::unique_ptr<parquet::arrow::FileReader> reader)
       : options_(std::move(options)),
         context_(std::move(context)),
-        columns_projection_(columns_projection),
+        columns_projection_(std::move(columns_projection)),
         skipper_(std::move(metadata), options_->filter),
         reader_(std::move(reader)) {}
 
@@ -252,9 +280,6 @@ Status ParquetFileFormat::OpenReader(
   return Status::OK();
 }
 
-using parquet::arrow::SchemaField;
-using parquet::arrow::StatisticsAsScalars;
-
 static std::shared_ptr<Expression> ColumnChunkStatisticsAsExpression(
     const SchemaField& schema_field, const parquet::RowGroupMetaData& metadata) {
   // For the remaining of this function, failure to extract/parse statistics
@@ -300,8 +325,6 @@ static std::shared_ptr<Expression> ColumnChunkStatisticsAsExpression(
   return and_(greater_equal(field_expr, scalar(min)),
               less_equal(field_expr, scalar(max)));
 }
-
-using parquet::arrow::SchemaManifest;
 
 Result<std::shared_ptr<Expression>> RowGroupStatisticsAsExpression(
     const parquet::RowGroupMetaData& metadata) {
