@@ -28,6 +28,7 @@
 #include "arrow/util/range.h"
 #include "arrow/util/stl.h"
 #include "parquet/arrow/reader.h"
+#include "parquet/arrow/schema.h"
 #include "parquet/file_reader.h"
 #include "parquet/statistics.h"
 
@@ -276,24 +277,20 @@ static std::shared_ptr<Expression> ColumnChunkStatisticsAsExpression(
   return and_(less_equal(scalar(min), field_expr), less_equal(field_expr, scalar(max)));
 }
 
-using parquet::arrow::FromParquetSchema;
+using parquet::arrow::SchemaManifest;
 
 Result<std::shared_ptr<Expression>> RowGroupStatisticsAsExpression(
     const parquet::RowGroupMetaData& metadata) {
-  // A RowGroup's ColumnChunk must have the same order as the FileMetaData
-  // columns definitions in the schema, but writers could emit a subset of
-  // columns.
-  std::shared_ptr<Schema> row_group_schema;
-  std::vector<int> parquet_column_indices;
-  RETURN_NOT_OK(
-      FromParquetSchema(metadata.schema(), &row_group_schema, &parquet_column_indices));
+  SchemaManifest manifest;
+  RETURN_NOT_OK(SchemaManifest::Make(
+      metadata.schema(), nullptr, parquet::default_arrow_reader_properties(), &manifest));
 
   std::vector<std::shared_ptr<Expression>> expressions;
-  for (int i = 0; i < row_group_schema->num_fields(); i++) {
-    auto field = row_group_schema->field(i);
-    auto parquet_column_index = parquet_column_indices[i];
+  for (const auto& schema_field : manifest.schema_fields) {
+    auto field = schema_field.field;
+    auto parquet_column_index = schema_field.column_index;
 
-    // Ignore repeated and nested fields.
+    // Ignore nested fields.
     if (field->type()->num_children() != 0 || parquet_column_index != -1) {
       continue;
     }

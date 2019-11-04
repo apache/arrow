@@ -427,8 +427,8 @@ class FileWriterImpl : public FileWriter {
         closed_(false) {}
 
   Status Init() {
-    return BuildSchemaManifest(writer_->schema(), /*schema_metadata=*/nullptr,
-                               default_arrow_reader_properties(), &schema_manifest_);
+    return SchemaManifest::Make(writer_->schema(), /*schema_metadata=*/nullptr,
+                                default_arrow_reader_properties(), &schema_manifest_);
   }
 
   Status NewRowGroup(int64_t chunk_size) override {

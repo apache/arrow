@@ -21,14 +21,18 @@
 #include <vector>
 
 #include "arrow/extension_type.h"
+#include "arrow/ipc/api.h"
 #include "arrow/type.h"
+#include "arrow/util/base64.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/key_value_metadata.h"
 
 #include "parquet/exception.h"
 #include "parquet/properties.h"
 #include "parquet/types.h"
 
 using arrow::Field;
+using arrow::KeyValueMetadata;
 using arrow::Status;
 using arrow::internal::checked_cast;
 
@@ -351,6 +355,34 @@ Status ToParquetSchema(const ::arrow::Schema* arrow_schema,
                        std::shared_ptr<SchemaDescriptor>* out) {
   return ToParquetSchema(arrow_schema, properties, *default_arrow_writer_properties(),
                          out);
+}
+
+Status FromParquetSchema(
+    const SchemaDescriptor* schema, const ArrowReaderProperties& properties,
+    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
+    std::shared_ptr<::arrow::Schema>* out) {
+  SchemaManifest manifest;
+  RETURN_NOT_OK(SchemaManifest::Make(schema, key_value_metadata, properties, &manifest));
+  std::vector<std::shared_ptr<Field>> fields(manifest.schema_fields.size());
+
+  for (int i = 0; i < static_cast<int>(fields.size()); i++) {
+    const auto& schema_field = manifest.schema_fields[i];
+    fields[i] = schema_field.field;
+  }
+  *out = ::arrow::schema(fields, key_value_metadata);
+  return Status::OK();
+}
+
+Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
+                         const ArrowReaderProperties& properties,
+                         std::shared_ptr<::arrow::Schema>* out) {
+  return FromParquetSchema(parquet_schema, properties, nullptr, out);
+}
+
+Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
+                         std::shared_ptr<::arrow::Schema>* out) {
+  ArrowReaderProperties properties;
+  return FromParquetSchema(parquet_schema, properties, nullptr, out);
 }
 
 }  // namespace arrow

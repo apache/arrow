@@ -326,23 +326,6 @@ PARQUET_EXPORT
 /// @}
 
 PARQUET_EXPORT
-::arrow::Status FromParquetSchema(
-    const SchemaDescriptor* parquet_schema, const ArrowReaderProperties& properties,
-    const std::shared_ptr<const ::arrow::KeyValueMetadata>& key_value_metadata,
-    std::shared_ptr<::arrow::Schema>* out, std::vector<int>* out_indices = NULLPTR);
-
-PARQUET_EXPORT
-::arrow::Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
-                                  const ArrowReaderProperties& properties,
-                                  std::shared_ptr<::arrow::Schema>* out,
-                                  std::vector<int>* out_indices = NULLPTR);
-
-PARQUET_EXPORT
-::arrow::Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
-                                  std::shared_ptr<::arrow::Schema>* out,
-                                  std::vector<int>* out_indices = NULLPTR);
-
-PARQUET_EXPORT
 ::arrow::Status FromParquetStatistics(const std::shared_ptr<Statistics>& Statistics,
                                       std::shared_ptr<::arrow::Scalar>* min,
                                       std::shared_ptr<::arrow::Scalar>* max);

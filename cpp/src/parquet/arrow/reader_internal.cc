@@ -650,10 +650,10 @@ Status ApplyOriginalMetadata(std::shared_ptr<Field> field, const Field& origin_f
   return Status::OK();
 }
 
-Status BuildSchemaManifest(const SchemaDescriptor* schema,
-                           const std::shared_ptr<const KeyValueMetadata>& metadata,
-                           const ArrowReaderProperties& properties,
-                           SchemaManifest* manifest) {
+Status SchemaManifest::Make(const SchemaDescriptor* schema,
+                            const std::shared_ptr<const KeyValueMetadata>& metadata,
+                            const ArrowReaderProperties& properties,
+                            SchemaManifest* manifest) {
   std::shared_ptr<::arrow::Schema> origin_schema;
   RETURN_NOT_OK(
       GetOriginSchema(metadata, &manifest->schema_metadata, &manifest->origin_schema));
@@ -682,46 +682,6 @@ Status BuildSchemaManifest(const SchemaDescriptor* schema,
         ApplyOriginalMetadata(out_field->field, *origin_field, &out_field->field));
   }
   return Status::OK();
-}
-
-Status FromParquetSchema(
-    const SchemaDescriptor* schema, const ArrowReaderProperties& properties,
-    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
-    std::shared_ptr<::arrow::Schema>* out, std::vector<int>* out_indices) {
-  SchemaManifest manifest;
-  RETURN_NOT_OK(BuildSchemaManifest(schema, key_value_metadata, properties, &manifest));
-  std::vector<std::shared_ptr<Field>> fields(manifest.schema_fields.size());
-
-  if (out_indices != nullptr) {
-    out_indices->clear();
-  }
-
-  for (int i = 0; i < static_cast<int>(fields.size()); i++) {
-    const auto& schema_field = manifest.schema_fields[i];
-
-    fields[i] = schema_field.field;
-
-    if (out_indices != nullptr) {
-      int column_index = schema_field.is_leaf() ? schema_field.column_index : -1;
-      out_indices->push_back(column_index);
-    }
-  }
-  *out = ::arrow::schema(fields, key_value_metadata);
-  return Status::OK();
-}
-
-Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
-                         const ArrowReaderProperties& properties,
-                         std::shared_ptr<::arrow::Schema>* out,
-                         std::vector<int>* out_indices) {
-  return FromParquetSchema(parquet_schema, properties, nullptr, out, out_indices);
-}
-
-Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
-                         std::shared_ptr<::arrow::Schema>* out,
-                         std::vector<int>* out_indices) {
-  ArrowReaderProperties properties;
-  return FromParquetSchema(parquet_schema, properties, nullptr, out, out_indices);
 }
 
 template <typename CType, typename StatisticsType>
