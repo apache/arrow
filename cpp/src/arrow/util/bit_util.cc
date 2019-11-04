@@ -30,6 +30,7 @@
 #include <functional>
 #include <memory>
 #include <numeric>
+#include <string>
 #include <vector>
 
 #include "arrow/array.h"

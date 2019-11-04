@@ -60,6 +60,7 @@
 #include <cstring>
 #include <limits>
 #include <memory>
+#include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -937,7 +938,7 @@ class ARROW_EXPORT Bitmap {
     auto bit_length = bitmaps[0].length();
     std::bitset<N> bits;
     for (int64_t bit_i = 0; bit_i < bit_length; ++bit_i) {
-      for (int i = 0; i < N; ++i) {
+      for (size_t i = 0; i < N; ++i) {
         bits[i] = bitmaps[i].GetBit(bit_i);
       }
       visitor(bits);
@@ -951,7 +952,7 @@ class ARROW_EXPORT Bitmap {
 
     util::basic_string_view<Word> words[N];
     int64_t offsets[N];
-    for (int i = 0; i < N; ++i) {
+    for (size_t i = 0; i < N; ++i) {
       words[i] = bitmaps[i].template words<Word>();
       offsets[i] = bitmaps[i].template word_offset<Word>();
     }
@@ -966,7 +967,7 @@ class ARROW_EXPORT Bitmap {
     }
 
     for (size_t word_i = 0; word_i < word_count - 1; ++word_i) {
-      for (int i = 0; i < N; ++i) {
+      for (size_t i = 0; i < N; ++i) {
         if (offsets[i] == 0) {
           visited_words[i] = words[i][word_i];
         } else {
@@ -979,7 +980,7 @@ class ARROW_EXPORT Bitmap {
 
     // handle last word
     size_t word_i = word_count - 1;
-    for (int i = 0; i < N; ++i) {
+    for (size_t i = 0; i < N; ++i) {
       if (word_i < words[i].size()) {
         visited_words[i] = words[i][word_i] >> offsets[i];
       }

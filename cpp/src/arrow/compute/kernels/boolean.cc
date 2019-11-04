@@ -19,6 +19,7 @@
 
 #include <bitset>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "arrow/array.h"
