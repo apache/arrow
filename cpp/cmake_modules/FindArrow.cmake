@@ -64,18 +64,50 @@ if(NOT DEFINED ARROW_MSVC_STATIC_LIB_SUFFIX)
   endif()
 endif()
 
+# Internal function.
+#
+# Set shared library name for ${base_name} to ${output_variable}.
+#
+# Example:
+#   arrow_build_shared_library_name(ARROW_SHARED_LIBRARY_NAME arrow)
+#   # -> ARROW_SHARED_LIBRARY_NAME=libarrow.so on Linux
+#   # -> ARROW_SHARED_LIBRARY_NAME=libarrow.dylib on macOS
+#   # -> ARROW_SHARED_LIBRARY_NAME=arrow.dll with MSVC on Windows
+#   # -> ARROW_SHARED_LIBRARY_NAME=libarrow.dll with MinGW on Windows
 function(arrow_build_shared_library_name output_variable base_name)
   set(${output_variable}
       "${CMAKE_SHARED_LIBRARY_PREFIX}${base_name}${CMAKE_SHARED_LIBRARY_SUFFIX}"
       PARENT_SCOPE)
 endfunction()
 
+# Internal function.
+#
+# Set import library name for ${base_name} to ${output_variable}.
+# This is useful only for MSVC build. Import library is used only
+# with MSVC build.
+#
+# Example:
+#   arrow_build_import_library_name(ARROW_IMPORT_LIBRARY_NAME arrow)
+#   # -> ARROW_IMPORT_LIBRARY_NAME=arrow on Linux (meaningless)
+#   # -> ARROW_IMPORT_LIBRARY_NAME=arrow on macOS (meaningless)
+#   # -> ARROW_IMPORT_LIBRARY_NAME=arrow.lib with MSVC on Windows
+#   # -> ARROW_IMPORT_LIBRARY_NAME=libarrow.dll.a with MinGW on Windows
 function(arrow_build_import_library_name output_variable base_name)
   set(${output_variable}
       "${CMAKE_IMPORT_LIBRARY_PREFIX}${base_name}${CMAKE_IMPORT_LIBRARY_SUFFIX}"
       PARENT_SCOPE)
 endfunction()
 
+# Internal function.
+#
+# Set static library name for ${base_name} to ${output_variable}.
+#
+# Example:
+#   arrow_build_static_library_name(ARROW_STATIC_LIBRARY_NAME arrow)
+#   # -> ARROW_STATIC_LIBRARY_NAME=libarrow.a on Linux
+#   # -> ARROW_STATIC_LIBRARY_NAME=libarrow.a on macOS
+#   # -> ARROW_STATIC_LIBRARY_NAME=arrow.lib with MSVC on Windows
+#   # -> ARROW_STATIC_LIBRARY_NAME=libarrow.dll.a with MinGW on Windows
 function(arrow_build_static_library_name output_variable base_name)
   set(
     ${output_variable}
@@ -83,6 +115,15 @@ function(arrow_build_static_library_name output_variable base_name)
     PARENT_SCOPE)
 endfunction()
 
+# Internal function.
+#
+# Set macro value for ${macro_name} in ${header_content} to ${output_variable}.
+#
+# Example:
+#   arrow_extract_macro_value(version_major
+#                             "ARROW_VERSION_MAJOR"
+#                             "#define ARROW_VERSION_MAJOR 1.0.0")
+#   # -> version_major=1.0.0
 function(arrow_extract_macro_value output_variable macro_name header_content)
   string(REGEX MATCH "#define +${macro_name} +[^\r\n]+" macro_definition
                "${header_content}")
@@ -91,7 +132,9 @@ function(arrow_extract_macro_value output_variable macro_name header_content)
   set(${output_variable} "${macro_value}" PARENT_SCOPE)
 endfunction()
 
-# arrow_find_package_* are helper macros only for arrow_find_package
+# Internal macro only for arrow_find_package.
+#
+# Find package in HOME.
 macro(arrow_find_package_home)
   find_path(${prefix}_include_dir "${header_path}"
             PATHS "${home}"
@@ -152,7 +195,10 @@ macro(arrow_find_package_home)
   endif()
 endmacro()
 
-macro(arrow_find_package_cmake_package_config)
+# Internal macro only for arrow_find_package.
+#
+# Find package by CMake package configuration.
+macro(arrow_find_package_cmake_package_configuration)
   # ARROW-5575: We need to split target files for each component
   if(TARGET ${target_shared} OR TARGET ${target_static})
     set(${cmake_package_name}_FOUND TRUE)
@@ -189,6 +235,9 @@ macro(arrow_find_package_cmake_package_config)
   endif()
 endmacro()
 
+# Internal macro only for arrow_find_package.
+#
+# Find package by pkg-config.
 macro(arrow_find_package_pkg_config)
   pkg_check_modules(${prefix}_PC ${pkg_config_name})
   if(${prefix}_PC_FOUND)
@@ -255,7 +304,7 @@ function(arrow_find_package
     arrow_find_package_home()
     set(${prefix}_FIND_APPROACH "HOME: ${home}" PARENT_SCOPE)
   else()
-    arrow_find_package_cmake_package_config()
+    arrow_find_package_cmake_package_configuration()
     if(${cmake_package_name}_FOUND)
       set(${prefix}_FIND_APPROACH
           "CMake package configuration: ${cmake_package_name}"
