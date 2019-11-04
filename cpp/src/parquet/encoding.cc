@@ -1684,6 +1684,13 @@ int DictDecoderImpl<DType>::DecodeArrow(
 }
 
 template <>
+int DictDecoderImpl<BooleanType>::DecodeArrow(
+    int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
+    typename EncodingTraits<BooleanType>::DictAccumulator* builder) {
+  ParquetException::NYI("No dictionary encoding for BooleanType");
+}
+
+template <>
 inline int DictDecoderImpl<FLBAType>::DecodeArrow(
     int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
     typename EncodingTraits<FLBAType>::Accumulator* builder) {
