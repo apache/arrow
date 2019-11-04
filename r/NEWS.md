@@ -23,6 +23,10 @@
 
 # arrow 0.15.0
 
+* This patch release includes bugfixes in the C++ library around dictionary types and Parquet reading.
+
+# arrow 0.15.0
+
 ## Breaking changes
 
 * The R6 classes that wrap the C++ classes are now documented and exported and have been renamed to be more R-friendly. Users of the high-level R interface in this package are not affected. Those who want to interact with the Arrow C++ API more directly should work with these objects and methods. As part of this change, many functions that instantiated these R6 objects have been removed in favor of `Class$create()` methods. Notably, `arrow::array()` and `arrow::table()` have been removed in favor of `Array$create()` and `Table$create()`, eliminating the package startup message about masking `base` functions. For more information, see the new `vignette("arrow")`.
