@@ -35,7 +35,7 @@
 namespace arrow {
 namespace dataset {
 
-/// \brief A ScanTask backed by a parquet file and a RowGroup.
+/// \brief A ScanTask backed by a parquet file and a RowGroup within a parquet file.
 class ParquetScanTask : public ScanTask {
  public:
   ParquetScanTask(int row_group, std::vector<int> columns_projection,
@@ -81,6 +81,8 @@ class ParquetScanTask : public ScanTask {
 // Skip RowGroups with a filter and metadata
 class RowGroupSkipper {
  public:
+  static constexpr int kIterationDone = -1;
+
   RowGroupSkipper(std::shared_ptr<parquet::FileMetaData> metadata,
                   std::shared_ptr<Expression> filter)
       : metadata_(std::move(metadata)), filter_(filter), row_group_idx_(0) {
@@ -101,7 +103,7 @@ class RowGroupSkipper {
       return row_group_idx;
     }
 
-    return -1;
+    return kIterationDone;
   }
 
  private:
@@ -113,13 +115,12 @@ class RowGroupSkipper {
     }
 
     // Skip the row group if the expression is not satisfied.
-    auto expr = maybe_expr.ValueOrDie()->Assume(*filter_);
+    auto expr = filter_->Assume(*maybe_expr.ValueOrDie());
     return (expr->IsNull() || expr->Equals(false));
   }
 
   std::shared_ptr<parquet::FileMetaData> metadata_;
   std::shared_ptr<Expression> filter_;
-  int64_t expected_row_per_task_;
   int row_group_idx_;
   int num_row_groups_;
   int64_t rows_skipped_;
@@ -150,7 +151,7 @@ class ParquetScanTaskIterator {
     auto row_group = skipper_.Next();
 
     // Iteration is done.
-    if (row_group == -1) {
+    if (row_group == RowGroupSkipper::kIterationDone) {
       task->reset(nullptr);
       return Status::OK();
     }

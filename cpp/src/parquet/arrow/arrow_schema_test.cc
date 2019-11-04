@@ -32,7 +32,6 @@
 
 using arrow::ArrayFromVector;
 using arrow::Field;
-using arrow::Scalar;
 using arrow::TimeUnit;
 
 using ParquetType = parquet::Type;
