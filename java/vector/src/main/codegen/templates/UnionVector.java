@@ -49,6 +49,7 @@ import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.ValueVectorUtility;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.memory.BaseAllocator;
+import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.vector.BaseValueVector;
 import org.apache.arrow.vector.util.OversizedAllocationException;
@@ -699,7 +700,7 @@ public class UnionVector implements FieldVector {
     public int hashCode(int index, ArrowBufHasher hasher) {
       ValueVector vec = getVector(index);
       if (vec == null) {
-        return 0;
+        return ArrowBufPointer.NULL_HASH_CODE;
       }
       return vec.hashCode(index, hasher);
     }

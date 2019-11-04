@@ -18,6 +18,7 @@
 package org.apache.arrow.vector;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.vector.util.CallBack;
 import org.apache.arrow.vector.util.TransferPair;
@@ -57,7 +58,7 @@ public final class ZeroVector extends NullVector {
 
   @Override
   public int hashCode(int index, ArrowBufHasher hasher) {
-    return 0;
+    return ArrowBufPointer.NULL_HASH_CODE;
   }
 
   @Override
