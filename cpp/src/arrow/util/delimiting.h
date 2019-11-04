@@ -28,11 +28,11 @@ namespace arrow {
 
 class Buffer;
 
-class ARROW_EXPORT Delimiter {
+class ARROW_EXPORT BoundaryFinder {
  public:
-  Delimiter() = default;
+  BoundaryFinder() = default;
 
-  virtual ~Delimiter();
+  virtual ~BoundaryFinder();
 
   /// \brief Find the position of the first delimiter inside block
   ///
@@ -40,7 +40,7 @@ class ARROW_EXPORT Delimiter {
   /// its continuation.  Also, `partial` doesn't contain a delimiter.
   ///
   /// The returned `out_pos` is relative to `block`'s start and should point
-  /// *after* the first delimiter.
+  /// to the first character after the first delimiter.
   /// `out_pos` will be -1 if no delimiter is found.
   virtual Status FindFirst(util::string_view partial, util::string_view block,
                            int64_t* out_pos) = 0;
@@ -48,39 +48,48 @@ class ARROW_EXPORT Delimiter {
   /// \brief Find the position of the last delimiter inside block
   ///
   /// The returned `out_pos` is relative to `block`'s start and should point
-  /// *after* the first delimiter.
+  /// to the first character after the last delimiter.
   /// `out_pos` will be -1 if no delimiter is found.
   virtual Status FindLast(util::string_view block, int64_t* out_pos) = 0;
 
+  static constexpr int64_t kNoDelimiterFound = -1;
+
  protected:
-  ARROW_DISALLOW_COPY_AND_ASSIGN(Delimiter);
+  ARROW_DISALLOW_COPY_AND_ASSIGN(BoundaryFinder);
 };
 
 ARROW_EXPORT
-std::shared_ptr<Delimiter> MakeNewlineDelimiter();
+std::shared_ptr<BoundaryFinder> MakeNewlineBoundaryFinder();
 
 /// \brief A reusable block-based chunker for delimited data
 ///
-/// The chunker takes a block of delimited data and finds a suitable place
-/// to cut it up without splitting an object.
-class ARROW_EXPORT DelimitedChunker {
+/// The chunker takes a block of delimited data and helps carve a sub-block
+/// which begins and ends on delimiters (suitable for consumption by parsers
+/// which can only parse whole objects).
+class ARROW_EXPORT Chunker {
  public:
-  explicit DelimitedChunker(std::shared_ptr<Delimiter> delimiter);
-  ~DelimitedChunker();
+  explicit Chunker(std::shared_ptr<BoundaryFinder> delimiter);
+  ~Chunker();
 
   /// \brief Carve up a chunk in a block of data to contain only whole objects
+  ///
+  /// Pre-conditions:
+  /// - `block` is the start of a valid block of delimited data
+  ///   (i.e. starts just after a delimiter)
   ///
   /// Post-conditions:
   /// - block == whole + partial
   /// - `whole` is a valid block of delimited data
+  ///   (i.e. starts just after a delimiter and ends with a delimiter)
   /// - `partial` doesn't contain an entire delimited object
+  ///   (IOW: `partial` is generally small)
   ///
   /// This method will look for the last delimiter in `block` and may
   /// therefore be costly.
   ///
-  /// \param[in] block json data to be chunked
-  /// \param[out] whole subrange of block containing whole json objects
-  /// \param[out] partial subrange of block a partial json object
+  /// \param[in] block data to be chunked
+  /// \param[out] whole subrange of block containing whole delimited objects
+  /// \param[out] partial subrange of block starting with a partial delimited object
   Status Process(std::shared_ptr<Buffer> block, std::shared_ptr<Buffer>* whole,
                  std::shared_ptr<Buffer>* partial);
 
@@ -88,17 +97,21 @@ class ARROW_EXPORT DelimitedChunker {
   ///
   /// Pre-conditions:
   /// - `partial` is the start of a valid block of delimited data
+  ///   (i.e. starts just after a delimiter)
+  /// - `block` follows `partial` in file order
   ///
   /// Post-conditions:
   /// - block == completion + rest
   /// - `partial + completion` is a valid block of delimited data
+  ///   (i.e. starts just after a delimiter and ends with a delimiter)
   /// - `completion` doesn't contain an entire delimited object
+  ///   (IOW: `completion` is generally small)
   ///
   /// This method will look for the first delimiter in `block` and should
   /// therefore be reasonably cheap.
   ///
-  /// \param[in] partial incomplete json object
-  /// \param[in] block json data
+  /// \param[in] partial incomplete delimited data
+  /// \param[in] block delimited data following partial
   /// \param[out] completion subrange of block containing the completion of partial
   /// \param[out] rest subrange of block containing what completion does not cover
   Status ProcessWithPartial(std::shared_ptr<Buffer> partial,
@@ -106,26 +119,28 @@ class ARROW_EXPORT DelimitedChunker {
                             std::shared_ptr<Buffer>* completion,
                             std::shared_ptr<Buffer>* rest);
 
-  /// \brief Like ProcessWithPartial, but for the lastblock of a file
+  /// \brief Like ProcessWithPartial, but for the last block of a file
   ///
   /// This method allows for a final delimited object without a trailing delimiter
   /// (ProcessWithPartial would return an error in that case).
   ///
   /// Pre-conditions:
   /// - `partial` is the start of a valid block of delimited data
+  /// - `block` follows `partial` in file order and is the last data block
   ///
   /// Post-conditions:
   /// - block == completion + rest
   /// - `partial + completion` is a valid block of delimited data
   /// - `completion` doesn't contain an entire delimited object
+  ///   (IOW: `completion` is generally small)
   ///
   Status ProcessFinal(std::shared_ptr<Buffer> partial, std::shared_ptr<Buffer> block,
                       std::shared_ptr<Buffer>* completion, std::shared_ptr<Buffer>* rest);
 
  protected:
-  ARROW_DISALLOW_COPY_AND_ASSIGN(DelimitedChunker);
+  ARROW_DISALLOW_COPY_AND_ASSIGN(Chunker);
 
-  std::shared_ptr<Delimiter> delimiter_;
+  std::shared_ptr<BoundaryFinder> boundary_finder_;
 };
 
 }  // namespace arrow

@@ -31,7 +31,7 @@ namespace arrow {
 namespace csv {
 
 ARROW_EXPORT
-std::unique_ptr<DelimitedChunker> MakeChunker(const ParseOptions& options);
+std::unique_ptr<Chunker> MakeChunker(const ParseOptions& options);
 
 }  // namespace csv
 }  // namespace arrow

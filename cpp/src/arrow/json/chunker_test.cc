@@ -80,8 +80,7 @@ static std::size_t ConsumeWholeObject(std::shared_ptr<Buffer>* buf) {
   return length;
 }
 
-void AssertOnlyWholeObjects(DelimitedChunker& chunker, std::shared_ptr<Buffer> whole,
-                            int* count) {
+void AssertOnlyWholeObjects(Chunker& chunker, std::shared_ptr<Buffer> whole, int* count) {
   *count = 0;
   while (whole && !WhitespaceOnly(whole)) {
     auto buf = whole;
@@ -92,7 +91,7 @@ void AssertOnlyWholeObjects(DelimitedChunker& chunker, std::shared_ptr<Buffer> w
   }
 }
 
-void AssertWholeObjects(DelimitedChunker& chunker, const std::shared_ptr<Buffer>& block,
+void AssertWholeObjects(Chunker& chunker, const std::shared_ptr<Buffer>& block,
                         int expected_count) {
   std::shared_ptr<Buffer> whole, partial;
   ASSERT_OK(chunker.Process(block, &whole, &partial));
@@ -101,8 +100,7 @@ void AssertWholeObjects(DelimitedChunker& chunker, const std::shared_ptr<Buffer>
   ASSERT_EQ(count, expected_count);
 }
 
-void AssertChunking(DelimitedChunker& chunker, std::shared_ptr<Buffer> buf,
-                    int total_count) {
+void AssertChunking(Chunker& chunker, std::shared_ptr<Buffer> buf, int total_count) {
   // First chunkize whole JSON block
   AssertWholeObjects(chunker, buf, total_count);
 
@@ -118,7 +116,7 @@ void AssertChunking(DelimitedChunker& chunker, std::shared_ptr<Buffer> buf,
   }
 }
 
-void AssertChunkingBlockSize(DelimitedChunker& chunker, std::shared_ptr<Buffer> buf,
+void AssertChunkingBlockSize(Chunker& chunker, std::shared_ptr<Buffer> buf,
                              int64_t block_size, int expected_count) {
   std::shared_ptr<Buffer> partial = Buffer::FromString({});
   int64_t pos = 0;
@@ -151,8 +149,7 @@ void AssertChunkingBlockSize(DelimitedChunker& chunker, std::shared_ptr<Buffer> 
   ASSERT_EQ(total_count, expected_count);
 }
 
-void AssertStraddledChunking(DelimitedChunker& chunker,
-                             const std::shared_ptr<Buffer>& buf) {
+void AssertStraddledChunking(Chunker& chunker, const std::shared_ptr<Buffer>& buf) {
   auto first_half = SliceBuffer(buf, 0, buf->size() / 2);
   auto second_half = SliceBuffer(buf, buf->size() / 2);
   AssertChunking(chunker, first_half, 1);
@@ -175,7 +172,7 @@ void AssertStraddledChunking(DelimitedChunker& chunker,
   ASSERT_NE(length, 0);
 }
 
-std::unique_ptr<DelimitedChunker> MakeChunker(bool newlines_in_values) {
+std::unique_ptr<Chunker> MakeChunker(bool newlines_in_values) {
   auto options = ParseOptions::Defaults();
   options.newlines_in_values = newlines_in_values;
   return MakeChunker(options);
@@ -185,7 +182,7 @@ class BaseChunkerTest : public ::testing::TestWithParam<bool> {
  protected:
   void SetUp() override { chunker_ = MakeChunker(GetParam()); }
 
-  std::unique_ptr<DelimitedChunker> chunker_;
+  std::unique_ptr<Chunker> chunker_;
 };
 
 INSTANTIATE_TEST_CASE_P(NoNewlineChunkerTest, BaseChunkerTest, ::testing::Values(false));

@@ -120,12 +120,13 @@ static size_t ConsumeWholeObject(Stream&& stream) {
 
 namespace {
 
-// A delimiter implementation that assumes JSON objects can contain raw newlines,
+// A BoundaryFinder implementation that assumes JSON objects can contain raw newlines,
 // and uses actual JSON parsing to delimit them.
-class ParsingDelimiter : public Delimiter {
+class ParsingBoundaryFinder : public BoundaryFinder {
  public:
   Status FindFirst(string_view partial, string_view block, int64_t* out_pos) override {
-    // XXX should we bubble up JSON parse errors instead of ignoring them?
+    // NOTE: We could bubble up JSON parse errors here, but the actual parsing
+    // step will detect them later anyway.
     auto length = ConsumeWholeObject(MultiStringStream({partial, block}));
     if (length == string_view::npos) {
       *out_pos = -1;
@@ -164,14 +165,14 @@ class ParsingDelimiter : public Delimiter {
 
 }  // namespace
 
-std::unique_ptr<DelimitedChunker> MakeChunker(const ParseOptions& options) {
-  std::shared_ptr<Delimiter> delimiter;
+std::unique_ptr<Chunker> MakeChunker(const ParseOptions& options) {
+  std::shared_ptr<BoundaryFinder> delimiter;
   if (options.newlines_in_values) {
-    delimiter = std::make_shared<ParsingDelimiter>();
+    delimiter = std::make_shared<ParsingBoundaryFinder>();
   } else {
-    delimiter = MakeNewlineDelimiter();
+    delimiter = MakeNewlineBoundaryFinder();
   }
-  return std::unique_ptr<DelimitedChunker>(new DelimitedChunker(std::move(delimiter)));
+  return std::unique_ptr<Chunker>(new Chunker(std::move(delimiter)));
 }
 
 }  // namespace json

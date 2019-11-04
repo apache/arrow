@@ -31,8 +31,7 @@
 namespace arrow {
 namespace csv {
 
-void AssertChunkSize(DelimitedChunker& chunker, const std::string& str,
-                     uint32_t chunk_size) {
+void AssertChunkSize(Chunker& chunker, const std::string& str, uint32_t chunk_size) {
   std::shared_ptr<Buffer> block, whole, partial;
   block = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(str.data()),
                                    static_cast<int64_t>(str.size()));
@@ -43,7 +42,7 @@ void AssertChunkSize(DelimitedChunker& chunker, const std::string& str,
 }
 
 template <typename IntContainer>
-void AssertChunking(DelimitedChunker& chunker, const std::string& str,
+void AssertChunking(Chunker& chunker, const std::string& str,
                     const IntContainer& expected_lengths) {
   uint32_t expected_chunk_size;
 
@@ -73,7 +72,7 @@ class BaseChunkerTest : public ::testing::TestWithParam<bool> {
   void MakeChunker() { chunker_ = ::arrow::csv::MakeChunker(options_); }
 
   ParseOptions options_;
-  std::unique_ptr<DelimitedChunker> chunker_;
+  std::unique_ptr<Chunker> chunker_;
 };
 
 INSTANTIATE_TEST_CASE_P(ChunkerTest, BaseChunkerTest, ::testing::Values(true));

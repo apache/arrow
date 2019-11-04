@@ -20,7 +20,7 @@
 
 namespace arrow {
 
-Delimiter::~Delimiter() {}
+BoundaryFinder::~BoundaryFinder() {}
 
 namespace {
 
@@ -29,15 +29,13 @@ Status StraddlingTooLarge() {
       "straddling object straddles two block boundaries (try to increase block size?)");
 }
 
-const char* newline_delimiters = "\r\n";
-
-class NewlineDelimiter : public Delimiter {
+class NewlineBoundaryFinder : public BoundaryFinder {
  public:
   Status FindFirst(util::string_view partial, util::string_view block,
                    int64_t* out_pos) override {
     auto pos = block.find_first_of(newline_delimiters);
     if (pos == util::string_view::npos) {
-      *out_pos = -1;
+      *out_pos = kNoDelimiterFound;
     } else {
       auto end = block.find_first_not_of(newline_delimiters, pos);
       if (end == util::string_view::npos) {
@@ -51,7 +49,7 @@ class NewlineDelimiter : public Delimiter {
   Status FindLast(util::string_view block, int64_t* out_pos) override {
     auto pos = block.find_last_of(newline_delimiters);
     if (pos == util::string_view::npos) {
-      *out_pos = -1;
+      *out_pos = kNoDelimiterFound;
     } else {
       auto end = block.find_first_not_of(newline_delimiters, pos);
       if (end == util::string_view::npos) {
@@ -61,25 +59,27 @@ class NewlineDelimiter : public Delimiter {
     }
     return Status::OK();
   }
+
+ protected:
+  static constexpr const char* newline_delimiters = "\r\n";
 };
 
 }  // namespace
 
-std::shared_ptr<Delimiter> MakeNewlineDelimiter() {
-  return std::make_shared<NewlineDelimiter>();
+std::shared_ptr<BoundaryFinder> MakeNewlineBoundaryFinder() {
+  return std::make_shared<NewlineBoundaryFinder>();
 }
 
-DelimitedChunker::~DelimitedChunker() {}
+Chunker::~Chunker() {}
 
-DelimitedChunker::DelimitedChunker(std::shared_ptr<Delimiter> delimiter)
-    : delimiter_(delimiter) {}
+Chunker::Chunker(std::shared_ptr<BoundaryFinder> delimiter)
+    : boundary_finder_(delimiter) {}
 
-Status DelimitedChunker::Process(std::shared_ptr<Buffer> block,
-                                 std::shared_ptr<Buffer>* whole,
-                                 std::shared_ptr<Buffer>* partial) {
+Status Chunker::Process(std::shared_ptr<Buffer> block, std::shared_ptr<Buffer>* whole,
+                        std::shared_ptr<Buffer>* partial) {
   int64_t last_pos = -1;
-  RETURN_NOT_OK(delimiter_->FindLast(util::string_view(*block), &last_pos));
-  if (last_pos == -1) {
+  RETURN_NOT_OK(boundary_finder_->FindLast(util::string_view(*block), &last_pos));
+  if (last_pos == BoundaryFinder::kNoDelimiterFound) {
     // No delimiter found
     *whole = SliceBuffer(block, 0, 0);
     *partial = block;
@@ -91,10 +91,10 @@ Status DelimitedChunker::Process(std::shared_ptr<Buffer> block,
   return Status::OK();
 }
 
-Status DelimitedChunker::ProcessWithPartial(std::shared_ptr<Buffer> partial,
-                                            std::shared_ptr<Buffer> block,
-                                            std::shared_ptr<Buffer>* completion,
-                                            std::shared_ptr<Buffer>* rest) {
+Status Chunker::ProcessWithPartial(std::shared_ptr<Buffer> partial,
+                                   std::shared_ptr<Buffer> block,
+                                   std::shared_ptr<Buffer>* completion,
+                                   std::shared_ptr<Buffer>* rest) {
   if (partial->size() == 0) {
     // If partial is empty, don't bother looking for completion
     *completion = SliceBuffer(block, 0, 0);
@@ -102,9 +102,9 @@ Status DelimitedChunker::ProcessWithPartial(std::shared_ptr<Buffer> partial,
     return Status::OK();
   }
   int64_t first_pos = -1;
-  RETURN_NOT_OK(delimiter_->FindFirst(util::string_view(*partial),
-                                      util::string_view(*block), &first_pos));
-  if (first_pos == -1) {
+  RETURN_NOT_OK(boundary_finder_->FindFirst(util::string_view(*partial),
+                                            util::string_view(*block), &first_pos));
+  if (first_pos == BoundaryFinder::kNoDelimiterFound) {
     // No delimiter in block => the current object is too large for block size
     return StraddlingTooLarge();
   } else {
@@ -114,10 +114,10 @@ Status DelimitedChunker::ProcessWithPartial(std::shared_ptr<Buffer> partial,
   }
 }
 
-Status DelimitedChunker::ProcessFinal(std::shared_ptr<Buffer> partial,
-                                      std::shared_ptr<Buffer> block,
-                                      std::shared_ptr<Buffer>* completion,
-                                      std::shared_ptr<Buffer>* rest) {
+Status Chunker::ProcessFinal(std::shared_ptr<Buffer> partial,
+                             std::shared_ptr<Buffer> block,
+                             std::shared_ptr<Buffer>* completion,
+                             std::shared_ptr<Buffer>* rest) {
   if (partial->size() == 0) {
     // If partial is empty, don't bother looking for completion
     *completion = SliceBuffer(block, 0, 0);
@@ -125,9 +125,9 @@ Status DelimitedChunker::ProcessFinal(std::shared_ptr<Buffer> partial,
     return Status::OK();
   }
   int64_t first_pos = -1;
-  RETURN_NOT_OK(delimiter_->FindFirst(util::string_view(*partial),
-                                      util::string_view(*block), &first_pos));
-  if (first_pos == -1) {
+  RETURN_NOT_OK(boundary_finder_->FindFirst(util::string_view(*partial),
+                                            util::string_view(*block), &first_pos));
+  if (first_pos == BoundaryFinder::kNoDelimiterFound) {
     // No delimiter in block => it's entirely a completion of partial
     *completion = block;
     *rest = SliceBuffer(block, 0, 0);

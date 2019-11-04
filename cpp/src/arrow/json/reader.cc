@@ -159,7 +159,7 @@ class TableReaderImpl : public TableReader,
   MemoryPool* pool_;
   ReadOptions read_options_;
   ParseOptions parse_options_;
-  std::unique_ptr<DelimitedChunker> chunker_;
+  std::unique_ptr<Chunker> chunker_;
   std::shared_ptr<TaskGroup> task_group_;
   Iterator<std::shared_ptr<Buffer>> block_iterator_;
   std::shared_ptr<ChunkedArrayBuilder> builder_;

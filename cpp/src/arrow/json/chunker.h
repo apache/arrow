@@ -29,7 +29,7 @@ namespace json {
 struct ParseOptions;
 
 ARROW_EXPORT
-std::unique_ptr<DelimitedChunker> MakeChunker(const ParseOptions& options);
+std::unique_ptr<Chunker> MakeChunker(const ParseOptions& options);
 
 }  // namespace json
 }  // namespace arrow

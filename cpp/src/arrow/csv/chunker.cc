@@ -31,7 +31,7 @@ namespace csv {
 
 namespace {
 
-// NOTE: cvsmonkey (https://github.com/dw/csvmonkey) has optimization ideas
+// NOTE: csvmonkey (https://github.com/dw/csvmonkey) has optimization ideas
 
 template <bool quoting, bool escaping>
 class Lexer {
@@ -183,10 +183,12 @@ class Lexer {
   State state_ = FIELD_START;
 };
 
+// A BoundaryFinder implementation that assumes CSV cells can contain raw newlines,
+// and uses actual CSV lexing to delimit them.
 template <bool quoting, bool escaping>
-class LexingDelimiter : public Delimiter {
+class LexingBoundaryFinder : public BoundaryFinder {
  public:
-  explicit LexingDelimiter(ParseOptions options) : options_(std::move(options)) {}
+  explicit LexingBoundaryFinder(ParseOptions options) : options_(std::move(options)) {}
 
   Status FindFirst(util::string_view partial, util::string_view block,
                    int64_t* out_pos) override {
@@ -238,26 +240,26 @@ class LexingDelimiter : public Delimiter {
 
 }  // namespace
 
-std::unique_ptr<DelimitedChunker> MakeChunker(const ParseOptions& options) {
-  std::shared_ptr<Delimiter> delimiter;
+std::unique_ptr<Chunker> MakeChunker(const ParseOptions& options) {
+  std::shared_ptr<BoundaryFinder> delimiter;
   if (!options.newlines_in_values) {
-    delimiter = MakeNewlineDelimiter();
+    delimiter = MakeNewlineBoundaryFinder();
   } else {
     if (options.quoting) {
       if (options.escaping) {
-        delimiter = std::make_shared<LexingDelimiter<true, true>>(options);
+        delimiter = std::make_shared<LexingBoundaryFinder<true, true>>(options);
       } else {
-        delimiter = std::make_shared<LexingDelimiter<true, false>>(options);
+        delimiter = std::make_shared<LexingBoundaryFinder<true, false>>(options);
       }
     } else {
       if (options.escaping) {
-        delimiter = std::make_shared<LexingDelimiter<false, true>>(options);
+        delimiter = std::make_shared<LexingBoundaryFinder<false, true>>(options);
       } else {
-        delimiter = std::make_shared<LexingDelimiter<false, false>>(options);
+        delimiter = std::make_shared<LexingBoundaryFinder<false, false>>(options);
       }
     }
   }
-  return internal::make_unique<DelimitedChunker>(std::move(delimiter));
+  return internal::make_unique<Chunker>(std::move(delimiter));
 }
 
 }  // namespace csv
