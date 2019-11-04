@@ -199,18 +199,17 @@ macro(arrow_find_package_pkg_config)
 
     set(include_dir "${${prefix}_PC_INCLUDEDIR}")
     set(lib_dir "${${prefix}_PC_LIBDIR}")
-    set(shared_lib_names "${${prefix}_PC_LIBRARIES}")
     set(shared_lib_paths "${${prefix}_PC_LINK_LIBRARIES}")
     list(GET shared_lib_paths 0 first_shared_lib_path)
-    list(LENGTH shared_lib_names n_shared_lib_names)
-    if(n_shared_lib_names LESS_EQUAL 1)
-      set(rest_shared_lib_names)
+    list(LENGTH shared_lib_paths n_shared_lib_paths)
+    if(n_shared_lib_paths LESS_EQUAL 1)
+      set(rest_shared_lib_paths)
     else()
       list(SUBLIST
-           shared_lib_names
+           shared_lib_paths
            1
            -1
-           rest_shared_lib_names)
+           rest_shared_lib_paths)
     endif()
 
     set(${prefix}_VERSION "${${prefix}_PC_VERSION}" PARENT_SCOPE)
@@ -222,7 +221,7 @@ macro(arrow_find_package_pkg_config)
                           PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
                                      "${include_dir}"
                                      INTERFACE_LINK_LIBRARIES
-                                     "${rest_shared_lib_names}"
+                                     "${rest_shared_lib_paths}"
                                      IMPORTED_LOCATION
                                      "${first_shared_lib_path}")
 
