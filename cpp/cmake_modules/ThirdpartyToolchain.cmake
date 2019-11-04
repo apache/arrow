@@ -1411,25 +1411,32 @@ if(ARROW_JEMALLOC)
       "${CMAKE_CURRENT_BINARY_DIR}/jemalloc_ep-prefix/src/jemalloc_ep/dist/")
   set(JEMALLOC_STATIC_LIB
       "${JEMALLOC_PREFIX}/lib/libjemalloc_pic${CMAKE_STATIC_LIBRARY_SUFFIX}")
+  set(JEMALLOC_CONFIGURE_COMMAND ./configure "AR=${CMAKE_AR}" "CC=${CMAKE_C_COMPILER}")
+  if(CMAKE_OSX_SYSROOT)
+    list(APPEND JEMALLOC_CONFIGURE_COMMAND "SDKROOT=${CMAKE_OSX_SYSROOT}")
+  endif()
+  list(APPEND JEMALLOC_CONFIGURE_COMMAND
+              "--prefix=${JEMALLOC_PREFIX}"
+              "--with-jemalloc-prefix=je_arrow_"
+              "--with-private-namespace=je_arrow_private_"
+              "--without-export"
+              # Don't override operator new()
+              "--disable-cxx" "--disable-libdl"
+              # See https://github.com/jemalloc/jemalloc/issues/1237
+              "--disable-initial-exec-tls" ${EP_LOG_OPTIONS})
+  set(JEMALLOC_BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS})
+  if(CMAKE_OSX_SYSROOT)
+    list(APPEND JEMALLOC_BUILD_COMMAND "SDKROOT=${CMAKE_OSX_SYSROOT}")
+  endif()
   externalproject_add(
     jemalloc_ep
     URL ${JEMALLOC_SOURCE_URL}
     PATCH_COMMAND
       touch doc/jemalloc.3 doc/jemalloc.html
       # The prefix "je_arrow_" must be kept in sync with the value in memory_pool.cc
-    CONFIGURE_COMMAND ./configure
-                      "AR=${CMAKE_AR}"
-                      "CC=${CMAKE_C_COMPILER}"
-                      "--prefix=${JEMALLOC_PREFIX}"
-                      "--with-jemalloc-prefix=je_arrow_"
-                      "--with-private-namespace=je_arrow_private_"
-                      "--without-export"
-                      # Don't override operator new()
-                      "--disable-cxx" "--disable-libdl"
-                      # See https://github.com/jemalloc/jemalloc/issues/1237
-                      "--disable-initial-exec-tls" ${EP_LOG_OPTIONS}
+    CONFIGURE_COMMAND ${JEMALLOC_CONFIGURE_COMMAND}
     BUILD_IN_SOURCE 1
-    BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS}
+    BUILD_COMMAND ${JEMALLOC_BUILD_COMMAND}
     BUILD_BYPRODUCTS "${JEMALLOC_STATIC_LIB}"
     INSTALL_COMMAND ${MAKE} install)
 
