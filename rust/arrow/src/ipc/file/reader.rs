@@ -58,7 +58,7 @@ fn create_array(
 ) -> (ArrayRef, usize, usize) {
     use DataType::*;
     let array = match data_type {
-        Utf8 => {
+        Utf8 | Binary => {
             let array = create_primitive_array(
                 &nodes[node_index],
                 data_type,
@@ -69,6 +69,19 @@ fn create_array(
             );
             node_index = node_index + 1;
             buffer_index = buffer_index + 3;
+            array
+        }
+        FixedSizeBinary(_) => {
+            let array = create_primitive_array(
+                &nodes[node_index],
+                data_type,
+                buffers[buffer_index..buffer_index + 2]
+                    .iter()
+                    .map(|buf| read_buffer(buf, data))
+                    .collect(),
+            );
+            node_index = node_index + 1;
+            buffer_index = buffer_index + 2;
             array
         }
         List(ref list_data_type) => {
@@ -176,11 +189,24 @@ fn create_primitive_array(
     let length = field_node.length() as usize;
     let null_count = field_node.null_count() as usize;
     let array_data = match data_type {
-        Utf8 => {
+        Utf8 | Binary => {
             // read 3 buffers
             let mut builder = ArrayData::builder(data_type.clone())
                 .len(length)
                 .buffers(buffers[1..3].to_vec())
+                .offset(0);
+            if null_count > 0 {
+                builder = builder
+                    .null_count(null_count)
+                    .null_bit_buffer(buffers[0].clone())
+            }
+            builder.build()
+        }
+        FixedSizeBinary(_) => {
+            // read 3 buffers
+            let mut builder = ArrayData::builder(data_type.clone())
+                .len(length)
+                .buffers(buffers[1..2].to_vec())
                 .offset(0);
             if null_count > 0 {
                 builder = builder
@@ -503,9 +529,9 @@ mod tests {
         let paths = vec![
             // "generated_datetime",
             "generated_nested",
-            // "generated_primitive_no_batches",
-            // "generated_primitive_zerolength",
-            // "generated_primitive",
+            "generated_primitive_no_batches",
+            "generated_primitive_zerolength",
+            "generated_primitive",
         ];
         paths.iter().for_each(|path| {
             let file = File::open(format!(

@@ -99,8 +99,11 @@ fn get_data_type(field: ipc::Field) -> DataType {
                 _ => panic!("Unexpected bitwidth and signed"),
             }
         }
-        ipc::Type::Utf8 | ipc::Type::Binary | ipc::Type::FixedSizeBinary => {
-            DataType::Utf8
+        ipc::Type::Binary => DataType::Binary,
+        ipc::Type::Utf8 => DataType::Utf8,
+        ipc::Type::FixedSizeBinary => {
+            let fsb = field.type__as_fixed_size_binary().unwrap();
+            DataType::FixedSizeBinary(fsb.byteWidth())
         }
         ipc::Type::FloatingPoint => {
             let float = field.type__as_floating_point().unwrap();
