@@ -21,7 +21,7 @@ function detectJIRAID(title) {
   if (!title) {
     return null;
   }
-  const matched = /^ARROW-\d+/.exec(title);
+  const matched = /^(ARROW|PARQUET)-\d+/.exec(title);
   if (!matched) {
     return null;
   }

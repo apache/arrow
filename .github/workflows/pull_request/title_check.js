@@ -25,7 +25,7 @@ function haveJIRAID(title) {
   if (!title) {
     return false;
   }
-  return /^ARROW-\d+/.test(title);
+  return /^(ARROW|PARQUET)-\d+/.test(title);
 }
 
 async function commentOpenJIRAIssue(pullRequestNumber) {
