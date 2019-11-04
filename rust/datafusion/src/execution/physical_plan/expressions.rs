@@ -1123,7 +1123,7 @@ mod tests {
     use super::*;
     use crate::error::Result;
     use crate::execution::physical_plan::common::get_scalar_value;
-    use arrow::array::{BinaryArray, PrimitiveArray};
+    use arrow::array::{PrimitiveArray, StringArray};
     use arrow::datatypes::*;
 
     #[test]
@@ -1243,9 +1243,9 @@ mod tests {
 
         let result = result
             .as_any()
-            .downcast_ref::<BinaryArray>()
-            .expect("failed to downcast to BinaryArray");
-        assert_eq!(result.value(0), "1".as_bytes());
+            .downcast_ref::<StringArray>()
+            .expect("failed to downcast to StringArray");
+        assert_eq!(result.value(0), "1");
 
         Ok(())
     }

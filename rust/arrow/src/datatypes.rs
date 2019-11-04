@@ -67,6 +67,8 @@ pub enum DataType {
     Time32(TimeUnit),
     Time64(TimeUnit),
     Interval(IntervalUnit),
+    Binary,
+    FixedSizeBinary(i32),
     Utf8,
     List(Box<DataType>),
     FixedSizeList((Box<DataType>, i32)),
@@ -535,7 +537,18 @@ impl DataType {
         match *json {
             Value::Object(ref map) => match map.get("name") {
                 Some(s) if s == "bool" => Ok(DataType::Boolean),
+                Some(s) if s == "binary" => Ok(DataType::Binary),
                 Some(s) if s == "utf8" => Ok(DataType::Utf8),
+                Some(s) if s == "fixedsizebinary" => {
+                    // return a list with any type as its child isn't defined in the map
+                    if let Some(Value::Number(size)) = map.get("byteWidth") {
+                        Ok(DataType::FixedSizeBinary(size.as_i64().unwrap() as i32))
+                    } else {
+                        Err(ArrowError::ParseError(format!(
+                            "Expecting a byteWidth for fixedsizebinary",
+                        )))
+                    }
+                }
                 Some(s) if s == "floatingpoint" => match map.get("precision") {
                     Some(p) if p == "HALF" => Ok(DataType::Float16),
                     Some(p) if p == "SINGLE" => Ok(DataType::Float32),
@@ -679,6 +692,8 @@ impl DataType {
             DataType::Float32 => json!({"name": "floatingpoint", "precision": "SINGLE"}),
             DataType::Float64 => json!({"name": "floatingpoint", "precision": "DOUBLE"}),
             DataType::Utf8 => json!({"name": "utf8"}),
+            DataType::Binary => json!({"name": "binary"}),
+            DataType::FixedSizeBinary(byte_width) => json!({"name": "fixedsizebinary", "byteWidth": byte_width}),
             DataType::Struct(_) => json!({"name": "struct"}),
             DataType::List(_) => json!({ "name": "list"}),
             DataType::FixedSizeList((_, length)) => json!({"name":"fixedsizelist", "listSize": length}),
@@ -1153,9 +1168,11 @@ mod tests {
     fn schema_json() {
         let schema = Schema::new(vec![
             Field::new("c1", DataType::Utf8, false),
-            Field::new("c2", DataType::Boolean, false),
-            Field::new("c3", DataType::Date32(DateUnit::Day), false),
-            Field::new("c4", DataType::Date64(DateUnit::Millisecond), false),
+            Field::new("c2", DataType::Binary, false),
+            Field::new("c3", DataType::FixedSizeBinary(3), false),
+            Field::new("c4", DataType::Boolean, false),
+            Field::new("c5", DataType::Date32(DateUnit::Day), false),
+            Field::new("c6", DataType::Date64(DateUnit::Millisecond), false),
             Field::new("c7", DataType::Time32(TimeUnit::Second), false),
             Field::new("c8", DataType::Time32(TimeUnit::Millisecond), false),
             Field::new("c9", DataType::Time32(TimeUnit::Microsecond), false),
@@ -1208,12 +1225,29 @@ mod tests {
                         "name": "c2",
                         "nullable": false,
                         "type": {
-                            "name": "bool"
+                            "name": "binary"
                         },
                         "children": []
                     },
                     {
                         "name": "c3",
+                        "nullable": false,
+                        "type": {
+                            "name": "fixedsizebinary",
+                            "byteWidth": 3
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c4",
+                        "nullable": false,
+                        "type": {
+                            "name": "bool"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c5",
                         "nullable": false,
                         "type": {
                             "name": "date",
@@ -1222,7 +1256,7 @@ mod tests {
                         "children": []
                     },
                     {
-                        "name": "c4",
+                        "name": "c6",
                         "nullable": false,
                         "type": {
                             "name": "date",

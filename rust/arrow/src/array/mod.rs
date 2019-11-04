@@ -70,9 +70,11 @@ pub use self::data::ArrayDataBuilder;
 pub use self::data::ArrayDataRef;
 
 pub use self::array::BinaryArray;
+pub use self::array::FixedSizeBinaryArray;
 pub use self::array::FixedSizeListArray;
 pub use self::array::ListArray;
 pub use self::array::PrimitiveArray;
+pub use self::array::StringArray;
 pub use self::array::StructArray;
 
 pub(crate) use self::array::make_array;
@@ -134,9 +136,11 @@ pub type Time64NanosecondBufferBuilder = BufferBuilder<Time64NanosecondType>;
 
 pub use self::builder::ArrayBuilder;
 pub use self::builder::BinaryBuilder;
+pub use self::builder::FixedSizeBinaryBuilder;
 pub use self::builder::FixedSizeListBuilder;
 pub use self::builder::ListBuilder;
 pub use self::builder::PrimitiveBuilder;
+pub use self::builder::StringBuilder;
 pub use self::builder::StructBuilder;
 
 pub type BooleanBuilder = PrimitiveBuilder<BooleanType>;

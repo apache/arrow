@@ -142,7 +142,7 @@ fn main() {
         let c1 = batch
             .column(0)
             .as_any()
-            .downcast_ref::<BinaryArray>()
+            .downcast_ref::<StringArray>()
             .unwrap();
 
         let min = batch

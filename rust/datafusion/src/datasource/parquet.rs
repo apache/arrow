@@ -25,7 +25,7 @@ use std::thread;
 use crossbeam::channel::{unbounded, Receiver, Sender};
 
 use arrow::array::{
-    Array, BinaryBuilder, PrimitiveArray, PrimitiveBuilder, TimestampNanosecondBuilder,
+    Array, PrimitiveArray, PrimitiveBuilder, StringBuilder, TimestampNanosecondBuilder,
 };
 use arrow::datatypes::*;
 use arrow::record_batch::RecordBatch;
@@ -186,11 +186,11 @@ macro_rules! read_binary_column {
             None,
             &mut read_buffer,
         )?;
-        let mut builder = BinaryBuilder::new(levels_read);
+        let mut builder = StringBuilder::new(levels_read);
         let mut value_index = 0;
         for i in 0..levels_read {
             if def_levels[i] > 0 {
-                builder.append_string(
+                builder.append_value(
                     &String::from_utf8(read_buffer[value_index].data().to_vec()).unwrap(),
                 )?;
                 value_index += 1;
@@ -550,7 +550,7 @@ impl ParquetFile {
 mod tests {
     use super::*;
     use arrow::array::{
-        BinaryArray, BooleanArray, Float32Array, Float64Array, Int32Array,
+        BooleanArray, Float32Array, Float64Array, Int32Array, StringArray,
         TimestampNanosecondArray,
     };
     use std::env;
@@ -758,12 +758,11 @@ mod tests {
         let array = batch
             .column(0)
             .as_any()
-            .downcast_ref::<BinaryArray>()
+            .downcast_ref::<StringArray>()
             .unwrap();
         let mut values: Vec<String> = vec![];
         for i in 0..batch.num_rows() {
-            let str: String = String::from_utf8(array.value(i).to_vec()).unwrap();
-            values.push(str);
+            values.push(array.value(i).to_string());
         }
 
         assert_eq!(

@@ -18,6 +18,7 @@
 use super::*;
 use crate::datatypes::*;
 use crate::util::bit_util;
+use hex::FromHex;
 use serde_json::value::Value::{Null as JNull, Object, String as JString};
 use serde_json::Value;
 
@@ -381,6 +382,220 @@ impl ArrayEqual for BinaryArray {
     }
 }
 
+impl ArrayEqual for StringArray {
+    fn equals(&self, other: &dyn Array) -> bool {
+        if !base_equal(&self.data(), &other.data()) {
+            return false;
+        }
+
+        let other = other.as_any().downcast_ref::<StringArray>().unwrap();
+
+        if !value_offset_equal(self, other) {
+            return false;
+        }
+
+        // TODO: handle null & length == 0 case?
+
+        let value_buf = self.value_data();
+        let other_value_buf = other.value_data();
+        let value_data = value_buf.data();
+        let other_value_data = other_value_buf.data();
+
+        if self.null_count() == 0 {
+            // No offset in both - just do memcmp
+            if self.offset() == 0 && other.offset() == 0 {
+                let len = self.value_offset(self.len()) as usize;
+                return value_data[..len] == other_value_data[..len];
+            } else {
+                let start = self.value_offset(0) as usize;
+                let other_start = other.value_offset(0) as usize;
+                let len = (self.value_offset(self.len()) - self.value_offset(0)) as usize;
+                return value_data[start..(start + len)]
+                    == other_value_data[other_start..(other_start + len)];
+            }
+        } else {
+            for i in 0..self.len() {
+                if self.is_null(i) {
+                    continue;
+                }
+
+                let start = self.value_offset(i) as usize;
+                let other_start = other.value_offset(i) as usize;
+                let len = self.value_length(i) as usize;
+                if value_data[start..(start + len)]
+                    != other_value_data[other_start..(other_start + len)]
+                {
+                    return false;
+                }
+            }
+        }
+
+        true
+    }
+
+    fn range_equals(
+        &self,
+        other: &dyn Array,
+        start_idx: usize,
+        end_idx: usize,
+        other_start_idx: usize,
+    ) -> bool {
+        assert!(other_start_idx + (end_idx - start_idx) <= other.len());
+        let other = other.as_any().downcast_ref::<StringArray>().unwrap();
+
+        let mut j = other_start_idx;
+        for i in start_idx..end_idx {
+            let is_null = self.is_null(i);
+            let other_is_null = other.is_null(j);
+
+            if is_null != other_is_null {
+                return false;
+            }
+
+            if is_null {
+                continue;
+            }
+
+            let start_offset = self.value_offset(i) as usize;
+            let end_offset = self.value_offset(i + 1) as usize;
+            let other_start_offset = other.value_offset(j) as usize;
+            let other_end_offset = other.value_offset(j + 1) as usize;
+
+            if end_offset - start_offset != other_end_offset - other_start_offset {
+                return false;
+            }
+
+            let value_buf = self.value_data();
+            let other_value_buf = other.value_data();
+            let value_data = value_buf.data();
+            let other_value_data = other_value_buf.data();
+
+            if end_offset - start_offset > 0 {
+                let len = end_offset - start_offset;
+                if value_data[start_offset..(start_offset + len)]
+                    != other_value_data[other_start_offset..(other_start_offset + len)]
+                {
+                    return false;
+                }
+            }
+
+            j += 1;
+        }
+
+        true
+    }
+}
+
+impl ArrayEqual for FixedSizeBinaryArray {
+    fn equals(&self, other: &dyn Array) -> bool {
+        if !base_equal(&self.data(), &other.data()) {
+            return false;
+        }
+
+        let other = other
+            .as_any()
+            .downcast_ref::<FixedSizeBinaryArray>()
+            .unwrap();
+
+        if !value_offset_equal(self, other) {
+            return false;
+        }
+
+        // TODO: handle null & length == 0 case?
+
+        let value_buf = self.value_data();
+        let other_value_buf = other.value_data();
+        let value_data = value_buf.data();
+        let other_value_data = other_value_buf.data();
+
+        if self.null_count() == 0 {
+            // No offset in both - just do memcmp
+            if self.offset() == 0 && other.offset() == 0 {
+                let len = self.value_offset(self.len()) as usize;
+                return value_data[..len] == other_value_data[..len];
+            } else {
+                let start = self.value_offset(0) as usize;
+                let other_start = other.value_offset(0) as usize;
+                let len = (self.value_offset(self.len()) - self.value_offset(0)) as usize;
+                return value_data[start..(start + len)]
+                    == other_value_data[other_start..(other_start + len)];
+            }
+        } else {
+            for i in 0..self.len() {
+                if self.is_null(i) {
+                    continue;
+                }
+
+                let start = self.value_offset(i) as usize;
+                let other_start = other.value_offset(i) as usize;
+                let len = self.value_length() as usize;
+                if value_data[start..(start + len)]
+                    != other_value_data[other_start..(other_start + len)]
+                {
+                    return false;
+                }
+            }
+        }
+
+        true
+    }
+
+    fn range_equals(
+        &self,
+        other: &dyn Array,
+        start_idx: usize,
+        end_idx: usize,
+        other_start_idx: usize,
+    ) -> bool {
+        assert!(other_start_idx + (end_idx - start_idx) <= other.len());
+        let other = other
+            .as_any()
+            .downcast_ref::<FixedSizeBinaryArray>()
+            .unwrap();
+
+        let mut j = other_start_idx;
+        for i in start_idx..end_idx {
+            let is_null = self.is_null(i);
+            let other_is_null = other.is_null(j);
+
+            if is_null != other_is_null {
+                return false;
+            }
+
+            if is_null {
+                continue;
+            }
+
+            let start_offset = self.value_offset(i) as usize;
+            let end_offset = self.value_offset(i + 1) as usize;
+            let other_start_offset = other.value_offset(j) as usize;
+            let other_end_offset = other.value_offset(j + 1) as usize;
+
+            if end_offset - start_offset != other_end_offset - other_start_offset {
+                return false;
+            }
+
+            let value_buf = self.value_data();
+            let other_value_buf = other.value_data();
+            let value_data = value_buf.data();
+            let other_value_data = other_value_buf.data();
+
+            if end_offset - start_offset > 0 {
+                let len = end_offset - start_offset;
+                if value_data[start_offset..(start_offset + len)]
+                    != other_value_data[other_start_offset..(other_start_offset + len)]
+                {
+                    return false;
+                }
+            }
+
+            j += 1;
+        }
+
+        true
+    }
+}
+
 impl ArrayEqual for StructArray {
     fn equals(&self, other: &dyn Array) -> bool {
         if !base_equal(&self.data(), &other.data()) {
@@ -668,7 +883,13 @@ impl JsonEqual for BinaryArray {
         }
 
         (0..self.len()).all(|i| match json[i] {
-            JString(s) => self.is_valid(i) && s.as_str().as_bytes() == self.value(i),
+            JString(s) => {
+                // binary data is sometimes hex encoded, this checks if bytes are equal,
+                // and if not converting to hex is attempted
+                self.is_valid(i)
+                    && (s.as_str().as_bytes() == self.value(i)
+                        || Vec::from_hex(s.as_str()) == Ok(self.value(i).to_vec()))
+            }
             JNull => self.is_null(i),
             _ => false,
         })
@@ -686,6 +907,76 @@ impl PartialEq<Value> for BinaryArray {
 
 impl PartialEq<BinaryArray> for Value {
     fn eq(&self, arrow: &BinaryArray) -> bool {
+        match self {
+            Value::Array(json_array) => arrow.equals_json_values(&json_array),
+            _ => false,
+        }
+    }
+}
+
+impl JsonEqual for StringArray {
+    fn equals_json(&self, json: &[&Value]) -> bool {
+        if self.len() != json.len() {
+            return false;
+        }
+
+        (0..self.len()).all(|i| match json[i] {
+            JString(s) => self.is_valid(i) && s.as_str() == self.value(i),
+            JNull => self.is_null(i),
+            _ => false,
+        })
+    }
+}
+
+impl PartialEq<Value> for StringArray {
+    fn eq(&self, json: &Value) -> bool {
+        match json {
+            Value::Array(json_array) => self.equals_json_values(&json_array),
+            _ => false,
+        }
+    }
+}
+
+impl PartialEq<StringArray> for Value {
+    fn eq(&self, arrow: &StringArray) -> bool {
+        match self {
+            Value::Array(json_array) => arrow.equals_json_values(&json_array),
+            _ => false,
+        }
+    }
+}
+
+impl JsonEqual for FixedSizeBinaryArray {
+    fn equals_json(&self, json: &[&Value]) -> bool {
+        if self.len() != json.len() {
+            return false;
+        }
+
+        (0..self.len()).all(|i| match json[i] {
+            JString(s) => {
+                // binary data is sometimes hex encoded, this checks if bytes are equal,
+                // and if not converting to hex is attempted
+                self.is_valid(i)
+                    && (s.as_str().as_bytes() == self.value(i)
+                        || Vec::from_hex(s.as_str()) == Ok(self.value(i).to_vec()))
+            }
+            JNull => self.is_null(i),
+            _ => false,
+        })
+    }
+}
+
+impl PartialEq<Value> for FixedSizeBinaryArray {
+    fn eq(&self, json: &Value) -> bool {
+        match json {
+            Value::Array(json_array) => self.equals_json_values(&json_array),
+            _ => false,
+        }
+    }
+}
+
+impl PartialEq<FixedSizeBinaryArray> for Value {
+    fn eq(&self, arrow: &FixedSizeBinaryArray) -> bool {
         match self {
             Value::Array(json_array) => arrow.equals_json_values(&json_array),
             _ => false,
@@ -937,19 +1228,19 @@ mod tests {
     }
 
     #[test]
-    fn test_binary_equal() {
-        let a = BinaryArray::from(vec!["hello", "world"]);
-        let b = BinaryArray::from(vec!["hello", "world"]);
+    fn test_string_equal() {
+        let a = StringArray::from(vec!["hello", "world"]);
+        let b = StringArray::from(vec!["hello", "world"]);
         assert!(a.equals(&b));
         assert!(b.equals(&a));
 
-        let b = BinaryArray::from(vec!["hello", "arrow"]);
+        let b = StringArray::from(vec!["hello", "arrow"]);
         assert!(!a.equals(&b));
         assert!(!b.equals(&a));
 
         // Test the case where null_count > 0
 
-        let a = BinaryArray::try_from(vec![
+        let a = StringArray::try_from(vec![
             Some("hello"),
             None,
             None,
@@ -959,7 +1250,7 @@ mod tests {
         ])
         .unwrap();
 
-        let b = BinaryArray::try_from(vec![
+        let b = StringArray::try_from(vec![
             Some("hello"),
             None,
             None,
@@ -971,7 +1262,7 @@ mod tests {
         assert!(a.equals(&b));
         assert!(b.equals(&a));
 
-        let b = BinaryArray::try_from(vec![
+        let b = StringArray::try_from(vec![
             Some("hello"),
             Some("foo"),
             None,
@@ -983,7 +1274,7 @@ mod tests {
         assert!(!a.equals(&b));
         assert!(!b.equals(&a));
 
-        let b = BinaryArray::try_from(vec![
+        let b = StringArray::try_from(vec![
             Some("hello"),
             None,
             None,
@@ -1015,7 +1306,7 @@ mod tests {
 
     #[test]
     fn test_struct_equal() {
-        let string_builder = BinaryBuilder::new(5);
+        let string_builder = StringBuilder::new(5);
         let int_builder = Int32Builder::new(5);
 
         let mut fields = Vec::new();
@@ -1252,9 +1543,9 @@ mod tests {
     }
 
     #[test]
-    fn test_binary_json_equal() {
+    fn test_string_json_equal() {
         // Test the equal case
-        let arrow_array = BinaryArray::try_from(vec![
+        let arrow_array = StringArray::try_from(vec![
             Some("hello"),
             None,
             None,
@@ -1280,7 +1571,7 @@ mod tests {
         assert!(json_array.eq(&arrow_array));
 
         // Test unequal case
-        let arrow_array = BinaryArray::try_from(vec![
+        let arrow_array = StringArray::try_from(vec![
             Some("hello"),
             None,
             None,
@@ -1307,7 +1598,7 @@ mod tests {
 
         // Test unequal length case
         let arrow_array =
-            BinaryArray::try_from(vec![Some("hello"), None, None, Some("world"), None])
+            StringArray::try_from(vec![Some("hello"), None, None, Some("world"), None])
                 .unwrap();
         let json_array: Value = serde_json::from_str(
             r#"
@@ -1327,7 +1618,7 @@ mod tests {
 
         // Test incorrect type case
         let arrow_array =
-            BinaryArray::try_from(vec![Some("hello"), None, None, Some("world"), None])
+            StringArray::try_from(vec![Some("hello"), None, None, Some("world"), None])
                 .unwrap();
         let json_array: Value = serde_json::from_str(
             r#"
@@ -1342,7 +1633,7 @@ mod tests {
 
         // Test incorrect value type case
         let arrow_array =
-            BinaryArray::try_from(vec![Some("hello"), None, None, Some("world"), None])
+            StringArray::try_from(vec![Some("hello"), None, None, Some("world"), None])
                 .unwrap();
         let json_array: Value = serde_json::from_str(
             r#"
@@ -1362,9 +1653,201 @@ mod tests {
     }
 
     #[test]
+    fn test_binary_json_equal() {
+        // Test the equal case
+        let arrow_array = StringArray::try_from(vec![
+            Some("hello"),
+            None,
+            None,
+            Some("world"),
+            None,
+            None,
+        ])
+        .unwrap();
+        let arrow_array = BinaryArray::from(arrow_array.data());
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                "hello",
+                null,
+                null,
+                "world",
+                null,
+                null
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.eq(&json_array));
+        assert!(json_array.eq(&arrow_array));
+
+        // Test unequal case
+        let arrow_array = StringArray::try_from(vec![
+            Some("hello"),
+            None,
+            None,
+            Some("world"),
+            None,
+            None,
+        ])
+        .unwrap();
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                "hello",
+                null,
+                null,
+                "arrow",
+                null,
+                null
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+
+        // Test unequal length case
+        let arrow_array =
+            StringArray::try_from(vec![Some("hello"), None, None, Some("world"), None])
+                .unwrap();
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                "hello",
+                null,
+                null,
+                "arrow",
+                null,
+                null
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+
+        // Test incorrect type case
+        let arrow_array =
+            StringArray::try_from(vec![Some("hello"), None, None, Some("world"), None])
+                .unwrap();
+        let json_array: Value = serde_json::from_str(
+            r#"
+            {
+                "a": 1
+            }
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+
+        // Test incorrect value type case
+        let arrow_array =
+            StringArray::try_from(vec![Some("hello"), None, None, Some("world"), None])
+                .unwrap();
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                "hello",
+                null,
+                null,
+                1,
+                null,
+                null
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+    }
+
+    #[test]
+    fn test_fixed_size_binary_json_equal() {
+        // Test the equal case
+        let mut builder = FixedSizeBinaryBuilder::new(15, 5);
+        builder.append_value(b"hello").unwrap();
+        builder.append_null().unwrap();
+        builder.append_value(b"world").unwrap();
+        let arrow_array: FixedSizeBinaryArray = builder.finish();
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                "hello",
+                null,
+                "world"
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.eq(&json_array));
+        assert!(json_array.eq(&arrow_array));
+
+        // Test unequal case
+        builder.append_value(b"hello").unwrap();
+        builder.append_null().unwrap();
+        builder.append_value(b"world").unwrap();
+        let arrow_array: FixedSizeBinaryArray = builder.finish();
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                "hello",
+                null,
+                "arrow"
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+
+        // Test unequal length case
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                "hello",
+                null,
+                null,
+                "world"
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+
+        // Test incorrect type case
+        let json_array: Value = serde_json::from_str(
+            r#"
+            {
+                "a": 1
+            }
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+
+        // Test incorrect value type case
+        let json_array: Value = serde_json::from_str(
+            r#"
+            [
+                "hello",
+                null,
+                1
+            ]
+        "#,
+        )
+        .unwrap();
+        assert!(arrow_array.ne(&json_array));
+        assert!(json_array.ne(&arrow_array));
+    }
+
+    #[test]
     fn test_struct_json_equal() {
         // Test equal case
-        let string_builder = BinaryBuilder::new(5);
+        let string_builder = StringBuilder::new(5);
         let int_builder = Int32Builder::new(5);
 
         let mut fields = Vec::new();
@@ -1479,10 +1962,10 @@ mod tests {
         second: U,
         is_valid: V,
     ) -> Result<StructArray> {
-        let string_builder = builder.field_builder::<BinaryBuilder>(0).unwrap();
+        let string_builder = builder.field_builder::<StringBuilder>(0).unwrap();
         for v in first.as_ref() {
             if let Some(s) = v {
-                string_builder.append_string(s)?;
+                string_builder.append_value(s)?;
             } else {
                 string_builder.append_null()?;
             }

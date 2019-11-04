@@ -147,8 +147,17 @@ impl ArrowJsonBatch {
                         let arr = arr.as_any().downcast_ref::<Float64Array>().unwrap();
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
                     }
-                    DataType::Utf8 => {
+                    DataType::Binary => {
                         let arr = arr.as_any().downcast_ref::<BinaryArray>().unwrap();
+                        arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
+                    }
+                    DataType::Utf8 => {
+                        let arr = arr.as_any().downcast_ref::<StringArray>().unwrap();
+                        arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
+                    }
+                    DataType::FixedSizeBinary(_) => {
+                        let arr =
+                            arr.as_any().downcast_ref::<FixedSizeBinaryArray>().unwrap();
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
                     }
                     DataType::List(_) => {
@@ -397,7 +406,7 @@ mod tests {
         let ts_micros = TimestampMicrosecondArray::from(vec![None, None, None]);
         let ts_nanos =
             TimestampNanosecondArray::from(vec![None, None, Some(-6473623571954960143)]);
-        let utf8s = BinaryArray::try_from(vec![Some("aa"), None, Some("bbb")]).unwrap();
+        let utf8s = StringArray::try_from(vec![Some("aa"), None, Some("bbb")]).unwrap();
 
         let value_data = Int32Array::from(vec![None, Some(2), None, None]);
         let value_offsets = Buffer::from(&[0, 3, 4, 4].to_byte_slice());
@@ -411,7 +420,7 @@ mod tests {
 
         let structs_int32s = Int32Array::from(vec![None, Some(-2), None]);
         let structs_utf8s =
-            BinaryArray::try_from(vec![None, None, Some("aaaaaa")]).unwrap();
+            StringArray::try_from(vec![None, None, Some("aaaaaa")]).unwrap();
         let structs = StructArray::from(vec![
             (
                 Field::new("int32s", DataType::Int32, true),

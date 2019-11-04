@@ -48,7 +48,7 @@ use std::sync::Arc;
 
 use csv as csv_crate;
 
-use crate::array::{ArrayRef, BinaryBuilder, PrimitiveBuilder};
+use crate::array::{ArrayRef, PrimitiveBuilder, StringBuilder};
 use crate::datatypes::*;
 use crate::error::{ArrowError, Result};
 use crate::record_batch::RecordBatch;
@@ -321,10 +321,10 @@ impl<R: Read> Reader<R> {
                         self.build_primitive_array::<Float64Type>(rows, i)
                     }
                     &DataType::Utf8 => {
-                        let mut builder = BinaryBuilder::new(rows.len());
+                        let mut builder = StringBuilder::new(rows.len());
                         for row_index in 0..rows.len() {
                             match rows[row_index].get(*i) {
-                                Some(s) => builder.append_string(s).unwrap(),
+                                Some(s) => builder.append_value(s).unwrap(),
                                 _ => builder.append(false).unwrap(),
                             }
                         }
@@ -568,12 +568,10 @@ mod tests {
         let city = batch
             .column(0)
             .as_any()
-            .downcast_ref::<BinaryArray>()
+            .downcast_ref::<StringArray>()
             .unwrap();
 
-        let city_name: String = String::from_utf8(city.value(13).to_vec()).unwrap();
-
-        assert_eq!("Aberdeen, Aberdeen City, UK", city_name);
+        assert_eq!("Aberdeen, Aberdeen City, UK", city.value(13));
     }
 
     #[test]
@@ -631,12 +629,10 @@ mod tests {
         let city = batch
             .column(0)
             .as_any()
-            .downcast_ref::<BinaryArray>()
+            .downcast_ref::<StringArray>()
             .unwrap();
 
-        let city_name: String = String::from_utf8(city.value(13).to_vec()).unwrap();
-
-        assert_eq!("Aberdeen, Aberdeen City, UK", city_name);
+        assert_eq!("Aberdeen, Aberdeen City, UK", city.value(13));
     }
 
     #[test]
@@ -671,12 +667,10 @@ mod tests {
         let city = batch
             .column(0)
             .as_any()
-            .downcast_ref::<BinaryArray>()
+            .downcast_ref::<StringArray>()
             .unwrap();
 
-        let city_name: String = String::from_utf8(city.value(13).to_vec()).unwrap();
-
-        assert_eq!("Aberdeen, Aberdeen City, UK", city_name);
+        assert_eq!("Aberdeen, Aberdeen City, UK", city.value(13));
     }
 
     #[test]
