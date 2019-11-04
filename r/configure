@@ -34,12 +34,14 @@ PKG_TEST_HEADER="<arrow/api.h>"
 PKG_LIBS="-larrow -lparquet"
 
 # generate code
-if [ "$ARROW_R_DEV" == "TRUE" ]; then
+if [ "$ARROW_R_DEV" = "TRUE" ]; then
   echo "*** Generating code with data-raw/codegen.R"
   ${R_HOME}/bin/Rscript data-raw/codegen.R
 fi
 
-if [ "$LOCAL_AUTOBREW" == "TRUE" ]; then
+UNAME=$(uname -s)
+
+if [ "$LOCAL_AUTOBREW" = "TRUE" ]; then
   # LOCAL_AUTOBREW means use the script in tools/
   # If you want to use a local apache-arrow.rb formula, do:
   # $ cp ../dev/tasks/homebrew-formulae/autobrew/apache-arrow.rb tools/apache-arrow.rb
@@ -68,7 +70,7 @@ else
     PKG_CFLAGS="$PKGCONFIG_CFLAGS"
     PKG_LIBS=${PKGCONFIG_LIBS}
   else
-    if [[ "$OSTYPE" == "darwin"* ]]; then
+    if [ "$UNAME" = "Darwin" ]; then
       if [ "$FORCE_AUTOBREW" != "TRUE" ] && [ "$(command -v brew)" ] && [ "$(brew ls --versions ${PKG_BREW_NAME})" != "" ]; then
         echo "Using Homebrew ${PKG_BREW_NAME}"
         BREWDIR=$(brew --prefix)
@@ -82,7 +84,7 @@ else
             echo "Failed to download manifest for ${PKG_BREW_NAME}"
           fi
         fi
-        source autobrew
+        . autobrew
         if [ $? -ne 0 ]; then
           echo "Failed to retrieve binary for ${PKG_BREW_NAME}"
         fi
@@ -108,13 +110,13 @@ fi
 TEST_CMD="${CXXCPP} ${CPPFLAGS} ${PKG_CFLAGS} ${CXX11FLAGS} ${CXX11STD} -xc++ -"
 echo "#include $PKG_TEST_HEADER" | ${TEST_CMD} >/dev/null 2>&1
 
-if [ $? -eq 0 ] || [[ "$OSTYPE" == "darwin"* ]]; then
+if [ $? -eq 0 ] || [ "$UNAME" = "Darwin" ]; then
   # Always build with arrow on macOS
   PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_ARROW"
   echo "PKG_CFLAGS=$PKG_CFLAGS"
   echo "PKG_LIBS=$PKG_LIBS"
 else
-  if [[ "$OSTYPE" == "darwin"* ]]; then
+  if [ "$UNAME" = "Darwin" ]; then
     # Just for debugging: is this possible?
     echo "Test to load header failed. Command:"
     echo "$TEST_CMD"
