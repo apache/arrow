@@ -23,11 +23,11 @@
 # This module defines
 #  PLASMA_EXECUTABLE, deprecated. Use PLASMA_STORE_SERVER instead
 #  PLASMA_FOUND, whether Plasma has been found
+#  PLASMA_IMPORT_LIB, path to libplasma's import library (Windows only)
 #  PLASMA_INCLUDE_DIR, directory containing headers
 #  PLASMA_LIBS, deprecated. Use PLASMA_LIB_DIR instead
 #  PLASMA_LIB_DIR, directory containing Plasma libraries
-#  PLASMA_SHARED_IMPLIB, path to libplasma's import library (MSVC only)
-#  PLASMA_SHARED_IMP_LIB, deprecated. Use PLASMA_SHARED_IMPLIB instead
+#  PLASMA_SHARED_IMP_LIB, deprecated. Use PLASMA_IMPORT_LIB instead
 #  PLASMA_SHARED_LIB, path to libplasma's shared library
 #  PLASMA_SO_VERSION, shared object version of found Plasma such as "100"
 #  PLASMA_STATIC_LIB, path to libplasma.a
@@ -75,10 +75,10 @@ endif()
 
 mark_as_advanced(PLASMA_ABI_VERSION
                  PLASMA_EXECUTABLE
+                 PLASMA_IMPORT_LIB
                  PLASMA_INCLUDE_DIR
                  PLASMA_LIBS
                  PLASMA_LIB_DIR
-                 PLASMA_SHARED_IMPLIB
                  PLASMA_SHARED_IMP_LIB
                  PLASMA_SHARED_LIB
                  PLASMA_SO_VERSION
@@ -100,6 +100,6 @@ if(Plasma_FOUND AND NOT Plasma_FIND_QUIETLY)
   message(STATUS "Found the Plasma by ${PLASMA_FIND_APPROACH}")
   message(STATUS "Found the plasma-store-server: ${PLASMA_STORE_SERVER}")
   message(STATUS "Found the Plasma shared library: ${PLASMA_SHARED_LIB}")
-  message(STATUS "Found the Plasma shared import library: ${PLASMA_SHARED_IMPLIB}")
+  message(STATUS "Found the Plasma import library: ${PLASMA_IMPORT_LIB}")
   message(STATUS "Found the Plasma static library: ${PLASMA_STATIC_LIB}")
 endif()

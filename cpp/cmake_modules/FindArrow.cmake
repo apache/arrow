@@ -19,11 +19,11 @@
 # This module defines
 #  ARROW_FOUND, whether Arrow has been found
 #  ARROW_FULL_SO_VERSION, full shared object version of found Arrow "100.0.0"
+#  ARROW_IMPORT_LIB, path to libarrow's import library (Windows only)
 #  ARROW_INCLUDE_DIR, directory containing headers
 #  ARROW_LIBS, deprecated. Use ARROW_LIB_DIR instead
 #  ARROW_LIB_DIR, directory containing Arrow libraries
-#  ARROW_SHARED_IMPLIB, path to libarrow's import library (MSVC only)
-#  ARROW_SHARED_IMP_LIB, deprecated. Use ARROW_SHARED_IMPLIB instead
+#  ARROW_SHARED_IMP_LIB, deprecated. Use ARROW_IMPORT_LIB instead
 #  ARROW_SHARED_LIB, path to libarrow's shared library
 #  ARROW_SO_VERSION, shared object version of found Arrow such as "100"
 #  ARROW_STATIC_LIB, path to libarrow.a
@@ -70,14 +70,10 @@ function(arrow_build_shared_library_name output_variable base_name)
       PARENT_SCOPE)
 endfunction()
 
-function(arrow_build_shared_import_library_name output_variable base_name)
-  if(MSVC)
-    set(${output_variable} "${CMAKE_SHARED_LIBRARY_PREFIX}${base_name}.lib" PARENT_SCOPE)
-  else()
-    set(${output_variable}
-        "${CMAKE_SHARED_LIBRARY_PREFIX}${base_name}${CMAKE_SHARED_LIBRARY_SUFFIX}"
-        PARENT_SCOPE)
-  endif()
+function(arrow_build_import_library_name output_variable base_name)
+  set(${output_variable}
+      "${CMAKE_IMPORT_LIBRARY_PREFIX}${base_name}${CMAKE_IMPORT_LIBRARY_SUFFIX}"
+      PARENT_SCOPE)
 endfunction()
 
 function(arrow_build_static_library_name output_variable base_name)
@@ -127,16 +123,15 @@ macro(arrow_find_package_home)
       set_target_properties(${target_shared}
                             PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${include_dir}")
     endif()
-    find_library(${prefix}_shared_implib
-                 NAMES "${shared_implib_name}"
+    find_library(${prefix}_import_lib
+                 NAMES "${import_lib_name}"
                  PATHS "${home}"
                  PATH_SUFFIXES ${ARROW_SEARCH_LIB_PATH_SUFFIXES}
                  NO_DEFAULT_PATH)
-    set(shared_implib "${${prefix}_shared_implib}")
-    set(${prefix}_SHARED_IMPLIB "${shared_implib}" PARENT_SCOPE)
-    if(shared_implib)
-      set_target_properties(${target_shared}
-                            PROPERTIES IMPORTED_IMPLIB "${shared_implib}")
+    set(import_lib "${${prefix}_import_lib}")
+    set(${prefix}_IMPORT_LIB "${import_lib}" PARENT_SCOPE)
+    if(import_lib)
+      set_target_properties(${target_shared} PROPERTIES IMPORTED_IMPLIB "${import_lib}")
     endif()
   endif()
 
@@ -250,7 +245,7 @@ function(arrow_find_package
          cmake_package_name
          pkg_config_name)
   arrow_build_shared_library_name(shared_lib_name ${base_name})
-  arrow_build_shared_import_library_name(shared_implib_name ${base_name})
+  arrow_build_import_library_name(import_lib_name ${base_name})
   arrow_build_static_library_name(static_lib_name ${base_name})
 
   set(target_shared ${base_name}_shared)
@@ -345,11 +340,11 @@ set(ARROW_ABI_VERSION ${ARROW_SO_VERSION})
 mark_as_advanced(ARROW_ABI_VERSION
                  ARROW_CONFIG_SUFFIXES
                  ARROW_FULL_SO_VERSION
+                 ARROW_IMPORT_LIB
                  ARROW_INCLUDE_DIR
                  ARROW_LIBS
                  ARROW_LIB_DIR
                  ARROW_SEARCH_LIB_PATH_SUFFIXES
-                 ARROW_SHARED_IMPLIB
                  ARROW_SHARED_IMP_LIB
                  ARROW_SHARED_LIB
                  ARROW_SO_VERSION
@@ -376,6 +371,6 @@ if(Arrow_FOUND AND NOT Arrow_FIND_QUIETLY)
   message(STATUS "Arrow SO and ABI version: ${ARROW_SO_VERSION}")
   message(STATUS "Arrow full SO version: ${ARROW_FULL_SO_VERSION}")
   message(STATUS "Found the Arrow core shared library: ${ARROW_SHARED_LIB}")
-  message(STATUS "Found the Arrow core shared import library: ${ARROW_SHARED_IMPLIB}")
+  message(STATUS "Found the Arrow core import library: ${ARROW_IMPORT_LIB}")
   message(STATUS "Found the Arrow core static library: ${ARROW_STATIC_LIB}")
 endif()

@@ -23,11 +23,11 @@
 #
 # This module defines
 #  ARROW_PYTHON_FLIGHT_FOUND, whether Arrow Python Flight has been found
+#  ARROW_PYTHON_FLIGHT_IMPORT_LIB,
+#    path to libarrow_python_flight's import library (Windows only)
 #  ARROW_PYTHON_FLIGHT_INCLUDE_DIR, directory containing headers
 #  ARROW_PYTHON_FLIGHT_LIB_DIR,
 #    directory containing Arrow Python Flight libraries
-#  ARROW_PYTHON_FLIGHT_SHARED_IMPLIB,
-#    path to libarrow_python_flight's import library (MSVC only)
 #  ARROW_PYTHON_FLIGHT_SHARED_LIB, path to libarrow_python_flight's shared library
 #  ARROW_PYTHON_FLIGHT_STATIC_LIB, path to libarrow_python_flight.a
 
@@ -66,10 +66,10 @@ else()
   set(ARROW_PYTHON_FLIGHT_VERSION_MATCH FALSE)
 endif()
 
-mark_as_advanced(ARROW_PYTHON_FLIGHT_INCLUDE_DIR
+mark_as_advanced(ARROW_PYTHON_FLIGHT_IMPORT_LIB
+                 ARROW_PYTHON_FLIGHT_INCLUDE_DIR
                  ARROW_PYTHON_FLIGHT_LIBS
                  ARROW_PYTHON_FLIGHT_LIB_DIR
-                 ARROW_PYTHON_FLIGHT_SHARED_IMPLIB
                  ARROW_PYTHON_FLIGHT_SHARED_IMP_LIB
                  ARROW_PYTHON_FLIGHT_SHARED_LIB
                  ARROW_PYTHON_FLIGHT_STATIC_LIB
@@ -92,8 +92,7 @@ if(ArrowPythonFlight_FOUND AND NOT ArrowPythonFlight_FIND_QUIETLY)
       "Found the Arrow Python Flight shared library: ${ARROW_PYTHON_FLIGHT_SHARED_LIB}")
   message(
     STATUS
-      "Found the Arrow Python Flight shared import library: ${ARROW_PYTHON_FLIGHT_SHARED_IMPLIB}"
-    )
+      "Found the Arrow Python Flight import library: ${ARROW_PYTHON_FLIGHT_IMPORT_LIB}")
   message(
     STATUS
       "Found the Arrow Python Flight static library: ${ARROW_PYTHON_FLIGHT_STATIC_LIB}")

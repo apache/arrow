@@ -22,9 +22,10 @@
 #
 # This module defines
 #  ARROW_PYTHON_FOUND, whether Arrow Python has been found
+#  ARROW_PYTHON_IMPORT_LIB,
+#    path to libarrow_python's import library (Windows only)
 #  ARROW_PYTHON_INCLUDE_DIR, directory containing headers
 #  ARROW_PYTHON_LIB_DIR, directory containing Arrow Python libraries
-#  ARROW_PYTHON_SHARED_IMPLIB, path to libarrow_python's import library (MSVC only)
 #  ARROW_PYTHON_SHARED_LIB, path to libarrow_python's shared library
 #  ARROW_PYTHON_STATIC_LIB, path to libarrow_python.a
 
@@ -60,10 +61,10 @@ else()
   set(ARROW_PYTHON_VERSION_MATCH FALSE)
 endif()
 
-mark_as_advanced(ARROW_PYTHON_INCLUDE_DIR
+mark_as_advanced(ARROW_PYTHON_IMPORT_LIB
+                 ARROW_PYTHON_INCLUDE_DIR
                  ARROW_PYTHON_LIBS
                  ARROW_PYTHON_LIB_DIR
-                 ARROW_PYTHON_SHARED_IMPLIB
                  ARROW_PYTHON_SHARED_IMP_LIB
                  ARROW_PYTHON_SHARED_LIB
                  ARROW_PYTHON_STATIC_LIB
@@ -82,7 +83,6 @@ set(ARROW_PYTHON_FOUND ${ArrowPython_FOUND})
 if(ArrowPython_FOUND AND NOT ArrowPython_FIND_QUIETLY)
   message(STATUS "Found the Arrow Python by ${ARROW_PYTHON_FIND_APPROACH}")
   message(STATUS "Found the Arrow Python shared library: ${ARROW_PYTHON_SHARED_LIB}")
-  message(
-    STATUS "Found the Arrow Python shared import library: ${ARROW_PYTHON_SHARED_IMPLIB}")
+  message(STATUS "Found the Arrow Python import library: ${ARROW_PYTHON_IMPORT_LIB}")
   message(STATUS "Found the Arrow Python static library: ${ARROW_PYTHON_STATIC_LIB}")
 endif()

@@ -22,11 +22,11 @@
 #
 # This module defines
 #  PARQUET_FOUND, whether Parquet has been found
+#  PARQUET_IMPORT_LIB, path to libparquet's import library (Windows only)
 #  PARQUET_INCLUDE_DIR, directory containing headers
 #  PARQUET_LIBS, deprecated. Use PARQUET_LIB_DIR instead
 #  PARQUET_LIB_DIR, directory containing Parquet libraries
-#  PARQUET_SHARED_IMPLIB, path to libparquet's import library (MSVC only)
-#  PARQUET_SHARED_IMP_LIB, deprecated. Use PARQUET_SHARED_IMPLIB instead
+#  PARQUET_SHARED_IMP_LIB, deprecated. Use PARQUET_IMPORT_LIB instead
 #  PARQUET_SHARED_LIB, path to libparquet's shared library
 #  PARQUET_SO_VERSION, shared object version of found Parquet such as "100"
 #  PARQUET_STATIC_LIB, path to libparquet.a
@@ -102,10 +102,10 @@ if(ARROW_FOUND)
 endif()
 
 mark_as_advanced(PARQUET_ABI_VERSION
+                 PARQUET_IMPORT_LIB
                  PARQUET_INCLUDE_DIR
                  PARQUET_LIBS
                  PARQUET_LIB_DIR
-                 PARQUET_SHARED_IMPLIB
                  PARQUET_SHARED_IMP_LIB
                  PARQUET_SHARED_LIB
                  PARQUET_SO_VERSION
@@ -124,6 +124,6 @@ set(PARQUET_FOUND ${Parquet_FOUND})
 if(Parquet_FOUND AND NOT Parquet_FIND_QUIETLY)
   message(STATUS "Parquet version: ${PARQUET_VERSION} (${PARQUET_FIND_APPROACH})")
   message(STATUS "Found the Parquet shared library: ${PARQUET_SHARED_LIB}")
-  message(STATUS "Found the Parquet shared import library: ${PARQUET_SHARED_IMPLIB}")
+  message(STATUS "Found the Parquet import library: ${PARQUET_IMPORT_LIB}")
   message(STATUS "Found the Parquet static library: ${PARQUET_STATIC_LIB}")
 endif()

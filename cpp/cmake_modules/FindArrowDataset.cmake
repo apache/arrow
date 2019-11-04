@@ -22,9 +22,10 @@
 #
 # This module defines
 #  ARROW_DATASET_FOUND, whether Arrow Dataset has been found
+#  ARROW_DATASET_IMPORT_LIB,
+#    path to libarrow_dataset's import library (Windows only)
 #  ARROW_DATASET_INCLUDE_DIR, directory containing headers
 #  ARROW_DATASET_LIB_DIR, directory containing Arrow Dataset libraries
-#  ARROW_DATASET_SHARED_IMPLIB, path to libarrow_dataset's import library (MSVC only)
 #  ARROW_DATASET_SHARED_LIB, path to libarrow_dataset's shared library
 #  ARROW_DATASET_STATIC_LIB, path to libarrow_dataset.a
 
@@ -60,10 +61,10 @@ else()
   set(ARROW_DATASET_VERSION_MATCH FALSE)
 endif()
 
-mark_as_advanced(ARROW_DATASET_INCLUDE_DIR
+mark_as_advanced(ARROW_DATASET_IMPORT_LIB
+                 ARROW_DATASET_INCLUDE_DIR
                  ARROW_DATASET_LIBS
                  ARROW_DATASET_LIB_DIR
-                 ARROW_DATASET_SHARED_IMPLIB
                  ARROW_DATASET_SHARED_IMP_LIB
                  ARROW_DATASET_SHARED_LIB
                  ARROW_DATASET_STATIC_LIB
@@ -82,8 +83,6 @@ set(ARROW_DATASET_FOUND ${ArrowDataset_FOUND})
 if(ArrowDataset_FOUND AND NOT ArrowDataset_FIND_QUIETLY)
   message(STATUS "Found the Arrow Dataset by ${ARROW_DATASET_FIND_APPROACH}")
   message(STATUS "Found the Arrow Dataset shared library: ${ARROW_DATASET_SHARED_LIB}")
-  message(
-    STATUS "Found the Arrow Dataset shared import library: ${ARROW_DATASET_SHARED_IMPLIB}"
-    )
+  message(STATUS "Found the Arrow Dataset import library: ${ARROW_DATASET_IMPORT_LIB}")
   message(STATUS "Found the Arrow Dataset static library: ${ARROW_DATASET_STATIC_LIB}")
 endif()

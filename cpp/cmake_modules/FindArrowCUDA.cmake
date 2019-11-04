@@ -22,11 +22,11 @@
 #
 # This module defines
 #  ARROW_CUDA_FOUND, whether Arrow CUDA has been found
+#  ARROW_CUDA_IMPORT_LIB, path to libarrow_cuda's import library (Windows only)
 #  ARROW_CUDA_INCLUDE_DIR, directory containing headers
 #  ARROW_CUDA_LIBS, deprecated. Use ARROW_CUDA_LIB_DIR instead
 #  ARROW_CUDA_LIB_DIR, directory containing Arrow CUDA libraries
-#  ARROW_CUDA_SHARED_IMPLIB, path to libarrow_cuda's import library (MSVC only)
-#  ARROW_CUDA_SHARED_IMP_LIB, deprecated. Use ARROW_CUDA_SHARED_IMPLIB instead
+#  ARROW_CUDA_SHARED_IMP_LIB, deprecated. Use ARROW_CUDA_IMPORT_LIB instead
 #  ARROW_CUDA_SHARED_LIB, path to libarrow_cuda's shared library
 #  ARROW_CUDA_STATIC_LIB, path to libarrow_cuda.a
 
@@ -62,10 +62,10 @@ else()
   set(ARROW_CUDA_VERSION_MATCH FALSE)
 endif()
 
-mark_as_advanced(ARROW_CUDA_INCLUDE_DIR
+mark_as_advanced(ARROW_CUDA_IMPORT_LIB
+                 ARROW_CUDA_INCLUDE_DIR
                  ARROW_CUDA_LIBS
                  ARROW_CUDA_LIB_DIR
-                 ARROW_CUDA_SHARED_IMPLIB
                  ARROW_CUDA_SHARED_IMP_LIB
                  ARROW_CUDA_SHARED_LIB
                  ARROW_CUDA_STATIC_LIB
@@ -84,7 +84,6 @@ set(ARROW_CUDA_FOUND ${ArrowCUDA_FOUND})
 if(ArrowCUDA_FOUND AND NOT ArrowCUDA_FIND_QUIETLY)
   message(STATUS "Found the Arrow CUDA by ${ARROW_CUDA_FIND_APPROACH}")
   message(STATUS "Found the Arrow CUDA shared library: ${ARROW_CUDA_SHARED_LIB}")
-  message(
-    STATUS "Found the Arrow CUDA shared import library: ${ARROW_CUDA_SHARED_IMPLIB}")
+  message(STATUS "Found the Arrow CUDA import library: ${ARROW_CUDA_IMPORT_LIB}")
   message(STATUS "Found the Arrow CUDA static library: ${ARROW_CUDA_STATIC_LIB}")
 endif()

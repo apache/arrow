@@ -22,11 +22,12 @@
 #
 # This module defines
 #  ARROW_FLIGHT_FOUND, whether Flight has been found
+#  ARROW_FLIGHT_IMPORT_LIB,
+#    path to libarrow_flight's import library (Windows only)
 #  ARROW_FLIGHT_INCLUDE_DIR, directory containing headers
 #  ARROW_FLIGHT_LIBS, deprecated. Use ARROW_FLIGHT_LIB_DIR instead
 #  ARROW_FLIGHT_LIB_DIR, directory containing Flight libraries
-#  ARROW_FLIGHT_SHARED_IMPLIB, path to libarrow_flight's import library (MSVC only)
-#  ARROW_FLIGHT_SHARED_IMP_LIB, deprecated. Use ARROW_FLIGHT_SHARED_IMPLIB instead
+#  ARROW_FLIGHT_SHARED_IMP_LIB, deprecated. Use ARROW_FLIGHT_IMPORT_LIB instead
 #  ARROW_FLIGHT_SHARED_LIB, path to libarrow_flight's shared library
 #  ARROW_FLIGHT_STATIC_LIB, path to libarrow_flight.a
 
@@ -62,10 +63,10 @@ else()
   set(ARROW_FLIGHT_VERSION_MATCH FALSE)
 endif()
 
-mark_as_advanced(ARROW_FLIGHT_INCLUDE_DIR
+mark_as_advanced(ARROW_FLIGHT_IMPORT_LIB
+                 ARROW_FLIGHT_INCLUDE_DIR
                  ARROW_FLIGHT_LIBS
                  ARROW_FLIGHT_LIB_DIR
-                 ARROW_FLIGHT_SHARED_IMPLIB
                  ARROW_FLIGHT_SHARED_IMP_LIB
                  ARROW_FLIGHT_SHARED_LIB
                  ARROW_FLIGHT_STATIC_LIB
@@ -84,7 +85,6 @@ set(ARROW_FLIGHT_FOUND ${ArrowFlight_FOUND})
 if(ArrowFlight_FOUND AND NOT ArrowFlight_FIND_QUIETLY)
   message(STATUS "Found the Arrow Flight by ${ARROW_FLIGHT_FIND_APPROACH}")
   message(STATUS "Found the Arrow Flight shared library: ${ARROW_FLIGHT_SHARED_LIB}")
-  message(
-    STATUS "Found the Arrow Flight shared import library: ${ARROW_FLIGHT_SHARED_IMPLIB}")
+  message(STATUS "Found the Arrow Flight import library: ${ARROW_FLIGHT_IMPORT_LIB}")
   message(STATUS "Found the Arrow Flight static library: ${ARROW_FLIGHT_STATIC_LIB}")
 endif()

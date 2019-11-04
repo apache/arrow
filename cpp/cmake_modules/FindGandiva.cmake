@@ -22,11 +22,11 @@
 #
 # This module defines
 #  GANDIVA_FOUND, whether Gandiva has been found
+#  GANDIVA_IMPORT_LIB, path to libgandiva's import library (Windows only)
 #  GANDIVA_INCLUDE_DIR, directory containing headers
 #  GANDIVA_LIBS, deprecated. Use GANDIVA_LIB_DIR instead
 #  GANDIVA_LIB_DIR, directory containing Gandiva libraries
-#  GANDIVA_SHARED_IMPLIB, path to libgandiva's import library (MSVC only)
-#  GANDIVA_SHARED_IMP_LIB, deprecated. Use GANDIVA_SHARED_IMPLIB instead
+#  GANDIVA_SHARED_IMP_LIB, deprecated. Use GANDIVA_IMPORT_LIB instead
 #  GANDIVA_SHARED_LIB, path to libgandiva's shared library
 #  GANDIVA_SO_VERSION, shared object version of found Gandiva such as "100"
 #  GANDIVA_STATIC_LIB, path to libgandiva.a
@@ -66,10 +66,10 @@ else()
 endif()
 
 mark_as_advanced(GANDIVA_ABI_VERSION
+                 GANDIVA_IMPORT_LIB
                  GANDIVA_INCLUDE_DIR
                  GANDIVA_LIBS
                  GANDIVA_LIB_DIR
-                 GANDIVA_SHARED_IMPLIB
                  GANDIVA_SHARED_IMP_LIB
                  GANDIVA_SHARED_LIB
                  GANDIVA_SO_VERSION
@@ -90,6 +90,6 @@ set(GANDIVA_FOUND ${Gandiva_FOUND})
 if(Gandiva_FOUND AND NOT Gandiva_FIND_QUIETLY)
   message(STATUS "Found the Gandiva by ${GANDIVA_FIND_APPROACH}")
   message(STATUS "Found the Gandiva shared library: ${GANDIVA_SHARED_LIB}")
-  message(STATUS "Found the Gandiva shared import library: ${GANDIVA_SHARED_IMPLIB}")
+  message(STATUS "Found the Gandiva import library: ${GANDIVA_IMPORT_LIB}")
   message(STATUS "Found the Gandiva static library: ${GANDIVA_STATIC_LIB}")
 endif()
