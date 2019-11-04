@@ -1158,6 +1158,20 @@ TEST(Bitmap, ShiftingWordsOptimization) {
   }
 }
 
+TEST(Bitmap, WordVisitable) {
+  using internal::Bitmap;
+
+  constexpr int64_t kBitWidth = 8 * sizeof(uint64_t);
+  uint64_t word;
+  auto bytes = reinterpret_cast<uint8_t*>(&word);
+
+  // skip first byte in bitmap
+  ASSERT_FALSE(Bitmap(bytes + 1, 0, kBitWidth - 8).template word_aligned<uint64_t>());
+
+  // exclude last byte from bitmap
+  ASSERT_FALSE(Bitmap(bytes, 0, kBitWidth - 8).template word_aligned<uint64_t>());
+}
+
 // reconstruct a bitmap from a word-wise visit
 TEST(Bitmap, Visit) {
   using internal::Bitmap;
@@ -1191,7 +1205,7 @@ TEST(Bitmap, Visit) {
   }
 }
 
-// compute bitwise and of bitmaps using word-wise visit
+// compute bitwise AND of bitmaps using word-wise visit
 TEST(Bitmap, VisitAnd) {
   using internal::Bitmap;
 

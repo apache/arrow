@@ -840,6 +840,11 @@ class ARROW_EXPORT Bitmap {
   Bitmap(std::shared_ptr<Buffer> buffer, int64_t offset, int64_t length)
       : buffer_(std::move(buffer)), offset_(offset), length_(length) {}
 
+  Bitmap(const uint8_t* data, int64_t offset, int64_t length)
+      : buffer_(std::make_shared<Buffer>(data, BitUtil::BytesForBits(offset + length))),
+        offset_(offset),
+        length_(length) {}
+
   Bitmap Slice(int64_t offset) const {
     return Bitmap(buffer_, offset_ + offset, length_ - offset);
   }
@@ -856,6 +861,8 @@ class ARROW_EXPORT Bitmap {
 
   bool GetBit(int64_t i) const { return BitUtil::GetBit(buffer_->data(), i + offset_); }
 
+  bool operator[](int64_t i) const { return GetBit(i); }
+
   void SetBitTo(int64_t i, bool v) const {
     BitUtil::SetBitTo(buffer_->mutable_data(), i + offset_, v);
   }
@@ -867,8 +874,7 @@ class ARROW_EXPORT Bitmap {
   /// This is satisfied by most Buffers in Arrow space (which are allocated with
   /// maximum alignment and padded to contain whole cache lines).
   ///
-  /// XXX should I add a dcheck/error return/... for incorrect alignment? I can't
-  /// detect uninit
+  /// TODO(bkietz) allow for early termination
   template <size_t N, typename Visitor>
   static void Visit(const Bitmap (&bitmaps)[N], Visitor&& visitor) {
     VisitImpl(bitmaps, VisitedIs<internal::call_traits::argument_type<0, Visitor&&>>{},
@@ -880,15 +886,26 @@ class ARROW_EXPORT Bitmap {
   /// offset of first bit relative to buffer().data()
   int64_t offset() const { return offset_; }
 
+  /// number of bits in this Bitmap
   int64_t length() const { return length_; }
 
-  /// string_view of all bytes which contain any bit in this bitmap
+  /// string_view of all bytes which contain any bit in this Bitmap
   util::basic_string_view<uint8_t> bytes() const {
     auto byte_offset = offset_ / 8;
     auto byte_count = BitUtil::CeilDiv(offset_ + length_, 8) - byte_offset;
     return util::basic_string_view<uint8_t>(buffer_->data() + byte_offset, byte_count);
   }
 
+  template <typename Word>
+  bool word_aligned() const {
+    auto words = this->words<Word>();
+    auto valid_addr = AsInt(buffer_->data());
+    auto words_addr = AsInt(words.data());
+    return words_addr >= valid_addr &&
+           words_addr + words.size() * sizeof(Word) <= valid_addr + buffer_->capacity();
+  }
+
+  /// string_view of all Words which contain any bit in this Bitmap
   template <typename Word>
   util::basic_string_view<Word> words() const {
     auto bytes_addr = AsInt(bytes().data());

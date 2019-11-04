@@ -64,7 +64,9 @@ ARROW_EXPORT
 Status KleeneAnd(FunctionContext* context, const Datum& left, const Datum& right,
                  Datum* out);
 
-/// \brief Element-wise OR of two boolean datums
+/// \brief Element-wise OR of two boolean datums which always propagates nulls
+/// (null and true is null).
+///
 /// \param[in] context the FunctionContext
 /// \param[in] left left operand (array)
 /// \param[in] right right operand (array)
@@ -74,6 +76,20 @@ Status KleeneAnd(FunctionContext* context, const Datum& left, const Datum& right
 /// \note API not yet finalized
 ARROW_EXPORT
 Status Or(FunctionContext* context, const Datum& left, const Datum& right, Datum* out);
+
+/// \brief Element-wise OR of two boolean datums with a Kleene truth table
+/// (null and true is true).
+///
+/// \param[in] context the FunctionContext
+/// \param[in] left left operand (array)
+/// \param[in] right right operand (array)
+/// \param[out] out resulting datum
+///
+/// \since 0.11.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Status KleeneOr(FunctionContext* context, const Datum& left, const Datum& right,
+                Datum* out);
 
 /// \brief Element-wise XOR of two boolean datums
 /// \param[in] context the FunctionContext

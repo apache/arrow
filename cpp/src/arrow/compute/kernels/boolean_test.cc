@@ -62,37 +62,39 @@ class TestBooleanKernel : public ComputeFixture, public TestBase {
     ASSERT_TRUE(result_ca->Equals(expected));
   }
 
-  void TestBinaryKernel(const BinaryKernelFunc& kernel, const std::vector<bool>& values1,
-                        const std::vector<bool>& values2,
-                        const std::vector<bool>& values3,
-                        const std::vector<bool>& values3_nulls) {
-    auto type = boolean();
-    auto a1 = _MakeArray<BooleanType, bool>(type, values1, {});
-    auto a2 = _MakeArray<BooleanType, bool>(type, values2, {});
-    auto a3 = _MakeArray<BooleanType, bool>(type, values3, {});
-    auto a1_nulls = _MakeArray<BooleanType, bool>(type, values1, values1);
-    auto a2_nulls = _MakeArray<BooleanType, bool>(type, values2, values2);
-    auto a3_nulls = _MakeArray<BooleanType, bool>(type, values3, values3_nulls);
-
-    TestArrayBinary(kernel, a1, a2, a3);
-    TestArrayBinary(kernel, a1_nulls, a2_nulls, a3_nulls);
-    TestArrayBinary(kernel, a1->Slice(1), a2->Slice(1), a3->Slice(1));
-    TestArrayBinary(kernel, a1_nulls->Slice(1), a2_nulls->Slice(1), a3_nulls->Slice(1));
+  void TestBinaryKernel(const BinaryKernelFunc& kernel,
+                        const std::shared_ptr<Array>& left,
+                        const std::shared_ptr<Array>& right,
+                        const std::shared_ptr<Array>& expected) {
+    TestArrayBinary(kernel, left, right, expected);
+    TestArrayBinary(kernel, left->Slice(1), right->Slice(1), expected->Slice(1));
 
     // ChunkedArray
-    std::vector<std::shared_ptr<Array>> ca1_arrs = {a1, a1->Slice(1)};
-    auto ca1 = std::make_shared<ChunkedArray>(ca1_arrs);
-    std::vector<std::shared_ptr<Array>> ca2_arrs = {a2, a2->Slice(1)};
-    auto ca2 = std::make_shared<ChunkedArray>(ca2_arrs);
-    std::vector<std::shared_ptr<Array>> ca3_arrs = {a3, a3->Slice(1)};
-    auto ca3 = std::make_shared<ChunkedArray>(ca3_arrs);
-    TestChunkedArrayBinary(kernel, ca1, ca2, ca3);
+    auto cleft = std::make_shared<ChunkedArray>(ArrayVector{left, left->Slice(1)});
+    auto cright = std::make_shared<ChunkedArray>(ArrayVector{right, right->Slice(1)});
+    auto cexpected =
+        std::make_shared<ChunkedArray>(ArrayVector{expected, expected->Slice(1)});
+    TestChunkedArrayBinary(kernel, cleft, cright, cexpected);
 
     // ChunkedArray with different chunks
-    std::vector<std::shared_ptr<Array>> ca4_arrs = {a1->Slice(0, 1), a1->Slice(1),
-                                                    a1->Slice(1, 1), a1->Slice(2)};
-    auto ca4 = std::make_shared<ChunkedArray>(ca4_arrs);
-    TestChunkedArrayBinary(kernel, ca4, ca2, ca3);
+    cleft = std::make_shared<ChunkedArray>(ArrayVector{
+        left->Slice(0, 1), left->Slice(1), left->Slice(1, 1), left->Slice(2)});
+    TestChunkedArrayBinary(kernel, cleft, cright, cexpected);
+  }
+
+  void TestBinaryKernelPropagate(const BinaryKernelFunc& kernel,
+                                 const std::vector<bool>& left,
+                                 const std::vector<bool>& right,
+                                 const std::vector<bool>& expected,
+                                 const std::vector<bool>& expected_nulls) {
+    auto type = boolean();
+    TestBinaryKernel(kernel, _MakeArray<BooleanType, bool>(type, left, {}),
+                     _MakeArray<BooleanType, bool>(type, right, {}),
+                     _MakeArray<BooleanType, bool>(type, expected, {}));
+
+    TestBinaryKernel(kernel, _MakeArray<BooleanType, bool>(type, left, left),
+                     _MakeArray<BooleanType, bool>(type, right, right),
+                     _MakeArray<BooleanType, bool>(type, expected, expected_nulls));
   }
 };
 
@@ -154,7 +156,7 @@ TEST_F(TestBooleanKernel, And) {
   std::vector<bool> values1 = {true, false, true, false, true, true};
   std::vector<bool> values2 = {true, true, false, false, true, false};
   std::vector<bool> values3 = {true, false, false, false, true, false};
-  TestBinaryKernel(And, values1, values2, values3, values3);
+  TestBinaryKernelPropagate(And, values1, values2, values3, values3);
 }
 
 TEST_F(TestBooleanKernel, Or) {
@@ -162,7 +164,7 @@ TEST_F(TestBooleanKernel, Or) {
   std::vector<bool> values2 = {true, true, false, false, true, false};
   std::vector<bool> values3 = {true, true, true, false, true, true};
   std::vector<bool> values3_nulls = {true, false, false, false, true, false};
-  TestBinaryKernel(Or, values1, values2, values3, values3_nulls);
+  TestBinaryKernelPropagate(Or, values1, values2, values3, values3_nulls);
 }
 
 TEST_F(TestBooleanKernel, Xor) {
@@ -170,7 +172,31 @@ TEST_F(TestBooleanKernel, Xor) {
   std::vector<bool> values2 = {true, true, false, false, true, false};
   std::vector<bool> values3 = {false, true, true, false, false, true};
   std::vector<bool> values3_nulls = {true, false, false, false, true, false};
-  TestBinaryKernel(Xor, values1, values2, values3, values3_nulls);
+  TestBinaryKernelPropagate(Xor, values1, values2, values3, values3_nulls);
+}
+
+TEST_F(TestBooleanKernel, KleeneAnd) {
+  auto left = ArrayFromJSON(boolean(), "    [true, true,  true, false, false, null]");
+  auto right = ArrayFromJSON(boolean(), "   [true, false, null, false, null,  null]");
+  auto expected = ArrayFromJSON(boolean(), "[true, false, null, false, false, null]");
+  TestBinaryKernel(KleeneAnd, left, right, expected);
+
+  left = ArrayFromJSON(boolean(), "    [true, true,  false, null, null]");
+  right = ArrayFromJSON(boolean(), "   [true, false, false, true, false]");
+  expected = ArrayFromJSON(boolean(), "[true, false, false, null, false]");
+  TestBinaryKernel(KleeneAnd, left, right, expected);
+}
+
+TEST_F(TestBooleanKernel, KleeneOr) {
+  auto left = ArrayFromJSON(boolean(), "    [true, true,  true, false, false, null]");
+  auto right = ArrayFromJSON(boolean(), "   [true, false, null, false, null,  null]");
+  auto expected = ArrayFromJSON(boolean(), "[true, true,  true, false, null,  null]");
+  TestBinaryKernel(KleeneOr, left, right, expected);
+
+  left = ArrayFromJSON(boolean(), "    [true, true,  false, null, null]");
+  right = ArrayFromJSON(boolean(), "   [true, false, false, true, false]");
+  expected = ArrayFromJSON(boolean(), "[true, true,  false, true, null]");
+  TestBinaryKernel(KleeneOr, left, right, expected);
 }
 
 }  // namespace compute
