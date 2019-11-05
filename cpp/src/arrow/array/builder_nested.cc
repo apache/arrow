@@ -44,12 +44,12 @@ MapBuilder::MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& ke
   auto map_type = internal::checked_cast<const MapType*>(type.get());
   keys_sorted_ = map_type->keys_sorted();
 
-  std::vector<std::shared_ptr<ArrayBuilder>> child_builders{ key_builder, item_builder };
-  auto struct_builder = std::make_shared<StructBuilder>(
-      map_type->value_type(), pool, child_builders);
+  std::vector<std::shared_ptr<ArrayBuilder>> child_builders{key_builder, item_builder};
+  auto struct_builder =
+      std::make_shared<StructBuilder>(map_type->value_type(), pool, child_builders);
 
-  list_builder_ = std::make_shared<ListBuilder>(
-      pool, struct_builder, struct_builder->type());
+  list_builder_ =
+      std::make_shared<ListBuilder>(pool, struct_builder, struct_builder->type());
 }
 
 MapBuilder::MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& key_builder,
@@ -116,12 +116,11 @@ Status MapBuilder::AppendNulls(int64_t length) {
 }
 
 Status MapBuilder::CheckStructBuilderLength() {
-
   // If key/item builders have been appended, adjust struct builder lenght
   // to match. Struct and key are non-nullable, append all valid values.
   if (list_builder_->value_builder()->length() < key_builder_->length()) {
-    auto struct_builder = internal::checked_cast<StructBuilder*>(
-                list_builder_->value_builder());
+    auto struct_builder =
+        internal::checked_cast<StructBuilder*>(list_builder_->value_builder());
     int64_t length = key_builder_->length() - struct_builder->length();
     RETURN_NOT_OK(struct_builder->AppendValues(length, NULLPTR));
   }

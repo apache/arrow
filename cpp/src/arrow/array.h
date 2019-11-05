@@ -670,8 +670,8 @@ class ARROW_EXPORT MapArray : public ListArray {
   /// \param[out] out Will have length equal to offsets.length() - 1
   static Status FromArrays(const std::shared_ptr<Array>& offsets,
                            const std::shared_ptr<Array>& keys,
-                           const std::shared_ptr<Array>& items,
-                           MemoryPool* pool, std::shared_ptr<Array>* out);
+                           const std::shared_ptr<Array>& items, MemoryPool* pool,
+                           std::shared_ptr<Array>* out);
 
   const MapType* map_type() const { return map_type_; }
 

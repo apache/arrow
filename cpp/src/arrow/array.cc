@@ -384,8 +384,8 @@ MapArray::MapArray(const std::shared_ptr<DataType>& type, int64_t length,
 
 Status MapArray::FromArrays(const std::shared_ptr<Array>& offsets,
                             const std::shared_ptr<Array>& keys,
-                            const std::shared_ptr<Array>& items,
-                            MemoryPool* pool, std::shared_ptr<Array>* out) {
+                            const std::shared_ptr<Array>& items, MemoryPool* pool,
+                            std::shared_ptr<Array>* out) {
   using offset_type = typename MapType::offset_type;
   using OffsetArrowType = typename CTypeTraits<offset_type>::ArrowType;
   using OffsetArrayType = typename TypeTraits<OffsetArrowType>::ArrayType;
@@ -444,9 +444,9 @@ Status MapArray::FromArrays(const std::shared_ptr<Array>& offsets,
   }
 
   auto map_type = std::make_shared<MapType>(keys->type(), items->type());
-  *out = std::make_shared<MapArray>(map_type, num_offsets - 1, offset_buf,
-                                    keys, items, validity_buf,
-                                    offsets->null_count(), offsets->offset());
+  *out =
+      std::make_shared<MapArray>(map_type, num_offsets - 1, offset_buf, keys, items,
+                                 validity_buf, offsets->null_count(), offsets->offset());
   return Status::OK();
 }
 

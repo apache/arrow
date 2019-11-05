@@ -806,7 +806,6 @@ class ListConverter
   bool strict_conversions_;
 };
 
-
 // ----------------------------------------------------------------------
 // Convert maps
 
@@ -845,7 +844,6 @@ class MapConverter : public ListConverter<MapType, null_coding> {
     return Status::OK();
   }
 };
-
 
 // ----------------------------------------------------------------------
 // Convert structs
@@ -1137,16 +1135,15 @@ Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
       return Status::OK();
     case Type::MAP:
       if (from_pandas) {
-        *out = std::unique_ptr<SeqConverter>(
-            new MapConverter<NullCoding::PANDAS_SENTINELS>(
+        *out =
+            std::unique_ptr<SeqConverter>(new MapConverter<NullCoding::PANDAS_SENTINELS>(
                 from_pandas, strict_conversions));
       } else {
         *out = std::unique_ptr<SeqConverter>(
-            new MapConverter<NullCoding::NONE_ONLY>(from_pandas,
-                                                    strict_conversions));
+            new MapConverter<NullCoding::NONE_ONLY>(from_pandas, strict_conversions));
       }
       return Status::OK();
-   case Type::STRUCT:
+    case Type::STRUCT:
       if (from_pandas) {
         *out = std::unique_ptr<SeqConverter>(
             new StructConverter<NullCoding::PANDAS_SENTINELS>(from_pandas,

@@ -1382,6 +1382,7 @@ def test_timezone_string(tz, name):
     assert pa.lib.tzinfo_to_string(tz) == name
     assert pa.lib.string_to_tzinfo(name) == tz
 
+
 def test_map_from_dicts():
     expected = [[{'key': b'a', 'value': 1}, {'key': b'b', 'value': 2}],
                 [{'key': b'c', 'value': 3}],

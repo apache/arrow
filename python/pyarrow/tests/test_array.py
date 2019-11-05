@@ -619,6 +619,7 @@ def test_list_from_arrays(list_array_type, list_type_factory):
     with pytest.raises(ValueError):
         list_array_type.from_arrays(offsets, values)
 
+
 def test_map_from_arrays():
     offsets_arr = np.array([0, 2, 5, 8], dtype='i4')
     offsets = pa.array(offsets_arr, type='int32')
@@ -654,6 +655,7 @@ def test_map_from_arrays():
     items = np.arange(4)
     with pytest.raises(ValueError):
         pa.MapArray.from_arrays(offsets, keys, items)
+
 
 def test_union_from_dense():
     binary = pa.array([b'a', b'b', b'c', b'd'], type='binary')
