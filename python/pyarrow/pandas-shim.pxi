@@ -33,6 +33,7 @@ cdef class _PandasAPIShim(object):
         object _datetimetz_type, _extension_array, _extension_dtype
         object _array_like_types
         bint has_sparse
+        bint _pd024
 
     def __init__(self):
         self._tried_importing_pandas = False
@@ -88,6 +89,8 @@ cdef class _PandasAPIShim(object):
             self.has_sparse = False
         else:
             self.has_sparse = True
+
+        self._pd024 = self._loose_version >= LooseVersion('0.24')
 
     cdef inline _check_import(self, bint raise_=True):
         if self._tried_importing_pandas:
@@ -196,6 +199,28 @@ cdef class _PandasAPIShim(object):
             return isinstance(obj, self._series)
         else:
             return False
+
+    cpdef is_index(self, obj):
+        if self._have_pandas_internal():
+            return isinstance(obj, self._index)
+        else:
+            return False
+
+    cpdef get_values(self, obj):
+        """
+        Get the underlying array values of a pandas Series or Index in the
+        format (np.ndarray or pandas ExtensionArray) as we need them.
+
+        Assumes obj is a pandas Series or Index.
+        """
+        self._check_import()
+        if isinstance(obj.dtype, (self.pd.api.types.IntervalDtype,
+                                  self.pd.api.types.PeriodDtype)):
+            if self._pd024:
+                # only since pandas 0.24, interval and period are stored as
+                # such in Series
+                return obj.array
+        return obj.values
 
     def assert_frame_equal(self, *args, **kwargs):
         self._check_import()

@@ -178,9 +178,9 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     elif _is_array_like(obj):
         if mask is not None:
             # out argument unused
-            mask = get_series_values(mask, &is_pandas_object)
+            mask = get_values(mask, &is_pandas_object)
 
-        values = get_series_values(obj, &is_pandas_object)
+        values = get_values(obj, &is_pandas_object)
         if is_pandas_object and from_pandas is None:
             c_from_pandas = True
 
@@ -1725,9 +1725,9 @@ cdef dict _array_classes = {
 }
 
 
-cdef object get_series_values(object obj, bint* is_series):
-    if pandas_api.is_series(obj):
-        result = obj.values
+cdef object get_values(object obj, bint* is_series):
+    if pandas_api.is_series(obj) or pandas_api.is_index(obj):
+        result = pandas_api.get_values(obj)
         is_series[0] = True
     elif isinstance(obj, np.ndarray):
         result = obj

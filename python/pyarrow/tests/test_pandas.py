@@ -2576,7 +2576,7 @@ def test_convert_unsupported_type_error_message():
     })
 
     expected_msg = 'Conversion failed for column a with type period'
-    with pytest.raises(pa.ArrowInvalid, match=expected_msg):
+    with pytest.raises(TypeError, match=expected_msg):
         pa.Table.from_pandas(df)
 
 
@@ -3220,6 +3220,47 @@ def test_array_protocol():
         assert result.equals(expected)
         result = pa.array(df['a'].values, type=pa.float64())
         assert result.equals(expected2)
+
+
+class DummyExtensionType(pa.PyExtensionType):
+
+    def __init__(self):
+        pa.PyExtensionType.__init__(self, pa.int64())
+
+    def __reduce__(self):
+        return DummyExtensionType, ()
+
+
+def PandasArray__arrow_array__(self, type=None):
+    # harcode dummy return regardless of self - we only want to check that
+    # this method is correctly called
+    storage = pa.array([1, 2, 3], type=pa.int64())
+    return pa.ExtensionArray.from_storage(DummyExtensionType(), storage)
+
+
+def test_array_protocol_pandas_extension_types(monkeypatch):
+    # ARROW-7022 - ensure protocol works for Period / Interval extension dtypes
+
+    if LooseVersion(pd.__version__) < '0.24.0':
+        pytest.skip(reason='Period/IntervalArray only introduced in 0.24')
+
+    storage = pa.array([1, 2, 3], type=pa.int64())
+    expected = pa.ExtensionArray.from_storage(DummyExtensionType(), storage)
+
+    monkeypatch.setattr(pd.arrays.PeriodArray, "__arrow_array__",
+                        PandasArray__arrow_array__, raising=False)
+    monkeypatch.setattr(pd.arrays.IntervalArray, "__arrow_array__",
+                        PandasArray__arrow_array__, raising=False)
+    for arr in [pd.period_range("2012-01-01", periods=3, freq="D").array,
+                pd.interval_range(1, 4).array]:
+        result = pa.array(arr)
+        assert result.equals(expected)
+        result = pa.array(pd.Series(arr))
+        assert result.equals(expected)
+        result = pa.array(pd.Index(arr))
+        assert result.equals(expected)
+        result = pa.table(pd.DataFrame({'a': arr})).column('a').chunk(0)
+        assert result.equals(expected)
 
 
 # ----------------------------------------------------------------------

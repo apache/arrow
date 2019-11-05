@@ -542,7 +542,7 @@ class TestFeatherReader(unittest.TestCase):
 
         # period
         df = pd.DataFrame({'a': pd.period_range('2013', freq='M', periods=3)})
-        self._assert_error_on_write(df, ValueError)
+        self._assert_error_on_write(df, TypeError)
 
         # non-strings
         df = pd.DataFrame({'a': ['a', 1, 2.0]})
