@@ -17,11 +17,11 @@
 
 add_custom_target(arrow_flight)
 
-# Header files
 arrow_install_all_headers("arrow/flight")
 
-# pkg-config support
 arrow_add_pkg_config("arrow-flight")
+
+arrow_install_cmake_find_module("ArrowFlight")
 
 set(ARROW_FLIGHT_STATIC_LINK_LIBS
     protobuf::libprotobuf

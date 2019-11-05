@@ -27,6 +27,17 @@ string(REGEX MATCH "^([0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?)" VERSION ${PARQUET_VERS
 if(NOT VERSION)
   message(FATAL_ERROR "invalid .parquetcppversion")
 endif()
+set(PARQUET_VERSION "${PARQUET_VERSION}" PARENT_SCOPE)
+
+string(REGEX
+       REPLACE "^([0-9]+)\.[0-9]+\.[0-9]+(-.+)?$" "\\1" PARQUET_VERSION_MAJOR
+               "${PARQUET_VERSION}")
+string(REGEX
+       REPLACE "^[0-9]+\.([0-9]+)\.[0-9]+(-.+)?$" "\\1" PARQUET_VERSION_MINOR
+               "${PARQUET_VERSION}")
+string(REGEX
+       REPLACE "^[0-9]+\.[0-9]+\.([0-9]+)(-.+)?$" "\\1" PARQUET_VERSION_PATCH
+               "${PARQUET_VERSION}")
 
 function(ADD_PARQUET_TEST REL_TEST_NAME)
   set(one_value_args)
@@ -281,8 +292,9 @@ configure_file(parquet_version.h.in "${CMAKE_CURRENT_BINARY_DIR}/parquet_version
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/parquet_version.h"
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/parquet")
 
-# pkg-config support
 arrow_add_pkg_config("parquet")
+
+arrow_install_cmake_find_module("Parquet")
 
 add_parquet_test(internals-test
                  SOURCES

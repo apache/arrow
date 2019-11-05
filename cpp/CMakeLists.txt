@@ -88,6 +88,8 @@ endif()
 
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
+set(ARROW_CMAKE_INSTALL_DIR "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
+
 set(ARROW_LLVM_VERSION "7.0")
 # TODO: Remove this when we drop LLVM 7 support.
 set(ARROW_LLVM_VERSION_FALLBACK "7.1")
@@ -823,25 +825,24 @@ include(CMakePackageConfigHelpers)
 
 # Makes the project importable from the build directory
 export(EXPORT ${PROJECT_NAME}-targets
-       FILE "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Targets.cmake")
+       FILE "${CMAKE_CURRENT_BINARY_DIR}/ArrowTargets.cmake")
 
-configure_package_config_file(${PROJECT_NAME}Config.cmake.in
-                              "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake"
-                              INSTALL_DESTINATION
-                              "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
-write_basic_package_version_file(
-  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
-  VERSION ${${PROJECT_NAME}_VERSION}
-  COMPATIBILITY AnyNewerVersion)
-config_summary_cmake_setters("${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Options.cmake")
+configure_package_config_file(ArrowConfig.cmake.in
+                              "${CMAKE_CURRENT_BINARY_DIR}/ArrowConfig.cmake"
+                              INSTALL_DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
+write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/ArrowConfigVersion.cmake
+                                 VERSION ${${PROJECT_NAME}_VERSION}
+                                 COMPATIBILITY AnyNewerVersion)
+config_summary_cmake_setters("${CMAKE_CURRENT_BINARY_DIR}/ArrowOptions.cmake")
 
 install(EXPORT ${PROJECT_NAME}-targets
-        FILE ${PROJECT_NAME}Targets.cmake
-        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
-              ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
-              ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Options.cmake
-        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}")
+        FILE ArrowTargets.cmake
+        DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ArrowConfig.cmake
+              ${CMAKE_CURRENT_BINARY_DIR}/ArrowConfigVersion.cmake
+              ${CMAKE_CURRENT_BINARY_DIR}/ArrowOptions.cmake
+              ${CMAKE_CURRENT_SOURCE_DIR}/arrow-config.cmake
+        DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
 
 config_summary_message()
 if(${ARROW_BUILD_CONFIG_SUMMARY_JSON})

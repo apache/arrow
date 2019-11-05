@@ -407,11 +407,11 @@ if(ARROW_WITH_BACKTRACE)
   endforeach()
 endif()
 
-# Headers: top level
 arrow_install_all_headers("arrow")
 
-# pkg-config support
 arrow_add_pkg_config("arrow")
+
+arrow_install_cmake_find_module("Arrow")
 
 #
 # Unit tests

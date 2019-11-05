@@ -740,3 +740,8 @@ function(ARROW_ADD_PKG_CONFIG MODULE)
   install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${MODULE}.pc"
           DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
 endfunction()
+
+function(ARROW_INSTALL_CMAKE_FIND_MODULE MODULE)
+  install(FILES "${ARROW_SOURCE_DIR}/cmake_modules/Find${MODULE}.cmake"
+          DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
+endfunction()

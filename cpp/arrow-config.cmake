@@ -15,18 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-prefix=@CMAKE_INSTALL_PREFIX@
-libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
-includedir=${prefix}/include
+message(WARNING "find_package(arrow) is deprecated. Use find_package(Arrow) instead.")
+find_package(Arrow CONFIG)
 
-so_version=@PLASMA_SO_VERSION@
-abi_version=@PLASMA_SO_VERSION@
-full_so_version=@PLASMA_FULL_SO_VERSION@
-plasma_store_server=${prefix}/@CMAKE_INSTALL_BINDIR@/plasma-store-server@CMAKE_EXECUTABLE_SUFFIX@
-executable=${plasma_store_server}
-
-Name: Plasma
-Description: Plasma is an in-memory object store and cache for big data.
-Version: @PLASMA_VERSION@
-Libs: -L${libdir} -lplasma
-Cflags: -I${includedir}
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(arrow
+                                  REQUIRED_VARS
+                                  ARROW_INCLUDE_DIR
+                                  VERSION_VAR
+                                  ARROW_VERSION)
