@@ -71,9 +71,9 @@ else
     PKG_LIBS=${PKGCONFIG_LIBS}
   else
     if [ "$UNAME" = "Darwin" ]; then
-      if [ "$FORCE_AUTOBREW" != "TRUE" ] && [ "$(command -v brew)" ] && [ "$(brew ls --versions ${PKG_BREW_NAME})" != "" ]; then
+      if [ "$FORCE_AUTOBREW" != "TRUE" ] && [ "`command -v brew`" ] && [ "`brew ls --versions ${PKG_BREW_NAME}`" != "" ]; then
         echo "Using Homebrew ${PKG_BREW_NAME}"
-        BREWDIR=$(brew --prefix)
+        BREWDIR=`brew --prefix`
       else
         echo "Downloading ${PKG_BREW_NAME}"
         if [ -f "autobrew" ]; then
