@@ -645,11 +645,35 @@ def serialized_dict_to_dataframe(data):
     return _pandas_api.data_frame(block_mgr)
 
 
-def _reconstruct_block(item):
+def _reconstruct_block(item, columns=None, extension_columns=None):
+    """
+    Construct a pandas Block from the `item` dictionary coming from pyarrow's
+    serialization or returned by arrow::python::ConvertTableToPandas.
+
+    This function takes care of converting dictionary types to pandas
+    categorical, Timestamp-with-timezones to the proper pandas Block, and
+    conversion to pandas ExtensionBlock
+
+    Parameters
+    ----------
+    item : dict
+        For basic types, this is a dictionary in the form of
+        {'block': np.ndarray of values, 'placement': pandas block placement}.
+        Additional keys are present for other types (dictionary, timezone,
+        object).
+    columns :
+        Column names of the table being constructed, used for extension types
+    extension_columns : dict
+        Dictionary of {column_name: pandas_dtype} that includes all columns
+        and corresponding dtypes that will be converted to a pandas
+        ExtensionBlock.
+
+    Returns
+    -------
+    pandas Block
+
+    """
     import pandas.core.internals as _int
-    # Construct the individual blocks converting dictionary types to pandas
-    # categorical types and Timestamps-with-timezones types to the proper
-    # pandas Blocks
 
     block_arr = item.get('block', None)
     placement = item['placement']
@@ -668,25 +692,16 @@ def _reconstruct_block(item):
         block = _int.make_block(builtin_pickle.loads(block_arr),
                                 placement=placement, klass=_int.ObjectBlock)
     elif 'py_array' in item:
-        arr = item['py_array']
-        # TODO have mechanism to know a method to create a
-        # pandas ExtensionArray given the pyarrow type
-        # Now hardcode here to create a pandas IntegerArray for the example
-        arr = arr.chunk(0)
-        buflist = arr.buffers()
-        data = np.frombuffer(buflist[-1], dtype=arr.type.to_pandas_dtype())[
-            arr.offset:arr.offset + len(arr)]
-        bitmask = buflist[0]
-        if bitmask is not None:
-            mask = pa.BooleanArray.from_buffers(
-                pa.bool_(), len(arr), [None, bitmask])
-            mask = np.asarray(mask)
-        else:
-            mask = np.ones(len(arr), dtype=bool)
-        block_arr = _pandas_api.pd.arrays.IntegerArray(
-            data.copy(), ~mask, copy=False)
         # create ExtensionBlock
-        block = _int.make_block(block_arr, placement=placement,
+        arr = item['py_array']
+        assert len(placement) == 1
+        name = columns[placement[0]]
+        pandas_dtype = extension_columns[name]
+        if not hasattr(pandas_dtype, '__from_arrow__'):
+            raise ValueError("This column does not support to be converted "
+                             "to a pandas ExtensionArray")
+        pd_ext_arr = pandas_dtype.__from_arrow__(arr)
+        block = _int.make_block(pd_ext_arr, placement=placement,
                                 klass=_int.ExtensionBlock)
     else:
         block = _int.make_block(block_arr, placement=placement)
@@ -718,15 +733,92 @@ def table_to_blockmanager(options, table, categories=None,
         table = _add_any_metadata(table, pandas_metadata)
         table, index = _reconstruct_index(table, index_descriptors,
                                           all_columns)
+        ext_columns_dtypes = _get_extension_dtypes(
+            table, all_columns, extension_columns)
     else:
         index = _pandas_api.pd.RangeIndex(table.num_rows)
+        if extension_columns:
+            raise ValueError("extension_columns not supported if there is "
+                             "no pandas_metadata")
+        ext_columns_dtypes = _get_extension_dtypes(
+            table, [], extension_columns)
 
     _check_data_column_metadata_consistency(all_columns)
-    blocks = _table_to_blocks(options, table, categories, extension_columns)
+    blocks = _table_to_blocks(options, table, categories, ext_columns_dtypes)
     columns = _deserialize_column_index(table, all_columns, column_indexes)
 
     axes = [columns, index]
     return BlockManager(blocks, axes)
+
+
+# Set of the string repr of all numpy dtypes that can be stored in a pandas
+# dataframe (complex not included since not supported by Arrow)
+_pandas_supported_numpy_types = set([
+    str(np.dtype(typ))
+    for typ in (np.sctypes['int'] + np.sctypes['uint'] + np.sctypes['float']
+                + ['object', 'bool'])
+])
+
+
+def _get_extension_dtypes(table, columns_metadata, extension_columns):
+    """
+    Based on the stored column pandas metadata and the extension types
+    in the arrow schema, infer which columns should be converted to a
+    pandas extension dtype.
+
+    The 'numpy_type' field in the column metadata stores the string
+    representation of the original pandas dtype (and, despite its name,
+    not the 'pandas_type' field).
+    Based on this string representation, a pandas/numpy dtype is constructed
+    and then we can check if this dtype supports conversion from arrow.
+
+    """
+    ext_columns = {}
+
+    # older pandas version that does not yet support extension dtypes
+    if _pandas_api.extension_dtype is None:
+        if extension_columns is not None:
+            raise ValueError(
+                "Converting to pandas ExtensionDtypes is not supported")
+        return ext_columns
+
+    if extension_columns is None:
+        # infer the extension columns from the pandas metadata
+        for col_meta in columns_metadata:
+            name = col_meta['name']
+            dtype = col_meta['numpy_type']
+            if dtype not in _pandas_supported_numpy_types:
+                # pandas_dtype is expensive, so avoid doing this for types
+                # that are certainly numpy dtypes
+                pandas_dtype = _pandas_api.pandas_dtype(dtype)
+                if isinstance(pandas_dtype, _pandas_api.extension_dtype):
+                    if hasattr(pandas_dtype, "__from_arrow__"):
+                        ext_columns[name] = pandas_dtype
+        # infer from extension type in the schema
+        for field in table.schema:
+            typ = field.type
+            if isinstance(typ, pa.BaseExtensionType):
+                try:
+                    pandas_dtype = typ.to_pandas_dtype()
+                except NotImplementedError:
+                    pass
+                else:
+                    ext_columns[field.name] = pandas_dtype
+
+    else:
+        # get the extension dtype for the specified columns
+        for name in extension_columns:
+            col_meta = [
+                meta for meta in columns_metadata if meta['name'] == name][0]
+            pandas_dtype = _pandas_api.pandas_dtype(col_meta['numpy_type'])
+            if not isinstance(pandas_dtype, _pandas_api.extension_dtype):
+                raise ValueError("not an extension dtype")
+            if not hasattr(pandas_dtype, "__from_arrow__"):
+                raise ValueError("this column does not support to be "
+                                 "converted to extension dtype")
+            ext_columns[name] = pandas_dtype
+
+    return ext_columns
 
 
 def _check_data_column_metadata_consistency(all_columns):
@@ -995,10 +1087,12 @@ def _table_to_blocks(options, block_table, categories, extension_columns):
 
     # Convert an arrow table to Block from the internal pandas API
     result = pa.lib.table_to_blocks(options, block_table, categories,
-                                    extension_columns)
+                                    list(extension_columns.keys()))
 
     # Defined above
-    return [_reconstruct_block(item) for item in result]
+    columns = block_table.column_names
+    return [_reconstruct_block(item, columns, extension_columns)
+            for item in result]
 
 
 def _flatten_single_level_multiindex(index):
