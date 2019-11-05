@@ -1546,6 +1546,7 @@ def test_list_array_flatten():
             [7, 8]
         ]
     ])
+    offsets2 = pa.array([0, 0, 3, 3, 6, 7], type=pa.int32())
     assert arr2.type.equals(typ2)
 
     typ1 = pa.list_(pa.int64())
@@ -1558,6 +1559,7 @@ def test_list_array_flatten():
         None,
         [7, 8]
     ])
+    offsets1 = pa.array([0, 3, 3, 5, 5, 7, 7, 9], type=pa.int32())
     assert arr1.type.equals(typ1)
 
     typ0 = pa.int64()
@@ -1570,7 +1572,9 @@ def test_list_array_flatten():
     assert arr0.type.equals(typ0)
 
     assert arr2.flatten().equals(arr1)
+    assert arr2.offsets.equals(offsets2)
     assert arr1.flatten().equals(arr0)
+    assert arr1.offsets.equals(offsets1)
     assert arr2.flatten().flatten().equals(arr0)
 
 
@@ -1597,6 +1601,7 @@ def test_large_list_array_flatten():
             [7, 8]
         ]
     ], type=typ2)
+    offsets2 = pa.array([0, 0, 3, 3, 6, 7], type=pa.int64())
 
     typ1 = pa.large_list(pa.int16())
     assert typ1 == typ2.value_type
@@ -1611,6 +1616,24 @@ def test_large_list_array_flatten():
     ], type=typ1)
 
     assert arr2.flatten().equals(arr1)
+    assert arr2.offsets.equals(offsets2)
+
+
+def test_list_array_values_offsets_sliced():
+    # ARROW-7301
+    arr = pa.ListArray.from_arrays(offsets=[0, 3, 4, 6],
+                                   values=[1, 2, 3, 4, 5, 6])
+    assert arr.values.to_pylist() == [1, 2, 3, 4, 5, 6]
+    assert arr.offsets.to_pylist() == [0, 3, 4, 6]
+
+    # sliced -> values keeps referring to full values buffer, but offsets is
+    # sliced as well so the offsets correctly point into the full values array
+    arr2 = arr[1:]
+    assert arr2.values.to_pylist() == [1, 2, 3, 4, 5, 6]
+    assert arr2.offsets.to_pylist() == [3, 4, 6]
+    i = arr2.offsets[0].as_py()
+    j = arr2.offsets[1].as_py()
+    assert arr2[0].as_py() == arr2.values[i:j].to_pylist() == [4]
 
 
 def test_struct_array_flatten():

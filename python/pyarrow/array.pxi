@@ -1171,7 +1171,7 @@ cdef class ListArray(Array):
 
         Parameters
         ----------
-        offset : Array (int32 type)
+        offsets : Array (int32 type)
         values : Array (any type)
 
         Returns
@@ -1197,7 +1197,14 @@ cdef class ListArray(Array):
     def values(self):
         return self.flatten()
 
-    # TODO(wesm): Add offsets property
+    @property
+    def offsets(self):
+        """
+        Return the offsets as an int32 array.
+        """
+        return Array.from_buffers(
+            int32(), len(self) + 1, [None, self.buffers()[1]],
+            offset=self.offset)
 
     def flatten(self):
         """
@@ -1224,7 +1231,7 @@ cdef class LargeListArray(Array):
 
         Parameters
         ----------
-        offset : Array (int64 type)
+        offsets : Array (int64 type)
         values : Array (any type)
 
         Returns
@@ -1246,6 +1253,14 @@ cdef class LargeListArray(Array):
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result
+
+    @property
+    def offsets(self):
+        """
+        Return the offsets as an int64 array.
+        """
+        return Array.from_buffers(
+            int64(), len(self) + 1, [None, self.buffers()[1]])
 
     def flatten(self):
         """
