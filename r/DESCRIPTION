@@ -42,7 +42,6 @@ VignetteBuilder: knitr
 Suggests:
     covr,
     dplyr,
-    fs,
     hms,
     knitr,
     lubridate,
