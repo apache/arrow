@@ -26,6 +26,16 @@
 namespace arrow {
 namespace fs {
 
+/// Options for the LocalFileSystem implementation.
+struct ARROW_EXPORT LocalFileSystemOptions {
+  /// Whether OpenInputStream and OpenInputFile return a mmap'ed file,
+  /// or a regular one.
+  bool use_mmap = false;
+
+  /// \brief Initialize with defaults
+  static LocalFileSystemOptions Defaults();
+};
+
 /// \brief EXPERIMENTAL: a FileSystem implementation accessing files
 /// on the local machine.
 ///
@@ -36,6 +46,7 @@ namespace fs {
 class ARROW_EXPORT LocalFileSystem : public FileSystem {
  public:
   LocalFileSystem();
+  explicit LocalFileSystem(const LocalFileSystemOptions&);
   ~LocalFileSystem() override;
 
   /// \cond FALSE
@@ -66,6 +77,9 @@ class ARROW_EXPORT LocalFileSystem : public FileSystem {
 
   Status OpenAppendStream(const std::string& path,
                           std::shared_ptr<io::OutputStream>* out) override;
+
+ protected:
+  LocalFileSystemOptions options_;
 };
 
 }  // namespace fs

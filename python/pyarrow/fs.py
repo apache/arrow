@@ -23,5 +23,6 @@ from pyarrow._fs import (  # noqa
     FileStats,
     FileSystem,
     LocalFileSystem,
+    LocalFileSystemOptions,
     SubTreeFileSystem
 )
