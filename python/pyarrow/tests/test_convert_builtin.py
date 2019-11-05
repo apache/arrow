@@ -1408,7 +1408,7 @@ def test_map_from_dicts():
 
     # Invalid dictionary types
     for entry in [[{'key': '1', 'value': 5}], [{'key': {'value': 2}}]]:
-        with pytest.raises(TypeError, match="integer.*required.*got"):
+        with pytest.raises(TypeError, match="integer is required"):
             pa.array([entry], type=pa.map_('i4', 'i4'))
 
 
