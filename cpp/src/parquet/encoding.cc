@@ -27,6 +27,7 @@
 
 #include "arrow/array.h"
 #include "arrow/builder.h"
+#include "arrow/stl.h"
 #include "arrow/util/bit_stream_utils.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
@@ -41,6 +42,9 @@
 
 using arrow::Status;
 using arrow::internal::checked_cast;
+
+template <typename T>
+using ArrowPoolVector = std::vector<T, ::arrow::stl::allocator<T>>;
 
 namespace parquet {
 
@@ -459,7 +463,7 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
 
   explicit DictEncoderImpl(const ColumnDescriptor* desc, MemoryPool* pool)
       : EncoderImpl(desc, Encoding::PLAIN_DICTIONARY, pool),
-        buffered_indices_(::arrow::stl_allocator<int32_t>(pool)),
+        buffered_indices_(::arrow::stl::allocator<int32_t>(pool)),
         dict_encoded_size_(0),
         memo_table_(pool, kInitialHashTableSize) {}
 
@@ -597,7 +601,8 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
   void ClearIndices() { buffered_indices_.clear(); }
 
   /// Indices that have not yet be written out by WriteIndices().
-  std::vector<int32_t, ::arrow::stl_allocator<int32_t> > buffered_indices_;
+  ArrowPoolVector<int32_t> buffered_indices_;
+
   /// The number of bytes needed to encode the dictionary.
   int dict_encoded_size_;
 
@@ -2148,7 +2153,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
 
   int Decode(ByteArray* buffer, int max_values) override {
     max_values = std::min(max_values, num_values_);
-    std::vector<int, ::arrow::stl_allocator<int>> lengths(max_values, ::arrow::stl_allocator<int>(pool_));
+    ArrowPoolVector<int> lengths(max_values, ::arrow::stl::allocator<int>(pool_));
     len_decoder_.Decode(lengths.data(), max_values);
     for (int i = 0; i < max_values; ++i) {
       buffer[i].len = lengths[i];

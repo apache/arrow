@@ -31,7 +31,6 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/allocator.h"
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
@@ -507,9 +506,7 @@ struct SmallScalarTraits<Scalar,
 template <typename Scalar, template <class> class HashTableTemplateType = HashTable>
 class SmallScalarMemoTable : public MemoTable {
  public:
-  explicit SmallScalarMemoTable(MemoryPool* pool, int64_t entries = 0)
-    : index_to_value_(std::vector<Scalar, stl_allocator<Scalar>>(stl_allocator<Scalar>(pool)))
-  {
+  explicit SmallScalarMemoTable(MemoryPool* pool, int64_t entries = 0) {
     std::fill(value_to_index_, value_to_index_ + cardinality + 1, kKeyNotFound);
     index_to_value_.reserve(cardinality);
   }
@@ -572,7 +569,7 @@ class SmallScalarMemoTable : public MemoTable {
 
   void CopyValues(Scalar* out_data) const { CopyValues(0, out_data); }
 
-  const std::vector<Scalar, stl_allocator<Scalar>>& values() const { return index_to_value_; }
+  const std::vector<Scalar>& values() const { return index_to_value_; }
 
  protected:
   static constexpr auto cardinality = SmallScalarTraits<Scalar>::cardinality;
@@ -584,7 +581,7 @@ class SmallScalarMemoTable : public MemoTable {
 
   // The last index is reserved for the null element.
   int32_t value_to_index_[cardinality + 1];
-  std::vector<Scalar, stl_allocator<Scalar>> index_to_value_;
+  std::vector<Scalar> index_to_value_;
 };
 
 // ----------------------------------------------------------------------
