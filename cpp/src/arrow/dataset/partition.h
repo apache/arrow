@@ -169,7 +169,10 @@ class ARROW_DS_EXPORT FunctionPartitionScheme : public PartitionScheme {
 /// \brief Mapping from path to partition expressions.
 using PathPartitions = std::unordered_map<std::string, std::shared_ptr<Expression>>;
 
-Status ApplyPartitionScheme(const PartitionScheme& scheme, const fs::Selector& selector,
+Status ApplyPartitionScheme(const PartitionScheme& scheme,
+                            std::vector<fs::FileStats> files, PathPartitions* out);
+
+Status ApplyPartitionScheme(const PartitionScheme& scheme, const std::string& base_dir,
                             std::vector<fs::FileStats> files, PathPartitions* out);
 
 // TODO(bkietz) use RE2 and named groups to provide RegexpPartitionScheme

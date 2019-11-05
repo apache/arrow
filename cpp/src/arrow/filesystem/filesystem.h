@@ -91,7 +91,7 @@ struct ARROW_EXPORT FileStats {
   void set_type(FileType type) { type_ = type; }
 
   /// The full file path in the filesystem
-  std::string path() const { return path_; }
+  const std::string& path() const { return path_; }
   void set_path(const std::string& path) { path_ = path; }
 
   /// The file base name (component after the last directory separator)
