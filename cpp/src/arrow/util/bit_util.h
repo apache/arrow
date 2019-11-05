@@ -68,6 +68,7 @@
 #include "arrow/buffer.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/string_view.h"
 #include "arrow/util/type_traits.h"
 #include "arrow/util/visibility.h"
 
@@ -836,6 +837,9 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length);
 
 class ARROW_EXPORT Bitmap {
  public:
+  template <typename Word>
+  using WordsView = util::basic_string_view<Word>;
+
   Bitmap() = default;
 
   Bitmap(std::shared_ptr<Buffer> buffer, int64_t offset, int64_t length)
@@ -854,8 +858,6 @@ class ARROW_EXPORT Bitmap {
     return Bitmap(buffer_, offset_ + offset, length);
   }
 
-  std::shared_ptr<BooleanArray> ToArray() const;
-
   std::string ToString() const;
 
   std::string Diff(const Bitmap& other) const;
@@ -868,73 +870,9 @@ class ARROW_EXPORT Bitmap {
     BitUtil::SetBitTo(buffer_->mutable_data(), i + offset_, v);
   }
 
-  /// \brief Visit bits of this bitmap either as bitset<N> or as array<Word, N>.
-  ///
-  /// If visiting by words, note that the every Word containing a bit
-  /// must be accessible (and initialized, or Valgrind will barf).
-  /// This is satisfied by most Buffers in Arrow space (which are allocated with
-  /// maximum alignment and padded to contain whole cache lines).
-  ///
-  /// TODO(bkietz) allow for early termination
+  /// \brief Visit bits of this bitmap as bitset<N>
   template <size_t N, typename Visitor>
-  static void Visit(const Bitmap (&bitmaps)[N], Visitor&& visitor) {
-    VisitImpl(bitmaps, VisitedIs<internal::call_traits::argument_type<0, Visitor&&>>{},
-              std::forward<Visitor>(visitor));
-  }
-
-  const std::shared_ptr<Buffer>& buffer() const { return buffer_; }
-
-  /// offset of first bit relative to buffer().data()
-  int64_t offset() const { return offset_; }
-
-  /// number of bits in this Bitmap
-  int64_t length() const { return length_; }
-
-  /// string_view of all bytes which contain any bit in this Bitmap
-  util::basic_string_view<uint8_t> bytes() const {
-    auto byte_offset = offset_ / 8;
-    auto byte_count = BitUtil::CeilDiv(offset_ + length_, 8) - byte_offset;
-    return util::basic_string_view<uint8_t>(buffer_->data() + byte_offset, byte_count);
-  }
-
-  template <typename Word>
-  bool word_aligned() const {
-    auto words = this->words<Word>();
-    auto valid_addr = AsInt(buffer_->data());
-    auto words_addr = AsInt(words.data());
-    return words_addr >= valid_addr &&
-           words_addr + words.size() * sizeof(Word) <= valid_addr + buffer_->capacity();
-  }
-
-  /// string_view of all Words which contain any bit in this Bitmap
-  template <typename Word>
-  util::basic_string_view<Word> words() const {
-    auto bytes_addr = AsInt(bytes().data());
-    auto words_addr = bytes_addr - bytes_addr % sizeof(Word);
-    auto word_byte_count =
-        BitUtil::RoundUpToPowerOf2(bytes_addr + bytes().size(), sizeof(Word)) -
-        words_addr;
-    return util::basic_string_view<Word>(reinterpret_cast<const Word*>(words_addr),
-                                         word_byte_count / sizeof(Word));
-  }
-
-  /// offset of first bit relative to words<Word>().data()
-  template <typename Word>
-  int64_t word_offset() const {
-    return offset_ + (AsInt(buffer_->data()) - AsInt(words<Word>().data())) * 8;
-  }
-
- private:
-  template <typename>
-  struct VisitedIs {};
-
-  static size_t AsInt(const void* ptr) {
-    return reinterpret_cast<size_t>(reinterpret_cast<const char*>(ptr));
-  }
-
-  template <size_t N, typename Visitor>
-  static void VisitImpl(const Bitmap (&bitmaps)[N], VisitedIs<std::bitset<N>>,
-                        Visitor&& visitor) {
+  static void VisitBits(const Bitmap (&bitmaps)[N], Visitor&& visitor) {
     auto bit_length = bitmaps[0].length();
     std::bitset<N> bits;
     for (int64_t bit_i = 0; bit_i < bit_length; ++bit_i) {
@@ -945,12 +883,21 @@ class ARROW_EXPORT Bitmap {
     }
   }
 
-  template <typename Word, size_t N, typename Visitor>
-  static void VisitImpl(const Bitmap (&bitmaps)[N], VisitedIs<std::array<Word, N>>,
-                        Visitor&& visitor) {
+  /// \brief Visit bits of this bitmap as array<Word, N>
+  ///
+  /// If visiting by words, note that every Word containing a bit
+  /// must be accessible (and initialized, or Valgrind will barf).
+  /// This is satisfied by most Buffers in Arrow space (which are allocated with
+  /// maximum alignment and padded to contain whole cache lines).
+  ///
+  /// TODO(bkietz) allow for early termination
+  template <size_t N, typename Visitor,
+            typename Word =
+                typename internal::call_traits::argument_type<0, Visitor&&>::value_type>
+  static void VisitWords(const Bitmap (&bitmaps)[N], Visitor&& visitor) {
     constexpr size_t kBitWidth = sizeof(Word) * 8;
 
-    util::basic_string_view<Word> words[N];
+    WordsView<Word> words[N];
     int64_t offsets[N];
     for (size_t i = 0; i < N; ++i) {
       words[i] = bitmaps[i].template words<Word>();
@@ -987,6 +934,54 @@ class ARROW_EXPORT Bitmap {
     }
     visitor(visited_words);
   }
+
+  const std::shared_ptr<Buffer>& buffer() const { return buffer_; }
+
+  /// offset of first bit relative to buffer().data()
+  int64_t offset() const { return offset_; }
+
+  /// number of bits in this Bitmap
+  int64_t length() const { return length_; }
+
+  /// string_view of all bytes which contain any bit in this Bitmap
+  WordsView<uint8_t> bytes() const {
+    auto byte_offset = offset_ / 8;
+    auto byte_count = BitUtil::CeilDiv(offset_ + length_, 8) - byte_offset;
+    return WordsView<uint8_t>(buffer_->data() + byte_offset, byte_count);
+  }
+
+  /// returns true if words in words<Word>() lie entirely in buffer() and may be safely
+  /// accessed
+  template <typename Word>
+  bool word_accessible() const {
+    auto words = this->words<Word>();
+    auto valid_addr = reinterpret_cast<size_t>(buffer_->data());
+    auto words_addr = reinterpret_cast<size_t>(words.data());
+    return words_addr >= valid_addr &&
+           words_addr + words.size() * sizeof(Word) <= valid_addr + buffer_->capacity();
+  }
+
+  /// string_view of all Words which contain any bit in this Bitmap
+  template <typename Word>
+  WordsView<Word> words() const {
+    auto bytes_addr = reinterpret_cast<size_t>(bytes().data());
+    auto words_addr = bytes_addr - bytes_addr % sizeof(Word);
+    auto word_byte_count =
+        BitUtil::RoundUpToPowerOf2(bytes_addr + bytes().size(), sizeof(Word)) -
+        words_addr;
+    return WordsView<Word>(reinterpret_cast<const Word*>(words_addr),
+                           word_byte_count / sizeof(Word));
+  }
+
+  /// offset of first bit relative to words<Word>().data()
+  template <typename Word>
+  int64_t word_offset() const {
+    return offset_ + 8 * (reinterpret_cast<size_t>(buffer_->data()) -
+                          reinterpret_cast<size_t>(words<Word>().data()));
+  }
+
+ private:
+  std::shared_ptr<BooleanArray> ToArray() const;
 
   std::shared_ptr<Buffer> buffer_;
   int64_t offset_ = 0, length_ = 0;

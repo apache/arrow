@@ -78,7 +78,7 @@ ARROW_EXPORT
 Status Or(FunctionContext* context, const Datum& left, const Datum& right, Datum* out);
 
 /// \brief Element-wise OR of two boolean datums with a Kleene truth table
-/// (null and true is true).
+/// (null or true is true).
 ///
 /// \param[in] context the FunctionContext
 /// \param[in] left left operand (array)

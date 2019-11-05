@@ -44,9 +44,15 @@ class TestBooleanKernel : public ComputeFixture, public TestBase {
                        const std::shared_ptr<Array>& right,
                        const std::shared_ptr<Array>& expected) {
     Datum result;
+
     ASSERT_OK(kernel(&this->ctx_, left, right, &result));
     ASSERT_EQ(Datum::ARRAY, result.kind());
     std::shared_ptr<Array> result_array = result.make_array();
+    ASSERT_ARRAYS_EQUAL(*expected, *result_array);
+
+    ASSERT_OK(kernel(&this->ctx_, right, left, &result));
+    ASSERT_EQ(Datum::ARRAY, result.kind());
+    result_array = result.make_array();
     ASSERT_ARRAYS_EQUAL(*expected, *result_array);
   }
 
@@ -55,10 +61,15 @@ class TestBooleanKernel : public ComputeFixture, public TestBase {
                               const std::shared_ptr<ChunkedArray>& right,
                               const std::shared_ptr<ChunkedArray>& expected) {
     Datum result;
-    std::shared_ptr<Array> result_array;
+
     ASSERT_OK(kernel(&this->ctx_, left, right, &result));
     ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
     std::shared_ptr<ChunkedArray> result_ca = result.chunked_array();
+    ASSERT_TRUE(result_ca->Equals(expected));
+
+    ASSERT_OK(kernel(&this->ctx_, right, left, &result));
+    ASSERT_EQ(Datum::CHUNKED_ARRAY, result.kind());
+    result_ca = result.chunked_array();
     ASSERT_TRUE(result_ca->Equals(expected));
   }
 

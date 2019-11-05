@@ -1104,12 +1104,12 @@ TEST(Bitmap, ShiftingWordsOptimization) {
       random_bytes(sizeof(word), seed, bytes);
 
       // bits are accessible through simple bit shifting of the word
-      for (int i = 0; i < kBitWidth; ++i) {
+      for (size_t i = 0; i < kBitWidth; ++i) {
         ASSERT_EQ(BitUtil::GetBit(bytes, i), bool((word >> i) & 1));
       }
 
       // bit offset can therefore be accomodated by shifting the word
-      for (int offset = 0; offset < (kBitWidth * 3) / 4; ++offset) {
+      for (size_t offset = 0; offset < (kBitWidth * 3) / 4; ++offset) {
         uint64_t shifted_word = word >> offset;
         auto shifted_bytes = reinterpret_cast<uint8_t*>(&shifted_word);
         ASSERT_TRUE(
@@ -1128,15 +1128,15 @@ TEST(Bitmap, ShiftingWordsOptimization) {
       random_bytes(sizeof(words), seed, bytes);
 
       // bits are accessible through simple bit shifting of a word
-      for (int i = 0; i < kBitWidth; ++i) {
+      for (size_t i = 0; i < kBitWidth; ++i) {
         ASSERT_EQ(BitUtil::GetBit(bytes, i), bool((words[0] >> i) & 1));
       }
-      for (int i = 0; i < kBitWidth; ++i) {
+      for (size_t i = 0; i < kBitWidth; ++i) {
         ASSERT_EQ(BitUtil::GetBit(bytes, i + kBitWidth), bool((words[1] >> i) & 1));
       }
 
       // bit offset can therefore be accomodated by shifting the word
-      for (int offset = 1; offset < (kBitWidth * 3) / 4; offset += 3) {
+      for (size_t offset = 1; offset < (kBitWidth * 3) / 4; offset += 3) {
         uint64_t shifted_words[2];
         shifted_words[0] = words[0] >> offset | (words[1] << (kBitWidth - offset));
         shifted_words[1] = words[1] >> offset;
@@ -1161,15 +1161,39 @@ TEST(Bitmap, ShiftingWordsOptimization) {
 TEST(Bitmap, WordVisitable) {
   using internal::Bitmap;
 
-  constexpr int64_t kBitWidth = 8 * sizeof(uint64_t);
-  uint64_t word;
-  auto bytes = reinterpret_cast<uint8_t*>(&word);
+  uint64_t words[2];
+  constexpr int64_t kBitWidth = 8 * sizeof(words);
+  auto bytes = reinterpret_cast<uint8_t*>(words);
+  auto buffer = std::make_shared<Buffer>(bytes, sizeof(words));
 
-  // skip first byte in bitmap
-  ASSERT_FALSE(Bitmap(bytes + 1, 0, kBitWidth - 8).template word_aligned<uint64_t>());
+  // whole words are accessible
+  ASSERT_TRUE(Bitmap(buffer, 0, kBitWidth).template word_accessible<uint64_t>())
+      << "both words";
+  ASSERT_TRUE(Bitmap(buffer, 0, kBitWidth / 2).template word_accessible<uint64_t>())
+      << "first word";
+  ASSERT_TRUE(
+      Bitmap(buffer, kBitWidth / 2, kBitWidth / 2).template word_accessible<uint64_t>())
+      << "second word";
 
-  // exclude last byte from bitmap
-  ASSERT_FALSE(Bitmap(bytes, 0, kBitWidth - 8).template word_aligned<uint64_t>());
+  // words outside the buffer are not accessible
+  ASSERT_FALSE(Bitmap(buffer, kBitWidth, kBitWidth).template word_accessible<uint64_t>())
+      << "bitmap references bits after the buffer";
+  ASSERT_FALSE(Bitmap(buffer, -kBitWidth, kBitWidth).template word_accessible<uint64_t>())
+      << "bitmap references bits before the buffer";
+
+  for (int offset = 1; offset < kBitWidth; ++offset) {
+    // nonzero offset but the words containing referenced bits still lie within the buffer
+    ASSERT_TRUE(
+        Bitmap(bytes, offset, kBitWidth - offset).template word_accessible<uint64_t>());
+  }
+
+  // words partially outside the buffer are not accessible
+  ASSERT_FALSE(Bitmap(SliceBuffer(buffer, 1), 0, kBitWidth - 8)
+                   .template word_accessible<uint64_t>())
+      << "first byte has been sliced off";
+  ASSERT_FALSE(Bitmap(SliceBuffer(buffer, 1, sizeof(words) - 1), 0, kBitWidth)
+                   .template word_accessible<uint64_t>())
+      << "its last byte has been sliced off";
 }
 
 // reconstruct a bitmap from a word-wise visit
@@ -1193,7 +1217,7 @@ TEST(Bitmap, Visit) {
       Bitmap bitmaps[] = {{buffer, offset, num_bits}};
 
       int64_t i = 0;
-      Bitmap::Visit(bitmaps, [&](std::array<uint64_t, 1> uint64s) {
+      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 1> uint64s) {
         reinterpret_cast<uint64_t*>(actual_buffer->mutable_data())[i++] = uint64s[0];
       });
 
@@ -1226,7 +1250,7 @@ TEST(Bitmap, VisitAnd) {
       Bitmap bitmaps[] = {{buffer, 0, num_bits}, {buffer, offset, num_bits}};
 
       int64_t i = 0;
-      Bitmap::Visit(bitmaps, [&](std::array<uint64_t, 2> uint64s) {
+      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 2> uint64s) {
         reinterpret_cast<uint64_t*>(actual_buffer->mutable_data())[i++] =
             uint64s[0] & uint64s[1];
       });

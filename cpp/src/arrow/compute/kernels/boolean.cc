@@ -147,11 +147,11 @@ class BinaryBooleanKernel : public BinaryKernel {
       // override bitmaps[RIGHT_VALID] to make it safe for Visit()
       bitmaps[RIGHT_VALID] = bitmaps[RIGHT_DATA];
 
-      Bitmap::Visit(bitmaps, [&](std::array<uint64_t, 4> words) {
+      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
         apply(words[LEFT_VALID], words[LEFT_DATA], ~uint64_t(0), words[RIGHT_DATA]);
       });
     } else {
-      Bitmap::Visit(bitmaps, [&](std::array<uint64_t, 4> words) {
+      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 4> words) {
         apply(words[LEFT_VALID], words[LEFT_DATA], words[RIGHT_VALID], words[RIGHT_DATA]);
       });
     }

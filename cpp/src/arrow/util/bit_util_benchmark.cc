@@ -128,7 +128,7 @@ static void BenchmarkBitmapAnd(benchmark::State& state) {
 static void BenchmarkBitmapVisitBitsetAnd(benchmark::State& state) {
   BenchmarkAndImpl(state, [](const internal::Bitmap(&bitmaps)[2], internal::Bitmap* out) {
     int64_t i = 0;
-    internal::Bitmap::Visit(
+    internal::Bitmap::VisitBits(
         bitmaps, [&](std::bitset<2> bits) { out->SetBitTo(i++, bits[0] && bits[1]); });
   });
 }
@@ -136,7 +136,7 @@ static void BenchmarkBitmapVisitBitsetAnd(benchmark::State& state) {
 static void BenchmarkBitmapVisitUInt8And(benchmark::State& state) {
   BenchmarkAndImpl(state, [](const internal::Bitmap(&bitmaps)[2], internal::Bitmap* out) {
     int64_t i = 0;
-    internal::Bitmap::Visit(bitmaps, [&](std::array<uint8_t, 2> uint8s) {
+    internal::Bitmap::VisitWords(bitmaps, [&](std::array<uint8_t, 2> uint8s) {
       reinterpret_cast<uint8_t*>(out->buffer()->mutable_data())[i++] =
           uint8s[0] & uint8s[1];
     });
@@ -146,7 +146,7 @@ static void BenchmarkBitmapVisitUInt8And(benchmark::State& state) {
 static void BenchmarkBitmapVisitUInt64And(benchmark::State& state) {
   BenchmarkAndImpl(state, [](const internal::Bitmap(&bitmaps)[2], internal::Bitmap* out) {
     int64_t i = 0;
-    internal::Bitmap::Visit(bitmaps, [&](std::array<uint64_t, 2> uint64s) {
+    internal::Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 2> uint64s) {
       reinterpret_cast<uint64_t*>(out->buffer()->mutable_data())[i++] =
           uint64s[0] & uint64s[1];
     });
