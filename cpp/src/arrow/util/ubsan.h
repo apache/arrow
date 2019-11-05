@@ -52,7 +52,7 @@ inline T* MakeNonNull(T* maybe_null) {
 }
 
 template <typename T>
-inline typename std::enable_if<std::is_integral<T>::value, T>::type SafeLoadAs(
+inline typename std::enable_if<std::is_trivial<T>::value, T>::type SafeLoadAs(
     const uint8_t* unaligned) {
   typename std::remove_const<T>::type ret;
   std::memcpy(&ret, unaligned, sizeof(T));
@@ -60,7 +60,7 @@ inline typename std::enable_if<std::is_integral<T>::value, T>::type SafeLoadAs(
 }
 
 template <typename T>
-inline typename std::enable_if<std::is_integral<T>::value, T>::type SafeLoad(
+inline typename std::enable_if<std::is_trivial<T>::value, T>::type SafeLoad(
     const T* unaligned) {
   typename std::remove_const<T>::type ret;
   std::memcpy(&ret, unaligned, sizeof(T));

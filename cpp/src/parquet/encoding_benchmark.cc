@@ -325,7 +325,7 @@ class BenchmarkDecodeArrow : public ::benchmark::Fixture {
   void DecodeArrowDenseBenchmark(benchmark::State& state) {
     for (auto _ : state) {
       auto decoder = InitializeDecoder();
-      ArrowBinaryAccumulator acc;
+      typename EncodingTraits<ByteArrayType>::Accumulator acc;
       acc.builder.reset(new BinaryBuilder);
       decoder->DecodeArrow(num_values_, 0, valid_bits_, 0, &acc);
     }
@@ -335,7 +335,7 @@ class BenchmarkDecodeArrow : public ::benchmark::Fixture {
   void DecodeArrowNonNullDenseBenchmark(benchmark::State& state) {
     for (auto _ : state) {
       auto decoder = InitializeDecoder();
-      ArrowBinaryAccumulator acc;
+      typename EncodingTraits<ByteArrayType>::Accumulator acc;
       acc.builder.reset(new BinaryBuilder);
       decoder->DecodeArrowNonNull(num_values_, &acc);
     }

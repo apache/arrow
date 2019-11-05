@@ -86,6 +86,11 @@ class ParquetException : public std::exception {
   std::string msg_;
 };
 
+template <typename StatusReturnBlock>
+void ThrowNotOk(StatusReturnBlock&& b) {
+  PARQUET_THROW_NOT_OK(b());
+}
+
 }  // namespace parquet
 
 #endif  // PARQUET_EXCEPTION_H

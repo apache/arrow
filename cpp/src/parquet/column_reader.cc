@@ -623,7 +623,7 @@ class ColumnReaderImplBase {
 
   ::arrow::MemoryPool* pool_;
 
-  using DecoderType = typename EncodingTraits<DType>::Decoder;
+  using DecoderType = TypedDecoder<DType>;
   DecoderType* current_decoder_;
   Encoding::type current_encoding_;
 
@@ -1337,7 +1337,7 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
 
  private:
   // Helper data structure for accumulating builder chunks
-  ArrowBinaryAccumulator accumulator_;
+  typename EncodingTraits<ByteArrayType>::Accumulator accumulator_;
 };
 
 class ByteArrayDictionaryRecordReader : public TypedRecordReader<ByteArrayType>,
