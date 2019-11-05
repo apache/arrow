@@ -774,6 +774,18 @@ void FileCryptoMetaData::WriteTo(::arrow::io::OutputStream* dst) const {
   impl_->WriteTo(dst);
 }
 
+std::string FileMetaData::SerializeToString() const {
+  // We need to pass in an initial size. Since it will automatically
+  // increase the buffer size to hold the metadata, we just leave it 0.
+  std::shared_ptr<arrow::io::BufferOutputStream> serializer;
+  PARQUET_THROW_NOT_OK(arrow::io::BufferOutputStream::Create(
+      0, arrow::default_memory_pool(), &serializer));
+  std::shared_ptr<arrow::Buffer> metadata_buffer;
+  WriteTo(serializer.get());
+  PARQUET_THROW_NOT_OK(serializer->Finish(&metadata_buffer));
+  return metadata_buffer->ToString();
+}
+
 ApplicationVersion::ApplicationVersion(const std::string& application, int major,
                                        int minor, int patch)
     : application_(application), version{major, minor, patch, "", "", ""} {}

@@ -100,84 +100,99 @@ TEST(Metadata, TestBuildAccess) {
   // Generate the metadata
   auto f_accessor = GenerateTableMetaData(schema, props, nrows, stats_int, stats_float);
 
-  // file metadata
-  ASSERT_EQ(nrows, f_accessor->num_rows());
-  ASSERT_LE(0, static_cast<int>(f_accessor->size()));
-  ASSERT_EQ(2, f_accessor->num_row_groups());
-  ASSERT_EQ(ParquetVersion::PARQUET_2_0, f_accessor->version());
-  ASSERT_EQ(DEFAULT_CREATED_BY, f_accessor->created_by());
-  ASSERT_EQ(3, f_accessor->num_schema_elements());
+  std::string f_accessor_serialized_metadata = f_accessor->SerializeToString();
+  uint32_t expected_len = static_cast<uint32_t>(f_accessor_serialized_metadata.length());
 
-  // row group1 metadata
-  auto rg1_accessor = f_accessor->RowGroup(0);
-  ASSERT_EQ(2, rg1_accessor->num_columns());
-  ASSERT_EQ(nrows / 2, rg1_accessor->num_rows());
-  ASSERT_EQ(1024, rg1_accessor->total_byte_size());
+  // decoded_len is an in-out parameter
+  uint32_t decoded_len = expected_len;
+  auto f_accessor_copy =
+      FileMetaData::Make(f_accessor_serialized_metadata.data(), &decoded_len);
 
-  auto rg1_column1 = rg1_accessor->ColumnChunk(0);
-  auto rg1_column2 = rg1_accessor->ColumnChunk(1);
-  ASSERT_EQ(true, rg1_column1->is_stats_set());
-  ASSERT_EQ(true, rg1_column2->is_stats_set());
-  ASSERT_EQ(stats_float.min(), rg1_column2->statistics()->EncodeMin());
-  ASSERT_EQ(stats_float.max(), rg1_column2->statistics()->EncodeMax());
-  ASSERT_EQ(stats_int.min(), rg1_column1->statistics()->EncodeMin());
-  ASSERT_EQ(stats_int.max(), rg1_column1->statistics()->EncodeMax());
-  ASSERT_EQ(0, rg1_column1->statistics()->null_count());
-  ASSERT_EQ(0, rg1_column2->statistics()->null_count());
-  ASSERT_EQ(nrows, rg1_column1->statistics()->distinct_count());
-  ASSERT_EQ(nrows, rg1_column2->statistics()->distinct_count());
-  ASSERT_EQ(DEFAULT_COMPRESSION_TYPE, rg1_column1->compression());
-  ASSERT_EQ(DEFAULT_COMPRESSION_TYPE, rg1_column2->compression());
-  ASSERT_EQ(nrows / 2, rg1_column1->num_values());
-  ASSERT_EQ(nrows / 2, rg1_column2->num_values());
-  ASSERT_EQ(3, rg1_column1->encodings().size());
-  ASSERT_EQ(3, rg1_column2->encodings().size());
-  ASSERT_EQ(512, rg1_column1->total_compressed_size());
-  ASSERT_EQ(512, rg1_column2->total_compressed_size());
-  ASSERT_EQ(600, rg1_column1->total_uncompressed_size());
-  ASSERT_EQ(600, rg1_column2->total_uncompressed_size());
-  ASSERT_EQ(4, rg1_column1->dictionary_page_offset());
-  ASSERT_EQ(24, rg1_column2->dictionary_page_offset());
-  ASSERT_EQ(10, rg1_column1->data_page_offset());
-  ASSERT_EQ(30, rg1_column2->data_page_offset());
+  // Check that all of the serialized data is consumed
+  ASSERT_EQ(expected_len, decoded_len);
 
-  auto rg2_accessor = f_accessor->RowGroup(1);
-  ASSERT_EQ(2, rg2_accessor->num_columns());
-  ASSERT_EQ(nrows / 2, rg2_accessor->num_rows());
-  ASSERT_EQ(1024, rg2_accessor->total_byte_size());
+  // Run this block twice, one for f_accessor, one for f_accessor_copy.
+  // To make sure SerializedMetadata was deserialized correctly.
+  std::vector<FileMetaData*> f_accessors = {f_accessor.get(), f_accessor_copy.get()};
+  for (int loop_index = 0; loop_index < 2; loop_index++) {
+    // file metadata
+    ASSERT_EQ(nrows, f_accessors[loop_index]->num_rows());
+    ASSERT_LE(0, static_cast<int>(f_accessors[loop_index]->size()));
+    ASSERT_EQ(2, f_accessors[loop_index]->num_row_groups());
+    ASSERT_EQ(ParquetVersion::PARQUET_2_0, f_accessors[loop_index]->version());
+    ASSERT_EQ(DEFAULT_CREATED_BY, f_accessors[loop_index]->created_by());
+    ASSERT_EQ(3, f_accessors[loop_index]->num_schema_elements());
 
-  auto rg2_column1 = rg2_accessor->ColumnChunk(0);
-  auto rg2_column2 = rg2_accessor->ColumnChunk(1);
-  ASSERT_EQ(true, rg2_column1->is_stats_set());
-  ASSERT_EQ(true, rg2_column2->is_stats_set());
-  ASSERT_EQ(stats_float.min(), rg2_column2->statistics()->EncodeMin());
-  ASSERT_EQ(stats_float.max(), rg2_column2->statistics()->EncodeMax());
-  ASSERT_EQ(stats_int.min(), rg1_column1->statistics()->EncodeMin());
-  ASSERT_EQ(stats_int.max(), rg1_column1->statistics()->EncodeMax());
-  ASSERT_EQ(0, rg2_column1->statistics()->null_count());
-  ASSERT_EQ(0, rg2_column2->statistics()->null_count());
-  ASSERT_EQ(nrows, rg2_column1->statistics()->distinct_count());
-  ASSERT_EQ(nrows, rg2_column2->statistics()->distinct_count());
-  ASSERT_EQ(nrows / 2, rg2_column1->num_values());
-  ASSERT_EQ(nrows / 2, rg2_column2->num_values());
-  ASSERT_EQ(DEFAULT_COMPRESSION_TYPE, rg2_column1->compression());
-  ASSERT_EQ(DEFAULT_COMPRESSION_TYPE, rg2_column2->compression());
-  ASSERT_EQ(3, rg2_column1->encodings().size());
-  ASSERT_EQ(3, rg2_column2->encodings().size());
-  ASSERT_EQ(512, rg2_column1->total_compressed_size());
-  ASSERT_EQ(512, rg2_column2->total_compressed_size());
-  ASSERT_EQ(600, rg2_column1->total_uncompressed_size());
-  ASSERT_EQ(600, rg2_column2->total_uncompressed_size());
-  ASSERT_EQ(6, rg2_column1->dictionary_page_offset());
-  ASSERT_EQ(16, rg2_column2->dictionary_page_offset());
-  ASSERT_EQ(10, rg2_column1->data_page_offset());
-  ASSERT_EQ(26, rg2_column2->data_page_offset());
+    // row group1 metadata
+    auto rg1_accessor = f_accessors[loop_index]->RowGroup(0);
+    ASSERT_EQ(2, rg1_accessor->num_columns());
+    ASSERT_EQ(nrows / 2, rg1_accessor->num_rows());
+    ASSERT_EQ(1024, rg1_accessor->total_byte_size());
 
-  // Test FileMetaData::set_file_path
-  ASSERT_TRUE(rg2_column1->file_path().empty());
-  f_accessor->set_file_path("/foo/bar/bar.parquet");
-  ASSERT_EQ("/foo/bar/bar.parquet", rg2_column1->file_path());
+    auto rg1_column1 = rg1_accessor->ColumnChunk(0);
+    auto rg1_column2 = rg1_accessor->ColumnChunk(1);
+    ASSERT_EQ(true, rg1_column1->is_stats_set());
+    ASSERT_EQ(true, rg1_column2->is_stats_set());
+    ASSERT_EQ(stats_float.min(), rg1_column2->statistics()->EncodeMin());
+    ASSERT_EQ(stats_float.max(), rg1_column2->statistics()->EncodeMax());
+    ASSERT_EQ(stats_int.min(), rg1_column1->statistics()->EncodeMin());
+    ASSERT_EQ(stats_int.max(), rg1_column1->statistics()->EncodeMax());
+    ASSERT_EQ(0, rg1_column1->statistics()->null_count());
+    ASSERT_EQ(0, rg1_column2->statistics()->null_count());
+    ASSERT_EQ(nrows, rg1_column1->statistics()->distinct_count());
+    ASSERT_EQ(nrows, rg1_column2->statistics()->distinct_count());
+    ASSERT_EQ(DEFAULT_COMPRESSION_TYPE, rg1_column1->compression());
+    ASSERT_EQ(DEFAULT_COMPRESSION_TYPE, rg1_column2->compression());
+    ASSERT_EQ(nrows / 2, rg1_column1->num_values());
+    ASSERT_EQ(nrows / 2, rg1_column2->num_values());
+    ASSERT_EQ(3, rg1_column1->encodings().size());
+    ASSERT_EQ(3, rg1_column2->encodings().size());
+    ASSERT_EQ(512, rg1_column1->total_compressed_size());
+    ASSERT_EQ(512, rg1_column2->total_compressed_size());
+    ASSERT_EQ(600, rg1_column1->total_uncompressed_size());
+    ASSERT_EQ(600, rg1_column2->total_uncompressed_size());
+    ASSERT_EQ(4, rg1_column1->dictionary_page_offset());
+    ASSERT_EQ(24, rg1_column2->dictionary_page_offset());
+    ASSERT_EQ(10, rg1_column1->data_page_offset());
+    ASSERT_EQ(30, rg1_column2->data_page_offset());
 
+    auto rg2_accessor = f_accessors[loop_index]->RowGroup(1);
+    ASSERT_EQ(2, rg2_accessor->num_columns());
+    ASSERT_EQ(nrows / 2, rg2_accessor->num_rows());
+    ASSERT_EQ(1024, rg2_accessor->total_byte_size());
+
+    auto rg2_column1 = rg2_accessor->ColumnChunk(0);
+    auto rg2_column2 = rg2_accessor->ColumnChunk(1);
+    ASSERT_EQ(true, rg2_column1->is_stats_set());
+    ASSERT_EQ(true, rg2_column2->is_stats_set());
+    ASSERT_EQ(stats_float.min(), rg2_column2->statistics()->EncodeMin());
+    ASSERT_EQ(stats_float.max(), rg2_column2->statistics()->EncodeMax());
+    ASSERT_EQ(stats_int.min(), rg1_column1->statistics()->EncodeMin());
+    ASSERT_EQ(stats_int.max(), rg1_column1->statistics()->EncodeMax());
+    ASSERT_EQ(0, rg2_column1->statistics()->null_count());
+    ASSERT_EQ(0, rg2_column2->statistics()->null_count());
+    ASSERT_EQ(nrows, rg2_column1->statistics()->distinct_count());
+    ASSERT_EQ(nrows, rg2_column2->statistics()->distinct_count());
+    ASSERT_EQ(nrows / 2, rg2_column1->num_values());
+    ASSERT_EQ(nrows / 2, rg2_column2->num_values());
+    ASSERT_EQ(DEFAULT_COMPRESSION_TYPE, rg2_column1->compression());
+    ASSERT_EQ(DEFAULT_COMPRESSION_TYPE, rg2_column2->compression());
+    ASSERT_EQ(3, rg2_column1->encodings().size());
+    ASSERT_EQ(3, rg2_column2->encodings().size());
+    ASSERT_EQ(512, rg2_column1->total_compressed_size());
+    ASSERT_EQ(512, rg2_column2->total_compressed_size());
+    ASSERT_EQ(600, rg2_column1->total_uncompressed_size());
+    ASSERT_EQ(600, rg2_column2->total_uncompressed_size());
+    ASSERT_EQ(6, rg2_column1->dictionary_page_offset());
+    ASSERT_EQ(16, rg2_column2->dictionary_page_offset());
+    ASSERT_EQ(10, rg2_column1->data_page_offset());
+    ASSERT_EQ(26, rg2_column2->data_page_offset());
+
+    // Test FileMetaData::set_file_path
+    ASSERT_TRUE(rg2_column1->file_path().empty());
+    f_accessors[loop_index]->set_file_path("/foo/bar/bar.parquet");
+    ASSERT_EQ("/foo/bar/bar.parquet", rg2_column1->file_path());
+  }
   // Test AppendRowGroups
   auto f_accessor_2 = GenerateTableMetaData(schema, props, nrows, stats_int, stats_float);
   f_accessor->AppendRowGroups(*f_accessor_2);

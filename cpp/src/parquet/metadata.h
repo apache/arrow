@@ -200,7 +200,7 @@ class PARQUET_EXPORT FileMetaData {
   // API convenience to get a MetaData accessor
 
   static std::shared_ptr<FileMetaData> Make(
-      const void* serialized_metadata, uint32_t* metadata_len,
+      const void* serialized_metadata, uint32_t* inout_metadata_len,
       const std::shared_ptr<Decryptor>& decryptor = NULLPTR);
 
   ~FileMetaData();
@@ -230,6 +230,10 @@ class PARQUET_EXPORT FileMetaData {
 
   void WriteTo(::arrow::io::OutputStream* dst,
                const std::shared_ptr<Encryptor>& encryptor = NULLPTR) const;
+
+  /// \brief Return Thrift-serialized representation of the metadata as a
+  /// string
+  std::string SerializeToString() const;
 
   // Return const-pointer to make it clear that this object is not to be copied
   const SchemaDescriptor* schema() const;
