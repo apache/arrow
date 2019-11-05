@@ -1203,7 +1203,8 @@ cdef class ListArray(Array):
         Return the offsets as an int32 array.
         """
         return Array.from_buffers(
-            int32(), len(self) + 1, [None, self.buffers()[1]])
+            int32(), len(self) + 1, [None, self.buffers()[1]],
+            offset=self.offset)
 
     def flatten(self):
         """

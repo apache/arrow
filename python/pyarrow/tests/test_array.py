@@ -1608,6 +1608,23 @@ def test_large_list_array_flatten():
     assert arr2.offsets.equals(offsets2)
 
 
+def test_list_array_values_offsets_sliced():
+    # ARROW-7301
+    arr = pa.ListArray.from_arrays(offsets=[0, 3, 4, 6],
+                                   values=[1, 2, 3, 4, 5, 6])
+    assert arr.values.to_pylist() == [1, 2, 3, 4, 5, 6]
+    assert arr.offsets.to_pylist() == [0, 3, 4, 6]
+
+    # sliced -> values keeps referring to full values buffer, but offsets is
+    # sliced as well so the offsets correctly point into the full values array
+    arr2 = arr[1:]
+    assert arr2.values.to_pylist() == [1, 2, 3, 4, 5, 6]
+    assert arr2.offsets.to_pylist() == [3, 4, 6]
+    i = arr2.offsets[0].as_py()
+    j = arr2.offsets[1].as_py()
+    assert arr2[0].as_py() == arr2.values[i:j].to_pylist() == [4]
+
+
 def test_struct_array_flatten():
     ty = pa.struct([pa.field('x', pa.int16()),
                     pa.field('y', pa.float32())])
