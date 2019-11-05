@@ -549,6 +549,8 @@ Status PromoteTableToSchema(const std::shared_ptr<Table>& table,
   auto AppendColumnOfNulls = [pool, &columns,
                               num_rows](const std::shared_ptr<DataType>& type) {
     std::shared_ptr<Array> array_of_nulls;
+    // TODO(bkietz): share the zero-filled buffers as much as possible across
+    // the null-filled arrays created here.
     RETURN_NOT_OK(MakeArrayOfNull(pool, type, num_rows, &array_of_nulls));
     columns.push_back(std::make_shared<ChunkedArray>(array_of_nulls));
     return Status::OK();

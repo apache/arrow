@@ -29,6 +29,7 @@
 
 #include "arrow/array.h"
 #include "arrow/compare.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
@@ -491,6 +492,31 @@ std::string NullType::ToString() const { return name(); }
 // ----------------------------------------------------------------------
 // Schema implementation
 
+namespace {
+// Unifies `other` with `existing`. The unified field will have the metadata of
+// `existing` and:
+//   - if `other` if of NullType or is nullable, the unified field will be nullable.
+//   - if `existing` is of NullType but other is not, the unified field will
+//     have `other`'s type and will be nullable.
+Result<std::shared_ptr<Field>> UnifyFields(const std::shared_ptr<Field>& existing,
+                                           const std::shared_ptr<Field>& other) {
+  if (existing->type()->id() == Type::NA) {
+    return other->WithNullable(true)->WithMetadata(existing->metadata());
+  }
+  if (other->type()->id() != Type::NA && !existing->type()->Equals(other->type())) {
+    return Status::Invalid("Field ", existing->name(),
+                           " has incompatible types: ", existing->type()->ToString(),
+                           " vs ", other->type()->ToString());
+  }
+  // At least one field is nullable thus the unified field should also be nullable.
+  if (other->type()->id() == Type::NA || other->nullable() != existing->nullable()) {
+    return existing->WithNullable(true);
+  }
+  return existing;
+}
+
+}  // namespace
+
 class Schema::Impl {
  public:
   Impl(const std::vector<std::shared_ptr<Field>>& fields,
@@ -706,24 +732,6 @@ Status UnifySchemas(const std::vector<std::shared_ptr<Schema>>& schemas,
     }
   }
 
-  auto update_field = [](const std::shared_ptr<Field>& other,
-                         std::shared_ptr<Field>* existing) -> Status {
-    if ((*existing)->type()->id() == Type::NA) {
-      *existing = other->WithNullable(true)->WithMetadata((*existing)->metadata());
-      return Status::OK();
-    }
-    if (other->type()->id() != Type::NA && !(*existing)->type()->Equals(other->type())) {
-      return Status::Invalid("Field ", (*existing)->name(),
-                             " has incompatible types: ", (*existing)->type()->ToString(),
-                             " vs ", other->type()->ToString());
-    }
-    // At least one field is nullable thus the unified field should also be nullable.
-    if (other->type()->id() == Type::NA || other->nullable() != (*existing)->nullable()) {
-      *existing = (*existing)->WithNullable(true);
-    }
-    return Status::OK();
-  };
-
   for (auto schema_iter = schemas.begin() + 1; schema_iter != schemas.end();
        ++schema_iter) {
     const std::shared_ptr<Schema>& schema = *schema_iter;
@@ -742,7 +750,9 @@ Status UnifySchemas(const std::vector<std::shared_ptr<Schema>>& schemas,
         fields.push_back(current_field->WithNullable(true));
       } else {
         const size_t existing_field_index = insertion_result.first->second;
-        RETURN_NOT_OK(update_field(current_fields[0], &fields[existing_field_index]));
+        auto& existing_field = fields[existing_field_index];
+        ARROW_ASSIGN_OR_RAISE(existing_field,
+                              UnifyFields(existing_field, current_fields[0]));
       }
     }
   }

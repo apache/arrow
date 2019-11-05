@@ -409,12 +409,6 @@ TEST_F(TestTable, ConcatenateTables) {
 
 class TestPromoteTableToSchema : public TestTable {
  protected:
-  std::shared_ptr<Table> MakeTableWithOneNullColumn(const std::string& column_name,
-                                                    const int length) {
-    return Table::Make(schema({field(column_name, null())}),
-                       {MakeRandomArray<NullArray>(length)});
-  }
-
   std::shared_ptr<Table> MakeTableWithOneNullFilledColumn(
       const std::string& column_name, const std::shared_ptr<DataType>& data_type,
       const int length) {
@@ -444,8 +438,8 @@ TEST_F(TestPromoteTableToSchema, PromoteNullTypeField) {
   const int length = 10;
   auto metadata =
       std::shared_ptr<KeyValueMetadata>(new KeyValueMetadata({"foo"}, {"bar"}));
-  auto table_with_null_column =
-      MakeTableWithOneNullColumn("field", length)->ReplaceSchemaMetadata(metadata);
+  auto table_with_null_column = MakeTableWithOneNullFilledColumn("field", null(), length)
+                                    ->ReplaceSchemaMetadata(metadata);
   auto promoted_schema = schema({field("field", int32())});
 
   std::shared_ptr<Table> result;
