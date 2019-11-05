@@ -283,6 +283,32 @@ TEST_F(FilterTest, IsValidExpression) {
   ])");
 }
 
+TEST_F(FilterTest, Cast) {
+  ASSERT_RAISES(TypeError, ("a"_ == double(1.0)).Validate(Schema({field("a", int32())})));
+
+  AssertFilter("a"_.CastTo(float64()) == double(1.0),
+               {field("a", int32()), field("b", float64())}, R"([
+      {"a": 0, "b": -0.1, "in": 0},
+      {"a": 0, "b":  0.3, "in": 0},
+      {"a": 1, "b":  0.2, "in": 1},
+      {"a": 2, "b": -0.1, "in": 0},
+      {"a": 0, "b":  0.1, "in": 0},
+      {"a": 0, "b": null, "in": 0},
+      {"a": 1, "b":  1.0, "in": 1}
+  ])");
+
+  AssertFilter("a"_.CastLike("b"_) == "b"_, {field("a", int32()), field("b", float64())},
+               R"([
+      {"a": 0, "b": -0.1, "in": 0},
+      {"a": 0, "b":  0.0, "in": 1},
+      {"a": 1, "b":  1.0, "in": 1},
+      {"a": 2, "b": -0.1, "in": 0},
+      {"a": 0, "b":  0.1, "in": 0},
+      {"a": 2, "b": null, "in": null},
+      {"a": 1, "b":  1.0, "in": 1}
+  ])");
+}
+
 TEST_F(FilterTest, ConditionOnAbsentColumn) {
   AssertFilter("a"_ == 0 and "b"_ > 0.0 and "b"_ < 1.0 and "absent"_ == 0,
                {field("a", int32()), field("b", float64())}, R"([

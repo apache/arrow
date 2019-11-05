@@ -30,6 +30,7 @@
 #include "arrow/buffer_builder.h"
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernels/boolean.h"
+#include "arrow/compute/kernels/cast.h"
 #include "arrow/compute/kernels/compare.h"
 #include "arrow/compute/kernels/filter.h"
 #include "arrow/compute/kernels/isin.h"
@@ -564,6 +565,10 @@ std::shared_ptr<Expression> IsValidExpression::Assume(const Expression& given) c
   return std::make_shared<IsValidExpression>(std::move(operand));
 }
 
+std::shared_ptr<Expression> CastExpression::Assume(const Expression& given) const {
+  return std::make_shared<CastExpression>(operand_->Assume(given), to_, options_);
+}
+
 std::string FieldExpression::ToString() const {
   return std::string("field(") + name_ + ")";
 }
@@ -662,6 +667,12 @@ std::string IsValidExpression::ToString() const {
 
 std::string InExpression::ToString() const {
   return EulerNotation("IN<" + set_->ToString() + ">", {operand_});
+}
+
+std::string CastExpression::ToString() const {
+  std::string name = to_ != nullptr ? "CAST<" + to_->ToString() + ">"
+                                    : "CAST<TYPEOF(" + like_->ToString() + ")>";
+  return EulerNotation(name, {operand_});
 }
 
 std::string ComparisonExpression::ToString() const {
@@ -776,6 +787,21 @@ OrExpression operator||(const Expression& lhs, const Expression& rhs) {
 
 NotExpression operator!(const Expression& rhs) { return NotExpression(rhs.Copy()); }
 
+CastExpression Expression::CastTo(std::shared_ptr<DataType> type,
+                                  compute::CastOptions options) const {
+  return CastExpression(Copy(), type, std::move(options));
+}
+
+CastExpression Expression::CastLike(std::shared_ptr<Expression> expr,
+                                    compute::CastOptions options) const {
+  return CastExpression(Copy(), std::move(expr), std::move(options));
+}
+
+CastExpression Expression::CastLike(const Expression& expr,
+                                    compute::CastOptions options) const {
+  return CastLike(expr.Copy(), std::move(options));
+}
+
 Result<std::shared_ptr<DataType>> ComparisonExpression::Validate(
     const Schema& schema) const {
   ARROW_ASSIGN_OR_RAISE(auto lhs_type, left_operand_->Validate(schema));
@@ -839,6 +865,19 @@ Result<std::shared_ptr<DataType>> IsValidExpression::Validate(
   return boolean();
 }
 
+Result<std::shared_ptr<DataType>> CastExpression::Validate(const Schema& schema) const {
+  ARROW_ASSIGN_OR_RAISE(auto operand_type, operand_->Validate(schema));
+  std::shared_ptr<DataType> to_type;
+  if (to_ != nullptr) {
+    to_type = to_;
+  } else {
+    ARROW_ASSIGN_OR_RAISE(to_type, like_->Validate(schema));
+  }
+
+  // FIXME(bkietz) check convertible operand_type -> to_type
+  return to_type;
+}
+
 Result<std::shared_ptr<DataType>> ScalarExpression::Validate(const Schema& schema) const {
   return value_->type;
 }
@@ -850,34 +889,30 @@ Result<std::shared_ptr<DataType>> FieldExpression::Validate(const Schema& schema
   return null();
 }
 
-struct AccumulateFieldsVisitor {
-  void operator()(const FieldExpression& expr) { fields.push_back(expr.name()); }
-
-  void operator()(const UnaryExpression& expr) {
-    VisitExpression(*expr.operand(), *this);
-  }
-
-  void operator()(const BinaryExpression& expr) {
-    VisitExpression(*expr.left_operand(), *this);
-    VisitExpression(*expr.right_operand(), *this);
-  }
-
-  void operator()(const Expression&) const {}
-
-  std::vector<std::string> fields;
-};
-
 std::vector<std::string> FieldsInExpression(const Expression& expr) {
-  AccumulateFieldsVisitor visitor;
+  struct {
+    void operator()(const FieldExpression& expr) { fields.push_back(expr.name()); }
+
+    void operator()(const UnaryExpression& expr) {
+      VisitExpression(*expr.operand(), *this);
+    }
+
+    void operator()(const BinaryExpression& expr) {
+      VisitExpression(*expr.left_operand(), *this);
+      VisitExpression(*expr.right_operand(), *this);
+    }
+
+    void operator()(const Expression&) const {}
+
+    std::vector<std::string> fields;
+  } visitor;
+
   VisitExpression(expr, visitor);
-  return visitor.fields;
+  return std::move(visitor.fields);
 }
 
 std::vector<std::string> FieldsInExpression(const std::shared_ptr<Expression>& expr) {
-  if (expr == nullptr) {
-    return {};
-  }
-
+  DCHECK_NE(expr, nullptr);
   return FieldsInExpression(*expr);
 }
 
@@ -920,6 +955,10 @@ struct TreeEvaluator::Impl {
   template <typename E>
   Result<Datum> operator()(const E& expr) const {
     return this_->Evaluate(expr, batch_);
+  }
+
+  Result<Datum> operator()(const Expression& expr) const {
+    return Status::NotImplemented("evaluation of ", expr.ToString());
   }
 
   const TreeEvaluator* this_;
@@ -1059,6 +1098,43 @@ Result<Datum> TreeEvaluator::Evaluate(const OrExpression& expr,
   }
 
   return lhs.is_array() ? std::move(lhs) : std::move(rhs);
+}
+
+Result<Datum> TreeEvaluator::Evaluate(const NotExpression& expr,
+                                      const RecordBatch& batch) const {
+  ARROW_ASSIGN_OR_RAISE(auto to_invert, Evaluate(*expr.operand(), batch));
+  if (IsNullDatum(to_invert)) {
+    return NullDatum();
+  }
+
+  if (to_invert.is_scalar()) {
+    bool trivial_condition =
+        checked_cast<const BooleanScalar&>(*to_invert.scalar()).value;
+    return Datum(std::make_shared<BooleanScalar>(!trivial_condition));
+  }
+
+  DCHECK(to_invert.is_array());
+  Datum out;
+  compute::FunctionContext ctx{pool_};
+  RETURN_NOT_OK(arrow::compute::Invert(&ctx, to_invert, &out));
+  return std::move(out);
+}
+
+Result<Datum> TreeEvaluator::Evaluate(const CastExpression& expr,
+                                      const RecordBatch& batch) const {
+  ARROW_ASSIGN_OR_RAISE(auto to_type, expr.Validate(*batch.schema()));
+
+  ARROW_ASSIGN_OR_RAISE(auto to_cast, Evaluate(*expr.operand(), batch));
+  if (to_cast.is_scalar()) {
+    // FIXME(bkietz) implement this in Scalar::As
+    return NullDatum();
+  }
+
+  DCHECK(to_cast.is_array());
+  Datum out;
+  compute::FunctionContext ctx{pool_};
+  RETURN_NOT_OK(arrow::compute::Cast(&ctx, to_cast, to_type, expr.options(), &out));
+  return std::move(out);
 }
 
 Result<Datum> TreeEvaluator::Evaluate(const ComparisonExpression& expr,
