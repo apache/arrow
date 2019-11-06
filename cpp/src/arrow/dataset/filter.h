@@ -543,6 +543,10 @@ auto VisitExpression(const Expression& expr, Visitor&& visitor)
   return visitor(expr);
 }
 
+/// \brief Insert CastExpressions where necessary to make a valid expression.
+ARROW_DS_EXPORT Result<std::shared_ptr<Expression>> InsertImplicitCasts(
+    const Expression& expr, const Schema& schema);
+
 /// \brief Returns field names referenced in the expression.
 ARROW_DS_EXPORT std::vector<std::string> FieldsInExpression(const Expression& expr);
 
