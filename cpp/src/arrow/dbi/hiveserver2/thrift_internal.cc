@@ -199,7 +199,7 @@ Status TStatusToStatus(const hs2::TStatus& tstatus) {
       return Status::OK(ss.str());
     }
     case hs2::TStatusCode::STILL_EXECUTING_STATUS:
-      return Status::StillExecuting();
+      return Status::ExecutionError("Still executing");
     case hs2::TStatusCode::ERROR_STATUS:
       return Status::IOError(tstatus.errorMessage);
     case hs2::TStatusCode::INVALID_HANDLE_STATUS:

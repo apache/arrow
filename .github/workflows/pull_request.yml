@@ -16,10 +16,12 @@
 # under the License.
 
 name: Pull request
+
 on:
   schedule:
     - cron: |
         */15 * * * *
+
 jobs:
   jira-link:
     name: JIRA link

@@ -1,0 +1,179 @@
+
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: C++
+
+on:
+  push:
+    # paths:
+    #  - 'cpp/**'
+  pull_request:
+    # paths:
+    #   - 'cpp/**'
+
+jobs:
+
+  docker:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - amd64-conda-latest-cpp
+          - amd64-debian-10-cpp
+          # - amd64-ubuntu-16.04-cpp
+          - amd64-ubuntu-18.04-cpp
+          - amd64-ubuntu-18.04-cpp-cmake-3.2
+          - amd64-fedora-29-cpp
+        include:
+          - name: AMD64 Conda C++
+            image: amd64-conda-latest-cpp
+            service: conda-cpp
+          - name: AMD64 Debian 10 C++
+            image: amd64-debian-10-cpp
+            service: debian-cpp
+            debian: 10
+          # TODO(kszucs): earlier GCC has a compile error
+          # - name: AMD64 Ubuntu 16.04 C++
+          #   image: amd64-ubuntu-16.04-cpp
+          #   service: ubuntu-cpp
+          #   ubuntu: 16.04
+          - name: AMD64 Ubuntu 18.04 C++
+            image: amd64-ubuntu-18.04-cpp
+            service: ubuntu-cpp
+            ubuntu: 18.04
+          - name: AMD64 Ubuntu 18.04 C++ CMake 3.2
+            image: amd64-ubuntu-18.04-cpp-cmake-3.2
+            service: ubuntu-cpp-cmake32
+            ubuntu: 18.04
+          - name: AMD64 Fedora 29 C++
+            image: amd64-fedora-29-cpp
+            service: fedora-cpp
+            fedora: 29
+    env:
+      DEBIAN: ${{ matrix.debian || 10 }}
+      UBUNTU: ${{ matrix.ubuntu || 18.04 }}
+      FEDORA: ${{ matrix.fedora || 29 }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Docker Pull
+        shell: bash
+        run: docker-compose pull --ignore-pull-failures ${{ matrix.service }}
+      - name: Docker Build
+        shell: bash
+        run: docker-compose build ${{ matrix.service }}
+      - name: Docker Run
+        shell: bash
+        run: docker-compose run ${{ matrix.service }}
+      - name: Docker Push
+        if: github.event_name == 'push' # && github.ref == 'master'
+        shell: bash
+        run: |
+          docker login \
+            -u ${{ secrets.DOCKERHUB_USER }} \
+            -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker-compose push ${{ matrix.service }}
+
+  macos:
+    name: AMD64 MacOS 10.15 C++
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+    env:
+      ARROW_HOME: /usr/local
+      # TODO(kszucs): investigate why does it fail
+      ARROW_JEMALLOC: OFF
+      ARROW_ORC: OFF
+      ARROW_FLIGHT: ON
+      ARROW_PLASMA: ON
+      ARROW_GANDIVA: ON
+      ARROW_PARQUET: ON
+      ARROW_WITH_ZLIB: ON
+      ARROW_WITH_LZ4: ON
+      ARROW_WITH_BZ2: ON
+      ARROW_WITH_ZSTD: ON
+      ARROW_WITH_SNAPPY: ON
+      ARROW_WITH_BROTLI: ON
+      ARROW_BUILD_TESTS: ON
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Install Dependencies
+        shell: bash
+        # TODO(kszucs): consider to use run_brew from travis_install_osx.sh
+        run: brew bundle --file=cpp/Brewfile
+      - name: Build
+        shell: bash
+        run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/cpp/build
+      - name: Test
+        shell: bash
+        run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/cpp/build
+
+  windows:
+    name: AMD64 ${{ matrix.name }} C++
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-latest
+        include:
+          - os: windows-latest
+            name: Windows 2019
+            generator: Visual Studio 16 2019
+    env:
+      CMAKE_ARGS: '-A x64'
+      CMAKE_GENERATOR: ${{ matrix.generator }}
+      CMAKE_INSTALL_LIBDIR: bin
+      CMAKE_INSTALL_PREFIX: /usr
+      ARROW_HOME: /usr
+      ARROW_FLIGHT: OFF
+      ARROW_PARQUET: OFF
+      ARROW_WITH_ZLIB: OFF
+      ARROW_WITH_LZ4: OFF
+      ARROW_WITH_BZ2: OFF
+      ARROW_WITH_ZSTD: OFF
+      ARROW_WITH_SNAPPY: OFF
+      ARROW_WITH_BROTLI: OFF
+      ARROW_USE_GLOG: OFF
+      ARROW_BUILD_TESTS: ON
+      ARROW_TEST_LINKAGE: static
+      ARROW_BOOST_USE_SHARED: OFF
+      ARROW_BUILD_SHARED: OFF
+      ARROW_USE_STATIC_CRT: ON
+      ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Dependencies
+        shell: bash
+        run: choco install dependencywalker
+      - name: Build
+        shell: bash
+        run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/cpp/build
+      - name: Test
+        shell: bash
+        run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/cpp/build

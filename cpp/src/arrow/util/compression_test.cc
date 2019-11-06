@@ -521,21 +521,26 @@ TEST_P(CodecTest, StreamingDecompressorReuse) {
   CheckStreamingRoundtrip(compressor, decompressor, data);
 }
 
+#ifdef ARROW_WITH_ZLIB
 INSTANTIATE_TEST_CASE_P(TestGZip, CodecTest, ::testing::Values(Compression::GZIP));
+#endif
 
+#ifdef ARROW_WITH_SNAPPY
 INSTANTIATE_TEST_CASE_P(TestSnappy, CodecTest, ::testing::Values(Compression::SNAPPY));
+#endif
 
+#ifdef ARROW_WITH_LZ4
 INSTANTIATE_TEST_CASE_P(TestLZ4, CodecTest, ::testing::Values(Compression::LZ4));
+#endif
 
+#ifdef ARROW_WITH_BROTLI
 INSTANTIATE_TEST_CASE_P(TestBrotli, CodecTest, ::testing::Values(Compression::BROTLI));
+#endif
 
-// bz2 requires a binary installation, there is no ExternalProject
 #if ARROW_WITH_BZ2
 INSTANTIATE_TEST_CASE_P(TestBZ2, CodecTest, ::testing::Values(Compression::BZ2));
 #endif
 
-// The ExternalProject for zstd does not build on CMake < 3.7, so we do not
-// require it here
 #ifdef ARROW_WITH_ZSTD
 INSTANTIATE_TEST_CASE_P(TestZSTD, CodecTest, ::testing::Values(Compression::ZSTD));
 #endif

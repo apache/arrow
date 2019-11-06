@@ -1,0 +1,229 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Python
+
+on:
+  push:
+    # paths:
+    #   - 'cpp/**'
+    #   - 'python/**'
+  pull_request:
+    # paths:
+    #   - 'cpp/**'
+    #   - 'python/**'
+
+jobs:
+
+  docker:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - amd64-conda-latest-python-2.7
+          - amd64-conda-latest-python-3.6
+          - amd64-conda-latest-python-3.7
+          - amd64-debian-10-python-3
+          # - amd64-ubuntu-16.04-python-3
+          - amd64-ubuntu-18.04-python-3
+          - amd64-fedora-29-python-3
+        include:
+          - name: AMD64 Conda Python 2.7
+            image: amd64-conda-latest-python-2.7
+            platform: conda
+            python: 2.7
+          - name: AMD64 Conda Python 3.6
+            image: amd64-conda-latest-python-3.6
+            platform: conda
+            python: 3.6
+          - name: AMD64 Conda Python 3.7
+            image: amd64-conda-latest-python-3.7
+            platform: conda
+            python: 3.7
+          - name: AMD64 Debian 10 Python 3
+            image: amd64-debian-10-python-3
+            platform: debian
+            debian: 10
+            python: 3
+          # - name: AMD64 Ubuntu 16.04 Python 3
+          #   image: amd64-ubuntu-16.04-python-3
+          #   platform: ubuntu
+          #   ubuntu: 16.04
+          #   python: 3
+          - name: AMD64 Ubuntu 18.04 Python 3
+            image: amd64-ubuntu-18.04-python-3
+            platform: ubuntu
+            ubuntu: 18.04
+            python: 3
+          - name: AMD64 Fedora 29 Python 3
+            image: amd64-fedora-29-python-3
+            platform: fedora
+            fedora: 29
+            python: 3
+    env:
+      PYTHON: ${{ matrix.python || 3.7 }}
+      DEBIAN: ${{ matrix.debian || 10 }}
+      UBUNTU: ${{ matrix.ubuntu || 18.04 }}
+      FEDORA: ${{ matrix.fedora || 29 }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Docker Pull
+        shell: bash
+        run: |
+          docker-compose pull --ignore-pull-failures ${{ matrix.platform }}-cpp
+          docker-compose pull --ignore-pull-failures ${{ matrix.platform }}-python
+      - name: Docker Build
+        shell: bash
+        run: |
+          docker-compose build ${{ matrix.platform }}-cpp
+          docker-compose build ${{ matrix.platform }}-python
+      - name: Docker Run
+        shell: bash
+        run: docker-compose run ${{ matrix.platform }}-python
+      - name: Docker Push
+        if: github.event_name == 'push' # && github.ref == 'master'
+        shell: bash
+        run: |
+          docker login \
+            -u ${{ secrets.DOCKERHUB_USER }} \
+            -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker-compose push ${{ matrix.platform }}-python
+
+  docker-integration:
+    # TODO(kszucs): we should probably have a test with pandas='master' running
+    #               with a daily cron schedule
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - amd64-conda-latest-python-3.7-pandas-latest
+          - amd64-conda-latest-python-3.7-dask-latest
+          - amd64-conda-latest-python-3.7-turbodbc-latest
+        include:
+          - name: AMD64 Conda Python 3.7 Pandas
+            image: amd64-conda-latest-python-3.7-pandas-latest
+            platform: conda
+            integration: pandas
+            python: 3.7
+            pandas: latest
+          - name: AMD64 Conda Python 3.7 Dask
+            image: amd64-conda-latest-python-3.7-dask-latest
+            platform: conda
+            integration: dask
+            python: 3.7
+            dask: latest
+          - name: AMD64 Conda Python 3.7 Turbodbc
+            image: amd64-conda-latest-python-3.7-turbodbc-latest
+            platform: conda
+            integration: turbodbc
+            python: 3.7
+            turbodbc: latest
+    env:
+      PYTHON: ${{ matrix.python || 3.7 }}
+      PANDAS: ${{ matrix.pandas || 'latest' }}
+      DASK: ${{ matrix.dask || 'latest' }}
+      TURBODBC: ${{ matrix.turbodbc || 'latest' }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Docker Pull
+        shell: bash
+        run: |
+          docker-compose pull --ignore-pull-failures \
+            ${{ matrix.platform }}-cpp
+          docker-compose pull --ignore-pull-failures \
+            ${{ matrix.platform }}-python
+          docker-compose pull --ignore-pull-failures \
+            ${{ matrix.platform }}-python-${{ matrix.integration }}
+      - name: Docker Build
+        shell: bash
+        run: |
+          docker-compose build \
+            ${{ matrix.platform }}-cpp
+          docker-compose build \
+            ${{ matrix.platform }}-python
+          docker-compose build \
+            ${{ matrix.platform }}-python-${{ matrix.integration }}
+      - name: Docker Run
+        shell: bash
+        run: |
+          docker-compose run \
+            ${{ matrix.platform }}-python-${{ matrix.integration }}
+      - name: Docker Push
+        if: github.event_name == 'push' # && github.ref == 'master'
+        shell: bash
+        run: |
+          docker login \
+            -u ${{ secrets.DOCKERHUB_USER }} \
+            -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker-compose push \
+            ${{ matrix.platform }}-python-${{ matrix.integration }}
+
+  macos:
+    name: AMD64 MacOS 10.15 Python ${{ matrix.python }}
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: [3]
+    env:
+      ARROW_HOME: /usr/local
+      # TODO(kszucs): investigate why does it fail
+      ARROW_JEMALLOC: OFF
+      ARROW_ORC: OFF
+      ARROW_BUILD_TESTS: OFF
+      ARROW_PYTHON: ON
+      ARROW_PLASMA: ON
+      ARROW_GANDIVA: ON
+      ARROW_PARQUET: ON
+      ARROW_WITH_ZLIB: ON
+      ARROW_WITH_LZ4: ON
+      ARROW_WITH_BZ2: ON
+      ARROW_WITH_ZSTD: ON
+      ARROW_WITH_SNAPPY: ON
+      ARROW_WITH_BROTLI: ON
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Install Dependencies
+        shell: bash
+        run: |
+          brew bundle --file=cpp/Brewfile
+          brew install coreutils python
+          pip install -r python/requirements.txt \
+                      -r python/requirements-test.txt \
+                      cython
+      - name: Build
+        shell: bash
+        run: |
+          ci/scripts/cpp_build.sh $(pwd)
+          ci/scripts/python_build.sh $(pwd)
+      - name: Test
+        shell: bash
+        run: |
+          ci/scripts/python_test.sh $(pwd)

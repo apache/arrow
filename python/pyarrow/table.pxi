@@ -17,6 +17,7 @@
 
 import warnings
 
+
 cdef class ChunkedArray(_PandasConvertible):
     """
     Array backed via one or more memory chunks.

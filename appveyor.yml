@@ -90,22 +90,6 @@ environment:
       MINGW_PREFIX: c:\msys64\mingw64
       MSYSTEM: MINGW64
       USE_CLCACHE: false
-    - JOB: "Rust"
-      TARGET: x86_64-pc-windows-msvc
-      USE_CLCACHE: false
-    - JOB: "C#"
-      APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
-      USE_CLCACHE: false
-    - JOB: "Go"
-      MINGW_PACKAGE_PREFIX: mingw-w64-x86_64
-      MINGW_PREFIX: c:\msys64\mingw64
-      MSYSTEM: MINGW64
-      USE_CLCACHE: false
-      GOROOT: 'c:\go112'
-      GOPATH: c:\gopath
-      GO111MODULE: on
-      GOTOOLDIR: '%GOROOT%\pkg\tool\windows_amd64'
-      PATH: '%GOPATH%\bin;%GOROOT%\bin;%PATH%'
     - JOB: "R with libarrow"
       USE_CLCACHE: false
       TEST_R_WITH_ARROW: "TRUE"

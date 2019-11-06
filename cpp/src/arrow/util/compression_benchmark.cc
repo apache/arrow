@@ -183,15 +183,25 @@ static void ReferenceStreamingDecompression(
   StreamingDecompression(COMPRESSION, data, state);
 }
 
+#ifdef ARROW_WITH_ZLIB
 BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::GZIP);
-BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::BROTLI);
-BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::ZSTD);
-BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::LZ4);
-
 BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::GZIP);
+#endif
+
+#ifdef ARROW_WITH_BROTLI
+BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::BROTLI);
 BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::BROTLI);
+#endif
+
+#ifdef ARROW_WITH_ZSTD
+BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::ZSTD);
 BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::ZSTD);
+#endif
+
+#ifdef ARROW_WITH_LZ4
+BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::LZ4);
 BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::LZ4);
+#endif
 
 #endif
 

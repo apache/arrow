@@ -17,10 +17,6 @@
 
 @echo on
 
-IF /i "%JOB%" == "C#" goto csharp
-IF /i "%JOB%" == "rust" goto rust
-IF /i "%JOB%" == "go" goto golang
-
 @rem All other builds are C++ builds
 goto cpp
 
@@ -32,18 +28,6 @@ if "%JOB:~,5%" == "MinGW" (
 ) else (
     call ci\appveyor-cpp-build.bat
 )
-goto scriptexit
-
-:csharp
-call ci\appveyor-csharp-build.bat
-goto scriptexit
-
-:rust
-call ci\rust-build-main.bat
-goto scriptexit
-
-:golang
-call ci\go-build-main.bat
 goto scriptexit
 
 :scriptexit
