@@ -453,21 +453,67 @@ cdef class FileSystem:
         )
 
 
+cdef class LocalFileSystemOptions:
+    """Options for LocalFileSystemOptions.
+
+    Parameters
+    ----------
+    use_mmap: bool, default False
+        Whether open_input_stream and open_input_file should return
+        a mmap'ed file or a regular file.
+    """
+    cdef:
+        CLocalFileSystemOptions options
+
+    # Avoid mistakingly creating attributes
+    __slots__ = ()
+
+    def __init__(self, use_mmap=None):
+        self.options = CLocalFileSystemOptions.Defaults()
+        if use_mmap is not None:
+            self.use_mmap = use_mmap
+
+    @property
+    def use_mmap(self):
+        """
+        Whether open_input_stream and open_input_file should return
+        a mmap'ed file or a regular file.
+        """
+        return self.options.use_mmap
+
+    @use_mmap.setter
+    def use_mmap(self, value):
+        self.options.use_mmap = value
+
+
 cdef class LocalFileSystem(FileSystem):
     """A FileSystem implementation accessing files on the local machine.
 
     Details such as symlinks are abstracted away (symlinks are always followed,
     except when deleting an entry).
+
+    Parameters
+    ----------
+    options: LocalFileSystemOptions, default None
+    kwargs: individual named options, for convenience
+
     """
 
-    def __init__(self):
-        cdef shared_ptr[CLocalFileSystem] wrapped
-        wrapped = make_shared[CLocalFileSystem]()
-        self.init(<shared_ptr[CFileSystem]> wrapped)
+    def __init__(self, LocalFileSystemOptions options=None, **kwargs):
+        cdef:
+            CLocalFileSystemOptions c_options
+            shared_ptr[CLocalFileSystem] c_fs
 
-    cdef init(self, const shared_ptr[CFileSystem]& wrapped):
-        FileSystem.init(self, wrapped)
-        self.localfs = <CLocalFileSystem*> wrapped.get()
+        options = options or LocalFileSystemOptions()
+        for k, v in kwargs.items():
+            setattr(options, k, v)
+        c_options = options.options
+        c_fs = make_shared[CLocalFileSystem](c_options)
+        self.init(<shared_ptr[CFileSystem]> c_fs)
+
+    cdef init(self, const shared_ptr[CFileSystem]& c_fs):
+        FileSystem.init(self, c_fs)
+        self.localfs = <CLocalFileSystem*> c_fs.get()
 
 
 cdef class SubTreeFileSystem(FileSystem):

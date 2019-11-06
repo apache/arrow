@@ -1100,8 +1100,15 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         CStatus OpenAppendStream(const c_string& path,
                                  shared_ptr[COutputStream]* out)
 
+    cdef cppclass CLocalFileSystemOptions "arrow::fs::LocalFileSystemOptions":
+        c_bool use_mmap
+
+        @staticmethod
+        CLocalFileSystemOptions Defaults()
+
     cdef cppclass CLocalFileSystem "arrow::fs::LocalFileSystem"(CFileSystem):
-        LocalFileSystem()
+        CLocalFileSystem()
+        CLocalFileSystem(CLocalFileSystemOptions)
 
     cdef cppclass CSubTreeFileSystem \
             "arrow::fs::SubTreeFileSystem"(CFileSystem):

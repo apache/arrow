@@ -433,6 +433,13 @@ class MemoryMappedFile::MemoryMap
 
   bool closed() const { return !file_->is_open(); }
 
+  Status CheckClosed() const {
+    if (closed()) {
+      return Status::Invalid("Invalid operation on closed file");
+    }
+    return Status::OK();
+  }
+
   Status Open(const std::string& path, FileMode::type mode, const int64_t offset = 0,
               const int64_t length = -1) {
     file_.reset(new OSFile());
@@ -636,20 +643,26 @@ Status MemoryMappedFile::Open(const std::string& path, FileMode::type mode,
 }
 
 Status MemoryMappedFile::GetSize(int64_t* size) const {
+  RETURN_NOT_OK(memory_map_->CheckClosed());
   *size = memory_map_->size();
   return Status::OK();
 }
 
 Status MemoryMappedFile::GetSize(int64_t* size) {
+  RETURN_NOT_OK(memory_map_->CheckClosed());
   return static_cast<const MemoryMappedFile*>(this)->GetSize(size);
 }
 
 Status MemoryMappedFile::Tell(int64_t* position) const {
+  RETURN_NOT_OK(memory_map_->CheckClosed());
   *position = memory_map_->position();
   return Status::OK();
 }
 
-Status MemoryMappedFile::Seek(int64_t position) { return memory_map_->Seek(position); }
+Status MemoryMappedFile::Seek(int64_t position) {
+  RETURN_NOT_OK(memory_map_->CheckClosed());
+  return memory_map_->Seek(position);
+}
 
 Status MemoryMappedFile::Close() { return memory_map_->Close(); }
 
@@ -657,6 +670,7 @@ bool MemoryMappedFile::closed() const { return memory_map_->closed(); }
 
 Status MemoryMappedFile::ReadAt(int64_t position, int64_t nbytes,
                                 std::shared_ptr<Buffer>* out) {
+  RETURN_NOT_OK(memory_map_->CheckClosed());
   // if the file is writable, we acquire the lock before creating any slices
   // in case a resize is triggered concurrently, otherwise we wouldn't detect
   // a change in the use count
@@ -668,6 +682,7 @@ Status MemoryMappedFile::ReadAt(int64_t position, int64_t nbytes,
 
 Status MemoryMappedFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
                                 void* out) {
+  RETURN_NOT_OK(memory_map_->CheckClosed());
   auto guard_resize = memory_map_->writable()
                           ? std::unique_lock<std::mutex>(memory_map_->resize_lock())
                           : std::unique_lock<std::mutex>();
@@ -680,12 +695,14 @@ Status MemoryMappedFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes
 }
 
 Status MemoryMappedFile::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
+  RETURN_NOT_OK(memory_map_->CheckClosed());
   RETURN_NOT_OK(ReadAt(memory_map_->position(), nbytes, bytes_read, out));
   memory_map_->advance(*bytes_read);
   return Status::OK();
 }
 
 Status MemoryMappedFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+  RETURN_NOT_OK(memory_map_->CheckClosed());
   RETURN_NOT_OK(ReadAt(memory_map_->position(), nbytes, out));
   memory_map_->advance((*out)->size());
   return Status::OK();
@@ -694,6 +711,7 @@ Status MemoryMappedFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
 bool MemoryMappedFile::supports_zero_copy() const { return true; }
 
 Status MemoryMappedFile::WriteAt(int64_t position, const void* data, int64_t nbytes) {
+  RETURN_NOT_OK(memory_map_->CheckClosed());
   std::lock_guard<std::mutex> guard(memory_map_->write_lock());
 
   if (!memory_map_->opened() || !memory_map_->writable()) {
@@ -712,6 +730,7 @@ Status MemoryMappedFile::WriteAt(int64_t position, const void* data, int64_t nby
 }
 
 Status MemoryMappedFile::Write(const void* data, int64_t nbytes) {
+  RETURN_NOT_OK(memory_map_->CheckClosed());
   std::lock_guard<std::mutex> guard(memory_map_->write_lock());
 
   if (!memory_map_->opened() || !memory_map_->writable()) {
@@ -731,6 +750,7 @@ Status MemoryMappedFile::WriteInternal(const void* data, int64_t nbytes) {
 }
 
 Status MemoryMappedFile::Resize(int64_t new_size) {
+  RETURN_NOT_OK(memory_map_->CheckClosed());
   std::unique_lock<std::mutex> write_guard(memory_map_->write_lock(), std::defer_lock);
   std::unique_lock<std::mutex> resize_guard(memory_map_->resize_lock(), std::defer_lock);
   std::lock(write_guard, resize_guard);

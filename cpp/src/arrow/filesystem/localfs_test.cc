@@ -72,12 +72,14 @@ class TestLocalFSGeneric : public LocalFSTestMixin, public GenericFileSystemTest
  public:
   void SetUp() override {
     LocalFSTestMixin::SetUp();
-    local_fs_ = std::make_shared<LocalFileSystem>();
+    local_fs_ = std::make_shared<LocalFileSystem>(options());
     auto path = PathFormatter()(temp_dir_->path());
     fs_ = std::make_shared<SubTreeFileSystem>(path, local_fs_);
   }
 
  protected:
+  virtual LocalFileSystemOptions options() { return LocalFileSystemOptions::Defaults(); }
+
   std::shared_ptr<FileSystem> GetEmptyFileSystem() override { return fs_; }
 
   std::shared_ptr<LocalFileSystem> local_fs_;
@@ -87,6 +89,17 @@ class TestLocalFSGeneric : public LocalFSTestMixin, public GenericFileSystemTest
 TYPED_TEST_CASE(TestLocalFSGeneric, PathFormatters);
 
 GENERIC_FS_TYPED_TEST_FUNCTIONS(TestLocalFSGeneric);
+
+class TestLocalFSGenericMMap : public TestLocalFSGeneric<CommonPathFormatter> {
+ protected:
+  LocalFileSystemOptions options() override {
+    auto options = LocalFileSystemOptions::Defaults();
+    options.use_mmap = true;
+    return options;
+  }
+};
+
+GENERIC_FS_TEST_FUNCTIONS(TestLocalFSGenericMMap);
 
 ////////////////////////////////////////////////////////////////////////////
 // Concrete LocalFileSystem tests

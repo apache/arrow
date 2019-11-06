@@ -26,13 +26,23 @@ import pytest
 import pyarrow as pa
 from pyarrow.tests.test_io import gzip_compress, gzip_decompress
 from pyarrow.fs import (FileType, Selector, FileSystem, LocalFileSystem,
-                        SubTreeFileSystem)
+                        LocalFileSystemOptions, SubTreeFileSystem)
 
 
 @pytest.fixture
 def localfs(request, tempdir):
     return dict(
         fs=LocalFileSystem(),
+        pathfn=lambda p: (tempdir / p).as_posix(),
+        allow_move_dir=True,
+        allow_append_to_file=True,
+    )
+
+
+@pytest.fixture
+def localfs_with_mmap(request, tempdir):
+    return dict(
+        fs=LocalFileSystem(use_mmap=True),
         pathfn=lambda p: (tempdir / p).as_posix(),
         allow_move_dir=True,
         allow_append_to_file=True,
@@ -90,6 +100,10 @@ def subtree_s3fs(request, s3fs):
     pytest.param(
         pytest.lazy_fixture('localfs'),
         id='LocalFileSystem()'
+    ),
+    pytest.param(
+        pytest.lazy_fixture('localfs_with_mmap'),
+        id='LocalFileSystem(use_mmap=True)'
     ),
     pytest.param(
         pytest.lazy_fixture('subtree_localfs'),
@@ -389,6 +403,26 @@ def test_open_append_stream(fs, pathfn, compression, buffer_size, compressor,
     else:
         with pytest.raises(pa.ArrowNotImplementedError):
             fs.open_append_stream(p, compression, buffer_size)
+
+
+def test_localfs_options():
+    options = LocalFileSystemOptions()
+    assert options.use_mmap is False
+    options.use_mmap = True
+    assert options.use_mmap is True
+
+    with pytest.raises(AttributeError):
+        options.xxx = True
+
+    options = LocalFileSystemOptions(use_mmap=True)
+    assert options.use_mmap is True
+
+    # LocalFileSystem instantiation
+    LocalFileSystem(LocalFileSystemOptions(use_mmap=True))
+    LocalFileSystem(use_mmap=False)
+
+    with pytest.raises(AttributeError):
+        LocalFileSystem(xxx=False)
 
 
 @pytest.mark.s3

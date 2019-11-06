@@ -221,7 +221,14 @@ Status StatSelector(const NativePathString& path, const Selector& select,
 
 }  // namespace
 
-LocalFileSystem::LocalFileSystem() {}
+LocalFileSystemOptions LocalFileSystemOptions::Defaults() {
+  return LocalFileSystemOptions();
+}
+
+LocalFileSystem::LocalFileSystem() : options_(LocalFileSystemOptions::Defaults()) {}
+
+LocalFileSystem::LocalFileSystem(const LocalFileSystemOptions& options)
+    : options_(options) {}
 
 LocalFileSystem::~LocalFileSystem() {}
 
@@ -332,20 +339,34 @@ Status LocalFileSystem::CopyFile(const std::string& src, const std::string& dest
 #endif
 }
 
+namespace {
+
+template <typename OutputStreamType>
+Status OpenInputStreamGeneric(const std::string& path,
+                              const LocalFileSystemOptions& options,
+                              std::shared_ptr<OutputStreamType>* out) {
+  if (options.use_mmap) {
+    std::shared_ptr<io::MemoryMappedFile> file;
+    RETURN_NOT_OK(io::MemoryMappedFile::Open(path, io::FileMode::READ, &file));
+    *out = std::move(file);
+  } else {
+    std::shared_ptr<io::ReadableFile> file;
+    RETURN_NOT_OK(io::ReadableFile::Open(path, &file));
+    *out = std::move(file);
+  }
+  return Status::OK();
+}
+
+}  // namespace
+
 Status LocalFileSystem::OpenInputStream(const std::string& path,
                                         std::shared_ptr<io::InputStream>* out) {
-  std::shared_ptr<io::ReadableFile> file;
-  RETURN_NOT_OK(io::ReadableFile::Open(path, &file));
-  *out = std::move(file);
-  return Status::OK();
+  return OpenInputStreamGeneric(path, options_, out);
 }
 
 Status LocalFileSystem::OpenInputFile(const std::string& path,
                                       std::shared_ptr<io::RandomAccessFile>* out) {
-  std::shared_ptr<io::ReadableFile> file;
-  RETURN_NOT_OK(io::ReadableFile::Open(path, &file));
-  *out = std::move(file);
-  return Status::OK();
+  return OpenInputStreamGeneric(path, options_, out);
 }
 
 namespace {
