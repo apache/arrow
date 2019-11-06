@@ -415,12 +415,12 @@ services:
   ########################## Python Wheels ####################################
 
   centos-python-manylinux1:
-    image: ${ORG}/amd64-centos-python-manylinux1:latest
+    image: ${ORG}/amd64-centos-5.11-python-manylinux1:latest
     build:
       context: python/manylinux1
       dockerfile: Dockerfile-x86_64_base
       cache_from:
-        - ${ORG}/amd64-centos-python-manylinux1:latest
+        - ${ORG}/amd64-centos-5.11-python-manylinux1:latest
     shm_size: *shm-size
     environment:
       PYARROW_PARALLEL: 3
@@ -432,12 +432,12 @@ services:
     command: &manylinux-command /io/build_arrow.sh
 
   centos-python-manylinux2010:
-    image: ${ORG}/amd64-centos-python-manylinux2010:latest
+    image: ${ORG}/amd64-centos-6.10-python-manylinux2010:latest
     build:
       context: python/manylinux2010
       dockerfile: Dockerfile-x86_64_base
       cache_from:
-        - ${ORG}/amd64-centos-python-manylinux2010:latest
+        - ${ORG}/amd64-centos-6.10-python-manylinux2010:latest
     shm_size: *shm-size
     environment:
       PYARROW_PARALLEL: 3
