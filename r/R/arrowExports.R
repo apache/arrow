@@ -388,6 +388,10 @@ dataset___ScannerBuilder__Filter <- function(sb, expr){
     invisible(.Call(`_arrow_dataset___ScannerBuilder__Filter` , sb, expr))
 }
 
+dataset___ScannerBuilder__UseThreads <- function(sb, threads){
+    invisible(.Call(`_arrow_dataset___ScannerBuilder__UseThreads` , sb, threads))
+}
+
 dataset___ScannerBuilder__schema <- function(sb){
     .Call(`_arrow_dataset___ScannerBuilder__schema` , sb)
 }

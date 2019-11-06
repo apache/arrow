@@ -17,6 +17,16 @@
 
 #' @include arrow-package.R
 
+#' Open a multi-file dataset
+#'
+#' @param path String path to a directory containing the data files
+#' @param schema [Schema] for the dataset. If `NULL` (the default), the schema
+#' will be inferred from the files
+#' @param partition schema
+#' @param ... additional arguments passed to `DataSourceDiscovery$create()`
+#' @return A [Dataset] R6 object. Use `dplyr` methods on it to query the data,
+#' or call `$NewScan()` to construct a query directly.
+#' @export
 open_dataset <- function (path, schema = NULL, partition = NULL, ...) {
   dsd <- DataSourceDiscovery$create(path, ...)
   if (is.null(schema)) {
@@ -103,6 +113,10 @@ ScannerBuilder <- R6Class("ScannerBuilder", inherit = Object,
     Filter = function(expr) {
       assert_is(expr, "Expression")
       dataset___ScannerBuilder__Filter(self, expr)
+      self
+    },
+    UseThreads = function(threads = option_use_threads()) {
+      dataset___ScannerBuilder__UseThreads(self, threads)
       self
     },
     Finish = function() unique_ptr(Scanner, dataset___ScannerBuilder__Finish(self))

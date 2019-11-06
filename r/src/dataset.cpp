@@ -119,6 +119,13 @@ void dataset___ScannerBuilder__Filter(
 }
 
 // [[arrow::export]]
+void dataset___ScannerBuilder__UseThreads(
+    const std::unique_ptr<arrow::dataset::ScannerBuilder>& sb,
+    bool threads) {
+  STOP_IF_NOT_OK(sb->UseThreads(threads));
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::Schema> dataset___ScannerBuilder__schema(
     const std::unique_ptr<arrow::dataset::ScannerBuilder>& sb) {
   return sb->schema();

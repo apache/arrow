@@ -95,7 +95,7 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
   filters <- try(lapply(filts, function (f) {
     # This should yield an Expression
     eval_tidy(f, dm)
-  }), silent = TRUE)
+  }), silent = FALSE)
   # If that errored, bail out and collect(), with a warning
   # TODO: consider re-evaling with the as.vector Arrays and yielding logical vector
   if (inherits(filters, "try-error")) {
@@ -131,6 +131,7 @@ collect.arrow_dplyr_query <- function(x, ...) {
   # Pull only the selected rows and cols into R
   if (inherits(x$.data, "Dataset")) {
     scanner_builder <- x$.data$NewScan()
+    scanner_builder$UseThreads()
     scanner_builder$Project(colnames)
     if (!isTRUE(x$filtered_rows)) {
       scanner_builder$Filter(x$filtered_rows)

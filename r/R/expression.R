@@ -94,6 +94,7 @@ NotExpression$create <- function(e1) {
   shared_ptr(NotExpression, dataset___expr__not(e1))
 }
 
+#' @export
 Ops.Expression <- function(e1, e2) {
   if (.Generic == "!") {
     return(NotExpression$create(e1))

@@ -92,9 +92,9 @@ std::shared_ptr<arrow::dataset::ScalarExpression> dataset___expr__scalar(SEXP x)
     case LGLSXP:
       return arrow::dataset::scalar(Rf_asLogical(x));
     case REALSXP:
-      return arrow::dataset::scalar(Rf_asReal(x));
+      return arrow::dataset::scalar((float) Rf_asReal(x));
     case INTSXP:
-      return arrow::dataset::scalar(Rf_asInteger(x));
+      return arrow::dataset::scalar((int8_t) Rf_asInteger(x));
     default:
       // TODO more types (character, factor, Date, POSIXt, etc.)
       Rcpp::stop(
