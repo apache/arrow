@@ -17,9 +17,22 @@
   under the License.
 -->
 
-# arrow 0.15.0.9000
+# arrow 0.15.1.9000
+
+## Data exploration
+
+* Tables and RecordBatches now have `dplyr` methods, conditionally loaded if you have `dplyr` available. You can `select()`, `filter()`, etc. and work will be done where possible in Arrow memory. When necessary, data is pulled into R for further computation.
+* For exploration without `dplyr`, `[` methods for Tables, RecordBatches, Arrays, and ChunkedArrays now support natural row extraction operations. These use the C++ `Filter`, `Slice`, and `Take` methods for efficient access, depending on the type of selection vector.
+* An experimental, lazily evaluated `array_expression` class has also been added, enabling among other things the ability to filter a Table with some function of Arrays, such as `arrow_table[arrow_table$var1 > 5, ]` without having to pull everything into R first.
+
+## Compression
 
 * `write_parquet()` now supports compression
+* `codec_is_available()` returns `TRUE` or `FALSE` whether the Arrow C++ library was built with support for a given compression library (e.g. gzip, lz4, snappy)
+
+# arrow 0.15.1
+
+* This patch release includes bugfixes in the C++ library around dictionary types and Parquet reading.
 
 # arrow 0.15.0
 

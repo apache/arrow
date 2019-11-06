@@ -269,6 +269,7 @@ matrix:
   # -------------------------------------------------------------------------
   - name: R (with and without libarrow)
     language: r
+    r: devel
     cache:
       directories:
         - $HOME/.ccache
@@ -285,10 +286,11 @@ matrix:
     - if [ $ARROW_CI_R_AFFECTED != "1" ]; then exit; fi
     - source ci/travis/before-install.sh
     # First check that it builds without libarrow
+    - sudo apt-get install devscripts # For checkbashisms
     - pushd ${TRAVIS_BUILD_DIR}/r
     - R -e 'install.packages("remotes"); remotes::install_deps(dep = TRUE)'
     - R CMD build .
-    - R CMD check arrow_*tar.gz
+    - R CMD check --as-cran arrow_*tar.gz
     - rm arrow_*tar.gz
     - popd
     # Now, proceed to install the c++ lib and the rest of the job
