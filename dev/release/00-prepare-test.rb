@@ -423,8 +423,8 @@ class PrepareTest < Test::Unit::TestCase
     expected_changes = [
       {
         sampled_diff: [
-          "-dev/tasks/linux-packages/debian.ubuntu-xenial/libarrow-glib#{@so_version}.install",
-          "+dev/tasks/linux-packages/debian.ubuntu-xenial/libarrow-glib#{@next_so_version}.install",
+          "-dev/tasks/linux-packages/apache-arrow/debian.ubuntu-xenial/libarrow-glib#{@so_version}.install",
+          "+dev/tasks/linux-packages/apache-arrow/debian.ubuntu-xenial/libarrow-glib#{@next_so_version}.install",
         ],
         path: "dev/release/rat_exclude_files.txt"
       },
@@ -433,14 +433,14 @@ class PrepareTest < Test::Unit::TestCase
           "-Package: libarrow#{@so_version}",
           "+Package: libarrow#{@next_so_version}",
         ],
-        path: "dev/tasks/linux-packages/debian.ubuntu-xenial/control"
+        path: "dev/tasks/linux-packages/apache-arrow/debian.ubuntu-xenial/control"
       },
       {
         sampled_diff: [
           "-Package: libarrow#{@so_version}",
           "+Package: libarrow#{@next_so_version}",
         ],
-        path: "dev/tasks/linux-packages/debian/control"
+        path: "dev/tasks/linux-packages/apache-arrow/debian/control"
       },
       {
         sampled_diff: [
