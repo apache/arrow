@@ -685,20 +685,20 @@ Status SchemaManifest::Make(const SchemaDescriptor* schema,
 }
 
 template <typename CType, typename StatisticsType>
-Status MakeMinMaxScalar(const std::shared_ptr<Statistics>& statistics,
+Status MakeMinMaxScalar(const Statistics& statistics,
                         std::shared_ptr<::arrow::Scalar>* min,
                         std::shared_ptr<::arrow::Scalar>* max) {
-  auto typed_statistics = std::static_pointer_cast<StatisticsType>(statistics);
-  *min = ::arrow::MakeScalar(static_cast<CType>(typed_statistics->min()));
-  *max = ::arrow::MakeScalar(static_cast<CType>(typed_statistics->max()));
+  const auto& typed_statistics = checked_cast<const StatisticsType&>(statistics);
+  *min = ::arrow::MakeScalar(static_cast<CType>(typed_statistics.min()));
+  *max = ::arrow::MakeScalar(static_cast<CType>(typed_statistics.max()));
   return Status::OK();
 }
 
 template <typename StatisticsType>
-Status MakeMinMaxIntegralScalar(const std::shared_ptr<Statistics>& statistics,
+Status MakeMinMaxIntegralScalar(const Statistics& statistics,
                                 std::shared_ptr<::arrow::Scalar>* min,
                                 std::shared_ptr<::arrow::Scalar>* max) {
-  const auto column_desc = statistics->descr();
+  const auto column_desc = statistics.descr();
   const auto& logical_type = column_desc->logical_type();
   const auto& integer = checked_pointer_cast<const IntLogicalType>(logical_type);
   const bool is_signed = integer->is_signed();
@@ -722,54 +722,39 @@ Status MakeMinMaxIntegralScalar(const std::shared_ptr<Statistics>& statistics,
 }
 
 template <typename StatisticsType>
-Status FromParquetStatisticsConverted(const std::shared_ptr<Statistics>& statistics,
-                                      std::shared_ptr<::arrow::Scalar>* min,
-                                      std::shared_ptr<::arrow::Scalar>* max) {
-  return Status::NotImplemented("Extract statistics to arrow::Scalar not implemented");
-}
-
-template <>
-Status FromParquetStatisticsConverted<Int32Statistics>(
-    const std::shared_ptr<Statistics>& statistics, std::shared_ptr<::arrow::Scalar>* min,
-    std::shared_ptr<::arrow::Scalar>* max) {
-  auto column_desc = statistics->descr();
+Status TypedIntegralStatisticsAsScalars(const Statistics& statistics,
+                                        std::shared_ptr<::arrow::Scalar>* min,
+                                        std::shared_ptr<::arrow::Scalar>* max) {
+  auto column_desc = statistics.descr();
   auto logical_type = column_desc->logical_type();
 
   switch (logical_type->type()) {
     case LogicalType::Type::INT:
-      return MakeMinMaxIntegralScalar<Int32Statistics>(statistics, min, max);
+      return MakeMinMaxIntegralScalar<StatisticsType>(statistics, min, max);
+    case LogicalType::Type::NONE:
+      // Fallback to the physical type
+      using CType = typename StatisticsType::T;
+      return MakeMinMaxScalar<CType, StatisticsType>(statistics, min, max);
     default:
-      return Status::NotImplemented("Cannot extract from Int32Statistics");
+      return Status::NotImplemented("Cannot extract statistics for type ",
+                                    logical_type->ToString());
   }
 
   return Status::OK();
 }
 
-template <>
-Status FromParquetStatisticsConverted<Int64Statistics>(
-    const std::shared_ptr<Statistics>& statistics, std::shared_ptr<::arrow::Scalar>* min,
-    std::shared_ptr<::arrow::Scalar>* max) {
-  auto column_desc = statistics->descr();
-  auto logical_type = column_desc->logical_type();
-
-  switch (logical_type->type()) {
-    case LogicalType::Type::INT:
-      return MakeMinMaxIntegralScalar<Int64Statistics>(statistics, min, max);
-    default:
-      return Status::NotImplemented("Cannot extract from Int64Statistics");
-  }
-
-  return Status::OK();
-}
-
-Status FromParquetStatistics(const std::shared_ptr<Statistics>& statistics,
-                             std::shared_ptr<::arrow::Scalar>* min,
-                             std::shared_ptr<::arrow::Scalar>* max) {
-  if (statistics == nullptr || !statistics->HasMinMax()) {
+Status StatisticsAsScalars(const Statistics& statistics,
+                           std::shared_ptr<::arrow::Scalar>* min,
+                           std::shared_ptr<::arrow::Scalar>* max) {
+  if (!statistics.HasMinMax()) {
     return Status::Invalid("Statistics has no min max.");
   }
 
-  auto column_desc = statistics->descr();
+  auto column_desc = statistics.descr();
+  if (column_desc == nullptr) {
+    return Status::Invalid("Statistics carries no descriptor, can't infer arrow type.");
+  }
+
   auto physical_type = column_desc->physical_type();
 
   switch (physical_type) {
@@ -780,9 +765,9 @@ Status FromParquetStatistics(const std::shared_ptr<Statistics>& statistics,
     case Type::DOUBLE:
       return MakeMinMaxScalar<double, DoubleStatistics>(statistics, min, max);
     case Type::INT32:
-      return FromParquetStatisticsConverted<Int32Statistics>(statistics, min, max);
+      return TypedIntegralStatisticsAsScalars<Int32Statistics>(statistics, min, max);
     case Type::INT64:
-      return FromParquetStatisticsConverted<Int64Statistics>(statistics, min, max);
+      return TypedIntegralStatisticsAsScalars<Int64Statistics>(statistics, min, max);
     default:
       return Status::NotImplemented("Extract statistics unsupported for physical_type ",
                                     physical_type, " unsupported.");

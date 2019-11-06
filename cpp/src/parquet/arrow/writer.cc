@@ -126,6 +126,7 @@ class LevelBuilder {
                                   " not supported yet");                   \
   }
 
+  // See ARROW-1644
   NOT_IMPLEMENTED_VISIT(LargeList)
   NOT_IMPLEMENTED_VISIT(Map)
   NOT_IMPLEMENTED_VISIT(FixedSizeList)

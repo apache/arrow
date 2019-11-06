@@ -108,14 +108,14 @@ class RowGroupSkipper {
 
  private:
   bool CanSkip(const parquet::RowGroupMetaData& metadata) const {
-    auto maybe_expr = RowGroupStatisticsAsExpression(metadata);
+    auto maybe_stats_expr = RowGroupStatisticsAsExpression(metadata);
     // Errors with statistics are ignored and post-filtering will apply.
-    if (!maybe_expr.ok()) {
+    if (!maybe_stats_expr.ok()) {
       return false;
     }
 
-    // Skip the row group if the expression is not satisfied.
-    auto expr = filter_->Assume(*maybe_expr.ValueOrDie());
+    auto stats_expr = maybe_stats_expr.ValueOrDie();
+    auto expr = filter_->Assume(stats_expr);
     return (expr->IsNull() || expr->Equals(false));
   }
 
@@ -233,23 +233,31 @@ Status ParquetFileFormat::OpenReader(
   return Status::OK();
 }
 
-using parquet::arrow::FromParquetStatistics;
+using parquet::arrow::SchemaField;
+using parquet::arrow::StatisticsAsScalars;
 
 static std::shared_ptr<Expression> ColumnChunkStatisticsAsExpression(
-    const Field& field, const parquet::ColumnChunkMetaData& metadata) {
+    const SchemaField& schema_field, const parquet::RowGroupMetaData& metadata) {
   // For the remaining of this function, failure to extract/parse statistics
   // are ignored by returning the `true` scalar. The goal is two fold. First
   // avoid that an optimization break the computation. Second, allow the
   // following columns to maybe succeed in extracting column statistics.
 
-  auto field_expr = field_ref(field.name());
-
-  // In case of missing statistics, return nothing.
-  if (!metadata.is_stats_set()) {
+  // For now, only leaf (primitive) types are supported.
+  if (!schema_field.is_leaf()) {
     return scalar(true);
   }
 
-  auto statistics = metadata.statistics();
+  auto column_metadata = metadata.ColumnChunk(schema_field.column_index);
+  auto field = schema_field.field;
+  auto field_expr = field_ref(field->name());
+
+  // In case of missing statistics, return nothing.
+  if (!column_metadata->is_stats_set()) {
+    return scalar(true);
+  }
+
+  auto statistics = column_metadata->statistics();
   if (statistics == nullptr) {
     return scalar(true);
   }
@@ -257,7 +265,7 @@ static std::shared_ptr<Expression> ColumnChunkStatisticsAsExpression(
   // Optimize for corner case where all values are nulls
   if (statistics->num_values() == statistics->null_count()) {
     std::shared_ptr<Scalar> null_scalar;
-    if (!MakeNullScalar(field.type(), &null_scalar).ok()) {
+    if (!MakeNullScalar(field->type(), &null_scalar).ok()) {
       // MakeNullScalar can fail for some nested/repeated types.
       return scalar(true);
     }
@@ -265,17 +273,13 @@ static std::shared_ptr<Expression> ColumnChunkStatisticsAsExpression(
     return equal(field_expr, scalar(null_scalar));
   }
 
-  // Nothing to infer about this column
-  if (!statistics->HasMinMax()) {
-    return scalar(true);
-  }
-
   std::shared_ptr<Scalar> min, max;
-  if (!FromParquetStatistics(statistics, &min, &max).ok()) {
+  if (!StatisticsAsScalars(*statistics, &min, &max).ok()) {
     return scalar(true);
   }
 
-  return and_(less_equal(scalar(min), field_expr), less_equal(field_expr, scalar(max)));
+  return and_(greater_equal(field_expr, scalar(min)),
+              less_equal(field_expr, scalar(max)));
 }
 
 using parquet::arrow::SchemaManifest;
@@ -288,17 +292,7 @@ Result<std::shared_ptr<Expression>> RowGroupStatisticsAsExpression(
 
   std::vector<std::shared_ptr<Expression>> expressions;
   for (const auto& schema_field : manifest.schema_fields) {
-    auto field = schema_field.field;
-    auto parquet_column_index = schema_field.column_index;
-
-    // Ignore nested fields.
-    if (field->type()->num_children() != 0 || parquet_column_index != -1) {
-      continue;
-    }
-
-    auto column_metadata = metadata.ColumnChunk(parquet_column_index);
-    // Each column statistics will be transformed
-    expressions.emplace_back(ColumnChunkStatisticsAsExpression(*field, *column_metadata));
+    expressions.emplace_back(ColumnChunkStatisticsAsExpression(schema_field, metadata));
   }
 
   return expressions.empty() ? scalar(true) : and_(expressions);

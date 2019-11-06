@@ -326,9 +326,9 @@ PARQUET_EXPORT
 /// @}
 
 PARQUET_EXPORT
-::arrow::Status FromParquetStatistics(const std::shared_ptr<Statistics>& Statistics,
-                                      std::shared_ptr<::arrow::Scalar>* min,
-                                      std::shared_ptr<::arrow::Scalar>* max);
+::arrow::Status StatisticsAsScalars(const Statistics& Statistics,
+                                    std::shared_ptr<::arrow::Scalar>* min,
+                                    std::shared_ptr<::arrow::Scalar>* max);
 
 }  // namespace arrow
 }  // namespace parquet
