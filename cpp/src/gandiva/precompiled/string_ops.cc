@@ -247,7 +247,6 @@ const char* reverse_utf8(int64 context, const char* data, int32 data_len,
   return ret;
 }
 
-
 // Truncates the string to given length
 FORCE_INLINE
 char* castVARCHAR_utf8_int64(int64 context, const char* data, int32 data_len,
