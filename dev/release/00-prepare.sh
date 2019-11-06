@@ -256,8 +256,14 @@ fi
 
 if [ ${PREPARE_DEB_PACKAGE_NAMES} -gt 0 ]; then
   echo "Updating .deb package names for ${next_version}"
-  deb_lib_suffix=$(echo $version | sed -E -e 's/^[0-9]+\.([0-9]+)\.[0-9]+$/\1/')
-  next_deb_lib_suffix=$(echo $next_version | sed -E -e 's/^[0-9]+\.([0-9]+)\.[0-9]+$/\1/')
+  so_version() {
+    local version=$1
+    local major_version=$(echo $version | sed -E -e 's/^([0-9]+)\.[0-9]+\.[0-9]+$/\1/')
+    local minor_version=$(echo $version | sed -E -e 's/^[0-9]+\.([0-9]+)\.[0-9]+$/\1/')
+    expr ${major_version} \* 100 + ${minor_version}
+  }
+  deb_lib_suffix=$(so_version $version)
+  next_deb_lib_suffix=$(so_version $next_version)
   if [ "${deb_lib_suffix}" != "${next_deb_lib_suffix}" ]; then
     cd $SOURCE_DIR/../tasks/linux-packages/
     for target in debian*/lib*${deb_lib_suffix}.install; do
