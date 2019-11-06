@@ -1513,19 +1513,16 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
                                     shared_ptr[CSparseCSRMatrix]* out)
 
     CStatus ConvertArrayToPandas(const PandasOptions& options,
-                                 const shared_ptr[CArray]& arr,
+                                 shared_ptr[CArray] arr,
                                  object py_ref, PyObject** out)
 
     CStatus ConvertChunkedArrayToPandas(const PandasOptions& options,
-                                        const shared_ptr[CChunkedArray]& arr,
+                                        shared_ptr[CChunkedArray] arr,
                                         object py_ref, PyObject** out)
 
-    CStatus ConvertTableToPandas(
-        const PandasOptions& options,
-        const unordered_set[c_string]& categorical_columns,
-        const unordered_set[c_string]& extension_columns,
-        const shared_ptr[CTable]& table,
-        PyObject** out)
+    CStatus ConvertTableToPandas(const PandasOptions& options,
+                                 shared_ptr[CTable] table,
+                                 PyObject** out)
 
     void c_set_default_memory_pool \
         " arrow::py::set_default_memory_pool"(CMemoryPool* pool)\
@@ -1555,7 +1552,12 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         c_bool integer_object_nulls
         c_bool date_as_object
         c_bool use_threads
+        c_bool coerce_temporal_nanoseconds
         c_bool deduplicate_objects
+        c_bool split_blocks
+        c_bool self_destruct
+        unordered_set[c_string] categorical_columns
+        unordered_set[c_string] extension_columns
 
     cdef cppclass CSerializedPyObject" arrow::py::SerializedPyObject":
         shared_ptr[CRecordBatch] batch

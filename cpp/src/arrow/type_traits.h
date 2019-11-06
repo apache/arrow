@@ -703,6 +703,19 @@ static inline bool is_primitive(Type::type type_id) {
   return false;
 }
 
+static inline bool is_base_binary_like(Type::type type_id) {
+  switch (type_id) {
+    case Type::BINARY:
+    case Type::LARGE_BINARY:
+    case Type::STRING:
+    case Type::LARGE_STRING:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
 static inline bool is_binary_like(Type::type type_id) {
   switch (type_id) {
     case Type::BINARY:

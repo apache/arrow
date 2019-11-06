@@ -425,6 +425,22 @@ class SimpleTable : public Table {
 
 Table::Table() : num_rows_(0) {}
 
+std::vector<std::shared_ptr<ChunkedArray>> Table::columns() const {
+  std::vector<std::shared_ptr<ChunkedArray>> result;
+  for (int i = 0; i < this->num_columns(); ++i) {
+    result.emplace_back(this->column(i));
+  }
+  return result;
+}
+
+std::vector<std::shared_ptr<Field>> Table::fields() const {
+  std::vector<std::shared_ptr<Field>> result;
+  for (int i = 0; i < this->num_columns(); ++i) {
+    result.emplace_back(this->field(i));
+  }
+  return result;
+}
+
 std::shared_ptr<Table> Table::Make(
     const std::shared_ptr<Schema>& schema,
     const std::vector<std::shared_ptr<ChunkedArray>>& columns, int64_t num_rows) {

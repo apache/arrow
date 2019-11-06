@@ -32,6 +32,10 @@
 
 namespace arrow {
 namespace py {
+
+static constexpr int64_t kPandasTimestampNull = std::numeric_limits<int64_t>::min();
+constexpr int64_t kNanosecondsInDay = 86400000000000LL;
+
 namespace internal {
 
 //
@@ -86,6 +90,8 @@ struct npy_traits<NPY_FLOAT16> {
   using TypeClass = HalfFloatType;
   using BuilderClass = HalfFloatBuilder;
 
+  static constexpr npy_half na_sentinel = NPY_HALF_NAN;
+
   static constexpr bool supports_nulls = true;
 
   static inline bool isnull(npy_half v) { return v == NPY_HALF_NAN; }
@@ -97,6 +103,8 @@ struct npy_traits<NPY_FLOAT32> {
   using TypeClass = FloatType;
   using BuilderClass = FloatBuilder;
 
+  static constexpr float na_sentinel = NAN;
+
   static constexpr bool supports_nulls = true;
 
   static inline bool isnull(float v) { return v != v; }
@@ -107,6 +115,8 @@ struct npy_traits<NPY_FLOAT64> {
   typedef double value_type;
   using TypeClass = DoubleType;
   using BuilderClass = DoubleBuilder;
+
+  static constexpr double na_sentinel = NAN;
 
   static constexpr bool supports_nulls = true;
 
@@ -208,10 +218,6 @@ struct arrow_traits<Type::DOUBLE> {
   typedef typename npy_traits<NPY_FLOAT64>::value_type T;
 };
 
-static constexpr int64_t kPandasTimestampNull = std::numeric_limits<int64_t>::min();
-
-constexpr int64_t kNanosecondsInDay = 86400000000000LL;
-
 template <>
 struct arrow_traits<Type::TIMESTAMP> {
   static constexpr int npy_type = NPY_DATETIME;
@@ -286,6 +292,21 @@ struct arrow_traits<Type::BINARY> {
   static constexpr int npy_type = NPY_OBJECT;
   static constexpr bool supports_nulls = true;
 };
+
+static inline NPY_DATETIMEUNIT NumPyFrequency(TimeUnit::type unit) {
+  switch (unit) {
+    case TimestampType::Unit::SECOND:
+      return NPY_FR_s;
+    case TimestampType::Unit::MILLI:
+      return NPY_FR_ms;
+      break;
+    case TimestampType::Unit::MICRO:
+      return NPY_FR_us;
+    default:
+      // NANO
+      return NPY_FR_ns;
+  }
+}
 
 static inline int NumPyTypeSize(int npy_type) {
   npy_type = fix_numpy_type_num(npy_type);
