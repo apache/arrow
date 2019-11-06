@@ -149,4 +149,134 @@ public class TestBitVectorHelper {
       assertFalse(BitVectorHelper.checkAllBitsEqualTo(validityBuffer, bitLength, true));
     }
   }
+
+  @Test
+  public void testConcatBits() {
+    try (RootAllocator allocator = new RootAllocator(1024 * 1024)) {
+      try (ArrowBuf buf1 = allocator.buffer(1024);
+           ArrowBuf buf2 = allocator.buffer(1024);
+           ArrowBuf output = allocator.buffer(1024)) {
+
+        buf1.setZero(0, buf1.capacity());
+        buf2.setZero(0, buf2.capacity());
+
+        final int count = 100;
+        for (int i = 0; i < count; i++) {
+          if (i % 3 == 0) {
+            BitVectorHelper.setValidityBitToOne(buf1, i);
+            BitVectorHelper.setValidityBitToOne(buf2, i);
+          }
+        }
+
+        BitVectorHelper.concatBits(buf1, count, buf2, count, output);
+
+        // validate results
+        for (int i = 0; i < count * 2; i++) {
+          int result = BitVectorHelper.get(output, i);
+          if (i < count) {
+            assertEquals(i % 3 == 0 ? 1 : 0, result);
+          } else {
+            assertEquals((i - count) % 3 == 0 ? 1 : 0, result);
+          }
+        }
+      }
+
+      try (ArrowBuf buf1 = allocator.buffer(1024);
+           ArrowBuf buf2 = allocator.buffer(1024);
+           ArrowBuf output = allocator.buffer(1024)) {
+
+        buf1.setZero(0, buf1.capacity());
+        buf2.setZero(0, buf2.capacity());
+
+        final int count1 = 100;
+        final int count2 = 102;
+        for (int i = 0; i < count1 || i < count2; i++) {
+          if (i % 3 != 0) {
+            if (i < count1) {
+              BitVectorHelper.setValidityBitToOne(buf1, i);
+            }
+            if (i < count2) {
+              BitVectorHelper.setValidityBitToOne(buf2, i);
+            }
+          }
+        }
+
+        BitVectorHelper.concatBits(buf1, count1, buf2, count2, output);
+
+        // validate results
+        for (int i = 0; i < count1 + count2; i++) {
+          int result = BitVectorHelper.get(output, i);
+          if (i < count1) {
+            assertEquals(i % 3 != 0 ? 1 : 0, result);
+          } else {
+            assertEquals((i - count1) % 3 != 0 ? 1 : 0, result);
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testConcatBitsInPlace() {
+    try (RootAllocator allocator = new RootAllocator(1024 * 1024)) {
+      try (ArrowBuf buf1 = allocator.buffer(1024);
+           ArrowBuf buf2 = allocator.buffer(1024)) {
+
+        buf1.setZero(0, buf1.capacity());
+        buf2.setZero(0, buf2.capacity());
+
+        final int count = 100;
+        for (int i = 0; i < count; i++) {
+          if (i % 3 == 0) {
+            BitVectorHelper.setValidityBitToOne(buf1, i);
+            BitVectorHelper.setValidityBitToOne(buf2, i);
+          }
+        }
+
+        BitVectorHelper.concatBits(buf1, count, buf2, count, buf1);
+
+        // validate results
+        for (int i = 0; i < count * 2; i++) {
+          int result = BitVectorHelper.get(buf1, i);
+          if (i < count) {
+            assertEquals(i % 3 == 0 ? 1 : 0, result);
+          } else {
+            assertEquals((i - count) % 3 == 0 ? 1 : 0, result);
+          }
+        }
+      }
+
+      try (ArrowBuf buf1 = allocator.buffer(1024);
+           ArrowBuf buf2 = allocator.buffer(1024)) {
+
+        buf1.setZero(0, buf1.capacity());
+        buf2.setZero(0, buf2.capacity());
+
+        final int count1 = 99;
+        final int count2 = 102;
+        for (int i = 0; i < count1 || i < count2; i++) {
+          if (i % 3 != 0) {
+            if (i < count1) {
+              BitVectorHelper.setValidityBitToOne(buf1, i);
+            }
+            if (i < count2) {
+              BitVectorHelper.setValidityBitToOne(buf2, i);
+            }
+          }
+        }
+
+        BitVectorHelper.concatBits(buf1, count1, buf2, count2, buf1);
+
+        // validate results
+        for (int i = 0; i < count1 + count2; i++) {
+          int result = BitVectorHelper.get(buf1, i);
+          if (i < count1) {
+            assertEquals(i % 3 != 0 ? 1 : 0, result);
+          } else {
+            assertEquals((i - count1) % 3 != 0 ? 1 : 0, result);
+          }
+        }
+      }
+    }
+  }
 }

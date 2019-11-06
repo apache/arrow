@@ -21,11 +21,13 @@ import static io.netty.util.internal.PlatformDependent.getByte;
 import static io.netty.util.internal.PlatformDependent.getInt;
 import static io.netty.util.internal.PlatformDependent.getLong;
 
+import org.apache.arrow.memory.BoundsChecking;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.DataSizeRoundingUtil;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 
 import io.netty.buffer.ArrowBuf;
+import io.netty.util.internal.PlatformDependent;
 
 /**
  * Helper class for performing generic operations on a bit vector buffer.
@@ -318,5 +320,74 @@ public class BitVectorHelper {
     byte currentByte = data.getByte(byteIndex);
     currentByte |= bitMask;
     data.setByte(byteIndex, currentByte);
+  }
+
+  /**
+   * Concat two validity buffers.
+   * @param input1 the first validity buffer.
+   * @param numBits1 the number of bits in the first validity buffer.
+   * @param input2 the second validity buffer.
+   * @param numBits2 the number of bits in the second validity buffer.
+   * @param output the ouput validity buffer. It can be the same one as the first input.
+   */
+  public static void concatBits(ArrowBuf input1, int numBits1, ArrowBuf input2, int numBits2, ArrowBuf output) {
+    int numBytes1 = DataSizeRoundingUtil.divideBy8Ceil(numBits1);
+    int numBytes2 = DataSizeRoundingUtil.divideBy8Ceil(numBits2);
+    int numBytesOut = DataSizeRoundingUtil.divideBy8Ceil(numBits1 + numBits2);
+
+    if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
+      output.checkBytes(0, numBytesOut);
+    }
+
+    // copy the first bit set
+    if (input1 != output) {
+      PlatformDependent.copyMemory(input1.memoryAddress(), output.memoryAddress(), numBytes1);
+    }
+    output.setZero(numBytes1, numBytesOut);
+
+    if (numBits1 % 8 == 0) {
+      PlatformDependent.copyMemory(input2.memoryAddress(), output.memoryAddress() + numBytes1, numBytes2);
+      return;
+    }
+
+    // the number of bits to fill a full byte after the first input is processed
+    int numBitsToFill = 8 - (numBits1 % 8);
+
+    // the number of extra bits for the second input, relative to full bytes
+    int numRemainingBits = numBits2 % 8;
+
+    int numFullBytes = numBits2 / 8;
+
+    for (int i = 0; i < numFullBytes; i++) {
+      int prevByte = output.getByte(numBytes1 + i - 1) & 0xff;
+      byte curByte = input2.getByte(i);
+
+      // first fill the bits to a full byte
+      int byteToFill = (curByte & 0xff) << (8 - numBitsToFill);
+      output.setByte(numBytes1 + i - 1, byteToFill | prevByte);
+
+      // fill remaining bits in the current byte
+      int remByte = (curByte & 0xff) >>> numBitsToFill;
+      output.setByte(numBytes1 + i, remByte);
+    }
+
+    // process remaining bits from input2
+    if (numRemainingBits > 0) {
+      byte remByte = input2.getByte(numBytes2 - 1);
+
+      // the last byte to fill in the output
+      byte curOutputByte = output.getByte(numBytes1 + numFullBytes - 1);
+      byte byteToFill = (byte) ((remByte & 0xff) << (8 - numBitsToFill));
+      output.setByte(numBytes1 + numFullBytes - 1, curOutputByte | byteToFill);
+
+      if (numRemainingBits > numBitsToFill) {
+        // some remaining bits cannot be filled in the previous byte
+        byte leftByte = (byte) ((remByte & 0xff) >>> numBitsToFill);
+
+        // clear high bits
+        int mask = (1 << (numBitsToFill - numRemainingBits)) - 1;
+        output.setByte(numBytes1 + numFullBytes, leftByte & mask);
+      }
+    }
   }
 }
