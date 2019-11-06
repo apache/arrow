@@ -17,26 +17,49 @@
 
 package org.apache.arrow.consumers;
 
-import java.io.IOException;
-
-import org.apache.arrow.vector.IntVector;
-import org.apache.avro.io.Decoder;
+import org.apache.arrow.vector.FieldVector;
 
 /**
- * Consumer which consume int type values from avro decoder.
- * Write the data to {@link IntVector}.
+ * Base class for non-skippable avro consumers.
+ * @param <T> vector type.
  */
-public class AvroIntConsumer extends BaseAvroConsumer<IntVector> {
+public abstract class BaseAvroConsumer<T extends FieldVector> implements Consumer<T> {
+
+  protected T vector;
+  protected int currentIndex;
 
   /**
-   * Instantiate a AvroIntConsumer.
+   * Constructs a base avro consumer.
+   * @param vector the vector to consume.
    */
-  public AvroIntConsumer(IntVector vector) {
-    super(vector);
+  public BaseAvroConsumer(T vector) {
+    this.vector = vector;
   }
 
   @Override
-  public void consume(Decoder decoder) throws IOException {
-    vector.setSafe(currentIndex++, decoder.readInt());
+  public void addNull() {
+    currentIndex++;
+  }
+
+  @Override
+  public void setPosition(int index) {
+    currentIndex = index;
+  }
+
+  @Override
+  public FieldVector getVector() {
+    return vector;
+  }
+
+  @Override
+  public void close() throws Exception {
+    vector.close();
+  }
+
+  @Override
+  public boolean resetValueVector(T vector) {
+    this.vector = vector;
+    this.currentIndex = 0;
+    return true;
   }
 }

@@ -20,55 +20,23 @@ package org.apache.arrow.consumers;
 import java.io.IOException;
 
 import org.apache.arrow.vector.BigIntVector;
-import org.apache.arrow.vector.FieldVector;
 import org.apache.avro.io.Decoder;
 
 /**
  * Consumer which consume long type values from avro decoder.
  * Write the data to {@link BigIntVector}.
  */
-public class AvroLongConsumer implements Consumer<BigIntVector> {
-
-  private BigIntVector vector;
-
-  private int currentIndex;
+public class AvroLongConsumer extends BaseAvroConsumer<BigIntVector> {
 
   /**
    * Instantiate a AvroLongConsumer.
    */
   public AvroLongConsumer(BigIntVector vector) {
-    this.vector = vector;
+    super(vector);
   }
 
   @Override
   public void consume(Decoder decoder) throws IOException {
     vector.setSafe(currentIndex++, decoder.readLong());
-  }
-
-  @Override
-  public void addNull() {
-    currentIndex++;
-  }
-
-  @Override
-  public void setPosition(int index) {
-    currentIndex = index;
-  }
-
-  @Override
-  public FieldVector getVector() {
-    return this.vector;
-  }
-
-  @Override
-  public void close() throws Exception {
-    vector.close();
-  }
-
-  @Override
-  public boolean resetValueVector(BigIntVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
-    return true;
   }
 }
