@@ -21,6 +21,9 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -36,7 +39,13 @@ import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.util.JsonStringArrayList;
 import org.apache.arrow.vector.util.Text;
 import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.io.BinaryDecoder;
+import org.apache.avro.io.BinaryEncoder;
+import org.apache.avro.io.DatumWriter;
+import org.apache.avro.io.DecoderFactory;
+import org.apache.avro.io.EncoderFactory;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.rules.TemporaryFolder;
@@ -58,6 +67,22 @@ public class AvroTestBase {
     Path schemaPath = Paths.get(TestWriteReadAvroRecord.class.getResource("/").getPath(),
         "schema", schemaName);
     return new Schema.Parser().parse(schemaPath.toFile());
+  }
+
+  protected VectorSchemaRoot writeAndRead(Schema schema, List data) throws Exception {
+    File dataFile = TMP.newFile();
+
+    BinaryEncoder
+        encoder = new EncoderFactory().directBinaryEncoder(new FileOutputStream(dataFile), null);
+    DatumWriter writer = new GenericDatumWriter(schema);
+    BinaryDecoder
+        decoder = new DecoderFactory().directBinaryDecoder(new FileInputStream(dataFile), null);
+
+    for (Object value : data) {
+      writer.write(value, encoder);
+    }
+
+    return AvroToArrow.avroToArrow(schema, decoder, config);
   }
 
   protected void checkArrayResult(List<List<?>> expected, ListVector vector) {
