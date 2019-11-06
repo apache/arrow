@@ -386,10 +386,10 @@ static std::vector<std::pair<int64_t, int64_t>> and_benchmark_ranges{
     // offsets of second buffer
     {0, 2}};
 
-BENCHMARK(BenchmarkBitmapAnd)->Ranges(and_benchmark_ranges)->MinTime(1.0);
-BENCHMARK(BenchmarkBitmapVisitBitsetAnd)->Ranges(and_benchmark_ranges)->MinTime(1.0);
-BENCHMARK(BenchmarkBitmapVisitUInt8And)->Ranges(and_benchmark_ranges)->MinTime(1.0);
-BENCHMARK(BenchmarkBitmapVisitUInt64And)->Ranges(and_benchmark_ranges)->MinTime(1.0);
+BENCHMARK(BenchmarkBitmapAnd)->Ranges(and_benchmark_ranges);
+BENCHMARK(BenchmarkBitmapVisitBitsetAnd)->Ranges(and_benchmark_ranges);
+BENCHMARK(BenchmarkBitmapVisitUInt8And)->Ranges(and_benchmark_ranges);
+BENCHMARK(BenchmarkBitmapVisitUInt64And)->Ranges(and_benchmark_ranges);
 
 }  // namespace BitUtil
 }  // namespace arrow

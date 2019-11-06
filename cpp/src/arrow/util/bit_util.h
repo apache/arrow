@@ -838,7 +838,7 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length);
 class ARROW_EXPORT Bitmap {
  public:
   template <typename Word>
-  using WordsView = util::basic_string_view<Word>;
+  using View = util::basic_string_view<Word>;
 
   Bitmap() = default;
 
@@ -897,7 +897,7 @@ class ARROW_EXPORT Bitmap {
   static void VisitWords(const Bitmap (&bitmaps)[N], Visitor&& visitor) {
     constexpr size_t kBitWidth = sizeof(Word) * 8;
 
-    WordsView<Word> words[N];
+    View<Word> words[N];
     int64_t offsets[N];
     for (size_t i = 0; i < N; ++i) {
       words[i] = bitmaps[i].template words<Word>();
@@ -944,10 +944,10 @@ class ARROW_EXPORT Bitmap {
   int64_t length() const { return length_; }
 
   /// string_view of all bytes which contain any bit in this Bitmap
-  WordsView<uint8_t> bytes() const {
+  util::bytes_view bytes() const {
     auto byte_offset = offset_ / 8;
     auto byte_count = BitUtil::CeilDiv(offset_ + length_, 8) - byte_offset;
-    return WordsView<uint8_t>(buffer_->data() + byte_offset, byte_count);
+    return util::bytes_view(buffer_->data() + byte_offset, byte_count);
   }
 
   /// returns true if words in words<Word>() lie entirely in buffer() and may be safely
@@ -962,15 +962,23 @@ class ARROW_EXPORT Bitmap {
   }
 
   /// string_view of all Words which contain any bit in this Bitmap
+  ///
+  /// For example, given Word=uint16_t and a bitmap spanning bits [20, 36)
+  /// words() would span bits [16, 48).
+  ///
+  /// 0       16      32     48     64
+  /// |-------|-------|------|------| (buffer)
+  ///           [       ]             (bitmap)
+  ///         |-------|------|        (returned words)
   template <typename Word>
-  WordsView<Word> words() const {
+  View<Word> words() const {
     auto bytes_addr = reinterpret_cast<size_t>(bytes().data());
     auto words_addr = bytes_addr - bytes_addr % sizeof(Word);
     auto word_byte_count =
         BitUtil::RoundUpToPowerOf2(bytes_addr + bytes().size(), sizeof(Word)) -
         words_addr;
-    return WordsView<Word>(reinterpret_cast<const Word*>(words_addr),
-                           word_byte_count / sizeof(Word));
+    return View<Word>(reinterpret_cast<const Word*>(words_addr),
+                      word_byte_count / sizeof(Word));
   }
 
   /// offset of first bit relative to words<Word>().data()

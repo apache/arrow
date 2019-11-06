@@ -178,9 +178,9 @@ class AndKernel : public BinaryBooleanKernel {
       return Status::OK();
     }
 
-    static auto compute_word = [](uint64_t left_true, uint64_t left_false,
-                                  uint64_t right_true, uint64_t right_false,
-                                  uint64_t* out_valid, uint64_t* out_data) {
+    auto compute_word = [](uint64_t left_true, uint64_t left_false, uint64_t right_true,
+                           uint64_t right_false, uint64_t* out_valid,
+                           uint64_t* out_data) {
       *out_data = left_true & right_true;
       *out_valid = left_false | right_false | (left_true & right_true);
     };
