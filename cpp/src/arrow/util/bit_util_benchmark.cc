@@ -380,16 +380,14 @@ BENCHMARK(GenerateBitsUnrolled)->Arg(kBufferSize);
 BENCHMARK(CopyBitmapWithoutOffset)->Arg(kBufferSize);
 BENCHMARK(CopyBitmapWithOffset)->Arg(kBufferSize);
 
-static std::vector<std::pair<int64_t, int64_t>> and_benchmark_ranges{
-    // buffer sizes
-    {kBufferSize, kBufferSize * 2},
-    // offsets of second buffer
-    {0, 2}};
-
-BENCHMARK(BenchmarkBitmapAnd)->Ranges(and_benchmark_ranges);
-BENCHMARK(BenchmarkBitmapVisitBitsetAnd)->Ranges(and_benchmark_ranges);
-BENCHMARK(BenchmarkBitmapVisitUInt8And)->Ranges(and_benchmark_ranges);
-BENCHMARK(BenchmarkBitmapVisitUInt64And)->Ranges(and_benchmark_ranges);
+#define AND_BENCHMARK_RANGES                 \
+  {                                          \
+    {kBufferSize, kBufferSize * 2}, { 0, 2 } \
+  }
+BENCHMARK(BenchmarkBitmapAnd)->Ranges(AND_BENCHMARK_RANGES);
+BENCHMARK(BenchmarkBitmapVisitBitsetAnd)->Ranges(AND_BENCHMARK_RANGES);
+BENCHMARK(BenchmarkBitmapVisitUInt8And)->Ranges(AND_BENCHMARK_RANGES);
+BENCHMARK(BenchmarkBitmapVisitUInt64And)->Ranges(AND_BENCHMARK_RANGES);
 
 }  // namespace BitUtil
 }  // namespace arrow
