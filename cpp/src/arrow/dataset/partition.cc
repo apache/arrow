@@ -90,11 +90,18 @@ Result<std::shared_ptr<Expression>> HivePartitionScheme::Parse(
 
 Status ApplyPartitionScheme(const PartitionScheme& scheme,
                             std::vector<fs::FileStats> files, PathPartitions* out) {
+  return ApplyPartitionScheme(scheme, "", std::move(files), out);
+}
+
+Status ApplyPartitionScheme(const PartitionScheme& scheme, const std::string& base_dir,
+                            std::vector<fs::FileStats> files, PathPartitions* out) {
   for (const auto& file : files) {
-    const auto& path = file.path();
+    if (file.path().substr(0, base_dir.size()) != base_dir) continue;
+    auto path = file.path().substr(base_dir.size());
+
     std::shared_ptr<Expression> partition;
     RETURN_NOT_OK(scheme.Parse(path, &partition));
-    out->emplace(path, std::move(partition));
+    out->emplace(std::move(path), std::move(partition));
   }
 
   return Status::OK();

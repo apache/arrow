@@ -20,6 +20,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/dataset/partition.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/filesystem/test_util.h"
 
@@ -31,16 +32,11 @@ class FileSystemDataSourceDiscoveryTest : public TestFileSystemBasedDataSource {
   void MakeDiscovery(const std::vector<fs::FileStats>& files) {
     MakeFileSystem(files);
     ASSERT_OK(
-        FileSystemDataSourceDiscovery::Make(fs_.get(), files, format_, &discovery_));
-  }
-
-  void MakeDiscovery(const std::vector<fs::FileStats>& files, fs::Selector selector) {
-    MakeFileSystem(files);
-    ASSERT_OK(
-        FileSystemDataSourceDiscovery::Make(fs_.get(), selector, format_, &discovery_));
+        FileSystemDataSourceDiscovery::Make(fs_.get(), selector_, format_, &discovery_));
   }
 
  protected:
+  fs::Selector selector_;
   std::shared_ptr<DataSourceDiscovery> discovery_;
   std::shared_ptr<FileFormat> format_ = std::make_shared<DummyFileFormat>();
 };
@@ -53,13 +49,27 @@ TEST_F(FileSystemDataSourceDiscoveryTest, Basic) {
 }
 
 TEST_F(FileSystemDataSourceDiscoveryTest, Selector) {
-  // This test ensure that the Selector is enforced.
-  fs::Selector selector;
-  selector.base_dir = "A";
-  MakeDiscovery({fs::File("0"), fs::File("A/a")}, selector);
+  selector_.base_dir = "A";
+  MakeDiscovery({fs::File("0"), fs::File("A/a")});
 
   ASSERT_OK(discovery_->Finish(&source_));
+  // "0" doesn't match selector, so it has been dropped:
   AssertFragmentsAreFromPath(source_->GetFragments(options_), {"A/a"});
+}
+
+TEST_F(FileSystemDataSourceDiscoveryTest, Partition) {
+  selector_.base_dir = "a=ignored/base";
+  MakeDiscovery(
+      {fs::File(selector_.base_dir + "/a=1"), fs::File(selector_.base_dir + "/a=2")});
+
+  auto partition_scheme =
+      std::make_shared<HivePartitionScheme>(schema({field("a", int32())}));
+
+  ASSERT_OK(discovery_->SetPartitionScheme(partition_scheme));
+  ASSERT_OK(discovery_->Finish(&source_));
+
+  AssertFragmentsAreFromPath(source_->GetFragments(options_),
+                             {selector_.base_dir + "/a=1", selector_.base_dir + "/a=2"});
 }
 
 TEST_F(FileSystemDataSourceDiscoveryTest, Inspect) {

@@ -34,16 +34,28 @@ namespace arrow {
 namespace dataset {
 
 FileSystemDataSourceDiscovery::FileSystemDataSourceDiscovery(
-    fs::FileSystem* filesystem, std::vector<fs::FileStats> files,
+    fs::FileSystem* filesystem, std::string base_dir, std::vector<fs::FileStats> files,
     std::shared_ptr<FileFormat> format)
-    : fs_(filesystem), files_(std::move(files)), format_(std::move(format)) {}
+    : fs_(filesystem),
+      base_dir_(std::move(base_dir)),
+      files_(std::move(files)),
+      format_(std::move(format)) {}
+
+Status FileSystemDataSourceDiscovery::Make(fs::FileSystem* filesystem,
+                                           std::string base_dir,
+                                           std::vector<fs::FileStats> files,
+                                           std::shared_ptr<FileFormat> format,
+                                           std::shared_ptr<DataSourceDiscovery>* out) {
+  out->reset(
+      new FileSystemDataSourceDiscovery(filesystem, std::move(base_dir), files, format));
+  return Status::OK();
+}
 
 Status FileSystemDataSourceDiscovery::Make(fs::FileSystem* filesystem,
                                            std::vector<fs::FileStats> files,
                                            std::shared_ptr<FileFormat> format,
                                            std::shared_ptr<DataSourceDiscovery>* out) {
-  out->reset(new FileSystemDataSourceDiscovery(filesystem, files, format));
-  return Status::OK();
+  return Make(filesystem, "", std::move(files), std::move(format), out);
 }
 
 Status FileSystemDataSourceDiscovery::Make(fs::FileSystem* filesystem,
@@ -52,7 +64,7 @@ Status FileSystemDataSourceDiscovery::Make(fs::FileSystem* filesystem,
                                            std::shared_ptr<DataSourceDiscovery>* out) {
   std::vector<fs::FileStats> files;
   RETURN_NOT_OK(filesystem->GetTargetStats(selector, &files));
-  return Make(filesystem, files, format, out);
+  return Make(filesystem, std::move(selector.base_dir), std::move(files), format, out);
 }
 
 static inline Status InspectSchema(fs::FileSystem* fs,
@@ -85,7 +97,8 @@ Status FileSystemDataSourceDiscovery::Finish(std::shared_ptr<DataSource>* out) {
   PathPartitions partitions;
 
   if (partition_scheme_ != nullptr) {
-    RETURN_NOT_OK(ApplyPartitionScheme(*partition_scheme_, files_, &partitions));
+    RETURN_NOT_OK(
+        ApplyPartitionScheme(*partition_scheme_, base_dir_, files_, &partitions));
   }
 
   return FileSystemBasedDataSource::Make(fs_, files_, root_partition(),

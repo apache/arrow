@@ -89,6 +89,10 @@ class ARROW_DS_EXPORT DataSourceDiscovery {
 /// of fs::FileStats or a fs::Selector.
 class ARROW_DS_EXPORT FileSystemDataSourceDiscovery : public DataSourceDiscovery {
  public:
+  static Status Make(fs::FileSystem* filesystem, std::string base_dir,
+                     std::vector<fs::FileStats> files, std::shared_ptr<FileFormat> format,
+                     std::shared_ptr<DataSourceDiscovery>* out);
+
   static Status Make(fs::FileSystem* filesystem, std::vector<fs::FileStats> files,
                      std::shared_ptr<FileFormat> format,
                      std::shared_ptr<DataSourceDiscovery>* out);
@@ -102,11 +106,12 @@ class ARROW_DS_EXPORT FileSystemDataSourceDiscovery : public DataSourceDiscovery
   Status Finish(std::shared_ptr<DataSource>* out) override;
 
  protected:
-  FileSystemDataSourceDiscovery(fs::FileSystem* filesystem,
+  FileSystemDataSourceDiscovery(fs::FileSystem* filesystem, std::string base_dir,
                                 std::vector<fs::FileStats> files,
                                 std::shared_ptr<FileFormat> format);
 
   fs::FileSystem* fs_;
+  std::string base_dir_;
   std::vector<fs::FileStats> files_;
   std::shared_ptr<FileFormat> format_;
 };
