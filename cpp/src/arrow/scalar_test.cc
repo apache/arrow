@@ -31,6 +31,8 @@
 
 namespace arrow {
 
+using internal::checked_cast;
+
 TEST(TestNullScalar, Basics) {
   NullScalar scalar;
   ASSERT_FALSE(scalar.is_valid);
@@ -358,5 +360,37 @@ TEST(TestDayTimeIntervalScalars, Basics) {
 }
 
 // TODO test HalfFloatScalar
+
+TYPED_TEST(TestNumericScalar, Cast) {
+  auto type = TypeTraits<TypeParam>::type_singleton();
+
+  for (util::string_view repr : {"0", "1", "3"}) {
+    std::shared_ptr<Scalar> scalar;
+    ASSERT_OK(Scalar::Parse(type, repr, &scalar));
+
+    // cast to and from other numeric scalars
+    for (auto other_type : {float32(), int8(), int64(), uint32()}) {
+      std::shared_ptr<Scalar> other_scalar;
+      ASSERT_OK(Scalar::Parse(other_type, repr, &other_scalar));
+
+      ASSERT_OK_AND_ASSIGN(auto cast_to_other, scalar->CastTo(other_type))
+      ASSERT_TRUE(cast_to_other->Equals(other_scalar));
+
+      ASSERT_OK_AND_ASSIGN(auto cast_from_other, other_scalar->CastTo(type))
+      ASSERT_TRUE(cast_from_other->Equals(scalar));
+    }
+
+    ASSERT_OK_AND_ASSIGN(auto cast_from_string,
+                         StringScalar(repr.to_string()).CastTo(type));
+    ASSERT_TRUE(cast_from_string->Equals(scalar));
+
+    if (is_integer_type<TypeParam>::value) {
+      ASSERT_OK_AND_ASSIGN(auto cast_to_string, scalar->CastTo(utf8()));
+      ASSERT_EQ(
+          util::string_view(*checked_cast<const StringScalar&>(*cast_to_string).value),
+          repr);
+    }
+  }
+}
 
 }  // namespace arrow

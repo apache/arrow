@@ -28,6 +28,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/result.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
@@ -59,6 +60,9 @@ struct ARROW_EXPORT Scalar {
 
   static Status Parse(const std::shared_ptr<DataType>& type, util::string_view s,
                       std::shared_ptr<Scalar>* out);
+
+  // TODO(bkietz) add compute::CastOptions
+  Result<std::shared_ptr<Scalar>> CastTo(std::shared_ptr<DataType> to);
 
  protected:
   Scalar(const std::shared_ptr<DataType>& type, bool is_valid)
@@ -309,6 +313,9 @@ struct ARROW_EXPORT FixedSizeListScalar : public BaseListScalar {
 struct ARROW_EXPORT StructScalar : public Scalar {
   using ValueType = std::vector<std::shared_ptr<Scalar>>;
   std::vector<std::shared_ptr<Scalar>> value;
+
+  StructScalar(ValueType value, std::shared_ptr<DataType> type, bool is_valid = true)
+      : Scalar(std::move(type), is_valid), value(std::move(value)) {}
 };
 
 class ARROW_EXPORT UnionScalar : public Scalar {};
