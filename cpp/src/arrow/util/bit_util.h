@@ -975,7 +975,8 @@ class ARROW_EXPORT Bitmap {
     auto bytes_addr = reinterpret_cast<size_t>(bytes().data());
     auto words_addr = bytes_addr - bytes_addr % sizeof(Word);
     auto word_byte_count =
-        BitUtil::RoundUpToPowerOf2(bytes_addr + bytes().size(), sizeof(Word)) -
+        BitUtil::RoundUpToPowerOf2(static_cast<int64_t>(bytes_addr + bytes().size()),
+                                   static_cast<int64_t>(sizeof(Word))) -
         words_addr;
     return View<Word>(reinterpret_cast<const Word*>(words_addr),
                       word_byte_count / sizeof(Word));
