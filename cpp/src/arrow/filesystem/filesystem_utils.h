@@ -15,14 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_FILESYSTEM_API_H
-#define ARROW_FILESYSTEM_API_H
+#pragma once
 
-#include "arrow/filesystem/filesystem.h"        // IWYU pragma: export
-#include "arrow/filesystem/filesystem_utils.h"  // IWYU pragma: export
-#include "arrow/filesystem/hdfs.h"              // IWYU pragma: export
-#include "arrow/filesystem/localfs.h"           // IWYU pragma: export
-#include "arrow/filesystem/mockfs.h"            // IWYU pragma: export
-#include "arrow/filesystem/s3fs.h"              // IWYU pragma: export
+#include <memory>
+#include <string>
+#include "arrow/filesystem/filesystem.h"
 
-#endif  // ARROW_FILESYSTEM_API_H
+namespace arrow {
+
+namespace fs {
+
+enum class FileSystemType { HDFS, LOCAL, S3, UNKNOWN };
+
+namespace factory {
+/// \brief Creates a new FileSystem by path
+///
+/// \param[in] full_path a URI-based path, ex: hdfs:///some/path?replication=3
+/// \param[out] fs FileSystemFactory instance.
+/// \return Status
+ARROW_EXPORT Status MakeFileSystem(const std::string& full_path,
+                                   std::shared_ptr<FileSystem>* fs);
+}  // namespace factory
+}  // namespace fs
+}  // namespace arrow

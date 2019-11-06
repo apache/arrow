@@ -286,6 +286,10 @@ if(ARROW_DATASET)
   set(ARROW_FILESYSTEM ON)
 endif()
 
+if(ARROW_FILESYSTEM)
+  set(ARROW_WITH_URIPARSER ON)
+endif()
+
 if(MSVC)
   # ORC doesn't build on windows
   set(ARROW_ORC OFF)
