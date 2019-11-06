@@ -1126,8 +1126,7 @@ Result<Datum> TreeEvaluator::Evaluate(const CastExpression& expr,
 
   ARROW_ASSIGN_OR_RAISE(auto to_cast, Evaluate(*expr.operand(), batch));
   if (to_cast.is_scalar()) {
-    // FIXME(bkietz) implement this in Scalar::As
-    return NullDatum();
+    return to_cast.scalar()->CastTo(to_type);
   }
 
   DCHECK(to_cast.is_array());

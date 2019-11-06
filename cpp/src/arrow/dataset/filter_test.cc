@@ -297,6 +297,17 @@ TEST_F(FilterTest, Cast) {
       {"a": 1, "b":  1.0, "in": 1}
   ])");
 
+  AssertFilter("a"_ == scalar(0.6)->CastLike("a"_),
+               {field("a", int32()), field("b", float64())}, R"([
+      {"a": 0, "b": -0.1, "in": 1},
+      {"a": 0, "b":  0.3, "in": 1},
+      {"a": 1, "b":  0.2, "in": 0},
+      {"a": 2, "b": -0.1, "in": 0},
+      {"a": 0, "b":  0.1, "in": 1},
+      {"a": 0, "b": null, "in": 1},
+      {"a": 1, "b":  1.0, "in": 0}
+  ])");
+
   AssertFilter("a"_.CastLike("b"_) == "b"_, {field("a", int32()), field("b", float64())},
                R"([
       {"a": 0, "b": -0.1, "in": 0},
