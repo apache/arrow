@@ -58,7 +58,7 @@ matrix:
     jdk: openjdk8
     env:
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
-    - ARROW_TRAVIS_COVERAGE=1
+    - ARROW_TRAVIS_COVERAGE=0
     - ARROW_TRAVIS_FLIGHT=1
     - ARROW_TRAVIS_GANDIVA=1
     - ARROW_TRAVIS_GANDIVA_JAVA=1
@@ -85,7 +85,7 @@ matrix:
     script:
     - $TRAVIS_BUILD_DIR/ci/travis_script_cpp.sh || travis_terminate 1
     - $TRAVIS_BUILD_DIR/ci/travis_script_gandiva_java.sh || travis_terminate 1
-    - $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh || travis_terminate 1
+    #- $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh || travis_terminate 1
 
   # -------------------------------------------------------------------------
   - name: "Python 3.6 unit tests, conda-forge toolchain, coverage"
@@ -95,7 +95,7 @@ matrix:
     jdk: openjdk8
     env:
     - ARROW_BUILD_WARNING_LEVEL=CHECKIN
-    - ARROW_TRAVIS_COVERAGE=1
+    - ARROW_TRAVIS_COVERAGE=0
     - ARROW_TRAVIS_FLIGHT=1
     - ARROW_TRAVIS_OPTIONAL_INSTALL=1
     - ARROW_TRAVIS_PYTHON_DOCS=1
@@ -115,7 +115,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_script_java.sh || travis_terminate 1
     - export ARROW_TRAVIS_PYTHON_GANDIVA=1
     - $TRAVIS_BUILD_DIR/ci/travis_script_python.sh 3.6
-    - $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh
+    #- $TRAVIS_BUILD_DIR/ci/travis_upload_cpp_coverage.sh
 
   # -------------------------------------------------------------------------
   - name: "[OS X] C++ w/ XCode 9.3"
@@ -264,7 +264,7 @@ matrix:
     - $TRAVIS_BUILD_DIR/ci/travis_script_go.sh
     after_success:
     - pushd ${TRAVIS_BUILD_DIR}/go/arrow
-    - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
+    #- bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
 
   # -------------------------------------------------------------------------
   - name: R (with and without libarrow)
@@ -312,8 +312,8 @@ matrix:
     # Add this env var so we can assert in the tests that the library is installed correctly
     - export TEST_R_WITH_ARROW=TRUE
     - pushd ${TRAVIS_BUILD_DIR}/r
-    after_success:
-    - Rscript ../ci/travis_upload_r_coverage.R
+    #after_success:
+    #- Rscript ../ci/travis_upload_r_coverage.R
 
 after_failure:
   - source ${TRAVIS_BUILD_DIR}/ci/travis/after-failure.sh
