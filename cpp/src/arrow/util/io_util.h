@@ -24,6 +24,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #if ARROW_HAVE_SIGACTION
 #include <signal.h>  // Needed for struct sigaction
@@ -122,6 +123,7 @@ class ARROW_EXPORT PlatformFilename {
   PlatformFilename& operator=(const PlatformFilename&);
   PlatformFilename& operator=(PlatformFilename&&);
   explicit PlatformFilename(const NativePathString& path);
+  explicit PlatformFilename(const NativePathString::value_type* path);
 
   const NativePathString& ToNative() const;
   std::string ToString() const;
@@ -131,6 +133,8 @@ class ARROW_EXPORT PlatformFilename {
   // These functions can fail for character encoding reasons.
   static Status FromString(const std::string& file_name, PlatformFilename* out);
   Status Join(const std::string& child_name, PlatformFilename* out) const;
+
+  PlatformFilename Join(const PlatformFilename& child_name) const;
 
   bool operator==(const PlatformFilename& other) const;
   bool operator!=(const PlatformFilename& other) const;
@@ -152,6 +156,11 @@ ARROW_EXPORT
 Status DeleteDirContents(const PlatformFilename& dir_path, bool* deleted = NULLPTR);
 ARROW_EXPORT
 Status DeleteDirTree(const PlatformFilename& dir_path, bool* deleted = NULLPTR);
+// Non-recursively list the contents of the given directory.
+// The returned names are the children's base names, not including dir_path.
+ARROW_EXPORT
+Status ListDir(const PlatformFilename& dir_path, std::vector<PlatformFilename>* out);
+
 ARROW_EXPORT
 Status DeleteFile(const PlatformFilename& file_path, bool* deleted = NULLPTR);
 ARROW_EXPORT

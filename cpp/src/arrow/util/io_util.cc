@@ -50,19 +50,17 @@
 #define ARROW_WRITE_SHMODE S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH
 #endif
 
-#ifdef ARROW_WITH_BOOST_FILESYSTEM
-#include <boost/filesystem.hpp>
-#endif
-
 // ----------------------------------------------------------------------
 // file compatibility stuff
 
-#if defined(_WIN32)
+#ifdef _WIN32
 #include <io.h>
 #include <share.h>
+#else  // POSIX-like platforms
+#include <dirent.h>
 #endif
 
-#ifdef _WIN32  // Windows
+#ifdef _WIN32
 #include "arrow/io/mman.h"
 #undef Realloc
 #undef Free
@@ -72,7 +70,7 @@
 #endif
 
 // define max read/write count
-#if defined(_WIN32)
+#ifdef _WIN32
 #define ARROW_MAX_IO_CHUNKSIZE INT32_MAX
 #else
 
@@ -181,10 +179,6 @@ Status StdinStream::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
 
 namespace internal {
 
-#ifdef ARROW_WITH_BOOST_FILESYSTEM
-namespace bfs = ::boost::filesystem;
-#endif
-
 namespace {
 
 template <typename CharT>
@@ -272,24 +266,6 @@ Status ValidatePath(const std::string& s) {
 
 }  // namespace
 
-#ifdef ARROW_WITH_BOOST_FILESYSTEM
-
-// NOTE: catching filesystem_error gives more context than system::error_code
-// (it includes the file path(s) in the error message)
-
-#define BOOST_FILESYSTEM_TRY try {
-#define BOOST_FILESYSTEM_CATCH           \
-  }                                      \
-  catch (bfs::filesystem_error & _err) { \
-    return ToStatus(_err);               \
-  }
-
-static Status ToStatus(const bfs::filesystem_error& err) {
-  return Status::IOError(err.what());
-}
-
-#endif  // ARROW_WITH_BOOST_FILESYSTEM
-
 std::string ErrnoMessage(int errnum) { return std::strerror(errnum); }
 
 #if _WIN32
@@ -319,10 +295,6 @@ struct PlatformFilename::Impl {
 
   // '/'-separated
   NativePathString generic() const { return GenericSlashes(native_); }
-
-#ifdef ARROW_WITH_BOOST_FILESYSTEM
-  bfs::path boost_path() const { return bfs::path(native_); }
-#endif
 };
 
 PlatformFilename::PlatformFilename() : impl_(new Impl{}) {}
@@ -349,6 +321,9 @@ PlatformFilename& PlatformFilename::operator=(PlatformFilename&& other) {
 
 PlatformFilename::PlatformFilename(const NativePathString& path)
     : PlatformFilename(Impl{path}) {}
+
+PlatformFilename::PlatformFilename(const NativePathString::value_type* path)
+    : PlatformFilename(NativePathString(path)) {}
 
 bool PlatformFilename::operator==(const PlatformFilename& other) const {
   return impl_->native_ == other.impl_->native_;
@@ -387,17 +362,20 @@ Status PlatformFilename::FromString(const std::string& file_name, PlatformFilena
   return Status::OK();
 }
 
+PlatformFilename PlatformFilename::Join(const PlatformFilename& child) const {
+  if (impl_->native_.empty() || impl_->native_.back() == kNativeSep) {
+    return PlatformFilename(Impl{impl_->native_ + child.impl_->native_});
+  } else {
+    return PlatformFilename(Impl{impl_->native_ + kNativeSep + child.impl_->native_});
+  }
+}
+
 Status PlatformFilename::Join(const std::string& child_name,
                               PlatformFilename* out) const {
   PlatformFilename child;
   RETURN_NOT_OK(PlatformFilename::FromString(child_name, &child));
-  if (impl_->native_.empty() || impl_->native_.back() == kNativeSep) {
-    *out = PlatformFilename(Impl{impl_->native_ + child.impl_->native_});
-    return Status::OK();
-  } else {
-    *out = PlatformFilename(Impl{impl_->native_ + kNativeSep + child.impl_->native_});
-    return Status::OK();
-  }
+  *out = Join(child);
+  return Status::OK();
 }
 
 Status FileNameFromString(const std::string& file_name, PlatformFilename* out) {
@@ -471,61 +449,279 @@ Status CreateDirTree(const PlatformFilename& dir_path, bool* created) {
   return Status::OK();
 }
 
-#ifdef ARROW_WITH_BOOST_FILESYSTEM
+#ifdef _WIN32
 
-Status DeleteDirTree(const PlatformFilename& dir_path, bool* deleted) {
-  BOOST_FILESYSTEM_TRY
-  const auto& path = dir_path.impl()->boost_path();
-  // XXX There is a race here.
-  auto st = bfs::symlink_status(path);
-  if (st.type() != bfs::file_not_found && st.type() != bfs::directory_file) {
-    return Status::IOError("Cannot delete non-directory '", path.string(), "'");
+namespace {
+
+void FindHandleDeleter(HANDLE* handle) {
+  if (!FindClose(*handle)) {
+    ARROW_LOG(WARNING) << "Cannot close directory handle: "
+                       << WinErrorMessage(GetLastError());
   }
-  auto n_removed = bfs::remove_all(path);
-  if (deleted) {
-    *deleted = n_removed != 0;
-  }
-  BOOST_FILESYSTEM_CATCH
-  return Status::OK();
 }
 
-Status DeleteDirContents(const PlatformFilename& dir_path, bool* deleted) {
-  BOOST_FILESYSTEM_TRY
-  const auto& path = dir_path.impl()->boost_path();
-  // XXX There is a race here.
-  auto st = bfs::symlink_status(path);
-  if (st.type() == bfs::file_not_found) {
-    if (deleted) {
-      *deleted = false;
+std::wstring PathWithoutTrailingSlash(const PlatformFilename& fn) {
+  std::wstring path = fn.ToNative();
+  while (!path.empty() && path.back() == kNativeSep) {
+    path.pop_back();
+  }
+  return path;
+}
+
+Status ListDirInternal(const PlatformFilename& dir_path,
+                       std::vector<WIN32_FIND_DATAW>* out) {
+  WIN32_FIND_DATAW find_data;
+  std::wstring pattern = PathWithoutTrailingSlash(dir_path) + L"\\*.*";
+  HANDLE handle = FindFirstFileW(pattern.c_str(), &find_data);
+  if (handle == INVALID_HANDLE_VALUE) {
+    return Status::IOError("Cannot list directory '", dir_path.ToString(),
+                           "': ", WinErrorMessage(GetLastError()));
+  }
+
+  std::unique_ptr<HANDLE, decltype(&FindHandleDeleter)> handle_guard(&handle,
+                                                                     FindHandleDeleter);
+
+  std::vector<WIN32_FIND_DATAW> results;
+  do {
+    // Skip "." and ".."
+    if (find_data.cFileName[0] == L'.') {
+      if (find_data.cFileName[1] == L'\0' ||
+          (find_data.cFileName[1] == L'.' && find_data.cFileName[2] == L'\0')) {
+        continue;
+      }
     }
-    return Status::OK();
+    results.push_back(find_data);
+  } while (FindNextFileW(handle, &find_data));
+
+  int errnum = GetLastError();
+  if (errnum != ERROR_NO_MORE_FILES) {
+    return Status::IOError("Cannot list directory '", dir_path.ToString(),
+                           "': ", WinErrorMessage(errnum));
   }
-  if (st.type() != bfs::directory_file) {
-    return Status::IOError("Cannot delete contents of non-directory '", path.string(),
-                           "'");
-  }
-  // Delete children one by one
-  for (const auto& child : bfs::directory_iterator(path)) {
-    bfs::remove_all(child.path());
-  }
-  BOOST_FILESYSTEM_CATCH
-  if (deleted) {
-    *deleted = true;
+  *out = std::move(results);
+  return Status::OK();
+}
+
+Status FindOneFile(const PlatformFilename& fn, WIN32_FIND_DATAW* find_data,
+                   bool* exists = nullptr) {
+  HANDLE handle = FindFirstFileW(PathWithoutTrailingSlash(fn).c_str(), find_data);
+  if (handle == INVALID_HANDLE_VALUE) {
+    int errnum = GetLastError();
+    if (exists == nullptr ||
+        (errnum != ERROR_PATH_NOT_FOUND && errnum != ERROR_FILE_NOT_FOUND)) {
+      return Status::IOError("Cannot get information for path '", fn.ToString(),
+                             "': ", WinErrorMessage(errnum));
+    }
+    *exists = false;
+  } else {
+    if (exists != nullptr) {
+      *exists = true;
+    }
+    FindHandleDeleter(&handle);
   }
   return Status::OK();
 }
 
-#else  // ARROW_WITH_BOOST_FILESYSTEM
+}  // namespace
 
-Status DeleteDirTree(const PlatformFilename& dir_path, bool* deleted) {
-  return Status::NotImplemented("DeleteDirTree not available in this Arrow build");
+Status ListDir(const PlatformFilename& dir_path, std::vector<PlatformFilename>* out) {
+  std::vector<WIN32_FIND_DATAW> entries;
+  RETURN_NOT_OK(ListDirInternal(dir_path, &entries));
+
+  std::vector<PlatformFilename> results;
+  results.reserve(entries.size());
+  for (const auto& entry : entries) {
+    results.emplace_back(std::wstring(entry.cFileName));
+  }
+  *out = std::move(results);
+  return Status::OK();
 }
 
-Status DeleteDirContents(const PlatformFilename& dir_path, bool* deleted) {
-  return Status::NotImplemented("DeleteDirContents not available in this Arrow build");
+#else
+
+Status ListDir(const PlatformFilename& dir_path, std::vector<PlatformFilename>* out) {
+  DIR* dir = opendir(dir_path.ToNative().c_str());
+  if (dir == nullptr) {
+    return Status::IOError("Cannot list directory '", dir_path.ToString(),
+                           "': ", ErrnoMessage(errno));
+  }
+
+  auto dir_deleter = [](DIR* dir) -> void {
+    if (closedir(dir) != 0) {
+      ARROW_LOG(WARNING) << "Cannot close directory handle: " << ErrnoMessage(errno);
+    }
+  };
+  std::unique_ptr<DIR, decltype(dir_deleter)> dir_guard(dir, dir_deleter);
+
+  std::vector<PlatformFilename> results;
+  errno = 0;
+  struct dirent* entry = readdir(dir);
+  while (entry != nullptr) {
+    std::string path = entry->d_name;
+    if (path != "." && path != "..") {
+      results.emplace_back(std::move(path));
+    }
+    entry = readdir(dir);
+  }
+  if (errno != 0) {
+    return Status::IOError("Cannot list directory '", dir_path.ToString(),
+                           "': ", ErrnoMessage(errno));
+  }
+
+  *out = std::move(results);
+  return Status::OK();
 }
 
 #endif
+
+namespace {
+
+#ifdef _WIN32
+
+Status DeleteDirTreeInternal(const PlatformFilename& dir_path);
+
+// Remove a directory entry that's always a directory
+Status DeleteDirEntryDir(const PlatformFilename& path, const WIN32_FIND_DATAW& entry,
+                         bool remove_top_dir = true) {
+  if ((entry.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) == 0) {
+    // It's a directory that doesn't have a reparse point => recurse
+    RETURN_NOT_OK(DeleteDirTreeInternal(path));
+  }
+  if (remove_top_dir) {
+    // Remove now empty directory or reparse point (e.g. symlink to dir)
+    if (!RemoveDirectoryW(path.ToNative().c_str())) {
+      return Status::IOError("Cannot delete directory entry '", path.ToString(),
+                             "': ", WinErrorMessage(GetLastError()));
+    }
+  }
+  return Status::OK();
+}
+
+Status DeleteDirEntry(const PlatformFilename& path, const WIN32_FIND_DATAW& entry) {
+  if ((entry.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) {
+    return DeleteDirEntryDir(path, entry);
+  }
+  // It's a non-directory entry, most likely a regular file
+  if (!DeleteFileW(path.ToNative().c_str())) {
+    return Status::IOError("Cannot delete file '", path.ToString(),
+                           "': ", WinErrorMessage(GetLastError()));
+  }
+  return Status::OK();
+}
+
+Status DeleteDirTreeInternal(const PlatformFilename& dir_path) {
+  std::vector<WIN32_FIND_DATAW> entries;
+  RETURN_NOT_OK(ListDirInternal(dir_path, &entries));
+  for (const auto& entry : entries) {
+    PlatformFilename path = dir_path.Join(PlatformFilename(entry.cFileName));
+    RETURN_NOT_OK(DeleteDirEntry(path, entry));
+  }
+  return Status::OK();
+}
+
+Status DeleteDirContents(const PlatformFilename& dir_path, bool* deleted,
+                         bool remove_top_dir) {
+  bool exists = false;
+  WIN32_FIND_DATAW entry;
+  RETURN_NOT_OK(FindOneFile(dir_path, &entry, &exists));
+  if (exists) {
+    RETURN_NOT_OK(DeleteDirEntryDir(dir_path, entry, remove_top_dir));
+  }
+  if (deleted != nullptr) {
+    *deleted = exists;
+  }
+  return Status::OK();
+}
+
+#else  // POSIX
+
+Status LinkStat(const PlatformFilename& path, struct stat* lst, bool* exists = nullptr) {
+  if (lstat(path.ToNative().c_str(), lst) != 0) {
+    if (exists == nullptr || (errno != ENOENT && errno != ENOTDIR && errno != ELOOP)) {
+      return Status::IOError("Cannot get information for path '", path.ToString(),
+                             "': ", ErrnoMessage(errno));
+    }
+    *exists = false;
+  } else if (exists != nullptr) {
+    *exists = true;
+  }
+  return Status::OK();
+}
+
+Status DeleteDirTreeInternal(const PlatformFilename& dir_path);
+
+Status DeleteDirEntryDir(const PlatformFilename& path, const struct stat& lst,
+                         bool remove_top_dir = true) {
+  if (!S_ISLNK(lst.st_mode)) {
+    // Not a symlink => delete contents recursively
+    DCHECK(S_ISDIR(lst.st_mode));
+    RETURN_NOT_OK(DeleteDirTreeInternal(path));
+    if (remove_top_dir && rmdir(path.ToNative().c_str()) != 0) {
+      return Status::IOError("Cannot delete directory entry '", path.ToString(),
+                             "': ", ErrnoMessage(errno));
+    }
+  } else {
+    // Remove symlink
+    if (remove_top_dir && unlink(path.ToNative().c_str()) != 0) {
+      return Status::IOError("Cannot delete directory entry '", path.ToString(),
+                             "': ", ErrnoMessage(errno));
+    }
+  }
+  return Status::OK();
+}
+
+Status DeleteDirEntry(const PlatformFilename& path, const struct stat& lst) {
+  if (S_ISDIR(lst.st_mode)) {
+    return DeleteDirEntryDir(path, lst);
+  }
+  if (unlink(path.ToNative().c_str()) != 0) {
+    return Status::IOError("Cannot delete directory entry '", path.ToString(),
+                           "': ", ErrnoMessage(errno));
+  }
+  return Status::OK();
+}
+
+Status DeleteDirTreeInternal(const PlatformFilename& dir_path) {
+  std::vector<PlatformFilename> children;
+  RETURN_NOT_OK(ListDir(dir_path, &children));
+  for (const auto& child : children) {
+    struct stat lst;
+    PlatformFilename full_path = dir_path.Join(child);
+    RETURN_NOT_OK(LinkStat(full_path, &lst));
+    RETURN_NOT_OK(DeleteDirEntry(full_path, lst));
+  }
+  return Status::OK();
+}
+
+Status DeleteDirContents(const PlatformFilename& dir_path, bool* deleted,
+                         bool remove_top_dir) {
+  bool exists = true;
+  struct stat lst;
+  RETURN_NOT_OK(LinkStat(dir_path, &lst, &exists));
+  if (exists) {
+    if (!S_ISDIR(lst.st_mode) && !S_ISLNK(lst.st_mode)) {
+      return Status::IOError("Cannot delete directory '", dir_path.ToString(),
+                             "': not a directory");
+    }
+    RETURN_NOT_OK(DeleteDirEntryDir(dir_path, lst, remove_top_dir));
+  }
+  if (deleted != nullptr) {
+    *deleted = exists;
+  }
+  return Status::OK();
+}
+
+#endif
+
+}  // namespace
+
+Status DeleteDirContents(const PlatformFilename& dir_path, bool* deleted) {
+  return DeleteDirContents(dir_path, deleted, /*remove_top_dir=*/false);
+}
+
+Status DeleteDirTree(const PlatformFilename& dir_path, bool* deleted) {
+  return DeleteDirContents(dir_path, deleted, /*remove_top_dir=*/true);
+}
 
 Status DeleteFile(const PlatformFilename& file_path, bool* deleted) {
   bool did_delete = false;
@@ -1094,8 +1290,6 @@ Status DelEnvVar(const std::string& name) { return DelEnvVar(name.c_str()); }
 // Temporary directories
 //
 
-#ifdef ARROW_WITH_BOOST_FILESYSTEM
-
 namespace {
 
 #if _WIN32
@@ -1202,14 +1396,6 @@ Status TemporaryDir::Make(const std::string& prefix, std::unique_ptr<TemporaryDi
   DCHECK(!st.ok());
   return st;
 }
-
-#else  // ARROW_WITH_BOOST_FILESYSTEM
-
-Status TemporaryDir::Make(const std::string& prefix, std::unique_ptr<TemporaryDir>* out) {
-  return Status::NotImplemented("TemporaryDir not available in this Arrow build");
-}
-
-#endif
 
 TemporaryDir::TemporaryDir(PlatformFilename&& path) : path_(std::move(path)) {}
 

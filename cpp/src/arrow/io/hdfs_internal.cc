@@ -52,6 +52,38 @@ namespace arrow {
 namespace io {
 namespace internal {
 
+static inline void* GetLibrarySymbol(void* handle, const char* symbol) {
+  if (handle == NULL) return NULL;
+#ifndef _WIN32
+  return dlsym(handle, symbol);
+#else
+
+  void* ret = reinterpret_cast<void*>(
+      GetProcAddress(reinterpret_cast<HINSTANCE>(handle), symbol));
+  if (ret == NULL) {
+    // logstream(LOG_INFO) << "GetProcAddress error: "
+    //                     << get_last_err_str(GetLastError()) << std::endl;
+  }
+  return ret;
+#endif
+}
+
+#define GET_SYMBOL_REQUIRED(SHIM, SYMBOL_NAME)                         \
+  do {                                                                 \
+    if (!SHIM->SYMBOL_NAME) {                                          \
+      *reinterpret_cast<void**>(&SHIM->SYMBOL_NAME) =                  \
+          GetLibrarySymbol(SHIM->handle, "" #SYMBOL_NAME);             \
+    }                                                                  \
+    if (!SHIM->SYMBOL_NAME)                                            \
+      return Status::IOError("Getting symbol " #SYMBOL_NAME "failed"); \
+  } while (0)
+
+#define GET_SYMBOL(SHIM, SYMBOL_NAME)                    \
+  if (!SHIM->SYMBOL_NAME) {                              \
+    *reinterpret_cast<void**>(&SHIM->SYMBOL_NAME) =      \
+        GetLibrarySymbol(SHIM->handle, "" #SYMBOL_NAME); \
+  }
+
 #ifdef ARROW_WITH_BOOST_FILESYSTEM
 
 namespace fs = boost::filesystem;
@@ -258,40 +290,106 @@ static arrow::Status try_dlopen(std::vector<fs::path> potential_paths, const cha
 }
 #endif  // _WIN32
 
-static inline void* GetLibrarySymbol(void* handle, const char* symbol) {
-  if (handle == NULL) return NULL;
-#ifndef _WIN32
-  return dlsym(handle, symbol);
-#else
-
-  void* ret = reinterpret_cast<void*>(
-      GetProcAddress(reinterpret_cast<HINSTANCE>(handle), symbol));
-  if (ret == NULL) {
-    // logstream(LOG_INFO) << "GetProcAddress error: "
-    //                     << get_last_err_str(GetLastError()) << std::endl;
-  }
-  return ret;
-#endif
-}
-
-#define GET_SYMBOL_REQUIRED(SHIM, SYMBOL_NAME)                         \
-  do {                                                                 \
-    if (!SHIM->SYMBOL_NAME) {                                          \
-      *reinterpret_cast<void**>(&SHIM->SYMBOL_NAME) =                  \
-          GetLibrarySymbol(SHIM->handle, "" #SYMBOL_NAME);             \
-    }                                                                  \
-    if (!SHIM->SYMBOL_NAME)                                            \
-      return Status::IOError("Getting symbol " #SYMBOL_NAME "failed"); \
-  } while (0)
-
-#define GET_SYMBOL(SHIM, SYMBOL_NAME)                    \
-  if (!SHIM->SYMBOL_NAME) {                              \
-    *reinterpret_cast<void**>(&SHIM->SYMBOL_NAME) =      \
-        GetLibrarySymbol(SHIM->handle, "" #SYMBOL_NAME); \
-  }
-
 static LibHdfsShim libhdfs_shim;
 static LibHdfsShim libhdfs3_shim;
+
+Status LibHdfsShim::GetRequiredSymbols() {
+  GET_SYMBOL_REQUIRED(this, hdfsNewBuilder);
+  GET_SYMBOL_REQUIRED(this, hdfsBuilderSetNameNode);
+  GET_SYMBOL_REQUIRED(this, hdfsBuilderSetNameNodePort);
+  GET_SYMBOL_REQUIRED(this, hdfsBuilderSetUserName);
+  GET_SYMBOL_REQUIRED(this, hdfsBuilderSetKerbTicketCachePath);
+  GET_SYMBOL_REQUIRED(this, hdfsBuilderSetForceNewInstance);
+  GET_SYMBOL_REQUIRED(this, hdfsBuilderConfSetStr);
+  GET_SYMBOL_REQUIRED(this, hdfsBuilderConnect);
+  GET_SYMBOL_REQUIRED(this, hdfsCreateDirectory);
+  GET_SYMBOL_REQUIRED(this, hdfsDelete);
+  GET_SYMBOL_REQUIRED(this, hdfsDisconnect);
+  GET_SYMBOL_REQUIRED(this, hdfsExists);
+  GET_SYMBOL_REQUIRED(this, hdfsFreeFileInfo);
+  GET_SYMBOL_REQUIRED(this, hdfsGetCapacity);
+  GET_SYMBOL_REQUIRED(this, hdfsGetUsed);
+  GET_SYMBOL_REQUIRED(this, hdfsGetPathInfo);
+  GET_SYMBOL_REQUIRED(this, hdfsListDirectory);
+  GET_SYMBOL_REQUIRED(this, hdfsChown);
+  GET_SYMBOL_REQUIRED(this, hdfsChmod);
+
+  // File methods
+  GET_SYMBOL_REQUIRED(this, hdfsCloseFile);
+  GET_SYMBOL_REQUIRED(this, hdfsFlush);
+  GET_SYMBOL_REQUIRED(this, hdfsOpenFile);
+  GET_SYMBOL_REQUIRED(this, hdfsRead);
+  GET_SYMBOL_REQUIRED(this, hdfsSeek);
+  GET_SYMBOL_REQUIRED(this, hdfsTell);
+  GET_SYMBOL_REQUIRED(this, hdfsWrite);
+
+  return Status::OK();
+}
+
+Status ConnectLibHdfs(LibHdfsShim** driver) {
+  static std::mutex lock;
+  std::lock_guard<std::mutex> guard(lock);
+
+  LibHdfsShim* shim = &libhdfs_shim;
+
+  static bool shim_attempted = false;
+  if (!shim_attempted) {
+    shim_attempted = true;
+
+    shim->Initialize();
+
+    std::vector<fs::path> libjvm_potential_paths = get_potential_libjvm_paths();
+    RETURN_NOT_OK(try_dlopen(libjvm_potential_paths, "libjvm", libjvm_handle));
+
+    std::vector<fs::path> libhdfs_potential_paths = get_potential_libhdfs_paths();
+    RETURN_NOT_OK(try_dlopen(libhdfs_potential_paths, "libhdfs", shim->handle));
+  } else if (shim->handle == nullptr) {
+    return Status::IOError("Prior attempt to load libhdfs failed");
+  }
+
+  *driver = shim;
+  return shim->GetRequiredSymbols();
+}
+
+Status ConnectLibHdfs3(LibHdfsShim** driver) {
+  static std::mutex lock;
+  std::lock_guard<std::mutex> guard(lock);
+
+  LibHdfsShim* shim = &libhdfs3_shim;
+
+  static bool shim_attempted = false;
+  if (!shim_attempted) {
+    shim_attempted = true;
+
+    shim->Initialize();
+
+    std::vector<fs::path> libhdfs3_potential_paths = get_potential_libhdfs3_paths();
+    RETURN_NOT_OK(try_dlopen(libhdfs3_potential_paths, "libhdfs3", shim->handle));
+  } else if (shim->handle == nullptr) {
+    return Status::IOError("Prior attempt to load libhdfs3 failed");
+  }
+
+  *driver = shim;
+  return shim->GetRequiredSymbols();
+}
+
+#else  // ARROW_WITH_BOOST_FILESYSTEM
+
+Status ConnectLibHdfs(LibHdfsShim** driver) {
+  return Status::NotImplemented("ConnectLibHdfs not available in this Arrow build");
+}
+
+Status ConnectLibHdfs3(LibHdfsShim** driver) {
+  return Status::NotImplemented("ConnectLibHdfs3 not available in this Arrow build");
+}
+
+#endif
+
+///////////////////////////////////////////////////////////////////////////
+// HDFS thin wrapper methods
+
+// These must be compiled in even with ARROW_WITH_BOOST_FILESYSTEM disabled,
+// to avoid linking errors.
 
 hdfsBuilder* LibHdfsShim::NewBuilder(void) { return this->hdfsNewBuilder(); }
 
@@ -493,98 +591,6 @@ int LibHdfsShim::Utime(hdfsFS fs, const char* path, tTime mtime, tTime atime) {
     return 0;
   }
 }
-
-Status LibHdfsShim::GetRequiredSymbols() {
-  GET_SYMBOL_REQUIRED(this, hdfsNewBuilder);
-  GET_SYMBOL_REQUIRED(this, hdfsBuilderSetNameNode);
-  GET_SYMBOL_REQUIRED(this, hdfsBuilderSetNameNodePort);
-  GET_SYMBOL_REQUIRED(this, hdfsBuilderSetUserName);
-  GET_SYMBOL_REQUIRED(this, hdfsBuilderSetKerbTicketCachePath);
-  GET_SYMBOL_REQUIRED(this, hdfsBuilderSetForceNewInstance);
-  GET_SYMBOL_REQUIRED(this, hdfsBuilderConfSetStr);
-  GET_SYMBOL_REQUIRED(this, hdfsBuilderConnect);
-  GET_SYMBOL_REQUIRED(this, hdfsCreateDirectory);
-  GET_SYMBOL_REQUIRED(this, hdfsDelete);
-  GET_SYMBOL_REQUIRED(this, hdfsDisconnect);
-  GET_SYMBOL_REQUIRED(this, hdfsExists);
-  GET_SYMBOL_REQUIRED(this, hdfsFreeFileInfo);
-  GET_SYMBOL_REQUIRED(this, hdfsGetCapacity);
-  GET_SYMBOL_REQUIRED(this, hdfsGetUsed);
-  GET_SYMBOL_REQUIRED(this, hdfsGetPathInfo);
-  GET_SYMBOL_REQUIRED(this, hdfsListDirectory);
-  GET_SYMBOL_REQUIRED(this, hdfsChown);
-  GET_SYMBOL_REQUIRED(this, hdfsChmod);
-
-  // File methods
-  GET_SYMBOL_REQUIRED(this, hdfsCloseFile);
-  GET_SYMBOL_REQUIRED(this, hdfsFlush);
-  GET_SYMBOL_REQUIRED(this, hdfsOpenFile);
-  GET_SYMBOL_REQUIRED(this, hdfsRead);
-  GET_SYMBOL_REQUIRED(this, hdfsSeek);
-  GET_SYMBOL_REQUIRED(this, hdfsTell);
-  GET_SYMBOL_REQUIRED(this, hdfsWrite);
-
-  return Status::OK();
-}
-
-Status ConnectLibHdfs(LibHdfsShim** driver) {
-  static std::mutex lock;
-  std::lock_guard<std::mutex> guard(lock);
-
-  LibHdfsShim* shim = &libhdfs_shim;
-
-  static bool shim_attempted = false;
-  if (!shim_attempted) {
-    shim_attempted = true;
-
-    shim->Initialize();
-
-    std::vector<fs::path> libjvm_potential_paths = get_potential_libjvm_paths();
-    RETURN_NOT_OK(try_dlopen(libjvm_potential_paths, "libjvm", libjvm_handle));
-
-    std::vector<fs::path> libhdfs_potential_paths = get_potential_libhdfs_paths();
-    RETURN_NOT_OK(try_dlopen(libhdfs_potential_paths, "libhdfs", shim->handle));
-  } else if (shim->handle == nullptr) {
-    return Status::IOError("Prior attempt to load libhdfs failed");
-  }
-
-  *driver = shim;
-  return shim->GetRequiredSymbols();
-}
-
-Status ConnectLibHdfs3(LibHdfsShim** driver) {
-  static std::mutex lock;
-  std::lock_guard<std::mutex> guard(lock);
-
-  LibHdfsShim* shim = &libhdfs3_shim;
-
-  static bool shim_attempted = false;
-  if (!shim_attempted) {
-    shim_attempted = true;
-
-    shim->Initialize();
-
-    std::vector<fs::path> libhdfs3_potential_paths = get_potential_libhdfs3_paths();
-    RETURN_NOT_OK(try_dlopen(libhdfs3_potential_paths, "libhdfs3", shim->handle));
-  } else if (shim->handle == nullptr) {
-    return Status::IOError("Prior attempt to load libhdfs3 failed");
-  }
-
-  *driver = shim;
-  return shim->GetRequiredSymbols();
-}
-
-#else  // ARROW_WITH_BOOST_FILESYSTEM
-
-Status ConnectLibHdfs(LibHdfsShim** driver) {
-  return Status::NotImplemented("ConnectLibHdfs not available in this Arrow build");
-}
-
-Status ConnectLibHdfs3(LibHdfsShim** driver) {
-  return Status::NotImplemented("ConnectLibHdfs3 not available in this Arrow build");
-}
-
-#endif
 
 }  // namespace internal
 }  // namespace io

@@ -28,8 +28,6 @@
 #include <sys/stat.h>
 #endif
 
-#include <boost/filesystem.hpp>
-
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/util_internal.h"
 #include "arrow/io/file.h"
@@ -39,24 +37,10 @@
 namespace arrow {
 namespace fs {
 
-namespace bfs = ::boost::filesystem;
-
 using ::arrow::internal::NativePathString;
 using ::arrow::internal::PlatformFilename;
 
 namespace {
-
-#define BOOST_FILESYSTEM_TRY try {
-#define BOOST_FILESYSTEM_CATCH           \
-  }                                      \
-  catch (bfs::filesystem_error & _err) { \
-    return ToStatus(_err);               \
-  }
-
-// NOTE: catching filesystem_error gives more context than system::error_code
-// (it includes the file path(s) in the error message)
-
-Status ToStatus(const bfs::filesystem_error& err) { return Status::IOError(err.what()); }
 
 template <typename... Args>
 Status ErrnoToStatus(Args&&... args) {
@@ -187,35 +171,33 @@ Status StatFile(const std::string& path, FileStats* out) {
 
 #endif
 
-Status StatSelector(const NativePathString& path, const Selector& select,
+Status StatSelector(const PlatformFilename& dir_fn, const Selector& select,
                     int32_t nesting_depth, std::vector<FileStats>* out) {
-  bfs::path p(path);
-
-  if (select.allow_non_existent) {
-    bfs::file_status st;
-    BOOST_FILESYSTEM_TRY
-    st = bfs::status(p);
-    BOOST_FILESYSTEM_CATCH
-    if (st.type() == bfs::file_not_found) {
-      return Status::OK();
+  std::vector<PlatformFilename> children;
+  Status status = ListDir(dir_fn, &children);
+  if (!status.ok()) {
+    if (select.allow_non_existent && status.IsIOError()) {
+      bool exists;
+      RETURN_NOT_OK(FileExists(dir_fn, &exists));
+      if (!exists) {
+        return Status::OK();
+      }
     }
+    return status;
   }
 
-  BOOST_FILESYSTEM_TRY
-  for (const auto& entry : bfs::directory_iterator(p)) {
+  for (const auto& child_fn : children) {
     FileStats st;
-    NativePathString ns = entry.path().native();
-    RETURN_NOT_OK(StatFile(ns, &st));
+    PlatformFilename full_fn = dir_fn.Join(child_fn);
+    RETURN_NOT_OK(StatFile(full_fn.ToNative(), &st));
     if (st.type() != FileType::NonExistent) {
       out->push_back(std::move(st));
     }
     if (nesting_depth < select.max_recursion && select.recursive &&
         st.type() == FileType::Directory) {
-      RETURN_NOT_OK(StatSelector(ns, select, nesting_depth + 1, out));
+      RETURN_NOT_OK(StatSelector(full_fn, select, nesting_depth + 1, out));
     }
   }
-  BOOST_FILESYSTEM_CATCH
-
   return Status::OK();
 }
 
@@ -243,7 +225,7 @@ Status LocalFileSystem::GetTargetStats(const Selector& select,
   PlatformFilename fn;
   RETURN_NOT_OK(PlatformFilename::FromString(select.base_dir, &fn));
   out->clear();
-  return StatSelector(fn.ToNative(), select, 0, out);
+  return StatSelector(fn, select, 0, out);
 }
 
 Status LocalFileSystem::CreateDir(const std::string& path, bool recursive) {
