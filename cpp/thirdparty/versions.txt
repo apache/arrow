@@ -35,7 +35,7 @@ GLOG_VERSION=v0.3.5
 GRPC_VERSION=v1.24.3
 GTEST_VERSION=1.8.1
 JEMALLOC_VERSION=5.2.1
-LZ4_VERSION=v1.8.3
+LZ4_VERSION=v1.9.2
 # Need post-v1.0.6 version for https://github.com/microsoft/mimalloc/pull/140,
 # https://github.com/microsoft/mimalloc/pull/145 and
 # https://github.com/microsoft/mimalloc/pull/148
