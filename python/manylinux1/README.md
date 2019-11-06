@@ -49,7 +49,7 @@ a dependency to a new version, we also need to adjust it. You can rebuild
 this image using
 
 ```bash
-docker-compose build python-manylinux1
+docker-compose build centos-python-manylinux1
 ```
 
 For each dependency, we have a bash script in the directory `scripts/` that
@@ -65,7 +65,7 @@ If you have write access to the Docker Hub Ursa Labs account, you can directly
 publish a build image that you built locally.
 
 ```bash
-$ docker-compose push python-manylinux1
+$ docker-compose push centos-python-manylinux1
 ```
 
 ### Using quay.io to trigger and build the docker image

@@ -69,7 +69,7 @@ If you have write access to the Docker Hub Ursa Labs account, you can directly
 publish a build image that you built locally.
 
 ```bash
-$ docker push python-manylinux2010
+$ docker push centos-python-manylinux2010
 The push refers to repository [arrowdev/arrow_manylinux2010_x86_64_base]
 a1ab88d27acc: Pushing [==============>                                    ]  492.5MB/1.645GB
 [... etc. ...]

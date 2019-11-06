@@ -426,7 +426,7 @@ services:
       PYARROW_PARALLEL: 3
       PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
       UNICODE_WIDTH: ${UNICODE_WIDTH:-16}
-    volumes: &manylinux-volumes
+    volumes:
       - .:/arrow:delegated
       - ./python/manylinux1:/io:delegated
     command: &manylinux-command /io/build_arrow.sh
@@ -443,7 +443,9 @@ services:
       PYARROW_PARALLEL: 3
       PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
       UNICODE_WIDTH: ${UNICODE_WIDTH:-16}
-    volumes: *manylinux-volumes
+    volumes:
+      - .:/arrow:delegated
+      - ./python/manylinux2010:/io:delegated
     command: *manylinux-command
 
   ################################## R ########################################
