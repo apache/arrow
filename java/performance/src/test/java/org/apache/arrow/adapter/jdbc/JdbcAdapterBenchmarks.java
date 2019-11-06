@@ -24,10 +24,12 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.arrow.adapter.jdbc.consumer.BigIntConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.IntConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.JdbcConsumer;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.junit.Test;
@@ -129,6 +131,8 @@ public class JdbcAdapterBenchmarks {
   @State(Scope.Benchmark)
   public static class ConsumeState {
 
+    private static final boolean NULLABLE = false;
+
     private Connection conn = null;
 
     private ResultSet resultSet = null;
@@ -139,7 +143,11 @@ public class JdbcAdapterBenchmarks {
 
     private IntVector intVector;
 
+    private BigIntVector longVector;
+
     private JdbcConsumer<IntVector> intConsumer;
+
+    private JdbcConsumer<BigIntVector> longConsumer;
 
     private JdbcToArrowConfig config;
 
@@ -172,7 +180,11 @@ public class JdbcAdapterBenchmarks {
 
       intVector = new IntVector("", allocator);
       intVector.allocateNew(VALUE_COUNT);
-      intConsumer = IntConsumer.createConsumer(intVector, 1, true);
+      intConsumer = IntConsumer.createConsumer(intVector, 1, NULLABLE);
+
+      longVector = new BigIntVector("", allocator);
+      longVector.allocateNew(VALUE_COUNT);
+      longConsumer = BigIntConsumer.createConsumer(longVector, 2, NULLABLE);
     }
 
     @TearDown(Level.Trial)
@@ -187,6 +199,9 @@ public class JdbcAdapterBenchmarks {
 
       intVector.close();
       intConsumer.close();
+
+      longVector.close();
+      longConsumer.close();
 
       allocator.close();
     }
@@ -287,8 +302,10 @@ public class JdbcAdapterBenchmarks {
   @OutputTimeUnit(TimeUnit.MICROSECONDS)
   public void consumeBenchmark(ConsumeState state) throws Exception {
     state.intConsumer.resetValueVector(state.intVector);
+    state.longConsumer.resetValueVector(state.longVector);
     for (int i = 0; i < VALUE_COUNT; i++) {
       state.intConsumer.consume(state.resultSet);
+      state.longConsumer.consume(state.resultSet);
     }
   }
 
@@ -311,3 +328,4 @@ public class JdbcAdapterBenchmarks {
     new Runner(opt).run();
   }
 }
+
