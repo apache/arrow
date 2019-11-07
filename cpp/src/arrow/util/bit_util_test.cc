@@ -1243,26 +1243,30 @@ TEST(Bitmap, VisitAnd) {
 
   constexpr int64_t kBitWidth = 8 * sizeof(uint64_t);
 
-  for (int64_t offset : {0, 1, 2, 5, 17, int(kBitWidth + 1), int(kBitWidth + 17)}) {
-    for (int64_t num_bits :
-         {int64_t(13), int64_t(9), kBitWidth - 1, kBitWidth, kBitWidth + 1,
-          nbytes * 8 - offset, nbytes * 6, nbytes * 4}) {
-      Bitmap bitmaps[] = {{buffer, 0, num_bits}, {buffer, offset, num_bits}};
+  for (int64_t offset :
+       {0, 1, 2, 5, 17, int(kBitWidth - 1), int(kBitWidth + 1), int(kBitWidth + 17)}) {
+    for (int64_t right_offset = 0; right_offset < offset; ++right_offset) {
+      for (int64_t num_bits :
+           {int64_t(13), int64_t(9), kBitWidth - 1, kBitWidth, kBitWidth + 1,
+            nbytes * 8 - offset, nbytes * 6, nbytes * 4}) {
+        Bitmap bitmaps[] = {{buffer, offset, num_bits}, {buffer, right_offset, num_bits}};
 
-      int64_t i = 0;
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 2> uint64s) {
-        reinterpret_cast<uint64_t*>(actual_buffer->mutable_data())[i++] =
-            uint64s[0] & uint64s[1];
-      });
+        int64_t i = 0;
+        Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 2> uint64s) {
+          reinterpret_cast<uint64_t*>(actual_buffer->mutable_data())[i++] =
+              uint64s[0] & uint64s[1];
+        });
 
-      internal::BitmapAnd(bitmaps[0].buffer()->data(), bitmaps[0].offset(),
-                          bitmaps[1].buffer()->data(), bitmaps[1].offset(),
-                          bitmaps[0].length(), 0, expected_buffer->mutable_data());
+        internal::BitmapAnd(bitmaps[0].buffer()->data(), bitmaps[0].offset(),
+                            bitmaps[1].buffer()->data(), bitmaps[1].offset(),
+                            bitmaps[0].length(), 0, expected_buffer->mutable_data());
 
-      ASSERT_TRUE(internal::BitmapEquals(actual_buffer->data(), 0,
-                                         expected_buffer->data(), 0, num_bits))
-          << "offset:" << offset << "  bits:" << num_bits << std::endl
-          << Bitmap(actual_buffer, 0, num_bits).Diff({expected_buffer, 0, num_bits});
+        ASSERT_TRUE(internal::BitmapEquals(actual_buffer->data(), 0,
+                                           expected_buffer->data(), 0, num_bits))
+            << "left_offset:" << offset << "  bits:" << num_bits
+            << "right_offset:" << right_offset << std::endl
+            << Bitmap(actual_buffer, 0, num_bits).Diff({expected_buffer, 0, num_bits});
+      }
     }
   }
 }

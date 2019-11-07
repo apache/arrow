@@ -55,6 +55,7 @@
 #include <algorithm>
 #include <array>
 #include <bitset>
+#include <cassert>
 #include <cmath>
 #include <cstdint>
 #include <cstring>
@@ -870,10 +871,15 @@ class ARROW_EXPORT Bitmap {
     BitUtil::SetBitTo(buffer_->mutable_data(), i + offset_, v);
   }
 
-  /// \brief Visit bits of this bitmap as bitset<N>
+  /// \brief Visit bits from each bitmap as bitset<N>
+  ///
+  /// All bitmaps must have identical length.
   template <size_t N, typename Visitor>
   static void VisitBits(const Bitmap (&bitmaps)[N], Visitor&& visitor) {
     auto bit_length = bitmaps[0].length();
+    for (const auto& bitmap : bitmaps) {
+      assert(bitmap.length() == bit_length);
+    }
     std::bitset<N> bits;
     for (int64_t bit_i = 0; bit_i < bit_length; ++bit_i) {
       for (size_t i = 0; i < N; ++i) {
@@ -883,37 +889,44 @@ class ARROW_EXPORT Bitmap {
     }
   }
 
-  /// \brief Visit bits of this bitmap as array<Word, N>
+  /// \brief Visit words of bits from each bitmap as array<Word, N>
   ///
-  /// If visiting by words, note that every Word containing a bit
-  /// must be accessible (and initialized, or Valgrind will barf).
-  /// This is satisfied by most Buffers in Arrow space (which are allocated with
-  /// maximum alignment and padded to contain whole cache lines).
+  /// All bitmaps must have identical length.
+  ///
+  /// Note that every Word containing a bit must be accessible (and initialized, or
+  /// Valgrind will barf). This is satisfied by most Buffers in Arrow space (which are
+  /// allocated with maximum alignment and padded to contain whole cache lines).
   ///
   /// TODO(bkietz) allow for early termination
   template <size_t N, typename Visitor,
             typename Word =
                 typename internal::call_traits::argument_type<0, Visitor&&>::value_type>
   static void VisitWords(const Bitmap (&bitmaps)[N], Visitor&& visitor) {
-    constexpr size_t kBitWidth = sizeof(Word) * 8;
+    constexpr int64_t kBitWidth = sizeof(Word) * 8;
+
+    auto bit_length = bitmaps[0].length();
+    for (const auto& bitmap : bitmaps) {
+      assert(bitmap.length() == bit_length);
+    }
 
     View<Word> words[N];
     int64_t offsets[N];
     for (size_t i = 0; i < N; ++i) {
       words[i] = bitmaps[i].template words<Word>();
       offsets[i] = bitmaps[i].template word_offset<Word>();
+      assert(offsets[i] >= 0 && offsets[i] < kBitWidth);
     }
 
     std::array<Word, N> visited_words;
 
-    size_t word_count = 0;
+    // some of the bitmaps might span one fewer word than the others
+    size_t common_word_count = words[0].size();
     for (auto word : words) {
-      // words[i].size() == words[j].size()    if offsets[i] == 0 and offsets[j] == 0
-      // words[i].size() == words[j].size()+1  if offsets[i] != 0 and offsets[j] == 0
-      word_count = std::max(word_count, word.size());
+      common_word_count = std::min(common_word_count, word.size());
     }
 
-    for (size_t word_i = 0; word_i < word_count - 1; ++word_i) {
+    // word_i such that words[i][word_i] and words[i][word_i + 1] are accessible for all i
+    for (size_t word_i = 0; word_i < common_word_count - 1; ++word_i) {
       for (size_t i = 0; i < N; ++i) {
         if (offsets[i] == 0) {
           visited_words[i] = words[i][word_i];
@@ -925,11 +938,16 @@ class ARROW_EXPORT Bitmap {
       visitor(visited_words);
     }
 
-    // handle last word
-    size_t word_i = word_count - 1;
+    // handle trailing words
+    size_t word_i = common_word_count - 1;
     for (size_t i = 0; i < N; ++i) {
-      if (word_i < words[i].size()) {
+      if (offsets[i] == 0) {
+        visited_words[i] = words[i][word_i];
+      } else {
         visited_words[i] = words[i][word_i] >> offsets[i];
+        if (word_i + 1 < words[i].size()) {
+          visited_words[i] |= words[i][word_i + 1] << (kBitWidth - offsets[i]);
+        }
       }
     }
     visitor(visited_words);

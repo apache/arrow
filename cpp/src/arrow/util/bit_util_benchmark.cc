@@ -33,6 +33,8 @@ namespace arrow {
 
 namespace BitUtil {
 
+#ifdef ARROW_WITH_BENCHMARKS_REFERENCE
+
 // A naive bitmap reader implementation, meant as a baseline against
 // internal::BitmapReader
 
@@ -84,6 +86,8 @@ class NaiveBitmapWriter {
   uint8_t* bitmap_;
   int64_t position_;
 };
+
+#endif
 
 static std::shared_ptr<Buffer> CreateRandomBuffer(int64_t nbytes) {
   std::shared_ptr<Buffer> buffer;
