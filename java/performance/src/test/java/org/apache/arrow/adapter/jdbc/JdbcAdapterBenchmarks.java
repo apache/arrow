@@ -25,12 +25,16 @@ import java.sql.Statement;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.arrow.adapter.jdbc.consumer.BigIntConsumer;
+import org.apache.arrow.adapter.jdbc.consumer.BitConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.IntConsumer;
 import org.apache.arrow.adapter.jdbc.consumer.JdbcConsumer;
+import org.apache.arrow.adapter.jdbc.consumer.VarCharConsumer;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.junit.Test;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -145,9 +149,17 @@ public class JdbcAdapterBenchmarks {
 
     private BigIntVector longVector;
 
+    private VarCharVector varCharVector;
+
+    private BitVector bitVector;
+
     private JdbcConsumer<IntVector> intConsumer;
 
     private JdbcConsumer<BigIntVector> longConsumer;
+
+    private JdbcConsumer<VarCharVector> varCharConsumer;
+
+    private JdbcConsumer<BitVector> bitConsumer;
 
     private JdbcToArrowConfig config;
 
@@ -185,6 +197,14 @@ public class JdbcAdapterBenchmarks {
       longVector = new BigIntVector("", allocator);
       longVector.allocateNew(VALUE_COUNT);
       longConsumer = BigIntConsumer.createConsumer(longVector, 2, NULLABLE);
+
+      varCharVector = new VarCharVector("", allocator);
+      varCharVector.allocateNew(VALUE_COUNT);
+      varCharConsumer = VarCharConsumer.createConsumer(varCharVector, 3, NULLABLE);
+
+      bitVector = new BitVector("", allocator);
+      bitVector.allocateNew(VALUE_COUNT);
+      bitConsumer = BitConsumer.createConsumer(bitVector, 4, NULLABLE);
     }
 
     @TearDown(Level.Trial)
@@ -202,6 +222,12 @@ public class JdbcAdapterBenchmarks {
 
       longVector.close();
       longConsumer.close();
+
+      varCharVector.close();
+      varCharConsumer.close();
+
+      bitVector.close();
+      bitConsumer.close();
 
       allocator.close();
     }
@@ -281,7 +307,7 @@ public class JdbcAdapterBenchmarks {
    * Test {@link JdbcToArrow#sqlToArrowVectorIterator(ResultSet, JdbcToArrowConfig)}
    * @return useless. To avoid DCE by JIT.
    */
-  @Benchmark
+  /*@Benchmark
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.MICROSECONDS)
   public int testJdbcToArrow(JdbcState state) throws Exception {
@@ -295,7 +321,7 @@ public class JdbcAdapterBenchmarks {
       }
     }
     return valueCount;
-  }
+  }*/
 
   @Benchmark
   @BenchmarkMode(Mode.AverageTime)
@@ -303,20 +329,24 @@ public class JdbcAdapterBenchmarks {
   public void consumeBenchmark(ConsumeState state) throws Exception {
     state.intConsumer.resetValueVector(state.intVector);
     state.longConsumer.resetValueVector(state.longVector);
+    state.varCharConsumer.resetValueVector(state.varCharVector);
+    state.bitConsumer.resetValueVector(state.bitVector);
     for (int i = 0; i < VALUE_COUNT; i++) {
       state.intConsumer.consume(state.resultSet);
       state.longConsumer.consume(state.resultSet);
+      state.varCharConsumer.consume(state.resultSet);
+      state.bitConsumer.consume(state.resultSet);
     }
   }
 
-  @Benchmark
+  /*@Benchmark
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.MICROSECONDS)
   public void consumeRowsBenchmark(RowConsumeState state) throws Exception {
     for (int i = 0; i < VALUE_COUNT; i++) {
       state.iter.compositeConsumer.consume(state.resultSet);
     }
-  }
+  }*/
 
   @Test
   public void evaluate() throws RunnerException {
