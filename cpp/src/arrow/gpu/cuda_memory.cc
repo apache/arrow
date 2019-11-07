@@ -27,6 +27,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/io/memory.h"
+#include "arrow/memory_pool.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 

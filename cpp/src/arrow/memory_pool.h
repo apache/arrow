@@ -24,6 +24,7 @@
 #include <string>
 
 #include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -149,9 +150,6 @@ class ARROW_EXPORT ProxyMemoryPool : public MemoryPool {
   std::unique_ptr<ProxyMemoryPoolImpl> impl_;
 };
 
-/// Return the process-wide default memory pool.
-ARROW_EXPORT MemoryPool* default_memory_pool();
-
 /// Return a process-wide memory pool based on the system allocator.
 ARROW_EXPORT MemoryPool* system_memory_pool();
 
@@ -175,10 +173,6 @@ Status jemalloc_set_decay_ms(int ms);
 ///
 /// May return NotImplemented if mimalloc is not available.
 ARROW_EXPORT Status mimalloc_memory_pool(MemoryPool** out);
-
-#ifndef ARROW_MEMORY_POOL_DEFAULT
-#define ARROW_MEMORY_POOL_DEFAULT = default_memory_pool()
-#endif
 
 }  // namespace arrow
 

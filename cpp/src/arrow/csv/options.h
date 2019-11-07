@@ -79,6 +79,15 @@ struct ARROW_EXPORT ConvertOptions {
   /// If false, then all strings are valid string values.
   bool strings_can_be_null = false;
 
+  /// Whether to try to automatically dict-encode string / binary data.
+  /// If true, then when type inference detects a string or binary column,
+  /// it it dict-encoded up to `auto_dict_max_cardinality` distinct values
+  /// (per chunk), after which it switches to regular encoding.
+  ///
+  /// This setting is ignored for non-inferred columns (those in `column_types`).
+  bool auto_dict_encode = false;
+  int32_t auto_dict_max_cardinality = 50;
+
   // XXX Should we have a separate FilterOptions?
 
   /// If non-empty, indicates the names of columns from the CSV file that should

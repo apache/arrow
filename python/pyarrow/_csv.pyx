@@ -309,6 +309,18 @@ cdef class ConvertOptions:
         If true, then strings in null_values are considered null for
         string columns.
         If false, then all strings are valid string values.
+
+    auto_dict_encode: bool, optional (default False)
+        Whether to try to automatically dict-encode string / binary data.
+        If true, then when type inference detects a string or binary column,
+        it it dict-encoded up to `auto_dict_max_cardinality` distinct values
+        (per chunk), after which it switches to regular encoding.
+        This setting is ignored for non-inferred columns (those in
+        `column_types`).
+    auto_dict_max_cardinality: int, optional
+        The maximum dictionary cardinality for `auto_dict_encode`.
+        This value is per chunk.
+
     include_columns: list, optional
         The names of columns to include in the Table.
         If empty, the Table will include all columns from the CSV file.
@@ -330,7 +342,8 @@ cdef class ConvertOptions:
     def __init__(self, check_utf8=None, column_types=None, null_values=None,
                  true_values=None, false_values=None,
                  strings_can_be_null=None, include_columns=None,
-                 include_missing_columns=None):
+                 include_missing_columns=None, auto_dict_encode=None,
+                 auto_dict_max_cardinality=None):
         self.options = CCSVConvertOptions.Defaults()
         if check_utf8 is not None:
             self.check_utf8 = check_utf8
@@ -348,6 +361,10 @@ cdef class ConvertOptions:
             self.include_columns = include_columns
         if include_missing_columns is not None:
             self.include_missing_columns = include_missing_columns
+        if auto_dict_encode is not None:
+            self.auto_dict_encode = auto_dict_encode
+        if auto_dict_max_cardinality is not None:
+            self.auto_dict_max_cardinality = auto_dict_max_cardinality
 
     @property
     def check_utf8(self):
@@ -432,6 +449,30 @@ cdef class ConvertOptions:
     @false_values.setter
     def false_values(self, value):
         self.options.false_values = [tobytes(x) for x in value]
+
+    @property
+    def auto_dict_encode(self):
+        """
+        Whether to try to automatically dict-encode string / binary data.
+        """
+        return self.options.auto_dict_encode
+
+    @auto_dict_encode.setter
+    def auto_dict_encode(self, value):
+        self.options.auto_dict_encode = value
+
+    @property
+    def auto_dict_max_cardinality(self):
+        """
+        The maximum dictionary cardinality for `auto_dict_encode`.
+
+        This value is per chunk.
+        """
+        return self.options.auto_dict_max_cardinality
+
+    @auto_dict_max_cardinality.setter
+    def auto_dict_max_cardinality(self, value):
+        self.options.auto_dict_max_cardinality = value
 
     @property
     def include_columns(self):

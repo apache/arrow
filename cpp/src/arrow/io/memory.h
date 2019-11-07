@@ -22,17 +22,14 @@
 #include <cstdint>
 #include <memory>
 
-#include "arrow/buffer.h"
 #include "arrow/io/concurrency.h"
 #include "arrow/io/interfaces.h"
-#include "arrow/memory_pool.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
-class Buffer;
-class ResizableBuffer;
 class Status;
 
 namespace io {

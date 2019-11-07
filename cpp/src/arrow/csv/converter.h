@@ -22,16 +22,12 @@
 #include <memory>
 
 #include "arrow/csv/options.h"
+#include "arrow/result.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
-
-class Array;
-class DataType;
-class MemoryPool;
-class Status;
-
 namespace csv {
 
 class BlockParser;
@@ -47,10 +43,9 @@ class ARROW_EXPORT Converter {
 
   std::shared_ptr<DataType> type() const { return type_; }
 
-  static Status Make(const std::shared_ptr<DataType>& type, const ConvertOptions& options,
-                     std::shared_ptr<Converter>* out);
-  static Status Make(const std::shared_ptr<DataType>& type, const ConvertOptions& options,
-                     MemoryPool* pool, std::shared_ptr<Converter>* out);
+  static Result<std::shared_ptr<Converter>> Make(
+      const std::shared_ptr<DataType>& type, const ConvertOptions& options,
+      MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Converter);
@@ -62,6 +57,19 @@ class ARROW_EXPORT Converter {
   const ConvertOptions& options_;
   MemoryPool* pool_;
   std::shared_ptr<DataType> type_;
+};
+
+class ARROW_EXPORT DictionaryConverter : public Converter {
+ public:
+  using Converter::Converter;
+
+  // If the dictionary length goes above this value, conversion will fail
+  // with Status::IndexError.
+  virtual void SetMaxCardinality(int32_t max_length) = 0;
+
+  static Result<std::shared_ptr<DictionaryConverter>> Make(
+      const std::shared_ptr<DataType>& value_type, const ConvertOptions& options,
+      MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
 };
 
 }  // namespace csv
