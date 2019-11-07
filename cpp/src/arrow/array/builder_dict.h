@@ -138,6 +138,9 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
   ~DictionaryBuilderBase() override = default;
 
+  /// \brief The current number of entries in the dictionary
+  int64_t dictionary_length() const { return memo_table_->size(); }
+
   /// \brief Append a scalar value
   Status Append(const Scalar& value) {
     ARROW_RETURN_NOT_OK(Reserve(1));

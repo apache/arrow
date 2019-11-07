@@ -48,7 +48,7 @@ using RecordBatchIterator = Iterator<std::shared_ptr<RecordBatch>>;
 
 class Buffer;
 class MemoryPool;
-class RecordBatch;
+class ResizableBuffer;
 class Schema;
 
 class DictionaryType;
@@ -250,6 +250,13 @@ std::shared_ptr<DataType> ARROW_EXPORT date32();
 std::shared_ptr<DataType> ARROW_EXPORT date64();
 
 /// @}
+
+/// Return the process-wide default memory pool.
+ARROW_EXPORT MemoryPool* default_memory_pool();
+
+#ifndef ARROW_MEMORY_POOL_DEFAULT
+#define ARROW_MEMORY_POOL_DEFAULT = default_memory_pool()
+#endif
 
 }  // namespace arrow
 

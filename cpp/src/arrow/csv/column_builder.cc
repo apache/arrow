@@ -162,7 +162,8 @@ class TypedColumnBuilder : public ColumnBuilder {
 };
 
 Status TypedColumnBuilder::Init() {
-  return Converter::Make(type_, options_, pool_, &converter_);
+  ARROW_ASSIGN_OR_RAISE(converter_, Converter::Make(type_, options_, pool_));
+  return Status::OK();
 }
 
 void TypedColumnBuilder::Insert(int64_t block_index,
@@ -224,7 +225,7 @@ class InferringColumnBuilder : public ColumnBuilder {
   Status Finish(std::shared_ptr<ChunkedArray>* out) override;
 
  protected:
-  Status LoosenType();
+  Status LoosenType(const Status& conversion_error);
   Status UpdateType();
   Status TryConvertChunk(size_t chunk_index);
   // This must be called unlocked!
@@ -240,7 +241,17 @@ class InferringColumnBuilder : public ColumnBuilder {
   std::shared_ptr<Converter> converter_;
 
   // Current inference status
-  enum class InferKind { Null, Integer, Boolean, Real, Timestamp, Text, Binary };
+  enum class InferKind {
+    Null,
+    Integer,
+    Boolean,
+    Real,
+    Timestamp,
+    TextDict,
+    BinaryDict,
+    Text,
+    Binary
+  };
 
   std::shared_ptr<DataType> infer_type_;
   InferKind infer_kind_;
@@ -255,9 +266,10 @@ Status InferringColumnBuilder::Init() {
   return UpdateType();
 }
 
-Status InferringColumnBuilder::LoosenType() {
+Status InferringColumnBuilder::LoosenType(const Status& conversion_error) {
   // We are locked
 
+  DCHECK(!conversion_error.ok());
   DCHECK(can_loosen_type_);
   switch (infer_kind_) {
     case InferKind::Null:
@@ -273,7 +285,23 @@ Status InferringColumnBuilder::LoosenType() {
       infer_kind_ = InferKind::Real;
       break;
     case InferKind::Real:
-      infer_kind_ = InferKind::Text;
+      if (options_.auto_dict_encode) {
+        infer_kind_ = InferKind::TextDict;
+      } else {
+        infer_kind_ = InferKind::Text;
+      }
+      break;
+    case InferKind::TextDict:
+      if (conversion_error.IsIndexError()) {
+        // Cardinality too large, fall back to non-dict encoding
+        infer_kind_ = InferKind::Text;
+      } else {
+        // Assuming UTF8 validation failure
+        infer_kind_ = InferKind::BinaryDict;
+      }
+      break;
+    case InferKind::BinaryDict:
+      infer_kind_ = InferKind::Binary;
       break;
     case InferKind::Text:
       infer_kind_ = InferKind::Binary;
@@ -287,38 +315,46 @@ Status InferringColumnBuilder::LoosenType() {
 Status InferringColumnBuilder::UpdateType() {
   // We are locked
 
+  auto make_converter = [&](std::shared_ptr<DataType> type) -> Status {
+    infer_type_ = type;
+    ARROW_ASSIGN_OR_RAISE(converter_, Converter::Make(type, options_, pool_));
+    return Status::OK();
+  };
+
+  auto make_dict_converter = [&](std::shared_ptr<DataType> type) -> Status {
+    infer_type_ = dictionary(int32(), type);
+    ARROW_ASSIGN_OR_RAISE(auto dict_converter,
+                          DictionaryConverter::Make(type, options_, pool_));
+    dict_converter->SetMaxCardinality(options_.auto_dict_max_cardinality);
+    converter_ = std::move(dict_converter);
+    return Status::OK();
+  };
+
+  can_loosen_type_ = true;
+
   switch (infer_kind_) {
     case InferKind::Null:
-      infer_type_ = null();
-      can_loosen_type_ = true;
-      break;
+      return make_converter(null());
     case InferKind::Integer:
-      infer_type_ = int64();
-      can_loosen_type_ = true;
-      break;
+      return make_converter(int64());
     case InferKind::Boolean:
-      infer_type_ = boolean();
-      can_loosen_type_ = true;
-      break;
+      return make_converter(boolean());
     case InferKind::Timestamp:
       // We don't support parsing second fractions for now
-      infer_type_ = timestamp(TimeUnit::SECOND);
-      can_loosen_type_ = true;
-      break;
+      return make_converter(timestamp(TimeUnit::SECOND));
     case InferKind::Real:
-      infer_type_ = float64();
-      can_loosen_type_ = true;
-      break;
+      return make_converter(float64());
     case InferKind::Text:
-      infer_type_ = utf8();
-      can_loosen_type_ = true;
-      break;
+      return make_converter(utf8());
     case InferKind::Binary:
-      infer_type_ = binary();
       can_loosen_type_ = false;
-      break;
+      return make_converter(binary());
+    case InferKind::TextDict:
+      return make_dict_converter(utf8());
+    case InferKind::BinaryDict:
+      return make_dict_converter(binary());
   }
-  return Converter::Make(infer_type_, options_, pool_, &converter_);
+  return Status::UnknownError("Shouldn't come here");
 }
 
 void InferringColumnBuilder::ScheduleConvertChunk(size_t chunk_index) {
@@ -336,7 +372,7 @@ Status InferringColumnBuilder::TryConvertChunk(size_t chunk_index) {
   DCHECK_NE(parser, nullptr);
 
   lock.unlock();
-  Status st = converter->Convert(*parser, col_index_, &res);
+  Status conversion_status = converter->Convert(*parser, col_index_, &res);
   lock.lock();
 
   if (kind != infer_kind_) {
@@ -346,7 +382,7 @@ Status InferringColumnBuilder::TryConvertChunk(size_t chunk_index) {
     return Status::OK();
   }
 
-  if (st.ok()) {
+  if (conversion_status.ok()) {
     // Conversion succeeded
     chunks_[chunk_index] = std::move(res);
     if (!can_loosen_type_) {
@@ -356,7 +392,7 @@ Status InferringColumnBuilder::TryConvertChunk(size_t chunk_index) {
     return Status::OK();
   } else if (can_loosen_type_) {
     // Conversion failed, try another type
-    RETURN_NOT_OK(LoosenType());
+    RETURN_NOT_OK(LoosenType(conversion_status));
 
     // Reconvert past finished chunks
     // (unfinished chunks will notice by themselves if they need reconverting)
@@ -379,7 +415,7 @@ Status InferringColumnBuilder::TryConvertChunk(size_t chunk_index) {
     return Status::OK();
   } else {
     // Conversion failed but cannot loosen more
-    return st;
+    return conversion_status;
   }
 }
 

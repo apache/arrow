@@ -1312,6 +1312,10 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         vector[c_string] true_values
         vector[c_string] false_values
         c_bool strings_can_be_null
+
+        c_bool auto_dict_encode
+        int32_t auto_dict_max_cardinality
+
         vector[c_string] include_columns
         c_bool include_missing_columns
 

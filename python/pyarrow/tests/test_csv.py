@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -68,99 +70,70 @@ def make_empty_csv(column_names):
     return csv.getvalue().encode()
 
 
+def check_options_class(cls, **attr_values):
+    """
+    Check setting and getting attributes of an *Options class.
+    """
+    opts = cls()
+
+    for name, values in attr_values.items():
+        assert getattr(opts, name) == values[0], \
+            "incorrect default value for " + name
+        for v in values:
+            setattr(opts, name, v)
+            assert getattr(opts, name) == v, "failed setting value"
+
+    with pytest.raises(AttributeError):
+        opts.zzz_non_existent = True
+
+    # Check constructor named arguments
+    non_defaults = {name: values[1] for name, values in attr_values.items()}
+    opts = cls(**non_defaults)
+    for name, value in non_defaults.items():
+        assert getattr(opts, name) == value
+
+
 def test_read_options():
     cls = ReadOptions
     opts = cls()
+
+    check_options_class(cls, use_threads=[True, False],
+                        skip_rows=[0, 3],
+                        column_names=[[], ["ab", "cd"]],
+                        autogenerate_column_names=[False, True])
 
     assert opts.block_size > 0
     opts.block_size = 12345
     assert opts.block_size == 12345
 
-    assert opts.use_threads is True
-    opts.use_threads = False
-    assert opts.use_threads is False
-
-    assert opts.skip_rows == 0
-    opts.skip_rows = 3
-    assert opts.skip_rows == 3
-
-    assert opts.column_names == []
-    opts.column_names = ["ab", "cd"]
-    assert opts.column_names == ["ab", "cd"]
-
-    assert opts.autogenerate_column_names is False
-    opts.autogenerate_column_names = True
-    assert opts.autogenerate_column_names is True
-
-    opts = cls(block_size=1234, use_threads=False, skip_rows=42,
-               column_names=["a", "b", "c"])
+    opts = cls(block_size=1234)
     assert opts.block_size == 1234
-    assert opts.use_threads is False
-    assert opts.skip_rows == 42
-    assert opts.column_names == ["a", "b", "c"]
-    assert opts.autogenerate_column_names is False
-
-    opts = cls(autogenerate_column_names=True)
-    assert opts.use_threads is True
-    assert opts.skip_rows == 0
-    assert opts.column_names == []
-    assert opts.autogenerate_column_names is True
 
 
 def test_parse_options():
     cls = ParseOptions
-    opts = cls()
-    assert opts.delimiter == ','
-    assert opts.quote_char == '"'
-    assert opts.double_quote is True
-    assert opts.escape_char is False
-    assert opts.newlines_in_values is False
-    assert opts.ignore_empty_lines is True
 
-    opts.delimiter = 'x'
-    assert opts.delimiter == 'x'
-    assert opts.quote_char == '"'
-
-    opts.escape_char = 'z'
-    assert opts.escape_char == 'z'
-    assert opts.quote_char == '"'
-
-    opts.quote_char = False
-    assert opts.quote_char is False
-    assert opts.escape_char == 'z'
-
-    opts.escape_char = False
-    assert opts.escape_char is False
-    assert opts.quote_char is False
-
-    opts.newlines_in_values = True
-    assert opts.newlines_in_values is True
-
-    opts.ignore_empty_lines = False
-    assert opts.ignore_empty_lines is False
-
-    opts = cls(delimiter=';', quote_char='%', double_quote=False,
-               escape_char='\\', newlines_in_values=True,
-               ignore_empty_lines=False)
-    assert opts.delimiter == ';'
-    assert opts.quote_char == '%'
-    assert opts.double_quote is False
-    assert opts.escape_char == '\\'
-    assert opts.newlines_in_values is True
-    assert opts.ignore_empty_lines is False
+    check_options_class(cls, delimiter=[',', 'x'],
+                        escape_char=[False, 'y'],
+                        quote_char=['"', 'z', False],
+                        double_quote=[True, False],
+                        newlines_in_values=[False, True],
+                        ignore_empty_lines=[True, False])
 
 
 def test_convert_options():
     cls = ConvertOptions
     opts = cls()
 
-    assert opts.check_utf8 is True
-    opts.check_utf8 = False
-    assert opts.check_utf8 is False
+    check_options_class(cls, check_utf8=[True, False],
+                        strings_can_be_null=[False, True],
+                        include_columns=[[], ['def', 'abc']],
+                        include_missing_columns=[False, True],
+                        auto_dict_encode=[False, True])
 
-    assert opts.strings_can_be_null is False
-    opts.strings_can_be_null = True
-    assert opts.strings_can_be_null is True
+    assert opts.auto_dict_max_cardinality > 0
+    opts.auto_dict_max_cardinality = 99999
+    assert opts.auto_dict_max_cardinality == 99999
 
     assert opts.column_types == {}
     # Pass column_types as mapping
@@ -195,27 +168,14 @@ def test_convert_options():
     opts.false_values = ['xxx', 'yyy']
     assert opts.false_values == ['xxx', 'yyy']
 
-    assert opts.include_columns == []
-    opts.include_columns = ['def', 'abc']
-    assert opts.include_columns == ['def', 'abc']
-
-    assert opts.include_missing_columns is False
-    opts.include_missing_columns = True
-    assert opts.include_missing_columns is True
-
-    opts = cls(check_utf8=False, column_types={'a': pa.null()},
+    opts = cls(column_types={'a': pa.null()},
                null_values=['N', 'nn'], true_values=['T', 'tt'],
-               false_values=['F', 'ff'], strings_can_be_null=True,
-               include_columns=['abc', 'def'],
-               include_missing_columns=True)
-    assert opts.check_utf8 is False
+               false_values=['F', 'ff'], auto_dict_max_cardinality=999)
     assert opts.column_types == {'a': pa.null()}
     assert opts.null_values == ['N', 'nn']
     assert opts.false_values == ['F', 'ff']
     assert opts.true_values == ['T', 'tt']
-    assert opts.strings_can_be_null is True
-    assert opts.include_columns == ['abc', 'def']
-    assert opts.include_missing_columns is True
+    assert opts.auto_dict_max_cardinality == 999
 
 
 class BaseTestCSVRead:
@@ -500,6 +460,54 @@ class BaseTestCSVRead:
             'a': [1970, 1989],
             'b': [datetime(1970, 1, 1), datetime(1989, 7, 14)],
             }
+
+    def test_auto_dict_encode(self):
+        opts = ConvertOptions(auto_dict_encode=True)
+        rows = u"a,b\nab,1\ncdé,2\ncdé,3\nab,4".encode('utf8')
+        table = self.read_bytes(rows, convert_options=opts)
+        schema = pa.schema([('a', pa.dictionary(pa.int32(), pa.string())),
+                            ('b', pa.int64())])
+        expected = {
+            'a': [u"ab", u"cdé", u"cdé", u"ab"],
+            'b': [1, 2, 3, 4],
+            }
+        assert table.schema == schema
+        assert table.to_pydict() == expected
+
+        opts.auto_dict_max_cardinality = 2
+        table = self.read_bytes(rows, convert_options=opts)
+        assert table.schema == schema
+        assert table.to_pydict() == expected
+
+        # Cardinality above max => plain-encoded
+        opts.auto_dict_max_cardinality = 1
+        table = self.read_bytes(rows, convert_options=opts)
+        assert table.schema == pa.schema([('a', pa.string()),
+                                          ('b', pa.int64())])
+        assert table.to_pydict() == expected
+
+        # With invalid UTF8, not checked
+        opts.auto_dict_max_cardinality = 50
+        opts.check_utf8 = False
+        rows = b"a,b\nab,1\ncd\xff,2\nab,3"
+        table = self.read_bytes(rows, convert_options=opts)
+        assert table.schema == schema
+        dict_values = table['a'].chunk(0).dictionary
+        assert len(dict_values) == 2
+        assert dict_values[0] == u"ab"
+        assert dict_values[1].as_buffer() == b"cd\xff"
+
+        # With invalid UTF8, checked
+        opts.check_utf8 = True
+        table = self.read_bytes(rows, convert_options=opts)
+        schema = pa.schema([('a', pa.dictionary(pa.int32(), pa.binary())),
+                            ('b', pa.int64())])
+        expected = {
+            'a': [b"ab", b"cd\xff", b"ab"],
+            'b': [1, 2, 3],
+            }
+        assert table.schema == schema
+        assert table.to_pydict() == expected
 
     def test_custom_nulls(self):
         # Infer nulls with custom values
