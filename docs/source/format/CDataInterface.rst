@@ -214,7 +214,7 @@ Notes:
 
 (2)
    As specified in the Arrow columnar format, the map type has a single child type
-   named ``entry``, itself a 2-child struct type of ``(key, value)``.
+   named ``entries``, itself a 2-child struct type of ``(key, value)``.
 
 Examples
 --------
@@ -228,7 +228,7 @@ Examples
   children have names ``ints`` and ``floats``, and format strings ``i`` and
   ``f`` respectively.
 * A ``map<string, float64>`` array has format string ``+m``; its single child
-  has name ``entry`` and format string ``+s``; its two grandchildren have names
+  has name ``entries`` and format string ``+s``; its two grandchildren have names
   ``key`` and ``value``, and format strings ``u`` and ``g`` respectively.
 * A ``sparse_union<ints: int32, floats: float32>`` with type ids ``4, 5``
   has format string ``+us:4,5``; its two children have names ``ints`` and
@@ -293,20 +293,31 @@ The ArrowArray structure
 
 .. c:member:: const char* ArrowArray.metadata
 
-   Optional.  A null-terminated, UTF8-encoded string describing
-   the type's metadata.  If the data type is nested, child types are not
-   encoded here but in the :c:member:`ArrowArray.children` arrays.
+   Optional.  A binary string describing the type's metadata.
+   If the data type is nested, child types are not encoded here but
+   in the :c:member:`ArrowArray.children` arrays.
 
-   MUST be a JSON-compatible mapping of UTF8 strings to UTF8 strings.
-   Whitespace MUST only use the 0x20 character. Example::
+   This string is not null-terminated but follows a specific format::
 
-      {"key1": "base64-encoded value1", "key2": "base64-encode value2"}
+      int32: number of key/value pairs (noted N below)
+      int32: byte length of key 0
+      key 0 (not null-terminated)
+      int32: byte length of value 0
+      value 0 (not null-terminated)
+      ...
+      int32: byte length of key N - 1
+      key N - 1 (not null-terminated)
+      int32: byte length of value N - 1
+      value N - 1 (not null-terminated)
 
-   If omitted, MUST be NULL (not an empty string).
+   Integers are stored little-endian.  For example, the metadata
+   ``[('key1', 'value1')]`` is encoded as::
 
-   Consumers MAY choose to ignore metadata.  Even then, they SHOULD keep
-   the metadata string around so as to propagate its information to their
-   own consumers.
+      \x01\x00\x00\x00\x04\x00\x00\x00key1\x06\x00\x00\x00value1
+
+   If omitted, this field MUST be NULL (not an empty string).
+
+   Consumers MAY choose to ignore this information.
 
 .. c:member:: int64_t ArrowArray.flags
 
@@ -549,6 +560,13 @@ releasing the others.
    Instead, the producer MUST use the :c:member:`ArrowArray.private_data`
    member so as to remember any necessary bookkeeping information.
 
+Record batches
+''''''''''''''
+
+A record batch can be trivially exported and imported as an equivalent
+struct type array.  Furthermore, the ``ArrowArray`` structure is able to
+hold the schema's top-level metadata.
+
 Example use case
 ================
 
@@ -566,7 +584,7 @@ through e.g. a C FFI layer.
 If the database wants to return a multi-column result set, it can easily
 be represented in either of two ways:
 
-* an array of ``ArrowArray`` structures, one per column;
+* a C array of ``ArrowArray`` structures, one per column;
 * or a single ``ArrowArray`` structure representing a struct array, with one
   child array per column.
 
