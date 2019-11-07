@@ -115,7 +115,7 @@ inline Status GenericToStatus(const Result<T>& res) {
 
 #define ASSERT_OK_AND_ASSIGN_IMPL(status_name, lhs, rexpr) \
   auto status_name = (rexpr);                              \
-  ARROW_EXPECT_OK(status_name.status());                   \
+  ASSERT_OK(status_name.status());                         \
   lhs = std::move(status_name).ValueOrDie();
 
 #define ASSERT_OK_AND_ASSIGN(lhs, rexpr)                                              \
