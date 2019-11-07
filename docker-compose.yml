@@ -360,6 +360,13 @@ services:
     command: *python-command
 
   fedora-python:
+    # Usage:
+    #   docker-compose build fedora-cpp
+    #   docker-compose build fedora-python
+    #   docker-compose run --rm fedora-python
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   UBUNTU: 29, ...
     image: ${ORG}/${ARCH}-fedora-${FEDORA}-python-3:latest
     build:
       context: .
@@ -402,7 +409,7 @@ services:
   conda-python-pandas:
     # Possible $PANDAS parameters:
     #  - `latest`: latest release
-    #  - `master`: git master branch
+    #  - `master`: git master branch, use `docker-compose run --no-cache`
     #  - `<verion>`: specific version available on conda-forge
     # Usage:
     #   docker-compose build conda-cpp
@@ -427,7 +434,15 @@ services:
     command: *python-conda-command
 
   conda-python-dask:
-    # document to use --no-cache in case of DASK=master
+    # Possible $DASK parameters:
+    #  - `latest`: latest release
+    #  - `master`: git master branch, use `docker-compose run --no-cache`
+    #  - `<verion>`: specific version available on conda-forge
+    # Usage:
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-python
+    #   docker-compose build conda-python-dask
+    #   docker-compose run --rm conda-python-dask
     image: ${ORG}/${ARCH}-conda-python-${PYTHON}-dask-${DASK}:latest
     build:
       context: .
@@ -449,7 +464,15 @@ services:
         /arrow/ci/scripts/integration_dask.sh"]
 
   conda-python-turbodbc:
-    # document to use --no-cache in case of TURBODBC=master
+    # Possible $DASK parameters:
+    #  - `latest`: latest release
+    #  - `master`: git master branch, use `docker-compose run --no-cache`
+    #  - `<verion>`: specific version available under github releases
+    # Usage:
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-python
+    #   docker-compose build conda-python-turbodbc
+    #   docker-compose run --rm conda-python-turbodbc
     image: ${ORG}/${ARCH}-conda-python-${PYTHON}-turbodbc-${TURBODBC}:latest
     build:
       context: .
@@ -509,6 +532,10 @@ services:
   ################################## R ########################################
 
   conda-r:
+    # Usage:
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-r
+    #   docker-compose run conda-r
     image: ${ORG}/${ARCH}-conda-r-${R}:latest
     build:
       context: .
@@ -529,6 +556,10 @@ services:
         /arrow/ci/scripts/r_test.sh /arrow"]
 
   ubuntu-r:
+    # Usage:
+    #   docker-compose build ubuntu-cpp
+    #   docker-compose build ubuntu-r
+    #   docker-compose run ubuntu-r
     image: ${ORG}/${ARCH}-ubuntu-${UBUNTU}-r-${R}:latest
     build:
       context: .
@@ -572,6 +603,9 @@ services:
   ################################ Rust #######################################
 
   debian-rust:
+    # Usage:
+    #   docker-compose build debian-rust
+    #   docker-compose run debian-rust
     image: ${ORG}/${ARCH}-debian-10-rust-${RUST}:latest
     build:
       context: .
@@ -591,6 +625,9 @@ services:
   ################################# Go ########################################
 
   debian-go:
+    # Usage:
+    #   docker-compose build debian-go
+    #   docker-compose run debian-go
     image: ${ORG}/${ARCH}-debian-10-go-${GO}:latest
     build:
       context: .
@@ -610,6 +647,9 @@ services:
   ############################# JavaScript ####################################
 
   debian-js:
+    # Usage:
+    #   docker-compose build debian-js
+    #   docker-compose run debian-js
     image: ${ORG}/${ARCH}-debian-10-js-${NODE}:latest
     build:
       context: .
@@ -629,6 +669,9 @@ services:
   #################################### C# #####################################
 
   ubuntu-csharp:
+    # Usage:
+    #   docker-compose build debian-csharp
+    #   docker-compose run debian-csharp
     image: ${ORG}/${ARCH}-ubuntu-18.04-csharp-${DOTNET}:latest
     build:
       context: .
@@ -636,7 +679,6 @@ services:
       cache_from:
         - ${ORG}/${ARCH}-ubuntu-18.04-csharp-${DOTNET}:latest
       args:
-        arch: ${ARCH}
         dotnet: ${DOTNET}
         platform: bionic  # use bionic-arm64v8 for ARM
     shm_size: *shm-size
@@ -649,6 +691,9 @@ services:
   ################################ Java #######################################
 
   debian-java:
+    # Usage:
+    #   docker-compose build debian-java
+    #   docker-compose run debian-java
     image: ${ORG}/${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}:latest
     build:
       context: .
@@ -673,6 +718,7 @@ services:
     # Usage:
     #   docker-compose build debian-java
     #   docker-compose build debian-java-jni
+    #   docker-compose run debian-java-jni
     image: ${ORG}/${ARCH}-debian-9-java-jni:latest
     build:
       context: .
@@ -695,6 +741,10 @@ services:
   ############################## Integration ##################################
 
   conda-integration:
+    # Usage:
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-integration
+    #   docker-compose run conda-integration
     image: ${ORG}/${ARCH}-conda-integration:latest
     build:
       context: .
@@ -797,6 +847,7 @@ services:
   ######################### Integration Tests #################################
 
   postgres:
+    # required for the impala service
     image: postgres
     ports:
       - 5432:5432
@@ -804,6 +855,7 @@ services:
       POSTGRES_PASSWORD: postgres
 
   impala:
+    # required for the hiveserver and hdfs tests
     image: ibisproject/impala:latest
     hostname: impala
     links:

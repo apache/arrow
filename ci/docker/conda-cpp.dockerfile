@@ -51,7 +51,6 @@ RUN conda install -q \
         --file arrow/ci/conda_env_gandiva.yml \
         git compilers && \
     conda clean --all
-# TODO(kszucs): compilers instead of conda_env_linux
 
 ENV ARROW_S3=ON \
     ARROW_ORC=ON \
