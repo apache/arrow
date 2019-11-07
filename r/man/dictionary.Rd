@@ -4,8 +4,7 @@
 \alias{dictionary}
 \title{Create a dictionary type}
 \usage{
-dictionary(index_type = int32(), value_type = utf8(),
-  ordered = FALSE)
+dictionary(index_type = int32(), value_type = utf8(), ordered = FALSE)
 }
 \arguments{
 \item{index_type}{A DataType for the indices (default \code{\link[=int32]{int32()}})}

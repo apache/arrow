@@ -20,4 +20,3 @@ compression level for the selected compression \code{type}.
 }
 }
 
-\keyword{datasets}

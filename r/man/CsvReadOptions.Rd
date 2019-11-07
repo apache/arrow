@@ -72,4 +72,3 @@ These classes have no implemented methods. They are containers for the
 options.
 }
 
-\keyword{datasets}

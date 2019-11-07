@@ -6,23 +6,57 @@
 \alias{read_tsv_arrow}
 \title{Read a CSV or other delimited file with Arrow}
 \usage{
-read_delim_arrow(file, delim = ",", quote = "\\"",
-  escape_double = TRUE, escape_backslash = FALSE, col_names = TRUE,
-  col_select = NULL, na = c("", "NA"), quoted_na = TRUE,
-  skip_empty_rows = TRUE, skip = 0L, parse_options = NULL,
-  convert_options = NULL, read_options = NULL, as_data_frame = TRUE)
+read_delim_arrow(
+  file,
+  delim = ",",
+  quote = "\\"",
+  escape_double = TRUE,
+  escape_backslash = FALSE,
+  col_names = TRUE,
+  col_select = NULL,
+  na = c("", "NA"),
+  quoted_na = TRUE,
+  skip_empty_rows = TRUE,
+  skip = 0L,
+  parse_options = NULL,
+  convert_options = NULL,
+  read_options = NULL,
+  as_data_frame = TRUE
+)
 
-read_csv_arrow(file, quote = "\\"", escape_double = TRUE,
-  escape_backslash = FALSE, col_names = TRUE, col_select = NULL,
-  na = c("", "NA"), quoted_na = TRUE, skip_empty_rows = TRUE,
-  skip = 0L, parse_options = NULL, convert_options = NULL,
-  read_options = NULL, as_data_frame = TRUE)
+read_csv_arrow(
+  file,
+  quote = "\\"",
+  escape_double = TRUE,
+  escape_backslash = FALSE,
+  col_names = TRUE,
+  col_select = NULL,
+  na = c("", "NA"),
+  quoted_na = TRUE,
+  skip_empty_rows = TRUE,
+  skip = 0L,
+  parse_options = NULL,
+  convert_options = NULL,
+  read_options = NULL,
+  as_data_frame = TRUE
+)
 
-read_tsv_arrow(file, quote = "\\"", escape_double = TRUE,
-  escape_backslash = FALSE, col_names = TRUE, col_select = NULL,
-  na = c("", "NA"), quoted_na = TRUE, skip_empty_rows = TRUE,
-  skip = 0L, parse_options = NULL, convert_options = NULL,
-  read_options = NULL, as_data_frame = TRUE)
+read_tsv_arrow(
+  file,
+  quote = "\\"",
+  escape_double = TRUE,
+  escape_backslash = FALSE,
+  col_names = TRUE,
+  col_select = NULL,
+  na = c("", "NA"),
+  quoted_na = TRUE,
+  skip_empty_rows = TRUE,
+  skip = 0L,
+  parse_options = NULL,
+  convert_options = NULL,
+  read_options = NULL,
+  as_data_frame = TRUE
+)
 }
 \arguments{
 \item{file}{A character file name, raw vector, or an Arrow input stream}
@@ -32,13 +66,13 @@ read_tsv_arrow(file, quote = "\\"", escape_double = TRUE,
 \item{quote}{Single character used to quote strings.}
 
 \item{escape_double}{Does the file escape quotes by doubling them?
-i.e. If this option is \code{TRUE}, the value \code{""""} represents
-a single quote, \code{\"}.}
+i.e. If this option is \code{TRUE}, the value \verb{""""} represents
+a single quote, \verb{\\"}.}
 
 \item{escape_backslash}{Does the file use backslashes to escape special
 characters? This is more general than \code{escape_double} as backslashes
 can be used to escape the delimiter character, the quote character, or
-to add special characters like \code{\\n}.}
+to add special characters like \verb{\\\\n}.}
 
 \item{col_names}{If \code{TRUE}, the first row of the input will be used as the
 column names and will not be included in the data frame. If \code{FALSE}, column

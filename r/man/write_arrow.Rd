@@ -11,7 +11,7 @@ write_arrow(x, sink, ...)
 
 \item{sink}{where to serialize to
 \itemize{
-\item A \link[=RecordBatchWriter]{arrow::RecordBatchWriter}: the \code{$write()}
+\item A \link[=RecordBatchWriter]{arrow::RecordBatchWriter}: the \verb{$write()}
 of \code{x} is used. The stream is left open. This uses the streaming format
 or the binary file format depending on the type of the writer.
 \item A string file path: \code{x} is serialized with

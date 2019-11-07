@@ -4,8 +4,12 @@
 \alias{cast_options}
 \title{Cast options}
 \usage{
-cast_options(safe = TRUE, allow_int_overflow = !safe,
-  allow_time_truncate = !safe, allow_float_truncate = !safe)
+cast_options(
+  safe = TRUE,
+  allow_int_overflow = !safe,
+  allow_time_truncate = !safe,
+  allow_float_truncate = !safe
+)
 }
 \arguments{
 \item{safe}{enforce safe conversion}

@@ -15,7 +15,7 @@ to another implementation after prepending a fixed base path
 \section{Factory}{
 
 
-The \code{$create()} factory methods instantiate the \code{FileSystem} object and
+The \verb{$create()} factory methods instantiate the \code{FileSystem} object and
 take the following arguments, depending on the subclass:
 \itemize{
 \item no argument is needed for instantiating a \code{LocalFileSystem}
@@ -26,33 +26,32 @@ take the following arguments, depending on the subclass:
 \section{Methods}{
 
 \itemize{
-\item \code{$GetTargetStats(x)}: \code{x} may be a \link{Selector} or a character
+\item \verb{$GetTargetStats(x)}: \code{x} may be a \link{Selector} or a character
 vector of paths. Returns a list of \link{FileStats}
-\item \code{$CreateDir(path, recursive = TRUE)}: Create a directory and subdirectories.
-\item \code{$DeleteDir(path)}: Delete a directory and its contents, recursively.
-\item \code{$DeleteDirContents(path)}: Delete a directory's contents, recursively.
-Like \code{$DeleteDir()},
+\item \verb{$CreateDir(path, recursive = TRUE)}: Create a directory and subdirectories.
+\item \verb{$DeleteDir(path)}: Delete a directory and its contents, recursively.
+\item \verb{$DeleteDirContents(path)}: Delete a directory's contents, recursively.
+Like \verb{$DeleteDir()},
 but doesn't delete the directory itself. Passing an empty path (\code{""}) will
 wipe the entire filesystem tree.
-\item \code{$DeleteFile(path)} : Delete a file.
-\item \code{$DeleteFiles(paths)} : Delete many files. The default implementation
+\item \verb{$DeleteFile(path)} : Delete a file.
+\item \verb{$DeleteFiles(paths)} : Delete many files. The default implementation
 issues individual delete operations in sequence.
-\item \code{$Move(src, dest)}: Move / rename a file or directory. If the destination
+\item \verb{$Move(src, dest)}: Move / rename a file or directory. If the destination
 exists:
 if it is a non-empty directory, an error is returned
 otherwise, if it has the same type as the source, it is replaced
 otherwise, behavior is unspecified (implementation-dependent).
-\item \code{$CopyFile(src, dest)}: Copy a file. If the destination exists and is a
+\item \verb{$CopyFile(src, dest)}: Copy a file. If the destination exists and is a
 directory, an error is returned. Otherwise, it is replaced.
-\item \code{$OpenInputStream(path)}: Open an \link[=InputStream]{input stream} for
+\item \verb{$OpenInputStream(path)}: Open an \link[=InputStream]{input stream} for
 sequential reading.
-\item \code{$OpenInputFile(path)}: Open an \link[=RandomAccessFile]{input file} for random
+\item \verb{$OpenInputFile(path)}: Open an \link[=RandomAccessFile]{input file} for random
 access reading.
-\item \code{$OpenOutputStream(path)}: Open an \link[=OutputStream]{output stream} for
+\item \verb{$OpenOutputStream(path)}: Open an \link[=OutputStream]{output stream} for
 sequential writing.
-\item \code{$OpenAppendStream(path)}: Open an \link[=OutputStream]{output stream} for
+\item \verb{$OpenAppendStream(path)}: Open an \link[=OutputStream]{output stream} for
 appending.
 }
 }
 
-\keyword{datasets}

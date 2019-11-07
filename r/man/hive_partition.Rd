@@ -14,8 +14,8 @@ A \code{HivePartitionScheme}
 }
 \description{
 Hive partitioning embeds field names and values in path segments, such as
-"/year=2019/month=2/data.parquet". A \code{HivePartitionScheme} is used to parse
-that in Dataset creation.
+"/year=2019/month=2/data.parquet". A \link[=PartitionScheme]{HivePartitionScheme}
+is used to parse that in Dataset creation.
 }
 \details{
 Because fields are named in the path segments, order of fields passed to

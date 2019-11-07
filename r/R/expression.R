@@ -38,6 +38,30 @@ print.array_expression <- function(x, ...) print(as.vector(x))
 
 ###########
 
+#' Arrow expressions
+#'
+#' @description
+#' `Expression`s are used to define filter logic for passing to a [Dataset]
+#' [Scanner]. `FieldExpression`s refer to columns in the `Dataset` and are
+#' compared to `ScalarExpression`s using `ComparisonExpression`s.
+#' `ComparisonExpression`s may be combined with `AndExpression` or
+#' `OrExpression` and negated with `NotExpression`.
+#'
+#' @section Factory:
+#' `FieldExpression$create(name)` takes a string name as input. This string should
+#' refer to a column in a `Dataset` at the time it is evaluated, but you can
+#' construct a `FieldExpression` independently of any `Dataset`.
+#'
+#' `ScalarExpression$create(x)` takes a scalar (length-1) R value as input.
+#'
+#' `ComparisonExpression$create(OP, e1, e2)` takes a string operator name
+#' (e.g. "==", "!=", ">", etc.) and two `Expression` objects.
+#'
+#' `AndExpression$create(e1, e2)` and `OrExpression$create(e1, e2)` take
+#' two `Expression` objects, while `NotExpression$create(e1)` takes a single
+#' `Expression`. 
+#' @name Expression
+#' @rdname Expression
 #' @export
 Expression <- R6Class("Expression", inherit = Object,
   public = list(
@@ -45,6 +69,9 @@ Expression <- R6Class("Expression", inherit = Object,
   )
 )
 
+#' @usage NULL
+#' @format NULL
+#' @rdname Expression
 #' @export
 FieldExpression <- R6Class("FieldExpression", inherit = Expression)
 FieldExpression$create <- function(name) {
@@ -53,12 +80,18 @@ FieldExpression$create <- function(name) {
   shared_ptr(FieldExpression, dataset___expr__field_ref(name))
 }
 
+#' @usage NULL
+#' @format NULL
+#' @rdname Expression
 #' @export
 ScalarExpression <- R6Class("ScalarExpression", inherit = Expression)
 ScalarExpression$create <- function(x) {
   shared_ptr(ScalarExpression, dataset___expr__scalar(x))
 }
 
+#' @usage NULL
+#' @format NULL
+#' @rdname Expression
 #' @export
 ComparisonExpression <- R6Class("ComparisonExpression", inherit = Expression)
 ComparisonExpression$create <- function(OP, e1, e2) {
@@ -78,16 +111,25 @@ comparison_function_map <- list(
   "<=" = dataset___expr__less_equal
 )
 
+#' @usage NULL
+#' @format NULL
+#' @rdname Expression
 #' @export
 AndExpression <- R6Class("AndExpression", inherit = Expression)
 AndExpression$create <- function(e1, e2) {
   shared_ptr(AndExpression, dataset___expr__and(e1, e2))
 }
+#' @usage NULL
+#' @format NULL
+#' @rdname Expression
 #' @export
 OrExpression <- R6Class("OrExpression", inherit = Expression)
 OrExpression$create <- function(e1, e2) {
   shared_ptr(OrExpression, dataset___expr__or(e1, e2))
 }
+#' @usage NULL
+#' @format NULL
+#' @rdname Expression
 #' @export
 NotExpression <- R6Class("NotExpression", inherit = Expression)
 NotExpression$create <- function(e1) {

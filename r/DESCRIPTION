@@ -36,8 +36,8 @@ Imports:
     tidyselect,
     utils,
     vctrs
-Roxygen: list(markdown = TRUE)
-RoxygenNote: 6.1.1
+Roxygen: list(markdown = TRUE, r6 = FALSE, load = "source")
+RoxygenNote: 6.1.99.9001
 VignetteBuilder: knitr
 Suggests:
     covr,

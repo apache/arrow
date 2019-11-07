@@ -31,6 +31,7 @@
 #' @return A [Dataset] R6 object. Use `dplyr` methods on it to query the data,
 #' or call `$NewScan()` to construct a query directly.
 #' @export
+#' @seealso [PartitionScheme] for defining partitioning
 #' @include arrow-package.R
 open_dataset <- function (path, schema = NULL, partition = NULL, ...) {
   dsd <- DataSourceDiscovery$create(path, ...)
@@ -47,12 +48,35 @@ open_dataset <- function (path, schema = NULL, partition = NULL, ...) {
   Dataset$create(list(dsd$Finish()), schema)
 }
 
+#' Multi-file datasets
+#'
+#' @description
+#' Arrow Datasets allow you to query against data that has been split across
+#' multiple files. This sharding of data may indicate partitioning, which
+#' can accelerate queries that only touch some partitions (files).
+#'
+#' @section Factory:
+#' The `Dataset$create()` factory method instantiates a `Dataset` and
+#' takes the following arguments:
+#' * `sources`: a list of [DataSource] objects
+#' * `schema`: a [Schema]
+#' @section Methods:
+#'
+#' - `$NewScan()`: Returns a [ScannerBuilder] for building a query
+#' - `$schema`: Active binding, returns the [Schema] of the Dataset
 #' @export
+#' @seealso [open_dataset()] for a simple way to create a Dataset that has a
+#' single `DataSource`.
 Dataset <- R6Class("Dataset", inherit = Object,
   public = list(
+    #' @description
+    #' Start a new scan of the data
+    #' @return A [ScannerBuilder]
     NewScan = function() unique_ptr(ScannerBuilder, dataset___Dataset__NewScan(self))
   ),
   active = list(
+    #' @description
+    #' Return the Dataset's `Schema`
     schema = function() shared_ptr(Schema, dataset___Dataset__schema(self))
   )
 )
@@ -65,9 +89,50 @@ Dataset$create <- function(sources, schema) {
 #' @export
 names.Dataset <- function(x) names(x$schema)
 
+#' Data sources for a Dataset
+#'
+#' @description
+#' A [Dataset] can have one or more `DataSource`s. A `DataSource` contains one
+#' or more `DataFragments`, such as files, of a common type and partition
+#' scheme. `DataSourceDiscovery` is used to create a `DataSource`, inspect the
+#' [Schema] of the fragments contained in it, and declare a partition scheme.
+#' `FileSystemDataSourceDiscovery` is a subclass of `DataSourceDiscovery` for
+#' discovering files in the local file system, the only currently supported
+#' file system.
+#' @section Factory:
+#' The `DataSourceDiscovery$create()` factory method instantiates a
+#' `DataSourceDiscovery` and takes the following arguments:
+#' * `path`: A string file path containing data files
+#' * `filesystem`: Currently only "local" is supported
+#' * `format`: Currently only "parquet" is supported
+#' * `allow_non_existent`: logical: is `path` allowed to not exist? Default
+#' `FALSE`. See [Selector].
+#' * `recursive`: logical: should files be discovered in subdirectories of
+#' * `path`? Default `TRUE`.
+#' * `...` Additional arguments passed to the [FileSystem] `$create()` method
+#'
+#' `FileSystemDataSourceDiscovery$create()` is a lower-level factory method and
+#' takes the following arguments:
+#' * `filesystem`: A [FileSystem]
+#' * `selector`: A [Selector]
+#' * `format`: Currently only "parquet" is supported
+#' @section Methods:
+#' `DataSource` has no defined methods. It is just passed to `Dataset$create()`.
+#'
+#' `DataSourceDiscovery` and its subclasses have the following methods:
+#'
+#' - `$Inspect()`: Walks the files in the directory and returns a common [Schema]
+#' - `$SetPartitionScheme(part)`: Takes a [PartitionScheme]
+#' - `$Finish()`: Returns a `DataSource`
+#' @rdname DataSource
+#' @name DataSource
+#' @seealso [Dataset] for what do do with a `DataSource`
 #' @export
 DataSource <- R6Class("DataSource", inherit = Object)
 
+#' @usage NULL
+#' @format NULL
+#' @rdname DataSource
 #' @export
 DataSourceDiscovery <- R6Class("DataSourceDiscovery", inherit = Object,
   public = list(
@@ -106,15 +171,58 @@ DataSourceDiscovery$create <- function(path,
   FileSystemDataSourceDiscovery$create(filesystem, selector, format)
 }
 
+#' @usage NULL
+#' @format NULL
+#' @rdname DataSource
 #' @export
-FileSystemDataSourceDiscovery <- R6Class("FileSystemDataSourceDiscovery", inherit = DataSourceDiscovery)
-FileSystemDataSourceDiscovery$create <- function(filesystem, selector, format = "parquet") {
+FileSystemDataSourceDiscovery <- R6Class("FileSystemDataSourceDiscovery",
+  inherit = DataSourceDiscovery
+)
+FileSystemDataSourceDiscovery$create <- function(filesystem,
+                                                 selector,
+                                                 format = "parquet") {
   assert_is(filesystem, "FileSystem")
   assert_is(selector, "Selector")
   format <- match.arg(format) # Only parquet for now
-  shared_ptr(FileSystemDataSourceDiscovery, dataset___FSDSDiscovery__Make(filesystem, selector))
+  shared_ptr(
+    FileSystemDataSourceDiscovery,
+    dataset___FSDSDiscovery__Make(filesystem, selector)
+  )
 }
 
+#' Scan the contents of a dataset
+#'
+#' @description
+#' A `Scanner` iterates over a [Dataset]'s data fragments and returns data
+#' according to given row filtering and column projection. Use a
+#' `ScannerBuilder`, from a `Dataset`'s `$NewScan()` method, to construct one.
+#'
+#' @section Methods:
+#' `ScannerBuilder` has the following methods:
+#'
+#' - `$Project(cols)`: Indicate that the scan should only return columns given
+#' by `cols`, a character vector of column names
+#' - `$Filter(expr)`: Filter rows by an [Expression].
+#' - `$UseThreads(threads)`: logical: should the scan use multithreading?
+#' The method's default input is `TRUE`, but you must call the method to enable
+#' multithreading because the scanner default is `FALSE`.
+#' - `$schema`: Active binding, returns the [Schema] of the Dataset
+#' - `$Finish()`: Returns a `Scanner`
+#'
+#' `Scanner` currently has a single method, `$ToTable()`, which evaluates the
+#' query and returns an Arrow [Table].
+#' @rdname Scanner
+#' @name Scanner
+#' @export
+Scanner <- R6Class("Scanner", inherit = Object,
+  public = list(
+    ToTable = function() shared_ptr(Table, dataset___Scanner__ToTable(self))
+  )
+)
+
+#' @usage NULL
+#' @format NULL
+#' @rdname Scanner
 #' @export
 ScannerBuilder <- R6Class("ScannerBuilder", inherit = Object,
   public = list(
@@ -142,19 +250,44 @@ ScannerBuilder <- R6Class("ScannerBuilder", inherit = Object,
 #' @export
 names.ScannerBuilder <- function(x) names(x$schema)
 
+#' Define a partition scheme for a DataSource
+#'
+#' @description
+#' Pass a `PartitionScheme` to a [DataSourceDiscovery]'s `$SetPartitionScheme()`
+#' method to indicate how the file's paths should be interpreted to define
+#' partitioning.
+#'
+#' A `SchemaPartitionScheme` describes how to interpret raw path segments, in
+#' order. For example, `schema(year = int16(), month = int8())` would define
+#' partitions for file paths like "2019/01/file.parquet",
+#' "2019/02/file.parquet", etc.
+#'
+#' A `HivePartitionScheme` is for Hive-style partitioning, which embeds field
+#' names and values in path segments, such as
+#' "/year=2019/month=2/data.parquet". Because fields are named in the path
+#' segments, order does not matter.
+#' @section Factory:
+#' Both `SchemaPartitionScheme$create()` and `HivePartitionScheme$create()`
+#' factory methods take a [Schema] as a single input argument. The helper
+#' function `hive_partition(...)` is shorthand for
+#' `HivePartitionScheme$create(schema(...))`.
+#' @name PartitionScheme
+#' @rdname PartitionScheme
 #' @export
-Scanner <- R6Class("Scanner", inherit = Object,
-  public = list(
-    ToTable = function() shared_ptr(Table, dataset___Scanner__ToTable(self))
-  )
-)
-
 PartitionScheme <- R6Class("PartitionScheme", inherit = Object)
+#' @usage NULL
+#' @format NULL
+#' @rdname PartitionScheme
+#' @export
 SchemaPartitionScheme <- R6Class("SchemaPartitionScheme", inherit = PartitionScheme)
 SchemaPartitionScheme$create <- function(schema) {
   shared_ptr(SchemaPartitionScheme, dataset___SchemaPartitionScheme(schema))
 }
 
+#' @usage NULL
+#' @format NULL
+#' @rdname PartitionScheme
+#' @export
 HivePartitionScheme <- R6Class("HivePartitionScheme", inherit = PartitionScheme)
 HivePartitionScheme$create <- function(schema) {
   shared_ptr(HivePartitionScheme, dataset___HivePartitionScheme(schema))
@@ -163,8 +296,8 @@ HivePartitionScheme$create <- function(schema) {
 #' Construct a Hive partition scheme
 #'
 #' Hive partitioning embeds field names and values in path segments, such as
-#' "/year=2019/month=2/data.parquet". A `HivePartitionScheme` is used to parse
-#' that in Dataset creation.
+#' "/year=2019/month=2/data.parquet". A [HivePartitionScheme][PartitionScheme]
+#' is used to parse that in Dataset creation.
 #'
 #' Because fields are named in the path segments, order of fields passed to
 #' `hive_partition()` does not matter.
