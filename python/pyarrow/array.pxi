@@ -1255,12 +1255,17 @@ cdef class LargeListArray(Array):
         return result
 
     @property
+    def values(self):
+        return self.flatten()
+
+    @property
     def offsets(self):
         """
         Return the offsets as an int64 array.
         """
         return Array.from_buffers(
-            int64(), len(self) + 1, [None, self.buffers()[1]])
+            int64(), len(self) + 1, [None, self.buffers()[1]],
+            offset=self.offset)
 
     def flatten(self):
         """

@@ -1619,10 +1619,10 @@ def test_large_list_array_flatten():
     assert arr2.offsets.equals(offsets2)
 
 
-def test_list_array_values_offsets_sliced():
+@pytest.mark.parametrize('klass', [pa.ListArray, pa.LargeListArray])
+def test_list_array_values_offsets_sliced(klass):
     # ARROW-7301
-    arr = pa.ListArray.from_arrays(offsets=[0, 3, 4, 6],
-                                   values=[1, 2, 3, 4, 5, 6])
+    arr = klass.from_arrays(offsets=[0, 3, 4, 6], values=[1, 2, 3, 4, 5, 6])
     assert arr.values.to_pylist() == [1, 2, 3, 4, 5, 6]
     assert arr.offsets.to_pylist() == [0, 3, 4, 6]
 
