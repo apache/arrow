@@ -19,33 +19,6 @@
 
 #if defined(ARROW_R_WITH_ARROW)
 
-// // [[arrow::export]]
-// std::shared_ptr<arrow::dataset::ScanTaskIterator> dataset___DataFragment__Scan(const
-// std::shared_ptr<arrow::dataset::DataFragment>& fragment, const
-// std::shared_ptr<arrow::dataset::ScanContext>& scan_context) {
-//   std::shared_ptr<arrow::dataset::ScanTaskIterator> iterator;
-//   fragment->Scan(scan_context, iterator.get());
-//   return iterator;
-// }
-
-// [[arrow::export]]
-bool dataset___DataFragment__splittable(
-    const std::shared_ptr<arrow::dataset::DataFragment>& fragment) {
-  return fragment->splittable();
-}
-
-// [[arrow::export]]
-std::shared_ptr<arrow::dataset::ScanOptions> dataset___DataFragment__scan_options(
-    const std::shared_ptr<arrow::dataset::DataFragment>& fragment) {
-  return fragment->scan_options();
-}
-
-// [[arrow::export]]
-std::shared_ptr<arrow::dataset::SimpleDataFragment> dataset___SimpleDataFragment__create(
-    const std::vector<std::shared_ptr<arrow::RecordBatch>>& batches) {
-  return std::make_shared<arrow::dataset::SimpleDataFragment>(batches);
-}
-
 // [[arrow::export]]
 std::shared_ptr<arrow::dataset::DataSourceDiscovery> dataset___FSDSDiscovery__Make(
     const std::shared_ptr<arrow::fs::FileSystem>& fs,
@@ -131,8 +104,7 @@ void dataset___ScannerBuilder__Filter(
 
 // [[arrow::export]]
 void dataset___ScannerBuilder__UseThreads(
-    const std::unique_ptr<arrow::dataset::ScannerBuilder>& sb,
-    bool threads) {
+    const std::unique_ptr<arrow::dataset::ScannerBuilder>& sb, bool threads) {
   STOP_IF_NOT_OK(sb->UseThreads(threads));
 }
 

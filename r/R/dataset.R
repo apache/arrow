@@ -178,14 +178,3 @@ hive_partition <- function(...) {
   schm <- schema(...)
   HivePartitionScheme$create(schm)
 }
-
-ScanOptions <- R6Class("ScanOptions", inherit = Object)
-ScanContext <- R6Class("ScanContext", inherit = Object)
-DataFragment <- R6Class("DataFragment", inherit = Object,
-  public = list(
-    splittable = function() dataset___DataFragment__splittable(self),
-    scan_options = function() {
-      shared_ptr(ScanOptions, dataset___DataFragment__scan_options(self))
-    }
-  )
-)

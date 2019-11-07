@@ -340,18 +340,6 @@ csv___TableReader__Read <- function(table_reader){
     .Call(`_arrow_csv___TableReader__Read` , table_reader)
 }
 
-dataset___DataFragment__splittable <- function(fragment){
-    .Call(`_arrow_dataset___DataFragment__splittable` , fragment)
-}
-
-dataset___DataFragment__scan_options <- function(fragment){
-    .Call(`_arrow_dataset___DataFragment__scan_options` , fragment)
-}
-
-dataset___SimpleDataFragment__create <- function(batches){
-    .Call(`_arrow_dataset___SimpleDataFragment__create` , batches)
-}
-
 dataset___FSDSDiscovery__Make <- function(fs, selector){
     .Call(`_arrow_dataset___FSDSDiscovery__Make` , fs, selector)
 }

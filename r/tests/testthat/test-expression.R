@@ -26,7 +26,7 @@ test_that("Recursive expression generation", {
   expect_is(a == 4 | a == 3, "array_expression")
 })
 
-test_that("as.vector(rexpression)", {
+test_that("as.vector(array_expression)", {
   a <- Array$create(1:5)
   expect_equal(as.vector(a + 4), 5:9)
   expect_equal(as.vector(a == 4 | a == 3), c(FALSE, FALSE, TRUE, TRUE, FALSE))

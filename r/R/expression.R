@@ -61,10 +61,10 @@ ScalarExpression$create <- function(x) {
 
 #' @export
 ComparisonExpression <- R6Class("ComparisonExpression", inherit = Expression)
-ComparisonExpression$create <- function(FUN, e1, e2) {
-  comp_func <- comparison_function_map[[FUN]]
+ComparisonExpression$create <- function(OP, e1, e2) {
+  comp_func <- comparison_function_map[[OP]]
   if (is.null(comp_func)) {
-    stop(FUN, " is not a supported comparison function", call. = FALSE)
+    stop(OP, " is not a supported comparison function", call. = FALSE)
   }
   shared_ptr(ComparisonExpression, comp_func(e1, e2))
 }

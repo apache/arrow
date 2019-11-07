@@ -20,7 +20,8 @@
 #if defined(ARROW_R_WITH_ARROW)
 
 // [[arrow::export]]
-std::shared_ptr<arrow::dataset::FieldExpression> dataset___expr__field_ref(std::string name) {
+std::shared_ptr<arrow::dataset::FieldExpression> dataset___expr__field_ref(
+    std::string name) {
   return std::make_shared<arrow::dataset::FieldExpression>(std::move(name));
 }
 
@@ -104,7 +105,8 @@ std::shared_ptr<arrow::dataset::ScalarExpression> dataset___expr__scalar(SEXP x)
 }
 
 // [[arrow::export]]
-std::string dataset___expr__ToString(const std::shared_ptr<arrow::dataset::Expression>& x) {
+std::string dataset___expr__ToString(
+    const std::shared_ptr<arrow::dataset::Expression>& x) {
   return x->ToString();
 }
 
