@@ -19,7 +19,19 @@ name: Integration
 
 on:
   push:
+    paths:
+      - 'go/**'
+      - 'js/**'
+      - 'cpp/**'
+      - 'java/**'
+      - 'format/**'
   pull_request:
+    paths:
+      - 'go/**'
+      - 'js/**'
+      - 'cpp/**'
+      - 'java/**'
+      - 'format/**'
 
 jobs:
 

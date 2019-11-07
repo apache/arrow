@@ -19,11 +19,11 @@ name: Go
 
 on:
   push:
-  #   paths:
-  #     - 'go/**'
+    paths:
+      - 'go/**'
   pull_request:
-  #   paths:
-  #     - 'go/**'
+    paths:
+      - 'go/**'
 
 jobs:
   docker:

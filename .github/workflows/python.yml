@@ -19,13 +19,13 @@ name: Python
 
 on:
   push:
-    # paths:
-    #   - 'cpp/**'
-    #   - 'python/**'
+    paths:
+      - 'cpp/**'
+      - 'python/**'
   pull_request:
-    # paths:
-    #   - 'cpp/**'
-    #   - 'python/**'
+    paths:
+      - 'cpp/**'
+      - 'python/**'
 
 jobs:
 

@@ -19,11 +19,11 @@ name: NodeJS
 
 on:
   push:
-  #   paths:
-  #     - 'js/**'
+    paths:
+      - 'js/**'
   pull_request:
-  #   paths:
-  #     - 'js/**'
+    paths:
+      - 'js/**'
 
 jobs:
   docker:

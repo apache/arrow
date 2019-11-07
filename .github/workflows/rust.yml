@@ -19,11 +19,11 @@ name: Rust
 
 on:
   push:
-  #   paths:
-  #     - 'rust/**'
+    paths:
+      - 'rust/**'
   pull_request:
-  #   paths:
-  #     - 'rust/**'
+    paths:
+      - 'rust/**'
 
 jobs:
   docker:

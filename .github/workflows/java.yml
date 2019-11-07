@@ -19,13 +19,13 @@ name: Java
 
 on:
   push:
-  #   paths:
-  #     - 'cpp/**'
-  #     - 'java/**'
+    paths:
+      - 'cpp/**'
+      - 'java/**'
   pull_request:
-  #   paths:
-  #     - 'cpp/**'
-  #     - 'java/**'
+    paths:
+      - 'cpp/**'
+      - 'java/**'
 
 jobs:
 

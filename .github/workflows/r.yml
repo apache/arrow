@@ -19,13 +19,13 @@ name: R
 
 on:
   push:
-    # paths:
-    #   - 'cpp/**'
-    #   - 'r/**'
+    paths:
+      - 'cpp/**'
+      - 'r/**'
   pull_request:
-    # paths:
-    #   - 'cpp/**'
-    #   - 'r/**'
+    paths:
+      - 'cpp/**'
+      - 'r/**'
 
 jobs:
 

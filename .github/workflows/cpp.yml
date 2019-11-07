@@ -20,11 +20,11 @@ name: C++
 
 on:
   push:
-    # paths:
-    #  - 'cpp/**'
+    paths:
+      - 'cpp/**'
   pull_request:
-    # paths:
-    #   - 'cpp/**'
+    paths:
+      - 'cpp/**'
 
 jobs:
 

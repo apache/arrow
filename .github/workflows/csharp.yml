@@ -19,11 +19,11 @@ name: C#
 
 on:
   push:
-  #   paths:
-  #     - 'csharp/**'
+    paths:
+      - 'csharp/**'
   pull_request:
-  #   paths:
-  #     - 'csharp/**'
+    paths:
+      - 'csharp/**'
 
 jobs:
   # the docker container fails to run because of the ubuntu host versions, see
