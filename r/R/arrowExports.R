@@ -364,8 +364,16 @@ dataset___DSDiscovery__Inspect <- function(discovery){
     .Call(`_arrow_dataset___DSDiscovery__Inspect` , discovery)
 }
 
-dataset___DSDiscovery__SetPartitionScheme <- function(discovery, schm){
-    invisible(.Call(`_arrow_dataset___DSDiscovery__SetPartitionScheme` , discovery, schm))
+dataset___DSDiscovery__SetPartitionScheme <- function(discovery, part){
+    invisible(.Call(`_arrow_dataset___DSDiscovery__SetPartitionScheme` , discovery, part))
+}
+
+dataset___SchemaPartitionScheme <- function(schm){
+    .Call(`_arrow_dataset___SchemaPartitionScheme` , schm)
+}
+
+dataset___HivePartitionScheme <- function(schm){
+    .Call(`_arrow_dataset___HivePartitionScheme` , schm)
 }
 
 dataset___Dataset__create <- function(sources, schm){

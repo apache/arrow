@@ -15,24 +15,33 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
-
 #' Open a multi-file dataset
 #'
 #' @param path String path to a directory containing the data files
 #' @param schema [Schema] for the dataset. If `NULL` (the default), the schema
 #' will be inferred from the files
-#' @param partition schema
+#' @param partition One of
+#'   * A `Schema`, in which case the file paths relative to `path` will be
+#'    parsed, and path segments will be matched with the schema fields. For
+#'    example, `schema(year = int16(), month = int8())` would create partitions
+#'    for file paths like "2019/01/file.parquet", "2019/02/file.parquet", etc.
+#'   * A `HivePartitionScheme`, as returned by [hive_partition()]
+#'   * `NULL`, the default, for no partitioning
 #' @param ... additional arguments passed to `DataSourceDiscovery$create()`
 #' @return A [Dataset] R6 object. Use `dplyr` methods on it to query the data,
 #' or call `$NewScan()` to construct a query directly.
 #' @export
+#' @include arrow-package.R
 open_dataset <- function (path, schema = NULL, partition = NULL, ...) {
   dsd <- DataSourceDiscovery$create(path, ...)
   if (is.null(schema)) {
     schema <- dsd$Inspect()
   }
   if (!is.null(partition)) {
+    if (inherits(partition, "Schema")) {
+      partition <- SchemaPartitionScheme$create(partition)
+    }
+    assert_is(partition, "PartitionScheme")
     dsd$SetPartitionScheme(partition)
   }
   Dataset$create(list(dsd$Finish()), schema)
@@ -63,9 +72,9 @@ DataSource <- R6Class("DataSource", inherit = Object)
 DataSourceDiscovery <- R6Class("DataSourceDiscovery", inherit = Object,
   public = list(
     Finish = function() shared_ptr(DataSource, dataset___DSDiscovery__Finish(self)),
-    SetPartitionScheme = function(schema) {
-      assert_is(schema, "Schema")
-      dataset___DSDiscovery__SetPartitionScheme(self, schema)
+    SetPartitionScheme = function(part) {
+      assert_is(part, "PartitionScheme")
+      dataset___DSDiscovery__SetPartitionScheme(self, part)
       self
     },
     Inspect = function() shared_ptr(Schema, dataset___DSDiscovery__Inspect(self))
@@ -88,7 +97,11 @@ DataSourceDiscovery$create <- function(path,
       # We'll register other file systems here
     )[[filesystem]]$create(...)
   }
-  selector <- Selector$create(path, allow_non_existent = allow_non_existent, recursive = recursive)
+  selector <- Selector$create(
+    path,
+    allow_non_existent = allow_non_existent,
+    recursive = recursive
+  )
   # This may also require different initializers
   FileSystemDataSourceDiscovery$create(filesystem, selector, format)
 }
@@ -135,6 +148,36 @@ Scanner <- R6Class("Scanner", inherit = Object,
     ToTable = function() shared_ptr(Table, dataset___Scanner__ToTable(self))
   )
 )
+
+PartitionScheme <- R6Class("PartitionScheme", inherit = Object)
+SchemaPartitionScheme <- R6Class("SchemaPartitionScheme", inherit = PartitionScheme)
+SchemaPartitionScheme$create <- function(schema) {
+  shared_ptr(SchemaPartitionScheme, dataset___SchemaPartitionScheme(schema))
+}
+
+HivePartitionScheme <- R6Class("HivePartitionScheme", inherit = PartitionScheme)
+HivePartitionScheme$create <- function(schema) {
+  shared_ptr(HivePartitionScheme, dataset___HivePartitionScheme(schema))
+}
+
+#' Construct a Hive partition scheme
+#'
+#' Hive partitioning embeds field names and values in path segments, such as
+#' "/year=2019/month=2/data.parquet". A `HivePartitionScheme` is used to parse
+#' that in Dataset creation.
+#'
+#' Because fields are named in the path segments, order of fields passed to
+#' `hive_partition()` does not matter.
+#' @param ... named list of [data types][data-type], passed to [schema()]
+#' @return A `HivePartitionScheme`
+#' @examples
+#' \donttest{
+#' hive_partition(year = int16(), month = int8())
+#' }
+hive_partition <- function(...) {
+  schm <- schema(...)
+  HivePartitionScheme$create(schm)
+}
 
 ScanOptions <- R6Class("ScanOptions", inherit = Object)
 ScanContext <- R6Class("ScanContext", inherit = Object)

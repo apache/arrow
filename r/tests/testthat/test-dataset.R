@@ -22,6 +22,9 @@ library(dplyr)
 dataset_dir <- tempfile()
 dir.create(dataset_dir)
 
+hive_dir <- tempfile()
+dir.create(hive_dir)
+
 df1 <- tibble(
   int = 1:10,
   dbl = as.numeric(1:10),
@@ -45,16 +48,22 @@ test_that("Setup (putting data in the dir)", {
   write_parquet(df1, file.path(dataset_dir, 1, "file1.parquet"))
   write_parquet(df2, file.path(dataset_dir, 2, "file2.parquet"))
   expect_length(dir(dataset_dir, recursive = TRUE), 2)
+
+  dir.create(file.path(hive_dir, "subdir", "group=1", "other=xxx"), recursive = TRUE)
+  dir.create(file.path(hive_dir, "subdir", "group=2", "other=yyy"), recursive = TRUE)
+  write_parquet(df1, file.path(hive_dir, "subdir", "group=1", "other=xxx", "file1.parquet"))
+  write_parquet(df2, file.path(hive_dir, "subdir", "group=2", "other=yyy", "file2.parquet"))
+  expect_length(dir(hive_dir, recursive = TRUE), 2)
 })
 
 test_that("Simple interface for datasets", {
-  ds <- open_dataset(dataset_dir)
+  ds <- open_dataset(dataset_dir, partition = schema(part = uint8()))
   expect_is(ds, "Dataset")
   expect_equivalent(
     ds %>%
       select(chr, dbl) %>%
       filter(dbl > 7 & dbl < 53) %>%
-      collect(),
+      arrange(dbl),
     rbind(
       df1[8:10, c("chr", "dbl")],
       df2[1:2, c("chr", "dbl")]
@@ -73,6 +82,21 @@ test_that("Simple interface for datasets", {
   )
 })
 
+test_that("Hive partitioning", {
+  ds <- open_dataset(hive_dir, partition = hive_partition(other = utf8(), group = uint8()))
+  expect_is(ds, "Dataset")
+  expect_equivalent(
+    ds %>%
+      select(chr, dbl) %>%
+      filter(dbl > 7 & dbl < 53) %>%
+      arrange(dbl),
+    rbind(
+      df1[8:10, c("chr", "dbl")],
+      df2[1:2, c("chr", "dbl")]
+    )
+  )
+})
+
 test_that("Assembling a Dataset manually and getting a Table", {
   fs <- LocalFileSystem$create()
   selector <- Selector$create(dataset_dir, recursive = TRUE)
@@ -84,13 +108,13 @@ test_that("Assembling a Dataset manually and getting a Table", {
     schm,
     ParquetFileReader$create(file.path(dataset_dir, 1, "file1.parquet"))$GetSchema()
   )
-  # dsd$SetPartitionScheme(schema(part = double()))
-  # Invalid: error parsing 'var' as scalar of type double
+  dsd$SetPartitionScheme(SchemaPartitionScheme$create(schema(part = double())))
   datasource <- dsd$Finish()
   expect_is(datasource, "DataSource")
 
   ds <- Dataset$create(list(datasource), schm)
   expect_is(ds, "Dataset")
+  # TODO: this should fail when "part" is in the schema
   expect_equal(names(ds), names(df1))
 
   sb <- ds$NewScan()

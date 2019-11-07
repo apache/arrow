@@ -103,6 +103,7 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
     # TODO: if data_is_dataset, don't auto-collect?
     warning(
       "Filter expression not implemented in arrow, pulling data into R",
+      immediate. = TRUE,
       call. = FALSE
     )
     return(dplyr::filter(dplyr::collect(.data), ...))

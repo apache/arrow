@@ -1431,18 +1431,48 @@ RcppExport SEXP _arrow_dataset___DSDiscovery__Inspect(SEXP discovery_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void dataset___DSDiscovery__SetPartitionScheme(const std::shared_ptr<arrow::dataset::DataSourceDiscovery>& discovery, const std::shared_ptr<arrow::Schema>& schm);
-RcppExport SEXP _arrow_dataset___DSDiscovery__SetPartitionScheme(SEXP discovery_sexp, SEXP schm_sexp){
+void dataset___DSDiscovery__SetPartitionScheme(const std::shared_ptr<arrow::dataset::DataSourceDiscovery>& discovery, const std::shared_ptr<arrow::dataset::PartitionScheme>& part);
+RcppExport SEXP _arrow_dataset___DSDiscovery__SetPartitionScheme(SEXP discovery_sexp, SEXP part_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::DataSourceDiscovery>&>::type discovery(discovery_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
-	dataset___DSDiscovery__SetPartitionScheme(discovery, schm);
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::PartitionScheme>&>::type part(part_sexp);
+	dataset___DSDiscovery__SetPartitionScheme(discovery, part);
 	return R_NilValue;
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_dataset___DSDiscovery__SetPartitionScheme(SEXP discovery_sexp, SEXP schm_sexp){
+RcppExport SEXP _arrow_dataset___DSDiscovery__SetPartitionScheme(SEXP discovery_sexp, SEXP part_sexp){
 	Rf_error("Cannot call dataset___DSDiscovery__SetPartitionScheme(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::dataset::SchemaPartitionScheme> dataset___SchemaPartitionScheme(const std::shared_ptr<arrow::Schema>& schm);
+RcppExport SEXP _arrow_dataset___SchemaPartitionScheme(SEXP schm_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
+	return Rcpp::wrap(dataset___SchemaPartitionScheme(schm));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___SchemaPartitionScheme(SEXP schm_sexp){
+	Rf_error("Cannot call dataset___SchemaPartitionScheme(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::dataset::HivePartitionScheme> dataset___HivePartitionScheme(const std::shared_ptr<arrow::Schema>& schm);
+RcppExport SEXP _arrow_dataset___HivePartitionScheme(SEXP schm_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
+	return Rcpp::wrap(dataset___HivePartitionScheme(schm));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___HivePartitionScheme(SEXP schm_sexp){
+	Rf_error("Cannot call dataset___HivePartitionScheme(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
 
@@ -5543,6 +5573,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___DSDiscovery__Finish", (DL_FUNC) &_arrow_dataset___DSDiscovery__Finish, 1}, 
 		{ "_arrow_dataset___DSDiscovery__Inspect", (DL_FUNC) &_arrow_dataset___DSDiscovery__Inspect, 1}, 
 		{ "_arrow_dataset___DSDiscovery__SetPartitionScheme", (DL_FUNC) &_arrow_dataset___DSDiscovery__SetPartitionScheme, 2}, 
+		{ "_arrow_dataset___SchemaPartitionScheme", (DL_FUNC) &_arrow_dataset___SchemaPartitionScheme, 1}, 
+		{ "_arrow_dataset___HivePartitionScheme", (DL_FUNC) &_arrow_dataset___HivePartitionScheme, 1}, 
 		{ "_arrow_dataset___Dataset__create", (DL_FUNC) &_arrow_dataset___Dataset__create, 2}, 
 		{ "_arrow_dataset___Dataset__schema", (DL_FUNC) &_arrow_dataset___Dataset__schema, 1}, 
 		{ "_arrow_dataset___Dataset__NewScan", (DL_FUNC) &_arrow_dataset___Dataset__NewScan, 1}, 

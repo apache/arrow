@@ -78,9 +78,20 @@ std::shared_ptr<arrow::Schema> dataset___DSDiscovery__Inspect(
 // [[arrow::export]]
 void dataset___DSDiscovery__SetPartitionScheme(
     const std::shared_ptr<arrow::dataset::DataSourceDiscovery>& discovery,
+    const std::shared_ptr<arrow::dataset::PartitionScheme>& part) {
+  STOP_IF_NOT_OK(discovery->SetPartitionScheme(part));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::dataset::SchemaPartitionScheme> dataset___SchemaPartitionScheme(
     const std::shared_ptr<arrow::Schema>& schm) {
-  STOP_IF_NOT_OK(
-    discovery->SetPartitionScheme(std::make_shared<arrow::dataset::SchemaPartitionScheme>(schm)));
+  return std::make_shared<arrow::dataset::SchemaPartitionScheme>(schm);
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::dataset::HivePartitionScheme> dataset___HivePartitionScheme(
+    const std::shared_ptr<arrow::Schema>& schm) {
+  return std::make_shared<arrow::dataset::HivePartitionScheme>(schm);
 }
 
 // [[arrow::export]]
