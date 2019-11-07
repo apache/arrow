@@ -15,6 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>
+#include <vector>
+
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_util.h"
@@ -324,6 +327,10 @@ TEST(DeleteDirContents, Basics) {
   AssertExists(child1);
   AssertExists(child2);
 
+  // Cannot call DeleteDirContents on a file
+  ASSERT_RAISES(IOError, DeleteDirContents(child2));
+  AssertExists(child2);
+
   ASSERT_OK(DeleteDirContents(parent, &deleted));
   ASSERT_TRUE(deleted);
   AssertExists(parent);
@@ -334,7 +341,7 @@ TEST(DeleteDirContents, Basics) {
   AssertExists(parent);
 
   // It's not an error to call DeleteDirContents on a non-existent path.
-  ASSERT_OK(DeleteDirTree(child1, &deleted));
+  ASSERT_OK(DeleteDirContents(child1, &deleted));
   ASSERT_FALSE(deleted);
 }
 
@@ -388,6 +395,48 @@ TEST(CreateDirTree, Basics) {
   ASSERT_OK(temp_dir->path().Join("EF", &fn));
   ASSERT_OK(CreateDirTree(fn, &created));
   ASSERT_TRUE(created);
+}
+
+TEST(ListDir, Basics) {
+  std::unique_ptr<TemporaryDir> temp_dir;
+  PlatformFilename fn;
+  std::vector<PlatformFilename> entries;
+
+  auto check_entries = [](const std::vector<PlatformFilename>& entries,
+                          std::vector<std::string> expected) -> void {
+    std::vector<std::string> actual(entries.size());
+    std::transform(entries.begin(), entries.end(), actual.begin(),
+                   [](const PlatformFilename& fn) { return fn.ToString(); });
+    // Sort results for deterministic testing
+    std::sort(actual.begin(), actual.end());
+    ASSERT_EQ(actual, expected);
+  };
+
+  ASSERT_OK(TemporaryDir::Make("io-util-test-", &temp_dir));
+
+  ASSERT_OK(temp_dir->path().Join("AB/CD", &fn));
+  ASSERT_OK(CreateDirTree(fn));
+  ASSERT_OK(temp_dir->path().Join("AB/EF/GH", &fn));
+  ASSERT_OK(CreateDirTree(fn));
+  ASSERT_OK(temp_dir->path().Join("AB/ghi.txt", &fn));
+  int fd = -1;
+  ASSERT_OK(FileOpenWritable(fn, true /* write_only */, true /* truncate */,
+                             false /* append */, &fd));
+  ASSERT_OK(FileClose(fd));
+
+  ASSERT_OK(temp_dir->path().Join("AB", &fn));
+  ASSERT_OK(ListDir(fn, &entries));
+  ASSERT_EQ(entries.size(), 3);
+  check_entries(entries, {"CD", "EF", "ghi.txt"});
+  ASSERT_OK(temp_dir->path().Join("AB/EF/GH", &fn));
+  ASSERT_OK(ListDir(fn, &entries));
+  check_entries(entries, {});
+
+  // Errors
+  ASSERT_OK(temp_dir->path().Join("non-existent", &fn));
+  ASSERT_RAISES(IOError, ListDir(fn, &entries));
+  ASSERT_OK(temp_dir->path().Join("AB/ghi.txt", &fn));
+  ASSERT_RAISES(IOError, ListDir(fn, &entries));
 }
 
 TEST(DeleteFile, Basics) {
