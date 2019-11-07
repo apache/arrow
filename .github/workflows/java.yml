@@ -22,11 +22,9 @@ on:
     paths:
       - 'ci/**'
       - 'cpp/**'
-      - 'java/**'
   pull_request:
     paths:
       - 'ci/**'
-      - 'cpp/**'
       - 'java/**'
 
 jobs:
@@ -69,34 +67,6 @@ jobs:
             -u ${{ secrets.DOCKERHUB_USER }} \
             -p ${{ secrets.DOCKERHUB_TOKEN }}
           docker-compose push debian-java
-
-  docker-jni:
-    name: AMD64 Debian 9 Java JNI and Plasma
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v1
-        with:
-          submodules: true
-      - name: Docker Pull
-        run: |
-          docker-compose pull --ignore-pull-failures debian-java
-          docker-compose pull --ignore-pull-failures debian-java-jni
-      - name: Docker Build
-        run: |
-          docker-compose build debian-java
-          docker-compose build debian-java-jni
-      - name: Docker Run
-        run: |
-          docker-compose run debian-java-jni
-      - name: Docker Push
-        if: github.event_name == 'push' && github.ref == 'master'
-        shell: bash
-        run: |
-          docker login \
-            -u ${{ secrets.DOCKERHUB_USER }} \
-            -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push debian-java-jni
 
   macos:
     name: AMD64 MacOS 10.15 Java JDK ${{ matrix.jdk }}

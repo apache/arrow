@@ -17,8 +17,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# TODO(kszucs): port it
-
 # Check the ASV benchmarking setup.
 # Unfortunately this won't ensure that all benchmarks succeed
 # (see https://github.com/airspeed-velocity/asv/issues/449)

@@ -648,7 +648,9 @@ services:
         arch: ${ARCH}
         conda: latest
         jdk: ${JDK}
-        maven: ${MAVEN}
+        # conda-forge doesn't have 3.5.4 so pinning explicitly, but this should
+        # be set to ${MAVEN}
+        maven: 3.5
         node: ${NODE}
         go: ${GO}
     volumes: *conda-volumes
@@ -816,7 +818,10 @@ services:
       - ARROW_HDFS_TEST_PORT=8020
       - ARROW_HDFS_TEST_USER=hdfs
     shm_size: *shm-size
-    volumes: *conda-volumes
+    volumes: &conda-maven-volumes
+      - .:/arrow:delegated
+      - conda-latest-cache:/build:delegated
+      - maven-cache:/root/.m2:delegated
     entrypoint: *conda-entrypoint
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
@@ -846,9 +851,7 @@ services:
         maven: 3.5
         spark: ${SPARK}
     shm_size: *shm-size
-    volumes: *conda-volumes
-    # - maven-cache:/root/.m2:delegated
-    # - spark-cache:/spark:delegated
+    volumes: *conda-maven-volumes
     entrypoint: *conda-entrypoint
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&

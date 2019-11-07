@@ -15,52 +15,46 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: C#
+name: Java
 
 on:
   push:
     paths:
       - 'ci/**'
-      - 'csharp/**'
+      - 'cpp/**'
+      - 'java/**'
   pull_request:
     paths:
       - 'ci/**'
-      - 'csharp/**'
+      - 'cpp/**'
+      - 'java/**'
 
 jobs:
 
-  all-platforms:
-    name: AMD64 ${{ matrix.name }} C# ${{ matrix.dotnet }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - ubuntu-18.04
-          - macos-latest
-          - windows-latest
-        include:
-          - os: ubuntu-18.04
-            name: Ubuntu 18.04
-            dotnet: 2.2.103
-          - os: macos-latest
-            name: MacOS 10.15
-            dotnet: 2.2.103
-          - os: windows-latest
-            name: Windows 2019
-            dotnet: 2.2.103
+  docker-jni:
+    name: AMD64 Debian 9 Java JNI and Plasma
+    runs-on: ubuntu-latest
     steps:
-      - name: Install C#
-        uses: actions/setup-dotnet@v1
-        with:
-          dotnet-version: ${{ matrix.dotnet }}
       - name: Checkout Arrow
         uses: actions/checkout@v1
         with:
           submodules: true
-      - name: Build
+      - name: Docker Pull
+        run: |
+          docker-compose pull --ignore-pull-failures debian-java
+          docker-compose pull --ignore-pull-failures debian-java-jni
+      - name: Docker Build
+        run: |
+          docker-compose build debian-java
+          docker-compose build debian-java-jni
+      - name: Docker Run
+        run: |
+          docker-compose run debian-java-jni
+      - name: Docker Push
+        if: github.event_name == 'push' && github.ref == 'master'
         shell: bash
-        run: ci/scripts/csharp_build.sh $(pwd)
-      - name: Test
-        shell: bash
-        run: ci/scripts/csharp_test.sh $(pwd)
+        run: |
+          docker login \
+            -u ${{ secrets.DOCKERHUB_USER }} \
+            -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker-compose push debian-java-jni

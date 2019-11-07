@@ -30,10 +30,6 @@ RUN conda install -q \
         maven=${maven} && \
     conda clean --all
 
-# ENV MAVEN_HOME=/usr/local/maven \
-#     M2_HOME=/root/.m2 \
-#     PATH=/root/.m2/bin:/usr/local/maven/bin:$PATH
-
 # installing specific version of spark
 ARG spark=master
 RUN mkdir /spark && wget -q -O - https://github.com/apache/spark/archive/${spark}.tar.gz | tar -xzf - --strip-components=1 -C /spark

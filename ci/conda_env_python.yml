@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# don't add pandas here, because it is not a mandatory test dependency
 cython=0.29.7
 cloudpickle
 hypothesis

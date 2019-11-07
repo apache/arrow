@@ -79,12 +79,3 @@ ENV CC=gcc \
     ARROW_GANDIVA_JAVA=ON \
     ARROW_BUILD_TESTS=ON \
     ARROW_HOME=/usr/local
-
-# Gandiva test is failing with:
-# Running gandiva-internals-test, redirecting output into /build/cpp/build/test-logs/gandiva-internals-test.txt (attempt 1/1)
-# 1364
-# : CommandLine Error: Option 'x86-experimental-vector-widening-legalization' registered more than once!
-# 1365
-# LLVM ERROR: inconsistency in registered CommandLine options
-# 1366
-# /build/cpp/src/gandiva

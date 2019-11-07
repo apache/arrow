@@ -30,5 +30,3 @@ pushd ${build_dir}
 debug/hiveserver2-test
 
 popd
-
-
