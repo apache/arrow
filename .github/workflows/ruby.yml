@@ -20,11 +20,13 @@ name: C Glib & Ruby
 on:
   push:
     paths:
+      - 'ci/**'
       - 'cpp/**'
       - 'c_glib/**'
       - 'ruby/**'
   pull_request:
     paths:
+      - 'ci/**'
       - 'cpp/**'
       - 'c_glib/**'
       - 'ruby/**'
@@ -70,7 +72,7 @@ jobs:
         shell: bash
         run: docker-compose run ${{ matrix.platform }}-ruby
       - name: Docker Push
-        if: github.event_name == 'push' # && github.ref == 'master'
+        if: github.event_name == 'push' && github.ref == 'master'
         shell: bash
         run: |
           docker login \

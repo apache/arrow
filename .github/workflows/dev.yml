@@ -77,7 +77,7 @@ jobs:
       - name: Docker Run
         run: docker-compose run ubuntu-lint
       - name: Docker Push
-        if: github.event_name == 'push' # && github.ref == 'master'
+        if: github.event_name == 'push' && github.ref == 'master'
         shell: bash
         run: |
           docker login \
@@ -106,7 +106,7 @@ jobs:
       - name: Docker Run
         run: docker-compose run ubuntu-docs
       - name: Docker Push
-        if: github.event_name == 'push' # && github.ref == 'master'
+        if: github.event_name == 'push' && github.ref == 'master'
         shell: bash
         run: |
           docker login \

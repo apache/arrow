@@ -20,6 +20,7 @@ name: Integration
 on:
   push:
     paths:
+      - 'ci/**'
       - 'go/**'
       - 'js/**'
       - 'cpp/**'
@@ -27,6 +28,7 @@ on:
       - 'format/**'
   pull_request:
     paths:
+      - 'ci/**'
       - 'go/**'
       - 'js/**'
       - 'cpp/**'
@@ -56,7 +58,7 @@ jobs:
       - name: Docker Run
         run: docker-compose run conda-integration
       - name: Docker Push
-        if: github.event_name == 'push' # && github.ref == 'master'
+        if: github.event_name == 'push' && github.ref == 'master'
         shell: bash
         run: |
           docker login \

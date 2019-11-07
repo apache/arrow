@@ -21,9 +21,11 @@ name: C++
 on:
   push:
     paths:
+      - 'ci/**'
       - 'cpp/**'
   pull_request:
     paths:
+      - 'ci/**'
       - 'cpp/**'
 
 jobs:
@@ -37,7 +39,6 @@ jobs:
         image:
           - amd64-conda-latest-cpp
           - amd64-debian-10-cpp
-          # - amd64-ubuntu-16.04-cpp
           - amd64-ubuntu-18.04-cpp
           - amd64-ubuntu-18.04-cpp-cmake-3.2
           - amd64-fedora-29-cpp
@@ -49,11 +50,6 @@ jobs:
             image: amd64-debian-10-cpp
             service: debian-cpp
             debian: 10
-          # TODO(kszucs): earlier GCC has a compile error
-          # - name: AMD64 Ubuntu 16.04 C++
-          #   image: amd64-ubuntu-16.04-cpp
-          #   service: ubuntu-cpp
-          #   ubuntu: 16.04
           - name: AMD64 Ubuntu 18.04 C++
             image: amd64-ubuntu-18.04-cpp
             service: ubuntu-cpp
@@ -85,7 +81,7 @@ jobs:
         shell: bash
         run: docker-compose run ${{ matrix.service }}
       - name: Docker Push
-        if: github.event_name == 'push' # && github.ref == 'master'
+        if: github.event_name == 'push' && github.ref == 'master'
         shell: bash
         run: |
           docker login \
@@ -121,7 +117,6 @@ jobs:
           submodules: true
       - name: Install Dependencies
         shell: bash
-        # TODO(kszucs): consider to use run_brew from travis_install_osx.sh
         run: brew bundle --file=cpp/Brewfile
       - name: Build
         shell: bash

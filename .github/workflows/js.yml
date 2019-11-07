@@ -20,9 +20,11 @@ name: NodeJS
 on:
   push:
     paths:
+      - 'ci/**'
       - 'js/**'
   pull_request:
     paths:
+      - 'ci/**'
       - 'js/**'
 
 jobs:
@@ -47,7 +49,7 @@ jobs:
       - name: Docker Run
         run: docker-compose run debian-js
       - name: Docker Push
-        if: github.event_name == 'push' # && github.ref == 'master'
+        if: github.event_name == 'push' && github.ref == 'master'
         shell: bash
         run: |
           docker login \

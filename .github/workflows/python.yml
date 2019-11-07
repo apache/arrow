@@ -20,10 +20,12 @@ name: Python
 on:
   push:
     paths:
+      - 'ci/**'
       - 'cpp/**'
       - 'python/**'
   pull_request:
     paths:
+      - 'ci/**'
       - 'cpp/**'
       - 'python/**'
 
@@ -40,7 +42,6 @@ jobs:
           - amd64-conda-latest-python-3.6
           - amd64-conda-latest-python-3.7
           - amd64-debian-10-python-3
-          # - amd64-ubuntu-16.04-python-3
           - amd64-ubuntu-18.04-python-3
           - amd64-fedora-29-python-3
         include:
@@ -61,11 +62,6 @@ jobs:
             platform: debian
             debian: 10
             python: 3
-          # - name: AMD64 Ubuntu 16.04 Python 3
-          #   image: amd64-ubuntu-16.04-python-3
-          #   platform: ubuntu
-          #   ubuntu: 16.04
-          #   python: 3
           - name: AMD64 Ubuntu 18.04 Python 3
             image: amd64-ubuntu-18.04-python-3
             platform: ubuntu
@@ -100,7 +96,7 @@ jobs:
         shell: bash
         run: docker-compose run ${{ matrix.platform }}-python
       - name: Docker Push
-        if: github.event_name == 'push' # && github.ref == 'master'
+        if: github.event_name == 'push' && github.ref == 'master'
         shell: bash
         run: |
           docker login \
@@ -109,8 +105,6 @@ jobs:
           docker-compose push ${{ matrix.platform }}-python
 
   docker-integration:
-    # TODO(kszucs): we should probably have a test with pandas='master' running
-    #               with a daily cron schedule
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
     strategy:
@@ -173,7 +167,7 @@ jobs:
           docker-compose run \
             ${{ matrix.platform }}-python-${{ matrix.integration }}
       - name: Docker Push
-        if: github.event_name == 'push' # && github.ref == 'master'
+        if: github.event_name == 'push' && github.ref == 'master'
         shell: bash
         run: |
           docker login \

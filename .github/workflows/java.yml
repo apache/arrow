@@ -20,10 +20,12 @@ name: Java
 on:
   push:
     paths:
+      - 'ci/**'
       - 'cpp/**'
       - 'java/**'
   pull_request:
     paths:
+      - 'ci/**'
       - 'cpp/**'
       - 'java/**'
 
@@ -60,7 +62,7 @@ jobs:
       - name: Docker Run
         run: docker-compose run debian-java
       - name: Docker Push
-        if: github.event_name == 'push' # && github.ref == 'master'
+        if: github.event_name == 'push' && github.ref == 'master'
         shell: bash
         run: |
           docker login \
@@ -88,7 +90,7 @@ jobs:
         run: |
           docker-compose run debian-java-jni
       - name: Docker Push
-        if: github.event_name == 'push' # && github.ref == 'master'
+        if: github.event_name == 'push' && github.ref == 'master'
         shell: bash
         run: |
           docker login \

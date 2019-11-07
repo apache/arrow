@@ -20,9 +20,11 @@ name: Go
 on:
   push:
     paths:
+      - 'ci/**'
       - 'go/**'
   pull_request:
     paths:
+      - 'ci/**'
       - 'go/**'
 
 jobs:
@@ -47,7 +49,7 @@ jobs:
       - name: Docker Run
         run: docker-compose run debian-go
       - name: Docker Push
-        if: github.event_name == 'push' # && github.ref == 'master'
+        if: github.event_name == 'push' && github.ref == 'master'
         shell: bash
         run: |
           docker login \

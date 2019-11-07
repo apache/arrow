@@ -20,9 +20,11 @@ name: C#
 on:
   push:
     paths:
+      - 'ci/**'
       - 'csharp/**'
   pull_request:
     paths:
+      - 'ci/**'
       - 'csharp/**'
 
 jobs:

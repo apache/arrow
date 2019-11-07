@@ -20,10 +20,12 @@ name: R
 on:
   push:
     paths:
+      - 'ci/**'
       - 'cpp/**'
       - 'r/**'
   pull_request:
     paths:
+      - 'ci/**'
       - 'cpp/**'
       - 'r/**'
 
@@ -70,7 +72,7 @@ jobs:
         shell: bash
         run: docker-compose run ${{ matrix.platform }}-r
       - name: Docker Push
-        if: github.event_name == 'push' # && github.ref == 'master'
+        if: github.event_name == 'push' && github.ref == 'master'
         shell: bash
         run: |
           docker login \
