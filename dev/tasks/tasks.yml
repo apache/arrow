@@ -98,7 +98,6 @@ groups:
     - test-conda-python-3.6
     - test-conda-python-3.7
     - test-debian-10-python-3
-    - test-ubuntu-16.04-python-3
     - test-ubuntu-18.04-python-3
     - test-fedora-29-python-3
     - test-ubuntu-18.04-r-3.6
@@ -138,7 +137,6 @@ groups:
     - test-conda-python-3.6
     - test-conda-python-3.7
     - test-debian-10-python-3
-    - test-ubuntu-16.04-python-3
     - test-ubuntu-18.04-python-3
     - test-fedora-29-python-3
     - test-ubuntu-18.04-r-3.6
@@ -168,7 +166,6 @@ groups:
     - test-conda-python-3.6
     - test-conda-python-3.7
     - test-debian-10-python-3
-    - test-ubuntu-16.04-python-3
     - test-ubuntu-18.04-python-3
     - test-fedora-29-python-3
 
@@ -250,7 +247,6 @@ groups:
     - test-conda-python-3.6
     - test-conda-python-3.7
     - test-debian-10-python-3
-    - test-ubuntu-16.04-python-3
     - test-ubuntu-18.04-python-3
     - test-fedora-29-python-3
     - test-ubuntu-18.04-r-3.6
@@ -1717,20 +1713,6 @@ tasks:
         - docker-compose build debian-python
         - docker-compose run debian-python
         - docker-compose push --ignore-push-failures debian-python
-
-  test-ubuntu-16.04-python-3:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
-    params:
-      commands:
-        - export UBUNTU=16.04
-        - docker-compose pull --ignore-pull-failures ubuntu-cpp
-        - docker-compose pull --ignore-pull-failures ubuntu-python
-        - docker-compose build ubuntu-cpp
-        - docker-compose build ubuntu-python
-        - docker-compose run ubuntu-python
-        - docker-compose push --ignore-push-failures ubuntu-python
 
   test-ubuntu-18.04-python-3:
     ci: circle
