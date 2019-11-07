@@ -18,26 +18,23 @@
 
 set -ex
 
-eval "${MATRIX_EVAL}"
+# TODO(kszucs): github actions doesn't use this file yet, but we should enable
+# automatic backtrace generation for at least the C++ based builds.
 
 # Enable core files
 ulimit -c unlimited -S
 
-if [[ "${TRAVIS_OS_NAME}" == "linux" ]]; then
-  # Remove apport's core_pattern
-  sudo bash -c "echo '/tmp/core.%p.%E' > /proc/sys/kernel/core_pattern"
-
-  echo -e 'Acquire::Retries 10; Acquire::http::Timeout \"20\";' | \
-    sudo tee /etc/apt/apt.conf.d/99-travis-retry
-  sudo apt-get update -qq
-
-  export CCACHE_COMPRESS=1
-  export CCACHE_COMPRESSLEVEL=5
-  export CCACHE_COMPILERCHECK=content
-  export PATH=/usr/lib/ccache/:$PATH
-  ccache --show-stats
+if [[ "${TRAVIS_OS_NAME}" = "osx" ]]; then
+  COREFILE=$(find /cores -maxdepth 1 -type f -name "core.*" | head -n 1)
+  if [[ -f "$COREFILE" ]]; then
+    lldb -c "$COREFILE" --batch --one-line "thread backtrace all -e true"
+  fi
+  ls -la ~/Library/Logs/DiagnosticReports/
+  cat ~/Library/Logs/DiagnosticReports/*.crash
+else
+  ls -fd1 /tmp/core.*
+  COREFILE=$(ls -fd1 /tmp/core.* | head -n 1)
+  if [[ -f "$COREFILE" ]]; then
+    gdb -c "$COREFILE" $TRAVIS_BUILD_DIR/current-exe -ex "thread apply all bt" -ex "set pagination 0" -batch
+  fi
 fi
-
-eval "$(python ${TRAVIS_BUILD_DIR}/ci/detect-changes.py)"
-
-set +ex
