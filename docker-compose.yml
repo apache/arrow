@@ -25,17 +25,19 @@
 
 version: '3.5'
 
-# TODO(kszucs): include ARCH to cache as well
 # TODO(kszucs): add .ccache to the mounts
 volumes:
-  conda-latest-cache:
-  cuda-10.0-cache:
-  debian-9-cache:
-  debian-10-cache:
-  ubuntu-18.04-cache:
-  ubuntu-16.04-cache:
-  ubuntu-14.04-cache:
-  fedora-29-cache:
+  # Named volumes must be predefined, so in order to use other architecture,
+  # like ARM64v8 with debian 10, then the appropiate parametrized volume name
+  # must be added the the list below: arm64v8-debian-10-cache
+  amd64-conda-cache:
+  amd64-cuda-10.0-cache:
+  amd64-debian-9-cache:
+  amd64-debian-10-cache:
+  amd64-ubuntu-18.04-cache:
+  amd64-ubuntu-16.04-cache:
+  amd64-ubuntu-14.04-cache:
+  amd64-fedora-29-cache:
   maven-cache:
 
 services:
@@ -59,12 +61,14 @@ services:
     # Usage:
     #   docker-compose build conda-cpp
     #   docker-compose run --rm conda-cpp
-    image: ${ORG}/${ARCH}-conda-latest-cpp:latest
+    # Parameters:
+    #   ARCH: amd64, arm32v7
+    image: ${ORG}/${ARCH}-conda-cpp:latest
     build:
       context: .
-      dockerfile: ci/docker/conda-latest-cpp.dockerfile
+      dockerfile: ci/docker/conda-cpp.dockerfile
       cache_from:
-        - ${ORG}/${ARCH}-conda-latest-cpp:latest
+        - ${ORG}/${ARCH}-conda-cpp:latest
       args:
         arch: ${ARCH}
         conda: latest
@@ -72,7 +76,7 @@ services:
     shm_size: &shm-size 2G
     volumes: &conda-volumes
       - .:/arrow:delegated
-      - conda-latest-cache:/build:delegated
+      - ${ARCH}-conda-cache:/build:delegated
     entrypoint: &conda-entrypoint /bin/bash -c -l
     command: &cpp-conda-command
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
@@ -83,7 +87,7 @@ services:
     #   docker-compose build cuda-cpp
     #   docker-compose run --rm cuda-cpp
     # Parameters:
-    #   ARCH: only amd64
+    #   ARCH: amd64
     #   CUDA: 8.0, 10.0, ...
     image: ${ORG}/${ARCH}-cuda-${CUDA}-cpp:latest
     build:
@@ -94,7 +98,7 @@ services:
     shm_size: *shm-size
     volumes: &cuda-volumes
       - .:/arrow:delegated
-      - cuda-${CUDA}-cache:/build:delegated
+      - ${ARCH}-cuda-${CUDA}-cache:/build:delegated
     command: &cpp-command >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
@@ -106,7 +110,7 @@ services:
     #   docker-compose run --rm debian-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   DEBIAN: 10
+    #   DEBIAN: 9, 10
     image: ${ORG}/${ARCH}-debian-${DEBIAN}-cpp:latest
     build:
       context: .
@@ -118,7 +122,7 @@ services:
     shm_size: *shm-size
     volumes: &debian-volumes
       - .:/arrow:delegated
-      - debian-${DEBIAN}-cache:/build:delegated
+      - ${ARCH}-debian-${DEBIAN}-cache:/build:delegated
     command: *cpp-command
 
   ubuntu-cpp:
@@ -139,10 +143,16 @@ services:
     shm_size: *shm-size
     volumes: &ubuntu-volumes
       - .:/arrow:delegated
-      - ubuntu-${UBUNTU}-cache:/build:delegated
+      - ${ARCH}-ubuntu-${UBUNTU}-cache:/build:delegated
     command: *cpp-command
 
   fedora-cpp:
+    # Usage:
+    #   docker-compose build fedora-cpp
+    #   docker-compose run --rm fedora-cpp
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   FEDORA: 29, ...
     image: ${ORG}/${ARCH}-fedora-${FEDORA}-cpp:latest
     build:
       context: .
@@ -154,12 +164,19 @@ services:
     shm_size: *shm-size
     volumes: &fedora-volumes
       - .:/arrow:delegated
-      - fedora-${FEDORA}-cache:/build:delegated
+      - ${ARCH}-fedora-${FEDORA}-cache:/build:delegated
     command: *cpp-command
 
   ############################### C GLib ######################################
 
   debian-c-glib:
+    # Usage:
+    #   docker-compose build debian-cpp
+    #   docker-compose build debian-c-glib
+    #   docker-compose run --rm debian-c-glib
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   DEBIAN: 9, 10
     image: ${ORG}/${ARCH}-debian-${DEBIAN}-c-glib:latest
     build:
       context: .
@@ -177,6 +194,13 @@ services:
         /arrow/ci/scripts/c_glib_test.sh /arrow /build/c_glib"
 
   ubuntu-c-glib:
+    # Usage:
+    #   docker-compose build ubuntu-cpp
+    #   docker-compose build ubuntu-c-glib
+    #   docker-compose run --rm ubuntu-c-glib
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   UBUNTU: 18.04, 16.04, 14.04
     image: ${ORG}/${ARCH}-ubuntu-${UBUNTU}-c-glib:latest
     build:
       context: .
@@ -201,6 +225,9 @@ services:
     #   docker-compose build debian-c-glib
     #   docker-compose build debian-ruby
     #   docker-compose run --rm debian-ruby
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   DEBIAN: 9, 10
     image: ${ORG}/${ARCH}-debian-${DEBIAN}-ruby:latest
     build:
       context: .
@@ -220,10 +247,13 @@ services:
 
   ubuntu-ruby:
     # Usage:
-    #   docker-compose build debian-cpp
-    #   docker-compose build debian-c-glib
-    #   docker-compose build debian-ruby
-    #   docker-compose run --rm debian-ruby
+    #   docker-compose build ubuntu-cpp
+    #   docker-compose build ubuntu-c-glib
+    #   docker-compose build ubuntu-ruby
+    #   docker-compose run --rm ubuntu-ruby
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   UBUNTU: 18.04, 16.04, 14.04
     image: ${ORG}/${ARCH}-ubuntu-${UBUNTU}-ruby:latest
     build:
       context: .
@@ -239,12 +269,19 @@ services:
   ############################### Python ######################################
 
   conda-python:
-    image: ${ORG}/${ARCH}-conda-latest-python-${PYTHON}:latest
+    # Usage:
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-python
+    #   docker-compose run --rm conda-python
+    # Parameters:
+    #   ARCH: amd64, arm32v7
+    #   PYTHON: 2.7, 3.6, 3.7, 3.8
+    image: ${ORG}/${ARCH}-conda-python-${PYTHON}:latest
     build:
       context: .
-      dockerfile: ci/docker/conda-latest-python.dockerfile
+      dockerfile: ci/docker/conda-python.dockerfile
       cache_from:
-        - ${ORG}/${ARCH}-conda-latest-python-${PYTHON}:latest
+        - ${ORG}/${ARCH}-conda-python-${PYTHON}:latest
       args:
         org: ${ORG}
         arch: ${ARCH}
@@ -259,6 +296,13 @@ services:
         /arrow/ci/scripts/python_test.sh /arrow"]
 
   cuda-python:
+    # Usage:
+    #   docker-compose build cuda-cpp
+    #   docker-compose build cuda-python
+    #   docker-compose run --rm cuda-python
+    # Parameters:
+    #   ARCH: amd64
+    #   CUDA: 8.0, 10.0, ...
     image: ${ORG}/${ARCH}-cuda-${CUDA}-python-3:latest
     build:
       context: .
@@ -276,6 +320,13 @@ services:
         /arrow/ci/scripts/python_test.sh /arrow"
 
   debian-python:
+    # Usage:
+    #   docker-compose build debian-cpp
+    #   docker-compose build debian-python
+    #   docker-compose run --rm debian-python
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   DEBIAN: 9, 10
     image: ${ORG}/${ARCH}-debian-${DEBIAN}-python-3:latest
     build:
       context: .
@@ -289,6 +340,13 @@ services:
     command: *python-command
 
   ubuntu-python:
+    # Usage:
+    #   docker-compose build ubuntu-cpp
+    #   docker-compose build ubuntu-python
+    #   docker-compose run --rm ubuntu-python
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   UBUNTU: 18.04, 16.04, 14.04
     image: ${ORG}/${ARCH}-ubuntu-${UBUNTU}-python-3:latest
     build:
       context: .
@@ -351,12 +409,12 @@ services:
     #   docker-compose build conda-python
     #   docker-compose build conda-python-pandas
     #   docker-compose run --rm conda-python-pandas
-    image: ${ORG}/${ARCH}-conda-latest-python-${PYTHON}-pandas-${PANDAS}:latest
+    image: ${ORG}/${ARCH}-conda-python-${PYTHON}-pandas-${PANDAS}:latest
     build:
       context: .
-      dockerfile: ci/docker/conda-latest-python-pandas.dockerfile
+      dockerfile: ci/docker/conda-python-pandas.dockerfile
       cache_from:
-        - ${ORG}/${ARCH}-conda-latest-python-${PYTHON}-pandas-${PANDAS}:latest
+        - ${ORG}/${ARCH}-conda-python-${PYTHON}-pandas-${PANDAS}:latest
       args:
         org: ${ORG}
         arch: ${ARCH}
@@ -370,12 +428,12 @@ services:
 
   conda-python-dask:
     # document to use --no-cache in case of DASK=master
-    image: ${ORG}/${ARCH}-conda-latest-python-${PYTHON}-dask-${DASK}:latest
+    image: ${ORG}/${ARCH}-conda-python-${PYTHON}-dask-${DASK}:latest
     build:
       context: .
-      dockerfile: ci/docker/conda-latest-python-dask.dockerfile
+      dockerfile: ci/docker/conda-python-dask.dockerfile
       cache_from:
-        - ${ORG}/${ARCH}-conda-latest-python-${PYTHON}-dask-${DASK}:latest
+        - ${ORG}/${ARCH}-conda-python-${PYTHON}-dask-${DASK}:latest
       args:
         org: ${ORG}
         arch: ${ARCH}
@@ -392,12 +450,12 @@ services:
 
   conda-python-turbodbc:
     # document to use --no-cache in case of TURBODBC=master
-    image: ${ORG}/${ARCH}-conda-latest-python-${PYTHON}-turbodbc-${TURBODBC}:latest
+    image: ${ORG}/${ARCH}-conda-python-${PYTHON}-turbodbc-${TURBODBC}:latest
     build:
       context: .
-      dockerfile: ci/docker/conda-latest-python-turbodbc.dockerfile
+      dockerfile: ci/docker/conda-python-turbodbc.dockerfile
       cache_from:
-        - ${ORG}/${ARCH}-conda-latest-python-${PYTHON}-turbodbc-${TURBODBC}:latest
+        - ${ORG}/${ARCH}-conda-python-${PYTHON}-turbodbc-${TURBODBC}:latest
       args:
         org: ${ORG}
         arch: ${ARCH}
@@ -451,12 +509,12 @@ services:
   ################################## R ########################################
 
   conda-r:
-    image: ${ORG}/${ARCH}-conda-latest-r-${R}:latest
+    image: ${ORG}/${ARCH}-conda-r-${R}:latest
     build:
       context: .
-      dockerfile: ci/docker/conda-latest-r.dockerfile
+      dockerfile: ci/docker/conda-r.dockerfile
       cache_from:
-        - ${ORG}/${ARCH}-conda-latest-r-${R}:latest
+        - ${ORG}/${ARCH}-conda-r-${R}:latest
       args:
         org: ${ORG}
         arch: ${ARCH}
@@ -627,7 +685,7 @@ services:
     volumes:
       - .:/arrow:delegated
       - maven-cache:/root/.m2:delegated
-      - debian-9-cache:/build:delegated
+      - ${ARCH}-debian-9-cache:/build:delegated
     command:
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
@@ -637,12 +695,12 @@ services:
   ############################## Integration ##################################
 
   conda-integration:
-    image: ${ORG}/${ARCH}-conda-latest-integration:latest
+    image: ${ORG}/${ARCH}-conda-integration:latest
     build:
       context: .
-      dockerfile: ci/docker/conda-latest-integration.dockerfile
+      dockerfile: ci/docker/conda-integration.dockerfile
       cache_from:
-        - ${ORG}/${ARCH}-conda-latest-integration:latest
+        - ${ORG}/${ARCH}-conda-integration:latest
       args:
         org: ${ORG}
         arch: ${ARCH}
@@ -773,7 +831,7 @@ services:
     #   docker-compose build conda-cpp
     #   docker-compose build conda-cpp-hiveserver2
     #   docker-compose run conda-cpp-hiveserver2
-    image: ${ORG}/${ARCH}-conda-latest-cpp:latest
+    image: ${ORG}/${ARCH}-conda-cpp:latest
     links:
       - impala:impala
     environment:
@@ -795,12 +853,12 @@ services:
     #   docker-compose build conda-python
     #   docker-compose build conda-python-hdfs
     #   docker-compose run conda-python-hdfs
-    image: ${ORG}/${ARCH}-conda-latest-python-${PYTHON}-hdfs-${HDFS}:latest
+    image: ${ORG}/${ARCH}-conda-python-${PYTHON}-hdfs-${HDFS}:latest
     build:
       context: .
-      dockerfile: ci/docker/conda-latest-python-hdfs.dockerfile
+      dockerfile: ci/docker/conda-python-hdfs.dockerfile
       cache_from:
-        - ${ORG}/${ARCH}-conda-latest-python-${PYTHON}-hdfs-${HDFS}:latest
+        - ${ORG}/${ARCH}-conda-python-${PYTHON}-hdfs-${HDFS}:latest
       args:
         org: ${ORG}
         arch: ${ARCH}
@@ -820,8 +878,8 @@ services:
     shm_size: *shm-size
     volumes: &conda-maven-volumes
       - .:/arrow:delegated
-      - conda-latest-cache:/build:delegated
       - maven-cache:/root/.m2:delegated
+      - ${ARCH}-conda-cache:/build:delegated
     entrypoint: *conda-entrypoint
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
@@ -834,12 +892,12 @@ services:
     #   docker-compose build conda-python
     #   docker-compose build conda-python-spark
     #   docker-compose run conda-python-spark
-    image: ${ORG}/${ARCH}-conda-latest-python-${PYTHON}-spark-${SPARK}:latest
+    image: ${ORG}/${ARCH}-conda-python-${PYTHON}-spark-${SPARK}:latest
     build:
       context: .
-      dockerfile: ci/docker/conda-latest-python-spark.dockerfile
+      dockerfile: ci/docker/conda-python-spark.dockerfile
       cache_from:
-        - ${ORG}/${ARCH}-conda-latest-python-${PYTHON}-spark-${SPARK}:latest
+        - ${ORG}/${ARCH}-conda-python-${PYTHON}-spark-${SPARK}:latest
       args:
         org: ${ORG}
         arch: ${ARCH}
