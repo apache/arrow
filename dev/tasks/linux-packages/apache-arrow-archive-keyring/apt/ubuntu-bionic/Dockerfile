@@ -15,12 +15,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
-/*/*.tar.gz
-/*/apt/repositories/
-/*/apt/tmp/
-/*/apt/build.sh
-/*/apt/env.sh
-/*/yum/repositories/
-/*/yum/tmp/
-/*/yum/build.sh
-/*/yum/env.sh
+FROM ubuntu:bionic
+
+RUN \
+  echo "debconf debconf/frontend select Noninteractive" | \
+    debconf-set-selections
+
+ARG DEBUG
+
+RUN \
+  quiet=$([ "${DEBUG}" = "yes" ] || echo "-qq") && \
+  apt update ${quiet} && \
+  apt install -y -V ${quiet} \
+    debhelper \
+    devscripts \
+    gnupg && \
+  apt clean && \
+  rm -rf /var/lib/apt/lists/*

@@ -43,7 +43,7 @@ jobs:
         rm *.deb
         pushd qemu-user-static*
         unar data.*
-        for dockerfile in ../arrow/dev/tasks/linux-packages/*/*/Dockerfile; do
+        for dockerfile in ../arrow/dev/tasks/linux-packages/*/*/*/Dockerfile; do
           cp data/usr/bin/qemu-aarch64-static $(dirname ${dockerfile})
         done
         popd
@@ -53,7 +53,6 @@ jobs:
         set -e
         pushd arrow/dev/tasks/linux-packages
         rake version:update
-        rake dist
         {{ build_command }}
         popd
       env:

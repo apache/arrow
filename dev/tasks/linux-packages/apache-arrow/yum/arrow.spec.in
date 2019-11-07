@@ -43,7 +43,7 @@
 %define use_glib (%{_centos_ver} >= 7)
 %define use_meson (%{_centos_ver} >= 8)
 
-%define have_double_conversion (%{_centos_ver} == 7)
+%define have_double_conversion (%{_centos_ver} >= 7)
 %define have_rapidjson (%{_centos_ver} == 7)
 %define have_thrift (%{_centos_ver} == 7)
 

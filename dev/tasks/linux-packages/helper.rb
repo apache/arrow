@@ -1,5 +1,3 @@
-# -*- ruby -*-
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,40 +15,31 @@
 # specific language governing permissions and limitations
 # under the License.
 
-packages = [
-  "apache-arrow",
-  "apache-arrow-archive-keyring",
-]
-
-namespace :apt do
-  desc "Build deb packages"
-  task :build do
-    packages.each do |package|
-      cd(package) do
-        ruby("-S", "rake", "apt:build")
+module Helper
+  module ApacheArrow
+    private
+    def detect_release_time
+      release_time_env = ENV["ARROW_RELEASE_TIME"]
+      if release_time_env
+        Time.parse(release_time_env).utc
+      else
+        latest_commit_time(arrow_source_dir) || Time.now.utc
       end
     end
-  end
-end
 
-namespace :yum do
-  desc "Build RPM packages"
-  task :build do
-    packages.each do |package|
-      cd(package) do
-        ruby("-S", "rake", "yum:build")
-      end
+    def arrow_source_dir
+      File.join(__dir__, "..", "..", "..")
     end
-  end
-end
 
-namespace :version do
-  desc "Update versions"
-  task :update do
-    packages.each do |package|
-      cd(package) do
-        ruby("-S", "rake", "version:update")
-      end
+    def detect_version(release_time)
+      version_env = ENV['ARROW_VERSION']
+      return version_env if version_env
+
+      pom_xml_path = File.join(arrow_source_dir, "java", "pom.xml")
+      pom_xml_content = File.read(pom_xml_path)
+      version = pom_xml_content[/^  <version>(.+?)<\/version>/, 1]
+      formatted_release_time = release_time.strftime("%Y%m%d")
+      version.gsub(/-SNAPSHOT\z/) {"-dev#{formatted_release_time}"}
     end
   end
 end

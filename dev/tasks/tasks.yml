@@ -508,6 +508,10 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
+      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
+      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
@@ -574,6 +578,10 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
+      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
+      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
@@ -615,6 +623,10 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
+      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
+      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
@@ -681,6 +693,10 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
+      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
+      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
@@ -722,6 +738,10 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
+      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
+      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
@@ -774,6 +794,10 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
+      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
+      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
@@ -826,6 +850,10 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
+      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
+      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
@@ -881,6 +909,10 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
+      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
+      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
@@ -936,6 +968,10 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
+      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
+      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
@@ -991,6 +1027,10 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
+      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
+      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
@@ -1046,6 +1086,10 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
+      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
+      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz
@@ -1101,6 +1145,10 @@ tasks:
         - .debian.tar.xz
         - .orig.tar.gz
     artifacts:
+      - apache-arrow-archive-keyring_{no_rc_version}-1.debian.tar.xz
+      - apache-arrow-archive-keyring_{no_rc_version}-1.dsc
+      - apache-arrow-archive-keyring_{no_rc_version}-1_all.deb
+      - apache-arrow-archive-keyring_{no_rc_version}.orig.tar.gz
       - apache-arrow_{no_rc_version}-1.debian.tar.xz
       - apache-arrow_{no_rc_version}-1.dsc
       - apache-arrow_{no_rc_version}.orig.tar.gz

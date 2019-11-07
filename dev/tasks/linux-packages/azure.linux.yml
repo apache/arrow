@@ -37,7 +37,6 @@ jobs:
         set -e
         pushd arrow/dev/tasks/linux-packages
         rake version:update
-        rake dist
         {{ build_command }}
         popd
       env:
