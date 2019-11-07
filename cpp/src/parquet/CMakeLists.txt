@@ -180,6 +180,8 @@ set(PARQUET_SRCS
     properties.cc
     schema.cc
     statistics.cc
+    stream_reader.cc
+    stream_writer.cc
     types.cc)
 
 if(PARQUET_REQUIRE_ENCRYPTION)
@@ -313,12 +315,14 @@ add_parquet_test(reader_test
                  column_reader_test.cc
                  column_scanner_test.cc
                  reader_test.cc
+                 stream_reader_test.cc
                  test_util.cc)
 
 add_parquet_test(writer-test
                  SOURCES
                  column_writer_test.cc
                  file_serialize_test.cc
+                 stream_writer_test.cc
                  test_util.cc)
 
 add_parquet_test(arrow-test
