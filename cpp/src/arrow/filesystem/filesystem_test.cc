@@ -200,9 +200,15 @@ class TestMockFS : public ::testing::Test {
     return stream->Write(s.data(), static_cast<int64_t>(s.length()));
   }
 
-  void CheckDirs(const std::vector<DirInfo>& expected) {
-    ASSERT_EQ(fs_->AllDirs(), expected);
+  std::vector<DirInfo> AllDirs() {
+    return arrow::internal::checked_pointer_cast<MockFileSystem>(fs_)->AllDirs();
   }
+
+  std::vector<FileInfo> AllFiles() {
+    return arrow::internal::checked_pointer_cast<MockFileSystem>(fs_)->AllFiles();
+  }
+
+  void CheckDirs(const std::vector<DirInfo>& expected) { ASSERT_EQ(AllDirs(), expected); }
 
   void CheckDirPaths(const std::vector<std::string>& expected) {
     std::vector<DirInfo> infos;
@@ -210,11 +216,11 @@ class TestMockFS : public ::testing::Test {
     for (const auto& s : expected) {
       infos.push_back({s, time_});
     }
-    ASSERT_EQ(fs_->AllDirs(), infos);
+    ASSERT_EQ(AllDirs(), infos);
   }
 
   void CheckFiles(const std::vector<FileInfo>& expected) {
-    ASSERT_EQ(fs_->AllFiles(), expected);
+    ASSERT_EQ(AllFiles(), expected);
   }
 
   void CreateFile(const std::string& path, const std::string& data) {
@@ -223,7 +229,7 @@ class TestMockFS : public ::testing::Test {
 
  protected:
   TimePoint time_;
-  std::shared_ptr<MockFileSystem> fs_;
+  std::shared_ptr<FileSystem> fs_;
 };
 
 TEST_F(TestMockFS, Empty) {
@@ -366,14 +372,11 @@ TEST_F(TestMockFS, OpenAppendStream) {
 }
 
 TEST_F(TestMockFS, Make) {
-  std::shared_ptr<FileSystem> fs;
-  ASSERT_OK(MockFileSystem::Make(time_, {}, &fs));
-  fs_ = std::static_pointer_cast<MockFileSystem>(fs);
+  ASSERT_OK_AND_ASSIGN(fs_, MockFileSystem::Make(time_, {}));
   CheckDirs({});
   CheckFiles({});
 
-  ASSERT_OK(MockFileSystem::Make(time_, {Dir("A/B/C"), File("A/a")}, &fs));
-  fs_ = std::static_pointer_cast<MockFileSystem>(fs);
+  ASSERT_OK_AND_ASSIGN(fs_, MockFileSystem::Make(time_, {Dir("A/B/C"), File("A/a")}));
   CheckDirs({{"A", time_}, {"A/B", time_}, {"A/B/C", time_}});
   CheckFiles({{"A/a", time_, ""}});
 }
