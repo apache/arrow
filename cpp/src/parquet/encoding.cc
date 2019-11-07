@@ -2152,8 +2152,10 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
   }
 
   int Decode(ByteArray* buffer, int max_values) override {
+    using VectorT = ArrowPoolVector<int>;
     max_values = std::min(max_values, num_values_);
-    ArrowPoolVector<int> lengths(max_values, ::arrow::stl::allocator<int>(pool_));
+    VectorT lengths(static_cast<VectorT::size_type>(max_values),
+                    ::arrow::stl::allocator<int>(pool_));
     len_decoder_.Decode(lengths.data(), max_values);
     for (int i = 0; i < max_values; ++i) {
       buffer[i].len = lengths[i];
