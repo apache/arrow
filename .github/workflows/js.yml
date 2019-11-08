@@ -35,7 +35,6 @@ jobs:
   debian:
     name: AMD64 Debian 10 NodeJS ${{ matrix.node }}
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'master'
     strategy:
       fail-fast: false
       matrix:
