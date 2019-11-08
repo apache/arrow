@@ -511,33 +511,35 @@ Status ConcatenateTables(const std::vector<std::shared_ptr<Table>>& tables,
   return Status::OK();
 }
 
-Status ConcatenateTablesWithPromotion(const std::vector<std::shared_ptr<Table>>& tables,
-                                      MemoryPool* pool, std::shared_ptr<Table>* out) {
+Result<std::shared_ptr<Table>> ConcatenateTablesWithPromotion(
+    const std::vector<std::shared_ptr<Table>>& tables, MemoryPool* pool) {
   std::vector<std::shared_ptr<Schema>> schemas;
   schemas.reserve(tables.size());
   for (const auto& t : tables) {
     schemas.push_back(t->schema());
   }
-  std::shared_ptr<Schema> unified_schema;
-  RETURN_NOT_OK(UnifySchemas(schemas, &unified_schema));
+
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Schema> unified_schema, UnifySchemas(schemas));
 
   std::vector<std::shared_ptr<Table>> promoted_tables;
   promoted_tables.reserve(tables.size());
   for (const auto& t : tables) {
     promoted_tables.emplace_back();
-    RETURN_NOT_OK(PromoteTableToSchema(t, unified_schema, pool, &promoted_tables.back()));
+    ARROW_ASSIGN_OR_RAISE(promoted_tables.back(),
+                          PromoteTableToSchema(t, unified_schema, pool));
   }
 
-  return ConcatenateTables(promoted_tables, out);
+  std::shared_ptr<Table> result;
+  RETURN_NOT_OK(ConcatenateTables(promoted_tables, &result));
+  return result;
 }
 
-Status PromoteTableToSchema(const std::shared_ptr<Table>& table,
-                            const std::shared_ptr<Schema>& schema, MemoryPool* pool,
-                            std::shared_ptr<Table>* out) {
+Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>& table,
+                                                    const std::shared_ptr<Schema>& schema,
+                                                    MemoryPool* pool) {
   const std::shared_ptr<Schema> current_schema = table->schema();
   if (current_schema->Equals(*schema, /*check_metadata=*/false)) {
-    *out = table->ReplaceSchemaMetadata(schema->metadata());
-    return Status::OK();
+    return table->ReplaceSchemaMetadata(schema->metadata());
   }
 
   // fields_seen[i] == true iff that field is also in `schema`.
@@ -570,10 +572,16 @@ Status PromoteTableToSchema(const std::shared_ptr<Table>& table,
           field->name());
     }
 
-    fields_seen[field_indices[0]] = true;
-    const auto& current_field = current_schema->field(field_indices[0]);
+    const int field_index = field_indices[0];
+    const auto& current_field = current_schema->field(field_index);
+    if (!field->nullable() && current_field->nullable()) {
+      return Status::Invalid("Unable to promote field ", current_field->name(),
+                             ": it was nullable but the target schema was not.");
+    }
+
+    fields_seen[field_index] = true;
     if (current_field->type()->Equals(field->type())) {
-      columns.push_back(table->column(field_indices[0]));
+      columns.push_back(table->column(field_index));
       continue;
     }
 
@@ -596,8 +604,7 @@ Status PromoteTableToSchema(const std::shared_ptr<Table>& table,
         " did not exist in the new schema.");
   }
 
-  *out = Table::Make(schema, std::move(columns));
-  return Status::OK();
+  return Table::Make(schema, std::move(columns));
 }
 
 bool Table::Equals(const Table& other) const {

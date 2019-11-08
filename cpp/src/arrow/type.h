@@ -1553,8 +1553,8 @@ std::shared_ptr<Schema> schema(
 /// - Any input schema contains fields with duplicate names.
 /// - Fields of the same name are of incompatible types.
 ARROW_EXPORT
-Status UnifySchemas(const std::vector<std::shared_ptr<Schema>>& schemas,
-                    std::shared_ptr<Schema>* out);
+Result<std::shared_ptr<Schema>> UnifySchemas(
+    const std::vector<std::shared_ptr<Schema>>& schemas);
 
 }  // namespace arrow
 

@@ -716,8 +716,8 @@ std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>>&& fields,
   return std::make_shared<Schema>(std::move(fields), metadata);
 }
 
-Status UnifySchemas(const std::vector<std::shared_ptr<Schema>>& schemas,
-                    std::shared_ptr<Schema>* out) {
+Result<std::shared_ptr<Schema>> UnifySchemas(
+    const std::vector<std::shared_ptr<Schema>>& schemas) {
   if (schemas.empty()) {
     return Status::Invalid("Must provide at least one schema to unify.");
   }
@@ -757,8 +757,7 @@ Status UnifySchemas(const std::vector<std::shared_ptr<Schema>>& schemas,
     }
   }
 
-  *out = schema(std::move(fields))->WithMetadata(schemas[0]->metadata());
-  return Status::OK();
+  return schema(std::move(fields))->WithMetadata(schemas[0]->metadata());
 }
 
 // ----------------------------------------------------------------------

@@ -443,10 +443,7 @@ class TestUnifySchemas : public TestSchema {
   }
 };
 
-TEST_F(TestUnifySchemas, EmptyInput) {
-  std::shared_ptr<Schema> result;
-  ASSERT_RAISES(Invalid, UnifySchemas({}, &result));
-}
+TEST_F(TestUnifySchemas, EmptyInput) { ASSERT_RAISES(Invalid, UnifySchemas({})); }
 
 TEST_F(TestUnifySchemas, IdenticalSchemas) {
   auto int32_field = field("int32_field", int32());
@@ -459,12 +456,11 @@ TEST_F(TestUnifySchemas, IdenticalSchemas) {
   auto schema2 = schema({int32_field, uint8_field, utf8_field->WithMetadata(metadata)})
                      ->WithMetadata(metadata);
 
-  std::shared_ptr<Schema> result;
-  ASSERT_OK(UnifySchemas({schema1, schema2}, &result));
+  ASSERT_OK_AND_ASSIGN(auto result, UnifySchemas({schema1, schema2}));
   // Using Schema::Equals to make sure the ordering of fields is not changed.
   ASSERT_TRUE(result->Equals(*schema1, /*check_metadata=*/true));
 
-  ASSERT_OK(UnifySchemas({schema2, schema1}, &result));
+  ASSERT_OK_AND_ASSIGN(result, UnifySchemas({schema2, schema1}));
   // Using Schema::Equals to make sure the ordering of fields is not changed.
   ASSERT_TRUE(result->Equals(*schema2, /*check_metadata=*/true));
 }
@@ -480,8 +476,7 @@ TEST_F(TestUnifySchemas, FieldOrderingSameAsTheFirstSchema) {
   auto schema2 = schema({uint8_field, int32_field, utf8_field});
   auto schema3 = schema({binary_field});
 
-  std::shared_ptr<Schema> result;
-  ASSERT_OK(UnifySchemas({schema1, schema2, schema3}, &result));
+  ASSERT_OK_AND_ASSIGN(auto result, UnifySchemas({schema1, schema2, schema3}));
 
   ASSERT_EQ(4, result->num_fields());
   ASSERT_TRUE(int32_field->Equals(result->field(0)));
@@ -502,8 +497,7 @@ TEST_F(TestUnifySchemas, MissingField) {
   auto schema2 = schema({uint8_field, utf8_field->WithMetadata(metadata2)});
   auto schema3 = schema({int32_field->WithMetadata(metadata1), uint8_field, utf8_field});
 
-  std::shared_ptr<Schema> result;
-  ASSERT_OK(UnifySchemas({schema1, schema2}, &result));
+  ASSERT_OK_AND_ASSIGN(auto result, UnifySchemas({schema1, schema2}));
   AssertSchemaEqualsUnorderedFields(
       *result, *schema({int32_field, uint8_field, utf8_field->WithMetadata(metadata2)})
                     ->WithMetadata(metadata1));
@@ -518,12 +512,11 @@ TEST_F(TestUnifySchemas, PromoteNullTypeField) {
   auto schema1 = schema({null_field->WithMetadata(metadata)});
   auto schema2 = schema({int32_field});
 
-  std::shared_ptr<Schema> result;
-  ASSERT_OK(UnifySchemas({schema1, schema2}, &result));
+  ASSERT_OK_AND_ASSIGN(auto result, UnifySchemas({schema1, schema2}));
   AssertSchemaEqualsUnorderedFields(
       *result, *schema({int32_field->WithMetadata(metadata)->WithNullable(true)}));
 
-  ASSERT_OK(UnifySchemas({schema2, schema1}, &result));
+  ASSERT_OK_AND_ASSIGN(result, UnifySchemas({schema2, schema1}));
   AssertSchemaEqualsUnorderedFields(*result, *schema({int32_field->WithNullable(true)}));
 }
 
@@ -532,9 +525,9 @@ TEST_F(TestUnifySchemas, MoreSchemas) {
   auto uint8_field = field("uint8_field", uint8(), false);
   auto utf8_field = field("utf8_field", utf8());
 
-  std::shared_ptr<Schema> result;
-  ASSERT_OK(UnifySchemas(
-      {schema({int32_field}), schema({uint8_field}), schema({utf8_field})}, &result));
+  ASSERT_OK_AND_ASSIGN(
+      auto result,
+      UnifySchemas({schema({int32_field}), schema({uint8_field}), schema({utf8_field})}));
   AssertSchemaEqualsUnorderedFields(
       *result, *schema({int32_field->WithNullable(true), uint8_field->WithNullable(true),
                         utf8_field->WithNullable(true)}));
@@ -544,19 +537,15 @@ TEST_F(TestUnifySchemas, IncompatibleTypes) {
   auto int32_field = field("f", int32());
   auto uint8_field = field("f", uint8(), false);
 
-  std::shared_ptr<Schema> result;
-  ASSERT_RAISES(Invalid,
-                UnifySchemas({schema({int32_field}), schema({uint8_field})}, &result));
+  ASSERT_RAISES(Invalid, UnifySchemas({schema({int32_field}), schema({uint8_field})}));
 }
 
 TEST_F(TestUnifySchemas, DuplicateFieldNames) {
   auto int32_field = field("int32_field", int32());
   auto utf8_field = field("utf8_field", utf8());
 
-  std::shared_ptr<Schema> result;
   ASSERT_RAISES(Invalid, UnifySchemas({schema({int32_field, utf8_field}),
-                                       schema({int32_field, int32_field, utf8_field})},
-                                      &result));
+                                       schema({int32_field, int32_field, utf8_field})}));
 }
 
 #define PRIMITIVE_TEST(KLASS, CTYPE, ENUM, NAME)                              \

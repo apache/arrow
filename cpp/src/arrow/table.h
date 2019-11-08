@@ -25,6 +25,8 @@
 
 #include "arrow/array.h"
 #include "arrow/record_batch.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -319,12 +321,14 @@ Status ConcatenateTables(const std::vector<std::shared_ptr<Table>>& tables,
 ///   schema.
 /// - if there is a column in the table that does not exist in the schema.
 ///
+/// \param[in] table the input Table
+/// \param[in] schema the target schema to promote to
 /// \param[in] pool The memory pool to be used if null-filled arrays need to
 /// be created.
 ARROW_EXPORT
-Status PromoteTableToSchema(const std::shared_ptr<Table>& table,
-                            const std::shared_ptr<Schema>& schema, MemoryPool* pool,
-                            std::shared_ptr<Table>* out);
+Result<std::shared_ptr<Table>> PromoteTableToSchema(
+    const std::shared_ptr<Table>& table, const std::shared_ptr<Schema>& schema,
+    MemoryPool* pool = default_memory_pool());
 
 /// \brief Concatenate tables with null-filling and type promotion.
 ///
@@ -337,11 +341,13 @@ Status PromoteTableToSchema(const std::shared_ptr<Table>& table,
 /// the new schema will share the metadata with the first table which has the
 /// field defined.
 ///
+/// \param[in] tables the tables to be concatenated
 /// \param[in] pool The memory pool to be used if null-filled arrays need to
 /// be created.
 ARROW_EXPORT
-Status ConcatenateTablesWithPromotion(const std::vector<std::shared_ptr<Table>>& tables,
-                                      MemoryPool* pool, std::shared_ptr<Table>* table);
+Result<std::shared_ptr<Table>> ConcatenateTablesWithPromotion(
+    const std::vector<std::shared_ptr<Table>>& tables,
+    MemoryPool* pool = default_memory_pool());
 
 }  // namespace arrow
 
