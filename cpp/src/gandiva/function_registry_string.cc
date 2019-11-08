@@ -51,6 +51,7 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       UNARY_UNSAFE_NULL_IF_NULL(char_length, {}, utf8, int32),
       UNARY_UNSAFE_NULL_IF_NULL(length, {}, utf8, int32),
       UNARY_UNSAFE_NULL_IF_NULL(lengthUtf8, {}, binary, int32),
+      UNARY_UNSAFE_NULL_IF_NULL(reverse, {}, utf8, utf8),
 
       UNARY_SAFE_NULL_NEVER_BOOL_FN(isnull, {}),
       UNARY_SAFE_NULL_NEVER_BOOL_FN(isnotnull, {}),
@@ -60,9 +61,6 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
 
       NativeFunction("lower", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
                      "lower_utf8", NativeFunction::kNeedsContext),
-
-      NativeFunction("reverse", {}, DataTypeVector{utf8()}, utf8(), kResultNullIfNull,
-                     "reverse_utf8", NativeFunction::kNeedsContext),
 
       NativeFunction("castVARCHAR", {}, DataTypeVector{utf8(), int64()}, utf8(),
                      kResultNullIfNull, "castVARCHAR_utf8_int64",
