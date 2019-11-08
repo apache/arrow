@@ -358,6 +358,7 @@ public class VectorSchemaRoot implements AutoCloseable {
       return false;
     }
 
+    Range range = new Range(0, 0, 0);
     for (int i = 0; i < fieldVectors.size(); i++) {
       FieldVector vector = fieldVectors.get(i);
       FieldVector otherVector = other.fieldVectors.get(i);
@@ -365,7 +366,7 @@ public class VectorSchemaRoot implements AutoCloseable {
         return false;
       }
       ApproxEqualsVisitor visitor = new ApproxEqualsVisitor(vector, otherVector);
-      Range range = new Range(0, 0, vector.getValueCount());
+      range.setLength(vector.getValueCount());
       if (!visitor.rangeEquals(range)) {
         return false;
       }
