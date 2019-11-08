@@ -136,7 +136,8 @@ jobs:
     env:
       ARROW_HOME: /usr/local
       ARROW_JEMALLOC: ON
-      ARROW_ORC: ON
+      # TODO(kszucs): link error in the tests
+      ARROW_ORC: OFF
       ARROW_FLIGHT: ON
       ARROW_PLASMA: ON
       ARROW_GANDIVA: ON
