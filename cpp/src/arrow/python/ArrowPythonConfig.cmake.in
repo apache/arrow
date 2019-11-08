@@ -14,12 +14,23 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
+#
+# This config sets the following variables in your project::
+#
+#   ArrowPython_FOUND - true if Arrow Python found on the system
+#
+# This config sets the following targets in your project::
+#
+#   arrow_python_shared - for linked as shared library if shared library is built
+#   arrow_python_static - for linked as static library if static library is built
 
-libdir=@CMAKE_INSTALL_FULL_LIBDIR@
-includedir=@CMAKE_INSTALL_FULL_INCLUDEDIR@
+@PACKAGE_INIT@
 
-Name: Apache Arrow Datasets
-Description: Apache Arrow Datasets provides an API to read and write semantic datasets stored in different locations and formats.
-Version: @ARROW_VERSION@
-Requires: arrow parquet
-Libs: -L${libdir} -larrow_dataset
+include(CMakeFindDependencyMacro)
+find_dependency(Arrow)
+
+# Load targets only once. If we load targets multiple times, CMake reports
+# already existent target error.
+if(NOT (TARGET arrow_python_shared OR TARGET arrow_python_static))
+  include("${CMAKE_CURRENT_LIST_DIR}/ArrowPythonTargets.cmake")
+endif()

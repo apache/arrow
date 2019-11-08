@@ -19,10 +19,6 @@ add_custom_target(arrow_flight)
 
 arrow_install_all_headers("arrow/flight")
 
-arrow_add_pkg_config("arrow-flight")
-
-arrow_install_cmake_find_module("ArrowFlight")
-
 set(ARROW_FLIGHT_STATIC_LINK_LIBS
     protobuf::libprotobuf
     gRPC::grpc++
@@ -88,6 +84,10 @@ set(ARROW_FLIGHT_SRCS
     types.cc)
 
 add_arrow_lib(arrow_flight
+              CMAKE_PACKAGE_NAME
+              ArrowFlight
+              PKG_CONFIG_NAME
+              arrow-flight
               OUTPUTS
               ARROW_FLIGHT_LIBRARIES
               SOURCES
@@ -110,6 +110,10 @@ endforeach()
 # Define arrow_flight_testing library
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_INTEGRATION)
   add_arrow_lib(arrow_flight_testing
+                CMAKE_PACKAGE_NAME
+                ArrowFlightTesting
+                PKG_CONFIG_NAME
+                arrow-flight-testing
                 OUTPUTS
                 ARROW_FLIGHT_TESTING_LIBRARIES
                 SOURCES

@@ -277,6 +277,8 @@ Libraries and header files for Apache Arrow Datasets.
 %defattr(-,root,root,-)
 %doc README.md LICENSE.txt NOTICE.txt
 %{_includedir}/arrow/dataset/
+%{_libdir}/cmake/arrow/ArrowDatasetConfig*.cmake
+%{_libdir}/cmake/arrow/ArrowDatasetTargets*.cmake
 %{_libdir}/cmake/arrow/FindArrowDataset.cmake
 %{_libdir}/libarrow_dataset.a
 %{_libdir}/libarrow_dataset.so
@@ -287,7 +289,6 @@ Libraries and header files for Apache Arrow Datasets.
 Summary:	C++ library for fast data transport.
 License:	Apache-2.0
 Requires:	%{name}-libs = %{version}-%{release}
-Requires:	%{name}-python-libs = %{version}-%{release}
 Requires:	openssl
 
 %description flight-libs
@@ -297,13 +298,11 @@ This package contains the libraries for Apache Arrow Flight.
 %defattr(-,root,root,-)
 %doc README.md LICENSE.txt NOTICE.txt
 %{_libdir}/libarrow_flight.so.*
-%{_libdir}/libarrow_python_flight.so.*
 
 %package flight-devel
 Summary:	Libraries and header files for Apache Arrow Flight.
 License:	Apache-2.0
 Requires:	%{name}-flight-libs = %{version}-%{release}
-Requires:	%{name}-python-devel = %{version}-%{release}
 
 %description flight-devel
 Libraries and header files for Apache Arrow Flight.
@@ -312,14 +311,12 @@ Libraries and header files for Apache Arrow Flight.
 %defattr(-,root,root,-)
 %doc README.md LICENSE.txt NOTICE.txt
 %{_includedir}/arrow/flight/
+%{_libdir}/cmake/arrow/ArrowFlightConfig*.cmake
+%{_libdir}/cmake/arrow/ArrowFlightTargets*.cmake
 %{_libdir}/cmake/arrow/FindArrowFlight.cmake
-%{_libdir}/cmake/arrow/FindArrowPythonFlight.cmake
 %{_libdir}/libarrow_flight.a
 %{_libdir}/libarrow_flight.so
-%{_libdir}/libarrow_python_flight.a
-%{_libdir}/libarrow_python_flight.so
 %{_libdir}/pkgconfig/arrow-flight.pc
-%{_libdir}/pkgconfig/arrow-python-flight.pc
 %endif
 
 %if %{use_gandiva}
@@ -350,6 +347,8 @@ Libraries and header files for Gandiva.
 %defattr(-,root,root,-)
 %doc README.md LICENSE.txt NOTICE.txt
 %{_includedir}/gandiva/
+%{_libdir}/cmake/arrow/GandivaConfig*.cmake
+%{_libdir}/cmake/arrow/GandivaTargets*.cmake
 %{_libdir}/cmake/arrow/FindGandiva.cmake
 %{_libdir}/libgandiva.a
 %{_libdir}/libgandiva.so
@@ -357,13 +356,13 @@ Libraries and header files for Gandiva.
 %endif
 
 %package python-libs
-Summary:	Apache Arrow CPython extensions
+Summary:	Python integration library for Apache Arrow
 License:	Apache-2.0
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	python%{python_version}-numpy
 
 %description python-libs
-This package contains the Apache Arrow CPython extensions.
+This package contains the Python integration library for Apache Arrow.
 
 %files python-libs
 %defattr(-,root,root,-)
@@ -371,23 +370,65 @@ This package contains the Apache Arrow CPython extensions.
 %{_libdir}/libarrow_python.so.*
 
 %package python-devel
-Summary:	Libraries and header files for Apache Arrow CPython extensions
+Summary:	Libraries and header files for Python integration library for Apache Arrow
 License:	Apache-2.0
 Requires:	%{name}-devel = %{version}-%{release}
 Requires:	%{name}-libs = %{version}-%{release}
 Requires:	python%{python_version}-devel
 
 %description python-devel
-Libraries and header files for Apache Arrow CPython extensions.
+Libraries and header files for Python integration library for Apache Arrow.
 
 %files python-devel
 %defattr(-,root,root,-)
 %doc README.md LICENSE.txt NOTICE.txt
 %{_includedir}/arrow/python/
+%exclude %{_includedir}/arrow/python/flight.h
+%{_libdir}/cmake/arrow/ArrowPythonConfig*.cmake
+%{_libdir}/cmake/arrow/ArrowPythonTargets*.cmake
 %{_libdir}/cmake/arrow/FindArrowPython.cmake
 %{_libdir}/libarrow_python.a
 %{_libdir}/libarrow_python.so
 %{_libdir}/pkgconfig/arrow-python.pc
+
+%if %{use_flight}
+%package python-flight-libs
+Summary:	Python integration library for Apache Arrow Flight
+License:	Apache-2.0
+Requires:	%{name}-flight-libs = %{version}-%{release}
+Requires:	%{name}-python-libs = %{version}-%{release}
+Requires:	openssl
+
+%description python-flight-libs
+This package contains the Python integration library for Apache Arrow Flight.
+
+%files python-flight-libs
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_libdir}/libarrow_python_flight.so.*
+
+%package python-flight-devel
+Summary:	Libraries and header files for Python integration library for Apache Arrow Flight.
+License:	Apache-2.0
+Requires:	%{name}-flight-devel = %{version}-%{release}
+Requires:	%{name}-python-devel = %{version}-%{release}
+Requires:	%{name}-python-flight-libs = %{version}-%{release}
+
+%description python-flight-devel
+Libraries and header files for Python integration library for
+Apache Arrow Flight.
+
+%files python-flight-devel
+%defattr(-,root,root,-)
+%doc README.md LICENSE.txt NOTICE.txt
+%{_includedir}/arrow/python/flight.h
+%{_libdir}/cmake/arrow/ArrowPythonFlightConfig*.cmake
+%{_libdir}/cmake/arrow/ArrowPythonFlightTargets*.cmake
+%{_libdir}/cmake/arrow/FindArrowPythonFlight.cmake
+%{_libdir}/libarrow_python_flight.a
+%{_libdir}/libarrow_python_flight.so
+%{_libdir}/pkgconfig/arrow-python-flight.pc
+%endif
 
 %package -n plasma-libs
 Summary:	Runtime libraries for Plasma in-memory object store
@@ -427,6 +468,8 @@ Libraries and header files for Plasma in-memory object store.
 %defattr(-,root,root,-)
 %doc README.md LICENSE.txt NOTICE.txt
 %{_includedir}/plasma/
+%{_libdir}/cmake/arrow/PlasmaConfig*.cmake
+%{_libdir}/cmake/arrow/PlasmaTargets*.cmake
 %{_libdir}/cmake/arrow/FindPlasma.cmake
 %{_libdir}/libplasma.a
 %{_libdir}/libplasma.so
@@ -463,6 +506,8 @@ Libraries and header files for Apache Parquet C++.
 %defattr(-,root,root,-)
 %doc README.md LICENSE.txt NOTICE.txt
 %{_includedir}/parquet/
+%{_libdir}/cmake/arrow/ParquetConfig*.cmake
+%{_libdir}/cmake/arrow/ParquetTargets*.cmake
 %{_libdir}/cmake/arrow/FindParquet.cmake
 %{_libdir}/libparquet.a
 %{_libdir}/libparquet.so

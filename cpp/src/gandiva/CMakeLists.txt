@@ -107,6 +107,10 @@ if(NOT APPLE AND NOT MSVC)
 endif()
 
 add_arrow_lib(gandiva
+              CMAKE_PACKAGE_NAME
+              Gandiva
+              PKG_CONFIG_NAME
+              gandiva
               SOURCES
               ${SRC_FILES}
               OUTPUTS
@@ -136,10 +140,6 @@ endif()
 add_dependencies(gandiva ${GANDIVA_LIBRARIES})
 
 arrow_install_all_headers("gandiva")
-
-arrow_add_pkg_config("gandiva")
-
-arrow_install_cmake_find_module("Gandiva")
 
 set(GANDIVA_STATIC_TEST_LINK_LIBS gandiva_static RE2::re2 ${ARROW_TEST_LINK_LIBS})
 

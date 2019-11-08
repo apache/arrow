@@ -1657,8 +1657,8 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_INTEGRATION)
     #     set(CMAKE_REQUIRED_LIBRARIES)
   endif()
 
-  # TODO: Don't use global includes but rather target_include_directories
   get_target_property(GTEST_INCLUDE_DIR GTest::GTest INTERFACE_INCLUDE_DIRECTORIES)
+  # TODO: Don't use global includes but rather target_include_directories
   include_directories(SYSTEM ${GTEST_INCLUDE_DIR})
 endif()
 

@@ -61,6 +61,7 @@ set(ARROW_BINARY_DIR ${PROJECT_BINARY_DIR})
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules")
 
+include(CMakePackageConfigHelpers)
 include(CMakeParseArguments)
 include(ExternalProject)
 include(FindPkgConfig)
@@ -822,29 +823,6 @@ if(ARROW_BUILD_EXAMPLES)
   add_custom_target(runexample ctest -L example)
   add_subdirectory(examples/arrow)
 endif()
-
-include(CMakePackageConfigHelpers)
-
-# Makes the project importable from the build directory
-export(EXPORT ${PROJECT_NAME}-targets
-       FILE "${CMAKE_CURRENT_BINARY_DIR}/ArrowTargets.cmake")
-
-configure_package_config_file(ArrowConfig.cmake.in
-                              "${CMAKE_CURRENT_BINARY_DIR}/ArrowConfig.cmake"
-                              INSTALL_DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
-write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/ArrowConfigVersion.cmake
-                                 VERSION ${${PROJECT_NAME}_VERSION}
-                                 COMPATIBILITY AnyNewerVersion)
-config_summary_cmake_setters("${CMAKE_CURRENT_BINARY_DIR}/ArrowOptions.cmake")
-
-install(EXPORT ${PROJECT_NAME}-targets
-        FILE ArrowTargets.cmake
-        DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ArrowConfig.cmake
-              ${CMAKE_CURRENT_BINARY_DIR}/ArrowConfigVersion.cmake
-              ${CMAKE_CURRENT_BINARY_DIR}/ArrowOptions.cmake
-              ${CMAKE_CURRENT_SOURCE_DIR}/arrow-config.cmake
-        DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
 
 config_summary_message()
 if(${ARROW_BUILD_CONFIG_SUMMARY_JSON})

@@ -31,6 +31,10 @@
 #  ARROW_PYTHON_FLIGHT_SHARED_LIB, path to libarrow_python_flight's shared library
 #  ARROW_PYTHON_FLIGHT_STATIC_LIB, path to libarrow_python_flight.a
 
+if(DEFINED ARROW_PYTHON_FLIGHT_FOUND)
+  return()
+endif()
+
 set(find_package_arguments)
 if(${CMAKE_FIND_PACKAGE_NAME}_FIND_VERSION)
   list(APPEND find_package_arguments "${${CMAKE_FIND_PACKAGE_NAME}_FIND_VERSION}")
@@ -41,12 +45,8 @@ endif()
 if(${CMAKE_FIND_PACKAGE_NAME}_FIND_QUIETLY)
   list(APPEND find_package_arguments QUIET)
 endif()
-if(NOT DEFINED ARROW_FLIGHT_FOUND)
-  find_package(ArrowFlight ${find_package_arguments})
-endif()
-if(NOT DEFINED ARROW_PYTHON_FOUND)
-  find_package(ArrowPython ${find_package_arguments})
-endif()
+find_package(ArrowFlight ${find_package_arguments})
+find_package(ArrowPython ${find_package_arguments})
 
 if(ARROW_PYTHON_FOUND AND ARROW_FLIGHT_FOUND)
   arrow_find_package(ARROW_PYTHON_FLIGHT

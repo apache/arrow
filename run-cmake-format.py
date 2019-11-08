@@ -25,7 +25,6 @@ import sys
 
 patterns = [
     'cpp/CMakeLists.txt',
-    'cpp/arrow-config.cmake',
     # Keep an explicit list of files to format as we don't want to reformat
     # files we imported from other location.
     'cpp/cmake_modules/BuildUtils.cmake',
@@ -34,8 +33,10 @@ patterns = [
     'cpp/cmake_modules/FindArrowCUDA.cmake',
     'cpp/cmake_modules/FindArrowDataset.cmake',
     'cpp/cmake_modules/FindArrowFlight.cmake',
+    'cpp/cmake_modules/FindArrowFlightTesting.cmake',
     'cpp/cmake_modules/FindArrowPython.cmake',
     'cpp/cmake_modules/FindArrowPythonFlight.cmake',
+    'cpp/cmake_modules/FindArrowTesting.cmake',
     'cpp/cmake_modules/FindBrotli.cmake',
     'cpp/cmake_modules/FindClangTools.cmake',
     'cpp/cmake_modules/FindDoubleConversion.cmake',

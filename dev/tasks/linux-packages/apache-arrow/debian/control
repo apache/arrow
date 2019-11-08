@@ -69,7 +69,8 @@ Pre-Depends: ${misc:Pre-Depends}
 Depends:
   ${misc:Depends},
   ${shlibs:Depends},
-  libarrow100 (= ${binary:Version})
+  libarrow100 (= ${binary:Version}),
+  libparquet100 (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ library files for Datasets module.
@@ -146,7 +147,8 @@ Multi-Arch: same
 Depends:
   ${misc:Depends},
   libarrow-dev (= ${binary:Version}),
-  libarrow-dataset100 (= ${binary:Version})
+  libarrow-dataset100 (= ${binary:Version}),
+  libparquet-dev (= ${binary:Version})
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ header files for Datasets module.

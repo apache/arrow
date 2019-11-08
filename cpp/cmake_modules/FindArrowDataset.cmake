@@ -29,21 +29,24 @@
 #  ARROW_DATASET_SHARED_LIB, path to libarrow_dataset's shared library
 #  ARROW_DATASET_STATIC_LIB, path to libarrow_dataset.a
 
-if(NOT DEFINED ARROW_FOUND)
-  set(find_package_arguments)
-  if(${CMAKE_FIND_PACKAGE_NAME}_FIND_VERSION)
-    list(APPEND find_package_arguments "${${CMAKE_FIND_PACKAGE_NAME}_FIND_VERSION}")
-  endif()
-  if(${CMAKE_FIND_PACKAGE_NAME}_FIND_REQUIRED)
-    list(APPEND find_package_arguments REQUIRED)
-  endif()
-  if(${CMAKE_FIND_PACKAGE_NAME}_FIND_QUIETLY)
-    list(APPEND find_package_arguments QUIET)
-  endif()
-  find_package(Arrow ${find_package_arguments})
+if(DEFINED ARROW_DATASET_FOUND)
+  return()
 endif()
 
-if(ARROW_FOUND)
+set(find_package_arguments)
+if(${CMAKE_FIND_PACKAGE_NAME}_FIND_VERSION)
+  list(APPEND find_package_arguments "${${CMAKE_FIND_PACKAGE_NAME}_FIND_VERSION}")
+endif()
+if(${CMAKE_FIND_PACKAGE_NAME}_FIND_REQUIRED)
+  list(APPEND find_package_arguments REQUIRED)
+endif()
+if(${CMAKE_FIND_PACKAGE_NAME}_FIND_QUIETLY)
+  list(APPEND find_package_arguments QUIET)
+endif()
+find_package(Arrow ${find_package_arguments})
+find_package(Parquet ${find_package_arguments})
+
+if(ARROW_FOUND AND PARQUET_FOUND)
   arrow_find_package(ARROW_DATASET
                      "${ARROW_HOME}"
                      arrow_dataset
