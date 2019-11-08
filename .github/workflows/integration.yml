@@ -61,7 +61,7 @@ jobs:
       - name: Docker Run
         run: docker-compose run conda-integration
       - name: Docker Push
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && github.repository == 'apache/arrow'
         shell: bash
         run: |
           docker login \

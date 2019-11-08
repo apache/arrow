@@ -49,7 +49,7 @@ jobs:
         shell: bash
         run: docker-compose run debian-cpp
       - name: Docker Push
-        if: github.event_name == 'push' && github.ref == 'master'
+        if: github.event_name == 'push' && github.repository == 'apache/arrow'
         shell: bash
         run: |
           docker login \
@@ -81,7 +81,7 @@ jobs:
         shell: bash
         run: docker-compose run fedora-cpp
       - name: Docker Push
-        if: github.event_name == 'push' && github.ref == 'master'
+        if: github.event_name == 'push' && github.repository == 'apache/arrow'
         shell: bash
         run: |
           docker login \

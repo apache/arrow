@@ -120,7 +120,7 @@ jobs:
         shell: bash
         run: docker-compose run ubuntu-cpp-cmake32
       - name: Docker Push
-        if: github.event_name == 'push' && github.ref == 'master'
+        if: github.event_name == 'push' && github.repository == 'apache/arrow'
         shell: bash
         run: |
           docker login \

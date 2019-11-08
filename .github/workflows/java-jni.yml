@@ -62,7 +62,7 @@ jobs:
         run: |
           docker-compose run debian-java-jni
       - name: Docker Push
-        if: github.event_name == 'push' && github.ref == 'master'
+        if: github.event_name == 'push' && github.repository == 'apache/arrow'
         shell: bash
         run: |
           docker login \
