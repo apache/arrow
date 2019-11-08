@@ -34,9 +34,11 @@ jobs:
   debian:
     name: AMD64 Debian 9 Java JNI and Plasma
     runs-on: ubuntu-latest
-    matrix:
-      jdk: [8]
-      maven: [3.5.2]
+    strategy:
+      fail-fast: false
+      matrix:
+        jdk: [8]
+        maven: [3.5.2]
     env:
       JDK: ${{ matrix.jdk }}
       MAVEN: ${{ matrix.maven }}

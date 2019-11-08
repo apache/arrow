@@ -52,7 +52,7 @@ jobs:
         shell: bash
         run: ci/scripts/csharp_test.sh $(pwd)
 
-  ubuntu:
+  windows:
     name: AMD64 Windows 2019 18.04 C# ${{ matrix.dotnet }}
     runs-on: windows-latest
     strategy:
