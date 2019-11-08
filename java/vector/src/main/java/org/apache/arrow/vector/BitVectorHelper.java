@@ -158,7 +158,7 @@ public class BitVectorHelper {
       index += 8;
     }
 
-    while (index + 4 <= fullBytesCount) {
+    if (index + 4 <= fullBytesCount) {
       int intValue = validityBuffer.getInt(index);
       count += Integer.bitCount(intValue);
       index += 4;
@@ -217,7 +217,7 @@ public class BitVectorHelper {
       index += 8;
     }
 
-    while (index + 4 <= fullBytesCount) {
+    if (index + 4 <= fullBytesCount) {
       int intValue = getInt(validityBuffer.memoryAddress() + index);
       if (intValue != intToCompare) {
         return false;
