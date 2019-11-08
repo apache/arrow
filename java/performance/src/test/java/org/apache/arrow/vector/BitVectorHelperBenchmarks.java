@@ -21,8 +21,10 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Scope;
@@ -39,63 +41,129 @@ import io.netty.buffer.ArrowBuf;
 /**
  * Benchmarks for {@link BitVectorHelper}.
  */
-@State(Scope.Benchmark)
 public class BitVectorHelperBenchmarks {
 
-  private static final int VALIDITY_BUFFER_CAPACITY = 1024;
-
-  private static final int ALLOCATOR_CAPACITY = 1024 * 1024;
-
-  private BufferAllocator allocator;
-
-  private ArrowBuf validityBuffer;
-
-  private ArrowBuf oneBitValidityBuffer;
-
   /**
-   * Setup benchmarks.
+   * State object for general benchmarks.
    */
-  @Setup
-  public void prepare() {
-    allocator = new RootAllocator(ALLOCATOR_CAPACITY);
-    validityBuffer = allocator.buffer(VALIDITY_BUFFER_CAPACITY / 8);
+  @State(Scope.Benchmark)
+  public static class BenchmarkState {
 
-    for (int i = 0;i < VALIDITY_BUFFER_CAPACITY; i++) {
-      if (i % 7 == 0) {
-        BitVectorHelper.setValidityBit(validityBuffer, i, (byte) 1);
-      } else {
-        BitVectorHelper.setValidityBit(validityBuffer, i, (byte) 0);
+    private static final int VALIDITY_BUFFER_CAPACITY = 1024;
+
+    private static final int ALLOCATOR_CAPACITY = 1024 * 1024;
+
+    private BufferAllocator allocator;
+
+    private ArrowBuf validityBuffer;
+
+    private ArrowBuf oneBitValidityBuffer;
+
+    /**
+     * Setup benchmarks.
+     */
+    @Setup(Level.Trial)
+    public void prepare() {
+      allocator = new RootAllocator(ALLOCATOR_CAPACITY);
+      validityBuffer = allocator.buffer(VALIDITY_BUFFER_CAPACITY / 8);
+
+      for (int i = 0;i < VALIDITY_BUFFER_CAPACITY; i++) {
+        if (i % 7 == 0) {
+          BitVectorHelper.setValidityBit(validityBuffer, i, (byte) 1);
+        } else {
+          BitVectorHelper.setValidityBit(validityBuffer, i, (byte) 0);
+        }
       }
+
+      // only one 1 bit in the middle of the buffer
+      oneBitValidityBuffer = allocator.buffer(VALIDITY_BUFFER_CAPACITY / 8);
+      oneBitValidityBuffer.setZero(0, VALIDITY_BUFFER_CAPACITY / 8);
+      BitVectorHelper.setValidityBit(oneBitValidityBuffer, VALIDITY_BUFFER_CAPACITY / 2, (byte) 1);
     }
 
-    // only one 1 bit in the middle of the buffer
-    oneBitValidityBuffer = allocator.buffer(VALIDITY_BUFFER_CAPACITY / 8);
-    oneBitValidityBuffer.setZero(0, VALIDITY_BUFFER_CAPACITY / 8);
-    BitVectorHelper.setValidityBit(oneBitValidityBuffer, VALIDITY_BUFFER_CAPACITY / 2, (byte) 1);
+    /**
+     * Tear down benchmarks.
+     */
+    @TearDown(Level.Trial)
+    public void tearDown() {
+      validityBuffer.close();
+      oneBitValidityBuffer.close();
+      allocator.close();
+    }
+  }
+
+  @Benchmark
+  @BenchmarkMode(Mode.AverageTime)
+  @OutputTimeUnit(TimeUnit.NANOSECONDS)
+  public int getNullCountBenchmark(BenchmarkState state) {
+    return BitVectorHelper.getNullCount(state.validityBuffer, BenchmarkState.VALIDITY_BUFFER_CAPACITY);
+  }
+
+  @Benchmark
+  @BenchmarkMode(Mode.AverageTime)
+  @OutputTimeUnit(TimeUnit.NANOSECONDS)
+  public boolean allBitsNullBenchmark(BenchmarkState state) {
+    return BitVectorHelper.checkAllBitsEqualTo(
+            state.oneBitValidityBuffer, BenchmarkState.VALIDITY_BUFFER_CAPACITY, true);
   }
 
   /**
-   * Tear down benchmarks.
+   * State object for {@link #loadValidityBufferAllOne(NonNullableValidityBufferState)}..
    */
-  @TearDown
-  public void tearDown() {
-    validityBuffer.close();
-    oneBitValidityBuffer.close();
-    allocator.close();
+  @State(Scope.Benchmark)
+  public static class NonNullableValidityBufferState {
+
+    private static final int VALIDITY_BUFFER_CAPACITY = 1024;
+
+    private static final int ALLOCATOR_CAPACITY = 1024 * 1024;
+
+    private BufferAllocator allocator;
+
+    private ArrowBuf validityBuffer;
+
+    private ArrowBuf loadResult;
+
+    private ArrowFieldNode fieldNode;
+
+    /**
+     * Setup benchmarks.
+     */
+    @Setup(Level.Trial)
+    public void prepare() {
+      allocator = new RootAllocator(ALLOCATOR_CAPACITY);
+      validityBuffer = allocator.buffer(VALIDITY_BUFFER_CAPACITY / 8);
+
+      for (int i = 0;i < VALIDITY_BUFFER_CAPACITY; i++) {
+        BitVectorHelper.setValidityBit(validityBuffer, i, (byte) 1);
+      }
+
+      fieldNode = new ArrowFieldNode(VALIDITY_BUFFER_CAPACITY, 0);
+    }
+
+    @TearDown(Level.Invocation)
+    public void tearDownInvoke() {
+      loadResult.close();
+    }
+
+    /**
+     * Tear down benchmarks.
+     */
+    @TearDown(Level.Trial)
+    public void tearDown() {
+      validityBuffer.close();
+      allocator.close();
+    }
   }
 
+  /**
+   * Benchmark for {@link BitVectorHelper#loadValidityBuffer(ArrowFieldNode, ArrowBuf, BufferAllocator)}
+   * when all elements are not null.
+   */
   @Benchmark
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.NANOSECONDS)
-  public int getNullCountBenchmark() {
-    return BitVectorHelper.getNullCount(validityBuffer, VALIDITY_BUFFER_CAPACITY);
-  }
-
-  @Benchmark
-  @BenchmarkMode(Mode.AverageTime)
-  @OutputTimeUnit(TimeUnit.NANOSECONDS)
-  public boolean allBitsNullBenchmark() {
-    return BitVectorHelper.checkAllBitsEqualTo(oneBitValidityBuffer, VALIDITY_BUFFER_CAPACITY, true);
+  public void loadValidityBufferAllOne(NonNullableValidityBufferState state) {
+    state.loadResult = BitVectorHelper.loadValidityBuffer(state.fieldNode, state.validityBuffer, state.allocator);
   }
 
   //@Test
