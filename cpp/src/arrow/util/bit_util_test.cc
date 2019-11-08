@@ -1158,50 +1158,18 @@ TEST(Bitmap, ShiftingWordsOptimization) {
   }
 }
 
-/*
-TEST(Bitmap, WordVisitable) {
-  using internal::Bitmap;
+namespace internal {
 
-  uint64_t words[2];
-  constexpr int64_t kBitWidth = 8 * sizeof(words);
-  auto bytes = reinterpret_cast<uint8_t*>(words);
-  auto buffer = std::make_shared<Buffer>(bytes, sizeof(words));
-
-  // whole words are accessible
-  ASSERT_TRUE(Bitmap(buffer, 0, kBitWidth).template word_accessible<uint64_t>())
-      << "both words";
-  ASSERT_TRUE(Bitmap(buffer, 0, kBitWidth / 2).template word_accessible<uint64_t>())
-      << "first word";
-  ASSERT_TRUE(
-      Bitmap(buffer, kBitWidth / 2, kBitWidth / 2).template word_accessible<uint64_t>())
-      << "second word";
-
-  // words outside the buffer are not accessible
-  ASSERT_FALSE(Bitmap(buffer, kBitWidth, kBitWidth).template word_accessible<uint64_t>())
-      << "bitmap references bits after the buffer";
-  ASSERT_FALSE(Bitmap(buffer, -kBitWidth, kBitWidth).template word_accessible<uint64_t>())
-      << "bitmap references bits before the buffer";
-
-  for (int offset = 1; offset < kBitWidth; ++offset) {
-    // nonzero offset but the words containing referenced bits still lie within the buffer
-    ASSERT_TRUE(
-        Bitmap(bytes, offset, kBitWidth - offset).template word_accessible<uint64_t>());
-  }
-
-  // words partially outside the buffer are not accessible
-  ASSERT_FALSE(Bitmap(SliceBuffer(buffer, 1), 0, kBitWidth - 8)
-                   .template word_accessible<uint64_t>())
-      << "first byte has been sliced off";
-  ASSERT_FALSE(Bitmap(SliceBuffer(buffer, 1, sizeof(words) - 1), 0, kBitWidth)
-                   .template word_accessible<uint64_t>())
-      << "its last byte has been sliced off";
+static Bitmap Copy(const Bitmap& bitmap, std::shared_ptr<Buffer> storage) {
+  int64_t i = 0;
+  auto min_offset = Bitmap::VisitWords({bitmap}, [&](std::array<uint64_t, 1> uint64s) {
+    reinterpret_cast<uint64_t*>(storage->mutable_data())[i++] = uint64s[0];
+  });
+  return Bitmap(std::move(storage), min_offset, bitmap.length());
 }
-*/
 
 // reconstruct a bitmap from a word-wise visit
-TEST(Bitmap, Visit) {
-  using internal::Bitmap;
-
+TEST(Bitmap, VisitWords) {
   constexpr int64_t nbytes = 1 << 10;
   std::shared_ptr<Buffer> buffer, actual_buffer;
   for (std::shared_ptr<Buffer>* b : {&buffer, &actual_buffer}) {
@@ -1216,25 +1184,34 @@ TEST(Bitmap, Visit) {
     for (int64_t num_bits :
          {int64_t(13), int64_t(9), kBitWidth - 1, kBitWidth, kBitWidth + 1,
           nbytes * 8 - offset, nbytes * 6, nbytes * 4}) {
-      Bitmap bitmaps[] = {{buffer, offset, num_bits}};
-
-      int64_t i = 0;
-      auto min_offset = Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 1> uint64s) {
-        reinterpret_cast<uint64_t*>(actual_buffer->mutable_data())[i++] = uint64s[0];
-      });
-
-      ASSERT_TRUE(internal::BitmapEquals(actual_buffer->data(), min_offset,
-                                         buffer->data(), offset, num_bits))
+      Bitmap actual = Copy({buffer, offset, num_bits}, actual_buffer);
+      ASSERT_EQ(actual, Bitmap(buffer->data(), offset, num_bits))
           << "offset:" << offset << "  bits:" << num_bits << std::endl
           << Bitmap(actual_buffer, 0, num_bits).Diff({buffer, offset, num_bits});
     }
   }
 }
 
-// compute bitwise AND of bitmaps using word-wise visit
-TEST(Bitmap, VisitAnd) {
-  using internal::Bitmap;
+TEST(Bitmap, VisitPartialWords) {
+  uint64_t words[2];
+  constexpr auto nbytes = sizeof(words);
+  constexpr auto nbits = nbytes * 8;
 
+  auto buffer = Buffer::Wrap(words, 2);
+  Bitmap bitmap(buffer, 0, nbits);
+  std::shared_ptr<Buffer> storage;
+  ASSERT_OK(AllocateBuffer(nbytes, &storage));
+
+  // words partially outside the buffer are not accessible, but they are loaded bitwise
+  auto first_byte_was_missing = Bitmap(SliceBuffer(buffer, 1), 0, nbits - 8);
+  ASSERT_EQ(Copy(first_byte_was_missing, storage), bitmap.Slice(8));
+
+  auto last_byte_was_missing = Bitmap(SliceBuffer(buffer, 0, nbytes - 1), 0, nbits - 8);
+  ASSERT_EQ(Copy(last_byte_was_missing, storage), bitmap.Slice(0, nbits - 8));
+}
+
+// compute bitwise AND of bitmaps using word-wise visit
+TEST(Bitmap, VisitWordsAnd) {
   constexpr int64_t nbytes = 1 << 10;
   std::shared_ptr<Buffer> buffer, actual_buffer, expected_buffer;
   for (std::shared_ptr<Buffer>* b : {&buffer, &actual_buffer, &expected_buffer}) {
@@ -1263,12 +1240,12 @@ TEST(Bitmap, VisitAnd) {
                   uint64s[0] & uint64s[1];
             });
 
-        internal::BitmapAnd(bitmaps[0].buffer()->data(), bitmaps[0].offset(),
-                            bitmaps[1].buffer()->data(), bitmaps[1].offset(),
-                            bitmaps[0].length(), 0, expected_buffer->mutable_data());
+        BitmapAnd(bitmaps[0].buffer()->data(), bitmaps[0].offset(),
+                  bitmaps[1].buffer()->data(), bitmaps[1].offset(), bitmaps[0].length(),
+                  0, expected_buffer->mutable_data());
 
-        ASSERT_TRUE(internal::BitmapEquals(actual_buffer->data(), min_offset,
-                                           expected_buffer->data(), 0, num_bits))
+        ASSERT_TRUE(BitmapEquals(actual_buffer->data(), min_offset,
+                                 expected_buffer->data(), 0, num_bits))
             << "left_offset:" << left_offset << "  bits:" << num_bits
             << "  right_offset:" << right_offset << std::endl
             << Bitmap(actual_buffer, 0, num_bits).Diff({expected_buffer, 0, num_bits});
@@ -1276,4 +1253,5 @@ TEST(Bitmap, VisitAnd) {
     }
   }
 }
+}  // namespace internal
 }  // namespace arrow

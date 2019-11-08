@@ -343,6 +343,14 @@ std::string Bitmap::Diff(const Bitmap& other) const {
   return ToArray()->Diff(*other.ToArray());
 }
 
+bool Bitmap::Equals(const Bitmap& other) const {
+  if (length_ != other.length_) {
+    return false;
+  }
+  return BitmapEquals(buffer_->data(), offset_, other.buffer_->data(), other.offset(),
+                      length_);
+}
+
 int64_t Bitmap::BitLength(const Bitmap* bitmaps, size_t N) {
   for (size_t i = 1; i < N; ++i) {
     DCHECK_EQ(bitmaps[i].length(), bitmaps[0].length());

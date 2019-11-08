@@ -67,8 +67,10 @@
 #include <vector>
 
 #include "arrow/buffer.h"
+#include "arrow/util/compare.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/string_builder.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/type_traits.h"
 #include "arrow/util/visibility.h"
@@ -836,7 +838,8 @@ Status InvertBitmap(MemoryPool* pool, const uint8_t* bitmap, int64_t offset,
 ARROW_EXPORT
 int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length);
 
-class ARROW_EXPORT Bitmap {
+class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
+                            public util::EqualityComparable<Bitmap> {
  public:
   template <typename Word>
   using View = util::basic_string_view<Word>;
@@ -868,6 +871,8 @@ class ARROW_EXPORT Bitmap {
 
   std::string ToString() const;
 
+  bool Equals(const Bitmap& other) const;
+
   std::string Diff(const Bitmap& other) const;
 
   bool GetBit(int64_t i) const { return BitUtil::GetBit(buffer_->data(), i + offset_); }
@@ -895,7 +900,11 @@ class ARROW_EXPORT Bitmap {
 
   /// \brief Visit words of bits from each bitmap as array<Word, N>
   ///
-  /// All bitmaps must have identical length.
+  /// All bitmaps must have identical length. The first bit in a visited bitmap
+  /// may be offset within the first visited word, but words will otherwise contain
+  /// densely packed bits loaded from the bitmap. That offset within the first word is
+  /// returned.
+  ///
   /// TODO(bkietz) allow for early termination
   template <size_t N, typename Visitor,
             typename Word =
@@ -926,6 +935,7 @@ class ARROW_EXPORT Bitmap {
     };
 
     std::array<Word, N> visited_words;
+    visited_words.fill(0);
 
     if (bit_length <= kBitWidth * 2) {
       // bitmaps fit into one or two words so don't bother with optimization
@@ -1010,6 +1020,7 @@ class ARROW_EXPORT Bitmap {
     return util::bytes_view(buffer_->data() + byte_offset, byte_count);
   }
 
+ private:
   /// string_view of all Words which contain any bit in this Bitmap
   ///
   /// For example, given Word=uint16_t and a bitmap spanning bits [20, 36)
@@ -1041,12 +1052,13 @@ class ARROW_EXPORT Bitmap {
                           reinterpret_cast<size_t>(words<Word>().data()));
   }
 
- private:
   /// load words from bitmaps bitwise
   template <size_t N, typename Word>
   static void SafeLoadWords(const Bitmap (&bitmaps)[N], int64_t offset,
                             int64_t out_length, bool set_trailing_bits,
                             std::array<Word, N>* out) {
+    out->fill(0);
+
     int64_t out_offset = set_trailing_bits ? sizeof(Word) * 8 - out_length : 0;
 
     Bitmap slices[N], out_bitmaps[N];
