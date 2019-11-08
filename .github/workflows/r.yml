@@ -19,6 +19,9 @@ name: R
 
 on:
   push:
+    branches:
+      - master
+      - maint-*
     paths:
       - 'ci/**'
       - 'cpp/**'

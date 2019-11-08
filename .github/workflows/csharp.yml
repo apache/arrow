@@ -19,6 +19,9 @@ name: C#
 
 on:
   push:
+    branches:
+      - master
+      - maint-*
     paths:
       - 'ci/**'
       - 'csharp/**'

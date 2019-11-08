@@ -19,6 +19,9 @@ name: Go
 
 on:
   push:
+    branches:
+      - master
+      - maint-*
     paths:
       - 'ci/**'
       - 'go/**'

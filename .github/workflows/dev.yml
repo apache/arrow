@@ -19,6 +19,9 @@ name: Dev
 
 on:
   push:
+    branches:
+      - master
+      - maint-*
   pull_request:
 
 jobs:

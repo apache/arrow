@@ -19,6 +19,9 @@ name: Java JNI
 
 on:
   push:
+    branches:
+      - master
+      - maint-*
     paths:
       - 'ci/**'
       - 'cpp/**'

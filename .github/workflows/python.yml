@@ -19,6 +19,9 @@ name: Python
 
 on:
   push:
+    branches:
+      - master
+      - maint-*
     paths:
       - 'ci/**'
       - 'cpp/**'
@@ -110,7 +113,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: [2.7, 3.6, 3.7]
+        python: [3.6]
     env:
       PYTHON: ${{ matrix.python }}
     steps:

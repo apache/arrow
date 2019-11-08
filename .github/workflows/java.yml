@@ -19,6 +19,9 @@ name: Java
 
 on:
   push:
+    branches:
+      - master
+      - maint-*
     paths:
       - 'ci/**'
       - 'cpp/**'
