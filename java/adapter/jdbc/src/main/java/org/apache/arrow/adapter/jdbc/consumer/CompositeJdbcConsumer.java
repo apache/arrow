@@ -42,8 +42,8 @@ public class CompositeJdbcConsumer implements JdbcConsumer {
 
   @Override
   public void consume(ResultSet rs) throws SQLException, IOException {
-    for (JdbcConsumer consumer : consumers) {
-      consumer.consume(rs);
+    for (int i = 0; i < consumers.length; i++) {
+      consumers[i].consume(rs);
     }
   }
 
