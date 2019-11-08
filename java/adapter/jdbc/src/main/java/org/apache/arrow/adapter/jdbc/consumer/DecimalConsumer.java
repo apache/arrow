@@ -40,10 +40,10 @@ public abstract class DecimalConsumer implements JdbcConsumer<DecimalVector> {
     }
   }
 
-  private DecimalVector vector;
-  private final int columnIndexInResultSet;
+  protected DecimalVector vector;
+  protected final int columnIndexInResultSet;
 
-  private int currentIndex;
+  protected int currentIndex;
 
   /**
    * Instantiate a DecimalConsumer.
@@ -51,15 +51,6 @@ public abstract class DecimalConsumer implements JdbcConsumer<DecimalVector> {
   public DecimalConsumer(DecimalVector vector, int index) {
     this.vector = vector;
     this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    BigDecimal value = resultSet.getBigDecimal(columnIndexInResultSet);
-    if (!wasNull(resultSet)) {
-      vector.setSafe(currentIndex, value);
-    }
-    currentIndex++;
   }
 
   @Override
@@ -86,8 +77,12 @@ public abstract class DecimalConsumer implements JdbcConsumer<DecimalVector> {
     }
 
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return resultSet.wasNull();
+    public void consume(ResultSet resultSet) throws SQLException {
+      BigDecimal value = resultSet.getBigDecimal(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        vector.setSafe(currentIndex, value);
+      }
+      currentIndex++;
     }
   }
 
@@ -104,8 +99,10 @@ public abstract class DecimalConsumer implements JdbcConsumer<DecimalVector> {
     }
 
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return false;
+    public void consume(ResultSet resultSet) throws SQLException {
+      BigDecimal value = resultSet.getBigDecimal(columnIndexInResultSet);
+      vector.setSafe(currentIndex, value);
+      currentIndex++;
     }
   }
 }

@@ -135,7 +135,7 @@ public class JdbcAdapterBenchmarks {
   @State(Scope.Benchmark)
   public static class ConsumeState {
 
-    private static final boolean NULLABLE = false;
+    private static final boolean NULLABLE = true;
 
     private Connection conn = null;
 
@@ -307,7 +307,7 @@ public class JdbcAdapterBenchmarks {
    * Test {@link JdbcToArrow#sqlToArrowVectorIterator(ResultSet, JdbcToArrowConfig)}
    * @return useless. To avoid DCE by JIT.
    */
-  /*@Benchmark
+  @Benchmark
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.MICROSECONDS)
   public int testJdbcToArrow(JdbcState state) throws Exception {
@@ -321,7 +321,7 @@ public class JdbcAdapterBenchmarks {
       }
     }
     return valueCount;
-  }*/
+  }
 
   @Benchmark
   @BenchmarkMode(Mode.AverageTime)
@@ -339,14 +339,14 @@ public class JdbcAdapterBenchmarks {
     }
   }
 
-  /*@Benchmark
+  @Benchmark
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.MICROSECONDS)
   public void consumeRowsBenchmark(RowConsumeState state) throws Exception {
     for (int i = 0; i < VALUE_COUNT; i++) {
       state.iter.compositeConsumer.consume(state.resultSet);
     }
-  }*/
+  }
 
   @Test
   public void evaluate() throws RunnerException {

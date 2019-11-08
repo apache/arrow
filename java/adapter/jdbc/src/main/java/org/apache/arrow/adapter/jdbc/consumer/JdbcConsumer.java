@@ -43,14 +43,4 @@ public interface JdbcConsumer<T extends ValueVector> extends AutoCloseable {
    * Reset the vector within consumer for partial read purpose.
    */
   void resetValueVector(T vector);
-
-  /**
-   * Checks if the last value is null.
-   * We expose this method to optimize for the non-nullable case.
-   * By overriding this method to simply return false, we get a performance improvement
-   * of over 20%, according to the benchmark in org.apache.arrow.adapter.JdbcAdapterBenchmarks.
-   * @param resultSet the result set to check.
-   * @return true if the last value is null; false otherwise.
-   */
-  boolean wasNull(ResultSet resultSet) throws SQLException;
 }

@@ -40,10 +40,10 @@ public abstract class VarCharConsumer implements JdbcConsumer<VarCharVector> {
     }
   }
 
-  private final int columnIndexInResultSet;
+  protected final int columnIndexInResultSet;
 
-  private VarCharVector vector;
-  private int currentIndex;
+  protected VarCharVector vector;
+  protected int currentIndex;
 
   /**
    * Instantiate a VarCharConsumer.
@@ -51,17 +51,6 @@ public abstract class VarCharConsumer implements JdbcConsumer<VarCharVector> {
   public VarCharConsumer(VarCharVector vector, int index) {
     this.vector = vector;
     this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    String value = resultSet.getString(columnIndexInResultSet);
-    if (!wasNull(resultSet)) {
-      byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
-
-      vector.setSafe(currentIndex, bytes);
-    }
-    currentIndex++;
   }
 
   @Override
@@ -88,8 +77,13 @@ public abstract class VarCharConsumer implements JdbcConsumer<VarCharVector> {
     }
 
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return resultSet.wasNull();
+    public void consume(ResultSet resultSet) throws SQLException {
+      String value = resultSet.getString(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+        vector.setSafe(currentIndex, bytes);
+      }
+      currentIndex++;
     }
   }
 
@@ -106,8 +100,11 @@ public abstract class VarCharConsumer implements JdbcConsumer<VarCharVector> {
     }
 
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return false;
+    public void consume(ResultSet resultSet) throws SQLException {
+      String value = resultSet.getString(columnIndexInResultSet);
+      byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+      vector.setSafe(currentIndex, bytes);
+      currentIndex++;
     }
   }
 }

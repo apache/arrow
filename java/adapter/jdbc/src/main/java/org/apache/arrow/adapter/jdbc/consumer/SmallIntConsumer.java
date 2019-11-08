@@ -39,10 +39,10 @@ public abstract class SmallIntConsumer implements JdbcConsumer<SmallIntVector> {
     }
   }
 
-  private SmallIntVector vector;
-  private final int columnIndexInResultSet;
+  protected SmallIntVector vector;
+  protected final int columnIndexInResultSet;
 
-  private int currentIndex;
+  protected int currentIndex;
 
   /**
    * Instantiate a SmallIntConsumer.
@@ -50,15 +50,6 @@ public abstract class SmallIntConsumer implements JdbcConsumer<SmallIntVector> {
   public SmallIntConsumer(SmallIntVector vector, int index) {
     this.vector = vector;
     this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    short value = resultSet.getShort(columnIndexInResultSet);
-    if (!wasNull(resultSet)) {
-      vector.setSafe(currentIndex, value);
-    }
-    currentIndex++;
   }
 
   @Override
@@ -85,8 +76,12 @@ public abstract class SmallIntConsumer implements JdbcConsumer<SmallIntVector> {
     }
 
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return resultSet.wasNull();
+    public void consume(ResultSet resultSet) throws SQLException {
+      short value = resultSet.getShort(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        vector.setSafe(currentIndex, value);
+      }
+      currentIndex++;
     }
   }
 
@@ -103,8 +98,10 @@ public abstract class SmallIntConsumer implements JdbcConsumer<SmallIntVector> {
     }
 
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return false;
+    public void consume(ResultSet resultSet) throws SQLException {
+      short value = resultSet.getShort(columnIndexInResultSet);
+      vector.setSafe(currentIndex, value);
+      currentIndex++;
     }
   }
 }

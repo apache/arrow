@@ -39,10 +39,10 @@ public abstract class DoubleConsumer implements JdbcConsumer<Float8Vector> {
     }
   }
 
-  private Float8Vector vector;
-  private final int columnIndexInResultSet;
+  protected Float8Vector vector;
+  protected final int columnIndexInResultSet;
 
-  private int currentIndex;
+  protected int currentIndex;
 
   /**
    * Instantiate a DoubleConsumer.
@@ -50,15 +50,6 @@ public abstract class DoubleConsumer implements JdbcConsumer<Float8Vector> {
   public DoubleConsumer(Float8Vector vector, int index) {
     this.vector = vector;
     this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    double value = resultSet.getDouble(columnIndexInResultSet);
-    if (!wasNull(resultSet)) {
-      vector.setSafe(currentIndex, value);
-    }
-    currentIndex++;
   }
 
   @Override
@@ -85,8 +76,12 @@ public abstract class DoubleConsumer implements JdbcConsumer<Float8Vector> {
     }
 
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return resultSet.wasNull();
+    public void consume(ResultSet resultSet) throws SQLException {
+      double value = resultSet.getDouble(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        vector.setSafe(currentIndex, value);
+      }
+      currentIndex++;
     }
   }
 
@@ -103,9 +98,10 @@ public abstract class DoubleConsumer implements JdbcConsumer<Float8Vector> {
     }
 
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return false;
+    public void consume(ResultSet resultSet) throws SQLException {
+      double value = resultSet.getDouble(columnIndexInResultSet);
+      vector.setSafe(currentIndex, value);
+      currentIndex++;
     }
-
   }
 }

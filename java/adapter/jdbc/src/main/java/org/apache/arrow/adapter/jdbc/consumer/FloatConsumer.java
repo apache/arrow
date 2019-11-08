@@ -39,10 +39,10 @@ public abstract class FloatConsumer implements JdbcConsumer<Float4Vector> {
     }
   }
 
-  private Float4Vector vector;
-  private final int columnIndexInResultSet;
+  protected Float4Vector vector;
+  protected final int columnIndexInResultSet;
 
-  private int currentIndex;
+  protected int currentIndex;
 
   /**
    * Instantiate a FloatConsumer.
@@ -50,15 +50,6 @@ public abstract class FloatConsumer implements JdbcConsumer<Float4Vector> {
   public FloatConsumer(Float4Vector vector, int index) {
     this.vector = vector;
     this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    float value = resultSet.getFloat(columnIndexInResultSet);
-    if (!wasNull(resultSet)) {
-      vector.setSafe(currentIndex, value);
-    }
-    currentIndex++;
   }
 
   @Override
@@ -85,8 +76,12 @@ public abstract class FloatConsumer implements JdbcConsumer<Float4Vector> {
     }
 
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return resultSet.wasNull();
+    public void consume(ResultSet resultSet) throws SQLException {
+      float value = resultSet.getFloat(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        vector.setSafe(currentIndex, value);
+      }
+      currentIndex++;
     }
   }
 
@@ -103,8 +98,10 @@ public abstract class FloatConsumer implements JdbcConsumer<Float4Vector> {
     }
 
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return false;
+    public void consume(ResultSet resultSet) throws SQLException {
+      float value = resultSet.getFloat(columnIndexInResultSet);
+      vector.setSafe(currentIndex, value);
+      currentIndex++;
     }
   }
 }

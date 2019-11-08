@@ -39,10 +39,10 @@ public abstract class BitConsumer implements JdbcConsumer<BitVector> {
     }
   }
 
-  private BitVector vector;
-  private final int columnIndexInResultSet;
+  protected BitVector vector;
+  protected final int columnIndexInResultSet;
 
-  private int currentIndex;
+  protected int currentIndex;
 
   /**
    * Instantiate a BitConsumer.
@@ -50,15 +50,6 @@ public abstract class BitConsumer implements JdbcConsumer<BitVector> {
   public BitConsumer(BitVector vector, int index) {
     this.vector = vector;
     this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    boolean value = resultSet.getBoolean(columnIndexInResultSet);
-    if (!wasNull(resultSet)) {
-      vector.setSafe(currentIndex, value ? 1 : 0);
-    }
-    currentIndex++;
   }
 
   @Override
@@ -85,8 +76,12 @@ public abstract class BitConsumer implements JdbcConsumer<BitVector> {
     }
 
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return resultSet.wasNull();
+    public void consume(ResultSet resultSet) throws SQLException {
+      boolean value = resultSet.getBoolean(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        vector.setSafe(currentIndex, value ? 1 : 0);
+      }
+      currentIndex++;
     }
   }
 
@@ -103,8 +98,10 @@ public abstract class BitConsumer implements JdbcConsumer<BitVector> {
     }
 
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return false;
+    public void consume(ResultSet resultSet) throws SQLException {
+      boolean value = resultSet.getBoolean(columnIndexInResultSet);
+      vector.setSafe(currentIndex, value ? 1 : 0);
+      currentIndex++;
     }
   }
 }

@@ -47,10 +47,10 @@ public abstract class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
 
   private static final int BUFFER_SIZE = 1024;
 
-  private VarBinaryVector vector;
-  private final int columnIndexInResultSet;
+  protected VarBinaryVector vector;
+  protected final int columnIndexInResultSet;
 
-  private int currentIndex;
+  protected int currentIndex;
 
   /**
    * Instantiate a BinaryConsumer.
@@ -90,15 +90,6 @@ public abstract class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
     }
   }
 
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException, IOException {
-    InputStream is = resultSet.getBinaryStream(columnIndexInResultSet);
-    if (!wasNull(resultSet)) {
-      consume(is);
-    }
-    currentIndex++;
-  }
-
   public void moveWriterPosition() {
     currentIndex++;
   }
@@ -128,8 +119,12 @@ public abstract class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
     }
 
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return resultSet.wasNull();
+    public void consume(ResultSet resultSet) throws SQLException, IOException {
+      InputStream is = resultSet.getBinaryStream(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        consume(is);
+      }
+      currentIndex++;
     }
   }
 
@@ -145,10 +140,11 @@ public abstract class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
       super(vector, index);
     }
 
-
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return false;
+    public void consume(ResultSet resultSet) throws SQLException, IOException {
+      InputStream is = resultSet.getBinaryStream(columnIndexInResultSet);
+      consume(is);
+      currentIndex++;
     }
   }
 }

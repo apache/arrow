@@ -42,11 +42,11 @@ public abstract class DateConsumer implements JdbcConsumer<DateMilliVector> {
     }
   }
 
-  private DateMilliVector vector;
-  private final int columnIndexInResultSet;
-  private final Calendar calendar;
+  protected DateMilliVector vector;
+  protected final int columnIndexInResultSet;
+  protected final Calendar calendar;
 
-  private int currentIndex;
+  protected int currentIndex;
 
   /**
    * Instantiate a DateConsumer.
@@ -62,16 +62,6 @@ public abstract class DateConsumer implements JdbcConsumer<DateMilliVector> {
     this.vector = vector;
     this.columnIndexInResultSet = index;
     this.calendar = calendar;
-  }
-
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    Date date = calendar == null ? resultSet.getDate(columnIndexInResultSet) :
-        resultSet.getDate(columnIndexInResultSet, calendar);
-    if (!wasNull(resultSet)) {
-      vector.setSafe(currentIndex, date.getTime());
-    }
-    currentIndex++;
   }
 
   @Override
@@ -105,8 +95,13 @@ public abstract class DateConsumer implements JdbcConsumer<DateMilliVector> {
     }
 
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return resultSet.wasNull();
+    public void consume(ResultSet resultSet) throws SQLException {
+      Date date = calendar == null ? resultSet.getDate(columnIndexInResultSet) :
+          resultSet.getDate(columnIndexInResultSet, calendar);
+      if (!resultSet.wasNull()) {
+        vector.setSafe(currentIndex, date.getTime());
+      }
+      currentIndex++;
     }
   }
 
@@ -130,8 +125,11 @@ public abstract class DateConsumer implements JdbcConsumer<DateMilliVector> {
     }
 
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return false;
+    public void consume(ResultSet resultSet) throws SQLException {
+      Date date = calendar == null ? resultSet.getDate(columnIndexInResultSet) :
+          resultSet.getDate(columnIndexInResultSet, calendar);
+      vector.setSafe(currentIndex, date.getTime());
+      currentIndex++;
     }
   }
 }

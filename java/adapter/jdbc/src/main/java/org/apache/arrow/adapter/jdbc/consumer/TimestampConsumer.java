@@ -42,11 +42,11 @@ public abstract class TimestampConsumer implements JdbcConsumer<TimeStampMilliTZ
     }
   }
 
-  private TimeStampMilliTZVector vector;
-  private final int columnIndexInResultSet;
-  private final Calendar calendar;
+  protected TimeStampMilliTZVector vector;
+  protected final int columnIndexInResultSet;
+  protected final Calendar calendar;
 
-  private int currentIndex;
+  protected int currentIndex;
 
   /**
    * Instantiate a TimestampConsumer.
@@ -62,16 +62,6 @@ public abstract class TimestampConsumer implements JdbcConsumer<TimeStampMilliTZ
     this.vector = vector;
     this.columnIndexInResultSet = index;
     this.calendar = calendar;
-  }
-
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    Timestamp timestamp = calendar == null ? resultSet.getTimestamp(columnIndexInResultSet) :
-        resultSet.getTimestamp(columnIndexInResultSet, calendar);
-    if (!wasNull(resultSet)) {
-      vector.setSafe(currentIndex, timestamp.getTime());
-    }
-    currentIndex++;
   }
 
   @Override
@@ -105,8 +95,13 @@ public abstract class TimestampConsumer implements JdbcConsumer<TimeStampMilliTZ
     }
 
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return resultSet.wasNull();
+    public void consume(ResultSet resultSet) throws SQLException {
+      Timestamp timestamp = calendar == null ? resultSet.getTimestamp(columnIndexInResultSet) :
+          resultSet.getTimestamp(columnIndexInResultSet, calendar);
+      if (!resultSet.wasNull()) {
+        vector.setSafe(currentIndex, timestamp.getTime());
+      }
+      currentIndex++;
     }
   }
 
@@ -130,8 +125,11 @@ public abstract class TimestampConsumer implements JdbcConsumer<TimeStampMilliTZ
     }
 
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return false;
+    public void consume(ResultSet resultSet) throws SQLException {
+      Timestamp timestamp = calendar == null ? resultSet.getTimestamp(columnIndexInResultSet) :
+          resultSet.getTimestamp(columnIndexInResultSet, calendar);
+      vector.setSafe(currentIndex, timestamp.getTime());
+      currentIndex++;
     }
   }
 }

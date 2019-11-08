@@ -42,11 +42,11 @@ public abstract class TimeConsumer implements JdbcConsumer<TimeMilliVector> {
     }
   }
 
-  private TimeMilliVector vector;
-  private final int columnIndexInResultSet;
-  private final Calendar calendar;
+  protected TimeMilliVector vector;
+  protected final int columnIndexInResultSet;
+  protected final Calendar calendar;
 
-  private int currentIndex;
+  protected int currentIndex;
 
   /**
    * Instantiate a TimeConsumer.
@@ -62,16 +62,6 @@ public abstract class TimeConsumer implements JdbcConsumer<TimeMilliVector> {
     this.vector = vector;
     this.columnIndexInResultSet = index;
     this.calendar = calendar;
-  }
-
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    Time time = calendar == null ? resultSet.getTime(columnIndexInResultSet) :
-        resultSet.getTime(columnIndexInResultSet, calendar);
-    if (!wasNull(resultSet)) {
-      vector.setSafe(currentIndex, (int) time.getTime());
-    }
-    currentIndex++;
   }
 
   @Override
@@ -105,8 +95,13 @@ public abstract class TimeConsumer implements JdbcConsumer<TimeMilliVector> {
     }
 
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return resultSet.wasNull();
+    public void consume(ResultSet resultSet) throws SQLException {
+      Time time = calendar == null ? resultSet.getTime(columnIndexInResultSet) :
+          resultSet.getTime(columnIndexInResultSet, calendar);
+      if (!resultSet.wasNull()) {
+        vector.setSafe(currentIndex, (int) time.getTime());
+      }
+      currentIndex++;
     }
   }
 
@@ -130,8 +125,11 @@ public abstract class TimeConsumer implements JdbcConsumer<TimeMilliVector> {
     }
 
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return false;
+    public void consume(ResultSet resultSet) throws SQLException {
+      Time time = calendar == null ? resultSet.getTime(columnIndexInResultSet) :
+          resultSet.getTime(columnIndexInResultSet, calendar);
+      vector.setSafe(currentIndex, (int) time.getTime());
+      currentIndex++;
     }
   }
 }

@@ -39,10 +39,10 @@ public abstract class TinyIntConsumer implements JdbcConsumer<TinyIntVector> {
     }
   }
 
-  private TinyIntVector vector;
-  private final int columnIndexInResultSet;
+  protected TinyIntVector vector;
+  protected final int columnIndexInResultSet;
 
-  private int currentIndex;
+  protected int currentIndex;
 
   /**
    * Instantiate a TinyIntConsumer.
@@ -50,15 +50,6 @@ public abstract class TinyIntConsumer implements JdbcConsumer<TinyIntVector> {
   public TinyIntConsumer(TinyIntVector vector, int index) {
     this.vector = vector;
     this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    byte value = resultSet.getByte(columnIndexInResultSet);
-    if (!wasNull(resultSet)) {
-      vector.setSafe(currentIndex, value);
-    }
-    currentIndex++;
   }
 
   @Override
@@ -85,8 +76,12 @@ public abstract class TinyIntConsumer implements JdbcConsumer<TinyIntVector> {
     }
 
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return resultSet.wasNull();
+    public void consume(ResultSet resultSet) throws SQLException {
+      byte value = resultSet.getByte(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        vector.setSafe(currentIndex, value);
+      }
+      currentIndex++;
     }
   }
 
@@ -103,8 +98,10 @@ public abstract class TinyIntConsumer implements JdbcConsumer<TinyIntVector> {
     }
 
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return false;
+    public void consume(ResultSet resultSet) throws SQLException {
+      byte value = resultSet.getByte(columnIndexInResultSet);
+      vector.setSafe(currentIndex, value);
+      currentIndex++;
     }
   }
 }

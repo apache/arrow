@@ -39,10 +39,10 @@ public abstract class IntConsumer implements JdbcConsumer<IntVector> {
     }
   }
 
-  private IntVector vector;
-  private final int columnIndexInResultSet;
+  protected IntVector vector;
+  protected final int columnIndexInResultSet;
 
-  private int currentIndex;
+  protected int currentIndex;
 
   /**
    * Instantiate a IntConsumer.
@@ -50,15 +50,6 @@ public abstract class IntConsumer implements JdbcConsumer<IntVector> {
   public IntConsumer(IntVector vector, int index) {
     this.vector = vector;
     this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    int value = resultSet.getInt(columnIndexInResultSet);
-    if (!wasNull(resultSet)) {
-      vector.setSafe(currentIndex, value);
-    }
-    currentIndex++;
   }
 
   @Override
@@ -85,8 +76,12 @@ public abstract class IntConsumer implements JdbcConsumer<IntVector> {
     }
 
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return resultSet.wasNull();
+    public void consume(ResultSet resultSet) throws SQLException {
+      int value = resultSet.getInt(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        vector.setSafe(currentIndex, value);
+      }
+      currentIndex++;
     }
   }
 
@@ -103,8 +98,10 @@ public abstract class IntConsumer implements JdbcConsumer<IntVector> {
     }
 
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return false;
+    public void consume(ResultSet resultSet) throws SQLException {
+      int value = resultSet.getInt(columnIndexInResultSet);
+      vector.setSafe(currentIndex, value);
+      currentIndex++;
     }
   }
 }

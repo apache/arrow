@@ -42,11 +42,11 @@ public abstract class ArrayConsumer implements JdbcConsumer<ListVector> {
     }
   }
 
-  private final JdbcConsumer delegate;
-  private final int columnIndexInResultSet;
+  protected final JdbcConsumer delegate;
+  protected final int columnIndexInResultSet;
 
-  private ListVector vector;
-  private int currentIndex;
+  protected ListVector vector;
+  protected int currentIndex;
 
   /**
    * Instantiate a ArrayConsumer.
@@ -55,24 +55,6 @@ public abstract class ArrayConsumer implements JdbcConsumer<ListVector> {
     this.columnIndexInResultSet = index;
     this.delegate = delegate;
     this.vector = vector;
-  }
-
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException, IOException {
-    final Array array = resultSet.getArray(columnIndexInResultSet);
-    if (!wasNull(resultSet)) {
-
-      vector.startNewValue(currentIndex);
-      int count = 0;
-      try (ResultSet rs = array.getResultSet()) {
-        while (rs.next()) {
-          delegate.consume(rs);
-          count++;
-        }
-      }
-      vector.endValue(currentIndex, count);
-    }
-    currentIndex++;
   }
 
   @Override
@@ -100,8 +82,20 @@ public abstract class ArrayConsumer implements JdbcConsumer<ListVector> {
     }
 
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return resultSet.wasNull();
+    public void consume(ResultSet resultSet) throws SQLException, IOException {
+      final Array array = resultSet.getArray(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        vector.startNewValue(currentIndex);
+        int count = 0;
+        try (ResultSet rs = array.getResultSet()) {
+          while (rs.next()) {
+            delegate.consume(rs);
+            count++;
+          }
+        }
+        vector.endValue(currentIndex, count);
+      }
+      currentIndex++;
     }
   }
 
@@ -118,8 +112,18 @@ public abstract class ArrayConsumer implements JdbcConsumer<ListVector> {
     }
 
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return false;
+    public void consume(ResultSet resultSet) throws SQLException, IOException {
+      final Array array = resultSet.getArray(columnIndexInResultSet);
+      vector.startNewValue(currentIndex);
+      int count = 0;
+      try (ResultSet rs = array.getResultSet()) {
+        while (rs.next()) {
+          delegate.consume(rs);
+          count++;
+        }
+      }
+      vector.endValue(currentIndex, count);
+      currentIndex++;
     }
   }
 }

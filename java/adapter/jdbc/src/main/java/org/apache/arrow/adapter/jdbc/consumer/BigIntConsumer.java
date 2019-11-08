@@ -39,10 +39,10 @@ public abstract class BigIntConsumer implements JdbcConsumer<BigIntVector> {
     }
   }
 
-  private BigIntVector vector;
-  private final int columnIndexInResultSet;
+  protected BigIntVector vector;
+  protected final int columnIndexInResultSet;
 
-  private int currentIndex;
+  protected int currentIndex;
 
   /**
    * Instantiate a BigIntConsumer.
@@ -50,15 +50,6 @@ public abstract class BigIntConsumer implements JdbcConsumer<BigIntVector> {
   public BigIntConsumer(BigIntVector vector, int index) {
     this.vector = vector;
     this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    long value = resultSet.getLong(columnIndexInResultSet);
-    if (!wasNull(resultSet)) {
-      vector.setSafe(currentIndex, value);
-    }
-    currentIndex++;
   }
 
   @Override
@@ -85,8 +76,12 @@ public abstract class BigIntConsumer implements JdbcConsumer<BigIntVector> {
     }
 
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return resultSet.wasNull();
+    public void consume(ResultSet resultSet) throws SQLException {
+      long value = resultSet.getLong(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        vector.setSafe(currentIndex, value);
+      }
+      currentIndex++;
     }
   }
 
@@ -102,10 +97,11 @@ public abstract class BigIntConsumer implements JdbcConsumer<BigIntVector> {
       super(vector, index);
     }
 
-
     @Override
-    public boolean wasNull(ResultSet resultSet) throws SQLException {
-      return false;
+    public void consume(ResultSet resultSet) throws SQLException {
+      long value = resultSet.getLong(columnIndexInResultSet);
+      vector.setSafe(currentIndex, value);
+      currentIndex++;
     }
   }
 }

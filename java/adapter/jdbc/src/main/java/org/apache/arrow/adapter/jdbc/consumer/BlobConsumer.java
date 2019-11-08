@@ -71,9 +71,4 @@ public class BlobConsumer implements JdbcConsumer<VarBinaryVector> {
   public void resetValueVector(VarBinaryVector vector) {
     delegate = BinaryConsumer.createConsumer(vector, columnIndexInResultSet, nullable);
   }
-
-  @Override
-  public boolean wasNull(ResultSet resultSet) throws SQLException {
-    return resultSet.wasNull();
-  }
 }
