@@ -693,10 +693,14 @@ impl DataType {
             DataType::Float64 => json!({"name": "floatingpoint", "precision": "DOUBLE"}),
             DataType::Utf8 => json!({"name": "utf8"}),
             DataType::Binary => json!({"name": "binary"}),
-            DataType::FixedSizeBinary(byte_width) => json!({"name": "fixedsizebinary", "byteWidth": byte_width}),
+            DataType::FixedSizeBinary(byte_width) => {
+                json!({"name": "fixedsizebinary", "byteWidth": byte_width})
+            }
             DataType::Struct(_) => json!({"name": "struct"}),
             DataType::List(_) => json!({ "name": "list"}),
-            DataType::FixedSizeList((_, length)) => json!({"name":"fixedsizelist", "listSize": length}),
+            DataType::FixedSizeList((_, length)) => {
+                json!({"name":"fixedsizelist", "listSize": length})
+            }
             DataType::Time32(unit) => {
                 json!({"name": "time", "bitWidth": 32, "unit": match unit {
                     TimeUnit::Second => "SECOND",
