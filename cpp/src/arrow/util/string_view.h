@@ -26,8 +26,11 @@
 namespace arrow {
 namespace util {
 
-using nonstd::basic_string_view;
 using nonstd::string_view;
+
+template <class Char, class Traits = std::char_traits<Char>>
+using basic_string_view = nonstd::basic_string_view<Char, Traits>;
+
 using bytes_view = basic_string_view<uint8_t>;
 
 }  // namespace util

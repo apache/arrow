@@ -846,8 +846,15 @@ class ARROW_EXPORT Bitmap {
   Bitmap(std::shared_ptr<Buffer> buffer, int64_t offset, int64_t length)
       : buffer_(std::move(buffer)), offset_(offset), length_(length) {}
 
-  Bitmap(const uint8_t* data, int64_t offset, int64_t length)
-      : buffer_(std::make_shared<Buffer>(data, BitUtil::BytesForBits(offset + length))),
+  Bitmap(const void* data, int64_t offset, int64_t length)
+      : buffer_(std::make_shared<Buffer>(static_cast<const uint8_t*>(data),
+                                         BitUtil::BytesForBits(offset + length))),
+        offset_(offset),
+        length_(length) {}
+
+  Bitmap(void* data, int64_t offset, int64_t length)
+      : buffer_(std::make_shared<MutableBuffer>(static_cast<uint8_t*>(data),
+                                                BitUtil::BytesForBits(offset + length))),
         offset_(offset),
         length_(length) {}
 
@@ -876,10 +883,7 @@ class ARROW_EXPORT Bitmap {
   /// All bitmaps must have identical length.
   template <size_t N, typename Visitor>
   static void VisitBits(const Bitmap (&bitmaps)[N], Visitor&& visitor) {
-    auto bit_length = bitmaps[0].length();
-    for (const auto& bitmap : bitmaps) {
-      assert(bitmap.length() == bit_length);
-    }
+    int64_t bit_length = BitLength(bitmaps, N);
     std::bitset<N> bits;
     for (int64_t bit_i = 0; bit_i < bit_length; ++bit_i) {
       for (size_t i = 0; i < N; ++i) {
@@ -892,65 +896,103 @@ class ARROW_EXPORT Bitmap {
   /// \brief Visit words of bits from each bitmap as array<Word, N>
   ///
   /// All bitmaps must have identical length.
-  ///
-  /// Note that every Word containing a bit must be accessible (and initialized, or
-  /// Valgrind will barf). This is satisfied by most Buffers in Arrow space (which are
-  /// allocated with maximum alignment and padded to contain whole cache lines).
-  ///
   /// TODO(bkietz) allow for early termination
   template <size_t N, typename Visitor,
             typename Word =
                 typename internal::call_traits::argument_type<0, Visitor&&>::value_type>
-  static void VisitWords(const Bitmap (&bitmaps)[N], Visitor&& visitor) {
+  static int64_t VisitWords(const Bitmap (&bitmaps_arg)[N], Visitor&& visitor) {
     constexpr int64_t kBitWidth = sizeof(Word) * 8;
 
-    auto bit_length = bitmaps[0].length();
-    for (const auto& bitmap : bitmaps) {
-      assert(bitmap.length() == bit_length);
-    }
-
-    View<Word> words[N];
+    // local, mutable variables which will be sliced/decremented to represent consumption:
+    Bitmap bitmaps[N];
     int64_t offsets[N];
+    int64_t bit_length = BitLength(bitmaps_arg, N);
+    View<Word> words[N];
     for (size_t i = 0; i < N; ++i) {
-      words[i] = bitmaps[i].template words<Word>();
+      bitmaps[i] = bitmaps_arg[i];
       offsets[i] = bitmaps[i].template word_offset<Word>();
       assert(offsets[i] >= 0 && offsets[i] < kBitWidth);
+      words[i] = bitmaps[i].template words<Word>();
     }
+
+    auto consume = [&](int64_t consumed_bits) {
+      for (size_t i = 0; i < N; ++i) {
+        bitmaps[i] = bitmaps[i].Slice(consumed_bits, bit_length - consumed_bits);
+        offsets[i] = bitmaps[i].template word_offset<Word>();
+        assert(offsets[i] >= 0 && offsets[i] < kBitWidth);
+        words[i] = bitmaps[i].template words<Word>();
+      }
+      bit_length -= consumed_bits;
+    };
 
     std::array<Word, N> visited_words;
 
-    // some of the bitmaps might span one fewer word than the others
-    size_t common_word_count = words[0].size();
-    for (auto word : words) {
-      common_word_count = std::min(common_word_count, word.size());
+    if (bit_length <= kBitWidth * 2) {
+      // bitmaps fit into one or two words so don't bother with optimization
+      while (bit_length > 0) {
+        auto leading_bits = std::min(bit_length, kBitWidth);
+        SafeLoadWords(bitmaps, 0, leading_bits, false, &visited_words);
+        visitor(visited_words);
+        consume(leading_bits);
+      }
+      return 0;
     }
 
-    // word_i such that words[i][word_i] and words[i][word_i + 1] are accessible for all i
-    for (size_t word_i = 0; word_i < common_word_count - 1; ++word_i) {
-      for (size_t i = 0; i < N; ++i) {
-        if (offsets[i] == 0) {
-          visited_words[i] = words[i][word_i];
-        } else {
-          visited_words[i] = words[i][word_i] >> offsets[i];
-          visited_words[i] |= words[i][word_i + 1] << (kBitWidth - offsets[i]);
-        }
-      }
+    int64_t max_offset = *std::max_element(offsets, offsets + N);
+    int64_t min_offset = *std::min_element(offsets, offsets + N);
+    if (max_offset > 0) {
+      // consume leading bits
+      auto leading_bits = kBitWidth - min_offset;
+      SafeLoadWords(bitmaps, 0, leading_bits, true, &visited_words);
       visitor(visited_words);
+      consume(leading_bits);
+    }
+    assert(*std::min_element(offsets, offsets + N) == 0);
+
+    int64_t whole_word_count = bit_length / kBitWidth;
+    assert(whole_word_count >= 1);
+
+    if (min_offset == max_offset) {
+      // all offsets were identical, all leading bits have been consumed
+      assert(
+          std::all_of(offsets, offsets + N, [](int64_t offset) { return offset == 0; }));
+
+      for (int64_t word_i = 0; word_i < whole_word_count; ++word_i) {
+        for (size_t i = 0; i < N; ++i) {
+          visited_words[i] = words[i][word_i];
+        }
+        visitor(visited_words);
+      }
+      consume(whole_word_count * kBitWidth);
+    } else {
+      // leading bits from potentially incomplete words have been consumed
+
+      // word_i such that words[i][word_i] and words[i][word_i + 1] are lie entirely
+      // within the bitmap for all i
+      for (int64_t word_i = 0; word_i < whole_word_count - 1; ++word_i) {
+        for (size_t i = 0; i < N; ++i) {
+          if (offsets[i] == 0) {
+            visited_words[i] = words[i][word_i];
+          } else {
+            visited_words[i] = words[i][word_i] >> offsets[i];
+            visited_words[i] |= words[i][word_i + 1] << (kBitWidth - offsets[i]);
+          }
+        }
+        visitor(visited_words);
+      }
+      consume((whole_word_count - 1) * kBitWidth);
+
+      SafeLoadWords(bitmaps, 0, kBitWidth, false, &visited_words);
+
+      visitor(visited_words);
+      consume(kBitWidth);
     }
 
-    // handle trailing words
-    size_t word_i = common_word_count - 1;
-    for (size_t i = 0; i < N; ++i) {
-      if (offsets[i] == 0) {
-        visited_words[i] = words[i][word_i];
-      } else {
-        visited_words[i] = words[i][word_i] >> offsets[i];
-        if (word_i + 1 < words[i].size()) {
-          visited_words[i] |= words[i][word_i + 1] << (kBitWidth - offsets[i]);
-        }
-      }
-    }
+    // load remaining bits
+    SafeLoadWords(bitmaps, 0, bit_length, false, &visited_words);
     visitor(visited_words);
+
+    return min_offset;
   }
 
   const std::shared_ptr<Buffer>& buffer() const { return buffer_; }
@@ -968,17 +1010,6 @@ class ARROW_EXPORT Bitmap {
     return util::bytes_view(buffer_->data() + byte_offset, byte_count);
   }
 
-  /// returns true if words in words<Word>() lie entirely in buffer() and may be safely
-  /// accessed
-  template <typename Word>
-  bool word_accessible() const {
-    auto words = this->words<Word>();
-    auto valid_addr = reinterpret_cast<size_t>(buffer_->data());
-    auto words_addr = reinterpret_cast<size_t>(words.data());
-    return words_addr >= valid_addr &&
-           words_addr + words.size() * sizeof(Word) <= valid_addr + buffer_->capacity();
-  }
-
   /// string_view of all Words which contain any bit in this Bitmap
   ///
   /// For example, given Word=uint16_t and a bitmap spanning bits [20, 36)
@@ -988,6 +1019,9 @@ class ARROW_EXPORT Bitmap {
   /// |-------|-------|------|------| (buffer)
   ///           [       ]             (bitmap)
   ///         |-------|------|        (returned words)
+  ///
+  /// \warning The words may contain bytes which lie outside the buffer or are
+  /// uninitialized.
   template <typename Word>
   View<Word> words() const {
     auto bytes_addr = reinterpret_cast<size_t>(bytes().data());
@@ -1008,7 +1042,32 @@ class ARROW_EXPORT Bitmap {
   }
 
  private:
+  /// load words from bitmaps bitwise
+  template <size_t N, typename Word>
+  static void SafeLoadWords(const Bitmap (&bitmaps)[N], int64_t offset,
+                            int64_t out_length, bool set_trailing_bits,
+                            std::array<Word, N>* out) {
+    int64_t out_offset = set_trailing_bits ? sizeof(Word) * 8 - out_length : 0;
+
+    Bitmap slices[N], out_bitmaps[N];
+    for (size_t i = 0; i < N; ++i) {
+      slices[i] = bitmaps[i].Slice(offset, out_length);
+      out_bitmaps[i] = Bitmap(&out->at(i), out_offset, out_length);
+    }
+
+    int64_t bit_i = 0;
+    Bitmap::VisitBits(slices, [&](std::bitset<N> bits) {
+      for (size_t i = 0; i < N; ++i) {
+        out_bitmaps[i].SetBitTo(bit_i, bits[i]);
+      }
+      ++bit_i;
+    });
+  }
+
   std::shared_ptr<BooleanArray> ToArray() const;
+
+  /// assert bitmaps have identical length and return that length
+  static int64_t BitLength(const Bitmap* bitmaps, size_t N);
 
   std::shared_ptr<Buffer> buffer_;
   int64_t offset_ = 0, length_ = 0;

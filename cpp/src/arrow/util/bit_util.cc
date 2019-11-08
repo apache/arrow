@@ -343,6 +343,13 @@ std::string Bitmap::Diff(const Bitmap& other) const {
   return ToArray()->Diff(*other.ToArray());
 }
 
+int64_t Bitmap::BitLength(const Bitmap* bitmaps, size_t N) {
+  for (size_t i = 1; i < N; ++i) {
+    DCHECK_EQ(bitmaps[i].length(), bitmaps[0].length());
+  }
+  return bitmaps[0].length();
+}
+
 Status BitmapAnd(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
                  const uint8_t* right, int64_t right_offset, int64_t length,
                  int64_t out_offset, std::shared_ptr<Buffer>* out_buffer) {

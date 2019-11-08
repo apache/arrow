@@ -1158,6 +1158,7 @@ TEST(Bitmap, ShiftingWordsOptimization) {
   }
 }
 
+/*
 TEST(Bitmap, WordVisitable) {
   using internal::Bitmap;
 
@@ -1195,6 +1196,7 @@ TEST(Bitmap, WordVisitable) {
                    .template word_accessible<uint64_t>())
       << "its last byte has been sliced off";
 }
+*/
 
 // reconstruct a bitmap from a word-wise visit
 TEST(Bitmap, Visit) {
@@ -1217,12 +1219,12 @@ TEST(Bitmap, Visit) {
       Bitmap bitmaps[] = {{buffer, offset, num_bits}};
 
       int64_t i = 0;
-      Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 1> uint64s) {
+      auto min_offset = Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 1> uint64s) {
         reinterpret_cast<uint64_t*>(actual_buffer->mutable_data())[i++] = uint64s[0];
       });
 
-      ASSERT_TRUE(internal::BitmapEquals(actual_buffer->data(), 0, buffer->data(), offset,
-                                         num_bits))
+      ASSERT_TRUE(internal::BitmapEquals(actual_buffer->data(), min_offset,
+                                         buffer->data(), offset, num_bits))
           << "offset:" << offset << "  bits:" << num_bits << std::endl
           << Bitmap(actual_buffer, 0, num_bits).Diff({buffer, offset, num_bits});
     }
@@ -1243,32 +1245,35 @@ TEST(Bitmap, VisitAnd) {
 
   constexpr int64_t kBitWidth = 8 * sizeof(uint64_t);
 
-  for (int64_t offset :
+  for (int64_t left_offset :
        {0, 1, 2, 5, 17, int(kBitWidth - 1), int(kBitWidth + 1), int(kBitWidth + 17)}) {
-    for (int64_t right_offset = 0; right_offset < offset; ++right_offset) {
+    for (int64_t right_offset = 0; right_offset < left_offset; ++right_offset) {
       for (int64_t num_bits :
            {int64_t(13), int64_t(9), kBitWidth - 1, kBitWidth, kBitWidth + 1,
-            nbytes * 8 - offset, nbytes * 6, nbytes * 4}) {
-        Bitmap bitmaps[] = {{buffer, offset, num_bits}, {buffer, right_offset, num_bits}};
+            2 * kBitWidth - 1, 2 * kBitWidth, 2 * kBitWidth + 1, nbytes * 8 - left_offset,
+            3 * kBitWidth - 1, 3 * kBitWidth, 3 * kBitWidth + 1, nbytes * 6,
+            nbytes * 4}) {
+        Bitmap bitmaps[] = {{buffer, left_offset, num_bits},
+                            {buffer, right_offset, num_bits}};
 
         int64_t i = 0;
-        Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 2> uint64s) {
-          reinterpret_cast<uint64_t*>(actual_buffer->mutable_data())[i++] =
-              uint64s[0] & uint64s[1];
-        });
+        auto min_offset =
+            Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 2> uint64s) {
+              reinterpret_cast<uint64_t*>(actual_buffer->mutable_data())[i++] =
+                  uint64s[0] & uint64s[1];
+            });
 
         internal::BitmapAnd(bitmaps[0].buffer()->data(), bitmaps[0].offset(),
                             bitmaps[1].buffer()->data(), bitmaps[1].offset(),
                             bitmaps[0].length(), 0, expected_buffer->mutable_data());
 
-        ASSERT_TRUE(internal::BitmapEquals(actual_buffer->data(), 0,
+        ASSERT_TRUE(internal::BitmapEquals(actual_buffer->data(), min_offset,
                                            expected_buffer->data(), 0, num_bits))
-            << "left_offset:" << offset << "  bits:" << num_bits
-            << "right_offset:" << right_offset << std::endl
+            << "left_offset:" << left_offset << "  bits:" << num_bits
+            << "  right_offset:" << right_offset << std::endl
             << Bitmap(actual_buffer, 0, num_bits).Diff({expected_buffer, 0, num_bits});
       }
     }
   }
 }
-
 }  // namespace arrow
