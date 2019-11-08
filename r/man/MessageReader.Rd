@@ -13,4 +13,3 @@ class arrow::MessageReader
 TODO
 }
 
-\keyword{datasets}

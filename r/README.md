@@ -67,6 +67,11 @@ Arrow C++ library first.
 
 ``` r
 library(arrow)
+#> 
+#> Attaching package: 'arrow'
+#> The following object is masked from 'package:utils':
+#> 
+#>     timestamp
 set.seed(24)
 
 tab <- Table$create(
@@ -228,11 +233,11 @@ you will need to set the `ARROW_R_DEV` environment variable to `TRUE`
 sessions) so that the `data-raw/codegen.R` file is used for code
 generation.
 
-The codegen.R script has these dependencies:
+The codegen.R script has these additional dependencies:
 
 ``` r
 remotes::install_github("romainfrancois/decor")
-install.packages(c("dplyr", "purrr", "glue"))
+install.packages("glue")
 ```
 
 We use Google C++ style in our C++ code. Check for style errors with

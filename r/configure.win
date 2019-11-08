@@ -40,8 +40,8 @@ fi
 RWINLIB="../windows/$(ls windows/ | grep ^arrow-)"
 OPENSSL_LIBS="-lcrypto -lcrypt32"
 
-PKG_CFLAGS="-I${RWINLIB}/include -DARROW_STATIC -DPARQUET_STATIC -DARROW_R_WITH_ARROW"
-PKG_LIBS="-L${RWINLIB}/lib"'$(subst gcc,,$(COMPILED_BY))$(R_ARCH) '"-L${RWINLIB}/lib"'$(R_ARCH) '"-lparquet -larrow -lthrift -lsnappy -lboost_regex-mt-s -lboost_filesystem-mt-s -lboost_system-mt-s -ldouble-conversion -lz ${OPENSSL_LIBS} -lws2_32"
+PKG_CFLAGS="-I${RWINLIB}/include -DARROW_STATIC -DPARQUET_STATIC -DARROW_DS_STATIC -DARROW_R_WITH_ARROW"
+PKG_LIBS="-L${RWINLIB}/lib"'$(subst gcc,,$(COMPILED_BY))$(R_ARCH) '"-L${RWINLIB}/lib"'$(R_ARCH) '"-lparquet -larrow_dataset -larrow -lthrift -lsnappy -lboost_regex-mt-s -lboost_filesystem-mt-s -lboost_system-mt-s -ldouble-conversion -lz ${OPENSSL_LIBS} -lws2_32"
 
 echo "*** Writing Makevars.win"
 sed -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" src/Makevars.in > src/Makevars.win

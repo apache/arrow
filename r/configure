@@ -26,12 +26,12 @@
 # R CMD INSTALL --configure-vars='INCLUDE_DIR=/.../include LIB_DIR=/.../lib'
 
 # Library settings
-PKG_CONFIG_NAME="arrow parquet"
+PKG_CONFIG_NAME="arrow parquet arrow-dataset"
 PKG_DEB_NAME="(unsuppored)"
 PKG_RPM_NAME="(unsuppored)"
 PKG_BREW_NAME="apache-arrow"
 PKG_TEST_HEADER="<arrow/api.h>"
-PKG_LIBS="-larrow -lparquet"
+PKG_LIBS="-larrow -lparquet -larrow_dataset"
 
 # generate code
 if [ "$ARROW_R_DEV" = "TRUE" ]; then

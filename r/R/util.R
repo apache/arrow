@@ -34,3 +34,9 @@ assert_is <- function(object, class) {
   msg <- paste(substitute(object), "must be a", oxford_paste(class, "or"))
   assert_that(inherits(object, class), msg = msg)
 }
+
+assert_is_list_of <- function(object, class) {
+  msg <- paste(substitute(object), "must be a list of", oxford_paste(class, "or"))
+  assert_that(is.list(object), msg = msg)
+  assert_that(all(map_lgl(object, ~inherits(., class))), msg = msg)
+}

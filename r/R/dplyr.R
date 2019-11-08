@@ -37,14 +37,14 @@ select.arrow_dplyr_query <- function(.data, ...) {
   # This S3 method is registered on load if dplyr is present
   column_select(arrow_dplyr_query(.data), !!!enquos(...))
 }
-select.Table <- select.RecordBatch <- select.arrow_dplyr_query
+select.Dataset <- select.Table <- select.RecordBatch <- select.arrow_dplyr_query
 
 #' @importFrom tidyselect vars_rename
 rename.arrow_dplyr_query <- function(.data, ...) {
   # This S3 method is registered on load if dplyr is present
   column_select(arrow_dplyr_query(.data), !!!enquos(...), .FUN = vars_rename)
 }
-rename.Table <- rename.RecordBatch <- rename.arrow_dplyr_query
+rename.Dataset <- rename.Table <- rename.RecordBatch <- rename.arrow_dplyr_query
 
 column_select <- function(.data, ..., .FUN = vars_select) {
   out <- .FUN(names(.data$selected_columns), !!!enquos(...))
@@ -75,26 +75,35 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
   .data <- arrow_dplyr_query(.data)
   # Eval filters to generate Expressions with references to Arrays.
   filter_data <- env()
+  data_is_dataset <- inherits(.data$.data, "Dataset")
   for (v in unique(unlist(lapply(filts, all.vars)))) {
     # Map any renamed vars to their name in the underlying Arrow schema
     if (!(v %in% names(.data$selected_columns))) {
       stop("object '", v, "' not found", call. = FALSE)
     }
     old_var_name <- .data$selected_columns[v]
-    this <- .data$.data[[old_var_name]]
+    if (data_is_dataset) {
+      # Make a FieldExpression
+      this <- FieldExpression$create(old_var_name)
+    } else {
+      # Get the Array
+      this <- .data$.data[[old_var_name]]
+    }
     assign(v, this, envir = filter_data)
   }
   dm <- new_data_mask(filter_data)
   filters <- try(lapply(filts, function (f) {
     # This should yield an Expression
     eval_tidy(f, dm)
-  }), silent = TRUE)
+  }), silent = FALSE)
   # If that errored, bail out and collect(), with a warning
   # TODO: consider re-evaling with the as.vector Arrays and yielding logical vector
   if (inherits(filters, "try-error")) {
     # TODO: only show this in some debug mode?
+    # TODO: if data_is_dataset, don't auto-collect?
     warning(
       "Filter expression not implemented in arrow, pulling data into R",
+      immediate. = TRUE,
       call. = FALSE
     )
     return(dplyr::filter(dplyr::collect(.data), ...))
@@ -109,7 +118,7 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
   }
   .data
 }
-filter.Table <- filter.RecordBatch <- filter.arrow_dplyr_query
+filter.Dataset <- filter.Table <- filter.RecordBatch <- filter.arrow_dplyr_query
 
 collect.arrow_dplyr_query <- function(x, ...) {
   # This S3 method is registered on load if dplyr is present
@@ -121,7 +130,17 @@ collect.arrow_dplyr_query <- function(x, ...) {
   }
 
   # Pull only the selected rows and cols into R
-  df <- as.data.frame(x$.data[x$filtered_rows, colnames])
+  if (inherits(x$.data, "Dataset")) {
+    scanner_builder <- x$.data$NewScan()
+    scanner_builder$UseThreads()
+    scanner_builder$Project(colnames)
+    if (!isTRUE(x$filtered_rows)) {
+      scanner_builder$Filter(x$filtered_rows)
+    }
+    df <- as.data.frame(scanner_builder$Finish()$ToTable())
+  } else {
+    df <- as.data.frame(x$.data[x$filtered_rows, colnames])
+  }
   # In case variables were renamed, apply those names
   names(df) <- names(colnames)
 
@@ -133,6 +152,7 @@ collect.arrow_dplyr_query <- function(x, ...) {
 }
 collect.Table <- as.data.frame.Table
 collect.RecordBatch <- as.data.frame.RecordBatch
+collect.Dataset <- function(x, ...) stop("not implemented")
 
 #' @importFrom tidyselect vars_pull
 pull.arrow_dplyr_query <- function(.data, var = -1) {
@@ -142,7 +162,7 @@ pull.arrow_dplyr_query <- function(.data, var = -1) {
   .data$selected_columns <- stats::setNames(.data$selected_columns[var], var)
   dplyr::collect(.data)[[1]]
 }
-pull.Table <- pull.RecordBatch <- pull.arrow_dplyr_query
+pull.Dataset <- pull.Table <- pull.RecordBatch <- pull.arrow_dplyr_query
 
 summarise.arrow_dplyr_query <- function(.data, ...) {
   # This S3 method is registered on load if dplyr is present
@@ -155,7 +175,7 @@ summarise.arrow_dplyr_query <- function(.data, ...) {
   # TODO: determine whether work can be pushed down to Arrow
   dplyr::summarise(dplyr::collect(.data), ...)
 }
-summarise.Table <- summarise.RecordBatch <- summarise.arrow_dplyr_query
+summarise.Dataset <- summarise.Table <- summarise.RecordBatch <- summarise.arrow_dplyr_query
 
 group_by.arrow_dplyr_query <- function(.data, ..., add = FALSE) {
   # This S3 method is registered on load if dplyr is present
@@ -163,31 +183,33 @@ group_by.arrow_dplyr_query <- function(.data, ..., add = FALSE) {
   .data$group_by_vars <- dplyr::group_by_prepare(.data, ..., add = add)$group_names
   .data
 }
-group_by.Table <- group_by.RecordBatch <- group_by.arrow_dplyr_query
+group_by.Dataset <- group_by.Table <- group_by.RecordBatch <- group_by.arrow_dplyr_query
 
 # This S3 method is registered on load if dplyr is present
 groups.arrow_dplyr_query <- function(x) syms(dplyr::group_vars(x))
-groups.Table <- groups.RecordBatch <- function(x) NULL
+groups.Dataset <- groups.Table <- groups.RecordBatch <- function(x) NULL
 
 # This S3 method is registered on load if dplyr is present
 group_vars.arrow_dplyr_query <- function(x) x$group_by_vars
-group_vars.Table <- group_vars.RecordBatch <- function(x) NULL
+group_vars.Dataset <- group_vars.Table <- group_vars.RecordBatch <- function(x) NULL
 
 ungroup.arrow_dplyr_query <- function(x, ...) {
   # This S3 method is registered on load if dplyr is present
   x$group_by_vars <- character()
   x
 }
-ungroup.Table <- ungroup.RecordBatch <- force
+ungroup.Dataset <- ungroup.Table <- ungroup.RecordBatch <- force
 
 mutate.arrow_dplyr_query <- function(.data, ...) {
   # This S3 method is registered on load if dplyr is present
   dplyr::mutate(dplyr::collect(arrow_dplyr_query(.data)), ...)
 }
 mutate.Table <- mutate.RecordBatch <- mutate.arrow_dplyr_query
+mutate.Dataset <- function(.data, ...) stop("not implemented")
 
 arrange.arrow_dplyr_query <- function(.data, ...) {
   # This S3 method is registered on load if dplyr is present
   dplyr::arrange(dplyr::collect(arrow_dplyr_query(.data)), ...)
 }
 arrange.Table <- arrange.RecordBatch <- arrange.arrow_dplyr_query
+arrange.Dataset <- function(.data, ...) stop("not implemented")

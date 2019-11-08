@@ -22,6 +22,7 @@ test_that("Alternate type names are supported", {
     schema(b = double(), c = bool(), d = string(), e = float(), f = halffloat()),
     schema(b = float64(), c = boolean(), d = utf8(), e = float32(), f = float16())
   )
+  expect_equal(names(schema(b = double(), c = bool(), d = string())), c("b", "c", "d"))
 })
 
 test_that("reading schema from Buffer", {

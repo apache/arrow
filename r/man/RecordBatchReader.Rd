@@ -26,14 +26,13 @@ take a single argument, named according to the class:
 \section{Methods}{
 
 \itemize{
-\item \code{$read_next_batch()}: Returns a \code{RecordBatch}
-\item \code{$schema()}: Returns a \link{Schema}
-\item \code{$batches()}: Returns a list of \code{RecordBatch}es
-\item \code{$get_batch(i)}: For \code{RecordBatchFileReader}, return a particular batch
+\item \verb{$read_next_batch()}: Returns a \code{RecordBatch}
+\item \verb{$schema()}: Returns a \link{Schema}
+\item \verb{$batches()}: Returns a list of \code{RecordBatch}es
+\item \verb{$get_batch(i)}: For \code{RecordBatchFileReader}, return a particular batch
 by an integer index.
-\item \code{$num_record_batches()}: For \code{RecordBatchFileReader}, see how many batches
+\item \verb{$num_record_batches()}: For \code{RecordBatchFileReader}, see how many batches
 are in the file.
 }
 }
 
-\keyword{datasets}

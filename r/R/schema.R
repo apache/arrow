@@ -59,7 +59,6 @@ Schema <- R6Class("Schema",
     names = function() Schema__names(self)
   )
 )
-
 Schema$create <- function(...) shared_ptr(Schema, schema_(.fields(list2(...))))
 
 #' @param ... named list of [data types][data-type]
@@ -67,6 +66,9 @@ Schema$create <- function(...) shared_ptr(Schema, schema_(.fields(list2(...))))
 #' @rdname Schema
 # TODO (npr): add examples once ARROW-5505 merges
 schema <- Schema$create
+
+#' @export
+names.Schema <- function(x) x$names
 
 #' read a Schema from a stream
 #'

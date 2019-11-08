@@ -18,7 +18,7 @@ example.
 \section{Factory}{
 
 
-The \code{$create()} factory methods instantiate the \code{OutputStream} object and
+The \verb{$create()} factory methods instantiate the \code{OutputStream} object and
 take the following arguments, depending on the subclass:
 \itemize{
 \item \code{path} For \code{FileOutputStream}, a character file name
@@ -34,14 +34,13 @@ made into a buffer via \code{buffer()}.
 \section{Methods}{
 
 \itemize{
-\item \code{$tell()}: return the position in the stream
-\item \code{$close()}: close the stream
-\item \code{$write(x)}: send \code{x} to the stream
-\item \code{$capacity()}: for \code{BufferOutputStream}
-\item \code{$getvalue()}: for \code{BufferOutputStream}
-\item \code{$GetExtentBytesWritten()}: for \code{MockOutputStream}, report how many bytes
+\item \verb{$tell()}: return the position in the stream
+\item \verb{$close()}: close the stream
+\item \verb{$write(x)}: send \code{x} to the stream
+\item \verb{$capacity()}: for \code{BufferOutputStream}
+\item \verb{$getvalue()}: for \code{BufferOutputStream}
+\item \verb{$GetExtentBytesWritten()}: for \code{MockOutputStream}, report how many bytes
 were sent.
 }
 }
 
-\keyword{datasets}

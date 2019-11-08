@@ -90,6 +90,24 @@ class ConstReferenceSmartPtrInputParameter {
   const T* ptr;
 };
 
+template <typename T>
+class ConstReferenceVectorSmartPtrInputParameter {
+ public:
+  using const_reference = const std::vector<T>&;
+
+  explicit ConstReferenceVectorSmartPtrInputParameter(SEXP self) : vec() {
+    R_xlen_t n = XLENGTH(self);
+    for (R_xlen_t i = 0; i < n; i++) {
+      vec.push_back(*internal::r6_to_smart_pointer<const T*>(VECTOR_ELT(self, i)));
+    }
+  }
+
+  inline operator const_reference() { return vec; }
+
+ private:
+  std::vector<T> vec;
+};
+
 namespace traits {
 
 template <typename T>
@@ -100,6 +118,12 @@ struct input_parameter<const std::shared_ptr<T>&> {
 template <typename T>
 struct input_parameter<const std::unique_ptr<T>&> {
   typedef typename Rcpp::ConstReferenceSmartPtrInputParameter<std::unique_ptr<T>> type;
+};
+
+template <typename T>
+struct input_parameter<const std::vector<std::shared_ptr<T>>&> {
+  typedef typename Rcpp::ConstReferenceVectorSmartPtrInputParameter<std::shared_ptr<T>>
+      type;
 };
 
 struct wrap_type_shared_ptr_tag {};
@@ -184,6 +208,7 @@ inline std::shared_ptr<T> extract(SEXP x) {
 #include <arrow/api.h>
 #include <arrow/compute/api.h>
 #include <arrow/csv/reader.h>
+#include <arrow/dataset/api.h>
 #include <arrow/filesystem/filesystem.h>
 #include <arrow/filesystem/localfs.h>
 #include <arrow/io/compressed.h>

@@ -25,18 +25,18 @@ the data in \code{...}
 \section{S3 Methods and Usage}{
 
 Tables are data-frame-like, and many methods you expect to work on
-a \code{data.frame} are implemented for \code{Table}. This includes \code{[}, \code{[[},
-\code{$}, \code{names}, \code{dim}, \code{nrow}, \code{ncol}, \code{head}, and \code{tail}. You can also pull
+a \code{data.frame} are implemented for \code{Table}. This includes \verb{[}, \verb{[[},
+\verb{$}, \code{names}, \code{dim}, \code{nrow}, \code{ncol}, \code{head}, and \code{tail}. You can also pull
 the data from an Arrow table into R with \code{as.data.frame()}. See the
 examples.
 
-A caveat about the \code{$} method: because \code{Table} is an \code{R6} object,
-\code{$} is also used to access the object's methods (see below). Methods take
+A caveat about the \verb{$} method: because \code{Table} is an \code{R6} object,
+\verb{$} is also used to access the object's methods (see below). Methods take
 precedence over the table's columns. So, \code{tab$Slice} would return the
 "Slice" method function even if there were a column in the table called
 "Slice".
 
-A caveat about the \code{[} method for row operations: only "slicing" is
+A caveat about the \verb{[} method for row operations: only "slicing" is
 currently supported. That is, you can select a continuous range of rows
 from the table, but you can't filter with a \code{logical} vector or take an
 arbitrary selection of rows by integer indices.
@@ -47,33 +47,33 @@ arbitrary selection of rows by integer indices.
 In addition to the more R-friendly S3 methods, a \code{Table} object has
 the following R6 methods that map onto the underlying C++ methods:
 \itemize{
-\item \code{$column(i)}: Extract a \code{ChunkedArray} by integer position from the table
-\item \code{$ColumnNames()}: Get all column names (called by \code{names(tab)})
-\item \code{$GetColumnByName(name)}: Extract a \code{ChunkedArray} by string name
-\item \code{$field(i)}: Extract a \code{Field} from the table schema by integer position
-\item \code{$select(spec)}: Return a new table with a selection of columns.
+\item \verb{$column(i)}: Extract a \code{ChunkedArray} by integer position from the table
+\item \verb{$ColumnNames()}: Get all column names (called by \code{names(tab)})
+\item \verb{$GetColumnByName(name)}: Extract a \code{ChunkedArray} by string name
+\item \verb{$field(i)}: Extract a \code{Field} from the table schema by integer position
+\item \verb{$select(spec)}: Return a new table with a selection of columns.
 This supports the usual \code{character}, \code{numeric}, and \code{logical} selection
 methods as well as "tidy select" expressions.
-\item \code{$Slice(offset, length = NULL)}: Create a zero-copy view starting at the
+\item \verb{$Slice(offset, length = NULL)}: Create a zero-copy view starting at the
 indicated integer offset and going for the given length, or to the end
 of the table if \code{NULL}, the default.
-\item \code{$Take(i)}: return an \code{Table} with rows at positions given by
+\item \verb{$Take(i)}: return an \code{Table} with rows at positions given by
 integers \code{i}. If \code{i} is an Arrow \code{Array} or \code{ChunkedArray}, it will be
 coerced to an R vector before taking.
-\item \code{$Filter(i)}: return an \code{Table} with rows at positions where logical
-vector or Arrow boolean-type \code{(Chunked)Array} \code{i} is \code{TRUE}.
-\item \code{$serialize(output_stream, ...)}: Write the table to the given
+\item \verb{$Filter(i)}: return an \code{Table} with rows at positions where logical
+vector or Arrow boolean-type \verb{(Chunked)Array} \code{i} is \code{TRUE}.
+\item \verb{$serialize(output_stream, ...)}: Write the table to the given
 \link{OutputStream}
-\item \code{$cast(target_schema, safe = TRUE, options = cast_options(safe))}: Alter
+\item \verb{$cast(target_schema, safe = TRUE, options = cast_options(safe))}: Alter
 the schema of the record batch.
 }
 
 There are also some active bindings
 \itemize{
-\item \code{$num_columns}
-\item \code{$num_rows}
-\item \code{$schema}
-\item \code{$columns}: Returns a list of \code{ChunkedArray}s
+\item \verb{$num_columns}
+\item \verb{$num_rows}
+\item \verb{$schema}
+\item \verb{$columns}: Returns a list of \code{ChunkedArray}s
 }
 }
 
@@ -88,4 +88,3 @@ tab[["cyl"]]
 as.data.frame(tab[4:8, c("gear", "hp", "wt")])
 }
 }
-\keyword{datasets}
