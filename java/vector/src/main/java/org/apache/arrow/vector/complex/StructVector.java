@@ -25,6 +25,7 @@ import java.util.List;
 
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseValueVector;
@@ -489,7 +490,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
   @Override
   public int hashCode(int index, ArrowBufHasher hasher) {
     if (isSet(index) == 0) {
-      return 0;
+      return ArrowBufPointer.NULL_HASH_CODE;
     } else {
       return super.hashCode(index, hasher);
     }

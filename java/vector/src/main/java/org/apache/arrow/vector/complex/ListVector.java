@@ -28,6 +28,7 @@ import java.util.List;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.OutOfMemoryException;
+import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.memory.util.hash.ArrowBufHasher;
 import org.apache.arrow.util.Preconditions;
@@ -426,7 +427,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   @Override
   public int hashCode(int index, ArrowBufHasher hasher) {
     if (isSet(index) == 0) {
-      return 0;
+      return ArrowBufPointer.NULL_HASH_CODE;
     }
     int hash = 0;
     final int start = offsetBuffer.getInt(index * OFFSET_WIDTH);

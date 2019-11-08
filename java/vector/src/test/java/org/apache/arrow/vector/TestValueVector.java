@@ -2643,6 +2643,48 @@ public class TestValueVector {
   }
 
   @Test
+  public void testFixedWidthVectorNullHashCode() {
+    try (IntVector intVec = new IntVector("int vector", allocator)) {
+      intVec.allocateNew(1);
+      intVec.setValueCount(1);
+
+      intVec.set(0, 100);
+      intVec.setNull(0);
+
+      assertEquals(0, intVec.hashCode(0));
+    }
+  }
+
+  @Test
+  public void testVariableWidthVectorNullHashCode() {
+    try (VarCharVector varChVec = new VarCharVector("var char vector", allocator)) {
+      varChVec.allocateNew(100, 1);
+      varChVec.setValueCount(1);
+
+      varChVec.set(0, "abc".getBytes());
+      varChVec.setNull(0);
+
+      assertEquals(0, varChVec.hashCode(0));
+    }
+  }
+
+  @Test
+  public void testUnionNullHashCode() {
+    try (UnionVector srcVector = new UnionVector(EMPTY_SCHEMA_PATH, allocator, null)) {
+      srcVector.allocateNew();
+
+      final NullableIntHolder holder = new NullableIntHolder();
+      holder.isSet = 0;
+
+      // write some data
+      srcVector.setType(0, MinorType.INT);
+      srcVector.setSafe(0, holder);
+
+      assertEquals(0, srcVector.hashCode(0));
+    }
+  }
+
+  @Test
   public void testToString() {
     try (final IntVector intVector = new IntVector("intVector", allocator);
          final ListVector listVector = ListVector.empty("listVector", allocator);

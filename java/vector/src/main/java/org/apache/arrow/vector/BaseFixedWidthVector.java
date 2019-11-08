@@ -885,6 +885,9 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
 
   @Override
   public int hashCode(int index, ArrowBufHasher hasher) {
+    if (isNull(index)) {
+      return ArrowBufPointer.NULL_HASH_CODE;
+    }
     int start = typeWidth * index;
     int end = typeWidth * (index + 1);
     return ByteFunctionHelpers.hash(hasher, this.getDataBuffer(), start, end);
