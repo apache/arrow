@@ -201,9 +201,6 @@ jobs:
         uses: actions/checkout@v1
         with:
           submodules: true
-      - name: Dependencies
-        shell: bash
-        run: choco install dependencywalker
       - name: Build
         shell: bash
         run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/cpp/build

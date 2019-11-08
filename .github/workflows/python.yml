@@ -37,6 +37,7 @@ jobs:
   ubuntu:
     name: AMD64 Ubuntu 18.04 Python 3
     runs-on: ubuntu-latest
+    if: github.event_name == 'push'
     env:
       UBUNTU: 18.04
     steps:
@@ -72,9 +73,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: [2.7, 3.6, 3.7]
+        python: [2.7, 3.6]
     env:
-      PYTHON: ${{ matrix.python || 3.7 }}
+      PYTHON: ${{ matrix.python }}
       PANDAS: latest
     steps:
       - name: Checkout Arrow
