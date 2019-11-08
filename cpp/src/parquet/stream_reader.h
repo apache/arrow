@@ -57,8 +57,8 @@ class PARQUET_EXPORT StreamReader {
   bool eof() const { return eof_; }
 
   // Moving is possible.
-  StreamReader(StreamReader&&) noexcept = default;
-  StreamReader& operator=(StreamReader&&) noexcept = default;
+  StreamReader(StreamReader&&) = default;
+  StreamReader& operator=(StreamReader&&) = default;
 
   // Copying is not allowed.
   StreamReader(const StreamReader&) = delete;
