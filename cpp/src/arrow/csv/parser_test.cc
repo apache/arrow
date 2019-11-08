@@ -238,7 +238,7 @@ TEST(BlockParser, Basics) {
     auto csv1 = MakeCSVData({"ab,cd,\n", "ef,,gh\n"});
     auto csv2 = MakeCSVData({",ij,kl\n"});
     BlockParser parser(ParseOptions::Defaults());
-    AssertParseOk(parser, {csv1, csv2});
+    AssertParseOk(parser, {{csv1}, {csv2}});
     AssertColumnsEq(parser, {{"ab", "ef", ""}, {"cd", "", "ij"}, {"", "gh", "kl"}});
     AssertLastRowEq(parser, {"", "ij", "kl"}, {false, false, false});
   }
@@ -390,7 +390,7 @@ TEST(BlockParser, Final) {
   // Two blocks
   auto csv1 = MakeCSVData({"ab,cd\n"});
   auto csv2 = MakeCSVData({"ef,"});
-  AssertParseFinal(parser, {csv1, csv2});
+  AssertParseFinal(parser, {{csv1}, {csv2}});
   AssertColumnsEq(parser, {{"ab", "ef"}, {"cd", ""}});
 }
 
