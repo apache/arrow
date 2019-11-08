@@ -90,9 +90,9 @@ def _handle_arrow_array_protocol(obj, type, mask, size):
             "Cannot specify a mask or a size when passing an object that is "
             "converted with the __arrow_array__ protocol.")
     res = obj.__arrow_array__(type=type)
-    if not isinstance(res, Array):
+    if not isinstance(res, (Array, ChunkedArray)):
         raise TypeError("The object's __arrow_array__ method does not "
-                        "return a pyarrow Array.")
+                        "return a pyarrow Array or ChunkedArray.")
     return res
 
 
