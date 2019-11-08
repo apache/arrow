@@ -20,6 +20,7 @@
 #define nssv_CONFIG_SELECT_STRING_VIEW nssv_STRING_VIEW_NONSTD
 
 #include <cstdint>
+#include <string>
 
 #include "arrow/vendored/string_view.hpp"  // IWYU pragma: export
 
