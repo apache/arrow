@@ -39,8 +39,7 @@ template <typename ArrowType, typename CType = typename TypeTraits<ArrowType>::C
 static inline std::shared_ptr<Array> ConstantArray(int64_t size, CType value = 0) {
   auto type = TypeTraits<ArrowType>::type_singleton();
   auto builder_fn = [](BuilderType* builder) { builder->UnsafeAppend(CType(0)); };
-  ASSERT_OK_AND_ASSIGN(auto array, ArrayFromBuilderVisitor(type, size, builder_fn));
-  return array;
+  return ArrayFromBuilderVisitor(type, size, builder_fn).ValueOrDie();
 }
 
 std::shared_ptr<arrow::Array> ConstantArrayGenerator::Boolean(int64_t size, bool value) {

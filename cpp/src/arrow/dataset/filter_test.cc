@@ -140,7 +140,7 @@ class FilterTest : public ::testing::Test {
       *expected_mask = checked_pointer_cast<BooleanArray>(batch->GetColumnByName("in"));
     }
 
-    ASSERT_OK_AND_ASSIGN(auto expr_type, expr.Validate(*batch->schema()));
+    ARROW_ASSIGN_OR_RAISE(auto expr_type, expr.Validate(*batch->schema()));
     EXPECT_TRUE(expr_type->Equals(boolean()));
 
     return evaluator_->Evaluate(expr, *batch);
