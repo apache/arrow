@@ -15,39 +15,40 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Go
+name: Pull - Rust
 
 on:
   push:
     paths:
       - 'ci/**'
-      - 'go/**'
+      - 'rust/**'
   pull_request:
     paths:
       - 'ci/**'
-      - 'go/**'
+      - 'rust/**'
 
 jobs:
-  docker:
-    name: AMD64 Debian Go ${{ matrix.go }}
+
+  debian:
+    name: AMD64 Debian 10 Rust ${{ matrix.rust }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        go: [1.12]
+        rust: [nightly-2019-09-25]
     env:
-      GO: ${{ matrix.go }}
+      RUST: ${{ matrix.rust }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v1
         with:
           submodules: true
       - name: Docker Pull
-        run: docker-compose pull --ignore-pull-failures debian-go
+        run: docker-compose pull --ignore-pull-failures debian-rust
       - name: Docker Build
-        run: docker-compose build debian-go
+        run: docker-compose build debian-rust
       - name: Docker Run
-        run: docker-compose run debian-go
+        run: docker-compose run debian-rust
       - name: Docker Push
         if: github.event_name == 'push' && github.ref == 'master'
         shell: bash
@@ -55,36 +56,31 @@ jobs:
           docker login \
             -u ${{ secrets.DOCKERHUB_USER }} \
             -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push debian-go
+          docker-compose push debian-rust
 
-  macos-windows:
-    name: AMD64 ${{ matrix.name }} Go ${{ matrix.go }}
-    runs-on: ${{ matrix.os }}
+  windows:
+    name: AMD64 Windows 2019 Rust ${{ matrix.rust }}
+    runs-on: windows-latest
     strategy:
       fail-fast: false
       matrix:
-        os:
-          - macos-latest
-          - windows-latest
-        include:
-          - os: macos-latest
-            name: MacOS 10.15
-            go: 1.12
-          - os: windows-latest
-            name: Windows 2019
-            go: 1.12
+        rust: [nightly-2019-09-25]
     steps:
-      - name: Install go
-        uses: actions/setup-go@v1
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
         with:
-          go-version: ${{ matrix.go }}
+            toolchain: ${{ matrix.rust }}
+            override: true
+      - name: Install Flatbuffers
+        shell: bash
+        run: choco install flatc
       - name: Checkout Arrow
         uses: actions/checkout@v1
         with:
           submodules: true
       - name: Build
         shell: bash
-        run: ci/scripts/go_build.sh .
+        run: ci/scripts/rust_build.sh $(pwd) $(pwd)/rust/target
       - name: Test
         shell: bash
-        run: ci/scripts/go_test.sh .
+        run: ci/scripts/rust_test.sh $(pwd)

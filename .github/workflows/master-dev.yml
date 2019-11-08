@@ -15,11 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Dev
+name: Master - Dev
 
 on:
   push:
-  pull_request:
+    branches:
+      - master
+      - maint-*
 
 jobs:
 
@@ -58,34 +60,7 @@ jobs:
         run: |
           ci/scripts/release_test.sh $(pwd)
 
-  docker-lint:
-    name: Lint C++, Python, R, Rust, Docker, RAT
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v1
-        with:
-          submodules: true
-      - name: Docker Pull
-        run: |
-          docker-compose pull --ignore-pull-failures ubuntu-cpp
-          docker-compose pull --ignore-pull-failures ubuntu-lint
-      - name: Docker Build
-        run: |
-          docker-compose build ubuntu-cpp
-          docker-compose build ubuntu-lint
-      - name: Docker Run
-        run: docker-compose run ubuntu-lint
-      - name: Docker Push
-        if: github.event_name == 'push' && github.ref == 'master'
-        shell: bash
-        run: |
-          docker login \
-            -u ${{ secrets.DOCKERHUB_USER }} \
-            -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push ubuntu-lint
-
-  docker-docs:
+  docs:
     name: Sphinx and API documentations
     runs-on: ubuntu-latest
     steps:

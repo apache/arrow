@@ -15,48 +15,47 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Integration
+name: Master - R
 
 on:
   push:
+    branches:
+      - master
+      - maint-*
     paths:
       - 'ci/**'
-      - 'go/**'
-      - 'js/**'
       - 'cpp/**'
-      - 'java/**'
-      - 'format/**'
-  pull_request:
-    paths:
-      - 'ci/**'
-      - 'go/**'
-      - 'js/**'
-      - 'cpp/**'
-      - 'java/**'
-      - 'format/**'
+      - 'r/**'
 
 jobs:
 
-  docker-integration:
-    name: AMD64 Conda Integration Test
+  conda:
+    name: AMD64 Conda R ${{ matrix.r }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        r: [3.6]
     env:
-      MAVEN: 3.5
+      R: ${{ matrix.r }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v1
         with:
           submodules: true
       - name: Docker Pull
+        shell: bash
         run: |
           docker-compose pull --ignore-pull-failures conda-cpp
-          docker-compose pull --ignore-pull-failures conda-integration
+          docker-compose pull --ignore-pull-failures conda-r
       - name: Docker Build
+        shell: bash
         run: |
           docker-compose build conda-cpp
-          docker-compose build conda-integration
+          docker-compose build conda-r
       - name: Docker Run
-        run: docker-compose run conda-integration
+        shell: bash
+        run: docker-compose run conda-r
       - name: Docker Push
         if: github.event_name == 'push' && github.ref == 'master'
         shell: bash
@@ -64,4 +63,4 @@ jobs:
           docker login \
             -u ${{ secrets.DOCKERHUB_USER }} \
             -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push conda-integration
+          docker-compose push conda-r

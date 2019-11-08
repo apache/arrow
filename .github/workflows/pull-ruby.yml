@@ -15,39 +15,53 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Rust
+name: Pull - C Glib & Ruby
 
 on:
   push:
     paths:
       - 'ci/**'
-      - 'rust/**'
+      - 'cpp/**'
+      - 'c_glib/**'
+      - 'ruby/**'
   pull_request:
     paths:
       - 'ci/**'
-      - 'rust/**'
+      - 'cpp/**'
+      - 'c_glib/**'
+      - 'ruby/**'
 
 jobs:
-  docker:
-    name: AMD64 Debian Rust ${{ matrix.rust }}
+
+  ubuntu:
+    name: AMD64 Ubuntu ${{ matrix.ubuntu }} Glib & Ruby
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        rust: [nightly-2019-09-25]
+        ubuntu: [18.04]
     env:
-      RUST: ${{ matrix.rust }}
+      UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v1
         with:
           submodules: true
       - name: Docker Pull
-        run: docker-compose pull --ignore-pull-failures debian-rust
+        shell: bash
+        run: |
+          docker-compose pull --ignore-pull-failures ubuntu-cpp
+          docker-compose pull --ignore-pull-failures ubuntu-c-glib
+          docker-compose pull --ignore-pull-failures ubuntu-ruby
       - name: Docker Build
-        run: docker-compose build debian-rust
+        shell: bash
+        run: |
+          docker-compose build ubuntu-cpp
+          docker-compose build ubuntu-c-glib
+          docker-compose build ubuntu-ruby
       - name: Docker Run
-        run: docker-compose run debian-rust
+        shell: bash
+        run: docker-compose run ubuntu-ruby
       - name: Docker Push
         if: github.event_name == 'push' && github.ref == 'master'
         shell: bash
@@ -55,58 +69,41 @@ jobs:
           docker login \
             -u ${{ secrets.DOCKERHUB_USER }} \
             -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push debian-rust
+          docker-compose push ubuntu-ruby
 
   macos:
-    name: AMD64 MacOS 10.15 Rust ${{ matrix.rust }}
+    name: AMD64 MacOS 10.15 Glib & Ruby
     runs-on: macos-latest
     strategy:
       fail-fast: false
-      matrix:
-        rust: [nightly-2019-09-25]
+    env:
+      ARROW_HOME: /usr/local
+      ARROW_ORC: OFF
+      ARROW_JEMALLOC: OFF
+      ARROW_WITH_BROTLI: ON
+      ARROW_WITH_LZ4: ON
+      ARROW_WITH_SNAPPY: ON
+      ARROW_WITH_ZLIB: ON
+      ARROW_BUILD_TESTS: ON
     steps:
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-            toolchain: ${{ matrix.rust }}
-            override: true
-      - name: Install Flatbuffers
-        shell: bash
-        run: brew install flatbuffers
       - name: Checkout Arrow
         uses: actions/checkout@v1
         with:
           submodules: true
+      - name: Install Dependencies
+        shell: bash
+        run: |
+          brew bundle --file=cpp/Brewfile
+          brew bundle --file=c_glib/Brewfile
+          bundle install --gemfile ruby/red-arrow/Gemfile
       - name: Build
         shell: bash
-        run: ci/scripts/rust_build.sh $(pwd) $(pwd)/rust/target
-      - name: Test
+        run: |
+          ci/scripts/cpp_build.sh $(pwd) $(pwd)/cpp/build
+          ci/scripts/c_glib_build.sh $(pwd) $(pwd)/c_glib/build
+      - name: Test Glib
         shell: bash
-        run: ci/scripts/rust_test.sh $(pwd)
-
-  windows:
-    name: AMD64 Windows 2019 Rust ${{ matrix.rust }}
-    runs-on: windows-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        rust: [nightly-2019-09-25]
-    steps:
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-            toolchain: ${{ matrix.rust }}
-            override: true
-      - name: Install Flatbuffers
+        run: ci/scripts/c_glib_test.sh $(pwd) $(pwd)/c_glib/build
+      - name: Test Ruby
         shell: bash
-        run: choco install flatc
-      - name: Checkout Arrow
-        uses: actions/checkout@v1
-        with:
-          submodules: true
-      - name: Build
-        shell: bash
-        run: ci/scripts/rust_build.sh $(pwd) $(pwd)/rust/target
-      - name: Test
-        shell: bash
-        run: ci/scripts/rust_test.sh $(pwd)
+        run: ci/scripts/ruby_test.sh $(pwd)

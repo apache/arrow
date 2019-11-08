@@ -15,50 +15,41 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Java
+name: Pull - Java JNI
 
 on:
   push:
     paths:
       - 'ci/**'
       - 'cpp/**'
+      - 'java/**'
   pull_request:
     paths:
       - 'ci/**'
+      - 'cpp/**'
       - 'java/**'
 
 jobs:
 
-  docker:
-    name: AMD64 Debian 9 Java JDK ${{ matrix.jdk }} Maven ${{ matrix.maven }}
+  debian:
+    name: AMD64 Debian 9 Java JNI and Plasma
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        image:
-          - amd64-debian-9-java-8-maven-3.5.2
-          - amd64-debian-9-java-11-maven-3.6.2
-        include:
-          - image: amd64-debian-9-java-8-maven-3.5.2
-            jdk: 8
-            maven: 3.5.2
-          - image: amd64-debian-9-java-11-maven-3.6.2
-            jdk: 11
-            maven: 3.6.2
-    env:
-      JDK: ${{ matrix.jdk }}
-      MAVEN: ${{ matrix.maven }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v1
         with:
           submodules: true
       - name: Docker Pull
-        run: docker-compose pull --ignore-pull-failures debian-java
+        run: |
+          docker-compose pull --ignore-pull-failures debian-java
+          docker-compose pull --ignore-pull-failures debian-java-jni
       - name: Docker Build
-        run: docker-compose build debian-java
+        run: |
+          docker-compose build debian-java
+          docker-compose build debian-java-jni
       - name: Docker Run
-        run: docker-compose run debian-java
+        run: |
+          docker-compose run debian-java-jni
       - name: Docker Push
         if: github.event_name == 'push' && github.ref == 'master'
         shell: bash
@@ -66,29 +57,4 @@ jobs:
           docker login \
             -u ${{ secrets.DOCKERHUB_USER }} \
             -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push debian-java
-
-  macos:
-    name: AMD64 MacOS 10.15 Java JDK ${{ matrix.jdk }}
-    runs-on: macos-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        jdk: [11]
-    env:
-      ARROW_JAVA_RUN_TESTS: 1
-    steps:
-      - name: Set up Java
-        uses: actions/setup-java@v1
-        with:
-          java-version: ${{ matrix.jdk }}
-      - name: Checkout Arrow
-        uses: actions/checkout@v1
-        with:
-          submodules: true
-      - name: Build
-        shell: bash
-        run: ci/scripts/java_build.sh $(pwd)
-      - name: Test
-        shell: bash
-        run: ci/scripts/java_test.sh $(pwd)
+          docker-compose push debian-java-jni

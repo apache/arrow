@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: R
+name: Pull - R
 
 on:
   push:
@@ -31,28 +31,17 @@ on:
 
 jobs:
 
-  docker:
-    name: ${{ matrix.name }}
+  ubuntu:
+    name: AMD64 Ubuntu ${{ matrix.ubuntu }} R ${{ matrix.r }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        image:
-          - amd64-conda-latest-r-3.6
-          - amd64-ubuntu-18.04-r-3.6
-        include:
-          - name: AMD64 Conda R 3.6
-            image: amd64-conda-latest-r-3.6
-            platform: conda
-            r: 3.6
-          - name: AMD64 Ubuntu 18.04 R 3.6
-            image: amd64-ubuntu-18.04-r-3.6
-            platform: ubuntu
-            ubuntu: 18.04
-            r: 3.6
+        r: [3.6]
+        ubuntu: [18.04]
     env:
-      R: ${{ matrix.r || 3.6 }}
-      UBUNTU: ${{ matrix.ubuntu || 18.04 }}
+      R: ${{ matrix.r }}
+      UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v1
@@ -61,16 +50,16 @@ jobs:
       - name: Docker Pull
         shell: bash
         run: |
-          docker-compose pull --ignore-pull-failures ${{ matrix.platform }}-cpp
-          docker-compose pull --ignore-pull-failures ${{ matrix.platform }}-r
+          docker-compose pull --ignore-pull-failures ubuntu-cpp
+          docker-compose pull --ignore-pull-failures ubuntu-r
       - name: Docker Build
         shell: bash
         run: |
-          docker-compose build ${{ matrix.platform }}-cpp
-          docker-compose build ${{ matrix.platform }}-r
+          docker-compose build ubuntu-cpp
+          docker-compose build ubuntu-r
       - name: Docker Run
         shell: bash
-        run: docker-compose run ${{ matrix.platform }}-r
+        run: docker-compose run ubuntu-r
       - name: Docker Push
         if: github.event_name == 'push' && github.ref == 'master'
         shell: bash
@@ -78,4 +67,4 @@ jobs:
           docker login \
             -u ${{ secrets.DOCKERHUB_USER }} \
             -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push ${{ matrix.platform }}-r
+          docker-compose push ubuntu-r

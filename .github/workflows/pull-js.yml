@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: NodeJS
+name: Pull - NodeJS
 
 on:
   push:
@@ -28,8 +28,9 @@ on:
       - 'js/**'
 
 jobs:
-  docker:
-    name: AMD64 Debian NodeJS ${{ matrix.node }}
+
+  debian:
+    name: AMD64 Debian 10 NodeJS ${{ matrix.node }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -56,53 +57,3 @@ jobs:
             -u ${{ secrets.DOCKERHUB_USER }} \
             -p ${{ secrets.DOCKERHUB_TOKEN }}
           docker-compose push debian-js
-
-  macos:
-    name: AMD64 MacOS 10.15 NodeJS ${{ matrix.node }}
-    runs-on: macos-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node: [11]
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v1
-        with:
-          submodules: true
-      - name: Install NodeJS
-        uses: actions/setup-node@v1
-        with:
-          node-version: ${{ matrix.node }}
-      - name: Build
-        shell: bash
-        run: ci/scripts/js_build.sh $(pwd)
-      - name: Test
-        shell: bash
-        run: ci/scripts/js_test.sh $(pwd)
-
-  # TODO(kszucs): the windows build fails with platform speficic npm error
-  # windows:
-  #   name: AMD64 Windows 2019 NodeJS ${{ matrix.node }}
-  #   runs-on: windows-latest
-  #   strategy:
-  #     fail-fast: false
-  #     matrix:
-  #       node: [11]
-  #   steps:
-  #     - name: Checkout Arrow
-  #       uses: actions/checkout@v1
-  #       with:
-  #         submodules: true
-  #     - name: Install NodeJS
-  #       uses: actions/setup-node@v1
-  #       with:
-  #         node-version: ${{ matrix.node }}
-  #     - name: Install Platform Dependencies
-  #       shell: bash
-  #       run: npm install -g cross-env
-  #     - name: Build
-  #       shell: bash
-  #       run: ci/scripts/js_build.sh $(pwd)
-  #     - name: Test
-  #       shell: bash
-  #       run: ci/scripts/js_test.sh $(pwd)
