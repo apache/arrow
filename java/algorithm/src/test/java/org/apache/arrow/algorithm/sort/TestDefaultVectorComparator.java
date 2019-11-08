@@ -123,7 +123,7 @@ public class TestDefaultVectorComparator {
                   DefaultVectorComparators.createDefaultComparator(listVector1);
           comparator.attachVectors(listVector1, listVector2);
 
-          VectorValueComparator<ListVector> copyComparator = comparator.clone();
+          VectorValueComparator<ListVector> copyComparator = comparator.createNew();
           copyComparator.attachVectors(listVector1, listVector2);
 
           assertEquals(comparator.compare(0, 0), copyComparator.compare(0, 0));

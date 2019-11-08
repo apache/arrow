@@ -99,7 +99,7 @@ public class DefaultVectorComparators {
     }
 
     @Override
-    public VectorValueComparator<TinyIntVector> clone() {
+    public VectorValueComparator<TinyIntVector> createNew() {
       return new ByteComparator();
     }
   }
@@ -122,7 +122,7 @@ public class DefaultVectorComparators {
     }
 
     @Override
-    public VectorValueComparator<SmallIntVector> clone() {
+    public VectorValueComparator<SmallIntVector> createNew() {
       return new ShortComparator();
     }
   }
@@ -145,7 +145,7 @@ public class DefaultVectorComparators {
     }
 
     @Override
-    public VectorValueComparator<IntVector> clone() {
+    public VectorValueComparator<IntVector> createNew() {
       return new IntComparator();
     }
   }
@@ -169,7 +169,7 @@ public class DefaultVectorComparators {
     }
 
     @Override
-    public VectorValueComparator<BigIntVector> clone() {
+    public VectorValueComparator<BigIntVector> createNew() {
       return new LongComparator();
     }
   }
@@ -193,7 +193,7 @@ public class DefaultVectorComparators {
     }
 
     @Override
-    public VectorValueComparator<UInt1Vector> clone() {
+    public VectorValueComparator<UInt1Vector> createNew() {
       return new UInt1Comparator();
     }
   }
@@ -216,7 +216,7 @@ public class DefaultVectorComparators {
     }
 
     @Override
-    public VectorValueComparator<UInt2Vector> clone() {
+    public VectorValueComparator<UInt2Vector> createNew() {
       return new UInt2Comparator();
     }
   }
@@ -239,7 +239,7 @@ public class DefaultVectorComparators {
     }
 
     @Override
-    public VectorValueComparator<UInt4Vector> clone() {
+    public VectorValueComparator<UInt4Vector> createNew() {
       return new UInt4Comparator();
     }
   }
@@ -262,7 +262,7 @@ public class DefaultVectorComparators {
     }
 
     @Override
-    public VectorValueComparator<UInt8Vector> clone() {
+    public VectorValueComparator<UInt8Vector> createNew() {
       return new UInt8Comparator();
     }
   }
@@ -299,7 +299,7 @@ public class DefaultVectorComparators {
     }
 
     @Override
-    public VectorValueComparator<Float4Vector> clone() {
+    public VectorValueComparator<Float4Vector> createNew() {
       return new Float4Comparator();
     }
   }
@@ -336,7 +336,7 @@ public class DefaultVectorComparators {
     }
 
     @Override
-    public VectorValueComparator<Float8Vector> clone() {
+    public VectorValueComparator<Float8Vector> createNew() {
       return new Float8Comparator();
     }
   }
@@ -366,7 +366,7 @@ public class DefaultVectorComparators {
     }
 
     @Override
-    public VectorValueComparator<BaseVariableWidthVector> clone() {
+    public VectorValueComparator<BaseVariableWidthVector> createNew() {
       return new VariableWidthComparator();
     }
   }
@@ -408,8 +408,8 @@ public class DefaultVectorComparators {
     }
 
     @Override
-    public VectorValueComparator<BaseRepeatedValueVector> clone() {
-      VectorValueComparator<T> newInnerComparator = innerComparator.clone();
+    public VectorValueComparator<BaseRepeatedValueVector> createNew() {
+      VectorValueComparator<T> newInnerComparator = innerComparator.createNew();
       return new RepeatedValueComparator(newInnerComparator);
     }
 
