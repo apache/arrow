@@ -508,6 +508,33 @@ Status MakeSparseTensorFromTensor(const Tensor& tensor,
 }
 
 template <typename TYPE, typename IndexValueType>
+void assign_values(int64_t dimension_index, int64_t offset, int64_t first_ptr,
+                   int64_t last_ptr, const SparseCSFIndex* sparse_index,
+                   const int64_t* raw_data, const std::vector<int64_t> strides,
+                   TYPE* out) {
+  auto indices_offset = sparse_index->indices_offsets()[dimension_index];
+  auto indptr_offset = sparse_index->indptr_offsets()[dimension_index];
+  int64_t ndim = sparse_index->indices_offsets().size();
+
+  if (dimension_index == 0 && ndim > 1)
+    last_ptr = sparse_index->indptr_offsets()[dimension_index + 1] - 1;
+
+  for (int64_t i = first_ptr; i < last_ptr; ++i) {
+    int64_t tmp_offset =
+        offset + sparse_index->indices()->Value<IndexValueType>({indices_offset + i}) *
+                     strides[dimension_index];
+    if (dimension_index < ndim - 1)
+      assign_values<TYPE, IndexValueType>(
+          dimension_index + 1, tmp_offset,
+          sparse_index->indptr()->Value<IndexValueType>({indptr_offset + i}),
+          sparse_index->indptr()->Value<IndexValueType>({indptr_offset + i + 1}),
+          sparse_index, raw_data, strides, out);
+    else
+      out[tmp_offset] = raw_data[i];
+  }
+}
+
+template <typename TYPE, typename IndexValueType>
 Status MakeTensorFromSparseTensor(MemoryPool* pool, const SparseTensor* sparse_tensor,
                                   std::shared_ptr<Tensor>* out) {
   using c_index_value_type = typename IndexValueType::c_type;
@@ -521,18 +548,18 @@ Status MakeTensorFromSparseTensor(MemoryPool* pool, const SparseTensor* sparse_t
 
   std::fill_n(values, sparse_tensor->size(), static_cast<value_type>(0));
 
+  std::vector<int64_t> strides(sparse_tensor->ndim(), 1);
+  for (int i = sparse_tensor->ndim() - 1; i > 0; --i)
+    strides[i - 1] *= strides[i] * sparse_tensor->shape()[i];
+
+  const auto raw_data = reinterpret_cast<const value_type*>(sparse_tensor->raw_data());
+
   switch (sparse_tensor->format_id()) {
     case SparseTensorFormat::COO: {
       const auto& sparse_index =
           internal::checked_cast<const SparseCOOIndex&>(*sparse_tensor->sparse_index());
       const std::shared_ptr<const Tensor> coords = sparse_index.indices();
-      const auto raw_data =
-          reinterpret_cast<const value_type*>(sparse_tensor->raw_data());
-      std::vector<int64_t> strides(sparse_tensor->ndim(), 1);
 
-      for (int i = sparse_tensor->ndim() - 1; i > 0; --i) {
-        strides[i - 1] *= strides[i] * sparse_tensor->shape()[i];
-      }
       for (int64_t i = 0; i < sparse_tensor->non_zero_length(); ++i) {
         std::vector<c_index_value_type> coord(sparse_tensor->ndim());
         int64_t offset = 0;
@@ -552,8 +579,6 @@ Status MakeTensorFromSparseTensor(MemoryPool* pool, const SparseTensor* sparse_t
           internal::checked_cast<const SparseCSRIndex&>(*sparse_tensor->sparse_index());
       const std::shared_ptr<const Tensor> indptr = sparse_index.indptr();
       const std::shared_ptr<const Tensor> indices = sparse_index.indices();
-      const auto raw_data =
-          reinterpret_cast<const value_type*>(sparse_tensor->raw_data());
 
       int64_t offset;
       for (int64_t i = 0; i < indptr->size() - 1; ++i) {
@@ -590,6 +615,17 @@ Status MakeTensorFromSparseTensor(MemoryPool* pool, const SparseTensor* sparse_t
                                       sparse_tensor->shape());
       return Status::OK();
     }
+
+    case SparseTensorFormat::CSF: {
+      const auto& sparse_index =
+          internal::checked_cast<const SparseCSFIndex&>(*sparse_tensor->sparse_index());
+      assign_values<value_type, IndexValueType>(
+          0, 0, 0, 0, &sparse_index,
+          reinterpret_cast<const int64_t*>(sparse_tensor->raw_data()), strides, values);
+      *out = std::make_shared<Tensor>(sparse_tensor->type(), values_buffer,
+                                      sparse_tensor->shape());
+      return Status::OK();
+    }
   }
   return Status::NotImplemented("Unsupported SparseIndex format type");
 }
@@ -622,6 +658,13 @@ Status MakeTensorFromSparseTensor(MemoryPool* pool, const SparseTensor* sparse_t
     case SparseTensorFormat::CSC: {
       const auto& sparse_index =
           internal::checked_cast<const SparseCSCIndex&>(*sparse_tensor->sparse_index());
+      const std::shared_ptr<const Tensor> indices = sparse_index.indices();
+      type = indices->type();
+      break;
+    }
+    case SparseTensorFormat::CSF: {
+      const auto& sparse_index =
+          internal::checked_cast<const SparseCSFIndex&>(*sparse_tensor->sparse_index());
       const std::shared_ptr<const Tensor> indices = sparse_index.indices();
       type = indices->type();
       break;
@@ -753,6 +796,30 @@ void CheckSparseCSXIndexValidity(const std::shared_ptr<DataType>& indptr_type,
 }
 
 }  // namespace internal
+
+// ----------------------------------------------------------------------
+// SparseCSFIndex
+
+// Constructor with two index vectors
+SparseCSFIndex::SparseCSFIndex(const std::shared_ptr<Tensor>& indptr,
+                               const std::shared_ptr<Tensor>& indices,
+                               const std::vector<int64_t>& indptr_offsets,
+                               const std::vector<int64_t>& indices_offsets,
+                               const std::vector<int64_t>& axis_order)
+    : SparseIndexBase(indices->shape()[0] - indices_offsets.back()),
+      indptr_(indptr),
+      indices_(indices),
+      indptr_offsets_(indptr_offsets),
+      indices_offsets_(indices_offsets),
+      axis_order_(axis_order) {
+  ARROW_CHECK(is_integer(indptr_->type_id()));
+  ARROW_CHECK_EQ(1, indptr_->ndim());
+  ARROW_CHECK(is_integer(indices_->type_id()));
+  ARROW_CHECK_EQ(1, indices_->ndim());
+  ARROW_CHECK_EQ(indptr_offsets_.size() + 1, indices_offsets_.size());
+}
+
+std::string SparseCSFIndex::ToString() const { return std::string("SparseCSFIndex"); }
 
 // ----------------------------------------------------------------------
 // SparseTensor

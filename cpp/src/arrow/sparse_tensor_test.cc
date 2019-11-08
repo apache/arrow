@@ -910,4 +910,76 @@ TEST_F(TestSparseCSCMatrix, TestToTensor) {
   ASSERT_TRUE(tensor.Equals(*dense_tensor));
 }
 
+template <typename IndexValueType>
+class TestSparseCSFTensorBase : public ::testing::Test {
+public:
+    void SetUp() {
+        shape_ = {6, 4};
+        dim_names_ = {"foo", "bar"};
+
+        // Dense representation:
+        // [
+        //    1  0  2  0
+        //    0  3  0  4
+        //    5  0  6  0
+        //    0 11  0 12
+        //   13  0 14  0
+        //    0 15  0 16
+        // ]
+        std::vector<int64_t> dense_values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
+                                             0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
+        auto dense_data = Buffer::Wrap(dense_values);
+        NumericTensor<Int64Type> dense_tensor(dense_data, shape_, {}, dim_names_);
+    }
+
+protected:
+    std::vector<int64_t> shape_;
+    std::vector<std::string> dim_names_;
+    std::shared_ptr<SparseCSFTensor> sparse_tensor_from_dense_;
+};
+
+class TestSparseCSFTensor : public TestSparseCSFTensorBase<Int64Type> {};
+
+TEST_F(TestSparseCSFTensor, TestToTensor) {
+  std::vector<int64_t> data_values = {1, 2, 3, 4, 5, 6, 7, 8};
+  std::vector<int64_t> indptr_values = {0, 2, 3, 0, 1, 3, 4, 0, 2, 4, 5, 8};
+  std::vector<int64_t> indices_values = {1, 2, 1, 2, 2, 1, 1, 2, 2,
+                                         2, 3, 1, 3, 1, 1, 2, 3};
+  std::vector<int64_t> indices_offsets = {0, 2, 5, 9};
+  std::vector<int64_t> indptr_offsets = {0, 3, 7};
+  std::vector<int64_t> axis_order = {0, 1, 2, 3};
+  std::vector<int64_t> sparse_tensor_shape({3, 3, 3, 4});
+  std::vector<int64_t> indptr_shape({12});
+  std::vector<int64_t> indices_shape({17});
+  std::vector<std::string> dim_names({"a", "b", "c", "d"});
+
+  std::shared_ptr<Buffer> data_buffer = Buffer::Wrap(data_values);
+  std::shared_ptr<Buffer> indptr_buffer = Buffer::Wrap(indptr_values);
+  std::shared_ptr<Buffer> indices_buffer = Buffer::Wrap(indices_values);
+
+  std::shared_ptr<Tensor> indptr =
+      std::make_shared<Tensor>(int64(), indptr_buffer, indptr_shape);
+  std::shared_ptr<Tensor> indices =
+      std::make_shared<Tensor>(int64(), indices_buffer, indices_shape);
+
+  std::shared_ptr<SparseCSFIndex> sparse_index = std::make_shared<SparseCSFIndex>(
+      indptr, indices, indptr_offsets, indices_offsets, axis_order);
+  std::shared_ptr<SparseCSFTensor> sparse_tensor = std::make_shared<SparseCSFTensor>(
+      sparse_index, int64(), data_buffer, sparse_tensor_shape, dim_names);
+
+  ASSERT_EQ(8, sparse_tensor->non_zero_length());
+
+  std::shared_ptr<Tensor> dense_tensor;
+  ASSERT_OK(sparse_tensor->ToTensor(&dense_tensor));
+
+  std::vector<int64_t> dense_values = {
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 4, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 7, 8};
+  auto dense_data = Buffer::Wrap(dense_values);
+  Tensor tensor(int64(), dense_data, sparse_tensor_shape, {});
+
+  ASSERT_TRUE(tensor.Equals(*dense_tensor));
+}
 }  // namespace arrow

@@ -40,6 +40,8 @@ struct SparseTensorFormat {
     CSR,
     /// Compressed sparse column (CSC) format.
     CSC,
+    /// Compressed sparse fiber (CSF) format.
+    CSF
   };
 };
 
@@ -330,6 +332,66 @@ class ARROW_EXPORT SparseCSCIndex
 };
 
 // ----------------------------------------------------------------------
+// SparseCSFIndex class
+
+/// \brief EXPERIMENTAL: The index data for a CSF sparse tensor
+///
+/// A CSF sparse index manages the location of its non-zero values by two
+/// vectors.
+/// TODO:rok, documentation
+/// The first vector, called indptr, represents the range of the rows; the i-th
+/// row spans from indptr[i] to indptr[i+1] in the corresponding value vector.
+/// So the length of an indptr vector is the number of rows + 1.
+///
+/// The other vector, called indices, represents the column indices of the
+/// corresponding non-zero values.  So the length of an indices vector is same
+/// as the number of non-zero-values.
+class ARROW_EXPORT SparseCSFIndex : public internal::SparseIndexBase<SparseCSFIndex> {
+ public:
+  static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::CSF;
+
+  /// \brief Construct SparseCSFIndex from two index vectors
+  explicit SparseCSFIndex(const std::shared_ptr<Tensor>& indptr,
+                          const std::shared_ptr<Tensor>& indices,
+                          const std::vector<int64_t>& indptr_offsets,
+                          const std::vector<int64_t>& indices_offsets,
+                          const std::vector<int64_t>& axis_order);
+
+  /// \brief Return a 1D tensor of indptr vector
+  const std::shared_ptr<Tensor>& indptr() const { return indptr_; }
+
+  /// \brief Return a 1D tensor of indices vector
+  const std::shared_ptr<Tensor>& indices() const { return indices_; }
+
+  /// \brief Return a 1D vector of indptr offsets
+  const std::vector<int64_t>& indptr_offsets() const { return indptr_offsets_; }
+
+  /// \brief Return a vector of indices offsets
+  const std::vector<int64_t>& indices_offsets() const { return indices_offsets_; }
+
+  /// \brief Return a 1D vector specifying the order of axes
+  const std::vector<int64_t>& axis_order() const { return axis_order_; }
+
+  /// \brief Return a string representation of the sparse index
+  std::string ToString() const override;
+
+  /// \brief Return whether the CSF indices are equal
+  bool Equals(const SparseCSFIndex& other) const {
+    return indptr()->Equals(*other.indptr()) && indices()->Equals(*other.indices()) &&
+           indptr_offsets() == other.indptr_offsets() &&
+           indices_offsets() == other.indices_offsets() &&
+           axis_order() == other.axis_order();
+  }
+
+ protected:
+  std::shared_ptr<Tensor> indptr_;
+  std::shared_ptr<Tensor> indices_;
+  std::vector<int64_t> indptr_offsets_;
+  std::vector<int64_t> indices_offsets_;
+  std::vector<int64_t> axis_order_;
+};
+
+// ----------------------------------------------------------------------
 // SparseTensor class
 
 /// \brief EXPERIMENTAL: The base class of sparse tensor container
@@ -526,6 +588,9 @@ using SparseCSRMatrix = SparseTensorImpl<SparseCSRIndex>;
 
 /// \brief EXPERIMENTAL: Type alias for CSC sparse matrix
 using SparseCSCMatrix = SparseTensorImpl<SparseCSCIndex>;
+
+/// \brief EXPERIMENTAL: Type alias for CSF sparse matrix
+using SparseCSFTensor = SparseTensorImpl<SparseCSFIndex>;
 
 }  // namespace arrow
 

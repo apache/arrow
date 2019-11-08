@@ -114,9 +114,22 @@ table SparseMatrixIndexCSX {
   indicesBuffer: Buffer (required);
 }
 
+/// Compressed Sparse Fiber (CSF) sparse tensor format
+///
+/// CSF is a generalization of compressed sparse row (CSR) index.
+/// CSF compresses a tensor into one three one-dimensional tensors.
+table SparseTensorIndexCSF {
+  indptrType: Int;
+  indptrBuffer: Buffer;
+  indicesType: Int;
+  indicesBuffer: Buffer;
+  axisOrder: [long];
+}
+
 union SparseTensorIndex {
   SparseTensorIndexCOO,
   SparseMatrixIndexCSX,
+  SparseTensorIndexCSF
 }
 
 table SparseTensor {
