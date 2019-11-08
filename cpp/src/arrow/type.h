@@ -359,6 +359,9 @@ class ARROW_EXPORT Field : public detail::Fingerprintable {
   /// \brief Return a copy of this field with the replaced name.
   std::shared_ptr<Field> WithName(const std::string& name) const;
 
+  /// \brief Return a copy of this field with the replaced nullability.
+  std::shared_ptr<Field> WithNullable(bool nullable) const;
+
   std::vector<std::shared_ptr<Field>> Flatten() const;
 
   bool Equals(const Field& other, bool check_metadata = true) const;
@@ -1534,6 +1537,24 @@ std::shared_ptr<Schema> schema(
     const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
 
 /// @}
+
+/// \brief Unifies schemas by unifying fields by name and promoting Null fields.
+///
+/// The resulting schema will contain the union of fields from all schemas.
+/// Fields with the same name will be unified:
+/// - They are expected to be of the same type, or of Null type. The unified
+///   field will be of that same type.
+/// - The unified field will inherit the metadata from the schema where
+///   that field is first defined.
+/// - The first N fields in the schema will be ordered the same as the
+///   N fields in the first schema.
+/// The resulting schema will inherit its metadata from the first input schema.
+/// Returns an error if:
+/// - Any input schema contains fields with duplicate names.
+/// - Fields of the same name are of incompatible types.
+ARROW_EXPORT
+Result<std::shared_ptr<Schema>> UnifySchemas(
+    const std::vector<std::shared_ptr<Schema>>& schemas);
 
 }  // namespace arrow
 

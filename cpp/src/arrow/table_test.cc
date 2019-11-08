@@ -27,9 +27,11 @@
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_common.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
+#include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
 
@@ -404,6 +406,179 @@ TEST_F(TestTable, ConcatenateTables) {
   ASSERT_OK(Table::FromRecordBatches({batch3}, &t3));
 
   ASSERT_RAISES(Invalid, ConcatenateTables({t1, t3}, &result));
+}
+
+std::shared_ptr<Table> MakeTableWithOneNullFilledColumn(
+    const std::string& column_name, const std::shared_ptr<DataType>& data_type,
+    const int length) {
+  std::shared_ptr<Array> array_of_nulls;
+  DCHECK_OK(MakeArrayOfNull(data_type, length, &array_of_nulls));
+  return Table::Make(schema({field(column_name, data_type)}), {array_of_nulls});
+}
+
+using TestPromoteTableToSchema = TestTable;
+
+TEST_F(TestPromoteTableToSchema, IdenticalSchema) {
+  const int length = 10;
+  auto metadata =
+      std::shared_ptr<KeyValueMetadata>(new KeyValueMetadata({"foo"}, {"bar"}));
+  MakeExample1(length);
+  std::shared_ptr<Table> table = Table::Make(schema_, arrays_);
+
+  ASSERT_OK_AND_ASSIGN(auto result,
+                       PromoteTableToSchema(table, schema_->WithMetadata(metadata)));
+
+  std::shared_ptr<Table> expected = table->ReplaceSchemaMetadata(metadata);
+
+  ASSERT_TRUE(result->Equals(*expected));
+}
+
+// The promoted table's fields are ordered the same as the promote-to schema.
+TEST_F(TestPromoteTableToSchema, FieldsReorderedAfterPromotion) {
+  const int length = 10;
+  MakeExample1(length);
+
+  std::vector<std::shared_ptr<Field>> reversed_fields(schema_->fields().crbegin(),
+                                                      schema_->fields().crend());
+  std::vector<std::shared_ptr<Array>> reversed_arrays(arrays_.crbegin(), arrays_.crend());
+
+  std::shared_ptr<Table> table = Table::Make(schema(reversed_fields), reversed_arrays);
+
+  ASSERT_OK_AND_ASSIGN(auto result, PromoteTableToSchema(table, schema_));
+
+  ASSERT_TRUE(result->schema()->Equals(*schema_));
+}
+
+TEST_F(TestPromoteTableToSchema, PromoteNullTypeField) {
+  const int length = 10;
+  auto metadata =
+      std::shared_ptr<KeyValueMetadata>(new KeyValueMetadata({"foo"}, {"bar"}));
+  auto table_with_null_column = MakeTableWithOneNullFilledColumn("field", null(), length)
+                                    ->ReplaceSchemaMetadata(metadata);
+  auto promoted_schema = schema({field("field", int32())});
+
+  ASSERT_OK_AND_ASSIGN(auto result,
+                       PromoteTableToSchema(table_with_null_column, promoted_schema));
+
+  ASSERT_TRUE(
+      result->Equals(*MakeTableWithOneNullFilledColumn("field", int32(), length)));
+}
+
+TEST_F(TestPromoteTableToSchema, AddMissingField) {
+  const int length = 10;
+  auto f0 = field("f0", int32());
+  auto table = Table::Make(schema({}), std::vector<std::shared_ptr<Array>>(), length);
+  auto promoted_schema = schema({field("field", int32())});
+
+  ASSERT_OK_AND_ASSIGN(auto result, PromoteTableToSchema(table, promoted_schema));
+
+  ASSERT_TRUE(
+      result->Equals(*MakeTableWithOneNullFilledColumn("field", int32(), length)));
+}
+
+TEST_F(TestPromoteTableToSchema, IncompatibleTypes) {
+  const int length = 10;
+  auto table = MakeTableWithOneNullFilledColumn("field", int32(), length);
+
+  // Invalid promotion: int32 to null.
+  ASSERT_RAISES(Invalid, PromoteTableToSchema(table, schema({field("field", null())})));
+
+  // Invalid promotion: int32 to uint32.
+  ASSERT_RAISES(Invalid, PromoteTableToSchema(table, schema({field("field", uint32())})));
+}
+
+TEST_F(TestPromoteTableToSchema, IncompatibleNullity) {
+  const int length = 10;
+  auto table = MakeTableWithOneNullFilledColumn("field", int32(), length);
+  ASSERT_RAISES(Invalid,
+                PromoteTableToSchema(
+                    table, schema({field("field", uint32())->WithNullable(false)})));
+}
+
+TEST_F(TestPromoteTableToSchema, DuplicateFieldNames) {
+  const int length = 10;
+
+  auto table = Table::Make(
+      schema({field("field", int32()), field("field", null())}),
+      {MakeRandomArray<Int32Array>(length), MakeRandomArray<NullArray>(length)});
+
+  ASSERT_RAISES(Invalid, PromoteTableToSchema(table, schema({field("field", int32())})));
+}
+
+TEST_F(TestPromoteTableToSchema, TableFieldAbsentFromSchema) {
+  const int length = 10;
+
+  auto table =
+      Table::Make(schema({field("f0", int32())}), {MakeRandomArray<Int32Array>(length)});
+
+  std::shared_ptr<Table> result;
+  ASSERT_RAISES(Invalid, PromoteTableToSchema(table, schema({field("f1", int32())})));
+}
+
+class ConcatenateTablesWithPromotionTest : public TestTable {
+ protected:
+  void MakeExample2(int length) {
+    auto f0 = field("f0", int32());
+    auto f1 = field("f1", null());
+
+    std::vector<std::shared_ptr<Field>> fields = {f0, f1};
+    schema_ = std::make_shared<Schema>(fields);
+
+    arrays_ = {MakeRandomArray<Int32Array>(length), MakeRandomArray<NullArray>(length)};
+
+    columns_ = {std::make_shared<ChunkedArray>(arrays_[0]),
+                std::make_shared<ChunkedArray>(arrays_[1])};
+  }
+
+  void AssertTablesEqualUnorderedFields(const Table& lhs, const Table& rhs) {
+    ASSERT_EQ(lhs.schema()->num_fields(), rhs.schema()->num_fields());
+    if (lhs.schema()->metadata()) {
+      ASSERT_NE(nullptr, rhs.schema()->metadata());
+      ASSERT_TRUE(lhs.schema()->metadata()->Equals(*rhs.schema()->metadata()));
+    } else {
+      ASSERT_EQ(nullptr, rhs.schema()->metadata());
+    }
+    for (int i = 0; i < lhs.schema()->num_fields(); ++i) {
+      const auto& lhs_field = lhs.schema()->field(i);
+      const auto& rhs_field = rhs.schema()->GetFieldByName(lhs_field->name());
+      ASSERT_NE(nullptr, rhs_field);
+      ASSERT_TRUE(lhs_field->Equals(rhs_field, true));
+      const auto& lhs_column = lhs.column(i);
+      const auto& rhs_column = rhs.GetColumnByName(lhs_field->name());
+      AssertChunkedEqual(*lhs_column, *rhs_column);
+    }
+  }
+};
+
+TEST_F(ConcatenateTablesWithPromotionTest, Simple) {
+  const int64_t length = 10;
+
+  MakeExample1(length);
+  auto batch1 = RecordBatch::Make(schema_, length, arrays_);
+
+  std::shared_ptr<Array> f1_nulls;
+  ASSERT_OK(MakeArrayOfNull(schema_->field(1)->type(), length, &f1_nulls));
+  std::shared_ptr<Array> f2_nulls;
+  ASSERT_OK(MakeArrayOfNull(schema_->field(2)->type(), length, &f2_nulls));
+
+  MakeExample2(length);
+  auto batch2 = RecordBatch::Make(schema_, length, arrays_);
+
+  auto batch2_null_filled =
+      RecordBatch::Make(batch1->schema(), length, {arrays_[0], f1_nulls, f2_nulls});
+
+  std::shared_ptr<Table> t1, t2, t3, result, expected;
+  ASSERT_OK(Table::FromRecordBatches({batch1}, &t1));
+  ASSERT_OK(Table::FromRecordBatches({batch2}, &t2));
+  ASSERT_OK(Table::FromRecordBatches({batch2_null_filled}, &t3));
+
+  ASSERT_OK_AND_ASSIGN(result, ConcatenateTablesWithPromotion({t1, t2}));
+  ASSERT_OK(ConcatenateTables({t1, t3}, &expected));
+  AssertTablesEqualUnorderedFields(*expected, *result);
+
+  ASSERT_OK_AND_ASSIGN(result, ConcatenateTablesWithPromotion({t2, t1}));
+  ASSERT_OK(ConcatenateTables({t3, t1}, &expected));
+  AssertTablesEqualUnorderedFields(*expected, *result);
 }
 
 TEST_F(TestTable, Slice) {

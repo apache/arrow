@@ -230,10 +230,7 @@ TEST(TestField, TestReplacement) {
   ASSERT_TRUE(f1->metadata()->Equals(*metadata));
 }
 
-class TestSchema : public ::testing::Test {
- public:
-  void SetUp() {}
-};
+using TestSchema = ::testing::Test;
 
 TEST_F(TestSchema, Basics) {
   auto f0 = field("f0", int32());
@@ -424,6 +421,131 @@ TEST_F(TestSchema, TestRemoveMetadata) {
   auto schema = std::make_shared<Schema>(fields);
   std::shared_ptr<Schema> new_schema = schema->RemoveMetadata();
   ASSERT_TRUE(new_schema->metadata() == nullptr);
+}
+
+class TestUnifySchemas : public TestSchema {
+ protected:
+  void AssertSchemaEqualsUnorderedFields(const Schema& lhs, const Schema& rhs) {
+    if (lhs.metadata()) {
+      ASSERT_NE(nullptr, rhs.metadata());
+      ASSERT_TRUE(lhs.metadata()->Equals(*rhs.metadata()));
+    } else {
+      ASSERT_EQ(nullptr, rhs.metadata());
+    }
+    ASSERT_EQ(lhs.num_fields(), rhs.num_fields());
+    for (int i = 0; i < lhs.num_fields(); ++i) {
+      auto lhs_field = lhs.field(i);
+      auto rhs_field = rhs.GetFieldByName(lhs_field->name());
+      ASSERT_NE(nullptr, rhs_field);
+      ASSERT_TRUE(lhs_field->Equals(rhs_field, true))
+          << lhs_field->ToString() << " vs " << rhs_field->ToString();
+    }
+  }
+};
+
+TEST_F(TestUnifySchemas, EmptyInput) { ASSERT_RAISES(Invalid, UnifySchemas({})); }
+
+TEST_F(TestUnifySchemas, IdenticalSchemas) {
+  auto int32_field = field("int32_field", int32());
+  auto uint8_field = field("uint8_field", uint8(), false);
+  auto utf8_field = field("utf8_field", utf8());
+  auto metadata =
+      std::shared_ptr<KeyValueMetadata>(new KeyValueMetadata({"foo"}, {"bar"}));
+
+  auto schema1 = schema({int32_field, uint8_field, utf8_field});
+  auto schema2 = schema({int32_field, uint8_field, utf8_field->WithMetadata(metadata)})
+                     ->WithMetadata(metadata);
+
+  ASSERT_OK_AND_ASSIGN(auto result, UnifySchemas({schema1, schema2}));
+  // Using Schema::Equals to make sure the ordering of fields is not changed.
+  ASSERT_TRUE(result->Equals(*schema1, /*check_metadata=*/true));
+
+  ASSERT_OK_AND_ASSIGN(result, UnifySchemas({schema2, schema1}));
+  // Using Schema::Equals to make sure the ordering of fields is not changed.
+  ASSERT_TRUE(result->Equals(*schema2, /*check_metadata=*/true));
+}
+
+TEST_F(TestUnifySchemas, FieldOrderingSameAsTheFirstSchema) {
+  auto int32_field = field("int32_field", int32());
+  auto uint8_field = field("uint8_field", uint8(), false);
+  auto utf8_field = field("utf8_field", utf8());
+  auto binary_field = field("binary_field", binary());
+
+  auto schema1 = schema({int32_field, uint8_field, utf8_field});
+  // schema2 only differs from schema1 in field ordering.
+  auto schema2 = schema({uint8_field, int32_field, utf8_field});
+  auto schema3 = schema({binary_field});
+
+  ASSERT_OK_AND_ASSIGN(auto result, UnifySchemas({schema1, schema2, schema3}));
+
+  ASSERT_EQ(4, result->num_fields());
+  ASSERT_TRUE(int32_field->Equals(result->field(0)));
+  ASSERT_TRUE(uint8_field->Equals(result->field(1)));
+  ASSERT_TRUE(utf8_field->Equals(result->field(2)));
+  ASSERT_TRUE(binary_field->Equals(result->field(3)));
+}
+
+TEST_F(TestUnifySchemas, MissingField) {
+  auto int32_field = field("int32_field", int32());
+  auto uint8_field = field("uint8_field", uint8(), false);
+  auto utf8_field = field("utf8_field", utf8());
+  auto metadata1 =
+      std::shared_ptr<KeyValueMetadata>(new KeyValueMetadata({"foo"}, {"bar"}));
+  auto metadata2 = std::shared_ptr<KeyValueMetadata>(new KeyValueMetadata({"q"}, {"42"}));
+
+  auto schema1 = schema({int32_field, uint8_field})->WithMetadata(metadata1);
+  auto schema2 = schema({uint8_field, utf8_field->WithMetadata(metadata2)});
+  auto schema3 = schema({int32_field->WithMetadata(metadata1), uint8_field, utf8_field});
+
+  ASSERT_OK_AND_ASSIGN(auto result, UnifySchemas({schema1, schema2}));
+  AssertSchemaEqualsUnorderedFields(
+      *result, *schema({int32_field, uint8_field, utf8_field->WithMetadata(metadata2)})
+                    ->WithMetadata(metadata1));
+}
+
+TEST_F(TestUnifySchemas, PromoteNullTypeField) {
+  auto metadata =
+      std::shared_ptr<KeyValueMetadata>(new KeyValueMetadata({"foo"}, {"bar"}));
+  auto null_field = field("f", null());
+  auto int32_field = field("f", int32(), /*nullable=*/false);
+
+  auto schema1 = schema({null_field->WithMetadata(metadata)});
+  auto schema2 = schema({int32_field});
+
+  ASSERT_OK_AND_ASSIGN(auto result, UnifySchemas({schema1, schema2}));
+  AssertSchemaEqualsUnorderedFields(
+      *result, *schema({int32_field->WithMetadata(metadata)->WithNullable(true)}));
+
+  ASSERT_OK_AND_ASSIGN(result, UnifySchemas({schema2, schema1}));
+  AssertSchemaEqualsUnorderedFields(*result, *schema({int32_field->WithNullable(true)}));
+}
+
+TEST_F(TestUnifySchemas, MoreSchemas) {
+  auto int32_field = field("int32_field", int32());
+  auto uint8_field = field("uint8_field", uint8(), false);
+  auto utf8_field = field("utf8_field", utf8());
+
+  ASSERT_OK_AND_ASSIGN(
+      auto result,
+      UnifySchemas({schema({int32_field}), schema({uint8_field}), schema({utf8_field})}));
+  AssertSchemaEqualsUnorderedFields(
+      *result, *schema({int32_field->WithNullable(true), uint8_field->WithNullable(true),
+                        utf8_field->WithNullable(true)}));
+}
+
+TEST_F(TestUnifySchemas, IncompatibleTypes) {
+  auto int32_field = field("f", int32());
+  auto uint8_field = field("f", uint8(), false);
+
+  ASSERT_RAISES(Invalid, UnifySchemas({schema({int32_field}), schema({uint8_field})}));
+}
+
+TEST_F(TestUnifySchemas, DuplicateFieldNames) {
+  auto int32_field = field("int32_field", int32());
+  auto utf8_field = field("utf8_field", utf8());
+
+  ASSERT_RAISES(Invalid, UnifySchemas({schema({int32_field, utf8_field}),
+                                       schema({int32_field, int32_field, utf8_field})}));
 }
 
 #define PRIMITIVE_TEST(KLASS, CTYPE, ENUM, NAME)                              \
