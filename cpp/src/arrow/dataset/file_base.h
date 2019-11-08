@@ -58,6 +58,7 @@ class ARROW_DS_EXPORT FileSource {
              Compression::type compression = Compression::UNCOMPRESSED)
       : FileSource(FileSource::BUFFER, compression) {
     buffer_ = std::move(buffer);
+    path_ = "<Buffer>";
   }
 
   bool operator==(const FileSource& other) const {

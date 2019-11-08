@@ -86,6 +86,18 @@ inline Status GenericToStatus(const Result<T>& res) {
     ASSERT_EQ((message), _st.ToString());                                             \
   } while (false)
 
+#define EXPECT_RAISES_WITH_MESSAGE_THAT(ENUM, matcher, expr)                          \
+  do {                                                                                \
+    auto _res = (expr);                                                               \
+    ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);                   \
+    if (!_st.Is##ENUM()) {                                                            \
+      FAIL() << "Expected '" ARROW_STRINGIFY(expr) "' to fail with " ARROW_STRINGIFY( \
+                    ENUM) ", but got "                                                \
+             << _st.ToString();                                                       \
+    }                                                                                 \
+    EXPECT_THAT(_st.ToString(), (matcher));                                           \
+  } while (false)
+
 #define ASSERT_OK(expr)                                                       \
   do {                                                                        \
     auto _res = (expr);                                                       \

@@ -294,7 +294,7 @@ Status JSONRecordBatchFileFormat::MakeFragment(const FileSource& source,
 class TestFileSystemBasedDataSource : public ::testing::Test {
  public:
   void MakeFileSystem(const std::vector<fs::FileStats>& stats) {
-    ASSERT_OK(fs::internal::MockFileSystem::Make(fs::kNoTime, stats, &fs_));
+    ASSERT_OK_AND_ASSIGN(fs_, fs::internal::MockFileSystem::Make(fs::kNoTime, stats));
   }
 
   void MakeFileSystem(const std::vector<std::string>& paths) {
@@ -302,7 +302,7 @@ class TestFileSystemBasedDataSource : public ::testing::Test {
     std::transform(paths.cbegin(), paths.cend(), stats.begin(),
                    [](const std::string& p) { return fs::File(p); });
 
-    ASSERT_OK(fs::internal::MockFileSystem::Make(fs::kNoTime, stats, &fs_));
+    ASSERT_OK_AND_ASSIGN(fs_, fs::internal::MockFileSystem::Make(fs::kNoTime, stats));
   }
 
   void MakeSource(const std::vector<fs::FileStats>& stats,

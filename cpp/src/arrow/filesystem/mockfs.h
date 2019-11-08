@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/result.h"
 
 namespace arrow {
 namespace fs {
@@ -100,8 +101,8 @@ class ARROW_EXPORT MockFileSystem : public FileSystem {
 
   // Create a MockFileSystem out of (empty) FileStats. The content of every
   // file is empty and of size 0. All directories will be created recursively.
-  static Status Make(TimePoint current_time, const std::vector<FileStats>& stats,
-                     std::shared_ptr<FileSystem>* out);
+  static Result<std::shared_ptr<FileSystem>> Make(TimePoint current_time,
+                                                  const std::vector<FileStats>& stats);
 
   class Impl;
 

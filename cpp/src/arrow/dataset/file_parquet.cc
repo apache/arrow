@@ -211,7 +211,12 @@ Status ParquetFileFormat::OpenReader(
   std::shared_ptr<io::RandomAccessFile> input;
   RETURN_NOT_OK(source.Open(&input));
 
-  *out = parquet::ParquetFileReader::Open(input);
+  try {
+    *out = parquet::ParquetFileReader::Open(input);
+  } catch (const ::parquet::ParquetException& e) {
+    return ::arrow::Status::IOError("Could not open parquet input source '",
+                                    source.path(), "': ", e.what());
+  }
   return Status::OK();
 }
 

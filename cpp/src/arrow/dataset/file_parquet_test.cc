@@ -173,6 +173,22 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
   ASSERT_EQ(row_count, kNumRows);
 }
 
+TEST_F(TestParquetFileFormat, OpenFailureWithRelevantError) {
+  auto format = ParquetFileFormat();
+
+  std::shared_ptr<Schema> dont_care;
+
+  std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(IOError, testing::HasSubstr("<Buffer>"),
+                                  format.Inspect({buf}, &dont_care));
+
+  constexpr auto file_name = "herp/derp";
+  ASSERT_OK_AND_ASSIGN(
+      auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, {fs::File(file_name)}));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(IOError, testing::HasSubstr(file_name),
+                                  format.Inspect({file_name, fs.get()}, &dont_care));
+}
+
 TEST_F(TestParquetFileFormat, Inspect) {
   auto reader = GetRecordBatchReader();
   auto source = GetFileSource(reader.get());

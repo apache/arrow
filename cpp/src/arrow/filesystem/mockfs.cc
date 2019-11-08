@@ -669,8 +669,8 @@ Status MockFileSystem::CreateFile(const std::string& path, const std::string& co
   return file->Close();
 }
 
-Status MockFileSystem::Make(TimePoint current_time, const std::vector<FileStats>& stats,
-                            std::shared_ptr<FileSystem>* out) {
+Result<std::shared_ptr<FileSystem>> MockFileSystem::Make(
+    TimePoint current_time, const std::vector<FileStats>& stats) {
   auto fs = std::make_shared<MockFileSystem>(current_time);
   for (const auto& s : stats) {
     switch (s.type()) {
@@ -685,9 +685,7 @@ Status MockFileSystem::Make(TimePoint current_time, const std::vector<FileStats>
     }
   }
 
-  *out = fs;
-
-  return Status::OK();
+  return fs;
 }
 
 }  // namespace internal
