@@ -74,7 +74,7 @@ class ApacheArrow < Formula
         return 0;
       }
     EOS
-    system ENV.cxx, "test.cpp", "-std=c++11", "-I#{include}", "-L#{lib}", "-larrow", "-lparquet", "-lthrift", "-llz4", "-lboost_system", "-lboost_filesystem", "-lboost_regex", "-ldouble-conversion", "-lsnappy", "-o", "test"
+    system ENV.cxx, "test.cpp", "-std=c++11", "-I#{include}", "-L#{lib}", "-larrow", "-lparquet", "-lthrift", "-llz4", "-lboost_system", "-lboost_regex", "-ldouble-conversion", "-lsnappy", "-o", "test"
     system "./test"
   end
 end
