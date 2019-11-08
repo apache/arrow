@@ -1512,6 +1512,15 @@ def test_buffers_nested():
     assert struct.unpack('4xh', values) == (43,)
 
 
+def test_nbytes():
+    a = pa.array(np.array([4, 5, 6], dtype='int64'))
+    assert a.nbytes == 8 * 3
+    a = pa.array([1, None, 3], type='int64')
+    assert a.nbytes == 8*3 + 1
+    a = pa.array([[1, 2], None, [3, None, 4, 5]], type=pa.list_(pa.int64()))
+    assert a.nbytes == 1 + 4 * 4 + 1 + 6 * 8
+
+
 def test_invalid_tensor_constructor_repr():
     # ARROW-2638: prevent calling extension class constructors directly
     with pytest.raises(TypeError):

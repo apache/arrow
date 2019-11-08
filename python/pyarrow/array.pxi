@@ -728,6 +728,15 @@ cdef class Array(_PandasConvertible):
     def null_count(self):
         return self.sp_array.get().null_count()
 
+    @property
+    def nbytes(self):
+        """Total number of bytes consumed by the elements of the array."""
+        size = 0
+        for buf in self.buffers():
+            if buf is not None:
+                size += buf.size
+        return size
+
     def __iter__(self):
         for i in range(len(self)):
             yield self.getitem(i)
