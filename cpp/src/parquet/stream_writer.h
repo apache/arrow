@@ -63,8 +63,8 @@ class PARQUET_EXPORT StreamWriter {
   void SetMaxRowGroupSize(int64_t max_size);
 
   // Moving is possible.
-  StreamWriter(StreamWriter&&) noexcept = default;
-  StreamWriter& operator=(StreamWriter&&) noexcept = default;
+  StreamWriter(StreamWriter&&) = default;
+  StreamWriter& operator=(StreamWriter&&) = default;
 
   // Copying is not allowed.
   StreamWriter(const StreamWriter&) = delete;
