@@ -34,7 +34,7 @@ public interface ArrowBufHasher {
    * @param length length of the memory region.
    * @return the hash code.
    */
-  int hashCode(long address, int length);
+  int hashCode(long address, long length);
 
   /**
    * Calculates the hash code for a memory region.
@@ -43,5 +43,5 @@ public interface ArrowBufHasher {
    * @param length length of the memory region.
    * @return the hash code.
    */
-  int hashCode(ArrowBuf buf, int offset, int length);
+  int hashCode(ArrowBuf buf, long offset, long length);
 }

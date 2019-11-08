@@ -156,7 +156,7 @@ public class NettyArrowBuf extends AbstractByteBuf implements AutoCloseable {
 
   @Override
   public int capacity() {
-    return arrowBuf.capacity();
+    return (int) Math.min(Integer.MAX_VALUE, arrowBuf.capacity());
   }
 
   @Override

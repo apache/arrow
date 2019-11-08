@@ -22,5 +22,5 @@ package org.apache.arrow.memory.rounding;
  * In particular, given a requested buffer size, the policy will determine the rounded buffer size.
  */
 public interface RoundingPolicy {
-  int getRoundedSize(int requestSize);
+  long getRoundedSize(long requestSize);
 }

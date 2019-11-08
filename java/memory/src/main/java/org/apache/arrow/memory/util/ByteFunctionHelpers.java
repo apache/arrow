@@ -43,7 +43,7 @@ public class ByteFunctionHelpers {
    * @param rEnd   end offset in the buffer
    * @return 1 if equals, 0 otherwise
    */
-  public static final int equal(final ArrowBuf left, int lStart, int lEnd, final ArrowBuf right, int rStart, int rEnd) {
+  public static int equal(final ArrowBuf left, long lStart, long lEnd, final ArrowBuf right, long rStart, long rEnd) {
     if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
       left.checkBytes(lStart, lEnd);
       right.checkBytes(rStart, rEnd);
@@ -51,10 +51,10 @@ public class ByteFunctionHelpers {
     return memEqual(left.memoryAddress(), lStart, lEnd, right.memoryAddress(), rStart, rEnd);
   }
 
-  private static int memEqual(final long laddr, int lStart, int lEnd, final long raddr, int rStart,
-                                    final int rEnd) {
+  private static int memEqual(final long laddr, long lStart, long lEnd, final long raddr, long rStart,
+                                    final long rEnd) {
 
-    int n = lEnd - lStart;
+    long n = lEnd - lStart;
     if (n == rEnd - rStart) {
       long lPos = laddr + lStart;
       long rPos = raddr + rStart;
@@ -109,7 +109,7 @@ public class ByteFunctionHelpers {
    * @param rEnd   end offset in the buffer
    * @return 1 if left input is greater, -1 if left input is smaller, 0 otherwise
    */
-  public static final int compare(
+  public static int compare(
       final ArrowBuf left,
       int lStart,
       int lEnd,
@@ -187,7 +187,7 @@ public class ByteFunctionHelpers {
    * @param rEnd   end offset in the byte array
    * @return 1 if left input is greater, -1 if left input is smaller, 0 otherwise
    */
-  public static final int compare(
+  public static int compare(
       final ArrowBuf left,
       int lStart,
       int lEnd,
@@ -273,7 +273,7 @@ public class ByteFunctionHelpers {
   /**
    * Compute hashCode with the given {@link ArrowBuf} and start/end index.
    */
-  public static final int hash(final ArrowBuf buf, int start, int end) {
+  public static int hash(final ArrowBuf buf, long start, long end) {
 
     return hash(SimpleHasher.INSTANCE, buf, start, end);
   }

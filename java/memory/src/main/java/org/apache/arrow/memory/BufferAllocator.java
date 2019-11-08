@@ -37,7 +37,7 @@ public interface BufferAllocator extends AutoCloseable {
    * @return a new ArrowBuf, or null if the request can't be satisfied
    * @throws OutOfMemoryException if buffer cannot be allocated
    */
-  ArrowBuf buffer(int size);
+  ArrowBuf buffer(long size);
 
   /**
    * Allocate a new or reused buffer of the provided size. Note that the buffer may technically
@@ -50,7 +50,7 @@ public interface BufferAllocator extends AutoCloseable {
    * @return a new ArrowBuf, or null if the request can't be satisfied
    * @throws OutOfMemoryException if buffer cannot be allocated
    */
-  ArrowBuf buffer(int size, BufferManager manager);
+  ArrowBuf buffer(long size, BufferManager manager);
 
   /**
    * Returns the allocator this allocator falls back to when it needs more memory.
