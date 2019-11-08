@@ -1,4 +1,3 @@
-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,38 +15,40 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Cron - C++
+name: Go
 
 on:
-  schedule:
-    - cron: |
-        0 */12 * * *
+  push:
+    paths:
+      - 'ci/**'
+      - 'go/**'
+  pull_request:
+    paths:
+      - 'ci/**'
+      - 'go/**'
 
 jobs:
 
   debian:
-    name: AMD64 Debian ${{ matrix.debian }} C++
+    name: AMD64 Debian 10 Go ${{ matrix.go }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        debian: [10]
+        go: [1.12]
     env:
-      DEBIAN: ${{ matrix.debian }}
+      GO: ${{ matrix.go }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v1
         with:
           submodules: true
       - name: Docker Pull
-        shell: bash
-        run: docker-compose pull --ignore-pull-failures debian-cpp
+        run: docker-compose pull --ignore-pull-failures debian-go
       - name: Docker Build
-        shell: bash
-        run: docker-compose build debian-cpp
+        run: docker-compose build debian-go
       - name: Docker Run
-        shell: bash
-        run: docker-compose run debian-cpp
+        run: docker-compose run debian-go
       - name: Docker Push
         if: github.event_name == 'push' && github.ref == 'master'
         shell: bash
@@ -55,36 +56,51 @@ jobs:
           docker login \
             -u ${{ secrets.DOCKERHUB_USER }} \
             -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push debian-cpp
+          docker-compose push debian-go
 
-  fedora:
-    name: AMD64 Fedora ${{ matrix.fedora }} C++
-    runs-on: ubuntu-latest
+  windows:
+    name: AMD64 Windows 2019 Go ${{ matrix.go }}
+    runs-on: windows-latest
     strategy:
       fail-fast: false
       matrix:
-        fedora: [10]
-    env:
-      FEDORA: ${{ matrix.fedora }}
+        go: [1.12]
     steps:
+      - name: Install go
+        uses: actions/setup-go@v1
+        with:
+          go-version: ${{ matrix.go }}
       - name: Checkout Arrow
         uses: actions/checkout@v1
         with:
           submodules: true
-      - name: Docker Pull
+      - name: Build
         shell: bash
-        run: docker-compose pull --ignore-pull-failures fedora-cpp
-      - name: Docker Build
+        run: ci/scripts/go_build.sh .
+      - name: Test
         shell: bash
-        run: docker-compose build fedora-cpp
-      - name: Docker Run
+        run: ci/scripts/go_test.sh .
+
+  macos:
+    name: AMD64 MacOS 10.15 Go ${{ matrix.go }}
+    runs-on: macos-latest
+    if: github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        go: [1.12]
+    steps:
+      - name: Install go
+        uses: actions/setup-go@v1
+        with:
+          go-version: ${{ matrix.go }}
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Build
         shell: bash
-        run: docker-compose run fedora-cpp
-      - name: Docker Push
-        if: github.event_name == 'push' && github.ref == 'master'
+        run: ci/scripts/go_build.sh .
+      - name: Test
         shell: bash
-        run: |
-          docker login \
-            -u ${{ secrets.DOCKERHUB_USER }} \
-            -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push fedora-cpp
+        run: ci/scripts/go_test.sh .

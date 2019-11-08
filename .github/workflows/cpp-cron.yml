@@ -1,3 +1,4 @@
+
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,29 +16,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Master - Python
+name: C++ Cron
 
 on:
-  push:
-    branches:
-      - master
-      - maint-*
-    paths:
-      - 'ci/**'
-      - 'cpp/**'
-      - 'python/**'
+  schedule:
+    - cron: |
+        0 */12 * * *
 
 jobs:
 
-  conda-nopandas:
-    name: AMD64 Conda Python ${{ matrix.python }} Nopandas
+  debian:
+    name: AMD64 Debian ${{ matrix.debian }} C++
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python: [2.7, 3.6, 3.7]
+        debian: [10]
     env:
-      PYTHON: ${{ matrix.python }}
+      DEBIAN: ${{ matrix.debian }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v1
@@ -45,17 +41,13 @@ jobs:
           submodules: true
       - name: Docker Pull
         shell: bash
-        run: |
-          docker-compose pull --ignore-pull-failures conda-cpp
-          docker-compose pull --ignore-pull-failures conda-python
+        run: docker-compose pull --ignore-pull-failures debian-cpp
       - name: Docker Build
         shell: bash
-        run: |
-          docker-compose build conda-cpp
-          docker-compose build conda-python
+        run: docker-compose build debian-cpp
       - name: Docker Run
         shell: bash
-        run: docker-compose run conda-python
+        run: docker-compose run debian-cpp
       - name: Docker Push
         if: github.event_name == 'push' && github.ref == 'master'
         shell: bash
@@ -63,4 +55,36 @@ jobs:
           docker login \
             -u ${{ secrets.DOCKERHUB_USER }} \
             -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push conda-python
+          docker-compose push debian-cpp
+
+  fedora:
+    name: AMD64 Fedora ${{ matrix.fedora }} C++
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        fedora: [10]
+    env:
+      FEDORA: ${{ matrix.fedora }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Docker Pull
+        shell: bash
+        run: docker-compose pull --ignore-pull-failures fedora-cpp
+      - name: Docker Build
+        shell: bash
+        run: docker-compose build fedora-cpp
+      - name: Docker Run
+        shell: bash
+        run: docker-compose run fedora-cpp
+      - name: Docker Push
+        if: github.event_name == 'push' && github.ref == 'master'
+        shell: bash
+        run: |
+          docker login \
+            -u ${{ secrets.DOCKERHUB_USER }} \
+            -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker-compose push fedora-cpp

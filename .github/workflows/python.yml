@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Pull - Python
+name: Python
 
 on:
   push:
@@ -102,6 +102,43 @@ jobs:
             -u ${{ secrets.DOCKERHUB_USER }} \
             -p ${{ secrets.DOCKERHUB_TOKEN }}
           docker-compose push conda-python-pandas
+
+  conda-nopandas:
+    name: AMD64 Conda Python ${{ matrix.python }} Nopandas
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        python: [2.7, 3.6, 3.7]
+    env:
+      PYTHON: ${{ matrix.python }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Docker Pull
+        shell: bash
+        run: |
+          docker-compose pull --ignore-pull-failures conda-cpp
+          docker-compose pull --ignore-pull-failures conda-python
+      - name: Docker Build
+        shell: bash
+        run: |
+          docker-compose build conda-cpp
+          docker-compose build conda-python
+      - name: Docker Run
+        shell: bash
+        run: docker-compose run conda-python
+      - name: Docker Push
+        if: github.event_name == 'push' && github.ref == 'master'
+        shell: bash
+        run: |
+          docker login \
+            -u ${{ secrets.DOCKERHUB_USER }} \
+            -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker-compose push conda-python
 
   macos:
     name: AMD64 MacOS 10.15 Python 3

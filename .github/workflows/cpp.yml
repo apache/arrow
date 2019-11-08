@@ -16,7 +16,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Pull - C++
+name: C++
 
 on:
   push:
@@ -87,6 +87,43 @@ jobs:
             -u ${{ secrets.DOCKERHUB_USER }} \
             -p ${{ secrets.DOCKERHUB_TOKEN }}
           docker-compose push ubuntu-cpp
+
+  ubuntu-cmake32:
+    name: AMD64 Ubuntu 18.04 C++ CMake 3.2
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        ubuntu: [18.04]
+    env:
+      UBUNTU: ${{ matrix.ubuntu }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Docker Pull
+        shell: bash
+        run: |
+          docker-compose pull --ignore-pull-failures ubuntu-cpp
+          docker-compose pull --ignore-pull-failures ubuntu-cpp-cmake32
+      - name: Docker Build
+        shell: bash
+        run: |
+          docker-compose build ubuntu-cpp
+          docker-compose build ubuntu-cpp-cmake32
+      - name: Docker Run
+        shell: bash
+        run: docker-compose run ubuntu-cpp-cmake32
+      - name: Docker Push
+        if: github.event_name == 'push' && github.ref == 'master'
+        shell: bash
+        run: |
+          docker login \
+            -u ${{ secrets.DOCKERHUB_USER }} \
+            -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker-compose push ubuntu-cpp-cmake32
 
   macos:
     name: AMD64 MacOS 10.15 C++

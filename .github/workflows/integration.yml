@@ -15,72 +15,53 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Pull - Rust
+name: Integration
 
 on:
   push:
     paths:
       - 'ci/**'
-      - 'rust/**'
+      - 'go/**'
+      - 'js/**'
+      - 'cpp/**'
+      - 'java/**'
+      - 'format/**'
   pull_request:
     paths:
       - 'ci/**'
-      - 'rust/**'
+      - 'go/**'
+      - 'js/**'
+      - 'cpp/**'
+      - 'java/**'
+      - 'format/**'
 
 jobs:
 
-  debian:
-    name: AMD64 Debian 10 Rust ${{ matrix.rust }}
+  conda-integration:
+    name: AMD64 Conda Integration Test
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        rust: [nightly-2019-09-25]
     env:
-      RUST: ${{ matrix.rust }}
+      MAVEN: 3.5
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v1
         with:
           submodules: true
       - name: Docker Pull
-        run: docker-compose pull --ignore-pull-failures debian-rust
+        run: |
+          docker-compose pull --ignore-pull-failures conda-cpp
+          docker-compose pull --ignore-pull-failures conda-integration
       - name: Docker Build
-        run: docker-compose build debian-rust
+        run: |
+          docker-compose build conda-cpp
+          docker-compose build conda-integration
       - name: Docker Run
-        run: docker-compose run debian-rust
+        run: docker-compose run conda-integration
       - name: Docker Push
-        if: github.event_name == 'push' && github.ref == 'master'
+        if: github.event_name == 'push'
         shell: bash
         run: |
           docker login \
             -u ${{ secrets.DOCKERHUB_USER }} \
             -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push debian-rust
-
-  windows:
-    name: AMD64 Windows 2019 Rust ${{ matrix.rust }}
-    runs-on: windows-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        rust: [nightly-2019-09-25]
-    steps:
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-            toolchain: ${{ matrix.rust }}
-            override: true
-      - name: Install Flatbuffers
-        shell: bash
-        run: choco install flatc
-      - name: Checkout Arrow
-        uses: actions/checkout@v1
-        with:
-          submodules: true
-      - name: Build
-        shell: bash
-        run: ci/scripts/rust_build.sh $(pwd) $(pwd)/rust/target
-      - name: Test
-        shell: bash
-        run: ci/scripts/rust_test.sh $(pwd)
+          docker-compose push conda-integration

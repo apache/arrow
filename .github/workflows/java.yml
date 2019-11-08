@@ -15,47 +15,42 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Master - R
+name: Java
 
 on:
   push:
-    branches:
-      - master
-      - maint-*
     paths:
       - 'ci/**'
       - 'cpp/**'
-      - 'r/**'
+  pull_request:
+    paths:
+      - 'ci/**'
+      - 'java/**'
 
 jobs:
 
-  conda:
-    name: AMD64 Conda R ${{ matrix.r }}
+  debian:
+    name: AMD64 Debian 9 Java JDK ${{ matrix.jdk }} Maven ${{ matrix.maven }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        r: [3.6]
+        jdk: [11]
+        maven: [3.5.2]
     env:
-      R: ${{ matrix.r }}
+      JDK: ${{ matrix.jdk }}
+      MAVEN: ${{ matrix.maven }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v1
         with:
           submodules: true
       - name: Docker Pull
-        shell: bash
-        run: |
-          docker-compose pull --ignore-pull-failures conda-cpp
-          docker-compose pull --ignore-pull-failures conda-r
+        run: docker-compose pull --ignore-pull-failures debian-java
       - name: Docker Build
-        shell: bash
-        run: |
-          docker-compose build conda-cpp
-          docker-compose build conda-r
+        run: docker-compose build debian-java
       - name: Docker Run
-        shell: bash
-        run: docker-compose run conda-r
+        run: docker-compose run debian-java
       - name: Docker Push
         if: github.event_name == 'push' && github.ref == 'master'
         shell: bash
@@ -63,4 +58,28 @@ jobs:
           docker login \
             -u ${{ secrets.DOCKERHUB_USER }} \
             -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push conda-r
+          docker-compose push debian-java
+
+  macos:
+    name: AMD64 MacOS 10.15 Java JDK ${{ matrix.jdk }}
+    runs-on: macos-latest
+    if: github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        jdk: [11]
+    steps:
+      - name: Set up Java
+        uses: actions/setup-java@v1
+        with:
+          java-version: ${{ matrix.jdk }}
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Build
+        shell: bash
+        run: ci/scripts/java_build.sh $(pwd)
+      - name: Test
+        shell: bash
+        run: ci/scripts/java_test.sh $(pwd)

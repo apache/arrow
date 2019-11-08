@@ -15,32 +15,32 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Pull - R
+name: C Glib & Ruby
 
 on:
   push:
     paths:
       - 'ci/**'
       - 'cpp/**'
-      - 'r/**'
+      - 'c_glib/**'
+      - 'ruby/**'
   pull_request:
     paths:
       - 'ci/**'
       - 'cpp/**'
-      - 'r/**'
+      - 'c_glib/**'
+      - 'ruby/**'
 
 jobs:
 
   ubuntu:
-    name: AMD64 Ubuntu ${{ matrix.ubuntu }} R ${{ matrix.r }}
+    name: AMD64 Ubuntu ${{ matrix.ubuntu }} Glib & Ruby
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        r: [3.6]
         ubuntu: [18.04]
     env:
-      R: ${{ matrix.r }}
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
@@ -51,15 +51,17 @@ jobs:
         shell: bash
         run: |
           docker-compose pull --ignore-pull-failures ubuntu-cpp
-          docker-compose pull --ignore-pull-failures ubuntu-r
+          docker-compose pull --ignore-pull-failures ubuntu-c-glib
+          docker-compose pull --ignore-pull-failures ubuntu-ruby
       - name: Docker Build
         shell: bash
         run: |
           docker-compose build ubuntu-cpp
-          docker-compose build ubuntu-r
+          docker-compose build ubuntu-c-glib
+          docker-compose build ubuntu-ruby
       - name: Docker Run
         shell: bash
-        run: docker-compose run ubuntu-r
+        run: docker-compose run ubuntu-ruby
       - name: Docker Push
         if: github.event_name == 'push' && github.ref == 'master'
         shell: bash
@@ -67,4 +69,41 @@ jobs:
           docker login \
             -u ${{ secrets.DOCKERHUB_USER }} \
             -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push ubuntu-r
+          docker-compose push ubuntu-ruby
+
+  macos:
+    name: AMD64 MacOS 10.15 Glib & Ruby
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+    env:
+      ARROW_HOME: /usr/local
+      ARROW_ORC: OFF
+      ARROW_JEMALLOC: OFF
+      ARROW_WITH_BROTLI: ON
+      ARROW_WITH_LZ4: ON
+      ARROW_WITH_SNAPPY: ON
+      ARROW_WITH_ZLIB: ON
+      ARROW_BUILD_TESTS: ON
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Install Dependencies
+        shell: bash
+        run: |
+          brew bundle --file=cpp/Brewfile
+          brew bundle --file=c_glib/Brewfile
+          bundle install --gemfile ruby/red-arrow/Gemfile
+      - name: Build
+        shell: bash
+        run: |
+          ci/scripts/cpp_build.sh $(pwd) $(pwd)/cpp/build
+          ci/scripts/c_glib_build.sh $(pwd) $(pwd)/c_glib/build
+      - name: Test Glib
+        shell: bash
+        run: ci/scripts/c_glib_test.sh $(pwd) $(pwd)/c_glib/build
+      - name: Test Ruby
+        shell: bash
+        run: ci/scripts/ruby_test.sh $(pwd)

@@ -15,22 +15,70 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Master - C#
+name: C#
 
 on:
   push:
-    branches:
-      - master
-      - maint-*
+    paths:
+      - 'ci/**'
+      - 'csharp/**'
+  pull_request:
     paths:
       - 'ci/**'
       - 'csharp/**'
 
 jobs:
 
+  ubuntu:
+    name: AMD64 Ubuntu 18.04 C# ${{ matrix.dotnet }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dotnet: [2.2.103]
+    steps:
+      - name: Install C#
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: ${{ matrix.dotnet }}
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Build
+        shell: bash
+        run: ci/scripts/csharp_build.sh $(pwd)
+      - name: Test
+        shell: bash
+        run: ci/scripts/csharp_test.sh $(pwd)
+
+  ubuntu:
+    name: AMD64 Windows 2019 18.04 C# ${{ matrix.dotnet }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dotnet: [2.2.103]
+    steps:
+      - name: Install C#
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: ${{ matrix.dotnet }}
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Build
+        shell: bash
+        run: ci/scripts/csharp_build.sh $(pwd)
+      - name: Test
+        shell: bash
+        run: ci/scripts/csharp_test.sh $(pwd)
+
   macos:
     name: AMD64 MacOS 10.15 C# ${{ matrix.dotnet }}
     runs-on: macos-latest
+    if: github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:

@@ -1,4 +1,3 @@
-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,27 +15,32 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Master - C++
+name: R
 
 on:
   push:
-    branches:
-      - master
-      - maint-*
     paths:
       - 'ci/**'
       - 'cpp/**'
+      - 'r/**'
+  pull_request:
+    paths:
+      - 'ci/**'
+      - 'cpp/**'
+      - 'r/**'
 
 jobs:
 
-  ubuntu-cmake32:
-    name: AMD64 Ubuntu 18.04 C++ CMake 3.2
+  ubuntu:
+    name: AMD64 Ubuntu ${{ matrix.ubuntu }} R ${{ matrix.r }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
+        r: [3.6]
         ubuntu: [18.04]
     env:
+      R: ${{ matrix.r }}
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
@@ -47,15 +51,15 @@ jobs:
         shell: bash
         run: |
           docker-compose pull --ignore-pull-failures ubuntu-cpp
-          docker-compose pull --ignore-pull-failures ubuntu-cpp-cmake32
+          docker-compose pull --ignore-pull-failures ubuntu-r
       - name: Docker Build
         shell: bash
         run: |
           docker-compose build ubuntu-cpp
-          docker-compose build ubuntu-cpp-cmake32
+          docker-compose build ubuntu-r
       - name: Docker Run
         shell: bash
-        run: docker-compose run ubuntu-cpp-cmake32
+        run: docker-compose run ubuntu-r
       - name: Docker Push
         if: github.event_name == 'push' && github.ref == 'master'
         shell: bash
@@ -63,4 +67,41 @@ jobs:
           docker login \
             -u ${{ secrets.DOCKERHUB_USER }} \
             -p ${{ secrets.DOCKERHUB_TOKEN }}
-          docker-compose push ubuntu-cpp-cmake32
+          docker-compose push ubuntu-r
+
+  conda:
+    name: AMD64 Conda R ${{ matrix.r }}
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        r: [3.6]
+    env:
+      R: ${{ matrix.r }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Docker Pull
+        shell: bash
+        run: |
+          docker-compose pull --ignore-pull-failures conda-cpp
+          docker-compose pull --ignore-pull-failures conda-r
+      - name: Docker Build
+        shell: bash
+        run: |
+          docker-compose build conda-cpp
+          docker-compose build conda-r
+      - name: Docker Run
+        shell: bash
+        run: docker-compose run conda-r
+      - name: Docker Push
+        if: github.event_name == 'push' && github.ref == 'master'
+        shell: bash
+        run: |
+          docker login \
+            -u ${{ secrets.DOCKERHUB_USER }} \
+            -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker-compose push conda-r
