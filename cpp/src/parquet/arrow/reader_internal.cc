@@ -50,6 +50,7 @@
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/schema.h"
+#include "parquet/statistics.h"
 #include "parquet/types.h"
 
 using arrow::Array;
@@ -69,6 +70,7 @@ using arrow::compute::Datum;
 
 using ::arrow::BitUtil::FromBigEndian;
 using ::arrow::internal::checked_cast;
+using ::arrow::internal::checked_pointer_cast;
 using ::arrow::internal::SafeLeftShift;
 using ::arrow::util::SafeLoadAs;
 
@@ -648,10 +650,10 @@ Status ApplyOriginalMetadata(std::shared_ptr<Field> field, const Field& origin_f
   return Status::OK();
 }
 
-Status BuildSchemaManifest(const SchemaDescriptor* schema,
-                           const std::shared_ptr<const KeyValueMetadata>& metadata,
-                           const ArrowReaderProperties& properties,
-                           SchemaManifest* manifest) {
+Status SchemaManifest::Make(const SchemaDescriptor* schema,
+                            const std::shared_ptr<const KeyValueMetadata>& metadata,
+                            const ArrowReaderProperties& properties,
+                            SchemaManifest* manifest) {
   std::shared_ptr<::arrow::Schema> origin_schema;
   RETURN_NOT_OK(
       GetOriginSchema(metadata, &manifest->schema_metadata, &manifest->origin_schema));
@@ -682,24 +684,96 @@ Status BuildSchemaManifest(const SchemaDescriptor* schema,
   return Status::OK();
 }
 
-Status FromParquetSchema(
-    const SchemaDescriptor* schema, const ArrowReaderProperties& properties,
-    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata,
-    std::shared_ptr<::arrow::Schema>* out) {
-  SchemaManifest manifest;
-  RETURN_NOT_OK(BuildSchemaManifest(schema, key_value_metadata, properties, &manifest));
-  std::vector<std::shared_ptr<Field>> fields(manifest.schema_fields.size());
-  for (int i = 0; i < static_cast<int>(fields.size()); i++) {
-    fields[i] = manifest.schema_fields[i].field;
-  }
-  *out = ::arrow::schema(fields, key_value_metadata);
+template <typename CType, typename StatisticsType>
+Status MakeMinMaxScalar(const Statistics& statistics,
+                        std::shared_ptr<::arrow::Scalar>* min,
+                        std::shared_ptr<::arrow::Scalar>* max) {
+  const auto& typed_statistics = checked_cast<const StatisticsType&>(statistics);
+  *min = ::arrow::MakeScalar(static_cast<CType>(typed_statistics.min()));
+  *max = ::arrow::MakeScalar(static_cast<CType>(typed_statistics.max()));
   return Status::OK();
 }
 
-Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
-                         const ArrowReaderProperties& properties,
-                         std::shared_ptr<::arrow::Schema>* out) {
-  return FromParquetSchema(parquet_schema, properties, nullptr, out);
+template <typename StatisticsType>
+Status MakeMinMaxIntegralScalar(const Statistics& statistics,
+                                std::shared_ptr<::arrow::Scalar>* min,
+                                std::shared_ptr<::arrow::Scalar>* max) {
+  const auto column_desc = statistics.descr();
+  const auto& logical_type = column_desc->logical_type();
+  const auto& integer = checked_pointer_cast<const IntLogicalType>(logical_type);
+  const bool is_signed = integer->is_signed();
+
+  switch (integer->bit_width()) {
+    case 8:
+      return is_signed ? MakeMinMaxScalar<int8_t, StatisticsType>(statistics, min, max)
+                       : MakeMinMaxScalar<uint8_t, StatisticsType>(statistics, min, max);
+    case 16:
+      return is_signed ? MakeMinMaxScalar<int16_t, StatisticsType>(statistics, min, max)
+                       : MakeMinMaxScalar<uint16_t, StatisticsType>(statistics, min, max);
+    case 32:
+      return is_signed ? MakeMinMaxScalar<int32_t, StatisticsType>(statistics, min, max)
+                       : MakeMinMaxScalar<uint32_t, StatisticsType>(statistics, min, max);
+    case 64:
+      return is_signed ? MakeMinMaxScalar<int64_t, StatisticsType>(statistics, min, max)
+                       : MakeMinMaxScalar<uint64_t, StatisticsType>(statistics, min, max);
+  }
+
+  return Status::OK();
+}
+
+template <typename StatisticsType>
+Status TypedIntegralStatisticsAsScalars(const Statistics& statistics,
+                                        std::shared_ptr<::arrow::Scalar>* min,
+                                        std::shared_ptr<::arrow::Scalar>* max) {
+  auto column_desc = statistics.descr();
+  auto logical_type = column_desc->logical_type();
+
+  switch (logical_type->type()) {
+    case LogicalType::Type::INT:
+      return MakeMinMaxIntegralScalar<StatisticsType>(statistics, min, max);
+    case LogicalType::Type::NONE:
+      // Fallback to the physical type
+      using CType = typename StatisticsType::T;
+      return MakeMinMaxScalar<CType, StatisticsType>(statistics, min, max);
+    default:
+      return Status::NotImplemented("Cannot extract statistics for type ",
+                                    logical_type->ToString());
+  }
+
+  return Status::OK();
+}
+
+Status StatisticsAsScalars(const Statistics& statistics,
+                           std::shared_ptr<::arrow::Scalar>* min,
+                           std::shared_ptr<::arrow::Scalar>* max) {
+  if (!statistics.HasMinMax()) {
+    return Status::Invalid("Statistics has no min max.");
+  }
+
+  auto column_desc = statistics.descr();
+  if (column_desc == nullptr) {
+    return Status::Invalid("Statistics carries no descriptor, can't infer arrow type.");
+  }
+
+  auto physical_type = column_desc->physical_type();
+
+  switch (physical_type) {
+    case Type::BOOLEAN:
+      return MakeMinMaxScalar<bool, BoolStatistics>(statistics, min, max);
+    case Type::FLOAT:
+      return MakeMinMaxScalar<float, FloatStatistics>(statistics, min, max);
+    case Type::DOUBLE:
+      return MakeMinMaxScalar<double, DoubleStatistics>(statistics, min, max);
+    case Type::INT32:
+      return TypedIntegralStatisticsAsScalars<Int32Statistics>(statistics, min, max);
+    case Type::INT64:
+      return TypedIntegralStatisticsAsScalars<Int64Statistics>(statistics, min, max);
+    default:
+      return Status::NotImplemented("Extract statistics unsupported for physical_type ",
+                                    physical_type, " unsupported.");
+  }
+
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------

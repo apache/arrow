@@ -104,8 +104,8 @@ class ArrowParquetWriterMixin : public ::testing::Test {
     std::shared_ptr<Buffer> out;
     auto sink = CreateOutputStream(pool);
 
-    ARROW_EXPECT_OK(WriteRecordBatchReader(reader, pool, sink));
-    ARROW_EXPECT_OK(sink->Finish(&out));
+    ABORT_NOT_OK(WriteRecordBatchReader(reader, pool, sink));
+    ABORT_NOT_OK(sink->Finish(&out));
 
     return out;
   }
@@ -145,12 +145,9 @@ class ParquetBufferFixtureMixin : public ArrowParquetWriterMixin {
 };
 
 class TestParquetFileFormat : public ParquetBufferFixtureMixin {
- public:
-  TestParquetFileFormat() : ctx_(std::make_shared<ScanContext>()) {}
-
  protected:
   std::shared_ptr<ScanOptions> opts_ = ScanOptions::Defaults();
-  std::shared_ptr<ScanContext> ctx_;
+  std::shared_ptr<ScanContext> ctx_ = std::make_shared<ScanContext>();
 };
 
 TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
@@ -197,6 +194,97 @@ TEST_F(TestParquetFileFormat, Inspect) {
   std::shared_ptr<Schema> actual;
   ASSERT_OK(format.Inspect(*source.get(), &actual));
   EXPECT_EQ(*actual, *schema_);
+}
+
+void CountRowsInScan(ScanTaskIterator& it, int64_t expected_rows,
+                     int64_t expected_batches) {
+  int64_t actual_rows = 0;
+  int64_t actual_batches = 0;
+
+  for (auto maybe_scan_task : it) {
+    ASSERT_OK_AND_ASSIGN(auto scan_task, std::move(maybe_scan_task));
+    for (auto maybe_record_batch : scan_task->Scan()) {
+      ASSERT_OK_AND_ASSIGN(auto record_batch, std::move(maybe_record_batch));
+      actual_rows += record_batch->num_rows();
+      actual_batches++;
+    }
+  }
+
+  EXPECT_EQ(actual_rows, expected_rows);
+  EXPECT_EQ(actual_batches, expected_batches);
+}
+
+class TestParquetFileFormatPushDown : public TestParquetFileFormat {
+ public:
+  void CountRowsAndBatchesInScan(DataFragment& fragment, int64_t expected_rows,
+                                 int64_t expected_batches) {
+    int64_t actual_rows = 0;
+    int64_t actual_batches = 0;
+
+    ScanTaskIterator it;
+    ASSERT_OK(fragment.Scan(ctx_, &it));
+    for (auto maybe_scan_task : it) {
+      ASSERT_OK_AND_ASSIGN(auto scan_task, std::move(maybe_scan_task));
+      for (auto maybe_record_batch : scan_task->Scan()) {
+        ASSERT_OK_AND_ASSIGN(auto record_batch, std::move(maybe_record_batch));
+        actual_rows += record_batch->num_rows();
+        actual_batches++;
+      }
+    }
+
+    EXPECT_EQ(actual_rows, expected_rows);
+    EXPECT_EQ(actual_batches, expected_batches);
+  }
+};
+
+TEST_F(TestParquetFileFormatPushDown, Basic) {
+  // Given a number `n`, the arithmetic dataset creates n RecordBatches where
+  // each RecordBatch is keyed by a unique integer in [1, n]. Let `rb_i` denote
+  // the record batch keyed by `i`. `rb_i` is composed of `i` rows where all
+  // values are a variant of `i`, e.g. {"i64": i, "u8": i, ... }.
+  //
+  // Thus the ArithmeticDataset(n) has n RecordBatches and the total number of
+  // rows is n(n+1)/2.
+  //
+  // This test uses the DataFragment directly, and so no post-filtering is
+  // applied via ScanOptions' evaluator. Thus, counting the number of returned
+  // rows and returned row groups is a good enough proxy to check if pushdown
+  // predicate is working.
+  constexpr int64_t kNumRowGroups = 16;
+  constexpr int64_t kTotalNumRows = kNumRowGroups * (kNumRowGroups + 1) / 2;
+
+  auto reader = ArithmeticDatasetFixture::GetRecordBatchReader(kNumRowGroups);
+  auto source = GetFileSource(reader.get());
+  auto fragment = std::make_shared<ParquetFragment>(*source, opts_);
+
+  opts_->filter = scalar(true);
+  CountRowsAndBatchesInScan(*fragment, kTotalNumRows, kNumRowGroups);
+
+  for (int64_t i = 1; i <= kNumRowGroups; i++) {
+    opts_->filter = ("i64"_ == int64_t(i)).Copy();
+    CountRowsAndBatchesInScan(*fragment, i, 1);
+  }
+
+  /* Out of bound filters should skip all RowGroups. */
+  opts_->filter = scalar(false);
+  CountRowsAndBatchesInScan(*fragment, 0, 0);
+  opts_->filter = ("i64"_ == int64_t(kNumRowGroups + 1)).Copy();
+  CountRowsAndBatchesInScan(*fragment, 0, 0);
+  opts_->filter = ("i64"_ == int64_t(-1)).Copy();
+  CountRowsAndBatchesInScan(*fragment, 0, 0);
+  // No rows match 1 and 2.
+  opts_->filter = ("i64"_ == int64_t(1) and "u8"_ == uint8_t(2)).Copy();
+  CountRowsAndBatchesInScan(*fragment, 0, 0);
+
+  opts_->filter = ("i64"_ == int64_t(2) or "i64"_ == int64_t(4)).Copy();
+  CountRowsAndBatchesInScan(*fragment, 2 + 4, 2);
+
+  opts_->filter = ("i64"_ < int64_t(6)).Copy();
+  CountRowsAndBatchesInScan(*fragment, 5 * (5 + 1) / 2, 5);
+
+  opts_->filter = ("i64"_ >= int64_t(6)).Copy();
+  CountRowsAndBatchesInScan(*fragment, kTotalNumRows - (5 * (5 + 1) / 2),
+                            kNumRowGroups - 5);
 }
 
 }  // namespace dataset

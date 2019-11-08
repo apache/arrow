@@ -28,19 +28,21 @@
 #include "arrow/util/range.h"
 #include "arrow/util/stl.h"
 #include "parquet/arrow/reader.h"
+#include "parquet/arrow/schema.h"
 #include "parquet/file_reader.h"
+#include "parquet/statistics.h"
 
 namespace arrow {
 namespace dataset {
 
-/// \brief A ScanTask backed by a parquet file and a subset of RowGroups.
+/// \brief A ScanTask backed by a parquet file and a RowGroup within a parquet file.
 class ParquetScanTask : public ScanTask {
  public:
-  ParquetScanTask(std::vector<int> row_groups, std::vector<int> columns_projection,
+  ParquetScanTask(int row_group, std::vector<int> columns_projection,
                   std::shared_ptr<parquet::arrow::FileReader> reader,
                   std::shared_ptr<ScanOptions> options,
                   std::shared_ptr<ScanContext> context)
-      : row_groups_(std::move(row_groups)),
+      : row_group_(row_group),
         columns_projection_(std::move(columns_projection)),
         reader_(reader),
         options_(std::move(options)),
@@ -54,7 +56,7 @@ class ParquetScanTask : public ScanTask {
     // Thus the memory incurred by the RecordBatchReader is allocated when
     // Scan is called.
     std::unique_ptr<RecordBatchReader> record_batch_reader;
-    auto status = reader_->GetRecordBatchReader(row_groups_, columns_projection_,
+    auto status = reader_->GetRecordBatchReader({row_group_}, columns_projection_,
                                                 &record_batch_reader);
     // Propagate the previous error as an error iterator.
     if (!status.ok()) {
@@ -65,8 +67,7 @@ class ParquetScanTask : public ScanTask {
   }
 
  private:
-  // Subset of RowGroups and columns bound to this task.
-  std::vector<int> row_groups_;
+  int row_group_;
   std::vector<int> columns_projection_;
   // The ScanTask _must_ hold a reference to reader_ because there's no
   // guarantee the producing ParquetScanTaskIterator is still alive. This is a
@@ -77,35 +78,52 @@ class ParquetScanTask : public ScanTask {
   std::shared_ptr<ScanContext> context_;
 };
 
-constexpr int64_t kDefaultRowCountPerPartition = 1U << 16;
-
-// A class that clusters RowGroups of a Parquet file until the cluster has a specified
-// total row count. This doesn't guarantee exact row counts; it may exceed the target.
-class ParquetRowGroupPartitioner {
+// Skip RowGroups with a filter and metadata
+class RowGroupSkipper {
  public:
-  ParquetRowGroupPartitioner(std::shared_ptr<parquet::FileMetaData> metadata,
-                             int64_t row_count = kDefaultRowCountPerPartition)
-      : metadata_(std::move(metadata)), row_count_(row_count), row_group_idx_(0) {
+  static constexpr int kIterationDone = -1;
+
+  RowGroupSkipper(std::shared_ptr<parquet::FileMetaData> metadata,
+                  std::shared_ptr<Expression> filter)
+      : metadata_(std::move(metadata)), filter_(filter), row_group_idx_(0) {
     num_row_groups_ = metadata_->num_row_groups();
   }
 
-  std::vector<int> Next() {
-    int64_t partition_size = 0;
-    std::vector<int> partitions;
+  int Next() {
+    while (row_group_idx_ < num_row_groups_) {
+      const auto row_group_idx = row_group_idx_++;
+      const auto row_group = metadata_->RowGroup(row_group_idx);
 
-    while (row_group_idx_ < num_row_groups_ && partition_size < row_count_) {
-      partition_size += metadata_->RowGroup(row_group_idx_)->num_rows();
-      partitions.push_back(row_group_idx_++);
+      const auto num_rows = row_group->num_rows();
+      if (CanSkip(*row_group)) {
+        rows_skipped_ += num_rows;
+        continue;
+      }
+
+      return row_group_idx;
     }
 
-    return partitions;
+    return kIterationDone;
   }
 
  private:
+  bool CanSkip(const parquet::RowGroupMetaData& metadata) const {
+    auto maybe_stats_expr = RowGroupStatisticsAsExpression(metadata);
+    // Errors with statistics are ignored and post-filtering will apply.
+    if (!maybe_stats_expr.ok()) {
+      return false;
+    }
+
+    auto stats_expr = maybe_stats_expr.ValueOrDie();
+    auto expr = filter_->Assume(stats_expr);
+    return (expr->IsNull() || expr->Equals(false));
+  }
+
   std::shared_ptr<parquet::FileMetaData> metadata_;
-  int64_t row_count_;
+  std::shared_ptr<Expression> filter_;
   int row_group_idx_;
   int num_row_groups_;
+  int64_t rows_skipped_;
 };
 
 class ParquetScanTaskIterator {
@@ -130,16 +148,16 @@ class ParquetScanTaskIterator {
   }
 
   Status Next(std::unique_ptr<ScanTask>* task) {
-    auto partition = partitioner_.Next();
+    auto row_group = skipper_.Next();
 
     // Iteration is done.
-    if (partition.size() == 0) {
+    if (row_group == RowGroupSkipper::kIterationDone) {
       task->reset(nullptr);
       return Status::OK();
     }
 
-    task->reset(new ParquetScanTask(std::move(partition), columns_projection_, reader_,
-                                    options_, context_));
+    task->reset(
+        new ParquetScanTask(row_group, columns_projection_, reader_, options_, context_));
 
     return Status::OK();
   }
@@ -163,13 +181,13 @@ class ParquetScanTaskIterator {
       : options_(std::move(options)),
         context_(std::move(context)),
         columns_projection_(columns_projection),
-        partitioner_(std::move(metadata)),
+        skipper_(std::move(metadata), options_->filter),
         reader_(std::move(reader)) {}
 
   std::shared_ptr<ScanOptions> options_;
   std::shared_ptr<ScanContext> context_;
   std::vector<int> columns_projection_;
-  ParquetRowGroupPartitioner partitioner_;
+  RowGroupSkipper skipper_;
   std::shared_ptr<parquet::arrow::FileReader> reader_;
 };
 
@@ -218,6 +236,71 @@ Status ParquetFileFormat::OpenReader(
                                     source.path(), "': ", e.what());
   }
   return Status::OK();
+}
+
+using parquet::arrow::SchemaField;
+using parquet::arrow::StatisticsAsScalars;
+
+static std::shared_ptr<Expression> ColumnChunkStatisticsAsExpression(
+    const SchemaField& schema_field, const parquet::RowGroupMetaData& metadata) {
+  // For the remaining of this function, failure to extract/parse statistics
+  // are ignored by returning the `true` scalar. The goal is two fold. First
+  // avoid that an optimization break the computation. Second, allow the
+  // following columns to maybe succeed in extracting column statistics.
+
+  // For now, only leaf (primitive) types are supported.
+  if (!schema_field.is_leaf()) {
+    return scalar(true);
+  }
+
+  auto column_metadata = metadata.ColumnChunk(schema_field.column_index);
+  auto field = schema_field.field;
+  auto field_expr = field_ref(field->name());
+
+  // In case of missing statistics, return nothing.
+  if (!column_metadata->is_stats_set()) {
+    return scalar(true);
+  }
+
+  auto statistics = column_metadata->statistics();
+  if (statistics == nullptr) {
+    return scalar(true);
+  }
+
+  // Optimize for corner case where all values are nulls
+  if (statistics->num_values() == statistics->null_count()) {
+    std::shared_ptr<Scalar> null_scalar;
+    if (!MakeNullScalar(field->type(), &null_scalar).ok()) {
+      // MakeNullScalar can fail for some nested/repeated types.
+      return scalar(true);
+    }
+
+    return equal(field_expr, scalar(null_scalar));
+  }
+
+  std::shared_ptr<Scalar> min, max;
+  if (!StatisticsAsScalars(*statistics, &min, &max).ok()) {
+    return scalar(true);
+  }
+
+  return and_(greater_equal(field_expr, scalar(min)),
+              less_equal(field_expr, scalar(max)));
+}
+
+using parquet::arrow::SchemaManifest;
+
+Result<std::shared_ptr<Expression>> RowGroupStatisticsAsExpression(
+    const parquet::RowGroupMetaData& metadata) {
+  SchemaManifest manifest;
+  RETURN_NOT_OK(SchemaManifest::Make(
+      metadata.schema(), nullptr, parquet::default_arrow_reader_properties(), &manifest));
+
+  std::vector<std::shared_ptr<Expression>> expressions;
+  for (const auto& schema_field : manifest.schema_fields) {
+    expressions.emplace_back(ColumnChunkStatisticsAsExpression(schema_field, metadata));
+  }
+
+  return expressions.empty() ? scalar(true) : and_(expressions);
 }
 
 }  // namespace dataset

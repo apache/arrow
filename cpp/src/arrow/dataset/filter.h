@@ -179,6 +179,10 @@ class ARROW_DS_EXPORT Expression {
     return Copy();
   }
 
+  std::shared_ptr<Expression> Assume(const std::shared_ptr<Expression>& given) const {
+    return Assume(*given);
+  }
+
   /// returns a debug string representing this expression
   virtual std::string ToString() const = 0;
 

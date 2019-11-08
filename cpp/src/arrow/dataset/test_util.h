@@ -354,5 +354,85 @@ struct TestExpression : util::EqualityComparable<TestExpression>,
   std::string ToString() const { return expression->ToString(); }
 };
 
+struct ArithmeticDatasetFixture {
+  static std::shared_ptr<Schema> schema() {
+    return ::arrow::schema({
+        field("i64", int64()),
+        // ARROW-1644: Parquet can't write complex level
+        // field("struct", struct_({
+        //                     // ARROW-2587: Parquet can't write struct with more
+        //                     // than one field.
+        //                     // field("i32", int32()),
+        //                     field("str", utf8()),
+        //                 })),
+        field("u8", uint8()),
+        field("list", list(int32())),
+        field("bool", boolean()),
+    });
+  }
+
+  /// \brief Creates a single JSON record templated with n as follow.
+  ///
+  /// {"i64": n, "struct": {"i32": n, "str": "n"}, "u8": n "list": [n,n], "bool": n %
+  /// 2},
+  static std::string JSONRecordFor(int64_t n) {
+    std::stringstream ss;
+    int32_t n_i32 = static_cast<int32_t>(n);
+
+    ss << "{";
+    ss << "\"i64\": " << n << ", ";
+    // ss << "\"struct\": {";
+    // {
+    //   // ss << "\"i32\": " << n_i32 << ", ";
+    //   ss << "\"str\": \"" << std::to_string(n) << "\"";
+    // }
+    // ss << "}, ";
+    ss << "\"u8\": " << static_cast<int32_t>(n) << ", ";
+    ss << "\"list\": [" << n_i32 << ", " << n_i32 << "], ";
+    ss << "\"bool\": " << (static_cast<bool>(n % 2) ? "true" : "false");
+    ss << "}";
+
+    return ss.str();
+  }
+
+  /// \brief Creates a JSON RecordBatch
+  static std::string JSONRecordBatch(int64_t n) {
+    DCHECK_GT(n, 0);
+
+    auto record = JSONRecordFor(n);
+
+    std::stringstream ss;
+    ss << "[\n";
+    for (int64_t i = 0; i < n; i++) {
+      if (i != 0) {
+        ss << "\n,";
+      }
+      ss << record;
+    }
+    ss << "]\n";
+    return ss.str();
+  }
+
+  static std::shared_ptr<RecordBatch> GetRecordBatch(int64_t n) {
+    return RecordBatchFromJSON(ArithmeticDatasetFixture::schema(), JSONRecordBatch(n));
+  }
+
+  static std::unique_ptr<RecordBatchReader> GetRecordBatchReader(int64_t n) {
+    DCHECK_GT(n, 0);
+
+    // Functor which generates `n` RecordBatch
+    struct {
+      Status operator()(std::shared_ptr<RecordBatch>* out) {
+        *out = i++ < count ? GetRecordBatch(i) : nullptr;
+        return Status::OK();
+      }
+      int64_t i;
+      int64_t count;
+    } generator{0, n};
+
+    return MakeGeneratedRecordBatch(schema(), std::move(generator));
+  }
+};
+
 }  // namespace dataset
 }  // namespace arrow

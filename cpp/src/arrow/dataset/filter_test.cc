@@ -62,7 +62,13 @@ class ExpressionsTest : public ::testing::Test {
     auto simplified = expr.Assume(given);
     ASSERT_EQ(E{simplified}, E{expected})
         << "  simplification of: " << expr.ToString() << std::endl
-        << "              given: " << given.ToString() << std::endl;
+        << "              given: " << given.ToString() << std::endl
+        << "           expected: " << expected.ToString() << std::endl;
+  }
+
+  void AssertSimplifiesTo(const Expression& expr, const Expression& given,
+                          const std::shared_ptr<Expression>& expected) {
+    AssertSimplifiesTo(expr, given, *expected);
   }
 
   std::shared_ptr<Schema> schema_ =

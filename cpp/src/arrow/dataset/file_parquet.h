@@ -26,6 +26,7 @@
 
 namespace parquet {
 class ParquetFileReader;
+class RowGroupMetaData;
 }  // namespace parquet
 
 namespace arrow {
@@ -74,6 +75,9 @@ class ARROW_DS_EXPORT ParquetFragment : public FileBasedDataFragment {
 
   bool splittable() const override { return true; }
 };
+
+Result<std::shared_ptr<Expression>> RowGroupStatisticsAsExpression(
+    const parquet::RowGroupMetaData& metadata);
 
 }  // namespace dataset
 }  // namespace arrow

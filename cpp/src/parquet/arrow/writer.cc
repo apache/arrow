@@ -126,6 +126,7 @@ class LevelBuilder {
                                   " not supported yet");                   \
   }
 
+  // See ARROW-1644
   NOT_IMPLEMENTED_VISIT(LargeList)
   NOT_IMPLEMENTED_VISIT(Map)
   NOT_IMPLEMENTED_VISIT(FixedSizeList)
@@ -427,8 +428,8 @@ class FileWriterImpl : public FileWriter {
         closed_(false) {}
 
   Status Init() {
-    return BuildSchemaManifest(writer_->schema(), /*schema_metadata=*/nullptr,
-                               default_arrow_reader_properties(), &schema_manifest_);
+    return SchemaManifest::Make(writer_->schema(), /*schema_metadata=*/nullptr,
+                                default_arrow_reader_properties(), &schema_manifest_);
   }
 
   Status NewRowGroup(int64_t chunk_size) override {

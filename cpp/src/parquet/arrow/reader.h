@@ -31,6 +31,7 @@ namespace arrow {
 class ChunkedArray;
 class KeyValueMetadata;
 class RecordBatchReader;
+struct Scalar;
 class Schema;
 class Table;
 class RecordBatch;
@@ -325,15 +326,9 @@ PARQUET_EXPORT
 /// @}
 
 PARQUET_EXPORT
-::arrow::Status FromParquetSchema(
-    const SchemaDescriptor* parquet_schema, const ArrowReaderProperties& properties,
-    const std::shared_ptr<const ::arrow::KeyValueMetadata>& key_value_metadata,
-    std::shared_ptr<::arrow::Schema>* out);
-
-PARQUET_EXPORT
-::arrow::Status FromParquetSchema(const SchemaDescriptor* parquet_schema,
-                                  const ArrowReaderProperties& properties,
-                                  std::shared_ptr<::arrow::Schema>* out);
+::arrow::Status StatisticsAsScalars(const Statistics& Statistics,
+                                    std::shared_ptr<::arrow::Scalar>* min,
+                                    std::shared_ptr<::arrow::Scalar>* max);
 
 }  // namespace arrow
 }  // namespace parquet

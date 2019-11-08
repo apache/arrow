@@ -97,9 +97,9 @@ class FileReaderImpl : public FileReader {
       : pool_(pool), reader_(std::move(reader)), reader_properties_(properties) {}
 
   Status Init() {
-    return BuildSchemaManifest(reader_->metadata()->schema(),
-                               reader_->metadata()->key_value_metadata(),
-                               reader_properties_, &manifest_);
+    return SchemaManifest::Make(reader_->metadata()->schema(),
+                                reader_->metadata()->key_value_metadata(),
+                                reader_properties_, &manifest_);
   }
 
   FileColumnIteratorFactory SomeRowGroupsFactory(std::vector<int> row_groups) {
@@ -160,7 +160,7 @@ class FileReaderImpl : public FileReader {
     ctx->iterator_factory = SomeRowGroupsFactory(row_groups);
     ctx->filter_leaves = true;
     ctx->included_leaves.insert(indices.begin(), indices.end());
-    return manifest_.schema_fields[i].GetReader(ctx, out);
+    return GetReader(manifest_.schema_fields[i], ctx, out);
   }
 
   Status GetColumn(int i, FileColumnIteratorFactory iterator_factory,
@@ -680,17 +680,17 @@ Status StructReader::NextBatch(int64_t records_to_read,
 // ----------------------------------------------------------------------
 // File reader implementation
 
-Status SchemaField::GetReader(const std::shared_ptr<ReaderContext>& ctx,
-                              std::unique_ptr<ColumnReaderImpl>* out) const {
-  auto type_id = this->field->type()->id();
-  if (this->children.size() == 0) {
+Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>& ctx,
+                 std::unique_ptr<ColumnReaderImpl>* out) {
+  auto type_id = field.field->type()->id();
+  if (field.children.size() == 0) {
     std::unique_ptr<FileColumnIterator> input(
-        ctx->iterator_factory(this->column_index, ctx->reader));
-    out->reset(new LeafReader(ctx, this->field, std::move(input)));
+        ctx->iterator_factory(field.column_index, ctx->reader));
+    out->reset(new LeafReader(ctx, field.field, std::move(input)));
   } else if (type_id == ::arrow::Type::LIST) {
     // We can only read lists-of-lists or structs at the moment
-    auto list_field = this->field;
-    auto child = &this->children[0];
+    auto list_field = field.field;
+    auto child = &field.children[0];
     while (child->field->type()->id() == ::arrow::Type::LIST) {
       child = &child->children[0];
     }
@@ -698,14 +698,14 @@ Status SchemaField::GetReader(const std::shared_ptr<ReaderContext>& ctx,
       return Status::NotImplemented(
           "Reading lists of structs from Parquet files "
           "not yet supported: ",
-          this->field->ToString());
+          field.field->ToString());
     }
     if (!ctx->IncludesLeaf(child->column_index)) {
       *out = nullptr;
       return Status::OK();
     }
     std::unique_ptr<ColumnReaderImpl> child_reader;
-    RETURN_NOT_OK(child->GetReader(ctx, &child_reader));
+    RETURN_NOT_OK(GetReader(*child, ctx, &child_reader));
     // Use the max definition/repetition level of the leaf here
     out->reset(new NestedListReader(ctx, list_field, child->max_definition_level,
                                     child->max_repetition_level,
@@ -713,13 +713,13 @@ Status SchemaField::GetReader(const std::shared_ptr<ReaderContext>& ctx,
   } else if (type_id == ::arrow::Type::STRUCT) {
     std::vector<std::shared_ptr<Field>> child_fields;
     std::vector<std::unique_ptr<ColumnReaderImpl>> child_readers;
-    for (const auto& child : this->children) {
+    for (const auto& child : field.children) {
       if (child.is_leaf() && !ctx->IncludesLeaf(child.column_index)) {
         // Excluded leaf
         continue;
       }
       std::unique_ptr<ColumnReaderImpl> child_reader;
-      RETURN_NOT_OK(child.GetReader(ctx, &child_reader));
+      RETURN_NOT_OK(GetReader(child, ctx, &child_reader));
       if (!child_reader) {
         // If all children were pruned, then we do not try to read this field
         continue;
@@ -732,10 +732,10 @@ Status SchemaField::GetReader(const std::shared_ptr<ReaderContext>& ctx,
       return Status::OK();
     }
     auto filtered_field = ::arrow::field(
-        this->field->name(), ::arrow::struct_(child_fields), this->field->nullable());
-    out->reset(new StructReader(ctx, *this, filtered_field, std::move(child_readers)));
+        field.field->name(), ::arrow::struct_(child_fields), field.field->nullable());
+    out->reset(new StructReader(ctx, field, filtered_field, std::move(child_readers)));
   } else {
-    return Status::Invalid("Unsupported nested type: ", this->field->ToString());
+    return Status::Invalid("Unsupported nested type: ", field.field->ToString());
   }
   return Status::OK();
 }
@@ -760,7 +760,7 @@ Status FileReaderImpl::GetColumn(int i, FileColumnIteratorFactory iterator_facto
   ctx->iterator_factory = AllRowGroupsFactory();
   ctx->filter_leaves = false;
   std::unique_ptr<ColumnReaderImpl> result;
-  RETURN_NOT_OK(manifest_.schema_fields[i].GetReader(ctx, &result));
+  RETURN_NOT_OK(GetReader(manifest_.schema_fields[i], ctx, &result));
   out->reset(result.release());
   return Status::OK();
 }
