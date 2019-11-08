@@ -1689,6 +1689,9 @@ cdef class ExtensionArray(Array):
         result.validate()
         return result
 
+    def __getitem__(self, index):
+        return self.type.__storage_to_realized__(self.storage.__getitem__(index))
+
 
 cdef dict _array_classes = {
     _Type_NA: NullArray,

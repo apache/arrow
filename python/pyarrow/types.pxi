@@ -630,6 +630,9 @@ cdef class ExtensionType(BaseExtensionType):
         """
         return NotImplementedError
 
+    @classmethod
+    def __storage_to_realized__(cls, scalar):
+        return NotImplementedError
 
 cdef class PyExtensionType(ExtensionType):
     """
