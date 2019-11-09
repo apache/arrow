@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/test_util.h"
 #include "arrow/record_batch.h"
@@ -34,8 +35,8 @@
 namespace arrow {
 namespace dataset {
 
-constexpr int64_t kBatchSize = 1UL << 15;
-constexpr int64_t kBatchRepetitions = 1 << 10;
+constexpr int64_t kBatchSize = 1UL << 12;
+constexpr int64_t kBatchRepetitions = 1 << 5;
 constexpr int64_t kNumRows = kBatchSize * kBatchRepetitions;
 
 using parquet::ArrowWriterProperties;
@@ -98,16 +99,22 @@ Status WriteRecordBatchReader(
 
 class ArrowParquetWriterMixin : public ::testing::Test {
  public:
-  std::shared_ptr<Buffer> Write(RecordBatchReader* reader) {
+  std::shared_ptr<Buffer> Write(std::vector<RecordBatchReader*> readers) {
     auto pool = ::arrow::default_memory_pool();
 
     std::shared_ptr<Buffer> out;
     auto sink = CreateOutputStream(pool);
 
-    ABORT_NOT_OK(WriteRecordBatchReader(reader, pool, sink));
-    ABORT_NOT_OK(sink->Finish(&out));
+    for (auto reader : readers) {
+      ARROW_EXPECT_OK(WriteRecordBatchReader(reader, pool, sink));
+    }
+    ARROW_EXPECT_OK(sink->Finish(&out));
 
     return out;
+  }
+
+  std::shared_ptr<Buffer> Write(RecordBatchReader* reader) {
+    return Write(std::vector<RecordBatchReader*>{reader});
   }
 
   std::shared_ptr<Buffer> Write(const Table& table) {
@@ -127,6 +134,11 @@ class ParquetBufferFixtureMixin : public ArrowParquetWriterMixin {
  public:
   std::unique_ptr<FileSource> GetFileSource(RecordBatchReader* reader) {
     auto buffer = Write(reader);
+    return internal::make_unique<FileSource>(std::move(buffer));
+  }
+
+  std::unique_ptr<FileSource> GetFileSource(std::vector<RecordBatchReader*> readers) {
+    auto buffer = Write(std::move(readers));
     return internal::make_unique<FileSource>(std::move(buffer));
   }
 
@@ -155,17 +167,17 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
   auto source = GetFileSource(reader.get());
   auto fragment = std::make_shared<ParquetFragment>(*source, opts_);
 
-  ScanTaskIterator it;
-  ASSERT_OK(fragment->Scan(ctx_, &it));
+  ScanTaskIterator scan_task_it;
+  ASSERT_OK(fragment->Scan(ctx_, &scan_task_it));
   int64_t row_count = 0;
 
-  ASSERT_OK(it.Visit([&row_count](std::unique_ptr<ScanTask> task) -> Status {
-    auto batch_it = task->Scan();
-    return batch_it.Visit([&row_count](std::shared_ptr<RecordBatch> batch) -> Status {
+  for (auto maybe_task : scan_task_it) {
+    ASSERT_OK_AND_ASSIGN(auto task, std::move(maybe_task));
+    for (auto maybe_batch : task->Scan()) {
+      ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
       row_count += batch->num_rows();
-      return Status::OK();
-    });
-  }));
+    }
+  }
 
   ASSERT_EQ(row_count, kNumRows);
 }
@@ -184,6 +196,80 @@ TEST_F(TestParquetFileFormat, OpenFailureWithRelevantError) {
       auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, {fs::File(file_name)}));
   EXPECT_RAISES_WITH_MESSAGE_THAT(IOError, testing::HasSubstr(file_name),
                                   format.Inspect({file_name, fs.get()}, &dont_care));
+}
+
+TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjected) {
+  schema_ = schema({field("f64", float64()), field("i64", int64()),
+                    field("f32", float32()), field("i32", int32())});
+
+  opts_->schema = schema_;
+  opts_->projector = std::make_shared<RecordBatchProjector>(
+      default_memory_pool(), SchemaFromColumnNames(schema_, {"f64"}));
+  opts_->filter = equal(field_ref("i32"), scalar(0));
+
+  // NB: projector is applied by the scanner; ParquetFragment does not evaluate it so
+  // we will not drop "i32" even though it is not in the projector's schema
+  auto expected_schema = schema({field("f64", float64()), field("i32", int32())});
+
+  auto reader = GetRecordBatchReader();
+  auto source = GetFileSource(reader.get());
+  auto fragment = std::make_shared<ParquetFragment>(*source, opts_);
+
+  ScanTaskIterator scan_task_it;
+  ASSERT_OK(fragment->Scan(ctx_, &scan_task_it));
+  int64_t row_count = 0;
+
+  for (auto maybe_task : scan_task_it) {
+    ASSERT_OK_AND_ASSIGN(auto task, std::move(maybe_task));
+    for (auto maybe_batch : task->Scan()) {
+      ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+      row_count += batch->num_rows();
+      ASSERT_EQ(*batch->schema(), *expected_schema);
+    }
+  }
+
+  ASSERT_EQ(row_count, kNumRows);
+}
+
+TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
+  schema_ =
+      schema({field("f64", float64()), field("i64", int64()), field("f32", float32())});
+  auto reader_without_i32 = GetRecordBatchReader();
+
+  schema_ =
+      schema({field("i64", int64()), field("f32", float32()), field("i32", int32())});
+  auto reader_without_f64 = GetRecordBatchReader();
+
+  schema_ = schema({field("f64", float64()), field("i64", int64()),
+                    field("f32", float32()), field("i32", int32())});
+  auto reader = GetRecordBatchReader();
+
+  opts_->schema = schema_;
+  opts_->projector = std::make_shared<RecordBatchProjector>(
+      default_memory_pool(), SchemaFromColumnNames(schema_, {"f64"}));
+  opts_->filter = equal(field_ref("i32"), scalar(0));
+
+  // NB: projector is applied by the scanner; ParquetFragment does not evaluate it so
+  // we will not drop "i32" even though it is not in the projector's schema
+  auto expected_schema = schema({field("f64", float64()), field("i32", int32())});
+
+  auto source =
+      GetFileSource({reader.get(), reader_without_i32.get(), reader_without_f64.get()});
+  auto fragment = std::make_shared<ParquetFragment>(*source, opts_);
+
+  ScanTaskIterator scan_task_it;
+  ASSERT_OK(fragment->Scan(ctx_, &scan_task_it));
+  int64_t row_count = 0;
+
+  for (auto maybe_task : scan_task_it) {
+    ASSERT_OK_AND_ASSIGN(auto task, std::move(maybe_task));
+    for (auto maybe_batch : task->Scan()) {
+      ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
+      row_count += batch->num_rows();
+    }
+  }
+
+  ASSERT_EQ(row_count, kNumRows);
 }
 
 TEST_F(TestParquetFileFormat, Inspect) {

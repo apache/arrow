@@ -140,8 +140,8 @@ struct PARQUET_EXPORT SchemaManifest {
   }
 
   bool GetFieldIndices(const std::vector<int>& column_indices, std::vector<int>* out) {
-    // Coalesce a list of schema fields indices which are the roots of the
-    // columns referred by a list of column indices
+    // Coalesce a list of schema field indices which are the roots of the
+    // columns referred to by a list of column indices
     const schema::GroupNode* group = descr->group_node();
     std::unordered_set<int> already_added;
     out->clear();

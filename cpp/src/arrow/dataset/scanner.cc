@@ -128,16 +128,6 @@ Status ScannerBuilder::Filter(std::shared_ptr<Expression> filter) {
 
 Status ScannerBuilder::Filter(const Expression& filter) { return Filter(filter.Copy()); }
 
-std::shared_ptr<Schema> SchemaFromColumnNames(
-    const std::shared_ptr<Schema>& input, const std::vector<std::string>& column_names) {
-  std::vector<std::shared_ptr<Field>> columns;
-  for (const auto& name : column_names) {
-    columns.push_back(input->GetFieldByName(name));
-  }
-
-  return std::make_shared<Schema>(columns);
-}
-
 Status ScannerBuilder::UseThreads(bool use_threads) {
   scan_options_->use_threads = use_threads;
   return Status::OK();

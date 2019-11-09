@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/table.h"
@@ -35,15 +36,19 @@
 namespace arrow {
 namespace dataset {
 
+using parquet::arrow::SchemaField;
+using parquet::arrow::SchemaManifest;
+using parquet::arrow::StatisticsAsScalars;
+
 /// \brief A ScanTask backed by a parquet file and a RowGroup within a parquet file.
 class ParquetScanTask : public ScanTask {
  public:
-  ParquetScanTask(int row_group, std::vector<int> columns_projection,
+  ParquetScanTask(int row_group, std::vector<int> column_projection,
                   std::shared_ptr<parquet::arrow::FileReader> reader,
                   std::shared_ptr<ScanOptions> options,
                   std::shared_ptr<ScanContext> context)
       : row_group_(row_group),
-        columns_projection_(std::move(columns_projection)),
+        column_projection_(std::move(column_projection)),
         reader_(reader),
         options_(std::move(options)),
         context_(std::move(context)) {}
@@ -56,7 +61,7 @@ class ParquetScanTask : public ScanTask {
     // Thus the memory incurred by the RecordBatchReader is allocated when
     // Scan is called.
     std::unique_ptr<RecordBatchReader> record_batch_reader;
-    auto status = reader_->GetRecordBatchReader({row_group_}, columns_projection_,
+    auto status = reader_->GetRecordBatchReader({row_group_}, column_projection_,
                                                 &record_batch_reader);
     // Propagate the previous error as an error iterator.
     if (!status.ok()) {
@@ -68,7 +73,7 @@ class ParquetScanTask : public ScanTask {
 
  private:
   int row_group_;
-  std::vector<int> columns_projection_;
+  std::vector<int> column_projection_;
   // The ScanTask _must_ hold a reference to reader_ because there's no
   // guarantee the producing ParquetScanTaskIterator is still alive. This is a
   // contract required by record_batch_reader_
@@ -134,16 +139,15 @@ class ParquetScanTaskIterator {
                      ScanTaskIterator* out) {
     auto metadata = reader->metadata();
 
-    std::vector<int> columns_projection;
-    RETURN_NOT_OK(InferColumnProjection(*metadata, options, &columns_projection));
+    auto column_projection = InferColumnProjection(*metadata, options);
 
     std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
     RETURN_NOT_OK(parquet::arrow::FileReader::Make(context->pool, std::move(reader),
                                                    &arrow_reader));
 
-    *out = ScanTaskIterator(
-        ParquetScanTaskIterator(std::move(options), std::move(context),
-                                columns_projection, metadata, std::move(arrow_reader)));
+    *out = ScanTaskIterator(ParquetScanTaskIterator(
+        std::move(options), std::move(context), std::move(column_projection),
+        std::move(metadata), std::move(arrow_reader)));
     return Status::OK();
   }
 
@@ -157,36 +161,78 @@ class ParquetScanTaskIterator {
     }
 
     task->reset(
-        new ParquetScanTask(row_group, columns_projection_, reader_, options_, context_));
+        new ParquetScanTask(row_group, column_projection_, reader_, options_, context_));
 
     return Status::OK();
   }
 
  private:
   // Compute the column projection out of an optional arrow::Schema
-  static Status InferColumnProjection(const parquet::FileMetaData& metadata,
-                                      const std::shared_ptr<ScanOptions>& options,
-                                      std::vector<int>* out) {
-    // TODO(fsaintjacques): Compute intersection _and_ validity
-    *out = internal::Iota(metadata.num_columns());
+  static std::vector<int> InferColumnProjection(
+      const parquet::FileMetaData& metadata,
+      const std::shared_ptr<ScanOptions>& options) {
+    if (options->projector == nullptr) {
+      // fall back to no push down projection
+      return internal::Iota(metadata.num_columns());
+    }
 
-    return Status::OK();
+    SchemaManifest manifest;
+    if (!SchemaManifest::Make(metadata.schema(), nullptr,
+                              parquet::default_arrow_reader_properties(), &manifest)
+             .ok()) {
+      return internal::Iota(metadata.num_columns());
+    }
+
+    // get column indices
+    auto filter_fields = FieldsInExpression(options->filter);
+
+    std::vector<int> column_projection;
+
+    for (const auto& schema_field : manifest.schema_fields) {
+      auto field_name = schema_field.field->name();
+
+      if (options->projector->schema()->GetFieldIndex(field_name) != -1) {
+        // add explicitly projected field
+        AddColumnIndices(schema_field, &column_projection);
+        continue;
+      }
+
+      if (std::find(filter_fields.begin(), filter_fields.end(), field_name) !=
+          filter_fields.end()) {
+        // add field referenced by filter
+        AddColumnIndices(schema_field, &column_projection);
+      }
+    }
+
+    return column_projection;
+  }
+
+  static void AddColumnIndices(const SchemaField& schema_field,
+                               std::vector<int>* column_projection) {
+    if (schema_field.column_index != -1) {
+      column_projection->push_back(schema_field.column_index);
+      return;
+    }
+
+    for (const auto& child : schema_field.children) {
+      AddColumnIndices(child, column_projection);
+    }
   }
 
   ParquetScanTaskIterator(std::shared_ptr<ScanOptions> options,
                           std::shared_ptr<ScanContext> context,
-                          std::vector<int> columns_projection,
+                          std::vector<int> column_projection,
                           std::shared_ptr<parquet::FileMetaData> metadata,
                           std::unique_ptr<parquet::arrow::FileReader> reader)
       : options_(std::move(options)),
         context_(std::move(context)),
-        columns_projection_(columns_projection),
+        column_projection_(std::move(column_projection)),
         skipper_(std::move(metadata), options_->filter),
         reader_(std::move(reader)) {}
 
   std::shared_ptr<ScanOptions> options_;
   std::shared_ptr<ScanContext> context_;
-  std::vector<int> columns_projection_;
+  std::vector<int> column_projection_;
   RowGroupSkipper skipper_;
   std::shared_ptr<parquet::arrow::FileReader> reader_;
 };
@@ -238,9 +284,6 @@ Status ParquetFileFormat::OpenReader(
   return Status::OK();
 }
 
-using parquet::arrow::SchemaField;
-using parquet::arrow::StatisticsAsScalars;
-
 static std::shared_ptr<Expression> ColumnChunkStatisticsAsExpression(
     const SchemaField& schema_field, const parquet::RowGroupMetaData& metadata) {
   // For the remaining of this function, failure to extract/parse statistics
@@ -286,8 +329,6 @@ static std::shared_ptr<Expression> ColumnChunkStatisticsAsExpression(
   return and_(greater_equal(field_expr, scalar(min)),
               less_equal(field_expr, scalar(max)));
 }
-
-using parquet::arrow::SchemaManifest;
 
 Result<std::shared_ptr<Expression>> RowGroupStatisticsAsExpression(
     const parquet::RowGroupMetaData& metadata) {

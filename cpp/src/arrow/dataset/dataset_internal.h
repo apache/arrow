@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -26,7 +27,9 @@
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/record_batch.h"
+#include "arrow/result.h"
 #include "arrow/scalar.h"
+#include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
@@ -207,6 +210,16 @@ static inline DataFragmentIterator GetFragmentsFromSources(
 
   // Iterator<DataFragment>
   return MakeFlattenIterator(std::move(fragments_it));
+}
+
+inline std::shared_ptr<Schema> SchemaFromColumnNames(
+    const std::shared_ptr<Schema>& input, const std::vector<std::string>& column_names) {
+  std::vector<std::shared_ptr<Field>> columns;
+  for (const auto& name : column_names) {
+    columns.push_back(input->GetFieldByName(name));
+  }
+
+  return std::make_shared<Schema>(columns);
 }
 
 }  // namespace dataset

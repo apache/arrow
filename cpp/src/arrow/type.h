@@ -1306,7 +1306,9 @@ class ARROW_EXPORT DictionaryUnifier {
 /// \class Schema
 /// \brief Sequence of arrow::Field objects describing the columns of a record
 /// batch or table data structure
-class ARROW_EXPORT Schema : public detail::Fingerprintable {
+class ARROW_EXPORT Schema : public detail::Fingerprintable,
+                            public util::EqualityComparable<Schema>,
+                            public util::ToStringOstreamable<Schema> {
  public:
   explicit Schema(const std::vector<std::shared_ptr<Field>>& fields,
                   const std::shared_ptr<const KeyValueMetadata>& metadata = NULLPTR);
@@ -1320,7 +1322,6 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable {
 
   /// Returns true if all of the schema fields are equal
   bool Equals(const Schema& other, bool check_metadata = true) const;
-  bool operator==(const Schema& other) const { return Equals(other); }
 
   /// \brief Return the number of fields (columns) in the schema
   int num_fields() const;

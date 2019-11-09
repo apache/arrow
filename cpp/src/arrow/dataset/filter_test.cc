@@ -62,8 +62,7 @@ class ExpressionsTest : public ::testing::Test {
     auto simplified = expr.Assume(given);
     ASSERT_EQ(E{simplified}, E{expected})
         << "  simplification of: " << expr.ToString() << std::endl
-        << "              given: " << given.ToString() << std::endl
-        << "           expected: " << expected.ToString() << std::endl;
+        << "              given: " << given.ToString() << std::endl;
   }
 
   void AssertSimplifiesTo(const Expression& expr, const Expression& given,
