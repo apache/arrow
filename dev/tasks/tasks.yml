@@ -1507,7 +1507,6 @@ tasks:
         - docker-compose pull --ignore-pull-failures conda-cpp
         - docker-compose build conda-cpp
         - docker-compose run conda-cpp
-        - docker-compose push --ignore-push-failures conda-cpp
 
   test-debian-10-cpp:
     ci: circle
@@ -1519,7 +1518,6 @@ tasks:
         - docker-compose pull --ignore-pull-failures debian-cpp
         - docker-compose build debian-cpp
         - docker-compose run debian-cpp
-        - docker-compose push --ignore-push-failures debian-cpp
 
   test-ubuntu-14.04-cpp:
     ci: circle
@@ -1531,7 +1529,6 @@ tasks:
         - docker-compose pull --ignore-pull-failures ubuntu-cpp
         - docker-compose build ubuntu-cpp
         - docker-compose run ubuntu-cpp
-        - docker-compose push --ignore-push-failures ubuntu-cpp
 
   test-ubuntu-16.04-cpp:
     ci: circle
@@ -1543,7 +1540,6 @@ tasks:
         - docker-compose pull --ignore-pull-failures ubuntu-cpp
         - docker-compose build ubuntu-cpp
         - docker-compose run ubuntu-cpp
-        - docker-compose push --ignore-push-failures ubuntu-cpp
 
   test-ubuntu-18.04-cpp:
     ci: circle
@@ -1555,7 +1551,6 @@ tasks:
         - docker-compose pull --ignore-pull-failures ubuntu-cpp
         - docker-compose build ubuntu-cpp
         - docker-compose run ubuntu-cpp
-        - docker-compose push --ignore-push-failures ubuntu-cpp
 
   test-fedora-29-cpp:
     ci: circle
@@ -1567,7 +1562,6 @@ tasks:
         - docker-compose pull --ignore-pull-failures fedora-cpp
         - docker-compose build fedora-cpp
         - docker-compose run fedora-cpp
-        - docker-compose push --ignore-push-failures fedora-cpp
 
   test-ubuntu-18.04-cpp-release:
     ci: circle
@@ -1578,7 +1572,6 @@ tasks:
         - docker-compose pull --ignore-pull-failures ubuntu-cpp
         - docker-compose build ubuntu-cpp
         - docker-compose run -e ARROW_BUILD_TYPE=release ubuntu-cpp
-        - docker-compose push --ignore-push-failures ubuntu-cpp
 
   test-ubuntu-18.04-cpp-static:
     ci: circle
@@ -1589,7 +1582,6 @@ tasks:
         - docker-compose pull --ignore-pull-failures ubuntu-cpp
         - docker-compose build ubuntu-cpp
         - docker-compose run -e ARROW_BUILD_SHARED=OFF -e ARROW_BUILD_STATIC=ON -e ARROW_TEST_LINKAGE=static ubuntu-cpp
-        - docker-compose push --ignore-push-failures ubuntu-cpp
 
   test-ubuntu-18.04-cpp-cmake32:
     ci: circle
@@ -1600,7 +1592,6 @@ tasks:
         - docker-compose pull --ignore-pull-failures ubuntu-cpp-cmake32
         - docker-compose build ubuntu-cpp-cmake32
         - docker-compose run ubuntu-cpp-cmake32
-        - docker-compose push --ignore-push-failures ubuntu-cpp-cmake32
 
   test-debian-c-glib:
     ci: circle
@@ -1613,7 +1604,6 @@ tasks:
         - docker-compose build debian-cpp
         - docker-compose build debian-c-glib
         - docker-compose run debian-c-glib
-        - docker-compose push --ignore-push-failures debian-c-glib
 
   test-ubuntu-c-glib:
     ci: circle
@@ -1626,7 +1616,6 @@ tasks:
         - docker-compose build ubuntu-cpp
         - docker-compose build ubuntu-c-glib
         - docker-compose run ubuntu-c-glib
-        - docker-compose push --ignore-push-failures ubuntu-c-glib
 
   test-debian-ruby:
     ci: circle
@@ -1641,7 +1630,6 @@ tasks:
         - docker-compose build debian-c-glib
         - docker-compose build debian-ruby
         - docker-compose run debian-ruby
-        - docker-compose push --ignore-push-failures debian-ruby
 
   test-ubuntu-ruby:
     ci: circle
@@ -1656,7 +1644,6 @@ tasks:
         - docker-compose build ubuntu-c-glib
         - docker-compose build ubuntu-ruby
         - docker-compose run ubuntu-ruby
-        - docker-compose push --ignore-push-failures ubuntu-ruby
 
   test-conda-python-2.7:
     ci: circle
@@ -1670,7 +1657,6 @@ tasks:
         - docker-compose build conda-cpp
         - docker-compose build conda-python
         - docker-compose run conda-python
-        - docker-compose push --ignore-push-failures conda-python
 
   test-conda-python-3.6:
     ci: circle
@@ -1684,7 +1670,6 @@ tasks:
         - docker-compose build conda-cpp
         - docker-compose build conda-python
         - docker-compose run conda-python
-        - docker-compose push --ignore-push-failures conda-python
 
   test-conda-python-3.7:
     ci: circle
@@ -1698,7 +1683,6 @@ tasks:
         - docker-compose build conda-cpp
         - docker-compose build conda-python
         - docker-compose run conda-python
-        - docker-compose push --ignore-push-failures conda-python
 
   test-debian-10-python-3:
     ci: circle
@@ -1712,7 +1696,6 @@ tasks:
         - docker-compose build debian-cpp
         - docker-compose build debian-python
         - docker-compose run debian-python
-        - docker-compose push --ignore-push-failures debian-python
 
   test-ubuntu-18.04-python-3:
     ci: circle
@@ -1726,7 +1709,6 @@ tasks:
         - docker-compose build ubuntu-cpp
         - docker-compose build ubuntu-python
         - docker-compose run ubuntu-python
-        - docker-compose push --ignore-push-failures ubuntu-python
 
   test-fedora-29-python-3:
     ci: circle
@@ -1740,7 +1722,6 @@ tasks:
         - docker-compose build fedora-cpp
         - docker-compose build fedora-python
         - docker-compose run fedora-python
-        - docker-compose push --ignore-push-failures fedora-python
 
   test-ubuntu-18.04-r-3.6:
     ci: circle
@@ -1754,7 +1735,6 @@ tasks:
         - docker-compose build ubuntu-cpp
         - docker-compose build ubuntu-r
         - docker-compose run ubuntu-r
-        - docker-compose push --ignore-push-failures ubuntu-r
 
   test-conda-r-3.6:
     ci: circle
@@ -1768,7 +1748,6 @@ tasks:
         - docker-compose build conda-cpp
         - docker-compose build conda-r
         - docker-compose run conda-r
-        - docker-compose push --ignore-push-failures conda-r
 
   test-ubuntu-18.04-r-sanitizer:
     ci: circle
@@ -1779,7 +1758,6 @@ tasks:
         - docker-compose pull --ignore-pull-failures ubuntu-r-sanitizer
         - docker-compose build ubuntu-r-sanitizer
         - docker-compose run ubuntu-r-sanitizer
-        - docker-compose push --ignore-push-failures ubuntu-r-sanitizer
 
   test-debian-10-go-1.12:
     ci: circle
@@ -1791,7 +1769,6 @@ tasks:
         - docker-compose pull --ignore-pull-failures debian-go
         - docker-compose build debian-go
         - docker-compose run debian-go
-        - docker-compose push --ignore-push-failures debian-go
 
   test-debian-10-rust-nightly-2019-09-25:
     ci: circle
@@ -1803,7 +1780,6 @@ tasks:
         - docker-compose pull --ignore-pull-failures debian-rust
         - docker-compose build debian-rust
         - docker-compose run debian-rust
-        - docker-compose push --ignore-push-failures debian-rust
 
   test-ubuntu-18.04-docs:
     ci: circle
@@ -1819,7 +1795,6 @@ tasks:
         - docker-compose build ubuntu-python
         - docker-compose build ubuntu-docs
         - docker-compose run ubuntu-docs
-        - docker-compose push --ignore-push-failures ubuntu-docs
 
   test-ubuntu-fuzzit:
     ci: circle
@@ -1832,7 +1807,6 @@ tasks:
         - docker-compose build ubuntu-cpp
         - docker-compose build ubuntu-fuzzit
         - docker-compose run ubuntu-fuzzit
-        - docker-compose push --ignore-push-failures ubuntu-fuzzit
 
   ############################## Integration tests ############################
 

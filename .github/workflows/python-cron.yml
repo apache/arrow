@@ -52,12 +52,12 @@ jobs:
         shell: bash
         run: docker-compose run debian-python
       - name: Docker Push
-        if: github.event_name == 'push' && github.repository == 'apache/arrow'
+        if: success() && github.repository == 'apache/arrow'
+        continue-on-error: true
         shell: bash
         run: |
-          docker login \
-            -u ${{ secrets.DOCKERHUB_USER }} \
-            -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker login -u ${{ secrets.DOCKERHUB_USER }} \
+                       -p ${{ secrets.DOCKERHUB_TOKEN }}
           docker-compose push debian-python
 
   fedora:
@@ -88,12 +88,12 @@ jobs:
         shell: bash
         run: docker-compose run fedora-python
       - name: Docker Push
-        if: github.event_name == 'push' && github.ref == 'master'
+        if: success() && github.repository == 'apache/arrow'
+        continue-on-error: true
         shell: bash
         run: |
-          docker login \
-            -u ${{ secrets.DOCKERHUB_USER }} \
-            -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker login -u ${{ secrets.DOCKERHUB_USER }} \
+                       -p ${{ secrets.DOCKERHUB_TOKEN }}
           docker-compose push fedora-python
 
   downstream:
@@ -131,10 +131,10 @@ jobs:
         run: |
           docker-compose run conda-python-${{ matrix.library }}
       - name: Docker Push
-        if: github.event_name == 'push' && github.ref == 'master'
+        if: success() && github.repository == 'apache/arrow'
+        continue-on-error: true
         shell: bash
         run: |
-          docker login \
-            -u ${{ secrets.DOCKERHUB_USER }} \
-            -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker login -u ${{ secrets.DOCKERHUB_USER }} \
+                       -p ${{ secrets.DOCKERHUB_TOKEN }}
           docker-compose push conda-python-${{ matrix.library }}
