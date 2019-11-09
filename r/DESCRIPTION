@@ -40,7 +40,6 @@ Roxygen: list(markdown = TRUE, r6 = FALSE, load = "source")
 RoxygenNote: 6.1.99.9001
 VignetteBuilder: knitr
 Suggests:
-    covr,
     dplyr,
     hms,
     knitr,

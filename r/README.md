@@ -129,28 +129,8 @@ These daily package builds are not official Apache releases and are not
 recommended for production use. They may be useful for testing bug fixes
 and new features under active development.
 
-Linux users will need to build the Arrow C++ library from source. See
-“Development” below. Once you have the C++ library, you can install
-the R package from GitHub using the
-[`remotes`](https://remotes.r-lib.org/) package. From within an R
-session,
-
-``` r
-# install.packages("remotes") # Or install "devtools", which includes remotes
-remotes::install_github("apache/arrow/r")
-```
-
-or if you prefer to stay at the command line,
-
-``` shell
-R -e 'remotes::install_github("apache/arrow/r")'
-```
-
-You can specify a particular commit, branch, or
-[release](https://github.com/apache/arrow/releases) to install by
-including a `ref` argument to `install_github()`. This is particularly
-useful to match the R package version to the C++ library version you’ve
-installed.
+Linux users will need to build the Arrow C++ library from source, then
+install the R package from source, as described in the next section.
 
 ## Developing
 
@@ -197,7 +177,7 @@ checkout:
 
 ``` shell
 cd ../../r
-R -e 'install.packages(c("devtools", "roxygen2", "pkgdown")); devtools::install_dev_deps()'
+R -e 'install.packages(c("devtools", "roxygen2", "pkgdown", "covr")); devtools::install_dev_deps()'
 R CMD INSTALL .
 ```
 
@@ -265,6 +245,7 @@ devtools::document() # Update roxygen documentation
 rmarkdown::render("README.Rmd") # To rebuild README.md
 pkgdown::build_site() # To preview the documentation website
 devtools::check() # All package checks; see also below
+covr::package_coverage() # See test coverage statistics
 ```
 
 Any of those can be run from the command line by wrapping them in `R -e
