@@ -212,35 +212,6 @@ static inline DataFragmentIterator GetFragmentsFromSources(
   return MakeFlattenIterator(std::move(fragments_it));
 }
 
-/// \brief Return a schema with the union of fields in schemas.
-/// If fields in two schemas share a name they must be identical.
-/// TODO(bkietz) loosen this to "be convertible"
-inline Result<std::shared_ptr<Schema>> MergeSchemas(
-    const std::vector<std::shared_ptr<Schema>>& schemas) {
-  std::unordered_map<std::string, int> field_names;
-  std::vector<std::shared_ptr<Field>> fields;
-
-  for (const auto& schema : schemas) {
-    for (const auto& field : schema->fields()) {
-      auto it = field_names.find(field->name());
-      if (it == field_names.end()) {
-        // new field name
-        field_names.emplace(field->name(), static_cast<int>(fields.size()));
-        fields.push_back(field);
-        continue;
-      }
-
-      // ensure fields with the same name are identical
-      const auto& matching_field = fields[it->second];
-      if (!matching_field->Equals(field)) {
-        return Status::TypeError("Non identical fields with the same name: ",
-                                 field->ToString(), " vs ", matching_field->ToString());
-      }
-    }
-  }
-  return schema(fields);
-}
-
 inline std::shared_ptr<Schema> SchemaFromColumnNames(
     const std::shared_ptr<Schema>& input, const std::vector<std::string>& column_names) {
   std::vector<std::shared_ptr<Field>> columns;
