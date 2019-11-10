@@ -1035,7 +1035,7 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
   /// uninitialized.
   template <typename Word>
   View<Word> words() const {
-    auto bytes_addr = reinterpret_cast<size_t>(bytes().data());
+    auto bytes_addr = reinterpret_cast<intptr_t>(bytes().data());
     auto words_addr = bytes_addr - bytes_addr % sizeof(Word);
     auto word_byte_count =
         BitUtil::RoundUpToPowerOf2(static_cast<int64_t>(bytes_addr + bytes().size()),
@@ -1048,8 +1048,8 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
   /// offset of first bit relative to words<Word>().data()
   template <typename Word>
   int64_t word_offset() const {
-    return offset_ + 8 * (reinterpret_cast<size_t>(buffer_->data()) -
-                          reinterpret_cast<size_t>(words<Word>().data()));
+    return offset_ + 8 * (reinterpret_cast<intptr_t>(buffer_->data()) -
+                          reinterpret_cast<intptr_t>(words<Word>().data()));
   }
 
   /// load words from bitmaps bitwise

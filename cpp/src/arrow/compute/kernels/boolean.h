@@ -58,7 +58,7 @@ Status And(FunctionContext* context, const Datum& left, const Datum& right, Datu
 /// \param[in] right right operand (array)
 /// \param[out] out resulting datum
 ///
-/// \since 0.11.0
+/// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Status KleeneAnd(FunctionContext* context, const Datum& left, const Datum& right,
@@ -85,7 +85,7 @@ Status Or(FunctionContext* context, const Datum& left, const Datum& right, Datum
 /// \param[in] right right operand (array)
 /// \param[out] out resulting datum
 ///
-/// \since 0.11.0
+/// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Status KleeneOr(FunctionContext* context, const Datum& left, const Datum& right,
