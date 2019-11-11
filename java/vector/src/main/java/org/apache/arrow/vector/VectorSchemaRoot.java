@@ -31,6 +31,8 @@ import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.compare.ApproxEqualsVisitor;
 import org.apache.arrow.vector.compare.Range;
 import org.apache.arrow.vector.compare.VectorEqualsVisitor;
+import org.apache.arrow.vector.compare.VectorValueEqualizer;
+import org.apache.arrow.vector.compare.util.ValueEpsilonEqualizers;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.arrow.vector.util.TransferPair;
@@ -316,7 +318,7 @@ public class VectorSchemaRoot implements AutoCloseable {
   }
 
   /**
-   * Determine if two record batches are exactly equal.
+   * Determine if two VectorSchemaRoots are exactly equal.
    */
   public boolean equals(VectorSchemaRoot other) {
     if (other == null) {
@@ -343,9 +345,22 @@ public class VectorSchemaRoot implements AutoCloseable {
   }
 
   /**
-   * Determine if two record batches are approximately equal.
+   * Determine if two VectorSchemaRoots are approximately equal using the given functions to
+   * calculate difference between float/double values.
+   * Note that approx equals are in regards to floating point values, other values are comparing
+   * to exactly equals.
+   *
+   * @param floatDiffFunction function to calculate difference between float values.
+   * @param doubleDiffFunction function to calculate difference between double values.
    */
-  public boolean approxEquals(VectorSchemaRoot other) {
+  public boolean approxEquals(
+      VectorSchemaRoot other,
+      VectorValueEqualizer<Float4Vector> floatDiffFunction,
+      VectorValueEqualizer<Float8Vector> doubleDiffFunction) {
+
+    Preconditions.checkNotNull(floatDiffFunction);
+    Preconditions.checkNotNull(doubleDiffFunction);
+
     if (other == null) {
       return false;
     }
@@ -365,7 +380,8 @@ public class VectorSchemaRoot implements AutoCloseable {
       if (vector.getValueCount() != otherVector.getValueCount()) {
         return false;
       }
-      ApproxEqualsVisitor visitor = new ApproxEqualsVisitor(vector, otherVector);
+      ApproxEqualsVisitor visitor =
+          new ApproxEqualsVisitor(vector, otherVector, floatDiffFunction, doubleDiffFunction);
       range.setLength(vector.getValueCount());
       if (!visitor.rangeEquals(range)) {
         return false;
@@ -373,6 +389,18 @@ public class VectorSchemaRoot implements AutoCloseable {
     }
 
     return true;
+  }
+
+  /**
+   * Determine if two VectorSchemaRoots are approximately equal using default functions to
+   * calculate difference between float/double values.
+   */
+  public boolean approxEquals(VectorSchemaRoot other) {
+    VectorValueEqualizer<Float4Vector> floatDiffFunction =
+        new ValueEpsilonEqualizers.Float4EpsilonEqualizer(ApproxEqualsVisitor.DEFAULT_FLOAT_EPSILON);
+    VectorValueEqualizer<Float8Vector> doubleDiffFunction =
+        new ValueEpsilonEqualizers.Float8EpsilonEqualizer(ApproxEqualsVisitor.DEFAULT_DOUBLE_EPSILON);
+    return approxEquals(other, floatDiffFunction, doubleDiffFunction);
   }
 }
 
