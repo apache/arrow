@@ -889,6 +889,83 @@ Result<std::shared_ptr<DataType>> FieldExpression::Validate(const Schema& schema
   return null();
 }
 
+Result<std::shared_ptr<Expression>> InsertImplicitCasts(const Expression& expr,
+                                                        const Schema& schema) {
+  struct {
+    struct Validated {
+      std::shared_ptr<Expression> expr;
+      std::shared_ptr<DataType> type;
+    };
+
+    Result<Validated> Validate(const Expression& expr) {
+      Validated out;
+      ARROW_ASSIGN_OR_RAISE(out.expr, InsertImplicitCasts(expr, schema_));
+      ARROW_ASSIGN_OR_RAISE(out.type, out.expr->Validate(schema_));
+      return std::move(out);
+    }
+
+    Result<std::shared_ptr<Expression>> operator()(const NotExpression& expr) {
+      ARROW_ASSIGN_OR_RAISE(auto op, Validate(*expr.operand()));
+
+      if (op.type->id() != Type::BOOL) {
+        op.expr = op.expr->CastTo(boolean()).Copy();
+      }
+      return not_(std::move(op.expr));
+    }
+
+    Result<std::shared_ptr<Expression>> operator()(const AndExpression& expr) {
+      ARROW_ASSIGN_OR_RAISE(auto lhs, Validate(*expr.left_operand()));
+      ARROW_ASSIGN_OR_RAISE(auto rhs, Validate(*expr.right_operand()));
+
+      if (lhs.type->id() != Type::BOOL) {
+        lhs.expr = lhs.expr->CastTo(boolean()).Copy();
+      }
+      if (rhs.type->id() != Type::BOOL) {
+        rhs.expr = rhs.expr->CastTo(boolean()).Copy();
+      }
+      return and_(std::move(lhs.expr), std::move(rhs.expr));
+    }
+
+    Result<std::shared_ptr<Expression>> operator()(const OrExpression& expr) {
+      ARROW_ASSIGN_OR_RAISE(auto lhs, Validate(*expr.left_operand()));
+      ARROW_ASSIGN_OR_RAISE(auto rhs, Validate(*expr.right_operand()));
+
+      if (lhs.type->id() != Type::BOOL) {
+        lhs.expr = lhs.expr->CastTo(boolean()).Copy();
+      }
+      if (rhs.type->id() != Type::BOOL) {
+        rhs.expr = rhs.expr->CastTo(boolean()).Copy();
+      }
+      return or_(std::move(lhs.expr), std::move(rhs.expr));
+    }
+
+    Result<std::shared_ptr<Expression>> operator()(const ComparisonExpression& expr) {
+      ARROW_ASSIGN_OR_RAISE(auto lhs, Validate(*expr.left_operand()));
+      ARROW_ASSIGN_OR_RAISE(auto rhs, Validate(*expr.right_operand()));
+
+      if (lhs.type->Equals(rhs.type)) {
+        return expr.Copy();
+      }
+
+      if (lhs.expr->type() == ExpressionType::SCALAR) {
+        lhs.expr = lhs.expr->CastTo(rhs.type).Copy();
+      } else {
+        rhs.expr = rhs.expr->CastTo(lhs.type).Copy();
+      }
+      return std::make_shared<ComparisonExpression>(expr.op(), std::move(lhs.expr),
+                                                    std::move(rhs.expr));
+    }
+
+    Result<std::shared_ptr<Expression>> operator()(const Expression& expr) const {
+      return expr.Copy();
+    }
+
+    const Schema& schema_;
+  } visitor = {schema};
+
+  return VisitExpression(expr, visitor);
+}
+
 std::vector<std::string> FieldsInExpression(const Expression& expr) {
   struct {
     void operator()(const FieldExpression& expr) { fields.push_back(expr.name()); }
