@@ -17,6 +17,7 @@
 
 package org.apache.arrow.flight.perf;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
@@ -78,7 +79,11 @@ public class TestPerf {
 
   @Test
   public void throughput() throws Exception {
-    for (int i = 0; i < 10; i++) {
+    final int numRuns = 10;
+    ListeningExecutorService pool = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(4));
+    double [] throughPuts = new double[numRuns];
+
+    for (int i = 0; i < numRuns; i++) {
       try (
           final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
           final PerformanceTestServer server =
@@ -86,7 +91,6 @@ public class TestPerf {
           final FlightClient client = FlightClient.builder(a, server.getLocation()).build();
       ) {
         final FlightInfo info = client.getInfo(getPerfFlightDescriptor(50_000_000L, 4095, 2));
-        ListeningExecutorService pool = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(4));
         List<ListenableFuture<Result>> results = info.getEndpoints()
             .stream()
             .map(t -> new Consumer(client, t.getTicket()))
@@ -102,16 +106,25 @@ public class TestPerf {
         }).get();
 
         double seconds = r.nanos * 1.0d / 1000 / 1000 / 1000;
+        throughPuts[i] = (r.bytes * 1.0d / 1024 / 1024) / seconds;
         System.out.println(String.format(
             "Transferred %d records totaling %s bytes at %f MiB/s. %f record/s. %f batch/s.",
             r.rows,
             r.bytes,
-            (r.bytes * 1.0d / 1024 / 1024) / seconds,
+            throughPuts[i],
             (r.rows * 1.0d) / seconds,
             (r.batches * 1.0d) / seconds
         ));
       }
     }
+    pool.shutdown();
+
+    System.out.println("Summary: ");
+    double average = Arrays.stream(throughPuts).sum() / numRuns;
+    double sqrSum = Arrays.stream(throughPuts).map(val -> val - average).map(val -> val * val).sum();
+    double stddev = Math.sqrt(sqrSum / numRuns);
+    System.out.println(String.format("Average throughput: %f MiB/s, standard deviation: %f MiB/s",
+            average, stddev));
   }
 
   private final class Consumer implements Callable<Result> {
