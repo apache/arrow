@@ -396,30 +396,20 @@ if(PYARROW_BUILD_CUDA)
   set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _cuda)
 endif()
 
+# Dataset
 if(PYARROW_BUILD_DATASET)
-  # Dataset
-  find_package(ArrowDataset)
-  if(NOT ARROW_DATASET_FOUND)
-    message(FATAL_ERROR "Unable to locate Arrow Dataset libraries")
-  else()
-    if(PYARROW_BUNDLE_ARROW_CPP)
-      bundle_arrow_lib(ARROW_DATASET_SHARED_LIB
-                       ABI_VERSION
-                       ${ARROW_ABI_VERSION}
-                       SO_VERSION
-                       ${ARROW_SO_VERSION})
-      if(MSVC)
-        bundle_arrow_implib(ARROW_DATASET_SHARED_IMP_LIB)
-      endif()
-    endif()
+  # Arrow Dataset
+  find_package(ArrowDataset REQUIRED)
+
+  if(PYARROW_BUNDLE_ARROW_CPP)
+    bundle_arrow_lib(ARROW_DATASET_SHARED_LIB SO_VERSION ${ARROW_SO_VERSION})
     if(MSVC)
-      add_thirdparty_lib(arrow_dataset SHARED_LIB ${ARROW_DATASET_SHARED_IMP_LIB})
-    else()
-      add_thirdparty_lib(arrow_dataset SHARED_LIB ${ARROW_DATASET_SHARED_LIB})
+      bundle_arrow_import_lib(ARROW_DATASET_IMPORT_LIB)
     endif()
-    set(LINK_LIBS ${LINK_LIBS} arrow_dataset_shared)
-    set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _dataset)
   endif()
+
+  set(DATASET_LINK_LIBS arrow_dataset_shared)
+  set(CYTHON_EXTENSIONS ${CYTHON_EXTENSIONS} _dataset)
 endif()
 
 if(PYARROW_BUILD_PARQUET)
@@ -592,6 +582,10 @@ endif()
 
 if(PYARROW_BUILD_FLIGHT)
   target_link_libraries(_flight ${FLIGHT_LINK_LIBS})
+endif()
+
+if(PYARROW_BUILD_DATASET)
+  target_link_libraries(_dataset ${DATASET_LINK_LIBS})
 endif()
 
 if(PYARROW_BUILD_GANDIVA)

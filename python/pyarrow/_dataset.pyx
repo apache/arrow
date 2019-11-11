@@ -139,14 +139,14 @@ cdef class DataFragment:
             unique_ptr[CScanTask] task
 
         context = context or ScanContext()
-        check_status(self.fragment.Scan(context.wrapped, &task_iterator))
+        # check_status(self.fragment.Scan(context.wrapped, &task_iterator))
 
-        while True:
-            task_iterator.get().Next(&task)
-            if task == nullptr:
-                raise StopIteration()
-            else:
-                yield ScanTask.wrap(task)
+        # while True:
+        #     task_iterator.get().Next(&task)
+        #     if task == nullptr:
+        #         raise StopIteration()
+        #     else:
+        #         yield ScanTask.wrap(task)
 
     scan = tasks
 
@@ -203,14 +203,14 @@ cdef class DataSource:
         options = options or ScanOptions()
 
         # NOTE(kszucs): shouldn't we return Status here?
-        fragment_iterator = self.source.GetFragments(options.wrapped)
+        # fragment_iterator = self.source.GetFragments(options.wrapped)
 
-        while True:
-            fragment_iterator.get().Next(&fragment)
-            if fragment == nullptr:
-                raise StopIteration()
-            else:
-                yield DataFragment.wrap(fragment)
+        # while True:
+        #     fragment_iterator.get().Next(&fragment)
+        #     if fragment == nullptr:
+        #         raise StopIteration()
+        #     else:
+        #         yield DataFragment.wrap(fragment)
 
     get_fragments = fragments
 
@@ -237,47 +237,47 @@ cdef class SimpleDataSource(DataSource):
         self.simple_source = <CSimpleDataSource*> sp.get()
 
 
-# cdef class Dataset:
-#
-#     cdef:
-#         shared_ptr[CDataset] wrapped
-#         CDataset* dataset
-#
-#     def __init__(self, data_sources, Schema schema=None):
-#         cdef:
-#             DataSource source
-#             vector[shared_ptr[CDataSource]] sources
-#             shared_ptr[CDataset] dataset
-#
-#         for source in data_sources:
-#             sources.push_back(source.wrapped)
-#
-#         if schema is None:
-#             dataset = make_shared[CDataset](sources)
-#         else:
-#             dataset = make_shared[CDataset](sources, schema.sp_schema)
-#
-#         self.init(dataset)
-#
-#     cdef void init(self, const shared_ptr[CDataset]& sp):
-#         self.wrapped = sp
-#         self.dataset = sp.get()
-#
-#     def new_scan(self):
-#         pass
-#
-#     @property
-#     def sources(self):
-#         pass
-#
-#     @property
-#     def schema(self):
-#         pass
-#
-#     def infer_schema(self):
-#         pass
-#
-#     def replace_schema(self, Schema new_schema):
-#         pass
-#
-#     with_schema = replace_schema
+cdef class Dataset:
+
+    cdef:
+        shared_ptr[CDataset] wrapped
+        CDataset* dataset
+
+    # def __init__(self, data_sources, Schema schema=None):
+    #     cdef:
+    #         DataSource source
+    #         vector[shared_ptr[CDataSource]] sources
+    #         shared_ptr[CDataset] dataset
+
+    #     for source in data_sources:
+    #         sources.push_back(source.wrapped)
+
+    #     if schema is None:
+    #         dataset = make_shared[CDataset](sources)
+    #     else:
+    #         dataset = make_shared[CDataset](sources, schema.sp_schema)
+
+    #     self.init(dataset)
+
+    # cdef void init(self, const shared_ptr[CDataset]& sp):
+    #     self.wrapped = sp
+    #     self.dataset = sp.get()
+
+    def new_scan(self):
+        pass
+
+    @property
+    def sources(self):
+        pass
+
+    @property
+    def schema(self):
+        pass
+
+    # def infer_schema(self):
+    #     pass
+
+    # def replace_schema(self, Schema new_schema):
+    #     pass
+
+    # with_schema = replace_schema
