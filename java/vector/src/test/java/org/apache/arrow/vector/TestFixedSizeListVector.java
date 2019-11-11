@@ -19,6 +19,7 @@ package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
@@ -266,19 +267,22 @@ public class TestFixedSizeListVector {
     }
   }
 
-  @Test(expected = IllegalStateException.class)
+  @Test
   public void testDecimalIndexCheck() throws Exception {
     try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", 3, allocator)) {
 
       UnionFixedSizeListWriter writer1 = vector1.getWriter();
       writer1.allocate();
 
-      writer1.startList();
-      writer1.decimal().writeDecimal(new BigDecimal(1));
-      writer1.decimal().writeDecimal(new BigDecimal(2));
-      writer1.decimal().writeDecimal(new BigDecimal(3));
-      writer1.decimal().writeDecimal(new BigDecimal(4));
-      writer1.endList();
+      IllegalStateException e = assertThrows(IllegalStateException.class, () -> {
+        writer1.startList();
+        writer1.decimal().writeDecimal(new BigDecimal(1));
+        writer1.decimal().writeDecimal(new BigDecimal(2));
+        writer1.decimal().writeDecimal(new BigDecimal(3));
+        writer1.decimal().writeDecimal(new BigDecimal(4));
+        writer1.endList();
+      });
+      assertEquals("values at index 0 exceed listSize 3", e.getMessage());
     }
   }
 
@@ -303,7 +307,6 @@ public class TestFixedSizeListVector {
       assertTrue(Arrays.equals(values1, realValue1));
       int[] realValue2 = convertListToIntArray((JsonStringArrayList) vector1.getObject(1));
       assertTrue(Arrays.equals(values2, realValue2));
-      System.out.println("hehe");
     }
   }
 
