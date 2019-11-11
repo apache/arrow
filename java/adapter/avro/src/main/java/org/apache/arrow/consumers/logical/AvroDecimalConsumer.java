@@ -18,11 +18,10 @@
 package org.apache.arrow.consumers.logical;
 
 import java.io.IOException;
-import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
 
 import org.apache.arrow.consumers.BaseAvroConsumer;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.avro.io.Decoder;
 
@@ -32,14 +31,11 @@ import org.apache.avro.io.Decoder;
  */
 public abstract class AvroDecimalConsumer extends BaseAvroConsumer<DecimalVector> {
 
-  protected int scale;
-
   /**
    * Instantiate a AvroDecimalConsumer.
    */
   public AvroDecimalConsumer(DecimalVector vector) {
     super(vector);
-    scale = vector.getScale();
   }
 
   /**
@@ -49,6 +45,9 @@ public abstract class AvroDecimalConsumer extends BaseAvroConsumer<DecimalVector
 
     private ByteBuffer cacheBuffer;
 
+    /**
+     * Instantiate a BytesDecimalConsumer.
+     */
     public BytesDecimalConsumer(DecimalVector vector) {
       super(vector);
     }
@@ -57,9 +56,9 @@ public abstract class AvroDecimalConsumer extends BaseAvroConsumer<DecimalVector
     public void consume(Decoder decoder) throws IOException {
       cacheBuffer = decoder.readBytes(cacheBuffer);
       byte[] bytes = new byte[cacheBuffer.limit()];
+      Preconditions.checkArgument(bytes.length <= 16, "Decimal bytes length should <= 16.");
       cacheBuffer.get(bytes);
-      BigDecimal decimal = new BigDecimal(new BigInteger(bytes), scale);
-      vector.setSafe(currentIndex++, decimal);
+      vector.setBigEndianSafe(currentIndex++, bytes);
     }
 
   }
@@ -71,16 +70,19 @@ public abstract class AvroDecimalConsumer extends BaseAvroConsumer<DecimalVector
 
     private byte[] reuseBytes;
 
+    /**
+     * Instantiate a FixedDecimalConsumer.
+     */
     public FixedDecimalConsumer(DecimalVector vector, int size) {
       super(vector);
+      Preconditions.checkArgument(size <= 16, "Decimal bytes length should <= 16.");
       reuseBytes = new byte[size];
     }
 
     @Override
     public void consume(Decoder decoder) throws IOException {
       decoder.readFixed(reuseBytes);
-      BigDecimal decimal = new BigDecimal(new BigInteger(reuseBytes), scale);
-      vector.setSafe(currentIndex++, decimal);
+      vector.setBigEndianSafe(currentIndex++, reuseBytes);
     }
   }
 }

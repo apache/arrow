@@ -102,8 +102,6 @@ import org.apache.avro.io.Decoder;
  */
 public class AvroToArrowUtils {
 
-  private static final int INVALID_NULL_INDEX = -1;
-
   /**
    * Creates a {@link Consumer} from the {@link Schema}
    *
@@ -191,9 +189,7 @@ public class AvroToArrowUtils {
         break;
       case FIXED:
         if (logicalType instanceof LogicalTypes.Decimal) {
-          final int scala = ((LogicalTypes.Decimal) logicalType).getScale();
-          final int precision = ((LogicalTypes.Decimal) logicalType).getPrecision();
-          arrowType = new ArrowType.Decimal(precision, scala);
+          arrowType = createDecimalArrowType((LogicalTypes.Decimal) logicalType);
           fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
           vector = createVector(consumerVector, fieldType, name, allocator);
           consumer = new AvroDecimalConsumer.FixedDecimalConsumer((DecimalVector) vector, schema.getFixedSize());
@@ -265,9 +261,7 @@ public class AvroToArrowUtils {
         break;
       case BYTES:
         if (logicalType instanceof LogicalTypes.Decimal) {
-          final int scala = ((LogicalTypes.Decimal) logicalType).getScale();
-          final int precision = ((LogicalTypes.Decimal) logicalType).getPrecision();
-          arrowType = new ArrowType.Decimal(precision, scala);
+          arrowType = createDecimalArrowType((LogicalTypes.Decimal) logicalType);
           fieldType =  new FieldType(nullable, arrowType, /*dictionary=*/null, getMetaData(schema));
           vector = createVector(consumerVector, fieldType, name, allocator);
           consumer = new AvroDecimalConsumer.BytesDecimalConsumer((DecimalVector) vector);
@@ -289,6 +283,20 @@ public class AvroToArrowUtils {
         throw new UnsupportedOperationException("Can't convert avro type %s to arrow type." + type.getName());
     }
     return consumer;
+  }
+
+  private static ArrowType createDecimalArrowType(LogicalTypes.Decimal logicalType) {
+    final int scale = logicalType.getScale();
+    final int precision = logicalType.getPrecision();
+    Preconditions.checkArgument(precision > 0 && precision <= 38,
+        "Precision must be in range of 1 to 38");
+    Preconditions.checkArgument(scale >= 0 && scale <= 38,
+        "Scale must be in range of 0 to 38.");
+    Preconditions.checkArgument(scale <= precision,
+        "Invalid decimal scale: %s (greater than precision: %s)", scale, precision);
+
+    return new ArrowType.Decimal(precision, scale);
+
   }
 
   private static Consumer createSkipConsumer(Schema schema) {
@@ -477,9 +485,7 @@ public class AvroToArrowUtils {
         break;
       case FIXED:
         if (logicalType instanceof LogicalTypes.Decimal) {
-          final int scala = ((LogicalTypes.Decimal) logicalType).getScale();
-          final int precision = ((LogicalTypes.Decimal) logicalType).getPrecision();
-          arrowType = new ArrowType.Decimal(precision, scala);
+          arrowType = createDecimalArrowType((LogicalTypes.Decimal) logicalType);
         } else {
           arrowType = new ArrowType.FixedSizeBinary(schema.getFixedSize());
         }
@@ -515,9 +521,7 @@ public class AvroToArrowUtils {
         break;
       case BYTES:
         if (logicalType instanceof LogicalTypes.Decimal) {
-          final int scala = ((LogicalTypes.Decimal) logicalType).getScale();
-          final int precision = ((LogicalTypes.Decimal) logicalType).getPrecision();
-          arrowType = new ArrowType.Decimal(precision, scala);
+          arrowType = createDecimalArrowType((LogicalTypes.Decimal) logicalType);
         } else {
           arrowType = new ArrowType.Binary();
         }

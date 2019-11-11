@@ -17,8 +17,11 @@
 
 package org.apache.arrow;
 
+import static junit.framework.TestCase.assertNull;
+import static junit.framework.TestCase.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -28,8 +31,9 @@ import java.util.List;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.util.DateUtility;
+import org.apache.avro.Conversions;
 import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericFixed;
 import org.junit.Test;
 
 public class AvroLogicalTypesTest extends AvroTestBase {
@@ -118,17 +122,39 @@ public class AvroLogicalTypesTest extends AvroTestBase {
   @Test
   public void testDecimalWithOriginalBytes() throws Exception {
     Schema schema = getSchema("logical/test_decimal_with_original_bytes.avsc");
-    List<ByteBuffer> data = Arrays.asList(
-        ByteBuffer.wrap(new BigDecimal("10").unscaledValue().toByteArray()),
-        ByteBuffer.wrap(new BigDecimal("1234").unscaledValue().toByteArray()),
-        ByteBuffer.wrap(new BigDecimal("123456").unscaledValue().toByteArray()),
-        ByteBuffer.wrap(new BigDecimal("111122").unscaledValue().toByteArray()));
+    List<ByteBuffer> data = new ArrayList<>();
+    List<BigDecimal> expected = new ArrayList<>();
 
-    List<BigDecimal> expected = Arrays.asList(
-        new BigDecimal(new BigInteger("10"), 2),
-        new BigDecimal(new BigInteger("1234"), 2),
-        new BigDecimal(new BigInteger("123456"), 2),
-        new BigDecimal(new BigInteger("111122"), 2));
+    Conversions.DecimalConversion conversion = new Conversions.DecimalConversion();
+
+    for (int i = 0; i < 5; i++) {
+      BigDecimal value = new BigDecimal(i * i).setScale(2);
+      ByteBuffer buffer = conversion.toBytes(value, schema, schema.getLogicalType());
+      data.add(buffer);
+      expected.add(value);
+    }
+
+    VectorSchemaRoot root = writeAndRead(schema, data);
+    FieldVector vector = root.getFieldVectors().get(0);
+    checkPrimitiveResult(expected, vector);
+
+  }
+
+  @Test
+  public void testDecimalWithOriginalFixed() throws Exception {
+    Schema schema = getSchema("logical/test_decimal_with_original_fixed.avsc");
+
+    List<GenericFixed> data = new ArrayList<>();
+    List<BigDecimal> expected = new ArrayList<>();
+
+    Conversions.DecimalConversion conversion = new Conversions.DecimalConversion();
+
+    for (int i = 0; i < 5; i++) {
+      BigDecimal value = new BigDecimal(i * i).setScale(2);
+      GenericFixed fixed = conversion.toFixed(value, schema, schema.getLogicalType());
+      data.add(fixed);
+      expected.add(value);
+    }
 
     VectorSchemaRoot root = writeAndRead(schema, data);
     FieldVector vector = root.getFieldVectors().get(0);
@@ -136,33 +162,40 @@ public class AvroLogicalTypesTest extends AvroTestBase {
   }
 
   @Test
-  public void testDecimalWithOriginalFixed() throws Exception {
-    Schema schema = getSchema("logical/test_decimal_with_original_fixed.avsc");
+  public void testInvalidDecimalPrecision() throws Exception {
+    Schema schema = getSchema("logical/test_decimal_invalid1.avsc");
+    List<ByteBuffer> data = new ArrayList<>();
 
-    List<GenericData.Fixed> data = new ArrayList<>();
-    List<BigDecimal> expected = new ArrayList<>();
+    Conversions.DecimalConversion conversion = new Conversions.DecimalConversion();
 
     for (int i = 0; i < 5; i++) {
-      BigDecimal bigDecimal = new BigDecimal(i * i).setScale(2);
-      byte fillByte = (byte) (bigDecimal.signum() < 0 ? 0xFF : 0x00);
-      byte[] unscaled = bigDecimal.unscaledValue().toByteArray();
-      byte[] bytes = new byte[schema.getFixedSize()];
-      int offset = bytes.length - unscaled.length;
-      for (int k = 0; k < bytes.length; k++) {
-        if (k < offset) {
-          bytes[k] = fillByte;
-        } else {
-          bytes[k] = unscaled[k - offset];
-        }
-      }
-      expected.add(bigDecimal);
-      GenericData.Fixed fixed = new GenericData.Fixed(schema);
-      fixed.bytes(bytes);
-      data.add(fixed);
+      BigDecimal value = new BigDecimal(i * i).setScale(2);
+      ByteBuffer buffer = conversion.toBytes(value, schema, schema.getLogicalType());
+      data.add(buffer);
     }
 
-    VectorSchemaRoot root = writeAndRead(schema, data);
-    FieldVector vector = root.getFieldVectors().get(0);
-    checkPrimitiveResult(expected, vector);
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
+        () -> writeAndRead(schema, data));
+    assertTrue(e.getMessage().contains("Precision must be in range of 1 to 38"));
+
   }
+
+  @Test
+  public void testFailedToCreateDecimalLogicalType() throws Exception {
+    // For decimal logical type, if avro validate schema failed, it will not create logical type,
+    // and the schema will be treated as its original type.
+
+    // java.lang.IllegalArgumentException: Invalid decimal scale: -1 (must be positive)
+    Schema schema1 = getSchema("logical/test_decimal_invalid2.avsc");
+    assertNull(schema1.getLogicalType());
+
+    // java.lang.IllegalArgumentException: Invalid decimal scale: 40 (greater than precision: 20)
+    Schema schema2 = getSchema("logical/test_decimal_invalid3.avsc");
+    assertNull(schema2.getLogicalType());
+
+    // java.lang.IllegalArgumentException: fixed(1) cannot store 30 digits (max 2)
+    Schema schema3 = getSchema("logical/test_decimal_invalid4.avsc");
+    assertNull(schema3.getLogicalType());
+  }
+
 }
