@@ -65,13 +65,17 @@ class HadoopFileSystem::Impl {
 
   Status GetTargetStats(const std::string& path, FileStats* out) {
     io::HdfsPathInfo info;
-    RETURN_NOT_OK(client_->GetPathInfo(path, &info));
-
+    auto status = client_->GetPathInfo(path, &info);
     out->set_path(path);
+    if (status.IsIOError()) {
+      out->set_type(FileType::NonExistent);
+      return Status::OK();
+    }
+
     if (info.kind == io::ObjectType::DIRECTORY) {
       out->set_type(FileType::Directory);
       out->set_size(kNoSize);
-    } else {
+    } else if (info.kind == io::ObjectType::FILE) {
       out->set_type(FileType::File);
       out->set_size(info.size);
     }
@@ -79,14 +83,51 @@ class HadoopFileSystem::Impl {
     return Status::OK();
   }
 
-  Status GetTargetStats(const Selector& select, std::vector<FileStats>* out) {
-    std::vector<std::string> file_list;
-    RETURN_NOT_OK(client_->GetChildren(select.base_dir, &file_list));
-    for (auto file : file_list) {
-      FileStats stat;
-      RETURN_NOT_OK(GetTargetStats(file, &stat));
-      out->push_back(stat);
+  Status StatSelector(std::string path, const Selector& select, int nesting_depth,
+                      std::vector<FileStats>* out) {
+    FileStats stat;
+    RETURN_NOT_OK(GetTargetStats(path, &stat));
+    if (stat.type() == FileType::NonExistent) {
+      if (select.allow_non_existent) {
+        return Status::OK();
+      } else {
+        return Status::IOError("Directory does not exist: '", path, "'");
+      }
     }
+
+    if (nesting_depth > 1 &&
+        (!select.recursive || nesting_depth > select.max_recursion)) {
+      // if this selector dosn't support recursive or nesting_depth is over max_recursive,
+      // return without add this filestat into out.
+      return Status::OK();
+    }
+
+    if (stat.type() == FileType::Directory && path != select.base_dir) {
+      out->push_back(stat);
+    } else if (stat.type() == FileType::File) {
+      out->push_back(stat);
+      return Status::OK();
+    }
+
+    std::vector<std::string> file_list;
+    RETURN_NOT_OK(client_->GetChildren(path, &file_list));
+    for (auto file : file_list) {
+      // In hdfs case, file will be absolute path, trim here.
+      RETURN_NOT_OK(StatSelector(file, select, nesting_depth + 1, out));
+    }
+    return Status::OK();
+  }
+
+  Status GetTargetStats(const Selector& select, std::vector<FileStats>* out) {
+    out->clear();
+    FileStats stat;
+    RETURN_NOT_OK(GetTargetStats(select.base_dir, &stat));
+    if (stat.type() == FileType::File) {
+      return Status::Invalid(
+          "GetTargetStates expects base_dir of selector to be a directory, while '",
+          select.base_dir, "' is a file");
+    }
+    RETURN_NOT_OK(StatSelector(select.base_dir, select, 0, out));
     return Status::OK();
   }
 
@@ -116,7 +157,7 @@ class HadoopFileSystem::Impl {
     std::vector<std::string> file_list;
     RETURN_NOT_OK(client_->GetChildren(path, &file_list));
     for (auto file : file_list) {
-      RETURN_NOT_OK(client_->Delete(path + file));
+      RETURN_NOT_OK(client_->Delete(file, true));
     }
     return Status::OK();
   }
@@ -140,9 +181,10 @@ class HadoopFileSystem::Impl {
   }
 
   Status OpenInputStream(const std::string& path, std::shared_ptr<io::InputStream>* out) {
-    // TODO
-    return Status::NotImplemented(
-        "HadoopFileSystem::OpenInputStream is not supported yet");
+    std::shared_ptr<io::RandomAccessFile> file;
+    RETURN_NOT_OK(OpenInputFile(path, &file));
+    *out = file;
+    return Status::OK();
   }
 
   Status OpenInputFile(const std::string& path,

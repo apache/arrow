@@ -96,7 +96,7 @@ class TestLocalFileSystem : public TestFileSystem {
     arrow::internal::Uri uri;
     ASSERT_OK(uri.Parse(full_path));
     file_name_ = uri.path();
-    ASSERT_OK(factory::MakeFileSystem(full_path, &fs_));
+    ASSERT_OK(MakeFileSystem(full_path, &fs_));
   }
 
  protected:

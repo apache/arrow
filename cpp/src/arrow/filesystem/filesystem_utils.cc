@@ -27,15 +27,16 @@
 #endif
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/path_util.h"
+#include "arrow/result.h"
 #include "arrow/util/uri.h"
 
 namespace arrow {
 
 namespace fs {
 
-namespace factory {
+enum class FileSystemType { HDFS, LOCAL, S3, UNKNOWN };
 
-namespace internal {
+namespace {
 
 class PathInfo {
  public:
@@ -50,7 +51,6 @@ class PathInfo {
 
   Status Init(const std::string& full_path) {
     RETURN_NOT_OK(ParseURI(full_path));
-    full_path_ = std::string(full_path);
     return Status::OK();
   }
 
@@ -149,22 +149,21 @@ class PathInfo {
   }
 
   Status ParseOptions(arrow::internal::Uri* uri) {
-    auto options = uri->query_items();
-    for (auto option : *options) {
+    ARROW_ASSIGN_OR_RAISE(auto options, uri->query_items());
+    for (auto option : options) {
       options_.emplace(option.first, option.second);
     }
     return Status::OK();
   }
 
   FileSystemType fs_type_;
-  std::string full_path_;
   std::unordered_map<std::string, std::string> options_;
 };
-}  // namespace internal
+}  // namespace
 
 Status MakeFileSystem(const std::string& full_path, std::shared_ptr<FileSystem>* fs) {
-  std::shared_ptr<internal::PathInfo> path_info;
-  RETURN_NOT_OK(internal::PathInfo::Make(full_path, &path_info));
+  std::shared_ptr<PathInfo> path_info;
+  RETURN_NOT_OK(PathInfo::Make(full_path, &path_info));
   FileSystemType fs_type = path_info->GetFileSystemType();
 
   switch (fs_type) {
@@ -180,12 +179,12 @@ Status MakeFileSystem(const std::string& full_path, std::shared_ptr<FileSystem>*
       std::shared_ptr<HadoopFileSystem> hdfs;
       RETURN_NOT_OK(HadoopFileSystem::Make(hdfs_options, &hdfs));
 
-      *fs = std::make_shared<SubTreeFileSystem>("", hdfs);
+      *fs = hdfs;
     } break;
 #endif
     case FileSystemType::LOCAL: {
       auto local_fs = std::make_shared<LocalFileSystem>();
-      *fs = std::make_shared<SubTreeFileSystem>("", local_fs);
+      *fs = local_fs;
     } break;
 #ifdef ARROW_S3
     case FileSystemType::S3:
@@ -197,7 +196,5 @@ Status MakeFileSystem(const std::string& full_path, std::shared_ptr<FileSystem>*
 
   return Status::OK();
 }
-}  // namespace factory
-
 }  // namespace fs
 }  // namespace arrow

@@ -25,9 +25,6 @@ namespace arrow {
 
 namespace fs {
 
-enum class FileSystemType { HDFS, LOCAL, S3, UNKNOWN };
-
-namespace factory {
 /// \brief Creates a new FileSystem by path
 ///
 /// \param[in] full_path a URI-based path, ex: hdfs:///some/path?replication=3
@@ -35,6 +32,5 @@ namespace factory {
 /// \return Status
 ARROW_EXPORT Status MakeFileSystem(const std::string& full_path,
                                    std::shared_ptr<FileSystem>* fs);
-}  // namespace factory
 }  // namespace fs
 }  // namespace arrow

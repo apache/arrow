@@ -35,11 +35,7 @@ struct ARROW_EXPORT HdfsOptions {
   /// Hdfs configuration options, contains host, port, driver
   io::HdfsConnectionConfig hdfs_config;
 
-  /// Directory and file_name
-  std::string directory;
-  std::string file_name;
-
-  /// Used by Hdfs OpenWritale Interface.
+  /// Used by Hdfs OpenWritable Interface.
   int32_t buffer_size = 0;
   int16_t replication = 0;
   int64_t default_block_size = 0;

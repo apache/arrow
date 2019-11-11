@@ -18,10 +18,6 @@
 # Headers: top level
 arrow_install_all_headers("arrow/filesystem")
 
-if(ARROW_HDFS)
-  add_definitions(-DARROW_HDFS)
-endif()
-
 if(ARROW_S3)
   add_definitions(-DARROW_S3)
 endif()
