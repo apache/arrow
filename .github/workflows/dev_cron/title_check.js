@@ -38,7 +38,7 @@ async function commentOpenJIRAIssue(pullRequestNumber) {
   if (comments.length > 0) {
     return;
   }
-  const commentPath = ".github/workflows/pull_request/title_check.md";
+  const commentPath = ".github/workflows/dev_cron/title_check.md";
   const comment = fs.readFileSync(commentPath).toString();
   await github.issues.createComment({
     owner: owner,
