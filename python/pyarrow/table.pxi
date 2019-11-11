@@ -1692,3 +1692,38 @@ def concat_tables(tables):
         check_status(ConcatenateTables(c_tables, &c_result))
 
     return pyarrow_wrap_table(c_result)
+
+
+def concat_tables_with_promotion(tables, MemoryPool memory_pool=None):
+  """
+  Concatenate tables with null-filling and type promotion.
+
+  Columns of the same name will be concatenated. They should be of the
+  same type, or be of type NULL, in which case it will be promoted to
+  the type of other corresponding columns with null values filled.
+  If a table is missing a particular field, null values of the appropriate
+  type will be generated to take the place of the missing field
+  The new schema will share the metadata with the first table. Each field in
+  the new schema will share the metadata with the first table which has the
+  field defined.
+
+  Parameters
+  ----------
+  tables : iterable of pyarrow.Table objects
+  memory_pool : MemoryPool, default None
+      For memory allocations, if required, otherwise use default pool
+  """
+
+  cdef:
+      vector[shared_ptr[CTable]] c_tables
+      CResult[shared_ptr[CTable]] c_result
+      CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
+      Table table
+
+  for table in tables:
+      c_tables.push_back(table.sp_table)
+
+  with nogil:
+      c_result = ConcatenateTablesWithPromotion(c_tables, pool)
+  return pyarrow_wrap_table(GetResultValue(c_result))
+
