@@ -152,11 +152,9 @@ PRIMITIVE_OBJECTS = [
 ]
 
 
-# index_types = ('i1', 'i2', 'i4', 'i8', 'u1', 'u2', 'u4', 'u8')
-# tensor_types = ('i1', 'i2', 'i4', 'i8', 'u1', 'u2', 'u4', 'u8',
-#                 'f2', 'f4', 'f8')
-index_types = ('i8',)
-tensor_types = ('i8',)
+index_types = ('i1', 'i2', 'i4', 'i8', 'u1', 'u2', 'u4', 'u8')
+tensor_types = ('i1', 'i2', 'i4', 'i8', 'u1', 'u2', 'u4', 'u8',
+                'f2', 'f4', 'f8')
 
 
 if sys.version_info >= (3, 0):
@@ -544,10 +542,10 @@ def test_numpy_subclass_serialization():
 def test_sparse_coo_tensor_serialization(index_type, tensor_type):
     tensor_dtype = np.dtype(tensor_type)
     index_dtype = np.dtype(index_type)
-    data = np.array([[1, 2, 3, 4, 5, 6, 7]]).T.astype(tensor_dtype)
+    data = np.array([[1, 2, 3, 4, 5, 6]]).T.astype(tensor_dtype)
     coords = np.array([
-        [0, 0, 2, 3, 1, 3, 0],
-        [0, 2, 0, 4, 5, 5, 0],
+        [0, 0, 2, 3, 1, 3],
+        [0, 2, 0, 4, 5, 5],
     ]).T.astype(index_dtype)
     shape = (4, 6)
     dim_names = ('x', 'y')
@@ -558,7 +556,7 @@ def test_sparse_coo_tensor_serialization(index_type, tensor_type):
     context = pa.default_serialization_context()
     serialized = pa.serialize(sparse_tensor, context=context).to_buffer()
     result = pa.deserialize(serialized)
-    result.equals(sparse_tensor)
+    assert_equal(result, sparse_tensor)
 
     data_result, coords_result = result.to_numpy()
     assert np.array_equal(data_result, data)
@@ -572,10 +570,10 @@ def test_sparse_coo_tensor_components_serialization(large_buffer,
                                                     index_type, tensor_type):
     tensor_dtype = np.dtype(tensor_type)
     index_dtype = np.dtype(index_type)
-    data = np.array([[1, 2, 3, 4, 5, 6, 7]]).T.astype(tensor_dtype)
+    data = np.array([[1, 2, 3, 4, 5, 6]]).T.astype(tensor_dtype)
     coords = np.array([
-        [0, 0, 2, 3, 1, 3, 0],
-        [0, 2, 0, 4, 5, 5, 0],
+        [0, 0, 2, 3, 1, 3],
+        [0, 2, 0, 4, 5, 5],
     ]).T.astype(index_dtype)
     shape = (4, 6)
     dim_names = ('x', 'y')
@@ -587,9 +585,9 @@ def test_sparse_coo_tensor_components_serialization(large_buffer,
 
 @pytest.mark.skipif(not coo_matrix, reason="requires scipy")
 def test_scipy_sparse_coo_tensor_serialization():
-    data = np.array([1, 2, 3, 4, 5, 6, 7])
-    row = np.array([0, 0, 2, 3, 1, 3, 0])
-    col = np.array([0, 2, 0, 4, 5, 5, 0])
+    data = np.array([1, 2, 3, 4, 5, 6])
+    row = np.array([0, 0, 2, 3, 1, 3])
+    col = np.array([0, 2, 0, 4, 5, 5])
     shape = (4, 6)
 
     sparse_array = coo_matrix((data, (row, col)), shape=shape)

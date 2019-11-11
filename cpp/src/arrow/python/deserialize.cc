@@ -187,7 +187,7 @@ Status GetValue(PyObject* context, const Array& arr, int64_t index, int8_t type,
     case PythonType::SPARSECOOTENSOR: {
       int32_t ref = checked_cast<const Int32Array&>(arr).Value(index);
       const std::shared_ptr<SparseCOOTensor>& sparse_coo_tensor =
-          reinterpret_cast<const std::shared_ptr<SparseCOOTensor>&>(
+          arrow::internal::checked_pointer_cast<SparseCOOTensor>(
               blobs.sparse_tensors[ref]);
       *result = wrap_sparse_coo_tensor(sparse_coo_tensor);
       return Status::OK();
@@ -195,7 +195,7 @@ Status GetValue(PyObject* context, const Array& arr, int64_t index, int8_t type,
     case PythonType::SPARSECSRMATRIX: {
       int32_t ref = checked_cast<const Int32Array&>(arr).Value(index);
       const std::shared_ptr<SparseCSRMatrix>& sparse_csr_matrix =
-          reinterpret_cast<const std::shared_ptr<SparseCSRMatrix>&>(
+          arrow::internal::checked_pointer_cast<SparseCSRMatrix>(
               blobs.sparse_tensors[ref]);
       *result = wrap_sparse_csr_matrix(sparse_csr_matrix);
       return Status::OK();
@@ -389,6 +389,7 @@ Status GetSerializedFromComponents(int num_tensors,
   }
 
   auto GetBuffer = [&data](Py_ssize_t index, std::shared_ptr<Buffer>* out) {
+    ARROW_CHECK_LE(index, PyList_Size(data));
     PyObject* py_buf = PyList_GET_ITEM(data, index);
     return unwrap_buffer(py_buf, out);
   };

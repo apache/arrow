@@ -206,10 +206,10 @@ def test_sparse_csr_matrix_from_dense(dtype_str, arrow_type):
 @pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
 def test_sparse_coo_tensor_numpy_roundtrip(dtype_str, arrow_type):
     dtype = np.dtype(dtype_str)
-    data = np.array([[1, 2, 3, 4, 5, 6, 7]]).T.astype(dtype)
+    data = np.array([[1, 2, 3, 4, 5, 6]]).T.astype(dtype)
     coords = np.array([
-        [0, 0, 2, 3, 1, 3, 0],
-        [0, 2, 0, 4, 5, 5, 0],
+        [0, 0, 2, 3, 1, 3],
+        [0, 2, 0, 4, 5, 5],
     ]).T
     shape = (4, 6)
     dim_names = ('x', 'y')
@@ -271,9 +271,9 @@ def test_dense_to_sparse_tensor(dtype_str, arrow_type, sparse_tensor_type):
 @pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
 def test_sparse_coo_tensor_scipy_roundtrip(dtype_str, arrow_type):
     dtype = np.dtype(dtype_str)
-    data = np.array([1, 2, 3, 4, 5, 6, 7]).astype(dtype)
-    row = np.array([0, 0, 2, 3, 1, 3, 0])
-    col = np.array([0, 2, 0, 4, 5, 5, 0])
+    data = np.array([1, 2, 3, 4, 5, 6]).astype(dtype)
+    row = np.array([0, 0, 2, 3, 1, 3])
+    col = np.array([0, 2, 0, 4, 5, 5])
     shape = (4, 6)
     dim_names = ('x', 'y')
 
@@ -288,6 +288,10 @@ def test_sparse_coo_tensor_scipy_roundtrip(dtype_str, arrow_type):
     assert np.array_equal(sparse_array.data, out_sparse_array.data)
     assert np.array_equal(sparse_array.row, out_sparse_array.row)
     assert np.array_equal(sparse_array.col, out_sparse_array.col)
+    if dtype_str != 'f2':
+        assert np.array_equal(
+            sparse_array.astype(np.float32).toarray().astype(np.float16),
+            sparse_tensor.to_tensor().to_numpy())
 
 
 @pytest.mark.skipif(not csr_matrix, reason="requires scipy")
@@ -311,3 +315,7 @@ def test_sparse_csr_matrix_scipy_roundtrip(dtype_str, arrow_type):
     assert np.array_equal(sparse_array.data, out_sparse_array.data)
     assert np.array_equal(sparse_array.indptr, out_sparse_array.indptr)
     assert np.array_equal(sparse_array.indices, out_sparse_array.indices)
+    if dtype_str != 'f2':
+        assert np.array_equal(
+            sparse_array.astype(np.float32).toarray().astype(np.float16),
+            sparse_tensor.to_tensor().to_numpy())
