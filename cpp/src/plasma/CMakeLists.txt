@@ -70,6 +70,10 @@ if(NOT APPLE AND NOT MSVC)
 endif()
 
 add_arrow_lib(plasma
+              CMAKE_PACKAGE_NAME
+              Plasma
+              PKG_CONFIG_NAME
+              plasma
               SOURCES
               ${PLASMA_SRCS}
               OUTPUTS
@@ -153,10 +157,6 @@ install(FILES common.h
 set_target_properties(plasma-store-server PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
 install(TARGETS plasma-store-server ${INSTALL_IS_OPTIONAL} DESTINATION
                 ${CMAKE_INSTALL_BINDIR})
-
-arrow_add_pkg_config("plasma")
-
-arrow_install_cmake_find_module("Plasma")
 
 if(ARROW_PLASMA_JAVA_CLIENT)
   # Plasma java client support

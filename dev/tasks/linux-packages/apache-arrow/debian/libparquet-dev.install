@@ -1,4 +1,6 @@
 usr/include/parquet/
+usr/lib/*/cmake/arrow/ParquetConfig*.cmake
+usr/lib/*/cmake/arrow/ParquetTargets*.cmake
 usr/lib/*/cmake/arrow/FindParquet.cmake
 usr/lib/*/libparquet.a
 usr/lib/*/libparquet.so

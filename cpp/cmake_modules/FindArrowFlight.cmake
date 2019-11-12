@@ -31,19 +31,21 @@
 #  ARROW_FLIGHT_SHARED_LIB, path to libarrow_flight's shared library
 #  ARROW_FLIGHT_STATIC_LIB, path to libarrow_flight.a
 
-if(NOT DEFINED ARROW_FOUND)
-  set(find_package_arguments)
-  if(${CMAKE_FIND_PACKAGE_NAME}_FIND_VERSION)
-    list(APPEND find_package_arguments "${${CMAKE_FIND_PACKAGE_NAME}_FIND_VERSION}")
-  endif()
-  if(${CMAKE_FIND_PACKAGE_NAME}_FIND_REQUIRED)
-    list(APPEND find_package_arguments REQUIRED)
-  endif()
-  if(${CMAKE_FIND_PACKAGE_NAME}_FIND_QUIETLY)
-    list(APPEND find_package_arguments QUIET)
-  endif()
-  find_package(Arrow ${find_package_arguments})
+if(DEFINED ARROW_FLIGHT_FOUND)
+  return()
 endif()
+
+set(find_package_arguments)
+if(${CMAKE_FIND_PACKAGE_NAME}_FIND_VERSION)
+  list(APPEND find_package_arguments "${${CMAKE_FIND_PACKAGE_NAME}_FIND_VERSION}")
+endif()
+if(${CMAKE_FIND_PACKAGE_NAME}_FIND_REQUIRED)
+  list(APPEND find_package_arguments REQUIRED)
+endif()
+if(${CMAKE_FIND_PACKAGE_NAME}_FIND_QUIETLY)
+  list(APPEND find_package_arguments QUIET)
+endif()
+find_package(Arrow ${find_package_arguments})
 
 if(ARROW_FOUND)
   arrow_find_package(ARROW_FLIGHT

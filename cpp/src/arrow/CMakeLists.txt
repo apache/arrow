@@ -346,6 +346,10 @@ endif()
 set(ARROW_ALL_SRCS ${ARROW_SRCS})
 
 add_arrow_lib(arrow
+              CMAKE_PACKAGE_NAME
+              Arrow
+              PKG_CONFIG_NAME
+              arrow
               SOURCES
               ${ARROW_ALL_SRCS}
               OUTPUTS
@@ -374,6 +378,10 @@ endif()
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_INTEGRATION)
   # that depend on gtest
   add_arrow_lib(arrow_testing
+                CMAKE_PACKAGE_NAME
+                ArrowTesting
+                PKG_CONFIG_NAME
+                arrow-testing
                 SOURCES
                 ${ARROW_TESTING_SRCS}
                 OUTPUTS
@@ -409,9 +417,13 @@ endif()
 
 arrow_install_all_headers("arrow")
 
-arrow_add_pkg_config("arrow")
+config_summary_cmake_setters("${CMAKE_CURRENT_BINARY_DIR}/ArrowOptions.cmake")
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ArrowOptions.cmake
+        DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
 
-arrow_install_cmake_find_module("Arrow")
+# For backward compatibility for find_package(arrow)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/arrow-config.cmake
+        DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
 
 #
 # Unit tests

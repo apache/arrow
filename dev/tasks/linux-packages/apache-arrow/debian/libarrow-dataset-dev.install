@@ -1,3 +1,5 @@
+usr/lib/*/cmake/arrow/ArrowDatasetConfig*.cmake
+usr/lib/*/cmake/arrow/ArrowDatasetTargets*.cmake
 usr/lib/*/cmake/arrow/FindArrowDataset.cmake
 usr/lib/*/libarrow_dataset.a
 usr/lib/*/libarrow_dataset.so

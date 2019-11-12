@@ -32,6 +32,10 @@
 #  ARROW_VERSION_MINOR, minor version of found Arrow
 #  ARROW_VERSION_PATCH, patch version of found Arrow
 
+if(DEFINED ARROW_FOUND)
+  return()
+endif()
+
 include(FindPkgConfig)
 include(FindPackageHandleStandardArgs)
 
@@ -199,12 +203,7 @@ endmacro()
 #
 # Find package by CMake package configuration.
 macro(arrow_find_package_cmake_package_configuration)
-  # ARROW-5575: We need to split target files for each component
-  if(TARGET ${target_shared} OR TARGET ${target_static})
-    set(${cmake_package_name}_FOUND TRUE)
-  else()
-    find_package(${cmake_package_name} CONFIG)
-  endif()
+  find_package(${cmake_package_name} CONFIG)
   if(${cmake_package_name}_FOUND)
     set(${prefix}_USE_CMAKE_PACKAGE_CONFIG TRUE PARENT_SCOPE)
     if(TARGET ${target_shared})

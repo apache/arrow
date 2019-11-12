@@ -125,7 +125,7 @@ endfunction()
 # \arg OUTPUTS list to append built targets to
 function(ADD_ARROW_LIB LIB_NAME)
   set(options BUILD_SHARED BUILD_STATIC)
-  set(one_value_args SHARED_LINK_FLAGS)
+  set(one_value_args CMAKE_PACKAGE_NAME PKG_CONFIG_NAME SHARED_LINK_FLAGS)
   set(multi_value_args
       SOURCES
       OUTPUTS
@@ -280,7 +280,7 @@ function(ADD_ARROW_LIB LIB_NAME)
     endif()
 
     install(TARGETS ${LIB_NAME}_shared ${INSTALL_IS_OPTIONAL}
-            EXPORT ${PROJECT_NAME}-targets
+            EXPORT ${LIB_NAME}_targets
             RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
             LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
             ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -330,11 +330,38 @@ function(ADD_ARROW_LIB LIB_NAME)
                           "$<INSTALL_INTERFACE:${INTERFACE_LIBS}>")
 
     install(TARGETS ${LIB_NAME}_static ${INSTALL_IS_OPTIONAL}
-            EXPORT ${PROJECT_NAME}-targets
+            EXPORT ${LIB_NAME}_targets
             RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
             LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
             ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
             INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+  endif()
+
+  if(ARG_CMAKE_PACKAGE_NAME)
+    arrow_install_cmake_find_module("${ARG_CMAKE_PACKAGE_NAME}")
+
+    set(TARGETS_CMAKE "${ARG_CMAKE_PACKAGE_NAME}Targets.cmake")
+    install(EXPORT ${LIB_NAME}_targets
+            FILE "${TARGETS_CMAKE}"
+            DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
+
+    set(CONFIG_CMAKE "${ARG_CMAKE_PACKAGE_NAME}Config.cmake")
+    set(BUILT_CONFIG_CMAKE "${CMAKE_CURRENT_BINARY_DIR}/${CONFIG_CMAKE}")
+    configure_package_config_file("${CONFIG_CMAKE}.in" "${BUILT_CONFIG_CMAKE}"
+                                  INSTALL_DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
+    install(FILES "${BUILT_CONFIG_CMAKE}" DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
+
+    set(CONFIG_VERSION_CMAKE "${ARG_CMAKE_PACKAGE_NAME}ConfigVersion.cmake")
+    set(BUILT_CONFIG_VERSION_CMAKE "${CMAKE_CURRENT_BINARY_DIR}/${CONFIG_VERSION_CMAKE}")
+    write_basic_package_version_file("${BUILT_CONFIG_VERSION_CMAKE}"
+                                     VERSION ${${PROJECT_NAME}_VERSION}
+                                     COMPATIBILITY AnyNewerVersion)
+    install(FILES "${BUILT_CONFIG_VERSION_CMAKE}"
+            DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
+  endif()
+
+  if(ARG_PKG_CONFIG_NAME)
+    arrow_add_pkg_config("${ARG_PKG_CONFIG_NAME}")
   endif()
 
   # Modify variable in calling scope

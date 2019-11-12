@@ -61,6 +61,10 @@ endif()
 set(ARROW_PYTHON_INCLUDES ${NUMPY_INCLUDE_DIRS} ${PYTHON_INCLUDE_DIRS})
 
 add_arrow_lib(arrow_python
+              CMAKE_PACKAGE_NAME
+              ArrowPython
+              PKG_CONFIG_NAME
+              arrow-python
               SOURCES
               ${ARROW_PYTHON_SRCS}
               OUTPUTS
@@ -93,6 +97,10 @@ if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
   # other solution is to link gRPC shared everywhere instead of statically only
   # in Flight)
   add_arrow_lib(arrow_python_flight
+                CMAKE_PACKAGE_NAME
+                ArrowPythonFlight
+                PKG_CONFIG_NAME
+                arrow-python-flight
                 SOURCES
                 flight.cc
                 OUTPUTS
@@ -118,10 +126,6 @@ if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
   if(ARROW_BUILD_STATIC AND MSVC)
     target_compile_definitions(arrow_python_flight_static PUBLIC ARROW_STATIC)
   endif()
-
-  arrow_add_pkg_config("arrow-python-flight")
-
-  arrow_install_cmake_find_module("ArrowPythonFlight")
 endif()
 
 if("${COMPILER_FAMILY}" STREQUAL "clang")
@@ -132,10 +136,6 @@ if("${COMPILER_FAMILY}" STREQUAL "clang")
 endif()
 
 arrow_install_all_headers("arrow/python")
-
-arrow_add_pkg_config("arrow-python")
-
-arrow_install_cmake_find_module("ArrowPython")
 
 # ----------------------------------------------------------------------
 

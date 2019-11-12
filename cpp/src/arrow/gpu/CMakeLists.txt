@@ -39,6 +39,10 @@ set(ARROW_CUDA_SRCS cuda_arrow_ipc.cc cuda_context.cc cuda_memory.cc)
 set(ARROW_CUDA_SHARED_LINK_LIBS ${CUDA_LIBRARIES} ${CUDA_CUDA_LIBRARY})
 
 add_arrow_lib(arrow_cuda
+              CMAKE_PACKAGE_NAME
+              ArrowCUDA
+              PKG_CONFIG_NAME
+              arrow-cuda
               SOURCES
               ${ARROW_CUDA_SRCS}
               OUTPUTS
@@ -64,10 +68,6 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/cuda_version.h"
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/gpu")
 
 arrow_install_all_headers("arrow/gpu")
-
-arrow_add_pkg_config("arrow-cuda")
-
-arrow_install_cmake_find_module("ArrowCUDA")
 
 set(ARROW_CUDA_TEST_LINK_LIBS arrow_cuda_shared ${ARROW_TEST_LINK_LIBS})
 

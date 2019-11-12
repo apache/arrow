@@ -1302,6 +1302,9 @@ tasks:
       - arrow-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-python-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-python-flight-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-python-flight-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-python-flight-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-python-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-python-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - gandiva-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
@@ -1354,6 +1357,9 @@ tasks:
       - arrow-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-python-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-python-flight-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-python-flight-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
+      - arrow-python-flight-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-python-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-python-libs-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - gandiva-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
