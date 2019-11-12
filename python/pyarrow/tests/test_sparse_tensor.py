@@ -288,10 +288,13 @@ def test_sparse_coo_tensor_scipy_roundtrip(dtype_str, arrow_type):
     assert np.array_equal(sparse_array.data, out_sparse_array.data)
     assert np.array_equal(sparse_array.row, out_sparse_array.row)
     assert np.array_equal(sparse_array.col, out_sparse_array.col)
-    if dtype_str != 'f2':
-        assert np.array_equal(
-            sparse_array.astype(np.float32).toarray().astype(np.float16),
-            sparse_tensor.to_tensor().to_numpy())
+
+    if dtype_str == 'f2':
+        dense_array = \
+            sparse_array.astype(np.float32).toarray().astype(np.float16)
+    else:
+        dense_array = sparse_array.toarray()
+    assert np.array_equal(dense_array, sparse_tensor.to_tensor().to_numpy())
 
 
 @pytest.mark.skipif(not csr_matrix, reason="requires scipy")
@@ -315,7 +318,10 @@ def test_sparse_csr_matrix_scipy_roundtrip(dtype_str, arrow_type):
     assert np.array_equal(sparse_array.data, out_sparse_array.data)
     assert np.array_equal(sparse_array.indptr, out_sparse_array.indptr)
     assert np.array_equal(sparse_array.indices, out_sparse_array.indices)
-    if dtype_str != 'f2':
-        assert np.array_equal(
-            sparse_array.astype(np.float32).toarray().astype(np.float16),
-            sparse_tensor.to_tensor().to_numpy())
+
+    if dtype_str == 'f2':
+        dense_array = \
+            sparse_array.astype(np.float32).toarray().astype(np.float16)
+    else:
+        dense_array = sparse_array.toarray()
+    assert np.array_equal(dense_array, sparse_tensor.to_tensor().to_numpy())
