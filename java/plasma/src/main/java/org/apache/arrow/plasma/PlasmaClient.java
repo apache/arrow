@@ -58,7 +58,7 @@ public class PlasmaClient implements ObjectStoreLink {
   @Override
   public List<byte[]> get(byte[][] objectIds, int timeoutMs, boolean isMetadata) {
     ByteBuffer[][] bufs = PlasmaClientJNI.get(conn, objectIds, timeoutMs);
-    Preconditions.checkArgument(bufs.length == objectIds.length);
+    assert bufs.length == objectIds.length;
 
     List<byte[]> ret = new ArrayList<>();
     for (int i = 0; i < bufs.length; i++) {
@@ -82,7 +82,7 @@ public class PlasmaClient implements ObjectStoreLink {
   @Override
   public List<ObjectStoreData> get(byte[][] objectIds, int timeoutMs) {
     ByteBuffer[][] bufs = PlasmaClientJNI.get(conn, objectIds, timeoutMs);
-    Preconditions.checkArgument(bufs.length == objectIds.length);
+    assert bufs.length == objectIds.length;
 
     List<ObjectStoreData> ret = new ArrayList<>();
     for (int i = 0; i < bufs.length; i++) {

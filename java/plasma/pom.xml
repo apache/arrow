@@ -19,16 +19,6 @@
     <artifactId>arrow-plasma</artifactId>
     <name>Arrow Plasma Client</name>
     <description>(Experimental/Contrib) Java client for the Plasma object store.</description>
-
-    <dependencies>
-      <!-- https://mvnrepository.com/artifact/org.apache.arrow/arrow-memory -->
-      <dependency>
-        <groupId>org.apache.arrow</groupId>
-        <artifactId>arrow-memory</artifactId>
-        <version>${project.version}</version>
-      </dependency>
-
-    </dependencies>
     <build>
         <plugins>
             <plugin>
