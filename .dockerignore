@@ -15,89 +15,18 @@
 # specific language governing permissions and limitations
 # under the License.
 
-.git
-docker_cache
-docs/_build
+# Turn .dockerignore to .dockerallow by excluding everything and explicitly
+# allowing specific files and directories. This enables us to quickly add
+# dependency files to the docker contect without scanning the whole directory.
+# This setup requires to all of our docker containers have arrow's source
+# as a mounted directory.
 
-# IDE
-.idea
-.vscode
-*/.vscode
+# exclude everything
+**
 
-# c_glib
-c_glib/build
-c_glib/autom4te.cache
-c_glib/m4
-c_glib/*/*.o
-c_glib/*/*.lo
-c_glib/*/*.la
-c_glib/*/.deps
-c_glib/*/.libs
-
-# cpp
-cpp/.idea
-cpp/build
-cpp/*-build
-cpp/*_build
-cpp/build-debug
-cpp/build-release
-cpp/build-test
-cpp/Testing
-cpp/thirdparty
-!cpp/thirdparty/jemalloc
-!cpp/thirdparty/versions.txt
-!cpp/thirdparty/hadoop/include
-
-# python
-python/build
-python/dist
-python/manylinux1/dist
-python/*.egg-info
-python/*.egg
-python/*.pyc
-__pycache__/
-*/__pycache__/
-*/*/__pycache__/
-*/*/*/__pycache__/
-*.py[cod]
-*/*.py[cod]
-*/*/*.py[cod]
-*/*/*/*.py[cod]
-*.so
-*/*.so
-*/*/*.so
-*/*/*/*.so
-*.dylib
-*/*.dylib
-*/*/*.dylib
-*/*/*/*.dylib
-
-# JS
-js/.npm
-js/node_modules
-js/jspm_packages
-
-js/logs
-js/*.log
-js/.esm-cache
-js/npm-debug.log*
-js/yarn-debug.log*
-js/yarn-error.log*
-
-js/.grunt
-js/bower_components
-js/.lock-wscript
-js/build/Release
-js/dist
-js/targets
-js/test/data/**/*.json
-js/test/data/**/*.arrow
-
-# Rust
-rust/target
-rust/arrow/target
-rust/parquet/target
-rust/datafusion/target
-
-# Site
-site/
+# include explicitly
+!ci/**
+!c_glib/Gemfile
+!python/requirements*.txt
+!python/manylinux1/**
+!python/manylinux2010/**

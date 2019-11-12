@@ -15,531 +15,494 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Development containers for Arrow
+# The environment variables referenced from this docker-compose can be set by
+# defining them before running docker-compose, the defaults are set in .env
+# file.
+#
+# Example:
+# $ ARCH=arm64v8 docker-compose build ubuntu-bionic-cpp
+# $ ARCH=arm64v8 docker-compose run ubuntu-bionic-cpp
 
 version: '3.5'
 
-# TODO(kszucs): set arrow's mount to :ro mode, once all of the builds are
-# passing without write access to the source directory. The following builds
-# are contaminating the source directory:
-# - docs
-# - python-alpine (writes .egg directory)
-# - rust (writes Cargo.lock)
-# - java (without the rsync trick)
-
-x-ubuntu-volumes:
-  &ubuntu-volumes
-  - .:/arrow:delegated
-  - ubuntu-cache:/build:delegated
-
-x-ubuntu-trusty-volumes:
-  &ubuntu-trusty-volumes
-  - .:/arrow:delegated
-  - ubuntu-trusty-cache:/build:delegated
-
-x-ubuntu-xenial-volumes:
-  &ubuntu-xenial-volumes
-  - .:/arrow:delegated
-  - ubuntu-xenial-cache:/build:delegated
-
-x-ubuntu-bionic-volumes:
-  &ubuntu-bionic-volumes
-  - .:/arrow:delegated
-  - ubuntu-bionic-cache:/build:delegated
-
-x-alpine-volumes:
-  &alpine-volumes
-  - .:/arrow:delegated
-  - alpine-cache:/build:delegated
-
-x-fedora-volumes:
-  &fedora-volumes
-  - .:/arrow:delegated
-  - fedora-cache:/build:delegated
-
-x-debian-testing-volumes:
-  &debian-testing-volumes
-  - .:/arrow:delegated
-  - debian-testing-cache:/build:delegated
-
+# TODO(kszucs): add .ccache to the mounts
 volumes:
-  ubuntu-cache:
-  ubuntu-trusty-cache:
-  ubuntu-xenial-cache:
-  ubuntu-bionic-cache:
-  alpine-cache:
-  fedora-cache:
-  debian-testing-cache:
+  # Named volumes must be predefined, so in order to use other architecture,
+  # like ARM64v8 with debian 10, then the appropiate parametrized volume name
+  # must be added the the list below: arm64v8-debian-10-cache
+  amd64-conda-cache:
+  amd64-cuda-10.0-cache:
+  amd64-debian-9-cache:
+  amd64-debian-10-cache:
+  amd64-ubuntu-18.04-cache:
+  amd64-ubuntu-16.04-cache:
+  amd64-ubuntu-14.04-cache:
+  amd64-fedora-29-cache:
   maven-cache:
-  spark-cache:
 
 services:
-  ######################### Helper Containers #################################
 
-  build-context:
-    # The performance of the docker containers often depends on the size of the
-    # build context. This is a helper container that adds the full build context
-    # into the /context folder.
-    #
-    # One can inspect the folder and add files that should not be in the context
-    # to .dockerignore.
-    #
+  ################################# C++ #######################################
+  # Release build:
+  #   docker-compose run -e ARROW_BUILD_TYPE=release conda-cpp|debian-cpp|...
+  # Shared only:
+  #   docker-compose run -e ARROW_BUILD_STATIC=OFF conda-cpp|debian-cpp|...
+  # Static only:
+  #   docker-compose run \
+  #     -e ARROW_BUILD_SHARED=OFF \
+  #     -e ARROW_TEST_LINKAGE=static \
+  #     conda-cpp|debian-cpp|...
+  # Minimum boost - Ubuntu Xenial 16.04 has Boost 1.58:
+  #   UBUNTU=16.04 docker-compose build \
+  #     -e ARROW_BOOST_SOURCE=SYSTEM \
+  #     ubuntu-cpp
+
+  conda-cpp:
     # Usage:
-    #   docker-compose build build-context
-    #   docker-compose run build-context
-    image: arrowdev/arrow-build-context:latest
+    #   docker-compose build conda-cpp
+    #   docker-compose run --rm conda-cpp
+    # Parameters:
+    #   ARCH: amd64, arm32v7
+    image: ${ORG}/${ARCH}-conda-cpp:latest
     build:
       context: .
-      dockerfile: dev/Dockerfile.context
-
-  ######################### Language Containers ###############################
-
-  c_glib:
-    # Usage:
-    #   docker-compose build cpp
-    #   docker-compose build c_glib
-    #   docker-compose run c_glib
-    image: arrowdev/arrow-c_glib:latest
-    build:
-      context: .
-      dockerfile: c_glib/Dockerfile
-    volumes: *ubuntu-volumes
-
-  cpp:
-    # Usage:
-    #   docker-compose build cpp
-    #   docker-compose run cpp
-    image: arrowdev/arrow-cpp:latest
-    shm_size: 2G
-    build:
-      context: .
-      dockerfile: cpp/Dockerfile
-    volumes: *ubuntu-volumes
-
-  cpp-system-deps:
-    # Usage:
-    #   docker-compose build cpp-system-deps
-    #   docker-compose run cpp-system-deps
-    image: arrowdev/arrow-cpp-system-deps:latest
-    shm_size: 2G
-    cap_add:
-      # LeakSanitizer and gdb requires ptrace(2)
-      - SYS_PTRACE
-    build:
-      context: .
-      dockerfile: cpp/Dockerfile.ubuntu-bionic
+      dockerfile: ci/docker/conda-cpp.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-conda-cpp:latest
       args:
-        LLVM_VERSION: 7
-    environment:
-      ARROW_USE_ASAN: "ON"
-      ARROW_USE_UBSAN: "ON"
-    volumes:
+        arch: ${ARCH}
+        conda: latest
+        prefix: /opt/conda
+    shm_size: &shm-size 2G
+    volumes: &conda-volumes
       - .:/arrow:delegated
-      - ubuntu-cache:/build:delegated
-      - ${HOME}/.ccache:/build/ccache:cached
+      - ${ARCH}-conda-cache:/build:delegated
+    entrypoint: &conda-entrypoint /bin/bash -c -l
+    command: &cpp-conda-command
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+        /arrow/ci/scripts/cpp_test.sh /arrow /build/cpp"]
 
-  cpp-release:
+  cuda-cpp:
     # Usage:
-    #   docker-compose build cpp
-    #   docker-compose run cpp-release
-    image: arrowdev/arrow-cpp-release:latest
-    shm_size: 2G
+    #   docker-compose build cuda-cpp
+    #   docker-compose run --rm cuda-cpp
+    # Parameters:
+    #   ARCH: amd64
+    #   CUDA: 8.0, 10.0, ...
+    image: ${ORG}/${ARCH}-cuda-${CUDA}-cpp:latest
     build:
       context: .
-      dockerfile: cpp/Dockerfile
-    environment:
-      ARROW_BUILD_TYPE: release
-      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
-    volumes: *ubuntu-volumes
+      dockerfile: ci/docker/cuda-${CUDA}-cpp.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-cuda-${CUDA}-cpp:latest
+    shm_size: *shm-size
+    volumes: &cuda-volumes
+      - .:/arrow:delegated
+      - ${ARCH}-cuda-${CUDA}-cache:/build:delegated
+    command: &cpp-command >
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+        /arrow/ci/scripts/cpp_test.sh /arrow /build/cpp"
 
-  cpp-static-only:
+  debian-cpp:
     # Usage:
-    #   docker-compose build cpp
-    #   docker-compose run cpp-static-only
-    image: arrowdev/arrow-cpp:latest
-    shm_size: 2G
-    environment:
-      ARROW_BUILD_SHARED: "OFF"
-      ARROW_TEST_LINKAGE: "static"
-      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
-    volumes: *ubuntu-volumes
-
-  cpp-shared-only:
-    # Usage:
-    #   docker-compose build cpp
-    #   docker-compose run cpp-static-only
-    image: arrowdev/arrow-cpp:latest
-    shm_size: 2G
-    environment:
-      ARROW_BUILD_STATIC: "OFF"
-      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
-    volumes: *ubuntu-volumes
-
-  cpp-cmake32:
-    # Usage:
-    #   docker-compose build cpp-cmake32
-    #   docker-compose run cpp-cmake32
-    image: arrowdev/arrow-cpp-cmake32:latest
-    shm_size: 2G
+    #   docker-compose build debian-cpp
+    #   docker-compose run --rm debian-cpp
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   DEBIAN: 9, 10
+    image: ${ORG}/${ARCH}-debian-${DEBIAN}-cpp:latest
     build:
       context: .
-      dockerfile: cpp/Dockerfile.cmake
+      dockerfile: ci/docker/debian-${DEBIAN}-cpp.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-debian-${DEBIAN}-cpp:latest
       args:
-        CMAKE_VERSION: 3.2.3
+        arch: ${ARCH}
+    shm_size: *shm-size
+    volumes: &debian-volumes
+      - .:/arrow:delegated
+      - ${ARCH}-debian-${DEBIAN}-cache:/build:delegated
+    command: *cpp-command
+
+  ubuntu-cpp:
+    # Usage:
+    #   docker-compose build ubuntu-cpp
+    #   docker-compose run --rm ubuntu-cpp
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   UBUNTU: 18.04, 16.04, 14.04
+    image: ${ORG}/${ARCH}-ubuntu-${UBUNTU}-cpp:latest
+    build:
+      context: .
+      dockerfile: ci/docker/ubuntu-${UBUNTU}-cpp.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-ubuntu-${UBUNTU}-cpp:latest
+      args:
+        arch: ${ARCH}
+    shm_size: *shm-size
+    volumes: &ubuntu-volumes
+      - .:/arrow:delegated
+      - ${ARCH}-ubuntu-${UBUNTU}-cache:/build:delegated
+    command: *cpp-command
+
+  fedora-cpp:
+    # Usage:
+    #   docker-compose build fedora-cpp
+    #   docker-compose run --rm fedora-cpp
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   FEDORA: 29, ...
+    image: ${ORG}/${ARCH}-fedora-${FEDORA}-cpp:latest
+    build:
+      context: .
+      dockerfile: ci/docker/fedora-${FEDORA}-cpp.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-fedora-${FEDORA}-cpp:latest
+      args:
+        arch: ${ARCH}
+    shm_size: *shm-size
+    volumes: &fedora-volumes
+      - .:/arrow:delegated
+      - ${ARCH}-fedora-${FEDORA}-cache:/build:delegated
+    command: *cpp-command
+
+  ############################### C GLib ######################################
+
+  debian-c-glib:
+    # Usage:
+    #   docker-compose build debian-cpp
+    #   docker-compose build debian-c-glib
+    #   docker-compose run --rm debian-c-glib
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   DEBIAN: 9, 10
+    image: ${ORG}/${ARCH}-debian-${DEBIAN}-c-glib:latest
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-c-glib.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-debian-${DEBIAN}-c-glib:latest
+      args:
+        base: ${ORG}/${ARCH}-debian-${DEBIAN}-cpp:latest
+    shm_size: *shm-size
+    volumes: *debian-volumes
+    command: &c-glib-command >
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+        /arrow/ci/scripts/c_glib_build.sh /arrow /build/c_glib &&
+        /arrow/ci/scripts/c_glib_test.sh /arrow /build/c_glib"
+
+  ubuntu-c-glib:
+    # Usage:
+    #   docker-compose build ubuntu-cpp
+    #   docker-compose build ubuntu-c-glib
+    #   docker-compose run --rm ubuntu-c-glib
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   UBUNTU: 18.04, 16.04, 14.04
+    image: ${ORG}/${ARCH}-ubuntu-${UBUNTU}-c-glib:latest
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-c-glib.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-ubuntu-${UBUNTU}-c-glib:latest
+      args:
+        base: ${ORG}/${ARCH}-ubuntu-${UBUNTU}-cpp:latest
+    shm_size: *shm-size
+    volumes: *ubuntu-volumes
+    command: *c-glib-command
+
+  ############################### Ruby ########################################
+  # Until Ruby is the only dependent implementation on top of C Glib we can
+  # test C Glib and Ruby in one pass. This is an optimization to avoid
+  # redundant (one for C GLib and one for Ruby doing the same work twice)
+  # builds on CI services.
+
+  debian-ruby:
+    # Usage:
+    #   docker-compose build debian-cpp
+    #   docker-compose build debian-c-glib
+    #   docker-compose build debian-ruby
+    #   docker-compose run --rm debian-ruby
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   DEBIAN: 9, 10
+    image: ${ORG}/${ARCH}-debian-${DEBIAN}-ruby:latest
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-ruby.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-debian-${DEBIAN}-ruby:latest
+      args:
+        base: ${ORG}/${ARCH}-debian-${DEBIAN}-c-glib:latest
+    shm_size: *shm-size
+    volumes: *debian-volumes
+    command: &ruby-command >
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+        /arrow/ci/scripts/c_glib_build.sh /arrow /build/c_glib &&
+        /arrow/ci/scripts/c_glib_test.sh /arrow /build/c_glib &&
+        /arrow/ci/scripts/ruby_test.sh /arrow"
+
+  ubuntu-ruby:
+    # Usage:
+    #   docker-compose build ubuntu-cpp
+    #   docker-compose build ubuntu-c-glib
+    #   docker-compose build ubuntu-ruby
+    #   docker-compose run --rm ubuntu-ruby
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   UBUNTU: 18.04, 16.04, 14.04
+    image: ${ORG}/${ARCH}-ubuntu-${UBUNTU}-ruby:latest
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-ruby.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-ubuntu-${UBUNTU}-ruby:latest
+      args:
+        base: ${ORG}/${ARCH}-ubuntu-${UBUNTU}-c-glib:latest
+    shm_size: *shm-size
+    volumes: *ubuntu-volumes
+    command: *ruby-command
+
+  ############################### Python ######################################
+
+  conda-python:
+    # Usage:
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-python
+    #   docker-compose run --rm conda-python
+    # Parameters:
+    #   ARCH: amd64, arm32v7
+    #   PYTHON: 2.7, 3.6, 3.7, 3.8
+    image: ${ORG}/${ARCH}-conda-python-${PYTHON}:latest
+    build:
+      context: .
+      dockerfile: ci/docker/conda-python.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-conda-python-${PYTHON}:latest
+      args:
+        org: ${ORG}
+        arch: ${ARCH}
+        conda: latest
+        python: ${PYTHON}
+    shm_size: *shm-size
+    volumes: *conda-volumes
+    entrypoint: *conda-entrypoint
+    command: &python-conda-command
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+        /arrow/ci/scripts/python_build.sh /arrow /build/python &&
+        /arrow/ci/scripts/python_test.sh /arrow"]
+
+  cuda-python:
+    # Usage:
+    #   docker-compose build cuda-cpp
+    #   docker-compose build cuda-python
+    #   docker-compose run --rm cuda-python
+    # Parameters:
+    #   ARCH: amd64
+    #   CUDA: 8.0, 10.0, ...
+    image: ${ORG}/${ARCH}-cuda-${CUDA}-python-3:latest
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-python-3.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-cuda-${CUDA}-python-3:latest
+      args:
+        base: ${ORG}/${ARCH}-cuda-${CUDA}-cpp:latest
+    shm_size: *shm-size
+    volumes: *cuda-volumes
+    command: &python-command >
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+        /arrow/ci/scripts/python_build.sh /arrow /build/python &&
+        /arrow/ci/scripts/python_test.sh /arrow"
+
+  debian-python:
+    # Usage:
+    #   docker-compose build debian-cpp
+    #   docker-compose build debian-python
+    #   docker-compose run --rm debian-python
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   DEBIAN: 9, 10
+    image: ${ORG}/${ARCH}-debian-${DEBIAN}-python-3:latest
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-python-3.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-debian-${DEBIAN}-python-3:latest
+      args:
+        base: ${ORG}/${ARCH}-debian-${DEBIAN}-cpp:latest
+    shm_size: *shm-size
+    volumes: *debian-volumes
+    command: *python-command
+
+  ubuntu-python:
+    # Usage:
+    #   docker-compose build ubuntu-cpp
+    #   docker-compose build ubuntu-python
+    #   docker-compose run --rm ubuntu-python
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   UBUNTU: 18.04, 16.04, 14.04
+    image: ${ORG}/${ARCH}-ubuntu-${UBUNTU}-python-3:latest
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-python-3.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-ubuntu-${UBUNTU}-python-3:latest
+      args:
+        base: ${ORG}/${ARCH}-ubuntu-${UBUNTU}-cpp:latest
+    shm_size: *shm-size
+    volumes: *ubuntu-volumes
+    command: *python-command
+
+  fedora-python:
+    # Usage:
+    #   docker-compose build fedora-cpp
+    #   docker-compose build fedora-python
+    #   docker-compose run --rm fedora-python
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   UBUNTU: 29, ...
+    image: ${ORG}/${ARCH}-fedora-${FEDORA}-python-3:latest
+    build:
+      context: .
+      dockerfile: ci/docker/linux-dnf-python-3.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-fedora-${FEDORA}-python-3:latest
+      args:
+        base: ${ORG}/${ARCH}-fedora-${FEDORA}-cpp:latest
+    shm_size: *shm-size
+    volumes: *fedora-volumes
+    command: *python-command
+
+  ##############################  Integration #################################
+
+  ubuntu-cpp-cmake32:
+    # Usage:
+    #   docker-compose build ubuntu-cpp
+    #   docker-compose build ubuntu-cpp-cmake32
+    #   docker-compose run ubuntu-cpp-cmake32
+    image: ${ORG}/${ARCH}-ubuntu-${UBUNTU}-cpp-cmake-3.2:latest
+    build:
+      context: .
+      cache_from:
+        - ${ORG}/${ARCH}-ubuntu-${UBUNTU}-cpp-cmake-3.2:latest
+      dockerfile: ci/docker/linux-apt-cmake.dockerfile
+      args:
+        base: ${ORG}/${ARCH}-ubuntu-${UBUNTU}-cpp:latest
+        cmake: 3.2.3
     environment:
       # Vendor boost to avoid dealing with stale FindBoost.
       ARROW_BOOST_SOURCE: "BUNDLED"
+      double-conversion_SOURCE: "BUNDLED"
       ARROW_ORC: "OFF"
+      ARROW_GANDIVA: "OFF"
       # uriparser requires cmake 3.3
       ARROW_FLIGHT: "OFF"
-      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
     volumes: *ubuntu-volumes
+    command: *cpp-command
 
-  cpp-alpine:
+  conda-python-pandas:
+    # Possible $PANDAS parameters:
+    #  - `latest`: latest release
+    #  - `master`: git master branch, use `docker-compose run --no-cache`
+    #  - `<verion>`: specific version available on conda-forge
     # Usage:
-    #   docker-compose build cpp-alpine
-    #   docker-compose run cpp-alpine
-    image: arrowdev/arrow-cpp-alpine:latest
-    shm_size: 2G
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-python
+    #   docker-compose build conda-python-pandas
+    #   docker-compose run --rm conda-python-pandas
+    image: ${ORG}/${ARCH}-conda-python-${PYTHON}-pandas-${PANDAS}:latest
     build:
       context: .
-      dockerfile: cpp/Dockerfile.alpine
-    environment:
-      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
-    volumes: *alpine-volumes
-
-  cpp-fedora:
-    # Usage:
-    #   docker-compose build cpp-fedora
-    #   docker-compose run cpp-fedora
-    image: arrowdev/arrow-cpp-fedora:latest
-    shm_size: 2G
-    build:
-      context: .
-      dockerfile: cpp/Dockerfile.fedora
-    environment:
-      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
-    volumes: *fedora-volumes
-
-  cpp-debian-testing:
-    # Usage:
-    #   docker-compose build cpp-debian-testing
-    #   docker-compose run cpp-debian-testing
-    image: arrowdev/arrow-cpp-debian-testing:latest
-    shm_size: 2G
-    build:
-      context: .
-      dockerfile: cpp/Dockerfile.debian-testing
-    environment:
-      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
-    volumes: *debian-testing-volumes
-
-  cpp-ubuntu-trusty:
-    # Usage:
-    #   docker-compose build cpp-ubuntu-trusty
-    #   docker-compose run cpp-ubuntu-trusty
-    image: arrowdev/arrow-cpp-ubuntu-trusty:latest
-    shm_size: 2G
-    build:
-      context: .
-      dockerfile: cpp/Dockerfile.ubuntu-trusty
-    environment:
-      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
-    volumes: *ubuntu-trusty-volumes
-
-  cpp-ubuntu-xenial:
-    # Usage:
-    #   docker-compose build cpp-ubuntu-xenial
-    #   docker-compose run cpp-ubuntu-xenial
-    image: arrowdev/arrow-cpp-ubuntu-xenial:latest
-    shm_size: 2G
-    build:
-      context: .
-      dockerfile: cpp/Dockerfile.ubuntu-xenial
-    environment:
-      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
-    volumes: *ubuntu-xenial-volumes
-
-  cpp-minimum-boost-version:
-    # Ubuntu Xenial 16.04 has Boost 1.58, our minimum version
-    #
-    # Usage:
-    #   docker-compose build cpp-minimum-boost-version
-    #   docker-compose run cpp-minimum-boost-version
-    image: arrowdev/arrow-cpp-ubuntu-xenial:latest
-    shm_size: 2G
-    build:
-      context: .
-      dockerfile: cpp/Dockerfile.ubuntu-xenial
-    environment:
-      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
-      ARROW_BOOST_SOURCE: "SYSTEM"
-      ARROW_FLIGHT: "OFF"
-    volumes: *ubuntu-xenial-volumes
-
-  cpp-ubuntu-bionic:
-    # Usage:
-    #   docker-compose build cpp-ubuntu-bionic
-    #   docker-compose run cpp-ubuntu-bionic
-    image: arrowdev/arrow-cpp-ubuntu-bionic:latest
-    shm_size: 2G
-    build:
-      context: .
-      dockerfile: cpp/Dockerfile.ubuntu-bionic
-    environment:
-      PARQUET_TEST_DATA: /arrow/cpp/submodules/parquet-testing/data
-    volumes: *ubuntu-bionic-volumes
-
-  go:
-    # Usage:
-    #   docker-compose build go
-    #   docker-compose run go
-    image: arrowdev/arrow-go:latest
-    build:
-      context: .
-      dockerfile: go/Dockerfile
-    volumes: *ubuntu-volumes
-
-  integration:
-    image: arrowdev/arrow-integration:latest
-    build:
-      context: .
-      dockerfile: integration/Dockerfile
-    volumes:
-      - .:/arrow:ro  # ensures that docker won't contaminate the host directory
-      - maven-cache:/root/.m2:delegated
-
-  java:
-    # Usage:
-    #   docker-compose build java
-    #   docker-compose run java
-    image: arrowdev/arrow-java:latest
-    build:
-      context: .
-      dockerfile: java/Dockerfile
-    volumes:
-      - .:/arrow:ro  # ensures that docker won't contaminate the host directory
-      - maven-cache:/root/.m2:delegated
-
-  java-all-jdks:
-    # Usage:
-    #   docker-compose build java-all-jdks
-    #   docker-compose run java-all-jdks
-    image: arrowdev/arrow-java-all-jdks:latest
-    build:
-      context: .
-      dockerfile: java/Dockerfile.all-jdks
-    volumes:
-      - .:/arrow:ro  # ensures that docker won't contaminate the host directory
-      - maven-cache:/root/.m2:delegated
-
-  js:
-    image: arrowdev/arrow-js:latest
-    build:
-      context: .
-      dockerfile: js/Dockerfile
-
-  python:
-    # Usage:
-    #   export PYTHON_VERSION=2.7|3.6|3.7
-    #   docker-compose build cpp
-    #   docker-compose build python
-    #   docker-compose run python
-    image: arrowdev/arrow-python-${PYTHON_VERSION:-3.6}:latest
-    shm_size: 2G
-    build:
-      context: .
-      dockerfile: python/Dockerfile
+      dockerfile: ci/docker/conda-python-pandas.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-conda-python-${PYTHON}-pandas-${PANDAS}:latest
       args:
-        PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
-    volumes: *ubuntu-volumes
+        org: ${ORG}
+        arch: ${ARCH}
+        conda: latest
+        python: ${PYTHON}
+        pandas: ${PANDAS}
+    shm_size: *shm-size
+    volumes: *conda-volumes
+    entrypoint: *conda-entrypoint
+    command: *python-conda-command
 
-  python-alpine:
+  conda-python-dask:
+    # Possible $DASK parameters:
+    #  - `latest`: latest release
+    #  - `master`: git master branch, use `docker-compose run --no-cache`
+    #  - `<verion>`: specific version available on conda-forge
     # Usage:
-    #   export PYTHON_VERSION=2.7|3.6 (minor version is ignored)
-    #   docker-compose build cpp-alpine
-    #   docker-compose build python-alpine
-    #   docker-compose run python-alpine
-    image: arrowdev/arrow-python-${PYTHON_VERSION:-3.6}-alpine:latest
-    shm_size: 2G
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-python
+    #   docker-compose build conda-python-dask
+    #   docker-compose run --rm conda-python-dask
+    image: ${ORG}/${ARCH}-conda-python-${PYTHON}-dask-${DASK}:latest
     build:
       context: .
-      dockerfile: python/Dockerfile.alpine
+      dockerfile: ci/docker/conda-python-dask.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-conda-python-${PYTHON}-dask-${DASK}:latest
       args:
-        PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
-    volumes: *alpine-volumes
+        org: ${ORG}
+        arch: ${ARCH}
+        conda: latest
+        python: ${PYTHON}
+        dask: ${DASK}
+    shm_size: *shm-size
+    volumes: *conda-volumes
+    entrypoint: *conda-entrypoint
+    command:
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+        /arrow/ci/scripts/python_build.sh /arrow /build/python &&
+        /arrow/ci/scripts/integration_dask.sh"]
 
-  python-nopandas:
+  conda-python-turbodbc:
+    # Possible $DASK parameters:
+    #  - `latest`: latest release
+    #  - `master`: git master branch, use `docker-compose run --no-cache`
+    #  - `<verion>`: specific version available under github releases
     # Usage:
-    #   export PYTHON_VERSION=2.7|3.6|3.7
-    #   docker-compose build cpp
-    #   docker-compose build python
-    #   docker-compose build python-nopandas
-    #   docker-compose run python-nopandas
-    image: arrowdev/arrow-python-${PYTHON_VERSION:-3.6}-nopandas:latest
-    shm_size: 2G
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-python
+    #   docker-compose build conda-python-turbodbc
+    #   docker-compose run --rm conda-python-turbodbc
+    image: ${ORG}/${ARCH}-conda-python-${PYTHON}-turbodbc-${TURBODBC}:latest
     build:
       context: .
-      dockerfile: python/Dockerfile.nopandas
+      dockerfile: ci/docker/conda-python-turbodbc.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-conda-python-${PYTHON}-turbodbc-${TURBODBC}:latest
       args:
-        PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
-    volumes: *ubuntu-volumes
+        org: ${ORG}
+        arch: ${ARCH}
+        conda: latest
+        python: ${PYTHON}
+        turbodbc: ${TURBODBC}
+    shm_size: *shm-size
+    volumes: *conda-volumes
+    entrypoint: *conda-entrypoint
+    command:
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+        /arrow/ci/scripts/python_build.sh /arrow /build/python &&
+        /arrow/ci/scripts/integration_turbodbc.sh /turbodbc /build/turbodbc"]
 
-  rust:
-    # Usage:
-    #   docker-compose build rust
-    #   docker-compose run rust
-    image: arrowdev/arrow-rust:latest
-    build:
-      context: .
-      dockerfile: rust/Dockerfile
-    volumes: *ubuntu-volumes
+  ########################## Python Wheels ####################################
 
-  r:
-    # Usage:
-    #   docker-compose build cpp
-    #   docker-compose build r
-    #   docker-compose run r
-    image: arrowdev/arrow-r:latest
-    build:
-      context: .
-      dockerfile: r/Dockerfile
-    volumes: *ubuntu-volumes
-
-  r-sanitizer:
-    # Usage:
-    #   docker-compose build r-sanitizer
-    #   docker-compose run r-sanitizer
-    image: arrowdev/arrow-r-sanitizer:latest
-    cap_add:
-      # LeakSanitizer and gdb requires ptrace(2)
-      - SYS_PTRACE
-    build:
-      context: .
-      dockerfile: r/Dockerfile.sanitizer
-    volumes: *ubuntu-volumes
-
-  r-conda:
-    # Usage:
-    #   export R_VERSION=3.5.1
-    #   docker-compose build cpp
-    #   docker-compose build r-conda
-    #   docker-compose run r-conda
-    image: arrowdev/arrow-r-conda-${R_VERSION:-3.5.1}:latest
-    shm_size: 2G
-    build:
-      context: .
-      dockerfile: r/Dockerfile.conda
-      args:
-        R_VERSION: ${R_VERSION:-3.5.1}
-    volumes: *ubuntu-volumes
-
-  ######################### Tools and Linters #################################
-
-  # TODO(kszucs): site
-  # TODO(kszucs): {cpp,java,glib,js}-apidoc
-
-  lint:
-    # Usage:
-    #   docker-compose build lint
-    #   docker-compose run lint
-    image: arrowdev/arrow-lint:latest
-    build:
-      context: .
-      dockerfile: ci/docker/Dockerfile.lint
-    volumes: *ubuntu-volumes
-
-  iwyu:
-    # Usage:
-    #   export PYTHON_VERSION=3.6
-    #   docker-compose build cpp
-    #   docker-compose build python
-    #   docker-compose build iwyu
-    #   docker-compose run iwyu
-    image: arrowdev/arrow-iwyu:latest
-    build:
-      context: .
-      dockerfile: dev/lint/Dockerfile
-    command: arrow/dev/lint/run_iwyu.sh
-    volumes: *ubuntu-volumes
-
-  fuzzit:
-    # Submit a fuzzing job on fuzzit.dev
-    # Usage:
-    #   docker-compose build cpp
-    #   docker-compose build fuzzit
-    #   docker-compose run fuzzit
-    image: arrowdev/arrow-fuzzit:latest
-    build:
-      context: .
-      dockerfile: dev/fuzzit/Dockerfile
-    environment:
-      CI_ARROW_SHA: ${CI_ARROW_SHA}
-      CI_ARROW_BRANCH: ${CI_ARROW_BRANCH}
-      FUZZIT_JOB_TYPE: fuzzing
-      FUZZIT_API_KEY: c0b760d37db6012fcaafd8ca5f412ba7bcd297ac969650502994b51aa11798153824442f999a067e1ef67821989ed664
-    volumes: *ubuntu-volumes
-
-  fuzzit-regression:
-    # Submit a regression job on fuzzit.dev
-    # Usage:
-    #   docker-compose build cpp
-    #   docker-compose build fuzzit-regression
-    #   docker-compose run fuzzit-regression
-    image: arrow:fuzzit
-    build:
-      context: .
-      dockerfile: dev/fuzzit/Dockerfile
-    environment:
-      CI_ARROW_SHA: ${CI_ARROW_SHA}
-      CI_ARROW_BRANCH: ${CI_ARROW_BRANCH}
-      FUZZIT_JOB_TYPE: regression
-      FUZZIT_API_KEY: c0b760d37db6012fcaafd8ca5f412ba7bcd297ac969650502994b51aa11798153824442f999a067e1ef67821989ed664
-    volumes: *ubuntu-volumes
-
-  fuzzit-local-regression:
-    # Run a local fuzzit regression job
-    # Usage:
-    #   docker-compose build cpp
-    #   docker-compose build fuzzit-local-regression
-    #   docker-compose run fuzzit-local-regression
-    image: arrow:fuzzit
-    build:
-      context: .
-      dockerfile: dev/fuzzit/Dockerfile
-    environment:
-      CI_ARROW_SHA: ${CI_ARROW_SHA}
-      CI_ARROW_BRANCH: ${CI_ARROW_BRANCH}
-      FUZZIT_JOB_TYPE: local-regression
-    volumes: *ubuntu-volumes
-
-  docs:
-    # Usage:
-    #   docker-compose build cpp
-    #   docker-compose build python
-    #   docker-compose build docs
-    #   docker-compose run docs
-    image: arrowdev/arrow-docs:latest
-    build:
-      context: .
-      dockerfile: docs/Dockerfile
-    volumes: *ubuntu-volumes
-
-  ######################### Package Builder ###################################
-
-  python-manylinux1:
-    # Usage:
-    #   either build:
-    #     $ docker-compose build python-manylinux1
-    #   or pull:
-    #     $ docker-compose pull python-manylinux1
-    #   an then run:
-    #     $ docker-compose run -e PYTHON_VERSION=3.7 python-manylinux1
-    image: arrowdev/arrow_manylinux1_x86_64_base:0.14.1-static-zlib
+  centos-python-manylinux1:
+    image: ${ORG}/amd64-centos-5.11-python-manylinux1:latest
     build:
       context: python/manylinux1
       dockerfile: Dockerfile-x86_64_base
-    shm_size: 2G
+      cache_from:
+        - ${ORG}/amd64-centos-5.11-python-manylinux1:latest
+    shm_size: *shm-size
     environment:
       PYARROW_PARALLEL: 3
       PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
@@ -547,21 +510,16 @@ services:
     volumes:
       - .:/arrow:delegated
       - ./python/manylinux1:/io:delegated
-    command: /io/build_arrow.sh
+    command: &manylinux-command /io/build_arrow.sh
 
-  python-manylinux2010:
-    # Usage:
-    #   either build:
-    #     $ docker-compose build python-manylinux2010
-    #   or pull:
-    #     $ docker-compose pull python-manylinux2010
-    #   an then run:
-    #     $ docker-compose run -e PYTHON_VERSION=3.7 python-manylinux2010
-    image: arrowdev/arrow_manylinux2010_x86_64_base:0.14.1-static-zlib
+  centos-python-manylinux2010:
+    image: ${ORG}/amd64-centos-6.10-python-manylinux2010:latest
     build:
       context: python/manylinux2010
       dockerfile: Dockerfile-x86_64_base
-    shm_size: 2G
+      cache_from:
+        - ${ORG}/amd64-centos-6.10-python-manylinux2010:latest
+    shm_size: *shm-size
     environment:
       PYARROW_PARALLEL: 3
       PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
@@ -569,178 +527,444 @@ services:
     volumes:
       - .:/arrow:delegated
       - ./python/manylinux2010:/io:delegated
-    command: /io/build_arrow.sh
+    command: *manylinux-command
+
+  ################################## R ########################################
+
+  conda-r:
+    # Usage:
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-r
+    #   docker-compose run conda-r
+    image: ${ORG}/${ARCH}-conda-r-${R}:latest
+    build:
+      context: .
+      dockerfile: ci/docker/conda-r.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-conda-r-${R}:latest
+      args:
+        org: ${ORG}
+        arch: ${ARCH}
+        conda: latest
+        r: ${R}
+    shm_size: *shm-size
+    volumes: *conda-volumes
+    entrypoint: *conda-entrypoint
+    command:
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+        /arrow/ci/scripts/r_build.sh /arrow &&
+        /arrow/ci/scripts/r_test.sh /arrow"]
+
+  ubuntu-r:
+    # Usage:
+    #   docker-compose build ubuntu-cpp
+    #   docker-compose build ubuntu-r
+    #   docker-compose run ubuntu-r
+    image: ${ORG}/${ARCH}-ubuntu-${UBUNTU}-r-${R}:latest
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-r.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-ubuntu-${UBUNTU}-r-${R}:latest
+      args:
+        r: ${R}
+        base: ${ORG}/${ARCH}-ubuntu-${UBUNTU}-cpp:latest
+    shm_size: *shm-size
+    volumes: *ubuntu-volumes
+    command: >
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+        /arrow/ci/scripts/r_deps.sh /arrow &&
+        /arrow/ci/scripts/r_build.sh /arrow &&
+        /arrow/ci/scripts/r_test.sh /arrow"
+
+  ubuntu-r-sanitizer:
+    # Only 18.04 and amd64 supported
+    # Usage:
+    #   docker-compose build ubuntu-r-sanitizer
+    #   docker-compose run ubuntu-r-sanitizer
+    image: ${ORG}/amd64-ubuntu-18.04-r-sanitizer:latest
+    cap_add:
+      # LeakSanitizer and gdb requires ptrace(2)
+      - SYS_PTRACE
+    build:
+      context: .
+      dockerfile: ci/docker/ubuntu-18.04-r-sanitizer.dockerfile
+      cache_from:
+        - ${ORG}/amd64-ubuntu-18.04-r-sanitizer:latest
+    volumes: *ubuntu-volumes
+    command: >
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+        /arrow/ci/scripts/r_deps.sh /arrow &&
+        /arrow/ci/scripts/r_build.sh /arrow &&
+        /arrow/ci/scripts/r_sanitize.sh /arrow"
+
+  ################################ Rust #######################################
+
+  debian-rust:
+    # Usage:
+    #   docker-compose build debian-rust
+    #   docker-compose run debian-rust
+    image: ${ORG}/${ARCH}-debian-10-rust-${RUST}:latest
+    build:
+      context: .
+      dockerfile: ci/docker/debian-10-rust.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-debian-10-rust-${RUST}:latest
+      args:
+        arch: ${ARCH}
+        rust: ${RUST}
+    shm_size: *shm-size
+    volumes: *debian-volumes
+    command: &rust-command >
+      /bin/bash -c "
+        /arrow/ci/scripts/rust_build.sh /arrow /build/rust &&
+        /arrow/ci/scripts/rust_test.sh /arrow /build/rust"
+
+  ################################# Go ########################################
+
+  debian-go:
+    # Usage:
+    #   docker-compose build debian-go
+    #   docker-compose run debian-go
+    image: ${ORG}/${ARCH}-debian-10-go-${GO}:latest
+    build:
+      context: .
+      dockerfile: ci/docker/debian-10-go.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-debian-10-go-${GO}:latest
+      args:
+        arch: ${ARCH}
+        go: ${GO}
+    shm_size: *shm-size
+    volumes: *debian-volumes
+    command: &go-command >
+      /bin/bash -c "
+        /arrow/ci/scripts/go_build.sh /arrow &&
+        /arrow/ci/scripts/go_test.sh /arrow"
+
+  ############################# JavaScript ####################################
+
+  debian-js:
+    # Usage:
+    #   docker-compose build debian-js
+    #   docker-compose run debian-js
+    image: ${ORG}/${ARCH}-debian-10-js-${NODE}:latest
+    build:
+      context: .
+      dockerfile: ci/docker/debian-10-js.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-debian-10-js-${NODE}:latest
+      args:
+        arch: ${ARCH}
+        node: ${NODE}
+    shm_size: *shm-size
+    volumes: *debian-volumes
+    command: &js-command >
+      /bin/bash -c "
+        /arrow/ci/scripts/js_build.sh /arrow &&
+        /arrow/ci/scripts/js_test.sh /arrow"
+
+  #################################### C# #####################################
+
+  ubuntu-csharp:
+    # Usage:
+    #   docker-compose build debian-csharp
+    #   docker-compose run debian-csharp
+    image: ${ORG}/${ARCH}-ubuntu-18.04-csharp-${DOTNET}:latest
+    build:
+      context: .
+      dockerfile: ci/docker/ubuntu-18.04-csharp.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-ubuntu-18.04-csharp-${DOTNET}:latest
+      args:
+        dotnet: ${DOTNET}
+        platform: bionic  # use bionic-arm64v8 for ARM
+    shm_size: *shm-size
+    volumes: *ubuntu-volumes
+    command: &csharp-command >
+      /bin/bash -c "
+        /arrow/ci/scripts/csharp_build.sh /arrow &&
+        /arrow/ci/scripts/csharp_test.sh /arrow"
+
+  ################################ Java #######################################
+
+  debian-java:
+    # Usage:
+    #   docker-compose build debian-java
+    #   docker-compose run debian-java
+    image: ${ORG}/${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}:latest
+    build:
+      context: .
+      dockerfile: ci/docker/debian-9-java.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}:latest
+      args:
+        arch: ${ARCH}
+        jdk: ${JDK}
+        maven: ${MAVEN}
+    shm_size: *shm-size
+    volumes: &java-volumes
+      - .:/arrow:delegated
+      - maven-cache:/root/.m2:delegated
+    command: &java-command >
+      /bin/bash -c "
+        /arrow/ci/scripts/java_build.sh /arrow &&
+        /arrow/ci/scripts/java_test.sh /arrow"
+
+  debian-java-jni:
+    # Includes plasma test and jni for gandiva and orc.
+    # Usage:
+    #   docker-compose build debian-java
+    #   docker-compose build debian-java-jni
+    #   docker-compose run debian-java-jni
+    image: ${ORG}/${ARCH}-debian-9-java-jni:latest
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-jni.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-debian-9-java-jni:latest
+      args:
+        base: ${ORG}/${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}:latest
+    shm_size: *shm-size
+    volumes:
+      - .:/arrow:delegated
+      - maven-cache:/root/.m2:delegated
+      - ${ARCH}-debian-9-cache:/build:delegated
+    command:
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+        /arrow/ci/scripts/java_build.sh /arrow /build/cpp/debug
+        /arrow/ci/scripts/java_test.sh /arrow /build/cpp/debug"
+
+  ############################## Integration ##################################
+
+  conda-integration:
+    # Usage:
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-integration
+    #   docker-compose run conda-integration
+    image: ${ORG}/${ARCH}-conda-integration:latest
+    build:
+      context: .
+      dockerfile: ci/docker/conda-integration.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-conda-integration:latest
+      args:
+        org: ${ORG}
+        arch: ${ARCH}
+        conda: latest
+        jdk: ${JDK}
+        # conda-forge doesn't have 3.5.4 so pinning explicitly, but this should
+        # be set to ${MAVEN}
+        maven: 3.5
+        node: ${NODE}
+        go: ${GO}
+    volumes: *conda-volumes
+    entrypoint: *conda-entrypoint
+    environment:
+      # tell archery where the arrow binaries are located
+      ARROW_CPP_EXE_PATH: /build/cpp/debug
+    command:
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+        /arrow/ci/scripts/go_build.sh /arrow &&
+        /arrow/ci/scripts/java_build.sh /arrow &&
+        /arrow/ci/scripts/js_build.sh /arrow &&
+        pip install -e /arrow/dev/archery &&
+        archery integration --with-all --run-flight"]
+
+  ################################ Docs #######################################
+
+  ubuntu-docs:
+    # Usage:
+    #   docker-compose build ubuntu-cpp
+    #   docker-compose build ubuntu-python
+    #   docker-compose build ubuntu-docs
+    #   docker-compose run --rm ubuntu-docs
+    image: ${ORG}/${ARCH}-ubuntu-${UBUNTU}-docs:latest
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-docs.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-ubuntu-${UBUNTU}-docs:latest
+      args:
+        jdk: ${JDK}
+        node: ${NODE}
+        base: ${ORG}/${ARCH}-ubuntu-${UBUNTU}-python-3:latest
+    volumes: *ubuntu-volumes
+    command:
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp true &&
+        /arrow/ci/scripts/c_glib_build.sh /arrow /build/c_glib true &&
+        /arrow/ci/scripts/python_build.sh /arrow /build/python &&
+        /arrow/ci/scripts/java_build.sh /arrow /build/cpp/debug true &&
+        /arrow/ci/scripts/js_build.sh /arrow true &&
+        /arrow/ci/scripts/docs_build.sh /arrow /build/docs"
+
+  ################################# Tools #####################################
+
+  ubuntu-lint:
+    # Usage:
+    #   docker-compose build ubuntu-cpp
+    #   docker-compose build ubuntu-lint
+    #   docker-compose run ubuntu-lint
+    image: ${ORG}/${ARCH}-ubuntu-${UBUNTU}-lint:latest
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-lint.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-ubuntu-${UBUNTU}-lint:latest
+      args:
+        rust: ${RUST}
+        base: ${ORG}/${ARCH}-ubuntu-${UBUNTU}-cpp:latest
+    volumes: *ubuntu-volumes
+    command: >
+      /bin/bash -c "pip install -e /arrow/dev/archery && archery lint"
+
+  ubuntu-fuzzit:
+    # Usage:
+    #   docker-compose build ubuntu-cpp
+    #   docker-compose build ubuntu-fuzzit
+    #   docker-compose run ubuntu-fuzzit
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-fuzzit.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-ubuntu-${UBUNTU}-fuzzit:latest
+      args:
+        base: ${ORG}/${ARCH}-ubuntu-${UBUNTU}-cpp:latest
+    environment:
+      FUZZIT_HOST: bionic-llvm7
+      CI_ARROW_SHA: ${CI_ARROW_SHA:-UNSET}
+      CI_ARROW_BRANCH: ${CI_ARROW_BRANCH:-UNSET}
+    volumes: *debian-volumes
+    command: >
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+        /arrow/ci/scripts/fuzzit_build.sh /arrow"
 
   ######################### Integration Tests #################################
 
-  # impala:
-  #   image: cpcloud86/impala:java8-1
-  #   ports:
-  #     - "21050"
-  #   hostname: impala
-
-  pandas-master:
-    # Usage:
-    #   export PYTHON_VERSION=3.6
-    #   docker-compose build cpp
-    #   docker-compose build python
-    #   docker-compose build --no-cache pandas-master
-    #   docker-compose run pandas-master
-    image: arrowdev/arrow-pandas-master:latest
-    build:
-      context: .
-      dockerfile: integration/pandas/Dockerfile
-    shm_size: 2G
-    volumes: *ubuntu-volumes
-
-  hdfs-namenode:
-    image: gelog/hadoop
-    shm_size: 2G
+  postgres:
+    # required for the impala service
+    image: postgres
     ports:
-      - "9000:9000"
-      - "50070:50070"
-    command: hdfs namenode
-    hostname: hdfs-namenode
-
-  hdfs-datanode-1:
-    image: gelog/hadoop
-    command: hdfs datanode
-    ports:
-      # The host port is randomly assigned by Docker, to allow scaling
-      # to multiple DataNodes on the same host
-      - "50075"
-    links:
-      - hdfs-namenode:hdfs-namenode
-
-  hdfs-datanode-2:
-    image: gelog/hadoop
-    command: hdfs datanode
-    ports:
-      # The host port is randomly assigned by Docker, to allow scaling
-      # to multiple DataNodes on the same host
-      - "50075"
-    links:
-      - hdfs-namenode:hdfs-namenode
-
-  hdfs-integration:
-    # Usage:
-    #   export PYTHON_VERSION=3.6
-    #   docker-compose build cpp
-    #   docker-compose build python
-    #   docker-compose build hdfs-integration
-    #   docker-compose run hdfs-integration
-    image: arrowdev/arrow-hdfs-${HDFS_VERSION:-2.9.2}:latest
-    links:
-      - hdfs-namenode:hdfs-namenode
-      - hdfs-datanode-1:hdfs-datanode-1
-      - hdfs-datanode-2:hdfs-datanode-2
+      - 5432:5432
     environment:
-      - ARROW_HDFS_TEST_HOST=hdfs-namenode
-      - ARROW_HDFS_TEST_PORT=9000
-      - ARROW_HDFS_TEST_USER=root
+      POSTGRES_PASSWORD: postgres
+
+  impala:
+    # required for the hiveserver and hdfs tests
+    image: ibisproject/impala:latest
+    hostname: impala
+    links:
+      - postgres:postgres
+    environment:
+      PGPASSWORD: postgres
+    ports:
+      # HDFS
+      - 9020:9020
+      - 50070:50070
+      - 50075:50075
+      - 8020:8020
+      - 8042:8042
+      # Hive
+      - 9083:9083
+      # Impala
+      - 21000:21000
+      - 21050:21050
+      - 25000:25000
+      - 25010:25010
+      - 25020:25020
+
+  conda-cpp-hiveserver2:
+    # Usage:
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-cpp-hiveserver2
+    #   docker-compose run conda-cpp-hiveserver2
+    image: ${ORG}/${ARCH}-conda-cpp:latest
+    links:
+      - impala:impala
+    environment:
+      - ARROW_FLIGHT=OFF
+      - ARROW_GANDIVA=OFF
+      - ARROW_PLASMA=OFF
+      - ARROW_HIVESERVER2=ON
+      - ARROW_HIVESERVER2_TEST_HOST=impala
+    shm_size: *shm-size
+    volumes: *conda-volumes
+    entrypoint: *conda-entrypoint
+    command:
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+        /arrow/ci/scripts/integration_hiveserver2.sh /arrow /build/cpp"]
+
+  conda-python-hdfs:
+    # Usage:
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-python
+    #   docker-compose build conda-python-hdfs
+    #   docker-compose run conda-python-hdfs
+    image: ${ORG}/${ARCH}-conda-python-${PYTHON}-hdfs-${HDFS}:latest
     build:
       context: .
-      dockerfile: integration/hdfs/Dockerfile
+      dockerfile: ci/docker/conda-python-hdfs.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-conda-python-${PYTHON}-hdfs-${HDFS}:latest
       args:
-        HDFS_VERSION: ${HDFS_VERSION:-2.9.2}
-    volumes: *ubuntu-volumes
-
-  # TODO(kszucs): pass dask version explicitly as a build argument
-  dask-integration:
-    # Usage:
-    #   export PYTHON_VERSION=3.6
-    #   docker-compose build cpp
-    #   docker-compose build python
-    #   docker-compose build dask-integration
-    #   docker-compose run dask-integration
-    image: arrowdev/arrow-dask-integration:latest
-    build:
-      context: .
-      dockerfile: integration/dask/Dockerfile
-    volumes: *ubuntu-volumes
-
-  turbodbc-integration:
-    # Usage:
-    #   export PYTHON_VERSION=3.6
-    #   docker-compose build cpp
-    #   docker-compose build python
-    #   docker-compose build turbodbc-integration
-    #   docker-compose run turbodbc-integration
-    image: arrowdev/arrow-turbodbc-integration:latest
-    build:
-      context: .
-      dockerfile: integration/turbodbc/Dockerfile
-    volumes: *ubuntu-volumes
-
-  spark-integration:
-    # Usage:
-    #   export PYTHON_VERSION=3.6
-    #   docker-compose build cpp
-    #   docker-compose build python
-    #   docker-compose build spark-integration
-    #   docker-compose run spark-integration
-    image: arrowdev/arrow-spark-${SPARK_VERSION:-master}:latest
+        org: ${ORG}
+        arch: ${ARCH}
+        conda: latest
+        python: ${PYTHON}
+        jdk: ${JDK}
+        # conda-forge doesn't have 3.5.4 so pinning explicitly, but this should
+        # be set to ${MAVEN}
+        maven: 3.5
+        hdfs: ${HDFS}
+    links:
+      - impala:impala
     environment:
-      - SPARK_VERSION=${SPARK_VERSION:-master}
-    build:
-      context: .
-      dockerfile: integration/spark/Dockerfile
-    volumes:
-      - .:/arrow:ro  # ensures that docker won't contaminate the host directory
-      - ubuntu-cache:/build:delegated
+      - ARROW_HDFS_TEST_HOST=impala
+      - ARROW_HDFS_TEST_PORT=8020
+      - ARROW_HDFS_TEST_USER=hdfs
+    shm_size: *shm-size
+    volumes: &conda-maven-volumes
+      - .:/arrow:delegated
       - maven-cache:/root/.m2:delegated
-      - spark-cache:/spark:delegated
+      - ${ARCH}-conda-cache:/build:delegated
+    entrypoint: *conda-entrypoint
+    command:
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+        /arrow/ci/scripts/python_build.sh /arrow /build/python &&
+        /arrow/ci/scripts/integration_hdfs.sh /arrow /build/cpp"]
 
-  # TODO(kszucs): hive-integration
-
-  ################################# Release ###################################
-
-  release-source:
-    image: arrowdev/arrow-release-source:latest
+  conda-python-spark:
+    # Usage:
+    #   docker-compose build conda-cpp
+    #   docker-compose build conda-python
+    #   docker-compose build conda-python-spark
+    #   docker-compose run conda-python-spark
+    image: ${ORG}/${ARCH}-conda-python-${PYTHON}-spark-${SPARK}:latest
     build:
       context: .
-      dockerfile: dev/release/source/Dockerfile
-    volumes:
-      - .:/arrow:delegated
-
-  ######################## Verification Containers ############################
-
-  debian-stretch:
-    image: debian:stretch
-    volumes:
-      - .:/arrow:delegated
-
-  debian-buster:
-    image: debian:buster
-    volumes:
-      - .:/arrow:delegated
-
-  ubuntu-trusty:
-    image: ubuntu:trusty
-    volumes:
-      - .:/arrow:delegated
-
-  ubuntu-xenial:
-    image: ubuntu:xenial
-    volumes:
-      - .:/arrow:delegated
-
-  ubuntu-bionic:
-    image: ubuntu:bionic
-    volumes:
-      - .:/arrow:delegated
-
-  ubuntu-disco:
-    image: ubuntu:disco
-    volumes:
-      - .:/arrow:delegated
-
-  centos-6:
-    image: centos:6
-    volumes:
-      - .:/arrow:delegated
-
-  centos-7:
-    image: centos:7
-    volumes:
-      - .:/arrow:delegated
+      dockerfile: ci/docker/conda-python-spark.dockerfile
+      cache_from:
+        - ${ORG}/${ARCH}-conda-python-${PYTHON}-spark-${SPARK}:latest
+      args:
+        org: ${ORG}
+        arch: ${ARCH}
+        conda: latest
+        python: ${PYTHON}
+        jdk: ${JDK}
+        # conda-forge doesn't have 3.5.4 so pinning explicitly, but this should
+        # be set to ${MAVEN}
+        maven: 3.5
+        spark: ${SPARK}
+    shm_size: *shm-size
+    volumes: *conda-maven-volumes
+    entrypoint: *conda-entrypoint
+    command:
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+        /arrow/ci/scripts/python_build.sh /arrow /build/python &&
+        /arrow/ci/scripts/java_build.sh /arrow &&
+        /arrow/ci/scripts/integration_spark.sh /arrow /spark"]

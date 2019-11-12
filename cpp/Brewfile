@@ -18,6 +18,7 @@
 brew "automake"
 brew "boost"
 brew "brotli"
+brew "c-ares"
 brew "ccache"
 brew "cmake"
 brew "double-conversion"

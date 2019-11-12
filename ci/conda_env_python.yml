@@ -15,14 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# don't add pandas here, because it is not a mandatory test dependency
 cython=0.29.7
 cloudpickle
 hypothesis
 numpy>=1.14
-pandas
 pytest
 pytest-faulthandler
 pytest-lazy-fixture
 pytz
 setuptools
 setuptools_scm=3.2.0
+pickle5

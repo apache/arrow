@@ -1,0 +1,185 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Python
+
+on:
+  push:
+    branches:
+      - master
+      - maint-*
+    paths:
+      - 'ci/**'
+      - 'cpp/**'
+      - 'python/**'
+  pull_request:
+    paths:
+      - 'ci/**'
+      - 'cpp/**'
+      - 'python/**'
+
+jobs:
+
+  ubuntu:
+    name: AMD64 Ubuntu 18.04 Python 3
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    env:
+      UBUNTU: 18.04
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Docker Pull
+        shell: bash
+        run: |
+          docker-compose pull --ignore-pull-failures ubuntu-cpp
+          docker-compose pull --ignore-pull-failures ubuntu-python
+      - name: Docker Build
+        shell: bash
+        run: |
+          docker-compose build ubuntu-cpp
+          docker-compose build ubuntu-python
+      - name: Docker Run
+        shell: bash
+        run: docker-compose run ubuntu-python
+      - name: Docker Push
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        continue-on-error: true
+        shell: bash
+        run: |
+          docker login -u ${{ secrets.DOCKERHUB_USER }} \
+                       -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker-compose push ubuntu-python
+
+  conda:
+    name: AMD64 Conda Python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: [2.7, 3.6]
+    env:
+      PYTHON: ${{ matrix.python }}
+      PANDAS: latest
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Docker Pull
+        shell: bash
+        run: |
+          docker-compose pull --ignore-pull-failures conda-cpp
+          docker-compose pull --ignore-pull-failures conda-python
+          docker-compose pull --ignore-pull-failures conda-python-pandas
+      - name: Docker Build
+        shell: bash
+        run: |
+          docker-compose build conda-cpp
+          docker-compose build conda-python
+          docker-compose build conda-python-pandas
+      - name: Docker Run
+        shell: bash
+        run: |
+          docker-compose run conda-python-pandas
+      - name: Docker Push
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        continue-on-error: true
+        shell: bash
+        run: |
+          docker login -u ${{ secrets.DOCKERHUB_USER }} \
+                       -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker-compose push conda-python-pandas
+
+  conda-nopandas:
+    name: AMD64 Conda Python ${{ matrix.python }} Nopandas
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        python: [3.6]
+    env:
+      PYTHON: ${{ matrix.python }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Docker Pull
+        shell: bash
+        run: |
+          docker-compose pull --ignore-pull-failures conda-cpp
+          docker-compose pull --ignore-pull-failures conda-python
+      - name: Docker Build
+        shell: bash
+        run: |
+          docker-compose build conda-cpp
+          docker-compose build conda-python
+      - name: Docker Run
+        shell: bash
+        run: docker-compose run conda-python
+      - name: Docker Push
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        continue-on-error: true
+        shell: bash
+        run: |
+          docker login -u ${{ secrets.DOCKERHUB_USER }} \
+                       -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker-compose push conda-python
+
+  macos:
+    name: AMD64 MacOS 10.15 Python 3
+    runs-on: macos-latest
+    env:
+      ARROW_HOME: /usr/local
+      ARROW_JEMALLOC: ON
+      ARROW_ORC: ON
+      ARROW_PYTHON: ON
+      ARROW_PLASMA: ON
+      ARROW_GANDIVA: ON
+      ARROW_PARQUET: ON
+      ARROW_WITH_ZLIB: ON
+      ARROW_WITH_LZ4: ON
+      ARROW_WITH_BZ2: ON
+      ARROW_WITH_ZSTD: ON
+      ARROW_WITH_SNAPPY: ON
+      ARROW_WITH_BROTLI: ON
+      ARROW_BUILD_TESTS: OFF
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Install Dependencies
+        shell: bash
+        run: |
+          brew bundle --file=cpp/Brewfile
+          brew install coreutils python
+          pip install -r python/requirements.txt \
+                      -r python/requirements-test.txt \
+                      cython
+      - name: Build
+        shell: bash
+        run: |
+          ci/scripts/cpp_build.sh $(pwd)
+          ci/scripts/python_build.sh $(pwd)
+      - name: Test
+        shell: bash
+        run: ci/scripts/python_test.sh $(pwd)

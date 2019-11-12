@@ -525,7 +525,7 @@ limitations under the License.
 
 --------------------------------------------------------------------------------
 
-The script dev/docker_common/wait-for-it.sh has the following license
+The script ci/scripts/util_wait_for_it.sh has the following license
 
 Copyright (c) 2016 Giles Hall
 

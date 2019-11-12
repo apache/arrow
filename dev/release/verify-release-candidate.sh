@@ -127,12 +127,12 @@ test_binary() {
 }
 
 test_apt() {
-  for target in debian-stretch \
-                debian-buster \
-                ubuntu-xenial \
-                ubuntu-bionic \
-                ubuntu-disco; do
-    if ! "${SOURCE_DIR}/../run_docker_compose.sh" \
+  for target in "debian:stretch" \
+                "debian:buster" \
+                "ubuntu:xenial" \
+                "ubuntu:bionic" \
+                "ubuntu:disco"; do
+    if ! docker run -v "${SOURCE_DIR}"/../..:/arrow:delegated \
            "${target}" \
            /arrow/dev/release/verify-apt.sh \
            "${VERSION}" \
@@ -145,9 +145,9 @@ test_apt() {
 }
 
 test_yum() {
-  for target in centos-6 \
-                centos-7; do
-    if ! "${SOURCE_DIR}/../run_docker_compose.sh" \
+  for target in "centos:6" \
+                "centos:7"; do
+    if ! docker run -v "${SOURCE_DIR}"/../..:/arrow:delegated \
            "${target}" \
            /arrow/dev/release/verify-yum.sh \
            "${VERSION}" \

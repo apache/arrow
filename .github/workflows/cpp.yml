@@ -1,0 +1,174 @@
+
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: C++
+
+on:
+  push:
+    branches:
+      - master
+      - maint-*
+    paths:
+      - 'ci/**'
+      - 'cpp/**'
+  pull_request:
+    paths:
+      - 'ci/**'
+      - 'cpp/**'
+
+jobs:
+
+  conda:
+    name: AMD64 Conda C++
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Docker Pull
+        shell: bash
+        run: docker-compose pull --ignore-pull-failures conda-cpp
+      - name: Docker Build
+        shell: bash
+        run: docker-compose build conda-cpp
+      - name: Docker Run
+        shell: bash
+        run: docker-compose run conda-cpp
+      - name: Docker Push
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        continue-on-error: true
+        shell: bash
+        run: |
+          docker login -u ${{ secrets.DOCKERHUB_USER }} \
+                       -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker-compose push conda-cpp
+
+  ubuntu:
+    name: AMD64 Ubuntu ${{ matrix.ubuntu }} C++
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ubuntu: [18.04]
+    env:
+      UBUNTU: ${{ matrix.ubuntu }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Docker Pull
+        shell: bash
+        run: docker-compose pull --ignore-pull-failures ubuntu-cpp
+      - name: Docker Build
+        shell: bash
+        run: docker-compose build ubuntu-cpp
+      - name: Docker Run
+        shell: bash
+        run: docker-compose run ubuntu-cpp
+      - name: Docker Push
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        continue-on-error: true
+        shell: bash
+        run: |
+          docker login -u ${{ secrets.DOCKERHUB_USER }} \
+                       -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker-compose push ubuntu-cpp
+
+  macos:
+    name: AMD64 MacOS 10.15 C++
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+    env:
+      ARROW_HOME: /usr/local
+      ARROW_JEMALLOC: ON
+      # TODO(kszucs): link error in the tests
+      ARROW_ORC: OFF
+      ARROW_FLIGHT: ON
+      ARROW_PLASMA: ON
+      ARROW_GANDIVA: ON
+      ARROW_PARQUET: ON
+      ARROW_WITH_ZLIB: ON
+      ARROW_WITH_LZ4: ON
+      ARROW_WITH_BZ2: ON
+      ARROW_WITH_ZSTD: ON
+      ARROW_WITH_SNAPPY: ON
+      ARROW_WITH_BROTLI: ON
+      ARROW_BUILD_TESTS: ON
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Install Dependencies
+        shell: bash
+        run: brew bundle --file=cpp/Brewfile
+      - name: Build
+        shell: bash
+        run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/cpp/build
+      - name: Test
+        shell: bash
+        run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/cpp/build
+
+  windows:
+    name: AMD64 ${{ matrix.name }} C++
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - windows-latest
+        include:
+          - os: windows-latest
+            name: Windows 2019
+            generator: Visual Studio 16 2019
+    env:
+      CMAKE_ARGS: '-A x64'
+      CMAKE_GENERATOR: ${{ matrix.generator }}
+      CMAKE_INSTALL_LIBDIR: bin
+      CMAKE_INSTALL_PREFIX: /usr
+      ARROW_HOME: /usr
+      ARROW_FLIGHT: OFF
+      ARROW_PARQUET: OFF
+      ARROW_WITH_ZLIB: OFF
+      ARROW_WITH_LZ4: OFF
+      ARROW_WITH_BZ2: OFF
+      ARROW_WITH_ZSTD: OFF
+      ARROW_WITH_SNAPPY: OFF
+      ARROW_WITH_BROTLI: OFF
+      ARROW_USE_GLOG: OFF
+      ARROW_BUILD_TESTS: ON
+      ARROW_TEST_LINKAGE: static
+      ARROW_BOOST_USE_SHARED: OFF
+      ARROW_BUILD_SHARED: OFF
+      ARROW_USE_STATIC_CRT: ON
+      ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Build
+        shell: bash
+        run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/cpp/build
+      # FIXME(kszucs): tests are hanging
+      # - name: Test
+      #   shell: bash
+      #   run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/cpp/build

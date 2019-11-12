@@ -266,15 +266,6 @@ endif(UNIX)
 # Set up various options
 #
 
-if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
-  # Currently the compression tests require at least these libraries; bz2 and
-  # zstd are optional. See ARROW-3984
-  set(ARROW_WITH_BROTLI ON)
-  set(ARROW_WITH_LZ4 ON)
-  set(ARROW_WITH_SNAPPY ON)
-  set(ARROW_WITH_ZLIB ON)
-endif()
-
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_INTEGRATION)
   set(ARROW_JSON ON)
 endif()

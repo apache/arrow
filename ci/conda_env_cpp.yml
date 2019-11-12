@@ -30,6 +30,7 @@ grpc-cpp>=1.21.4
 gtest=1.8.1
 libprotobuf
 lz4-c
+make
 ninja
 pkg-config
 python

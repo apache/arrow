@@ -571,14 +571,15 @@ TEST_F(DiffTest, DictionaryDiffFormatter) {
                                   target_indices, target_dict, &target_));
 
   base_->Equals(*target_, EqualOptions().diff_sink(&formatted));
-  ASSERT_EQ(formatted.str(), R"(# Dictionary arrays differed
+  auto formatted_expected_indices = R"(# Dictionary arrays differed
 ## dictionary diff
 ## indices diff
 @@ -4, +4 @@
 -0
 @@ -6, +5 @@
 +1
-)");
+)";
+  ASSERT_EQ(formatted.str(), formatted_expected_indices);
 
   // differing dictionaries
   target_dict = ArrayFromJSON(utf8(), R"(["b", "c", "a"])");
@@ -589,14 +590,15 @@ TEST_F(DiffTest, DictionaryDiffFormatter) {
 
   formatted.str("");
   base_->Equals(*target_, EqualOptions().diff_sink(&formatted));
-  ASSERT_EQ(formatted.str(), R"(# Dictionary arrays differed
+  auto formatted_expected_values = R"(# Dictionary arrays differed
 ## dictionary diff
 @@ -0, +0 @@
 -"a"
 @@ -3, +2 @@
 +"a"
 ## indices diff
-)");
+)";
+  ASSERT_EQ(formatted.str(), formatted_expected_values);
 }
 
 void MakeSameLength(std::shared_ptr<Array>* a, std::shared_ptr<Array>* b) {

@@ -1,0 +1,112 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: C Glib & Ruby
+
+on:
+  push:
+    branches:
+      - master
+      - maint-*
+    paths:
+      - 'ci/**'
+      - 'cpp/**'
+      - 'c_glib/**'
+      - 'ruby/**'
+  pull_request:
+    paths:
+      - 'ci/**'
+      - 'cpp/**'
+      - 'c_glib/**'
+      - 'ruby/**'
+
+jobs:
+
+  ubuntu:
+    name: AMD64 Ubuntu ${{ matrix.ubuntu }} Glib & Ruby
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ubuntu: [18.04]
+    env:
+      UBUNTU: ${{ matrix.ubuntu }}
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Docker Pull
+        shell: bash
+        run: |
+          docker-compose pull --ignore-pull-failures ubuntu-cpp
+          docker-compose pull --ignore-pull-failures ubuntu-c-glib
+          docker-compose pull --ignore-pull-failures ubuntu-ruby
+      - name: Docker Build
+        shell: bash
+        run: |
+          docker-compose build ubuntu-cpp
+          docker-compose build ubuntu-c-glib
+          docker-compose build ubuntu-ruby
+      - name: Docker Run
+        shell: bash
+        run: docker-compose run ubuntu-ruby
+      - name: Docker Push
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        continue-on-error: true
+        shell: bash
+        run: |
+          docker login -u ${{ secrets.DOCKERHUB_USER }} \
+                       -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker-compose push ubuntu-ruby
+
+  macos:
+    name: AMD64 MacOS 10.15 Glib & Ruby
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+    env:
+      ARROW_HOME: /usr/local
+      ARROW_ORC: OFF
+      ARROW_JEMALLOC: OFF
+      ARROW_WITH_BROTLI: ON
+      ARROW_WITH_LZ4: ON
+      ARROW_WITH_SNAPPY: ON
+      ARROW_WITH_ZLIB: ON
+      ARROW_BUILD_TESTS: ON
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Install Dependencies
+        shell: bash
+        run: |
+          brew bundle --file=cpp/Brewfile
+          brew bundle --file=c_glib/Brewfile
+          bundle install --gemfile ruby/red-arrow/Gemfile
+      - name: Build
+        shell: bash
+        run: |
+          ci/scripts/cpp_build.sh $(pwd) $(pwd)/cpp/build
+          ci/scripts/c_glib_build.sh $(pwd) $(pwd)/c_glib/build
+      - name: Test Glib
+        shell: bash
+        run: ci/scripts/c_glib_test.sh $(pwd) $(pwd)/c_glib/build
+      - name: Test Ruby
+        shell: bash
+        run: ci/scripts/ruby_test.sh $(pwd)

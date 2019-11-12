@@ -204,7 +204,7 @@ class OperationTest : public HS2ClientTest {};
 TEST_F(OperationTest, TestFetch) {
   CreateTestTable();
   InsertIntoTestTable(std::vector<int>({1, 2, 3, 4}),
-                      std::vector<string>({"a", "b", "c", "d"}));
+                      std::vector<std::string>({"a", "b", "c", "d"}));
 
   std::unique_ptr<Operation> select_op;
   ASSERT_OK(session_->ExecuteStatement("select * from " + TEST_TBL + " order by int_col",
@@ -223,14 +223,14 @@ TEST_F(OperationTest, TestFetch) {
   std::unique_ptr<Int32Column> int_col = results->GetInt32Col(0);
   std::unique_ptr<StringColumn> string_col = results->GetStringCol(1);
   ASSERT_EQ(int_col->data(), std::vector<int>({1, 2}));
-  ASSERT_EQ(string_col->data(), std::vector<string>({"a", "b"}));
+  ASSERT_EQ(string_col->data(), std::vector<std::string>({"a", "b"}));
   ASSERT_TRUE(has_more_rows);
 
   ASSERT_OK(select_op->Fetch(2, FetchOrientation::NEXT, &results, &has_more_rows));
   int_col = results->GetInt32Col(0);
   string_col = results->GetStringCol(1);
   ASSERT_EQ(int_col->data(), std::vector<int>({3, 4}));
-  ASSERT_EQ(string_col->data(), std::vector<string>({"c", "d"}));
+  ASSERT_EQ(string_col->data(), std::vector<std::string>({"c", "d"}));
 
   ASSERT_OK(select_op->Fetch(2, FetchOrientation::NEXT, &results, &has_more_rows));
   int_col = results->GetInt32Col(0);
@@ -253,7 +253,7 @@ TEST_F(OperationTest, TestIsNull) {
   CreateTestTable();
   // Insert some NULLs and ensure Column::IsNull() is correct.
   InsertIntoTestTable(std::vector<int>({1, 2, 3, 4, 5, NULL_INT_VALUE}),
-                      std::vector<string>({"a", "b", "NULL", "d", "NULL", "f"}));
+                      std::vector<std::string>({"a", "b", "NULL", "d", "NULL", "f"}));
 
   std::unique_ptr<Operation> select_nulls_op;
   ASSERT_OK(session_->ExecuteStatement("select * from " + TEST_TBL + " order by int_col",
@@ -282,7 +282,7 @@ TEST_F(OperationTest, TestIsNull) {
 TEST_F(OperationTest, TestCancel) {
   CreateTestTable();
   InsertIntoTestTable(std::vector<int>({1, 2, 3, 4}),
-                      std::vector<string>({"a", "b", "c", "d"}));
+                      std::vector<std::string>({"a", "b", "c", "d"}));
 
   std::unique_ptr<Operation> op;
   ASSERT_OK(session_->ExecuteStatement("select count(*) from " + TEST_TBL, &op));

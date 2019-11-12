@@ -1,0 +1,70 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Integration
+
+on:
+  push:
+    branches:
+      - master
+      - maint-*
+    paths:
+      - 'ci/**'
+      - 'go/**'
+      - 'js/**'
+      - 'cpp/**'
+      - 'java/**'
+      - 'format/**'
+  pull_request:
+    paths:
+      - 'ci/**'
+      - 'go/**'
+      - 'js/**'
+      - 'cpp/**'
+      - 'java/**'
+      - 'format/**'
+
+jobs:
+
+  conda-integration:
+    name: AMD64 Conda Integration Test
+    runs-on: ubuntu-latest
+    env:
+      MAVEN: 3.5
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v1
+        with:
+          submodules: true
+      - name: Docker Pull
+        run: |
+          docker-compose pull --ignore-pull-failures conda-cpp
+          docker-compose pull --ignore-pull-failures conda-integration
+      - name: Docker Build
+        run: |
+          docker-compose build conda-cpp
+          docker-compose build conda-integration
+      - name: Docker Run
+        run: docker-compose run conda-integration
+      - name: Docker Push
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        continue-on-error: true
+        shell: bash
+        run: |
+          docker login -u ${{ secrets.DOCKERHUB_USER }} \
+                       -p ${{ secrets.DOCKERHUB_TOKEN }}
+          docker-compose push conda-integration

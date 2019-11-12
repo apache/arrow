@@ -51,7 +51,7 @@ script:
 
   # don't attempt to build it, because the base image by pypa is updated
   # regularly and would cause undeterministic builds
-  - BUILD_IMAGE=python-{{ wheel_tag }}
+  - BUILD_IMAGE=centos-python-{{ wheel_tag }}
   - docker-compose pull $BUILD_IMAGE
   - docker-compose run
       -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }}
