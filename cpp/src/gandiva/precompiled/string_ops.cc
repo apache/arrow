@@ -224,8 +224,8 @@ const char* reverse_utf8(int64 context, const char* data, int32 data_len,
     return "";
   }
 
-  int char_len;
-  for (int i = 0; i < data_len; i += char_len) {
+  int32 char_len;
+  for (int32 i = 0; i < data_len; i += char_len) {
     char_len = utf8_char_length(data[i]);
 
     if (char_len == 0 || i + char_len > data_len) {  // invalid byte or incomplete glyph
@@ -234,7 +234,7 @@ const char* reverse_utf8(int64 context, const char* data, int32 data_len,
       return "";
     }
 
-    for (int j = 0; j < char_len; ++j) {
+    for (int32 j = 0; j < char_len; ++j) {
       if (j > 0 && (data[i + j] & 0xC0) != 0x80) {  // bytes following head-byte of glyph
         set_error_for_invalid_utf(context, data[i + j]);
         *out_len = 0;

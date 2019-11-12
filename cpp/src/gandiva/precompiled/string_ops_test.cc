@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "gandiva/execution_context.h"
 #include "gandiva/precompiled/types.h"
@@ -302,10 +303,7 @@ TEST(TestStringOps, TestReverse) {
   std::string d("aa\xc3");
   out_str = reverse_utf8(ctx_ptr, d.data(), static_cast<int>(d.length()), &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
-  EXPECT_TRUE(ctx.get_error().find(
-                  "unexpected byte \\c3 encountered while decoding utf8 string") !=
-              std::string::npos)
-      << ctx.get_error();
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("unexpected byte \\c3 encountered while decoding utf8 string"));
   ctx.Reset();
 }
 
