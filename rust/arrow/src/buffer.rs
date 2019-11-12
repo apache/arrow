@@ -462,6 +462,7 @@ impl MutableBuffer {
         let buffer_data = BufferData {
             ptr: self.data,
             len: self.len,
+            owned: true,
         };
         ::std::mem::forget(self);
         Buffer {
