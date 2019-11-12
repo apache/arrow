@@ -73,8 +73,11 @@ std::shared_ptr<ds::Dataset> GetDatasetFromPath(fs::FileSystem* fs,
   s.base_dir = path;
   s.recursive = true;
 
+  ds::FileSystemDiscoveryOptions options;
+
   std::shared_ptr<ds::DataSourceDiscovery> discovery;
-  ABORT_ON_FAILURE(ds::FileSystemDataSourceDiscovery::Make(fs, s, format, &discovery));
+  ABORT_ON_FAILURE(
+      ds::FileSystemDataSourceDiscovery::Make(fs, s, format, options, &discovery));
 
   std::shared_ptr<Schema> inspect_schema;
   ABORT_ON_FAILURE(discovery->Inspect(&inspect_schema));

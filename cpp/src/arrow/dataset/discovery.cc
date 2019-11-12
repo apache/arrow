@@ -28,43 +28,74 @@
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/filesystem/path_tree.h"
+#include "arrow/filesystem/path_util.h"
 #include "arrow/status.h"
 
 namespace arrow {
 namespace dataset {
 
 FileSystemDataSourceDiscovery::FileSystemDataSourceDiscovery(
-    fs::FileSystem* filesystem, std::string base_dir, std::vector<fs::FileStats> files,
-    std::shared_ptr<FileFormat> format)
+    fs::FileSystem* filesystem, std::vector<fs::FileStats> files,
+    std::shared_ptr<FileFormat> format, FileSystemDiscoveryOptions options)
     : fs_(filesystem),
-      base_dir_(std::move(base_dir)),
       files_(std::move(files)),
-      format_(std::move(format)) {}
+      format_(std::move(format)),
+      options_(std::move(options)) {}
 
-Status FileSystemDataSourceDiscovery::Make(fs::FileSystem* filesystem,
-                                           std::string base_dir,
-                                           std::vector<fs::FileStats> files,
-                                           std::shared_ptr<FileFormat> format,
-                                           std::shared_ptr<DataSourceDiscovery>* out) {
-  out->reset(
-      new FileSystemDataSourceDiscovery(filesystem, std::move(base_dir), files, format));
-  return Status::OK();
+std::vector<fs::FileStats> FilterFilesByPrefix(const std::vector<std::string>& prefixes,
+                                               std::vector<fs::FileStats> files) {
+  std::vector<fs::FileStats> filtered;
+  auto matches_prefix = [&prefixes](const fs::FileStats& file) -> bool {
+    // Ignore non-file.
+    if (!file.IsFile()) return true;
+
+    auto dir_base = fs::internal::GetAbstractPathParent(file.path());
+    util::string_view basename{dir_base.second};
+
+    auto has_prefix = [&basename](const std::string& prefix) -> bool {
+      return !prefix.empty() && basename.starts_with(prefix);
+    };
+
+    return !std::any_of(prefixes.cbegin(), prefixes.cend(), has_prefix);
+  };
+
+  for (const auto& stat : files) {
+    if (matches_prefix(stat)) {
+      filtered.push_back(stat);
+    }
+  }
+
+  return filtered;
 }
 
 Status FileSystemDataSourceDiscovery::Make(fs::FileSystem* filesystem,
                                            std::vector<fs::FileStats> files,
                                            std::shared_ptr<FileFormat> format,
+                                           FileSystemDiscoveryOptions options,
                                            std::shared_ptr<DataSourceDiscovery>* out) {
-  return Make(filesystem, "", std::move(files), std::move(format), out);
+  const auto& prefixes = options.ignore_prefixes;
+  std::vector<fs::FileStats> filtered =
+      prefixes.empty() ? std::move(files) : FilterFilesByPrefix(prefixes, files);
+
+  out->reset(new FileSystemDataSourceDiscovery(filesystem, std::move(filtered),
+                                               std::move(format), std::move(options)));
+
+  return Status::OK();
 }
 
 Status FileSystemDataSourceDiscovery::Make(fs::FileSystem* filesystem,
                                            fs::Selector selector,
                                            std::shared_ptr<FileFormat> format,
+                                           FileSystemDiscoveryOptions options,
                                            std::shared_ptr<DataSourceDiscovery>* out) {
   std::vector<fs::FileStats> files;
   RETURN_NOT_OK(filesystem->GetTargetStats(selector, &files));
-  return Make(filesystem, std::move(selector.base_dir), std::move(files), format, out);
+
+  if (options.partition_base_dir.empty() && !selector.base_dir.empty()) {
+    options.partition_base_dir = selector.base_dir;
+  }
+
+  return Make(filesystem, std::move(files), std::move(format), std::move(options), out);
 }
 
 static inline Status InspectSchema(fs::FileSystem* fs,
@@ -97,8 +128,8 @@ Status FileSystemDataSourceDiscovery::Finish(std::shared_ptr<DataSource>* out) {
   PathPartitions partitions;
 
   if (partition_scheme_ != nullptr) {
-    RETURN_NOT_OK(
-        ApplyPartitionScheme(*partition_scheme_, base_dir_, files_, &partitions));
+    RETURN_NOT_OK(ApplyPartitionScheme(*partition_scheme_, options_.partition_base_dir,
+                                       files_, &partitions));
   }
 
   return FileSystemBasedDataSource::Make(fs_, files_, root_partition(),
