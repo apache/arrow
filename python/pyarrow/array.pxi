@@ -90,9 +90,9 @@ def _handle_arrow_array_protocol(obj, type, mask, size):
             "Cannot specify a mask or a size when passing an object that is "
             "converted with the __arrow_array__ protocol.")
     res = obj.__arrow_array__(type=type)
-    if not isinstance(res, Array):
+    if not isinstance(res, (Array, ChunkedArray)):
         raise TypeError("The object's __arrow_array__ method does not "
-                        "return a pyarrow Array.")
+                        "return a pyarrow Array or ChunkedArray.")
     return res
 
 
@@ -158,8 +158,12 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
 
     Returns
     -------
-    array : pyarrow.Array or pyarrow.ChunkedArray (if object data
-    overflowed binary storage)
+    array : pyarrow.Array or pyarrow.ChunkedArray
+        A ChunkedArray instead of an Array is returned if:
+
+        - the object data overflowed binary storage.
+        - the object's ``__arrow_array__`` protocol method returned a chunked
+          array.
     """
     cdef:
         CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)

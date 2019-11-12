@@ -1902,6 +1902,19 @@ def test_array_protocol():
     with pytest.raises(TypeError):
         pa.array(arr)
 
+    # ARROW-7066 - allow ChunkedArray output
+    class MyArray2:
+        def __init__(self, data):
+            self.data = data
+
+        def __arrow_array__(self, type=None):
+            return pa.chunked_array([self.data], type=type)
+
+    arr = MyArray2(np.array([1, 2, 3], dtype='int64'))
+    result = pa.array(arr)
+    expected = pa.chunked_array([[1, 2, 3]], type=pa.int64())
+    assert result.equals(expected)
+
 
 def test_concat_array():
     concatenated = pa.concat_arrays(
