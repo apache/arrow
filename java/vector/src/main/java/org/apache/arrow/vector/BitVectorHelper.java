@@ -343,27 +343,30 @@ public class BitVectorHelper {
     if (input1 != output) {
       PlatformDependent.copyMemory(input1.memoryAddress(), output.memoryAddress(), numBytes1);
     }
-    output.setZero(numBytes1, numBytesOut);
 
-    if (numBits1 % 8 == 0) {
+    if (bitIndex(numBits1) == 0) {
+      // The number of bits for the first bit set is a multiple of 8, so the boundary is at byte boundary.
+      // For this case, we have a shortcut to copy all bytes from the second set after the byte boundary.
       PlatformDependent.copyMemory(input2.memoryAddress(), output.memoryAddress() + numBytes1, numBytes2);
       return;
     }
 
     // the number of bits to fill a full byte after the first input is processed
-    int numBitsToFill = 8 - (numBits1 % 8);
-
-    // the number of extra bits for the second input, relative to full bytes
-    int numRemainingBits = numBits2 % 8;
+    int numBitsToFill = 8 - bitIndex(numBits1);
+    int mask = (1 << (8 - numBitsToFill)) - 1;
 
     int numFullBytes = numBits2 / 8;
 
     for (int i = 0; i < numFullBytes; i++) {
       int prevByte = output.getByte(numBytes1 + i - 1) & 0xff;
-      byte curByte = input2.getByte(i);
+
+      // clear high bits
+      prevByte &= mask;
+
+      int curByte = input2.getByte(i) & 0xff;
 
       // first fill the bits to a full byte
-      int byteToFill = (curByte & 0xff) << (8 - numBitsToFill);
+      int byteToFill = ((curByte & 0xff) << (8 - numBitsToFill)) & 0xff;
       output.setByte(numBytes1 + i - 1, byteToFill | prevByte);
 
       // fill remaining bits in the current byte
@@ -371,23 +374,29 @@ public class BitVectorHelper {
       output.setByte(numBytes1 + i, remByte);
     }
 
+    // clear high bits for the previous byte, as it may be the last byte
+    int curOutputByte = output.getByte(numBytes1 + numFullBytes - 1) & 0xff;
+    curOutputByte &= mask;
+
+    // the number of extra bits for the second input, relative to full bytes
+    int numRemainingBits = bitIndex(numBits2);
+
     // process remaining bits from input2
     if (numRemainingBits > 0) {
-      byte remByte = input2.getByte(numBytes2 - 1);
+      int remByte = input2.getByte(numBytes2 - 1) & 0xff;
 
-      // the last byte to fill in the output
-      byte curOutputByte = output.getByte(numBytes1 + numFullBytes - 1);
-      byte byteToFill = (byte) ((remByte & 0xff) << (8 - numBitsToFill));
-      output.setByte(numBytes1 + numFullBytes - 1, curOutputByte | byteToFill);
+      int byteToFill = (remByte & 0xff) << (8 - numBitsToFill);
+      curOutputByte |= byteToFill;
 
       if (numRemainingBits > numBitsToFill) {
-        // some remaining bits cannot be filled in the previous byte
-        byte leftByte = (byte) ((remByte & 0xff) >>> numBitsToFill);
+        // clear all bits for the last byte before writing
+        output.setByte(numBytes1 + numFullBytes, 0);
 
-        // clear high bits
-        int mask = (1 << (numBitsToFill - numRemainingBits)) - 1;
-        output.setByte(numBytes1 + numFullBytes, leftByte & mask);
+        // some remaining bits cannot be filled in the previous byte
+        int leftByte = (byte) ((remByte & 0xff) >>> numBitsToFill) & 0xff;
+        output.setByte(numBytes1 + numFullBytes, leftByte);
       }
     }
+    output.setByte(numBytes1 + numFullBytes - 1, curOutputByte);
   }
 }
