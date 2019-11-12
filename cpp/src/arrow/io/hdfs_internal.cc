@@ -217,7 +217,7 @@ static std::vector<fs::path> get_potential_libjvm_paths() {
       "/usr/lib/jvm/default",                     // alt centos
       "/usr/java/latest",                         // alt centos
   };
-  search_suffixes = {"", "/jre/lib/amd64/server", "/lib/amd64/server"};
+  search_suffixes = {"", "/jre/lib/amd64/server", "/lib/amd64/server", "/lib/server"};
   file_name = "libjvm.so";
 #endif
   // From direct environment variable
