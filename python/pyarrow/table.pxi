@@ -99,6 +99,16 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         return self.chunked_array.null_count()
 
+    @property
+    def nbytes(self):
+        """
+        Total number of bytes consumed by the elements of the chunked array.
+        """
+        size = 0
+        for chunk in self.iterchunks():
+            size += chunk.nbytes
+        return size
+
     def __iter__(self):
         for chunk in self.iterchunks():
             for item in chunk:
@@ -588,7 +598,7 @@ cdef class RecordBatch(_PandasConvertible):
 
         Returns
         -------
-        list of pa.ChunkedArray
+        list of pa.Array
         """
         return [self.column(i) for i in range(self.num_columns)]
 
@@ -604,6 +614,16 @@ cdef class RecordBatch(_PandasConvertible):
         cdef Array result = pyarrow_wrap_array(self.batch.column(index))
         result._name = self.schema[index].name
         return result
+
+    @property
+    def nbytes(self):
+        """
+        Total number of bytes consumed by the elements of the record batch.
+        """
+        size = 0
+        for i in range(self.num_columns):
+            size += self.column(i).nbytes
+        return size
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -1419,6 +1439,16 @@ cdef class Table(_PandasConvertible):
         (int, int)
         """
         return (self.num_rows, self.num_columns)
+
+    @property
+    def nbytes(self):
+        """
+        Total number of bytes consumed by the elements of the table.
+        """
+        size = 0
+        for column in self.itercolumns():
+            size += column.nbytes
+        return size
 
     def add_column(self, int i, field_, column):
         """

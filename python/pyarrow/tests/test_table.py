@@ -44,6 +44,7 @@ def test_chunked_array_basics():
     assert all(isinstance(c, pa.lib.Int64Array) for c in data.chunks)
     assert all(isinstance(c, pa.lib.Int64Array) for c in data.iterchunks())
     assert len(data.chunks) == 3
+    assert data.nbytes == sum(c.nbytes for c in data.iterchunks())
     data.validate()
 
 
@@ -274,6 +275,7 @@ def test_recordbatch_basics():
     assert len(batch) == 5
     assert batch.num_rows == 5
     assert batch.num_columns == len(data)
+    assert batch.nbytes == 5 * 2 + 1 + 5 * 4 + 1
     pydict = batch.to_pydict()
     assert pydict == OrderedDict([
         ('c0', [0, 1, 2, 3, 4]),
@@ -493,8 +495,8 @@ def test_table_to_batches():
 
 def test_table_basics():
     data = [
-        pa.array(range(5)),
-        pa.array([-10, -5, 0, 5, 10])
+        pa.array(range(5), type='int64'),
+        pa.array([-10, -5, 0, 5, 10], type='int64')
     ]
     table = pa.table(data, names=('a', 'b'))
     table.validate()
@@ -502,6 +504,7 @@ def test_table_basics():
     assert table.num_rows == 5
     assert table.num_columns == 2
     assert table.shape == (5, 2)
+    assert table.nbytes == 2 * (5 * 8 + 1)
     pydict = table.to_pydict()
     assert pydict == OrderedDict([
         ('a', [0, 1, 2, 3, 4]),
