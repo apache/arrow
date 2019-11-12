@@ -1912,7 +1912,7 @@ def test_array_protocol():
 
     arr = MyArray2(np.array([1, 2, 3], dtype='int64'))
     result = pa.array(arr)
-    expected = pa.array([1, 2, 3], type=pa.int64())
+    expected = pa.chunked_array([[1, 2, 3]], type=pa.int64())
     assert result.equals(expected)
 
 
