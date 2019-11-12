@@ -29,6 +29,8 @@
 #include <arrow-glib/data-type.hpp>
 #include <arrow-glib/enums.h>
 #include <arrow-glib/error.hpp>
+#include <arrow-glib/record-batch.hpp>
+#include <arrow-glib/table.hpp>
 
 template <typename ArrowType, typename GArrowArrayType>
 typename ArrowType::c_type
@@ -1509,6 +1511,174 @@ garrow_array_sort_to_indices(GArrowArray *array,
                                               &arrow_indices);
   if (garrow_error_check(error, status, "[array][sort-to-indices]")) {
     return GARROW_UINT64_ARRAY(garrow_array_new_raw(&arrow_indices));
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_table_filter:
+ * @table: A #GArrowTable.
+ * @filter: The values indicates which values should be filtered out.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowTable filterd
+ *   with a boolean selection filter. Nulls in the filter will
+ *   result in nulls in the output.
+ *
+ * Since: 1.0.0
+ */
+GArrowTable *
+garrow_table_filter(GArrowTable *table,
+                    GArrowBooleanArray *filter,
+                    GError **error)
+{
+  auto arrow_table = garrow_table_get_raw(table);
+  auto arrow_filter = garrow_array_get_raw(GARROW_ARRAY(filter));
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  std::shared_ptr<arrow::Table> arrow_filtered_table;
+  auto status = arrow::compute::Filter(&context,
+                                       *arrow_table,
+                                       *arrow_filter,
+                                       &arrow_filtered_table);
+  if (garrow_error_check(error, status, "[table][filter]")) {
+    return garrow_table_new_raw(&arrow_filtered_table);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_table_filter_chunked_array:
+ * @table: A #GArrowTable.
+ * @filter: The values indicates which values should be filtered out.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowTable filterd
+ *   with a chunked array filter. Nulls in the filter will
+ *   result in nulls in the output.
+ *
+ * Since: 1.0.0
+ */
+GArrowTable *
+garrow_table_filter_chunked_array(GArrowTable *table,
+                                  GArrowChunkedArray *filter,
+                                  GError **error)
+{
+  auto arrow_table = garrow_table_get_raw(table);
+  auto arrow_filter = garrow_chunked_array_get_raw(filter);
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  std::shared_ptr<arrow::Table> arrow_filtered_table;
+  auto status = arrow::compute::Filter(&context,
+                                       *arrow_table,
+                                       *arrow_filter,
+                                       &arrow_filtered_table);
+  if (garrow_error_check(error, status, "[table][filter-chunked-array]")) {
+    return garrow_table_new_raw(&arrow_filtered_table);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_chunked_array_filter:
+ * @chunked_array: A #GArrowChunkedArray.
+ * @filter: The values indicates which values should be filtered out.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowChunkedArray filterd
+ *   with a boolean selection filter. Nulls in the filter will
+ *   result in nulls in the output.
+ *
+ * Since: 1.0.0
+ */
+GArrowChunkedArray *
+garrow_chunked_array_filter(GArrowChunkedArray *chunked_array,
+                            GArrowBooleanArray *filter,
+                            GError **error)
+{
+  auto arrow_chunked_array =
+    garrow_chunked_array_get_raw(chunked_array);
+  auto arrow_filter = garrow_array_get_raw(GARROW_ARRAY(filter));
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  std::shared_ptr<arrow::ChunkedArray> arrow_filtered_chunked_array;
+  auto status = arrow::compute::Filter(&context,
+                                       *arrow_chunked_array,
+                                       *arrow_filter,
+                                       &arrow_filtered_chunked_array);
+  if (garrow_error_check(error, status, "[chunked-array][filter]")) {
+    return garrow_chunked_array_new_raw(&arrow_filtered_chunked_array);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_chunked_array_filter_chunked_array:
+ * @chunked_array: A #GArrowChunkedArray.
+ * @filter: The values indicates which values should be filtered out.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowChunkedArray filterd
+ *   with a chunked array filter. Nulls in the filter will
+ *   result in nulls in the output.
+ *
+ * Since: 1.0.0
+ */
+GArrowChunkedArray *
+garrow_chunked_array_filter_chunked_array(GArrowChunkedArray *chunked_array,
+                                          GArrowChunkedArray *filter,
+                                          GError **error)
+{
+  auto arrow_chunked_array =
+    garrow_chunked_array_get_raw(chunked_array);
+  auto arrow_filter = garrow_chunked_array_get_raw(filter);
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  std::shared_ptr<arrow::ChunkedArray> arrow_filtered_chunked_array;
+  auto status = arrow::compute::Filter(&context,
+                                       *arrow_chunked_array,
+                                       *arrow_filter,
+                                       &arrow_filtered_chunked_array);
+  if (garrow_error_check(error, status, "[chunked-array][filter-chunked-array]")) {
+    return garrow_chunked_array_new_raw(&arrow_filtered_chunked_array);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_record_batch_filter:
+ * @record_batch: A #GArrowRecordBatch.
+ * @filter: The values indicates which values should be filtered out.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowRecordBatch filterd
+ *   with a boolean selection filter. Nulls in the filter will
+ *   result in nulls in the output.
+ *
+ * Since: 1.0.0
+ */
+GArrowRecordBatch *
+garrow_record_batch_filter(GArrowRecordBatch *record_batch,
+                           GArrowBooleanArray *filter,
+                           GError **error)
+{
+  auto arrow_record_batch =
+    garrow_record_batch_get_raw(record_batch);
+  auto arrow_filter = garrow_array_get_raw(GARROW_ARRAY(filter));
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  std::shared_ptr<arrow::RecordBatch> arrow_filtered_record_batch;
+  auto status = arrow::compute::Filter(&context,
+                                       *arrow_record_batch,
+                                       *arrow_filter,
+                                       &arrow_filtered_record_batch);
+  if (garrow_error_check(error, status, "[record-batch][filter]")) {
+    return garrow_record_batch_new_raw(&arrow_filtered_record_batch);
   } else {
     return NULL;
   }
