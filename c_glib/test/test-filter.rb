@@ -54,8 +54,8 @@ class TestFilter < Test::Unit::TestCase
         build_boolean_array([true, nil]),
       ]
       filtered_table = Arrow::Table.new(@schema, arrays)
-      assert_equal(@table.filter(filter),
-                   filtered_table)
+      assert_equal(filtered_table,
+                   @table.filter(filter))
     end
 
     def test_filter_chunked_array
@@ -69,8 +69,8 @@ class TestFilter < Test::Unit::TestCase
         build_boolean_array([true, nil]),
       ]
       filtered_table = Arrow::Table.new(@schema, arrays)
-      assert_equal(@table.filter_chunked_array(filter),
-                   filtered_table)
+      assert_equal(filtered_table,
+                   @table.filter_chunked_array(filter))
     end
 
     def test_invalid_array_length
@@ -97,8 +97,8 @@ class TestFilter < Test::Unit::TestCase
         build_boolean_array([nil]),
       ]
       filtered_chunked_array = Arrow::ChunkedArray.new(chunks)
-      assert_equal(@chunked_array.filter(filter),
-                   filtered_chunked_array)
+      assert_equal(filtered_chunked_array,
+                   @chunked_array.filter(filter))
     end
 
     def test_filter_chunked_array
@@ -112,8 +112,8 @@ class TestFilter < Test::Unit::TestCase
         build_boolean_array([nil]),
       ]
       filtered_chunked_array = Arrow::ChunkedArray.new(filtered_chunks)
-      assert_equal(@chunked_array.filter_chunked_array(filter),
-                   filtered_chunked_array)
+      assert_equal(filtered_chunked_array,
+                   @chunked_array.filter_chunked_array(filter))
     end
 
     def test_invalid_array_length
@@ -145,8 +145,8 @@ class TestFilter < Test::Unit::TestCase
         build_boolean_array([true, nil]),
       ]
       filtered_record_batch = Arrow::RecordBatch.new(@schema, 2, columns)
-      assert_equal(@record_batch.filter(filter),
-                   filtered_record_batch)
+      assert_equal(filtered_record_batch,
+                   @record_batch.filter(filter))
     end
 
     def test_invalid_array_length
