@@ -31,7 +31,7 @@ pushd ../../cpp
       mkdir release
     fi
     pushd release
-        cmake -DCMAKE_BUILD_TYPE=Release \
+        sudo cmake -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_FLAGS="-g -O3" \
             -DCMAKE_CXX_FLAGS="-g -O3" \
             -DARROW_BUILD_TESTS=off \
@@ -47,10 +47,10 @@ pushd ../../cpp
             -DARROW_WITH_ZSTD=off \
             -DARROW_PLASMA_JAVA_CLIENT=on \
             ..
-        make VERBOSE=1 -j$PARALLEL
+        sudo make VERBOSE=1 -j$PARALLEL
     popd
 popd
 
 mvn clean install
-export PLASMA_STORE=$ROOT_DIR/../../cpp/release/release/plasma_store_server
-java -cp target/test-classes:target/classes -Djava.library.path=$ROOT_DIR/../../cpp/release/release/ org.apache.arrow.plasma.PlasmaClientTest
+export PLASMA_STORE=$CONDA_PREFIX/tmp/arrow/cpp/release/release/plasma-store-server
+java -cp target/test-classes:target/classes -Djava.library.path=$CONDA_PREFIX/tmp/arrow/cpp/release/release/ org.apache.arrow.plasma.PlasmaClientTest
