@@ -303,7 +303,9 @@ TEST(TestStringOps, TestReverse) {
   std::string d("aa\xc3");
   out_str = reverse_utf8(ctx_ptr, d.data(), static_cast<int>(d.length()), &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
-  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("unexpected byte \\c3 encountered while decoding utf8 string"));
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr(
+                  "unexpected byte \\c3 encountered while decoding utf8 string"));
   ctx.Reset();
 }
 
