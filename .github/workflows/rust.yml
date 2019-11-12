@@ -19,9 +19,6 @@ name: Rust
 
 on:
   push:
-    branches:
-      - master
-      - maint-*
     paths:
       - 'ci/**'
       - 'rust/**'

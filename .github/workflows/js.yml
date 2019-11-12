@@ -19,9 +19,6 @@ name: NodeJS
 
 on:
   push:
-    branches:
-      - master
-      - maint-*
     paths:
       - 'ci/**'
       - 'js/**'

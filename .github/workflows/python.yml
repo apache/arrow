@@ -19,9 +19,6 @@ name: Python
 
 on:
   push:
-    branches:
-      - master
-      - maint-*
     paths:
       - 'ci/**'
       - 'cpp/**'
@@ -31,6 +28,7 @@ on:
       - 'ci/**'
       - 'cpp/**'
       - 'python/**'
+
 
 jobs:
 

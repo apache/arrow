@@ -32,15 +32,15 @@ RUN conda install -q \
 # Ensure parallel compilation of each individual package
 RUN printf "\nMAKEFLAGS=-j8\n" >> /opt/conda/lib/R/etc/Makeconf
 
-# Arrow build flags
-ENV ARROW_FLIGHT=OFF \
+ENV \
+    ARROW_BUILD_STATIC=OFF \
+    ARROW_BUILD_TESTS=OFF \
+    ARROW_BUILD_UTILITIES=OFF \
+    ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_GANDIVA=OFF \
-    ARROW_HDFS=OFF \
     ARROW_ORC=OFF \
     ARROW_PARQUET=ON \
     ARROW_PLASMA=OFF \
-    ARROW_USE_ASAN=OFF \
-    ARROW_USE_UBSAN=OFF \
+    ARROW_USE_GLOG=OFF \
     ARROW_NO_DEPRECATED_API=ON \
-    ARROW_R_DEV=TRUE \
-    ARROW_BUILD_TESTS=OFF
+    ARROW_R_DEV=TRUE
