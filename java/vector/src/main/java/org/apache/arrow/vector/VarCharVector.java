@@ -18,7 +18,6 @@
 package org.apache.arrow.vector;
 
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.complex.impl.VarCharReaderImpl;
 import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.holders.NullableVarCharHolder;
@@ -104,7 +103,7 @@ public final class VarCharVector extends BaseVariableWidthVector {
    * @return array of bytes for non-null element, null otherwise
    */
   public byte[] get(int index) {
-    Preconditions.checkArgument(index >= 0);
+    assert index >= 0;
     if (isSet(index) == 0) {
       return null;
     }
@@ -139,7 +138,7 @@ public final class VarCharVector extends BaseVariableWidthVector {
    * @param holder  data holder to be populated by this function
    */
   public void get(int index, NullableVarCharHolder holder) {
-    Preconditions.checkArgument(index >= 0);
+    assert index >= 0;
     if (isSet(index) == 0) {
       holder.isSet = 0;
       return;
@@ -166,7 +165,7 @@ public final class VarCharVector extends BaseVariableWidthVector {
    * @param holder  holder that carries data buffer.
    */
   public void set(int index, VarCharHolder holder) {
-    Preconditions.checkArgument(index >= 0);
+    assert index >= 0;
     fillHoles(index);
     BitVectorHelper.setValidityBitToOne(validityBuffer, index);
     final int dataLength = holder.end - holder.start;
@@ -185,7 +184,7 @@ public final class VarCharVector extends BaseVariableWidthVector {
    * @param holder  holder that carries data buffer.
    */
   public void setSafe(int index, VarCharHolder holder) {
-    Preconditions.checkArgument(index >= 0);
+    assert index >= 0;
     final int dataLength = holder.end - holder.start;
     fillEmpties(index);
     handleSafe(index, dataLength);
@@ -204,7 +203,7 @@ public final class VarCharVector extends BaseVariableWidthVector {
    * @param holder  holder that carries data buffer.
    */
   public void set(int index, NullableVarCharHolder holder) {
-    Preconditions.checkArgument(index >= 0);
+    assert index >= 0;
     fillHoles(index);
     BitVectorHelper.setValidityBit(validityBuffer, index, holder.isSet);
     final int startOffset = getStartOffset(index);
@@ -227,7 +226,7 @@ public final class VarCharVector extends BaseVariableWidthVector {
    * @param holder  holder that carries data buffer.
    */
   public void setSafe(int index, NullableVarCharHolder holder) {
-    Preconditions.checkArgument(index >= 0);
+    assert index >= 0;
     fillEmpties(index);
     BitVectorHelper.setValidityBit(validityBuffer, index, holder.isSet);
     final int startOffset = getStartOffset(index);
