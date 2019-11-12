@@ -57,3 +57,9 @@ RUN pip install \
 COPY c_glib/Gemfile /arrow/c_glib/
 RUN gem install bundler && \
     bundle install --gemfile /arrow/c_glib/Gemfile
+
+ENV ARROW_PYTHON=ON \
+    ARROW_BUILD_STATIC=OFF \
+    ARROW_BUILD_TESTS=OFF \
+    ARROW_BUILD_UTILITIES=OFF \
+    ARROW_USE_GLOG=OFF \

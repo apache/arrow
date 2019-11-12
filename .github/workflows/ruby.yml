@@ -19,9 +19,6 @@ name: C Glib & Ruby
 
 on:
   push:
-    branches:
-      - master
-      - maint-*
     paths:
       - 'ci/**'
       - 'cpp/**'
