@@ -194,13 +194,13 @@ public class TestArrowBufPointer {
     protected int counter = 0;
 
     @Override
-    public int hashCode(long address, int length) {
+    public int hashCode(long address, long length) {
       counter += 1;
       return SimpleHasher.INSTANCE.hashCode(address, length);
     }
 
     @Override
-    public int hashCode(ArrowBuf buf, int offset, int length) {
+    public int hashCode(ArrowBuf buf, long offset, long length) {
       counter += 1;
       return SimpleHasher.INSTANCE.hashCode(buf, offset, length);
     }

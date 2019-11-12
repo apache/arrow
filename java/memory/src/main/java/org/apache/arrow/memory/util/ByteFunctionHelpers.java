@@ -111,11 +111,11 @@ public class ByteFunctionHelpers {
    */
   public static int compare(
       final ArrowBuf left,
-      int lStart,
-      int lEnd,
+      long lStart,
+      long lEnd,
       final ArrowBuf right,
-      int rStart,
-      int rEnd) {
+      long rStart,
+      long rEnd) {
     if (BoundsChecking.BOUNDS_CHECKING_ENABLED) {
       left.checkBytes(lStart, lEnd);
       right.checkBytes(rStart, rEnd);
@@ -125,14 +125,14 @@ public class ByteFunctionHelpers {
 
   private static int memcmp(
       final long laddr,
-      int lStart,
-      int lEnd,
+      long lStart,
+      long lEnd,
       final long raddr,
-      int rStart,
-      final int rEnd) {
-    int lLen = lEnd - lStart;
-    int rLen = rEnd - rStart;
-    int n = Math.min(rLen, lLen);
+      long rStart,
+      final long rEnd) {
+    long lLen = lEnd - lStart;
+    long rLen = rEnd - rStart;
+    long n = Math.min(rLen, lLen);
     long lPos = laddr + lStart;
     long rPos = raddr + rStart;
 
@@ -281,7 +281,7 @@ public class ByteFunctionHelpers {
   /**
    * Compute hashCode with the given {@link ArrowBufHasher}, {@link ArrowBuf} and start/end index.
    */
-  public static final int hash(ArrowBufHasher hasher, final ArrowBuf buf, int start, int end) {
+  public static final int hash(ArrowBufHasher hasher, final ArrowBuf buf, long start, long end) {
 
     if (hasher == null) {
       hasher = SimpleHasher.INSTANCE;

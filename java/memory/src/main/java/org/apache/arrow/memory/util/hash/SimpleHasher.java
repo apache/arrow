@@ -54,7 +54,7 @@ public class SimpleHasher implements ArrowBufHasher {
    * @param length length of the memory region.
    * @return the hash code.
    */
-  public int hashCode(long address, int length) {
+  public int hashCode(long address, long length) {
     int hashValue = 0;
     int index = 0;
     while (index + 8 <= length) {
@@ -88,7 +88,8 @@ public class SimpleHasher implements ArrowBufHasher {
    * @param length length of the memory region.
    * @return the hash code.
    */
-  public int hashCode(ArrowBuf buf, int offset, int length) {
+  @Override
+  public int hashCode(ArrowBuf buf, long offset, long length) {
     buf.checkBytes(offset, offset + length);
     return hashCode(buf.memoryAddress() + offset, length);
   }
