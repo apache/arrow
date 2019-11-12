@@ -55,7 +55,7 @@ struct BufferData {
 
     /// The length (num of bytes) of the buffer
     len: usize,
-  
+
     /// Whether this piece of memory is owned by this object
     owned: bool,
 }
@@ -99,10 +99,9 @@ impl Debug for BufferData {
 impl Buffer {
     /// Creates a buffer from an existing memory region (must already be byte-aligned)
     pub fn from_raw_parts(ptr: *const u8, len: usize) -> Self {
-      Buffer::from_raw_parts_owned(ptr, len, true)
+        Buffer::from_raw_parts_owned(ptr, len, true)
     }
-    
-    
+
     /// Creates a buffer from an existing memory region (must already be byte-aligned)
     /// This differs from `from_raw_parts` in that user can provide an argument to indicate
     /// whether this piece of memory is owned by this buffer.
