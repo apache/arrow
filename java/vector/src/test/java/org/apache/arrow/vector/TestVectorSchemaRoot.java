@@ -239,6 +239,69 @@ public class TestVectorSchemaRoot {
   }
 
   @Test
+  public void testEquals() {
+    try (final IntVector intVector1 = new IntVector("intVector1", allocator);
+         final IntVector intVector2 = new IntVector("intVector2", allocator);
+         final IntVector intVector3 = new IntVector("intVector3", allocator);) {
+
+      intVector1.setValueCount(5);
+      for (int i = 0; i < 5; i++) {
+        intVector1.set(i, i);
+      }
+
+      VectorSchemaRoot root1 =
+          new VectorSchemaRoot(Arrays.asList(intVector1, intVector2, intVector3));
+
+      VectorSchemaRoot root2 =
+          new VectorSchemaRoot(Arrays.asList(intVector1, intVector2));
+
+      VectorSchemaRoot root3 =
+          new VectorSchemaRoot(Arrays.asList(intVector1, intVector2, intVector3));
+
+      assertFalse(root1.equals(root2));
+      assertTrue(root1.equals(root3));
+
+      root1.close();
+      root2.close();
+      root3.close();
+    }
+  }
+
+  @Test
+  public void testApproxEquals() {
+    try (final Float4Vector float4Vector1 = new Float4Vector("floatVector", allocator);
+         final Float4Vector float4Vector2 = new Float4Vector("floatVector", allocator);
+         final Float4Vector float4Vector3 = new Float4Vector("floatVector", allocator);) {
+
+      float4Vector1.setValueCount(5);
+      float4Vector2.setValueCount(5);
+      float4Vector3.setValueCount(5);
+      final float epsilon = 1.0E-6f;
+      for (int i = 0; i < 5; i++) {
+        float4Vector1.set(i, i);
+        float4Vector2.set(i, i + epsilon * 2);
+        float4Vector3.set(i, i + epsilon / 2);
+      }
+
+      VectorSchemaRoot root1 =
+          new VectorSchemaRoot(Arrays.asList(float4Vector1));
+
+      VectorSchemaRoot root2 =
+          new VectorSchemaRoot(Arrays.asList(float4Vector2));
+
+      VectorSchemaRoot root3 =
+          new VectorSchemaRoot(Arrays.asList(float4Vector3));
+
+      assertFalse(root1.approxEquals(root2));
+      assertTrue(root1.approxEquals(root3));
+
+      root1.close();
+      root2.close();
+      root3.close();
+    }
+  }
+
+  @Test
   public void testSchemaSync() {
     //create vector schema root
     try (VectorSchemaRoot schemaRoot = createBatch()) {
