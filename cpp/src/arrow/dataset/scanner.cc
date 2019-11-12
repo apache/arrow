@@ -142,6 +142,10 @@ Status ScannerBuilder::Finish(std::unique_ptr<Scanner>* out) const {
         std::make_shared<RecordBatchProjector>(scan_context_->pool, projected_schema);
   }
 
+  ARROW_ASSIGN_OR_RAISE(
+      scan_options_->filter,
+      InsertImplicitCasts(*scan_options_->filter, *scan_options_->schema));
+
   if (scan_options_->filter->Equals(true)) {
     scan_options_->evaluator = ExpressionEvaluator::Null();
   } else {

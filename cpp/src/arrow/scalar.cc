@@ -129,6 +129,11 @@ struct MakeNullImpl {
     return Status::OK();
   }
 
+  Status Visit(const NullType&) {
+    *out_ = std::make_shared<NullScalar>();
+    return Status::OK();
+  }
+
   Status Visit(const DataType& t) {
     return Status::NotImplemented("construcing null scalars of type ", t);
   }
