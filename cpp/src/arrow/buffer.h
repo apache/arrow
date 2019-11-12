@@ -173,6 +173,10 @@ class ARROW_EXPORT Buffer {
     return util::string_view(reinterpret_cast<const char*>(data_), size_);
   }
 
+  /// \brief View buffer contents as a util::bytes_view
+  /// \return util::bytes_view
+  explicit operator util::bytes_view() const { return util::bytes_view(data_, size_); }
+
   /// \brief Return a pointer to the buffer's data
   const uint8_t* data() const { return data_; }
   /// \brief Return a writable pointer to the buffer's data

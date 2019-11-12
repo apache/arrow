@@ -894,7 +894,7 @@ Result<Datum> TreeEvaluator::Evaluate(const AndExpression& expr,
   if (lhs.is_array() && rhs.is_array()) {
     Datum out;
     compute::FunctionContext ctx{pool_};
-    RETURN_NOT_OK(arrow::compute::And(&ctx, lhs, rhs, &out));
+    RETURN_NOT_OK(arrow::compute::KleeneAnd(&ctx, lhs, rhs, &out));
     return std::move(out);
   }
 
@@ -925,7 +925,7 @@ Result<Datum> TreeEvaluator::Evaluate(const OrExpression& expr,
   if (lhs.is_array() && rhs.is_array()) {
     Datum out;
     compute::FunctionContext ctx{pool_};
-    RETURN_NOT_OK(arrow::compute::Or(&ctx, lhs, rhs, &out));
+    RETURN_NOT_OK(arrow::compute::KleeneOr(&ctx, lhs, rhs, &out));
     return std::move(out);
   }
 

@@ -24,12 +24,16 @@
 #endif
 
 #include <algorithm>
+#include <bitset>
 #include <cstdint>
 #include <cstring>
 #include <functional>
 #include <memory>
+#include <numeric>
+#include <string>
 #include <vector>
 
+#include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/status.h"
 #include "arrow/util/align_util.h"
@@ -322,6 +326,37 @@ Status BitmapOp(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
 }
 
 }  // namespace
+
+std::string Bitmap::ToString() const {
+  std::string out(length_, '0');
+  for (int64_t i = 0; i < length_; ++i) {
+    out[i] = GetBit(i) ? '1' : '0';
+  }
+  return out;
+}
+
+std::shared_ptr<BooleanArray> Bitmap::ToArray() const {
+  return std::make_shared<BooleanArray>(length_, buffer_, nullptr, 0, offset_);
+}
+
+std::string Bitmap::Diff(const Bitmap& other) const {
+  return ToArray()->Diff(*other.ToArray());
+}
+
+bool Bitmap::Equals(const Bitmap& other) const {
+  if (length_ != other.length_) {
+    return false;
+  }
+  return BitmapEquals(buffer_->data(), offset_, other.buffer_->data(), other.offset(),
+                      length_);
+}
+
+int64_t Bitmap::BitLength(const Bitmap* bitmaps, size_t N) {
+  for (size_t i = 1; i < N; ++i) {
+    DCHECK_EQ(bitmaps[i].length(), bitmaps[0].length());
+  }
+  return bitmaps[0].length();
+}
 
 Status BitmapAnd(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
                  const uint8_t* right, int64_t right_offset, int64_t length,

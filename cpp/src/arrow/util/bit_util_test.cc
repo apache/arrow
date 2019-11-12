@@ -1092,4 +1092,166 @@ TEST(BitUtil, BitsetStack) {
   ASSERT_EQ(stack.TopSize(), 0);
 }
 
+// test the basic assumption of word level Bitmap::Visit
+TEST(Bitmap, ShiftingWordsOptimization) {
+  // single word
+  {
+    uint64_t word;
+    auto bytes = reinterpret_cast<uint8_t*>(&word);
+    constexpr size_t kBitWidth = sizeof(word) * 8;
+
+    for (int seed = 0; seed < 64; ++seed) {
+      random_bytes(sizeof(word), seed, bytes);
+
+      // bits are accessible through simple bit shifting of the word
+      for (size_t i = 0; i < kBitWidth; ++i) {
+        ASSERT_EQ(BitUtil::GetBit(bytes, i), bool((word >> i) & 1));
+      }
+
+      // bit offset can therefore be accomodated by shifting the word
+      for (size_t offset = 0; offset < (kBitWidth * 3) / 4; ++offset) {
+        uint64_t shifted_word = word >> offset;
+        auto shifted_bytes = reinterpret_cast<uint8_t*>(&shifted_word);
+        ASSERT_TRUE(
+            internal::BitmapEquals(bytes, offset, shifted_bytes, 0, kBitWidth - offset));
+      }
+    }
+  }
+
+  // two words
+  {
+    uint64_t words[2];
+    auto bytes = reinterpret_cast<uint8_t*>(words);
+    constexpr size_t kBitWidth = sizeof(words[0]) * 8;
+
+    for (int seed = 0; seed < 64; ++seed) {
+      random_bytes(sizeof(words), seed, bytes);
+
+      // bits are accessible through simple bit shifting of a word
+      for (size_t i = 0; i < kBitWidth; ++i) {
+        ASSERT_EQ(BitUtil::GetBit(bytes, i), bool((words[0] >> i) & 1));
+      }
+      for (size_t i = 0; i < kBitWidth; ++i) {
+        ASSERT_EQ(BitUtil::GetBit(bytes, i + kBitWidth), bool((words[1] >> i) & 1));
+      }
+
+      // bit offset can therefore be accomodated by shifting the word
+      for (size_t offset = 1; offset < (kBitWidth * 3) / 4; offset += 3) {
+        uint64_t shifted_words[2];
+        shifted_words[0] = words[0] >> offset | (words[1] << (kBitWidth - offset));
+        shifted_words[1] = words[1] >> offset;
+        auto shifted_bytes = reinterpret_cast<uint8_t*>(shifted_words);
+
+        // from offset to unshifted word boundary
+        ASSERT_TRUE(
+            internal::BitmapEquals(bytes, offset, shifted_bytes, 0, kBitWidth - offset));
+
+        // from unshifted word boundary to shifted word boundary
+        ASSERT_TRUE(internal::BitmapEquals(bytes, kBitWidth, shifted_bytes,
+                                           kBitWidth - offset, offset));
+
+        // from shifted word boundary to end
+        ASSERT_TRUE(internal::BitmapEquals(bytes, kBitWidth + offset, shifted_bytes,
+                                           kBitWidth, kBitWidth - offset));
+      }
+    }
+  }
+}
+
+namespace internal {
+
+static Bitmap Copy(const Bitmap& bitmap, std::shared_ptr<Buffer> storage) {
+  int64_t i = 0;
+  auto min_offset = Bitmap::VisitWords({bitmap}, [&](std::array<uint64_t, 1> uint64s) {
+    reinterpret_cast<uint64_t*>(storage->mutable_data())[i++] = uint64s[0];
+  });
+  return Bitmap(std::move(storage), min_offset, bitmap.length());
+}
+
+// reconstruct a bitmap from a word-wise visit
+TEST(Bitmap, VisitWords) {
+  constexpr int64_t nbytes = 1 << 10;
+  std::shared_ptr<Buffer> buffer, actual_buffer;
+  for (std::shared_ptr<Buffer>* b : {&buffer, &actual_buffer}) {
+    ASSERT_OK(AllocateBuffer(nbytes, b));
+    memset((*b)->mutable_data(), 0, nbytes);
+  }
+  random_bytes(nbytes, 0, buffer->mutable_data());
+
+  constexpr int64_t kBitWidth = 8 * sizeof(uint64_t);
+
+  for (int64_t offset : {0, 1, 2, 5, 17}) {
+    for (int64_t num_bits :
+         {int64_t(13), int64_t(9), kBitWidth - 1, kBitWidth, kBitWidth + 1,
+          nbytes * 8 - offset, nbytes * 6, nbytes * 4}) {
+      Bitmap actual = Copy({buffer, offset, num_bits}, actual_buffer);
+      ASSERT_EQ(actual, Bitmap(buffer->data(), offset, num_bits))
+          << "offset:" << offset << "  bits:" << num_bits << std::endl
+          << Bitmap(actual_buffer, 0, num_bits).Diff({buffer, offset, num_bits});
+    }
+  }
+}
+
+TEST(Bitmap, VisitPartialWords) {
+  uint64_t words[2];
+  constexpr auto nbytes = sizeof(words);
+  constexpr auto nbits = nbytes * 8;
+
+  auto buffer = Buffer::Wrap(words, 2);
+  Bitmap bitmap(buffer, 0, nbits);
+  std::shared_ptr<Buffer> storage;
+  ASSERT_OK(AllocateBuffer(nbytes, &storage));
+
+  // words partially outside the buffer are not accessible, but they are loaded bitwise
+  auto first_byte_was_missing = Bitmap(SliceBuffer(buffer, 1), 0, nbits - 8);
+  ASSERT_EQ(Copy(first_byte_was_missing, storage), bitmap.Slice(8));
+
+  auto last_byte_was_missing = Bitmap(SliceBuffer(buffer, 0, nbytes - 1), 0, nbits - 8);
+  ASSERT_EQ(Copy(last_byte_was_missing, storage), bitmap.Slice(0, nbits - 8));
+}
+
+// compute bitwise AND of bitmaps using word-wise visit
+TEST(Bitmap, VisitWordsAnd) {
+  constexpr int64_t nbytes = 1 << 10;
+  std::shared_ptr<Buffer> buffer, actual_buffer, expected_buffer;
+  for (std::shared_ptr<Buffer>* b : {&buffer, &actual_buffer, &expected_buffer}) {
+    ASSERT_OK(AllocateBuffer(nbytes, b));
+    memset((*b)->mutable_data(), 0, nbytes);
+  }
+  random_bytes(nbytes, 0, buffer->mutable_data());
+
+  constexpr int64_t kBitWidth = 8 * sizeof(uint64_t);
+
+  for (int64_t left_offset :
+       {0, 1, 2, 5, 17, int(kBitWidth - 1), int(kBitWidth + 1), int(kBitWidth + 17)}) {
+    for (int64_t right_offset = 0; right_offset < left_offset; ++right_offset) {
+      for (int64_t num_bits :
+           {int64_t(13), int64_t(9), kBitWidth - 1, kBitWidth, kBitWidth + 1,
+            2 * kBitWidth - 1, 2 * kBitWidth, 2 * kBitWidth + 1, nbytes * 8 - left_offset,
+            3 * kBitWidth - 1, 3 * kBitWidth, 3 * kBitWidth + 1, nbytes * 6,
+            nbytes * 4}) {
+        Bitmap bitmaps[] = {{buffer, left_offset, num_bits},
+                            {buffer, right_offset, num_bits}};
+
+        int64_t i = 0;
+        auto min_offset =
+            Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 2> uint64s) {
+              reinterpret_cast<uint64_t*>(actual_buffer->mutable_data())[i++] =
+                  uint64s[0] & uint64s[1];
+            });
+
+        BitmapAnd(bitmaps[0].buffer()->data(), bitmaps[0].offset(),
+                  bitmaps[1].buffer()->data(), bitmaps[1].offset(), bitmaps[0].length(),
+                  0, expected_buffer->mutable_data());
+
+        ASSERT_TRUE(BitmapEquals(actual_buffer->data(), min_offset,
+                                 expected_buffer->data(), 0, num_bits))
+            << "left_offset:" << left_offset << "  bits:" << num_bits
+            << "  right_offset:" << right_offset << std::endl
+            << Bitmap(actual_buffer, 0, num_bits).Diff({expected_buffer, 0, num_bits});
+      }
+    }
+  }
+}
+}  // namespace internal
 }  // namespace arrow

@@ -246,7 +246,7 @@ TEST_F(FilterTest, Basics) {
       {"a": 1, "b":  0.2, "in": 1},
       {"a": 2, "b": -0.1, "in": 0},
       {"a": 0, "b":  0.1, "in": 0},
-      {"a": 0, "b": null, "in": null},
+      {"a": 0, "b": null, "in": 0},
       {"a": 0, "b":  1.0, "in": 0}
   ])");
 }
@@ -264,8 +264,7 @@ TEST_F(FilterTest, ConditionOnAbsentColumn) {
   ])");
 }
 
-TEST_F(FilterTest, DISABLED_KleeneTruthTables) {
-  // FIXME(bkietz) enable this test after ARROW-6396
+TEST_F(FilterTest, KleeneTruthTables) {
   // TODO(bkietz) also test various ranks against each other
   AssertFilter("a"_ and "b"_, {field("a", boolean()), field("b", boolean())}, R"([
     {"a":null,  "b":null,  "in":null},
@@ -278,7 +277,7 @@ TEST_F(FilterTest, DISABLED_KleeneTruthTables) {
     {"a":false,  "b":false,  "in":false}
   ])");
 
-  AssertFilter("a"_ and "b"_, {field("a", boolean()), field("b", boolean())}, R"([
+  AssertFilter("a"_ or "b"_, {field("a", boolean()), field("b", boolean())}, R"([
     {"a":null,  "b":null,  "in":null},
     {"a":null,  "b":true,  "in":true},
     {"a":null,  "b":false, "in":null},
