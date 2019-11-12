@@ -576,7 +576,7 @@ public class TestValueVectorPopulator {
       }
       vector1.setValueCount(10);
 
-      setVector(vector2,null, "test1".getBytes(), null, "test3".getBytes(), null, "test5".getBytes(), null,
+      setVector(vector2, null, "test1".getBytes(), null, "test3".getBytes(), null, "test5".getBytes(), null,
           "test7".getBytes(), null, "test9".getBytes());
       assertTrue(VectorEqualsVisitor.vectorEquals(vector1, vector2));
     }
@@ -597,7 +597,7 @@ public class TestValueVectorPopulator {
       }
       vector1.setValueCount(10);
 
-      setVector(vector2,null, "test1", null, "test3", null, "test5", null, "test7", null, "test9");
+      setVector(vector2, null, "test1", null, "test3", null, "test5", null, "test7", null, "test9");
       assertTrue(VectorEqualsVisitor.vectorEquals(vector1, vector2));
     }
   }

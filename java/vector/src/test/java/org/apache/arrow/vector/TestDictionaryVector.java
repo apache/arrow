@@ -775,8 +775,15 @@ public class TestDictionaryVector {
       DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
 
 
-      setVector(dictVector1,"aa".getBytes(), "bb".getBytes(), "cc".getBytes(), "dd".getBytes());
-      setVector(dictVector2, "foo".getBytes(), "baz".getBytes(), "bar".getBytes());
+      setVector(dictVector1,
+          "aa".getBytes(StandardCharsets.UTF_8),
+          "bb".getBytes(StandardCharsets.UTF_8),
+          "cc".getBytes(StandardCharsets.UTF_8),
+          "dd".getBytes(StandardCharsets.UTF_8));
+      setVector(dictVector2,
+          "foo".getBytes(StandardCharsets.UTF_8),
+          "baz".getBytes(StandardCharsets.UTF_8),
+          "bar".getBytes(StandardCharsets.UTF_8));
 
       provider.put(new Dictionary(dictVector1, new DictionaryEncoding(1L, false, null)));
       provider.put(new Dictionary(dictVector2, new DictionaryEncoding(2L, false, null)));
