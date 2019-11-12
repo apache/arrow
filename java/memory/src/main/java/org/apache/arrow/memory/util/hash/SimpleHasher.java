@@ -64,7 +64,7 @@ public class SimpleHasher implements ArrowBufHasher {
       index += 8;
     }
 
-    while (index + 4 <= length) {
+    if (index + 4 <= length) {
       int intValue = getInt(address + index);
       int intHash = intValue;
       hashValue = combineHashCode(hashValue, intHash);

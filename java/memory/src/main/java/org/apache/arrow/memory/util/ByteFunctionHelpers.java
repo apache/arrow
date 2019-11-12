@@ -70,7 +70,7 @@ public class ByteFunctionHelpers {
         n -= 8;
       }
 
-      while (n > 3) {
+      if (n > 3) {
         int leftInt = PlatformDependent.getInt(lPos);
         int rightInt = PlatformDependent.getInt(rPos);
         if (leftInt != rightInt) {
@@ -147,7 +147,7 @@ public class ByteFunctionHelpers {
       n -= 8;
     }
 
-    while (n > 3) {
+    if (n > 3) {
       int leftInt = PlatformDependent.getInt(lPos);
       int rightInt = PlatformDependent.getInt(rPos);
       if (leftInt != rightInt) {
@@ -242,7 +242,7 @@ public class ByteFunctionHelpers {
       n -= 8;
     }
 
-    while (n > 3) {
+    if (n > 3) {
       int leftInt = PlatformDependent.getInt(lPos);
       int rightInt = PlatformDependent.getInt(right, rPos);
       if (leftInt != rightInt) {
