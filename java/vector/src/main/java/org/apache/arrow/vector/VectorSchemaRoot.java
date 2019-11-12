@@ -34,6 +34,15 @@ import org.apache.arrow.vector.util.TransferPair;
 
 /**
  * Holder for a set of vectors to be loaded/unloaded.
+ * A VectorSchemaRoot is a container that can hold batches, batches flow through VectorSchemaRoot
+ * as part of a pipeline. Note this is different from other implementations (i.e. in C++ and Python,
+ * a RecordBatch is a collection of equal-length vector instances and was created each time for a new batch).
+
+ * The recommended usage for VectorSchemaRoot is creating a single VectorSchemaRoot based on the known
+ * schema and populated data over and over into the same VectorSchemaRoot in a stream of batches rather
+ * than create a new VectorSchemaRoot instance each time (see Flight or ArrowFileWriter for better understanding).
+ * Thus at any one point a VectorSchemaRoot may have data or may have no data (say it was transferred downstream
+ * or not yet populated).
  */
 public class VectorSchemaRoot implements AutoCloseable {
 
