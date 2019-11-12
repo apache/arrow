@@ -19,15 +19,11 @@ package org.apache.arrow;
 
 import static org.junit.Assert.assertEquals;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -35,32 +31,10 @@ import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.types.Types;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
-import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.io.BinaryDecoder;
-import org.apache.avro.io.BinaryEncoder;
-import org.apache.avro.io.DatumWriter;
-import org.apache.avro.io.DecoderFactory;
-import org.apache.avro.io.EncoderFactory;
 import org.junit.Test;
 
 public class AvroSkipFieldTest extends AvroTestBase {
-
-  private VectorSchemaRoot writeAndRead(Schema schema, List data) throws Exception {
-    File dataFile = TMP.newFile();
-
-    BinaryEncoder
-        encoder = new EncoderFactory().directBinaryEncoder(new FileOutputStream(dataFile), null);
-    DatumWriter writer = new GenericDatumWriter(schema);
-    BinaryDecoder
-        decoder = new DecoderFactory().directBinaryDecoder(new FileInputStream(dataFile), null);
-
-    for (Object value : data) {
-      writer.write(value, encoder);
-    }
-
-    return AvroToArrow.avroToArrow(schema, decoder, config);
-  }
 
   @Test
   public void testSkipUnionWithOneField() throws Exception {

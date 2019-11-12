@@ -19,9 +19,6 @@ package org.apache.arrow;
 
 import static org.junit.Assert.assertEquals;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -36,30 +33,10 @@ import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
-import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.avro.io.BinaryDecoder;
-import org.apache.avro.io.BinaryEncoder;
-import org.apache.avro.io.DatumWriter;
-import org.apache.avro.io.DecoderFactory;
-import org.apache.avro.io.EncoderFactory;
 import org.junit.Test;
 
 public class AvroToArrowTest extends AvroTestBase {
-
-  private VectorSchemaRoot writeAndRead(Schema schema, List data) throws Exception {
-    File dataFile = TMP.newFile();
-
-    BinaryEncoder encoder = new EncoderFactory().directBinaryEncoder(new FileOutputStream(dataFile), null);
-    DatumWriter writer = new GenericDatumWriter(schema);
-    BinaryDecoder decoder = new DecoderFactory().directBinaryDecoder(new FileInputStream(dataFile), null);
-
-    for (Object value : data) {
-      writer.write(value, encoder);
-    }
-
-    return AvroToArrow.avroToArrow(schema, decoder, config);
-  }
 
   @Test
   public void testStringType() throws Exception {
