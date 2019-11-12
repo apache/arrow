@@ -269,7 +269,7 @@ public class TestFixedSizeListVector {
 
   @Test
   public void testDecimalIndexCheck() throws Exception {
-    try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", 3, allocator)) {
+    try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", /*listSize=*/3, allocator)) {
 
       UnionFixedSizeListWriter writer1 = vector1.getWriter();
       writer1.allocate();
@@ -282,7 +282,7 @@ public class TestFixedSizeListVector {
         writer1.decimal().writeDecimal(new BigDecimal(4));
         writer1.endList();
       });
-      assertEquals("values at index 0 exceed listSize 3", e.getMessage());
+      assertEquals("values at index 0 is greater than listSize 3", e.getMessage());
     }
   }
 
