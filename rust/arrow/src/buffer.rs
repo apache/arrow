@@ -55,6 +55,9 @@ struct BufferData {
 
     /// The length (num of bytes) of the buffer
     len: usize,
+  
+    /// Whether this piece of memory is owned by this object
+    owned: bool,
 }
 
 impl PartialEq for BufferData {
@@ -69,7 +72,7 @@ impl PartialEq for BufferData {
 /// Release the underlying memory when the current buffer goes out of scope
 impl Drop for BufferData {
     fn drop(&mut self) {
-        if !self.ptr.is_null() {
+        if !self.ptr.is_null() && self.owned {
             memory::free_aligned(self.ptr as *mut u8, self.len);
         }
     }
@@ -96,11 +99,19 @@ impl Debug for BufferData {
 impl Buffer {
     /// Creates a buffer from an existing memory region (must already be byte-aligned)
     pub fn from_raw_parts(ptr: *const u8, len: usize) -> Self {
+      Buffer::from_raw_parts_owned(ptr, len, true)
+    }
+    
+    
+    /// Creates a buffer from an existing memory region (must already be byte-aligned)
+    /// This differs from `from_raw_parts` in that user can provide an argument to indicate
+    /// whether this piece of memory is owned by this buffer.
+    pub fn from_raw_parts_owned(ptr: *const u8, len: usize, owned: bool) -> Self {
         assert!(
             memory::is_aligned(ptr, memory::ALIGNMENT),
             "memory not aligned"
         );
-        let buf_data = BufferData { ptr, len };
+        let buf_data = BufferData { ptr, len, owned };
         Buffer {
             data: Arc::new(buf_data),
             offset: 0,
