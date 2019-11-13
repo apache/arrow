@@ -116,9 +116,6 @@ def test_to_numpy_zero_copy():
     old_refcount = sys.getrefcount(arr)
 
     np_arr = arr.to_numpy()
-    np_arr[0] = 1
-    assert arr[0] == 1
-
     assert sys.getrefcount(arr) == old_refcount
 
     arr = None
@@ -128,7 +125,6 @@ def test_to_numpy_zero_copy():
     # Ensure base is still valid
     assert np_arr.base is not None
     expected = np.arange(10)
-    expected[0] = 1
     np.testing.assert_array_equal(np_arr, expected)
 
 
@@ -136,13 +132,39 @@ def test_to_numpy_unsupported_types():
     # ARROW-2871: Some primitive types are not yet supported in to_numpy
     bool_arr = pa.array([True, False, True])
 
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(ValueError):
         bool_arr.to_numpy()
+
+    result = bool_arr.to_numpy(zero_copy_only=False)
+    expected = np.array([True, False, True])
+    np.testing.assert_array_equal(result, expected)
 
     null_arr = pa.array([None, None, None])
 
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(ValueError):
         null_arr.to_numpy()
+
+    result = null_arr.to_numpy(zero_copy_only=False)
+    expected = np.array([None, None, None], dtype=object)
+    np.testing.assert_array_equal(result, expected)
+
+    arr = pa.array([1, 2, None])
+
+    with pytest.raises(ValueError, match="with 1 nulls"):
+        arr.to_numpy()
+
+
+def test_to_numpy_writable():
+    arr = pa.array(range(10))
+    np_arr = arr.to_numpy()
+
+    # by default not writable for zero-copy conversion
+    with pytest.raises(ValueError):
+        np_arr[0] = 10
+
+    np_arr2 = arr.to_numpy(writable=True)
+    np_arr2[0] = 10
+    assert arr[0].as_py() == 0
 
 
 @pytest.mark.parametrize('unit', ['s', 'ms', 'us', 'ns'])

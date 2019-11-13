@@ -951,34 +951,43 @@ cdef class Array(_PandasConvertible):
             return values
         return values.astype(dtype)
 
-    def to_numpy(self):
+    def to_numpy(self, zero_copy_only=True, writable=False):
         """
         Experimental: return a NumPy view of this array. Only primitive
         arrays with the same memory layout as NumPy (i.e. integers,
         floating point), without any nulls, are supported.
 
+        Parameters
+        ----------
+        zero_copy_only : bool, default True
+            If True, an exception will be raised if the conversion to a numpy
+            array would require copying the underlying data (e.g. in presence
+            of nulls, or for non-primitive types).
+        writable : bool, default False
+            For numpy arrays created with zero copy (view on the Arrow data),
+            the resulting array is not writable (Arrow data is immutable).
+            By setting this to True, a copy of the array is made to ensure
+            it is writable.
+
         Returns
         -------
         array : numpy.ndarray
         """
-        if self.null_count:
-            raise NotImplementedError('NumPy array view is only supported '
-                                      'for arrays without nulls.')
-        if not is_primitive(self.type.id) or self.type.id == _Type_BOOL:
-            raise NotImplementedError('NumPy array view is only supported '
-                                      'for primitive types.')
-
         cdef:
             PyObject* out
             PandasOptions c_options
             object values
 
-        c_options.zero_copy_only = True
+        c_options.zero_copy_only = zero_copy_only
 
         with nogil:
             check_status(ConvertArrayToPandas(c_options, self.sp_array,
                                               self, &out))
-        return PyObject_to_object(out)
+        array = PyObject_to_object(out)
+        if writable and not array.flags["WRITEABLE"]:
+            # if the conversion already needed to a copy, WRITEABLE is True
+            array = array.copy()
+        return array
 
     def to_pylist(self):
         """
