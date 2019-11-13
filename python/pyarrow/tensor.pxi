@@ -184,6 +184,11 @@ shape: {0.shape}""".format(self)
         """
         Convert scipy.sparse.coo_matrix to arrow::SparseCOOTensor
         """
+        import scipy.sparse
+        if not isinstance(obj, scipy.sparse.coo_matrix):
+            raise TypeError(
+                "Expected scipy.sparse.coo_matrix, got {}".format(type(obj)))
+
         cdef shared_ptr[CSparseCOOTensor] csparse_tensor
         cdef vector[int64_t] c_shape
         cdef vector[c_string] c_dim_names
@@ -355,6 +360,11 @@ shape: {0.shape}""".format(self)
         """
         Convert scipy.sparse.csr_matrix to arrow::SparseCSRMatrix
         """
+        import scipy.sparse
+        if not isinstance(obj, scipy.sparse.csr_matrix):
+            raise TypeError(
+                "Expected scipy.sparse.csr_matrix, got {}".format(type(obj)))
+
         cdef shared_ptr[CSparseCSRMatrix] csparse_tensor
         cdef vector[int64_t] c_shape
         cdef vector[c_string] c_dim_names
