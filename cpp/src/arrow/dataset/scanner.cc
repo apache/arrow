@@ -120,13 +120,19 @@ Status ScannerBuilder::Project(const std::vector<std::string>& columns) {
   return Status::OK();
 }
 
-Status ScannerBuilder::Filter(std::shared_ptr<Expression> filter) {
+Status ScannerBuilder::Filter(std::shared_ptr<Expression> filter, bool implicit_casts) {
   RETURN_NOT_OK(EnsureColumnsInSchema(schema(), FieldsInExpression(*filter)));
-  scan_options_->filter = std::move(filter);
+  if (implicit_casts) {
+    ARROW_ASSIGN_OR_RAISE(scan_options_->filter, InsertImplicitCasts(*filter, *schema()));
+  } else {
+    scan_options_->filter = std::move(filter);
+  }
   return Status::OK();
 }
 
-Status ScannerBuilder::Filter(const Expression& filter) { return Filter(filter.Copy()); }
+Status ScannerBuilder::Filter(const Expression& filter, bool implicit_casts) {
+  return Filter(filter.Copy(), implicit_casts);
+}
 
 Status ScannerBuilder::UseThreads(bool use_threads) {
   scan_options_->use_threads = use_threads;
@@ -141,9 +147,6 @@ Status ScannerBuilder::Finish(std::unique_ptr<Scanner>* out) const {
     scan_options_->projector =
         std::make_shared<RecordBatchProjector>(scan_context_->pool, projected_schema);
   }
-
-  ARROW_ASSIGN_OR_RAISE(scan_options_->filter,
-                        InsertImplicitCasts(*scan_options_->filter, *dataset_->schema()));
 
   if (scan_options_->filter->Equals(true)) {
     scan_options_->evaluator = ExpressionEvaluator::Null();

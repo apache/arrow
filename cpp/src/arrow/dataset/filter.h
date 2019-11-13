@@ -33,6 +33,7 @@
 #include "arrow/scalar.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/variant.h"
 
 namespace arrow {
 namespace dataset {
@@ -368,7 +369,7 @@ class ARROW_DS_EXPORT CastExpression final
   CastExpression(std::shared_ptr<Expression> operand, std::shared_ptr<Expression> like,
                  compute::CastOptions options)
       : ExpressionImpl(std::move(operand)),
-        like_(std::move(like)),
+        to_(std::move(like)),
         options_(std::move(options)) {}
 
   std::string ToString() const override;
@@ -380,8 +381,7 @@ class ARROW_DS_EXPORT CastExpression final
   const compute::CastOptions& options() const { return options_; }
 
  private:
-  std::shared_ptr<DataType> to_;
-  std::shared_ptr<Expression> like_;
+  util::variant<std::shared_ptr<DataType>, std::shared_ptr<Expression>> to_;
   compute::CastOptions options_;
 };
 

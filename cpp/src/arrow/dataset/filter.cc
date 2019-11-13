@@ -567,10 +567,12 @@ std::shared_ptr<Expression> IsValidExpression::Assume(const Expression& given) c
 
 std::shared_ptr<Expression> CastExpression::Assume(const Expression& given) const {
   auto operand = operand_->Assume(given);
-  if (to_ != nullptr) {
-    return std::make_shared<CastExpression>(std::move(operand), to_, options_);
+  if (arrow::util::holds_alternative<std::shared_ptr<DataType>>(to_)) {
+    auto to_type = arrow::util::get<std::shared_ptr<DataType>>(to_);
+    return std::make_shared<CastExpression>(std::move(operand), std::move(to_type),
+                                            options_);
   }
-  auto like = like_->Assume(given);
+  auto like = arrow::util::get<std::shared_ptr<Expression>>(to_)->Assume(given);
   return std::make_shared<CastExpression>(std::move(operand), std::move(like), options_);
 }
 
@@ -641,8 +643,14 @@ std::string InExpression::ToString() const {
 }
 
 std::string CastExpression::ToString() const {
-  std::string name = to_ != nullptr ? "CAST<" + to_->ToString() + ">"
-                                    : "CAST<TYPEOF(" + like_->ToString() + ")>";
+  std::string name;
+  if (arrow::util::holds_alternative<std::shared_ptr<DataType>>(to_)) {
+    auto to_type = arrow::util::get<std::shared_ptr<DataType>>(to_);
+    name = "CAST<" + to_type->ToString() + ">";
+  } else {
+    auto like = arrow::util::get<std::shared_ptr<Expression>>(to_);
+    name = "CAST<TYPEOF(" + like->ToString() + ")>";
+  }
   return EulerNotation(name, {operand_});
 }
 
@@ -839,13 +847,15 @@ Result<std::shared_ptr<DataType>> IsValidExpression::Validate(
 Result<std::shared_ptr<DataType>> CastExpression::Validate(const Schema& schema) const {
   ARROW_ASSIGN_OR_RAISE(auto operand_type, operand_->Validate(schema));
   std::shared_ptr<DataType> to_type;
-  if (to_ != nullptr) {
-    to_type = to_;
+  if (arrow::util::holds_alternative<std::shared_ptr<DataType>>(to_)) {
+    to_type = arrow::util::get<std::shared_ptr<DataType>>(to_);
   } else {
-    ARROW_ASSIGN_OR_RAISE(to_type, like_->Validate(schema));
+    auto like = arrow::util::get<std::shared_ptr<Expression>>(to_);
+    ARROW_ASSIGN_OR_RAISE(to_type, like->Validate(schema));
   }
 
-  // FIXME(bkietz) check convertible operand_type -> to_type
+  std::unique_ptr<compute::UnaryKernel> kernel;
+  RETURN_NOT_OK(GetCastFunction(*operand_type, to_type, options_, &kernel));
   return to_type;
 }
 

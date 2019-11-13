@@ -402,7 +402,7 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   //
   // Note that `sales` is double, so `100` below will be implicitly cast from integer.
   auto filter = ("year"_ == 2019 && "sales"_ > 100);
-  ASSERT_OK(scanner_builder->Filter(filter));
+  ASSERT_OK(scanner_builder->Filter(filter, /* implicit_casts = */ true));
 
   std::unique_ptr<Scanner> scanner;
   ASSERT_OK(scanner_builder->Finish(&scanner));
