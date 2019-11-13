@@ -212,7 +212,7 @@ public final class TimeStampNanoTZVector extends TimeStampVector {
 
 
   /**
-   * Construct a TransferPair comprising of this and and a target vector of
+   * Construct a TransferPair comprising of this and a target vector of
    * the same type.
    *
    * @param ref name of the target vector
