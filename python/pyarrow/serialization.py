@@ -228,16 +228,19 @@ def register_torch_serialization_handlers(serialization_context):
 
         def _serialize_torch_tensor(obj):
             if obj.is_sparse:
-                # TODO(pcm): Once ARROW-4453 is resolved, return sparse
-                # tensor representation here
-                return (obj._indices().detach().numpy(),
-                        obj._values().detach().numpy(), list(obj.shape))
+                return pa.SparseCOOTensor.from_numpy(
+                    obj._values().detach().numpy(),
+                    obj._indices().detach().numpy().T,
+                    shape=list(obj.shape))
             else:
                 return obj.detach().numpy()
 
         def _deserialize_torch_tensor(data):
-            if isinstance(data, tuple):
-                return torch.sparse_coo_tensor(data[0], data[1], data[2])
+            if isinstance(data, pa.SparseCOOTensor):
+                return torch.sparse_coo_tensor(
+                    indices=data.to_numpy()[1].T,
+                    values=data.to_numpy()[0][:, 0],
+                    size=data.shape)
             else:
                 return torch.from_numpy(data)
 
@@ -299,6 +302,54 @@ def _register_collections_serialization_handlers(serialization_context):
         custom_deserializer=_deserialize_counter)
 
 
+# ----------------------------------------------------------------------
+# Set up serialization for scipy sparse matrices. Primitive types are handled
+# efficiently with Arrow's SparseTensor facilities, see numpy_convert.cc)
+
+def _register_scipy_handlers(serialization_context):
+    try:
+        from scipy.sparse import csr_matrix, coo_matrix, isspmatrix_coo, \
+                                 isspmatrix_csr, isspmatrix
+
+        def _serialize_scipy_sparse(obj):
+            if isspmatrix_coo(obj):
+                return 'coo', pa.SparseCOOTensor.from_scipy(obj)
+
+            elif isspmatrix_csr(obj):
+                return 'csr', pa.SparseCSRMatrix.from_scipy(obj)
+
+            elif isspmatrix(obj):
+                return 'csr', pa.SparseCOOTensor.from_scipy(obj.to_coo())
+
+            else:
+                raise NotImplementedError(
+                        "Serialization of {} is not supported.".format(obj[0]))
+
+        def _deserialize_scipy_sparse(data):
+            if data[0] == 'coo':
+                return data[1].to_scipy()
+
+            elif data[0] == 'csr':
+                return data[1].to_scipy()
+
+            else:
+                return data[1].to_scipy()
+
+        serialization_context.register_type(
+            coo_matrix, 'scipy.sparse.coo.coo_matrix',
+            custom_serializer=_serialize_scipy_sparse,
+            custom_deserializer=_deserialize_scipy_sparse)
+
+        serialization_context.register_type(
+            csr_matrix, 'scipy.sparse.csr.csr_matrix',
+            custom_serializer=_serialize_scipy_sparse,
+            custom_deserializer=_deserialize_scipy_sparse)
+
+    except ImportError:
+        # no scipy
+        pass
+
+
 def register_default_serialization_handlers(serialization_context):
 
     # ----------------------------------------------------------------------
@@ -351,6 +402,7 @@ def register_default_serialization_handlers(serialization_context):
 
     _register_collections_serialization_handlers(serialization_context)
     _register_custom_pandas_handlers(serialization_context)
+    _register_scipy_handlers(serialization_context)
 
 
 def default_serialization_context():

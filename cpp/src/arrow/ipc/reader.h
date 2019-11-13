@@ -26,7 +26,9 @@
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/options.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
+#include "arrow/sparse_tensor.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -285,6 +287,27 @@ Status ReadSparseTensor(io::InputStream* file, std::shared_ptr<SparseTensor>* ou
 /// \return Status
 ARROW_EXPORT
 Status ReadSparseTensor(const Message& message, std::shared_ptr<SparseTensor>* out);
+
+namespace internal {
+
+// These internal APIs may change without warning or deprecation
+
+/// \brief EXPERIMENTAL: Read arrow::SparseTensorFormat::type from a metadata
+/// \param[in] metadata a Buffer containing the sparse tensor metadata
+/// \param[out] buffer_count the returned count of the body buffers
+/// \return Status
+ARROW_EXPORT
+Status ReadSparseTensorBodyBufferCount(const Buffer& metadata, size_t* buffer_count);
+
+/// \brief EXPERIMENTAL: Read arrow::SparseTensor from an IpcPayload
+/// \param[in] payload a IpcPayload contains a serialized SparseTensor
+/// \param[out] out the returned SparseTensor
+/// \return Status
+ARROW_EXPORT
+Status ReadSparseTensorPayload(const IpcPayload& payload,
+                               std::shared_ptr<SparseTensor>* out);
+
+}  // namespace internal
 
 }  // namespace ipc
 }  // namespace arrow

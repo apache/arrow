@@ -1245,31 +1245,42 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
   }
   int ndim = static_cast<int>(sparse_tensor->shape()->size());
 
-  for (int i = 0; i < ndim; ++i) {
-    auto dim = sparse_tensor->shape()->Get(i);
+  if (shape || dim_names) {
+    for (int i = 0; i < ndim; ++i) {
+      auto dim = sparse_tensor->shape()->Get(i);
 
-    shape->push_back(dim->size());
-    auto fb_name = dim->name();
-    if (fb_name == 0) {
-      dim_names->push_back("");
-    } else {
-      dim_names->push_back(fb_name->str());
+      if (shape) {
+        shape->push_back(dim->size());
+      }
+
+      if (dim_names) {
+        auto fb_name = dim->name();
+        if (fb_name == 0) {
+          dim_names->push_back("");
+        } else {
+          dim_names->push_back(fb_name->str());
+        }
+      }
     }
   }
 
-  *non_zero_length = sparse_tensor->non_zero_length();
+  if (non_zero_length) {
+    *non_zero_length = sparse_tensor->non_zero_length();
+  }
 
-  switch (sparse_tensor->sparseIndex_type()) {
-    case flatbuf::SparseTensorIndex_SparseTensorIndexCOO:
-      *sparse_tensor_format_id = SparseTensorFormat::COO;
-      break;
+  if (sparse_tensor_format_id) {
+    switch (sparse_tensor->sparseIndex_type()) {
+      case flatbuf::SparseTensorIndex_SparseTensorIndexCOO:
+        *sparse_tensor_format_id = SparseTensorFormat::COO;
+        break;
 
-    case flatbuf::SparseTensorIndex_SparseMatrixIndexCSR:
-      *sparse_tensor_format_id = SparseTensorFormat::CSR;
-      break;
+      case flatbuf::SparseTensorIndex_SparseMatrixIndexCSR:
+        *sparse_tensor_format_id = SparseTensorFormat::CSR;
+        break;
 
-    default:
-      return Status::Invalid("Unrecognized sparse index type");
+      default:
+        return Status::Invalid("Unrecognized sparse index type");
+    }
   }
 
   auto type_data = sparse_tensor->type();
@@ -1277,7 +1288,11 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
     return Status::IOError(
         "Type-pointer in custom metadata of flatbuffer-encoded SparseTensor is null.");
   }
-  return ConcreteTypeFromFlatbuffer(sparse_tensor->type_type(), type_data, {}, type);
+  if (type) {
+    return ConcreteTypeFromFlatbuffer(sparse_tensor->type_type(), type_data, {}, type);
+  } else {
+    return Status::OK();
+  }
 }
 
 }  // namespace internal

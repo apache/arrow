@@ -23,6 +23,7 @@
 
 #include "arrow/ipc/options.h"
 #include "arrow/python/visibility.h"
+#include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
 
 // Forward declaring PyObject, see
@@ -51,6 +52,7 @@ namespace py {
 struct ARROW_PYTHON_EXPORT SerializedPyObject {
   std::shared_ptr<RecordBatch> batch;
   std::vector<std::shared_ptr<Tensor>> tensors;
+  std::vector<std::shared_ptr<SparseTensor>> sparse_tensors;
   std::vector<std::shared_ptr<Tensor>> ndarrays;
   std::vector<std::shared_ptr<Buffer>> buffers;
   ipc::IpcOptions ipc_options;
@@ -66,13 +68,14 @@ struct ARROW_PYTHON_EXPORT SerializedPyObject {
   /// components as Buffer instances with minimal memory allocation
   ///
   /// {
-  ///   'num_tensors': N,
+  ///   'num_tensors': M,
+  ///   'num_sparse_tensors': N,
   ///   'num_buffers': K,
   ///   'data': [Buffer]
   /// }
   ///
   /// Each tensor is written as two buffers, one for the metadata and one for
-  /// the body. Therefore, the number of buffers in 'data' is 2 * N + K + 1,
+  /// the body. Therefore, the number of buffers in 'data' is 2 * M + 2 * N + K + 1,
   /// with the first buffer containing the serialized record batch containing
   /// the UnionArray that describes the whole object
   Status GetComponents(MemoryPool* pool, PyObject** out);
@@ -99,6 +102,14 @@ Status SerializeObject(PyObject* context, PyObject* sequence, SerializedPyObject
 /// \return Status
 ARROW_PYTHON_EXPORT
 Status SerializeTensor(std::shared_ptr<Tensor> tensor, py::SerializedPyObject* out);
+
+/// \brief Serialize an Arrow SparseCOOTensor as a SerializedPyObject.
+/// \param[in] sparse_tensor SparseCOOTensor to be serialized
+/// \param[out] out The serialized representation
+/// \return Status
+ARROW_PYTHON_EXPORT
+Status SerializeSparseTensor(std::shared_ptr<SparseTensor> sparse_tensor,
+                             py::SerializedPyObject* out);
 
 /// \brief Write the Tensor metadata header to an OutputStream.
 /// \param[in] dtype DataType of the Tensor
@@ -129,6 +140,8 @@ struct PythonType {
     TENSOR,
     NDARRAY,
     BUFFER,
+    SPARSECOOTENSOR,
+    SPARSECSRMATRIX,
     NUM_PYTHON_TYPES
   };
 };

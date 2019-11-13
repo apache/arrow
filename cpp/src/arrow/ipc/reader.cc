@@ -933,7 +933,136 @@ Status MakeSparseTensorWithSparseCSRIndex(
   return Status::OK();
 }
 
+Status ReadSparseTensorMetadata(const Buffer& metadata,
+                                std::shared_ptr<DataType>* out_type,
+                                std::vector<int64_t>* out_shape,
+                                std::vector<std::string>* out_dim_names,
+                                int64_t* out_non_zero_length,
+                                SparseTensorFormat::type* out_format_id,
+                                const flatbuf::SparseTensor** out_fb_sparse_tensor,
+                                const flatbuf::Buffer** out_buffer) {
+  RETURN_NOT_OK(internal::GetSparseTensorMetadata(
+      metadata, out_type, out_shape, out_dim_names, out_non_zero_length, out_format_id));
+
+  const flatbuf::Message* message;
+  RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
+
+  auto sparse_tensor = message->header_as_SparseTensor();
+  if (sparse_tensor == nullptr) {
+    return Status::IOError(
+        "Header-type of flatbuffer-encoded Message is not SparseTensor.");
+  }
+  *out_fb_sparse_tensor = sparse_tensor;
+
+  auto buffer = sparse_tensor->data();
+  if (!BitUtil::IsMultipleOf8(buffer->offset())) {
+    return Status::Invalid(
+        "Buffer of sparse index data did not start on 8-byte aligned offset: ",
+        buffer->offset());
+  }
+  *out_buffer = buffer;
+
+  return Status::OK();
+}
+
 }  // namespace
+
+namespace internal {
+
+namespace {
+
+Status GetSparseTensorBodyBufferCount(SparseTensorFormat::type format_id,
+                                      size_t* buffer_count) {
+  switch (format_id) {
+    case SparseTensorFormat::COO:
+      *buffer_count = 2;
+      break;
+
+    case SparseTensorFormat::CSR:
+      *buffer_count = 3;
+      break;
+
+    default:
+      return Status::Invalid("Unrecognized sparse tensor format");
+  }
+
+  return Status::OK();
+}
+
+Status CheckSparseTensorBodyBufferCount(
+    const IpcPayload& payload, SparseTensorFormat::type sparse_tensor_format_id) {
+  size_t expected_body_buffer_count;
+
+  RETURN_NOT_OK(GetSparseTensorBodyBufferCount(sparse_tensor_format_id,
+                                               &expected_body_buffer_count));
+  if (payload.body_buffers.size() != expected_body_buffer_count) {
+    return Status::Invalid("Invalid body buffer count for a sparse tensor");
+  }
+
+  return Status::OK();
+}
+
+}  // namespace
+
+Status ReadSparseTensorBodyBufferCount(const Buffer& metadata, size_t* buffer_count) {
+  SparseTensorFormat::type format_id;
+
+  RETURN_NOT_OK(internal::GetSparseTensorMetadata(metadata, nullptr, nullptr, nullptr,
+                                                  nullptr, &format_id));
+  return GetSparseTensorBodyBufferCount(format_id, buffer_count);
+}
+
+Status ReadSparseTensorPayload(const IpcPayload& payload,
+                               std::shared_ptr<SparseTensor>* out) {
+  std::shared_ptr<DataType> type;
+  std::vector<int64_t> shape;
+  std::vector<std::string> dim_names;
+  int64_t non_zero_length;
+  SparseTensorFormat::type sparse_tensor_format_id;
+  const flatbuf::SparseTensor* sparse_tensor;
+  const flatbuf::Buffer* buffer;
+
+  RETURN_NOT_OK(ReadSparseTensorMetadata(*payload.metadata, &type, &shape, &dim_names,
+                                         &non_zero_length, &sparse_tensor_format_id,
+                                         &sparse_tensor, &buffer));
+
+  RETURN_NOT_OK(CheckSparseTensorBodyBufferCount(payload, sparse_tensor_format_id));
+
+  switch (sparse_tensor_format_id) {
+    case SparseTensorFormat::COO: {
+      std::shared_ptr<SparseCOOIndex> sparse_index;
+      std::shared_ptr<DataType> indices_type;
+      RETURN_NOT_OK(internal::GetSparseCOOIndexMetadata(
+          sparse_tensor->sparseIndex_as_SparseTensorIndexCOO(), &indices_type));
+      RETURN_NOT_OK(SparseCOOIndex::Make(indices_type, shape, non_zero_length,
+                                         payload.body_buffers[0], &sparse_index));
+      return MakeSparseTensorWithSparseCOOIndex(type, shape, dim_names, sparse_index,
+                                                non_zero_length, payload.body_buffers[1],
+                                                out);
+    }
+
+    case SparseTensorFormat::CSR: {
+      std::shared_ptr<SparseCSRIndex> sparse_index;
+      std::shared_ptr<DataType> indptr_type;
+      std::shared_ptr<DataType> indices_type;
+      RETURN_NOT_OK(internal::GetSparseCSRIndexMetadata(
+          sparse_tensor->sparseIndex_as_SparseMatrixIndexCSR(), &indptr_type,
+          &indices_type));
+      ARROW_CHECK_EQ(indptr_type, indices_type);
+      RETURN_NOT_OK(SparseCSRIndex::Make(indices_type, shape, non_zero_length,
+                                         payload.body_buffers[0], payload.body_buffers[1],
+                                         &sparse_index));
+      return MakeSparseTensorWithSparseCSRIndex(type, shape, dim_names, sparse_index,
+                                                non_zero_length, payload.body_buffers[2],
+                                                out);
+    }
+
+    default:
+      return Status::Invalid("Unsupported sparse index format");
+  }
+}
+
+}  // namespace internal
 
 Status ReadSparseTensor(const Buffer& metadata, io::RandomAccessFile* file,
                         std::shared_ptr<SparseTensor>* out) {
@@ -942,23 +1071,12 @@ Status ReadSparseTensor(const Buffer& metadata, io::RandomAccessFile* file,
   std::vector<std::string> dim_names;
   int64_t non_zero_length;
   SparseTensorFormat::type sparse_tensor_format_id;
+  const flatbuf::SparseTensor* sparse_tensor;
+  const flatbuf::Buffer* buffer;
 
-  RETURN_NOT_OK(internal::GetSparseTensorMetadata(
-      metadata, &type, &shape, &dim_names, &non_zero_length, &sparse_tensor_format_id));
-
-  const flatbuf::Message* message;
-  RETURN_NOT_OK(internal::VerifyMessage(metadata.data(), metadata.size(), &message));
-  auto sparse_tensor = message->header_as_SparseTensor();
-  if (sparse_tensor == nullptr) {
-    return Status::IOError(
-        "Header-type of flatbuffer-encoded Message is not SparseTensor.");
-  }
-  const flatbuf::Buffer* buffer = sparse_tensor->data();
-  if (!BitUtil::IsMultipleOf8(buffer->offset())) {
-    return Status::Invalid(
-        "Buffer of sparse index data did not start on 8-byte aligned offset: ",
-        buffer->offset());
-  }
+  RETURN_NOT_OK(ReadSparseTensorMetadata(metadata, &type, &shape, &dim_names,
+                                         &non_zero_length, &sparse_tensor_format_id,
+                                         &sparse_tensor, &buffer));
 
   std::shared_ptr<Buffer> data;
   RETURN_NOT_OK(file->ReadAt(buffer->offset(), buffer->length(), &data));

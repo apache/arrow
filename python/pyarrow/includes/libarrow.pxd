@@ -1573,10 +1573,20 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     CStatus ReadSerializedObject(CRandomAccessFile* src,
                                  CSerializedPyObject* out)
 
-    CStatus GetSerializedFromComponents(int num_tensors, int num_ndarrays,
-                                        int num_buffers,
-                                        object buffers,
-                                        CSerializedPyObject* out)
+    cdef cppclass SparseTensorCounts:
+        SparseTensorCounts()
+        int coo
+        int csr
+        int num_total_tensors() const
+        int num_total_buffers() const
+
+    CStatus GetSerializedFromComponents(
+        int num_tensors,
+        const SparseTensorCounts& num_sparse_tensors,
+        int num_ndarrays,
+        int num_buffers,
+        object buffers,
+        CSerializedPyObject* out)
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py::internal" nogil:

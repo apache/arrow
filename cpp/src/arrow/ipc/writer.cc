@@ -814,14 +814,25 @@ Status GetSparseTensorPayload(const SparseTensor& sparse_tensor, MemoryPool* poo
 }  // namespace internal
 
 Status WriteSparseTensor(const SparseTensor& sparse_tensor, io::OutputStream* dst,
-                         int32_t* metadata_length, int64_t* body_length,
-                         MemoryPool* pool) {
+                         int32_t* metadata_length, int64_t* body_length) {
   internal::IpcPayload payload;
   internal::SparseTensorSerializer writer(0, &payload);
   RETURN_NOT_OK(writer.Assemble(sparse_tensor));
 
   *body_length = payload.body_length;
   return internal::WriteIpcPayload(payload, IpcOptions::Defaults(), dst, metadata_length);
+}
+
+Status GetSparseTensorMessage(const SparseTensor& sparse_tensor, MemoryPool* pool,
+                              std::unique_ptr<Message>* out) {
+  internal::IpcPayload payload;
+  RETURN_NOT_OK(internal::GetSparseTensorPayload(sparse_tensor, pool, &payload));
+
+  const std::shared_ptr<Buffer> metadata = payload.metadata;
+  const std::shared_ptr<Buffer> buffer = *payload.body_buffers.data();
+
+  out->reset(new Message(metadata, buffer));
+  return Status::OK();
 }
 
 Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size) {
@@ -1029,7 +1040,7 @@ class StreamBookKeeper {
   int64_t position_;
 };
 
-/// A IpcPayloadWriter implementation that writes to a IPC stream
+/// A IpcPayloadWriter implementation that writes to an IPC stream
 /// (with an end-of-stream marker)
 class PayloadStreamWriter : public internal::IpcPayloadWriter,
                             protected StreamBookKeeper {

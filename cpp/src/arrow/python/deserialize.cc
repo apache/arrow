@@ -184,6 +184,22 @@ Status GetValue(PyObject* context, const Array& arr, int64_t index, int8_t type,
       *result = wrap_tensor(blobs.tensors[ref]);
       return Status::OK();
     }
+    case PythonType::SPARSECOOTENSOR: {
+      int32_t ref = checked_cast<const Int32Array&>(arr).Value(index);
+      const std::shared_ptr<SparseCOOTensor>& sparse_coo_tensor =
+          arrow::internal::checked_pointer_cast<SparseCOOTensor>(
+              blobs.sparse_tensors[ref]);
+      *result = wrap_sparse_coo_tensor(sparse_coo_tensor);
+      return Status::OK();
+    }
+    case PythonType::SPARSECSRMATRIX: {
+      int32_t ref = checked_cast<const Int32Array&>(arr).Value(index);
+      const std::shared_ptr<SparseCSRMatrix>& sparse_csr_matrix =
+          arrow::internal::checked_pointer_cast<SparseCSRMatrix>(
+              blobs.sparse_tensors[ref]);
+      *result = wrap_sparse_csr_matrix(sparse_csr_matrix);
+      return Status::OK();
+    }
     case PythonType::NDARRAY: {
       int32_t ref = checked_cast<const Int32Array&>(arr).Value(index);
       return DeserializeArray(ref, base, blobs, result);
@@ -287,12 +303,15 @@ Status DeserializeSet(PyObject* context, const Array& array, int64_t start_idx,
 Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) {
   int64_t bytes_read;
   int32_t num_tensors;
+  int32_t num_sparse_tensors;
   int32_t num_ndarrays;
   int32_t num_buffers;
 
   // Read number of tensors
   RETURN_NOT_OK(
       src->Read(sizeof(int32_t), &bytes_read, reinterpret_cast<uint8_t*>(&num_tensors)));
+  RETURN_NOT_OK(src->Read(sizeof(int32_t), &bytes_read,
+                          reinterpret_cast<uint8_t*>(&num_sparse_tensors)));
   RETURN_NOT_OK(
       src->Read(sizeof(int32_t), &bytes_read, reinterpret_cast<uint8_t*>(&num_ndarrays)));
   RETURN_NOT_OK(
@@ -315,6 +334,13 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) 
     RETURN_NOT_OK(ipc::ReadTensor(src, &tensor));
     RETURN_NOT_OK(ipc::AlignStream(src, ipc::kTensorAlignment));
     out->tensors.push_back(tensor);
+  }
+
+  for (int i = 0; i < num_sparse_tensors; ++i) {
+    std::shared_ptr<SparseTensor> sparse_tensor;
+    RETURN_NOT_OK(ipc::ReadSparseTensor(src, &sparse_tensor));
+    RETURN_NOT_OK(ipc::AlignStream(src, ipc::kTensorAlignment));
+    out->sparse_tensors.push_back(sparse_tensor);
   }
 
   for (int i = 0; i < num_ndarrays; ++i) {
@@ -347,19 +373,23 @@ Status DeserializeObject(PyObject* context, const SerializedPyObject& obj, PyObj
                          obj, out);
 }
 
-Status GetSerializedFromComponents(int num_tensors, int num_ndarrays, int num_buffers,
-                                   PyObject* data, SerializedPyObject* out) {
+Status GetSerializedFromComponents(int num_tensors,
+                                   const SparseTensorCounts& num_sparse_tensors,
+                                   int num_ndarrays, int num_buffers, PyObject* data,
+                                   SerializedPyObject* out) {
   PyAcquireGIL gil;
   const Py_ssize_t data_length = PyList_Size(data);
   RETURN_IF_PYERROR();
 
-  const Py_ssize_t expected_data_length =
-      1 + num_tensors * 2 + num_ndarrays * 2 + num_buffers;
+  const Py_ssize_t expected_data_length = 1 + num_tensors * 2 +
+                                          num_sparse_tensors.num_total_buffers() +
+                                          num_ndarrays * 2 + num_buffers;
   if (data_length != expected_data_length) {
     return Status::Invalid("Invalid number of buffers in data");
   }
 
   auto GetBuffer = [&data](Py_ssize_t index, std::shared_ptr<Buffer>* out) {
+    ARROW_CHECK_LE(index, PyList_Size(data));
     PyObject* py_buf = PyList_GET_ITEM(data, index);
     return unwrap_buffer(py_buf, out);
   };
@@ -390,6 +420,27 @@ Status GetSerializedFromComponents(int num_tensors, int num_ndarrays, int num_bu
 
     RETURN_NOT_OK(ipc::ReadTensor(message, &tensor));
     out->tensors.emplace_back(std::move(tensor));
+  }
+
+  // Zero-copy reconstruct sparse tensors
+  for (int i = 0, n = num_sparse_tensors.num_total_tensors(); i < n; ++i) {
+    ipc::internal::IpcPayload payload;
+    RETURN_NOT_OK(GetBuffer(buffer_index++, &payload.metadata));
+
+    size_t num_bodies;
+    RETURN_NOT_OK(
+        ipc::internal::ReadSparseTensorBodyBufferCount(*payload.metadata, &num_bodies));
+
+    payload.body_buffers.reserve(num_bodies);
+    for (size_t i = 0; i < num_bodies; ++i) {
+      std::shared_ptr<Buffer> body;
+      RETURN_NOT_OK(GetBuffer(buffer_index++, &body));
+      payload.body_buffers.emplace_back(body);
+    }
+
+    std::shared_ptr<SparseTensor> sparse_tensor;
+    RETURN_NOT_OK(ipc::internal::ReadSparseTensorPayload(payload, &sparse_tensor));
+    out->sparse_tensors.emplace_back(std::move(sparse_tensor));
   }
 
   // Zero-copy reconstruct tensors for numpy ndarrays
