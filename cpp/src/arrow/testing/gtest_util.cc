@@ -139,6 +139,24 @@ void AssertSchemaEqual(const Schema& lhs, const Schema& rhs) {
   }
 }
 
+void AssertFieldEqual(const Field& lhs, const Field& rhs) {
+  if (!lhs.Equals(rhs)) {
+    std::stringstream ss;
+    ss << "left field: " << lhs.ToString() << std::endl
+       << "right field: " << rhs.ToString() << std::endl;
+    FAIL() << ss.str();
+  }
+}
+
+void AssertTypeEqual(const DataType& lhs, const DataType& rhs) {
+  if (!lhs.Equals(rhs)) {
+    std::stringstream ss;
+    ss << "left type: " << lhs.ToString() << std::endl
+       << "right right: " << rhs.ToString() << std::endl;
+    FAIL() << ss.str();
+  }
+}
+
 void AssertDatumsEqual(const Datum& expected, const Datum& actual) {
   // TODO: Implements better print.
   ASSERT_TRUE(actual.Equals(expected));

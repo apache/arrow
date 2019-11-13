@@ -863,6 +863,28 @@ cdef class RecordBatch(_PandasConvertible):
                                                       &c_record_batch))
         return pyarrow_wrap_batch(c_record_batch)
 
+    def _export_to_c(self, uintptr_t out_ptr):
+        """
+        Export to a C ArrowArray struct, given its pointer.
+
+        Be careful: if you don't pass the ArrowArray struct to a consumer,
+        array memory will leak.  This is a low-level function intended for
+        expert users.
+        """
+        check_status(ExportRecordBatch(deref(self.batch),
+                                       <ArrowArray*> out_ptr))
+
+    @staticmethod
+    def _import_from_c(uintptr_t in_ptr):
+        """
+        Import from a C ArrowArray struct, given its pointer.
+
+        This is a low-level function intended for expert users.
+        """
+        cdef shared_ptr[CRecordBatch] result
+        check_status(ImportRecordBatch(<ArrowArray*> in_ptr, &result))
+        return pyarrow_wrap_batch(result)
+
 
 def _reconstruct_record_batch(columns, schema):
     """

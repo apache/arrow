@@ -15,15 +15,35 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# don't add pandas here, because it is not a mandatory test dependency
-cffi
-cython
-cloudpickle
-hypothesis
-numpy>=1.14
-pytest
-pytest-faulthandler
-pytest-lazy-fixture
-pytz
-setuptools
-setuptools_scm
+from __future__ import absolute_import
+
+import cffi
+
+c_source = """
+    struct ArrowArray {
+      // Type description
+      const char* format;
+      const char* name;
+      const char* metadata;
+      int64_t flags;
+
+      // Data description
+      int64_t length;
+      int64_t null_count;
+      int64_t offset;
+      int64_t n_buffers;
+      int64_t n_children;
+      const void** buffers;
+      struct ArrowArray** children;
+      struct ArrowArray* dictionary;
+
+      // Release callback
+      void (*release)(struct ArrowArray*);
+      // Opaque producer-specific data
+      void* private_data;
+    };
+    """
+
+# TODO use out-of-line mode for faster import and avoid C parsing
+ffi = cffi.FFI()
+ffi.cdef(c_source)

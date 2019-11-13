@@ -15,29 +15,41 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Contains declarations of time related Arrow builder types.
-
 #pragma once
 
-#include <memory>
+#include <stdint.h>
 
-#include "arrow/array/builder_base.h"
-#include "arrow/array/builder_primitive.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-namespace arrow {
+#define ARROW_FLAG_ORDERED 1
+#define ARROW_FLAG_NULLABLE 2
+#define ARROW_FLAG_KEYS_SORTED 4
 
-// TODO this class is untested
+struct ArrowArray {
+  // Type description
+  const char* format;
+  const char* name;
+  const char* metadata;
+  int64_t flags;
 
-class ARROW_EXPORT DayTimeIntervalBuilder : public NumericBuilder<DayTimeIntervalType> {
- public:
-  using DayMilliseconds = DayTimeIntervalType::DayMilliseconds;
+  // Data description
+  int64_t length;
+  int64_t null_count;
+  int64_t offset;
+  int64_t n_buffers;
+  int64_t n_children;
+  const void** buffers;
+  struct ArrowArray** children;
+  struct ArrowArray* dictionary;
 
-  explicit DayTimeIntervalBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
-      : DayTimeIntervalBuilder(day_time_interval(), pool) {}
-
-  explicit DayTimeIntervalBuilder(std::shared_ptr<DataType> type,
-                                  MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
-      : NumericBuilder<DayTimeIntervalType>(type, pool) {}
+  // Release callback
+  void (*release)(struct ArrowArray*);
+  // Opaque producer-specific data
+  void* private_data;
 };
 
-}  // namespace arrow
+#ifdef __cplusplus
+}
+#endif

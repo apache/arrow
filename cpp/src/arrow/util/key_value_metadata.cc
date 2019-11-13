@@ -61,9 +61,9 @@ KeyValueMetadata::KeyValueMetadata(
   ARROW_CHECK_EQ(keys_.size(), values_.size());
 }
 
-KeyValueMetadata::KeyValueMetadata(const std::vector<std::string>& keys,
-                                   const std::vector<std::string>& values)
-    : keys_(keys), values_(values) {
+KeyValueMetadata::KeyValueMetadata(std::vector<std::string> keys,
+                                   std::vector<std::string> values)
+    : keys_(std::move(keys)), values_(std::move(values)) {
   ARROW_CHECK_EQ(keys.size(), values.size());
 }
 
@@ -164,9 +164,9 @@ std::shared_ptr<KeyValueMetadata> key_value_metadata(
   return std::make_shared<KeyValueMetadata>(pairs);
 }
 
-std::shared_ptr<KeyValueMetadata> key_value_metadata(
-    const std::vector<std::string>& keys, const std::vector<std::string>& values) {
-  return std::make_shared<KeyValueMetadata>(keys, values);
+std::shared_ptr<KeyValueMetadata> key_value_metadata(std::vector<std::string> keys,
+                                                     std::vector<std::string> values) {
+  return std::make_shared<KeyValueMetadata>(std::move(keys), std::move(values));
 }
 
 }  // namespace arrow

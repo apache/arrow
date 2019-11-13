@@ -1138,7 +1138,7 @@ class ARROW_EXPORT TimestampType : public TemporalType, public ParametricType {
   std::string timezone_;
 };
 
-// Base class for the different kinds of intervals.
+// Base class for the different kinds of calendar intervals.
 class ARROW_EXPORT IntervalType : public TemporalType, public ParametricType {
  public:
   enum type { MONTHS, DAY_TIME };
@@ -1150,10 +1150,10 @@ class ARROW_EXPORT IntervalType : public TemporalType, public ParametricType {
   std::string ComputeFingerprint() const override;
 };
 
-/// \brief Represents a some number of months.
+/// \brief Represents a number of months.
 ///
-/// Type representing a number of months.  Corresponeds to YearMonth type
-/// in Schema.fbs (Years are defined as 12 months).
+/// Type representing a number of months.  Corresponds to YearMonth type
+/// in Schema.fbs (years are defined as 12 months).
 class ARROW_EXPORT MonthIntervalType : public IntervalType {
  public:
   static constexpr Type::type type_id = Type::INTERVAL;
@@ -1202,8 +1202,7 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
   std::string name() const override { return "day_time_interval"; }
 };
 
-// \brief Represents an amount of elapsed time without any relation to a calendar
-// artifact.
+/// \brief Represents an elapsed time without any relation to a calendar artifact.
 class ARROW_EXPORT DurationType : public TemporalType, public ParametricType {
  public:
   using Unit = TimeUnit;

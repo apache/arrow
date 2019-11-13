@@ -88,7 +88,8 @@ using CBuilderType =
 /// contigiuous ranges while appending. This default implementation will call
 /// ConversionTraits<ValueCType>::AppendRow() for each value in the range.
 template <typename ValueCType, typename Range>
-Status AppendListValues(CBuilderType<ValueCType>& value_builder, Range&& cell_range) {
+inline Status AppendListValues(CBuilderType<ValueCType>& value_builder,
+                               Range&& cell_range) {
   for (auto const& value : cell_range) {
     ARROW_RETURN_NOT_OK(ConversionTraits<ValueCType>::AppendRow(value_builder, value));
   }
@@ -109,7 +110,7 @@ Status AppendListValues(CBuilderType<ValueCType>& value_builder, Range&& cell_ra
   };                                                                                \
                                                                                     \
   template <>                                                                       \
-  Status AppendListValues<CType_, const std::vector<CType_>&>(                      \
+  inline Status AppendListValues<CType_, const std::vector<CType_>&>(               \
       typename TypeTraits<ArrowType_>::BuilderType & value_builder,                 \
       const std::vector<CType_>& cell_range) {                                      \
     return value_builder.AppendValues(cell_range);                                  \
@@ -483,7 +484,7 @@ class allocator {
   explicit allocator(MemoryPool* pool) noexcept : pool_(pool) {}
 
   template <class U>
-  allocator(const allocator<U>& rhs) noexcept : pool_(rhs.pool_) {}
+  allocator(const allocator<U>& rhs) noexcept : pool_(rhs.pool()) {}
 
   ~allocator() { pool_ = NULLPTR; }
 

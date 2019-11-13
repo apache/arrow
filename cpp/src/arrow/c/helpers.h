@@ -15,29 +15,40 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Contains declarations of time related Arrow builder types.
-
 #pragma once
 
-#include <memory>
+#include <assert.h>
+#include <string.h>
 
-#include "arrow/array/builder_base.h"
-#include "arrow/array/builder_primitive.h"
+#include "arrow/c/abi.h"
 
-namespace arrow {
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-// TODO this class is untested
+inline int ArrowIsReleased(const struct ArrowArray* array) {
+  return array->format == NULL;
+}
 
-class ARROW_EXPORT DayTimeIntervalBuilder : public NumericBuilder<DayTimeIntervalType> {
- public:
-  using DayMilliseconds = DayTimeIntervalType::DayMilliseconds;
+inline void ArrowMoveArray(struct ArrowArray* src, struct ArrowArray* dest) {
+  assert(dest != src);
+  assert(!ArrowIsReleased(src));
+  memcpy(dest, src, sizeof(struct ArrowArray));
+  src->format = NULL;
+  src->release = NULL;
+}
 
-  explicit DayTimeIntervalBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
-      : DayTimeIntervalBuilder(day_time_interval(), pool) {}
+inline void ArrowReleaseArray(struct ArrowArray* array) {
+  if (array->format != NULL) {
+    if (array->release != NULL) {
+      array->release(array);
+      assert(ArrowIsReleased(array));
+    } else {
+      array->format = NULL;
+    }
+  }
+}
 
-  explicit DayTimeIntervalBuilder(std::shared_ptr<DataType> type,
-                                  MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
-      : NumericBuilder<DayTimeIntervalType>(type, pool) {}
-};
-
-}  // namespace arrow
+#ifdef __cplusplus
+}
+#endif

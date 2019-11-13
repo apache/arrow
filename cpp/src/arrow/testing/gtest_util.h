@@ -182,10 +182,13 @@ ARROW_EXPORT void AssertBufferEqual(const Buffer& buffer,
                                     const std::vector<uint8_t>& expected);
 ARROW_EXPORT void AssertBufferEqual(const Buffer& buffer, const std::string& expected);
 ARROW_EXPORT void AssertBufferEqual(const Buffer& buffer, const Buffer& expected);
-ARROW_EXPORT void AssertSchemaEqual(const Schema& lhs, const Schema& rhs);
-
 ARROW_EXPORT void AssertTablesEqual(const Table& expected, const Table& actual,
                                     bool same_chunk_layout = true, bool flatten = false);
+
+// These three all compare metadata
+ARROW_EXPORT void AssertSchemaEqual(const Schema& lhs, const Schema& rhs);
+ARROW_EXPORT void AssertFieldEqual(const Field& lhs, const Field& rhs);
+ARROW_EXPORT void AssertTypeEqual(const DataType& lhs, const DataType& rhs);
 
 ARROW_EXPORT void AssertDatumsEqual(const Datum& expected, const Datum& actual);
 

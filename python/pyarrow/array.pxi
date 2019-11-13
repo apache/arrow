@@ -1116,6 +1116,28 @@ cdef class Array(_PandasConvertible):
         _append_array_buffers(self.sp_array.get().data().get(), res)
         return res
 
+    def _export_to_c(self, uintptr_t out_ptr):
+        """
+        Export to a C ArrowArray struct, given its pointer.
+
+        Be careful: if you don't pass the ArrowArray struct to a consumer,
+        array memory will leak.  This is a low-level function intended for
+        expert users.
+        """
+        check_status(ExportArray(deref(self.sp_array),
+                                 <ArrowArray*> out_ptr))
+
+    @staticmethod
+    def _import_from_c(uintptr_t in_ptr):
+        """
+        Import from a C ArrowArray struct, given its pointer.
+
+        This is a low-level function intended for expert users.
+        """
+        cdef shared_ptr[CArray] result
+        check_status(ImportArray(<ArrowArray*> in_ptr, &result))
+        return pyarrow_wrap_array(result)
+
 
 cdef wrap_array_output(PyObject* output):
     cdef object obj = PyObject_to_object(output)

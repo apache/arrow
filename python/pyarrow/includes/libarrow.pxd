@@ -1726,6 +1726,17 @@ cdef extern from 'arrow/array/concatenate.h' namespace 'arrow' nogil:
     CStatus Concatenate(const vector[shared_ptr[CArray]]& arrays,
                         CMemoryPool* pool, shared_ptr[CArray]* result)
 
+cdef extern from 'arrow/c/abi.h':
+    cdef struct ArrowArray:
+        pass
+
+cdef extern from 'arrow/c/bridge.h' namespace 'arrow' nogil:
+    CStatus ExportArray(CArray& array, ArrowArray* out)
+    CStatus ImportArray(ArrowArray* array, shared_ptr[CArray]* out)
+
+    CStatus ExportRecordBatch(CRecordBatch& batch, ArrowArray* out)
+    CStatus ImportRecordBatch(ArrowArray* array, shared_ptr[CRecordBatch]* out)
+
 cdef extern from "<utility>" namespace "std":
     # Work around https://github.com/cython/cython/issues/2169
     unique_ptr[CCodec] move(unique_ptr[CCodec]) nogil

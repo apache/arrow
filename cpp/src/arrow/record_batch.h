@@ -71,6 +71,18 @@ class ARROW_EXPORT RecordBatch {
       const std::shared_ptr<Schema>& schema, int64_t num_rows,
       const std::vector<std::shared_ptr<ArrayData>>& columns);
 
+  /// \brief Convert record batch to struct array
+  ///
+  /// Create a struct array whose child arrays are the record batch's columns.
+  /// Note that the record batch's top-level field metadata cannot be reflected
+  /// in the resulting struct array.
+  Status ToStructArray(std::shared_ptr<Array>* out) const;
+
+  /// \brief Construct record batch from struct array
+  ///
+  /// This constructs a record batch using the child arrays of the given
+  /// array, which must be a struct array.  Note that the struct array's own
+  /// null bitmap is not reflected in the resulting record batch.
   static Status FromStructArray(const std::shared_ptr<Array>& array,
                                 std::shared_ptr<RecordBatch>* out);
 
@@ -84,6 +96,9 @@ class ARROW_EXPORT RecordBatch {
   // \return the table's schema
   /// \return true if batches are equal
   std::shared_ptr<Schema> schema() const { return schema_; }
+
+  /// \brief Retrieve all columns at once
+  std::vector<std::shared_ptr<Array>> columns() const;
 
   /// \brief Retrieve an array from the record batch
   /// \param[in] i field index, does not boundscheck

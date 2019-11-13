@@ -4581,6 +4581,100 @@ RcppExport SEXP _arrow_parquet___arrow___FileReader__GetSchema(SEXP reader_sexp)
 }
 #endif
 
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::Array> ImportArray(size_t array);
+RcppExport SEXP _arrow_ImportArray(SEXP array_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<size_t>::type array(array_sexp);
+	return Rcpp::wrap(ImportArray(array));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_ImportArray(SEXP array_sexp){
+	Rf_error("Cannot call ImportArray(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<arrow::RecordBatch> ImportRecordBatch(size_t array);
+RcppExport SEXP _arrow_ImportRecordBatch(SEXP array_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<size_t>::type array(array_sexp);
+	return Rcpp::wrap(ImportRecordBatch(array));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_ImportRecordBatch(SEXP array_sexp){
+	Rf_error("Cannot call ImportRecordBatch(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+size_t allocate_arrow_array();
+RcppExport SEXP _arrow_allocate_arrow_array(){
+BEGIN_RCPP
+	return Rcpp::wrap(allocate_arrow_array());
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_allocate_arrow_array(){
+	Rf_error("Cannot call allocate_arrow_array(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void delete_arrow_array(size_t ptr);
+RcppExport SEXP _arrow_delete_arrow_array(SEXP ptr_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<size_t>::type ptr(ptr_sexp);
+	delete_arrow_array(ptr);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_delete_arrow_array(SEXP ptr_sexp){
+	Rf_error("Cannot call delete_arrow_array(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void ExportArray(const std::shared_ptr<arrow::Array>& array, size_t ptr);
+RcppExport SEXP _arrow_ExportArray(SEXP array_sexp, SEXP ptr_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
+	Rcpp::traits::input_parameter<size_t>::type ptr(ptr_sexp);
+	ExportArray(array, ptr);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_ExportArray(SEXP array_sexp, SEXP ptr_sexp){
+	Rf_error("Cannot call ExportArray(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// py-to-r.cpp
+#if defined(ARROW_R_WITH_ARROW)
+void ExportRecordBatch(const std::shared_ptr<arrow::RecordBatch>& array, size_t ptr);
+RcppExport SEXP _arrow_ExportRecordBatch(SEXP array_sexp, SEXP ptr_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type array(array_sexp);
+	Rcpp::traits::input_parameter<size_t>::type ptr(ptr_sexp);
+	ExportRecordBatch(array, ptr);
+	return R_NilValue;
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_ExportRecordBatch(SEXP array_sexp, SEXP ptr_sexp){
+	Rf_error("Cannot call ExportRecordBatch(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
 // recordbatch.cpp
 #if defined(ARROW_R_WITH_ARROW)
 int RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x);
@@ -5760,6 +5854,12 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_parquet___arrow___FileWriter__Close", (DL_FUNC) &_arrow_parquet___arrow___FileWriter__Close, 1}, 
 		{ "_arrow_parquet___arrow___WriteTable", (DL_FUNC) &_arrow_parquet___arrow___WriteTable, 4}, 
 		{ "_arrow_parquet___arrow___FileReader__GetSchema", (DL_FUNC) &_arrow_parquet___arrow___FileReader__GetSchema, 1}, 
+		{ "_arrow_ImportArray", (DL_FUNC) &_arrow_ImportArray, 1}, 
+		{ "_arrow_ImportRecordBatch", (DL_FUNC) &_arrow_ImportRecordBatch, 1}, 
+		{ "_arrow_allocate_arrow_array", (DL_FUNC) &_arrow_allocate_arrow_array, 0}, 
+		{ "_arrow_delete_arrow_array", (DL_FUNC) &_arrow_delete_arrow_array, 1}, 
+		{ "_arrow_ExportArray", (DL_FUNC) &_arrow_ExportArray, 2}, 
+		{ "_arrow_ExportRecordBatch", (DL_FUNC) &_arrow_ExportRecordBatch, 2}, 
 		{ "_arrow_RecordBatch__num_columns", (DL_FUNC) &_arrow_RecordBatch__num_columns, 1}, 
 		{ "_arrow_RecordBatch__num_rows", (DL_FUNC) &_arrow_RecordBatch__num_rows, 1}, 
 		{ "_arrow_RecordBatch__schema", (DL_FUNC) &_arrow_RecordBatch__schema, 1}, 

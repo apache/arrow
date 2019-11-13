@@ -202,6 +202,7 @@ std::shared_ptr<RecordBatch> RecordBatch::Make(
 
 Status RecordBatch::FromStructArray(const std::shared_ptr<Array>& array,
                                     std::shared_ptr<RecordBatch>* out) {
+  // TODO fail if null_count != 0?
   if (array->type_id() != Type::STRUCT) {
     return Status::Invalid("Cannot construct record batch from array of type ",
                            *array->type());
@@ -209,6 +210,19 @@ Status RecordBatch::FromStructArray(const std::shared_ptr<Array>& array,
   *out = Make(arrow::schema(array->type()->children()), array->length(),
               array->data()->child_data);
   return Status::OK();
+}
+
+Status RecordBatch::ToStructArray(std::shared_ptr<Array>* out) const {
+  ARROW_ASSIGN_OR_RAISE(*out, StructArray::Make(columns(), schema()->fields()));
+  return Status::OK();
+}
+
+std::vector<std::shared_ptr<Array>> RecordBatch::columns() const {
+  std::vector<std::shared_ptr<Array>> children(num_columns());
+  for (int i = 0; i < num_columns(); ++i) {
+    children[i] = column(i);
+  }
+  return children;
 }
 
 const std::string& RecordBatch::column_name(int i) const {

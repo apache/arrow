@@ -227,21 +227,20 @@ struct ValidateArrayVisitor {
   Status ValidateOffsets(const ArrayType& array) {
     using offset_type = typename ArrayType::offset_type;
 
-    auto value_offsets = array.value_offsets();
-    if (value_offsets == nullptr) {
-      if (array.length() != 0) {
+    if (array.length() > 0) {
+      // For length 0, an empty offsets array seems accepted as a special case (ARROW-544)
+      auto value_offsets = array.value_offsets();
+      if (value_offsets == nullptr) {
         return Status::Invalid("non-empty array but value_offsets_ is null");
       }
-      return Status::OK();
-    }
-    if (value_offsets->size() / static_cast<int>(sizeof(offset_type)) < array.length()) {
-      return Status::Invalid("offset buffer size (bytes): ", value_offsets->size(),
-                             " isn't large enough for length: ", array.length());
-    }
-
-    auto first_offset = array.value_offset(0);
-    if (array.offset() == 0 && first_offset != 0) {
-      return Status::Invalid("The first offset isn't zero");
+      if (value_offsets->size() / static_cast<int>(sizeof(offset_type)) <
+          array.length() + 1) {
+        return Status::Invalid("offset buffer size (bytes): ", value_offsets->size(),
+                               " isn't large enough for length: ", array.length());
+      }
+      if (array.offset() == 0 && array.value_offset(0) != 0) {
+        return Status::Invalid("The first offset isn't zero");
+      }
     }
     return Status::OK();
   }

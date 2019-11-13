@@ -1172,6 +1172,30 @@ parquet___arrow___FileReader__GetSchema <- function(reader){
     .Call(`_arrow_parquet___arrow___FileReader__GetSchema` , reader)
 }
 
+ImportArray <- function(array){
+    .Call(`_arrow_ImportArray` , array)
+}
+
+ImportRecordBatch <- function(array){
+    .Call(`_arrow_ImportRecordBatch` , array)
+}
+
+allocate_arrow_array <- function(){
+    .Call(`_arrow_allocate_arrow_array` )
+}
+
+delete_arrow_array <- function(ptr){
+    invisible(.Call(`_arrow_delete_arrow_array` , ptr))
+}
+
+ExportArray <- function(array, ptr){
+    invisible(.Call(`_arrow_ExportArray` , array, ptr))
+}
+
+ExportRecordBatch <- function(array, ptr){
+    invisible(.Call(`_arrow_ExportRecordBatch` , array, ptr))
+}
+
 RecordBatch__num_columns <- function(x){
     .Call(`_arrow_RecordBatch__num_columns` , x)
 }
