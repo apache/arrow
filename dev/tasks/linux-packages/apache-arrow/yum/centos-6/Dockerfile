@@ -20,8 +20,9 @@ FROM centos:6
 ARG DEBUG
 
 ENV \
-  SRPM_DOWNLOAD_URL=http://vault.centos.org/7.6.1810/os/Source/SPackages \
-  LIBARCHIVE_SRPM_BASE=libarchive-3.1.2-10.el7_2.src.rpm
+  DEVTOOLSET_VERSION=6 \
+  LIBARCHIVE_SRPM_BASE=libarchive-3.1.2-10.el7_2.src.rpm \
+  SRPM_DOWNLOAD_URL=http://vault.centos.org/7.6.1810/os/Source/SPackages
 
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
@@ -47,7 +48,7 @@ RUN \
   yum install -y ${quiet} \
     cmake3 \
     bzip2-devel \
-    devtoolset-6 \
+    devtoolset-${DEVTOOLSET_VERSION} \
     gflags-devel \
     git \
     gobject-introspection-devel \
