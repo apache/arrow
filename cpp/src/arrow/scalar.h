@@ -64,7 +64,7 @@ struct ARROW_EXPORT Scalar {
                       std::shared_ptr<Scalar>* out);
 
   // TODO(bkietz) add compute::CastOptions
-  Result<std::shared_ptr<Scalar>> CastTo(std::shared_ptr<DataType> to);
+  Result<std::shared_ptr<Scalar>> CastTo(std::shared_ptr<DataType> to) const;
 
  protected:
   Scalar(const std::shared_ptr<DataType>& type, bool is_valid)
@@ -74,6 +74,8 @@ struct ARROW_EXPORT Scalar {
 /// \brief A scalar value for NullType. Never valid
 struct ARROW_EXPORT NullScalar : public Scalar {
  public:
+  using TypeClass = NullType;
+
   NullScalar() : Scalar{null(), false} {}
 };
 
@@ -102,6 +104,7 @@ struct ARROW_EXPORT PrimitiveScalar : public Scalar {
 }  // namespace internal
 
 struct ARROW_EXPORT BooleanScalar : public internal::PrimitiveScalar {
+  using TypeClass = BooleanType;
   using ValueType = bool;
 
   bool value;
@@ -119,6 +122,7 @@ struct ARROW_EXPORT BooleanScalar : public internal::PrimitiveScalar {
 
 template <typename T>
 struct NumericScalar : public internal::PrimitiveScalar {
+  using TypeClass = T;
   using ValueType = typename T::c_type;
 
   ValueType value;
@@ -138,6 +142,7 @@ struct NumericScalar : public internal::PrimitiveScalar {
 
 template <typename T>
 struct BaseBinaryScalar : public Scalar {
+  using TypeClass = T;
   using ValueType = std::shared_ptr<Buffer>;
 
   std::shared_ptr<Buffer> value;
@@ -160,6 +165,8 @@ struct ARROW_EXPORT BinaryScalar : public BaseBinaryScalar<BinaryType> {
 };
 
 struct ARROW_EXPORT StringScalar : public BinaryScalar {
+  using TypeClass = StringType;
+
   StringScalar(const std::shared_ptr<Buffer>& value,
                const std::shared_ptr<DataType>& type, bool is_valid = true)
       : BinaryScalar(value, type, is_valid) {}
@@ -184,6 +191,8 @@ struct ARROW_EXPORT LargeBinaryScalar : public BaseBinaryScalar<LargeBinaryType>
 };
 
 struct ARROW_EXPORT LargeStringScalar : public LargeBinaryScalar {
+  using TypeClass = LargeStringType;
+
   LargeStringScalar(const std::shared_ptr<Buffer>& value,
                     const std::shared_ptr<DataType>& type, bool is_valid = true)
       : LargeBinaryScalar(value, type, is_valid) {}
@@ -195,6 +204,8 @@ struct ARROW_EXPORT LargeStringScalar : public LargeBinaryScalar {
 };
 
 struct ARROW_EXPORT FixedSizeBinaryScalar : public BinaryScalar {
+  using TypeClass = FixedSizeBinaryType;
+
   FixedSizeBinaryScalar(const std::shared_ptr<Buffer>& value,
                         const std::shared_ptr<DataType>& type, bool is_valid = true);
 };
@@ -211,6 +222,7 @@ class ARROW_EXPORT Date64Scalar : public NumericScalar<Date64Type> {
 
 class ARROW_EXPORT Time32Scalar : public internal::PrimitiveScalar {
  public:
+  using TypeClass = Time32Type;
   using ValueType = int32_t;
 
   Time32Scalar(int32_t value, const std::shared_ptr<DataType>& type,
@@ -221,6 +233,7 @@ class ARROW_EXPORT Time32Scalar : public internal::PrimitiveScalar {
 
 class ARROW_EXPORT Time64Scalar : public internal::PrimitiveScalar {
  public:
+  using TypeClass = Time64Type;
   using ValueType = int64_t;
 
   Time64Scalar(int64_t value, const std::shared_ptr<DataType>& type,
@@ -231,6 +244,7 @@ class ARROW_EXPORT Time64Scalar : public internal::PrimitiveScalar {
 
 class ARROW_EXPORT TimestampScalar : public internal::PrimitiveScalar {
  public:
+  using TypeClass = TimestampType;
   using ValueType = int64_t;
 
   TimestampScalar(int64_t value, const std::shared_ptr<DataType>& type,
@@ -241,6 +255,7 @@ class ARROW_EXPORT TimestampScalar : public internal::PrimitiveScalar {
 
 class ARROW_EXPORT DurationScalar : public internal::PrimitiveScalar {
  public:
+  using TypeClass = DurationType;
   using ValueType = int64_t;
 
   DurationScalar(int64_t value, const std::shared_ptr<DataType>& type,
@@ -251,6 +266,7 @@ class ARROW_EXPORT DurationScalar : public internal::PrimitiveScalar {
 
 class ARROW_EXPORT MonthIntervalScalar : public internal::PrimitiveScalar {
  public:
+  using TypeClass = MonthIntervalType;
   using ValueType = int32_t;
 
   explicit MonthIntervalScalar(int32_t value, bool is_valid = true);
@@ -262,6 +278,7 @@ class ARROW_EXPORT MonthIntervalScalar : public internal::PrimitiveScalar {
 
 class ARROW_EXPORT DayTimeIntervalScalar : public internal::PrimitiveScalar {
  public:
+  using TypeClass = DayTimeIntervalType;
   using ValueType = DayTimeIntervalType::DayMilliseconds;
 
   explicit DayTimeIntervalScalar(DayTimeIntervalType::DayMilliseconds value,
@@ -274,6 +291,7 @@ class ARROW_EXPORT DayTimeIntervalScalar : public internal::PrimitiveScalar {
 };
 
 struct ARROW_EXPORT Decimal128Scalar : public Scalar {
+  using TypeClass = Decimal128Type;
   using ValueType = Decimal128;
 
   Decimal128Scalar(const Decimal128& value, const std::shared_ptr<DataType>& type,
@@ -294,18 +312,22 @@ struct ARROW_EXPORT BaseListScalar : public Scalar {
 };
 
 struct ARROW_EXPORT ListScalar : public BaseListScalar {
+  using TypeClass = ListType;
   using BaseListScalar::BaseListScalar;
 };
 
 struct ARROW_EXPORT LargeListScalar : public BaseListScalar {
+  using TypeClass = LargeListType;
   using BaseListScalar::BaseListScalar;
 };
 
 struct ARROW_EXPORT MapScalar : public BaseListScalar {
+  using TypeClass = MapType;
   using BaseListScalar::BaseListScalar;
 };
 
 struct ARROW_EXPORT FixedSizeListScalar : public BaseListScalar {
+  using TypeClass = FixedSizeListType;
   FixedSizeListScalar(const std::shared_ptr<Array>& value,
                       const std::shared_ptr<DataType>& type, bool is_valid = true);
 
@@ -313,16 +335,26 @@ struct ARROW_EXPORT FixedSizeListScalar : public BaseListScalar {
 };
 
 struct ARROW_EXPORT StructScalar : public Scalar {
+  using TypeClass = StructType;
   using ValueType = std::vector<std::shared_ptr<Scalar>>;
+
   std::vector<std::shared_ptr<Scalar>> value;
 
   StructScalar(ValueType value, std::shared_ptr<DataType> type, bool is_valid = true)
       : Scalar(std::move(type), is_valid), value(std::move(value)) {}
 };
 
-class ARROW_EXPORT UnionScalar : public Scalar {};
-class ARROW_EXPORT DictionaryScalar : public Scalar {};
-class ARROW_EXPORT ExtensionScalar : public Scalar {};
+class ARROW_EXPORT UnionScalar : public Scalar {
+  using TypeClass = UnionType;
+};
+
+class ARROW_EXPORT DictionaryScalar : public Scalar {
+  using TypeClass = DictionaryType;
+};
+
+class ARROW_EXPORT ExtensionScalar : public Scalar {
+  using TypeClass = ExtensionType;
+};
 
 /// \param[in] type the type of scalar to produce
 /// \param[out] null output scalar with is_valid=false

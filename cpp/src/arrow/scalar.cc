@@ -149,28 +149,12 @@ Status MakeNullScalar(const std::shared_ptr<DataType>& type,
   return VisitTypeInline(*type, &impl);
 }
 
-struct ScalarExpressionToString {
-  template <typename T, typename Formatter = internal::StringFormatter<T>,
-            typename Value = typename Formatter::value_type>
-  Status Visit(const T& t) {
-    const auto& value =
-        checked_cast<const typename TypeTraits<T>::ScalarType&>(value_).value;
-    return Formatter{value_.type}(value, [this](util::string_view v) {
-      repr_ = v.to_string();
-      return Status::OK();
-    });
-  }
-
-  Status Visit(const DataType&) { return Status::OK(); }
-
-  const Scalar& value_;
-  std::string repr_;
-};
-
 std::string Scalar::ToString() const {
-  ScalarExpressionToString impl{*this, "..."};
-  DCHECK_OK(VisitTypeInline(*type, &impl));
-  return std::move(impl.repr_);
+  auto maybe_repr = CastTo(utf8());
+  if (maybe_repr.ok()) {
+    return checked_cast<const StringScalar&>(*maybe_repr.ValueOrDie()).value->ToString();
+  }
+  return "...";
 }
 
 struct ScalarParseImpl {
@@ -272,11 +256,21 @@ Status CastImpl(const BinaryScalar& from, StringScalar* to) {
   return Status::OK();
 }
 
-// any to string
-template <typename ScalarType>
+// formattable to string
+template <typename ScalarType, typename T = typename ScalarType::TypeClass,
+          typename Formatter = internal::StringFormatter<T>,
+          // note: Value unused but necessary to trigger SFINAE if Formatter is undefined
+          typename Value = typename Formatter::value_type>
 Status CastImpl(const ScalarType& from, StringScalar* to) {
-  to->value = Buffer::FromString(from.ToString());
-  return Status::OK();
+  if (!from.is_valid) {
+    to->value = Buffer::FromString("null");
+    return Status::OK();
+  }
+
+  return Formatter{from.type}(from.value, [to](util::string_view v) {
+    to->value = Buffer::FromString(v.to_string());
+    return Status::OK();
+  });
 }
 
 template <typename ToType>
@@ -296,7 +290,9 @@ struct FromTypeVisitor {
   }
 
   // null to any
-  Status Visit(const NullType&) { return Status::Invalid(""); }
+  Status Visit(const NullType&) {
+    return Status::Invalid("attempting to cast scalar of type null to ", *to_type_);
+  }
 
   Status Visit(const UnionType&) { return Status::NotImplemented("cast to ", *to_type_); }
   Status Visit(const DictionaryType&) {
@@ -344,7 +340,7 @@ struct ToTypeVisitor {
 
 }  // namespace
 
-Result<std::shared_ptr<Scalar>> Scalar::CastTo(std::shared_ptr<DataType> to) {
+Result<std::shared_ptr<Scalar>> Scalar::CastTo(std::shared_ptr<DataType> to) const {
   std::shared_ptr<Scalar> out;
   RETURN_NOT_OK(MakeNullScalar(to, &out));
   if (is_valid) {
