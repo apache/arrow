@@ -30,7 +30,7 @@ namespace arrow {
 namespace compute {
 
 /// \brief Match returns position index of first occurence
-// of a value from left array in right array.
+/// of a value from left array in right array.
 ///
 /// If null occurs in left and right,
 /// it returns the index, else returns null.
