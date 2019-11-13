@@ -34,8 +34,7 @@ namespace arrow {
 class ARROW_EXPORT KeyValueMetadata {
  public:
   KeyValueMetadata();
-  KeyValueMetadata(const std::vector<std::string>& keys,
-                   const std::vector<std::string>& values);
+  KeyValueMetadata(std::vector<std::string> keys, std::vector<std::string> values);
   explicit KeyValueMetadata(const std::unordered_map<std::string, std::string>& map);
   virtual ~KeyValueMetadata() = default;
 
@@ -75,8 +74,8 @@ key_value_metadata(const std::unordered_map<std::string, std::string>& pairs);
 ///
 /// \param keys sequence of metadata keys
 /// \param values sequence of corresponding metadata values
-std::shared_ptr<KeyValueMetadata> ARROW_EXPORT key_value_metadata(
-    const std::vector<std::string>& keys, const std::vector<std::string>& values);
+std::shared_ptr<KeyValueMetadata> ARROW_EXPORT
+key_value_metadata(std::vector<std::string> keys, std::vector<std::string> values);
 
 }  // namespace arrow
 

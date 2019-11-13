@@ -152,7 +152,7 @@ TEST_F(DiffTest, Errors) {
   ASSERT_RAISES(TypeError, Diff(*base_, *target_, default_memory_pool()));
 
   ASSERT_FALSE(base_->Equals(*target_, EqualOptions().diff_sink(&formatted)));
-  ASSERT_EQ(formatted.str(), R"(# Array types differed: int32 vs string)");
+  ASSERT_EQ(formatted.str(), "# Array types differed: int32 vs string\n");
 }
 
 template <typename ArrowType>

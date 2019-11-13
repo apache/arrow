@@ -15,15 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# don't add pandas here, because it is not a mandatory test dependency
-cffi
-cython
-cloudpickle
-hypothesis
-numpy>=1.14
-pytest
-pytest-faulthandler
-pytest-lazy-fixture
-pytz
-setuptools
-setuptools_scm
+add_arrow_test(bridge_test PREFIX "arrow-c")
+
+add_arrow_benchmark(bridge_benchmark)
+
+arrow_install_all_headers("arrow/c")

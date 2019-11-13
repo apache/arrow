@@ -1,3 +1,4 @@
+cffi
 cython
 hypothesis
 pandas

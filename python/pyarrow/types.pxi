@@ -195,6 +195,26 @@ cdef class DataType:
         else:
             raise NotImplementedError(str(self))
 
+    def _export_to_c(self, uintptr_t out_ptr):
+        """
+        Export to a C ArrowSchema struct, given its pointer.
+
+        Be careful: if you don't pass the ArrowSchema struct to a consumer,
+        its memory will leak.  This is a low-level function intended for
+        expert users.
+        """
+        check_status(ExportType(deref(self.type), <ArrowSchema*> out_ptr))
+
+    @staticmethod
+    def _import_from_c(uintptr_t in_ptr):
+        """
+        Import DataType from a C ArrowSchema struct, given its pointer.
+
+        This is a low-level function intended for expert users.
+        """
+        result = GetResultValue(ImportType(<ArrowSchema*> in_ptr))
+        return pyarrow_wrap_data_type(result)
+
 
 cdef class DictionaryMemo:
     """
@@ -1305,6 +1325,27 @@ cdef class Schema:
         with nogil:
             new_schema = self.schema.RemoveMetadata()
         return pyarrow_wrap_schema(new_schema)
+
+    def _export_to_c(self, uintptr_t out_ptr):
+        """
+        Export to a C ArrowSchema struct, given its pointer.
+
+        Be careful: if you don't pass the ArrowSchema struct to a consumer,
+        its memory will leak.  This is a low-level function intended for
+        expert users.
+        """
+        check_status(ExportSchema(deref(self.schema), <ArrowSchema*> out_ptr))
+
+    @staticmethod
+    def _import_from_c(uintptr_t in_ptr):
+        """
+        Import Schema from a C ArrowSchema struct, given its pointer.
+
+        This is a low-level function intended for expert users.
+        """
+        with nogil:
+            result = GetResultValue(ImportSchema(<ArrowSchema*> in_ptr))
+        return pyarrow_wrap_schema(result)
 
     def __str__(self):
         cdef:

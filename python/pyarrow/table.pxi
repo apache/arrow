@@ -846,6 +846,61 @@ cdef class RecordBatch(_PandasConvertible):
                                                       &c_record_batch))
         return pyarrow_wrap_batch(c_record_batch)
 
+    def _export_to_c(self, uintptr_t out_ptr, uintptr_t out_schema_ptr=0):
+        """
+        Export to a C ArrowArray struct, given its pointer.
+
+        If a C ArrowSchema struct pointer is also given, the record batch
+        schema is exported to it at the same time.
+
+        Parameters
+        ----------
+        out_ptr: int
+            The raw pointer to a C ArrowArray struct.
+        out_schema_ptr: int (optional)
+            The raw pointer to a C ArrowSchema struct.
+
+        Be careful: if you don't pass the ArrowArray struct to a consumer,
+        array memory will leak.  This is a low-level function intended for
+        expert users.
+        """
+        with nogil:
+            check_status(ExportRecordBatch(deref(self.sp_batch),
+                                           <ArrowArray*> out_ptr,
+                                           <ArrowSchema*> out_schema_ptr))
+
+    @staticmethod
+    def _import_from_c(uintptr_t in_ptr, schema):
+        """
+        Import RecordBatch from a C ArrowArray struct, given its pointer
+        and the imported schema.
+
+        Parameters
+        ----------
+        in_ptr: int
+            The raw pointer to a C ArrowArray struct.
+        type: Schema or int
+            Either a Schema object, or the raw pointer to a C ArrowSchema
+            struct.
+
+        This is a low-level function intended for expert users.
+        """
+        cdef:
+            shared_ptr[CRecordBatch] c_batch
+
+        c_schema = pyarrow_unwrap_schema(schema)
+        if c_schema == nullptr:
+            # Not a Schema object, perhaps a raw ArrowSchema pointer
+            schema_ptr = <uintptr_t> schema
+            with nogil:
+                c_batch = GetResultValue(ImportRecordBatch(
+                    <ArrowArray*> in_ptr, <ArrowSchema*> schema_ptr))
+        else:
+            with nogil:
+                c_batch = GetResultValue(ImportRecordBatch(
+                    <ArrowArray*> in_ptr, c_schema))
+        return pyarrow_wrap_batch(c_batch)
+
 
 def _reconstruct_record_batch(columns, schema):
     """
