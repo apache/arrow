@@ -205,7 +205,7 @@ ASSERT_EQUAL_IMPL(Schema, Schema, "schemas")
 #undef ASSERT_EQUAL_IMPL
 
 void AssertDatumsEqual(const Datum& expected, const Datum& actual) {
-  // TODO: Implements better print.
+  // TODO: Implement better print
   ASSERT_TRUE(actual.Equals(expected));
 }
 

@@ -15,15 +15,29 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# don't add pandas here, because it is not a mandatory test dependency
-cffi
-cython
-cloudpickle
-hypothesis
-numpy>=1.14
-pytest
-pytest-faulthandler
-pytest-lazy-fixture
-pytz
-setuptools
-setuptools_scm
+context("To/from Python")
+
+test_that("Array from Python", {
+  skip_if_no_pyarrow()
+  pa <- reticulate::import("pyarrow")
+  py <- pa$array(c(1, 2, 3))
+  expect_equal(py, Array$create(c(1, 2, 3)))
+})
+
+test_that("Array to Python", {
+  skip_if_no_pyarrow()
+  pa <- reticulate::import("pyarrow", convert=FALSE)
+  r <- Array$create(c(1, 2, 3))
+  py <- pa$concat_arrays(list(r))
+  expect_is(py, "pyarrow.lib.Array")
+  expect_equal(reticulate::py_to_r(py), r)
+})
+
+test_that("RecordBatch to/from Python", {
+  skip_if_no_pyarrow()
+  pa <- reticulate::import("pyarrow", convert=FALSE)
+  batch <- record_batch(col1=c(1, 2, 3), col2=letters[1:3])
+  py <- reticulate::r_to_py(batch)
+  expect_is(py, "pyarrow.lib.RecordBatch")
+  expect_equal(reticulate::py_to_r(py), batch)
+})

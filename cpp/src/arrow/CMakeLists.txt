@@ -150,6 +150,7 @@ set(ARROW_SRCS
     tensor.cc
     type.cc
     visitor.cc
+    c/bridge.cc
     io/buffered.cc
     io/compressed.cc
     io/file.cc
@@ -550,6 +551,7 @@ add_arrow_benchmark(type_benchmark)
 add_subdirectory(testing)
 
 add_subdirectory(array)
+add_subdirectory(c)
 add_subdirectory(io)
 add_subdirectory(util)
 add_subdirectory(vendored)

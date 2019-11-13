@@ -45,6 +45,7 @@ Suggests:
     knitr,
     lubridate,
     pkgload,
+    reticulate,
     rmarkdown,
     testthat,
     tibble
@@ -76,6 +77,7 @@ Collate:
     'memory-pool.R'
     'message.R'
     'parquet.R'
+    'py-to-r.R'
     'read-record-batch.R'
     'read-table.R'
     'record-batch-reader.R'

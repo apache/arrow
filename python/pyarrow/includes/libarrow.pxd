@@ -1736,3 +1736,31 @@ cdef extern from 'arrow/util/thread_pool.h' namespace 'arrow' nogil:
 cdef extern from 'arrow/array/concatenate.h' namespace 'arrow' nogil:
     CStatus Concatenate(const vector[shared_ptr[CArray]]& arrays,
                         CMemoryPool* pool, shared_ptr[CArray]* result)
+
+cdef extern from 'arrow/c/abi.h':
+    cdef struct ArrowSchema:
+        pass
+
+    cdef struct ArrowArray:
+        pass
+
+cdef extern from 'arrow/c/bridge.h' namespace 'arrow' nogil:
+    CStatus ExportType(CDataType&, ArrowSchema* out)
+    CResult[shared_ptr[CDataType]] ImportType(ArrowSchema*)
+
+    CStatus ExportSchema(CSchema&, ArrowSchema* out)
+    CResult[shared_ptr[CSchema]] ImportSchema(ArrowSchema*)
+
+    CStatus ExportArray(CArray&, ArrowArray* out)
+    CStatus ExportArray(CArray&, ArrowArray* out, ArrowSchema* out_schema)
+    CResult[shared_ptr[CArray]] ImportArray(ArrowArray*,
+                                            shared_ptr[CDataType])
+    CResult[shared_ptr[CArray]] ImportArray(ArrowArray*, ArrowSchema*)
+
+    CStatus ExportRecordBatch(CRecordBatch&, ArrowArray* out)
+    CStatus ExportRecordBatch(CRecordBatch&, ArrowArray* out,
+                              ArrowSchema* out_schema)
+    CResult[shared_ptr[CRecordBatch]] ImportRecordBatch(ArrowArray*,
+                                                        shared_ptr[CSchema])
+    CResult[shared_ptr[CRecordBatch]] ImportRecordBatch(ArrowArray*,
+                                                        ArrowSchema*)

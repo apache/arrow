@@ -18,6 +18,7 @@
 #include "arrow/array/validate.h"
 
 #include "arrow/array.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
@@ -41,11 +42,13 @@ struct ValidateArrayVisitor {
     ARROW_RETURN_IF(array.data()->buffers.size() != 2,
                     Status::Invalid("number of buffers is != 2"));
 
-    if (array.length() > 0 && array.data()->buffers[1] == nullptr) {
-      return Status::Invalid("values buffer is null");
-    }
-    if (array.length() > 0 && array.values() == nullptr) {
-      return Status::Invalid("values is null");
+    if (array.length() > 0) {
+      if (array.data()->buffers[1] == nullptr) {
+        return Status::Invalid("values buffer is null");
+      }
+      if (array.values() == nullptr) {
+        return Status::Invalid("values is null");
+      }
     }
     return Status::OK();
   }
@@ -265,7 +268,8 @@ struct ValidateArrayVisitor {
 
     auto value_offsets = array.value_offsets();
     if (value_offsets == nullptr) {
-      if (array.length() != 0) {
+      // For length 0, an empty offsets array seems accepted as a special case (ARROW-544)
+      if (array.length() > 0) {
         return Status::Invalid("non-empty array but value_offsets_ is null");
       }
       return Status::OK();
