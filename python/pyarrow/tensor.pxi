@@ -212,6 +212,11 @@ shape: {0.shape}""".format(self)
         """
         Convert pydata/sparse.COO to arrow::SparseCOOTensor
         """
+        import sparse
+        if not isinstance(obj, sparse.COO):
+            raise TypeError(
+                "Expected sparse.COO, got {}".format(type(obj)))
+
         cdef shared_ptr[CSparseCOOTensor] csparse_tensor
         cdef vector[int64_t] c_shape
         cdef vector[c_string] c_dim_names
