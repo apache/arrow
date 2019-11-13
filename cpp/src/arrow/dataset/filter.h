@@ -363,6 +363,8 @@ class ARROW_DS_EXPORT CastExpression final
         to_(std::move(to)),
         options_(std::move(options)) {}
 
+  /// The operand will be cast to whatever type `like` would evaluate to, given the same
+  /// schema.
   CastExpression(std::shared_ptr<Expression> operand, std::shared_ptr<Expression> like,
                  compute::CastOptions options)
       : ExpressionImpl(std::move(operand)),

@@ -566,7 +566,12 @@ std::shared_ptr<Expression> IsValidExpression::Assume(const Expression& given) c
 }
 
 std::shared_ptr<Expression> CastExpression::Assume(const Expression& given) const {
-  return std::make_shared<CastExpression>(operand_->Assume(given), to_, options_);
+  auto operand = operand_->Assume(given);
+  if (to_ != nullptr) {
+    return std::make_shared<CastExpression>(std::move(operand), to_, options_);
+  }
+  auto like = like_->Assume(given);
+  return std::make_shared<CastExpression>(std::move(operand), std::move(like), options_);
 }
 
 std::string FieldExpression::ToString() const {
