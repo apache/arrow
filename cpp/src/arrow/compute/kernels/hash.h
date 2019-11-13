@@ -21,7 +21,9 @@
 #include <memory>
 
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/kernels/util_internal.h"
 #include "arrow/status.h"
+#include "arrow/util/hashing.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -40,12 +42,18 @@ class FunctionContext;
 ///
 /// \param[in] context the FunctionContext
 /// \param[in] datum array-like input
+/// \param[in] memo_table hashtable input
 /// \param[out] out result as Array
 ///
 /// \since 0.8.0
 /// \note API not yet finalized
-ARROW_EXPORT
-Status Unique(FunctionContext* context, const Datum& datum, std::shared_ptr<Array>* out);
+template <typename InType, typename MemoTableType>
+ARROW_EXPORT Status Unique(FunctionContext* context, const Datum& datum,
+                           std::shared_ptr<MemoTableType> memo_table,
+                           std::shared_ptr<Array>* out);
+
+ARROW_EXPORT Status Unique(FunctionContext* context, const Datum& datum,
+                           std::shared_ptr<Array>* out);
 
 // Constants for accessing the output of ValueCounts
 ARROW_EXPORT extern const char kValuesFieldName[];
@@ -62,23 +70,34 @@ ARROW_EXPORT extern const int32_t kCountsFieldIndex;
 ///
 /// \param[in] context the FunctionContext
 /// \param[in] value array-like input
+/// \param[in] memo_table hashtable input
 /// \param[out] counts An array of  <input type "Values", int64_t "Counts"> structs.
 ///
 /// \since 0.13.0
 /// \note API not yet finalized
-ARROW_EXPORT
-Status ValueCounts(FunctionContext* context, const Datum& value,
-                   std::shared_ptr<Array>* counts);
+template <typename InType, typename MemoTableType>
+ARROW_EXPORT Status ValueCounts(FunctionContext* context, const Datum& value,
+                                std::shared_ptr<MemoTableType> memo_table,
+                                std::shared_ptr<Array>* counts);
+
+ARROW_EXPORT Status ValueCounts(FunctionContext* context, const Datum& value,
+                                std::shared_ptr<Array>* counts);
 
 /// \brief Dictionary-encode values in an array-like object
 /// \param[in] context the FunctionContext
 /// \param[in] data array-like input
+/// \param[in] memo_table hashtable input
 /// \param[out] out result with same shape and type as input
 ///
 /// \since 0.8.0
 /// \note API not yet finalized
-ARROW_EXPORT
-Status DictionaryEncode(FunctionContext* context, const Datum& data, Datum* out);
+template <typename InType, typename MemoTableType>
+ARROW_EXPORT Status DictionaryEncode(FunctionContext* context, const Datum& data,
+                                     std::shared_ptr<MemoTableType> memo_table,
+                                     Datum* out);
+
+ARROW_EXPORT Status DictionaryEncode(FunctionContext* context, const Datum& data,
+                                     Datum* out);
 
 // TODO(wesm): Define API for incremental dictionary encoding
 
@@ -98,6 +117,12 @@ Status DictionaryEncode(FunctionContext* context, const Datum& data, Datum* out)
 // ARROW_EXPORT
 // Status IsIn(FunctionContext* context, const Datum& values, const Datum& member_set,
 //             Datum* out);
+
+/// \brief Invoke hash table kernel on input array, returning any output
+/// values. Implementations should be thread-safe
+///
+/// This interface is implemented below using visitor pattern on "Action"
+/// implementations.  It is not consolidate to keep the contract clearer.
 
 }  // namespace compute
 }  // namespace arrow
