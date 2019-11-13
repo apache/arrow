@@ -356,18 +356,17 @@ TEST_F(FilterTest, ImplicitCast) {
 TEST_F(FilterTest, ConditionOnAbsentColumn) {
   AssertFilter("a"_ == 0 and "b"_ > 0.0 and "b"_ < 1.0 and "absent"_ == 0,
                {field("a", int32()), field("b", float64())}, R"([
-      {"a": 0, "b": -0.1, "in": null},
+      {"a": 0, "b": -0.1, "in": false},
       {"a": 0, "b":  0.3, "in": null},
-      {"a": 1, "b":  0.2, "in": null},
-      {"a": 2, "b": -0.1, "in": null},
+      {"a": 1, "b":  0.2, "in": false},
+      {"a": 2, "b": -0.1, "in": false},
       {"a": 0, "b":  0.1, "in": null},
       {"a": 0, "b": null, "in": null},
-      {"a": 0, "b":  1.0, "in": null}
+      {"a": 0, "b":  1.0, "in": false}
   ])");
 }
 
 TEST_F(FilterTest, KleeneTruthTables) {
-  // TODO(bkietz) also test various ranks against each other
   AssertFilter("a"_ and "b"_, {field("a", boolean()), field("b", boolean())}, R"([
     {"a":null,  "b":null,  "in":null},
     {"a":null,  "b":true,  "in":null},
@@ -423,8 +422,8 @@ class TakeExpression : public CustomExpression {
 
     using TreeEvaluator::Evaluate;
 
-    Result<compute::Datum> Evaluate(const CustomExpression& expr,
-                                    const RecordBatch& batch) const override {
+    Result<compute::Datum> DoEvaluate(const CustomExpression& expr,
+                                      const RecordBatch& batch) const override {
       const auto& take_expr = checked_cast<const TakeExpression&>(expr);
       ARROW_ASSIGN_OR_RAISE(auto indices, Evaluate(*take_expr.operand_, batch));
 

@@ -1031,11 +1031,7 @@ std::shared_ptr<ExpressionEvaluator> ExpressionEvaluator::Null() {
 struct TreeEvaluator::Impl {
   template <typename E>
   Result<Datum> operator()(const E& expr) const {
-    return this_->Evaluate(expr, batch_);
-  }
-
-  Result<Datum> operator()(const Expression& expr) const {
-    return Status::NotImplemented("evaluation of ", expr.ToString());
+    return this_->DoEvaluate(expr, batch_);
   }
 
   const TreeEvaluator* this_;
@@ -1047,13 +1043,13 @@ Result<Datum> TreeEvaluator::Evaluate(const Expression& expr,
   return VisitExpression(expr, Impl{this, batch});
 }
 
-Result<Datum> TreeEvaluator::Evaluate(const ScalarExpression& expr,
-                                      const RecordBatch& batch) const {
+Result<Datum> TreeEvaluator::DoEvaluate(const ScalarExpression& expr,
+                                        const RecordBatch& batch) const {
   return Datum(expr.value());
 }
 
-Result<Datum> TreeEvaluator::Evaluate(const FieldExpression& expr,
-                                      const RecordBatch& batch) const {
+Result<Datum> TreeEvaluator::DoEvaluate(const FieldExpression& expr,
+                                        const RecordBatch& batch) const {
   auto column = batch.GetColumnByName(expr.name());
   if (column == nullptr) {
     return NullDatum();
@@ -1115,90 +1111,45 @@ Result<Datum> TreeEvaluator::Evaluate(const IsValidExpression& expr,
                                               operand_values.array()->buffers[0]));
 }
 
-Result<Datum> TreeEvaluator::Evaluate(const AndExpression& expr,
-                                      const RecordBatch& batch) const {
+Result<Datum> TreeEvaluator::DoEvaluate(const AndExpression& expr,
+                                        const RecordBatch& batch) const {
+  return DoEvaluate(expr, batch, compute::KleeneAnd);
+}
+
+Result<Datum> TreeEvaluator::DoEvaluate(const OrExpression& expr,
+                                        const RecordBatch& batch) const {
+  return DoEvaluate(expr, batch, compute::KleeneOr);
+}
+
+Result<Datum> TreeEvaluator::DoEvaluate(
+    const BinaryExpression& expr, const RecordBatch& batch,
+    Status kernel(compute::FunctionContext* context, const compute::Datum& left,
+                  const compute::Datum& right, compute::Datum* out)) const {
   ARROW_ASSIGN_OR_RAISE(auto lhs, Evaluate(*expr.left_operand(), batch));
   ARROW_ASSIGN_OR_RAISE(auto rhs, Evaluate(*expr.right_operand(), batch));
 
-  if (IsNullDatum(lhs) || IsNullDatum(rhs)) {
-    return NullDatum();
+  if (lhs.is_scalar()) {
+    std::shared_ptr<Array> lhs_array;
+    RETURN_NOT_OK(
+        MakeArrayFromScalar(pool_, *lhs.scalar(), batch.num_rows(), &lhs_array));
+    lhs = Datum(std::move(lhs_array));
   }
 
-  if (lhs.is_array() && rhs.is_array()) {
-    Datum out;
-    compute::FunctionContext ctx{pool_};
-    RETURN_NOT_OK(arrow::compute::KleeneAnd(&ctx, lhs, rhs, &out));
-    return std::move(out);
+  if (rhs.is_scalar()) {
+    std::shared_ptr<Array> rhs_array;
+    RETURN_NOT_OK(
+        MakeArrayFromScalar(pool_, *rhs.scalar(), batch.num_rows(), &rhs_array));
+    rhs = Datum(std::move(rhs_array));
   }
 
-  if (lhs.is_scalar() && rhs.is_scalar()) {
-    return Datum(checked_cast<const BooleanScalar&>(*lhs.scalar()).value &&
-                 checked_cast<const BooleanScalar&>(*rhs.scalar()).value);
-  }
-
-  // One scalar, one array
-  bool scalar_operand =
-      checked_cast<const BooleanScalar&>(*(lhs.is_scalar() ? lhs : rhs).scalar()).value;
-  if (!scalar_operand) {
-    return Datum(false);
-  }
-
-  return lhs.is_array() ? std::move(lhs) : std::move(rhs);
-}
-
-Result<Datum> TreeEvaluator::Evaluate(const OrExpression& expr,
-                                      const RecordBatch& batch) const {
-  ARROW_ASSIGN_OR_RAISE(auto lhs, Evaluate(*expr.left_operand(), batch));
-  ARROW_ASSIGN_OR_RAISE(auto rhs, Evaluate(*expr.right_operand(), batch));
-
-  if (IsNullDatum(lhs) || IsNullDatum(rhs)) {
-    return NullDatum();
-  }
-
-  if (lhs.is_array() && rhs.is_array()) {
-    Datum out;
-    compute::FunctionContext ctx{pool_};
-    RETURN_NOT_OK(arrow::compute::KleeneOr(&ctx, lhs, rhs, &out));
-    return std::move(out);
-  }
-
-  if (lhs.is_scalar() && rhs.is_scalar()) {
-    return Datum(checked_cast<const BooleanScalar&>(*lhs.scalar()).value &&
-                 checked_cast<const BooleanScalar&>(*rhs.scalar()).value);
-  }
-
-  // One scalar, one array
-  bool scalar_operand =
-      checked_cast<const BooleanScalar&>(*(lhs.is_scalar() ? lhs : rhs).scalar()).value;
-  if (!scalar_operand) {
-    return Datum(true);
-  }
-
-  return lhs.is_array() ? std::move(lhs) : std::move(rhs);
-}
-
-Result<Datum> TreeEvaluator::Evaluate(const NotExpression& expr,
-                                      const RecordBatch& batch) const {
-  ARROW_ASSIGN_OR_RAISE(auto to_invert, Evaluate(*expr.operand(), batch));
-  if (IsNullDatum(to_invert)) {
-    return NullDatum();
-  }
-
-  if (to_invert.is_scalar()) {
-    bool trivial_condition =
-        checked_cast<const BooleanScalar&>(*to_invert.scalar()).value;
-    return Datum(std::make_shared<BooleanScalar>(!trivial_condition));
-  }
-
-  DCHECK(to_invert.is_array());
   Datum out;
   compute::FunctionContext ctx{pool_};
-  RETURN_NOT_OK(arrow::compute::Invert(&ctx, to_invert, &out));
+  RETURN_NOT_OK(kernel(&ctx, lhs, rhs, &out));
   return std::move(out);
 }
 
-Result<Datum> TreeEvaluator::Evaluate(const CastExpression& expr,
-                                      const RecordBatch& batch) const {
+Result<Datum> TreeEvaluator::DoEvaluate(const CastExpression& expr,
+                                        const RecordBatch& batch) const {
   ARROW_ASSIGN_OR_RAISE(auto to_type, expr.Validate(*batch.schema()));
 
   ARROW_ASSIGN_OR_RAISE(auto to_cast, Evaluate(*expr.operand(), batch));
@@ -1213,13 +1164,13 @@ Result<Datum> TreeEvaluator::Evaluate(const CastExpression& expr,
   return std::move(out);
 }
 
-Result<Datum> TreeEvaluator::Evaluate(const ComparisonExpression& expr,
-                                      const RecordBatch& batch) const {
+Result<Datum> TreeEvaluator::DoEvaluate(const ComparisonExpression& expr,
+                                        const RecordBatch& batch) const {
   ARROW_ASSIGN_OR_RAISE(auto lhs, Evaluate(*expr.left_operand(), batch));
   ARROW_ASSIGN_OR_RAISE(auto rhs, Evaluate(*expr.right_operand(), batch));
 
   if (IsNullDatum(lhs) || IsNullDatum(rhs)) {
-    return NullDatum();
+    return Datum(std::make_shared<BooleanScalar>());
   }
 
   DCHECK(lhs.is_array());

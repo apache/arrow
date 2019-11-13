@@ -535,12 +535,10 @@ auto VisitExpression(const Expression& expr, Visitor&& visitor)
       return visitor(internal::checked_cast<const ComparisonExpression&>(expr));
 
     case ExpressionType::CUSTOM:
-      return visitor(internal::checked_cast<const CustomExpression&>(expr));
-
     default:
       break;
   }
-  return visitor(expr);
+  return visitor(internal::checked_cast<const CustomExpression&>(expr));
 }
 
 /// \brief Insert CastExpressions where necessary to make a valid expression.
@@ -604,17 +602,17 @@ class ARROW_DS_EXPORT TreeEvaluator : public ExpressionEvaluator {
   Result<compute::Datum> Evaluate(const Expression& expr,
                                   const RecordBatch& batch) const override;
 
-  Result<compute::Datum> Evaluate(const ScalarExpression& expr,
-                                  const RecordBatch& batch) const;
+  Result<compute::Datum> DoEvaluate(const ScalarExpression& expr,
+                                    const RecordBatch& batch) const;
 
-  Result<compute::Datum> Evaluate(const FieldExpression& expr,
-                                  const RecordBatch& batch) const;
+  Result<compute::Datum> DoEvaluate(const FieldExpression& expr,
+                                    const RecordBatch& batch) const;
 
-  Result<compute::Datum> Evaluate(const AndExpression& expr,
-                                  const RecordBatch& batch) const;
+  Result<compute::Datum> DoEvaluate(const AndExpression& expr,
+                                    const RecordBatch& batch) const;
 
-  Result<compute::Datum> Evaluate(const OrExpression& expr,
-                                  const RecordBatch& batch) const;
+  Result<compute::Datum> DoEvaluate(const OrExpression& expr,
+                                    const RecordBatch& batch) const;
 
   Result<compute::Datum> Evaluate(const InExpression& expr,
                                   const RecordBatch& batch) const;
@@ -625,14 +623,14 @@ class ARROW_DS_EXPORT TreeEvaluator : public ExpressionEvaluator {
   Result<compute::Datum> Evaluate(const NotExpression& expr,
                                   const RecordBatch& batch) const;
 
-  Result<compute::Datum> Evaluate(const CastExpression& expr,
-                                  const RecordBatch& batch) const;
+  Result<compute::Datum> DoEvaluate(const CastExpression& expr,
+                                    const RecordBatch& batch) const;
 
-  Result<compute::Datum> Evaluate(const ComparisonExpression& expr,
-                                  const RecordBatch& batch) const;
+  Result<compute::Datum> DoEvaluate(const ComparisonExpression& expr,
+                                    const RecordBatch& batch) const;
 
-  virtual Result<compute::Datum> Evaluate(const CustomExpression& expr,
-                                          const RecordBatch& batch) const {
+  virtual Result<compute::Datum> DoEvaluate(const CustomExpression& expr,
+                                            const RecordBatch& batch) const {
     return Status::NotImplemented("evaluation of ", expr.ToString());
   }
 
@@ -641,6 +639,11 @@ class ARROW_DS_EXPORT TreeEvaluator : public ExpressionEvaluator {
       const std::shared_ptr<RecordBatch>& batch) const override;
 
  protected:
+  Result<compute::Datum> DoEvaluate(
+      const BinaryExpression& boolean, const RecordBatch& batch,
+      Status kernel(compute::FunctionContext* context, const compute::Datum& left,
+                    const compute::Datum& right, compute::Datum* out)) const;
+
   struct Impl;
   MemoryPool* pool_;
 };
