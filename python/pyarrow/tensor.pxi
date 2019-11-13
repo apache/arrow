@@ -208,6 +208,28 @@ shape: {0.shape}""".format(self)
         return pyarrow_wrap_sparse_coo_tensor(csparse_tensor)
 
     @staticmethod
+    def from_pydata_sparse(obj, dim_names=None):
+        """
+        Convert pydata/sparse.COO to arrow::SparseCOOTensor
+        """
+        cdef shared_ptr[CSparseCOOTensor] csparse_tensor
+        cdef vector[int64_t] c_shape
+        cdef vector[c_string] c_dim_names
+
+        for x in obj.shape:
+            c_shape.push_back(x)
+        if dim_names is not None:
+            for x in dim_names:
+                c_dim_names.push_back(tobytes(x))
+
+        coords = np.require(obj.coords.T.view(), dtype='i8', requirements='F')
+
+        check_status(NdarraysToSparseCOOTensor(c_default_memory_pool(),
+                     obj.data.view(), coords, c_shape, c_dim_names,
+                     &csparse_tensor))
+        return pyarrow_wrap_sparse_coo_tensor(csparse_tensor)
+
+    @staticmethod
     def from_tensor(obj):
         """
         Convert arrow::Tensor to arrow::SparseCOOTensor
@@ -245,6 +267,21 @@ shape: {0.shape}""".format(self)
         coords = PyObject_to_object(out_coords)
         result = coo_matrix((data[:, 0], (coords[:, 0], coords[:, 1])),
                             shape=self.shape)
+        return result
+
+    def to_pydata_sparse(self):
+        """
+        Convert arrow::SparseCOOTensor to pydata/sparse.COO
+        """
+        from sparse import COO
+        cdef PyObject* out_data
+        cdef PyObject* out_coords
+
+        check_status(SparseCOOTensorToNdarray(self.sp_sparse_tensor, self,
+                                              &out_data, &out_coords))
+        data = PyObject_to_object(out_data)
+        coords = PyObject_to_object(out_coords)
+        result = COO(data=data, coords=coords.T, shape=self.shape)
         return result
 
     def to_tensor(self):

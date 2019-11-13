@@ -350,6 +350,37 @@ def _register_scipy_handlers(serialization_context):
         pass
 
 
+# ----------------------------------------------------------------------
+# Set up serialization for pydata/sparse tensors.
+
+def _register_pydata_sparse_handlers(serialization_context):
+    try:
+        import sparse
+
+        def _serialize_pydata_sparse(obj):
+            if isinstance(obj, sparse.COO):
+                return 'coo', pa.SparseCOOTensor.from_pydata_sparse(obj)
+            else:
+                raise NotImplementedError(
+                    "Serialization of {} is not supported.".format(sparse.COO))
+
+        def _deserialize_pydata_sparse(data):
+            if data[0] == 'coo':
+                data_array, coords = data[1].to_numpy()
+                return sparse.COO(
+                    data=data_array[:, 0],
+                    coords=coords.T, shape=data[1].shape)
+
+        serialization_context.register_type(
+            sparse.COO, 'sparse.COO',
+            custom_serializer=_serialize_pydata_sparse,
+            custom_deserializer=_deserialize_pydata_sparse)
+
+    except ImportError:
+        # no pydata/sparse
+        pass
+
+
 def register_default_serialization_handlers(serialization_context):
 
     # ----------------------------------------------------------------------
@@ -403,6 +434,7 @@ def register_default_serialization_handlers(serialization_context):
     _register_collections_serialization_handlers(serialization_context)
     _register_custom_pandas_handlers(serialization_context)
     _register_scipy_handlers(serialization_context)
+    _register_pydata_sparse_handlers(serialization_context)
 
 
 def default_serialization_context():
