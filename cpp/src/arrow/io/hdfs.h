@@ -118,7 +118,18 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
 
   Status GetChildren(const std::string& path, std::vector<std::string>* listing) override;
 
+  /// List directory contents
+  ///
+  /// If path is a relative path, returned values will be absolute paths or URIs
+  /// starting from the current working directory.
   Status ListDirectory(const std::string& path, std::vector<HdfsPathInfo>* listing);
+
+  /// Return the filesystem's current working directory.
+  ///
+  /// The working directory is the base path for all relative paths given to
+  /// other APIs.
+  /// NOTE: this actually returns a URI.
+  Status GetWorkingDirectory(std::string* out);
 
   /// Change
   ///

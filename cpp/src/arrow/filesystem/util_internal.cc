@@ -22,6 +22,12 @@ namespace arrow {
 namespace fs {
 namespace internal {
 
+TimePoint CurrentTimePoint() {
+  auto now = std::chrono::system_clock::now();
+  return TimePoint(
+      std::chrono::duration_cast<TimePoint::duration>(now.time_since_epoch()));
+}
+
 Status CopyStream(const std::shared_ptr<io::InputStream>& src,
                   const std::shared_ptr<io::OutputStream>& dest, int64_t chunk_size) {
   std::shared_ptr<Buffer> chunk;

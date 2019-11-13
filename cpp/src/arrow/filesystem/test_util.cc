@@ -25,6 +25,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/filesystem/test_util.h"
+#include "arrow/filesystem/util_internal.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/testing/gtest_util.h"
 

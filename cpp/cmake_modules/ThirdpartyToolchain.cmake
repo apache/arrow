@@ -205,6 +205,10 @@ else()
   set(ARROW_WITH_THRIFT OFF)
 endif()
 
+if(ARROW_FILESYSTEM)
+  set(ARROW_WITH_URIPARSER ON)
+endif()
+
 if(ARROW_FLIGHT)
   set(ARROW_WITH_GRPC ON)
 endif()

@@ -32,3 +32,7 @@ if(ARROW_S3)
     add_dependencies(arrow-tests arrow-s3fs-narrative-test)
   endif()
 endif()
+
+if(ARROW_HDFS)
+  add_arrow_test(hdfs_test)
+endif()

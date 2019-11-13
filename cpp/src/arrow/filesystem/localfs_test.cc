@@ -25,7 +25,9 @@
 
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/localfs.h"
+#include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/test_util.h"
+#include "arrow/filesystem/util_internal.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
 
@@ -35,12 +37,6 @@ namespace internal {
 
 using ::arrow::internal::PlatformFilename;
 using ::arrow::internal::TemporaryDir;
-
-TimePoint CurrentTimePoint() {
-  auto now = std::chrono::system_clock::now();
-  return TimePoint(
-      std::chrono::duration_cast<TimePoint::duration>(now.time_since_epoch()));
-}
 
 class LocalFSTestMixin : public ::testing::Test {
  public:
@@ -110,13 +106,35 @@ class TestLocalFS : public LocalFSTestMixin {
   void SetUp() {
     LocalFSTestMixin::SetUp();
     local_fs_ = std::make_shared<LocalFileSystem>();
-    auto path = PathFormatter()(temp_dir_->path());
-    fs_ = std::make_shared<SubTreeFileSystem>(path, local_fs_);
+    local_path_ = EnsureTrailingSlash(PathFormatter()(temp_dir_->path()));
+    fs_ = std::make_shared<SubTreeFileSystem>(local_path_, local_fs_);
+  }
+
+  void TestFileSystemFromUri(const std::string& uri) {
+    std::string path;
+    ASSERT_OK(FileSystemFromUri(uri, &fs_, &path));
+
+    // Test that the right location on disk is accessed
+    CreateFile(fs_.get(), local_path_ + "abc", "some data");
+    CheckConcreteFile(this->temp_dir_->path().ToString() + "abc", 9);
+  }
+
+  void CheckConcreteFile(const std::string& path, int64_t expected_size) {
+    PlatformFilename fn;
+    int fd;
+    int64_t size = -1;
+    ASSERT_OK(PlatformFilename::FromString(path, &fn));
+    ASSERT_OK(::arrow::internal::FileOpenReadable(fn, &fd));
+    Status st = ::arrow::internal::FileGetSize(fd, &size);
+    ASSERT_OK(::arrow::internal::FileClose(fd));
+    ASSERT_OK(st);
+    ASSERT_EQ(size, expected_size);
   }
 
  protected:
   std::shared_ptr<LocalFileSystem> local_fs_;
   std::shared_ptr<FileSystem> fs_;
+  std::string local_path_;
 };
 
 TYPED_TEST_CASE(TestLocalFS, PathFormatters);
@@ -131,16 +149,15 @@ TYPED_TEST(TestLocalFS, CorrectPathExists) {
   ASSERT_OK(stream->Close());
 
   // Now check the file's existence directly, bypassing the FileSystem abstraction
-  auto path = this->temp_dir_->path().ToString() + "/abc";
-  PlatformFilename fn;
-  int fd;
-  int64_t size = -1;
-  ASSERT_OK(PlatformFilename::FromString(path, &fn));
-  ASSERT_OK(::arrow::internal::FileOpenReadable(fn, &fd));
-  Status st = ::arrow::internal::FileGetSize(fd, &size);
-  ASSERT_OK(::arrow::internal::FileClose(fd));
-  ASSERT_OK(st);
-  ASSERT_EQ(size, data_size);
+  this->CheckConcreteFile(this->temp_dir_->path().ToString() + "abc", data_size);
+}
+
+TYPED_TEST(TestLocalFS, FileSystemFromUriFile) {
+  this->TestFileSystemFromUri("file:" + this->local_path_);
+}
+
+TYPED_TEST(TestLocalFS, FileSystemFromUriNoScheme) {
+  this->TestFileSystemFromUri(this->local_path_);
 }
 
 TYPED_TEST(TestLocalFS, DirectoryMTime) {

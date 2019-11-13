@@ -15,9 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <hdfs.h>
-
-#include <errno.h>
 #include <algorithm>
 #include <cerrno>
 #include <cstdint>
@@ -416,6 +413,16 @@ class HadoopFileSystem::HadoopFileSystemImpl {
     return Status::OK();
   }
 
+  Status GetWorkingDirectory(std::string* out) {
+    char buffer[2048];
+    if (driver_->GetWorkingDirectory(fs_, buffer, sizeof(buffer) - 1) == nullptr) {
+      return Status::IOError("HDFS GetWorkingDirectory failed, errno: ",
+                             TranslateErrno(errno));
+    }
+    *out = buffer;
+    return Status::OK();
+  }
+
   Status GetPathInfo(const std::string& path, HdfsPathInfo* info) {
     hdfsFileInfo* entry = driver_->GetPathInfo(fs_, path.c_str());
 
@@ -596,6 +603,10 @@ Status HadoopFileSystem::GetCapacity(int64_t* nbytes) {
 }
 
 Status HadoopFileSystem::GetUsed(int64_t* nbytes) { return impl_->GetUsed(nbytes); }
+
+Status HadoopFileSystem::GetWorkingDirectory(std::string* out) {
+  return impl_->GetWorkingDirectory(out);
+}
 
 Status HadoopFileSystem::GetChildren(const std::string& path,
                                      std::vector<std::string>* listing) {

@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "arrow/status.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 // The Windows API defines macros from *File resolving to either
@@ -317,6 +318,16 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
   std::shared_ptr<FileSystem> base_fs_;
   std::shared_ptr<io::LatencyGenerator> latencies_;
 };
+
+/// \brief EXPERIMENTAL: Create a new FileSystem by URI
+///
+/// \param[in] uri a URI-based path, ex: file:///some/local/path
+/// \param[out] out_fs FileSystem instance.
+/// \param[out] out_path (optional) Path inside the filesystem.
+/// \return Status
+ARROW_EXPORT
+Status FileSystemFromUri(const std::string& uri, std::shared_ptr<FileSystem>* out_fs,
+                         std::string* out_path = NULLPTR);
 
 }  // namespace fs
 }  // namespace arrow

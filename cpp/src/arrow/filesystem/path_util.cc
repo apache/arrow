@@ -104,21 +104,54 @@ std::string ConcatAbstractPath(const std::string& base, const std::string& stem)
   }
 }
 
-std::string EnsureTrailingSlash(const std::string& s) {
-  if (s.length() > 0 && s.back() != kSep) {
+std::string EnsureTrailingSlash(util::string_view v) {
+  if (v.length() > 0 && v.back() != kSep) {
     // XXX How about "C:" on Windows?  We probably don't want to turn it into "C:/"...
     // Unless the local filesystem always uses absolute paths
-    return s + kSep;
+    return std::string(v) + kSep;
   } else {
-    return s;
+    return std::string(v);
   }
 }
 
+std::string EnsureLeadingSlash(util::string_view v) {
+  if (v.length() == 0 || v.front() != kSep) {
+    // XXX How about "C:" on Windows?  We probably don't want to turn it into "/C:"...
+    return kSep + std::string(v);
+  } else {
+    return std::string(v);
+  }
+}
 util::string_view RemoveTrailingSlash(util::string_view key) {
   while (!key.empty() && key.back() == kSep) {
     key.remove_suffix(1);
   }
   return key;
+}
+
+util::string_view RemoveLeadingSlash(util::string_view key) {
+  while (!key.empty() && key.front() == kSep) {
+    key.remove_prefix(1);
+  }
+  return key;
+}
+
+Result<std::string> MakeAbstractPathRelative(const std::string& base,
+                                             const std::string& path) {
+  if (base.empty() || base.front() != kSep) {
+    return Status::Invalid("MakeAbstractPathRelative called with non-absolute base '",
+                           base, "'");
+  }
+  auto b = EnsureLeadingSlash(RemoveTrailingSlash(base));
+  auto p = util::string_view(path);
+  if (p.substr(0, b.size()) != util::string_view(b)) {
+    return Status::Invalid("Path '", path, "' is not relative to '", base, "'");
+  }
+  p = p.substr(b.size());
+  if (!p.empty() && p.front() != kSep && b.back() != kSep) {
+    return Status::Invalid("Path '", path, "' is not relative to '", base, "'");
+  }
+  return std::string(RemoveLeadingSlash(p));
 }
 
 }  // namespace internal
