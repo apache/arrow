@@ -203,7 +203,7 @@ shape: {0.shape}""".format(self)
         coords = np.require(coords, dtype='i8', requirements='F')
 
         check_status(NdarraysToSparseCOOTensor(c_default_memory_pool(),
-                     obj.data.view(), coords, c_shape, c_dim_names,
+                     obj.data, coords, c_shape, c_dim_names,
                      &csparse_tensor))
         return pyarrow_wrap_sparse_coo_tensor(csparse_tensor)
 
@@ -227,10 +227,10 @@ shape: {0.shape}""".format(self)
             for x in dim_names:
                 c_dim_names.push_back(tobytes(x))
 
-        coords = np.require(obj.coords.T.view(), dtype='i8', requirements='F')
+        coords = np.require(obj.coords.T, dtype='i8', requirements='F')
 
         check_status(NdarraysToSparseCOOTensor(c_default_memory_pool(),
-                     obj.data.view(), coords, c_shape, c_dim_names,
+                     obj.data, coords, c_shape, c_dim_names,
                      &csparse_tensor))
         return pyarrow_wrap_sparse_coo_tensor(csparse_tensor)
 
@@ -286,7 +286,7 @@ shape: {0.shape}""".format(self)
                                               &out_data, &out_coords))
         data = PyObject_to_object(out_data)
         coords = PyObject_to_object(out_coords)
-        result = COO(data=data, coords=coords.T, shape=self.shape)
+        result = COO(data=data[:, 0], coords=coords.T, shape=self.shape)
         return result
 
     def to_tensor(self):

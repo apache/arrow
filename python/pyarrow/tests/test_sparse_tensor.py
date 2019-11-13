@@ -336,7 +336,7 @@ def test_sparse_csr_matrix_scipy_roundtrip(dtype_str, arrow_type):
 @pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
 def test_pydata_sparse_sparse_coo_tensor_roundtrip(dtype_str, arrow_type):
     dtype = np.dtype(dtype_str)
-    data = np.array([[1, 2, 3, 4, 5, 6]]).T.astype(dtype)
+    data = np.array([1, 2, 3, 4, 5, 6]).astype(dtype)
     coords = np.array([
         [0, 0, 2, 3, 1, 3],
         [0, 2, 0, 4, 5, 5],
@@ -354,3 +354,5 @@ def test_pydata_sparse_sparse_coo_tensor_roundtrip(dtype_str, arrow_type):
     assert sparse_array.dtype == out_sparse_array.dtype
     assert np.array_equal(sparse_array.data, out_sparse_array.data)
     assert np.array_equal(sparse_array.coords, out_sparse_array.coords)
+    assert np.array_equal(sparse_array.todense(),
+                          sparse_tensor.to_tensor().to_numpy())
