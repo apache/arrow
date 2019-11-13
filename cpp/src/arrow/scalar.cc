@@ -27,6 +27,7 @@
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/formatting.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/parsing.h"
 #include "arrow/visitor_inline.h"
@@ -148,6 +149,30 @@ Status MakeNullScalar(const std::shared_ptr<DataType>& type,
   return VisitTypeInline(*type, &impl);
 }
 
+struct ScalarExpressionToString {
+  template <typename T, typename Formatter = internal::StringFormatter<T>,
+            typename Value = typename Formatter::value_type>
+  Status Visit(const T& t) {
+    const auto& value =
+        checked_cast<const typename TypeTraits<T>::ScalarType&>(value_).value;
+    return Formatter{value_.type}(value, [this](util::string_view v) {
+      repr_ = v.to_string();
+      return Status::OK();
+    });
+  }
+
+  Status Visit(const DataType&) { return Status::OK(); }
+
+  const Scalar& value_;
+  std::string repr_;
+};
+
+std::string Scalar::ToString() const {
+  ScalarExpressionToString impl{*this, "..."};
+  DCHECK_OK(VisitTypeInline(*type, &impl));
+  return std::move(impl.repr_);
+}
+
 struct ScalarParseImpl {
   template <typename T, typename Converter = internal::StringConverter<T>,
             typename Value = typename Converter::value_type>
@@ -200,12 +225,13 @@ Status CheckBufferLength(const FixedSizeBinaryType* t, const std::shared_ptr<Buf
 }
 }  // namespace internal
 
+namespace {
 // CastImpl(...) assumes `to` points to a non null scalar of the correct type with
 // uninitialized value
 
 // error fallback
 Status CastImpl(const Scalar& from, Scalar* to) {
-  return Status::NotImplemented("casting scalars of type ", *from.type, " to_type type ",
+  return Status::NotImplemented("casting scalars of type ", *from.type, " to type ",
                                 *to->type);
 }
 
@@ -241,27 +267,20 @@ Status CastImpl(const StringScalar& from, ScalarType* to) {
 }
 
 // binary to string
-template <typename T>
 Status CastImpl(const BinaryScalar& from, StringScalar* to) {
   to->value = from.value;
   return Status::OK();
 }
 
-// numeric to string
-template <typename T>
-Status CastImpl(const NumericScalar<T>& from, StringScalar* to) {
-  to->value = Buffer::FromString(std::to_string(from.value));
-  return Status::OK();
-}
-
-// boolean to string
-Status CastImpl(const BooleanScalar& from, StringScalar* to) {
-  to->value = Buffer::FromString(from.value ? "true" : "false");
+// any to string
+template <typename ScalarType>
+Status CastImpl(const ScalarType& from, StringScalar* to) {
+  to->value = Buffer::FromString(from.ToString());
   return Status::OK();
 }
 
 template <typename ToType>
-struct UnpackFromType {
+struct FromTypeVisitor {
   using ToScalar = typename TypeTraits<ToType>::ScalarType;
 
   template <typename FromType>
@@ -292,12 +311,12 @@ struct UnpackFromType {
   ToScalar* out_;
 };
 
-struct UnpackToType {
+struct ToTypeVisitor {
   template <typename ToType>
   Status Visit(const ToType&) {
     using ToScalar = typename TypeTraits<ToType>::ScalarType;
-    UnpackFromType<ToType> unpack_from_type{from_, to_type_,
-                                            checked_cast<ToScalar*>(out_)};
+    FromTypeVisitor<ToType> unpack_from_type{from_, to_type_,
+                                             checked_cast<ToScalar*>(out_)};
     return VisitTypeInline(*from_.type, &unpack_from_type);
   }
 
@@ -323,12 +342,14 @@ struct UnpackToType {
   Scalar* out_;
 };
 
+}  // namespace
+
 Result<std::shared_ptr<Scalar>> Scalar::CastTo(std::shared_ptr<DataType> to) {
   std::shared_ptr<Scalar> out;
   RETURN_NOT_OK(MakeNullScalar(to, &out));
   if (is_valid) {
     out->is_valid = true;
-    UnpackToType unpack_to_type{*this, to, out.get()};
+    ToTypeVisitor unpack_to_type{*this, to, out.get()};
     RETURN_NOT_OK(VisitTypeInline(*to, &unpack_to_type));
   }
   return std::move(out);

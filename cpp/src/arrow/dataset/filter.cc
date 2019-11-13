@@ -599,46 +599,12 @@ std::string OperatorName(compute::CompareOperator op) {
   return "";
 }
 
-// TODO(bkietz) extract this to Scalar::ToString()
-struct ScalarExpressionToString {
-  Status Visit(const BooleanType&) {
-    return Finish(CastValue<BooleanType>().value ? "true" : "false");
-  }
-
-  template <typename T>
-  enable_if_number<T, Status> Visit(const T&) {
-    return Finish(std::to_string(CastValue<T>().value));
-  }
-
-  Status Visit(const StringType&) {
-    return Finish(CastValue<StringType>().value->ToString());
-  }
-
-  Status Visit(const DataType&) { return Finish("TODO(bkietz)"); }
-
-  Status Finish(std::string repr) {
-    *repr_ = std::move(repr);
-    return Status::OK();
-  }
-
-  template <typename T>
-  const typename TypeTraits<T>::ScalarType& CastValue() {
-    return checked_cast<const typename TypeTraits<T>::ScalarType&>(value_);
-  }
-
-  const Scalar& value_;
-  std::string* repr_;
-};
-
 std::string ScalarExpression::ToString() const {
   if (!value_->is_valid) {
     return "scalar<" + value_->type->ToString() + ", null>()";
   }
 
-  std::string repr;
-  ScalarExpressionToString impl{*value_, &repr};
-  DCHECK_OK(VisitTypeInline(*value_->type, &impl));
-  return "scalar<" + value_->type->ToString() + ">(" + repr + ")";
+  return "scalar<" + value_->type->ToString() + ">(" + value_->ToString() + ")";
 }
 
 static std::string EulerNotation(std::string fn, const ExpressionVector& operands) {

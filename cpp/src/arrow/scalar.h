@@ -58,6 +58,8 @@ struct ARROW_EXPORT Scalar {
     return false;
   }
 
+  std::string ToString() const;
+
   static Status Parse(const std::shared_ptr<DataType>& type, util::string_view s,
                       std::shared_ptr<Scalar>* out);
 
