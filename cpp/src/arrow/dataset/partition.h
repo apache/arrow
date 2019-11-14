@@ -87,17 +87,18 @@ class ARROW_DS_EXPORT PartitionScheme {
 };
 
 /// \brief Trivial partition scheme which yields an expression provided on construction.
-class ARROW_DS_EXPORT ConstantPartitionScheme : public PartitionScheme {
+class ARROW_DS_EXPORT PrefixDictionaryPartitionScheme : public PartitionScheme {
  public:
-  explicit ConstantPartitionScheme(std::shared_ptr<Expression> expr)
-      : expression_(std::move(expr)) {}
+  explicit PrefixDictionaryPartitionScheme(
+      std::vector<std::pair<std::string, std::shared_ptr<Expression>>> dict)
+      : dict_(std::move(dict)) {}
 
   std::string name() const override { return "constant_partition_scheme"; }
 
   Result<std::shared_ptr<Expression>> Parse(const std::string& path) const override;
 
  private:
-  std::shared_ptr<Expression> expression_;
+  std::vector<std::pair<std::string, std::shared_ptr<Expression>>> dict_;
 };
 
 /// \brief SchemaPartitionScheme parses one segment of a path for each field in its

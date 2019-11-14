@@ -28,6 +28,7 @@
 #include "arrow/scalar.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/stl.h"
+#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace dataset {
@@ -50,9 +51,14 @@ Result<std::shared_ptr<Expression>> ConvertPartitionKeys(
   return and_(subexpressions);
 }
 
-Result<std::shared_ptr<Expression>> ConstantPartitionScheme::Parse(
+Result<std::shared_ptr<Expression>> PrefixDictionaryPartitionScheme::Parse(
     const std::string& path) const {
-  return expression_;
+  for (const auto& prefix_expr : dict_) {
+    if (util::string_view(path).starts_with(prefix_expr.first)) {
+      return prefix_expr.second;
+    }
+  }
+  return scalar(true);
 }
 
 Result<std::shared_ptr<Expression>> SchemaPartitionScheme::Parse(

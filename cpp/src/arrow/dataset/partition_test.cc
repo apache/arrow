@@ -56,10 +56,15 @@ class TestPartitionScheme : public ::testing::Test {
   std::shared_ptr<PartitionScheme> scheme_;
 };
 
-TEST_F(TestPartitionScheme, Simple) {
-  auto expr = equal(field_ref("alpha"), scalar<int16_t>(3));
-  scheme_ = std::make_shared<ConstantPartitionScheme>(expr);
-  AssertParse("/hello/world", expr);
+TEST_F(TestPartitionScheme, PrefixDictionary) {
+  auto alpha_is_three = equal(field_ref("alpha"), scalar<int16_t>(3));
+  auto beta_is_two = equal(field_ref("beta"), scalar<int16_t>(2));
+  scheme_.reset(new PrefixDictionaryPartitionScheme(
+      {{"/alpha_is_three", alpha_is_three}, {"/beta_is_two", beta_is_two}}));
+
+  AssertParse("/misc/ancient.dat", scalar(true));
+  AssertParse("/alpha_is_three/last_year.dat", alpha_is_three);
+  AssertParse("/beta_is_two/current.dat", beta_is_two);
 }
 
 TEST_F(TestPartitionScheme, Schema) {
