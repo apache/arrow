@@ -527,7 +527,7 @@ std::shared_ptr<Expression> NotExpression::Assume(const Expression& given) const
 std::shared_ptr<Expression> InExpression::Assume(const Expression& given) const {
   auto operand = operand_->Assume(given);
   if (operand->type() != ExpressionType::SCALAR) {
-    return std::make_shared<InExpression>(set_, std::move(operand));
+    return std::make_shared<InExpression>(std::move(operand), set_);
   }
 
   if (operand->IsNull()) {
@@ -540,7 +540,7 @@ std::shared_ptr<Expression> InExpression::Assume(const Expression& given) const 
   compute::FunctionContext ctx;
   arrow::compute::CompareOptions eq(compute::CompareOperator::EQUAL);
   if (!compute::Compare(&ctx, Datum(set_), Datum(value), eq, &out).ok()) {
-    return std::make_shared<InExpression>(set_, std::move(operand));
+    return std::make_shared<InExpression>(std::move(operand), set_);
   }
 
   DCHECK(out.is_array());
@@ -717,7 +717,7 @@ bool Expression::IsNull() const {
 }
 
 InExpression Expression::In(std::shared_ptr<Array> set) const {
-  return InExpression(std::move(set), Copy());
+  return InExpression(Copy(), std::move(set));
 }
 
 IsValidExpression Expression::IsValid() const { return IsValidExpression(Copy()); }
