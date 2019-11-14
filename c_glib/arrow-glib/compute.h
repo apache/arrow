@@ -191,6 +191,42 @@ GArrowArray *garrow_array_take(GArrowArray *array,
                                GArrowArray *indices,
                                GArrowTakeOptions *options,
                                GError **error);
+GARROW_AVAILABLE_IN_1_0
+GArrowChunkedArray *
+garrow_array_take_chunked_array(GArrowArray *array,
+                                GArrowChunkedArray *indices,
+                                GArrowTakeOptions *options,
+                                GError **error);
+GARROW_AVAILABLE_IN_1_0
+GArrowTable *
+garrow_table_take(GArrowTable *table,
+                  GArrowArray *indices,
+                  GArrowTakeOptions *options,
+                  GError **error);
+GARROW_AVAILABLE_IN_1_0
+GArrowTable *
+garrow_table_take_chunked_array(GArrowTable *table,
+                                GArrowChunkedArray *indices,
+                                GArrowTakeOptions *options,
+                                GError **error);
+GARROW_AVAILABLE_IN_1_0
+GArrowChunkedArray *
+garrow_chunked_array_take(GArrowChunkedArray *chunked_array,
+                          GArrowArray *indices,
+                          GArrowTakeOptions *options,
+                          GError **error);
+GARROW_AVAILABLE_IN_1_0
+GArrowChunkedArray *
+garrow_chunked_array_take_chunked_array(GArrowChunkedArray *chunked_array,
+                                        GArrowChunkedArray *indices,
+                                        GArrowTakeOptions *options,
+                                        GError **error);
+GARROW_AVAILABLE_IN_1_0
+GArrowRecordBatch *
+garrow_record_batch_take(GArrowRecordBatch *record_batch,
+                         GArrowArray *indices,
+                         GArrowTakeOptions *options,
+                         GError **error);
 GARROW_AVAILABLE_IN_0_14
 GArrowBooleanArray *
 garrow_int8_array_compare(GArrowInt8Array *array,

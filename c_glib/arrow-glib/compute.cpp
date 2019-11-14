@@ -1119,6 +1119,301 @@ garrow_array_take(GArrowArray *array,
   }
 }
 
+/**
+ * garrow_array_take_chunked_array:
+ * @array: A #GArrowArray.
+ * @indices: The indices of values to take.
+ * @options: (nullable): A #GArrowTakeOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowChunkedArray taken from
+ *   an array of values at indices in chunked array or %NULL on error.
+ *
+ * Since: 1.0.0
+ */
+GArrowChunkedArray *
+garrow_array_take_chunked_array(GArrowArray *array,
+                                GArrowChunkedArray *indices,
+                                GArrowTakeOptions *options,
+                                GError **error)
+{
+  auto arrow_array = garrow_array_get_raw(array);
+  auto arrow_array_raw = arrow_array.get();
+  auto arrow_indices = garrow_chunked_array_get_raw(indices);
+  auto arrow_indices_raw = arrow_indices.get();
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  std::shared_ptr<arrow::ChunkedArray> taken_chunked_array;
+  arrow::Status status;
+  if (options) {
+    auto arrow_options = garrow_take_options_get_raw(options);
+    status = arrow::compute::Take(&context,
+                                  *arrow_array_raw,
+                                  *arrow_indices_raw,
+                                  *arrow_options,
+                                  &taken_chunked_array);
+  } else {
+    arrow::compute::TakeOptions arrow_options;
+    status = arrow::compute::Take(&context,
+                                  *arrow_array_raw,
+                                  *arrow_indices_raw,
+                                  arrow_options,
+                                  &taken_chunked_array);
+  }
+
+  if (garrow_error_check(error, status, "[array][take][chunked-array]")) {
+    return garrow_chunked_array_new_raw(&taken_chunked_array);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_table_take:
+ * @table: A #GArrowTable.
+ * @indices: The indices of values to take.
+ * @options: (nullable): A #GArrowTakeOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowTable taken from
+ *   an array of values at indices in input array or %NULL on error.
+ *
+ * Since: 1.0.0
+ */
+GArrowTable *
+garrow_table_take(GArrowTable *table,
+                  GArrowArray *indices,
+                  GArrowTakeOptions *options,
+                  GError **error)
+{
+  auto arrow_table = garrow_table_get_raw(table);
+  auto arrow_table_raw = arrow_table.get();
+  auto arrow_indices = garrow_array_get_raw(indices);
+  auto arrow_indices_raw = arrow_indices.get();
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  std::shared_ptr<arrow::Table> taken_table;
+  arrow::Status status;
+  if (options) {
+    auto arrow_options = garrow_take_options_get_raw(options);
+    status = arrow::compute::Take(&context,
+                                  *arrow_table_raw,
+                                  *arrow_indices_raw,
+                                  *arrow_options,
+                                  &taken_table);
+  } else {
+    arrow::compute::TakeOptions arrow_options;
+    status = arrow::compute::Take(&context,
+                                  *arrow_table_raw,
+                                  *arrow_indices_raw,
+                                  arrow_options,
+                                  &taken_table);
+  }
+
+  if (garrow_error_check(error, status, "[table][take]")) {
+    return garrow_table_new_raw(&taken_table);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_table_take_chunked_array:
+ * @table: A #GArrowTable.
+ * @indices: The indices of values to take.
+ * @options: (nullable): A #GArrowTakeOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowTable taken from
+ *   an array of values at indices in chunked array or %NULL on error.
+ *
+ * Since: 1.0.0
+ */
+GArrowTable *
+garrow_table_take_chunked_array(GArrowTable *table,
+                                GArrowChunkedArray *indices,
+                                GArrowTakeOptions *options,
+                                GError **error)
+{
+  auto arrow_table = garrow_table_get_raw(table);
+  auto arrow_table_raw = arrow_table.get();
+  auto arrow_indices = garrow_chunked_array_get_raw(indices);
+  auto arrow_indices_raw = arrow_indices.get();
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  std::shared_ptr<arrow::Table> taken_table;
+  arrow::Status status;
+  if (options) {
+    auto arrow_options = garrow_take_options_get_raw(options);
+    status = arrow::compute::Take(&context,
+                                  *arrow_table_raw,
+                                  *arrow_indices_raw,
+                                  *arrow_options,
+                                  &taken_table);
+  } else {
+    arrow::compute::TakeOptions arrow_options;
+    status = arrow::compute::Take(&context,
+                                  *arrow_table_raw,
+                                  *arrow_indices_raw,
+                                  arrow_options,
+                                  &taken_table);
+  }
+
+  if (garrow_error_check(error, status, "[table][take][chunked-array]")) {
+    return garrow_table_new_raw(&taken_table);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_chunked_array_take:
+ * @chunked_array: A #GArrowChunkedArray.
+ * @indices: The indices of values to take.
+ * @options: (nullable): A #GArrowTakeOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowChunkedArray taken from
+ *   an array of values at indices in input array or %NULL on error.
+ *
+ * Since: 1.0.0
+ */
+GArrowChunkedArray *
+garrow_chunked_array_take(GArrowChunkedArray *chunked_array,
+                          GArrowArray *indices,
+                          GArrowTakeOptions *options,
+                          GError **error)
+{
+  auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
+  auto arrow_chunked_array_raw = arrow_chunked_array.get();
+  auto arrow_indices = garrow_array_get_raw(indices);
+  auto arrow_indices_raw = arrow_indices.get();
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  std::shared_ptr<arrow::ChunkedArray> taken_chunked_array;
+  arrow::Status status;
+  if (options) {
+    auto arrow_options = garrow_take_options_get_raw(options);
+    status = arrow::compute::Take(&context,
+                                  *arrow_chunked_array_raw,
+                                  *arrow_indices_raw,
+                                  *arrow_options,
+                                  &taken_chunked_array);
+  } else {
+    arrow::compute::TakeOptions arrow_options;
+    status = arrow::compute::Take(&context,
+                                  *arrow_chunked_array_raw,
+                                  *arrow_indices_raw,
+                                  arrow_options,
+                                  &taken_chunked_array);
+  }
+
+  if (garrow_error_check(error, status, "[chunked-array][take]")) {
+    return garrow_chunked_array_new_raw(&taken_chunked_array);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_chunked_array_take_chunked_array:
+ * @chunked_array: A #GArrowChunkedArray.
+ * @indices: The indices of values to take.
+ * @options: (nullable): A #GArrowTakeOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowChunkedArray taken from
+ *   an array of values at indices in chunked array or %NULL on error.
+ *
+ * Since: 1.0.0
+ */
+GArrowChunkedArray *
+garrow_chunked_array_take_chunked_array(GArrowChunkedArray *chunked_array,
+                                        GArrowChunkedArray *indices,
+                                        GArrowTakeOptions *options,
+                                        GError **error)
+{
+  auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
+  auto arrow_chunked_array_raw = arrow_chunked_array.get();
+  auto arrow_indices = garrow_chunked_array_get_raw(indices);
+  auto arrow_indices_raw = arrow_indices.get();
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  std::shared_ptr<arrow::ChunkedArray> taken_chunked_array;
+  arrow::Status status;
+  if (options) {
+    auto arrow_options = garrow_take_options_get_raw(options);
+    status = arrow::compute::Take(&context,
+                                  *arrow_chunked_array_raw,
+                                  *arrow_indices_raw,
+                                  *arrow_options,
+                                  &taken_chunked_array);
+  } else {
+    arrow::compute::TakeOptions arrow_options;
+    status = arrow::compute::Take(&context,
+                                  *arrow_chunked_array_raw,
+                                  *arrow_indices_raw,
+                                  arrow_options,
+                                  &taken_chunked_array);
+  }
+
+  if (garrow_error_check(error, status, "[chunked-array][take][chunked-array]")) {
+    return garrow_chunked_array_new_raw(&taken_chunked_array);
+  } else {
+    return NULL;
+  }
+}
+
+/**
+ * garrow_record_batch_take:
+ * @record_batch: A #GArrowRecordBatch.
+ * @indices: The indices of values to take.
+ * @options: (nullable): A #GArrowTakeOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable) (transfer full): The #GArrowChunkedArray taken from
+ *   an array of values at indices in input array or %NULL on error.
+ *
+ * Since: 1.0.0
+ */
+GArrowRecordBatch *
+garrow_record_batch_take(GArrowRecordBatch *record_batch,
+                         GArrowArray *indices,
+                         GArrowTakeOptions *options,
+                         GError **error)
+{
+  auto arrow_record_batch =
+    garrow_record_batch_get_raw(record_batch);
+  auto arrow_record_batch_raw = arrow_record_batch.get();
+  auto arrow_indices = garrow_array_get_raw(indices);
+  auto arrow_indices_raw = arrow_indices.get();
+  auto memory_pool = arrow::default_memory_pool();
+  arrow::compute::FunctionContext context(memory_pool);
+  std::shared_ptr<arrow::RecordBatch> taken_record_batch;
+  arrow::Status status;
+  if (options) {
+    auto arrow_options = garrow_take_options_get_raw(options);
+    status = arrow::compute::Take(&context,
+                                  *arrow_record_batch_raw,
+                                  *arrow_indices_raw,
+                                  *arrow_options,
+                                  &taken_record_batch);
+  } else {
+    arrow::compute::TakeOptions arrow_options;
+    status = arrow::compute::Take(&context,
+                                  *arrow_record_batch_raw,
+                                  *arrow_indices_raw,
+                                  arrow_options,
+                                  &taken_record_batch);
+  }
+
+  if (garrow_error_check(error, status, "[record-batch][take]")) {
+    return garrow_record_batch_new_raw(&taken_record_batch);
+  } else {
+    return NULL;
+  }
+}
+
 
 /**
  * garrow_int8_array_compare:
@@ -1479,7 +1774,7 @@ garrow_array_is_in_chunked_array(GArrowArray *left,
                                      arrow_left_datum,
                                      arrow_right_datum,
                                      &arrow_datum);
-  if (garrow_error_check(error, status, "[array][is-in-chunked-array]")) {
+  if (garrow_error_check(error, status, "[array][is-in][chunked-array]")) {
     auto arrow_array = arrow_datum.make_array();
     return GARROW_BOOLEAN_ARRAY(garrow_array_new_raw(&arrow_array));
   } else {
@@ -1575,7 +1870,7 @@ garrow_table_filter_chunked_array(GArrowTable *table,
                                        *arrow_table,
                                        *arrow_filter,
                                        &arrow_filtered_table);
-  if (garrow_error_check(error, status, "[table][filter-chunked-array]")) {
+  if (garrow_error_check(error, status, "[table][filter][chunked-array]")) {
     return garrow_table_new_raw(&arrow_filtered_table);
   } else {
     return NULL;
@@ -1643,7 +1938,7 @@ garrow_chunked_array_filter_chunked_array(GArrowChunkedArray *chunked_array,
                                        *arrow_chunked_array,
                                        *arrow_filter,
                                        &arrow_filtered_chunked_array);
-  if (garrow_error_check(error, status, "[chunked-array][filter-chunked-array]")) {
+  if (garrow_error_check(error, status, "[chunked-array][filter][chunked-array]")) {
     return garrow_chunked_array_new_raw(&arrow_filtered_chunked_array);
   } else {
     return NULL;
