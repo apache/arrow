@@ -324,8 +324,8 @@ class TestNumericMinMaxKernel : public ComputeFixture, public TestBase {
   using ScalarType = typename Traits::ScalarType;
 
  public:
-  template <typename T>
-  void AssertMinMaxIs(std::string array_json, T expected_min, T expected_max,
+  template <typename Min, typename Max>
+  void AssertMinMaxIs(std::string array_json, Min expected_min, Max expected_max,
                       const MinMaxOptions& options) {
     auto array = ArrayFromJSON(Traits::type_singleton(), array_json);
     Datum out, out_min, out_max;
@@ -361,9 +361,9 @@ TYPED_TEST(TestFloatingMinMaxKernel, Floats) {
   MinMaxOptions options;
   this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);
   this->AssertMinMaxIs("[5, null, 2, 3, 4]", 2, 5, options);
-  // this->AssertMinMaxIs("[5, Inf, 2, 3, 4]", 2.0, INFINITY, options);
+  this->AssertMinMaxIs("[5, Inf, 2, 3, 4]", 2.0, INFINITY, options);
   this->AssertMinMaxIs("[5, NaN, 2, 3, 4]", 2, 5, options);
-  // this->AssertMinMaxIs("[5, -Inf, 2, 3, 4]", -INFINITY, 5, options);
+  this->AssertMinMaxIs("[5, -Inf, 2, 3, 4]", -INFINITY, 5, options);
 }
 
 }  // namespace compute
