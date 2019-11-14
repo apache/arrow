@@ -646,4 +646,33 @@ visible: false
       end
     end
   end
+
+  sub_test_case("#filter") do
+    test("Array: boolean") do
+      filter = [nil, true, true, false, true, false, true, true]
+      assert_equal(<<-TABLE, @table.filter(filter).to_s)
+	count	visible
+0	     	       
+1	    2	false  
+2	    4	       
+3	   16	true   
+4	   64	       
+5	  128	       
+      TABLE
+    end
+
+    test("Arrow::BooleanArray") do
+      array = [nil, true, true, false, true, false, true, true]
+      filter = Arrow::BooleanArray.new(array)
+      assert_equal(<<-TABLE, @table.filter(filter).to_s)
+	count	visible
+0	     	       
+1	    2	false  
+2	    4	       
+3	   16	true   
+4	   64	       
+5	  128	       
+      TABLE
+    end
+  end
 end

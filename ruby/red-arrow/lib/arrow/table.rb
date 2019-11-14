@@ -513,6 +513,16 @@ module Arrow
       super
     end
 
+    alias_method :filter_raw, :filter
+    def filter(array)
+      case array
+      when ::Array
+        filter_raw(Arrow::BooleanArray.new(array))
+      else
+        filter_raw(array)
+      end
+    end
+
     private
     def boolean_array_to_slice_ranges(array, offset, ranges)
       in_target = false
