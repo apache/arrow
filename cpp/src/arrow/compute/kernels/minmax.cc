@@ -158,7 +158,7 @@ static Status GetMinMaxKernel(FunctionContext* ctx, const DataType& type,
 }
 
 Status MinMax(FunctionContext* ctx, const MinMaxOptions& options, const Datum& value,
-              Datum* min) {
+              Datum* out) {
   std::shared_ptr<AggregateUnaryKernel> kernel;
 
   auto data_type = value.type();
@@ -170,12 +170,12 @@ Status MinMax(FunctionContext* ctx, const MinMaxOptions& options, const Datum& v
 
   RETURN_NOT_OK(GetMinMaxKernel(ctx, *data_type, options, kernel));
 
-  return kernel->Call(ctx, value, min);
+  return kernel->Call(ctx, value, out);
 }
 
 Status MinMax(FunctionContext* ctx, const MinMaxOptions& options, const Array& array,
-              Datum* min) {
-  return MinMax(ctx, options, array.data(), min);
+              Datum* out) {
+  return MinMax(ctx, options, array.data(), out);
 }
 
 }  // namespace compute

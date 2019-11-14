@@ -46,7 +46,7 @@ struct ARROW_EXPORT MinMaxOptions {
 /// \brief Return a Min/Max Kernel
 ///
 /// \param[in] type required to specialize the kernel
-/// \param[in] context the FunctionContext
+/// \param[in] ctx the FunctionContext
 /// \param[in] options, see MinMaxOptions for more information
 ///
 /// \since 1.0.0
@@ -57,29 +57,29 @@ std::shared_ptr<AggregateFunction> MakeMinMaxAggregateFunction(
 
 /// \brief Calculate the min / max of a numeric array
 ///
-/// \param[in] context the FunctionContext
+/// \param[in] ctx the FunctionContext
 /// \param[in] options, see MinMaxOptions for more information
-/// \param[in] input value datum, expecting Array or ChunkedArray
+/// \param[in] value input datum, expecting Array or ChunkedArray
 /// \param[out] out resulting datum
 ///
 /// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Status MinMax(FunctionContext* context, const MinMaxOptions& options, const Datum& value,
-              Datum* min);
+Status MinMax(FunctionContext* ctx, const MinMaxOptions& options, const Datum& value,
+              Datum* out);
 
 /// \brief Calculate the min / max of a numeric array.
 ///
-/// \param[in] context the FunctionContext
+/// \param[in] ctx the FunctionContext
 /// \param[in] options, see MinMaxOptions for more information
-/// \param[in] input array
+/// \param[in] array input array
 /// \param[out] out resulting datum
 ///
 /// \since 1.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Status MinMax(FunctionContext* context, const MinMaxOptions& options, const Array& array,
-              Datum* min);
+Status MinMax(FunctionContext* ctx, const MinMaxOptions& options, const Array& array,
+              Datum* out);
 
 }  // namespace compute
 }  // namespace arrow
