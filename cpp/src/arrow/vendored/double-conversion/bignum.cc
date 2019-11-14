@@ -28,7 +28,7 @@
 #include "bignum.h"
 #include "utils.h"
 
-namespace arrow_vendored_double_conversion {
+namespace double_conversion {
 
 Bignum::Bignum()
     : bigits_buffer_(), bigits_(bigits_buffer_, kBigitCapacity), used_digits_(0), exponent_(0) {
@@ -764,4 +764,4 @@ void Bignum::SubtractTimes(const Bignum& other, int factor) {
 }
 
 
-}  // namespace arrow_vendored_double_conversion
+}  // namespace double_conversion

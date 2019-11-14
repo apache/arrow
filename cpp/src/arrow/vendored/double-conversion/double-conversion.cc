@@ -42,7 +42,7 @@
 #pragma warning(disable : 4244)
 #endif
 
-namespace arrow_vendored_double_conversion {
+namespace double_conversion {
 
 const DoubleToStringConverter& DoubleToStringConverter::EcmaScriptConverter() {
   int flags = UNIQUE_ZERO | EMIT_POSITIVE_EXPONENT_SIGN;
@@ -1150,4 +1150,4 @@ float StringToDoubleConverter::StringToFloat(
                                          processed_characters_count));
 }
 
-}  // namespace arrow_vendored_double_conversion
+}  // namespace double_conversion

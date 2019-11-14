@@ -18,8 +18,3 @@
 -->
 
 The files in this directory are vendored from double-conversion git tag v3.1.5.
-
-Namespace fixup (from "double_conversion" to "arrow_vendored_double_conversion") using:
-```
-sed -i "s/\bnamespace double_conversion\b/namespace arrow_vendored_double_conversion/g" `find src/arrow/vendored/double-conversion -type f`
-```

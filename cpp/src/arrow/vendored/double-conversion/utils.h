@@ -174,7 +174,7 @@ typedef uint16_t uc16;
   DC_DISALLOW_COPY_AND_ASSIGN(TypeName)
 #endif
 
-namespace arrow_vendored_double_conversion {
+namespace double_conversion {
 
 static const int kCharSize = sizeof(char);
 
@@ -362,6 +362,6 @@ inline Dest BitCast(Source* source) {
   return BitCast<Dest>(reinterpret_cast<uintptr_t>(source));
 }
 
-}  // namespace arrow_vendored_double_conversion
+}  // namespace double_conversion
 
 #endif  // DOUBLE_CONVERSION_UTILS_H_

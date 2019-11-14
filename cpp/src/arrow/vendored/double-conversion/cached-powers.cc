@@ -33,7 +33,7 @@
 
 #include "cached-powers.h"
 
-namespace arrow_vendored_double_conversion {
+namespace double_conversion {
 
 struct CachedPower {
   uint64_t significand;
@@ -172,4 +172,4 @@ void PowersOfTenCache::GetCachedPowerForDecimalExponent(int requested_exponent,
   ASSERT(requested_exponent < *found_exponent + kDecimalExponentDistance);
 }
 
-}  // namespace arrow_vendored_double_conversion
+}  // namespace double_conversion

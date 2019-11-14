@@ -29,7 +29,7 @@
 #include "diy-fp.h"
 #include "utils.h"
 
-namespace arrow_vendored_double_conversion {
+namespace double_conversion {
 
 void DiyFp::Multiply(const DiyFp& other) {
   // Simply "emulates" a 128 bit multiplication.
@@ -54,4 +54,4 @@ void DiyFp::Multiply(const DiyFp& other) {
   f_ = result_f;
 }
 
-}  // namespace arrow_vendored_double_conversion
+}  // namespace double_conversion

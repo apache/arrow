@@ -32,7 +32,7 @@
 #include "bignum.h"
 #include "ieee.h"
 
-namespace arrow_vendored_double_conversion {
+namespace double_conversion {
 
 static int NormalizedExponent(uint64_t significand, int exponent) {
   ASSERT(significand != 0);
@@ -638,4 +638,4 @@ static void FixupMultiply10(int estimated_power, bool is_even,
   }
 }
 
-}  // namespace arrow_vendored_double_conversion
+}  // namespace double_conversion

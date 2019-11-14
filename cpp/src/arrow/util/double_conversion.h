@@ -23,9 +23,9 @@ namespace arrow {
 namespace util {
 namespace double_conversion {
 
-using arrow_vendored_double_conversion::DoubleToStringConverter;
-using arrow_vendored_double_conversion::StringBuilder;
-using arrow_vendored_double_conversion::StringToDoubleConverter;
+using ::double_conversion::DoubleToStringConverter;
+using ::double_conversion::StringBuilder;
+using ::double_conversion::StringToDoubleConverter;
 
 }  // namespace double_conversion
 }  // namespace util

@@ -30,7 +30,7 @@
 
 #include "utils.h"
 
-namespace arrow_vendored_double_conversion {
+namespace double_conversion {
 
 class Bignum {
  public:
@@ -139,6 +139,6 @@ class Bignum {
   DC_DISALLOW_COPY_AND_ASSIGN(Bignum);
 };
 
-}  // namespace arrow_vendored_double_conversion
+}  // namespace double_conversion
 
 #endif  // DOUBLE_CONVERSION_BIGNUM_H_

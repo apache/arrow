@@ -33,7 +33,7 @@
 #include "ieee.h"
 #include "strtod.h"
 
-namespace arrow_vendored_double_conversion {
+namespace double_conversion {
 
 // 2^53 = 9007199254740992.
 // Any integer with at most 15 decimal digits will hence fit into a double
@@ -577,4 +577,4 @@ float Strtof(Vector<const char> buffer, int exponent) {
   }
 }
 
-}  // namespace arrow_vendored_double_conversion
+}  // namespace double_conversion

@@ -30,7 +30,7 @@
 
 #include "utils.h"
 
-namespace arrow_vendored_double_conversion {
+namespace double_conversion {
 
 class DoubleToStringConverter {
  public:
@@ -571,6 +571,6 @@ class StringToDoubleConverter {
   DC_DISALLOW_IMPLICIT_CONSTRUCTORS(StringToDoubleConverter);
 };
 
-}  // namespace arrow_vendored_double_conversion
+}  // namespace double_conversion
 
 #endif  // DOUBLE_CONVERSION_DOUBLE_CONVERSION_H_

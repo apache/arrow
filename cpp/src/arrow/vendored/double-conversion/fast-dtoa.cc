@@ -31,7 +31,7 @@
 #include "diy-fp.h"
 #include "ieee.h"
 
-namespace arrow_vendored_double_conversion {
+namespace double_conversion {
 
 // The minimal and maximal target exponent define the range of w's binary
 // exponent, where 'w' is the result of multiplying the input by a cached power
@@ -662,4 +662,4 @@ bool FastDtoa(double v,
   return result;
 }
 
-}  // namespace arrow_vendored_double_conversion
+}  // namespace double_conversion

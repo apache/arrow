@@ -30,7 +30,7 @@
 
 #include "diy-fp.h"
 
-namespace arrow_vendored_double_conversion {
+namespace double_conversion {
 
 class PowersOfTenCache {
  public:
@@ -59,6 +59,6 @@ class PowersOfTenCache {
                                                int* found_exponent);
 };
 
-}  // namespace arrow_vendored_double_conversion
+}  // namespace double_conversion
 
 #endif  // DOUBLE_CONVERSION_CACHED_POWERS_H_
