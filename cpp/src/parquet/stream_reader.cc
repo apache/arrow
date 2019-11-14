@@ -37,6 +37,7 @@ StreamReader::StreamReader(std::unique_ptr<ParquetFileReader> reader)
 }
 
 int StreamReader::num_columns() const {
+  // Check for file metadata i.e. object is not default constructed.
   if (file_metadata_) {
     return file_metadata_->num_columns();
   }
@@ -44,6 +45,7 @@ int StreamReader::num_columns() const {
 }
 
 int64_t StreamReader::num_rows() const {
+  // Check for file metadata i.e. object is not default constructed.
   if (file_metadata_) {
     return file_metadata_->num_rows();
   }

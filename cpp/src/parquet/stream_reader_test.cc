@@ -280,24 +280,6 @@ TEST_F(TestStreamReader, ValueChecking) {
 }
 
 TEST_F(TestStreamReader, SkipRows) {
-  bool b;
-  std::string s;
-  std::array<char, 4> char_array;
-  char c;
-  int8_t int8;
-  uint16_t uint16;
-  int32_t int32;
-  uint64_t uint64;
-  std::chrono::microseconds ts_us;
-  float f;
-  double d;
-  std::string str;
-
-  const int num_rows_to_read = 3;
-  const int num_rows_to_skip = 13;
-  int num_rows_read = 0;
-  int i = 0;
-
   // Skipping zero and negative number of rows is ok.
   //
   ASSERT_EQ(0, reader_.SkipRows(0));
@@ -307,14 +289,33 @@ TEST_F(TestStreamReader, SkipRows) {
   ASSERT_EQ(0, reader_.current_row());
   ASSERT_EQ(TestData::num_rows, reader_.num_rows());
 
-  while (!reader_.eof()) {
-    // Each iteration of this loop reads some rows (num_rows_to_read
-    // are read) and then skips some rows (num_rows_to_skip will be
+  const int iter_num_rows_to_read = 3;
+  const int iter_num_rows_to_skip = 13;
+  int num_rows_read = 0;
+  int i = 0;
+  int num_iterations;
+
+  for (num_iterations = 0; !reader_.eof(); ++num_iterations) {
+    // Each iteration of this loop reads some rows (iter_num_rows_to_read
+    // are read) and then skips some rows (iter_num_rows_to_skip will be
     // skipped).
     // The loop variable i is the current row being read.
     // Loop variable j is used just to count the number of rows to
     // read.
-    for (int j = 0; !reader_.eof() && (j < num_rows_to_read); ++i, ++j) {
+    bool b;
+    std::string s;
+    std::array<char, 4> char_array;
+    char c;
+    int8_t int8;
+    uint16_t uint16;
+    int32_t int32;
+    uint64_t uint64;
+    std::chrono::microseconds ts_us;
+    float f;
+    double d;
+    std::string str;
+
+    for (int j = 0; !reader_.eof() && (j < iter_num_rows_to_read); ++i, ++j) {
       ASSERT_EQ(i, reader_.current_row());
 
       reader_ >> b;
@@ -347,13 +348,12 @@ TEST_F(TestStreamReader, SkipRows) {
       ASSERT_FLOAT_EQ(f, TestData::GetFloat(i));
       ASSERT_DOUBLE_EQ(d, TestData::GetDouble(i));
     }
-    ASSERT_EQ(num_rows_to_skip, reader_.SkipRows(num_rows_to_skip));
-    i += num_rows_to_skip;
+    ASSERT_EQ(iter_num_rows_to_skip, reader_.SkipRows(iter_num_rows_to_skip));
+    i += iter_num_rows_to_skip;
   }
   ASSERT_EQ(TestData::num_rows, reader_.current_row());
 
-  ASSERT_EQ(num_rows_read, num_rows_to_read * TestData::num_rows /
-                               (num_rows_to_read + num_rows_to_skip));
+  ASSERT_EQ(num_rows_read, num_iterations * iter_num_rows_to_read);
 
   // Skipping rows at eof is allowed.
   //
