@@ -1972,8 +1972,7 @@ class ArrowDeserializer {
 
     if (data_->num_chunks() == 1 && data_->null_count() == 0) {
       return ConvertValuesZeroCopy<TYPE>(options_, traits::npy_type, data_->chunk(0));
-    }
-    else if (options_.zero_copy_only) {
+    } else if (options_.zero_copy_only) {
       return Status::Invalid("Copy Needed, but zero_copy_only was True");
     }
 
