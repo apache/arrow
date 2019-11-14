@@ -34,7 +34,6 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const require = global.process.mainModule.constructor._load;
             const fs = require("fs");
             const path = ".github/workflows/dev_cron/jira_link.js";
             const script = fs.readFileSync(path).toString();
@@ -50,7 +49,6 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const require = global.process.mainModule.constructor._load;
             const fs = require("fs");
             const path = ".github/workflows/dev_cron/title_check.js";
             const script = fs.readFileSync(path).toString();

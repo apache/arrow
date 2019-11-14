@@ -17,8 +17,7 @@
 
 console.log("title-check");
 
-// This is set outside this script
-// const fs = require("fs");
+const fs = require("fs");
 
 const {owner: owner, repo: repo} = context.repo;
 
