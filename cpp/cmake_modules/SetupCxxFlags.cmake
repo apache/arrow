@@ -138,35 +138,7 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /W3 /wd4365 /wd4267 /wd4838")
   elseif("${COMPILER_FAMILY}" STREQUAL "clang")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall -Wextra -Wdocumentation \
--Wno-c++98-compat \
--Wno-c++98-compat-pedantic -Wno-deprecated -Wno-weak-vtables -Wno-padded \
--Wno-comma -Wno-unused-macros -Wno-unused-parameter -Wno-unused-template -Wno-undef \
--Wno-shadow -Wno-switch-enum -Wno-exit-time-destructors \
--Wno-global-constructors -Wno-weak-template-vtables -Wno-undefined-reinterpret-cast \
--Wno-implicit-fallthrough -Wno-unreachable-code -Wno-unreachable-code-return \
--Wno-float-equal -Wno-missing-prototypes -Wno-documentation-unknown-command \
--Wno-old-style-cast -Wno-covered-switch-default \
--Wno-cast-align -Wno-vla-extension -Wno-shift-sign-overflow \
--Wno-used-but-marked-unused -Wno-missing-variable-declarations \
--Wno-gnu-zero-variadic-macro-arguments -Wno-conversion -Wno-sign-conversion \
--Wno-disabled-macro-expansion -Wno-format-nonliteral -Wno-missing-noreturn")
-
-    # Version numbers where warnings are introduced
-    if("${COMPILER_VERSION}" VERSION_GREATER "3.3")
-      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-gnu-folding-constant")
-    endif()
-    if("${COMPILER_VERSION}" VERSION_GREATER "3.6")
-      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-reserved-id-macro")
-      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-range-loop-analysis")
-      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-double-promotion")
-    endif()
-    if("${COMPILER_VERSION}" VERSION_GREATER "3.8")
-      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-undefined-func-template")
-    endif()
-
-    if("${COMPILER_VERSION}" VERSION_GREATER "3.9")
-      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-zero-as-null-pointer-constant")
-    endif()
+        -Wno-unused-parameter")
 
     if("${COMPILER_VERSION}" VERSION_GREATER "7.0")
       # ARROW-6259: Flatbuffers generates code with superfluous semicolons, so
@@ -184,6 +156,7 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     message(FATAL_ERROR "Unknown compiler. Version info:\n${COMPILER_VERSION_FULL}")
   endif()
   arrow_add_werror_if_debug()
+
 elseif("${BUILD_WARNING_LEVEL}" STREQUAL "EVERYTHING")
   # Pedantic builds for fixing warnings
   if("${COMPILER_FAMILY}" STREQUAL "msvc")
@@ -201,6 +174,7 @@ elseif("${BUILD_WARNING_LEVEL}" STREQUAL "EVERYTHING")
     message(FATAL_ERROR "Unknown compiler. Version info:\n${COMPILER_VERSION_FULL}")
   endif()
   arrow_add_werror_if_debug()
+
 else()
   # Production builds (warning are not treated as errors)
   if("${COMPILER_FAMILY}" STREQUAL "msvc")
@@ -214,6 +188,7 @@ else()
   else()
     message(FATAL_ERROR "Unknown compiler. Version info:\n${COMPILER_VERSION_FULL}")
   endif()
+
 endif()
 
 if("${COMPILER_FAMILY}" STREQUAL "msvc")
@@ -222,6 +197,10 @@ if("${COMPILER_FAMILY}" STREQUAL "msvc")
 
   # Disable unchecked iterator warnings, equivalent to /D_SCL_SECURE_NO_WARNINGS
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4996")
+
+  # Disable "switch statement contains 'default' but no 'case' labels" warning
+  # (required for protobuf, see https://github.com/protocolbuffers/protobuf/issues/6885)
+  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4065")
 endif()
 
 if("${COMPILER_FAMILY}" STREQUAL "gcc")
