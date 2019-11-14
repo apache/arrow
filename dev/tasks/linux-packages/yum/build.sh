@@ -18,6 +18,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+set -u
+
 run()
 {
   "$@"
@@ -73,14 +75,17 @@ cd
 if [ -n "${SOURCE_ARCHIVE}" ]; then
   case "${RELEASE}" in
     0.dev*)
-      run tar xf /host/tmp/${SOURCE_ARCHIVE}
+      source_archive_base_name=$( \
+        echo ${SOURCE_ARCHIVE} | sed -e 's/\.tar\.gz$//')
+      run tar xf /host/tmp/${SOURCE_ARCHIVE} \
+        --transform="s,^[^/]*,${PACKAGE},"
       run mv \
-          apache-${PACKAGE}-${VERSION}-$(echo $RELEASE | sed -e 's/^0\.//') \
-          apache-${PACKAGE}-${VERSION}
+          ${PACKAGE} \
+          ${source_archive_base_name}
       run tar czf \
           rpmbuild/SOURCES/${SOURCE_ARCHIVE} \
-          apache-${PACKAGE}-${VERSION}
-      run rm -rf apache-${PACKAGE}-${VERSION}
+          ${source_archive_base_name}
+      run rm -rf ${source_archive_base_name}
       ;;
     *)
       run cp /host/tmp/${SOURCE_ARCHIVE} rpmbuild/SOURCES/
@@ -99,7 +104,7 @@ run cat <<BUILD > build.sh
 rpmbuild -ba ${rpmbuild_options} rpmbuild/SPECS/${PACKAGE}.spec
 BUILD
 run chmod +x build.sh
-if [ "${distribution_version}" = 6 ]; then
+if [ -n "${DEVTOOLSET_VERSION:-}" ]; then
   run cat <<WHICH_STRIP > which-strip.sh
 #!/bin/bash
 
@@ -107,12 +112,12 @@ which strip
 WHICH_STRIP
   run chmod +x which-strip.sh
   run cat <<USE_DEVTOOLSET_STRIP >> ~/.rpmmacros
-%__strip $(run scl enable devtoolset-6 ./which-strip.sh)
+%__strip $(run scl enable devtoolset-${DEVTOOLSET_VERSION} ./which-strip.sh)
 USE_DEVTOOLSET_STRIP
   if [ "${DEBUG:-no}" = "yes" ]; then
-    run scl enable devtoolset-6 ./build.sh
+    run scl enable devtoolset-${DEVTOOLSET_VERSION} ./build.sh
   else
-    run scl enable devtoolset-6 ./build.sh > /dev/null
+    run scl enable devtoolset-${DEVTOOLSET_VERSION} ./build.sh > /dev/null
   fi
 else
   if [ "${DEBUG:-no}" = "yes" ]; then

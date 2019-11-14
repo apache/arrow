@@ -1277,6 +1277,8 @@ tasks:
       upload_extensions:
         - .rpm
     artifacts:
+      - apache-arrow-release-{no_rc_version}-1.el6.noarch.rpm
+      - apache-arrow-release-{no_rc_version}-1.el6.src.rpm
       - arrow-{no_rc_version}-1.el6.src.rpm
       - arrow-debuginfo-{no_rc_version}-1.el6.[a-z0-9_]+.rpm
       - arrow-devel-{no_rc_version}-1.el6.[a-z0-9_]+.rpm
@@ -1297,6 +1299,8 @@ tasks:
       upload_extensions:
         - .rpm
     artifacts:
+      - apache-arrow-release-{no_rc_version}-1.el7.noarch.rpm
+      - apache-arrow-release-{no_rc_version}-1.el7.src.rpm
       - arrow-{no_rc_version}-1.el7.src.rpm
       - arrow-debuginfo-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
       - arrow-devel-{no_rc_version}-1.el7.[a-z0-9_]+.rpm
@@ -1361,6 +1365,8 @@ tasks:
       upload_extensions:
         - .rpm
     artifacts:
+      - apache-arrow-release-{no_rc_version}-1.el8.noarch.rpm
+      - apache-arrow-release-{no_rc_version}-1.el8.src.rpm
       - arrow-{no_rc_version}-1.el8.src.rpm
       - arrow-dataset-devel-{no_rc_version}-1.el8.[a-z0-9_]+.rpm
       - arrow-dataset-libs-debuginfo-{no_rc_version}-1.el8.[a-z0-9_]+.rpm

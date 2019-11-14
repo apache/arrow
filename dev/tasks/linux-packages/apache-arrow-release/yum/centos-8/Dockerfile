@@ -1,5 +1,3 @@
-# -*- ruby -*-
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,41 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-packages = [
-  "apache-arrow",
-  "apache-arrow-archive-keyring",
-  "apache-arrow-release",
-]
+FROM centos:8
 
-namespace :apt do
-  desc "Build deb packages"
-  task :build do
-    packages.each do |package|
-      cd(package) do
-        ruby("-S", "rake", "apt:build")
-      end
-    end
-  end
-end
+ARG DEBUG
 
-namespace :yum do
-  desc "Build RPM packages"
-  task :build do
-    packages.each do |package|
-      cd(package) do
-        ruby("-S", "rake", "yum:build")
-      end
-    end
-  end
-end
-
-namespace :version do
-  desc "Update versions"
-  task :update do
-    packages.each do |package|
-      cd(package) do
-        ruby("-S", "rake", "version:update")
-      end
-    end
-  end
-end
+RUN \
+  quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
+  dnf install -y ${quiet} epel-release && \
+  dnf install --enablerepo=PowerTools -y ${quiet} \
+    rpm-build \
+    rpmdevtools && \
+  dnf clean ${quiet} all
