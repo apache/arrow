@@ -113,10 +113,12 @@ def test_binary_format():
 
 def test_to_numpy_zero_copy():
     arr = pa.array(range(10))
-    old_refcount = sys.getrefcount(arr)
 
     np_arr = arr.to_numpy()
-    assert sys.getrefcount(arr) == old_refcount
+
+    # check for zero copy (both arrays using same memory)
+    arrow_buf = arr.buffers()[1]
+    assert arrow_buf.address == np_arr.ctypes.data
 
     arr = None
     import gc
@@ -162,9 +164,13 @@ def test_to_numpy_writable():
     with pytest.raises(ValueError):
         np_arr[0] = 10
 
-    np_arr2 = arr.to_numpy(writable=True)
+    np_arr2 = arr.to_numpy(zero_copy_only=False, writable=True)
     np_arr2[0] = 10
     assert arr[0].as_py() == 0
+
+    # when asking for writable, cannot do zero-copy
+    with pytest.raises(ValueError):
+        arr.to_numpy(zero_copy_only=True, writable=True)
 
 
 @pytest.mark.parametrize('unit', ['s', 'ms', 'us', 'ns'])

@@ -953,9 +953,11 @@ cdef class Array(_PandasConvertible):
 
     def to_numpy(self, zero_copy_only=True, writable=False):
         """
-        Experimental: return a NumPy view of this array. Only primitive
-        arrays with the same memory layout as NumPy (i.e. integers,
-        floating point), without any nulls, are supported.
+        Return a NumPy view or copy of this array (experimental).
+
+        By default, tries to return a view of this array. This is only
+        supported for primitive arrays with the same memory layout as NumPy
+        (i.e. integers, floating point, ..) and without any nulls.
 
         Parameters
         ----------
@@ -978,14 +980,18 @@ cdef class Array(_PandasConvertible):
             PandasOptions c_options
             object values
 
+        if zero_copy_only and writable:
+            raise ValueError(
+                "Cannot return a writable array if asking for zero-copy")
+
         c_options.zero_copy_only = zero_copy_only
 
         with nogil:
             check_status(ConvertArrayToPandas(c_options, self.sp_array,
                                               self, &out))
         array = PyObject_to_object(out)
-        if writable and not array.flags["WRITEABLE"]:
-            # if the conversion already needed to a copy, WRITEABLE is True
+        if writable and not array.flags.writeable:
+            # if the conversion already needed to a copy, writeable is True
             array = array.copy()
         return array
 
