@@ -2177,10 +2177,8 @@ class ArrowDeserializer {
     ArrayVector out_chunks(data_->num_chunks());
     for (int i = 0; i < data_->num_chunks(); i++) {
       auto chunk = data_->chunk(i);
-      auto ext_data = chunk->data()->Copy();
-      ext_data->type = storage_type;
-      auto storage_result = MakeArray(ext_data);
-      out_chunks[i] = storage_result;
+      auto storage_data = checked_cast<const ExtensionArray&>(*chunk).storage();
+      out_chunks[i] = storage_data;
     }
 
     data_ = std::make_shared<ChunkedArray>(out_chunks);
