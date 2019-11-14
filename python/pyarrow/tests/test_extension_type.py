@@ -402,3 +402,9 @@ def test_to_numpy():
 
     result = np.asarray(arr)
     np.testing.assert_array_equal(result, expected)
+
+    # chunked array
+    charr = pa.chunked_array([arr])
+
+    result = np.asarray(charr)
+    np.testing.assert_array_equal(result, expected)
