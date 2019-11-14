@@ -286,21 +286,29 @@ TYPED_TEST(TestSerialize, RepeatedTooFewRows) {
   ASSERT_THROW(this->RepeatedUnequalRows(), ParquetException);
 }
 
+#ifdef ARROW_WITH_SNAPPY
 TYPED_TEST(TestSerialize, SmallFileSnappy) {
   ASSERT_NO_FATAL_FAILURE(this->FileSerializeTest(Compression::SNAPPY));
 }
+#endif
 
+#ifdef ARROW_WITH_BROTLI
 TYPED_TEST(TestSerialize, SmallFileBrotli) {
   ASSERT_NO_FATAL_FAILURE(this->FileSerializeTest(Compression::BROTLI));
 }
+#endif
 
+#ifdef ARROW_WITH_GZIP
 TYPED_TEST(TestSerialize, SmallFileGzip) {
   ASSERT_NO_FATAL_FAILURE(this->FileSerializeTest(Compression::GZIP));
 }
+#endif
 
+#ifdef ARROW_WITH_LZ4
 TYPED_TEST(TestSerialize, SmallFileLz4) {
   ASSERT_NO_FATAL_FAILURE(this->FileSerializeTest(Compression::LZ4));
 }
+#endif
 
 #ifdef ARROW_WITH_ZSTD
 TYPED_TEST(TestSerialize, SmallFileZstd) {
