@@ -183,7 +183,7 @@ jobs:
         run: ci/scripts/python_test.sh $(pwd)
 
   downstream:
-    name: AMD64 Conda Python 3.7 ${{ matrix.name }}
+    name: AMD64 Conda Python 3.7 ${{ matrix.title }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -193,7 +193,7 @@ jobs:
           - turbodbc
           - pandas-master
           - pandas-0.24
-        includes:
+        include:
           - name: dask
             library: dask
             title: Dask
