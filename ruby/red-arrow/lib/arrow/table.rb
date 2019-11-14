@@ -327,15 +327,18 @@ module Arrow
           to += n_rows if to < 0
           ranges << [from, to]
         when ::Array
-          boolean_array_to_slice_ranges(slicer, 0, ranges)
+          slicer.map! { |value| value.nil? ? false : value }
+          return filter(slicer)
         when ChunkedArray
-          offset = 0
+          chunks = []
           slicer.each_chunk do |array|
-            boolean_array_to_slice_ranges(array, offset, ranges)
-            offset += array.length
+            chunks << array.map { |value| value.nil? ? false : value }
           end
+          return filter(chunks.flatten)
         when BooleanArray
-          boolean_array_to_slice_ranges(slicer, 0, ranges)
+          slicer = slicer.to_a
+          slicer.map! { |value| value.nil? ? false : value }
+          return filter(slicer)
         else
           message = "slicer must be Integer, Range, (from, to), " +
             "Arrow::ChunkedArray of Arrow::BooleanArray, " +
