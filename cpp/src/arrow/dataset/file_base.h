@@ -133,8 +133,8 @@ class ARROW_DS_EXPORT FileFormat {
 
   virtual std::string name() const = 0;
 
-  /// \brief Return true if the given file extension
-  virtual bool IsKnownExtension(const std::string& ext) const = 0;
+  /// \brief Indicate if the FileSource is supported/readable by this format.
+  virtual Status IsSupported(const FileSource& source, bool* supported) const = 0;
 
   /// \brief Return the schema of the file if possible.
   virtual Status Inspect(const FileSource& source,

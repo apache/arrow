@@ -86,7 +86,7 @@ class ARROW_DS_EXPORT DataSourceDiscovery {
 };
 
 struct FileSystemDiscoveryOptions {
-  // For the purposes of applying the partition scheme, files will be stripped
+  // For the purposes of applying the partition scheme, paths will be stripped
   // of the partition_base_dir. Files not matching the partition_base_dir
   // prefix will be skipped for partition discovery. The ignored files will still
   // be part of the DataSource, but will not have partition information.
@@ -103,6 +103,12 @@ struct FileSystemDiscoveryOptions {
   // is important, e.g. SchemaPartitionScheme.
   std::string partition_base_dir;
 
+  // Files given (via selector or explicitly) will be filtered via the
+  // FileFormat::IsSupported method.  This will incur IO for each files in a
+  // serial and single threaded fashion. Disabling this feature will skip the
+  // IO, but bubble failure later down the chain.
+  bool filter_supported_files = true;
+
   // Files matching one of the following prefix will be ignored by the
   // discovery process. This is matched to the basename of a path.
   //
@@ -115,9 +121,6 @@ struct FileSystemDiscoveryOptions {
   std::vector<std::string> ignore_prefixes = {
       ".",
       "_",
-      // HDFS stamp files. A full match is also a valid prefix match.
-      "_$folder$",
-      "_SUCCESS",
   };
 };
 
@@ -148,9 +151,8 @@ class ARROW_DS_EXPORT FileSystemDataSourceDiscovery : public DataSourceDiscovery
   /// with selector.base_dir.
   ///
   /// \param[in] filesystem passed to FileSystemDataSource
-  /// \param[in] selector
+  /// \param[in] selector used to crawl and search files
   /// \param[in] format passed to FileSystemDataSource
-  /// \param[in] format to pass to FileSystemDataSource
   /// \param[in] options see @FileSystemDiscoveryOptions for more information.
   /// \param[out] discovery output pointer
   static Status Make(fs::FileSystem* filesystem, fs::Selector selector,

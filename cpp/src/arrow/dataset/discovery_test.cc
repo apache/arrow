@@ -32,7 +32,7 @@ class FileSystemDataSourceDiscoveryTest : public TestFileSystemBasedDataSource {
   void MakeDiscovery(const std::vector<fs::FileStats>& files) {
     MakeFileSystem(files);
     ASSERT_OK(FileSystemDataSourceDiscovery::Make(fs_.get(), selector_, format_,
-                                                  fs_options_, &discovery_));
+                                                  discovery_options_, &discovery_));
   }
 
   void AssertFinishWithPaths(std::vector<std::string> paths) {
@@ -42,7 +42,7 @@ class FileSystemDataSourceDiscoveryTest : public TestFileSystemBasedDataSource {
 
  protected:
   fs::Selector selector_;
-  FileSystemDiscoveryOptions fs_options_;
+  FileSystemDiscoveryOptions discovery_options_;
   std::shared_ptr<DataSourceDiscovery> discovery_;
   std::shared_ptr<FileFormat> format_ = std::make_shared<DummyFileFormat>();
 };
@@ -86,7 +86,7 @@ TEST_F(FileSystemDataSourceDiscoveryTest, OptionsIgnoredDefaultPrefixes) {
 }
 
 TEST_F(FileSystemDataSourceDiscoveryTest, OptionsIgnoredCustomPrefixes) {
-  fs_options_.ignore_prefixes = {"not_ignored"};
+  discovery_options_.ignore_prefixes = {"not_ignored"};
   MakeDiscovery({
       fs::File("."),
       fs::File("_"),

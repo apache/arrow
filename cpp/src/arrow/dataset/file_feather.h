@@ -43,8 +43,8 @@ class ARROW_DS_EXPORT FeatherFileFormat : public FileFormat {
  public:
   std::string name() const override;
 
-  /// \brief Return true if the given file extension
-  bool IsKnownExtension(const std::string& ext) const override;
+  /// \brief Indicate if the FileSource is supported/readable by this format.
+  Status IsSupported(const FileSource& source, bool* supported) const override;
 
   /// \brief Open a file for scanning
   Status ScanFile(const FileSource& source, std::shared_ptr<ScanOptions> scan_options,

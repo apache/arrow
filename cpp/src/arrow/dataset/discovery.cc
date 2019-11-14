@@ -42,30 +42,28 @@ FileSystemDataSourceDiscovery::FileSystemDataSourceDiscovery(
       format_(std::move(format)),
       options_(std::move(options)) {}
 
-std::vector<fs::FileStats> FilterFilesByPrefix(const std::vector<std::string>& prefixes,
-                                               std::vector<fs::FileStats> files) {
-  std::vector<fs::FileStats> filtered;
-  auto matches_prefix = [&prefixes](const fs::FileStats& file) -> bool {
-    // Ignore non-file.
-    if (!file.IsFile()) return true;
+bool FilterFileByPrefix(const std::vector<std::string>& prefixes,
+                        const fs::FileStats& file) {
+  if (!file.IsFile()) return true;
 
-    auto dir_base = fs::internal::GetAbstractPathParent(file.path());
-    util::string_view basename{dir_base.second};
+  auto dir_base = fs::internal::GetAbstractPathParent(file.path());
+  util::string_view basename{dir_base.second};
 
-    auto has_prefix = [&basename](const std::string& prefix) -> bool {
-      return !prefix.empty() && basename.starts_with(prefix);
-    };
-
-    return !std::any_of(prefixes.cbegin(), prefixes.cend(), has_prefix);
+  auto matches_prefix = [&basename](const std::string& prefix) -> bool {
+    return !prefix.empty() && basename.starts_with(prefix);
   };
 
-  for (const auto& stat : files) {
-    if (matches_prefix(stat)) {
-      filtered.push_back(stat);
-    }
-  }
+  return std::none_of(prefixes.cbegin(), prefixes.cend(), matches_prefix);
+}
 
-  return filtered;
+Result<bool> FilterFileBySupportedFormat(const FileFormat& format,
+                                         const fs::FileStats& file, fs::FileSystem* fs) {
+  if (!file.IsFile()) return true;
+
+  bool supported = false;
+  RETURN_NOT_OK(format.IsSupported(FileSource(file.path(), fs), &supported));
+
+  return supported;
 }
 
 Status FileSystemDataSourceDiscovery::Make(fs::FileSystem* filesystem,
@@ -73,9 +71,22 @@ Status FileSystemDataSourceDiscovery::Make(fs::FileSystem* filesystem,
                                            std::shared_ptr<FileFormat> format,
                                            FileSystemDiscoveryOptions options,
                                            std::shared_ptr<DataSourceDiscovery>* out) {
-  const auto& prefixes = options.ignore_prefixes;
-  std::vector<fs::FileStats> filtered =
-      prefixes.empty() ? std::move(files) : FilterFilesByPrefix(prefixes, files);
+  DCHECK_NE(format, nullptr);
+
+  bool has_prefixes = !options.ignore_prefixes.empty();
+  std::vector<fs::FileStats> filtered;
+  for (const auto& stat : files) {
+    if (has_prefixes && !FilterFileByPrefix(options.ignore_prefixes, stat)) continue;
+
+    if (options.filter_supported_files) {
+      // Propagate a real (likely IO) error.
+      ARROW_ASSIGN_OR_RAISE(bool supported,
+                            FilterFileBySupportedFormat(*format, stat, filesystem));
+      if (!supported) continue;
+    }
+
+    filtered.push_back(stat);
+  }
 
   out->reset(new FileSystemDataSourceDiscovery(filesystem, std::move(filtered),
                                                std::move(format), std::move(options)));
@@ -91,6 +102,9 @@ Status FileSystemDataSourceDiscovery::Make(fs::FileSystem* filesystem,
   std::vector<fs::FileStats> files;
   RETURN_NOT_OK(filesystem->GetTargetStats(selector, &files));
 
+  // By automatically setting the options base_dir to the selector's base_dir,
+  // we provide a better experience for user providing PartitionScheme that are
+  // relative to the base_dir instead of the full path.
   if (options.partition_base_dir.empty() && !selector.base_dir.empty()) {
     options.partition_base_dir = selector.base_dir;
   }

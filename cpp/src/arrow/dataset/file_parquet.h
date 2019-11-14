@@ -47,10 +47,7 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
  public:
   std::string name() const override { return "parquet"; }
 
-  /// \brief Return true if the given file extension
-  bool IsKnownExtension(const std::string& ext) const override {
-    return ext == "par" || ext == "parq" || ext == name();
-  }
+  Status IsSupported(const FileSource& source, bool* supported) const override;
 
   /// \brief Return the schema of the file if possible.
   Status Inspect(const FileSource& source, std::shared_ptr<Schema>* out) const override;

@@ -188,13 +188,13 @@ TEST_F(TestParquetFileFormat, OpenFailureWithRelevantError) {
   std::shared_ptr<Schema> dont_care;
 
   std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(IOError, testing::HasSubstr("<Buffer>"),
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr("<Buffer>"),
                                   format.Inspect({buf}, &dont_care));
 
   constexpr auto file_name = "herp/derp";
   ASSERT_OK_AND_ASSIGN(
       auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, {fs::File(file_name)}));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(IOError, testing::HasSubstr(file_name),
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, testing::HasSubstr(file_name),
                                   format.Inspect({file_name, fs.get()}, &dont_care));
 }
 
@@ -280,6 +280,25 @@ TEST_F(TestParquetFileFormat, Inspect) {
   std::shared_ptr<Schema> actual;
   ASSERT_OK(format.Inspect(*source.get(), &actual));
   EXPECT_EQ(*actual, *schema_);
+}
+
+TEST_F(TestParquetFileFormat, IsSupported) {
+  auto reader = GetRecordBatchReader();
+  auto source = GetFileSource(reader.get());
+  auto format = ParquetFileFormat();
+
+  bool supported = false;
+
+  std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
+  ASSERT_OK(format.IsSupported(FileSource(buf), &supported));
+  ASSERT_EQ(supported, false);
+
+  buf = std::make_shared<Buffer>(util::string_view("corrupted"));
+  ASSERT_OK(format.IsSupported(FileSource(buf), &supported));
+  ASSERT_EQ(supported, false);
+
+  ASSERT_OK(format.IsSupported(*source.get(), &supported));
+  EXPECT_EQ(supported, true);
 }
 
 void CountRowsInScan(ScanTaskIterator& it, int64_t expected_rows,
