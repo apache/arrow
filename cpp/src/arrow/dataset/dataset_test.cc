@@ -323,7 +323,9 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   s.base_dir = "/dataset";
   s.recursive = true;
 
-  // Further options can be given to the discovery mechanism.
+  // Further options can be given to the discovery mechanism via the
+  // FileSystemDiscoveryOptions configuration class. See the docstring for more
+  // information.
   FileSystemDiscoveryOptions options;
   options.ignore_prefixes = {"."};
 

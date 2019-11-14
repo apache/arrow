@@ -55,10 +55,17 @@ TEST_F(FileSystemDataSourceDiscoveryTest, Basic) {
 
 TEST_F(FileSystemDataSourceDiscoveryTest, Selector) {
   selector_.base_dir = "A";
-  MakeDiscovery({fs::File("0"), fs::File("A/a")});
+  selector_.recursive = true;
 
+  MakeDiscovery({fs::File("0"), fs::File("A/a"), fs::File("A/A/a")});
   // "0" doesn't match selector, so it has been dropped:
-  AssertFinishWithPaths({"A/a"});
+  AssertFinishWithPaths({"A/a", "A/A/a"});
+
+  discovery_options_.partition_base_dir = "A/A";
+  MakeDiscovery({fs::File("0"), fs::File("A/a"), fs::File("A/A/a")});
+  // partition_base_dir should not affect filtered files, ony the applied
+  // partition scheme.
+  AssertFinishWithPaths({"A/a", "A/A/a"});
 }
 
 TEST_F(FileSystemDataSourceDiscoveryTest, Partition) {

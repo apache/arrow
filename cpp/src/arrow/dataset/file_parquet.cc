@@ -243,6 +243,7 @@ Status ParquetFileFormat::IsSupported(const FileSource& source, bool* supported)
     RETURN_NOT_OK(source.Open(&input));
     auto reader = parquet::ParquetFileReader::Open(input);
   } catch (const ::parquet::ParquetInvalidOrCorruptedFileException& e) {
+    ARROW_UNUSED(e);
     *supported = false;
     return Status::OK();
   } catch (const ::parquet::ParquetException& e) {

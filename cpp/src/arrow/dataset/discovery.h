@@ -103,11 +103,12 @@ struct FileSystemDiscoveryOptions {
   // is important, e.g. SchemaPartitionScheme.
   std::string partition_base_dir;
 
-  // Files given (via selector or explicitly) will be filtered via the
-  // FileFormat::IsSupported method.  This will incur IO for each files in a
-  // serial and single threaded fashion. Disabling this feature will skip the
-  // IO, but bubble failure later down the chain.
-  bool filter_supported_files = true;
+  // Invalid files (via selector or explicitly) will be excluded by checking
+  // with the FileFormat::IsSupported method.  This will incur IO for each files
+  // in a serial and single threaded fashion. Disabling this feature will skip the
+  // IO, but unsupported files may will be present in the DataSource
+  // (resulting in an error at scan time).
+  bool exclude_invalid_files = true;
 
   // Files matching one of the following prefix will be ignored by the
   // discovery process. This is matched to the basename of a path.

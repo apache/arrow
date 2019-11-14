@@ -42,31 +42,18 @@ FileSystemDataSourceDiscovery::FileSystemDataSourceDiscovery(
       format_(std::move(format)),
       options_(std::move(options)) {}
 
-bool FilterFileByPrefix(const std::vector<std::string>& prefixes,
-                        const fs::FileStats& file) {
-  if (!file.IsFile()) return true;
-
-  auto dir_base = fs::internal::GetAbstractPathParent(file.path());
+bool StartsWithAnyOf(const std::vector<std::string>& prefixes, const std::string& path) {
+  auto dir_base = fs::internal::GetAbstractPathParent(path);
   util::string_view basename{dir_base.second};
 
   auto matches_prefix = [&basename](const std::string& prefix) -> bool {
     return !prefix.empty() && basename.starts_with(prefix);
   };
 
-  return std::none_of(prefixes.cbegin(), prefixes.cend(), matches_prefix);
+  return std::any_of(prefixes.cbegin(), prefixes.cend(), matches_prefix);
 }
 
-Result<bool> FilterFileBySupportedFormat(const FileFormat& format,
-                                         const fs::FileStats& file, fs::FileSystem* fs) {
-  if (!file.IsFile()) return true;
-
-  bool supported = false;
-  RETURN_NOT_OK(format.IsSupported(FileSource(file.path(), fs), &supported));
-
-  return supported;
-}
-
-Status FileSystemDataSourceDiscovery::Make(fs::FileSystem* filesystem,
+Status FileSystemDataSourceDiscovery::Make(fs::FileSystem* fs,
                                            std::vector<fs::FileStats> files,
                                            std::shared_ptr<FileFormat> format,
                                            FileSystemDiscoveryOptions options,
@@ -76,20 +63,27 @@ Status FileSystemDataSourceDiscovery::Make(fs::FileSystem* filesystem,
   bool has_prefixes = !options.ignore_prefixes.empty();
   std::vector<fs::FileStats> filtered;
   for (const auto& stat : files) {
-    if (has_prefixes && !FilterFileByPrefix(options.ignore_prefixes, stat)) continue;
+    if (stat.IsFile()) {
+      const std::string& path = stat.path();
 
-    if (options.filter_supported_files) {
-      // Propagate a real (likely IO) error.
-      ARROW_ASSIGN_OR_RAISE(bool supported,
-                            FilterFileBySupportedFormat(*format, stat, filesystem));
-      if (!supported) continue;
+      if (has_prefixes && StartsWithAnyOf(options.ignore_prefixes, path)) {
+        continue;
+      }
+
+      if (options.exclude_invalid_files) {
+        bool supported = true;
+        RETURN_NOT_OK(format->IsSupported(FileSource(path, fs), &supported));
+        if (!supported) {
+          continue;
+        }
+      }
     }
 
     filtered.push_back(stat);
   }
 
-  out->reset(new FileSystemDataSourceDiscovery(filesystem, std::move(filtered),
-                                               std::move(format), std::move(options)));
+  out->reset(new FileSystemDataSourceDiscovery(fs, std::move(filtered), std::move(format),
+                                               std::move(options)));
 
   return Status::OK();
 }
