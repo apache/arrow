@@ -45,7 +45,6 @@ map: list<item: struct<key: string, value: struct<int1: int32, string1: string>>
   end
 
   def test_field_indices
-    require_gi(1, 42, 0)
     require_gi_bindings(3, 2, 6)
     assert_nil(@reader.field_indices)
     @reader.field_indices = [1, 3]

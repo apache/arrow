@@ -26,7 +26,6 @@ class TestCSVReader < Test::Unit::TestCase
     end
 
     def test_default
-      require_gi(1, 42, 0)
       table = Arrow::CSVReader.new(open_input(<<-CSV))
 message,count
 "Start",2
