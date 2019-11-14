@@ -427,6 +427,9 @@ public class AvroToArrowTest extends AvroTestBase {
     checkPrimitiveResult(expected, vector);
   }
 
+  /**
+   * This is meant to only test out the dependence on the vector tests artifact.
+   */
   @Test
   public void testValueVectorDataPopulator() {
     try (final IntVector intVector = new IntVector("intVector", config.getAllocator())) {
