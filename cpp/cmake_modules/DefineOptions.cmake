@@ -139,7 +139,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   #----------------------------------------------------------------------
   set_option_category("Project component")
 
-  define_option(ARROW_BUILD_UTILITIES "Build Arrow commandline utilities" ON)
+  define_option(ARROW_BUILD_UTILITIES "Build Arrow commandline utilities" OFF)
 
   define_option(ARROW_COMPUTE "Build the Arrow Compute Modules" ON)
 
