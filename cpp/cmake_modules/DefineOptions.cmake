@@ -233,7 +233,7 @@ if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_CURRENT_SOURCE_DIR}")
   define_option(ARROW_WITH_BACKTRACE "Build with backtrace support" ON)
 
   define_option(ARROW_USE_GLOG "Build libraries with glog support for pluggable logging"
-                ON)
+                OFF)
 
   define_option(ARROW_WITH_BROTLI "Build with Brotli compression" OFF)
   define_option(ARROW_WITH_BZ2 "Build with BZ2 compression" OFF)
