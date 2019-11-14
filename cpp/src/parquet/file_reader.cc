@@ -212,11 +212,11 @@ class SerializedFile : public ParquetFileReader::Contents {
     PARQUET_THROW_NOT_OK(source_->GetSize(&file_size));
 
     if (file_size == 0) {
-      ParquetStatusException::Invalid("Parquet file size is 0 bytes");
+      throw ParquetInvalidOrCorruptedFileException("Parquet file size is 0 bytes");
     } else if (file_size < kFooterSize) {
-      ParquetStatusException::Invalid("Parquet file size is ", file_size,
-                                      " bytes, smaller than the minimum file footer (",
-                                      kFooterSize, " bytes)");
+      throw ParquetInvalidOrCorruptedFileException(
+          "Parquet file size is ", file_size,
+          " bytes, smaller than the minimum file footer (", kFooterSize, " bytes)");
     }
 
     std::shared_ptr<Buffer> footer_buffer;
@@ -228,7 +228,7 @@ class SerializedFile : public ParquetFileReader::Contents {
     if (footer_buffer->size() != footer_read_size ||
         (memcmp(footer_buffer->data() + footer_read_size - 4, kParquetMagic, 4) != 0 &&
          memcmp(footer_buffer->data() + footer_read_size - 4, kParquetEMagic, 4) != 0)) {
-      ParquetStatusException::Invalid(
+      throw ParquetInvalidOrCorruptedFileException(
           "Parquet magic bytes not found in footer. Either the file is corrupted or this "
           "is not a parquet file.");
     }
@@ -294,7 +294,7 @@ void SerializedFile::ParseUnencryptedFileMetadata(
       kFooterSize);
   int64_t metadata_start = file_size - kFooterSize - *metadata_len;
   if (kFooterSize + *metadata_len > file_size) {
-    ParquetStatusException::Invalid(
+    throw ParquetInvalidOrCorruptedFileException(
         "Parquet file size is ", file_size,
         " bytes, smaller than the size reported by metadata (", metadata_len, "bytes)");
   }
@@ -306,9 +306,9 @@ void SerializedFile::ParseUnencryptedFileMetadata(
   } else {
     PARQUET_THROW_NOT_OK(source_->ReadAt(metadata_start, *metadata_len, metadata_buffer));
     if ((*metadata_buffer)->size() != *metadata_len) {
-      ParquetStatusException::IOError("Failed reading metadata buffer (requested ",
-                                      *metadata_len, " bytes but got ",
-                                      (*metadata_buffer)->size(), " bytes)");
+      throw ParquetException("Failed reading metadata buffer (requested " +
+                             std::to_string(*metadata_len) + " bytes but got " +
+                             std::to_string((*metadata_buffer)->size()) + " bytes)");
     }
   }
 
@@ -326,7 +326,7 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithEncryptedFooter(
       kFooterSize);
   int64_t crypto_metadata_start = file_size - kFooterSize - footer_len;
   if (kFooterSize + footer_len > file_size) {
-    ParquetStatusException::Invalid(
+    throw ParquetInvalidOrCorruptedFileException(
         "Parquet file size is ", file_size,
         " bytes, smaller than the size reported by footer's (", footer_len, "bytes)");
   }
@@ -339,14 +339,14 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithEncryptedFooter(
     PARQUET_THROW_NOT_OK(
         source_->ReadAt(crypto_metadata_start, footer_len, &crypto_metadata_buffer));
     if (crypto_metadata_buffer->size() != footer_len) {
-      ParquetStatusException::IOError(
-          "Failed reading encrypted metadata buffer (requested ", footer_len,
-          " bytes but got ", crypto_metadata_buffer->size(), " bytes)");
+      throw ParquetException("Failed reading encrypted metadata buffer (requested " +
+                             std::to_string(footer_len) + " bytes but got " +
+                             std::to_string(crypto_metadata_buffer->size()) + " bytes)");
     }
   }
   auto file_decryption_properties = properties_.file_decryption_properties();
   if (file_decryption_properties == nullptr) {
-    ParquetStatusException::ExecutionError(
+    throw ParquetException(
         "Could not read encrypted metadata, no decryption found in reader's properties");
   }
   uint32_t crypto_metadata_len = footer_len;
@@ -363,9 +363,9 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithEncryptedFooter(
   std::shared_ptr<Buffer> metadata_buffer;
   PARQUET_THROW_NOT_OK(source_->ReadAt(metadata_offset, metadata_len, &metadata_buffer));
   if (metadata_buffer->size() != metadata_len) {
-    ParquetStatusException::IOError("Failed reading metadata buffer (requested ",
-                                    metadata_len, " bytes but got ",
-                                    metadata_buffer->size(), " bytes)");
+    throw ParquetException("Failed reading metadata buffer (requested " +
+                           std::to_string(metadata_len) + " bytes but got " +
+                           std::to_string(metadata_buffer->size()) + " bytes)");
   }
 
   auto footer_decryptor = file_decryptor_->GetFooterDecryptor();
@@ -390,7 +390,7 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithPlaintextFooter(
     if (file_decryption_properties->check_plaintext_footer_integrity()) {
       if (metadata_len - read_metadata_len !=
           (parquet::encryption::kGcmTagLength + parquet::encryption::kNonceLength)) {
-        ParquetStatusException::Invalid(
+        throw ParquetInvalidOrCorruptedFileException(
             "Failed reading metadata for encryption signature (requested ",
             parquet::encryption::kGcmTagLength + parquet::encryption::kNonceLength,
             " bytes but have ", metadata_len - read_metadata_len, " bytes)");
@@ -398,7 +398,8 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithPlaintextFooter(
 
       if (!file_metadata_->VerifySignature(file_decryptor_.get(),
                                            metadata_buffer->data() + read_metadata_len)) {
-        ParquetStatusException::Invalid("Parquet crypto signature verification failed");
+        throw ParquetInvalidOrCorruptedFileException(
+            "Parquet crypto signature verification failed");
       }
     }
   }

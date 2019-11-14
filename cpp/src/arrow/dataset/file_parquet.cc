@@ -238,25 +238,19 @@ class ParquetScanTaskIterator {
 };
 
 Status ParquetFileFormat::IsSupported(const FileSource& source, bool* supported) const {
-  auto pool = default_memory_pool();
-
-  *supported = false;
-
-  std::unique_ptr<parquet::ParquetFileReader> reader;
-  auto status = OpenReader(source, pool, &reader);
-
-  if (!status.ok()) {
-    // Likely not a parquet file, ignore it.
-    if (status.IsInvalid()) {
-      return Status::OK();
-    }
-
-    // Real error, e.g. IO, propagate to caller.
-    return status;
+  try {
+    std::shared_ptr<io::RandomAccessFile> input;
+    RETURN_NOT_OK(source.Open(&input));
+    auto reader = parquet::ParquetFileReader::Open(input);
+  } catch (const ::parquet::ParquetInvalidOrCorruptedFileException& e) {
+    *supported = false;
+    return Status::OK();
+  } catch (const ::parquet::ParquetException& e) {
+    return Status::IOError("Could not open parquet input source '", source.path(),
+                           "': ", e.what());
   }
 
   *supported = true;
-
   return Status::OK();
 }
 
@@ -300,10 +294,6 @@ Status ParquetFileFormat::OpenReader(
 
   try {
     *out = parquet::ParquetFileReader::Open(input);
-  } catch (const ::parquet::ParquetStatusException& e) {
-    const auto& status = e.status();
-    return Status(status.code(), "Could not open parquet input source '" + source.path() +
-                                     "': " + status.message());
   } catch (const ::parquet::ParquetException& e) {
     return Status::IOError("Could not open parquet input source '", source.path(),
                            "': ", e.what());

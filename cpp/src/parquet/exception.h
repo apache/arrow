@@ -44,14 +44,12 @@
     ARROW_UNUSED(_s);            \
   } while (0)
 
-#define PARQUET_THROW_NOT_OK(s)                    \
-  do {                                             \
-    ::arrow::Status _s = (s);                      \
-    if (!_s.ok()) {                                \
-      std::stringstream ss;                        \
-      ss << "Arrow error: " << _s.ToString();      \
-      throw ::parquet::ParquetException(ss.str()); \
-    }                                              \
+#define PARQUET_THROW_NOT_OK(s)                               \
+  do {                                                        \
+    ::arrow::Status _s = (s);                                 \
+    if (!_s.ok()) {                                           \
+      throw ::parquet::ParquetStatusException(std::move(_s)); \
+    }                                                         \
   } while (0)
 
 namespace parquet {
@@ -92,106 +90,18 @@ class ParquetStatusException : public ParquetException {
   explicit ParquetStatusException(::arrow::Status status)
       : ParquetException(status.ToString()), status_(std::move(status)) {}
 
-  /// Return an error status for out-of-memory conditions
-  template <typename... Args>
-  PARQUET_NORETURN static void OutOfMemory(Args&&... args) {
-    throw ParquetStatusException(
-        ::arrow::Status::OutOfMemory(std::forward<Args>(args)...));
-  }
-
-  /// Return an error status for failed key lookups (e.g. column name in a table)
-  template <typename... Args>
-  PARQUET_NORETURN static void KeyError(Args&&... args) {
-    throw ParquetStatusException(::arrow::Status::KeyError(std::forward<Args>(args)...));
-  }
-
-  /// Return an error status for type errors (such as mismatching data types)
-  template <typename... Args>
-  PARQUET_NORETURN static void TypeError(Args&&... args) {
-    throw ParquetStatusException(::arrow::Status::TypeError(std::forward<Args>(args)...));
-  }
-
-  /// Return an error status for unknown errors
-  template <typename... Args>
-  PARQUET_NORETURN static void UnknownError(Args&&... args) {
-    throw ParquetStatusException(
-        ::arrow::Status::UnknownError(std::forward<Args>(args)...));
-  }
-
-  /// Return an error status when an operation or a combination of operation and
-  /// data types is unimplemented
-  template <typename... Args>
-  PARQUET_NORETURN static void NotImplemented(Args&&... args) {
-    throw ParquetStatusException(
-        ::arrow::Status::NotImplemented(std::forward<Args>(args)...));
-  }
-
-  /// Return an error status for invalid data (for example a string that fails parsing)
-  template <typename... Args>
-  PARQUET_NORETURN static void Invalid(Args&&... args) {
-    throw ParquetStatusException(::arrow::Status::Invalid(std::forward<Args>(args)...));
-  }
-
-  /// Return an error status when an index is out of bounds
-  template <typename... Args>
-  PARQUET_NORETURN static void IndexError(Args&&... args) {
-    throw ParquetStatusException(
-        ::arrow::Status::IndexError(std::forward<Args>(args)...));
-  }
-
-  /// Return an error status when a container's capacity would exceed its limits
-  template <typename... Args>
-  PARQUET_NORETURN static void CapacityError(Args&&... args) {
-    throw ParquetStatusException(
-        ::arrow::Status::CapacityError(std::forward<Args>(args)...));
-  }
-
-  /// Return an error status when some IO-related operation failed
-  template <typename... Args>
-  PARQUET_NORETURN static void IOError(Args&&... args) {
-    throw ParquetStatusException(::arrow::Status::IOError(std::forward<Args>(args)...));
-  }
-
-  /// Return an error status when some (de)serialization operation failed
-  template <typename... Args>
-  PARQUET_NORETURN static void SerializationError(Args&&... args) {
-    throw ParquetStatusException(
-        ::arrow::Status::SerializationError(std::forward<Args>(args)...));
-  }
-
-  template <typename... Args>
-  PARQUET_NORETURN static void RError(Args&&... args) {
-    throw ParquetStatusException(::arrow::Status::RError(std::forward<Args>(args)...));
-  }
-
-  template <typename... Args>
-  PARQUET_NORETURN static void CodeGenError(Args&&... args) {
-    throw ParquetStatusException(
-        ::arrow::Status::CodeGenError(std::forward<Args>(args)...));
-  }
-
-  template <typename... Args>
-  PARQUET_NORETURN static void ExpressionValidationError(Args&&... args) {
-    throw ParquetStatusException(
-        ::arrow::Status::ExpressionValidationError(std::forward<Args>(args)...));
-  }
-
-  template <typename... Args>
-  PARQUET_NORETURN static void ExecutionError(Args&&... args) {
-    throw ParquetStatusException(
-        ::arrow::Status::ExecutionError(std::forward<Args>(args)...));
-  }
-
-  template <typename... Args>
-  PARQUET_NORETURN static void AlreadyExists(Args&&... args) {
-    throw ParquetStatusException(
-        ::arrow::Status::AlreadyExists(std::forward<Args>(args)...));
-  }
-
   const ::arrow::Status& status() const { return status_; }
 
  private:
   ::arrow::Status status_;
+};
+
+// This class exists for the purpose of detecting an invalid or corrupted file.
+class ParquetInvalidOrCorruptedFileException : public ParquetStatusException {
+ public:
+  template <typename... Args>
+  explicit ParquetInvalidOrCorruptedFileException(Args&&... args)
+      : ParquetStatusException(::arrow::Status::Invalid(std::forward<Args>(args)...)) {}
 };
 
 template <typename StatusReturnBlock>
