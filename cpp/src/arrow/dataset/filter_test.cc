@@ -76,6 +76,13 @@ class ExpressionsTest : public ::testing::Test {
   std::shared_ptr<ScalarExpression> never = scalar(false);
 };
 
+TEST_F(ExpressionsTest, StringRepresentation) {
+  ASSERT_EQ("a"_.ToString(), "a");
+  ASSERT_EQ(("a"_ > int32_t(3)).ToString(), "(a > 3:int32)");
+  ASSERT_EQ(("a"_ > int32_t(3) and "a"_ < int32_t(4)).ToString(),
+            "((a > 3:int32) and (a < 4:int32))");
+}
+
 TEST_F(ExpressionsTest, Equality) {
   ASSERT_EQ(E{"a"_}, E{"a"_});
   ASSERT_NE(E{"a"_}, E{"b"_});
