@@ -604,48 +604,11 @@ class ARROW_DS_EXPORT TreeEvaluator : public ExpressionEvaluator {
   Result<compute::Datum> Evaluate(const Expression& expr,
                                   const RecordBatch& batch) const override;
 
-  Result<compute::Datum> DoEvaluate(const ScalarExpression& expr,
-                                    const RecordBatch& batch) const;
-
-  Result<compute::Datum> DoEvaluate(const FieldExpression& expr,
-                                    const RecordBatch& batch) const;
-
-  Result<compute::Datum> DoEvaluate(const AndExpression& expr,
-                                    const RecordBatch& batch) const;
-
-  Result<compute::Datum> DoEvaluate(const OrExpression& expr,
-                                    const RecordBatch& batch) const;
-
-  Result<compute::Datum> Evaluate(const InExpression& expr,
-                                  const RecordBatch& batch) const;
-
-  Result<compute::Datum> Evaluate(const IsValidExpression& expr,
-                                  const RecordBatch& batch) const;
-
-  Result<compute::Datum> Evaluate(const NotExpression& expr,
-                                  const RecordBatch& batch) const;
-
-  Result<compute::Datum> DoEvaluate(const CastExpression& expr,
-                                    const RecordBatch& batch) const;
-
-  Result<compute::Datum> DoEvaluate(const ComparisonExpression& expr,
-                                    const RecordBatch& batch) const;
-
-  virtual Result<compute::Datum> DoEvaluate(const CustomExpression& expr,
-                                            const RecordBatch& batch) const {
-    return Status::NotImplemented("evaluation of ", expr.ToString());
-  }
-
   Result<std::shared_ptr<RecordBatch>> Filter(
       const compute::Datum& selection,
       const std::shared_ptr<RecordBatch>& batch) const override;
 
  protected:
-  Result<compute::Datum> DoEvaluate(
-      const BinaryExpression& boolean, const RecordBatch& batch,
-      Status kernel(compute::FunctionContext* context, const compute::Datum& left,
-                    const compute::Datum& right, compute::Datum* out)) const;
-
   struct Impl;
   MemoryPool* pool_;
 };

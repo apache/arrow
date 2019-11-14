@@ -1010,157 +1010,148 @@ std::shared_ptr<ExpressionEvaluator> ExpressionEvaluator::Null() {
 }
 
 struct TreeEvaluator::Impl {
-  template <typename E>
-  Result<Datum> operator()(const E& expr) const {
-    return this_->DoEvaluate(expr, batch_);
+  Result<Datum> operator()(const ScalarExpression& expr) const {
+    return Datum(expr.value());
+  }
+
+  Result<Datum> operator()(const FieldExpression& expr) const {
+    if (auto column = batch_.GetColumnByName(expr.name())) {
+      return std::move(column);
+    }
+    return NullDatum();
+  }
+
+  Result<Datum> operator()(const AndExpression& expr) const {
+    return EvaluateBoolean(expr, compute::KleeneAnd);
+  }
+
+  Result<Datum> operator()(const OrExpression& expr) const {
+    return EvaluateBoolean(expr, compute::KleeneOr);
+  }
+
+  Result<Datum> EvaluateBoolean(const BinaryExpression& expr,
+                                Status kernel(compute::FunctionContext* context,
+                                              const compute::Datum& left,
+                                              const compute::Datum& right,
+                                              compute::Datum* out)) const {
+    ARROW_ASSIGN_OR_RAISE(auto lhs, this_->Evaluate(*expr.left_operand(), batch_));
+    ARROW_ASSIGN_OR_RAISE(auto rhs, this_->Evaluate(*expr.right_operand(), batch_));
+
+    if (lhs.is_scalar()) {
+      std::shared_ptr<Array> lhs_array;
+      RETURN_NOT_OK(
+          MakeArrayFromScalar(pool_, *lhs.scalar(), batch_.num_rows(), &lhs_array));
+      lhs = Datum(std::move(lhs_array));
+    }
+
+    if (rhs.is_scalar()) {
+      std::shared_ptr<Array> rhs_array;
+      RETURN_NOT_OK(
+          MakeArrayFromScalar(pool_, *rhs.scalar(), batch_.num_rows(), &rhs_array));
+      rhs = Datum(std::move(rhs_array));
+    }
+
+    Datum out;
+    compute::FunctionContext ctx{pool_};
+    RETURN_NOT_OK(kernel(&ctx, lhs, rhs, &out));
+    return std::move(out);
+  }
+
+  Result<Datum> operator()(const NotExpression& expr) const {
+    ARROW_ASSIGN_OR_RAISE(auto to_invert, this_->Evaluate(*expr.operand(), batch_));
+    if (IsNullDatum(to_invert)) {
+      return NullDatum();
+    }
+
+    if (to_invert.is_scalar()) {
+      bool trivial_condition =
+          checked_cast<const BooleanScalar&>(*to_invert.scalar()).value;
+      return Datum(std::make_shared<BooleanScalar>(!trivial_condition));
+    }
+
+    DCHECK(to_invert.is_array());
+    Datum out;
+    compute::FunctionContext ctx{pool_};
+    RETURN_NOT_OK(arrow::compute::Invert(&ctx, to_invert, &out));
+    return std::move(out);
+  }
+
+  Result<Datum> operator()(const InExpression& expr) const {
+    ARROW_ASSIGN_OR_RAISE(auto operand_values, this_->Evaluate(*expr.operand(), batch_));
+    if (IsNullDatum(operand_values)) {
+      return Datum(expr.set()->null_count() != 0);
+    }
+
+    DCHECK(operand_values.is_array());
+    Datum out;
+    compute::FunctionContext ctx{pool_};
+    RETURN_NOT_OK(arrow::compute::IsIn(&ctx, operand_values, expr.set(), &out));
+    return std::move(out);
+  }
+
+  Result<Datum> operator()(const IsValidExpression& expr) const {
+    ARROW_ASSIGN_OR_RAISE(auto operand_values, this_->Evaluate(*expr.operand(), batch_));
+    if (IsNullDatum(operand_values)) {
+      return Datum(false);
+    }
+
+    if (operand_values.is_scalar()) {
+      return Datum(true);
+    }
+
+    DCHECK(operand_values.is_array());
+    if (operand_values.array()->GetNullCount() == 0) {
+      return Datum(true);
+    }
+
+    return Datum(std::make_shared<BooleanArray>(operand_values.array()->length,
+                                                operand_values.array()->buffers[0]));
+  }
+
+  Result<Datum> operator()(const CastExpression& expr) const {
+    ARROW_ASSIGN_OR_RAISE(auto to_type, expr.Validate(*batch_.schema()));
+
+    ARROW_ASSIGN_OR_RAISE(auto to_cast, this_->Evaluate(*expr.operand(), batch_));
+    if (to_cast.is_scalar()) {
+      return to_cast.scalar()->CastTo(to_type);
+    }
+
+    DCHECK(to_cast.is_array());
+    Datum out;
+    compute::FunctionContext ctx{pool_};
+    RETURN_NOT_OK(arrow::compute::Cast(&ctx, to_cast, to_type, expr.options(), &out));
+    return std::move(out);
+  }
+
+  Result<Datum> operator()(const ComparisonExpression& expr) const {
+    ARROW_ASSIGN_OR_RAISE(auto lhs, this_->Evaluate(*expr.left_operand(), batch_));
+    ARROW_ASSIGN_OR_RAISE(auto rhs, this_->Evaluate(*expr.right_operand(), batch_));
+
+    if (IsNullDatum(lhs) || IsNullDatum(rhs)) {
+      return Datum(std::make_shared<BooleanScalar>());
+    }
+
+    DCHECK(lhs.is_array());
+
+    Datum out;
+    compute::FunctionContext ctx{pool_};
+    RETURN_NOT_OK(arrow::compute::Compare(
+        &ctx, lhs, rhs, arrow::compute::CompareOptions(expr.op()), &out));
+    return std::move(out);
+  }
+
+  Result<Datum> operator()(const Expression& expr) const {
+    return Status::NotImplemented("evaluation of ", expr.ToString());
   }
 
   const TreeEvaluator* this_;
   const RecordBatch& batch_;
+  MemoryPool* pool_;
 };
 
 Result<Datum> TreeEvaluator::Evaluate(const Expression& expr,
                                       const RecordBatch& batch) const {
-  return VisitExpression(expr, Impl{this, batch});
-}
-
-Result<Datum> TreeEvaluator::DoEvaluate(const ScalarExpression& expr,
-                                        const RecordBatch& batch) const {
-  return Datum(expr.value());
-}
-
-Result<Datum> TreeEvaluator::DoEvaluate(const FieldExpression& expr,
-                                        const RecordBatch& batch) const {
-  auto column = batch.GetColumnByName(expr.name());
-  if (column == nullptr) {
-    return NullDatum();
-  }
-  return std::move(column);
-}
-
-Result<Datum> TreeEvaluator::Evaluate(const NotExpression& expr,
-                                      const RecordBatch& batch) const {
-  ARROW_ASSIGN_OR_RAISE(auto to_invert, Evaluate(*expr.operand(), batch));
-  if (IsNullDatum(to_invert)) {
-    return NullDatum();
-  }
-
-  if (to_invert.is_scalar()) {
-    bool trivial_condition =
-        checked_cast<const BooleanScalar&>(*to_invert.scalar()).value;
-    return Datum(!trivial_condition);
-  }
-
-  DCHECK(to_invert.is_array());
-  Datum out;
-  compute::FunctionContext ctx{pool_};
-  RETURN_NOT_OK(arrow::compute::Invert(&ctx, to_invert, &out));
-  return std::move(out);
-}
-
-Result<Datum> TreeEvaluator::Evaluate(const InExpression& expr,
-                                      const RecordBatch& batch) const {
-  ARROW_ASSIGN_OR_RAISE(auto operand_values, Evaluate(*expr.operand(), batch));
-  if (IsNullDatum(operand_values)) {
-    return Datum(expr.set()->null_count() != 0);
-  }
-
-  DCHECK(operand_values.is_array());
-  Datum out;
-  compute::FunctionContext ctx{pool_};
-  RETURN_NOT_OK(arrow::compute::IsIn(&ctx, operand_values, expr.set(), &out));
-  return std::move(out);
-}
-
-Result<Datum> TreeEvaluator::Evaluate(const IsValidExpression& expr,
-                                      const RecordBatch& batch) const {
-  ARROW_ASSIGN_OR_RAISE(auto operand_values, Evaluate(*expr.operand(), batch));
-  if (IsNullDatum(operand_values)) {
-    return Datum(false);
-  }
-
-  if (operand_values.is_scalar()) {
-    return Datum(true);
-  }
-
-  DCHECK(operand_values.is_array());
-  if (operand_values.array()->GetNullCount() == 0) {
-    return Datum(true);
-  }
-
-  return Datum(std::make_shared<BooleanArray>(operand_values.array()->length,
-                                              operand_values.array()->buffers[0]));
-}
-
-Result<Datum> TreeEvaluator::DoEvaluate(const AndExpression& expr,
-                                        const RecordBatch& batch) const {
-  return DoEvaluate(expr, batch, compute::KleeneAnd);
-}
-
-Result<Datum> TreeEvaluator::DoEvaluate(const OrExpression& expr,
-                                        const RecordBatch& batch) const {
-  return DoEvaluate(expr, batch, compute::KleeneOr);
-}
-
-Result<Datum> TreeEvaluator::DoEvaluate(
-    const BinaryExpression& expr, const RecordBatch& batch,
-    Status kernel(compute::FunctionContext* context, const compute::Datum& left,
-                  const compute::Datum& right, compute::Datum* out)) const {
-  ARROW_ASSIGN_OR_RAISE(auto lhs, Evaluate(*expr.left_operand(), batch));
-  ARROW_ASSIGN_OR_RAISE(auto rhs, Evaluate(*expr.right_operand(), batch));
-
-  if (lhs.is_scalar()) {
-    std::shared_ptr<Array> lhs_array;
-    RETURN_NOT_OK(
-        MakeArrayFromScalar(pool_, *lhs.scalar(), batch.num_rows(), &lhs_array));
-    lhs = Datum(std::move(lhs_array));
-  }
-
-  if (rhs.is_scalar()) {
-    std::shared_ptr<Array> rhs_array;
-    RETURN_NOT_OK(
-        MakeArrayFromScalar(pool_, *rhs.scalar(), batch.num_rows(), &rhs_array));
-    rhs = Datum(std::move(rhs_array));
-  }
-
-  Datum out;
-  compute::FunctionContext ctx{pool_};
-  RETURN_NOT_OK(kernel(&ctx, lhs, rhs, &out));
-  return std::move(out);
-}
-
-Result<Datum> TreeEvaluator::DoEvaluate(const CastExpression& expr,
-                                        const RecordBatch& batch) const {
-  ARROW_ASSIGN_OR_RAISE(auto to_type, expr.Validate(*batch.schema()));
-
-  ARROW_ASSIGN_OR_RAISE(auto to_cast, Evaluate(*expr.operand(), batch));
-  if (to_cast.is_scalar()) {
-    return to_cast.scalar()->CastTo(to_type);
-  }
-
-  DCHECK(to_cast.is_array());
-  Datum out;
-  compute::FunctionContext ctx{pool_};
-  RETURN_NOT_OK(arrow::compute::Cast(&ctx, to_cast, to_type, expr.options(), &out));
-  return std::move(out);
-}
-
-Result<Datum> TreeEvaluator::DoEvaluate(const ComparisonExpression& expr,
-                                        const RecordBatch& batch) const {
-  ARROW_ASSIGN_OR_RAISE(auto lhs, Evaluate(*expr.left_operand(), batch));
-  ARROW_ASSIGN_OR_RAISE(auto rhs, Evaluate(*expr.right_operand(), batch));
-
-  if (IsNullDatum(lhs) || IsNullDatum(rhs)) {
-    return Datum(std::make_shared<BooleanScalar>());
-  }
-
-  DCHECK(lhs.is_array());
-
-  Datum out;
-  compute::FunctionContext ctx{pool_};
-  RETURN_NOT_OK(arrow::compute::Compare(&ctx, lhs, rhs,
-                                        arrow::compute::CompareOptions(expr.op()), &out));
-  return std::move(out);
+  return VisitExpression(expr, Impl{this, batch, pool_});
 }
 
 Result<std::shared_ptr<RecordBatch>> TreeEvaluator::Filter(

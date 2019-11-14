@@ -422,9 +422,17 @@ class TakeExpression : public CustomExpression {
 
     using TreeEvaluator::Evaluate;
 
-    Result<compute::Datum> DoEvaluate(const CustomExpression& expr,
-                                      const RecordBatch& batch) const override {
-      const auto& take_expr = checked_cast<const TakeExpression&>(expr);
+    Result<compute::Datum> Evaluate(const Expression& expr,
+                                    const RecordBatch& batch) const override {
+      if (expr.type() == ExpressionType::CUSTOM) {
+        const auto& take_expr = checked_cast<const TakeExpression&>(expr);
+        return EvaluateTake(take_expr, batch);
+      }
+      return TreeEvaluator::Evaluate(expr, batch);
+    }
+
+    Result<compute::Datum> EvaluateTake(const TakeExpression& take_expr,
+                                        const RecordBatch& batch) const {
       ARROW_ASSIGN_OR_RAISE(auto indices, Evaluate(*take_expr.operand_, batch));
 
       if (indices.kind() == Datum::SCALAR) {
