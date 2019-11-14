@@ -86,9 +86,6 @@ ADD scripts/build_glog.sh /
 RUN /build_glog.sh
 ENV GLOG_HOME /usr/local
 
-ADD scripts/build_double_conversion.sh /
-RUN /build_double_conversion.sh
-
 ADD scripts/build_rapidjson.sh /
 RUN /build_rapidjson.sh
 

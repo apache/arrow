@@ -33,7 +33,6 @@ class ApacheArrow < Formula
   depends_on "cmake" => :build
   depends_on "flatbuffers" => :build
   depends_on "boost"
-  depends_on "double-conversion"
   depends_on "lz4"
   depends_on "snappy"
   depends_on "thrift"
@@ -74,7 +73,7 @@ class ApacheArrow < Formula
         return 0;
       }
     EOS
-    system ENV.cxx, "test.cpp", "-std=c++11", "-I#{include}", "-L#{lib}", "-larrow", "-lparquet", "-lthrift", "-llz4", "-lboost_system", "-lboost_regex", "-ldouble-conversion", "-lsnappy", "-o", "test"
+    system ENV.cxx, "test.cpp", "-std=c++11", "-I#{include}", "-L#{lib}", "-larrow", "-lparquet", "-lthrift", "-llz4", "-lboost_system", "-lboost_regex", "-lsnappy", "-o", "test"
     system "./test"
   end
 end

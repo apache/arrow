@@ -591,9 +591,9 @@ set(ARROW_SHARED_INSTALL_INTERFACE_LIBS)
 set(ARROW_STATIC_INSTALL_INTERFACE_LIBS)
 
 # Libraries to link statically with libarrow.so
-set(ARROW_LINK_LIBS ${double-conversion_LIBRARIES})
-set(ARROW_STATIC_LINK_LIBS ${double-conversion_LIBRARIES})
-set(ARROW_STATIC_INSTALL_INTERFACE_LIBS ${double-conversion_LIBRARIES})
+set(ARROW_LINK_LIBS)
+set(ARROW_STATIC_LINK_LIBS)
+set(ARROW_STATIC_INSTALL_INTERFACE_LIBS)
 
 if(ARROW_WITH_URIPARSER)
   list(APPEND ARROW_STATIC_LINK_LIBS uriparser::uriparser)
@@ -711,7 +711,6 @@ set(ARROW_TEST_SHARED_LINK_LIBS
     arrow_testing_shared
     arrow_shared
     ${ARROW_LINK_LIBS}
-    ${double-conversion_LIBRARIES}
     ${BOOST_FILESYSTEM_LIBRARY}
     ${BOOST_SYSTEM_LIBRARY}
     ${ARROW_TEST_LINK_TOOLCHAIN})

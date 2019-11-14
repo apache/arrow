@@ -27,12 +27,11 @@
 #include <string>
 #include <type_traits>
 
-#include <double-conversion/double-conversion.h>
-
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
+#include "arrow/util/double_conversion.h"
 #include "arrow/vendored/datetime.h"
 
 namespace arrow {
@@ -123,24 +122,24 @@ class StringToFloatConverterMixin {
 // This is only support in double-conversion 3.1+
 #ifdef DOUBLE_CONVERSION_HAS_CASE_INSENSIBILITY
   static const int flags_ =
-      double_conversion::StringToDoubleConverter::ALLOW_CASE_INSENSIBILITY;
+      util::double_conversion::StringToDoubleConverter::ALLOW_CASE_INSENSIBILITY;
 #else
-  static const int flags_ = double_conversion::StringToDoubleConverter::NO_FLAGS;
+  static const int flags_ = util::double_conversion::StringToDoubleConverter::NO_FLAGS;
 #endif
   // Two unlikely values to signal a parsing error
   static constexpr double main_junk_value_ = 0.7066424364107089;
   static constexpr double fallback_junk_value_ = 0.40088499148279166;
 
-  double_conversion::StringToDoubleConverter main_converter_;
-  double_conversion::StringToDoubleConverter fallback_converter_;
+  util::double_conversion::StringToDoubleConverter main_converter_;
+  util::double_conversion::StringToDoubleConverter fallback_converter_;
 
-  inline void TryConvert(double_conversion::StringToDoubleConverter& converter,
+  inline void TryConvert(util::double_conversion::StringToDoubleConverter& converter,
                          const char* s, size_t length, float* out) {
     int processed_length;
     *out = converter.StringToFloat(s, static_cast<int>(length), &processed_length);
   }
 
-  inline void TryConvert(double_conversion::StringToDoubleConverter& converter,
+  inline void TryConvert(util::double_conversion::StringToDoubleConverter& converter,
                          const char* s, size_t length, double* out) {
     int processed_length;
     *out = converter.StringToDouble(s, static_cast<int>(length), &processed_length);

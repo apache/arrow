@@ -43,7 +43,6 @@
 %define use_glib (%{_centos_ver} >= 7)
 %define use_meson (%{_centos_ver} >= 8)
 
-%define have_double_conversion (%{_centos_ver} >= 7)
 %define have_rapidjson (%{_centos_ver} == 7)
 %define have_thrift (%{_centos_ver} == 7)
 
@@ -63,9 +62,6 @@ BuildRequires:	brotli-devel
 %endif
 BuildRequires:	bzip2-devel
 BuildRequires:	cmake%{cmake_version}
-%if %{have_double_conversion}
-BuildRequires:	double-conversion-devel
-%endif
 BuildRequires:	gcc-c++
 BuildRequires:	gflags-devel
 BuildRequires:	git
@@ -200,9 +196,6 @@ Requires:	boost%{boost_version}-system
 Requires:	boost%{boost_version}-filesystem
 Requires:	boost%{boost_version}-regex
 Requires:	brotli
-%endif
-%if %{have_double_conversion}
-Requires:	double-conversion
 %endif
 Requires:	gflags
 %if %{_centos_ver} >= 7

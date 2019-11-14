@@ -32,7 +32,6 @@ RUN \
     bzip2-devel \
     clang \
     cmake \
-    double-conversion-devel \
     flex \
     gcc-c++ \
     gflags-devel \

@@ -24,13 +24,12 @@
 #include <type_traits>
 #include <utility>
 
-#include <double-conversion/double-conversion.h>
-
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
+#include "arrow/util/double_conversion.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {
@@ -186,7 +185,7 @@ class StringFormatter<UInt64Type> : public IntToStringFormatterMixin<UInt64Type>
 template <typename ARROW_TYPE, typename Derived>
 class FloatToStringFormatterMixin {
  public:
-  using DoubleToStringConverter = double_conversion::DoubleToStringConverter;
+  using DoubleToStringConverter = util::double_conversion::DoubleToStringConverter;
   using value_type = typename ARROW_TYPE::c_type;
 
   static const int buffer_size = DoubleToStringConverter::kBase10MaximalLength + 1;
@@ -199,7 +198,7 @@ class FloatToStringFormatterMixin {
   Status operator()(value_type value, Appender&& append) {
     char buffer[buffer_size];
     // StringBuilder checks bounds in debug mode for us
-    double_conversion::StringBuilder builder(buffer, buffer_size);
+    util::double_conversion::StringBuilder builder(buffer, buffer_size);
     static_cast<Derived*>(this)->Format(value, &builder);
     return append(util::string_view(buffer, builder.position()));
   }
@@ -214,7 +213,7 @@ class StringFormatter<FloatType>
  public:
   using FloatToStringFormatterMixin::FloatToStringFormatterMixin;
 
-  void Format(value_type value, double_conversion::StringBuilder* builder) {
+  void Format(value_type value, util::double_conversion::StringBuilder* builder) {
     bool result = converter_.ToShortestSingle(value, builder);
     assert(result);
     ARROW_UNUSED(result);
@@ -227,7 +226,7 @@ class StringFormatter<DoubleType>
  public:
   using FloatToStringFormatterMixin::FloatToStringFormatterMixin;
 
-  void Format(value_type value, double_conversion::StringBuilder* builder) {
+  void Format(value_type value, util::double_conversion::StringBuilder* builder) {
     bool result = converter_.ToShortest(value, builder);
     assert(result);
     ARROW_UNUSED(result);

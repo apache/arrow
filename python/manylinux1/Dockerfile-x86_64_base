@@ -95,9 +95,6 @@ RUN /build_llvm.sh
 ADD scripts/build_clang.sh /
 RUN /build_clang.sh
 
-ADD scripts/build_double_conversion.sh /
-RUN /build_double_conversion.sh
-
 ADD scripts/build_rapidjson.sh /
 RUN /build_rapidjson.sh
 

@@ -143,7 +143,15 @@ set(ARROW_SRCS
     util/trie.cc
     util/utf8.cc
     vendored/base64.cpp
-    vendored/datetime/tz.cpp)
+    vendored/datetime/tz.cpp
+    vendored/double-conversion/bignum.cc
+    vendored/double-conversion/double-conversion.cc
+    vendored/double-conversion/bignum-dtoa.cc
+    vendored/double-conversion/fast-dtoa.cc
+    vendored/double-conversion/cached-powers.cc
+    vendored/double-conversion/fixed-dtoa.cc
+    vendored/double-conversion/diy-fp.cc
+    vendored/double-conversion/strtod.cc)
 
 if(ARROW_WITH_BOOST_FILESYSTEM)
   add_definitions(-DARROW_WITH_BOOST_FILESYSTEM)

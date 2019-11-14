@@ -34,7 +34,6 @@ RUN \
     brotli-devel \
     bzip2-devel \
     cmake3 \
-    double-conversion-devel \
     flex \
     gflags-devel \
     git \

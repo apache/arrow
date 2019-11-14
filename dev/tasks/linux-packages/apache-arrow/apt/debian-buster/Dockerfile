@@ -47,7 +47,6 @@ RUN \
     libbrotli-dev \
     libbz2-dev \
     libc-ares-dev \
-    libdouble-conversion-dev \
     libgirepository1.0-dev \
     libglib2.0-doc \
     libgmock-dev \
