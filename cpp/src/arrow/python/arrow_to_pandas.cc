@@ -2171,6 +2171,24 @@ class ArrowDeserializer {
     return Status::OK();
   }
 
+  Status Visit(const ExtensionType& type) {
+    auto storage_type = type.storage_type();
+
+    ArrayVector out_chunks(data_->num_chunks());
+    for (int i = 0; i < data_->num_chunks(); i++) {
+      auto chunk = data_->chunk(i);
+      auto ext_data = chunk->data()->Copy();
+      ext_data->type = storage_type;
+      auto storage_result = MakeArray(ext_data);
+      out_chunks[i] = storage_result;
+    }
+
+    data_ = std::make_shared<ChunkedArray>(out_chunks);
+
+    RETURN_NOT_OK(VisitTypeInline(*data_->type(), this));
+    return Status::OK();
+  }
+
   // Default case
   Status Visit(const DataType& type) { return Status::NotImplemented(type.name()); }
 
