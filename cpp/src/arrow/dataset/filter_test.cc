@@ -109,8 +109,6 @@ TEST_F(ExpressionsTest, SimplificationOfCompoundQuery) {
 
   AssertSimplifiesTo("a"_ == 3 or "b"_ == 4, "a"_ == 0, "b"_ == 4);
 
-  // TODO(bkietz) the following simplifications should be possible:
-
   auto set_123 = ArrayFromJSON(int32(), R"([1, 2, 3])");
   AssertSimplifiesTo("a"_ == 3 and "b"_.In(set_123), "b"_ == 3, "a"_ == 3);
   AssertSimplifiesTo("a"_ == 3 and "b"_.In(set_123), "b"_ == 0, *never);

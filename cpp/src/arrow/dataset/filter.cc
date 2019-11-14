@@ -223,14 +223,16 @@ std::shared_ptr<Expression> Invert(const Expression& expr) {
 
 std::shared_ptr<Expression> Expression::Assume(const Expression& given) const {
   if (given.type() == ExpressionType::COMPARISON) {
-    const auto& cmp = checked_cast<const ComparisonExpression&>(given);
-    if (cmp.op() == compute::CompareOperator::EQUAL) {
-      if (this->Equals(cmp.left_operand())) {
-        return cmp.right_operand();
+    const auto& given_cmp = checked_cast<const ComparisonExpression&>(given);
+    if (given_cmp.op() == compute::CompareOperator::EQUAL) {
+      if (this->Equals(given_cmp.left_operand()) &&
+          given_cmp.right_operand()->type() == ExpressionType::SCALAR) {
+        return given_cmp.right_operand();
       }
 
-      if (this->Equals(cmp.right_operand())) {
-        return cmp.right_operand();
+      if (this->Equals(given_cmp.right_operand()) &&
+          given_cmp.left_operand()->type() == ExpressionType::SCALAR) {
+        return given_cmp.left_operand();
       }
     }
   }
@@ -989,6 +991,10 @@ Result<Datum> TreeEvaluator::Evaluate(const IsValidExpression& expr,
   }
 
   DCHECK(operand_values.is_array());
+  if (operand_values.array()->GetNullCount() == 0) {
+    return Datum(true);
+  }
+
   return Datum(std::make_shared<BooleanArray>(operand_values.array()->length,
                                               operand_values.array()->buffers[0]));
 }

@@ -326,7 +326,7 @@ class ARROW_DS_EXPORT IsValidExpression final
 class ARROW_DS_EXPORT InExpression final
     : public ExpressionImpl<UnaryExpression, InExpression, ExpressionType::IN> {
  public:
-  InExpression(std::shared_ptr<Array> set, std::shared_ptr<Expression> operand)
+  InExpression(std::shared_ptr<Expression> operand, std::shared_ptr<Array> set)
       : ExpressionImpl(std::move(operand)), set_(std::move(set)) {}
 
   std::string ToString() const override;
@@ -335,6 +335,7 @@ class ARROW_DS_EXPORT InExpression final
 
   std::shared_ptr<Expression> Assume(const Expression& given) const override;
 
+  /// The set against which the operand will be compared
   const std::shared_ptr<Array>& set() const { return set_; }
 
  private:
