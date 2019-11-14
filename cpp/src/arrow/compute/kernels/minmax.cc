@@ -108,7 +108,7 @@ class MinMaxAggregateFunction final
   }
 
   Status Finalize(const StateType& src, Datum* output) const override {
-    *output = Datum(src.min);
+    *output = Datum({Datum(src.min), Datum(src.max)});
     return Status::OK();
   }
 

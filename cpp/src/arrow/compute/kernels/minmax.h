@@ -57,10 +57,13 @@ std::shared_ptr<AggregateFunction> MakeMinMaxAggregateFunction(
 
 /// \brief Calculate the min / max of a numeric array
 ///
+/// This function returns both the min and max as a collection. The resulting
+/// datum thus consists of two scalar datums: {Datum(min), Datum(max)}
+///
 /// \param[in] ctx the FunctionContext
 /// \param[in] options, see MinMaxOptions for more information
 /// \param[in] value input datum, expecting Array or ChunkedArray
-/// \param[out] out resulting datum
+/// \param[out] out resulting datum containing a {min, max} collection
 ///
 /// \since 1.0.0
 /// \note API not yet finalized
@@ -70,10 +73,13 @@ Status MinMax(FunctionContext* ctx, const MinMaxOptions& options, const Datum& v
 
 /// \brief Calculate the min / max of a numeric array.
 ///
+/// This function returns both the min and max as a collection. The resulting
+/// datum thus consists of two scalar datums: {Datum(min), Datum(max)}
+///
 /// \param[in] ctx the FunctionContext
 /// \param[in] options, see MinMaxOptions for more information
 /// \param[in] array input array
-/// \param[out] out resulting datum
+/// \param[out] out resulting datum containing a {min, max} collection
 ///
 /// \since 1.0.0
 /// \note API not yet finalized
