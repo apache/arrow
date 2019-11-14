@@ -27,14 +27,9 @@ struct StringToFloatConverter::Impl {
         fallback_converter_(flags_, fallback_junk_value_, fallback_junk_value_, "inf",
                             "nan") {}
 
-  // This is only supported in double-conversion 3.1+
-#ifdef DOUBLE_CONVERSION_HAS_CASE_INSENSIBILITY
+  // NOTE: This is only supported in double-conversion 3.1+
   static constexpr int flags_ =
       util::double_conversion::StringToDoubleConverter::ALLOW_CASE_INSENSIBILITY;
-#else
-  static constexpr int flags_ =
-      util::double_conversion::StringToDoubleConverter::NO_FLAGS;
-#endif
 
   // Two unlikely values to signal a parsing error
   static constexpr double main_junk_value_ = 0.7066424364107089;
