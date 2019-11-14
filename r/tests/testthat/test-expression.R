@@ -55,7 +55,7 @@ test_that("C++ expressions", {
   expect_output(
     print(f > 4),
     # We can do better than this right?
-    'ComparisonExpression\nGREATER(field(f), scalar<double>(4.000000))',
+    'ComparisonExpression\nGREATER(field(f), scalar<double>(4))',
     fixed = TRUE
   )
 })
