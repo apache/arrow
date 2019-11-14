@@ -273,6 +273,18 @@ TEST_F(FilterTest, InExpression) {
   ])");
 }
 
+TEST_F(FilterTest, IsValidExpression) {
+  AssertFilter("s"_.IsValid(), {field("s", utf8())}, R"([
+      {"s": "hello", "in": 1},
+      {"s": null,    "in": 0},
+      {"s": "",      "in": 1},
+      {"s": null,    "in": 0},
+      {"s": "foo",   "in": 1},
+      {"s": "hello", "in": 1},
+      {"s": null,    "in": 0}
+  ])");
+}
+
 TEST_F(FilterTest, ConditionOnAbsentColumn) {
   AssertFilter("a"_ == 0 and "b"_ > 0.0 and "b"_ < 1.0 and "absent"_ == 0,
                {field("a", int32()), field("b", float64())}, R"([

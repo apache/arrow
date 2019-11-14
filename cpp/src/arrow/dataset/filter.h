@@ -196,6 +196,8 @@ class ARROW_DS_EXPORT Expression {
 
   InExpression In(std::shared_ptr<Array> set) const;
 
+  IsValidExpression IsValid() const;
+
  protected:
   ExpressionType::type type_;
 };

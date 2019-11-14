@@ -659,6 +659,8 @@ InExpression Expression::In(std::shared_ptr<Array> set) const {
   return InExpression(std::move(set), Copy());
 }
 
+IsValidExpression Expression::IsValid() const { return IsValidExpression(Copy()); }
+
 std::shared_ptr<Expression> FieldExpression::Copy() const {
   return std::make_shared<FieldExpression>(*this);
 }
