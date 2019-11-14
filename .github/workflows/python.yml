@@ -212,7 +212,7 @@ jobs:
       PYTHON: 3.7
       DASK: latest
       TURBODBC: latest
-      PANDAS: ${{ matrix.pandas || latest }}
+      PANDAS: ${{ matrix.pandas || 'latest' }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v1
