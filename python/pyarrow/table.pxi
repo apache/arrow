@@ -215,7 +215,7 @@ cdef class ChunkedArray(_PandasConvertible):
 
     def cast(self, object target_type, bint safe=True):
         """
-        Cast values to another data type
+        Cast values to another data type.
 
         Parameters
         ----------
