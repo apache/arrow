@@ -1964,15 +1964,17 @@ class ArrowDeserializer {
                               std::is_base_of<DurationType, Type>::value,
                           Status>::type
   Visit(const Type& type) {
-    if (options_.zero_copy_only) {
-      return Status::Invalid("Copy Needed, but zero_copy_only was True");
-    }
-
     constexpr int TYPE = Type::type_id;
     using traits = internal::arrow_traits<TYPE>;
     using c_type = typename Type::c_type;
 
     typedef typename traits::T T;
+
+    if (data_->num_chunks() == 1 && data_->null_count() == 0) {
+      return ConvertValuesZeroCopy<TYPE>(options_, traits::npy_type, data_->chunk(0));
+    } else if (options_.zero_copy_only) {
+      return Status::Invalid("Copy Needed, but zero_copy_only was True");
+    }
 
     RETURN_NOT_OK(AllocateOutput(traits::npy_type));
     auto out_values = reinterpret_cast<T*>(PyArray_DATA(arr_));

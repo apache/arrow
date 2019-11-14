@@ -2184,6 +2184,16 @@ class TestZeroCopyConversion(object):
         tm.assert_series_equal(pd.Series(result), pd.Series(values),
                                check_names=False)
 
+    def test_zero_copy_timestamp(self):
+        arr = np.array(['2007-07-13'], dtype='datetime64[ns]')
+        result = pa.array(arr).to_pandas(zero_copy_only=True)
+        npt.assert_array_equal(result, arr)
+
+    def test_zero_copy_duration(self):
+        arr = np.array([1], dtype='timedelta64[ns]')
+        result = pa.array(arr).to_pandas(zero_copy_only=True)
+        npt.assert_array_equal(result, arr)
+
     def check_zero_copy_failure(self, arr):
         with pytest.raises(pa.ArrowInvalid):
             arr.to_pandas(zero_copy_only=True)
@@ -2204,12 +2214,12 @@ class TestZeroCopyConversion(object):
         arr = pa.array([[1, 2], [8, 9]], type=pa.list_(pa.int64()))
         self.check_zero_copy_failure(arr)
 
-    def test_zero_copy_failure_on_timestamp_types(self):
-        arr = np.array(['2007-07-13'], dtype='datetime64[ns]')
+    def test_zero_copy_failure_on_timestamp_with_nulls(self):
+        arr = np.array([1, None], dtype='datetime64[ns]')
         self.check_zero_copy_failure(pa.array(arr))
 
-    def test_zero_copy_failure_on_duration_types(self):
-        arr = np.array([1], dtype='timedelta64[ns]')
+    def test_zero_copy_failure_on_duration_with_nulls(self):
+        arr = np.array([1, None], dtype='timedelta64[ns]')
         self.check_zero_copy_failure(pa.array(arr))
 
 
