@@ -221,6 +221,23 @@ std::shared_ptr<Expression> Invert(const Expression& expr) {
   return nullptr;
 }
 
+std::shared_ptr<Expression> Expression::Assume(const Expression& given) const {
+  if (given.type() == ExpressionType::COMPARISON) {
+    const auto& cmp = checked_cast<const ComparisonExpression&>(given);
+    if (cmp.op() == compute::CompareOperator::EQUAL) {
+      if (this->Equals(cmp.left_operand())) {
+        return cmp.right_operand();
+      }
+
+      if (this->Equals(cmp.right_operand())) {
+        return cmp.right_operand();
+      }
+    }
+  }
+
+  return Copy();
+}
+
 std::shared_ptr<Expression> ComparisonExpression::Assume(const Expression& given) const {
   switch (given.type()) {
     case ExpressionType::COMPARISON: {
@@ -258,6 +275,8 @@ std::shared_ptr<Expression> ComparisonExpression::Assume(const Expression& given
       simplified = simplified->Assume(*given_and.right_operand());
       return simplified;
     }
+
+      // TODO(bkietz) we should be able to use ExpressionType::IN here
 
     default:
       break;
@@ -501,6 +520,46 @@ std::shared_ptr<Expression> NotExpression::Assume(const Expression& given) const
   }
 
   return Copy();
+}
+
+std::shared_ptr<Expression> InExpression::Assume(const Expression& given) const {
+  auto operand = operand_->Assume(given);
+  if (operand->type() != ExpressionType::SCALAR) {
+    return std::make_shared<InExpression>(set_, std::move(operand));
+  }
+
+  if (operand->IsNull()) {
+    return scalar(set_->null_count() > 0);
+  }
+
+  const auto& value = checked_cast<const ScalarExpression&>(*operand).value();
+
+  Datum out;
+  compute::FunctionContext ctx;
+  arrow::compute::CompareOptions eq(compute::CompareOperator::EQUAL);
+  if (!compute::Compare(&ctx, Datum(set_), Datum(value), eq, &out).ok()) {
+    return std::make_shared<InExpression>(set_, std::move(operand));
+  }
+
+  DCHECK(out.is_array());
+  DCHECK_EQ(out.type()->id(), Type::BOOL);
+  auto out_array = checked_pointer_cast<BooleanArray>(out.make_array());
+
+  for (int64_t i = 0; i < out_array->length(); ++i) {
+    if (out_array->IsValid(i) && out_array->Value(i)) {
+      return scalar(true);
+    }
+  }
+  return scalar(false);
+}
+
+std::shared_ptr<Expression> IsValidExpression::Assume(const Expression& given) const {
+  auto operand = operand_->Assume(given);
+  if (operand->type() == ExpressionType::SCALAR) {
+    return scalar(!operand->IsNull());
+  }
+
+  return std::make_shared<IsValidExpression>(std::move(operand));
 }
 
 std::string FieldExpression::ToString() const {

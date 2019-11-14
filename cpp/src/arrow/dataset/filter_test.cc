@@ -111,11 +111,11 @@ TEST_F(ExpressionsTest, SimplificationOfCompoundQuery) {
 
   // TODO(bkietz) the following simplifications should be possible:
 
-  // auto hello_world = ArrayFromJSON(utf8(), R"(["hello", "world"])");
-  // AssertSimplifiesTo("a"_ == 3 and "s"_.In(hello_world), "s"_ == "hello", "a"_ == 3);
-  // AssertSimplifiesTo("a"_ == 3 and "s"_.In(hello_world), "s"_ == "", *never);
+  auto set_123 = ArrayFromJSON(int32(), R"([1, 2, 3])");
+  AssertSimplifiesTo("a"_ == 3 and "b"_.In(set_123), "b"_ == 3, "a"_ == 3);
+  AssertSimplifiesTo("a"_ == 3 and "b"_.In(set_123), "b"_ == 0, *never);
 
-  // AssertSimplifiesTo("a"_ == 0 or not"b"_.IsValid(), "b"_ == 3, "a"_ == 0);
+  AssertSimplifiesTo("a"_ == 0 or not"b"_.IsValid(), "b"_ == 3, "a"_ == 0);
 }
 
 TEST_F(ExpressionsTest, SimplificationAgainstCompoundCondition) {

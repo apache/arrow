@@ -178,9 +178,7 @@ class ARROW_DS_EXPORT Expression {
   /// replacing comparisons with their complements and using the properties:
   ///     (not (a and b)).Equals(not a or not b)
   ///     (not (a or b)).Equals(not a and not b)
-  virtual std::shared_ptr<Expression> Assume(const Expression& given) const {
-    return Copy();
-  }
+  virtual std::shared_ptr<Expression> Assume(const Expression& given) const;
 
   std::shared_ptr<Expression> Assume(const std::shared_ptr<Expression>& given) const {
     return Assume(*given);
@@ -321,6 +319,8 @@ class ARROW_DS_EXPORT IsValidExpression final
   std::string ToString() const override;
 
   Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
+
+  std::shared_ptr<Expression> Assume(const Expression& given) const override;
 };
 
 class ARROW_DS_EXPORT InExpression final
@@ -332,6 +332,8 @@ class ARROW_DS_EXPORT InExpression final
   std::string ToString() const override;
 
   Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
+
+  std::shared_ptr<Expression> Assume(const Expression& given) const override;
 
   const std::shared_ptr<Array>& set() const { return set_; }
 
