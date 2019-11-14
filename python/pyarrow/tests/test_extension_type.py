@@ -397,10 +397,8 @@ def test_to_numpy():
     arr = pa.ExtensionArray.from_storage(period_type, storage)
 
     expected = storage.to_numpy()
-
-    # TODO waiting on ARROW-6749 PR to enable to_numpy
-    # result = arr.to_numpy()
-    # np.testing.assert_array_equal(result, expected)
+    result = arr.to_numpy()
+    np.testing.assert_array_equal(result, expected)
 
     result = np.asarray(arr)
     np.testing.assert_array_equal(result, expected)
