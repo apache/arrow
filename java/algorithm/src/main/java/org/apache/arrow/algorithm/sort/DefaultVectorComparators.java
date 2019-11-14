@@ -97,6 +97,11 @@ public class DefaultVectorComparators {
       byte value2 = vector2.get(index2);
       return value1 - value2;
     }
+
+    @Override
+    public VectorValueComparator<TinyIntVector> createNew() {
+      return new ByteComparator();
+    }
   }
 
   /**
@@ -115,6 +120,11 @@ public class DefaultVectorComparators {
       short value2 = vector2.get(index2);
       return value1 - value2;
     }
+
+    @Override
+    public VectorValueComparator<SmallIntVector> createNew() {
+      return new ShortComparator();
+    }
   }
 
   /**
@@ -132,6 +142,11 @@ public class DefaultVectorComparators {
       int value1 = vector1.get(index1);
       int value2 = vector2.get(index2);
       return value1 - value2;
+    }
+
+    @Override
+    public VectorValueComparator<IntVector> createNew() {
+      return new IntComparator();
     }
   }
 
@@ -152,6 +167,11 @@ public class DefaultVectorComparators {
 
       return Long.signum(value1 - value2);
     }
+
+    @Override
+    public VectorValueComparator<BigIntVector> createNew() {
+      return new LongComparator();
+    }
   }
 
   /**
@@ -171,6 +191,11 @@ public class DefaultVectorComparators {
 
       return (value1 & 0xff) - (value2 & 0xff);
     }
+
+    @Override
+    public VectorValueComparator<UInt1Vector> createNew() {
+      return new UInt1Comparator();
+    }
   }
 
   /**
@@ -188,6 +213,11 @@ public class DefaultVectorComparators {
       char value1 = vector1.get(index1);
       char value2 = vector2.get(index2);
       return value1 - value2;
+    }
+
+    @Override
+    public VectorValueComparator<UInt2Vector> createNew() {
+      return new UInt2Comparator();
     }
   }
 
@@ -207,6 +237,11 @@ public class DefaultVectorComparators {
       int value2 = vector2.get(index2);
       return ByteFunctionHelpers.unsignedIntCompare(value1, value2);
     }
+
+    @Override
+    public VectorValueComparator<UInt4Vector> createNew() {
+      return new UInt4Comparator();
+    }
   }
 
   /**
@@ -224,6 +259,11 @@ public class DefaultVectorComparators {
       long value1 = vector1.get(index1);
       long value2 = vector2.get(index2);
       return ByteFunctionHelpers.unsignedLongCompare(value1, value2);
+    }
+
+    @Override
+    public VectorValueComparator<UInt8Vector> createNew() {
+      return new UInt8Comparator();
     }
   }
 
@@ -257,6 +297,11 @@ public class DefaultVectorComparators {
 
       return (int) Math.signum(value1 - value2);
     }
+
+    @Override
+    public VectorValueComparator<Float4Vector> createNew() {
+      return new Float4Comparator();
+    }
   }
 
   /**
@@ -289,6 +334,11 @@ public class DefaultVectorComparators {
 
       return (int) Math.signum(value1 - value2);
     }
+
+    @Override
+    public VectorValueComparator<Float8Vector> createNew() {
+      return new Float8Comparator();
+    }
   }
 
   /**
@@ -313,6 +363,11 @@ public class DefaultVectorComparators {
       vector1.getDataPointer(index1, reusablePointer1);
       vector2.getDataPointer(index2, reusablePointer2);
       return reusablePointer1.compareTo(reusablePointer2);
+    }
+
+    @Override
+    public VectorValueComparator<BaseVariableWidthVector> createNew() {
+      return new VariableWidthComparator();
     }
   }
 
@@ -350,6 +405,12 @@ public class DefaultVectorComparators {
         }
       }
       return length1 - length2;
+    }
+
+    @Override
+    public VectorValueComparator<BaseRepeatedValueVector> createNew() {
+      VectorValueComparator<T> newInnerComparator = innerComparator.createNew();
+      return new RepeatedValueComparator(newInnerComparator);
     }
 
     @Override
