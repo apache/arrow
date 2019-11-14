@@ -1162,7 +1162,8 @@ namespace internal {
 
 static Bitmap Copy(const Bitmap& bitmap, std::shared_ptr<Buffer> storage) {
   int64_t i = 0;
-  auto min_offset = Bitmap::VisitWords({bitmap}, [&](std::array<uint64_t, 1> uint64s) {
+  Bitmap bitmaps[] = {bitmap};
+  auto min_offset = Bitmap::VisitWords(bitmaps, [&](std::array<uint64_t, 1> uint64s) {
     reinterpret_cast<uint64_t*>(storage->mutable_data())[i++] = uint64s[0];
   });
   return Bitmap(std::move(storage), min_offset, bitmap.length());
