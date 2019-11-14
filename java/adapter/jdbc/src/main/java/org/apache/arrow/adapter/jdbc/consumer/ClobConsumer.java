@@ -32,14 +32,25 @@ import io.netty.util.internal.PlatformDependent;
  * Consumer which consume clob type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.VarCharVector}.
  */
-public class ClobConsumer implements JdbcConsumer<VarCharVector> {
+public abstract class ClobConsumer implements JdbcConsumer<VarCharVector> {
+
+  /**
+   * Creates a consumer for {@link VarCharVector}.
+   */
+  public static ClobConsumer createConsumer(VarCharVector vector, int index, boolean nullable) {
+    if (nullable) {
+      return new NullableClobConsumer(vector, index);
+    } else {
+      return new NonNullableClobConsumer(vector, index);
+    }
+  }
 
   private static final int BUFFER_SIZE = 256;
 
-  private VarCharVector vector;
-  private final int columnIndexInResultSet;
+  protected VarCharVector vector;
+  protected final int columnIndexInResultSet;
 
-  private int currentIndex;
+  protected int currentIndex;
 
   /**
    * Instantiate a ClobConsumer.
@@ -53,9 +64,80 @@ public class ClobConsumer implements JdbcConsumer<VarCharVector> {
   }
 
   @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    Clob clob = resultSet.getClob(columnIndexInResultSet);
-    if (!resultSet.wasNull()) {
+  public void close() throws Exception {
+    vector.close();
+  }
+
+  @Override
+  public void resetValueVector(VarCharVector vector) {
+    this.vector = vector;
+    this.vector.allocateNewSafe();
+    this.currentIndex = 0;
+  }
+
+  /**
+   * Nullable consumer for clob data.
+   */
+  static class NullableClobConsumer extends ClobConsumer {
+    
+    /**
+     * Instantiate a ClobConsumer.
+     */
+    public NullableClobConsumer(VarCharVector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      Clob clob = resultSet.getClob(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        if (clob != null) {
+          long length = clob.length();
+
+          int read = 1;
+          int readSize = length < BUFFER_SIZE ? (int) length : BUFFER_SIZE;
+          int totalBytes = 0;
+
+          ArrowBuf dataBuffer = vector.getDataBuffer();
+          ArrowBuf offsetBuffer = vector.getOffsetBuffer();
+          int startIndex = offsetBuffer.getInt(currentIndex * 4);
+          while (read <= length) {
+            String str = clob.getSubString(read, readSize);
+            byte[] bytes = str.getBytes(StandardCharsets.UTF_8);
+
+            while ((dataBuffer.writerIndex() + bytes.length) > dataBuffer.capacity()) {
+              vector.reallocDataBuffer();
+            }
+            PlatformDependent.copyMemory(bytes, 0,
+                dataBuffer.memoryAddress() + startIndex + totalBytes, bytes.length);
+
+            totalBytes += bytes.length;
+            read += readSize;
+          }
+          offsetBuffer.setInt((currentIndex + 1) * 4, startIndex + totalBytes);
+          BitVectorHelper.setValidityBitToOne(vector.getValidityBuffer(), currentIndex);
+          vector.setLastSet(currentIndex);
+        }
+      }
+      currentIndex++;
+    }
+  }
+
+  /**
+   * Non-nullable consumer for clob data.
+   */
+  static class NonNullableClobConsumer extends ClobConsumer {
+
+    /**
+     * Instantiate a ClobConsumer.
+     */
+    public NonNullableClobConsumer(VarCharVector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      Clob clob = resultSet.getClob(columnIndexInResultSet);
       if (clob != null) {
         long length = clob.length();
 
@@ -83,19 +165,8 @@ public class ClobConsumer implements JdbcConsumer<VarCharVector> {
         BitVectorHelper.setValidityBitToOne(vector.getValidityBuffer(), currentIndex);
         vector.setLastSet(currentIndex);
       }
+    
+      currentIndex++;
     }
-    currentIndex++;
-  }
-
-  @Override
-  public void close() throws Exception {
-    vector.close();
-  }
-
-  @Override
-  public void resetValueVector(VarCharVector vector) {
-    this.vector = vector;
-    this.vector.allocateNewSafe();
-    this.currentIndex = 0;
   }
 }

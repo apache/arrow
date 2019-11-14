@@ -26,12 +26,23 @@ import org.apache.arrow.vector.IntVector;
  * Consumer which consume int type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.IntVector}.
  */
-public class IntConsumer implements JdbcConsumer<IntVector> {
+public abstract class IntConsumer implements JdbcConsumer<IntVector> {
 
-  private IntVector vector;
-  private final int columnIndexInResultSet;
+  /**
+   * Creates a consumer for {@link IntVector}.
+   */
+  public static IntConsumer createConsumer(IntVector vector, int index, boolean nullable) {
+    if (nullable) {
+      return new NullableIntConsumer(vector, index);
+    } else {
+      return new NonNullableIntConsumer(vector, index);
+    }
+  }
 
-  private int currentIndex;
+  protected IntVector vector;
+  protected final int columnIndexInResultSet;
+
+  protected int currentIndex;
 
   /**
    * Instantiate a IntConsumer.
@@ -39,15 +50,6 @@ public class IntConsumer implements JdbcConsumer<IntVector> {
   public IntConsumer(IntVector vector, int index) {
     this.vector = vector;
     this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    int value = resultSet.getInt(columnIndexInResultSet);
-    if (!resultSet.wasNull()) {
-      vector.setSafe(currentIndex, value);
-    }
-    currentIndex++;
   }
 
   @Override
@@ -59,5 +61,47 @@ public class IntConsumer implements JdbcConsumer<IntVector> {
   public void resetValueVector(IntVector vector) {
     this.vector = vector;
     this.currentIndex = 0;
+  }
+
+  /**
+   * Nullable consumer for int.
+   */
+  static class NullableIntConsumer extends IntConsumer {
+
+    /**
+     * Instantiate a IntConsumer.
+     */
+    public NullableIntConsumer(IntVector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      int value = resultSet.getInt(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        vector.setSafe(currentIndex, value);
+      }
+      currentIndex++;
+    }
+  }
+
+  /**
+   * Non-nullable consumer for int.
+   */
+  static class NonNullableIntConsumer extends IntConsumer {
+
+    /**
+     * Instantiate a IntConsumer.
+     */
+    public NonNullableIntConsumer(IntVector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      int value = resultSet.getInt(columnIndexInResultSet);
+      vector.setSafe(currentIndex, value);
+      currentIndex++;
+    }
   }
 }

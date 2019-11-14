@@ -32,14 +32,25 @@ import io.netty.util.internal.PlatformDependent;
  * Consumer which consume binary type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.VarBinaryVector}.
  */
-public class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
+public abstract class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
+
+  /**
+   * Creates a consumer for {@link VarBinaryVector}.
+   */
+  public static BinaryConsumer createConsumer(VarBinaryVector vector, int index, boolean nullable) {
+    if (nullable) {
+      return new NullableBinaryConsumer(vector, index);
+    } else {
+      return new NonNullableBinaryConsumer(vector, index);
+    }
+  }
 
   private static final int BUFFER_SIZE = 1024;
 
-  private VarBinaryVector vector;
-  private final int columnIndexInResultSet;
+  protected VarBinaryVector vector;
+  protected final int columnIndexInResultSet;
 
-  private int currentIndex;
+  protected int currentIndex;
 
   /**
    * Instantiate a BinaryConsumer.
@@ -70,22 +81,13 @@ public class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
           vector.reallocDataBuffer();
         }
         PlatformDependent.copyMemory(bytes, 0,
-            dataBuffer.memoryAddress() + startIndex + totalBytes, read);
+                dataBuffer.memoryAddress() + startIndex + totalBytes, read);
         totalBytes += read;
       }
       offsetBuffer.setInt((currentIndex + 1) * 4, startIndex + totalBytes);
       BitVectorHelper.setValidityBitToOne(vector.getValidityBuffer(), currentIndex);
       vector.setLastSet(currentIndex);
     }
-  }
-
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException, IOException {
-    InputStream is = resultSet.getBinaryStream(columnIndexInResultSet);
-    if (!resultSet.wasNull()) {
-      consume(is);
-    }
-    currentIndex++;
   }
 
   public void moveWriterPosition() {
@@ -103,4 +105,47 @@ public class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
     this.vector.allocateNewSafe();
     this.currentIndex = 0;
   }
+
+  /**
+   * Consumer for nullable binary data.
+   */
+  static class NullableBinaryConsumer extends BinaryConsumer {
+    
+    /**
+     * Instantiate a BinaryConsumer.
+     */
+    public NullableBinaryConsumer(VarBinaryVector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException, IOException {
+      InputStream is = resultSet.getBinaryStream(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        consume(is);
+      }
+      currentIndex++;
+    }
+  }
+
+  /**
+   * Consumer for non-nullable binary data.
+   */
+  static class NonNullableBinaryConsumer extends BinaryConsumer {
+
+    /**
+     * Instantiate a BinaryConsumer.
+     */
+    public NonNullableBinaryConsumer(VarBinaryVector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException, IOException {
+      InputStream is = resultSet.getBinaryStream(columnIndexInResultSet);
+      consume(is);
+      currentIndex++;
+    }
+  }
 }
+

@@ -26,12 +26,23 @@ import org.apache.arrow.vector.TinyIntVector;
  * Consumer which consume tinyInt type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.TinyIntVector}.
  */
-public class TinyIntConsumer implements JdbcConsumer<TinyIntVector> {
+public abstract class TinyIntConsumer implements JdbcConsumer<TinyIntVector> {
 
-  private TinyIntVector vector;
-  private final int columnIndexInResultSet;
+  /**
+   * Creates a consumer for {@link TinyIntVector}.
+   */
+  public static TinyIntConsumer createConsumer(TinyIntVector vector, int index, boolean nullable) {
+    if (nullable) {
+      return new NullableTinyIntConsumer(vector, index);
+    } else {
+      return new NonNullableTinyIntConsumer(vector, index);
+    }
+  }
 
-  private int currentIndex;
+  protected TinyIntVector vector;
+  protected final int columnIndexInResultSet;
+
+  protected int currentIndex;
 
   /**
    * Instantiate a TinyIntConsumer.
@@ -39,15 +50,6 @@ public class TinyIntConsumer implements JdbcConsumer<TinyIntVector> {
   public TinyIntConsumer(TinyIntVector vector, int index) {
     this.vector = vector;
     this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    byte value = resultSet.getByte(columnIndexInResultSet);
-    if (!resultSet.wasNull()) {
-      vector.setSafe(currentIndex, value);
-    }
-    currentIndex++;
   }
 
   @Override
@@ -59,5 +61,47 @@ public class TinyIntConsumer implements JdbcConsumer<TinyIntVector> {
   public void resetValueVector(TinyIntVector vector) {
     this.vector = vector;
     this.currentIndex = 0;
+  }
+
+  /**
+   * Nullable consumer for tiny int.
+   */
+  static class NullableTinyIntConsumer extends TinyIntConsumer {
+
+    /**
+     * Instantiate a TinyIntConsumer.
+     */
+    public NullableTinyIntConsumer(TinyIntVector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      byte value = resultSet.getByte(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        vector.setSafe(currentIndex, value);
+      }
+      currentIndex++;
+    }
+  }
+
+  /**
+   * Non-nullable consumer for tiny int.
+   */
+  static class NonNullableTinyIntConsumer extends TinyIntConsumer {
+
+    /**
+     * Instantiate a TinyIntConsumer.
+     */
+    public NonNullableTinyIntConsumer(TinyIntVector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      byte value = resultSet.getByte(columnIndexInResultSet);
+      vector.setSafe(currentIndex, value);
+      currentIndex++;
+    }
   }
 }

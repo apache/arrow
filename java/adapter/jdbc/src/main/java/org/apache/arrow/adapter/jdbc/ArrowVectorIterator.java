@@ -40,7 +40,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
   private final ResultSetMetaData rsmd;
 
   private final JdbcConsumer[] consumers;
-  private final CompositeJdbcConsumer compositeConsumer;
+  final CompositeJdbcConsumer compositeConsumer;
 
   private VectorSchemaRoot nextBatch;
 

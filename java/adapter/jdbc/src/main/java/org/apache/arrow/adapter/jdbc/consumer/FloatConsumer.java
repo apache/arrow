@@ -26,12 +26,23 @@ import org.apache.arrow.vector.Float4Vector;
  * Consumer which consume float type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.Float4Vector}.
  */
-public class FloatConsumer implements JdbcConsumer<Float4Vector> {
+public abstract class FloatConsumer implements JdbcConsumer<Float4Vector> {
 
-  private Float4Vector vector;
-  private final int columnIndexInResultSet;
+  /**
+   * Creates a consumer for {@link Float4Vector}.
+   */
+  public static FloatConsumer createConsumer(Float4Vector vector, int index, boolean nullable) {
+    if (nullable) {
+      return new NullableFloatConsumer(vector, index);
+    } else {
+      return new NonNullableFloatConsumer(vector, index);
+    }
+  }
 
-  private int currentIndex;
+  protected Float4Vector vector;
+  protected final int columnIndexInResultSet;
+
+  protected int currentIndex;
 
   /**
    * Instantiate a FloatConsumer.
@@ -39,15 +50,6 @@ public class FloatConsumer implements JdbcConsumer<Float4Vector> {
   public FloatConsumer(Float4Vector vector, int index) {
     this.vector = vector;
     this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    float value = resultSet.getFloat(columnIndexInResultSet);
-    if (!resultSet.wasNull()) {
-      vector.setSafe(currentIndex, value);
-    }
-    currentIndex++;
   }
 
   @Override
@@ -59,5 +61,47 @@ public class FloatConsumer implements JdbcConsumer<Float4Vector> {
   public void resetValueVector(Float4Vector vector) {
     this.vector = vector;
     this.currentIndex = 0;
+  }
+
+  /**
+   * Nullable float consumer.
+   */
+  static class NullableFloatConsumer extends FloatConsumer {
+
+    /**
+     * Instantiate a FloatConsumer.
+     */
+    public NullableFloatConsumer(Float4Vector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      float value = resultSet.getFloat(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        vector.setSafe(currentIndex, value);
+      }
+      currentIndex++;
+    }
+  }
+
+  /**
+   * Non-nullable float consumer.
+   */
+  static class NonNullableFloatConsumer extends FloatConsumer {
+
+    /**
+     * Instantiate a FloatConsumer.
+     */
+    public NonNullableFloatConsumer(Float4Vector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      float value = resultSet.getFloat(columnIndexInResultSet);
+      vector.setSafe(currentIndex, value);
+      currentIndex++;
+    }
   }
 }

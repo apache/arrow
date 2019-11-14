@@ -34,12 +34,23 @@ public class BlobConsumer implements JdbcConsumer<VarBinaryVector> {
 
   private BinaryConsumer delegate;
 
+  private final boolean nullable;
+
+  /**
+   * Creates a consumer for {@link VarBinaryVector}.
+   */
+  public static BlobConsumer createConsumer(
+          BinaryConsumer delegate, int index, boolean nullable) {
+    return new BlobConsumer(delegate, index, nullable);
+  }
+
   /**
    * Instantiate a BlobConsumer.
    */
-  public BlobConsumer(BinaryConsumer delegate, int index) {
+  public BlobConsumer(BinaryConsumer delegate, int index, boolean nullable) {
     this.columnIndexInResultSet = index;
     this.delegate = delegate;
+    this.nullable = nullable;
   }
 
   @Override
@@ -58,6 +69,6 @@ public class BlobConsumer implements JdbcConsumer<VarBinaryVector> {
 
   @Override
   public void resetValueVector(VarBinaryVector vector) {
-    delegate = new BinaryConsumer(vector, columnIndexInResultSet);
+    delegate = BinaryConsumer.createConsumer(vector, columnIndexInResultSet, nullable);
   }
 }
