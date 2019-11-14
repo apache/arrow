@@ -47,7 +47,7 @@ struct ARROW_EXPORT MinMaxOptions {
 ///
 /// \param[in] type required to specialize the kernel
 /// \param[in] ctx the FunctionContext
-/// \param[in] options, see MinMaxOptions for more information
+/// \param[in] options see MinMaxOptions for more information
 ///
 /// \since 1.0.0
 /// \note API not yet finalized
@@ -61,7 +61,7 @@ std::shared_ptr<AggregateFunction> MakeMinMaxAggregateFunction(
 /// datum thus consists of two scalar datums: {Datum(min), Datum(max)}
 ///
 /// \param[in] ctx the FunctionContext
-/// \param[in] options, see MinMaxOptions for more information
+/// \param[in] options see MinMaxOptions for more information
 /// \param[in] value input datum, expecting Array or ChunkedArray
 /// \param[out] out resulting datum containing a {min, max} collection
 ///
@@ -77,7 +77,7 @@ Status MinMax(FunctionContext* ctx, const MinMaxOptions& options, const Datum& v
 /// datum thus consists of two scalar datums: {Datum(min), Datum(max)}
 ///
 /// \param[in] ctx the FunctionContext
-/// \param[in] options, see MinMaxOptions for more information
+/// \param[in] options see MinMaxOptions for more information
 /// \param[in] array input array
 /// \param[out] out resulting datum containing a {min, max} collection
 ///
