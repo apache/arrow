@@ -86,7 +86,9 @@ class ARROW_DS_EXPORT PartitionScheme {
   }
 };
 
-/// \brief Trivial partition scheme which yields an expression provided on construction.
+/// \brief Partition scheme which checks paths against a dictionary of prefixes provided
+/// on construction. The expression corresponding to the first prefix which matches a path
+/// will be returned, or scalar(true) if no prefix matches.
 class ARROW_DS_EXPORT PrefixDictionaryPartitionScheme : public PartitionScheme {
  public:
   explicit PrefixDictionaryPartitionScheme(
