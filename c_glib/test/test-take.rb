@@ -43,16 +43,16 @@ class TestTake < Test::Unit::TestCase
     end
 
     def test_chunked_array
-      chunks1 = [
+      taken_chunks = [
         build_int16_array([0, 1]),
         build_int16_array([2])
       ]
-      taken_chunked_array = Arrow::ChunkedArray.new(chunks1)
-      chunks2 = [
+      taken_chunked_array = Arrow::ChunkedArray.new(taken_chunks)
+      indices_chunks = [
         build_int16_array([1, 0]),
         build_int16_array([2])
       ]
-      indices = Arrow::ChunkedArray.new(chunks2)
+      indices = Arrow::ChunkedArray.new(indices_chunks)
       assert_equal(taken_chunked_array,
                    build_int16_array([1, 0, 2]).take_chunked_array(indices))
     end
@@ -156,16 +156,16 @@ class TestTake < Test::Unit::TestCase
     end
 
     def test_chunked_array
-      chunks1 = [
+      taken_chunks = [
         build_int16_array([0, 1]),
         build_int16_array([2])
       ]
-      taken_chunked_array = Arrow::ChunkedArray.new(chunks1)
-      chunks2 = [
+      taken_chunked_array = Arrow::ChunkedArray.new(taken_chunks)
+      indices_chunks = [
         build_int16_array([1, 0]),
         build_int16_array([2])
       ]
-      indices = Arrow::ChunkedArray.new(chunks2)
+      indices = Arrow::ChunkedArray.new(indices_chunks)
       assert_equal(taken_chunked_array,
                    @chunked_array.take_chunked_array(indices))
     end
