@@ -1161,7 +1161,7 @@ garrow_array_take_chunked_array(GArrowArray *array,
                                   &taken_chunked_array);
   }
 
-  if (garrow_error_check(error, status, "[array][take-chunked-array]")) {
+  if (garrow_error_check(error, status, "[array][take][chunked-array]")) {
     return garrow_chunked_array_new_raw(&taken_chunked_array);
   } else {
     return NULL;
@@ -1259,7 +1259,7 @@ garrow_table_take_chunked_array(GArrowTable *table,
                                   &taken_table);
   }
 
-  if (garrow_error_check(error, status, "[table][take-chunked-array]")) {
+  if (garrow_error_check(error, status, "[table][take][chunked-array]")) {
     return garrow_table_new_raw(&taken_table);
   } else {
     return NULL;
@@ -1357,7 +1357,7 @@ garrow_chunked_array_take_chunked_array(GArrowChunkedArray *chunked_array,
                                   &taken_chunked_array);
   }
 
-  if (garrow_error_check(error, status, "[chunked-array][take-chunked-array]")) {
+  if (garrow_error_check(error, status, "[chunked-array][take][chunked-array]")) {
     return garrow_chunked_array_new_raw(&taken_chunked_array);
   } else {
     return NULL;
@@ -1774,7 +1774,7 @@ garrow_array_is_in_chunked_array(GArrowArray *left,
                                      arrow_left_datum,
                                      arrow_right_datum,
                                      &arrow_datum);
-  if (garrow_error_check(error, status, "[array][is-in-chunked-array]")) {
+  if (garrow_error_check(error, status, "[array][is-in][chunked-array]")) {
     auto arrow_array = arrow_datum.make_array();
     return GARROW_BOOLEAN_ARRAY(garrow_array_new_raw(&arrow_array));
   } else {
@@ -1870,7 +1870,7 @@ garrow_table_filter_chunked_array(GArrowTable *table,
                                        *arrow_table,
                                        *arrow_filter,
                                        &arrow_filtered_table);
-  if (garrow_error_check(error, status, "[table][filter-chunked-array]")) {
+  if (garrow_error_check(error, status, "[table][filter][chunked-array]")) {
     return garrow_table_new_raw(&arrow_filtered_table);
   } else {
     return NULL;
@@ -1938,7 +1938,7 @@ garrow_chunked_array_filter_chunked_array(GArrowChunkedArray *chunked_array,
                                        *arrow_chunked_array,
                                        *arrow_filter,
                                        &arrow_filtered_chunked_array);
-  if (garrow_error_check(error, status, "[chunked-array][filter-chunked-array]")) {
+  if (garrow_error_check(error, status, "[chunked-array][filter][chunked-array]")) {
     return garrow_chunked_array_new_raw(&arrow_filtered_chunked_array);
   } else {
     return NULL;
