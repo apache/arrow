@@ -67,7 +67,14 @@ Object <- R6Class("Object",
 
     pointer = function() self$`.:xp:.`,
     `.:xp:.` = NULL,
-    set_pointer = function(xp){
+    set_pointer = function(xp) {
+      if (!inherits(xp, "externalptr")) {
+        stop(
+          class(self)[1], "$new() requires a pointer as input: ",
+          "did you mean $create() instead?",
+          call. = FALSE
+        )
+      }
       self$`.:xp:.` <- xp
     },
     print = function(...){
