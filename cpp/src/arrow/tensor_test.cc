@@ -55,7 +55,7 @@ TEST(TestTensor, Make) {
   // without strides
   std::vector<std::string> dim_names = {"foo", "bar"};
   std::shared_ptr<Tensor> tensor3;
-  ASSERT_OK(Tensor::Make(float64(), data, {3, 6}, dim_names, &tensor3));
+  ASSERT_OK(Tensor::Make(float64(), data, {3, 6}, {}, dim_names, &tensor3));
   EXPECT_TRUE(tensor3->Equals(*tensor1));
   EXPECT_TRUE(tensor3->Equals(*tensor2));
 

@@ -108,25 +108,6 @@ class ARROW_EXPORT Tensor {
     return Make(type, data, shape, strides, {}, out);
   }
 
-  /// \brief Create a Tensor with full parameters with empty strides, the data assumed to
-  /// be row-major
-  ///
-  /// This factory function will return Status::Invalid when the parameters are
-  /// inconsistent
-  ///
-  /// \param[in] type The data type of the tensor values
-  /// \param[in] data The buffer of the tensor content
-  /// \param[in] shape The shape of the tensor
-  /// \param[in] dim_names The names of the tensor dimensions
-  /// \param[out] out The result tensor
-  static Status Make(const std::shared_ptr<DataType>& type,
-                     const std::shared_ptr<Buffer>& data,
-                     const std::vector<int64_t>& shape,
-                     const std::vector<std::string>& dim_names,
-                     std::shared_ptr<Tensor>* out) {
-    return Make(type, data, shape, {}, dim_names, out);
-  }
-
   /// \brief Create a Tensor with full parameters with empty dim_names, the data assumed
   /// to be row-major
   ///
