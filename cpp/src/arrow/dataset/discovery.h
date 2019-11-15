@@ -56,6 +56,9 @@ class ARROW_DS_EXPORT DataSourceDiscovery {
   /// \brief Get the schema for the resulting DataSource.
   virtual Status Inspect(std::shared_ptr<Schema>* out) = 0;
 
+  /// \brief Create a DataSource with a given partition.
+  virtual Status Finish(std::shared_ptr<DataSource>* out) = 0;
+
   std::shared_ptr<Schema> schema() const { return schema_; }
   Status SetSchema(std::shared_ptr<Schema> schema) {
     schema_ = schema;
@@ -74,9 +77,6 @@ class ARROW_DS_EXPORT DataSourceDiscovery {
     return Status::OK();
   }
 
-  /// \brief Create a DataSource with a given partition.
-  virtual Status Finish(std::shared_ptr<DataSource>* out) = 0;
-
   virtual ~DataSourceDiscovery() = default;
 
  protected:
@@ -85,35 +85,97 @@ class ARROW_DS_EXPORT DataSourceDiscovery {
   std::shared_ptr<Expression> root_partition_;
 };
 
-/// \brief FileSystemDataSourceFactory creates a DataSource from a vector
-/// of fs::FileStats or a fs::Selector.
+struct FileSystemDiscoveryOptions {
+  // For the purposes of applying the partition scheme, paths will be stripped
+  // of the partition_base_dir. Files not matching the partition_base_dir
+  // prefix will be skipped for partition discovery. The ignored files will still
+  // be part of the DataSource, but will not have partition information.
+  //
+  // Example:
+  // partition_base_dir = "/dataset";
+  //
+  // - "/dataset/US/sales.csv" -> "US/sales.csv" will be given to the partition
+  //                              scheme
+  //
+  // - "/home/john/late_sales.csv" -> Will be ignored for partition discovery.
+  //
+  // This is useful for partition schemes which parses directory when ordering
+  // is important, e.g. SchemaPartitionScheme.
+  std::string partition_base_dir;
+
+  // Invalid files (via selector or explicitly) will be excluded by checking
+  // with the FileFormat::IsSupported method.  This will incur IO for each files
+  // in a serial and single threaded fashion. Disabling this feature will skip the
+  // IO, but unsupported files may will be present in the DataSource
+  // (resulting in an error at scan time).
+  bool exclude_invalid_files = true;
+
+  // Files matching one of the following prefix will be ignored by the
+  // discovery process. This is matched to the basename of a path.
+  //
+  // Example:
+  // ignore_prefixes = {"_", ".DS_STORE" };
+  //
+  // - "/dataset/data.csv" -> not ignored
+  // - "/dataset/_metadata" -> ignored
+  // - "/dataset/.DS_STORE" -> ignored
+  std::vector<std::string> ignore_prefixes = {
+      ".",
+      "_",
+  };
+};
+
+/// \brief FileSystemDataSourceFactory creates a DataSource from a vector of
+/// fs::FileStats or a fs::Selector.
 class ARROW_DS_EXPORT FileSystemDataSourceDiscovery : public DataSourceDiscovery {
  public:
-  static Status Make(fs::FileSystem* filesystem, std::string base_dir,
-                     std::vector<fs::FileStats> files, std::shared_ptr<FileFormat> format,
-                     std::shared_ptr<DataSourceDiscovery>* out);
-
-  static Status Make(fs::FileSystem* filesystem, std::vector<fs::FileStats> files,
+  /// \brief Build a FileSystemDataSourceDiscovery from an explicit list of
+  /// fs::FileStats.
+  ///
+  /// \param[in] filesystem passed to FileSystemDataSource
+  /// \param[in] stats passed to FileSystemDataSource
+  /// \param[in] format passed to FileSystemDataSource
+  /// \param[in] options see FileSystemDiscoveryOptions for more information.
+  /// \param[out] discovery output pointer
+  static Status Make(fs::FileSystem* filesystem, std::vector<fs::FileStats> stats,
                      std::shared_ptr<FileFormat> format,
-                     std::shared_ptr<DataSourceDiscovery>* out);
+                     FileSystemDiscoveryOptions options,
+                     std::shared_ptr<DataSourceDiscovery>* discovery);
 
+  /// \brief Build a FileSystemDataSourceDiscovery from a fs::Selector.
+  ///
+  /// The selector will expand to a vector of FileStats. The expansion/crawling
+  /// is performed in this function call. Thus, the finalized DataSource is
+  /// working with a snapshot of the filesystem.
+  //
+  /// If options.partition_base_dir is not provided, it will be overwritten
+  /// with selector.base_dir.
+  ///
+  /// \param[in] filesystem passed to FileSystemDataSource
+  /// \param[in] selector used to crawl and search files
+  /// \param[in] format passed to FileSystemDataSource
+  /// \param[in] options see @FileSystemDiscoveryOptions for more information.
+  /// \param[out] discovery output pointer
   static Status Make(fs::FileSystem* filesystem, fs::Selector selector,
                      std::shared_ptr<FileFormat> format,
-                     std::shared_ptr<DataSourceDiscovery>* out);
+                     FileSystemDiscoveryOptions options,
+                     std::shared_ptr<DataSourceDiscovery>* discovery);
 
   Status Inspect(std::shared_ptr<Schema>* out) override;
 
   Status Finish(std::shared_ptr<DataSource>* out) override;
 
  protected:
-  FileSystemDataSourceDiscovery(fs::FileSystem* filesystem, std::string base_dir,
+  FileSystemDataSourceDiscovery(fs::FileSystem* filesystem,
                                 std::vector<fs::FileStats> files,
-                                std::shared_ptr<FileFormat> format);
+                                std::shared_ptr<FileFormat> format,
+                                FileSystemDiscoveryOptions options);
 
   fs::FileSystem* fs_;
-  std::string base_dir_;
   std::vector<fs::FileStats> files_;
   std::shared_ptr<FileFormat> format_;
+
+  FileSystemDiscoveryOptions options_;
 };
 
 }  // namespace dataset

@@ -26,9 +26,11 @@ std::shared_ptr<arrow::dataset::DataSourceDiscovery> dataset___FSDSDiscovery__Ma
   std::shared_ptr<arrow::dataset::DataSourceDiscovery> discovery;
   // TODO(npr): add format as an argument, don't hard-code Parquet
   auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
+  // TODO(fsaintjacques): Make options configurable
+  auto options = arrow::dataset::FileSystemDiscoveryOptions{};
 
-  STOP_IF_NOT_OK(arrow::dataset::FileSystemDataSourceDiscovery::Make(fs.get(), *selector,
-                                                                     format, &discovery));
+  STOP_IF_NOT_OK(arrow::dataset::FileSystemDataSourceDiscovery::Make(
+      fs.get(), *selector, format, std::move(options), &discovery));
   return discovery;
 }
 

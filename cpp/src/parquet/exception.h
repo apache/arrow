@@ -21,6 +21,7 @@
 #include <exception>
 #include <sstream>
 #include <string>
+#include <utility>
 
 #include "arrow/status.h"
 #include "parquet/platform.h"
@@ -43,14 +44,12 @@
     ARROW_UNUSED(_s);            \
   } while (0)
 
-#define PARQUET_THROW_NOT_OK(s)                    \
-  do {                                             \
-    ::arrow::Status _s = (s);                      \
-    if (!_s.ok()) {                                \
-      std::stringstream ss;                        \
-      ss << "Arrow error: " << _s.ToString();      \
-      throw ::parquet::ParquetException(ss.str()); \
-    }                                              \
+#define PARQUET_THROW_NOT_OK(s)                               \
+  do {                                                        \
+    ::arrow::Status _s = (s);                                 \
+    if (!_s.ok()) {                                           \
+      throw ::parquet::ParquetStatusException(std::move(_s)); \
+    }                                                         \
   } while (0)
 
 namespace parquet {
@@ -84,6 +83,25 @@ class ParquetException : public std::exception {
 
  private:
   std::string msg_;
+};
+
+class ParquetStatusException : public ParquetException {
+ public:
+  explicit ParquetStatusException(::arrow::Status status)
+      : ParquetException(status.ToString()), status_(std::move(status)) {}
+
+  const ::arrow::Status& status() const { return status_; }
+
+ private:
+  ::arrow::Status status_;
+};
+
+// This class exists for the purpose of detecting an invalid or corrupted file.
+class ParquetInvalidOrCorruptedFileException : public ParquetStatusException {
+ public:
+  template <typename... Args>
+  explicit ParquetInvalidOrCorruptedFileException(Args&&... args)
+      : ParquetStatusException(::arrow::Status::Invalid(std::forward<Args>(args)...)) {}
 };
 
 template <typename StatusReturnBlock>

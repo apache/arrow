@@ -282,6 +282,25 @@ TEST_F(TestParquetFileFormat, Inspect) {
   EXPECT_EQ(*actual, *schema_);
 }
 
+TEST_F(TestParquetFileFormat, IsSupported) {
+  auto reader = GetRecordBatchReader();
+  auto source = GetFileSource(reader.get());
+  auto format = ParquetFileFormat();
+
+  bool supported = false;
+
+  std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
+  ASSERT_OK(format.IsSupported(FileSource(buf), &supported));
+  ASSERT_EQ(supported, false);
+
+  buf = std::make_shared<Buffer>(util::string_view("corrupted"));
+  ASSERT_OK(format.IsSupported(FileSource(buf), &supported));
+  ASSERT_EQ(supported, false);
+
+  ASSERT_OK(format.IsSupported(*source.get(), &supported));
+  EXPECT_EQ(supported, true);
+}
+
 void CountRowsInScan(ScanTaskIterator& it, int64_t expected_rows,
                      int64_t expected_batches) {
   int64_t actual_rows = 0;

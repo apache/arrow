@@ -248,30 +248,33 @@ class TestEndToEnd : public TestDataset {
     });
 
     using PathAndContent = std::vector<std::pair<std::string, std::string>>;
-    auto files = PathAndContent{{"/2018/01/US.json", R"([
+    auto files = PathAndContent{
+        {"/dataset/2018/01/US.json", R"([
         {"country": "US", "region": "NY", "year": 2018, "model": "3", "sales": 742},
         {"country": "US", "region": "NY", "year": 2018, "model": "S", "sales": 304},
         {"country": "US", "region": "NY", "year": 2018, "model": "X", "sales": 136},
         {"country": "US", "region": "NY", "year": 2018, "model": "Y", "sales": 27}
       ])"},
-                                {"/2018/01/CA.json", R"([
+        {"/dataset/2018/01/CA.json", R"([
         {"country": "US", "region": "CA", "year": 2018, "model": "3", "sales": 512},
         {"country": "US", "region": "CA", "year": 2018, "model": "S", "sales": 978},
         {"country": "US", "region": "CA", "year": 2018, "model": "X", "sales": 1},
         {"country": "US", "region": "CA", "year": 2018, "model": "Y", "sales": 69}
       ])"},
-                                {"/2019/01/US.json", R"([
+        {"/dataset/2019/01/US.json", R"([
         {"country": "CA", "region": "QC", "year": 2019, "model": "3", "sales": 273},
         {"country": "CA", "region": "QC", "year": 2019, "model": "S", "sales": 13},
         {"country": "CA", "region": "QC", "year": 2019, "model": "X", "sales": 54},
         {"country": "CA", "region": "QC", "year": 2019, "model": "Y", "sales": 21}
       ])"},
-                                {"/2019/01/CA.json", R"([
+        {"/dataset/2019/01/CA.json", R"([
         {"country": "CA", "region": "QC", "year": 2019, "model": "3", "sales": 152},
         {"country": "CA", "region": "QC", "year": 2019, "model": "S", "sales": 10},
         {"country": "CA", "region": "QC", "year": 2019, "model": "X", "sales": 42},
         {"country": "CA", "region": "QC", "year": 2019, "model": "Y", "sales": 37}
-      ])"}};
+      ])"},
+        {"/dataset/.pesky", "garbage content"},
+    };
 
     auto mock_fs = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
     for (const auto& f : files) {
@@ -317,9 +320,17 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   // FileSystemDataSourceDiscovery class also supports an explicit list of
   // fs::FileStats instead of the selector.
   fs::Selector s;
-  s.base_dir = "/";
+  s.base_dir = "/dataset";
   s.recursive = true;
-  ASSERT_OK(FileSystemDataSourceDiscovery::Make(fs_.get(), s, format, &discovery));
+
+  // Further options can be given to the discovery mechanism via the
+  // FileSystemDiscoveryOptions configuration class. See the docstring for more
+  // information.
+  FileSystemDiscoveryOptions options;
+  options.ignore_prefixes = {"."};
+
+  ASSERT_OK(
+      FileSystemDataSourceDiscovery::Make(fs_.get(), s, format, options, &discovery));
 
   // DataFragments might have compatible but slightly different schemas, e.g.
   // schema evolved by adding/renaming columns. In this case, the schema is

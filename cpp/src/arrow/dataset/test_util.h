@@ -194,8 +194,10 @@ class DummyFileFormat : public FileFormat {
 
   std::string name() const override { return "dummy"; }
 
-  /// \brief Return true if the given file extension
-  bool IsKnownExtension(const std::string& ext) const override { return ext == name(); }
+  Status IsSupported(const FileSource& source, bool* supported) const override {
+    *supported = true;
+    return Status::OK();
+  }
 
   Status Inspect(const FileSource& source, std::shared_ptr<Schema>* out) const override {
     *out = schema_;
@@ -241,7 +243,10 @@ class JSONRecordBatchFileFormat : public FileFormat {
   std::string name() const override { return "json_record_batch"; }
 
   /// \brief Return true if the given file extension
-  bool IsKnownExtension(const std::string& ext) const override { return ext == name(); }
+  Status IsSupported(const FileSource& source, bool* supported) const override {
+    *supported = true;
+    return Status::OK();
+  }
 
   Status Inspect(const FileSource& source, std::shared_ptr<Schema>* out) const override {
     *out = schema_;

@@ -31,12 +31,18 @@ class FileSystemDataSourceDiscoveryTest : public TestFileSystemBasedDataSource {
  public:
   void MakeDiscovery(const std::vector<fs::FileStats>& files) {
     MakeFileSystem(files);
-    ASSERT_OK(
-        FileSystemDataSourceDiscovery::Make(fs_.get(), selector_, format_, &discovery_));
+    ASSERT_OK(FileSystemDataSourceDiscovery::Make(fs_.get(), selector_, format_,
+                                                  discovery_options_, &discovery_));
+  }
+
+  void AssertFinishWithPaths(std::vector<std::string> paths) {
+    ASSERT_OK(discovery_->Finish(&source_));
+    AssertFragmentsAreFromPath(source_->GetFragments(options_), paths);
   }
 
  protected:
   fs::Selector selector_;
+  FileSystemDiscoveryOptions discovery_options_;
   std::shared_ptr<DataSourceDiscovery> discovery_;
   std::shared_ptr<FileFormat> format_ = std::make_shared<DummyFileFormat>();
 };
@@ -44,17 +50,22 @@ class FileSystemDataSourceDiscoveryTest : public TestFileSystemBasedDataSource {
 TEST_F(FileSystemDataSourceDiscoveryTest, Basic) {
   MakeDiscovery({fs::File("a"), fs::File("b")});
 
-  ASSERT_OK(discovery_->Finish(&source_));
-  AssertFragmentsAreFromPath(source_->GetFragments(options_), {"a", "b"});
+  AssertFinishWithPaths({"a", "b"});
 }
 
 TEST_F(FileSystemDataSourceDiscoveryTest, Selector) {
   selector_.base_dir = "A";
-  MakeDiscovery({fs::File("0"), fs::File("A/a")});
+  selector_.recursive = true;
 
-  ASSERT_OK(discovery_->Finish(&source_));
+  MakeDiscovery({fs::File("0"), fs::File("A/a"), fs::File("A/A/a")});
   // "0" doesn't match selector, so it has been dropped:
-  AssertFragmentsAreFromPath(source_->GetFragments(options_), {"A/a"});
+  AssertFinishWithPaths({"A/a", "A/A/a"});
+
+  discovery_options_.partition_base_dir = "A/A";
+  MakeDiscovery({fs::File("0"), fs::File("A/a"), fs::File("A/A/a")});
+  // partition_base_dir should not affect filtered files, ony the applied
+  // partition scheme.
+  AssertFinishWithPaths({"A/a", "A/A/a"});
 }
 
 TEST_F(FileSystemDataSourceDiscoveryTest, Partition) {
@@ -64,12 +75,34 @@ TEST_F(FileSystemDataSourceDiscoveryTest, Partition) {
 
   auto partition_scheme =
       std::make_shared<HivePartitionScheme>(schema({field("a", int32())}));
-
   ASSERT_OK(discovery_->SetPartitionScheme(partition_scheme));
-  ASSERT_OK(discovery_->Finish(&source_));
 
-  AssertFragmentsAreFromPath(source_->GetFragments(options_),
-                             {selector_.base_dir + "/a=1", selector_.base_dir + "/a=2"});
+  AssertFinishWithPaths({selector_.base_dir + "/a=1", selector_.base_dir + "/a=2"});
+}
+
+TEST_F(FileSystemDataSourceDiscoveryTest, OptionsIgnoredDefaultPrefixes) {
+  MakeDiscovery({
+      fs::File("."),
+      fs::File("_"),
+      fs::File("_$folder$"),
+      fs::File("_SUCCESS"),
+      fs::File("not_ignored_by_default"),
+  });
+
+  AssertFinishWithPaths({"not_ignored_by_default"});
+}
+
+TEST_F(FileSystemDataSourceDiscoveryTest, OptionsIgnoredCustomPrefixes) {
+  discovery_options_.ignore_prefixes = {"not_ignored"};
+  MakeDiscovery({
+      fs::File("."),
+      fs::File("_"),
+      fs::File("_$folder$"),
+      fs::File("_SUCCESS"),
+      fs::File("not_ignored_by_default"),
+  });
+
+  AssertFinishWithPaths({".", "_", "_$folder$", "_SUCCESS"});
 }
 
 TEST_F(FileSystemDataSourceDiscoveryTest, Inspect) {
