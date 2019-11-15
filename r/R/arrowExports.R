@@ -396,8 +396,8 @@ dataset___ScannerBuilder__Finish <- function(sb){
     .Call(`_arrow_dataset___ScannerBuilder__Finish` , sb)
 }
 
-dataset___Scanner__ToTable <- function(scn){
-    .Call(`_arrow_dataset___Scanner__ToTable` , scn)
+dataset___Scanner__ToTable <- function(scanner){
+    .Call(`_arrow_dataset___Scanner__ToTable` , scanner)
 }
 
 shared_ptr_is_null <- function(xp){

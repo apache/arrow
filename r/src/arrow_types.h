@@ -218,6 +218,7 @@ inline std::shared_ptr<T> extract(SEXP x) {
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
 #include <arrow/json/reader.h>
+#include <arrow/result.h>
 #include <arrow/type.h>
 #include <arrow/util/compression.h>
 #include <parquet/arrow/reader.h>
@@ -240,7 +241,17 @@ std::shared_ptr<arrow::Array> Array__from_vector(SEXP x, SEXP type);
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP, SEXP);
 std::shared_ptr<arrow::RecordBatch> RecordBatch__from_dataframe(Rcpp::DataFrame tbl);
 
+namespace ds = ::arrow::dataset;
+namespace fs = ::arrow::fs;
+
 namespace arrow {
+
+template <typename R>
+auto ValueOrStop(R&& result) -> decltype(std::forward<R>(result).ValueOrDie()) {
+  STOP_IF_NOT_OK(result.status());
+  return std::forward<R>(result).ValueOrDie();
+}
+
 namespace r {
 
 Status count_fields(SEXP lst, int* out);

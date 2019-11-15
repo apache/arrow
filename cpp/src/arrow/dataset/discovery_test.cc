@@ -31,25 +31,24 @@ class FileSystemDataSourceDiscoveryTest : public TestFileSystemBasedDataSource {
  public:
   void MakeDiscovery(const std::vector<fs::FileStats>& files) {
     MakeFileSystem(files);
-    ASSERT_OK(FileSystemDataSourceDiscovery::Make(fs_.get(), selector_, format_,
-                                                  discovery_options_, &discovery_));
+    ASSERT_OK_AND_ASSIGN(discovery_, FileSystemDataSourceDiscovery::Make(
+                                         fs_, selector_, format_, discovery_options_));
   }
 
   void AssertFinishWithPaths(std::vector<std::string> paths) {
-    ASSERT_OK(discovery_->Finish(&source_));
+    ASSERT_OK_AND_ASSIGN(source_, discovery_->Finish());
     AssertFragmentsAreFromPath(source_->GetFragments(options_), paths);
   }
 
  protected:
   fs::Selector selector_;
   FileSystemDiscoveryOptions discovery_options_;
-  std::shared_ptr<DataSourceDiscovery> discovery_;
-  std::shared_ptr<FileFormat> format_ = std::make_shared<DummyFileFormat>();
+  DataSourceDiscoveryPtr discovery_;
+  FileFormatPtr format_ = std::make_shared<DummyFileFormat>();
 };
 
 TEST_F(FileSystemDataSourceDiscoveryTest, Basic) {
   MakeDiscovery({fs::File("a"), fs::File("b")});
-
   AssertFinishWithPaths({"a", "b"});
 }
 
@@ -76,7 +75,6 @@ TEST_F(FileSystemDataSourceDiscoveryTest, Partition) {
   auto partition_scheme =
       std::make_shared<HivePartitionScheme>(schema({field("a", int32())}));
   ASSERT_OK(discovery_->SetPartitionScheme(partition_scheme));
-
   AssertFinishWithPaths({selector_.base_dir + "/a=1", selector_.base_dir + "/a=2"});
 }
 
@@ -110,14 +108,13 @@ TEST_F(FileSystemDataSourceDiscoveryTest, Inspect) {
   format_ = std::make_shared<DummyFileFormat>(s);
 
   MakeDiscovery({});
-  std::shared_ptr<Schema> actual;
 
   // No files
-  ASSERT_OK(discovery_->Inspect(&actual));
+  ASSERT_OK_AND_ASSIGN(auto actual, discovery_->Inspect());
   EXPECT_EQ(actual, nullptr);
 
   MakeDiscovery({fs::File("test")});
-  ASSERT_OK(discovery_->Inspect(&actual));
+  ASSERT_OK_AND_ASSIGN(actual, discovery_->Inspect());
   EXPECT_EQ(actual, s);
 }
 

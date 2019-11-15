@@ -1340,11 +1340,11 @@ RcppExport SEXP _arrow_csv___TableReader__Read(SEXP table_reader_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::dataset::DataSourceDiscovery> dataset___FSDSDiscovery__Make(const std::shared_ptr<arrow::fs::FileSystem>& fs, const std::shared_ptr<arrow::fs::Selector>& selector);
+ds::DataSourceDiscoveryPtr dataset___FSDSDiscovery__Make(const std::shared_ptr<fs::FileSystem>& fs, const std::shared_ptr<fs::Selector>& selector);
 RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make(SEXP fs_sexp, SEXP selector_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type fs(fs_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::Selector>&>::type selector(selector_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type fs(fs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::Selector>&>::type selector(selector_sexp);
 	return Rcpp::wrap(dataset___FSDSDiscovery__Make(fs, selector));
 END_RCPP
 }
@@ -1356,10 +1356,10 @@ RcppExport SEXP _arrow_dataset___FSDSDiscovery__Make(SEXP fs_sexp, SEXP selector
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::dataset::DataSource> dataset___DSDiscovery__Finish(const std::shared_ptr<arrow::dataset::DataSourceDiscovery>& discovery);
+ds::DataSourcePtr dataset___DSDiscovery__Finish(const ds::DataSourceDiscoveryPtr& discovery);
 RcppExport SEXP _arrow_dataset___DSDiscovery__Finish(SEXP discovery_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::DataSourceDiscovery>&>::type discovery(discovery_sexp);
+	Rcpp::traits::input_parameter<const ds::DataSourceDiscoveryPtr&>::type discovery(discovery_sexp);
 	return Rcpp::wrap(dataset___DSDiscovery__Finish(discovery));
 END_RCPP
 }
@@ -1371,10 +1371,10 @@ RcppExport SEXP _arrow_dataset___DSDiscovery__Finish(SEXP discovery_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Schema> dataset___DSDiscovery__Inspect(const std::shared_ptr<arrow::dataset::DataSourceDiscovery>& discovery);
+std::shared_ptr<arrow::Schema> dataset___DSDiscovery__Inspect(const ds::DataSourceDiscoveryPtr& discovery);
 RcppExport SEXP _arrow_dataset___DSDiscovery__Inspect(SEXP discovery_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::DataSourceDiscovery>&>::type discovery(discovery_sexp);
+	Rcpp::traits::input_parameter<const ds::DataSourceDiscoveryPtr&>::type discovery(discovery_sexp);
 	return Rcpp::wrap(dataset___DSDiscovery__Inspect(discovery));
 END_RCPP
 }
@@ -1386,11 +1386,11 @@ RcppExport SEXP _arrow_dataset___DSDiscovery__Inspect(SEXP discovery_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void dataset___DSDiscovery__SetPartitionScheme(const std::shared_ptr<arrow::dataset::DataSourceDiscovery>& discovery, const std::shared_ptr<arrow::dataset::PartitionScheme>& part);
+void dataset___DSDiscovery__SetPartitionScheme(const ds::DataSourceDiscoveryPtr& discovery, const ds::PartitionSchemePtr& part);
 RcppExport SEXP _arrow_dataset___DSDiscovery__SetPartitionScheme(SEXP discovery_sexp, SEXP part_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::DataSourceDiscovery>&>::type discovery(discovery_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::PartitionScheme>&>::type part(part_sexp);
+	Rcpp::traits::input_parameter<const ds::DataSourceDiscoveryPtr&>::type discovery(discovery_sexp);
+	Rcpp::traits::input_parameter<const ds::PartitionSchemePtr&>::type part(part_sexp);
 	dataset___DSDiscovery__SetPartitionScheme(discovery, part);
 	return R_NilValue;
 END_RCPP
@@ -1403,7 +1403,7 @@ RcppExport SEXP _arrow_dataset___DSDiscovery__SetPartitionScheme(SEXP discovery_
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::dataset::SchemaPartitionScheme> dataset___SchemaPartitionScheme(const std::shared_ptr<arrow::Schema>& schm);
+ds::PartitionSchemePtr dataset___SchemaPartitionScheme(const std::shared_ptr<arrow::Schema>& schm);
 RcppExport SEXP _arrow_dataset___SchemaPartitionScheme(SEXP schm_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
@@ -1418,7 +1418,7 @@ RcppExport SEXP _arrow_dataset___SchemaPartitionScheme(SEXP schm_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::dataset::HivePartitionScheme> dataset___HivePartitionScheme(const std::shared_ptr<arrow::Schema>& schm);
+ds::PartitionSchemePtr dataset___HivePartitionScheme(const std::shared_ptr<arrow::Schema>& schm);
 RcppExport SEXP _arrow_dataset___HivePartitionScheme(SEXP schm_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
@@ -1433,10 +1433,10 @@ RcppExport SEXP _arrow_dataset___HivePartitionScheme(SEXP schm_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::dataset::Dataset> dataset___Dataset__create(const std::vector<std::shared_ptr<arrow::dataset::DataSource>>& sources, const std::shared_ptr<arrow::Schema>& schm);
+ds::DatasetPtr dataset___Dataset__create(const ds::DataSourceVector& sources, const std::shared_ptr<arrow::Schema>& schm);
 RcppExport SEXP _arrow_dataset___Dataset__create(SEXP sources_sexp, SEXP schm_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::vector<std::shared_ptr<arrow::dataset::DataSource>>&>::type sources(sources_sexp);
+	Rcpp::traits::input_parameter<const ds::DataSourceVector&>::type sources(sources_sexp);
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Schema>&>::type schm(schm_sexp);
 	return Rcpp::wrap(dataset___Dataset__create(sources, schm));
 END_RCPP
@@ -1449,10 +1449,10 @@ RcppExport SEXP _arrow_dataset___Dataset__create(SEXP sources_sexp, SEXP schm_se
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Schema> dataset___Dataset__schema(const std::unique_ptr<arrow::dataset::Dataset>& ds);
+std::shared_ptr<arrow::Schema> dataset___Dataset__schema(const ds::DatasetPtr& ds);
 RcppExport SEXP _arrow_dataset___Dataset__schema(SEXP ds_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::dataset::Dataset>&>::type ds(ds_sexp);
+	Rcpp::traits::input_parameter<const ds::DatasetPtr&>::type ds(ds_sexp);
 	return Rcpp::wrap(dataset___Dataset__schema(ds));
 END_RCPP
 }
@@ -1464,10 +1464,10 @@ RcppExport SEXP _arrow_dataset___Dataset__schema(SEXP ds_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::unique_ptr<arrow::dataset::ScannerBuilder> dataset___Dataset__NewScan(const std::shared_ptr<arrow::dataset::Dataset>& ds);
+ds::ScannerBuilderPtr dataset___Dataset__NewScan(const ds::DatasetPtr& ds);
 RcppExport SEXP _arrow_dataset___Dataset__NewScan(SEXP ds_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Dataset>&>::type ds(ds_sexp);
+	Rcpp::traits::input_parameter<const ds::DatasetPtr&>::type ds(ds_sexp);
 	return Rcpp::wrap(dataset___Dataset__NewScan(ds));
 END_RCPP
 }
@@ -1479,10 +1479,10 @@ RcppExport SEXP _arrow_dataset___Dataset__NewScan(SEXP ds_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void dataset___ScannerBuilder__Project(const std::unique_ptr<arrow::dataset::ScannerBuilder>& sb, const std::vector<std::string>& cols);
+void dataset___ScannerBuilder__Project(const ds::ScannerBuilderPtr& sb, const std::vector<std::string>& cols);
 RcppExport SEXP _arrow_dataset___ScannerBuilder__Project(SEXP sb_sexp, SEXP cols_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::dataset::ScannerBuilder>&>::type sb(sb_sexp);
+	Rcpp::traits::input_parameter<const ds::ScannerBuilderPtr&>::type sb(sb_sexp);
 	Rcpp::traits::input_parameter<const std::vector<std::string>&>::type cols(cols_sexp);
 	dataset___ScannerBuilder__Project(sb, cols);
 	return R_NilValue;
@@ -1496,11 +1496,11 @@ RcppExport SEXP _arrow_dataset___ScannerBuilder__Project(SEXP sb_sexp, SEXP cols
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void dataset___ScannerBuilder__Filter(const std::unique_ptr<arrow::dataset::ScannerBuilder>& sb, const std::shared_ptr<arrow::dataset::Expression>& expr);
+void dataset___ScannerBuilder__Filter(const ds::ScannerBuilderPtr& sb, const ds::ExpressionPtr& expr);
 RcppExport SEXP _arrow_dataset___ScannerBuilder__Filter(SEXP sb_sexp, SEXP expr_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::dataset::ScannerBuilder>&>::type sb(sb_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type expr(expr_sexp);
+	Rcpp::traits::input_parameter<const ds::ScannerBuilderPtr&>::type sb(sb_sexp);
+	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type expr(expr_sexp);
 	dataset___ScannerBuilder__Filter(sb, expr);
 	return R_NilValue;
 END_RCPP
@@ -1513,10 +1513,10 @@ RcppExport SEXP _arrow_dataset___ScannerBuilder__Filter(SEXP sb_sexp, SEXP expr_
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void dataset___ScannerBuilder__UseThreads(const std::unique_ptr<arrow::dataset::ScannerBuilder>& sb, bool threads);
+void dataset___ScannerBuilder__UseThreads(const ds::ScannerBuilderPtr& sb, bool threads);
 RcppExport SEXP _arrow_dataset___ScannerBuilder__UseThreads(SEXP sb_sexp, SEXP threads_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::dataset::ScannerBuilder>&>::type sb(sb_sexp);
+	Rcpp::traits::input_parameter<const ds::ScannerBuilderPtr&>::type sb(sb_sexp);
 	Rcpp::traits::input_parameter<bool>::type threads(threads_sexp);
 	dataset___ScannerBuilder__UseThreads(sb, threads);
 	return R_NilValue;
@@ -1530,10 +1530,10 @@ RcppExport SEXP _arrow_dataset___ScannerBuilder__UseThreads(SEXP sb_sexp, SEXP t
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Schema> dataset___ScannerBuilder__schema(const std::unique_ptr<arrow::dataset::ScannerBuilder>& sb);
+std::shared_ptr<arrow::Schema> dataset___ScannerBuilder__schema(const ds::ScannerBuilderPtr& sb);
 RcppExport SEXP _arrow_dataset___ScannerBuilder__schema(SEXP sb_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::dataset::ScannerBuilder>&>::type sb(sb_sexp);
+	Rcpp::traits::input_parameter<const ds::ScannerBuilderPtr&>::type sb(sb_sexp);
 	return Rcpp::wrap(dataset___ScannerBuilder__schema(sb));
 END_RCPP
 }
@@ -1545,10 +1545,10 @@ RcppExport SEXP _arrow_dataset___ScannerBuilder__schema(SEXP sb_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::unique_ptr<arrow::dataset::Scanner> dataset___ScannerBuilder__Finish(const std::unique_ptr<arrow::dataset::ScannerBuilder>& sb);
+ds::ScannerPtr dataset___ScannerBuilder__Finish(const ds::ScannerBuilderPtr& sb);
 RcppExport SEXP _arrow_dataset___ScannerBuilder__Finish(SEXP sb_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::dataset::ScannerBuilder>&>::type sb(sb_sexp);
+	Rcpp::traits::input_parameter<const ds::ScannerBuilderPtr&>::type sb(sb_sexp);
 	return Rcpp::wrap(dataset___ScannerBuilder__Finish(sb));
 END_RCPP
 }
@@ -1560,15 +1560,15 @@ RcppExport SEXP _arrow_dataset___ScannerBuilder__Finish(SEXP sb_sexp){
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Table> dataset___Scanner__ToTable(const std::unique_ptr<arrow::dataset::Scanner>& scn);
-RcppExport SEXP _arrow_dataset___Scanner__ToTable(SEXP scn_sexp){
+std::shared_ptr<arrow::Table> dataset___Scanner__ToTable(const ds::ScannerPtr& scanner);
+RcppExport SEXP _arrow_dataset___Scanner__ToTable(SEXP scanner_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::unique_ptr<arrow::dataset::Scanner>&>::type scn(scn_sexp);
-	return Rcpp::wrap(dataset___Scanner__ToTable(scn));
+	Rcpp::traits::input_parameter<const ds::ScannerPtr&>::type scanner(scanner_sexp);
+	return Rcpp::wrap(dataset___Scanner__ToTable(scanner));
 END_RCPP
 }
 #else
-RcppExport SEXP _arrow_dataset___Scanner__ToTable(SEXP scn_sexp){
+RcppExport SEXP _arrow_dataset___Scanner__ToTable(SEXP scanner_sexp){
 	Rf_error("Cannot call dataset___Scanner__ToTable(). Please use arrow::install_arrow() to install required runtime libraries. ");
 }
 #endif
@@ -2301,7 +2301,7 @@ RcppExport SEXP _arrow_ListType__value_type(SEXP type_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::dataset::FieldExpression> dataset___expr__field_ref(std::string name);
+ds::ExpressionPtr dataset___expr__field_ref(std::string name);
 RcppExport SEXP _arrow_dataset___expr__field_ref(SEXP name_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<std::string>::type name(name_sexp);
@@ -2316,11 +2316,11 @@ RcppExport SEXP _arrow_dataset___expr__field_ref(SEXP name_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::dataset::ComparisonExpression> dataset___expr__equal(const std::shared_ptr<arrow::dataset::Expression>& lhs, const std::shared_ptr<arrow::dataset::Expression>& rhs);
+ds::ExpressionPtr dataset___expr__equal(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
 RcppExport SEXP _arrow_dataset___expr__equal(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type lhs(lhs_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type rhs(rhs_sexp);
+	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type rhs(rhs_sexp);
 	return Rcpp::wrap(dataset___expr__equal(lhs, rhs));
 END_RCPP
 }
@@ -2332,11 +2332,11 @@ RcppExport SEXP _arrow_dataset___expr__equal(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::dataset::ComparisonExpression> dataset___expr__not_equal(const std::shared_ptr<arrow::dataset::Expression>& lhs, const std::shared_ptr<arrow::dataset::Expression>& rhs);
+ds::ExpressionPtr dataset___expr__not_equal(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
 RcppExport SEXP _arrow_dataset___expr__not_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type lhs(lhs_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type rhs(rhs_sexp);
+	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type rhs(rhs_sexp);
 	return Rcpp::wrap(dataset___expr__not_equal(lhs, rhs));
 END_RCPP
 }
@@ -2348,11 +2348,11 @@ RcppExport SEXP _arrow_dataset___expr__not_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::dataset::ComparisonExpression> dataset___expr__greater(const std::shared_ptr<arrow::dataset::Expression>& lhs, const std::shared_ptr<arrow::dataset::Expression>& rhs);
+ds::ExpressionPtr dataset___expr__greater(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
 RcppExport SEXP _arrow_dataset___expr__greater(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type lhs(lhs_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type rhs(rhs_sexp);
+	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type rhs(rhs_sexp);
 	return Rcpp::wrap(dataset___expr__greater(lhs, rhs));
 END_RCPP
 }
@@ -2364,11 +2364,11 @@ RcppExport SEXP _arrow_dataset___expr__greater(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::dataset::ComparisonExpression> dataset___expr__greater_equal(const std::shared_ptr<arrow::dataset::Expression>& lhs, const std::shared_ptr<arrow::dataset::Expression>& rhs);
+ds::ExpressionPtr dataset___expr__greater_equal(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
 RcppExport SEXP _arrow_dataset___expr__greater_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type lhs(lhs_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type rhs(rhs_sexp);
+	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type rhs(rhs_sexp);
 	return Rcpp::wrap(dataset___expr__greater_equal(lhs, rhs));
 END_RCPP
 }
@@ -2380,11 +2380,11 @@ RcppExport SEXP _arrow_dataset___expr__greater_equal(SEXP lhs_sexp, SEXP rhs_sex
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::dataset::ComparisonExpression> dataset___expr__less(const std::shared_ptr<arrow::dataset::Expression>& lhs, const std::shared_ptr<arrow::dataset::Expression>& rhs);
+ds::ExpressionPtr dataset___expr__less(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
 RcppExport SEXP _arrow_dataset___expr__less(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type lhs(lhs_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type rhs(rhs_sexp);
+	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type rhs(rhs_sexp);
 	return Rcpp::wrap(dataset___expr__less(lhs, rhs));
 END_RCPP
 }
@@ -2396,11 +2396,11 @@ RcppExport SEXP _arrow_dataset___expr__less(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::dataset::ComparisonExpression> dataset___expr__less_equal(const std::shared_ptr<arrow::dataset::Expression>& lhs, const std::shared_ptr<arrow::dataset::Expression>& rhs);
+ds::ExpressionPtr dataset___expr__less_equal(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
 RcppExport SEXP _arrow_dataset___expr__less_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type lhs(lhs_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type rhs(rhs_sexp);
+	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type rhs(rhs_sexp);
 	return Rcpp::wrap(dataset___expr__less_equal(lhs, rhs));
 END_RCPP
 }
@@ -2412,11 +2412,11 @@ RcppExport SEXP _arrow_dataset___expr__less_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::dataset::AndExpression> dataset___expr__and(const std::shared_ptr<arrow::dataset::Expression>& lhs, const std::shared_ptr<arrow::dataset::Expression>& rhs);
+ds::ExpressionPtr dataset___expr__and(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
 RcppExport SEXP _arrow_dataset___expr__and(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type lhs(lhs_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type rhs(rhs_sexp);
+	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type rhs(rhs_sexp);
 	return Rcpp::wrap(dataset___expr__and(lhs, rhs));
 END_RCPP
 }
@@ -2428,11 +2428,11 @@ RcppExport SEXP _arrow_dataset___expr__and(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::dataset::OrExpression> dataset___expr__or(const std::shared_ptr<arrow::dataset::Expression>& lhs, const std::shared_ptr<arrow::dataset::Expression>& rhs);
+ds::ExpressionPtr dataset___expr__or(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
 RcppExport SEXP _arrow_dataset___expr__or(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type lhs(lhs_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type rhs(rhs_sexp);
+	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type rhs(rhs_sexp);
 	return Rcpp::wrap(dataset___expr__or(lhs, rhs));
 END_RCPP
 }
@@ -2444,10 +2444,10 @@ RcppExport SEXP _arrow_dataset___expr__or(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::dataset::NotExpression> dataset___expr__not(const std::shared_ptr<arrow::dataset::Expression>& lhs);
+ds::ExpressionPtr dataset___expr__not(const ds::ExpressionPtr& lhs);
 RcppExport SEXP _arrow_dataset___expr__not(SEXP lhs_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type lhs(lhs_sexp);
+	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
 	return Rcpp::wrap(dataset___expr__not(lhs));
 END_RCPP
 }
@@ -2459,7 +2459,7 @@ RcppExport SEXP _arrow_dataset___expr__not(SEXP lhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::dataset::ScalarExpression> dataset___expr__scalar(SEXP x);
+ds::ExpressionPtr dataset___expr__scalar(SEXP x);
 RcppExport SEXP _arrow_dataset___expr__scalar(SEXP x_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<SEXP>::type x(x_sexp);
@@ -2474,10 +2474,10 @@ RcppExport SEXP _arrow_dataset___expr__scalar(SEXP x_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::string dataset___expr__ToString(const std::shared_ptr<arrow::dataset::Expression>& x);
+std::string dataset___expr__ToString(const ds::ExpressionPtr& x);
 RcppExport SEXP _arrow_dataset___expr__ToString(SEXP x_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::dataset::Expression>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type x(x_sexp);
 	return Rcpp::wrap(dataset___expr__ToString(x));
 END_RCPP
 }

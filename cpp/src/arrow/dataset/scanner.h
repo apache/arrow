@@ -51,14 +51,14 @@ class ARROW_DS_EXPORT ScanOptions {
  public:
   virtual ~ScanOptions() = default;
 
-  static std::shared_ptr<ScanOptions> Defaults();
+  static ScanOptionsPtr Defaults();
 
   // Indicate if the Scanner should make use of the ThreadPool found in the
   // ScanContext.
   bool use_threads = false;
 
   // Filter
-  std::shared_ptr<Expression> filter;
+  ExpressionPtr filter;
   // Evaluator for Filter
   std::shared_ptr<ExpressionEvaluator> evaluator;
 
@@ -79,7 +79,7 @@ class ARROW_DS_EXPORT ScanTask {
   /// \brief Iterate through sequence of materialized record batches
   /// resulting from the Scan. Execution semantics encapsulated in the
   /// particular ScanTask implementation
-  virtual RecordBatchIterator Scan() = 0;
+  virtual Result<RecordBatchIterator> Scan() = 0;
 
   virtual ~ScanTask() = default;
 };
@@ -91,22 +91,21 @@ class ARROW_DS_EXPORT SimpleScanTask : public ScanTask {
       : record_batches_(std::move(record_batches)) {}
 
   SimpleScanTask(std::vector<std::shared_ptr<RecordBatch>> record_batches,
-                 std::shared_ptr<ScanOptions> options,
-                 std::shared_ptr<ScanContext> context)
+                 ScanOptionsPtr options, ScanContextPtr context)
       : record_batches_(std::move(record_batches)),
         options_(std::move(options)),
         context_(std::move(context)) {}
 
-  RecordBatchIterator Scan() override;
+  Result<RecordBatchIterator> Scan() override;
 
  protected:
   std::vector<std::shared_ptr<RecordBatch>> record_batches_;
-  std::shared_ptr<ScanOptions> options_;
-  std::shared_ptr<ScanContext> context_;
+  ScanOptionsPtr options_;
+  ScanContextPtr context_;
 };
 
-Status ScanTaskIteratorFromRecordBatch(std::vector<std::shared_ptr<RecordBatch>> batches,
-                                       ScanTaskIterator* out);
+Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
+    std::vector<std::shared_ptr<RecordBatch>> batches);
 
 /// \brief Scanner is a materialized scan operation with context and options
 /// bound. A scanner is the class that glues ScanTask, DataFragment,
@@ -119,57 +118,29 @@ Status ScanTaskIteratorFromRecordBatch(std::vector<std::shared_ptr<RecordBatch>>
 ///          yield scan_task
 class ARROW_DS_EXPORT Scanner {
  public:
-  Scanner(DataSourceVector sources, std::shared_ptr<ScanOptions> options,
-          std::shared_ptr<ScanContext> context)
+  Scanner(DataSourceVector sources, ScanOptionsPtr options, ScanContextPtr context)
       : sources_(std::move(sources)),
         options_(std::move(options)),
         context_(std::move(context)) {}
 
-  virtual ~Scanner() = default;
-
   /// \brief The Scan operator returns a stream of ScanTask. The caller is
   /// responsible to dispatch/schedule said tasks. Tasks should be safe to run
   /// in a concurrent fashion and outlive the iterator.
-  virtual ScanTaskIterator Scan() = 0;
+  Result<ScanTaskIterator> Scan();
 
   /// \brief Convert a Scanner into a Table.
   ///
-  /// \param[out] out output parameter
-  ///
   /// Use this convenience utility with care. This will serially materialize the
   /// Scan result in memory before creating the Table.
-  Status ToTable(std::shared_ptr<Table>* out);
+  Result<std::shared_ptr<Table>> ToTable();
 
  protected:
   /// \brief Return a TaskGroup according to ScanContext thread rules.
   std::shared_ptr<internal::TaskGroup> TaskGroup() const;
 
   DataSourceVector sources_;
-  std::shared_ptr<ScanOptions> options_;
-  std::shared_ptr<ScanContext> context_;
-};
-
-/// \brief SimpleScanner is a trivial Scanner implementation that flattens
-/// chained iterators.
-///
-/// The returned iterator of SimpleScanner::Scan is a serial blocking
-/// iterator. It will block if any of the following methods blocks:
-///  - Iterator::Next
-///  - DataSource::GetFragments
-///  - DataFragment::Scan
-///
-/// Thus, this iterator is not suited for consumption of sources/fragments
-/// where the previous methods can block for a long time, e.g. if fetching a
-/// DataFragment from cloud storage, or a DataFragment must be parsed before
-/// returning a ScanTaskIterator.
-class ARROW_DS_EXPORT SimpleScanner : public Scanner {
- public:
-  SimpleScanner(std::vector<std::shared_ptr<DataSource>> sources,
-                std::shared_ptr<ScanOptions> options,
-                std::shared_ptr<ScanContext> context)
-      : Scanner(std::move(sources), std::move(options), std::move(context)) {}
-
-  ScanTaskIterator Scan() override;
+  ScanOptionsPtr options_;
+  ScanContextPtr context_;
 };
 
 /// \brief ScannerBuilder is a factory class to construct a Scanner. It is used
@@ -177,8 +148,7 @@ class ARROW_DS_EXPORT SimpleScanner : public Scanner {
 /// columns to materialize.
 class ARROW_DS_EXPORT ScannerBuilder {
  public:
-  ScannerBuilder(std::shared_ptr<Dataset> dataset,
-                 std::shared_ptr<ScanContext> scan_context);
+  ScannerBuilder(DatasetPtr dataset, ScanContextPtr context);
 
   /// \brief Set the subset of columns to materialize.
   ///
@@ -204,22 +174,22 @@ class ARROW_DS_EXPORT ScannerBuilder {
   ///
   /// \return Failure if any referenced columns does not exist in the dataset's
   ///         Schema.
-  Status Filter(std::shared_ptr<Expression> filter, bool implicit_casts = false);
-  Status Filter(const Expression& filter, bool implicit_casts = false);
+  Status Filter(ExpressionPtr filter);
+  Status Filter(const Expression& filter);
 
   /// \brief Indicate if the Scanner should make use of the available
   ///        ThreadPool found in ScanContext;
   Status UseThreads(bool use_threads = true);
 
   /// \brief Return the constructed now-immutable Scanner object
-  Status Finish(std::unique_ptr<Scanner>* out) const;
+  Result<ScannerPtr> Finish() const;
 
   std::shared_ptr<Schema> schema() const { return dataset_->schema(); }
 
  private:
-  std::shared_ptr<Dataset> dataset_;
-  std::shared_ptr<ScanOptions> scan_options_;
-  std::shared_ptr<ScanContext> scan_context_;
+  DatasetPtr dataset_;
+  ScanOptionsPtr options_;
+  ScanContextPtr context_;
   bool has_projection_ = false;
   std::vector<std::string> project_columns_;
 };
