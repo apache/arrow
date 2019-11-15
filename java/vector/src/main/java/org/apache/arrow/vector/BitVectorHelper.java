@@ -353,30 +353,27 @@ public class BitVectorHelper {
 
     // the number of bits to fill a full byte after the first input is processed
     int numBitsToFill = 8 - bitIndex(numBits1);
+
+    // mask to clear high bits
     int mask = (1 << (8 - numBitsToFill)) - 1;
 
     int numFullBytes = numBits2 / 8;
 
+    int prevByte = output.getByte(numBytes1 - 1) & mask;
     for (int i = 0; i < numFullBytes; i++) {
-      int prevByte = output.getByte(numBytes1 + i - 1) & 0xff;
-
-      // clear high bits
-      prevByte &= mask;
-
       int curByte = input2.getByte(i) & 0xff;
 
       // first fill the bits to a full byte
-      int byteToFill = ((curByte & 0xff) << (8 - numBitsToFill)) & 0xff;
+      int byteToFill = (curByte << (8 - numBitsToFill)) & 0xff;
       output.setByte(numBytes1 + i - 1, byteToFill | prevByte);
 
       // fill remaining bits in the current byte
-      int remByte = (curByte & 0xff) >>> numBitsToFill;
-      output.setByte(numBytes1 + i, remByte);
+      // note that it is also the previous byte for the next iteration
+      prevByte = curByte >>> numBitsToFill;
     }
 
     // clear high bits for the previous byte, as it may be the last byte
-    int curOutputByte = output.getByte(numBytes1 + numFullBytes - 1) & 0xff;
-    curOutputByte &= mask;
+    int lastOutputByte = prevByte;
 
     // the number of extra bits for the second input, relative to full bytes
     int numRemainingBits = bitIndex(numBits2);
@@ -385,18 +382,18 @@ public class BitVectorHelper {
     if (numRemainingBits > 0) {
       int remByte = input2.getByte(numBytes2 - 1) & 0xff;
 
-      int byteToFill = (remByte & 0xff) << (8 - numBitsToFill);
-      curOutputByte |= byteToFill;
+      int byteToFill = remByte << (8 - numBitsToFill);
+      lastOutputByte |= byteToFill;
 
       if (numRemainingBits > numBitsToFill) {
         // clear all bits for the last byte before writing
         output.setByte(numBytes1 + numFullBytes, 0);
 
         // some remaining bits cannot be filled in the previous byte
-        int leftByte = (byte) ((remByte & 0xff) >>> numBitsToFill) & 0xff;
+        int leftByte = remByte >>> numBitsToFill;
         output.setByte(numBytes1 + numFullBytes, leftByte);
       }
     }
-    output.setByte(numBytes1 + numFullBytes - 1, curOutputByte);
+    output.setByte(numBytes1 + numFullBytes - 1, lastOutputByte);
   }
 }

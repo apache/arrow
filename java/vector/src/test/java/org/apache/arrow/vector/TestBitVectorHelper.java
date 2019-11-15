@@ -223,13 +223,12 @@ public class TestBitVectorHelper {
 
   private void concatAndVerify(ArrowBuf buf1, int count1, ArrowBuf buf2, int count2, ArrowBuf output) {
     BitVectorHelper.concatBits(buf1, count1, buf2, count2, output);
-    for (int i = 0; i < count1 + count2; i++) {
-      int result = BitVectorHelper.get(output, i);
-      if (i < count1) {
-        assertEquals(i % 3 == 0 ? 1 : 0, result);
-      } else {
-        assertEquals((i - count1) % 3 == 0 ? 1 : 0, result);
-      }
+    int outputIdx = 0;
+    for (int i = 0; i < count1; i++, outputIdx++) {
+      assertEquals(BitVectorHelper.get(output, outputIdx), BitVectorHelper.get(buf1, i));
+    }
+    for (int i = 0; i < count2; i++, outputIdx++) {
+      assertEquals(BitVectorHelper.get(output, outputIdx), BitVectorHelper.get(buf2, i));
     }
   }
 }
