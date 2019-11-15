@@ -54,11 +54,12 @@ class TableTest < Test::Unit::TestCase
       target_rows = Arrow::BooleanArray.new(target_rows_raw)
       assert_equal(<<-TABLE, @table.slice(target_rows).to_s)
 	count	visible
-0	    2	false  
-1	    4	       
-2	   16	true   
-3	   64	       
-4	  128	       
+0	     	       
+1	    2	false  
+2	    4	       
+3	   16	true   
+4	   64	       
+5	  128	       
       TABLE
     end
 
@@ -66,11 +67,12 @@ class TableTest < Test::Unit::TestCase
       target_rows_raw = [nil, true, true, false, true, false, true, true]
       assert_equal(<<-TABLE, @table.slice(target_rows_raw).to_s)
 	count	visible
-0	    2	false  
-1	    4	       
-2	   16	true   
-3	   64	       
-4	  128	       
+0	     	       
+1	    2	false  
+2	    4	       
+3	   16	true   
+4	   64	       
+5	  128	       
       TABLE
     end
 
@@ -644,6 +646,53 @@ visible: false
           not (@table == 29)
         end
       end
+    end
+  end
+
+  sub_test_case("#filter") do
+    test("Array: boolean") do
+      filter = [nil, true, true, false, true, false, true, true]
+      assert_equal(<<-TABLE, @table.filter(filter).to_s)
+	count	visible
+0	     	       
+1	    2	false  
+2	    4	       
+3	   16	true   
+4	   64	       
+5	  128	       
+      TABLE
+    end
+
+    test("Arrow::BooleanArray") do
+      array = [nil, true, true, false, true, false, true, true]
+      filter = Arrow::BooleanArray.new(array)
+      assert_equal(<<-TABLE, @table.filter(filter).to_s)
+	count	visible
+0	     	       
+1	    2	false  
+2	    4	       
+3	   16	true   
+4	   64	       
+5	  128	       
+      TABLE
+    end
+
+    test("Arrow::ChunkedArray") do
+      filter_chunks = [
+        Arrow::BooleanArray.new([nil, true, true]),
+        Arrow::BooleanArray.new([false, true, false]),
+        Arrow::BooleanArray.new([true, true]),
+      ]
+      filter = Arrow::ChunkedArray.new(filter_chunks)
+      assert_equal(<<-TABLE, @table.filter(filter).to_s)
+	count	visible
+0	     	       
+1	    2	false  
+2	    4	       
+3	   16	true   
+4	   64	       
+5	  128	       
+      TABLE
     end
   end
 end

@@ -306,13 +306,13 @@ module Arrow
         end
       end
 
-      ranges = []
+      sliced_tables = []
       slicers.each do |slicer|
         slicer = slicer.evaluate if slicer.respond_to?(:evaluate)
         case slicer
         when Integer
           slicer += n_rows if slicer < 0
-          ranges << [slicer, n_rows - 1]
+          sliced_tables << slice_by_range(slicer, n_rows - 1)
         when Range
           original_from = from = slicer.first
           to = slicer.last
@@ -325,17 +325,9 @@ module Arrow
             raise ArgumentError, message
           end
           to += n_rows if to < 0
-          ranges << [from, to]
-        when ::Array
-          boolean_array_to_slice_ranges(slicer, 0, ranges)
-        when ChunkedArray
-          offset = 0
-          slicer.each_chunk do |array|
-            boolean_array_to_slice_ranges(array, offset, ranges)
-            offset += array.length
-          end
-        when BooleanArray
-          boolean_array_to_slice_ranges(slicer, 0, ranges)
+          sliced_tables << slice_by_range(from, to)
+        when ::Array, BooleanArray, ChunkedArray
+          sliced_tables << filter(slicer)
         else
           message = "slicer must be Integer, Range, (from, to), " +
             "Arrow::ChunkedArray of Arrow::BooleanArray, " +
@@ -343,7 +335,11 @@ module Arrow
           raise ArgumentError, message
         end
       end
-      slice_by_ranges(ranges)
+      if sliced_tables.size > 1
+        sliced_tables[0].concatenate(sliced_tables[1..-1])
+      else
+        sliced_tables[0]
+      end
     end
 
     # TODO
@@ -513,39 +509,21 @@ module Arrow
       super
     end
 
-    private
-    def boolean_array_to_slice_ranges(array, offset, ranges)
-      in_target = false
-      target_start = nil
-      array.each_with_index do |is_target, i|
-        if is_target
-          unless in_target
-            target_start = offset + i
-            in_target = true
-          end
-        else
-          if in_target
-            ranges << [target_start, offset + i - 1]
-            target_start = nil
-            in_target = false
-          end
-        end
-      end
-      if in_target
-        ranges << [target_start, offset + array.length - 1]
+    alias_method :filter_raw, :filter
+    def filter(array)
+      case array
+      when ::Array
+        filter_raw(BooleanArray.new(array))
+      when ChunkedArray
+        filter_chunked_array(array)
+      else
+        filter_raw(array)
       end
     end
 
-    def slice_by_ranges(ranges)
-      sliced_table = []
-      ranges.each do |from, to|
-        sliced_table << slice_raw(from, to - from + 1)
-      end
-      if sliced_table.size > 1
-        sliced_table[0].concatenate(sliced_table[1..-1])
-      else
-        sliced_table[0]
-      end
+    private
+    def slice_by_range(from, to)
+      slice_raw(from, to - from + 1)
     end
 
     def ensure_raw_column(name, data)
