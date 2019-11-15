@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.util.Arrays;
+import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.complex.FixedSizeListVector;
@@ -268,19 +269,47 @@ public class TestFixedSizeListVector {
   }
 
   @Test
-  public void testDecimalIndexCheck() throws Exception {
-    try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("vector", /*listSize=*/3, allocator)) {
+  public void testWriteDecimal() throws Exception {
+    try (final FixedSizeListVector vector = FixedSizeListVector.empty("vector", /*listSize=*/3, allocator)) {
 
-      UnionFixedSizeListWriter writer1 = vector1.getWriter();
-      writer1.allocate();
+      UnionFixedSizeListWriter writer = vector.getWriter();
+      writer.allocate();
+
+      final int valueCount = 100;
+
+      for (int i = 0; i < valueCount; i++) {
+        writer.startList();
+        writer.decimal().writeDecimal(new BigDecimal(i));
+        writer.decimal().writeDecimal(new BigDecimal(i * 2));
+        writer.decimal().writeDecimal(new BigDecimal(i * 3));
+        writer.endList();
+      }
+      vector.setValueCount(valueCount);
+
+      for (int i = 0; i < valueCount; i++) {
+        List<BigDecimal> values = (List<BigDecimal>) vector.getObject(i);
+        assertEquals(3, values.size());
+        assertEquals(new BigDecimal(i), values.get(0));
+        assertEquals(new BigDecimal(i * 2), values.get(1));
+        assertEquals(new BigDecimal(i * 3), values.get(2));
+      }
+    }
+  }
+
+  @Test
+  public void testDecimalIndexCheck() throws Exception {
+    try (final FixedSizeListVector vector = FixedSizeListVector.empty("vector", /*listSize=*/3, allocator)) {
+
+      UnionFixedSizeListWriter writer = vector.getWriter();
+      writer.allocate();
 
       IllegalStateException e = assertThrows(IllegalStateException.class, () -> {
-        writer1.startList();
-        writer1.decimal().writeDecimal(new BigDecimal(1));
-        writer1.decimal().writeDecimal(new BigDecimal(2));
-        writer1.decimal().writeDecimal(new BigDecimal(3));
-        writer1.decimal().writeDecimal(new BigDecimal(4));
-        writer1.endList();
+        writer.startList();
+        writer.decimal().writeDecimal(new BigDecimal(1));
+        writer.decimal().writeDecimal(new BigDecimal(2));
+        writer.decimal().writeDecimal(new BigDecimal(3));
+        writer.decimal().writeDecimal(new BigDecimal(4));
+        writer.endList();
       });
       assertEquals("values at index 0 is greater than listSize 3", e.getMessage());
     }
