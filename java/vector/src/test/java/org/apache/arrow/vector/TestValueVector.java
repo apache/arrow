@@ -20,6 +20,7 @@ package org.apache.arrow.vector;
 import static org.apache.arrow.vector.TestUtils.newVarBinaryVector;
 import static org.apache.arrow.vector.TestUtils.newVarCharVector;
 import static org.apache.arrow.vector.TestUtils.newVector;
+import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -1701,14 +1702,9 @@ public class TestValueVector {
   public void testVectorLoadUnload() {
 
     try (final VarCharVector vector1 = new VarCharVector("myvector", allocator)) {
-      vector1.allocateNew(1024 * 10, 1024);
 
-      vector1.set(0, STR1);
-      vector1.set(1, STR2);
-      vector1.set(2, STR3);
-      vector1.set(3, STR4);
-      vector1.set(4, STR5);
-      vector1.set(5, STR6);
+      setVector(vector1, STR1, STR2, STR3, STR4, STR5, STR6);
+
       assertEquals(Integer.toString(5), Integer.toString(vector1.getLastSet()));
       vector1.setValueCount(15);
       assertEquals(Integer.toString(14), Integer.toString(vector1.getLastSet()));
@@ -1877,16 +1873,8 @@ public class TestValueVector {
   public void testGetBufferAddress1() {
 
     try (final VarCharVector vector = new VarCharVector("myvector", allocator)) {
-      vector.allocateNew(1024 * 10, 1024);
 
-      /* populate the vector */
-      vector.set(0, STR1);
-      vector.set(1, STR2);
-      vector.set(2, STR3);
-      vector.set(3, STR4);
-      vector.set(4, STR5);
-      vector.set(5, STR6);
-
+      setVector(vector, STR1, STR2, STR3, STR4, STR5, STR6);
       vector.setValueCount(15);
 
       /* check the vector output */
@@ -2247,8 +2235,8 @@ public class TestValueVector {
 
   @Test
   public void testGetNullFromVariableWidthVector() {
-    try (VarCharVector varCharVector = new VarCharVector("varcharvec", allocator);
-    VarBinaryVector varBinaryVector = new VarBinaryVector("varbinary", allocator)) {
+    try (final VarCharVector varCharVector = new VarCharVector("varcharvec", allocator);
+         final VarBinaryVector varBinaryVector = new VarBinaryVector("varbinary", allocator)) {
       varCharVector.allocateNew(10, 1);
       varBinaryVector.allocateNew(10, 1);
 
@@ -2286,17 +2274,11 @@ public class TestValueVector {
   @Test
   public void testIntVectorEqualsWithNull() {
     try (final IntVector vector1 = new IntVector("int", allocator);
-        final IntVector vector2 = new IntVector("int", allocator)) {
+         final IntVector vector2 = new IntVector("int", allocator)) {
 
-      vector1.allocateNew(2);
-      vector1.setValueCount(2);
-      vector2.allocateNew(2);
-      vector2.setValueCount(2);
+      setVector(vector1, 1, 2);
+      setVector(vector2, 1, null);
 
-      vector1.setSafe(0, 1);
-      vector1.setSafe(1, 2);
-
-      vector2.setSafe(0, 1);
       VectorEqualsVisitor visitor = new VectorEqualsVisitor();
 
       assertFalse(visitor.vectorEquals(vector1, vector2));
@@ -2306,19 +2288,10 @@ public class TestValueVector {
   @Test
   public void testIntVectorEquals() {
     try (final IntVector vector1 = new IntVector("int", allocator);
-        final IntVector vector2 = new IntVector("int", allocator)) {
+         final IntVector vector2 = new IntVector("int", allocator)) {
 
-      vector1.allocateNew(3);
-      vector1.setValueCount(3);
-      vector2.allocateNew(3);
-      vector2.setValueCount(2);
-
-      vector1.setSafe(0, 1);
-      vector1.setSafe(1, 2);
-      vector1.setSafe(2, 3);
-
-      vector2.setSafe(0, 1);
-      vector2.setSafe(1, 2);
+      setVector(vector1, 1, 2, 3);
+      setVector(vector2, 1, 2, null);
 
       VectorEqualsVisitor visitor = new VectorEqualsVisitor();
 
@@ -2336,24 +2309,12 @@ public class TestValueVector {
   @Test
   public void testDecimalVectorEquals() {
     try (final DecimalVector vector1 = new DecimalVector("decimal", allocator, 3, 3);
-        final DecimalVector vector2 = new DecimalVector("decimal", allocator, 3, 3);
-        final DecimalVector vector3 = new DecimalVector("decimal", allocator, 3, 2)) {
+         final DecimalVector vector2 = new DecimalVector("decimal", allocator, 3, 3);
+         final DecimalVector vector3 = new DecimalVector("decimal", allocator, 3, 2)) {
 
-      vector1.allocateNew(2);
-      vector1.setValueCount(2);
-      vector2.allocateNew(2);
-      vector2.setValueCount(2);
-      vector3.allocateNew(2);
-      vector3.setValueCount(2);
-
-      vector1.setSafe(0, 100);
-      vector1.setSafe(1, 200);
-
-      vector2.setSafe(0, 100);
-      vector2.setSafe(1, 200);
-
-      vector3.setSafe(0, 100);
-      vector3.setSafe(1, 200);
+      setVector(vector1, 100L, 200L);
+      setVector(vector2, 100L, 200L);
+      setVector(vector3, 100L, 200L);
 
       VectorEqualsVisitor visitor1 = new VectorEqualsVisitor();
       VectorEqualsVisitor visitor2 = new VectorEqualsVisitor();
@@ -2366,18 +2327,10 @@ public class TestValueVector {
   @Test
   public void testVarcharVectorEuqalsWithNull() {
     try (final VarCharVector vector1 = new VarCharVector("varchar", allocator);
-        final VarCharVector vector2 = new VarCharVector("varchar", allocator)) {
+         final VarCharVector vector2 = new VarCharVector("varchar", allocator)) {
 
-      vector1.allocateNew();
-      vector2.allocateNew();
-
-      // set some values
-      vector1.setSafe(0, STR1, 0, STR1.length);
-      vector1.setSafe(1, STR2, 0, STR2.length);
-      vector1.setValueCount(2);
-
-      vector2.setSafe(0, STR1, 0, STR1.length);
-      vector2.setValueCount(2);
+      setVector(vector1, STR1, STR2);
+      setVector(vector2, STR1, null);
 
       VectorEqualsVisitor visitor = new VectorEqualsVisitor();
       assertFalse(visitor.vectorEquals(vector1, vector2));
@@ -2387,20 +2340,10 @@ public class TestValueVector {
   @Test
   public void testVarcharVectorEquals() {
     try (final VarCharVector vector1 = new VarCharVector("varchar", allocator);
-        final VarCharVector vector2 = new VarCharVector("varchar", allocator)) {
+         final VarCharVector vector2 = new VarCharVector("varchar", allocator)) {
 
-      vector1.allocateNew();
-      vector2.allocateNew();
-
-      // set some values
-      vector1.setSafe(0, STR1, 0, STR1.length);
-      vector1.setSafe(1, STR2, 0, STR2.length);
-      vector1.setSafe(2, STR3, 0, STR3.length);
-      vector1.setValueCount(3);
-
-      vector2.setSafe(0, STR1, 0, STR1.length);
-      vector2.setSafe(1, STR2, 0, STR2.length);
-      vector2.setValueCount(2);
+      setVector(vector1, STR1, STR2, STR3);
+      setVector(vector2, STR1, STR2);
 
       VectorEqualsVisitor visitor = new VectorEqualsVisitor();
       assertFalse(visitor.vectorEquals(vector1, vector2));
@@ -2414,20 +2357,10 @@ public class TestValueVector {
   @Test
   public void testVarBinaryVectorEquals() {
     try (final VarBinaryVector vector1 = new VarBinaryVector("binary", allocator);
-        final VarBinaryVector vector2 = new VarBinaryVector("binary", allocator)) {
+         final VarBinaryVector vector2 = new VarBinaryVector("binary", allocator)) {
 
-      vector1.allocateNew();
-      vector2.allocateNew();
-
-      // set some values
-      vector1.setSafe(0, STR1, 0, STR1.length);
-      vector1.setSafe(1, STR2, 0, STR2.length);
-      vector1.setSafe(2, STR3, 0, STR3.length);
-      vector1.setValueCount(3);
-
-      vector2.setSafe(0, STR1, 0, STR1.length);
-      vector2.setSafe(1, STR2, 0, STR2.length);
-      vector2.setValueCount(2);
+      setVector(vector1, STR1, STR2, STR3);
+      setVector(vector2, STR1, STR2);
 
       VectorEqualsVisitor visitor = new VectorEqualsVisitor();
       assertFalse(visitor.vectorEquals(vector1, vector2));
@@ -2625,18 +2558,10 @@ public class TestValueVector {
   @Test(expected = IllegalArgumentException.class)
   public void testEqualsWithIndexOutOfRange() {
     try (final IntVector vector1 = new IntVector("int", allocator);
-        final IntVector vector2 = new IntVector("int", allocator)) {
+         final IntVector vector2 = new IntVector("int", allocator)) {
 
-      vector1.allocateNew(2);
-      vector1.setValueCount(2);
-      vector2.allocateNew(2);
-      vector2.setValueCount(2);
-
-      vector1.setSafe(0, 1);
-      vector1.setSafe(1, 2);
-
-      vector2.setSafe(0, 1);
-      vector2.setSafe(1, 2);
+      setVector(vector1, 1, 2);
+      setVector(vector2, 1, 2);
 
       assertTrue(new RangeEqualsVisitor(vector1, vector2).rangeEquals(new Range(2, 3, 1)));
     }

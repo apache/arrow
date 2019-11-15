@@ -17,6 +17,7 @@
 
 package org.apache.arrow.vector.compare;
 
+import static org.apache.arrow.vector.testing.ValueVectorDataPopulator.setVector;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -70,17 +71,10 @@ public class TestRangeEqualsVisitor {
   @Test
   public void testIntVectorEqualsWithNull() {
     try (final IntVector vector1 = new IntVector("int", allocator);
-        final IntVector vector2 = new IntVector("int", allocator)) {
+         final IntVector vector2 = new IntVector("int", allocator)) {
 
-      vector1.allocateNew(2);
-      vector1.setValueCount(2);
-      vector2.allocateNew(2);
-      vector2.setValueCount(2);
-
-      vector1.setSafe(0, 1);
-      vector1.setSafe(1, 2);
-
-      vector2.setSafe(0, 1);
+      setVector(vector1, 1, 2);
+      setVector(vector2, 1, null);
 
       assertFalse(VectorEqualsVisitor.vectorEquals(vector1, vector2));
     }
@@ -92,16 +86,8 @@ public class TestRangeEqualsVisitor {
          final IntVector vector2 = new IntVector("intVector2", allocator);
          final BigIntVector vector3 = new BigIntVector("bigIntVector", allocator)) {
 
-      vector1.allocateNew(2);
-      vector1.setValueCount(2);
-      vector2.allocateNew(2);
-      vector2.setValueCount(2);
-
-      vector1.setSafe(0, 1);
-      vector1.setSafe(1, 2);
-
-      vector2.setSafe(0, 1);
-      vector2.setSafe(1, 2);
+      setVector(vector1, 1, 2);
+      setVector(vector2, 1, 2);
 
       RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2);
       Range range = new Range(0, 0, 2);
@@ -114,24 +100,10 @@ public class TestRangeEqualsVisitor {
   @Test
   public void testBaseFixedWidthVectorRangeEqual() {
     try (final IntVector vector1 = new IntVector("int", allocator);
-        final IntVector vector2 = new IntVector("int", allocator)) {
+         final IntVector vector2 = new IntVector("int", allocator)) {
 
-      vector1.allocateNew(5);
-      vector1.setValueCount(5);
-      vector2.allocateNew(5);
-      vector2.setValueCount(5);
-
-      vector1.setSafe(0, 1);
-      vector1.setSafe(1, 2);
-      vector1.setSafe(2, 3);
-      vector1.setSafe(3, 4);
-      vector1.setSafe(4, 5);
-
-      vector2.setSafe(0, 11);
-      vector2.setSafe(1, 2);
-      vector2.setSafe(2,3);
-      vector2.setSafe(3,4);
-      vector2.setSafe(4,55);
+      setVector(vector1, 1, 2, 3, 4, 5);
+      setVector(vector2, 11, 2, 3, 4, 55);
 
       RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2);
       assertTrue(visitor.rangeEquals(new Range(1, 1, 3)));
@@ -141,25 +113,10 @@ public class TestRangeEqualsVisitor {
   @Test
   public void testBaseVariableVectorRangeEquals() {
     try (final VarCharVector vector1 = new VarCharVector("varchar", allocator);
-        final VarCharVector vector2 = new VarCharVector("varchar", allocator)) {
+         final VarCharVector vector2 = new VarCharVector("varchar", allocator)) {
 
-      vector1.allocateNew();
-      vector2.allocateNew();
-
-      // set some values
-      vector1.setSafe(0, STR1, 0, STR1.length);
-      vector1.setSafe(1, STR2, 0, STR2.length);
-      vector1.setSafe(2, STR3, 0, STR3.length);
-      vector1.setSafe(3, STR2, 0, STR2.length);
-      vector1.setSafe(4, STR1, 0, STR1.length);
-      vector1.setValueCount(5);
-
-      vector2.setSafe(0, STR1, 0, STR1.length);
-      vector2.setSafe(1, STR2, 0, STR2.length);
-      vector2.setSafe(2, STR3, 0, STR3.length);
-      vector2.setSafe(3, STR2, 0, STR2.length);
-      vector2.setSafe(4, STR1, 0, STR1.length);
-      vector2.setValueCount(5);
+      setVector(vector1, STR1, STR2, STR3, STR2, STR1);
+      setVector(vector2, STR1, STR2, STR3, STR2, STR1);
 
       RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2);
       assertTrue(visitor.rangeEquals(new Range(1, 1, 3)));
@@ -169,7 +126,7 @@ public class TestRangeEqualsVisitor {
   @Test
   public void testListVectorRangeEquals() {
     try (final ListVector vector1 = ListVector.empty("list", allocator);
-        final ListVector vector2 = ListVector.empty("list", allocator);) {
+         final ListVector vector2 = ListVector.empty("list", allocator);) {
 
       UnionListWriter writer1 = vector1.getWriter();
       writer1.allocate();
@@ -201,7 +158,7 @@ public class TestRangeEqualsVisitor {
   @Test
   public void testStructVectorRangeEquals() {
     try (final StructVector vector1 = StructVector.empty("struct", allocator);
-        final StructVector vector2 = StructVector.empty("struct", allocator);) {
+         final StructVector vector2 = StructVector.empty("struct", allocator);) {
       vector1.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
       vector1.addOrGet("f1", FieldType.nullable(new ArrowType.Int(64, true)), BigIntVector.class);
       vector2.addOrGet("f0", FieldType.nullable(new ArrowType.Int(32, true)), IntVector.class);
@@ -235,7 +192,7 @@ public class TestRangeEqualsVisitor {
   @Test
   public void testUnionVectorRangeEquals() {
     try (final UnionVector vector1 = new UnionVector("union", allocator, null);
-        final UnionVector vector2 = new UnionVector("union", allocator, null);) {
+         final UnionVector vector2 = new UnionVector("union", allocator, null);) {
 
       final NullableUInt4Holder uInt4Holder = new NullableUInt4Holder();
       uInt4Holder.value = 10;
@@ -274,7 +231,7 @@ public class TestRangeEqualsVisitor {
   @Test
   public void testEqualsWithOutTypeCheck() {
     try (final IntVector intVector = new IntVector("int", allocator);
-        final ZeroVector zeroVector = new ZeroVector()) {
+         final ZeroVector zeroVector = new ZeroVector()) {
 
       assertTrue(VectorEqualsVisitor.vectorEquals(intVector, zeroVector, false));
       assertTrue(VectorEqualsVisitor.vectorEquals(zeroVector, intVector, false));
@@ -287,23 +244,10 @@ public class TestRangeEqualsVisitor {
          final Float4Vector vector2 = new Float4Vector("float", allocator);
          final Float4Vector vector3 = new Float4Vector("float", allocator)) {
 
-      vector1.allocateNew(2);
-      vector1.setValueCount(2);
-      vector2.allocateNew(2);
-      vector2.setValueCount(2);
-      vector3.allocateNew(2);
-      vector3.setValueCount(2);
-
-      vector1.setSafe(0, 1.1f);
-      vector1.setSafe(1, 2.2f);
-
-      float epsilon = 1.0E-6f;
-
-      vector2.setSafe(0, 1.1f + epsilon / 2);
-      vector2.setSafe(1, 2.2f + epsilon / 2);
-
-      vector3.setSafe(0, 1.1f + epsilon * 2);
-      vector3.setSafe(1, 2.2f + epsilon * 2);
+      final float epsilon = 1.0E-6f;
+      setVector(vector1, 1.1f, 2.2f);
+      setVector(vector2, 1.1f + epsilon / 2, 2.2f + epsilon / 2);
+      setVector(vector3, 1.1f + epsilon * 2, 2.2f + epsilon * 2);
 
       Range range = new Range(0, 0, vector1.getValueCount());
 
@@ -318,26 +262,13 @@ public class TestRangeEqualsVisitor {
   @Test
   public void testFloat8ApproxEquals() {
     try (final Float8Vector vector1 = new Float8Vector("float", allocator);
-        final Float8Vector vector2 = new Float8Vector("float", allocator);
-        final Float8Vector vector3 = new Float8Vector("float", allocator)) {
+         final Float8Vector vector2 = new Float8Vector("float", allocator);
+         final Float8Vector vector3 = new Float8Vector("float", allocator)) {
 
-      vector1.allocateNew(2);
-      vector1.setValueCount(2);
-      vector2.allocateNew(2);
-      vector2.setValueCount(2);
-      vector3.allocateNew(2);
-      vector3.setValueCount(2);
-
-      vector1.setSafe(0, 1.1);
-      vector1.setSafe(1, 2.2);
-
-      float epsilon = 1.0E-6f;
-
-      vector2.setSafe(0, 1.1 + epsilon / 2);
-      vector2.setSafe(1, 2.2 + epsilon / 2);
-
-      vector3.setSafe(0, 1.1 + epsilon * 2);
-      vector3.setSafe(1, 2.2 + epsilon * 2);
+      final float epsilon = 1.0E-6f;
+      setVector(vector1, 1.1, 2.2);
+      setVector(vector2, 1.1 + epsilon / 2, 2.2 + epsilon / 2);
+      setVector(vector3, 1.1 + epsilon * 2, 2.2 + epsilon * 2);
 
       Range range = new Range(0, 0, vector1.getValueCount());
       assertTrue(new ApproxEqualsVisitor(vector1, vector2, epsilon, epsilon).rangeEquals(range));
@@ -349,8 +280,7 @@ public class TestRangeEqualsVisitor {
   public void testStructVectorApproxEquals() {
     try (final StructVector right = StructVector.empty("struct", allocator);
         final StructVector left1 = StructVector.empty("struct", allocator);
-        final StructVector left2 = StructVector.empty("struct", allocator);
-        ) {
+        final StructVector left2 = StructVector.empty("struct", allocator)) {
       right.addOrGet("f0",
           FieldType.nullable(new ArrowType.FloatingPoint(FloatingPointPrecision.SINGLE)), Float4Vector.class);
       right.addOrGet("f1",
