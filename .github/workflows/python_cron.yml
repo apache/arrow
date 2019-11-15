@@ -97,18 +97,36 @@ jobs:
           docker-compose push fedora-python
 
   downstream:
-    name: AMD64 Conda Python 3.7 ${{ matrix.name }}
+    name: AMD64 Conda Python 3.7 ${{ matrix.title }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        library:
+        name:
           - dask
           - turbodbc
+          - pandas-master
+          - pandas-0.24
+        include:
+          - name: dask
+            library: dask
+            title: Dask
+          - name: turbodbc
+            library: turbodbc
+            title: Turbodbc
+          - name: pandas-0.24
+            library: pandas
+            title: Pandas 0.24
+            pandas: 0.24
+          - name: pandas-master
+            library: pandas
+            title: Pandas master
+            pandas: master
     env:
       PYTHON: 3.7
       DASK: latest
       TURBODBC: latest
+      PANDAS: ${{ matrix.pandas || 'latest' }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v1
