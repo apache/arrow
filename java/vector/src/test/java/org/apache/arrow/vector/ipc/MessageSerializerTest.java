@@ -18,6 +18,7 @@
 package org.apache.arrow.vector.ipc;
 
 import static java.util.Arrays.asList;
+import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -58,7 +59,7 @@ public class MessageSerializerTest {
   }
 
   public static byte[] array(ArrowBuf buf) {
-    byte[] bytes = new byte[buf.readableBytes()];
+    byte[] bytes = new byte[checkedCastToInt(buf.readableBytes())];
     buf.readBytes(bytes);
     return bytes;
   }

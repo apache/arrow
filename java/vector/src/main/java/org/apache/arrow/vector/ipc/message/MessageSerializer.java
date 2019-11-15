@@ -237,7 +237,7 @@ public class MessageSerializer {
   public static ArrowBlock serialize(WriteChannel out, ArrowRecordBatch batch, IpcOption option) throws IOException {
 
     long start = out.getCurrentPosition();
-    int bodyLength = batch.computeBodyLength();
+    long bodyLength = batch.computeBodyLength();
     Preconditions.checkArgument(bodyLength % 8 == 0, "batch is not aligned");
 
     ByteBuffer serializedMessage = serializeMetadata(batch);
@@ -445,7 +445,8 @@ public class MessageSerializer {
   public static ArrowBlock serialize(WriteChannel out, ArrowDictionaryBatch batch, IpcOption option)
       throws IOException {
     long start = out.getCurrentPosition();
-    int bodyLength = batch.computeBodyLength();
+
+    long bodyLength = batch.computeBodyLength();
     Preconditions.checkArgument(bodyLength % 8 == 0, "batch is not aligned");
 
     ByteBuffer serializedMessage = serializeMetadata(batch);
@@ -627,7 +628,7 @@ public class MessageSerializer {
       FlatBufferBuilder builder,
       byte headerType,
       int headerOffset,
-      int bodyLength) {
+      long bodyLength) {
     Message.startMessage(builder);
     Message.addHeaderType(builder, headerType);
     Message.addHeader(builder, headerOffset);

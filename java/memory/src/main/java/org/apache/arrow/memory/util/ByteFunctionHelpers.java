@@ -59,6 +59,19 @@ public class ByteFunctionHelpers {
       long lPos = laddr + lStart;
       long rPos = raddr + rStart;
 
+      while (n > 63) {
+        for (int x = 0; x < 8; x++) {
+          long leftLong = PlatformDependent.getLong(lPos);
+          long rightLong = PlatformDependent.getLong(rPos);
+          if (leftLong != rightLong) {
+            return 0;
+          }
+          lPos += 8;
+          rPos += 8;
+        }
+        n -= 64;
+      }
+
       while (n > 7) {
         long leftLong = PlatformDependent.getLong(lPos);
         long rightLong = PlatformDependent.getLong(rPos);
@@ -135,6 +148,19 @@ public class ByteFunctionHelpers {
     long n = Math.min(rLen, lLen);
     long lPos = laddr + lStart;
     long rPos = raddr + rStart;
+
+    while (n > 63) {
+      for (int x = 0; x < 8; x++) {
+        long leftLong = PlatformDependent.getLong(lPos);
+        long rightLong = PlatformDependent.getLong(rPos);
+        if (leftLong != rightLong) {
+          return unsignedLongCompare(Long.reverseBytes(leftLong), Long.reverseBytes(rightLong));
+        }
+        lPos += 8;
+        rPos += 8;
+      }
+      n -= 64;
+    }
 
     while (n > 7) {
       long leftLong = PlatformDependent.getLong(lPos);

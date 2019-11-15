@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
+
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -183,11 +185,11 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   }
 
   private int getValueBufferValueCapacity() {
-    return valueBuffer.capacity() / typeWidth;
+    return checkedCastToInt(valueBuffer.capacity() / typeWidth);
   }
 
   private int getValidityBufferValueCapacity() {
-    return validityBuffer.capacity() * 8;
+    return checkedCastToInt(validityBuffer.capacity() * 8);
   }
 
   /**

@@ -82,7 +82,7 @@ public class ArrowRecordBatchBenchmarks {
   @Benchmark
   @BenchmarkMode(Mode.AverageTime)
   @OutputTimeUnit(TimeUnit.NANOSECONDS)
-  public int createAndGetLength() {
+  public long createAndGetLength() {
     try (ArrowRecordBatch batch = new ArrowRecordBatch(VECTOR_LENGTH, nodes, vector.getFieldBuffers())) {
       return batch.computeBodyLength();
     }

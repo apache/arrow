@@ -89,7 +89,7 @@ public class TestStructVector {
        */
       vector.allocateNewSafe(); // Initial allocation
       vector.reAlloc(); // Double the allocation size of self, and all children.
-      int savedValidityBufferCapacity = vector.getValidityBuffer().capacity();
+      long savedValidityBufferCapacity = vector.getValidityBuffer().capacity();
       int savedValueCapacity = vector.getValueCapacity();
 
       /*

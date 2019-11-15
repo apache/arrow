@@ -174,7 +174,7 @@ public class TestVectorReAlloc {
       vector.allocateNewSafe(); // Initial allocation
       vector.reAlloc(); // Double the allocation size.
       int savedValueCapacity = vector.getValueCapacity();
-      int savedValueBufferSize = vector.valueBuffer.capacity();
+      long savedValueBufferSize = vector.valueBuffer.capacity();
 
       /*
        * Clear and allocate again.

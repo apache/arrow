@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector.complex;
 
+import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -111,7 +113,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   }
 
   protected void reallocOffsetBuffer() {
-    final int currentBufferCapacity = offsetBuffer.capacity();
+    final int currentBufferCapacity = checkedCastToInt(offsetBuffer.capacity());
     long baseSize = offsetAllocationSizeInBytes;
 
     if (baseSize < (long) currentBufferCapacity) {
@@ -205,7 +207,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   }
 
   protected int getOffsetBufferValueCapacity() {
-    return offsetBuffer.capacity() / OFFSET_WIDTH;
+    return checkedCastToInt(offsetBuffer.capacity() / OFFSET_WIDTH);
   }
 
   @Override

@@ -17,6 +17,8 @@
 
 package org.apache.arrow.flight.example.integration;
 
+import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -112,7 +114,7 @@ class IntegrationTestClient {
 
             @Override
             public void onNext(PutResult val) {
-              final byte[] metadataRaw = new byte[val.getApplicationMetadata().readableBytes()];
+              final byte[] metadataRaw = new byte[checkedCastToInt(val.getApplicationMetadata().readableBytes())];
               val.getApplicationMetadata().readBytes(metadataRaw);
               final String metadata = new String(metadataRaw, StandardCharsets.UTF_8);
               if (!Integer.toString(counter).equals(metadata)) {

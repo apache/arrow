@@ -242,7 +242,7 @@ public final class ArrowBuf implements AutoCloseable {
     return isEmpty ? ByteBuffer.allocateDirect(0) : asNettyBuffer().nioBuffer();
   }
 
-  public ByteBuffer nioBuffer(int index, int length) {
+  public ByteBuffer nioBuffer(long index, int length) {
     return isEmpty ? ByteBuffer.allocateDirect(0) : asNettyBuffer().nioBuffer(index, length);
   }
 
@@ -901,9 +901,9 @@ public final class ArrowBuf implements AutoCloseable {
     if (src.isDirect()) {
       // copy length bytes of data from src ByteBuffer starting at address
       // srcAddress into this ArrowBuf at address dstAddress
-      final long srcAddress = PlatformDependent.directBufferAddress(src) + (long)srcIndex;
+      final long srcAddress = PlatformDependent.directBufferAddress(src) + srcIndex;
       final long dstAddress = addr(index);
-      PlatformDependent.copyMemory(srcAddress, dstAddress, (long)length);
+      PlatformDependent.copyMemory(srcAddress, dstAddress, length);
     } else {
       if (srcIndex == 0 && src.capacity() == length) {
         // copy the entire ByteBuffer from start to end of length

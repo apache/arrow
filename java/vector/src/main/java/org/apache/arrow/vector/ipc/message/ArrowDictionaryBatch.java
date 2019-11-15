@@ -58,7 +58,7 @@ public class ArrowDictionaryBatch implements ArrowMessage {
   }
 
   @Override
-  public int computeBodyLength() {
+  public long computeBodyLength() {
     return dictionary.computeBodyLength();
   }
 

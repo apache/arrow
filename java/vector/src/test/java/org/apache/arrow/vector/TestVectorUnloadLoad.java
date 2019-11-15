@@ -150,13 +150,13 @@ public class TestVectorUnloadLoad {
         List<ArrowBuf> oldBuffers = recordBatch.getBuffers();
         List<ArrowBuf> newBuffers = new ArrayList<>();
         for (ArrowBuf oldBuffer : oldBuffers) {
-          int l = oldBuffer.readableBytes();
+          long l = oldBuffer.readableBytes();
           if (l % 64 != 0) {
             // pad
             l = l + 64 - l % 64;
           }
           ArrowBuf newBuffer = allocator.buffer(l);
-          for (int i = oldBuffer.readerIndex(); i < oldBuffer.writerIndex(); i++) {
+          for (long i = oldBuffer.readerIndex(); i < oldBuffer.writerIndex(); i++) {
             newBuffer.setByte(i - oldBuffer.readerIndex(), oldBuffer.getByte(i));
           }
           newBuffer.readerIndex(0);

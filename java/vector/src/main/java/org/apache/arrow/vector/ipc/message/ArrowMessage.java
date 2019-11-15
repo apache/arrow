@@ -22,7 +22,7 @@ package org.apache.arrow.vector.ipc.message;
  */
 public interface ArrowMessage extends FBSerializable, AutoCloseable {
 
-  int computeBodyLength();
+  long computeBodyLength();
 
   <T> T accepts(ArrowMessageVisitor<T> visitor);
 

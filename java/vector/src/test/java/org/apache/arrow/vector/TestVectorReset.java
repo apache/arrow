@@ -55,7 +55,7 @@ public class TestVectorReset {
   }
 
   private void resetVectorAndVerify(ValueVector vector, ArrowBuf[] bufs) {
-    int[] sizeBefore = new int[bufs.length];
+    long[] sizeBefore = new long[bufs.length];
     for (int i = 0; i < bufs.length; i++) {
       sizeBefore[i] = bufs[i].capacity();
     }
