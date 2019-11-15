@@ -991,7 +991,7 @@ Status GetSparseTensorBodyBufferCount(SparseTensorFormat::type format_id,
 
 Status CheckSparseTensorBodyBufferCount(
     const IpcPayload& payload, SparseTensorFormat::type sparse_tensor_format_id) {
-  size_t expected_body_buffer_count;
+  size_t expected_body_buffer_count = 0;
 
   RETURN_NOT_OK(GetSparseTensorBodyBufferCount(sparse_tensor_format_id,
                                                &expected_body_buffer_count));
