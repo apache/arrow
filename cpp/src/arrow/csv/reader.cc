@@ -225,6 +225,12 @@ class BaseTableReader : public csv::TableReader {
     if (it == convert_options_.column_types.end()) {
       return ColumnBuilder::Make(pool_, col_index, convert_options_, task_group_, out);
     } else {
+      auto builder_fabric =
+          convert_options_.column_builder_fabrics.find(col_name);
+      if (builder_fabric != convert_options_.column_builder_fabrics.end()) {
+        return builder_fabric->second(pool_, it->second, col_index, convert_options_,
+                                      task_group_, out);
+      }
       return ColumnBuilder::Make(pool_, it->second, col_index, convert_options_,
                                  task_group_, out);
     }

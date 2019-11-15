@@ -19,11 +19,14 @@
 #define ARROW_CSV_OPTIONS_H
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
+#include "arrow/csv/column_builder.h"
+#include "arrow/util/task_group.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -67,7 +70,16 @@ struct ARROW_EXPORT ConvertOptions {
   bool check_utf8 = true;
   /// Optional per-column types (disabling type inference on those columns)
   std::unordered_map<std::string, std::shared_ptr<DataType>> column_types;
-  /// Recognized spellings for null values
+
+  /// Optional per-column fabrics for custom column builders
+  std::unordered_map<
+      std::string,
+      std::function<Status(MemoryPool* pool, const std::shared_ptr<DataType>& type,
+                           int32_t col_index, const ConvertOptions& options,
+                           const std::shared_ptr<internal::TaskGroup>& task_group,
+                           std::shared_ptr<ColumnBuilder>* out)>>
+      column_builder_fabrics;
+  // Recognized spellings for null values
   std::vector<std::string> null_values;
   /// Recognized spellings for boolean true values
   std::vector<std::string> true_values;
