@@ -21,7 +21,7 @@ on:
   push:
     paths:
       - 'ci/**'
-      - 'cpp/**'
+      - 'java/**'
   pull_request:
     paths:
       - 'ci/**'
