@@ -19,14 +19,28 @@
 #' @include table.R
 
 arrow_dplyr_query <- function(.data) {
+  # An arrow_dplyr_query is a container for an Arrow data object (Table,
+  # RecordBatch, or Dataset) and the state of the user's dplyr query--things
+  # like selected colums, filters, and group vars.
+
+  # For most dplyr methods,
+  # method.Table == method.RecordBatch == method.Dataset == method.arrow_dplyr_query
+  # This works because the functions all pass .data through arrow_dplyr_query()
   if (inherits(.data, "arrow_dplyr_query")) {
     return(.data)
   }
   structure(
     list(
       .data = .data$clone(),
+      # selected_columns is a named character vector:
+      # * vector contents are the names of the columns in the data
+      # * vector names are the names they should be in the end (i.e. this
+      #   records any renaming)
       selected_columns = stats::setNames(names(.data), names(.data)),
+      # filtered_rows will be a ComparisonExpression
       filtered_rows = TRUE,
+      # group_by_vars is a character vector of columns (as renamed)
+      # in the data. They will be kept when data is pulled into R.
       group_by_vars = character()
     ),
     class = "arrow_dplyr_query"
@@ -47,11 +61,16 @@ rename.arrow_dplyr_query <- function(.data, ...) {
 rename.Dataset <- rename.Table <- rename.RecordBatch <- rename.arrow_dplyr_query
 
 column_select <- function(.data, ..., .FUN = vars_select) {
+  # .FUN is either tidyselect::vars_select or tidyselect::vars_rename
+  # It operates on the names() of selected_columns, i.e. the column names
+  # factoring in any renaming that may already have happened
   out <- .FUN(names(.data$selected_columns), !!!enquos(...))
-  # Make sure that the resulting selected columns map back to the original data
+  # Make sure that the resulting selected columns map back to the original data,
   # as in when there are multiple renaming steps
   .data$selected_columns <- stats::setNames(.data$selected_columns[out], names(out))
 
+  # If we've renamed columns, we need to project that renaming into other
+  # query parameters we've collected
   renamed <- out[names(out) != out]
   if (length(renamed)) {
     # Massage group_by
@@ -59,7 +78,7 @@ column_select <- function(.data, ..., .FUN = vars_select) {
     renamed_groups <- gbv %in% renamed
     gbv[renamed_groups] <- names(renamed)[match(gbv[renamed_groups], renamed)]
     .data$group_by_vars <- gbv
-    # No need to massage filters because those contain pointers to Arrays
+    # No need to massage filters because those contain references to Arrow objects
   }
   .data
 }
@@ -72,8 +91,11 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
     # Nothing to do
     return(.data)
   }
+
   .data <- arrow_dplyr_query(.data)
-  # Eval filters to generate Expressions with references to Arrays.
+  # The filter() method works by evaluating the filters to generate Expressions
+  # with references to Arrays (if .data is Table/RecordBatch) or Fields (if
+  # .data is a Dataset).
   filter_data <- env()
   data_is_dataset <- inherits(.data$.data, "Dataset")
   for (v in unique(unlist(lapply(filts, all.vars)))) {
@@ -86,32 +108,42 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
       # Make a FieldExpression
       this <- FieldExpression$create(old_var_name)
     } else {
-      # Get the Array
+      # Get the (reference to the) Array
       this <- .data$.data[[old_var_name]]
     }
     assign(v, this, envir = filter_data)
   }
   dm <- new_data_mask(filter_data)
-  filters <- try(lapply(filts, function (f) {
-    # This should yield an Expression
-    eval_tidy(f, dm)
-  }), silent = FALSE)
-  # If that errored, bail out and collect(), with a warning
-  # TODO: consider re-evaling with the as.vector Arrays and yielding logical vector
-  if (inherits(filters, "try-error")) {
-    # TODO: only show this in some debug mode?
-    # TODO: if data_is_dataset, don't auto-collect?
-    warning(
-      "Filter expression not implemented in arrow, pulling data into R",
-      immediate. = TRUE,
-      call. = FALSE
-    )
-    return(dplyr::filter(dplyr::collect(.data), ...))
+  filters <- lapply(filts, function (f) {
+    # This should yield an Expression as long as the filter function(s) are
+    # implemented in Arrow.
+    try(eval_tidy(f, dm), silent = TRUE)
+  })
+  bad_filters <- map_lgl(filters, ~inherits(., "try-error"))
+  if (any(bad_filters)) {
+    # TODO: consider ways not to bail out here, e.g. defer evaluating the
+    # unsupported filters until after the data has been pulled to R.
+    # See https://issues.apache.org/jira/browse/ARROW-7095
+    if (data_is_dataset) {
+      # Abort. We don't want to auto-collect if this is a Dataset because that
+      # could blow up, too big.
+      stop("panic!")
+    } else {
+      # TODO: only show this in some debug mode?
+      warning(
+        "Filter expression not implemented in arrow, pulling data into R",
+        immediate. = TRUE,
+        call. = FALSE
+      )
+      # TODO: set any valid filters first, then only collect with the invalid ones
+      return(dplyr::filter(dplyr::collect(.data), ...))
+    }
   }
 
-  # filters is a list of Expressions. AND them together and return
+  # filters is now a list of Expressions. AND them together and return
   new_filter <- Reduce("&", filters)
   if (isTRUE(.data$filtered_rows)) {
+    # TRUE is default (i.e. no filter yet), so we don't need to & with it
     .data$filtered_rows <- new_filter
   } else {
     .data$filtered_rows <- .data$filtered_rows & new_filter
@@ -131,6 +163,7 @@ collect.arrow_dplyr_query <- function(x, ...) {
 
   # Pull only the selected rows and cols into R
   if (inherits(x$.data, "Dataset")) {
+    # See dataset.R for Dataset and Scanner(Builder) classes
     scanner_builder <- x$.data$NewScan()
     scanner_builder$UseThreads()
     scanner_builder$Project(colnames)
@@ -139,6 +172,7 @@ collect.arrow_dplyr_query <- function(x, ...) {
     }
     df <- as.data.frame(scanner_builder$Finish()$ToTable())
   } else {
+    # This is a Table/RecordBatch. See record-batch.R for the [ method
     df <- as.data.frame(x$.data[x$filtered_rows, colnames])
   }
   # In case variables were renamed, apply those names
@@ -152,6 +186,8 @@ collect.arrow_dplyr_query <- function(x, ...) {
 }
 collect.Table <- as.data.frame.Table
 collect.RecordBatch <- as.data.frame.RecordBatch
+# We probably don't want someone to try to pull a big multi-file Dataset into
+# R without first filtering/selecting
 collect.Dataset <- function(x, ...) stop("not implemented")
 
 #' @importFrom tidyselect vars_pull
@@ -202,10 +238,15 @@ ungroup.Dataset <- ungroup.Table <- ungroup.RecordBatch <- force
 
 mutate.arrow_dplyr_query <- function(.data, ...) {
   # This S3 method is registered on load if dplyr is present
+  # TODO: see if we can defer evaluating the expressions and not collect here.
+  # It's different from filters (as currently implemented) because the basic
+  # vector transformation functions aren't yet implemented in Arrow C++.
   dplyr::mutate(dplyr::collect(arrow_dplyr_query(.data)), ...)
 }
 mutate.Table <- mutate.RecordBatch <- mutate.arrow_dplyr_query
 mutate.Dataset <- function(.data, ...) stop("not implemented")
+# transmute() "just works" because it calls mutate() internally
+# TODO: add transmute() that does what summarise() does (select only the vars we need)
 
 arrange.arrow_dplyr_query <- function(.data, ...) {
   # This S3 method is registered on load if dplyr is present
