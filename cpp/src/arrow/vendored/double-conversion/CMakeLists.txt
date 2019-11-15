@@ -1,4 +1,3 @@
-#!/bin/bash -ex
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,14 +15,4 @@
 # specific language governing permissions and limitations
 # under the License.
 
-DC_VERSION=3.1.4
-
-curl -sL https://github.com/google/double-conversion/archive/v${DC_VERSION}.tar.gz -o double-conversion-${DC_VERSION}.tar.gz
-tar xf double-conversion-${DC_VERSION}.tar.gz
-pushd double-conversion-${DC_VERSION}
-
-cmake . -DCMAKE_INSTALL_PREFIX=/usr -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTING=OFF -GNinja -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-ninja install
-
-popd
-rm -rf double-conversion-${DC_VERSION}.tar.gz double-conversion-${DC_VERSION}
+arrow_install_all_headers("arrow/vendored/double-conversion")

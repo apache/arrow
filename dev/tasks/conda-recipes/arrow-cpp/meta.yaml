@@ -24,7 +24,6 @@ requirements:
     - boost-cpp
     - brotli
     - c-ares
-    - double-conversion
     - gflags
     - glog
     - grpc-cpp
@@ -49,7 +48,6 @@ requirements:
     - boost-cpp
     - brotli
     - c-ares
-    - double-conversion
     - gflags
     - glog
     - grpc-cpp

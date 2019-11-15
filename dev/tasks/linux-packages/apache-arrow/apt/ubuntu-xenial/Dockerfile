@@ -52,7 +52,6 @@ RUN \
     libboost-system-dev \
     libbrotli-dev \
     libbz2-dev \
-    libdouble-conversion-dev \
     libgirepository1.0-dev \
     libglib2.0-doc \
     libgoogle-glog-dev \

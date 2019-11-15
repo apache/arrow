@@ -9,7 +9,6 @@ class ApacheArrow < Formula
   depends_on "aws-sdk-cpp"
   depends_on "boost"
   depends_on "brotli"
-  depends_on "double-conversion"
   depends_on "flatbuffers"
   depends_on "glog"
   depends_on "grpc"

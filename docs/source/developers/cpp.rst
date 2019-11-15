@@ -79,7 +79,6 @@ On MSYS2:
      mingw-w64-${MSYSTEM_CARCH}-boost \
      mingw-w64-${MSYSTEM_CARCH}-brotli \
      mingw-w64-${MSYSTEM_CARCH}-cmake \
-     mingw-w64-${MSYSTEM_CARCH}-double-conversion \
      mingw-w64-${MSYSTEM_CARCH}-gcc \
      mingw-w64-${MSYSTEM_CARCH}-gflags \
      mingw-w64-${MSYSTEM_CARCH}-glog \
@@ -212,7 +211,6 @@ The build system supports a number of third-party dependencies
 
   * ``BOOST``: for cross-platform support
   * ``BROTLI``: for data compression
-  * ``double-conversion``: for text-to-numeric conversions
   * ``Snappy``: for data compression
   * ``gflags``: for command line utilities (formerly Googleflags)
   * ``glog``: for logging

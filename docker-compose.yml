@@ -398,7 +398,6 @@ services:
     environment:
       # Vendor boost to avoid dealing with stale FindBoost.
       ARROW_BOOST_SOURCE: "BUNDLED"
-      double-conversion_SOURCE: "BUNDLED"
       ARROW_ORC: "OFF"
       ARROW_GANDIVA: "OFF"
       # uriparser requires cmake 3.3

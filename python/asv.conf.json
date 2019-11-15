@@ -89,7 +89,6 @@
         "brotli": [],
         "cmake": [],
         "cython": [],
-        "double-conversion": [],
         "flatbuffers": [],
         "grpc-cpp": [],
         "libprotobuf": [],

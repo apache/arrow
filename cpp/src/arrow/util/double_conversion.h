@@ -15,12 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#define ARROW_VERSION_MAJOR @ARROW_VERSION_MAJOR@
-#define ARROW_VERSION_MINOR @ARROW_VERSION_MINOR@
-#define ARROW_VERSION_PATCH @ARROW_VERSION_PATCH@
-#define ARROW_VERSION ((ARROW_VERSION_MAJOR * 1000) + ARROW_VERSION_MINOR) * 1000 + ARROW_VERSION_PATCH
+#pragma once
 
-#define ARROW_SO_VERSION "@ARROW_SO_VERSION@"
-#define ARROW_FULL_SO_VERSION "@ARROW_FULL_SO_VERSION@"
+#include "arrow/vendored/double-conversion/double-conversion.h"
 
-#cmakedefine GRPCPP_PP_INCLUDE
+namespace arrow {
+namespace util {
+namespace double_conversion {
+
+using ::double_conversion::DoubleToStringConverter;
+using ::double_conversion::StringBuilder;
+using ::double_conversion::StringToDoubleConverter;
+
+}  // namespace double_conversion
+}  // namespace util
+}  // namespace arrow

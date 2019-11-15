@@ -24,14 +24,11 @@
 #include <type_traits>
 #include <utility>
 
-#include <double-conversion/double-conversion.h>
-
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/checked_cast.h"
-#include "arrow/util/config.h"
 #include "arrow/util/string_view.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace internal {
@@ -183,55 +180,47 @@ class StringFormatter<UInt64Type> : public IntToStringFormatterMixin<UInt64Type>
 /////////////////////////////////////////////////////////////////////////
 // Floating-point formatting
 
-template <typename ARROW_TYPE, typename Derived>
-class FloatToStringFormatterMixin {
+class ARROW_EXPORT FloatToStringFormatter {
  public:
-  using DoubleToStringConverter = double_conversion::DoubleToStringConverter;
+  FloatToStringFormatter();
+  ~FloatToStringFormatter();
+
+  // Returns the number of characters written
+  int FormatFloat(float v, char* out_buffer, int out_size);
+  int FormatFloat(double v, char* out_buffer, int out_size);
+
+ protected:
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
+};
+
+template <typename ARROW_TYPE>
+class FloatToStringFormatterMixin : public FloatToStringFormatter {
+ public:
   using value_type = typename ARROW_TYPE::c_type;
 
-  static const int buffer_size = DoubleToStringConverter::kBase10MaximalLength + 1;
+  static constexpr int buffer_size = 50;
 
-  explicit FloatToStringFormatterMixin(const std::shared_ptr<DataType>& = NULLPTR)
-      : converter_(DoubleToStringConverter::EMIT_POSITIVE_EXPONENT_SIGN, "inf", "nan",
-                   'e', -6, 10, 6, 0) {}
+  explicit FloatToStringFormatterMixin(const std::shared_ptr<DataType>& = NULLPTR) {}
 
   template <typename Appender>
   Status operator()(value_type value, Appender&& append) {
     char buffer[buffer_size];
-    // StringBuilder checks bounds in debug mode for us
-    double_conversion::StringBuilder builder(buffer, buffer_size);
-    static_cast<Derived*>(this)->Format(value, &builder);
-    return append(util::string_view(buffer, builder.position()));
-  }
-
- protected:
-  DoubleToStringConverter converter_;
-};
-
-template <>
-class StringFormatter<FloatType>
-    : public FloatToStringFormatterMixin<FloatType, StringFormatter<FloatType>> {
- public:
-  using FloatToStringFormatterMixin::FloatToStringFormatterMixin;
-
-  void Format(value_type value, double_conversion::StringBuilder* builder) {
-    bool result = converter_.ToShortestSingle(value, builder);
-    assert(result);
-    ARROW_UNUSED(result);
+    int size = FormatFloat(value, buffer, buffer_size);
+    return append(util::string_view(buffer, size));
   }
 };
 
 template <>
-class StringFormatter<DoubleType>
-    : public FloatToStringFormatterMixin<DoubleType, StringFormatter<DoubleType>> {
+class StringFormatter<FloatType> : public FloatToStringFormatterMixin<FloatType> {
  public:
   using FloatToStringFormatterMixin::FloatToStringFormatterMixin;
+};
 
-  void Format(value_type value, double_conversion::StringBuilder* builder) {
-    bool result = converter_.ToShortest(value, builder);
-    assert(result);
-    ARROW_UNUSED(result);
-  }
+template <>
+class StringFormatter<DoubleType> : public FloatToStringFormatterMixin<DoubleType> {
+ public:
+  using FloatToStringFormatterMixin::FloatToStringFormatterMixin;
 };
 
 }  // namespace internal

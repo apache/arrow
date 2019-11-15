@@ -60,7 +60,6 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     Brotli
     BZip2
     c-ares
-    double-conversion
     gflags
     GLOG
     gRPC
@@ -87,7 +86,6 @@ endif()
 
 message(STATUS "Using ${ARROW_DEPENDENCY_SOURCE} approach to find dependencies")
 
-# TODO: double-conversion check fails for conda, it should not
 if(ARROW_DEPENDENCY_SOURCE STREQUAL "CONDA")
   if(MSVC)
     set(ARROW_PACKAGE_PREFIX "$ENV{CONDA_PREFIX}/Library")
@@ -279,15 +277,6 @@ if(DEFINED ENV{ARROW_CARES_URL})
   set(CARES_SOURCE_URL "$ENV{ARROW_CARES_URL}")
 else()
   set(CARES_SOURCE_URL "https://c-ares.haxx.se/download/c-ares-${CARES_VERSION}.tar.gz")
-endif()
-
-if(DEFINED ENV{ARROW_DOUBLE_CONVERSION_URL})
-  set(DOUBLE_CONVERSION_SOURCE_URL "$ENV{ARROW_DOUBLE_CONVERSION_URL}")
-else()
-  set(
-    DOUBLE_CONVERSION_SOURCE_URL
-    "https://github.com/google/double-conversion/archive/${DOUBLE_CONVERSION_VERSION}.tar.gz"
-    )
 endif()
 
 if(DEFINED ENV{ARROW_GBENCHMARK_URL})
@@ -657,86 +646,6 @@ if(ARROW_BOOST_REQUIRED)
 
   include_directories(SYSTEM ${Boost_INCLUDE_DIR})
 endif()
-
-# ----------------------------------------------------------------------
-# Google double-conversion
-
-macro(build_double_conversion)
-  message(STATUS "Building double-conversion from source")
-  set(DOUBLE_CONVERSION_PREFIX
-      "${CMAKE_CURRENT_BINARY_DIR}/double-conversion_ep/src/double-conversion_ep")
-  set(DOUBLE_CONVERSION_LIB_DIR "lib")
-  set(double-conversion_INCLUDE_DIRS "${DOUBLE_CONVERSION_PREFIX}/include")
-  set(
-    DOUBLE_CONVERSION_STATIC_LIB
-    "${DOUBLE_CONVERSION_PREFIX}/${DOUBLE_CONVERSION_LIB_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}double-conversion${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-
-  set(DOUBLE_CONVERSION_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
-                                   "-DCMAKE_INSTALL_PREFIX=${DOUBLE_CONVERSION_PREFIX}"
-                                   "-DCMAKE_INSTALL_LIBDIR=${DOUBLE_CONVERSION_LIB_DIR}")
-
-  externalproject_add(double-conversion_ep
-                      ${EP_LOG_OPTIONS}
-                      INSTALL_DIR ${DOUBLE_CONVERSION_PREFIX}
-                      URL ${DOUBLE_CONVERSION_SOURCE_URL}
-                      CMAKE_ARGS ${DOUBLE_CONVERSION_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS "${DOUBLE_CONVERSION_STATIC_LIB}")
-
-  add_library(double-conversion STATIC IMPORTED)
-  set_target_properties(double-conversion
-                        PROPERTIES IMPORTED_LOCATION "${DOUBLE_CONVERSION_STATIC_LIB}")
-  add_dependencies(toolchain double-conversion_ep)
-  add_dependencies(double-conversion double-conversion_ep)
-  set(double-conversion_LIBRARIES double-conversion)
-endmacro()
-
-macro(double_conversion_config)
-  # Map the newer target to the old, simpler setting
-  if(TARGET double-conversion::double-conversion)
-    set(double-conversion_LIBRARIES double-conversion::double-conversion)
-    get_target_property(double-conversion_INCLUDE_DIRS
-                        double-conversion::double-conversion
-                        INTERFACE_INCLUDE_DIRECTORIES)
-  endif()
-endmacro()
-
-macro(double_conversion_compability)
-  check_cxx_source_compiles("
-#include <double-conversion/double-conversion.h>
-int main() {
-const int flags_ = double_conversion::StringToDoubleConverter::ALLOW_CASE_INSENSIBILITY;
-      }" DOUBLE_CONVERSION_HAS_CASE_INSENSIBILITY)
-endmacro()
-
-if(double-conversion_SOURCE STREQUAL "AUTO")
-  # Debian does not ship cmake configs for double-conversion
-  # TODO: Make upstream bug
-  find_package(double-conversion QUIET)
-  if(NOT double-conversion_FOUND)
-    find_package(DoubleConversion)
-  endif()
-  if(double-conversion_FOUND OR DoubleConversion_FOUND)
-    double_conversion_config()
-  else()
-    build_double_conversion()
-  endif()
-elseif(double-conversion_SOURCE STREQUAL "BUNDLED")
-  build_double_conversion()
-elseif(double-conversion_SOURCE STREQUAL "SYSTEM")
-  # Debian does not ship cmake configs for double-conversion
-  # TODO: Make upstream bug
-  find_package(double-conversion)
-  if(NOT double-conversion_FOUND)
-    find_package(DoubleConversion REQUIRED)
-  endif()
-
-  double_conversion_config()
-endif()
-# TODO: Don't use global includes but rather target_include_directories
-include_directories(SYSTEM ${double-conversion_INCLUDE_DIRS})
-
-double_conversion_compability()
 
 # ----------------------------------------------------------------------
 # uriparser library
