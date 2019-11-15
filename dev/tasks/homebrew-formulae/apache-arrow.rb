@@ -31,7 +31,6 @@ class ApacheArrow < Formula
       -DARROW_PLASMA=ON
       -DARROW_PROTOBUF_USE_SHARED=ON
       -DARROW_PYTHON=ON
-      -DARROW_S3=ON
       -DARROW_WITH_BZ2=ON
       -DARROW_WITH_ZLIB=ON
       -DARROW_WITH_ZSTD=ON
@@ -41,6 +40,7 @@ class ApacheArrow < Formula
       -DARROW_INSTALL_NAME_RPATH=OFF
       -DPYTHON_EXECUTABLE=#{Formula["python"].bin/"python3"}
     ]
+    # Re-enable -DARROW_S3=ON in ARROW-6437
 
     mkdir "build"
     cd "build" do
