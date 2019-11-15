@@ -30,12 +30,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 
 import org.apache.arrow.vector.FieldVector;
-import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.MapVector;
-import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericDatumWriter;
@@ -425,18 +423,6 @@ public class AvroToArrowTest extends AvroTestBase {
     FieldVector vector = root.getFieldVectors().get(0);
 
     checkPrimitiveResult(expected, vector);
-  }
-
-  /**
-   * This is meant to only test out the dependence on the vector tests artifact.
-   */
-  @Test
-  public void testValueVectorDataPopulator() {
-    try (final IntVector intVector = new IntVector("intVector", config.getAllocator())) {
-
-      ValueVectorDataPopulator.setVector(intVector, 1, 2, 3);
-      assertEquals(3, intVector.getValueCount());
-    }
   }
 
 }
