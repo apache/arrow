@@ -225,6 +225,117 @@ public class TypeLayout {
     return layout;
   }
 
+  /**
+   * Gets the number of {@link BufferLayout}s for the given <code>arrowType</code>.
+   */
+  public static int getTypeBufferCount(final ArrowType arrowType) {
+    return  arrowType.accept(new ArrowTypeVisitor<Integer>() {
+
+      static final int FIXED_WIDTH_BUFFER_COUNT = 2;
+
+      static final int VARIABLE_WIDTH_BUFFER_COUNT = 3;
+
+      @Override
+      public Integer visit(Int type) {
+        return FIXED_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(Union type) {
+        switch (type.getMode()) {
+          case Dense:
+            // TODO: validate this
+            return 3;
+          case Sparse:
+            return 1;
+          default:
+            throw new UnsupportedOperationException("Unsupported Union Mode: " + type.getMode());
+        }
+      }
+
+      @Override
+      public Integer visit(Struct type) {
+        return 1;
+      }
+
+      @Override
+      public Integer visit(Timestamp type) {
+        return FIXED_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(org.apache.arrow.vector.types.pojo.ArrowType.List type) {
+        return 2;
+      }
+
+      @Override
+      public Integer visit(FixedSizeList type) {
+        return 1;
+      }
+
+      @Override
+      public Integer visit(Map type) {
+        return 2;
+      }
+
+      @Override
+      public Integer visit(FloatingPoint type) {
+        return FIXED_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(Decimal type) {
+        return FIXED_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(FixedSizeBinary type) {
+        return FIXED_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(Bool type) {
+        return FIXED_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(Binary type) {
+        return VARIABLE_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(Utf8 type) {
+        return VARIABLE_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(Null type) {
+        return 0;
+      }
+
+      @Override
+      public Integer visit(Date type) {
+        return FIXED_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(Time type) {
+        return FIXED_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(Interval type) {
+        return FIXED_WIDTH_BUFFER_COUNT;
+      }
+
+      @Override
+      public Integer visit(Duration type) {
+        return FIXED_WIDTH_BUFFER_COUNT;
+      }
+
+    });
+  }
+
   private final List<BufferLayout> bufferLayouts;
 
   public TypeLayout(List<BufferLayout> bufferLayouts) {

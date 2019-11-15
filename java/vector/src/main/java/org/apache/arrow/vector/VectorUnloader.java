@@ -20,7 +20,6 @@ package org.apache.arrow.vector;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.arrow.vector.BufferLayout.BufferType;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
@@ -72,8 +71,8 @@ public class VectorUnloader {
   private void appendNodes(FieldVector vector, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers) {
     nodes.add(new ArrowFieldNode(vector.getValueCount(), includeNullCount ? vector.getNullCount() : -1));
     List<ArrowBuf> fieldBuffers = vector.getFieldBuffers();
-    List<BufferType> expectedBuffers = TypeLayout.getTypeLayout(vector.getField().getType()).getBufferTypes();
-    if (fieldBuffers.size() != expectedBuffers.size()) {
+    int expectedBufferCount = TypeLayout.getTypeBufferCount(vector.getField().getType());
+    if (fieldBuffers.size() != expectedBufferCount) {
       throw new IllegalArgumentException(String.format(
           "wrong number of buffers for field %s in vector %s. found: %s",
           vector.getField(), vector.getClass().getSimpleName(), fieldBuffers));
