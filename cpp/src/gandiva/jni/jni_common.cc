@@ -694,8 +694,8 @@ Status JavaResizableBuffer::Resize(const int64_t new_size, bool shrink_to_fit) {
   }
 
   // callback into java to expand the buffer
-  jobject ret = env_->CallObjectMethod(jexpander_, vector_expander_method_, vector_idx_,
-                                       new_size);
+  jobject ret =
+      env_->CallObjectMethod(jexpander_, vector_expander_method_, vector_idx_, new_size);
   if (env_->ExceptionCheck()) {
     env_->ExceptionDescribe();
     env_->ExceptionClear();
