@@ -228,8 +228,24 @@ TEST_F(TestPageSerde, TestFailLargePageHeaders) {
 }
 
 TEST_F(TestPageSerde, Compression) {
-  std::vector<Compression::type> codec_types = {Compression::GZIP, Compression::SNAPPY,
-                                                Compression::BROTLI, Compression::LZ4};
+  std::vector<Compression::type> codec_types;
+
+#ifdef ARROW_WITH_SNAPPY
+  codec_types.push_back(Compression::SNAPPY);
+#endif
+
+#ifdef ARROW_WITH_BROTLI
+  codec_types.push_back(Compression::BROTLI);
+#endif
+
+#ifdef ARROW_WITH_GZIP
+  codec_types.push_back(Compression::GZIP);
+#endif
+
+#ifdef ARROW_WITH_LZ4
+  codec_types.push_back(Compression::LZ4);
+#endif
+
 #ifdef ARROW_WITH_ZSTD
   codec_types.push_back(Compression::ZSTD);
 #endif
@@ -280,7 +296,7 @@ TEST_F(TestPageSerde, Compression) {
 
     ResetStream();
   }
-}
+}  // namespace parquet
 
 TEST_F(TestPageSerde, LZONotSupported) {
   // Must await PARQUET-530

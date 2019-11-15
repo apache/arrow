@@ -400,11 +400,24 @@ TYPED_TEST(TestPrimitiveWriter, RequiredRLEDictionary) {
 }
 */
 
+TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStats) {
+  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::UNCOMPRESSED, false, true,
+                                 LARGE_SIZE);
+}
+
+#ifdef ARROW_WITH_SNAPPY
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithSnappyCompression) {
   this->TestRequiredWithSettings(Encoding::PLAIN, Compression::SNAPPY, false, false,
                                  LARGE_SIZE);
 }
 
+TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndSnappyCompression) {
+  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::SNAPPY, false, true,
+                                 LARGE_SIZE);
+}
+#endif
+
+#ifdef ARROW_WITH_BROTLI
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithBrotliCompression) {
   this->TestRequiredWithSettings(Encoding::PLAIN, Compression::BROTLI, false, false,
                                  LARGE_SIZE);
@@ -415,6 +428,14 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithBrotliCompressionAndLevel) {
                                  LARGE_SIZE, 10);
 }
 
+TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndBrotliCompression) {
+  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::BROTLI, false, true,
+                                 LARGE_SIZE);
+}
+
+#endif
+
+#ifdef ARROW_WITH_GZIP
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithGzipCompression) {
   this->TestRequiredWithSettings(Encoding::PLAIN, Compression::GZIP, false, false,
                                  LARGE_SIZE);
@@ -425,28 +446,15 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithGzipCompressionAndLevel) {
                                  LARGE_SIZE, 10);
 }
 
-TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithLz4Compression) {
-  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::LZ4, false, false,
-                                 LARGE_SIZE);
-}
-
-TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStats) {
-  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::UNCOMPRESSED, false, true,
-                                 LARGE_SIZE);
-}
-
-TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndSnappyCompression) {
-  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::SNAPPY, false, true,
-                                 LARGE_SIZE);
-}
-
-TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndBrotliCompression) {
-  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::BROTLI, false, true,
-                                 LARGE_SIZE);
-}
-
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndGzipCompression) {
   this->TestRequiredWithSettings(Encoding::PLAIN, Compression::GZIP, false, true,
+                                 LARGE_SIZE);
+}
+#endif
+
+#ifdef ARROW_WITH_LZ4
+TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithLz4Compression) {
+  this->TestRequiredWithSettings(Encoding::PLAIN, Compression::LZ4, false, false,
                                  LARGE_SIZE);
 }
 
@@ -454,9 +462,8 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndLz4Compression) {
   this->TestRequiredWithSettings(Encoding::PLAIN, Compression::LZ4, false, true,
                                  LARGE_SIZE);
 }
+#endif
 
-// The ExternalProject for zstd does not build on CMake < 3.7, so we do not
-// require it here
 #ifdef ARROW_WITH_ZSTD
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithZstdCompression) {
   this->TestRequiredWithSettings(Encoding::PLAIN, Compression::ZSTD, false, false,
