@@ -70,8 +70,8 @@ class ExpressionsTest : public ::testing::Test {
     AssertSimplifiesTo(expr, given, *expected);
   }
 
-  std::shared_ptr<Schema> schema_ =
-      schema({field("a", int32()), field("b", int32()), field("f", float64())});
+  std::shared_ptr<Schema> schema_ = schema({field("a", int32()), field("b", int32()),
+                                            field("f", float64()), field("s", utf8())});
   std::shared_ptr<ScalarExpression> always = scalar(true);
   std::shared_ptr<ScalarExpression> never = scalar(false);
 };
@@ -108,6 +108,12 @@ TEST_F(ExpressionsTest, SimplificationOfCompoundQuery) {
   AssertSimplifiesTo("b"_ == 4, "a"_ == 0, "b"_ == 4);
 
   AssertSimplifiesTo("a"_ == 3 or "b"_ == 4, "a"_ == 0, "b"_ == 4);
+
+  auto set_123 = ArrayFromJSON(int32(), R"([1, 2, 3])");
+  AssertSimplifiesTo("a"_ == 3 and "b"_.In(set_123), "b"_ == 3, "a"_ == 3);
+  AssertSimplifiesTo("a"_ == 3 and "b"_.In(set_123), "b"_ == 0, *never);
+
+  AssertSimplifiesTo("a"_ == 0 or not"b"_.IsValid(), "b"_ == 3, "a"_ == 0);
 }
 
 TEST_F(ExpressionsTest, SimplificationAgainstCompoundCondition) {
@@ -248,6 +254,32 @@ TEST_F(FilterTest, Basics) {
       {"a": 0, "b":  0.1, "in": 0},
       {"a": 0, "b": null, "in": 0},
       {"a": 0, "b":  1.0, "in": 0}
+  ])");
+}
+
+TEST_F(FilterTest, InExpression) {
+  auto hello_world = ArrayFromJSON(utf8(), R"(["hello", "world"])");
+
+  AssertFilter("s"_.In(hello_world), {field("s", utf8())}, R"([
+      {"s": "hello", "in": 1},
+      {"s": "world", "in": 1},
+      {"s": "",      "in": 0},
+      {"s": null,    "in": null},
+      {"s": "foo",   "in": 0},
+      {"s": "hello", "in": 1},
+      {"s": "bar",   "in": 0}
+  ])");
+}
+
+TEST_F(FilterTest, IsValidExpression) {
+  AssertFilter("s"_.IsValid(), {field("s", utf8())}, R"([
+      {"s": "hello", "in": 1},
+      {"s": null,    "in": 0},
+      {"s": "",      "in": 1},
+      {"s": null,    "in": 0},
+      {"s": "foo",   "in": 1},
+      {"s": "hello", "in": 1},
+      {"s": null,    "in": 0}
   ])");
 }
 

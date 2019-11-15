@@ -55,6 +55,8 @@ class FileWriteOptions;
 
 class Expression;
 class ComparisonExpression;
+class InExpression;
+class IsValidExpression;
 class AndExpression;
 class OrExpression;
 class NotExpression;

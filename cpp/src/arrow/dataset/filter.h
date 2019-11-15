@@ -66,7 +66,10 @@ struct ExpressionType {
     // TODO(bkietz) COALESCE,
 
     /// extract validity as a boolean expression
-    // TODO(bkietz) IS_VALID,
+    IS_VALID,
+
+    /// check each element for membership in a set
+    IN,
 
     /// custom user defined expression
     CUSTOM,
@@ -175,9 +178,7 @@ class ARROW_DS_EXPORT Expression {
   /// replacing comparisons with their complements and using the properties:
   ///     (not (a and b)).Equals(not a or not b)
   ///     (not (a or b)).Equals(not a and not b)
-  virtual std::shared_ptr<Expression> Assume(const Expression& given) const {
-    return Copy();
-  }
+  virtual std::shared_ptr<Expression> Assume(const Expression& given) const;
 
   std::shared_ptr<Expression> Assume(const std::shared_ptr<Expression>& given) const {
     return Assume(*given);
@@ -190,6 +191,10 @@ class ARROW_DS_EXPORT Expression {
 
   /// Copy this expression into a shared pointer.
   virtual std::shared_ptr<Expression> Copy() const = 0;
+
+  InExpression In(std::shared_ptr<Array> set) const;
+
+  IsValidExpression IsValid() const;
 
  protected:
   ExpressionType::type type_;
@@ -303,6 +308,38 @@ class ARROW_DS_EXPORT NotExpression final
   std::shared_ptr<Expression> Assume(const Expression& given) const override;
 
   Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
+};
+
+class ARROW_DS_EXPORT IsValidExpression final
+    : public ExpressionImpl<UnaryExpression, IsValidExpression,
+                            ExpressionType::IS_VALID> {
+ public:
+  using ExpressionImpl::ExpressionImpl;
+
+  std::string ToString() const override;
+
+  Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
+
+  std::shared_ptr<Expression> Assume(const Expression& given) const override;
+};
+
+class ARROW_DS_EXPORT InExpression final
+    : public ExpressionImpl<UnaryExpression, InExpression, ExpressionType::IN> {
+ public:
+  InExpression(std::shared_ptr<Expression> operand, std::shared_ptr<Array> set)
+      : ExpressionImpl(std::move(operand)), set_(std::move(set)) {}
+
+  std::string ToString() const override;
+
+  Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
+
+  std::shared_ptr<Expression> Assume(const Expression& given) const override;
+
+  /// The set against which the operand will be compared
+  const std::shared_ptr<Array>& set() const { return set_; }
+
+ private:
+  std::shared_ptr<Array> set_;
 };
 
 /// Represents a scalar value; thin wrapper around arrow::Scalar
@@ -435,6 +472,12 @@ auto VisitExpression(const Expression& expr, Visitor&& visitor)
     case ExpressionType::SCALAR:
       return visitor(internal::checked_cast<const ScalarExpression&>(expr));
 
+    case ExpressionType::IN:
+      return visitor(internal::checked_cast<const InExpression&>(expr));
+
+    case ExpressionType::IS_VALID:
+      return visitor(internal::checked_cast<const IsValidExpression&>(expr));
+
     case ExpressionType::NOT:
       return visitor(internal::checked_cast<const NotExpression&>(expr));
 
@@ -526,6 +569,12 @@ class ARROW_DS_EXPORT TreeEvaluator : public ExpressionEvaluator {
                                   const RecordBatch& batch) const;
 
   Result<compute::Datum> Evaluate(const OrExpression& expr,
+                                  const RecordBatch& batch) const;
+
+  Result<compute::Datum> Evaluate(const InExpression& expr,
+                                  const RecordBatch& batch) const;
+
+  Result<compute::Datum> Evaluate(const IsValidExpression& expr,
                                   const RecordBatch& batch) const;
 
   Result<compute::Datum> Evaluate(const ComparisonExpression& expr,
