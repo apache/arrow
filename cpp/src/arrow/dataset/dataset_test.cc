@@ -244,31 +244,31 @@ class TestEndToEnd : public TestDataset {
         field("region", utf8(), nullable),
         field("model", utf8(), nullable),
         field("year", int32(), nullable),
-        field("sales", int32(), nullable),
+        field("sales", float64(), nullable),
     });
 
     using PathAndContent = std::vector<std::pair<std::string, std::string>>;
     auto files = PathAndContent{
-        {"/dataset/2018/01/US.json", R"([
-        {"country": "US", "region": "NY", "year": 2018, "model": "3", "sales": 742},
-        {"country": "US", "region": "NY", "year": 2018, "model": "S", "sales": 304},
-        {"country": "US", "region": "NY", "year": 2018, "model": "X", "sales": 136},
-        {"country": "US", "region": "NY", "year": 2018, "model": "Y", "sales": 27}
+        {"/2018/01/US.json", R"([
+        {"country": "US", "region": "NY", "year": 2018, "model": "3", "sales": 742.0},
+        {"country": "US", "region": "NY", "year": 2018, "model": "S", "sales": 304.125},
+        {"country": "US", "region": "NY", "year": 2018, "model": "X", "sales": 136.25},
+        {"country": "US", "region": "NY", "year": 2018, "model": "Y", "sales": 27.5}
       ])"},
         {"/dataset/2018/01/CA.json", R"([
         {"country": "US", "region": "CA", "year": 2018, "model": "3", "sales": 512},
         {"country": "US", "region": "CA", "year": 2018, "model": "S", "sales": 978},
-        {"country": "US", "region": "CA", "year": 2018, "model": "X", "sales": 1},
+        {"country": "US", "region": "CA", "year": 2018, "model": "X", "sales": 1.0},
         {"country": "US", "region": "CA", "year": 2018, "model": "Y", "sales": 69}
       ])"},
         {"/dataset/2019/01/US.json", R"([
-        {"country": "CA", "region": "QC", "year": 2019, "model": "3", "sales": 273},
+        {"country": "CA", "region": "QC", "year": 2019, "model": "3", "sales": 273.5},
         {"country": "CA", "region": "QC", "year": 2019, "model": "S", "sales": 13},
         {"country": "CA", "region": "QC", "year": 2019, "model": "X", "sales": 54},
         {"country": "CA", "region": "QC", "year": 2019, "model": "Y", "sales": 21}
       ])"},
         {"/dataset/2019/01/CA.json", R"([
-        {"country": "CA", "region": "QC", "year": 2019, "model": "3", "sales": 152},
+        {"country": "CA", "region": "QC", "year": 2019, "model": "3", "sales": 152.25},
         {"country": "CA", "region": "QC", "year": 2019, "model": "S", "sales": 10},
         {"country": "CA", "region": "QC", "year": 2019, "model": "X", "sales": 42},
         {"country": "CA", "region": "QC", "year": 2019, "model": "Y", "sales": 37}
@@ -399,8 +399,10 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   // The following filter tests both predicate pushdown and post filtering
   // without partition information because `year` is a partition and `sales` is
   // not.
+  //
+  // Note that `sales` is double, so `100` below will be implicitly cast from integer.
   auto filter = ("year"_ == 2019 && "sales"_ > 100);
-  ASSERT_OK(scanner_builder->Filter(filter));
+  ASSERT_OK(scanner_builder->Filter(filter, /* implicit_casts = */ true));
 
   std::unique_ptr<Scanner> scanner;
   ASSERT_OK(scanner_builder->Finish(&scanner));
@@ -409,10 +411,10 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   std::shared_ptr<Table> table;
   ASSERT_OK(scanner->ToTable(&table));
 
-  using row_type = std::tuple<int32_t, std::string>;
+  using row_type = std::tuple<double, std::string>;
   std::vector<row_type> rows{
-      row_type{152, "3"},
-      row_type{273, "3"},
+      row_type{152.25, "3"},
+      row_type{273.5, "3"},
   };
   std::shared_ptr<Table> expected;
   ASSERT_OK(stl::TableFromTupleRange(default_memory_pool(), rows, columns, &expected));

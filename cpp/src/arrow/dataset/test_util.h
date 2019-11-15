@@ -357,6 +357,10 @@ struct TestExpression : util::EqualityComparable<TestExpression>,
   }
 
   std::string ToString() const { return expression->ToString(); }
+
+  friend void PrintTo(const TestExpression& expr, std::ostream* os) {
+    *os << expr.ToString();
+  }
 };
 
 struct ArithmeticDatasetFixture {

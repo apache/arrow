@@ -60,6 +60,7 @@ class IsValidExpression;
 class AndExpression;
 class OrExpression;
 class NotExpression;
+class CastExpression;
 class ScalarExpression;
 class FieldReferenceExpression;
 using ExpressionVector = std::vector<std::shared_ptr<Expression>>;

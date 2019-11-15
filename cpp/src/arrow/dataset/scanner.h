@@ -204,8 +204,8 @@ class ARROW_DS_EXPORT ScannerBuilder {
   ///
   /// \return Failure if any referenced columns does not exist in the dataset's
   ///         Schema.
-  Status Filter(std::shared_ptr<Expression> filter);
-  Status Filter(const Expression& filter);
+  Status Filter(std::shared_ptr<Expression> filter, bool implicit_casts = false);
+  Status Filter(const Expression& filter, bool implicit_casts = false);
 
   /// \brief Indicate if the Scanner should make use of the available
   ///        ThreadPool found in ScanContext;

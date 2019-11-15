@@ -283,21 +283,90 @@ TEST_F(FilterTest, IsValidExpression) {
   ])");
 }
 
+TEST_F(FilterTest, Cast) {
+  ASSERT_RAISES(TypeError, ("a"_ == double(1.0)).Validate(Schema({field("a", int32())})));
+
+  AssertFilter("a"_.CastTo(float64()) == double(1.0),
+               {field("a", int32()), field("b", float64())}, R"([
+      {"a": 0, "b": -0.1, "in": 0},
+      {"a": 0, "b":  0.3, "in": 0},
+      {"a": 1, "b":  0.2, "in": 1},
+      {"a": 2, "b": -0.1, "in": 0},
+      {"a": 0, "b":  0.1, "in": 0},
+      {"a": 0, "b": null, "in": 0},
+      {"a": 1, "b":  1.0, "in": 1}
+  ])");
+
+  AssertFilter("a"_ == scalar(0.6)->CastLike("a"_),
+               {field("a", int32()), field("b", float64())}, R"([
+      {"a": 0, "b": -0.1, "in": 1},
+      {"a": 0, "b":  0.3, "in": 1},
+      {"a": 1, "b":  0.2, "in": 0},
+      {"a": 2, "b": -0.1, "in": 0},
+      {"a": 0, "b":  0.1, "in": 1},
+      {"a": 0, "b": null, "in": 1},
+      {"a": 1, "b":  1.0, "in": 0}
+  ])");
+
+  AssertFilter("a"_.CastLike("b"_) == "b"_, {field("a", int32()), field("b", float64())},
+               R"([
+      {"a": 0, "b": -0.1, "in": 0},
+      {"a": 0, "b":  0.0, "in": 1},
+      {"a": 1, "b":  1.0, "in": 1},
+      {"a": 2, "b": -0.1, "in": 0},
+      {"a": 0, "b":  0.1, "in": 0},
+      {"a": 2, "b": null, "in": null},
+      {"a": 1, "b":  1.0, "in": 1}
+  ])");
+}
+
+TEST_F(ExpressionsTest, ImplicitCast) {
+  ASSERT_OK_AND_ASSIGN(auto filter,
+                       InsertImplicitCasts("a"_ == 0.0, Schema({field("a", int32())})));
+  ASSERT_EQ(E{filter}, E{"a"_ == scalar(0.0)->CastTo(int32())});
+
+  auto ns = timestamp(TimeUnit::NANO);
+  ASSERT_OK_AND_ASSIGN(filter,
+                       InsertImplicitCasts("a"_ == "1990", Schema({field("a", ns)})));
+  ASSERT_EQ(E{filter}, E{"a"_ == scalar("1990")->CastTo(ns)});
+
+  ASSERT_OK_AND_ASSIGN(
+      filter, InsertImplicitCasts("a"_ == "1990" and "b"_ == "3",
+                                  Schema({field("a", ns), field("b", int32())})));
+  ASSERT_EQ(E{filter}, E{"a"_ == scalar("1990")->CastTo(ns) and
+                         "b"_ == scalar("3")->CastTo(int32())});
+}
+
+TEST_F(FilterTest, ImplicitCast) {
+  ASSERT_OK_AND_ASSIGN(auto filter,
+                       InsertImplicitCasts("a"_ >= "1", Schema({field("a", int32())})));
+
+  AssertFilter(*filter, {field("a", int32()), field("b", float64())},
+               R"([
+      {"a": 0, "b": -0.1, "in": 0},
+      {"a": 0, "b":  0.0, "in": 0},
+      {"a": 1, "b":  1.0, "in": 1},
+      {"a": 2, "b": -0.1, "in": 1},
+      {"a": 0, "b":  0.1, "in": 0},
+      {"a": 2, "b": null, "in": 1},
+      {"a": 1, "b":  1.0, "in": 1}
+  ])");
+}
+
 TEST_F(FilterTest, ConditionOnAbsentColumn) {
   AssertFilter("a"_ == 0 and "b"_ > 0.0 and "b"_ < 1.0 and "absent"_ == 0,
                {field("a", int32()), field("b", float64())}, R"([
-      {"a": 0, "b": -0.1, "in": null},
+      {"a": 0, "b": -0.1, "in": false},
       {"a": 0, "b":  0.3, "in": null},
-      {"a": 1, "b":  0.2, "in": null},
-      {"a": 2, "b": -0.1, "in": null},
+      {"a": 1, "b":  0.2, "in": false},
+      {"a": 2, "b": -0.1, "in": false},
       {"a": 0, "b":  0.1, "in": null},
       {"a": 0, "b": null, "in": null},
-      {"a": 0, "b":  1.0, "in": null}
+      {"a": 0, "b":  1.0, "in": false}
   ])");
 }
 
 TEST_F(FilterTest, KleeneTruthTables) {
-  // TODO(bkietz) also test various ranks against each other
   AssertFilter("a"_ and "b"_, {field("a", boolean()), field("b", boolean())}, R"([
     {"a":null,  "b":null,  "in":null},
     {"a":null,  "b":true,  "in":null},
@@ -353,9 +422,17 @@ class TakeExpression : public CustomExpression {
 
     using TreeEvaluator::Evaluate;
 
-    Result<compute::Datum> Evaluate(const CustomExpression& expr,
+    Result<compute::Datum> Evaluate(const Expression& expr,
                                     const RecordBatch& batch) const override {
-      const auto& take_expr = checked_cast<const TakeExpression&>(expr);
+      if (expr.type() == ExpressionType::CUSTOM) {
+        const auto& take_expr = checked_cast<const TakeExpression&>(expr);
+        return EvaluateTake(take_expr, batch);
+      }
+      return TreeEvaluator::Evaluate(expr, batch);
+    }
+
+    Result<compute::Datum> EvaluateTake(const TakeExpression& take_expr,
+                                        const RecordBatch& batch) const {
       ARROW_ASSIGN_OR_RAISE(auto indices, Evaluate(*take_expr.operand_, batch));
 
       if (indices.kind() == Datum::SCALAR) {

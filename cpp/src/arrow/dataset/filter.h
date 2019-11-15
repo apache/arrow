@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
@@ -24,6 +25,7 @@
 
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/kernels/cast.h"
 #include "arrow/compute/kernels/compare.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
@@ -31,6 +33,7 @@
 #include "arrow/scalar.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/variant.h"
 
 namespace arrow {
 namespace dataset {
@@ -50,7 +53,7 @@ struct ExpressionType {
     NOT,
 
     /// cast an expression to a given DataType
-    // TODO(bkietz) CAST,
+    CAST,
 
     /// a conjunction of multiple expressions (true if all operands are true)
     AND,
@@ -195,6 +198,15 @@ class ARROW_DS_EXPORT Expression {
   InExpression In(std::shared_ptr<Array> set) const;
 
   IsValidExpression IsValid() const;
+
+  CastExpression CastTo(std::shared_ptr<DataType> type,
+                        compute::CastOptions options = compute::CastOptions()) const;
+
+  CastExpression CastLike(const Expression& expr,
+                          compute::CastOptions options = compute::CastOptions()) const;
+
+  CastExpression CastLike(std::shared_ptr<Expression> expr,
+                          compute::CastOptions options = compute::CastOptions()) const;
 
  protected:
   ExpressionType::type type_;
@@ -342,6 +354,37 @@ class ARROW_DS_EXPORT InExpression final
   std::shared_ptr<Array> set_;
 };
 
+/// Explicitly cast an expression to a different type
+class ARROW_DS_EXPORT CastExpression final
+    : public ExpressionImpl<UnaryExpression, CastExpression, ExpressionType::CAST> {
+ public:
+  CastExpression(std::shared_ptr<Expression> operand, std::shared_ptr<DataType> to,
+                 compute::CastOptions options)
+      : ExpressionImpl(std::move(operand)),
+        to_(std::move(to)),
+        options_(std::move(options)) {}
+
+  /// The operand will be cast to whatever type `like` would evaluate to, given the same
+  /// schema.
+  CastExpression(std::shared_ptr<Expression> operand, std::shared_ptr<Expression> like,
+                 compute::CastOptions options)
+      : ExpressionImpl(std::move(operand)),
+        to_(std::move(like)),
+        options_(std::move(options)) {}
+
+  std::string ToString() const override;
+
+  std::shared_ptr<Expression> Assume(const Expression& given) const override;
+
+  Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
+
+  const compute::CastOptions& options() const { return options_; }
+
+ private:
+  util::variant<std::shared_ptr<DataType>, std::shared_ptr<Expression>> to_;
+  compute::CastOptions options_;
+};
+
 /// Represents a scalar value; thin wrapper around arrow::Scalar
 class ARROW_DS_EXPORT ScalarExpression final : public Expression {
  public:
@@ -478,26 +521,31 @@ auto VisitExpression(const Expression& expr, Visitor&& visitor)
     case ExpressionType::IS_VALID:
       return visitor(internal::checked_cast<const IsValidExpression&>(expr));
 
-    case ExpressionType::NOT:
-      return visitor(internal::checked_cast<const NotExpression&>(expr));
-
     case ExpressionType::AND:
       return visitor(internal::checked_cast<const AndExpression&>(expr));
 
     case ExpressionType::OR:
       return visitor(internal::checked_cast<const OrExpression&>(expr));
 
+    case ExpressionType::NOT:
+      return visitor(internal::checked_cast<const NotExpression&>(expr));
+
+    case ExpressionType::CAST:
+      return visitor(internal::checked_cast<const CastExpression&>(expr));
+
     case ExpressionType::COMPARISON:
       return visitor(internal::checked_cast<const ComparisonExpression&>(expr));
 
     case ExpressionType::CUSTOM:
-      return visitor(internal::checked_cast<const CustomExpression&>(expr));
-
     default:
       break;
   }
-  return visitor(expr);
+  return visitor(internal::checked_cast<const CustomExpression&>(expr));
 }
+
+/// \brief Insert CastExpressions where necessary to make a valid expression.
+ARROW_DS_EXPORT Result<std::shared_ptr<Expression>> InsertImplicitCasts(
+    const Expression& expr, const Schema& schema);
 
 /// \brief Returns field names referenced in the expression.
 ARROW_DS_EXPORT std::vector<std::string> FieldsInExpression(const Expression& expr);
@@ -555,35 +603,6 @@ class ARROW_DS_EXPORT TreeEvaluator : public ExpressionEvaluator {
 
   Result<compute::Datum> Evaluate(const Expression& expr,
                                   const RecordBatch& batch) const override;
-
-  Result<compute::Datum> Evaluate(const ScalarExpression& expr,
-                                  const RecordBatch& batch) const;
-
-  Result<compute::Datum> Evaluate(const FieldExpression& expr,
-                                  const RecordBatch& batch) const;
-
-  Result<compute::Datum> Evaluate(const NotExpression& expr,
-                                  const RecordBatch& batch) const;
-
-  Result<compute::Datum> Evaluate(const AndExpression& expr,
-                                  const RecordBatch& batch) const;
-
-  Result<compute::Datum> Evaluate(const OrExpression& expr,
-                                  const RecordBatch& batch) const;
-
-  Result<compute::Datum> Evaluate(const InExpression& expr,
-                                  const RecordBatch& batch) const;
-
-  Result<compute::Datum> Evaluate(const IsValidExpression& expr,
-                                  const RecordBatch& batch) const;
-
-  Result<compute::Datum> Evaluate(const ComparisonExpression& expr,
-                                  const RecordBatch& batch) const;
-
-  virtual Result<compute::Datum> Evaluate(const CustomExpression& expr,
-                                          const RecordBatch& batch) const {
-    return Status::NotImplemented("evaluation of ", expr.ToString());
-  }
 
   Result<std::shared_ptr<RecordBatch>> Filter(
       const compute::Datum& selection,
