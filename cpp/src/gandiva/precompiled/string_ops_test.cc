@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "gandiva/execution_context.h"
 #include "gandiva/precompiled/types.h"
@@ -279,6 +280,33 @@ TEST(TestStringOps, TestLower) {
   out_str = lower_utf8(ctx_ptr, "", 0, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_FALSE(ctx.has_error());
+}
+
+TEST(TestStringOps, TestReverse) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<int64>(&ctx);
+  int32 out_len = 0;
+
+  const char* out_str;
+  out_str = reverse_utf8(ctx_ptr, "TestString", 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "gnirtStseT");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = reverse_utf8(ctx_ptr, "", 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = reverse_utf8(ctx_ptr, "çåå†", 9, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "†ååç");
+  EXPECT_FALSE(ctx.has_error());
+
+  std::string d("aa\xc3");
+  out_str = reverse_utf8(ctx_ptr, d.data(), static_cast<int>(d.length()), &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr(
+                  "unexpected byte \\c3 encountered while decoding utf8 string"));
+  ctx.Reset();
 }
 
 }  // namespace gandiva
