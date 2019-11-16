@@ -6,7 +6,6 @@ class ApacheArrow < Formula
   head "https://github.com/apache/arrow.git"
 
   depends_on "cmake" => :build
-  depends_on "aws-sdk-cpp"
   depends_on "boost"
   depends_on "brotli"
   depends_on "flatbuffers"
@@ -40,7 +39,7 @@ class ApacheArrow < Formula
       -DARROW_INSTALL_NAME_RPATH=OFF
       -DPYTHON_EXECUTABLE=#{Formula["python"].bin/"python3"}
     ]
-    # Re-enable -DARROW_S3=ON in ARROW-6437
+    # Re-enable -DARROW_S3=ON and add back aws-sdk-cpp to depends_on in ARROW-6437
 
     mkdir "build"
     cd "build" do
