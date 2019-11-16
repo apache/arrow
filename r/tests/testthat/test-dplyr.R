@@ -97,7 +97,8 @@ test_that("Filtering with a function that doesn't have an Array/expr method stil
         collect(),
       tbl
     ),
-    "Filter expression not implemented in arrow, pulling data into R"
+    'Filter expression not implemented in Arrow: chr %in% c("d", "f"); pulling data into R',
+    fixed = TRUE
   )
 })
 
