@@ -97,6 +97,15 @@ test_that("Hive partitioning", {
   )
 })
 
+test_that("filter() on a dataset won't auto-collect", {
+  ds <- open_dataset(dataset_dir)
+  expect_error(
+    ds %>% filter(int > 6L, dbl > max(dbl)),
+    "Filter expression not supported for Arrow Datasets: dbl > max(dbl)",
+    fixed = TRUE
+  )
+})
+
 test_that("Assembling a Dataset manually and getting a Table", {
   fs <- LocalFileSystem$create()
   selector <- Selector$create(dataset_dir, recursive = TRUE)
