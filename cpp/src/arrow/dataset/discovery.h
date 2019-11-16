@@ -154,7 +154,7 @@ class ARROW_DS_EXPORT FileSystemDataSourceDiscovery : public DataSourceDiscovery
   /// \param[in] filesystem passed to FileSystemDataSource
   /// \param[in] selector used to crawl and search files
   /// \param[in] format passed to FileSystemDataSource
-  /// \param[in] options see @FileSystemDiscoveryOptions for more information.
+  /// \param[in] options see FileSystemDiscoveryOptions for more information.
   /// \param[out] discovery output pointer
   static Status Make(fs::FileSystem* filesystem, fs::Selector selector,
                      std::shared_ptr<FileFormat> format,
