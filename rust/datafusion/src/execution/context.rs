@@ -326,7 +326,9 @@ impl ExecutionContext {
                 match expr {
                     &Expr::Literal(ref scalar_value) => {
                         let limit: usize = match scalar_value {
-                            ScalarValue::Int8(limit) if *limit >= 0 => Ok(*limit as usize),
+                            ScalarValue::Int8(limit) if *limit >= 0 => {
+                                Ok(*limit as usize)
+                            }
                             ScalarValue::Int16(limit) if *limit >= 0 => {
                                 Ok(*limit as usize)
                             }

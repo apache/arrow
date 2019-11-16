@@ -34,6 +34,7 @@ static ARROW_MAGIC: [u8; 6] = [b'A', b'R', b'R', b'O', b'W', b'1'];
 /// Read a buffer based on offset and length
 fn read_buffer(buf: &ipc::Buffer, a_data: &Vec<u8>) -> Buffer {
     let start_offset = buf.offset() as usize;
+    dbg!(&buf);
     let end_offset = start_offset + buf.length() as usize;
     let buf_data = &a_data[start_offset..end_offset];
     Buffer::from(&buf_data)
@@ -173,6 +174,7 @@ fn create_array(
             );
             node_index = node_index + 1;
             buffer_index = buffer_index + 2;
+            dbg!((array.len(), &array));
             array
         }
     };
@@ -528,9 +530,9 @@ mod tests {
         // the test is repetitive, thus we can read all supported files at once
         let paths = vec![
             // "generated_datetime",
-            "generated_nested",
-            "generated_primitive_no_batches",
-            "generated_primitive_zerolength",
+            // "generated_nested",
+            // "generated_primitive_no_batches",
+            // "generated_primitive_zerolength",
             "generated_primitive",
         ];
         paths.iter().for_each(|path| {
