@@ -336,16 +336,15 @@ class ARROW_EXPORT SparseCSCIndex
 
 /// \brief EXPERIMENTAL: The index data for a CSF sparse tensor
 ///
-/// A CSF sparse index manages the location of its non-zero values by two
-/// vectors.
-/// TODO:rok, documentation
-/// The first vector, called indptr, represents the range of the rows; the i-th
-/// row spans from indptr[i] to indptr[i+1] in the corresponding value vector.
-/// So the length of an indptr vector is the number of rows + 1.
+/// A CSF sparse index manages the location of its non-zero values by set of
+/// prefix trees. Each path from a root to leaf forms one tensor non-zero index.
+/// CSF is implemented with five vectors.
 ///
-/// The other vector, called indices, represents the column indices of the
-/// corresponding non-zero values.  So the length of an indices vector is same
-/// as the number of non-zero-values.
+/// Vectors indptr and indices are split into N-1 segments (by indptr_offsets) and
+/// N segments (by indices_offsetsy, where N is the number of dimensions.
+/// Indptr and indices segments describe the set of prefix trees.
+///
+/// Trees traverse dimensions in order given by axis_order.
 class ARROW_EXPORT SparseCSFIndex : public internal::SparseIndexBase<SparseCSFIndex> {
  public:
   static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::CSF;

@@ -438,6 +438,7 @@ class SparseTensorConverter<TYPE, SparseCSCIndex>
 INSTANTIATE_SPARSE_TENSOR_CONVERTER(SparseCOOIndex);
 INSTANTIATE_SPARSE_TENSOR_CONVERTER(SparseCSRIndex);
 INSTANTIATE_SPARSE_TENSOR_CONVERTER(SparseCSCIndex);
+INSTANTIATE_SPARSE_TENSOR_CONVERTER(SparseCSFIndex);
 
 }  // namespace
 
@@ -500,6 +501,9 @@ Status MakeSparseTensorFromTensor(const Tensor& tensor,
     case SparseTensorFormat::CSC:
       return MakeSparseTensorFromTensor<SparseCSCIndex>(tensor, index_value_type, pool,
                                                         out_sparse_index, out_data);
+    case SparseTensorFormat::CSF:
+      return Status::Invalid("Unsupported Tensor value type");
+
     // LCOV_EXCL_START: ignore program failure
     default:
       return Status::Invalid("Invalid sparse tensor format");
@@ -530,7 +534,7 @@ void assign_values(int64_t dimension_index, int64_t offset, int64_t first_ptr,
           sparse_index->indptr()->Value<IndexValueType>({indptr_offset + i + 1}),
           sparse_index, raw_data, strides, out);
     else
-      out[tmp_offset] = raw_data[i];
+      out[tmp_offset] = static_cast<TYPE>(raw_data[i]);
   }
 }
 
@@ -817,6 +821,7 @@ SparseCSFIndex::SparseCSFIndex(const std::shared_ptr<Tensor>& indptr,
   ARROW_CHECK(is_integer(indices_->type_id()));
   ARROW_CHECK_EQ(1, indices_->ndim());
   ARROW_CHECK_EQ(indptr_offsets_.size() + 1, indices_offsets_.size());
+  ARROW_CHECK_EQ(axis_order_.size(), indices_offsets_.size());
 }
 
 std::string SparseCSFIndex::ToString() const { return std::string("SparseCSFIndex"); }
