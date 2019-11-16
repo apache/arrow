@@ -94,16 +94,17 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
   }
 
   .data <- arrow_dplyr_query(.data)
+  data_is_dataset <- inherits(.data$.data, "Dataset")
+
   # The filter() method works by evaluating the filters to generate Expressions
   # with references to Arrays (if .data is Table/RecordBatch) or Fields (if
   # .data is a Dataset).
   filter_data <- env()
-  data_is_dataset <- inherits(.data$.data, "Dataset")
   for (v in unique(unlist(lapply(filts, all.vars)))) {
-    # Map any renamed vars to their name in the underlying Arrow schema
     if (!(v %in% names(.data))) {
       stop("object '", v, "' not found", call. = FALSE)
     }
+    # Map any renamed vars to their name in the underlying Arrow schema
     old_var_name <- .data$selected_columns[v]
     if (data_is_dataset) {
       # Make a FieldExpression
@@ -120,6 +121,7 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
     # implemented in Arrow.
     try(eval_tidy(f, dm), silent = TRUE)
   })
+
   bad_filters <- map_lgl(filters, ~inherits(., "try-error"))
   if (any(bad_filters)) {
     # TODO: consider ways not to bail out here, e.g. defer evaluating the
@@ -140,13 +142,19 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
         immediate. = TRUE,
         call. = FALSE
       )
-      # TODO: set any valid filters first, then only collect with the invalid ones
-      return(dplyr::filter(dplyr::collect(.data), ...))
+      # Set any valid filters first, then collect and then apply the invalid ones in R
+      .data <- set_filters(.data, filters[!bad_filters])
+      return(dplyr::filter(dplyr::collect(.data), !!!filts[bad_filters]))
     }
   }
 
-  # filters is now a list of Expressions. AND them together and return
-  new_filter <- Reduce("&", filters)
+  set_filters(.data, filters)
+}
+filter.Dataset <- filter.Table <- filter.RecordBatch <- filter.arrow_dplyr_query
+
+set_filters <- function(.data, expressions) {
+  # expressions is a list of Expressions. AND them together and set them on .data
+  new_filter <- Reduce("&", expressions)
   if (isTRUE(.data$filtered_rows)) {
     # TRUE is default (i.e. no filter yet), so we don't need to & with it
     .data$filtered_rows <- new_filter
@@ -155,7 +163,6 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
   }
   .data
 }
-filter.Dataset <- filter.Table <- filter.RecordBatch <- filter.arrow_dplyr_query
 
 collect.arrow_dplyr_query <- function(x, ...) {
   colnames <- x$selected_columns
