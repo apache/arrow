@@ -1581,7 +1581,11 @@ macro(build_benchmark)
     set(GBENCHMARK_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} -std=c++11")
   endif()
 
-  if(APPLE AND "${COMPILER_FAMILY}" STREQUAL "clang")
+  if(APPLE
+     AND (CMAKE_CXX_COMPILER_ID
+          STREQUAL
+          "AppleClang"
+          OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang"))
     set(GBENCHMARK_CMAKE_CXX_FLAGS "${GBENCHMARK_CMAKE_CXX_FLAGS} -stdlib=libc++")
   endif()
 
@@ -2210,18 +2214,36 @@ macro(build_orc)
   set(ORC_STATIC_LIB
       "${ORC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}orc${CMAKE_STATIC_LIBRARY_SUFFIX}")
 
-  if("${COMPILER_FAMILY}" STREQUAL "clang")
-    if("${COMPILER_VERSION}" VERSION_EQUAL "4.0")
-      # conda OSX builds uses clang 4.0.1 and orc_ep fails to build unless
-      # disabling the following errors
-      set(ORC_CMAKE_CXX_FLAGS " -Wno-error=weak-vtables -Wno-error=undef ")
-    endif()
-    if("${COMPILER_VERSION}" VERSION_GREATER "4.0")
-      set(ORC_CMAKE_CXX_FLAGS " -Wno-zero-as-null-pointer-constant \
--Wno-inconsistent-missing-destructor-override -Wno-error=undef ")
-    endif()
-    if("${Protobuf_VERSION}" VERSION_GREATER_EQUAL "3.9.0")
-      set(ORC_CMAKE_CXX_FLAGS "${ORC_CMAKE_CXX_FLAGS} -Wno-comma ")
+  set(ORC_CMAKE_CXX_FLAGS)
+  if((CMAKE_CXX_COMPILER_ID
+      STREQUAL
+      "AppleClang"
+      AND CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "9")
+     OR (CMAKE_CXX_COMPILER_ID
+         STREQUAL
+         "Clang"
+         AND CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "4.0"))
+    # conda OSX builds uses clang 4.0.1 and orc_ep fails to build unless
+    # disabling the following errors
+    set(ORC_CMAKE_CXX_FLAGS "${ORC_CMAKE_CXX_FLAGS} -Wno-error=weak-vtables")
+    set(ORC_CMAKE_CXX_FLAGS "${ORC_CMAKE_CXX_FLAGS} -Wno-error=undef")
+  elseif((CMAKE_CXX_COMPILER_ID
+          STREQUAL
+          "AppleClang"
+          AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "9")
+         OR (CMAKE_CXX_COMPILER_ID
+             STREQUAL
+             "Clang"
+             AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "4.0"))
+    set(ORC_CMAKE_CXX_FLAGS "${ORC_CMAKE_CXX_FLAGS} -Wno-zero-as-null-pointer-constant")
+    set(ORC_CMAKE_CXX_FLAGS
+        "${ORC_CMAKE_CXX_FLAGS} -Wno-inconsistent-missing-destructor-override")
+    set(ORC_CMAKE_CXX_FLAGS "${ORC_CMAKE_CXX_FLAGS} -Wno-error=undef")
+  endif()
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
+     OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    if(Protobuf_VERSION VERSION_GREATER_EQUAL "3.9.0")
+      set(ORC_CMAKE_CXX_FLAGS "${ORC_CMAKE_CXX_FLAGS} -Wno-comma")
     endif()
   endif()
 

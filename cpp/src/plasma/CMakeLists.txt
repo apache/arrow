@@ -95,7 +95,7 @@ endforeach()
 # malloc.cc; we set it here regardless of whether we do a debug or release build.
 set_source_files_properties(dlmalloc.cc PROPERTIES COMPILE_FLAGS "-O3")
 
-if("${COMPILER_FAMILY}" STREQUAL "clang")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   set_property(SOURCE dlmalloc.cc
                APPEND_STRING
                PROPERTY COMPILE_FLAGS " -Wno-parentheses-equality \
@@ -104,7 +104,7 @@ if("${COMPILER_FAMILY}" STREQUAL "clang")
 -Wno-unused-macros")
 endif()
 
-if("${COMPILER_FAMILY}" STREQUAL "gcc")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   set_property(SOURCE dlmalloc.cc APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-conversion")
 endif()
 
