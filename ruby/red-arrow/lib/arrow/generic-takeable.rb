@@ -27,7 +27,7 @@ module Arrow
     def take_generic(indices)
       case indices
       when ::Array
-        take_raw(IntArrayBuilder.new.build(indices))
+        take_raw(IntArrayBuilder.build(indices))
       when ChunkedArray
         take_chunked_array(indices)
       else
