@@ -16,13 +16,17 @@
 # under the License.
 
 require "arrow/column-containable"
+require "arrow/filtable"
 require "arrow/group"
 require "arrow/record-containable"
+require "arrow/takeable"
 
 module Arrow
   class Table
     include ColumnContainable
     include RecordContainable
+    include Filtable
+    include Takeable
 
     class << self
       def load(path, options={})
@@ -510,16 +514,10 @@ module Arrow
     end
 
     alias_method :filter_raw, :filter
-    def filter(array)
-      case array
-      when ::Array
-        filter_raw(BooleanArray.new(array))
-      when ChunkedArray
-        filter_chunked_array(array)
-      else
-        filter_raw(array)
-      end
-    end
+    alias_method :filter, :filter_array
+
+    alias_method :take_raw, :take
+    alias_method :take, :take_array
 
     private
     def slice_by_range(from, to)

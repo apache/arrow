@@ -695,4 +695,40 @@ visible: false
       TABLE
     end
   end
+
+  sub_test_case("#take") do
+    test("Arrow: boolean") do
+      indices = [1, 0, 2]
+      assert_equal(<<-TABLE, @table.take(indices).to_s)
+	count	visible
+0	    2	false  
+1	    1	true   
+2	    4	       
+      TABLE
+    end
+
+    test("Arrow::Array") do
+      indices = Arrow::Int16Array.new([1, 0, 2])
+      assert_equal(<<-TABLE, @table.take(indices).to_s)
+	count	visible
+0	    2	false  
+1	    1	true   
+2	    4	       
+      TABLE
+    end
+
+    test("Arrow::ChunkedArray") do
+      chunks = [
+        Arrow::Int16Array.new([1, 0]),
+        Arrow::Int16Array.new([2])
+      ]
+      indices = Arrow::ChunkedArray.new(chunks)
+      assert_equal(<<-TABLE, @table.take(indices).to_s)
+	count	visible
+0	    2	false  
+1	    1	true   
+2	    4	       
+      TABLE
+    end
+  end
 end

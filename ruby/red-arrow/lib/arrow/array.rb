@@ -15,9 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
+require "arrow/filtable"
+require "arrow/takeable"
+
 module Arrow
   class Array
     include Enumerable
+    include Filtable
+    include Takeable
 
     class << self
       def new(*args)
@@ -81,6 +86,24 @@ module Arrow
 
     def to_a
       values
+    end
+
+    alias_method :filter_raw, :filter
+    alias_method :filter, :filter_array
+
+    alias_method :take_raw, :take
+    alias_method :take, :take_array
+
+    alias_method :is_in_raw, :is_in
+    def is_in(array)
+      case array
+      when ::Array
+        is_in_raw(self.class.new(array))
+      when ChunkedArray
+        is_in_chunked_array(array)
+      else
+        is_in_raw(array)
+      end
     end
   end
 end

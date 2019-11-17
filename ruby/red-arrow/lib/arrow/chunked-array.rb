@@ -15,9 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
+require "arrow/filtable"
+require "arrow/takeable"
+
 module Arrow
   class ChunkedArray
     include Enumerable
+    include Filtable
+    include Takeable
 
     alias_method :size, :n_rows
     unless method_defined?(:length)
@@ -85,5 +90,11 @@ module Arrow
         first_chunk.class.new(to_a)
       end
     end
+
+    alias_method :filter_raw, :filter
+    alias_method :filter, :filter_array
+
+    alias_method :take_raw, :take
+    alias_method :take, :take_array
   end
 end
