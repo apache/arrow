@@ -91,9 +91,9 @@ class ArrayTest < Test::Unit::TestCase
         Arrow::BooleanArray.new([true, false]),
       ]
       filter = Arrow::ChunkedArray.new(chunks)
-      assert_raise(ArgumentError) do
-        @array.filter(filter)
-      end
+      filtered_array = Arrow::BooleanArray.new([nil, false, false])
+      assert_equal(filtered_array,
+                   @array.filter(filter))
     end
   end
 

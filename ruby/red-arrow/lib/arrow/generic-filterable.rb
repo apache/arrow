@@ -32,8 +32,8 @@ module Arrow
         if respond_to?(:filter_chunked_array)
           filter_chunked_array(array)
         else
-          message = "the argument must be Array or Arrow::Array"
-          raise ArgumentError, message
+          # TODO: Implement this in C++
+          filter_raw(array.pack)
         end
       else
         filter_raw(array)
