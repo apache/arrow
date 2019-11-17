@@ -90,7 +90,7 @@ where
 /// A CSV writer
 pub struct Writer<W: Write> {
     /// The object to write to
-    writer: W,
+    writer: csv_crate::Writer<W>,
     /// Column delimiter. Defaults to `b','`
     delimiter: u8,
     /// Whether file should be written with headers. Defaults to `true`
@@ -105,15 +105,15 @@ pub struct Writer<W: Write> {
     beginning: bool,
 }
 
-impl<'a, 'b: 'a, W: Write + 'b> Writer<W>
-where
-    &'a W: Write,
-{
+impl<W: Write> Writer<W> {
     /// Create a new CsvWriter from a writable object, with default options
     pub fn new(writer: W) -> Self {
+        let delimiter = b',';
+        let mut builder = csv_crate::WriterBuilder::new();
+        let writer = builder.delimiter(delimiter).from_writer(writer);
         Writer {
             writer,
-            delimiter: b',',
+            delimiter,
             has_headers: true,
             date_format: DEFAULT_DATE_FORMAT.to_string(),
             time_format: DEFAULT_TIME_FORMAT.to_string(),
@@ -249,9 +249,7 @@ where
     }
 
     /// Write a vector of record batches to a writable object
-    pub fn write(&'a mut self, batch: &RecordBatch) -> Result<()> {
-        let mut builder = csv_crate::WriterBuilder::new();
-        let mut wtr = builder.delimiter(self.delimiter).from_writer(&self.writer);
+    pub fn write(&mut self, batch: &RecordBatch) -> Result<()> {
         let num_columns = batch.num_columns();
         if self.beginning {
             if self.has_headers {
@@ -261,16 +259,16 @@ where
                     .fields()
                     .iter()
                     .for_each(|field| headers.push(field.name().to_string()));
-                wtr.write_record(&headers[..])?;
+                self.writer.write_record(&headers[..])?;
             }
             self.beginning = false;
         }
 
         for row_index in 0..batch.num_rows() {
             let record = self.convert(batch, row_index)?;
-            wtr.write_record(&record[..])?;
+            self.writer.write_record(&record[..])?;
         }
-        wtr.flush()?;
+        self.writer.flush()?;
 
         Ok(())
     }
@@ -361,9 +359,12 @@ impl WriterBuilder {
 
     /// Create a new `Writer`
     pub fn build<W: Write>(self, writer: W) -> Writer<W> {
+        let delimiter = self.delimiter.unwrap_or(b',');
+        let mut builder = csv_crate::WriterBuilder::new();
+        let writer = builder.delimiter(delimiter).from_writer(writer);
         Writer {
             writer,
-            delimiter: self.delimiter.unwrap_or(b','),
+            delimiter,
             has_headers: self.has_headers,
             date_format: self.date_format.unwrap_or(DEFAULT_DATE_FORMAT.to_string()),
             time_format: self.time_format.unwrap_or(DEFAULT_TIME_FORMAT.to_string()),
@@ -565,17 +566,14 @@ sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03
             writer.write(batch).unwrap();
         }
 
-        assert_eq!(
-            r#"c1,c2,c3,c4,c5,c6
+        let left = "c1,c2,c3,c4,c5,c6
 Lorem ipsum dolor sit amet,123.564532,3,true,,00:20:34
 consectetur adipiscing elit,,2,false,2019-04-18T10:54:47.378000000,06:51:20
 sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03
 Lorem ipsum dolor sit amet,123.564532,3,true,,00:20:34
 consectetur adipiscing elit,,2,false,2019-04-18T10:54:47.378000000,06:51:20
-sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03
-"#
-            .to_string(),
-            writer.writer.to_string()
-        );
+sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03\n";
+        let right = writer.writer.into_inner().map(|s| s.to_string());
+        assert_eq!(Some(left.to_string()), right.ok());
     }
 }
