@@ -24,14 +24,14 @@ module Arrow
       end
     end
 
-    def take_generic(array)
-      case array
+    def take_generic(indices)
+      case indices
       when ::Array
-        take_raw(IntArrayBuilder.new.build(array))
+        take_raw(IntArrayBuilder.new.build(indices))
       when ChunkedArray
-        take_chunked_array(array)
+        take_chunked_array(indices)
       else
-        take_raw(array)
+        take_raw(indices)
       end
     end
   end

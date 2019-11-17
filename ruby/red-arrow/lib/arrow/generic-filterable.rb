@@ -24,19 +24,19 @@ module Arrow
       end
     end
 
-    def filter_generic(array)
-      case array
+    def filter_generic(filter)
+      case filter
       when ::Array
-        filter_raw(BooleanArray.new(array))
+        filter_raw(BooleanArray.new(filter))
       when ChunkedArray
         if respond_to?(:filter_chunked_array)
-          filter_chunked_array(array)
+          filter_chunked_array(filter)
         else
           # TODO: Implement this in C++
-          filter_raw(array.pack)
+          filter_raw(filter.pack)
         end
       else
-        filter_raw(array)
+        filter_raw(filter)
       end
     end
   end
