@@ -36,3 +36,11 @@ async-stream = "0.1.2"
 
 [build-dependencies]
 tonic-build = "0.1.0-alpha.5"
+
+[lib]
+name = "flight"
+path = "src/lib.rs"
+
+[[bin]]
+name = "flight-demo"
+path = "src/bin/main.rs"
