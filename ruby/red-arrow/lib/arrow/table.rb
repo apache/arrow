@@ -513,12 +513,6 @@ module Arrow
       super
     end
 
-    alias_method :filter_raw, :filter
-    alias_method :filter, :filter_generic
-
-    alias_method :take_raw, :take
-    alias_method :take, :take_generic
-
     private
     def slice_by_range(from, to)
       slice_raw(from, to - from + 1)

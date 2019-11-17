@@ -17,6 +17,13 @@
 
 module Arrow
   module GenericFilterable
+    class << self
+      def included(base)
+        base.alias_method :filter_raw, :filter
+        base.alias_method :filter, :filter_generic
+      end
+    end
+
     def filter_generic(array)
       case array
       when ::Array

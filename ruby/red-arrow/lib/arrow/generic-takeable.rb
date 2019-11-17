@@ -17,6 +17,13 @@
 
 module Arrow
   module GenericTakeable
+    class << self
+      def included(base)
+        base.alias_method :take_raw, :take
+        base.alias_method :take, :take_generic
+      end
+    end
+
     def take_generic(array)
       case array
       when ::Array

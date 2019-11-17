@@ -90,11 +90,5 @@ module Arrow
         first_chunk.class.new(to_a)
       end
     end
-
-    alias_method :filter_raw, :filter
-    alias_method :filter, :filter_generic
-
-    alias_method :take_raw, :take
-    alias_method :take, :take_generic
   end
 end

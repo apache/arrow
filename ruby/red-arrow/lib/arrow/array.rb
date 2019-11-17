@@ -88,12 +88,6 @@ module Arrow
       values
     end
 
-    alias_method :filter_raw, :filter
-    alias_method :filter, :filter_generic
-
-    alias_method :take_raw, :take
-    alias_method :take, :take_generic
-
     alias_method :is_in_raw, :is_in
     def is_in(array)
       case array
