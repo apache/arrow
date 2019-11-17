@@ -15,14 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "arrow/filtable"
-require "arrow/takeable"
+require "arrow/generic-filterable"
+require "arrow/generic-takeable"
 
 module Arrow
   class Array
     include Enumerable
-    include Filtable
-    include Takeable
+    include GenericFilterable
+    include GenericTakeable
 
     class << self
       def new(*args)
@@ -89,10 +89,10 @@ module Arrow
     end
 
     alias_method :filter_raw, :filter
-    alias_method :filter, :filter_array
+    alias_method :filter, :filter_generic
 
     alias_method :take_raw, :take
-    alias_method :take, :take_array
+    alias_method :take, :take_generic
 
     alias_method :is_in_raw, :is_in
     def is_in(array)

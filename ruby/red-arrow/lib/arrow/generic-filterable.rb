@@ -16,8 +16,8 @@
 # under the License.
 
 module Arrow
-  module Filtable
-    def filter_array(array)
+  module GenericFilterable
+    def filter_generic(array)
       case array
       when ::Array
         filter_raw(BooleanArray.new(array))

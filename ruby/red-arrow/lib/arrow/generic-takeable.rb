@@ -16,11 +16,11 @@
 # under the License.
 
 module Arrow
-  module Takeable
-    def take_array(array)
+  module GenericTakeable
+    def take_generic(array)
       case array
       when ::Array
-        take(IntArrayBuilder.new.build(array))
+        take_raw(IntArrayBuilder.new.build(array))
       when ChunkedArray
         take_chunked_array(array)
       else
