@@ -15,18 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "arrow/column-containable"
-require "arrow/generic-filterable"
-require "arrow/generic-takeable"
-require "arrow/group"
-require "arrow/record-containable"
-
 module Arrow
   class Table
     include ColumnContainable
-    include RecordContainable
     include GenericFilterable
     include GenericTakeable
+    include RecordContainable
 
     class << self
       def load(path, options={})

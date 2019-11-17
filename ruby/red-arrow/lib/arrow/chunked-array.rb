@@ -15,9 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "arrow/generic-filterable"
-require "arrow/generic-takeable"
-
 module Arrow
   class ChunkedArray
     include Enumerable
