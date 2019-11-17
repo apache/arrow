@@ -26,10 +26,12 @@ use flight::FlightServiceImpl;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "[::1]:50051".parse()?;
-    let service = FlightServiceImpl::new();
+    let service = FlightServiceImpl {};
+
+    let svc: FlightService = FlightServiceServer::new(service);
 
     Server::builder()
-        .add_service(FlightServiceServer::new(service))
+        .add_service(svc)
         .serve(addr)
         .await?;
 
