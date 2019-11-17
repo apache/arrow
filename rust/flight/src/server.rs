@@ -25,8 +25,16 @@ pub mod arrow_flight {
 use arrow_flight::{
     server,
     server::FlightService,
+    Action,
+    ActionType,
+    Criteria,
+    Empty,
+    FlightInfo,
     FlightData,
+    FlightDescriptor,
     PutResult,
+    SchemaResult,
+    Ticket,
     HandshakeRequest, HandshakeResponse
 };
 
@@ -38,12 +46,73 @@ impl FlightService for FlightServiceImpl {
     type HandshakeStream = mpsc::Receiver<Result<HandshakeResponse, Status>>;
 
     async fn handshake(
-        &self,
+        &self, 
         request: tonic::Request<tonic::Streaming<HandshakeRequest>>,
     ) -> Result<Response<Self::HandshakeStream>, tonic::Status> {
         unimplemented!()
     }
 
-    //TODO implement the other methods
+    type ListFlightsStream = mpsc::Receiver<Result<FlightInfo, Status>>;
+
+    async fn list_flights(
+        &self,
+        request: tonic::Request<Criteria>,
+    ) -> Result<Response<Self::ListFlightsStream>, tonic::Status> {
+        unimplemented!()
+    }
+
+//    async fn get_flight_info(
+//        &self,
+//        request: tonic::Request<FlightDescriptor>,
+//    ) -> Result<tonic::Response<FlightInfo>, tonic::Status> {
+//        unimplemented!()
+//    }
+//
+//    async fn get_schema(
+//        &self,
+//        request: tonic::Request<FlightDescriptor>,
+//    ) -> Result<tonic::Response<SchemaResult>, tonic::Status> {
+//        unimplemented!()
+//    }
+//
+//    async fn do_get(
+//        &self,
+//        request: tonic::Request<Ticket>,
+//    ) -> Result<
+//        tonic::Response<tonic::codec::Streaming<FlightData>>,
+//        tonic::Status,
+//    > {
+//        unimplemented!()
+//    }
+//
+//    async fn do_put(
+//        &self,
+//        request: impl tonic::IntoStreamingRequest<Message = FlightData>,
+//    ) -> Result<
+//        tonic::Response<tonic::codec::Streaming<PutResult>>,
+//        tonic::Status,
+//    > {
+//        unimplemented!()
+//    }
+//
+//    type DoActionStream = mpsc::Receiver<Result<arrow_flight::Result, Status>>;
+//
+//    async fn do_action(
+//        &self,
+//        request: tonic::Request<Action>,
+//    ) -> Result<tonic::Response<tonic::codec::Streaming<arrow_flight::Result>>, tonic::Status>
+//    {
+//        unimplemented!()
+//    }
+//
+//    async fn list_actions(
+//        &self,
+//        request: impl tonic::IntoRequest<Empty>,
+//    ) -> Result<
+//        tonic::Response<tonic::codec::Streaming<ActionType>>,
+//        tonic::Status,
+//    > {
+//        unimplemented!()
+//    }
 
 }
