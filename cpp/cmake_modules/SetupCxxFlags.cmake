@@ -41,6 +41,9 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
 
+set(UNKNOWN_COMPILER_MESSAGE
+    "Unknown compiler: ${CMAKE_CXX_COMPILER_VERSION} ${CMAKE_CXX_COMPILER_VERSION}")
+
 # compiler flags that are common across debug/release builds
 if(WIN32)
   # TODO(wesm): Change usages of C runtime functions that MSVC says are
@@ -48,21 +51,20 @@ if(WIN32)
   add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 
   if(MSVC)
+    if(MSVC_VERSION VERSION_LESS 19)
+      message(FATAL_ERROR "Only MSVC 2015 (Version 19.0) and later are supported
+      by Arrow. Found version ${CMAKE_CXX_COMPILER_VERSION}.")
+    endif()
+
     # ARROW-1931 See https://github.com/google/googletest/issues/1318
     #
     # This is added to CMAKE_CXX_FLAGS instead of CXX_COMMON_FLAGS since only the
     # former is passed into the external projects
-    if(MSVC_VERSION VERSION_GREATER 1900)
-      set(CMAKE_CXX_FLAGS
-          "${CMAKE_CXX_FLAGS} /D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING")
-    endif()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /D_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING")
 
     if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
       # clang-cl
       set(CXX_COMMON_FLAGS "-EHsc")
-    elseif(${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS 19)
-      message(FATAL_ERROR "Only MSVC 2015 (Version 19.0) and later are supported
-      by Arrow. Found version ${CMAKE_CXX_COMPILER_VERSION}.")
     else()
       # Fix annoying D9025 warning
       string(REPLACE "/W3" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
@@ -123,7 +125,7 @@ message(STATUS "Arrow build warning level: ${BUILD_WARNING_LEVEL}")
 macro(arrow_add_werror_if_debug)
   if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
     # Treat all compiler warnings as errors
-    if("${COMPILER_FAMILY}" STREQUAL "msvc")
+    if(MSVC)
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /WX")
     else()
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Werror")
@@ -133,65 +135,70 @@ endmacro()
 
 if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
   # Pre-checkin builds
-  if("${COMPILER_FAMILY}" STREQUAL "msvc")
+  if(MSVC)
     # https://docs.microsoft.com/en-us/cpp/error-messages/compiler-warnings/compiler-warnings-by-compiler-version
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /W3 /wd4365 /wd4267 /wd4838")
-  elseif("${COMPILER_FAMILY}" STREQUAL "clang")
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall -Wextra -Wdocumentation \
-        -Wno-unused-parameter")
-
-    if("${COMPILER_VERSION}" VERSION_GREATER "7.0")
-      # ARROW-6259: Flatbuffers generates code with superfluous semicolons, so
-      # we suppress this warning for now. See upstream bug report
-      # https://github.com/google/flatbuffers/issues/5482
-      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-extra-semi-stmt \
--Wno-shadow-field -Wno-c++2a-compat")
-    endif()
-
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /W3")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4365")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4267")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4838")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
+         OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wextra")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wdocumentation")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unused-parameter")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unknown-warning-option")
-  elseif("${COMPILER_FAMILY}" STREQUAL "gcc")
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall \
--Wno-conversion -Wno-sign-conversion -Wno-unused-variable")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-conversion")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-sign-conversion")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unused-variable")
   else()
-    message(FATAL_ERROR "Unknown compiler. Version info:\n${COMPILER_VERSION_FULL}")
+    message(FATAL_ERROR "${UNKNOWN_COMPILER_MESSAGE}")
   endif()
   arrow_add_werror_if_debug()
 
 elseif("${BUILD_WARNING_LEVEL}" STREQUAL "EVERYTHING")
   # Pedantic builds for fixing warnings
-  if("${COMPILER_FAMILY}" STREQUAL "msvc")
+  if(MSVC)
     string(REPLACE "/W3" "" CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS}")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wall")
     # https://docs.microsoft.com/en-us/cpp/build/reference/compiler-option-warning-level
     # /wdnnnn disables a warning where "nnnn" is a warning number
-  elseif("${COMPILER_FAMILY}" STREQUAL "clang")
-    set(CXX_COMMON_FLAGS
-        "${CXX_COMMON_FLAGS} -Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic")
-  elseif("${COMPILER_FAMILY}" STREQUAL "gcc")
-    set(CXX_COMMON_FLAGS
-        "${CXX_COMMON_FLAGS} -Wall -Wpedantic -Wextra -Wno-unused-parameter")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
+         OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Weverything")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-c++98-compat")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-c++98-compat-pedantic")
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wpedantic")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wextra")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unused-parameter")
   else()
-    message(FATAL_ERROR "Unknown compiler. Version info:\n${COMPILER_VERSION_FULL}")
+    message(FATAL_ERROR "${UNKNOWN_COMPILER_MESSAGE}")
   endif()
   arrow_add_werror_if_debug()
 
 else()
   # Production builds (warning are not treated as errors)
-  if("${COMPILER_FAMILY}" STREQUAL "msvc")
+  if(MSVC)
     # https://docs.microsoft.com/en-us/cpp/build/reference/compiler-option-warning-level
     # TODO: Enable /Wall and disable individual warnings until build compiles without errors
     # /wdnnnn disables a warning where "nnnn" is a warning number
     string(REPLACE "/W3" "" CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS}")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /W3")
-  elseif(("${COMPILER_FAMILY}" STREQUAL "clang") OR ("${COMPILER_FAMILY}" STREQUAL "gcc"))
+  elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
+         OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang"
+         OR CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
   else()
-    message(FATAL_ERROR "Unknown compiler. Version info:\n${COMPILER_VERSION_FULL}")
+    message(FATAL_ERROR "${UNKNOWN_COMPILER_MESSAGE}")
   endif()
 
 endif()
 
-if("${COMPILER_FAMILY}" STREQUAL "msvc")
+if(MSVC)
   # Disable annoying "performance warning" about int-to-bool conversion
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4800")
 
@@ -201,27 +208,25 @@ if("${COMPILER_FAMILY}" STREQUAL "msvc")
   # Disable "switch statement contains 'default' but no 'case' labels" warning
   # (required for protobuf, see https://github.com/protocolbuffers/protobuf/issues/6885)
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd4065")
-endif()
-
-if("${COMPILER_FAMILY}" STREQUAL "gcc")
-  if("${COMPILER_VERSION}" VERSION_GREATER "6.0")
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "6.0")
     # Without this, gcc >= 7 warns related to changes in C++17
     set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-noexcept-type")
   endif()
 
-  if("${COMPILER_VERSION}" VERSION_GREATER "4.9")
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "4.9")
     # Add colors when paired with ninja
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdiagnostics-color=always")
   endif()
 
-  if("${COMPILER_VERSION}" VERSION_LESS "6.0")
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "6.0")
     # Work around https://gcc.gnu.org/bugzilla/show_bug.cgi?id=43407
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-attributes")
   endif()
-endif()
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
+       OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  # Clang options for all builds
 
-# Clang options for all builds
-if("${COMPILER_FAMILY}" STREQUAL "clang")
   # Using Clang with ccache causes a bunch of spurious warnings that are
   # purportedly fixed in the next version of ccache. See the following for details:
   #
@@ -234,6 +239,13 @@ if("${COMPILER_FAMILY}" STREQUAL "clang")
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unknown-warning-option")
   # Add colors when paired with ninja
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcolor-diagnostics")
+
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+    # Depending on the default OSX_DEPLOYMENT_TARGET (< 10.9), libstdc++ may be
+    # the default standard library which does not support C++11. libc++ is the
+    # default from 10.9 onward.
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -stdlib=libc++")
+  endif()
 endif()
 
 # if build warning flags is set, add to CXX_COMMON_FLAGS
@@ -262,13 +274,6 @@ endif()
 
 if(ARROW_USE_SIMD)
   add_definitions(-DARROW_USE_SIMD)
-endif()
-
-if(APPLE AND "${COMPILER_FAMILY}" STREQUAL "clang")
-  # Depending on the default OSX_DEPLOYMENT_TARGET (< 10.9), libstdc++ may be
-  # the default standard library which does not support C++11. libc++ is the
-  # default from 10.9 onward.
-  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -stdlib=libc++")
 endif()
 
 # ----------------------------------------------------------------------

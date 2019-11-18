@@ -345,9 +345,6 @@ endif()
 # Compiler flags
 #
 
-# Determine compiler version
-include(CompilerInfo)
-
 if(ARROW_NO_DEPRECATED_API)
   add_definitions(-DARROW_NO_DEPRECATED_API)
 endif()

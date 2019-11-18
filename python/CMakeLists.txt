@@ -85,7 +85,6 @@ endif(CCACHE_FOUND)
 #
 
 include(BuildUtils)
-include(CompilerInfo)
 
 # Cython generated code emits way to many warnings at CHECKIN and EVERYTHING
 set(BUILD_WARNING_LEVEL "PRODUCTION")
@@ -96,13 +95,7 @@ include(SetupCxxFlags)
 set(CMAKE_CXX_FLAGS "${CXX_COMMON_FLAGS} ${CMAKE_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${PYARROW_CXXFLAGS}")
 
-if(NOT MSVC)
-  # Enable perf and other tools to work properly
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
-
-  # Suppress Cython warnings
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable -Wno-maybe-uninitialized")
-else()
+if(MSVC)
   # MSVC version of -Wno-return-type-c-linkage
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4190")
 
@@ -117,18 +110,25 @@ else()
   # See https://github.com/cython/cython/issues/2731. Change introduced in
   # Cython 0.29.1 causes "unsafe use of type 'bool' in operation"
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4804")
-endif()
+else()
+  # Enable perf and other tools to work properly
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-omit-frame-pointer")
 
-if("${COMPILER_FAMILY}" STREQUAL "clang")
-  # Cython warnings in clang
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-parentheses-equality")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-constant-logical-operand")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-declarations")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-sometimes-uninitialized")
+  # Suppress Cython warnings
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-variable -Wno-maybe-uninitialized")
 
-  # We have public Cython APIs which return C++ types, which are in an extern
-  # "C" blog (no symbol mangling) and clang doesn't like this
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-return-type-c-linkage")
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang"
+     OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    # Cython warnings in clang
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-parentheses-equality")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-constant-logical-operand")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-declarations")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-sometimes-uninitialized")
+
+    # We have public Cython APIs which return C++ types, which are in an extern
+    # "C" blog (no symbol mangling) and clang doesn't like this
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-return-type-c-linkage")
+  endif()
 endif()
 
 # For any C code, use the same flags.

@@ -219,7 +219,7 @@ endif()
 
 unset(_allocator_dependencies)
 
-if("${COMPILER_FAMILY}" STREQUAL "clang")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   set_property(SOURCE util/io_util.cc
                APPEND_STRING
                PROPERTY COMPILE_FLAGS " -Wno-unused-macros ")

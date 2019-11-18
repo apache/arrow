@@ -48,7 +48,7 @@ set(ARROW_PYTHON_SRCS
 
 set(ARROW_PYTHON_DEPENDENCIES arrow_dependencies)
 
-if("${COMPILER_FAMILY}" STREQUAL "clang")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   set_property(SOURCE pyarrow.cc APPEND_STRING PROPERTY COMPILE_FLAGS " -Wno-cast-qual ")
 endif()
 
@@ -128,7 +128,7 @@ if(ARROW_FLIGHT AND ARROW_BUILD_SHARED)
   endif()
 endif()
 
-if("${COMPILER_FAMILY}" STREQUAL "clang")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
   # Clang, be quiet. Python C API has lots of macros
   set_property(SOURCE ${ARROW_PYTHON_SRCS}
                APPEND_STRING
