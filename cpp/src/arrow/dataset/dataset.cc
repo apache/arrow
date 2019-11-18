@@ -29,7 +29,8 @@
 namespace arrow {
 namespace dataset {
 
-DataFragment::DataFragment() : scan_options_(ScanOptions::Defaults()) {}
+DataFragment::DataFragment(ScanOptionsPtr scan_options)
+    : scan_options_(std::move(scan_options)), partition_expression_(scalar(true)) {}
 
 SimpleDataFragment::SimpleDataFragment(
     std::vector<std::shared_ptr<RecordBatch>> record_batches, ScanOptionsPtr scan_options)

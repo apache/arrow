@@ -187,6 +187,15 @@ class ARROW_DS_EXPORT FileSystemDataSource : public DataSource {
                                     ExpressionPtr source_partition,
                                     PathPartitions partitions, FileFormatPtr format);
 
+  // New Make: partition scheme is passed for application to stats.
+  static Status Make(fs::FileSystem* filesystem, std::vector<fs::FileStats> stats,
+                     std::shared_ptr<Expression> source_partition,
+                     const std::shared_ptr<PartitionScheme>& scheme,
+                     std::shared_ptr<FileFormat> format,
+                     std::shared_ptr<DataSource>* out) {
+    return Status::NotImplemented("");
+  }
+
   std::string type() const override { return "filesystem_data_source"; }
 
  protected:
@@ -195,6 +204,14 @@ class ARROW_DS_EXPORT FileSystemDataSource : public DataSource {
   FileSystemDataSource(fs::FileSystemPtr filesystem, fs::PathForest forest,
                        ExpressionPtr source_partition, PathPartitions partitions,
                        FileFormatPtr format);
+  // New constructor: partition scheme has been applied to each of file_stats.
+  // The corresponding fragment level partition information is now in
+  // file_partitions.
+  // FileSystemBasedDataSource(fs::FileSystem* filesystem,
+  //                           std::shared_ptr<Expression> source_partition,
+  //                           std::vector<fs::FileStats> file_stats,
+  //                           ExpressionVector file_partitions,
+  //                           std::shared_ptr<FileFormat> format);
 
   bool PartitionMatches(const fs::FileStats& stats, ExpressionPtr filter);
 
