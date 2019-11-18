@@ -191,6 +191,8 @@ struct ARROW_EXPORT Datum {
 
   bool is_scalar() const { return this->kind() == Datum::SCALAR; }
 
+  bool is_collection() const { return this->kind() == Datum::COLLECTION; }
+
   /// \brief The value type of the variant, if any
   ///
   /// \return nullptr if no type

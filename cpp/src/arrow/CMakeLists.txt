@@ -253,6 +253,7 @@ if(ARROW_COMPUTE)
               compute/kernels/hash.cc
               compute/kernels/filter.cc
               compute/kernels/mean.cc
+              compute/kernels/minmax.cc
               compute/kernels/sort_to_indices.cc
               compute/kernels/sum.cc
               compute/kernels/add.cc
