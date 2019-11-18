@@ -1669,61 +1669,45 @@ def table(data, names=None, schema=None, metadata=None):
             "Expected pandas DataFrame, python dictionary or list of arrays")
 
 
-def concat_tables(tables):
+def concat_tables(tables, with_promotion=False, MemoryPool memory_pool=None):
     """
-    Perform zero-copy concatenation of pyarrow.Table objects. Raises exception
-    if all of the Table schemas are not the same
+    Perform zero-copy concatenation of pyarrow.Table objects.
+    if with_promotion==True, Columns of the same name will be concatenated.
+    They should be of the same type, or be of type NULL, in which case it will
+    be promoted to the type of other corresponding columns with null values
+    filled.  If a table is missing a particular field, null values of the
+    appropriate type will be generated to take the place of the missing field.
+    The new schema will share the metadata with the first table. Each field in
+    the new schema will share the metadata with the first table which has the
+    field defined.
+    if with_promotion==False, the schemas of all the Tables must be the same,
+    otherwise an exception will be raised.
 
     Parameters
     ----------
     tables : iterable of pyarrow.Table objects
-    output_name : string, default None
-      A name for the output table, if any
+    with_promotion: if True, concatenate tables with null-filling and type
+      promotion.
+    memory_pool : MemoryPool, default None
+      For memory allocations, if required, otherwise use default pool
     """
     cdef:
         vector[shared_ptr[CTable]] c_tables
-        shared_ptr[CTable] c_result
+        CResult[shared_ptr[CTable]] c_result
+        shared_ptr[CTable] c_result_table
+        CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
         Table table
 
     for table in tables:
         c_tables.push_back(table.sp_table)
 
-    with nogil:
-        check_status(ConcatenateTables(c_tables, &c_result))
+    if with_promotion:
+      with nogil:
+        c_result = ConcatenateTablesWithPromotion(c_tables, pool)
+      c_result_table = GetResultValue(c_result)
+    else:
+      with nogil:
+          check_status(ConcatenateTables(c_tables, &c_result_table))
 
-    return pyarrow_wrap_table(c_result)
-
-
-def concat_tables_with_promotion(tables, MemoryPool memory_pool=None):
-  """
-  Concatenate tables with null-filling and type promotion.
-
-  Columns of the same name will be concatenated. They should be of the
-  same type, or be of type NULL, in which case it will be promoted to
-  the type of other corresponding columns with null values filled.
-  If a table is missing a particular field, null values of the appropriate
-  type will be generated to take the place of the missing field
-  The new schema will share the metadata with the first table. Each field in
-  the new schema will share the metadata with the first table which has the
-  field defined.
-
-  Parameters
-  ----------
-  tables : iterable of pyarrow.Table objects
-  memory_pool : MemoryPool, default None
-      For memory allocations, if required, otherwise use default pool
-  """
-
-  cdef:
-      vector[shared_ptr[CTable]] c_tables
-      CResult[shared_ptr[CTable]] c_result
-      CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
-      Table table
-
-  for table in tables:
-      c_tables.push_back(table.sp_table)
-
-  with nogil:
-      c_result = ConcatenateTablesWithPromotion(c_tables, pool)
-  return pyarrow_wrap_table(GetResultValue(c_result))
+    return pyarrow_wrap_table(c_result_table)
 

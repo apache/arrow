@@ -825,7 +825,7 @@ def test_concat_tables_with_promotion():
     t2 = pa.Table.from_arrays(
         [pa.array([1.0, 2.0], type=pa.float32())], ["float_field"])
 
-    result = pa.concat_tables_with_promotion([t1, t2])
+    result = pa.concat_tables([t1, t2], with_promotion=True)
 
     assert result.equals(pa.Table.from_arrays([
         pa.array([1, 2, None, None], type=pa.int64()),
@@ -840,7 +840,7 @@ def test_concat_tables_with_promotion_error():
         [pa.array([1, 2], type=pa.float32())], ["f"])
 
     with pytest.raises(pa.ArrowInvalid):
-        pa.concat_tables_with_promotion([t1, t2])
+        pa.concat_tables([t1, t2], with_promotion=True)
 
 
 def test_table_negative_indexing():

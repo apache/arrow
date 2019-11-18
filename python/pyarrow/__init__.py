@@ -122,8 +122,7 @@ from pyarrow.lib import (HdfsFile, NativeFile, PythonFile,
                          MockOutputStream, input_stream, output_stream)
 
 from pyarrow.lib import (ChunkedArray, RecordBatch, Table,
-                         concat_arrays, concat_tables,
-                         concat_tables_with_promotion)
+                         concat_arrays, concat_tables)
 
 # Exceptions
 from pyarrow.lib import (ArrowException,
