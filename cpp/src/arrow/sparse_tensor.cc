@@ -515,24 +515,25 @@ template <typename TYPE, typename IndexValueType>
 void assign_values(int64_t dimension_index, int64_t offset, int64_t first_ptr,
                    int64_t last_ptr, const SparseCSFIndex* sparse_index,
                    const int64_t* raw_data, const std::vector<int64_t> strides,
-                   TYPE* out) {
-  auto indices_offset = sparse_index->indices_offsets()[dimension_index];
-  auto indptr_offset = sparse_index->indptr_offsets()[dimension_index];
+                   const std::vector<int64_t> axis_order, TYPE* out) {
+  auto dimension = axis_order[dimension_index];
+  auto indices_offset = sparse_index->indices_offsets()[dimension];
+  auto indptr_offset = sparse_index->indptr_offsets()[dimension];
   int64_t ndim = sparse_index->indices_offsets().size();
 
-  if (dimension_index == 0 && ndim > 1)
-    last_ptr = sparse_index->indptr_offsets()[dimension_index + 1] - 1;
+  if (dimension == 0 && ndim > 1)
+    last_ptr = sparse_index->indptr_offsets()[dimension + 1] - 1;
 
   for (int64_t i = first_ptr; i < last_ptr; ++i) {
     int64_t tmp_offset =
         offset + sparse_index->indices()->Value<IndexValueType>({indices_offset + i}) *
-                     strides[dimension_index];
+                     strides[dimension];
     if (dimension_index < ndim - 1)
       assign_values<TYPE, IndexValueType>(
-          dimension_index + 1, tmp_offset,
+          dimension + 1, tmp_offset,
           sparse_index->indptr()->Value<IndexValueType>({indptr_offset + i}),
           sparse_index->indptr()->Value<IndexValueType>({indptr_offset + i + 1}),
-          sparse_index, raw_data, strides, out);
+          sparse_index, raw_data, strides, axis_order, out);
     else
       out[tmp_offset] = static_cast<TYPE>(raw_data[i]);
   }
@@ -625,7 +626,8 @@ Status MakeTensorFromSparseTensor(MemoryPool* pool, const SparseTensor* sparse_t
           internal::checked_cast<const SparseCSFIndex&>(*sparse_tensor->sparse_index());
       assign_values<value_type, IndexValueType>(
           0, 0, 0, 0, &sparse_index,
-          reinterpret_cast<const int64_t*>(sparse_tensor->raw_data()), strides, values);
+          reinterpret_cast<const int64_t*>(sparse_tensor->raw_data()), strides,
+          sparse_index.axis_order(), values);
       *out = std::make_shared<Tensor>(sparse_tensor->type(), values_buffer,
                                       sparse_tensor->shape());
       return Status::OK();
