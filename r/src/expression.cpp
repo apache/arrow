@@ -20,82 +20,72 @@
 #if defined(ARROW_R_WITH_ARROW)
 
 // [[arrow::export]]
-std::shared_ptr<arrow::dataset::FieldExpression> dataset___expr__field_ref(
-    std::string name) {
-  return std::make_shared<arrow::dataset::FieldExpression>(std::move(name));
+ds::ExpressionPtr dataset___expr__field_ref(std::string name) {
+  return std::make_shared<ds::FieldExpression>(std::move(name));
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::dataset::ComparisonExpression> dataset___expr__equal(
-    const std::shared_ptr<arrow::dataset::Expression>& lhs,
-    const std::shared_ptr<arrow::dataset::Expression>& rhs) {
-  return arrow::dataset::equal(lhs, rhs);
+std::shared_ptr<ds::ComparisonExpression> dataset___expr__equal(
+    const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs) {
+  return ds::equal(lhs, rhs);
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::dataset::ComparisonExpression> dataset___expr__not_equal(
-    const std::shared_ptr<arrow::dataset::Expression>& lhs,
-    const std::shared_ptr<arrow::dataset::Expression>& rhs) {
-  return arrow::dataset::not_equal(lhs, rhs);
+std::shared_ptr<ds::ComparisonExpression> dataset___expr__not_equal(
+    const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs) {
+  return ds::not_equal(lhs, rhs);
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::dataset::ComparisonExpression> dataset___expr__greater(
-    const std::shared_ptr<arrow::dataset::Expression>& lhs,
-    const std::shared_ptr<arrow::dataset::Expression>& rhs) {
-  return arrow::dataset::greater(lhs, rhs);
+std::shared_ptr<ds::ComparisonExpression> dataset___expr__greater(
+    const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs) {
+  return ds::greater(lhs, rhs);
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::dataset::ComparisonExpression> dataset___expr__greater_equal(
-    const std::shared_ptr<arrow::dataset::Expression>& lhs,
-    const std::shared_ptr<arrow::dataset::Expression>& rhs) {
-  return arrow::dataset::greater_equal(lhs, rhs);
+std::shared_ptr<ds::ComparisonExpression> dataset___expr__greater_equal(
+    const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs) {
+  return ds::greater_equal(lhs, rhs);
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::dataset::ComparisonExpression> dataset___expr__less(
-    const std::shared_ptr<arrow::dataset::Expression>& lhs,
-    const std::shared_ptr<arrow::dataset::Expression>& rhs) {
-  return arrow::dataset::less(lhs, rhs);
+std::shared_ptr<ds::ComparisonExpression> dataset___expr__less(
+    const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs) {
+  return ds::less(lhs, rhs);
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::dataset::ComparisonExpression> dataset___expr__less_equal(
-    const std::shared_ptr<arrow::dataset::Expression>& lhs,
-    const std::shared_ptr<arrow::dataset::Expression>& rhs) {
-  return arrow::dataset::less_equal(lhs, rhs);
+std::shared_ptr<ds::ComparisonExpression> dataset___expr__less_equal(
+    const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs) {
+  return ds::less_equal(lhs, rhs);
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::dataset::AndExpression> dataset___expr__and(
-    const std::shared_ptr<arrow::dataset::Expression>& lhs,
-    const std::shared_ptr<arrow::dataset::Expression>& rhs) {
-  return arrow::dataset::and_(lhs, rhs);
+std::shared_ptr<ds::AndExpression> dataset___expr__and(const ds::ExpressionPtr& lhs,
+                                                       const ds::ExpressionPtr& rhs) {
+  return ds::and_(lhs, rhs);
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::dataset::OrExpression> dataset___expr__or(
-    const std::shared_ptr<arrow::dataset::Expression>& lhs,
-    const std::shared_ptr<arrow::dataset::Expression>& rhs) {
-  return arrow::dataset::or_(lhs, rhs);
+std::shared_ptr<ds::OrExpression> dataset___expr__or(const ds::ExpressionPtr& lhs,
+                                                     const ds::ExpressionPtr& rhs) {
+  return ds::or_(lhs, rhs);
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::dataset::NotExpression> dataset___expr__not(
-    const std::shared_ptr<arrow::dataset::Expression>& lhs) {
-  return arrow::dataset::not_(lhs);
+std::shared_ptr<ds::NotExpression> dataset___expr__not(const ds::ExpressionPtr& lhs) {
+  return ds::not_(lhs);
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::dataset::ScalarExpression> dataset___expr__scalar(SEXP x) {
+std::shared_ptr<ds::ScalarExpression> dataset___expr__scalar(SEXP x) {
   switch (TYPEOF(x)) {
     case LGLSXP:
-      return arrow::dataset::scalar(Rf_asLogical(x));
+      return ds::scalar(Rf_asLogical(x));
     case REALSXP:
-      return arrow::dataset::scalar(Rf_asReal(x));
+      return ds::scalar(Rf_asReal(x));
     case INTSXP:
-      return arrow::dataset::scalar(Rf_asInteger(x));
+      return ds::scalar(Rf_asInteger(x));
     default:
       // TODO more types (character, factor, Date, POSIXt, etc.)
       Rcpp::stop(
@@ -105,9 +95,6 @@ std::shared_ptr<arrow::dataset::ScalarExpression> dataset___expr__scalar(SEXP x)
 }
 
 // [[arrow::export]]
-std::string dataset___expr__ToString(
-    const std::shared_ptr<arrow::dataset::Expression>& x) {
-  return x->ToString();
-}
+std::string dataset___expr__ToString(const ds::ExpressionPtr& x) { return x->ToString(); }
 
 #endif

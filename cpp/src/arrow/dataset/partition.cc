@@ -32,8 +32,8 @@
 namespace arrow {
 namespace dataset {
 
-Result<std::shared_ptr<Expression>> ConvertPartitionKeys(
-    const std::vector<UnconvertedKey>& keys, const Schema& schema) {
+Result<ExpressionPtr> ConvertPartitionKeys(const std::vector<UnconvertedKey>& keys,
+                                           const Schema& schema) {
   ExpressionVector subexpressions;
 
   for (const auto& key : keys) {
@@ -50,13 +50,11 @@ Result<std::shared_ptr<Expression>> ConvertPartitionKeys(
   return and_(subexpressions);
 }
 
-Result<std::shared_ptr<Expression>> ConstantPartitionScheme::Parse(
-    const std::string& path) const {
+Result<ExpressionPtr> ConstantPartitionScheme::Parse(const std::string& path) const {
   return expression_;
 }
 
-Result<std::shared_ptr<Expression>> SchemaPartitionScheme::Parse(
-    const std::string& path) const {
+Result<ExpressionPtr> SchemaPartitionScheme::Parse(const std::string& path) const {
   auto segments = fs::internal::SplitAbstractPath(path);
   auto min = std::min(static_cast<int>(segments.size()), schema_->num_fields());
   std::vector<UnconvertedKey> keys(min);
@@ -83,28 +81,30 @@ std::vector<UnconvertedKey> HivePartitionScheme::GetUnconvertedKeys(
   return keys;
 }
 
-Result<std::shared_ptr<Expression>> HivePartitionScheme::Parse(
-    const std::string& path) const {
+Result<ExpressionPtr> HivePartitionScheme::Parse(const std::string& path) const {
   return ConvertPartitionKeys(GetUnconvertedKeys(path), *schema_);
 }
 
-Status ApplyPartitionScheme(const PartitionScheme& scheme,
-                            std::vector<fs::FileStats> files, PathPartitions* out) {
-  return ApplyPartitionScheme(scheme, "", std::move(files), out);
+Result<PathPartitions> ApplyPartitionScheme(const PartitionScheme& scheme,
+                                            std::vector<fs::FileStats> files,
+                                            PathPartitions* out) {
+  return ApplyPartitionScheme(scheme, "", std::move(files));
 }
 
-Status ApplyPartitionScheme(const PartitionScheme& scheme, const std::string& base_dir,
-                            std::vector<fs::FileStats> files, PathPartitions* out) {
+Result<PathPartitions> ApplyPartitionScheme(const PartitionScheme& scheme,
+                                            const std::string& base_dir,
+                                            std::vector<fs::FileStats> files) {
+  PathPartitions partitions;
+
   for (const auto& file : files) {
     if (file.path().substr(0, base_dir.size()) != base_dir) continue;
     auto path = file.path().substr(base_dir.size());
 
-    std::shared_ptr<Expression> partition;
-    RETURN_NOT_OK(scheme.Parse(path, &partition));
-    out->emplace(std::move(path), std::move(partition));
+    ARROW_ASSIGN_OR_RAISE(auto partition, scheme.Parse(path));
+    partitions.emplace(std::move(path), std::move(partition));
   }
 
-  return Status::OK();
+  return partitions;
 }
 
 }  // namespace dataset

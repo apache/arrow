@@ -34,26 +34,38 @@ class FunctionContext;
 namespace fs {
 
 class FileSystem;
+using FileSystemPtr = std::shared_ptr<FileSystem>;
+
+struct FileStats;
+using FileStatsVector = std::vector<FileStats>;
 
 }  // namespace fs
 
 namespace dataset {
 
 class Dataset;
+using DatasetPtr = std::shared_ptr<Dataset>;
+
 class DataFragment;
+using DataFragmentPtr = std::shared_ptr<DataFragment>;
+using DataFragmentIterator = Iterator<DataFragmentPtr>;
+using DataFragmentVector = std::vector<DataFragmentPtr>;
+
 class DataSource;
-using DataSourceVector = std::vector<std::shared_ptr<DataSource>>;
-using DataFragmentIterator = Iterator<std::shared_ptr<DataFragment>>;
-using DataFragmentVector = std::vector<std::shared_ptr<DataFragment>>;
+using DataSourcePtr = std::shared_ptr<DataSource>;
+using DataSourceVector = std::vector<DataSourcePtr>;
 
 struct DiscoveryOptions;
+class DataSourceDiscovery;
+using DataSourceDiscoveryPtr = std::shared_ptr<DataSourceDiscovery>;
 
-class FileBasedDataFragment;
 class FileFormat;
-class FileScanOptions;
-class FileWriteOptions;
+using FileFormatPtr = std::shared_ptr<FileFormat>;
 
 class Expression;
+using ExpressionPtr = std::shared_ptr<Expression>;
+using ExpressionVector = std::vector<ExpressionPtr>;
+
 class ComparisonExpression;
 class InExpression;
 class IsValidExpression;
@@ -63,21 +75,32 @@ class NotExpression;
 class CastExpression;
 class ScalarExpression;
 class FieldReferenceExpression;
-using ExpressionVector = std::vector<std::shared_ptr<Expression>>;
 class ExpressionEvaluator;
 
 class Partition;
-class PartitionKey;
+using PartitionPtr = std::shared_ptr<Partition>;
+using PartitionVector = std::vector<PartitionPtr>;
+using PartitionIterator = Iterator<PartitionPtr>;
+
 class PartitionScheme;
-using PartitionVector = std::vector<std::shared_ptr<Partition>>;
-using PartitionIterator = Iterator<std::shared_ptr<Partition>>;
+using PartitionSchemePtr = std::shared_ptr<PartitionScheme>;
 
 struct ScanContext;
+using ScanContextPtr = std::shared_ptr<ScanContext>;
+
 class ScanOptions;
+using ScanOptionsPtr = std::shared_ptr<ScanOptions>;
+
 class Scanner;
+using ScannerPtr = std::shared_ptr<Scanner>;
+
 class ScannerBuilder;
+using ScannerBuilderPtr = std::shared_ptr<ScannerBuilder>;
+
 class ScanTask;
-using ScanTaskIterator = Iterator<std::unique_ptr<ScanTask>>;
+using ScanTaskPtr = std::shared_ptr<ScanTask>;
+using ScanTaskVector = std::vector<ScanTaskPtr>;
+using ScanTaskIterator = Iterator<ScanTaskPtr>;
 
 class DatasetWriter;
 class WriteContext;

@@ -50,8 +50,8 @@ struct ARROW_DS_EXPORT UnconvertedKey {
 /// consisting of equality expressions into a single conjunction expression.
 /// Fields referenced in keys but absent from schema will be ignored.
 ARROW_DS_EXPORT
-Result<std::shared_ptr<Expression>> ConvertPartitionKeys(
-    const std::vector<UnconvertedKey>& keys, const Schema& schema);
+Result<ExpressionPtr> ConvertPartitionKeys(const std::vector<UnconvertedKey>& keys,
+                                           const Schema& schema);
 
 /// \brief Interface for parsing partition expressions from string partition
 /// identifiers.
@@ -78,26 +78,20 @@ class ARROW_DS_EXPORT PartitionScheme {
   ///
   /// \param[in] path the partition identifier to parse
   /// \return the parsed expression
-  virtual Result<std::shared_ptr<Expression>> Parse(const std::string& path) const = 0;
-
-  /// \brief Status return + out arg overload
-  Status Parse(const std::string& path, std::shared_ptr<Expression>* out) const {
-    return Parse(path).Value(out);
-  }
+  virtual Result<ExpressionPtr> Parse(const std::string& path) const = 0;
 };
 
 /// \brief Trivial partition scheme which yields an expression provided on construction.
 class ARROW_DS_EXPORT ConstantPartitionScheme : public PartitionScheme {
  public:
-  explicit ConstantPartitionScheme(std::shared_ptr<Expression> expr)
-      : expression_(std::move(expr)) {}
+  explicit ConstantPartitionScheme(ExpressionPtr expr) : expression_(std::move(expr)) {}
 
   std::string name() const override { return "constant_partition_scheme"; }
 
-  Result<std::shared_ptr<Expression>> Parse(const std::string& path) const override;
+  Result<ExpressionPtr> Parse(const std::string& path) const override;
 
  private:
-  std::shared_ptr<Expression> expression_;
+  ExpressionPtr expression_;
 };
 
 /// \brief SchemaPartitionScheme parses one segment of a path for each field in its
@@ -113,7 +107,7 @@ class ARROW_DS_EXPORT SchemaPartitionScheme : public PartitionScheme {
 
   std::string name() const override { return "schema_partition_scheme"; }
 
-  Result<std::shared_ptr<Expression>> Parse(const std::string& path) const override;
+  Result<ExpressionPtr> Parse(const std::string& path) const override;
 
   const std::shared_ptr<Schema>& schema() { return schema_; }
 
@@ -137,7 +131,7 @@ class ARROW_DS_EXPORT HivePartitionScheme : public PartitionScheme {
 
   std::string name() const override { return "hive_partition_scheme"; }
 
-  Result<std::shared_ptr<Expression>> Parse(const std::string& path) const override;
+  Result<ExpressionPtr> Parse(const std::string& path) const override;
 
   std::vector<UnconvertedKey> GetUnconvertedKeys(const std::string& path) const;
 
@@ -151,29 +145,30 @@ class ARROW_DS_EXPORT HivePartitionScheme : public PartitionScheme {
 class ARROW_DS_EXPORT FunctionPartitionScheme : public PartitionScheme {
  public:
   explicit FunctionPartitionScheme(
-      std::function<Result<std::shared_ptr<Expression>>(const std::string&)> impl,
+      std::function<Result<ExpressionPtr>(const std::string&)> impl,
       std::string name = "function_partition_scheme")
       : impl_(std::move(impl)), name_(std::move(name)) {}
 
   std::string name() const override { return name_; }
 
-  Result<std::shared_ptr<Expression>> Parse(const std::string& path) const override {
+  Result<ExpressionPtr> Parse(const std::string& path) const override {
     return impl_(path);
   }
 
  private:
-  std::function<Result<std::shared_ptr<Expression>>(const std::string&)> impl_;
+  std::function<Result<ExpressionPtr>(const std::string&)> impl_;
   std::string name_;
 };
 
 /// \brief Mapping from path to partition expressions.
-using PathPartitions = std::unordered_map<std::string, std::shared_ptr<Expression>>;
+using PathPartitions = std::unordered_map<std::string, ExpressionPtr>;
 
-Status ApplyPartitionScheme(const PartitionScheme& scheme,
-                            std::vector<fs::FileStats> files, PathPartitions* out);
+Result<PathPartitions> ApplyPartitionScheme(const PartitionScheme& scheme,
+                                            std::vector<fs::FileStats> files);
 
-Status ApplyPartitionScheme(const PartitionScheme& scheme, const std::string& base_dir,
-                            std::vector<fs::FileStats> files, PathPartitions* out);
+Result<PathPartitions> ApplyPartitionScheme(const PartitionScheme& scheme,
+                                            const std::string& base_dir,
+                                            std::vector<fs::FileStats> files);
 
 // TODO(bkietz) use RE2 and named groups to provide RegexpPartitionScheme
 

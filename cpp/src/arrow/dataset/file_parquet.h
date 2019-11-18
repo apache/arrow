@@ -47,33 +47,32 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
  public:
   std::string name() const override { return "parquet"; }
 
-  Status IsSupported(const FileSource& source, bool* supported) const override;
+  Result<bool> IsSupported(const FileSource& source) const override;
 
   /// \brief Return the schema of the file if possible.
-  Status Inspect(const FileSource& source, std::shared_ptr<Schema>* out) const override;
+  Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override;
 
   /// \brief Open a file for scanning
-  Status ScanFile(const FileSource& source, std::shared_ptr<ScanOptions> scan_options,
-                  std::shared_ptr<ScanContext> scan_context,
-                  ScanTaskIterator* out) const override;
+  Result<ScanTaskIterator> ScanFile(const FileSource& source, ScanOptionsPtr options,
+                                    ScanContextPtr context) const override;
 
-  Status MakeFragment(const FileSource& source, std::shared_ptr<ScanOptions> opts,
-                      std::unique_ptr<DataFragment>* out) override;
+  Result<DataFragmentPtr> MakeFragment(const FileSource& source,
+                                       ScanOptionsPtr options) override;
 
  private:
-  Status OpenReader(const FileSource& source, MemoryPool* pool,
-                    std::unique_ptr<::parquet::ParquetFileReader>* out) const;
+  Result<std::unique_ptr<::parquet::ParquetFileReader>> OpenReader(
+      const FileSource& source, MemoryPool* pool) const;
 };
 
-class ARROW_DS_EXPORT ParquetFragment : public FileBasedDataFragment {
+class ARROW_DS_EXPORT ParquetFragment : public FileDataFragment {
  public:
-  ParquetFragment(const FileSource& source, std::shared_ptr<ScanOptions> options)
-      : FileBasedDataFragment(source, std::make_shared<ParquetFileFormat>(), options) {}
+  ParquetFragment(const FileSource& source, ScanOptionsPtr options)
+      : FileDataFragment(source, std::make_shared<ParquetFileFormat>(), options) {}
 
   bool splittable() const override { return true; }
 };
 
-Result<std::shared_ptr<Expression>> RowGroupStatisticsAsExpression(
+Result<ExpressionPtr> RowGroupStatisticsAsExpression(
     const parquet::RowGroupMetaData& metadata);
 
 }  // namespace dataset

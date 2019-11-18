@@ -30,49 +30,49 @@
 namespace arrow {
 namespace dataset {
 
-Status FileSource::Open(std::shared_ptr<arrow::io::RandomAccessFile>* out) const {
+Result<std::shared_ptr<arrow::io::RandomAccessFile>> FileSource::Open() const {
   switch (type_) {
-    case PATH:
-      return filesystem_->OpenInputFile(path_, out);
+    case PATH: {
+      std::shared_ptr<arrow::io::RandomAccessFile> file;
+      RETURN_NOT_OK(filesystem_->OpenInputFile(path_, &file));
+      return file;
+    }
     case BUFFER:
-      *out = std::make_shared<::arrow::io::BufferReader>(buffer_);
-      return Status::OK();
+      return std::make_shared<::arrow::io::BufferReader>(buffer_);
   }
 
-  return Status::OK();
+  return Status::NotImplemented("Unknown file source type.");
 }
 
-Status FileBasedDataFragment::Scan(std::shared_ptr<ScanContext> scan_context,
-                                   ScanTaskIterator* out) {
-  return format_->ScanFile(source_, scan_options_, scan_context, out);
+Result<ScanTaskIterator> FileDataFragment::Scan(ScanContextPtr context) {
+  return format_->ScanFile(source_, scan_options_, context);
 }
 
-FileSystemBasedDataSource::FileSystemBasedDataSource(
-    fs::FileSystem* filesystem, fs::PathForest forest,
-    std::shared_ptr<Expression> source_partition, PathPartitions partitions,
-    std::shared_ptr<FileFormat> format)
+FileSystemDataSource::FileSystemDataSource(fs::FileSystemPtr filesystem,
+                                           fs::PathForest forest,
+                                           ExpressionPtr source_partition,
+                                           PathPartitions partitions,
+                                           FileFormatPtr format)
     : DataSource(std::move(source_partition)),
-      filesystem_(filesystem),
+      filesystem_(std::move(filesystem)),
       forest_(std::move(forest)),
       partitions_(std::move(partitions)),
       format_(std::move(format)) {}
 
-Status FileSystemBasedDataSource::Make(fs::FileSystem* filesystem,
-                                       std::vector<fs::FileStats> stats,
-                                       std::shared_ptr<Expression> source_partition,
-                                       PathPartitions partitions,
-                                       std::shared_ptr<FileFormat> format,
-                                       std::shared_ptr<DataSource>* out) {
+Result<DataSourcePtr> FileSystemDataSource::Make(fs::FileSystemPtr filesystem,
+                                                 fs::FileStatsVector stats,
+                                                 ExpressionPtr source_partition,
+                                                 PathPartitions partitions,
+                                                 FileFormatPtr format) {
   fs::PathForest forest;
   RETURN_NOT_OK(fs::PathTree::Make(stats, &forest));
-  out->reset(new FileSystemBasedDataSource(filesystem, std::move(forest),
-                                           std::move(source_partition),
-                                           std::move(partitions), std::move(format)));
-  return Status::OK();
+
+  return DataSourcePtr(new FileSystemDataSource(
+      std::move(filesystem), std::move(forest), std::move(source_partition),
+      std::move(partitions), std::move(format)));
 }
 
-DataFragmentIterator FileSystemBasedDataSource::GetFragmentsImpl(
-    std::shared_ptr<ScanOptions> options) {
+DataFragmentIterator FileSystemDataSource::GetFragmentsImpl(ScanOptionsPtr options) {
   std::vector<std::unique_ptr<fs::FileStats>> files;
 
   auto visitor = [&files](const fs::FileStats& stats) {
@@ -95,19 +95,16 @@ DataFragmentIterator FileSystemBasedDataSource::GetFragmentsImpl(
   auto file_it = MakeVectorIterator(std::move(files));
   auto file_to_fragment = [options, this](std::unique_ptr<fs::FileStats> stats,
                                           std::shared_ptr<DataFragment>* out) {
-    std::unique_ptr<DataFragment> fragment;
-    FileSource src(stats->path(), filesystem_);
-
-    RETURN_NOT_OK(format_->MakeFragment(src, options, &fragment));
-    *out = std::move(fragment);
+    FileSource src(stats->path(), filesystem_.get());
+    ARROW_ASSIGN_OR_RAISE(*out, format_->MakeFragment(src, options));
     return Status::OK();
   };
 
   return MakeMaybeMapIterator(file_to_fragment, std::move(file_it));
 }
 
-bool FileSystemBasedDataSource::PartitionMatches(const fs::FileStats& stats,
-                                                 std::shared_ptr<Expression> filter) {
+bool FileSystemDataSource::PartitionMatches(const fs::FileStats& stats,
+                                            ExpressionPtr filter) {
   if (filter == nullptr) {
     return true;
   }

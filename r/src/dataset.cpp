@@ -20,116 +20,98 @@
 #if defined(ARROW_R_WITH_ARROW)
 
 // [[arrow::export]]
-std::shared_ptr<arrow::dataset::DataSourceDiscovery> dataset___FSDSDiscovery__Make(
-    const std::shared_ptr<arrow::fs::FileSystem>& fs,
-    const std::shared_ptr<arrow::fs::Selector>& selector) {
-  std::shared_ptr<arrow::dataset::DataSourceDiscovery> discovery;
+ds::DataSourceDiscoveryPtr dataset___FSDSDiscovery__Make(
+    const std::shared_ptr<fs::FileSystem>& fs,
+    const std::shared_ptr<fs::Selector>& selector) {
   // TODO(npr): add format as an argument, don't hard-code Parquet
-  auto format = std::make_shared<arrow::dataset::ParquetFileFormat>();
+  auto format = std::make_shared<ds::ParquetFileFormat>();
   // TODO(fsaintjacques): Make options configurable
-  auto options = arrow::dataset::FileSystemDiscoveryOptions{};
+  auto options = ds::FileSystemDiscoveryOptions{};
 
-  STOP_IF_NOT_OK(arrow::dataset::FileSystemDataSourceDiscovery::Make(
-      fs.get(), *selector, format, std::move(options), &discovery));
-  return discovery;
+  return VALUE_OR_STOP(
+      ds::FileSystemDataSourceDiscovery::Make(fs, *selector, format, options));
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::dataset::DataSource> dataset___DSDiscovery__Finish(
-    const std::shared_ptr<arrow::dataset::DataSourceDiscovery>& discovery) {
-  std::shared_ptr<arrow::dataset::DataSource> out;
-  STOP_IF_NOT_OK(discovery->Finish(&out));
-  return out;
+ds::DataSourcePtr dataset___DSDiscovery__Finish(
+    const ds::DataSourceDiscoveryPtr& discovery) {
+  return VALUE_OR_STOP(discovery->Finish());
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Schema> dataset___DSDiscovery__Inspect(
-    const std::shared_ptr<arrow::dataset::DataSourceDiscovery>& discovery) {
-  std::shared_ptr<arrow::Schema> out;
-  STOP_IF_NOT_OK(discovery->Inspect(&out));
-  return out;
+    const ds::DataSourceDiscoveryPtr& discovery) {
+  return VALUE_OR_STOP(discovery->Inspect());
 }
 
 // [[arrow::export]]
 void dataset___DSDiscovery__SetPartitionScheme(
-    const std::shared_ptr<arrow::dataset::DataSourceDiscovery>& discovery,
-    const std::shared_ptr<arrow::dataset::PartitionScheme>& part) {
+    const ds::DataSourceDiscoveryPtr& discovery, const ds::PartitionSchemePtr& part) {
   STOP_IF_NOT_OK(discovery->SetPartitionScheme(part));
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::dataset::SchemaPartitionScheme> dataset___SchemaPartitionScheme(
+ds::PartitionSchemePtr dataset___SchemaPartitionScheme(
     const std::shared_ptr<arrow::Schema>& schm) {
-  return std::make_shared<arrow::dataset::SchemaPartitionScheme>(schm);
+  return std::make_shared<ds::SchemaPartitionScheme>(schm);
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::dataset::HivePartitionScheme> dataset___HivePartitionScheme(
+ds::PartitionSchemePtr dataset___HivePartitionScheme(
     const std::shared_ptr<arrow::Schema>& schm) {
-  return std::make_shared<arrow::dataset::HivePartitionScheme>(schm);
+  return std::make_shared<ds::HivePartitionScheme>(schm);
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::dataset::Dataset> dataset___Dataset__create(
-    const std::vector<std::shared_ptr<arrow::dataset::DataSource>>& sources,
-    const std::shared_ptr<arrow::Schema>& schm) {
-  return std::make_shared<arrow::dataset::Dataset>(sources, schm);
+ds::DatasetPtr dataset___Dataset__create(const ds::DataSourceVector& sources,
+                                         const std::shared_ptr<arrow::Schema>& schm) {
+  return VALUE_OR_STOP(ds::Dataset::Make(sources, schm));
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Schema> dataset___Dataset__schema(
-    const std::unique_ptr<arrow::dataset::Dataset>& ds) {
+std::shared_ptr<arrow::Schema> dataset___Dataset__schema(const ds::DatasetPtr& ds) {
   return ds->schema();
 }
 
 // [[arrow::export]]
-std::unique_ptr<arrow::dataset::ScannerBuilder> dataset___Dataset__NewScan(
-    const std::shared_ptr<arrow::dataset::Dataset>& ds) {
-  std::unique_ptr<arrow::dataset::ScannerBuilder> out;
-  STOP_IF_NOT_OK(ds->NewScan(&out));
-  return out;
+ds::ScannerBuilderPtr dataset___Dataset__NewScan(const ds::DatasetPtr& ds) {
+  return VALUE_OR_STOP(ds->NewScan());
 }
 
 // [[arrow::export]]
-void dataset___ScannerBuilder__Project(
-    const std::unique_ptr<arrow::dataset::ScannerBuilder>& sb,
-    const std::vector<std::string>& cols) {
+void dataset___ScannerBuilder__Project(const ds::ScannerBuilderPtr& sb,
+                                       const std::vector<std::string>& cols) {
   STOP_IF_NOT_OK(sb->Project(cols));
 }
 
 // [[arrow::export]]
-void dataset___ScannerBuilder__Filter(
-    const std::unique_ptr<arrow::dataset::ScannerBuilder>& sb,
-    const std::shared_ptr<arrow::dataset::Expression>& expr) {
-  STOP_IF_NOT_OK(sb->Filter(expr));
+void dataset___ScannerBuilder__Filter(const ds::ScannerBuilderPtr& sb,
+                                      const ds::ExpressionPtr& expr) {
+  // Expressions converted from R's expressions are typed with R's native type,
+  // i.e. double, int64_t and bool.
+  auto cast_filter = VALUE_OR_STOP(InsertImplicitCasts(*expr, *sb->schema()));
+  STOP_IF_NOT_OK(sb->Filter(cast_filter));
 }
 
 // [[arrow::export]]
-void dataset___ScannerBuilder__UseThreads(
-    const std::unique_ptr<arrow::dataset::ScannerBuilder>& sb, bool threads) {
+void dataset___ScannerBuilder__UseThreads(const ds::ScannerBuilderPtr& sb, bool threads) {
   STOP_IF_NOT_OK(sb->UseThreads(threads));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Schema> dataset___ScannerBuilder__schema(
-    const std::unique_ptr<arrow::dataset::ScannerBuilder>& sb) {
+    const ds::ScannerBuilderPtr& sb) {
   return sb->schema();
 }
 
 // [[arrow::export]]
-std::unique_ptr<arrow::dataset::Scanner> dataset___ScannerBuilder__Finish(
-    const std::unique_ptr<arrow::dataset::ScannerBuilder>& sb) {
-  std::unique_ptr<arrow::dataset::Scanner> out;
-  STOP_IF_NOT_OK(sb->Finish(&out));
-  return out;
+ds::ScannerPtr dataset___ScannerBuilder__Finish(const ds::ScannerBuilderPtr& sb) {
+  return VALUE_OR_STOP(sb->Finish());
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Table> dataset___Scanner__ToTable(
-    const std::unique_ptr<arrow::dataset::Scanner>& scn) {
-  std::shared_ptr<arrow::Table> out;
-  STOP_IF_NOT_OK(scn->ToTable(&out));
-  return out;
+std::shared_ptr<arrow::Table> dataset___Scanner__ToTable(const ds::ScannerPtr& scanner) {
+  return VALUE_OR_STOP(scanner->ToTable());
 }
 
 #endif

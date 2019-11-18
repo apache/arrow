@@ -233,11 +233,7 @@ FileSystem <- R6Class("FileSystem", inherit = Object,
 #' @export
 LocalFileSystem <- R6Class("LocalFileSystem", inherit = FileSystem)
 LocalFileSystem$create <- function() {
-  out <- shared_ptr(LocalFileSystem, fs___LocalFileSystem__create())
-  # HACK: For some reason, the filesystem APIs use raw pointers, not shared_ptr
-  # so we have to preserve them in some more global scope to use them as expected
-  options(arrow.localfs = out)
-  out
+  shared_ptr(LocalFileSystem, fs___LocalFileSystem__create())
 }
 
 

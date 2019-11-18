@@ -54,10 +54,10 @@ namespace dataset {
 class ARROW_DS_EXPORT DataSourceDiscovery {
  public:
   /// \brief Get the schema for the resulting DataSource.
-  virtual Status Inspect(std::shared_ptr<Schema>* out) = 0;
+  virtual Result<std::shared_ptr<Schema>> Inspect() = 0;
 
   /// \brief Create a DataSource with a given partition.
-  virtual Status Finish(std::shared_ptr<DataSource>* out) = 0;
+  virtual Result<DataSourcePtr> Finish() = 0;
 
   std::shared_ptr<Schema> schema() const { return schema_; }
   Status SetSchema(std::shared_ptr<Schema> schema) {
@@ -65,14 +65,14 @@ class ARROW_DS_EXPORT DataSourceDiscovery {
     return Status::OK();
   }
 
-  std::shared_ptr<PartitionScheme> partition_scheme() const { return partition_scheme_; }
-  Status SetPartitionScheme(std::shared_ptr<PartitionScheme> partition_scheme) {
+  PartitionSchemePtr partition_scheme() const { return partition_scheme_; }
+  Status SetPartitionScheme(PartitionSchemePtr partition_scheme) {
     partition_scheme_ = partition_scheme;
     return Status::OK();
   }
 
-  std::shared_ptr<Expression> root_partition() const { return root_partition_; }
-  Status SetRootPartition(std::shared_ptr<Expression> partition) {
+  ExpressionPtr root_partition() const { return root_partition_; }
+  Status SetRootPartition(ExpressionPtr partition) {
     root_partition_ = partition;
     return Status::OK();
   }
@@ -81,8 +81,8 @@ class ARROW_DS_EXPORT DataSourceDiscovery {
 
  protected:
   std::shared_ptr<Schema> schema_;
-  std::shared_ptr<PartitionScheme> partition_scheme_;
-  std::shared_ptr<Expression> root_partition_;
+  PartitionSchemePtr partition_scheme_;
+  ExpressionPtr root_partition_;
 };
 
 struct FileSystemDiscoveryOptions {
@@ -133,14 +133,13 @@ class ARROW_DS_EXPORT FileSystemDataSourceDiscovery : public DataSourceDiscovery
   /// fs::FileStats.
   ///
   /// \param[in] filesystem passed to FileSystemDataSource
-  /// \param[in] stats passed to FileSystemDataSource
+  /// \param[in] paths passed to FileSystemDataSource
   /// \param[in] format passed to FileSystemDataSource
   /// \param[in] options see FileSystemDiscoveryOptions for more information.
-  /// \param[out] discovery output pointer
-  static Status Make(fs::FileSystem* filesystem, std::vector<fs::FileStats> stats,
-                     std::shared_ptr<FileFormat> format,
-                     FileSystemDiscoveryOptions options,
-                     std::shared_ptr<DataSourceDiscovery>* discovery);
+  static Result<DataSourceDiscoveryPtr> Make(fs::FileSystemPtr filesystem,
+                                             fs::FileStatsVector paths,
+                                             FileFormatPtr format,
+                                             FileSystemDiscoveryOptions options);
 
   /// \brief Build a FileSystemDataSourceDiscovery from a fs::Selector.
   ///
@@ -155,26 +154,22 @@ class ARROW_DS_EXPORT FileSystemDataSourceDiscovery : public DataSourceDiscovery
   /// \param[in] selector used to crawl and search files
   /// \param[in] format passed to FileSystemDataSource
   /// \param[in] options see FileSystemDiscoveryOptions for more information.
-  /// \param[out] discovery output pointer
-  static Status Make(fs::FileSystem* filesystem, fs::Selector selector,
-                     std::shared_ptr<FileFormat> format,
-                     FileSystemDiscoveryOptions options,
-                     std::shared_ptr<DataSourceDiscovery>* discovery);
+  static Result<DataSourceDiscoveryPtr> Make(fs::FileSystemPtr filesystem,
+                                             fs::Selector selector, FileFormatPtr format,
+                                             FileSystemDiscoveryOptions options);
 
-  Status Inspect(std::shared_ptr<Schema>* out) override;
+  Result<std::shared_ptr<Schema>> Inspect() override;
 
-  Status Finish(std::shared_ptr<DataSource>* out) override;
+  Result<DataSourcePtr> Finish() override;
 
  protected:
-  FileSystemDataSourceDiscovery(fs::FileSystem* filesystem,
-                                std::vector<fs::FileStats> files,
-                                std::shared_ptr<FileFormat> format,
+  FileSystemDataSourceDiscovery(fs::FileSystemPtr filesystem,
+                                std::vector<fs::FileStats> files, FileFormatPtr format,
                                 FileSystemDiscoveryOptions options);
 
-  fs::FileSystem* fs_;
+  fs::FileSystemPtr fs_;
   std::vector<fs::FileStats> files_;
-  std::shared_ptr<FileFormat> format_;
-
+  FileFormatPtr format_;
   FileSystemDiscoveryOptions options_;
 };
 

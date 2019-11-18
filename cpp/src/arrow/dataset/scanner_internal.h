@@ -28,7 +28,7 @@ namespace arrow {
 namespace dataset {
 
 static inline RecordBatchIterator FilterRecordBatch(
-    RecordBatchIterator it, std::shared_ptr<Expression> filter,
+    RecordBatchIterator it, ExpressionPtr filter,
     std::shared_ptr<ExpressionEvaluator> evaluator) {
   if (filter == nullptr || evaluator == nullptr) {
     return it;
@@ -37,7 +37,7 @@ static inline RecordBatchIterator FilterRecordBatch(
   auto filter_fn = [filter, evaluator](std::shared_ptr<RecordBatch> in,
                                        std::shared_ptr<RecordBatch>* out) {
     ARROW_ASSIGN_OR_RAISE(auto selection_datum, evaluator->Evaluate(*filter, *in));
-    return evaluator->Filter(selection_datum, in, out);
+    return evaluator->Filter(selection_datum, in).Value(out);
   };
 
   return MakeMaybeMapIterator(filter_fn, std::move(it));
@@ -51,15 +51,14 @@ static inline RecordBatchIterator ProjectRecordBatch(
 
   auto project = [projector](std::shared_ptr<RecordBatch> in,
                              std::shared_ptr<RecordBatch>* out) {
-    return projector->Project(*in, out);
+    return projector->Project(*in).Value(out);
   };
   return MakeMaybeMapIterator(project, std::move(it));
 }
 
 class FilterAndProjectScanTask : public ScanTask {
  public:
-  FilterAndProjectScanTask(std::unique_ptr<ScanTask> task,
-                           std::shared_ptr<Expression> filter,
+  FilterAndProjectScanTask(ScanTaskPtr task, ExpressionPtr filter,
                            std::shared_ptr<ExpressionEvaluator> evaluator,
                            std::shared_ptr<RecordBatchProjector> projector)
       : filter_(std::move(filter)),
@@ -67,20 +66,18 @@ class FilterAndProjectScanTask : public ScanTask {
         projector_(std::move(projector)),
         task_(std::move(task)) {}
 
-  RecordBatchIterator Scan() override {
-    auto it = task_->Scan();
+  Result<RecordBatchIterator> Scan() override {
+    ARROW_ASSIGN_OR_RAISE(auto it, task_->Scan());
     auto filter_it = FilterRecordBatch(std::move(it), filter_, evaluator_);
-    auto project_it = ProjectRecordBatch(std::move(filter_it), projector_);
-
-    return project_it;
+    return ProjectRecordBatch(std::move(filter_it), projector_);
   }
 
  private:
-  std::shared_ptr<Expression> filter_;
+  ExpressionPtr filter_;
   std::shared_ptr<ExpressionEvaluator> evaluator_;
   std::shared_ptr<RecordBatchProjector> projector_;
 
-  std::unique_ptr<ScanTask> task_;
+  ScanTaskPtr task_;
 };
 
 }  // namespace dataset

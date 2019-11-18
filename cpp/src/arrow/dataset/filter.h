@@ -91,7 +91,7 @@ class ARROW_DS_EXPORT Expression {
   /// (false).
   virtual bool Equals(const Expression& other) const = 0;
 
-  bool Equals(const std::shared_ptr<Expression>& other) const;
+  bool Equals(const ExpressionPtr& other) const;
 
   /// Overload for the common case of checking for equality to a specific scalar.
   template <typename T, typename Enable = decltype(MakeScalar(std::declval<T>()))>
@@ -105,10 +105,6 @@ class ARROW_DS_EXPORT Expression {
   /// and all subexpressions are executable. Returns the type to which this expression
   /// will evaluate.
   virtual Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const = 0;
-
-  Status Validate(const Schema& schema, std::shared_ptr<DataType>* out) const {
-    return Validate(schema).Value(out);
-  }
 
   /// \brief Simplify to an equivalent Expression given assumed constraints on input.
   /// This can be used to do less filtering work using predicate push down.
@@ -181,11 +177,9 @@ class ARROW_DS_EXPORT Expression {
   /// replacing comparisons with their complements and using the properties:
   ///     (not (a and b)).Equals(not a or not b)
   ///     (not (a or b)).Equals(not a and not b)
-  virtual std::shared_ptr<Expression> Assume(const Expression& given) const;
+  virtual ExpressionPtr Assume(const Expression& given) const;
 
-  std::shared_ptr<Expression> Assume(const std::shared_ptr<Expression>& given) const {
-    return Assume(*given);
-  }
+  ExpressionPtr Assume(const ExpressionPtr& given) const { return Assume(*given); }
 
   /// returns a debug string representing this expression
   virtual std::string ToString() const = 0;
@@ -193,7 +187,7 @@ class ARROW_DS_EXPORT Expression {
   ExpressionType::type type() const { return type_; }
 
   /// Copy this expression into a shared pointer.
-  virtual std::shared_ptr<Expression> Copy() const = 0;
+  virtual ExpressionPtr Copy() const = 0;
 
   InExpression In(std::shared_ptr<Array> set) const;
 
@@ -205,7 +199,7 @@ class ARROW_DS_EXPORT Expression {
   CastExpression CastLike(const Expression& expr,
                           compute::CastOptions options = compute::CastOptions()) const;
 
-  CastExpression CastLike(std::shared_ptr<Expression> expr,
+  CastExpression CastLike(ExpressionPtr expr,
                           compute::CastOptions options = compute::CastOptions()) const;
 
  protected:
@@ -222,7 +216,7 @@ class ExpressionImpl : public Base {
   explicit ExpressionImpl(A0&& arg0, A&&... args)
       : Base(expression_type, std::forward<A0>(arg0), std::forward<A>(args)...) {}
 
-  std::shared_ptr<Expression> Copy() const override {
+  ExpressionPtr Copy() const override {
     return std::make_shared<Derived>(internal::checked_cast<const Derived&>(*this));
   }
 };
@@ -230,58 +224,56 @@ class ExpressionImpl : public Base {
 /// Base class for an expression with exactly one operand
 class ARROW_DS_EXPORT UnaryExpression : public Expression {
  public:
-  const std::shared_ptr<Expression>& operand() const { return operand_; }
+  const ExpressionPtr& operand() const { return operand_; }
 
   bool Equals(const Expression& other) const override;
 
  protected:
-  UnaryExpression(ExpressionType::type type, std::shared_ptr<Expression> operand)
+  UnaryExpression(ExpressionType::type type, ExpressionPtr operand)
       : Expression(type), operand_(std::move(operand)) {}
 
-  std::shared_ptr<Expression> operand_;
+  ExpressionPtr operand_;
 };
 
 /// Base class for an expression with exactly two operands
 class ARROW_DS_EXPORT BinaryExpression : public Expression {
  public:
-  const std::shared_ptr<Expression>& left_operand() const { return left_operand_; }
+  const ExpressionPtr& left_operand() const { return left_operand_; }
 
-  const std::shared_ptr<Expression>& right_operand() const { return right_operand_; }
+  const ExpressionPtr& right_operand() const { return right_operand_; }
 
   bool Equals(const Expression& other) const override;
 
  protected:
-  BinaryExpression(ExpressionType::type type, std::shared_ptr<Expression> left_operand,
-                   std::shared_ptr<Expression> right_operand)
+  BinaryExpression(ExpressionType::type type, ExpressionPtr left_operand,
+                   ExpressionPtr right_operand)
       : Expression(type),
         left_operand_(std::move(left_operand)),
         right_operand_(std::move(right_operand)) {}
 
-  std::shared_ptr<Expression> left_operand_, right_operand_;
+  ExpressionPtr left_operand_, right_operand_;
 };
 
 class ARROW_DS_EXPORT ComparisonExpression final
     : public ExpressionImpl<BinaryExpression, ComparisonExpression,
                             ExpressionType::COMPARISON> {
  public:
-  ComparisonExpression(compute::CompareOperator op,
-                       std::shared_ptr<Expression> left_operand,
-                       std::shared_ptr<Expression> right_operand)
+  ComparisonExpression(compute::CompareOperator op, ExpressionPtr left_operand,
+                       ExpressionPtr right_operand)
       : ExpressionImpl(std::move(left_operand), std::move(right_operand)), op_(op) {}
 
   std::string ToString() const override;
 
   bool Equals(const Expression& other) const override;
 
-  std::shared_ptr<Expression> Assume(const Expression& given) const override;
+  ExpressionPtr Assume(const Expression& given) const override;
 
   compute::CompareOperator op() const { return op_; }
 
   Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
 
  private:
-  std::shared_ptr<Expression> AssumeGivenComparison(
-      const ComparisonExpression& given) const;
+  ExpressionPtr AssumeGivenComparison(const ComparisonExpression& given) const;
 
   compute::CompareOperator op_;
 };
@@ -293,7 +285,7 @@ class ARROW_DS_EXPORT AndExpression final
 
   std::string ToString() const override;
 
-  std::shared_ptr<Expression> Assume(const Expression& given) const override;
+  ExpressionPtr Assume(const Expression& given) const override;
 
   Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
 };
@@ -305,7 +297,7 @@ class ARROW_DS_EXPORT OrExpression final
 
   std::string ToString() const override;
 
-  std::shared_ptr<Expression> Assume(const Expression& given) const override;
+  ExpressionPtr Assume(const Expression& given) const override;
 
   Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
 };
@@ -317,7 +309,7 @@ class ARROW_DS_EXPORT NotExpression final
 
   std::string ToString() const override;
 
-  std::shared_ptr<Expression> Assume(const Expression& given) const override;
+  ExpressionPtr Assume(const Expression& given) const override;
 
   Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
 };
@@ -332,20 +324,20 @@ class ARROW_DS_EXPORT IsValidExpression final
 
   Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
 
-  std::shared_ptr<Expression> Assume(const Expression& given) const override;
+  ExpressionPtr Assume(const Expression& given) const override;
 };
 
 class ARROW_DS_EXPORT InExpression final
     : public ExpressionImpl<UnaryExpression, InExpression, ExpressionType::IN> {
  public:
-  InExpression(std::shared_ptr<Expression> operand, std::shared_ptr<Array> set)
+  InExpression(ExpressionPtr operand, std::shared_ptr<Array> set)
       : ExpressionImpl(std::move(operand)), set_(std::move(set)) {}
 
   std::string ToString() const override;
 
   Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
 
-  std::shared_ptr<Expression> Assume(const Expression& given) const override;
+  ExpressionPtr Assume(const Expression& given) const override;
 
   /// The set against which the operand will be compared
   const std::shared_ptr<Array>& set() const { return set_; }
@@ -358,7 +350,7 @@ class ARROW_DS_EXPORT InExpression final
 class ARROW_DS_EXPORT CastExpression final
     : public ExpressionImpl<UnaryExpression, CastExpression, ExpressionType::CAST> {
  public:
-  CastExpression(std::shared_ptr<Expression> operand, std::shared_ptr<DataType> to,
+  CastExpression(ExpressionPtr operand, std::shared_ptr<DataType> to,
                  compute::CastOptions options)
       : ExpressionImpl(std::move(operand)),
         to_(std::move(to)),
@@ -366,22 +358,21 @@ class ARROW_DS_EXPORT CastExpression final
 
   /// The operand will be cast to whatever type `like` would evaluate to, given the same
   /// schema.
-  CastExpression(std::shared_ptr<Expression> operand, std::shared_ptr<Expression> like,
-                 compute::CastOptions options)
+  CastExpression(ExpressionPtr operand, ExpressionPtr like, compute::CastOptions options)
       : ExpressionImpl(std::move(operand)),
         to_(std::move(like)),
         options_(std::move(options)) {}
 
   std::string ToString() const override;
 
-  std::shared_ptr<Expression> Assume(const Expression& given) const override;
+  ExpressionPtr Assume(const Expression& given) const override;
 
   Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
 
   const compute::CastOptions& options() const { return options_; }
 
  private:
-  util::variant<std::shared_ptr<DataType>, std::shared_ptr<Expression>> to_;
+  util::variant<std::shared_ptr<DataType>, ExpressionPtr> to_;
   compute::CastOptions options_;
 };
 
@@ -399,7 +390,7 @@ class ARROW_DS_EXPORT ScalarExpression final : public Expression {
 
   Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
 
-  std::shared_ptr<Expression> Copy() const override;
+  ExpressionPtr Copy() const override;
 
  private:
   std::shared_ptr<Scalar> value_;
@@ -420,7 +411,7 @@ class ARROW_DS_EXPORT FieldExpression final : public Expression {
 
   Result<std::shared_ptr<DataType>> Validate(const Schema& schema) const override;
 
-  std::shared_ptr<Expression> Copy() const override;
+  ExpressionPtr Copy() const override;
 
  private:
   std::string name_;
@@ -431,21 +422,19 @@ class ARROW_DS_EXPORT CustomExpression : public Expression {
   CustomExpression() : Expression(ExpressionType::CUSTOM) {}
 };
 
-ARROW_DS_EXPORT std::shared_ptr<AndExpression> and_(std::shared_ptr<Expression> lhs,
-                                                    std::shared_ptr<Expression> rhs);
+ARROW_DS_EXPORT std::shared_ptr<AndExpression> and_(ExpressionPtr lhs, ExpressionPtr rhs);
 
-ARROW_DS_EXPORT std::shared_ptr<Expression> and_(const ExpressionVector& subexpressions);
+ARROW_DS_EXPORT ExpressionPtr and_(const ExpressionVector& subexpressions);
 
 ARROW_DS_EXPORT AndExpression operator&&(const Expression& lhs, const Expression& rhs);
 
-ARROW_DS_EXPORT std::shared_ptr<OrExpression> or_(std::shared_ptr<Expression> lhs,
-                                                  std::shared_ptr<Expression> rhs);
+ARROW_DS_EXPORT std::shared_ptr<OrExpression> or_(ExpressionPtr lhs, ExpressionPtr rhs);
 
-ARROW_DS_EXPORT std::shared_ptr<Expression> or_(const ExpressionVector& subexpressions);
+ARROW_DS_EXPORT ExpressionPtr or_(const ExpressionVector& subexpressions);
 
 ARROW_DS_EXPORT OrExpression operator||(const Expression& lhs, const Expression& rhs);
 
-ARROW_DS_EXPORT std::shared_ptr<NotExpression> not_(std::shared_ptr<Expression> operand);
+ARROW_DS_EXPORT std::shared_ptr<NotExpression> not_(ExpressionPtr operand);
 
 ARROW_DS_EXPORT NotExpression operator!(const Expression& rhs);
 
@@ -459,8 +448,8 @@ auto scalar(T&& value) -> decltype(scalar(MakeScalar(std::forward<T>(value)))) {
 }
 
 #define COMPARISON_FACTORY(NAME, FACTORY_NAME, OP)                                       \
-  inline std::shared_ptr<ComparisonExpression> FACTORY_NAME(                             \
-      const std::shared_ptr<Expression>& lhs, const std::shared_ptr<Expression>& rhs) {  \
+  inline std::shared_ptr<ComparisonExpression> FACTORY_NAME(const ExpressionPtr& lhs,    \
+                                                            const ExpressionPtr& rhs) {  \
     return std::make_shared<ComparisonExpression>(compute::CompareOperator::NAME, lhs,   \
                                                   rhs);                                  \
   }                                                                                      \
@@ -544,14 +533,13 @@ auto VisitExpression(const Expression& expr, Visitor&& visitor)
 }
 
 /// \brief Insert CastExpressions where necessary to make a valid expression.
-ARROW_DS_EXPORT Result<std::shared_ptr<Expression>> InsertImplicitCasts(
-    const Expression& expr, const Schema& schema);
+ARROW_DS_EXPORT Result<ExpressionPtr> InsertImplicitCasts(const Expression& expr,
+                                                          const Schema& schema);
 
 /// \brief Returns field names referenced in the expression.
 ARROW_DS_EXPORT std::vector<std::string> FieldsInExpression(const Expression& expr);
 
-ARROW_DS_EXPORT std::vector<std::string> FieldsInExpression(
-    const std::shared_ptr<Expression>& expr);
+ARROW_DS_EXPORT std::vector<std::string> FieldsInExpression(const ExpressionPtr& expr);
 
 /// Interface for evaluation of expressions against record batches.
 class ARROW_DS_EXPORT ExpressionEvaluator {
@@ -568,27 +556,16 @@ class ARROW_DS_EXPORT ExpressionEvaluator {
   virtual Result<compute::Datum> Evaluate(const Expression& expr,
                                           const RecordBatch& batch) const = 0;
 
-  Status Evaluate(const Expression& expr, const RecordBatch& batch,
-                  compute::Datum* out) const {
-    return Evaluate(expr, batch).Value(out);
-  }
-
   virtual Result<std::shared_ptr<RecordBatch>> Filter(
       const compute::Datum& selection,
       const std::shared_ptr<RecordBatch>& batch) const = 0;
-
-  Status Filter(const compute::Datum& selection,
-                const std::shared_ptr<RecordBatch>& batch,
-                std::shared_ptr<RecordBatch>* out) const {
-    return Filter(selection, batch).Value(out);
-  }
 
   /// \brief Wrap an iterator of record batches with a filter expression. The resulting
   /// iterator will yield record batches filtered by the given expression.
   ///
   /// \note The ExpressionEvaluator must outlive the returned iterator.
   virtual RecordBatchIterator FilterBatches(RecordBatchIterator unfiltered,
-                                            std::shared_ptr<Expression> filter);
+                                            ExpressionPtr filter);
 
   /// construct an Evaluator which evaluates all expressions to null and does no
   /// filtering

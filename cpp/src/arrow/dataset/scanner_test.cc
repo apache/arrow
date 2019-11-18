@@ -27,9 +27,9 @@
 namespace arrow {
 namespace dataset {
 
-class TestSimpleScanner : public DatasetFixtureMixin {};
+class TestScanner : public DatasetFixtureMixin {};
 
-TEST_F(TestSimpleScanner, Scan) {
+TEST_F(TestScanner, Scan) {
   constexpr int64_t kNumberFragments = 4;
   constexpr int64_t kNumberBatches = 16;
   constexpr int64_t kBatchSize = 1024;
@@ -41,7 +41,7 @@ TEST_F(TestSimpleScanner, Scan) {
   auto fragment = std::make_shared<SimpleDataFragment>(batches);
   DataFragmentVector fragments{kNumberFragments, fragment};
 
-  std::vector<std::shared_ptr<DataSource>> sources = {
+  DataSourceVector sources = {
       std::make_shared<SimpleDataSource>(fragments),
       std::make_shared<SimpleDataSource>(fragments),
   };
@@ -49,14 +49,14 @@ TEST_F(TestSimpleScanner, Scan) {
   const int64_t total_batches = sources.size() * kNumberBatches * kNumberFragments;
   auto reader = ConstantArrayGenerator::Repeat(total_batches, batch);
 
-  SimpleScanner scanner{sources, options_, ctx_};
+  Scanner scanner{sources, options_, ctx_};
 
   // Verifies that the unified BatchReader is equivalent to flattening all the
   // structures of the scanner, i.e. Scanner[DataSource[ScanTask[RecordBatch]]]
   AssertScannerEquals(reader.get(), &scanner);
 }
 
-TEST_F(TestSimpleScanner, FilteredScan) {
+TEST_F(TestScanner, FilteredScan) {
   constexpr int64_t kNumberFragments = 4;
   constexpr int64_t kNumberBatches = 16;
   constexpr int64_t kBatchSize = 1024;
@@ -89,7 +89,7 @@ TEST_F(TestSimpleScanner, FilteredScan) {
   auto fragment = std::make_shared<SimpleDataFragment>(batches, options_);
   DataFragmentVector fragments{kNumberFragments, fragment};
 
-  std::vector<std::shared_ptr<DataSource>> sources = {
+  DataSourceVector sources = {
       std::make_shared<SimpleDataSource>(fragments),
       std::make_shared<SimpleDataSource>(fragments),
   };
@@ -98,14 +98,14 @@ TEST_F(TestSimpleScanner, FilteredScan) {
   auto reader = ConstantArrayGenerator::Repeat(total_batches, batch_filtered);
 
   options_->evaluator = std::make_shared<TreeEvaluator>(default_memory_pool());
-  SimpleScanner scanner{sources, options_, ctx_};
+  Scanner scanner{sources, options_, ctx_};
 
   // Verifies that the unified BatchReader is equivalent to flattening all the
   // structures of the scanner, i.e. Scanner[DataSource[ScanTask[RecordBatch]]]
   AssertScannerEquals(reader.get(), &scanner);
 }
 
-TEST_F(TestSimpleScanner, ToTable) {
+TEST_F(TestScanner, ToTable) {
   constexpr int64_t kBatchSize = 1024;
   constexpr int64_t kNumberBatches = 16;
 
@@ -119,43 +119,44 @@ TEST_F(TestSimpleScanner, ToTable) {
   auto fragment = std::make_shared<SimpleDataFragment>(batches);
   DataFragmentVector fragments{1, fragment};
 
-  std::vector<std::shared_ptr<DataSource>> sources = {
+  DataSourceVector sources = {
       std::make_shared<SimpleDataSource>(fragments),
   };
 
   options_->schema = s;
-  auto scanner = std::make_shared<SimpleScanner>(sources, options_, ctx_);
+  auto scanner = std::make_shared<Scanner>(sources, options_, ctx_);
   std::shared_ptr<Table> actual;
 
   options_->use_threads = false;
-  ASSERT_OK(scanner->ToTable(&actual));
+  ASSERT_OK_AND_ASSIGN(actual, scanner->ToTable());
   AssertTablesEqual(*expected, *actual);
 
   // There is no guarantee on the ordering when using multiple threads, but
   // since the RecordBatch is always the same it will pass.
   options_->use_threads = true;
-  ASSERT_OK(scanner->ToTable(&actual));
+  ASSERT_OK_AND_ASSIGN(actual, scanner->ToTable());
   AssertTablesEqual(*expected, *actual);
 }
 
 class TestScannerBuilder : public ::testing::Test {
   void SetUp() {
-    std::vector<std::shared_ptr<DataSource>> sources;
+    DataSourceVector sources;
 
     schema_ = schema({
         field("b", boolean()),
         field("i8", int8()),
         field("i16", int16()),
-        field("i32", int16()),
-        field("i64", int16()),
+        field("i32", int32()),
+        field("i64", int64()),
     });
-    dataset_ = std::make_shared<Dataset>(sources, schema_);
+
+    ASSERT_OK_AND_ASSIGN(dataset_, Dataset::Make(sources, schema_));
   }
 
  protected:
-  std::shared_ptr<ScanContext> ctx_;
+  ScanContextPtr ctx_;
   std::shared_ptr<Schema> schema_;
-  std::shared_ptr<Dataset> dataset_;
+  DatasetPtr dataset_;
 };
 
 TEST_F(TestScannerBuilder, TestProject) {
@@ -175,11 +176,13 @@ TEST_F(TestScannerBuilder, TestFilter) {
   ScannerBuilder builder(dataset_, ctx_);
 
   ASSERT_OK(builder.Filter(scalar(true)));
-  ASSERT_OK(builder.Filter("i64"_ == 10));
-  ASSERT_OK(builder.Filter("i64"_ == 10 || "b"_ == true));
+  ASSERT_OK(builder.Filter("i64"_ == int64_t(10)));
+  ASSERT_OK(builder.Filter("i64"_ == int64_t(10) || "b"_ == true));
 
+  ASSERT_RAISES(TypeError, builder.Filter("i64"_ == int32_t(10)));
   ASSERT_RAISES(Invalid, builder.Filter("not_a_column"_ == true));
-  ASSERT_RAISES(Invalid, builder.Filter("i64"_ == 10 || "not_a_column"_ == true));
+  ASSERT_RAISES(Invalid,
+                builder.Filter("i64"_ == int64_t(10) || "not_a_column"_ == true));
 }
 
 }  // namespace dataset

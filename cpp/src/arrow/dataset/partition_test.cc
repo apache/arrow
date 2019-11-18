@@ -43,7 +43,7 @@ class TestPartitionScheme : public ::testing::Test {
     ASSERT_RAISES(Invalid, scheme_->Parse(path).status());
   }
 
-  void AssertParse(const std::string& path, std::shared_ptr<Expression> expected) {
+  void AssertParse(const std::string& path, ExpressionPtr expected) {
     ASSERT_OK_AND_ASSIGN(auto parsed, scheme_->Parse(path));
     ASSERT_EQ(E{parsed}, E{expected});
   }
@@ -53,7 +53,7 @@ class TestPartitionScheme : public ::testing::Test {
   }
 
  protected:
-  std::shared_ptr<PartitionScheme> scheme_;
+  PartitionSchemePtr scheme_;
 };
 
 TEST_F(TestPartitionScheme, Simple) {
@@ -113,7 +113,7 @@ TEST_F(TestPartitionScheme, EtlThenHive) {
       schema({field("alpha", int32()), field("beta", float32())}));
 
   scheme_ = std::make_shared<FunctionPartitionScheme>(
-      [&](const std::string& path) -> Result<std::shared_ptr<Expression>> {
+      [&](const std::string& path) -> Result<ExpressionPtr> {
         ARROW_ASSIGN_OR_RAISE(auto etl_expr, etl_scheme.Parse(path));
 
         auto segments = fs::internal::SplitAbstractPath(path);
@@ -137,7 +137,7 @@ TEST_F(TestPartitionScheme, Set) {
   // An adhoc partition scheme which parses segments like "/x in [1 4 5]"
   // into ("x"_ == 1 or "x"_ == 4 or "x"_ == 5)
   scheme_ = std::make_shared<FunctionPartitionScheme>(
-      [](const std::string& path) -> Result<std::shared_ptr<Expression>> {
+      [](const std::string& path) -> Result<ExpressionPtr> {
         std::smatch matches;
         auto segment = std::move(fs::internal::SplitAbstractPath(path)[0]);
         static std::regex re("^x in \\[(.*)\\]$");
@@ -170,7 +170,7 @@ class RangePartitionScheme : public HivePartitionScheme {
 
   std::string name() const override { return "range_partition_scheme"; }
 
-  Result<std::shared_ptr<Expression>> Parse(const std::string& path) const override {
+  Result<ExpressionPtr> Parse(const std::string& path) const override {
     ExpressionVector ranges;
     for (auto key : GetUnconvertedKeys(path)) {
       std::smatch matches;

@@ -65,7 +65,7 @@ struct Configuration {
   std::shared_ptr<ds::Expression> filter = ("total_amount"_ > 1000.0f).Copy();
 } conf;
 
-std::shared_ptr<ds::Dataset> GetDatasetFromPath(fs::FileSystem* fs,
+std::shared_ptr<ds::Dataset> GetDatasetFromPath(fs::FileSystemPtr fs,
                                                 std::shared_ptr<ds::FileFormat> format,
                                                 std::string path) {
   // Find all files under `path`
@@ -74,27 +74,28 @@ std::shared_ptr<ds::Dataset> GetDatasetFromPath(fs::FileSystem* fs,
   s.recursive = true;
 
   ds::FileSystemDiscoveryOptions options;
+  // The discovery will try to build a datasource.
+  auto discovery = ds::FileSystemDataSourceDiscovery::Make(fs, s, format, options).ValueOrDie();
 
-  std::shared_ptr<ds::DataSourceDiscovery> discovery;
-  ABORT_ON_FAILURE(
-      ds::FileSystemDataSourceDiscovery::Make(fs, s, format, options, &discovery));
+  // Try to infer a common schema for all files.
+  auto schema = discovery->Inspect().ValueOrDie();
+  // Caller can optionally decide another schema as long as it is compatible
+  // with the previous one.
+  //
+  // discovery->SetSchema(compatible_schema);
+  auto source = discovery->Finish().ValueOrDie();
 
-  std::shared_ptr<Schema> inspect_schema;
-  ABORT_ON_FAILURE(discovery->Inspect(&inspect_schema));
+  ds::DataSourceVector sources{conf.repeat, source};
+  auto dataset = ds::Dataset::Make(std::move(sources), schema);
 
-  std::shared_ptr<ds::DataSource> source;
-  ABORT_ON_FAILURE(discovery->Finish(&source));
-
-  return std::make_shared<ds::Dataset>(ds::DataSourceVector{conf.repeat, source},
-                                       inspect_schema);
+  return dataset.ValueOrDie();
 }
 
 std::shared_ptr<ds::Scanner> GetScannerFromDataset(std::shared_ptr<ds::Dataset> dataset,
                                                    std::vector<std::string> columns,
                                                    std::shared_ptr<ds::Expression> filter,
                                                    bool use_threads) {
-  std::unique_ptr<ds::ScannerBuilder> scanner_builder;
-  ABORT_ON_FAILURE(dataset->NewScan(&scanner_builder));
+  auto scanner_builder = dataset->NewScan().ValueOrDie();
 
   if (!columns.empty()) {
     ABORT_ON_FAILURE(scanner_builder->Project(columns));
@@ -106,16 +107,11 @@ std::shared_ptr<ds::Scanner> GetScannerFromDataset(std::shared_ptr<ds::Dataset> 
 
   ABORT_ON_FAILURE(scanner_builder->UseThreads(use_threads));
 
-  std::unique_ptr<ds::Scanner> scanner;
-  ABORT_ON_FAILURE(scanner_builder->Finish(&scanner));
-
-  return scanner;
+  return scanner_builder->Finish().ValueOrDie();
 }
 
 std::shared_ptr<Table> GetTableFromScanner(std::shared_ptr<ds::Scanner> scanner) {
-  std::shared_ptr<Table> table;
-  ABORT_ON_FAILURE(scanner->ToTable(&table));
-  return table;
+  return scanner->ToTable().ValueOrDie();
 }
 
 int main(int argc, char** argv) {
@@ -127,7 +123,7 @@ int main(int argc, char** argv) {
     return EXIT_SUCCESS;
   }
 
-  auto dataset = GetDatasetFromPath(fs.get(), format, argv[1]);
+  auto dataset = GetDatasetFromPath(fs, format, argv[1]);
 
   auto scanner = GetScannerFromDataset(dataset, conf.projected_columns, conf.filter,
                                        conf.use_threads);

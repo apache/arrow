@@ -115,7 +115,7 @@ TEST_F(TestDataset, TrivialScan) {
   auto fragment = std::make_shared<SimpleDataFragment>(batches);
   DataFragmentVector fragments{kNumberFragments, fragment};
 
-  std::vector<std::shared_ptr<DataSource>> sources = {
+  DataSourceVector sources = {
       std::make_shared<SimpleDataSource>(fragments),
       std::make_shared<SimpleDataSource>(fragments),
   };
@@ -123,9 +123,7 @@ TEST_F(TestDataset, TrivialScan) {
   const int64_t total_batches = sources.size() * kNumberFragments * kNumberBatches;
   auto reader = ConstantArrayGenerator::Repeat(total_batches, batch);
 
-  std::shared_ptr<Dataset> dataset;
-  ASSERT_OK(Dataset::Make(sources, s, &dataset));
-
+  ASSERT_OK_AND_ASSIGN(auto dataset, Dataset::Make(sources, s));
   AssertDatasetEquals(reader.get(), dataset.get());
 }
 
@@ -138,8 +136,8 @@ TEST(TestProjector, MismatchedType) {
 
   RecordBatchProjector projector(default_memory_pool(), to_schema);
 
-  std::shared_ptr<RecordBatch> reconciled_batch;
-  ASSERT_RAISES(TypeError, projector.Project(*batch, &reconciled_batch));
+  auto result = projector.Project(*batch);
+  ASSERT_RAISES(TypeError, result.status());
 }
 
 TEST(TestProjector, AugmentWithNull) {
@@ -156,9 +154,7 @@ TEST(TestProjector, AugmentWithNull) {
   auto expected_batch =
       RecordBatch::Make(to_schema, batch->num_rows(), {null_i32, batch->column(0)});
 
-  std::shared_ptr<RecordBatch> reconciled_batch;
-  ASSERT_OK(projector.Project(*batch, &reconciled_batch));
-
+  ASSERT_OK_AND_ASSIGN(auto reconciled_batch, projector.Project(*batch));
   AssertBatchesEqual(*expected_batch, *reconciled_batch);
 }
 
@@ -182,9 +178,7 @@ TEST(TestProjector, AugmentWithScalar) {
   auto expected_batch =
       RecordBatch::Make(to_schema, batch->num_rows(), {array_i32, batch->column(0)});
 
-  std::shared_ptr<RecordBatch> reconciled_batch;
-  ASSERT_OK(projector.Project(*batch, &reconciled_batch));
-
+  ASSERT_OK_AND_ASSIGN(auto reconciled_batch, projector.Project(*batch));
   AssertBatchesEqual(*expected_batch, *reconciled_batch);
 }
 
@@ -230,9 +224,7 @@ TEST(TestProjector, NonTrivial) {
       {batch->GetColumnByName("i32"), array_f64, batch->GetColumnByName("u16"),
        batch->GetColumnByName("u8"), null_b, batch->GetColumnByName("u32"), array_f32});
 
-  std::shared_ptr<RecordBatch> reconciled_batch;
-  ASSERT_OK(projector.Project(*batch, &reconciled_batch));
-
+  ASSERT_OK_AND_ASSIGN(auto reconciled_batch, projector.Project(*batch));
   AssertBatchesEqual(*expected_batch, *reconciled_batch);
 }
 
@@ -304,9 +296,7 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   // A DataSource is composed of DataFragments. Each DataFragment can yield
   // multiple RecordBatches. DataSources can be created manually or "discovered"
   // via the DataSourceDiscovery interface.
-  //
-  // Each DataSourceDiscovery may have different options.
-  std::shared_ptr<DataSourceDiscovery> discovery;
+  DataSourceDiscoveryPtr discovery;
 
   // The user must specify which FileFormat is used to create FileFragments.
   // This option is specific to FileSystemBasedDataSource (and the builder).
@@ -329,14 +319,13 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   FileSystemDiscoveryOptions options;
   options.ignore_prefixes = {"."};
 
-  ASSERT_OK(
-      FileSystemDataSourceDiscovery::Make(fs_.get(), s, format, options, &discovery));
+  ASSERT_OK_AND_ASSIGN(discovery,
+                       FileSystemDataSourceDiscovery::Make(fs_, s, format, options));
 
   // DataFragments might have compatible but slightly different schemas, e.g.
   // schema evolved by adding/renaming columns. In this case, the schema is
   // passed to the dataset constructor.
-  std::shared_ptr<Schema> inspected_schema;
-  ASSERT_OK(discovery->Inspect(&inspected_schema));
+  ASSERT_OK_AND_ASSIGN(auto inspected_schema, discovery->Inspect());
   EXPECT_EQ(*schema_, *inspected_schema);
 
   // Partitions expressions can be discovered for DataSource and DataFragments.
@@ -357,12 +346,10 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   ASSERT_OK(discovery->SetPartitionScheme(partition_scheme));
 
   // Build the DataSource where partitions are attached to fragments (files).
-  std::shared_ptr<DataSource> datasource;
-  ASSERT_OK(discovery->Finish(&datasource));
+  ASSERT_OK_AND_ASSIGN(auto datasource, discovery->Finish());
 
   // Create the Dataset from our single DataSource.
-  std::shared_ptr<Dataset> dataset =
-      std::make_shared<Dataset>(DataSourceVector{datasource}, inspected_schema);
+  ASSERT_OK_AND_ASSIGN(auto dataset, Dataset::Make({datasource}, inspected_schema));
 
   // Querying.
   //
@@ -370,8 +357,7 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   // transfer is a critical optimization done by analytical engine. Thus, a
   // Scan can take multiple options, notably a subset of columns and a filter
   // expression.
-  std::unique_ptr<ScannerBuilder> scanner_builder;
-  ASSERT_OK(dataset->NewScan(&scanner_builder));
+  ASSERT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
 
   // An optional subset of columns can be provided. This will trickle to
   // DataFragment drivers. The net effect is that only columns of interest will
@@ -399,17 +385,12 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   // The following filter tests both predicate pushdown and post filtering
   // without partition information because `year` is a partition and `sales` is
   // not.
-  //
-  // Note that `sales` is double, so `100` below will be implicitly cast from integer.
-  auto filter = ("year"_ == 2019 && "sales"_ > 100);
-  ASSERT_OK(scanner_builder->Filter(filter, /* implicit_casts = */ true));
+  auto filter = ("year"_ == 2019 && "sales"_ > 100.0);
+  ASSERT_OK(scanner_builder->Filter(filter));
 
-  std::unique_ptr<Scanner> scanner;
-  ASSERT_OK(scanner_builder->Finish(&scanner));
-
+  ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
   // In the simplest case, consumption is simply conversion to a Table.
-  std::shared_ptr<Table> table;
-  ASSERT_OK(scanner->ToTable(&table));
+  ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
 
   using row_type = std::tuple<double, std::string>;
   std::vector<row_type> rows{
