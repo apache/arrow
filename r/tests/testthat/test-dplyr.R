@@ -73,6 +73,16 @@ test_that("basic select/filter/collect", {
 test_that("More complex select/filter", {
   expect_dplyr_equal(
     input %>%
+      filter(is.na(lgl)) %>%
+      select(chr, int, lgl) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("filter() on is.na()", {
+  expect_dplyr_equal(
+    input %>%
       filter(dbl > 2, chr == "d" | chr == "f") %>%
       select(chr, int, lgl) %>%
       filter(int < 5) %>%

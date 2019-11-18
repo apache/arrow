@@ -28,6 +28,17 @@ Ops.ChunkedArray <- Ops.Array
 Ops.array_expression <- Ops.Array
 
 #' @export
+is.na.Array <- function(x) {
+  structure(list(fun = "is.na", args = list(x)), class = "array_expression")
+}
+
+#' @export
+is.na.ChunkedArray <- is.na.Array
+
+#' @export
+is.na.array_expression <- is.na.Array
+
+#' @export
 as.vector.array_expression <- function(x, ...) {
   x$args <- lapply(x$args, as.vector)
   do.call(x$fun, x$args)
@@ -45,7 +56,8 @@ print.array_expression <- function(x, ...) print(as.vector(x))
 #' [Scanner]. `FieldExpression`s refer to columns in the `Dataset` and are
 #' compared to `ScalarExpression`s using `ComparisonExpression`s.
 #' `ComparisonExpression`s may be combined with `AndExpression` or
-#' `OrExpression` and negated with `NotExpression`.
+#' `OrExpression` and negated with `NotExpression`. `IsValidExpression` is
+#' essentially `is.na()` for `Expression`s.
 #'
 #' @section Factory:
 #' `FieldExpression$create(name)` takes a string name as input. This string should
@@ -58,8 +70,8 @@ print.array_expression <- function(x, ...) print(as.vector(x))
 #' (e.g. "==", "!=", ">", etc.) and two `Expression` objects.
 #'
 #' `AndExpression$create(e1, e2)` and `OrExpression$create(e1, e2)` take
-#' two `Expression` objects, while `NotExpression$create(e1)` takes a single
-#' `Expression`. 
+#' two `Expression` objects, while `NotExpression$create(e1)` and
+#' `IsValidExpression$create(e1)` take a single `Expression`.
 #' @name Expression
 #' @rdname Expression
 #' @export
@@ -136,6 +148,15 @@ NotExpression$create <- function(e1) {
   shared_ptr(NotExpression, dataset___expr__not(e1))
 }
 
+#' @usage NULL
+#' @format NULL
+#' @rdname Expression
+#' @export
+IsValidExpression <- R6Class("IsValidExpression", inherit = Expression)
+IsValidExpression$create <- function(e1) {
+  shared_ptr(IsValidExpression, dataset___expr__is_valid(e1))
+}
+
 #' @export
 Ops.Expression <- function(e1, e2) {
   if (.Generic == "!") {
@@ -156,3 +177,6 @@ Ops.Expression <- function(e1, e2) {
     ComparisonExpression$create(.Generic, e1, e2)
   }
 }
+
+#' @export
+is.na.Expression <- function(x) !IsValidExpression$create(x)

@@ -636,6 +636,10 @@ dataset___expr__not <- function(lhs){
     .Call(`_arrow_dataset___expr__not` , lhs)
 }
 
+dataset___expr__is_valid <- function(lhs){
+    .Call(`_arrow_dataset___expr__is_valid` , lhs)
+}
+
 dataset___expr__scalar <- function(x){
     .Call(`_arrow_dataset___expr__scalar` , x)
 }

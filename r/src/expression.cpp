@@ -78,6 +78,11 @@ std::shared_ptr<ds::NotExpression> dataset___expr__not(const ds::ExpressionPtr& 
 }
 
 // [[arrow::export]]
+std::shared_ptr<ds::IsValidExpression> dataset___expr__is_valid(const ds::ExpressionPtr& lhs) {
+  return std::make_shared<ds::IsValidExpression>(lhs->IsValid());
+}
+
+// [[arrow::export]]
 std::shared_ptr<ds::ScalarExpression> dataset___expr__scalar(SEXP x) {
   switch (TYPEOF(x)) {
     case LGLSXP:

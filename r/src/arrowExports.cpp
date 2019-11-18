@@ -2459,6 +2459,21 @@ RcppExport SEXP _arrow_dataset___expr__not(SEXP lhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
+std::shared_ptr<ds::IsValidExpression> dataset___expr__is_valid(const ds::ExpressionPtr& lhs);
+RcppExport SEXP _arrow_dataset___expr__is_valid(SEXP lhs_sexp){
+BEGIN_RCPP
+	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
+	return Rcpp::wrap(dataset___expr__is_valid(lhs));
+END_RCPP
+}
+#else
+RcppExport SEXP _arrow_dataset___expr__is_valid(SEXP lhs_sexp){
+	Rf_error("Cannot call dataset___expr__is_valid(). Please use arrow::install_arrow() to install required runtime libraries. ");
+}
+#endif
+
+// expression.cpp
+#if defined(ARROW_R_WITH_ARROW)
 std::shared_ptr<ds::ScalarExpression> dataset___expr__scalar(SEXP x);
 RcppExport SEXP _arrow_dataset___expr__scalar(SEXP x_sexp){
 BEGIN_RCPP
@@ -5595,6 +5610,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___expr__and", (DL_FUNC) &_arrow_dataset___expr__and, 2}, 
 		{ "_arrow_dataset___expr__or", (DL_FUNC) &_arrow_dataset___expr__or, 2}, 
 		{ "_arrow_dataset___expr__not", (DL_FUNC) &_arrow_dataset___expr__not, 1}, 
+		{ "_arrow_dataset___expr__is_valid", (DL_FUNC) &_arrow_dataset___expr__is_valid, 1}, 
 		{ "_arrow_dataset___expr__scalar", (DL_FUNC) &_arrow_dataset___expr__scalar, 1}, 
 		{ "_arrow_dataset___expr__ToString", (DL_FUNC) &_arrow_dataset___expr__ToString, 1}, 
 		{ "_arrow_ipc___feather___TableWriter__SetDescription", (DL_FUNC) &_arrow_ipc___feather___TableWriter__SetDescription, 2}, 
