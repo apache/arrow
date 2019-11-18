@@ -22,17 +22,16 @@ pub mod arrow_flight {
     tonic::include_proto!("arrow.flight.protocol"); // The string specified here must match the proto package name
 }
 use arrow_flight::{
-    server::FlightService, Action, ActionType,
-    Criteria, Empty, FlightData, FlightDescriptor, FlightInfo, HandshakeRequest,
-    HandshakeResponse, PutResult, SchemaResult, Ticket,
+    server::FlightService, Action, ActionType, Criteria, Empty, FlightData,
+    FlightDescriptor, FlightInfo, HandshakeRequest, HandshakeResponse, PutResult,
+    SchemaResult, Ticket,
 };
 
-#[derive(Debug)]
+#[derive(Clone)]
 pub struct FlightServiceImpl {}
 
 #[tonic::async_trait]
 impl FlightService for FlightServiceImpl {
-
     type HandshakeStream = mpsc::Receiver<Result<HandshakeResponse, Status>>;
     type ListFlightsStream = mpsc::Receiver<Result<FlightInfo, Status>>;
     type DoGetStream = mpsc::Receiver<Result<FlightData, Status>>;

@@ -26,7 +26,7 @@ repository = "https://github.com/apache/arrow"
 license = "Apache-2.0"
 
 [dependencies]
-tonic = "0.1.0-alpha.5"
+tonic = "0.1.0-alpha.6"
 bytes = "0.4"
 prost = "0.5"
 prost-derive = "0.5"
@@ -35,7 +35,7 @@ futures-preview = { version = "=0.3.0-alpha.19", default-features = false, featu
 async-stream = "0.1.2"
 
 [build-dependencies]
-tonic-build = "0.1.0-alpha.5"
+tonic-build = "0.1.0-alpha.6"
 
 [lib]
 name = "flight"

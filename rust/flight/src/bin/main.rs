@@ -15,25 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-pub mod arrow_flight {
-    tonic::include_proto!("arrow.flight.protocol"); // The string specified here must match the proto package name
-}
-use arrow_flight::server::{FlightService, FlightServiceServer};
+use arrow_flight::server::FlightServiceServer;
+use flight::*;
 use tonic::transport::Server;
-
-use flight::FlightServiceImpl;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "[::1]:50051".parse()?;
     let service = FlightServiceImpl {};
 
-    let svc: FlightService = FlightServiceServer::new(service);
+    let svc = FlightServiceServer::new(service);
 
-    Server::builder()
-        .add_service(svc)
-        .serve(addr)
-        .await?;
+    Server::builder().add_service(svc).serve(addr).await?;
 
     Ok(())
 }
