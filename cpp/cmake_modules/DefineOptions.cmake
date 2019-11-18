@@ -23,7 +23,7 @@ endmacro()
 function(check_description_length name description)
   foreach(description_line ${description})
     string(LENGTH ${description_line} line_length)
-    if (${line_length} GREATER 80)
+    if(${line_length} GREATER 80)
       message(FATAL_ERROR "description for ${name} contained a\n\
         line ${line_length} characters long!\n\
         (max is 80). Split it into more lines with semicolons")
@@ -383,10 +383,8 @@ macro(config_summary_message)
       string(LENGTH "${summary}" summary_length)
       string(LENGTH "${name}" name_length)
       math(EXPR padding_length "${summary_length} + ${name_length}")
-      string(
-        SUBSTRING "                                                \
-                                    ${summary}"
-        ${padding_length} -1 right_padded_summary)
+      string(SUBSTRING "                                                \
+                                    ${summary}" ${padding_length} -1 right_padded_summary)
 
       message(STATUS "  ${name} ${right_padded_summary}")
       foreach(description_line ${description})
