@@ -69,8 +69,8 @@ Result<DataSourceDiscoveryPtr> FileSystemDataSourceDiscovery::Make(
       }
 
       if (options.exclude_invalid_files) {
-        bool supported = true;
-        RETURN_NOT_OK(format->IsSupported(FileSource(path, fs.get()), &supported));
+        ARROW_ASSIGN_OR_RAISE(auto supported,
+                              format->IsSupported(FileSource(path, fs.get())));
         if (!supported) {
           continue;
         }
@@ -80,10 +80,8 @@ Result<DataSourceDiscoveryPtr> FileSystemDataSourceDiscovery::Make(
     filtered.push_back(stat);
   }
 
-  DataSourceDiscoveryPtr discovery;
-  discovery.reset(new FileSystemDataSourceDiscovery(
+  return DataSourceDiscoveryPtr(new FileSystemDataSourceDiscovery(
       fs, std::move(filtered), std::move(format), std::move(options)));
-  return discovery;
 }
 
 Result<DataSourceDiscoveryPtr> FileSystemDataSourceDiscovery::Make(

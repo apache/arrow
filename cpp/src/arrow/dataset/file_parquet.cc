@@ -227,21 +227,19 @@ class ParquetScanTaskIterator {
   std::shared_ptr<parquet::arrow::FileReader> reader_;
 };
 
-Status ParquetFileFormat::IsSupported(const FileSource& source, bool* supported) const {
+Result<bool> ParquetFileFormat::IsSupported(const FileSource& source) const {
   try {
     ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
     auto reader = parquet::ParquetFileReader::Open(input);
   } catch (const ::parquet::ParquetInvalidOrCorruptedFileException& e) {
     ARROW_UNUSED(e);
-    *supported = false;
-    return Status::OK();
+    return false;
   } catch (const ::parquet::ParquetException& e) {
     return Status::IOError("Could not open parquet input source '", source.path(),
                            "': ", e.what());
   }
 
-  *supported = true;
-  return Status::OK();
+  return true;
 }
 
 Result<std::shared_ptr<Schema>> ParquetFileFormat::Inspect(

@@ -289,14 +289,14 @@ TEST_F(TestParquetFileFormat, IsSupported) {
   bool supported = false;
 
   std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
-  ASSERT_OK(format.IsSupported(FileSource(buf), &supported));
+  ASSERT_OK_AND_ASSIGN(supported, format.IsSupported(FileSource(buf)));
   ASSERT_EQ(supported, false);
 
   buf = std::make_shared<Buffer>(util::string_view("corrupted"));
-  ASSERT_OK(format.IsSupported(FileSource(buf), &supported));
+  ASSERT_OK_AND_ASSIGN(supported, format.IsSupported(FileSource(buf)));
   ASSERT_EQ(supported, false);
 
-  ASSERT_OK(format.IsSupported(*source.get(), &supported));
+  ASSERT_OK_AND_ASSIGN(supported, format.IsSupported(*source));
   EXPECT_EQ(supported, true);
 }
 

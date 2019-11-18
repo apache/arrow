@@ -47,18 +47,8 @@ struct data {
     if (!(TEST)) Rcpp::stop(MSG); \
   } while (0)
 
-#define STOP_IF_NOT_OK(s) STOP_IF_NOT(s.ok(), s.ToString())
-
-#define ARROW_ASSIGN_OR_STOP_IMPL(status_name, lhs, rexpr) \
-  auto status_name = (rexpr);                              \
-  if (!status_name.status().ok()) {                        \
-    Rcpp::stop(status_name.status().ToString());           \
-  }                                                        \
-  lhs = std::move(status_name).ValueOrDie();
-
-#define ARROW_ASSIGN_OR_STOP(lhs, rexp)                                               \
-  ARROW_ASSIGN_OR_STOP_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
-                            lhs, rexp)
+#define STOP_IF_NOT_OK(status) StopIfNotOk(status)
+#define VALUE_OR_STOP(result) ValueOrStop(result)
 
 template <typename T>
 struct NoDelete {
@@ -250,6 +240,12 @@ template <typename R>
 auto ValueOrStop(R&& result) -> decltype(std::forward<R>(result).ValueOrDie()) {
   STOP_IF_NOT_OK(result.status());
   return std::forward<R>(result).ValueOrDie();
+}
+
+static inline void StopIfNotOk(const Status& status) {
+  if (!(status.ok())) {
+    Rcpp::stop(status.ToString());
+  }
 }
 
 namespace r {

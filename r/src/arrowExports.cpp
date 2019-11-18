@@ -2316,7 +2316,7 @@ RcppExport SEXP _arrow_dataset___expr__field_ref(SEXP name_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-ds::ExpressionPtr dataset___expr__equal(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
+std::shared_ptr<ds::ComparisonExpression> dataset___expr__equal(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
 RcppExport SEXP _arrow_dataset___expr__equal(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
@@ -2332,7 +2332,7 @@ RcppExport SEXP _arrow_dataset___expr__equal(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-ds::ExpressionPtr dataset___expr__not_equal(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
+std::shared_ptr<ds::ComparisonExpression> dataset___expr__not_equal(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
 RcppExport SEXP _arrow_dataset___expr__not_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
@@ -2348,7 +2348,7 @@ RcppExport SEXP _arrow_dataset___expr__not_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-ds::ExpressionPtr dataset___expr__greater(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
+std::shared_ptr<ds::ComparisonExpression> dataset___expr__greater(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
 RcppExport SEXP _arrow_dataset___expr__greater(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
@@ -2364,7 +2364,7 @@ RcppExport SEXP _arrow_dataset___expr__greater(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-ds::ExpressionPtr dataset___expr__greater_equal(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
+std::shared_ptr<ds::ComparisonExpression> dataset___expr__greater_equal(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
 RcppExport SEXP _arrow_dataset___expr__greater_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
@@ -2380,7 +2380,7 @@ RcppExport SEXP _arrow_dataset___expr__greater_equal(SEXP lhs_sexp, SEXP rhs_sex
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-ds::ExpressionPtr dataset___expr__less(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
+std::shared_ptr<ds::ComparisonExpression> dataset___expr__less(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
 RcppExport SEXP _arrow_dataset___expr__less(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
@@ -2396,7 +2396,7 @@ RcppExport SEXP _arrow_dataset___expr__less(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-ds::ExpressionPtr dataset___expr__less_equal(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
+std::shared_ptr<ds::ComparisonExpression> dataset___expr__less_equal(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
 RcppExport SEXP _arrow_dataset___expr__less_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
@@ -2412,7 +2412,7 @@ RcppExport SEXP _arrow_dataset___expr__less_equal(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-ds::ExpressionPtr dataset___expr__and(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
+std::shared_ptr<ds::AndExpression> dataset___expr__and(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
 RcppExport SEXP _arrow_dataset___expr__and(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
@@ -2428,7 +2428,7 @@ RcppExport SEXP _arrow_dataset___expr__and(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-ds::ExpressionPtr dataset___expr__or(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
+std::shared_ptr<ds::OrExpression> dataset___expr__or(const ds::ExpressionPtr& lhs, const ds::ExpressionPtr& rhs);
 RcppExport SEXP _arrow_dataset___expr__or(SEXP lhs_sexp, SEXP rhs_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
@@ -2444,7 +2444,7 @@ RcppExport SEXP _arrow_dataset___expr__or(SEXP lhs_sexp, SEXP rhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-ds::ExpressionPtr dataset___expr__not(const ds::ExpressionPtr& lhs);
+std::shared_ptr<ds::NotExpression> dataset___expr__not(const ds::ExpressionPtr& lhs);
 RcppExport SEXP _arrow_dataset___expr__not(SEXP lhs_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const ds::ExpressionPtr&>::type lhs(lhs_sexp);
@@ -2459,7 +2459,7 @@ RcppExport SEXP _arrow_dataset___expr__not(SEXP lhs_sexp){
 
 // expression.cpp
 #if defined(ARROW_R_WITH_ARROW)
-ds::ExpressionPtr dataset___expr__scalar(SEXP x);
+std::shared_ptr<ds::ScalarExpression> dataset___expr__scalar(SEXP x);
 RcppExport SEXP _arrow_dataset___expr__scalar(SEXP x_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<SEXP>::type x(x_sexp);
@@ -2835,10 +2835,10 @@ RcppExport SEXP _arrow_Field__type(SEXP field_sexp){
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-arrow::fs::FileType fs___FileStats__type(const std::shared_ptr<arrow::fs::FileStats>& x);
+fs::FileType fs___FileStats__type(const std::shared_ptr<fs::FileStats>& x);
 RcppExport SEXP _arrow_fs___FileStats__type(SEXP x_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileStats>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileStats>&>::type x(x_sexp);
 	return Rcpp::wrap(fs___FileStats__type(x));
 END_RCPP
 }
@@ -2850,11 +2850,11 @@ RcppExport SEXP _arrow_fs___FileStats__type(SEXP x_sexp){
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void fs___FileStats__set_type(const std::shared_ptr<arrow::fs::FileStats>& x, arrow::fs::FileType type);
+void fs___FileStats__set_type(const std::shared_ptr<fs::FileStats>& x, fs::FileType type);
 RcppExport SEXP _arrow_fs___FileStats__set_type(SEXP x_sexp, SEXP type_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileStats>&>::type x(x_sexp);
-	Rcpp::traits::input_parameter<arrow::fs::FileType>::type type(type_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileStats>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<fs::FileType>::type type(type_sexp);
 	fs___FileStats__set_type(x, type);
 	return R_NilValue;
 END_RCPP
@@ -2867,10 +2867,10 @@ RcppExport SEXP _arrow_fs___FileStats__set_type(SEXP x_sexp, SEXP type_sexp){
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::string fs___FileStats__path(const std::shared_ptr<arrow::fs::FileStats>& x);
+std::string fs___FileStats__path(const std::shared_ptr<fs::FileStats>& x);
 RcppExport SEXP _arrow_fs___FileStats__path(SEXP x_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileStats>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileStats>&>::type x(x_sexp);
 	return Rcpp::wrap(fs___FileStats__path(x));
 END_RCPP
 }
@@ -2882,10 +2882,10 @@ RcppExport SEXP _arrow_fs___FileStats__path(SEXP x_sexp){
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void fs___FileStats__set_path(const std::shared_ptr<arrow::fs::FileStats>& x, const std::string& path);
+void fs___FileStats__set_path(const std::shared_ptr<fs::FileStats>& x, const std::string& path);
 RcppExport SEXP _arrow_fs___FileStats__set_path(SEXP x_sexp, SEXP path_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileStats>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileStats>&>::type x(x_sexp);
 	Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);
 	fs___FileStats__set_path(x, path);
 	return R_NilValue;
@@ -2899,10 +2899,10 @@ RcppExport SEXP _arrow_fs___FileStats__set_path(SEXP x_sexp, SEXP path_sexp){
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-int64_t fs___FileStats__size(const std::shared_ptr<arrow::fs::FileStats>& x);
+int64_t fs___FileStats__size(const std::shared_ptr<fs::FileStats>& x);
 RcppExport SEXP _arrow_fs___FileStats__size(SEXP x_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileStats>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileStats>&>::type x(x_sexp);
 	return Rcpp::wrap(fs___FileStats__size(x));
 END_RCPP
 }
@@ -2914,10 +2914,10 @@ RcppExport SEXP _arrow_fs___FileStats__size(SEXP x_sexp){
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void fs___FileStats__set_size(const std::shared_ptr<arrow::fs::FileStats>& x, int64_t size);
+void fs___FileStats__set_size(const std::shared_ptr<fs::FileStats>& x, int64_t size);
 RcppExport SEXP _arrow_fs___FileStats__set_size(SEXP x_sexp, SEXP size_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileStats>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileStats>&>::type x(x_sexp);
 	Rcpp::traits::input_parameter<int64_t>::type size(size_sexp);
 	fs___FileStats__set_size(x, size);
 	return R_NilValue;
@@ -2931,10 +2931,10 @@ RcppExport SEXP _arrow_fs___FileStats__set_size(SEXP x_sexp, SEXP size_sexp){
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::string fs___FileStats__base_name(const std::shared_ptr<arrow::fs::FileStats>& x);
+std::string fs___FileStats__base_name(const std::shared_ptr<fs::FileStats>& x);
 RcppExport SEXP _arrow_fs___FileStats__base_name(SEXP x_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileStats>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileStats>&>::type x(x_sexp);
 	return Rcpp::wrap(fs___FileStats__base_name(x));
 END_RCPP
 }
@@ -2946,10 +2946,10 @@ RcppExport SEXP _arrow_fs___FileStats__base_name(SEXP x_sexp){
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::string fs___FileStats__extension(const std::shared_ptr<arrow::fs::FileStats>& x);
+std::string fs___FileStats__extension(const std::shared_ptr<fs::FileStats>& x);
 RcppExport SEXP _arrow_fs___FileStats__extension(SEXP x_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileStats>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileStats>&>::type x(x_sexp);
 	return Rcpp::wrap(fs___FileStats__extension(x));
 END_RCPP
 }
@@ -2961,10 +2961,10 @@ RcppExport SEXP _arrow_fs___FileStats__extension(SEXP x_sexp){
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-SEXP fs___FileStats__mtime(const std::shared_ptr<arrow::fs::FileStats>& x);
+SEXP fs___FileStats__mtime(const std::shared_ptr<fs::FileStats>& x);
 RcppExport SEXP _arrow_fs___FileStats__mtime(SEXP x_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileStats>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileStats>&>::type x(x_sexp);
 	return Rcpp::wrap(fs___FileStats__mtime(x));
 END_RCPP
 }
@@ -2976,10 +2976,10 @@ RcppExport SEXP _arrow_fs___FileStats__mtime(SEXP x_sexp){
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void fs___FileStats__set_mtime(const std::shared_ptr<arrow::fs::FileStats>& x, SEXP time);
+void fs___FileStats__set_mtime(const std::shared_ptr<fs::FileStats>& x, SEXP time);
 RcppExport SEXP _arrow_fs___FileStats__set_mtime(SEXP x_sexp, SEXP time_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileStats>&>::type x(x_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileStats>&>::type x(x_sexp);
 	Rcpp::traits::input_parameter<SEXP>::type time(time_sexp);
 	fs___FileStats__set_mtime(x, time);
 	return R_NilValue;
@@ -2993,10 +2993,10 @@ RcppExport SEXP _arrow_fs___FileStats__set_mtime(SEXP x_sexp, SEXP time_sexp){
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::string fs___Selector__base_dir(const std::shared_ptr<arrow::fs::Selector>& selector);
+std::string fs___Selector__base_dir(const std::shared_ptr<fs::Selector>& selector);
 RcppExport SEXP _arrow_fs___Selector__base_dir(SEXP selector_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::Selector>&>::type selector(selector_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::Selector>&>::type selector(selector_sexp);
 	return Rcpp::wrap(fs___Selector__base_dir(selector));
 END_RCPP
 }
@@ -3008,10 +3008,10 @@ RcppExport SEXP _arrow_fs___Selector__base_dir(SEXP selector_sexp){
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-bool fs___Selector__allow_non_existent(const std::shared_ptr<arrow::fs::Selector>& selector);
+bool fs___Selector__allow_non_existent(const std::shared_ptr<fs::Selector>& selector);
 RcppExport SEXP _arrow_fs___Selector__allow_non_existent(SEXP selector_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::Selector>&>::type selector(selector_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::Selector>&>::type selector(selector_sexp);
 	return Rcpp::wrap(fs___Selector__allow_non_existent(selector));
 END_RCPP
 }
@@ -3023,10 +3023,10 @@ RcppExport SEXP _arrow_fs___Selector__allow_non_existent(SEXP selector_sexp){
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-bool fs___Selector__recursive(const std::shared_ptr<arrow::fs::Selector>& selector);
+bool fs___Selector__recursive(const std::shared_ptr<fs::Selector>& selector);
 RcppExport SEXP _arrow_fs___Selector__recursive(SEXP selector_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::Selector>&>::type selector(selector_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::Selector>&>::type selector(selector_sexp);
 	return Rcpp::wrap(fs___Selector__recursive(selector));
 END_RCPP
 }
@@ -3038,7 +3038,7 @@ RcppExport SEXP _arrow_fs___Selector__recursive(SEXP selector_sexp){
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::fs::Selector> fs___Selector__create(const std::string& base_dir, bool allow_non_existent, bool recursive);
+std::shared_ptr<fs::Selector> fs___Selector__create(const std::string& base_dir, bool allow_non_existent, bool recursive);
 RcppExport SEXP _arrow_fs___Selector__create(SEXP base_dir_sexp, SEXP allow_non_existent_sexp, SEXP recursive_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::string&>::type base_dir(base_dir_sexp);
@@ -3055,10 +3055,10 @@ RcppExport SEXP _arrow_fs___Selector__create(SEXP base_dir_sexp, SEXP allow_non_
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::vector<std::shared_ptr<arrow::fs::FileStats>> fs___FileSystem__GetTargetStats_Paths(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::vector<std::string>& paths);
+std::vector<std::shared_ptr<fs::FileStats>> fs___FileSystem__GetTargetStats_Paths(const std::shared_ptr<fs::FileSystem>& file_system, const std::vector<std::string>& paths);
 RcppExport SEXP _arrow_fs___FileSystem__GetTargetStats_Paths(SEXP file_system_sexp, SEXP paths_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type file_system(file_system_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
 	Rcpp::traits::input_parameter<const std::vector<std::string>&>::type paths(paths_sexp);
 	return Rcpp::wrap(fs___FileSystem__GetTargetStats_Paths(file_system, paths));
 END_RCPP
@@ -3071,11 +3071,11 @@ RcppExport SEXP _arrow_fs___FileSystem__GetTargetStats_Paths(SEXP file_system_se
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::vector<std::shared_ptr<arrow::fs::FileStats>> fs___FileSystem__GetTargetStats_Selector(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::shared_ptr<arrow::fs::Selector>& selector);
+std::vector<std::shared_ptr<fs::FileStats>> fs___FileSystem__GetTargetStats_Selector(const std::shared_ptr<fs::FileSystem>& file_system, const std::shared_ptr<fs::Selector>& selector);
 RcppExport SEXP _arrow_fs___FileSystem__GetTargetStats_Selector(SEXP file_system_sexp, SEXP selector_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type file_system(file_system_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::Selector>&>::type selector(selector_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::Selector>&>::type selector(selector_sexp);
 	return Rcpp::wrap(fs___FileSystem__GetTargetStats_Selector(file_system, selector));
 END_RCPP
 }
@@ -3087,10 +3087,10 @@ RcppExport SEXP _arrow_fs___FileSystem__GetTargetStats_Selector(SEXP file_system
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void fs___FileSystem__CreateDir(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& path, bool recursive);
+void fs___FileSystem__CreateDir(const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path, bool recursive);
 RcppExport SEXP _arrow_fs___FileSystem__CreateDir(SEXP file_system_sexp, SEXP path_sexp, SEXP recursive_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type file_system(file_system_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
 	Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);
 	Rcpp::traits::input_parameter<bool>::type recursive(recursive_sexp);
 	fs___FileSystem__CreateDir(file_system, path, recursive);
@@ -3105,10 +3105,10 @@ RcppExport SEXP _arrow_fs___FileSystem__CreateDir(SEXP file_system_sexp, SEXP pa
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void fs___FileSystem__DeleteDir(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& path);
+void fs___FileSystem__DeleteDir(const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path);
 RcppExport SEXP _arrow_fs___FileSystem__DeleteDir(SEXP file_system_sexp, SEXP path_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type file_system(file_system_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
 	Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);
 	fs___FileSystem__DeleteDir(file_system, path);
 	return R_NilValue;
@@ -3122,10 +3122,10 @@ RcppExport SEXP _arrow_fs___FileSystem__DeleteDir(SEXP file_system_sexp, SEXP pa
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void fs___FileSystem__DeleteDirContents(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& path);
+void fs___FileSystem__DeleteDirContents(const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path);
 RcppExport SEXP _arrow_fs___FileSystem__DeleteDirContents(SEXP file_system_sexp, SEXP path_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type file_system(file_system_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
 	Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);
 	fs___FileSystem__DeleteDirContents(file_system, path);
 	return R_NilValue;
@@ -3139,10 +3139,10 @@ RcppExport SEXP _arrow_fs___FileSystem__DeleteDirContents(SEXP file_system_sexp,
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void fs___FileSystem__DeleteFile(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& path);
+void fs___FileSystem__DeleteFile(const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path);
 RcppExport SEXP _arrow_fs___FileSystem__DeleteFile(SEXP file_system_sexp, SEXP path_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type file_system(file_system_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
 	Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);
 	fs___FileSystem__DeleteFile(file_system, path);
 	return R_NilValue;
@@ -3156,10 +3156,10 @@ RcppExport SEXP _arrow_fs___FileSystem__DeleteFile(SEXP file_system_sexp, SEXP p
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void fs___FileSystem__DeleteFiles(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::vector<std::string>& paths);
+void fs___FileSystem__DeleteFiles(const std::shared_ptr<fs::FileSystem>& file_system, const std::vector<std::string>& paths);
 RcppExport SEXP _arrow_fs___FileSystem__DeleteFiles(SEXP file_system_sexp, SEXP paths_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type file_system(file_system_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
 	Rcpp::traits::input_parameter<const std::vector<std::string>&>::type paths(paths_sexp);
 	fs___FileSystem__DeleteFiles(file_system, paths);
 	return R_NilValue;
@@ -3173,10 +3173,10 @@ RcppExport SEXP _arrow_fs___FileSystem__DeleteFiles(SEXP file_system_sexp, SEXP 
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void fs___FileSystem__Move(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& src, const std::string& dest);
+void fs___FileSystem__Move(const std::shared_ptr<fs::FileSystem>& file_system, const std::string& src, const std::string& dest);
 RcppExport SEXP _arrow_fs___FileSystem__Move(SEXP file_system_sexp, SEXP src_sexp, SEXP dest_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type file_system(file_system_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
 	Rcpp::traits::input_parameter<const std::string&>::type src(src_sexp);
 	Rcpp::traits::input_parameter<const std::string&>::type dest(dest_sexp);
 	fs___FileSystem__Move(file_system, src, dest);
@@ -3191,10 +3191,10 @@ RcppExport SEXP _arrow_fs___FileSystem__Move(SEXP file_system_sexp, SEXP src_sex
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void fs___FileSystem__CopyFile(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& src, const std::string& dest);
+void fs___FileSystem__CopyFile(const std::shared_ptr<fs::FileSystem>& file_system, const std::string& src, const std::string& dest);
 RcppExport SEXP _arrow_fs___FileSystem__CopyFile(SEXP file_system_sexp, SEXP src_sexp, SEXP dest_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type file_system(file_system_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
 	Rcpp::traits::input_parameter<const std::string&>::type src(src_sexp);
 	Rcpp::traits::input_parameter<const std::string&>::type dest(dest_sexp);
 	fs___FileSystem__CopyFile(file_system, src, dest);
@@ -3209,10 +3209,10 @@ RcppExport SEXP _arrow_fs___FileSystem__CopyFile(SEXP file_system_sexp, SEXP src
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::io::InputStream> fs___FileSystem__OpenInputStream(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& path);
+std::shared_ptr<arrow::io::InputStream> fs___FileSystem__OpenInputStream(const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path);
 RcppExport SEXP _arrow_fs___FileSystem__OpenInputStream(SEXP file_system_sexp, SEXP path_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type file_system(file_system_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
 	Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);
 	return Rcpp::wrap(fs___FileSystem__OpenInputStream(file_system, path));
 END_RCPP
@@ -3225,10 +3225,10 @@ RcppExport SEXP _arrow_fs___FileSystem__OpenInputStream(SEXP file_system_sexp, S
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::io::RandomAccessFile> fs___FileSystem__OpenInputFile(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& path);
+std::shared_ptr<arrow::io::RandomAccessFile> fs___FileSystem__OpenInputFile(const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path);
 RcppExport SEXP _arrow_fs___FileSystem__OpenInputFile(SEXP file_system_sexp, SEXP path_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type file_system(file_system_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
 	Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);
 	return Rcpp::wrap(fs___FileSystem__OpenInputFile(file_system, path));
 END_RCPP
@@ -3241,10 +3241,10 @@ RcppExport SEXP _arrow_fs___FileSystem__OpenInputFile(SEXP file_system_sexp, SEX
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::io::OutputStream> fs___FileSystem__OpenOutputStream(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& path);
+std::shared_ptr<arrow::io::OutputStream> fs___FileSystem__OpenOutputStream(const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path);
 RcppExport SEXP _arrow_fs___FileSystem__OpenOutputStream(SEXP file_system_sexp, SEXP path_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type file_system(file_system_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
 	Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);
 	return Rcpp::wrap(fs___FileSystem__OpenOutputStream(file_system, path));
 END_RCPP
@@ -3257,10 +3257,10 @@ RcppExport SEXP _arrow_fs___FileSystem__OpenOutputStream(SEXP file_system_sexp, 
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::io::OutputStream> fs___FileSystem__OpenAppendStream(const std::shared_ptr<arrow::fs::FileSystem>& file_system, const std::string& path);
+std::shared_ptr<arrow::io::OutputStream> fs___FileSystem__OpenAppendStream(const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path);
 RcppExport SEXP _arrow_fs___FileSystem__OpenAppendStream(SEXP file_system_sexp, SEXP path_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type file_system(file_system_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type file_system(file_system_sexp);
 	Rcpp::traits::input_parameter<const std::string&>::type path(path_sexp);
 	return Rcpp::wrap(fs___FileSystem__OpenAppendStream(file_system, path));
 END_RCPP
@@ -3273,7 +3273,7 @@ RcppExport SEXP _arrow_fs___FileSystem__OpenAppendStream(SEXP file_system_sexp, 
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::fs::LocalFileSystem> fs___LocalFileSystem__create();
+std::shared_ptr<fs::LocalFileSystem> fs___LocalFileSystem__create();
 RcppExport SEXP _arrow_fs___LocalFileSystem__create(){
 BEGIN_RCPP
 	return Rcpp::wrap(fs___LocalFileSystem__create());
@@ -3287,11 +3287,11 @@ RcppExport SEXP _arrow_fs___LocalFileSystem__create(){
 
 // filesystem.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::fs::SubTreeFileSystem> fs___SubTreeFileSystem__create(const std::string& base_path, const std::shared_ptr<arrow::fs::FileSystem>& base_fs);
+std::shared_ptr<fs::SubTreeFileSystem> fs___SubTreeFileSystem__create(const std::string& base_path, const std::shared_ptr<fs::FileSystem>& base_fs);
 RcppExport SEXP _arrow_fs___SubTreeFileSystem__create(SEXP base_path_sexp, SEXP base_fs_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::string&>::type base_path(base_path_sexp);
-	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::fs::FileSystem>&>::type base_fs(base_fs_sexp);
+	Rcpp::traits::input_parameter<const std::shared_ptr<fs::FileSystem>&>::type base_fs(base_fs_sexp);
 	return Rcpp::wrap(fs___SubTreeFileSystem__create(base_path, base_fs));
 END_RCPP
 }

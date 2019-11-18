@@ -57,9 +57,7 @@ Result<ScanTaskIterator> SimpleDataFragment::Scan(ScanContextPtr context) {
 
 Result<DatasetPtr> Dataset::Make(DataSourceVector sources,
                                  std::shared_ptr<Schema> schema) {
-  DatasetPtr dataset;
-  dataset.reset(new Dataset(std::move(sources), std::move(schema)));
-  return dataset;
+  return DatasetPtr(new Dataset(std::move(sources), std::move(schema)));
 }
 
 Result<ScannerBuilderPtr> Dataset::NewScan(ScanContextPtr context) {

@@ -47,7 +47,7 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
  public:
   std::string name() const override { return "parquet"; }
 
-  Status IsSupported(const FileSource& source, bool* supported) const override;
+  Result<bool> IsSupported(const FileSource& source) const override;
 
   /// \brief Return the schema of the file if possible.
   Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override;

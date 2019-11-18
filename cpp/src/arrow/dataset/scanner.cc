@@ -49,8 +49,7 @@ static ScanTaskIterator GetScanTaskIterator(DataFragmentIterator fragments,
   // DataFragment -> ScanTaskIterator
   auto fn = [context](std::shared_ptr<DataFragment> fragment,
                       ScanTaskIterator* out) -> Status {
-    ARROW_ASSIGN_OR_RAISE(*out, fragment->Scan(context));
-    return Status::OK();
+    return fragment->Scan(context).Value(out);
   };
 
   // Iterator<Iterator<ScanTask>>
@@ -66,8 +65,8 @@ static ScanTaskIterator ProjectAndFilterScanTaskIterator(
     std::shared_ptr<RecordBatchProjector> projector) {
   // Wrap the scanner ScanTask with a FilterAndProjectScanTask
   auto wrap_scan_task = [filter, evaluator, projector](ScanTaskPtr task) -> ScanTaskPtr {
-    return internal::make_unique<FilterAndProjectScanTask>(std::move(task), filter,
-                                                           evaluator, projector);
+    return std::make_shared<FilterAndProjectScanTask>(std::move(task), filter, evaluator,
+                                                      projector);
   };
   return MakeMapIterator(wrap_scan_task, std::move(it));
 }

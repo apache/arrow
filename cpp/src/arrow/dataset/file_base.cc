@@ -67,11 +67,9 @@ Result<DataSourcePtr> FileSystemDataSource::Make(fs::FileSystemPtr filesystem,
   fs::PathForest forest;
   RETURN_NOT_OK(fs::PathTree::Make(stats, &forest));
 
-  DataSourcePtr source;
-  source.reset(new FileSystemDataSource(std::move(filesystem), std::move(forest),
-                                        std::move(source_partition),
-                                        std::move(partitions), std::move(format)));
-  return source;
+  return DataSourcePtr(new FileSystemDataSource(
+      std::move(filesystem), std::move(forest), std::move(source_partition),
+      std::move(partitions), std::move(format)));
 }
 
 DataFragmentIterator FileSystemDataSource::GetFragmentsImpl(ScanOptionsPtr options) {

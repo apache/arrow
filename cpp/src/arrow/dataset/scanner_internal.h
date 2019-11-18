@@ -37,8 +37,7 @@ static inline RecordBatchIterator FilterRecordBatch(
   auto filter_fn = [filter, evaluator](std::shared_ptr<RecordBatch> in,
                                        std::shared_ptr<RecordBatch>* out) {
     ARROW_ASSIGN_OR_RAISE(auto selection_datum, evaluator->Evaluate(*filter, *in));
-    ARROW_ASSIGN_OR_RAISE(*out, evaluator->Filter(selection_datum, in));
-    return Status::OK();
+    return evaluator->Filter(selection_datum, in).Value(out);
   };
 
   return MakeMaybeMapIterator(filter_fn, std::move(it));
@@ -52,8 +51,7 @@ static inline RecordBatchIterator ProjectRecordBatch(
 
   auto project = [projector](std::shared_ptr<RecordBatch> in,
                              std::shared_ptr<RecordBatch>* out) {
-    ARROW_ASSIGN_OR_RAISE(*out, projector->Project(*in));
-    return Status::OK();
+    return projector->Project(*in).Value(out);
   };
   return MakeMaybeMapIterator(project, std::move(it));
 }

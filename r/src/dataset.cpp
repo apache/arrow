@@ -28,20 +28,20 @@ ds::DataSourceDiscoveryPtr dataset___FSDSDiscovery__Make(
   // TODO(fsaintjacques): Make options configurable
   auto options = ds::FileSystemDiscoveryOptions{};
 
-  return ValueOrStop(
+  return VALUE_OR_STOP(
       ds::FileSystemDataSourceDiscovery::Make(fs, *selector, format, options));
 }
 
 // [[arrow::export]]
 ds::DataSourcePtr dataset___DSDiscovery__Finish(
     const ds::DataSourceDiscoveryPtr& discovery) {
-  return ValueOrStop(discovery->Finish());
+  return VALUE_OR_STOP(discovery->Finish());
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Schema> dataset___DSDiscovery__Inspect(
     const ds::DataSourceDiscoveryPtr& discovery) {
-  return ValueOrStop(discovery->Inspect());
+  return VALUE_OR_STOP(discovery->Inspect());
 }
 
 // [[arrow::export]]
@@ -65,7 +65,7 @@ ds::PartitionSchemePtr dataset___HivePartitionScheme(
 // [[arrow::export]]
 ds::DatasetPtr dataset___Dataset__create(const ds::DataSourceVector& sources,
                                          const std::shared_ptr<arrow::Schema>& schm) {
-  return ValueOrStop(ds::Dataset::Make(sources, schm));
+  return VALUE_OR_STOP(ds::Dataset::Make(sources, schm));
 }
 
 // [[arrow::export]]
@@ -75,7 +75,7 @@ std::shared_ptr<arrow::Schema> dataset___Dataset__schema(const ds::DatasetPtr& d
 
 // [[arrow::export]]
 ds::ScannerBuilderPtr dataset___Dataset__NewScan(const ds::DatasetPtr& ds) {
-  return ValueOrStop(ds->NewScan());
+  return VALUE_OR_STOP(ds->NewScan());
 }
 
 // [[arrow::export]]
@@ -89,7 +89,7 @@ void dataset___ScannerBuilder__Filter(const ds::ScannerBuilderPtr& sb,
                                       const ds::ExpressionPtr& expr) {
   // Expressions converted from R's expressions are typed with R's native type,
   // i.e. double, int64_t and bool.
-  auto cast_filter = ValueOrStop(InsertImplicitCasts(*expr, *sb->schema()));
+  auto cast_filter = VALUE_OR_STOP(InsertImplicitCasts(*expr, *sb->schema()));
   STOP_IF_NOT_OK(sb->Filter(cast_filter));
 }
 
@@ -106,12 +106,12 @@ std::shared_ptr<arrow::Schema> dataset___ScannerBuilder__schema(
 
 // [[arrow::export]]
 ds::ScannerPtr dataset___ScannerBuilder__Finish(const ds::ScannerBuilderPtr& sb) {
-  return ValueOrStop(sb->Finish());
+  return VALUE_OR_STOP(sb->Finish());
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> dataset___Scanner__ToTable(const ds::ScannerPtr& scanner) {
-  return ValueOrStop(scanner->ToTable());
+  return VALUE_OR_STOP(scanner->ToTable());
 }
 
 #endif

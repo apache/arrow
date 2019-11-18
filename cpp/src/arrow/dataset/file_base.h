@@ -134,7 +134,7 @@ class ARROW_DS_EXPORT FileFormat {
   virtual std::string name() const = 0;
 
   /// \brief Indicate if the FileSource is supported/readable by this format.
-  virtual Status IsSupported(const FileSource& source, bool* supported) const = 0;
+  virtual Result<bool> IsSupported(const FileSource& source) const = 0;
 
   /// \brief Return the schema of the file if possible.
   virtual Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const = 0;
@@ -198,7 +198,7 @@ class ARROW_DS_EXPORT FileSystemDataSource : public DataSource {
 
   bool PartitionMatches(const fs::FileStats& stats, ExpressionPtr filter);
 
-  fs::FileSystemPtr filesystem_ = NULLPTR;
+  fs::FileSystemPtr filesystem_;
   fs::PathForest forest_;
   PathPartitions partitions_;
 

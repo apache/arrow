@@ -189,10 +189,7 @@ class DummyFileFormat : public FileFormat {
 
   std::string name() const override { return "dummy"; }
 
-  Status IsSupported(const FileSource& source, bool* supported) const override {
-    *supported = true;
-    return Status::OK();
-  }
+  Result<bool> IsSupported(const FileSource& source) const override { return true; }
 
   Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override {
     return schema_;
@@ -232,10 +229,7 @@ class JSONRecordBatchFileFormat : public FileFormat {
   std::string name() const override { return "json_record_batch"; }
 
   /// \brief Return true if the given file extension
-  Status IsSupported(const FileSource& source, bool* supported) const override {
-    *supported = true;
-    return Status::OK();
-  }
+  Result<bool> IsSupported(const FileSource& source) const override { return true; }
 
   Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override {
     return schema_;
