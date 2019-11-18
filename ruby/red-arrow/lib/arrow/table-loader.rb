@@ -147,9 +147,9 @@ module Arrow
       options = @options.dup
       options.delete(:format)
       if @input.is_a?(Buffer)
-        CSVLoader.load(@input.data.to_s, options)
+        CSVLoader.load(@input.data.to_s, **options)
       else
-        CSVLoader.load(Pathname.new(@input), options)
+        CSVLoader.load(Pathname.new(@input), **options)
       end
     end
 
