@@ -22,4 +22,17 @@ import sys
 if sys.version_info < (3,):
     raise ImportError("Python Dataset bindings require Python 3")
 
-from pyarrow._dataset import *  # noqa
+from pyarrow._dataset import (
+    Dataset,
+    DataSource,
+    DataFragment,
+    SimpleDataFragment,
+    ScanOptions,
+    ScanTask,
+    Scanner,
+    SimpleScanner,
+    ScanOptions,
+    ScanContext,
+    SimpleDataSource,
+    TreeDataSource
+)
