@@ -20,5 +20,6 @@ members = [
         "arrow",
         "parquet",
         "datafusion",
+        "flight_proto",
         "flight",
 ]

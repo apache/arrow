@@ -16,8 +16,8 @@
 # under the License.
 
 [package]
-name = "flight"
-description = "Flight server"
+name = "flight_proto"
+description = "Apache Arrow Flight protobuf"
 version = "1.0.0-SNAPSHOT"
 edition = "2018"
 authors = ["Apache Arrow <dev@arrow.apache.org>"]
@@ -26,13 +26,18 @@ repository = "https://github.com/apache/arrow"
 license = "Apache-2.0"
 
 [dependencies]
-flight_proto = { path = "../flight_proto", version = "1.0.0-SNAPSHOT" }
 tonic = "0.1.0-alpha.6"
 bytes = "0.4"
+prost = "0.5"
+prost-derive = "0.5"
 tokio = "=0.2.0-alpha.6"
 futures-preview = { version = "=0.3.0-alpha.19", default-features = false, features = ["alloc"]}
 async-stream = "0.1.2"
 
-[[bin]]
-name = "flight-demo"
-path = "src/bin/main.rs"
+[build-dependencies]
+tonic-build = "0.1.0-alpha.6"
+
+[lib]
+name = "flight_proto"
+path = "src/lib.rs"
+
