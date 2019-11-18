@@ -95,7 +95,7 @@ impl ArrowJsonSchema {
 }
 
 impl ArrowJsonBatch {
-    /// Comapre the Arrow JSON record batch with a `RecordBatch`
+    /// Compare the Arrow JSON record batch with a `RecordBatch`
     fn equals_batch(&self, batch: &RecordBatch) -> bool {
         if self.count != batch.num_rows() {
             return false;
