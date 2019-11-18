@@ -15,13 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "arrow/column-containable"
-require "arrow/group"
-require "arrow/record-containable"
-
 module Arrow
   class Table
     include ColumnContainable
+    include GenericFilterable
+    include GenericTakeable
     include RecordContainable
 
     class << self
@@ -507,18 +505,6 @@ module Arrow
         return column if column
       end
       super
-    end
-
-    alias_method :filter_raw, :filter
-    def filter(array)
-      case array
-      when ::Array
-        filter_raw(BooleanArray.new(array))
-      when ChunkedArray
-        filter_chunked_array(array)
-      else
-        filter_raw(array)
-      end
     end
 
     private

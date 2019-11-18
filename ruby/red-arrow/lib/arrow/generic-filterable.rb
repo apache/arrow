@@ -15,31 +15,29 @@
 # specific language governing permissions and limitations
 # under the License.
 
-class TimestampArrayTest < Test::Unit::TestCase
-  test("#[]") do
-    sec = 1513267750
-    usec = 914509
-    array = Arrow::TimestampArray.new(:micro, [sec * (10 ** 6) + usec])
-    time = Time.at(sec, usec)
-    assert_equal(time, array[0])
-  end
-
-  sub_test_case("#is_in") do
-    def setup
-      values = [
-        Time.parse("2019-11-18T00:09:11"),
-        Time.parse("2019-11-18T00:09:12"),
-        Time.parse("2019-11-18T00:09:13"),
-      ]
-      @array = Arrow::TimestampArray.new(:micro, values)
+module Arrow
+  module GenericFilterable
+    class << self
+      def included(base)
+        base.alias_method :filter_raw, :filter
+        base.alias_method :filter, :filter_generic
+      end
     end
 
-    test("Arrow: Array") do
-      right = [
-        Time.parse("2019-11-18T00:09:12"),
-      ]
-      assert_equal(Arrow::BooleanArray.new([false, true, false]),
-                   @array.is_in(right))
+    def filter_generic(filter)
+      case filter
+      when ::Array
+        filter_raw(BooleanArray.new(filter))
+      when ChunkedArray
+        if respond_to?(:filter_chunked_array)
+          filter_chunked_array(filter)
+        else
+          # TODO: Implement this in C++
+          filter_raw(filter.pack)
+        end
+      else
+        filter_raw(filter)
+      end
     end
   end
 end
