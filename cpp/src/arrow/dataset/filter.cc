@@ -606,7 +606,7 @@ std::string ScalarExpression::ToString() const {
     return "null:" + type_repr;
   }
 
-  return "scalar<" + value_->type->ToString() + ">(" + value_->ToString() + ")";
+  return value_->ToString() + ":" + type_repr;
 }
 
 std::string AndExpression::ToString() const {
