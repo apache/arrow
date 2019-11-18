@@ -28,7 +28,9 @@ depends=("${MINGW_PACKAGE_PREFIX}-boost"
          "${MINGW_PACKAGE_PREFIX}-double-conversion"
          "${MINGW_PACKAGE_PREFIX}-thrift"
          "${MINGW_PACKAGE_PREFIX}-snappy"
-         "${MINGW_PACKAGE_PREFIX}-zlib")
+         "${MINGW_PACKAGE_PREFIX}-zlib"
+         "${MINGW_PACKAGE_PREFIX}-lz4"         
+         "${MINGW_PACKAGE_PREFIX}-zstd")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cmake"
              "${MINGW_PACKAGE_PREFIX}-gcc")
 options=("staticlibs" "strip" "!buildflags")
@@ -85,6 +87,8 @@ build() {
     -DARROW_JEMALLOC=OFF \
     -DARROW_WITH_ZLIB=ON \
     -DARROW_WITH_SNAPPY=ON \
+    -DARROW_WITH_LZ4=ON \
+    -DARROW_WITH_ZSTD=ON \
     -DARROW_USE_GLOG=OFF \
     -DARROW_BUILD_UTILITIES=OFF \
     -Ddouble-conversion_ROOT="${MINGW_PREFIX}" \
