@@ -120,6 +120,15 @@ class ARROW_EXPORT SparseCOOIndex : public internal::SparseIndexBase<SparseCOOIn
     return indices()->Equals(*other.indices());
   }
 
+  Status ValidateShape(const std::vector<int64_t>& shape) const {
+    if (static_cast<size_t>(coords_->shape()[1]) == shape.size()) {
+      return Status::OK();
+    }
+
+    return Status::Invalid(
+        "shape length is inconsistent with the coords matrix in COO index");
+  }
+
  protected:
   std::shared_ptr<Tensor> coords_;
 };
@@ -174,6 +183,23 @@ class ARROW_EXPORT SparseCSRIndex : public internal::SparseIndexBase<SparseCSRIn
   /// \brief Return whether the CSR indices are equal
   bool Equals(const SparseCSRIndex& other) const {
     return indptr()->Equals(*other.indptr()) && indices()->Equals(*other.indices());
+  }
+
+  Status ValidateShape(const std::vector<int64_t>& shape) const {
+    if (shape.size() < 1) {
+      return Status::Invalid("shape length is too short");
+    }
+
+    if (shape.size() > 2) {
+      return Status::Invalid("shape length is too long");
+    }
+
+    if (indptr_->shape()[0] == shape[0] + 1) {
+      return Status::OK();
+    }
+
+    return Status::Invalid(
+        "shape length is inconsistent with the coords matrix in COO index");
   }
 
  protected:
@@ -292,7 +318,27 @@ class SparseTensorImpl : public SparseTensor {
                    const std::vector<std::string>& dim_names = {})
       : SparseTensorImpl(NULLPTR, type, NULLPTR, shape, dim_names) {}
 
-  /// \brief Construct a sparse tensor from a dense tensor
+  /// \brief Create a SparseTensor with full parameters
+  static Status Make(const std::shared_ptr<SparseIndexType>& sparse_index,
+                     const std::shared_ptr<DataType>& type,
+                     const std::shared_ptr<Buffer>& data,
+                     const std::vector<int64_t>& shape,
+                     const std::vector<std::string>& dim_names,
+                     std::shared_ptr<SparseTensorImpl<SparseIndexType>>* out) {
+    if (!is_tensor_supported(type->id())) {
+      return Status::Invalid(type->ToString(),
+                             " is not valid data type for a sparse tensor");
+    }
+    ARROW_RETURN_NOT_OK(sparse_index->ValidateShape(shape));
+    if (dim_names.size() > 0 && dim_names.size() != shape.size()) {
+      return Status::Invalid("dim_names length is inconsistent with shape");
+    }
+    *out = std::make_shared<SparseTensorImpl<SparseIndexType>>(sparse_index, type, data,
+                                                               shape, dim_names);
+    return Status::OK();
+  }
+
+  /// \brief Create a sparse tensor from a dense tensor
   ///
   /// The dense tensor is re-encoded as a sparse index and a physical
   /// data buffer for the non-zero value.

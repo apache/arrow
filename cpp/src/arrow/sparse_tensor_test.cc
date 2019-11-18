@@ -255,6 +255,50 @@ class TestSparseCOOTensorForIndexValueType
 
 TYPED_TEST_CASE_P(TestSparseCOOTensorForIndexValueType);
 
+TYPED_TEST_P(TestSparseCOOTensorForIndexValueType, Make) {
+  using IndexValueType = TypeParam;
+  using c_index_value_type = typename IndexValueType::c_type;
+
+  // Sparse representation:
+  // idx[0] = [0 0 0 0 0 0  1  1  1  1  1  1]
+  // idx[1] = [0 0 1 1 2 2  0  0  1  1  2  2]
+  // idx[2] = [0 2 1 3 0 2  1  3  0  2  1  3]
+  // data   = [1 2 3 4 5 6 11 12 13 14 15 16]
+  std::vector<c_index_value_type> coords_values = {0, 0, 0, 0, 0, 2, 0, 1, 1, 0, 1, 3,
+                                                   0, 2, 0, 0, 2, 2, 1, 0, 1, 1, 0, 3,
+                                                   1, 1, 0, 1, 1, 2, 1, 2, 1, 1, 2, 3};
+  constexpr int sizeof_index_value = sizeof(c_index_value_type);
+  auto si = this->MakeSparseCOOIndex(
+      {12, 3}, {sizeof_index_value * 3, sizeof_index_value}, coords_values);
+
+  std::vector<int64_t> sparse_values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
+  auto sparse_data = Buffer::Wrap(sparse_values);
+
+  std::shared_ptr<SparseCOOTensor> st;
+
+  // OK
+  ASSERT_OK(SparseCOOTensor::Make(si, int64(), sparse_data, this->shape_,
+                                  this->dim_names_, &st));
+
+  // OK with an empty dim_names
+  ASSERT_OK(SparseCOOTensor::Make(si, int64(), sparse_data, this->shape_, {}, &st));
+
+  // invalid data type
+  ASSERT_RAISES(Invalid,
+                SparseCOOTensor::Make(si, binary(), sparse_data, this->shape_, {}, &st));
+
+  // empty shape
+  ASSERT_RAISES(Invalid, SparseCOOTensor::Make(si, int64(), sparse_data, {}, {}, &st));
+
+  // sparse index and ndim (shape length) are inconsistent
+  ASSERT_RAISES(Invalid,
+                SparseCOOTensor::Make(si, int64(), sparse_data, {6, 4}, {}, &st));
+
+  // shape and dim_names are inconsistent
+  ASSERT_RAISES(Invalid, SparseCOOTensor::Make(si, int64(), sparse_data, this->shape_,
+                                               std::vector<std::string>{"foo"}, &st));
+}
+
 TYPED_TEST_P(TestSparseCOOTensorForIndexValueType, CreationWithRowMajorIndex) {
   using IndexValueType = TypeParam;
   using c_index_value_type = typename IndexValueType::c_type;
@@ -267,7 +311,7 @@ TYPED_TEST_P(TestSparseCOOTensorForIndexValueType, CreationWithRowMajorIndex) {
   std::vector<c_index_value_type> coords_values = {0, 0, 0, 0, 0, 2, 0, 1, 1, 0, 1, 3,
                                                    0, 2, 0, 0, 2, 2, 1, 0, 1, 1, 0, 3,
                                                    1, 1, 0, 1, 1, 2, 1, 2, 1, 1, 2, 3};
-  const int sizeof_index_value = sizeof(c_index_value_type);
+  constexpr int sizeof_index_value = sizeof(c_index_value_type);
   auto si = this->MakeSparseCOOIndex(
       {12, 3}, {sizeof_index_value * 3, sizeof_index_value}, coords_values);
 
@@ -294,7 +338,7 @@ TYPED_TEST_P(TestSparseCOOTensorForIndexValueType, CreationWithColumnMajorIndex)
   std::vector<c_index_value_type> coords_values = {0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1,
                                                    0, 0, 1, 1, 2, 2, 0, 0, 1, 1, 2, 2,
                                                    0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3};
-  const int sizeof_index_value = sizeof(c_index_value_type);
+  constexpr int sizeof_index_value = sizeof(c_index_value_type);
   auto si = this->MakeSparseCOOIndex(
       {12, 3}, {sizeof_index_value, sizeof_index_value * 12}, coords_values);
 
@@ -322,7 +366,7 @@ TYPED_TEST_P(TestSparseCOOTensorForIndexValueType,
 
   // Row-major COO index
   const std::vector<int64_t> coords_shape = {12, 3};
-  const int sizeof_index_value = sizeof(c_index_value_type);
+  constexpr int sizeof_index_value = sizeof(c_index_value_type);
   std::vector<c_index_value_type> coords_values_row_major = {
       0, 0, 0, 0, 0, 2, 0, 1, 1, 0, 1, 3, 0, 2, 0, 0, 2, 2,
       1, 0, 1, 1, 0, 3, 1, 1, 0, 1, 1, 2, 1, 2, 1, 1, 2, 3};
@@ -347,7 +391,7 @@ TYPED_TEST_P(TestSparseCOOTensorForIndexValueType,
   ASSERT_TRUE(st2->Equals(*st1));
 }
 
-REGISTER_TYPED_TEST_CASE_P(TestSparseCOOTensorForIndexValueType,
+REGISTER_TYPED_TEST_CASE_P(TestSparseCOOTensorForIndexValueType, Make,
                            CreationWithRowMajorIndex, CreationWithColumnMajorIndex,
                            EqualityBetweenRowAndColumnMajorIndices);
 
@@ -519,4 +563,69 @@ TEST_F(TestSparseCSRMatrix, TestToTensor) {
   ASSERT_OK(sparse_tensor->ToTensor(&dense_tensor));
   ASSERT_TRUE(tensor.Equals(*dense_tensor));
 }
+
+template <typename IndexValueType>
+class TestSparseCSRMatrixForIndexValueType
+    : public TestSparseCSRMatrixBase<IndexValueType> {};
+
+TYPED_TEST_CASE_P(TestSparseCSRMatrixForIndexValueType);
+
+TYPED_TEST_P(TestSparseCSRMatrixForIndexValueType, Make) {
+  using IndexValueType = TypeParam;
+  using c_index_value_type = typename IndexValueType::c_type;
+
+  // Sparse representation:
+  std::vector<c_index_value_type> indptr_values = {0, 2, 4, 6, 8, 10, 12};
+  std::vector<c_index_value_type> indices_values = {0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3};
+
+  std::vector<int64_t> indptr_shape = {7};
+  std::vector<int64_t> indices_shape = {12};
+
+  std::shared_ptr<SparseCSRIndex> si;
+  ASSERT_OK(SparseCSRIndex::Make(TypeTraits<IndexValueType>::type_singleton(),
+                                 indptr_shape, indices_shape, Buffer::Wrap(indptr_values),
+                                 Buffer::Wrap(indices_values), &si));
+
+  std::vector<int64_t> sparse_values = {1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16};
+  auto sparse_data = Buffer::Wrap(sparse_values);
+
+  std::shared_ptr<SparseCSRMatrix> sm;
+
+  // OK
+  ASSERT_OK(SparseCSRMatrix::Make(si, int64(), sparse_data, this->shape_,
+                                  this->dim_names_, &sm));
+
+  // OK with an empty dim_names
+  ASSERT_OK(SparseCSRMatrix::Make(si, int64(), sparse_data, this->shape_, {}, &sm));
+
+  // invalid data type
+  ASSERT_RAISES(Invalid,
+                SparseCSRMatrix::Make(si, binary(), sparse_data, this->shape_, {}, &sm));
+
+  // empty shape
+  ASSERT_RAISES(Invalid, SparseCSRMatrix::Make(si, int64(), sparse_data, {}, {}, &sm));
+
+  // sparse index and ndim (shape length) are inconsistent
+  ASSERT_RAISES(Invalid,
+                SparseCSRMatrix::Make(si, int64(), sparse_data, {4, 6}, {}, &sm));
+
+  // shape and dim_names are inconsistent
+  ASSERT_RAISES(Invalid, SparseCSRMatrix::Make(si, int64(), sparse_data, this->shape_,
+                                               std::vector<std::string>{"foo"}, &sm));
+}
+
+REGISTER_TYPED_TEST_CASE_P(TestSparseCSRMatrixForIndexValueType, Make);
+
+INSTANTIATE_TYPED_TEST_CASE_P(TestInt8, TestSparseCSRMatrixForIndexValueType, Int8Type);
+INSTANTIATE_TYPED_TEST_CASE_P(TestUInt8, TestSparseCSRMatrixForIndexValueType, UInt8Type);
+INSTANTIATE_TYPED_TEST_CASE_P(TestInt16, TestSparseCSRMatrixForIndexValueType, Int16Type);
+INSTANTIATE_TYPED_TEST_CASE_P(TestUInt16, TestSparseCSRMatrixForIndexValueType,
+                              UInt16Type);
+INSTANTIATE_TYPED_TEST_CASE_P(TestInt32, TestSparseCSRMatrixForIndexValueType, Int32Type);
+INSTANTIATE_TYPED_TEST_CASE_P(TestUInt32, TestSparseCSRMatrixForIndexValueType,
+                              UInt32Type);
+INSTANTIATE_TYPED_TEST_CASE_P(TestInt64, TestSparseCSRMatrixForIndexValueType, Int64Type);
+INSTANTIATE_TYPED_TEST_CASE_P(TestUInt64, TestSparseCSRMatrixForIndexValueType,
+                              UInt64Type);
+
 }  // namespace arrow
