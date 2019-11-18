@@ -17,7 +17,7 @@
 
 package org.apache.arrow.gandiva.evaluator;
 
-import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
+import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
 
 import org.apache.arrow.gandiva.ipc.GandivaTypes.SelectionVectorType;
 
@@ -44,7 +44,7 @@ public abstract class SelectionVector {
    * The maximum number of records that the selection vector can hold.
    */
   public final int getMaxRecords() {
-    return checkedCastToInt(buffer.capacity() / getRecordSize());
+    return capAtMaxInt(buffer.capacity() / getRecordSize());
   }
 
   /*

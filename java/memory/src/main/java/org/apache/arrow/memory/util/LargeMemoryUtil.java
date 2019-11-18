@@ -36,4 +36,11 @@ public final class LargeMemoryUtil {
     }
     return (int) length;
   }
+
+  /**
+   * Returns a min(Integer.MAX_VALUE, length).
+   */
+  public static int capAtMaxInt(long length) {
+    return (int)Math.min(length, Integer.MAX_VALUE);
+  }
 }

@@ -17,8 +17,6 @@
 
 package org.apache.arrow.gandiva.evaluator;
 
-import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
-
 import org.apache.arrow.vector.BaseVariableWidthVector;
 
 /**
@@ -60,7 +58,7 @@ public class VectorExpander {
     }
 
     BaseVariableWidthVector vector = vectors[index];
-    while (vector.getDataBuffer().capacity() < checkedCastToInt(toCapacity)) {
+    while (vector.getDataBuffer().capacity() < toCapacity) {
       vector.reallocDataBuffer();
     }
     return new ExpandResult(

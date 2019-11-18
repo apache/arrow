@@ -17,6 +17,7 @@
 
 package org.apache.arrow.vector;
 
+import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 
 import java.nio.ByteBuffer;
@@ -216,11 +217,11 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   }
 
   private int getValidityBufferValueCapacity() {
-    return checkedCastToInt(validityBuffer.capacity() * 8);
+    return capAtMaxInt(validityBuffer.capacity() * 8);
   }
 
   private int getOffsetBufferValueCapacity() {
-    return checkedCastToInt(offsetBuffer.capacity() / OFFSET_WIDTH);
+    return capAtMaxInt(offsetBuffer.capacity() / OFFSET_WIDTH);
   }
 
   /**
@@ -461,7 +462,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     initValidityBuffer();
 
     lastValueCapacity = getValueCapacity();
-    lastValueAllocationSizeInBytes = checkedCastToInt(valueBuffer.capacity());
+    lastValueAllocationSizeInBytes = capAtMaxInt(valueBuffer.capacity());
   }
 
   /* allocate offset buffer */
@@ -498,8 +499,8 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @throws OutOfMemoryException if the internal memory allocation fails
    */
   public void reallocDataBuffer() {
-    final int currentBufferCapacity = checkedCastToInt(valueBuffer.capacity());
-    long newAllocationSize = currentBufferCapacity * 2;
+    final long currentBufferCapacity = valueBuffer.capacity();
+    int newAllocationSize = checkedCastToInt(currentBufferCapacity * 2);
     if (newAllocationSize == 0) {
       if (lastValueAllocationSizeInBytes > 0) {
         newAllocationSize = lastValueAllocationSizeInBytes;
@@ -512,11 +513,11 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
 
     checkDataBufferSize(newAllocationSize);
 
-    final ArrowBuf newBuf = allocator.buffer((int) newAllocationSize);
+    final ArrowBuf newBuf = allocator.buffer(newAllocationSize);
     newBuf.setBytes(0, valueBuffer, 0, currentBufferCapacity);
     valueBuffer.getReferenceManager().release();
     valueBuffer = newBuf;
-    lastValueAllocationSizeInBytes = checkedCastToInt(valueBuffer.capacity());
+    lastValueAllocationSizeInBytes = capAtMaxInt(valueBuffer.capacity());
   }
 
   /**
@@ -543,8 +544,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @throws OutOfMemoryException if the internal memory allocation fails
    */
   public void reallocValidityAndOffsetBuffers() {
-    int targetOffsetCount = checkedCastToInt((offsetBuffer.capacity() / OFFSET_WIDTH)  * 2);
-
+    int targetOffsetCount = capAtMaxInt((offsetBuffer.capacity() / OFFSET_WIDTH)  * 2);
     if (targetOffsetCount == 0) {
       if (lastValueCapacity > 0) {
         targetOffsetCount = (lastValueCapacity + 1);
@@ -576,7 +576,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    */
   @Override
   public int getByteCapacity() {
-    return checkedCastToInt(valueBuffer.capacity());
+    return capAtMaxInt(valueBuffer.capacity());
   }
 
   @Override

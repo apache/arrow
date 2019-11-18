@@ -18,6 +18,7 @@
 package org.apache.arrow.vector.complex;
 
 import static java.util.Collections.singletonList;
+import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 import static org.apache.arrow.util.Preconditions.checkNotNull;
 
@@ -757,7 +758,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   }
 
   private int getValidityBufferValueCapacity() {
-    return checkedCastToInt(validityBuffer.capacity() * 8);
+    return capAtMaxInt(validityBuffer.capacity() * 8);
   }
 
   /**

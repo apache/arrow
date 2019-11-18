@@ -18,6 +18,7 @@
 package org.apache.arrow.vector.complex;
 
 import static java.util.Collections.singletonList;
+import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.DATA_VECTOR_NAME;
 
@@ -484,7 +485,7 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
    * current capacity.
    */
   private int getValidityBufferValueCapacity() {
-    return checkedCastToInt(validityBuffer.capacity() * 8);
+    return capAtMaxInt(validityBuffer.capacity() * 8);
   }
 
   /**

@@ -17,6 +17,7 @@
 
 package org.apache.arrow.vector.complex;
 
+import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 
 import java.util.ArrayList;
@@ -207,7 +208,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   }
 
   protected int getOffsetBufferValueCapacity() {
-    return checkedCastToInt(offsetBuffer.capacity() / OFFSET_WIDTH);
+    return capAtMaxInt(offsetBuffer.capacity() / OFFSET_WIDTH);
   }
 
   @Override
