@@ -57,6 +57,7 @@ import org.apache.arrow.util.Preconditions;
 
 import static org.apache.arrow.vector.types.UnionMode.Sparse;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
+import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
 
 
 
@@ -689,7 +690,7 @@ public class UnionVector implements FieldVector {
     }
 
     private int getTypeBufferValueCapacity() {
-      return checkedCastToInt(typeBuffer.capacity() / TYPE_WIDTH);
+      return capAtMaxInt(typeBuffer.capacity() / TYPE_WIDTH);
     }
 
     @Override
