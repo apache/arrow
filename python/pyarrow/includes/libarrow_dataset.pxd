@@ -143,12 +143,9 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         c_string file_type()
 
     cdef cppclass CFileSource "arrow::dataset::FileSource":
-        # enum SourceType { PATH, BUFFER };
         CFileSource(c_string path, CFileSystem filesystem,
                     CompressionType compression)
-        CFileSource(shared_ptr[CBuffer] buffer, CompressionType compression)
         c_bool operator==(const CFileSource other)
-        # CSourceType type()
         CompressionType compression()
         c_string path()
         CFileSystem* filesystem()
@@ -161,11 +158,13 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CFileFormat "arrow::dataset::FileFormat":
         c_string name()
-        c_bool IsKnownExtension(const c_string& ext)
+        CStatus IsSupported(const CFileSource& source, c_bool* supported) const
+        CStatus Inspect(const CFileSource& source,
+                        shared_ptr[CSchema]* out) const
         CStatus ScanFile(const CFileSource& source,
                          shared_ptr[CScanOptions] scan_options,
                          shared_ptr[CScanContext] scan_context,
-                         unique_ptr[CScanTaskIterator]* out)
+                         CScanTaskIterator* out) const
         CStatus MakeFragment(const CFileSource& location,
                              shared_ptr[CScanOptions] opts,
                              unique_ptr[CDataFragment]* out)

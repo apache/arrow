@@ -27,6 +27,7 @@ from libcpp.unordered_map cimport unordered_map
 from libcpp.unordered_set cimport unordered_set
 
 from cpython cimport PyObject
+from cpython.datetime cimport PyDateTime_DateTime
 cimport cpython
 
 

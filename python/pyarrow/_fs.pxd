@@ -67,3 +67,10 @@ cdef class SubTreeFileSystem(FileSystem):
         CSubTreeFileSystem* subtreefs
 
     cdef init(self, const shared_ptr[CFileSystem]& wrapped)
+
+
+cdef class _MockFileSystem(FileSystem):
+    cdef:
+        CMockFileSystem* mockfs
+
+    cdef init(self, const shared_ptr[CFileSystem]& wrapped)
