@@ -61,6 +61,12 @@ std::shared_ptr<ds::ComparisonExpression> dataset___expr__less_equal(
 }
 
 // [[arrow::export]]
+std::shared_ptr<ds::InExpression> dataset___expr__in(
+    const ds::ExpressionPtr& lhs, const std::shared_ptr<arrow::Array>& rhs) {
+  return std::make_shared<ds::InExpression>(lhs->In(rhs));
+}
+
+// [[arrow::export]]
 std::shared_ptr<ds::AndExpression> dataset___expr__and(const ds::ExpressionPtr& lhs,
                                                        const ds::ExpressionPtr& rhs) {
   return ds::and_(lhs, rhs);
@@ -78,7 +84,8 @@ std::shared_ptr<ds::NotExpression> dataset___expr__not(const ds::ExpressionPtr& 
 }
 
 // [[arrow::export]]
-std::shared_ptr<ds::IsValidExpression> dataset___expr__is_valid(const ds::ExpressionPtr& lhs) {
+std::shared_ptr<ds::IsValidExpression> dataset___expr__is_valid(
+    const ds::ExpressionPtr& lhs) {
   return std::make_shared<ds::IsValidExpression>(lhs->IsValid());
 }
 

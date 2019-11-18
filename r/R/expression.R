@@ -16,10 +16,13 @@
 # under the License.
 
 #' @include arrowExports.R
-#' @export
-Ops.Array <- function(e1, e2) {
-  structure(list(fun = .Generic, args = list(e1, e2)), class = "array_expression")
+
+array_expression <- function(FUN, ...) {
+  structure(list(fun = FUN, args = list(...)), class = "array_expression")
 }
+
+#' @export
+Ops.Array <- function(e1, e2) array_expression(.Generic, e1, e2)
 
 #' @export
 Ops.ChunkedArray <- Ops.Array
@@ -28,9 +31,7 @@ Ops.ChunkedArray <- Ops.Array
 Ops.array_expression <- Ops.Array
 
 #' @export
-is.na.Array <- function(x) {
-  structure(list(fun = "is.na", args = list(x)), class = "array_expression")
-}
+is.na.Array <- function(x) array_expression("is.na", x)
 
 #' @export
 is.na.ChunkedArray <- is.na.Array
@@ -122,6 +123,15 @@ comparison_function_map <- list(
   "<" = dataset___expr__less,
   "<=" = dataset___expr__less_equal
 )
+
+#' @usage NULL
+#' @format NULL
+#' @rdname Expression
+#' @export
+InExpression <- R6Class("InExpression", inherit = Expression)
+InExpression$create <- function(x, table) {
+  shared_ptr(InExpression, dataset___expr__in(x, Array$create(table)))
+}
 
 #' @usage NULL
 #' @format NULL

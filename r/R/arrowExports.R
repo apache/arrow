@@ -624,6 +624,10 @@ dataset___expr__less_equal <- function(lhs, rhs){
     .Call(`_arrow_dataset___expr__less_equal` , lhs, rhs)
 }
 
+dataset___expr__in <- function(lhs, rhs){
+    .Call(`_arrow_dataset___expr__in` , lhs, rhs)
+}
+
 dataset___expr__and <- function(lhs, rhs){
     .Call(`_arrow_dataset___expr__and` , lhs, rhs)
 }

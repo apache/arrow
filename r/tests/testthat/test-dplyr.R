@@ -92,6 +92,15 @@ test_that("filter() on is.na()", {
   )
 })
 
+test_that("filter() with %in%", {
+  expect_dplyr_equal(
+    input %>%
+      filter(dbl > 2, chr %in% c("d", "f")) %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("Filtering on a column that doesn't exist errors correctly", {
   expect_error(
     batch %>% filter(not_a_col == 42) %>% collect(),
@@ -103,11 +112,11 @@ test_that("Filtering with a function that doesn't have an Array/expr method stil
   expect_warning(
     expect_dplyr_equal(
       input %>%
-        filter(dbl > 2, chr %in% c("d", "f")) %>%
+        filter(int > 2, pnorm(dbl) > .99) %>%
         collect(),
       tbl
     ),
-    'Filter expression not implemented in Arrow: chr %in% c("d", "f"); pulling data into R',
+    'Filter expression not implemented in Arrow: pnorm(dbl) > 0.99; pulling data into R',
     fixed = TRUE
   )
 })

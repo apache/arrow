@@ -5,6 +5,7 @@
 \alias{FieldExpression}
 \alias{ScalarExpression}
 \alias{ComparisonExpression}
+\alias{InExpression}
 \alias{AndExpression}
 \alias{OrExpression}
 \alias{NotExpression}

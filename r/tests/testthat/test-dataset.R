@@ -117,6 +117,17 @@ test_that("filter() with is.na()", {
   )
 })
 
+test_that("filter() with %in%", {
+  ds <- open_dataset(dataset_dir)
+  expect_equivalent(
+    ds %>%
+      select(part, int) %>%
+      filter(int %in% c(6L, 4L, 3L), part == 1) %>% # TODO: C++ In() should cast
+      collect(),
+    df1[c(3, 4, 6), c("part", "int")],
+  )
+})
+
 test_that("Assembling a Dataset manually and getting a Table", {
   fs <- LocalFileSystem$create()
   selector <- Selector$create(dataset_dir, recursive = TRUE)
