@@ -99,6 +99,7 @@ test_that("make_valid_version()", {
 })
 
 test_that("write_parquet() defaults to snappy compression", {
+  skip_if_not_available("snappy")
   tmp1 <- tempfile()
   tmp2 <- tempfile()
   write_parquet(mtcars, tmp1)

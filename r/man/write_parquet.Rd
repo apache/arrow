@@ -34,7 +34,7 @@ write_parquet(
 
 \item{version}{parquet version, "1.0" or "2.0". Default "1.0"}
 
-\item{compression}{compression algorithm. Default "snappy"}
+\item{compression}{compression algorithm. Default "snappy". See details.}
 
 \item{compression_level}{compression level. Meaning depends on compression algorithm}
 
@@ -84,6 +84,14 @@ value for each column, in positional order
 \item A named vector, to specify the value for the named columns, the default
 value for the setting is used when not supplied
 }
+
+The \code{compression} argument can be any of the following (case insensitive):
+"uncompressed", "snappy", "gzip", "brotli", "zstd", "lz4", "lzo" or "bz2".
+Only "uncompressed" is guaranteed to be available, but "snappy" and "gzip"
+are almost always included.
+The default "snappy" is used if available, otherwise "uncompressed". To
+disable compression, set \code{compression = "uncompressed"}.
+Note that "uncompressed" columns may still have dictionary encoding.
 }
 \examples{
 \donttest{

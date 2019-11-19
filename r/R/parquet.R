@@ -56,7 +56,7 @@ read_parquet <- function(file,
 #' @param chunk_size chunk size in number of rows. If NULL, the total number of rows is used.
 #'
 #' @param version parquet version, "1.0" or "2.0". Default "1.0"
-#' @param compression compression algorithm. Default "snappy"
+#' @param compression compression algorithm. Default "snappy". See details.
 #' @param compression_level compression level. Meaning depends on compression algorithm
 #' @param use_dictionary Specify if we should use dictionary encoding. Default `TRUE`
 #' @param write_statistics Specify if we should write statistics. Default `TRUE`
@@ -90,6 +90,14 @@ read_parquet <- function(file,
 #'    value for each column, in positional order
 #'  - A named vector, to specify the value for the named columns, the default
 #'    value for the setting is used when not supplied
+#'
+#' The `compression` argument can be any of the following (case insensitive):
+#' "uncompressed", "snappy", "gzip", "brotli", "zstd", "lz4", "lzo" or "bz2".
+#' Only "uncompressed" is guaranteed to be available, but "snappy" and "gzip"
+#' are almost always included.
+#' The default "snappy" is used if available, otherwise "uncompressed". To
+#' disable compression, set `compression = "uncompressed"`.
+#' Note that "uncompressed" columns may still have dictionary encoding.
 #'
 #' @return `NULL`, invisibly
 #'
