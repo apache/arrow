@@ -29,7 +29,7 @@ use flatbuffers::EndianScalar;
 
 #[allow(non_camel_case_types)]
 #[repr(i16)]
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum MetadataVersion {
     /// 0.1.0
     V1 = 0,
@@ -87,13 +87,13 @@ const ENUM_VALUES_METADATA_VERSION: [MetadataVersion; 4] = [
 const ENUM_NAMES_METADATA_VERSION: [&'static str; 4] = ["V1", "V2", "V3", "V4"];
 
 pub fn enum_name_metadata_version(e: MetadataVersion) -> &'static str {
-    let index: usize = e as usize;
-    ENUM_NAMES_METADATA_VERSION[index]
+    let index = e as i16;
+    ENUM_NAMES_METADATA_VERSION[index as usize]
 }
 
 #[allow(non_camel_case_types)]
 #[repr(i16)]
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum UnionMode {
     Sparse = 0,
     Dense = 1,
@@ -140,13 +140,13 @@ const ENUM_VALUES_UNION_MODE: [UnionMode; 2] = [UnionMode::Sparse, UnionMode::De
 const ENUM_NAMES_UNION_MODE: [&'static str; 2] = ["Sparse", "Dense"];
 
 pub fn enum_name_union_mode(e: UnionMode) -> &'static str {
-    let index: usize = e as usize;
-    ENUM_NAMES_UNION_MODE[index]
+    let index = e as i16;
+    ENUM_NAMES_UNION_MODE[index as usize]
 }
 
 #[allow(non_camel_case_types)]
 #[repr(i16)]
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum Precision {
     HALF = 0,
     SINGLE = 1,
@@ -195,13 +195,13 @@ const ENUM_VALUES_PRECISION: [Precision; 3] =
 const ENUM_NAMES_PRECISION: [&'static str; 3] = ["HALF", "SINGLE", "DOUBLE"];
 
 pub fn enum_name_precision(e: Precision) -> &'static str {
-    let index: usize = e as usize;
-    ENUM_NAMES_PRECISION[index]
+    let index = e as i16;
+    ENUM_NAMES_PRECISION[index as usize]
 }
 
 #[allow(non_camel_case_types)]
 #[repr(i16)]
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum DateUnit {
     DAY = 0,
     MILLISECOND = 1,
@@ -248,13 +248,13 @@ const ENUM_VALUES_DATE_UNIT: [DateUnit; 2] = [DateUnit::DAY, DateUnit::MILLISECO
 const ENUM_NAMES_DATE_UNIT: [&'static str; 2] = ["DAY", "MILLISECOND"];
 
 pub fn enum_name_date_unit(e: DateUnit) -> &'static str {
-    let index: usize = e as usize;
-    ENUM_NAMES_DATE_UNIT[index]
+    let index = e as i16;
+    ENUM_NAMES_DATE_UNIT[index as usize]
 }
 
 #[allow(non_camel_case_types)]
 #[repr(i16)]
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum TimeUnit {
     SECOND = 0,
     MILLISECOND = 1,
@@ -309,13 +309,13 @@ const ENUM_NAMES_TIME_UNIT: [&'static str; 4] =
     ["SECOND", "MILLISECOND", "MICROSECOND", "NANOSECOND"];
 
 pub fn enum_name_time_unit(e: TimeUnit) -> &'static str {
-    let index: usize = e as usize;
-    ENUM_NAMES_TIME_UNIT[index]
+    let index = e as i16;
+    ENUM_NAMES_TIME_UNIT[index as usize]
 }
 
 #[allow(non_camel_case_types)]
 #[repr(i16)]
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum IntervalUnit {
     YEAR_MONTH = 0,
     DAY_TIME = 1,
@@ -363,8 +363,8 @@ const ENUM_VALUES_INTERVAL_UNIT: [IntervalUnit; 2] =
 const ENUM_NAMES_INTERVAL_UNIT: [&'static str; 2] = ["YEAR_MONTH", "DAY_TIME"];
 
 pub fn enum_name_interval_unit(e: IntervalUnit) -> &'static str {
-    let index: usize = e as usize;
-    ENUM_NAMES_INTERVAL_UNIT[index]
+    let index = e as i16;
+    ENUM_NAMES_INTERVAL_UNIT[index as usize]
 }
 
 /// ----------------------------------------------------------------------
@@ -372,7 +372,7 @@ pub fn enum_name_interval_unit(e: IntervalUnit) -> &'static str {
 /// add new logical types to Type without breaking backwards compatibility
 #[allow(non_camel_case_types)]
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum Type {
     NONE = 0,
     Null = 1,
@@ -392,10 +392,14 @@ pub enum Type {
     FixedSizeBinary = 15,
     FixedSizeList = 16,
     Map = 17,
+    Duration = 18,
+    LargeBinary = 19,
+    LargeUtf8 = 20,
+    LargeList = 21,
 }
 
 const ENUM_MIN_TYPE: u8 = 0;
-const ENUM_MAX_TYPE: u8 = 17;
+const ENUM_MAX_TYPE: u8 = 21;
 
 impl<'a> flatbuffers::Follow<'a> for Type {
     type Inner = Self;
@@ -429,7 +433,7 @@ impl flatbuffers::Push for Type {
 }
 
 #[allow(non_camel_case_types)]
-const ENUM_VALUES_TYPE: [Type; 18] = [
+const ENUM_VALUES_TYPE: [Type; 22] = [
     Type::NONE,
     Type::Null,
     Type::Int,
@@ -448,10 +452,14 @@ const ENUM_VALUES_TYPE: [Type; 18] = [
     Type::FixedSizeBinary,
     Type::FixedSizeList,
     Type::Map,
+    Type::Duration,
+    Type::LargeBinary,
+    Type::LargeUtf8,
+    Type::LargeList,
 ];
 
 #[allow(non_camel_case_types)]
-const ENUM_NAMES_TYPE: [&'static str; 18] = [
+const ENUM_NAMES_TYPE: [&'static str; 22] = [
     "NONE",
     "Null",
     "Int",
@@ -470,11 +478,15 @@ const ENUM_NAMES_TYPE: [&'static str; 18] = [
     "FixedSizeBinary",
     "FixedSizeList",
     "Map",
+    "Duration",
+    "LargeBinary",
+    "LargeUtf8",
+    "LargeList",
 ];
 
 pub fn enum_name_type(e: Type) -> &'static str {
-    let index: usize = e as usize;
-    ENUM_NAMES_TYPE[index]
+    let index = e as u8;
+    ENUM_NAMES_TYPE[index as usize]
 }
 
 pub struct TypeUnionTableOffset {}
@@ -482,7 +494,7 @@ pub struct TypeUnionTableOffset {}
 /// Endianness of the platform producing the data
 #[allow(non_camel_case_types)]
 #[repr(i16)]
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum Endianness {
     Little = 0,
     Big = 1,
@@ -529,8 +541,8 @@ const ENUM_VALUES_ENDIANNESS: [Endianness; 2] = [Endianness::Little, Endianness:
 const ENUM_NAMES_ENDIANNESS: [&'static str; 2] = ["Little", "Big"];
 
 pub fn enum_name_endianness(e: Endianness) -> &'static str {
-    let index: usize = e as usize;
-    ENUM_NAMES_ENDIANNESS[index]
+    let index = e as i16;
+    ENUM_NAMES_ENDIANNESS[index as usize]
 }
 
 /// ----------------------------------------------------------------------
@@ -595,16 +607,19 @@ impl Buffer {
         self.offset_.from_little_endian()
     }
     /// The absolute length (in bytes) of the memory buffer. The memory is found
-    /// from offset (inclusive) to offset + length (non-inclusive).
+    /// from offset (inclusive) to offset + length (non-inclusive). When building
+    /// messages using the encapsulated IPC message, padding bytes may be written
+    /// after a buffer, but such padding bytes do not need to be accounted for in
+    /// the size here.
     pub fn length<'a>(&'a self) -> i64 {
         self.length_.from_little_endian()
     }
 }
 
-/// These are stored in the flatbuffer in the Type union below
 pub enum NullOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
+/// These are stored in the flatbuffer in the Type union below
 pub struct Null<'a> {
     pub _tab: flatbuffers::Table<'a>,
 }
@@ -661,12 +676,12 @@ impl<'a: 'b, 'b> NullBuilder<'a, 'b> {
     }
 }
 
-/// A Struct_ in the flatbuffer metadata is the same as an Arrow Struct
-/// (according to the physical memory layout). We used Struct_ here as
-/// Struct is a reserved word in Flatbuffers
 pub enum Struct_Offset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
+/// A Struct_ in the flatbuffer metadata is the same as an Arrow Struct
+/// (according to the physical memory layout). We used Struct_ here as
+/// Struct is a reserved word in Flatbuffers
 pub struct Struct_<'a> {
     pub _tab: flatbuffers::Table<'a>,
 }
@@ -784,6 +799,69 @@ impl<'a: 'b, 'b> ListBuilder<'a, 'b> {
     }
 }
 
+pub enum LargeListOffset {}
+#[derive(Copy, Clone, Debug, PartialEq)]
+
+/// Same as List, but with 64-bit offsets, allowing to represent
+/// extremely large data values.
+pub struct LargeList<'a> {
+    pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for LargeList<'a> {
+    type Inner = LargeList<'a>;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        Self {
+            _tab: flatbuffers::Table { buf: buf, loc: loc },
+        }
+    }
+}
+
+impl<'a> LargeList<'a> {
+    #[inline]
+    pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+        LargeList { _tab: table }
+    }
+    #[allow(unused_mut)]
+    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+        _args: &'args LargeListArgs,
+    ) -> flatbuffers::WIPOffset<LargeList<'bldr>> {
+        let mut builder = LargeListBuilder::new(_fbb);
+        builder.finish()
+    }
+}
+
+pub struct LargeListArgs {}
+impl<'a> Default for LargeListArgs {
+    #[inline]
+    fn default() -> Self {
+        LargeListArgs {}
+    }
+}
+pub struct LargeListBuilder<'a: 'b, 'b> {
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> LargeListBuilder<'a, 'b> {
+    #[inline]
+    pub fn new(
+        _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    ) -> LargeListBuilder<'a, 'b> {
+        let start = _fbb.start_table();
+        LargeListBuilder {
+            fbb_: _fbb,
+            start_: start,
+        }
+    }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<LargeList<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
+}
+
 pub enum FixedSizeListOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
@@ -863,33 +941,33 @@ impl<'a: 'b, 'b> FixedSizeListBuilder<'a, 'b> {
     }
 }
 
+pub enum MapOffset {}
+#[derive(Copy, Clone, Debug, PartialEq)]
+
 /// A Map is a logical nested type that is represented as
 ///
-/// List<entry: Struct<key: K, value: V>>
+/// List<entries: Struct<key: K, value: V>>
 ///
 /// In this layout, the keys and values are each respectively contiguous. We do
 /// not constrain the key and value types, so the application is responsible
 /// for ensuring that the keys are hashable and unique. Whether the keys are sorted
-/// may be set in the metadata for this field
+/// may be set in the metadata for this field.
 ///
-/// In a Field with Map type, the Field has a child Struct field, which then
+/// In a field with Map type, the field has a child Struct field, which then
 /// has two children: key type and the second the value type. The names of the
-/// child fields may be respectively "entry", "key", and "value", but this is
-/// not enforced
+/// child fields may be respectively "entries", "key", and "value", but this is
+/// not enforced.
 ///
 /// Map
-///   - `child[0]` entry: Struct
-///     - `child[0]` key: K
-///     - `child[1]` value: V
+///   - child[0] entries: Struct
+///     - child[0] key: K
+///     - child[1] value: V
 ///
-/// Neither the "entry" field nor the "key" field may be nullable.
+/// Neither the "entries" field nor the "key" field may be nullable.
 ///
 /// The metadata is structured so that Arrow systems without special handling
 /// for Map can make Map an alias for List. The "layout" attribute for the Map
 /// field must have the same contents as a List.
-pub enum MapOffset {}
-#[derive(Copy, Clone, Debug, PartialEq)]
-
 pub struct Map<'a> {
     pub _tab: flatbuffers::Table<'a>,
 }
@@ -964,13 +1042,13 @@ impl<'a: 'b, 'b> MapBuilder<'a, 'b> {
     }
 }
 
-/// A union is a complex type with children in Field
-/// By default ids in the type vector refer to the offsets in the children
-/// optionally typeIds provides an indirection between the child offset and the type id
-/// for each child `typeIds[offset]` is the id used in the type vector
 pub enum UnionOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
+/// A union is a complex type with children in Field
+/// By default ids in the type vector refer to the offsets in the children
+/// optionally typeIds provides an indirection between the child offset and the type id
+/// for each child typeIds[offset] is the id used in the type vector
 pub struct Union<'a> {
     pub _tab: flatbuffers::Table<'a>,
 }
@@ -1241,10 +1319,10 @@ impl<'a: 'b, 'b> FloatingPointBuilder<'a, 'b> {
     }
 }
 
-/// Unicode with UTF-8 encoding
 pub enum Utf8Offset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
+/// Unicode with UTF-8 encoding
 pub struct Utf8<'a> {
     pub _tab: flatbuffers::Table<'a>,
 }
@@ -1304,6 +1382,7 @@ impl<'a: 'b, 'b> Utf8Builder<'a, 'b> {
 pub enum BinaryOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
+/// Opaque binary data
 pub struct Binary<'a> {
     pub _tab: flatbuffers::Table<'a>,
 }
@@ -1357,6 +1436,132 @@ impl<'a: 'b, 'b> BinaryBuilder<'a, 'b> {
     }
     #[inline]
     pub fn finish(self) -> flatbuffers::WIPOffset<Binary<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
+}
+
+pub enum LargeUtf8Offset {}
+#[derive(Copy, Clone, Debug, PartialEq)]
+
+/// Same as Utf8, but with 64-bit offsets, allowing to represent
+/// extremely large data values.
+pub struct LargeUtf8<'a> {
+    pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for LargeUtf8<'a> {
+    type Inner = LargeUtf8<'a>;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        Self {
+            _tab: flatbuffers::Table { buf: buf, loc: loc },
+        }
+    }
+}
+
+impl<'a> LargeUtf8<'a> {
+    #[inline]
+    pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+        LargeUtf8 { _tab: table }
+    }
+    #[allow(unused_mut)]
+    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+        _args: &'args LargeUtf8Args,
+    ) -> flatbuffers::WIPOffset<LargeUtf8<'bldr>> {
+        let mut builder = LargeUtf8Builder::new(_fbb);
+        builder.finish()
+    }
+}
+
+pub struct LargeUtf8Args {}
+impl<'a> Default for LargeUtf8Args {
+    #[inline]
+    fn default() -> Self {
+        LargeUtf8Args {}
+    }
+}
+pub struct LargeUtf8Builder<'a: 'b, 'b> {
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> LargeUtf8Builder<'a, 'b> {
+    #[inline]
+    pub fn new(
+        _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    ) -> LargeUtf8Builder<'a, 'b> {
+        let start = _fbb.start_table();
+        LargeUtf8Builder {
+            fbb_: _fbb,
+            start_: start,
+        }
+    }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<LargeUtf8<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
+}
+
+pub enum LargeBinaryOffset {}
+#[derive(Copy, Clone, Debug, PartialEq)]
+
+/// Same as Binary, but with 64-bit offsets, allowing to represent
+/// extremely large data values.
+pub struct LargeBinary<'a> {
+    pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for LargeBinary<'a> {
+    type Inner = LargeBinary<'a>;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        Self {
+            _tab: flatbuffers::Table { buf: buf, loc: loc },
+        }
+    }
+}
+
+impl<'a> LargeBinary<'a> {
+    #[inline]
+    pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+        LargeBinary { _tab: table }
+    }
+    #[allow(unused_mut)]
+    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+        _args: &'args LargeBinaryArgs,
+    ) -> flatbuffers::WIPOffset<LargeBinary<'bldr>> {
+        let mut builder = LargeBinaryBuilder::new(_fbb);
+        builder.finish()
+    }
+}
+
+pub struct LargeBinaryArgs {}
+impl<'a> Default for LargeBinaryArgs {
+    #[inline]
+    fn default() -> Self {
+        LargeBinaryArgs {}
+    }
+}
+pub struct LargeBinaryBuilder<'a: 'b, 'b> {
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> LargeBinaryBuilder<'a, 'b> {
+    #[inline]
+    pub fn new(
+        _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    ) -> LargeBinaryBuilder<'a, 'b> {
+        let start = _fbb.start_table();
+        LargeBinaryBuilder {
+            fbb_: _fbb,
+            start_: start,
+        }
+    }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<LargeBinary<'a>> {
         let o = self.fbb_.end_table(self.start_);
         flatbuffers::WIPOffset::new(o.value())
     }
@@ -1594,15 +1799,15 @@ impl<'a: 'b, 'b> DecimalBuilder<'a, 'b> {
     }
 }
 
-/// Date is either a 32-bit or 64-bit type representing elapsed time since UNIX
-/// epoch (1970-01-01), stored in either of two units:
-///
-/// * Milliseconds (64 bits) indicating UNIX time elapsed since the epoch (no leap
-///   seconds), where the values are evenly divisible by 86400000
-/// * Days (32 bits) since the UNIX epoch
 pub enum DateOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
+/// Date is either a 32-bit or 64-bit type representing elapsed time since UNIX
+/// epoch (1970-01-01), stored in either of two units:
+///
+/// * Milliseconds (64 bits) indicating UNIX time elapsed since the epoch (no
+///   leap seconds), where the values are evenly divisible by 86400000
+/// * Days (32 bits) since the UNIX epoch
 pub struct Date<'a> {
     pub _tab: flatbuffers::Table<'a>,
 }
@@ -1678,12 +1883,12 @@ impl<'a: 'b, 'b> DateBuilder<'a, 'b> {
     }
 }
 
-/// Time type. The physical storage type depends on the unit
-/// - SECOND and MILLISECOND: 32 bits
-/// - MICROSECOND and NANOSECOND: 64 bits
 pub enum TimeOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
+/// Time type. The physical storage type depends on the unit
+/// - SECOND and MILLISECOND: 32 bits
+/// - MICROSECOND and NANOSECOND: 64 bits
 pub struct Time<'a> {
     pub _tab: flatbuffers::Table<'a>,
 }
@@ -1771,15 +1976,15 @@ impl<'a: 'b, 'b> TimeBuilder<'a, 'b> {
     }
 }
 
+pub enum TimestampOffset {}
+#[derive(Copy, Clone, Debug, PartialEq)]
+
 /// Time elapsed from the Unix epoch, 00:00:00.000 on 1 January 1970, excluding
 /// leap seconds, as a 64-bit integer. Note that UNIX time does not include
 /// leap seconds.
 ///
 /// The Timestamp metadata supports both "time zone naive" and "time zone
 /// aware" timestamps. Read about the timezone attribute for more detail
-pub enum TimestampOffset {}
-#[derive(Copy, Clone, Debug, PartialEq)]
-
 pub struct Timestamp<'a> {
     pub _tab: flatbuffers::Table<'a>,
 }
@@ -1823,22 +2028,24 @@ impl<'a> Timestamp<'a> {
     }
     /// The time zone is a string indicating the name of a time zone, one of:
     ///
-    /// * As used in the Olson time zone database (the "tz database" or "tzdata"), such as
-    ///   "America/New_York"
+    /// * As used in the Olson time zone database (the "tz database" or
+    ///   "tzdata"), such as "America/New_York"
     /// * An absolute time zone offset of the form +XX:XX or -XX:XX, such as +07:30
     ///
     /// Whether a timezone string is present indicates different semantics about
     /// the data:
     ///
-    /// * If the time zone is null or equal to an empty string, the data is "time zone
-    ///   naive" and shall be displayed *as is* to the user, not localized to the locale
-    ///   of the user. This data can be though of as UTC but without having "UTC" as the
-    ///   time zone, it is not considered to be localized to any time zone
+    /// * If the time zone is null or equal to an empty string, the data is "time
+    ///   zone naive" and shall be displayed *as is* to the user, not localized
+    ///   to the locale of the user. This data can be though of as UTC but
+    ///   without having "UTC" as the time zone, it is not considered to be
+    ///   localized to any time zone
     ///
-    /// * If the time zone is set to a valid value, values can be displayed as "localized"
-    ///   to that time zone, even though the underlying 64-bit integers are identical to
-    ///   the same data stored in UTC. Converting between time zones is a metadata-only
-    ///   operation and does not change the underlying values
+    /// * If the time zone is set to a valid value, values can be displayed as
+    ///   "localized" to that time zone, even though the underlying 64-bit
+    ///   integers are identical to the same data stored in UTC. Converting
+    ///   between time zones is a metadata-only operation and does not change the
+    ///   underlying values
     #[inline]
     pub fn timezone(&self) -> Option<&'a str> {
         self._tab
@@ -1976,12 +2183,92 @@ impl<'a: 'b, 'b> IntervalBuilder<'a, 'b> {
     }
 }
 
-/// ----------------------------------------------------------------------
-/// user defined key value pairs to add custom metadata to arrow
-/// key namespacing is the responsibility of the user
+pub enum DurationOffset {}
+#[derive(Copy, Clone, Debug, PartialEq)]
+
+pub struct Duration<'a> {
+    pub _tab: flatbuffers::Table<'a>,
+}
+
+impl<'a> flatbuffers::Follow<'a> for Duration<'a> {
+    type Inner = Duration<'a>;
+    #[inline]
+    fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
+        Self {
+            _tab: flatbuffers::Table { buf: buf, loc: loc },
+        }
+    }
+}
+
+impl<'a> Duration<'a> {
+    #[inline]
+    pub fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
+        Duration { _tab: table }
+    }
+    #[allow(unused_mut)]
+    pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
+        _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
+        args: &'args DurationArgs,
+    ) -> flatbuffers::WIPOffset<Duration<'bldr>> {
+        let mut builder = DurationBuilder::new(_fbb);
+        builder.add_unit(args.unit);
+        builder.finish()
+    }
+
+    pub const VT_UNIT: flatbuffers::VOffsetT = 4;
+
+    #[inline]
+    pub fn unit(&self) -> TimeUnit {
+        self._tab
+            .get::<TimeUnit>(Duration::VT_UNIT, Some(TimeUnit::MILLISECOND))
+            .unwrap()
+    }
+}
+
+pub struct DurationArgs {
+    pub unit: TimeUnit,
+}
+impl<'a> Default for DurationArgs {
+    #[inline]
+    fn default() -> Self {
+        DurationArgs {
+            unit: TimeUnit::MILLISECOND,
+        }
+    }
+}
+pub struct DurationBuilder<'a: 'b, 'b> {
+    fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
+}
+impl<'a: 'b, 'b> DurationBuilder<'a, 'b> {
+    #[inline]
+    pub fn add_unit(&mut self, unit: TimeUnit) {
+        self.fbb_
+            .push_slot::<TimeUnit>(Duration::VT_UNIT, unit, TimeUnit::MILLISECOND);
+    }
+    #[inline]
+    pub fn new(
+        _fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
+    ) -> DurationBuilder<'a, 'b> {
+        let start = _fbb.start_table();
+        DurationBuilder {
+            fbb_: _fbb,
+            start_: start,
+        }
+    }
+    #[inline]
+    pub fn finish(self) -> flatbuffers::WIPOffset<Duration<'a>> {
+        let o = self.fbb_.end_table(self.start_);
+        flatbuffers::WIPOffset::new(o.value())
+    }
+}
+
 pub enum KeyValueOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
+/// ----------------------------------------------------------------------
+/// user defined key value pairs to add custom metadata to arrow
+/// key namespacing is the responsibility of the user
 pub struct KeyValue<'a> {
     pub _tab: flatbuffers::Table<'a>,
 }
@@ -2076,11 +2363,11 @@ impl<'a: 'b, 'b> KeyValueBuilder<'a, 'b> {
     }
 }
 
-/// ----------------------------------------------------------------------
-/// Dictionary encoding metadata
 pub enum DictionaryEncodingOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
+/// ----------------------------------------------------------------------
+/// Dictionary encoding metadata
 pub struct DictionaryEncoding<'a> {
     pub _tab: flatbuffers::Table<'a>,
 }
@@ -2201,16 +2488,12 @@ impl<'a: 'b, 'b> DictionaryEncodingBuilder<'a, 'b> {
     }
 }
 
-/// ----------------------------------------------------------------------
-/// A field represents a named column in a record / row batch or child of a
-/// nested type.
-///
-/// - children is only for nested Arrow arrays
-/// - For primitive types, children will have length 0
-/// - nullable should default to true in general
 pub enum FieldOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
+/// ----------------------------------------------------------------------
+/// A field represents a named column in a record / row batch or child of a
+/// nested type.
 pub struct Field<'a> {
     pub _tab: flatbuffers::Table<'a>,
 }
@@ -2264,11 +2547,13 @@ impl<'a> Field<'a> {
     pub const VT_CHILDREN: flatbuffers::VOffsetT = 14;
     pub const VT_CUSTOM_METADATA: flatbuffers::VOffsetT = 16;
 
+    /// Name is not required, in i.e. a List
     #[inline]
     pub fn name(&self) -> Option<&'a str> {
         self._tab
             .get::<flatbuffers::ForwardsUOffset<&str>>(Field::VT_NAME, None)
     }
+    /// Whether or not this field can contain nulls. Should be true in general.
     #[inline]
     pub fn nullable(&self) -> bool {
         self._tab
@@ -2281,6 +2566,7 @@ impl<'a> Field<'a> {
             .get::<Type>(Field::VT_TYPE_TYPE, Some(Type::NONE))
             .unwrap()
     }
+    /// This is the type of the decoded value if the field is dictionary encoded.
     #[inline]
     pub fn type_(&self) -> Option<flatbuffers::Table<'a>> {
         self._tab
@@ -2289,6 +2575,7 @@ impl<'a> Field<'a> {
                 None,
             )
     }
+    /// Present only if the field is dictionary encoded.
     #[inline]
     pub fn dictionary(&self) -> Option<DictionaryEncoding<'a>> {
         self._tab
@@ -2297,25 +2584,28 @@ impl<'a> Field<'a> {
                 None,
             )
     }
+    /// children apply only to nested data types like Struct, List and Union. For
+    /// primitive types children will have length 0.
     #[inline]
     pub fn children(
         &self,
-    ) -> Option<flatbuffers::Vector<flatbuffers::ForwardsUOffset<Field<'a>>>> {
+    ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<Field<'a>>>> {
         self._tab.get::<flatbuffers::ForwardsUOffset<
             flatbuffers::Vector<flatbuffers::ForwardsUOffset<Field<'a>>>,
         >>(Field::VT_CHILDREN, None)
     }
+    /// User-defined metadata
     #[inline]
     pub fn custom_metadata(
         &self,
-    ) -> Option<flatbuffers::Vector<flatbuffers::ForwardsUOffset<KeyValue<'a>>>> {
+    ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<KeyValue<'a>>>> {
         self._tab.get::<flatbuffers::ForwardsUOffset<
             flatbuffers::Vector<flatbuffers::ForwardsUOffset<KeyValue<'a>>>,
         >>(Field::VT_CUSTOM_METADATA, None)
     }
     #[inline]
     #[allow(non_snake_case)]
-    pub fn type__as_null(&'a self) -> Option<Null> {
+    pub fn type_as_null(&self) -> Option<Null<'a>> {
         if self.type_type() == Type::Null {
             self.type_().map(|u| Null::init_from_table(u))
         } else {
@@ -2325,7 +2615,7 @@ impl<'a> Field<'a> {
 
     #[inline]
     #[allow(non_snake_case)]
-    pub fn type__as_int(&'a self) -> Option<Int> {
+    pub fn type_as_int(&self) -> Option<Int<'a>> {
         if self.type_type() == Type::Int {
             self.type_().map(|u| Int::init_from_table(u))
         } else {
@@ -2335,7 +2625,7 @@ impl<'a> Field<'a> {
 
     #[inline]
     #[allow(non_snake_case)]
-    pub fn type__as_floating_point(&'a self) -> Option<FloatingPoint> {
+    pub fn type_as_floating_point(&self) -> Option<FloatingPoint<'a>> {
         if self.type_type() == Type::FloatingPoint {
             self.type_().map(|u| FloatingPoint::init_from_table(u))
         } else {
@@ -2345,7 +2635,7 @@ impl<'a> Field<'a> {
 
     #[inline]
     #[allow(non_snake_case)]
-    pub fn type__as_binary(&'a self) -> Option<Binary> {
+    pub fn type_as_binary(&self) -> Option<Binary<'a>> {
         if self.type_type() == Type::Binary {
             self.type_().map(|u| Binary::init_from_table(u))
         } else {
@@ -2355,7 +2645,7 @@ impl<'a> Field<'a> {
 
     #[inline]
     #[allow(non_snake_case)]
-    pub fn type__as_utf_8(&'a self) -> Option<Utf8> {
+    pub fn type_as_utf_8(&self) -> Option<Utf8<'a>> {
         if self.type_type() == Type::Utf8 {
             self.type_().map(|u| Utf8::init_from_table(u))
         } else {
@@ -2365,7 +2655,7 @@ impl<'a> Field<'a> {
 
     #[inline]
     #[allow(non_snake_case)]
-    pub fn type__as_bool(&'a self) -> Option<Bool> {
+    pub fn type_as_bool(&self) -> Option<Bool<'a>> {
         if self.type_type() == Type::Bool {
             self.type_().map(|u| Bool::init_from_table(u))
         } else {
@@ -2375,7 +2665,7 @@ impl<'a> Field<'a> {
 
     #[inline]
     #[allow(non_snake_case)]
-    pub fn type__as_decimal(&'a self) -> Option<Decimal> {
+    pub fn type_as_decimal(&self) -> Option<Decimal<'a>> {
         if self.type_type() == Type::Decimal {
             self.type_().map(|u| Decimal::init_from_table(u))
         } else {
@@ -2385,7 +2675,7 @@ impl<'a> Field<'a> {
 
     #[inline]
     #[allow(non_snake_case)]
-    pub fn type__as_date(&'a self) -> Option<Date> {
+    pub fn type_as_date(&self) -> Option<Date<'a>> {
         if self.type_type() == Type::Date {
             self.type_().map(|u| Date::init_from_table(u))
         } else {
@@ -2395,7 +2685,7 @@ impl<'a> Field<'a> {
 
     #[inline]
     #[allow(non_snake_case)]
-    pub fn type__as_time(&'a self) -> Option<Time> {
+    pub fn type_as_time(&self) -> Option<Time<'a>> {
         if self.type_type() == Type::Time {
             self.type_().map(|u| Time::init_from_table(u))
         } else {
@@ -2405,7 +2695,7 @@ impl<'a> Field<'a> {
 
     #[inline]
     #[allow(non_snake_case)]
-    pub fn type__as_timestamp(&'a self) -> Option<Timestamp> {
+    pub fn type_as_timestamp(&self) -> Option<Timestamp<'a>> {
         if self.type_type() == Type::Timestamp {
             self.type_().map(|u| Timestamp::init_from_table(u))
         } else {
@@ -2415,7 +2705,7 @@ impl<'a> Field<'a> {
 
     #[inline]
     #[allow(non_snake_case)]
-    pub fn type__as_interval(&'a self) -> Option<Interval> {
+    pub fn type_as_interval(&self) -> Option<Interval<'a>> {
         if self.type_type() == Type::Interval {
             self.type_().map(|u| Interval::init_from_table(u))
         } else {
@@ -2425,7 +2715,7 @@ impl<'a> Field<'a> {
 
     #[inline]
     #[allow(non_snake_case)]
-    pub fn type__as_list(&'a self) -> Option<List> {
+    pub fn type_as_list(&self) -> Option<List<'a>> {
         if self.type_type() == Type::List {
             self.type_().map(|u| List::init_from_table(u))
         } else {
@@ -2435,7 +2725,7 @@ impl<'a> Field<'a> {
 
     #[inline]
     #[allow(non_snake_case)]
-    pub fn type__as_struct_(&'a self) -> Option<Struct_> {
+    pub fn type_as_struct_(&self) -> Option<Struct_<'a>> {
         if self.type_type() == Type::Struct_ {
             self.type_().map(|u| Struct_::init_from_table(u))
         } else {
@@ -2445,7 +2735,7 @@ impl<'a> Field<'a> {
 
     #[inline]
     #[allow(non_snake_case)]
-    pub fn type__as_union(&'a self) -> Option<Union> {
+    pub fn type_as_union(&self) -> Option<Union<'a>> {
         if self.type_type() == Type::Union {
             self.type_().map(|u| Union::init_from_table(u))
         } else {
@@ -2455,7 +2745,7 @@ impl<'a> Field<'a> {
 
     #[inline]
     #[allow(non_snake_case)]
-    pub fn type__as_fixed_size_binary(&'a self) -> Option<FixedSizeBinary> {
+    pub fn type_as_fixed_size_binary(&self) -> Option<FixedSizeBinary<'a>> {
         if self.type_type() == Type::FixedSizeBinary {
             self.type_().map(|u| FixedSizeBinary::init_from_table(u))
         } else {
@@ -2465,7 +2755,7 @@ impl<'a> Field<'a> {
 
     #[inline]
     #[allow(non_snake_case)]
-    pub fn type__as_fixed_size_list(&'a self) -> Option<FixedSizeList> {
+    pub fn type_as_fixed_size_list(&self) -> Option<FixedSizeList<'a>> {
         if self.type_type() == Type::FixedSizeList {
             self.type_().map(|u| FixedSizeList::init_from_table(u))
         } else {
@@ -2475,9 +2765,49 @@ impl<'a> Field<'a> {
 
     #[inline]
     #[allow(non_snake_case)]
-    pub fn type__as_map(&'a self) -> Option<Map> {
+    pub fn type_as_map(&self) -> Option<Map<'a>> {
         if self.type_type() == Type::Map {
             self.type_().map(|u| Map::init_from_table(u))
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn type_as_duration(&self) -> Option<Duration<'a>> {
+        if self.type_type() == Type::Duration {
+            self.type_().map(|u| Duration::init_from_table(u))
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn type_as_large_binary(&self) -> Option<LargeBinary<'a>> {
+        if self.type_type() == Type::LargeBinary {
+            self.type_().map(|u| LargeBinary::init_from_table(u))
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn type_as_large_utf_8(&self) -> Option<LargeUtf8<'a>> {
+        if self.type_type() == Type::LargeUtf8 {
+            self.type_().map(|u| LargeUtf8::init_from_table(u))
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    #[allow(non_snake_case)]
+    pub fn type_as_large_list(&self) -> Option<LargeList<'a>> {
+        if self.type_type() == Type::LargeList {
+            self.type_().map(|u| LargeList::init_from_table(u))
         } else {
             None
         }
@@ -2591,11 +2921,11 @@ impl<'a: 'b, 'b> FieldBuilder<'a, 'b> {
     }
 }
 
-/// ----------------------------------------------------------------------
-/// A Schema describes the columns in a row batch
 pub enum SchemaOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
+/// ----------------------------------------------------------------------
+/// A Schema describes the columns in a row batch
 pub struct Schema<'a> {
     pub _tab: flatbuffers::Table<'a>,
 }
@@ -2637,8 +2967,7 @@ impl<'a> Schema<'a> {
 
     /// endianness of the buffer
     /// it is Little Endian by default
-    /// if endianness doesn't match the underlying system then the vectors need to be
-    /// converted
+    /// if endianness doesn't match the underlying system then the vectors need to be converted
     #[inline]
     pub fn endianness(&self) -> Endianness {
         self._tab
@@ -2648,7 +2977,7 @@ impl<'a> Schema<'a> {
     #[inline]
     pub fn fields(
         &self,
-    ) -> Option<flatbuffers::Vector<flatbuffers::ForwardsUOffset<Field<'a>>>> {
+    ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<Field<'a>>>> {
         self._tab.get::<flatbuffers::ForwardsUOffset<
             flatbuffers::Vector<flatbuffers::ForwardsUOffset<Field<'a>>>,
         >>(Schema::VT_FIELDS, None)
@@ -2656,7 +2985,7 @@ impl<'a> Schema<'a> {
     #[inline]
     pub fn custom_metadata(
         &self,
-    ) -> Option<flatbuffers::Vector<flatbuffers::ForwardsUOffset<KeyValue<'a>>>> {
+    ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<KeyValue<'a>>>> {
         self._tab.get::<flatbuffers::ForwardsUOffset<
             flatbuffers::Vector<flatbuffers::ForwardsUOffset<KeyValue<'a>>>,
         >>(Schema::VT_CUSTOM_METADATA, None)

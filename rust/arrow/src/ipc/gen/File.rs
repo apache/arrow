@@ -100,11 +100,12 @@ impl Block {
     }
 }
 
-/// ----------------------------------------------------------------------
-/// Arrow File metadata
 pub enum FooterOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
+/// ----------------------------------------------------------------------
+/// Arrow File metadata
+///
 pub struct Footer<'a> {
     pub _tab: flatbuffers::Table<'a>,
 }

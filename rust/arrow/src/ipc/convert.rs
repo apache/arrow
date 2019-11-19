@@ -86,7 +86,7 @@ fn get_data_type(field: ipc::Field) -> DataType {
     match field.type_type() {
         ipc::Type::Bool => DataType::Boolean,
         ipc::Type::Int => {
-            let int = field.type__as_int().unwrap();
+            let int = field.type_as_int().unwrap();
             match (int.bitWidth(), int.is_signed()) {
                 (8, true) => DataType::Int8,
                 (8, false) => DataType::UInt8,
@@ -102,11 +102,11 @@ fn get_data_type(field: ipc::Field) -> DataType {
         ipc::Type::Binary => DataType::Binary,
         ipc::Type::Utf8 => DataType::Utf8,
         ipc::Type::FixedSizeBinary => {
-            let fsb = field.type__as_fixed_size_binary().unwrap();
+            let fsb = field.type_as_fixed_size_binary().unwrap();
             DataType::FixedSizeBinary(fsb.byteWidth())
         }
         ipc::Type::FloatingPoint => {
-            let float = field.type__as_floating_point().unwrap();
+            let float = field.type_as_floating_point().unwrap();
             match float.precision() {
                 ipc::Precision::HALF => DataType::Float16,
                 ipc::Precision::SINGLE => DataType::Float32,
@@ -114,14 +114,14 @@ fn get_data_type(field: ipc::Field) -> DataType {
             }
         }
         ipc::Type::Date => {
-            let date = field.type__as_date().unwrap();
+            let date = field.type_as_date().unwrap();
             match date.unit() {
                 ipc::DateUnit::DAY => DataType::Date32(DateUnit::Day),
                 ipc::DateUnit::MILLISECOND => DataType::Date64(DateUnit::Millisecond),
             }
         }
         ipc::Type::Time => {
-            let time = field.type__as_time().unwrap();
+            let time = field.type_as_time().unwrap();
             match (time.bitWidth(), time.unit()) {
                 (32, ipc::TimeUnit::SECOND) => DataType::Time32(TimeUnit::Second),
                 (32, ipc::TimeUnit::MILLISECOND) => {
@@ -138,7 +138,7 @@ fn get_data_type(field: ipc::Field) -> DataType {
             }
         }
         ipc::Type::Timestamp => {
-            let timestamp = field.type__as_timestamp().unwrap();
+            let timestamp = field.type_as_timestamp().unwrap();
             match timestamp.unit() {
                 ipc::TimeUnit::SECOND => DataType::Timestamp(TimeUnit::Second),
                 ipc::TimeUnit::MILLISECOND => DataType::Timestamp(TimeUnit::Millisecond),
@@ -161,7 +161,7 @@ fn get_data_type(field: ipc::Field) -> DataType {
                 panic!("expect a list to have one child")
             }
             let child_field = children.get(0);
-            let fsl = field.type__as_fixed_size_list().unwrap();
+            let fsl = field.type_as_fixed_size_list().unwrap();
             DataType::FixedSizeList((
                 Box::new(get_data_type(child_field)),
                 fsl.listSize(),

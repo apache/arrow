@@ -41,7 +41,7 @@ use flatbuffers::EndianScalar;
 /// it is best to send data using RecordBatch
 #[allow(non_camel_case_types)]
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub enum MessageHeader {
     NONE = 0,
     Schema = 1,
@@ -106,8 +106,8 @@ const ENUM_NAMES_MESSAGE_HEADER: [&'static str; 6] = [
 ];
 
 pub fn enum_name_message_header(e: MessageHeader) -> &'static str {
-    let index: usize = e as usize;
-    ENUM_NAMES_MESSAGE_HEADER[index]
+    let index = e as u8;
+    ENUM_NAMES_MESSAGE_HEADER[index as usize]
 }
 
 pub struct MessageHeaderUnionTableOffset {}
@@ -117,9 +117,9 @@ pub struct MessageHeaderUnionTableOffset {}
 /// Metadata about a field at some level of a nested type tree (but not
 /// its children).
 ///
-/// For example, a `List<Int16>` with values `[[1, 2, 3], null, [4], [5, 6], null]`
-/// would have `{length: 5, null_count: 2}` for its `List` node, and `{length: 6,
-/// null_count: 0}` for its `Int16` node, as separate `FieldNode` structs
+/// For example, a List<Int16> with values [[1, 2, 3], null, [4], [5, 6], null]
+/// would have {length: 5, null_count: 2} for its List node, and {length: 6,
+/// null_count: 0} for its Int16 node, as separate FieldNode structs
 // struct FieldNode, aligned to 8
 #[repr(C, align(8))]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -190,12 +190,12 @@ impl FieldNode {
     }
 }
 
-/// A data header describing the shared memory layout of a "record" or "row"
-/// batch. Some systems call this a "row batch" internally and others a "record
-/// batch".
 pub enum RecordBatchOffset {}
 #[derive(Copy, Clone, Debug, PartialEq)]
 
+/// A data header describing the shared memory layout of a "record" or "row"
+/// batch. Some systems call this a "row batch" internally and others a "record
+/// batch".
 pub struct RecordBatch<'a> {
     pub _tab: flatbuffers::Table<'a>,
 }
@@ -330,15 +330,15 @@ impl<'a: 'b, 'b> RecordBatchBuilder<'a, 'b> {
     }
 }
 
+pub enum DictionaryBatchOffset {}
+#[derive(Copy, Clone, Debug, PartialEq)]
+
 /// For sending dictionary encoding information. Any Field can be
 /// dictionary-encoded, but in this case none of its children may be
 /// dictionary-encoded.
 /// There is one vector / column per dictionary, but that vector / column
 /// may be spread across multiple dictionary batches by using the isDelta
 /// flag
-pub enum DictionaryBatchOffset {}
-#[derive(Copy, Clone, Debug, PartialEq)]
-
 pub struct DictionaryBatch<'a> {
     pub _tab: flatbuffers::Table<'a>,
 }
@@ -529,14 +529,14 @@ impl<'a> Message<'a> {
     #[inline]
     pub fn custom_metadata(
         &self,
-    ) -> Option<flatbuffers::Vector<flatbuffers::ForwardsUOffset<KeyValue<'a>>>> {
+    ) -> Option<flatbuffers::Vector<'a, flatbuffers::ForwardsUOffset<KeyValue<'a>>>> {
         self._tab.get::<flatbuffers::ForwardsUOffset<
             flatbuffers::Vector<flatbuffers::ForwardsUOffset<KeyValue<'a>>>,
         >>(Message::VT_CUSTOM_METADATA, None)
     }
     #[inline]
     #[allow(non_snake_case)]
-    pub fn header_as_schema(&'a self) -> Option<Schema> {
+    pub fn header_as_schema(&self) -> Option<Schema<'a>> {
         if self.header_type() == MessageHeader::Schema {
             self.header().map(|u| Schema::init_from_table(u))
         } else {
@@ -546,7 +546,7 @@ impl<'a> Message<'a> {
 
     #[inline]
     #[allow(non_snake_case)]
-    pub fn header_as_dictionary_batch(&'a self) -> Option<DictionaryBatch> {
+    pub fn header_as_dictionary_batch(&self) -> Option<DictionaryBatch<'a>> {
         if self.header_type() == MessageHeader::DictionaryBatch {
             self.header().map(|u| DictionaryBatch::init_from_table(u))
         } else {
@@ -556,7 +556,7 @@ impl<'a> Message<'a> {
 
     #[inline]
     #[allow(non_snake_case)]
-    pub fn header_as_record_batch(&'a self) -> Option<RecordBatch> {
+    pub fn header_as_record_batch(&self) -> Option<RecordBatch<'a>> {
         if self.header_type() == MessageHeader::RecordBatch {
             self.header().map(|u| RecordBatch::init_from_table(u))
         } else {
@@ -566,7 +566,7 @@ impl<'a> Message<'a> {
 
     #[inline]
     #[allow(non_snake_case)]
-    pub fn header_as_tensor(&'a self) -> Option<Tensor> {
+    pub fn header_as_tensor(&self) -> Option<Tensor<'a>> {
         if self.header_type() == MessageHeader::Tensor {
             self.header().map(|u| Tensor::init_from_table(u))
         } else {
@@ -576,7 +576,7 @@ impl<'a> Message<'a> {
 
     #[inline]
     #[allow(non_snake_case)]
-    pub fn header_as_sparse_tensor(&'a self) -> Option<SparseTensor> {
+    pub fn header_as_sparse_tensor(&self) -> Option<SparseTensor<'a>> {
         if self.header_type() == MessageHeader::SparseTensor {
             self.header().map(|u| SparseTensor::init_from_table(u))
         } else {
