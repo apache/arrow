@@ -35,7 +35,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: [nightly-2019-09-25]
+        rust: [nightly-2019-11-14]
     env:
       RUST: ${{ matrix.rust }}
     steps:
@@ -64,7 +64,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: [nightly-2019-09-25]
+        rust: [nightly-2019-11-14]
     steps:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
@@ -92,7 +92,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: [nightly-2019-09-25]
+        rust: [nightly-2019-11-14]
     steps:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
