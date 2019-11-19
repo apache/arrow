@@ -87,7 +87,7 @@ public class VectorLoader {
     if (children.size() > 0) {
       List<FieldVector> childrenFromFields = vector.getChildrenFromFields();
       checkArgument(children.size() == childrenFromFields.size(),
-          "should have as many children as in the schema: found %d expected %d",
+          "should have as many children as in the schema: found %s expected %s",
           childrenFromFields.size(), children.size());
       for (int i = 0; i < childrenFromFields.size(); i++) {
         Field child = children.get(i);
