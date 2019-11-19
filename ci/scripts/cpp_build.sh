@@ -98,7 +98,6 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       -DCMAKE_CXX_FLAGS=${CXXFLAGS:-} \
       -DCMAKE_INSTALL_LIBDIR=${CMAKE_INSTALL_LIBDIR:-lib} \
       -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}} \
-      -Ddouble-conversion_SOURCE=${uriparser_SOURCE:-AUTO} \
       -Dgflags_SOURCE=${gflags_SOURCE:-AUTO} \
       -DgRPC_SOURCE=${gRPC_SOURCE:-AUTO} \
       -DGTest_SOURCE=${GTest_SOURCE:-AUTO} \
@@ -109,7 +108,6 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       -DRapidJSON_SOURCE=${RapidJSON_SOURCE:-AUTO} \
       -DRE2_SOURCE=${RE2_SOURCE:-AUTO} \
       -DThrift_SOURCE=${Thrift_SOURCE:-AUTO} \
-      -Duriparser_SOURCE=${uriparser_SOURCE:-AUTO} \
       -DZSTD_SOURCE=${ZSTD_SOURCE:-AUTO} \
       ${CMAKE_ARGS} \
       ${source_dir}

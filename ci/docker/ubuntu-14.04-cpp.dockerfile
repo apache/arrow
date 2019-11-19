@@ -33,7 +33,6 @@ RUN apt-get update -y -q && \
         gcc \
         git \
         libbz2-dev \
-        libdouble-conversion-dev \
         libgoogle-glog-dev \
         libsnappy-dev \
         libssl-dev \

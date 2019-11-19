@@ -39,7 +39,6 @@ pacman --sync --noconfirm ^
   %MINGW_PACKAGE_PREFIX%-boost ^
   %MINGW_PACKAGE_PREFIX%-brotli ^
   %MINGW_PACKAGE_PREFIX%-cmake ^
-  %MINGW_PACKAGE_PREFIX%-double-conversion ^
   %MINGW_PACKAGE_PREFIX%-gflags ^
   %MINGW_PACKAGE_PREFIX%-gobject-introspection ^
   %MINGW_PACKAGE_PREFIX%-grpc ^
@@ -52,7 +51,6 @@ pacman --sync --noconfirm ^
   %MINGW_PACKAGE_PREFIX%-rapidjson ^
   %MINGW_PACKAGE_PREFIX%-snappy ^
   %MINGW_PACKAGE_PREFIX%-thrift ^
-  %MINGW_PACKAGE_PREFIX%-uriparser ^
   %MINGW_PACKAGE_PREFIX%-zlib ^
   %MINGW_PACKAGE_PREFIX%-zstd || exit /B
 

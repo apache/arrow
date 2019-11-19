@@ -64,7 +64,6 @@ cmake -G "%GENERATOR%" ^
       -DARROW_PYTHON=ON ^
       -DARROW_PARQUET=ON ^
       -DARROW_GANDIVA=ON ^
-      -Duriparser_SOURCE=BUNDLED ^
       -DZSTD_SOURCE=BUNDLED ^
       .. || exit /B
 cmake --build . --target install --config Release || exit /B

@@ -30,7 +30,6 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
         g++ \
         gcc \
         libboost-all-dev \
-        libdouble-conversion-dev \
         libgflags-dev \
         libgoogle-glog-dev \
         libgtest-dev \

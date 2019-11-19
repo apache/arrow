@@ -29,7 +29,6 @@ RUN dnf update -y && \
         ccache \
         clang-devel \
         cmake \
-        double-conversion-devel \
         flatbuffers-devel \
         flex \
         java-openjdk-devel \

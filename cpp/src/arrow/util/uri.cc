@@ -21,10 +21,9 @@
 #include <sstream>
 #include <vector>
 
-#include <uriparser/Uri.h>
-
 #include "arrow/util/parsing.h"
 #include "arrow/util/string_view.h"
+#include "arrow/vendored/uriparser/Uri.h"
 
 namespace arrow {
 namespace internal {

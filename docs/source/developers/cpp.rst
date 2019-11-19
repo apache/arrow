@@ -89,7 +89,6 @@ On MSYS2:
      mingw-w64-${MSYSTEM_CARCH}-rapidjson \
      mingw-w64-${MSYSTEM_CARCH}-snappy \
      mingw-w64-${MSYSTEM_CARCH}-thrift \
-     mingw-w64-${MSYSTEM_CARCH}-uriparser \
      mingw-w64-${MSYSTEM_CARCH}-zlib \
      mingw-w64-${MSYSTEM_CARCH}-zstd
 
