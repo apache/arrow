@@ -63,7 +63,7 @@ struct ArrowJsonColumn {
 }
 
 impl ArrowJson {
-    // Compare the Arrow JSON with a record batch reader
+    /// Compare the Arrow JSON with a record batch reader
     pub fn equals_reader(&self, reader: &mut RecordBatchReader) -> bool {
         if !self.schema.equals_schema(&reader.schema()) {
             return false;
@@ -115,7 +115,6 @@ impl ArrowJsonBatch {
                     return false;
                 }
                 let json_array: Vec<Value> = json_from_col(&col, field.data_type());
-                println!("Data type: {:?}", field.data_type());
                 match field.data_type() {
                     DataType::Boolean => {
                         let arr = arr.as_any().downcast_ref::<BooleanArray>().unwrap();
@@ -158,9 +157,6 @@ impl ArrowJsonBatch {
                     }
                     DataType::Float32 => {
                         let arr = arr.as_any().downcast_ref::<Float32Array>().unwrap();
-                        dbg!(&arr);
-                        dbg!(&arr.len());
-                        dbg!(&json_array);
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
                     }
                     DataType::Float64 => {
