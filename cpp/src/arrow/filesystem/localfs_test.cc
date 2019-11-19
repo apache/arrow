@@ -142,7 +142,7 @@ TYPED_TEST_CASE(TestLocalFS, PathFormatters);
 TYPED_TEST(TestLocalFS, CorrectPathExists) {
   // Test that the right location on disk is accessed
   std::shared_ptr<io::OutputStream> stream;
-  ASSERT_OK(this->fs_->OpenOutputStream("abc", &stream));
+  ASSERT_OK_AND_ASSIGN(stream, this->fs_->OpenOutputStream("abc"));
   std::string data = "some data";
   auto data_size = static_cast<int64_t>(data.size());
   ASSERT_OK(stream->Write(data.data(), data_size));
@@ -166,10 +166,11 @@ TYPED_TEST(TestLocalFS, DirectoryMTime) {
   TimePoint t2 = CurrentTimePoint();
 
   std::vector<FileStats> stats;
-  ASSERT_OK(this->fs_->GetTargetStats({"AB", "AB/CD/EF"}, &stats));
-  ASSERT_EQ(stats.size(), 2);
+  ASSERT_OK_AND_ASSIGN(stats, this->fs_->GetTargetStats({"AB", "AB/CD/EF", "xxx"}));
+  ASSERT_EQ(stats.size(), 3);
   AssertFileStats(stats[0], "AB", FileType::Directory);
   AssertFileStats(stats[1], "AB/CD/EF", FileType::Directory);
+  AssertFileStats(stats[2], "xxx", FileType::NonExistent);
 
   // NOTE: creating AB/CD updates AB's modification time, but creating
   // AB/CD/EF doesn't.  So AB/CD/EF's modification time should always be
@@ -188,10 +189,11 @@ TYPED_TEST(TestLocalFS, FileMTime) {
   TimePoint t2 = CurrentTimePoint();
 
   std::vector<FileStats> stats;
-  ASSERT_OK(this->fs_->GetTargetStats({"AB", "AB/CD/ab"}, &stats));
-  ASSERT_EQ(stats.size(), 2);
+  ASSERT_OK_AND_ASSIGN(stats, this->fs_->GetTargetStats({"AB", "AB/CD/ab", "xxx"}));
+  ASSERT_EQ(stats.size(), 3);
   AssertFileStats(stats[0], "AB", FileType::Directory);
   AssertFileStats(stats[1], "AB/CD/ab", FileType::File, 4);
+  AssertFileStats(stats[2], "xxx", FileType::NonExistent);
 
   AssertDurationBetween(stats[1].mtime() - stats[0].mtime(), 0, kTimeSlack);
   AssertDurationBetween(stats[0].mtime() - t1, -kTimeSlack, kTimeSlack);

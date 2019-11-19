@@ -64,8 +64,8 @@ class ARROW_EXPORT MockFileSystem : public FileSystem {
   // XXX It's not very practical to have to explicitly declare inheritance
   // of default overrides.
   using FileSystem::GetTargetStats;
-  Status GetTargetStats(const std::string& path, FileStats* out) override;
-  Status GetTargetStats(const Selector& select, std::vector<FileStats>* out) override;
+  Result<FileStats> GetTargetStats(const std::string& path) override;
+  Result<std::vector<FileStats>> GetTargetStats(const Selector& select) override;
 
   Status CreateDir(const std::string& path, bool recursive = true) override;
 
@@ -78,17 +78,14 @@ class ARROW_EXPORT MockFileSystem : public FileSystem {
 
   Status CopyFile(const std::string& src, const std::string& dest) override;
 
-  Status OpenInputStream(const std::string& path,
-                         std::shared_ptr<io::InputStream>* out) override;
-
-  Status OpenInputFile(const std::string& path,
-                       std::shared_ptr<io::RandomAccessFile>* out) override;
-
-  Status OpenOutputStream(const std::string& path,
-                          std::shared_ptr<io::OutputStream>* out) override;
-
-  Status OpenAppendStream(const std::string& path,
-                          std::shared_ptr<io::OutputStream>* out) override;
+  Result<std::shared_ptr<io::InputStream>> OpenInputStream(
+      const std::string& path) override;
+  Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
+      const std::string& path) override;
+  Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
+      const std::string& path) override;
+  Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
+      const std::string& path) override;
 
   // Contents-dumping helpers to ease testing.
   // Output is lexicographically-ordered by full path.

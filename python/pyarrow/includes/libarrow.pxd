@@ -1091,25 +1091,24 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         c_bool recursive
 
     cdef cppclass CFileSystem "arrow::fs::FileSystem":
-        CStatus GetTargetStats(const c_string& path, CFileStats* out)
-        CStatus GetTargetStats(const vector[c_string]& paths,
-                               vector[CFileStats]* out)
-        CStatus GetTargetStats(const CSelector& select,
-                               vector[CFileStats]* out)
+        CResult[CFileStats] GetTargetStats(const c_string& path)
+        CResult[vector[CFileStats]] GetTargetStats(
+            const vector[c_string]& paths)
+        CResult[vector[CFileStats]] GetTargetStats(const CSelector& select)
         CStatus CreateDir(const c_string& path, c_bool recursive)
         CStatus DeleteDir(const c_string& path)
         CStatus DeleteFile(const c_string& path)
         CStatus DeleteFiles(const vector[c_string]& paths)
         CStatus Move(const c_string& src, const c_string& dest)
         CStatus CopyFile(const c_string& src, const c_string& dest)
-        CStatus OpenInputStream(const c_string& path,
-                                shared_ptr[CInputStream]* out)
-        CStatus OpenInputFile(const c_string& path,
-                              shared_ptr[CRandomAccessFile]* out)
-        CStatus OpenOutputStream(const c_string& path,
-                                 shared_ptr[COutputStream]* out)
-        CStatus OpenAppendStream(const c_string& path,
-                                 shared_ptr[COutputStream]* out)
+        CResult[shared_ptr[CInputStream]] OpenInputStream(
+            const c_string& path)
+        CResult[shared_ptr[CRandomAccessFile]] OpenInputFile(
+            const c_string& path)
+        CResult[shared_ptr[COutputStream]] OpenOutputStream(
+            const c_string& path)
+        CResult[shared_ptr[COutputStream]] OpenAppendStream(
+            const c_string& path)
 
     cdef cppclass CLocalFileSystemOptions "arrow::fs::LocalFileSystemOptions":
         c_bool use_mmap

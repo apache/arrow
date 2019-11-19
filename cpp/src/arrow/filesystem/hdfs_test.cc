@@ -141,9 +141,9 @@ class TestHadoopFileSystem : public ::testing::Test {
 
     // With single path
     FileStats st;
-    ASSERT_OK(fs_->GetTargetStats(base_dir + "AB", &st));
+    ASSERT_OK_AND_ASSIGN(st, fs_->GetTargetStats(base_dir + "AB"));
     AssertFileStats(st, base_dir + "AB", FileType::Directory);
-    ASSERT_OK(fs_->GetTargetStats(base_dir + "AB/data", &st));
+    ASSERT_OK_AND_ASSIGN(st, fs_->GetTargetStats(base_dir + "AB/data"));
     AssertFileStats(st, base_dir + "AB/data", FileType::File, 9);
 
     // With selector
@@ -151,14 +151,14 @@ class TestHadoopFileSystem : public ::testing::Test {
     selector.base_dir = base_dir + "AB";
     selector.recursive = false;
 
-    ASSERT_OK(fs_->GetTargetStats(selector, &stats));
+    ASSERT_OK_AND_ASSIGN(stats, fs_->GetTargetStats(selector));
     ASSERT_EQ(stats.size(), 3);
     AssertFileStats(stats[0], base_dir + "AB/CD", FileType::Directory);
     AssertFileStats(stats[1], base_dir + "AB/EF", FileType::Directory);
     AssertFileStats(stats[2], base_dir + "AB/data", FileType::File);
 
     selector.recursive = true;
-    ASSERT_OK(fs_->GetTargetStats(selector, &stats));
+    ASSERT_OK_AND_ASSIGN(stats, fs_->GetTargetStats(selector));
     ASSERT_EQ(stats.size(), 5);
     AssertFileStats(stats[0], base_dir + "AB/CD", FileType::Directory);
     AssertFileStats(stats[1], base_dir + "AB/EF", FileType::Directory);
@@ -167,14 +167,14 @@ class TestHadoopFileSystem : public ::testing::Test {
     AssertFileStats(stats[4], base_dir + "AB/data", FileType::File, 9);
 
     selector.max_recursion = 0;
-    ASSERT_OK(fs_->GetTargetStats(selector, &stats));
+    ASSERT_OK_AND_ASSIGN(stats, fs_->GetTargetStats(selector));
     ASSERT_EQ(stats.size(), 3);
     AssertFileStats(stats[0], base_dir + "AB/CD", FileType::Directory);
     AssertFileStats(stats[1], base_dir + "AB/EF", FileType::Directory);
     AssertFileStats(stats[2], base_dir + "AB/data", FileType::File);
 
     selector.max_recursion = 1;
-    ASSERT_OK(fs_->GetTargetStats(selector, &stats));
+    ASSERT_OK_AND_ASSIGN(stats, fs_->GetTargetStats(selector));
     ASSERT_EQ(stats.size(), 4);
     AssertFileStats(stats[0], base_dir + "AB/CD", FileType::Directory);
     AssertFileStats(stats[1], base_dir + "AB/EF", FileType::Directory);
@@ -183,11 +183,11 @@ class TestHadoopFileSystem : public ::testing::Test {
 
     selector.base_dir = base_dir + "XYZ";
     selector.allow_non_existent = true;
-    ASSERT_OK(fs_->GetTargetStats(selector, &stats));
+    ASSERT_OK_AND_ASSIGN(stats, fs_->GetTargetStats(selector));
     ASSERT_EQ(stats.size(), 0);
 
     selector.allow_non_existent = false;
-    ASSERT_RAISES(IOError, fs_->GetTargetStats(selector, &stats));
+    ASSERT_RAISES(IOError, fs_->GetTargetStats(selector));
 
     ASSERT_OK(fs_->DeleteDir(base_dir + "AB"));
     AssertFileStats(fs_.get(), base_dir + "AB", FileType::NonExistent);
@@ -263,13 +263,13 @@ TYPED_TEST(TestHadoopFileSystem, WriteReadFile) {
   std::string file_name = "CD/abc";
   std::string data = "some data";
   std::shared_ptr<io::OutputStream> stream;
-  ASSERT_OK(this->fs_->OpenOutputStream(file_name, &stream));
+  ASSERT_OK_AND_ASSIGN(stream, this->fs_->OpenOutputStream(file_name));
   auto data_size = static_cast<int64_t>(data.size());
   ASSERT_OK(stream->Write(data.data(), data_size));
   ASSERT_OK(stream->Close());
 
   std::shared_ptr<io::RandomAccessFile> file;
-  ASSERT_OK(this->fs_->OpenInputFile(file_name, &file));
+  ASSERT_OK_AND_ASSIGN(file, this->fs_->OpenInputFile(file_name));
   int64_t file_size;
   ASSERT_OK(file->GetSize(&file_size));
   ASSERT_EQ(kDataSize, file_size);
@@ -316,15 +316,15 @@ TYPED_TEST(TestHadoopFileSystem, MoveDir) {
   std::string directory_name_src = "AB";
   std::string directory_name_dest = "CD";
   ASSERT_OK(this->fs_->CreateDir(directory_name_src));
-  ASSERT_OK(this->fs_->GetTargetStats(directory_name_src, &stat));
+  ASSERT_OK_AND_ASSIGN(stat, this->fs_->GetTargetStats(directory_name_src));
   AssertFileStats(stat, directory_name_src, FileType::Directory);
 
   // move file
   ASSERT_OK(this->fs_->Move(directory_name_src, directory_name_dest));
-  ASSERT_OK(this->fs_->GetTargetStats(directory_name_src, &stat));
+  ASSERT_OK_AND_ASSIGN(stat, this->fs_->GetTargetStats(directory_name_src));
   ASSERT_TRUE(stat.type() == FileType::NonExistent);
 
-  ASSERT_OK(this->fs_->GetTargetStats(directory_name_dest, &stat));
+  ASSERT_OK_AND_ASSIGN(stat, this->fs_->GetTargetStats(directory_name_dest));
   AssertFileStats(stat, directory_name_dest, FileType::Directory);
   ASSERT_OK(this->fs_->DeleteDir(directory_name_dest));
 }
