@@ -657,10 +657,8 @@ impl<T: DataType> Decoder<T> for DeltaBitPackDecoder<T> {
 /// Helper trait to define specific conversions when decoding values
 trait DeltaBitPackDecoderConversion<T: DataType> {
     /// Sets decoded value based on type `T`.
-    #[inline]
     fn get_delta(&self, index: usize) -> i64;
 
-    #[inline]
     fn set_decoded_value(&self, buffer: &mut [T::T], index: usize, value: i64);
 }
 
