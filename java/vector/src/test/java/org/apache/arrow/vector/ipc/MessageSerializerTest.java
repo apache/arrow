@@ -34,7 +34,6 @@ import java.util.List;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.ipc.message.ArrowBlock;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.ipc.message.ArrowMessage;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
@@ -148,18 +147,6 @@ public class MessageSerializerTest {
 
   @Rule
   public ExpectedException expectedEx = ExpectedException.none();
-
-  @Test
-  public void testDeserializeRecordBatchLongMetaData() throws IOException {
-    expectedEx.expect(IOException.class);
-    expectedEx.expectMessage("Cannot currently deserialize record batches over 2GB");
-    int offset = 0;
-    int metadataLength = 1;
-    long bodyLength = Integer.MAX_VALUE + 10L;
-    ArrowBlock block = new ArrowBlock(offset, metadataLength, bodyLength);
-    long totalLen = block.getMetadataLength() + block.getBodyLength();
-    MessageSerializer.deserializeRecordBatch(null, block, null);
-  }
 
   @Test
   public void testSerializeRecordBatch() throws IOException {

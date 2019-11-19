@@ -18,7 +18,6 @@
 package org.apache.arrow.vector;
 
 import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
-import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -49,7 +48,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   private static final int DEFAULT_RECORD_BYTE_COUNT = 8;
   private static final int INITIAL_BYTE_COUNT = INITIAL_VALUE_ALLOCATION * DEFAULT_RECORD_BYTE_COUNT;
   private int lastValueCapacity;
-  private int lastValueAllocationSizeInBytes;
+  private long lastValueAllocationSizeInBytes;
 
   /* protected members */
   public static final int OFFSET_WIDTH = 4; /* 4 byte unsigned int to track offsets */
@@ -424,7 +423,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
 
   /* Check if the data buffer size is within bounds. */
   private void checkDataBufferSize(long size) {
-    if (size > MAX_ALLOCATION_SIZE) {
+    if (size > MAX_ALLOCATION_SIZE || size < 0) {
       throw new OversizedAllocationException("Memory required for vector " +
           " is (" + size + "), which is more than max allowed (" + MAX_ALLOCATION_SIZE + ")");
     }
@@ -500,7 +499,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    */
   public void reallocDataBuffer() {
     final long currentBufferCapacity = valueBuffer.capacity();
-    int newAllocationSize = checkedCastToInt(currentBufferCapacity * 2);
+    long newAllocationSize = currentBufferCapacity * 2;
     if (newAllocationSize == 0) {
       if (lastValueAllocationSizeInBytes > 0) {
         newAllocationSize = lastValueAllocationSizeInBytes;
@@ -517,7 +516,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     newBuf.setBytes(0, valueBuffer, 0, currentBufferCapacity);
     valueBuffer.getReferenceManager().release();
     valueBuffer = newBuf;
-    lastValueAllocationSizeInBytes = capAtMaxInt(valueBuffer.capacity());
+    lastValueAllocationSizeInBytes = valueBuffer.capacity();
   }
 
   /**

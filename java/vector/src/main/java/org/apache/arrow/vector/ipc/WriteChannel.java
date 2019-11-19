@@ -17,8 +17,6 @@
 
 package org.apache.arrow.vector.ipc;
 
-import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.WritableByteChannel;
@@ -67,8 +65,14 @@ public class WriteChannel implements AutoCloseable {
   /**
    * Writes <zeroCount>zeroCount</zeroCount> zeros the underlying channel.
    */
-  public long writeZeros(int zeroCount) throws IOException {
-    return write(new byte[zeroCount]);
+  public long writeZeros(long zeroCount) throws IOException {
+    long bytesWritten = 0;
+    while (zeroCount > 0) {
+      int bytesToWrite = (int)Math.min(zeroCount, Integer.MAX_VALUE);
+      bytesWritten += write(new byte[bytesToWrite]);
+      zeroCount -= Integer.MAX_VALUE;
+    }
+    return bytesWritten;
   }
 
   /**
@@ -109,7 +113,7 @@ public class WriteChannel implements AutoCloseable {
   public void write(ArrowBuf buffer) throws IOException {
     long bytesWritten = 0;
     while (bytesWritten < buffer.readableBytes()) {
-      int bytesToWrite = checkedCastToInt(Math.min(Integer.MAX_VALUE, buffer.readableBytes() - bytesWritten));
+      int bytesToWrite = (int)Math.min(Integer.MAX_VALUE, buffer.readableBytes() - bytesWritten);
       ByteBuffer nioBuffer = buffer.nioBuffer(buffer.readerIndex() + bytesWritten,
            bytesToWrite);
       write(nioBuffer);

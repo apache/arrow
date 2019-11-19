@@ -208,7 +208,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
     offsetBuffer = offBuffer.getReferenceManager().retain(offBuffer, allocator);
 
     validityAllocationSizeInBytes = checkedCastToInt(validityBuffer.capacity());
-    offsetAllocationSizeInBytes = checkedCastToInt(offsetBuffer.capacity());
+    offsetAllocationSizeInBytes = offsetBuffer.capacity();
 
     lastSet = fieldNode.getLength() - 1;
     valueCount = fieldNode.getLength();
