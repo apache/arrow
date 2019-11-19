@@ -54,9 +54,7 @@ test_that("C++ expressions", {
   expect_is(!(f < 4), "NotExpression")
   expect_output(
     print(f > 4),
-    # We can do better than this right?
-    # TODO: re-add the detail after ARROW-7172
-    'ComparisonExpression', #\nGREATER(field(f), scalar<double>(4))',
+    'ComparisonExpression\n(f > 4:double)',
     fixed = TRUE
   )
 })

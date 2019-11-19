@@ -42,6 +42,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -576,25 +577,23 @@ ExpressionPtr CastExpression::Assume(const Expression& given) const {
   return std::make_shared<CastExpression>(std::move(operand), std::move(like), options_);
 }
 
-std::string FieldExpression::ToString() const {
-  return std::string("field(") + name_ + ")";
-}
+std::string FieldExpression::ToString() const { return name_; }
 
 std::string OperatorName(compute::CompareOperator op) {
   using compute::CompareOperator;
   switch (op) {
     case CompareOperator::EQUAL:
-      return "EQUAL";
+      return "==";
     case CompareOperator::NOT_EQUAL:
-      return "NOT_EQUAL";
+      return "!=";
     case CompareOperator::LESS:
-      return "LESS";
+      return "<";
     case CompareOperator::LESS_EQUAL:
-      return "LESS_EQUAL";
+      return "<=";
     case CompareOperator::GREATER:
-      return "GREATER";
+      return ">";
     case CompareOperator::GREATER_EQUAL:
-      return "GREATER_EQUAL";
+      return ">=";
     default:
       DCHECK(false);
   }
@@ -602,60 +601,57 @@ std::string OperatorName(compute::CompareOperator op) {
 }
 
 std::string ScalarExpression::ToString() const {
+  auto type_repr = value_->type->ToString();
   if (!value_->is_valid) {
-    return "scalar<" + value_->type->ToString() + ", null>()";
+    return "null:" + type_repr;
   }
 
-  return "scalar<" + value_->type->ToString() + ">(" + value_->ToString() + ")";
-}
-
-static std::string EulerNotation(std::string fn, const ExpressionVector& operands) {
-  fn += "(";
-  bool comma = false;
-  for (const auto& operand : operands) {
-    if (comma) {
-      fn += ", ";
-    } else {
-      comma = true;
-    }
-    fn += operand->ToString();
-  }
-  fn += ")";
-  return fn;
+  return value_->ToString() + ":" + type_repr;
 }
 
 std::string AndExpression::ToString() const {
-  return EulerNotation("AND", {left_operand_, right_operand_});
+  return internal::JoinStrings(
+      {"(", left_operand_->ToString(), " and ", right_operand_->ToString(), ")"}, "");
 }
 
 std::string OrExpression::ToString() const {
-  return EulerNotation("OR", {left_operand_, right_operand_});
+  return internal::JoinStrings(
+      {"(", left_operand_->ToString(), " or ", right_operand_->ToString(), ")"}, "");
 }
 
-std::string NotExpression::ToString() const { return EulerNotation("NOT", {operand_}); }
+std::string NotExpression::ToString() const {
+  if (operand_->type() == ExpressionType::IS_VALID) {
+    const auto& is_valid = checked_cast<const IsValidExpression&>(*operand_);
+    return internal::JoinStrings({"(", is_valid.operand()->ToString(), " is null)"}, "");
+  }
+  return internal::JoinStrings({"(not ", operand_->ToString(), ")"}, "");
+}
 
 std::string IsValidExpression::ToString() const {
-  return EulerNotation("IS_VALID", {operand_});
+  return internal::JoinStrings({"(", operand_->ToString(), " is not null)"}, "");
 }
 
 std::string InExpression::ToString() const {
-  return EulerNotation("IN<" + set_->ToString() + ">", {operand_});
+  return internal::JoinStrings(
+      {"(", operand_->ToString(), " is in ", set_->ToString(), ")"}, "");
 }
 
 std::string CastExpression::ToString() const {
-  std::string name;
+  std::string to;
   if (arrow::util::holds_alternative<std::shared_ptr<DataType>>(to_)) {
     auto to_type = arrow::util::get<std::shared_ptr<DataType>>(to_);
-    name = "CAST<" + to_type->ToString() + ">";
+    to = " to " + to_type->ToString();
   } else {
     auto like = arrow::util::get<ExpressionPtr>(to_);
-    name = "CAST<TYPEOF(" + like->ToString() + ")>";
+    to = " like " + like->ToString();
   }
-  return EulerNotation(name, {operand_});
+  return internal::JoinStrings({"(cast ", operand_->ToString(), std::move(to)}, "");
 }
 
 std::string ComparisonExpression::ToString() const {
-  return EulerNotation(OperatorName(op()), {left_operand_, right_operand_});
+  return internal::JoinStrings({"(", left_operand_->ToString(), " ", OperatorName(op()),
+                                " ", right_operand_->ToString(), ")"},
+                               "");
 }
 
 bool UnaryExpression::Equals(const Expression& other) const {
