@@ -20,118 +20,124 @@
 
 #include <algorithm>
 #include <iostream>
-#include <map>
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "arrow/filesystem/path_util.h"
 #include "arrow/status.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 namespace fs {
 
-using PathTreeByPathMap = std::unordered_map<std::string, std::shared_ptr<PathTree>>;
-
-std::shared_ptr<PathTree> FindAncestor(const PathTreeByPathMap& directories,
-                                       std::string path) {
-  while (path != "") {
-    auto parent = internal::GetAbstractPathParent(path).first;
-    auto found = directories.find(parent);
-    if (found != directories.end()) {
-      return found->second;
-    }
-
-    path = std::move(parent);
-  }
-
-  return nullptr;
+PathTree::PathTree(FileStats stats)
+    : PathTree(std::make_shared<std::vector<FileStats>>(),
+               std::make_shared<std::vector<int>>(), 0) {
+  stats_->push_back(std::move(stats));
+  descendant_counts_->push_back(0);
 }
 
-Status PathTree::Make(std::vector<FileStats> stats, PathForest* out) {
-  PathTreeByPathMap directories;
-  PathForest forest;
-
-  auto link_parent_or_insert_root = [&directories, &forest](const FileStats& s) {
-    if (s.path() == "") {
-      return;
-    }
-
-    auto ancestor = FindAncestor(directories, s.path());
-    auto node = std::make_shared<PathTree>(s);
-    if (ancestor) {
-      ancestor->AddChild(node);
-    } else {
-      forest.push_back(node);
-    }
-
-    if (s.type() == FileType::Directory) {
-      directories[s.path()] = node;
-    }
-  };
-
-  // Insert nodes by ascending path length, ensuring that nodes are always
-  // inserted after their ancestors. Note that this strategy does not account
-  // for special directories like '..'. It is expected that path are absolute.
-  auto cmp = [](const FileStats& lhs, const FileStats& rhs) {
-    return lhs.path().size() < rhs.path().size();
-  };
-  std::stable_sort(stats.begin(), stats.end(), cmp);
-  std::for_each(stats.cbegin(), stats.cend(), link_parent_or_insert_root);
-
-  *out = std::move(forest);
-  return Status::OK();
-}
-
-Status PathTree::Make(std::vector<FileStats> stats, std::shared_ptr<PathTree>* out) {
-  PathForest forest;
-  RETURN_NOT_OK(Make(stats, &forest));
-
-  auto size = forest.size();
-  if (size > 1) {
-    return Status::Invalid("Requested PathTree has ", size, " roots, but expected 1.");
-  } else if (size == 1) {
-    *out = forest[0];
+inline bool IsDescendantOf(const FileStats& anscestor, const FileStats& descendant) {
+  if (!anscestor.IsDirectory()) {
+    // only directories may have descendants
+    return false;
   }
 
-  return Status::OK();
+  auto anscestor_path = internal::RemoveTrailingSlash(anscestor.path());
+  if (anscestor_path == "") {
+    // everything is a descendant of the root directory
+    return true;
+  }
+
+  auto descendant_path = internal::RemoveTrailingSlash(descendant.path());
+  if (!descendant_path.starts_with(anscestor_path)) {
+    // an anscestor path is a prefix of descendant paths
+    return false;
+  }
+
+  descendant_path.remove_prefix(anscestor_path.size());
+
+  // "/hello/w" is not an anscestor of "/hello/world"
+  return descendant_path.starts_with(std::string{internal::kSep});
+}
+
+PathForest PathTree::subtrees() const {
+  PathForest out;
+  for (int i = descendants_begin(); i < descendants_end(); ++i) {
+    out.push_back(WithOffset(i));
+    // skip indirect descendants
+    i += descendant_counts_->at(i);
+  }
+  return out;
+}
+
+Result<PathForest> PathTree::Make(std::vector<FileStats> stats) {
+  std::stable_sort(
+      stats.begin(), stats.end(),
+      [](const FileStats& lhs, const FileStats& rhs) { return lhs.path() < rhs.path(); });
+
+  PathForest out;
+  int out_count = static_cast<int>(stats.size());
+  auto out_descendant_counts = std::make_shared<std::vector<int>>(stats.size(), 0);
+  auto out_stats = std::make_shared<std::vector<FileStats>>(std::move(stats));
+
+  std::vector<int> stack;
+
+  for (int i = 0; i < out_count; ++i) {
+    while (stack.size() != 0 &&
+           !IsDescendantOf(out_stats->at(stack.back()), out_stats->at(i))) {
+      out_descendant_counts->at(stack.back()) = i - 1 - stack.back();
+      stack.pop_back();
+    }
+
+    if (stack.size() == 0) {
+      out.push_back(PathTree(out_stats, out_descendant_counts, i));
+    }
+
+    stack.push_back(i);
+  }
+
+  while (stack.size() != 0) {
+    out_descendant_counts->at(stack.back()) = out_count - 1 - stack.back();
+    stack.pop_back();
+  }
+
+  return out;
+}
+
+bool PathTree::Equals(const PathTree& other) const {
+  if (num_descendants() != other.num_descendants() || stats() != other.stats()) {
+    return false;
+  }
+
+  for (int i = descendants_begin(), i_other = other.descendants_begin();
+       i < descendants_end(); ++i, ++i_other) {
+    if (stats_->at(i) != other.stats_->at(i_other)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+std::string PathTree::ToString() const {
+  std::string out = stats().ToString();
+
+  out += "[";
+  int i = 0;
+  for (const auto& subtree : subtrees()) {
+    if (i++ != 0) out += ", ";
+    out += subtree.ToString();
+  }
+  out += "]";
+
+  return out;
 }
 
 std::ostream& operator<<(std::ostream& os, const PathTree& tree) {
-  os << "PathTree(" << tree.stats();
-
-  const auto& subtrees = tree.subtrees();
-  if (subtrees.size()) {
-    os << ", [";
-    for (size_t i = 0; i < subtrees.size(); i++) {
-      if (i != 0) os << ", ";
-      os << *subtrees[i];
-    }
-    os << "]";
-  }
-  os << ")";
-  return os;
-}
-
-std::ostream& operator<<(std::ostream& os, const std::shared_ptr<PathTree>& tree) {
-  if (tree != nullptr) {
-    return os << *tree.get();
-  }
-
-  return os;
-}
-
-bool operator==(const std::shared_ptr<PathTree>& lhs,
-                const std::shared_ptr<PathTree>& rhs) {
-  if (lhs == NULLPTR && rhs == NULLPTR) {
-    return true;
-  } else if (lhs != NULLPTR && rhs != NULLPTR) {
-    return *lhs == *rhs;
-  }
-
-  return false;
+  return os << tree.ToString();
 }
 
 }  // namespace fs

@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "arrow/type_fwd.h"
+#include "arrow/util/compare.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -80,7 +81,7 @@ static const int64_t kNoSize = -1;
 static const TimePoint kNoTime = TimePoint(TimePoint::duration(-1));
 
 /// \brief FileSystem entry stats
-struct ARROW_EXPORT FileStats {
+struct ARROW_EXPORT FileStats : public util::EqualityComparable<FileStats> {
   FileStats() = default;
   FileStats(FileStats&&) = default;
   FileStats& operator=(FileStats&&) = default;
@@ -117,10 +118,12 @@ struct ARROW_EXPORT FileStats {
   bool IsFile() const { return type_ == FileType::File; }
   bool IsDirectory() const { return type_ == FileType::Directory; }
 
-  bool operator==(const FileStats& other) const {
+  bool Equals(const FileStats& other) const {
     return type() == other.type() && path() == other.path() && size() == other.size() &&
            mtime() == other.mtime();
   }
+
+  std::string ToString() const;
 
  protected:
   FileType type_ = FileType::Unknown;

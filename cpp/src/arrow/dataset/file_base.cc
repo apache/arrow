@@ -60,8 +60,7 @@ Result<DataSourcePtr> FileSystemDataSource::Make(fs::FileSystemPtr filesystem,
                                                  ExpressionPtr source_partition,
                                                  PathPartitions partitions,
                                                  FileFormatPtr format) {
-  fs::PathForest forest;
-  RETURN_NOT_OK(fs::PathTree::Make(stats, &forest));
+  ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathTree::Make(std::move(stats)));
 
   return DataSourcePtr(new FileSystemDataSource(
       std::move(filesystem), std::move(forest), std::move(source_partition),
@@ -85,7 +84,7 @@ DataFragmentIterator FileSystemDataSource::GetFragmentsImpl(ScanOptionsPtr optio
   };
 
   for (auto tree : forest_) {
-    DCHECK_OK(tree->Visit(visitor, matcher));
+    DCHECK_OK(tree.Visit(visitor, matcher));
   }
 
   auto file_it = MakeVectorIterator(std::move(files));
