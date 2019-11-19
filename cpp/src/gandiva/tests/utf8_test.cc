@@ -16,9 +16,9 @@
 // under the License.
 
 #include <gtest/gtest.h>
+
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
-
 #include "gandiva/projector.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
@@ -246,8 +246,9 @@ TEST_F(TestUtf8, TestLikeWithEscape) {
 
   // Create a row-batch with some sample data
   int num_records = 4;
-  auto array_a = MakeArrowArrayUtf8(
-      {"park", "spa%rkle", "bright spa%rk and fire", "spark"}, {true, true, true, true});
+  auto array_a =
+      MakeArrowArrayUtf8({"park", "spa%rkle", "bright spa%rk and fire", "spa\\rk"},
+                         {true, true, true, true});
 
   // expected output
   auto exp = MakeArrowArrayBool({false, true, true, false}, {true, true, true, true});

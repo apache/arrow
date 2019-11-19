@@ -18,41 +18,37 @@
 #include "gandiva/like_holder.h"
 
 #include <regex>
+
 #include "gandiva/node.h"
-#include "gandiva/regex_util.h"
 
 namespace gandiva {
 
-RE2 LikeHolder::starts_with_regex_(R"((\w|\s)*\.\*)");
-RE2 LikeHolder::ends_with_regex_(R"(\.\*(\w|\s)*)");
-RE2 LikeHolder::is_substr_regex_(R"(\.\*(\w|\s)*\.\*)");
+RE2 RegexpMatchesHolder::starts_with_regex_(R"(\^([\w\s]+)(\.\*)?)");
+RE2 RegexpMatchesHolder::ends_with_regex_(R"((\.\*)?([\w\s]+)\$)");
+RE2 RegexpMatchesHolder::is_substr_regex_(R"((\w|\s)*)");
 
-// Short-circuit pattern matches for the following common sub cases :
-// - starts_with, ends_with and is_substr
-const FunctionNode LikeHolder::TryOptimize(const FunctionNode& node) {
-  std::shared_ptr<LikeHolder> holder;
+// Short-circuit pattern matches for the three common sub cases :
+// - starts_with, ends_with, and contains.
+const FunctionNode RegexpMatchesHolder::TryOptimize(const FunctionNode& node) {
+  std::shared_ptr<RegexpMatchesHolder> holder;
   auto status = Make(node, &holder);
   if (status.ok()) {
     std::string& pattern = holder->pattern_;
     auto literal_type = node.children().at(1)->return_type();
-
-    if (RE2::FullMatch(pattern, starts_with_regex_)) {
-      auto prefix = pattern.substr(0, pattern.length() - 2);  // trim .*
+    std::string substr;
+    if (RE2::FullMatch(pattern, starts_with_regex_, &substr)) {
       auto prefix_node =
-          std::make_shared<LiteralNode>(literal_type, LiteralHolder(prefix), false);
+          std::make_shared<LiteralNode>(literal_type, LiteralHolder(substr), false);
       return FunctionNode("starts_with", {node.children().at(0), prefix_node},
                           node.return_type());
-    } else if (RE2::FullMatch(pattern, ends_with_regex_)) {
-      auto suffix = pattern.substr(2);  // skip .*
+    } else if (RE2::FullMatch(pattern, ends_with_regex_, (void*)NULL, &substr)) {
       auto suffix_node =
-          std::make_shared<LiteralNode>(literal_type, LiteralHolder(suffix), false);
+          std::make_shared<LiteralNode>(literal_type, LiteralHolder(substr), false);
       return FunctionNode("ends_with", {node.children().at(0), suffix_node},
                           node.return_type());
     } else if (RE2::FullMatch(pattern, is_substr_regex_)) {
-      auto substr =
-          pattern.substr(2, pattern.length() - 4);  // trim starting and ending .*
       auto substr_node =
-          std::make_shared<LiteralNode>(literal_type, LiteralHolder(substr), false);
+          std::make_shared<LiteralNode>(literal_type, LiteralHolder(pattern), false);
       return FunctionNode("is_substr", {node.children().at(0), substr_node},
                           node.return_type());
     }
@@ -62,14 +58,114 @@ const FunctionNode LikeHolder::TryOptimize(const FunctionNode& node) {
   return node;
 }
 
+const FunctionNode SQLLikeHolder::TryOptimize(const FunctionNode& node) {
+  if (node.descriptor()->name() == "ilike") {
+    // Optimizations don't work for case-insensitive matching
+    return node;
+  }
+
+  std::string pcre_pattern;
+  auto pattern_result = GetPattern(node);
+  if (!pattern_result.ok()) {
+    return node;
+  } else {
+    pcre_pattern = pattern_result.ValueOrDie();
+  }
+
+  auto literal_type = node.children().at(1)->return_type();
+  auto pcre_node =
+      std::make_shared<LiteralNode>(literal_type, LiteralHolder(pcre_pattern), false);
+  auto new_node = FunctionNode("regexp_matches", {node.children().at(0), pcre_node},
+                               node.return_type());
+
+  auto optimized_node = RegexpMatchesHolder::TryOptimize(new_node);
+
+  if (optimized_node.descriptor()->name() != "regexp_matches") {
+    return optimized_node;
+  } else {
+    return node;
+  }
+}
+
 static bool IsArrowStringLiteral(arrow::Type::type type) {
   return type == arrow::Type::STRING || type == arrow::Type::BINARY;
 }
 
-Status LikeHolder::Make(const FunctionNode& node, std::shared_ptr<LikeHolder>* holder) {
-  ARROW_RETURN_IF(node.children().size() != 2 && node.children().size() != 3,
-                  Status::Invalid("'like' function requires two or three parameters"));
+Result<std::string> RegexpMatchesHolder::GetPattern(const FunctionNode& node) {
+  auto literal = dynamic_cast<LiteralNode*>(node.children().at(1).get());
+  auto pattern = arrow::util::get<std::string>(literal->holder());
+  return pattern;
+}
 
+Result<std::string> SQLLikeHolder::GetPattern(const FunctionNode& node) {
+  std::string sql_pattern;
+  ARROW_ASSIGN_OR_RAISE(sql_pattern, GetSQLPattern(node));
+
+  std::string escape_char;
+  ARROW_ASSIGN_OR_RAISE(escape_char, GetEscapeChar(node));
+
+  return GetPattern(sql_pattern, escape_char);
+}
+
+Result<std::string> SQLLikeHolder::GetPattern(const std::string& sql_pattern,
+                                              const std::string& escape_char) {
+  std::string pcre_pattern;
+  if (escape_char.length() == 1) {
+    ARROW_RETURN_NOT_OK(
+        RegexUtil::SqlLikePatternToPcre(sql_pattern, escape_char.at(0), pcre_pattern));
+  } else {
+    ARROW_RETURN_NOT_OK(RegexUtil::SqlLikePatternToPcre(sql_pattern, pcre_pattern));
+  }
+  return pcre_pattern;
+}
+
+Status RegexpMatchesHolder::Make(const std::string& pcre_pattern,
+                                 std::shared_ptr<RegexpMatchesHolder>* holder) {
+  auto lholder =
+      std::shared_ptr<RegexpMatchesHolder>(new RegexpMatchesHolder(pcre_pattern));
+  ARROW_RETURN_IF(!lholder->regex_.ok(),
+                  Status::Invalid("Building RE2 pattern '", pcre_pattern, "' failed"));
+
+  *holder = lholder;
+  return Status::OK();
+}
+
+Status RegexpMatchesHolder::Make(const std::string& pcre_pattern,
+                                 std::shared_ptr<RegexpMatchesHolder>* holder,
+                                 RE2::Options regex_ops) {
+  auto lholder = std::shared_ptr<RegexpMatchesHolder>(
+      new RegexpMatchesHolder(pcre_pattern, regex_ops));
+  ARROW_RETURN_IF(!lholder->regex_.ok(),
+                  Status::Invalid("Building RE2 pattern '", pcre_pattern, "' failed"));
+
+  *holder = lholder;
+  return Status::OK();
+}
+
+Status RegexpMatchesHolder::Make(const FunctionNode& node,
+                                 std::shared_ptr<RegexpMatchesHolder>* holder) {
+  // Add regexp_matches validation
+  ARROW_RETURN_IF(node.children().size() != 2,
+                  Status::Invalid("'regexp_matches' function requires two parameters"));
+
+  auto literal = dynamic_cast<LiteralNode*>(node.children().at(1).get());
+  ARROW_RETURN_IF(
+      literal == nullptr,
+      Status::Invalid(
+          "'regexp_matches' function requires a literal as the second parameter"));
+
+  auto literal_type = literal->return_type()->id();
+  ARROW_RETURN_IF(
+      !IsArrowStringLiteral(literal_type),
+      Status::Invalid(
+          "'regexp_matches' function requires a string literal as the second parameter"));
+
+  ARROW_ASSIGN_OR_RAISE(std::string pattern, GetPattern(node));
+
+  return Make(pattern, holder);
+}
+
+Result<std::string> SQLLikeHolder::GetSQLPattern(const FunctionNode& node) {
   auto literal = dynamic_cast<LiteralNode*>(node.children().at(1).get());
   ARROW_RETURN_IF(
       literal == nullptr,
@@ -81,76 +177,78 @@ Status LikeHolder::Make(const FunctionNode& node, std::shared_ptr<LikeHolder>* h
       Status::Invalid(
           "'like' function requires a string literal as the second parameter"));
 
-  RE2::Options regex_op;
-  if (node.descriptor()->name() == "ilike") {
-    regex_op.set_case_sensitive(false);  // set case-insensitive for ilike function.
+  return arrow::util::get<std::string>(literal->holder());
+}
 
-    return Make(arrow::util::get<std::string>(literal->holder()), holder, regex_op);
-  }
-  if (node.children().size() == 2) {
-    return Make(arrow::util::get<std::string>(literal->holder()), holder);
-  } else {
-    auto escape_char = dynamic_cast<LiteralNode*>(node.children().at(2).get());
+Result<std::string> SQLLikeHolder::GetEscapeChar(const FunctionNode& node) {
+  std::string escape_char = "";
+  if (node.children().size() == 3) {
+    auto escape_node = dynamic_cast<LiteralNode*>(node.children().at(2).get());
     ARROW_RETURN_IF(
-        escape_char == nullptr,
+        escape_node == nullptr,
         Status::Invalid("'like' function requires a literal as the third parameter"));
 
-    auto escape_char_type = escape_char->return_type()->id();
+    auto escape_char_type = escape_node->return_type()->id();
     ARROW_RETURN_IF(
         !IsArrowStringLiteral(escape_char_type),
         Status::Invalid(
             "'like' function requires a string literal as the third parameter"));
-    return Make(arrow::util::get<std::string>(literal->holder()),
-                arrow::util::get<std::string>(escape_char->holder()), holder);
+    escape_char = arrow::util::get<std::string>(escape_node->holder());
   }
+  return escape_char;
 }
 
-Status LikeHolder::Make(const std::string& sql_pattern,
-                        std::shared_ptr<LikeHolder>* holder) {
-  std::string pcre_pattern;
-  ARROW_RETURN_NOT_OK(RegexUtil::SqlLikePatternToPcre(sql_pattern, pcre_pattern));
+Status SQLLikeHolder::Make(const FunctionNode& node,
+                           std::shared_ptr<SQLLikeHolder>* holder) {
+  ARROW_RETURN_IF(node.children().size() != 2 && node.children().size() != 3,
+                  Status::Invalid("'like' function requires two or three parameters"));
 
-  auto lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern));
-  ARROW_RETURN_IF(!lholder->regex_.ok(),
-                  Status::Invalid("Building RE2 pattern '", pcre_pattern, "' failed"));
+  std::string sql_pattern;
+  ARROW_ASSIGN_OR_RAISE(sql_pattern, GetSQLPattern(node));
 
-  *holder = lholder;
-  return Status::OK();
+  std::string escape_char;
+  ARROW_ASSIGN_OR_RAISE(escape_char, GetEscapeChar(node));
+
+  RE2::Options regex_op;
+  if (node.descriptor()->name() == "ilike") {
+    regex_op.set_case_sensitive(false);  // set case-insensitive for ilike function.
+  }
+
+  return Make(sql_pattern, escape_char, holder, regex_op);
 }
 
-Status LikeHolder::Make(const std::string& sql_pattern, const std::string& escape_char,
-                        std::shared_ptr<LikeHolder>* holder) {
+Status SQLLikeHolder::Make(const std::string& sql_pattern,
+                           std::shared_ptr<SQLLikeHolder>* holder) {
+  RE2::Options regex_op;
+  return Make(sql_pattern, "", holder, regex_op);
+}
+
+Status SQLLikeHolder::Make(const std::string& sql_pattern, const std::string& escape_char,
+                           std::shared_ptr<SQLLikeHolder>* holder) {
+  RE2::Options regex_op;
+  return Make(sql_pattern, escape_char, holder, regex_op);
+}
+
+Status SQLLikeHolder::Make(const std::string& sql_pattern,
+                           std::shared_ptr<SQLLikeHolder>* holder,
+                           RE2::Options regex_op) {
+  return Make(sql_pattern, "", holder, regex_op);
+}
+
+Status SQLLikeHolder::Make(const std::string& sql_pattern, const std::string& escape_char,
+                           std::shared_ptr<SQLLikeHolder>* holder,
+                           RE2::Options regex_op) {
   ARROW_RETURN_IF(escape_char.length() > 1,
                   Status::Invalid("The length of escape char ", escape_char,
                                   " in 'like' function is greater than 1"));
   std::string pcre_pattern;
-  if (escape_char.length() == 1) {
-    ARROW_RETURN_NOT_OK(
-        RegexUtil::SqlLikePatternToPcre(sql_pattern, escape_char.at(0), pcre_pattern));
-  } else {
-    ARROW_RETURN_NOT_OK(RegexUtil::SqlLikePatternToPcre(sql_pattern, pcre_pattern));
-  }
+  ARROW_ASSIGN_OR_RAISE(pcre_pattern, GetPattern(sql_pattern, escape_char));
 
-  auto lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern));
-  ARROW_RETURN_IF(!lholder->regex_.ok(),
-                  Status::Invalid("Building RE2 pattern '", pcre_pattern, "' failed"));
+  std::shared_ptr<RegexpMatchesHolder> base_holder;
+  ARROW_RETURN_NOT_OK(RegexpMatchesHolder::Make(pcre_pattern, &base_holder, regex_op));
 
-  *holder = lholder;
+  *holder = std::static_pointer_cast<SQLLikeHolder>(base_holder);
   return Status::OK();
 }
 
-Status LikeHolder::Make(const std::string& sql_pattern,
-                        std::shared_ptr<LikeHolder>* holder, RE2::Options regex_op) {
-  std::string pcre_pattern;
-  ARROW_RETURN_NOT_OK(RegexUtil::SqlLikePatternToPcre(sql_pattern, pcre_pattern));
-
-  std::shared_ptr<LikeHolder> lholder;
-  lholder = std::shared_ptr<LikeHolder>(new LikeHolder(pcre_pattern, regex_op));
-
-  ARROW_RETURN_IF(!lholder->regex_.ok(),
-                  Status::Invalid("Building RE2 pattern '", pcre_pattern, "' failed"));
-
-  *holder = lholder;
-  return Status::OK();
-}
 }  // namespace gandiva
