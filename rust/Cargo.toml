@@ -21,5 +21,4 @@ members = [
         "parquet",
         "datafusion",
         "flight_proto",
-        "flight",
 ]

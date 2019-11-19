@@ -15,11 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use tokio::sync::mpsc;
 use tonic::{Request, Response, Status, Streaming};
+use tokio::sync::mpsc;
+use tonic::transport::Server;
 
 use flight_proto::{
-    server::FlightService, Action, ActionType, Criteria, Empty, FlightData,
+    server::FlightService, server::FlightServiceServer, Action, ActionType, Criteria, Empty, FlightData,
     FlightDescriptor, FlightInfo, HandshakeRequest, HandshakeResponse, PutResult,
     SchemaResult, Ticket,
 };
@@ -91,4 +92,17 @@ impl FlightService for FlightServiceImpl {
     ) -> Result<Response<Self::ListActionsStream>, Status> {
         Err(Status::unimplemented("Not yet implemented"))
     }
+}
+
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let addr = "[::1]:50051".parse()?;
+    let service = FlightServiceImpl {};
+
+    let svc = FlightServiceServer::new(service);
+
+    Server::builder().add_service(svc).serve(addr).await?;
+
+    Ok(())
 }
