@@ -62,7 +62,7 @@ test_that("Simple interface for datasets", {
   expect_equivalent(
     ds %>%
       select(chr, dbl) %>%
-      filter(dbl > 7 & dbl < 53) %>%
+      filter(dbl > 7 & dbl < 53L) %>% # Testing the auto-casting of scalars
       arrange(dbl),
     rbind(
       df1[8:10, c("chr", "dbl")],
@@ -73,7 +73,7 @@ test_that("Simple interface for datasets", {
   expect_equivalent(
     ds %>%
       select(string = chr, integer = int, part) %>%
-      filter(integer > 6L & part == 1) %>%
+      filter(integer > 6 & part == 1) %>% # 6 not 6L to test autocasting
       summarize(mean = mean(integer)),
     df1 %>%
       select(string = chr, integer = int) %>%
@@ -100,9 +100,31 @@ test_that("Hive partitioning", {
 test_that("filter() on a dataset won't auto-collect", {
   ds <- open_dataset(dataset_dir)
   expect_error(
-    ds %>% filter(int > 6L, dbl > max(dbl)),
+    ds %>% filter(int > 6, dbl > max(dbl)),
     "Filter expression not supported for Arrow Datasets: dbl > max(dbl)",
     fixed = TRUE
+  )
+})
+
+test_that("filter() with is.na()", {
+  ds <- open_dataset(dataset_dir)
+  expect_equivalent(
+    ds %>%
+      select(part, lgl) %>%
+      filter(!is.na(lgl), part == 1) %>%
+      collect(),
+    df1[!is.na(df1$lgl), c("part", "lgl")],
+  )
+})
+
+test_that("filter() with %in%", {
+  ds <- open_dataset(dataset_dir)
+  expect_equivalent(
+    ds %>%
+      select(part, int) %>%
+      filter(int %in% c(6L, 4L, 3L), part == 1) %>% # TODO: C++ In() should cast
+      collect(),
+    df1[c(3, 4, 6), c("part", "int")],
   )
 })
 

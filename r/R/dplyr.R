@@ -115,6 +115,13 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
     }
     assign(v, this, envir = filter_data)
   }
+  # Add %in% function since we can't define that as a field/array method naturally
+  # (it's not a generic)
+  if (data_is_dataset) {
+    assign("%in%", InExpression$create, envir = filter_data)
+  } else {
+    assign("%in%", function(x, table) array_expression("%in%", x, table), envir = filter_data)
+  }
   dm <- new_data_mask(filter_data)
   filters <- lapply(filts, function (f) {
     # This should yield an Expression as long as the filter function(s) are
