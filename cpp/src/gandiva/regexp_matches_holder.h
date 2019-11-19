@@ -19,6 +19,7 @@
 #define GANDIVA_REGEXP_MATCHES_HOLDER_H
 
 #include <string>
+#include <memory>
 
 #include <re2/re2.h>
 
@@ -31,18 +32,23 @@ class GANDIVA_EXPORT RegexpMatchesHolder : public LikeHolder {
  public:
   ~RegexpMatchesHolder() override = default;
 
-  static Status Make(const FunctionNode& node, std::shared_ptr<RegexpMatchesHolder>* holder);
+  static Status Make(const FunctionNode& node,
+                     std::shared_ptr<RegexpMatchesHolder>* holder);
 
-  static Status Make(const std::string& pcre_pattern, std::shared_ptr<RegexpMatchesHolder>* holder);
+  static Status Make(const std::string& pcre_pattern,
+                     std::shared_ptr<RegexpMatchesHolder>* holder);
 
   // Try and optimise a function node with a "regexp_matches" pattern.
   static const FunctionNode TryOptimize(const FunctionNode& node);
 
   /// Return true if there is a match in the data.
-  bool operator()(const std::string& data) override {return RE2::PartialMatch(data, regex_);}
+  bool operator()(const std::string& data) override {
+    return RE2::PartialMatch(data, regex_);
+  }
 
  private:
-  explicit RegexpMatchesHolder(const std::string& pattern) : pattern_(pattern), regex_(pattern) {}
+  explicit RegexpMatchesHolder(const std::string& pattern) :
+                               pattern_(pattern), regex_(pattern) {}
 
   std::string pattern_;  // posix pattern string, to help debugging
   RE2 regex_;            // compiled regex for the pattern
@@ -50,5 +56,6 @@ class GANDIVA_EXPORT RegexpMatchesHolder : public LikeHolder {
   static RE2 starts_with_regex_;  // pre-compiled pattern for matching starts_with
   static RE2 ends_with_regex_;    // pre-compiled pattern for matching ends_with
 };
-}
+} // namespace gandiva
+
 #endif //GANDIVA_REGEXP_MATCHES_HOLDER_H

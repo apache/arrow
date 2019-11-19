@@ -199,9 +199,10 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
           types->i8_ptr_type(),  // const char* pattern
           types->i32_type()};    // int pattern_len
 
-  engine->AddGlobalMappingForFunc("gdv_fn_regexp_matches_utf8_utf8",
-                                  types->i1_type() /*return_type*/, args,
-                                  reinterpret_cast<void*>(gdv_fn_regexp_matches_utf8_utf8));
+  engine->AddGlobalMappingForFunc(
+            "gdv_fn_regexp_matches_utf8_utf8",
+            types->i1_type() /*return_type*/, args,
+            reinterpret_cast<void*>(gdv_fn_regexp_matches_utf8_utf8));
 
   // gdv_fn_to_date_utf8_utf8_int32
   args = {types->i64_type(),                   // int64_t execution_context

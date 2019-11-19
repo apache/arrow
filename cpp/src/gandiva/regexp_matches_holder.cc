@@ -52,7 +52,8 @@ namespace gandiva {
     return node;
   }
 
-  Status RegexpMatchesHolder::Make(const FunctionNode& node, std::shared_ptr<RegexpMatchesHolder>* holder) {
+  Status RegexpMatchesHolder::Make(const FunctionNode& node,
+                                   std::shared_ptr<RegexpMatchesHolder>* holder) {
     std::string pcre_pattern;
     ARROW_RETURN_NOT_OK(LikeHolder::Make(node, &pcre_pattern));
     return Make(pcre_pattern, holder);
@@ -60,7 +61,8 @@ namespace gandiva {
 
   Status RegexpMatchesHolder::Make(const std::string& pcre_pattern,
                           std::shared_ptr<RegexpMatchesHolder>* holder) {
-    auto lholder = std::shared_ptr<RegexpMatchesHolder>(new RegexpMatchesHolder(pcre_pattern));
+    auto lholder = std::shared_ptr<RegexpMatchesHolder>(
+      new RegexpMatchesHolder(pcre_pattern));
     ARROW_RETURN_IF(!lholder->regex_.ok(),
                     Status::Invalid("Building RE2 pattern '", pcre_pattern, "' failed"));
 

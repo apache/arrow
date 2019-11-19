@@ -31,7 +31,8 @@
 
 namespace gandiva {
 
-/// Base class for Function Holder for pattern matching SQL functions like 'like' and 'regexp_matches'
+/// Base class for Function Holder for pattern matching SQL functions like
+/// 'like' and 'regexp_matches'
 class GANDIVA_EXPORT LikeHolder : public FunctionHolder {
  public:
   static Status Make(const FunctionNode& node, std::string* pattern);

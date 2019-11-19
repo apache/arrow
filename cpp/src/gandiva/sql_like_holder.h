@@ -19,6 +19,7 @@
 #define GANDIVA_SQL_LIKE_HOLDER_H
 
 #include <string>
+#include <memory>
 
 #include <re2/re2.h>
 
@@ -33,16 +34,20 @@ class GANDIVA_EXPORT SQLLikeHolder : public LikeHolder {
 
   static Status Make(const FunctionNode& node, std::shared_ptr<SQLLikeHolder>* holder);
 
-  static Status Make(const std::string& sql_pattern, std::shared_ptr<SQLLikeHolder>* holder);
+  static Status Make(const std::string& sql_pattern,
+                     std::shared_ptr<SQLLikeHolder>* holder);
 
   // Try and optimise a function node with a "like" pattern.
   static const FunctionNode TryOptimize(const FunctionNode& node);
 
   /// Return true if the data matches the pattern.
-  bool operator()(const std::string& data) override {return RE2::FullMatch(data, regex_);}
+  bool operator()(const std::string& data) override {
+    return RE2::FullMatch(data, regex_);
+  }
 
-private:
-  explicit SQLLikeHolder(const std::string& pattern) : pattern_(pattern), regex_(pattern) {}
+ private:
+  explicit SQLLikeHolder(const std::string& pattern) :
+                         pattern_(pattern), regex_(pattern) {}
 
   std::string pattern_;  // posix pattern string, to help debugging
   RE2 regex_;            // compiled regex for the pattern

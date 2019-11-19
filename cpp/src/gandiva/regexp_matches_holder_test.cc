@@ -26,7 +26,7 @@
 namespace gandiva {
 
 class TestRegexpMatchesHolder : public ::testing::Test {
-public:
+ public:
   FunctionNode BuildRegexpMatches(std::string pattern) {
     auto field = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
     auto pattern_node =

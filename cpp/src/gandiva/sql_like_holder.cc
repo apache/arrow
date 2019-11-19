@@ -54,7 +54,8 @@ namespace gandiva {
     return node;
   }
 
-  Status SQLLikeHolder::Make(const FunctionNode& node, std::shared_ptr<SQLLikeHolder>* holder) {
+  Status SQLLikeHolder::Make(const FunctionNode& node,
+                             std::shared_ptr<SQLLikeHolder>* holder) {
     std::string sql_pattern;
     ARROW_RETURN_NOT_OK(LikeHolder::Make(node, &sql_pattern));
     return Make(sql_pattern, holder);

@@ -27,18 +27,21 @@ static bool IsArrowStringLiteral(arrow::Type::type type) {
 
 Status LikeHolder::Make(const FunctionNode& node, std::string* pattern) {
   ARROW_RETURN_IF(node.children().size() != 2,
-                  Status::Invalid("'" + node.descriptor()->name() + "' function requires two parameters"));
+                  Status::Invalid("'" + node.descriptor()->name() +
+                  "' function requires two parameters"));
 
   auto literal = dynamic_cast<LiteralNode*>(node.children().at(1).get());
   ARROW_RETURN_IF(
     literal == nullptr,
-    Status::Invalid("'" + node.descriptor()->name() + "' function requires a literal as the second parameter"));
+    Status::Invalid("'" + node.descriptor()->name() +
+    "' function requires a literal as the second parameter"));
 
   auto literal_type = literal->return_type()->id();
   ARROW_RETURN_IF(
     !IsArrowStringLiteral(literal_type),
     Status::Invalid(
-      "'" + node.descriptor()->name() + " function requires a string literal as the second parameter"));
+    "'" + node.descriptor()->name() +
+    " function requires a string literal as the second parameter"));
 
   *pattern = arrow::util::get<std::string>(literal->holder());
   return Status::OK();
