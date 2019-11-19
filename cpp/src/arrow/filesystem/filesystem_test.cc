@@ -440,6 +440,12 @@ TEST_F(TestMockFS, FileSystemFromUri) {
   ASSERT_OK(FileSystemFromUri("mock:/foo/bar/?q=xxx", &fs_, &path));
   ASSERT_EQ(path, "foo/bar/");
   CheckDirs({});
+  ASSERT_OK(FileSystemFromUri("mock:///foo/bar", &fs_, &path));
+  ASSERT_EQ(path, "foo/bar");
+  CheckDirs({});
+  ASSERT_OK(FileSystemFromUri("mock:///foo/bar?q=zzz", &fs_, &path));
+  ASSERT_EQ(path, "foo/bar");
+  CheckDirs({});
 }
 
 ////////////////////////////////////////////////////////////////////////////

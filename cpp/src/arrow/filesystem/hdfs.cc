@@ -322,7 +322,9 @@ Status HdfsOptions::FromUri(const Uri& uri, HdfsOptions* out) {
     } else if (v == "0") {
       out->ConfigureHdfsDriver(false);
     } else {
-      return Status::Invalid("Invalid value for option 'use_hdfs3': '", v, "'");
+      return Status::Invalid(
+          "Invalid value for option 'use_hdfs3' (allowed values are '0' and '1'): '", v,
+          "'");
     }
   }
   it = options_map.find("replication");

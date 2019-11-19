@@ -321,6 +321,9 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
 
 /// \brief EXPERIMENTAL: Create a new FileSystem by URI
 ///
+/// A scheme-less URI is considered a local filesystem path.
+/// Recognized schemes are "file", "mock" and "hdfs".
+///
 /// \param[in] uri a URI-based path, ex: file:///some/local/path
 /// \param[out] out_fs FileSystem instance.
 /// \param[out] out_path (optional) Path inside the filesystem.
