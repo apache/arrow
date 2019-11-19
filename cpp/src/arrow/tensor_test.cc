@@ -85,6 +85,9 @@ TEST(TestTensor, MakeFailureCases) {
   // empty shape
   ASSERT_RAISES(Invalid, Tensor::Make(float64(), data, {}, &tensor1));
 
+  // negative items in shape
+  ASSERT_RAISES(Invalid, Tensor::Make(float64(), data, {-3, 6}, &tensor1));
+
   // invalid stride length
   ASSERT_RAISES(Invalid,
                 Tensor::Make(float64(), data, shape, {sizeof(double)}, &tensor1));

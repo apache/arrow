@@ -287,8 +287,9 @@ TYPED_TEST_P(TestSparseCOOTensorForIndexValueType, Make) {
   ASSERT_RAISES(Invalid,
                 SparseCOOTensor::Make(si, binary(), sparse_data, this->shape_, {}, &st));
 
-  // empty shape
-  ASSERT_RAISES(Invalid, SparseCOOTensor::Make(si, int64(), sparse_data, {}, {}, &st));
+  // negative items in shape
+  ASSERT_RAISES(Invalid,
+                SparseCOOTensor::Make(si, int64(), sparse_data, {2, -3, 4}, {}, &st));
 
   // sparse index and ndim (shape length) are inconsistent
   ASSERT_RAISES(Invalid,
@@ -604,6 +605,13 @@ TYPED_TEST_P(TestSparseCSRMatrixForIndexValueType, Make) {
 
   // empty shape
   ASSERT_RAISES(Invalid, SparseCSRMatrix::Make(si, int64(), sparse_data, {}, {}, &sm));
+
+  // 1D shape
+  ASSERT_RAISES(Invalid, SparseCSRMatrix::Make(si, int64(), sparse_data, {24}, {}, &sm));
+
+  // negative items in shape
+  ASSERT_RAISES(Invalid,
+                SparseCSRMatrix::Make(si, int64(), sparse_data, {6, -4}, {}, &sm));
 
   // sparse index and ndim (shape length) are inconsistent
   ASSERT_RAISES(Invalid,

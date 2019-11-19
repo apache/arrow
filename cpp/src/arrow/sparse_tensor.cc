@@ -17,6 +17,7 @@
 
 #include "arrow/sparse_tensor.h"
 
+#include <algorithm>
 #include <functional>
 #include <limits>
 #include <memory>
@@ -27,6 +28,17 @@
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
+
+// ----------------------------------------------------------------------
+// SparseIndex
+
+Status SparseIndex::ValidateShape(const std::vector<int64_t>& shape) const {
+  if (!std::all_of(shape.begin(), shape.end(), [](int64_t x) { return x > 0; })) {
+    return Status::Invalid("Shape elements must be positive");
+  }
+
+  return Status::OK();
+}
 
 namespace {
 

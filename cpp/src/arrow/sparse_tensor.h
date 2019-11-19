@@ -63,6 +63,8 @@ class ARROW_EXPORT SparseIndex {
   /// \brief Return the string representation of the sparse index
   virtual std::string ToString() const = 0;
 
+  virtual Status ValidateShape(const std::vector<int64_t>& shape) const;
+
  protected:
   SparseTensorFormat::type format_id_;
   int64_t non_zero_length_;
@@ -120,7 +122,9 @@ class ARROW_EXPORT SparseCOOIndex : public internal::SparseIndexBase<SparseCOOIn
     return indices()->Equals(*other.indices());
   }
 
-  Status ValidateShape(const std::vector<int64_t>& shape) const {
+  Status ValidateShape(const std::vector<int64_t>& shape) const override {
+    ARROW_RETURN_NOT_OK(SparseIndex::ValidateShape(shape));
+
     if (static_cast<size_t>(coords_->shape()[1]) == shape.size()) {
       return Status::OK();
     }
@@ -185,16 +189,18 @@ class ARROW_EXPORT SparseCSRIndex : public internal::SparseIndexBase<SparseCSRIn
     return indptr()->Equals(*other.indptr()) && indices()->Equals(*other.indices());
   }
 
-  Status ValidateShape(const std::vector<int64_t>& shape) const {
-    if (shape.size() < 1) {
-      return Status::Invalid("shape length is too short");
+  Status ValidateShape(const std::vector<int64_t>& shape) const override {
+    ARROW_RETURN_NOT_OK(SparseIndex::ValidateShape(shape));
+
+    if (shape.size() < 2) {
+      return Status::Invalid("shape length is too long");
     }
 
     if (shape.size() > 2) {
       return Status::Invalid("shape length is too long");
     }
 
-    if (indptr_->shape()[0] == shape[0] + 1) {
+    if (shape.size() == 0 || indptr_->shape()[0] == shape[0] + 1) {
       return Status::OK();
     }
 
