@@ -15,14 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use tonic::{Request, Response, Status, Streaming};
 use tokio::sync::mpsc;
 use tonic::transport::Server;
+use tonic::{Request, Response, Status, Streaming};
 
-use flight_proto::{
-    server::FlightService, server::FlightServiceServer, Action, ActionType, Criteria, Empty, FlightData,
-    FlightDescriptor, FlightInfo, HandshakeRequest, HandshakeResponse, PutResult,
-    SchemaResult, Ticket,
+use flight::{
+    server::FlightService, server::FlightServiceServer, Action, ActionType, Criteria,
+    Empty, FlightData, FlightDescriptor, FlightInfo, HandshakeRequest, HandshakeResponse,
+    PutResult, SchemaResult, Ticket,
 };
 
 #[derive(Clone)]
@@ -34,7 +34,7 @@ impl FlightService for FlightServiceImpl {
     type ListFlightsStream = mpsc::Receiver<Result<FlightInfo, Status>>;
     type DoGetStream = mpsc::Receiver<Result<FlightData, Status>>;
     type DoPutStream = mpsc::Receiver<Result<PutResult, Status>>;
-    type DoActionStream = mpsc::Receiver<Result<flight_proto::Result, Status>>;
+    type DoActionStream = mpsc::Receiver<Result<flight::Result, Status>>;
     type ListActionsStream = mpsc::Receiver<Result<ActionType, Status>>;
 
     async fn handshake(
@@ -93,7 +93,6 @@ impl FlightService for FlightServiceImpl {
         Err(Status::unimplemented("Not yet implemented"))
     }
 }
-
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

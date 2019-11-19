@@ -16,8 +16,8 @@
 # under the License.
 
 [package]
-name = "flight_proto"
-description = "Apache Arrow Flight protobuf"
+name = "flight"
+description = "Apache Arrow Flight"
 version = "1.0.0-SNAPSHOT"
 edition = "2018"
 authors = ["Apache Arrow <dev@arrow.apache.org>"]
@@ -38,6 +38,6 @@ async-stream = "0.1.2"
 tonic-build = "0.1.0-alpha.6"
 
 [lib]
-name = "flight_proto"
+name = "flight"
 path = "src/lib.rs"
 
