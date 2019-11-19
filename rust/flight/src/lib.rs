@@ -15,3 +15,80 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use tokio::sync::mpsc;
+use tonic::{Request, Response, Status, Streaming};
+
+use flight_proto::{
+    server::FlightService, Action, ActionType, Criteria, Empty, FlightData,
+    FlightDescriptor, FlightInfo, HandshakeRequest, HandshakeResponse, PutResult,
+    SchemaResult, Ticket,
+};
+
+#[derive(Clone)]
+pub struct FlightServiceImpl {}
+
+#[tonic::async_trait]
+impl FlightService for FlightServiceImpl {
+    type HandshakeStream = mpsc::Receiver<Result<HandshakeResponse, Status>>;
+    type ListFlightsStream = mpsc::Receiver<Result<FlightInfo, Status>>;
+    type DoGetStream = mpsc::Receiver<Result<FlightData, Status>>;
+    type DoPutStream = mpsc::Receiver<Result<PutResult, Status>>;
+    type DoActionStream = mpsc::Receiver<Result<flight_proto::Result, Status>>;
+    type ListActionsStream = mpsc::Receiver<Result<ActionType, Status>>;
+
+    async fn handshake(
+        &self,
+        _request: Request<Streaming<HandshakeRequest>>,
+    ) -> Result<Response<Self::HandshakeStream>, Status> {
+        Err(Status::unimplemented("Not yet implemented"))
+    }
+
+    async fn list_flights(
+        &self,
+        _request: Request<Criteria>,
+    ) -> Result<Response<Self::ListFlightsStream>, Status> {
+        Err(Status::unimplemented("Not yet implemented"))
+    }
+
+    async fn get_flight_info(
+        &self,
+        _request: Request<FlightDescriptor>,
+    ) -> Result<Response<FlightInfo>, Status> {
+        Err(Status::unimplemented("Not yet implemented"))
+    }
+
+    async fn get_schema(
+        &self,
+        _request: Request<FlightDescriptor>,
+    ) -> Result<Response<SchemaResult>, Status> {
+        Err(Status::unimplemented("Not yet implemented"))
+    }
+
+    async fn do_get(
+        &self,
+        _request: Request<Ticket>,
+    ) -> Result<Response<Self::DoGetStream>, Status> {
+        Err(Status::unimplemented("Not yet implemented"))
+    }
+
+    async fn do_put(
+        &self,
+        _request: Request<Streaming<FlightData>>,
+    ) -> Result<Response<Self::DoPutStream>, Status> {
+        Err(Status::unimplemented("Not yet implemented"))
+    }
+
+    async fn do_action(
+        &self,
+        _request: Request<Action>,
+    ) -> Result<Response<Self::DoActionStream>, Status> {
+        Err(Status::unimplemented("Not yet implemented"))
+    }
+
+    async fn list_actions(
+        &self,
+        _request: Request<Empty>,
+    ) -> Result<Response<Self::ListActionsStream>, Status> {
+        Err(Status::unimplemented("Not yet implemented"))
+    }
+}

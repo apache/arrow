@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use flight_proto::arrow_flight::server::FlightServiceServer;
-use flight_proto::FlightServiceImpl;
+use flight_proto::server::FlightServiceServer;
+use flight::FlightServiceImpl;
 use tonic::transport::Server;
 
 #[tokio::main]
