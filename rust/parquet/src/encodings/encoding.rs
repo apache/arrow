@@ -417,7 +417,6 @@ impl<T: DataType> Encoder<T> for DictEncoder<T> {
 /// Provides encoded size for a data type.
 /// This is a workaround to calculate dictionary size in bytes.
 trait DictEncodedSize<T: DataType> {
-    #[inline]
     fn get_encoded_size(&self, value: &T::T) -> usize;
 }
 
@@ -752,16 +751,12 @@ impl<T: DataType> Encoder<T> for DeltaBitPackEncoder<T> {
 /// Helper trait to define specific conversions and subtractions when computing deltas
 trait DeltaBitPackEncoderConversion<T: DataType> {
     // Method should panic if type is not supported, otherwise no-op
-    #[inline]
     fn assert_supported_type();
 
-    #[inline]
     fn as_i64(&self, values: &[T::T], index: usize) -> i64;
 
-    #[inline]
     fn subtract(&self, left: i64, right: i64) -> i64;
 
-    #[inline]
     fn subtract_u64(&self, left: i64, right: i64) -> u64;
 }
 
