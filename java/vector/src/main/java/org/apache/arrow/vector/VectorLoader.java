@@ -70,8 +70,7 @@ public class VectorLoader {
       Field field,
       Iterator<ArrowBuf> buffers,
       Iterator<ArrowFieldNode> nodes) {
-    checkArgument(nodes.hasNext(),
-        "no more field nodes for for field " + field + " and vector " + vector);
+    checkArgument(nodes.hasNext(), "no more field nodes for for field %s and vector %s", field, vector);
     ArrowFieldNode fieldNode = nodes.next();
     List<BufferLayout> bufferLayouts = TypeLayout.getTypeLayout(field.getType()).getBufferLayouts();
     List<ArrowBuf> ownBuffers = new ArrayList<>(bufferLayouts.size());
@@ -87,8 +86,9 @@ public class VectorLoader {
     List<Field> children = field.getChildren();
     if (children.size() > 0) {
       List<FieldVector> childrenFromFields = vector.getChildrenFromFields();
-      checkArgument(children.size() == childrenFromFields.size(), "should have as many children as in the schema: " +
-          "found " + childrenFromFields.size() + " expected " + children.size());
+      checkArgument(children.size() == childrenFromFields.size(),
+          "should have as many children as in the schema: found %s expected %s",
+          childrenFromFields.size(), children.size());
       for (int i = 0; i < childrenFromFields.size(); i++) {
         Field child = children.get(i);
         FieldVector fieldVector = childrenFromFields.get(i);
