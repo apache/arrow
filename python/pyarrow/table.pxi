@@ -1672,7 +1672,12 @@ def table(data, names=None, schema=None, metadata=None):
 def concat_tables(tables, with_promotion=False, MemoryPool memory_pool=None):
     """
     Perform zero-copy concatenation of pyarrow.Table objects.
-    if with_promotion==True, Columns of the same name will be concatenated.
+
+    If with_promotion==False, the schemas of all the Tables must be the same
+    (modulo the metadata), otherwise an exception will be raised. The result
+    Table will share the metadata with the first table.
+
+    If with_promotion==True, columns of the same name will be concatenated.
     They should be of the same type, or be of type NULL, in which case it will
     be promoted to the type of other corresponding columns with null values
     filled.  If a table is missing a particular field, null values of the
@@ -1680,16 +1685,14 @@ def concat_tables(tables, with_promotion=False, MemoryPool memory_pool=None):
     The new schema will share the metadata with the first table. Each field in
     the new schema will share the metadata with the first table which has the
     field defined.
-    if with_promotion==False, the schemas of all the Tables must be the same,
-    otherwise an exception will be raised.
 
     Parameters
     ----------
     tables : iterable of pyarrow.Table objects
-    with_promotion: if True, concatenate tables with null-filling and type
-      promotion.
+    with_promotion: bool, default False
+        if True, concatenate tables with null-filling and type promotion.
     memory_pool : MemoryPool, default None
-      For memory allocations, if required, otherwise use default pool
+        For memory allocations, if required, otherwise use default pool
     """
     cdef:
         vector[shared_ptr[CTable]] c_tables
