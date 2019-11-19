@@ -17,10 +17,7 @@
 
 use std::{cmp, io::*, sync::Mutex};
 
-use crate::file::{
-    reader::ParquetReader,
-    writer::ParquetWriter,
-};
+use crate::file::{reader::ParquetReader, writer::ParquetWriter};
 
 // ----------------------------------------------------------------------
 // Read/Write wrappers for `File`.

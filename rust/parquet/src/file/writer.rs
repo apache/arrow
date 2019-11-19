@@ -34,9 +34,8 @@ use crate::column::{
 };
 use crate::errors::{ParquetError, Result};
 use crate::file::{
-    metadata::*, properties::WriterPropertiesPtr,
+    metadata::*, properties::WriterPropertiesPtr, reader::TryClone,
     statistics::to_thrift as statistics_to_thrift, FOOTER_SIZE, PARQUET_MAGIC,
-    reader::TryClone
 };
 use crate::schema::types::{self, SchemaDescPtr, SchemaDescriptor, TypePtr};
 use crate::util::io::{FileSink, Position};
