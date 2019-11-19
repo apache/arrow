@@ -27,12 +27,12 @@ import org.apache.arrow.vector.VarCharVector;
  * Consumer which consume varchar type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.VarCharVector}.
  */
-public abstract class VarCharConsumer implements JdbcConsumer<VarCharVector> {
+public abstract class VarCharConsumer {
 
   /**
    * Creates a consumer for {@link VarCharVector}.
    */
-  public static VarCharConsumer createConsumer(VarCharVector vector, int index, boolean nullable) {
+  public static JdbcConsumer<VarCharVector> createConsumer(VarCharVector vector, int index, boolean nullable) {
     if (nullable) {
       return new NullableVarCharConsumer(vector, index);
     } else {
@@ -40,34 +40,10 @@ public abstract class VarCharConsumer implements JdbcConsumer<VarCharVector> {
     }
   }
 
-  protected final int columnIndexInResultSet;
-
-  protected VarCharVector vector;
-  protected int currentIndex;
-
-  /**
-   * Instantiate a VarCharConsumer.
-   */
-  public VarCharConsumer(VarCharVector vector, int index) {
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
-  }
-
-  @Override
-  public void resetValueVector(VarCharVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
-  }
-
   /**
    * Nullable consumer for var char.
    */
-  static class NullableVarCharConsumer extends VarCharConsumer {
+  static class NullableVarCharConsumer extends BaseConsumer<VarCharVector> {
 
     /**
      * Instantiate a VarCharConsumer.
@@ -90,7 +66,7 @@ public abstract class VarCharConsumer implements JdbcConsumer<VarCharVector> {
   /**
    * Non-nullable consumer for var char.
    */
-  static class NonNullableVarCharConsumer extends VarCharConsumer {
+  static class NonNullableVarCharConsumer extends BaseConsumer<VarCharVector> {
 
     /**
      * Instantiate a VarCharConsumer.

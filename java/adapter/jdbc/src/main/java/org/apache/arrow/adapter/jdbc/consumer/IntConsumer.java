@@ -26,12 +26,12 @@ import org.apache.arrow.vector.IntVector;
  * Consumer which consume int type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.IntVector}.
  */
-public abstract class IntConsumer implements JdbcConsumer<IntVector> {
+public class IntConsumer {
 
   /**
    * Creates a consumer for {@link IntVector}.
    */
-  public static IntConsumer createConsumer(IntVector vector, int index, boolean nullable) {
+  public static JdbcConsumer<IntVector> createConsumer(IntVector vector, int index, boolean nullable) {
     if (nullable) {
       return new NullableIntConsumer(vector, index);
     } else {
@@ -39,34 +39,10 @@ public abstract class IntConsumer implements JdbcConsumer<IntVector> {
     }
   }
 
-  protected IntVector vector;
-  protected final int columnIndexInResultSet;
-
-  protected int currentIndex;
-
-  /**
-   * Instantiate a IntConsumer.
-   */
-  public IntConsumer(IntVector vector, int index) {
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
-  }
-
-  @Override
-  public void resetValueVector(IntVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
-  }
-
   /**
    * Nullable consumer for int.
    */
-  static class NullableIntConsumer extends IntConsumer {
+  static class NullableIntConsumer extends BaseConsumer<IntVector> {
 
     /**
      * Instantiate a IntConsumer.
@@ -88,7 +64,7 @@ public abstract class IntConsumer implements JdbcConsumer<IntVector> {
   /**
    * Non-nullable consumer for int.
    */
-  static class NonNullableIntConsumer extends IntConsumer {
+  static class NonNullableIntConsumer extends BaseConsumer<IntVector> {
 
     /**
      * Instantiate a IntConsumer.

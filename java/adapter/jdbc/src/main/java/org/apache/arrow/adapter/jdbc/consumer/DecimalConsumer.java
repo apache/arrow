@@ -27,12 +27,12 @@ import org.apache.arrow.vector.DecimalVector;
  * Consumer which consume decimal type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.DecimalVector}.
  */
-public abstract class DecimalConsumer implements JdbcConsumer<DecimalVector> {
+public class DecimalConsumer {
 
   /**
    * Creates a consumer for {@link DecimalVector}.
    */
-  public static DecimalConsumer createConsumer(DecimalVector vector, int index, boolean nullable) {
+  public static JdbcConsumer<DecimalVector> createConsumer(DecimalVector vector, int index, boolean nullable) {
     if (nullable) {
       return new NullableDecimalConsumer(vector, index);
     } else {
@@ -40,34 +40,10 @@ public abstract class DecimalConsumer implements JdbcConsumer<DecimalVector> {
     }
   }
 
-  protected DecimalVector vector;
-  protected final int columnIndexInResultSet;
-
-  protected int currentIndex;
-
-  /**
-   * Instantiate a DecimalConsumer.
-   */
-  public DecimalConsumer(DecimalVector vector, int index) {
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
-  }
-
-  @Override
-  public void resetValueVector(DecimalVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
-  }
-
   /**
    * Consumer for nullable decimal.
    */
-  static class NullableDecimalConsumer extends DecimalConsumer {
+  static class NullableDecimalConsumer extends BaseConsumer<DecimalVector> {
 
     /**
      * Instantiate a DecimalConsumer.
@@ -89,7 +65,7 @@ public abstract class DecimalConsumer implements JdbcConsumer<DecimalVector> {
   /**
    * Consumer for non-nullable decimal.
    */
-  static class NonNullableDecimalConsumer extends DecimalConsumer {
+  static class NonNullableDecimalConsumer extends BaseConsumer<DecimalVector> {
 
     /**
      * Instantiate a DecimalConsumer.

@@ -26,12 +26,12 @@ import org.apache.arrow.vector.TinyIntVector;
  * Consumer which consume tinyInt type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.TinyIntVector}.
  */
-public abstract class TinyIntConsumer implements JdbcConsumer<TinyIntVector> {
+public abstract class TinyIntConsumer {
 
   /**
    * Creates a consumer for {@link TinyIntVector}.
    */
-  public static TinyIntConsumer createConsumer(TinyIntVector vector, int index, boolean nullable) {
+  public static JdbcConsumer<TinyIntVector> createConsumer(TinyIntVector vector, int index, boolean nullable) {
     if (nullable) {
       return new NullableTinyIntConsumer(vector, index);
     } else {
@@ -39,34 +39,10 @@ public abstract class TinyIntConsumer implements JdbcConsumer<TinyIntVector> {
     }
   }
 
-  protected TinyIntVector vector;
-  protected final int columnIndexInResultSet;
-
-  protected int currentIndex;
-
-  /**
-   * Instantiate a TinyIntConsumer.
-   */
-  public TinyIntConsumer(TinyIntVector vector, int index) {
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
-  }
-
-  @Override
-  public void resetValueVector(TinyIntVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
-  }
-
   /**
    * Nullable consumer for tiny int.
    */
-  static class NullableTinyIntConsumer extends TinyIntConsumer {
+  static class NullableTinyIntConsumer extends BaseConsumer<TinyIntVector> {
 
     /**
      * Instantiate a TinyIntConsumer.
@@ -88,7 +64,7 @@ public abstract class TinyIntConsumer implements JdbcConsumer<TinyIntVector> {
   /**
    * Non-nullable consumer for tiny int.
    */
-  static class NonNullableTinyIntConsumer extends TinyIntConsumer {
+  static class NonNullableTinyIntConsumer extends BaseConsumer<TinyIntVector> {
 
     /**
      * Instantiate a TinyIntConsumer.

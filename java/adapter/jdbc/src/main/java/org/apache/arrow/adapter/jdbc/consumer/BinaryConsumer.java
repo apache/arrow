@@ -32,7 +32,7 @@ import io.netty.util.internal.PlatformDependent;
  * Consumer which consume binary type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.VarBinaryVector}.
  */
-public abstract class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
+public abstract class BinaryConsumer extends BaseConsumer<VarBinaryVector> {
 
   /**
    * Creates a consumer for {@link VarBinaryVector}.
@@ -47,20 +47,14 @@ public abstract class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
 
   private static final int BUFFER_SIZE = 1024;
 
-  protected VarBinaryVector vector;
-  protected final int columnIndexInResultSet;
-
-  protected int currentIndex;
-
   /**
    * Instantiate a BinaryConsumer.
    */
   public BinaryConsumer(VarBinaryVector vector, int index) {
+    super(vector, index);
     if (vector != null) {
       vector.allocateNewSafe();
     }
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
   }
 
   /**
@@ -92,11 +86,6 @@ public abstract class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
 
   public void moveWriterPosition() {
     currentIndex++;
-  }
-
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
   }
 
   @Override
@@ -148,4 +137,3 @@ public abstract class BinaryConsumer implements JdbcConsumer<VarBinaryVector> {
     }
   }
 }
-

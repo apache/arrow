@@ -26,12 +26,12 @@ import org.apache.arrow.vector.BitVector;
  * Consumer which consume bit type values from {@link ResultSet}.
  * Write the data to {@link BitVector}.
  */
-public abstract class BitConsumer implements JdbcConsumer<BitVector> {
+public class BitConsumer {
 
   /**
    * Creates a consumer for {@link BitVector}.
    */
-  public static BitConsumer createConsumer(BitVector vector, int index, boolean nullable) {
+  public static JdbcConsumer<BitVector> createConsumer(BitVector vector, int index, boolean nullable) {
     if (nullable) {
       return new NullableBitConsumer(vector, index);
     } else {
@@ -39,34 +39,10 @@ public abstract class BitConsumer implements JdbcConsumer<BitVector> {
     }
   }
 
-  protected BitVector vector;
-  protected final int columnIndexInResultSet;
-
-  protected int currentIndex;
-
-  /**
-   * Instantiate a BitConsumer.
-   */
-  public BitConsumer(BitVector vector, int index) {
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
-  }
-
-  @Override
-  public void resetValueVector(BitVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
-  }
-
   /**
    * Nullable consumer for {@link BitVector}.
    */
-  static class NullableBitConsumer extends BitConsumer {
+  static class NullableBitConsumer extends BaseConsumer<BitVector> {
 
     /**
      * Instantiate a BitConsumer.
@@ -88,7 +64,7 @@ public abstract class BitConsumer implements JdbcConsumer<BitVector> {
   /**
    * Non-nullable consumer for {@link BitVector}.
    */
-  static class NonNullableBitConsumer extends BitConsumer {
+  static class NonNullableBitConsumer extends BaseConsumer<BitVector> {
 
     /**
      * Instantiate a BitConsumer.

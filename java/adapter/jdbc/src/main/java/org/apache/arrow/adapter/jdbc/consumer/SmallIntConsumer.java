@@ -26,12 +26,12 @@ import org.apache.arrow.vector.SmallIntVector;
  * Consumer which consume smallInt type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.SmallIntVector}.
  */
-public abstract class SmallIntConsumer implements JdbcConsumer<SmallIntVector> {
+public class SmallIntConsumer {
 
   /**
    * Creates a consumer for {@link SmallIntVector}.
    */
-  public static SmallIntConsumer createConsumer(SmallIntVector vector, int index, boolean nullable) {
+  public static BaseConsumer<SmallIntVector> createConsumer(SmallIntVector vector, int index, boolean nullable) {
     if (nullable) {
       return new NullableSmallIntConsumer(vector, index);
     } else {
@@ -39,34 +39,10 @@ public abstract class SmallIntConsumer implements JdbcConsumer<SmallIntVector> {
     }
   }
 
-  protected SmallIntVector vector;
-  protected final int columnIndexInResultSet;
-
-  protected int currentIndex;
-
-  /**
-   * Instantiate a SmallIntConsumer.
-   */
-  public SmallIntConsumer(SmallIntVector vector, int index) {
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
-  }
-
-  @Override
-  public void resetValueVector(SmallIntVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
-  }
-
   /**
    * Nullable consumer for small int.
    */
-  static class NullableSmallIntConsumer extends SmallIntConsumer {
+  static class NullableSmallIntConsumer extends BaseConsumer<SmallIntVector> {
 
     /**
      * Instantiate a SmallIntConsumer.
@@ -88,7 +64,7 @@ public abstract class SmallIntConsumer implements JdbcConsumer<SmallIntVector> {
   /**
    * Non-nullable consumer for small int.
    */
-  static class NonNullableSmallIntConsumer extends SmallIntConsumer {
+  static class NonNullableSmallIntConsumer extends BaseConsumer<SmallIntVector> {
 
     /**
      * Instantiate a SmallIntConsumer.
