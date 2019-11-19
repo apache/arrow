@@ -71,8 +71,10 @@ set(SRC_FILES
     like_holder.cc
     literal_holder.cc
     projector.cc
+    regexp_matches_holder.cc
     regex_util.cc
     selection_vector.cc
+    sql_like_holder.cc
     tree_expr_builder.cc
     to_date_holder.cc
     random_generator_holder.cc
@@ -204,7 +206,8 @@ add_gandiva_test(internals-test
                  lru_cache_test.cc
                  to_date_holder_test.cc
                  simple_arena_test.cc
-                 like_holder_test.cc
+                 sql_like_holder_test.cc
+                 regexp_matches_holder_test.cc
                  decimal_type_util_test.cc
                  random_generator_holder_test.cc)
 

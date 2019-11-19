@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "gandiva/like_holder.h"
+#include "gandiva/sql_like_holder.h"
 #include "gandiva/regex_util.h"
 
 #include <memory>
@@ -25,7 +25,7 @@
 
 namespace gandiva {
 
-class TestLikeHolder : public ::testing::Test {
+class TestSQLLikeHolder : public ::testing::Test {
  public:
   FunctionNode BuildLike(std::string pattern) {
     auto field = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
@@ -35,13 +35,13 @@ class TestLikeHolder : public ::testing::Test {
   }
 };
 
-TEST_F(TestLikeHolder, TestMatchAny) {
-  std::shared_ptr<LikeHolder> like_holder;
+TEST_F(TestSQLLikeHolder, TestMatchAny) {
+  std::shared_ptr<SQLLikeHolder> sql_like_holder;
 
-  auto status = LikeHolder::Make("ab%", &like_holder);
+  auto status = SQLLikeHolder::Make("ab%", &sql_like_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
-  auto& like = *like_holder;
+  auto& like = *sql_like_holder;
   EXPECT_TRUE(like("ab"));
   EXPECT_TRUE(like("abc"));
   EXPECT_TRUE(like("abcd"));
@@ -50,13 +50,13 @@ TEST_F(TestLikeHolder, TestMatchAny) {
   EXPECT_FALSE(like("cab"));
 }
 
-TEST_F(TestLikeHolder, TestMatchOne) {
-  std::shared_ptr<LikeHolder> like_holder;
+TEST_F(TestSQLLikeHolder, TestMatchOne) {
+  std::shared_ptr<SQLLikeHolder> sql_like_holder;
 
-  auto status = LikeHolder::Make("ab_", &like_holder);
+  auto status = SQLLikeHolder::Make("ab_", &sql_like_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
-  auto& like = *like_holder;
+  auto& like = *sql_like_holder;
   EXPECT_TRUE(like("abc"));
   EXPECT_TRUE(like("abd"));
 
@@ -65,18 +65,18 @@ TEST_F(TestLikeHolder, TestMatchOne) {
   EXPECT_FALSE(like("dabc"));
 }
 
-TEST_F(TestLikeHolder, TestPcreSpecial) {
-  std::shared_ptr<LikeHolder> like_holder;
+TEST_F(TestSQLLikeHolder, TestPcreSpecial) {
+  std::shared_ptr<SQLLikeHolder> sql_like_holder;
 
-  auto status = LikeHolder::Make(".*ab_", &like_holder);
+  auto status = SQLLikeHolder::Make(".*ab_", &sql_like_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
-  auto& like = *like_holder;
+  auto& like = *sql_like_holder;
   EXPECT_TRUE(like(".*abc"));  // . and * aren't special in sql regex
   EXPECT_FALSE(like("xxabc"));
 }
 
-TEST_F(TestLikeHolder, TestRegexEscape) {
+TEST_F(TestSQLLikeHolder, TestRegexEscape) {
   std::string res;
   auto status = RegexUtil::SqlLikePatternToPcre("#%hello#_abc_def##", '#', res);
   EXPECT_TRUE(status.ok()) << status.message();
@@ -84,44 +84,44 @@ TEST_F(TestLikeHolder, TestRegexEscape) {
   EXPECT_EQ(res, "%hello_abc.def#");
 }
 
-TEST_F(TestLikeHolder, TestDot) {
-  std::shared_ptr<LikeHolder> like_holder;
+TEST_F(TestSQLLikeHolder, TestDot) {
+  std::shared_ptr<SQLLikeHolder> sql_like_holder;
 
-  auto status = LikeHolder::Make("abc.", &like_holder);
+  auto status = SQLLikeHolder::Make("abc.", &sql_like_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
-  auto& like = *like_holder;
+  auto& like = *sql_like_holder;
   EXPECT_FALSE(like("abcd"));
 }
 
-TEST_F(TestLikeHolder, TestOptimise) {
+TEST_F(TestSQLLikeHolder, TestOptimise) {
   // optimise for 'starts_with'
-  auto fnode = LikeHolder::TryOptimize(BuildLike("xy 123z%"));
+  auto fnode = SQLLikeHolder::TryOptimize(BuildLike("xy 123z%"));
   EXPECT_EQ(fnode.descriptor()->name(), "starts_with");
   EXPECT_EQ(fnode.ToString(), "bool starts_with((string) in, (const string) xy 123z)");
 
   // optimise for 'ends_with'
-  fnode = LikeHolder::TryOptimize(BuildLike("%xyz"));
+  fnode = SQLLikeHolder::TryOptimize(BuildLike("%xyz"));
   EXPECT_EQ(fnode.descriptor()->name(), "ends_with");
   EXPECT_EQ(fnode.ToString(), "bool ends_with((string) in, (const string) xyz)");
 
   // no optimisation for others.
-  fnode = LikeHolder::TryOptimize(BuildLike("xyz_"));
+  fnode = SQLLikeHolder::TryOptimize(BuildLike("xyz_"));
   EXPECT_EQ(fnode.descriptor()->name(), "like");
 
-  fnode = LikeHolder::TryOptimize(BuildLike("_xyz"));
+  fnode = SQLLikeHolder::TryOptimize(BuildLike("_xyz"));
   EXPECT_EQ(fnode.descriptor()->name(), "like");
 
-  fnode = LikeHolder::TryOptimize(BuildLike("%xyz%"));
+  fnode = SQLLikeHolder::TryOptimize(BuildLike("%xyz%"));
   EXPECT_EQ(fnode.descriptor()->name(), "like");
 
-  fnode = LikeHolder::TryOptimize(BuildLike("_xyz_"));
+  fnode = SQLLikeHolder::TryOptimize(BuildLike("_xyz_"));
   EXPECT_EQ(fnode.descriptor()->name(), "like");
 
-  fnode = LikeHolder::TryOptimize(BuildLike("%xyz_"));
+  fnode = SQLLikeHolder::TryOptimize(BuildLike("%xyz_"));
   EXPECT_EQ(fnode.descriptor()->name(), "like");
 
-  fnode = LikeHolder::TryOptimize(BuildLike("x_yz%"));
+  fnode = SQLLikeHolder::TryOptimize(BuildLike("x_yz%"));
   EXPECT_EQ(fnode.descriptor()->name(), "like");
 }
 

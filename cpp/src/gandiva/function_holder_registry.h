@@ -26,7 +26,8 @@
 #include "arrow/status.h"
 
 #include "gandiva/function_holder.h"
-#include "gandiva/like_holder.h"
+#include "gandiva/sql_like_holder.h"
+#include "gandiva/regexp_matches_holder.h"
 #include "gandiva/node.h"
 #include "gandiva/random_generator_holder.h"
 #include "gandiva/to_date_holder.h"
@@ -62,7 +63,9 @@ class FunctionHolderRegistry {
  private:
   static map_type& makers() {
     static map_type maker_map = {
-        {"like", LAMBDA_MAKER(LikeHolder)},
+        {"like", LAMBDA_MAKER(SQLLikeHolder)},
+        {"regexp_matches", LAMBDA_MAKER(RegexpMatchesHolder)},
+        {"regexp_like", LAMBDA_MAKER(RegexpMatchesHolder)},
         {"to_date", LAMBDA_MAKER(ToDateHolder)},
         {"random", LAMBDA_MAKER(RandomGeneratorHolder)},
         {"rand", LAMBDA_MAKER(RandomGeneratorHolder)},

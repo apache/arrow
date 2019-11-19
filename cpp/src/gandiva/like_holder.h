@@ -31,29 +31,12 @@
 
 namespace gandiva {
 
-/// Function Holder for SQL 'like'
+/// Base class for Function Holder for pattern matching SQL functions like 'like' and 'regexp_matches'
 class GANDIVA_EXPORT LikeHolder : public FunctionHolder {
  public:
-  ~LikeHolder() override = default;
+  static Status Make(const FunctionNode& node, std::string* pattern);
 
-  static Status Make(const FunctionNode& node, std::shared_ptr<LikeHolder>* holder);
-
-  static Status Make(const std::string& sql_pattern, std::shared_ptr<LikeHolder>* holder);
-
-  // Try and optimise a function node with a "like" pattern.
-  static const FunctionNode TryOptimize(const FunctionNode& node);
-
-  /// Return true if the data matches the pattern.
-  bool operator()(const std::string& data) { return RE2::FullMatch(data, regex_); }
-
- private:
-  explicit LikeHolder(const std::string& pattern) : pattern_(pattern), regex_(pattern) {}
-
-  std::string pattern_;  // posix pattern string, to help debugging
-  RE2 regex_;            // compiled regex for the pattern
-
-  static RE2 starts_with_regex_;  // pre-compiled pattern for matching starts_with
-  static RE2 ends_with_regex_;    // pre-compiled pattern for matching ends_with
+  virtual bool operator()(const std::string& data) = 0;
 };
 
 }  // namespace gandiva
