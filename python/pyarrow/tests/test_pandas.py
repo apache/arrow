@@ -3212,6 +3212,46 @@ def test_variable_dictionary_to_pandas():
     tm.assert_series_equal(result_dense, expected_dense)
 
 
+def test_dictionary_from_pandas_specified_type():
+    # ARROW-7168
+    # the same as cat = pd.Categorical(['a', 'b'])
+    cat = pd.Categorical.from_codes(
+        np.array([0, 1], dtype='int8'), np.array(['a', 'b'], dtype=object))
+
+    # different index type -> allow this
+    # (the type of the 'codes' in pandas is not part of the data type)
+    typ = pa.dictionary(index_type=pa.int16(), value_type=pa.string())
+    result = pa.array(cat, type=typ)
+    assert result.type.equals(typ)
+
+    # mismatching values type -> raise error
+    typ = pa.dictionary(index_type=pa.int8(), value_type=pa.int64())
+    with pytest.raises(TypeError):
+        pa.array(cat, type=typ)
+
+    # mismatching order -> raise error
+    typ = pa.dictionary(
+        index_type=pa.int8(), value_type=pa.string(), ordered=True)
+    with pytest.raises(ValueError):
+        pa.array(cat, type=typ)
+
+    # empty categorical -> be flexible in values type to allow
+    cat = pd.Categorical([])
+
+    typ = pa.dictionary(index_type=pa.int8(), value_type=pa.string())
+    result = pa.array(cat, type=typ)
+    assert result.type.equals(typ)
+    typ = pa.dictionary(index_type=pa.int8(), value_type=pa.int64())
+    result = pa.array(cat, type=typ)
+    assert result.type.equals(typ)
+
+    # passing non-dictionary type
+    cat = pd.Categorical(['a', 'b'])
+    result = pa.array(cat, type=pa.string())
+    expected = pa.array(['a', 'b'], type=pa.string())
+    assert result.equals(expected)
+
+
 # ----------------------------------------------------------------------
 # Array protocol in pandas conversions tests
 
