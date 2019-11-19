@@ -24,11 +24,11 @@ use serde_json::Value;
 
 use crate::array::*;
 use crate::datatypes::*;
-use crate::record_batch::RecordBatch;
+use crate::record_batch::{RecordBatch, RecordBatchReader};
 
 /// A struct that represents an Arrow file with a schema and record batches
 #[derive(Deserialize)]
-struct ArrowJson {
+pub(crate) struct ArrowJson {
     schema: ArrowJsonSchema,
     batches: Vec<ArrowJsonBatch>,
 }
@@ -62,6 +62,22 @@ struct ArrowJsonColumn {
     children: Option<Vec<ArrowJsonColumn>>,
 }
 
+impl ArrowJson {
+    /// Compare the Arrow JSON with a record batch reader
+    pub fn equals_reader(&self, reader: &mut RecordBatchReader) -> bool {
+        if !self.schema.equals_schema(&reader.schema()) {
+            return false;
+        }
+        self.batches.iter().all(|col| {
+            let batch = reader.next_batch();
+            match batch {
+                Ok(Some(batch)) => col.equals_batch(&batch),
+                _ => false,
+            }
+        })
+    }
+}
+
 impl ArrowJsonSchema {
     /// Compare the Arrow JSON schema with the Arrow `Schema`
     fn equals_schema(&self, schema: &Schema) -> bool {
@@ -79,7 +95,7 @@ impl ArrowJsonSchema {
 }
 
 impl ArrowJsonBatch {
-    /// Comapre the Arrow JSON record batch with a `RecordBatch`
+    /// Compare the Arrow JSON record batch with a `RecordBatch`
     fn equals_batch(&self, batch: &RecordBatch) -> bool {
         if self.count != batch.num_rows() {
             return false;
@@ -164,6 +180,11 @@ impl ArrowJsonBatch {
                         let arr = arr.as_any().downcast_ref::<ListArray>().unwrap();
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
                     }
+                    DataType::FixedSizeList(_) => {
+                        let arr =
+                            arr.as_any().downcast_ref::<FixedSizeListArray>().unwrap();
+                        arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
+                    }
                     DataType::Struct(_) => {
                         let arr = arr.as_any().downcast_ref::<StructArray>().unwrap();
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
@@ -178,6 +199,9 @@ impl ArrowJsonBatch {
 fn json_from_col(col: &ArrowJsonColumn, data_type: &DataType) -> Vec<Value> {
     match data_type {
         DataType::List(dt) => json_from_list_col(col, &**dt),
+        DataType::FixedSizeList((dt, list_size)) => {
+            json_from_fixed_size_list_col(col, &**dt, *list_size as usize)
+        }
         DataType::Struct(fields) => json_from_struct_col(col, fields),
         _ => merge_json_array(&col.validity, &col.data.clone().unwrap()),
     }
@@ -250,6 +274,36 @@ fn json_from_list_col(col: &ArrowJsonColumn, data_type: &DataType) -> Vec<Value>
         match col.validity[i] {
             0 => values.push(Value::Null),
             1 => values.push(Value::Array(inner[offsets[i]..offsets[i + 1]].to_vec())),
+            _ => panic!("Validity data should be 0 or 1"),
+        }
+    }
+
+    values
+}
+
+/// Convert an Arrow JSON column/array of a `DataType::List` into a vector of `Value`
+fn json_from_fixed_size_list_col(
+    col: &ArrowJsonColumn,
+    data_type: &DataType,
+    list_size: usize,
+) -> Vec<Value> {
+    let mut values = Vec::with_capacity(col.count);
+
+    // get the inner array
+    let child = &col.children.clone().expect("list type must have children")[0];
+    let inner = match data_type {
+        DataType::List(ref dt) => json_from_col(child, &**dt),
+        DataType::FixedSizeList((ref dt, _)) => json_from_col(child, &**dt),
+        DataType::Struct(fields) => json_from_struct_col(col, fields),
+        _ => merge_json_array(&child.validity, &child.data.clone().unwrap()),
+    };
+
+    for i in 0..col.count {
+        match col.validity[i] {
+            0 => values.push(Value::Null),
+            1 => values.push(Value::Array(
+                inner[(list_size * i)..(list_size * (i + 1))].to_vec(),
+            )),
             _ => panic!("Validity data should be 0 or 1"),
         }
     }

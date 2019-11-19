@@ -1544,6 +1544,35 @@ impl fmt::Debug for StructArray {
     }
 }
 
+impl From<(Vec<(Field, ArrayRef)>, Buffer, usize)> for StructArray {
+    fn from(triple: (Vec<(Field, ArrayRef)>, Buffer, usize)) -> Self {
+        let (field_types, field_values): (Vec<_>, Vec<_>) = triple.0.into_iter().unzip();
+
+        // Check the length of the child arrays
+        let length = field_values[0].len();
+        for i in 1..field_values.len() {
+            assert_eq!(
+                length,
+                field_values[i].len(),
+                "all child arrays of a StructArray must have the same length"
+            );
+            assert_eq!(
+                field_types[i].data_type(),
+                field_values[i].data().data_type(),
+                "the field data types must match the array data in a StructArray"
+            )
+        }
+
+        let data = ArrayData::builder(DataType::Struct(field_types))
+            .null_bit_buffer(triple.1)
+            .child_data(field_values.into_iter().map(|a| a.data()).collect())
+            .len(length)
+            .null_count(triple.2)
+            .build();
+        Self::from(data)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

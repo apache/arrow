@@ -184,7 +184,8 @@ impl ArrowNativeType for u64 {
 
 impl ArrowNativeType for f32 {
     fn into_json_value(self) -> Option<Value> {
-        Number::from_f64(self as f64).map(|num| VNumber(num))
+        Number::from_f64(f64::round(self as f64 * 1000.0) / 1000.0)
+            .map(|num| VNumber(num))
     }
 }
 
