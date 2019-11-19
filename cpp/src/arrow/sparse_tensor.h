@@ -91,14 +91,14 @@ class ARROW_EXPORT SparseCOOIndex : public internal::SparseIndexBase<SparseCOOIn
   static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::COO;
 
   /// \brief Make SparseCOOIndex from raw properties
-  static Status Make(const std::shared_ptr<DataType> indices_type,
+  static Status Make(const std::shared_ptr<DataType>& indices_type,
                      const std::vector<int64_t>& indices_shape,
                      const std::vector<int64_t>& indices_strides,
                      std::shared_ptr<Buffer> indices_data,
                      std::shared_ptr<SparseCOOIndex>* out);
 
   /// \brief Make SparseCOOIndex from sparse tensor's shape properties and data
-  static Status Make(const std::shared_ptr<DataType> indices_type,
+  static Status Make(const std::shared_ptr<DataType>& indices_type,
                      const std::vector<int64_t>& shape, int64_t non_zero_length,
                      std::shared_ptr<Buffer> indices_data,
                      std::shared_ptr<SparseCOOIndex>* out);
@@ -157,19 +157,42 @@ class ARROW_EXPORT SparseCSRIndex : public internal::SparseIndexBase<SparseCSRIn
   static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::CSR;
 
   /// \brief Make SparseCSRIndex from raw properties
-  static Status Make(const std::shared_ptr<DataType> indices_type,
+  static Status Make(const std::shared_ptr<DataType>& indptr_type,
+                     const std::shared_ptr<DataType>& indices_type,
                      const std::vector<int64_t>& indptr_shape,
                      const std::vector<int64_t>& indices_shape,
                      std::shared_ptr<Buffer> indptr_data,
                      std::shared_ptr<Buffer> indices_data,
                      std::shared_ptr<SparseCSRIndex>* out);
 
+  /// \brief Make SparseCSRIndex from raw properties
+  static Status Make(const std::shared_ptr<DataType>& indices_type,
+                     const std::vector<int64_t>& indptr_shape,
+                     const std::vector<int64_t>& indices_shape,
+                     std::shared_ptr<Buffer> indptr_data,
+                     std::shared_ptr<Buffer> indices_data,
+                     std::shared_ptr<SparseCSRIndex>* out) {
+    return Make(indices_type, indices_type, indptr_shape, indices_shape, indptr_data,
+                indices_data, out);
+  }
+
   /// \brief Make SparseCSRIndex from sparse tensor's shape properties and data
-  static Status Make(const std::shared_ptr<DataType> indices_type,
+  static Status Make(const std::shared_ptr<DataType>& indptr_type,
+                     const std::shared_ptr<DataType>& indices_type,
                      const std::vector<int64_t>& shape, int64_t non_zero_length,
                      std::shared_ptr<Buffer> indptr_data,
                      std::shared_ptr<Buffer> indices_data,
                      std::shared_ptr<SparseCSRIndex>* out);
+
+  /// \brief Make SparseCSRIndex from sparse tensor's shape properties and data
+  static Status Make(const std::shared_ptr<DataType>& indices_type,
+                     const std::vector<int64_t>& shape, int64_t non_zero_length,
+                     std::shared_ptr<Buffer> indptr_data,
+                     std::shared_ptr<Buffer> indices_data,
+                     std::shared_ptr<SparseCSRIndex>* out) {
+    return Make(indices_type, indices_type, shape, non_zero_length, indptr_data,
+                indices_data, out);
+  }
 
   /// \brief Construct SparseCSRIndex from two index vectors
   explicit SparseCSRIndex(const std::shared_ptr<Tensor>& indptr,

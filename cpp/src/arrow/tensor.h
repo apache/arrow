@@ -57,13 +57,19 @@ class SparseTensorImpl;
 
 namespace internal {
 
+ARROW_EXPORT
+bool IsTensorStridesContiguous(const std::shared_ptr<DataType>& type,
+                               const std::vector<int64_t>& shape,
+                               const std::vector<int64_t>& strides);
+
+ARROW_EXPORT
 Status ValidateTensorParameters(const std::shared_ptr<DataType>& type,
                                 const std::shared_ptr<Buffer>& data,
                                 const std::vector<int64_t>& shape,
                                 const std::vector<int64_t>& strides,
                                 const std::vector<std::string>& dim_names);
 
-}
+}  // namespace internal
 
 class ARROW_EXPORT Tensor {
  public:

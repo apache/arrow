@@ -47,6 +47,57 @@ static inline void AssertCOOIndex(const std::shared_ptr<Tensor>& sidx, const int
   }
 }
 
+TEST(TestSparseCOOIndex, Make) {
+  std::vector<int32_t> values = {0, 0, 0, 0, 0, 2, 0, 1, 1, 0, 1, 3, 0, 2, 0, 0, 2, 2,
+                                 1, 0, 1, 1, 0, 3, 1, 1, 0, 1, 1, 2, 1, 2, 1, 1, 2, 3};
+  auto data = Buffer::Wrap(values);
+  std::vector<int64_t> shape = {12, 3};
+  std::vector<int64_t> stride = {3 * sizeof(int32_t), sizeof(int32_t)};
+
+  std::shared_ptr<SparseCOOIndex> si;
+
+  // OK
+  ASSERT_OK(SparseCOOIndex::Make(int32(), shape, stride, data, &si));
+
+  // Non-integer type
+  ASSERT_RAISES(Invalid, SparseCOOIndex::Make(float32(), shape, stride, data, &si));
+
+  // Non-matrix indices
+  ASSERT_RAISES(Invalid, SparseCOOIndex::Make(int32(), {4, 3, 4}, stride, data, &si));
+
+  // Non-contiguous indices
+  ASSERT_RAISES(Invalid, SparseCOOIndex::Make(int32(), {6, 3},
+                                              {6 * sizeof(int32_t), 2 * sizeof(int32_t)},
+                                              data, &si));
+}
+
+TEST(TestSparseCSRIndex, Make) {
+  std::vector<int32_t> indptr_values = {0, 2, 4, 6, 8, 10, 12};
+  std::vector<int32_t> indices_values = {0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3};
+  auto indptr_data = Buffer::Wrap(indptr_values);
+  auto indices_data = Buffer::Wrap(indices_values);
+  std::vector<int64_t> indptr_shape = {7};
+  std::vector<int64_t> indices_shape = {12};
+
+  std::shared_ptr<SparseCSRIndex> si;
+
+  // OK
+  ASSERT_OK(SparseCSRIndex::Make(int32(), indptr_shape, indices_shape, indptr_data,
+                                 indices_data, &si));
+
+  // Non-integer type
+  ASSERT_RAISES(Invalid, SparseCSRIndex::Make(float32(), indptr_shape, indices_shape,
+                                              indptr_data, indices_data, &si));
+
+  // Non-vector indptr shape
+  ASSERT_RAISES(Invalid, SparseCSRIndex::Make(int32(), {1, 2}, indices_shape, indptr_data,
+                                              indices_data, &si));
+
+  // Non-vector indices shape
+  ASSERT_RAISES(Invalid, SparseCSRIndex::Make(int32(), indptr_shape, {1, 2}, indptr_data,
+                                              indices_data, &si));
+}
+
 template <typename IndexValueType>
 class TestSparseCOOTensorBase : public ::testing::Test {
  public:

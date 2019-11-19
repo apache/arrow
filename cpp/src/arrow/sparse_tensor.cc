@@ -515,17 +515,27 @@ Status MakeTensorFromSparseTensor(MemoryPool* pool, const SparseTensor* sparse_t
 // ----------------------------------------------------------------------
 // SparseCOOIndex
 
-Status SparseCOOIndex::Make(std::shared_ptr<DataType> indices_type,
+Status SparseCOOIndex::Make(const std::shared_ptr<DataType>& indices_type,
                             const std::vector<int64_t>& indices_shape,
                             const std::vector<int64_t>& indices_strides,
                             std::shared_ptr<Buffer> indices_data,
                             std::shared_ptr<SparseCOOIndex>* out) {
+  if (!is_integer(indices_type->id())) {
+    return Status::Invalid("Type of SparseCOOIndex indices must be integer");
+  }
+  if (indices_shape.size() != 2) {
+    return Status::Invalid("SparseCOOIndex indices must be a matrix");
+  }
+  if (!internal::IsTensorStridesContiguous(indices_type, indices_shape,
+                                           indices_strides)) {
+    return Status::Invalid("SparseCOOIndex indices must be contiguous");
+  }
   *out = std::make_shared<SparseCOOIndex>(std::make_shared<Tensor>(
       indices_type, indices_data, indices_shape, indices_strides));
   return Status::OK();
 }
 
-Status SparseCOOIndex::Make(std::shared_ptr<DataType> indices_type,
+Status SparseCOOIndex::Make(const std::shared_ptr<DataType>& indices_type,
                             const std::vector<int64_t>& shape, int64_t non_zero_length,
                             std::shared_ptr<Buffer> indices_data,
                             std::shared_ptr<SparseCOOIndex>* out) {
@@ -550,27 +560,41 @@ std::string SparseCOOIndex::ToString() const { return std::string("SparseCOOInde
 // ----------------------------------------------------------------------
 // SparseCSRIndex
 
-Status SparseCSRIndex::Make(const std::shared_ptr<DataType> indices_type,
+Status SparseCSRIndex::Make(const std::shared_ptr<DataType>& indptr_type,
+                            const std::shared_ptr<DataType>& indices_type,
                             const std::vector<int64_t>& indptr_shape,
                             const std::vector<int64_t>& indices_shape,
                             std::shared_ptr<Buffer> indptr_data,
                             std::shared_ptr<Buffer> indices_data,
                             std::shared_ptr<SparseCSRIndex>* out) {
+  if (!is_integer(indptr_type->id())) {
+    return Status::Invalid("Type of SparseCSRIndex indptr must be integer");
+  }
+  if (indptr_shape.size() != 1) {
+    return Status::Invalid("SparseCSRIndex indptr must be a vector");
+  }
+  if (!is_integer(indices_type->id())) {
+    return Status::Invalid("Type of SparseCSRIndex indices must be integer");
+  }
+  if (indices_shape.size() != 1) {
+    return Status::Invalid("SparseCSRIndex indices must be a vector");
+  }
   *out = std::make_shared<SparseCSRIndex>(
-      std::make_shared<Tensor>(indices_type, indptr_data, indptr_shape),
+      std::make_shared<Tensor>(indptr_type, indptr_data, indptr_shape),
       std::make_shared<Tensor>(indices_type, indices_data, indices_shape));
   return Status::OK();
 }
 
-Status SparseCSRIndex::Make(const std::shared_ptr<DataType> indices_type,
+Status SparseCSRIndex::Make(const std::shared_ptr<DataType>& indptr_type,
+                            const std::shared_ptr<DataType>& indices_type,
                             const std::vector<int64_t>& shape, int64_t non_zero_length,
                             std::shared_ptr<Buffer> indptr_data,
                             std::shared_ptr<Buffer> indices_data,
                             std::shared_ptr<SparseCSRIndex>* out) {
   std::vector<int64_t> indptr_shape({shape[0] + 1});
   std::vector<int64_t> indices_shape({non_zero_length});
-  return SparseCSRIndex::Make(indices_type, indptr_shape, indices_shape, indptr_data,
-                              indices_data, out);
+  return SparseCSRIndex::Make(indptr_type, indices_type, indptr_shape, indices_shape,
+                              indptr_data, indices_data, out);
 }
 
 // Constructor with two index vectors
