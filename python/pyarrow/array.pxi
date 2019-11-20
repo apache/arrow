@@ -368,8 +368,13 @@ cdef _reduce_array_data(const CArrayData* ad):
     for i in range(n):
         children.append(_reduce_array_data(ad.child_data[i].get()))
 
+    if ad.dictionary.get() != NULL:
+        dictionary = _reduce_array_data(ad.dictionary.get().data().get())
+    else:
+        dictionary = None
+
     return pyarrow_wrap_data_type(ad.type), ad.length, ad.null_count, \
-        ad.offset, buffers, children
+        ad.offset, buffers, children, dictionary
 
 
 cdef shared_ptr[CArrayData] _reconstruct_array_data(data):
@@ -383,8 +388,9 @@ cdef shared_ptr[CArrayData] _reconstruct_array_data(data):
         Buffer buf
         vector[shared_ptr[CBuffer]] c_buffers
         vector[shared_ptr[CArrayData]] c_children
+        shared_ptr[CArray] c_dictionary
 
-    dtype, length, null_count, offset, buffers, children = data
+    dtype, length, null_count, offset, buffers, children, dictionary = data
 
     for i in range(len(buffers)):
         buf = buffers[i]
@@ -396,11 +402,15 @@ cdef shared_ptr[CArrayData] _reconstruct_array_data(data):
     for i in range(len(children)):
         c_children.push_back(_reconstruct_array_data(children[i]))
 
-    return CArrayData.MakeWithChildren(
+    if dictionary is not None:
+        c_dictionary = MakeArray(_reconstruct_array_data(dictionary))
+
+    return CArrayData.MakeWithChildrenAndDictionary(
         dtype.sp_type,
         length,
         c_buffers,
         c_children,
+        c_dictionary,
         null_count,
         offset)
 

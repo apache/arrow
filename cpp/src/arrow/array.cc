@@ -73,6 +73,17 @@ std::shared_ptr<ArrayData> ArrayData::Make(
                                      offset);
 }
 
+std::shared_ptr<ArrayData> ArrayData::Make(
+    const std::shared_ptr<DataType>& type, int64_t length,
+    const std::vector<std::shared_ptr<Buffer>>& buffers,
+    const std::vector<std::shared_ptr<ArrayData>>& child_data,
+    const std::shared_ptr<Array>& dictionary, int64_t null_count, int64_t offset) {
+  auto data =
+      std::make_shared<ArrayData>(type, length, buffers, child_data, null_count, offset);
+  data->dictionary = dictionary;
+  return data;
+}
+
 std::shared_ptr<ArrayData> ArrayData::Make(const std::shared_ptr<DataType>& type,
                                            int64_t length, int64_t null_count,
                                            int64_t offset) {
