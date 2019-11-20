@@ -56,6 +56,32 @@ class TestPartitionScheme : public ::testing::Test {
   PartitionSchemePtr scheme_;
 };
 
+TEST_F(TestPartitionScheme, SegmentDictionary) {
+  using Dict = std::unordered_map<std::string, ExpressionPtr>;
+  Dict alpha_dict, beta_dict;
+  auto add_expr = [](const std::string& segment, const Expression& expr, Dict* dict) {
+    dict->emplace(segment, expr.Copy());
+  };
+
+  add_expr("zero", "alpha"_ == 0, &alpha_dict);
+  add_expr("one", "alpha"_ == 1, &alpha_dict);
+  add_expr("more", "alpha"_ >= 2, &alpha_dict);
+
+  add_expr("...", "beta"_ == "uh", &beta_dict);
+  add_expr("?", "beta"_ == "what", &beta_dict);
+  add_expr("!", "beta"_ == "OH", &beta_dict);
+
+  scheme_.reset(new SegmentDictionaryPartitionScheme({alpha_dict, beta_dict}));
+
+  AssertParse("/one/?", "alpha"_ == int32_t(1) and "beta"_ == "what");
+  AssertParse("/one/?/---", "alpha"_ == int32_t(1) and "beta"_ == "what");
+  AssertParse("/more", "alpha"_ >= int32_t(2));      // missing second segment
+  AssertParse("/---/---", scalar(true));             // unrecognized segments
+  AssertParse("/---/!", "beta"_ == "OH");            // unrecognized first segment
+  AssertParse("/zero/---", "alpha"_ == int32_t(0));  // unrecognized second segment
+  AssertParse("", scalar(true));                     // no segments to parse
+}
+
 TEST_F(TestPartitionScheme, Schema) {
   scheme_ = std::make_shared<SchemaPartitionScheme>(
       schema({field("alpha", int32()), field("beta", utf8())}));

@@ -59,11 +59,24 @@ Result<ExpressionPtr> PartitionScheme::Parse(const std::string& path) const {
   return and_(std::move(expressions));
 }
 
+Result<ExpressionPtr> SegmentDictionaryPartitionScheme::Parse(const std::string& segment,
+                                                              int i) const {
+  if (static_cast<size_t>(i) < dictionaries_.size()) {
+    auto it = dictionaries_[i].find(segment);
+    if (it != dictionaries_[i].end()) {
+      return it->second;
+    }
+  }
+
+  return scalar(true);
+}
+
 Result<ExpressionPtr> PartitionKeysScheme::Parse(const std::string& segment,
                                                  int i) const {
   if (auto key = ParseKey(segment, i)) {
     return ConvertKey(*key, *schema_);
   }
+
   return scalar(true);
 }
 

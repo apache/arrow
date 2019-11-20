@@ -75,6 +75,23 @@ class ARROW_DS_EXPORT PartitionScheme {
   Result<ExpressionPtr> Parse(const std::string& path) const;
 };
 
+/// \brief Subclass for looking up partition information from a dictionary
+/// mapping segments to expressions provided on construction.
+class ARROW_DS_EXPORT SegmentDictionaryPartitionScheme : public PartitionScheme {
+ public:
+  SegmentDictionaryPartitionScheme(
+      std::vector<std::unordered_map<std::string, ExpressionPtr>> dictionaries)
+      : dictionaries_(std::move(dictionaries)) {}
+
+  std::string name() const override { return "segment_dictionary_partition_scheme"; }
+
+  /// Return dictionaries_[i][segment] or scalar(true)
+  Result<ExpressionPtr> Parse(const std::string& segment, int i) const override;
+
+ protected:
+  std::vector<std::unordered_map<std::string, ExpressionPtr>> dictionaries_;
+};
+
 /// \brief Subclass for the common case of a partition scheme which yields an equality
 /// expression for each segment
 class ARROW_DS_EXPORT PartitionKeysScheme : public PartitionScheme {
