@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use std::{cmp, fs::File, io::*, sync::Mutex};
+use std::{cmp, io::*, sync::Mutex};
 
-use crate::file::reader::ParquetReader;
+use crate::file::{reader::ParquetReader, writer::ParquetWriter};
 
 // ----------------------------------------------------------------------
 // Read/Write wrappers for `File`.
@@ -83,27 +83,27 @@ impl<R: ParquetReader> Position for FileSource<R> {
 
 /// Struct that represents `File` output stream with position tracking.
 /// Used as a sink in file writer.
-pub struct FileSink {
-    buf: BufWriter<File>,
+pub struct FileSink<W: ParquetWriter> {
+    buf: BufWriter<W>,
     // This is not necessarily position in the underlying file,
     // but rather current position in the sink.
     pos: u64,
 }
 
-impl FileSink {
+impl<W: ParquetWriter> FileSink<W> {
     /// Creates new file sink.
     /// Position is set to whatever position file has.
-    pub fn new(file: &File) -> Self {
-        let mut owned_file = file.try_clone().unwrap();
-        let pos = owned_file.seek(SeekFrom::Current(0)).unwrap();
+    pub fn new(buf: &W) -> Self {
+        let mut owned_buf = buf.try_clone().unwrap();
+        let pos = owned_buf.seek(SeekFrom::Current(0)).unwrap();
         Self {
-            buf: BufWriter::new(owned_file),
+            buf: BufWriter::new(owned_buf),
             pos,
         }
     }
 }
 
-impl Write for FileSink {
+impl<W: ParquetWriter> Write for FileSink<W> {
     fn write(&mut self, buf: &[u8]) -> Result<usize> {
         let num_bytes = self.buf.write(buf)?;
         self.pos += num_bytes as u64;
@@ -115,7 +115,7 @@ impl Write for FileSink {
     }
 }
 
-impl Position for FileSink {
+impl<W: ParquetWriter> Position for FileSink<W> {
     fn pos(&self) -> u64 {
         self.pos
     }
