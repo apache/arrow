@@ -97,7 +97,7 @@ jobs:
         run: |
           docker-compose run conda-python-pandas
       - name: Docker Push
-        if: success() # && github.event_name == 'push' && github.repository == 'apache/arrow'
+        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
         continue-on-error: true
         shell: bash
         run: |
