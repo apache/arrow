@@ -35,7 +35,6 @@ RUN apt-get update -y -q && \
       libboost-system-dev \
       libbrotli-dev \
       libbz2-dev \
-      libdouble-conversion-dev \
       libgflags-dev \
       libgoogle-glog-dev \
       liblz4-dev \

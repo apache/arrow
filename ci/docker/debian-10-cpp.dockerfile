@@ -35,7 +35,6 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
         libbrotli-dev \
         libbz2-dev \
         libc-ares-dev \
-        libdouble-conversion-dev \
         libgflags-dev \
         libgmock-dev \
         libgoogle-glog-dev \

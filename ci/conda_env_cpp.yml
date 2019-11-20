@@ -22,7 +22,6 @@ brotli
 bzip2
 c-ares
 cmake
-double-conversion
 gflags
 glog
 gmock>=1.8.1
@@ -37,6 +36,5 @@ python
 rapidjson
 snappy
 thrift-cpp>=0.11.0
-uriparser
 zlib
 zstd

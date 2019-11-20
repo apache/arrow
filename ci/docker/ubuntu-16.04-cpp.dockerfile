@@ -40,7 +40,6 @@ RUN apt-get update -y -q && \
         libboost-all-dev \
         libbrotli-dev \
         libbz2-dev \
-        libdouble-conversion-dev \
         libgoogle-glog-dev \
         liblz4-dev \
         libre2-dev \
@@ -63,7 +62,6 @@ RUN apt-get update -y -q && \
 # - libprotobuf-dev / libprotoc-dev in Xenial too old for gRPC
 # - libboost-all-dev does not include Boost.Process, needed for Flight
 #   unit tests, so doing vendored build by default
-# - liburiparser-dev is too old (< 0.9.0)
 ENV ARROW_BUILD_BENCHMARKS=OFF \
     ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \

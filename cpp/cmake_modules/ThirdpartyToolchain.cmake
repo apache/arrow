@@ -72,7 +72,6 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     RapidJSON
     Snappy
     Thrift
-    uriparser
     ZLIB
     ZSTD)
 
@@ -150,8 +149,6 @@ macro(build_dependency DEPENDENCY_NAME)
     build_re2()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Thrift")
     build_thrift()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "uriparser")
-    build_uriparser()
   elseif("${DEPENDENCY_NAME}" STREQUAL "ZLIB")
     build_zlib()
   elseif("${DEPENDENCY_NAME}" STREQUAL "ZSTD")
@@ -210,7 +207,6 @@ endif()
 
 if(ARROW_FLIGHT)
   set(ARROW_WITH_GRPC ON)
-  set(ARROW_WITH_URIPARSER ON)
 endif()
 
 if(ARROW_JSON)
@@ -376,16 +372,6 @@ if(DEFINED ENV{ARROW_THRIFT_URL})
   set(THRIFT_SOURCE_URL "$ENV{ARROW_THRIFT_URL}")
 else()
   set(THRIFT_SOURCE_URL "FROM-APACHE-MIRROR")
-endif()
-
-if(DEFINED ENV{ARROW_URIPARSER_URL})
-  set(URIPARSER_SOURCE_URL "$ENV{ARROW_URIPARSER_URL}")
-else()
-  set(
-    URIPARSER_SOURCE_URL
-
-    "https://github.com/uriparser/uriparser/archive/uriparser-${URIPARSER_VERSION}.tar.gz"
-    )
 endif()
 
 if(DEFINED ENV{ARROW_ZLIB_URL})
@@ -645,85 +631,6 @@ if(ARROW_BOOST_REQUIRED)
   message(STATUS "Boost libraries: ${ARROW_BOOST_LIBS}")
 
   include_directories(SYSTEM ${Boost_INCLUDE_DIR})
-endif()
-
-# ----------------------------------------------------------------------
-# uriparser library
-
-macro(build_uriparser)
-  message(STATUS "Building uriparser from source")
-  set(URIPARSER_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/uriparser_ep-install")
-  set(
-    URIPARSER_STATIC_LIB
-    "${URIPARSER_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}uriparser${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-  set(URIPARSER_INCLUDE_DIRS "${URIPARSER_PREFIX}/include")
-
-  set(URIPARSER_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
-      "-DURIPARSER_BUILD_DOCS=off"
-      "-DURIPARSER_BUILD_TESTS=off"
-      "-DURIPARSER_BUILD_TOOLS=off"
-      "-DURIPARSER_BUILD_WCHAR_T=off"
-      "-DBUILD_SHARED_LIBS=off"
-      "-DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
-      "-DCMAKE_INSTALL_LIBDIR=lib"
-      "-DCMAKE_POSITION_INDEPENDENT_CODE=on"
-      "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>")
-
-  if(MSVC AND ARROW_USE_STATIC_CRT)
-    if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-      list(APPEND URIPARSER_CMAKE_ARGS "-DURIPARSER_MSVC_RUNTIME=/MTd")
-    else()
-      list(APPEND URIPARSER_CMAKE_ARGS "-DURIPARSER_MSVC_RUNTIME=/MT")
-    endif()
-  endif()
-
-  externalproject_add(uriparser_ep
-                      URL ${URIPARSER_SOURCE_URL}
-                      CMAKE_ARGS ${URIPARSER_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${URIPARSER_STATIC_LIB}
-                      INSTALL_DIR ${URIPARSER_PREFIX}
-                      ${EP_LOG_OPTIONS})
-
-  add_library(uriparser::uriparser STATIC IMPORTED)
-  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
-  file(MAKE_DIRECTORY ${URIPARSER_INCLUDE_DIRS})
-  set_target_properties(uriparser::uriparser
-                        PROPERTIES IMPORTED_LOCATION ${URIPARSER_STATIC_LIB}
-                                   INTERFACE_INCLUDE_DIRECTORIES ${URIPARSER_INCLUDE_DIRS}
-                                   # URI_STATIC_BUILD required on Windows
-                                   INTERFACE_COMPILE_DEFINITIONS
-                                   "URI_STATIC_BUILD;URI_NO_UNICODE")
-
-  add_dependencies(toolchain uriparser_ep)
-  add_dependencies(uriparser::uriparser uriparser_ep)
-endmacro()
-
-if(ARROW_WITH_URIPARSER)
-  set(ARROW_URIPARSER_REQUIRED_VERSION "0.9.0")
-  if(uriparser_SOURCE STREQUAL "AUTO")
-    # Debian does not ship cmake configs for uriparser
-    find_package(uriparser ${ARROW_URIPARSER_REQUIRED_VERSION} QUIET)
-    if(NOT uriparser_FOUND)
-      find_package(uriparserAlt ${ARROW_URIPARSER_REQUIRED_VERSION})
-    endif()
-    if(NOT uriparser_FOUND AND NOT uriparserAlt_FOUND)
-      build_uriparser()
-    endif()
-  elseif(uriparser_SOURCE STREQUAL "BUNDLED")
-    build_uriparser()
-  elseif(uriparser_SOURCE STREQUAL "SYSTEM")
-    # Debian does not ship cmake configs for uriparser
-    find_package(uriparser ${ARROW_URIPARSER_REQUIRED_VERSION} QUIET)
-    if(NOT uriparser_FOUND)
-      find_package(uriparserAlt ${ARROW_URIPARSER_REQUIRED_VERSION} REQUIRED)
-    endif()
-  endif()
-
-  get_target_property(URIPARSER_INCLUDE_DIRS uriparser::uriparser
-                      INTERFACE_INCLUDE_DIRECTORIES)
-  include_directories(SYSTEM ${URIPARSER_INCLUDE_DIRS})
 endif()
 
 # ----------------------------------------------------------------------

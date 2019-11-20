@@ -25,7 +25,6 @@ arch=("any")
 url="https://arrow.apache.org/"
 license=("Apache-2.0")
 depends=("${MINGW_PACKAGE_PREFIX}-boost"
-         "${MINGW_PACKAGE_PREFIX}-double-conversion"
          "${MINGW_PACKAGE_PREFIX}-thrift"
          "${MINGW_PACKAGE_PREFIX}-snappy"
          "${MINGW_PACKAGE_PREFIX}-zlib"
@@ -91,7 +90,6 @@ build() {
     -DARROW_WITH_ZSTD=ON \
     -DARROW_USE_GLOG=OFF \
     -DARROW_BUILD_UTILITIES=OFF \
-    -Ddouble-conversion_ROOT="${MINGW_PREFIX}" \
     -DThrift_ROOT="${MINGW_PREFIX}"
 
   make
