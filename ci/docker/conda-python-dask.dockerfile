@@ -17,9 +17,8 @@
 
 ARG org
 ARG arch=amd64
-ARG conda=latest
 ARG python=3.6
-FROM ${org}/${arch}-conda-${conda}-python-${python}:latest
+FROM ${org}/${arch}-conda-python-${python}:latest
 
 ARG dask=latest
 RUN if [ "${dask}" = "master" ]; then \

@@ -17,8 +17,7 @@
 
 ARG org
 ARG arch
-ARG conda
-FROM ${org}/${arch}-conda-${conda}-cpp:latest
+FROM ${org}/${arch}-conda-cpp:latest
 
 # install python specific packages
 ARG python=3.6

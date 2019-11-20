@@ -17,8 +17,7 @@
 
 ARG org
 ARG arch=amd64
-ARG conda=latest
-FROM ${org}/${arch}-conda-${conda}-cpp:latest
+FROM ${org}/${arch}-conda-cpp:latest
 
 ARG arch=amd64
 ARG maven=3.5
