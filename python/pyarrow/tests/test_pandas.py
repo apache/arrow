@@ -3221,7 +3221,7 @@ def test_dictionary_from_pandas():
     assert result.type.equals(expected_type)
 
     # with missing values in categorical
-    cat = pd.Categorical(['a', 'b', None, 'a'])
+    cat = pd.Categorical([u'a', u'b', None, u'a'])
 
     result = pa.array(cat)
     assert result.to_pylist() == ['a', 'b', None, 'a']
