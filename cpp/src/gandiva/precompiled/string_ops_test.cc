@@ -185,20 +185,12 @@ TEST(TestStringOps, TestVARCHARFromNumericTypes) {
   EXPECT_EQ(std::string(out_str, out_len), "0");
   EXPECT_FALSE(ctx.has_error());
 
-  out_str = castVARCHAR_uint64(ctx_ptr, -65, &out_len);
-  EXPECT_NE(std::string(out_str, out_len), "-65");
-  EXPECT_FALSE(ctx.has_error());
-
   out_str = castVARCHAR_uint32(ctx_ptr, 0xFFFFFFFF, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "4294967295");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = castVARCHAR_uint32(ctx_ptr, 0, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "0");
-  EXPECT_FALSE(ctx.has_error());
-
-  out_str = castVARCHAR_uint32(ctx_ptr, -65, &out_len);
-  EXPECT_NE(std::string(out_str, out_len), "-65");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = castVARCHAR_uint16(ctx_ptr, 65535, &out_len);
@@ -209,20 +201,12 @@ TEST(TestStringOps, TestVARCHARFromNumericTypes) {
   EXPECT_EQ(std::string(out_str, out_len), "0");
   EXPECT_FALSE(ctx.has_error());
 
-  out_str = castVARCHAR_uint16(ctx_ptr, -65, &out_len);
-  EXPECT_NE(std::string(out_str, out_len), "-65");
-  EXPECT_FALSE(ctx.has_error());
-
   out_str = castVARCHAR_uint8(ctx_ptr, 255, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "255");
   EXPECT_FALSE(ctx.has_error());
 
   out_str = castVARCHAR_uint8(ctx_ptr, 0, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "0");
-  EXPECT_FALSE(ctx.has_error());
-
-  out_str = castVARCHAR_uint8(ctx_ptr, -65, &out_len);
-  EXPECT_NE(std::string(out_str, out_len), "-65");
   EXPECT_FALSE(ctx.has_error());
 }
 
