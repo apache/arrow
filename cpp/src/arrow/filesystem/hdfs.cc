@@ -299,8 +299,9 @@ void HdfsOptions::ConfigureHdfsBlockSize(int64_t default_block_size) {
   this->default_block_size = default_block_size;
 }
 
-Status HdfsOptions::FromUri(const Uri& uri, HdfsOptions* out) {
-  *out = HdfsOptions();
+Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
+  HdfsOptions options;
+
   std::unordered_map<std::string, std::string> options_map;
   ARROW_ASSIGN_OR_RAISE(const auto options_items, uri.query_items());
   for (const auto& kv : options_items) {
@@ -309,18 +310,18 @@ Status HdfsOptions::FromUri(const Uri& uri, HdfsOptions* out) {
 
   const auto port = uri.port();
   if (port == -1) {
-    out->ConfigureEndPoint(uri.host(), kDefaultHdfsPort);
+    options.ConfigureEndPoint(uri.host(), kDefaultHdfsPort);
   } else {
-    out->ConfigureEndPoint(uri.host(), port);
+    options.ConfigureEndPoint(uri.host(), port);
   }
 
   auto it = options_map.find("use_hdfs3");
   if (it != options_map.end()) {
     const auto& v = it->second;
     if (v == "1") {
-      out->ConfigureHdfsDriver(true);
+      options.ConfigureHdfsDriver(true);
     } else if (v == "0") {
-      out->ConfigureHdfsDriver(false);
+      options.ConfigureHdfsDriver(false);
     } else {
       return Status::Invalid(
           "Invalid value for option 'use_hdfs3' (allowed values are '0' and '1'): '", v,
@@ -335,14 +336,14 @@ Status HdfsOptions::FromUri(const Uri& uri, HdfsOptions* out) {
     if (!converter(v.data(), v.size(), &reps)) {
       return Status::Invalid("Invalid value for option 'replication': '", v, "'");
     }
-    out->ConfigureHdfsReplication(reps);
+    options.ConfigureHdfsReplication(reps);
   }
   it = options_map.find("user");
   if (it != options_map.end()) {
     const auto& v = it->second;
-    out->ConfigureHdfsUser(v);
+    options.ConfigureHdfsUser(v);
   }
-  return Status::OK();
+  return options;
 }
 
 HadoopFileSystem::HadoopFileSystem(const HdfsOptions& options)
@@ -350,12 +351,11 @@ HadoopFileSystem::HadoopFileSystem(const HdfsOptions& options)
 
 HadoopFileSystem::~HadoopFileSystem() {}
 
-Status HadoopFileSystem::Make(const HdfsOptions& options,
-                              std::shared_ptr<HadoopFileSystem>* out) {
+Result<std::shared_ptr<HadoopFileSystem>> HadoopFileSystem::Make(
+    const HdfsOptions& options) {
   std::shared_ptr<HadoopFileSystem> ptr(new HadoopFileSystem(options));
   RETURN_NOT_OK(ptr->impl_->Init());
-  *out = std::move(ptr);
-  return Status::OK();
+  return ptr;
 }
 
 Status HadoopFileSystem::GetTargetStats(const std::string& path, FileStats* out) {

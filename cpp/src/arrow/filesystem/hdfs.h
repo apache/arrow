@@ -23,6 +23,7 @@
 
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/io/hdfs.h"
+#include "arrow/result.h"
 #include "arrow/util/uri.h"
 
 namespace arrow {
@@ -49,7 +50,7 @@ struct ARROW_EXPORT HdfsOptions {
   void ConfigureHdfsBufferSize(int32_t buffer_size);
   void ConfigureHdfsBlockSize(int64_t default_block_size);
 
-  static Status FromUri(const ::arrow::internal::Uri& uri, HdfsOptions* out);
+  static Result<HdfsOptions> FromUri(const ::arrow::internal::Uri& uri);
 };
 
 /// HDFS-backed FileSystem implementation.
@@ -91,7 +92,7 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
                           std::shared_ptr<io::OutputStream>* out) override;
 
   /// Create a HdfsFileSystem instance from the given options.
-  static Status Make(const HdfsOptions& options, std::shared_ptr<HadoopFileSystem>* out);
+  static Result<std::shared_ptr<HadoopFileSystem>> Make(const HdfsOptions& options);
 
  protected:
   explicit HadoopFileSystem(const HdfsOptions& options);

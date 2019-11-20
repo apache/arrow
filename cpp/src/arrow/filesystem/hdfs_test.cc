@@ -39,7 +39,7 @@ TEST(TestHdfsOptions, FromUri) {
   internal::Uri uri;
 
   ASSERT_OK(uri.Parse("hdfs://localhost"));
-  ASSERT_OK(HdfsOptions::FromUri(uri, &options));
+  ASSERT_OK_AND_ASSIGN(options, HdfsOptions::FromUri(uri));
   ASSERT_EQ(options.replication, 3);
   ASSERT_EQ(options.connection_config.host, "localhost");
   ASSERT_EQ(options.connection_config.port, 8020);
@@ -47,7 +47,7 @@ TEST(TestHdfsOptions, FromUri) {
   ASSERT_EQ(options.connection_config.driver, HdfsDriver::LIBHDFS);
 
   ASSERT_OK(uri.Parse("hdfs://otherhost:9999/?use_hdfs3=0&replication=2"));
-  ASSERT_OK(HdfsOptions::FromUri(uri, &options));
+  ASSERT_OK_AND_ASSIGN(options, HdfsOptions::FromUri(uri));
   ASSERT_EQ(options.replication, 2);
   ASSERT_EQ(options.connection_config.host, "otherhost");
   ASSERT_EQ(options.connection_config.port, 9999);
@@ -55,7 +55,7 @@ TEST(TestHdfsOptions, FromUri) {
   ASSERT_EQ(options.connection_config.driver, HdfsDriver::LIBHDFS);
 
   ASSERT_OK(uri.Parse("hdfs://otherhost:9999/?use_hdfs3=1&user=stevereich"));
-  ASSERT_OK(HdfsOptions::FromUri(uri, &options));
+  ASSERT_OK_AND_ASSIGN(options, HdfsOptions::FromUri(uri));
   ASSERT_EQ(options.replication, 3);
   ASSERT_EQ(options.connection_config.host, "otherhost");
   ASSERT_EQ(options.connection_config.port, 9999);
@@ -94,18 +94,17 @@ class TestHadoopFileSystem : public ::testing::Test {
     options_.ConfigureHdfsDriver(use_hdfs3_);
     options_.ConfigureHdfsReplication(0);
 
-    std::shared_ptr<HadoopFileSystem> hdfs;
-    auto status = HadoopFileSystem::Make(options_, &hdfs);
-    if (!status.ok()) {
+    auto result = HadoopFileSystem::Make(options_);
+    if (!result.ok()) {
       ARROW_LOG(INFO)
           << "HadoopFileSystem::Make failed, it is possible when we don't have "
              "proper driver on this node, err msg is "
-          << status.message();
+          << result.status().ToString();
       loaded_driver_ = false;
       return;
     }
     loaded_driver_ = true;
-    fs_ = std::make_shared<SubTreeFileSystem>("", hdfs);
+    fs_ = std::make_shared<SubTreeFileSystem>("", *result);
   }
 
   void TestFileSystemFromUri() {

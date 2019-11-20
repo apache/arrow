@@ -366,10 +366,8 @@ Status FileSystemFromUri(const std::string& uri_string,
 
   if (scheme == "hdfs") {
 #ifdef ARROW_HDFS
-    HdfsOptions options;
-    std::shared_ptr<HadoopFileSystem> hdfs;
-    RETURN_NOT_OK(HdfsOptions::FromUri(uri, &options));
-    RETURN_NOT_OK(HadoopFileSystem::Make(options, &hdfs));
+    ARROW_ASSIGN_OR_RAISE(auto options, HdfsOptions::FromUri(uri));
+    ARROW_ASSIGN_OR_RAISE(auto hdfs, HadoopFileSystem::Make(options));
     *out_fs = hdfs;
     return Status::OK();
 #else

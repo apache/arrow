@@ -66,6 +66,8 @@ struct HdfsConnectionConfig {
   std::string kerb_ticket;
   std::unordered_map<std::string, std::string> extra_conf;
   HdfsDriver driver;
+
+  HdfsConnectionConfig() : driver(HdfsDriver::LIBHDFS) {}
 };
 
 class ARROW_EXPORT HadoopFileSystem : public FileSystem {
