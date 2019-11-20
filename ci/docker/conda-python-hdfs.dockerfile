@@ -22,7 +22,7 @@ FROM ${org}/${arch}-conda-python-${python}:latest
 
 ARG jdk=8
 ARG maven=3.5
-RUN conda install -q \
+RUN conda install -n testenv -q \
         pandas \
         openjdk=${jdk} \
         maven=${maven} && \
@@ -43,7 +43,7 @@ ENV CC=gcc \
     ARROW_GANDIVA=OFF \
     ARROW_PLASMA=OFF \
     ARROW_PARQUET=ON \
-    ARROW_ORC=ON \
+    ARROW_ORC=OFF \
     ARROW_HDFS=ON \
     ARROW_PYTHON=ON \
     ARROW_BUILD_TESTS=ON

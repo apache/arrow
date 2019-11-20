@@ -25,7 +25,7 @@ ARG node=11
 ARG jdk=8
 ARG go=1.12
 
-RUN conda install -q \
+RUN conda install -n testenv -q \
         numpy \
         maven=${maven} \
         nodejs=${node} \

@@ -22,12 +22,14 @@ FROM ${org}/${arch}-conda-cpp:latest
 # install python specific packages
 ARG python=3.6
 COPY ci/conda_env_python.yml /arrow/ci/
-RUN conda install -q \
+RUN conda install -n testenv -q \
         --file arrow/ci/conda_env_python.yml \
         python=${python} \
-        tensorflow \
         nomkl && \
     conda clean --all
+
+COPY python/requirements.txt /arrow/python/
+RUN bash -c "source activate testenv && pip install -r /arrow/python/requirements.txt"
 
 ENV ARROW_PYTHON=ON \
     ARROW_BUILD_STATIC=OFF \

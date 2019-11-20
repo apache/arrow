@@ -22,20 +22,21 @@ FROM ${org}/${arch}-conda-cpp:latest
 # install R specific packages
 ARG r=3.6.1
 COPY ci/conda_env_r.yml /arrow/ci/
-RUN conda install -q \
+RUN conda install -n testenv -q \
         --file arrow/ci/conda_env_r.yml \
         r-base=$r \
         nomkl && \
     conda clean --all
 
 # Ensure parallel compilation of each individual package
-RUN printf "\nMAKEFLAGS=-j8\n" >> /opt/conda/lib/R/etc/Makeconf
+RUN printf "\nMAKEFLAGS=-j8\n" >> /opt/conda/envs/testenv/lib/R/etc/Makeconf
 
 ENV \
     ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
+    ARROW_FLIGHT=OFF \
     ARROW_GANDIVA=OFF \
     ARROW_ORC=OFF \
     ARROW_PARQUET=ON \

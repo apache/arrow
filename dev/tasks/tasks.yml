@@ -97,6 +97,7 @@ groups:
     - test-conda-python-2.7
     - test-conda-python-3.6
     - test-conda-python-3.7
+    - test-conda-python-3.8
     - test-debian-10-python-3
     - test-ubuntu-18.04-python-3
     - test-fedora-29-python-3
@@ -111,8 +112,9 @@ groups:
     - test-conda-python-2.7-pandas-master
     - test-conda-python-3.7-pandas-latest
     - test-conda-python-3.7-pandas-master
+    - test-conda-python-3.8-pandas-latest
     - test-conda-python-3.7-dask-latest
-    - test-conda-python-3.7-dask-master
+    - test-conda-python-3.8-dask-master
     - test-conda-python-3.7-turbodbc-latest
     - test-conda-python-3.7-turbodbc-master
     - test-conda-python-3.7-hdfs-2.9.2
@@ -136,6 +138,7 @@ groups:
     - test-conda-python-2.7
     - test-conda-python-3.6
     - test-conda-python-3.7
+    - test-conda-python-3.8
     - test-debian-10-python-3
     - test-ubuntu-18.04-python-3
     - test-fedora-29-python-3
@@ -165,6 +168,7 @@ groups:
     - test-conda-python-2.7
     - test-conda-python-3.6
     - test-conda-python-3.7
+    - test-conda-python-3.8
     - test-debian-10-python-3
     - test-ubuntu-18.04-python-3
     - test-fedora-29-python-3
@@ -183,8 +187,9 @@ groups:
     - test-conda-python-2.7-pandas-master
     - test-conda-python-3.7-pandas-latest
     - test-conda-python-3.7-pandas-master
+    - test-conda-python-3.8-pandas-latest
     - test-conda-python-3.7-dask-latest
-    - test-conda-python-3.7-dask-master
+    - test-conda-python-3.8-dask-master
     - test-conda-python-3.7-turbodbc-latest
     - test-conda-python-3.7-turbodbc-master
     - test-conda-python-3.7-hdfs-2.9.2
@@ -260,8 +265,9 @@ groups:
     - test-conda-python-2.7-pandas-master
     - test-conda-python-3.7-pandas-latest
     - test-conda-python-3.7-pandas-master
+    - test-conda-python-3.8-pandas-latest
     - test-conda-python-3.7-dask-latest
-    - test-conda-python-3.7-dask-master
+    - test-conda-python-3.8-dask-master
     - test-conda-python-3.7-turbodbc-latest
     - test-conda-python-3.7-turbodbc-master
     - test-conda-python-3.7-hdfs-2.9.2
@@ -1696,6 +1702,19 @@ tasks:
         - docker-compose build conda-python
         - docker-compose run conda-python
 
+  test-conda-python-3.8:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - export PYTHON=3.8
+        - docker-compose pull --ignore-pull-failures conda-cpp
+        - docker-compose pull --ignore-pull-failures conda-python
+        - docker-compose build conda-cpp
+        - docker-compose build conda-python
+        - docker-compose run conda-python
+
   test-debian-10-python-3:
     ci: circle
     platform: linux
@@ -1864,6 +1883,20 @@ tasks:
         - docker-compose build --no-cache conda-python-pandas
         - docker-compose run conda-python-pandas
 
+  test-conda-python-3.8-pandas-latest:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - export PYTHON=3.8 PANDAS=latest
+        - docker-compose pull --ignore-pull-failures conda-cpp
+        - docker-compose pull --ignore-pull-failures conda-python
+        - docker-compose build conda-cpp
+        - docker-compose build conda-python
+        - docker-compose build --no-cache conda-python-pandas
+        - docker-compose run conda-python-pandas
+
   test-conda-python-3.7-pandas-master:
     ci: circle
     platform: linux
@@ -1892,13 +1925,13 @@ tasks:
         - docker-compose build --no-cache conda-python-dask
         - docker-compose run conda-python-dask
 
-  test-conda-python-3.7-dask-master:
+  test-conda-python-3.8-dask-master:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
       commands:
-        - export PYTHON=3.7 DASK=master
+        - export PYTHON=3.8 DASK=master
         - docker-compose pull --ignore-pull-failures conda-cpp
         - docker-compose pull --ignore-pull-failures conda-python
         - docker-compose build conda-cpp

@@ -29,26 +29,31 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-ENV PATH=${prefix}/bin:$PATH \
-    CONDA_PREFIX=${prefix}
+ENV PATH=${prefix}/bin:$PATH
+
 # install conda and minio
 COPY ci/scripts/install_conda.sh \
      ci/scripts/install_minio.sh \
      /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_conda.sh ${arch} linux latest ${prefix} && \
-    /arrow/ci/scripts/install_minio.sh ${arch} linux latest ${prefix}
+RUN /arrow/ci/scripts/install_conda.sh ${arch} linux latest ${prefix}
+RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest ${prefix}
 
-# install the required conda packages
+# create a test environment, to shield from base environment and avoid conflicts
+RUN conda create -n testenv
+
+# install the required conda packages into the test environment
 COPY ci/conda_env_cpp.yml \
      ci/conda_env_gandiva.yml \
      ci/conda_env_unix.yml \
      /arrow/ci/
-RUN conda install -q \
+RUN conda install -n testenv -q \
         --file arrow/ci/conda_env_unix.yml \
         --file arrow/ci/conda_env_cpp.yml \
         --file arrow/ci/conda_env_gandiva.yml \
         git compilers && \
     conda clean --all
+
+ENV CONDA_PREFIX=${prefix}/envs/testenv
 
 ENV ARROW_S3=ON \
     ARROW_ORC=ON \

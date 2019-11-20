@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,11 +17,20 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG org
-ARG arch=amd64
-ARG python=3.6
-FROM ${org}/${arch}-conda-python-${python}:latest
+set -e
 
-ARG dask=latest
-COPY ci/scripts/install_dask.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_dask.sh ${dask}
+if [ "$#" -ne 1 ]; then
+  echo "Usage: $0 <spark version>"
+  exit 1
+fi
+
+spark=$1
+
+source activate testenv
+
+mkdir /spark
+wget -q -O - https://github.com/apache/spark/archive/${spark}.tar.gz | tar -xzf - --strip-components=1 -C /spark
+
+# patch spark to build with current Arrow Java
+# patch -d /spark -p1 -i /arrow/ci/scripts/ARROW-6429.patch
+rm /arrow/ci/scripts/ARROW-6429.patch

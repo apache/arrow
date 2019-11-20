@@ -71,7 +71,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: [2.7, 3.6]
+        python: [2.7, 3.6, 3.8]
     env:
       PYTHON: ${{ matrix.python }}
       PANDAS: latest

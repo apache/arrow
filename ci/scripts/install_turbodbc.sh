@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,11 +17,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG org
-ARG arch=amd64
-ARG python=3.6
-FROM ${org}/${arch}-conda-python-${python}:latest
+set -e
 
-ARG dask=latest
-COPY ci/scripts/install_dask.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_dask.sh ${dask}
+if [ "$#" -ne 1 ]; then
+  echo "Usage: $0 <turbodbc version>"
+  exit 1
+fi
+
+turbodbc=$1
+
+source activate testenv
+
+git clone --recurse-submodules https://github.com/blue-yonder/turbodbc /turbodbc
+if [ "${turbodbc}" = "master" ]; then
+  git -C /turbodbc checkout master;
+elif [ "${turbodbc}" = "latest" ]; then
+  git -C /turbodbc checkout $(git describe --tags);
+else
+  git -C /turbodbc checkout ${turbodbc};
+fi
+
+conda clean --all

@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,11 +17,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG org
-ARG arch=amd64
-ARG python=3.6
-FROM ${org}/${arch}-conda-python-${python}:latest
+set -e
 
-ARG dask=latest
-COPY ci/scripts/install_dask.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_dask.sh ${dask}
+if [ "$#" -ne 1 ]; then
+  echo "Usage: $0 <dask version>"
+  exit 1
+fi
+
+dask=$1
+
+source activate testenv
+
+if [ "${dask}" = "master" ]; then
+  pip install https://github.com/dask/dask/archive/master.tar.gz#egg=dask[dataframe]
+elif [ "${dask}" = "latest" ]; then
+  conda install -q dask
+else
+  conda install -q dask=${dask}
+fi
+
+conda clean --all
