@@ -18,18 +18,30 @@
 #include <utility>
 
 #include "arrow/filesystem/filesystem.h"
+#ifdef ARROW_HDFS
+#include "arrow/filesystem/hdfs.h"
+#endif
+#include "arrow/filesystem/localfs.h"
+#include "arrow/filesystem/mockfs.h"
 #include "arrow/filesystem/path_util.h"
+#include "arrow/filesystem/util_internal.h"
 #include "arrow/io/slow.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/uri.h"
 
 namespace arrow {
+
+using internal::Uri;
+
 namespace fs {
 
 using internal::ConcatAbstractPath;
 using internal::EnsureTrailingSlash;
 using internal::GetAbstractPathParent;
 using internal::kSep;
+using internal::RemoveLeadingSlash;
+using internal::RemoveTrailingSlash;
 
 std::string ToString(FileType ftype) {
   switch (ftype) {
@@ -326,6 +338,56 @@ Status SlowFileSystem::OpenAppendStream(const std::string& path,
                                         std::shared_ptr<io::OutputStream>* out) {
   latencies_->Sleep();
   return base_fs_->OpenAppendStream(path, out);
+}
+
+Status FileSystemFromUri(const std::string& uri_string,
+                         std::shared_ptr<FileSystem>* out_fs, std::string* out_path) {
+  Uri uri;
+  RETURN_NOT_OK(uri.Parse(uri_string));
+  if (out_path != nullptr) {
+    *out_path = std::string(uri.path());
+  }
+
+  const auto scheme = uri.scheme();
+#ifdef _WIN32
+  if (scheme.size() == 1) {
+    // Assuming a plain local path starting with a drive letter, e.g "C:/..."
+    if (out_path != nullptr) {
+      *out_path = uri_string;
+    }
+    *out_fs = std::make_shared<LocalFileSystem>();
+    return Status::OK();
+  }
+#endif
+  if (scheme == "" || scheme == "file") {
+    *out_fs = std::make_shared<LocalFileSystem>();
+    return Status::OK();
+  }
+
+  if (scheme == "hdfs") {
+#ifdef ARROW_HDFS
+    ARROW_ASSIGN_OR_RAISE(auto options, HdfsOptions::FromUri(uri));
+    ARROW_ASSIGN_OR_RAISE(auto hdfs, HadoopFileSystem::Make(options));
+    *out_fs = hdfs;
+    return Status::OK();
+#else
+    return Status::NotImplemented("Arrow compiled without HDFS support");
+#endif
+  }
+
+  // Other filesystems below do not have an absolute / relative path distinction,
+  // normalize path by removing leading slash.
+  // XXX perhaps each filesystem should have a path normalization method?
+  if (out_path != nullptr) {
+    *out_path = std::string(RemoveLeadingSlash(*out_path));
+  }
+  if (scheme == "mock") {
+    *out_fs = std::make_shared<internal::MockFileSystem>(internal::CurrentTimePoint());
+    return Status::OK();
+  }
+
+  // TODO add support for S3 URIs
+  return Status::Invalid("Unrecognized filesystem type in URI: ", uri_string);
 }
 
 }  // namespace fs

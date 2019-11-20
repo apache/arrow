@@ -167,6 +167,51 @@ TEST(PathUtil, RemoveTrailingSlash) {
   ASSERT_EQ("/abc/def", std::string(RemoveTrailingSlash("/abc/def//")));
 }
 
+TEST(PathUtil, EnsureLeadingSlash) {
+  ASSERT_EQ("/", EnsureLeadingSlash(""));
+  ASSERT_EQ("/", EnsureLeadingSlash("/"));
+  ASSERT_EQ("/abc", EnsureLeadingSlash("abc"));
+  ASSERT_EQ("/abc/", EnsureLeadingSlash("abc/"));
+  ASSERT_EQ("/abc", EnsureLeadingSlash("/abc"));
+  ASSERT_EQ("/abc/", EnsureLeadingSlash("/abc/"));
+}
+
+TEST(PathUtil, RemoveLeadingSlash) {
+  ASSERT_EQ("", std::string(RemoveLeadingSlash("")));
+  ASSERT_EQ("", std::string(RemoveLeadingSlash("/")));
+  ASSERT_EQ("", std::string(RemoveLeadingSlash("//")));
+  ASSERT_EQ("abc/def", std::string(RemoveLeadingSlash("abc/def")));
+  ASSERT_EQ("abc/def", std::string(RemoveLeadingSlash("/abc/def")));
+  ASSERT_EQ("abc/def", std::string(RemoveLeadingSlash("//abc/def")));
+  ASSERT_EQ("abc/def/", std::string(RemoveLeadingSlash("abc/def/")));
+  ASSERT_EQ("abc/def/", std::string(RemoveLeadingSlash("/abc/def/")));
+  ASSERT_EQ("abc/def/", std::string(RemoveLeadingSlash("//abc/def/")));
+}
+
+TEST(PathUtil, MakeAbstractPathRelative) {
+  std::string s;
+
+  ASSERT_OK_AND_EQ("", MakeAbstractPathRelative("/", "/"));
+  ASSERT_OK_AND_EQ("foo/bar", MakeAbstractPathRelative("/", "/foo/bar"));
+
+  ASSERT_OK_AND_EQ("", MakeAbstractPathRelative("/foo", "/foo"));
+  ASSERT_OK_AND_EQ("", MakeAbstractPathRelative("/foo/", "/foo"));
+  ASSERT_OK_AND_EQ("", MakeAbstractPathRelative("/foo", "/foo/"));
+  ASSERT_OK_AND_EQ("", MakeAbstractPathRelative("/foo/", "/foo/"));
+
+  ASSERT_OK_AND_EQ("bar", MakeAbstractPathRelative("/foo", "/foo/bar"));
+  ASSERT_OK_AND_EQ("bar", MakeAbstractPathRelative("/foo/", "/foo/bar"));
+  ASSERT_OK_AND_EQ("bar/", MakeAbstractPathRelative("/foo/", "/foo/bar/"));
+
+  // Not relative to base
+  ASSERT_RAISES(Invalid, MakeAbstractPathRelative("/xxx", "/foo/bar"));
+  ASSERT_RAISES(Invalid, MakeAbstractPathRelative("/xxx", "/xxxx"));
+
+  // Base is not absolute
+  ASSERT_RAISES(Invalid, MakeAbstractPathRelative("foo/bar", "foo/bar/baz"));
+  ASSERT_RAISES(Invalid, MakeAbstractPathRelative("", "foo/bar/baz"));
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // Generic MockFileSystem tests
 
@@ -379,6 +424,28 @@ TEST_F(TestMockFS, Make) {
   ASSERT_OK_AND_ASSIGN(fs_, MockFileSystem::Make(time_, {Dir("A/B/C"), File("A/a")}));
   CheckDirs({{"A", time_}, {"A/B", time_}, {"A/B/C", time_}});
   CheckFiles({{"A/a", time_, ""}});
+}
+
+TEST_F(TestMockFS, FileSystemFromUri) {
+  std::string path;
+  ASSERT_OK(FileSystemFromUri("mock:", &fs_, &path));
+  ASSERT_EQ(path, "");
+  CheckDirs({});  // Ensures it's a MockFileSystem
+  ASSERT_OK(FileSystemFromUri("mock:foo/bar", &fs_, &path));
+  ASSERT_EQ(path, "foo/bar");
+  CheckDirs({});
+  ASSERT_OK(FileSystemFromUri("mock:/foo/bar", &fs_, &path));
+  ASSERT_EQ(path, "foo/bar");
+  CheckDirs({});
+  ASSERT_OK(FileSystemFromUri("mock:/foo/bar/?q=xxx", &fs_, &path));
+  ASSERT_EQ(path, "foo/bar/");
+  CheckDirs({});
+  ASSERT_OK(FileSystemFromUri("mock:///foo/bar", &fs_, &path));
+  ASSERT_EQ(path, "foo/bar");
+  CheckDirs({});
+  ASSERT_OK(FileSystemFromUri("mock:///foo/bar?q=zzz", &fs_, &path));
+  ASSERT_EQ(path, "foo/bar");
+  CheckDirs({});
 }
 
 ////////////////////////////////////////////////////////////////////////////

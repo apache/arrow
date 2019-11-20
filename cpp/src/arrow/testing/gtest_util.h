@@ -134,6 +134,12 @@ inline Status GenericToStatus(const Result<T>& res) {
   ASSERT_OK_AND_ASSIGN_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
                             lhs, rexpr);
 
+#define ASSERT_OK_AND_EQ(expected, expr)        \
+  do {                                          \
+    ASSERT_OK_AND_ASSIGN(auto _actual, (expr)); \
+    ASSERT_EQ(expected, _actual);               \
+  } while (0)
+
 namespace arrow {
 
 // ----------------------------------------------------------------------

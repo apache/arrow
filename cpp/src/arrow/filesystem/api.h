@@ -19,6 +19,7 @@
 #define ARROW_FILESYSTEM_API_H
 
 #include "arrow/filesystem/filesystem.h"  // IWYU pragma: export
+#include "arrow/filesystem/hdfs.h"        // IWYU pragma: export
 #include "arrow/filesystem/localfs.h"     // IWYU pragma: export
 #include "arrow/filesystem/mockfs.h"      // IWYU pragma: export
 #include "arrow/filesystem/s3fs.h"        // IWYU pragma: export

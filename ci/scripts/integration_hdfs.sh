@@ -30,6 +30,7 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HADOOP_HOME/lib/native/
 # execute cpp tests
 pushd ${build_dir}
 debug/arrow-io-hdfs-test
+debug/arrow-hdfs-test
 popd
 
 # cannot use --pyargs with custom arguments like --hdfs or --only-hdfs, because

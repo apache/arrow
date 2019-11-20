@@ -294,6 +294,14 @@ endif()
 if(ARROW_FILESYSTEM)
   add_subdirectory(filesystem)
 
+  if(ARROW_HDFS)
+    add_definitions(-DARROW_HDFS)
+  endif()
+
+  if(ARROW_S3)
+    add_definitions(-DARROW_S3)
+  endif()
+
   list(APPEND ARROW_SRCS
               filesystem/filesystem.cc
               filesystem/localfs.cc
@@ -304,6 +312,10 @@ if(ARROW_FILESYSTEM)
 
   if(ARROW_S3)
     list(APPEND ARROW_SRCS filesystem/s3fs.cc)
+  endif()
+
+  if(ARROW_HDFS)
+    list(APPEND ARROW_SRCS filesystem/hdfs.cc)
   endif()
 
   list(APPEND ARROW_TESTING_SRCS filesystem/test_util.cc)
