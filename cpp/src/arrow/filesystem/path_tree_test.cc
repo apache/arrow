@@ -183,27 +183,29 @@ TEST(TestPathTree, Visit) {
   ASSERT_OK(tree.Visit(visit_noop));
   auto visit_fail = [](const FileStats&) { return Status::Invalid(""); };
   ASSERT_RAISES(Invalid, tree.Visit(visit_fail));
-  auto match_fail = [](const FileStats&, bool* match) { return Status::Invalid(""); };
-  ASSERT_RAISES(Invalid, tree.Visit(visit_noop, match_fail));
 
-  std::vector<FileStats> collect;
-  auto visit = [&collect](const FileStats& f) {
-    collect.push_back(f);
+  std::vector<FileStats> collection;
+  auto visit_collect = [&collection](const FileStats& f) {
+    collection.push_back(f);
     return Status::OK();
   };
-  ASSERT_OK(tree.Visit(visit));
+  ASSERT_OK(tree.Visit(visit_collect));
 
   // Ensure basic visit of all nodes
-  EXPECT_THAT(collect, ContainerEq(std::vector<FileStats>{Dir("A"), File("A/a")}));
+  EXPECT_THAT(collection, ContainerEq(std::vector<FileStats>{Dir("A"), File("A/a")}));
 
   // Matcher should be evaluated on all nodes
-  collect.resize(0);
-  auto match_dir = [](const FileStats& s, bool* m) {
-    *m = s.IsDirectory();
-    return Status::OK();
+  collection = {};
+  auto visit_collect_directories =
+      [&collection](const FileStats& f) -> PathTree::MaybePrune {
+    if (!f.IsDirectory()) {
+      return PathTree::Prune;
+    }
+    collection.push_back(f);
+    return PathTree::Continue;
   };
-  ASSERT_OK(tree.Visit(visit, match_dir));
-  EXPECT_THAT(collect, ContainerEq(std::vector<FileStats>{Dir("A")}));
+  ASSERT_OK(tree.Visit(visit_collect_directories));
+  EXPECT_THAT(collection, ContainerEq(std::vector<FileStats>{Dir("A")}));
 }
 
 }  // namespace fs

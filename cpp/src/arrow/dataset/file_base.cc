@@ -70,21 +70,21 @@ Result<DataSourcePtr> FileSystemDataSource::Make(fs::FileSystemPtr filesystem,
 DataFragmentIterator FileSystemDataSource::GetFragmentsImpl(ScanOptionsPtr options) {
   std::vector<std::unique_ptr<fs::FileStats>> files;
 
-  auto visitor = [&files](const fs::FileStats& stats) {
+  auto visitor = [&](const fs::FileStats& stats) -> fs::PathTree::MaybePrune {
+    if (!this->PartitionMatches(stats, options->filter)) {
+      // directories (and descendants) which can't satisfy the filter are pruned
+      return fs::PathTree::Prune;
+    }
+
     if (stats.IsFile()) {
       files.emplace_back(new fs::FileStats(stats));
     }
-    return Status::OK();
-  };
-  // The matcher ensures that directories (and their descendants) are not
-  // visited.
-  auto matcher = [this, options](const fs::FileStats& stats, bool* match) {
-    *match = this->PartitionMatches(stats, options->filter);
-    return Status::OK();
+
+    return fs::PathTree::Continue;
   };
 
   for (auto tree : forest_) {
-    DCHECK_OK(tree.Visit(visitor, matcher));
+    DCHECK_OK(tree.Visit(visitor));
   }
 
   auto file_it = MakeVectorIterator(std::move(files));

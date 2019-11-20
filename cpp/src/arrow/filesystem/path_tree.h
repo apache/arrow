@@ -62,36 +62,13 @@ class ARROW_EXPORT PathTree : public util::EqualityComparable<PathTree> {
 
   std::string ToString() const;
 
-  /// \brief Visit with eager pruning.
-  template <typename Visitor, typename Matcher>
-  Status Visit(Visitor&& v, Matcher&& m) const {
-    bool match = false;
-    RETURN_NOT_OK(m(stats(), &match));
-    if (!match) {
-      return Status::OK();
-    }
-    RETURN_NOT_OK(v(stats()));
-
-    for (int i = descendants_begin(); i < descendants_end(); ++i) {
-      match = false;
-      RETURN_NOT_OK(m(stats_->at(i), &match));
-      if (!match) {
-        // skip descendants
-        i += descendant_counts_->at(i);
-        continue;
-      }
-      RETURN_NOT_OK(v(stats_->at(i)));
-    }
-    return Status::OK();
-  }
+  enum { Continue, Prune };
+  using MaybePrune = Result<decltype(Prune)>;
 
   template <typename Visitor>
   Status Visit(Visitor&& v) const {
-    auto always_match = [](const FileStats& t, bool* match) {
-      *match = true;
-      return Status::OK();
-    };
-    return Visit(v, always_match);
+    static std::is_same<decltype(v(stats())), MaybePrune> with_pruning;
+    return VisitImpl(std::forward<Visitor>(v), with_pruning);
   }
 
  protected:
@@ -105,6 +82,33 @@ class ARROW_EXPORT PathTree : public util::EqualityComparable<PathTree> {
     PathTree copy = *this;
     copy.offset_ = offset;
     return copy;
+  }
+
+  /// \brief Visit with eager pruning.
+  template <typename Visitor>
+  Status VisitImpl(Visitor&& v, std::true_type) const {
+    auto action = Prune;
+    ARROW_ASSIGN_OR_RAISE(action, v(stats()));
+    if (action == Prune) {
+      return Status::OK();
+    }
+
+    for (int i = descendants_begin(); i < descendants_end(); ++i) {
+      ARROW_ASSIGN_OR_RAISE(action, v(stats_->at(i)));
+      if (action == Prune) {
+        // skip descendants
+        i += descendant_counts_->at(i);
+      }
+    }
+    return Status::OK();
+  }
+
+  template <typename Visitor>
+  Status VisitImpl(Visitor&& v, std::false_type) const {
+    return Visit([&](const FileStats& s) -> MaybePrune {
+      RETURN_NOT_OK(v(s));
+      return Continue;
+    });
   }
 
   int descendants_begin() const { return offset_ + 1; }
