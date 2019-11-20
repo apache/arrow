@@ -3213,7 +3213,7 @@ def test_variable_dictionary_to_pandas():
 
 
 def test_dictionary_from_pandas():
-    cat = pd.Categorical(['a', 'b', 'a'])
+    cat = pd.Categorical([u'a', u'b', u'a'])
     expected_type = pa.dictionary(pa.int8(), pa.string())
 
     result = pa.array(cat)
