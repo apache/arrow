@@ -124,6 +124,108 @@ TEST(TestStringOps, TestCastVarhcar) {
   EXPECT_FALSE(ctx.has_error());
 }
 
+TEST(TestStringOps, TestVARCHARFromNumericTypes) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<int64>(&ctx);
+  int32 out_len = 0;
+
+  const char* out_str = castVARCHAR_int64(ctx_ptr, 46, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "46");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_int64(ctx_ptr, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_int64(ctx_ptr, -65, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "-65");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_int32(ctx_ptr, 2147483647, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "2147483647");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_int32(ctx_ptr, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_int32(ctx_ptr, -2147483648, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "-2147483648");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_int16(ctx_ptr, 32767, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "32767");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_int16(ctx_ptr, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_int16(ctx_ptr, -32768, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "-32768");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_int8(ctx_ptr, 127, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "127");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_int8(ctx_ptr, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_int8(ctx_ptr, -128, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "-128");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_uint64(ctx_ptr, 46, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "46");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_uint64(ctx_ptr, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_uint64(ctx_ptr, -65, &out_len);
+  EXPECT_NE(std::string(out_str, out_len), "-65");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_uint32(ctx_ptr, 0xFFFFFFFF, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "4294967295");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_uint32(ctx_ptr, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_uint32(ctx_ptr, -65, &out_len);
+  EXPECT_NE(std::string(out_str, out_len), "-65");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_uint16(ctx_ptr, 65535, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "65535");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_uint16(ctx_ptr, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_uint16(ctx_ptr, -65, &out_len);
+  EXPECT_NE(std::string(out_str, out_len), "-65");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_uint8(ctx_ptr, 255, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "255");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_uint8(ctx_ptr, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "0");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = castVARCHAR_uint8(ctx_ptr, -65, &out_len);
+  EXPECT_NE(std::string(out_str, out_len), "-65");
+  EXPECT_FALSE(ctx.has_error());
+}
+
 TEST(TestStringOps, TestSubstring) {
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<int64>(&ctx);

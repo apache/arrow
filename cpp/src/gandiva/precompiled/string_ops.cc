@@ -19,6 +19,7 @@
 
 extern "C" {
 
+#include <inttypes.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -260,6 +261,44 @@ char* castVARCHAR_utf8_int64(int64 context, const char* data, int32 data_len,
   *out_length = len;
   return ret;
 }
+
+#define CAST_VARCHAR(IN_TYPE, FORMAT_TYPE)                                           \
+  FORCE_INLINE                                                                       \
+  const char* castVARCHAR##_##IN_TYPE(int64 context, IN_TYPE num, int32* out_len) {  \
+    *out_len = snprintf(NULL, 0, "%" FORMAT_TYPE, num);                              \
+    if (*out_len < 0) {                                                              \
+      gdv_fn_context_set_error_msg(context,                                          \
+                                   "Encoding error while writing to output string"); \
+      *out_len = 0;                                                                  \
+      return "";                                                                     \
+    }                                                                                \
+                                                                                     \
+    char* ret =                                                                      \
+        reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len + 1)); \
+    if (ret == nullptr) {                                                            \
+      gdv_fn_context_set_error_msg(context,                                          \
+                                   "Could not allocate memory for output string");   \
+      *out_len = 0;                                                                  \
+      return "";                                                                     \
+    }                                                                                \
+                                                                                     \
+    if (snprintf(ret, *out_len + 1, "%" FORMAT_TYPE, num) < 0) {                     \
+      gdv_fn_context_set_error_msg(context,                                          \
+                                   "Encoding error while writing to output string"); \
+      *out_len = 0;                                                                  \
+      return "";                                                                     \
+    }                                                                                \
+    return ret;                                                                      \
+  }
+
+CAST_VARCHAR(int8, PRId8)
+CAST_VARCHAR(int16, PRId16)
+CAST_VARCHAR(int32, PRId32)
+CAST_VARCHAR(int64, PRId64)
+CAST_VARCHAR(uint8, PRIu8)
+CAST_VARCHAR(uint16, PRIu16)
+CAST_VARCHAR(uint32, PRIu32)
+CAST_VARCHAR(uint64, PRIu64)
 
 #define IS_NULL(NAME, TYPE) \
   FORCE_INLINE              \

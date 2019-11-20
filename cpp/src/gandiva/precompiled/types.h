@@ -184,6 +184,16 @@ const char* lower_utf8(int64 context, const char* data, int32 data_len,
 
 const char* reverse_utf8(int64 context, const char* data, int32 data_len,
                          int32_t* out_len);
+
+const char* castVARCHAR_int64(int64 context, int64 num, int32* out_len);
+const char* castVARCHAR_int32(int64 context, int32 num, int32* out_len);
+const char* castVARCHAR_int16(int64 context, int16 num, int32* out_len);
+const char* castVARCHAR_int8(int64 context, int8 num, int32* out_len);
+const char* castVARCHAR_uint64(int64 context, uint64 num, int32* out_len);
+const char* castVARCHAR_uint32(int64 context, uint32 num, int32* out_len);
+const char* castVARCHAR_uint16(int64 context, uint16 num, int32* out_len);
+const char* castVARCHAR_uint8(int64 context, uint8 num, int32* out_len);
+
 }  // extern "C"
 
 #endif  // PRECOMPILED_TYPES_H

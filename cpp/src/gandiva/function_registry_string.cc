@@ -53,6 +53,15 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       UNARY_UNSAFE_NULL_IF_NULL(lengthUtf8, {}, binary, int32),
       UNARY_UNSAFE_NULL_IF_NULL(reverse, {}, utf8, utf8),
 
+      UNARY_UNSAFE_NULL_IF_NULL(castVARCHAR, {}, int64, utf8),
+      UNARY_UNSAFE_NULL_IF_NULL(castVARCHAR, {}, int32, utf8),
+      UNARY_UNSAFE_NULL_IF_NULL(castVARCHAR, {}, int16, utf8),
+      UNARY_UNSAFE_NULL_IF_NULL(castVARCHAR, {}, int8, utf8),
+      UNARY_UNSAFE_NULL_IF_NULL(castVARCHAR, {}, uint64, utf8),
+      UNARY_UNSAFE_NULL_IF_NULL(castVARCHAR, {}, uint32, utf8),
+      UNARY_UNSAFE_NULL_IF_NULL(castVARCHAR, {}, uint16, utf8),
+      UNARY_UNSAFE_NULL_IF_NULL(castVARCHAR, {}, uint8, utf8),
+
       UNARY_SAFE_NULL_NEVER_BOOL_FN(isnull, {}),
       UNARY_SAFE_NULL_NEVER_BOOL_FN(isnotnull, {}),
 
