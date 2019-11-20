@@ -31,57 +31,61 @@
 namespace arrow {
 namespace dataset {
 
-Result<ExpressionPtr> ConvertPartitionKeys(const std::vector<UnconvertedKey>& keys,
-                                           const Schema& schema) {
-  ExpressionVector subexpressions;
+Result<ExpressionPtr> PartitionKeysScheme::ConvertKey(const Key& key,
+                                                      const Schema& schema) {
+  auto field = schema.GetFieldByName(key.name);
+  if (field == nullptr) {
+    return scalar(true);
+  }
 
-  for (const auto& key : keys) {
-    auto field = schema.GetFieldByName(key.name);
-    if (field == nullptr) {
+  std::shared_ptr<Scalar> converted;
+  RETURN_NOT_OK(Scalar::Parse(field->type(), key.value, &converted));
+  return equal(field_ref(field->name()), scalar(converted));
+}
+
+Result<ExpressionPtr> PartitionScheme::Parse(const std::string& path) const {
+  ExpressionVector expressions;
+  int i = 0;
+
+  for (auto segment : fs::internal::SplitAbstractPath(path)) {
+    ARROW_ASSIGN_OR_RAISE(auto expr, Parse(segment, i++));
+    if (expr->Equals(true)) {
       continue;
     }
 
-    std::shared_ptr<Scalar> converted;
-    RETURN_NOT_OK(Scalar::Parse(field->type(), key.value, &converted));
-    subexpressions.push_back(equal(field_ref(field->name()), scalar(converted)));
+    expressions.push_back(std::move(expr));
   }
 
-  return and_(subexpressions);
+  return and_(std::move(expressions));
 }
 
-Result<ExpressionPtr> ConstantPartitionScheme::Parse(const std::string& path) const {
-  return expression_;
+Result<ExpressionPtr> PartitionKeysScheme::Parse(const std::string& segment,
+                                                 int i) const {
+  if (auto key = ParseKey(segment, i)) {
+    return ConvertKey(*key, *schema_);
+  }
+  return scalar(true);
 }
 
-Result<ExpressionPtr> SchemaPartitionScheme::Parse(const std::string& path) const {
-  auto segments = fs::internal::SplitAbstractPath(path);
-  auto min = std::min(static_cast<int>(segments.size()), schema_->num_fields());
-  std::vector<UnconvertedKey> keys(min);
-  for (int i = 0; i < min; i++) {
-    keys[i].name = schema_->field(i)->name();
-    keys[i].value = std::move(segments[i]);
+util::optional<PartitionKeysScheme::Key> SchemaPartitionScheme::ParseKey(
+    const std::string& segment, int i) const {
+  if (i >= schema_->num_fields()) {
+    return util::nullopt;
   }
 
-  return ConvertPartitionKeys(keys, *schema_);
+  return Key{schema_->field(i)->name(), segment};
 }
 
-std::vector<UnconvertedKey> HivePartitionScheme::GetUnconvertedKeys(
-    const std::string& path) const {
-  auto segments = fs::internal::SplitAbstractPath(path);
+util::optional<PartitionKeysScheme::Key> HivePartitionScheme::ParseKey(
+    const std::string& segment, int) const {
+  static std::regex hive_style("^([^=]+)=(.*)$");
 
-  std::vector<UnconvertedKey> keys;
-  for (const auto& segment : segments) {
-    std::smatch matches;
-    static std::regex hive_style("^([^=]+)=(.*)$");
-    if (std::regex_match(segment, matches, hive_style) && matches.size() == 3) {
-      keys.push_back({matches[1].str(), matches[2].str()});
-    }
+  std::smatch matches;
+  if (!std::regex_match(segment, matches, hive_style) || matches.size() != 3) {
+    return util::nullopt;
   }
-  return keys;
-}
 
-Result<ExpressionPtr> HivePartitionScheme::Parse(const std::string& path) const {
-  return ConvertPartitionKeys(GetUnconvertedKeys(path), *schema_);
+  return Key{matches[1].str(), matches[2].str()};
 }
 
 Result<PathPartitions> ApplyPartitionScheme(const PartitionScheme& scheme,

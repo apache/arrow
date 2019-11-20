@@ -29,6 +29,7 @@
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
+#include "arrow/util/optional.h"
 
 namespace arrow {
 
@@ -41,17 +42,6 @@ namespace dataset {
 
 // ----------------------------------------------------------------------
 // Partition schemes
-
-struct ARROW_DS_EXPORT UnconvertedKey {
-  std::string name, value;
-};
-
-/// \brief Helper function for the common case of combining partition information
-/// consisting of equality expressions into a single conjunction expression.
-/// Fields referenced in keys but absent from schema will be ignored.
-ARROW_DS_EXPORT
-Result<ExpressionPtr> ConvertPartitionKeys(const std::vector<UnconvertedKey>& keys,
-                                           const Schema& schema);
 
 /// \brief Interface for parsing partition expressions from string partition
 /// identifiers.
@@ -74,24 +64,43 @@ class ARROW_DS_EXPORT PartitionScheme {
   /// \brief The name identifying the kind of partition scheme
   virtual std::string name() const = 0;
 
-  /// \brief Parse a path into a partition expression
+  /// \brief Parse a path segment into a partition expression
   ///
-  /// \param[in] path the partition identifier to parse
+  /// \param[in] segment the path segment to parse
+  /// \param[in] i the index of segment within a path
   /// \return the parsed expression
-  virtual Result<ExpressionPtr> Parse(const std::string& path) const = 0;
+  virtual Result<ExpressionPtr> Parse(const std::string& segment, int i) const = 0;
+
+  /// \brief Parse a path into a partition expression
+  Result<ExpressionPtr> Parse(const std::string& path) const;
 };
 
-/// \brief Trivial partition scheme which yields an expression provided on construction.
-class ARROW_DS_EXPORT ConstantPartitionScheme : public PartitionScheme {
+/// \brief Subclass for the common case of a partition scheme which yields an equality
+/// expression for each segment
+class ARROW_DS_EXPORT PartitionKeysScheme : public PartitionScheme {
  public:
-  explicit ConstantPartitionScheme(ExpressionPtr expr) : expression_(std::move(expr)) {}
+  /// An unconverted equality expression consisting of a field name and the representation
+  /// of a scalar value
+  struct Key {
+    std::string name, value;
+  };
 
-  std::string name() const override { return "constant_partition_scheme"; }
+  /// Convert a Key to a full expression.
+  /// If the field referenced in key is absent from the schema will be ignored.
+  static Result<ExpressionPtr> ConvertKey(const Key& key, const Schema& schema);
 
-  Result<ExpressionPtr> Parse(const std::string& path) const override;
+  /// Extract a partition key from a path segment.
+  virtual util::optional<Key> ParseKey(const std::string& segment, int i) const = 0;
 
- private:
-  ExpressionPtr expression_;
+  Result<ExpressionPtr> Parse(const std::string& segment, int i) const override;
+
+  const std::shared_ptr<Schema>& schema() { return schema_; }
+
+ protected:
+  explicit PartitionKeysScheme(std::shared_ptr<Schema> schema)
+      : schema_(std::move(schema)) {}
+
+  std::shared_ptr<Schema> schema_;
 };
 
 /// \brief SchemaPartitionScheme parses one segment of a path for each field in its
@@ -100,19 +109,14 @@ class ARROW_DS_EXPORT ConstantPartitionScheme : public PartitionScheme {
 ///
 /// For example given schema<year:int16, month:int8> the path "/2009/11" would be
 /// parsed to ("year"_ == 2009 and "month"_ == 11)
-class ARROW_DS_EXPORT SchemaPartitionScheme : public PartitionScheme {
+class ARROW_DS_EXPORT SchemaPartitionScheme : public PartitionKeysScheme {
  public:
   explicit SchemaPartitionScheme(std::shared_ptr<Schema> schema)
-      : schema_(std::move(schema)) {}
+      : PartitionKeysScheme(std::move(schema)) {}
 
   std::string name() const override { return "schema_partition_scheme"; }
 
-  Result<ExpressionPtr> Parse(const std::string& path) const override;
-
-  const std::shared_ptr<Schema>& schema() { return schema_; }
-
- protected:
-  std::shared_ptr<Schema> schema_;
+  util::optional<Key> ParseKey(const std::string& segment, int i) const override;
 };
 
 /// \brief Multi-level, directory based partitioning scheme
@@ -124,39 +128,32 @@ class ARROW_DS_EXPORT SchemaPartitionScheme : public PartitionScheme {
 ///
 /// For example given schema<year:int16, month:int8, day:int8> the path
 /// "/day=321/ignored=3.4/year=2009" parses to ("year"_ == 2009 and "day"_ == 321)
-class ARROW_DS_EXPORT HivePartitionScheme : public PartitionScheme {
+class ARROW_DS_EXPORT HivePartitionScheme : public PartitionKeysScheme {
  public:
   explicit HivePartitionScheme(std::shared_ptr<Schema> schema)
-      : schema_(std::move(schema)) {}
+      : PartitionKeysScheme(std::move(schema)) {}
 
   std::string name() const override { return "hive_partition_scheme"; }
 
-  Result<ExpressionPtr> Parse(const std::string& path) const override;
-
-  std::vector<UnconvertedKey> GetUnconvertedKeys(const std::string& path) const;
-
-  const std::shared_ptr<Schema>& schema() { return schema_; }
-
- protected:
-  std::shared_ptr<Schema> schema_;
+  util::optional<Key> ParseKey(const std::string& segment, int i) const override;
 };
 
 /// \brief Implementation provided by lambda or other callable
 class ARROW_DS_EXPORT FunctionPartitionScheme : public PartitionScheme {
  public:
   explicit FunctionPartitionScheme(
-      std::function<Result<ExpressionPtr>(const std::string&)> impl,
+      std::function<Result<ExpressionPtr>(const std::string&, int)> impl,
       std::string name = "function_partition_scheme")
       : impl_(std::move(impl)), name_(std::move(name)) {}
 
   std::string name() const override { return name_; }
 
-  Result<ExpressionPtr> Parse(const std::string& path) const override {
-    return impl_(path);
+  Result<ExpressionPtr> Parse(const std::string& segment, int i) const override {
+    return impl_(segment, i);
   }
 
  private:
-  std::function<Result<ExpressionPtr>(const std::string&)> impl_;
+  std::function<Result<ExpressionPtr>(const std::string&, int)> impl_;
   std::string name_;
 };
 
