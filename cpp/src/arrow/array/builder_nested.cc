@@ -72,7 +72,7 @@ void MapBuilder::Reset() {
 Status MapBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   ARROW_CHECK_EQ(item_builder_->length(), key_builder_->length())
       << "keys and items builders don't have the same size in MapBuilder";
-  RETURN_NOT_OK(CheckStructBuilderLength());
+  RETURN_NOT_OK(AdjustStructBuilderLength());
   RETURN_NOT_OK(list_builder_->FinishInternal(out));
   (*out)->type = type();
   ArrayBuilder::Reset();
@@ -82,7 +82,7 @@ Status MapBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 Status MapBuilder::AppendValues(const int32_t* offsets, int64_t length,
                                 const uint8_t* valid_bytes) {
   DCHECK_EQ(item_builder_->length(), key_builder_->length());
-  RETURN_NOT_OK(CheckStructBuilderLength());
+  RETURN_NOT_OK(AdjustStructBuilderLength());
   RETURN_NOT_OK(list_builder_->AppendValues(offsets, length, valid_bytes));
   length_ = list_builder_->length();
   null_count_ = list_builder_->null_count();
@@ -91,7 +91,7 @@ Status MapBuilder::AppendValues(const int32_t* offsets, int64_t length,
 
 Status MapBuilder::Append() {
   DCHECK_EQ(item_builder_->length(), key_builder_->length());
-  RETURN_NOT_OK(CheckStructBuilderLength());
+  RETURN_NOT_OK(AdjustStructBuilderLength());
   RETURN_NOT_OK(list_builder_->Append());
   length_ = list_builder_->length();
   return Status::OK();
@@ -99,7 +99,7 @@ Status MapBuilder::Append() {
 
 Status MapBuilder::AppendNull() {
   DCHECK_EQ(item_builder_->length(), key_builder_->length());
-  RETURN_NOT_OK(CheckStructBuilderLength());
+  RETURN_NOT_OK(AdjustStructBuilderLength());
   RETURN_NOT_OK(list_builder_->AppendNull());
   length_ = list_builder_->length();
   null_count_ = list_builder_->null_count();
@@ -108,15 +108,15 @@ Status MapBuilder::AppendNull() {
 
 Status MapBuilder::AppendNulls(int64_t length) {
   DCHECK_EQ(item_builder_->length(), key_builder_->length());
-  RETURN_NOT_OK(CheckStructBuilderLength());
+  RETURN_NOT_OK(AdjustStructBuilderLength());
   RETURN_NOT_OK(list_builder_->AppendNulls(length));
   length_ = list_builder_->length();
   null_count_ = list_builder_->null_count();
   return Status::OK();
 }
 
-Status MapBuilder::CheckStructBuilderLength() {
-  // If key/item builders have been appended, adjust struct builder lenght
+Status MapBuilder::AdjustStructBuilderLength() {
+  // If key/item builders have been appended, adjust struct builder length
   // to match. Struct and key are non-nullable, append all valid values.
   if (list_builder_->value_builder()->length() < key_builder_->length()) {
     auto struct_builder =

@@ -247,8 +247,22 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
 
   Status AppendNulls(int64_t length) final;
 
+  /// \brief Get builder to append keys.
+  ///
+  /// Append a key with this builder should be followed by appending
+  /// an item or null value with item_builder().
   ArrayBuilder* key_builder() const { return key_builder_.get(); }
+
+  /// \brief Get builder to append items
+  ///
+  /// Appending an item with this builder should have been proceeded
+  /// by appending a key with key_builder().
   ArrayBuilder* item_builder() const { return item_builder_.get(); }
+
+  /// \brief Get builder to add Map entries as struct values.
+  ///
+  /// This is used instead of key_builder()/item_builder() and allows
+  /// the Map to be built as a list of struct values.
   ArrayBuilder* value_builder() const { return list_builder_->value_builder(); }
 
   std::shared_ptr<DataType> type() const override {
@@ -256,7 +270,7 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
   }
 
  protected:
-  Status CheckStructBuilderLength();
+  Status AdjustStructBuilderLength();
 
  protected:
   bool keys_sorted_ = false;

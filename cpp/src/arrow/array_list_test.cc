@@ -383,6 +383,9 @@ TYPED_TEST(TestListArray, BuilderPreserveFieldName) {
 
 class TestMapArray : public TestBuilder {
  public:
+  using offset_type = typename MapType::offset_type;
+  using OffsetType = typename TypeTraits<MapType>::OffsetType;
+
   void SetUp() {
     TestBuilder::SetUp();
 
@@ -521,6 +524,78 @@ TEST_F(TestMapArray, BuildingStringToInt) {
   ASSERT_OK(actual->Validate());
 
   ASSERT_ARRAYS_EQUAL(*actual, expected);
+}
+
+TEST_F(TestMapArray, FromArrays) {
+  std::shared_ptr<Array> offsets1, offsets2, offsets3, offsets4, keys, items;
+
+  std::vector<bool> offsets_is_valid3 = {true, false, true, true};
+  std::vector<bool> offsets_is_valid4 = {true, true, false, true};
+
+  std::vector<bool> items_is_valid = {true, false, true, true, true, true};
+
+  std::vector<MapType::offset_type> offset1_values = {0, 2, 2, 6};
+  std::vector<MapType::offset_type> offset2_values = {0, 2, 6, 6};
+
+  std::vector<int8_t> key_values = {0, 1, 2, 3, 4, 5};
+  std::vector<int8_t> item_values = {10, 9, 8, 7, 6, 5};
+  const int length = 3;
+
+  ArrayFromVector<OffsetType, offset_type>(offset1_values, &offsets1);
+  ArrayFromVector<OffsetType, offset_type>(offset2_values, &offsets2);
+
+  ArrayFromVector<OffsetType, offset_type>(offsets_is_valid3, offset1_values, &offsets3);
+  ArrayFromVector<OffsetType, offset_type>(offsets_is_valid4, offset2_values, &offsets4);
+
+  ArrayFromVector<Int8Type, int8_t>(key_values, &keys);
+  ArrayFromVector<Int8Type, int8_t>(items_is_valid, item_values, &items);
+
+  auto map_type = map(int8(), int8());
+
+  std::shared_ptr<Array> map1, map3, map4;
+  ASSERT_OK(MapArray::FromArrays(offsets1, keys, items, pool_, &map1));
+  ASSERT_OK(MapArray::FromArrays(offsets3, keys, items, pool_, &map3));
+  ASSERT_OK(MapArray::FromArrays(offsets4, keys, items, pool_, &map4));
+  ASSERT_OK(map1->Validate());
+  ASSERT_OK(map3->Validate());
+  ASSERT_OK(map4->Validate());
+
+  MapArray expected1(map_type, length, offsets1->data()->buffers[1], keys, items,
+                     offsets1->data()->buffers[0], 0);
+  AssertArraysEqual(expected1, *map1);
+
+  // Use null bitmap from offsets3, but clean offsets from non-null version
+  MapArray expected3(map_type, length, offsets1->data()->buffers[1], keys, items,
+                     offsets3->data()->buffers[0], 1);
+  AssertArraysEqual(expected3, *map3);
+
+  // Check that the last offset bit is zero
+  ASSERT_FALSE(BitUtil::GetBit(map3->null_bitmap()->data(), length + 1));
+
+  MapArray expected4(map_type, length, offsets2->data()->buffers[1], keys, items,
+                     offsets4->data()->buffers[0], 1);
+  AssertArraysEqual(expected4, *map4);
+
+  // Test failure modes
+
+  std::shared_ptr<Array> tmp;
+
+  // Zero-length offsets
+  ASSERT_RAISES(Invalid,
+                MapArray::FromArrays(offsets1->Slice(0, 0), keys, items, pool_, &tmp));
+
+  // Offsets not the right type
+  ASSERT_RAISES(TypeError, MapArray::FromArrays(keys, offsets1, items, pool_, &tmp));
+
+  // Keys and Items different lengths
+  ASSERT_RAISES(Invalid,
+                MapArray::FromArrays(offsets1, keys->Slice(0, 1), items, pool_, &tmp));
+
+  // Keys contains null values
+  std::shared_ptr<Array> keys_with_null = offsets3;
+  std::shared_ptr<Array> tmp_items = items->Slice(0, offsets3->length());
+  // ASSERT_RAISES(Invalid,
+  //    MapArray::FromArrays(offsets1, keys_with_null, tmp_items, pool_, &tmp));
 }
 
 // ----------------------------------------------------------------------
