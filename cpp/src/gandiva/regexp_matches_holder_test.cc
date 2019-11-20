@@ -41,13 +41,13 @@ TEST_F(TestRegexpMatchesHolder, TestString) {
   auto status = RegexpMatchesHolder::Make("ab", &regexp_matches_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
-  auto& like = *regexp_matches_holder;
-  EXPECT_TRUE(like("ab"));
-  EXPECT_TRUE(like("abc"));
-  EXPECT_TRUE(like("abcd"));
-  EXPECT_TRUE(like("cab"));
+  auto& regexp_matches = *regexp_matches_holder;
+  EXPECT_TRUE(regexp_matches("ab"));
+  EXPECT_TRUE(regexp_matches("abc"));
+  EXPECT_TRUE(regexp_matches("abcd"));
+  EXPECT_TRUE(regexp_matches("cab"));
 
-  EXPECT_FALSE(like("a"));
+  EXPECT_FALSE(regexp_matches("a"));
 }
 
 TEST_F(TestRegexpMatchesHolder, TestDotStar) {
@@ -56,15 +56,15 @@ TEST_F(TestRegexpMatchesHolder, TestDotStar) {
   auto status = RegexpMatchesHolder::Make("a.*b", &regexp_matches_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
-  auto& like = *regexp_matches_holder;
-  EXPECT_TRUE(like("ab"));
-  EXPECT_TRUE(like("adeb"));
-  EXPECT_TRUE(like("abc"));
-  EXPECT_TRUE(like("cabc"));
-  EXPECT_TRUE(like("caebf"));
+  auto& regexp_matches = *regexp_matches_holder;
+  EXPECT_TRUE(regexp_matches("ab"));
+  EXPECT_TRUE(regexp_matches("adeb"));
+  EXPECT_TRUE(regexp_matches("abc"));
+  EXPECT_TRUE(regexp_matches("cabc"));
+  EXPECT_TRUE(regexp_matches("caebf"));
 
-  EXPECT_FALSE(like("ba"));
-  EXPECT_FALSE(like("a"));
+  EXPECT_FALSE(regexp_matches("ba"));
+  EXPECT_FALSE(regexp_matches("a"));
 }
 
 TEST_F(TestRegexpMatchesHolder, TestDot) {
@@ -73,14 +73,14 @@ TEST_F(TestRegexpMatchesHolder, TestDot) {
   auto status = RegexpMatchesHolder::Make("ab.", &regexp_matches_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
-  auto& like = *regexp_matches_holder;
-  EXPECT_TRUE(like("abc"));
-  EXPECT_TRUE(like("abd"));
-  EXPECT_TRUE(like("abcd"));
-  EXPECT_TRUE(like("dabc"));
+  auto& regexp_matches = *regexp_matches_holder;
+  EXPECT_TRUE(regexp_matches("abc"));
+  EXPECT_TRUE(regexp_matches("abd"));
+  EXPECT_TRUE(regexp_matches("abcd"));
+  EXPECT_TRUE(regexp_matches("dabc"));
 
-  EXPECT_FALSE(like("a"));
-  EXPECT_FALSE(like("ab"));
+  EXPECT_FALSE(regexp_matches("a"));
+  EXPECT_FALSE(regexp_matches("ab"));
 }
 
 TEST_F(TestRegexpMatchesHolder, TestAnchors) {
@@ -89,12 +89,12 @@ TEST_F(TestRegexpMatchesHolder, TestAnchors) {
   auto status = RegexpMatchesHolder::Make("^ab.*c$", &regexp_matches_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
-  auto& like = *regexp_matches_holder;
-  EXPECT_TRUE(like("abdc"));
-  EXPECT_TRUE(like("abc"));
+  auto& regexp_matches = *regexp_matches_holder;
+  EXPECT_TRUE(regexp_matches("abdc"));
+  EXPECT_TRUE(regexp_matches("abc"));
 
-  EXPECT_FALSE(like("abcd"));
-  EXPECT_FALSE(like("dabc"));
+  EXPECT_FALSE(regexp_matches("abcd"));
+  EXPECT_FALSE(regexp_matches("dabc"));
 }
 
 TEST_F(TestRegexpMatchesHolder, TestIgnoreCase) {
@@ -103,12 +103,12 @@ TEST_F(TestRegexpMatchesHolder, TestIgnoreCase) {
   auto status = RegexpMatchesHolder::Make("(?i)ab", &regexp_matches_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
-  auto& like = *regexp_matches_holder;
-  EXPECT_TRUE(like("abc"));
-  EXPECT_TRUE(like("daBc"));
-  EXPECT_TRUE(like("CAB"));
+  auto& regexp_matches = *regexp_matches_holder;
+  EXPECT_TRUE(regexp_matches("abc"));
+  EXPECT_TRUE(regexp_matches("daBc"));
+  EXPECT_TRUE(regexp_matches("CAB"));
 
-  EXPECT_FALSE(like("ba"));
+  EXPECT_FALSE(regexp_matches("ba"));
 }
 
 TEST_F(TestRegexpMatchesHolder, TestCharacterClass) {
@@ -117,12 +117,12 @@ TEST_F(TestRegexpMatchesHolder, TestCharacterClass) {
   auto status = RegexpMatchesHolder::Make("[ab]c", &regexp_matches_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
-  auto& like = *regexp_matches_holder;
-  EXPECT_TRUE(like("acd"));
-  EXPECT_TRUE(like("ebc"));
-  EXPECT_TRUE(like("abc"));
+  auto& regexp_matches = *regexp_matches_holder;
+  EXPECT_TRUE(regexp_matches("acd"));
+  EXPECT_TRUE(regexp_matches("ebc"));
+  EXPECT_TRUE(regexp_matches("abc"));
 
-  EXPECT_FALSE(like("ab"));
+  EXPECT_FALSE(regexp_matches("ab"));
 }
 
 TEST_F(TestRegexpMatchesHolder, TestEscapeCharacter) {
@@ -131,10 +131,10 @@ TEST_F(TestRegexpMatchesHolder, TestEscapeCharacter) {
   auto status = RegexpMatchesHolder::Make("\\.\\*", &regexp_matches_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
-  auto& like = *regexp_matches_holder;
-  EXPECT_TRUE(like(".*"));
+  auto& regexp_matches = *regexp_matches_holder;
+  EXPECT_TRUE(regexp_matches(".*"));
 
-  EXPECT_FALSE(like("ab"));
+  EXPECT_FALSE(regexp_matches("ab"));
 }
 
 TEST_F(TestRegexpMatchesHolder, TestNonAsciiMatches) {
@@ -143,10 +143,10 @@ TEST_F(TestRegexpMatchesHolder, TestNonAsciiMatches) {
   auto status = RegexpMatchesHolder::Make(".*çåå†.*", &regexp_matches_holder);
   EXPECT_EQ(status.ok(), true) << status.message();
 
-  auto& like = *regexp_matches_holder;
-  EXPECT_TRUE(like("açåå†b"));
+  auto& regexp_matches = *regexp_matches_holder;
+  EXPECT_TRUE(regexp_matches("açåå†b"));
 
-  EXPECT_FALSE(like("ab"));
+  EXPECT_FALSE(regexp_matches("ab"));
 }
 
 TEST_F(TestRegexpMatchesHolder, TestOptimise) {
