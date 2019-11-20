@@ -3417,12 +3417,12 @@ def test_convert_to_extension_array(monkeypatch):
     assert isinstance(result._data.blocks[0], _int.ExtensionBlock)
     tm.assert_frame_equal(result, df2)
 
-    # # monkeypatch pandas Int64Dtype to *not* have the protocol method
-    # monkeypatch.delattr(pd.Int64Dtype, "__from_arrow__")
-    # # Int64Dtype has no __arrow_array__ -> use normal conversion
-    # result = table.to_pandas()
-    # assert len(result._data.blocks) == 1
-    # assert isinstance(result._data.blocks[0], _int.IntBlock)
+    # monkeypatch pandas Int64Dtype to *not* have the protocol method
+    monkeypatch.delattr(pd.core.arrays.integer._IntegerDtype, "__from_arrow__")
+    # Int64Dtype has no __arrow_array__ -> use normal conversion
+    result = table.to_pandas()
+    assert len(result._data.blocks) == 1
+    assert isinstance(result._data.blocks[0], _int.IntBlock)
 
 
 class MyCustomIntegerType(pa.PyExtensionType):
@@ -3452,11 +3452,11 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
     expected = pd.DataFrame({'a': pd.array([1, 2, 3, 4], dtype='Int64')})
     tm.assert_frame_equal(result, expected)
 
-    # # monkeypatch pandas Int64Dtype to *not* have the protocol method
-    # monkeypatch.delattr(pd.Int64Dtype, "__from_arrow__")
+    # monkeypatch pandas Int64Dtype to *not* have the protocol method
+    monkeypatch.delattr(pd.core.arrays.integer._IntegerDtype, "__from_arrow__")
 
-    # with pytest.raises(ValueError):
-    #     table.to_pandas()
+    with pytest.raises(ValueError):
+        table.to_pandas()
 
 
 # ----------------------------------------------------------------------
