@@ -3445,6 +3445,11 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
     arr = pa.ExtensionArray.from_storage(MyCustomIntegerType(), storage)
     table = pa.table({'a': arr})
 
+    # ensure pandas Int64Dtype has the protocol method (for older pandas)
+    monkeypatch.setattr(
+        pd.Int64Dtype, '__from_arrow__', _Int64Dtype__from_arrow__,
+        raising=False)
+
     # extension type points to Int64Dtype, which knows how to create a
     # pandas ExtensionArray
     result = table.to_pandas()
@@ -3453,7 +3458,10 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
     tm.assert_frame_equal(result, expected)
 
     # monkeypatch pandas Int64Dtype to *not* have the protocol method
-    monkeypatch.delattr(pd.core.arrays.integer._IntegerDtype, "__from_arrow__")
+    # (remove the version added above and the actual version of recent pandas)
+    monkeypatch.delattr(
+        pd.core.arrays.integer._IntegerDtype, "__from_arrow__", raising=False)
+    monkeypatch.delattr(pd.Int64Dtype, "__from_arrow__", raising=False)
 
     with pytest.raises(ValueError):
         table.to_pandas()
