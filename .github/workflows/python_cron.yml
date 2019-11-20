@@ -123,7 +123,7 @@ jobs:
             title: Pandas master
             pandas: master
     env:
-      PYTHON_VERSION: 3.7
+      PYTHON: 3.7
       DASK: latest
       TURBODBC: latest
       PANDAS: ${{ matrix.pandas || 'latest' }}
