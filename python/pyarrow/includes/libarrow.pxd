@@ -118,6 +118,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int64_t offset
         vector[shared_ptr[CBuffer]] buffers
         vector[shared_ptr[CArrayData]] child_data
+        shared_ptr[CArray] dictionary
 
         @staticmethod
         shared_ptr[CArrayData] Make(const shared_ptr[CDataType]& type,
@@ -132,6 +133,16 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
             int64_t length,
             vector[shared_ptr[CBuffer]]& buffers,
             vector[shared_ptr[CArrayData]]& child_data,
+            int64_t null_count,
+            int64_t offset)
+
+        @staticmethod
+        shared_ptr[CArrayData] MakeWithChildrenAndDictionary" Make"(
+            const shared_ptr[CDataType]& type,
+            int64_t length,
+            vector[shared_ptr[CBuffer]]& buffers,
+            vector[shared_ptr[CArrayData]]& child_data,
+            shared_ptr[CArray]& dictionary,
             int64_t null_count,
             int64_t offset)
 

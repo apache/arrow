@@ -1102,6 +1102,15 @@ def test_array_pickle(data, typ):
         assert array.equals(result)
 
 
+def test_array_pickle_dictionary():
+    # not included in the above as dictionary array cannot be created with
+    # the pa.array function
+    array = pa.DictionaryArray.from_arrays([0, 1, 2, 0, 1], ['a', 'b', 'c'])
+    for proto in range(0, pickle.HIGHEST_PROTOCOL + 1):
+        result = pickle.loads(pickle.dumps(array, proto))
+        assert array.equals(result)
+
+
 @h.given(
     past.arrays(
         past.all_types,
