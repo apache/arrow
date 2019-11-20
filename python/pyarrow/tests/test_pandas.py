@@ -3247,16 +3247,18 @@ def test_dictionary_from_pandas_specified_type():
     assert result.type.equals(typ)
     assert result.to_pylist() == ['a', 'b']
 
-    # mismatching values type -> raise error
+    # mismatching values type -> raise error (for now a deprecation warning)
     typ = pa.dictionary(index_type=pa.int8(), value_type=pa.int64())
-    with pytest.raises(TypeError):
-        pa.array(cat, type=typ)
+    with pytest.warns(FutureWarning):
+        result = pa.array(cat, type=typ)
+    assert result.to_pylist() == ['a', 'b']
 
-    # mismatching order -> raise error
+    # mismatching order -> raise error (for now a deprecation warning)
     typ = pa.dictionary(
         index_type=pa.int8(), value_type=pa.string(), ordered=True)
-    with pytest.raises(ValueError):
-        pa.array(cat, type=typ)
+    with pytest.warns(FutureWarning, match="The 'ordered' flag of the passed"):
+        result = pa.array(cat, type=typ)
+    assert result.to_pylist() == ['a', 'b']
 
     # with mask
     typ = pa.dictionary(index_type=pa.int16(), value_type=pa.string())

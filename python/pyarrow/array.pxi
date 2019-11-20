@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import warnings
+
 
 cdef _sequence_to_array(object sequence, object mask, object size,
                         DataType type, CMemoryPool* pool, c_bool from_pandas):
@@ -220,18 +222,39 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                 index_type = type.index_type
                 value_type = type.value_type
                 if values.ordered != type.ordered:
-                    raise ValueError(
+                    warnings.warn(
                         "The 'ordered' flag of the passed categorical values "
-                        "does not match the 'ordered' of the specified type")
+                        "does not match the 'ordered' of the specified type. "
+                        "Using the flag of the values, but in the future this "
+                        "mismatch will raise a ValueError.",
+                        FutureWarning, stacklevel=2)
             else:
                 index_type = None
                 value_type = None
 
             indices = _codes_to_indices(
                 values.codes, mask, index_type, memory_pool)
-            dictionary = array(
-                values.categories.values, type=value_type,
-                memory_pool=memory_pool)
+            try:
+                dictionary = array(
+                    values.categories.values, type=value_type,
+                    memory_pool=memory_pool)
+            except TypeError:
+                # TODO when removing the deprecation warning, this whole
+                # try/except can be removed (to bubble the TypeError of
+                # the first array(..) call)
+                if value_type is not None:
+                    warnings.warn(
+                        "The dtype of the 'categories' of the passed "
+                        "categorical values ({0}) does not match the "
+                        "specified type ({1}). For now ignoring the specified "
+                        "type, but in the future this mismatch will raise a "
+                        "TypeError".format(
+                            values.categories.dtype, value_type),
+                        FutureWarning, stacklevel=2)
+                    dictionary = array(
+                        values.categories.values, memory_pool=memory_pool)
+                else:
+                    raise
 
             return DictionaryArray.from_arrays(
                 indices, dictionary, ordered=values.ordered, safe=safe)
