@@ -489,6 +489,43 @@ TEST(ResultTest, TemplateValueMoveConstruction) {
   EXPECT_EQ(*result.ValueOrDie().move_only.data, kIntElement);
 }
 
+// Verify that an error rvalue Result<T> allows access if an alternative is provided
+TEST(ResultTest, ErrorRvalueValueOrAlternative) {
+  Result<MoveOnlyDataType> result = Status::Invalid("");
+
+  EXPECT_FALSE(result.ok());
+  EXPECT_EQ(*std::move(result).ValueOr(MoveOnlyDataType{kIntElement}).data, kIntElement);
+}
+
+// Verify that an ok rvalue Result<T> will ignore a provided alternative
+TEST(ResultTest, OkRvalueValueOrAlternative) {
+  Result<MoveOnlyDataType> result = MoveOnlyDataType{kIntElement};
+
+  EXPECT_TRUE(result.ok());
+  EXPECT_EQ(*std::move(result).ValueOr(MoveOnlyDataType{kIntElement - 1}).data,
+            kIntElement);
+}
+
+// Verify that an error rvalue Result<T> allows access if an alternative factory is
+// provided
+TEST(ResultTest, ErrorRvalueValueOrGeneratedAlternative) {
+  Result<MoveOnlyDataType> result = Status::Invalid("");
+
+  EXPECT_FALSE(result.ok());
+  auto out = std::move(result).ValueOrElse([] { return MoveOnlyDataType{kIntElement}; });
+  EXPECT_EQ(*out.data, kIntElement);
+}
+
+// Verify that an ok rvalue Result<T> allows access if an alternative factory is provided
+TEST(ResultTest, OkRvalueValueOrGeneratedAlternative) {
+  Result<MoveOnlyDataType> result = MoveOnlyDataType{kIntElement};
+
+  EXPECT_TRUE(result.ok());
+  auto out =
+      std::move(result).ValueOrElse([] { return MoveOnlyDataType{kIntElement - 1}; });
+  EXPECT_EQ(*out.data, kIntElement);
+}
+
 // Verify that a Result<T> can be unpacked to T
 TEST(ResultTest, StatusReturnAdapterCopyValue) {
   Result<CopyOnlyDataType> result(CopyOnlyDataType{kIntElement});
