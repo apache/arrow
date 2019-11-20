@@ -71,7 +71,6 @@ services:
         - ${ORG}/${ARCH}-conda-cpp:latest
       args:
         arch: ${ARCH}
-        conda: latest
         prefix: /opt/conda
     shm_size: &shm-size 2G
     volumes: &conda-volumes
@@ -285,7 +284,6 @@ services:
       args:
         org: ${ORG}
         arch: ${ARCH}
-        conda: latest
         python: ${PYTHON}
     shm_size: *shm-size
     volumes: *conda-volumes
@@ -424,7 +422,6 @@ services:
       args:
         org: ${ORG}
         arch: ${ARCH}
-        conda: latest
         python: ${PYTHON}
         pandas: ${PANDAS}
     shm_size: *shm-size
@@ -451,7 +448,6 @@ services:
       args:
         org: ${ORG}
         arch: ${ARCH}
-        conda: latest
         python: ${PYTHON}
         dask: ${DASK}
     shm_size: *shm-size
@@ -481,7 +477,6 @@ services:
       args:
         org: ${ORG}
         arch: ${ARCH}
-        conda: latest
         python: ${PYTHON}
         turbodbc: ${TURBODBC}
     shm_size: *shm-size
@@ -544,7 +539,6 @@ services:
       args:
         org: ${ORG}
         arch: ${ARCH}
-        conda: latest
         r: ${R}
     shm_size: *shm-size
     volumes: *conda-volumes
@@ -753,7 +747,6 @@ services:
       args:
         org: ${ORG}
         arch: ${ARCH}
-        conda: latest
         jdk: ${JDK}
         # conda-forge doesn't have 3.5.4 so pinning explicitly, but this should
         # be set to ${MAVEN}
@@ -913,7 +906,6 @@ services:
       args:
         org: ${ORG}
         arch: ${ARCH}
-        conda: latest
         python: ${PYTHON}
         jdk: ${JDK}
         # conda-forge doesn't have 3.5.4 so pinning explicitly, but this should
@@ -952,7 +944,6 @@ services:
       args:
         org: ${ORG}
         arch: ${ARCH}
-        conda: latest
         python: ${PYTHON}
         jdk: ${JDK}
         # conda-forge doesn't have 3.5.4 so pinning explicitly, but this should

@@ -20,8 +20,6 @@ FROM ${arch}/ubuntu:18.04
 
 # arch is unset after the FROM statement, so need to define it again
 ARG arch=amd64
-ARG conda=latest
-ARG minio=latest
 ARG prefix=/opt/conda
 
 # install build essentials
@@ -37,8 +35,8 @@ ENV PATH=${prefix}/bin:$PATH \
 COPY ci/scripts/install_conda.sh \
      ci/scripts/install_minio.sh \
      /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_conda.sh ${arch} linux ${minio} ${prefix} && \
-    /arrow/ci/scripts/install_minio.sh ${arch} linux ${conda} ${prefix}
+RUN /arrow/ci/scripts/install_conda.sh ${arch} linux latest ${prefix} && \
+    /arrow/ci/scripts/install_minio.sh ${arch} linux latest ${prefix}
 
 # install the required conda packages
 COPY ci/conda_env_cpp.yml \

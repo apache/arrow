@@ -17,8 +17,7 @@
 
 ARG org
 ARG arch
-ARG conda
-FROM ${org}/${arch}-conda-${conda}-cpp:latest
+FROM ${org}/${arch}-conda-cpp:latest
 
 # install R specific packages
 ARG r=3.6.1
