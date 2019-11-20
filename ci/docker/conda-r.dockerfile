@@ -15,9 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG org
+ARG repo
 ARG arch
-FROM ${org}/${arch}-conda-cpp:latest
+FROM ${repo}:${arch}-conda-cpp
 
 # install R specific packages
 ARG r=3.6.1
