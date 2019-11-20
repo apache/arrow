@@ -37,7 +37,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/stl.h"
+#include "arrow/util/make_unique.h"
 
 namespace arrow {
 namespace dataset {

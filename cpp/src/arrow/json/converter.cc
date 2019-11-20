@@ -24,8 +24,8 @@
 #include "arrow/builder.h"
 #include "arrow/json/parser.h"
 #include "arrow/type.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/parsing.h"
-#include "arrow/util/stl.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {

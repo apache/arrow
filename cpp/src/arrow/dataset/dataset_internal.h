@@ -33,7 +33,6 @@
 #include "arrow/type.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/stl.h"
 
 namespace arrow {
 namespace dataset {

@@ -27,7 +27,6 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/scalar.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/stl.h"
 
 namespace arrow {
 namespace dataset {
