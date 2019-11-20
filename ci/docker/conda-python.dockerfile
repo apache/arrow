@@ -25,7 +25,7 @@ ARG python=3.6
 COPY ci/conda_env_python.yml /arrow/ci/
 RUN conda install -q \
         --file arrow/ci/conda_env_python.yml \
-        python=$PYTHON_VERSION \
+        python=${python} \
         tensorflow \
         nomkl && \
     conda clean --all
