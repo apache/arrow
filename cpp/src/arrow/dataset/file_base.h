@@ -34,6 +34,7 @@
 #include "arrow/filesystem/path_tree.h"
 #include "arrow/io/file.h"
 #include "arrow/util/compression.h"
+#include "arrow/util/variant.h"
 
 namespace arrow {
 
@@ -49,65 +50,63 @@ class ARROW_DS_EXPORT FileSource {
 
   FileSource(std::string path, fs::FileSystem* filesystem,
              Compression::type compression = Compression::UNCOMPRESSED)
-      : FileSource(FileSource::PATH, compression) {
-    path_ = std::move(path);
-    filesystem_ = filesystem;
-  }
+      : impl_(PathAndFileSystem{std::move(path), filesystem}),
+        compression_(compression) {}
 
   FileSource(std::shared_ptr<Buffer> buffer,
              Compression::type compression = Compression::UNCOMPRESSED)
-      : FileSource(FileSource::BUFFER, compression) {
-    buffer_ = std::move(buffer);
-    path_ = "<Buffer>";
-  }
+      : impl_(std::move(buffer)), compression_(compression) {}
 
   bool operator==(const FileSource& other) const {
-    if (type_ != other.type_) {
+    if (type() != other.type()) {
       return false;
     }
 
-    if (type_ == FileSource::PATH) {
-      return path_ == other.path_ && filesystem_ == other.filesystem_;
+    if (type() == PATH) {
+      return path() == other.path() && filesystem() == other.filesystem();
     }
 
-    return buffer_->Equals(*other.buffer_);
+    return buffer()->Equals(*other.buffer());
   }
 
   /// \brief The kind of file, whether stored in a filesystem, memory
   /// resident, or other
-  SourceType type() const { return type_; }
+  SourceType type() const { return static_cast<SourceType>(impl_.index()); }
 
   /// \brief Return the type of raw compression on the file, if any
   Compression::type compression() const { return compression_; }
 
   /// \brief Return the file path, if any. Only valid when file source
   /// type is PATH
-  std::string path() const { return path_; }
+  const std::string& path() const {
+    static std::string buffer_path = "<Buffer>";
+    return type() == PATH ? util::get<PATH>(impl_).path : buffer_path;
+  }
 
-  /// \brief Return the filesystem, if any. Only valid when file
+  /// \brief Return the filesystem, if any. Only non null when file
   /// source type is PATH
-  fs::FileSystem* filesystem() const { return filesystem_; }
+  fs::FileSystem* filesystem() const {
+    return type() == PATH ? util::get<PATH>(impl_).filesystem : NULLPTR;
+  }
 
   /// \brief Return the buffer containing the file, if any. Only value
   /// when file source type is BUFFER
-  std::shared_ptr<Buffer> buffer() const { return buffer_; }
+  const std::shared_ptr<Buffer>& buffer() const {
+    static std::shared_ptr<Buffer> path_buffer = NULLPTR;
+    return type() == BUFFER ? util::get<BUFFER>(impl_) : path_buffer;
+  }
 
   /// \brief Get a RandomAccessFile which views this file source
   Result<std::shared_ptr<arrow::io::RandomAccessFile>> Open() const;
 
  private:
-  explicit FileSource(SourceType type,
-                      Compression::type compression = Compression::UNCOMPRESSED)
-      : type_(type), compression_(compression) {}
-  SourceType type_;
+  struct PathAndFileSystem {
+    std::string path;
+    fs::FileSystem* filesystem;
+  };
+
+  util::variant<PathAndFileSystem, std::shared_ptr<Buffer>> impl_;
   Compression::type compression_;
-
-  // PATH-based source
-  std::string path_;
-  fs::FileSystem* filesystem_ = NULLPTR;
-
-  // BUFFER-based source
-  std::shared_ptr<Buffer> buffer_;
 };
 
 /// \brief Base class for file scanning options

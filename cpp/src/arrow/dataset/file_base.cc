@@ -30,14 +30,11 @@ namespace arrow {
 namespace dataset {
 
 Result<std::shared_ptr<arrow::io::RandomAccessFile>> FileSource::Open() const {
-  switch (type_) {
-    case PATH:
-      return filesystem_->OpenInputFile(path_);
-    case BUFFER:
-      return std::make_shared<::arrow::io::BufferReader>(buffer_);
+  if (type() == PATH) {
+    return filesystem()->OpenInputFile(path());
   }
 
-  return Status::NotImplemented("Unknown file source type.");
+  return std::make_shared<::arrow::io::BufferReader>(buffer());
 }
 
 Result<ScanTaskIterator> FileDataFragment::Scan(ScanContextPtr context) {
