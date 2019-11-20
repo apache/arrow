@@ -18,8 +18,8 @@
 #ifndef GANDIVA_SQL_LIKE_HOLDER_H
 #define GANDIVA_SQL_LIKE_HOLDER_H
 
-#include <string>
 #include <memory>
+#include <string>
 
 #include <re2/re2.h>
 
@@ -46,8 +46,8 @@ class GANDIVA_EXPORT SQLLikeHolder : public LikeHolder {
   }
 
  private:
-  explicit SQLLikeHolder(const std::string& pattern) :
-                         pattern_(pattern), regex_(pattern) {}
+  explicit SQLLikeHolder(const std::string& pattern)
+      : pattern_(pattern), regex_(pattern) {}
 
   std::string pattern_;  // posix pattern string, to help debugging
   RE2 regex_;            // compiled regex for the pattern

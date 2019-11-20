@@ -54,8 +54,8 @@ Status ExprDecomposer::Visit(const FieldNode& node) {
 const FunctionNode ExprDecomposer::TryOptimize(const FunctionNode& node) {
   if (node.descriptor()->name() == "like") {
     return SQLLikeHolder::TryOptimize(node);
-  } else if (node.descriptor()->name() == "regexp_matches"
-             || node.descriptor()->name() == "regexp_like") {
+  } else if (node.descriptor()->name() == "regexp_matches" ||
+             node.descriptor()->name() == "regexp_like") {
     return RegexpMatchesHolder::TryOptimize(node);
   } else {
     return node;

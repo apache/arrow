@@ -30,7 +30,7 @@ class TestRegexpMatchesHolder : public ::testing::Test {
   FunctionNode BuildRegexpMatches(std::string pattern) {
     auto field = std::make_shared<FieldNode>(arrow::field("in", arrow::utf8()));
     auto pattern_node =
-      std::make_shared<LiteralNode>(arrow::utf8(), LiteralHolder(pattern), false);
+        std::make_shared<LiteralNode>(arrow::utf8(), LiteralHolder(pattern), false);
     return FunctionNode("regexp_matches", {field, pattern_node}, arrow::boolean());
   }
 };
@@ -124,7 +124,6 @@ TEST_F(TestRegexpMatchesHolder, TestCharacterClass) {
 
   EXPECT_FALSE(like("ab"));
 }
-
 
 TEST_F(TestRegexpMatchesHolder, TestEscapeCharacter) {
   std::shared_ptr<RegexpMatchesHolder> regexp_matches_holder;

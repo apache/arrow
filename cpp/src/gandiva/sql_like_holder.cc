@@ -23,55 +23,55 @@
 
 namespace gandiva {
 
-  RE2 SQLLikeHolder::starts_with_regex_(R"((\w|\s)*\.\*)");
-  RE2 SQLLikeHolder::ends_with_regex_(R"(\.\*(\w|\s)*)");
+RE2 SQLLikeHolder::starts_with_regex_(R"((\w|\s)*\.\*)");
+RE2 SQLLikeHolder::ends_with_regex_(R"(\.\*(\w|\s)*)");
 
 // Short-circuit pattern matches for the two common sub cases :
 // - starts_with and ends_with.
-  const FunctionNode SQLLikeHolder::TryOptimize(const FunctionNode& node) {
-    std::shared_ptr<SQLLikeHolder> holder;
-    auto status = Make(node, &holder);
-    if (status.ok()) {
-      std::string& pattern = holder->pattern_;
-      auto literal_type = node.children().at(1)->return_type();
+const FunctionNode SQLLikeHolder::TryOptimize(const FunctionNode& node) {
+  std::shared_ptr<SQLLikeHolder> holder;
+  auto status = Make(node, &holder);
+  if (status.ok()) {
+    std::string& pattern = holder->pattern_;
+    auto literal_type = node.children().at(1)->return_type();
 
-      if (RE2::FullMatch(pattern, starts_with_regex_)) {
-        auto prefix = pattern.substr(0, pattern.length() - 2);  // trim .*
-        auto prefix_node =
+    if (RE2::FullMatch(pattern, starts_with_regex_)) {
+      auto prefix = pattern.substr(0, pattern.length() - 2);  // trim .*
+      auto prefix_node =
           std::make_shared<LiteralNode>(literal_type, LiteralHolder(prefix), false);
-        return FunctionNode("starts_with", {node.children().at(0), prefix_node},
-                            node.return_type());
-      } else if (RE2::FullMatch(pattern, ends_with_regex_)) {
-        auto suffix = pattern.substr(2);  // skip .*
-        auto suffix_node =
+      return FunctionNode("starts_with", {node.children().at(0), prefix_node},
+                          node.return_type());
+    } else if (RE2::FullMatch(pattern, ends_with_regex_)) {
+      auto suffix = pattern.substr(2);  // skip .*
+      auto suffix_node =
           std::make_shared<LiteralNode>(literal_type, LiteralHolder(suffix), false);
-        return FunctionNode("ends_with", {node.children().at(0), suffix_node},
-                            node.return_type());
-      }
+      return FunctionNode("ends_with", {node.children().at(0), suffix_node},
+                          node.return_type());
     }
-
-    // Could not optimize, return original node.
-    return node;
   }
 
-  Status SQLLikeHolder::Make(const FunctionNode& node,
-                             std::shared_ptr<SQLLikeHolder>* holder) {
-    std::string sql_pattern;
-    ARROW_RETURN_NOT_OK(LikeHolder::Make(node, &sql_pattern));
-    return Make(sql_pattern, holder);
-  }
+  // Could not optimize, return original node.
+  return node;
+}
 
-  Status SQLLikeHolder::Make(const std::string& sql_pattern,
-                          std::shared_ptr<SQLLikeHolder>* holder) {
-    std::string pcre_pattern;
-    ARROW_RETURN_NOT_OK(RegexUtil::SqlLikePatternToPcre(sql_pattern, pcre_pattern));
+Status SQLLikeHolder::Make(const FunctionNode& node,
+                           std::shared_ptr<SQLLikeHolder>* holder) {
+  std::string sql_pattern;
+  ARROW_RETURN_NOT_OK(LikeHolder::Make(node, &sql_pattern));
+  return Make(sql_pattern, holder);
+}
 
-    auto lholder = std::shared_ptr<SQLLikeHolder>(new SQLLikeHolder(pcre_pattern));
-    ARROW_RETURN_IF(!lholder->regex_.ok(),
-                    Status::Invalid("Building RE2 pattern '", pcre_pattern, "' failed"));
+Status SQLLikeHolder::Make(const std::string& sql_pattern,
+                           std::shared_ptr<SQLLikeHolder>* holder) {
+  std::string pcre_pattern;
+  ARROW_RETURN_NOT_OK(RegexUtil::SqlLikePatternToPcre(sql_pattern, pcre_pattern));
 
-    *holder = lholder;
-    return Status::OK();
-  }
+  auto lholder = std::shared_ptr<SQLLikeHolder>(new SQLLikeHolder(pcre_pattern));
+  ARROW_RETURN_IF(!lholder->regex_.ok(),
+                  Status::Invalid("Building RE2 pattern '", pcre_pattern, "' failed"));
+
+  *holder = lholder;
+  return Status::OK();
+}
 
 }  // namespace gandiva

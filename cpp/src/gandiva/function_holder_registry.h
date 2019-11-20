@@ -26,10 +26,10 @@
 #include "arrow/status.h"
 
 #include "gandiva/function_holder.h"
-#include "gandiva/sql_like_holder.h"
-#include "gandiva/regexp_matches_holder.h"
 #include "gandiva/node.h"
 #include "gandiva/random_generator_holder.h"
+#include "gandiva/regexp_matches_holder.h"
+#include "gandiva/sql_like_holder.h"
 #include "gandiva/to_date_holder.h"
 
 namespace gandiva {

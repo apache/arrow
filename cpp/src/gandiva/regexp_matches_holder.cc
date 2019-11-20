@@ -23,51 +23,51 @@
 
 namespace gandiva {
 
-  RE2 RegexpMatchesHolder::starts_with_regex_(R"(\^([\w\s]+)(\.\*)?)");
-  RE2 RegexpMatchesHolder::ends_with_regex_(R"((\.\*)?([\w\s]+)\$)");
+RE2 RegexpMatchesHolder::starts_with_regex_(R"(\^([\w\s]+)(\.\*)?)");
+RE2 RegexpMatchesHolder::ends_with_regex_(R"((\.\*)?([\w\s]+)\$)");
 
-  // Short-circuit pattern matches for the two common sub cases :
-  // - starts_with and ends_with.
-  const FunctionNode RegexpMatchesHolder::TryOptimize(const FunctionNode& node) {
-    std::shared_ptr<RegexpMatchesHolder> holder;
-    auto status = Make(node, &holder);
-    if (status.ok()) {
-      std::string& pattern = holder->pattern_;
-      auto literal_type = node.children().at(1)->return_type();
-      std::string substr;
-      if (RE2::FullMatch(pattern, starts_with_regex_, &substr)) {
-        auto prefix_node =
+// Short-circuit pattern matches for the two common sub cases :
+// - starts_with and ends_with.
+const FunctionNode RegexpMatchesHolder::TryOptimize(const FunctionNode& node) {
+  std::shared_ptr<RegexpMatchesHolder> holder;
+  auto status = Make(node, &holder);
+  if (status.ok()) {
+    std::string& pattern = holder->pattern_;
+    auto literal_type = node.children().at(1)->return_type();
+    std::string substr;
+    if (RE2::FullMatch(pattern, starts_with_regex_, &substr)) {
+      auto prefix_node =
           std::make_shared<LiteralNode>(literal_type, LiteralHolder(substr), false);
-        return FunctionNode("starts_with", {node.children().at(0), prefix_node},
-                            node.return_type());
-      } else if (RE2::FullMatch(pattern, ends_with_regex_, (void *)NULL, &substr)) {
-        auto suffix_node =
+      return FunctionNode("starts_with", {node.children().at(0), prefix_node},
+                          node.return_type());
+    } else if (RE2::FullMatch(pattern, ends_with_regex_, (void*)NULL, &substr)) {
+      auto suffix_node =
           std::make_shared<LiteralNode>(literal_type, LiteralHolder(substr), false);
-        return FunctionNode("ends_with", {node.children().at(0), suffix_node},
-                            node.return_type());
-      }
+      return FunctionNode("ends_with", {node.children().at(0), suffix_node},
+                          node.return_type());
     }
-
-    // Could not optimize, return original node.
-    return node;
   }
 
-  Status RegexpMatchesHolder::Make(const FunctionNode& node,
-                                   std::shared_ptr<RegexpMatchesHolder>* holder) {
-    std::string pcre_pattern;
-    ARROW_RETURN_NOT_OK(LikeHolder::Make(node, &pcre_pattern));
-    return Make(pcre_pattern, holder);
-  }
+  // Could not optimize, return original node.
+  return node;
+}
 
-  Status RegexpMatchesHolder::Make(const std::string& pcre_pattern,
-                          std::shared_ptr<RegexpMatchesHolder>* holder) {
-    auto lholder = std::shared_ptr<RegexpMatchesHolder>(
-      new RegexpMatchesHolder(pcre_pattern));
-    ARROW_RETURN_IF(!lholder->regex_.ok(),
-                    Status::Invalid("Building RE2 pattern '", pcre_pattern, "' failed"));
+Status RegexpMatchesHolder::Make(const FunctionNode& node,
+                                 std::shared_ptr<RegexpMatchesHolder>* holder) {
+  std::string pcre_pattern;
+  ARROW_RETURN_NOT_OK(LikeHolder::Make(node, &pcre_pattern));
+  return Make(pcre_pattern, holder);
+}
 
-    *holder = lholder;
-    return Status::OK();
-  }
+Status RegexpMatchesHolder::Make(const std::string& pcre_pattern,
+                                 std::shared_ptr<RegexpMatchesHolder>* holder) {
+  auto lholder =
+      std::shared_ptr<RegexpMatchesHolder>(new RegexpMatchesHolder(pcre_pattern));
+  ARROW_RETURN_IF(!lholder->regex_.ok(),
+                  Status::Invalid("Building RE2 pattern '", pcre_pattern, "' failed"));
+
+  *holder = lholder;
+  return Status::OK();
+}
 
 }  // namespace gandiva

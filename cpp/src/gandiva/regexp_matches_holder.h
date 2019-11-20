@@ -18,8 +18,8 @@
 #ifndef GANDIVA_REGEXP_MATCHES_HOLDER_H
 #define GANDIVA_REGEXP_MATCHES_HOLDER_H
 
-#include <string>
 #include <memory>
+#include <string>
 
 #include <re2/re2.h>
 
@@ -47,8 +47,8 @@ class GANDIVA_EXPORT RegexpMatchesHolder : public LikeHolder {
   }
 
  private:
-  explicit RegexpMatchesHolder(const std::string& pattern) :
-                               pattern_(pattern), regex_(pattern) {}
+  explicit RegexpMatchesHolder(const std::string& pattern)
+      : pattern_(pattern), regex_(pattern) {}
 
   std::string pattern_;  // posix pattern string, to help debugging
   RE2 regex_;            // compiled regex for the pattern
@@ -56,6 +56,6 @@ class GANDIVA_EXPORT RegexpMatchesHolder : public LikeHolder {
   static RE2 starts_with_regex_;  // pre-compiled pattern for matching starts_with
   static RE2 ends_with_regex_;    // pre-compiled pattern for matching ends_with
 };
-} // namespace gandiva
+}  // namespace gandiva
 
-#endif //GANDIVA_REGEXP_MATCHES_HOLDER_H
+#endif  // GANDIVA_REGEXP_MATCHES_HOLDER_H
