@@ -60,7 +60,7 @@ flatc --rust -o rust/arrow/src/ipc/gen/ format/*.fbs
 
 Some manual steps were then performed:
 
-- Replace `type__type` with `type_type`
+- Replace `type__` with `type_`
 - Remove `org::apache::arrow::flatbuffers` namespace
 - Add includes to each generated file
 
