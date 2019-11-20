@@ -291,7 +291,7 @@ cdef class MapType(DataType):
         self.map_type = <const CMapType*> type.get()
 
     def __reduce__(self):
-        return map_, (self.value_type,)
+        return map_, (self.key_type, self.item_type)
 
     @property
     def key_type(self):

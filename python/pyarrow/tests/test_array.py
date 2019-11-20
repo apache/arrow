@@ -649,12 +649,25 @@ def test_map_from_arrays():
 
     assert result.equals(expected)
 
-    # raise on invalid array
-    offsets = [1, 3, 10]
+    # check invalid usage
+
+    offsets = [0, 1, 3, 5]
     keys = np.arange(5)
-    items = np.arange(4)
+    items = np.arange(5)
+    _ = pa.MapArray.from_arrays(offsets, keys, items)
+
+    # raise on invalid offsets
     with pytest.raises(ValueError):
-        pa.MapArray.from_arrays(offsets, keys, items)
+        pa.MapArray.from_arrays(offsets + [6], keys, items)
+
+    # raise on lenght of keys != items
+    with pytest.raises(ValueError):
+        pa.MapArray.from_arrays(offsets, keys, np.concatenate([items, items]))
+
+    # raise on keys with null
+    keys_with_null = list(keys) + [None]
+    with pytest.raises(ValueError):
+        pa.MapArray.from_arrays(offsets, keys_with_null, items)
 
 
 def test_union_from_dense():
