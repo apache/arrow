@@ -341,7 +341,7 @@ public final class DecimalVector extends BaseFixedWidthVector {
       BitVectorHelper.setValidityBitToOne(validityBuffer, index);
       valueBuffer.setBytes(index * TYPE_WIDTH, holder.buffer, holder.start, TYPE_WIDTH);
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      BitVectorHelper.setValidityBitToZero(validityBuffer, index);
     }
   }
 
@@ -458,7 +458,7 @@ public final class DecimalVector extends BaseFixedWidthVector {
     if (isSet > 0) {
       set(index, start, buffer);
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      BitVectorHelper.setValidityBitToZero(validityBuffer, index);
     }
   }
 

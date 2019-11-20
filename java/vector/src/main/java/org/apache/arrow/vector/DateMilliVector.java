@@ -187,7 +187,7 @@ public final class DateMilliVector extends BaseFixedWidthVector {
       BitVectorHelper.setValidityBitToOne(validityBuffer, index);
       setValue(index, holder.value);
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      BitVectorHelper.setValidityBitToZero(validityBuffer, index);
     }
   }
 
@@ -253,7 +253,7 @@ public final class DateMilliVector extends BaseFixedWidthVector {
     if (isSet > 0) {
       set(index, value);
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      BitVectorHelper.setValidityBitToZero(validityBuffer, index);
     }
   }
 

@@ -269,7 +269,7 @@ public final class IntervalDayVector extends BaseFixedWidthVector {
     } else if (holder.isSet > 0) {
       set(index, holder.days, holder.milliseconds);
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      BitVectorHelper.setValidityBitToZero(validityBuffer, index);
     }
   }
 
@@ -349,7 +349,7 @@ public final class IntervalDayVector extends BaseFixedWidthVector {
     if (isSet > 0) {
       set(index, days, milliseconds);
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      BitVectorHelper.setValidityBitToZero(validityBuffer, index);
     }
   }
 

@@ -58,9 +58,24 @@ public class BitVectorHelper {
   public static void setValidityBitToOne(ArrowBuf validityBuffer, int index) {
     final int byteIndex = byteIndex(index);
     final int bitIndex = bitIndex(index);
-    byte currentByte = validityBuffer.getByte(byteIndex);
-    final byte bitMask = (byte) (1L << bitIndex);
+    int currentByte = validityBuffer.getByte(byteIndex);
+    final int bitMask = 1 << bitIndex;
     currentByte |= bitMask;
+    validityBuffer.setByte(byteIndex, currentByte);
+  }
+
+  /**
+   * Set the bit at provided index to 0.
+   *
+   * @param validityBuffer validity buffer of the vector
+   * @param index index to be set
+   */
+  public static void setValidityBitToZero(ArrowBuf validityBuffer, int index) {
+    final int byteIndex = byteIndex(index);
+    final int bitIndex = bitIndex(index);
+    int currentByte = validityBuffer.getByte(byteIndex);
+    final int bitMask = 1 << bitIndex;
+    currentByte &= ~bitMask;
     validityBuffer.setByte(byteIndex, currentByte);
   }
 
@@ -74,12 +89,12 @@ public class BitVectorHelper {
   public static void setValidityBit(ArrowBuf validityBuffer, int index, int value) {
     final int byteIndex = byteIndex(index);
     final int bitIndex = bitIndex(index);
-    byte currentByte = validityBuffer.getByte(byteIndex);
-    final byte bitMask = (byte) (1L << bitIndex);
+    int currentByte = validityBuffer.getByte(byteIndex);
+    final int bitMask = 1 << bitIndex;
     if (value != 0) {
       currentByte |= bitMask;
     } else {
-      currentByte -= (bitMask & currentByte);
+      currentByte &= ~bitMask;
     }
     validityBuffer.setByte(byteIndex, currentByte);
   }

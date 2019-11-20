@@ -125,7 +125,7 @@ public abstract class TimeStampVector extends BaseFixedWidthVector {
     if (isSet > 0) {
       set(index, value);
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      BitVectorHelper.setValidityBitToZero(validityBuffer, index);
     }
   }
 

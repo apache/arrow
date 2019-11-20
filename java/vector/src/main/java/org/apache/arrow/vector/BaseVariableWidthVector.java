@@ -1081,7 +1081,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     while (index >= getValidityBufferValueCapacity()) {
       reallocValidityAndOffsetBuffers();
     }
-    BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+    BitVectorHelper.setValidityBitToZero(validityBuffer, index);
   }
 
   /**
@@ -1301,7 +1301,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
     if (from.isNull(fromIndex)) {
       fillHoles(thisIndex);
-      BitVectorHelper.setValidityBit(this.validityBuffer, thisIndex, 0);
+      BitVectorHelper.setValidityBitToZero(this.validityBuffer, thisIndex);
       final int copyStart = offsetBuffer.getInt(thisIndex * OFFSET_WIDTH);
       offsetBuffer.setInt((thisIndex + 1) * OFFSET_WIDTH, copyStart);
     } else {
@@ -1309,7 +1309,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
       final int end = from.getOffsetBuffer().getInt((fromIndex + 1) * OFFSET_WIDTH);
       final int length = end - start;
       fillHoles(thisIndex);
-      BitVectorHelper.setValidityBit(this.validityBuffer, thisIndex, 1);
+      BitVectorHelper.setValidityBitToOne(this.validityBuffer, thisIndex);
       final int copyStart = offsetBuffer.getInt(thisIndex * OFFSET_WIDTH);
       from.getDataBuffer().getBytes(start, this.valueBuffer, copyStart, length);
       offsetBuffer.setInt((thisIndex + 1) * OFFSET_WIDTH, copyStart + length);
@@ -1332,7 +1332,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
     if (from.isNull(fromIndex)) {
       handleSafe(thisIndex, 0);
       fillHoles(thisIndex);
-      BitVectorHelper.setValidityBit(this.validityBuffer, thisIndex, 0);
+      BitVectorHelper.setValidityBitToZero(this.validityBuffer, thisIndex);
       final int copyStart = offsetBuffer.getInt(thisIndex * OFFSET_WIDTH);
       offsetBuffer.setInt((thisIndex + 1) * OFFSET_WIDTH, copyStart);
     } else {
@@ -1341,7 +1341,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
       final int length = end - start;
       handleSafe(thisIndex, length);
       fillHoles(thisIndex);
-      BitVectorHelper.setValidityBit(this.validityBuffer, thisIndex, 1);
+      BitVectorHelper.setValidityBitToOne(this.validityBuffer, thisIndex);
       final int copyStart = offsetBuffer.getInt(thisIndex * OFFSET_WIDTH);
       from.getDataBuffer().getBytes(start, this.valueBuffer, copyStart, length);
       offsetBuffer.setInt((thisIndex + 1) * OFFSET_WIDTH, copyStart + length);

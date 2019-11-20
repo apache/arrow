@@ -83,28 +83,28 @@ public class TestBitVectorHelper {
 
       validityBuffer.setZero(0, bufferLength);
       bitLength = 1025;
-      BitVectorHelper.setValidityBit(validityBuffer, 12, 1);
+      BitVectorHelper.setValidityBitToOne(validityBuffer, 12);
       assertFalse(BitVectorHelper.checkAllBitsEqualTo(validityBuffer, bitLength, false));
 
       validityBuffer.setZero(0, bufferLength);
       bitLength = 1025;
-      BitVectorHelper.setValidityBit(validityBuffer, 1024, 1);
+      BitVectorHelper.setValidityBitToOne(validityBuffer, 1024);
       assertFalse(BitVectorHelper.checkAllBitsEqualTo(validityBuffer, bitLength, false));
 
       validityBuffer.setZero(0, bufferLength);
       bitLength = 1026;
-      BitVectorHelper.setValidityBit(validityBuffer, 1024, 1);
+      BitVectorHelper.setValidityBitToOne(validityBuffer, 1024);
       assertFalse(BitVectorHelper.checkAllBitsEqualTo(validityBuffer, bitLength, false));
 
       validityBuffer.setZero(0, bufferLength);
       bitLength = 1027;
-      BitVectorHelper.setValidityBit(validityBuffer, 1025, 1);
+      BitVectorHelper.setValidityBitToOne(validityBuffer, 1025);
       assertFalse(BitVectorHelper.checkAllBitsEqualTo(validityBuffer, bitLength, false));
 
       validityBuffer.setZero(0, bufferLength);
       bitLength = 1031;
-      BitVectorHelper.setValidityBit(validityBuffer, 1029, 1);
-      BitVectorHelper.setValidityBit(validityBuffer, 1030, 1);
+      BitVectorHelper.setValidityBitToOne(validityBuffer, 1029);
+      BitVectorHelper.setValidityBitToOne(validityBuffer, 1030);
       assertFalse(BitVectorHelper.checkAllBitsEqualTo(validityBuffer, bitLength, false));
     }
   }
@@ -124,28 +124,28 @@ public class TestBitVectorHelper {
 
       PlatformDependent.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
       bitLength = 1025;
-      BitVectorHelper.setValidityBit(validityBuffer, 12, 0);
+      BitVectorHelper.setValidityBitToZero(validityBuffer, 12);
       assertFalse(BitVectorHelper.checkAllBitsEqualTo(validityBuffer, bitLength, true));
 
       PlatformDependent.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
       bitLength = 1025;
-      BitVectorHelper.setValidityBit(validityBuffer, 1024, 0);
+      BitVectorHelper.setValidityBitToZero(validityBuffer, 1024);
       assertFalse(BitVectorHelper.checkAllBitsEqualTo(validityBuffer, bitLength, true));
 
       PlatformDependent.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
       bitLength = 1026;
-      BitVectorHelper.setValidityBit(validityBuffer, 1024, 0);
+      BitVectorHelper.setValidityBitToZero(validityBuffer, 1024);
       assertFalse(BitVectorHelper.checkAllBitsEqualTo(validityBuffer, bitLength, true));
 
       PlatformDependent.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
       bitLength = 1027;
-      BitVectorHelper.setValidityBit(validityBuffer, 1025, 0);
+      BitVectorHelper.setValidityBitToZero(validityBuffer, 1025);
       assertFalse(BitVectorHelper.checkAllBitsEqualTo(validityBuffer, bitLength, true));
 
       PlatformDependent.setMemory(validityBuffer.memoryAddress(), bufferLength, (byte) -1);
       bitLength = 1031;
-      BitVectorHelper.setValidityBit(validityBuffer, 1029, 0);
-      BitVectorHelper.setValidityBit(validityBuffer, 1030, 0);
+      BitVectorHelper.setValidityBitToZero(validityBuffer, 1029);
+      BitVectorHelper.setValidityBitToZero(validityBuffer, 1030);
       assertFalse(BitVectorHelper.checkAllBitsEqualTo(validityBuffer, bitLength, true));
     }
   }

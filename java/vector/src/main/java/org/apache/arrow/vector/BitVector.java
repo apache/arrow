@@ -303,10 +303,10 @@ public final class BitVector extends BaseFixedWidthVector {
     Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
     boolean fromIsSet = BitVectorHelper.get(from.getValidityBuffer(), fromIndex) != 0;
     if (fromIsSet) {
-      BitVectorHelper.setValidityBit(validityBuffer, thisIndex, 1);
+      BitVectorHelper.setValidityBitToOne(validityBuffer, thisIndex);
       BitVectorHelper.setValidityBit(valueBuffer, thisIndex, ((BitVector) from).getBit(fromIndex));
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, thisIndex, 0);
+      BitVectorHelper.setValidityBitToZero(validityBuffer, thisIndex);
     }
   }
 
@@ -328,7 +328,7 @@ public final class BitVector extends BaseFixedWidthVector {
     if (value != 0) {
       BitVectorHelper.setValidityBitToOne(valueBuffer, index);
     } else {
-      BitVectorHelper.setValidityBit(valueBuffer, index, 0);
+      BitVectorHelper.setValidityBitToZero(valueBuffer, index);
     }
   }
 
@@ -348,10 +348,10 @@ public final class BitVector extends BaseFixedWidthVector {
       if (holder.value != 0) {
         BitVectorHelper.setValidityBitToOne(valueBuffer, index);
       } else {
-        BitVectorHelper.setValidityBit(valueBuffer, index, 0);
+        BitVectorHelper.setValidityBitToZero(valueBuffer, index);
       }
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      BitVectorHelper.setValidityBitToZero(validityBuffer, index);
     }
   }
 
@@ -366,7 +366,7 @@ public final class BitVector extends BaseFixedWidthVector {
     if (holder.value != 0) {
       BitVectorHelper.setValidityBitToOne(valueBuffer, index);
     } else {
-      BitVectorHelper.setValidityBit(valueBuffer, index, 0);
+      BitVectorHelper.setValidityBitToZero(valueBuffer, index);
     }
   }
 
@@ -421,7 +421,7 @@ public final class BitVector extends BaseFixedWidthVector {
     if (isSet > 0) {
       set(index, value);
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      BitVectorHelper.setValidityBitToZero(validityBuffer, index);
     }
   }
 

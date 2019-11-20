@@ -179,7 +179,7 @@ public final class UInt2Vector extends BaseFixedWidthVector implements BaseIntVe
       BitVectorHelper.setValidityBitToOne(validityBuffer, index);
       setValue(index, holder.value);
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      BitVectorHelper.setValidityBitToZero(validityBuffer, index);
     }
   }
 
@@ -254,7 +254,7 @@ public final class UInt2Vector extends BaseFixedWidthVector implements BaseIntVe
     if (isSet > 0) {
       set(index, value);
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      BitVectorHelper.setValidityBitToZero(validityBuffer, index);
     }
   }
 
