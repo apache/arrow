@@ -28,7 +28,6 @@
 #include <vector>
 
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/stl.h"
 
 namespace arrow {
 

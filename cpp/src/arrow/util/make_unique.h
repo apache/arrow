@@ -15,26 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/string_builder.h"
+#pragma once
 
-#include <sstream>
-
-#include "arrow/util/make_unique.h"
+#include <memory>
+#include <type_traits>
+#include <utility>
 
 namespace arrow {
+namespace internal {
 
-using internal::make_unique;
+template <typename T, typename... A>
+typename std::enable_if<!std::is_array<T>::value, std::unique_ptr<T>>::type make_unique(
+    A&&... args) {
+  return std::unique_ptr<T>(new T(std::forward<A>(args)...));
+}
 
-namespace util {
-namespace detail {
+template <typename T>
+typename std::enable_if<std::is_array<T>::value && std::extent<T>::value == 0,
+                        std::unique_ptr<T>>::type
+make_unique(std::size_t n) {
+  using value_type = typename std::remove_extent<T>::type;
+  return std::unique_ptr<value_type[]>(new value_type[n]);
+}
 
-StringStreamWrapper::StringStreamWrapper()
-    : sstream_(make_unique<std::ostringstream>()), ostream_(*sstream_) {}
-
-StringStreamWrapper::~StringStreamWrapper() {}
-
-std::string StringStreamWrapper::str() { return sstream_->str(); }
-
-}  // namespace detail
-}  // namespace util
+}  // namespace internal
 }  // namespace arrow

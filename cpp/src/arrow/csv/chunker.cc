@@ -23,7 +23,7 @@
 
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/stl.h"
+#include "arrow/util/make_unique.h"
 #include "arrow/util/string_view.h"
 
 namespace arrow {

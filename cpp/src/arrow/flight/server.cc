@@ -45,7 +45,6 @@
 #include "arrow/status.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/stl.h"
 #include "arrow/util/uri.h"
 
 #include "arrow/flight/internal.h"

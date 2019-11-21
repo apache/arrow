@@ -34,7 +34,6 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
-#include "arrow/util/stl.h"
 #include "arrow/util/string.h"
 #include "arrow/util/variant.h"
 #include "arrow/util/visibility.h"

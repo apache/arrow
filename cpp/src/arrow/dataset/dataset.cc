@@ -24,7 +24,7 @@
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/stl.h"
+#include "arrow/util/make_unique.h"
 
 namespace arrow {
 namespace dataset {
