@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import sys
 import warnings
 
 
@@ -108,6 +109,9 @@ cdef class ChunkedArray(_PandasConvertible):
         for chunk in self.iterchunks():
             size += chunk.nbytes
         return size
+
+    def __sizeof__(self):
+        return object.__sizeof__(self) + self.nbytes
 
     def __iter__(self):
         for chunk in self.iterchunks():
@@ -624,6 +628,12 @@ cdef class RecordBatch(_PandasConvertible):
         for i in range(self.num_columns):
             size += self.column(i).nbytes
         return size
+
+    def __sizeof__(self):
+        return (
+            object.__sizeof__(self) + self.nbytes +
+            sys.getsizeof(self.schema.metadata)
+        )
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -1472,6 +1482,12 @@ cdef class Table(_PandasConvertible):
         for column in self.itercolumns():
             size += column.nbytes
         return size
+
+    def __sizeof__(self):
+        return (
+            object.__sizeof__(self) + self.nbytes +
+            sys.getsizeof(self.schema.metadata)
+        )
 
     def add_column(self, int i, field_, column):
         """
