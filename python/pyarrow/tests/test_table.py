@@ -372,22 +372,22 @@ def test_recordbatch_pickle():
 
 
 def test_recordbatch_from_struct_array_invalid():
-  with pytest.raises(TypeError):
-    pa.RecordBatch.from_struct_array(pa.array(range(5)))
+    with pytest.raises(TypeError):
+        pa.RecordBatch.from_struct_array(pa.array(range(5)))
 
 
 def test_recordbatch_from_struct_array():
-  struct_array = pa.array(
-      [{"ints": 1}, {"floats": 1.0}],
-      type=pa.struct([("ints", pa.int32()), ("floats", pa.float32())]),
-  )
-  result = pa.RecordBatch.from_struct_array(struct_array)
-  assert result.equals(pa.RecordBatch.from_arrays(
-      [
-          pa.array([1, None], type=pa.int32()),
-          pa.array([None, 1.0], type=pa.float32()),
-      ], ["ints", "floats"]
-  ))
+    struct_array = pa.array(
+        [{"ints": 1}, {"floats": 1.0}],
+        type=pa.struct([("ints", pa.int32()), ("floats", pa.float32())]),
+    )
+    result = pa.RecordBatch.from_struct_array(struct_array)
+    assert result.equals(pa.RecordBatch.from_arrays(
+        [
+            pa.array([1, None], type=pa.int32()),
+            pa.array([None, 1.0], type=pa.float32()),
+        ], ["ints", "floats"]
+    ))
 
 
 def _table_like_slice_tests(factory):
