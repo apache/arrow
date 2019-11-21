@@ -19,6 +19,7 @@
 
 extern "C" {
 
+#define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 #include <limits.h>
 #include <stdio.h>
