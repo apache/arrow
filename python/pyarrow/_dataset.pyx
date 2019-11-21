@@ -172,9 +172,8 @@ cdef class DataFragment:
             CScanTaskPtr task
 
         context = context or ScanContext()
-
         iterator_result = self.fragment.Scan(context.unwrap())
-        iterator = move(GetResultValue(iterator_result))
+        iterator = move(GetResultValue(move(iterator_result)))
 
         while True:
             iterator.Next(&task)
@@ -262,14 +261,14 @@ cdef class DataSource:
 
     def fragments(self, ScanOptions options=None):
         cdef:
-            CDataFragmentIterator it
+            CDataFragmentIterator iterator
             CDataFragmentPtr fragment
 
         options = options or ScanOptions()
-        it = self.source.GetFragments(options.wrapped)
+        iterator = self.source.GetFragments(options.unwrap())
 
         while True:
-            it.Next(&fragment)
+            iterator.Next(&fragment)
             if fragment.get() == nullptr:
                 raise StopIteration()
             else:
@@ -470,12 +469,10 @@ cdef class ScanTask:
 
     def scan(self):
         cdef:
-            CResult[CRecordBatchIterator] iterator_result
             CRecordBatchIterator iterator
             shared_ptr[CRecordBatch] record_batch
 
-        iterator_result = self.task.Scan()
-        iterator = move(GetResultValue(iterator_result))
+        iterator = move(GetResultValue(move(self.task.Scan())))
 
         while True:
             iterator.Next(&record_batch)
@@ -540,8 +537,7 @@ cdef class Scanner:
             CScanTaskIterator iterator
             CScanTaskPtr task
 
-        iterator_result = self.scanner.Scan()
-        iterator = move(GetResultValue(iterator_result))
+        iterator = move(GetResultValue(move(self.scanner.Scan())))
 
         while True:
             iterator.Next(&task)
