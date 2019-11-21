@@ -54,9 +54,9 @@ public class FixedWidthOutOfPlaceVectorSorter<V extends BaseFixedWidthVector> im
       for (int dstIndex = 0; dstIndex < sortedIndices.getValueCount(); dstIndex++) {
         int srcIndex = sortedIndices.get(dstIndex);
         if (srcVector.isNull(srcIndex)) {
-          BitVectorHelper.setValidityBitToZero(dstValidityBuffer, dstIndex);
+          BitVectorHelper.unsetBit(dstValidityBuffer, dstIndex);
         } else {
-          BitVectorHelper.setValidityBitToOne(dstValidityBuffer, dstIndex);
+          BitVectorHelper.setBit(dstValidityBuffer, dstIndex);
           PlatformDependent.copyMemory(
                   srcValueBuffer.memoryAddress() + srcIndex * valueWidth,
                   dstValueBuffer.memoryAddress() + dstIndex * valueWidth,

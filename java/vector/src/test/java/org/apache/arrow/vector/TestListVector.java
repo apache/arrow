@@ -142,7 +142,7 @@ public class TestListVector {
       int offset = 0;
 
       /* write [10, 11, 12] to the list vector at index 0 */
-      BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+      BitVectorHelper.setBit(validityBuffer, index);
       dataVector.setSafe(0, 1, 10);
       dataVector.setSafe(1, 1, 11);
       dataVector.setSafe(2, 1, 12);
@@ -151,7 +151,7 @@ public class TestListVector {
       index += 1;
 
       /* write [13, 14] to the list vector at index 1 */
-      BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+      BitVectorHelper.setBit(validityBuffer, index);
       dataVector.setSafe(3, 1, 13);
       dataVector.setSafe(4, 1, 14);
       offsetBuffer.setInt((index + 1) * ListVector.OFFSET_WIDTH, 5);
@@ -159,7 +159,7 @@ public class TestListVector {
       index += 1;
 
       /* write [15, 16, 17] to the list vector at index 2 */
-      BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+      BitVectorHelper.setBit(validityBuffer, index);
       dataVector.setSafe(5, 1, 15);
       dataVector.setSafe(6, 1, 16);
       dataVector.setSafe(7, 1, 17);

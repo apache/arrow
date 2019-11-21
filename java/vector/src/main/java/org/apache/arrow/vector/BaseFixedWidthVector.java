@@ -781,7 +781,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   @Override
   public void setIndexDefined(int index) {
     handleSafe(index);
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    BitVectorHelper.setBit(validityBuffer, index);
   }
 
   public void set(int index, byte[] value, int start, int length) {
@@ -827,9 +827,9 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   public void copyFrom(int fromIndex, int thisIndex, ValueVector from) {
     Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
     if (from.isNull(fromIndex)) {
-      BitVectorHelper.setValidityBitToZero(this.getValidityBuffer(), thisIndex);
+      BitVectorHelper.unsetBit(this.getValidityBuffer(), thisIndex);
     } else {
-      BitVectorHelper.setValidityBitToOne(this.getValidityBuffer(), thisIndex);
+      BitVectorHelper.setBit(this.getValidityBuffer(), thisIndex);
       PlatformDependent.copyMemory(from.getDataBuffer().memoryAddress() + fromIndex * typeWidth,
               this.getDataBuffer().memoryAddress() + thisIndex * typeWidth, typeWidth);
     }
@@ -860,7 +860,7 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
     handleSafe(index);
     // not really needed to set the bit to 0 as long as
     // the buffer always starts from 0.
-    BitVectorHelper.setValidityBitToZero(validityBuffer, index);
+    BitVectorHelper.unsetBit(validityBuffer, index);
   }
 
   @Override

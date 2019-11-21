@@ -69,16 +69,16 @@ public class BitVectorHelperBenchmarks {
 
       for (int i = 0;i < VALIDITY_BUFFER_CAPACITY; i++) {
         if (i % 7 == 0) {
-          BitVectorHelper.setValidityBitToOne(validityBuffer, i);
+          BitVectorHelper.setBit(validityBuffer, i);
         } else {
-          BitVectorHelper.setValidityBitToZero(validityBuffer, i);
+          BitVectorHelper.unsetBit(validityBuffer, i);
         }
       }
 
       // only one 1 bit in the middle of the buffer
       oneBitValidityBuffer = allocator.buffer(VALIDITY_BUFFER_CAPACITY / 8);
       oneBitValidityBuffer.setZero(0, VALIDITY_BUFFER_CAPACITY / 8);
-      BitVectorHelper.setValidityBitToOne(oneBitValidityBuffer, VALIDITY_BUFFER_CAPACITY / 2);
+      BitVectorHelper.setBit(oneBitValidityBuffer, VALIDITY_BUFFER_CAPACITY / 2);
     }
 
     /**
@@ -134,7 +134,7 @@ public class BitVectorHelperBenchmarks {
       validityBuffer = allocator.buffer(VALIDITY_BUFFER_CAPACITY / 8);
 
       for (int i = 0; i < VALIDITY_BUFFER_CAPACITY; i++) {
-        BitVectorHelper.setValidityBitToOne(validityBuffer, i);
+        BitVectorHelper.setBit(validityBuffer, i);
       }
 
       fieldNode = new ArrowFieldNode(VALIDITY_BUFFER_CAPACITY, 0);
@@ -215,7 +215,7 @@ public class BitVectorHelperBenchmarks {
   @OutputTimeUnit(TimeUnit.MICROSECONDS)
   public void setValidityBitToZeroBenchmark(ClearBitStateState state) {
     for (int i = 0; i < ClearBitStateState.VALIDITY_BUFFER_CAPACITY; i++) {
-      BitVectorHelper.setValidityBitToZero(state.validityBuffer, i);
+      BitVectorHelper.unsetBit(state.validityBuffer, i);
     }
   }
 

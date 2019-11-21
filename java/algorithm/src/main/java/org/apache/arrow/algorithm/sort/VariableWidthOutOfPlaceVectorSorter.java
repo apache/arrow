@@ -58,9 +58,9 @@ public class VariableWidthOutOfPlaceVectorSorter<V extends BaseVariableWidthVect
       for (int dstIndex = 0; dstIndex < sortedIndices.getValueCount(); dstIndex++) {
         int srcIndex = sortedIndices.get(dstIndex);
         if (srcVector.isNull(srcIndex)) {
-          BitVectorHelper.setValidityBitToZero(dstValidityBuffer, dstIndex);
+          BitVectorHelper.unsetBit(dstValidityBuffer, dstIndex);
         } else {
-          BitVectorHelper.setValidityBitToOne(dstValidityBuffer, dstIndex);
+          BitVectorHelper.setBit(dstValidityBuffer, dstIndex);
           int srcOffset = srcOffsetBuffer.getInt(srcIndex * BaseVariableWidthVector.OFFSET_WIDTH);
           int valueLength = srcOffsetBuffer.getInt((srcIndex + 1) * BaseVariableWidthVector.OFFSET_WIDTH) - srcOffset;
           PlatformDependent.copyMemory(

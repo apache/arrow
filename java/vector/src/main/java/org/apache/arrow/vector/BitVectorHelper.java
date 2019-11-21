@@ -55,13 +55,25 @@ public class BitVectorHelper {
    * @param validityBuffer validity buffer of the vector
    * @param index index to be set
    */
-  public static void setValidityBitToOne(ArrowBuf validityBuffer, int index) {
+  public static void setBit(ArrowBuf validityBuffer, int index) {
     final int byteIndex = byteIndex(index);
     final int bitIndex = bitIndex(index);
+
+    // the byte is promoted to an int, because according to Java specification,
+    // bytes will be promoted to ints automatically, upon expression evaluation.
+    // by promoting it manually, we avoid the unnecessary conversions.
     int currentByte = validityBuffer.getByte(byteIndex);
     final int bitMask = 1 << bitIndex;
     currentByte |= bitMask;
     validityBuffer.setByte(byteIndex, currentByte);
+  }
+
+  /**
+   * @deprecated Please use {@link BitVectorHelper#setBit(ArrowBuf, int)} instead..
+   */
+  @Deprecated
+  public static void setValidityBitToOne(ArrowBuf validityBuffer, int index) {
+    setBit(validityBuffer, index);
   }
 
   /**
@@ -70,9 +82,13 @@ public class BitVectorHelper {
    * @param validityBuffer validity buffer of the vector
    * @param index index to be set
    */
-  public static void setValidityBitToZero(ArrowBuf validityBuffer, int index) {
+  public static void unsetBit(ArrowBuf validityBuffer, int index) {
     final int byteIndex = byteIndex(index);
     final int bitIndex = bitIndex(index);
+
+    // the byte is promoted to an int, because according to Java specification,
+    // bytes will be promoted to ints automatically, upon expression evaluation.
+    // by promoting it manually, we avoid the unnecessary conversions.
     int currentByte = validityBuffer.getByte(byteIndex);
     final int bitMask = 1 << bitIndex;
     currentByte &= ~bitMask;
@@ -89,6 +105,10 @@ public class BitVectorHelper {
   public static void setValidityBit(ArrowBuf validityBuffer, int index, int value) {
     final int byteIndex = byteIndex(index);
     final int bitIndex = bitIndex(index);
+
+    // the byte is promoted to an int, because according to Java specification,
+    // bytes will be promoted to ints automatically, upon expression evaluation.
+    // by promoting it manually, we avoid the unnecessary conversions.
     int currentByte = validityBuffer.getByte(byteIndex);
     final int bitMask = 1 << bitIndex;
     if (value != 0) {

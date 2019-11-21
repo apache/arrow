@@ -157,10 +157,10 @@ public final class TimeStampMilliTZVector extends TimeStampVector {
     if (holder.isSet < 0) {
       throw new IllegalArgumentException();
     } else if (holder.isSet > 0) {
-      BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+      BitVectorHelper.setBit(validityBuffer, index);
       setValue(index, holder.value);
     } else {
-      BitVectorHelper.setValidityBitToZero(validityBuffer, index);
+      BitVectorHelper.unsetBit(validityBuffer, index);
     }
   }
 
@@ -171,7 +171,7 @@ public final class TimeStampMilliTZVector extends TimeStampVector {
    * @param holder  data holder for value of element
    */
   public void set(int index, TimeStampMilliTZHolder holder) {
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    BitVectorHelper.setBit(validityBuffer, index);
     setValue(index, holder.value);
   }
 
