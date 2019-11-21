@@ -409,6 +409,10 @@ Status MapArray::FromArrays(const std::shared_ptr<Array>& offsets,
     return Status::TypeError("Map offsets must be ", OffsetArrowType::type_name());
   }
 
+  if (keys->null_count() != 0) {
+    return Status::Invalid("Map can not contain NULL valued keys");
+  }
+
   if (keys->length() != items->length()) {
     return Status::Invalid("Map key and item arrays must be equal length");
   }

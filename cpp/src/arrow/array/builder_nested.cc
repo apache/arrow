@@ -118,11 +118,11 @@ Status MapBuilder::AppendNulls(int64_t length) {
 Status MapBuilder::AdjustStructBuilderLength() {
   // If key/item builders have been appended, adjust struct builder length
   // to match. Struct and key are non-nullable, append all valid values.
-  if (list_builder_->value_builder()->length() < key_builder_->length()) {
-    auto struct_builder =
-        internal::checked_cast<StructBuilder*>(list_builder_->value_builder());
-    int64_t length = key_builder_->length() - struct_builder->length();
-    RETURN_NOT_OK(struct_builder->AppendValues(length, NULLPTR));
+  auto struct_builder =
+      internal::checked_cast<StructBuilder*>(list_builder_->value_builder());
+  if (struct_builder->length() < key_builder_->length()) {
+    int64_t length_diff = key_builder_->length() - struct_builder->length();
+    RETURN_NOT_OK(struct_builder->AppendValues(length_diff, NULLPTR));
   }
   return Status::OK();
 }

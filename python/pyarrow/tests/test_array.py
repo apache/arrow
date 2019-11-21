@@ -660,12 +660,13 @@ def test_map_from_arrays():
     with pytest.raises(ValueError):
         pa.MapArray.from_arrays(offsets + [6], keys, items)
 
-    # raise on lenght of keys != items
+    # raise on length of keys != items
     with pytest.raises(ValueError):
         pa.MapArray.from_arrays(offsets, keys, np.concatenate([items, items]))
 
     # raise on keys with null
-    keys_with_null = list(keys) + [None]
+    keys_with_null = list(keys)[:-1] + [None]
+    assert len(keys_with_null) == len(items)
     with pytest.raises(ValueError):
         pa.MapArray.from_arrays(offsets, keys_with_null, items)
 

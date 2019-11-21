@@ -255,7 +255,7 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
 
   /// \brief Get builder to append items
   ///
-  /// Appending an item with this builder should have been proceeded
+  /// Appending an item with this builder should have been preceeded
   /// by appending a key with key_builder().
   ArrayBuilder* item_builder() const { return item_builder_.get(); }
 
@@ -270,7 +270,7 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
   }
 
  protected:
-  Status AdjustStructBuilderLength();
+  inline Status AdjustStructBuilderLength();
 
  protected:
   bool keys_sorted_ = false;
