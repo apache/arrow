@@ -229,7 +229,7 @@ class TestScalars(unittest.TestCase):
         v = arr[0]
         assert len(v) == 2
         assert isinstance(v, pa.MapValue)
-        assert repr(v) == "[(u'a', 1), (u'b', 2)]"
+        assert repr(v) == repr([(u'a', 1), (u'b', 2)])
         assert v.as_py() == [(u'a', 1), (u'b', 2)]
         assert v[1] == (u'b', 2)
         assert v[-1] == v[1]
