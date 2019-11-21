@@ -66,7 +66,7 @@ inline Status CheckPyError(StatusCode code = StatusCode::UnknownError) {
 template <class T>
 T GetResultValue(Result<T> result) {
   if (ARROW_PREDICT_TRUE(result.ok())) {
-    return *std::move(result);
+    return std::move(*result);
   } else {
     int r = internal::check_status(result.status());  // takes the GIL
     assert(r == -1);                                  // should have errored out

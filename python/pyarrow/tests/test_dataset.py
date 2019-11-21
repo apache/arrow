@@ -20,6 +20,7 @@ from collections.abc import Generator
 import pytest
 
 import pyarrow as pa
+from pyarrow.fs import _MockFileSystem
 
 try:
     from pyarrow.dataset import (
@@ -32,7 +33,6 @@ try:
         Scanner,
         ScanOptions,
         ScanContext,
-        SimpleScanner,
         SimpleDataSource,
         TreeDataSource
     )
@@ -43,6 +43,11 @@ except ImportError as e:
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not dataset'
 pytestmark = pytest.mark.dataset
+
+
+@pytest.fixture
+def fs():
+    return _MockFileSystem()
 
 
 @pytest.fixture
@@ -139,7 +144,6 @@ def test_dataset(simple_data_source, tree_data_source):
 
     scanner = dataset.new_scan()
     assert isinstance(scanner, Scanner)
-    assert isinstance(scanner, SimpleScanner)
 
     for task in scanner.scan():
         assert isinstance(task, ScanTask)
@@ -158,4 +162,20 @@ def test_dataset(simple_data_source, tree_data_source):
 
 
 def test_projector():
+    pass
+
+
+# def test_file_source(fs):
+#     source1 = FileSource('/path/to/file.ext', fs, compression=None)
+#     source2 = FileSource('/path/to/file.ext.gz', fs, compression='gzip')
+
+#     assert source1.path == '/path/to/file.ext'
+#     assert source1.fs == fs
+#     assert source1.compression is None
+#     assert source2.path == '/path/to/file.ext.gz'
+#     assert source2.fs == fs
+#     assert source2.compression == 'gzip'
+
+
+def test_file_system_data_source():
     pass

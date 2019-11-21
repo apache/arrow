@@ -48,7 +48,7 @@ cdef class FileStats:
                         "FileSystem.get_target_stats method instead.")
 
     @staticmethod
-    cdef FileStats wrap(CFileStats stats):
+    cdef wrap(CFileStats stats):
         cdef FileStats self = FileStats.__new__(FileStats)
         self.stats = stats
         return self
@@ -183,6 +183,22 @@ cdef class FileSystem:
     cdef init(self, const shared_ptr[CFileSystem]& wrapped):
         self.wrapped = wrapped
         self.fs = wrapped.get()
+
+    @staticmethod
+    cdef wrap(shared_ptr[CFileSystem]& sp):
+        cdef FileSystem self
+
+        typ = tobytes(sp.get().type())
+        print(FileSystem.__subclasses__)
+        for klass in FileSystem.__subclasses__:
+            if klass.type_id == typ:
+                self = klass.__new__(klass)
+                break
+        else:
+            raise TypeError('Cannot wrap FileSystem pointer')
+
+        self.init(sp)
+        return self
 
     def get_target_stats(self, paths_or_selector):
         """Get statistics for the given target.

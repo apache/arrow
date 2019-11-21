@@ -79,6 +79,8 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
  public:
   ~S3FileSystem() override;
 
+  std::string type() const override { return "s3"; }
+
   /// \cond FALSE
   using FileSystem::GetTargetStats;
   /// \endcond

@@ -30,7 +30,6 @@ from pyarrow._dataset import (
     ScanOptions,
     ScanTask,
     Scanner,
-    SimpleScanner,
     ScanOptions,
     ScanContext,
     SimpleDataSource,
