@@ -255,7 +255,7 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
 
   /// \brief Get builder to append items
   ///
-  /// Appending an item with this builder should have been preceeded
+  /// Appending an item with this builder should have been preceded
   /// by appending a key with key_builder().
   ArrayBuilder* item_builder() const { return item_builder_.get(); }
 
