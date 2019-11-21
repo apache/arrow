@@ -97,15 +97,34 @@ impl Debug for BufferData {
 }
 
 impl Buffer {
-    /// Creates a buffer from an existing memory region (must already be byte-aligned)
+    /// Creates a buffer from an existing memory region (must already be byte-aligned), and this
+    /// buffer will free this piece of memory when dropped.
+    #[deprecated(since = "1.0.0", note = "Please use from_owned_raw_parts instead")]
     pub fn from_raw_parts(ptr: *const u8, len: usize) -> Self {
-        Buffer::from_raw_parts_owned(ptr, len, true)
+        Buffer::build_with_arguments(ptr, len, true)
+    }
+
+    /// Creates a buffer from an existing memory region (must already be byte-aligned), and this
+    /// buffer will free this piece of memory when dropped.
+    pub fn from_owned_raw_parts(ptr: *const u8, len: usize) -> Self {
+        Buffer::build_with_arguments(ptr, len, true)
+    }
+
+    /// Creates a buffer from an existing memory region (must already be byte-aligned), and this
+    /// buffers doesn't free this piece of memory when dropped.
+    pub fn from_unowned_raw_parts(ptr: *const u8, len: usize) -> Self {
+        Buffer::build_with_arguments(ptr, len, false)
     }
 
     /// Creates a buffer from an existing memory region (must already be byte-aligned)
-    /// This differs from `from_raw_parts` in that user can provide an argument to indicate
-    /// whether this piece of memory is owned by this buffer.
-    pub fn from_raw_parts_owned(ptr: *const u8, len: usize, owned: bool) -> Self {
+    ///
+    /// # Arguments
+    ///
+    /// * `ptr` - Pointer to raw parts.
+    /// * `len` - Length of raw parts in bytes
+    /// * `owned` - Whether the raw parts is owned by this buffer. If true, this buffer will free
+    /// this memory when dropped, otherwise it will skip freeing the raw parts.
+    fn build_with_arguments(ptr: *const u8, len: usize, owned: bool) -> Self {
         assert!(
             memory::is_aligned(ptr, memory::ALIGNMENT),
             "memory not aligned"
