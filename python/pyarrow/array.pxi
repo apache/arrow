@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import warnings
+
 
 cdef _sequence_to_array(object sequence, object mask, object size,
                         DataType type, CMemoryPool* pool, c_bool from_pandas):
@@ -82,6 +84,19 @@ cdef _ndarray_to_array(object values, object mask, DataType type,
         return pyarrow_wrap_chunked_array(chunked_out)
     else:
         return pyarrow_wrap_array(chunked_out.get().chunk(0))
+
+
+cdef _codes_to_indices(object codes, object mask, DataType type,
+                       MemoryPool memory_pool):
+    """
+    Convert the codes of a pandas Categorical to indices for a pyarrow
+    DictionaryArray, taking into account missing values + mask
+    """
+    if mask is None:
+        mask = codes == -1
+    else:
+        mask = mask | (codes == -1)
+    return array(codes, mask=mask, type=type, memory_pool=memory_pool)
 
 
 def _handle_arrow_array_protocol(obj, type, mask, size):
@@ -199,11 +214,50 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
         if hasattr(values, '__arrow_array__'):
             return _handle_arrow_array_protocol(values, type, mask, size)
         elif pandas_api.is_categorical(values):
+            if type is not None:
+                if type.id != Type_DICTIONARY:
+                    return _ndarray_to_array(
+                        np.asarray(values), mask, type, c_from_pandas, safe,
+                        pool)
+                index_type = type.index_type
+                value_type = type.value_type
+                if values.ordered != type.ordered:
+                    warnings.warn(
+                        "The 'ordered' flag of the passed categorical values "
+                        "does not match the 'ordered' of the specified type. "
+                        "Using the flag of the values, but in the future this "
+                        "mismatch will raise a ValueError.",
+                        FutureWarning, stacklevel=2)
+            else:
+                index_type = None
+                value_type = None
+
+            indices = _codes_to_indices(
+                values.codes, mask, index_type, memory_pool)
+            try:
+                dictionary = array(
+                    values.categories.values, type=value_type,
+                    memory_pool=memory_pool)
+            except TypeError:
+                # TODO when removing the deprecation warning, this whole
+                # try/except can be removed (to bubble the TypeError of
+                # the first array(..) call)
+                if value_type is not None:
+                    warnings.warn(
+                        "The dtype of the 'categories' of the passed "
+                        "categorical values ({0}) does not match the "
+                        "specified type ({1}). For now ignoring the specified "
+                        "type, but in the future this mismatch will raise a "
+                        "TypeError".format(
+                            values.categories.dtype, value_type),
+                        FutureWarning, stacklevel=2)
+                    dictionary = array(
+                        values.categories.values, memory_pool=memory_pool)
+                else:
+                    raise
+
             return DictionaryArray.from_arrays(
-                values.codes, values.categories.values,
-                mask=mask, ordered=values.ordered,
-                from_pandas=True, safe=safe,
-                memory_pool=memory_pool)
+                indices, dictionary, ordered=values.ordered, safe=safe)
         else:
             if pandas_api.have_pandas:
                 values, type = pandas_api.compat.get_datetimetz_type(
@@ -1553,11 +1607,9 @@ cdef class DictionaryArray(Array):
             _indices = indices
         else:
             if from_pandas:
-                if mask is None:
-                    mask = indices == -1
-                else:
-                    mask = mask | (indices == -1)
-            _indices = array(indices, mask=mask, memory_pool=memory_pool)
+                _indices = _codes_to_indices(indices, mask, None, memory_pool)
+            else:
+                _indices = array(indices, mask=mask, memory_pool=memory_pool)
 
         if isinstance(dictionary, Array):
             _dictionary = dictionary

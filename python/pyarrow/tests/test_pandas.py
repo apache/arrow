@@ -3212,6 +3212,80 @@ def test_variable_dictionary_to_pandas():
     tm.assert_series_equal(result_dense, expected_dense)
 
 
+def test_dictionary_from_pandas():
+    cat = pd.Categorical([u'a', u'b', u'a'])
+    expected_type = pa.dictionary(pa.int8(), pa.string())
+
+    result = pa.array(cat)
+    assert result.to_pylist() == ['a', 'b', 'a']
+    assert result.type.equals(expected_type)
+
+    # with missing values in categorical
+    cat = pd.Categorical([u'a', u'b', None, u'a'])
+
+    result = pa.array(cat)
+    assert result.to_pylist() == ['a', 'b', None, 'a']
+    assert result.type.equals(expected_type)
+
+    # with additional mask
+    result = pa.array(cat, mask=np.array([False, False, False, True]))
+    assert result.to_pylist() == ['a', 'b', None, None]
+    assert result.type.equals(expected_type)
+
+
+def test_dictionary_from_pandas_specified_type():
+    # ARROW-7168 - ensure specified type is always respected
+
+    # the same as cat = pd.Categorical(['a', 'b']) but explicit about dtypes
+    cat = pd.Categorical.from_codes(
+        np.array([0, 1], dtype='int8'), np.array(['a', 'b'], dtype=object))
+
+    # different index type -> allow this
+    # (the type of the 'codes' in pandas is not part of the data type)
+    typ = pa.dictionary(index_type=pa.int16(), value_type=pa.string())
+    result = pa.array(cat, type=typ)
+    assert result.type.equals(typ)
+    assert result.to_pylist() == ['a', 'b']
+
+    # mismatching values type -> raise error (for now a deprecation warning)
+    typ = pa.dictionary(index_type=pa.int8(), value_type=pa.int64())
+    with pytest.warns(FutureWarning):
+        result = pa.array(cat, type=typ)
+    assert result.to_pylist() == ['a', 'b']
+
+    # mismatching order -> raise error (for now a deprecation warning)
+    typ = pa.dictionary(
+        index_type=pa.int8(), value_type=pa.string(), ordered=True)
+    with pytest.warns(FutureWarning, match="The 'ordered' flag of the passed"):
+        result = pa.array(cat, type=typ)
+    assert result.to_pylist() == ['a', 'b']
+
+    # with mask
+    typ = pa.dictionary(index_type=pa.int16(), value_type=pa.string())
+    result = pa.array(cat, type=typ, mask=np.array([False, True]))
+    assert result.type.equals(typ)
+    assert result.to_pylist() == ['a', None]
+
+    # empty categorical -> be flexible in values type to allow
+    cat = pd.Categorical([])
+
+    typ = pa.dictionary(index_type=pa.int8(), value_type=pa.string())
+    result = pa.array(cat, type=typ)
+    assert result.type.equals(typ)
+    assert result.to_pylist() == []
+    typ = pa.dictionary(index_type=pa.int8(), value_type=pa.int64())
+    result = pa.array(cat, type=typ)
+    assert result.type.equals(typ)
+    assert result.to_pylist() == []
+
+    # passing non-dictionary type
+    cat = pd.Categorical(['a', 'b'])
+    result = pa.array(cat, type=pa.string())
+    expected = pa.array(['a', 'b'], type=pa.string())
+    assert result.equals(expected)
+    assert result.to_pylist() == ['a', 'b']
+
+
 # ----------------------------------------------------------------------
 # Array protocol in pandas conversions tests
 
