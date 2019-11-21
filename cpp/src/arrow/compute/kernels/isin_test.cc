@@ -65,6 +65,7 @@ void CheckIsIn(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
   Datum datum_out;
   ASSERT_OK(IsIn(ctx, input, member_set, &datum_out));
   std::shared_ptr<Array> result = datum_out.make_array();
+  ASSERT_OK(result->ValidateFull());
   ASSERT_ARRAYS_EQUAL(*expected, *result);
 }
 

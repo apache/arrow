@@ -94,7 +94,7 @@ void AssertJSONArray(const std::shared_ptr<DataType>& type, const std::string& j
   std::shared_ptr<Array> actual, expected;
 
   ASSERT_OK(ArrayFromJSON(type, json, &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   ArrayFromVector<T, C_TYPE>(type, values, &expected);
   AssertArraysEqual(*expected, *actual);
 }
@@ -106,7 +106,7 @@ void AssertJSONArray(const std::shared_ptr<DataType>& type, const std::string& j
   std::shared_ptr<Array> actual, expected;
 
   ASSERT_OK(ArrayFromJSON(type, json, &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   ArrayFromVector<T, C_TYPE>(type, is_valid, values, &expected);
   AssertArraysEqual(*expected, *actual);
 }
@@ -260,7 +260,7 @@ TEST(TestFloat, Basics) {
   // Check NaN separately as AssertArraysEqual simply memcmp's array contents
   // and NaNs can have many bit representations.
   ASSERT_OK(ArrayFromJSON(type, "[NaN]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   float value = checked_cast<FloatArray&>(*actual).Value(0);
   ASSERT_TRUE(std::isnan(value));
 }
@@ -282,7 +282,7 @@ TEST(TestDouble, Basics) {
                               {-0.0, INFINITY, -INFINITY, 0.0});
 
   ASSERT_OK(ArrayFromJSON(type, "[NaN]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   double value = checked_cast<DoubleArray&>(*actual).Value(0);
   ASSERT_TRUE(std::isnan(value));
 }
@@ -389,7 +389,7 @@ TEST(TestDecimal, Basics) {
   std::shared_ptr<Array> expected, actual;
 
   ASSERT_OK(ArrayFromJSON(type, "[]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   {
     Decimal128Builder builder(type);
     ASSERT_OK(builder.Finish(&expected));
@@ -397,7 +397,7 @@ TEST(TestDecimal, Basics) {
   AssertArraysEqual(*expected, *actual);
 
   ASSERT_OK(ArrayFromJSON(type, "[\"123.4567\", \"-78.9000\"]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   {
     Decimal128Builder builder(type);
     ASSERT_OK(builder.Append(Decimal128(1234567)));
@@ -407,7 +407,7 @@ TEST(TestDecimal, Basics) {
   AssertArraysEqual(*expected, *actual);
 
   ASSERT_OK(ArrayFromJSON(type, "[\"123.4567\", null]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   {
     Decimal128Builder builder(type);
     ASSERT_OK(builder.Append(Decimal128(1234567)));
@@ -434,21 +434,21 @@ TEST(TestList, IntegerList) {
   std::shared_ptr<Array> offsets, values, expected, actual;
 
   ASSERT_OK(ArrayFromJSON(type, "[]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   ArrayFromVector<Int32Type>({0}, &offsets);
   ArrayFromVector<Int64Type>({}, &values);
   ASSERT_OK(ListArray::FromArrays(*offsets, *values, pool, &expected));
   AssertArraysEqual(*expected, *actual);
 
   ASSERT_OK(ArrayFromJSON(type, "[[4, 5], [], [6]]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   ArrayFromVector<Int32Type>({0, 2, 2, 3}, &offsets);
   ArrayFromVector<Int64Type>({4, 5, 6}, &values);
   ASSERT_OK(ListArray::FromArrays(*offsets, *values, pool, &expected));
   AssertArraysEqual(*expected, *actual);
 
   ASSERT_OK(ArrayFromJSON(type, "[[], [null], [6, null]]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   ArrayFromVector<Int32Type>({0, 0, 1, 3}, &offsets);
   auto is_valid = std::vector<bool>{false, true, false};
   ArrayFromVector<Int64Type>(is_valid, {0, 6, 0}, &values);
@@ -456,7 +456,7 @@ TEST(TestList, IntegerList) {
   AssertArraysEqual(*expected, *actual);
 
   ASSERT_OK(ArrayFromJSON(type, "[null, [], null]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   {
     std::unique_ptr<ArrayBuilder> builder;
     ASSERT_OK(MakeBuilder(pool, type, &builder));
@@ -484,21 +484,21 @@ TEST(TestList, NullList) {
   std::shared_ptr<Array> offsets, values, expected, actual;
 
   ASSERT_OK(ArrayFromJSON(type, "[]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   ArrayFromVector<Int32Type>({0}, &offsets);
   values = std::make_shared<NullArray>(0);
   ASSERT_OK(ListArray::FromArrays(*offsets, *values, pool, &expected));
   AssertArraysEqual(*expected, *actual);
 
   ASSERT_OK(ArrayFromJSON(type, "[[], [null], [null, null]]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   ArrayFromVector<Int32Type>({0, 0, 1, 3}, &offsets);
   values = std::make_shared<NullArray>(3);
   ASSERT_OK(ListArray::FromArrays(*offsets, *values, pool, &expected));
   AssertArraysEqual(*expected, *actual);
 
   ASSERT_OK(ArrayFromJSON(type, "[null, [], null]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   {
     std::unique_ptr<ArrayBuilder> builder;
     ASSERT_OK(MakeBuilder(pool, type, &builder));
@@ -517,7 +517,7 @@ TEST(TestList, IntegerListList) {
   std::shared_ptr<Array> offsets, values, nested, expected, actual;
 
   ASSERT_OK(ArrayFromJSON(type, "[[[4], [5, 6]], [[7, 8, 9]]]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   ArrayFromVector<Int32Type>({0, 1, 3, 6}, &offsets);
   ArrayFromVector<UInt8Type>({4, 5, 6, 7, 8, 9}, &values);
   ASSERT_OK(ListArray::FromArrays(*offsets, *values, pool, &nested));
@@ -527,7 +527,7 @@ TEST(TestList, IntegerListList) {
   AssertArraysEqual(*expected, *actual);
 
   ASSERT_OK(ArrayFromJSON(type, "[[], [[]], [[4], [], [5, 6]], [[7, 8, 9]]]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   ArrayFromVector<Int32Type>({0, 0, 1, 1, 3, 6}, &offsets);
   ArrayFromVector<UInt8Type>({4, 5, 6, 7, 8, 9}, &values);
   ASSERT_OK(ListArray::FromArrays(*offsets, *values, pool, &nested));
@@ -537,7 +537,7 @@ TEST(TestList, IntegerListList) {
   AssertArraysEqual(*expected, *actual);
 
   ASSERT_OK(ArrayFromJSON(type, "[null, [null], [[null]]]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   {
     std::unique_ptr<ArrayBuilder> builder;
     ASSERT_OK(MakeBuilder(pool, type, &builder));
@@ -559,7 +559,7 @@ TEST(TestLargeList, Basics) {
   std::shared_ptr<Array> offsets, values, expected, actual;
 
   ASSERT_OK(ArrayFromJSON(type, "[[], [null], [6, null]]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   ArrayFromVector<Int64Type>({0, 0, 1, 3}, &offsets);
   auto is_valid = std::vector<bool>{false, true, false};
   ArrayFromVector<Int16Type>(is_valid, {0, 6, 0}, &values);
@@ -708,26 +708,26 @@ TEST(TestFixedSizeList, IntegerList) {
   std::shared_ptr<Array> values, expected, actual;
 
   ASSERT_OK(ArrayFromJSON(type, "[]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   ArrayFromVector<Int64Type>({}, &values);
   expected = std::make_shared<FixedSizeListArray>(type, 0, values);
   AssertArraysEqual(*expected, *actual);
 
   ASSERT_OK(ArrayFromJSON(type, "[[4, 5], [0, 0], [6, 7]]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   ArrayFromVector<Int64Type>({4, 5, 0, 0, 6, 7}, &values);
   expected = std::make_shared<FixedSizeListArray>(type, 3, values);
   AssertArraysEqual(*expected, *actual);
 
   ASSERT_OK(ArrayFromJSON(type, "[[null, null], [0, null], [6, null]]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   auto is_valid = std::vector<bool>{false, false, true, false, true, false};
   ArrayFromVector<Int64Type>(is_valid, {0, 0, 0, 0, 6, 0}, &values);
   expected = std::make_shared<FixedSizeListArray>(type, 3, values);
   AssertArraysEqual(*expected, *actual);
 
   ASSERT_OK(ArrayFromJSON(type, "[null, [null, null], null]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   {
     std::unique_ptr<ArrayBuilder> builder;
     ASSERT_OK(MakeBuilder(pool, type, &builder));
@@ -759,19 +759,19 @@ TEST(TestFixedSizeList, NullList) {
   std::shared_ptr<Array> values, expected, actual;
 
   ASSERT_OK(ArrayFromJSON(type, "[]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   values = std::make_shared<NullArray>(0);
   expected = std::make_shared<FixedSizeListArray>(type, 0, values);
   AssertArraysEqual(*expected, *actual);
 
   ASSERT_OK(ArrayFromJSON(type, "[[null, null], [null, null], [null, null]]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   values = std::make_shared<NullArray>(6);
   expected = std::make_shared<FixedSizeListArray>(type, 3, values);
   AssertArraysEqual(*expected, *actual);
 
   ASSERT_OK(ArrayFromJSON(type, "[null, [null, null], null]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   {
     std::unique_ptr<ArrayBuilder> builder;
     ASSERT_OK(MakeBuilder(pool, type, &builder));
@@ -794,14 +794,14 @@ TEST(TestFixedSizeList, IntegerListList) {
   std::shared_ptr<Array> values, nested, expected, actual;
 
   ASSERT_OK(ArrayFromJSON(type, "[[[1, 4]], [[2, 5]], [[3, 6]]]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   ArrayFromVector<UInt8Type>({1, 4, 2, 5, 3, 6}, &values);
   nested = std::make_shared<FixedSizeListArray>(nested_type, 3, values);
   expected = std::make_shared<FixedSizeListArray>(type, 3, nested);
   AssertArraysEqual(*expected, *actual);
 
   ASSERT_OK(ArrayFromJSON(type, "[[[1, null]], [null], null]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   {
     std::unique_ptr<ArrayBuilder> builder;
     ASSERT_OK(MakeBuilder(pool, type, &builder));
@@ -836,7 +836,7 @@ TEST(TestStruct, SimpleStruct) {
 
   // Trivial
   ASSERT_OK(ArrayFromJSON(type, "[]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   ArrayFromVector<Int8Type>({}, &a);
   ArrayFromVector<BooleanType, bool>({}, &b);
   children.assign({a, b});
@@ -850,11 +850,11 @@ TEST(TestStruct, SimpleStruct) {
   expected = std::make_shared<StructArray>(type, 2, children);
 
   ASSERT_OK(ArrayFromJSON(type, "[[5, true], [6, false]]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   AssertArraysEqual(*expected, *actual);
   ASSERT_OK(ArrayFromJSON(type, "[{\"a\": 5, \"b\": true}, {\"b\": false, \"a\": 6}]",
                           &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   AssertArraysEqual(*expected, *actual);
 
   // With nulls
@@ -868,12 +868,12 @@ TEST(TestStruct, SimpleStruct) {
 
   ASSERT_OK(
       ArrayFromJSON(type, "[null, [5, null], [null, false], [null, null]]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   AssertArraysEqual(*expected, *actual);
   // When using object notation, null members can be omitted
   ASSERT_OK(ArrayFromJSON(type, "[null, {\"a\": 5, \"b\": null}, {\"b\": false}, {}]",
                           &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   AssertArraysEqual(*expected, *actual);
 }
 
@@ -890,7 +890,7 @@ TEST(TestStruct, NestedStruct) {
   std::vector<std::shared_ptr<Array>> children(2);
 
   ASSERT_OK(ArrayFromJSON(type, "[]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   ArrayFromVector<Int8Type>({}, &children[0]);
   ArrayFromVector<BooleanType, bool>({}, &children[1]);
   children[0] = std::make_shared<StructArray>(nested_type, 0, children);
@@ -899,7 +899,7 @@ TEST(TestStruct, NestedStruct) {
   AssertArraysEqual(*expected, *actual);
 
   ASSERT_OK(ArrayFromJSON(type, "[[[5, true], 1.5], [[6, false], -3e2]]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   ArrayFromVector<Int8Type>({5, 6}, &children[0]);
   ArrayFromVector<BooleanType, bool>({true, false}, &children[1]);
   children[0] = std::make_shared<StructArray>(nested_type, 2, children);
@@ -908,7 +908,7 @@ TEST(TestStruct, NestedStruct) {
   AssertArraysEqual(*expected, *actual);
 
   ASSERT_OK(ArrayFromJSON(type, "[null, [[5, null], null], [null, -3e2]]", &actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
   is_valid = {false, true, false};
   ArrayFromVector<Int8Type>(is_valid, {0, 5, 0}, &children[0]);
   is_valid = {false, false, false};

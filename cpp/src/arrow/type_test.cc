@@ -35,6 +35,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 
 template <typename T>
 void AssertFingerprintablesEqual(const T& left, const T& right, bool check_metadata,
@@ -883,7 +884,7 @@ TEST(TestNestedType, Equals) {
                          std::string union_name) -> std::shared_ptr<Field> {
     auto f_type = field(inner_name, int32());
     std::vector<std::shared_ptr<Field>> fields = {f_type};
-    std::vector<uint8_t> codes = {Type::INT32};
+    std::vector<int8_t> codes = {42};
     auto u_type = std::make_shared<UnionType>(fields, codes, UnionMode::SPARSE);
     return field(union_name, u_type);
   };
@@ -993,6 +994,52 @@ TEST(TestStructType, GetFieldDuplicates) {
 
   results = struct_type.GetAllFieldsByName("not-found");
   ASSERT_EQ(results.size(), 0);
+}
+
+TEST(TestUnionType, Basics) {
+  auto f0_type = int32();
+  auto f0 = field("f0", f0_type);
+  auto f1_type = utf8();
+  auto f1 = field("f1", f1_type);
+  auto f2_type = uint8();
+  auto f2 = field("f2", f2_type);
+
+  std::vector<std::shared_ptr<Field>> fields = {f0, f1, f2};
+  std::vector<int8_t> type_codes1 = {0, 1, 2};
+  std::vector<int8_t> type_codes2 = {10, 11, 12};
+  std::vector<int> child_ids1(128, -1);
+  std::vector<int> child_ids2(128, -1);
+  child_ids1[0] = 0;
+  child_ids1[1] = 1;
+  child_ids1[2] = 2;
+  child_ids2[10] = 0;
+  child_ids2[11] = 1;
+  child_ids2[12] = 2;
+
+  auto ty1 = checked_pointer_cast<UnionType>(union_(fields, UnionMode::DENSE));
+  auto ty2 =
+      checked_pointer_cast<UnionType>(union_(fields, type_codes1, UnionMode::DENSE));
+  auto ty3 =
+      checked_pointer_cast<UnionType>(union_(fields, type_codes2, UnionMode::DENSE));
+  auto ty4 = checked_pointer_cast<UnionType>(union_(fields, UnionMode::SPARSE));
+  auto ty5 =
+      checked_pointer_cast<UnionType>(union_(fields, type_codes1, UnionMode::SPARSE));
+  auto ty6 =
+      checked_pointer_cast<UnionType>(union_(fields, type_codes2, UnionMode::SPARSE));
+
+  ASSERT_EQ(ty1->type_codes(), type_codes1);
+  ASSERT_EQ(ty2->type_codes(), type_codes1);
+  ASSERT_EQ(ty3->type_codes(), type_codes2);
+  ASSERT_EQ(ty4->type_codes(), type_codes1);
+  ASSERT_EQ(ty5->type_codes(), type_codes1);
+  ASSERT_EQ(ty6->type_codes(), type_codes2);
+
+  ASSERT_EQ(ty1->child_ids(), child_ids1);
+  ASSERT_EQ(ty2->child_ids(), child_ids1);
+  ASSERT_EQ(ty3->child_ids(), child_ids2);
+  ASSERT_EQ(ty4->child_ids(), child_ids1);
+  ASSERT_EQ(ty5->child_ids(), child_ids1);
+  ASSERT_EQ(ty6->child_ids(), child_ids2);
 }
 
 TEST(TestDictionaryType, Basics) {

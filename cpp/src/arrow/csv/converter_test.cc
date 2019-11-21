@@ -62,6 +62,7 @@ void AssertConversion(const std::shared_ptr<DataType>& type,
   for (int32_t col_index = 0; col_index < static_cast<int32_t>(expected.size());
        ++col_index) {
     ASSERT_OK(converter->Convert(*parser, col_index, &array));
+    ASSERT_OK(array->ValidateFull());
     ArrayFromVector<DATA_TYPE, C_TYPE>(type, expected[col_index], &expected_array);
     AssertArraysEqual(*expected_array, *array);
   }
@@ -83,6 +84,7 @@ void AssertConversion(const std::shared_ptr<DataType>& type,
   for (int32_t col_index = 0; col_index < static_cast<int32_t>(expected.size());
        ++col_index) {
     ASSERT_OK(converter->Convert(*parser, col_index, &array));
+    ASSERT_OK(array->ValidateFull());
     ArrayFromVector<DATA_TYPE, C_TYPE>(type, is_valid[col_index], expected[col_index],
                                        &expected_array);
     AssertArraysEqual(*expected_array, *array);
@@ -122,6 +124,7 @@ void AssertDictConversion(const std::string& csv_string,
 
   ASSERT_OK_AND_ASSIGN(
       array, DictConversion(expected_dict->type(), csv_string, max_cardinality, options));
+  ASSERT_OK(array->ValidateFull());
   expected_type = dictionary(expected_indices->type(), expected_dict->type());
   ASSERT_TRUE(array->type()->Equals(*expected_type));
   const auto& dict_array = internal::checked_cast<const DictionaryArray&>(*array);

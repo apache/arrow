@@ -928,11 +928,13 @@ struct UnionMode {
 class ARROW_EXPORT UnionType : public NestedType {
  public:
   static constexpr Type::type type_id = Type::UNION;
+  static constexpr int8_t kMaxTypeId = 127;
+  static constexpr int kInvalidChildId = -1;
 
   static constexpr const char* type_name() { return "union"; }
 
   UnionType(const std::vector<std::shared_ptr<Field>>& fields,
-            const std::vector<uint8_t>& type_codes,
+            const std::vector<int8_t>& type_codes,
             UnionMode::type mode = UnionMode::SPARSE);
 
   DataTypeLayout layout() const override;
@@ -940,7 +942,14 @@ class ARROW_EXPORT UnionType : public NestedType {
   std::string ToString() const override;
   std::string name() const override { return "union"; }
 
-  const std::vector<uint8_t>& type_codes() const { return type_codes_; }
+  /// The array of logical type ids.
+  ///
+  /// For example, the first type in the union might be denoted by the id 5
+  /// (instead of 0).
+  const std::vector<int8_t>& type_codes() const { return type_codes_; }
+
+  /// An array mapping logical type ids to physical child ids.
+  const std::vector<int>& child_ids() const { return child_ids_; }
 
   uint8_t max_type_code() const;
 
@@ -951,10 +960,8 @@ class ARROW_EXPORT UnionType : public NestedType {
 
   UnionMode::type mode_;
 
-  // The type id used in the data to indicate each data type in the union. For
-  // example, the first type in the union might be denoted by the id 5 (instead
-  // of 0).
-  std::vector<uint8_t> type_codes_;
+  std::vector<int8_t> type_codes_;
+  std::vector<int> child_ids_;
 };
 
 // ----------------------------------------------------------------------
@@ -1466,13 +1473,21 @@ struct_(const std::vector<std::shared_ptr<Field>>& fields);
 /// \brief Create a UnionType instance
 std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Field>>& child_fields,
-       const std::vector<uint8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
+       const std::vector<int8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
+
+/// \brief Create a UnionType instance
+std::shared_ptr<DataType> ARROW_EXPORT
+union_(const std::vector<std::shared_ptr<Field>>& child_fields,
+       UnionMode::type mode = UnionMode::SPARSE);
+
+/// \brief Create a UnionType instance
+std::shared_ptr<DataType> ARROW_EXPORT union_(UnionMode::type mode = UnionMode::SPARSE);
 
 /// \brief Create a UnionType instance
 std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Array>>& children,
-       const std::vector<std::string>& field_names,
-       const std::vector<uint8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
+       const std::vector<std::string>& field_names, const std::vector<int8_t>& type_codes,
+       UnionMode::type mode = UnionMode::SPARSE);
 
 /// \brief Create a UnionType instance
 inline std::shared_ptr<DataType> ARROW_EXPORT

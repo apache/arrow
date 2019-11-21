@@ -47,7 +47,7 @@ class TestTakeKernel : public ComputeFixture, public TestBase {
     std::shared_ptr<Array> actual;
     TakeOptions options;
     ASSERT_OK(arrow::compute::Take(&this->ctx_, *values, *indices, options, &actual));
-    ASSERT_OK(actual->Validate());
+    ASSERT_OK(actual->ValidateFull());
     AssertArraysEqual(*expected, *actual);
   }
 
@@ -57,7 +57,7 @@ class TestTakeKernel : public ComputeFixture, public TestBase {
 
     for (auto index_type : {int8(), uint32()}) {
       ASSERT_OK(this->Take(type, values, index_type, indices, &actual));
-      ASSERT_OK(actual->Validate());
+      ASSERT_OK(actual->ValidateFull());
       AssertArraysEqual(*ArrayFromJSON(type, expected), *actual);
     }
   }
@@ -134,7 +134,7 @@ class TestTakeKernelWithNumeric : public TestTakeKernel<ArrowType> {
     TakeOptions options;
     ASSERT_OK(
         arrow::compute::Take(&this->ctx_, *values, *indices_boxed, options, &taken));
-    ASSERT_OK(taken->Validate());
+    ASSERT_OK(taken->ValidateFull());
     ASSERT_EQ(indices_boxed->length(), taken->length());
 
     ASSERT_EQ(indices_boxed->type_id(), Type::INT32);
@@ -418,7 +418,7 @@ class TestPermutationsWithTake : public ComputeFixture, public TestBase {
     TakeOptions options;
     std::shared_ptr<Array> boxed_out;
     ASSERT_OK(arrow::compute::Take(&this->ctx_, values, indices, options, &boxed_out));
-    ASSERT_OK(boxed_out->Validate());
+    ASSERT_OK(boxed_out->ValidateFull());
     *out = checked_pointer_cast<Int16Array>(std::move(boxed_out));
   }
 
@@ -535,7 +535,7 @@ class TestTakeKernelWithRecordBatch : public TestTakeKernel<RecordBatch> {
 
     for (auto index_type : {int8(), uint32()}) {
       ASSERT_OK(this->Take(schm, batch_json, index_type, indices, &actual));
-      ASSERT_OK(actual->Validate());
+      ASSERT_OK(actual->ValidateFull());
       ASSERT_BATCHES_EQUAL(*RecordBatchFromJSON(schm, expected_batch), *actual);
     }
   }
@@ -592,7 +592,7 @@ class TestTakeKernelWithChunkedArray : public TestTakeKernel<ChunkedArray> {
                   const std::vector<std::string>& expected) {
     std::shared_ptr<ChunkedArray> actual;
     ASSERT_OK(this->TakeWithArray(type, values, indices, &actual));
-    ASSERT_OK(actual->Validate());
+    ASSERT_OK(actual->ValidateFull());
     AssertChunkedEqual(*ChunkedArrayFromJSON(type, expected), *actual);
   }
 
@@ -602,7 +602,7 @@ class TestTakeKernelWithChunkedArray : public TestTakeKernel<ChunkedArray> {
                          const std::vector<std::string>& expected) {
     std::shared_ptr<ChunkedArray> actual;
     ASSERT_OK(this->TakeWithChunkedArray(type, values, indices, &actual));
-    ASSERT_OK(actual->Validate());
+    ASSERT_OK(actual->ValidateFull());
     AssertChunkedEqual(*ChunkedArrayFromJSON(type, expected), *actual);
   }
 
@@ -648,7 +648,7 @@ class TestTakeKernelWithTable : public TestTakeKernel<Table> {
     std::shared_ptr<Table> actual;
 
     ASSERT_OK(this->TakeWithArray(schm, table_json, filter, &actual));
-    ASSERT_OK(actual->Validate());
+    ASSERT_OK(actual->ValidateFull());
     ASSERT_TABLES_EQUAL(*TableFromJSON(schm, expected_table), *actual);
   }
 
@@ -659,7 +659,7 @@ class TestTakeKernelWithTable : public TestTakeKernel<Table> {
     std::shared_ptr<Table> actual;
 
     ASSERT_OK(this->TakeWithChunkedArray(schm, table_json, filter, &actual));
-    ASSERT_OK(actual->Validate());
+    ASSERT_OK(actual->ValidateFull());
     ASSERT_TABLES_EQUAL(*TableFromJSON(schm, expected_table), *actual);
   }
 

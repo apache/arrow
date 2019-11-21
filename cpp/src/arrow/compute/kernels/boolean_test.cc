@@ -48,11 +48,13 @@ class TestBooleanKernel : public ComputeFixture, public TestBase {
     ASSERT_OK(kernel(&this->ctx_, left, right, &result));
     ASSERT_EQ(Datum::ARRAY, result.kind());
     std::shared_ptr<Array> result_array = result.make_array();
+    ASSERT_OK(result_array->ValidateFull());
     ASSERT_ARRAYS_EQUAL(*expected, *result_array);
 
     ASSERT_OK(kernel(&this->ctx_, right, left, &result));
     ASSERT_EQ(Datum::ARRAY, result.kind());
     result_array = result.make_array();
+    ASSERT_OK(result_array->ValidateFull());
     ASSERT_ARRAYS_EQUAL(*expected, *result_array);
   }
 

@@ -978,7 +978,7 @@ TEST(TestDictionary, Validate) {
       std::make_shared<DictionaryArray>(dict_type, indices, dict);
 
   // Only checking index type for now
-  ASSERT_OK(arr->Validate());
+  ASSERT_OK(arr->ValidateFull());
 
   ASSERT_DEATH(
       {
@@ -1019,7 +1019,7 @@ static void CheckTranspose(const std::shared_ptr<Array>& input,
   std::shared_ptr<Array> out, expected;
   ASSERT_OK(internal::checked_cast<const DictionaryArray&>(*input).Transpose(
       default_memory_pool(), out_dict_type, out_dict, transpose_map, &out));
-  ASSERT_OK(out->Validate());
+  ASSERT_OK(out->ValidateFull());
 
   ASSERT_OK(
       DictionaryArray::FromArrays(out_dict_type, expected_indices, out_dict, &expected));
@@ -1167,7 +1167,7 @@ TEST(TestDictionary, ListOfDictionary) {
 
   std::shared_ptr<Array> array;
   ASSERT_OK(root_builder->Finish(&array));
-  ASSERT_OK(array->Validate());
+  ASSERT_OK(array->ValidateFull());
 
   auto expected_type = list(dictionary(int16(), utf8()));
   ASSERT_EQ(array->type()->ToString(), expected_type->ToString());
@@ -1231,7 +1231,7 @@ TEST(TestDictionary, IndicesArray) {
   ASSERT_EQ(arr->indices()->data()->dictionary, nullptr);
 
   // Validate the indices array
-  ASSERT_OK(arr->indices()->Validate());
+  ASSERT_OK(arr->indices()->ValidateFull());
 }
 
 }  // namespace arrow

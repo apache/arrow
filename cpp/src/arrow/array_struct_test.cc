@@ -45,7 +45,7 @@ void ValidateBasicStructArray(const StructArray* result,
                               const std::vector<int>& list_offsets,
                               const std::vector<int32_t>& int_values) {
   ASSERT_EQ(4, result->length());
-  ASSERT_OK(result->Validate());
+  ASSERT_OK(result->ValidateFull());
 
   auto list_char_arr = std::dynamic_pointer_cast<ListArray>(result->field(0));
   auto char_arr = std::dynamic_pointer_cast<Int8Array>(list_char_arr->values());
@@ -225,7 +225,7 @@ TEST_F(TestStructBuilder, TestAppendNull) {
 
   Done();
 
-  ASSERT_OK(result_->Validate());
+  ASSERT_OK(result_->ValidateFull());
 
   ASSERT_EQ(2, static_cast<int>(result_->num_fields()));
   ASSERT_EQ(2, result_->length());
@@ -339,7 +339,7 @@ TEST_F(TestStructBuilder, BulkAppendInvalid) {
 
   Done();
   // Even null bitmap of the parent Struct is not valid, validate will ignore it.
-  ASSERT_OK(result_->Validate());
+  ASSERT_OK(result_->ValidateFull());
 }
 
 TEST_F(TestStructBuilder, TestEquality) {
@@ -475,7 +475,7 @@ TEST_F(TestStructBuilder, TestEquality) {
 TEST_F(TestStructBuilder, TestZeroLength) {
   // All buffers are null
   Done();
-  ASSERT_OK(result_->Validate());
+  ASSERT_OK(result_->ValidateFull());
 }
 
 TEST_F(TestStructBuilder, TestSlice) {

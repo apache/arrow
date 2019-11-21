@@ -434,7 +434,7 @@ Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
   std::vector<std::shared_ptr<Field>> union_types(
       {field("u0", int32()), field("u1", uint8())});
 
-  std::vector<uint8_t> type_codes = {5, 10};
+  std::vector<int8_t> type_codes = {5, 10};
   auto sparse_type =
       std::make_shared<UnionType>(union_types, type_codes, UnionMode::SPARSE);
 

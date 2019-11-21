@@ -379,13 +379,22 @@ class ARROW_EXPORT Array {
   /// \return PrettyPrint representation of array suitable for debugging
   std::string ToString() const;
 
-  /// \brief Perform any validation checks to determine obvious inconsistencies
+  /// \brief Perform cheap validation checks to determine obvious inconsistencies
   /// within the array's internal data.
   ///
-  /// This can be an expensive check, potentially O(length).
+  /// This is O(k) where k is the number of descendents.
   ///
   /// \return Status
   Status Validate() const;
+
+  /// \brief Perform extensive validation checks to determine inconsistencies
+  /// within the array's internal data.
+  ///
+  /// This is potentially O(k*n) where k is the number of descendents and n
+  /// is the array length.
+  ///
+  /// \return Status
+  Status ValidateFull() const;
 
  protected:
   Array() : null_bitmap_data_(NULLPTR) {}
@@ -1003,7 +1012,7 @@ class ARROW_EXPORT StructArray : public Array {
 class ARROW_EXPORT UnionArray : public Array {
  public:
   using TypeClass = UnionType;
-  using type_id_t = uint8_t;
+  using type_id_t = int8_t;
 
   explicit UnionArray(const std::shared_ptr<ArrayData>& data);
 
@@ -1019,8 +1028,7 @@ class ARROW_EXPORT UnionArray : public Array {
   /// This function does the bare minimum of validation of the offsets and
   /// input types. The value_offsets are assumed to be well-formed.
   ///
-  /// \param[in] type_ids An array of 8-bit signed integers, enumerated from
-  /// 0 corresponding to each type.
+  /// \param[in] type_ids An array of logical type ids for the union type
   /// \param[in] value_offsets An array of signed int32 values indicating the
   /// relative offset into the respective child array for the type in a given slot.
   /// The respective offsets for each child value array must be in order / increasing.
@@ -1031,7 +1039,7 @@ class ARROW_EXPORT UnionArray : public Array {
   static Status MakeDense(const Array& type_ids, const Array& value_offsets,
                           const std::vector<std::shared_ptr<Array>>& children,
                           const std::vector<std::string>& field_names,
-                          const std::vector<uint8_t>& type_codes,
+                          const std::vector<type_id_t>& type_codes,
                           std::shared_ptr<Array>* out);
 
   /// \brief Construct Dense UnionArray from types_ids, value_offsets and children
@@ -1039,8 +1047,7 @@ class ARROW_EXPORT UnionArray : public Array {
   /// This function does the bare minimum of validation of the offsets and
   /// input types. The value_offsets are assumed to be well-formed.
   ///
-  /// \param[in] type_ids An array of 8-bit signed integers, enumerated from
-  /// 0 corresponding to each type.
+  /// \param[in] type_ids An array of logical type ids for the union type
   /// \param[in] value_offsets An array of signed int32 values indicating the
   /// relative offset into the respective child array for the type in a given slot.
   /// The respective offsets for each child value array must be in order / increasing.
@@ -1059,8 +1066,7 @@ class ARROW_EXPORT UnionArray : public Array {
   /// This function does the bare minimum of validation of the offsets and
   /// input types. The value_offsets are assumed to be well-formed.
   ///
-  /// \param[in] type_ids An array of 8-bit signed integers, enumerated from
-  /// 0 corresponding to each type.
+  /// \param[in] type_ids An array of logical type ids for the union type
   /// \param[in] value_offsets An array of signed int32 values indicating the
   /// relative offset into the respective child array for the type in a given slot.
   /// The respective offsets for each child value array must be in order / increasing.
@@ -1069,7 +1075,7 @@ class ARROW_EXPORT UnionArray : public Array {
   /// \param[out] out Will have length equal to value_offsets.length()
   static Status MakeDense(const Array& type_ids, const Array& value_offsets,
                           const std::vector<std::shared_ptr<Array>>& children,
-                          const std::vector<uint8_t>& type_codes,
+                          const std::vector<type_id_t>& type_codes,
                           std::shared_ptr<Array>* out) {
     return MakeDense(type_ids, value_offsets, children, {}, type_codes, out);
   }
@@ -1081,8 +1087,7 @@ class ARROW_EXPORT UnionArray : public Array {
   ///
   /// The name of each field is filled by the index of the field.
   ///
-  /// \param[in] type_ids An array of 8-bit signed integers, enumerated from
-  /// 0 corresponding to each type.
+  /// \param[in] type_ids An array of logical type ids for the union type
   /// \param[in] value_offsets An array of signed int32 values indicating the
   /// relative offset into the respective child array for the type in a given slot.
   /// The respective offsets for each child value array must be in order / increasing.
@@ -1099,8 +1104,7 @@ class ARROW_EXPORT UnionArray : public Array {
   /// This function does the bare minimum of validation of the offsets and
   /// input types.
   ///
-  /// \param[in] type_ids An array of 8-bit signed integers, enumerated from
-  /// 0 corresponding to each type.
+  /// \param[in] type_ids An array of logical type ids for the union type
   /// \param[in] children Vector of children Arrays containing the data for each type.
   /// \param[in] field_names Vector of strings containing the name of each field.
   /// \param[in] type_codes Vector of type codes.
@@ -1108,7 +1112,7 @@ class ARROW_EXPORT UnionArray : public Array {
   static Status MakeSparse(const Array& type_ids,
                            const std::vector<std::shared_ptr<Array>>& children,
                            const std::vector<std::string>& field_names,
-                           const std::vector<uint8_t>& type_codes,
+                           const std::vector<type_id_t>& type_codes,
                            std::shared_ptr<Array>* out);
 
   /// \brief Construct Sparse UnionArray from type_ids and children
@@ -1116,8 +1120,7 @@ class ARROW_EXPORT UnionArray : public Array {
   /// This function does the bare minimum of validation of the offsets and
   /// input types.
   ///
-  /// \param[in] type_ids An array of 8-bit signed integers, enumerated from
-  /// 0 corresponding to each type.
+  /// \param[in] type_ids An array of logical type ids for the union type
   /// \param[in] children Vector of children Arrays containing the data for each type.
   /// \param[in] field_names Vector of strings containing the name of each field.
   /// \param[out] out Will have length equal to type_ids.length()
@@ -1133,14 +1136,13 @@ class ARROW_EXPORT UnionArray : public Array {
   /// This function does the bare minimum of validation of the offsets and
   /// input types.
   ///
-  /// \param[in] type_ids An array of 8-bit signed integers, enumerated from
-  /// 0 corresponding to each type.
+  /// \param[in] type_ids An array of logical type ids for the union type
   /// \param[in] children Vector of children Arrays containing the data for each type.
   /// \param[in] type_codes Vector of type codes.
   /// \param[out] out Will have length equal to type_ids.length()
   static Status MakeSparse(const Array& type_ids,
                            const std::vector<std::shared_ptr<Array>>& children,
-                           const std::vector<uint8_t>& type_codes,
+                           const std::vector<type_id_t>& type_codes,
                            std::shared_ptr<Array>* out) {
     return MakeSparse(type_ids, children, {}, type_codes, out);
   }
@@ -1152,8 +1154,7 @@ class ARROW_EXPORT UnionArray : public Array {
   ///
   /// The name of each field is filled by the index of the field.
   ///
-  /// \param[in] type_ids An array of 8-bit signed integers, enumerated from
-  /// 0 corresponding to each type.
+  /// \param[in] type_ids An array of logical type ids for the union type
   /// \param[in] children Vector of children Arrays containing the data for each type.
   /// \param[out] out Will have length equal to type_ids.length()
   static Status MakeSparse(const Array& type_ids,
@@ -1165,12 +1166,21 @@ class ARROW_EXPORT UnionArray : public Array {
   /// Note that this buffer does not account for any slice offset
   std::shared_ptr<Buffer> type_ids() const { return data_->buffers[1]; }
 
+  const type_id_t* raw_type_ids() const { return raw_type_ids_ + data_->offset; }
+
+  /// The physical child id containing value at index.
+  int child_id(int64_t i) const {
+    return union_type_->child_ids()[raw_type_ids_[i + data_->offset]];
+  }
+
+  /// For dense arrays only.
   /// Note that this buffer does not account for any slice offset
   std::shared_ptr<Buffer> value_offsets() const { return data_->buffers[2]; }
 
+  /// For dense arrays only.
   int32_t value_offset(int64_t i) const { return raw_value_offsets_[i + data_->offset]; }
 
-  const type_id_t* raw_type_ids() const { return raw_type_ids_ + data_->offset; }
+  /// For dense arrays only.
   const int32_t* raw_value_offsets() const { return raw_value_offsets_ + data_->offset; }
 
   const UnionType* union_type() const { return union_type_; }
@@ -1274,13 +1284,5 @@ class ARROW_EXPORT DictionaryArray : public Array {
   const DictionaryType* dict_type_;
   std::shared_ptr<Array> indices_;
 };
-
-/// \brief Alias of Array::Validate().
-///
-/// \param array an Array instance
-/// \return Status
-ARROW_DEPRECATED("Use Array::Validate instead")
-ARROW_EXPORT
-Status ValidateArray(const Array& array);
 
 }  // namespace arrow

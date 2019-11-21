@@ -106,8 +106,23 @@ class ARROW_EXPORT ChunkedArray {
   /// \brief Determine if two chunked arrays are equal.
   bool Equals(const std::shared_ptr<ChunkedArray>& other) const;
 
-  /// \brief Check that all chunks have the same data type
+  /// \brief Perform cheap validation checks to determine obvious inconsistencies
+  /// within the chunk array's internal data.
+  ///
+  /// This is O(k*m) where k is the number of array descendents,
+  /// and m is the number of chunks.
+  ///
+  /// \return Status
   Status Validate() const;
+
+  /// \brief Perform extensive validation checks to determine inconsistencies
+  /// within the chunk array's internal data.
+  ///
+  /// This is O(k*n) where k is the number of array descendents,
+  /// and n is the length in elements.
+  ///
+  /// \return Status
+  Status ValidateFull() const;
 
  protected:
   ArrayVector chunks_;
@@ -239,8 +254,23 @@ class ARROW_EXPORT Table {
   /// \param[out] out The returned table
   virtual Status Flatten(MemoryPool* pool, std::shared_ptr<Table>* out) const = 0;
 
-  /// \brief Perform any checks to validate the input arguments
+  /// \brief Perform cheap validation checks to determine obvious inconsistencies
+  /// within the table's schema and internal data.
+  ///
+  /// This is O(k*m) where k is the total number of field descendents,
+  /// and m is the number of chunks.
+  ///
+  /// \return Status
   virtual Status Validate() const = 0;
+
+  /// \brief Perform extensive validation checks to determine inconsistencies
+  /// within the table's schema and internal data.
+  ///
+  /// This is O(k*n) where k is the total number of field descendents,
+  /// and n is the number of rows.
+  ///
+  /// \return Status
+  virtual Status ValidateFull() const = 0;
 
   /// \brief Return the number of columns in the table
   int num_columns() const { return schema_->num_fields(); }

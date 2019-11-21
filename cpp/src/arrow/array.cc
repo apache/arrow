@@ -25,6 +25,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "arrow/array/validate.h"
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
 #include "arrow/compare.h"
@@ -702,7 +703,7 @@ void UnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
   auto type_ids = data_->buffers[1];
   auto value_offsets = data_->buffers[2];
   raw_type_ids_ =
-      type_ids == nullptr ? nullptr : reinterpret_cast<const uint8_t*>(type_ids->data());
+      type_ids == nullptr ? nullptr : reinterpret_cast<const int8_t*>(type_ids->data());
   raw_value_offsets_ = value_offsets == nullptr
                            ? nullptr
                            : reinterpret_cast<const int32_t*>(value_offsets->data());
@@ -728,7 +729,7 @@ UnionArray::UnionArray(const std::shared_ptr<DataType>& type, int64_t length,
 Status UnionArray::MakeDense(const Array& type_ids, const Array& value_offsets,
                              const std::vector<std::shared_ptr<Array>>& children,
                              const std::vector<std::string>& field_names,
-                             const std::vector<uint8_t>& type_codes,
+                             const std::vector<int8_t>& type_codes,
                              std::shared_ptr<Array>* out) {
   if (value_offsets.length() == 0) {
     return Status::Invalid("UnionArray offsets must have non-zero length");
@@ -772,7 +773,7 @@ Status UnionArray::MakeDense(const Array& type_ids, const Array& value_offsets,
 Status UnionArray::MakeSparse(const Array& type_ids,
                               const std::vector<std::shared_ptr<Array>>& children,
                               const std::vector<std::string>& field_names,
-                              const std::vector<uint8_t>& type_codes,
+                              const std::vector<int8_t>& type_codes,
                               std::shared_ptr<Array>* out) {
   if (type_ids.type_id() != Type::INT8) {
     return Status::TypeError("UnionArray type_ids must be signed int8");
@@ -1146,264 +1147,12 @@ Status Array::Accept(ArrayVisitor* visitor) const {
   return VisitArrayInline(*this, visitor);
 }
 
-// ----------------------------------------------------------------------
-// Implement Array::Validate as inline visitor
+Status Array::Validate() const { return internal::ValidateArray(*this); }
 
-namespace internal {
-
-struct ValidateVisitor {
-  Status Visit(const NullArray& array) {
-    ARROW_RETURN_IF(array.null_count() != array.length(),
-                    Status::Invalid("null_count was invalid"));
-    return Status::OK();
-  }
-
-  Status Visit(const PrimitiveArray& array) {
-    ARROW_RETURN_IF(array.data()->buffers.size() != 2,
-                    Status::Invalid("number of buffers was != 2"));
-
-    if (array.length() > 0 && array.values() == nullptr) {
-      return Status::Invalid("values was null");
-    }
-    return Status::OK();
-  }
-
-  Status Visit(const Decimal128Array& array) {
-    if (array.data()->buffers.size() != 2) {
-      return Status::Invalid("number of buffers was != 2");
-    }
-    if (array.length() > 0 && array.values() == nullptr) {
-      return Status::Invalid("values was null");
-    }
-    return Status::OK();
-  }
-
-  Status Visit(const BinaryArray& array) {
-    if (array.data()->buffers.size() != 3) {
-      return Status::Invalid("number of buffers was != 3");
-    }
-    return ValidateOffsets(array);
-  }
-
-  Status Visit(const LargeBinaryArray& array) {
-    if (array.data()->buffers.size() != 3) {
-      return Status::Invalid("number of buffers was != 3");
-    }
-    return ValidateOffsets(array);
-  }
-
-  Status Visit(const ListArray& array) {
-    RETURN_NOT_OK(ValidateListArray(array));
-    return ValidateOffsets(array);
-  }
-
-  Status Visit(const LargeListArray& array) {
-    RETURN_NOT_OK(ValidateListArray(array));
-    return ValidateOffsets(array);
-  }
-
-  Status Visit(const MapArray& array) {
-    if (!array.keys()) {
-      return Status::Invalid("keys was null");
-    }
-    const Status key_valid = array.keys()->Validate();
-    if (!key_valid.ok()) {
-      return Status::Invalid("key array invalid: ", key_valid.ToString());
-    }
-
-    if (array.length() > 0 && !array.values()) {
-      return Status::Invalid("values was null");
-    }
-    const Status values_valid = array.values()->Validate();
-    if (!values_valid.ok()) {
-      return Status::Invalid("values array invalid: ", values_valid.ToString());
-    }
-
-    const int32_t last_offset = array.value_offset(array.length());
-    if (array.values()->length() != last_offset) {
-      return Status::Invalid("Final offset invariant not equal to values length: ",
-                             last_offset, "!=", array.values()->length());
-    }
-    if (array.keys()->length() != last_offset) {
-      return Status::Invalid("Final offset invariant not equal to keys length: ",
-                             last_offset, "!=", array.keys()->length());
-    }
-
-    return ValidateOffsets(array);
-  }
-
-  Status Visit(const FixedSizeListArray& array) {
-    if (array.length() > 0 && !array.values()) {
-      return Status::Invalid("values was null");
-    }
-    if (array.values()->length() != array.length() * array.value_length()) {
-      return Status::Invalid(
-          "Values Length (", array.values()->length(), ") was not equal to the length (",
-          array.length(), ") multiplied by the list size (", array.value_length(), ")");
-    }
-
-    return Status::OK();
-  }
-
-  Status Visit(const StructArray& array) {
-    const auto& struct_type = checked_cast<const StructType&>(*array.type());
-    if (array.num_fields() > 0) {
-      // Validate fields
-      int64_t array_length = array.field(0)->length();
-      size_t idx = 0;
-      for (int i = 0; i < array.num_fields(); ++i) {
-        auto it = array.field(i);
-        if (it->length() != array_length) {
-          return Status::Invalid("Length is not equal from field ",
-                                 it->type()->ToString(), " at position [", idx, "]");
-        }
-
-        auto it_type = struct_type.child(i)->type();
-        if (!it->type()->Equals(it_type)) {
-          return Status::Invalid("Child array at position [", idx,
-                                 "] does not match type field: ", it->type()->ToString(),
-                                 " vs ", it_type->ToString());
-        }
-
-        const Status child_valid = it->Validate();
-        if (!child_valid.ok()) {
-          return Status::Invalid("Child array invalid: ", child_valid.ToString(),
-                                 " at position [", idx, "]");
-        }
-        ++idx;
-      }
-
-      if (array_length > 0 && array_length != array.length()) {
-        return Status::Invalid("Struct's length is not equal to its child arrays");
-      }
-    }
-    return Status::OK();
-  }
-
-  Status Visit(const UnionArray& array) { return Status::OK(); }
-
-  Status Visit(const DictionaryArray& array) {
-    Type::type index_type_id = array.indices()->type()->id();
-    if (!is_integer(index_type_id)) {
-      return Status::Invalid("Dictionary indices must be integer type");
-    }
-    if (!array.data()->dictionary) {
-      return Status::Invalid("Dictionary values must be non-null");
-    }
-    return Status::OK();
-  }
-
-  Status Visit(const ExtensionArray& array) {
-    const auto& ext_type = checked_cast<const ExtensionType&>(*array.type());
-
-    if (!array.storage()->type()->Equals(*ext_type.storage_type())) {
-      return Status::Invalid("Extension array of type '", array.type()->ToString(),
-                             "' has storage array of incompatible type '",
-                             array.storage()->type()->ToString(), "'");
-    }
-    return array.storage()->Validate();
-  }
-
- protected:
-  template <typename ListArrayType>
-  Status ValidateListArray(const ListArrayType& array) {
-    const auto last_offset = array.value_offset(array.length());
-    const auto data_extent = last_offset - array.value_offset(0);
-    if (data_extent > 0 && !array.values()) {
-      return Status::Invalid("values was null");
-    }
-    if (array.values()->length() < last_offset) {
-      return Status::Invalid("Final offset larger than values array: ", last_offset, ">",
-                             array.values()->length());
-    }
-
-    const Status child_valid = array.values()->Validate();
-    if (!child_valid.ok()) {
-      return Status::Invalid("Child array invalid: ", child_valid.ToString());
-    }
-
-    return ValidateOffsets(array);
-  }
-
-  template <typename ArrayType>
-  Status ValidateOffsets(ArrayType& array) {
-    using offset_type = typename ArrayType::offset_type;
-
-    auto value_offsets = array.value_offsets();
-    if (array.length() && !value_offsets) {
-      return Status::Invalid("value_offsets_ was null");
-    }
-    if (value_offsets->size() / static_cast<int>(sizeof(offset_type)) < array.length()) {
-      return Status::Invalid("offset buffer size (bytes): ", value_offsets->size(),
-                             " isn't large enough for length: ", array.length());
-    }
-
-    auto prev_offset = array.value_offset(0);
-    if (array.offset() == 0 && prev_offset != 0) {
-      return Status::Invalid("The first offset wasn't zero");
-    }
-    for (int64_t i = 1; i <= array.length(); ++i) {
-      auto current_offset = array.value_offset(i);
-      if (array.IsNull(i - 1) && current_offset != prev_offset) {
-        return Status::Invalid("Offset invariant failure at: ", i,
-                               " inconsistent value_offsets for null slot",
-                               current_offset, "!=", prev_offset);
-      }
-      if (current_offset < prev_offset) {
-        return Status::Invalid("Offset invariant failure: ", i,
-                               " inconsistent offset for non-null slot: ", current_offset,
-                               "<", prev_offset);
-      }
-      prev_offset = current_offset;
-    }
-    return Status::OK();
-  }
-};
-
-}  // namespace internal
-
-Status Array::Validate() const {
-  // First check the array layout conforms to the spec
-  const DataType& type = *this->type();
-  const auto layout = type.layout();
-  const ArrayData& data = *this->data();
-
-  if (length() < 0) {
-    return Status::Invalid("Array length is negative");
-  }
-
-  if (null_count() > length()) {
-    return Status::Invalid("Null count exceeds array length");
-  }
-
-  if (data.buffers.size() != layout.bit_widths.size()) {
-    return Status::Invalid("Expected ", layout.bit_widths.size(),
-                           " buffers in array "
-                           "of type ",
-                           type.ToString(), ", got ", data.buffers.size());
-  }
-  if (type.id() != Type::EXTENSION) {
-    if (data.child_data.size() != static_cast<size_t>(type.num_children())) {
-      return Status::Invalid("Expected ", type.num_children(),
-                             " child arrays in array "
-                             "of type ",
-                             type.ToString(), ", got ", data.child_data.size());
-    }
-  }
-  if (layout.has_dictionary && !data.dictionary) {
-    return Status::Invalid("Array of type ", type.ToString(),
-                           " must have dictionary values");
-  }
-  if (!layout.has_dictionary && data.dictionary) {
-    return Status::Invalid("Unexpected dictionary values in array of type ",
-                           type.ToString());
-  }
-
-  internal::ValidateVisitor validate_visitor;
-  return VisitArrayInline(*this, &validate_visitor);
+Status Array::ValidateFull() const {
+  RETURN_NOT_OK(internal::ValidateArray(*this));
+  return internal::ValidateArrayData(*this);
 }
-
-Status ValidateArray(const Array& array) { return array.Validate(); }
 
 // ----------------------------------------------------------------------
 // Loading from ArrayData

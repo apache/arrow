@@ -157,17 +157,18 @@ Status UnionFromFlatbuffer(const flatbuf::Union* union_data,
       (union_data->mode() == flatbuf::UnionMode_Sparse ? UnionMode::SPARSE
                                                        : UnionMode::DENSE);
 
-  std::vector<uint8_t> type_codes;
+  std::vector<int8_t> type_codes;
 
   const flatbuffers::Vector<int32_t>* fb_type_ids = union_data->typeIds();
   if (fb_type_ids == nullptr) {
-    for (uint8_t i = 0; i < children.size(); ++i) {
+    // TODO validate that children.size() <= 127?
+    for (int8_t i = 0; i < static_cast<int8_t>(children.size()); ++i) {
       type_codes.push_back(i);
     }
   } else {
     for (int32_t id : (*fb_type_ids)) {
-      // TODO(wesm): can these values exceed 255?
-      type_codes.push_back(static_cast<uint8_t>(id));
+      // TODO(wesm): can these values exceed 127?
+      type_codes.push_back(static_cast<int8_t>(id));
     }
   }
 

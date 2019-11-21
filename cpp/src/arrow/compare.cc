@@ -237,15 +237,10 @@ class RangeEqualsVisitor {
 
     const auto& left_type = checked_cast<const UnionType&>(*left.type());
 
-    // Define a mapping from the type id to child number
-    const std::vector<uint8_t>& type_codes = left_type.type_codes();
-    std::vector<uint8_t> type_id_to_child_num(left.union_type()->max_type_code() + 1, 0);
-    for (uint8_t i = 0; i < type_codes.size(); ++i) {
-      type_id_to_child_num[type_codes[i]] = i;
-    }
+    const std::vector<int>& child_ids = left_type.child_ids();
 
-    const uint8_t* left_ids = left.raw_type_ids();
-    const uint8_t* right_ids = right.raw_type_ids();
+    const int8_t* left_ids = left.raw_type_ids();
+    const int8_t* right_ids = right.raw_type_ids();
 
     for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
          ++i, ++o_i) {
@@ -257,7 +252,7 @@ class RangeEqualsVisitor {
         return false;
       }
 
-      auto child_num = type_id_to_child_num[left_ids[i]];
+      auto child_num = child_ids[left_ids[i]];
 
       // TODO(wesm): really we should be comparing stretches of non-null data
       // rather than looking at one value at a time.

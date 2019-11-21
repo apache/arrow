@@ -239,7 +239,7 @@ Status DeserializeSequence(PyObject* context, const Array& array, int64_t start_
   const auto& data = checked_cast<const UnionArray&>(array);
   OwnedRef result(create_sequence(stop_idx - start_idx));
   RETURN_IF_PYERROR();
-  const uint8_t* type_ids = data.raw_type_ids();
+  const int8_t* type_ids = data.raw_type_ids();
   const int32_t* value_offsets = data.raw_value_offsets();
   std::vector<int8_t> python_types;
   RETURN_NOT_OK(GetPythonTypes(data, &python_types));

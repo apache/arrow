@@ -173,6 +173,16 @@ static Status ValidateArrowVsJson(const std::string& arrow_path,
   for (int i = 0; i < json_nbatches; ++i) {
     RETURN_NOT_OK(json_reader->ReadRecordBatch(i, &json_batch));
     RETURN_NOT_OK(arrow_reader->ReadRecordBatch(i, &arrow_batch));
+    Status valid_st = json_batch->ValidateFull();
+    if (!valid_st.ok()) {
+      return Status::Invalid("JSON record batch ", i, " did not validate:\n",
+                             valid_st.ToString());
+    }
+    valid_st = arrow_batch->ValidateFull();
+    if (!valid_st.ok()) {
+      return Status::Invalid("Arrow record batch ", i, " did not validate:\n",
+                             valid_st.ToString());
+    }
 
     if (!json_batch->ApproxEquals(*arrow_batch)) {
       std::stringstream ss;

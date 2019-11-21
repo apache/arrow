@@ -58,6 +58,7 @@ void AssertBuilding(const std::unique_ptr<ChunkedArrayBuilder>& builder,
     ++i;
   }
   ASSERT_OK(builder->Finish(out));
+  ASSERT_OK((*out)->ValidateFull());
 }
 
 std::shared_ptr<ChunkedArray> ExtractField(const std::string& name,

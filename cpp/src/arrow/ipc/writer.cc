@@ -404,8 +404,8 @@ class RecordBatchSerializer : public ArrayVisitor {
                                                 pool_, &value_offsets));
 
       // The Union type codes are not necessary 0-indexed
-      uint8_t max_code = 0;
-      for (uint8_t code : type.type_codes()) {
+      int8_t max_code = 0;
+      for (int8_t code : type.type_codes()) {
         if (code > max_code) {
           max_code = code;
         }
@@ -422,7 +422,7 @@ class RecordBatchSerializer : public ArrayVisitor {
         // the value_offsets for each array
 
         const int32_t* unshifted_offsets = array.raw_value_offsets();
-        const uint8_t* type_ids = array.raw_type_ids();
+        const int8_t* type_ids = array.raw_type_ids();
 
         // Allocate the shifted offsets
         std::shared_ptr<Buffer> shifted_offsets_buffer;
@@ -444,7 +444,7 @@ class RecordBatchSerializer : public ArrayVisitor {
 
         // Now compute shifted offsets by subtracting child offset
         for (int64_t i = 0; i < length; ++i) {
-          const uint8_t code = type_ids[i];
+          const int8_t code = type_ids[i];
           shifted_offsets[i] = unshifted_offsets[i] - child_offsets[code];
           // Update the child length to account for observed value
           child_lengths[code] = std::max(child_lengths[code], shifted_offsets[i] + 1);
@@ -462,7 +462,7 @@ class RecordBatchSerializer : public ArrayVisitor {
         // truncate the children. For now, we are truncating the children to be
         // no longer than the parent union.
         if (offset != 0) {
-          const uint8_t code = type.type_codes()[i];
+          const int8_t code = type.type_codes()[i];
           const int64_t child_offset = child_offsets[code];
           const int64_t child_length = child_lengths[code];
 

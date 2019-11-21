@@ -1069,18 +1069,28 @@ cdef class Array(_PandasConvertible):
         """
         return [x.as_py() for x in self]
 
-    def validate(self):
+    def validate(self, *, full=False):
         """
-        Perform any validation checks implemented by
-        arrow::Array::Validate(). Raises exception with error message if
-        array does not validate.
+        Perform validation checks.  An exception is raised if validation fails.
+
+        By default only cheap validation checks are run.  Pass `full=True`
+        for thorough validation checks (potentially O(n)).
+
+        Parameters
+        ----------
+        full: bool, default False
+            If True, run expensive checks, otherwise cheap checks only.
 
         Raises
         ------
         ArrowInvalid
         """
-        with nogil:
-            check_status(self.ap.Validate())
+        if full:
+            with nogil:
+                check_status(self.ap.ValidateFull())
+        else:
+            with nogil:
+                check_status(self.ap.Validate())
 
     @property
     def offset(self):
@@ -1407,7 +1417,7 @@ cdef class UnionArray(Array):
         cdef vector[shared_ptr[CArray]] c
         cdef Array child
         cdef vector[c_string] c_field_names
-        cdef vector[uint8_t] c_type_codes
+        cdef vector[int8_t] c_type_codes
         for child in children:
             c.push_back(child.sp_array)
         if field_names is not None:
@@ -1446,7 +1456,7 @@ cdef class UnionArray(Array):
         cdef vector[shared_ptr[CArray]] c
         cdef Array child
         cdef vector[c_string] c_field_names
-        cdef vector[uint8_t] c_type_codes
+        cdef vector[int8_t] c_type_codes
         for child in children:
             c.push_back(child.sp_array)
         if field_names is not None:

@@ -285,10 +285,9 @@ class SequenceBuilder {
 class DictBuilder {
  public:
   explicit DictBuilder(MemoryPool* pool = nullptr) : keys_(pool), vals_(pool) {
-    builder_.reset(
-        new StructBuilder(struct_({field("keys", union_({}, UnionMode::DENSE)),
-                                   field("vals", union_({}, UnionMode::DENSE))}),
-                          pool, {keys_.builder(), vals_.builder()}));
+    builder_.reset(new StructBuilder(struct_({field("keys", union_(UnionMode::DENSE)),
+                                              field("vals", union_(UnionMode::DENSE))}),
+                                     pool, {keys_.builder(), vals_.builder()}));
   }
 
   // Builder for the keys of the dictionary
