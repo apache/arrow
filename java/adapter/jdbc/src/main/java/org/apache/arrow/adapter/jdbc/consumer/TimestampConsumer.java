@@ -53,7 +53,7 @@ public abstract class TimestampConsumer {
      * Instantiate a TimestampConsumer.
      */
     public NullableTimestampConsumer(TimeStampMilliTZVector vector, int index) {
-      this(vector, index, null);
+      this(vector, index, /* calendar */null);
     }
 
     /**
@@ -86,7 +86,7 @@ public abstract class TimestampConsumer {
      * Instantiate a TimestampConsumer.
      */
     public NonNullableTimestampConsumer(TimeStampMilliTZVector vector, int index) {
-      this(vector, index, null);
+      this(vector, index, /* calendar */null);
     }
 
     /**

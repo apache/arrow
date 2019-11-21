@@ -53,7 +53,7 @@ public abstract class TimeConsumer {
      * Instantiate a TimeConsumer.
      */
     public NullableTimeConsumer(TimeMilliVector vector, int index) {
-      this(vector, index, null);
+      this(vector, index, /* calendar */null);
     }
 
     /**
@@ -86,7 +86,7 @@ public abstract class TimeConsumer {
      * Instantiate a TimeConsumer.
      */
     public NonNullableTimeConsumer(TimeMilliVector vector, int index) {
-      this(vector, index, null);
+      this(vector, index, /* calendar */null);
     }
 
     /**

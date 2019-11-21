@@ -53,7 +53,7 @@ public class DateConsumer {
      * Instantiate a DateConsumer.
      */
     public NullableDateConsumer(DateMilliVector vector, int index) {
-      this(vector, index, null);
+      this(vector, index, /* calendar */null);
     }
 
     /**
@@ -86,7 +86,7 @@ public class DateConsumer {
      * Instantiate a DateConsumer.
      */
     public NonNullableDateConsumer(DateMilliVector vector, int index) {
-      this(vector, index, null);
+      this(vector, index, /* calendar */null);
     }
 
     /**

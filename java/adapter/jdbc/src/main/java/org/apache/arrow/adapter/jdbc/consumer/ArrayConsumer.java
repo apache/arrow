@@ -28,7 +28,7 @@ import org.apache.arrow.vector.complex.ListVector;
  * Consumer which consume array type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.complex.ListVector}.
  */
-public abstract class ArrayConsumer extends  BaseConsumer<ListVector> {
+public abstract class ArrayConsumer extends BaseConsumer<ListVector> {
 
   /**
    * Creates a consumer for {@link ListVector}.
