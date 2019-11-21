@@ -56,6 +56,9 @@ public class BitVectorHelper {
    * @param index index to be set
    */
   public static void setBit(ArrowBuf validityBuffer, int index) {
+    // it can be observed that some logic is duplicate of the logic in setValidityBit.
+    // this is because JIT cannot always remove the if branch in setValidityBit,
+    // so we give a dedicated implementation for setting bits.
     final int byteIndex = byteIndex(index);
     final int bitIndex = bitIndex(index);
 
@@ -83,6 +86,9 @@ public class BitVectorHelper {
    * @param index index to be set
    */
   public static void unsetBit(ArrowBuf validityBuffer, int index) {
+    // it can be observed that some logic is duplicate of the logic in setValidityBit.
+    // this is because JIT cannot always remove the if branch in setValidityBit,
+    // so we give a dedicated implementation for unsetting bits.
     final int byteIndex = byteIndex(index);
     final int bitIndex = bitIndex(index);
 
