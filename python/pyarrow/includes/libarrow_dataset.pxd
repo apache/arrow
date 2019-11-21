@@ -36,11 +36,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     #     CFilter_EXPRESSION" arrow::dataset::Filter::type::EXPRESSION"
     #     CFilter_GENERIC" arrow::dataset::Filter::GENERIC"
 
-
-    cdef cppclass CDataSourceVector "arrow::dataset::DataSourceVector"(
-            vector[shared_ptr[CDataSource]]):
-        pass
-
     cdef cppclass CWriteOptions "arrow::dataset::WriteOptions":
         pass
 
@@ -55,110 +50,80 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         pass
 
     cdef cppclass CScanOptions "arrow::dataset::ScanOptions":
+        @staticmethod
+        shared_ptr[CScanOptions] Defaults()
         # const shared_ptr[DataSelector]& selector()
-        pass
-
-    cdef cppclass CScanOptionsPtr "arrow::dataset::ScanOptionsPtr"(
-            shared_ptr[CScanOptions]):
-        pass
 
     cdef cppclass CScanContext "arrow::dataset::ScanContext":
         CMemoryPool* pool
 
-    cdef cppclass CScanContextPtr "arrow::dataset::ScanContextPtr"(
-            shared_ptr[CScanContext]):
-        pass
+    ctypedef shared_ptr[CScanOptions] CScanOptionsPtr "arrow::dataset::ScanOptionsPtr"
+    ctypedef shared_ptr[CScanContext] CScanContextPtr "arrow::dataset::ScanContextPtr"
 
     cdef cppclass CScanTask" arrow::dataset::ScanTask":
         CResult[CRecordBatchIterator] Scan()
 
-    cdef cppclass CScanTaskPtr "arrow::dataset::ScanTaskPtr"(
-            shared_ptr[CScanTask]):
-        pass
-
-    cdef cppclass CScanTaskIterator "arrow::dataset::ScanTaskIterator"(
-            CIterator[CScanTaskPtr]):
-        pass
-
     cdef cppclass CSimpleScanTask "arrow::dataset::SimpleScanTask"(CScanTask):
         pass
 
+    ctypedef shared_ptr[CScanTask] CScanTaskPtr "arrow::dataset::ScanTaskPtr"
+    ctypedef CIterator[CScanTaskPtr] CScanTaskIterator "arrow::dataset::ScanTaskIterator"
+
+    cdef cppclass CScanner "arrow::dataset::Scanner":
+        CResult[CScanTaskIterator] Scan()
+        CResult[shared_ptr[CTable]] ToTable()
+
+    ctypedef shared_ptr[CScanner] CScannerPtr "arrow::dataset::ScannerPtr"
+
     cdef cppclass CScannerBuilder "arrow::dataset::ScannerBuilder":
-        CScannerBuilder(shared_ptr[CDataset] dataset,
-                        shared_ptr[CScanContext] scan_context)
-        # CStatus Project(const vector[c_string]& columns)
+        CScannerBuilder(shared_ptr[CDataset], CScanContextPtr scan_context)
+        CStatus Project(const vector[c_string]& columns)
         # CStatus Filter(const CExpression& filter)
         # CStatus Filter(shared_ptr[CExpression] filter)
         # CStatus UseThreads(c_bool use_threads)
         CResult[CScannerPtr] Finish()
         shared_ptr[CSchema] schema() const
 
-    cdef cppclass CScannerBuilderPtr "arrow::dataset::ScannerBuilderPtr"(
-            shared_ptr[CScannerBuilder]):
-        pass
-
-    cdef cppclass CScanner "arrow::dataset::Scanner":
-        CResult[CScanTaskIterator] Scan()
-        CResult[shared_ptr[CTable]] ToTable()
-
-    cdef cppclass CScannerPtr "arrow::dataset::ScannerPtr"(
-            shared_ptr[CScanner]):
-        pass
+    ctypedef shared_ptr[CScannerBuilder] CScannerBuilderPtr "arrow::dataset::ScannerBuilderPtr"
 
     cdef cppclass CDataFragment "arrow::dataset::DataFragment":
         CResult[CScanTaskIterator] Scan(CScanContextPtr context)
         c_bool splittable()
         CScanOptionsPtr scan_options()
 
-    cdef cppclass CDataFragmentPtr "arrow::dataset::DataFragmentPtr"(
-            shared_ptr[CDataFragment]):
-        pass
-
-    cdef cppclass CDataFragmentIterator "arrow::dataset::DataFragmentIterator"(
-            CIterator[CDataFragmentPtr]):
-        pass
-
-    cdef cppclass CDataFragmentVector "arrow::dataset::DataFragmentVector"(
-            vector[CDataFragmentPtr]):
-        pass
+    ctypedef shared_ptr[CDataFragment] CDataFragmentPtr "arrow::dataset::DataFragmentPtr"
+    ctypedef vector[CDataFragmentPtr] CDataFragmentVector "arrow::dataset::DataFragmentVector"
+    ctypedef CIterator[CDataFragmentPtr] CDataFragmentIterator "arrow::dataset::DataFragmentIterator"
 
     cdef cppclass CSimpleDataFragment "arrow::dataset::SimpleDataFragment"(
             CDataFragment):
         CSimpleDataFragment(vector[shared_ptr[CRecordBatch]] record_batches,
-                            shared_ptr[CScanOptions] scan_options)
+                            CScanOptionsPtr scan_options)
 
     cdef cppclass CDataSource "arrow::dataset::DataSource":
-        CDataFragmentIterator GetFragments(shared_ptr[CScanOptions] options)
+        CDataFragmentIterator GetFragments(CScanOptionsPtr options)
         # const shared_ptr[CExpression]& partition_expression()
         c_string type()
 
-    cdef cppclass CDataSourcePtr "arrow::dataset::DataSourcePtr"(
-            shared_ptr[CDataSource]):
+    cdef cppclass CSimpleDataSource "arrow::dataset::SimpleDataSource"(CDataSource):
         pass
 
-    cdef cppclass CDataSourceVector "arrow::dataset::DataSourceVector"(
-            vector[shared_ptr[CDataSource]]):
+    cdef cppclass CTreeDataSource "arrow::dataset::TreeDataSource"(CDataSource):
         pass
 
-    cdef cppclass CSimpleDataSource "arrow::dataset::SimpleDataSource"(
-            CDataSource):
-        pass
-
-    cdef cppclass CTreeDataSource "arrow::dataset::TreeDataSource"(
-            CDataSource):
-        pass
+    ctypedef shared_ptr[CDataSource] CDataSourcePtr "arrow::dataset::DataSourcePtr"
+    ctypedef vector[CDataSourcePtr] CDataSourceVector "arrow::dataset::DataSourceVector"
 
     cdef cppclass CDataset "arrow::dataset::Dataset":
         @staticmethod
-        CResult[CDatasetPtr] Make(CDataSourceVector sources,
-                                  shared_ptr[CSchema] schema)
+        CResult[shared_ptr[CDataset]] Make(CDataSourceVector sources,
+                                           shared_ptr[CSchema] schema)
+        CResult[CScannerBuilderPtr] NewScan(CScanContextPtr context)
         CResult[CScannerBuilderPtr] NewScan()
         const CDataSourceVector& sources()
         shared_ptr[CSchema] schema()
 
-    cdef cppclass CDatasetPtr "arrow::dataset::DatasetPtr"(
-            shared_ptr[CDataset]):
-        pass
+    ctypedef shared_ptr[CDataset] CDatasetPtr "arrow::dataset::DatasetPtr"
 
     ############################### File ######################################
 
@@ -167,7 +132,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         c_string file_type()
 
     cdef cppclass CFileSource "arrow::dataset::FileSource":
-        CFileSource(c_string path, CFileSystem filesystem,
+        CFileSource(c_string path, CFileSystem* filesystem,
                     CompressionType compression)
         c_bool operator==(const CFileSource other)
         CompressionType compression()
@@ -186,23 +151,23 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CStatus Inspect(const CFileSource& source,
                         shared_ptr[CSchema]* out) const
         CStatus ScanFile(const CFileSource& source,
-                         shared_ptr[CScanOptions] scan_options,
-                         shared_ptr[CScanContext] scan_context,
+                         CScanOptionsPtr scan_options,
+                         CScanContextPtr scan_context,
                          CScanTaskIterator* out) const
         CStatus MakeFragment(const CFileSource& location,
-                             shared_ptr[CScanOptions] opts,
-                             shared_ptr[CDataFragment]* out)
+                             CScanOptionsPtr opts,
+                             CDataFragmentPtr* out)
 
     cdef cppclass CFileBasedDataFragment \
             "arrow::dataset::FileBasedDataFragment"(CDataFragment):
         CFileBasedDataFragment(const CFileSource& source,
                                shared_ptr[CFileFormat] format,
-                               shared_ptr[CScanOptions] scan_options)
-        CStatus Scan(shared_ptr[CScanContext] scan_context,
+                               CScanOptionsPtr scan_options)
+        CStatus Scan(CScanContextPtr scan_context,
                      shared_ptr[CScanTaskIterator]* out)
         const CFileSource& source()
         shared_ptr[CFileFormat] format()
-        shared_ptr[CScanOptions] scan_options()
+        CScanOptionsPtr scan_options()
 
     cdef cppclass CFileSystemDataSource \
             "arrow::dataset::FileSystemDataSource"(CDataSource):
@@ -210,11 +175,10 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CStatus Make(CFileSystem* filesystem,
                      const CSelector& selector,
                      shared_ptr[CFileFormat] format,
-                     shared_ptr[CScanOptions] scan_options,
+                     CScanOptionsPtr scan_options,
                      shared_ptr[CFileSystemDataSource]* out)
         c_string type()
-        shared_ptr[CDataFragmentIterator] GetFragments(
-            shared_ptr[CScanOptions] options)
+        shared_ptr[CDataFragmentIterator] GetFragments(CScanOptionsPtr options)
 
     ############################### File CSV ##################################
 

@@ -124,6 +124,37 @@ cdef class FileSource:
 
     cdef:
         shared_ptr[CFileSource] wrapped
+        CFileSource* source
+
+    cdef readonly:
+        FileSystem fs
+
+    def __init__(self, path, FileSystem filesystem, compression=None):
+        cdef shared_ptr[CFileSource] source
+
+        # need to hold a reference for the filesystem
+        self.fs = filesystem
+
+        source.reset(new CFileSource(
+            tobytes(path),
+            self.fs.unwrap().get(),
+            _get_compression_type(compression)
+        ))
+
+        self.init(source)
+
+    cdef init(self, shared_ptr[CFileSource]& sp):
+        self.wrapped = sp
+        self.source = sp.get()
+
+    @staticmethod
+    cdef wrap(shared_ptr[CFileSource]& sp):
+        cdef FileSource self = FileSource.__new__(FileSource)
+        self.init(sp)
+        return self
+
+    cdef inline shared_ptr[CFileSource] unwrap(self):
+        return self.wrapped
 
     def equals(self, FileSource other):
         return self.wrapped.get() == other.wrapped.get()
@@ -142,10 +173,6 @@ cdef class FileSource:
     def path(self):
         return frombytes(self.wrapped.get().path())
 
-    # @property
-    # def fs(self):
-    #     FileSystem.wrap(self.wrapped.get().filesystem())
-
     # def open(self):
     #     CStatus Open(shared_ptr[CRandomAccessFile]* out)
 
@@ -160,10 +187,13 @@ cdef class DataFragment:
         self.fragment = sp.get()
 
     @staticmethod
-    cdef DataFragment wrap(shared_ptr[CDataFragment]& sp):
+    cdef wrap(shared_ptr[CDataFragment]& sp):
         cdef DataFragment self = DataFragment.__new__(DataFragment)
         self.init(sp)
         return self
+
+    cdef inline shared_ptr[CDataFragment] unwrap(self):
+        return self.wrapped
 
     def scan(self, ScanContext context=None):
         cdef:
@@ -283,11 +313,11 @@ cdef class SimpleDataSource(DataSource):
     def __init__(self, data_fragments):
         cdef:
             DataFragment fragment
-            vector[shared_ptr[CDataFragment]] fragments
+            CDataFragmentVector fragments
             shared_ptr[CSimpleDataSource] simple_source
 
         for fragment in data_fragments:
-            fragments.push_back(fragment.wrapped)
+            fragments.push_back(fragment.unwrap())
 
         simple_source = make_shared[CSimpleDataSource](fragments)
         self.init(<shared_ptr[CDataSource]> simple_source)
@@ -305,7 +335,7 @@ cdef class TreeDataSource(DataSource):
     def __init__(self, data_sources):
         cdef:
             DataSource child
-            vector[shared_ptr[CDataSource]] children
+            CDataSourceVector children
             shared_ptr[CTreeDataSource] tree_source
 
         for child in data_sources:
@@ -328,7 +358,7 @@ cdef class FileSystemDataSource(DataSource):
                  path_partitions, file_format):
         cdef:
             DataSource child
-            vector[shared_ptr[CDataSource]] children
+            CDataSourceVector children
             shared_ptr[CFileSystemDataSource] filesystem_source
 
         # TODO(kszucs)
@@ -371,19 +401,13 @@ cdef class Dataset:
         self.wrapped = sp
         self.dataset = sp.get()
 
+    # TODO(kszucs): pass ScanContext
     def new_scan(self):
         cdef:
-            CResult[CScannerBuilderPtr] builder_result
-            CResult[CScannerPtr] scanner_result
-            CScannerBuilderPtr builder
-            CScannerPtr scanner
-
-        builder_result = self.dataset.NewScan()
-        builder = GetResultValue(builder_result)
-
-        scanner_result = builder.get().Finish()
-        scanner = GetResultValue(scanner_result)
-
+            shared_ptr[CScannerBuilder] builder
+            shared_ptr[CScanner] scanner
+        builder = GetResultValue(self.dataset.NewScan())
+        scanner = GetResultValue(builder.get().Finish())
         return Scanner.wrap(scanner)
 
     @property
@@ -403,7 +427,7 @@ cdef class ScanOptions:
         CScanOptions* options
 
     def __init__(self):
-        cdef shared_ptr[CScanOptions] options
+        cdef shared_ptr[CScanOptions] options = CScanOptions.Defaults()
         self.init(options)
 
     cdef init(self, const shared_ptr[CScanOptions]& sp):
@@ -411,7 +435,7 @@ cdef class ScanOptions:
         self.options = sp.get()
 
     @staticmethod
-    cdef ScanOptions wrap(const shared_ptr[CScanOptions]& sp):
+    cdef wrap(const shared_ptr[CScanOptions]& sp):
         cdef ScanOptions self = ScanOptions.__new__(ScanOptions)
         self.init(sp)
         return self
@@ -423,48 +447,48 @@ cdef class ScanOptions:
 cdef class ScanContext:
 
     cdef:
-        CScanContextPtr wrapped
-        CScanContext* context
+        shared_ptr[CScanContext] wrapped
+        CScanContext *context
 
     def __init__(self, MemoryPool memory_pool=None):
-        cdef CScanContextPtr context
+        cdef shared_ptr[CScanContext] context = make_shared[CScanContext]()
 
         if memory_pool is not None:
             context.get().pool = memory_pool.pool
 
         self.init(context)
 
-    cdef init(self, CScanContextPtr& sp):
+    cdef init(self, shared_ptr[CScanContext]& sp):
         self.wrapped = sp
         self.context = sp.get()
 
     @staticmethod
-    cdef ScanContext wrap(CScanContextPtr& sp):
+    cdef ScanContext wrap(shared_ptr[CScanContext]& sp):
         cdef ScanContext self = ScanContext.__new__(ScanContext)
         self.init(sp)
         return self
 
-    cdef inline CScanContextPtr unwrap(self):
+    cdef inline shared_ptr[CScanContext] unwrap(self):
         return self.wrapped
 
 
 cdef class ScanTask:
 
     cdef:
-        CScanTaskPtr wrapped
+        shared_ptr[CScanTask] wrapped
         CScanTask* task
 
-    cdef init(self, CScanTaskPtr& sp):
+    cdef init(self, shared_ptr[CScanTask]& sp):
         self.wrapped = sp
         self.task = self.wrapped.get()
 
     @staticmethod
-    cdef wrap(CScanTaskPtr& sp):
+    cdef wrap(shared_ptr[CScanTask]& sp):
         cdef SimpleScanTask self = SimpleScanTask.__new__(SimpleScanTask)
         self.init(sp)
         return self
 
-    cdef inline CScanTaskPtr unwrap(self):
+    cdef inline shared_ptr[CScanTask] unwrap(self):
         return self.wrapped
 
     def scan(self):
@@ -487,55 +511,52 @@ cdef class SimpleScanTask(ScanTask):
     cdef:
         CSimpleScanTask* simple_task
 
-    cdef init(self, CScanTaskPtr& sp):
+    cdef init(self, shared_ptr[CScanTask]& sp):
         ScanTask.init(self, sp)
         self.simple_task = <CSimpleScanTask*> sp.get()
 
 
-# cdef class ScannerBuilder:
+cdef class ScannerBuilder:
 
-#     cdef:
-#         CScannerBuilderPtr wrapped
-#         CScannerBuilder* builder
+    cdef:
+        shared_ptr[CScannerBuilder] wrapped
+        CScannerBuilder* builder
 
 
 cdef class Scanner:
 
     cdef:
-        CScannerPtr wrapped
+        shared_ptr[CScanner] wrapped
         CScanner* scanner
 
-    # def __init__(self, data_sources, ScanOptions options, ScanContext context):
-    #     cdef:
-    #         DataSource source
-    #         CDataSourceVector sources
-    #         CSimpleScanner* simple_scanner
-    #         unique_ptr[CScanner] scanner
+    def __init__(self, data_sources, ScanOptions options, ScanContext context):
+        cdef:
+            DataSource source
+            CDataSourceVector sources
+            shared_ptr[CScanner] scanner
 
-    #     for source in data_sources:
-    #         sources.push_back(source.unwrap())
+        for source in data_sources:
+            sources.push_back(source.unwrap())
 
-    #     simple_scanner = new CSimpleScanner(
-    #         sources, options.unwrap(), context.unwrap()
-    #     )
-    #     scanner.reset(simple_scanner)
-    #     self.init(scanner)
+        scanner = make_shared[CScanner](
+            sources, options.unwrap(), context.unwrap()
+        )
+        self.init(scanner)
 
-    cdef void init(self, CScannerPtr& sp):
+    cdef void init(self, shared_ptr[CScanner]& sp):
         self.wrapped = sp
-        self.scanner = self.wrapped.get()
+        self.scanner = sp.get()
 
     @staticmethod
-    cdef wrap(CScannerPtr& sp):
+    cdef wrap(shared_ptr[CScanner]& sp):
         cdef Scanner self = Scanner.__new__(Scanner)
         self.init(sp)
         return self
 
     def scan(self):
         cdef:
-            CResult[CScanTaskIterator] iterator_result
             CScanTaskIterator iterator
-            CScanTaskPtr task
+            shared_ptr[CScanTask] task
 
         iterator = move(GetResultValue(move(self.scanner.Scan())))
 
@@ -547,16 +568,9 @@ cdef class Scanner:
                 yield ScanTask.wrap(task)
 
     def to_table(self):
-        cdef:
-            shared_ptr[CTable] table
-            CResult[shared_ptr[CTable]] result
+        cdef CResult[shared_ptr[CTable]] result
 
         with nogil:
             result = self.scanner.ToTable()
-        table = GetResultValue(result)
 
-        return pyarrow_wrap_table(table)
-
-
-# cdef class ScannerBuilder:
-#     pass
+        return pyarrow_wrap_table(GetResultValue(result))

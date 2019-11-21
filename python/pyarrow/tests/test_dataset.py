@@ -29,6 +29,7 @@ try:
         DataFragment,
         SimpleDataFragment,
         ScanOptions,
+        FileSource,
         ScanTask,
         Scanner,
         ScanOptions,
@@ -151,30 +152,35 @@ def test_dataset(simple_data_source, tree_data_source):
             assert isinstance(record_batch, pa.RecordBatch)
 
 
-# def test_scanner(simple_data_source):
-#     sources = [simple_data_source]
-#     options = ScanOptions()
-#     context = ScanContext()
-#     scanner = SimpleScanner(sources, options, context)
+def test_scanner(simple_data_source):
+    sources = [simple_data_source]
+    options = ScanOptions()
+    context = ScanContext()
 
-#     for task in scanner.scan():
-#         assert isinstance(task, ScanTask)
+    scanner = Scanner(sources, options, context)
+    for task in scanner.scan():
+        assert isinstance(task, ScanTask)
+        for record_batch in task.scan():  # call it execute?
+            assert isinstance(record_batch, pa.RecordBatch)
+
+    # table = scanner.to_table()
+    # assert isinstance(table, pa.Table)
 
 
 def test_projector():
     pass
 
 
-# def test_file_source(fs):
-#     source1 = FileSource('/path/to/file.ext', fs, compression=None)
-#     source2 = FileSource('/path/to/file.ext.gz', fs, compression='gzip')
+def test_file_source(fs):
+    source1 = FileSource('/path/to/file.ext', fs, compression=None)
+    source2 = FileSource('/path/to/file.ext.gz', fs, compression='gzip')
 
-#     assert source1.path == '/path/to/file.ext'
-#     assert source1.fs == fs
-#     assert source1.compression is None
-#     assert source2.path == '/path/to/file.ext.gz'
-#     assert source2.fs == fs
-#     assert source2.compression == 'gzip'
+    assert source1.path == '/path/to/file.ext'
+    assert source1.fs == fs
+    assert source1.compression == 0  # None
+    assert source2.path == '/path/to/file.ext.gz'
+    assert source2.fs == fs
+    assert source2.compression == 2  # 'gzip'
 
 
 def test_file_system_data_source():

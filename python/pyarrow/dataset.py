@@ -26,6 +26,7 @@ from pyarrow._dataset import (
     Dataset,
     DataSource,
     DataFragment,
+    FileSource,
     SimpleDataFragment,
     ScanOptions,
     ScanTask,

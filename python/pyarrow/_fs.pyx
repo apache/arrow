@@ -188,17 +188,22 @@ cdef class FileSystem:
     cdef wrap(shared_ptr[CFileSystem]& sp):
         cdef FileSystem self
 
-        typ = tobytes(sp.get().type())
-        print(FileSystem.__subclasses__)
-        for klass in FileSystem.__subclasses__:
-            if klass.type_id == typ:
-                self = klass.__new__(klass)
-                break
+        # TODO(kszucs): add S3
+        typ = frombytes(sp.get().type())
+        if typ == 'local':
+            self = LocalFileSystem.__new__(LocalFileSystem)
+        elif typ == 'mock':
+            self = _MockFileSystem.__new__(_MockFileSystem)
+        elif typ == 'subtree':
+            self = SubTreeFileSystem.__new__(SubTreeFileSystem)
         else:
             raise TypeError('Cannot wrap FileSystem pointer')
 
         self.init(sp)
         return self
+
+    cdef inline shared_ptr[CFileSystem] unwrap(self):
+        return self.wrapped
 
     def get_target_stats(self, paths_or_selector):
         """Get statistics for the given target.
