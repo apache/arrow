@@ -77,17 +77,18 @@ class HadoopFileSystem::Impl {
     return Status::OK();
   }
 
-  Status GetTargetStats(const std::string& path, FileStats* out) {
+  Result<FileStats> GetTargetStats(const std::string& path) {
+    FileStats st;
     io::HdfsPathInfo info;
     auto status = client_->GetPathInfo(path, &info);
-    out->set_path(path);
+    st.set_path(path);
     if (status.IsIOError()) {
-      out->set_type(FileType::NonExistent);
-      return Status::OK();
+      st.set_type(FileType::NonExistent);
+      return st;
     }
 
-    PathInfoToFileStats(info, out);
-    return Status::OK();
+    PathInfoToFileStats(info, &st);
+    return st;
   }
 
   Status StatSelector(const std::string& wd, const std::string& path,
@@ -97,8 +98,7 @@ class HadoopFileSystem::Impl {
     Status st = client_->ListDirectory(path, &children);
     if (!st.ok()) {
       if (select.allow_non_existent) {
-        FileStats stat;
-        RETURN_NOT_OK(GetTargetStats(path, &stat));
+        ARROW_ASSIGN_OR_RAISE(auto stat, GetTargetStats(path));
         if (stat.type() == FileType::NonExistent) {
           return Status::OK();
         }
@@ -126,8 +126,8 @@ class HadoopFileSystem::Impl {
     return Status::OK();
   }
 
-  Status GetTargetStats(const Selector& select, std::vector<FileStats>* out) {
-    out->clear();
+  Result<std::vector<FileStats>> GetTargetStats(const Selector& select) {
+    std::vector<FileStats> results;
 
     std::string wd;
     if (select.base_dir.empty() || select.base_dir.front() != '/') {
@@ -139,15 +139,14 @@ class HadoopFileSystem::Impl {
       wd = wd_uri.path();
     }
 
-    FileStats stat;
-    RETURN_NOT_OK(GetTargetStats(select.base_dir, &stat));
+    ARROW_ASSIGN_OR_RAISE(auto stat, GetTargetStats(select.base_dir));
     if (stat.type() == FileType::File) {
       return Status::Invalid(
           "GetTargetStates expects base_dir of selector to be a directory, while '",
           select.base_dir, "' is a file");
     }
-    RETURN_NOT_OK(StatSelector(wd, select.base_dir, select, 0, out));
-    return Status::OK();
+    RETURN_NOT_OK(StatSelector(wd, select.base_dir, select, 0, &results));
+    return results;
   }
 
   Status CreateDir(const std::string& path, bool recursive) {
@@ -200,31 +199,26 @@ class HadoopFileSystem::Impl {
     return Status::NotImplemented("HadoopFileSystem::CopyFile is not supported yet");
   }
 
-  Status OpenInputStream(const std::string& path, std::shared_ptr<io::InputStream>* out) {
+  Result<std::shared_ptr<io::InputStream>> OpenInputStream(const std::string& path) {
     std::shared_ptr<io::HdfsReadableFile> file;
     RETURN_NOT_OK(client_->OpenReadable(path, &file));
-    *out = file;
-    return Status::OK();
+    return file;
   }
 
-  Status OpenInputFile(const std::string& path,
-                       std::shared_ptr<io::RandomAccessFile>* out) {
+  Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(const std::string& path) {
     std::shared_ptr<io::HdfsReadableFile> file;
     RETURN_NOT_OK(client_->OpenReadable(path, &file));
-    *out = file;
-    return Status::OK();
+    return file;
   }
 
-  Status OpenOutputStream(const std::string& path,
-                          std::shared_ptr<io::OutputStream>* out) {
+  Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(const std::string& path) {
     bool append = false;
-    return OpenOutputStreamGeneric(path, append, out);
+    return OpenOutputStreamGeneric(path, append);
   }
 
-  Status OpenAppendStream(const std::string& path,
-                          std::shared_ptr<io::OutputStream>* out) {
+  Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(const std::string& path) {
     bool append = true;
-    return OpenOutputStreamGeneric(path, append, out);
+    return OpenOutputStreamGeneric(path, append);
   }
 
  protected:
@@ -242,14 +236,13 @@ class HadoopFileSystem::Impl {
     out->set_mtime(ToTimePoint(info.last_modified_time));
   }
 
-  Status OpenOutputStreamGeneric(const std::string& path, bool append,
-                                 std::shared_ptr<io::OutputStream>* out) {
+  Result<std::shared_ptr<io::OutputStream>> OpenOutputStreamGeneric(
+      const std::string& path, bool append) {
     std::shared_ptr<io::HdfsOutputStream> stream;
     RETURN_NOT_OK(client_->OpenWritable(path, append, options_.buffer_size,
                                         options_.replication, options_.default_block_size,
                                         &stream));
-    *out = stream;
-    return Status::OK();
+    return stream;
   }
 
   bool IsDirectory(const std::string& path) {
@@ -358,13 +351,12 @@ Result<std::shared_ptr<HadoopFileSystem>> HadoopFileSystem::Make(
   return ptr;
 }
 
-Status HadoopFileSystem::GetTargetStats(const std::string& path, FileStats* out) {
-  return impl_->GetTargetStats(path, out);
+Result<FileStats> HadoopFileSystem::GetTargetStats(const std::string& path) {
+  return impl_->GetTargetStats(path);
 }
 
-Status HadoopFileSystem::GetTargetStats(const Selector& select,
-                                        std::vector<FileStats>* out) {
-  return impl_->GetTargetStats(select, out);
+Result<std::vector<FileStats>> HadoopFileSystem::GetTargetStats(const Selector& select) {
+  return impl_->GetTargetStats(select);
 }
 
 Status HadoopFileSystem::CreateDir(const std::string& path, bool recursive) {
@@ -391,24 +383,24 @@ Status HadoopFileSystem::CopyFile(const std::string& src, const std::string& des
   return impl_->CopyFile(src, dest);
 }
 
-Status HadoopFileSystem::OpenInputStream(const std::string& path,
-                                         std::shared_ptr<io::InputStream>* out) {
-  return impl_->OpenInputStream(path, out);
+Result<std::shared_ptr<io::InputStream>> HadoopFileSystem::OpenInputStream(
+    const std::string& path) {
+  return impl_->OpenInputStream(path);
 }
 
-Status HadoopFileSystem::OpenInputFile(const std::string& path,
-                                       std::shared_ptr<io::RandomAccessFile>* out) {
-  return impl_->OpenInputFile(path, out);
+Result<std::shared_ptr<io::RandomAccessFile>> HadoopFileSystem::OpenInputFile(
+    const std::string& path) {
+  return impl_->OpenInputFile(path);
 }
 
-Status HadoopFileSystem::OpenOutputStream(const std::string& path,
-                                          std::shared_ptr<io::OutputStream>* out) {
-  return impl_->OpenOutputStream(path, out);
+Result<std::shared_ptr<io::OutputStream>> HadoopFileSystem::OpenOutputStream(
+    const std::string& path) {
+  return impl_->OpenOutputStream(path);
 }
 
-Status HadoopFileSystem::OpenAppendStream(const std::string& path,
-                                          std::shared_ptr<io::OutputStream>* out) {
-  return impl_->OpenAppendStream(path, out);
+Result<std::shared_ptr<io::OutputStream>> HadoopFileSystem::OpenAppendStream(
+    const std::string& path) {
+  return impl_->OpenAppendStream(path);
 }
 
 }  // namespace fs

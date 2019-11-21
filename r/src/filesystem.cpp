@@ -122,18 +122,16 @@ std::vector<std::shared_ptr<T>> shared_ptr_vector(const std::vector<T>& vec) {
 std::vector<std::shared_ptr<fs::FileStats>> fs___FileSystem__GetTargetStats_Paths(
     const std::shared_ptr<fs::FileSystem>& file_system,
     const std::vector<std::string>& paths) {
-  std::vector<fs::FileStats> out;
-  STOP_IF_NOT_OK(file_system->GetTargetStats(paths, &out));
-  return shared_ptr_vector(out);
+  auto results = VALUE_OR_STOP(file_system->GetTargetStats(paths));
+  return shared_ptr_vector(results);
 }
 
 // [[arrow::export]]
 std::vector<std::shared_ptr<fs::FileStats>> fs___FileSystem__GetTargetStats_Selector(
     const std::shared_ptr<fs::FileSystem>& file_system,
     const std::shared_ptr<fs::Selector>& selector) {
-  std::vector<fs::FileStats> out;
-  STOP_IF_NOT_OK(file_system->GetTargetStats(*selector, &out));
-  return shared_ptr_vector(out);
+  auto results = VALUE_OR_STOP(file_system->GetTargetStats(*selector));
+  return shared_ptr_vector(results);
 }
 
 // [[arrow::export]]
@@ -181,33 +179,25 @@ void fs___FileSystem__CopyFile(const std::shared_ptr<fs::FileSystem>& file_syste
 // [[arrow::export]]
 std::shared_ptr<arrow::io::InputStream> fs___FileSystem__OpenInputStream(
     const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path) {
-  std::shared_ptr<arrow::io::InputStream> stream;
-  STOP_IF_NOT_OK(file_system->OpenInputStream(path, &stream));
-  return stream;
+  return VALUE_OR_STOP(file_system->OpenInputStream(path));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::io::RandomAccessFile> fs___FileSystem__OpenInputFile(
     const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path) {
-  std::shared_ptr<arrow::io::RandomAccessFile> file;
-  STOP_IF_NOT_OK(file_system->OpenInputFile(path, &file));
-  return file;
+  return VALUE_OR_STOP(file_system->OpenInputFile(path));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::io::OutputStream> fs___FileSystem__OpenOutputStream(
     const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path) {
-  std::shared_ptr<arrow::io::OutputStream> stream;
-  STOP_IF_NOT_OK(file_system->OpenOutputStream(path, &stream));
-  return stream;
+  return VALUE_OR_STOP(file_system->OpenOutputStream(path));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::io::OutputStream> fs___FileSystem__OpenAppendStream(
     const std::shared_ptr<fs::FileSystem>& file_system, const std::string& path) {
-  std::shared_ptr<arrow::io::OutputStream> stream;
-  STOP_IF_NOT_OK(file_system->OpenAppendStream(path, &stream));
-  return stream;
+  return VALUE_OR_STOP(file_system->OpenAppendStream(path));
 }
 
 // [[arrow::export]]

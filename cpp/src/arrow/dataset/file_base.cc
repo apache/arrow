@@ -31,11 +31,8 @@ namespace dataset {
 
 Result<std::shared_ptr<arrow::io::RandomAccessFile>> FileSource::Open() const {
   switch (type_) {
-    case PATH: {
-      std::shared_ptr<arrow::io::RandomAccessFile> file;
-      RETURN_NOT_OK(filesystem_->OpenInputFile(path_, &file));
-      return file;
-    }
+    case PATH:
+      return filesystem_->OpenInputFile(path_);
     case BUFFER:
       return std::make_shared<::arrow::io::BufferReader>(buffer_);
   }

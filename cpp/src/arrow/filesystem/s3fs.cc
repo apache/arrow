@@ -714,18 +714,16 @@ class ObjectOutputStream : public io::OutputStream {
 };
 
 // This function assumes st->path() is already set
-Status FileObjectToStats(const S3Model::HeadObjectResult& obj, FileStats* st) {
+void FileObjectToStats(const S3Model::HeadObjectResult& obj, FileStats* st) {
   st->set_type(FileType::File);
   st->set_size(static_cast<int64_t>(obj.GetContentLength()));
   st->set_mtime(ToTimePoint(obj.GetLastModified()));
-  return Status::OK();
 }
 
-Status FileObjectToStats(const S3Model::Object& obj, FileStats* st) {
+void FileObjectToStats(const S3Model::Object& obj, FileStats* st) {
   st->set_type(FileType::File);
   st->set_size(static_cast<int64_t>(obj.GetSize()));
   st->set_mtime(ToTimePoint(obj.GetLastModified()));
-  return Status::OK();
 }
 
 }  // namespace
@@ -928,7 +926,7 @@ class S3FileSystem::Impl {
         std::stringstream child_path;
         child_path << bucket << kSep << child_key;
         st.set_path(child_path.str());
-        RETURN_NOT_OK(FileObjectToStats(obj, &st));
+        FileObjectToStats(obj, &st);
         out->push_back(std::move(st));
       }
       // Walk "directories"
@@ -1109,16 +1107,15 @@ S3FileSystem::S3FileSystem(const S3Options& options) : impl_(new Impl{options}) 
 
 S3FileSystem::~S3FileSystem() {}
 
-Status S3FileSystem::Make(const S3Options& options, std::shared_ptr<S3FileSystem>* out) {
+Result<std::shared_ptr<S3FileSystem>> S3FileSystem::Make(const S3Options& options) {
   RETURN_NOT_OK(CheckS3Initialized());
 
   std::shared_ptr<S3FileSystem> ptr(new S3FileSystem(options));
   RETURN_NOT_OK(ptr->impl_->Init());
-  *out = std::move(ptr);
-  return Status::OK();
+  return ptr;
 }
 
-Status S3FileSystem::GetTargetStats(const std::string& s, FileStats* out) {
+Result<FileStats> S3FileSystem::GetTargetStats(const std::string& s) {
   S3Path path;
   RETURN_NOT_OK(S3Path::FromString(s, &path));
   FileStats st;
@@ -1127,8 +1124,7 @@ Status S3FileSystem::GetTargetStats(const std::string& s, FileStats* out) {
   if (path.empty()) {
     // It's the root path ""
     st.set_type(FileType::Directory);
-    *out = st;
-    return Status::OK();
+    return st;
   } else if (path.key.empty()) {
     // It's a bucket
     S3Model::HeadBucketRequest req;
@@ -1143,14 +1139,12 @@ Status S3FileSystem::GetTargetStats(const std::string& s, FileStats* out) {
             outcome.GetError());
       }
       st.set_type(FileType::NonExistent);
-      *out = st;
-      return Status::OK();
+      return st;
     }
     // NOTE: S3 doesn't have a bucket modification time.  Only a creation
     // time is available, and you have to list all buckets to get it.
     st.set_type(FileType::Directory);
-    *out = st;
-    return Status::OK();
+    return st;
   } else {
     // It's an object
     S3Model::HeadObjectRequest req;
@@ -1160,8 +1154,8 @@ Status S3FileSystem::GetTargetStats(const std::string& s, FileStats* out) {
     auto outcome = impl_->client_->HeadObject(req);
     if (outcome.IsSuccess()) {
       // "File" object found
-      *out = st;
-      return FileObjectToStats(outcome.GetResult(), out);
+      FileObjectToStats(outcome.GetResult(), &st);
+      return st;
     }
     if (!IsNotFound(outcome.GetError())) {
       return ErrorToStatus(
@@ -1174,8 +1168,7 @@ Status S3FileSystem::GetTargetStats(const std::string& s, FileStats* out) {
     RETURN_NOT_OK(impl_->IsEmptyDirectory(path, &is_dir));
     if (is_dir) {
       st.set_type(FileType::Directory);
-      *out = st;
-      return Status::OK();
+      return st;
     }
     // Not found => perhaps it's a non-empty "directory"
     RETURN_NOT_OK(impl_->IsNonEmptyDirectory(path, &is_dir));
@@ -1184,15 +1177,15 @@ Status S3FileSystem::GetTargetStats(const std::string& s, FileStats* out) {
     } else {
       st.set_type(FileType::NonExistent);
     }
-    *out = st;
-    return Status::OK();
+    return st;
   }
 }
 
-Status S3FileSystem::GetTargetStats(const Selector& select, std::vector<FileStats>* out) {
+Result<std::vector<FileStats>> S3FileSystem::GetTargetStats(const Selector& select) {
   S3Path base_path;
   RETURN_NOT_OK(S3Path::FromString(select.base_dir, &base_path));
-  out->clear();
+
+  std::vector<FileStats> results;
 
   if (base_path.empty()) {
     // List all buckets
@@ -1202,16 +1195,17 @@ Status S3FileSystem::GetTargetStats(const Selector& select, std::vector<FileStat
       FileStats st;
       st.set_path(bucket);
       st.set_type(FileType::Directory);
-      out->push_back(std::move(st));
+      results.push_back(std::move(st));
       if (select.recursive) {
-        RETURN_NOT_OK(impl_->Walk(select, bucket, "", out));
+        RETURN_NOT_OK(impl_->Walk(select, bucket, "", &results));
       }
     }
-    return Status::OK();
+    return results;
   }
 
   // Nominal case -> walk a single bucket
-  return impl_->Walk(select, base_path.bucket, base_path.key, out);
+  RETURN_NOT_OK(impl_->Walk(select, base_path.bucket, base_path.key, &results));
+  return results;
 }
 
 Status S3FileSystem::CreateDir(const std::string& s, bool recursive) {
@@ -1351,32 +1345,30 @@ Status S3FileSystem::CopyFile(const std::string& src, const std::string& dest) {
   return impl_->CopyObject(src_path, dest_path);
 }
 
-Status S3FileSystem::OpenInputStream(const std::string& s,
-                                     std::shared_ptr<io::InputStream>* out) {
+Result<std::shared_ptr<io::InputStream>> S3FileSystem::OpenInputStream(
+    const std::string& s) {
   S3Path path;
   RETURN_NOT_OK(S3Path::FromString(s, &path));
   RETURN_NOT_OK(ValidateFilePath(path));
 
   auto ptr = std::make_shared<ObjectInputFile>(impl_->client_.get(), path);
   RETURN_NOT_OK(ptr->Init());
-  *out = std::move(ptr);
-  return Status::OK();
+  return ptr;
 }
 
-Status S3FileSystem::OpenInputFile(const std::string& s,
-                                   std::shared_ptr<io::RandomAccessFile>* out) {
+Result<std::shared_ptr<io::RandomAccessFile>> S3FileSystem::OpenInputFile(
+    const std::string& s) {
   S3Path path;
   RETURN_NOT_OK(S3Path::FromString(s, &path));
   RETURN_NOT_OK(ValidateFilePath(path));
 
   auto ptr = std::make_shared<ObjectInputFile>(impl_->client_.get(), path);
   RETURN_NOT_OK(ptr->Init());
-  *out = std::move(ptr);
-  return Status::OK();
+  return ptr;
 }
 
-Status S3FileSystem::OpenOutputStream(const std::string& s,
-                                      std::shared_ptr<io::OutputStream>* out) {
+Result<std::shared_ptr<io::OutputStream>> S3FileSystem::OpenOutputStream(
+    const std::string& s) {
   S3Path path;
   RETURN_NOT_OK(S3Path::FromString(s, &path));
   RETURN_NOT_OK(ValidateFilePath(path));
@@ -1384,12 +1376,11 @@ Status S3FileSystem::OpenOutputStream(const std::string& s,
   auto ptr =
       std::make_shared<ObjectOutputStream>(impl_->client_.get(), path, impl_->options_);
   RETURN_NOT_OK(ptr->Init());
-  *out = std::move(ptr);
-  return Status::OK();
+  return ptr;
 }
 
-Status S3FileSystem::OpenAppendStream(const std::string& path,
-                                      std::shared_ptr<io::OutputStream>* out) {
+Result<std::shared_ptr<io::OutputStream>> S3FileSystem::OpenAppendStream(
+    const std::string& path) {
   // XXX Investigate UploadPartCopy? Does it work with source == destination?
   // https://docs.aws.amazon.com/AmazonS3/latest/API/mpUploadUploadPartCopy.html
   // (but would need to fall back to GET if the current data is < 5 MB)

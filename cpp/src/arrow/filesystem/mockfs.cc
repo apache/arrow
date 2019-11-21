@@ -332,8 +332,8 @@ class MockFileSystem::Impl {
     }
   }
 
-  Status OpenOutputStream(const std::string& path, bool append,
-                          std::shared_ptr<io::OutputStream>* out) {
+  Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(const std::string& path,
+                                                             bool append) {
     auto parts = SplitAbstractPath(path);
     RETURN_NOT_OK(ValidateAbstractPathParts(parts));
 
@@ -355,12 +355,10 @@ class MockFileSystem::Impl {
     } else {
       return NotAFile(path);
     }
-    *out = std::make_shared<MockFSOutputStream>(&child->as_file());
-    return Status::OK();
+    return std::make_shared<MockFSOutputStream>(&child->as_file());
   }
 
-  Status OpenInputReader(const std::string& path,
-                         std::shared_ptr<io::BufferReader>* out) {
+  Result<std::shared_ptr<io::BufferReader>> OpenInputReader(const std::string& path) {
     auto parts = SplitAbstractPath(path);
     RETURN_NOT_OK(ValidateAbstractPathParts(parts));
 
@@ -373,8 +371,7 @@ class MockFileSystem::Impl {
     }
     std::shared_ptr<Buffer> buffer;
     RETURN_NOT_OK(Buffer::FromString(entry->as_file().data, &buffer));
-    *out = std::make_shared<io::BufferReader>(buffer);
-    return Status::OK();
+    return std::make_shared<io::BufferReader>(buffer);
   }
 };
 
@@ -474,35 +471,32 @@ Status MockFileSystem::DeleteFile(const std::string& path) {
   return Status::OK();
 }
 
-Status MockFileSystem::GetTargetStats(const std::string& path, FileStats* out) {
+Result<FileStats> MockFileSystem::GetTargetStats(const std::string& path) {
   auto parts = SplitAbstractPath(path);
   RETURN_NOT_OK(ValidateAbstractPathParts(parts));
 
+  FileStats st;
   Entry* entry = impl_->FindEntry(parts);
   if (entry == nullptr) {
-    FileStats st;
-    st.set_path(path);
     st.set_type(FileType::NonExistent);
-    *out = std::move(st);
-    return Status::OK();
+  } else {
+    st = entry->GetStats();
   }
-  *out = entry->GetStats();
-  out->set_path(path);
-  return Status::OK();
+  st.set_path(path);
+  return st;
 }
 
-Status MockFileSystem::GetTargetStats(const Selector& selector,
-                                      std::vector<FileStats>* out) {
+Result<std::vector<FileStats>> MockFileSystem::GetTargetStats(const Selector& selector) {
   auto parts = SplitAbstractPath(selector.base_dir);
   RETURN_NOT_OK(ValidateAbstractPathParts(parts));
 
-  out->clear();
+  std::vector<FileStats> results;
 
   Entry* base_dir = impl_->FindEntry(parts);
   if (base_dir == nullptr) {
     // Base directory does not exist
     if (selector.allow_non_existent) {
-      return Status::OK();
+      return results;
     } else {
       return PathNotFound(selector.base_dir);
     }
@@ -511,8 +505,8 @@ Status MockFileSystem::GetTargetStats(const Selector& selector,
     return NotADir(selector.base_dir);
   }
 
-  impl_->GatherStats(selector, selector.base_dir, base_dir->as_dir(), 0, out);
-  return Status::OK();
+  impl_->GatherStats(selector, selector.base_dir, base_dir->as_dir(), 0, &results);
+  return results;
 }
 
 // Helper for binary operations (move, copy)
@@ -618,30 +612,24 @@ Status MockFileSystem::CopyFile(const std::string& src, const std::string& dest)
   });
 }
 
-Status MockFileSystem::OpenInputStream(const std::string& path,
-                                       std::shared_ptr<io::InputStream>* out) {
-  std::shared_ptr<io::BufferReader> reader;
-  RETURN_NOT_OK(impl_->OpenInputReader(path, &reader));
-  *out = std::move(reader);
-  return Status::OK();
+Result<std::shared_ptr<io::InputStream>> MockFileSystem::OpenInputStream(
+    const std::string& path) {
+  return impl_->OpenInputReader(path);
 }
 
-Status MockFileSystem::OpenInputFile(const std::string& path,
-                                     std::shared_ptr<io::RandomAccessFile>* out) {
-  std::shared_ptr<io::BufferReader> reader;
-  RETURN_NOT_OK(impl_->OpenInputReader(path, &reader));
-  *out = std::move(reader);
-  return Status::OK();
+Result<std::shared_ptr<io::RandomAccessFile>> MockFileSystem::OpenInputFile(
+    const std::string& path) {
+  return impl_->OpenInputReader(path);
 }
 
-Status MockFileSystem::OpenOutputStream(const std::string& path,
-                                        std::shared_ptr<io::OutputStream>* out) {
-  return impl_->OpenOutputStream(path, false /* append */, out);
+Result<std::shared_ptr<io::OutputStream>> MockFileSystem::OpenOutputStream(
+    const std::string& path) {
+  return impl_->OpenOutputStream(path, false /* append */);
 }
 
-Status MockFileSystem::OpenAppendStream(const std::string& path,
-                                        std::shared_ptr<io::OutputStream>* out) {
-  return impl_->OpenOutputStream(path, true /* append */, out);
+Result<std::shared_ptr<io::OutputStream>> MockFileSystem::OpenAppendStream(
+    const std::string& path) {
+  return impl_->OpenOutputStream(path, true /* append */);
 }
 
 std::vector<DirInfo> MockFileSystem::AllDirs() {
@@ -663,8 +651,7 @@ Status MockFileSystem::CreateFile(const std::string& path, const std::string& co
     RETURN_NOT_OK(CreateDir(parent, recursive));
   }
 
-  std::shared_ptr<io::OutputStream> file;
-  RETURN_NOT_OK(OpenOutputStream(path, &file));
+  ARROW_ASSIGN_OR_RAISE(auto file, OpenOutputStream(path));
   RETURN_NOT_OK(file->Write(contents));
   return file->Close();
 }

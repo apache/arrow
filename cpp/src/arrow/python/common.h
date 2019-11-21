@@ -64,12 +64,12 @@ inline Status CheckPyError(StatusCode code = StatusCode::UnknownError) {
 // This function can set a Python exception.  It assumes that T has a (cheap)
 // default constructor.
 template <class T>
-T GetResultValue(Result<T>& result) {
+T GetResultValue(Result<T> result) {
   if (ARROW_PREDICT_TRUE(result.ok())) {
     return *std::move(result);
   } else {
-    int r = internal::check_status(result.status());
-    assert(r == -1);  // should have errored out
+    int r = internal::check_status(result.status());  // takes the GIL
+    assert(r == -1);                                  // should have errored out
     ARROW_UNUSED(r);
     return {};
   }

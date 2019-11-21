@@ -75,11 +75,11 @@ TEST(TestPathTree, HourlyETL) {
   // This test mimics a scenario where an ETL dumps hourly files in a structure
   // `$year/$month/$day/$hour/*.parquet`.
 
-  constexpr int64_t kYears = 8;
+  constexpr int64_t kYears = 3;
   constexpr int64_t kMonthsPerYear = 12;
   constexpr int64_t kDaysPerMonth = 31;
   constexpr int64_t kHoursPerDay = 24;
-  constexpr int64_t kFilesPerHour = 4;
+  constexpr int64_t kFilesPerHour = 2;
 
   // Avoid constructing strings
   std::vector<std::string> numbers{kDaysPerMonth + 1};

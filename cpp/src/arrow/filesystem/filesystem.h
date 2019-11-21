@@ -24,6 +24,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -158,16 +159,16 @@ class ARROW_EXPORT FileSystem {
   /// A non-existing or unreachable file returns an Ok status and
   /// has a FileType of value NonExistent.  An error status indicates
   /// a truly exceptional condition (low-level I/O error, etc.).
-  virtual Status GetTargetStats(const std::string& path, FileStats* out) = 0;
+  virtual Result<FileStats> GetTargetStats(const std::string& path) = 0;
   /// Same, for many targets at once.
-  virtual Status GetTargetStats(const std::vector<std::string>& paths,
-                                std::vector<FileStats>* out);
+  virtual Result<std::vector<FileStats>> GetTargetStats(
+      const std::vector<std::string>& paths);
   /// Same, according to a selector.
   ///
   /// The selector's base directory will not be part of the results, even if
   /// it exists.
   /// If it doesn't exist, see `Selector::allow_non_existent`.
-  virtual Status GetTargetStats(const Selector& select, std::vector<FileStats>* out) = 0;
+  virtual Result<std::vector<FileStats>> GetTargetStats(const Selector& select) = 0;
 
   /// Create a directory and subdirectories.
   ///
@@ -205,24 +206,24 @@ class ARROW_EXPORT FileSystem {
   virtual Status CopyFile(const std::string& src, const std::string& dest) = 0;
 
   /// Open an input stream for sequential reading.
-  virtual Status OpenInputStream(const std::string& path,
-                                 std::shared_ptr<io::InputStream>* out) = 0;
+  virtual Result<std::shared_ptr<io::InputStream>> OpenInputStream(
+      const std::string& path) = 0;
 
   /// Open an input file for random access reading.
-  virtual Status OpenInputFile(const std::string& path,
-                               std::shared_ptr<io::RandomAccessFile>* out) = 0;
+  virtual Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
+      const std::string& path) = 0;
 
   /// Open an output stream for sequential writing.
   ///
   /// If the target already exists, existing data is truncated.
-  virtual Status OpenOutputStream(const std::string& path,
-                                  std::shared_ptr<io::OutputStream>* out) = 0;
+  virtual Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
+      const std::string& path) = 0;
 
   /// Open an output stream for appending.
   ///
   /// If the target doesn't exist, a new empty file is created.
-  virtual Status OpenAppendStream(const std::string& path,
-                                  std::shared_ptr<io::OutputStream>* out) = 0;
+  virtual Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
+      const std::string& path) = 0;
 };
 
 /// \brief EXPERIMENTAL: a FileSystem implementation that delegates to another
@@ -241,8 +242,8 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
   /// \cond FALSE
   using FileSystem::GetTargetStats;
   /// \endcond
-  Status GetTargetStats(const std::string& path, FileStats* out) override;
-  Status GetTargetStats(const Selector& select, std::vector<FileStats>* out) override;
+  Result<FileStats> GetTargetStats(const std::string& path) override;
+  Result<std::vector<FileStats>> GetTargetStats(const Selector& select) override;
 
   Status CreateDir(const std::string& path, bool recursive = true) override;
 
@@ -255,17 +256,14 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
 
   Status CopyFile(const std::string& src, const std::string& dest) override;
 
-  Status OpenInputStream(const std::string& path,
-                         std::shared_ptr<io::InputStream>* out) override;
-
-  Status OpenInputFile(const std::string& path,
-                       std::shared_ptr<io::RandomAccessFile>* out) override;
-
-  Status OpenOutputStream(const std::string& path,
-                          std::shared_ptr<io::OutputStream>* out) override;
-
-  Status OpenAppendStream(const std::string& path,
-                          std::shared_ptr<io::OutputStream>* out) override;
+  Result<std::shared_ptr<io::InputStream>> OpenInputStream(
+      const std::string& path) override;
+  Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
+      const std::string& path) override;
+  Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
+      const std::string& path) override;
+  Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
+      const std::string& path) override;
 
  protected:
   const std::string base_path_;
@@ -288,8 +286,8 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
                  int32_t seed);
 
   using FileSystem::GetTargetStats;
-  Status GetTargetStats(const std::string& path, FileStats* out) override;
-  Status GetTargetStats(const Selector& select, std::vector<FileStats>* out) override;
+  Result<FileStats> GetTargetStats(const std::string& path) override;
+  Result<std::vector<FileStats>> GetTargetStats(const Selector& select) override;
 
   Status CreateDir(const std::string& path, bool recursive = true) override;
 
@@ -302,17 +300,14 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
 
   Status CopyFile(const std::string& src, const std::string& dest) override;
 
-  Status OpenInputStream(const std::string& path,
-                         std::shared_ptr<io::InputStream>* out) override;
-
-  Status OpenInputFile(const std::string& path,
-                       std::shared_ptr<io::RandomAccessFile>* out) override;
-
-  Status OpenOutputStream(const std::string& path,
-                          std::shared_ptr<io::OutputStream>* out) override;
-
-  Status OpenAppendStream(const std::string& path,
-                          std::shared_ptr<io::OutputStream>* out) override;
+  Result<std::shared_ptr<io::InputStream>> OpenInputStream(
+      const std::string& path) override;
+  Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
+      const std::string& path) override;
+  Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
+      const std::string& path) override;
+  Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
+      const std::string& path) override;
 
  protected:
   std::shared_ptr<FileSystem> base_fs_;

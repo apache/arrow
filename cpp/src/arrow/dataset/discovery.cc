@@ -87,8 +87,7 @@ Result<DataSourceDiscoveryPtr> FileSystemDataSourceDiscovery::Make(
 Result<DataSourceDiscoveryPtr> FileSystemDataSourceDiscovery::Make(
     fs::FileSystemPtr filesystem, fs::Selector selector, FileFormatPtr format,
     FileSystemDiscoveryOptions options) {
-  std::vector<fs::FileStats> files;
-  RETURN_NOT_OK(filesystem->GetTargetStats(selector, &files));
+  ARROW_ASSIGN_OR_RAISE(auto files, filesystem->GetTargetStats(selector));
 
   // By automatically setting the options base_dir to the selector's base_dir,
   // we provide a better experience for user providing PartitionScheme that are

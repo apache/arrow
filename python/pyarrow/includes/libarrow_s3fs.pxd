@@ -53,7 +53,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
     cdef cppclass CS3FileSystem "arrow::fs::S3FileSystem"(CFileSystem):
         @staticmethod
-        CStatus Make(const CS3Options& options, shared_ptr[CS3FileSystem]* out)
+        CResult[shared_ptr[CS3FileSystem]] Make(const CS3Options& options)
 
     cdef CStatus CInitializeS3 "arrow::fs::InitializeS3"(
         const CS3GlobalOptions& options)
