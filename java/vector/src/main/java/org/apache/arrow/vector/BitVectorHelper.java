@@ -328,7 +328,8 @@ public class BitVectorHelper {
    * @param numBits1 the number of bits in the first validity buffer.
    * @param input2 the second validity buffer.
    * @param numBits2 the number of bits in the second validity buffer.
-   * @param output the ouput validity buffer. It can be the same one as the first input.
+   * @param output the output validity buffer. It can be the same one as the first input.
+   *     The caller must make sure the output buffer has enough capacity.
    */
   public static void concatBits(ArrowBuf input1, int numBits1, ArrowBuf input2, int numBits2, ArrowBuf output) {
     int numBytes1 = DataSizeRoundingUtil.divideBy8Ceil(numBits1);
@@ -372,28 +373,31 @@ public class BitVectorHelper {
       prevByte = curByte >>> numBitsToFill;
     }
 
-    // clear high bits for the previous byte, as it may be the last byte
     int lastOutputByte = prevByte;
 
     // the number of extra bits for the second input, relative to full bytes
-    int numRemainingBits = bitIndex(numBits2);
+    int numTrailingBits = bitIndex(numBits2);
+
+    if (numTrailingBits == 0) {
+      output.setByte(numBytes1 + numFullBytes - 1, lastOutputByte);
+      return;
+    }
 
     // process remaining bits from input2
-    if (numRemainingBits > 0) {
-      int remByte = input2.getByte(numBytes2 - 1) & 0xff;
+    int remByte = input2.getByte(numBytes2 - 1) & 0xff;
 
-      int byteToFill = remByte << (8 - numBitsToFill);
-      lastOutputByte |= byteToFill;
+    int byteToFill = remByte << (8 - numBitsToFill);
+    lastOutputByte |= byteToFill;
 
-      if (numRemainingBits > numBitsToFill) {
-        // clear all bits for the last byte before writing
-        output.setByte(numBytes1 + numFullBytes, 0);
-
-        // some remaining bits cannot be filled in the previous byte
-        int leftByte = remByte >>> numBitsToFill;
-        output.setByte(numBytes1 + numFullBytes, leftByte);
-      }
-    }
     output.setByte(numBytes1 + numFullBytes - 1, lastOutputByte);
+
+    if (numTrailingBits > numBitsToFill) {
+      // clear all bits for the last byte before writing
+      output.setByte(numBytes1 + numFullBytes, 0);
+
+      // some remaining bits cannot be filled in the previous byte
+      int leftByte = remByte >>> numBitsToFill;
+      output.setByte(numBytes1 + numFullBytes, leftByte);
+    }
   }
 }
