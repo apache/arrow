@@ -216,7 +216,8 @@ cdef class LargeListValue(ArrayValue):
 
 cdef class MapValue(ArrayValue):
     cdef readonly:
-        DataType value_type
+        DataType key_type
+        DataType item_type
 
     cdef:
         CMapArray* ap

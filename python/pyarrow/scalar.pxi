@@ -759,25 +759,29 @@ cdef class MapValue(ArrayValue):
     cdef void _set_array(self, const shared_ptr[CArray]& sp_array):
         self.sp_array = sp_array
         self.ap = <CMapArray*> sp_array.get()
-        self.value_type = pyarrow_wrap_data_type(self.ap.value_type())
+        self.key_type = pyarrow_wrap_data_type(self.ap.map_type().key_type())
+        self.item_type = pyarrow_wrap_data_type(self.ap.map_type().item_type())
 
     cdef getitem(self, int64_t i):
         cdef int64_t j = self.ap.value_offset(self.index) + i
-        return box_scalar(self.value_type, self.ap.values(), j)
+        return (box_scalar(self.key_type, self.ap.keys(), j),
+                box_scalar(self.item_type, self.ap.items(), j))
 
     cdef int64_t length(self):
         return self.ap.value_length(self.index)
 
     def as_py(self):
         """
-        Return this value as a Python list of dicts with pairs.
+        Return this value as a Python list of tuples, each containing a
+        key and item.
         """
         cdef:
             int64_t j
             list result = []
 
         for j in range(len(self)):
-            result.append(self.getitem(j).as_py())
+            key, item = self.getitem(j)
+            result.append((key.as_py(), item.as_py()))
 
         return result
 

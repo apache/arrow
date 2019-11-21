@@ -1384,17 +1384,19 @@ def test_timezone_string(tz, name):
 
 
 def test_map_from_dicts():
-    expected = [[{'key': b'a', 'value': 1}, {'key': b'b', 'value': 2}],
-                [{'key': b'c', 'value': 3}],
-                [{'key': b'd', 'value': 4}, {'key': b'e', 'value': 5},
-                 {'key': b'f', 'value': 6}],
-                [{'key': b'g', 'value': 7}]]
+    data = [[{'key': b'a', 'value': 1}, {'key': b'b', 'value': 2}],
+            [{'key': b'c', 'value': 3}],
+            [{'key': b'd', 'value': 4}, {'key': b'e', 'value': 5},
+             {'key': b'f', 'value': 6}],
+            [{'key': b'g', 'value': 7}]]
+    expected = [[(d['key'], d['value']) for d in entry] for entry in data]
 
     arr = pa.array(expected, type=pa.map_(pa.binary(), pa.int32()))
 
     assert arr.to_pylist() == expected
 
     # With omitted values
+    data[1] = None
     expected[1] = None
 
     arr = pa.array(expected, type=pa.map_(pa.binary(), pa.int32()))
@@ -1413,21 +1415,19 @@ def test_map_from_dicts():
 
 
 def test_map_from_tuples():
-    data = [[(b'a', 1), (b'b', 2)],
-            [(b'c', 3)],
-            [(b'd', 4), (b'e', 5), (b'f', 6)],
-            [(b'g', 7)]]
-    expected = [[{'key': k, 'value': i} for k, i in entry] for entry in data]
+    expected = [[(b'a', 1), (b'b', 2)],
+                [(b'c', 3)],
+                [(b'd', 4), (b'e', 5), (b'f', 6)],
+                [(b'g', 7)]]
 
-    arr = pa.array(data, type=pa.map_(pa.binary(), pa.int32()))
+    arr = pa.array(expected, type=pa.map_(pa.binary(), pa.int32()))
 
     assert arr.to_pylist() == expected
 
     # With omitted values
-    data[1] = None
     expected[1] = None
 
-    arr = pa.array(data, type=pa.map_(pa.binary(), pa.int32()))
+    arr = pa.array(expected, type=pa.map_(pa.binary(), pa.int32()))
 
     assert arr.to_pylist() == expected
 

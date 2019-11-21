@@ -639,7 +639,7 @@ cdef class Array(_PandasConvertible):
 
         Parameters
         ----------
-        sequence : ndarray, Indexed Series
+        sequence : ndarray, pandas.Series, array-like
         mask : array (boolean), optional
             Indicate which values are null (True) or not null (False)
         type : pyarrow.DataType
@@ -1327,9 +1327,9 @@ cdef class MapArray(Array):
 
         Parameters
         ----------
-        offsets : Array (int32 type)
-        keys : Array (any type)
-        items : Array (any type)
+        offsets : array-like or sequence (int32 type)
+        keys : array-like or sequence (any type)
+        items : array-like or sequence (any type)
 
         Returns
         -------
@@ -1354,13 +1354,11 @@ cdef class MapArray(Array):
 
     @property
     def keys(self):
-        cdef CMapArray* arr = <CMapArray*> self.ap
-        return pyarrow_wrap_array(arr.keys())
+        return pyarrow_wrap_array((<CMapArray*> self.ap).keys())
 
     @property
     def items(self):
-        cdef CMapArray* arr = <CMapArray*> self.ap
-        return pyarrow_wrap_array(arr.items())
+        return pyarrow_wrap_array((<CMapArray*> self.ap).items())
 
 
 cdef class UnionArray(Array):

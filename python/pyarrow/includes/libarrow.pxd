@@ -475,6 +475,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         shared_ptr[CArray] keys()
         shared_ptr[CArray] items()
+        CMapType* map_type()
         int64_t value_offset(int i)
         int64_t value_length(int i)
         shared_ptr[CArray] values()

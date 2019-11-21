@@ -431,6 +431,7 @@ void MapArray::SetData(const std::shared_ptr<ArrayData>& data) {
   ARROW_CHECK_EQ(pair_data->child_data.size(), 2);
   ARROW_CHECK_EQ(pair_data->child_data[0]->null_count, 0);
 
+  map_type_ = checked_cast<const MapType*>(data->type.get());
   keys_ = MakeArray(pair_data->child_data[0]);
   items_ = MakeArray(pair_data->child_data[1]);
 }
