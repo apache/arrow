@@ -393,7 +393,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    */
   @Override
   public void allocateNew(int totalBytes, int valueCount) {
-    Preconditions.checkArgument(totalBytes >= 0);
+    assert totalBytes >= 0;
 
     checkDataBufferSize(totalBytes);
     computeAndCheckOffsetsBufferSize(valueCount);
@@ -864,7 +864,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @param valueCount   value count
    */
   public void setValueCount(int valueCount) {
-    Preconditions.checkArgument(valueCount >= 0);
+    assert valueCount >= 0;
     this.valueCount = valueCount;
     while (valueCount > getValueCapacity()) {
       reallocValidityAndOffsetBuffers();
@@ -938,7 +938,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @param length  length of the element
    */
   public void setValueLengthSafe(int index, int length) {
-    Preconditions.checkArgument(index >= 0);
+    assert index >= 0;
     handleSafe(index, length);
     fillHoles(index);
     final int startOffset = getStartOffset(index);
@@ -953,7 +953,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @return greater than 0 length for non-null element, 0 otherwise
    */
   public int getValueLength(int index) {
-    Preconditions.checkArgument(index >= 0);
+    assert index >= 0;
     if (isSet(index) == 0) {
       return 0;
     }
