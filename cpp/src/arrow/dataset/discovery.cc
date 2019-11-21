@@ -34,6 +34,9 @@
 namespace arrow {
 namespace dataset {
 
+DataSourceDiscovery::DataSourceDiscovery()
+    : partition_scheme_(PartitionScheme::Default()) {}
+
 FileSystemDataSourceDiscovery::FileSystemDataSourceDiscovery(
     fs::FileSystemPtr filesystem, fs::FileStatsVector files, FileFormatPtr format,
     FileSystemDiscoveryOptions options)
@@ -126,15 +129,7 @@ Result<std::shared_ptr<Schema>> FileSystemDataSourceDiscovery::Inspect() {
 }
 
 Result<DataSourcePtr> FileSystemDataSourceDiscovery::Finish() {
-  PathPartitions partitions;
-
-  if (partition_scheme_ != nullptr) {
-    ARROW_ASSIGN_OR_RAISE(
-        partitions,
-        ApplyPartitionScheme(*partition_scheme_, options_.partition_base_dir, files_));
-  }
-
-  return FileSystemDataSource::Make(fs_, files_, root_partition(), std::move(partitions),
+  return FileSystemDataSource::Make(fs_, files_, root_partition(), partition_scheme_,
                                     format_);
 }
 

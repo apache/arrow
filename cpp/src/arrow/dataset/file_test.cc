@@ -124,19 +124,23 @@ TEST_F(TestFileSystemBasedDataSource, TreePartitionPruning) {
       fs::Dir("NY"), fs::File("NY/New York"),      fs::File("NY/Franklin"),
       fs::Dir("CA"), fs::File("CA/San Francisco"), fs::File("CA/Franklin"),
   };
-  // Explicitly _don't_ set the state partition in the leaves to test if
-  // sub-tree pruning works. This implies that `state` predicate won't apply to
-  // files.
-  PathPartitions partitions = {
-      {"CA", ("state"_ == "CA").Copy()},
-      {"CA/San Francisco", ("city"_ == "San Francisco").Copy()},
-      {"CA/Franklin", ("city"_ == "Franklin").Copy()},
-      {"NY", ("state"_ == "NY").Copy()},
-      {"NY/New York", ("city"_ == "New York").Copy()},
-      {"NY/Franklin", ("city"_ == "Franklin").Copy()},
+
+  std::vector<std::unordered_map<std::string, ExpressionPtr>> dictionaries(2);
+  auto add_expr = [&](std::string name, std::string value) {
+    auto dict = dictionaries.data() + (name == "city");
+    dict->emplace(value, equal(field_ref(name), scalar(value)));
   };
 
-  MakeSource(regions, source_partition, partitions);
+  add_expr("state", "CA");
+  add_expr("state", "NY");
+
+  add_expr("city", "San Francisco");
+  add_expr("city", "New York");
+  add_expr("city", "Franklin");
+
+  auto partition_scheme =
+      std::make_shared<SegmentDictionaryPartitionScheme>(dictionaries);
+  MakeSource(regions, source_partition, partition_scheme);
 
   std::vector<std::string> all_cities = {"CA/San Francisco", "CA/Franklin", "NY/New York",
                                          "NY/Franklin"};

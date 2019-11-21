@@ -73,6 +73,9 @@ class ARROW_DS_EXPORT PartitionScheme {
 
   /// \brief Parse a path into a partition expression
   Result<ExpressionPtr> Parse(const std::string& path) const;
+
+  /// \brief A default PartitionScheme which always yields scalar(true)
+  static PartitionSchemePtr Default();
 };
 
 /// \brief Subclass for looking up partition information from a dictionary
@@ -173,16 +176,6 @@ class ARROW_DS_EXPORT FunctionPartitionScheme : public PartitionScheme {
   std::function<Result<ExpressionPtr>(const std::string&, int)> impl_;
   std::string name_;
 };
-
-/// \brief Mapping from path to partition expressions.
-using PathPartitions = std::unordered_map<std::string, ExpressionPtr>;
-
-Result<PathPartitions> ApplyPartitionScheme(const PartitionScheme& scheme,
-                                            std::vector<fs::FileStats> files);
-
-Result<PathPartitions> ApplyPartitionScheme(const PartitionScheme& scheme,
-                                            const std::string& base_dir,
-                                            std::vector<fs::FileStats> files);
 
 // TODO(bkietz) use RE2 and named groups to provide RegexpPartitionScheme
 

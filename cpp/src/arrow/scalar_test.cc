@@ -125,6 +125,9 @@ TEST(TestStringScalar, MakeScalar) {
   auto three = MakeScalar("three");
   ASSERT_TRUE(StringScalar("three").Equals(three));
 
+  three = MakeScalar(std::string("three"));
+  ASSERT_TRUE(StringScalar("three").Equals(three));
+
   ASSERT_OK(MakeScalar(utf8(), Buffer::FromString("three"), &three));
   ASSERT_TRUE(StringScalar("three").Equals(three));
 

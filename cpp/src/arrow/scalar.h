@@ -412,8 +412,7 @@ std::shared_ptr<Scalar> MakeScalar(Value value) {
   return std::make_shared<ScalarType>(std::move(value), Traits::type_singleton(), true);
 }
 
-template <size_t N>
-std::shared_ptr<Scalar> MakeScalar(const char (&value)[N]) {
+inline std::shared_ptr<Scalar> MakeScalar(std::string value) {
   return std::make_shared<StringScalar>(value);
 }
 

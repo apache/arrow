@@ -65,9 +65,13 @@ class ARROW_EXPORT PathTree : public util::EqualityComparable<PathTree> {
   enum { Continue, Prune };
   using MaybePrune = Result<decltype(Prune)>;
 
+  /// Visitors may return MaybePrune to enable eager pruning. Visitors will be called with
+  /// the FileStats of the currently visited node and the index of that node in depth
+  /// first visitation order of the forest in which it was constructed (for accessing
+  /// parallel vectors of associated data).
   template <typename Visitor>
   Status Visit(Visitor&& v) const {
-    static std::is_same<decltype(v(stats())), MaybePrune> with_pruning;
+    static std::is_same<decltype(v(stats(), offset_)), MaybePrune> with_pruning;
     return VisitImpl(std::forward<Visitor>(v), with_pruning);
   }
 
@@ -88,13 +92,13 @@ class ARROW_EXPORT PathTree : public util::EqualityComparable<PathTree> {
   template <typename Visitor>
   Status VisitImpl(Visitor&& v, std::true_type) const {
     auto action = Prune;
-    ARROW_ASSIGN_OR_RAISE(action, v(stats()));
+    ARROW_ASSIGN_OR_RAISE(action, v(stats(), offset_));
     if (action == Prune) {
       return Status::OK();
     }
 
     for (int i = descendants_begin(); i < descendants_end(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(action, v(stats_->at(i)));
+      ARROW_ASSIGN_OR_RAISE(action, v(stats_->at(i), i));
       if (action == Prune) {
         // skip descendants
         i += descendant_counts_->at(i);
@@ -105,8 +109,8 @@ class ARROW_EXPORT PathTree : public util::EqualityComparable<PathTree> {
 
   template <typename Visitor>
   Status VisitImpl(Visitor&& v, std::false_type) const {
-    return Visit([&](const FileStats& s) -> MaybePrune {
-      RETURN_NOT_OK(v(s));
+    return Visit([&](const FileStats& s, int offset) -> MaybePrune {
+      RETURN_NOT_OK(v(s, offset));
       return Continue;
     });
   }

@@ -31,18 +31,6 @@
 namespace arrow {
 namespace dataset {
 
-Result<ExpressionPtr> PartitionKeysScheme::ConvertKey(const Key& key,
-                                                      const Schema& schema) {
-  auto field = schema.GetFieldByName(key.name);
-  if (field == nullptr) {
-    return scalar(true);
-  }
-
-  std::shared_ptr<Scalar> converted;
-  RETURN_NOT_OK(Scalar::Parse(field->type(), key.value, &converted));
-  return equal(field_ref(field->name()), scalar(converted));
-}
-
 Result<ExpressionPtr> PartitionScheme::Parse(const std::string& path) const {
   ExpressionVector expressions;
   int i = 0;
@@ -59,6 +47,19 @@ Result<ExpressionPtr> PartitionScheme::Parse(const std::string& path) const {
   return and_(std::move(expressions));
 }
 
+class DefaultPartitionScheme : public PartitionScheme {
+ public:
+  std::string name() const override { return "default_partition_scheme"; }
+
+  Result<ExpressionPtr> Parse(const std::string& segment, int i) const override {
+    return scalar(true);
+  }
+};
+
+PartitionSchemePtr PartitionScheme::Default() {
+  return std::make_shared<DefaultPartitionScheme>();
+}
+
 Result<ExpressionPtr> SegmentDictionaryPartitionScheme::Parse(const std::string& segment,
                                                               int i) const {
   if (static_cast<size_t>(i) < dictionaries_.size()) {
@@ -69,6 +70,18 @@ Result<ExpressionPtr> SegmentDictionaryPartitionScheme::Parse(const std::string&
   }
 
   return scalar(true);
+}
+
+Result<ExpressionPtr> PartitionKeysScheme::ConvertKey(const Key& key,
+                                                      const Schema& schema) {
+  auto field = schema.GetFieldByName(key.name);
+  if (field == nullptr) {
+    return scalar(true);
+  }
+
+  std::shared_ptr<Scalar> converted;
+  RETURN_NOT_OK(Scalar::Parse(field->type(), key.value, &converted));
+  return equal(field_ref(field->name()), scalar(converted));
 }
 
 Result<ExpressionPtr> PartitionKeysScheme::Parse(const std::string& segment,
@@ -99,28 +112,6 @@ util::optional<PartitionKeysScheme::Key> HivePartitionScheme::ParseKey(
   }
 
   return Key{matches[1].str(), matches[2].str()};
-}
-
-Result<PathPartitions> ApplyPartitionScheme(const PartitionScheme& scheme,
-                                            std::vector<fs::FileStats> files,
-                                            PathPartitions* out) {
-  return ApplyPartitionScheme(scheme, "", std::move(files));
-}
-
-Result<PathPartitions> ApplyPartitionScheme(const PartitionScheme& scheme,
-                                            const std::string& base_dir,
-                                            std::vector<fs::FileStats> files) {
-  PathPartitions partitions;
-
-  for (const auto& file : files) {
-    if (file.path().substr(0, base_dir.size()) != base_dir) continue;
-    auto path = file.path().substr(base_dir.size());
-
-    ARROW_ASSIGN_OR_RAISE(auto partition, scheme.Parse(path));
-    partitions.emplace(std::move(path), std::move(partition));
-  }
-
-  return partitions;
 }
 
 }  // namespace dataset

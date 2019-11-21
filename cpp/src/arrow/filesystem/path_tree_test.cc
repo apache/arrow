@@ -179,13 +179,13 @@ TEST(TestPathTree, Visit) {
   auto tree = PT({Dir("A"), File("A/a")});
 
   // Should propagate failure
-  auto visit_noop = [](const FileStats&) { return Status::OK(); };
+  auto visit_noop = [](const FileStats&, ...) { return Status::OK(); };
   ASSERT_OK(tree.Visit(visit_noop));
-  auto visit_fail = [](const FileStats&) { return Status::Invalid(""); };
+  auto visit_fail = [](const FileStats&, ...) { return Status::Invalid(""); };
   ASSERT_RAISES(Invalid, tree.Visit(visit_fail));
 
   std::vector<FileStats> collection;
-  auto visit_collect = [&collection](const FileStats& f) {
+  auto visit_collect = [&collection](const FileStats& f, ...) {
     collection.push_back(f);
     return Status::OK();
   };
@@ -196,8 +196,8 @@ TEST(TestPathTree, Visit) {
 
   // Matcher should be evaluated on all nodes
   collection = {};
-  auto visit_collect_directories =
-      [&collection](const FileStats& f) -> PathTree::MaybePrune {
+  auto visit_collect_directories = [&collection](const FileStats& f,
+                                                 ...) -> PathTree::MaybePrune {
     if (!f.IsDirectory()) {
       return PathTree::Prune;
     }

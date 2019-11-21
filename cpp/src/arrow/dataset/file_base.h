@@ -167,16 +167,30 @@ class ARROW_DS_EXPORT FileDataFragment : public DataFragment {
   FileFormatPtr format_;
 };
 
-/// \brief A DataSource of FileBasedDataFragments.
+/// \brief A DataSource of FileDataFragments.
 class ARROW_DS_EXPORT FileSystemDataSource : public DataSource {
  public:
-  /// \brief Create a FileSystemBasedDataSource with optional partitions.
+  /// \brief Create a FileSystemDataSource.
   ///
   /// \param[in] filesystem the filesystem which files are from.
   /// \param[in] stats a list of files/directories to consume.
   /// \param[in] source_partition the top-level partition of the DataSource
-  /// \param[in] partitions optional partitions attached to FileStats found in
-  ///            `stats`.
+  /// attach additional partition expressions to FileStats found in `stats`.
+  /// \param[in] format file format to create fragments from.
+  ///
+  /// The caller is not required to provide a complete coverage of nodes and
+  /// partitions.
+  static Result<DataSourcePtr> Make(fs::FileSystemPtr filesystem,
+                                    fs::FileStatsVector stats,
+                                    ExpressionPtr source_partition, FileFormatPtr format);
+
+  /// \brief Create a FileSystemDataSource with file-level partitions.
+  ///
+  /// \param[in] filesystem the filesystem which files are from.
+  /// \param[in] stats a list of files/directories to consume.
+  /// \param[in] source_partition the top-level partition of the DataSource
+  /// \param[in] partition_scheme partition scheme which will be applied to
+  /// attach additional partition expressions to FileStats found in `stats`.
   /// \param[in] format file format to create fragments from.
   ///
   /// The caller is not required to provide a complete coverage of nodes and
@@ -184,40 +198,23 @@ class ARROW_DS_EXPORT FileSystemDataSource : public DataSource {
   static Result<DataSourcePtr> Make(fs::FileSystemPtr filesystem,
                                     fs::FileStatsVector stats,
                                     ExpressionPtr source_partition,
-                                    PathPartitions partitions, FileFormatPtr format);
-
-  // New Make: partition scheme is passed for application to stats.
-  static Status Make(fs::FileSystem* filesystem, std::vector<fs::FileStats> stats,
-                     std::shared_ptr<Expression> source_partition,
-                     const std::shared_ptr<PartitionScheme>& scheme,
-                     std::shared_ptr<FileFormat> format,
-                     std::shared_ptr<DataSource>* out) {
-    return Status::NotImplemented("");
-  }
+                                    const PartitionSchemePtr& partition_scheme,
+                                    FileFormatPtr format);
 
   std::string type() const override { return "filesystem_data_source"; }
+
+  std::string ToString() const;
 
  protected:
   DataFragmentIterator GetFragmentsImpl(ScanOptionsPtr options) override;
 
   FileSystemDataSource(fs::FileSystemPtr filesystem, fs::PathForest forest,
-                       ExpressionPtr source_partition, PathPartitions partitions,
+                       ExpressionPtr source_partition, ExpressionVector file_partitions,
                        FileFormatPtr format);
-  // New constructor: partition scheme has been applied to each of file_stats.
-  // The corresponding fragment level partition information is now in
-  // file_partitions.
-  // FileSystemBasedDataSource(fs::FileSystem* filesystem,
-  //                           std::shared_ptr<Expression> source_partition,
-  //                           std::vector<fs::FileStats> file_stats,
-  //                           ExpressionVector file_partitions,
-  //                           std::shared_ptr<FileFormat> format);
-
-  bool PartitionMatches(const fs::FileStats& stats, ExpressionPtr filter);
 
   fs::FileSystemPtr filesystem_;
   fs::PathForest forest_;
-  PathPartitions partitions_;
-
+  ExpressionVector partitions_;
   FileFormatPtr format_;
 };
 
