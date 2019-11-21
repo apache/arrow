@@ -57,7 +57,7 @@ Result<DataSourcePtr> FileSystemDataSource::Make(fs::FileSystemPtr filesystem,
                                                  fs::FileStatsVector stats,
                                                  ExpressionPtr source_partition,
                                                  FileFormatPtr format) {
-  ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathTree::Make(std::move(stats)));
+  ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::Make(std::move(stats)));
 
   return DataSourcePtr(new FileSystemDataSource(std::move(filesystem), std::move(forest),
                                                 std::move(source_partition), {},
@@ -69,7 +69,7 @@ Result<DataSourcePtr> FileSystemDataSource::Make(
     ExpressionPtr source_partition, const PartitionSchemePtr& partition_scheme,
     FileFormatPtr format) {
   ExpressionVector partitions(stats.size(), scalar(true));
-  ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathTree::Make(std::move(stats)));
+  ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::Make(std::move(stats)));
 
   // apply partition_scheme to forest to derive partitions
   auto visitor = [&](const fs::FileStats& stats, int i) {
@@ -85,9 +85,7 @@ Result<DataSourcePtr> FileSystemDataSource::Make(
     return Status::OK();
   };
 
-  for (auto tree : forest) {
-    DCHECK_OK(tree.Visit(visitor));
-  }
+  DCHECK_OK(forest.Visit(visitor));
 
   return DataSourcePtr(new FileSystemDataSource(
       std::move(filesystem), std::move(forest), std::move(source_partition),
@@ -105,14 +103,12 @@ std::string FileSystemDataSource::ToString() const {
     auto partition = partitions_[i];
     auto segments = fs::internal::SplitAbstractPath(stats.path());
 
-    repr += "\n" + std::string(' ', segments.size() * 2) + stats.path() +
+    repr += "\n" + std::string(segments.size() * 2, ' ') + stats.path() +
             partition->ToString();
     return Status::OK();
   };
 
-  for (auto tree : forest_) {
-    DCHECK_OK(tree.Visit(visitor));
-  }
+  DCHECK_OK(forest_.Visit(visitor));
 
   return repr;
 }
@@ -120,25 +116,23 @@ std::string FileSystemDataSource::ToString() const {
 DataFragmentIterator FileSystemDataSource::GetFragmentsImpl(ScanOptionsPtr options) {
   std::vector<std::unique_ptr<fs::FileStats>> files;
 
-  auto visitor = [&](const fs::FileStats& stats, int i) -> fs::PathTree::MaybePrune {
+  auto visitor = [&](const fs::FileStats& stats, int i) -> fs::PathForest::MaybePrune {
     auto partition = partitions_[i];
     auto expr = options->filter->Assume(partition);
 
     if (expr->IsNull() || expr->Equals(false)) {
       // directories (and descendants) which can't satisfy the filter are pruned
-      return fs::PathTree::Prune;
+      return fs::PathForest::Prune;
     }
 
     if (stats.IsFile()) {
       files.emplace_back(new fs::FileStats(stats));
     }
 
-    return fs::PathTree::Continue;
+    return fs::PathForest::Continue;
   };
 
-  for (auto tree : forest_) {
-    DCHECK_OK(tree.Visit(visitor));
-  }
+  DCHECK_OK(forest_.Visit(visitor));
 
   auto file_it = MakeVectorIterator(std::move(files));
   auto file_to_fragment = [options, this](std::unique_ptr<fs::FileStats> stats,

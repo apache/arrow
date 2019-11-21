@@ -311,7 +311,7 @@ if(ARROW_FILESYSTEM)
               filesystem/filesystem.cc
               filesystem/localfs.cc
               filesystem/mockfs.cc
-              filesystem/path_tree.cc
+              filesystem/path_forest.cc
               filesystem/path_util.cc
               filesystem/util_internal.cc)
 

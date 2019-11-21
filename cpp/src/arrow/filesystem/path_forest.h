@@ -32,98 +32,89 @@
 namespace arrow {
 namespace fs {
 
-class ARROW_EXPORT PathTree;
-
-/// \brief A PathForest consists of multiples PathTree
-using PathForest = std::vector<PathTree>;
-
-/// \brief A PathTree is a utility to transform a vector of FileStats into a
-/// forest representation for tree traversal purposes. Node in the graph wraps
+/// \brief A PathForest is a utility to transform a vector of FileStats into a
+/// forest representation for tree traversal purposes. Each node in the graph wraps
 /// a FileStats. Files are expected to be found only at leaves of the tree.
-class ARROW_EXPORT PathTree : public util::EqualityComparable<PathTree> {
+class ARROW_EXPORT PathForest : public util::EqualityComparable<PathForest> {
  public:
-  explicit PathTree(FileStats stats);
-
-  /// \brief Transforms a FileStats vector into a forest of trees. Since there
-  /// is no guarantee of complete trees, it is possible to have a forest
+  /// \brief Transforms a FileStats vector into a forest. Since there
+  /// is no guarantee of a single shared root, it is possible to have a forest
   /// (multiple roots). The caller should ensure that stats does not contain duplicates.
   static Result<PathForest> Make(std::vector<FileStats> stats);
 
-  /// \brief Returns the FileStat of this node.
-  const FileStats& stats() const { return stats_->at(offset_); }
+  /// \brief Returns the number of nodes in this forest.
+  int size() const { return size_; }
 
-  /// \brief Returns the subtrees under this node.
-  PathForest subtrees() const;
-
-  /// \brief Returns the number of descendants of this node.
-  int num_descendants() const { return descendant_counts_->at(offset_); }
-
-  bool Equals(const PathTree& other) const;
+  bool Equals(const PathForest& other) const;
 
   std::string ToString() const;
+
+  const FileStats& stats(int i) const { return stats_->at(offset_ + i); }
+
+  int num_descendants(int i) const { return descendant_counts_->at(offset_ + i); }
+
+  /// Returns a PathForest containing only nodes which are descendants of the node at i
+  PathForest DescendantsForest(int i) const {
+    return PathForest(offset_ + i + 1, num_descendants(i), stats_, descendant_counts_);
+  }
 
   enum { Continue, Prune };
   using MaybePrune = Result<decltype(Prune)>;
 
   /// Visitors may return MaybePrune to enable eager pruning. Visitors will be called with
   /// the FileStats of the currently visited node and the index of that node in depth
-  /// first visitation order of the forest in which it was constructed (for accessing
-  /// parallel vectors of associated data).
+  /// first visitation order (useful for accessing parallel vectors of associated data).
   template <typename Visitor>
   Status Visit(Visitor&& v) const {
-    static std::is_same<decltype(v(stats(), offset_)), MaybePrune> with_pruning;
+    static std::is_same<decltype(v(std::declval<const FileStats>(), 0)), MaybePrune>
+        with_pruning;
     return VisitImpl(std::forward<Visitor>(v), with_pruning);
   }
 
  protected:
-  PathTree(std::shared_ptr<std::vector<FileStats>> stats,
-           std::shared_ptr<std::vector<int>> descendant_counts, int offset)
-      : stats_(std::move(stats)),
-        descendant_counts_(std::move(descendant_counts)),
-        offset_(offset) {}
+  PathForest(std::shared_ptr<std::vector<FileStats>> stats,
+             std::shared_ptr<std::vector<int>> descendant_counts)
+      : offset_(0),
+        size_(static_cast<int>(stats->size())),
+        stats_(std::move(stats)),
+        descendant_counts_(std::move(descendant_counts)) {}
 
-  PathTree WithOffset(int offset) const {
-    PathTree copy = *this;
-    copy.offset_ = offset;
-    return copy;
-  }
+  PathForest(int offset, int size, std::shared_ptr<std::vector<FileStats>> stats,
+             std::shared_ptr<std::vector<int>> descendant_counts)
+      : offset_(offset),
+        size_(size),
+        stats_(std::move(stats)),
+        descendant_counts_(std::move(descendant_counts)) {}
 
   /// \brief Visit with eager pruning.
   template <typename Visitor>
   Status VisitImpl(Visitor&& v, std::true_type) const {
-    auto action = Prune;
-    ARROW_ASSIGN_OR_RAISE(action, v(stats(), offset_));
-    if (action == Prune) {
-      return Status::OK();
-    }
+    for (int i = 0; i < size_; ++i) {
+      ARROW_ASSIGN_OR_RAISE(auto action, v(stats(i), i));
 
-    for (int i = descendants_begin(); i < descendants_end(); ++i) {
-      ARROW_ASSIGN_OR_RAISE(action, v(stats_->at(i), i));
       if (action == Prune) {
         // skip descendants
-        i += descendant_counts_->at(i);
+        i += num_descendants(i);
       }
     }
+
     return Status::OK();
   }
 
   template <typename Visitor>
   Status VisitImpl(Visitor&& v, std::false_type) const {
-    return Visit([&](const FileStats& s, int offset) -> MaybePrune {
-      RETURN_NOT_OK(v(s, offset));
+    return Visit([&](const FileStats& s, int i) -> MaybePrune {
+      RETURN_NOT_OK(v(s, i));
       return Continue;
     });
   }
 
-  int descendants_begin() const { return offset_ + 1; }
-  int descendants_end() const { return descendants_begin() + num_descendants(); }
-
+  int offset_, size_;
   std::shared_ptr<std::vector<FileStats>> stats_;
   std::shared_ptr<std::vector<int>> descendant_counts_;
-  int offset_;
 };
 
-ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const PathTree& tree);
+ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const PathForest& tree);
 
 }  // namespace fs
 }  // namespace arrow

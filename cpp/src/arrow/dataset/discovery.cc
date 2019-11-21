@@ -27,7 +27,7 @@
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/type_fwd.h"
-#include "arrow/filesystem/path_tree.h"
+#include "arrow/filesystem/path_forest.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/status.h"
 

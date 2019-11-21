@@ -16,7 +16,7 @@
 // under the License.
 //
 
-#include "arrow/filesystem/path_tree.h"
+#include "arrow/filesystem/path_forest.h"
 
 #include <algorithm>
 #include <iostream>
@@ -31,13 +31,6 @@
 
 namespace arrow {
 namespace fs {
-
-PathTree::PathTree(FileStats stats)
-    : PathTree(std::make_shared<std::vector<FileStats>>(),
-               std::make_shared<std::vector<int>>(), 0) {
-  stats_->push_back(std::move(stats));
-  descendant_counts_->push_back(0);
-}
 
 inline bool IsDescendantOf(const FileStats& anscestor, const FileStats& descendant) {
   if (!anscestor.IsDirectory()) {
@@ -63,80 +56,57 @@ inline bool IsDescendantOf(const FileStats& anscestor, const FileStats& descenda
   return descendant_path.starts_with(std::string{internal::kSep});
 }
 
-PathForest PathTree::subtrees() const {
-  PathForest out;
-  for (int i = descendants_begin(); i < descendants_end(); ++i) {
-    out.push_back(WithOffset(i));
-    // skip indirect descendants
-    i += descendant_counts_->at(i);
-  }
-  return out;
-}
-
-Result<PathForest> PathTree::Make(std::vector<FileStats> stats) {
+Result<PathForest> PathForest::Make(std::vector<FileStats> stats) {
   std::stable_sort(
       stats.begin(), stats.end(),
       [](const FileStats& lhs, const FileStats& rhs) { return lhs.path() < rhs.path(); });
 
-  PathForest out;
-  int out_count = static_cast<int>(stats.size());
+  int out_size = static_cast<int>(stats.size());
   auto out_descendant_counts = std::make_shared<std::vector<int>>(stats.size(), 0);
   auto out_stats = std::make_shared<std::vector<FileStats>>(std::move(stats));
 
   std::vector<int> stack;
 
-  for (int i = 0; i < out_count; ++i) {
+  for (int i = 0; i < out_size; ++i) {
     while (stack.size() != 0 &&
            !IsDescendantOf(out_stats->at(stack.back()), out_stats->at(i))) {
       out_descendant_counts->at(stack.back()) = i - 1 - stack.back();
       stack.pop_back();
     }
 
-    if (stack.size() == 0) {
-      out.push_back(PathTree(out_stats, out_descendant_counts, i));
-    }
-
     stack.push_back(i);
   }
 
   while (stack.size() != 0) {
-    out_descendant_counts->at(stack.back()) = out_count - 1 - stack.back();
+    out_descendant_counts->at(stack.back()) = out_size - 1 - stack.back();
     stack.pop_back();
   }
 
-  return out;
+  return PathForest(std::move(out_stats), std::move(out_descendant_counts));
 }
 
-bool PathTree::Equals(const PathTree& other) const {
-  if (num_descendants() != other.num_descendants() || stats() != other.stats()) {
-    return false;
-  }
-
-  for (int i = descendants_begin(), i_other = other.descendants_begin();
-       i < descendants_end(); ++i, ++i_other) {
-    if (stats_->at(i) != other.stats_->at(i_other)) {
-      return false;
-    }
-  }
-
-  return true;
+bool PathForest::Equals(const PathForest& other) const {
+  return size() == other.size() && *stats_ == *other.stats_ &&
+         *descendant_counts_ == *other.descendant_counts_;
 }
 
-std::string PathTree::ToString() const {
-  std::string out = stats().ToString();
-
-  out += "[";
-  int i = 0;
-  for (const auto& subtree : subtrees()) {
-    if (i++ != 0) out += ", ";
-    out += subtree.ToString();
+std::string PathForest::ToString() const {
+  std::string repr = "PathForest:";
+  if (size() == 0) {
+    return repr + " []";
   }
-  out += "]";
 
-  return out;
+  auto visitor = [&](const fs::FileStats& stats, int i) {
+    auto segments = fs::internal::SplitAbstractPath(stats.path());
+    repr += "\n" + stats.path();
+    return Status::OK();
+  };
+
+  DCHECK_OK(Visit(visitor));
+  return repr;
 }
 
-std::ostream& operator<<(std::ostream& os, const PathTree& tree) {
+std::ostream& operator<<(std::ostream& os, const PathForest& tree) {
   return os << tree.ToString();
 }
 

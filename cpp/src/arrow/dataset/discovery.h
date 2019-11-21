@@ -28,7 +28,7 @@
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/filesystem/filesystem.h"
-#include "arrow/filesystem/path_tree.h"
+#include "arrow/filesystem/path_forest.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
