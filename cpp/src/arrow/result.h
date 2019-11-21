@@ -286,7 +286,7 @@ class Result : public util::EqualityComparable<Result<T>> {
     variant_ = "Object already returned with ValueOrDie";
     return tmp;
   }
-  T operator*() && { return ValueOrDie(); }
+  T operator*() && { return std::move(*this).ValueOrDie(); }
 
   /// Helper method for using Results in Status returning out arg functions
   template <typename U, typename E = typename std::enable_if<

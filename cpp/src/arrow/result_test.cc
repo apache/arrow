@@ -510,11 +510,23 @@ TEST(ResultTest, StatusReturnAdapterCopyAndConvertValue) {
 
 // Verify that a Result<T> can be unpacked to T
 TEST(ResultTest, StatusReturnAdapterMoveValue) {
-  Result<MoveOnlyDataType> result(MoveOnlyDataType{kIntElement});
-  MoveOnlyDataType move_only{0};
+  {
+    Result<MoveOnlyDataType> result(MoveOnlyDataType{kIntElement});
+    MoveOnlyDataType move_only{0};
 
-  EXPECT_TRUE(std::move(result).Value(&move_only).ok());
-  EXPECT_EQ(*move_only.data, kIntElement);
+    EXPECT_TRUE(std::move(result).Value(&move_only).ok());
+    EXPECT_EQ(*move_only.data, kIntElement);
+  }
+  {
+    Result<MoveOnlyDataType> result(MoveOnlyDataType{kIntElement});
+    auto move_only = std::move(result).ValueOrDie();
+    EXPECT_EQ(*move_only.data, kIntElement);
+  }
+  {
+    Result<MoveOnlyDataType> result(MoveOnlyDataType{kIntElement});
+    auto move_only = *std::move(result);
+    EXPECT_EQ(*move_only.data, kIntElement);
+  }
 }
 
 // Verify that a Result<T> can be unpacked to some U, where U is
