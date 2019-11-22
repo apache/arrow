@@ -19,7 +19,7 @@
 # Build upon the scripts in https://github.com/matthew-brett/manylinux-builds
 # * Copyright (c) 2013-2016, Matt Terry and Matthew Brett (BSD 2-clause)
 
-PYTHON_VERSIONS="${PYTHON_VERSIONS:-2.7,16 2.7,32 3.5,16 3.6,16, 3.7,16}"
+PYTHON_VERSIONS="${PYTHON_VERSIONS:-2.7,16 2.7,32 3.5,16 3.6,16, 3.7,16 3.8,16}"
 
 source /multibuild/manylinux_utils.sh
 
@@ -33,13 +33,13 @@ for PYTHON_TUPLE in ${PYTHON_VERSIONS}; do
     PATH="$PATH:$(cpython_path $PYTHON ${U_WIDTH})"
 
     echo "=== (${PYTHON}, ${U_WIDTH}) Installing build dependencies ==="
-    $PIP install "numpy==1.14.*" "cython==0.29.8" "virtualenv==16.3.0"
+    $PIP install "numpy==1.14.*" "cython==0.29.14" "virtualenv==16.3.0"
     # Pandas requires numpy and cython
     $PIP install "pandas==0.24.0"
 
-    # TensorFlow is not supported for Python 2.7 with unicode width 16 or with Python 3.7
+    # TensorFlow is not supported for Python 2.7 with unicode width 16 or with Python 3.7 or later
     if [ $PYTHON != "2.7" ] || [ $U_WIDTH = "32" ]; then
-      if [ $PYTHON != "3.7" ]; then
+      if [ $PYTHON != "3.7" ] && [ $PYTHON != "3.8" ]; then
         $PIP install "tensorflow==1.11.0" "Keras-Preprocessing==1.0.5"
       fi
     fi
@@ -59,6 +59,7 @@ find /opt/_internal/cpython-*/lib/*/site-packages/tensorflow -name '*.so' -exec 
 # Only Python 3.6+ packages are stripable as they are built inside of the image
 find /opt/_internal/cpython-3.6.*/lib/python3.6/site-packages/numpy -name '*.so' -exec strip '{}' ';'
 find /opt/_internal/cpython-3.7.*/lib/python3.7/site-packages/numpy -name '*.so' -exec strip '{}' ';'
+find /opt/_internal/cpython-3.8.*/lib/python3.8/site-packages/numpy -name '*.so' -exec strip '{}' ';'
 find /opt/_internal/*/lib/*/site-packages/Cython -name '*.so' -exec strip '{}' ';'
 
 # Remove pip cache again. It's useful during the virtualenv creation but we

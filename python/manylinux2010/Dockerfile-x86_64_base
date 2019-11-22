@@ -30,7 +30,7 @@ ADD scripts/build_zlib.sh /
 RUN /build_zlib.sh
 
 WORKDIR /
-RUN git clone https://github.com/matthew-brett/multibuild.git && cd multibuild && git checkout 1a7f31be677185f2dface2643284846e14130c3f
+RUN git clone https://github.com/matthew-brett/multibuild.git && cd multibuild && git checkout 68a4af043e2adb0d9353d4a0e1f3d871203237aa
 
 ADD scripts/build_llvm.sh /
 RUN /build_llvm.sh
