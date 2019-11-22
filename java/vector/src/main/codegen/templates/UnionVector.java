@@ -319,7 +319,7 @@ public class UnionVector implements FieldVector {
 
     long newAllocationSize = baseSize * 2L;
     newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
-    Preconditions.checkArgument(newAllocationSize >= 1);
+    assert newAllocationSize >= 1;
 
     if (newAllocationSize > BaseValueVector.MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Unable to expand the buffer");

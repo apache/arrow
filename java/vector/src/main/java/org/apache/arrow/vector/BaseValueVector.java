@@ -168,7 +168,7 @@ public abstract class BaseValueVector implements ValueVector {
 
   DataAndValidityBuffers allocFixedDataAndValidityBufs(int valueCount, int typeWidth) {
     long bufferSize = computeCombinedBufferSize(valueCount, typeWidth);
-    Preconditions.checkArgument(bufferSize <= MAX_ALLOCATION_SIZE);
+    assert bufferSize <= MAX_ALLOCATION_SIZE;
 
     int validityBufferSize;
     int dataBufferSize;

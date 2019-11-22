@@ -501,7 +501,7 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
       }
     }
     newAllocationSize = BaseAllocator.nextPowerOfTwo(newAllocationSize);
-    Preconditions.checkArgument(newAllocationSize >= 1);
+    assert newAllocationSize >= 1;
 
     checkDataBufferSize(newAllocationSize);
 
