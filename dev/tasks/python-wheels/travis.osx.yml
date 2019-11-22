@@ -31,8 +31,8 @@ env:
     - MACOSX_DEPLOYMENT_TARGET="10.9"
 
 before_install:
-  - git clone https://github.com/matthew-brett/multibuild # TODO pin it
-  - git -C multibuild checkout 4e7a9396e9a50731bb83fc0d16bb98fb0c4032d7
+  - git clone https://github.com/matthew-brett/multibuild
+  - git -C multibuild checkout 68a4af043e2adb0d9353d4a0e1f3d871203237aa
 
   - git clone --no-checkout {{ arrow.remote }} arrow
   - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
