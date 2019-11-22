@@ -281,6 +281,7 @@ cc_test(
         "//cpp/src/arrow/testing:gtest_util",
         "@googletest//:gtest_main",
     ],
+    copts= ["-Icpp/src/"]
 )
 
 cc_test(

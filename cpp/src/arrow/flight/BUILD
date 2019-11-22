@@ -2,8 +2,6 @@ load("@rules_cc//cc:defs.bzl", "cc_test")
 load("//bazel:arrow_cc_library.bzl", "arrow_cc_library")
 package(default_visibility = ["//visibility:public"])
 
-load("@com_github_grpc_grpc//bazel:generate_cc.bzl", "generate_cc")
-load("@com_github_grpc_grpc//bazel:cc_grpc_library.bzl", "cc_grpc_library")
 
 arrow_cc_library(
     name = "client",
@@ -31,30 +29,26 @@ arrow_cc_library(
     deps = ["middleware"],
 )
 
-arrow_cc_library(
-    name = "proto_srcs",
+# target where files are originally located
+# (As generated).
+cc_library(
+    name = "proto_srcs_unstripped",
     hdrs = [
-        ":flight_cc_grpc_proto",
-        ":flight_cc_proto",
+        "//format:flight_cc_grpc_proto",
+        "//format:flight_cc_proto",
     ],
 )
 
-generate_cc(
-    name = "flight_cc_grpc_proto",
-    srcs = [":flight_proto"],
-    plugin = "@com_github_grpc_grpc//src/compiler:grpc_cpp_plugin",
-    well_known_protos = False,
-)
-
-generate_cc(
-    name = "flight_cc_proto",
-    srcs = [":flight_proto"],
-    well_known_protos = False,
-)
-
-proto_library(
-    name = "flight_proto",
-    srcs = ["Flight.proto"],
+# target that moves the top level includes under
+# this directory.
+cc_library(
+    name = "proto_srcs",
+    hdrs = [
+        "//format:flight_cc_grpc_proto",
+        "//format:flight_cc_proto",
+    ],
+    strip_include_prefix = "/format",
+    include_prefix = "arrow/flight"
 )
 
 arrow_cc_library(
@@ -65,6 +59,7 @@ arrow_cc_library(
         ":protocol_internal",
         ":types",
     ],
+    copts = ["-Ibazel-bin"]
 )
 
 arrow_cc_library(
@@ -96,16 +91,23 @@ arrow_cc_library(
 )
 
 arrow_cc_library(
+  name = "customize_proto_hdr",
+hdrs = [
+        "customize_protobuf.h"],
+)
+
+arrow_cc_library(
     name = "protocol_internal",
     srcs = [
-        "customize_protobuf.h",
         "protocol_internal.cc",
     ],
     hdrs = ["protocol_internal.h"],
-    copts = ["-Ibazel-bin"],
+    copts = ["-Ibazel-bin", "-Icpp/src/"],
     deps = [
         ":platform",
         ":proto_srcs",
+":proto_srcs_unstripped",
+        ":customize_proto_hdr",
         "@com_github_grpc_grpc//:grpc++_codegen_proto",
     ],
 )
