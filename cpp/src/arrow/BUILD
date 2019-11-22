@@ -15,7 +15,7 @@ cc_library(
         "tensor.cc",
         "type.cc",
         "visitor.cc",
-        "//arrow/array:dict_internal",
+        "//cpp/src/arrow/array:dict_internal",
     ],
     hdrs = [
         "array.h",
@@ -31,17 +31,17 @@ cc_library(
         ":result",
         ":type_fwd",
         ":type_traits",
-        "//arrow/array:concatenate",
-        "//arrow/util:atomic_shared_ptr",
-        "//arrow/util:checked_cast",
-        "//arrow/util:decimal",
-        "//arrow/util:iterator",
-        "//arrow/util:key_value_metadata",
-        "//arrow/util:macros",
-        "//arrow/util:memory",
-        "//arrow/util:range",
-        "//arrow/util:visibility",
-        "//arrow/vendored:datetime",
+        "//cpp/src/arrow/array:concatenate",
+        "//cpp/src/arrow/util:atomic_shared_ptr",
+        "//cpp/src/arrow/util:checked_cast",
+        "//cpp/src/arrow/util:decimal",
+        "//cpp/src/arrow/util:iterator",
+        "//cpp/src/arrow/util:key_value_metadata",
+        "//cpp/src/arrow/util:macros",
+        "//cpp/src/arrow/util:memory",
+        "//cpp/src/arrow/util:range",
+        "//cpp/src/arrow/util:visibility",
+        "//cpp/src/arrow/vendored:datetime",
     ],
 )
 
@@ -49,10 +49,10 @@ cc_test(
     name = "array_binary_test",
     srcs = ["array_binary_test.cc"],
     deps = [
-        "//arrow:array",
-        "//arrow:array_builder",
-        "//arrow/testing:gtest_common",
-        "//arrow/testing:gtest_util",
+        "//cpp/src/arrow:array",
+        "//cpp/src/arrow:array_builder",
+        "//cpp/src/arrow/testing:gtest_common",
+        "//cpp/src/arrow/testing:gtest_util",
         "@googletest//:gtest_main",
     ],
 )
@@ -62,13 +62,13 @@ cc_library(
     srcs = ["builder.cc"],
     hdrs = ["builder.h"],
     deps = [
-        "//arrow/array:builder_adaptive",
-        "//arrow/array:builder_binary",
-        "//arrow/array:builder_decimal",
-        "//arrow/array:builder_dict",
-        "//arrow/array:builder_nested",
-        "//arrow/array:builder_primitive",
-        "//arrow/array:builder_union",
+        "//cpp/src/arrow/array:builder_adaptive",
+        "//cpp/src/arrow/array:builder_binary",
+        "//cpp/src/arrow/array:builder_decimal",
+        "//cpp/src/arrow/array:builder_dict",
+        "//cpp/src/arrow/array:builder_nested",
+        "//cpp/src/arrow/array:builder_primitive",
+        "//cpp/src/arrow/array:builder_union",
     ],
 )
 
@@ -76,10 +76,10 @@ cc_test(
     name = "array_dict_test",
     srcs = ["array_dict_test.cc"],
     deps = [
-        "//arrow:array",
-        "//arrow:array_builder",
-        "//arrow/testing:gtest_common",
-        "//arrow/testing:gtest_util",
+        "//cpp/src/arrow:array",
+        "//cpp/src/arrow:array_builder",
+        "//cpp/src/arrow/testing:gtest_common",
+        "//cpp/src/arrow/testing:gtest_util",
         "@googletest//:gtest_main",
     ],
 )
@@ -92,8 +92,8 @@ cc_library(
         ":result",
         ":type_fwd",
         ":type_traits",
-        "//arrow/util:checked_cast",
-        "//arrow/util:decimal",
+        "//cpp/src/arrow/util:checked_cast",
+        "//cpp/src/arrow/util:decimal",
     ],
 )
 
@@ -117,10 +117,10 @@ cc_test(
     name = "array_list_test",
     srcs = ["array_list_test.cc"],
     deps = [
-        "//arrow:array",
-        "//arrow:array_builder",
-        "//arrow/testing:gtest_common",
-        "//arrow/testing:gtest_util",
+        "//cpp/src/arrow:array",
+        "//cpp/src/arrow:array_builder",
+        "//cpp/src/arrow/testing:gtest_common",
+        "//cpp/src/arrow/testing:gtest_util",
         "@googletest//:gtest_main",
     ],
 )
@@ -129,10 +129,10 @@ cc_test(
     name = "array_struct_test",
     srcs = ["array_struct_test.cc"],
     deps = [
-        "//arrow:array",
-        "//arrow:array_builder",
-        "//arrow/testing:gtest_common",
-        "//arrow/testing:gtest_util",
+        "//cpp/src/arrow:array",
+        "//cpp/src/arrow:array_builder",
+        "//cpp/src/arrow/testing:gtest_common",
+        "//cpp/src/arrow/testing:gtest_util",
         "@googletest//:gtest_main",
     ],
 )
@@ -141,10 +141,10 @@ cc_test(
     name = "array_test",
     srcs = ["array_test.cc"],
     deps = [
-        "//arrow:array",
-        "//arrow:array_builder",
-        "//arrow/testing:gtest_common",
-        "//arrow/testing:gtest_util",
+        "//cpp/src/arrow:array",
+        "//cpp/src/arrow:array_builder",
+        "//cpp/src/arrow/testing:gtest_common",
+        "//cpp/src/arrow/testing:gtest_util",
         "@googletest//:gtest_main",
     ],
 )
@@ -153,11 +153,11 @@ cc_test(
     name = "array_union_test",
     srcs = ["array_union_test.cc"],
     deps = [
-        "//arrow:array",
-        "//arrow:array_builder",
-        "//arrow/ipc:test_common",
-        "//arrow/testing:gtest_common",
-        "//arrow/testing:gtest_util",
+        "//cpp/src/arrow:array",
+        "//cpp/src/arrow:array_builder",
+        "//cpp/src/arrow/ipc:test_common",
+        "//cpp/src/arrow/testing:gtest_common",
+        "//cpp/src/arrow/testing:gtest_util",
         "@googletest//:gtest_main",
     ],
 )
@@ -166,10 +166,10 @@ cc_test(
     name = "array_view_test",
     srcs = ["array_view_test.cc"],
     deps = [
-        "//arrow:array",
-        "//arrow:array_builder",
-        "//arrow/testing:gtest_common",
-        "//arrow/testing:gtest_util",
+        "//cpp/src/arrow:array",
+        "//cpp/src/arrow:array_builder",
+        "//cpp/src/arrow/testing:gtest_common",
+        "//cpp/src/arrow/testing:gtest_util",
         "@googletest//:gtest_main",
     ],
 )
@@ -181,16 +181,16 @@ cc_library(
     deps = [
         ":buffer_hdr",
         ":memory_pool",
-        "//arrow/util:bit_util",
-        "//arrow/util:string",
-        "//arrow/util:string_view",
+        "//cpp/src/arrow/util:bit_util",
+        "//cpp/src/arrow/util:string",
+        "//cpp/src/arrow/util:string_view",
     ],
 )
 
 cc_library(
     name = "buffer_builder",
     hdrs = ["buffer_builder.h"],
-    deps = ["//arrow/util:ubsan"],
+    deps = ["//cpp/src/arrow/util:ubsan"],
 )
 
 cc_library(
@@ -204,7 +204,7 @@ cc_library(
     name = "builder_hdr",
     hdrs = [
         "builder.h",
-        "//arrow/array:builder_hdrs",
+        "//cpp/src/arrow/array:builder_hdrs",
     ],
 )
 
@@ -212,9 +212,9 @@ cc_test(
     name = "buffer_test",
     srcs = ["buffer_test.cc"],
     deps = [
-        "//arrow:buffer",
-        "//arrow/testing:gtest_common",
-        "//arrow/testing:gtest_util",
+        "//cpp/src/arrow:buffer",
+        "//cpp/src/arrow/testing:gtest_common",
+        "//cpp/src/arrow/testing:gtest_util",
         "@googletest//:gtest_main",
     ],
 )
@@ -225,10 +225,10 @@ cc_library(
     hdrs = ["compare.h"],
     deps = [
         ":array_hdrs",
-        "//arrow/array:diff",
-        "//arrow/util:macros",
-        "//arrow/util:memory",
-        "//arrow/util:visibility",
+        "//cpp/src/arrow/array:diff",
+        "//cpp/src/arrow/util:macros",
+        "//cpp/src/arrow/util:memory",
+        "//cpp/src/arrow/util:visibility",
     ],
 )
 
@@ -249,12 +249,12 @@ cc_test(
     name = "extension_type_test",
     srcs = ["extension_type_test.cc"],
     deps = [
-        "//arrow:extension_type",
-        "//arrow/io:memory",
-        "//arrow/ipc:reader",
-        "//arrow/ipc:writer",
-        "//arrow/testing:gtest_common",
-        "//arrow/testing:gtest_util",
+        "//cpp/src/arrow:extension_type",
+        "//cpp/src/arrow/io:memory",
+        "//cpp/src/arrow/ipc:reader",
+        "//cpp/src/arrow/ipc:writer",
+        "//cpp/src/arrow/testing:gtest_common",
+        "//cpp/src/arrow/testing:gtest_util",
         "@googletest//:gtest_main",
     ],
 )
@@ -276,8 +276,8 @@ cc_test(
     ],
     deps = [
         ":memory_pool",
-        "//arrow/testing:gtest_common",
-        "//arrow/testing:gtest_util",
+        "//cpp/src/arrow/testing:gtest_common",
+        "//cpp/src/arrow/testing:gtest_util",
         "@googletest//:gtest_main",
     ],
 )
@@ -289,8 +289,8 @@ cc_test(
     ],
     deps = [
         ":array",
-        "//arrow/testing:gtest_common",
-        "//arrow/testing:gtest_util",
+        "//cpp/src/arrow/testing:gtest_common",
+        "//cpp/src/arrow/testing:gtest_util",
         "@googletest//:gtest_main",
     ],
 )
@@ -302,8 +302,8 @@ cc_library(
         ":array",
         ":array_builder",
         ":table_builder",
-        "//arrow/io:public_api",
-        "//arrow/ipc:public_api",
+        "//cpp/src/arrow/io:public_api",
+        "//cpp/src/arrow/ipc:public_api",
     ],
 )
 
@@ -314,8 +314,8 @@ cc_test(
     ],
     deps = [
         ":public_api",
-        "//arrow/testing:gtest_common",
-        "//arrow/testing:gtest_util",
+        "//cpp/src/arrow/testing:gtest_common",
+        "//cpp/src/arrow/testing:gtest_util",
         "@googletest//:gtest_main",
     ],
 )
@@ -327,7 +327,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         ":status",
-        "//arrow/util:variant",
+        "//cpp/src/arrow/util:variant",
     ],
 )
 
@@ -338,8 +338,8 @@ cc_test(
     ],
     deps = [
         ":result",
-        "//arrow/testing:gtest_common",
-        "//arrow/testing:gtest_util",
+        "//cpp/src/arrow/testing:gtest_common",
+        "//cpp/src/arrow/testing:gtest_util",
         "@googletest//:gtest_main",
     ],
 )
@@ -357,8 +357,8 @@ cc_test(
     ],
     deps = [
         ":array",
-        "//arrow/testing:gtest_common",
-        "//arrow/testing:gtest_util",
+        "//cpp/src/arrow/testing:gtest_common",
+        "//cpp/src/arrow/testing:gtest_util",
         "@googletest//:gtest_main",
     ],
 )
@@ -370,8 +370,8 @@ cc_test(
     ],
     deps = [
         ":array",
-        "//arrow/testing:gtest_common",
-        "//arrow/testing:gtest_util",
+        "//cpp/src/arrow/testing:gtest_common",
+        "//cpp/src/arrow/testing:gtest_util",
         "@googletest//:gtest_main",
     ],
 )
@@ -382,9 +382,9 @@ cc_library(
     hdrs = ["status.h"],
     visibility = ["//visibility:public"],
     deps = [
-        "//arrow/util:compare",
-        "//arrow/util:logging",
-        "//arrow/util:string_builder",
+        "//cpp/src/arrow/util:compare",
+        "//cpp/src/arrow/util:logging",
+        "//cpp/src/arrow/util:string_builder",
     ],
 )
 
@@ -395,8 +395,8 @@ cc_test(
     ],
     deps = [
         ":status",
-        "//arrow/testing:gtest_common",
-        "//arrow/testing:gtest_util",
+        "//cpp/src/arrow/testing:gtest_common",
+        "//cpp/src/arrow/testing:gtest_util",
         "@googletest//:gtest_main",
     ],
 )
@@ -404,7 +404,7 @@ cc_test(
 cc_library(
     name = "stl",
     hdrs = ["stl.h"],
-    deps = ["//arrow/compute:public_api"],
+    deps = ["//cpp/src/arrow/compute:public_api"],
 )
 
 cc_test(
@@ -414,8 +414,8 @@ cc_test(
     ],
     deps = [
         ":stl",
-        "//arrow/testing:gtest_common",
-        "//arrow/testing:gtest_util",
+        "//cpp/src/arrow/testing:gtest_common",
+        "//cpp/src/arrow/testing:gtest_util",
         "@boost//:boost_headers",
         "@googletest//:gtest_main",
     ],
@@ -438,8 +438,8 @@ cc_test(
     ],
     deps = [
         ":table_builder",
-        "//arrow/testing:gtest_common",
-        "//arrow/testing:gtest_util",
+        "//cpp/src/arrow/testing:gtest_common",
+        "//cpp/src/arrow/testing:gtest_util",
         "@googletest//:gtest_main",
     ],
 )
@@ -451,8 +451,8 @@ cc_test(
     ],
     deps = [
         ":array",
-        "//arrow/testing:gtest_common",
-        "//arrow/testing:gtest_util",
+        "//cpp/src/arrow/testing:gtest_common",
+        "//cpp/src/arrow/testing:gtest_util",
         "@googletest//:gtest_main",
     ],
 )
@@ -464,8 +464,8 @@ cc_test(
     ],
     deps = [
         ":array",
-        "//arrow/testing:gtest_common",
-        "//arrow/testing:gtest_util",
+        "//cpp/src/arrow/testing:gtest_common",
+        "//cpp/src/arrow/testing:gtest_util",
         "@googletest//:gtest_main",
     ],
 )
@@ -474,7 +474,7 @@ cc_library(
     name = "type_fwd",
     hdrs = ["type_fwd.h"],
     visibility = ["//visibility:public"],
-    deps = ["//arrow/util:visibility"],
+    deps = ["//cpp/src/arrow/util:visibility"],
 )
 
 cc_library(
@@ -486,7 +486,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         ":type_fwd",
-        "//arrow/util:checked_cast",
+        "//cpp/src/arrow/util:checked_cast",
     ],
 )
 
@@ -497,8 +497,8 @@ cc_test(
     ],
     deps = [
         ":array",
-        "//arrow/testing:gtest_common",
-        "//arrow/testing:gtest_util",
+        "//cpp/src/arrow/testing:gtest_common",
+        "//cpp/src/arrow/testing:gtest_util",
         "@googletest//:gtest_main",
     ],
 )
@@ -509,7 +509,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         ":status",
-        "//arrow/util:bit_util",
-        "//arrow/util:visibility",
+        "//cpp/src/arrow/util:bit_util",
+        "//cpp/src/arrow/util:visibility",
     ],
 )

@@ -8,8 +8,8 @@ cc_library(
     hdrs = ["buffered.h"],
     deps = [
         ":concurrency",
-        "//arrow:buffer",
-        "//arrow:status",
+        "//cpp/src/arrow:buffer",
+        "//cpp/src/arrow:status",
     ],
 )
 
@@ -19,8 +19,8 @@ cc_library(
     hdrs = ["compressed.h"],
     deps = [
         ":concurrency",
-        "//arrow:buffer",
-        "//arrow/util:compression",
+        "//cpp/src/arrow:buffer",
+        "//cpp/src/arrow/util:compression",
     ],
 )
 
@@ -29,8 +29,8 @@ cc_library(
     hdrs = ["concurrency.h"],
     deps = [
         ":interfaces_hdr",
-        "//arrow:status",
-        "//arrow/util:checked_cast",
+        "//cpp/src/arrow:status",
+        "//cpp/src/arrow/util:checked_cast",
     ],
 )
 
@@ -41,9 +41,9 @@ cc_library(
     deps = [
         ":concurrency",
         ":util_internal",
-        "//arrow:buffer",
-        "//arrow:status",
-        "//arrow/util:memory",
+        "//cpp/src/arrow:buffer",
+        "//cpp/src/arrow:status",
+        "//cpp/src/arrow/util:memory",
     ],
 )
 
@@ -53,7 +53,7 @@ cc_test(
     deps = [
         ":file",
         ":test_common",
-        "//arrow/testing:gtest_util",
+        "//cpp/src/arrow/testing:gtest_util",
         "@googletest//:gtest_main",
     ],
 )
@@ -69,12 +69,12 @@ cc_library(
     hdrs = ["interfaces.h"],
     deps = [
         ":concurrency",
-        "//arrow:buffer",
-        "//arrow:type_fwd",
-        "//arrow/util:iterator",
-        "//arrow/util:macros",
-        "//arrow/util:string_view",
-        "//arrow/util:visibility",
+        "//cpp/src/arrow:buffer",
+        "//cpp/src/arrow:type_fwd",
+        "//cpp/src/arrow/util:iterator",
+        "//cpp/src/arrow/util:macros",
+        "//cpp/src/arrow/util:string_view",
+        "//cpp/src/arrow/util:visibility",
     ],
 )
 
@@ -84,10 +84,10 @@ cc_library(
     deps =
         [
             ":util_internal",
-            "//arrow:type_fwd",
-            "//arrow/util:macros",
-            "//arrow/util:string_view",
-            "//arrow/util:visibility",
+            "//cpp/src/arrow:type_fwd",
+            "//cpp/src/arrow/util:macros",
+            "//cpp/src/arrow/util:string_view",
+            "//cpp/src/arrow/util:visibility",
         ],
 )
 
@@ -98,9 +98,9 @@ cc_library(
     deps = [
         ":concurrency",
         ":util_internal",
-        "//arrow:buffer",
-        "//arrow:status",
-        "//arrow/util:memory",
+        "//cpp/src/arrow:buffer",
+        "//cpp/src/arrow:status",
+        "//cpp/src/arrow/util:memory",
     ],
 )
 
@@ -125,7 +125,7 @@ cc_library(
         ":buffered",
         ":file",
         ":memory",
-        "//arrow/testing:gtest_util",
+        "//cpp/src/arrow/testing:gtest_util",
     ],
 )
 

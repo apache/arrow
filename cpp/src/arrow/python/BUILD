@@ -13,11 +13,11 @@ cc_library(
         ":numpy_interop",
         ":python_to_arrow",
         ":visibility",
-        "//arrow:array",
-        "//arrow:memory_pool",
-        "//arrow/compute:public_api",
-        "//arrow/util:hashing",
-        "//arrow/util:parallel",
+        "//cpp/src/arrow:array",
+        "//cpp/src/arrow:memory_pool",
+        "//cpp/src/arrow/compute:public_api",
+        "//cpp/src/arrow/util:hashing",
+        "//cpp/src/arrow/util:parallel",
     ],
 )
 
@@ -29,8 +29,8 @@ cc_library(
         ":config",
         ":helpers_hdr",
         ":pyarrow",
-        "//arrow:buffer",
-        "//arrow/io:memory",
+        "//cpp/src/arrow:buffer",
+        "//cpp/src/arrow/io:memory",
     ],
 )
 
@@ -62,7 +62,7 @@ cc_library(
     deps = [
         ":common_hdr",
         ":helpers_hdr",
-        "//arrow:public_api",
+        "//cpp/src/arrow:public_api",
     ],
 )
 
@@ -83,7 +83,7 @@ cc_library(
     deps = [
         ":numpy_interop",
         ":serialize",
-        "//arrow/ipc:reader",
+        "//cpp/src/arrow/ipc:reader",
     ],
 )
 
@@ -93,7 +93,7 @@ cc_library(
     hdrs = ["extension_type.h"],
     deps = [
         ":common",
-        "//arrow:array",
+        "//cpp/src/arrow:array",
     ],
 )
 
@@ -103,8 +103,8 @@ cc_library(
     hdrs = ["flight.h"],
     deps = [
         ":common",
-        "//arrow/flight:internal",
-        "//arrow/flight:public_api",
+        "//cpp/src/arrow/flight:internal",
+        "//cpp/src/arrow/flight:public_api",
     ],
 )
 
@@ -118,8 +118,8 @@ cc_library(
         ":decimal",
         ":numpy_interop",
         ":visibility",
-        "//arrow:array",
-        "//arrow:public_api",
+        "//cpp/src/arrow:array",
+        "//cpp/src/arrow:public_api",
     ],
 )
 
@@ -140,7 +140,7 @@ cc_library(
         ":numpy_convert",
         ":platform",
         ":visibility",
-        "//arrow:array",
+        "//cpp/src/arrow:array",
     ],
 )
 
@@ -163,8 +163,8 @@ cc_library(
         ":common",
         ":config",
         ":visibility",
-        "//arrow/io:interfaces",
-        "//arrow/io:memory",
+        "//cpp/src/arrow/io:interfaces",
+        "//cpp/src/arrow/io:memory",
     ],
 )
 
@@ -184,9 +184,9 @@ cc_library(
         ":platform",
         ":type_traits",
         ":visibility",
-        "//arrow:array",
-        "//arrow:array_builder",
-        "//arrow:buffer",
+        "//cpp/src/arrow:array",
+        "//cpp/src/arrow:array_builder",
+        "//cpp/src/arrow:buffer",
     ],
 )
 
@@ -218,7 +218,7 @@ cc_library(
         ":platform",
         ":python_to_arrow",
         ":visibility",
-        "//arrow/compute/kernels:cast",
+        "//cpp/src/arrow/compute/kernels:cast",
     ],
 )
 
@@ -238,7 +238,7 @@ cc_library(
         ":platform",
         ":pyarrow_api",
         ":visibility",
-        "//arrow:array",
+        "//cpp/src/arrow:array",
     ],
 )
 
@@ -251,13 +251,13 @@ cc_library(
 cc_library(
     name = "pyarrow_hdr",
     hdrs = ["pyarrow.h"],
-    deps = ["//arrow:array"],
+    deps = ["//cpp/src/arrow:array"],
 )
 
 cc_library(
     name = "pyarrow_lib",
     hdrs = ["pyarrow_lib.h"],
-    deps = ["//arrow:array"],
+    deps = ["//cpp/src/arrow:array"],
 )
 
 cc_library(
@@ -272,8 +272,8 @@ cc_library(
         ":iterators",
         ":platform",
         ":visibility",
-        "//arrow:array",
-        "//arrow:array_builder",
+        "//cpp/src/arrow:array",
+        "//cpp/src/arrow:array_builder",
     ],
 )
 
@@ -285,9 +285,9 @@ cc_test(
         ":helpers",
         ":init",
         ":platform",
-        "//arrow/testing:gtest_common",
-        "//arrow/testing:gtest_util",
-        "//arrow/python/util:test_main",
+        "//cpp/src/arrow/testing:gtest_common",
+        "//cpp/src/arrow/testing:gtest_util",
+        "//cpp/src/arrow/python/util:test_main",
         "@python",
     ],
 )
@@ -303,14 +303,14 @@ cc_library(
         ":numpy_convert",
         ":numpy_interop",
         ":visibility",
-        "//arrow:array",
-        "//arrow:array_builder",
-        "//arrow:status",
-        "//arrow/array:builder_union",
-        "//arrow/io:memory",
-        "//arrow/ipc:options",
-        "//arrow/ipc:util",
-        "//arrow/ipc:writer",
+        "//cpp/src/arrow:array",
+        "//cpp/src/arrow:array_builder",
+        "//cpp/src/arrow:status",
+        "//cpp/src/arrow/array:builder_union",
+        "//cpp/src/arrow/io:memory",
+        "//cpp/src/arrow/ipc:options",
+        "//cpp/src/arrow/ipc:util",
+        "//cpp/src/arrow/ipc:writer",
     ],
 )
 

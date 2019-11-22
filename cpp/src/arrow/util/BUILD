@@ -15,7 +15,7 @@ cc_library(
     deps = [
         ":bit_util",
         ":int_util",
-        "//arrow:status",
+        "//cpp/src/arrow:status",
     ],
 )
 
@@ -30,7 +30,7 @@ cc_library(
     deps = [
         ":string_view",
         ":type_traits",
-        "//arrow:buffer_hdr",
+        "//cpp/src/arrow:buffer_hdr",
     ],
 )
 
@@ -51,7 +51,7 @@ cc_library(
     hdrs = ["compression.h"],
     deps = [
         ":visibility",
-        "//arrow:status",
+        "//cpp/src/arrow:status",
     ],
 )
 
@@ -93,7 +93,7 @@ cc_library(
         ":bit_util",
         ":int_util",
         ":parsing",
-        "//arrow:status",
+        "//cpp/src/arrow:status",
     ],
 )
 
@@ -103,8 +103,8 @@ cc_library(
     hdrs = ["formatting.h"],
     deps = [
         ":utf8",
-        "//arrow:array",
-        "//arrow:status",
+        "//cpp/src/arrow:array",
+        "//cpp/src/arrow:status",
         "@double-conversion//:double-conversion",
     ],
 )
@@ -119,8 +119,8 @@ cc_library(
     name = "hashing",
     hdrs = ["hashing.h"],
     deps = [
-        "//arrow:builder_hdr",
-        "//arrow/vendored:xxhash",
+        "//cpp/src/arrow:builder_hdr",
+        "//cpp/src/arrow/vendored:xxhash",
     ],
 )
 
@@ -142,9 +142,9 @@ cc_library(
         ":logging",
         ":macros",
         ":windows_compatibility",
-        "//arrow:buffer",
-        "//arrow:status",
-        "//arrow/io:interfaces",
+        "//cpp/src/arrow:buffer",
+        "//cpp/src/arrow:status",
+        "//cpp/src/arrow/io:interfaces",
     ],
 )
 
@@ -158,8 +158,8 @@ cc_library(
         ":logging",
         ":macros",
         ":visibility",
-        "//arrow:result",
-        "//arrow:status",
+        "//cpp/src/arrow:result",
+        "//cpp/src/arrow:status",
     ],
 )
 
@@ -210,10 +210,10 @@ cc_library(
     hdrs = ["parsing.h"],
     deps = [
         ":config",
-        "//arrow:result",
-        "//arrow:type_hdr",
-        "//arrow:type_traits",
-        "//arrow/vendored:datetime",
+        "//cpp/src/arrow:result",
+        "//cpp/src/arrow:type_hdr",
+        "//cpp/src/arrow:type_traits",
+        "//cpp/src/arrow/vendored:datetime",
         "@double-conversion//:double-conversion",
     ],
 )
@@ -242,7 +242,7 @@ cc_library(
     deps = [
         ":string_view",
         ":visibility",
-        "//arrow:status",
+        "//cpp/src/arrow:status",
     ],
 )
 
@@ -259,7 +259,7 @@ cc_library(
 cc_library(
     name = "string_view",
     hdrs = ["string_view.h"],
-    deps = ["//arrow/vendored:string_view"],
+    deps = ["//cpp/src/arrow/vendored:string_view"],
 )
 
 cc_library(
@@ -271,7 +271,7 @@ cc_library(
         ":logging",
         ":macros",
         ":visibility",
-        "//arrow:status",
+        "//cpp/src/arrow:status",
     ],
 )
 
@@ -294,20 +294,20 @@ cc_library(
     name = "utf8",
     srcs = [
         "utf8.cc",
-        "//arrow/vendored:utf8cpp",
+        "//cpp/src/arrow/vendored:utf8cpp",
     ],
     hdrs = ["utf8.h"],
     deps = [
         ":logging",
         ":string_view",
-        "//arrow:status",
+        "//cpp/src/arrow:status",
     ],
 )
 
 cc_library(
     name = "variant",
     hdrs = ["variant.h"],
-    deps = ["//arrow/vendored:variant"],
+    deps = ["//cpp/src/arrow/vendored:variant"],
 )
 
 cc_library(

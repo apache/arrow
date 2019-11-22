@@ -10,9 +10,9 @@ cc_library(
     hdrs = ["aggregate.h"],
     deps = [
         ":util_internal",
-        "//arrow:array_builder",
-        "//arrow/compute:context",
-        "//arrow/compute:kernel",
+        "//cpp/src/arrow:array_builder",
+        "//cpp/src/arrow/compute:context",
+        "//cpp/src/arrow/compute:kernel",
     ],
 )
 
@@ -22,9 +22,9 @@ cc_library(
     hdrs = ["boolean.h"],
     deps = [
         ":util_internal",
-        "//arrow:array_builder",
-        "//arrow/compute:context",
-        "//arrow/compute:kernel",
+        "//cpp/src/arrow:array_builder",
+        "//cpp/src/arrow/compute:context",
+        "//cpp/src/arrow/compute:kernel",
     ],
 )
 
@@ -37,10 +37,10 @@ cc_library(
     hdrs = ["cast.h"],
     deps = [
         ":util_internal",
-        "//arrow:array_builder",
-        "//arrow/compute:context",
-        "//arrow/compute:kernel",
-        "//arrow/util:formatting",
+        "//cpp/src/arrow:array_builder",
+        "//cpp/src/arrow/compute:context",
+        "//cpp/src/arrow/compute:kernel",
+        "//cpp/src/arrow/util:formatting",
     ],
 )
 
@@ -52,9 +52,9 @@ cc_library(
     hdrs = ["compare.h"],
     deps = [
         ":util_internal",
-        "//arrow:array_builder",
-        "//arrow/compute:context",
-        "//arrow/compute:kernel",
+        "//cpp/src/arrow:array_builder",
+        "//cpp/src/arrow/compute:context",
+        "//cpp/src/arrow/compute:kernel",
     ],
 )
 
@@ -67,9 +67,9 @@ cc_library(
     deps = [
         ":aggregate",
         ":util_internal",
-        "//arrow:array_builder",
-        "//arrow/compute:context",
-        "//arrow/compute:kernel",
+        "//cpp/src/arrow:array_builder",
+        "//cpp/src/arrow/compute:context",
+        "//cpp/src/arrow/compute:kernel",
     ],
 )
 
@@ -79,8 +79,8 @@ cc_library(
     hdrs = ["filter.h"],
     deps = [
         ":take_internal",
-        "//arrow:array_builder",
-        "//arrow/compute:kernel",
+        "//cpp/src/arrow:array_builder",
+        "//cpp/src/arrow/compute:kernel",
     ],
 )
 
@@ -90,9 +90,9 @@ cc_library(
     hdrs = ["hash.h"],
     deps = [
         ":util_internal",
-        "//arrow/array:dict_internal",
-        "//arrow/compute:context",
-        "//arrow/compute:kernel",
+        "//cpp/src/arrow/array:dict_internal",
+        "//cpp/src/arrow/compute:context",
+        "//cpp/src/arrow/compute:kernel",
     ],
 )
 
@@ -102,9 +102,9 @@ cc_library(
     hdrs = ["isin.h"],
     deps = [
         ":util_internal",
-        "//arrow/array:dict_internal",
-        "//arrow/compute:context",
-        "//arrow/compute:kernel",
+        "//cpp/src/arrow/array:dict_internal",
+        "//cpp/src/arrow/compute:context",
+        "//cpp/src/arrow/compute:kernel",
     ],
 )
 
@@ -122,10 +122,10 @@ cc_library(
     srcs = ["sort_to_indices.cc"],
     hdrs = ["sort_to_indices.h"],
     deps = [
-        "//arrow:array_builder",
-        "//arrow/compute:context",
-        "//arrow/compute:expression",
-        "//arrow/compute:kernel",
+        "//cpp/src/arrow:array_builder",
+        "//cpp/src/arrow/compute:context",
+        "//cpp/src/arrow/compute:expression",
+        "//cpp/src/arrow/compute:kernel",
     ],
 )
 
@@ -159,9 +159,9 @@ cc_library(
     name = "take_internal",
     hdrs = ["take_internal.h"],
     deps = [
-        "//arrow:array_builder",
-        "//arrow/compute:context",
-        "//arrow/compute:kernel",
+        "//cpp/src/arrow:array_builder",
+        "//cpp/src/arrow/compute:context",
+        "//cpp/src/arrow/compute:kernel",
     ],
 )
 
@@ -170,8 +170,8 @@ cc_library(
     srcs = ["util_internal.cc"],
     hdrs = ["util_internal.h"],
     deps = [
-        "//arrow:array",
-        "//arrow/compute:context",
-        "//arrow/compute:kernel",
+        "//cpp/src/arrow:array",
+        "//cpp/src/arrow/compute:context",
+        "//cpp/src/arrow/compute:kernel",
     ],
 )

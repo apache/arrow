@@ -1,6 +1,6 @@
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 
-package(default_visibility = ["//arrow:__pkg__"])
+package(default_visibility = ["//cpp/src/arrow:__pkg__"])
 
 cc_library(
     name = "builder_adaptive",
@@ -16,10 +16,10 @@ cc_library(
     srcs = ["builder_base.cc"],
     hdrs = ["builder_base.h"],
     deps = [
-        "//arrow:array_hdrs",
-        "//arrow:buffer",
-        "//arrow:buffer_builder",
-        "//arrow/util:int_util",
+        "//cpp/src/arrow:array_hdrs",
+        "//cpp/src/arrow:buffer",
+        "//cpp/src/arrow:buffer_builder",
+        "//cpp/src/arrow/util:int_util",
     ],
 )
 
@@ -29,7 +29,7 @@ cc_library(
     hdrs = ["builder_binary.h"],
     deps = [
         ":builder_base",
-        "//arrow:array",
+        "//cpp/src/arrow:array",
     ],
 )
 
@@ -54,7 +54,7 @@ cc_library(
         ":builder_adaptive",
         ":builder_base",
         ":builder_primitive",
-        "//arrow/util:hashing",
+        "//cpp/src/arrow/util:hashing",
     ],
 )
 
@@ -84,8 +84,8 @@ cc_library(
     srcs = ["builder_union.cc"],
     hdrs = ["builder_union.h"],
     visibility = [
-        "//arrow:__pkg__",
-        "//arrow/python:__pkg__",
+        "//cpp/src/arrow:__pkg__",
+        "//cpp/src/arrow/python:__pkg__",
     ],
     deps = [
         ":builder_base",
@@ -97,7 +97,7 @@ cc_library(
     srcs = ["concatenate.cc"],
     hdrs = ["concatenate.h"],
     deps = [
-        "//arrow:array_hdrs",
+        "//cpp/src/arrow:array_hdrs",
     ],
 )
 
@@ -105,11 +105,11 @@ cc_test(
     name = "concatenate_test",
     srcs = ["concatenate_test.cc"],
     deps = [
-        "//arrow:array",
-        "//arrow:array_builder",
-        "//arrow/compute:context",
-        "//arrow/testing:gtest_common",
-        "//arrow/testing:gtest_util",
+        "//cpp/src/arrow:array",
+        "//cpp/src/arrow:array_builder",
+        "//cpp/src/arrow/compute:context",
+        "//cpp/src/arrow/testing:gtest_common",
+        "//cpp/src/arrow/testing:gtest_util",
         "@flatbuffers",
         "@googletest//:gtest_main",
     ],
@@ -120,8 +120,8 @@ cc_library(
     srcs = ["dict_internal.cc"],
     hdrs = ["dict_internal.h"],
     visibility = [
-        "//arrow:__pkg__",
-        "//arrow/compute/kernels:__pkg__",
+        "//cpp/src/arrow:__pkg__",
+        "//cpp/src/arrow/compute/kernels:__pkg__",
     ],
     deps = [":builder_dict"],
 )
@@ -131,9 +131,9 @@ cc_library(
     srcs = ["diff.cc"],
     hdrs = ["diff.h"],
     deps = [
-        "//arrow:array_hdrs",
-        "//arrow:buffer_builder",
-        "//arrow/util:range",
+        "//cpp/src/arrow:array_hdrs",
+        "//cpp/src/arrow:buffer_builder",
+        "//cpp/src/arrow/util:range",
     ],
 )
 
@@ -141,15 +141,15 @@ cc_test(
     name = "diff_test",
     srcs = ["diff_test.cc"],
     deps = [
-        "//arrow:array",
-        "//arrow:array_builder",
-        "//arrow/compute:context",
-        "//arrow/compute/kernels:filter",
-        "//arrow/io:file",
-        "//arrow/io:memory",
-        "//arrow/io:test_common",
-        "//arrow/testing:gtest_common",
-        "//arrow/testing:gtest_util",
+        "//cpp/src/arrow:array",
+        "//cpp/src/arrow:array_builder",
+        "//cpp/src/arrow/compute:context",
+        "//cpp/src/arrow/compute/kernels:filter",
+        "//cpp/src/arrow/io:file",
+        "//cpp/src/arrow/io:memory",
+        "//cpp/src/arrow/io:test_common",
+        "//cpp/src/arrow/testing:gtest_common",
+        "//cpp/src/arrow/testing:gtest_util",
         "@flatbuffers",
         "@googletest//:gtest_main",
     ],

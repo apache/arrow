@@ -7,9 +7,9 @@ cc_library(
     srcs = ["context.cc"],
     hdrs = ["context.h"],
     deps = [
-        "//arrow:buffer",
-        "//arrow:memory_pool",
-        "//arrow/util:cpu_info",
+        "//cpp/src/arrow:buffer",
+        "//cpp/src/arrow:memory_pool",
+        "//cpp/src/arrow/util:cpu_info",
     ],
 )
 
@@ -21,14 +21,14 @@ cc_library(
         ":logical_type",
         ":operation",
         ":type_fwd",
-        "//arrow:status",
+        "//cpp/src/arrow:status",
     ],
 )
 
 cc_library(
     name = "expression_hdr",
     hdrs = ["expression.h"],
-    deps = ["//arrow:status"],
+    deps = ["//cpp/src/arrow:status"],
 )
 
 cc_library(
@@ -38,7 +38,7 @@ cc_library(
     deps = [
         ":expression_hdr",
         ":type_fwd",
-        "//arrow:array",
+        "//cpp/src/arrow:array",
     ],
 )
 
@@ -56,28 +56,28 @@ cc_library(
     hdrs = ["api.h"],
     deps = [
         ":context",
-        "//arrow/compute/kernels:boolean",
-        "//arrow/compute/kernels:cast",
-        "//arrow/compute/kernels:compare",
-        "//arrow/compute/kernels:count",
-        "//arrow/compute/kernels:filter",
-        "//arrow/compute/kernels:hash",
-        "//arrow/compute/kernels:isin",
-        "//arrow/compute/kernels:mean",
-        "//arrow/compute/kernels:sort_to_indices",
-        "//arrow/compute/kernels:sum",
-        "//arrow/compute/kernels:take",
+        "//cpp/src/arrow/compute/kernels:boolean",
+        "//cpp/src/arrow/compute/kernels:cast",
+        "//cpp/src/arrow/compute/kernels:compare",
+        "//cpp/src/arrow/compute/kernels:count",
+        "//cpp/src/arrow/compute/kernels:filter",
+        "//cpp/src/arrow/compute/kernels:hash",
+        "//cpp/src/arrow/compute/kernels:isin",
+        "//cpp/src/arrow/compute/kernels:mean",
+        "//cpp/src/arrow/compute/kernels:sort_to_indices",
+        "//cpp/src/arrow/compute/kernels:sum",
+        "//cpp/src/arrow/compute/kernels:take",
     ],
 )
 
 cc_library(
     name = "kernel",
     hdrs = ["kernel.h"],
-    deps = ["//arrow:array"],
+    deps = ["//cpp/src/arrow:array"],
 )
 
 cc_library(
     name = "type_fwd",
     hdrs = ["type_fwd.h"],
-    deps = ["//arrow:type_fwd"],
+    deps = ["//cpp/src/arrow:type_fwd"],
 )

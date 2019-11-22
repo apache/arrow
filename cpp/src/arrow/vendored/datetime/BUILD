@@ -10,6 +10,6 @@ cc_library(
         "tz_private.h",
         "visibility.h",
     ],
-    visibility = ["//arrow/vendored:__pkg__"],
+    visibility = ["//cpp/src/arrow/vendored:__pkg__"],
 )
 

@@ -11,9 +11,9 @@ cc_library(
         ":client_auth",
         ":client_middleware",
         ":types",
-        "//arrow/ipc:reader",
-        "//arrow/ipc:writer",
-        "//arrow/util:uri",
+        "//cpp/src/arrow/ipc:reader",
+        "//cpp/src/arrow/ipc:writer",
+        "//cpp/src/arrow/util:uri",
         "@com_github_grpc_grpc//:grpc++",
     ],
 )
@@ -88,8 +88,8 @@ cc_library(
     name = "platform",
     hdrs = ["platform.h"],
     deps = [
-        "//arrow/util:config",
-        "//arrow/util:windows_compatibility",
+        "//cpp/src/arrow/util:config",
+        "//cpp/src/arrow/util:windows_compatibility",
     ],
 )
 
@@ -151,7 +151,7 @@ cc_library(
     hdrs = ["types.h"],
     deps = [
         ":visibility",
-        "//arrow/ipc:writer",
+        "//cpp/src/arrow/ipc:writer",
     ],
 )
 
@@ -162,9 +162,9 @@ cc_library(
     deps = [
         ":serialization_internal",
         ":visibility",
-        "//arrow/ipc:reader",
-        "//arrow/ipc:writer",
-        "//arrow/util:uri",
+        "//cpp/src/arrow/ipc:reader",
+        "//cpp/src/arrow/ipc:writer",
+        "//cpp/src/arrow/util:uri",
     ],
 )
 

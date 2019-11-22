@@ -7,8 +7,8 @@ cc_library(
     srcs = ["dictionary.cc"],
     hdrs = ["dictionary.h"],
     deps = [
-        "//arrow:array",
-        "//arrow:status",
+        "//cpp/src/arrow:array",
+        "//cpp/src/arrow:status",
     ],
 )
 
@@ -19,9 +19,9 @@ cc_library(
     deps = [
         ":feather_internal",
         ":util",
-        "//arrow:array",
-        "//arrow/util:visibility",
-        "//generated",
+        "//cpp/src/arrow:array",
+        "//cpp/src/arrow/util:visibility",
+        "//cpp/src/generated",
         "@flatbuffers",
     ],
 )
@@ -37,10 +37,10 @@ cc_library(
     hdrs = ["json_internal.h"],
     deps = [
         ":dictionary",
-        "//arrow:array",
-        "//arrow:array_builder",
-        "//arrow:status",
-        "//arrow/json:rapidjson_defs",
+        "//cpp/src/arrow:array",
+        "//cpp/src/arrow:array_builder",
+        "//cpp/src/arrow:status",
+        "//cpp/src/arrow/json:rapidjson_defs",
         "@rapidjson",
     ],
 )
@@ -51,8 +51,8 @@ cc_library(
     hdrs = ["json_simple.h"],
     deps = [
         ":json_internal",
-        "//arrow:array",
-        "//arrow:array_builder",
+        "//cpp/src/arrow:array",
+        "//cpp/src/arrow:array_builder",
     ],
 )
 
@@ -63,10 +63,10 @@ cc_library(
     deps = [
         ":metadata_internal",
         ":options",
-        "//arrow:buffer",
-        "//arrow:status",
-        "//arrow/io:interfaces",
-        "//generated",
+        "//cpp/src/arrow:buffer",
+        "//cpp/src/arrow:status",
+        "//cpp/src/arrow/io:interfaces",
+        "//cpp/src/generated",
         "@flatbuffers",
     ],
 )
@@ -85,8 +85,8 @@ cc_library(
         ":dictionary",
         ":message_hdr",
         ":util",
-        "//arrow:buffer",
-        "//generated",
+        "//cpp/src/arrow:buffer",
+        "//cpp/src/generated",
         "@flatbuffers",
     ],
 )
@@ -95,7 +95,7 @@ cc_library(
     name = "options",
     srcs = ["options.cc"],
     hdrs = ["options.h"],
-    deps = ["//arrow/util:visibility"],
+    deps = ["//cpp/src/arrow/util:visibility"],
 )
 
 cc_library(
@@ -117,12 +117,12 @@ cc_test(
         ":reader",
         ":test_common",
         ":writer",
-        "//arrow:array",
-        "//arrow:array_builder",
-        "//arrow/io:file",
-        "//arrow/io:memory",
-        "//arrow/io:test_common",
-        "//arrow/testing:gtest_util",
+        "//cpp/src/arrow:array",
+        "//cpp/src/arrow:array_builder",
+        "//cpp/src/arrow/io:file",
+        "//cpp/src/arrow/io:memory",
+        "//cpp/src/arrow/io:test_common",
+        "//cpp/src/arrow/testing:gtest_util",
         "@flatbuffers",
         "@googletest//:gtest_main",
     ],
@@ -137,9 +137,9 @@ cc_library(
         ":message",
         ":metadata_internal",
         ":options",
-        "//arrow:array",
-        "//arrow/io:memory",
-        "//arrow/util:visibility",
+        "//cpp/src/arrow:array",
+        "//cpp/src/arrow/io:memory",
+        "//cpp/src/arrow/util:visibility",
     ],
 )
 
@@ -149,9 +149,9 @@ cc_library(
     srcs = ["test_common.cc"],
     hdrs = ["test_common.h"],
     deps = [
-        "//arrow:array",
-        "//arrow:array_builder",
-        "//arrow/testing:gtest_util",
+        "//cpp/src/arrow:array",
+        "//cpp/src/arrow:array_builder",
+        "//cpp/src/arrow/testing:gtest_util",
     ],
 )
 
@@ -159,9 +159,9 @@ cc_library(
     name = "util",
     hdrs = ["util.h"],
     deps = [
-        "//arrow:array",
-        "//arrow:status",
-        "//arrow/io:interfaces",
+        "//cpp/src/arrow:array",
+        "//cpp/src/arrow:status",
+        "//cpp/src/arrow/io:interfaces",
     ],
 )
 
@@ -174,9 +174,9 @@ cc_library(
         ":message",
         ":metadata_internal",
         ":options",
-        "//arrow:array",
-        "//arrow:result_internal",
-        "//arrow/io:memory",
-        "//arrow/util:visibility",
+        "//cpp/src/arrow:array",
+        "//cpp/src/arrow:result_internal",
+        "//cpp/src/arrow/io:memory",
+        "//cpp/src/arrow/util:visibility",
     ],
 )

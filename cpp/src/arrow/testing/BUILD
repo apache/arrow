@@ -15,10 +15,10 @@ cc_library(
     hdrs = ["gtest_util.h"],
     deps = [
         ":util",
-        "//arrow:array_builder",
-        "//arrow:buffer",
-        "//arrow/compute:kernel",
-        "//arrow/ipc:json_simple",
+        "//cpp/src/arrow:array_builder",
+        "//cpp/src/arrow:buffer",
+        "//cpp/src/arrow/compute:kernel",
+        "//cpp/src/arrow/ipc:json_simple",
         "@googletest//:gtest",
     ],
 )
@@ -30,8 +30,8 @@ cc_library(
         "util.h",
     ],
     deps = [
-        "//arrow:array_builder",
-        "//arrow:buffer",
+        "//cpp/src/arrow:array_builder",
+        "//cpp/src/arrow:buffer",
     ],
 )
 
@@ -42,8 +42,8 @@ cc_library(
     hdrs = ["random.h"],
     deps = [
         ":gtest_util_hdr",
-        "//arrow:array",
-        "//arrow/util:visibility",
+        "//cpp/src/arrow:array",
+        "//cpp/src/arrow/util:visibility",
         "@googletest//:gtest",
     ],
 )
@@ -56,7 +56,7 @@ cc_library(
     hdrs = ["util.h"],
     deps = [
         ":random",
-        "//arrow:array_builder",
-        "//arrow:buffer",
+        "//cpp/src/arrow:array_builder",
+        "//cpp/src/arrow:buffer",
     ],
 )

@@ -9,6 +9,6 @@ cc_library(
         "xxhash.c",
         "xxhash.h",
     ],
-    visibility = ["//arrow/vendored:__pkg__"],
+    visibility = ["//cpp/src/arrow/vendored:__pkg__"],
 )
 

@@ -4,13 +4,13 @@ cc_library(
     name = "datetime",
     hdrs = ["datetime.h"],
     visibility = ["//visibility:public"],
-    deps = ["//arrow/vendored/datetime"],
+    deps = ["//cpp/src/arrow/vendored/datetime"],
 )
 
 cc_library(
     name = "string_view",
     hdrs = ["string_view.hpp"],
-    visibility = ["//arrow/util:__pkg__"],
+    visibility = ["//cpp/src/arrow/util:__pkg__"],
 )
 
 filegroup(
@@ -19,18 +19,18 @@ filegroup(
         "utf8cpp/checked.h",
         "utf8cpp/core.h",
     ],
-    visibility = ["//arrow/util:__pkg__"],
+    visibility = ["//cpp/src/arrow/util:__pkg__"],
 )
 
 cc_library(
     name = "variant",
     hdrs = ["variant.hpp"],
-    visibility = ["//arrow/util:__pkg__"],
+    visibility = ["//cpp/src/arrow/util:__pkg__"],
 )
 
 cc_library(
     name = "xxhash",
     hdrs = ["xxhash.h"],
     visibility = ["//visibility:public"],
-    deps = ["//arrow/vendored/xxhash"],
+    deps = ["//cpp/src/arrow/vendored/xxhash"],
 )
