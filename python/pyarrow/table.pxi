@@ -1696,7 +1696,6 @@ def concat_tables(tables, promote=False, MemoryPool memory_pool=None):
     """
     cdef:
         vector[shared_ptr[CTable]] c_tables
-        CResult[shared_ptr[CTable]] c_result
         shared_ptr[CTable] c_result_table
         CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
         Table table
@@ -1706,8 +1705,8 @@ def concat_tables(tables, promote=False, MemoryPool memory_pool=None):
 
     if promote:
         with nogil:
-            c_result = ConcatenateTablesWithPromotion(c_tables, pool)
-        c_result_table = GetResultValue(c_result)
+            c_result_table = GetResultValue(
+                ConcatenateTablesWithPromotion(c_tables, pool))
     else:
         with nogil:
             check_status(ConcatenateTables(c_tables, &c_result_table))
