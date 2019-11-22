@@ -6,7 +6,7 @@
 # been written at cython/cython and tensorflow/tensorflow. We branch from
 # Tensorflow's version as it is more actively maintained and works for gRPC
 # Python's needs.
-def pyx_library(name, deps = [], py_deps = [], srcs = [], **kwargs):
+def pyx_library(name, deps = [], py_deps = [], srcs = [], include_path = "", pxi = [], cpp_deps = [], **kwargs):
     """Compiles a group of .pyx / .pxd / .py files.
     First runs Cython to create .cpp files for each input .pyx or .py + .pxd
     pair. Then builds a shared object for each, passing "deps" to each cc_binary
@@ -45,8 +45,8 @@ def pyx_library(name, deps = [], py_deps = [], srcs = [], **kwargs):
             # Optionally use PYTHON_BIN_PATH on Linux platforms so that python 3
             # works. Windows has issues with cython_binary so skip PYTHON_BIN_PATH.
             cmd =
-                "PYTHONHASHSEED=0 $(location @cython//:cython_binary) --cplus $(SRCS) --output-file $(OUTS)",
-            tools = ["@cython//:cython_binary"] + pxd_srcs,
+                "PYTHONHASHSEED=0 $(location @cython2//:cython_binary) --cplus $(SRCS) --output-file $(OUTS) -I" + include_path,
+            tools = ["@cython2//:cython_binary"] + pxd_srcs,
         )
 
     shared_objects = []
@@ -56,7 +56,7 @@ def pyx_library(name, deps = [], py_deps = [], srcs = [], **kwargs):
         native.cc_binary(
             name = shared_object_name,
             srcs = [stem + ".cpp"],
-            deps = deps + ["@local_config_python//:python_headers"],
+            deps = deps + ["@local_config_python//:python_headers"] + cpp_deps,
             linkshared = 1,
         )
         shared_objects.append(shared_object_name)

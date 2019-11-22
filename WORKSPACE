@@ -92,7 +92,7 @@ new_local_repository(
 )
 
 http_archive(
-        name = "cython",
+        name = "cython2",
         strip_prefix = "cython-0.29.14",
         urls = [
             "https://github.com/cython/cython/archive/0.29.14.tar.gz",

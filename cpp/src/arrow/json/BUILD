@@ -9,3 +9,11 @@ arrow_cc_library(
     deps = ["//cpp/src/arrow/util:sse_util"],
 )
 
+
+arrow_cc_library(
+  name = "options",
+  hdrs = ["options.h"])
+
+arrow_cc_library(
+  name = "reader",
+  hdrs = ["reader.h"])
