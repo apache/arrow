@@ -90,3 +90,12 @@ new_local_repository(
     build_file = "//bazel:python.BUILD",
     path = "/usr",
 )
+
+http_archive(
+        name = "cython",
+        strip_prefix = "cython-0.29.14",
+        urls = [
+            "https://github.com/cython/cython/archive/0.29.14.tar.gz",
+        ],
+        build_file = "//bazel:cython.BUILD",
+    )
