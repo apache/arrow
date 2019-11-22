@@ -37,21 +37,21 @@ groups:
     - wheel-manylinux1-cp35m
     - wheel-manylinux1-cp36m
     - wheel-manylinux1-cp37m
-    - wheel-manylinux1-cp38m
+    - wheel-manylinux1-cp38
     - wheel-manylinux2010-cp27m
     - wheel-manylinux2010-cp27mu
     - wheel-manylinux2010-cp35m
     - wheel-manylinux2010-cp36m
     - wheel-manylinux2010-cp37m
-    - wheel-manylinux2010-cp38m
+    - wheel-manylinux2010-cp38
     - wheel-osx-cp27m
     - wheel-osx-cp35m
     - wheel-osx-cp36m
     - wheel-osx-cp37m
-    - wheel-osx-cp38m
+    - wheel-osx-cp38
     - wheel-win-cp36m
     - wheel-win-cp37m
-    - wheel-win-cp38m
+    - wheel-win-cp38
 
   linux:
     - debian-stretch
@@ -212,21 +212,21 @@ groups:
     - wheel-manylinux1-cp35m
     - wheel-manylinux1-cp36m
     - wheel-manylinux1-cp37m
-    - wheel-manylinux1-cp38m
+    - wheel-manylinux1-cp38
     - wheel-manylinux2010-cp27m
     - wheel-manylinux2010-cp27mu
     - wheel-manylinux2010-cp35m
     - wheel-manylinux2010-cp36m
     - wheel-manylinux2010-cp37m
-    - wheel-manylinux2010-cp38m
+    - wheel-manylinux2010-cp38
     - wheel-osx-cp27m
     - wheel-osx-cp35m
     - wheel-osx-cp36m
     - wheel-osx-cp37m
-    - wheel-osx-cp38m
+    - wheel-osx-cp38
     - wheel-win-cp36m
     - wheel-win-cp37m
-    - wheel-win-cp38m
+    - wheel-win-cp38
     - debian-stretch
     - debian-buster
     - ubuntu-xenial
@@ -442,7 +442,7 @@ tasks:
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-manylinux1_x86_64.whl
 
-  wheel-manylinux1-cp38m:
+  wheel-manylinux1-cp38:
     ci: travis
     platform: linux
     template: python-wheels/travis.linux.yml
@@ -454,7 +454,7 @@ tasks:
         - python:3.8
       test_remove_system_libs: true
     artifacts:
-      - pyarrow-{no_rc_version}-cp38-cp38m-manylinux1_x86_64.whl
+      - pyarrow-{no_rc_version}-cp38-cp38-manylinux1_x86_64.whl
 
   wheel-manylinux2010-cp27m:
     ci: travis
@@ -525,7 +525,7 @@ tasks:
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-manylinux2010_x86_64.whl
 
-  wheel-manylinux2010-cp38m:
+  wheel-manylinux2010-cp38:
     ci: travis
     platform: linux
     template: python-wheels/travis.linux.yml
@@ -537,7 +537,7 @@ tasks:
         - python:3.8
       test_remove_system_libs: true
     artifacts:
-      - pyarrow-{no_rc_version}-cp38-cp38m-manylinux2010_x86_64.whl
+      - pyarrow-{no_rc_version}-cp38-cp38-manylinux2010_x86_64.whl
 
   ############################## Wheel OSX ####################################
 
@@ -586,14 +586,14 @@ tasks:
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-macosx_10_6_intel.whl
 
-  wheel-osx-cp38m:
+  wheel-osx-cp38:
     ci: travis
     platform: osx
     template: python-wheels/travis.osx.yml
     params:
       python_version: 3.8
     artifacts:
-      - pyarrow-{no_rc_version}-cp38-cp38m-macosx_10_6_intel.whl
+      - pyarrow-{no_rc_version}-cp38-cp38-macosx_10_6_intel.whl
 
   ############################## Wheel Windows ################################
 
@@ -615,14 +615,14 @@ tasks:
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-win_amd64.whl
 
-  wheel-win-cp38m:
+  wheel-win-cp38:
     ci: appveyor
     platform: win
     template: python-wheels/appveyor.yml
     params:
       python_version: 3.8
     artifacts:
-      - pyarrow-{no_rc_version}-cp38-cp38m-win_amd64.whl
+      - pyarrow-{no_rc_version}-cp38-cp38-win_amd64.whl
 
   ############################## Linux PKGS ####################################
 
