@@ -1,8 +1,9 @@
-load("//bazel::arrow_cc_library.bzl", arrow_cc_library)
+load("@rules_cc//cc:defs.bzl", "cc_test")
+load("//bazel:arrow_cc_library.bzl", "arrow_cc_library")
 
 package(default_visibility = ["//visibility:public"])
 
-cc_library(
+arrow_cc_library(
     name = "array",
     srcs = [
         "array.cc",
@@ -57,7 +58,7 @@ cc_test(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "array_builder",
     srcs = ["builder.cc"],
     hdrs = ["builder.h"],
@@ -84,7 +85,7 @@ cc_test(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "array_hdrs",
     hdrs = [":array_hdrs_grp"],
     deps = [
@@ -174,7 +175,7 @@ cc_test(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "buffer",
     srcs = ["buffer.cc"],
     visibility = ["//visibility:public"],
@@ -187,20 +188,20 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "buffer_builder",
     hdrs = ["buffer_builder.h"],
     deps = ["//cpp/src/arrow/util:ubsan"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "buffer_hdr",
     hdrs = ["buffer.h"],
     visibility = ["//visibility:public"],
     deps = [":memory_pool"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "builder_hdr",
     hdrs = [
         "builder.h",
@@ -219,7 +220,7 @@ cc_test(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "compare",
     srcs = ["compare.cc"],
     hdrs = ["compare.h"],
@@ -232,7 +233,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "extension_type",
     srcs = [
         "extension_type.cc",
@@ -259,7 +260,7 @@ cc_test(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "memory_pool",
     srcs = ["memory_pool.cc"],
     hdrs = ["memory_pool.h"],
@@ -295,7 +296,7 @@ cc_test(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "public_api",
     hdrs = ["api.h"],
     deps = [
@@ -320,7 +321,7 @@ cc_test(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "result",
     srcs = ["result.cc"],
     hdrs = ["result.h"],
@@ -344,7 +345,7 @@ cc_test(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "result_internal",
     hdrs = ["result_internal.h"],
     deps = [":result"],
@@ -376,7 +377,7 @@ cc_test(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "status",
     srcs = ["status.cc"],
     hdrs = ["status.h"],
@@ -401,7 +402,7 @@ cc_test(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "stl",
     hdrs = ["stl.h"],
     deps = ["//cpp/src/arrow/compute:public_api"],
@@ -421,7 +422,7 @@ cc_test(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "table_builder",
     srcs = ["table_builder.cc"],
     hdrs = ["table_builder.h"],
@@ -470,14 +471,14 @@ cc_test(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "type_fwd",
     hdrs = ["type_fwd.h"],
     visibility = ["//visibility:public"],
     deps = ["//cpp/src/arrow/util:visibility"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "type_hdr",
     hdrs = [
         "type.h",
@@ -503,7 +504,7 @@ cc_test(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "type_traits",
     hdrs = ["type_traits.h"],
     visibility = ["//visibility:public"],

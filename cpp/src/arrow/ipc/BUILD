@@ -1,8 +1,9 @@
-load("//bazel::arrow_cc_library.bzl", arrow_cc_library)
+load("@rules_cc//cc:defs.bzl", "cc_test")
+load("//bazel:arrow_cc_library.bzl", "arrow_cc_library")
 
 package(default_visibility = ["//visibility:public"])
 
-cc_library(
+arrow_cc_library(
     name = "dictionary",
     srcs = ["dictionary.cc"],
     hdrs = ["dictionary.h"],
@@ -12,7 +13,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "feather",
     srcs = ["feather.cc"],
     hdrs = ["feather.h"],
@@ -26,12 +27,12 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "feather_internal",
     hdrs = ["feather_internal.h"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "json_internal",
     srcs = ["json_internal.cc"],
     hdrs = ["json_internal.h"],
@@ -45,7 +46,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "json_simple",
     srcs = ["json_simple.cc"],
     hdrs = ["json_simple.h"],
@@ -56,7 +57,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "message",
     srcs = ["message.cc"],
     hdrs = ["message.h"],
@@ -71,13 +72,13 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "message_hdr",
     hdrs = ["message.h"],
     deps = [":options"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "metadata_internal",
     srcs = ["metadata_internal.cc"],
     hdrs = ["metadata_internal.h"],
@@ -91,14 +92,14 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "options",
     srcs = ["options.cc"],
     hdrs = ["options.h"],
     deps = ["//cpp/src/arrow/util:visibility"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "public_api",
     hdrs = ["api.h"],
     deps = [
@@ -128,7 +129,7 @@ cc_test(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "reader",
     srcs = ["reader.cc"],
     hdrs = ["reader.h"],
@@ -143,7 +144,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "test_common",
     testonly = True,
     srcs = ["test_common.cc"],
@@ -155,7 +156,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "util",
     hdrs = ["util.h"],
     deps = [
@@ -165,7 +166,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "writer",
     srcs = ["writer.cc"],
     hdrs = ["writer.h"],

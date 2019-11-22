@@ -1,6 +1,8 @@
+load("@rules_cc//cc:defs.bzl", "cc_test")
+load("//bazel:arrow_cc_library.bzl", "arrow_cc_library")
 package(default_visibility = ["//visibility:public"])
 
-cc_library(
+arrow_cc_library(
     name = "arrow_to_pandas",
     srcs = ["arrow_to_pandas.cc"],
     hdrs = ["arrow_to_pandas.h"],
@@ -21,7 +23,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "common",
     srcs = ["common.cc"],
     hdrs = ["common.h"],
@@ -34,7 +36,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "common_hdr",
     hdrs = ["common.h"],
     deps = [
@@ -43,7 +45,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "config",
     srcs = ["config.cc"],
     hdrs = ["config.h"],
@@ -54,7 +56,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "decimal",
     srcs = ["decimal.cc"],
     hdrs = ["decimal.h"],
@@ -66,7 +68,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "datetime",
     srcs = ["datetime.cc"],
     hdrs = ["datetime.h"],
@@ -76,7 +78,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "deserialize",
     srcs = ["deserialize.cc"],
     hdrs = ["deserialize.h"],
@@ -87,7 +89,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "extension_type",
     srcs = ["extension_type.cc"],
     hdrs = ["extension_type.h"],
@@ -97,7 +99,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "flight",
     srcs = ["flight.cc"],
     hdrs = ["flight.h"],
@@ -108,7 +110,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "helpers",
     srcs = ["helpers.cc"],
     hdrs = ["helpers.h"],
@@ -123,12 +125,12 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "helpers_hdr",
     hdrs = ["helpers.h"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "inference",
     srcs = ["inference.cc"],
     hdrs = ["inference.h"],
@@ -144,7 +146,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "init",
     srcs = ["init.cc"],
     hdrs = ["init.h"],
@@ -155,7 +157,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "io",
     srcs = ["io.cc"],
     hdrs = ["io.h"],
@@ -168,13 +170,13 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "iterators",
     hdrs = ["iterators.h"],
     deps = [":numpy_internal"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "numpy_convert",
     srcs = ["numpy_convert.cc"],
     hdrs = ["numpy_convert.h"],
@@ -190,13 +192,13 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "numpy_internal",
     hdrs = ["numpy_internal.h"],
     deps = [],
 )
 
-cc_library(
+arrow_cc_library(
     name = "numpy_interop",
     hdrs = ["numpy_interop.h"],
     deps = [
@@ -205,7 +207,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "numpy_to_arrow",
     srcs = ["numpy_to_arrow.cc"],
     hdrs = ["numpy_to_arrow.h"],
@@ -222,13 +224,13 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "platform",
     hdrs = ["platform.h"],
     deps = ["@python"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "pyarrow",
     srcs = ["pyarrow.cc"],
     hdrs = ["pyarrow.h"],
@@ -242,13 +244,13 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "pyarrow_api",
     hdrs = ["pyarrow_api.h"],
     deps = [":pyarrow_lib"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "pyarrow_hdr",
     hdrs = ["pyarrow.h"],
     deps = ["//cpp/src/arrow:array"],
@@ -258,9 +260,10 @@ cc_library(
     name = "pyarrow_lib",
     hdrs = ["pyarrow_lib.h"],
     deps = ["//cpp/src/arrow:array"],
+    strip_include_prefix = "/cpp/src/arrow/python/"
 )
 
-cc_library(
+arrow_cc_library(
     name = "python_to_arrow",
     srcs = ["python_to_arrow.cc"],
     hdrs = ["python_to_arrow.h"],
@@ -292,7 +295,7 @@ cc_test(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "serialize",
     srcs = ["serialize.cc"],
     hdrs = ["serialize.h"],
@@ -314,12 +317,12 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "visibility",
     hdrs = ["visibility.h"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "type_traits",
     hdrs = ["type_traits.h"],
 )

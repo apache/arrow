@@ -1,3 +1,4 @@
+load("@rules_cc//cc:defs.bzl", "cc_test")
 load("//bazel:arrow_cc_library.bzl", "arrow_cc_library")
 load("//bazel:template.bzl", "template_rule")
 
@@ -20,14 +21,18 @@ arrow_cc_library(
 )
 
 arrow_cc_library(
+name = "align_util_hdr",
+hdrs = ["align_util.h"])
+
+arrow_cc_library(
     name = "bit_util",
     srcs = [
-        "align_util.h",
         "bit_util.cc",
     ],
     hdrs = ["bit_util.h"],
     visibility = ["//visibility:public"],
     deps = [
+        ":align_util_hdr",
         ":string_view",
         ":type_traits",
         "//cpp/src/arrow:buffer_hdr",
@@ -294,10 +299,10 @@ arrow_cc_library(
     name = "utf8",
     srcs = [
         "utf8.cc",
-        "//cpp/src/arrow/vendored:utf8cpp",
     ],
     hdrs = ["utf8.h"],
     deps = [
+        "//cpp/src/arrow/vendored/utf8cpp",
         ":logging",
         ":string_view",
         "//cpp/src/arrow:status",

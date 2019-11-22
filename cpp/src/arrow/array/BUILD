@@ -1,8 +1,9 @@
-load("//bazel::arrow_cc_library.bzl", arrow_cc_library)
+load("@rules_cc//cc:defs.bzl", "cc_test")
+load("//bazel:arrow_cc_library.bzl", "arrow_cc_library")
 
 package(default_visibility = ["//cpp/src/arrow:__pkg__"])
 
-cc_library(
+arrow_cc_library(
     name = "builder_adaptive",
     srcs = ["builder_adaptive.cc"],
     hdrs = ["builder_adaptive.h"],
@@ -11,7 +12,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "builder_base",
     srcs = ["builder_base.cc"],
     hdrs = ["builder_base.h"],
@@ -23,7 +24,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "builder_binary",
     srcs = ["builder_binary.cc"],
     hdrs = ["builder_binary.h"],
@@ -33,7 +34,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "builder_decimal",
     srcs = ["builder_decimal.cc"],
     hdrs = ["builder_decimal.h"],
@@ -43,11 +44,15 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
+name = "dict_internal_hdr",
+hdrs = ["dict_internal.h"],
+)
+
+arrow_cc_library(
     name = "builder_dict",
     srcs = [
         "builder_dict.cc",
-        "dict_internal.h",
     ],
     hdrs = ["builder_dict.h"],
     deps = [
@@ -55,6 +60,7 @@ cc_library(
         ":builder_base",
         ":builder_primitive",
         "//cpp/src/arrow/util:hashing",
+":dict_internal_hdr"
     ],
 )
 
@@ -63,7 +69,7 @@ filegroup(
     srcs = glob(["builder_*.h"]),
 )
 
-cc_library(
+arrow_cc_library(
     name = "builder_nested",
     srcs = ["builder_nested.cc"],
     hdrs = ["builder_nested.h"],
@@ -72,14 +78,14 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "builder_primitive",
     srcs = ["builder_primitive.cc"],
     hdrs = ["builder_primitive.h"],
     deps = [":builder_base"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "builder_union",
     srcs = ["builder_union.cc"],
     hdrs = ["builder_union.h"],
@@ -92,7 +98,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "concatenate",
     srcs = ["concatenate.cc"],
     hdrs = ["concatenate.h"],
@@ -115,7 +121,7 @@ cc_test(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "dict_internal",
     srcs = ["dict_internal.cc"],
     hdrs = ["dict_internal.h"],
@@ -126,7 +132,7 @@ cc_library(
     deps = [":builder_dict"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "diff",
     srcs = ["diff.cc"],
     hdrs = ["diff.h"],

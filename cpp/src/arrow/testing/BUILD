@@ -1,14 +1,15 @@
-load("//bazel::arrow_cc_library.bzl", arrow_cc_library)
+load("@rules_cc//cc:defs.bzl", "cc_test")
+load("//bazel:arrow_cc_library.bzl", "arrow_cc_library")
 
 package(default_visibility = ["//visibility:public"])
 
-cc_library(
+arrow_cc_library(
     name = "gtest_common",
     testonly = True,
     hdrs = ["gtest_common.h"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "gtest_util",
     testonly = True,
     srcs = ["gtest_util.cc"],
@@ -23,7 +24,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "gtest_util_hdr",
     hdrs = [
         "gtest_util.h",
@@ -35,7 +36,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "random",
     testonly = True,
     srcs = ["random.cc"],
@@ -49,7 +50,7 @@ cc_library(
 )
 
 
-cc_library(
+arrow_cc_library(
     name = "util",
     testonly = True,
     srcs = ["util.cc"],

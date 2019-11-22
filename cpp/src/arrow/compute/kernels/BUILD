@@ -1,8 +1,9 @@
-load("//bazel::arrow_cc_library.bzl", arrow_cc_library)
+load("@rules_cc//cc:defs.bzl", "cc_test")
+load("//bazel:arrow_cc_library.bzl", "arrow_cc_library")
 
 package(default_visibility = ["//visibility:public"])
 
-cc_library(
+arrow_cc_library(
     name = "aggregate",
     srcs = [
         "aggregate.cc",
@@ -16,7 +17,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "boolean",
     srcs = ["boolean.cc"],
     hdrs = ["boolean.h"],
@@ -28,7 +29,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "cast",
     srcs = [
         "cast.cc",
@@ -44,7 +45,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "compare",
     srcs = [
         "compare.cc",
@@ -58,7 +59,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "count",
     srcs = [
         "count.cc",
@@ -73,7 +74,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "filter",
     srcs = ["filter.cc"],
     hdrs = ["filter.h"],
@@ -84,7 +85,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "hash",
     srcs = ["hash.cc"],
     hdrs = ["hash.h"],
@@ -96,7 +97,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "isin",
     srcs = ["isin.cc"],
     hdrs = ["isin.h"],
@@ -108,7 +109,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "mean",
     srcs = ["mean.cc"],
     hdrs = ["mean.h"],
@@ -117,7 +118,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "sort_to_indices",
     srcs = ["sort_to_indices.cc"],
     hdrs = ["sort_to_indices.h"],
@@ -129,7 +130,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "sum_internal",
     hdrs = ["sum_internal.h"],
     deps = [
@@ -137,7 +138,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "sum",
     srcs = ["sum.cc"],
     hdrs = ["sum.h"],
@@ -146,7 +147,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "take",
     srcs = ["take.cc"],
     hdrs = ["take.h"],
@@ -155,7 +156,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "take_internal",
     hdrs = ["take_internal.h"],
     deps = [
@@ -165,7 +166,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "util_internal",
     srcs = ["util_internal.cc"],
     hdrs = ["util_internal.h"],
