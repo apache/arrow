@@ -1669,15 +1669,15 @@ def table(data, names=None, schema=None, metadata=None):
             "Expected pandas DataFrame, python dictionary or list of arrays")
 
 
-def concat_tables(tables, with_promotion=False, MemoryPool memory_pool=None):
+def concat_tables(tables, promote=False, MemoryPool memory_pool=None):
     """
     Perform zero-copy concatenation of pyarrow.Table objects.
 
-    If with_promotion==False, the schemas of all the Tables must be the same
+    If promote==False, the schemas of all the Tables must be the same
     (modulo the metadata), otherwise an exception will be raised. The result
     Table will share the metadata with the first table.
 
-    If with_promotion==True, columns of the same name will be concatenated.
+    If promote==True, columns of the same name will be concatenated.
     They should be of the same type, or be of type NULL, in which case it will
     be promoted to the type of other corresponding columns with null values
     filled.  If a table is missing a particular field, null values of the
@@ -1689,7 +1689,7 @@ def concat_tables(tables, with_promotion=False, MemoryPool memory_pool=None):
     Parameters
     ----------
     tables : iterable of pyarrow.Table objects
-    with_promotion: bool, default False
+    promote: bool, default False
         if True, concatenate tables with null-filling and type promotion.
     memory_pool : MemoryPool, default None
         For memory allocations, if required, otherwise use default pool
@@ -1704,13 +1704,12 @@ def concat_tables(tables, with_promotion=False, MemoryPool memory_pool=None):
     for table in tables:
         c_tables.push_back(table.sp_table)
 
-    if with_promotion:
-      with nogil:
-        c_result = ConcatenateTablesWithPromotion(c_tables, pool)
-      c_result_table = GetResultValue(c_result)
+    if promote:
+        with nogil:
+            c_result = ConcatenateTablesWithPromotion(c_tables, pool)
+        c_result_table = GetResultValue(c_result)
     else:
-      with nogil:
-          check_status(ConcatenateTables(c_tables, &c_result_table))
+        with nogil:
+            check_status(ConcatenateTables(c_tables, &c_result_table))
 
     return pyarrow_wrap_table(c_result_table)
-
