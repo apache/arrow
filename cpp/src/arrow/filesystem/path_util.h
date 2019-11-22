@@ -71,6 +71,9 @@ std::string EnsureTrailingSlash(util::string_view s);
 ARROW_EXPORT
 util::string_view RemoveTrailingSlash(util::string_view s);
 
+ARROW_EXPORT
+bool IsAncestorOf(util::string_view ancestor, util::string_view descendant);
+
 // Join the components of an abstract path.
 template <class StringIt>
 std::string JoinAbstractPath(StringIt it, StringIt end) {

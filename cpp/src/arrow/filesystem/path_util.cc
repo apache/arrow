@@ -156,6 +156,25 @@ Result<std::string> MakeAbstractPathRelative(const std::string& base,
   return std::string(RemoveLeadingSlash(p));
 }
 
+bool IsAncestorOf(util::string_view ancestor, util::string_view descendant) {
+  ancestor = RemoveTrailingSlash(ancestor);
+  if (ancestor == "") {
+    // everything is a descendant of the root directory
+    return true;
+  }
+
+  descendant = RemoveTrailingSlash(descendant);
+  if (!descendant.starts_with(ancestor)) {
+    // an ancestor path is a prefix of descendant paths
+    return false;
+  }
+
+  descendant.remove_prefix(ancestor.size());
+
+  // "/hello/w" is not an ancestor of "/hello/world"
+  return descendant.starts_with(std::string{kSep});
+}
+
 }  // namespace internal
 }  // namespace fs
 }  // namespace arrow

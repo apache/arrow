@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <iostream>
 #include <memory>
+#include <stack>
 #include <string>
 #include <utility>
 #include <vector>
@@ -32,57 +33,37 @@
 namespace arrow {
 namespace fs {
 
-inline bool IsDescendantOf(const FileStats& anscestor, const FileStats& descendant) {
-  if (!anscestor.IsDirectory()) {
-    // only directories may have descendants
-    return false;
-  }
-
-  auto anscestor_path = internal::RemoveTrailingSlash(anscestor.path());
-  if (anscestor_path == "") {
-    // everything is a descendant of the root directory
-    return true;
-  }
-
-  auto descendant_path = internal::RemoveTrailingSlash(descendant.path());
-  if (!descendant_path.starts_with(anscestor_path)) {
-    // an anscestor path is a prefix of descendant paths
-    return false;
-  }
-
-  descendant_path.remove_prefix(anscestor_path.size());
-
-  // "/hello/w" is not an anscestor of "/hello/world"
-  return descendant_path.starts_with(std::string{internal::kSep});
-}
-
 Result<PathForest> PathForest::Make(std::vector<FileStats> stats) {
   std::stable_sort(
       stats.begin(), stats.end(),
       [](const FileStats& lhs, const FileStats& rhs) { return lhs.path() < rhs.path(); });
 
-  int out_size = static_cast<int>(stats.size());
-  auto out_descendant_counts = std::make_shared<std::vector<int>>(stats.size(), 0);
-  auto out_stats = std::make_shared<std::vector<FileStats>>(std::move(stats));
+  std::vector<int> descendant_counts(stats.size(), 0);
 
-  std::vector<int> stack;
+  std::stack<int> parent_stack;
+  auto is_child_of_stack_top = [&](int i) {
+    return internal::IsAncestorOf(stats[parent_stack.top()].path(), stats[i].path());
+  };
 
-  for (int i = 0; i < out_size; ++i) {
-    while (stack.size() != 0 &&
-           !IsDescendantOf(out_stats->at(stack.back()), out_stats->at(i))) {
-      out_descendant_counts->at(stack.back()) = i - 1 - stack.back();
-      stack.pop_back();
+  for (int i = 0; i < static_cast<int>(stats.size()); ++i) {
+    while (parent_stack.size() != 0 && !is_child_of_stack_top(i)) {
+      // stats[parent_stack.top()] has no more descendants; finalize count
+      descendant_counts[parent_stack.top()] = i - 1 - parent_stack.top();
+      parent_stack.pop();
     }
 
-    stack.push_back(i);
+    parent_stack.push(i);
   }
 
-  while (stack.size() != 0) {
-    out_descendant_counts->at(stack.back()) = out_size - 1 - stack.back();
-    stack.pop_back();
+  // finalize descendant_counts for anything left in the stack
+  while (parent_stack.size() != 0) {
+    descendant_counts[parent_stack.top()] =
+        static_cast<int>(stats.size()) - 1 - parent_stack.top();
+    parent_stack.pop();
   }
 
-  return PathForest(std::move(out_stats), std::move(out_descendant_counts));
+  return PathForest(std::make_shared<std::vector<FileStats>>(std::move(stats)),
+                    std::make_shared<std::vector<int>>(std::move(descendant_counts)));
 }
 
 bool PathForest::Equals(const PathForest& other) const {
