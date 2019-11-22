@@ -176,6 +176,18 @@ TEST_F(TestStreamReader, DefaultConstructed) {
   ASSERT_THROW(os >> i, ParquetException);
   ASSERT_THROW(os >> s, ParquetException);
   ASSERT_THROW(os >> EndRow, ParquetException);
+
+  ASSERT_EQ(true, os.eof());
+  ASSERT_EQ(0, os.current_column());
+  ASSERT_EQ(0, os.current_row());
+
+  ASSERT_EQ(0, os.num_columns());
+  ASSERT_EQ(0, os.num_rows());
+
+  // Skipping columns and rows is allowed.
+  //
+  ASSERT_EQ(0, os.SkipColumns(100));
+  ASSERT_EQ(0, os.SkipRows(100));
 }
 
 TEST_F(TestStreamReader, TypeChecking) {
@@ -236,6 +248,8 @@ TEST_F(TestStreamReader, ValueChecking) {
   int i;
 
   for (i = 0; !reader_.eof(); ++i) {
+    ASSERT_EQ(i, reader_.current_row());
+
     reader_ >> b;
     reader_ >> s;
     reader_ >> c;
@@ -261,7 +275,194 @@ TEST_F(TestStreamReader, ValueChecking) {
     ASSERT_FLOAT_EQ(f, TestData::GetFloat(i));
     ASSERT_DOUBLE_EQ(d, TestData::GetDouble(i));
   }
+  ASSERT_EQ(reader_.current_row(), TestData::num_rows);
   ASSERT_EQ(i, TestData::num_rows);
+}
+
+TEST_F(TestStreamReader, SkipRows) {
+  // Skipping zero and negative number of rows is ok.
+  //
+  ASSERT_EQ(0, reader_.SkipRows(0));
+  ASSERT_EQ(0, reader_.SkipRows(-100));
+
+  ASSERT_EQ(false, reader_.eof());
+  ASSERT_EQ(0, reader_.current_row());
+  ASSERT_EQ(TestData::num_rows, reader_.num_rows());
+
+  const int iter_num_rows_to_read = 3;
+  const int iter_num_rows_to_skip = 13;
+  int num_rows_read = 0;
+  int i = 0;
+  int num_iterations;
+
+  for (num_iterations = 0; !reader_.eof(); ++num_iterations) {
+    // Each iteration of this loop reads some rows (iter_num_rows_to_read
+    // are read) and then skips some rows (iter_num_rows_to_skip will be
+    // skipped).
+    // The loop variable i is the current row being read.
+    // Loop variable j is used just to count the number of rows to
+    // read.
+    bool b;
+    std::string s;
+    std::array<char, 4> char_array;
+    char c;
+    int8_t int8;
+    uint16_t uint16;
+    int32_t int32;
+    uint64_t uint64;
+    std::chrono::microseconds ts_us;
+    float f;
+    double d;
+    std::string str;
+
+    for (int j = 0; !reader_.eof() && (j < iter_num_rows_to_read); ++i, ++j) {
+      ASSERT_EQ(i, reader_.current_row());
+
+      reader_ >> b;
+      reader_ >> s;
+      reader_ >> c;
+      reader_ >> char_array;
+      reader_ >> int8;
+      reader_ >> uint16;
+
+      // Not allowed to skip row once reading columns has started.
+      ASSERT_THROW(reader_.SkipRows(1), ParquetException);
+
+      reader_ >> int32;
+      reader_ >> uint64;
+      reader_ >> ts_us;
+      reader_ >> f;
+      reader_ >> d;
+      reader_ >> EndRow;
+      num_rows_read += 1;
+
+      ASSERT_EQ(b, TestData::GetBool(i));
+      ASSERT_EQ(s, TestData::GetString(i));
+      ASSERT_EQ(c, TestData::GetChar(i));
+      ASSERT_EQ(char_array, TestData::GetCharArray(i));
+      ASSERT_EQ(int8, TestData::GetInt8(i));
+      ASSERT_EQ(uint16, TestData::GetUInt16(i));
+      ASSERT_EQ(int32, TestData::GetInt32(i));
+      ASSERT_EQ(uint64, TestData::GetUInt64(i));
+      ASSERT_EQ(ts_us, TestData::GetChronoMicroseconds(i));
+      ASSERT_FLOAT_EQ(f, TestData::GetFloat(i));
+      ASSERT_DOUBLE_EQ(d, TestData::GetDouble(i));
+    }
+    ASSERT_EQ(iter_num_rows_to_skip, reader_.SkipRows(iter_num_rows_to_skip));
+    i += iter_num_rows_to_skip;
+  }
+  ASSERT_EQ(TestData::num_rows, reader_.current_row());
+
+  ASSERT_EQ(num_rows_read, num_iterations * iter_num_rows_to_read);
+
+  // Skipping rows at eof is allowed.
+  //
+  ASSERT_EQ(0, reader_.SkipRows(100));
+}
+
+TEST_F(TestStreamReader, SkipAllRows) {
+  ASSERT_EQ(false, reader_.eof());
+  ASSERT_EQ(0, reader_.current_row());
+
+  ASSERT_EQ(reader_.num_rows(), reader_.SkipRows(2 * reader_.num_rows()));
+
+  ASSERT_EQ(true, reader_.eof());
+  ASSERT_EQ(reader_.num_rows(), reader_.current_row());
+}
+
+TEST_F(TestStreamReader, SkipColumns) {
+  bool b;
+  std::string s;
+  std::array<char, 4> char_array;
+  char c;
+  int8_t int8;
+  uint16_t uint16;
+  int32_t int32;
+  uint64_t uint64;
+  std::chrono::microseconds ts_us;
+  float f;
+  double d;
+  std::string str;
+
+  int i;
+
+  // Skipping zero and negative number of columns is ok.
+  //
+  ASSERT_EQ(0, reader_.SkipColumns(0));
+  ASSERT_EQ(0, reader_.SkipColumns(-100));
+
+  for (i = 0; !reader_.eof(); ++i) {
+    ASSERT_EQ(i, reader_.current_row());
+    ASSERT_EQ(0, reader_.current_column());
+
+    // Skip all columns every 31 rows.
+    if (i % 31 == 0) {
+      ASSERT_EQ(reader_.num_columns(), reader_.SkipColumns(reader_.num_columns()));
+      ASSERT_EQ(reader_.num_columns(), reader_.current_column());
+      reader_ >> EndRow;
+      continue;
+    }
+    reader_ >> b;
+    ASSERT_EQ(b, TestData::GetBool(i));
+    ASSERT_EQ(1, reader_.current_column());
+
+    // Skip the next column every 3 rows.
+    if (i % 3 == 0) {
+      ASSERT_EQ(1, reader_.SkipColumns(1));
+    } else {
+      reader_ >> s;
+      ASSERT_EQ(s, TestData::GetString(i));
+    }
+    ASSERT_EQ(2, reader_.current_column());
+
+    reader_ >> c;
+    ASSERT_EQ(c, TestData::GetChar(i));
+    ASSERT_EQ(3, reader_.current_column());
+    reader_ >> char_array;
+    ASSERT_EQ(char_array, TestData::GetCharArray(i));
+    ASSERT_EQ(4, reader_.current_column());
+    reader_ >> int8;
+    ASSERT_EQ(int8, TestData::GetInt8(i));
+    ASSERT_EQ(5, reader_.current_column());
+
+    // Skip the next 3 columns every 7 rows.
+    if (i % 7 == 0) {
+      ASSERT_EQ(3, reader_.SkipColumns(3));
+    } else {
+      reader_ >> uint16;
+      ASSERT_EQ(uint16, TestData::GetUInt16(i));
+      ASSERT_EQ(6, reader_.current_column());
+      reader_ >> int32;
+      ASSERT_EQ(int32, TestData::GetInt32(i));
+      ASSERT_EQ(7, reader_.current_column());
+      reader_ >> uint64;
+      ASSERT_EQ(uint64, TestData::GetUInt64(i));
+    }
+    ASSERT_EQ(8, reader_.current_column());
+
+    reader_ >> ts_us;
+    ASSERT_EQ(ts_us, TestData::GetChronoMicroseconds(i));
+    ASSERT_EQ(9, reader_.current_column());
+
+    // Skip 301 columns (i.e. all remaining) every 11 rows.
+    if (i % 11 == 0) {
+      ASSERT_EQ(2, reader_.SkipColumns(301));
+    } else {
+      reader_ >> f;
+      ASSERT_FLOAT_EQ(f, TestData::GetFloat(i));
+      ASSERT_EQ(10, reader_.current_column());
+      reader_ >> d;
+      ASSERT_DOUBLE_EQ(d, TestData::GetDouble(i));
+    }
+    ASSERT_EQ(11, reader_.current_column());
+    reader_ >> EndRow;
+  }
+  ASSERT_EQ(i, TestData::num_rows);
+  ASSERT_EQ(reader_.current_row(), TestData::num_rows);
+
+  // Skipping columns at eof is allowed.
+  //
+  ASSERT_EQ(0, reader_.SkipColumns(100));
 }
 
 }  // namespace test

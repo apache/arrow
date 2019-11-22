@@ -56,6 +56,14 @@ class PARQUET_EXPORT StreamReader {
 
   bool eof() const { return eof_; }
 
+  int current_column() const { return column_index_; }
+
+  int64_t current_row() const { return current_row_; }
+
+  int num_columns() const;
+
+  int64_t num_rows() const;
+
   // Moving is possible.
   StreamReader(StreamReader&&) = default;
   StreamReader& operator=(StreamReader&&) = default;
@@ -114,6 +122,23 @@ class PARQUET_EXPORT StreamReader {
   // Terminate current row and advance to next one.
   void EndRow();
 
+  /// \brief Skip the data in the next columns.
+  /// If the number of columns exceeds the columns remaining on the
+  /// current row then skipping is terminated - it does _not_ continue
+  /// skipping columns on the next row.
+  /// Skipping of columns still requires the use 'EndRow' even if all
+  /// remaining columns were skipped.
+  /// \return Number of columns actually skipped.
+  int64_t SkipColumns(int64_t num_columns_to_skip);
+
+  /// \brief Skip the data in the next rows.
+  /// Skipping of rows is not allowed if reading of data for the
+  /// current row is not finished.
+  /// Skipping of rows will be terminated if the end of file is
+  /// reached.
+  /// \return Number of rows actually skipped.
+  int64_t SkipRows(int64_t num_rows_to_skip);
+
  protected:
   template <typename ReaderType, typename T>
   void Read(T* v) {
@@ -140,6 +165,10 @@ class PARQUET_EXPORT StreamReader {
   void CheckColumn(Type::type physical_type, ConvertedType::type converted_type,
                    int length = 0);
 
+  void SkipRowsInColumn(ColumnReader* reader, int64_t num_rows_to_skip);
+
+  void SetEof();
+
  private:
   using node_ptr_type = std::shared_ptr<schema::PrimitiveNode>;
 
@@ -149,9 +178,11 @@ class PARQUET_EXPORT StreamReader {
   std::vector<std::shared_ptr<ColumnReader>> column_readers_;
   std::vector<node_ptr_type> nodes_;
 
-  bool eof_{false};
+  bool eof_{true};
   int row_group_index_{0};
   int column_index_{0};
+  int64_t current_row_{0};
+  int64_t row_group_row_offset_{0};
 };
 
 PARQUET_EXPORT
