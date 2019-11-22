@@ -137,8 +137,6 @@ std::ostream& operator<<(std::ostream& os, const DataType& type) {
   return os;
 }
 
-std::string BooleanType::ToString() const { return name(); }
-
 FloatingPointType::Precision HalfFloatType::precision() const {
   return FloatingPointType::HALF;
 }

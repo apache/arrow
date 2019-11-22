@@ -125,8 +125,7 @@ struct CastFunctor<T, BooleanType, enable_if_number<T>> {
 // Number to Boolean
 template <typename I>
 struct CastFunctor<BooleanType, I,
-                   typename std::enable_if<is_number_type<I>::value &&
-                                           !std::is_same<BooleanType, I>::value>::type> {
+                   enable_if_t<is_number_type<I>::value && !is_boolean_type<I>::value>> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     auto in_data = input.GetValues<typename I::c_type>(1);
@@ -155,8 +154,7 @@ struct is_number_downcast {
 
 template <typename O, typename I>
 struct is_number_downcast<
-    O, I,
-    typename std::enable_if<is_number_type<O>::value && is_number_type<I>::value>::type> {
+    O, I, enable_if_t<is_number_type<O>::value && is_number_type<I>::value>> {
   using O_T = typename O::c_type;
   using I_T = typename I::c_type;
 
@@ -177,9 +175,7 @@ struct is_integral_signed_to_unsigned {
 
 template <typename O, typename I>
 struct is_integral_signed_to_unsigned<
-    O, I,
-    typename std::enable_if<is_integer_type<O>::value &&
-                            is_integer_type<I>::value>::type> {
+    O, I, enable_if_t<is_integer_type<O>::value && is_integer_type<I>::value>> {
   using O_T = typename O::c_type;
   using I_T = typename I::c_type;
 
@@ -195,9 +191,7 @@ struct is_integral_unsigned_to_signed {
 
 template <typename O, typename I>
 struct is_integral_unsigned_to_signed<
-    O, I,
-    typename std::enable_if<is_integer_type<O>::value &&
-                            is_integer_type<I>::value>::type> {
+    O, I, enable_if_t<is_integer_type<O>::value && is_integer_type<I>::value>> {
   using O_T = typename O::c_type;
   using I_T = typename I::c_type;
 
@@ -214,8 +208,7 @@ struct is_integral_unsigned_to_signed<
 //
 // The effective return type of the function is always `I::c_type`, this is
 // just how enable_if works with functions.
-#define RET_TYPE(TRAIT) \
-  typename std::enable_if<TRAIT<O, I>::value, typename I::c_type>::type
+#define RET_TYPE(TRAIT) enable_if_t<TRAIT<O, I>::value, typename I::c_type>
 
 template <typename O, typename I>
 constexpr RET_TYPE(is_number_downcast) SafeMinimum() {
@@ -266,11 +259,10 @@ constexpr RET_TYPE(is_integral_signed_to_unsigned) SafeMaximum() {
 #undef RET_TYPE
 
 template <typename O, typename I>
-struct CastFunctor<
-    O, I,
-    typename std::enable_if<is_number_downcast<O, I>::value ||
-                            is_integral_signed_to_unsigned<O, I>::value ||
-                            is_integral_unsigned_to_signed<O, I>::value>::type> {
+struct CastFunctor<O, I,
+                   enable_if_t<is_number_downcast<O, I>::value ||
+                               is_integral_signed_to_unsigned<O, I>::value ||
+                               is_integral_unsigned_to_signed<O, I>::value>> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     using in_type = typename I::c_type;
@@ -322,14 +314,13 @@ struct is_float_truncate {
 template <typename O, typename I>
 struct is_float_truncate<
     O, I,
-    typename std::enable_if<(is_integer_type<O>::value && is_floating_type<I>::value) ||
-                            (is_integer_type<I>::value &&
-                             is_floating_type<O>::value)>::type> {
+    enable_if_t<(is_integer_type<O>::value && is_floating_type<I>::value) ||
+                (is_integer_type<I>::value && is_floating_type<O>::value)>> {
   static constexpr bool value = true;
 };
 
 template <typename O, typename I>
-struct CastFunctor<O, I, typename std::enable_if<is_float_truncate<O, I>::value>::type> {
+struct CastFunctor<O, I, enable_if_t<is_float_truncate<O, I>::value>> {
   ARROW_DISABLE_UBSAN("float-cast-overflow")
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
@@ -382,8 +373,7 @@ struct is_safe_numeric_cast {
 
 template <typename O, typename I>
 struct is_safe_numeric_cast<
-    O, I,
-    typename std::enable_if<is_number_type<O>::value && is_number_type<I>::value>::type> {
+    O, I, enable_if_t<is_number_type<O>::value && is_number_type<I>::value>> {
   using O_T = typename O::c_type;
   using I_T = typename I::c_type;
 
@@ -394,10 +384,10 @@ struct is_safe_numeric_cast<
 };
 
 template <typename O, typename I>
-struct CastFunctor<O, I,
-                   typename std::enable_if<is_safe_numeric_cast<O, I>::value &&
-                                           !is_float_truncate<O, I>::value &&
-                                           !is_number_downcast<O, I>::value>::type> {
+struct CastFunctor<
+    O, I,
+    enable_if_t<is_safe_numeric_cast<O, I>::value && !is_float_truncate<O, I>::value &&
+                !is_number_downcast<O, I>::value>> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     using in_type = typename I::c_type;
@@ -514,10 +504,8 @@ const std::pair<bool, int64_t> kTimeConversionTable[4][4] = {
 template <typename O, typename I>
 struct CastFunctor<
     O, I,
-    typename std::enable_if<(std::is_base_of<O, TimestampType>::value &&
-                             std::is_base_of<I, TimestampType>::value) ||
-                            (std::is_base_of<O, DurationType>::value &&
-                             std::is_base_of<I, DurationType>::value)>::type> {
+    enable_if_t<(is_timestamp_type<O>::value && is_timestamp_type<I>::value) ||
+                (is_duration_type<O>::value && is_duration_type<I>::value)>> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     // If units are the same, zero copy, otherwise convert
@@ -608,9 +596,7 @@ struct CastFunctor<Date64Type, TimestampType> {
 // From one time32 or time64 to another
 
 template <typename O, typename I>
-struct CastFunctor<O, I,
-                   typename std::enable_if<std::is_base_of<TimeType, I>::value &&
-                                           std::is_base_of<TimeType, O>::value>::type> {
+struct CastFunctor<O, I, enable_if_t<is_time_type<I>::value && is_time_type<O>::value>> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     using in_t = typename I::c_type;
@@ -789,9 +775,7 @@ struct FromDictVisitor {};
 
 // Visitor for Dict<FixedSizeBinaryType>
 template <typename T, typename IndexType>
-struct FromDictVisitor<
-    T, IndexType,
-    typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T>::value>::type> {
+struct FromDictVisitor<T, IndexType, enable_if_fixed_size_binary<T>> {
   using ArrayType = typename TypeTraits<T>::ArrayType;
 
   FromDictVisitor(FunctionContext* ctx, const ArrayType& dictionary, ArrayData* output)
@@ -823,8 +807,7 @@ struct FromDictVisitor<
 
 // Visitor for Dict<BinaryType>
 template <typename T, typename IndexType>
-struct FromDictVisitor<
-    T, IndexType, typename std::enable_if<std::is_base_of<BinaryType, T>::value>::type> {
+struct FromDictVisitor<T, IndexType, enable_if_base_binary<T>> {
   using ArrayType = typename TypeTraits<T>::ArrayType;
 
   FromDictVisitor(FunctionContext* ctx, const ArrayType& dictionary, ArrayData* output)
@@ -862,9 +845,8 @@ struct FromDictVisitor<
 
 // Visitor for Dict<NumericType | TemporalType>
 template <typename T, typename IndexType>
-struct FromDictVisitor<T, IndexType,
-                       typename std::enable_if<is_number_type<T>::value ||
-                                               is_temporal_type<T>::value>::type> {
+struct FromDictVisitor<
+    T, IndexType, enable_if_t<is_number_type<T>::value || is_temporal_type<T>::value>> {
   using ArrayType = typename TypeTraits<T>::ArrayType;
 
   using value_type = typename T::c_type;
@@ -949,9 +931,8 @@ struct CastFunctor<T, DictionaryType> {
 // String to Number
 
 template <typename I, typename O>
-struct CastFunctor<O, I,
-                   typename std::enable_if<is_any_string_type<I>::value &&
-                                           is_number_type<O>::value>::type> {
+struct CastFunctor<
+    O, I, enable_if_t<is_string_like_type<I>::value && is_number_type<O>::value>> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     using out_type = typename O::c_type;
@@ -979,8 +960,7 @@ struct CastFunctor<O, I,
 // String to Boolean
 
 template <typename I>
-struct CastFunctor<BooleanType, I,
-                   typename std::enable_if<is_any_string_type<I>::value>::type> {
+struct CastFunctor<BooleanType, I, enable_if_t<is_string_like_type<I>::value>> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     typename TypeTraits<I>::ArrayType input_array(input.Copy());
@@ -1018,8 +998,7 @@ struct CastFunctor<BooleanType, I,
 // String to Timestamp
 
 template <typename I>
-struct CastFunctor<TimestampType, I,
-                   typename std::enable_if<is_any_string_type<I>::value>::type> {
+struct CastFunctor<TimestampType, I, enable_if_t<is_string_like_type<I>::value>> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     using out_type = TimestampType::c_type;
@@ -1048,9 +1027,8 @@ struct CastFunctor<TimestampType, I,
 
 template <typename I, typename O>
 struct CastFunctor<O, I,
-                   typename std::enable_if<is_any_string_type<O>::value &&
-                                           (is_number_type<I>::value ||
-                                            std::is_same<I, BooleanType>::value)>::type> {
+                   enable_if_t<is_string_like_type<O>::value &&
+                               (is_number_type<I>::value || is_boolean_type<I>::value)>> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
     ctx->SetStatus(Convert(ctx, options, input, output));

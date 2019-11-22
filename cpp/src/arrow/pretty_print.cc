@@ -145,15 +145,24 @@ class ArrayPrinter : public PrettyPrinter {
     (*sink_) << "\n";
   }
 
+  Status WriteDataValues(const BooleanArray& array) {
+    WriteValues(array, [&](int64_t i) { Write(array.Value(i) ? "true" : "false"); });
+    return Status::OK();
+  }
+
   template <typename T>
-  inline typename std::enable_if<IsInteger<T>::value &&
-                                     !is_date<typename T::TypeClass>::value &&
-                                     !is_time<typename T::TypeClass>::value,
-                                 Status>::type
-  WriteDataValues(const T& array) {
+  enable_if_integer<typename T::TypeClass, Status> WriteDataValues(const T& array) {
     const auto data = array.raw_values();
     // Need to upcast integers to avoid selecting operator<<(char)
     WriteValues(array, [&](int64_t i) { (*sink_) << internal::UpcastInt(data[i]); });
+    return Status::OK();
+  }
+
+  template <typename T>
+  enable_if_floating_point<typename T::TypeClass, Status> WriteDataValues(
+      const T& array) {
+    const auto data = array.raw_values();
+    WriteValues(array, [&](int64_t i) { (*sink_) << data[i]; });
     return Status::OK();
   }
 
@@ -167,14 +176,6 @@ class ArrayPrinter : public PrettyPrinter {
     return Status::OK();
   }
 
-  Status WriteDataValues(const TimestampArray& array) {
-    const int64_t* data = array.raw_values();
-    const auto type = static_cast<const TimestampType*>(array.type().get());
-    WriteValues(array,
-                [&](int64_t i) { FormatDateTime(type->unit(), "%F %T", data[i], true); });
-    return Status::OK();
-  }
-
   template <typename T>
   enable_if_time<typename T::TypeClass, Status> WriteDataValues(const T& array) {
     const auto data = array.raw_values();
@@ -184,10 +185,22 @@ class ArrayPrinter : public PrettyPrinter {
     return Status::OK();
   }
 
+  Status WriteDataValues(const TimestampArray& array) {
+    const int64_t* data = array.raw_values();
+    const auto type = static_cast<const TimestampType*>(array.type().get());
+    WriteValues(array,
+                [&](int64_t i) { FormatDateTime(type->unit(), "%F %T", data[i], true); });
+    return Status::OK();
+  }
+
   template <typename T>
-  inline
-      typename std::enable_if<std::is_same<DayTimeIntervalArray, T>::value, Status>::type
-      WriteDataValues(const T& array) {
+  enable_if_duration<typename T::TypeClass, Status> WriteDataValues(const T& array) {
+    const auto data = array.raw_values();
+    WriteValues(array, [&](int64_t i) { (*sink_) << data[i]; });
+    return Status::OK();
+  }
+
+  Status WriteDataValues(const DayTimeIntervalArray& array) {
     WriteValues(array, [&](int64_t i) {
       auto day_millis = array.GetValue(i);
       (*sink_) << day_millis.days << "d" << day_millis.milliseconds << "ms";
@@ -195,62 +208,32 @@ class ArrayPrinter : public PrettyPrinter {
     return Status::OK();
   }
 
-  template <typename T>
-  inline typename std::enable_if<IsFloatingPoint<T>::value, Status>::type WriteDataValues(
-      const T& array) {
+  Status WriteDataValues(const MonthIntervalArray& array) {
     const auto data = array.raw_values();
     WriteValues(array, [&](int64_t i) { (*sink_) << data[i]; });
     return Status::OK();
   }
 
-  // String (Utf8)
   template <typename T>
-  inline typename std::enable_if<std::is_same<StringArray, T>::value ||
-                                     std::is_same<LargeStringArray, T>::value,
-                                 Status>::type
-  WriteDataValues(const T& array) {
+  enable_if_string_like<typename T::TypeClass, Status> WriteDataValues(const T& array) {
     WriteValues(array, [&](int64_t i) { (*sink_) << "\"" << array.GetView(i) << "\""; });
     return Status::OK();
   }
 
   // Binary
   template <typename T>
-  inline typename std::enable_if<std::is_same<BinaryArray, T>::value ||
-                                     std::is_same<LargeBinaryArray, T>::value,
-                                 Status>::type
-  WriteDataValues(const T& array) {
+  enable_if_binary_like<typename T::TypeClass, Status> WriteDataValues(const T& array) {
     WriteValues(array, [&](int64_t i) { (*sink_) << HexEncode(array.GetView(i)); });
     return Status::OK();
   }
 
-  template <typename T>
-  inline
-      typename std::enable_if<std::is_same<FixedSizeBinaryArray, T>::value, Status>::type
-      WriteDataValues(const T& array) {
-    WriteValues(array, [&](int64_t i) { (*sink_) << HexEncode(array.GetView(i)); });
-    return Status::OK();
-  }
-
-  template <typename T>
-  inline typename std::enable_if<std::is_same<Decimal128Array, T>::value, Status>::type
-  WriteDataValues(const T& array) {
+  Status WriteDataValues(const Decimal128Array& array) {
     WriteValues(array, [&](int64_t i) { (*sink_) << array.FormatValue(i); });
     return Status::OK();
   }
 
   template <typename T>
-  inline typename std::enable_if<std::is_base_of<BooleanArray, T>::value, Status>::type
-  WriteDataValues(const T& array) {
-    WriteValues(array, [&](int64_t i) { Write(array.Value(i) ? "true" : "false"); });
-    return Status::OK();
-  }
-
-  template <typename T>
-  inline typename std::enable_if<std::is_base_of<ListArray, T>::value ||
-                                     std::is_base_of<LargeListArray, T>::value ||
-                                     std::is_base_of<FixedSizeListArray, T>::value,
-                                 Status>::type
-  WriteDataValues(const T& array) {
+  enable_if_list_like<typename T::TypeClass, Status> WriteDataValues(const T& array) {
     bool skip_comma = true;
     for (int64_t i = 0; i < array.length(); ++i) {
       if (skip_comma) {
@@ -316,15 +299,15 @@ class ArrayPrinter : public PrettyPrinter {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<PrimitiveArray, T>::value ||
-                              std::is_base_of<FixedSizeBinaryArray, T>::value ||
-                              std::is_base_of<BinaryArray, T>::value ||
-                              std::is_base_of<LargeBinaryArray, T>::value ||
-                              std::is_base_of<ListArray, T>::value ||
-                              std::is_base_of<LargeListArray, T>::value ||
-                              std::is_base_of<MapArray, T>::value ||
-                              std::is_base_of<FixedSizeListArray, T>::value,
-                          Status>::type
+  enable_if_t<std::is_base_of<PrimitiveArray, T>::value ||
+                  std::is_base_of<FixedSizeBinaryArray, T>::value ||
+                  std::is_base_of<BinaryArray, T>::value ||
+                  std::is_base_of<LargeBinaryArray, T>::value ||
+                  std::is_base_of<ListArray, T>::value ||
+                  std::is_base_of<LargeListArray, T>::value ||
+                  std::is_base_of<MapArray, T>::value ||
+                  std::is_base_of<FixedSizeListArray, T>::value,
+              Status>
   Visit(const T& array) {
     OpenArray(array);
     if (array.length() > 0) {

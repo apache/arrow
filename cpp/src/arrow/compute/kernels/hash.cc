@@ -269,9 +269,6 @@ class HashKernelImpl : public HashKernel {
 // Base class for all "regular" hash kernel implementations
 // (NullType has a separate implementation)
 
-template <bool B, typename T = void>
-using enable_if_t = typename std::enable_if<B, T>::type;
-
 template <typename Type, typename Scalar, typename Action, bool with_error_status = false,
           bool with_memo_visit_null = true>
 class RegularHashKernelImpl : public HashKernelImpl {
@@ -331,8 +328,7 @@ class RegularHashKernelImpl : public HashKernelImpl {
   }
 
   template <typename Enable = Status>
-  auto VisitValue(const Scalar& value) ->
-      typename std::enable_if<!with_error_status, Enable>::type {
+  auto VisitValue(const Scalar& value) -> enable_if_t<!with_error_status, Enable> {
     auto on_found = [this](int32_t memo_index) { action_.ObserveFound(memo_index); };
     auto on_not_found = [this](int32_t memo_index) {
       action_.ObserveNotFound(memo_index);
@@ -343,8 +339,7 @@ class RegularHashKernelImpl : public HashKernelImpl {
   }
 
   template <typename Enable = Status>
-  auto VisitValue(const Scalar& value) ->
-      typename std::enable_if<with_error_status, Enable>::type {
+  auto VisitValue(const Scalar& value) -> enable_if_t<with_error_status, Enable> {
     Status s = Status::OK();
     auto on_found = [this](int32_t memo_index) { action_.ObserveFound(memo_index); };
     auto on_not_found = [this, &s](int32_t memo_index) {
@@ -431,23 +426,7 @@ struct HashKernelTraits<Type, Action, with_error_status, with_memo_visit_null,
 template <typename Type, typename Action, bool with_error_status,
           bool with_memo_visit_null>
 struct HashKernelTraits<Type, Action, with_error_status, with_memo_visit_null,
-                        enable_if_boolean<Type>> {
-  using HashKernelImpl =
-      RegularHashKernelImpl<Type, bool, Action, with_error_status, with_memo_visit_null>;
-};
-
-template <typename Type, typename Action, bool with_error_status,
-          bool with_memo_visit_null>
-struct HashKernelTraits<Type, Action, with_error_status, with_memo_visit_null,
-                        enable_if_binary<Type>> {
-  using HashKernelImpl = RegularHashKernelImpl<Type, util::string_view, Action,
-                                               with_error_status, with_memo_visit_null>;
-};
-
-template <typename Type, typename Action, bool with_error_status,
-          bool with_memo_visit_null>
-struct HashKernelTraits<Type, Action, with_error_status, with_memo_visit_null,
-                        enable_if_fixed_size_binary<Type>> {
+                        enable_if_has_string_view<Type>> {
   using HashKernelImpl = RegularHashKernelImpl<Type, util::string_view, Action,
                                                with_error_status, with_memo_visit_null>;
 };

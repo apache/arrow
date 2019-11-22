@@ -81,8 +81,8 @@ class LevelBuilder {
   Status VisitInline(const Array& array);
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<::arrow::FlatArray, T>::value, Status>::type
-  Visit(const T& array) {
+  ::arrow::enable_if_t<std::is_base_of<::arrow::FlatArray, T>::value, Status> Visit(
+      const T& array) {
     array_offsets_.push_back(static_cast<int32_t>(array.offset()));
     valid_bitmaps_.push_back(array.null_bitmap_data());
     null_counts_.push_back(array.null_count());

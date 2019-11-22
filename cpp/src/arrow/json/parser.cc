@@ -394,8 +394,7 @@ class RawBuilderSet {
 
   /// Retrieve a pointer to a builder from a BuilderPtr
   template <Kind::type kind>
-  typename std::enable_if<kind != Kind::kNull, RawArrayBuilder<kind>*>::type Cast(
-      BuilderPtr builder) {
+  enable_if_t<kind != Kind::kNull, RawArrayBuilder<kind>*> Cast(BuilderPtr builder) {
     DCHECK_EQ(builder.kind, kind);
     return arena<kind>().data() + builder.index;
   }
@@ -579,8 +578,7 @@ class HandlerBase : public BlockParser,
 
   /// Retrieve a pointer to a builder from a BuilderPtr
   template <Kind::type kind>
-  typename std::enable_if<kind != Kind::kNull, RawArrayBuilder<kind>*>::type Cast(
-      BuilderPtr builder) {
+  enable_if_t<kind != Kind::kNull, RawArrayBuilder<kind>*> Cast(BuilderPtr builder) {
     return builder_set_.Cast<kind>(builder);
   }
 

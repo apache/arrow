@@ -34,8 +34,7 @@ template <typename ArrowType, typename Enable = void>
 struct MinMaxState {};
 
 template <typename ArrowType>
-struct MinMaxState<ArrowType,
-                   typename std::enable_if<is_integer_type<ArrowType>::value>::type> {
+struct MinMaxState<ArrowType, enable_if_integer<ArrowType>> {
   using ThisType = MinMaxState<ArrowType>;
   using c_type = typename ArrowType::c_type;
 
@@ -55,8 +54,7 @@ struct MinMaxState<ArrowType,
 };
 
 template <typename ArrowType>
-struct MinMaxState<ArrowType,
-                   typename std::enable_if<is_floating_type<ArrowType>::value>::type> {
+struct MinMaxState<ArrowType, enable_if_floating_point<ArrowType>> {
   using ThisType = MinMaxState<ArrowType>;
   using c_type = typename ArrowType::c_type;
 

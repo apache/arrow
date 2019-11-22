@@ -204,10 +204,7 @@ class NumPyConverter {
   const ArrayVector& result() const { return out_arrays_; }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<PrimitiveCType, T>::value ||
-                              std::is_same<BooleanType, T>::value,
-                          Status>::type
-  Visit(const T& type) {
+  enable_if_primitive_ctype<T, Status> Visit(const T& type) {
     return VisitNative<T>();
   }
 

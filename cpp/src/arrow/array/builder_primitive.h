@@ -65,8 +65,7 @@ class NumericBuilder : public ArrayBuilder {
 
   template <typename T1 = T>
   explicit NumericBuilder(
-      typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type pool
-          ARROW_MEMORY_POOL_DEFAULT)
+      enable_if_parameter_free<T1, MemoryPool*> pool ARROW_MEMORY_POOL_DEFAULT)
       : ArrayBuilder(pool), type_(TypeTraits<T>::type_singleton()) {}
 
   NumericBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
@@ -197,7 +196,7 @@ class NumericBuilder : public ArrayBuilder {
   ///  or null(0) values.
   /// \return Status
   template <typename ValuesIter, typename ValidIter>
-  typename std::enable_if<!std::is_pointer<ValidIter>::value, Status>::type AppendValues(
+  enable_if_t<!std::is_pointer<ValidIter>::value, Status> AppendValues(
       ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
     static_assert(!internal::is_null_pointer<ValidIter>::value,
                   "Don't pass a NULLPTR directly as valid_begin, use the 2-argument "
@@ -214,7 +213,7 @@ class NumericBuilder : public ArrayBuilder {
 
   // Same as above, with a pointer type ValidIter
   template <typename ValuesIter, typename ValidIter>
-  typename std::enable_if<std::is_pointer<ValidIter>::value, Status>::type AppendValues(
+  enable_if_t<std::is_pointer<ValidIter>::value, Status> AppendValues(
       ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     ARROW_RETURN_NOT_OK(Reserve(length));
@@ -382,7 +381,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   ///  or null(0) values
   /// \return Status
   template <typename ValuesIter, typename ValidIter>
-  typename std::enable_if<!std::is_pointer<ValidIter>::value, Status>::type AppendValues(
+  enable_if_t<!std::is_pointer<ValidIter>::value, Status> AppendValues(
       ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
     static_assert(!internal::is_null_pointer<ValidIter>::value,
                   "Don't pass a NULLPTR directly as valid_begin, use the 2-argument "
@@ -401,7 +400,7 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
 
   // Same as above, for a pointer type ValidIter
   template <typename ValuesIter, typename ValidIter>
-  typename std::enable_if<std::is_pointer<ValidIter>::value, Status>::type AppendValues(
+  enable_if_t<std::is_pointer<ValidIter>::value, Status> AppendValues(
       ValuesIter values_begin, ValuesIter values_end, ValidIter valid_begin) {
     int64_t length = static_cast<int64_t>(std::distance(values_begin, values_end));
     ARROW_RETURN_NOT_OK(Reserve(length));

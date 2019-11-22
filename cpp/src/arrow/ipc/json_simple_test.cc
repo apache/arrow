@@ -208,6 +208,7 @@ INSTANTIATE_TYPED_TEST_CASE_P(TestUInt8, TestIntegers, UInt8Type);
 INSTANTIATE_TYPED_TEST_CASE_P(TestUInt16, TestIntegers, UInt16Type);
 INSTANTIATE_TYPED_TEST_CASE_P(TestUInt32, TestIntegers, UInt32Type);
 INSTANTIATE_TYPED_TEST_CASE_P(TestUInt64, TestIntegers, UInt64Type);
+INSTANTIATE_TYPED_TEST_CASE_P(TestHalfFloat, TestIntegers, HalfFloatType);
 
 TEST(TestNull, Basics) {
   std::shared_ptr<DataType> type = null();

@@ -99,8 +99,7 @@ struct ARROW_EXPORT Datum {
       : value(value) {}
 
   // Cast from subtypes of Array to Datum
-  template <typename T,
-            typename = typename std::enable_if<std::is_base_of<Array, T>::value>::type>
+  template <typename T, typename = enable_if_t<std::is_base_of<Array, T>::value>>
   Datum(const std::shared_ptr<T>& value)  // NOLINT implicit conversion
       : Datum(std::shared_ptr<Array>(value)) {}
 

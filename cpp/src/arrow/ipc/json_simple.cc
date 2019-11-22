@@ -154,10 +154,8 @@ class BooleanConverter final : public ConcreteConverter<BooleanConverter> {
 
 // Convert single signed integer value (also {Date,Time}{32,64} and Timestamp)
 template <typename T>
-typename std::enable_if<is_signed_integer<T>::value || is_date<T>::value ||
-                            is_time<T>::value || is_timestamp<T>::value,
-                        Status>::type
-ConvertNumber(const rj::Value& json_obj, typename T::c_type* out) {
+enable_if_physical_signed_integer<T, Status> ConvertNumber(const rj::Value& json_obj,
+                                                           typename T::c_type* out) {
   if (json_obj.IsInt64()) {
     int64_t v64 = json_obj.GetInt64();
     *out = static_cast<typename T::c_type>(v64);
@@ -175,8 +173,8 @@ ConvertNumber(const rj::Value& json_obj, typename T::c_type* out) {
 
 // Convert single unsigned integer value
 template <typename T>
-enable_if_unsigned_integer<T, Status> ConvertNumber(const rj::Value& json_obj,
-                                                    typename T::c_type* out) {
+enable_if_physical_unsigned_integer<T, Status> ConvertNumber(const rj::Value& json_obj,
+                                                             typename T::c_type* out) {
   if (json_obj.IsUint64()) {
     uint64_t v64 = json_obj.GetUint64();
     *out = static_cast<typename T::c_type>(v64);
@@ -194,8 +192,8 @@ enable_if_unsigned_integer<T, Status> ConvertNumber(const rj::Value& json_obj,
 
 // Convert single floating point value
 template <typename T>
-enable_if_floating_point<T, Status> ConvertNumber(const rj::Value& json_obj,
-                                                  typename T::c_type* out) {
+enable_if_physical_floating_point<T, Status> ConvertNumber(const rj::Value& json_obj,
+                                                           typename T::c_type* out) {
   if (json_obj.IsNumber()) {
     *out = static_cast<typename T::c_type>(json_obj.GetDouble());
     return Status::OK();
@@ -736,6 +734,7 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     SIMPLE_CONVERTER_CASE(Type::UINT64, IntegerConverter<UInt64Type>)
     SIMPLE_CONVERTER_CASE(Type::NA, NullConverter)
     SIMPLE_CONVERTER_CASE(Type::BOOL, BooleanConverter)
+    SIMPLE_CONVERTER_CASE(Type::HALF_FLOAT, IntegerConverter<HalfFloatType>)
     SIMPLE_CONVERTER_CASE(Type::FLOAT, FloatConverter<FloatType>)
     SIMPLE_CONVERTER_CASE(Type::DOUBLE, FloatConverter<DoubleType>)
     SIMPLE_CONVERTER_CASE(Type::LIST, ListConverter<ListType>)

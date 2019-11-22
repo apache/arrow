@@ -65,46 +65,44 @@ struct GenerateImpl {
   Status Visit(const BooleanType&) {
     return OK(writer.Bool(std::uniform_int_distribution<uint16_t>{}(e)&1));
   }
+
   template <typename T>
-  Status Visit(T const&, enable_if_unsigned_integer<T>* = nullptr) {
+  enable_if_physical_unsigned_integer<T, Status> Visit(T const&) {
     auto val = std::uniform_int_distribution<>{}(e);
     return OK(writer.Uint64(static_cast<typename T::c_type>(val)));
   }
+
   template <typename T>
-  Status Visit(T const&, enable_if_signed_integer<T>* = nullptr) {
+  enable_if_physical_signed_integer<T, Status> Visit(T const&) {
     auto val = std::uniform_int_distribution<>{}(e);
     return OK(writer.Int64(static_cast<typename T::c_type>(val)));
   }
+
   template <typename T>
-  Status Visit(T const&, enable_if_floating_point<T>* = nullptr) {
+  enable_if_physical_floating_point<T, Status> Visit(T const&) {
     auto val = std::normal_distribution<typename T::c_type>{0, 1 << 10}(e);
     return OK(writer.Double(val));
   }
-  Status Visit(HalfFloatType const&) {
-    auto val = std::normal_distribution<double>{0, 1 << 10}(e);
-    return OK(writer.Double(val));
-  }
+
   template <typename T>
-  Status Visit(T const&, enable_if_binary<T>* = nullptr) {
+  enable_if_base_binary<T, Status> Visit(T const&) {
     auto size = std::poisson_distribution<>{4}(e);
     std::uniform_int_distribution<uint16_t> gen_char(32, 127);  // FIXME generate UTF8
     std::string s(size, '\0');
     for (char& ch : s) ch = static_cast<char>(gen_char(e));
     return OK(writer.String(s.c_str()));
   }
+
   template <typename T>
-  Status Visit(
-      T const& t, typename std::enable_if<!is_number_type<T>::value>::type* = nullptr,
-      typename std::enable_if<!std::is_base_of<BinaryType, T>::value>::type* = nullptr) {
-    return Status::Invalid("can't generate a value of type " + t.name());
-  }
-  Status Visit(const ListType& t) {
+  enable_if_list_like<T, Status> Visit(const T& t) {
     auto size = std::poisson_distribution<>{4}(e);
     writer.StartArray();
     for (int i = 0; i < size; ++i) RETURN_NOT_OK(Generate(t.value_type(), e, &writer));
     return OK(writer.EndArray(size));
   }
+
   Status Visit(const StructType& t) { return Generate(t.children(), e, &writer); }
+
   Engine& e;
   rj::Writer<rj::StringBuffer>& writer;
 };

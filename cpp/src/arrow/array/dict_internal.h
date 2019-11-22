@@ -45,14 +45,14 @@ struct DictionaryTraits {
 }  // namespace internal
 
 template <typename T, typename Out = void>
-using enable_if_memoize = typename std::enable_if<
+using enable_if_memoize = enable_if_t<
     !std::is_same<typename internal::DictionaryTraits<T>::MemoTableType, void>::value,
-    Out>::type;
+    Out>;
 
 template <typename T, typename Out = void>
-using enable_if_no_memoize = typename std::enable_if<
+using enable_if_no_memoize = enable_if_t<
     std::is_same<typename internal::DictionaryTraits<T>::MemoTableType, void>::value,
-    Out>::type;
+    Out>;
 
 namespace internal {
 
@@ -116,7 +116,7 @@ struct DictionaryTraits<T, enable_if_has_c_type<T>> {
 };
 
 template <typename T>
-struct DictionaryTraits<T, enable_if_binary<T>> {
+struct DictionaryTraits<T, enable_if_base_binary<T>> {
   using MemoTableType = typename HashTraits<T>::MemoTableType;
 
   static Status GetDictionaryArrayData(MemoryPool* pool,
