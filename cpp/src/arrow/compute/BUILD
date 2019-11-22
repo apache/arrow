@@ -1,8 +1,8 @@
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("//bazel:arrow_cc_library.bzl", "arrow_cc_library")
 
 package(default_visibility = ["//visibility:public"])
 
-cc_library(
+arrow_cc_library(
     name = "context",
     srcs = ["context.cc"],
     hdrs = ["context.h"],
@@ -13,7 +13,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "expression",
     srcs = ["expression.cc"],
     hdrs = ["expression.h"],
@@ -25,13 +25,13 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "expression_hdr",
     hdrs = ["expression.h"],
     deps = ["//cpp/src/arrow:status"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "logical_type",
     srcs = ["logical_type.cc"],
     hdrs = ["logical_type.h"],
@@ -42,7 +42,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "operation",
     srcs = ["operation.cc"],
     hdrs = ["operation.h"],
@@ -51,7 +51,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "public_api",
     hdrs = ["api.h"],
     deps = [
@@ -70,13 +70,13 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "kernel",
     hdrs = ["kernel.h"],
     deps = ["//cpp/src/arrow:array"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "type_fwd",
     hdrs = ["type_fwd.h"],
     deps = ["//cpp/src/arrow:type_fwd"],

@@ -1,4 +1,4 @@
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("//bazel::arrow_cc_library.bzl", arrow_cc_library)
 
 package(default_visibility = ["//visibility:public"])
 

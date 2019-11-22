@@ -1,14 +1,14 @@
-load("@rules_cc//cc:defs.bzl", "cc_library")
+load("//bazel:arrow_cc_library.bzl", "arrow_cc_library")
 load("//bazel:template.bzl", "template_rule")
 
 package(default_visibility = ["//visibility:public"])
 
-cc_library(
+arrow_cc_library(
     name = "atomic_shared_ptr",
     hdrs = ["atomic_shared_ptr.h"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "basic_decimal",
     srcs = ["basic_decimal.cc"],
     hdrs = ["basic_decimal.h"],
@@ -19,7 +19,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "bit_util",
     srcs = [
         "align_util.h",
@@ -34,18 +34,18 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "checked_cast",
     hdrs = ["checked_cast.h"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "compare",
     hdrs = ["compare.h"],
     deps = [":macros"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "compression",
     srcs = ["compression.cc"],
     hdrs = ["compression.h"],
@@ -55,7 +55,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "config",
     hdrs = [":config_gen"],
 )
@@ -73,7 +73,7 @@ template_rule(
     },
 )
 
-cc_library(
+arrow_cc_library(
     name = "cpu_info",
     srcs = ["cpu_info.cc"],
     hdrs = ["cpu_info.h"],
@@ -84,7 +84,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "decimal",
     srcs = ["decimal.cc"],
     hdrs = ["decimal.h"],
@@ -97,7 +97,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "formatting",
     srcs = ["formatting.cc"],
     hdrs = ["formatting.h"],
@@ -109,13 +109,13 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "functional",
     hdrs = ["functional.h"],
     deps = [":macros"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "hashing",
     hdrs = ["hashing.h"],
     deps = [
@@ -124,7 +124,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "int_util",
     srcs = ["int_util.cc"],
     hdrs = ["int_util.h"],
@@ -134,7 +134,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "io_util",
     srcs = ["io_util.cc"],
     hdrs = ["io_util.h"],
@@ -148,7 +148,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "iterator",
     srcs = ["iterator.cc"],
     hdrs = ["iterator.h"],
@@ -163,7 +163,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "key_value_metadata",
     srcs = ["key_value_metadata.cc"],
     hdrs = ["key_value_metadata.h"],
@@ -175,7 +175,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "logging",
     srcs = ["logging.cc"],
     hdrs = ["logging.h"],
@@ -185,12 +185,12 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "macros",
     hdrs = ["macros.h"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "memory",
     srcs = ["memory.cc"],
     hdrs = ["memory.h"],
@@ -200,12 +200,12 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "parallel",
     hdrs = ["parallel.h"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "parsing",
     hdrs = ["parsing.h"],
     deps = [
@@ -218,24 +218,24 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "range",
     hdrs = ["range.h"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "sse_util",
     hdrs = ["sse_util.h"],
     deps = [":macros"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "stl",
     hdrs = ["stl.h"],
     deps = [":logging"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "string",
     srcs = ["string.cc"],
     hdrs = ["string.h"],
@@ -246,7 +246,7 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "string_builder",
     srcs = ["string_builder.cc"],
     hdrs = ["string_builder.h"],
@@ -256,13 +256,13 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "string_view",
     hdrs = ["string_view.h"],
     deps = ["//cpp/src/arrow/vendored:string_view"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "thread_pool",
     srcs = ["thread_pool.cc"],
     hdrs = ["thread_pool.h"],
@@ -275,22 +275,22 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "type_traits",
     hdrs = ["type_traits.h"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "ubsan",
     hdrs = ["ubsan.h"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "uri",
     hdrs = ["uri.h"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "utf8",
     srcs = [
         "utf8.cc",
@@ -304,18 +304,18 @@ cc_library(
     ],
 )
 
-cc_library(
+arrow_cc_library(
     name = "variant",
     hdrs = ["variant.h"],
     deps = ["//cpp/src/arrow/vendored:variant"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "visibility",
     hdrs = ["visibility.h"],
 )
 
-cc_library(
+arrow_cc_library(
     name = "windows_compatibility",
     hdrs = ["windows_compatibility.h"],
 )
