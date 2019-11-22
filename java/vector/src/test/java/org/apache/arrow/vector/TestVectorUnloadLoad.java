@@ -213,9 +213,9 @@ public class TestVectorUnloadLoad {
       values[i + 1] = buf2;
       for (int j = 0; j < count; j++) {
         if (i == 2) {
-          BitVectorHelper.setValidityBit(buf1, j, 0);
+          BitVectorHelper.unsetBit(buf1, j);
         } else {
-          BitVectorHelper.setValidityBitToOne(buf1, j);
+          BitVectorHelper.setBit(buf1, j);
         }
 
         buf2.setInt(j * 4, j);

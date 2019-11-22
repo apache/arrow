@@ -166,7 +166,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
     assert index >= 0;
     Preconditions.checkNotNull(value, "expecting a valid byte array");
     assert byteWidth <= value.length;
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    BitVectorHelper.setBit(validityBuffer, index);
     valueBuffer.setBytes(index * byteWidth, value, 0, byteWidth);
   }
 
@@ -186,7 +186,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
     if (isSet > 0) {
       set(index, value);
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      BitVectorHelper.unsetBit(validityBuffer, index);
     }
   }
 
@@ -204,7 +204,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
   public void set(int index, ArrowBuf buffer) {
     assert index >= 0;
     assert byteWidth <= buffer.capacity();
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    BitVectorHelper.setBit(validityBuffer, index);
     valueBuffer.setBytes(index * byteWidth, buffer, 0, byteWidth);
   }
 
@@ -231,7 +231,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
     if (isSet > 0) {
       set(index, buffer);
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      BitVectorHelper.unsetBit(validityBuffer, index);
     }
   }
 
@@ -287,7 +287,7 @@ public class FixedSizeBinaryVector extends BaseFixedWidthVector {
     } else if (holder.isSet > 0) {
       set(index, holder.buffer);
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      BitVectorHelper.unsetBit(validityBuffer, index);
     }
   }
 

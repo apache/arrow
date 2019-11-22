@@ -767,7 +767,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
     while (index >= getValidityAndOffsetValueCapacity()) {
       reallocValidityAndOffsetBuffers();
     }
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    BitVectorHelper.setBit(validityBuffer, index);
     lastSet = index;
   }
 
@@ -785,7 +785,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
       final int currentOffset = offsetBuffer.getInt(i * OFFSET_WIDTH);
       offsetBuffer.setInt((i + 1) * OFFSET_WIDTH, currentOffset);
     }
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    BitVectorHelper.setBit(validityBuffer, index);
     lastSet = index;
     return offsetBuffer.getInt((lastSet + 1) * OFFSET_WIDTH);
   }

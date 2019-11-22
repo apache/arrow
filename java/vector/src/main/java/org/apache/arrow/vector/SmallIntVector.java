@@ -169,7 +169,7 @@ public final class SmallIntVector extends BaseFixedWidthVector implements BaseIn
    * @param value   value of element
    */
   public void set(int index, int value) {
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    BitVectorHelper.setBit(validityBuffer, index);
     setValue(index, value);
   }
 
@@ -180,7 +180,7 @@ public final class SmallIntVector extends BaseFixedWidthVector implements BaseIn
    * @param value   value of element
    */
   public void set(int index, short value) {
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    BitVectorHelper.setBit(validityBuffer, index);
     setValue(index, value);
   }
 
@@ -196,10 +196,10 @@ public final class SmallIntVector extends BaseFixedWidthVector implements BaseIn
     if (holder.isSet < 0) {
       throw new IllegalArgumentException();
     } else if (holder.isSet > 0) {
-      BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+      BitVectorHelper.setBit(validityBuffer, index);
       setValue(index, holder.value);
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      BitVectorHelper.unsetBit(validityBuffer, index);
     }
   }
 
@@ -210,7 +210,7 @@ public final class SmallIntVector extends BaseFixedWidthVector implements BaseIn
    * @param holder  data holder for value of element
    */
   public void set(int index, SmallIntHolder holder) {
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    BitVectorHelper.setBit(validityBuffer, index);
     setValue(index, holder.value);
   }
 
@@ -278,7 +278,7 @@ public final class SmallIntVector extends BaseFixedWidthVector implements BaseIn
     if (isSet > 0) {
       set(index, value);
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      BitVectorHelper.unsetBit(validityBuffer, index);
     }
   }
 

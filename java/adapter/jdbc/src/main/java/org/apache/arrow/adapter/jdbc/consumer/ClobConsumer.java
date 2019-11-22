@@ -115,7 +115,7 @@ public abstract class ClobConsumer implements JdbcConsumer<VarCharVector> {
             read += readSize;
           }
           offsetBuffer.setInt((currentIndex + 1) * 4, startIndex + totalBytes);
-          BitVectorHelper.setValidityBitToOne(vector.getValidityBuffer(), currentIndex);
+          BitVectorHelper.setBit(vector.getValidityBuffer(), currentIndex);
           vector.setLastSet(currentIndex);
         }
       }
@@ -162,7 +162,7 @@ public abstract class ClobConsumer implements JdbcConsumer<VarCharVector> {
           read += readSize;
         }
         offsetBuffer.setInt((currentIndex + 1) * 4, startIndex + totalBytes);
-        BitVectorHelper.setValidityBitToOne(vector.getValidityBuffer(), currentIndex);
+        BitVectorHelper.setBit(vector.getValidityBuffer(), currentIndex);
         vector.setLastSet(currentIndex);
       }
     

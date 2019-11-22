@@ -303,10 +303,10 @@ public final class BitVector extends BaseFixedWidthVector {
     Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
     boolean fromIsSet = BitVectorHelper.get(from.getValidityBuffer(), fromIndex) != 0;
     if (fromIsSet) {
-      BitVectorHelper.setValidityBit(validityBuffer, thisIndex, 1);
+      BitVectorHelper.setBit(validityBuffer, thisIndex);
       BitVectorHelper.setValidityBit(valueBuffer, thisIndex, ((BitVector) from).getBit(fromIndex));
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, thisIndex, 0);
+      BitVectorHelper.unsetBit(validityBuffer, thisIndex);
     }
   }
 
@@ -324,11 +324,11 @@ public final class BitVector extends BaseFixedWidthVector {
    * @param value value of element
    */
   public void set(int index, int value) {
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    BitVectorHelper.setBit(validityBuffer, index);
     if (value != 0) {
-      BitVectorHelper.setValidityBitToOne(valueBuffer, index);
+      BitVectorHelper.setBit(valueBuffer, index);
     } else {
-      BitVectorHelper.setValidityBit(valueBuffer, index, 0);
+      BitVectorHelper.unsetBit(valueBuffer, index);
     }
   }
 
@@ -344,14 +344,14 @@ public final class BitVector extends BaseFixedWidthVector {
     if (holder.isSet < 0) {
       throw new IllegalArgumentException();
     } else if (holder.isSet > 0) {
-      BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+      BitVectorHelper.setBit(validityBuffer, index);
       if (holder.value != 0) {
-        BitVectorHelper.setValidityBitToOne(valueBuffer, index);
+        BitVectorHelper.setBit(valueBuffer, index);
       } else {
-        BitVectorHelper.setValidityBit(valueBuffer, index, 0);
+        BitVectorHelper.unsetBit(valueBuffer, index);
       }
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      BitVectorHelper.unsetBit(validityBuffer, index);
     }
   }
 
@@ -362,11 +362,11 @@ public final class BitVector extends BaseFixedWidthVector {
    * @param holder data holder for value of element
    */
   public void set(int index, BitHolder holder) {
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    BitVectorHelper.setBit(validityBuffer, index);
     if (holder.value != 0) {
-      BitVectorHelper.setValidityBitToOne(valueBuffer, index);
+      BitVectorHelper.setBit(valueBuffer, index);
     } else {
-      BitVectorHelper.setValidityBit(valueBuffer, index, 0);
+      BitVectorHelper.unsetBit(valueBuffer, index);
     }
   }
 
@@ -421,7 +421,7 @@ public final class BitVector extends BaseFixedWidthVector {
     if (isSet > 0) {
       set(index, value);
     } else {
-      BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+      BitVectorHelper.unsetBit(validityBuffer, index);
     }
   }
 
@@ -445,8 +445,8 @@ public final class BitVector extends BaseFixedWidthVector {
    * @param index position of element
    */
   public void setToOne(int index) {
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
-    BitVectorHelper.setValidityBitToOne(valueBuffer, index);
+    BitVectorHelper.setBit(validityBuffer, index);
+    BitVectorHelper.setBit(valueBuffer, index);
   }
 
   /**

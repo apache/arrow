@@ -69,16 +69,16 @@ public class BitVectorHelperBenchmarks {
 
       for (int i = 0;i < VALIDITY_BUFFER_CAPACITY; i++) {
         if (i % 7 == 0) {
-          BitVectorHelper.setValidityBit(validityBuffer, i, (byte) 1);
+          BitVectorHelper.setBit(validityBuffer, i);
         } else {
-          BitVectorHelper.setValidityBit(validityBuffer, i, (byte) 0);
+          BitVectorHelper.unsetBit(validityBuffer, i);
         }
       }
 
       // only one 1 bit in the middle of the buffer
       oneBitValidityBuffer = allocator.buffer(VALIDITY_BUFFER_CAPACITY / 8);
       oneBitValidityBuffer.setZero(0, VALIDITY_BUFFER_CAPACITY / 8);
-      BitVectorHelper.setValidityBit(oneBitValidityBuffer, VALIDITY_BUFFER_CAPACITY / 2, (byte) 1);
+      BitVectorHelper.setBit(oneBitValidityBuffer, VALIDITY_BUFFER_CAPACITY / 2);
     }
 
     /**
@@ -133,8 +133,8 @@ public class BitVectorHelperBenchmarks {
       allocator = new RootAllocator(ALLOCATOR_CAPACITY);
       validityBuffer = allocator.buffer(VALIDITY_BUFFER_CAPACITY / 8);
 
-      for (int i = 0;i < VALIDITY_BUFFER_CAPACITY; i++) {
-        BitVectorHelper.setValidityBit(validityBuffer, i, (byte) 1);
+      for (int i = 0; i < VALIDITY_BUFFER_CAPACITY; i++) {
+        BitVectorHelper.setBit(validityBuffer, i);
       }
 
       fieldNode = new ArrowFieldNode(VALIDITY_BUFFER_CAPACITY, 0);
@@ -164,6 +164,59 @@ public class BitVectorHelperBenchmarks {
   @OutputTimeUnit(TimeUnit.NANOSECONDS)
   public void loadValidityBufferAllOne(NonNullableValidityBufferState state) {
     state.loadResult = BitVectorHelper.loadValidityBuffer(state.fieldNode, state.validityBuffer, state.allocator);
+  }
+
+  /**
+   * State object for {@link #setValidityBitBenchmark(ClearBitStateState)}.
+   */
+  @State(Scope.Benchmark)
+  public static class ClearBitStateState {
+
+    private static final int VALIDITY_BUFFER_CAPACITY = 1024;
+
+    private static final int ALLOCATOR_CAPACITY = 1024 * 1024;
+
+    private BufferAllocator allocator;
+
+    private ArrowBuf validityBuffer;
+
+    private int bitToSet = 0;
+
+    /**
+     * Setup benchmarks.
+     */
+    @Setup(Level.Trial)
+    public void prepare() {
+      allocator = new RootAllocator(ALLOCATOR_CAPACITY);
+      validityBuffer = allocator.buffer(VALIDITY_BUFFER_CAPACITY / 8);
+    }
+
+    /**
+     * Tear down benchmarks.
+     */
+    @TearDown(Level.Trial)
+    public void tearDown() {
+      validityBuffer.close();
+      allocator.close();
+    }
+  }
+
+  @Benchmark
+  @BenchmarkMode(Mode.AverageTime)
+  @OutputTimeUnit(TimeUnit.MICROSECONDS)
+  public void setValidityBitBenchmark(ClearBitStateState state) {
+    for (int i = 0; i < ClearBitStateState.VALIDITY_BUFFER_CAPACITY; i++) {
+      BitVectorHelper.setValidityBit(state.validityBuffer, i, state.bitToSet);
+    }
+  }
+
+  @Benchmark
+  @BenchmarkMode(Mode.AverageTime)
+  @OutputTimeUnit(TimeUnit.MICROSECONDS)
+  public void setValidityBitToZeroBenchmark(ClearBitStateState state) {
+    for (int i = 0; i < ClearBitStateState.VALIDITY_BUFFER_CAPACITY; i++) {
+      BitVectorHelper.unsetBit(state.validityBuffer, i);
+    }
   }
 
   //@Test
