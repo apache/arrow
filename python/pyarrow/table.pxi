@@ -1669,7 +1669,7 @@ def table(data, names=None, schema=None, metadata=None):
             "Expected pandas DataFrame, python dictionary or list of arrays")
 
 
-def concat_tables(tables, promote=False, MemoryPool memory_pool=None):
+def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None):
     """
     Perform zero-copy concatenation of pyarrow.Table objects.
 
@@ -1702,13 +1702,11 @@ def concat_tables(tables, promote=False, MemoryPool memory_pool=None):
 
     for table in tables:
         c_tables.push_back(table.sp_table)
-
-    if promote:
-        with nogil:
+    with nogil:
+        if promote:
             c_result_table = GetResultValue(
                 ConcatenateTablesWithPromotion(c_tables, pool))
-    else:
-        with nogil:
+        else:
             check_status(ConcatenateTables(c_tables, &c_result_table))
 
     return pyarrow_wrap_table(c_result_table)
