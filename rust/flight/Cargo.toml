@@ -16,7 +16,7 @@
 # under the License.
 
 [package]
-name = "flight"
+name = "arrow-flight"
 description = "Apache Arrow Flight"
 version = "1.0.0-SNAPSHOT"
 edition = "2018"
