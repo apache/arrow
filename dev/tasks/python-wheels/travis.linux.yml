@@ -16,14 +16,12 @@
 
 os: linux
 
+dist: bionic
+
+language: python
+
 services:
   - docker
-
-# Update docker to support newer docker-compose versions
-addons:
-  apt:
-    packages:
-      - docker-ce
 
 # don't build twice
 if: tag IS blank
@@ -32,9 +30,6 @@ env:
   global:
     - PLAT=x86_64
     - TRAVIS_TAG={{ task.tag }}
-
-before_script:
-  - sudo pip install -U docker-compose
 
 script:
   - git clone --no-checkout {{ arrow.remote }} arrow
