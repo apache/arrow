@@ -38,6 +38,7 @@
 #include "arrow/flight/perf.pb.h"
 #include "arrow/flight/test_util.h"
 
+DEFINE_string(server_host, "localhost", "Host where the server is running on");
 DEFINE_int32(port, 31337, "Server port to listen on");
 
 namespace perf = arrow::flight::perf;
@@ -143,7 +144,7 @@ Status GetPerfBatches(const perf::Token& token, const std::shared_ptr<Schema>& s
 class FlightPerfServer : public FlightServerBase {
  public:
   FlightPerfServer() : location_() {
-    DCHECK_OK(Location::ForGrpcTcp("localhost", FLAGS_port, &location_));
+    DCHECK_OK(Location::ForGrpcTcp(FLAGS_server_host, FLAGS_port, &location_));
     perf_schema_ = schema({field("a", int64()), field("b", int64()), field("c", int64()),
                            field("d", int64())});
   }
@@ -237,6 +238,7 @@ int main(int argc, char** argv) {
   ARROW_CHECK_OK(g_server->Init(options));
   // Exit with a clean error code (0) on SIGTERM
   ARROW_CHECK_OK(g_server->SetShutdownOnSignals({SIGTERM}));
+  std::cout << "Server host: " << FLAGS_server_host << std::endl;
   std::cout << "Server port: " << FLAGS_port << std::endl;
   ARROW_CHECK_OK(g_server->Serve());
   return 0;
