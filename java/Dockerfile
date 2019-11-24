@@ -26,4 +26,4 @@ RUN apt-get update -y \
 
 CMD ["/bin/bash", "-c", "arrow/ci/docker_build_java.sh && \
     cd /build/java/arrow/java && \
-    mvn test"]
+    ./mvnw test"]

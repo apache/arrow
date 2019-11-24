@@ -42,10 +42,10 @@ if [ "$ARROW_JAVA_SHADE_FLATBUFS" == "1" ]; then
 fi
 
 pushd $arrow_src/java
-mvn -B $JAVA_ARGS -Drat.skip=true install $SHADE_FLATBUFFERS
+$arrow_src/java/mvnw -B $JAVA_ARGS -Drat.skip=true install $SHADE_FLATBUFFERS
 
 if [ "$ARROW_JAVADOC" == "1" ]; then
   export MAVEN_OPTS="$MAVEN_OPTS -Dorg.slf4j.simpleLogger.defaultLogLevel=warn"
-  mvn -B site
+  $arrow_src/java/mvnw -B site
 fi
 popd

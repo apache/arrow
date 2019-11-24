@@ -102,6 +102,7 @@
           <excludeSubProjects>false</excludeSubProjects>
           <excludes>
             <exclude>**/dependency-reduced-pom.xml</exclude>
+            <exclude>**/.mvn/maven-wrapper.properties</exclude>
             <exclude>**/*.log</exclude>
             <exclude>**/*.css</exclude>
             <exclude>**/*.js</exclude>

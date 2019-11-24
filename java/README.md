@@ -22,15 +22,17 @@
 ## Setup Build Environment
 
 install:
- - java 7 or later
- - maven 3.3 or later
+ - JDK 7+
+
+note:
+ - use `mvnw` for Unix Like System (e.g. Linux, MacOS) and `mvnw.cmd` for Windows System
 
 ## Building and running tests
 
 ```
 git submodule update --init --recursive # Needed for flight
 cd java
-mvn install
+./mvnw install
 ```
 ## Building and running tests for arrow jni modules like gandiva and orc (optional)
 
@@ -39,7 +41,7 @@ be provided as the value for argument arrow.cpp.build.dir. eg.
 
 ```
 cd java
-mvn install -P arrow-jni -am -Darrow.cpp.build.dir=../../release
+./mvnw install -P arrow-jni -am -Darrow.cpp.build.dir=../../release
 ```
 
 The gandiva library is still in Alpha stages, and subject to API changes without
@@ -97,7 +99,7 @@ Arrow Java can be built with an alternate logback configuration file using the
 following command run in the project root directory:
 
 ```bash
-mvn -Dlogback.configurationFile=file:<path-of-logback-file>
+./mvnw -Dlogback.configurationFile=file:<path-of-logback-file>
 ```
 
 See [Logback Configuration][1] for more details.
