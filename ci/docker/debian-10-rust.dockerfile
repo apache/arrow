@@ -35,8 +35,9 @@ RUN wget -q -O - https://github.com/google/flatbuffers/archive/v${flatbuffers}.t
 
 # sadly cargo doesn't have a command to fetch and build the
 # dependencies without building the library itself
-ARG rust=nightly-2019-09-25
+ARG rust=nightly-2019-11-14
 RUN rustup default ${rust}
+RUN rustup component add rustfmt --toolchain nightly-2019-11-14-x86_64-unknown-linux-gnu
 
 # TODO(kszucs):
 # 1. add the files required to install the dependencies to .dockeignore
