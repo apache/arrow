@@ -32,6 +32,9 @@
 namespace parquet {
 namespace test {
 
+template <typename T>
+using optional = StreamReader::optional<T>;
+
 struct TestData {
   static void init() { std::time(&ts_offset_); }
 
@@ -47,10 +50,87 @@ struct TestData {
   static uint16_t GetUInt16(const int i) { return static_cast<uint16_t>(i); }
   static int32_t GetInt32(const int i) { return 3 * i - 17; }
   static uint64_t GetUInt64(const int i) { return (1ull << 40) + i * i + 101; }
-  static float GetFloat(const int i) { return 3.1415926535897f * 2.718281828459045f; }
+  static float GetFloat(const int i) { return 3.1415926535897f * i; }
   static double GetDouble(const int i) { return 6.62607004e-34 * 3e8 * i; }
 
   static std::chrono::microseconds GetChronoMicroseconds(const int i) {
+    return std::chrono::microseconds{(ts_offset_ + 3 * i) * 1000000ull + i};
+  }
+
+  static optional<bool> GetOptBool(const int i) {
+    if (i % 11 == 0) {
+      return {};
+    }
+    return i % 7 < 3;
+  }
+
+  static optional<char> GetOptChar(const int i) {
+    if ((i + 1) % 11 == 1) {
+      return {};
+    }
+    return i & 1 ? 'M' : 'F';
+  }
+
+  static optional<std::array<char, 4>> GetOptCharArray(const int i) {
+    if ((i + 2) % 11 == 1) {
+      return {};
+    }
+    return std::array<char, 4>{{'X', 'Y', 'Z', char('A' + i % 26)}};
+  }
+
+  static optional<int8_t> GetOptInt8(const int i) {
+    if ((i + 3) % 11 == 1) {
+      return {};
+    }
+    return static_cast<int8_t>((i % 256) - 128);
+  }
+
+  static optional<uint16_t> GetOptUInt16(const int i) {
+    if ((i + 4) % 11 == 1) {
+      return {};
+    }
+    return static_cast<uint16_t>(i);
+  }
+
+  static optional<int32_t> GetOptInt32(const int i) {
+    if ((i + 5) % 11 == 1) {
+      return {};
+    }
+    return 3 * i - 17;
+  }
+
+  static optional<uint64_t> GetOptUInt64(const int i) {
+    if ((i + 6) % 11 == 1) {
+      return {};
+    }
+    return (1ull << 40) + i * i + 101;
+  }
+
+  static optional<std::string> GetOptString(const int i) {
+    if (i % 5 == 0) {
+      return {};
+    }
+    return "Str #" + std::to_string(i);
+  }
+
+  static optional<float> GetOptFloat(const int i) {
+    if ((i + 1) % 3 == 0) {
+      return {};
+    }
+    return 2.718281828459045f * i;
+  }
+
+  static optional<double> GetOptDouble(const int i) {
+    if ((i + 2) % 3 == 0) {
+      return {};
+    }
+    return 6.62607004e-34 * 3e8 * i;
+  }
+
+  static optional<std::chrono::microseconds> GetOptChronoMicroseconds(const int i) {
+    if ((i + 2) % 7 == 0) {
+      return {};
+    }
     return std::chrono::microseconds{(ts_offset_ + 3 * i) * 1000000ull + i};
   }
 
@@ -76,70 +156,56 @@ class TestStreamReader : public ::testing::Test {
 
   void TearDown() { reader_ = StreamReader{}; }
 
-  std::shared_ptr<parquet::schema::GroupNode> GetSchema() {
-    parquet::schema::NodeVector fields;
+  std::shared_ptr<schema::GroupNode> GetSchema() {
+    schema::NodeVector fields;
 
-    fields.push_back(parquet::schema::PrimitiveNode::Make(
-        "bool_field", parquet::Repetition::REQUIRED, parquet::Type::BOOLEAN,
-        parquet::ConvertedType::NONE));
+    fields.push_back(schema::PrimitiveNode::Make("bool_field", Repetition::REQUIRED,
+                                                 Type::BOOLEAN, ConvertedType::NONE));
 
-    fields.push_back(parquet::schema::PrimitiveNode::Make(
-        "string_field", parquet::Repetition::REQUIRED, parquet::Type::BYTE_ARRAY,
-        parquet::ConvertedType::UTF8));
+    fields.push_back(schema::PrimitiveNode::Make("string_field", Repetition::REQUIRED,
+                                                 Type::BYTE_ARRAY, ConvertedType::UTF8));
 
-    fields.push_back(parquet::schema::PrimitiveNode::Make(
-        "char_field", parquet::Repetition::REQUIRED, parquet::Type::FIXED_LEN_BYTE_ARRAY,
-        parquet::ConvertedType::NONE, 1));
+    fields.push_back(schema::PrimitiveNode::Make("char_field", Repetition::REQUIRED,
+                                                 Type::FIXED_LEN_BYTE_ARRAY,
+                                                 ConvertedType::NONE, 1));
 
-    fields.push_back(parquet::schema::PrimitiveNode::Make(
-        "char[4]_field", parquet::Repetition::REQUIRED,
-        parquet::Type::FIXED_LEN_BYTE_ARRAY, parquet::ConvertedType::NONE, 4));
+    fields.push_back(schema::PrimitiveNode::Make("char[4]_field", Repetition::REQUIRED,
+                                                 Type::FIXED_LEN_BYTE_ARRAY,
+                                                 ConvertedType::NONE, 4));
 
-    fields.push_back(parquet::schema::PrimitiveNode::Make(
-        "int8_field", parquet::Repetition::REQUIRED, parquet::Type::INT32,
-        parquet::ConvertedType::INT_8));
+    fields.push_back(schema::PrimitiveNode::Make("int8_field", Repetition::REQUIRED,
+                                                 Type::INT32, ConvertedType::INT_8));
 
-    fields.push_back(parquet::schema::PrimitiveNode::Make(
-        "uint16_field", parquet::Repetition::REQUIRED, parquet::Type::INT32,
-        parquet::ConvertedType::UINT_16));
+    fields.push_back(schema::PrimitiveNode::Make("uint16_field", Repetition::REQUIRED,
+                                                 Type::INT32, ConvertedType::UINT_16));
 
-    fields.push_back(parquet::schema::PrimitiveNode::Make(
-        "int32_field", parquet::Repetition::REQUIRED, parquet::Type::INT32,
-        parquet::ConvertedType::INT_32));
+    fields.push_back(schema::PrimitiveNode::Make("int32_field", Repetition::REQUIRED,
+                                                 Type::INT32, ConvertedType::INT_32));
 
-    fields.push_back(parquet::schema::PrimitiveNode::Make(
-        "uint64_field", parquet::Repetition::REQUIRED, parquet::Type::INT64,
-        parquet::ConvertedType::UINT_64));
+    fields.push_back(schema::PrimitiveNode::Make("uint64_field", Repetition::REQUIRED,
+                                                 Type::INT64, ConvertedType::UINT_64));
 
-    fields.push_back(parquet::schema::PrimitiveNode::Make(
-        "chrono_microseconds_field", parquet::Repetition::REQUIRED, parquet::Type::INT64,
-        parquet::ConvertedType::TIMESTAMP_MICROS));
+    fields.push_back(schema::PrimitiveNode::Make("chrono_microseconds_field",
+                                                 Repetition::REQUIRED, Type::INT64,
+                                                 ConvertedType::TIMESTAMP_MICROS));
 
-    fields.push_back(parquet::schema::PrimitiveNode::Make(
-        "float_field", parquet::Repetition::REQUIRED, parquet::Type::FLOAT,
-        parquet::ConvertedType::NONE));
+    fields.push_back(schema::PrimitiveNode::Make("float_field", Repetition::REQUIRED,
+                                                 Type::FLOAT, ConvertedType::NONE));
 
-    fields.push_back(parquet::schema::PrimitiveNode::Make(
-        "double_field", parquet::Repetition::REQUIRED, parquet::Type::DOUBLE,
-        parquet::ConvertedType::NONE));
+    fields.push_back(schema::PrimitiveNode::Make("double_field", Repetition::REQUIRED,
+                                                 Type::DOUBLE, ConvertedType::NONE));
 
-    return std::static_pointer_cast<parquet::schema::GroupNode>(
-        parquet::schema::GroupNode::Make("schema", parquet::Repetition::REQUIRED,
-                                         fields));
+    return std::static_pointer_cast<schema::GroupNode>(
+        schema::GroupNode::Make("schema", Repetition::REQUIRED, fields));
   }
 
   void createTestFile() {
     PARQUET_ASSIGN_OR_THROW(auto outfile,
                             arrow::io::FileOutputStream::Open(GetDataFile()));
 
-    parquet::WriterProperties::Builder builder;
+    auto file_writer = ParquetFileWriter::Open(outfile, GetSchema());
 
-    builder.compression(parquet::Compression::BROTLI);
-
-    auto file_writer =
-        parquet::ParquetFileWriter::Open(outfile, GetSchema(), builder.build());
-
-    parquet::StreamWriter os{std::move(file_writer)};
+    StreamWriter os{std::move(file_writer)};
 
     TestData::init();
 
@@ -155,7 +221,7 @@ class TestStreamReader : public ::testing::Test {
       os << TestData::GetChronoMicroseconds(i);
       os << TestData::GetFloat(i);
       os << TestData::GetDouble(i);
-      os << parquet::EndRow;
+      os << EndRow;
     }
   }
 
@@ -228,7 +294,7 @@ TEST_F(TestStreamReader, TypeChecking) {
 
 TEST_F(TestStreamReader, ValueChecking) {
   bool b;
-  std::string s;
+  std::string str;
   std::array<char, 4> char_array;
   char c;
   int8_t int8;
@@ -238,7 +304,6 @@ TEST_F(TestStreamReader, ValueChecking) {
   std::chrono::microseconds ts_us;
   float f;
   double d;
-  std::string str;
 
   int i;
 
@@ -246,7 +311,7 @@ TEST_F(TestStreamReader, ValueChecking) {
     ASSERT_EQ(i, reader_.current_row());
 
     reader_ >> b;
-    reader_ >> s;
+    reader_ >> str;
     reader_ >> c;
     reader_ >> char_array;
     reader_ >> int8;
@@ -259,7 +324,7 @@ TEST_F(TestStreamReader, ValueChecking) {
     reader_ >> EndRow;
 
     ASSERT_EQ(b, TestData::GetBool(i));
-    ASSERT_EQ(s, TestData::GetString(i));
+    ASSERT_EQ(str, TestData::GetString(i));
     ASSERT_EQ(c, TestData::GetChar(i));
     ASSERT_EQ(char_array, TestData::GetCharArray(i));
     ASSERT_EQ(int8, TestData::GetInt8(i));
@@ -271,6 +336,7 @@ TEST_F(TestStreamReader, ValueChecking) {
     ASSERT_DOUBLE_EQ(d, TestData::GetDouble(i));
   }
   ASSERT_EQ(reader_.current_row(), TestData::num_rows);
+  ASSERT_EQ(reader_.num_rows(), TestData::num_rows);
   ASSERT_EQ(i, TestData::num_rows);
 }
 
@@ -458,6 +524,149 @@ TEST_F(TestStreamReader, SkipColumns) {
   // Skipping columns at eof is allowed.
   //
   ASSERT_EQ(0, reader_.SkipColumns(100));
+}
+
+class TestOptionalFields : public ::testing::Test {
+ public:
+  TestOptionalFields() { createTestFile(); }
+
+ protected:
+  const char* GetDataFile() const { return "stream_reader_test_optional_fields.parquet"; }
+
+  void SetUp() {
+    PARQUET_ASSIGN_OR_THROW(auto infile, arrow::io::ReadableFile::Open(GetDataFile()));
+
+    auto file_reader = ParquetFileReader::Open(infile);
+
+    reader_ = StreamReader{std::move(file_reader)};
+  }
+
+  void TearDown() { reader_ = StreamReader{}; }
+
+  std::shared_ptr<schema::GroupNode> GetSchema() {
+    schema::NodeVector fields;
+
+    fields.push_back(schema::PrimitiveNode::Make("bool_field", Repetition::OPTIONAL,
+                                                 Type::BOOLEAN, ConvertedType::NONE));
+
+    fields.push_back(schema::PrimitiveNode::Make("string_field", Repetition::OPTIONAL,
+                                                 Type::BYTE_ARRAY, ConvertedType::UTF8));
+
+    fields.push_back(schema::PrimitiveNode::Make("char_field", Repetition::OPTIONAL,
+                                                 Type::FIXED_LEN_BYTE_ARRAY,
+                                                 ConvertedType::NONE, 1));
+
+    fields.push_back(schema::PrimitiveNode::Make("char[4]_field", Repetition::OPTIONAL,
+                                                 Type::FIXED_LEN_BYTE_ARRAY,
+                                                 ConvertedType::NONE, 4));
+
+    fields.push_back(schema::PrimitiveNode::Make("int8_field", Repetition::OPTIONAL,
+                                                 Type::INT32, ConvertedType::INT_8));
+
+    fields.push_back(schema::PrimitiveNode::Make("uint16_field", Repetition::OPTIONAL,
+                                                 Type::INT32, ConvertedType::UINT_16));
+
+    fields.push_back(schema::PrimitiveNode::Make("int32_field", Repetition::OPTIONAL,
+                                                 Type::INT32, ConvertedType::INT_32));
+
+    fields.push_back(schema::PrimitiveNode::Make("uint64_field", Repetition::OPTIONAL,
+                                                 Type::INT64, ConvertedType::UINT_64));
+
+    fields.push_back(schema::PrimitiveNode::Make("chrono_microseconds_field",
+                                                 Repetition::OPTIONAL, Type::INT64,
+                                                 ConvertedType::TIMESTAMP_MICROS));
+
+    fields.push_back(schema::PrimitiveNode::Make("float_field", Repetition::OPTIONAL,
+                                                 Type::FLOAT, ConvertedType::NONE));
+
+    fields.push_back(schema::PrimitiveNode::Make("double_field", Repetition::OPTIONAL,
+                                                 Type::DOUBLE, ConvertedType::NONE));
+
+    return std::static_pointer_cast<schema::GroupNode>(
+        schema::GroupNode::Make("schema", Repetition::REQUIRED, fields));
+  }
+
+  void createTestFile() {
+    PARQUET_ASSIGN_OR_THROW(auto outfile,
+                            arrow::io::FileOutputStream::Open(GetDataFile()));
+
+    StreamWriter os{ParquetFileWriter::Open(outfile, GetSchema())};
+
+    TestData::init();
+
+    for (auto i = 0; i < TestData::num_rows; ++i) {
+      os << TestData::GetOptBool(i);
+      os << TestData::GetOptString(i);
+      os << TestData::GetOptChar(i);
+      os << TestData::GetOptCharArray(i);
+      os << TestData::GetOptInt8(i);
+      os << TestData::GetOptUInt16(i);
+      os << TestData::GetOptInt32(i);
+      os << TestData::GetOptUInt64(i);
+      os << TestData::GetOptChronoMicroseconds(i);
+      os << TestData::GetOptFloat(i);
+      os << TestData::GetOptDouble(i);
+      os << EndRow;
+    }
+  }
+
+  StreamReader reader_;
+};
+
+TEST_F(TestOptionalFields, ValueChecking) {
+  optional<bool> opt_bool;
+  optional<std::string> opt_string;
+  optional<std::array<char, 4>> opt_char_array;
+  optional<char> opt_char;
+  optional<int8_t> opt_int8;
+  optional<uint16_t> opt_uint16;
+  optional<int32_t> opt_int32;
+  optional<uint64_t> opt_uint64;
+  optional<std::chrono::microseconds> opt_ts_us;
+  optional<float> opt_float;
+  optional<double> opt_double;
+
+  int i;
+
+  for (i = 0; !reader_.eof(); ++i) {
+    ASSERT_EQ(i, reader_.current_row());
+
+    reader_ >> opt_bool;
+    reader_ >> opt_string;
+    reader_ >> opt_char;
+    reader_ >> opt_char_array;
+    reader_ >> opt_int8;
+    reader_ >> opt_uint16;
+    reader_ >> opt_int32;
+    reader_ >> opt_uint64;
+    reader_ >> opt_ts_us;
+    reader_ >> opt_float;
+    reader_ >> opt_double;
+    reader_ >> EndRow;
+
+    ASSERT_EQ(opt_bool, TestData::GetOptBool(i));
+    ASSERT_EQ(opt_string, TestData::GetOptString(i));
+    ASSERT_EQ(opt_char, TestData::GetOptChar(i));
+    ASSERT_EQ(opt_char_array, TestData::GetOptCharArray(i));
+    ASSERT_EQ(opt_int8, TestData::GetOptInt8(i));
+    ASSERT_EQ(opt_uint16, TestData::GetOptUInt16(i));
+    ASSERT_EQ(opt_int32, TestData::GetOptInt32(i));
+    ASSERT_EQ(opt_uint64, TestData::GetOptUInt64(i));
+    ASSERT_EQ(opt_ts_us, TestData::GetOptChronoMicroseconds(i));
+    if (opt_float) {
+      ASSERT_FLOAT_EQ(*opt_float, *TestData::GetOptFloat(i));
+    } else {
+      ASSERT_EQ(opt_float, TestData::GetOptFloat(i));
+    }
+    if (opt_double) {
+      ASSERT_DOUBLE_EQ(*opt_double, *TestData::GetOptDouble(i));
+    } else {
+      ASSERT_EQ(opt_double, TestData::GetOptDouble(i));
+    }
+  }
+  ASSERT_EQ(reader_.current_row(), TestData::num_rows);
+  ASSERT_EQ(reader_.num_rows(), TestData::num_rows);
+  ASSERT_EQ(i, TestData::num_rows);
 }
 
 }  // namespace test
