@@ -55,6 +55,9 @@ struct BufferData {
 
     /// The length (num of bytes) of the buffer
     len: usize,
+
+    /// Whether this piece of memory is owned by this object
+    owned: bool,
 }
 
 impl PartialEq for BufferData {
@@ -69,7 +72,7 @@ impl PartialEq for BufferData {
 /// Release the underlying memory when the current buffer goes out of scope
 impl Drop for BufferData {
     fn drop(&mut self) {
-        if !self.ptr.is_null() {
+        if !self.ptr.is_null() && self.owned {
             memory::free_aligned(self.ptr as *mut u8, self.len);
         }
     }
@@ -94,13 +97,32 @@ impl Debug for BufferData {
 }
 
 impl Buffer {
-    /// Creates a buffer from an existing memory region (must already be byte-aligned)
+    /// Creates a buffer from an existing memory region (must already be byte-aligned), and this
+    /// buffer will free this piece of memory when dropped.
     pub fn from_raw_parts(ptr: *const u8, len: usize) -> Self {
+        Buffer::build_with_arguments(ptr, len, true)
+    }
+
+    /// Creates a buffer from an existing memory region (must already be byte-aligned), and this
+    /// buffers doesn't free this piece of memory when dropped.
+    pub fn from_unowned(ptr: *const u8, len: usize) -> Self {
+        Buffer::build_with_arguments(ptr, len, false)
+    }
+
+    /// Creates a buffer from an existing memory region (must already be byte-aligned)
+    ///
+    /// # Arguments
+    ///
+    /// * `ptr` - Pointer to raw parts.
+    /// * `len` - Length of raw parts in bytes
+    /// * `owned` - Whether the raw parts is owned by this buffer. If true, this buffer will free
+    /// this memory when dropped, otherwise it will skip freeing the raw parts.
+    fn build_with_arguments(ptr: *const u8, len: usize, owned: bool) -> Self {
         assert!(
             memory::is_aligned(ptr, memory::ALIGNMENT),
             "memory not aligned"
         );
-        let buf_data = BufferData { ptr, len };
+        let buf_data = BufferData { ptr, len, owned };
         Buffer {
             data: Arc::new(buf_data),
             offset: 0,
@@ -452,6 +474,7 @@ impl MutableBuffer {
         let buffer_data = BufferData {
             ptr: self.data,
             len: self.len,
+            owned: true,
         };
         ::std::mem::forget(self);
         Buffer {
