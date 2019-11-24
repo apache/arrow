@@ -767,11 +767,18 @@ if(PARQUET_REQUIRE_ENCRYPTION AND NOT ARROW_PARQUET)
 endif()
 set(ARROW_OPENSSL_REQUIRED_VERSION "1.0.2")
 if(BREW_BIN AND NOT OPENSSL_ROOT_DIR)
-  execute_process(COMMAND ${BREW_BIN} --prefix "openssl"
-                  OUTPUT_VARIABLE OPENSSL_BREW_PREFIX
+  execute_process(COMMAND ${BREW_BIN} --prefix "openssl@1.1"
+                  OUTPUT_VARIABLE OPENSSL11_BREW_PREFIX
                   OUTPUT_STRIP_TRAILING_WHITESPACE)
-  if(OPENSSL_BREW_PREFIX)
-    set(OPENSSL_ROOT_DIR ${OPENSSL_BREW_PREFIX})
+  if(OPENSSL11_BREW_PREFIX)
+    set(OPENSSL_ROOT_DIR ${OPENSSL11_BREW_PREFIX})
+  else()
+    execute_process(COMMAND ${BREW_BIN} --prefix "openssl"
+                    OUTPUT_VARIABLE OPENSSL_BREW_PREFIX
+                    OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if(OPENSSL_BREW_PREFIX)
+      set(OPENSSL_ROOT_DIR ${OPENSSL_BREW_PREFIX})
+    endif()
   endif()
 endif()
 
@@ -1122,10 +1129,15 @@ macro(build_protobuf)
       "--prefix=${PROTOBUF_PREFIX}"
       "CFLAGS=${EP_C_FLAGS}"
       "CXXFLAGS=${EP_CXX_FLAGS}")
+  set(PROTOBUF_BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS})
+  if(CMAKE_OSX_SYSROOT)
+    list(APPEND PROTOBUF_CONFIGURE_ARGS "SDKROOT=${CMAKE_OSX_SYSROOT}")
+    list(APPEND PROTOBUF_BUILD_COMMAND "SDKROOT=${CMAKE_OSX_SYSROOT}")
+  endif()
 
   externalproject_add(protobuf_ep
                       CONFIGURE_COMMAND "./configure" ${PROTOBUF_CONFIGURE_ARGS}
-                      BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS}
+                      BUILD_COMMAND ${PROTOBUF_BUILD_COMMAND}
                       BUILD_IN_SOURCE 1
                       URL ${PROTOBUF_SOURCE_URL}
                       BUILD_BYPRODUCTS "${PROTOBUF_STATIC_LIB}" "${PROTOBUF_COMPILER}"

@@ -15,7 +15,7 @@
 # limitations under the License.
 
 os: osx
-osx_image: xcode9.3
+osx_image: xcode11.2
 language: generic
 
 # don't build twice
@@ -38,15 +38,12 @@ before_install:
   - git -C arrow fetch -t {{ arrow.remote }} {{ arrow.branch }}
   - git -C arrow checkout FETCH_HEAD
 
-  # ARROW-3976 Old versions of git can cause failures when Homebrew prints a
-  # donation solicitation. Attempt to update git
-  - brew upgrade git python
+  - travis_wait 30 brew bundle --file=arrow/cpp/Brewfile
+  # Install tools to build bundled Thrift
+  - brew install
+      bison
+      flex
 
-  # Also remove artifacts that depend on Boost
-  - brew uninstall boost cgal postgis sfcgal
-  - brew update
-  - brew upgrade cmake
-  - travis_wait 30 brew install bison flex grpc openssl@1.1 llvm@7 zlib gperftools
   # remove shared grpc libraries installed by brew to make sure
   # we are linked against the static ones.
   - rm -f /usr/local/opt/grpc/lib/*.dylib
@@ -63,19 +60,17 @@ install:
   # the following functions are defined in osx-build.sh
   - build_wheel arrow
 
-  # test the built wheels, remove llvm and grpc dependencies to ensure
+  # test the built wheels, move Homebrew directory to ensure
   # things are properly statically-linked
-  - brew uninstall --ignore-dependencies llvm@7 grpc c-ares openssl openssl@1.1 zlib gperftools
+  - sudo mv $(brew --cellar){,.bak}
   # install the built wheel and test dependencies
   - install_wheel arrow
   # run unit tests before removing the system libraries
   - run_unit_tests arrow
-  # remove libz to ensure that it is properly bundled
-  - sudo find /usr -name libz.* -delete
   # run the import tests
   - run_import_tests
 
-  - brew install openssl@1.1
+  - sudo mv $(brew --cellar){.bak,}
   # before_install activates a virtualenv but we need the system python3
   - deactivate
   # crossbow dependencies for deployment
