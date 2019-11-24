@@ -982,4 +982,32 @@ TEST_F(TestSparseCSFTensor, TestToTensor) {
 
   ASSERT_TRUE(tensor.Equals(*dense_tensor));
 }
+
+TEST_F(TestSparseCSFTensor, CreationFromTensor) {
+  std::vector<int64_t> values = {
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 4, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 7, 8};
+  std::vector<int64_t> shape({3, 3, 3, 4});
+  std::vector<std::string> dim_names({"a", "b", "c", "d"});
+  std::shared_ptr<Buffer> buffer = Buffer::Wrap(values);
+  Tensor tensor(int64(), buffer, shape, {}, dim_names);
+
+  std::shared_ptr<SparseCSFTensor> st;
+  ASSERT_OK(SparseCSFTensor::Make(tensor, &st));
+
+  ASSERT_EQ(8, st->non_zero_length());
+  ASSERT_TRUE(st->is_mutable());
+
+  ASSERT_EQ(dim_names, st->dim_names());
+  ASSERT_EQ("a", st->dim_name(0));
+  ASSERT_EQ("b", st->dim_name(1));
+  ASSERT_EQ("c", st->dim_name(2));
+  ASSERT_EQ("d", st->dim_name(3));
+
+  std::shared_ptr<Tensor> dt;
+  ASSERT_OK(st->ToTensor(&dt));
+  ASSERT_TRUE(tensor.Equals(*dt));
+}
 }  // namespace arrow
