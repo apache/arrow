@@ -99,15 +99,7 @@ impl Debug for BufferData {
 impl Buffer {
     /// Creates a buffer from an existing memory region (must already be byte-aligned), and this
     /// buffer will free this piece of memory when dropped.
-    ///
-    /// This method is the same as `from_owned`.
     pub fn from_raw_parts(ptr: *const u8, len: usize) -> Self {
-        Buffer::build_with_arguments(ptr, len, true)
-    }
-
-    /// Creates a buffer from an existing memory region (must already be byte-aligned), and this
-    /// buffer will free this piece of memory when dropped.
-    pub fn from_owned(ptr: *const u8, len: usize) -> Self {
         Buffer::build_with_arguments(ptr, len, true)
     }
 
