@@ -39,6 +39,10 @@ struct StringToFloatConverter::Impl {
   util::double_conversion::StringToDoubleConverter fallback_converter_;
 };
 
+constexpr int StringToFloatConverter::Impl::flags_;
+constexpr double StringToFloatConverter::Impl::main_junk_value_;
+constexpr double StringToFloatConverter::Impl::fallback_junk_value_;
+
 StringToFloatConverter::StringToFloatConverter() : impl_(new Impl()) {}
 
 StringToFloatConverter::~StringToFloatConverter() {}
