@@ -1014,4 +1014,110 @@ TEST_F(TestSparseCSFTensor, CreationFromTensor) {
   ASSERT_OK(st->ToTensor(&dt));
   ASSERT_TRUE(tensor.Equals(*dt));
 }
+
+template <typename IndexValueType>
+class TestSparseCSFTensorForIndexValueType
+    : public TestSparseCSFTensorBase<IndexValueType> {
+ protected:
+  std::shared_ptr<SparseCSFIndex> MakeSparseCSFIndex(
+      std::vector<typename IndexValueType::c_type>& indptr_values,
+      std::vector<typename IndexValueType::c_type>& indices_values,
+      const std::vector<int64_t>& indptr_offsets,
+      const std::vector<int64_t>& indices_offsets,
+      const std::vector<int64_t>& indptr_shape, const std::vector<int64_t>& indices_shape,
+      const std::vector<int64_t>& axis_order) const {
+    auto indptr_data = Buffer::Wrap(indptr_values);
+    auto indices_data = Buffer::Wrap(indices_values);
+    auto indptr =
+        std::make_shared<NumericTensor<IndexValueType>>(indptr_data, indptr_shape);
+    auto indices =
+        std::make_shared<NumericTensor<IndexValueType>>(indices_data, indices_shape);
+    return std::make_shared<SparseCSFIndex>(indptr, indices, indptr_offsets,
+                                            indices_offsets, axis_order);
+  }
+
+  template <typename CValueType>
+  std::shared_ptr<SparseCSFTensor> MakeSparseTensor(
+      const std::shared_ptr<SparseCSFIndex>& si,
+      std::vector<CValueType>& sparse_values) const {
+    auto data = Buffer::Wrap(sparse_values);
+    return std::make_shared<SparseCSFTensor>(si,
+                                             CTypeTraits<CValueType>::type_singleton(),
+                                             data, this->shape_, this->dim_names_);
+  }
+};
+
+TYPED_TEST_CASE_P(TestSparseCSFTensorForIndexValueType);
+
+TYPED_TEST_P(TestSparseCSFTensorForIndexValueType, ToTensor) {
+  using IndexValueType = TypeParam;
+  using c_index_value_type = typename IndexValueType::c_type;
+
+  std::vector<int64_t> data_values = {1, 2, 3, 4, 5, 6, 7, 8};
+  std::vector<c_index_value_type> indptr_values = {0, 2, 3, 0, 1, 3, 4, 0, 2, 4, 5, 8};
+  std::vector<c_index_value_type> indices_values = {1, 2, 1, 2, 2, 1, 1, 2, 2,
+                                                    2, 3, 1, 3, 1, 1, 2, 3};
+  std::vector<int64_t> indices_offsets = {0, 2, 5, 9};
+  std::vector<int64_t> indptr_offsets = {0, 3, 7};
+  std::vector<int64_t> axis_order = {0, 1, 2, 3};
+  std::vector<int64_t> sparse_tensor_shape({3, 3, 3, 4});
+  std::vector<int64_t> indptr_shape({12});
+  std::vector<int64_t> indices_shape({17});
+  std::vector<std::string> dim_names({"a", "b", "c", "d"});
+
+  std::vector<int64_t> dense_values = {
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 4, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 7, 8};
+
+  std::shared_ptr<Buffer> data_buffer = Buffer::Wrap(data_values);
+  std::shared_ptr<Buffer> indptr_buffer = Buffer::Wrap(indptr_values);
+  std::shared_ptr<Buffer> indices_buffer = Buffer::Wrap(indices_values);
+  std::shared_ptr<Buffer> dense_data = Buffer::Wrap(dense_values);
+
+  std::shared_ptr<SparseCSFIndex> si =
+      this->MakeSparseCSFIndex(indptr_values, indices_values, indptr_offsets,
+                               indices_offsets, indptr_shape, indices_shape, axis_order);
+  std::shared_ptr<SparseCSFTensor> st = this->MakeSparseTensor(si, data_values);
+
+  ASSERT_EQ(8, st->non_zero_length());
+
+  std::shared_ptr<Tensor> dt;
+  ASSERT_OK(st->ToTensor(&dt));
+  Tensor tensor(int64(), dense_data, sparse_tensor_shape, {});
+  ASSERT_TRUE(tensor.Equals(*dt));
+
+  std::shared_ptr<SparseCSFIndex> si2 =
+      arrow::internal::checked_pointer_cast<SparseCSFIndex>(
+          this->sparse_tensor_from_dense_->sparse_index());
+
+  ASSERT_EQ(si->indices()->type(), si2->indices()->type());
+  ASSERT_TRUE(si->indptr()->Equals(*si2->indptr()));
+  ASSERT_TRUE(si->indices()->Equals(*si2->indices()));
+  ASSERT_TRUE(si->indptr_offsets() == si2->indptr_offsets());
+  ASSERT_TRUE(si->indices_offsets() == si2->indices_offsets());
+  ASSERT_TRUE(si->indices_offsets() == si2->indices_offsets());
+  ASSERT_TRUE(si->axis_order() == si2->axis_order());
+
+  ASSERT_TRUE(si->Equals(*si2));
+  ASSERT_TRUE(st->data()->Equals(*this->sparse_tensor_from_dense_->data()));
+  //  ASSERT_TRUE(st->Equals(*this->sparse_tensor_from_dense_));
+}
+
+REGISTER_TYPED_TEST_CASE_P(TestSparseCSFTensorForIndexValueType, ToTensor);
+
+INSTANTIATE_TYPED_TEST_CASE_P(TestInt8, TestSparseCSFTensorForIndexValueType, Int8Type);
+INSTANTIATE_TYPED_TEST_CASE_P(TestUInt8, TestSparseCSFTensorForIndexValueType, UInt8Type);
+// INSTANTIATE_TYPED_TEST_CASE_P(TestInt16, TestSparseCSFTensorForIndexValueType,
+// Int16Type); INSTANTIATE_TYPED_TEST_CASE_P(TestUInt16,
+// TestSparseCSFTensorForIndexValueType,UInt16Type);
+// INSTANTIATE_TYPED_TEST_CASE_P(TestInt32, TestSparseCSFTensorForIndexValueType,
+// Int32Type);
+INSTANTIATE_TYPED_TEST_CASE_P(TestUInt32, TestSparseCSFTensorForIndexValueType,
+                              UInt32Type);
+INSTANTIATE_TYPED_TEST_CASE_P(TestInt64, TestSparseCSFTensorForIndexValueType, Int64Type);
+INSTANTIATE_TYPED_TEST_CASE_P(TestUInt64, TestSparseCSFTensorForIndexValueType,
+                              UInt64Type);
+
 }  // namespace arrow

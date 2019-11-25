@@ -477,7 +477,8 @@ class SparseTensorConverter<TYPE, SparseCSFIndex>
           if (row > 1) tree_split = true;
 
           indices[column * nonzero_count + counts[column]] =
-              coords->Value<IndexValueType>({row, column});
+              static_cast<c_index_value_type>(
+                  coords->Value<IndexValueType>({row, column}));
           indptr[column * (nonzero_count + 1) + counts[column]] =
               static_cast<c_index_value_type>(counts[column + 1]);
           ++counts[column];
