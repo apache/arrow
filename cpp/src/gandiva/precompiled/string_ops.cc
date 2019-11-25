@@ -465,4 +465,45 @@ int32 locate_utf8_utf8_int32(int64 context, const char* sub_str, int32 sub_str_l
   return 0;
 }
 
+FORCE_INLINE
+const char* replace_utf8_utf8_utf8(int64 context, const char* text, int32 text_len,
+                                   const char* from_str, int32 from_str_len,
+                                   const char* to_str, int32 to_str_len, int32* out_len) {
+  // if from_str is empty or its length exceeds that of original string,
+  // return the original string
+  if (from_str_len == 0 || from_str_len > text_len) {
+    *out_len = text_len;
+    return text;
+  }
+
+  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, 8000));
+  if (out == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  int32 out_index = 0;
+  int32 i = 0;
+  for (; i <= text_len - from_str_len; ) {
+    int32 j = 0;
+    for (; j < from_str_len; ++j) {
+      if (text[i+j] != from_str[j]) {
+        break;
+      }
+    }
+    if (j == from_str_len) {
+      memcpy(out+out_index, to_str, to_str_len);
+      out_index += to_str_len;
+      i += from_str_len;
+    } else {
+      out[out_index++] = text[i++];
+    }
+  }
+  memcpy(out+out_index, text + i, text_len - i);
+  out_index += text_len - i;
+  *out_len = out_index;
+  return out;
+}
+
 }  // extern "C"

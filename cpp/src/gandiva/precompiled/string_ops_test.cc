@@ -355,16 +355,55 @@ TEST(TestStringOps, TestLocate) {
               ::testing::HasSubstr("Invalid character position argument"));
   ctx.Reset();
 
-  std::string d(
-      "a\xff"
-      "c");
+  std::string d("a\xff""c");
   pos =
-      locate_utf8_utf8_int32(ctx_ptr, "c", 1, d.data(), static_cast<int>(d.length()), 3);
+    locate_utf8_utf8_int32(ctx_ptr, "c", 1, d.data(), static_cast<int>(d.length()), 3);
   EXPECT_EQ(pos, 0);
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr(
-                  "unexpected byte \\ff encountered while decoding utf8 string"));
+                "unexpected byte \\ff encountered while decoding utf8 string"));
   ctx.Reset();
+}
+
+TEST(TestStringOps, TestReplace) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<int64>(&ctx);
+  int32 out_len = 0;
+
+  const char* out_str;
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, "TestString1String2", 18, "String", 6,
+                                   "Replace", 7, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestReplace1Replace2");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, "TestString1", 11, "String", 6, "", 0,
+                                   &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Test1");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, "", 0, "test", 4, "rep", 3,
+                                   &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, "Ç††çåå†", 17, "†", 3, "t", 1,
+                                   &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Çttçååt");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, "TestString", 10, "", 0, "rep", 3,
+                                   &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, "Test", 4, "TestString", 10, "rep", 3,
+                                   &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Test");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, "Test", 4, "Test", 4, "", 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
 }
 
 }  // namespace gandiva
