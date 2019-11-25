@@ -38,22 +38,26 @@ COPY ci/scripts/install_conda.sh \
 RUN /arrow/ci/scripts/install_conda.sh ${arch} linux latest ${prefix}
 RUN /arrow/ci/scripts/install_minio.sh ${arch} linux latest ${prefix}
 
-# create a test environment, to shield from base environment and avoid conflicts
-RUN conda create -n testenv
-
 # install the required conda packages into the test environment
 COPY ci/conda_env_cpp.yml \
      ci/conda_env_gandiva.yml \
      ci/conda_env_unix.yml \
      /arrow/ci/
-RUN conda install -n testenv -q \
+RUN conda create -n arrow -q \
         --file arrow/ci/conda_env_unix.yml \
         --file arrow/ci/conda_env_cpp.yml \
         --file arrow/ci/conda_env_gandiva.yml \
         git compilers && \
     conda clean --all
 
-ENV CONDA_PREFIX=${prefix}/envs/testenv
+# activate the created environment by default
+RUN echo "conda activate arrow" >> ~/.profile
+
+# use login shell to activate arrow environment un the RUN commands
+SHELL [ "/bin/bash", "-c", "-l" ]
+
+# use login shell when running the container
+ENTRYPOINT [ "/bin/bash", "-c", "-l" ]
 
 ENV ARROW_S3=ON \
     ARROW_ORC=ON \

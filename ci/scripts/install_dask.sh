@@ -26,8 +26,6 @@ fi
 
 dask=$1
 
-source activate testenv
-
 if [ "${dask}" = "master" ]; then
   pip install https://github.com/dask/dask/archive/master.tar.gz#egg=dask[dataframe]
 elif [ "${dask}" = "latest" ]; then
@@ -35,5 +33,4 @@ elif [ "${dask}" = "latest" ]; then
 else
   conda install -q dask=${dask}
 fi
-
 conda clean --all

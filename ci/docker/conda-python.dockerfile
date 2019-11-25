@@ -22,18 +22,16 @@ FROM ${org}/${arch}-conda-cpp:latest
 # install python specific packages
 ARG python=3.6
 COPY ci/conda_env_python.yml /arrow/ci/
-RUN conda install -n testenv -q \
+RUN conda install -q \
         --file arrow/ci/conda_env_python.yml \
+        $([ "$python" == "2.7" ] && echo "futures enum34") \
         python=${python} \
         nomkl && \
     conda clean --all
-
-COPY python/requirements.txt /arrow/python/
-RUN bash -c "source activate testenv && pip install -r /arrow/python/requirements.txt"
 
 ENV ARROW_PYTHON=ON \
     ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \
     ARROW_TENSORFLOW=ON \
-    ARROW_USE_GLOG=OFF \
+    ARROW_USE_GLOG=OFF

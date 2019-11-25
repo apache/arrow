@@ -20,21 +20,18 @@
 set -e
 
 if [ "$#" -ne 1 ]; then
-  echo "Usage: $0 <turbodbc version>"
+  echo "Usage: $0 <turbodbc version> <target directory>"
   exit 1
 fi
 
 turbodbc=$1
+target=$2
 
-source activate testenv
-
-git clone --recurse-submodules https://github.com/blue-yonder/turbodbc /turbodbc
+git clone --recurse-submodules https://github.com/blue-yonder/turbodbc "${target}"
 if [ "${turbodbc}" = "master" ]; then
-  git -C /turbodbc checkout master;
+  git -C "${target}" checkout master;
 elif [ "${turbodbc}" = "latest" ]; then
-  git -C /turbodbc checkout $(git describe --tags);
+  git -C "${target}" checkout $(git describe --tags);
 else
-  git -C /turbodbc checkout ${turbodbc};
+  git -C "${target}" checkout ${turbodbc};
 fi
-
-conda clean --all

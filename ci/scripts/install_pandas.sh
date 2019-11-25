@@ -26,8 +26,6 @@ fi
 
 pandas=$1
 
-source activate testenv
-
 if [ "${pandas}" = "master" ]; then
   conda install -q numpy
   pip install https://github.com/pandas-dev/pandas/archive/master.tar.gz

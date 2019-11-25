@@ -20,17 +20,16 @@
 set -e
 
 if [ "$#" -ne 1 ]; then
-  echo "Usage: $0 <spark version>"
+  echo "Usage: $0 <spark version> <target directory> <patches directory>"
   exit 1
 fi
 
 spark=$1
+target=$2
+patches=${3}
 
-source activate testenv
+mkdir "${target}"
+wget -q -O - https://github.com/apache/spark/archive/${spark}.tar.gz | tar -xzf - --strip-components=1 -C "${target}"
 
-mkdir /spark
-wget -q -O - https://github.com/apache/spark/archive/${spark}.tar.gz | tar -xzf - --strip-components=1 -C /spark
-
-# patch spark to build with current Arrow Java
-# patch -d /spark -p1 -i /arrow/ci/scripts/ARROW-6429.patch
-rm /arrow/ci/scripts/ARROW-6429.patch
+# Patch spark to build with current Arrow Java
+# patch -d "${target}" -p1 -i "${patches}/ARROW-6429.patch"

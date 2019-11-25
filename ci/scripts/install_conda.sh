@@ -53,7 +53,6 @@ rm /tmp/miniconda.sh
 
 # Like "conda init", but for POSIX sh rather than bash
 ln -s ${prefix}/etc/profile.d/conda.sh /etc/profile.d/conda.sh
-echo "conda activate base" >> ~/.profile
 
 # Configure
 source /etc/profile.d/conda.sh

@@ -22,7 +22,7 @@ FROM ${org}/${arch}-conda-python-${python}:latest
 
 ARG jdk=8
 ARG maven=3.5
-RUN conda install -n testenv -q \
+RUN conda install -q \
         patch \
         pandas \
         openjdk=${jdk} \
@@ -31,10 +31,9 @@ RUN conda install -n testenv -q \
 
 # installing specific version of spark
 ARG spark=master
-COPY ci/scripts/install_spark.sh \
-    ci/etc/ARROW-6429.patch \
-    /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_spark.sh ${spark}
+COPY ci/scripts/install_spark.sh /arrow/ci/scripts/
+COPY ci/etc/ARROW-6429.patch /arrow/ci/etc/
+RUN /arrow/ci/scripts/install_spark.sh ${spark} /spark /arrow/ci/etc
 
 # build cpp with tests
 ENV CC=gcc \

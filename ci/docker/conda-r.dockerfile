@@ -31,8 +31,7 @@ RUN conda install -n testenv -q \
 # Ensure parallel compilation of each individual package
 RUN printf "\nMAKEFLAGS=-j8\n" >> /opt/conda/envs/testenv/lib/R/etc/Makeconf
 
-ENV \
-    ARROW_BUILD_STATIC=OFF \
+ENV ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \

@@ -22,7 +22,7 @@ FROM ${org}/${arch}-conda-python-${python}:latest
 
 ARG jdk=8
 ARG maven=3.5
-RUN conda install -n testenv -q \
+RUN conda install -q \
         pandas \
         openjdk=${jdk} \
         maven=${maven} && \

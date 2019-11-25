@@ -30,7 +30,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     rm -rf /var/lib/apt/lists/*
 
 # install turbodbc dependencies from conda-forge
-RUN conda install -n testenv -c conda-forge -q\
+RUN conda install -c conda-forge -q\
         pybind11 \
         pytest-cov \
         mock \
@@ -45,6 +45,6 @@ RUN service postgresql start && \
 
 ARG turbodbc=latest
 COPY ci/scripts/install_turbodbc.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_turbodbc.sh ${turbodbc}
+RUN /arrow/ci/scripts/install_turbodbc.sh ${turbodbc} /turbodbc
 
 ENV TURBODBC_TEST_CONFIGURATION_FILES "query_fixtures_postgresql.json"

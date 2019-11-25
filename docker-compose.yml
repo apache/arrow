@@ -76,10 +76,8 @@ services:
     volumes: &conda-volumes
       - .:/arrow:delegated
       - ${ARCH}-conda-cache:/build:delegated
-    entrypoint: &conda-entrypoint /bin/bash -c -l
     command: &cpp-conda-command
-      ["conda activate testenv &&
-        /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build/cpp"]
 
   cuda-cpp:
@@ -288,10 +286,8 @@ services:
         python: ${PYTHON}
     shm_size: *shm-size
     volumes: *conda-volumes
-    entrypoint: *conda-entrypoint
     command: &python-conda-command
-      ["conda activate testenv &&
-        /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
         /arrow/ci/scripts/python_build.sh /arrow /build/python &&
         /arrow/ci/scripts/python_test.sh /arrow"]
 
@@ -428,7 +424,6 @@ services:
         pandas: ${PANDAS}
     shm_size: *shm-size
     volumes: *conda-volumes
-    entrypoint: *conda-entrypoint
     command: *python-conda-command
 
   conda-python-dask:
@@ -454,10 +449,8 @@ services:
         dask: ${DASK}
     shm_size: *shm-size
     volumes: *conda-volumes
-    entrypoint: *conda-entrypoint
     command:
-      ["conda activate testenv &&
-        /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
         /arrow/ci/scripts/python_build.sh /arrow /build/python &&
         /arrow/ci/scripts/integration_dask.sh"]
 
@@ -484,10 +477,8 @@ services:
         turbodbc: ${TURBODBC}
     shm_size: *shm-size
     volumes: *conda-volumes
-    entrypoint: *conda-entrypoint
     command:
-      ["conda activate testenv &&
-        /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
         /arrow/ci/scripts/python_build.sh /arrow /build/python &&
         /arrow/ci/scripts/integration_turbodbc.sh /turbodbc /build/turbodbc"]
 
@@ -546,10 +537,8 @@ services:
         r: ${R}
     shm_size: *shm-size
     volumes: *conda-volumes
-    entrypoint: *conda-entrypoint
     command:
-      ["conda activate testenv &&
-        /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
         /arrow/ci/scripts/r_build.sh /arrow &&
         /arrow/ci/scripts/r_test.sh /arrow"]
 
@@ -759,13 +748,11 @@ services:
         node: ${NODE}
         go: ${GO}
     volumes: *conda-volumes
-    entrypoint: *conda-entrypoint
     environment:
       # tell archery where the arrow binaries are located
       ARROW_CPP_EXE_PATH: /build/cpp/debug
     command:
-      ["conda activate testenv &&
-        /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
         /arrow/ci/scripts/go_build.sh /arrow &&
         /arrow/ci/scripts/java_build.sh /arrow &&
         /arrow/ci/scripts/js_build.sh /arrow &&
@@ -892,10 +879,8 @@ services:
       - ARROW_HIVESERVER2_TEST_HOST=impala
     shm_size: *shm-size
     volumes: *conda-volumes
-    entrypoint: *conda-entrypoint
     command:
-      ["conda activate testenv &&
-        /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
         /arrow/ci/scripts/integration_hiveserver2.sh /arrow /build/cpp"]
 
   conda-python-hdfs:
@@ -930,10 +915,8 @@ services:
       - .:/arrow:delegated
       - maven-cache:/root/.m2:delegated
       - ${ARCH}-conda-cache:/build:delegated
-    entrypoint: *conda-entrypoint
     command:
-      ["conda activate testenv &&
-        /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
         /arrow/ci/scripts/python_build.sh /arrow /build/python &&
         /arrow/ci/scripts/integration_hdfs.sh /arrow /build/cpp"]
 
@@ -960,10 +943,8 @@ services:
         spark: ${SPARK}
     shm_size: *shm-size
     volumes: *conda-maven-volumes
-    entrypoint: *conda-entrypoint
     command:
-      ["conda activate testenv &&
-        /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
         /arrow/ci/scripts/python_build.sh /arrow /build/python &&
         /arrow/ci/scripts/java_build.sh /arrow &&
         /arrow/ci/scripts/integration_spark.sh /arrow /spark"]
