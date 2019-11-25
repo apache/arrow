@@ -2182,17 +2182,15 @@ class ArrowDeserializer {
     return Status::OK();
   }
 
-  // Default case
-  Status Visit(const FixedSizeListType& type) {
-    return Status::NotImplemented(type.name());
-  }
-  Status Visit(const LargeListType& type) { return Status::NotImplemented(type.name()); }
-  Status Visit(const UnionType& type) { return Status::NotImplemented(type.name()); }
-  Status Visit(const DayTimeIntervalType& type) {
-    return Status::NotImplemented(type.name());
-  }
-  Status Visit(const MonthIntervalType& type) {
-    return Status::NotImplemented(type.name());
+  Status Visit(const FixedSizeListType& type) { return NotImplemented(type); }
+  Status Visit(const LargeListType& type) { return NotImplemented(type); }
+  Status Visit(const UnionType& type) { return NotImplemented(type); }
+  Status Visit(const DayTimeIntervalType& type) { return NotImplemented(type); }
+  Status Visit(const MonthIntervalType& type) { return NotImplemented(type); }
+
+  Status NotImplemented(const DataType& type) {
+    return Status::NotImplemented(
+        "Convertion from arrow to pandas is not implemented for type ", type.name());
   }
 
   Status Convert(PyObject** out) {

@@ -295,8 +295,8 @@ class RegularHashKernelImpl : public HashKernelImpl {
                                                           0 /* start_offset */, out);
   }
 
-  template <typename Enable = Status>
-  auto VisitNull() -> enable_if_t<!with_error_status, Enable> {
+  template <bool HasError = with_error_status>
+  enable_if_t<!HasError, Status> VisitNull() {
     auto on_found = [this](int32_t memo_index) { action_.ObserveNullFound(memo_index); };
     auto on_not_found = [this](int32_t memo_index) {
       action_.ObserveNullNotFound(memo_index);
@@ -310,8 +310,8 @@ class RegularHashKernelImpl : public HashKernelImpl {
     return Status::OK();
   }
 
-  template <typename Enable = Status>
-  auto VisitNull() -> enable_if_t<with_error_status, Enable> {
+  template <bool HasError = with_error_status>
+  enable_if_t<HasError, Status> VisitNull() {
     Status s = Status::OK();
     auto on_found = [this](int32_t memo_index) { action_.ObserveFound(memo_index); };
     auto on_not_found = [this, &s](int32_t memo_index) {
@@ -327,8 +327,8 @@ class RegularHashKernelImpl : public HashKernelImpl {
     return s;
   }
 
-  template <typename Enable = Status>
-  auto VisitValue(const Scalar& value) -> enable_if_t<!with_error_status, Enable> {
+  template <bool HasError = with_error_status>
+  enable_if_t<!HasError, Status> VisitValue(const Scalar& value) {
     auto on_found = [this](int32_t memo_index) { action_.ObserveFound(memo_index); };
     auto on_not_found = [this](int32_t memo_index) {
       action_.ObserveNotFound(memo_index);
@@ -338,8 +338,8 @@ class RegularHashKernelImpl : public HashKernelImpl {
     return Status::OK();
   }
 
-  template <typename Enable = Status>
-  auto VisitValue(const Scalar& value) -> enable_if_t<with_error_status, Enable> {
+  template <bool HasError = with_error_status>
+  enable_if_t<HasError, Status> VisitValue(const Scalar& value) {
     Status s = Status::OK();
     auto on_found = [this](int32_t memo_index) { action_.ObserveFound(memo_index); };
     auto on_not_found = [this, &s](int32_t memo_index) {
