@@ -213,5 +213,3 @@ def test_file_system_discovery(fs):
     selector = FileSelector('/base', recursive=True)
     fileformat = ParquetFileFormat()
     discovery = FileSystemDataSourceDiscovery(fs, selector, fileformat)
-
-

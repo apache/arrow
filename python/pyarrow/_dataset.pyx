@@ -54,35 +54,11 @@ cdef class FileScanOptions(ScanOptions):
     pass
 
 
-cdef class CsvScanOptions(FileScanOptions):
-    pass
-
-
-cdef class FeatherScanOptions(FileScanOptions):
-    pass
-
-
 cdef class ParquetScanOptions(FileScanOptions):
     pass
 
 
-cdef class JsonScanOptions(FileScanOptions):
-    pass
-
-
 cdef class FileWriteOptions(WriteOptions):
-    pass
-
-
-cdef class CsvWriteOptions(FileWriteOptions):
-    pass
-
-
-cdef class FeatherWriterOptions(FileWriteOptions):
-    pass
-
-
-cdef class JsonWriterOptions(FileWriteOptions):
     pass
 
 
@@ -109,6 +85,55 @@ cdef class FileFormat:
 
 cdef class ParquetFileFormat(FileFormat):
     pass
+
+
+cdef class PartitionScheme:
+
+    cdef:
+        shared_ptr[CPartitionScheme] wrapped
+        CPartitionScheme* scheme
+
+    cdef init(self, const shared_ptr[CPartitionScheme]& sp):
+        self.wrapped = sp
+        self.scheme = sp.get()
+
+    @staticmethod
+    cdef wrap(shared_ptr[CPartitionScheme]& sp):
+        cdef PartitionScheme self
+
+        # TODO(kszucs): either choose type() or name() but consistently
+        typ = frombytes(sp.get().name())
+        if typ == 'schema_partition_scheme':
+            self = SchemaPartitionScheme.__new__(SchemaPartitionScheme)
+        else:
+            raise TypeError(typ)
+
+        self.init(sp)
+        return self
+
+    cdef inline shared_ptr[CPartitionScheme] unwrap(self):
+        return self.wrapped
+
+
+cdef class SchemaPartitionScheme(PartitionScheme):
+
+    cdef:
+        CSchemaPartitionScheme* schema_scheme  # hmmm...
+
+    def __init__(self, Schema schema):
+        cdef shared_ptr[CSchemaPartitionScheme] scheme
+        scheme = make_shared[CSchemaPartitionScheme](
+            pyarrow_unwrap_schema(schema)
+        )
+        self.init(<shared_ptr[CPartitionScheme]> scheme)
+
+    cdef init(self, const shared_ptr[CPartitionScheme]& sp):
+        PartitionScheme.init(self, sp)
+        self.schema_scheme = <CSchemaPartitionScheme*> sp.get()
+
+    @property
+    def schema(self):
+        return pyarrow_wrap_schema(self.schema_scheme.schema())
 
 
 cdef class FileSystemDiscoveryOptions:
@@ -369,7 +394,7 @@ cdef class DataSource:
         elif typ == 'filesystem_data_source':
             self = FileSystemDataSource.__new__(FileSystemDataSource)
         else:
-            self = DataSource.__new__(DataSource)
+            raise TypeError(typ)
 
         self.init(sp)
         return self

@@ -173,12 +173,12 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CFileBasedDataFragment \
             "arrow::dataset::FileBasedDataFragment"(CDataFragment):
         CFileBasedDataFragment(const CFileSource& source,
-                               shared_ptr[CFileFormat] format,
+                               CFileFormatPtr format,
                                CScanOptionsPtr scan_options)
         CStatus Scan(CScanContextPtr scan_context,
                      shared_ptr[CScanTaskIterator]* out)
         const CFileSource& source()
-        shared_ptr[CFileFormat] format()
+        CFileFormatPtr format()
         CScanOptionsPtr scan_options()
 
     cdef cppclass CFileSystemDataSource \
@@ -186,67 +186,11 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         @staticmethod
         CStatus Make(CFileSystem* filesystem,
                      const CSelector& selector,
-                     shared_ptr[CFileFormat] format,
+                     CFileFormatPtr format,
                      CScanOptionsPtr scan_options,
                      shared_ptr[CFileSystemDataSource]* out)
         c_string type()
         shared_ptr[CDataFragmentIterator] GetFragments(CScanOptionsPtr options)
-
-    ############################### File CSV ##################################
-
-    cdef cppclass CCsvScanOptions "arrow::dataset::CsvScanOptions"(
-            CFileScanOptions):
-        c_string file_type()
-
-    cdef cppclass CCsvWriteOptions "arrow::dataset::CsvWriteOptions"(
-            CFileWriteOptions):
-        c_string file_type()
-
-    cdef cppclass CCsvFileFormat" arrow::dataset::CsvFileFormat"(CFileFormat):
-        c_string name()
-        c_bool IsKnownExtension(const c_string& ext)
-        CStatus ScanFile(const CFileSource& source,
-                         CScanOptionsPtr scan_options,
-                         CScanContextPtr scan_context,
-                         shared_ptr[CScanTaskIterator]* out)
-
-     ############################### File JSON ################################
-
-    cdef cppclass CJsonScanOptions "arrow::dataset::JsonScanOptions"(
-            CFileScanOptions):
-        c_string file_type()
-
-    cdef cppclass CJsonWriteOptions "arrow::dataset::JsonWriteOptions"(
-            CFileWriteOptions):
-        c_string file_type()
-
-    cdef cppclass CJsonFileFormat "arrow::dataset::JsonFileFormat"(
-            CFileFormat):
-        c_string name()
-        c_bool IsKnownExtension(const c_string& ext)
-        CStatus ScanFile(const CFileSource& source,
-                         shared_ptr[CScanOptions] scan_options,
-                         shared_ptr[CScanContext] scan_context,
-                         shared_ptr[CScanTaskIterator]* out)
-
-    ############################### File Feather #############################
-
-    cdef cppclass CFeatherScanOptions "arrow::dataset::FeatherScanOptions"(
-            CFileScanOptions):
-        c_string file_type()
-
-    cdef cppclass CFeatherWriterOptions "arrow::dataset::FeatherWriterOptions"(
-            CFileWriteOptions):
-        c_string file_type()
-
-    cdef cppclass CFeatherFileFormat "arrow::dataset::FeatherFileFormat"(
-            CFileFormat):
-        c_string name()
-        c_bool IsKnownExtension(const c_string& ext)
-        CStatus ScanFile(const CFileSource& source,
-                         shared_ptr[CScanOptions] scan_options,
-                         shared_ptr[CScanContext] scan_context,
-                         shared_ptr[CScanTaskIterator]* out)
 
     ############################### File Parquet #############################
 
@@ -306,3 +250,14 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
                                               CSelector,
                                               CFileFormatPtr format,
                                               CFileSystemDiscoveryOptions options)
+
+    ############################### Partitioning ##############################
+
+    cdef cppclass CPartitionScheme "arrow::dataset::PartitionScheme":
+        c_string name() const
+        # CResult[CExpressionPtr] Parse(const c_string& path) const
+
+    cdef cppclass CSchemaPartitionScheme "arrow::dataset::SchemaPartitionScheme"(CPartitionScheme):
+        CSchemaPartitionScheme(shared_ptr[CSchema] schema)
+        c_string name() const
+        const shared_ptr[CSchema]& schema()
