@@ -15,10 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG org
+ARG repo
 ARG arch=amd64
 ARG python=3.6
-FROM ${org}/${arch}-conda-python-${python}:latest
+FROM ${repo}:${arch}-conda-python-${python}
 
 ARG pandas=latest
 RUN if [ "${pandas}" = "master" ]; then \
