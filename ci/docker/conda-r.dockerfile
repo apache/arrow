@@ -22,14 +22,14 @@ FROM ${org}/${arch}-conda-cpp:latest
 # install R specific packages
 ARG r=3.6.1
 COPY ci/conda_env_r.yml /arrow/ci/
-RUN conda install -n testenv -q \
+RUN conda install -q \
         --file arrow/ci/conda_env_r.yml \
         r-base=$r \
         nomkl && \
     conda clean --all
 
 # Ensure parallel compilation of each individual package
-RUN printf "\nMAKEFLAGS=-j8\n" >> /opt/conda/envs/testenv/lib/R/etc/Makeconf
+RUN printf "\nMAKEFLAGS=-j8\n" >> $CONDA_PREFIX/lib/R/etc/Makeconf
 
 ENV ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
