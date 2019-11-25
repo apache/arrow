@@ -252,14 +252,16 @@ arrow_cc_library(
 
 arrow_cc_library(
   name = "benchmark",
-  hdrs = ["benchmark.h"])
+  hdrs = ["benchmark.h"],
+  srcs = ["benchmark.cc"],
+  deps = [":platform", ":visibility", ":helpers"])
 
 arrow_cc_library(
     name = "public_api",
     hdrs = ["api.h"],
     deps = [":pyarrow_lib",
             ":arrow_to_pandas",
-":deserialize", ":io", ":numpy_to_arrow", ":init", ":extension_type", ":benchmark"],
+":deserialize", ":io", ":numpy_to_arrow", ":init", ":extension_type", ":benchmark", ":helpers"],
 )
 
 

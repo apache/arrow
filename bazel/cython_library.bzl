@@ -1,4 +1,5 @@
 """Custom rules for gRPC Python"""
+load("@rules_python//python:defs.bzl", "py_library")
 
 # Adapted with modifications from
 # tensorflow/tensorflow/core/platform/default/build_config.bzl
@@ -62,7 +63,7 @@ def pyx_library(name, deps = [], py_deps = [], srcs = [], include_path = "", pxi
         shared_objects.append(shared_object_name)
 
     # Now create a py_library with these shared objects as data.
-    native.py_library(
+    py_library(
         name = name,
         srcs = py_srcs,
         deps = py_deps,

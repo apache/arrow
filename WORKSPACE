@@ -1,3 +1,38 @@
+#http_archive(
+#    name = "rules_python",
+#    url = "https://github.com/bazelbuild/rules_python/archives/94677401bc56ed5d756f50b441a6a5c7f735a6d4.tar.gz",
+#)
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+
+git_repository(
+    name = "rules_python",
+    remote = "https://github.com/bazelbuild/rules_python.git",
+    commit = "94677401bc56ed5d756f50b441a6a5c7f735a6d4",
+)
+
+
+load("@rules_python//python:repositories.bzl", "py_repositories")
+py_repositories()
+# Only needed if using the packaging rules.
+load("@rules_python//python:pip.bzl", "pip_repositories")
+pip_repositories()
+
+load("@rules_python//python:pip.bzl", pip2 = "pip_import")
+
+# Create a central repo that knows about the dependencies needed for
+# requirements.txt.
+pip2(   # or pip3_import
+   name = "pyarrow_deps_test",
+   python_interpreter = "/usr/local/bin/python3", 
+   requirements = "//python:requirements-test.txt",
+)
+
+
+# Load the central repo's install function from its `//:requirements.bzl` file,
+# and call it.
+load("@pyarrow_deps_test//:requirements.bzl", "pip_install")
+pip_install()
+
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
@@ -19,6 +54,7 @@ http_archive(
     name = "com_google_protobuf",
     strip_prefix = "protobuf-3.9.1",
     urls = ["https://github.com/google/protobuf/archive/v3.9.1.tar.gz"],
+    sha256 = "98e615d592d237f94db8bf033fba78cd404d979b0b70351a9e5aaff725398357",
 )
 
 http_archive(
@@ -32,6 +68,7 @@ http_archive(
     name = "com_github_grpc_grpc",
     strip_prefix = "grpc-b74d7e4d14408fc1ade4975271aa05eb99441720",
     urls = ["https://github.com/grpc/grpc/archive/b74d7e4d14408fc1ade4975271aa05eb99441720.tar.gz"],
+    sha256 = "3f835788880aaf4ac92341741138ab67f88219320ecca90920bdd1f06e26e8ff",
 )
 
 load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
@@ -99,3 +136,5 @@ http_archive(
         ],
         build_file = "//bazel:cython.BUILD",
     )
+
+

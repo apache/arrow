@@ -60,8 +60,19 @@ cc_test(
 )
 
 arrow_cc_library(
+  name = "hdfs_internal",
+  hdrs = ["hdfs_internal.h"],
+  srcs = ["hdfs_internal.cc"],
+  copts = ["-DARROW_WITH_BOOST_FILESYSTEM=1"],
+  deps = ["//cpp/thirdparty/hadoop/include:hdfs", "//cpp/src/arrow/util:visibility", "//cpp/src/arrow/util:windows_compatibility",
+          "//cpp/src/arrow:status", "@boost//:boost_filesystem", ]
+)
+
+arrow_cc_library(
     name = "hdfs",
     hdrs = ["hdfs.h"],
+    srcs = ["hdfs.cc"],
+    deps = ["//cpp/thirdparty/hadoop/include:hdfs", "//cpp/src/arrow:buffer", ":interfaces", ":hdfs_internal"]
 )
 
 arrow_cc_library(
