@@ -1288,7 +1288,8 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor) {
   std::shared_ptr<SparseCOOIndex> si;
   ASSERT_OK(SparseCOOIndex::Make(TypeTraits<IndexValueType>::type_singleton(), {12, 3},
                                  {sizeof_index_value * 3, sizeof_index_value},
-                                 Buffer::Wrap(coords_values), &si));
+                                 Buffer::Wrap(coords_values))
+                .Value(&si));
 
   std::vector<int64_t> shape = {2, 3, 4};
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
@@ -1333,7 +1334,8 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexColumnMajor) {
   std::shared_ptr<SparseCOOIndex> si;
   ASSERT_OK(SparseCOOIndex::Make(TypeTraits<IndexValueType>::type_singleton(), {12, 3},
                                  {sizeof_index_value, sizeof_index_value * 12},
-                                 Buffer::Wrap(coords_values), &si));
+                                 Buffer::Wrap(coords_values))
+                .Value(&si));
 
   std::vector<int64_t> shape = {2, 3, 4};
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};
@@ -1358,7 +1360,8 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCSRIndex) {
   auto data = Buffer::Wrap(values);
   NumericTensor<Int64Type> t(data, shape, {}, dim_names);
   std::shared_ptr<SparseCSRMatrix> st;
-  ASSERT_OK(SparseCSRMatrix::Make(t, TypeTraits<IndexValueType>::type_singleton(), &st));
+  ASSERT_OK(
+      SparseCSRMatrix::Make(t, TypeTraits<IndexValueType>::type_singleton()).Value(&st));
 
   this->CheckSparseTensorRoundTrip(*st);
 }
