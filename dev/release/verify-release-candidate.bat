@@ -85,6 +85,11 @@ cmake -G "Ninja" ^
       -DARROW_WITH_LZ4=ON ^
       -DARROW_WITH_SNAPPY=ON ^
       -DARROW_WITH_BROTLI=ON ^
+      -DARROW_COMPUTE=ON ^
+      -DARROW_CSV=ON ^
+      -DARROW_DATASET=ON ^
+      -DARROW_FILESYSTEM=ON ^
+      -DARROW_JSON=ON ^
       -DARROW_FLIGHT=ON ^
       -DARROW_PYTHON=ON ^
       -DARROW_PARQUET=ON ^

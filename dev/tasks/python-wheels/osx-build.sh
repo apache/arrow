@@ -125,7 +125,13 @@ function build_wheel {
           -DARROW_DEPENDENCY_SOURCE=BUNDLED \
           -DARROW_FLIGHT=ON \
           -DARROW_GANDIVA=${BUILD_ARROW_GANDIVA} \
+          -DARROW_BOOST_USE_SHARED=ON \
+          -DARROW_COMPUTE=ON \
+          -DARROW_CSV=ON \
+          -DARROW_DATASET=ON \
+          -DARROW_FILESYSTEM=ON \
           -DARROW_JEMALLOC=ON \
+          -DARROW_JSON=ON \
           -DARROW_ORC=OFF \
           -DARROW_PARQUET=ON \
           -DARROW_PLASMA=ON \

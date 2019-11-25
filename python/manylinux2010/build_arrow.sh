@@ -94,8 +94,13 @@ PATH="${CPYTHON_PATH}/bin:${PATH}" cmake -DCMAKE_BUILD_TYPE=Release \
     -DARROW_BUILD_SHARED=ON \
     -DARROW_BUILD_STATIC=OFF \
     -DARROW_BOOST_USE_SHARED=ON \
+    -DARROW_COMPUTE=ON \
+    -DARROW_CSV=ON \
+    -DARROW_DATASET=ON \
+    -DARROW_FILESYSTEM=ON \
     -DARROW_GANDIVA_PC_CXX_FLAGS="-isystem;/opt/rh/devtoolset-8/root/usr/include/c++/8/;-isystem;/opt/rh/devtoolset-8/root/usr/include/c++/8/x86_64-redhat-linux/" \
     -DARROW_JEMALLOC=ON \
+    -DARROW_JSON=ON \
     -DARROW_RPATH_ORIGIN=ON \
     -DARROW_PYTHON=ON \
     -DARROW_PARQUET=ON \

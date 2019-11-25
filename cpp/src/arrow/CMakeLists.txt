@@ -109,12 +109,6 @@ set(ARROW_SRCS
     tensor.cc
     type.cc
     visitor.cc
-    csv/converter.cc
-    csv/chunker.cc
-    csv/column_builder.cc
-    csv/options.cc
-    csv/parser.cc
-    csv/reader.cc
     io/buffered.cc
     io/compressed.cc
     io/file.cc
@@ -154,22 +148,26 @@ set(ARROW_SRCS
     vendored/double-conversion/cached-powers.cc
     vendored/double-conversion/fixed-dtoa.cc
     vendored/double-conversion/diy-fp.cc
-    vendored/double-conversion/strtod.cc
-    vendored/uriparser/UriCommon.c
-    vendored/uriparser/UriCompare.c
-    vendored/uriparser/UriEscape.c
-    vendored/uriparser/UriFile.c
-    vendored/uriparser/UriIp4Base.c
-    vendored/uriparser/UriIp4.c
-    vendored/uriparser/UriMemory.c
-    vendored/uriparser/UriNormalizeBase.c
-    vendored/uriparser/UriNormalize.c
-    vendored/uriparser/UriParseBase.c
-    vendored/uriparser/UriParse.c
-    vendored/uriparser/UriQuery.c
-    vendored/uriparser/UriRecompose.c
-    vendored/uriparser/UriResolve.c
-    vendored/uriparser/UriShorten.c)
+    vendored/double-conversion/strtod.cc)
+
+if(ARROW_FILESYSTEM OR ARROW_FLIGHT)
+  list(APPEND ARROW_SRCS
+              vendored/uriparser/UriCommon.c
+              vendored/uriparser/UriCompare.c
+              vendored/uriparser/UriEscape.c
+              vendored/uriparser/UriFile.c
+              vendored/uriparser/UriIp4Base.c
+              vendored/uriparser/UriIp4.c
+              vendored/uriparser/UriMemory.c
+              vendored/uriparser/UriNormalizeBase.c
+              vendored/uriparser/UriNormalize.c
+              vendored/uriparser/UriParseBase.c
+              vendored/uriparser/UriParse.c
+              vendored/uriparser/UriQuery.c
+              vendored/uriparser/UriRecompose.c
+              vendored/uriparser/UriResolve.c
+              vendored/uriparser/UriShorten.c)
+endif()
 
 # Disable DLL exports in vendored uriparser library
 add_definitions(-DURI_STATIC_BUILD)
@@ -253,10 +251,20 @@ add_subdirectory(testing)
 #
 
 add_subdirectory(array)
-add_subdirectory(csv)
 add_subdirectory(io)
 add_subdirectory(util)
 add_subdirectory(vendored)
+
+if(ARROW_CSV)
+  list(APPEND ARROW_SRCS
+              csv/converter.cc
+              csv/chunker.cc
+              csv/column_builder.cc
+              csv/options.cc
+              csv/parser.cc
+              csv/reader.cc)
+  add_subdirectory(csv)
+endif()
 
 if(ARROW_COMPUTE)
   add_subdirectory(compute)
@@ -489,12 +497,16 @@ add_arrow_test(public_api_test)
 add_arrow_test(result_test)
 add_arrow_test(scalar_test)
 add_arrow_test(status_test)
-add_arrow_test(stl_test)
 add_arrow_test(type_test)
 add_arrow_test(table_test)
 add_arrow_test(table_builder_test)
 add_arrow_test(tensor_test)
 add_arrow_test(sparse_tensor_test)
+
+if(ARROW_COMPUTE)
+  # This unit test uses compute code
+  add_arrow_test(stl_test)
+endif()
 
 add_arrow_benchmark(builder_benchmark)
 add_arrow_benchmark(type_benchmark)
