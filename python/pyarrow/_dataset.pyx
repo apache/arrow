@@ -29,7 +29,7 @@ from pyarrow.lib cimport *
 # from pyarrow.lib import ArrowException
 # from pyarrow.lib import as_buffer
 # from pyarrow.lib cimport RecordBatch, MemoryPool, Schema, check_status
-from pyarrow._fs cimport FileSystem
+from pyarrow._fs cimport FileSystem, Selector
 from pyarrow.includes.libarrow_dataset cimport *
 
 
@@ -100,24 +100,120 @@ cdef class FileFormat:
         self.wrapped = sp
         self.format = sp.get()
 
+    cdef inline shared_ptr[CFileFormat] unwrap(self):
+        return self.wrapped
+
     # @property
     # def name(self):
 
 
-cdef class CsvFileFormat(FileFormat):
-    pass
-
-
-cdef class FeatherFileFormat(FileFormat):
-    pass
-
-
-cdef class JsonFileFormat(FileFormat):
-    pass
-
-
 cdef class ParquetFileFormat(FileFormat):
     pass
+
+
+cdef class FileSystemDiscoveryOptions:
+
+    cdef:
+        CFileSystemDiscoveryOptions options
+
+     # Avoid mistakingly creating attributes
+    __slots__ = ()
+
+    def __init__(self, partition_base_dir=None, exclude_invalid_files=None,
+                 list ignore_prefixes=None):
+        if partition_base_dir is not None:
+            self.partition_base_dir = partition_base_dir
+        if exclude_invalid_files is not None:
+            self.exclude_invalid_files = exclude_invalid_files
+        if ignore_prefixes is not None:
+            self.ignore_prefixes = ignore_prefixes
+
+    cdef inline CFileSystemDiscoveryOptions unwrap(self):
+        return self.options
+
+    @property
+    def partition_base_dir(self):
+        return frombytes(self.options.partition_base_dir)
+
+    @partition_base_dir.setter
+    def partition_base_dir(self, value):
+        self.options.partition_base_dir = tobytes(value)
+
+    @property
+    def exclude_invalid_files(self):
+        return self.options.exclude_invalid_files
+
+    @exclude_invalid_files.setter
+    def exclude_invalid_files(self, bint value):
+        self.options.exclude_invalid_files = value
+
+    @property
+    def ignore_prefixes(self):
+        return [frombytes(p) for p in self.options.ignore_prefixes]
+
+    @ignore_prefixes.setter
+    def ignore_prefixes(self, values):
+        self.options.ignore_prefixes = [tobytes(v) for v in values]
+
+
+cdef class DataSourceDiscovery:
+
+    cdef:
+        shared_ptr[CDataSourceDiscovery] wrapped
+        CDataSourceDiscovery* discovery
+
+    cdef init(self, shared_ptr[CDataSourceDiscovery]& sp):
+        self.wrapped = sp
+        self.discovery = sp.get()
+
+    @staticmethod
+    cdef wrap(shared_ptr[CDataSourceDiscovery]& sp):
+        cdef DataSourceDiscovery self = \
+            DataSourceDiscovery.__new__(DataSourceDiscovery)
+        self.init(sp)
+        return self
+
+    cdef inline shared_ptr[CDataSourceDiscovery] unwrap(self):
+        return self.wrapped
+
+    def inspect(self):
+        cdef CResult[shared_ptr[CSchema]] result
+        with nogil:
+            result = self.discovery.Inspect()
+        return pyarrow_wrap_schema(GetResultValue(result))
+
+    def schema(self):
+        return pyarrow_wrap_schema(self.discovery.schema())
+
+    def finish(self):
+        cdef CResult[shared_ptr[CDataSource]] result
+        with nogil:
+            result = self.discovery.Finish()
+        return DataSource.wrap(GetResultValue(result))
+
+
+cdef class FileSystemDataSourceDiscovery(DataSourceDiscovery):
+
+    cdef:
+        CFileSystemDataSourceDiscovery* filesystem_discovery
+
+    def __init__(self, FileSystem filesystem, Selector selector,
+                 FileFormat format, FileSystemDiscoveryOptions options=None):
+        # TODO(kszucs): support instantiating from explicit paths
+        cdef CResult[shared_ptr[CDataSourceDiscovery]] result
+
+        options = options or FileSystemDiscoveryOptions()
+        result = CFileSystemDataSourceDiscovery.Make(
+            filesystem.unwrap(),
+            selector.unwrap(),
+            format.unwrap(),
+            options.unwrap()
+        )
+        self.init(GetResultValue(result))
+
+    cdef init(self, shared_ptr[CDataSourceDiscovery]& sp):
+        DataSourceDiscovery.init(self, sp)
+        self.filesystem_discovery = <CFileSystemDataSourceDiscovery*> sp.get()
 
 
 cdef class FileSource:
@@ -401,14 +497,15 @@ cdef class Dataset:
         self.wrapped = sp
         self.dataset = sp.get()
 
+    cdef inline shared_ptr[CDataset] unwrap(self):
+        return self.wrapped
+
     # TODO(kszucs): pass ScanContext
     def new_scan(self):
-        cdef:
-            shared_ptr[CScannerBuilder] builder
-            shared_ptr[CScanner] scanner
+        cdef shared_ptr[CScannerBuilder] builder
         builder = GetResultValue(self.dataset.NewScan())
-        scanner = GetResultValue(builder.get().Finish())
-        return Scanner.wrap(scanner)
+        # return ScannerBuilder(self, context)
+        return ScannerBuilder.wrap(builder)
 
     @property
     def sources(self):
@@ -426,8 +523,10 @@ cdef class ScanOptions:
         shared_ptr[CScanOptions] wrapped
         CScanOptions* options
 
-    def __init__(self):
+    def __init__(self, Schema schema=None):
         cdef shared_ptr[CScanOptions] options = CScanOptions.Defaults()
+        if schema is not None:
+            options.get().schema = pyarrow_unwrap_schema(schema)
         self.init(options)
 
     cdef init(self, const shared_ptr[CScanOptions]& sp):
@@ -521,6 +620,37 @@ cdef class ScannerBuilder:
     cdef:
         shared_ptr[CScannerBuilder] wrapped
         CScannerBuilder* builder
+
+    def __init__(self, Dataset dataset, ScanContext context):
+        cdef shared_ptr[CScannerBuilder] builder
+        builder = make_shared[CScannerBuilder](
+            dataset.unwrap(), context.unwrap()
+        )
+        self.init(builder)
+
+    cdef void init(self, shared_ptr[CScannerBuilder]& sp):
+        self.wrapped = sp
+        self.builder = sp.get()
+
+    @staticmethod
+    cdef wrap(shared_ptr[CScannerBuilder]& sp):
+        cdef ScannerBuilder self = ScannerBuilder.__new__(ScannerBuilder)
+        self.init(sp)
+        return self
+
+    cdef inline shared_ptr[CScannerBuilder] unwrap(self):
+        return self.wrapped
+
+    def project(self, columns):
+        cdef vector[c_string] cols = [tobytes(c) for c in columns]
+        print(cols)
+        check_status(self.builder.Project(cols))
+
+    def finish(self):
+        return Scanner.wrap(GetResultValue(self.builder.Finish()))
+
+    # def filter_(self):
+    #     pass
 
 
 cdef class Scanner:

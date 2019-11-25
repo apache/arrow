@@ -20,22 +20,26 @@ from collections.abc import Generator
 import pytest
 
 import pyarrow as pa
-from pyarrow.fs import _MockFileSystem
+from pyarrow.fs import _MockFileSystem, Selector as FileSelector
 
 try:
     from pyarrow.dataset import (
         Dataset,
         DataSource,
         DataFragment,
+        ParquetFileFormat,
         SimpleDataFragment,
         ScanOptions,
         FileSource,
         ScanTask,
         Scanner,
+        ScannerBuilder,
         ScanOptions,
         ScanContext,
         SimpleDataSource,
-        TreeDataSource
+        TreeDataSource,
+        FileSystemDiscoveryOptions,
+        FileSystemDataSourceDiscovery
     )
 except ImportError as e:
     ds = None
@@ -81,6 +85,11 @@ def simple_data_source(simple_data_fragment):
 @pytest.fixture
 def tree_data_source(simple_data_source):
     return TreeDataSource([simple_data_source] * 2)
+
+
+@pytest.fixture
+def dataset(simple_data_source, tree_data_source):
+    return Dataset([simple_data_source, tree_data_source])
 
 
 def test_scan_options():
@@ -143,7 +152,10 @@ def test_dataset(simple_data_source, tree_data_source):
     for source in dataset.sources:
         assert isinstance(source, DataSource)
 
-    scanner = dataset.new_scan()
+    builder = dataset.new_scan()
+    assert isinstance(builder, ScannerBuilder)
+
+    scanner = builder.finish()
     assert isinstance(scanner, Scanner)
 
     for task in scanner.scan():
@@ -152,9 +164,10 @@ def test_dataset(simple_data_source, tree_data_source):
             assert isinstance(record_batch, pa.RecordBatch)
 
 
-def test_scanner(simple_data_source):
+def test_scanner(schema, simple_data_source):
     sources = [simple_data_source]
-    options = ScanOptions()
+    # FIXME(kszucs): if schema is not set to options it segfaults
+    options = ScanOptions(schema=schema)
     context = ScanContext()
 
     scanner = Scanner(sources, options, context)
@@ -163,8 +176,17 @@ def test_scanner(simple_data_source):
         for record_batch in task.scan():  # call it execute?
             assert isinstance(record_batch, pa.RecordBatch)
 
-    # table = scanner.to_table()
-    # assert isinstance(table, pa.Table)
+    table = scanner.to_table()
+    assert isinstance(table, pa.Table)
+
+
+def test_scanner_builder(dataset):
+    context = ScanContext()
+    builder = ScannerBuilder(dataset, context)
+
+    builder.project([])
+    scanner = builder.finish()
+    assert isinstance(scanner, Scanner)
 
 
 def test_projector():
@@ -185,3 +207,11 @@ def test_file_source(fs):
 
 def test_file_system_data_source():
     pass
+
+
+def test_file_system_discovery(fs):
+    selector = FileSelector('/base', recursive=True)
+    fileformat = ParquetFileFormat()
+    discovery = FileSystemDataSourceDiscovery(fs, selector, fileformat)
+
+

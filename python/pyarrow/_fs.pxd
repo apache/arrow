@@ -46,6 +46,8 @@ cdef class Selector:
     cdef:
         CSelector selector
 
+    cdef inline CSelector unwrap(self)
+
 
 cdef class FileSystem:
     cdef:

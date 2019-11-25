@@ -147,6 +147,9 @@ cdef class Selector:
         self.recursive = recursive
         self.allow_non_existent = allow_non_existent
 
+    cdef inline CSelector unwrap(self):
+        return self.selector
+
     @property
     def base_dir(self):
         return frombytes(self.selector.base_dir)

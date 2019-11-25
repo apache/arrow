@@ -87,6 +87,7 @@ class ARROW_DS_EXPORT DataSourceDiscovery {
   ExpressionPtr root_partition_;
 };
 
+// TODO(kszucs): a static Defaults method would be nice
 struct FileSystemDiscoveryOptions {
   // For the purposes of applying the partition scheme, paths will be stripped
   // of the partition_base_dir. Files not matching the partition_base_dir

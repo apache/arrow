@@ -26,13 +26,17 @@ from pyarrow._dataset import (
     Dataset,
     DataSource,
     DataFragment,
+    ParquetFileFormat,
     FileSource,
     SimpleDataFragment,
     ScanOptions,
     ScanTask,
     Scanner,
+    ScannerBuilder,
     ScanOptions,
     ScanContext,
     SimpleDataSource,
-    TreeDataSource
+    TreeDataSource,
+    FileSystemDiscoveryOptions,
+    FileSystemDataSourceDiscovery
 )
