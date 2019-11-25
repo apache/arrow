@@ -29,6 +29,7 @@ import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
 
 public class TestSplitAndTransfer {
   private BufferAllocator allocator;
@@ -172,22 +173,6 @@ public class TestSplitAndTransfer {
     }
   }
 
-  @Test(expected = IllegalArgumentException.class)
-  public void testInvalidCopyValueSafe() {
-    try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator);
-        final VarCharVector newVarCharVector = new VarCharVector("newvector", allocator)) {
-      varCharVector.allocateNew(10000, 1000);
-
-      final int valueCount = 500;
-      populateVarcharVector(varCharVector, valueCount, null);
-
-      final TransferPair tp = varCharVector.makeTransferPair(newVarCharVector);
-
-      // fromIndex is invalid.
-      tp.copyValueSafe(valueCount, 0);
-    }
-  }
-
   @Test
   public void testSplitAndTransferNon() {
     try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator)) {
@@ -224,7 +209,7 @@ public class TestSplitAndTransfer {
     }
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testInvalidStartIndex() {
     try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator);
         final VarCharVector newVarCharVector = new VarCharVector("newvector", allocator)) {
@@ -235,13 +220,17 @@ public class TestSplitAndTransfer {
 
       final TransferPair tp = varCharVector.makeTransferPair(newVarCharVector);
 
-      tp.splitAndTransfer(valueCount, 10);
+      IllegalArgumentException e = Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () -> tp.splitAndTransfer(valueCount, 10));
+
+      assertEquals("Invalid startIndex: 500", e.getMessage());
 
       newVarCharVector.clear();
     }
   }
 
-  @Test(expected = IllegalArgumentException.class)
+  @Test
   public void testInvalidLength() {
     try (final VarCharVector varCharVector = new VarCharVector("myvector", allocator);
         final VarCharVector newVarCharVector = new VarCharVector("newvector", allocator)) {
@@ -252,7 +241,11 @@ public class TestSplitAndTransfer {
 
       final TransferPair tp = varCharVector.makeTransferPair(newVarCharVector);
 
-      tp.splitAndTransfer(0, valueCount * 2);
+      IllegalArgumentException e = Assertions.assertThrows(
+          IllegalArgumentException.class,
+          () -> tp.splitAndTransfer(0, valueCount * 2));
+
+      assertEquals("Invalid length: 1000", e.getMessage());
 
       newVarCharVector.clear();
     }

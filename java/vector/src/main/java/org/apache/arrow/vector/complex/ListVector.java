@@ -364,8 +364,6 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   @Override
   public void copyFrom(int inIndex, int outIndex, ValueVector from) {
     Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
-    Preconditions.checkArgument(inIndex >= 0 && inIndex < from.getValueCount(),
-        "Invalid inIndex: %s", inIndex);
     FieldReader in = from.getReader();
     in.setPosition(inIndex);
     FieldWriter out = getWriter();

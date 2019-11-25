@@ -1339,8 +1339,6 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
   @Override
   public void copyFromSafe(int fromIndex, int thisIndex, ValueVector from) {
     Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
-    Preconditions.checkArgument(fromIndex >= 0 && fromIndex < from.getValueCount(),
-        "Invalid fromIndex: %s", fromIndex);
     if (from.isNull(fromIndex)) {
       handleSafe(thisIndex, 0);
       fillHoles(thisIndex);

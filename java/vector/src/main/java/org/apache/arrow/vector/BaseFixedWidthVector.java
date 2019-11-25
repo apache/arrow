@@ -833,8 +833,6 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   @Override
   public void copyFrom(int fromIndex, int thisIndex, ValueVector from) {
     Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
-    Preconditions.checkArgument(fromIndex >= 0 && fromIndex < from.getValueCount(),
-        "Invalid fromIndex: %s", fromIndex);
     if (from.isNull(fromIndex)) {
       BitVectorHelper.unsetBit(this.getValidityBuffer(), thisIndex);
     } else {
@@ -856,8 +854,6 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   @Override
   public void copyFromSafe(int fromIndex, int thisIndex, ValueVector from) {
     Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
-    Preconditions.checkArgument(fromIndex >= 0 && fromIndex < from.getValueCount(),
-        "Invalid fromIndex: %s", fromIndex);
     handleSafe(thisIndex);
     copyFrom(fromIndex, thisIndex, from);
   }

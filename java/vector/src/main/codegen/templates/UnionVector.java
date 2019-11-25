@@ -408,8 +408,6 @@ public class UnionVector implements FieldVector {
   @Override
   public void copyFrom(int inIndex, int outIndex, ValueVector from) {
     Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
-    Preconditions.checkArgument(inIndex >= 0 && inIndex < from.getValueCount(),
-        "Invalid inIndex: %s", inIndex);
     UnionVector fromCast = (UnionVector) from;
     fromCast.getReader().setPosition(inIndex);
     getWriter().setPosition(outIndex);

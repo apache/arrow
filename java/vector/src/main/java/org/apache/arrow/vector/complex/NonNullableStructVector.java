@@ -99,8 +99,6 @@ public class NonNullableStructVector extends AbstractStructVector {
   @Override
   public void copyFrom(int fromIndex, int thisIndex, ValueVector from) {
     Preconditions.checkArgument(this.getMinorType() == from.getMinorType());
-    Preconditions.checkArgument(fromIndex >= 0 && fromIndex < from.getValueCount(),
-        "Invalid fromIndex: %s", fromIndex);
     if (ephPair == null || ephPair.from != from) {
       ephPair = (StructTransferPair) from.makeTransferPair(this);
     }
