@@ -30,7 +30,6 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PATH=${prefix}/bin:$PATH
-
 # install conda and minio
 COPY ci/scripts/install_conda.sh \
      ci/scripts/install_minio.sh \
@@ -52,6 +51,7 @@ RUN conda create -n arrow -q \
 
 # activate the created environment by default
 RUN echo "conda activate arrow" >> ~/.profile
+ENV CONDA_PREFIX=${prefix}/envs/arrow
 
 # use login shell to activate arrow environment un the RUN commands
 SHELL [ "/bin/bash", "-c", "-l" ]
