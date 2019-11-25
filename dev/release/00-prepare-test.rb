@@ -191,14 +191,14 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
-                     path: "rust/arrow/Cargo.toml",
+                     path: "rust/arrow-flight/Cargo.toml",
                      hunks: [
                        ["-version = \"#{@snapshot_version}\"",
                         "+version = \"#{@release_version}\""],
                      ],
                    },
                    {
-                     path: "rust/arrow-flight/Cargo.toml",
+                     path: "rust/arrow/Cargo.toml",
                      hunks: [
                        ["-version = \"#{@snapshot_version}\"",
                         "+version = \"#{@release_version}\""],
@@ -369,14 +369,14 @@ class PrepareTest < Test::Unit::TestCase
                      ],
                    },
                    {
-                     path: "rust/arrow/Cargo.toml",
+                     path: "rust/arrow-flight/Cargo.toml",
                      hunks: [
                        ["-version = \"#{@release_version}\"",
                         "+version = \"#{@next_snapshot_version}\""],
                      ],
                    },
                    {
-                     path: "rust/arrow-flight/Cargo.toml",
+                     path: "rust/arrow/Cargo.toml",
                      hunks: [
                        ["-version = \"#{@release_version}\"",
                         "+version = \"#{@next_snapshot_version}\""],
