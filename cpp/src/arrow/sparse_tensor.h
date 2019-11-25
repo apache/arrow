@@ -349,6 +349,17 @@ class ARROW_EXPORT SparseCSFIndex : public internal::SparseIndexBase<SparseCSFIn
  public:
   static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::CSF;
 
+  /// \brief Make SparseCSFIndex from raw properties
+  static Status Make(const std::shared_ptr<DataType> indices_type,
+                     const std::vector<int64_t>& indptr_shape,
+                     const std::vector<int64_t>& indices_shape,
+                     const std::vector<int64_t>& indptr_offsets,
+                     const std::vector<int64_t>& indices_offsets,
+                     const std::vector<int64_t>& axis_order,
+                     std::shared_ptr<Buffer> indptr_data,
+                     std::shared_ptr<Buffer> indices_data,
+                     std::shared_ptr<SparseCSFIndex>* out);
+
   /// \brief Construct SparseCSFIndex from two index vectors
   explicit SparseCSFIndex(const std::shared_ptr<Tensor>& indptr,
                           const std::shared_ptr<Tensor>& indices,

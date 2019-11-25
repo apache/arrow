@@ -912,30 +912,37 @@ TEST_F(TestSparseCSCMatrix, TestToTensor) {
 
 template <typename IndexValueType>
 class TestSparseCSFTensorBase : public ::testing::Test {
-public:
-    void SetUp() {
-        shape_ = {6, 4};
-        dim_names_ = {"foo", "bar"};
+ public:
+  void SetUp() {
+    shape_ = {3, 3, 3, 4};
+    dim_names_ = {"a", "b", "c", "d"};
 
-        // Dense representation:
-        // [
-        //    1  0  2  0
-        //    0  3  0  4
-        //    5  0  6  0
-        //    0 11  0 12
-        //   13  0 14  0
-        //    0 15  0 16
-        // ]
-        std::vector<int64_t> dense_values = {1, 0,  2, 0,  0,  3, 0,  4, 5, 0,  6, 0,
-                                             0, 11, 0, 12, 13, 0, 14, 0, 0, 15, 0, 16};
-        auto dense_data = Buffer::Wrap(dense_values);
-        NumericTensor<Int64Type> dense_tensor(dense_data, shape_, {}, dim_names_);
-    }
+    // COO representation:
+    //   X[1, 1, 1, 2] := 1
+    //   X[1, 1, 1, 3] := 2
+    //   X[1, 2, 1, 1] := 3
+    //   X[1, 2, 1, 3] := 4
+    //   X[1, 2, 2, 1] := 5
+    //   X[2, 2, 2, 1] := 6
+    //   X[2, 2, 2, 2] := 7
+    //   X[2, 2, 2, 3] := 8
 
-protected:
-    std::vector<int64_t> shape_;
-    std::vector<std::string> dim_names_;
-    std::shared_ptr<SparseCSFTensor> sparse_tensor_from_dense_;
+    std::vector<int64_t> dense_values = {
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 4, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6, 7, 8};
+    auto dense_data = Buffer::Wrap(dense_values);
+    NumericTensor<Int64Type> dense_tensor(dense_data, shape_, {}, dim_names_);
+    ASSERT_OK(SparseCSFTensor::Make(dense_tensor,
+                                    TypeTraits<IndexValueType>::type_singleton(),
+                                    &sparse_tensor_from_dense_));
+  }
+
+ protected:
+  std::vector<int64_t> shape_;
+  std::vector<std::string> dim_names_;
+  std::shared_ptr<SparseCSCMatrix> sparse_tensor_from_dense_;
 };
 
 class TestSparseCSFTensor : public TestSparseCSFTensorBase<Int64Type> {};
@@ -957,15 +964,12 @@ TEST_F(TestSparseCSFTensor, TestToTensor) {
   std::shared_ptr<Buffer> indptr_buffer = Buffer::Wrap(indptr_values);
   std::shared_ptr<Buffer> indices_buffer = Buffer::Wrap(indices_values);
 
-  std::shared_ptr<Tensor> indptr =
-      std::make_shared<Tensor>(int64(), indptr_buffer, indptr_shape);
-  std::shared_ptr<Tensor> indices =
-      std::make_shared<Tensor>(int64(), indices_buffer, indices_shape);
-
-  std::shared_ptr<SparseCSFIndex> sparse_index = std::make_shared<SparseCSFIndex>(
-      indptr, indices, indptr_offsets, indices_offsets, axis_order);
+  std::shared_ptr<SparseCSFIndex> si;
+  ASSERT_OK(SparseCSFIndex::Make(int64(), indptr_shape, indices_shape, indptr_offsets,
+                                 indices_offsets, axis_order, indptr_buffer,
+                                 indices_buffer, &si));
   std::shared_ptr<SparseCSFTensor> sparse_tensor = std::make_shared<SparseCSFTensor>(
-      sparse_index, int64(), data_buffer, sparse_tensor_shape, dim_names);
+      si, int64(), data_buffer, sparse_tensor_shape, dim_names);
 
   ASSERT_EQ(8, sparse_tensor->non_zero_length());
 
