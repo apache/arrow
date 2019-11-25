@@ -22,7 +22,6 @@ import java.util.concurrent.TimeUnit;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
-import org.junit.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Level;
@@ -77,7 +76,9 @@ public class VectorUnloaderBenchmark {
 
   @TearDown(Level.Invocation)
   public void tearDownInvoke() {
-    recordBatch.close();
+    if (recordBatch != null) {
+      recordBatch.close();
+    }
     for (int i = 0; i < VECTOR_COUNT; i++) {
       vectors[i].close();
     }
@@ -98,8 +99,7 @@ public class VectorUnloaderBenchmark {
     recordBatch = unloader.getRecordBatch();
   }
 
-  @Test
-  public void evaluate() throws RunnerException {
+  public static void main(String[] args) throws RunnerException {
     Options opt = new OptionsBuilder()
             .include(VectorUnloaderBenchmark.class.getSimpleName())
             .forks(1)
