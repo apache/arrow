@@ -376,28 +376,25 @@ TEST(TestStringOps, TestReplace) {
   EXPECT_EQ(std::string(out_str, out_len), "TestReplace1Replace2");
   EXPECT_FALSE(ctx.has_error());
 
-  out_str = replace_utf8_utf8_utf8(ctx_ptr, "TestString1", 11, "String", 6, "", 0,
-                                   &out_len);
+  out_str =
+      replace_utf8_utf8_utf8(ctx_ptr, "TestString1", 11, "String", 6, "", 0, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "Test1");
   EXPECT_FALSE(ctx.has_error());
 
-  out_str = replace_utf8_utf8_utf8(ctx_ptr, "", 0, "test", 4, "rep", 3,
-                                   &out_len);
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, "", 0, "test", 4, "rep", 3, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_FALSE(ctx.has_error());
 
-  out_str = replace_utf8_utf8_utf8(ctx_ptr, "Ç††çåå†", 17, "†", 3, "t", 1,
-                                   &out_len);
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, "Ç††çåå†", 17, "†", 3, "t", 1, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "Çttçååt");
   EXPECT_FALSE(ctx.has_error());
 
-  out_str = replace_utf8_utf8_utf8(ctx_ptr, "TestString", 10, "", 0, "rep", 3,
-                                   &out_len);
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, "TestString", 10, "", 0, "rep", 3, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "TestString");
   EXPECT_FALSE(ctx.has_error());
 
-  out_str = replace_utf8_utf8_utf8(ctx_ptr, "Test", 4, "TestString", 10, "rep", 3,
-                                   &out_len);
+  out_str =
+      replace_utf8_utf8_utf8(ctx_ptr, "Test", 4, "TestString", 10, "rep", 3, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "Test");
   EXPECT_FALSE(ctx.has_error());
 

@@ -485,22 +485,22 @@ const char* replace_utf8_utf8_utf8(int64 context, const char* text, int32 text_l
 
   int32 out_index = 0;
   int32 i = 0;
-  for (; i <= text_len - from_str_len; ) {
+  for (; i <= text_len - from_str_len;) {
     int32 j = 0;
     for (; j < from_str_len; ++j) {
-      if (text[i+j] != from_str[j]) {
+      if (text[i + j] != from_str[j]) {
         break;
       }
     }
     if (j == from_str_len) {
-      memcpy(out+out_index, to_str, to_str_len);
+      memcpy(out + out_index, to_str, to_str_len);
       out_index += to_str_len;
       i += from_str_len;
     } else {
       out[out_index++] = text[i++];
     }
   }
-  memcpy(out+out_index, text + i, text_len - i);
+  memcpy(out + out_index, text + i, text_len - i);
   out_index += text_len - i;
   *out_len = out_index;
   return out;
