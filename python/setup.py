@@ -191,15 +191,16 @@ class build_ext(_build_ext):
         source = osp.dirname(osp.abspath(__file__))
 
         # The staging directory for the module being built
-        build_temp = pjoin(os.getcwd(), self.build_temp)
-        build_lib = os.path.join(os.getcwd(), self.build_lib)
+        build_cmd = self.get_finalized_command('build')
+        build_temp = pjoin(os.getcwd(), build_cmd.build_temp)
+        build_lib = pjoin(os.getcwd(), build_cmd.build_lib)
         saved_cwd = os.getcwd()
 
-        if not os.path.isdir(self.build_temp):
-            self.mkpath(self.build_temp)
+        if not os.path.isdir(build_temp):
+            self.mkpath(build_temp)
 
         # Change to the build directory
-        with changed_dir(self.build_temp):
+        with changed_dir(build_temp):
             # Detect if we built elsewhere
             if os.path.isfile('CMakeCache.txt'):
                 cachefile = open('CMakeCache.txt', 'r')

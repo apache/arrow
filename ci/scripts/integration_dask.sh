@@ -24,6 +24,9 @@ set -e
 python -c "import pyarrow.orc"
 python -c "import pyarrow.parquet"
 
+# check that dask.dataframe is correctly installed
+python -c "import dask.dataframe"
+
 # TODO(kszucs): the following tests are also uses pyarrow
 # pytest -sv --pyargs dask.bytes.tests.test_s3
 # pytest -sv --pyargs dask.bytes.tests.test_hdfs

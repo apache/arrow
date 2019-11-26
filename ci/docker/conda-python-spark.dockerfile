@@ -31,11 +31,9 @@ RUN conda install -q \
 
 # installing specific version of spark
 ARG spark=master
-RUN mkdir /spark && wget -q -O - https://github.com/apache/spark/archive/${spark}.tar.gz | tar -xzf - --strip-components=1 -C /spark
-# patch spark to build with current Arrow Java
-COPY ci/etc/ARROW-6429.patch /tmp/
-RUN patch -d /spark -p1 -i /tmp/ARROW-6429.patch && \
-    rm /tmp/ARROW-6429.patch
+COPY ci/scripts/install_spark.sh /arrow/ci/scripts/
+COPY ci/etc/ARROW-6429.patch /arrow/ci/etc/
+RUN /arrow/ci/scripts/install_spark.sh ${spark} /spark /arrow/ci/etc
 
 # build cpp with tests
 ENV CC=gcc \

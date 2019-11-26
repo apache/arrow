@@ -21,10 +21,5 @@ ARG python=3.6
 FROM ${repo}:${arch}-conda-python-${python}
 
 ARG dask=latest
-RUN if [ "${dask}" = "master" ]; then \
-        pip install git+https://github.com/dask/dask; \
-    elif [ "${dask}" = "latest" ]; then \
-        conda install -q dask && conda clean --all; \
-    else \
-        conda install -q dask=${dask} && conda clean --all; \
-    fi
+COPY ci/scripts/install_dask.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_dask.sh ${dask}

@@ -30,7 +30,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     rm -rf /var/lib/apt/lists/*
 
 # install turbodbc dependencies from conda-forge
-RUN conda install -c conda-forge \
+RUN conda install -c conda-forge -q\
         pybind11 \
         pytest-cov \
         mock \
@@ -44,13 +44,7 @@ RUN service postgresql start && \
         "ALTER USER postgres WITH PASSWORD 'password';"
 
 ARG turbodbc=latest
-RUN git clone --recurse-submodules https://github.com/blue-yonder/turbodbc /turbodbc && \
-    if [ "${turbodbc}" = "master" ]; then \
-        git -C /turbodbc checkout master; \
-    elif [ "${turbodbc}" = "latest" ]; then \
-        git -C /turbodbc checkout $(git describe --tags); \
-    else \
-        git -C /turbodbc checkout ${turbodbc}; \
-    fi
+COPY ci/scripts/install_turbodbc.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_turbodbc.sh ${turbodbc} /turbodbc
 
 ENV TURBODBC_TEST_CONFIGURATION_FILES "query_fixtures_postgresql.json"

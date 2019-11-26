@@ -51,8 +51,8 @@ wget -nv https://repo.continuum.io/miniconda/Miniconda3-${version}-${platform}-$
 bash /tmp/miniconda.sh -b -p ${prefix}
 rm /tmp/miniconda.sh
 
+# Like "conda init", but for POSIX sh rather than bash
 ln -s ${prefix}/etc/profile.d/conda.sh /etc/profile.d/conda.sh
-echo "conda activate base" >> ~/.profile
 
 # Configure
 source /etc/profile.d/conda.sh

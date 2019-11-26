@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,31 +17,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG repo
-ARG arch
-FROM ${repo}:${arch}-conda-cpp
+set -e
 
-# install R specific packages
-ARG r=3.6.1
-COPY ci/conda_env_r.yml /arrow/ci/
-RUN conda install -q \
-        --file arrow/ci/conda_env_r.yml \
-        r-base=$r \
-        nomkl && \
-    conda clean --all
+if [ "$#" -ne 3 ]; then
+  echo "Usage: $0 <spark version> <target directory> <patches directory>"
+  exit 1
+fi
 
-# Ensure parallel compilation of each individual package
-RUN printf "\nMAKEFLAGS=-j8\n" >> $CONDA_PREFIX/lib/R/etc/Makeconf
+spark=$1
+target=$2
+patches=${3}
 
-ENV ARROW_BUILD_STATIC=OFF \
-    ARROW_BUILD_TESTS=OFF \
-    ARROW_BUILD_UTILITIES=OFF \
-    ARROW_DEPENDENCY_SOURCE=SYSTEM \
-    ARROW_FLIGHT=OFF \
-    ARROW_GANDIVA=OFF \
-    ARROW_ORC=OFF \
-    ARROW_PARQUET=ON \
-    ARROW_PLASMA=OFF \
-    ARROW_USE_GLOG=OFF \
-    ARROW_NO_DEPRECATED_API=ON \
-    ARROW_R_DEV=TRUE
+mkdir "${target}"
+wget -q -O - https://github.com/apache/spark/archive/${spark}.tar.gz | tar -xzf - --strip-components=1 -C "${target}"
+
+# Patch spark to build with current Arrow Java
+# patch -d "${target}" -p1 -i "${patches}/ARROW-6429.patch"

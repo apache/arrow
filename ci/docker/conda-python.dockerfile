@@ -24,8 +24,8 @@ ARG python=3.6
 COPY ci/conda_env_python.yml /arrow/ci/
 RUN conda install -q \
         --file arrow/ci/conda_env_python.yml \
+        $([ "$python" == "2.7" ] && echo "futures enum34") \
         python=${python} \
-        tensorflow \
         nomkl && \
     conda clean --all
 
@@ -34,4 +34,4 @@ ENV ARROW_PYTHON=ON \
     ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \
     ARROW_TENSORFLOW=ON \
-    ARROW_USE_GLOG=OFF \
+    ARROW_USE_GLOG=OFF
