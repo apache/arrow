@@ -834,7 +834,7 @@ services:
     command: >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
-        /arrow/ci/scripts/fuzzit_build.sh /arrow"
+        /arrow/ci/scripts/fuzzit_build.sh /arrow /build/cpp"
 
   ######################### Integration Tests #################################
 
