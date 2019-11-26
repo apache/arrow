@@ -111,7 +111,7 @@ cdef class ChunkedArray(_PandasConvertible):
         return size
 
     def __sizeof__(self):
-        return object.__sizeof__(self) + self.nbytes
+        return super(ChunkedArray, self).__sizeof__() + self.nbytes
 
     def __iter__(self):
         for chunk in self.iterchunks():
@@ -631,7 +631,7 @@ cdef class RecordBatch(_PandasConvertible):
 
     def __sizeof__(self):
         return (
-            object.__sizeof__(self) + self.nbytes +
+            super(RecordBatch, self).__sizeof__() + self.nbytes +
             sys.getsizeof(self.schema.metadata)
         )
 
@@ -1485,7 +1485,7 @@ cdef class Table(_PandasConvertible):
 
     def __sizeof__(self):
         return (
-            object.__sizeof__(self) + self.nbytes +
+            super(Table, self).__sizeof__() + self.nbytes +
             sys.getsizeof(self.schema.metadata)
         )
 

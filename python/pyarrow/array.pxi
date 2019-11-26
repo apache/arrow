@@ -806,7 +806,7 @@ cdef class Array(_PandasConvertible):
         return size
 
     def __sizeof__(self):
-        return object.__sizeof__(self) + self.nbytes
+        return super(Array, self).__sizeof__() + self.nbytes
 
     def __iter__(self):
         for i in range(len(self)):
