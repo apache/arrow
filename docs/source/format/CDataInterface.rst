@@ -246,6 +246,7 @@ are available under the Apache License 2.0.
 
    #define ARROW_FLAG_ORDERED 1
    #define ARROW_FLAG_NULLABLE 2
+   #define ARROW_FLAG_KEYS_SORTED 4
 
    struct ArrowArray {
      // Type description
@@ -329,6 +330,8 @@ The ArrowArray structure
      (regardless of whether it actually has null values).
    * ``ARROW_FLAG_ORDERED``: for dictionary-encoded arrays, whether the
      ordering of dictionary indices is semantically meaningful.
+   * ``ARROW_FLAG_KEYS_SORTED``: for map arrays, whether the keys within
+     each map value are sorted.
 
    If omitted, MUST be 0.
 
