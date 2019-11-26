@@ -148,26 +148,22 @@ set(ARROW_SRCS
     vendored/double-conversion/cached-powers.cc
     vendored/double-conversion/fixed-dtoa.cc
     vendored/double-conversion/diy-fp.cc
-    vendored/double-conversion/strtod.cc)
-
-if(ARROW_FILESYSTEM OR ARROW_FLIGHT)
-  list(APPEND ARROW_SRCS
-              vendored/uriparser/UriCommon.c
-              vendored/uriparser/UriCompare.c
-              vendored/uriparser/UriEscape.c
-              vendored/uriparser/UriFile.c
-              vendored/uriparser/UriIp4Base.c
-              vendored/uriparser/UriIp4.c
-              vendored/uriparser/UriMemory.c
-              vendored/uriparser/UriNormalizeBase.c
-              vendored/uriparser/UriNormalize.c
-              vendored/uriparser/UriParseBase.c
-              vendored/uriparser/UriParse.c
-              vendored/uriparser/UriQuery.c
-              vendored/uriparser/UriRecompose.c
-              vendored/uriparser/UriResolve.c
-              vendored/uriparser/UriShorten.c)
-endif()
+    vendored/double-conversion/strtod.cc
+    vendored/uriparser/UriCommon.c
+    vendored/uriparser/UriCompare.c
+    vendored/uriparser/UriEscape.c
+    vendored/uriparser/UriFile.c
+    vendored/uriparser/UriIp4Base.c
+    vendored/uriparser/UriIp4.c
+    vendored/uriparser/UriMemory.c
+    vendored/uriparser/UriNormalizeBase.c
+    vendored/uriparser/UriNormalize.c
+    vendored/uriparser/UriParseBase.c
+    vendored/uriparser/UriParse.c
+    vendored/uriparser/UriQuery.c
+    vendored/uriparser/UriRecompose.c
+    vendored/uriparser/UriResolve.c
+    vendored/uriparser/UriShorten.c)
 
 # Disable DLL exports in vendored uriparser library
 add_definitions(-DURI_STATIC_BUILD)
