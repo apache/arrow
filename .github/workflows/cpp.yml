@@ -152,12 +152,13 @@ jobs:
       ARROW_WITH_BROTLI: OFF
       ARROW_USE_GLOG: OFF
       ARROW_BUILD_TESTS: ON
-      ARROW_TEST_LINKAGE: static
+      ARROW_BUILD_SHARED: ON
+      ARROW_BUILD_STATIC: OFF
       ARROW_BOOST_USE_SHARED: OFF
-      ARROW_BUILD_SHARED: OFF
-      ARROW_USE_STATIC_CRT: ON
       ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
     steps:
+      - name: Disable Crash Dialogs
+        run: reg add "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" /v DontShowUI /t REG_DWORD /d 1 /f
       - name: Checkout Arrow
         uses: actions/checkout@v1
         with:
@@ -165,7 +166,6 @@ jobs:
       - name: Build
         shell: bash
         run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/cpp/build
-      # FIXME(kszucs): tests are hanging
-      # - name: Test
-      #   shell: bash
-      #   run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/cpp/build
+      - name: Test
+        shell: bash
+        run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/cpp/build
