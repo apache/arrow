@@ -106,7 +106,8 @@ groups:
     - test-debian-10-go-1.12
     - test-debian-10-rust-nightly-2019-09-25
     - test-ubuntu-18.04-docs
-    - test-ubuntu-fuzzit
+    - test-ubuntu-fuzzit-fuzzing
+    - test-ubuntu-fuzzit-regression
     - test-conda-python-2.7-pandas-latest
     - test-conda-python-2.7-pandas-master
     - test-conda-python-3.7-pandas-latest
@@ -255,7 +256,8 @@ groups:
     - test-debian-10-go-1.12
     - test-debian-10-rust-nightly-2019-09-25
     - test-ubuntu-18.04-docs
-    - test-ubuntu-fuzzit
+    - test-ubuntu-fuzzit-fuzzing
+    - test-ubuntu-fuzzit-regression
     - test-conda-python-2.7-pandas-latest
     - test-conda-python-2.7-pandas-master
     - test-conda-python-3.7-pandas-latest
@@ -1808,7 +1810,7 @@ tasks:
         - docker-compose build ubuntu-docs
         - docker-compose run ubuntu-docs
 
-  test-ubuntu-fuzzit:
+  test-ubuntu-fuzzit-fuzzing:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
@@ -1818,7 +1820,19 @@ tasks:
         - docker-compose pull --ignore-pull-failures ubuntu-fuzzit
         - docker-compose build ubuntu-cpp
         - docker-compose build ubuntu-fuzzit
-        - docker-compose run ubuntu-fuzzit
+        - docker-compose run -e FUZZIT_JOB_TYPE=fuzzing ubuntu-fuzzit
+
+  test-ubuntu-fuzzit-regression:
+    ci: circle
+    platform: linux
+    template: docker-tests/circle.linux.yml
+    params:
+      commands:
+        - docker-compose pull --ignore-pull-failures ubuntu-cpp
+        - docker-compose pull --ignore-pull-failures ubuntu-fuzzit
+        - docker-compose build ubuntu-cpp
+        - docker-compose build ubuntu-fuzzit
+        - docker-compose run -e FUZZIT_JOB_TYPE=regression ubuntu-fuzzit
 
   ############################## Integration tests ############################
 
