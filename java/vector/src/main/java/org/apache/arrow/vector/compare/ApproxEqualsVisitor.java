@@ -69,7 +69,7 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
   public ApproxEqualsVisitor(ValueVector left, ValueVector right,
                              VectorValueEqualizer<Float4Vector> floatDiffFunction,
                              VectorValueEqualizer<Float8Vector> doubleDiffFunction) {
-    this (left, right, floatDiffFunction, doubleDiffFunction, new TypeEqualsVisitor(right));
+    this (left, right, floatDiffFunction, doubleDiffFunction, true, new TypeEqualsVisitor(right));
   }
 
   /**
@@ -78,13 +78,15 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
    * @param right the right vector.
    * @param floatDiffFunction the equalizer for float values.
    * @param doubleDiffFunction the equalizer for double values.
+   * @param checkType whether need check type equals
    * @param typeVisitor type visitor to compare vector fields
    */
   public ApproxEqualsVisitor(ValueVector left, ValueVector right,
       VectorValueEqualizer<Float4Vector> floatDiffFunction,
       VectorValueEqualizer<Float8Vector> doubleDiffFunction,
+      boolean checkType,
       TypeEqualsVisitor typeVisitor) {
-    super(left, right, true, typeVisitor);
+    super(left, right, checkType, typeVisitor);
     this.floatDiffFunction = floatDiffFunction;
     this.doubleDiffFunction = doubleDiffFunction;
   }
