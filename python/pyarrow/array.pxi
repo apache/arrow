@@ -1438,6 +1438,54 @@ cdef class MapArray(Array):
         return pyarrow_wrap_array((<CMapArray*> self.ap).items())
 
 
+cdef class FixedSizeListArray(Array):
+    """
+    Concrete class for Arrow arrays of a fixed size list data type.
+    """
+
+    @staticmethod
+    def from_arrays(values, int64_t length, MemoryPool pool=None):
+        """
+        Construct ListArray from arrays of int32 offsets and values
+
+        Parameters
+        ----------
+        offsets : Array (int32 type)
+        values : Array (any type)
+
+        Returns
+        -------
+        list_array : ListArray
+        """
+        cdef:
+            Array _values
+            shared_ptr[CArray] out
+
+        _values = asarray(values)
+
+        with nogil:
+            check_status(CFixedSizeListArray.FromArrays(
+                _values.sp_array, length, &out))
+        cdef Array result = pyarrow_wrap_array(out)
+        result.validate()
+        return result
+
+    @property
+    def values(self):
+        return self.flatten()
+
+    def flatten(self):
+        """
+        Unnest this ListArray by one level
+
+        Returns
+        -------
+        result : Array
+        """
+        cdef CFixedSizeListArray* arr = <CFixedSizeListArray*> self.ap
+        return pyarrow_wrap_array(arr.values())
+
+
 cdef class UnionArray(Array):
     """
     Concrete class for Arrow arrays of a Union data type.
@@ -1890,6 +1938,7 @@ cdef dict _array_classes = {
     _Type_LIST: ListArray,
     _Type_LARGE_LIST: LargeListArray,
     _Type_MAP: MapArray,
+    _Type_FIXED_SIZE_LIST: FixedSizeListArray,
     _Type_UNION: UnionArray,
     _Type_BINARY: BinaryArray,
     _Type_STRING: StringArray,

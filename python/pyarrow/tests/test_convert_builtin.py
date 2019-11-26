@@ -235,6 +235,18 @@ def test_nested_arrays(seq):
 
 
 @parametrize_with_iterable_types
+def test_nested_fixed_size_list(seq):
+    data = [[1, 2], [3, None], None]
+    arr = pa.array(seq(data), type=pa.list_(pa.int32(), 2))
+    assert len(arr) == 3
+    assert arr.null_count == 1
+    assert arr.type == pa.list_(pa.int32(), 2)
+    assert arr.to_pylist() == data
+
+    # TODO check for invalid data (non-equal length nested lists)
+
+
+@parametrize_with_iterable_types
 def test_sequence_all_none(seq):
     arr = pa.array(seq([None, None]))
     assert len(arr) == 2

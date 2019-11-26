@@ -64,6 +64,7 @@ def test_type_to_pandas_dtype():
         (pa.binary(12), np.object_),
         (pa.string(), np.object_),
         (pa.list_(pa.int8()), np.object_),
+        # (pa.list_(pa.int8(), 2), np.object_),  # TODO needs pandas conversion
     ]
     for arrow_type, numpy_type in cases:
         assert arrow_type.to_pandas_dtype() == numpy_type

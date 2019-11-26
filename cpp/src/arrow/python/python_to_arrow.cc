@@ -1149,6 +1149,15 @@ Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
       } else {
         *out = std::unique_ptr<SeqConverter>(
             new MapConverter<NullCoding::NONE_ONLY>(from_pandas, strict_conversions));
+    case Type::FIXED_SIZE_LIST:
+      if (from_pandas) {
+        *out = std::unique_ptr<SeqConverter>(
+            new ListConverter<FixedSizeListType, NullCoding::PANDAS_SENTINELS>(
+                from_pandas, strict_conversions));
+      } else {
+        *out = std::unique_ptr<SeqConverter>(
+            new ListConverter<FixedSizeListType, NullCoding::NONE_ONLY>(
+                from_pandas, strict_conversions));
       }
       return Status::OK();
     case Type::STRUCT:
