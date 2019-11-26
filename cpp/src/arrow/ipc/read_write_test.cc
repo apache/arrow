@@ -1286,9 +1286,9 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor) {
                                                    1, 1, 0, 1, 1, 2, 1, 2, 1, 1, 2, 3};
   const int sizeof_index_value = sizeof(c_index_value_type);
   std::shared_ptr<SparseCOOIndex> si;
-  ASSERT_OK(SparseCOOIndex::Make(TypeTraits<IndexValueType>::type_singleton(), {12, 3},
-                                 {sizeof_index_value * 3, sizeof_index_value},
-                                 Buffer::Wrap(coords_values))
+  ASSERT_OK(SparseCOOIndex::MakeSafe(
+                TypeTraits<IndexValueType>::type_singleton(), {12, 3},
+                {sizeof_index_value * 3, sizeof_index_value}, Buffer::Wrap(coords_values))
                 .Value(&si));
 
   std::vector<int64_t> shape = {2, 3, 4};
@@ -1332,9 +1332,10 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexColumnMajor) {
                                                    0, 2, 1, 3, 0, 2, 1, 3, 0, 2, 1, 3};
   const int sizeof_index_value = sizeof(c_index_value_type);
   std::shared_ptr<SparseCOOIndex> si;
-  ASSERT_OK(SparseCOOIndex::Make(TypeTraits<IndexValueType>::type_singleton(), {12, 3},
-                                 {sizeof_index_value, sizeof_index_value * 12},
-                                 Buffer::Wrap(coords_values))
+  ASSERT_OK(SparseCOOIndex::MakeSafe(TypeTraits<IndexValueType>::type_singleton(),
+                                     {12, 3},
+                                     {sizeof_index_value, sizeof_index_value * 12},
+                                     Buffer::Wrap(coords_values))
                 .Value(&si));
 
   std::vector<int64_t> shape = {2, 3, 4};
@@ -1360,8 +1361,8 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCSRIndex) {
   auto data = Buffer::Wrap(values);
   NumericTensor<Int64Type> t(data, shape, {}, dim_names);
   std::shared_ptr<SparseCSRMatrix> st;
-  ASSERT_OK(
-      SparseCSRMatrix::Make(t, TypeTraits<IndexValueType>::type_singleton()).Value(&st));
+  ASSERT_OK(SparseCSRMatrix::MakeSafe(t, TypeTraits<IndexValueType>::type_singleton())
+                .Value(&st));
 
   this->CheckSparseTensorRoundTrip(*st);
 }

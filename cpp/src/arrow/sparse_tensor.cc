@@ -515,7 +515,7 @@ Status MakeTensorFromSparseTensor(MemoryPool* pool, const SparseTensor* sparse_t
 // ----------------------------------------------------------------------
 // SparseCOOIndex
 
-Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
+Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::MakeSafe(
     const std::shared_ptr<DataType>& indices_type,
     const std::vector<int64_t>& indices_shape,
     const std::vector<int64_t>& indices_strides, std::shared_ptr<Buffer> indices_data) {
@@ -533,14 +533,14 @@ Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
       indices_type, indices_data, indices_shape, indices_strides));
 }
 
-Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
+Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::MakeSafe(
     const std::shared_ptr<DataType>& indices_type, const std::vector<int64_t>& shape,
     int64_t non_zero_length, std::shared_ptr<Buffer> indices_data) {
   auto ndim = static_cast<int64_t>(shape.size());
   const int64_t elsize = sizeof(indices_type.get());
   std::vector<int64_t> indices_shape({non_zero_length, ndim});
   std::vector<int64_t> indices_strides({elsize, elsize * non_zero_length});
-  return SparseCOOIndex::Make(indices_type, indices_shape, indices_strides, indices_data);
+  return MakeSafe(indices_type, indices_shape, indices_strides, indices_data);
 }
 
 // Constructor with a contiguous NumericTensor
@@ -556,7 +556,7 @@ std::string SparseCOOIndex::ToString() const { return std::string("SparseCOOInde
 // ----------------------------------------------------------------------
 // SparseCSRIndex
 
-Result<std::shared_ptr<SparseCSRIndex>> SparseCSRIndex::Make(
+Result<std::shared_ptr<SparseCSRIndex>> SparseCSRIndex::MakeSafe(
     const std::shared_ptr<DataType>& indptr_type,
     const std::shared_ptr<DataType>& indices_type,
     const std::vector<int64_t>& indptr_shape, const std::vector<int64_t>& indices_shape,
@@ -578,15 +578,15 @@ Result<std::shared_ptr<SparseCSRIndex>> SparseCSRIndex::Make(
       std::make_shared<Tensor>(indices_type, indices_data, indices_shape));
 }
 
-Result<std::shared_ptr<SparseCSRIndex>> SparseCSRIndex::Make(
+Result<std::shared_ptr<SparseCSRIndex>> SparseCSRIndex::MakeSafe(
     const std::shared_ptr<DataType>& indptr_type,
     const std::shared_ptr<DataType>& indices_type, const std::vector<int64_t>& shape,
     int64_t non_zero_length, std::shared_ptr<Buffer> indptr_data,
     std::shared_ptr<Buffer> indices_data) {
   std::vector<int64_t> indptr_shape({shape[0] + 1});
   std::vector<int64_t> indices_shape({non_zero_length});
-  return SparseCSRIndex::Make(indptr_type, indices_type, indptr_shape, indices_shape,
-                              indptr_data, indices_data);
+  return MakeSafe(indptr_type, indices_type, indptr_shape, indices_shape, indptr_data,
+                  indices_data);
 }
 
 // Constructor with two index vectors

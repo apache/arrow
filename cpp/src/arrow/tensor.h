@@ -85,11 +85,10 @@ class ARROW_EXPORT Tensor {
   /// \param[in] strides The strides of the tensor
   ///            (if this is empty, the data assumed to be row-major)
   /// \param[in] dim_names The names of the tensor dimensions
-  static Result<std::shared_ptr<Tensor>> Make(const std::shared_ptr<DataType>& type,
-                                              const std::shared_ptr<Buffer>& data,
-                                              const std::vector<int64_t>& shape,
-                                              const std::vector<int64_t>& strides,
-                                              const std::vector<std::string>& dim_names) {
+  static Result<std::shared_ptr<Tensor>> MakeSafe(
+      const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
+      const std::vector<int64_t>& shape, const std::vector<int64_t>& strides,
+      const std::vector<std::string>& dim_names) {
     ARROW_RETURN_NOT_OK(
         internal::ValidateTensorParameters(type, data, shape, strides, dim_names));
     return std::make_shared<Tensor>(type, data, shape, strides, dim_names);
@@ -104,11 +103,11 @@ class ARROW_EXPORT Tensor {
   /// \param[in] data The buffer of the tensor content
   /// \param[in] shape The shape of the tensor
   /// \param[in] strides The strides of the tensor
-  static Result<std::shared_ptr<Tensor>> Make(const std::shared_ptr<DataType>& type,
-                                              const std::shared_ptr<Buffer>& data,
-                                              const std::vector<int64_t>& shape,
-                                              const std::vector<int64_t>& strides) {
-    return Make(type, data, shape, strides, {});
+  static Result<std::shared_ptr<Tensor>> MakeSafe(const std::shared_ptr<DataType>& type,
+                                                  const std::shared_ptr<Buffer>& data,
+                                                  const std::vector<int64_t>& shape,
+                                                  const std::vector<int64_t>& strides) {
+    return MakeSafe(type, data, shape, strides, {});
   }
 
   /// \brief Create a Tensor with full parameters with empty dim_names, the data assumed
@@ -120,10 +119,10 @@ class ARROW_EXPORT Tensor {
   /// \param[in] type The data type of the tensor values
   /// \param[in] data The buffer of the tensor content
   /// \param[in] shape The shape of the tensor
-  static Result<std::shared_ptr<Tensor>> Make(const std::shared_ptr<DataType>& type,
-                                              const std::shared_ptr<Buffer>& data,
-                                              const std::vector<int64_t>& shape) {
-    return Make(type, data, shape, {}, {});
+  static Result<std::shared_ptr<Tensor>> MakeSafe(const std::shared_ptr<DataType>& type,
+                                                  const std::shared_ptr<Buffer>& data,
+                                                  const std::vector<int64_t>& shape) {
+    return MakeSafe(type, data, shape, {}, {});
   }
 
   virtual ~Tensor() = default;
@@ -231,7 +230,7 @@ class NumericTensor : public Tensor {
   /// \param[in] strides The strides of the tensor
   ///            (if this is empty, the data assumed to be row-major)
   /// \param[in] dim_names The names of the tensor dimensions
-  static Result<std::shared_ptr<NumericTensor<TYPE>>> Make(
+  static Result<std::shared_ptr<NumericTensor<TYPE>>> MakeSafe(
       const std::shared_ptr<Buffer>& data, const std::vector<int64_t>& shape,
       const std::vector<int64_t>& strides, const std::vector<std::string>& dim_names) {
     ARROW_RETURN_NOT_OK(internal::ValidateTensorParameters(
@@ -247,10 +246,10 @@ class NumericTensor : public Tensor {
   /// \param[in] data The buffer of the tensor content
   /// \param[in] shape The shape of the tensor
   /// \param[in] strides The strides of the tensor
-  static Result<std::shared_ptr<NumericTensor<TYPE>>> Make(
+  static Result<std::shared_ptr<NumericTensor<TYPE>>> MakeSafe(
       const std::shared_ptr<Buffer>& data, const std::vector<int64_t>& shape,
       const std::vector<int64_t>& strides) {
-    return Make(data, shape, strides, {});
+    return MakeSafe(data, shape, strides, {});
   }
 
   /// \brief Create a NumericTensor with full parameters with empty strides and empty
@@ -261,9 +260,9 @@ class NumericTensor : public Tensor {
   ///
   /// \param[in] data The buffer of the tensor content
   /// \param[in] shape The shape of the tensor
-  static Result<std::shared_ptr<NumericTensor<TYPE>>> Make(
+  static Result<std::shared_ptr<NumericTensor<TYPE>>> MakeSafe(
       const std::shared_ptr<Buffer>& data, const std::vector<int64_t>& shape) {
-    return Make(data, shape, {}, {});
+    return MakeSafe(data, shape, {}, {});
   }
 
   /// Constructor with non-negative strides and dimension names
