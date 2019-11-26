@@ -76,11 +76,22 @@ cdef class FileFormat:
         self.wrapped = sp
         self.format = sp.get()
 
+    @staticmethod
+    cdef wrap(shared_ptr[CFileFormat]& sp):
+        cdef FileFormat self
+
+        # TODO(kszucs): either choose type() or name() but consistently
+        typ = frombytes(sp.get().name())
+        if typ == 'parquet':
+            self = ParquetFileFormat.__new__(ParquetFileFormat)
+        else:
+            raise TypeError(typ)
+
+        self.init(sp)
+        return self
+
     cdef inline shared_ptr[CFileFormat] unwrap(self):
         return self.wrapped
-
-    # @property
-    # def name(self):
 
 
 cdef class ParquetFileFormat(FileFormat):
@@ -729,3 +740,117 @@ cdef class Scanner:
             result = self.scanner.ToTable()
 
         return pyarrow_wrap_table(GetResultValue(result))
+
+
+cdef class Expression:
+
+    cdef:
+        shared_ptr[CExpression] wrapped
+        CExpression* expression
+
+    def __init__(self):
+        raise TypeError('Do not ititialize')
+
+    cdef void init(self, shared_ptr[CExpression]& sp):
+        self.wrapped = sp
+        self.expression = sp.get()
+
+    @staticmethod
+    cdef wrap(shared_ptr[CExpression]& sp):
+        cdef Expression self
+
+        typ = sp.get().type()
+        if typ == CExpressionType_FIELD:
+            self = FieldExpression.__new__(FieldExpression)
+        elif typ == CExpressionType_SCALAR:
+            self = ScalarExpression.__new__(ScalarExpression)
+        elif typ == CExpressionType_NOT:
+            self = NotExpression.__new__(NotExpression)
+        # elif typ == CExpressionType_CAST:
+        #     self = CastExpression.__new__(CastExpression)
+        elif typ == CExpressionType_AND:
+            self = AndExpression.__new__(AndExpression)
+        elif typ == CExpressionType_OR:
+            self = OrExpression.__new__(OrExpression)
+        elif typ == CExpressionType_COMPARISON:
+            self = ComparisonExpression.__new__(ComparisonExpression)
+        # elif typ == CExpressionType_IS_VALID:
+        #     self = IsValidExpression.__new__(IsValidExpression)
+        # elif typ == CExpressionType_IN:
+        #     self = InExpression.__new__(InExpression)
+        # elif typ == CExpressionType_CUSTOM:
+        #     self = CustomExpression.__new__(CustomExpression)
+        else:
+            raise TypeError(typ)
+
+        self.init(sp)
+        return self
+
+    cdef inline shared_ptr[CExpression] unwrap(self):
+        return self.wrapped
+
+
+cdef class UnaryExpression(Expression):
+
+    cdef CUnaryExpression* unary
+
+    cdef void init(self, shared_ptr[CExpression]& sp):
+        Expression.init(self, sp)
+        self.unary = <CUnaryExpression*> sp.get()
+
+
+cdef class BinaryExpression(Expression):
+
+    cdef CBinaryExpression* binary
+
+    cdef void init(self, shared_ptr[CExpression]& sp):
+        Expression.init(self, sp)
+        self.binary = <CBinaryExpression*> sp.get()
+
+
+cdef class ScalarExpression(Expression):
+
+    cdef CScalarExpression* scalar
+
+    cdef void init(self, shared_ptr[CExpression]& sp):
+        Expression.init(self, sp)
+        self.scalar = <CScalarExpression*> sp.get()
+
+    # def value(self):
+    #     return Scalar.wrap(self.scalar.value())
+
+
+cdef class FieldExpression(Expression):
+
+    cdef CFieldExpression* scalar
+
+    cdef void init(self, shared_ptr[CExpression]& sp):
+        Expression.init(self, sp)
+        self.scalar = <CFieldExpression*> sp.get()
+
+    def name(self):
+        return frombytes(self.scalar.name())
+
+
+cdef class ComparisonExpression(BinaryExpression):
+
+    cdef CComparisonExpression* comparison
+
+    cdef void init(self, shared_ptr[CExpression]& sp):
+        BinaryExpression.init(self, sp)
+        self.comparison = <CComparisonExpression*> sp.get()
+
+    # def op(self):
+    #     return ...
+
+
+cdef class AndExpression(ComparisonExpression):
+    pass
+
+
+cdef class OrExpression(ComparisonExpression):
+    pass
+
+
+cdef class NotExpression(ComparisonExpression):
+    pass

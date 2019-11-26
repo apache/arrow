@@ -38,25 +38,88 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::fs" nogil:
 
 cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
-    # cdef enum CFilter" arrow::dataset::Filter::type":
-    #     CFilter_EXPRESSION" arrow::dataset::Filter::type::EXPRESSION"
-    #     CFilter_GENERIC" arrow::dataset::Filter::GENERIC"
+    ############################## Expressions ###############################
 
-    cdef cppclass CWriteOptions "arrow::dataset::WriteOptions":
-        pass
+    cdef enum CExpressionType "arrow::dataset::ExpressionType::type":
+        CExpressionType_FIELD "arrow::dataset::ExpressionType::type::FIELD"
+        CExpressionType_SCALAR "arrow::dataset::ExpressionType::type::SCALAR"
+        CExpressionType_NOT "arrow::dataset::ExpressionType::type::NOT"
+        CExpressionType_CAST "arrow::dataset::ExpressionType::type::CAST"
+        CExpressionType_AND "arrow::dataset::ExpressionType::type::AND"
+        CExpressionType_OR "arrow::dataset::ExpressionType::type::OR"
+        CExpressionType_COMPARISON "arrow::dataset::ExpressionType::type::COMPARISON"
+        CExpressionType_IS_VALID "arrow::dataset::ExpressionType::type::IS_VALID"
+        CExpressionType_IN "arrow::dataset::ExpressionType::type::IN"
+        CExpressionType_CUSTOM "arrow::dataset::ExpressionType::type::CUSTOM"
 
     cdef cppclass CExpression "arrow::dataset::Expression":
-        # CExpression(ExpressionType::type type) : type_(type) {}
+        CExpression(CExpressionType type)
         c_bool Equals(const CExpression& other) const
         c_bool Equals(const shared_ptr[CExpression]& other) const
         c_bool IsNull() const
-        CStatus Validate(const CSchema& schema, shared_ptr[CDataType]* out) const
+        CResult[shared_ptr[CDataType]] Validate(const CSchema& schema) const
+
+        shared_ptr[CExpression] Assume(const CExpression& given) const
+        shared_ptr[CExpression] Assume(const shared_ptr[CExpression]& given) const
+        c_string ToString() const
+        CExpressionType type() const
+        shared_ptr[CExpression] Copy() const
+        # InExpression In(shared_ptr[CArray] set) const;
+        # IsValidExpression IsValid() const
+        # CastExpression CastTo(shared_ptr[CDataType] type,
+        #                       compute::CastOptions options = compute::CastOptions()) const;
+        # CastExpression CastLike(const CExpression& expr,
+        #                         compute::CastOptions options = compute::CastOptions()) const;
+        # CastExpression CastLike(shared_ptr[CExpression] expr,
+        #                         compute::CastOptions options = compute::CastOptions()) const;
+
+    ctypedef shared_ptr[CExpression] CExpressionPtr "arrow::dataset::ExpressionPtr"
+
+    cdef cppclass CUnaryExpression "arrow::dataset::UnaryExpression"(CExpression):
+        const CExpressionPtr& operand() const
+
+    cdef cppclass CBinaryExpression "arrow::dataset::BinaryExpression"(CExpression):
+        const CExpressionPtr& left_operand() const
+        const CExpressionPtr& right_operand() const
+
+    cdef cppclass CScalarExpression "arrow::dataset::ScalarExpression"(CExpression):
+        # const shared_ptr[Scalar]& value() const
+        pass
+
+    cdef cppclass CFieldExpression "arrow::dataset::FieldExpression"(CExpression):
+        c_string name() const
+
+    cdef cppclass CComparisonExpression "arrow::dataset::ComparisonExpression"(CBinaryExpression):
+        # ComparisonExpression(compute::CompareOperator op, ExpressionPtr left_operand,
+        #                      ExpressionPtr right_operand)
+        # compute::CompareOperator op() const { return op_; }
+        pass
+
+    cdef cppclass CAndExpression "arrow::dataset::AndExpression"(CComparisonExpression):
+        pass
+
+    cdef cppclass COrExpression "arrow::dataset::OrExpression"(CComparisonExpression):
+        pass
+
+    cdef cppclass CNotExpression "arrow::dataset::NotExpression"(CComparisonExpression):
+        pass
+
+    cdef cppclass CIsValidExpression "arrow::dataset::IsValidExpression"(CComparisonExpression):
+        pass
+
+    # InExpression
+    # CastExpression
 
     cdef cppclass CFilter "arrow::dataset::Filter":
         pass
 
+    ################################# Scanner #################################
+
+    cdef cppclass CWriteOptions "arrow::dataset::WriteOptions":
+        pass
+
     cdef cppclass CScanOptions "arrow::dataset::ScanOptions":
-        # CExpressionPtr filter
+        CExpressionPtr filter
         # shared_ptr[CExpressionEvaluator] evaluator
         shared_ptr[CSchema] schema
         # shared_ptr[CRecordBatchProjector] projector
@@ -88,9 +151,9 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CScannerBuilder "arrow::dataset::ScannerBuilder":
         CScannerBuilder(shared_ptr[CDataset], CScanContextPtr scan_context)
         CStatus Project(const vector[c_string]& columns)
-        # CStatus Filter(const CExpression& filter)
-        # CStatus Filter(shared_ptr[CExpression] filter)
-        # CStatus UseThreads(c_bool use_threads)
+        CStatus Filter(const CExpression& filter)
+        CStatus Filter(CExpressionPtr filter)
+        CStatus UseThreads(c_bool use_threads)
         CResult[CScannerPtr] Finish()
         shared_ptr[CSchema] schema() const
 
@@ -112,7 +175,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CDataSource "arrow::dataset::DataSource":
         CDataFragmentIterator GetFragments(CScanOptionsPtr options)
-        # const shared_ptr[CExpression]& partition_expression()
+        const CExpressionPtr& partition_expression()
         c_string type()
 
     cdef cppclass CSimpleDataSource "arrow::dataset::SimpleDataSource"(CDataSource):
@@ -234,8 +297,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CStatus SetSchema(shared_ptr[CSchema])
         # CPartitionSchemePtr partition_scheme()
         # CStatus SetPartitionScheme(CPartitionSchemePtr partition_scheme)
-        # CExpressionPtr root_partition()
-        # CStatus SetRootPartition(CExpressionPtr partition)
+        CExpressionPtr root_partition()
+        CStatus SetRootPartition(CExpressionPtr partition)
 
     ctypedef shared_ptr[CDataSourceDiscovery] CDataSourceDiscoveryPtr "arrow::dataset::DataSourceDiscovery"
 
@@ -255,9 +318,12 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CPartitionScheme "arrow::dataset::PartitionScheme":
         c_string name() const
-        # CResult[CExpressionPtr] Parse(const c_string& path) const
+        CResult[CExpressionPtr] Parse(const c_string& path) const
 
     cdef cppclass CSchemaPartitionScheme "arrow::dataset::SchemaPartitionScheme"(CPartitionScheme):
         CSchemaPartitionScheme(shared_ptr[CSchema] schema)
-        c_string name() const
         const shared_ptr[CSchema]& schema()
+
+    cdef cppclass CHivePartitionScheme "arrow::dataset::HivePartitionScheme"(CPartitionScheme):
+        CHivePartitionScheme(shared_ptr[CSchema] schema)
+        # vector[CUnconvertedKey] GetUnconvertedKeys(const c_string& path) const;
