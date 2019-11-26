@@ -329,6 +329,12 @@ public abstract class BaseVariableWidthVector extends BaseValueVector
    * @return the inner buffers.
    */
   public List<ArrowBuf> getFieldBuffers() {
+    // before flight/IPC, we must bring the vector to a consistent state.
+    // this is because, it is possible that the offset buffers of some trailing values
+    // are not updated. this may cause some data in the data buffer being lost.
+    // for details, please see TestValueVector#testUnloadVariableWidthVector.
+    fillHoles(valueCount);
+
     List<ArrowBuf> result = new ArrayList<>(3);
     setReaderAndWriterIndex();
     result.add(validityBuffer);

@@ -2665,6 +2665,28 @@ public class TestValueVector {
     }
   }
 
+  @Test
+  public void testUnloadVariableWidthVector() {
+    try (final VarCharVector varCharVector = new VarCharVector("var char", allocator)) {
+      varCharVector.allocateNew(5, 2);
+      varCharVector.setValueCount(2);
+
+      varCharVector.set(0, "abcd".getBytes());
+
+      List<ArrowBuf> bufs = varCharVector.getFieldBuffers();
+      assertEquals(3, bufs.size());
+
+      ArrowBuf offsetBuf = bufs.get(1);
+      ArrowBuf dataBuf = bufs.get(2);
+
+      assertEquals(12, offsetBuf.writerIndex());
+      assertEquals(4, offsetBuf.getInt(4));
+      assertEquals(4, offsetBuf.getInt(8));
+
+      assertEquals(4, dataBuf.writerIndex());
+    }
+  }
+
   private void writeStructVector(NullableStructWriter writer, int value1, long value2) {
     writer.start();
     writer.integer("f0").writeInt(value1);
