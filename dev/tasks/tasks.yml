@@ -262,7 +262,6 @@ groups:
     - test-ubuntu-18.04-docs
     - test-ubuntu-fuzzit
     - test-conda-python-2.7-pandas-latest
-    - test-conda-python-2.7-pandas-master
     - test-conda-python-3.7-pandas-latest
     - test-conda-python-3.7-pandas-master
     - test-conda-python-3.8-pandas-latest
@@ -1848,20 +1847,6 @@ tasks:
     params:
       commands:
         - export PYTHON=2.7 PANDAS=latest
-        - docker-compose pull --ignore-pull-failures conda-cpp
-        - docker-compose pull --ignore-pull-failures conda-python
-        - docker-compose build conda-cpp
-        - docker-compose build conda-python
-        - docker-compose build --no-cache conda-python-pandas
-        - docker-compose run conda-python-pandas
-
-  test-conda-python-2.7-pandas-master:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
-    params:
-      commands:
-        - export PYTHON=2.7 PANDAS=master
         - docker-compose pull --ignore-pull-failures conda-cpp
         - docker-compose pull --ignore-pull-failures conda-python
         - docker-compose build conda-cpp
