@@ -690,12 +690,14 @@ cdef class ScannerBuilder:
     def project(self, columns):
         cdef vector[c_string] cols = [tobytes(c) for c in columns]
         check_status(self.builder.Project(cols))
+        return self
 
     def finish(self):
         return Scanner.wrap(GetResultValue(self.builder.Finish()))
 
-    # def filter_(self):
-    #     pass
+    def filter(self, Expression expression):
+        check_status(self.builder.Filter(expression.unwrap()))
+        return self
 
 
 cdef class Scanner:
@@ -760,7 +762,7 @@ cdef class Expression:
     def __init__(self):
         raise TypeError('Do not ititialize')
 
-    cdef void init(self, shared_ptr[CExpression]& sp):
+    cdef void init(self, const shared_ptr[CExpression]& sp):
         self.wrapped = sp
         self.expression = sp.get()
 
@@ -803,7 +805,7 @@ cdef class UnaryExpression(Expression):
 
     cdef CUnaryExpression* unary
 
-    cdef void init(self, shared_ptr[CExpression]& sp):
+    cdef void init(self, const shared_ptr[CExpression]& sp):
         Expression.init(self, sp)
         self.unary = <CUnaryExpression*> sp.get()
 
@@ -812,7 +814,7 @@ cdef class BinaryExpression(Expression):
 
     cdef CBinaryExpression* binary
 
-    cdef void init(self, shared_ptr[CExpression]& sp):
+    cdef void init(self, const shared_ptr[CExpression]& sp):
         Expression.init(self, sp)
         self.binary = <CBinaryExpression*> sp.get()
 
@@ -821,19 +823,27 @@ cdef class ScalarExpression(Expression):
 
     cdef CScalarExpression* scalar
 
-    cdef void init(self, shared_ptr[CExpression]& sp):
+    def __init__(self, Scalar value not None):
+        cdef:
+            shared_ptr[CScalar] scalar
+            shared_ptr[CScalarExpression] expression
+        scalar = pyarrow_unwrap_scalar(value)
+        expression = make_shared[CScalarExpression](scalar)
+        self.init(<shared_ptr[CExpression]> expression)
+
+    cdef void init(self, const shared_ptr[CExpression]& sp):
         Expression.init(self, sp)
         self.scalar = <CScalarExpression*> sp.get()
 
-    # def value(self):
-    #     return Scalar.wrap(self.scalar.value())
+    def value(self):
+        return pyarrow_wrap_scalar(self.scalar.value())
 
 
 cdef class FieldExpression(Expression):
 
     cdef CFieldExpression* scalar
 
-    cdef void init(self, shared_ptr[CExpression]& sp):
+    cdef void init(self, const shared_ptr[CExpression]& sp):
         Expression.init(self, sp)
         self.scalar = <CFieldExpression*> sp.get()
 
@@ -845,7 +855,7 @@ cdef class ComparisonExpression(BinaryExpression):
 
     cdef CComparisonExpression* comparison
 
-    cdef void init(self, shared_ptr[CExpression]& sp):
+    cdef void init(self, const shared_ptr[CExpression]& sp):
         BinaryExpression.init(self, sp)
         self.comparison = <CComparisonExpression*> sp.get()
 

@@ -40,5 +40,10 @@ from pyarrow._dataset import (
     FileSystemDataSource,
     FileSystemDiscoveryOptions,
     FileSystemDataSourceDiscovery,
-    SchemaPartitionScheme
+    SchemaPartitionScheme,
+    ScalarExpression,
+    FieldExpression,
+    AndExpression,
+    OrExpression,
+    NotExpression
 )

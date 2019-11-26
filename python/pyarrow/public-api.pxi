@@ -224,6 +224,20 @@ cdef api object pyarrow_wrap_chunked_array(
     arr.init(sp_array)
     return arr
 
+
+cdef api bint pyarrow_is_scalar(object value):
+    return isinstance(value, ScalarValue)
+
+
+cdef api shared_ptr[CScalar] pyarrow_unwrap_scalar(object scalar):
+    cdef ScalarValue value
+    if pyarrow_is_scalar(scalar):
+        value = <ScalarValue>(scalar)
+        return value.sp_scalar
+
+    return shared_ptr[CScalar]()
+
+
 cdef api object pyarrow_wrap_scalar(const shared_ptr[CScalar]& sp_scalar):
     if sp_scalar.get() == NULL:
         raise ValueError('Scalar was NULL')

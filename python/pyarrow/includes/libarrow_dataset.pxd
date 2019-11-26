@@ -83,8 +83,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const CExpressionPtr& right_operand() const
 
     cdef cppclass CScalarExpression "arrow::dataset::ScalarExpression"(CExpression):
-        # const shared_ptr[Scalar]& value() const
-        pass
+        CScalarExpression(const shared_ptr[CScalar]& value)
+        const shared_ptr[CScalar]& value() const
 
     cdef cppclass CFieldExpression "arrow::dataset::FieldExpression"(CExpression):
         c_string name() const

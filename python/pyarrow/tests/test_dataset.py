@@ -45,7 +45,12 @@ try:
         FileSystemDataSource,
         FileSystemDiscoveryOptions,
         FileSystemDataSourceDiscovery,
-        SchemaPartitionScheme
+        SchemaPartitionScheme,
+        ScalarExpression,
+        FieldExpression,
+        AndExpression,
+        OrExpression,
+        NotExpression
     )
 except ImportError as e:
     ds = None
@@ -226,6 +231,10 @@ def test_file_source(fs):
 
 def test_file_system_data_source():
     pass
+
+
+def test_expression():
+    a = ScalarExpression(1)
 
 
 def test_file_system_discovery(fs):
