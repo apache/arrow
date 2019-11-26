@@ -58,10 +58,18 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
    * @param doubleEpsilon difference for double values
    */
   public ApproxEqualsVisitor(ValueVector left, ValueVector right, float floatEpsilon, double doubleEpsilon) {
-    super(left, right, true);
+    this (left, right,
+        new ValueEpsilonEqualizers.Float4EpsilonEqualizer(floatEpsilon),
+        new ValueEpsilonEqualizers.Float8EpsilonEqualizer(doubleEpsilon));
+  }
 
-    floatDiffFunction = new ValueEpsilonEqualizers.Float4EpsilonEqualizer(floatEpsilon);
-    doubleDiffFunction = new ValueEpsilonEqualizers.Float8EpsilonEqualizer(doubleEpsilon);
+  /**
+   * Constructs a new instance.
+   */
+  public ApproxEqualsVisitor(ValueVector left, ValueVector right,
+                             VectorValueEqualizer<Float4Vector> floatDiffFunction,
+                             VectorValueEqualizer<Float8Vector> doubleDiffFunction) {
+    this (left, right, floatDiffFunction, doubleDiffFunction, new TypeEqualsVisitor(right));
   }
 
   /**
@@ -70,11 +78,13 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
    * @param right the right vector.
    * @param floatDiffFunction the equalizer for float values.
    * @param doubleDiffFunction the equalizer for double values.
+   * @param typeVisitor type visitor to compare vector fields
    */
   public ApproxEqualsVisitor(ValueVector left, ValueVector right,
-                             VectorValueEqualizer<Float4Vector> floatDiffFunction,
-                             VectorValueEqualizer<Float8Vector> doubleDiffFunction) {
-    super(left, right, true);
+      VectorValueEqualizer<Float4Vector> floatDiffFunction,
+      VectorValueEqualizer<Float8Vector> doubleDiffFunction,
+      TypeEqualsVisitor typeVisitor) {
+    super(left, right, true, typeVisitor);
     this.floatDiffFunction = floatDiffFunction;
     this.doubleDiffFunction = doubleDiffFunction;
   }

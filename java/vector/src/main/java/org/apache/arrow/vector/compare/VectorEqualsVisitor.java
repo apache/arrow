@@ -36,17 +36,30 @@ public class VectorEqualsVisitor {
 
   /**
    * Checks if two vectors are equals.
+   */
+  public static boolean vectorEquals(ValueVector left, ValueVector right, boolean checkType) {
+    return vectorEquals(left, right, checkType, new TypeEqualsVisitor(right));
+  }
+
+  /**
+   * Checks if two vectors are equals.
    * @param left the left vector to compare.
    * @param right the right vector to compare.
-   * @param isTypeCheckNeeded check equality of types
+   * @param checkType whether need check equality of types
+   * @param typeVisitor type visitor to compare vector fields
    * @return true if the vectors are equal, and false otherwise.
    */
-  public static boolean vectorEquals(ValueVector left, ValueVector right, boolean isTypeCheckNeeded) {
+  public static boolean vectorEquals(
+      ValueVector left,
+      ValueVector right,
+      boolean checkType,
+      TypeEqualsVisitor typeVisitor) {
+
     if (left.getValueCount() != right.getValueCount()) {
       return false;
     }
 
-    RangeEqualsVisitor visitor = new RangeEqualsVisitor(left, right, isTypeCheckNeeded);
+    RangeEqualsVisitor visitor = new RangeEqualsVisitor(left, right, checkType, typeVisitor);
     return visitor.rangeEquals(new Range(0, 0, left.getValueCount()));
   }
 }

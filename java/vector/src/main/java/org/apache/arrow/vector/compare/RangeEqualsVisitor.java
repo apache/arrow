@@ -38,37 +38,51 @@ import org.apache.arrow.vector.complex.UnionVector;
 public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
   private ValueVector left;
   private ValueVector right;
-  private boolean isTypeCheckNeeded;
+
+  private TypeEqualsVisitor typeVisitor;
+  private boolean checkType;
   private boolean typeCompareResult;
+
+  /**
+   * Constructs a new instance with default type visitor (do not check name and metadata).
+   */
+  public RangeEqualsVisitor(ValueVector left, ValueVector right, boolean checkType) {
+    this (left, right, checkType, new TypeEqualsVisitor(right));
+  }
 
   /**
    * Constructs a new instance.
    *
    * @param left left vector
    * @param right right vector
-   * @param isTypeCheckNeeded type check needed
+   * @param checkType whether need check type
+   * @param typeVisitor type visitor
    */
-  public RangeEqualsVisitor(ValueVector left, ValueVector right, boolean isTypeCheckNeeded) {
+  public RangeEqualsVisitor(
+      ValueVector left,
+      ValueVector right,
+      boolean checkType,
+      TypeEqualsVisitor typeVisitor) {
     this.left = left;
     this.right = right;
-    this.isTypeCheckNeeded = isTypeCheckNeeded;
+    this.checkType = checkType;
+    this.typeVisitor = typeVisitor;
 
     Preconditions.checkArgument(left != null,
         "left vector cannot be null");
     Preconditions.checkArgument(right != null,
         "right vector cannot be null");
+    Preconditions.checkArgument(typeVisitor.getRight() == this.right);
 
     // type usually checks only once unless the left vector is changed.
     checkType();
   }
 
   private void checkType() {
-    if (!isTypeCheckNeeded) {
-      typeCompareResult = true;
-    } else if (left == right) {
+    if (!checkType || left == right) {
       typeCompareResult = true;
     } else {
-      typeCompareResult = left.getField().getType().equals(right.getField().getType());
+      typeCompareResult = typeVisitor.equals(left);
     }
   }
 
@@ -184,7 +198,7 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
    * @return the visitor for child vecors.
    */
   protected RangeEqualsVisitor createInnerVisitor(ValueVector leftInner, ValueVector rightInner) {
-    return new RangeEqualsVisitor(leftInner, rightInner, isTypeCheckNeeded);
+    return new RangeEqualsVisitor(leftInner, rightInner, checkType, typeVisitor.newVisitor(rightInner));
   }
 
   protected boolean compareUnionVectors(Range range) {
