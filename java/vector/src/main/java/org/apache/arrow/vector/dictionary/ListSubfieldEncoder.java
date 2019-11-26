@@ -20,6 +20,8 @@ package org.apache.arrow.vector.dictionary;
 import java.util.Collections;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.util.hash.ArrowBufHasher;
+import org.apache.arrow.memory.util.hash.SimpleHasher;
 import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.ValueVector;
@@ -38,14 +40,18 @@ public class ListSubfieldEncoder {
   private final Dictionary dictionary;
   private final BufferAllocator allocator;
 
+  public ListSubfieldEncoder(Dictionary dictionary, BufferAllocator allocator) {
+    this (dictionary, allocator, SimpleHasher.INSTANCE);
+  }
+
   /**
    * Construct an instance.
    */
-  public ListSubfieldEncoder(Dictionary dictionary, BufferAllocator allocator) {
+  public ListSubfieldEncoder(Dictionary dictionary, BufferAllocator allocator, ArrowBufHasher hasher) {
     this.dictionary = dictionary;
     this.allocator = allocator;
     BaseListVector dictVector = (BaseListVector) dictionary.getVector();
-    hashTable = new DictionaryHashTable(getDataVector(dictVector));
+    hashTable = new DictionaryHashTable(getDataVector(dictVector), hasher);
   }
 
   private FieldVector getDataVector(BaseListVector vector) {

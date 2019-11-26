@@ -23,6 +23,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.util.hash.ArrowBufHasher;
+import org.apache.arrow.memory.util.hash.SimpleHasher;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BaseIntVector;
 import org.apache.arrow.vector.FieldVector;
@@ -47,9 +49,17 @@ public class StructSubfieldEncoder {
   /**
    * Construct an instance.
    */
+  public StructSubfieldEncoder(BufferAllocator allocator, DictionaryProvider.MapDictionaryProvider provider) {
+    this (allocator, provider, SimpleHasher.INSTANCE);
+  }
+
+  /**
+   * Construct an instance.
+   */
   public StructSubfieldEncoder(
       BufferAllocator allocator,
-      DictionaryProvider.MapDictionaryProvider provider) {
+      DictionaryProvider.MapDictionaryProvider provider,
+      ArrowBufHasher hasher) {
 
     this.allocator = allocator;
     this.provider = provider;
@@ -57,7 +67,7 @@ public class StructSubfieldEncoder {
     this.dictionaryIdToHashTable = new HashMap<>();
 
     provider.getDictionaryIds().forEach(id ->
-        dictionaryIdToHashTable.put(id, new DictionaryHashTable(provider.lookup(id).getVector())));
+        dictionaryIdToHashTable.put(id, new DictionaryHashTable(provider.lookup(id).getVector(), hasher)));
   }
 
   private FieldVector getChildVector(StructVector vector, int index) {
