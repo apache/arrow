@@ -1547,7 +1547,10 @@ tasks:
         - export UBUNTU=14.04
         - docker-compose pull --ignore-pull-failures ubuntu-cpp
         - docker-compose build ubuntu-cpp
-        - docker-compose run -e ARROW_USE_CCACHE=OFF ubuntu-cpp
+        - docker-compose run
+            -e ARROW_USE_CCACHE=OFF
+            -e ARROW_DATASET=OFF
+            ubuntu-cpp
 
   test-ubuntu-16.04-cpp:
     ci: circle
