@@ -23,6 +23,7 @@ use crate::ipc;
 use flatbuffers::{
     FlatBufferBuilder, ForwardsUOffset, UnionWIPOffset, Vector, WIPOffset,
 };
+use std::collections::HashMap;
 
 /// Serialize a schema in IPC format
 fn schema_to_fb(schema: &Schema) -> FlatBufferBuilder {
@@ -45,11 +46,24 @@ fn schema_to_fb(schema: &Schema) -> FlatBufferBuilder {
         fields.push(field_builder.finish());
     }
 
+    let mut custom_metadata = vec![];
+    for (k, v) in schema.metadata() {
+        let fb_key_name = fbb.create_string(k.as_str());
+        let fb_val_name = fbb.create_string(v.as_str());
+
+        let mut kv_builder = ipc::KeyValueBuilder::new(&mut fbb);
+        kv_builder.add_key(fb_key_name);
+        kv_builder.add_value(fb_val_name);
+        custom_metadata.push(kv_builder.finish());
+    }
+
     let fb_field_list = fbb.create_vector(&fields);
+    let fb_metadata_list = fbb.create_vector(&custom_metadata);
 
     let root = {
         let mut builder = ipc::SchemaBuilder::new(&mut fbb);
         builder.add_fields(fb_field_list);
+        builder.add_custom_metadata(fb_metadata_list);
         builder.finish()
     };
 
@@ -78,7 +92,20 @@ pub fn fb_to_schema(fb: ipc::Schema) -> Schema {
         let c_field: ipc::Field = c_fields.get(i);
         fields.push(c_field.into());
     }
-    Schema::new(fields)
+
+    let mut metadata: HashMap<String, String> = HashMap::default();
+    if let Some(md_fields) = fb.custom_metadata() {
+        let len = md_fields.len();
+        for i in 0..len {
+            let kv = md_fields.get(i);
+            let k_str = kv.key();
+            let v_str = kv.value();
+            if k_str.is_some() && v_str.is_some() {
+                metadata.insert(k_str.unwrap().to_string(), v_str.unwrap().to_string());
+            }
+        }
+    }
+    Schema::new_with_metadata(fields, metadata)
 }
 
 /// Get the Arrow data type from the flatbuffer Field table
@@ -346,73 +373,84 @@ mod tests {
 
     #[test]
     fn convert_schema_round_trip() {
-        let schema = Schema::new(vec![
-            Field::new("uint8", DataType::UInt8, false),
-            Field::new("uint16", DataType::UInt16, true),
-            Field::new("uint32", DataType::UInt32, false),
-            Field::new("uint64", DataType::UInt64, true),
-            Field::new("int8", DataType::Int8, true),
-            Field::new("int16", DataType::Int16, false),
-            Field::new("int32", DataType::Int32, true),
-            Field::new("int64", DataType::Int64, false),
-            Field::new("float16", DataType::Float16, true),
-            Field::new("float32", DataType::Float32, false),
-            Field::new("float64", DataType::Float64, true),
-            Field::new("bool", DataType::Boolean, false),
-            Field::new("date32", DataType::Date32(DateUnit::Day), false),
-            Field::new("date64", DataType::Date64(DateUnit::Millisecond), true),
-            Field::new("time32[s]", DataType::Time32(TimeUnit::Second), true),
-            Field::new("time32[ms]", DataType::Time32(TimeUnit::Millisecond), false),
-            Field::new("time64[us]", DataType::Time64(TimeUnit::Microsecond), false),
-            Field::new("time64[ns]", DataType::Time64(TimeUnit::Nanosecond), true),
-            Field::new("timestamp[s]", DataType::Timestamp(TimeUnit::Second), false),
-            Field::new(
-                "timestamp[ms]",
-                DataType::Timestamp(TimeUnit::Millisecond),
-                true,
-            ),
-            Field::new(
-                "timestamp[us]",
-                DataType::Timestamp(TimeUnit::Microsecond),
-                false,
-            ),
-            Field::new(
-                "timestamp[ns]",
-                DataType::Timestamp(TimeUnit::Nanosecond),
-                true,
-            ),
-            Field::new("utf8", DataType::Utf8, false),
-            Field::new("list[u8]", DataType::List(Box::new(DataType::UInt8)), true),
-            Field::new(
-                "list[struct<float32, int32, bool>]",
-                DataType::List(Box::new(DataType::Struct(vec![
-                    Field::new("float32", DataType::UInt8, false),
-                    Field::new("int32", DataType::Int32, true),
-                    Field::new("bool", DataType::Boolean, true),
-                ]))),
-                false,
-            ),
-            Field::new(
-                "struct<int64, list[struct<date32, list[struct<>]>]>",
-                DataType::Struct(vec![
-                    Field::new("int64", DataType::Int64, true),
-                    Field::new(
-                        "list[struct<date32, list[struct<>]>]",
-                        DataType::List(Box::new(DataType::Struct(vec![
-                            Field::new("date32", DataType::Date32(DateUnit::Day), true),
-                            Field::new(
-                                "list[struct<>]",
-                                DataType::List(Box::new(DataType::Struct(vec![]))),
-                                false,
-                            ),
-                        ]))),
-                        false,
-                    ),
-                ]),
-                false,
-            ),
-            Field::new("struct<>", DataType::Struct(vec![]), true),
-        ]);
+        let md: HashMap<String, String> = [("Key".to_string(), "value".to_string())]
+            .iter()
+            .cloned()
+            .collect();
+        let schema = Schema::new_with_metadata(
+            vec![
+                Field::new("uint8", DataType::UInt8, false),
+                Field::new("uint16", DataType::UInt16, true),
+                Field::new("uint32", DataType::UInt32, false),
+                Field::new("uint64", DataType::UInt64, true),
+                Field::new("int8", DataType::Int8, true),
+                Field::new("int16", DataType::Int16, false),
+                Field::new("int32", DataType::Int32, true),
+                Field::new("int64", DataType::Int64, false),
+                Field::new("float16", DataType::Float16, true),
+                Field::new("float32", DataType::Float32, false),
+                Field::new("float64", DataType::Float64, true),
+                Field::new("bool", DataType::Boolean, false),
+                Field::new("date32", DataType::Date32(DateUnit::Day), false),
+                Field::new("date64", DataType::Date64(DateUnit::Millisecond), true),
+                Field::new("time32[s]", DataType::Time32(TimeUnit::Second), true),
+                Field::new("time32[ms]", DataType::Time32(TimeUnit::Millisecond), false),
+                Field::new("time64[us]", DataType::Time64(TimeUnit::Microsecond), false),
+                Field::new("time64[ns]", DataType::Time64(TimeUnit::Nanosecond), true),
+                Field::new("timestamp[s]", DataType::Timestamp(TimeUnit::Second), false),
+                Field::new(
+                    "timestamp[ms]",
+                    DataType::Timestamp(TimeUnit::Millisecond),
+                    true,
+                ),
+                Field::new(
+                    "timestamp[us]",
+                    DataType::Timestamp(TimeUnit::Microsecond),
+                    false,
+                ),
+                Field::new(
+                    "timestamp[ns]",
+                    DataType::Timestamp(TimeUnit::Nanosecond),
+                    true,
+                ),
+                Field::new("utf8", DataType::Utf8, false),
+                Field::new("list[u8]", DataType::List(Box::new(DataType::UInt8)), true),
+                Field::new(
+                    "list[struct<float32, int32, bool>]",
+                    DataType::List(Box::new(DataType::Struct(vec![
+                        Field::new("float32", DataType::UInt8, false),
+                        Field::new("int32", DataType::Int32, true),
+                        Field::new("bool", DataType::Boolean, true),
+                    ]))),
+                    false,
+                ),
+                Field::new(
+                    "struct<int64, list[struct<date32, list[struct<>]>]>",
+                    DataType::Struct(vec![
+                        Field::new("int64", DataType::Int64, true),
+                        Field::new(
+                            "list[struct<date32, list[struct<>]>]",
+                            DataType::List(Box::new(DataType::Struct(vec![
+                                Field::new(
+                                    "date32",
+                                    DataType::Date32(DateUnit::Day),
+                                    true,
+                                ),
+                                Field::new(
+                                    "list[struct<>]",
+                                    DataType::List(Box::new(DataType::Struct(vec![]))),
+                                    false,
+                                ),
+                            ]))),
+                            false,
+                        ),
+                    ]),
+                    false,
+                ),
+                Field::new("struct<>", DataType::Struct(vec![]), true),
+            ],
+            md,
+        );
 
         let fb = schema_to_fb(&schema);
 
