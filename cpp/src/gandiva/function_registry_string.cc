@@ -95,6 +95,14 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       NativeFunction("convert_fromUTF8", {"convert_fromutf8"}, DataTypeVector{binary()},
                      utf8(), kResultNullIfNull, "convert_fromUTF8_binary",
                      NativeFunction::kNeedsContext),
+
+      NativeFunction("locate", {"position"}, DataTypeVector{utf8(), utf8()}, int32(),
+                     kResultNullIfNull, "locate_utf8_utf8",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("locate", {"position"}, DataTypeVector{utf8(), utf8(), int32()},
+                     int32(), kResultNullIfNull, "locate_utf8_utf8_int32",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
   };
 
   return string_fn_registry_;
