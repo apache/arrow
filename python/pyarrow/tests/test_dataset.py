@@ -16,6 +16,10 @@
 # under the License.
 
 from collections.abc import Generator
+try:
+    import pathlib
+except ImportError:
+    import pathlib2 as pathlib  # py2 compat
 
 import pytest
 
@@ -38,8 +42,10 @@ try:
         ScanContext,
         SimpleDataSource,
         TreeDataSource,
+        FileSystemDataSource,
         FileSystemDiscoveryOptions,
-        FileSystemDataSourceDiscovery
+        FileSystemDataSourceDiscovery,
+        SchemaPartitionScheme
     )
 except ImportError as e:
     ds = None
@@ -51,9 +57,23 @@ pytestmark = pytest.mark.dataset
 
 
 @pytest.fixture
-def fs():
-    return _MockFileSystem()
+@pytest.mark.parquet
+def fs(table):
+    import pyarrow.parquet as pq
 
+    fs = _MockFileSystem()
+
+    directories = [
+        'subdir/1/xxx',
+        'subdir/2/yyy',
+    ]
+    for i, directory in enumerate(directories):
+        path = '{}/file{}.parquet'.format(directory, i)
+        fs.create_dir(directory)
+        with fs.open_output_stream(path) as out:
+            pq.write_table(table, out)
+
+    return fs
 
 @pytest.fixture
 def schema():
@@ -70,6 +90,11 @@ def record_batch(schema):
         list(map(float, range(5)))
     ]
     return pa.record_batch(data, schema=schema)
+
+
+@pytest.fixture
+def table(record_batch):
+    return pa.Table.from_batches([record_batch] * 10)
 
 
 @pytest.fixture
@@ -116,9 +141,7 @@ def test_simple_data_fragment(record_batch):
 
 def test_simple_data_source(simple_data_fragment):
     source = SimpleDataSource([simple_data_fragment] * 4)
-
     assert isinstance(source, SimpleDataSource)
-    assert source.type == 'simple_data_source'
 
     result = source.fragments()
     assert isinstance(result, Generator)
@@ -131,9 +154,7 @@ def test_simple_data_source(simple_data_fragment):
 
 def test_tree_data_source(simple_data_source):
     source = TreeDataSource([simple_data_source] * 2)
-
     assert isinstance(source, TreeDataSource)
-    assert source.type == 'tree_data_source'
 
     result = source.fragments()
     assert isinstance(result, Generator)
@@ -183,7 +204,6 @@ def test_scanner(schema, simple_data_source):
 def test_scanner_builder(dataset):
     context = ScanContext()
     builder = ScannerBuilder(dataset, context)
-
     builder.project([])
     scanner = builder.finish()
     assert isinstance(scanner, Scanner)
@@ -196,7 +216,6 @@ def test_projector():
 def test_file_source(fs):
     source1 = FileSource('/path/to/file.ext', fs, compression=None)
     source2 = FileSource('/path/to/file.ext.gz', fs, compression='gzip')
-
     assert source1.path == '/path/to/file.ext'
     assert source1.fs == fs
     assert source1.compression == 0  # None
@@ -210,6 +229,40 @@ def test_file_system_data_source():
 
 
 def test_file_system_discovery(fs):
-    selector = FileSelector('/base', recursive=True)
-    fileformat = ParquetFileFormat()
-    discovery = FileSystemDataSourceDiscovery(fs, selector, fileformat)
+    selector = FileSelector('subdir', recursive=True)
+    assert selector.base_dir == 'subdir'
+    assert selector.recursive is True
+
+    format = ParquetFileFormat()
+    assert format.name() == 'parquet'
+
+    options = FileSystemDiscoveryOptions('/')
+    assert options.partition_base_dir == '/'
+    assert options.ignore_prefixes == ['.', '_']
+    assert options.exclude_invalid_files is True
+
+    discovery = FileSystemDataSourceDiscovery(fs, selector, format, options)
+    assert isinstance(discovery.inspect(), pa.Schema)
+    # assert isinstance(discovery.schema(), pa.Schema)
+    assert isinstance(discovery.finish(), FileSystemDataSource)
+
+    scheme = SchemaPartitionScheme(
+        pa.schema([
+            pa.field('group', pa.int32()),
+            pa.field('key', pa.string())
+        ])
+    )
+    discovery.partition_scheme = scheme
+    assert isinstance(discovery.partition_scheme, SchemaPartitionScheme)
+
+    data_source = discovery.finish()
+    assert isinstance(data_source, DataSource)
+
+    inspected_schema = discovery.inspect()
+    dataset = Dataset([data_source], inspected_schema)
+
+    scanner = dataset.new_scan().finish()
+    for task in scanner.scan():
+        assert isinstance(task, ScanTask)
+        for record_batch in task.scan():
+            assert isinstance(record_batch, pa.RecordBatch)

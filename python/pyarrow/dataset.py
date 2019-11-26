@@ -37,6 +37,8 @@ from pyarrow._dataset import (
     ScanContext,
     SimpleDataSource,
     TreeDataSource,
+    FileSystemDataSource,
     FileSystemDiscoveryOptions,
-    FileSystemDataSourceDiscovery
+    FileSystemDataSourceDiscovery,
+    SchemaPartitionScheme
 )

@@ -26,7 +26,8 @@ import pytest
 import pyarrow as pa
 from pyarrow.tests.test_io import gzip_compress, gzip_decompress
 from pyarrow.fs import (FileType, Selector, FileSystem, LocalFileSystem,
-                        LocalFileSystemOptions, SubTreeFileSystem)
+                        LocalFileSystemOptions, SubTreeFileSystem,
+                        _MockFileSystem)
 
 
 @pytest.fixture
@@ -35,6 +36,16 @@ def localfs(request, tempdir):
         fs=LocalFileSystem(),
         pathfn=lambda p: (tempdir / p).as_posix(),
         allow_copy_file=True,
+        allow_move_dir=True,
+        allow_append_to_file=True,
+    )
+
+
+@pytest.fixture
+def mockfs(request):
+    return dict(
+        fs=_MockFileSystem(),
+        pathfn=lambda p: p,
         allow_move_dir=True,
         allow_append_to_file=True,
     )
@@ -140,6 +151,10 @@ def hdfs(request, hdfs_server):
     pytest.param(
         pytest.lazy_fixture('hdfs'),
         id='HadoopFileSystem'
+    ),
+    pytest.param(
+        pytest.lazy_fixture('mockfs'),
+        id='_MockFileSystem()'
     ),
 ])
 def filesystem_config(request):

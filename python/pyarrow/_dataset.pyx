@@ -93,9 +93,14 @@ cdef class FileFormat:
     cdef inline shared_ptr[CFileFormat] unwrap(self):
         return self.wrapped
 
+    def name(self):
+        return frombytes(self.format.name())
+
 
 cdef class ParquetFileFormat(FileFormat):
-    pass
+
+    def __init__(self):
+        self.init(shared_ptr[CFileFormat](new CParquetFileFormat()))
 
 
 cdef class PartitionScheme:
@@ -109,7 +114,7 @@ cdef class PartitionScheme:
         self.scheme = sp.get()
 
     @staticmethod
-    cdef wrap(shared_ptr[CPartitionScheme]& sp):
+    cdef wrap(const shared_ptr[CPartitionScheme]& sp):
         cdef PartitionScheme self
 
         # TODO(kszucs): either choose type() or name() but consistently
@@ -212,6 +217,14 @@ cdef class DataSourceDiscovery:
     cdef inline shared_ptr[CDataSourceDiscovery] unwrap(self):
         return self.wrapped
 
+    @property
+    def partition_scheme(self):
+        return PartitionScheme.wrap(self.discovery.partition_scheme())
+
+    @partition_scheme.setter
+    def partition_scheme(self, PartitionScheme scheme not None):
+        check_status(self.discovery.SetPartitionScheme(scheme.unwrap()))
+
     def inspect(self):
         cdef CResult[shared_ptr[CSchema]] result
         with nogil:
@@ -233,8 +246,9 @@ cdef class FileSystemDataSourceDiscovery(DataSourceDiscovery):
     cdef:
         CFileSystemDataSourceDiscovery* filesystem_discovery
 
-    def __init__(self, FileSystem filesystem, Selector selector,
-                 FileFormat format, FileSystemDiscoveryOptions options=None):
+    def __init__(self, FileSystem filesystem not None,
+                 Selector selector not None, FileFormat format not None,
+                 FileSystemDiscoveryOptions options=None):
         # TODO(kszucs): support instantiating from explicit paths
         cdef CResult[shared_ptr[CDataSourceDiscovery]] result
 
@@ -261,7 +275,7 @@ cdef class FileSource:
     cdef readonly:
         FileSystem fs
 
-    def __init__(self, path, FileSystem filesystem, compression=None):
+    def __init__(self, path, FileSystem filesystem not None, compression=None):
         cdef shared_ptr[CFileSource] source
 
         # need to hold a reference for the filesystem
@@ -413,10 +427,6 @@ cdef class DataSource:
     cdef shared_ptr[CDataSource] unwrap(self):
         return self.wrapped
 
-    @property
-    def type(self):
-        return frombytes(self.source.type())
-
     # def __iter__(self):
     #     for fragment in self.fragments():
     #         yield fragment
@@ -486,8 +496,8 @@ cdef class FileSystemDataSource(DataSource):
     cdef:
         CFileSystemDataSource* filesystem_source
 
-    def __init__(self, filesystem, file_stats, source_partition,
-                 path_partitions, file_format):
+    def __init__(self, FileSystem filesystem not None, file_stats,
+                 source_partition, path_partitions, file_format):
         cdef:
             DataSource child
             CDataSourceVector children
@@ -679,7 +689,6 @@ cdef class ScannerBuilder:
 
     def project(self, columns):
         cdef vector[c_string] cols = [tobytes(c) for c in columns]
-        print(cols)
         check_status(self.builder.Project(cols))
 
     def finish(self):

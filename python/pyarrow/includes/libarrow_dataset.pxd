@@ -267,21 +267,29 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CParquetFileFormat "arrow::dataset::ParquetFileFormat"(
             CFileFormat):
-        c_string name()
-        c_bool IsKnownExtension(const c_string& ext)
-        CStatus ScanFile(const CFileSource& source,
-                         shared_ptr[CScanOptions] scan_options,
-                         shared_ptr[CScanContext] scan_context,
-                         shared_ptr[CScanTaskIterator]* out)
-        CStatus MakeFragment(const CFileSource& source,
-                             shared_ptr[CScanOptions] opts,
-                             shared_ptr[CDataFragment]* out)
+        pass
 
     cdef cppclass CParquetFragment "arrow::dataset::ParquetFragment"(
             CFileBasedDataFragment):
         CParquetFragment(const CFileSource& source,
                          shared_ptr[CScanOptions] options)
         c_bool splittable()
+
+    ############################### Partitioning ##############################
+
+    cdef cppclass CPartitionScheme "arrow::dataset::PartitionScheme":
+        c_string name() const
+        CResult[CExpressionPtr] Parse(const c_string& path) const
+
+    ctypedef shared_ptr[CPartitionScheme] CPartitionSchemePtr "arrow::dataset::PartitionSchemePtr"
+
+    cdef cppclass CSchemaPartitionScheme "arrow::dataset::SchemaPartitionScheme"(CPartitionScheme):
+        CSchemaPartitionScheme(shared_ptr[CSchema] schema)
+        const shared_ptr[CSchema]& schema()
+
+    cdef cppclass CHivePartitionScheme "arrow::dataset::HivePartitionScheme"(CPartitionScheme):
+        CHivePartitionScheme(shared_ptr[CSchema] schema)
+        # vector[CUnconvertedKey] GetUnconvertedKeys(const c_string& path) const;
 
     ############################### Discovery #################################
 
@@ -295,8 +303,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[CDataSourcePtr] Finish()
         shared_ptr[CSchema] schema()
         CStatus SetSchema(shared_ptr[CSchema])
-        # CPartitionSchemePtr partition_scheme()
-        # CStatus SetPartitionScheme(CPartitionSchemePtr partition_scheme)
+        CPartitionSchemePtr partition_scheme()
+        CStatus SetPartitionScheme(CPartitionSchemePtr partition_scheme)
         CExpressionPtr root_partition()
         CStatus SetRootPartition(CExpressionPtr partition)
 
@@ -313,17 +321,3 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
                                               CSelector,
                                               CFileFormatPtr format,
                                               CFileSystemDiscoveryOptions options)
-
-    ############################### Partitioning ##############################
-
-    cdef cppclass CPartitionScheme "arrow::dataset::PartitionScheme":
-        c_string name() const
-        CResult[CExpressionPtr] Parse(const c_string& path) const
-
-    cdef cppclass CSchemaPartitionScheme "arrow::dataset::SchemaPartitionScheme"(CPartitionScheme):
-        CSchemaPartitionScheme(shared_ptr[CSchema] schema)
-        const shared_ptr[CSchema]& schema()
-
-    cdef cppclass CHivePartitionScheme "arrow::dataset::HivePartitionScheme"(CPartitionScheme):
-        CHivePartitionScheme(shared_ptr[CSchema] schema)
-        # vector[CUnconvertedKey] GetUnconvertedKeys(const c_string& path) const;
