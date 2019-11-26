@@ -411,7 +411,7 @@ class BufferedPageWriter : public PageWriter {
                      MemoryPool* pool = arrow::default_memory_pool(),
                      std::shared_ptr<Encryptor> meta_encryptor = nullptr,
                      std::shared_ptr<Encryptor> data_encryptor = nullptr)
-      : final_sink_(sink), metadata_(metadata) {
+      : final_sink_(sink), metadata_(metadata), has_dictionary_pages(false) {
     in_memory_sink_ = CreateOutputStream(pool);
     pager_ = std::unique_ptr<SerializedPageWriter>(new SerializedPageWriter(
         in_memory_sink_, codec, compression_level, metadata, row_group_ordinal,
@@ -419,6 +419,7 @@ class BufferedPageWriter : public PageWriter {
   }
 
   int64_t WriteDictionaryPage(const DictionaryPage& page) override {
+    has_dictionary_pages = true;
     return pager_->WriteDictionaryPage(page);
   }
 
@@ -426,10 +427,12 @@ class BufferedPageWriter : public PageWriter {
     // index_page_offset = -1 since they are not supported
     int64_t final_position = -1;
     PARQUET_THROW_NOT_OK(final_sink_->Tell(&final_position));
-    metadata_->Finish(
-        pager_->num_values(), pager_->dictionary_page_offset() + final_position, -1,
-        pager_->data_page_offset() + final_position, pager_->total_compressed_size(),
-        pager_->total_uncompressed_size(), has_dictionary, fallback);
+    auto dictionary_page_offset =
+        has_dictionary_pages ? pager_->dictionary_page_offset() + final_position : 0;
+    metadata_->Finish(pager_->num_values(), dictionary_page_offset, -1,
+                      pager_->data_page_offset() + final_position,
+                      pager_->total_compressed_size(), pager_->total_uncompressed_size(),
+                      has_dictionary, fallback);
 
     // Write metadata at end of column chunk
     metadata_->WriteTo(in_memory_sink_.get());
@@ -455,6 +458,7 @@ class BufferedPageWriter : public PageWriter {
   ColumnChunkMetaDataBuilder* metadata_;
   std::shared_ptr<arrow::io::BufferOutputStream> in_memory_sink_;
   std::unique_ptr<SerializedPageWriter> pager_;
+  bool has_dictionary_pages;
 };
 
 std::unique_ptr<PageWriter> PageWriter::Open(
