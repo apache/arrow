@@ -159,7 +159,8 @@ class SerializedPageWriter : public PageWriter {
         row_group_ordinal_(row_group_ordinal),
         column_ordinal_(column_chunk_ordinal),
         meta_encryptor_(meta_encryptor),
-        data_encryptor_(data_encryptor) {
+        data_encryptor_(data_encryptor),
+        encryption_buffer_(AllocateBuffer(pool, 0)) {
     if (data_encryptor_ != nullptr || meta_encryptor_ != nullptr) {
       InitEncryption();
     }
@@ -187,14 +188,13 @@ class SerializedPageWriter : public PageWriter {
     const uint8_t* output_data_buffer = compressed_data->data();
     int32_t output_data_len = static_cast<int32_t>(compressed_data->size());
 
-    std::shared_ptr<Buffer> encrypted_data_buffer;
     if (data_encryptor_.get()) {
       UpdateEncryption(encryption::kDictionaryPage);
-      encrypted_data_buffer = std::static_pointer_cast<ResizableBuffer>(AllocateBuffer(
-          pool_, data_encryptor_->CiphertextSizeDelta() + output_data_len));
+      PARQUET_THROW_NOT_OK(encryption_buffer_->Resize(
+          data_encryptor_->CiphertextSizeDelta() + output_data_len, false));
       output_data_len = data_encryptor_->Encrypt(compressed_data->data(), output_data_len,
-                                                 encrypted_data_buffer->mutable_data());
-      output_data_buffer = encrypted_data_buffer->data();
+                                                 encryption_buffer_->mutable_data());
+      output_data_buffer = encryption_buffer_->data();
     }
 
     format::PageHeader page_header;
@@ -274,14 +274,13 @@ class SerializedPageWriter : public PageWriter {
     const uint8_t* output_data_buffer = compressed_data->data();
     int32_t output_data_len = static_cast<int32_t>(compressed_data->size());
 
-    std::shared_ptr<ResizableBuffer> encrypted_data_buffer = AllocateBuffer(pool_, 0);
     if (data_encryptor_.get()) {
+      PARQUET_THROW_NOT_OK(encryption_buffer_->Resize(
+          data_encryptor_->CiphertextSizeDelta() + output_data_len, false));
       UpdateEncryption(encryption::kDataPage);
-      PARQUET_THROW_NOT_OK(encrypted_data_buffer->Resize(
-          data_encryptor_->CiphertextSizeDelta() + output_data_len));
       output_data_len = data_encryptor_->Encrypt(compressed_data->data(), output_data_len,
-                                                 encrypted_data_buffer->mutable_data());
-      output_data_buffer = encrypted_data_buffer->data();
+                                                 encryption_buffer_->mutable_data());
+      output_data_buffer = encryption_buffer_->data();
     }
 
     format::PageHeader page_header;
@@ -398,6 +397,8 @@ class SerializedPageWriter : public PageWriter {
 
   std::shared_ptr<Encryptor> meta_encryptor_;
   std::shared_ptr<Encryptor> data_encryptor_;
+
+  std::shared_ptr<ResizableBuffer> encryption_buffer_;
 };
 
 // This implementation of the PageWriter writes to the final sink on Close .
