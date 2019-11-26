@@ -278,6 +278,10 @@ if(ARROW_DATASET)
   set(ARROW_FILESYSTEM ON)
 endif()
 
+if(ARROW_PARQUET OR ARROW_PYTHON)
+  set(ARROW_COMPUTE ON)
+endif()
+
 if(MSVC)
   # ORC doesn't build on windows
   set(ARROW_ORC OFF)
