@@ -13,7 +13,7 @@ class ApacheArrow < Formula
   depends_on "grpc"
   depends_on "lz4"
   depends_on "numpy"
-  depends_on "openssl"
+  depends_on "openssl@1.1"
   depends_on "protobuf"
   depends_on "python"
   depends_on "rapidjson"
