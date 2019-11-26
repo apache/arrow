@@ -13,6 +13,12 @@ boost_build(
     name = "boost_filesystem",
     lib_source = "@boost//:all",
     static_libraries = ["libboost_filesystem.a"],
-    deps = [],
+    deps = [":boost_system"],
 )
 
+boost_build(
+    name = "boost_system",
+    lib_source = "@boost//:all",
+    static_libraries = ["libboost_system.a"],
+    deps = [],
+)
