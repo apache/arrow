@@ -1095,7 +1095,8 @@ macro(build_thrift)
 endmacro()
 
 if(ARROW_WITH_THRIFT)
-  resolve_dependency(Thrift)
+  # Parquet LogicalType requires Thrift union type support, which works well only since 0.10.0
+  resolve_dependency_with_version(Thrift 0.10.0)
   # TODO: Don't use global includes but rather target_include_directories
   include_directories(SYSTEM ${THRIFT_INCLUDE_DIR})
 
