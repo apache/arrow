@@ -49,14 +49,25 @@ class ARROW_EXPORT PathForest : public util::EqualityComparable<PathForest> {
 
   std::string ToString() const;
 
-  const FileStats& stats(int i) const { return stats_->at(offset_ + i); }
+  /// Reference to a node in the forest
+  struct Ref {
+    const FileStats& stats() const;
 
-  int num_descendants(int i) const { return descendant_counts_->at(offset_ + i); }
+    int num_descendants() const;
 
-  /// Returns a PathForest containing only nodes which are descendants of the node at i
-  PathForest DescendantsForest(int i) const {
-    return PathForest(offset_ + i + 1, num_descendants(i), stats_, descendant_counts_);
-  }
+    /// Returns a PathForest containing only nodes which are descendants of this node
+    PathForest descendants() const;
+
+    /// This node's parent or Ref{nullptr, 0} if this node has no parent
+    Ref parent() const;
+
+    const PathForest* forest;
+    int i;
+  };
+
+  Ref operator[](int i) const { return Ref{this, i}; }
+
+  std::vector<Ref> roots() const;
 
   enum { Continue, Prune };
   using MaybePrune = Result<decltype(Prune)>;
@@ -66,35 +77,30 @@ class ARROW_EXPORT PathForest : public util::EqualityComparable<PathForest> {
   /// first visitation order (useful for accessing parallel vectors of associated data).
   template <typename Visitor>
   Status Visit(Visitor&& v) const {
-    static std::is_same<decltype(v(std::declval<const FileStats>(), 0)), MaybePrune>
-        with_pruning;
+    static std::is_same<decltype(v(std::declval<Ref>())), MaybePrune> with_pruning;
     return VisitImpl(std::forward<Visitor>(v), with_pruning);
   }
 
  protected:
-  PathForest(std::shared_ptr<std::vector<FileStats>> stats,
-             std::shared_ptr<std::vector<int>> descendant_counts)
-      : offset_(0),
-        size_(static_cast<int>(stats->size())),
-        stats_(std::move(stats)),
-        descendant_counts_(std::move(descendant_counts)) {}
-
   PathForest(int offset, int size, std::shared_ptr<std::vector<FileStats>> stats,
-             std::shared_ptr<std::vector<int>> descendant_counts)
+             std::shared_ptr<std::vector<int>> descendant_counts,
+             std::shared_ptr<std::vector<int>> parents)
       : offset_(offset),
         size_(size),
         stats_(std::move(stats)),
-        descendant_counts_(std::move(descendant_counts)) {}
+        descendant_counts_(std::move(descendant_counts)),
+        parents_(std::move(parents)) {}
 
   /// \brief Visit with eager pruning.
   template <typename Visitor>
   Status VisitImpl(Visitor&& v, std::true_type) const {
     for (int i = 0; i < size_; ++i) {
-      ARROW_ASSIGN_OR_RAISE(auto action, v(stats(i), i));
+      Ref ref = {this, i};
+      ARROW_ASSIGN_OR_RAISE(auto action, v(ref));
 
       if (action == Prune) {
         // skip descendants
-        i += num_descendants(i);
+        i += ref.num_descendants();
       }
     }
 
@@ -103,15 +109,15 @@ class ARROW_EXPORT PathForest : public util::EqualityComparable<PathForest> {
 
   template <typename Visitor>
   Status VisitImpl(Visitor&& v, std::false_type) const {
-    return Visit([&](const FileStats& s, int i) -> MaybePrune {
-      RETURN_NOT_OK(v(s, i));
+    return Visit([&](Ref ref) -> MaybePrune {
+      RETURN_NOT_OK(v(ref));
       return Continue;
     });
   }
 
   int offset_, size_;
   std::shared_ptr<std::vector<FileStats>> stats_;
-  std::shared_ptr<std::vector<int>> descendant_counts_;
+  std::shared_ptr<std::vector<int>> descendant_counts_, parents_;
 };
 
 ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const PathForest& tree);

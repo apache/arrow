@@ -34,37 +34,8 @@ using testing::ContainerEq;
 namespace arrow {
 namespace fs {
 
-struct TreeRef {
-  const FileStats& stats;
-  PathForest descendants;
-
-  static std::vector<TreeRef> GetRoots(const PathForest& forest) {
-    std::vector<TreeRef> roots;
-    DCHECK_OK(forest.Visit([&](const FileStats& stats, int i) -> PathForest::MaybePrune {
-      roots.push_back({stats, forest.DescendantsForest(i)});
-      return PathForest::Prune;
-    }));
-    return roots;
-  }
-
-  friend std::ostream& operator<<(std::ostream& os, const TreeRef& tree) {
-    os << "TreeRef:";
-
-    auto visitor = [&](const fs::FileStats& stats, ...) {
-      auto segments = fs::internal::SplitAbstractPath(stats.path());
-      os << "\n" << stats.path();
-      return Status::OK();
-    };
-
-    DCHECK_OK(visitor(tree.stats));
-    DCHECK_OK(tree.descendants.Visit(visitor));
-
-    return os;
-  }
-};
-
 struct TestPathTree;
-bool operator==(const std::vector<TreeRef>& roots,
+bool operator==(const std::vector<PathForest::Ref>& roots,
                 const std::vector<TestPathTree>& test_trees);
 
 struct TestPathTree {
@@ -96,16 +67,16 @@ struct TestPathTree {
     return os;
   }
 
-  friend bool operator==(const TreeRef& actual, const TestPathTree& expected) {
-    if (actual.stats != expected.stats) {
+  friend bool operator==(PathForest::Ref actual, const TestPathTree& expected) {
+    if (actual.stats() != expected.stats) {
       return false;
     }
 
-    return TreeRef::GetRoots(actual.descendants) == expected.subtrees;
+    return actual.descendants().roots() == expected.subtrees;
   }
 };
 
-bool operator==(const std::vector<TreeRef>& roots,
+bool operator==(const std::vector<PathForest::Ref>& roots,
                 const std::vector<TestPathTree>& test_trees) {
   return roots.size() == test_trees.size() &&
          std::equal(roots.begin(), roots.end(), test_trees.begin());
@@ -115,8 +86,16 @@ using PT = TestPathTree;
 
 void AssertMakePathTree(std::vector<FileStats> stats, std::vector<PT> expected) {
   ASSERT_OK_AND_ASSIGN(auto forest, PathForest::Make(stats));
-  auto roots = TreeRef::GetRoots(forest);
-  EXPECT_EQ(roots, expected);
+  EXPECT_EQ(forest.roots(), expected);
+  ASSERT_OK(forest.Visit([](PathForest::Ref ref) {
+    auto p = ref.parent();
+    if (p.forest == nullptr) {
+      return Status::OK();
+    }
+
+    EXPECT_GE(p.i + p.num_descendants(), ref.i);
+    return Status::OK();
+  }));
 }
 
 TEST(TestPathTree, Basic) {
@@ -224,14 +203,14 @@ TEST(TestPathTree, Visit) {
   ASSERT_OK_AND_ASSIGN(auto forest, PathForest::Make({Dir("A"), File("A/a")}));
 
   // Should propagate failure
-  auto visit_noop = [](const FileStats&, ...) { return Status::OK(); };
+  auto visit_noop = [](PathForest::Ref) { return Status::OK(); };
   ASSERT_OK(forest.Visit(visit_noop));
-  auto visit_fail = [](const FileStats&, ...) { return Status::Invalid(""); };
+  auto visit_fail = [](PathForest::Ref) { return Status::Invalid(""); };
   ASSERT_RAISES(Invalid, forest.Visit(visit_fail));
 
   std::vector<FileStats> collection;
-  auto visit_collect = [&collection](const FileStats& f, ...) {
-    collection.push_back(f);
+  auto visit_collect = [&collection](PathForest::Ref ref) {
+    collection.push_back(ref.stats());
     return Status::OK();
   };
   ASSERT_OK(forest.Visit(visit_collect));
@@ -240,12 +219,12 @@ TEST(TestPathTree, Visit) {
   EXPECT_THAT(collection, ContainerEq(std::vector<FileStats>{Dir("A"), File("A/a")}));
 
   collection = {};
-  auto visit_collect_directories = [&collection](const FileStats& f,
-                                                 ...) -> PathForest::MaybePrune {
-    if (!f.IsDirectory()) {
+  auto visit_collect_directories =
+      [&collection](PathForest::Ref ref) -> PathForest::MaybePrune {
+    if (!ref.stats().IsDirectory()) {
       return PathForest::Prune;
     }
-    collection.push_back(f);
+    collection.push_back(ref.stats());
     return PathForest::Continue;
   };
   ASSERT_OK(forest.Visit(visit_collect_directories));

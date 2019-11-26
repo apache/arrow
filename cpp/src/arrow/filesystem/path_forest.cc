@@ -38,18 +38,23 @@ Result<PathForest> PathForest::Make(std::vector<FileStats> stats) {
       stats.begin(), stats.end(),
       [](const FileStats& lhs, const FileStats& rhs) { return lhs.path() < rhs.path(); });
 
-  std::vector<int> descendant_counts(stats.size(), 0);
+  int size = static_cast<int>(stats.size());
+  std::vector<int> descendant_counts(size, 0), parents(size, -1);
 
   std::stack<int> parent_stack;
   auto is_child_of_stack_top = [&](int i) {
     return internal::IsAncestorOf(stats[parent_stack.top()].path(), stats[i].path());
   };
 
-  for (int i = 0; i < static_cast<int>(stats.size()); ++i) {
+  for (int i = 0; i < size; ++i) {
     while (parent_stack.size() != 0 && !is_child_of_stack_top(i)) {
       // stats[parent_stack.top()] has no more descendants; finalize count
       descendant_counts[parent_stack.top()] = i - 1 - parent_stack.top();
       parent_stack.pop();
+    }
+
+    if (parent_stack.size() != 0) {
+      parents[i] = parent_stack.top();
     }
 
     parent_stack.push(i);
@@ -57,18 +62,17 @@ Result<PathForest> PathForest::Make(std::vector<FileStats> stats) {
 
   // finalize descendant_counts for anything left in the stack
   while (parent_stack.size() != 0) {
-    descendant_counts[parent_stack.top()] =
-        static_cast<int>(stats.size()) - 1 - parent_stack.top();
+    descendant_counts[parent_stack.top()] = size - 1 - parent_stack.top();
     parent_stack.pop();
   }
 
-  return PathForest(std::make_shared<std::vector<FileStats>>(std::move(stats)),
-                    std::make_shared<std::vector<int>>(std::move(descendant_counts)));
+  return PathForest(0, size, std::make_shared<std::vector<FileStats>>(std::move(stats)),
+                    std::make_shared<std::vector<int>>(std::move(descendant_counts)),
+                    std::make_shared<std::vector<int>>(std::move(parents)));
 }
 
 bool PathForest::Equals(const PathForest& other) const {
-  return size() == other.size() && *stats_ == *other.stats_ &&
-         *descendant_counts_ == *other.descendant_counts_;
+  return size() == other.size() && *stats_ == *other.stats_;
 }
 
 std::string PathForest::ToString() const {
@@ -77,14 +81,43 @@ std::string PathForest::ToString() const {
     return repr + " []";
   }
 
-  auto visitor = [&](const fs::FileStats& stats, int i) {
-    auto segments = fs::internal::SplitAbstractPath(stats.path());
-    repr += "\n" + stats.path();
+  DCHECK_OK(Visit([&](Ref ref) {
+    repr += "\n" + ref.stats().path();
     return Status::OK();
-  };
-
-  DCHECK_OK(Visit(visitor));
+  }));
   return repr;
+}
+
+const FileStats& PathForest::Ref::stats() const {
+  return forest->stats_->at(forest->offset_ + i);
+}
+
+int PathForest::Ref::num_descendants() const {
+  return forest->descendant_counts_->at(forest->offset_ + i);
+}
+
+PathForest PathForest::Ref::descendants() const {
+  return PathForest(forest->offset_ + i + 1, num_descendants(), forest->stats_,
+                    forest->descendant_counts_, forest->parents_);
+}
+
+PathForest::Ref PathForest::Ref::parent() const {
+  // XXX(bkietz) this doesn't *need* to be an explicit buffer
+  auto parent_i = forest->parents_->at(forest->offset_ + i);
+  if (parent_i < forest->offset_) {
+    return Ref{nullptr, 0};
+  }
+
+  return Ref{forest, parent_i};
+}
+
+std::vector<PathForest::Ref> PathForest::roots() const {
+  std::vector<Ref> roots;
+  DCHECK_OK(Visit([&](Ref ref) -> PathForest::MaybePrune {
+    roots.push_back(ref);
+    return PathForest::Prune;
+  }));
+  return roots;
 }
 
 std::ostream& operator<<(std::ostream& os, const PathForest& tree) {
