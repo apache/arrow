@@ -53,7 +53,7 @@ type Reader struct {
 	fieldConverter []func(field array.Builder, val string)
 
 	stringsCanBeNull bool
-	nullValues       []string
+	nulls            map[string]struct{}
 }
 
 // NewReader returns a reader that reads from the CSV file and creates
@@ -70,7 +70,7 @@ func NewReader(r io.Reader, schema *arrow.Schema, opts ...Option) *Reader {
 		refs:             1,
 		chunk:            1,
 		stringsCanBeNull: false,
-		nullValues:       []string{"", "NULL", "null"},
+		nulls:            make(map[string]struct{}),
 	}
 	rr.r.ReuseRecord = true
 	for _, opt := range opts {
@@ -247,12 +247,8 @@ func (r *Reader) validate(recs []string) {
 }
 
 func (r *Reader) isNull(val string) bool {
-	for _, ns := range r.nullValues {
-		if val == ns {
-			return true
-		}
-	}
-	return false
+	_, ok := r.nulls[val]
+	return ok
 }
 
 func (r *Reader) read(recs []string) {

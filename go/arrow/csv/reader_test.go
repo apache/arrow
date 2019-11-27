@@ -168,6 +168,8 @@ func TestCSVReader(t *testing.T) {
 	}
 }
 
+var defaultNullValues = []string{"", "NULL", "null", "N/A"}
+
 func testCSVReader(t *testing.T, filepath string, withHeader bool) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
@@ -198,7 +200,7 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool) {
 		csv.WithAllocator(mem),
 		csv.WithComment('#'), csv.WithComma(';'),
 		csv.WithHeader(withHeader),
-		csv.WithNullReader(true),
+		csv.WithNullReader(true, defaultNullValues...),
 	)
 	defer r.Release()
 
