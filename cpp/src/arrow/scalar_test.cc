@@ -68,7 +68,7 @@ TYPED_TEST(TestNumericScalar, Basics) {
   ASSERT_EQ(other_value, scalar_val->value);
   ASSERT_TRUE(scalar_other->Equals(scalar_val));
 
-  ScalarType stack_val = ScalarType(0, false);
+  ScalarType stack_val;
   ASSERT_FALSE(stack_val.is_valid);
 }
 
@@ -102,7 +102,7 @@ TEST(TestBinaryScalar, Basics) {
   base_ref = nullptr;
   ASSERT_EQ(ref_count, buf.use_count());
 
-  BinaryScalar null_value(nullptr, false);
+  BinaryScalar null_value;
   ASSERT_FALSE(null_value.is_valid);
 
   StringScalar value2(buf);
@@ -117,7 +117,7 @@ TEST(TestBinaryScalar, Basics) {
   // Same buffer, same type.
   ASSERT_TRUE(value2.Equals(value3));
 
-  StringScalar null_value2(nullptr, false);
+  StringScalar null_value2;
   ASSERT_FALSE(null_value2.is_valid);
 }
 
@@ -166,15 +166,14 @@ TEST(TestFixedSizeBinaryScalar, MakeScalar) {
 TEST(TestDateScalars, Basics) {
   int32_t i32_val = 1;
   Date32Scalar date32_val(i32_val);
-  Date32Scalar date32_null(i32_val, false);
-  ASSERT_EQ(i32_val, date32_val.value);
+  Date32Scalar date32_null;
   ASSERT_TRUE(date32_val.type->Equals(*date32()));
   ASSERT_TRUE(date32_val.is_valid);
   ASSERT_FALSE(date32_null.is_valid);
 
   int64_t i64_val = 2;
   Date64Scalar date64_val(i64_val);
-  Date64Scalar date64_null(i64_val, false);
+  Date64Scalar date64_null;
   ASSERT_EQ(i64_val, date64_val.value);
   ASSERT_TRUE(date64_val.type->Equals(*date64()));
   ASSERT_TRUE(date64_val.is_valid);
@@ -199,7 +198,7 @@ TEST(TestTimeScalars, Basics) {
 
   int32_t i32_val = 1;
   Time32Scalar time32_val(i32_val, type1);
-  Time32Scalar time32_null(i32_val, type2, false);
+  Time32Scalar time32_null(type2);
   ASSERT_EQ(i32_val, time32_val.value);
   ASSERT_TRUE(time32_val.type->Equals(*type1));
   ASSERT_TRUE(time32_val.is_valid);
@@ -208,7 +207,7 @@ TEST(TestTimeScalars, Basics) {
 
   int64_t i64_val = 2;
   Time64Scalar time64_val(i64_val, type3);
-  Time64Scalar time64_null(i64_val, type4, false);
+  Time64Scalar time64_null(type4);
   ASSERT_EQ(i64_val, time64_val.value);
   ASSERT_TRUE(time64_val.type->Equals(*type3));
   ASSERT_TRUE(time64_val.is_valid);
@@ -245,9 +244,8 @@ TEST(TestTimestampScalars, Basics) {
   int64_t val2 = 2;
   TimestampScalar ts_val1(val1, type1);
   TimestampScalar ts_val2(val2, type2);
-  TimestampScalar ts_null(val2, type1, false);
+  TimestampScalar ts_null(type1);
   ASSERT_EQ(val1, ts_val1.value);
-  ASSERT_EQ(val2, ts_null.value);
 
   ASSERT_TRUE(ts_val1.type->Equals(*type1));
   ASSERT_TRUE(ts_val2.type->Equals(*type2));
@@ -297,9 +295,8 @@ TEST(TestDurationScalars, Basics) {
   int64_t val2 = 2;
   DurationScalar ts_val1(val1, type1);
   DurationScalar ts_val2(val2, type2);
-  DurationScalar ts_null(val2, type1, false);
+  DurationScalar ts_null(type1);
   ASSERT_EQ(val1, ts_val1.value);
-  ASSERT_EQ(val2, ts_null.value);
 
   ASSERT_TRUE(ts_val1.type->Equals(*type1));
   ASSERT_TRUE(ts_val2.type->Equals(*type2));
@@ -319,9 +316,8 @@ TEST(TestMonthIntervalScalars, Basics) {
   int32_t val2 = 2;
   MonthIntervalScalar ts_val1(val1);
   MonthIntervalScalar ts_val2(val2);
-  MonthIntervalScalar ts_null(val2, false);
+  MonthIntervalScalar ts_null;
   ASSERT_EQ(val1, ts_val1.value);
-  ASSERT_EQ(val2, ts_null.value);
 
   ASSERT_TRUE(ts_val1.type->Equals(*type));
   ASSERT_TRUE(ts_val2.type->Equals(*type));
@@ -341,9 +337,8 @@ TEST(TestDayTimeIntervalScalars, Basics) {
   DayTimeIntervalType::DayMilliseconds val2 = {2, 2};
   DayTimeIntervalScalar ts_val1(val1);
   DayTimeIntervalScalar ts_val2(val2);
-  DayTimeIntervalScalar ts_null(val2, false);
+  DayTimeIntervalScalar ts_null;
   ASSERT_EQ(val1, ts_val1.value);
-  ASSERT_EQ(val2, ts_null.value);
 
   ASSERT_TRUE(ts_val1.type->Equals(*type));
   ASSERT_TRUE(ts_val2.type->Equals(*type));

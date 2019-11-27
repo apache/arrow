@@ -83,7 +83,8 @@ static Datum NaiveSum(const Array& array) {
   auto result = NaiveSumPartial<ArrowType>(array);
   bool is_valid = result.second > 0;
 
-  return Datum(std::make_shared<SumScalarType>(result.first, is_valid));
+  if (!is_valid) return Datum(std::make_shared<SumScalarType>());
+  return Datum(std::make_shared<SumScalarType>(result.first));
 }
 
 template <typename ArrowType>
@@ -115,11 +116,9 @@ TYPED_TEST(TestNumericSumKernel, SimpleSum) {
   using ScalarType = typename TypeTraits<SumType>::ScalarType;
   using T = typename TypeParam::c_type;
 
-  ValidateSum<TypeParam>(&this->ctx_, "[]",
-                         Datum(std::make_shared<ScalarType>(0, false)));
+  ValidateSum<TypeParam>(&this->ctx_, "[]", Datum(std::make_shared<ScalarType>()));
 
-  ValidateSum<TypeParam>(&this->ctx_, "[null]",
-                         Datum(std::make_shared<ScalarType>(0, false)));
+  ValidateSum<TypeParam>(&this->ctx_, "[null]", Datum(std::make_shared<ScalarType>()));
 
   ValidateSum<TypeParam>(&this->ctx_, "[0, 1, 2, 3, 4, 5]",
                          Datum(std::make_shared<ScalarType>(static_cast<T>(5 * 6 / 2))));
@@ -180,7 +179,8 @@ static Datum NaiveMean(const Array& array) {
                       static_cast<double>(result.second ? result.second : 1UL);
   const bool is_valid = result.second > 0;
 
-  return Datum(std::make_shared<MeanScalarType>(mean, is_valid));
+  if (!is_valid) return Datum(std::make_shared<MeanScalarType>());
+  return Datum(std::make_shared<MeanScalarType>(mean));
 }
 
 template <typename ArrowType>
@@ -210,11 +210,9 @@ TYPED_TEST_CASE(TestMeanKernelNumeric, NumericArrowTypes);
 TYPED_TEST(TestMeanKernelNumeric, SimpleMean) {
   using ScalarType = typename TypeTraits<DoubleType>::ScalarType;
 
-  ValidateMean<TypeParam>(&this->ctx_, "[]",
-                          Datum(std::make_shared<ScalarType>(0.0, false)));
+  ValidateMean<TypeParam>(&this->ctx_, "[]", Datum(std::make_shared<ScalarType>()));
 
-  ValidateMean<TypeParam>(&this->ctx_, "[null]",
-                          Datum(std::make_shared<ScalarType>(0.0, false)));
+  ValidateMean<TypeParam>(&this->ctx_, "[null]", Datum(std::make_shared<ScalarType>()));
 
   ValidateMean<TypeParam>(&this->ctx_, "[1, null, 1]",
                           Datum(std::make_shared<ScalarType>(1.0)));

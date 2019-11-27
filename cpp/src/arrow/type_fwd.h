@@ -158,45 +158,57 @@ _NUMERIC_TYPE_DECL(Double)
 
 #undef _NUMERIC_TYPE_DECL
 
-class Date64Type;
-using Date64Array = NumericArray<Date64Type>;
-using Date64Builder = NumericBuilder<Date64Type>;
-class Date64Scalar;
+template <typename TypeClass>
+struct TemporalScalar;
+
+template <typename T>
+struct DateScalar;
 
 class Date32Type;
 using Date32Array = NumericArray<Date32Type>;
 using Date32Builder = NumericBuilder<Date32Type>;
-class Date32Scalar;
+using Date32Scalar = DateScalar<Date32Type>;
+
+class Date64Type;
+using Date64Array = NumericArray<Date64Type>;
+using Date64Builder = NumericBuilder<Date64Type>;
+using Date64Scalar = DateScalar<Date64Type>;
+
+template <typename T>
+struct TimeScalar;
 
 class Time32Type;
 using Time32Array = NumericArray<Time32Type>;
 using Time32Builder = NumericBuilder<Time32Type>;
-class Time32Scalar;
+using Time32Scalar = TimeScalar<Time32Type>;
 
 class Time64Type;
 using Time64Array = NumericArray<Time64Type>;
 using Time64Builder = NumericBuilder<Time64Type>;
-class Time64Scalar;
+using Time64Scalar = TimeScalar<Time64Type>;
 
 class TimestampType;
 using TimestampArray = NumericArray<TimestampType>;
 using TimestampBuilder = NumericBuilder<TimestampType>;
-class TimestampScalar;
+using TimestampScalar = TemporalScalar<TimestampType>;
+
+template <typename TypeClass>
+struct IntervalScalar;
 
 class MonthIntervalType;
 using MonthIntervalArray = NumericArray<MonthIntervalType>;
 using MonthIntervalBuilder = NumericBuilder<MonthIntervalType>;
-class MonthIntervalScalar;
+using MonthIntervalScalar = IntervalScalar<MonthIntervalType>;
 
 class DayTimeIntervalType;
 class DayTimeIntervalArray;
 class DayTimeIntervalBuilder;
-class DayTimeIntervalScalar;
+using DayTimeIntervalScalar = IntervalScalar<DayTimeIntervalType>;
 
 class DurationType;
 using DurationArray = NumericArray<DurationType>;
 using DurationBuilder = NumericBuilder<DurationType>;
-class DurationScalar;
+using DurationScalar = TemporalScalar<DurationType>;
 
 class ExtensionType;
 class ExtensionArray;
