@@ -142,14 +142,8 @@ except ImportError:
     pass
 
 
-def pytest_configure(config):
-    for mark in groups:
-        config.addinivalue_line(
-            "markers", mark,
-        )
-
-
 def pytest_addoption(parser):
+    # Create options to selectively enable test groups
     def bool_env(name, default=None):
         value = os.environ.get(name.upper())
         if value is None:
@@ -171,46 +165,42 @@ def pytest_addoption(parser):
                              action='store_true', default=default,
                              help=('Enable the {} test group'.format(group)))
 
-        default = bool_env('PYARROW_TEST_DISABLE_{}'.format(group), False)
-        parser.addoption('--disable-{}'.format(group),
-                         action='store_true', default=default,
-                         help=('Disable the {} test group'.format(group)))
 
-        default = bool_env('PYARROW_TEST_ONLY_{}'.format(group), False)
-        parser.addoption('--only-{}'.format(group),
-                         action='store_true', default=default,
-                         help=('Run only the {} test group'.format(group)))
+class PyArrowConfig(object):
+    def __init__(self):
+        self.is_enabled = {}
+
+    def apply_mark(self, mark):
+        group = mark.name
+        if group in groups:
+            self.requires(group)
+
+    def requires(self, group):
+        if not self.is_enabled[group]:
+            pytest.skip('{0} NOT enabled'.format(group))
+
+
+def pytest_configure(config):
+    # Apply command-line options to initialize PyArrow-specific config object
+    config.pyarrow = PyArrowConfig()
+
+    for mark in groups:
+        config.addinivalue_line(
+            "markers", mark,
+        )
+
+        flag = '--{0}'.format(mark)
+        enable_flag = '--enable-{0}'.format(mark)
+
+        is_enabled = (config.getoption(flag) or
+                      config.getoption(enable_flag))
+        config.pyarrow.is_enabled[mark] = is_enabled
 
 
 def pytest_runtest_setup(item):
-    only_set = False
-
-    item_marks = {mark.name: mark for mark in item.iter_markers()}
-
-    for group in groups:
-        flag = '--{0}'.format(group)
-        only_flag = '--only-{0}'.format(group)
-        enable_flag = '--enable-{0}'.format(group)
-        disable_flag = '--disable-{0}'.format(group)
-
-        if item.config.getoption(only_flag):
-            only_set = True
-        elif group in item_marks:
-            is_enabled = (item.config.getoption(flag) or
-                          item.config.getoption(enable_flag))
-            is_disabled = item.config.getoption(disable_flag)
-            if is_disabled or not is_enabled:
-                pytest.skip('{0} NOT enabled'.format(flag))
-
-    if only_set:
-        skip_item = True
-        for group in groups:
-            only_flag = '--only-{0}'.format(group)
-            if group in item_marks and item.config.getoption(only_flag):
-                skip_item = False
-
-        if skip_item:
-            pytest.skip('Only running some groups with only flags')
+    # Apply test markers to skip tests selectively
+    for mark in item.iter_markers():
+        item.config.pyarrow.apply_mark(mark)
 
 
 @pytest.fixture
