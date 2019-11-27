@@ -269,73 +269,43 @@ func (r *Reader) initFieldConverter(field *arrow.Field) func(array.Builder, stri
 		}
 	case *arrow.Int8Type:
 		return func(field array.Builder, str string) {
-			v, null := r.parseInt(field, str, 8)
-			if !null {
-				field.(*array.Int8Builder).Append(int8(v))
-			}
+			r.parseInt8(field, str)
 		}
 	case *arrow.Int16Type:
 		return func(field array.Builder, str string) {
-			v, null := r.parseInt(field, str, 16)
-			if !null {
-				field.(*array.Int16Builder).Append(int16(v))
-			}
+			r.parseInt16(field, str)
 		}
 	case *arrow.Int32Type:
 		return func(field array.Builder, str string) {
-			v, null := r.parseInt(field, str, 32)
-			if !null {
-				field.(*array.Int32Builder).Append(int32(v))
-			}
+			r.parseInt32(field, str)
 		}
 	case *arrow.Int64Type:
 		return func(field array.Builder, str string) {
-			v, null := r.parseInt(field, str, 64)
-			if !null {
-				field.(*array.Int64Builder).Append(int64(v))
-			}
+			r.parseInt64(field, str)
 		}
 	case *arrow.Uint8Type:
 		return func(field array.Builder, str string) {
-			v, null := r.parseUint(field, str, 8)
-			if !null {
-				field.(*array.Uint8Builder).Append(uint8(v))
-			}
+			r.parseUint8(field, str)
 		}
 	case *arrow.Uint16Type:
 		return func(field array.Builder, str string) {
-			v, null := r.parseUint(field, str, 16)
-			if !null {
-				field.(*array.Uint16Builder).Append(uint16(v))
-			}
+			r.parseUint16(field, str)
 		}
 	case *arrow.Uint32Type:
 		return func(field array.Builder, str string) {
-			v, null := r.parseUint(field, str, 32)
-			if !null {
-				field.(*array.Uint32Builder).Append(uint32(v))
-			}
+			r.parseUint32(field, str)
 		}
 	case *arrow.Uint64Type:
 		return func(field array.Builder, str string) {
-			v, null := r.parseUint(field, str, 64)
-			if !null {
-				field.(*array.Uint64Builder).Append(uint64(v))
-			}
+			r.parseUint64(field, str)
 		}
 	case *arrow.Float32Type:
 		return func(field array.Builder, str string) {
-			v, null := r.parseFloat(field, str, 32)
-			if !null {
-				field.(*array.Float32Builder).Append(float32(v))
-			}
+			r.parseFloat32(field, str)
 		}
 	case *arrow.Float64Type:
 		return func(field array.Builder, str string) {
-			v, null := r.parseFloat(field, str, 64)
-			if !null {
-				field.(*array.Float64Builder).Append(float64(v))
-			}
+			r.parseFloat64(field, str)
 		}
 	case *arrow.StringType:
 		// specialize the implementation when we know we cannot have nulls
@@ -379,52 +349,163 @@ func (r *Reader) parseBool(field array.Builder, str string) {
 	field.(*array.BooleanBuilder).Append(v)
 }
 
-func (r *Reader) parseInt(field array.Builder, str string, width int) (int64, bool) {
+func (r *Reader) parseInt8(field array.Builder, str string) {
 	if r.isNull(str) {
 		field.AppendNull()
-		return 0, true
+		return
 	}
 
-	v, err := strconv.ParseInt(str, 10, width)
+	v, err := strconv.ParseInt(str, 10, 8)
 	if err != nil && r.err == nil {
 		r.err = err
 		field.AppendNull()
-		return 0, true
+		return
 	}
 
-	return v, false
+	field.(*array.Int8Builder).Append(int8(v))
 }
 
-func (r *Reader) parseUint(field array.Builder, str string, width int) (uint64, bool) {
+func (r *Reader) parseInt16(field array.Builder, str string) {
 	if r.isNull(str) {
 		field.AppendNull()
-		return 0, true
+		return
 	}
 
-	v, err := strconv.ParseUint(str, 10, width)
+	v, err := strconv.ParseInt(str, 10, 16)
 	if err != nil && r.err == nil {
 		r.err = err
 		field.AppendNull()
-		return 0, true
+		return
 	}
 
-	return v, false
+	field.(*array.Int16Builder).Append(int16(v))
 }
 
-func (r *Reader) parseFloat(field array.Builder, str string, width int) (float64, bool) {
+func (r *Reader) parseInt32(field array.Builder, str string) {
 	if r.isNull(str) {
 		field.AppendNull()
-		return 0.0, true
+		return
 	}
 
-	v, err := strconv.ParseFloat(str, width)
+	v, err := strconv.ParseInt(str, 10, 32)
 	if err != nil && r.err == nil {
 		r.err = err
 		field.AppendNull()
-		return 0.0, true
+		return
 	}
 
-	return v, false
+	field.(*array.Int32Builder).Append(int32(v))
+}
+
+func (r *Reader) parseInt64(field array.Builder, str string) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+
+	v, err := strconv.ParseInt(str, 10, 64)
+	if err != nil && r.err == nil {
+		r.err = err
+		field.AppendNull()
+		return
+	}
+
+	field.(*array.Int64Builder).Append(v)
+}
+
+func (r *Reader) parseUint8(field array.Builder, str string) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+
+	v, err := strconv.ParseUint(str, 10, 8)
+	if err != nil && r.err == nil {
+		r.err = err
+		field.AppendNull()
+		return
+	}
+
+	field.(*array.Uint8Builder).Append(uint8(v))
+}
+
+func (r *Reader) parseUint16(field array.Builder, str string) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+
+	v, err := strconv.ParseUint(str, 10, 16)
+	if err != nil && r.err == nil {
+		r.err = err
+		field.AppendNull()
+		return
+	}
+
+	field.(*array.Uint16Builder).Append(uint16(v))
+}
+
+func (r *Reader) parseUint32(field array.Builder, str string) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+
+	v, err := strconv.ParseUint(str, 10, 32)
+	if err != nil && r.err == nil {
+		r.err = err
+		field.AppendNull()
+		return
+	}
+
+	field.(*array.Uint32Builder).Append(uint32(v))
+}
+
+func (r *Reader) parseUint64(field array.Builder, str string) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+
+	v, err := strconv.ParseUint(str, 10, 64)
+	if err != nil && r.err == nil {
+		r.err = err
+		field.AppendNull()
+		return
+	}
+
+	field.(*array.Uint64Builder).Append(v)
+}
+
+func (r *Reader) parseFloat32(field array.Builder, str string) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+
+	v, err := strconv.ParseFloat(str, 32)
+	if err != nil && r.err == nil {
+		r.err = err
+		field.AppendNull()
+		return
+	}
+	field.(*array.Float32Builder).Append(float32(v))
+
+}
+
+func (r *Reader) parseFloat64(field array.Builder, str string) {
+	if r.isNull(str) {
+		field.AppendNull()
+		return
+	}
+
+	v, err := strconv.ParseFloat(str, 64)
+	if err != nil && r.err == nil {
+		r.err = err
+		field.AppendNull()
+		return
+	}
+	field.(*array.Float64Builder).Append(v)
 }
 
 // Retain increases the reference count by 1.
