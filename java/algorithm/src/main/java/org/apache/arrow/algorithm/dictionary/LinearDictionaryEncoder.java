@@ -68,7 +68,7 @@ public class LinearDictionaryEncoder<E extends BaseIntVector, D extends ValueVec
     this.encodeNull = encodeNull;
 
     // temporarily set left and right vectors to dictionary
-    equalizer = new RangeEqualsVisitor(dictionary, dictionary, false);
+    equalizer = new RangeEqualsVisitor(dictionary, dictionary, null);
     range = new Range(0, 0, 1);
   }
 

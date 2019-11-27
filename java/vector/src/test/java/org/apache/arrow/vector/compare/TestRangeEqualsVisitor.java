@@ -288,8 +288,8 @@ public class TestRangeEqualsVisitor {
     try (final IntVector intVector = new IntVector("int", allocator);
          final ZeroVector zeroVector = new ZeroVector()) {
 
-      assertTrue(VectorEqualsVisitor.vectorEquals(intVector, zeroVector, false));
-      assertTrue(VectorEqualsVisitor.vectorEquals(zeroVector, intVector, false));
+      assertTrue(VectorEqualsVisitor.vectorEquals(intVector, zeroVector, null));
+      assertTrue(VectorEqualsVisitor.vectorEquals(zeroVector, intVector, null));
     }
   }
 

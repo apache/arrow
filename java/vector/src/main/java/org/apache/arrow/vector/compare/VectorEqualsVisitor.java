@@ -25,41 +25,32 @@ import org.apache.arrow.vector.ValueVector;
 public class VectorEqualsVisitor {
 
   /**
-   * Checks if two vectors are equals.
+   * Checks if two vectors are equals with default type visitor.
    * @param left the left vector to compare.
    * @param right the right vector to compare.
    * @return true if the vectors are equal, and false otherwise.
    */
   public static boolean vectorEquals(ValueVector left, ValueVector right) {
-    return vectorEquals(left, right, true);
-  }
-
-  /**
-   * Checks if two vectors are equals.
-   */
-  public static boolean vectorEquals(ValueVector left, ValueVector right, boolean checkType) {
-    return vectorEquals(left, right, checkType, new TypeEqualsVisitor(right));
+    return vectorEquals(left, right, new TypeEqualsVisitor(right));
   }
 
   /**
    * Checks if two vectors are equals.
    * @param left the left vector to compare.
    * @param right the right vector to compare.
-   * @param checkType whether need check equality of types
-   * @param typeVisitor type visitor to compare vector fields
+   * @param typeVisitor type visitor to compare vector fields, null indicates no need to check type.
    * @return true if the vectors are equal, and false otherwise.
    */
   public static boolean vectorEquals(
       ValueVector left,
       ValueVector right,
-      boolean checkType,
       TypeEqualsVisitor typeVisitor) {
 
     if (left.getValueCount() != right.getValueCount()) {
       return false;
     }
 
-    RangeEqualsVisitor visitor = new RangeEqualsVisitor(left, right, checkType, typeVisitor);
+    RangeEqualsVisitor visitor = new RangeEqualsVisitor(left, right, typeVisitor);
     return visitor.rangeEquals(new Range(0, 0, left.getValueCount()));
   }
 }
