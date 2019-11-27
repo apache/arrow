@@ -82,10 +82,8 @@ timestamp_types = st.builds(
     unit=st.sampled_from(['s', 'ms', 'us', 'ns']),
     tz=tzst.timezones()
 )
-duration_types = st.builds(
-    pa.duration,
-    unit=st.sampled_from(['s', 'ms', 'us', 'ns'])
-)
+duration_types = st.sampled_from([
+    pa.duration(unit) for unit in ['s', 'ms', 'us', 'ns']])
 temporal_types = st.one_of(
     date_types, time_types, timestamp_types, duration_types)
 

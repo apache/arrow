@@ -61,9 +61,9 @@ def subtree_localfs(request, tempdir, localfs):
     )
 
 
-@pytest.mark.s3
 @pytest.fixture
 def s3fs(request, minio_server):
+    request.config.pyarrow.requires('s3')
     from pyarrow.s3fs import S3Options, S3FileSystem
 
     address, access_key, secret_key = minio_server
@@ -113,10 +113,6 @@ def subtree_s3fs(request, s3fs):
         pytest.lazy_fixture('s3fs'),
         id='S3FileSystem'
     ),
-    pytest.param(
-        pytest.lazy_fixture('subtree_s3fs'),
-        id='SubTreeFileSystem(S3FileSystem())'
-    )
 ])
 def filesystem_config(request):
     return request.param
