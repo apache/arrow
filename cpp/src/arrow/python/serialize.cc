@@ -663,6 +663,9 @@ Status CountSparseTensors(
       case SparseTensorFormat::CSR:
         ++num_csr;
         break;
+      case SparseTensorFormat::CSC:
+        // TODO(mrkn): support csc
+        break;
     }
   }
 

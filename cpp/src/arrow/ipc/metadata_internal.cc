@@ -992,7 +992,7 @@ Status MakeSparseMatrixIndexCSR(FBB& fbb, const SparseCSRIndex& sparse_index,
                                 const std::vector<BufferMetadata>& buffers,
                                 flatbuf::SparseTensorIndex* fb_sparse_index_type,
                                 Offset* fb_sparse_index, size_t* num_buffers) {
-  *fb_sparse_index_type = flatbuf::SparseTensorIndex_SparseMatrixIndexCSR;
+  *fb_sparse_index_type = flatbuf::SparseTensorIndex_SparseMatrixIndexCSX;
 
   // We assume that the value type of indptr tensor is an integer.
   const auto& indptr_value_type =
@@ -1012,8 +1012,9 @@ Status MakeSparseMatrixIndexCSR(FBB& fbb, const SparseCSRIndex& sparse_index,
   const BufferMetadata& indices_metadata = buffers[1];
   flatbuf::Buffer indices(indices_metadata.offset, indices_metadata.length);
 
-  *fb_sparse_index = flatbuf::CreateSparseMatrixIndexCSR(fbb, indptr_type_offset, &indptr,
-                                                         indices_type_offset, &indices)
+  *fb_sparse_index = flatbuf::CreateSparseMatrixIndexCSX(
+                         fbb, flatbuf::SparseMatrixCompressedAxis_Row, indptr_type_offset,
+                         &indptr, indices_type_offset, &indices)
                          .Union();
   *num_buffers = 2;
   return Status::OK();
@@ -1225,7 +1226,7 @@ Status GetSparseCOOIndexMetadata(const flatbuf::SparseTensorIndexCOO* sparse_ind
   return IntFromFlatbuffer(sparse_index->indicesType(), indices_type);
 }
 
-Status GetSparseCSRIndexMetadata(const flatbuf::SparseMatrixIndexCSR* sparse_index,
+Status GetSparseCSXIndexMetadata(const flatbuf::SparseMatrixIndexCSX* sparse_index,
                                  std::shared_ptr<DataType>* indptr_type,
                                  std::shared_ptr<DataType>* indices_type) {
   RETURN_NOT_OK(IntFromFlatbuffer(sparse_index->indptrType(), indptr_type));
@@ -1276,9 +1277,21 @@ Status GetSparseTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>
         *sparse_tensor_format_id = SparseTensorFormat::COO;
         break;
 
-      case flatbuf::SparseTensorIndex_SparseMatrixIndexCSR:
-        *sparse_tensor_format_id = SparseTensorFormat::CSR;
-        break;
+      case flatbuf::SparseTensorIndex_SparseMatrixIndexCSX: {
+        auto cs = sparse_tensor->sparseIndex_as_SparseMatrixIndexCSX();
+        switch (cs->compressedAxis()) {
+          case flatbuf::SparseMatrixCompressedAxis_Row:
+            *sparse_tensor_format_id = SparseTensorFormat::CSR;
+            break;
+
+          case flatbuf::SparseMatrixCompressedAxis_Column:
+            *sparse_tensor_format_id = SparseTensorFormat::CSC;
+            break;
+
+          default:
+            return Status::Invalid("Invalid value of SparseMatrixCompressedAxis");
+        }
+      } break;
 
       default:
         return Status::Invalid("Unrecognized sparse index type");

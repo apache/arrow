@@ -337,7 +337,7 @@ Status MakeSparseTensorFromTensor(const Tensor& tensor,
                                                          pool);
   RETURN_NOT_OK(converter.Convert());
 
-  *out_sparse_index = converter.sparse_index;
+  *out_sparse_index = checked_pointer_cast<SparseIndex>(converter.sparse_index);
   *out_data = converter.data;
   return Status::OK();
 }
@@ -445,6 +445,10 @@ Status MakeTensorFromSparseTensor(MemoryPool* pool, const SparseTensor* sparse_t
       *out = std::make_shared<Tensor>(sparse_tensor->type(), values_buffer,
                                       sparse_tensor->shape());
       return Status::OK();
+    }
+
+    case SparseTensorFormat::CSC: {
+      return Status::NotImplemented("CSC format is not implemented yet");
     }
   }
   return Status::NotImplemented("Unsupported SparseIndex format type");
@@ -564,64 +568,40 @@ SparseCOOIndex::SparseCOOIndex(const std::shared_ptr<Tensor>& coords)
 std::string SparseCOOIndex::ToString() const { return std::string("SparseCOOIndex"); }
 
 // ----------------------------------------------------------------------
-// SparseCSRIndex
+// SparseCSXIndex
 
-namespace {
+namespace internal {
 
-inline Status CheckSparseCSRIndexValidity(const std::shared_ptr<DataType>& indptr_type,
-                                          const std::shared_ptr<DataType>& indices_type,
-                                          const std::vector<int64_t>& indptr_shape,
-                                          const std::vector<int64_t>& indices_shape) {
+Status ValidateSparseCSXIndex(const std::shared_ptr<DataType>& indptr_type,
+                              const std::shared_ptr<DataType>& indices_type,
+                              const std::vector<int64_t>& indptr_shape,
+                              const std::vector<int64_t>& indices_shape,
+                              char const* type_name) {
   if (!is_integer(indptr_type->id())) {
-    return Status::Invalid("Type of SparseCSRIndex indptr must be integer");
+    return Status::Invalid("Type of ", type_name, " indptr must be integer");
   }
   if (indptr_shape.size() != 1) {
-    return Status::Invalid("SparseCSRIndex indptr must be a vector");
+    return Status::Invalid(type_name, " indptr must be a vector");
   }
   if (!is_integer(indices_type->id())) {
-    return Status::Invalid("Type of SparseCSRIndex indices must be integer");
+    return Status::Invalid("Type of ", type_name, " indices must be integer");
   }
   if (indices_shape.size() != 1) {
-    return Status::Invalid("SparseCSRIndex indices must be a vector");
+    return Status::Invalid(type_name, " indices must be a vector");
   }
   return Status::OK();
 }
 
-}  // namespace
-
-Result<std::shared_ptr<SparseCSRIndex>> SparseCSRIndex::Make(
-    const std::shared_ptr<DataType>& indptr_type,
-    const std::shared_ptr<DataType>& indices_type,
-    const std::vector<int64_t>& indptr_shape, const std::vector<int64_t>& indices_shape,
-    std::shared_ptr<Buffer> indptr_data, std::shared_ptr<Buffer> indices_data) {
-  RETURN_NOT_OK(CheckSparseCSRIndexValidity(indptr_type, indices_type, indptr_shape,
-                                            indices_shape));
-  return std::make_shared<SparseCSRIndex>(
-      std::make_shared<Tensor>(indptr_type, indptr_data, indptr_shape),
-      std::make_shared<Tensor>(indices_type, indices_data, indices_shape));
+void CheckSparseCSXIndexValidity(const std::shared_ptr<DataType>& indptr_type,
+                                 const std::shared_ptr<DataType>& indices_type,
+                                 const std::vector<int64_t>& indptr_shape,
+                                 const std::vector<int64_t>& indices_shape,
+                                 char const* type_name) {
+  ARROW_CHECK_OK(ValidateSparseCSXIndex(indptr_type, indices_type, indptr_shape,
+                                        indices_shape, type_name));
 }
 
-Result<std::shared_ptr<SparseCSRIndex>> SparseCSRIndex::Make(
-    const std::shared_ptr<DataType>& indptr_type,
-    const std::shared_ptr<DataType>& indices_type, const std::vector<int64_t>& shape,
-    int64_t non_zero_length, std::shared_ptr<Buffer> indptr_data,
-    std::shared_ptr<Buffer> indices_data) {
-  std::vector<int64_t> indptr_shape({shape[0] + 1});
-  std::vector<int64_t> indices_shape({non_zero_length});
-  return Make(indptr_type, indices_type, indptr_shape, indices_shape, indptr_data,
-              indices_data);
-}
-
-// Constructor with two index vectors
-SparseCSRIndex::SparseCSRIndex(const std::shared_ptr<Tensor>& indptr,
-                               const std::shared_ptr<Tensor>& indices)
-    : SparseIndexBase(indices->shape()[0]), indptr_(indptr), indices_(indices) {
-  ARROW_CHECK(CheckSparseCSRIndexValidity(indptr_->type(), indices_->type(),
-                                          indptr_->shape(), indices_->shape())
-                  .ok());
-}
-
-std::string SparseCSRIndex::ToString() const { return std::string("SparseCSRIndex"); }
+}  // namespace internal
 
 // ----------------------------------------------------------------------
 // SparseTensor
