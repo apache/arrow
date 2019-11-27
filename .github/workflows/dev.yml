@@ -53,7 +53,6 @@ jobs:
   release:
     name: Source Release
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
     env:
       GIT_AUTHOR_NAME: Github Actions
       GIT_AUTHOR_EMAIL: github@actions
