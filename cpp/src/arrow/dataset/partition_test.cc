@@ -52,8 +52,23 @@ class TestPartitionScheme : public ::testing::Test {
     AssertParse(path, expected.Copy());
   }
 
+  void AssertInspect(const fs::FileStatsVector& stats,
+                     const std::vector<std::shared_ptr<Field>>& expected) {
+    ASSERT_OK_AND_ASSIGN(auto actual, discovery_->Inspect(stats));
+    ASSERT_EQ(*actual, Schema(expected));
+  }
+
  protected:
+  static std::shared_ptr<Field> Int(std::string name) {
+    return field(std::move(name), int32());
+  }
+
+  static std::shared_ptr<Field> Str(std::string name) {
+    return field(std::move(name), utf8());
+  }
+
   PartitionSchemePtr scheme_;
+  PartitionSchemeDiscoveryPtr discovery_;
 };
 
 TEST_F(TestPartitionScheme, SegmentDictionary) {
@@ -71,7 +86,8 @@ TEST_F(TestPartitionScheme, SegmentDictionary) {
   add_expr("?", "beta"_ == "what", &beta_dict);
   add_expr("!", "beta"_ == "OH", &beta_dict);
 
-  scheme_.reset(new SegmentDictionaryPartitionScheme({alpha_dict, beta_dict}));
+  scheme_.reset(new SegmentDictionaryPartitionScheme(
+      schema({field("alpha", int32()), field("beta", utf8())}), {alpha_dict, beta_dict}));
 
   AssertParse("/one/?", "alpha"_ == int32_t(1) and "beta"_ == "what");
   AssertParse("/one/?/---", "alpha"_ == int32_t(1) and "beta"_ == "what");
@@ -99,6 +115,28 @@ TEST_F(TestPartitionScheme, Schema) {
   AssertParse("/0/foo/ignored=2341", "alpha"_ == int32_t(0) and "beta"_ == "foo");
 }
 
+TEST_F(TestPartitionScheme, DiscoverSchema) {
+  discovery_ = SchemaPartitionScheme::MakeDiscovery("/base_dir", {"alpha", "beta"});
+
+  // type is int32 if possibe
+  AssertInspect({fs::File("/base_dir/0/1")}, {Int("beta"), Int("alpha")});
+
+  // extra segments are ignored
+  AssertInspect({fs::File("/base_dir/0/1/what")}, {Int("beta"), Int("alpha")});
+
+  // outside base_dir is ignored
+  AssertInspect({fs::File("/what"), fs::File("/base_dir/0/1")},
+                {Int("beta"), Int("alpha")});
+
+  // fall back to string if any segment for field alpha is not parseable as int
+  AssertInspect({fs::File("/base_dir/0/1"), fs::File("/base_dir/hello/1")},
+                {Int("beta"), Str("alpha")});
+
+  // missing segment for beta doesn't cause an error or fallback
+  AssertInspect({fs::File("/base_dir/0/1"), fs::File("/base_dir/hello")},
+                {Int("beta"), Str("alpha")});
+}
+
 TEST_F(TestPartitionScheme, Hive) {
   scheme_ = std::make_shared<HivePartitionScheme>(
       schema({field("alpha", int32()), field("beta", float32())}));
@@ -120,6 +158,22 @@ TEST_F(TestPartitionScheme, Hive) {
   AssertParseError("/alpha=0.0/beta=3.25");  // conversion of "0.0" to int32 fails
 }
 
+TEST_F(TestPartitionScheme, DiscoverHiveSchema) {
+  discovery_ = HivePartitionScheme::MakeDiscovery("/base_dir");
+
+  // type is int32 if possibe
+  AssertInspect({fs::File("/base_dir/alpha=0/beta=1")}, {Int("beta"), Int("alpha")});
+
+  // extra segments are ignored
+  AssertInspect({fs::File("/base_dir/gamma=0/unexpected/delta=1/dat.parquet")},
+                {Int("delta"), Int("gamma")});
+
+  // order doesn't matter
+  AssertInspect({fs::File("/base_dir/alpha=0/beta=1"),
+                 fs::File("/base_dir/beta=2/alpha=3"), fs::File("/base_dir/gamma=what")},
+                {Str("gamma"), Int("alpha"), Int("beta")});
+}
+
 TEST_F(TestPartitionScheme, EtlThenHive) {
   SchemaPartitionScheme etl_scheme(schema({field("year", int16()), field("month", int8()),
                                            field("day", int8()), field("hour", int8())}));
@@ -127,6 +181,8 @@ TEST_F(TestPartitionScheme, EtlThenHive) {
       schema({field("alpha", int32()), field("beta", float32())}));
 
   scheme_ = std::make_shared<FunctionPartitionScheme>(
+      schema({field("year", int16()), field("month", int8()), field("day", int8()),
+              field("hour", int8()), field("alpha", int32()), field("beta", float32())}),
       [&](const std::string& segment, int i) -> Result<ExpressionPtr> {
         if (i < etl_scheme.schema()->num_fields()) {
           return etl_scheme.Parse(segment, i);
@@ -148,6 +204,7 @@ TEST_F(TestPartitionScheme, Set) {
   // An adhoc partition scheme which parses segments like "/x in [1 4 5]"
   // into ("x"_ == 1 or "x"_ == 4 or "x"_ == 5)
   scheme_ = std::make_shared<FunctionPartitionScheme>(
+      schema({field("x", int32())}),
       [](const std::string& segment, int) -> Result<ExpressionPtr> {
         std::smatch matches;
 

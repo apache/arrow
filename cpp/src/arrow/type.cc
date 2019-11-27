@@ -924,6 +924,8 @@ std::string Schema::ComputeMetadataFingerprint() const {
   return ss.str();
 }
 
+void PrintTo(const Schema& s, std::ostream* os) { *os << s; }
+
 std::string DataType::ComputeFingerprint() const {
   // Default implementation returns empty string, signalling non-implemented
   // functionality.

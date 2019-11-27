@@ -296,7 +296,7 @@ class MaybeMapIterator {
   explicit MaybeMapIterator(Fn map, Iterator<I> it) : map_(map), it_(std::move(it)) {}
 
   Status Next(O* out) {
-    I i;
+    I i = IterationTraits<I>::End();
 
     ARROW_RETURN_NOT_OK(it_.Next(&i));
     if (i == IterationTraits<I>::End()) {
@@ -337,7 +337,7 @@ class FilterIterator {
   Status Next(O* out) {
     bool accept = true;
     do {
-      I i;
+      I i = IterationTraits<I>::End();
 
       ARROW_RETURN_NOT_OK(it_.Next(&i));
       if (i == IterationTraits<I>::End()) {

@@ -19,7 +19,9 @@
 
 #include <algorithm>
 #include <memory>
+#include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/scanner.h"
@@ -49,6 +51,8 @@ Result<ExpressionPtr> PartitionScheme::Parse(const std::string& path) const {
 
 class DefaultPartitionScheme : public PartitionScheme {
  public:
+  DefaultPartitionScheme() : PartitionScheme(::arrow::schema({})) {}
+
   std::string name() const override { return "default_partition_scheme"; }
 
   Result<ExpressionPtr> Parse(const std::string& segment, int i) const override {
@@ -59,6 +63,8 @@ class DefaultPartitionScheme : public PartitionScheme {
 PartitionSchemePtr PartitionScheme::Default() {
   return std::make_shared<DefaultPartitionScheme>();
 }
+
+PartitionSchemeDiscovery::PartitionSchemeDiscovery() : schema_(::arrow::schema({})) {}
 
 Result<ExpressionPtr> SegmentDictionaryPartitionScheme::Parse(const std::string& segment,
                                                               int i) const {
@@ -102,8 +108,72 @@ util::optional<PartitionKeysScheme::Key> SchemaPartitionScheme::ParseKey(
   return Key{schema_->field(i)->name(), segment};
 }
 
+inline bool AllIntegral(const std::vector<std::string>& reprs) {
+  return std::all_of(reprs.begin(), reprs.end(), [](util::string_view repr) {
+    // TODO(bkietz) use ParseUnsigned or so
+    return repr.find_first_not_of("0123456789") == util::string_view::npos;
+  });
+}
+
+inline std::shared_ptr<Schema> InferSchema(
+    const std::unordered_map<std::string, std::vector<std::string>>& name_to_values) {
+  std::vector<std::shared_ptr<Field>> fields(name_to_values.size());
+
+  size_t field_index = 0;
+  for (const auto& name_values : name_to_values) {
+    auto type = AllIntegral(name_values.second) ? int32() : utf8();
+    fields[field_index++] = field(name_values.first, type);
+  }
+  return ::arrow::schema(std::move(fields));
+}
+
+class SchemaPartitionSchemeDiscovery : public PartitionSchemeDiscovery {
+ public:
+  SchemaPartitionSchemeDiscovery(std::string partition_base_dir,
+                                 std::vector<std::string> field_names)
+      : partition_base_dir_(std::move(partition_base_dir)),
+        field_names_(std::move(field_names)) {}
+
+  Result<std::shared_ptr<Schema>> Inspect(
+      const fs::FileStatsVector& stats) const override {
+    std::unordered_map<std::string, std::vector<std::string>> name_to_values;
+
+    for (const auto& stats : stats) {
+      if (!fs::internal::IsAncestorOf(partition_base_dir_, stats.path())) {
+        continue;
+      }
+
+      auto segments = fs::internal::SplitAbstractPath(
+          stats.path().substr(partition_base_dir_.size()));
+
+      size_t field_index = 0;
+      for (auto&& segment : segments) {
+        if (field_index == field_names_.size()) break;
+
+        name_to_values[field_names_[field_index++]].push_back(std::move(segment));
+      }
+    }
+
+    return InferSchema(name_to_values);
+  }
+
+  Result<PartitionSchemePtr> Finish() const override {
+    return PartitionSchemePtr(new SchemaPartitionScheme(schema_));
+  }
+
+ private:
+  std::string partition_base_dir_;
+  std::vector<std::string> field_names_;
+};
+
+PartitionSchemeDiscoveryPtr SchemaPartitionScheme::MakeDiscovery(
+    std::string partition_base_dir, std::vector<std::string> field_names) {
+  return PartitionSchemeDiscoveryPtr(new SchemaPartitionSchemeDiscovery(
+      std::move(partition_base_dir), std::move(field_names)));
+}
+
 util::optional<PartitionKeysScheme::Key> HivePartitionScheme::ParseKey(
-    const std::string& segment, int) const {
+    const std::string& segment) {
   static std::regex hive_style("^([^=]+)=(.*)$");
 
   std::smatch matches;
@@ -112,6 +182,47 @@ util::optional<PartitionKeysScheme::Key> HivePartitionScheme::ParseKey(
   }
 
   return Key{matches[1].str(), matches[2].str()};
+}
+
+class HivePartitionSchemeDiscovery : public PartitionSchemeDiscovery {
+ public:
+  HivePartitionSchemeDiscovery(std::string partition_base_dir)
+      : partition_base_dir_(std::move(partition_base_dir)) {}
+
+  Result<std::shared_ptr<Schema>> Inspect(
+      const fs::FileStatsVector& stats) const override {
+    std::unordered_map<std::string, std::vector<std::string>> name_to_values;
+
+    for (const auto& stats : stats) {
+      if (!fs::internal::IsAncestorOf(partition_base_dir_, stats.path())) {
+        continue;
+      }
+
+      auto segments = fs::internal::SplitAbstractPath(
+          stats.path().substr(partition_base_dir_.size()));
+
+      for (const auto& segment : segments) {
+        if (auto key = HivePartitionScheme::ParseKey(segment)) {
+          name_to_values[key->name].push_back(std::move(key->value));
+        }
+      }
+    }
+
+    return InferSchema(name_to_values);
+  }
+
+  Result<PartitionSchemePtr> Finish() const override {
+    return PartitionSchemePtr(new SchemaPartitionScheme(schema_));
+  }
+
+ private:
+  std::string partition_base_dir_;
+};
+
+PartitionSchemeDiscoveryPtr HivePartitionScheme::MakeDiscovery(
+    std::string partition_base_dir) {
+  return PartitionSchemeDiscoveryPtr(
+      new HivePartitionSchemeDiscovery(std::move(partition_base_dir)));
 }
 
 }  // namespace dataset

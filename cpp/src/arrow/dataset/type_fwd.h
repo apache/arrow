@@ -77,13 +77,11 @@ class ScalarExpression;
 class FieldReferenceExpression;
 class ExpressionEvaluator;
 
-class Partition;
-using PartitionPtr = std::shared_ptr<Partition>;
-using PartitionVector = std::vector<PartitionPtr>;
-using PartitionIterator = Iterator<PartitionPtr>;
-
 class PartitionScheme;
 using PartitionSchemePtr = std::shared_ptr<PartitionScheme>;
+
+class PartitionSchemeDiscovery;
+using PartitionSchemeDiscoveryPtr = std::shared_ptr<PartitionSchemeDiscovery>;
 
 struct ScanContext;
 using ScanContextPtr = std::shared_ptr<ScanContext>;

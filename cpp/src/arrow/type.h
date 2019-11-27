@@ -1378,6 +1378,8 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   std::string ComputeMetadataFingerprint() const override;
 
  private:
+  friend void PrintTo(const Schema& s, std::ostream* os);
+
   class Impl;
   std::unique_ptr<Impl> impl_;
 };

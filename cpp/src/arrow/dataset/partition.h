@@ -76,6 +76,38 @@ class ARROW_DS_EXPORT PartitionScheme {
 
   /// \brief A default PartitionScheme which always yields scalar(true)
   static PartitionSchemePtr Default();
+
+  const std::shared_ptr<Schema>& schema() { return schema_; }
+
+ protected:
+  explicit PartitionScheme(std::shared_ptr<Schema> schema) : schema_(std::move(schema)) {}
+
+  std::shared_ptr<Schema> schema_;
+};
+
+/// \brief PartitionSchemeDiscovery provides creation of a partition scheme when the
+/// specific schema must be inferred from available paths (no explicit schema is known).
+class ARROW_DS_EXPORT PartitionSchemeDiscovery {
+ public:
+  virtual ~PartitionSchemeDiscovery() = default;
+
+  /// Get the schema for the resulting PartitionScheme.
+  virtual Result<std::shared_ptr<Schema>> Inspect(
+      const fs::FileStatsVector& stats) const = 0;
+
+  /// Create a partition scheme with schema inferred from stats.
+  virtual Result<PartitionSchemePtr> Finish() const = 0;
+
+  std::shared_ptr<Schema> schema() const { return schema_; }
+  Status SetSchema(std::shared_ptr<Schema> schema) {
+    schema_ = schema;
+    return Status::OK();
+  }
+
+ protected:
+  PartitionSchemeDiscovery();
+
+  std::shared_ptr<Schema> schema_;
 };
 
 /// \brief Subclass for looking up partition information from a dictionary
@@ -83,8 +115,9 @@ class ARROW_DS_EXPORT PartitionScheme {
 class ARROW_DS_EXPORT SegmentDictionaryPartitionScheme : public PartitionScheme {
  public:
   SegmentDictionaryPartitionScheme(
+      std::shared_ptr<Schema> schema,
       std::vector<std::unordered_map<std::string, ExpressionPtr>> dictionaries)
-      : dictionaries_(std::move(dictionaries)) {}
+      : PartitionScheme(std::move(schema)), dictionaries_(std::move(dictionaries)) {}
 
   std::string name() const override { return "segment_dictionary_partition_scheme"; }
 
@@ -114,13 +147,8 @@ class ARROW_DS_EXPORT PartitionKeysScheme : public PartitionScheme {
 
   Result<ExpressionPtr> Parse(const std::string& segment, int i) const override;
 
-  const std::shared_ptr<Schema>& schema() { return schema_; }
-
  protected:
-  explicit PartitionKeysScheme(std::shared_ptr<Schema> schema)
-      : schema_(std::move(schema)) {}
-
-  std::shared_ptr<Schema> schema_;
+  using PartitionScheme::PartitionScheme;
 };
 
 /// \brief SchemaPartitionScheme parses one segment of a path for each field in its
@@ -137,6 +165,9 @@ class ARROW_DS_EXPORT SchemaPartitionScheme : public PartitionKeysScheme {
   std::string name() const override { return "schema_partition_scheme"; }
 
   util::optional<Key> ParseKey(const std::string& segment, int i) const override;
+
+  static PartitionSchemeDiscoveryPtr MakeDiscovery(std::string partition_base_dir,
+                                                   std::vector<std::string> field_names);
 };
 
 /// \brief Multi-level, directory based partitioning scheme
@@ -155,16 +186,25 @@ class ARROW_DS_EXPORT HivePartitionScheme : public PartitionKeysScheme {
 
   std::string name() const override { return "hive_partition_scheme"; }
 
-  util::optional<Key> ParseKey(const std::string& segment, int i) const override;
+  util::optional<Key> ParseKey(const std::string& segment, int i) const override {
+    return ParseKey(segment);
+  }
+
+  static util::optional<Key> ParseKey(const std::string& segment);
+
+  static PartitionSchemeDiscoveryPtr MakeDiscovery(std::string partition_base_dir);
 };
 
 /// \brief Implementation provided by lambda or other callable
 class ARROW_DS_EXPORT FunctionPartitionScheme : public PartitionScheme {
  public:
   explicit FunctionPartitionScheme(
+      std::shared_ptr<Schema> schema,
       std::function<Result<ExpressionPtr>(const std::string&, int)> impl,
       std::string name = "function_partition_scheme")
-      : impl_(std::move(impl)), name_(std::move(name)) {}
+      : PartitionScheme(std::move(schema)),
+        impl_(std::move(impl)),
+        name_(std::move(name)) {}
 
   std::string name() const override { return name_; }
 
