@@ -31,10 +31,12 @@ import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.ZeroVector;
+import org.apache.arrow.vector.complex.FixedSizeListVector;
 import org.apache.arrow.vector.complex.ListVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.NullableStructWriter;
+import org.apache.arrow.vector.complex.impl.UnionFixedSizeListWriter;
 import org.apache.arrow.vector.complex.impl.UnionListWriter;
 import org.apache.arrow.vector.holders.NullableFloat4Holder;
 import org.apache.arrow.vector.holders.NullableFloat8Holder;
@@ -152,6 +154,39 @@ public class TestRangeEqualsVisitor {
 
       RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2);
       assertTrue(visitor.rangeEquals(new Range(1, 1, 3)));
+    }
+  }
+
+  @Test
+  public void testFixedSizeListVectorRangeEquals() {
+    try (final FixedSizeListVector vector1 = FixedSizeListVector.empty("list", 2, allocator);
+         final FixedSizeListVector vector2 = FixedSizeListVector.empty("list", 2, allocator);) {
+
+      UnionFixedSizeListWriter writer1 = vector1.getWriter();
+      writer1.allocate();
+
+      //set some values
+      writeFixedSizeListVector(writer1, new int[] {1, 2});
+      writeFixedSizeListVector(writer1, new int[] {3, 4});
+      writeFixedSizeListVector(writer1, new int[] {5, 6});
+      writeFixedSizeListVector(writer1, new int[] {7, 8});
+      writeFixedSizeListVector(writer1, new int[] {9, 10});
+      writer1.setValueCount(5);
+
+      UnionFixedSizeListWriter writer2 = vector2.getWriter();
+      writer2.allocate();
+
+      //set some values
+      writeFixedSizeListVector(writer2, new int[] {0, 0});
+      writeFixedSizeListVector(writer2, new int[] {3, 4});
+      writeFixedSizeListVector(writer2, new int[] {5, 6});
+      writeFixedSizeListVector(writer2, new int[] {7, 8});
+      writeFixedSizeListVector(writer2, new int[] {0, 0});
+      writer2.setValueCount(5);
+
+      RangeEqualsVisitor visitor = new RangeEqualsVisitor(vector1, vector2);
+      assertTrue(visitor.rangeEquals(new Range(1, 1, 3)));
+      assertFalse(visitor.rangeEquals(new Range(0, 0, 5)));
     }
   }
 
@@ -413,6 +448,14 @@ public class TestRangeEqualsVisitor {
   }
 
   private void writeListVector(UnionListWriter writer, int[] values) {
+    writer.startList();
+    for (int v: values) {
+      writer.integer().writeInt(v);
+    }
+    writer.endList();
+  }
+
+  private void writeFixedSizeListVector(UnionFixedSizeListWriter writer, int[] values) {
     writer.startList();
     for (int v: values) {
       writer.integer().writeInt(v);
