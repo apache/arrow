@@ -553,9 +553,13 @@ public class UnionVector implements FieldVector {
     return vectors.iterator();
   }
 
-    public ValueVector getVector(int index) {
-      int type = typeBuffer.getByte(index * TYPE_WIDTH);
-      switch (MinorType.values()[type]) {
+  public ValueVector getVector(int index) {
+    int type = typeBuffer.getByte(index * TYPE_WIDTH);
+    return getVectorByType(type);
+  }
+
+    public ValueVector getVectorByType(int typeId) {
+      switch (MinorType.values()[typeId]) {
         case NULL:
           return null;
       <#list vv.types as type>
@@ -574,7 +578,7 @@ public class UnionVector implements FieldVector {
         case LIST:
           return getList();
         default:
-          throw new UnsupportedOperationException("Cannot support type: " + MinorType.values()[type]);
+          throw new UnsupportedOperationException("Cannot support type: " + MinorType.values()[typeId]);
       }
     }
 
