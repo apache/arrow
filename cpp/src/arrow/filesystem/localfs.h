@@ -36,8 +36,7 @@ struct ARROW_EXPORT LocalFileSystemOptions {
   static LocalFileSystemOptions Defaults();
 };
 
-/// \brief EXPERIMENTAL: a FileSystem implementation accessing files
-/// on the local machine.
+/// \brief A FileSystem implementation accessing files on the local machine.
 ///
 /// This class handles only `/`-separated paths.  If desired, conversion
 /// from Windows backslash-separated paths should be done by the caller.
