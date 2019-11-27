@@ -449,16 +449,16 @@ int32 locate_utf8_utf8_int32(int64 context, const char* sub_str, int32 sub_str_l
     return 0;
   }
 
+  if (str_len == 0 || sub_str_len == 0) {
+    return 0;
+  }
+
   int32 byte_pos = utf8_byte_pos(context, str, str_len, start_pos - 1);
   if (byte_pos < 0) {
     return 0;
   }
   for (int32 i = byte_pos; i <= str_len - sub_str_len; ++i) {
-    int32 j = 0;
-    for (; j < sub_str_len; ++j) {
-      if (str[i + j] != sub_str[j]) break;
-    }
-    if (j > 0 && j == sub_str_len) {
+    if (memcmp(str + i, sub_str, sub_str_len) == 0) {
       return utf8_length(context, str, i) + 1;
     }
   }
