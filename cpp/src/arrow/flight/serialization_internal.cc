@@ -277,8 +277,7 @@ grpc::Status FlightDataDeserialize(ByteBuffer* buffer, FlightData* out) {
   auto buffer_length = static_cast<int>(wrapped_buffer->size());
   CodedInputStream pb_stream(wrapped_buffer->data(), buffer_length);
 
-  // TODO(wesm): The 2-parameter version of this function is deprecated
-  pb_stream.SetTotalBytesLimit(buffer_length, -1 /* no threshold */);
+  pb_stream.SetTotalBytesLimit(buffer_length);
 
   // This is the bytes remaining when using CodedInputStream like this
   while (pb_stream.BytesUntilTotalBytesLimit()) {
