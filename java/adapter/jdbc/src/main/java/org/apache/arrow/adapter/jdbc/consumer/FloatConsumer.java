@@ -26,12 +26,12 @@ import org.apache.arrow.vector.Float4Vector;
  * Consumer which consume float type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.Float4Vector}.
  */
-public abstract class FloatConsumer implements JdbcConsumer<Float4Vector> {
+public class FloatConsumer {
 
   /**
    * Creates a consumer for {@link Float4Vector}.
    */
-  public static FloatConsumer createConsumer(Float4Vector vector, int index, boolean nullable) {
+  public static JdbcConsumer<Float4Vector> createConsumer(Float4Vector vector, int index, boolean nullable) {
     if (nullable) {
       return new NullableFloatConsumer(vector, index);
     } else {
@@ -39,34 +39,10 @@ public abstract class FloatConsumer implements JdbcConsumer<Float4Vector> {
     }
   }
 
-  protected Float4Vector vector;
-  protected final int columnIndexInResultSet;
-
-  protected int currentIndex;
-
-  /**
-   * Instantiate a FloatConsumer.
-   */
-  public FloatConsumer(Float4Vector vector, int index) {
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
-  }
-
-  @Override
-  public void resetValueVector(Float4Vector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
-  }
-
   /**
    * Nullable float consumer.
    */
-  static class NullableFloatConsumer extends FloatConsumer {
+  static class NullableFloatConsumer extends BaseConsumer<Float4Vector> {
 
     /**
      * Instantiate a FloatConsumer.
@@ -88,7 +64,7 @@ public abstract class FloatConsumer implements JdbcConsumer<Float4Vector> {
   /**
    * Non-nullable float consumer.
    */
-  static class NonNullableFloatConsumer extends FloatConsumer {
+  static class NonNullableFloatConsumer extends BaseConsumer<Float4Vector> {
 
     /**
      * Instantiate a FloatConsumer.

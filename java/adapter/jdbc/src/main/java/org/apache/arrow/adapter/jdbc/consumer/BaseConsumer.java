@@ -17,22 +17,38 @@
 
 package org.apache.arrow.adapter.jdbc.consumer;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-
-import org.apache.arrow.vector.NullVector;
+import org.apache.arrow.vector.ValueVector;
 
 /**
- * Consumer which consume null type values from ResultSet.
- * Corresponding to {@link org.apache.arrow.vector.NullVector}.
+ * Base class for all consumers.
+ * @param <V> vector type.
  */
-public class NullConsumer extends BaseConsumer<NullVector> {
+public abstract class BaseConsumer<V extends ValueVector> implements JdbcConsumer<V> {
 
-  public NullConsumer(NullVector vector) {
-    super(vector, 0);
+  protected V vector;
+
+  protected final int columnIndexInResultSet;
+
+  protected int currentIndex;
+
+  /**
+   * Constructs a new consumer.
+   * @param vector the underlying vector for the consumer.
+   * @param index the column id for the consumer.
+   */
+  public BaseConsumer(V vector, int index) {
+    this.vector = vector;
+    this.columnIndexInResultSet = index;
   }
 
   @Override
-  public void consume(ResultSet resultSet) throws SQLException {
+  public void close() throws Exception {
+    this.vector.close();
+  }
+
+  @Override
+  public void resetValueVector(V vector) {
+    this.vector = vector;
+    this.currentIndex = 0;
   }
 }

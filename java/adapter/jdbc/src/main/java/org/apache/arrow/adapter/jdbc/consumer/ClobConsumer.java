@@ -32,7 +32,7 @@ import io.netty.util.internal.PlatformDependent;
  * Consumer which consume clob type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.VarCharVector}.
  */
-public abstract class ClobConsumer implements JdbcConsumer<VarCharVector> {
+public abstract class ClobConsumer extends BaseConsumer<VarCharVector> {
 
   /**
    * Creates a consumer for {@link VarCharVector}.
@@ -47,25 +47,14 @@ public abstract class ClobConsumer implements JdbcConsumer<VarCharVector> {
 
   private static final int BUFFER_SIZE = 256;
 
-  protected VarCharVector vector;
-  protected final int columnIndexInResultSet;
-
-  protected int currentIndex;
-
   /**
    * Instantiate a ClobConsumer.
    */
   public ClobConsumer(VarCharVector vector, int index) {
+    super(vector, index);
     if (vector != null) {
       vector.allocateNewSafe();
     }
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void close() throws Exception {
-    vector.close();
   }
 
   @Override

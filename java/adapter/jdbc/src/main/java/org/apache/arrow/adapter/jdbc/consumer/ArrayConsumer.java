@@ -28,7 +28,7 @@ import org.apache.arrow.vector.complex.ListVector;
  * Consumer which consume array type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.complex.ListVector}.
  */
-public abstract class ArrayConsumer implements JdbcConsumer<ListVector> {
+public abstract class ArrayConsumer extends BaseConsumer<ListVector> {
 
   /**
    * Creates a consumer for {@link ListVector}.
@@ -43,30 +43,19 @@ public abstract class ArrayConsumer implements JdbcConsumer<ListVector> {
   }
 
   protected final JdbcConsumer delegate;
-  protected final int columnIndexInResultSet;
-
-  protected ListVector vector;
-  protected int currentIndex;
 
   /**
    * Instantiate a ArrayConsumer.
    */
   public ArrayConsumer(ListVector vector, JdbcConsumer delegate, int index) {
-    this.columnIndexInResultSet = index;
+    super(vector, index);
     this.delegate = delegate;
-    this.vector = vector;
   }
 
   @Override
   public void close() throws Exception {
     this.vector.close();
     this.delegate.close();
-  }
-
-  @Override
-  public void resetValueVector(ListVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
   }
 
   /**

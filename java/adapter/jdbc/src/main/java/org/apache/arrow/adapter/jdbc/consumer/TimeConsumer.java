@@ -28,12 +28,12 @@ import org.apache.arrow.vector.TimeMilliVector;
  * Consumer which consume time type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.TimeMilliVector}.
  */
-public abstract class TimeConsumer implements JdbcConsumer<TimeMilliVector> {
+public abstract class TimeConsumer {
 
   /**
    * Creates a consumer for {@link TimeMilliVector}.
    */
-  public static TimeConsumer createConsumer(
+  public static JdbcConsumer<TimeMilliVector> createConsumer(
           TimeMilliVector vector, int index, boolean nullable, Calendar calendar) {
     if (nullable) {
       return new NullableTimeConsumer(vector, index, calendar);
@@ -42,56 +42,26 @@ public abstract class TimeConsumer implements JdbcConsumer<TimeMilliVector> {
     }
   }
 
-  protected TimeMilliVector vector;
-  protected final int columnIndexInResultSet;
-  protected final Calendar calendar;
-
-  protected int currentIndex;
-
-  /**
-   * Instantiate a TimeConsumer.
-   */
-  public TimeConsumer(TimeMilliVector vector, int index) {
-    this(vector, index, null);
-  }
-
-  /**
-   * Instantiate a TimeConsumer.
-   */
-  public TimeConsumer(TimeMilliVector vector, int index, Calendar calendar) {
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
-    this.calendar = calendar;
-  }
-
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
-  }
-
-  @Override
-  public void resetValueVector(TimeMilliVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
-  }
-
   /**
    * Nullable consumer for {@link TimeMilliVector}.
    */
-  static class NullableTimeConsumer extends TimeConsumer {
+  static class NullableTimeConsumer extends BaseConsumer<TimeMilliVector> {
+
+    protected final Calendar calendar;
 
     /**
      * Instantiate a TimeConsumer.
      */
     public NullableTimeConsumer(TimeMilliVector vector, int index) {
-      super(vector, index);
+      this(vector, index, /* calendar */null);
     }
 
     /**
      * Instantiate a TimeConsumer.
      */
     public NullableTimeConsumer(TimeMilliVector vector, int index, Calendar calendar) {
-      super(vector, index, calendar);
+      super(vector, index);
+      this.calendar = calendar;
     }
 
     @Override
@@ -108,20 +78,23 @@ public abstract class TimeConsumer implements JdbcConsumer<TimeMilliVector> {
   /**
    * Non-nullable consumer for {@link TimeMilliVector}.
    */
-  static class NonNullableTimeConsumer extends TimeConsumer {
+  static class NonNullableTimeConsumer extends BaseConsumer<TimeMilliVector> {
+
+    protected final Calendar calendar;
 
     /**
      * Instantiate a TimeConsumer.
      */
     public NonNullableTimeConsumer(TimeMilliVector vector, int index) {
-      super(vector, index);
+      this(vector, index, /* calendar */null);
     }
 
     /**
      * Instantiate a TimeConsumer.
      */
     public NonNullableTimeConsumer(TimeMilliVector vector, int index, Calendar calendar) {
-      super(vector, index, calendar);
+      super(vector, index);
+      this.calendar = calendar;
     }
 
     @Override

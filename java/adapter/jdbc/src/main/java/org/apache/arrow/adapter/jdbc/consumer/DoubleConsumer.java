@@ -26,12 +26,12 @@ import org.apache.arrow.vector.Float8Vector;
  * Consumer which consume double type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.Float8Vector}.
  */
-public abstract class DoubleConsumer implements JdbcConsumer<Float8Vector> {
+public class DoubleConsumer {
 
   /**
    * Creates a consumer for {@link Float8Vector}.
    */
-  public static DoubleConsumer createConsumer(Float8Vector vector, int index, boolean nullable) {
+  public static JdbcConsumer<Float8Vector> createConsumer(Float8Vector vector, int index, boolean nullable) {
     if (nullable) {
       return new NullableDoubleConsumer(vector, index);
     } else {
@@ -39,34 +39,10 @@ public abstract class DoubleConsumer implements JdbcConsumer<Float8Vector> {
     }
   }
 
-  protected Float8Vector vector;
-  protected final int columnIndexInResultSet;
-
-  protected int currentIndex;
-
-  /**
-   * Instantiate a DoubleConsumer.
-   */
-  public DoubleConsumer(Float8Vector vector, int index) {
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
-  }
-
-  @Override
-  public void resetValueVector(Float8Vector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
-  }
-
   /**
    * Nullable double consumer.
    */
-  static class NullableDoubleConsumer extends DoubleConsumer {
+  static class NullableDoubleConsumer extends BaseConsumer<Float8Vector> {
 
     /**
      * Instantiate a DoubleConsumer.
@@ -88,7 +64,7 @@ public abstract class DoubleConsumer implements JdbcConsumer<Float8Vector> {
   /**
    * Non-nullable double consumer.
    */
-  static class NonNullableDoubleConsumer extends DoubleConsumer {
+  static class NonNullableDoubleConsumer extends BaseConsumer<Float8Vector> {
 
     /**
      * Instantiate a DoubleConsumer.

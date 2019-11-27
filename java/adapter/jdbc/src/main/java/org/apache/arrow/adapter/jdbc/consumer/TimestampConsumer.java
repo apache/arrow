@@ -28,12 +28,12 @@ import org.apache.arrow.vector.TimeStampMilliTZVector;
  * Consumer which consume timestamp type values from {@link ResultSet}.
  * Write the data to {@link TimeStampMilliTZVector}.
  */
-public abstract class TimestampConsumer implements JdbcConsumer<TimeStampMilliTZVector> {
+public abstract class TimestampConsumer {
 
   /**
    * Creates a consumer for {@link TimeStampMilliTZVector}.
    */
-  public static TimestampConsumer createConsumer(
+  public static JdbcConsumer<TimeStampMilliTZVector> createConsumer(
           TimeStampMilliTZVector vector, int index, boolean nullable, Calendar calendar) {
     if (nullable) {
       return new NullableTimestampConsumer(vector, index, calendar);
@@ -42,56 +42,26 @@ public abstract class TimestampConsumer implements JdbcConsumer<TimeStampMilliTZ
     }
   }
 
-  protected TimeStampMilliTZVector vector;
-  protected final int columnIndexInResultSet;
-  protected final Calendar calendar;
-
-  protected int currentIndex;
-
-  /**
-   * Instantiate a TimestampConsumer.
-   */
-  public TimestampConsumer(TimeStampMilliTZVector vector, int index) {
-    this(vector, index, null);
-  }
-
-  /**
-   * Instantiate a TimestampConsumer.
-   */
-  public TimestampConsumer(TimeStampMilliTZVector vector, int index, Calendar calendar) {
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
-    this.calendar = calendar;
-  }
-
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
-  }
-
-  @Override
-  public void resetValueVector(TimeStampMilliTZVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
-  }
-
   /**
    * Nullable consumer for timestamp.
    */
-  static class NullableTimestampConsumer extends TimestampConsumer {
+  static class NullableTimestampConsumer extends BaseConsumer<TimeStampMilliTZVector> {
+
+    protected final Calendar calendar;
 
     /**
      * Instantiate a TimestampConsumer.
      */
     public NullableTimestampConsumer(TimeStampMilliTZVector vector, int index) {
-      super(vector, index);
+      this(vector, index, /* calendar */null);
     }
 
     /**
      * Instantiate a TimestampConsumer.
      */
     public NullableTimestampConsumer(TimeStampMilliTZVector vector, int index, Calendar calendar) {
-      super(vector, index, calendar);
+      super(vector, index);
+      this.calendar = calendar;
     }
 
     @Override
@@ -108,20 +78,23 @@ public abstract class TimestampConsumer implements JdbcConsumer<TimeStampMilliTZ
   /**
    * Non-nullable consumer for timestamp.
    */
-  static class NonNullableTimestampConsumer extends TimestampConsumer {
+  static class NonNullableTimestampConsumer extends BaseConsumer<TimeStampMilliTZVector> {
+
+    protected final Calendar calendar;
 
     /**
      * Instantiate a TimestampConsumer.
      */
     public NonNullableTimestampConsumer(TimeStampMilliTZVector vector, int index) {
-      super(vector, index);
+      this(vector, index, /* calendar */null);
     }
 
     /**
      * Instantiate a TimestampConsumer.
      */
     public NonNullableTimestampConsumer(TimeStampMilliTZVector vector, int index, Calendar calendar) {
-      super(vector, index, calendar);
+      super(vector, index);
+      this.calendar = calendar;
     }
 
     @Override

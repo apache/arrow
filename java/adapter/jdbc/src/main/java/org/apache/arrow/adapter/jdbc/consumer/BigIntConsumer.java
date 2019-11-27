@@ -26,12 +26,12 @@ import org.apache.arrow.vector.BigIntVector;
  * Consumer which consume bigint type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.BigIntVector}.
  */
-public abstract class BigIntConsumer implements JdbcConsumer<BigIntVector> {
+public class BigIntConsumer {
 
   /**
    * Creates a consumer for {@link BigIntVector}.
    */
-  public static BigIntConsumer createConsumer(BigIntVector vector, int index, boolean nullable) {
+  public static JdbcConsumer<BigIntVector> createConsumer(BigIntVector vector, int index, boolean nullable) {
     if (nullable) {
       return new NullableBigIntConsumer(vector, index);
     } else {
@@ -39,34 +39,10 @@ public abstract class BigIntConsumer implements JdbcConsumer<BigIntVector> {
     }
   }
 
-  protected BigIntVector vector;
-  protected final int columnIndexInResultSet;
-
-  protected int currentIndex;
-
-  /**
-   * Instantiate a BigIntConsumer.
-   */
-  public BigIntConsumer(BigIntVector vector, int index) {
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
-  }
-
-  @Override
-  public void resetValueVector(BigIntVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
-  }
-
   /**
    * Nullable consumer for big int.
    */
-  static class NullableBigIntConsumer extends BigIntConsumer {
+  static class NullableBigIntConsumer extends BaseConsumer<BigIntVector> {
 
     /**
      * Instantiate a BigIntConsumer.
@@ -88,7 +64,7 @@ public abstract class BigIntConsumer implements JdbcConsumer<BigIntVector> {
   /**
    * Non-nullable consumer for big int.
    */
-  static class NonNullableBigIntConsumer extends BigIntConsumer {
+  static class NonNullableBigIntConsumer extends BaseConsumer<BigIntVector> {
 
     /**
      * Instantiate a BigIntConsumer.
