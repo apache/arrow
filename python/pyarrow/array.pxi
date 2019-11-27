@@ -1444,18 +1444,19 @@ cdef class FixedSizeListArray(Array):
     """
 
     @staticmethod
-    def from_arrays(values, int64_t length, MemoryPool pool=None):
+    def from_arrays(values, int64_t list_size, MemoryPool pool=None):
         """
-        Construct ListArray from arrays of int32 offsets and values
+        Construct FixedSizeListArray from array of values and a list length.
 
         Parameters
         ----------
-        offsets : Array (int32 type)
         values : Array (any type)
+        list_size : int
+            The fixed length of the lists.
 
         Returns
         -------
-        list_array : ListArray
+        FixedSizeListArray
         """
         cdef:
             Array _values
@@ -1465,7 +1466,7 @@ cdef class FixedSizeListArray(Array):
 
         with nogil:
             check_status(CFixedSizeListArray.FromArrays(
-                _values.sp_array, length, &out))
+                _values.sp_array, list_size, &out))
         cdef Array result = pyarrow_wrap_array(out)
         result.validate()
         return result
@@ -1476,7 +1477,7 @@ cdef class FixedSizeListArray(Array):
 
     def flatten(self):
         """
-        Unnest this ListArray by one level
+        Unnest this FixedSizeListArray by one level.
 
         Returns
         -------
