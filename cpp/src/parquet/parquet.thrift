@@ -294,7 +294,7 @@ struct TimeType {
  * Allowed for physical types: INT32, INT64
  */
 struct IntType {
-  1: required byte bitWidth
+  1: required i8 bitWidth
   2: required bool isSigned
 }
 
