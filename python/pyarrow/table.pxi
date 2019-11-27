@@ -802,6 +802,29 @@ cdef class RecordBatch(_PandasConvertible):
         result.validate()
         return result
 
+    @staticmethod
+    def from_struct_array(StructArray struct_array):
+        """
+        Construct a RecordBatch from a StructArray.
+
+        Each field in the StructArray will become a column in the resulting
+        ``RecordBatch``.
+
+        Parameters
+        ----------
+        struct_array: a StructArray.
+
+        Returns
+        -------
+        pyarrow.RecordBatch
+        """
+        cdef:
+            shared_ptr[CRecordBatch] c_record_batch
+        with nogil:
+            check_status(CRecordBatch.FromStructArray(struct_array.sp_array,
+                                                      &c_record_batch))
+        return pyarrow_wrap_batch(c_record_batch)
+
 
 def _reconstruct_record_batch(columns, schema):
     """
