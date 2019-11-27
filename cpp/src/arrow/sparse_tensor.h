@@ -209,7 +209,7 @@ class ARROW_EXPORT SparseCSRIndex : public internal::SparseIndexBase<SparseCSRIn
     ARROW_RETURN_NOT_OK(SparseIndex::ValidateShape(shape));
 
     if (shape.size() < 2) {
-      return Status::Invalid("shape length is too long");
+      return Status::Invalid("shape length is too short");
     }
 
     if (shape.size() > 2) {
@@ -220,8 +220,7 @@ class ARROW_EXPORT SparseCSRIndex : public internal::SparseIndexBase<SparseCSRIn
       return Status::OK();
     }
 
-    return Status::Invalid(
-        "shape length is inconsistent with the coords matrix in COO index");
+    return Status::Invalid("shape length is inconsistent with the CSR index");
   }
 
  protected:
