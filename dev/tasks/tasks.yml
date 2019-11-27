@@ -83,7 +83,6 @@ groups:
   docker:
     - test-conda-cpp
     - test-debian-10-cpp
-    - test-ubuntu-14.04-cpp
     - test-ubuntu-16.04-cpp
     - test-ubuntu-18.04-cpp
     - test-fedora-29-cpp
@@ -125,7 +124,6 @@ groups:
   test:
     - test-conda-cpp
     - test-debian-10-cpp
-    - test-ubuntu-14.04-cpp
     - test-ubuntu-16.04-cpp
     - test-ubuntu-18.04-cpp
     - test-fedora-29-cpp
@@ -153,7 +151,6 @@ groups:
   cpp:
     - test-conda-cpp
     - test-debian-10-cpp
-    - test-ubuntu-14.04-cpp
     - test-ubuntu-16.04-cpp
     - test-ubuntu-18.04-cpp
     - test-fedora-29-cpp
@@ -238,7 +235,6 @@ groups:
     - macos-r-autobrew
     - test-conda-cpp
     - test-debian-10-cpp
-    - test-ubuntu-14.04-cpp
     - test-ubuntu-16.04-cpp
     - test-ubuntu-18.04-cpp
     - test-fedora-29-cpp
@@ -1537,17 +1533,6 @@ tasks:
         - docker-compose pull --ignore-pull-failures debian-cpp
         - docker-compose build debian-cpp
         - docker-compose run debian-cpp
-
-  test-ubuntu-14.04-cpp:
-    ci: circle
-    platform: linux
-    template: docker-tests/circle.linux.yml
-    params:
-      commands:
-        - export UBUNTU=14.04
-        - docker-compose pull --ignore-pull-failures ubuntu-cpp
-        - docker-compose build ubuntu-cpp
-        - docker-compose run ubuntu-cpp
 
   test-ubuntu-16.04-cpp:
     ci: circle
