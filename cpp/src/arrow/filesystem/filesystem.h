@@ -58,7 +58,7 @@ namespace fs {
 using TimePoint =
     std::chrono::time_point<std::chrono::system_clock, std::chrono::nanoseconds>;
 
-/// \brief EXPERIMENTAL: FileSystem entry type
+/// \brief FileSystem entry type
 enum class ARROW_EXPORT FileType : int8_t {
   /// Entry does not exist
   NonExistent,
@@ -80,7 +80,7 @@ ARROW_EXPORT std::ostream& operator<<(std::ostream& os, FileType);
 static const int64_t kNoSize = -1;
 static const TimePoint kNoTime = TimePoint(TimePoint::duration(-1));
 
-/// \brief EXPERIMENTAL: FileSystem entry stats
+/// \brief FileSystem entry stats
 struct ARROW_EXPORT FileStats {
   FileStats() = default;
   FileStats(FileStats&&) = default;
@@ -132,7 +132,7 @@ struct ARROW_EXPORT FileStats {
 
 ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const FileStats&);
 
-/// \brief EXPERIMENTAL: file selector
+/// \brief File selector for filesystem APIs
 struct ARROW_EXPORT Selector {
   // The directory in which to select files.
   // If the path exists but doesn't point to a directory, this should be an error.
@@ -148,7 +148,7 @@ struct ARROW_EXPORT Selector {
   Selector() {}
 };
 
-/// \brief EXPERIMENTAL: abstract file system API
+/// \brief Abstract file system API
 class ARROW_EXPORT FileSystem {
  public:
   virtual ~FileSystem();
@@ -226,11 +226,13 @@ class ARROW_EXPORT FileSystem {
       const std::string& path) = 0;
 };
 
-/// \brief EXPERIMENTAL: a FileSystem implementation that delegates to another
+/// \brief A FileSystem implementation that delegates to another
 /// implementation after prepending a fixed base path.
 ///
 /// This is useful to expose a logical view of a subtree of a filesystem,
 /// for example a directory in a LocalFileSystem.
+/// This works on abstract paths, i.e. paths using forward slashes and
+/// and a single root "/".  Windows paths are not guaranteed to work.
 /// This makes no security guarantee.  For example, symlinks may allow to
 /// "escape" the subtree and access other parts of the underlying filesystem.
 class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
@@ -275,7 +277,7 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
   Status FixStats(FileStats* st) const;
 };
 
-/// \brief EXPERIMENTAL: a FileSystem implementation that delegates to another
+/// \brief A FileSystem implementation that delegates to another
 /// implementation but inserts latencies at various points.
 class ARROW_EXPORT SlowFileSystem : public FileSystem {
  public:
@@ -314,7 +316,7 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
   std::shared_ptr<io::LatencyGenerator> latencies_;
 };
 
-/// \brief EXPERIMENTAL: Create a new FileSystem by URI
+/// \brief Create a new FileSystem by URI
 ///
 /// A scheme-less URI is considered a local filesystem path.
 /// Recognized schemes are "file", "mock" and "hdfs".
