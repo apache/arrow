@@ -30,6 +30,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -75,7 +76,7 @@ struct packaged_task_wrapper {
 class ARROW_EXPORT ThreadPool {
  public:
   // Construct a thread pool with the given number of worker threads
-  static Status Make(int threads, std::shared_ptr<ThreadPool>* out);
+  static Result<std::shared_ptr<ThreadPool>> Make(int threads);
 
   // Destroy thread pool; the pool will first be shut down
   ~ThreadPool();
@@ -110,24 +111,19 @@ class ARROW_EXPORT ThreadPool {
   // Submit a callable and arguments for execution.  Return a future that
   // will return the callable's result value once.
   // The callable's arguments are copied before execution.
-  // Since the function is variadic and needs to return a result (the future),
-  // an exception is raised if the task fails spawning (which currently
-  // only occurs if the ThreadPool is shutting down).
   template <typename Function, typename... Args,
-            typename Result = typename std::result_of<Function && (Args && ...)>::type>
-  std::future<Result> Submit(Function&& func, Args&&... args) {
+            typename RetType = typename std::result_of<Function && (Args && ...)>::type>
+  Result<std::future<RetType>> Submit(Function&& func, Args&&... args) {
     // Trying to templatize std::packaged_task with Function doesn't seem
     // to work, so go through std::bind to simplify the packaged signature
-    using PackagedTask = std::packaged_task<Result()>;
+    using PackagedTask = std::packaged_task<RetType()>;
     auto task = PackagedTask(
         std::bind(std::forward<Function>(func), std::forward<Args>(args)...));
     auto fut = task.get_future();
 
-    Status st = SpawnReal(detail::packaged_task_wrapper<Result>(std::move(task)));
-    if (!st.ok()) {
-      st.Abort("ThreadPool::Submit() was probably called after Shutdown()");
-    }
-    return fut;
+    ARROW_RETURN_NOT_OK(
+        SpawnReal(detail::packaged_task_wrapper<RetType>(std::move(task))));
+    return std::move(fut);
   }
 
   struct State;

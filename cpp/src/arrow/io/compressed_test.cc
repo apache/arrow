@@ -74,8 +74,8 @@ std::shared_ptr<Buffer> CompressDataOneShot(Codec* codec,
   max_compressed_len = codec->MaxCompressedLen(data.size(), data.data());
   std::shared_ptr<ResizableBuffer> compressed;
   ABORT_NOT_OK(AllocateResizableBuffer(max_compressed_len, &compressed));
-  ABORT_NOT_OK(codec->Compress(data.size(), data.data(), max_compressed_len,
-                               compressed->mutable_data(), &compressed_len));
+  compressed_len = *codec->Compress(data.size(), data.data(), max_compressed_len,
+                                    compressed->mutable_data());
   ABORT_NOT_OK(compressed->Resize(compressed_len));
   return std::move(compressed);
 }
@@ -166,22 +166,14 @@ class CompressedInputStreamTest : public ::testing::TestWithParam<Compression::t
  protected:
   Compression::type GetCompression() { return GetParam(); }
 
-  std::unique_ptr<Codec> MakeCodec() {
-    std::unique_ptr<Codec> codec;
-    ABORT_NOT_OK(Codec::Create(GetCompression(), &codec));
-    return codec;
-  }
+  std::unique_ptr<Codec> MakeCodec() { return *Codec::Create(GetCompression()); }
 };
 
 class CompressedOutputStreamTest : public ::testing::TestWithParam<Compression::type> {
  protected:
   Compression::type GetCompression() { return GetParam(); }
 
-  std::unique_ptr<Codec> MakeCodec() {
-    std::unique_ptr<Codec> codec;
-    ABORT_NOT_OK(Codec::Create(GetCompression(), &codec));
-    return codec;
-  }
+  std::unique_ptr<Codec> MakeCodec() { return *Codec::Create(GetCompression()); }
 };
 
 TEST_P(CompressedInputStreamTest, CompressibleData) {
@@ -266,7 +258,7 @@ TEST_P(CompressedOutputStreamTest, RandomData) {
 #ifdef ARROW_WITH_SNAPPY
 TEST(TestSnappyInputStream, NotImplemented) {
   std::unique_ptr<Codec> codec;
-  ASSERT_OK(Codec::Create(Compression::SNAPPY, &codec));
+  ASSERT_OK_AND_ASSIGN(codec, Codec::Create(Compression::SNAPPY));
   std::shared_ptr<InputStream> stream = std::make_shared<BufferReader>("");
   std::shared_ptr<CompressedInputStream> compressed_stream;
   ASSERT_RAISES(NotImplemented,
@@ -275,7 +267,7 @@ TEST(TestSnappyInputStream, NotImplemented) {
 
 TEST(TestSnappyOutputStream, NotImplemented) {
   std::unique_ptr<Codec> codec;
-  ASSERT_OK(Codec::Create(Compression::SNAPPY, &codec));
+  ASSERT_OK_AND_ASSIGN(codec, Codec::Create(Compression::SNAPPY));
   std::shared_ptr<OutputStream> stream = std::make_shared<MockOutputStream>();
   std::shared_ptr<CompressedOutputStream> compressed_stream;
   ASSERT_RAISES(NotImplemented,

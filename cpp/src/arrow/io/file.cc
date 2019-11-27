@@ -68,13 +68,13 @@ class OSFile {
                       bool write_only) {
     RETURN_NOT_OK(SetFileName(path));
 
-    RETURN_NOT_OK(::arrow::internal::FileOpenWritable(file_name_, write_only, truncate,
-                                                      append, &fd_));
+    ARROW_ASSIGN_OR_RAISE(fd_, ::arrow::internal::FileOpenWritable(file_name_, write_only,
+                                                                   truncate, append));
     is_open_ = true;
     mode_ = write_only ? FileMode::WRITE : FileMode::READWRITE;
 
     if (!truncate) {
-      RETURN_NOT_OK(::arrow::internal::FileGetSize(fd_, &size_));
+      ARROW_ASSIGN_OR_RAISE(size_, ::arrow::internal::FileGetSize(fd_));
     } else {
       size_ = 0;
     }
@@ -84,7 +84,10 @@ class OSFile {
   // This is different from OpenWritable(string, ...) in that it doesn't
   // truncate nor mandate a seekable file
   Status OpenWritable(int fd) {
-    if (!::arrow::internal::FileGetSize(fd, &size_).ok()) {
+    auto result = ::arrow::internal::FileGetSize(fd);
+    if (result.ok()) {
+      size_ = *result;
+    } else {
       // Non-seekable file
       size_ = -1;
     }
@@ -98,8 +101,8 @@ class OSFile {
   Status OpenReadable(const std::string& path) {
     RETURN_NOT_OK(SetFileName(path));
 
-    RETURN_NOT_OK(::arrow::internal::FileOpenReadable(file_name_, &fd_));
-    RETURN_NOT_OK(::arrow::internal::FileGetSize(fd_, &size_));
+    ARROW_ASSIGN_OR_RAISE(fd_, ::arrow::internal::FileOpenReadable(file_name_));
+    ARROW_ASSIGN_OR_RAISE(size_, ::arrow::internal::FileGetSize(fd_));
 
     is_open_ = true;
     mode_ = FileMode::READ;
@@ -107,7 +110,7 @@ class OSFile {
   }
 
   Status OpenReadable(int fd) {
-    RETURN_NOT_OK(::arrow::internal::FileGetSize(fd, &size_));
+    ARROW_ASSIGN_OR_RAISE(size_, ::arrow::internal::FileGetSize(fd));
     RETURN_NOT_OK(SetFileName(fd));
     is_open_ = true;
     mode_ = FileMode::READ;
@@ -137,8 +140,8 @@ class OSFile {
   Status Read(int64_t nbytes, int64_t* bytes_read, void* out) {
     RETURN_NOT_OK(CheckClosed());
     RETURN_NOT_OK(CheckPositioned());
-    return ::arrow::internal::FileRead(fd_, reinterpret_cast<uint8_t*>(out), nbytes,
-                                       bytes_read);
+    return ::arrow::internal::FileRead(fd_, reinterpret_cast<uint8_t*>(out), nbytes)
+        .Value(bytes_read);
   }
 
   Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, void* out) {
@@ -147,7 +150,8 @@ class OSFile {
     // before calling Read() or Write().
     need_seeking_.store(true);
     return ::arrow::internal::FileReadAt(fd_, reinterpret_cast<uint8_t*>(out), position,
-                                         nbytes, bytes_read);
+                                         nbytes)
+        .Value(bytes_read);
   }
 
   Status Seek(int64_t pos) {
@@ -164,7 +168,7 @@ class OSFile {
 
   Status Tell(int64_t* pos) const {
     RETURN_NOT_OK(CheckClosed());
-    return ::arrow::internal::FileTell(fd_, pos);
+    return ::arrow::internal::FileTell(fd_).Value(pos);
   }
 
   Status Write(const void* data, int64_t length) {
@@ -191,8 +195,9 @@ class OSFile {
 
  protected:
   Status SetFileName(const std::string& file_name) {
-    return ::arrow::internal::FileNameFromString(file_name, &file_name_);
+    return ::arrow::internal::PlatformFilename::FromString(file_name).Value(&file_name_);
   }
+
   Status SetFileName(int fd) {
     std::stringstream ss;
     ss << "<fd " << fd << ">";

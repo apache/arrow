@@ -86,7 +86,7 @@ static void ThreadPoolSpawn(benchmark::State& state) {
   for (auto _ : state) {
     state.PauseTiming();
     std::shared_ptr<ThreadPool> pool;
-    ABORT_NOT_OK(ThreadPool::Make(nthreads, &pool));
+    pool = *ThreadPool::Make(nthreads);
     state.ResumeTiming();
 
     for (int32_t i = 0; i < nspawns; ++i) {
@@ -128,7 +128,7 @@ static void ThreadedTaskGroup(benchmark::State& state) {
   const auto workload_size = static_cast<int32_t>(state.range(1));
 
   std::shared_ptr<ThreadPool> pool;
-  ABORT_NOT_OK(ThreadPool::Make(nthreads, &pool));
+  pool = *ThreadPool::Make(nthreads);
 
   Task task(workload_size);
 

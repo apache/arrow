@@ -154,13 +154,11 @@ Status MakeRandomBooleanArray(const int length, bool include_nulls,
                               std::shared_ptr<Array>* out) {
   std::vector<uint8_t> values(length);
   random_null_bytes(length, 0.5, values.data());
-  std::shared_ptr<Buffer> data;
-  RETURN_NOT_OK(BitUtil::BytesToBits(values, default_memory_pool(), &data));
+  ARROW_ASSIGN_OR_RAISE(auto data, BitUtil::BytesToBits(values));
 
   if (include_nulls) {
     std::vector<uint8_t> valid_bytes(length);
-    std::shared_ptr<Buffer> null_bitmap;
-    RETURN_NOT_OK(BitUtil::BytesToBits(valid_bytes, default_memory_pool(), &null_bitmap));
+    ARROW_ASSIGN_OR_RAISE(auto null_bitmap, BitUtil::BytesToBits(valid_bytes));
     random_null_bytes(length, 0.1, valid_bytes.data());
     *out = std::make_shared<BooleanArray>(length, data, null_bitmap, -1);
   } else {
@@ -418,10 +416,9 @@ Status MakeStruct(std::shared_ptr<RecordBatch>* out) {
   std::shared_ptr<Array> no_nulls(new StructArray(type, list_batch->num_rows(), columns));
   std::vector<uint8_t> null_bytes(list_batch->num_rows(), 1);
   null_bytes[0] = 0;
-  std::shared_ptr<Buffer> null_bitmask;
-  RETURN_NOT_OK(BitUtil::BytesToBits(null_bytes, default_memory_pool(), &null_bitmask));
+  ARROW_ASSIGN_OR_RAISE(auto null_bitmap, BitUtil::BytesToBits(null_bytes));
   std::shared_ptr<Array> with_nulls(
-      new StructArray(type, list_batch->num_rows(), columns, null_bitmask, 1));
+      new StructArray(type, list_batch->num_rows(), columns, null_bitmap, 1));
 
   // construct batch
   std::vector<std::shared_ptr<Array>> arrays = {no_nulls, with_nulls};
@@ -476,18 +473,17 @@ Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
 
   std::vector<uint8_t> null_bytes(length, 1);
   null_bytes[2] = 0;
-  std::shared_ptr<Buffer> null_bitmask;
-  RETURN_NOT_OK(BitUtil::BytesToBits(null_bytes, default_memory_pool(), &null_bitmask));
+  ARROW_ASSIGN_OR_RAISE(auto null_bitmap, BitUtil::BytesToBits(null_bytes));
 
   // construct individual nullable/non-nullable struct arrays
   auto sparse_no_nulls =
       std::make_shared<UnionArray>(sparse_type, length, sparse_children, type_ids_buffer);
   auto sparse = std::make_shared<UnionArray>(sparse_type, length, sparse_children,
-                                             type_ids_buffer, NULLPTR, null_bitmask, 1);
+                                             type_ids_buffer, NULLPTR, null_bitmap, 1);
 
   auto dense =
       std::make_shared<UnionArray>(dense_type, length, dense_children, type_ids_buffer,
-                                   offsets_buffer, null_bitmask, 1);
+                                   offsets_buffer, null_bitmap, 1);
 
   // construct batch
   std::vector<std::shared_ptr<Array>> arrays = {sparse_no_nulls, sparse, dense};
@@ -728,7 +724,7 @@ Status MakeDecimal(std::shared_ptr<RecordBatch>* out) {
   random_decimals(length, 1, kDecimalPrecision, data->mutable_data());
   random_null_bytes(length, 0.1, is_valid_bytes.data());
 
-  RETURN_NOT_OK(BitUtil::BytesToBits(is_valid_bytes, default_memory_pool(), &is_valid));
+  ARROW_ASSIGN_OR_RAISE(is_valid, BitUtil::BytesToBits(is_valid_bytes));
 
   auto a1 = std::make_shared<Decimal128Array>(f0->type(), length, data, is_valid,
                                               kUnknownNullCount);

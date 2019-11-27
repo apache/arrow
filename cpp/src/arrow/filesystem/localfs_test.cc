@@ -40,7 +40,9 @@ using ::arrow::internal::TemporaryDir;
 
 class LocalFSTestMixin : public ::testing::Test {
  public:
-  void SetUp() override { ASSERT_OK(TemporaryDir::Make("test-localfs-", &temp_dir_)); }
+  void SetUp() override {
+    ASSERT_OK_AND_ASSIGN(temp_dir_, TemporaryDir::Make("test-localfs-"));
+  }
 
  protected:
   std::unique_ptr<TemporaryDir> temp_dir_;
@@ -120,14 +122,11 @@ class TestLocalFS : public LocalFSTestMixin {
   }
 
   void CheckConcreteFile(const std::string& path, int64_t expected_size) {
-    PlatformFilename fn;
-    int fd;
-    int64_t size = -1;
-    ASSERT_OK(PlatformFilename::FromString(path, &fn));
-    ASSERT_OK(::arrow::internal::FileOpenReadable(fn, &fd));
-    Status st = ::arrow::internal::FileGetSize(fd, &size);
+    ASSERT_OK_AND_ASSIGN(auto fn, PlatformFilename::FromString(path));
+    ASSERT_OK_AND_ASSIGN(int fd, ::arrow::internal::FileOpenReadable(fn));
+    auto result = ::arrow::internal::FileGetSize(fd);
     ASSERT_OK(::arrow::internal::FileClose(fd));
-    ASSERT_OK(st);
+    ASSERT_OK_AND_ASSIGN(int64_t size, result);
     ASSERT_EQ(size, expected_size);
   }
 

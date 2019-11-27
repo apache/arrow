@@ -240,11 +240,10 @@ Status ThreadPool::SpawnReal(std::function<void()> task) {
   return Status::OK();
 }
 
-Status ThreadPool::Make(int threads, std::shared_ptr<ThreadPool>* out) {
+Result<std::shared_ptr<ThreadPool>> ThreadPool::Make(int threads) {
   auto pool = std::shared_ptr<ThreadPool>(new ThreadPool());
   RETURN_NOT_OK(pool->SetCapacity(threads));
-  *out = std::move(pool);
-  return Status::OK();
+  return pool;
 }
 
 // ----------------------------------------------------------------------
@@ -253,10 +252,11 @@ Status ThreadPool::Make(int threads, std::shared_ptr<ThreadPool>* out) {
 static int ParseOMPEnvVar(const char* name) {
   // OMP_NUM_THREADS is a comma-separated list of positive integers.
   // We are only interested in the first (top-level) number.
-  std::string str;
-  if (!GetEnvVar(name, &str).ok()) {
+  auto result = GetEnvVar(name);
+  if (!result.ok()) {
     return 0;
   }
+  auto str = *std::move(result);
   auto first_comma = str.find_first_of(',');
   if (first_comma != std::string::npos) {
     str = str.substr(0, first_comma);
@@ -288,8 +288,7 @@ int ThreadPool::DefaultCapacity() {
 
 // Helper for the singleton pattern
 std::shared_ptr<ThreadPool> ThreadPool::MakeCpuThreadPool() {
-  std::shared_ptr<ThreadPool> pool;
-  ARROW_CHECK_OK(ThreadPool::Make(ThreadPool::DefaultCapacity(), &pool));
+  std::shared_ptr<ThreadPool> pool = *ThreadPool::Make(ThreadPool::DefaultCapacity());
   // On Windows, the global ThreadPool destructor may be called after
   // non-main threads have been killed by the OS, and hang in a condition
   // variable.

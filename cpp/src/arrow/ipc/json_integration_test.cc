@@ -239,7 +239,9 @@ Status RunCommand(const std::string& json_path, const std::string& arrow_path,
 
 class TestJSONIntegration : public ::testing::Test {
  public:
-  void SetUp() { ASSERT_OK(TemporaryDir::Make("json-integration-test-", &temp_dir_)); }
+  void SetUp() {
+    ASSERT_OK_AND_ASSIGN(temp_dir_, TemporaryDir::Make("json-integration-test-"));
+  }
 
   std::string mkstemp() {
     std::stringstream ss;

@@ -130,7 +130,7 @@ class MinioTestServer {
 };
 
 Status MinioTestServer::Start() {
-  RETURN_NOT_OK(TemporaryDir::Make("s3fs-test-", &temp_dir_));
+  ARROW_ASSIGN_OR_RAISE(temp_dir_, TemporaryDir::Make("s3fs-test-"));
 
   // Get a copy of the current environment.
   // (NOTE: using "auto" would return a native_environment that mutates

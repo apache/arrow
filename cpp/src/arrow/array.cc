@@ -661,9 +661,10 @@ Status StructArray::Flatten(MemoryPool* pool, ArrayVector* out) const {
     // The validity of a flattened datum is the logical AND of the struct
     // element's validity and the individual field element's validity.
     if (null_bitmap && child_null_bitmap) {
-      RETURN_NOT_OK(BitmapAnd(pool, child_null_bitmap->data(), child_offset,
-                              null_bitmap_data_, data_->offset, data_->length,
-                              child_offset, &flattened_null_bitmap));
+      ARROW_ASSIGN_OR_RAISE(
+          flattened_null_bitmap,
+          BitmapAnd(pool, child_null_bitmap->data(), child_offset, null_bitmap_data_,
+                    data_->offset, data_->length, child_offset));
     } else if (child_null_bitmap) {
       flattened_null_bitmap = child_null_bitmap;
       flattened_null_count = child_data->null_count;
@@ -671,8 +672,9 @@ Status StructArray::Flatten(MemoryPool* pool, ArrayVector* out) const {
       if (child_offset == data_->offset) {
         flattened_null_bitmap = null_bitmap;
       } else {
-        RETURN_NOT_OK(CopyBitmap(pool, null_bitmap_data_, data_->offset, data_->length,
-                                 &flattened_null_bitmap));
+        ARROW_ASSIGN_OR_RAISE(
+            flattened_null_bitmap,
+            CopyBitmap(pool, null_bitmap_data_, data_->offset, data_->length));
       }
       flattened_null_count = data_->null_count;
     } else {

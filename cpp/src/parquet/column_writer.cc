@@ -252,10 +252,10 @@ class SerializedPageWriter : public PageWriter {
     // underlying buffer only keeps growing. Resize to a smaller size does not reallocate.
     PARQUET_THROW_NOT_OK(dest_buffer->Resize(max_compressed_size, false));
 
-    int64_t compressed_size;
-    PARQUET_THROW_NOT_OK(
+    PARQUET_ASSIGN_OR_THROW(
+        int64_t compressed_size,
         compressor_->Compress(src_buffer.size(), src_buffer.data(), max_compressed_size,
-                              dest_buffer->mutable_data(), &compressed_size));
+                              dest_buffer->mutable_data()));
     PARQUET_THROW_NOT_OK(dest_buffer->Resize(compressed_size, false));
   }
 

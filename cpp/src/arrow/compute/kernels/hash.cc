@@ -37,7 +37,6 @@
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
@@ -591,6 +590,7 @@ const char kValuesFieldName[] = "values";
 const char kCountsFieldName[] = "counts";
 const int32_t kValuesFieldIndex = 0;
 const int32_t kCountsFieldIndex = 1;
+
 Status ValueCounts(FunctionContext* ctx, const Datum& value,
                    std::shared_ptr<Array>* counts) {
   std::unique_ptr<HashKernel> func;
@@ -612,6 +612,8 @@ Status ValueCounts(FunctionContext* ctx, const Datum& value,
       std::vector<std::shared_ptr<Array>>{uniques, MakeArray(value_counts.array())});
   return Status::OK();
 }
+
 #undef PROCESS_SUPPORTED_HASH_TYPES
+
 }  // namespace compute
 }  // namespace arrow

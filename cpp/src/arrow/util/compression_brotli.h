@@ -36,20 +36,18 @@ constexpr int kBrotliDefaultCompressionLevel = 8;
 class ARROW_EXPORT BrotliCodec : public Codec {
  public:
   explicit BrotliCodec(int compression_level = kBrotliDefaultCompressionLevel);
-  Status Decompress(int64_t input_len, const uint8_t* input, int64_t output_buffer_len,
-                    uint8_t* output_buffer) override;
 
-  Status Decompress(int64_t input_len, const uint8_t* input, int64_t output_buffer_len,
-                    uint8_t* output_buffer, int64_t* output_len) override;
+  Result<int64_t> Decompress(int64_t input_len, const uint8_t* input,
+                             int64_t output_buffer_len, uint8_t* output_buffer) override;
 
-  Status Compress(int64_t input_len, const uint8_t* input, int64_t output_buffer_len,
-                  uint8_t* output_buffer, int64_t* output_len) override;
+  Result<int64_t> Compress(int64_t input_len, const uint8_t* input,
+                           int64_t output_buffer_len, uint8_t* output_buffer) override;
 
   int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input) override;
 
-  Status MakeCompressor(std::shared_ptr<Compressor>* out) override;
+  Result<std::shared_ptr<Compressor>> MakeCompressor() override;
 
-  Status MakeDecompressor(std::shared_ptr<Decompressor>* out) override;
+  Result<std::shared_ptr<Decompressor>> MakeDecompressor() override;
 
   const char* name() const override { return "brotli"; }
 

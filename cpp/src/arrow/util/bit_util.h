@@ -67,6 +67,7 @@
 #include <vector>
 
 #include "arrow/buffer.h"
+#include "arrow/result.h"
 #include "arrow/util/compare.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
@@ -489,7 +490,8 @@ static inline void SetBitsTo(uint8_t* bits, int64_t start_offset, int64_t length
 
 /// \brief Convert vector of bytes to bitmap buffer
 ARROW_EXPORT
-Status BytesToBits(const std::vector<uint8_t>&, MemoryPool*, std::shared_ptr<Buffer>*);
+Result<std::shared_ptr<Buffer>> BytesToBits(const std::vector<uint8_t>&,
+                                            MemoryPool* pool = default_memory_pool());
 
 }  // namespace BitUtil
 
@@ -782,12 +784,11 @@ void VisitBitsUnrolled(const uint8_t* bitmap, int64_t start_offset, int64_t leng
 /// \param[in] bitmap source data
 /// \param[in] offset bit offset into the source data
 /// \param[in] length number of bits to copy
-/// \param[out] out the resulting copy
 ///
 /// \return Status message
 ARROW_EXPORT
-Status CopyBitmap(MemoryPool* pool, const uint8_t* bitmap, int64_t offset, int64_t length,
-                  std::shared_ptr<Buffer>* out);
+Result<std::shared_ptr<Buffer>> CopyBitmap(MemoryPool* pool, const uint8_t* bitmap,
+                                           int64_t offset, int64_t length);
 
 /// Copy a bit range of an existing bitmap into an existing bitmap
 ///
@@ -820,12 +821,11 @@ void InvertBitmap(const uint8_t* bitmap, int64_t offset, int64_t length, uint8_t
 /// \param[in] bitmap source data
 /// \param[in] offset bit offset into the source data
 /// \param[in] length number of bits to copy
-/// \param[out] out the resulting copy
 ///
 /// \return Status message
 ARROW_EXPORT
-Status InvertBitmap(MemoryPool* pool, const uint8_t* bitmap, int64_t offset,
-                    int64_t length, std::shared_ptr<Buffer>* out);
+Result<std::shared_ptr<Buffer>> InvertBitmap(MemoryPool* pool, const uint8_t* bitmap,
+                                             int64_t offset, int64_t length);
 
 /// Compute the number of 1's in the given data array
 ///
@@ -1096,9 +1096,10 @@ bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right
 /// out_buffer will be allocated and initialized to zeros using pool before
 /// the operation.
 ARROW_EXPORT
-Status BitmapAnd(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
-                 const uint8_t* right, int64_t right_offset, int64_t length,
-                 int64_t out_offset, std::shared_ptr<Buffer>* out_buffer);
+Result<std::shared_ptr<Buffer>> BitmapAnd(MemoryPool* pool, const uint8_t* left,
+                                          int64_t left_offset, const uint8_t* right,
+                                          int64_t right_offset, int64_t length,
+                                          int64_t out_offset);
 
 /// \brief Do a "bitmap and" on right and left buffers starting at
 /// their respective bit-offsets for the given bit-length and put
@@ -1114,9 +1115,10 @@ void BitmapAnd(const uint8_t* left, int64_t left_offset, const uint8_t* right,
 /// out_buffer will be allocated and initialized to zeros using pool before
 /// the operation.
 ARROW_EXPORT
-Status BitmapOr(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
-                const uint8_t* right, int64_t right_offset, int64_t length,
-                int64_t out_offset, std::shared_ptr<Buffer>* out_buffer);
+Result<std::shared_ptr<Buffer>> BitmapOr(MemoryPool* pool, const uint8_t* left,
+                                         int64_t left_offset, const uint8_t* right,
+                                         int64_t right_offset, int64_t length,
+                                         int64_t out_offset);
 
 /// \brief Do a "bitmap or" for the given bit length on right and left buffers
 /// starting at their respective bit-offsets and put the results in out
@@ -1132,9 +1134,10 @@ void BitmapOr(const uint8_t* left, int64_t left_offset, const uint8_t* right,
 /// out_buffer will be allocated and initialized to zeros using pool before
 /// the operation.
 ARROW_EXPORT
-Status BitmapXor(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
-                 const uint8_t* right, int64_t right_offset, int64_t length,
-                 int64_t out_offset, std::shared_ptr<Buffer>* out_buffer);
+Result<std::shared_ptr<Buffer>> BitmapXor(MemoryPool* pool, const uint8_t* left,
+                                          int64_t left_offset, const uint8_t* right,
+                                          int64_t right_offset, int64_t length,
+                                          int64_t out_offset);
 
 /// \brief Do a "bitmap xor" for the given bit-length on right and left
 /// buffers starting at their respective bit-offsets and put the results in
@@ -1146,8 +1149,8 @@ void BitmapXor(const uint8_t* left, int64_t left_offset, const uint8_t* right,
 /// \brief Generate Bitmap with all position to `value` except for one found
 /// at `straggler_pos`.
 ARROW_EXPORT
-Status BitmapAllButOne(MemoryPool* pool, int64_t length, int64_t straggler_pos,
-                       std::shared_ptr<Buffer>* output, bool value = true);
+Result<std::shared_ptr<Buffer>> BitmapAllButOne(MemoryPool* pool, int64_t length,
+                                                int64_t straggler_pos, bool value = true);
 
 /// \brief Store a stack of bitsets efficiently. The top bitset may be
 /// accessed and its bits may be modified, but it may not be resized.

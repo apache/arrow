@@ -32,17 +32,10 @@
 
 #include "arrow/io/memory.h"
 #include "arrow/status.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/compression.h"
 
 namespace parquet {
-
-#define ASSERT_OK(expr)         \
-  do {                          \
-    ::arrow::Status s = (expr); \
-    if (!s.ok()) {              \
-      FAIL() << s.ToString();   \
-    }                           \
-  } while (0)
 
 using ::arrow::io::BufferReader;
 
@@ -274,8 +267,8 @@ TEST_F(TestPageSerde, Compression) {
       buffer.resize(max_compressed_size);
 
       int64_t actual_size;
-      ASSERT_OK(codec->Compress(data_size, data, max_compressed_size, &buffer[0],
-                                &actual_size));
+      ASSERT_OK_AND_ASSIGN(
+          actual_size, codec->Compress(data_size, data, max_compressed_size, &buffer[0]));
 
       ASSERT_NO_FATAL_FAILURE(
           WriteDataPageHeader(1024, data_size, static_cast<int32_t>(actual_size)));

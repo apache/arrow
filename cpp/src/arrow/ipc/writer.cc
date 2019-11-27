@@ -73,7 +73,7 @@ static inline Status GetTruncatedBitmap(int64_t offset, int64_t length,
   int64_t min_length = PaddedLength(BitUtil::BytesForBits(length));
   if (offset != 0 || min_length < input->size()) {
     // With a sliced array / non-zero offset, we must copy the bitmap
-    RETURN_NOT_OK(CopyBitmap(pool, input->data(), offset, length, buffer));
+    ARROW_ASSIGN_OR_RAISE(*buffer, CopyBitmap(pool, input->data(), offset, length));
   } else {
     *buffer = input;
   }

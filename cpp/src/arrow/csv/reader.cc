@@ -85,8 +85,7 @@ class BaseTableReader : public csv::TableReader {
     }
     int64_t offset = 0;
     if (first_block) {
-      const uint8_t* data;
-      RETURN_NOT_OK(util::SkipUTF8BOM(buf->data(), buf->size(), &data));
+      ARROW_ASSIGN_OR_RAISE(auto data, util::SkipUTF8BOM(buf->data(), buf->size()));
       offset += data - buf->data();
       DCHECK_GE(offset, 0);
     }

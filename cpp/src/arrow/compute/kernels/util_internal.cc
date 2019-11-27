@@ -269,9 +269,10 @@ Status AssignNullIntersection(FunctionContext* ctx, const ArrayData& left,
   }
 
   if (left.GetNullCount() > 0 && right.GetNullCount() > 0) {
-    RETURN_NOT_OK(BitmapAnd(ctx->memory_pool(), left.buffers[0]->data(), left.offset,
-                            right.buffers[0]->data(), right.offset, right.length, 0,
-                            &(output->buffers[0])));
+    ARROW_ASSIGN_OR_RAISE(
+        output->buffers[0],
+        BitmapAnd(ctx->memory_pool(), left.buffers[0]->data(), left.offset,
+                  right.buffers[0]->data(), right.offset, right.length, 0));
     // Force computation of null count.
     output->null_count = kUnknownNullCount;
     output->GetNullCount();

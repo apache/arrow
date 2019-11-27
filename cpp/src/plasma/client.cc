@@ -798,7 +798,7 @@ bool PlasmaClient::Impl::ComputeObjectHashParallel(XXH64_state_t* hash_state,
 
   std::vector<std::future<void>> futures;
   for (int i = 0; i < num_threads; i++) {
-    futures.push_back(pool->Submit(
+    futures.push_back(*pool->Submit(
         ComputeBlockHash, reinterpret_cast<uint8_t*>(data_address) + i * chunk_size,
         chunk_size, &threadhash[i]));
   }

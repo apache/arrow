@@ -204,8 +204,8 @@ Status DictionaryArray::Transpose(MemoryPool* pool, const std::shared_ptr<DataTy
   // Shift null buffer if the original offset is non-zero
   std::shared_ptr<Buffer> null_bitmap;
   if (data_->offset != 0) {
-    RETURN_NOT_OK(
-        CopyBitmap(pool, null_bitmap_data_, data_->offset, data_->length, &null_bitmap));
+    ARROW_ASSIGN_OR_RAISE(
+        null_bitmap, CopyBitmap(pool, null_bitmap_data_, data_->offset, data_->length));
   } else {
     null_bitmap = data_->buffers[0];
   }

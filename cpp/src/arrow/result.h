@@ -151,7 +151,21 @@ class Result : public util::EqualityComparable<Result<T>> {
                                   typename std::remove_cv<U>::type>::type,
                               Status>::value>::type>
   Result(U&& value)  // NOLINT(runtime/explicit)
-      : variant_(std::forward<U>(value)) {}
+      : variant_(T(std::forward<U>(value))) {}
+
+  /// Constructs a Result object that contains `value`. The resulting object
+  /// is considered to have an OK status. The wrapped element can be accessed
+  /// with ValueOrDie().
+  ///
+  /// This constructor is made implicit so that a function with a return type of
+  /// `Result<T>` can return an object of type `T`, implicitly converting
+  /// it to a `Result<T>` object.
+  ///
+  /// \param value The value to initialize to.
+  // NOTE `Result(U&& value)` above should be sufficient, but some compilers
+  // fail matching it.
+  Result(T&& value)  // NOLINT(runtime/explicit)
+      : variant_(std::move(value)) {}
 
   /// Copy constructor.
   ///
@@ -351,4 +365,14 @@ class Result : public util::EqualityComparable<Result<T>> {
 #define ARROW_ASSIGN_OR_RAISE(lhs, rexpr)                                              \
   ARROW_ASSIGN_OR_RAISE_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
                              lhs, rexpr);
+
+namespace internal {
+
+template <typename T>
+inline Status GenericToStatus(const Result<T>& res) {
+  return res.status();
+}
+
+}  // namespace internal
+
 }  // namespace arrow

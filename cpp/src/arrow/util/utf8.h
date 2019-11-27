@@ -24,6 +24,7 @@
 #include <memory>
 #include <string>
 
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
@@ -34,10 +35,10 @@ namespace util {
 
 // Convert a UTF8 string to a wstring (either UTF16 or UTF32, depending
 // on the wchar_t width).
-ARROW_EXPORT Status UTF8ToWideString(const std::string& source, std::wstring* out);
+ARROW_EXPORT Result<std::wstring> UTF8ToWideString(const std::string& source);
 
 // Similarly, convert a wstring to a UTF8 string.
-ARROW_EXPORT Status WideStringToUTF8(const std::wstring& source, std::string* out);
+ARROW_EXPORT Result<std::string> WideStringToUTF8(const std::wstring& source);
 
 namespace internal {
 
@@ -174,7 +175,7 @@ inline bool ValidateUTF8(const util::string_view& str) {
 
 // Skip UTF8 byte order mark, if any.
 ARROW_EXPORT
-Status SkipUTF8BOM(const uint8_t* data, int64_t size, const uint8_t** out);
+Result<const uint8_t*> SkipUTF8BOM(const uint8_t* data, int64_t size);
 
 }  // namespace util
 }  // namespace arrow

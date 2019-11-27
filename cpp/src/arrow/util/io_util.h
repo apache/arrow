@@ -24,6 +24,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #if ARROW_HAVE_SIGACTION
@@ -31,6 +32,7 @@
 #endif
 
 #include "arrow/io/interfaces.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
 
@@ -131,8 +133,8 @@ class ARROW_EXPORT PlatformFilename {
   PlatformFilename Parent() const;
 
   // These functions can fail for character encoding reasons.
-  static Status FromString(const std::string& file_name, PlatformFilename* out);
-  Status Join(const std::string& child_name, PlatformFilename* out) const;
+  static Result<PlatformFilename> FromString(const std::string& file_name);
+  Result<PlatformFilename> Join(const std::string& child_name) const;
 
   PlatformFilename Join(const PlatformFilename& child_name) const;
 
@@ -148,72 +150,99 @@ class ARROW_EXPORT PlatformFilename {
   explicit PlatformFilename(Impl impl);
 };
 
+/// Create a directory if it doesn't exist.
+///
+/// Return whether the directory was created.
 ARROW_EXPORT
-Status CreateDir(const PlatformFilename& dir_path, bool* created = NULLPTR);
+Result<bool> CreateDir(const PlatformFilename& dir_path);
+
+/// Create a directory and its parents if it doesn't exist.
+///
+/// Return whether the directory was created.
 ARROW_EXPORT
-Status CreateDirTree(const PlatformFilename& dir_path, bool* created = NULLPTR);
+Result<bool> CreateDirTree(const PlatformFilename& dir_path);
+
+/// Delete a directory's contents (but not the directory itself) if it exists.
+///
+/// Return whether the directory existed.
 ARROW_EXPORT
-Status DeleteDirContents(const PlatformFilename& dir_path, bool* deleted = NULLPTR);
+Result<bool> DeleteDirContents(const PlatformFilename& dir_path);
+
+/// Delete a directory tree if it exists.
+///
+/// Return whether the directory existed.
 ARROW_EXPORT
-Status DeleteDirTree(const PlatformFilename& dir_path, bool* deleted = NULLPTR);
+Result<bool> DeleteDirTree(const PlatformFilename& dir_path);
+
 // Non-recursively list the contents of the given directory.
 // The returned names are the children's base names, not including dir_path.
 ARROW_EXPORT
-Status ListDir(const PlatformFilename& dir_path, std::vector<PlatformFilename>* out);
+Result<std::vector<PlatformFilename>> ListDir(const PlatformFilename& dir_path);
 
+/// Delete a file if it exists.
+///
+/// Return whether the file existed.
 ARROW_EXPORT
-Status DeleteFile(const PlatformFilename& file_path, bool* deleted = NULLPTR);
-ARROW_EXPORT
-Status FileExists(const PlatformFilename& path, bool* out);
+Result<bool> DeleteFile(const PlatformFilename& file_path);
 
+/// Return whether a file exists.
 ARROW_EXPORT
-Status FileNameFromString(const std::string& file_name, PlatformFilename* out);
+Result<bool> FileExists(const PlatformFilename& path);
 
+/// Open a file for reading and return a file descriptor.
 ARROW_EXPORT
-Status FileOpenReadable(const PlatformFilename& file_name, int* fd);
-ARROW_EXPORT
-Status FileOpenWritable(const PlatformFilename& file_name, bool write_only, bool truncate,
-                        bool append, int* fd);
+Result<int> FileOpenReadable(const PlatformFilename& file_name);
 
+/// Open a file for writing and return a file descriptor.
 ARROW_EXPORT
-Status FileRead(int fd, uint8_t* buffer, const int64_t nbytes, int64_t* bytes_read);
+Result<int> FileOpenWritable(const PlatformFilename& file_name, bool write_only = true,
+                             bool truncate = true, bool append = false);
+
+/// Read from current file position.  Return number of bytes read.
 ARROW_EXPORT
-Status FileReadAt(int fd, uint8_t* buffer, int64_t position, int64_t nbytes,
-                  int64_t* bytes_read);
+Result<int64_t> FileRead(int fd, uint8_t* buffer, int64_t nbytes);
+/// Read from given file position.  Return number of bytes read.
+ARROW_EXPORT
+Result<int64_t> FileReadAt(int fd, uint8_t* buffer, int64_t position, int64_t nbytes);
+
 ARROW_EXPORT
 Status FileWrite(int fd, const uint8_t* buffer, const int64_t nbytes);
 ARROW_EXPORT
 Status FileTruncate(int fd, const int64_t size);
 
 ARROW_EXPORT
-Status FileTell(int fd, int64_t* pos);
-ARROW_EXPORT
 Status FileSeek(int fd, int64_t pos);
 ARROW_EXPORT
 Status FileSeek(int fd, int64_t pos, int whence);
 ARROW_EXPORT
-Status FileGetSize(int fd, int64_t* size);
+Result<int64_t> FileTell(int fd);
+ARROW_EXPORT
+Result<int64_t> FileGetSize(int fd);
 
 ARROW_EXPORT
 Status FileClose(int fd);
 
+struct Pipe {
+  int rfd;
+  int wfd;
+};
+
 ARROW_EXPORT
-Status CreatePipe(int fd[2]);
+Result<Pipe> CreatePipe();
 
 ARROW_EXPORT
 Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
                       void** new_addr);
 
 ARROW_EXPORT
-Status GetEnvVar(const char* name, std::string* out);
+Result<std::string> GetEnvVar(const char* name);
 ARROW_EXPORT
-Status GetEnvVar(const std::string& name, std::string* out);
-#ifdef _WIN32
+Result<std::string> GetEnvVar(const std::string& name);
 ARROW_EXPORT
-Status GetEnvVar(const char* name, NativePathString* out);
+Result<NativePathString> GetEnvVarNative(const char* name);
 ARROW_EXPORT
-Status GetEnvVar(const std::string& name, NativePathString* out);
-#endif
+Result<NativePathString> GetEnvVarNative(const std::string& name);
+
 ARROW_EXPORT
 Status SetEnvVar(const char* name, const char* value);
 ARROW_EXPORT
@@ -239,7 +268,7 @@ class ARROW_EXPORT TemporaryDir {
 
   /// Create a temporary subdirectory in the system temporary dir,
   /// named starting with `prefix`.
-  static Status Make(const std::string& prefix, std::unique_ptr<TemporaryDir>* out);
+  static Result<std::unique_ptr<TemporaryDir>> Make(const std::string& prefix);
 
  private:
   PlatformFilename path_;
@@ -272,11 +301,14 @@ class ARROW_EXPORT SignalHandler {
 #endif
 };
 
+/// \brief Return the current handler for the given signal number.
 ARROW_EXPORT
-Status GetSignalHandler(int signum, SignalHandler* out);
+Result<SignalHandler> GetSignalHandler(int signum);
+/// \brief Set a new handler for the given signal number.
+///
+/// The old signal handler is returned.
 ARROW_EXPORT
-Status SetSignalHandler(int signum, const SignalHandler& handler,
-                        SignalHandler* old_handler = NULLPTR);
+Result<SignalHandler> SetSignalHandler(int signum, const SignalHandler& handler);
 
 }  // namespace internal
 }  // namespace arrow

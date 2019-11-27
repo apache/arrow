@@ -20,6 +20,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <utility>
 
 #ifdef ARROW_WITH_BROTLI
 #include "arrow/util/compression_brotli.h"
@@ -83,21 +84,16 @@ std::string Codec::GetCodecAsString(Compression::type t) {
   }
 }
 
-Status Codec::Create(Compression::type codec_type, std::unique_ptr<Codec>* result) {
-  return Codec::Create(codec_type, Codec::UseDefaultCompressionLevel(), result);
-}
-
-Status Codec::Create(Compression::type codec_type, int compression_level,
-                     std::unique_ptr<Codec>* result) {
+Result<std::unique_ptr<Codec>> Codec::Create(Compression::type codec_type,
+                                             int compression_level) {
   std::unique_ptr<Codec> codec;
-  const bool compression_level_set{compression_level !=
-                                   Codec::UseDefaultCompressionLevel()};
+  const bool compression_level_set{compression_level != kUseDefaultCompressionLevel};
   switch (codec_type) {
     case Compression::UNCOMPRESSED:
       if (compression_level_set) {
         return Status::Invalid("Compression level cannot be specified for UNCOMPRESSED.");
       }
-      break;
+      return nullptr;
     case Compression::SNAPPY:
 #ifdef ARROW_WITH_SNAPPY
       if (compression_level_set) {
@@ -154,14 +150,9 @@ Status Codec::Create(Compression::type codec_type, int compression_level,
     default:
       return Status::Invalid("Unrecognized codec");
   }
-  if (codec) {
-    const auto status = codec->Init();
-    if (status.ok()) {
-      result->reset(codec.release());
-    }
-    return status;
-  }
-  return Status::OK();
+
+  RETURN_NOT_OK(codec->Init());
+  return std::move(codec);
 }
 
 bool Codec::IsAvailable(Compression::type codec_type) {
@@ -209,6 +200,36 @@ bool Codec::IsAvailable(Compression::type codec_type) {
     default:
       return false;
   }
+}
+
+// Deprecated APIs
+
+Status Codec::Create(Compression::type codec_type, std::unique_ptr<Codec>* result) {
+  return Create(codec_type).Value(result);
+}
+
+Status Codec::Create(Compression::type codec_type, int compression_level,
+                     std::unique_ptr<Codec>* result) {
+  return Create(codec_type, compression_level).Value(result);
+}
+
+Status Codec::MakeCompressor(std::shared_ptr<Compressor>* out) {
+  return MakeCompressor().Value(out);
+}
+
+Status Codec::MakeDecompressor(std::shared_ptr<Decompressor>* out) {
+  return MakeDecompressor().Value(out);
+}
+
+Status Codec::Compress(int64_t input_len, const uint8_t* input, int64_t output_buffer_len,
+                       uint8_t* output_buffer, int64_t* output_len) {
+  return Compress(input_len, input, output_buffer_len, output_buffer).Value(output_len);
+}
+
+Status Codec::Decompress(int64_t input_len, const uint8_t* input,
+                         int64_t output_buffer_len, uint8_t* output_buffer,
+                         int64_t* output_len) {
+  return Decompress(input_len, input, output_buffer_len, output_buffer).Value(output_len);
 }
 
 }  // namespace util

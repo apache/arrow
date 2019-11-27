@@ -1693,14 +1693,15 @@ cdef extern from 'arrow/util/compression.h' namespace 'arrow' nogil:
 
     cdef cppclass CCodec" arrow::util::Codec":
         @staticmethod
-        CStatus Create(CompressionType codec, unique_ptr[CCodec]* out)
+        CResult[unique_ptr[CCodec]] Create(CompressionType codec)
 
-        CStatus Decompress(int64_t input_len, const uint8_t* input,
-                           int64_t output_len, uint8_t* output_buffer)
+        CResult[int64_t] Decompress(int64_t input_len, const uint8_t* input,
+                                    int64_t output_len,
+                                    uint8_t* output_buffer)
 
-        CStatus Compress(int64_t input_len, const uint8_t* input,
-                         int64_t output_buffer_len, uint8_t* output_buffer,
-                         int64_t* output_length)
+        CResult[int64_t] Compress(int64_t input_len, const uint8_t* input,
+                                  int64_t output_buffer_len,
+                                  uint8_t* output_buffer)
 
         int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input)
 
@@ -1712,3 +1713,7 @@ cdef extern from 'arrow/util/thread_pool.h' namespace 'arrow' nogil:
 cdef extern from 'arrow/array/concatenate.h' namespace 'arrow' nogil:
     CStatus Concatenate(const vector[shared_ptr[CArray]]& arrays,
                         CMemoryPool* pool, shared_ptr[CArray]* result)
+
+cdef extern from "<utility>" namespace "std":
+    # Work around https://github.com/cython/cython/issues/2169
+    unique_ptr[CCodec] move(unique_ptr[CCodec]) nogil
