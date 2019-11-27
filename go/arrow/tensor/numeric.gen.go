@@ -263,6 +263,54 @@ func NewFloat64(data *array.Data, shape, strides []int64, names []string) *Float
 func (tsr *Float64) Value(i []int64) float64  { j := int(tsr.offset(i)); return tsr.values[j] }
 func (tsr *Float64) Float64Values() []float64 { return tsr.values }
 
+// Date32 is an n-dim array of date32s.
+type Date32 struct {
+	tensorBase
+	values []arrow.Date32
+}
+
+// NewDate32 returns a new n-dimensional array of date32s.
+// If strides is nil, row-major strides will be inferred.
+// If names is nil, a slice of empty strings will be created.
+func NewDate32(data *array.Data, shape, strides []int64, names []string) *Date32 {
+	tsr := &Date32{tensorBase: *newTensor(arrow.PrimitiveTypes.Date32, data, shape, strides, names)}
+	vals := tsr.data.Buffers()[1]
+	if vals != nil {
+		tsr.values = arrow.Date32Traits.CastFromBytes(vals.Bytes())
+		beg := tsr.data.Offset()
+		end := beg + tsr.data.Len()
+		tsr.values = tsr.values[beg:end]
+	}
+	return tsr
+}
+
+func (tsr *Date32) Value(i []int64) arrow.Date32 { j := int(tsr.offset(i)); return tsr.values[j] }
+func (tsr *Date32) Date32Values() []arrow.Date32 { return tsr.values }
+
+// Date64 is an n-dim array of date64s.
+type Date64 struct {
+	tensorBase
+	values []arrow.Date64
+}
+
+// NewDate64 returns a new n-dimensional array of date64s.
+// If strides is nil, row-major strides will be inferred.
+// If names is nil, a slice of empty strings will be created.
+func NewDate64(data *array.Data, shape, strides []int64, names []string) *Date64 {
+	tsr := &Date64{tensorBase: *newTensor(arrow.PrimitiveTypes.Date64, data, shape, strides, names)}
+	vals := tsr.data.Buffers()[1]
+	if vals != nil {
+		tsr.values = arrow.Date64Traits.CastFromBytes(vals.Bytes())
+		beg := tsr.data.Offset()
+		end := beg + tsr.data.Len()
+		tsr.values = tsr.values[beg:end]
+	}
+	return tsr
+}
+
+func (tsr *Date64) Value(i []int64) arrow.Date64 { j := int(tsr.offset(i)); return tsr.values[j] }
+func (tsr *Date64) Date64Values() []arrow.Date64 { return tsr.values }
+
 var (
 	_ Interface = (*Int8)(nil)
 	_ Interface = (*Int16)(nil)
@@ -274,4 +322,6 @@ var (
 	_ Interface = (*Uint64)(nil)
 	_ Interface = (*Float32)(nil)
 	_ Interface = (*Float64)(nil)
+	_ Interface = (*Date32)(nil)
+	_ Interface = (*Date64)(nil)
 )
