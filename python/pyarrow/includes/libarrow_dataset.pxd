@@ -74,6 +74,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         #                         compute::CastOptions options = compute::CastOptions()) const;
 
     ctypedef shared_ptr[CExpression] CExpressionPtr "arrow::dataset::ExpressionPtr"
+    ctypedef vector[CExpressionPtr] CExpressionVector "arrow::dataset::ExpressionVector"
 
     cdef cppclass CUnaryExpression "arrow::dataset::UnaryExpression"(CExpression):
         const CExpressionPtr& operand() const
@@ -90,22 +91,25 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         c_string name() const
 
     cdef cppclass CComparisonExpression "arrow::dataset::ComparisonExpression"(CBinaryExpression):
-        # ComparisonExpression(compute::CompareOperator op, ExpressionPtr left_operand,
-        #                      ExpressionPtr right_operand)
-        # compute::CompareOperator op() const { return op_; }
+        CComparisonExpression(CCompareOperator op, CExpressionPtr left_operand,
+                              CExpressionPtr right_operand)
+        CCompareOperator op() const
+
+    cdef cppclass CAndExpression "arrow::dataset::AndExpression"(CBinaryExpression):
         pass
 
-    cdef cppclass CAndExpression "arrow::dataset::AndExpression"(CComparisonExpression):
+    cdef cppclass COrExpression "arrow::dataset::OrExpression"(CBinaryExpression):
         pass
 
-    cdef cppclass COrExpression "arrow::dataset::OrExpression"(CComparisonExpression):
+    cdef cppclass CNotExpression "arrow::dataset::NotExpression"(CBinaryExpression):
         pass
 
-    cdef cppclass CNotExpression "arrow::dataset::NotExpression"(CComparisonExpression):
+    cdef cppclass CIsValidExpression "arrow::dataset::IsValidExpression"(CBinaryExpression):
         pass
 
-    cdef cppclass CIsValidExpression "arrow::dataset::IsValidExpression"(CComparisonExpression):
-        pass
+    cdef shared_ptr[CNotExpression] MakeNotExpression "arrow::dataset::not_"(CExpressionPtr operand)
+    cdef CExpressionPtr MakeAndExpression "arrow::dataset::and_"(const CExpressionVector& subexpressions)
+    cdef CExpressionPtr MakeOrExpression "arrow::dataset::or_"(const CExpressionVector& subexpressions)
 
     # InExpression
     # CastExpression

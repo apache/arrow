@@ -45,5 +45,7 @@ from pyarrow._dataset import (
     FieldExpression,
     AndExpression,
     OrExpression,
-    NotExpression
+    NotExpression,
+    CompareOperator,
+    ComparisonExpression,
 )

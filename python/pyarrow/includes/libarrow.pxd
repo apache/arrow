@@ -791,6 +791,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CDoubleScalar" arrow::DoubleScalar"(CScalar):
         double value
 
+    shared_ptr[CScalar] MakeScalar[Value](Value value)
+
     CStatus ConcatenateTables(const vector[shared_ptr[CTable]]& tables,
                               shared_ptr[CTable]* result)
 
@@ -1419,6 +1421,14 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     CStatus FilterKernel" arrow::compute::Filter"(
         CFunctionContext* context, const CDatum& values,
         const CDatum& filter, CDatum* out)
+
+    enum CCompareOperator" arrow::compute::CompareOperator":
+        CCompareOperator_EQUAL" arrow::compute::CompareOperator::EQUAL"
+        CCompareOperator_NOT_EQUAL" arrow::compute::CompareOperator::NOT_EQUAL"
+        CCompareOperator_GREATER" arrow::compute::CompareOperator::GREATER"
+        CCompareOperator_GREATER_EQUAL" arrow::compute::CompareOperator::GREATER_EQUAL"
+        CCompareOperator_LESS" arrow::compute::CompareOperator::LESS"
+        CCompareOperator_LESS_EQUAL" arrow::compute::CompareOperator::LESS_EQUAL"
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py":

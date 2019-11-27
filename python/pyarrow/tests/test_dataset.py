@@ -50,7 +50,9 @@ try:
         FieldExpression,
         AndExpression,
         OrExpression,
-        NotExpression
+        NotExpression,
+        CompareOperator,
+        ComparisonExpression,
     )
 except ImportError as e:
     ds = None
@@ -235,6 +237,14 @@ def test_file_system_data_source():
 
 def test_expression():
     a = ScalarExpression(1)
+    b = ScalarExpression(1.1)
+    c = ScalarExpression(True)
+    ComparisonExpression(CompareOperator.Equal, a, b)
+    AndExpression(a, b)
+    AndExpression(a, b, c)
+    OrExpression(a, b)
+    OrExpression(a, b, c)
+    NotExpression(OrExpression(a, b, c))
 
 
 def test_file_system_discovery(fs):

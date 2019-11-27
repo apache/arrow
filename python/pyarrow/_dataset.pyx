@@ -24,6 +24,7 @@ import six
 
 from cython.operator cimport dereference as deref
 
+import pyarrow as pa
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.lib cimport *
 # from pyarrow.lib import ArrowException
@@ -823,20 +824,29 @@ cdef class ScalarExpression(Expression):
 
     cdef CScalarExpression* scalar
 
-    def __init__(self, Scalar value not None):
+    def __init__(self, value):
         cdef:
             shared_ptr[CScalar] scalar
             shared_ptr[CScalarExpression] expression
-        scalar = pyarrow_unwrap_scalar(value)
-        expression = make_shared[CScalarExpression](scalar)
+
+        if isinstance(value, bool):
+            scalar = MakeScalar(<c_bool>value)
+        elif isinstance(value, float):
+            scalar = MakeScalar(<double>value)
+        elif isinstance(value, int):
+            scalar = MakeScalar(<int64_t>value)
+        else:
+            raise TypeError('Not yet supported scalar value: {}'.format(value))
+
+        expression.reset(new CScalarExpression(scalar))
         self.init(<shared_ptr[CExpression]> expression)
 
     cdef void init(self, const shared_ptr[CExpression]& sp):
         Expression.init(self, sp)
         self.scalar = <CScalarExpression*> sp.get()
 
-    def value(self):
-        return pyarrow_wrap_scalar(self.scalar.value())
+    # def value(self):
+    #     return pyarrow_wrap_scalar(self.scalar.value())
 
 
 cdef class FieldExpression(Expression):
@@ -851,9 +861,31 @@ cdef class FieldExpression(Expression):
         return frombytes(self.scalar.name())
 
 
+cpdef enum CompareOperator:
+    Equal = <int8_t> CCompareOperator_EQUAL
+    NotEqual = <int8_t> CCompareOperator_NOT_EQUAL
+    Greater = <int8_t> CCompareOperator_GREATER
+    GreaterEqual = <int8_t> CCompareOperator_GREATER_EQUAL
+    Less = <int8_t> CCompareOperator_LESS
+    LessEqual = <int8_t> CCompareOperator_LESS_EQUAL
+
+
 cdef class ComparisonExpression(BinaryExpression):
 
     cdef CComparisonExpression* comparison
+
+    def __init__(self, CompareOperator op,
+                 Expression left_operand not None,
+                 Expression right_operand not None):
+        cdef shared_ptr[CComparisonExpression] expression
+        expression.reset(
+            new CComparisonExpression(
+                <CCompareOperator>op,
+                left_operand.unwrap(),
+                right_operand.unwrap()
+            )
+        )
+        self.init(<shared_ptr[CExpression]> expression)
 
     cdef void init(self, const shared_ptr[CExpression]& sp):
         BinaryExpression.init(self, sp)
@@ -863,13 +895,39 @@ cdef class ComparisonExpression(BinaryExpression):
     #     return ...
 
 
-cdef class AndExpression(ComparisonExpression):
-    pass
+cdef class NotExpression(UnaryExpression):
+
+    def __init__(self, Expression operand not None):
+        cdef shared_ptr[CNotExpression] expression
+        expression = MakeNotExpression(operand.unwrap())
+        self.init(<shared_ptr[CExpression]> expression)
 
 
-cdef class OrExpression(ComparisonExpression):
-    pass
+cdef class AndExpression(BinaryExpression):
+
+    def __init__(self, Expression left_operand not None,
+                 Expression right_operand not None,
+                 *additional_operands):
+        cdef:
+            Expression operand
+            vector[shared_ptr[CExpression]] exprs
+        exprs.push_back(left_operand.unwrap())
+        exprs.push_back(right_operand.unwrap())
+        for operand in additional_operands:
+            exprs.push_back(operand.unwrap())
+        self.init(MakeAndExpression(exprs))
 
 
-cdef class NotExpression(ComparisonExpression):
-    pass
+cdef class OrExpression(BinaryExpression):
+
+    def __init__(self, Expression left_operand not None,
+                 Expression right_operand not None,
+                 *additional_operands):
+        cdef:
+            Expression operand
+            vector[shared_ptr[CExpression]] exprs
+        exprs.push_back(left_operand.unwrap())
+        exprs.push_back(right_operand.unwrap())
+        for operand in additional_operands:
+            exprs.push_back(operand.unwrap())
+        self.init(MakeOrExpression(exprs))
