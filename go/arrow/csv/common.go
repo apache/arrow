@@ -138,9 +138,8 @@ func WithNullReader(stringsCanBeNull bool, nullValues ...string) Option {
 			if len(nullValues) == 0 {
 				nullValues = DefaultNullValues
 			}
-			for _, v := range nullValues {
-				cfg.nulls[v] = struct{}{}
-			}
+			cfg.nulls = make([]string, len(nullValues))
+			copy(cfg.nulls, nullValues)
 		default:
 			panic(fmt.Errorf("arrow/csv: unknown config type %T", cfg))
 		}
