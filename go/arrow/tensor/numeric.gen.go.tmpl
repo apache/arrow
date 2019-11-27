@@ -26,7 +26,7 @@ import (
 // {{.Name}} is an n-dim array of {{.Type}}s.
 type {{.Name}} struct {
 	tensorBase
-	values []{{.Type}}
+	values []{{or .QualifiedType .Type}}
 }
 
 // New{{.Name}} returns a new n-dimensional array of {{.Type}}s.
@@ -44,8 +44,8 @@ func New{{.Name}}(data *array.Data, shape, strides []int64, names []string) *{{.
 	return tsr
 }
 
-func (tsr *{{.Name}}) Value(i []int64)  {{or .Type}} { j := int(tsr.offset(i)); return tsr.values[j] }
-func (tsr *{{.Name}}) {{.Name}}Values() []{{or .Type}} { return tsr.values }
+func (tsr *{{.Name}}) Value(i []int64)  {{or .QualifiedType .Type}} { j := int(tsr.offset(i)); return tsr.values[j] }
+func (tsr *{{.Name}}) {{.Name}}Values() []{{or .QualifiedType .Type}} { return tsr.values }
 {{end}}
 
 var (
