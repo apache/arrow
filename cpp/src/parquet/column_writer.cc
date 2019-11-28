@@ -326,6 +326,9 @@ class SerializedPageWriter : public PageWriter {
   int64_t total_uncompressed_size() { return total_uncompressed_size_; }
 
  private:
+  // To allow UpdateEncryption on Close
+  friend class BufferedPageWriter;
+
   void InitEncryption() {
     // Prepare the AAD for quick update later.
     if (data_encryptor_ != nullptr) {
@@ -424,6 +427,9 @@ class BufferedPageWriter : public PageWriter {
   }
 
   void Close(bool has_dictionary, bool fallback) override {
+    if (pager_->meta_encryptor_ != nullptr) {
+      pager_->UpdateEncryption(encryption::kColumnMetaData);
+    }
     // index_page_offset = -1 since they are not supported
     int64_t final_position = -1;
     PARQUET_THROW_NOT_OK(final_sink_->Tell(&final_position));
@@ -433,7 +439,7 @@ class BufferedPageWriter : public PageWriter {
     metadata_->Finish(pager_->num_values(), dictionary_page_offset, -1,
                       pager_->data_page_offset() + final_position,
                       pager_->total_compressed_size(), pager_->total_uncompressed_size(),
-                      has_dictionary, fallback);
+                      has_dictionary, fallback, pager_->meta_encryptor_);
 
     // Write metadata at end of column chunk
     metadata_->WriteTo(in_memory_sink_.get());
