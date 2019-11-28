@@ -35,7 +35,7 @@ cdef extern from * namespace "std" nogil:
     cdef shared_ptr[T] static_pointer_cast[T, U](shared_ptr[U])
 
 # vendored from the cymove project https://github.com/ozars/cymove
-cdef extern from * namespace "cymove":
+cdef extern from * namespace "cymove" nogil:
     """
     #include <type_traits>
     #include <utility>
