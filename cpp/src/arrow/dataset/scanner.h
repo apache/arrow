@@ -82,6 +82,15 @@ class ARROW_DS_EXPORT ScanTask {
   virtual Result<RecordBatchIterator> Scan() = 0;
 
   virtual ~ScanTask() = default;
+
+ protected:
+  ScanTask() : options_(ScanOptions::Defaults()), context_(new ScanContext()) {}
+
+  ScanTask(ScanOptionsPtr options, ScanContextPtr context)
+      : options_(std::move(options)), context_(std::move(context)) {}
+
+  ScanOptionsPtr options_;
+  ScanContextPtr context_;
 };
 
 /// \brief A trivial ScanTask that yields the RecordBatch of an array.
@@ -92,16 +101,13 @@ class ARROW_DS_EXPORT SimpleScanTask : public ScanTask {
 
   SimpleScanTask(std::vector<std::shared_ptr<RecordBatch>> record_batches,
                  ScanOptionsPtr options, ScanContextPtr context)
-      : record_batches_(std::move(record_batches)),
-        options_(std::move(options)),
-        context_(std::move(context)) {}
+      : ScanTask(std::move(options), std::move(context)),
+        record_batches_(std::move(record_batches)) {}
 
   Result<RecordBatchIterator> Scan() override;
 
  protected:
   std::vector<std::shared_ptr<RecordBatch>> record_batches_;
-  ScanOptionsPtr options_;
-  ScanContextPtr context_;
 };
 
 Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(

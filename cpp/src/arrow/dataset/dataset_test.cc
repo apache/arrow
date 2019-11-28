@@ -134,7 +134,7 @@ TEST(TestProjector, MismatchedType) {
   auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, from_schema);
   auto to_schema = schema({field("f64", int32())});
 
-  RecordBatchProjector projector(default_memory_pool(), to_schema);
+  RecordBatchProjector projector(to_schema);
 
   auto result = projector.Project(*batch);
   ASSERT_RAISES(TypeError, result.status());
@@ -147,7 +147,7 @@ TEST(TestProjector, AugmentWithNull) {
   auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, from_schema);
   auto to_schema = schema({field("i32", int32()), field("f64", float64())});
 
-  RecordBatchProjector projector(default_memory_pool(), to_schema);
+  RecordBatchProjector projector(to_schema);
 
   std::shared_ptr<Array> null_i32;
   ASSERT_OK(MakeArrayOfNull(int32(), batch->num_rows(), &null_i32));
@@ -168,7 +168,8 @@ TEST(TestProjector, AugmentWithScalar) {
 
   auto scalar_i32 = std::make_shared<Int32Scalar>(kScalarValue);
 
-  RecordBatchProjector projector(default_memory_pool(), to_schema, {scalar_i32, nullptr});
+  RecordBatchProjector projector(to_schema);
+  ASSERT_OK(projector.SetDefaultValue("i32", scalar_i32));
 
   ASSERT_OK_AND_ASSIGN(auto array_i32,
                        ArrayFromBuilderVisitor(int32(), kBatchSize, [](Int32Builder* b) {
@@ -201,10 +202,9 @@ TEST(TestProjector, NonTrivial) {
   auto scalar_f32 = std::make_shared<FloatScalar>(kScalarValue);
   auto scalar_f64 = std::make_shared<DoubleScalar>(kScalarValue);
 
-  RecordBatchProjector projector(
-      default_memory_pool(), to_schema,
-      {nullptr /* i32 */, scalar_f64, nullptr /* u16 */, nullptr /* u8 */,
-       nullptr /* b */, nullptr /* u32 */, scalar_f32});
+  RecordBatchProjector projector(to_schema);
+  ASSERT_OK(projector.SetDefaultValue("f64", scalar_f64));
+  ASSERT_OK(projector.SetDefaultValue("f32", scalar_f32));
 
   ASSERT_OK_AND_ASSIGN(
       auto array_f32, ArrayFromBuilderVisitor(float32(), kBatchSize, [](FloatBuilder* b) {

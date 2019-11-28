@@ -45,11 +45,10 @@ class ParquetScanTask : public ScanTask {
   ParquetScanTask(int row_group, std::vector<int> column_projection,
                   std::shared_ptr<parquet::arrow::FileReader> reader,
                   ScanOptionsPtr options, ScanContextPtr context)
-      : row_group_(row_group),
+      : ScanTask(std::move(options), std::move(context)),
+        row_group_(row_group),
         column_projection_(std::move(column_projection)),
-        reader_(reader),
-        options_(std::move(options)),
-        context_(std::move(context)) {}
+        reader_(reader) {}
 
   Result<RecordBatchIterator> Scan() {
     // The construction of parquet's RecordBatchReader is deferred here to
@@ -72,9 +71,6 @@ class ParquetScanTask : public ScanTask {
   // guarantee the producing ParquetScanTaskIterator is still alive. This is a
   // contract required by record_batch_reader_
   std::shared_ptr<parquet::arrow::FileReader> reader_;
-
-  ScanOptionsPtr options_;
-  ScanContextPtr context_;
 };
 
 // Skip RowGroups with a filter and metadata

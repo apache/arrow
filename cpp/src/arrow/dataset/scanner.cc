@@ -134,8 +134,7 @@ Result<ScannerPtr> ScannerBuilder::Finish() const {
   if (has_projection_ && !project_columns_.empty()) {
     auto projected_schema = SchemaFromColumnNames(schema(), project_columns_);
     options_->schema = projected_schema;
-    options_->projector =
-        std::make_shared<RecordBatchProjector>(context_->pool, projected_schema);
+    options_->projector = std::make_shared<RecordBatchProjector>(projected_schema);
   }
 
   if (options_->filter->Equals(true)) {

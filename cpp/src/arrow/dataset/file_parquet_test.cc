@@ -203,8 +203,8 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjected) {
                     field("f32", float32()), field("i32", int32())});
 
   opts_->schema = schema_;
-  opts_->projector = std::make_shared<RecordBatchProjector>(
-      default_memory_pool(), SchemaFromColumnNames(schema_, {"f64"}));
+  opts_->projector =
+      std::make_shared<RecordBatchProjector>(SchemaFromColumnNames(schema_, {"f64"}));
   opts_->filter = equal(field_ref("i32"), scalar(0));
 
   // NB: projector is applied by the scanner; ParquetFragment does not evaluate it so
@@ -245,8 +245,8 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
   auto reader = GetRecordBatchReader();
 
   opts_->schema = schema_;
-  opts_->projector = std::make_shared<RecordBatchProjector>(
-      default_memory_pool(), SchemaFromColumnNames(schema_, {"f64"}));
+  opts_->projector =
+      std::make_shared<RecordBatchProjector>(SchemaFromColumnNames(schema_, {"f64"}));
   opts_->filter = equal(field_ref("i32"), scalar(0));
 
   // NB: projector is applied by the scanner; ParquetFragment does not evaluate it so

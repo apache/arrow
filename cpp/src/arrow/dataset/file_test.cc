@@ -138,8 +138,8 @@ TEST_F(TestFileSystemBasedDataSource, TreePartitionPruning) {
   add_expr("city", "New York");
   add_expr("city", "Franklin");
 
-  auto partition_scheme =
-      std::make_shared<SegmentDictionaryPartitionScheme>(dictionaries);
+  auto partition_scheme = std::make_shared<SegmentDictionaryPartitionScheme>(
+      schema({field("state", utf8()), field("city", utf8())}), dictionaries);
   MakeSource(regions, source_partition, partition_scheme);
 
   std::vector<std::string> all_cities = {"CA/San Francisco", "CA/Franklin", "NY/New York",

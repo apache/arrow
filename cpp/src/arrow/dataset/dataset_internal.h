@@ -52,45 +52,50 @@ class RecordBatchProjector {
  public:
   /// A column required by the given schema but absent from a record batch will be added
   /// to the projected record batch with all its slots null.
-  RecordBatchProjector(MemoryPool* pool, std::shared_ptr<Schema> to)
-      : pool_(pool),
-        to_(std::move(to)),
+  explicit RecordBatchProjector(std::shared_ptr<Schema> to)
+      : to_(std::move(to)),
         missing_columns_(to_->num_fields(), nullptr),
         column_indices_(to_->num_fields(), kNoMatch),
         scalars_(to_->num_fields(), nullptr) {}
 
-  /// A column required by the given schema but absent from a record batch will be added
-  /// to the projected record batch with all its slots equal to the corresponding entry in
-  /// scalars or null if the correspondign entry in scalars is nullptr.
-  RecordBatchProjector(MemoryPool* pool, std::shared_ptr<Schema> to,
-                       std::vector<std::shared_ptr<Scalar>> scalars)
-      : pool_(pool),
-        to_(std::move(to)),
-        missing_columns_(to_->num_fields(), nullptr),
-        column_indices_(to_->num_fields(), kNoMatch),
-        scalars_(std::move(scalars)) {
-    DCHECK_EQ(scalars_.size(), missing_columns_.size());
+  /// If the named field is absent from a record batch it will be added to the projected
+  /// record batch with all its slots equal to the provided scalar (instead of null).
+  Status SetDefaultValue(const std::string& name, std::shared_ptr<Scalar> scalar) {
+    auto field_index = to_->GetFieldIndex(name);
+    if (field_index == -1) {
+      return Status::Invalid("no field named ", name, " in schema ", *to_);
+    }
+
+    DCHECK_NE(scalar, nullptr);
+
+    auto field_type = to_->field(field_index)->type();
+    if (!field_type->Equals(scalar->type)) {
+      return Status::TypeError("field ", name, " is ", *field_type,
+                               " but provided scalar is ", *scalar->type);
+    }
+
+    scalars_[field_index] = std::move(scalar);
+    return Status::OK();
   }
 
-  Result<std::shared_ptr<RecordBatch>> Project(const RecordBatch& batch) {
+  Result<std::shared_ptr<RecordBatch>> Project(
+      const RecordBatch& batch, MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT) {
     if (from_ == nullptr || !batch.schema()->Equals(*from_)) {
-      RETURN_NOT_OK(SetInputSchema(batch.schema()));
+      RETURN_NOT_OK(SetInputSchema(batch.schema(), pool));
     }
 
     if (missing_columns_length_ < batch.num_rows()) {
-      RETURN_NOT_OK(ResizeMissingColumns(batch.num_rows()));
+      RETURN_NOT_OK(ResizeMissingColumns(batch.num_rows(), pool));
     }
 
     std::vector<std::shared_ptr<Array>> columns(to_->num_fields());
 
     for (int i = 0; i < to_->num_fields(); ++i) {
-      int matching_index = column_indices_[i];
-      if (matching_index != kNoMatch) {
-        columns[i] = batch.column(matching_index);
-        continue;
+      if (column_indices_[i] != kNoMatch) {
+        columns[i] = batch.column(column_indices_[i]);
+      } else {
+        columns[i] = missing_columns_[i]->Slice(0, batch.num_rows());
       }
-
-      columns[i] = missing_columns_[i]->Slice(0, batch.num_rows());
     }
 
     return RecordBatch::Make(to_, batch.num_rows(), std::move(columns));
@@ -98,7 +103,8 @@ class RecordBatchProjector {
 
   const std::shared_ptr<Schema>& schema() const { return to_; }
 
-  Status SetInputSchema(std::shared_ptr<Schema> from) {
+  Status SetInputSchema(std::shared_ptr<Schema> from,
+                        MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT) {
     from_ = std::move(from);
 
     for (int i = 0; i < to_->num_fields(); ++i) {
@@ -118,7 +124,7 @@ class RecordBatchProjector {
         // Mark column i as missing by setting missing_columns_[i]
         // to a non-null placeholder.
         RETURN_NOT_OK(
-            MakeArrayOfNull(pool_, to_->field(i)->type(), 0, &missing_columns_[i]));
+            MakeArrayOfNull(pool, to_->field(i)->type(), 0, &missing_columns_[i]));
       }
 
       column_indices_[i] = matching_index;
@@ -127,7 +133,7 @@ class RecordBatchProjector {
   }
 
  private:
-  Status ResizeMissingColumns(int64_t new_length) {
+  Status ResizeMissingColumns(int64_t new_length, MemoryPool* pool) {
     // TODO(bkietz) MakeArrayOfNull could use fewer buffers by reusing a single zeroed
     // buffer for every buffer in every column which is null
     for (int i = 0; i < to_->num_fields(); ++i) {
@@ -135,18 +141,17 @@ class RecordBatchProjector {
         continue;
       }
       if (scalars_[i] == nullptr) {
-        RETURN_NOT_OK(MakeArrayOfNull(pool_, missing_columns_[i]->type(), new_length,
+        RETURN_NOT_OK(MakeArrayOfNull(pool, missing_columns_[i]->type(), new_length,
                                       &missing_columns_[i]));
         continue;
       }
       RETURN_NOT_OK(
-          MakeArrayFromScalar(pool_, *scalars_[i], new_length, &missing_columns_[i]));
+          MakeArrayFromScalar(pool, *scalars_[i], new_length, &missing_columns_[i]));
     }
     missing_columns_length_ = new_length;
     return Status::OK();
   }
 
-  MemoryPool* pool_;
   std::shared_ptr<Schema> from_, to_;
   int64_t missing_columns_length_ = 0;
   std::vector<std::shared_ptr<Array>> missing_columns_;
