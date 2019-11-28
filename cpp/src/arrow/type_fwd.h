@@ -54,7 +54,7 @@ class Schema;
 
 class DictionaryType;
 class DictionaryArray;
-class DictionaryScalar;
+struct DictionaryScalar;
 
 class NullType;
 class NullArray;
@@ -123,7 +123,7 @@ struct Decimal128Scalar;
 
 class UnionType;
 class UnionArray;
-class UnionScalar;
+struct UnionScalar;
 
 template <typename TypeClass>
 class NumericArray;
@@ -134,14 +134,11 @@ class NumericBuilder;
 template <typename TypeClass>
 class NumericTensor;
 
-template <typename TypeClass>
-struct NumericScalar;
-
 #define _NUMERIC_TYPE_DECL(KLASS)                     \
   class KLASS##Type;                                  \
   using KLASS##Array = NumericArray<KLASS##Type>;     \
   using KLASS##Builder = NumericBuilder<KLASS##Type>; \
-  using KLASS##Scalar = NumericScalar<KLASS##Type>;   \
+  struct KLASS##Scalar;                               \
   using KLASS##Tensor = NumericTensor<KLASS##Type>;
 
 _NUMERIC_TYPE_DECL(Int8)
@@ -158,61 +155,49 @@ _NUMERIC_TYPE_DECL(Double)
 
 #undef _NUMERIC_TYPE_DECL
 
-template <typename TypeClass>
-struct TemporalScalar;
-
-template <typename T>
-struct DateScalar;
-
 class Date32Type;
 using Date32Array = NumericArray<Date32Type>;
 using Date32Builder = NumericBuilder<Date32Type>;
-using Date32Scalar = DateScalar<Date32Type>;
+struct Date32Scalar;
 
 class Date64Type;
 using Date64Array = NumericArray<Date64Type>;
 using Date64Builder = NumericBuilder<Date64Type>;
-using Date64Scalar = DateScalar<Date64Type>;
-
-template <typename T>
-struct TimeScalar;
+struct Date64Scalar;
 
 class Time32Type;
 using Time32Array = NumericArray<Time32Type>;
 using Time32Builder = NumericBuilder<Time32Type>;
-using Time32Scalar = TimeScalar<Time32Type>;
+struct Time32Scalar;
 
 class Time64Type;
 using Time64Array = NumericArray<Time64Type>;
 using Time64Builder = NumericBuilder<Time64Type>;
-using Time64Scalar = TimeScalar<Time64Type>;
+struct Time64Scalar;
 
 class TimestampType;
 using TimestampArray = NumericArray<TimestampType>;
 using TimestampBuilder = NumericBuilder<TimestampType>;
-using TimestampScalar = TemporalScalar<TimestampType>;
-
-template <typename TypeClass>
-struct IntervalScalar;
+struct TimestampScalar;
 
 class MonthIntervalType;
 using MonthIntervalArray = NumericArray<MonthIntervalType>;
 using MonthIntervalBuilder = NumericBuilder<MonthIntervalType>;
-using MonthIntervalScalar = IntervalScalar<MonthIntervalType>;
+struct MonthIntervalScalar;
 
 class DayTimeIntervalType;
 class DayTimeIntervalArray;
 class DayTimeIntervalBuilder;
-using DayTimeIntervalScalar = IntervalScalar<DayTimeIntervalType>;
+struct DayTimeIntervalScalar;
 
 class DurationType;
 using DurationArray = NumericArray<DurationType>;
 using DurationBuilder = NumericBuilder<DurationType>;
-using DurationScalar = TemporalScalar<DurationType>;
+struct DurationScalar;
 
 class ExtensionType;
 class ExtensionArray;
-class ExtensionScalar;
+struct ExtensionScalar;
 
 // ----------------------------------------------------------------------
 // (parameter-free) Factory functions

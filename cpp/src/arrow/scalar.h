@@ -47,7 +47,7 @@ class Array;
 struct ARROW_EXPORT Scalar {
   virtual ~Scalar() = default;
 
-  explicit Scalar(const std::shared_ptr<DataType>& type) : Scalar(type, false) {}
+  explicit Scalar(const std::shared_ptr<DataType>& type) : type(type), is_valid(false) {}
 
   /// \brief The type of the scalar value
   std::shared_ptr<DataType> type;
@@ -96,18 +96,10 @@ struct ARROW_EXPORT PrimitiveScalar : public Scalar {
     ARROW_CHECK_EQ(type->id(), T::type_id);
   }
 
-  // Non-null constructor without type's pointer if the type is parameter-free.
-  template <typename T1 = T>
-  explicit PrimitiveScalar(
-      ValueType value,
-      typename std::enable_if<TypeTraits<T1>::is_parameter_free>::type* = NULLPTR)
+  explicit PrimitiveScalar(ValueType value)
       : PrimitiveScalar(value, TypeTraits<T>::type_singleton()) {}
 
-  // Null constructor without type's pointer if the type is parameter-free.
-  template <typename T1 = T>
-  PrimitiveScalar(
-      typename std::enable_if<TypeTraits<T1>::is_parameter_free>::type* = NULLPTR)
-      : Scalar(TypeTraits<T>::type_singleton()) {}
+  PrimitiveScalar() : Scalar(TypeTraits<T>::type_singleton()) {}
 
   ValueType value;
 };
@@ -119,8 +111,52 @@ struct ARROW_EXPORT BooleanScalar : public internal::PrimitiveScalar<BooleanType
 };
 
 template <typename T>
-struct ARROW_EXPORT NumericScalar : public internal::PrimitiveScalar<T> {
+struct NumericScalar : public internal::PrimitiveScalar<T> {
   using internal::PrimitiveScalar<T>::PrimitiveScalar;
+};
+
+struct ARROW_EXPORT Int8Scalar : public NumericScalar<Int8Type> {
+  using NumericScalar<Int8Type>::NumericScalar;
+};
+
+struct ARROW_EXPORT Int16Scalar : public NumericScalar<Int16Type> {
+  using NumericScalar<Int16Type>::NumericScalar;
+};
+
+struct ARROW_EXPORT Int32Scalar : public NumericScalar<Int32Type> {
+  using NumericScalar<Int32Type>::NumericScalar;
+};
+
+struct ARROW_EXPORT Int64Scalar : public NumericScalar<Int64Type> {
+  using NumericScalar<Int64Type>::NumericScalar;
+};
+
+struct ARROW_EXPORT UInt8Scalar : public NumericScalar<UInt8Type> {
+  using NumericScalar<UInt8Type>::NumericScalar;
+};
+
+struct ARROW_EXPORT UInt16Scalar : public NumericScalar<UInt16Type> {
+  using NumericScalar<UInt16Type>::NumericScalar;
+};
+
+struct ARROW_EXPORT UInt32Scalar : public NumericScalar<UInt32Type> {
+  using NumericScalar<UInt32Type>::NumericScalar;
+};
+
+struct ARROW_EXPORT UInt64Scalar : public NumericScalar<UInt64Type> {
+  using NumericScalar<UInt64Type>::NumericScalar;
+};
+
+struct ARROW_EXPORT HalfFloatScalar : public NumericScalar<HalfFloatType> {
+  using NumericScalar<HalfFloatType>::NumericScalar;
+};
+
+struct ARROW_EXPORT FloatScalar : public NumericScalar<FloatType> {
+  using NumericScalar<FloatType>::NumericScalar;
+};
+
+struct ARROW_EXPORT DoubleScalar : public NumericScalar<DoubleType> {
+  using NumericScalar<DoubleType>::NumericScalar;
 };
 
 struct ARROW_EXPORT BaseBinaryScalar : public Scalar {
@@ -177,7 +213,7 @@ struct ARROW_EXPORT LargeBinaryScalar : public BaseBinaryScalar {
 
 struct ARROW_EXPORT LargeStringScalar : public LargeBinaryScalar {
   using LargeBinaryScalar::LargeBinaryScalar;
-  using TypeClass = LargeStringScalar;
+  using TypeClass = LargeStringType;
 
   explicit LargeStringScalar(const std::shared_ptr<Buffer>& value)
       : LargeStringScalar(value, large_utf8()) {}
@@ -196,14 +232,35 @@ struct ARROW_EXPORT FixedSizeBinaryScalar : public BinaryScalar {
 };
 
 template <typename T>
-struct ARROW_EXPORT TemporalScalar : public internal::PrimitiveScalar<T> {
+struct ARROW_EXPORT TemporalScalar : public Scalar {
+  using Scalar::Scalar;
   using TypeClass = T;
-  using internal::PrimitiveScalar<T>::PrimitiveScalar;
+  using ValueType = typename T::c_type;
+
+  TemporalScalar(ValueType value, const std::shared_ptr<DataType>& type)
+      : Scalar(type, true), value(value) {}
+
+  explicit TemporalScalar(const std::shared_ptr<DataType>& type) : Scalar(type, false) {}
+
+  ValueType value;
 };
 
 template <typename T>
 struct ARROW_EXPORT DateScalar : public TemporalScalar<T> {
   using TemporalScalar<T>::TemporalScalar;
+  using ValueType = typename TemporalScalar<T>::ValueType;
+
+  explicit DateScalar(ValueType value)
+      : TemporalScalar<T>(value, TypeTraits<T>::type_singleton()) {}
+  DateScalar() : TemporalScalar<T>(TypeTraits<T>::type_singleton()) {}
+};
+
+struct ARROW_EXPORT Date32Scalar : public DateScalar<Date32Type> {
+  using DateScalar<Date32Type>::DateScalar;
+};
+
+struct ARROW_EXPORT Date64Scalar : public DateScalar<Date64Type> {
+  using DateScalar<Date64Type>::DateScalar;
 };
 
 template <typename T>
@@ -211,9 +268,38 @@ struct ARROW_EXPORT TimeScalar : public TemporalScalar<T> {
   using TemporalScalar<T>::TemporalScalar;
 };
 
+struct ARROW_EXPORT Time32Scalar : public TimeScalar<Time32Type> {
+  using TimeScalar<Time32Type>::TimeScalar;
+};
+
+struct ARROW_EXPORT Time64Scalar : public TimeScalar<Time64Type> {
+  using TimeScalar<Time64Type>::TimeScalar;
+};
+
+struct ARROW_EXPORT TimestampScalar : public TemporalScalar<TimestampType> {
+  using TemporalScalar<TimestampType>::TemporalScalar;
+};
+
 template <typename T>
-struct ARROW_EXPORT IntervalScalar : public internal::PrimitiveScalar<T> {
-  using internal::PrimitiveScalar<T>::PrimitiveScalar;
+struct ARROW_EXPORT IntervalScalar : public TemporalScalar<T> {
+  using TemporalScalar<T>::TemporalScalar;
+  using ValueType = typename TemporalScalar<T>::ValueType;
+
+  explicit IntervalScalar(ValueType value)
+      : TemporalScalar<T>(value, TypeTraits<T>::type_singleton()) {}
+  IntervalScalar() : TemporalScalar<T>(TypeTraits<T>::type_singleton()) {}
+};
+
+struct ARROW_EXPORT MonthIntervalScalar : public IntervalScalar<MonthIntervalType> {
+  using IntervalScalar<MonthIntervalType>::IntervalScalar;
+};
+
+struct ARROW_EXPORT DayTimeIntervalScalar : public IntervalScalar<DayTimeIntervalType> {
+  using IntervalScalar<DayTimeIntervalType>::IntervalScalar;
+};
+
+struct ARROW_EXPORT DurationScalar : public TemporalScalar<DurationType> {
+  using TemporalScalar<DurationType>::TemporalScalar;
 };
 
 struct ARROW_EXPORT Decimal128Scalar : public Scalar {
@@ -263,27 +349,28 @@ struct ARROW_EXPORT FixedSizeListScalar : public BaseListScalar {
 };
 
 struct ARROW_EXPORT StructScalar : public Scalar {
-  using Scalar::Scalar;
   using TypeClass = StructType;
   using ValueType = std::vector<std::shared_ptr<Scalar>>;
 
   std::vector<std::shared_ptr<Scalar>> value;
 
-  StructScalar(ValueType value, std::shared_ptr<DataType> type)
-      : Scalar(std::move(type), true), value(std::move(value)) {}
+  StructScalar(ValueType value, const std::shared_ptr<DataType>& type)
+      : Scalar(type, true), value(std::move(value)) {}
+
+  explicit StructScalar(const std::shared_ptr<DataType>& type) : Scalar(type) {}
 };
 
-class ARROW_EXPORT UnionScalar : public Scalar {
+struct ARROW_EXPORT UnionScalar : public Scalar {
   using Scalar::Scalar;
   using TypeClass = UnionType;
 };
 
-class ARROW_EXPORT DictionaryScalar : public Scalar {
+struct ARROW_EXPORT DictionaryScalar : public Scalar {
   using Scalar::Scalar;
   using TypeClass = DictionaryType;
 };
 
-class ARROW_EXPORT ExtensionScalar : public Scalar {
+struct ARROW_EXPORT ExtensionScalar : public Scalar {
   using Scalar::Scalar;
   using TypeClass = ExtensionType;
 };

@@ -838,7 +838,8 @@ class ScalarEqualsVisitor {
 
   template <typename T>
   typename std::enable_if<
-      std::is_base_of<internal::PrimitiveScalar<typename T::TypeClass>, T>::value,
+      std::is_base_of<internal::PrimitiveScalar<typename T::TypeClass>, T>::value ||
+          std::is_base_of<TemporalScalar<typename T::TypeClass>, T>::value,
       Status>::type
   Visit(const T& left_) {
     const auto& right = checked_cast<const T&>(right_);
