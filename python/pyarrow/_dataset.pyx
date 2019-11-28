@@ -178,8 +178,7 @@ cdef class FileSystemDiscoveryOptions:
     cdef:
         CFileSystemDiscoveryOptions options
 
-     # Avoid mistakingly creating attributes
-    __slots__ = ()
+    __slots__ = ()  # avoid mistakingly creating attributes
 
     def __init__(self, partition_base_dir=None, exclude_invalid_files=None,
                  list ignore_prefixes=None):

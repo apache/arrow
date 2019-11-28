@@ -1422,13 +1422,15 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CFunctionContext* context, const CDatum& values,
         const CDatum& filter, CDatum* out)
 
-    enum CCompareOperator" arrow::compute::CompareOperator":
-        CCompareOperator_EQUAL" arrow::compute::CompareOperator::EQUAL"
-        CCompareOperator_NOT_EQUAL" arrow::compute::CompareOperator::NOT_EQUAL"
-        CCompareOperator_GREATER" arrow::compute::CompareOperator::GREATER"
-        CCompareOperator_GREATER_EQUAL" arrow::compute::CompareOperator::GREATER_EQUAL"
-        CCompareOperator_LESS" arrow::compute::CompareOperator::LESS"
-        CCompareOperator_LESS_EQUAL" arrow::compute::CompareOperator::LESS_EQUAL"
+    enum CCompareOperator "arrow::compute::CompareOperator":
+        CCompareOperator_EQUAL "arrow::compute::CompareOperator::EQUAL"
+        CCompareOperator_NOT_EQUAL "arrow::compute::CompareOperator::NOT_EQUAL"
+        CCompareOperator_GREATER "arrow::compute::CompareOperator::GREATER"
+        CCompareOperator_GREATER_EQUAL \
+            "arrow::compute::CompareOperator::GREATER_EQUAL"
+        CCompareOperator_LESS "arrow::compute::CompareOperator::LESS"
+        CCompareOperator_LESS_EQUAL \
+            "arrow::compute::CompareOperator::LESS_EQUAL"
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py":

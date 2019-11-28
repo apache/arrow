@@ -38,8 +38,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::fs" nogil:
 
 cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
-    ############################## Expressions ###############################
-
     cdef enum CExpressionType "arrow::dataset::ExpressionType::type":
         CExpressionType_FIELD "arrow::dataset::ExpressionType::type::FIELD"
         CExpressionType_SCALAR "arrow::dataset::ExpressionType::type::SCALAR"
@@ -129,16 +127,14 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         pass
 
     cdef shared_ptr[CNotExpression] MakeNotExpression "arrow::dataset::not_"(
-            CExpressionPtr operand)
+        CExpressionPtr operand)
     cdef CExpressionPtr MakeAndExpression "arrow::dataset::and_"(
-            const CExpressionVector& subexpressions)
+        const CExpressionVector& subexpressions)
     cdef CExpressionPtr MakeOrExpression "arrow::dataset::or_"(
-            const CExpressionVector& subexpressions)
+        const CExpressionVector& subexpressions)
 
     cdef cppclass CFilter "arrow::dataset::Filter":
         pass
-
-    ################################# Scanner #################################
 
     cdef cppclass CWriteOptions "arrow::dataset::WriteOptions":
         pass
@@ -234,8 +230,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     ctypedef shared_ptr[CDataset] CDatasetPtr "arrow::dataset::DatasetPtr"
 
-    ############################### File ######################################
-
     cdef cppclass CFileScanOptions "arrow::dataset::FileScanOptions"(
             CScanOptions):
         c_string file_type()
@@ -292,8 +286,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         c_string type()
         shared_ptr[CDataFragmentIterator] GetFragments(CScanOptionsPtr options)
 
-    ############################### File Parquet #############################
-
     cdef cppclass CParquetScanOptions "arrow::dataset::ParquetScanOptions"(
             CFileScanOptions):
         c_string file_type()
@@ -312,8 +304,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
                          shared_ptr[CScanOptions] options)
         c_bool splittable()
 
-    ############################### Partitioning ##############################
-
     cdef cppclass CPartitionScheme "arrow::dataset::PartitionScheme":
         c_string name() const
         CResult[CExpressionPtr] Parse(const c_string& path) const
@@ -330,9 +320,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             "arrow::dataset::HivePartitionScheme"(CPartitionScheme):
         CHivePartitionScheme(shared_ptr[CSchema] schema)
         const shared_ptr[CSchema]& schema()
-        # vector[CUnconvertedKey] GetUnconvertedKeys(const c_string& path) const;
-
-    ############################### Discovery #################################
+        # vector[CUnconvertedKey] GetUnconvertedKeys(
+        #    const c_string& path) const;
 
     cdef cppclass CFileSystemDiscoveryOptions \
             "arrow::dataset::FileSystemDiscoveryOptions":

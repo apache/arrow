@@ -23,9 +23,8 @@ import pyarrow.fs as fs
 
 try:
     import pyarrow.dataset as ds
-except ImportError as e:
+except ImportError:
     ds = None
-    raise e  # TODO(kszucs) remove it
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not dataset'
@@ -50,6 +49,7 @@ def mockfs(table):
             pq.write_table(table, out)
 
     return mockfs
+
 
 @pytest.fixture
 def schema():
