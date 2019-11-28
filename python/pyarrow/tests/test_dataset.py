@@ -213,25 +213,23 @@ def test_file_source(mockfs):
     assert source2.compression == 2  # 'gzip'
 
 
-@pytest.mark.parametrize('klass', [
-    ds.FileFormat,
-    ds.DataFragment,
-    ds.DataSource,
-    ds.Expression,
-    ds.PartitionScheme,
-])
-def test_abstract_classes(klass):
-    with pytest.raises(TypeError):
-        klass()
+def test_abstract_classes():
+    classes = [
+        ds.FileFormat,
+        ds.DataFragment,
+        ds.DataSource,
+        ds.Expression,
+        ds.PartitionScheme,
+    ]
+    for klass in classes:
+        with pytest.raises(TypeError):
+            klass()
 
 
-@pytest.mark.parametrize('klass', [
-    ds.SchemaPartitionScheme,
-    ds.HivePartitionScheme
-])
-def test_partition_scheme(schema, klass):
-    scheme = klass(schema)
-    assert isinstance(scheme, ds.PartitionScheme)
+def test_partition_scheme(schema):
+    for klass in [ds.SchemaPartitionScheme, ds.HivePartitionScheme]:
+        scheme = klass(schema)
+        assert isinstance(scheme, ds.PartitionScheme)
 
 
 def test_expression(schema):
