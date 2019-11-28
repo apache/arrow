@@ -92,13 +92,13 @@ class ARROW_EXPORT SparseCOOIndex : public internal::SparseIndexBase<SparseCOOIn
   static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::COO;
 
   /// \brief Make SparseCOOIndex from raw properties
-  static Result<std::shared_ptr<SparseCOOIndex>> MakeSafe(
+  static Result<std::shared_ptr<SparseCOOIndex>> Make(
       const std::shared_ptr<DataType>& indices_type,
       const std::vector<int64_t>& indices_shape,
       const std::vector<int64_t>& indices_strides, std::shared_ptr<Buffer> indices_data);
 
   /// \brief Make SparseCOOIndex from sparse tensor's shape properties and data
-  static Result<std::shared_ptr<SparseCOOIndex>> MakeSafe(
+  static Result<std::shared_ptr<SparseCOOIndex>> Make(
       const std::shared_ptr<DataType>& indices_type, const std::vector<int64_t>& shape,
       int64_t non_zero_length, std::shared_ptr<Buffer> indices_data);
 
@@ -156,35 +156,35 @@ class ARROW_EXPORT SparseCSRIndex : public internal::SparseIndexBase<SparseCSRIn
   static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::CSR;
 
   /// \brief Make SparseCSRIndex from raw properties
-  static Result<std::shared_ptr<SparseCSRIndex>> MakeSafe(
+  static Result<std::shared_ptr<SparseCSRIndex>> Make(
       const std::shared_ptr<DataType>& indptr_type,
       const std::shared_ptr<DataType>& indices_type,
       const std::vector<int64_t>& indptr_shape, const std::vector<int64_t>& indices_shape,
       std::shared_ptr<Buffer> indptr_data, std::shared_ptr<Buffer> indices_data);
 
   /// \brief Make SparseCSRIndex from raw properties
-  static Result<std::shared_ptr<SparseCSRIndex>> MakeSafe(
+  static Result<std::shared_ptr<SparseCSRIndex>> Make(
       const std::shared_ptr<DataType>& indices_type,
       const std::vector<int64_t>& indptr_shape, const std::vector<int64_t>& indices_shape,
       std::shared_ptr<Buffer> indptr_data, std::shared_ptr<Buffer> indices_data) {
-    return MakeSafe(indices_type, indices_type, indptr_shape, indices_shape, indptr_data,
-                    indices_data);
+    return Make(indices_type, indices_type, indptr_shape, indices_shape, indptr_data,
+                indices_data);
   }
 
   /// \brief Make SparseCSRIndex from sparse tensor's shape properties and data
-  static Result<std::shared_ptr<SparseCSRIndex>> MakeSafe(
+  static Result<std::shared_ptr<SparseCSRIndex>> Make(
       const std::shared_ptr<DataType>& indptr_type,
       const std::shared_ptr<DataType>& indices_type, const std::vector<int64_t>& shape,
       int64_t non_zero_length, std::shared_ptr<Buffer> indptr_data,
       std::shared_ptr<Buffer> indices_data);
 
   /// \brief Make SparseCSRIndex from sparse tensor's shape properties and data
-  static Result<std::shared_ptr<SparseCSRIndex>> MakeSafe(
+  static Result<std::shared_ptr<SparseCSRIndex>> Make(
       const std::shared_ptr<DataType>& indices_type, const std::vector<int64_t>& shape,
       int64_t non_zero_length, std::shared_ptr<Buffer> indptr_data,
       std::shared_ptr<Buffer> indices_data) {
-    return MakeSafe(indices_type, indices_type, shape, non_zero_length, indptr_data,
-                    indices_data);
+    return Make(indices_type, indices_type, shape, non_zero_length, indptr_data,
+                indices_data);
   }
 
   /// \brief Construct SparseCSRIndex from two index vectors
@@ -340,7 +340,7 @@ class SparseTensorImpl : public SparseTensor {
       : SparseTensorImpl(NULLPTR, type, NULLPTR, shape, dim_names) {}
 
   /// \brief Create a SparseTensor with full parameters
-  static Result<std::shared_ptr<SparseTensorImpl<SparseIndexType>>> MakeSafe(
+  static Result<std::shared_ptr<SparseTensorImpl<SparseIndexType>>> Make(
       const std::shared_ptr<SparseIndexType>& sparse_index,
       const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
       const std::vector<int64_t>& shape, const std::vector<std::string>& dim_names) {
@@ -360,7 +360,7 @@ class SparseTensorImpl : public SparseTensor {
   ///
   /// The dense tensor is re-encoded as a sparse index and a physical
   /// data buffer for the non-zero value.
-  static Result<std::shared_ptr<SparseTensorImpl<SparseIndexType>>> MakeSafe(
+  static Result<std::shared_ptr<SparseTensorImpl<SparseIndexType>>> Make(
       const Tensor& tensor, const std::shared_ptr<DataType>& index_value_type,
       MemoryPool* pool) {
     std::shared_ptr<SparseIndex> sparse_index;
@@ -373,47 +373,47 @@ class SparseTensorImpl : public SparseTensor {
         data, tensor.shape(), tensor.dim_names_);
   }
 
-  static Result<std::shared_ptr<SparseTensorImpl<SparseIndexType>>> MakeSafe(
+  static Result<std::shared_ptr<SparseTensorImpl<SparseIndexType>>> Make(
       const Tensor& tensor, const std::shared_ptr<DataType>& index_value_type) {
-    return MakeSafe(tensor, index_value_type, default_memory_pool());
+    return Make(tensor, index_value_type, default_memory_pool());
   }
 
-  static Result<std::shared_ptr<SparseTensorImpl<SparseIndexType>>> MakeSafe(
+  static Result<std::shared_ptr<SparseTensorImpl<SparseIndexType>>> Make(
       const Tensor& tensor, MemoryPool* pool) {
-    return MakeSafe(tensor, int64(), pool);
+    return Make(tensor, int64(), pool);
   }
 
-  static Result<std::shared_ptr<SparseTensorImpl<SparseIndexType>>> MakeSafe(
+  static Result<std::shared_ptr<SparseTensorImpl<SparseIndexType>>> Make(
       const Tensor& tensor) {
-    return MakeSafe(tensor, default_memory_pool());
+    return Make(tensor, default_memory_pool());
   }
 
   /// \brief Create a sparse tensor from a dense tensor
   ///
   /// The dense tensor is re-encoded as a sparse index and a physical
   /// data buffer for the non-zero value.
-  ARROW_DEPRECATED("Use MakeSafe")
+  ARROW_DEPRECATED("Use Result-returning version")
   static Status Make(const Tensor& tensor,
                      const std::shared_ptr<DataType>& index_value_type, MemoryPool* pool,
                      std::shared_ptr<SparseTensorImpl<SparseIndexType>>* out) {
-    auto result = MakeSafe(tensor, index_value_type, pool);
+    auto result = Make(tensor, index_value_type, pool);
     return std::move(result).Value(out);
   }
 
-  ARROW_DEPRECATED("Use MakeSafe")
+  ARROW_DEPRECATED("Use Result-returning version")
   static Status Make(const Tensor& tensor,
                      const std::shared_ptr<DataType>& index_value_type,
                      std::shared_ptr<SparseTensorImpl<SparseIndexType>>* out) {
     return Make(tensor, index_value_type, default_memory_pool(), out);
   }
 
-  ARROW_DEPRECATED("Use MakeSafe")
+  ARROW_DEPRECATED("Use Result-returning version")
   static Status Make(const Tensor& tensor, MemoryPool* pool,
                      std::shared_ptr<SparseTensorImpl<SparseIndexType>>* out) {
     return Make(tensor, int64(), pool, out);
   }
 
-  ARROW_DEPRECATED("Use MakeSafe")
+  ARROW_DEPRECATED("Use Result-returning version")
   static Status Make(const Tensor& tensor,
                      std::shared_ptr<SparseTensorImpl<SparseIndexType>>* out) {
     return Make(tensor, default_memory_pool(), out);
