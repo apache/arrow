@@ -489,7 +489,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CFixedSizeListArray" arrow::FixedSizeListArray"(CArray):
         @staticmethod
-        CStatus FromArrays(const shared_ptr[CArray]& values, int64_t list_size,
+        CStatus FromArrays(const shared_ptr[CArray]& values, int32_t list_size,
                            shared_ptr[CArray]* out)
 
         int64_t value_offset(int i)

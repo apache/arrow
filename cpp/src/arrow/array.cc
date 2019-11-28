@@ -492,7 +492,7 @@ std::shared_ptr<DataType> FixedSizeListArray::value_type() const {
 std::shared_ptr<Array> FixedSizeListArray::values() const { return values_; }
 
 Status FixedSizeListArray::FromArrays(const std::shared_ptr<Array>& values,
-                                      int64_t list_size, std::shared_ptr<Array>* out) {
+                                      int32_t list_size, std::shared_ptr<Array>* out) {
   if (list_size < 0) {
     return Status::Invalid("list_size needs to be a positive integer");
   }
