@@ -104,6 +104,9 @@ cdef class PartitionScheme:
         shared_ptr[CPartitionScheme] wrapped
         CPartitionScheme* scheme
 
+    def __init__(self):
+        _forbid_instantiation(self.__class__)
+
     cdef init(self, const shared_ptr[CPartitionScheme]& sp):
         self.wrapped = sp
         self.scheme = sp.get()
@@ -116,6 +119,8 @@ cdef class PartitionScheme:
         typ = frombytes(sp.get().name())
         if typ == 'schema_partition_scheme':
             self = SchemaPartitionScheme.__new__(SchemaPartitionScheme)
+        elif typ == 'hive_partition_scheme':
+            self = HivePartitionScheme.__new__(HivePartitionScheme)
         else:
             raise TypeError(typ)
 
@@ -131,7 +136,7 @@ cdef class SchemaPartitionScheme(PartitionScheme):
     cdef:
         CSchemaPartitionScheme* schema_scheme  # hmmm...
 
-    def __init__(self, Schema schema):
+    def __init__(self, Schema schema not None):
         cdef shared_ptr[CSchemaPartitionScheme] scheme
         scheme = make_shared[CSchemaPartitionScheme](
             pyarrow_unwrap_schema(schema)
@@ -145,6 +150,27 @@ cdef class SchemaPartitionScheme(PartitionScheme):
     @property
     def schema(self):
         return pyarrow_wrap_schema(self.schema_scheme.schema())
+
+
+cdef class HivePartitionScheme(PartitionScheme):
+
+    cdef:
+        CHivePartitionScheme* hive_scheme
+
+    def __init__(self, Schema schema not None):
+        cdef shared_ptr[CHivePartitionScheme] scheme
+        scheme = make_shared[CHivePartitionScheme](
+            pyarrow_unwrap_schema(schema)
+        )
+        self.init(<shared_ptr[CPartitionScheme]> scheme)
+
+    cdef init(self, const shared_ptr[CPartitionScheme]& sp):
+        PartitionScheme.init(self, sp)
+        self.hive_scheme = <CHivePartitionScheme*> sp.get()
+
+    @property
+    def schema(self):
+        return pyarrow_wrap_schema(self.hive_scheme.schema())
 
 
 cdef class FileSystemDiscoveryOptions:
@@ -445,6 +471,15 @@ cdef class DataSource:
                 raise StopIteration()
             else:
                 yield DataFragment.wrap(fragment)
+
+    @property
+    def partition_expression(self):
+        cdef shared_ptr[CExpression] expression
+        expression = self.source.partition_expression()
+        if expression.get() == nullptr:
+            return None
+        else:
+            return Expression.wrap(expression)
 
 
 cdef class SimpleDataSource(DataSource):

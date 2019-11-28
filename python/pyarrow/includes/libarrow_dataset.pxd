@@ -329,6 +329,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CHivePartitionScheme \
             "arrow::dataset::HivePartitionScheme"(CPartitionScheme):
         CHivePartitionScheme(shared_ptr[CSchema] schema)
+        const shared_ptr[CSchema]& schema()
         # vector[CUnconvertedKey] GetUnconvertedKeys(const c_string& path) const;
 
     ############################### Discovery #################################

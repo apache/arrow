@@ -122,6 +122,7 @@ def test_simple_data_fragment(record_batch):
 def test_simple_data_source(simple_data_fragment):
     source = ds.SimpleDataSource([simple_data_fragment] * 4)
     assert isinstance(source, ds.SimpleDataSource)
+    assert source.partition_expression is None
 
     result = source.fragments()
     assert isinstance(result, Generator)
@@ -216,11 +217,21 @@ def test_file_source(mockfs):
     ds.FileFormat,
     ds.DataFragment,
     ds.DataSource,
-    ds.Expression
+    ds.Expression,
+    ds.PartitionScheme,
 ])
 def test_abstract_classes(klass):
     with pytest.raises(TypeError):
         klass()
+
+
+@pytest.mark.parametrize('klass', [
+    ds.SchemaPartitionScheme,
+    ds.HivePartitionScheme
+])
+def test_partition_scheme(schema, klass):
+    scheme = klass(schema)
+    assert isinstance(scheme, ds.PartitionScheme)
 
 
 def test_expression(schema):
