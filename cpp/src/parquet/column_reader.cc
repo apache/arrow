@@ -279,7 +279,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     // Decrypt it if we need to
     if (crypto_ctx_.data_decryptor != nullptr) {
       PARQUET_THROW_NOT_OK(decryption_buffer_->Resize(
-          compressed_len - crypto_ctx_.data_decryptor->CiphertextSizeDelta()));
+          compressed_len - crypto_ctx_.data_decryptor->CiphertextSizeDelta(), false));
       compressed_len = crypto_ctx_.data_decryptor->Decrypt(
           page_buffer->data(), compressed_len, decryption_buffer_->mutable_data());
 
