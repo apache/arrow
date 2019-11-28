@@ -44,9 +44,9 @@ function(EXTRACT_THRIFT_VERSION)
       message(SEND_ERROR "Could not extract Thrift version. "
                          "Version output: ${THRIFT_VERSION}")
     endif()
-    set(FOUND_THRIFT_VERSION "${CMAKE_MATCH_1}" PARENT_SCOPE)
+    set(THRIFT_VERSION "${CMAKE_MATCH_1}" PARENT_SCOPE)
   else()
-    set(FOUND_THRIFT_VERSION "${THRIFT_VERSION}" PARENT_SCOPE)
+    set(THRIFT_VERSION "${THRIFT_VERSION}" PARENT_SCOPE)
   endif()
 endfunction(EXTRACT_THRIFT_VERSION)
 
@@ -90,25 +90,22 @@ find_package_handle_standard_args(Thrift
                                   REQUIRED_VARS
                                   THRIFT_STATIC_LIB
                                   THRIFT_INCLUDE_DIR
-                                  THRIFT_COMPILER)
+                                  THRIFT_COMPILER
+                                  VERSION_VAR
+                                  ${CMAKE_FIND_PACKAGE_NAME}_FIND_VERSION)
 
 if(Thrift_FOUND OR THRIFT_FOUND)
-  extract_thrift_version()
-  if(FOUND_THRIFT_VERSION VERSION_LESS ${CMAKE_FIND_PACKAGE_NAME}_FIND_VERSION)
-    set(Thrift_FOUND FALSE)
-  else()
-    set(Thrift_FOUND TRUE)
-    set(THRIFT_VERSION ${FOUND_THRIFT_VERSION})
-    add_library(Thrift::thrift STATIC IMPORTED)
-    set_target_properties(
-      Thrift::thrift
-      PROPERTIES IMPORTED_LOCATION "${THRIFT_STATIC_LIB}" INTERFACE_INCLUDE_DIRECTORIES
-                 "${THRIFT_INCLUDE_DIR}")
-    if(WIN32 AND NOT MSVC)
-      # We don't need this for Visual C++ because Thrift uses
-      # "#pragma comment(lib, "Ws2_32.lib")" in
-      # thrift/windows/config.h for Visual C++.
-      set_target_properties(Thrift::thrift PROPERTIES INTERFACE_LINK_LIBRARIES "ws2_32")
-    endif()
+  set(Thrift_FOUND TRUE)
+  add_library(Thrift::thrift STATIC IMPORTED)
+  set_target_properties(Thrift::thrift
+                        PROPERTIES IMPORTED_LOCATION "${THRIFT_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}")
+  if(WIN32 AND NOT MSVC)
+    # We don't need this for Visual C++ because Thrift uses
+    # "#pragma comment(lib, "Ws2_32.lib")" in
+    # thrift/windows/config.h for Visual C++.
+    set_target_properties(Thrift::thrift PROPERTIES INTERFACE_LINK_LIBRARIES "ws2_32")
   endif()
+
+  extract_thrift_version()
 endif()
