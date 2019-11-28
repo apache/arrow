@@ -893,7 +893,13 @@ cdef class Schema:
         return hash((tuple(self), self.metadata))
 
     def __sizeof__(self):
-        return super(Schema, self).__sizeof__() + sys.getsizeof(self.metadata)
+        size = 0
+        if self.metadata:
+            for key, value in self.metadata.items():
+                size += sys.getsizeof(key)
+                size += sys.getsizeof(value)
+
+        return size + super(Schema, self).__sizeof__()
 
     @property
     def pandas_metadata(self):

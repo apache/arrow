@@ -551,7 +551,9 @@ def test_schema_sizeof():
         pa.field('bar', pa.string()),
     ])
 
-    assert sys.getsizeof(schema) > 50
+    assert sys.getsizeof(schema) > 30
 
     schema2 = schema.with_metadata({"key": "some metadata"})
     assert sys.getsizeof(schema2) > sys.getsizeof(schema)
+    schema3 = schema.with_metadata({"key": "some more metadata"})
+    assert sys.getsizeof(schema3) > sys.getsizeof(schema2)
