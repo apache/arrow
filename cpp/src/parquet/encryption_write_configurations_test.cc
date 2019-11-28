@@ -102,11 +102,20 @@ class TestEncryptionConfiguration : public ::testing::Test {
         parquet::ParquetFileWriter::Open(out_file, schema_, writer_properties);
 
     for (int r = 0; r < num_rgs; r++) {
-      auto row_group_writer = file_writer->AppendRowGroup();
+      bool buffered_mode = r % 2 == 0;
+      auto row_group_writer = buffered_mode ? file_writer->AppendBufferedRowGroup()
+                                            : file_writer->AppendRowGroup();
+
+      int column_index = 0;
+      // Captures i by reference; increments it by one
+      auto get_next_column = [&]() {
+        return buffered_mode ? row_group_writer->column(column_index++)
+                             : row_group_writer->NextColumn();
+      };
 
       // Write the Bool column
       parquet::BoolWriter* bool_writer =
-          static_cast<parquet::BoolWriter*>(row_group_writer->NextColumn());
+          static_cast<parquet::BoolWriter*>(get_next_column());
       for (int i = 0; i < rows_per_rowgroup_; i++) {
         bool value = ((i % 2) == 0) ? true : false;
         bool_writer->WriteBatch(1, nullptr, nullptr, &value);
@@ -114,7 +123,7 @@ class TestEncryptionConfiguration : public ::testing::Test {
 
       // Write the Int32 column
       parquet::Int32Writer* int32_writer =
-          static_cast<parquet::Int32Writer*>(row_group_writer->NextColumn());
+          static_cast<parquet::Int32Writer*>(get_next_column());
       for (int i = 0; i < rows_per_rowgroup_; i++) {
         int32_t value = i;
         int32_writer->WriteBatch(1, nullptr, nullptr, &value);
@@ -122,7 +131,7 @@ class TestEncryptionConfiguration : public ::testing::Test {
 
       // Write the Int64 column. Each row has repeats twice.
       parquet::Int64Writer* int64_writer =
-          static_cast<parquet::Int64Writer*>(row_group_writer->NextColumn());
+          static_cast<parquet::Int64Writer*>(get_next_column());
       for (int i = 0; i < 2 * rows_per_rowgroup_; i++) {
         int64_t value = i * 1000 * 1000;
         value *= 1000 * 1000;
@@ -136,7 +145,7 @@ class TestEncryptionConfiguration : public ::testing::Test {
 
       // Write the INT96 column.
       parquet::Int96Writer* int96_writer =
-          static_cast<parquet::Int96Writer*>(row_group_writer->NextColumn());
+          static_cast<parquet::Int96Writer*>(get_next_column());
       for (int i = 0; i < rows_per_rowgroup_; i++) {
         parquet::Int96 value;
         value.value[0] = i;
@@ -147,7 +156,7 @@ class TestEncryptionConfiguration : public ::testing::Test {
 
       // Write the Float column
       parquet::FloatWriter* float_writer =
-          static_cast<parquet::FloatWriter*>(row_group_writer->NextColumn());
+          static_cast<parquet::FloatWriter*>(get_next_column());
       for (int i = 0; i < rows_per_rowgroup_; i++) {
         float value = static_cast<float>(i) * 1.1f;
         float_writer->WriteBatch(1, nullptr, nullptr, &value);
@@ -155,7 +164,7 @@ class TestEncryptionConfiguration : public ::testing::Test {
 
       // Write the Double column
       parquet::DoubleWriter* double_writer =
-          static_cast<parquet::DoubleWriter*>(row_group_writer->NextColumn());
+          static_cast<parquet::DoubleWriter*>(get_next_column());
       for (int i = 0; i < rows_per_rowgroup_; i++) {
         double value = i * 1.1111111;
         double_writer->WriteBatch(1, nullptr, nullptr, &value);
@@ -163,7 +172,7 @@ class TestEncryptionConfiguration : public ::testing::Test {
 
       // Write the ByteArray column. Make every alternate values NULL
       parquet::ByteArrayWriter* ba_writer =
-          static_cast<parquet::ByteArrayWriter*>(row_group_writer->NextColumn());
+          static_cast<parquet::ByteArrayWriter*>(get_next_column());
       for (int i = 0; i < rows_per_rowgroup_; i++) {
         parquet::ByteArray value;
         char hello[kFixedLength] = "parquet";
@@ -183,7 +192,7 @@ class TestEncryptionConfiguration : public ::testing::Test {
 
       // Write the FixedLengthByteArray column
       parquet::FixedLenByteArrayWriter* flba_writer =
-          static_cast<parquet::FixedLenByteArrayWriter*>(row_group_writer->NextColumn());
+          static_cast<parquet::FixedLenByteArrayWriter*>(get_next_column());
       for (int i = 0; i < rows_per_rowgroup_; i++) {
         parquet::FixedLenByteArray value;
         char v = static_cast<char>(i);
