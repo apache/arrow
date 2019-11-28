@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import sys
 import warnings
 
 
@@ -630,10 +629,7 @@ cdef class RecordBatch(_PandasConvertible):
         return size
 
     def __sizeof__(self):
-        return (
-            super(RecordBatch, self).__sizeof__() + self.nbytes +
-            sys.getsizeof(self.schema.metadata)
-        )
+        return super(RecordBatch, self).__sizeof__() + self.nbytes
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -1484,10 +1480,7 @@ cdef class Table(_PandasConvertible):
         return size
 
     def __sizeof__(self):
-        return (
-            super(Table, self).__sizeof__() + self.nbytes +
-            sys.getsizeof(self.schema.metadata)
-        )
+        return super(Table, self).__sizeof__() + self.nbytes
 
     def add_column(self, int i, field_, column):
         """
