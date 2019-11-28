@@ -58,6 +58,5 @@ RUN \
     rpmdevtools \
     snappy-devel \
     tar \
-    # thrift-devel \
     zlib-devel && \
   dnf clean ${quiet} all
