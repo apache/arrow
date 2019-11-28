@@ -127,7 +127,9 @@ pub fn get_typed_column_writer_ref<T: DataType>(
         ColumnWriter::FloatColumnWriter(ref r) => unsafe { mem::transmute(r) },
         ColumnWriter::DoubleColumnWriter(ref r) => unsafe { mem::transmute(r) },
         ColumnWriter::ByteArrayColumnWriter(ref r) => unsafe { mem::transmute(r) },
-        ColumnWriter::FixedLenByteArrayColumnWriter(ref r) => unsafe { mem::transmute(r) },
+        ColumnWriter::FixedLenByteArrayColumnWriter(ref r) => unsafe {
+            mem::transmute(r)
+        },
     }
 }
 
@@ -143,7 +145,9 @@ pub fn get_typed_column_writer_mut<T: DataType>(
         ColumnWriter::FloatColumnWriter(ref mut r) => unsafe { mem::transmute(r) },
         ColumnWriter::DoubleColumnWriter(ref mut r) => unsafe { mem::transmute(r) },
         ColumnWriter::ByteArrayColumnWriter(ref mut r) => unsafe { mem::transmute(r) },
-        ColumnWriter::FixedLenByteArrayColumnWriter(ref mut r) => unsafe { mem::transmute(r) },
+        ColumnWriter::FixedLenByteArrayColumnWriter(ref mut r) => unsafe {
+            mem::transmute(r)
+        },
     }
 }
 
