@@ -28,7 +28,7 @@ pandas=$1
 
 if [ "${pandas}" = "master" ]; then
   conda install -q numpy
-  pip install https://github.com/pandas-dev/pandas/archive/master.tar.gz
+  pip install git+https://github.com/pandas-dev/pandas.git --no-build-isolation
 elif [ "${pandas}" = "latest" ]; then
   conda install -q pandas
 else
