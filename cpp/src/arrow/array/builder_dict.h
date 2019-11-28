@@ -101,7 +101,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
   DictionaryBuilderBase(enable_if_t<!std::is_base_of<FixedSizeBinaryType, T1>::value,
                                     const std::shared_ptr<DataType>&>
                             value_type,
-                        MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
+                        MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool),
         memo_table_(new internal::DictionaryMemoTable(value_type)),
         delta_offset_(0),
@@ -112,7 +112,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
   template <typename T1 = T>
   explicit DictionaryBuilderBase(
       enable_if_fixed_size_binary<T1, const std::shared_ptr<DataType>&> value_type,
-      MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
+      MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool),
         memo_table_(new internal::DictionaryMemoTable(value_type)),
         delta_offset_(0),
@@ -122,11 +122,11 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
   template <typename T1 = T>
   explicit DictionaryBuilderBase(
-      enable_if_parameter_free<T1, MemoryPool*> pool ARROW_MEMORY_POOL_DEFAULT)
+      enable_if_parameter_free<T1, MemoryPool*> pool = default_memory_pool())
       : DictionaryBuilderBase<BuilderType, T1>(TypeTraits<T1>::type_singleton(), pool) {}
 
   DictionaryBuilderBase(const std::shared_ptr<Array>& dictionary,
-                        MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
+                        MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool),
         memo_table_(new internal::DictionaryMemoTable(dictionary)),
         delta_offset_(0),
@@ -309,14 +309,14 @@ template <typename BuilderType>
 class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
  public:
   DictionaryBuilderBase(const std::shared_ptr<DataType>& value_type,
-                        MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
+                        MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool), indices_builder_(pool) {}
 
-  explicit DictionaryBuilderBase(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
+  explicit DictionaryBuilderBase(MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool), indices_builder_(pool) {}
 
   DictionaryBuilderBase(const std::shared_ptr<Array>& dictionary,
-                        MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT)
+                        MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool), indices_builder_(pool) {}
 
   /// \brief Append a scalar null value

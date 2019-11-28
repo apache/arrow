@@ -29,7 +29,7 @@ namespace arrow {
 
 class ARROW_EXPORT NullBuilder : public ArrayBuilder {
  public:
-  explicit NullBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT) : ArrayBuilder(pool) {}
+  explicit NullBuilder(MemoryPool* pool = default_memory_pool()) : ArrayBuilder(pool) {}
 
   /// \brief Append the specified number of null elements
   Status AppendNulls(int64_t length) final {
@@ -65,7 +65,7 @@ class NumericBuilder : public ArrayBuilder {
 
   template <typename T1 = T>
   explicit NumericBuilder(
-      enable_if_parameter_free<T1, MemoryPool*> pool ARROW_MEMORY_POOL_DEFAULT)
+      enable_if_parameter_free<T1, MemoryPool*> pool = default_memory_pool())
       : ArrayBuilder(pool), type_(TypeTraits<T>::type_singleton()) {}
 
   NumericBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool)
@@ -274,10 +274,10 @@ class ARROW_EXPORT BooleanBuilder : public ArrayBuilder {
   using TypeClass = BooleanType;
   using value_type = bool;
 
-  explicit BooleanBuilder(MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+  explicit BooleanBuilder(MemoryPool* pool = default_memory_pool());
 
   BooleanBuilder(const std::shared_ptr<DataType>& type,
-                 MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+                 MemoryPool* pool = default_memory_pool());
 
   /// Write nulls as uint8_t* (0 value indicates null) into pre-allocated memory
   Status AppendNulls(int64_t length) final {
