@@ -568,6 +568,12 @@ using is_duration_type = std::is_base_of<DurationType, T>;
 template <typename T, typename R = void>
 using enable_if_duration = enable_if_t<is_duration_type<T>::value, R>;
 
+template <typename T>
+using is_interval_type = std::is_base_of<IntervalType, T>;
+
+template <typename T, typename R = void>
+using enable_if_interval = enable_if_t<is_interval_type<T>::value, R>;
+
 // Attribute differentiation
 
 template <typename T>
@@ -589,12 +595,6 @@ using has_string_view = std::integral_constant<bool, is_binary_like_type<T>::val
 
 template <typename T, typename R = void>
 using enable_if_has_string_view = enable_if_t<has_string_view<T>::value, R>;
-
-template <typename T>
-using has_no_extra_meta = std::is_base_of<NoExtraMeta, T>;
-
-template <typename T, typename R = void>
-using enable_if_has_no_extra_meta = enable_if_t<has_no_extra_meta<T>::value, R>;
 
 template <typename T>
 using is_8bit_int = std::integral_constant<bool, std::is_same<UInt8Type, T>::value ||

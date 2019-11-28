@@ -314,8 +314,6 @@ class ARROW_EXPORT NestedType : public DataType, public ParametricType {
   using DataType::DataType;
 };
 
-class NoExtraMeta {};
-
 /// \brief The combination of a field name and data type, with optional metadata
 ///
 /// Fields are used to describe the individual constituents of a
@@ -425,7 +423,7 @@ class IntegerTypeImpl : public detail::CTypeImpl<DERIVED, IntegerType, TYPE_ID, 
 }  // namespace detail
 
 /// Concrete type class for always-null data
-class ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
+class ARROW_EXPORT NullType : public DataType {
  public:
   static constexpr Type::type type_id = Type::NA;
 
@@ -447,8 +445,7 @@ class ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
 
 /// Concrete type class for boolean data
 class ARROW_EXPORT BooleanType
-    : public detail::CTypeImpl<BooleanType, PrimitiveCType, Type::BOOL, bool>,
-      public NoExtraMeta {
+    : public detail::CTypeImpl<BooleanType, PrimitiveCType, Type::BOOL, bool> {
  public:
   static constexpr const char* type_name() { return "bool"; }
 
@@ -714,7 +711,7 @@ class ARROW_EXPORT FixedSizeListType : public NestedType {
 };
 
 /// \brief Base class for all variable-size binary data types
-class ARROW_EXPORT BaseBinaryType : public DataType, public NoExtraMeta {
+class ARROW_EXPORT BaseBinaryType : public DataType {
  public:
   using DataType::DataType;
 };

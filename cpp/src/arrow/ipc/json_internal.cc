@@ -164,7 +164,8 @@ class SchemaWriter {
   Status VisitType(const DataType& type);
 
   template <typename T>
-  enable_if_t<has_no_extra_meta<T>::value || is_base_list_type<T>::value ||
+  enable_if_t<is_null_type<T>::value || is_primitive_ctype<T>::value ||
+              is_base_binary_type<T>::value || is_base_list_type<T>::value ||
               is_struct_type<T>::value>
   WriteTypeMetadata(const T& type) {}
 
