@@ -24,27 +24,18 @@ import six
 
 from cython.operator cimport dereference as deref
 
-import pyarrow as pa
-from pyarrow.compat import frombytes, tobytes
 from pyarrow.lib cimport *
-# from pyarrow.lib import ArrowException
-# from pyarrow.lib import as_buffer
-# from pyarrow.lib cimport RecordBatch, MemoryPool, Schema, check_status
-from pyarrow._fs cimport FileSystem, Selector
 from pyarrow.includes.libarrow_dataset cimport *
+from pyarrow.compat import frombytes, tobytes
+from pyarrow._fs cimport FileSystem, Selector
 
 
-__all__ = [
-    'ScanOptions',
-    'ScanContext',
-    'ScanTask',
-    'SimpleScanTask',
-    'DataFragment',
-    'SimpleDataFragment',
-    'DataSource',
-    'SimpleDataSource',
-    'Dataset'
-]
+def _forbid_instantiation(klass):
+    subclasses = [cls.__name__ for cls in klass.__subclasses__]
+    raise TypeError(
+        '{} is an abstract class thus cannot be initialized. Use one of the '
+        'subclasses instead: {}'.format(klass.__name__, ', '.join(subclasses))
+    )
 
 
 cdef class WriteOptions:
@@ -72,6 +63,9 @@ cdef class FileFormat:
     cdef:
         shared_ptr[CFileFormat] wrapped
         CFileFormat* format
+
+    def __init__(self):
+        _forbid_instantiation(self.__class__)
 
     cdef void init(self, const shared_ptr[CFileFormat]& sp):
         self.wrapped = sp
@@ -204,6 +198,9 @@ cdef class DataSourceDiscovery:
         shared_ptr[CDataSourceDiscovery] wrapped
         CDataSourceDiscovery* discovery
 
+    def __init__(self):
+        _forbid_instantiation(self.__class__)
+
     cdef init(self, shared_ptr[CDataSourceDiscovery]& sp):
         self.wrapped = sp
         self.discovery = sp.get()
@@ -310,7 +307,7 @@ cdef class FileSource:
         try:
             return self.equals(other)
         except TypeError:
-            return NotImplementedError
+            return NotImplemented
 
     @property
     def compression(self):
@@ -328,6 +325,9 @@ cdef class DataFragment:
     cdef:
         shared_ptr[CDataFragment] wrapped
         CDataFragment* fragment
+
+    def __init__(self):
+        _forbid_instantiation(self.__class__)
 
     cdef void init(self, const shared_ptr[CDataFragment]& sp):
         self.wrapped = sp
@@ -404,6 +404,9 @@ cdef class DataSource:
         shared_ptr[CDataSource] wrapped
         CDataSource* source
 
+    def __init__(self):
+        _forbid_instantiation(self.__class__)
+
     cdef void init(self, const shared_ptr[CDataSource]& sp):
         self.wrapped = sp
         self.source = sp.get()
@@ -427,10 +430,6 @@ cdef class DataSource:
 
     cdef shared_ptr[CDataSource] unwrap(self):
         return self.wrapped
-
-    # def __iter__(self):
-    #     for fragment in self.fragments():
-    #         yield fragment
 
     def fragments(self, ScanOptions options=None):
         cdef:
@@ -524,20 +523,18 @@ cdef class Dataset:
         shared_ptr[CDataset] wrapped
         CDataset* dataset
 
-    def __init__(self, data_sources, Schema schema=None):
+    def __init__(self, data_sources, Schema schema not None):
         cdef:
             DataSource source
             CDataSourceVector sources
             CResult[CDatasetPtr] result
+            shared_ptr[CSchema] sp_schema
 
         for source in data_sources:
             sources.push_back(source.wrapped)
 
-        result = CDataset.Make(sources, schema.sp_schema)
-        # if schema is None:
-        #     dataset = make_shared[CDataset](sources)
-        # else:
-        #     dataset = make_shared[CDataset](sources, schema.sp_schema)
+        result = CDataset.Make(sources, pyarrow_unwrap_schema(schema))
+
         self.init(GetResultValue(result))
 
     cdef void init(self, const shared_ptr[CDataset]& sp):
@@ -551,7 +548,6 @@ cdef class Dataset:
     def new_scan(self):
         cdef shared_ptr[CScannerBuilder] builder
         builder = GetResultValue(self.dataset.NewScan())
-        # return ScannerBuilder(self, context)
         return ScannerBuilder.wrap(builder)
 
     @property
@@ -700,6 +696,13 @@ cdef class ScannerBuilder:
         check_status(self.builder.Filter(expression.unwrap()))
         return self
 
+    def use_threads(self, bint value):
+        check_status(self.builder.UseThreads(value))
+        return self
+
+    def schema(self):
+        return pyarrow_wrap_schema(self.builder.schema())
+
 
 cdef class Scanner:
 
@@ -761,14 +764,14 @@ cdef class Expression:
         CExpression* expression
 
     def __init__(self):
-        raise TypeError('Do not ititialize')
+        _forbid_instantiation(self.__class__)
 
     cdef void init(self, const shared_ptr[CExpression]& sp):
         self.wrapped = sp
         self.expression = sp.get()
 
     @staticmethod
-    cdef wrap(shared_ptr[CExpression]& sp):
+    cdef wrap(const shared_ptr[CExpression]& sp):
         cdef Expression self
 
         typ = sp.get().type()
@@ -801,6 +804,29 @@ cdef class Expression:
     cdef inline shared_ptr[CExpression] unwrap(self):
         return self.wrapped
 
+    def equals(self, Expression other):
+        return self.expression.Equals(other.unwrap())
+
+    def __str__(self):
+        return frombytes(self.expression.ToString())
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
+
+    def validate(self, Schema schema not None):
+        cdef:
+            shared_ptr[CSchema] sp_schema
+            CResult[shared_ptr[CDataType]] result
+        sp_schema = pyarrow_unwrap_schema(schema)
+        result = self.expression.Validate(deref(sp_schema))
+        return pyarrow_wrap_data_type(GetResultValue(result))
+
+    def assume(self, Expression given):
+        return Expression.wrap(self.expression.Assume(given.unwrap()))
+
 
 cdef class UnaryExpression(Expression):
 
@@ -818,6 +844,14 @@ cdef class BinaryExpression(Expression):
     cdef void init(self, const shared_ptr[CExpression]& sp):
         Expression.init(self, sp)
         self.binary = <CBinaryExpression*> sp.get()
+
+    @property
+    def left_operand(self):
+        return Expression.wrap(self.binary.left_operand())
+
+    @property
+    def right_operand(self):
+        return Expression.wrap(self.binary.right_operand())
 
 
 cdef class ScalarExpression(Expression):
@@ -845,6 +879,7 @@ cdef class ScalarExpression(Expression):
         Expression.init(self, sp)
         self.scalar = <CScalarExpression*> sp.get()
 
+    # @property
     # def value(self):
     #     return pyarrow_wrap_scalar(self.scalar.value())
 
@@ -852,6 +887,13 @@ cdef class ScalarExpression(Expression):
 cdef class FieldExpression(Expression):
 
     cdef CFieldExpression* scalar
+
+    def __init__(self, name):
+        cdef:
+            c_string field_name = tobytes(name)
+            shared_ptr[CExpression] expression
+        expression.reset(new CFieldExpression(field_name))
+        self.init(expression)
 
     cdef void init(self, const shared_ptr[CExpression]& sp):
         Expression.init(self, sp)
@@ -891,8 +933,8 @@ cdef class ComparisonExpression(BinaryExpression):
         BinaryExpression.init(self, sp)
         self.comparison = <CComparisonExpression*> sp.get()
 
-    # def op(self):
-    #     return ...
+    def op(self):
+        return <CompareOperator> self.comparison.op()
 
 
 cdef class NotExpression(UnaryExpression):

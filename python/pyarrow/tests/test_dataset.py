@@ -16,47 +16,16 @@
 # under the License.
 
 from collections.abc import Generator
-try:
-    import pathlib
-except ImportError:
-    import pathlib2 as pathlib  # py2 compat
-
 import pytest
 
 import pyarrow as pa
-from pyarrow.fs import _MockFileSystem, Selector as FileSelector
+import pyarrow.fs as fs
 
 try:
-    from pyarrow.dataset import (
-        Dataset,
-        DataSource,
-        DataFragment,
-        ParquetFileFormat,
-        SimpleDataFragment,
-        ScanOptions,
-        FileSource,
-        ScanTask,
-        Scanner,
-        ScannerBuilder,
-        ScanOptions,
-        ScanContext,
-        SimpleDataSource,
-        TreeDataSource,
-        FileSystemDataSource,
-        FileSystemDiscoveryOptions,
-        FileSystemDataSourceDiscovery,
-        SchemaPartitionScheme,
-        ScalarExpression,
-        FieldExpression,
-        AndExpression,
-        OrExpression,
-        NotExpression,
-        CompareOperator,
-        ComparisonExpression,
-    )
+    import pyarrow.dataset as ds
 except ImportError as e:
     ds = None
-    raise e
+    raise e  # TODO(kszucs) remove it
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not dataset'
@@ -65,10 +34,10 @@ pytestmark = pytest.mark.dataset
 
 @pytest.fixture
 @pytest.mark.parquet
-def fs(table):
+def mockfs(table):
     import pyarrow.parquet as pq
 
-    fs = _MockFileSystem()
+    mockfs = fs._MockFileSystem()
 
     directories = [
         'subdir/1/xxx',
@@ -76,16 +45,16 @@ def fs(table):
     ]
     for i, directory in enumerate(directories):
         path = '{}/file{}.parquet'.format(directory, i)
-        fs.create_dir(directory)
-        with fs.open_output_stream(path) as out:
+        mockfs.create_dir(directory)
+        with mockfs.open_output_stream(path) as out:
             pq.write_table(table, out)
 
-    return fs
+    return mockfs
 
 @pytest.fixture
 def schema():
     return pa.schema([
-        pa.field('i32', pa.int32()),
+        pa.field('i64', pa.int64()),
         pa.field('f64', pa.float64())
     ])
 
@@ -106,22 +75,22 @@ def table(record_batch):
 
 @pytest.fixture
 def simple_data_fragment(record_batch):
-    return SimpleDataFragment([record_batch] * 5)
+    return ds.SimpleDataFragment([record_batch] * 5)
 
 
 @pytest.fixture
 def simple_data_source(simple_data_fragment):
-    return SimpleDataSource([simple_data_fragment] * 4)
+    return ds.SimpleDataSource([simple_data_fragment] * 4)
 
 
 @pytest.fixture
 def tree_data_source(simple_data_source):
-    return TreeDataSource([simple_data_source] * 2)
+    return ds.TreeDataSource([simple_data_source] * 2)
 
 
 @pytest.fixture
-def dataset(simple_data_source, tree_data_source):
-    return Dataset([simple_data_source, tree_data_source])
+def dataset(simple_data_source, tree_data_source, schema):
+    return ds.Dataset([simple_data_source, tree_data_source], schema)
 
 
 def test_scan_options():
@@ -133,22 +102,26 @@ def test_scan_context():
 
 
 def test_simple_data_fragment(record_batch):
-    fragment = SimpleDataFragment([record_batch] * 5)
+    batches = [record_batch] * 5
+    fragment = ds.SimpleDataFragment(batches)
 
-    assert isinstance(fragment, SimpleDataFragment)
+    assert isinstance(fragment, ds.SimpleDataFragment)
     assert fragment.splittable is False
-    assert isinstance(fragment.scan_options, ScanOptions)
+    assert isinstance(fragment.scan_options, ds.ScanOptions)
 
     assert isinstance(fragment.scan(), Generator)
     tasks = list(fragment.scan())
     assert len(tasks) == 5
-    for task in tasks:
-        assert isinstance(task, ScanTask)
+    for task, batch in zip(tasks, batches):
+        assert isinstance(task, ds.ScanTask)
+        result_batches = list(task.scan())
+        assert len(result_batches) == 1
+        assert result_batches[0].equals(batch)
 
 
 def test_simple_data_source(simple_data_fragment):
-    source = SimpleDataSource([simple_data_fragment] * 4)
-    assert isinstance(source, SimpleDataSource)
+    source = ds.SimpleDataSource([simple_data_fragment] * 4)
+    assert isinstance(source, ds.SimpleDataSource)
 
     result = source.fragments()
     assert isinstance(result, Generator)
@@ -156,12 +129,12 @@ def test_simple_data_source(simple_data_fragment):
     fragments = list(result)
     assert len(fragments) == 4
     for fragment in fragments:
-        assert isinstance(fragment, DataFragment)
+        assert isinstance(fragment, ds.DataFragment)
 
 
 def test_tree_data_source(simple_data_source):
-    source = TreeDataSource([simple_data_source] * 2)
-    assert isinstance(source, TreeDataSource)
+    source = ds.TreeDataSource([simple_data_source] * 2)
+    assert isinstance(source, ds.TreeDataSource)
 
     result = source.fragments()
     assert isinstance(result, Generator)
@@ -169,25 +142,31 @@ def test_tree_data_source(simple_data_source):
     fragments = list(result)
     assert len(fragments) == 8
     for fragment in fragments:
-        assert isinstance(fragment, DataFragment)
+        assert isinstance(fragment, ds.DataFragment)
 
 
-def test_dataset(simple_data_source, tree_data_source):
-    dataset = Dataset([simple_data_source, tree_data_source])
+def test_dataset(simple_data_source, tree_data_source, schema):
+    dataset = ds.Dataset([simple_data_source, tree_data_source], schema)
 
-    assert isinstance(dataset, Dataset)
+    assert isinstance(dataset, ds.Dataset)
     assert isinstance(dataset.schema, pa.Schema)
     for source in dataset.sources:
-        assert isinstance(source, DataSource)
+        assert isinstance(source, ds.DataSource)
 
-    builder = dataset.new_scan()
-    assert isinstance(builder, ScannerBuilder)
+    condition = ds.ComparisonExpression(
+        ds.CompareOperator.Equal,
+        ds.FieldExpression('i64'),
+        ds.ScalarExpression(1)
+    )
+    builder = dataset.new_scan().use_threads(True).filter(condition)
+    assert isinstance(builder, ds.ScannerBuilder)
+    assert isinstance(builder.schema(), pa.Schema)
 
     scanner = builder.finish()
-    assert isinstance(scanner, Scanner)
+    assert isinstance(scanner, ds.Scanner)
 
     for task in scanner.scan():
-        assert isinstance(task, ScanTask)
+        assert isinstance(task, ds.ScanTask)
         for record_batch in task.scan():
             assert isinstance(record_batch, pa.RecordBatch)
 
@@ -195,12 +174,12 @@ def test_dataset(simple_data_source, tree_data_source):
 def test_scanner(schema, simple_data_source):
     sources = [simple_data_source]
     # FIXME(kszucs): if schema is not set to options it segfaults
-    options = ScanOptions(schema=schema)
-    context = ScanContext()
+    options = ds.ScanOptions(schema=schema)
+    context = ds.ScanContext()
 
-    scanner = Scanner(sources, options, context)
+    scanner = ds.Scanner(sources, options, context)
     for task in scanner.scan():
-        assert isinstance(task, ScanTask)
+        assert isinstance(task, ds.ScanTask)
         for record_batch in task.scan():  # call it execute?
             assert isinstance(record_batch, pa.RecordBatch)
 
@@ -209,79 +188,122 @@ def test_scanner(schema, simple_data_source):
 
 
 def test_scanner_builder(dataset):
-    context = ScanContext()
-    builder = ScannerBuilder(dataset, context)
-    builder.project([])
+    context = ds.ScanContext()
+    builder = ds.ScannerBuilder(dataset, context)
     scanner = builder.finish()
-    assert isinstance(scanner, Scanner)
+    assert isinstance(scanner, ds.Scanner)
+    scanner.scan()
+
+    builder = dataset.new_scan()
+    builder.project(['i64'])
+    scanner = builder.finish()
+    scanner.scan()
+    assert isinstance(scanner, ds.Scanner)
 
 
-def test_projector():
-    pass
-
-
-def test_file_source(fs):
-    source1 = FileSource('/path/to/file.ext', fs, compression=None)
-    source2 = FileSource('/path/to/file.ext.gz', fs, compression='gzip')
+def test_file_source(mockfs):
+    source1 = ds.FileSource('/path/to/file.ext', mockfs, compression=None)
+    source2 = ds.FileSource('/path/to/file.ext.gz', mockfs, compression='gzip')
     assert source1.path == '/path/to/file.ext'
-    assert source1.fs == fs
+    assert source1.fs == mockfs
     assert source1.compression == 0  # None
     assert source2.path == '/path/to/file.ext.gz'
-    assert source2.fs == fs
+    assert source2.fs == mockfs
     assert source2.compression == 2  # 'gzip'
 
 
-def test_file_system_data_source():
-    pass
+@pytest.mark.parametrize('klass', [
+    ds.FileFormat,
+    ds.DataFragment,
+    ds.DataSource,
+    ds.Expression
+])
+def test_abstract_classes(klass):
+    with pytest.raises(TypeError):
+        klass()
 
 
-def test_expression():
-    a = ScalarExpression(1)
-    b = ScalarExpression(1.1)
-    c = ScalarExpression(True)
-    ComparisonExpression(CompareOperator.Equal, a, b)
-    AndExpression(a, b)
-    AndExpression(a, b, c)
-    OrExpression(a, b)
-    OrExpression(a, b, c)
-    NotExpression(OrExpression(a, b, c))
+def test_expression(schema):
+    a = ds.ScalarExpression(1)
+    b = ds.ScalarExpression(1.1)
+    c = ds.ScalarExpression(True)
+
+    equal = ds.ComparisonExpression(ds.CompareOperator.Equal, a, b)
+    assert equal.op() == ds.CompareOperator.Equal
+
+    and_ = ds.AndExpression(a, b)
+    assert isinstance(and_.left_operand, ds.Expression)
+    assert isinstance(and_.right_operand, ds.Expression)
+    assert and_.equals(ds.AndExpression(a, b))
+    assert and_.equals(and_)
+    assert and_ == ds.AndExpression(a, b)
+    assert and_ != 'other object'
+
+    ds.AndExpression(a, b, c)
+    ds.OrExpression(a, b)
+    ds.OrExpression(a, b, c)
+    ds.NotExpression(ds.OrExpression(a, b, c))
+
+    condition = ds.ComparisonExpression(
+        ds.CompareOperator.Greater,
+        ds.FieldExpression('i64'),
+        ds.ScalarExpression(5)
+    )
+    assert condition.validate(schema) == pa.bool_()
+
+    i64_is_5 = ds.ComparisonExpression(
+        ds.CompareOperator.Equal,
+        ds.FieldExpression('i64'),
+        ds.ScalarExpression(5)
+    )
+    i64_is_7 = ds.ComparisonExpression(
+        ds.CompareOperator.Equal,
+        ds.FieldExpression('i64'),
+        ds.ScalarExpression(7)
+    )
+    true_ = ds.ScalarExpression(True)
+    false_ = ds.ScalarExpression(False)
+    assert condition.assume(i64_is_5) == false_
+    assert condition.assume(i64_is_7) == true_
+    assert str(condition) == "(i64 > 5:int64)"
 
 
-def test_file_system_discovery(fs):
-    selector = FileSelector('subdir', recursive=True)
+def test_file_system_discovery(mockfs):
+    selector = fs.Selector('subdir', recursive=True)
     assert selector.base_dir == 'subdir'
     assert selector.recursive is True
 
-    format = ParquetFileFormat()
+    format = ds.ParquetFileFormat()
     assert format.name() == 'parquet'
 
-    options = FileSystemDiscoveryOptions('/')
+    options = ds.FileSystemDiscoveryOptions('/')
     assert options.partition_base_dir == '/'
     assert options.ignore_prefixes == ['.', '_']
     assert options.exclude_invalid_files is True
 
-    discovery = FileSystemDataSourceDiscovery(fs, selector, format, options)
+    discovery = ds.FileSystemDataSourceDiscovery(mockfs, selector, format,
+                                                 options)
     assert isinstance(discovery.inspect(), pa.Schema)
     # assert isinstance(discovery.schema(), pa.Schema)
-    assert isinstance(discovery.finish(), FileSystemDataSource)
+    assert isinstance(discovery.finish(), ds.FileSystemDataSource)
 
-    scheme = SchemaPartitionScheme(
+    scheme = ds.SchemaPartitionScheme(
         pa.schema([
             pa.field('group', pa.int32()),
             pa.field('key', pa.string())
         ])
     )
     discovery.partition_scheme = scheme
-    assert isinstance(discovery.partition_scheme, SchemaPartitionScheme)
+    assert isinstance(discovery.partition_scheme, ds.SchemaPartitionScheme)
 
     data_source = discovery.finish()
-    assert isinstance(data_source, DataSource)
+    assert isinstance(data_source, ds.DataSource)
 
     inspected_schema = discovery.inspect()
-    dataset = Dataset([data_source], inspected_schema)
+    dataset = ds.Dataset([data_source], inspected_schema)
 
     scanner = dataset.new_scan().finish()
     for task in scanner.scan():
-        assert isinstance(task, ScanTask)
+        assert isinstance(task, ds.ScanTask)
         for record_batch in task.scan():
             assert isinstance(record_batch, pa.RecordBatch)

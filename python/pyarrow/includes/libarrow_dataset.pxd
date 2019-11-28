@@ -47,8 +47,10 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CExpressionType_CAST "arrow::dataset::ExpressionType::type::CAST"
         CExpressionType_AND "arrow::dataset::ExpressionType::type::AND"
         CExpressionType_OR "arrow::dataset::ExpressionType::type::OR"
-        CExpressionType_COMPARISON "arrow::dataset::ExpressionType::type::COMPARISON"
-        CExpressionType_IS_VALID "arrow::dataset::ExpressionType::type::IS_VALID"
+        CExpressionType_COMPARISON \
+            "arrow::dataset::ExpressionType::type::COMPARISON"
+        CExpressionType_IS_VALID \
+            "arrow::dataset::ExpressionType::type::IS_VALID"
         CExpressionType_IN "arrow::dataset::ExpressionType::type::IN"
         CExpressionType_CUSTOM "arrow::dataset::ExpressionType::type::CUSTOM"
 
@@ -58,61 +60,80 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         c_bool Equals(const shared_ptr[CExpression]& other) const
         c_bool IsNull() const
         CResult[shared_ptr[CDataType]] Validate(const CSchema& schema) const
-
         shared_ptr[CExpression] Assume(const CExpression& given) const
-        shared_ptr[CExpression] Assume(const shared_ptr[CExpression]& given) const
+        shared_ptr[CExpression] Assume(
+            const shared_ptr[CExpression]& given) const
         c_string ToString() const
         CExpressionType type() const
         shared_ptr[CExpression] Copy() const
+        # TODO(kszucs): expose the following methods
         # InExpression In(shared_ptr[CArray] set) const;
         # IsValidExpression IsValid() const
-        # CastExpression CastTo(shared_ptr[CDataType] type,
-        #                       compute::CastOptions options = compute::CastOptions()) const;
-        # CastExpression CastLike(const CExpression& expr,
-        #                         compute::CastOptions options = compute::CastOptions()) const;
-        # CastExpression CastLike(shared_ptr[CExpression] expr,
-        #                         compute::CastOptions options = compute::CastOptions()) const;
+        # CastExpression CastTo(
+        #     shared_ptr[CDataType] type,
+        #     compute::CastOptions options = compute::CastOptions()
+        # ) const;
+        # CastExpression CastLike(
+        #     const CExpression& expr,
+        #     compute::CastOptions options = compute::CastOptions()
+        # ) const;
+        # CastExpression CastLike(
+        #     shared_ptr[CExpression] expr,
+        #     compute::CastOptions options = compute::CastOptions()
+        # ) const;
 
-    ctypedef shared_ptr[CExpression] CExpressionPtr "arrow::dataset::ExpressionPtr"
-    ctypedef vector[CExpressionPtr] CExpressionVector "arrow::dataset::ExpressionVector"
+    ctypedef shared_ptr[CExpression] CExpressionPtr \
+        "arrow::dataset::ExpressionPtr"
+    ctypedef vector[CExpressionPtr] CExpressionVector \
+        "arrow::dataset::ExpressionVector"
 
-    cdef cppclass CUnaryExpression "arrow::dataset::UnaryExpression"(CExpression):
+    cdef cppclass CUnaryExpression "arrow::dataset::UnaryExpression"(
+            CExpression):
         const CExpressionPtr& operand() const
 
-    cdef cppclass CBinaryExpression "arrow::dataset::BinaryExpression"(CExpression):
+    cdef cppclass CBinaryExpression "arrow::dataset::BinaryExpression"(
+            CExpression):
         const CExpressionPtr& left_operand() const
         const CExpressionPtr& right_operand() const
 
-    cdef cppclass CScalarExpression "arrow::dataset::ScalarExpression"(CExpression):
+    cdef cppclass CScalarExpression "arrow::dataset::ScalarExpression"(
+            CExpression):
         CScalarExpression(const shared_ptr[CScalar]& value)
         const shared_ptr[CScalar]& value() const
 
-    cdef cppclass CFieldExpression "arrow::dataset::FieldExpression"(CExpression):
+    cdef cppclass CFieldExpression "arrow::dataset::FieldExpression"(
+            CExpression):
+        CFieldExpression(c_string name)
         c_string name() const
 
-    cdef cppclass CComparisonExpression "arrow::dataset::ComparisonExpression"(CBinaryExpression):
+    cdef cppclass CComparisonExpression "arrow::dataset::ComparisonExpression"(
+            CBinaryExpression):
         CComparisonExpression(CCompareOperator op, CExpressionPtr left_operand,
                               CExpressionPtr right_operand)
         CCompareOperator op() const
 
-    cdef cppclass CAndExpression "arrow::dataset::AndExpression"(CBinaryExpression):
+    cdef cppclass CAndExpression "arrow::dataset::AndExpression"(
+            CBinaryExpression):
         pass
 
-    cdef cppclass COrExpression "arrow::dataset::OrExpression"(CBinaryExpression):
+    cdef cppclass COrExpression "arrow::dataset::OrExpression"(
+            CBinaryExpression):
         pass
 
-    cdef cppclass CNotExpression "arrow::dataset::NotExpression"(CBinaryExpression):
+    cdef cppclass CNotExpression "arrow::dataset::NotExpression"(
+            CBinaryExpression):
         pass
 
-    cdef cppclass CIsValidExpression "arrow::dataset::IsValidExpression"(CBinaryExpression):
+    cdef cppclass CIsValidExpression "arrow::dataset::IsValidExpression"(
+            CBinaryExpression):
         pass
 
-    cdef shared_ptr[CNotExpression] MakeNotExpression "arrow::dataset::not_"(CExpressionPtr operand)
-    cdef CExpressionPtr MakeAndExpression "arrow::dataset::and_"(const CExpressionVector& subexpressions)
-    cdef CExpressionPtr MakeOrExpression "arrow::dataset::or_"(const CExpressionVector& subexpressions)
-
-    # InExpression
-    # CastExpression
+    cdef shared_ptr[CNotExpression] MakeNotExpression "arrow::dataset::not_"(
+            CExpressionPtr operand)
+    cdef CExpressionPtr MakeAndExpression "arrow::dataset::and_"(
+            const CExpressionVector& subexpressions)
+    cdef CExpressionPtr MakeOrExpression "arrow::dataset::or_"(
+            const CExpressionVector& subexpressions)
 
     cdef cppclass CFilter "arrow::dataset::Filter":
         pass
@@ -134,8 +155,10 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CScanContext "arrow::dataset::ScanContext":
         CMemoryPool* pool
 
-    ctypedef shared_ptr[CScanOptions] CScanOptionsPtr "arrow::dataset::ScanOptionsPtr"
-    ctypedef shared_ptr[CScanContext] CScanContextPtr "arrow::dataset::ScanContextPtr"
+    ctypedef shared_ptr[CScanOptions] CScanOptionsPtr \
+        "arrow::dataset::ScanOptionsPtr"
+    ctypedef shared_ptr[CScanContext] CScanContextPtr \
+        "arrow::dataset::ScanContextPtr"
 
     cdef cppclass CScanTask" arrow::dataset::ScanTask":
         CResult[CRecordBatchIterator] Scan()
@@ -144,7 +167,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         pass
 
     ctypedef shared_ptr[CScanTask] CScanTaskPtr "arrow::dataset::ScanTaskPtr"
-    ctypedef CIterator[CScanTaskPtr] CScanTaskIterator "arrow::dataset::ScanTaskIterator"
+    ctypedef CIterator[CScanTaskPtr] CScanTaskIterator \
+        "arrow::dataset::ScanTaskIterator"
 
     cdef cppclass CScanner "arrow::dataset::Scanner":
         CResult[CScanTaskIterator] Scan()
@@ -161,16 +185,20 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CResult[CScannerPtr] Finish()
         shared_ptr[CSchema] schema() const
 
-    ctypedef shared_ptr[CScannerBuilder] CScannerBuilderPtr "arrow::dataset::ScannerBuilderPtr"
+    ctypedef shared_ptr[CScannerBuilder] CScannerBuilderPtr \
+        "arrow::dataset::ScannerBuilderPtr"
 
     cdef cppclass CDataFragment "arrow::dataset::DataFragment":
         CResult[CScanTaskIterator] Scan(CScanContextPtr context)
         c_bool splittable()
         CScanOptionsPtr scan_options()
 
-    ctypedef shared_ptr[CDataFragment] CDataFragmentPtr "arrow::dataset::DataFragmentPtr"
-    ctypedef vector[CDataFragmentPtr] CDataFragmentVector "arrow::dataset::DataFragmentVector"
-    ctypedef CIterator[CDataFragmentPtr] CDataFragmentIterator "arrow::dataset::DataFragmentIterator"
+    ctypedef shared_ptr[CDataFragment] CDataFragmentPtr \
+        "arrow::dataset::DataFragmentPtr"
+    ctypedef vector[CDataFragmentPtr] CDataFragmentVector \
+        "arrow::dataset::DataFragmentVector"
+    ctypedef CIterator[CDataFragmentPtr] CDataFragmentIterator \
+        "arrow::dataset::DataFragmentIterator"
 
     cdef cppclass CSimpleDataFragment "arrow::dataset::SimpleDataFragment"(
             CDataFragment):
@@ -182,14 +210,18 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const CExpressionPtr& partition_expression()
         c_string type()
 
-    cdef cppclass CSimpleDataSource "arrow::dataset::SimpleDataSource"(CDataSource):
+    cdef cppclass CSimpleDataSource "arrow::dataset::SimpleDataSource"(
+            CDataSource):
         pass
 
-    cdef cppclass CTreeDataSource "arrow::dataset::TreeDataSource"(CDataSource):
+    cdef cppclass CTreeDataSource "arrow::dataset::TreeDataSource"(
+            CDataSource):
         pass
 
-    ctypedef shared_ptr[CDataSource] CDataSourcePtr "arrow::dataset::DataSourcePtr"
-    ctypedef vector[CDataSourcePtr] CDataSourceVector "arrow::dataset::DataSourceVector"
+    ctypedef shared_ptr[CDataSource] CDataSourcePtr \
+        "arrow::dataset::DataSourcePtr"
+    ctypedef vector[CDataSourcePtr] CDataSourceVector \
+        "arrow::dataset::DataSourceVector"
 
     cdef cppclass CDataset "arrow::dataset::Dataset":
         @staticmethod
@@ -235,7 +267,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
                              CScanOptionsPtr opts,
                              CDataFragmentPtr* out)
 
-    ctypedef shared_ptr[CFileFormat] CFileFormatPtr "arrow::dataset::FileFormatPtr"
+    ctypedef shared_ptr[CFileFormat] CFileFormatPtr \
+        "arrow::dataset::FileFormatPtr"
 
     cdef cppclass CFileBasedDataFragment \
             "arrow::dataset::FileBasedDataFragment"(CDataFragment):
@@ -285,19 +318,23 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         c_string name() const
         CResult[CExpressionPtr] Parse(const c_string& path) const
 
-    ctypedef shared_ptr[CPartitionScheme] CPartitionSchemePtr "arrow::dataset::PartitionSchemePtr"
+    ctypedef shared_ptr[CPartitionScheme] CPartitionSchemePtr \
+        "arrow::dataset::PartitionSchemePtr"
 
-    cdef cppclass CSchemaPartitionScheme "arrow::dataset::SchemaPartitionScheme"(CPartitionScheme):
+    cdef cppclass CSchemaPartitionScheme \
+            "arrow::dataset::SchemaPartitionScheme"(CPartitionScheme):
         CSchemaPartitionScheme(shared_ptr[CSchema] schema)
         const shared_ptr[CSchema]& schema()
 
-    cdef cppclass CHivePartitionScheme "arrow::dataset::HivePartitionScheme"(CPartitionScheme):
+    cdef cppclass CHivePartitionScheme \
+            "arrow::dataset::HivePartitionScheme"(CPartitionScheme):
         CHivePartitionScheme(shared_ptr[CSchema] schema)
         # vector[CUnconvertedKey] GetUnconvertedKeys(const c_string& path) const;
 
     ############################### Discovery #################################
 
-    cdef cppclass CFileSystemDiscoveryOptions "arrow::dataset::FileSystemDiscoveryOptions":
+    cdef cppclass CFileSystemDiscoveryOptions \
+            "arrow::dataset::FileSystemDiscoveryOptions":
         c_string partition_base_dir
         c_bool exclude_invalid_files
         vector[c_string] ignore_prefixes
@@ -312,16 +349,23 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CExpressionPtr root_partition()
         CStatus SetRootPartition(CExpressionPtr partition)
 
-    ctypedef shared_ptr[CDataSourceDiscovery] CDataSourceDiscoveryPtr "arrow::dataset::DataSourceDiscovery"
+    ctypedef shared_ptr[CDataSourceDiscovery] CDataSourceDiscoveryPtr \
+        "arrow::dataset::DataSourceDiscovery"
 
-    cdef cppclass CFileSystemDataSourceDiscovery "arrow::dataset::FileSystemDataSourceDiscovery"(CDataSourceDiscovery):
+    cdef cppclass CFileSystemDataSourceDiscovery \
+            "arrow::dataset::FileSystemDataSourceDiscovery"(
+                CDataSourceDiscovery):
         @staticmethod
-        CResult[CDataSourceDiscoveryPtr] Make(CFileSystemPtr filesytem,
-                                              CFileStatsVector paths,
-                                              CFileFormatPtr format,
-                                              CFileSystemDiscoveryOptions options)
+        CResult[CDataSourceDiscoveryPtr] Make(
+            CFileSystemPtr filesytem,
+            CFileStatsVector paths,
+            CFileFormatPtr format,
+            CFileSystemDiscoveryOptions options
+        )
         @staticmethod
-        CResult[CDataSourceDiscoveryPtr] Make(CFileSystemPtr filesytem,
-                                              CSelector,
-                                              CFileFormatPtr format,
-                                              CFileSystemDiscoveryOptions options)
+        CResult[CDataSourceDiscoveryPtr] Make(
+            CFileSystemPtr filesytem,
+            CSelector,
+            CFileFormatPtr format,
+            CFileSystemDiscoveryOptions options
+        )

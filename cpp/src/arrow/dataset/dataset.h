@@ -151,7 +151,7 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
   /// \brief Build a Dataset from uniform sources.
   //
   /// \param[in] sources one or more input data sources
-  /// \param[in] schema a known schema to conform to, may be nullptr
+  /// \param[in] schema a known schema to conform to
   static Result<DatasetPtr> Make(DataSourceVector sources,
                                  std::shared_ptr<Schema> schema);
 
