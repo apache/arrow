@@ -140,7 +140,7 @@ impl PartialEq for BooleanArray {
 
 impl PartialEq for StringArray {
     fn eq(&self, other: &Self) -> bool {
-      self.equals(other)
+        self.equals(other)
     }
 }
 
