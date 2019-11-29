@@ -495,11 +495,10 @@ class NumericArray : public PrimitiveArray {
   // Only enable this constructor without a type argument for types without additional
   // metadata
   template <typename T1 = TYPE>
-  NumericArray(
-      typename std::enable_if<TypeTraits<T1>::is_parameter_free, int64_t>::type length,
-      const std::shared_ptr<Buffer>& data,
-      const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
-      int64_t null_count = kUnknownNullCount, int64_t offset = 0)
+  NumericArray(enable_if_parameter_free<T1, int64_t> length,
+               const std::shared_ptr<Buffer>& data,
+               const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
+               int64_t null_count = kUnknownNullCount, int64_t offset = 0)
       : PrimitiveArray(TypeTraits<T1>::type_singleton(), length, data, null_bitmap,
                        null_count, offset) {}
 

@@ -164,10 +164,9 @@ class SchemaWriter {
   Status VisitType(const DataType& type);
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<NoExtraMeta, T>::value ||
-                              std::is_base_of<BaseListType, T>::value ||
-                              std::is_base_of<StructType, T>::value,
-                          void>::type
+  enable_if_t<is_null_type<T>::value || is_primitive_ctype<T>::value ||
+              is_base_binary_type<T>::value || is_base_list_type<T>::value ||
+              is_struct_type<T>::value>
   WriteTypeMetadata(const T& type) {}
 
   void WriteTypeMetadata(const MapType& type) {
@@ -361,8 +360,7 @@ class SchemaWriter {
 
   Status Visit(const DictionaryType& type) { return VisitType(*type.value_type()); }
 
-  // Default case
-  Status Visit(const DataType& type) { return Status::NotImplemented(type.name()); }
+  Status Visit(const ExtensionType& type) { return Status::NotImplemented(type.name()); }
 
  private:
   const Schema& schema_;
@@ -397,37 +395,34 @@ class ArrayWriter {
     return Status::OK();
   }
 
-  template <typename T>
-  typename std::enable_if<IsSignedInt<T>::value, void>::type WriteDataValues(
-      const T& arr) {
+  template <typename T, bool IsSigned = std::is_signed<typename T::value_type>::value>
+  void WriteIntegerDataValues(const T& arr) {
     static const char null_string[] = "0";
     const auto data = arr.raw_values();
     for (int64_t i = 0; i < arr.length(); ++i) {
       if (arr.IsValid(i)) {
-        writer_->Int64(data[i]);
+        IsSigned ? writer_->Int64(data[i]) : writer_->Uint64(data[i]);
       } else {
         writer_->RawNumber(null_string, sizeof(null_string));
       }
     }
   }
 
-  template <typename T>
-  typename std::enable_if<IsUnsignedInt<T>::value, void>::type WriteDataValues(
-      const T& arr) {
-    static const char null_string[] = "0";
-    const auto data = arr.raw_values();
-    for (int64_t i = 0; i < arr.length(); ++i) {
-      if (arr.IsValid(i)) {
-        writer_->Uint64(data[i]);
-      } else {
-        writer_->RawNumber(null_string, sizeof(null_string));
-      }
-    }
+  template <typename ArrayType>
+  enable_if_physical_signed_integer<typename ArrayType::TypeClass> WriteDataValues(
+      const ArrayType& arr) {
+    WriteIntegerDataValues<ArrayType>(arr);
   }
 
-  template <typename T>
-  typename std::enable_if<IsFloatingPoint<T>::value, void>::type WriteDataValues(
-      const T& arr) {
+  template <typename ArrayType>
+  enable_if_physical_unsigned_integer<typename ArrayType::TypeClass> WriteDataValues(
+      const ArrayType& arr) {
+    WriteIntegerDataValues<ArrayType>(arr);
+  }
+
+  template <typename ArrayType>
+  enable_if_physical_floating_point<typename ArrayType::TypeClass> WriteDataValues(
+      const ArrayType& arr) {
     static const char null_string[] = "0.";
     const auto data = arr.raw_values();
     for (int64_t i = 0; i < arr.length(); ++i) {
@@ -440,35 +435,21 @@ class ArrayWriter {
   }
 
   // Binary, encode to hexadecimal.
-  template <typename T>
-  typename std::enable_if<std::is_same<BinaryArray, T>::value ||
-                              std::is_same<LargeBinaryArray, T>::value,
-                          void>::type
-  WriteDataValues(const T& arr) {
+  template <typename ArrayType>
+  enable_if_binary_like<typename ArrayType::TypeClass> WriteDataValues(
+      const ArrayType& arr) {
     for (int64_t i = 0; i < arr.length(); ++i) {
       writer_->String(HexEncode(arr.GetView(i)));
     }
   }
 
   // UTF8 string, write as is
-  template <typename T>
-  typename std::enable_if<std::is_same<StringArray, T>::value ||
-                              std::is_same<LargeStringArray, T>::value,
-                          void>::type
-  WriteDataValues(const T& arr) {
+  template <typename ArrayType>
+  enable_if_string_like<typename ArrayType::TypeClass> WriteDataValues(
+      const ArrayType& arr) {
     for (int64_t i = 0; i < arr.length(); ++i) {
       auto view = arr.GetView(i);
       writer_->String(view.data(), static_cast<rj::SizeType>(view.size()));
-    }
-  }
-
-  void WriteDataValues(const FixedSizeBinaryArray& arr) {
-    const int32_t width = arr.byte_width();
-
-    for (int64_t i = 0; i < arr.length(); ++i) {
-      const uint8_t* buf = arr.GetValue(i);
-      std::string encoded = HexEncode(buf, width);
-      writer_->String(encoded);
     }
   }
 
@@ -563,20 +544,18 @@ class ArrayWriter {
     return Status::OK();
   }
 
-  template <typename T>
-  typename std::enable_if<std::is_base_of<PrimitiveArray, T>::value, Status>::type Visit(
-      const T& array) {
+  template <typename ArrayType>
+  enable_if_t<std::is_base_of<PrimitiveArray, ArrayType>::value, Status> Visit(
+      const ArrayType& array) {
     WriteValidityField(array);
     WriteDataField(array);
     SetNoChildren();
     return Status::OK();
   }
 
-  template <typename T>
-  typename std::enable_if<std::is_base_of<BinaryArray, T>::value ||
-                              std::is_base_of<LargeBinaryArray, T>::value,
-                          Status>::type
-  Visit(const T& array) {
+  template <typename ArrayType>
+  enable_if_base_binary<typename ArrayType::TypeClass, Status> Visit(
+      const ArrayType& array) {
     WriteValidityField(array);
     WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length() + 1);
     WriteDataField(array);
@@ -588,11 +567,9 @@ class ArrayWriter {
     return VisitArrayValues(*array.indices());
   }
 
-  template <typename T>
-  typename std::enable_if<std::is_base_of<ListArray, T>::value ||
-                              std::is_base_of<LargeListArray, T>::value,
-                          Status>::type
-  Visit(const T& array) {
+  template <typename ArrayType>
+  enable_if_base_list<typename ArrayType::TypeClass, Status> Visit(
+      const ArrayType& array) {
     WriteValidityField(array);
     WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length() + 1);
     return WriteChildren(array.type()->children(), {array.values()});
@@ -1055,31 +1032,30 @@ static Status GetField(const rj::Value& obj, DictionaryMemo* dictionary_memo,
 }
 
 template <typename T>
-inline typename std::enable_if<IsSignedInt<T>::value, typename T::c_type>::type
-UnboxValue(const rj::Value& val) {
+enable_if_boolean<T, bool> UnboxValue(const rj::Value& val) {
+  DCHECK(val.IsBool());
+  return val.GetBool();
+}
+
+template <typename T>
+enable_if_physical_signed_integer<T, typename T::c_type> UnboxValue(
+    const rj::Value& val) {
   DCHECK(val.IsInt64());
   return static_cast<typename T::c_type>(val.GetInt64());
 }
 
 template <typename T>
-inline typename std::enable_if<IsUnsignedInt<T>::value, typename T::c_type>::type
-UnboxValue(const rj::Value& val) {
+enable_if_physical_unsigned_integer<T, typename T::c_type> UnboxValue(
+    const rj::Value& val) {
   DCHECK(val.IsUint());
   return static_cast<typename T::c_type>(val.GetUint64());
 }
 
 template <typename T>
-inline typename std::enable_if<IsFloatingPoint<T>::value, typename T::c_type>::type
-UnboxValue(const rj::Value& val) {
+enable_if_physical_floating_point<T, typename T::c_type> UnboxValue(
+    const rj::Value& val) {
   DCHECK(val.IsFloat());
   return static_cast<typename T::c_type>(val.GetDouble());
-}
-
-template <typename T>
-inline typename std::enable_if<std::is_base_of<BooleanType, T>::value, bool>::type
-UnboxValue(const rj::Value& val) {
-  DCHECK(val.IsBool());
-  return val.GetBool();
 }
 
 class ArrayReader {
@@ -1093,11 +1069,7 @@ class ArrayReader {
         dictionary_memo_(dictionary_memo) {}
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<PrimitiveCType, T>::value ||
-                              is_temporal_type<T>::value ||
-                              std::is_base_of<BooleanType, T>::value,
-                          Status>::type
-  Visit(const T& type) {
+  enable_if_has_c_type<T, Status> Visit(const T& type) {
     typename TypeTraits<T>::BuilderType builder(type_, pool_);
 
     const auto& json_data = obj_.FindMember(kData);
@@ -1120,8 +1092,7 @@ class ArrayReader {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<BaseBinaryType, T>::value, Status>::type Visit(
-      const T& type) {
+  enable_if_base_binary<T, Status> Visit(const T& type) {
     typename TypeTraits<T>::BuilderType builder(pool_);
     using offset_type = typename T::offset_type;
 
@@ -1195,9 +1166,7 @@ class ArrayReader {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T>::value &&
-                              !std::is_base_of<Decimal128Type, T>::value,
-                          Status>::type
+  enable_if_t<is_fixed_size_binary_type<T>::value && !is_decimal_type<T>::value, Status>
   Visit(const T& type) {
     typename TypeTraits<T>::BuilderType builder(type_, pool_);
 
@@ -1238,8 +1207,7 @@ class ArrayReader {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<Decimal128Type, T>::value, Status>::type Visit(
-      const T& type) {
+  enable_if_decimal<T, Status> Visit(const T& type) {
     typename TypeTraits<T>::BuilderType builder(type_, pool_);
 
     const auto& json_data = obj_.FindMember(kData);
@@ -1312,10 +1280,9 @@ class ArrayReader {
     return Status::OK();
   }
 
-  Status Visit(const ListType& type) { return CreateList<ListType>(type_, &result_); }
-
-  Status Visit(const LargeListType& type) {
-    return CreateList<LargeListType>(type_, &result_);
+  template <typename T>
+  enable_if_base_list<T, Status> Visit(const T& type) {
+    return CreateList<T>(type_, &result_);
   }
 
   Status Visit(const MapType& type) {
@@ -1414,8 +1381,7 @@ class ArrayReader {
     return Status::OK();
   }
 
-  // Default case
-  Status Visit(const DataType& type) { return Status::NotImplemented(type.name()); }
+  Status Visit(const ExtensionType& type) { return Status::NotImplemented(type.name()); }
 
   Status GetValidityBuffer(const std::vector<bool>& is_valid, int32_t* null_count,
                            std::shared_ptr<Buffer>* validity_buffer) {

@@ -98,10 +98,10 @@ class DictionaryBuilderBase : public ArrayBuilder {
   // WARNING: the type given below is the value type, not the DictionaryType.
   // The DictionaryType is instantiated on the Finish() call.
   template <typename T1 = T>
-  DictionaryBuilderBase(
-      typename std::enable_if<!std::is_base_of<FixedSizeBinaryType, T1>::value,
-                              const std::shared_ptr<DataType>&>::type value_type,
-      MemoryPool* pool = default_memory_pool())
+  DictionaryBuilderBase(enable_if_t<!std::is_base_of<FixedSizeBinaryType, T1>::value,
+                                    const std::shared_ptr<DataType>&>
+                            value_type,
+                        MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool),
         memo_table_(new internal::DictionaryMemoTable(value_type)),
         delta_offset_(0),
@@ -111,8 +111,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
   template <typename T1 = T>
   explicit DictionaryBuilderBase(
-      typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T1>::value,
-                              const std::shared_ptr<DataType>&>::type value_type,
+      enable_if_fixed_size_binary<T1, const std::shared_ptr<DataType>&> value_type,
       MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool),
         memo_table_(new internal::DictionaryMemoTable(value_type)),
@@ -123,8 +122,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
   template <typename T1 = T>
   explicit DictionaryBuilderBase(
-      typename std::enable_if<TypeTraits<T1>::is_parameter_free, MemoryPool*>::type pool =
-          default_memory_pool())
+      enable_if_parameter_free<T1, MemoryPool*> pool = default_memory_pool())
       : DictionaryBuilderBase<BuilderType, T1>(TypeTraits<T1>::type_singleton(), pool) {}
 
   DictionaryBuilderBase(const std::shared_ptr<Array>& dictionary,
@@ -154,15 +152,13 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
   /// \brief Append a fixed-width string (only for FixedSizeBinaryType)
   template <typename T1 = T>
-  Status Append(typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T1>::value,
-                                        const uint8_t*>::type value) {
+  enable_if_fixed_size_binary<T1, Status> Append(const uint8_t* value) {
     return Append(util::string_view(reinterpret_cast<const char*>(value), byte_width_));
   }
 
   /// \brief Append a fixed-width string (only for FixedSizeBinaryType)
   template <typename T1 = T>
-  Status Append(typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T1>::value,
-                                        const char*>::type value) {
+  enable_if_fixed_size_binary<T1, Status> Append(const char* value) {
     return Append(util::string_view(value, byte_width_));
   }
 
@@ -192,9 +188,8 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
   /// \brief Append a whole dense array to the builder
   template <typename T1 = T>
-  Status AppendArray(
-      typename std::enable_if<!std::is_base_of<FixedSizeBinaryType, T1>::value,
-                              const Array&>::type array) {
+  enable_if_t<!is_fixed_size_binary_type<T1>::value, Status> AppendArray(
+      const Array& array) {
     using ArrayType = typename TypeTraits<T>::ArrayType;
 
     const auto& concrete_array = static_cast<const ArrayType&>(array);
@@ -209,9 +204,7 @@ class DictionaryBuilderBase : public ArrayBuilder {
   }
 
   template <typename T1 = T>
-  Status AppendArray(
-      typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T1>::value,
-                              const Array&>::type array) {
+  enable_if_fixed_size_binary<T1, Status> AppendArray(const Array& array) {
     if (!value_type_->Equals(*array.type())) {
       return Status::Invalid(
           "Cannot append FixedSizeBinary array with non-matching type");

@@ -38,11 +38,14 @@ namespace compute {
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
+template <typename T, typename R = void>
+using enable_if_not_base_binary =
+    enable_if_t<!std::is_base_of<BaseBinaryType, T>::value, R>;
+
 // For non-binary builders, use regular value append
 template <typename Builder, typename Scalar>
-static typename std::enable_if<
-    !std::is_base_of<BaseBinaryType, typename Builder::TypeClass>::value, Status>::type
-UnsafeAppend(Builder* builder, Scalar&& value) {
+static enable_if_not_base_binary<typename Builder::TypeClass, Status> UnsafeAppend(
+    Builder* builder, Scalar&& value) {
   builder->UnsafeAppend(std::forward<Scalar>(value));
   return Status::OK();
 }

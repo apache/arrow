@@ -314,8 +314,6 @@ class ARROW_EXPORT NestedType : public DataType, public ParametricType {
   using DataType::DataType;
 };
 
-class NoExtraMeta {};
-
 /// \brief The combination of a field name and data type, with optional metadata
 ///
 /// Fields are used to describe the individual constituents of a
@@ -403,8 +401,8 @@ namespace detail {
 template <typename DERIVED, typename BASE, Type::type TYPE_ID, typename C_TYPE>
 class ARROW_EXPORT CTypeImpl : public BASE {
  public:
-  using c_type = C_TYPE;
   static constexpr Type::type type_id = TYPE_ID;
+  using c_type = C_TYPE;
 
   CTypeImpl() : BASE(TYPE_ID) {}
 
@@ -425,7 +423,7 @@ class IntegerTypeImpl : public detail::CTypeImpl<DERIVED, IntegerType, TYPE_ID, 
 }  // namespace detail
 
 /// Concrete type class for always-null data
-class ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
+class ARROW_EXPORT NullType : public DataType {
  public:
   static constexpr Type::type type_id = Type::NA;
 
@@ -446,21 +444,13 @@ class ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
 };
 
 /// Concrete type class for boolean data
-class ARROW_EXPORT BooleanType : public FixedWidthType, public NoExtraMeta {
+class ARROW_EXPORT BooleanType
+    : public detail::CTypeImpl<BooleanType, PrimitiveCType, Type::BOOL, bool> {
  public:
-  static constexpr Type::type type_id = Type::BOOL;
-
   static constexpr const char* type_name() { return "bool"; }
 
-  BooleanType() : FixedWidthType(Type::BOOL) {}
-
-  std::string ToString() const override;
-
-  DataTypeLayout layout() const override { return {{1, 1}, false}; }
-
-  int bit_width() const override { return 1; }
-
-  std::string name() const override { return "bool"; }
+  // BooleanType within arrow use a single bit instead of the C 8-bits layout.
+  int bit_width() const final { return 1; }
 
  protected:
   std::string ComputeFingerprint() const override;
@@ -721,7 +711,7 @@ class ARROW_EXPORT FixedSizeListType : public NestedType {
 };
 
 /// \brief Base class for all variable-size binary data types
-class ARROW_EXPORT BaseBinaryType : public DataType, public NoExtraMeta {
+class ARROW_EXPORT BaseBinaryType : public DataType {
  public:
   using DataType::DataType;
 };
@@ -818,6 +808,7 @@ class ARROW_EXPORT LargeStringType : public LargeBinaryType {
 class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public ParametricType {
  public:
   static constexpr Type::type type_id = Type::FIXED_SIZE_BINARY;
+  static constexpr bool is_utf8 = false;
 
   static constexpr const char* type_name() { return "fixed_size_binary"; }
 
@@ -991,10 +982,9 @@ class ARROW_EXPORT Date32Type : public DateType {
  public:
   static constexpr Type::type type_id = Type::DATE32;
   static constexpr DateUnit UNIT = DateUnit::DAY;
+  using c_type = int32_t;
 
   static constexpr const char* type_name() { return "date32"; }
-
-  using c_type = int32_t;
 
   Date32Type();
 
@@ -1014,10 +1004,9 @@ class ARROW_EXPORT Date64Type : public DateType {
  public:
   static constexpr Type::type type_id = Type::DATE64;
   static constexpr DateUnit UNIT = DateUnit::MILLI;
+  using c_type = int64_t;
 
   static constexpr const char* type_name() { return "date64"; }
-
-  using c_type = int64_t;
 
   Date64Type();
 
@@ -1124,8 +1113,8 @@ class ARROW_EXPORT TimestampType : public TemporalType, public ParametricType {
  public:
   using Unit = TimeUnit;
 
-  typedef int64_t c_type;
   static constexpr Type::type type_id = Type::TIMESTAMP;
+  using c_type = int64_t;
 
   static constexpr const char* type_name() { return "timestamp"; }
 
@@ -1169,8 +1158,8 @@ class ARROW_EXPORT IntervalType : public TemporalType, public ParametricType {
 /// in Schema.fbs (Years are defined as 12 months).
 class ARROW_EXPORT MonthIntervalType : public IntervalType {
  public:
-  using c_type = int32_t;
   static constexpr Type::type type_id = Type::INTERVAL;
+  using c_type = int32_t;
 
   static constexpr const char* type_name() { return "month_interval"; }
 
@@ -1194,6 +1183,9 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
       return this->days == other.days && this->milliseconds == other.milliseconds;
     }
     bool operator!=(DayMilliseconds other) const { return !(*this == other); }
+    bool operator<(DayMilliseconds other) const {
+      return this->days < other.days || this->milliseconds < other.milliseconds;
+    }
   };
   using c_type = DayMilliseconds;
   static_assert(sizeof(DayMilliseconds) == 8,

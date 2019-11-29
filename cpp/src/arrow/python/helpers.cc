@@ -171,8 +171,7 @@ Status IntegerOverflowStatus(PyObject* obj, const std::string& overflow_message)
 }
 
 // Extract C signed int from Python object
-template <typename Int,
-          typename std::enable_if<std::is_signed<Int>::value, Int>::type = 0>
+template <typename Int, enable_if_t<std::is_signed<Int>::value, Int> = 0>
 Status CIntFromPythonImpl(PyObject* obj, Int* out, const std::string& overflow_message) {
   static_assert(sizeof(Int) <= sizeof(long long),  // NOLINT
                 "integer type larger than long long");
@@ -202,8 +201,7 @@ Status CIntFromPythonImpl(PyObject* obj, Int* out, const std::string& overflow_m
 }
 
 // Extract C unsigned int from Python object
-template <typename Int,
-          typename std::enable_if<std::is_unsigned<Int>::value, Int>::type = 0>
+template <typename Int, enable_if_t<std::is_unsigned<Int>::value, Int> = 0>
 Status CIntFromPythonImpl(PyObject* obj, Int* out, const std::string& overflow_message) {
   static_assert(sizeof(Int) <= sizeof(unsigned long long),  // NOLINT
                 "integer type larger than unsigned long long");

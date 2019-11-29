@@ -89,8 +89,23 @@ struct CompareVisitor {
   Status Visit(const BooleanType&) { return CompareValues<BooleanType>(); }
 
   template <typename T>
-  enable_if_number<T, Status> Visit(const T&) {
+  enable_if_physical_floating_point<T, Status> Visit(const T&) {
     return CompareValues<T>();
+  }
+
+  template <typename T>
+  enable_if_physical_signed_integer<T, Status> Visit(const T&) {
+    return CompareValues<T>();
+  }
+
+  template <typename T>
+  enable_if_physical_unsigned_integer<T, Status> Visit(const T&) {
+    return CompareValues<T>();
+  }
+
+  template <typename T>
+  enable_if_nested<T, Status> Visit(const T&) {
+    return Status::NotImplemented("comparison of scalars of type ", *lhs_.type);
   }
 
   template <typename T>
@@ -104,15 +119,30 @@ struct CompareVisitor {
     return CompareValues(cmp, 0);
   }
 
+  template <typename T>
+  enable_if_string_like<T, Status> Visit(const T&) {
+    auto lhs = checked_cast<const ScalarType<T>&>(lhs_).value;
+    auto rhs = checked_cast<const ScalarType<T>&>(rhs_).value;
+    auto cmp = std::memcmp(lhs->data(), rhs->data(), std::min(lhs->size(), rhs->size()));
+    if (cmp == 0) {
+      return CompareValues(lhs->size(), rhs->size());
+    }
+    return CompareValues(cmp, 0);
+  }
+
   Status Visit(const Decimal128Type&) { return CompareValues<Decimal128Type>(); }
 
-  // explicit because both integral and floating point conditions match half float
+  // Explicit because it falls under `physical_unsigned_integer`.
+  // TODO(bkietz) whenever we vendor a float16, this can be implemented
   Status Visit(const HalfFloatType&) {
-    // TODO(bkietz) whenever we vendor a float16, this can be implemented
     return Status::NotImplemented("comparison of scalars of type ", *lhs_.type);
   }
 
-  Status Visit(const DataType&) {
+  Status Visit(const ExtensionType&) {
+    return Status::NotImplemented("comparison of scalars of type ", *lhs_.type);
+  }
+
+  Status Visit(const DictionaryType&) {
     return Status::NotImplemented("comparison of scalars of type ", *lhs_.type);
   }
 

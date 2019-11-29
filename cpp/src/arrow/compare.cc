@@ -726,27 +726,25 @@ class TypeEqualsVisitor {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<NoExtraMeta, T>::value ||
-                              std::is_base_of<PrimitiveCType, T>::value,
-                          Status>::type
+  enable_if_t<is_null_type<T>::value || is_primitive_ctype<T>::value ||
+                  is_base_binary_type<T>::value,
+              Status>
   Visit(const T&) {
     result_ = true;
     return Status::OK();
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<IntervalType, T>::value, Status>::type Visit(
-      const T& left) {
+  enable_if_interval<T, Status> Visit(const T& left) {
     const auto& right = checked_cast<const IntervalType&>(right_);
     result_ = right.interval_type() == left.interval_type();
     return Status::OK();
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<TimeType, T>::value ||
-                              std::is_base_of<DateType, T>::value ||
-                              std::is_base_of<DurationType, T>::value,
-                          Status>::type
+  enable_if_t<is_time_type<T>::value || is_date_type<T>::value ||
+                  is_duration_type<T>::value,
+              Status>
   Visit(const T& left) {
     const auto& right = checked_cast<const T&>(right_);
     result_ = left.unit() == right.unit();
@@ -771,9 +769,11 @@ class TypeEqualsVisitor {
     return Status::OK();
   }
 
-  Status Visit(const ListType& left) { return VisitChildren(left); }
-
-  Status Visit(const LargeListType& left) { return VisitChildren(left); }
+  template <typename T>
+  enable_if_t<is_list_like_type<T>::value || is_struct_type<T>::value, Status> Visit(
+      const T& left) {
+    return VisitChildren(left);
+  }
 
   Status Visit(const MapType& left) {
     const auto& right = checked_cast<const MapType&>(right_);
@@ -783,10 +783,6 @@ class TypeEqualsVisitor {
     }
     return VisitChildren(left);
   }
-
-  Status Visit(const FixedSizeListType& left) { return VisitChildren(left); }
-
-  Status Visit(const StructType& left) { return VisitChildren(left); }
 
   Status Visit(const UnionType& left) {
     const auto& right = checked_cast<const UnionType&>(right_);

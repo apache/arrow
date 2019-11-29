@@ -262,19 +262,16 @@ class ArrayLoader {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<FixedWidthType, T>::value &&
-                              !std::is_base_of<FixedSizeBinaryType, T>::value &&
-                              !std::is_base_of<DictionaryType, T>::value,
-                          Status>::type
+  enable_if_t<std::is_base_of<FixedWidthType, T>::value &&
+                  !std::is_base_of<FixedSizeBinaryType, T>::value &&
+                  !std::is_base_of<DictionaryType, T>::value,
+              Status>
   Visit(const T& type) {
     return LoadPrimitive<T>();
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<BinaryType, T>::value ||
-                              std::is_base_of<LargeBinaryType, T>::value,
-                          Status>::type
-  Visit(const T& type) {
+  enable_if_base_binary<T, Status> Visit(const T& type) {
     return LoadBinary<T>();
   }
 

@@ -389,193 +389,258 @@ using void_t = typename make_void<Ts...>::type;
 // Useful type predicates
 //
 
+// only in C++14
+template <bool B, typename T = void>
+using enable_if_t = typename std::enable_if<B, T>::type;
+
+template <typename T>
+using is_null_type = std::is_same<NullType, T>;
+
+template <typename T, typename R = void>
+using enable_if_null = enable_if_t<is_null_type<T>::value, R>;
+
+template <typename T>
+using is_boolean_type = std::is_same<BooleanType, T>;
+
+template <typename T, typename R = void>
+using enable_if_boolean = enable_if_t<is_boolean_type<T>::value, R>;
+
 template <typename T>
 using is_number_type = std::is_base_of<NumberType, T>;
+
+template <typename T, typename R = void>
+using enable_if_number = enable_if_t<is_number_type<T>::value, R>;
 
 template <typename T>
 using is_integer_type = std::is_base_of<IntegerType, T>;
 
-template <typename T>
-using is_floating_type = std::is_base_of<FloatingPointType, T>;
-
-template <typename T>
-using is_temporal_type = std::is_base_of<TemporalType, T>;
-
-template <typename T>
-struct has_c_type {
-  static constexpr bool value =
-      (std::is_base_of<PrimitiveCType, T>::value || std::is_base_of<DateType, T>::value ||
-       std::is_base_of<TimeType, T>::value || std::is_base_of<TimestampType, T>::value ||
-       std::is_base_of<IntervalType, T>::value ||
-       std::is_base_of<DurationType, T>::value);
-};
-
-template <typename T>
-struct is_8bit_int {
-  static constexpr bool value =
-      (std::is_same<UInt8Type, T>::value || std::is_same<Int8Type, T>::value);
-};
-
-template <typename T>
-struct is_any_string_type {
-  static constexpr bool value =
-      std::is_same<StringType, T>::value || std::is_same<LargeStringType, T>::value;
-};
-
 template <typename T, typename R = void>
-using enable_if_8bit_int = typename std::enable_if<is_8bit_int<T>::value, R>::type;
-
-template <typename T, typename R = void>
-using enable_if_primitive_ctype =
-    typename std::enable_if<std::is_base_of<PrimitiveCType, T>::value, R>::type;
-
-template <typename T, typename R = void>
-using enable_if_integer = typename std::enable_if<is_integer_type<T>::value, R>::type;
+using enable_if_integer = enable_if_t<is_integer_type<T>::value, R>;
 
 template <typename T>
-using is_signed_integer =
+using is_signed_integer_type =
     std::integral_constant<bool, is_integer_type<T>::value &&
                                      std::is_signed<typename T::c_type>::value>;
 
 template <typename T, typename R = void>
-using enable_if_signed_integer =
-    typename std::enable_if<is_signed_integer<T>::value, R>::type;
-
-template <typename T, typename R = void>
-using enable_if_unsigned_integer = typename std::enable_if<
-    is_integer_type<T>::value && std::is_unsigned<typename T::c_type>::value, R>::type;
-
-template <typename T, typename R = void>
-using enable_if_floating_point =
-    typename std::enable_if<is_floating_type<T>::value, R>::type;
+using enable_if_signed_integer = enable_if_t<is_signed_integer_type<T>::value, R>;
 
 template <typename T>
-using is_date = std::is_base_of<DateType, T>;
+using is_unsigned_integer_type =
+    std::integral_constant<bool, is_integer_type<T>::value &&
+                                     std::is_unsigned<typename T::c_type>::value>;
 
 template <typename T, typename R = void>
-using enable_if_date = typename std::enable_if<is_date<T>::value, R>::type;
+using enable_if_unsigned_integer = enable_if_t<is_unsigned_integer_type<T>::value, R>;
+
+// Note this will also include HalfFloatType which is represented by a
+// non-floating point primitive (uint16_t).
+template <typename T>
+using is_floating_type = std::is_base_of<FloatingPointType, T>;
+
+template <typename T, typename R = void>
+using enable_if_floating_point = enable_if_t<is_floating_type<T>::value, R>;
+
+// Half floats are special in that they behave physically like an unsigned
+// integer.
+template <typename T>
+using is_half_float_type = std::is_same<HalfFloatType, T>;
+
+template <typename T, typename R = void>
+using enable_if_half_float = enable_if_t<is_half_float_type<T>::value, R>;
+
+// Binary Types
+
+// Base binary refers to Binary/LargeBinary/String/LargeString
+template <typename T>
+using is_base_binary_type = std::is_base_of<BaseBinaryType, T>;
+
+template <typename T, typename R = void>
+using enable_if_base_binary = enable_if_t<is_base_binary_type<T>::value, R>;
+
+// Any binary excludes string from Base binary
+template <typename T>
+using is_any_binary_type =
+    std::integral_constant<bool, std::is_same<BinaryType, T>::value ||
+                                     std::is_same<LargeBinaryType, T>::value>;
+
+template <typename T, typename R = void>
+using enable_if_any_binary = enable_if_t<is_any_binary_type<T>::value, R>;
 
 template <typename T>
-using is_time = std::is_base_of<TimeType, T>;
+using is_string_like_type =
+    std::integral_constant<bool, is_base_binary_type<T>::value && T::is_utf8>;
 
 template <typename T, typename R = void>
-using enable_if_time = typename std::enable_if<is_time<T>::value, R>::type;
+using enable_if_string_like = enable_if_t<is_string_like_type<T>::value, R>;
+
+// Note that this also includes DecimalType
+template <typename T>
+using is_fixed_size_binary_type = std::is_base_of<FixedSizeBinaryType, T>;
+
+template <typename T, typename R = void>
+using enable_if_fixed_size_binary = enable_if_t<is_fixed_size_binary_type<T>::value, R>;
 
 template <typename T>
-using is_timestamp = std::is_base_of<TimestampType, T>;
+using is_binary_like_type =
+    std::integral_constant<bool, (is_base_binary_type<T>::value &&
+                                  !is_string_like_type<T>::value) ||
+                                     is_fixed_size_binary_type<T>::value>;
 
 template <typename T, typename R = void>
-using enable_if_timestamp = typename std::enable_if<is_timestamp<T>::value, R>::type;
-
-template <typename T, typename R = void>
-using enable_if_has_c_type = typename std::enable_if<has_c_type<T>::value, R>::type;
-
-template <typename T, typename R = void>
-using enable_if_null = typename std::enable_if<std::is_same<NullType, T>::value, R>::type;
-
-template <typename T, typename R = void>
-using enable_if_base_binary =
-    typename std::enable_if<std::is_base_of<BaseBinaryType, T>::value, R>::type;
-
-template <typename T, typename R = void>
-using enable_if_binary =
-    typename std::enable_if<std::is_base_of<BinaryType, T>::value, R>::type;
-
-template <typename T, typename R = void>
-using enable_if_large_binary =
-    typename std::enable_if<std::is_base_of<LargeBinaryType, T>::value, R>::type;
-
-template <typename T, typename R = void>
-using enable_if_boolean =
-    typename std::enable_if<std::is_same<BooleanType, T>::value, R>::type;
-
-template <typename T, typename R = void>
-using enable_if_binary_like =
-    typename std::enable_if<std::is_base_of<BaseBinaryType, T>::value ||
-                                std::is_base_of<FixedSizeBinaryType, T>::value,
-                            R>::type;
-
-template <typename T, typename R = void>
-using enable_if_fixed_size_binary =
-    typename std::enable_if<std::is_base_of<FixedSizeBinaryType, T>::value, R>::type;
-
-template <typename T, typename R = void>
-using enable_if_base_list =
-    typename std::enable_if<std::is_base_of<BaseListType, T>::value, R>::type;
-
-template <typename T, typename R = void>
-using enable_if_list =
-    typename std::enable_if<std::is_base_of<ListType, T>::value, R>::type;
-
-template <typename T, typename R = void>
-using enable_if_large_list =
-    typename std::enable_if<std::is_base_of<LargeListType, T>::value, R>::type;
-
-template <typename T, typename R = void>
-using enable_if_fixed_size_list =
-    typename std::enable_if<std::is_base_of<FixedSizeListType, T>::value, R>::type;
-
-template <typename T, typename R = void>
-using enable_if_number = typename std::enable_if<is_number_type<T>::value, R>::type;
-
-namespace internal {
-
-// The partial specialization will match if T has the ATTR_NAME member
-#define GET_ATTR(ATTR_NAME, DEFAULT)                             \
-  template <typename T, typename Enable = void>                  \
-  struct GetAttr_##ATTR_NAME {                                   \
-    using type = DEFAULT;                                        \
-  };                                                             \
-                                                                 \
-  template <typename T>                                          \
-  struct GetAttr_##ATTR_NAME<T, void_t<typename T::ATTR_NAME>> { \
-    using type = typename T::ATTR_NAME;                          \
-  };
-
-GET_ATTR(c_type, void)
-GET_ATTR(TypeClass, void)
-
-#undef GET_ATTR
-
-}  // namespace internal
-
-#define PRIMITIVE_TRAITS(T)                                                           \
-  using TypeClass =                                                                   \
-      typename std::conditional<std::is_base_of<DataType, T>::value, T,               \
-                                typename internal::GetAttr_TypeClass<T>::type>::type; \
-  using c_type = typename internal::GetAttr_c_type<TypeClass>::type
+using enable_if_binary_like = enable_if_t<is_binary_like_type<T>::value, R>;
 
 template <typename T>
-struct IsUnsignedInt {
-  PRIMITIVE_TRAITS(T);
-  static constexpr bool value =
-      std::is_integral<c_type>::value && std::is_unsigned<c_type>::value;
-};
+using is_decimal_type = std::is_base_of<DecimalType, T>;
+
+template <typename T, typename R = void>
+using enable_if_decimal = enable_if_t<is_decimal_type<T>::value, R>;
+
+// Nested Types
 
 template <typename T>
-struct IsSignedInt {
-  PRIMITIVE_TRAITS(T);
-  static constexpr bool value =
-      std::is_integral<c_type>::value && std::is_signed<c_type>::value;
-};
+using is_nested_type = std::is_base_of<NestedType, T>;
+
+template <typename T, typename R = void>
+using enable_if_nested = enable_if_t<is_nested_type<T>::value, R>;
 
 template <typename T>
-struct IsInteger {
-  PRIMITIVE_TRAITS(T);
-  static constexpr bool value = std::is_integral<c_type>::value;
-};
+using is_base_list_type = std::is_base_of<BaseListType, T>;
+
+template <typename T, typename R = void>
+using enable_if_base_list = enable_if_t<is_base_list_type<T>::value, R>;
 
 template <typename T>
-struct IsFloatingPoint {
-  PRIMITIVE_TRAITS(T);
-  static constexpr bool value = std::is_floating_point<c_type>::value;
-};
+using is_fixed_size_list_type = std::is_same<FixedSizeListType, T>;
+
+template <typename T, typename R = void>
+using enable_if_fixed_size_list = enable_if_t<is_fixed_size_list_type<T>::value, R>;
 
 template <typename T>
-struct IsNumeric {
-  PRIMITIVE_TRAITS(T);
-  static constexpr bool value = std::is_arithmetic<c_type>::value;
-};
+using is_list_like_type =
+    std::integral_constant<bool, is_base_list_type<T>::value ||
+                                     is_fixed_size_list_type<T>::value>;
+
+template <typename T, typename R = void>
+using enable_if_list_like = enable_if_t<is_list_like_type<T>::value, R>;
+
+template <typename T>
+using is_struct_type = std::is_base_of<StructType, T>;
+
+template <typename T, typename R = void>
+using enable_if_struct = enable_if_t<is_struct_type<T>::value, R>;
+
+template <typename T>
+using is_union_type = std::is_base_of<UnionType, T>;
+
+template <typename T, typename R = void>
+using enable_if_union = enable_if_t<is_union_type<T>::value, R>;
+
+// TemporalTypes
+
+template <typename T>
+using is_temporal_type = std::is_base_of<TemporalType, T>;
+
+template <typename T, typename R = void>
+using enable_if_temporal = enable_if_t<is_temporal_type<T>::value, R>;
+
+template <typename T>
+using is_date_type = std::is_base_of<DateType, T>;
+
+template <typename T, typename R = void>
+using enable_if_date = enable_if_t<is_date_type<T>::value, R>;
+
+template <typename T>
+using is_time_type = std::is_base_of<TimeType, T>;
+
+template <typename T, typename R = void>
+using enable_if_time = enable_if_t<is_time_type<T>::value, R>;
+
+template <typename T>
+using is_timestamp_type = std::is_base_of<TimestampType, T>;
+
+template <typename T, typename R = void>
+using enable_if_timestamp = enable_if_t<is_timestamp_type<T>::value, R>;
+
+template <typename T>
+using is_duration_type = std::is_base_of<DurationType, T>;
+
+template <typename T, typename R = void>
+using enable_if_duration = enable_if_t<is_duration_type<T>::value, R>;
+
+template <typename T>
+using is_interval_type = std::is_base_of<IntervalType, T>;
+
+template <typename T, typename R = void>
+using enable_if_interval = enable_if_t<is_interval_type<T>::value, R>;
+
+// Attribute differentiation
+
+template <typename T>
+using is_primitive_ctype = std::is_base_of<PrimitiveCType, T>;
+
+template <typename T, typename R = void>
+using enable_if_primitive_ctype = enable_if_t<is_primitive_ctype<T>::value, R>;
+
+template <typename T>
+using has_c_type = std::integral_constant<bool, is_primitive_ctype<T>::value ||
+                                                    is_temporal_type<T>::value>;
+
+template <typename T, typename R = void>
+using enable_if_has_c_type = enable_if_t<has_c_type<T>::value, R>;
+
+template <typename T>
+using has_string_view = std::integral_constant<bool, is_binary_like_type<T>::value ||
+                                                         is_string_like_type<T>::value>;
+
+template <typename T, typename R = void>
+using enable_if_has_string_view = enable_if_t<has_string_view<T>::value, R>;
+
+template <typename T>
+using is_8bit_int = std::integral_constant<bool, std::is_same<UInt8Type, T>::value ||
+                                                     std::is_same<Int8Type, T>::value>;
+
+template <typename T, typename R = void>
+using enable_if_8bit_int = enable_if_t<is_8bit_int<T>::value, R>;
+
+template <typename T>
+using is_paramater_free_type =
+    std::integral_constant<bool, TypeTraits<T>::is_parameter_free>;
+
+template <typename T, typename R = void>
+using enable_if_parameter_free = enable_if_t<is_paramater_free_type<T>::value, R>;
+
+// Physical representation quirks
+
+template <typename T>
+using is_physical_signed_integer_type =
+    std::integral_constant<bool,
+                           is_signed_integer_type<T>::value ||
+                               (is_temporal_type<T>::value && has_c_type<T>::value)>;
+
+template <typename T, typename R = void>
+using enable_if_physical_signed_integer =
+    enable_if_t<is_physical_signed_integer_type<T>::value, R>;
+
+template <typename T>
+using is_physical_unsigned_integer_type =
+    std::integral_constant<bool, is_unsigned_integer_type<T>::value ||
+                                     is_half_float_type<T>::value>;
+
+template <typename T, typename R = void>
+using enable_if_physical_unsigned_integer =
+    enable_if_t<is_physical_unsigned_integer_type<T>::value, R>;
+
+// Like is_floating_type but excluding half-floats which don't have a
+// float-like c type.
+template <typename T>
+using is_physical_floating_type =
+    std::integral_constant<bool,
+                           is_floating_type<T>::value && !is_half_float_type<T>::value>;
+
+template <typename T, typename R = void>
+using enable_if_physical_floating_point =
+    enable_if_t<is_physical_floating_type<T>::value, R>;
 
 static inline bool is_integer(Type::type type_id) {
   switch (type_id) {

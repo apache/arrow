@@ -427,8 +427,7 @@ class TestPrimitiveBuilder : public TestBuilder {
 
 /// \brief uint8_t isn't a valid template parameter to uniform_int_distribution, so
 /// we use SampleType to determine which kind of integer to use to sample.
-template <typename T,
-          typename = typename std::enable_if<std::is_integral<T>::value, T>::type>
+template <typename T, typename = enable_if_t<std::is_integral<T>::value, T>>
 struct UniformIntSampleType {
   using type = T;
 };

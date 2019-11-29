@@ -171,17 +171,14 @@ struct NonZeroCounter {
       : tensor_(tensor), result_(result) {}
 
   template <typename TYPE>
-  typename std::enable_if<!is_number_type<TYPE>::value, Status>::type Visit(
-      const TYPE& type) {
-    ARROW_CHECK(!is_tensor_supported(type.id()));
-    return Status::NotImplemented("Tensor of ", type.ToString(), " is not implemented");
-  }
-
-  template <typename TYPE>
-  typename std::enable_if<is_number_type<TYPE>::value, Status>::type Visit(
-      const TYPE& type) {
+  enable_if_number<TYPE, Status> Visit(const TYPE& type) {
     *result_ = TensorCountNonZero<TYPE>(tensor_);
     return Status::OK();
+  }
+
+  Status Visit(const DataType& type) {
+    ARROW_CHECK(!is_tensor_supported(type.id()));
+    return Status::NotImplemented("Tensor of ", type.ToString(), " is not implemented");
   }
 
   const Tensor& tensor_;

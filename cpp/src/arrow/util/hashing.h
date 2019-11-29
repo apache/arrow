@@ -81,8 +81,7 @@ template <typename Scalar, uint64_t AlgNum = 0, typename Enable = void>
 struct ScalarHelper : public ScalarHelperBase<Scalar, AlgNum> {};
 
 template <typename Scalar, uint64_t AlgNum>
-struct ScalarHelper<Scalar, AlgNum,
-                    typename std::enable_if<std::is_integral<Scalar>::value>::type>
+struct ScalarHelper<Scalar, AlgNum, enable_if_t<std::is_integral<Scalar>::value>>
     : public ScalarHelperBase<Scalar, AlgNum> {
   // ScalarHelper specialization for integers
 
@@ -103,9 +102,8 @@ struct ScalarHelper<Scalar, AlgNum,
 };
 
 template <typename Scalar, uint64_t AlgNum>
-struct ScalarHelper<
-    Scalar, AlgNum,
-    typename std::enable_if<std::is_same<util::string_view, Scalar>::value>::type>
+struct ScalarHelper<Scalar, AlgNum,
+                    enable_if_t<std::is_same<util::string_view, Scalar>::value>>
     : public ScalarHelperBase<Scalar, AlgNum> {
   // ScalarHelper specialization for util::string_view
 
@@ -115,8 +113,7 @@ struct ScalarHelper<
 };
 
 template <typename Scalar, uint64_t AlgNum>
-struct ScalarHelper<Scalar, AlgNum,
-                    typename std::enable_if<std::is_floating_point<Scalar>::value>::type>
+struct ScalarHelper<Scalar, AlgNum, enable_if_t<std::is_floating_point<Scalar>::value>>
     : public ScalarHelperBase<Scalar, AlgNum> {
   // ScalarHelper specialization for reals
 
@@ -494,8 +491,7 @@ struct SmallScalarTraits<bool> {
 };
 
 template <typename Scalar>
-struct SmallScalarTraits<Scalar,
-                         typename std::enable_if<std::is_integral<Scalar>::value>::type> {
+struct SmallScalarTraits<Scalar, enable_if_t<std::is_integral<Scalar>::value>> {
   using Unsigned = typename std::make_unsigned<Scalar>::type;
 
   static constexpr int32_t cardinality = 1U + std::numeric_limits<Unsigned>::max();
@@ -828,19 +824,13 @@ struct HashTraits<T, enable_if_8bit_int<T>> {
 };
 
 template <typename T>
-struct HashTraits<
-    T, typename std::enable_if<has_c_type<T>::value && !is_8bit_int<T>::value>::type> {
+struct HashTraits<T, enable_if_t<has_c_type<T>::value && !is_8bit_int<T>::value>> {
   using c_type = typename T::c_type;
   using MemoTableType = ScalarMemoTable<c_type, HashTable>;
 };
 
 template <typename T>
-struct HashTraits<T, enable_if_binary<T>> {
-  using MemoTableType = BinaryMemoTable;
-};
-
-template <typename T>
-struct HashTraits<T, enable_if_fixed_size_binary<T>> {
+struct HashTraits<T, enable_if_has_string_view<T>> {
   using MemoTableType = BinaryMemoTable;
 };
 

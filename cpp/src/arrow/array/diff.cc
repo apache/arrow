@@ -63,9 +63,7 @@ struct Slice {
 };
 
 template <typename ArrayType, typename T = typename ArrayType::TypeClass,
-          typename =
-              typename std::enable_if<std::is_base_of<BaseListType, T>::value ||
-                                      std::is_base_of<FixedSizeListType, T>::value>::type>
+          typename = enable_if_list_like<T>>
 static Slice GetView(const ArrayType& array, int64_t index) {
   return Slice{array.values().get(), array.value_offset(index),
                array.value_length(index)};
@@ -470,9 +468,7 @@ class MakeFormatterImpl {
 
   // format Numerics with std::ostream defaults
   template <typename T>
-  typename std::enable_if<
-      is_number_type<T>::value && !is_date<T>::value && !is_time<T>::value, Status>::type
-  Visit(const T&) {
+  enable_if_number<T, Status> Visit(const T&) {
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
       const auto& numeric = checked_cast<const NumericArray<T>&>(array);
       if (sizeof(decltype(numeric.Value(index))) == sizeof(char)) {
@@ -520,21 +516,22 @@ class MakeFormatterImpl {
     return Status::OK();
   }
 
-  // format Binary and FixedSizeBinary in hexadecimal
+  // format Binary, LargeBinary and FixedSizeBinary in hexadecimal
   template <typename T>
   enable_if_binary_like<T, Status> Visit(const T&) {
+    using ArrayType = typename TypeTraits<T>::ArrayType;
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
-      *os << HexEncode(
-          checked_cast<const typename TypeTraits<T>::ArrayType&>(array).GetView(index));
+      *os << HexEncode(checked_cast<const ArrayType&>(array).GetView(index));
     };
     return Status::OK();
   }
 
   // format Strings with \"\n\r\t\\ escaped
-  Status Visit(const StringType&) {
+  template <typename T>
+  enable_if_string_like<T, Status> Visit(const T&) {
+    using ArrayType = typename TypeTraits<T>::ArrayType;
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
-      *os << "\"" << Escape(checked_cast<const StringArray&>(array).GetView(index))
-          << "\"";
+      *os << "\"" << Escape(checked_cast<const ArrayType&>(array).GetView(index)) << "\"";
     };
     return Status::OK();
   }
@@ -547,12 +544,14 @@ class MakeFormatterImpl {
     return Status::OK();
   }
 
-  Status Visit(const ListType& t) {
+  template <typename T>
+  enable_if_list_like<T, Status> Visit(const T& t) {
     struct ListImpl {
       explicit ListImpl(Formatter f) : values_formatter_(std::move(f)) {}
 
       void operator()(const Array& array, int64_t index, std::ostream* os) {
-        const auto& list_array = checked_cast<const ListArray&>(array);
+        const auto& list_array =
+            checked_cast<const typename TypeTraits<T>::ArrayType&>(array);
         *os << "[";
         for (int32_t i = 0; i < list_array.value_length(index); ++i) {
           if (i != 0) {
@@ -660,7 +659,23 @@ class MakeFormatterImpl {
     return Status::OK();
   }
 
-  Status Visit(const DataType& t) {
+  Status Visit(const NullType& t) {
+    return Status::NotImplemented("formatting diffs between arrays of type ", t);
+  }
+
+  Status Visit(const DictionaryType& t) {
+    return Status::NotImplemented("formatting diffs between arrays of type ", t);
+  }
+
+  Status Visit(const ExtensionType& t) {
+    return Status::NotImplemented("formatting diffs between arrays of type ", t);
+  }
+
+  Status Visit(const DurationType& t) {
+    return Status::NotImplemented("formatting diffs between arrays of type ", t);
+  }
+
+  Status Visit(const MonthIntervalType& t) {
     return Status::NotImplemented("formatting diffs between arrays of type ", t);
   }
 
