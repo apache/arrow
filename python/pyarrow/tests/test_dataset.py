@@ -255,14 +255,24 @@ def test_scanner_builder(dataset):
 
 
 def test_file_source(mockfs):
-    source1 = ds.FileSource('/path/to/file.ext', mockfs, compression=None)
-    source2 = ds.FileSource('/path/to/file.ext.gz', mockfs, compression='gzip')
-    assert source1.path == '/path/to/file.ext'
+    source0 = ds.FileSource('/path/to/file.parquet', mockfs,
+                            compression=None)
+    source1 = ds.FileSource('/path/to/file.parquet', mockfs,
+                            compression=None)
+    source2 = ds.FileSource('/path/to/file.parquet.gz', mockfs,
+                            compression='gzip')
+    assert source1.path == '/path/to/file.parquet'
     assert source1.fs == mockfs
     assert source1.compression == 0  # None
-    assert source2.path == '/path/to/file.ext.gz'
+    assert source2.path == '/path/to/file.parquet.gz'
     assert source2.fs == mockfs
     assert source2.compression == 2  # 'gzip'
+    assert source1 != source2
+    assert source0 == source1
+
+    fragment = ds.ParquetDataFragment(source1, ds.ParquetScanOptions())
+    assert isinstance(fragment, ds.ParquetDataFragment)
+    assert fragment.source == source1
 
 
 def test_abstract_classes():

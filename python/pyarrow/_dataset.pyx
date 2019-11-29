@@ -314,7 +314,7 @@ cdef class FileSource:
         return self.wrapped
 
     def equals(self, FileSource other):
-        return self.wrapped.get() == other.wrapped.get()
+        return deref(self.source) == deref(other.unwrap())
 
     def __eq__(self, other):
         try:
@@ -353,8 +353,6 @@ cdef class DataFragment:
         typ = frombytes(sp.get().type())
         if typ == 'simple_data_fragment':
             self = SimpleDataFragment.__new__(SimpleDataFragment)
-        elif typ == 'file_data_fragment':
-            self = FileDataFragment.__new__(FileDataFragment)
         elif typ == 'parquet_data_fragment':
             self = ParquetDataFragment.__new__(ParquetDataFragment)
         else:
@@ -415,11 +413,31 @@ cdef class SimpleDataFragment(DataFragment):
 
 
 cdef class FileDataFragment(DataFragment):
-    pass
+
+    cdef:
+        CFileDataFragment* file_fragment
+
+    cdef void init(self, const shared_ptr[CDataFragment]& sp):
+        DataFragment.init(self, sp)
+        self.file_fragment = <CFileDataFragment*> sp.get()
+
+    @property
+    def source(self):
+        cdef shared_ptr[CFileSource] source
+        source = make_shared[CFileSource](self.file_fragment.source())
+        return FileSource.wrap(source)
 
 
 cdef class ParquetDataFragment(FileDataFragment):
-    pass
+
+    def __init__(self, FileSource source not None,
+                 ParquetScanOptions scan_options not None):
+        cdef shared_ptr[CDataFragment] fragment
+        fragment.reset(new CParquetDataFragment(
+            deref(source.unwrap()),
+            scan_options.unwrap()
+        ))
+        self.init(fragment)
 
 
 cdef class DataSource:
@@ -642,24 +660,24 @@ cdef class ScanOptions:
         self.options.schema = pyarrow_unwrap_schema(value)
 
 
-# cdef class FileScanOptions(ScanOptions):
-#     pass
+cdef class FileScanOptions(ScanOptions):
+    pass
 
 
-# cdef class ParquetScanOptions(FileScanOptions):
-#     pass
+cdef class ParquetScanOptions(FileScanOptions):
+    pass
 
 
 cdef class WriteOptions:
     pass
 
 
-# cdef class FileWriteOptions(WriteOptions):
-#     pass
+cdef class FileWriteOptions(WriteOptions):
+    pass
 
 
-# cdef class ParquetWriterOptions(FileWriteOptions):
-#     pass
+cdef class ParquetWriterOptions(FileWriteOptions):
+    pass
 
 
 cdef class ScanContext:

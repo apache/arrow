@@ -205,6 +205,8 @@ class DummyFragment : public FileDataFragment {
   DummyFragment(const FileSource& source, ScanOptionsPtr options)
       : FileDataFragment(source, std::make_shared<DummyFileFormat>(), options) {}
 
+  std::string type() const override { return "dummy_data_fragment"; }
+
   bool splittable() const override { return false; }
 };
 
@@ -260,6 +262,8 @@ class JSONRecordBatchFragment : public FileDataFragment {
                           ScanOptionsPtr options)
       : FileDataFragment(source, std::make_shared<JSONRecordBatchFileFormat>(schema),
                          options) {}
+
+  std::string type() const override { return "json_batch_data_source"; }
 
   bool splittable() const override { return false; }
 };

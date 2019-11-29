@@ -231,7 +231,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CFileSource "arrow::dataset::FileSource":
         CFileSource(c_string path, CFileSystem* filesystem,
                     CompressionType compression)
-        c_bool operator==(const CFileSource other)
+        c_bool operator==(const CFileSource& other) const
         CompressionType compression()
         c_string path()
         CFileSystem* filesystem()
@@ -267,6 +267,11 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const CFileSource& source()
         CFileFormatPtr format()
         CScanOptionsPtr scan_options()
+
+    cdef cppclass CParquetDataFragment "arrow::dataset::ParquetFragment"(
+            CFileDataFragment):
+        CParquetDataFragment(const CFileSource& source,
+                             CScanOptionsPtr options)
 
     ctypedef unordered_map[c_string, CExpressionPtr] CPathPartitions \
         "arrow::dataset::PathPartitions"
