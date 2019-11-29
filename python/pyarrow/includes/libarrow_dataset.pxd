@@ -104,19 +104,20 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         pass
 
     cdef cppclass CNotExpression "arrow::dataset::NotExpression"(
-            CBinaryExpression):
+            CUnaryExpression):
         pass
 
     cdef cppclass CIsValidExpression "arrow::dataset::IsValidExpression"(
-            CBinaryExpression):
+            CUnaryExpression):
         pass
 
     cdef cppclass CCastExpression "arrow::dataset::CastExpression"(
-            CExpression):
+            CUnaryExpression):
         CCastExpression(CExpressionPtr operand, shared_ptr[CDataType] to,
                         CCastOptions options)
 
-    cdef cppclass CInExpression "arrow::dataset::InExpression"(CExpression):
+    cdef cppclass CInExpression "arrow::dataset::InExpression"(
+            CUnaryExpression):
         CInExpression(CExpressionPtr operand, shared_ptr[CArray] set)
 
     cdef shared_ptr[CNotExpression] MakeNotExpression "arrow::dataset::not_"(

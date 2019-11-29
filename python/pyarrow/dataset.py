@@ -54,7 +54,6 @@ from pyarrow._dataset import (  # noqa
     Scanner,
     ScannerBuilder,
     ScanOptions,
-    ScanOptions,
     ScanTask,
     SchemaPartitionScheme,
     SimpleDataFragment,
