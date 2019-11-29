@@ -27,7 +27,7 @@ from cython.operator cimport dereference as deref
 from pyarrow.lib cimport *
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.compat import frombytes, tobytes
-from pyarrow._fs cimport FileSystem, Selector
+from pyarrow._fs cimport FileSystem, FileStats, Selector
 
 
 def _forbid_instantiation(klass):
@@ -129,6 +129,11 @@ cdef class PartitionScheme:
 
     cdef inline shared_ptr[CPartitionScheme] unwrap(self):
         return self.wrapped
+
+    def parse(self, path):
+        cdef CResult[shared_ptr[CExpression]] result
+        result = self.scheme.Parse(tobytes(path))
+        return Expression.wrap(GetResultValue(result))
 
 
 cdef class SchemaPartitionScheme(PartitionScheme):
@@ -242,7 +247,12 @@ cdef class DataSourceDiscovery:
 
     @property
     def partition_scheme(self):
-        return PartitionScheme.wrap(self.discovery.partition_scheme())
+        cdef shared_ptr[CPartitionScheme] scheme
+        scheme = self.discovery.partition_scheme()
+        if scheme.get() == nullptr:
+            return None
+        else:
+            return PartitionScheme.wrap(scheme)
 
     @partition_scheme.setter
     def partition_scheme(self, PartitionScheme scheme not None):
@@ -272,9 +282,7 @@ cdef class FileSystemDataSourceDiscovery(DataSourceDiscovery):
     def __init__(self, FileSystem filesystem not None,
                  Selector selector not None, FileFormat format not None,
                  FileSystemDiscoveryOptions options=None):
-        # TODO(kszucs): support instantiating from explicit paths
         cdef CResult[shared_ptr[CDataSourceDiscovery]] result
-
         options = options or FileSystemDiscoveryOptions()
         result = CFileSystemDataSourceDiscovery.Make(
             filesystem.unwrap(),
@@ -531,20 +539,33 @@ cdef class FileSystemDataSource(DataSource):
         CFileSystemDataSource* filesystem_source
 
     def __init__(self, FileSystem filesystem not None, file_stats,
-                 source_partition, path_partitions, file_format):
+                 Expression source_partition, dict path_partitions,
+                 FileFormat file_format not None):
         cdef:
-            DataSource child
-            CDataSourceVector children
-            shared_ptr[CFileSystemDataSource] filesystem_source
+            FileStats stats
+            Expression expression
+            vector[CFileStats] c_file_stats
+            shared_ptr[CExpression] c_source_partition
+            unordered_map[c_string, shared_ptr[CExpression]] c_path_partitions
+            CResult[shared_ptr[CDataSource]] result
 
-        # TODO(kszucs)
-        # filesystem_source = CFileSystemDataSource.Make(
-        #     fs::FileSystem* filesystem, std::vector<fs::FileStats> stats,
-        #     std::shared_ptr<Expression> source_partition,
-        #     PathPartitions partitions, std::shared_ptr<FileFormat> format,
-        #     std::shared_ptr<DataSource>* out
-        # )
-        self.init(<shared_ptr[CDataSource]> filesystem_source)
+        for stats in file_stats:
+            c_file_stats.push_back(stats.unwrap())
+
+        for path, expression in path_partitions.items():
+            c_path_partitions[tobytes(path)] = expression.unwrap()
+
+        if source_partition is not None:
+            c_source_partition = source_partition.unwrap()
+
+        result = CFileSystemDataSource.Make(
+            filesystem.unwrap(),
+            c_file_stats,
+            c_source_partition,
+            c_path_partitions,
+            file_format.unwrap()
+        )
+        self.init(GetResultValue(result))
 
     cdef void init(self, const shared_ptr[CDataSource]& sp):
         DataSource.init(self, sp)
@@ -815,18 +836,19 @@ cdef class Expression:
             self = ScalarExpression.__new__(ScalarExpression)
         elif typ == CExpressionType_NOT:
             self = NotExpression.__new__(NotExpression)
-        # elif typ == CExpressionType_CAST:
-        #     self = CastExpression.__new__(CastExpression)
+        elif typ == CExpressionType_CAST:
+            self = CastExpression.__new__(CastExpression)
         elif typ == CExpressionType_AND:
             self = AndExpression.__new__(AndExpression)
         elif typ == CExpressionType_OR:
             self = OrExpression.__new__(OrExpression)
         elif typ == CExpressionType_COMPARISON:
             self = ComparisonExpression.__new__(ComparisonExpression)
-        # elif typ == CExpressionType_IS_VALID:
-        #     self = IsValidExpression.__new__(IsValidExpression)
-        # elif typ == CExpressionType_IN:
-        #     self = InExpression.__new__(InExpression)
+        elif typ == CExpressionType_IS_VALID:
+            self = IsValidExpression.__new__(IsValidExpression)
+        elif typ == CExpressionType_IN:
+            self = InExpression.__new__(InExpression)
+        # TODO(kszucs): implement it
         # elif typ == CExpressionType_CUSTOM:
         #     self = CustomExpression.__new__(CustomExpression)
         else:
@@ -843,12 +865,6 @@ cdef class Expression:
 
     def __str__(self):
         return frombytes(self.expression.ToString())
-
-    def __eq__(self, other):
-        try:
-            return self.equals(other)
-        except TypeError:
-            return NotImplemented
 
     def validate(self, Schema schema not None):
         cdef:
@@ -913,6 +929,7 @@ cdef class ScalarExpression(Expression):
         Expression.init(self, sp)
         self.scalar = <CScalarExpression*> sp.get()
 
+    # TODO(kszucs): implement once we have proper Scalar bindings
     # @property
     # def value(self):
     #     return pyarrow_wrap_scalar(self.scalar.value())
@@ -969,6 +986,117 @@ cdef class ComparisonExpression(BinaryExpression):
 
     def op(self):
         return <CompareOperator> self.comparison.op()
+
+
+cdef class IsValidExpression(UnaryExpression):
+
+    def __init__(self, Expression operand not None):
+        cdef shared_ptr[CIsValidExpression] expression
+        expression = make_shared[CIsValidExpression](operand.unwrap())
+        self.init(<shared_ptr[CExpression]> expression)
+
+
+cdef class CastOptions:
+
+    cdef:
+        CCastOptions options
+
+    __slots__ = ()  # avoid mistakingly creating attributes
+
+    def __init__(self, allow_int_overflow=None,
+                 allow_time_truncate=None, allow_time_overflow=None,
+                 allow_float_truncate=None, allow_invalid_utf8=None):
+        if allow_int_overflow is not None:
+            self.allow_int_overflow = allow_int_overflow
+        if allow_time_truncate is not None:
+            self.allow_time_truncate = allow_time_truncate
+        if allow_time_overflow is not None:
+            self.allow_time_overflow = allow_time_overflow
+        if allow_float_truncate is not None:
+            self.allow_float_truncate = allow_float_truncate
+        if allow_invalid_utf8 is not None:
+            self.allow_invalid_utf8 = allow_invalid_utf8
+
+    @staticmethod
+    cdef wrap(CCastOptions options):
+        cdef CastOptions self = CastOptions.__new__(CastOptions)
+        self.options = options
+        return self
+
+    @staticmethod
+    def safe():
+        return CastOptions.wrap(CCastOptions.Safe())
+
+    @staticmethod
+    def unsafe():
+        return CastOptions.wrap(CCastOptions.Unsafe())
+
+    cdef inline CCastOptions unwrap(self):
+        return self.options
+
+    @property
+    def allow_int_overflow(self):
+        return self.options.allow_int_overflow
+
+    @allow_int_overflow.setter
+    def allow_int_overflow(self, bint flag):
+        self.options.allow_int_overflow = flag
+
+    @property
+    def allow_time_truncate(self):
+        return self.options.allow_time_truncate
+
+    @allow_time_truncate.setter
+    def allow_time_truncate(self, bint flag):
+        self.options.allow_time_truncate = flag
+
+    @property
+    def allow_time_overflow(self):
+        return self.options.allow_time_overflow
+
+    @allow_time_overflow.setter
+    def allow_time_overflow(self, bint flag):
+        self.options.allow_time_overflow = flag
+
+    @property
+    def allow_float_truncate(self):
+        return self.options.allow_float_truncate
+
+    @allow_float_truncate.setter
+    def allow_float_truncate(self, bint flag):
+        self.options.allow_float_truncate = flag
+
+    @property
+    def allow_invalid_utf8(self):
+        return self.options.allow_invalid_utf8
+
+    @allow_invalid_utf8.setter
+    def allow_invalid_utf8(self, bint flag):
+        self.options.allow_invalid_utf8 = flag
+
+
+cdef class CastExpression(UnaryExpression):
+
+    def __init__(self, Expression operand not None, DataType to not None,
+                 CastOptions options=None):
+        cdef shared_ptr[CExpression] expression
+        options = options or CastOptions.safe()
+        expression.reset(new CCastExpression(
+            operand.unwrap(),
+            pyarrow_unwrap_data_type(to),
+            options.unwrap()
+        ))
+        self.init(expression)
+
+
+cdef class InExpression(UnaryExpression):
+
+    def __init__(self, Expression operand not None, Array haystack not None):
+        cdef shared_ptr[CExpression] expression
+        expression.reset(
+            new CInExpression(operand.unwrap(), pyarrow_unwrap_array(haystack))
+        )
+        self.init(expression)
 
 
 cdef class NotExpression(UnaryExpression):

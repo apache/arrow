@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from collections.abc import Generator
 import pytest
 
 import pyarrow as pa
@@ -109,7 +108,6 @@ def test_simple_data_fragment(record_batch):
     assert fragment.splittable is False
     assert isinstance(fragment.scan_options, ds.ScanOptions)
 
-    assert isinstance(fragment.scan(), Generator)
     tasks = list(fragment.scan())
     assert len(tasks) == 5
     for task, batch in zip(tasks, batches):
@@ -125,8 +123,6 @@ def test_simple_data_source(simple_data_fragment):
     assert source.partition_expression is None
 
     result = source.fragments()
-    assert isinstance(result, Generator)
-
     fragments = list(result)
     assert len(fragments) == 4
     for fragment in fragments:
@@ -138,12 +134,56 @@ def test_tree_data_source(simple_data_source):
     assert isinstance(source, ds.TreeDataSource)
 
     result = source.fragments()
-    assert isinstance(result, Generator)
-
     fragments = list(result)
     assert len(fragments) == 8
     for fragment in fragments:
         assert isinstance(fragment, ds.DataFragment)
+
+
+def test_filesystem_data_source(mockfs):
+    file_stats = mockfs.get_target_stats([
+        'subdir/1/xxx/file0.parquet',
+        'subdir/2/yyy/file1.parquet',
+    ])
+    file_format = ds.ParquetFileFormat()
+    source_partition = None
+    path_partitions = {}
+
+    source = ds.FileSystemDataSource(
+        mockfs,
+        file_stats,
+        source_partition=source_partition,
+        path_partitions=path_partitions,
+        file_format=file_format
+    )
+    assert len(list(source.fragments())) == 2
+
+    source_partition = ds.ComparisonExpression(
+        ds.CompareOperator.Equal,
+        ds.FieldExpression('source'),
+        ds.ScalarExpression(1337)
+    )
+    path_partitions = {
+        'subdir/1/xxx/file0.parquet': ds.ComparisonExpression(
+            ds.CompareOperator.Equal,
+            ds.FieldExpression('part'),
+            ds.ScalarExpression(1)
+        ),
+        'subdir/2/xxx/file1.parquet': ds.ComparisonExpression(
+            ds.CompareOperator.Equal,
+            ds.FieldExpression('part'),
+            ds.ScalarExpression(2)
+        )
+    }
+    source = ds.FileSystemDataSource(
+        mockfs,
+        file_stats,
+        source_partition=source_partition,
+        path_partitions=path_partitions,
+        file_format=file_format
+    )
+    assert len(list(source.fragments())) == 2
+    assert source.partition_expression.equals(source_partition)
 
 
 def test_dataset(simple_data_source, tree_data_source, schema):
@@ -231,6 +271,53 @@ def test_partition_scheme(schema):
         scheme = klass(schema)
         assert isinstance(scheme, ds.PartitionScheme)
 
+    scheme = ds.SchemaPartitionScheme(
+        pa.schema([
+            pa.field('group', pa.int64()),
+            pa.field('key', pa.float64())
+        ])
+    )
+    expr = scheme.parse('/3/3.14')
+    assert isinstance(expr, ds.Expression)
+
+    expected = ds.AndExpression(
+        ds.ComparisonExpression(
+            ds.CompareOperator.Equal,
+            ds.FieldExpression('group'),
+            ds.ScalarExpression(3)
+        ),
+        ds.ComparisonExpression(
+            ds.CompareOperator.Equal,
+            ds.FieldExpression('key'),
+            ds.ScalarExpression(3.14)
+        )
+    )
+    assert expr.equals(expected)
+
+    with pytest.raises(pa.ArrowInvalid):
+        scheme.parse('/prefix/3/aaa')
+
+    scheme = ds.HivePartitionScheme(
+        pa.schema([
+            pa.field('alpha', pa.int64()),
+            pa.field('beta', pa.int64())
+        ])
+    )
+    expr = scheme.parse('/alpha=0/beta=3')
+    expected = ds.AndExpression(
+        ds.ComparisonExpression(
+            ds.CompareOperator.Equal,
+            ds.FieldExpression('alpha'),
+            ds.ScalarExpression(0)
+        ),
+        ds.ComparisonExpression(
+            ds.CompareOperator.Equal,
+            ds.FieldExpression('beta'),
+            ds.ScalarExpression(3)
+        )
+    )
+    assert expr.equals(expected)
+
 
 def test_expression(schema):
     a = ds.ScalarExpression(1)
@@ -245,13 +332,15 @@ def test_expression(schema):
     assert isinstance(and_.right_operand, ds.Expression)
     assert and_.equals(ds.AndExpression(a, b))
     assert and_.equals(and_)
-    assert and_ == ds.AndExpression(a, b)
-    assert and_ != 'other object'
 
     ds.AndExpression(a, b, c)
     ds.OrExpression(a, b)
     ds.OrExpression(a, b, c)
     ds.NotExpression(ds.OrExpression(a, b, c))
+    ds.IsValidExpression(a)
+    ds.CastExpression(a, pa.int32())
+    ds.CastExpression(a, pa.int32(), ds.CastOptions.unsafe())
+    ds.InExpression(a, pa.array([1, 2, 3]))
 
     condition = ds.ComparisonExpression(
         ds.CompareOperator.Greater,
@@ -270,10 +359,8 @@ def test_expression(schema):
         ds.FieldExpression('i64'),
         ds.ScalarExpression(7)
     )
-    true_ = ds.ScalarExpression(True)
-    false_ = ds.ScalarExpression(False)
-    assert condition.assume(i64_is_5) == false_
-    assert condition.assume(i64_is_7) == true_
+    assert condition.assume(i64_is_5).equals(ds.ScalarExpression(False))
+    assert condition.assume(i64_is_7).equals(ds.ScalarExpression(True))
     assert str(condition) == "(i64 > 5:int64)"
 
 
@@ -293,8 +380,9 @@ def test_file_system_discovery(mockfs):
     discovery = ds.FileSystemDataSourceDiscovery(mockfs, selector, format,
                                                  options)
     assert isinstance(discovery.inspect(), pa.Schema)
-    # assert isinstance(discovery.schema(), pa.Schema)
+    assert isinstance(discovery.schema(), pa.Schema)
     assert isinstance(discovery.finish(), ds.FileSystemDataSource)
+    assert discovery.partition_scheme is None
 
     scheme = ds.SchemaPartitionScheme(
         pa.schema([

@@ -53,6 +53,9 @@ cdef class FileStats:
         self.stats = stats
         return self
 
+    cdef inline CFileStats unwrap(self):
+        return self.stats
+
     def __repr__(self):
         def getvalue(attr):
             try:

@@ -17,7 +17,7 @@
 
 # distutils: language = c++
 
-from libcpp.functional cimport function
+from libcpp.unordered_map cimport unordered_map
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
@@ -125,6 +125,14 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CIsValidExpression "arrow::dataset::IsValidExpression"(
             CBinaryExpression):
         pass
+
+    cdef cppclass CCastExpression "arrow::dataset::CastExpression"(
+            CExpression):
+        CCastExpression(CExpressionPtr operand, shared_ptr[CDataType] to,
+                        CCastOptions options)
+
+    cdef cppclass CInExpression "arrow::dataset::InExpression"(CExpression):
+        CInExpression(CExpressionPtr operand, shared_ptr[CArray] set)
 
     cdef shared_ptr[CNotExpression] MakeNotExpression "arrow::dataset::not_"(
         CExpressionPtr operand)
@@ -275,14 +283,17 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CFileFormatPtr format()
         CScanOptionsPtr scan_options()
 
+    ctypedef unordered_map[c_string, CExpressionPtr] CPathPartitions \
+        "arrow::dataset::PathPartitions"
+
     cdef cppclass CFileSystemDataSource \
             "arrow::dataset::FileSystemDataSource"(CDataSource):
         @staticmethod
-        CStatus Make(CFileSystem* filesystem,
-                     const CSelector& selector,
-                     CFileFormatPtr format,
-                     CScanOptionsPtr scan_options,
-                     shared_ptr[CFileSystemDataSource]* out)
+        CResult[CDataSourcePtr] Make(CFileSystemPtr filesystem,
+                                     CFileStatsVector stats,
+                                     CExpressionPtr source_partition,
+                                     CPathPartitions partitions,
+                                     CFileFormatPtr format)
         c_string type()
         shared_ptr[CDataFragmentIterator] GetFragments(CScanOptionsPtr options)
 
