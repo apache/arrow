@@ -401,6 +401,11 @@ TEST(TestStringOps, TestReplace) {
   out_str = replace_utf8_utf8_utf8(ctx_ptr, "Test", 4, "Test", 4, "", 0, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_FALSE(ctx.has_error());
+
+  out_str =
+      replace_utf8_utf8_utf8(ctx_ptr, "TestString", 10, "abc", 3, "xyz", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
 }
 
 }  // namespace gandiva

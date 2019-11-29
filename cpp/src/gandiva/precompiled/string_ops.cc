@@ -476,26 +476,65 @@ const char* replace_utf8_utf8_utf8(int64 context, const char* text, int32 text_l
     return text;
   }
 
-  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, 8000));
-  if (out == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+  int32 MAX_LENGTH = 65535;
+  bool found = false;
+  int32 text_index = 0;
+  char* out;
+  int32 out_index;
+
+  // Deferring malloc until a match is found, else return input string
+  for (; text_index <= text_len - from_str_len; text_index++) {
+    if (memcmp(text + text_index, from_str, from_str_len) == 0) {
+      if (text_index + to_str_len > MAX_LENGTH) {
+        gdv_fn_context_set_error_msg(context, "Buffer overflow for output string");
+        *out_len = 0;
+        return "";
+      }
+      out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, MAX_LENGTH));
+      if (out == nullptr) {
+        gdv_fn_context_set_error_msg(context,
+                                     "Could not allocate memory for output string");
+        *out_len = 0;
+        return "";
+      }
+      memcpy(out, text, text_index);
+      memcpy(out + text_index, to_str, to_str_len);
+      out_index = text_index;
+      found = true;
+      break;
+    }
+  }
+  if (!found) {
+    *out_len = text_len;
+    return text;
+  }
+
+  for (; text_index <= text_len - from_str_len;) {
+    if (memcmp(text + text_index, from_str, from_str_len) == 0) {
+      if (out_index + to_str_len > MAX_LENGTH) {
+        gdv_fn_context_set_error_msg(context, "Buffer overflow for output string");
+        *out_len = 0;
+        return "";
+      }
+      memcpy(out + out_index, to_str, to_str_len);
+      out_index += to_str_len;
+      text_index += from_str_len;
+    } else {
+      if (out_index == MAX_LENGTH) {
+        gdv_fn_context_set_error_msg(context, "Buffer overflow for output string");
+        *out_len = 0;
+        return "";
+      }
+      out[out_index++] = text[text_index++];
+    }
+  }
+  if (out_index + text_len - text_index > MAX_LENGTH) {
+    gdv_fn_context_set_error_msg(context, "Buffer overflow for output string");
     *out_len = 0;
     return "";
   }
-
-  int32 out_index = 0;
-  int32 i = 0;
-  for (; i <= text_len - from_str_len;) {
-    if (memcmp(text+i, from_str, from_str_len) == 0) {
-      memcpy(out + out_index, to_str, to_str_len);
-      out_index += to_str_len;
-      i += from_str_len;
-    } else {
-      out[out_index++] = text[i++];
-    }
-  }
-  memcpy(out + out_index, text + i, text_len - i);
-  out_index += text_len - i;
+  memcpy(out + out_index, text + text_index, text_len - text_index);
+  out_index += text_len - text_index;
   *out_len = out_index;
   return out;
 }
