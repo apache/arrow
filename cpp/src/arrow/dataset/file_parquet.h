@@ -70,6 +70,8 @@ class ARROW_DS_EXPORT ParquetFragment : public FileDataFragment {
   ParquetFragment(const FileSource& source, ScanOptionsPtr options)
       : FileDataFragment(source, std::make_shared<ParquetFileFormat>(), options) {}
 
+  std::string type() const override { return "parquet_data_fragment"; }
+
   bool splittable() const override { return true; }
 };
 

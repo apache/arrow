@@ -38,26 +38,6 @@ def _forbid_instantiation(klass):
     )
 
 
-cdef class WriteOptions:
-    pass
-
-
-cdef class FileScanOptions(ScanOptions):
-    pass
-
-
-cdef class ParquetScanOptions(FileScanOptions):
-    pass
-
-
-cdef class FileWriteOptions(WriteOptions):
-    pass
-
-
-cdef class ParquetWriterOptions(FileWriteOptions):
-    pass
-
-
 cdef class FileFormat:
 
     cdef:
@@ -368,7 +348,18 @@ cdef class DataFragment:
 
     @staticmethod
     cdef wrap(shared_ptr[CDataFragment]& sp):
-        cdef DataFragment self = DataFragment.__new__(DataFragment)
+        cdef DataFragment self
+
+        typ = frombytes(sp.get().type())
+        if typ == 'simple_data_fragment':
+            self = SimpleDataFragment.__new__(SimpleDataFragment)
+        elif typ == 'file_data_fragment':
+            self = FileDataFragment.__new__(FileDataFragment)
+        elif typ == 'parquet_data_fragment':
+            self = ParquetDataFragment.__new__(ParquetDataFragment)
+        else:
+            raise TypeError(typ)
+
         self.init(sp)
         return self
 
@@ -622,10 +613,9 @@ cdef class ScanOptions:
         CScanOptions* options
 
     def __init__(self, Schema schema=None):
-        cdef shared_ptr[CScanOptions] options = CScanOptions.Defaults()
+        self.init(CScanOptions.Defaults())
         if schema is not None:
-            options.get().schema = pyarrow_unwrap_schema(schema)
-        self.init(options)
+            self.schema = schema
 
     cdef init(self, const shared_ptr[CScanOptions]& sp):
         self.wrapped = sp
@@ -640,6 +630,37 @@ cdef class ScanOptions:
     cdef inline shared_ptr[CScanOptions] unwrap(self):
         return self.wrapped
 
+    @property
+    def schema(self):
+        if self.options.schema == nullptr:
+            return None
+        else:
+            return pyarrow_wrap_schema(self.options.schema)
+
+    @schema.setter
+    def schema(self, Schema value):
+        self.options.schema = pyarrow_unwrap_schema(value)
+
+
+# cdef class FileScanOptions(ScanOptions):
+#     pass
+
+
+# cdef class ParquetScanOptions(FileScanOptions):
+#     pass
+
+
+cdef class WriteOptions:
+    pass
+
+
+# cdef class FileWriteOptions(WriteOptions):
+#     pass
+
+
+# cdef class ParquetWriterOptions(FileWriteOptions):
+#     pass
+
 
 cdef class ScanContext:
 
@@ -649,11 +670,9 @@ cdef class ScanContext:
 
     def __init__(self, MemoryPool memory_pool=None):
         cdef shared_ptr[CScanContext] context = make_shared[CScanContext]()
-
-        if memory_pool is not None:
-            context.get().pool = memory_pool.pool
-
         self.init(context)
+        if memory_pool is not None:
+            self.memory_pool = memory_pool
 
     cdef init(self, shared_ptr[CScanContext]& sp):
         self.wrapped = sp
@@ -667,6 +686,19 @@ cdef class ScanContext:
 
     cdef inline shared_ptr[CScanContext] unwrap(self):
         return self.wrapped
+
+    @property
+    def memory_pool(self):
+        # TODO(kszucs): there's no function to box/wrap memory pool
+        cdef:
+            MemoryPool pool = MemoryPool.__new__(MemoryPool)
+        # this might be unsafe because of the raw pointers
+        pool.init(self.context.pool)
+        return pool
+
+    @memory_pool.setter
+    def memory_pool(self, MemoryPool pool):
+        self.context.pool = maybe_unbox_memory_pool(pool)
 
 
 cdef class ScanTask:

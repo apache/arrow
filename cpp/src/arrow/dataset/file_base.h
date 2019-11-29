@@ -158,6 +158,8 @@ class ARROW_DS_EXPORT FileDataFragment : public DataFragment {
         source_(source),
         format_(std::move(format)) {}
 
+  std::string type() const override { return "file_data_fragment"; }
+
   Result<ScanTaskIterator> Scan(ScanContextPtr context) override;
 
   const FileSource& source() const { return source_; }

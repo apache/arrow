@@ -64,21 +64,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         c_string ToString() const
         CExpressionType type() const
         shared_ptr[CExpression] Copy() const
-        # TODO(kszucs): expose the following methods
-        # InExpression In(shared_ptr[CArray] set) const;
-        # IsValidExpression IsValid() const
-        # CastExpression CastTo(
-        #     shared_ptr[CDataType] type,
-        #     compute::CastOptions options = compute::CastOptions()
-        # ) const;
-        # CastExpression CastLike(
-        #     const CExpression& expr,
-        #     compute::CastOptions options = compute::CastOptions()
-        # ) const;
-        # CastExpression CastLike(
-        #     shared_ptr[CExpression] expr,
-        #     compute::CastOptions options = compute::CastOptions()
-        # ) const;
 
     ctypedef shared_ptr[CExpression] CExpressionPtr \
         "arrow::dataset::ExpressionPtr"
@@ -149,8 +134,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CScanOptions "arrow::dataset::ScanOptions":
         CExpressionPtr filter
-        # shared_ptr[CExpressionEvaluator] evaluator
         shared_ptr[CSchema] schema
+        # shared_ptr[CExpressionEvaluator] evaluator
         # shared_ptr[CRecordBatchProjector] projector
 
         @staticmethod
@@ -195,6 +180,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CDataFragment "arrow::dataset::DataFragment":
         CResult[CScanTaskIterator] Scan(CScanContextPtr context)
         c_bool splittable()
+        c_string type()
         CScanOptionsPtr scan_options()
 
     ctypedef shared_ptr[CDataFragment] CDataFragmentPtr \
@@ -272,11 +258,10 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     ctypedef shared_ptr[CFileFormat] CFileFormatPtr \
         "arrow::dataset::FileFormatPtr"
 
-    cdef cppclass CFileBasedDataFragment \
-            "arrow::dataset::FileBasedDataFragment"(CDataFragment):
-        CFileBasedDataFragment(const CFileSource& source,
-                               CFileFormatPtr format,
-                               CScanOptionsPtr scan_options)
+    cdef cppclass CFileDataFragment "arrow::dataset::FileDataFragment"(
+            CDataFragment):
+        CFileDataFragment(const CFileSource& source, CFileFormatPtr format,
+                          CScanOptionsPtr scan_options)
         CStatus Scan(CScanContextPtr scan_context,
                      shared_ptr[CScanTaskIterator]* out)
         const CFileSource& source()
@@ -310,7 +295,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         pass
 
     cdef cppclass CParquetFragment "arrow::dataset::ParquetFragment"(
-            CFileBasedDataFragment):
+            CFileDataFragment):
         CParquetFragment(const CFileSource& source,
                          shared_ptr[CScanOptions] options)
         c_bool splittable()

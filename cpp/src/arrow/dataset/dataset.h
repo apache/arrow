@@ -44,6 +44,8 @@ class ARROW_DS_EXPORT DataFragment {
   /// scanning
   virtual bool splittable() const = 0;
 
+  virtual std::string type() const = 0;
+
   /// \brief Filtering, schema reconciliation, and partition options to use when
   /// scanning this fragment. May be nullptr, which indicates that no filtering
   /// or schema reconciliation will be performed and all partitions will be
@@ -75,6 +77,8 @@ class ARROW_DS_EXPORT SimpleDataFragment : public DataFragment {
  public:
   SimpleDataFragment(std::vector<std::shared_ptr<RecordBatch>> record_batches,
                      ScanOptionsPtr scan_options);
+
+  std::string type() const override { return "simple_data_fragment"; }
 
   Result<ScanTaskIterator> Scan(ScanContextPtr context) override;
 
@@ -123,8 +127,6 @@ class ARROW_DS_EXPORT SimpleDataSource : public DataSource {
 
   DataFragmentIterator GetFragmentsImpl(ScanOptionsPtr options) override;
 
-  // NOTE(kszucs): shouldn't we use an enum here and use name() instead?
-  // similarly like the DataType API works
   std::string type() const override { return "simple_data_source"; }
 
  private:

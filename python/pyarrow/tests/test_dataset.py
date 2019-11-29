@@ -93,11 +93,23 @@ def dataset(simple_data_source, tree_data_source, schema):
 
 
 def test_scan_options():
-    pass
+    schema = pa.schema([
+        pa.field('a', pa.string()),
+        pa.field('b', pa.string())
+    ])
+    options = ds.ScanOptions(schema)
+    assert isinstance(options, ds.ScanOptions)
+    assert options.schema.equals(schema)
+
+    options = ds.ScanOptions()
+    assert options.schema is None
 
 
 def test_scan_context():
-    pass
+    context = ds.ScanContext()
+    assert isinstance(context.memory_pool, pa.MemoryPool)
+    context = ds.ScanContext(pa.default_memory_pool())
+    assert isinstance(context.memory_pool, pa.MemoryPool)
 
 
 def test_simple_data_fragment(record_batch):
