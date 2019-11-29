@@ -389,7 +389,7 @@ cdef class UnionType(DataType):
         return self.child(i)
 
     def __reduce__(self):
-        return union, (list(self), self.mode)
+        return union, (list(self), self.mode, self.type_codes)
 
 
 cdef class TimestampType(DataType):
@@ -1926,7 +1926,7 @@ def struct(fields):
     return pyarrow_wrap_data_type(struct_type)
 
 
-def union(children_fields, mode):
+def union(children_fields, mode, type_codes=None):
     """
     Create UnionType from children fields.
 
@@ -1935,6 +1935,7 @@ def union(children_fields, mode):
     fields : sequence of Field values
     mode : str
         'dense' or 'sparse'
+    type_codes : list of integers, default None
 
     Returns
     -------
@@ -1943,7 +1944,7 @@ def union(children_fields, mode):
     cdef:
         Field child_field
         vector[shared_ptr[CField]] c_fields
-        vector[uint8_t] type_codes
+        vector[int8_t] c_type_codes
         shared_ptr[CDataType] union_type
         int i
 
@@ -1958,15 +1959,23 @@ def union(children_fields, mode):
         else:
             raise ValueError("Invalid union mode {0!r}".format(mode))
 
-    for i, child_field in enumerate(children_fields):
-        type_codes.push_back(i)
+    for child_field in children_fields:
         c_fields.push_back(child_field.sp_field)
 
+    if type_codes is not None:
+        if len(type_codes) != c_fields.size():
+            raise ValueError("type_codes should have the same length "
+                             "as fields")
+        for code in type_codes:
+            c_type_codes.push_back(code)
+    else:
+        c_type_codes = range(c_fields.size())
+
     if mode == UnionMode_SPARSE:
-        union_type.reset(new CUnionType(c_fields, type_codes,
+        union_type.reset(new CUnionType(c_fields, c_type_codes,
                                         _UnionMode_SPARSE))
     else:
-        union_type.reset(new CUnionType(c_fields, type_codes,
+        union_type.reset(new CUnionType(c_fields, c_type_codes,
                                         _UnionMode_DENSE))
 
     return pyarrow_wrap_data_type(union_type)

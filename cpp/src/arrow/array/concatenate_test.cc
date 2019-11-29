@@ -149,7 +149,7 @@ TYPED_TEST(PrimitiveConcatenateTest, Primitives) {
 TEST_F(ConcatenateTest, StringType) {
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
     *out = rng_.String(size, /*min_length =*/0, /*max_length =*/15, null_probability);
-    ASSERT_OK((**out).Validate());
+    ASSERT_OK((**out).ValidateFull());
   });
 }
 
@@ -157,7 +157,7 @@ TEST_F(ConcatenateTest, LargeStringType) {
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
     *out =
         rng_.LargeString(size, /*min_length =*/0, /*max_length =*/15, null_probability);
-    ASSERT_OK((**out).Validate());
+    ASSERT_OK((**out).ValidateFull());
   });
 }
 
@@ -172,7 +172,7 @@ TEST_F(ConcatenateTest, ListType) {
     std::shared_ptr<Array> offsets;
     ArrayFromVector<Int32Type>(offsets_vector, &offsets);
     ASSERT_OK(ListArray::FromArrays(*offsets, *values, default_memory_pool(), out));
-    ASSERT_OK((**out).Validate());
+    ASSERT_OK((**out).ValidateFull());
   });
 }
 
@@ -187,7 +187,7 @@ TEST_F(ConcatenateTest, LargeListType) {
     std::shared_ptr<Array> offsets;
     ArrayFromVector<Int64Type>(offsets_vector, &offsets);
     ASSERT_OK(LargeListArray::FromArrays(*offsets, *values, default_memory_pool(), out));
-    ASSERT_OK((**out).Validate());
+    ASSERT_OK((**out).ValidateFull());
   });
 }
 

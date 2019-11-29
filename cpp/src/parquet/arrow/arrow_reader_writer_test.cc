@@ -2295,7 +2295,7 @@ class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
       }
     }
     ASSERT_EQ(local_null_count, expected_nulls);
-    ASSERT_OK(array.Validate());
+    ASSERT_OK(array.ValidateFull());
   }
 
   void ValidateColumnArray(const ::arrow::Int32Array& array, size_t expected_nulls) {
@@ -2696,7 +2696,7 @@ TEST(TestArrowReaderAdHoc, LARGE_MEMORY_TEST(LargeStringColumn)) {
   std::unique_ptr<FileReader> arrow_reader;
   ASSERT_OK(FileReader::Make(default_memory_pool(), std::move(reader), &arrow_reader));
   ASSERT_OK_NO_THROW(arrow_reader->ReadTable(&table));
-  ASSERT_OK(table->Validate());
+  ASSERT_OK(table->ValidateFull());
 }
 
 TEST(TestArrowReaderAdHoc, HandleDictPageOffsetZero) {

@@ -394,9 +394,9 @@ TEST_F(TestExtensionType, ValidateExtensionArray) {
   auto ext_arr2 = ExampleParametric(p1_type, "[null, 1, 2, 3]");
   auto ext_arr3 = ExampleStruct();
 
-  ASSERT_OK(ext_arr1->Validate());
-  ASSERT_OK(ext_arr2->Validate());
-  ASSERT_OK(ext_arr3->Validate());
+  ASSERT_OK(ext_arr1->ValidateFull());
+  ASSERT_OK(ext_arr2->ValidateFull());
+  ASSERT_OK(ext_arr3->ValidateFull());
 }
 
 }  // namespace arrow

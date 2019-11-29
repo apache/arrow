@@ -25,6 +25,7 @@
 #include <utility>
 
 #include "arrow/array.h"
+#include "arrow/array/validate.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
@@ -259,7 +260,16 @@ Status RecordBatch::Validate() const {
                              " type not match schema: ", array.type()->ToString(), " vs ",
                              schema_type.ToString());
     }
-    RETURN_NOT_OK(array.Validate());
+    RETURN_NOT_OK(internal::ValidateArray(array));
+  }
+  return Status::OK();
+}
+
+Status RecordBatch::ValidateFull() const {
+  RETURN_NOT_OK(Validate());
+  for (int i = 0; i < num_columns(); ++i) {
+    const auto& array = *this->column(i);
+    RETURN_NOT_OK(internal::ValidateArrayData(array));
   }
   return Status::OK();
 }

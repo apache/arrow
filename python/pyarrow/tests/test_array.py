@@ -578,7 +578,7 @@ def test_dictionary_indices():
     indices = pa.array([0, 1, 2, 0, 1, 2])
     dictionary = pa.array(['foo', 'bar', 'baz'])
     arr = pa.DictionaryArray.from_arrays(indices, dictionary)
-    arr.indices.validate()
+    arr.indices.validate(full=True)
 
 
 @pytest.mark.parametrize(('list_array_type', 'list_type_factory'),
@@ -619,19 +619,29 @@ def test_list_from_arrays(list_array_type, list_type_factory):
     with pytest.raises(ValueError):
         list_array_type.from_arrays(offsets, values)
 
+    # Non-monotonic offsets
+    offsets = [0, 3, 2, 6]
+    values = list(range(6))
+    result = list_array_type.from_arrays(offsets, values)
+    with pytest.raises(ValueError):
+        result.validate(full=True)
+
 
 def test_union_from_dense():
     binary = pa.array([b'a', b'b', b'c', b'd'], type='binary')
     int64 = pa.array([1, 2, 3], type='int64')
     types = pa.array([0, 1, 0, 0, 1, 1, 0], type='int8')
-    value_offsets = pa.array([0, 0, 2, 1, 1, 2, 3], type='int32')
+    logical_types = pa.array([11, 13, 11, 11, 13, 13, 11], type='int8')
+    value_offsets = pa.array([1, 0, 0, 2, 1, 2, 3], type='int32')
+    py_value = [b'b', 1, b'a', b'c', 2, 3, b'd']
 
     def check_result(result, expected_field_names, expected_type_codes):
-        assert result.to_pylist() == [b'a', 1, b'c', b'b', 2, 3, b'd']
+        result.validate(full=True)
         actual_field_names = [result.type[i].name
                               for i in range(result.type.num_children)]
         assert actual_field_names == expected_field_names
         assert result.type.type_codes == expected_type_codes
+        assert result.to_pylist() == py_value
 
     # without field names and type codes
     check_result(pa.UnionArray.from_dense(types, value_offsets,
@@ -647,18 +657,34 @@ def test_union_from_dense():
                  expected_type_codes=[0, 1])
 
     # with type codes
-    check_result(pa.UnionArray.from_dense(types, value_offsets,
+    check_result(pa.UnionArray.from_dense(logical_types, value_offsets,
                                           [binary, int64],
                                           type_codes=[11, 13]),
                  expected_field_names=['0', '1'],
                  expected_type_codes=[11, 13])
 
     # with field names and type codes
-    check_result(pa.UnionArray.from_dense(types, value_offsets,
+    check_result(pa.UnionArray.from_dense(logical_types, value_offsets,
                                           [binary, int64],
                                           ['bin', 'int'], [11, 13]),
                  expected_field_names=['bin', 'int'],
                  expected_type_codes=[11, 13])
+
+    # Bad type ids
+    arr = pa.UnionArray.from_dense(logical_types, value_offsets,
+                                   [binary, int64])
+    with pytest.raises(pa.ArrowInvalid):
+        arr.validate(full=True)
+    arr = pa.UnionArray.from_dense(types, value_offsets, [binary, int64],
+                                   type_codes=[11, 13])
+    with pytest.raises(pa.ArrowInvalid):
+        arr.validate(full=True)
+
+    # Offset larger than child size
+    bad_offsets = pa.array([0, 0, 1, 2, 1, 2, 4], type='int32')
+    arr = pa.UnionArray.from_dense(types, bad_offsets, [binary, int64])
+    with pytest.raises(pa.ArrowInvalid):
+        arr.validate(full=True)
 
 
 def test_union_from_sparse():
@@ -666,9 +692,12 @@ def test_union_from_sparse():
                       type='binary')
     int64 = pa.array([0, 1, 0, 0, 2, 3, 0], type='int64')
     types = pa.array([0, 1, 0, 0, 1, 1, 0], type='int8')
+    logical_types = pa.array([11, 13, 11, 11, 13, 13, 11], type='int8')
+    py_value = [b'a', 1, b'b', b'c', 2, 3, b'd']
 
     def check_result(result, expected_field_names, expected_type_codes):
-        assert result.to_pylist() == [b'a', 1, b'b', b'c', 2, 3, b'd']
+        result.validate(full=True)
+        assert result.to_pylist() == py_value
         actual_field_names = [result.type[i].name
                               for i in range(result.type.num_children)]
         assert actual_field_names == expected_field_names
@@ -686,17 +715,30 @@ def test_union_from_sparse():
                  expected_type_codes=[0, 1])
 
     # with type codes
-    check_result(pa.UnionArray.from_sparse(types, [binary, int64],
+    check_result(pa.UnionArray.from_sparse(logical_types, [binary, int64],
                                            type_codes=[11, 13]),
                  expected_field_names=['0', '1'],
                  expected_type_codes=[11, 13])
 
     # with field names and type codes
-    check_result(pa.UnionArray.from_sparse(types, [binary, int64],
+    check_result(pa.UnionArray.from_sparse(logical_types, [binary, int64],
                                            ['bin', 'int'],
                                            [11, 13]),
                  expected_field_names=['bin', 'int'],
                  expected_type_codes=[11, 13])
+
+    # Bad type ids
+    arr = pa.UnionArray.from_sparse(logical_types, [binary, int64])
+    with pytest.raises(pa.ArrowInvalid):
+        arr.validate(full=True)
+    arr = pa.UnionArray.from_sparse(types, [binary, int64],
+                                    type_codes=[11, 13])
+    with pytest.raises(pa.ArrowInvalid):
+        arr.validate(full=True)
+
+    # Invalid child length
+    with pytest.raises(pa.ArrowInvalid):
+        arr = pa.UnionArray.from_sparse(logical_types, [binary, int64[1:]])
 
 
 def test_union_array_slice():
@@ -733,7 +775,7 @@ def _check_cast_case(case, safe=True):
     else:
         in_arr = pa.array(in_data, type=in_type)
     casted = in_arr.cast(out_type, safe=safe)
-    casted.validate()
+    casted.validate(full=True)
     assert casted.equals(expected)
 
     # constructing an array with out type which optionally involves casting
@@ -909,10 +951,10 @@ def test_cast_string_to_number_roundtrip():
     ]
     for in_arr, expected in cases:
         casted = in_arr.cast(expected.type, safe=True)
-        casted.validate()
+        casted.validate(full=True)
         assert casted.equals(expected)
         casted_back = casted.cast(in_arr.type, safe=True)
-        casted_back.validate()
+        casted_back.validate(full=True)
         assert casted_back.equals(in_arr)
 
 

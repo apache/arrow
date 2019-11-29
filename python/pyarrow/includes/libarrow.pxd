@@ -166,6 +166,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CArray] Slice(int64_t offset, int64_t length)
 
         CStatus Validate() const
+        CStatus ValidateFull() const
         CStatus View(const shared_ptr[CDataType]& type,
                      shared_ptr[CArray]* out)
 
@@ -333,9 +334,10 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CUnionType" arrow::UnionType"(CDataType):
         CUnionType(const vector[shared_ptr[CField]]& fields,
-                   const vector[uint8_t]& type_codes, UnionMode mode)
+                   const vector[int8_t]& type_codes, UnionMode mode)
         UnionMode mode()
-        const vector[uint8_t]& type_codes()
+        const vector[int8_t]& type_codes()
+        const vector[int]& child_ids()
 
     cdef cppclass CSchema" arrow::Schema":
         CSchema(const vector[shared_ptr[CField]]& fields)
@@ -475,17 +477,18 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CStatus MakeSparse(const CArray& type_ids,
                            const vector[shared_ptr[CArray]]& children,
                            const vector[c_string]& field_names,
-                           const vector[uint8_t]& type_codes,
+                           const vector[int8_t]& type_codes,
                            shared_ptr[CArray]* out)
 
         @staticmethod
         CStatus MakeDense(const CArray& type_ids, const CArray& value_offsets,
                           const vector[shared_ptr[CArray]]& children,
                           const vector[c_string]& field_names,
-                          const vector[uint8_t]& type_codes,
+                          const vector[int8_t]& type_codes,
                           shared_ptr[CArray]* out)
-        uint8_t* raw_type_ids()
+        int8_t* raw_type_ids()
         int32_t value_offset(int i)
+        int child_id(int64_t index)
         shared_ptr[CArray] child(int pos)
         const CArray* UnsafeChild(int pos)
         UnionMode mode()
@@ -569,6 +572,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
                         vector[shared_ptr[CChunkedArray]]* out)
 
         CStatus Validate() const
+        CStatus ValidateFull() const
 
     cdef cppclass CRecordBatch" arrow::RecordBatch":
         @staticmethod
@@ -591,7 +595,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         int num_columns()
         int64_t num_rows()
 
-        CStatus Validate()
+        CStatus Validate() const
+        CStatus ValidateFull() const
 
         shared_ptr[CRecordBatch] ReplaceSchemaMetadata(
             const shared_ptr[CKeyValueMetadata]& metadata)
@@ -643,7 +648,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         CStatus CombineChunks(CMemoryPool* pool, shared_ptr[CTable]* out)
 
-        CStatus Validate()
+        CStatus Validate() const
+        CStatus ValidateFull() const
 
         shared_ptr[CTable] ReplaceSchemaMetadata(
             const shared_ptr[CKeyValueMetadata]& metadata)

@@ -319,7 +319,7 @@ class IpcTestFixture : public io::MemoryMapFixture {
   }
 
   void CheckReadResult(const RecordBatch& result, const RecordBatch& expected) {
-    ASSERT_OK(result.Validate());
+    ASSERT_OK(result.ValidateFull());
     EXPECT_EQ(expected.num_rows(), result.num_rows());
 
     ASSERT_TRUE(expected.schema()->Equals(*result.schema()));
@@ -870,7 +870,7 @@ class ReaderWriterMixin {
     RETURN_NOT_OK(writer_helper.Finish());
     RETURN_NOT_OK(writer_helper.ReadBatches(out_batches));
     for (const auto& batch : *out_batches) {
-      RETURN_NOT_OK(batch->Validate());
+      RETURN_NOT_OK(batch->ValidateFull());
     }
     return Status::OK();
   }

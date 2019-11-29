@@ -288,13 +288,25 @@ std::string DurationType::ToString() const {
 // ----------------------------------------------------------------------
 // Union type
 
+constexpr int8_t UnionType::kMaxTypeId;
+constexpr int UnionType::kInvalidChildId;
+
 UnionType::UnionType(const std::vector<std::shared_ptr<Field>>& fields,
-                     const std::vector<uint8_t>& type_codes, UnionMode::type mode)
-    : NestedType(Type::UNION), mode_(mode), type_codes_(type_codes) {
+                     const std::vector<int8_t>& type_codes, UnionMode::type mode)
+    : NestedType(Type::UNION),
+      mode_(mode),
+      type_codes_(type_codes),
+      child_ids_(kMaxTypeId + 1, kInvalidChildId) {
   DCHECK_LE(fields.size(), type_codes.size()) << "union field with unknown type id";
   DCHECK_GE(fields.size(), type_codes.size())
       << "type id provided without corresponding union field";
   children_ = fields;
+  for (int child_id = 0; child_id < static_cast<int>(type_codes_.size()); ++child_id) {
+    const auto type_code = type_codes_[child_id];
+    DCHECK_GE(type_code, 0);
+    DCHECK_LE(type_code, kMaxTypeId);
+    child_ids_[type_code] = child_id;
+  }
 }
 
 DataTypeLayout UnionType::layout() const {
@@ -1039,7 +1051,7 @@ std::string UnionType::ComputeFingerprint() const {
   }
   for (const auto code : type_codes_) {
     // Represent code as integer, not raw character
-    ss << ':' << static_cast<uint32_t>(code);
+    ss << ':' << static_cast<int32_t>(code);
   }
   ss << "]{";
   for (const auto& child : children_) {
@@ -1180,18 +1192,32 @@ std::shared_ptr<DataType> struct_(const std::vector<std::shared_ptr<Field>>& fie
 }
 
 std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Field>>& child_fields,
-                                 const std::vector<uint8_t>& type_codes,
+                                 const std::vector<int8_t>& type_codes,
                                  UnionMode::type mode) {
   return std::make_shared<UnionType>(child_fields, type_codes, mode);
 }
 
+std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Field>>& child_fields,
+                                 UnionMode::type mode) {
+  std::vector<int8_t> type_codes(child_fields.size());
+  for (int i = 0; i < static_cast<int>(child_fields.size()); ++i) {
+    type_codes[i] = static_cast<int8_t>(i);
+  }
+  return std::make_shared<UnionType>(child_fields, type_codes, mode);
+}
+
+std::shared_ptr<DataType> union_(UnionMode::type mode) {
+  std::vector<std::shared_ptr<Field>> child_fields;
+  return union_(child_fields, mode);
+}
+
 std::shared_ptr<DataType> union_(const std::vector<std::shared_ptr<Array>>& children,
                                  const std::vector<std::string>& field_names,
-                                 const std::vector<uint8_t>& given_type_codes,
+                                 const std::vector<int8_t>& given_type_codes,
                                  UnionMode::type mode) {
   std::vector<std::shared_ptr<Field>> fields;
-  std::vector<uint8_t> type_codes(given_type_codes);
-  uint8_t counter = 0;
+  std::vector<int8_t> type_codes(given_type_codes);
+  int8_t counter = 0;
   for (const auto& child : children) {
     if (field_names.size() == 0) {
       fields.push_back(field(std::to_string(counter), child->type()));

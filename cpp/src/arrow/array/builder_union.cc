@@ -60,9 +60,9 @@ BasicUnionBuilder::BasicUnionBuilder(
   children_ = children;
 
   type_id_to_children_.resize(union_type.max_type_code() + 1, nullptr);
-  DCHECK_LT(type_id_to_children_.size(),
-            static_cast<decltype(type_id_to_children_)::size_type>(
-                std::numeric_limits<int8_t>::max()));
+  DCHECK_LT(
+      type_id_to_children_.size(),
+      static_cast<decltype(type_id_to_children_)::size_type>(UnionType::kMaxTypeId));
 
   for (size_t i = 0; i < children.size(); ++i) {
     child_fields_[i] = union_type.child(static_cast<int>(i));
@@ -73,7 +73,7 @@ BasicUnionBuilder::BasicUnionBuilder(
 }
 
 BasicUnionBuilder::BasicUnionBuilder(MemoryPool* pool, UnionMode::type mode)
-    : BasicUnionBuilder(pool, mode, {}, union_({}, mode)) {}
+    : BasicUnionBuilder(pool, mode, {}, union_(mode)) {}
 
 int8_t BasicUnionBuilder::AppendChild(const std::shared_ptr<ArrayBuilder>& new_child,
                                       const std::string& field_name) {
@@ -85,7 +85,7 @@ int8_t BasicUnionBuilder::AppendChild(const std::shared_ptr<ArrayBuilder>& new_c
 
   child_fields_.push_back(field(field_name, nullptr));
 
-  type_codes_.push_back(static_cast<uint8_t>(new_type_id));
+  type_codes_.push_back(static_cast<int8_t>(new_type_id));
 
   return new_type_id;
 }
@@ -109,9 +109,9 @@ int8_t BasicUnionBuilder::NextTypeId() {
     }
   }
 
-  DCHECK_LT(type_id_to_children_.size(),
-            static_cast<decltype(type_id_to_children_)::size_type>(
-                std::numeric_limits<int8_t>::max()));
+  DCHECK_LT(
+      type_id_to_children_.size(),
+      static_cast<decltype(type_id_to_children_)::size_type>(UnionType::kMaxTypeId));
 
   // type_id_to_children_ is already densely packed, so just append the new child
   type_id_to_children_.resize(type_id_to_children_.size() + 1);

@@ -741,12 +741,12 @@ cdef class UnionValue(ArrayValue):
         self.ap = <CUnionArray*> sp_array.get()
 
     cdef getitem(self, int64_t i):
-        cdef int8_t type_id = self.ap.raw_type_ids()[i]
-        cdef shared_ptr[CArray] child = self.ap.child(type_id)
+        cdef int child_id = self.ap.child_id(i)
+        cdef shared_ptr[CArray] child = self.ap.child(child_id)
         if self.ap.mode() == _UnionMode_SPARSE:
-            return box_scalar(self.type[type_id].type, child, i)
+            return box_scalar(self.type[child_id].type, child, i)
         else:
-            return box_scalar(self.type[type_id].type, child,
+            return box_scalar(self.type[child_id].type, child,
                               self.ap.value_offset(i))
 
     def as_py(self):

@@ -275,7 +275,7 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
     for (auto type : types) {
       std::shared_ptr<Array> array;
       ASSERT_OK(MakeArrayOfNull(type, length, &array));
-      ASSERT_OK(array->Validate());
+      ASSERT_OK(array->ValidateFull());
       ASSERT_EQ(array->length(), length);
       ASSERT_EQ(array->null_count(), length);
     }
@@ -303,7 +303,7 @@ TEST_F(TestArray, TestMakeArrayFromScalar) {
     for (auto scalar : scalars) {
       std::shared_ptr<Array> array;
       ASSERT_OK(MakeArrayFromScalar(*scalar, length, &array));
-      ASSERT_OK(array->Validate());
+      ASSERT_OK(array->ValidateFull());
       ASSERT_EQ(array->length(), length);
       ASSERT_EQ(array->null_count(), 0);
     }

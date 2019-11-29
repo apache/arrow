@@ -93,6 +93,7 @@ set(ARROW_SRCS
     array/concatenate.cc
     array/dict_internal.cc
     array/diff.cc
+    array/validate.cc
     buffer.cc
     compare.cc
     extension_type.cc

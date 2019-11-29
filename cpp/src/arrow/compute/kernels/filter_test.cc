@@ -46,7 +46,7 @@ class TestFilterKernel : public ComputeFixture, public TestBase {
                           const std::shared_ptr<Array>& expected) {
     std::shared_ptr<Array> actual;
     ASSERT_OK(arrow::compute::Filter(&this->ctx_, *values, *filter, &actual));
-    ASSERT_OK(actual->Validate());
+    ASSERT_OK(actual->ValidateFull());
     AssertArraysEqual(*expected, *actual);
   }
 
@@ -54,7 +54,7 @@ class TestFilterKernel : public ComputeFixture, public TestBase {
                     const std::string& filter, const std::string& expected) {
     std::shared_ptr<Array> actual;
     ASSERT_OK(this->Filter(type, values, filter, &actual));
-    ASSERT_OK(actual->Validate());
+    ASSERT_OK(actual->ValidateFull());
     AssertArraysEqual(*ArrayFromJSON(type, expected), *actual);
   }
 
@@ -68,7 +68,7 @@ class TestFilterKernel : public ComputeFixture, public TestBase {
                       const std::shared_ptr<Array>& filter_boxed) {
     std::shared_ptr<Array> filtered;
     ASSERT_OK(arrow::compute::Filter(&this->ctx_, *values, *filter_boxed, &filtered));
-    ASSERT_OK(filtered->Validate());
+    ASSERT_OK(filtered->ValidateFull());
 
     auto filter = checked_pointer_cast<BooleanArray>(filter_boxed);
     int64_t values_i = 0, filtered_i = 0;
@@ -228,7 +228,7 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareScalarAndFilterRandomNumeric) {
                                         &selection));
       ASSERT_OK(arrow::compute::Filter(&this->ctx_, Datum(array), selection, &filtered));
       auto filtered_array = filtered.make_array();
-      ASSERT_OK(filtered_array->Validate());
+      ASSERT_OK(filtered_array->ValidateFull());
       auto expected =
           CompareAndFilter<TypeParam>(array->raw_values(), array->length(), c_fifty, op);
       ASSERT_ARRAYS_EQUAL(*filtered_array, *expected);
@@ -253,7 +253,7 @@ TYPED_TEST(TestFilterKernelWithNumeric, CompareArrayAndFilterRandomNumeric) {
                                         &selection));
       ASSERT_OK(arrow::compute::Filter(&this->ctx_, Datum(lhs), selection, &filtered));
       auto filtered_array = filtered.make_array();
-      ASSERT_OK(filtered_array->Validate());
+      ASSERT_OK(filtered_array->ValidateFull());
       auto expected = CompareAndFilter<TypeParam>(lhs->raw_values(), lhs->length(),
                                                   rhs->raw_values(), op);
       ASSERT_ARRAYS_EQUAL(*filtered_array, *expected);
@@ -283,7 +283,7 @@ TYPED_TEST(TestFilterKernelWithNumeric, ScalarInRangeAndFilterRandomNumeric) {
                                   &selection));
     ASSERT_OK(arrow::compute::Filter(&this->ctx_, Datum(array), selection, &filtered));
     auto filtered_array = filtered.make_array();
-    ASSERT_OK(filtered_array->Validate());
+    ASSERT_OK(filtered_array->ValidateFull());
     auto expected = CompareAndFilter<TypeParam>(
         array->raw_values(), array->length(),
         [&](CType e) { return (e > c_fifty) && (e < c_hundred); });
@@ -475,7 +475,7 @@ class TestFilterKernelWithRecordBatch : public TestFilterKernel<RecordBatch> {
     std::shared_ptr<RecordBatch> actual;
 
     ASSERT_OK(this->Filter(schm, batch_json, selection, &actual));
-    ASSERT_OK(actual->Validate());
+    ASSERT_OK(actual->ValidateFull());
     ASSERT_BATCHES_EQUAL(*RecordBatchFromJSON(schm, expected_batch), *actual);
   }
 
@@ -517,7 +517,7 @@ class TestFilterKernelWithChunkedArray : public TestFilterKernel<ChunkedArray> {
                     const std::vector<std::string>& expected) {
     std::shared_ptr<ChunkedArray> actual;
     ASSERT_OK(this->FilterWithArray(type, values, filter, &actual));
-    ASSERT_OK(actual->Validate());
+    ASSERT_OK(actual->ValidateFull());
     AssertChunkedEqual(*ChunkedArrayFromJSON(type, expected), *actual);
   }
 
@@ -527,7 +527,7 @@ class TestFilterKernelWithChunkedArray : public TestFilterKernel<ChunkedArray> {
                            const std::vector<std::string>& expected) {
     std::shared_ptr<ChunkedArray> actual;
     ASSERT_OK(this->FilterWithChunkedArray(type, values, filter, &actual));
-    ASSERT_OK(actual->Validate());
+    ASSERT_OK(actual->ValidateFull());
     AssertChunkedEqual(*ChunkedArrayFromJSON(type, expected), *actual);
   }
 
@@ -570,7 +570,7 @@ class TestFilterKernelWithTable : public TestFilterKernel<Table> {
     std::shared_ptr<Table> actual;
 
     ASSERT_OK(this->FilterWithArray(schm, table_json, filter, &actual));
-    ASSERT_OK(actual->Validate());
+    ASSERT_OK(actual->ValidateFull());
     ASSERT_TABLES_EQUAL(*TableFromJSON(schm, expected_table), *actual);
   }
 
@@ -581,7 +581,7 @@ class TestFilterKernelWithTable : public TestFilterKernel<Table> {
     std::shared_ptr<Table> actual;
 
     ASSERT_OK(this->FilterWithChunkedArray(schm, table_json, filter, &actual));
-    ASSERT_OK(actual->Validate());
+    ASSERT_OK(actual->ValidateFull());
     ASSERT_TABLES_EQUAL(*TableFromJSON(schm, expected_table), *actual);
   }
 

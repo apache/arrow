@@ -152,9 +152,21 @@ class ARROW_EXPORT RecordBatch {
   /// \return new record batch
   virtual std::shared_ptr<RecordBatch> Slice(int64_t offset, int64_t length) const = 0;
 
-  /// \brief Check for schema or length inconsistencies
+  /// \brief Perform cheap validation checks to determine obvious inconsistencies
+  /// within the record batch's schema and internal data.
+  ///
+  /// This is O(k) where k is the total number of fields and array descendents.
+  ///
   /// \return Status
   virtual Status Validate() const;
+
+  /// \brief Perform extensive validation checks to determine inconsistencies
+  /// within the record batch's schema and internal data.
+  ///
+  /// This is potentially O(k*n) where n is the number of rows.
+  ///
+  /// \return Status
+  virtual Status ValidateFull() const;
 
  protected:
   RecordBatch(const std::shared_ptr<Schema>& schema, int64_t num_rows);

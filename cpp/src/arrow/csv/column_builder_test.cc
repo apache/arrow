@@ -52,7 +52,7 @@ void AssertBuilding(const std::shared_ptr<ColumnBuilder>& builder,
   }
   ASSERT_OK(builder->task_group()->Finish());
   ASSERT_OK(builder->Finish(out));
-  ASSERT_OK((*out)->Validate());
+  ASSERT_OK((*out)->ValidateFull());
 }
 
 void CheckInferred(const std::shared_ptr<TaskGroup>& tg, const ChunkData& csv_data,
@@ -126,7 +126,7 @@ TEST(NullColumnBuilder, InsertNull) {
   builder->Insert(0, parser);
   ASSERT_OK(builder->task_group()->Finish());
   ASSERT_OK(builder->Finish(&actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
 
   auto chunks =
       ArrayVector{std::make_shared<NullArray>(1), std::make_shared<NullArray>(2)};
@@ -151,7 +151,7 @@ TEST(NullColumnBuilder, InsertTyped) {
   builder->Insert(0, parser);
   ASSERT_OK(builder->task_group()->Finish());
   ASSERT_OK(builder->Finish(&actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
 
   auto chunks = ArrayVector{ArrayFromJSON(type, "[null]"),
                             ArrayFromJSON(type, "[null, null, null]")};
@@ -177,7 +177,7 @@ TEST(NullColumnBuilder, EmptyChunks) {
   builder->Insert(2, parser);
   ASSERT_OK(builder->task_group()->Finish());
   ASSERT_OK(builder->Finish(&actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
 
   auto chunks =
       ArrayVector{ArrayFromJSON(type, "[]"), ArrayFromJSON(type, "[null, null]"),
@@ -227,7 +227,7 @@ TEST(ColumnBuilder, Insert) {
   builder->Insert(0, parser);
   ASSERT_OK(builder->task_group()->Finish());
   ASSERT_OK(builder->Finish(&actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK(actual->ValidateFull());
 
   ChunkedArrayFromVector<Int32Type>({{123}, {456}}, &expected);
   AssertChunkedEqual(*actual, *expected);

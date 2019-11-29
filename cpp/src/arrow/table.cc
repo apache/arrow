@@ -26,6 +26,7 @@
 
 #include "arrow/array.h"
 #include "arrow/array/concatenate.h"
+#include "arrow/array/validate.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -189,11 +190,6 @@ Status ChunkedArray::Validate() const {
     return Status::OK();
   }
 
-  for (auto chunk : chunks_) {
-    // Validate the chunks themselves
-    RETURN_NOT_OK(chunk->Validate());
-  }
-
   const auto& type = *chunks_[0]->type();
   // Make sure chunks all have the same type
   for (size_t i = 1; i < chunks_.size(); ++i) {
@@ -201,6 +197,26 @@ Status ChunkedArray::Validate() const {
     if (!chunk.type()->Equals(type)) {
       return Status::Invalid("In chunk ", i, " expected type ", type.ToString(),
                              " but saw ", chunk.type()->ToString());
+    }
+  }
+  // Validate the chunks themselves
+  for (size_t i = 0; i < chunks_.size(); ++i) {
+    const Array& chunk = *chunks_[i];
+    const Status st = internal::ValidateArray(chunk);
+    if (!st.ok()) {
+      return Status::Invalid("In chunk ", i, ": ", st.ToString());
+    }
+  }
+  return Status::OK();
+}
+
+Status ChunkedArray::ValidateFull() const {
+  RETURN_NOT_OK(Validate());
+  for (size_t i = 0; i < chunks_.size(); ++i) {
+    const Array& chunk = *chunks_[i];
+    const Status st = internal::ValidateArrayData(chunk);
+    if (!st.ok()) {
+      return Status::Invalid("In chunk ", i, ": ", st.ToString());
     }
   }
   return Status::OK();
@@ -340,6 +356,35 @@ class SimpleTable : public Table {
   }
 
   Status Validate() const override {
+    RETURN_NOT_OK(ValidateMeta());
+    for (int i = 0; i < num_columns(); ++i) {
+      const ChunkedArray* col = columns_[i].get();
+      Status st = col->Validate();
+      if (!st.ok()) {
+        std::stringstream ss;
+        ss << "Column " << i << ": " << st.message();
+        return st.WithMessage(ss.str());
+      }
+    }
+    return Status::OK();
+  }
+
+  Status ValidateFull() const override {
+    RETURN_NOT_OK(ValidateMeta());
+    for (int i = 0; i < num_columns(); ++i) {
+      const ChunkedArray* col = columns_[i].get();
+      Status st = col->ValidateFull();
+      if (!st.ok()) {
+        std::stringstream ss;
+        ss << "Column " << i << ": " << st.message();
+        return st.WithMessage(ss.str());
+      }
+    }
+    return Status::OK();
+  }
+
+ protected:
+  Status ValidateMeta() const {
     // Make sure columns and schema are consistent
     if (static_cast<int>(columns_.size()) != schema_->num_fields()) {
       return Status::Invalid("Number of columns did not match schema");

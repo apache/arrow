@@ -63,6 +63,9 @@ def get_many_types():
         pa.union([pa.field('a', pa.binary(10)),
                   pa.field('b', pa.string())], mode=pa.lib.UnionMode_DENSE),
         pa.union([pa.field('a', pa.binary(10)),
+                  pa.field('b', pa.string())], mode=pa.lib.UnionMode_DENSE,
+                 type_codes=[4, 8]),
+        pa.union([pa.field('a', pa.binary(10)),
                   pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
         pa.union([pa.field('a', pa.binary(10), nullable=False),
                   pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
@@ -346,16 +349,34 @@ def test_union_type():
 
     fields = [pa.field('x', pa.list_(pa.int32())),
               pa.field('y', pa.binary())]
+    type_codes = [5, 9]
+
     for mode in ('sparse', pa.lib.UnionMode_SPARSE):
         ty = pa.union(fields, mode=mode)
         assert ty.mode == 'sparse'
         check_fields(ty, fields)
         assert ty.type_codes == [0, 1]
+        ty = pa.union(fields, mode=mode, type_codes=type_codes)
+        assert ty.mode == 'sparse'
+        check_fields(ty, fields)
+        assert ty.type_codes == type_codes
+        # Invalid number of type codes
+        with pytest.raises(ValueError):
+            pa.union(fields, mode=mode, type_codes=type_codes[1:])
+
     for mode in ('dense', pa.lib.UnionMode_DENSE):
         ty = pa.union(fields, mode=mode)
         assert ty.mode == 'dense'
         check_fields(ty, fields)
         assert ty.type_codes == [0, 1]
+        ty = pa.union(fields, mode=mode, type_codes=type_codes)
+        assert ty.mode == 'dense'
+        check_fields(ty, fields)
+        assert ty.type_codes == type_codes
+        # Invalid number of type codes
+        with pytest.raises(ValueError):
+            pa.union(fields, mode=mode, type_codes=type_codes[1:])
+
     for mode in ('unknown', 2):
         with pytest.raises(ValueError, match='Invalid union mode'):
             pa.union(fields, mode=mode)

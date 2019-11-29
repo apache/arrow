@@ -67,7 +67,7 @@ class TestCast : public ComputeFixture, public TestBase {
                  const std::shared_ptr<DataType>& out_type, const CastOptions& options) {
     std::shared_ptr<Array> result;
     ASSERT_OK(Cast(&ctx_, input, out_type, options, &result));
-    ASSERT_OK(result->Validate());
+    ASSERT_OK(result->ValidateFull());
     ASSERT_ARRAYS_EQUAL(expected, *result);
   }
 
@@ -87,7 +87,7 @@ class TestCast : public ComputeFixture, public TestBase {
   void CheckZeroCopy(const Array& input, const std::shared_ptr<DataType>& out_type) {
     std::shared_ptr<Array> result;
     ASSERT_OK(Cast(&ctx_, input, out_type, {}, &result));
-    ASSERT_OK(result->Validate());
+    ASSERT_OK(result->ValidateFull());
     ASSERT_EQ(input.data()->buffers.size(), result->data()->buffers.size());
     for (size_t i = 0; i < input.data()->buffers.size(); ++i) {
       AssertBufferSame(input, *result, static_cast<int>(i));
@@ -1394,7 +1394,7 @@ TYPED_TEST(TestNullCast, FromNull) {
 
   std::shared_ptr<Array> result;
   ASSERT_OK(Cast(&this->ctx_, arr, out_type, {}, &result));
-  ASSERT_OK(result->Validate());
+  ASSERT_OK(result->ValidateFull());
 
   ASSERT_TRUE(result->type()->Equals(*out_type));
   ASSERT_EQ(length, result->length());
@@ -1448,7 +1448,7 @@ TYPED_TEST(TestDictionaryCast, NoNulls) {
   data->buffers[0] = nullptr;
   data->null_count = 0;
   std::shared_ptr<Array> dict_array = std::make_shared<DictionaryArray>(data);
-  ASSERT_OK(dict_array->Validate());
+  ASSERT_OK(dict_array->ValidateFull());
 
   this->CheckPass(*dict_array, *plain_array, plain_array->type(), options);
 }

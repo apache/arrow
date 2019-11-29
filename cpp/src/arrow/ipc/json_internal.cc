@@ -264,7 +264,7 @@ class SchemaWriter {
     writer_->Key("typeIds");
     writer_->StartArray();
     for (size_t i = 0; i < type.type_codes().size(); ++i) {
-      writer_->Uint(type.type_codes()[i]);
+      writer_->Int(type.type_codes()[i]);
     }
     writer_->EndArray();
   }
@@ -901,11 +901,11 @@ static Status GetUnion(const RjObject& json_type,
   const auto& it_type_codes = json_type.FindMember("typeIds");
   RETURN_NOT_ARRAY("typeIds", it_type_codes, json_type);
 
-  std::vector<uint8_t> type_codes;
+  std::vector<int8_t> type_codes;
   const auto& id_array = it_type_codes->value.GetArray();
   for (const rj::Value& val : id_array) {
-    DCHECK(val.IsUint());
-    type_codes.push_back(static_cast<uint8_t>(val.GetUint()));
+    DCHECK(val.IsInt());
+    type_codes.push_back(static_cast<int8_t>(val.GetInt()));
   }
 
   *type = union_(children, type_codes, mode);

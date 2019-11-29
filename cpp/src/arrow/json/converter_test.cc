@@ -54,6 +54,7 @@ void AssertConvert(const std::shared_ptr<DataType>& expected_type,
   std::shared_ptr<Converter> converter;
   ASSERT_OK(MakeConverter(expected_type, default_memory_pool(), &converter));
   ASSERT_OK(converter->Convert(unconverted, &converted));
+  ASSERT_OK(converted->ValidateFull());
 
   // assert equality
   auto expected = ArrayFromJSON(expected_type, expected_json);

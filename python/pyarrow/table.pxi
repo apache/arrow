@@ -81,12 +81,28 @@ cdef class ChunkedArray(_PandasConvertible):
     def __str__(self):
         return self.format()
 
-    def validate(self):
+    def validate(self, *, full=False):
         """
-        Validate chunked array consistency.
+        Perform validation checks.  An exception is raised if validation fails.
+
+        By default only cheap validation checks are run.  Pass `full=True`
+        for thorough validation checks (potentially O(n)).
+
+        Parameters
+        ----------
+        full: bool, default False
+            If True, run expensive checks, otherwise cheap checks only.
+
+        Raises
+        ------
+        ArrowInvalid
         """
-        with nogil:
-            check_status(self.sp_chunked_array.get().Validate())
+        if full:
+            with nogil:
+                check_status(self.sp_chunked_array.get().ValidateFull())
+        else:
+            with nogil:
+                check_status(self.sp_chunked_array.get().Validate())
 
     @property
     def null_count(self):
@@ -517,12 +533,28 @@ cdef class RecordBatch(_PandasConvertible):
     def __len__(self):
         return self.batch.num_rows()
 
-    def validate(self):
+    def validate(self, *, full=False):
         """
-        Validate RecordBatch consistency.
+        Perform validation checks.  An exception is raised if validation fails.
+
+        By default only cheap validation checks are run.  Pass `full=True`
+        for thorough validation checks (potentially O(n)).
+
+        Parameters
+        ----------
+        full: bool, default False
+            If True, run expensive checks, otherwise cheap checks only.
+
+        Raises
+        ------
+        ArrowInvalid
         """
-        with nogil:
-            check_status(self.batch.Validate())
+        if full:
+            with nogil:
+                check_status(self.batch.ValidateFull())
+        else:
+            with nogil:
+                check_status(self.batch.Validate())
 
     def replace_schema_metadata(self, metadata=None):
         """
@@ -881,12 +913,28 @@ cdef class Table(_PandasConvertible):
         self.sp_table = table
         self.table = table.get()
 
-    def validate(self):
+    def validate(self, *, full=False):
         """
-        Validate table consistency.
+        Perform validation checks.  An exception is raised if validation fails.
+
+        By default only cheap validation checks are run.  Pass `full=True`
+        for thorough validation checks (potentially O(n)).
+
+        Parameters
+        ----------
+        full: bool, default False
+            If True, run expensive checks, otherwise cheap checks only.
+
+        Raises
+        ------
+        ArrowInvalid
         """
-        with nogil:
-            check_status(self.table.Validate())
+        if full:
+            with nogil:
+                check_status(self.table.ValidateFull())
+        else:
+            with nogil:
+                check_status(self.table.Validate())
 
     def __reduce__(self):
         # Reduce the columns as ChunkedArrays to avoid serializing schema
