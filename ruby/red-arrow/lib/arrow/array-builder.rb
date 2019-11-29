@@ -26,60 +26,13 @@ module Arrow
           return builder.build(values)
         end
 
-        builder_class = nil
-        builder_class_arguments = []
+        builder_info = nil
         values.each do |value|
-          case value
-          when nil
-            # Ignore
-          when true, false
-            return BooleanArray.new(values)
-          when String
-            return StringArray.new(values)
-          when Float
-            return DoubleArray.new(values)
-          when Integer
-            if value < 0
-              builder = IntArrayBuilder.new
-              return builder.build(values)
-            else
-              builder_class = UIntArrayBuilder
-              builder_class_arguments = []
-            end
-          when Time
-            data_type = value.data_type
-            case data_type.unit
-            when TimeUnit::SECOND
-              if builder.nil?
-                builder = Time32ArrayBuilder
-                builder_class_arguments = [data_type]
-              end
-            when TimeUnit::MILLI
-              if builder != Time64ArrayBuilder
-                builder = Time32ArrayBuilder
-                builder_class_arguments = [data_type]
-              end
-            when TimeUnit::MICRO
-              builder = Time64ArrayBuilder
-              builder_class_arguments = [data_type]
-            when TimeUnit::NANO
-              builder = Time64ArrayBuilder.new(data_type)
-              return builder.build(values)
-            end
-          when ::Time
-            data_type = TimestampDataType.new(:nano)
-            builder = TimestampArrayBuilder.new(data_type)
-            return builder.build(values)
-          when DateTime
-            return Date64Array.new(values)
-          when Date
-            return Date32Array.new(values)
-          else
-            return StringArray.new(values)
-          end
+          builder_info = detect_builder_info(value, builder_info)
+          break if builder_info and builder_info[:detected]
         end
-        if builder_class
-          builder = builder_class.new(*builder_class_arguments)
+        if builder_info
+          builder = builder_info[:builder]
           builder.build(values)
         else
           Arrow::StringArray.new(values)
@@ -88,6 +41,102 @@ module Arrow
 
       def buildable?(args)
         args.size == method(:build).arity
+      end
+
+      private
+      def detect_builder_info(value, builder_info)
+        case value
+        when nil
+          builder_info
+        when true, false
+          {
+            builder: BooleanArrayBuilder.new,
+            detected: true,
+          }
+        when String
+          {
+            builder: StringArrayBuilder.new,
+            detected: true,
+          }
+        when Float
+          {
+            builder: DoubleArrayBuilder.new,
+            detected: true,
+          }
+        when Integer
+          if value < 0
+            {
+              builder: IntArrayBuilder.new,
+              detected: true,
+            }
+          else
+            {
+              builder: UIntArrayBuilder.new,
+            }
+          end
+        when Time
+          data_type = value.data_type
+          case data_type.unit
+          when TimeUnit::SECOND
+            builder_info || {
+              builder: Time32ArrayBuilder.new(data_type)
+            }
+          when TimeUnit::MILLI
+            if builder_info and builder_info[:builder].is_a?(Time64ArrayBuilder)
+              builder_info
+            else
+              {
+                builder: Time32ArrayBuilder.new(data_type),
+              }
+            end
+          when TimeUnit::MICRO
+            {
+              builder: Time64ArrayBuilder.new(data_type),
+            }
+          when TimeUnit::NANO
+            {
+              builder: Time64ArrayBuilder.new(data_type),
+              detected: true
+            }
+          end
+        when ::Time
+          data_type = TimestampDataType.new(:nano)
+          {
+            builder: TimestampArrayBuilder.new(data_type),
+            detected: true,
+          }
+        when DateTime
+          {
+            builder: Date64ArrayBuilder.new,
+            detected: true,
+          }
+        when Date
+          {
+            builder: Date32ArrayBuilder.new,
+            detected: true,
+          }
+        when ::Array
+          sub_builder_info = nil
+          value.each do |sub_value|
+            sub_builder_info = detect_builder_info(sub_value, sub_builder_info)
+            break if sub_builder_info and sub_builder_info[:detected]
+          end
+          if sub_builder_info and sub_builder_info[:detected]
+            sub_value_data_type = sub_builder_info[:builder].value_data_type
+            field = Field.new("item", sub_value_data_type)
+            {
+              builder: ListArrayBuilder.new(ListDataType.new(field)),
+              detected: true,
+            }
+          else
+            builder_info
+          end
+        else
+          {
+            builder: StringArrayBuilder.new,
+            detected: true,
+          }
+        end
       end
     end
 
