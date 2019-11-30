@@ -138,6 +138,29 @@ int32 utf8_length(int64 context, const char* data, int32 data_len) {
   return count;
 }
 
+// Get the byte position corresponding to a character position for a non-empty utf8
+// sequence
+FORCE_INLINE
+int32 utf8_byte_pos(int64 context, const char* str, int32 str_len, int32 char_pos) {
+  int char_len = 0;
+  int byte_index = 0;
+  for (int32 char_index = 0; char_index < char_pos && byte_index < str_len;
+       char_index++) {
+    char_len = utf8_char_length(str[byte_index]);
+    if (char_len == 0 ||
+        byte_index + char_len > str_len) {  // invalid byte or incomplete glyph
+      set_error_for_invalid_utf(context, str[byte_index]);
+      return -1;
+    }
+    byte_index += char_len;
+  }
+  if (byte_index >= str_len) {
+    gdv_fn_context_set_error_msg(context, "Invalid character position argument");
+    return -1;
+  }
+  return byte_index;
+}
+
 #define UTF8_LENGTH(NAME, TYPE)                               \
   FORCE_INLINE                                                \
   int32 NAME##_##TYPE(int64 context, TYPE in, int32 in_len) { \
@@ -408,6 +431,38 @@ const char* convert_fromUTF8_binary(int64 context, const char* bin_in, int32 len
   }
   memcpy(ret, bin_in, *out_len);
   return ret;
+}
+
+// Search for a string within another string
+FORCE_INLINE
+int32 locate_utf8_utf8(int64 context, const char* sub_str, int32 sub_str_len,
+                       const char* str, int32 str_len) {
+  return locate_utf8_utf8_int32(context, sub_str, sub_str_len, str, str_len, 1);
+}
+
+// Search for a string within another string starting at position start-pos (1-indexed)
+FORCE_INLINE
+int32 locate_utf8_utf8_int32(int64 context, const char* sub_str, int32 sub_str_len,
+                             const char* str, int32 str_len, int32 start_pos) {
+  if (start_pos < 1) {
+    gdv_fn_context_set_error_msg(context, "Start position must be greater than 0");
+    return 0;
+  }
+
+  if (str_len == 0 || sub_str_len == 0) {
+    return 0;
+  }
+
+  int32 byte_pos = utf8_byte_pos(context, str, str_len, start_pos - 1);
+  if (byte_pos < 0) {
+    return 0;
+  }
+  for (int32 i = byte_pos; i <= str_len - sub_str_len; ++i) {
+    if (memcmp(str + i, sub_str, sub_str_len) == 0) {
+      return utf8_length(context, str, i) + 1;
+    }
+  }
+  return 0;
 }
 
 }  // extern "C"

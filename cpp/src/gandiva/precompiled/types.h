@@ -184,6 +184,12 @@ const char* lower_utf8(int64 context, const char* data, int32 data_len,
 
 const char* reverse_utf8(int64 context, const char* data, int32 data_len,
                          int32_t* out_len);
+
+int32 locate_utf8_utf8(int64 context, const char* sub_str, int32 sub_str_len,
+                       const char* str, int32 str_len);
+
+int32 locate_utf8_utf8_int32(int64 context, const char* sub_str, int32 sub_str_len,
+                             const char* str, int32 str_len, int32 start_pos);
 }  // extern "C"
 
 #endif  // PRECOMPILED_TYPES_H

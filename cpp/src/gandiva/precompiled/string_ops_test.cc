@@ -309,4 +309,62 @@ TEST(TestStringOps, TestReverse) {
   ctx.Reset();
 }
 
+TEST(TestStringOps, TestLocate) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<int64>(&ctx);
+
+  int pos;
+
+  pos = locate_utf8_utf8(ctx_ptr, "String", 6, "TestString", 10);
+  EXPECT_EQ(pos, 5);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = locate_utf8_utf8_int32(ctx_ptr, "String", 6, "TestString", 10, 1);
+  EXPECT_EQ(pos, 5);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = locate_utf8_utf8_int32(ctx_ptr, "abc", 3, "abcabc", 6, 2);
+  EXPECT_EQ(pos, 4);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = locate_utf8_utf8(ctx_ptr, "çåå", 6, "s†å†emçåå†d", 21);
+  EXPECT_EQ(pos, 7);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = locate_utf8_utf8_int32(ctx_ptr, "bar", 3, "†barbar", 9, 3);
+  EXPECT_EQ(pos, 5);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = locate_utf8_utf8_int32(ctx_ptr, "sub", 3, "", 0, 1);
+  EXPECT_EQ(pos, 0);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = locate_utf8_utf8_int32(ctx_ptr, "", 0, "str", 3, 1);
+  EXPECT_EQ(pos, 0);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = locate_utf8_utf8_int32(ctx_ptr, "bar", 3, "barbar", 6, 0);
+  EXPECT_EQ(pos, 0);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Start position must be greater than 0"));
+  ctx.Reset();
+
+  pos = locate_utf8_utf8_int32(ctx_ptr, "bar", 3, "barbar", 6, 7);
+  EXPECT_EQ(pos, 0);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Invalid character position argument"));
+  ctx.Reset();
+
+  std::string d(
+      "a\xff"
+      "c");
+  pos =
+      locate_utf8_utf8_int32(ctx_ptr, "c", 1, d.data(), static_cast<int>(d.length()), 3);
+  EXPECT_EQ(pos, 0);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr(
+                  "unexpected byte \\ff encountered while decoding utf8 string"));
+  ctx.Reset();
+}
+
 }  // namespace gandiva

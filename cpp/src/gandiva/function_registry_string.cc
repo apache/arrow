@@ -45,6 +45,8 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       BINARY_RELATIONAL_SAFE_NULL_IF_NULL_UTF8_FN(starts_with, {}),
       BINARY_RELATIONAL_SAFE_NULL_IF_NULL_UTF8_FN(ends_with, {}),
 
+      BINARY_UNSAFE_NULL_IF_NULL(locate, {"position"}, utf8, int32),
+
       UNARY_OCTET_LEN_FN(octet_length, {}),
       UNARY_OCTET_LEN_FN(bit_length, {}),
 
@@ -95,6 +97,10 @@ std::vector<NativeFunction> GetStringFunctionRegistry() {
       NativeFunction("convert_fromUTF8", {"convert_fromutf8"}, DataTypeVector{binary()},
                      utf8(), kResultNullIfNull, "convert_fromUTF8_binary",
                      NativeFunction::kNeedsContext),
+
+      NativeFunction("locate", {"position"}, DataTypeVector{utf8(), utf8(), int32()},
+                     int32(), kResultNullIfNull, "locate_utf8_utf8_int32",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
   };
 
   return string_fn_registry_;
