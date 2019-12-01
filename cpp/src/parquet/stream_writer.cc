@@ -55,7 +55,7 @@ void StreamWriter::SetMaxRowGroupSize(int64_t max_size) {
   max_row_group_size_ = max_size;
 }
 
-int StreamWriter::num_columns() const { return nodes_.size(); }
+int StreamWriter::num_columns() const { return static_cast<int>(nodes_.size()); }
 
 StreamWriter& StreamWriter::operator<<(bool v) {
   CheckColumn(Type::BOOLEAN, ConvertedType::NONE);
