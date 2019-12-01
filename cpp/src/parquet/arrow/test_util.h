@@ -29,7 +29,6 @@
 #include "arrow/testing/random.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
-
 #include "parquet/column_reader.h"
 
 namespace parquet {
@@ -80,7 +79,7 @@ template <class ArrowType>
 ::arrow::enable_if_date<ArrowType, Status> NonNullArray(size_t size,
                                                         std::shared_ptr<Array>* out) {
   std::vector<typename ArrowType::c_type> values;
-  ::arrow::randint(size, 0, 64, &values);
+  ::arrow::randint(size, 0, 24, &values);
   for (size_t i = 0; i < size; i++) {
     values[i] *= 86400000;
   }
@@ -219,7 +218,7 @@ template <typename ArrowType>
 
   // Seed is random in Arrow right now
   (void)seed;
-  ::arrow::randint(size, 0, 64, &values);
+  ::arrow::randint(size, 0, 24, &values);
   for (size_t i = 0; i < size; i++) {
     values[i] *= 86400000;
   }
