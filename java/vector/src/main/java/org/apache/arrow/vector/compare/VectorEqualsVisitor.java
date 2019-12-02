@@ -29,7 +29,7 @@ import org.apache.arrow.vector.ValueVector;
 public class VectorEqualsVisitor {
 
   /**
-   * Checks if two vectors are equals with default type visitor.
+   * Checks if two vectors are equals with default type comparator.
    * @param left the left vector to compare.
    * @param right the right vector to compare.
    * @return true if the vectors are equal, and false otherwise.
