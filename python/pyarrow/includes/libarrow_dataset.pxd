@@ -136,6 +136,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CScanOptions "arrow::dataset::ScanOptions":
         CExpressionPtr filter
         shared_ptr[CSchema] schema
+        c_bool use_threads
         # shared_ptr[CExpressionEvaluator] evaluator
         # shared_ptr[CRecordBatchProjector] projector
 

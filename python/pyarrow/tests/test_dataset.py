@@ -211,6 +211,7 @@ def test_dataset(simple_data_source, tree_data_source, schema):
         ds.FieldExpression('i64'),
         ds.ScalarExpression(1)
     )
+    # TODO(kszucs): test non-boolean expressions for filter do raise
     builder = dataset.new_scan().use_threads(True).filter(condition)
     assert isinstance(builder, ds.ScannerBuilder)
     assert isinstance(builder.schema(), pa.Schema)

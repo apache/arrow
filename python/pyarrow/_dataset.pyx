@@ -30,12 +30,16 @@ from pyarrow.compat import frombytes, tobytes
 from pyarrow._fs cimport FileSystem, FileStats, Selector
 
 
-def _forbid_instantiation(klass):
-    subclasses = [cls.__name__ for cls in klass.__subclasses__]
-    raise TypeError(
-        '{} is an abstract class thus cannot be initialized. Use one of the '
-        'subclasses instead: {}'.format(klass.__name__, ', '.join(subclasses))
+def _forbid_instantiation(klass, subclasses_instead=True):
+    msg = '{} is an abstract class thus cannot be initialized.'.format(
+        klass.__name__
     )
+    if subclasses_instead:
+        subclasses = [cls.__name__ for cls in klass.__subclasses__]
+        msg += ' Use one of the subclasses instead: {}'.format(
+            ', '.join(subclasses)
+        )
+    raise TypeError(msg)
 
 
 cdef class FileFormat:
@@ -335,6 +339,12 @@ cdef class FileSource:
 
 
 cdef class DataFragment:
+    """A granular piece of a Dataset such as an individual file.
+
+    It can be read/scanned separately from other fragments.
+    A DataFragment yields a collection of RecordBatch, encapsulated in one or
+    more ScanTasks.
+    """
     cdef:
         shared_ptr[CDataFragment] wrapped
         CDataFragment* fragment
@@ -365,6 +375,18 @@ cdef class DataFragment:
         return self.wrapped
 
     def scan(self, ScanContext context=None):
+        """Returns an iterator of ScanTasks
+
+        Each of ScanTask yields RecordBatches from this DataFragment.
+
+        Parameters
+        ----------
+        context : ScanContext, default None
+
+        Returns
+        -------
+        scan_tasks: Iterator[ScanTask]
+        """
         cdef:
             CResult[CScanTaskIterator] iterator_result
             CScanTaskIterator iterator
@@ -383,19 +405,37 @@ cdef class DataFragment:
 
     @property
     def splittable(self):
+        """Get whether the DataFragment supports parallel scanning."""
         return self.fragment.splittable()
 
     @property
     def scan_options(self):
-        return ScanOptions.wrap(self.fragment.scan_options())
+        """Get the scan options used for scanning the data fragment.
+
+        Filtering, schema reconciliation, and partition options. None indicates
+        that no filtering or schema reconciliation will be performed and all
+        partitions will be scanned.
+        """
+        cdef shared_ptr[CScanOptions] options = self.fragment.scan_options()
+        if options.get() == nullptr:
+            return None
+        else:
+            return ScanOptions.wrap(options)
 
 
 cdef class SimpleDataFragment(DataFragment):
+    """A fragment that yields ScanTasks out of a fixed set of RecordBatches."""
 
     cdef:
         CSimpleDataFragment* simple_fragment
 
     def __init__(self, record_batches):
+        """Create a simple data fragment from record batches.
+
+        Parameters
+        ----------
+        record_batches : iterator of RecordBatch
+        """
         cdef:
             RecordBatch batch
             vector[shared_ptr[CRecordBatch]] batches
@@ -441,6 +481,11 @@ cdef class ParquetDataFragment(FileDataFragment):
 
 
 cdef class DataSource:
+    """Basic component of a Dataset which yields zero or more DataFragments.
+
+    A DataSource acts as a discovery mechanism of DataFragments and partitions,
+    e.g. files deeply nested in a directory.
+    """
 
     cdef:
         shared_ptr[CDataSource] wrapped
@@ -473,13 +518,24 @@ cdef class DataSource:
     cdef shared_ptr[CDataSource] unwrap(self):
         return self.wrapped
 
-    def fragments(self, ScanOptions options=None):
+    def fragments(self, ScanOptions scan_options=None):
+        """Get the data fragments of this data source.
+
+        Parameters
+        ----------
+        scan_options : ScanOptions, default None
+            Controls filtering and schema inference.
+
+        Returns
+        -------
+        fragments : iterator of DataFragments
+        """
         cdef:
             CDataFragmentIterator iterator
             CDataFragmentPtr fragment
 
-        options = options or ScanOptions()
-        iterator = self.source.GetFragments(options.unwrap())
+        scan_options = scan_options or ScanOptions()
+        iterator = self.source.GetFragments(scan_options.unwrap())
 
         while True:
             iterator.Next(&fragment)
@@ -499,6 +555,7 @@ cdef class DataSource:
 
 
 cdef class SimpleDataSource(DataSource):
+    """A DataSource consisting of a flat sequence of DataFragments."""
 
     cdef:
         CSimpleDataSource* simple_source
@@ -582,12 +639,24 @@ cdef class FileSystemDataSource(DataSource):
 
 
 cdef class Dataset:
+    """Collection of data fragments coming from possibly multiple sources."""
 
     cdef:
         shared_ptr[CDataset] wrapped
         CDataset* dataset
 
     def __init__(self, data_sources, Schema schema not None):
+        """Create a dataset
+
+        Parameters
+        ----------
+        data_sources : list of DataSource
+            One or more input data sources
+        schema : Schema
+            A known schema to conform to. The data sources must conform their
+            output to this schema with projections and filters taken into
+            account.
+        """
         cdef:
             DataSource source
             CDataSourceVector sources
@@ -610,6 +679,7 @@ cdef class Dataset:
 
     # TODO(kszucs): pass ScanContext
     def new_scan(self):
+        """Begin to build a new Scan operation against this Dataset."""
         cdef shared_ptr[CScannerBuilder] builder
         builder = GetResultValue(self.dataset.NewScan())
         return ScannerBuilder.wrap(builder)
@@ -650,6 +720,7 @@ cdef class ScanOptions:
 
     @property
     def schema(self):
+        """Schema to which record batches will be reconciled"""
         if self.options.schema == nullptr:
             return None
         else:
@@ -658,6 +729,15 @@ cdef class ScanOptions:
     @schema.setter
     def schema(self, Schema value):
         self.options.schema = pyarrow_unwrap_schema(value)
+
+    @property
+    def use_threads(self):
+        """Make use of the thread pool found in the scan context"""
+        return self.options.use_threads
+
+    @use_threads.setter
+    def use_threads(self, bint value):
+        self.options.use_threads = value
 
 
 cdef class FileScanOptions(ScanOptions):
@@ -720,10 +800,17 @@ cdef class ScanContext:
 
 
 cdef class ScanTask:
+    """Read record batches from a range of a single data fragment.
+
+    A ScanTask is meant to be a unit of work to be dispatched.
+    """
 
     cdef:
         shared_ptr[CScanTask] wrapped
         CScanTask* task
+
+    def __init__(self):
+        _forbid_instantiation(self.__class__, subclasses_instead=False)
 
     cdef init(self, shared_ptr[CScanTask]& sp):
         self.wrapped = sp
@@ -739,6 +826,15 @@ cdef class ScanTask:
         return self.wrapped
 
     def scan(self):
+        """Iterate through sequence of materialized record batches.
+
+        Execution semantics are encapsulated in the particular ScanTask
+        implementation.
+
+        Returns
+        -------
+        record_batches : iterator of RecordBatch
+        """
         cdef:
             CRecordBatchIterator iterator
             shared_ptr[CRecordBatch] record_batch
@@ -754,6 +850,7 @@ cdef class ScanTask:
 
 
 cdef class SimpleScanTask(ScanTask):
+    """A trivial ScanTask that yields the RecordBatch of an array."""
 
     cdef:
         CSimpleScanTask* simple_task
@@ -764,12 +861,17 @@ cdef class SimpleScanTask(ScanTask):
 
 
 cdef class ScannerBuilder:
+    """Factory class to construct a Scanner.
+
+    It is used to pass information, notably a potential filter expression and a
+    subset of columns to materialize.
+    """
 
     cdef:
         shared_ptr[CScannerBuilder] wrapped
         CScannerBuilder* builder
 
-    def __init__(self, Dataset dataset, ScanContext context):
+    def __init__(self, Dataset dataset not None, ScanContext context not None):
         cdef shared_ptr[CScannerBuilder] builder
         builder = make_shared[CScannerBuilder](
             dataset.unwrap(), context.unwrap()
@@ -790,18 +892,65 @@ cdef class ScannerBuilder:
         return self.wrapped
 
     def project(self, columns):
+        """Set the subset of columns to materialize.
+
+        This subset will be passed down to DataSources and corresponding
+        DataFragments. The goal is to avoid loading, copying, and deserializing
+        columns that will not be required further down the compute chain.
+
+        Raises exception if any column name does not exists in the dataset's
+        Schema.
+
+        Parameters
+        ----------
+        columns : list of str
+            List of columns to project. Order and duplicates will be preserved.
+
+        Returns
+        -------
+        self : ScannerBuilder
+        """
         cdef vector[c_string] cols = [tobytes(c) for c in columns]
         check_status(self.builder.Project(cols))
         return self
 
     def finish(self):
+        """Return the constructed now-immutable Scanner object"""
         return Scanner.wrap(GetResultValue(self.builder.Finish()))
 
-    def filter(self, Expression expression):
-        check_status(self.builder.Filter(expression.unwrap()))
+    def filter(self, Expression filter_expression not None):
+        """Set the filter expression to return only rows matching the filter.
+
+        The predicate will be passed down to DataSources and corresponding
+        DataFragments to exploit predicate pushdown if possible using partition
+        information or DataFragment internal metadata, e.g. Parquet statistics.
+
+        Raises exception if any of the referenced columns does not exists in
+        the dataset's schema.
+
+        Parameters
+        ----------
+        filter_expression : Expression
+            Boolean expression to filter rows with.
+
+        Returns
+        -------
+        self : ScannerBuilder
+        """
+        check_status(self.builder.Filter(filter_expression.unwrap()))
         return self
 
     def use_threads(self, bint value):
+        """Set whether the Scanner should make use of the thread pool.
+
+        Parameters
+        ----------
+        value : boolean
+
+        Returns
+        -------
+        self : ScannerBuilder
+        """
         check_status(self.builder.UseThreads(value))
         return self
 
@@ -810,12 +959,26 @@ cdef class ScannerBuilder:
 
 
 cdef class Scanner:
+    """A materialized scan operation with context and options bound.
+
+    A scanner is the class that glues ScanTask, DataFragment, and DataSource
+    together.
+    """
 
     cdef:
         shared_ptr[CScanner] wrapped
         CScanner* scanner
 
-    def __init__(self, data_sources, ScanOptions options, ScanContext context):
+    def __init__(self, data_sources, ScanOptions scan_options not None,
+                 ScanContext scan_context not None):
+        """Create the scanner
+
+        Parameters
+        ----------
+        data_sources : list of DataSource
+        scan_options : ScanOptions
+        scan_context : ScanContext
+        """
         cdef:
             DataSource source
             CDataSourceVector sources
@@ -825,7 +988,7 @@ cdef class Scanner:
             sources.push_back(source.unwrap())
 
         scanner = make_shared[CScanner](
-            sources, options.unwrap(), context.unwrap()
+            sources, scan_options.unwrap(), scan_context.unwrap()
         )
         self.init(scanner)
 
@@ -840,6 +1003,15 @@ cdef class Scanner:
         return self
 
     def scan(self):
+        """Returns a stream of ScanTasks
+
+        The caller is responsible to dispatch/schedule said tasks. Tasks should
+        be safe to run in a concurrent fashion and outlive the iterator.
+
+        Returns
+        -------
+        scan_tasks : iterator of ScanTask
+        """
         cdef:
             CScanTaskIterator iterator
             shared_ptr[CScanTask] task
@@ -854,6 +1026,15 @@ cdef class Scanner:
                 yield ScanTask.wrap(task)
 
     def to_table(self):
+        """Convert a Scanner into a Table.
+
+        Use this convenience utility with care. This will serially materialize
+        the Scan result in memory before creating the Table.
+
+        Returns
+        -------
+        table : Table
+        """
         cdef CResult[shared_ptr[CTable]] result
 
         with nogil:

@@ -83,7 +83,7 @@ class ARROW_DS_EXPORT ScanOptions {
 class ARROW_DS_EXPORT ScanTask {
  public:
   /// \brief Iterate through sequence of materialized record batches
-  /// resulting from the Scan. Execution semantics encapsulated in the
+  /// resulting from the Scan. Execution semantics are encapsulated in the
   /// particular ScanTask implementation
   // TODO(kszucs): call it execute?
   virtual Result<RecordBatchIterator> Scan() = 0;
@@ -166,7 +166,7 @@ class ARROW_DS_EXPORT ScannerBuilder {
 
   /// \brief Set the subset of columns to materialize.
   ///
-  /// This subset wil be passed down to DataSources and corresponding DataFragments.
+  /// This subset will be passed down to DataSources and corresponding DataFragments.
   /// The goal is to avoid loading/copying/deserializing columns that will
   /// not be required further down the compute chain.
   ///
@@ -182,7 +182,6 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// The predicate will be passed down to DataSources and corresponding
   /// DataFragments to exploit predicate pushdown if possible using
   /// partition information or DataFragment internal metadata, e.g. Parquet statistics.
-  /// statistics.
   ///
   /// \param[in] filter expression to filter rows with.
   ///
