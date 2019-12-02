@@ -83,6 +83,9 @@ std::string PathForest::ToString() const {
 
   DCHECK_OK(Visit([&](Ref ref) {
     repr += "\n" + ref.stats().path();
+    if (ref.stats().IsDirectory() && repr.back() != '/') {
+      repr += "/";
+    }
     return Status::OK();
   }));
   return repr;
