@@ -25,10 +25,16 @@ namespace Apache.Arrow.Types
         public Field ValueField { get; }
         public IArrowType ValueDataType { get; }
 
-        public ListType(Field valueField, IArrowType valueDataType)
+        public ListType(Field valueField)
         {
             ValueField = valueField ?? throw new ArgumentNullException(nameof(valueField));
+            ValueDataType = ValueField.DataType;
+        }
+
+        public ListType(IArrowType valueDataType)
+        {
             ValueDataType = valueDataType ?? NullType.Default;
+            ValueField = new Field("item", ValueDataType, true);
         }
 
         public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);
