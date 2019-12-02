@@ -999,8 +999,10 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
     }
 
     // load remaining bits
-    SafeLoadWords(bitmaps, 0, bit_length, false, &visited_words);
-    visitor(visited_words);
+    if (bit_length > 0) {
+      SafeLoadWords(bitmaps, 0, bit_length, false, &visited_words);
+      visitor(visited_words);
+    }
 
     return min_offset;
   }

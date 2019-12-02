@@ -144,6 +144,35 @@ services:
       - ${ARCH}-ubuntu-${UBUNTU}-cache:/build:delegated
     command: *cpp-command
 
+  ubuntu-cpp-sanitizer:
+    # Usage:
+    #   docker-compose build ubuntu-cpp-sanitizer
+    #   docker-compose run --rm ubuntu-cpp-sanitizer
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   UBUNTU: 18.04, 16.04, 14.04
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+    cap_add:
+      # For LeakSanitizer
+      - SYS_PTRACE
+    build:
+      context: .
+      dockerfile: ci/docker/ubuntu-${UBUNTU}-cpp.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+      args:
+        arch: ${ARCH}
+    shm_size: *shm-size
+    volumes: *ubuntu-volumes
+    environment:
+      CC: clang-7
+      CXX: clang++-7
+      ARROW_JEMALLOC: "OFF"
+      ARROW_ORC: "OFF"
+      ARROW_USE_ASAN: "ON"
+      ARROW_USE_UBSAN: "ON"
+    command: *cpp-command
+
   fedora-cpp:
     # Usage:
     #   docker-compose build fedora-cpp
