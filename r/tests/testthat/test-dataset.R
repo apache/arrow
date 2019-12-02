@@ -113,7 +113,7 @@ test_that("filter() with is.na()", {
       select(part, lgl) %>%
       filter(!is.na(lgl), part == 1) %>%
       collect(),
-    df1[!is.na(df1$lgl), c("part", "lgl")],
+    df1[!is.na(df1$lgl), c("part", "lgl")]
   )
 })
 
@@ -122,9 +122,10 @@ test_that("filter() with %in%", {
   expect_equivalent(
     ds %>%
       select(part, int) %>%
-      filter(int %in% c(6L, 4L, 3L), part == 1) %>% # TODO: C++ In() should cast
+      filter(int %in% c(6L, 4L, 3L), part == 1) %>%
+      # TODO: C++ In() should cast: ARROW-7204
       collect(),
-    df1[c(3, 4, 6), c("part", "int")],
+    df1[c(3, 4, 6), c("part", "int")]
   )
 })
 
