@@ -267,7 +267,10 @@ table KeyValue {
 
 /// ----------------------------------------------------------------------
 /// Dictionary encoding metadata
-
+/// Maintained for forwards compatibility, in the future
+/// Dictionaries might be explicit maps between integers and values
+/// allowing for non-contiguous index values
+enum DictionaryKind : short { DenseArray }
 table DictionaryEncoding {
   /// The known dictionary id in the application where this data is used. In
   /// the file or streaming formats, the dictionary ids are found in the
@@ -283,6 +286,8 @@ table DictionaryEncoding {
   /// is used to represent ordered categorical data, and we provide a way to
   /// preserve that metadata here
   isOrdered: bool;
+
+  dictionaryKind: DictionaryKind;
 }
 
 /// ----------------------------------------------------------------------

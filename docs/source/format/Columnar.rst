@@ -986,6 +986,11 @@ a ``RecordBatch`` it should be defined in a ``DictionaryBatch``. ::
     <RECORD BATCH n - 1>
     <EOS [optional]: 0xFFFFFFFF 0x00000000>
 
+.. note:: An edge-case for interleaved dictionary and record batches occurs
+   when the record batches contain dictionary encoded arrays that are
+   completely null. In this case, the dictionary for the encoded column might
+   appear after the first record batch.
+
 When a stream reader implementation is reading a stream, after each
 message, it may read the next 8 bytes to determine both if the stream
 continues and the size of the message metadata that follows. Once the
@@ -1019,7 +1024,10 @@ Schematically we have: ::
 In the file format, there is no requirement that dictionary keys
 should be defined in a ``DictionaryBatch`` before they are used in a
 ``RecordBatch``, as long as the keys are defined somewhere in the
-file.
+file. Further more, it is invalid to have more then one **non-delta**
+dictionary batch per dictionary ID (i.e. dictionary replacement is not
+supported).  Delta dictionaries are applied in the order they appear in 
+the file footer.
 
 Dictionary Messages
 -------------------
@@ -1072,6 +1080,37 @@ form: ::
     4
     0
     EOS
+
+Alternatively, if ``isDelta`` is set to false, then the dictionary
+replaces the existing dictionary for the same ID.  Using the same
+example as above, an alternate encoding could be: ::
+
+
+    <SCHEMA>
+    <DICTIONARY 0>
+    (0) "A"
+    (1) "B"
+    (2) "C"
+
+    <RECORD BATCH 0>
+    0
+    1
+    2
+    1
+
+    <DICTIONARY 0>
+    (0) "A"
+    (1) "C"
+    (2) "D"
+    (3) "E"
+
+    <RECORD BATCH 1>
+    2
+    1
+    3
+    0
+    EOS
+
 
 Custom Application Metadata
 ---------------------------
