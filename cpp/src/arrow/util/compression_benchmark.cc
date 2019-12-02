@@ -117,8 +117,7 @@ int64_t StreamingCompress(Codec* codec, const std::vector<uint8_t>& data,
 static void StreamingCompression(Compression::type compression,
                                  const std::vector<uint8_t>& data,
                                  benchmark::State& state) {  // NOLINT non-const reference
-  std::unique_ptr<Codec> codec;
-  ABORT_NOT_OK(Codec::Create(compression, &codec));
+  auto codec = *Codec::Create(compression, &codec);
 
   while (state.KeepRunning()) {
     int64_t compressed_size = StreamingCompress(codec.get(), data);

@@ -615,9 +615,7 @@ TEST(TestMap, StringToInteger) {
   std::vector<int32_t> offsets = {0, 2, 2, 3, 3};
   auto expected_keys = ArrayFromJSON(utf8(), R"(["joe", "mark", "cap"])");
   auto expected_values = ArrayFromJSON(int32(), "[0, null, 8]");
-  std::shared_ptr<Buffer> expected_null_bitmap;
-  ASSERT_OK(
-      BitUtil::BytesToBits({1, 0, 1, 1}, default_memory_pool(), &expected_null_bitmap));
+  ASSERT_OK_AND_ASSIGN(auto expected_null_bitmap, BitUtil::BytesToBits({1, 0, 1, 1}));
   auto expected =
       std::make_shared<MapArray>(type, 4, Buffer::Wrap(offsets), expected_keys,
                                  expected_values, expected_null_bitmap, 1);

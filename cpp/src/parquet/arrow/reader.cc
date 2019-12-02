@@ -787,10 +787,10 @@ Status FileReaderImpl::ReadRowGroups(const std::vector<int>& row_groups,
   };
 
   if (reader_properties_.use_threads()) {
-    std::vector<std::future<Status>> futures;
+    std::vector<std::future<Status>> futures(num_fields);
     auto pool = ::arrow::internal::GetCpuThreadPool();
     for (int i = 0; i < num_fields; i++) {
-      futures.push_back(pool->Submit(ReadColumnFunc, i));
+      ARROW_ASSIGN_OR_RAISE(futures[i], pool->Submit(ReadColumnFunc, i));
     }
     Status final_status = Status::OK();
     for (auto& fut : futures) {

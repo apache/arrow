@@ -34,22 +34,17 @@ namespace util {
 // ----------------------------------------------------------------------
 // Snappy implementation
 
-Status SnappyCodec::MakeCompressor(std::shared_ptr<Compressor>* out) {
+Result<std::shared_ptr<Compressor>> SnappyCodec::MakeCompressor() {
   return Status::NotImplemented("Streaming compression unsupported with Snappy");
 }
 
-Status SnappyCodec::MakeDecompressor(std::shared_ptr<Decompressor>* out) {
+Result<std::shared_ptr<Decompressor>> SnappyCodec::MakeDecompressor() {
   return Status::NotImplemented("Streaming decompression unsupported with Snappy");
 }
 
-Status SnappyCodec::Decompress(int64_t input_len, const uint8_t* input,
-                               int64_t output_buffer_len, uint8_t* output_buffer) {
-  return Decompress(input_len, input, output_buffer_len, output_buffer, nullptr);
-}
-
-Status SnappyCodec::Decompress(int64_t input_len, const uint8_t* input,
-                               int64_t output_buffer_len, uint8_t* output_buffer,
-                               int64_t* output_len) {
+Result<int64_t> SnappyCodec::Decompress(int64_t input_len, const uint8_t* input,
+                                        int64_t output_buffer_len,
+                                        uint8_t* output_buffer) {
   size_t decompressed_size;
   if (!snappy::GetUncompressedLength(reinterpret_cast<const char*>(input),
                                      static_cast<size_t>(input_len),
@@ -60,15 +55,12 @@ Status SnappyCodec::Decompress(int64_t input_len, const uint8_t* input,
     return Status::Invalid("Output buffer size (", output_buffer_len, ") must be ",
                            decompressed_size, " or larger.");
   }
-  if (output_len) {
-    *output_len = static_cast<int64_t>(decompressed_size);
-  }
   if (!snappy::RawUncompress(reinterpret_cast<const char*>(input),
                              static_cast<size_t>(input_len),
                              reinterpret_cast<char*>(output_buffer))) {
     return Status::IOError("Corrupt snappy compressed data.");
   }
-  return Status::OK();
+  return static_cast<int64_t>(decompressed_size);
 }
 
 int64_t SnappyCodec::MaxCompressedLen(int64_t input_len,
@@ -77,15 +69,14 @@ int64_t SnappyCodec::MaxCompressedLen(int64_t input_len,
   return snappy::MaxCompressedLength(static_cast<size_t>(input_len));
 }
 
-Status SnappyCodec::Compress(int64_t input_len, const uint8_t* input,
-                             int64_t ARROW_ARG_UNUSED(output_buffer_len),
-                             uint8_t* output_buffer, int64_t* output_len) {
+Result<int64_t> SnappyCodec::Compress(int64_t input_len, const uint8_t* input,
+                                      int64_t ARROW_ARG_UNUSED(output_buffer_len),
+                                      uint8_t* output_buffer) {
   size_t output_size;
   snappy::RawCompress(reinterpret_cast<const char*>(input),
                       static_cast<size_t>(input_len),
                       reinterpret_cast<char*>(output_buffer), &output_size);
-  *output_len = static_cast<int64_t>(output_size);
-  return Status::OK();
+  return static_cast<int64_t>(output_size);
 }
 }  // namespace util
 }  // namespace arrow

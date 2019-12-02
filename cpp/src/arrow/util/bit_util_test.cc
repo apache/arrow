@@ -495,9 +495,10 @@ TYPED_TEST(TestVisitBits, NormalOperation) {
 }
 
 struct BitmapOperation {
-  virtual Status Call(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
-                      const uint8_t* right, int64_t right_offset, int64_t length,
-                      int64_t out_offset, std::shared_ptr<Buffer>* out_buffer) const = 0;
+  virtual Result<std::shared_ptr<Buffer>> Call(MemoryPool* pool, const uint8_t* left,
+                                               int64_t left_offset, const uint8_t* right,
+                                               int64_t right_offset, int64_t length,
+                                               int64_t out_offset) const = 0;
 
   virtual Status Call(const uint8_t* left, int64_t left_offset, const uint8_t* right,
                       int64_t right_offset, int64_t length, int64_t out_offset,
@@ -507,11 +508,11 @@ struct BitmapOperation {
 };
 
 struct BitmapAndOp : public BitmapOperation {
-  Status Call(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
-              const uint8_t* right, int64_t right_offset, int64_t length,
-              int64_t out_offset, std::shared_ptr<Buffer>* out_buffer) const override {
-    return BitmapAnd(pool, left, left_offset, right, right_offset, length, out_offset,
-                     out_buffer);
+  Result<std::shared_ptr<Buffer>> Call(MemoryPool* pool, const uint8_t* left,
+                                       int64_t left_offset, const uint8_t* right,
+                                       int64_t right_offset, int64_t length,
+                                       int64_t out_offset) const override {
+    return BitmapAnd(pool, left, left_offset, right, right_offset, length, out_offset);
   }
 
   Status Call(const uint8_t* left, int64_t left_offset, const uint8_t* right,
@@ -523,11 +524,11 @@ struct BitmapAndOp : public BitmapOperation {
 };
 
 struct BitmapOrOp : public BitmapOperation {
-  Status Call(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
-              const uint8_t* right, int64_t right_offset, int64_t length,
-              int64_t out_offset, std::shared_ptr<Buffer>* out_buffer) const override {
-    return BitmapOr(pool, left, left_offset, right, right_offset, length, out_offset,
-                    out_buffer);
+  Result<std::shared_ptr<Buffer>> Call(MemoryPool* pool, const uint8_t* left,
+                                       int64_t left_offset, const uint8_t* right,
+                                       int64_t right_offset, int64_t length,
+                                       int64_t out_offset) const override {
+    return BitmapOr(pool, left, left_offset, right, right_offset, length, out_offset);
   }
 
   Status Call(const uint8_t* left, int64_t left_offset, const uint8_t* right,
@@ -539,11 +540,11 @@ struct BitmapOrOp : public BitmapOperation {
 };
 
 struct BitmapXorOp : public BitmapOperation {
-  Status Call(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
-              const uint8_t* right, int64_t right_offset, int64_t length,
-              int64_t out_offset, std::shared_ptr<Buffer>* out_buffer) const override {
-    return BitmapXor(pool, left, left_offset, right, right_offset, length, out_offset,
-                     out_buffer);
+  Result<std::shared_ptr<Buffer>> Call(MemoryPool* pool, const uint8_t* left,
+                                       int64_t left_offset, const uint8_t* right,
+                                       int64_t right_offset, int64_t length,
+                                       int64_t out_offset) const override {
+    return BitmapXor(pool, left, left_offset, right, right_offset, length, out_offset);
   }
 
   Status Call(const uint8_t* left, int64_t left_offset, const uint8_t* right,
@@ -567,9 +568,9 @@ class BitmapOp : public TestBase {
       for (int64_t right_offset : {left_offset, left_offset + 8, left_offset + 40}) {
         BitmapFromVector(right_bits, right_offset, &right, &length);
         for (int64_t out_offset : {left_offset, left_offset + 16, left_offset + 24}) {
-          ASSERT_OK(op.Call(default_memory_pool(), left->mutable_data(), left_offset,
-                            right->mutable_data(), right_offset, length, out_offset,
-                            &out));
+          ASSERT_OK_AND_ASSIGN(
+              out, op.Call(default_memory_pool(), left->mutable_data(), left_offset,
+                           right->mutable_data(), right_offset, length, out_offset));
           auto reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
           ASSERT_READER_VALUES(reader, result_bits);
 
@@ -598,9 +599,9 @@ class BitmapOp : public TestBase {
         BitmapFromVector(right_bits, right_offset, &right, &length);
 
         for (int64_t out_offset : offset_values) {
-          ASSERT_OK(op.Call(default_memory_pool(), left->mutable_data(), left_offset,
-                            right->mutable_data(), right_offset, length, out_offset,
-                            &out));
+          ASSERT_OK_AND_ASSIGN(
+              out, op.Call(default_memory_pool(), left->mutable_data(), left_offset,
+                           right->mutable_data(), right_offset, length, out_offset));
           auto reader = internal::BitmapReader(out->mutable_data(), out_offset, length);
           ASSERT_READER_VALUES(reader, result_bits);
 
@@ -733,7 +734,8 @@ TEST(BitUtilTests, TestCopyBitmap) {
       const int64_t copy_length = num_bits - offset;
 
       std::shared_ptr<Buffer> copy;
-      ASSERT_OK(CopyBitmap(default_memory_pool(), src, offset, copy_length, &copy));
+      ASSERT_OK_AND_ASSIGN(copy,
+                           CopyBitmap(default_memory_pool(), src, offset, copy_length));
 
       for (int64_t i = 0; i < copy_length; ++i) {
         ASSERT_EQ(BitUtil::GetBit(src, i + offset), BitUtil::GetBit(copy->data(), i));

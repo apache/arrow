@@ -45,18 +45,6 @@ namespace arrow {
 template <typename T>
 class Result;
 
-namespace internal {
-
-// Helpers for the ASSERT* macros below
-
-inline Status GenericToStatus(const Status& st) { return st; }
-
-template <typename T>
-inline Status GenericToStatus(const Result<T>& res) {
-  return res.status();
-}
-
-}  // namespace internal
 }  // namespace arrow
 
 // NOTE: failing must be inline in the macros below, to get correct file / line number

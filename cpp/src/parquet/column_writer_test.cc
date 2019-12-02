@@ -720,8 +720,8 @@ TEST(TestColumnWriter, RepeatedListsUpdateSpacedBug) {
   auto values_data = reinterpret_cast<const int32_t*>(values_buffer->data());
 
   std::shared_ptr<Buffer> valid_bits;
-  ASSERT_OK(::arrow::BitUtil::BytesToBits({1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1},
-                                          ::arrow::default_memory_pool(), &valid_bits));
+  ASSERT_OK_AND_ASSIGN(
+      valid_bits, ::arrow::BitUtil::BytesToBits({1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1}));
 
   // valgrind will warn about out of bounds access into def_levels_data
   typed_writer->WriteBatchSpaced(14, def_levels.data(), rep_levels.data(),

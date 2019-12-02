@@ -91,7 +91,7 @@ class TestStringArray : public ::testing::Test {
     length_ = static_cast<int64_t>(offsets_.size()) - 1;
     value_buf_ = Buffer::Wrap(chars_);
     offsets_buf_ = Buffer::Wrap(offsets_);
-    ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, default_memory_pool(), &null_bitmap_));
+    ASSERT_OK_AND_ASSIGN(null_bitmap_, BitUtil::BytesToBits(valid_bytes_));
     null_count_ = CountNulls(valid_bytes_);
 
     strings_ = std::make_shared<ArrayType>(length_, offsets_buf_, value_buf_,

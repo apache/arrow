@@ -28,19 +28,19 @@ namespace internal {
 
 void AssertExists(const PlatformFilename& path) {
   bool exists = false;
-  ASSERT_OK(FileExists(path, &exists));
+  ASSERT_OK_AND_ASSIGN(exists, FileExists(path));
   ASSERT_TRUE(exists) << "Path '" << path.ToString() << "' doesn't exist";
 }
 
 void AssertNotExists(const PlatformFilename& path) {
   bool exists = true;
-  ASSERT_OK(FileExists(path, &exists));
+  ASSERT_OK_AND_ASSIGN(exists, FileExists(path));
   ASSERT_FALSE(exists) << "Path '" << path.ToString() << "' exists";
 }
 
 TEST(PlatformFilename, RoundtripAscii) {
   PlatformFilename fn;
-  ASSERT_OK(PlatformFilename::FromString("a/b", &fn));
+  ASSERT_OK_AND_ASSIGN(fn, PlatformFilename::FromString("a/b"));
   ASSERT_EQ(fn.ToString(), "a/b");
 #if _WIN32
   ASSERT_EQ(fn.ToNative(), L"a\\b");
@@ -51,7 +51,7 @@ TEST(PlatformFilename, RoundtripAscii) {
 
 TEST(PlatformFilename, RoundtripUtf8) {
   PlatformFilename fn;
-  ASSERT_OK(PlatformFilename::FromString("h\xc3\xa9h\xc3\xa9", &fn));
+  ASSERT_OK_AND_ASSIGN(fn, PlatformFilename::FromString("h\xc3\xa9h\xc3\xa9"));
   ASSERT_EQ(fn.ToString(), "h\xc3\xa9h\xc3\xa9");
 #if _WIN32
   ASSERT_EQ(fn.ToNative(), L"h\u00e9h\u00e9");
@@ -63,27 +63,26 @@ TEST(PlatformFilename, RoundtripUtf8) {
 #if _WIN32
 TEST(PlatformFilename, Separators) {
   PlatformFilename fn;
-  ASSERT_OK(PlatformFilename::FromString("C:/foo/bar", &fn));
+  ASSERT_OK_AND_ASSIGN(fn, PlatformFilename::FromString("C:/foo/bar"));
   ASSERT_EQ(fn.ToString(), "C:/foo/bar");
   ASSERT_EQ(fn.ToNative(), L"C:\\foo\\bar");
 
-  ASSERT_OK(PlatformFilename::FromString("C:\\foo\\bar", &fn));
+  ASSERT_OK_AND_ASSIGN(fn, PlatformFilename::FromString("C:\\foo\\bar"));
   ASSERT_EQ(fn.ToString(), "C:/foo/bar");
   ASSERT_EQ(fn.ToNative(), L"C:\\foo\\bar");
 }
 #endif
 
 TEST(PlatformFilename, Invalid) {
-  PlatformFilename fn;
   std::string s = "foo";
   s += '\x00';
-  ASSERT_RAISES(Invalid, PlatformFilename::FromString(s, &fn));
+  ASSERT_RAISES(Invalid, PlatformFilename::FromString(s));
 }
 
 TEST(PlatformFilename, Join) {
   PlatformFilename fn, joined;
-  ASSERT_OK(PlatformFilename::FromString("a/b", &fn));
-  ASSERT_OK(fn.Join("c/d", &joined));
+  ASSERT_OK_AND_ASSIGN(fn, PlatformFilename::FromString("a/b"));
+  ASSERT_OK_AND_ASSIGN(joined, fn.Join("c/d"));
   ASSERT_EQ(joined.ToString(), "a/b/c/d");
 #if _WIN32
   ASSERT_EQ(joined.ToNative(), L"a\\b\\c\\d");
@@ -91,8 +90,8 @@ TEST(PlatformFilename, Join) {
   ASSERT_EQ(joined.ToNative(), "a/b/c/d");
 #endif
 
-  ASSERT_OK(PlatformFilename::FromString("a/b/", &fn));
-  ASSERT_OK(fn.Join("c/d", &joined));
+  ASSERT_OK_AND_ASSIGN(fn, PlatformFilename::FromString("a/b/"));
+  ASSERT_OK_AND_ASSIGN(joined, fn.Join("c/d"));
   ASSERT_EQ(joined.ToString(), "a/b/c/d");
 #if _WIN32
   ASSERT_EQ(joined.ToNative(), L"a\\b\\c\\d");
@@ -100,8 +99,8 @@ TEST(PlatformFilename, Join) {
   ASSERT_EQ(joined.ToNative(), "a/b/c/d");
 #endif
 
-  ASSERT_OK(PlatformFilename::FromString("", &fn));
-  ASSERT_OK(fn.Join("c/d", &joined));
+  ASSERT_OK_AND_ASSIGN(fn, PlatformFilename::FromString(""));
+  ASSERT_OK_AND_ASSIGN(joined, fn.Join("c/d"));
   ASSERT_EQ(joined.ToString(), "c/d");
 #if _WIN32
   ASSERT_EQ(joined.ToNative(), L"c\\d");
@@ -110,38 +109,38 @@ TEST(PlatformFilename, Join) {
 #endif
 
 #if _WIN32
-  ASSERT_OK(PlatformFilename::FromString("a\\b", &fn));
-  ASSERT_OK(fn.Join("c\\d", &joined));
+  ASSERT_OK_AND_ASSIGN(fn, PlatformFilename::FromString("a\\b"));
+  ASSERT_OK_AND_ASSIGN(joined, fn.Join("c\\d"));
   ASSERT_EQ(joined.ToString(), "a/b/c/d");
   ASSERT_EQ(joined.ToNative(), L"a\\b\\c\\d");
 
-  ASSERT_OK(PlatformFilename::FromString("a\\b\\", &fn));
-  ASSERT_OK(fn.Join("c\\d", &joined));
+  ASSERT_OK_AND_ASSIGN(fn, PlatformFilename::FromString("a\\b\\"));
+  ASSERT_OK_AND_ASSIGN(joined, fn.Join("c\\d"));
   ASSERT_EQ(joined.ToString(), "a/b/c/d");
   ASSERT_EQ(joined.ToNative(), L"a\\b\\c\\d");
 #endif
 }
 
 TEST(PlatformFilename, JoinInvalid) {
-  PlatformFilename fn, joined;
-  ASSERT_OK(PlatformFilename::FromString("a/b", &fn));
+  PlatformFilename fn;
+  ASSERT_OK_AND_ASSIGN(fn, PlatformFilename::FromString("a/b"));
   std::string s = "foo";
   s += '\x00';
-  ASSERT_RAISES(Invalid, fn.Join(s, &joined));
+  ASSERT_RAISES(Invalid, fn.Join(s));
 }
 
 TEST(PlatformFilename, Parent) {
   PlatformFilename fn;
 
   // Relative
-  ASSERT_OK(PlatformFilename::FromString("ab/cd", &fn));
+  ASSERT_OK_AND_ASSIGN(fn, PlatformFilename::FromString("ab/cd"));
   ASSERT_EQ(fn.ToString(), "ab/cd");
   fn = fn.Parent();
   ASSERT_EQ(fn.ToString(), "ab");
   fn = fn.Parent();
   ASSERT_EQ(fn.ToString(), "ab");
 #if _WIN32
-  ASSERT_OK(PlatformFilename::FromString("ab/cd\\ef", &fn));
+  ASSERT_OK_AND_ASSIGN(fn, PlatformFilename::FromString("ab/cd\\ef"));
   ASSERT_EQ(fn.ToString(), "ab/cd/ef");
   fn = fn.Parent();
   ASSERT_EQ(fn.ToString(), "ab/cd");
@@ -152,7 +151,7 @@ TEST(PlatformFilename, Parent) {
 #endif
 
   // Absolute
-  ASSERT_OK(PlatformFilename::FromString("/ab/cd/ef", &fn));
+  ASSERT_OK_AND_ASSIGN(fn, PlatformFilename::FromString("/ab/cd/ef"));
   ASSERT_EQ(fn.ToString(), "/ab/cd/ef");
   fn = fn.Parent();
   ASSERT_EQ(fn.ToString(), "/ab/cd");
@@ -163,7 +162,7 @@ TEST(PlatformFilename, Parent) {
   fn = fn.Parent();
   ASSERT_EQ(fn.ToString(), "/");
 #if _WIN32
-  ASSERT_OK(PlatformFilename::FromString("\\ab\\cd/ef", &fn));
+  ASSERT_OK_AND_ASSIGN(fn, PlatformFilename::FromString("\\ab\\cd/ef"));
   ASSERT_EQ(fn.ToString(), "/ab/cd/ef");
   fn = fn.Parent();
   ASSERT_EQ(fn.ToString(), "/ab/cd");
@@ -176,13 +175,13 @@ TEST(PlatformFilename, Parent) {
 #endif
 
   // Empty
-  ASSERT_OK(PlatformFilename::FromString("", &fn));
+  ASSERT_OK_AND_ASSIGN(fn, PlatformFilename::FromString(""));
   ASSERT_EQ(fn.ToString(), "");
   fn = fn.Parent();
   ASSERT_EQ(fn.ToString(), "");
 
   // Multiple separators, relative
-  ASSERT_OK(PlatformFilename::FromString("ab//cd///ef", &fn));
+  ASSERT_OK_AND_ASSIGN(fn, PlatformFilename::FromString("ab//cd///ef"));
   ASSERT_EQ(fn.ToString(), "ab//cd///ef");
   fn = fn.Parent();
   ASSERT_EQ(fn.ToString(), "ab//cd");
@@ -191,7 +190,7 @@ TEST(PlatformFilename, Parent) {
   fn = fn.Parent();
   ASSERT_EQ(fn.ToString(), "ab");
 #if _WIN32
-  ASSERT_OK(PlatformFilename::FromString("ab\\\\cd\\\\\\ef", &fn));
+  ASSERT_OK_AND_ASSIGN(fn, PlatformFilename::FromString("ab\\\\cd\\\\\\ef"));
   ASSERT_EQ(fn.ToString(), "ab//cd///ef");
   fn = fn.Parent();
   ASSERT_EQ(fn.ToString(), "ab//cd");
@@ -202,7 +201,7 @@ TEST(PlatformFilename, Parent) {
 #endif
 
   // Multiple separators, absolute
-  ASSERT_OK(PlatformFilename::FromString("//ab//cd///ef", &fn));
+  ASSERT_OK_AND_ASSIGN(fn, PlatformFilename::FromString("//ab//cd///ef"));
   ASSERT_EQ(fn.ToString(), "//ab//cd///ef");
   fn = fn.Parent();
   ASSERT_EQ(fn.ToString(), "//ab//cd");
@@ -213,7 +212,7 @@ TEST(PlatformFilename, Parent) {
   fn = fn.Parent();
   ASSERT_EQ(fn.ToString(), "//");
 #if _WIN32
-  ASSERT_OK(PlatformFilename::FromString("\\\\ab\\cd\\ef", &fn));
+  ASSERT_OK_AND_ASSIGN(fn, PlatformFilename::FromString("\\\\ab\\cd\\ef"));
   ASSERT_EQ(fn.ToString(), "//ab/cd/ef");
   fn = fn.Parent();
   ASSERT_EQ(fn.ToString(), "//ab/cd");
@@ -226,36 +225,36 @@ TEST(PlatformFilename, Parent) {
 #endif
 
   // Trailing slashes
-  ASSERT_OK(PlatformFilename::FromString("/ab/cd/ef/", &fn));
+  ASSERT_OK_AND_ASSIGN(fn, PlatformFilename::FromString("/ab/cd/ef/"));
   ASSERT_EQ(fn.ToString(), "/ab/cd/ef/");
   fn = fn.Parent();
   ASSERT_EQ(fn.ToString(), "/ab/cd");
-  ASSERT_OK(PlatformFilename::FromString("/ab/cd/ef//", &fn));
+  ASSERT_OK_AND_ASSIGN(fn, PlatformFilename::FromString("/ab/cd/ef//"));
   ASSERT_EQ(fn.ToString(), "/ab/cd/ef//");
   fn = fn.Parent();
   ASSERT_EQ(fn.ToString(), "/ab/cd");
-  ASSERT_OK(PlatformFilename::FromString("ab/", &fn));
+  ASSERT_OK_AND_ASSIGN(fn, PlatformFilename::FromString("ab/"));
   ASSERT_EQ(fn.ToString(), "ab/");
   fn = fn.Parent();
   ASSERT_EQ(fn.ToString(), "ab/");
-  ASSERT_OK(PlatformFilename::FromString("ab//", &fn));
+  ASSERT_OK_AND_ASSIGN(fn, PlatformFilename::FromString("ab//"));
   ASSERT_EQ(fn.ToString(), "ab//");
   fn = fn.Parent();
   ASSERT_EQ(fn.ToString(), "ab//");
 #if _WIN32
-  ASSERT_OK(PlatformFilename::FromString("\\ab\\cd\\ef\\", &fn));
+  ASSERT_OK_AND_ASSIGN(fn, PlatformFilename::FromString("\\ab\\cd\\ef\\"));
   ASSERT_EQ(fn.ToString(), "/ab/cd/ef/");
   fn = fn.Parent();
   ASSERT_EQ(fn.ToString(), "/ab/cd");
-  ASSERT_OK(PlatformFilename::FromString("\\ab\\cd\\ef\\\\", &fn));
+  ASSERT_OK_AND_ASSIGN(fn, PlatformFilename::FromString("\\ab\\cd\\ef\\\\"));
   ASSERT_EQ(fn.ToString(), "/ab/cd/ef//");
   fn = fn.Parent();
   ASSERT_EQ(fn.ToString(), "/ab/cd");
-  ASSERT_OK(PlatformFilename::FromString("ab\\", &fn));
+  ASSERT_OK_AND_ASSIGN(fn, PlatformFilename::FromString("ab\\"));
   ASSERT_EQ(fn.ToString(), "ab/");
   fn = fn.Parent();
   ASSERT_EQ(fn.ToString(), "ab/");
-  ASSERT_OK(PlatformFilename::FromString("ab\\\\", &fn));
+  ASSERT_OK_AND_ASSIGN(fn, PlatformFilename::FromString("ab\\\\"));
   ASSERT_EQ(fn.ToString(), "ab//");
   fn = fn.Parent();
   ASSERT_EQ(fn.ToString(), "ab//");
@@ -267,7 +266,7 @@ TEST(CreateDirDeleteDir, Basics) {
   bool created, deleted;
   PlatformFilename parent, child;
 
-  ASSERT_OK(PlatformFilename::FromString(BASE, &parent));
+  ASSERT_OK_AND_ASSIGN(parent, PlatformFilename::FromString(BASE));
   ASSERT_EQ(parent.ToString(), BASE);
 
   // Make sure the directory doesn't exist already
@@ -275,28 +274,28 @@ TEST(CreateDirDeleteDir, Basics) {
 
   AssertNotExists(parent);
 
-  ASSERT_OK(CreateDir(parent, &created));
+  ASSERT_OK_AND_ASSIGN(created, CreateDir(parent));
   ASSERT_TRUE(created);
   AssertExists(parent);
-  ASSERT_OK(CreateDir(parent, &created));
+  ASSERT_OK_AND_ASSIGN(created, CreateDir(parent));
   ASSERT_FALSE(created);  // already exists
   AssertExists(parent);
 
-  ASSERT_OK(PlatformFilename::FromString(BASE + "/some-child", &child));
-  ASSERT_OK(CreateDir(child, &created));
+  ASSERT_OK_AND_ASSIGN(child, PlatformFilename::FromString(BASE + "/some-child"));
+  ASSERT_OK_AND_ASSIGN(created, CreateDir(child));
   ASSERT_TRUE(created);
   AssertExists(child);
 
-  ASSERT_OK(DeleteDirTree(parent, &deleted));
+  ASSERT_OK_AND_ASSIGN(deleted, DeleteDirTree(parent));
   ASSERT_TRUE(deleted);
   AssertNotExists(parent);
   AssertNotExists(child);
 
   // Parent is deleted, cannot create child again
-  ASSERT_RAISES(IOError, CreateDir(child, &created));
+  ASSERT_RAISES(IOError, CreateDir(child));
 
   // It's not an error to call DeleteDirTree on a non-existent path.
-  ASSERT_OK(DeleteDirTree(parent, &deleted));
+  ASSERT_OK_AND_ASSIGN(deleted, DeleteDirTree(parent));
   ASSERT_FALSE(deleted);
 }
 
@@ -305,7 +304,7 @@ TEST(DeleteDirContents, Basics) {
   bool created, deleted;
   PlatformFilename parent, child1, child2;
 
-  ASSERT_OK(PlatformFilename::FromString(BASE, &parent));
+  ASSERT_OK_AND_ASSIGN(parent, PlatformFilename::FromString(BASE));
   ASSERT_EQ(parent.ToString(), BASE);
 
   // Make sure the directory doesn't exist already
@@ -314,15 +313,14 @@ TEST(DeleteDirContents, Basics) {
   AssertNotExists(parent);
 
   // Create the parent, a child dir and a child file
-  ASSERT_OK(CreateDir(parent, &created));
+  ASSERT_OK_AND_ASSIGN(created, CreateDir(parent));
   ASSERT_TRUE(created);
-  ASSERT_OK(PlatformFilename::FromString(BASE + "/child-dir", &child1));
-  ASSERT_OK(PlatformFilename::FromString(BASE + "/child-file", &child2));
-  ASSERT_OK(CreateDir(child1, &created));
+  ASSERT_OK_AND_ASSIGN(child1, PlatformFilename::FromString(BASE + "/child-dir"));
+  ASSERT_OK_AND_ASSIGN(child2, PlatformFilename::FromString(BASE + "/child-file"));
+  ASSERT_OK_AND_ASSIGN(created, CreateDir(child1));
   ASSERT_TRUE(created);
   int fd = -1;
-  ASSERT_OK(FileOpenWritable(child2, true /* write_only */, true /* truncate */,
-                             false /* append */, &fd));
+  ASSERT_OK_AND_ASSIGN(fd, FileOpenWritable(child2));
   ASSERT_OK(FileClose(fd));
   AssertExists(child1);
   AssertExists(child2);
@@ -331,17 +329,17 @@ TEST(DeleteDirContents, Basics) {
   ASSERT_RAISES(IOError, DeleteDirContents(child2));
   AssertExists(child2);
 
-  ASSERT_OK(DeleteDirContents(parent, &deleted));
+  ASSERT_OK_AND_ASSIGN(deleted, DeleteDirContents(parent));
   ASSERT_TRUE(deleted);
   AssertExists(parent);
   AssertNotExists(child1);
   AssertNotExists(child2);
-  ASSERT_OK(DeleteDirContents(parent, &deleted));
+  ASSERT_OK_AND_ASSIGN(deleted, DeleteDirContents(parent));
   ASSERT_TRUE(deleted);
   AssertExists(parent);
 
   // It's not an error to call DeleteDirContents on a non-existent path.
-  ASSERT_OK(DeleteDirContents(child1, &deleted));
+  ASSERT_OK_AND_ASSIGN(deleted, DeleteDirContents(child1));
   ASSERT_FALSE(deleted);
 }
 
@@ -349,7 +347,7 @@ TEST(TemporaryDir, Basics) {
   std::unique_ptr<TemporaryDir> temp_dir;
   PlatformFilename fn;
 
-  ASSERT_OK(TemporaryDir::Make("some-prefix-", &temp_dir));
+  ASSERT_OK_AND_ASSIGN(temp_dir, TemporaryDir::Make("some-prefix-"));
   fn = temp_dir->path();
   // Path has a trailing separator, for convenience
   ASSERT_EQ(fn.ToString().back(), '/');
@@ -380,20 +378,20 @@ TEST(CreateDirTree, Basics) {
   PlatformFilename fn;
   bool created;
 
-  ASSERT_OK(TemporaryDir::Make("io-util-test-", &temp_dir));
+  ASSERT_OK_AND_ASSIGN(temp_dir, TemporaryDir::Make("io-util-test-"));
 
-  ASSERT_OK(temp_dir->path().Join("AB/CD", &fn));
-  ASSERT_OK(CreateDirTree(fn, &created));
+  ASSERT_OK_AND_ASSIGN(fn, temp_dir->path().Join("AB/CD"));
+  ASSERT_OK_AND_ASSIGN(created, CreateDirTree(fn));
   ASSERT_TRUE(created);
-  ASSERT_OK(CreateDirTree(fn, &created));
+  ASSERT_OK_AND_ASSIGN(created, CreateDirTree(fn));
   ASSERT_FALSE(created);
 
-  ASSERT_OK(temp_dir->path().Join("AB", &fn));
-  ASSERT_OK(CreateDirTree(fn, &created));
+  ASSERT_OK_AND_ASSIGN(fn, temp_dir->path().Join("AB"));
+  ASSERT_OK_AND_ASSIGN(created, CreateDirTree(fn));
   ASSERT_FALSE(created);
 
-  ASSERT_OK(temp_dir->path().Join("EF", &fn));
-  ASSERT_OK(CreateDirTree(fn, &created));
+  ASSERT_OK_AND_ASSIGN(fn, temp_dir->path().Join("EF"));
+  ASSERT_OK_AND_ASSIGN(created, CreateDirTree(fn));
   ASSERT_TRUE(created);
 }
 
@@ -412,31 +410,30 @@ TEST(ListDir, Basics) {
     ASSERT_EQ(actual, expected);
   };
 
-  ASSERT_OK(TemporaryDir::Make("io-util-test-", &temp_dir));
+  ASSERT_OK_AND_ASSIGN(temp_dir, TemporaryDir::Make("io-util-test-"));
 
-  ASSERT_OK(temp_dir->path().Join("AB/CD", &fn));
+  ASSERT_OK_AND_ASSIGN(fn, temp_dir->path().Join("AB/CD"));
   ASSERT_OK(CreateDirTree(fn));
-  ASSERT_OK(temp_dir->path().Join("AB/EF/GH", &fn));
+  ASSERT_OK_AND_ASSIGN(fn, temp_dir->path().Join("AB/EF/GH"));
   ASSERT_OK(CreateDirTree(fn));
-  ASSERT_OK(temp_dir->path().Join("AB/ghi.txt", &fn));
+  ASSERT_OK_AND_ASSIGN(fn, temp_dir->path().Join("AB/ghi.txt"));
   int fd = -1;
-  ASSERT_OK(FileOpenWritable(fn, true /* write_only */, true /* truncate */,
-                             false /* append */, &fd));
+  ASSERT_OK_AND_ASSIGN(fd, FileOpenWritable(fn));
   ASSERT_OK(FileClose(fd));
 
-  ASSERT_OK(temp_dir->path().Join("AB", &fn));
-  ASSERT_OK(ListDir(fn, &entries));
+  ASSERT_OK_AND_ASSIGN(fn, temp_dir->path().Join("AB"));
+  ASSERT_OK_AND_ASSIGN(entries, ListDir(fn));
   ASSERT_EQ(entries.size(), 3);
   check_entries(entries, {"CD", "EF", "ghi.txt"});
-  ASSERT_OK(temp_dir->path().Join("AB/EF/GH", &fn));
-  ASSERT_OK(ListDir(fn, &entries));
+  ASSERT_OK_AND_ASSIGN(fn, temp_dir->path().Join("AB/EF/GH"));
+  ASSERT_OK_AND_ASSIGN(entries, ListDir(fn));
   check_entries(entries, {});
 
   // Errors
-  ASSERT_OK(temp_dir->path().Join("non-existent", &fn));
-  ASSERT_RAISES(IOError, ListDir(fn, &entries));
-  ASSERT_OK(temp_dir->path().Join("AB/ghi.txt", &fn));
-  ASSERT_RAISES(IOError, ListDir(fn, &entries));
+  ASSERT_OK_AND_ASSIGN(fn, temp_dir->path().Join("non-existent"));
+  ASSERT_RAISES(IOError, ListDir(fn));
+  ASSERT_OK_AND_ASSIGN(fn, temp_dir->path().Join("AB/ghi.txt"));
+  ASSERT_RAISES(IOError, ListDir(fn));
 }
 
 TEST(DeleteFile, Basics) {
@@ -445,23 +442,22 @@ TEST(DeleteFile, Basics) {
   int fd;
   bool deleted;
 
-  ASSERT_OK(TemporaryDir::Make("io-util-test-", &temp_dir));
-  ASSERT_OK(temp_dir->path().Join("test-file", &fn));
+  ASSERT_OK_AND_ASSIGN(temp_dir, TemporaryDir::Make("io-util-test-"));
+  ASSERT_OK_AND_ASSIGN(fn, temp_dir->path().Join("test-file"));
 
   AssertNotExists(fn);
-  ASSERT_OK(FileOpenWritable(fn, true /* write_only */, true /* truncate */,
-                             false /* append */, &fd));
+  ASSERT_OK_AND_ASSIGN(fd, FileOpenWritable(fn));
   ASSERT_OK(FileClose(fd));
   AssertExists(fn);
-  ASSERT_OK(DeleteFile(fn, &deleted));
+  ASSERT_OK_AND_ASSIGN(deleted, DeleteFile(fn));
   ASSERT_TRUE(deleted);
   AssertNotExists(fn);
-  ASSERT_OK(DeleteFile(fn, &deleted));
+  ASSERT_OK_AND_ASSIGN(deleted, DeleteFile(fn));
   ASSERT_FALSE(deleted);
   AssertNotExists(fn);
 
   // Cannot call DeleteFile on directory
-  ASSERT_OK(temp_dir->path().Join("test-temp_dir", &fn));
+  ASSERT_OK_AND_ASSIGN(fn, temp_dir->path().Join("test-temp_dir"));
   ASSERT_OK(CreateDir(fn));
   AssertExists(fn);
   ASSERT_RAISES(IOError, DeleteFile(fn));

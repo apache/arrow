@@ -254,16 +254,15 @@ TEST_F(UTF8ValidationTest, RandomTruncated) {
 TEST(SkipUTF8BOM, Basics) {
   auto CheckOk = [](const std::string& s, size_t expected_offset) -> void {
     const uint8_t* data = reinterpret_cast<const uint8_t*>(s.data());
-    const uint8_t* res = nullptr;
-    ASSERT_OK(SkipUTF8BOM(data, static_cast<int64_t>(s.size()), &res));
+    const uint8_t* res;
+    ASSERT_OK_AND_ASSIGN(res, SkipUTF8BOM(data, static_cast<int64_t>(s.size())));
     ASSERT_NE(res, nullptr);
     ASSERT_EQ(res - data, expected_offset);
   };
 
   auto CheckTruncated = [](const std::string& s) -> void {
     const uint8_t* data = reinterpret_cast<const uint8_t*>(s.data());
-    const uint8_t* res = nullptr;
-    ASSERT_RAISES(Invalid, SkipUTF8BOM(data, static_cast<int64_t>(s.size()), &res));
+    ASSERT_RAISES(Invalid, SkipUTF8BOM(data, static_cast<int64_t>(s.size())));
   };
 
   CheckOk("", 0);
@@ -284,14 +283,12 @@ TEST(SkipUTF8BOM, Basics) {
 
 TEST(UTF8ToWideString, Basics) {
   auto CheckOk = [](const std::string& s, const std::wstring& expected) -> void {
-    std::wstring ws;
-    ASSERT_OK(UTF8ToWideString(s, &ws));
+    ASSERT_OK_AND_ASSIGN(std::wstring ws, UTF8ToWideString(s));
     ASSERT_EQ(ws, expected);
   };
 
   auto CheckInvalid = [](const std::string& s) -> void {
-    std::wstring ws;
-    ASSERT_RAISES(Invalid, UTF8ToWideString(s, &ws));
+    ASSERT_RAISES(Invalid, UTF8ToWideString(s));
   };
 
   CheckOk("", L"");
@@ -307,14 +304,12 @@ TEST(UTF8ToWideString, Basics) {
 
 TEST(WideStringToUTF8, Basics) {
   auto CheckOk = [](const std::wstring& ws, const std::string& expected) -> void {
-    std::string s;
-    ASSERT_OK(WideStringToUTF8(ws, &s));
+    ASSERT_OK_AND_ASSIGN(std::string s, WideStringToUTF8(ws));
     ASSERT_EQ(s, expected);
   };
 
   auto CheckInvalid = [](const std::wstring& ws) -> void {
-    std::string s;
-    ASSERT_RAISES(Invalid, WideStringToUTF8(ws, &s));
+    ASSERT_RAISES(Invalid, WideStringToUTF8(ws));
   };
 
   CheckOk(L"", "");

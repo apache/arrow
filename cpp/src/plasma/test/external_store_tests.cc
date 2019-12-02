@@ -54,7 +54,7 @@ class TestPlasmaStoreWithExternal : public ::testing::Test {
   // TODO(pcm): At the moment, stdout of the test gets mixed up with
   // stdout of the object store. Consider changing that.
   void SetUp() override {
-    ARROW_CHECK_OK(TemporaryDir::Make("ext-test-", &temp_dir_));
+    ASSERT_OK_AND_ASSIGN(temp_dir_, TemporaryDir::Make("ext-test-"));
     store_socket_name_ = temp_dir_->path().ToString() + "store";
 
     std::string plasma_directory =

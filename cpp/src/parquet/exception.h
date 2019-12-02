@@ -23,6 +23,7 @@
 #include <string>
 #include <utility>
 
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "parquet/platform.h"
 
@@ -38,19 +39,28 @@
     return ::arrow::Status::IOError(e.what());     \
   }
 
-#define PARQUET_IGNORE_NOT_OK(s) \
-  do {                           \
-    ::arrow::Status _s = (s);    \
-    ARROW_UNUSED(_s);            \
+#define PARQUET_IGNORE_NOT_OK(s)                                \
+  do {                                                          \
+    ::arrow::Status _s = ::arrow::internal::GenericToStatus(s); \
+    ARROW_UNUSED(_s);                                           \
   } while (0)
 
-#define PARQUET_THROW_NOT_OK(s)                               \
-  do {                                                        \
-    ::arrow::Status _s = (s);                                 \
-    if (!_s.ok()) {                                           \
-      throw ::parquet::ParquetStatusException(std::move(_s)); \
-    }                                                         \
+#define PARQUET_THROW_NOT_OK(s)                                 \
+  do {                                                          \
+    ::arrow::Status _s = ::arrow::internal::GenericToStatus(s); \
+    if (!_s.ok()) {                                             \
+      throw ::parquet::ParquetStatusException(std::move(_s));   \
+    }                                                           \
   } while (0)
+
+#define PARQUET_ASSIGN_OR_THROW_IMPL(status_name, lhs, rexpr) \
+  auto status_name = (rexpr);                                 \
+  PARQUET_THROW_NOT_OK(status_name.status());                 \
+  lhs = std::move(status_name).ValueOrDie();
+
+#define PARQUET_ASSIGN_OR_THROW(lhs, rexpr)                                              \
+  PARQUET_ASSIGN_OR_THROW_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
+                               lhs, rexpr);
 
 namespace parquet {
 

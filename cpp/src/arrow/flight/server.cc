@@ -593,7 +593,6 @@ FlightMetadataWriter::~FlightMetadataWriter() = default;
 #error "atomic ints and atomic pointers not always lock-free!"
 #endif
 
-using ::arrow::internal::GetSignalHandler;
 using ::arrow::internal::SetSignalHandler;
 using ::arrow::internal::SignalHandler;
 
@@ -715,8 +714,8 @@ Status FlightServerBase::Serve() {
   for (size_t i = 0; i < impl_->signals_.size(); ++i) {
     int signum = impl_->signals_[i];
     SignalHandler new_handler(&Impl::HandleSignal), old_handler;
-    RETURN_NOT_OK(SetSignalHandler(signum, new_handler, &old_handler));
-    impl_->old_signal_handlers_.push_back(old_handler);
+    ARROW_ASSIGN_OR_RAISE(old_handler, SetSignalHandler(signum, new_handler));
+    impl_->old_signal_handlers_.push_back(std::move(old_handler));
   }
 
   impl_->server_->Wait();
@@ -725,7 +724,7 @@ Status FlightServerBase::Serve() {
   // Restore signal handlers
   for (size_t i = 0; i < impl_->signals_.size(); ++i) {
     RETURN_NOT_OK(
-        SetSignalHandler(impl_->signals_[i], impl_->old_signal_handlers_[i], nullptr));
+        SetSignalHandler(impl_->signals_[i], impl_->old_signal_handlers_[i]).status());
   }
 
   return Status::OK();

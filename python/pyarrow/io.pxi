@@ -1200,7 +1200,7 @@ cdef class CompressedInputStream(NativeFile):
             raise ValueError('Invalid value for compression: {!r}'
                              .format(compression))
 
-        check_status(CCodec.Create(compression_type, &codec))
+        codec = move(GetResultValue(CCodec.Create(compression_type)))
         check_status(CCompressedInputStream.Make(
             codec.get(), stream.get_input_stream(), &compressed_stream))
 
@@ -1230,7 +1230,7 @@ cdef class CompressedOutputStream(NativeFile):
             raise ValueError('Invalid value for compression: {!r}'
                              .format(compression))
 
-        check_status(CCodec.Create(compression_type, &codec))
+        codec = move(GetResultValue(CCodec.Create(compression_type)))
         check_status(CCompressedOutputStream.Make(
             codec.get(), stream.get_output_stream(), &compressed_stream))
 
@@ -1432,7 +1432,7 @@ cdef get_input_stream(object source, c_bool use_memory_map,
     input_stream = nf.get_input_stream()
 
     if compression_type != CompressionType_UNCOMPRESSED:
-        check_status(CCodec.Create(compression_type, &codec))
+        codec = move(GetResultValue(CCodec.Create(compression_type)))
         check_status(CCompressedInputStream.Make(codec.get(), input_stream,
                                                  &compressed_stream))
         input_stream = <shared_ptr[CInputStream]> compressed_stream
@@ -1513,20 +1513,19 @@ def compress(object buf, codec='lz4', asbytes=False, memory_pool=None):
     compressed : pyarrow.Buffer or bytes (if asbytes=True)
     """
     cdef:
-        CompressionType c_codec = _get_compression_type(codec)
-        unique_ptr[CCodec] compressor
+        CompressionType compression_type = _get_compression_type(codec)
+        unique_ptr[CCodec] c_codec
         cdef shared_ptr[CBuffer] owned_buf
         CBuffer* c_buf
         cdef PyObject* pyobj
         cdef ResizableBuffer out_buf
 
-    with nogil:
-        check_status(CCodec.Create(c_codec, &compressor))
+    c_codec = move(GetResultValue(CCodec.Create(compression_type)))
 
     owned_buf = as_c_buffer(buf)
     c_buf = owned_buf.get()
 
-    cdef int64_t max_output_size = (compressor.get()
+    cdef int64_t max_output_size = (c_codec.get()
                                     .MaxCompressedLen(c_buf.size(),
                                                       c_buf.data()))
     cdef uint8_t* output_buffer = NULL
@@ -1539,12 +1538,12 @@ def compress(object buf, codec='lz4', asbytes=False, memory_pool=None):
                                   resizable=True)
         output_buffer = out_buf.buffer.get().mutable_data()
 
-    cdef int64_t output_length = 0
+    cdef int64_t output_length
     with nogil:
-        check_status(compressor.get()
-                     .Compress(c_buf.size(), c_buf.data(),
-                               max_output_size, output_buffer,
-                               &output_length))
+        output_length = GetResultValue(
+            c_codec.get()
+            .Compress(c_buf.size(), c_buf.data(),
+                      max_output_size, output_buffer))
 
     if asbytes:
         cp._PyBytes_Resize(&pyobj, <Py_ssize_t> output_length)
@@ -1578,14 +1577,13 @@ def decompress(object buf, decompressed_size=None, codec='lz4',
     uncompressed : pyarrow.Buffer or bytes (if asbytes=True)
     """
     cdef:
-        CompressionType c_codec = _get_compression_type(codec)
-        unique_ptr[CCodec] compressor
+        CompressionType compression_type = _get_compression_type(codec)
+        unique_ptr[CCodec] c_codec
         cdef shared_ptr[CBuffer] owned_buf
         cdef CBuffer* c_buf
         cdef Buffer out_buf
 
-    with nogil:
-        check_status(CCodec.Create(c_codec, &compressor))
+    c_codec = move(GetResultValue(CCodec.Create(compression_type)))
 
     owned_buf = as_c_buffer(buf)
     c_buf = owned_buf.get()
@@ -1605,9 +1603,10 @@ def decompress(object buf, decompressed_size=None, codec='lz4',
         output_buffer = out_buf.buffer.get().mutable_data()
 
     with nogil:
-        check_status(compressor.get()
+        check_status(c_codec.get()
                      .Decompress(c_buf.size(), c_buf.data(),
-                                 output_size, output_buffer))
+                                 output_size, output_buffer)
+                     .status())
 
     return pybuf if asbytes else out_buf
 

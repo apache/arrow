@@ -809,8 +809,9 @@ Status NumPyConverter::Visit(const StructType& type) {
                                    // byte size
                                    BitUtil::BytesForBits(null_data->length));
     } else {
-      RETURN_NOT_OK(CopyBitmap(pool_, null_buffer->data(), null_offset, null_data->length,
-                               &fixed_null_buffer));
+      ARROW_ASSIGN_OR_RAISE(
+          fixed_null_buffer,
+          CopyBitmap(pool_, null_buffer->data(), null_offset, null_data->length));
     }
 
     // Create struct array chunk and populate it

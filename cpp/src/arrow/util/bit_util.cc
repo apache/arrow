@@ -57,8 +57,8 @@ void FillBitsFromBytes(const std::vector<uint8_t>& bytes, uint8_t* bits) {
 
 }  // namespace
 
-Status BytesToBits(const std::vector<uint8_t>& bytes, MemoryPool* pool,
-                   std::shared_ptr<Buffer>* out) {
+Result<std::shared_ptr<Buffer>> BytesToBits(const std::vector<uint8_t>& bytes,
+                                            MemoryPool* pool) {
   int64_t bit_length = BytesForBits(bytes.size());
 
   std::shared_ptr<Buffer> buffer;
@@ -66,9 +66,7 @@ Status BytesToBits(const std::vector<uint8_t>& bytes, MemoryPool* pool,
   uint8_t* out_buf = buffer->mutable_data();
   memset(out_buf, 0, static_cast<size_t>(buffer->capacity()));
   FillBitsFromBytes(bytes, out_buf);
-
-  *out = buffer;
-  return Status::OK();
+  return buffer;
 }
 
 }  // namespace BitUtil
@@ -186,8 +184,8 @@ void TransferBitmap(const uint8_t* data, int64_t offset, int64_t length,
 }
 
 template <bool invert_bits>
-Status TransferBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset,
-                      int64_t length, std::shared_ptr<Buffer>* out) {
+Result<std::shared_ptr<Buffer>> TransferBitmap(MemoryPool* pool, const uint8_t* data,
+                                               int64_t offset, int64_t length) {
   std::shared_ptr<Buffer> buffer;
   RETURN_NOT_OK(AllocateEmptyBitmap(pool, length, &buffer));
   uint8_t* dest = buffer->mutable_data();
@@ -202,9 +200,7 @@ Status TransferBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset,
     // Both branches may copy extra bits - unsetting to match specification.
     BitUtil::ClearBit(dest, i);
   }
-
-  *out = buffer;
-  return Status::OK();
+  return buffer;
 }
 
 void CopyBitmap(const uint8_t* data, int64_t offset, int64_t length, uint8_t* dest,
@@ -221,14 +217,15 @@ void InvertBitmap(const uint8_t* data, int64_t offset, int64_t length, uint8_t* 
   TransferBitmap<true, true>(data, offset, length, dest_offset, dest);
 }
 
-Status CopyBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset, int64_t length,
-                  std::shared_ptr<Buffer>* out) {
-  return TransferBitmap<false>(pool, data, offset, length, out);
+Result<std::shared_ptr<Buffer>> CopyBitmap(MemoryPool* pool, const uint8_t* data,
+                                           int64_t offset, int64_t length) {
+  return TransferBitmap<false>(pool, data, offset, length);
 }
 
-Status InvertBitmap(MemoryPool* pool, const uint8_t* data, int64_t offset, int64_t length,
-                    std::shared_ptr<Buffer>* out) {
-  return TransferBitmap<true>(pool, data, offset, length, out);
+Result<std::shared_ptr<Buffer>> InvertBitmap(MemoryPool* pool, const uint8_t* data,
+                                             int64_t offset, int64_t length,
+                                             std::shared_ptr<Buffer>* out) {
+  return TransferBitmap<true>(pool, data, offset, length);
 }
 
 bool BitmapEquals(const uint8_t* left, int64_t left_offset, const uint8_t* right,
@@ -314,15 +311,16 @@ void BitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* right,
 }
 
 template <typename BitOp, typename LogicalOp>
-Status BitmapOp(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
-                const uint8_t* right, int64_t right_offset, int64_t length,
-                int64_t out_offset, std::shared_ptr<Buffer>* out_buffer) {
+Result<std::shared_ptr<Buffer>> BitmapOp(MemoryPool* pool, const uint8_t* left,
+                                         int64_t left_offset, const uint8_t* right,
+                                         int64_t right_offset, int64_t length,
+                                         int64_t out_offset) {
+  std::shared_ptr<Buffer> out_buffer;
   const int64_t phys_bits = length + out_offset;
-  RETURN_NOT_OK(AllocateEmptyBitmap(pool, phys_bits, out_buffer));
-  uint8_t* out = (*out_buffer)->mutable_data();
+  RETURN_NOT_OK(AllocateEmptyBitmap(pool, phys_bits, &out_buffer));
   BitmapOp<BitOp, LogicalOp>(left, left_offset, right, right_offset, length, out_offset,
-                             out);
-  return Status::OK();
+                             out_buffer->mutable_data());
+  return out_buffer;
 }
 
 }  // namespace
@@ -358,11 +356,12 @@ int64_t Bitmap::BitLength(const Bitmap* bitmaps, size_t N) {
   return bitmaps[0].length();
 }
 
-Status BitmapAnd(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
-                 const uint8_t* right, int64_t right_offset, int64_t length,
-                 int64_t out_offset, std::shared_ptr<Buffer>* out_buffer) {
+Result<std::shared_ptr<Buffer>> BitmapAnd(MemoryPool* pool, const uint8_t* left,
+                                          int64_t left_offset, const uint8_t* right,
+                                          int64_t right_offset, int64_t length,
+                                          int64_t out_offset) {
   return BitmapOp<std::bit_and<uint8_t>, std::logical_and<bool>>(
-      pool, left, left_offset, right, right_offset, length, out_offset, out_buffer);
+      pool, left, left_offset, right, right_offset, length, out_offset);
 }
 
 void BitmapAnd(const uint8_t* left, int64_t left_offset, const uint8_t* right,
@@ -371,11 +370,12 @@ void BitmapAnd(const uint8_t* left, int64_t left_offset, const uint8_t* right,
       left, left_offset, right, right_offset, length, out_offset, out);
 }
 
-Status BitmapOr(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
-                const uint8_t* right, int64_t right_offset, int64_t length,
-                int64_t out_offset, std::shared_ptr<Buffer>* out_buffer) {
+Result<std::shared_ptr<Buffer>> BitmapOr(MemoryPool* pool, const uint8_t* left,
+                                         int64_t left_offset, const uint8_t* right,
+                                         int64_t right_offset, int64_t length,
+                                         int64_t out_offset) {
   return BitmapOp<std::bit_or<uint8_t>, std::logical_or<bool>>(
-      pool, left, left_offset, right, right_offset, length, out_offset, out_buffer);
+      pool, left, left_offset, right, right_offset, length, out_offset);
 }
 
 void BitmapOr(const uint8_t* left, int64_t left_offset, const uint8_t* right,
@@ -384,11 +384,12 @@ void BitmapOr(const uint8_t* left, int64_t left_offset, const uint8_t* right,
       left, left_offset, right, right_offset, length, out_offset, out);
 }
 
-Status BitmapXor(MemoryPool* pool, const uint8_t* left, int64_t left_offset,
-                 const uint8_t* right, int64_t right_offset, int64_t length,
-                 int64_t out_offset, std::shared_ptr<Buffer>* out_buffer) {
+Result<std::shared_ptr<Buffer>> BitmapXor(MemoryPool* pool, const uint8_t* left,
+                                          int64_t left_offset, const uint8_t* right,
+                                          int64_t right_offset, int64_t length,
+                                          int64_t out_offset) {
   return BitmapOp<std::bit_xor<uint8_t>, std::bit_xor<bool>>(
-      pool, left, left_offset, right, right_offset, length, out_offset, out_buffer);
+      pool, left, left_offset, right, right_offset, length, out_offset);
 }
 
 void BitmapXor(const uint8_t* left, int64_t left_offset, const uint8_t* right,
@@ -397,21 +398,19 @@ void BitmapXor(const uint8_t* left, int64_t left_offset, const uint8_t* right,
       left, left_offset, right, right_offset, length, out_offset, out);
 }
 
-Status BitmapAllButOne(MemoryPool* pool, int64_t length, int64_t straggler_pos,
-                       std::shared_ptr<Buffer>* output, bool value) {
+Result<std::shared_ptr<Buffer>> BitmapAllButOne(MemoryPool* pool, int64_t length,
+                                                int64_t straggler_pos, bool value) {
   if (straggler_pos < 0 || straggler_pos >= length) {
     return Status::Invalid("invalid straggler_pos ", straggler_pos);
   }
 
-  if (*output == nullptr) {
-    RETURN_NOT_OK(AllocateBuffer(pool, BitUtil::BytesForBits(length), output));
-  }
+  std::shared_ptr<Buffer> buffer;
+  RETURN_NOT_OK(AllocateBuffer(pool, BitUtil::BytesForBits(length), &buffer));
 
-  auto bitmap_data = output->get()->mutable_data();
+  auto bitmap_data = buffer->mutable_data();
   BitUtil::SetBitsTo(bitmap_data, 0, length, value);
   BitUtil::SetBitTo(bitmap_data, straggler_pos, !value);
-
-  return Status::OK();
+  return buffer;
 }
 
 }  // namespace internal

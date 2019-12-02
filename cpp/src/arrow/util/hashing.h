@@ -847,7 +847,8 @@ static inline Status ComputeNullBitmap(MemoryPool* pool, const MemoTableType& me
   if (null_index != kKeyNotFound && null_index >= start_offset) {
     null_index -= start_offset;
     *null_count = 1;
-    RETURN_NOT_OK(internal::BitmapAllButOne(pool, dict_length, null_index, null_bitmap));
+    ARROW_ASSIGN_OR_RAISE(*null_bitmap,
+                          internal::BitmapAllButOne(pool, dict_length, null_index));
   }
 
   return Status::OK();

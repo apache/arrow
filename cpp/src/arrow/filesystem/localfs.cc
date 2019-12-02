@@ -173,12 +173,11 @@ Result<FileStats> StatFile(const std::string& path) {
 
 Status StatSelector(const PlatformFilename& dir_fn, const Selector& select,
                     int32_t nesting_depth, std::vector<FileStats>* out) {
-  std::vector<PlatformFilename> children;
-  Status status = ListDir(dir_fn, &children);
-  if (!status.ok()) {
+  auto result = ListDir(dir_fn);
+  if (!result.ok()) {
+    auto status = result.status();
     if (select.allow_non_existent && status.IsIOError()) {
-      bool exists;
-      RETURN_NOT_OK(FileExists(dir_fn, &exists));
+      ARROW_ASSIGN_OR_RAISE(bool exists, FileExists(dir_fn));
       if (!exists) {
         return Status::OK();
       }
@@ -186,7 +185,7 @@ Status StatSelector(const PlatformFilename& dir_fn, const Selector& select,
     return status;
   }
 
-  for (const auto& child_fn : children) {
+  for (const auto& child_fn : *result) {
     PlatformFilename full_fn = dir_fn.Join(child_fn);
     ARROW_ASSIGN_OR_RAISE(FileStats st, StatFile(full_fn.ToNative()));
     if (st.type() != FileType::NonExistent) {
@@ -214,34 +213,29 @@ LocalFileSystem::LocalFileSystem(const LocalFileSystemOptions& options)
 LocalFileSystem::~LocalFileSystem() {}
 
 Result<FileStats> LocalFileSystem::GetTargetStats(const std::string& path) {
-  PlatformFilename fn;
-  RETURN_NOT_OK(PlatformFilename::FromString(path, &fn));
+  ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
   return StatFile(fn.ToNative());
 }
 
 Result<std::vector<FileStats>> LocalFileSystem::GetTargetStats(const Selector& select) {
-  PlatformFilename fn;
-  RETURN_NOT_OK(PlatformFilename::FromString(select.base_dir, &fn));
+  ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(select.base_dir));
   std::vector<FileStats> results;
   RETURN_NOT_OK(StatSelector(fn, select, 0, &results));
   return results;
 }
 
 Status LocalFileSystem::CreateDir(const std::string& path, bool recursive) {
-  PlatformFilename fn;
-  RETURN_NOT_OK(PlatformFilename::FromString(path, &fn));
+  ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
   if (recursive) {
-    return ::arrow::internal::CreateDirTree(fn);
+    return ::arrow::internal::CreateDirTree(fn).status();
   } else {
-    return ::arrow::internal::CreateDir(fn);
+    return ::arrow::internal::CreateDir(fn).status();
   }
 }
 
 Status LocalFileSystem::DeleteDir(const std::string& path) {
-  bool deleted = false;
-  PlatformFilename fn;
-  RETURN_NOT_OK(PlatformFilename::FromString(path, &fn));
-  RETURN_NOT_OK(::arrow::internal::DeleteDirTree(fn, &deleted));
+  ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
+  ARROW_ASSIGN_OR_RAISE(bool deleted, ::arrow::internal::DeleteDirTree(fn));
   if (deleted) {
     return Status::OK();
   } else {
@@ -250,10 +244,8 @@ Status LocalFileSystem::DeleteDir(const std::string& path) {
 }
 
 Status LocalFileSystem::DeleteDirContents(const std::string& path) {
-  bool deleted = false;
-  PlatformFilename fn;
-  RETURN_NOT_OK(PlatformFilename::FromString(path, &fn));
-  RETURN_NOT_OK(::arrow::internal::DeleteDirContents(fn, &deleted));
+  ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
+  ARROW_ASSIGN_OR_RAISE(bool deleted, ::arrow::internal::DeleteDirContents(fn));
   if (deleted) {
     return Status::OK();
   } else {
@@ -262,10 +254,8 @@ Status LocalFileSystem::DeleteDirContents(const std::string& path) {
 }
 
 Status LocalFileSystem::DeleteFile(const std::string& path) {
-  bool deleted = false;
-  PlatformFilename fn;
-  RETURN_NOT_OK(PlatformFilename::FromString(path, &fn));
-  RETURN_NOT_OK(::arrow::internal::DeleteFile(fn, &deleted));
+  ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
+  ARROW_ASSIGN_OR_RAISE(bool deleted, arrow::internal::DeleteFile(fn));
   if (deleted) {
     return Status::OK();
   } else {
@@ -274,9 +264,8 @@ Status LocalFileSystem::DeleteFile(const std::string& path) {
 }
 
 Status LocalFileSystem::Move(const std::string& src, const std::string& dest) {
-  PlatformFilename sfn, dfn;
-  RETURN_NOT_OK(PlatformFilename::FromString(src, &sfn));
-  RETURN_NOT_OK(PlatformFilename::FromString(dest, &dfn));
+  ARROW_ASSIGN_OR_RAISE(auto sfn, PlatformFilename::FromString(src));
+  ARROW_ASSIGN_OR_RAISE(auto dfn, PlatformFilename::FromString(dest));
 
 #ifdef _WIN32
   if (!MoveFileExW(sfn.ToNative().c_str(), dfn.ToNative().c_str(),
@@ -294,9 +283,8 @@ Status LocalFileSystem::Move(const std::string& src, const std::string& dest) {
 }
 
 Status LocalFileSystem::CopyFile(const std::string& src, const std::string& dest) {
-  PlatformFilename sfn, dfn;
-  RETURN_NOT_OK(PlatformFilename::FromString(src, &sfn));
-  RETURN_NOT_OK(PlatformFilename::FromString(dest, &dfn));
+  ARROW_ASSIGN_OR_RAISE(auto sfn, PlatformFilename::FromString(src));
+  ARROW_ASSIGN_OR_RAISE(auto dfn, PlatformFilename::FromString(dest));
   // XXX should we use fstat() to compare inodes?
   if (sfn.ToNative() == dfn.ToNative()) {
     return Status::OK();
@@ -351,12 +339,11 @@ namespace {
 Result<std::shared_ptr<io::OutputStream>> OpenOutputStreamGeneric(const std::string& path,
                                                                   bool truncate,
                                                                   bool append) {
-  PlatformFilename fn;
   int fd;
   bool write_only = true;
-  RETURN_NOT_OK(PlatformFilename::FromString(path, &fn));
-  RETURN_NOT_OK(
-      ::arrow::internal::FileOpenWritable(fn, write_only, truncate, append, &fd));
+  ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
+  ARROW_ASSIGN_OR_RAISE(
+      fd, ::arrow::internal::FileOpenWritable(fn, write_only, truncate, append));
   std::shared_ptr<io::OutputStream> stream;
   Status st = io::FileOutputStream::Open(fd, &stream);
   if (!st.ok()) {

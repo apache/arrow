@@ -84,28 +84,25 @@ void InitializeUTF8() {
 
 static const uint8_t kBOM[] = {0xEF, 0xBB, 0xBF};
 
-Status SkipUTF8BOM(const uint8_t* data, int64_t size, const uint8_t** out) {
+Result<const uint8_t*> SkipUTF8BOM(const uint8_t* data, int64_t size) {
   int64_t i;
   for (i = 0; i < static_cast<int64_t>(sizeof(kBOM)); ++i) {
     if (size == 0) {
       if (i == 0) {
         // Empty string
-        *out = data;
-        return Status::OK();
+        return data;
       } else {
         return Status::Invalid("UTF8 string too short (truncated byte order mark?)");
       }
     }
     if (data[i] != kBOM[i]) {
       // BOM not found
-      *out = data;
-      return Status::OK();
+      return data;
     }
     --size;
   }
   // BOM found
-  *out = data + i;
-  return Status::OK();
+  return data + i;
 }
 
 namespace {
@@ -135,22 +132,20 @@ std::string WideStringToUTF8Internal(const std::wstring& source) {
 
 }  // namespace
 
-Status UTF8ToWideString(const std::string& source, std::wstring* out) {
+Result<std::wstring> UTF8ToWideString(const std::string& source) {
   try {
-    *out = UTF8ToWideStringInternal(source);
+    return UTF8ToWideStringInternal(source);
   } catch (std::exception& e) {
     return Status::Invalid(e.what());
   }
-  return Status::OK();
 }
 
-Status WideStringToUTF8(const std::wstring& source, std::string* out) {
+ARROW_EXPORT Result<std::string> WideStringToUTF8(const std::wstring& source) {
   try {
-    *out = WideStringToUTF8Internal(source);
+    return WideStringToUTF8Internal(source);
   } catch (std::exception& e) {
     return Status::Invalid(e.what());
   }
-  return Status::OK();
 }
 
 }  // namespace util

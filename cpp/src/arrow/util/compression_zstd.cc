@@ -58,9 +58,8 @@ class ZSTDDecompressor : public Decompressor {
     }
   }
 
-  Status Decompress(int64_t input_len, const uint8_t* input, int64_t output_len,
-                    uint8_t* output, int64_t* bytes_read, int64_t* bytes_written,
-                    bool* need_more_output) override {
+  Result<DecompressResult> Decompress(int64_t input_len, const uint8_t* input,
+                                      int64_t output_len, uint8_t* output) override {
     ZSTD_inBuffer in_buf;
     ZSTD_outBuffer out_buf;
 
@@ -76,11 +75,10 @@ class ZSTDDecompressor : public Decompressor {
     if (ZSTD_isError(ret)) {
       return ZSTDError(ret, "ZSTD decompress failed: ");
     }
-    *bytes_read = static_cast<int64_t>(in_buf.pos);
-    *bytes_written = static_cast<int64_t>(out_buf.pos);
-    *need_more_output = *bytes_read == 0 && *bytes_written == 0;
     finished_ = (ret == 0);
-    return Status::OK();
+    return DecompressResult{static_cast<int64_t>(in_buf.pos),
+                            static_cast<int64_t>(out_buf.pos),
+                            in_buf.pos == 0 && out_buf.pos == 0};
   }
 
   Status Reset() override { return Init(); }
@@ -111,14 +109,56 @@ class ZSTDCompressor : public Compressor {
     }
   }
 
-  Status Compress(int64_t input_len, const uint8_t* input, int64_t output_len,
-                  uint8_t* output, int64_t* bytes_read, int64_t* bytes_written) override;
+  Result<CompressResult> Compress(int64_t input_len, const uint8_t* input,
+                                  int64_t output_len, uint8_t* output) override {
+    ZSTD_inBuffer in_buf;
+    ZSTD_outBuffer out_buf;
 
-  Status Flush(int64_t output_len, uint8_t* output, int64_t* bytes_written,
-               bool* should_retry) override;
+    in_buf.src = input;
+    in_buf.size = static_cast<size_t>(input_len);
+    in_buf.pos = 0;
+    out_buf.dst = output;
+    out_buf.size = static_cast<size_t>(output_len);
+    out_buf.pos = 0;
 
-  Status End(int64_t output_len, uint8_t* output, int64_t* bytes_written,
-             bool* should_retry) override;
+    size_t ret;
+    ret = ZSTD_compressStream(stream_, &out_buf, &in_buf);
+    if (ZSTD_isError(ret)) {
+      return ZSTDError(ret, "ZSTD compress failed: ");
+    }
+    return CompressResult{static_cast<int64_t>(in_buf.pos),
+                          static_cast<int64_t>(out_buf.pos)};
+  }
+
+  Result<FlushResult> Flush(int64_t output_len, uint8_t* output) override {
+    ZSTD_outBuffer out_buf;
+
+    out_buf.dst = output;
+    out_buf.size = static_cast<size_t>(output_len);
+    out_buf.pos = 0;
+
+    size_t ret;
+    ret = ZSTD_flushStream(stream_, &out_buf);
+    if (ZSTD_isError(ret)) {
+      return ZSTDError(ret, "ZSTD flush failed: ");
+    }
+    return FlushResult{static_cast<int64_t>(out_buf.pos), ret > 0};
+  }
+
+  Result<EndResult> End(int64_t output_len, uint8_t* output) override {
+    ZSTD_outBuffer out_buf;
+
+    out_buf.dst = output;
+    out_buf.size = static_cast<size_t>(output_len);
+    out_buf.pos = 0;
+
+    size_t ret;
+    ret = ZSTD_endStream(stream_, &out_buf);
+    if (ZSTD_isError(ret)) {
+      return ZSTDError(ret, "ZSTD end failed: ");
+    }
+    return EndResult{static_cast<int64_t>(out_buf.pos), ret > 0};
+  }
 
  protected:
   ZSTD_CStream* stream_;
@@ -126,65 +166,6 @@ class ZSTDCompressor : public Compressor {
  private:
   int compression_level_;
 };
-
-Status ZSTDCompressor::Compress(int64_t input_len, const uint8_t* input,
-                                int64_t output_len, uint8_t* output, int64_t* bytes_read,
-                                int64_t* bytes_written) {
-  ZSTD_inBuffer in_buf;
-  ZSTD_outBuffer out_buf;
-
-  in_buf.src = input;
-  in_buf.size = static_cast<size_t>(input_len);
-  in_buf.pos = 0;
-  out_buf.dst = output;
-  out_buf.size = static_cast<size_t>(output_len);
-  out_buf.pos = 0;
-
-  size_t ret;
-  ret = ZSTD_compressStream(stream_, &out_buf, &in_buf);
-  if (ZSTD_isError(ret)) {
-    return ZSTDError(ret, "ZSTD compress failed: ");
-  }
-  *bytes_read = static_cast<int64_t>(in_buf.pos);
-  *bytes_written = static_cast<int64_t>(out_buf.pos);
-  return Status::OK();
-}
-
-Status ZSTDCompressor::Flush(int64_t output_len, uint8_t* output, int64_t* bytes_written,
-                             bool* should_retry) {
-  ZSTD_outBuffer out_buf;
-
-  out_buf.dst = output;
-  out_buf.size = static_cast<size_t>(output_len);
-  out_buf.pos = 0;
-
-  size_t ret;
-  ret = ZSTD_flushStream(stream_, &out_buf);
-  if (ZSTD_isError(ret)) {
-    return ZSTDError(ret, "ZSTD flush failed: ");
-  }
-  *bytes_written = static_cast<int64_t>(out_buf.pos);
-  *should_retry = ret > 0;
-  return Status::OK();
-}
-
-Status ZSTDCompressor::End(int64_t output_len, uint8_t* output, int64_t* bytes_written,
-                           bool* should_retry) {
-  ZSTD_outBuffer out_buf;
-
-  out_buf.dst = output;
-  out_buf.size = static_cast<size_t>(output_len);
-  out_buf.pos = 0;
-
-  size_t ret;
-  ret = ZSTD_endStream(stream_, &out_buf);
-  if (ZSTD_isError(ret)) {
-    return ZSTDError(ret, "ZSTD end failed: ");
-  }
-  *bytes_written = static_cast<int64_t>(out_buf.pos);
-  *should_retry = ret > 0;
-  return Status::OK();
-}
 
 // ----------------------------------------------------------------------
 // ZSTD codec implementation
@@ -195,28 +176,20 @@ ZSTDCodec::ZSTDCodec(int compression_level) {
                            : compression_level;
 }
 
-Status ZSTDCodec::MakeCompressor(std::shared_ptr<Compressor>* out) {
+Result<std::shared_ptr<Compressor>> ZSTDCodec::MakeCompressor() {
   auto ptr = std::make_shared<ZSTDCompressor>(compression_level_);
   RETURN_NOT_OK(ptr->Init());
-  *out = ptr;
-  return Status::OK();
+  return ptr;
 }
 
-Status ZSTDCodec::MakeDecompressor(std::shared_ptr<Decompressor>* out) {
+Result<std::shared_ptr<Decompressor>> ZSTDCodec::MakeDecompressor() {
   auto ptr = std::make_shared<ZSTDDecompressor>();
   RETURN_NOT_OK(ptr->Init());
-  *out = ptr;
-  return Status::OK();
+  return ptr;
 }
 
-Status ZSTDCodec::Decompress(int64_t input_len, const uint8_t* input,
-                             int64_t output_buffer_len, uint8_t* output_buffer) {
-  return Decompress(input_len, input, output_buffer_len, output_buffer, nullptr);
-}
-
-Status ZSTDCodec::Decompress(int64_t input_len, const uint8_t* input,
-                             int64_t output_buffer_len, uint8_t* output_buffer,
-                             int64_t* output_len) {
+Result<int64_t> ZSTDCodec::Decompress(int64_t input_len, const uint8_t* input,
+                                      int64_t output_buffer_len, uint8_t* output_buffer) {
   if (output_buffer == nullptr) {
     // We may pass a NULL 0-byte output buffer but some zstd versions demand
     // a valid pointer: https://github.com/facebook/zstd/issues/1385
@@ -233,10 +206,7 @@ Status ZSTDCodec::Decompress(int64_t input_len, const uint8_t* input,
   if (static_cast<int64_t>(ret) != output_buffer_len) {
     return Status::IOError("Corrupt ZSTD compressed data.");
   }
-  if (output_len) {
-    *output_len = static_cast<int64_t>(ret);
-  }
-  return Status::OK();
+  return static_cast<int64_t>(ret);
 }
 
 int64_t ZSTDCodec::MaxCompressedLen(int64_t input_len,
@@ -245,16 +215,14 @@ int64_t ZSTDCodec::MaxCompressedLen(int64_t input_len,
   return ZSTD_compressBound(static_cast<size_t>(input_len));
 }
 
-Status ZSTDCodec::Compress(int64_t input_len, const uint8_t* input,
-                           int64_t output_buffer_len, uint8_t* output_buffer,
-                           int64_t* output_len) {
+Result<int64_t> ZSTDCodec::Compress(int64_t input_len, const uint8_t* input,
+                                    int64_t output_buffer_len, uint8_t* output_buffer) {
   size_t ret = ZSTD_compress(output_buffer, static_cast<size_t>(output_buffer_len), input,
                              static_cast<size_t>(input_len), compression_level_);
   if (ZSTD_isError(ret)) {
     return ZSTDError(ret, "ZSTD compression failed: ");
   }
-  *output_len = static_cast<int64_t>(ret);
-  return Status::OK();
+  return static_cast<int64_t>(ret);
 }
 
 }  // namespace util

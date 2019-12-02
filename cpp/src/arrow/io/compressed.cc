@@ -48,7 +48,7 @@ class CompressedOutputStream::Impl {
       : pool_(pool), raw_(raw), is_open_(false), compressed_pos_(0), total_pos_(0) {}
 
   Status Init(Codec* codec) {
-    RETURN_NOT_OK(codec->MakeCompressor(&compressor_));
+    ARROW_ASSIGN_OR_RAISE(compressor_, codec->MakeCompressor());
     RETURN_NOT_OK(AllocateResizableBuffer(pool_, kChunkSize, &compressed_));
     compressed_pos_ = 0;
     is_open_ = true;
@@ -76,33 +76,32 @@ class CompressedOutputStream::Impl {
 
     auto input = reinterpret_cast<const uint8_t*>(data);
     while (nbytes > 0) {
-      int64_t bytes_read, bytes_written;
       int64_t input_len = nbytes;
       int64_t output_len = compressed_->size() - compressed_pos_;
       uint8_t* output = compressed_->mutable_data() + compressed_pos_;
-      RETURN_NOT_OK(compressor_->Compress(input_len, input, output_len, output,
-                                          &bytes_read, &bytes_written));
-      compressed_pos_ += bytes_written;
+      ARROW_ASSIGN_OR_RAISE(auto result,
+                            compressor_->Compress(input_len, input, output_len, output));
+      compressed_pos_ += result.bytes_written;
 
-      if (bytes_read == 0) {
+      if (result.bytes_read == 0) {
         // Not enough output, try to flush it and retry
         if (compressed_pos_ > 0) {
           RETURN_NOT_OK(FlushCompressed());
           output_len = compressed_->size() - compressed_pos_;
           output = compressed_->mutable_data() + compressed_pos_;
-          RETURN_NOT_OK(compressor_->Compress(input_len, input, output_len, output,
-                                              &bytes_read, &bytes_written));
-          compressed_pos_ += bytes_written;
+          ARROW_ASSIGN_OR_RAISE(
+              result, compressor_->Compress(input_len, input, output_len, output));
+          compressed_pos_ += result.bytes_written;
         }
       }
-      input += bytes_read;
-      nbytes -= bytes_read;
-      total_pos_ += bytes_read;
+      input += result.bytes_read;
+      nbytes -= result.bytes_read;
+      total_pos_ += result.bytes_read;
       if (compressed_pos_ == compressed_->size()) {
         // Output buffer full, flush it
         RETURN_NOT_OK(FlushCompressed());
       }
-      if (bytes_read == 0) {
+      if (result.bytes_read == 0) {
         // Need to enlarge output buffer
         RETURN_NOT_OK(compressed_->Resize(compressed_->size() * 2));
       }
@@ -115,18 +114,15 @@ class CompressedOutputStream::Impl {
 
     while (true) {
       // Flush compressor
-      int64_t bytes_written;
-      bool should_retry;
       int64_t output_len = compressed_->size() - compressed_pos_;
       uint8_t* output = compressed_->mutable_data() + compressed_pos_;
-      RETURN_NOT_OK(
-          compressor_->Flush(output_len, output, &bytes_written, &should_retry));
-      compressed_pos_ += bytes_written;
+      ARROW_ASSIGN_OR_RAISE(auto result, compressor_->Flush(output_len, output));
+      compressed_pos_ += result.bytes_written;
 
       // Flush compressed output
       RETURN_NOT_OK(FlushCompressed());
 
-      if (should_retry) {
+      if (result.should_retry) {
         // Need to enlarge output buffer
         RETURN_NOT_OK(compressed_->Resize(compressed_->size() * 2));
       } else {
@@ -139,17 +135,15 @@ class CompressedOutputStream::Impl {
   Status FinalizeCompression() {
     while (true) {
       // Try to end compressor
-      int64_t bytes_written;
-      bool should_retry;
       int64_t output_len = compressed_->size() - compressed_pos_;
       uint8_t* output = compressed_->mutable_data() + compressed_pos_;
-      RETURN_NOT_OK(compressor_->End(output_len, output, &bytes_written, &should_retry));
-      compressed_pos_ += bytes_written;
+      ARROW_ASSIGN_OR_RAISE(auto result, compressor_->End(output_len, output));
+      compressed_pos_ += result.bytes_written;
 
       // Flush compressed output
       RETURN_NOT_OK(FlushCompressed());
 
-      if (should_retry) {
+      if (result.should_retry) {
         // Need to enlarge output buffer
         RETURN_NOT_OK(compressed_->Resize(compressed_->size() * 2));
       } else {
@@ -255,7 +249,7 @@ class CompressedInputStream::Impl {
         total_pos_(0) {}
 
   Status Init(Codec* codec) {
-    RETURN_NOT_OK(codec->MakeDecompressor(&decompressor_));
+    ARROW_ASSIGN_OR_RAISE(decompressor_, codec->MakeDecompressor());
     fresh_decompressor_ = true;
     return Status::OK();
   }
@@ -305,25 +299,22 @@ class CompressedInputStream::Impl {
       RETURN_NOT_OK(AllocateResizableBuffer(pool_, decompress_size, &decompressed_));
       decompressed_pos_ = 0;
 
-      bool need_more_output;
-      int64_t bytes_read, bytes_written;
       int64_t input_len = compressed_->size() - compressed_pos_;
       const uint8_t* input = compressed_->data() + compressed_pos_;
       int64_t output_len = decompressed_->size();
       uint8_t* output = decompressed_->mutable_data();
 
-      RETURN_NOT_OK(decompressor_->Decompress(input_len, input, output_len, output,
-                                              &bytes_read, &bytes_written,
-                                              &need_more_output));
-      compressed_pos_ += bytes_read;
-      if (bytes_read > 0) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto result, decompressor_->Decompress(input_len, input, output_len, output));
+      compressed_pos_ += result.bytes_read;
+      if (result.bytes_read > 0) {
         fresh_decompressor_ = false;
       }
-      if (bytes_written > 0 || !need_more_output || input_len == 0) {
-        RETURN_NOT_OK(decompressed_->Resize(bytes_written));
+      if (result.bytes_written > 0 || !result.need_more_output || input_len == 0) {
+        RETURN_NOT_OK(decompressed_->Resize(result.bytes_written));
         break;
       }
-      DCHECK_EQ(bytes_written, 0);
+      DCHECK_EQ(result.bytes_written, 0);
       // Need to enlarge output buffer
       decompress_size *= 2;
     }
