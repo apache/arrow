@@ -702,10 +702,11 @@ void UnionArray::SetData(const std::shared_ptr<ArrayData>& data) {
   ARROW_CHECK_EQ(data->buffers.size(), 3);
   union_type_ = checked_cast<const UnionType*>(data_->type.get());
 
-  auto type_ids = data_->buffers[1];
+  auto type_codes = data_->buffers[1];
   auto value_offsets = data_->buffers[2];
-  raw_type_ids_ =
-      type_ids == nullptr ? nullptr : reinterpret_cast<const int8_t*>(type_ids->data());
+  raw_type_codes_ = type_codes == nullptr
+                        ? nullptr
+                        : reinterpret_cast<const int8_t*>(type_codes->data());
   raw_value_offsets_ = value_offsets == nullptr
                            ? nullptr
                            : reinterpret_cast<const int32_t*>(value_offsets->data());
@@ -716,12 +717,12 @@ UnionArray::UnionArray(const std::shared_ptr<ArrayData>& data) { SetData(data); 
 
 UnionArray::UnionArray(const std::shared_ptr<DataType>& type, int64_t length,
                        const std::vector<std::shared_ptr<Array>>& children,
-                       const std::shared_ptr<Buffer>& type_ids,
+                       const std::shared_ptr<Buffer>& type_codes,
                        const std::shared_ptr<Buffer>& value_offsets,
                        const std::shared_ptr<Buffer>& null_bitmap, int64_t null_count,
                        int64_t offset) {
   auto internal_data = ArrayData::Make(
-      type, length, {null_bitmap, type_ids, value_offsets}, null_count, offset);
+      type, length, {null_bitmap, type_codes, value_offsets}, null_count, offset);
   for (const auto& child : children) {
     internal_data->child_data.push_back(child->data());
   }

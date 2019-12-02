@@ -529,7 +529,7 @@ class TakerImpl<IndexSequence, UnionType> : public Taker<IndexSequence> {
   Status SetContext(FunctionContext* ctx) override {
     pool_ = ctx->memory_pool();
     null_bitmap_builder_.reset(new TypedBufferBuilder<bool>(pool_));
-    type_id_builder_.reset(new TypedBufferBuilder<int8_t>(pool_));
+    type_code_builder_.reset(new TypedBufferBuilder<int8_t>(pool_));
 
     if (union_type_->mode() == UnionMode::DENSE) {
       offset_builder_.reset(new TypedBufferBuilder<int32_t>(pool_));
@@ -550,14 +550,14 @@ class TakerImpl<IndexSequence, UnionType> : public Taker<IndexSequence> {
   Status Take(const Array& values, IndexSequence indices) override {
     DCHECK(this->type_->Equals(values.type()));
     const auto& union_array = checked_cast<const UnionArray&>(values);
-    auto type_ids = union_array.raw_type_ids();
+    auto type_codes = union_array.raw_type_codes();
 
     if (union_type_->mode() == UnionMode::SPARSE) {
       RETURN_NOT_OK(null_bitmap_builder_->Reserve(indices.length()));
-      RETURN_NOT_OK(type_id_builder_->Reserve(indices.length()));
+      RETURN_NOT_OK(type_code_builder_->Reserve(indices.length()));
       RETURN_NOT_OK(VisitIndices(indices, values, [&](int64_t index, bool is_valid) {
         null_bitmap_builder_->UnsafeAppend(is_valid);
-        type_id_builder_->UnsafeAppend(type_ids[index]);
+        type_code_builder_->UnsafeAppend(type_codes[index]);
         return Status::OK();
       }));
 
@@ -571,11 +571,11 @@ class TakerImpl<IndexSequence, UnionType> : public Taker<IndexSequence> {
       // Gathering from the offsets into child arrays is a bit tricky.
       std::vector<uint32_t> child_counts(union_type_->max_type_code() + 1);
       RETURN_NOT_OK(null_bitmap_builder_->Reserve(indices.length()));
-      RETURN_NOT_OK(type_id_builder_->Reserve(indices.length()));
+      RETURN_NOT_OK(type_code_builder_->Reserve(indices.length()));
       RETURN_NOT_OK(VisitIndices(indices, values, [&](int64_t index, bool is_valid) {
         null_bitmap_builder_->UnsafeAppend(is_valid);
-        type_id_builder_->UnsafeAppend(type_ids[index]);
-        child_counts[type_ids[index]] += is_valid;
+        type_code_builder_->UnsafeAppend(type_codes[index]);
+        child_counts[type_codes[index]] += is_valid;
         return Status::OK();
       }));
 
@@ -591,23 +591,23 @@ class TakerImpl<IndexSequence, UnionType> : public Taker<IndexSequence> {
       RETURN_NOT_OK(AllocateBuffer(pool_, child_offsets_storage_size * sizeof(int32_t),
                                    &child_offsets_storage));
 
-      // Partition offsets by type_id: child_offset_partitions[type_id] will
-      // point to storage for child_counts[type_id] offsets
+      // Partition offsets by type_code: child_offset_partitions[type_code] will
+      // point to storage for child_counts[type_code] offsets
       std::vector<int32_t*> child_offset_partitions(child_counts.size());
       auto child_offsets_storage_data = GetInt32(child_offsets_storage);
-      for (auto type_id : union_type_->type_codes()) {
-        child_offset_partitions[type_id] = child_offsets_storage_data;
-        child_offsets_storage_data += child_counts[type_id];
+      for (auto type_code : union_type_->type_codes()) {
+        child_offset_partitions[type_code] = child_offsets_storage_data;
+        child_offsets_storage_data += child_counts[type_code];
       }
 
       // Fill child_offsets_storage with the taken offsets
       RETURN_NOT_OK(offset_builder_->Reserve(indices.length()));
       RETURN_NOT_OK(VisitIndices(indices, values, [&](int64_t index, bool is_valid) {
-        auto type_id = type_ids[index];
+        auto type_code = type_codes[index];
         if (is_valid) {
-          offset_builder_->UnsafeAppend(child_length_[type_id]++);
-          *child_offset_partitions[type_id] = union_array.value_offset(index);
-          ++child_offset_partitions[type_id];
+          offset_builder_->UnsafeAppend(child_length_[type_code]++);
+          *child_offset_partitions[type_code] = union_array.value_offset(index);
+          ++child_offset_partitions[type_code];
         } else {
           offset_builder_->UnsafeAppend(0);
         }
@@ -617,8 +617,8 @@ class TakerImpl<IndexSequence, UnionType> : public Taker<IndexSequence> {
       // Take from each child at those offsets
       int64_t taken_offset_begin = 0;
       for (int i = 0; i < this->type_->num_children(); ++i) {
-        auto type_id = union_type_->type_codes()[i];
-        auto length = child_counts[type_id];
+        auto type_code = union_type_->type_codes()[i];
+        auto length = child_counts[type_code];
         Int32Array taken_offsets(length, SliceBuffer(child_offsets_storage,
                                                      sizeof(int32_t) * taken_offset_begin,
                                                      sizeof(int32_t) * length));
@@ -635,9 +635,9 @@ class TakerImpl<IndexSequence, UnionType> : public Taker<IndexSequence> {
   Status Finish(std::shared_ptr<Array>* out) override {
     auto null_count = null_bitmap_builder_->false_count();
     auto length = null_bitmap_builder_->length();
-    std::shared_ptr<Buffer> null_bitmap, type_ids;
+    std::shared_ptr<Buffer> null_bitmap, type_codes;
     RETURN_NOT_OK(null_bitmap_builder_->Finish(&null_bitmap));
-    RETURN_NOT_OK(type_id_builder_->Finish(&type_ids));
+    RETURN_NOT_OK(type_code_builder_->Finish(&type_codes));
 
     std::shared_ptr<Buffer> offsets;
     if (union_type_->mode() == UnionMode::DENSE) {
@@ -653,7 +653,7 @@ class TakerImpl<IndexSequence, UnionType> : public Taker<IndexSequence> {
       }
     }
 
-    out->reset(new UnionArray(this->type_, length, std::move(fields), type_ids, offsets,
+    out->reset(new UnionArray(this->type_, length, std::move(fields), type_codes, offsets,
                               null_bitmap, null_count));
     return Status::OK();
   }
@@ -666,7 +666,7 @@ class TakerImpl<IndexSequence, UnionType> : public Taker<IndexSequence> {
   const UnionType* union_type_ = nullptr;
   MemoryPool* pool_ = nullptr;
   std::unique_ptr<TypedBufferBuilder<bool>> null_bitmap_builder_;
-  std::unique_ptr<TypedBufferBuilder<int8_t>> type_id_builder_;
+  std::unique_ptr<TypedBufferBuilder<int8_t>> type_code_builder_;
   std::unique_ptr<TypedBufferBuilder<int32_t>> offset_builder_;
   std::vector<std::unique_ptr<Taker<IndexSequence>>> sparse_children_;
   std::vector<std::unique_ptr<Taker<ArrayIndexSequence<Int32Type>>>> dense_children_;

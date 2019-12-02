@@ -62,7 +62,7 @@ BasicUnionBuilder::BasicUnionBuilder(
   type_id_to_children_.resize(union_type.max_type_code() + 1, nullptr);
   DCHECK_LT(
       type_id_to_children_.size(),
-      static_cast<decltype(type_id_to_children_)::size_type>(UnionType::kMaxTypeId));
+      static_cast<decltype(type_id_to_children_)::size_type>(UnionType::kMaxTypeCode));
 
   for (size_t i = 0; i < children.size(); ++i) {
     child_fields_[i] = union_type.child(static_cast<int>(i));
@@ -111,7 +111,7 @@ int8_t BasicUnionBuilder::NextTypeId() {
 
   DCHECK_LT(
       type_id_to_children_.size(),
-      static_cast<decltype(type_id_to_children_)::size_type>(UnionType::kMaxTypeId));
+      static_cast<decltype(type_id_to_children_)::size_type>(UnionType::kMaxTypeCode));
 
   // type_id_to_children_ is already densely packed, so just append the new child
   type_id_to_children_.resize(type_id_to_children_.size() + 1);

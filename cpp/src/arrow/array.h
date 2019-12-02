@@ -1011,7 +1011,8 @@ class ARROW_EXPORT StructArray : public Array {
 class ARROW_EXPORT UnionArray : public Array {
  public:
   using TypeClass = UnionType;
-  using type_id_t = int8_t;
+
+  using type_code_t = int8_t;
 
   explicit UnionArray(const std::shared_ptr<ArrayData>& data);
 
@@ -1038,7 +1039,7 @@ class ARROW_EXPORT UnionArray : public Array {
   static Status MakeDense(const Array& type_ids, const Array& value_offsets,
                           const std::vector<std::shared_ptr<Array>>& children,
                           const std::vector<std::string>& field_names,
-                          const std::vector<type_id_t>& type_codes,
+                          const std::vector<type_code_t>& type_codes,
                           std::shared_ptr<Array>* out);
 
   /// \brief Construct Dense UnionArray from types_ids, value_offsets and children
@@ -1074,7 +1075,7 @@ class ARROW_EXPORT UnionArray : public Array {
   /// \param[out] out Will have length equal to value_offsets.length()
   static Status MakeDense(const Array& type_ids, const Array& value_offsets,
                           const std::vector<std::shared_ptr<Array>>& children,
-                          const std::vector<type_id_t>& type_codes,
+                          const std::vector<type_code_t>& type_codes,
                           std::shared_ptr<Array>* out) {
     return MakeDense(type_ids, value_offsets, children, {}, type_codes, out);
   }
@@ -1111,7 +1112,7 @@ class ARROW_EXPORT UnionArray : public Array {
   static Status MakeSparse(const Array& type_ids,
                            const std::vector<std::shared_ptr<Array>>& children,
                            const std::vector<std::string>& field_names,
-                           const std::vector<type_id_t>& type_codes,
+                           const std::vector<type_code_t>& type_codes,
                            std::shared_ptr<Array>* out);
 
   /// \brief Construct Sparse UnionArray from type_ids and children
@@ -1141,7 +1142,7 @@ class ARROW_EXPORT UnionArray : public Array {
   /// \param[out] out Will have length equal to type_ids.length()
   static Status MakeSparse(const Array& type_ids,
                            const std::vector<std::shared_ptr<Array>>& children,
-                           const std::vector<type_id_t>& type_codes,
+                           const std::vector<type_code_t>& type_codes,
                            std::shared_ptr<Array>* out) {
     return MakeSparse(type_ids, children, {}, type_codes, out);
   }
@@ -1163,13 +1164,19 @@ class ARROW_EXPORT UnionArray : public Array {
   }
 
   /// Note that this buffer does not account for any slice offset
-  std::shared_ptr<Buffer> type_ids() const { return data_->buffers[1]; }
+  std::shared_ptr<Buffer> type_codes() const { return data_->buffers[1]; }
 
-  const type_id_t* raw_type_ids() const { return raw_type_ids_ + data_->offset; }
+  const type_code_t* raw_type_codes() const { return raw_type_codes_ + data_->offset; }
+
+  ARROW_DEPRECATED("Use UnionArray::type_codes")
+  std::shared_ptr<Buffer> type_ids() const { return type_codes(); }
+
+  ARROW_DEPRECATED("Use UnionArray::raw_type_codes")
+  const type_code_t* raw_type_ids() const { return raw_type_codes(); }
 
   /// The physical child id containing value at index.
   int child_id(int64_t i) const {
-    return union_type_->child_ids()[raw_type_ids_[i + data_->offset]];
+    return union_type_->child_ids()[raw_type_codes_[i + data_->offset]];
   }
 
   /// For dense arrays only.
@@ -1195,7 +1202,7 @@ class ARROW_EXPORT UnionArray : public Array {
  protected:
   void SetData(const std::shared_ptr<ArrayData>& data);
 
-  const type_id_t* raw_type_ids_;
+  const type_code_t* raw_type_codes_;
   const int32_t* raw_value_offsets_;
   const UnionType* union_type_;
 

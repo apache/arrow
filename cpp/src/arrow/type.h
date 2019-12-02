@@ -919,7 +919,7 @@ struct UnionMode {
 class ARROW_EXPORT UnionType : public NestedType {
  public:
   static constexpr Type::type type_id = Type::UNION;
-  static constexpr int8_t kMaxTypeId = 127;
+  static constexpr int8_t kMaxTypeCode = 127;
   static constexpr int kInvalidChildId = -1;
 
   static constexpr const char* type_name() { return "union"; }

@@ -239,7 +239,7 @@ Status DeserializeSequence(PyObject* context, const Array& array, int64_t start_
   const auto& data = checked_cast<const UnionArray&>(array);
   OwnedRef result(create_sequence(stop_idx - start_idx));
   RETURN_IF_PYERROR();
-  const int8_t* type_ids = data.raw_type_ids();
+  const int8_t* type_codes = data.raw_type_codes();
   const int32_t* value_offsets = data.raw_value_offsets();
   std::vector<int8_t> python_types;
   RETURN_NOT_OK(GetPythonTypes(data, &python_types));
@@ -248,11 +248,11 @@ Status DeserializeSequence(PyObject* context, const Array& array, int64_t start_
       Py_INCREF(Py_None);
       RETURN_NOT_OK(set_item(result.obj(), i - start_idx, Py_None));
     } else {
-      int64_t offset = value_offsets[i];
-      uint8_t type = type_ids[i];
+      const int64_t offset = value_offsets[i];
+      const uint8_t type = type_codes[i];
       PyObject* value;
-      RETURN_NOT_OK(GetValue(context, *data.child(type), offset,
-                             python_types[type_ids[i]], base, blobs, &value));
+      RETURN_NOT_OK(GetValue(context, *data.child(type), offset, python_types[type], base,
+                             blobs, &value));
       RETURN_NOT_OK(set_item(result.obj(), i - start_idx, value));
     }
   }

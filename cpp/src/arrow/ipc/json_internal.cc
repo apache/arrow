@@ -596,7 +596,7 @@ class ArrayWriter {
     WriteValidityField(array);
     const auto& type = checked_cast<const UnionType&>(*array.type());
 
-    WriteIntegerField("TYPE_ID", array.raw_type_ids(), array.length());
+    WriteIntegerField("TYPE_ID", array.raw_type_codes(), array.length());
     if (type.mode() == UnionMode::DENSE) {
       WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length());
     }
