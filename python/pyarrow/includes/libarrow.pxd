@@ -1354,11 +1354,11 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
 
     cdef cppclass CCSVReader" arrow::csv::TableReader":
         @staticmethod
-        CStatus Make(CMemoryPool*, shared_ptr[CInputStream],
-                     CCSVReadOptions, CCSVParseOptions, CCSVConvertOptions,
-                     shared_ptr[CCSVReader]* out)
+        CResult[shared_ptr[CCSVReader]] Make(
+            CMemoryPool*, shared_ptr[CInputStream],
+            CCSVReadOptions, CCSVParseOptions, CCSVConvertOptions)
 
-        CStatus Read(shared_ptr[CTable]* out)
+        CResult[shared_ptr[CTable]] Read()
 
 
 cdef extern from "arrow/json/options.h" nogil:

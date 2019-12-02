@@ -133,26 +133,23 @@ class NullConverter : public ConcreteConverter {
  public:
   using ConcreteConverter::ConcreteConverter;
 
-  Status Convert(const BlockParser& parser, int32_t col_index,
-                 std::shared_ptr<Array>* out) override;
+  Result<std::shared_ptr<Array>> Convert(const BlockParser& parser,
+                                         int32_t col_index) override {
+    NullBuilder builder(pool_);
+
+    auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
+      if (ARROW_PREDICT_TRUE(IsNull(data, size, quoted))) {
+        return builder.AppendNull();
+      } else {
+        return GenericConversionError(type_, data, size);
+      }
+    };
+    RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
+    std::shared_ptr<Array> res;
+    RETURN_NOT_OK(builder.Finish(&res));
+    return res;
+  }
 };
-
-Status NullConverter::Convert(const BlockParser& parser, int32_t col_index,
-                              std::shared_ptr<Array>* out) {
-  NullBuilder builder(pool_);
-
-  auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-    if (ARROW_PREDICT_TRUE(IsNull(data, size, quoted))) {
-      return builder.AppendNull();
-    } else {
-      return GenericConversionError(type_, data, size);
-    }
-  };
-  RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
-  RETURN_NOT_OK(builder.Finish(out));
-
-  return Status::OK();
-}
 
 /////////////////////////////////////////////////////////////////////////
 // Concrete Converter for var-sized binary strings
@@ -162,8 +159,8 @@ class BinaryConverter : public ConcreteConverter {
  public:
   using ConcreteConverter::ConcreteConverter;
 
-  Status Convert(const BlockParser& parser, int32_t col_index,
-                 std::shared_ptr<Array>* out) override {
+  Result<std::shared_ptr<Array>> Convert(const BlockParser& parser,
+                                         int32_t col_index) override {
     using BuilderType = typename TypeTraits<T>::BuilderType;
     BuilderType builder(pool_);
 
@@ -193,9 +190,9 @@ class BinaryConverter : public ConcreteConverter {
       RETURN_NOT_OK(parser.VisitColumn(col_index, visit_non_null));
     }
 
-    RETURN_NOT_OK(builder.Finish(out));
-
-    return Status::OK();
+    std::shared_ptr<Array> res;
+    RETURN_NOT_OK(builder.Finish(&res));
+    return res;
   }
 
  protected:
@@ -210,8 +207,8 @@ class DictionaryBinaryConverter : public ConcreteDictionaryConverter {
  public:
   using ConcreteDictionaryConverter::ConcreteDictionaryConverter;
 
-  Status Convert(const BlockParser& parser, int32_t col_index,
-                 std::shared_ptr<Array>* out) override {
+  Result<std::shared_ptr<Array>> Convert(const BlockParser& parser,
+                                         int32_t col_index) override {
     // We use a fixed index width so that all column chunks get the same index type
     using BuilderType = Dictionary32Builder<T>;
     BuilderType builder(type_, pool_);
@@ -244,9 +241,9 @@ class DictionaryBinaryConverter : public ConcreteDictionaryConverter {
       RETURN_NOT_OK(parser.VisitColumn(col_index, visit_non_null));
     }
 
-    RETURN_NOT_OK(builder.Finish(out));
-
-    return Status::OK();
+    std::shared_ptr<Array> res;
+    RETURN_NOT_OK(builder.Finish(&res));
+    return res;
   }
 
   void SetMaxCardinality(int32_t max_length) override { max_cardinality_ = max_length; }
@@ -267,30 +264,28 @@ class FixedSizeBinaryConverter : public ConcreteConverter {
  public:
   using ConcreteConverter::ConcreteConverter;
 
-  Status Convert(const BlockParser& parser, int32_t col_index,
-                 std::shared_ptr<Array>* out) override;
+  Result<std::shared_ptr<Array>> Convert(const BlockParser& parser,
+                                         int32_t col_index) override {
+    FixedSizeBinaryBuilder builder(type_, pool_);
+    const uint32_t byte_width = static_cast<uint32_t>(builder.byte_width());
+
+    // TODO do we accept nulls here?
+
+    auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
+      if (ARROW_PREDICT_FALSE(size != byte_width)) {
+        return Status::Invalid("CSV conversion error to ", type_->ToString(), ": got a ",
+                               size, "-byte long string");
+      }
+      return builder.Append(data);
+    };
+    RETURN_NOT_OK(builder.Resize(parser.num_rows()));
+    RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
+
+    std::shared_ptr<Array> res;
+    RETURN_NOT_OK(builder.Finish(&res));
+    return res;
+  }
 };
-
-Status FixedSizeBinaryConverter::Convert(const BlockParser& parser, int32_t col_index,
-                                         std::shared_ptr<Array>* out) {
-  FixedSizeBinaryBuilder builder(type_, pool_);
-  const uint32_t byte_width = static_cast<uint32_t>(builder.byte_width());
-
-  // TODO do we accept nulls here?
-
-  auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-    if (ARROW_PREDICT_FALSE(size != byte_width)) {
-      return Status::Invalid("CSV conversion error to ", type_->ToString(), ": got a ",
-                             size, "-byte long string");
-    }
-    return builder.Append(data);
-  };
-  RETURN_NOT_OK(builder.Resize(parser.num_rows()));
-  RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
-  RETURN_NOT_OK(builder.Finish(out));
-
-  return Status::OK();
-}
 
 /////////////////////////////////////////////////////////////////////////
 // Concrete Converter for booleans
@@ -299,8 +294,35 @@ class BooleanConverter : public ConcreteConverter {
  public:
   using ConcreteConverter::ConcreteConverter;
 
-  Status Convert(const BlockParser& parser, int32_t col_index,
-                 std::shared_ptr<Array>* out) override;
+  Result<std::shared_ptr<Array>> Convert(const BlockParser& parser,
+                                         int32_t col_index) override {
+    BooleanBuilder builder(type_, pool_);
+
+    auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
+      // XXX should quoted values be allowed at all?
+      if (IsNull(data, size, quoted)) {
+        builder.UnsafeAppendNull();
+        return Status::OK();
+      }
+      if (false_trie_.Find(
+              util::string_view(reinterpret_cast<const char*>(data), size)) >= 0) {
+        builder.UnsafeAppend(false);
+        return Status::OK();
+      }
+      if (true_trie_.Find(util::string_view(reinterpret_cast<const char*>(data), size)) >=
+          0) {
+        builder.UnsafeAppend(true);
+        return Status::OK();
+      }
+      return GenericConversionError(type_, data, size);
+    };
+    RETURN_NOT_OK(builder.Resize(parser.num_rows()));
+    RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
+
+    std::shared_ptr<Array> res;
+    RETURN_NOT_OK(builder.Finish(&res));
+    return res;
+  }
 
  protected:
   Status Initialize() override {
@@ -314,35 +336,6 @@ class BooleanConverter : public ConcreteConverter {
   Trie false_trie_;
 };
 
-Status BooleanConverter::Convert(const BlockParser& parser, int32_t col_index,
-                                 std::shared_ptr<Array>* out) {
-  BooleanBuilder builder(type_, pool_);
-
-  auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-    // XXX should quoted values be allowed at all?
-    if (IsNull(data, size, quoted)) {
-      builder.UnsafeAppendNull();
-      return Status::OK();
-    }
-    if (false_trie_.Find(util::string_view(reinterpret_cast<const char*>(data), size)) >=
-        0) {
-      builder.UnsafeAppend(false);
-      return Status::OK();
-    }
-    if (true_trie_.Find(util::string_view(reinterpret_cast<const char*>(data), size)) >=
-        0) {
-      builder.UnsafeAppend(true);
-      return Status::OK();
-    }
-    return GenericConversionError(type_, data, size);
-  };
-  RETURN_NOT_OK(builder.Resize(parser.num_rows()));
-  RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
-  RETURN_NOT_OK(builder.Finish(out));
-
-  return Status::OK();
-}
-
 /////////////////////////////////////////////////////////////////////////
 // Concrete Converter for numbers
 
@@ -351,42 +344,39 @@ class NumericConverter : public ConcreteConverter {
  public:
   using ConcreteConverter::ConcreteConverter;
 
-  Status Convert(const BlockParser& parser, int32_t col_index,
-                 std::shared_ptr<Array>* out) override;
-};
+  Result<std::shared_ptr<Array>> Convert(const BlockParser& parser,
+                                         int32_t col_index) override {
+    using BuilderType = typename TypeTraits<T>::BuilderType;
+    using value_type = typename StringConverter<T>::value_type;
 
-template <typename T>
-Status NumericConverter<T>::Convert(const BlockParser& parser, int32_t col_index,
-                                    std::shared_ptr<Array>* out) {
-  using BuilderType = typename TypeTraits<T>::BuilderType;
-  using value_type = typename StringConverter<T>::value_type;
+    BuilderType builder(type_, pool_);
+    StringConverter<T> converter;
 
-  BuilderType builder(type_, pool_);
-  StringConverter<T> converter;
-
-  auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-    // XXX should quoted values be allowed at all?
-    value_type value;
-    if (IsNull(data, size, quoted)) {
-      builder.UnsafeAppendNull();
+    auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
+      // XXX should quoted values be allowed at all?
+      value_type value;
+      if (IsNull(data, size, quoted)) {
+        builder.UnsafeAppendNull();
+        return Status::OK();
+      }
+      if (!std::is_same<BooleanType, T>::value) {
+        TrimWhiteSpace(&data, &size);
+      }
+      if (ARROW_PREDICT_FALSE(
+              !converter(reinterpret_cast<const char*>(data), size, &value))) {
+        return GenericConversionError(type_, data, size);
+      }
+      builder.UnsafeAppend(value);
       return Status::OK();
-    }
-    if (!std::is_same<BooleanType, T>::value) {
-      TrimWhiteSpace(&data, &size);
-    }
-    if (ARROW_PREDICT_FALSE(
-            !converter(reinterpret_cast<const char*>(data), size, &value))) {
-      return GenericConversionError(type_, data, size);
-    }
-    builder.UnsafeAppend(value);
-    return Status::OK();
-  };
-  RETURN_NOT_OK(builder.Resize(parser.num_rows()));
-  RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
-  RETURN_NOT_OK(builder.Finish(out));
+    };
+    RETURN_NOT_OK(builder.Resize(parser.num_rows()));
+    RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
 
-  return Status::OK();
-}
+    std::shared_ptr<Array> res;
+    RETURN_NOT_OK(builder.Finish(&res));
+    return res;
+  }
+};
 
 /////////////////////////////////////////////////////////////////////////
 // Concrete Converter for timestamps
@@ -395,8 +385,8 @@ class TimestampConverter : public ConcreteConverter {
  public:
   using ConcreteConverter::ConcreteConverter;
 
-  Status Convert(const BlockParser& parser, int32_t col_index,
-                 std::shared_ptr<Array>* out) override {
+  Result<std::shared_ptr<Array>> Convert(const BlockParser& parser,
+                                         int32_t col_index) override {
     using value_type = TimestampType::c_type;
 
     TimestampBuilder builder(type_, pool_);
@@ -417,9 +407,10 @@ class TimestampConverter : public ConcreteConverter {
     };
     RETURN_NOT_OK(builder.Resize(parser.num_rows()));
     RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
-    RETURN_NOT_OK(builder.Finish(out));
 
-    return Status::OK();
+    std::shared_ptr<Array> res;
+    RETURN_NOT_OK(builder.Finish(&res));
+    return res;
   }
 };
 
@@ -430,8 +421,8 @@ class DecimalConverter : public ConcreteConverter {
  public:
   using ConcreteConverter::ConcreteConverter;
 
-  Status Convert(const BlockParser& parser, int32_t col_index,
-                 std::shared_ptr<Array>* out) override {
+  Result<std::shared_ptr<Array>> Convert(const BlockParser& parser,
+                                         int32_t col_index) override {
     Decimal128Builder builder(type_, pool_);
 
     auto visit = [&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
@@ -460,9 +451,10 @@ class DecimalConverter : public ConcreteConverter {
     };
     RETURN_NOT_OK(builder.Resize(parser.num_rows()));
     RETURN_NOT_OK(parser.VisitColumn(col_index, visit));
-    RETURN_NOT_OK(builder.Finish(out));
 
-    return Status::OK();
+    std::shared_ptr<Array> res;
+    RETURN_NOT_OK(builder.Finish(&res));
+    return res;
   }
 };
 

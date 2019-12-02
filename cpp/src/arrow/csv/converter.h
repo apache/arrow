@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_CSV_CONVERTER_H
-#define ARROW_CSV_CONVERTER_H
+#pragma once
 
 #include <cstdint>
 #include <memory>
@@ -38,8 +37,8 @@ class ARROW_EXPORT Converter {
             MemoryPool* pool);
   virtual ~Converter() = default;
 
-  virtual Status Convert(const BlockParser& parser, int32_t col_index,
-                         std::shared_ptr<Array>* out) = 0;
+  virtual Result<std::shared_ptr<Array>> Convert(const BlockParser& parser,
+                                                 int32_t col_index) = 0;
 
   std::shared_ptr<DataType> type() const { return type_; }
 
@@ -74,5 +73,3 @@ class ARROW_EXPORT DictionaryConverter : public Converter {
 
 }  // namespace csv
 }  // namespace arrow
-
-#endif  // ARROW_CSV_CONVERTER_H
