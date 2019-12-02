@@ -166,7 +166,7 @@ void CheckSparseCSXIndexValidity(const std::shared_ptr<DataType>& indptr_type,
                                  char const* type_name);
 
 template <typename SparseIndexType, SparseMatrixCompressedAxis::type COMPRESSED_AXIS>
-class ARROW_EXPORT SparseCSXIndex : public SparseIndexBase<SparseIndexType> {
+class SparseCSXIndex : public SparseIndexBase<SparseIndexType> {
  public:
   static constexpr SparseTensorFormat::type format_id = std::conditional<
       COMPRESSED_AXIS == SparseMatrixCompressedAxis::ROW,
@@ -292,6 +292,32 @@ class ARROW_EXPORT SparseCSRIndex
  public:
   constexpr static char const* TYPE_NAME = "SparseCSRIndex";
 
+  using SparseCSXIndex::Make;
+  using SparseCSXIndex::SparseCSXIndex;
+};
+
+// ----------------------------------------------------------------------
+// SparseCSCIndex class
+
+/// \brief EXPERIMENTAL: The index data for a CSC sparse matrix
+///
+/// A CSC sparse index manages the location of its non-zero values by two
+/// vectors.
+///
+/// The first vector, called indptr, represents the range of the column; the i-th
+/// column spans from indptr[i] to indptr[i+1] in the corresponding value vector.
+/// So the length of an indptr vector is the number of columns + 1.
+///
+/// The other vector, called indices, represents the row indices of the
+/// corresponding non-zero values.  So the length of an indices vector is same
+/// as the number of non-zero-values.
+class ARROW_EXPORT SparseCSCIndex
+    : public internal::SparseCSXIndex<SparseCSCIndex,
+                                      internal::SparseMatrixCompressedAxis::COLUMN> {
+ public:
+  constexpr static char const* TYPE_NAME = "SparseCSCIndex";
+
+  using SparseCSXIndex::Make;
   using SparseCSXIndex::SparseCSXIndex;
 };
 
@@ -485,6 +511,9 @@ using SparseCOOTensor = SparseTensorImpl<SparseCOOIndex>;
 
 /// \brief EXPERIMENTAL: Type alias for CSR sparse matrix
 using SparseCSRMatrix = SparseTensorImpl<SparseCSRIndex>;
+
+/// \brief EXPERIMENTAL: Type alias for CSC sparse matrix
+using SparseCSCMatrix = SparseTensorImpl<SparseCSCIndex>;
 
 }  // namespace arrow
 

@@ -1189,6 +1189,13 @@ inline bool SparseTensorEqualsImplDispatch(const SparseTensorImpl<SparseIndexTyp
                                                                               right_csr);
     }
 
+    case SparseTensorFormat::CSC: {
+      const auto& right_csc =
+          checked_cast<const SparseTensorImpl<SparseCSCIndex>&>(right);
+      return SparseTensorEqualsImpl<SparseIndexType, SparseCSCIndex>::Compare(left,
+                                                                              right_csc);
+    }
+
     default:
       return false;
   }
@@ -1218,6 +1225,11 @@ bool SparseTensorEquals(const SparseTensor& left, const SparseTensor& right) {
     case SparseTensorFormat::CSR: {
       const auto& left_csr = checked_cast<const SparseTensorImpl<SparseCSRIndex>&>(left);
       return SparseTensorEqualsImplDispatch(left_csr, right);
+    }
+
+    case SparseTensorFormat::CSC: {
+      const auto& left_csc = checked_cast<const SparseTensorImpl<SparseCSCIndex>&>(left);
+      return SparseTensorEqualsImplDispatch(left_csc, right);
     }
 
     default:
