@@ -97,3 +97,12 @@ test_that("make_valid_version()", {
   expect_equal(make_valid_version(1.0), ParquetVersionType$PARQUET_1_0)
   expect_equal(make_valid_version(2.0), ParquetVersionType$PARQUET_2_0)
 })
+
+test_that("write_parquet() defaults to snappy compression", {
+  skip_if_not_available("snappy")
+  tmp1 <- tempfile()
+  tmp2 <- tempfile()
+  write_parquet(mtcars, tmp1)
+  write_parquet(mtcars, tmp2, compression = "snappy")
+  expect_equal(file.size(tmp1), file.size(tmp2))
+})

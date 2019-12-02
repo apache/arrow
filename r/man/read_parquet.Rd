@@ -29,7 +29,7 @@ of columns, as used in \code{dplyr::select()}.}
 }
 \value{
 A \link[=Table]{arrow::Table}, or a \code{data.frame} if \code{as_data_frame} is
-\code{TRUE}.
+\code{TRUE} (the default).
 }
 \description{
 '\href{https://parquet.apache.org/}{Parquet}' is a columnar storage file format.

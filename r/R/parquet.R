@@ -25,7 +25,7 @@
 #' @param ... Additional arguments passed to `ParquetFileReader$create()`
 #'
 #' @return A [arrow::Table][Table], or a `data.frame` if `as_data_frame` is
-#' `TRUE`.
+#' `TRUE` (the default).
 #' @examples
 #' \donttest{
 #' df <- read_parquet(system.file("v0.7.1.parquet", package="arrow"))
@@ -55,36 +55,51 @@ read_parquet <- function(file,
 #' @param sink an [arrow::io::OutputStream][OutputStream] or a string which is interpreted as a file path
 #' @param chunk_size chunk size in number of rows. If NULL, the total number of rows is used.
 #'
-#' @param version parquet version, "1.0" or "2.0".
-#' @param compression compression algorithm. No compression by default.
-#' @param compression_level compression level.
-#' @param use_dictionary Specify if we should use dictionary encoding.
-#' @param write_statistics Specify if we should write statistics
-#' @param data_page_size Set a target threshhold for the approximate encoded size of data
-#'        pages within a column chunk. If omitted, the default data page size (1Mb) is used.
+#' @param version parquet version, "1.0" or "2.0". Default "1.0"
+#' @param compression compression algorithm. Default "snappy". See details.
+#' @param compression_level compression level. Meaning depends on compression algorithm
+#' @param use_dictionary Specify if we should use dictionary encoding. Default `TRUE`
+#' @param write_statistics Specify if we should write statistics. Default `TRUE`
+#' @param data_page_size Set a target threshhold for the approximate encoded
+#'    size of data pages within a column chunk (in bytes). Default 1 MiB.
 #' @param properties properties for parquet writer, derived from arguments
-#'       `version`, `compression`, `compression_level`, `use_dictionary`, `write_statistics` and `data_page_size`
+#'   `version`, `compression`, `compression_level`, `use_dictionary`,
+#'   `write_statistics` and `data_page_size`. You should not specify any of
+#'    these arguments if you also provide a `properties` argument, as they will
+#'    be ignored.
 #'
-#' @param use_deprecated_int96_timestamps Write timestamps to INT96 Parquet format
-#' @param coerce_timestamps Cast timestamps a particular resolution. can be NULL, "ms" or "us"
-#' @param allow_truncated_timestamps Allow loss of data when coercing timestamps to a particular
-#'    resolution. E.g. if microsecond or nanosecond data is lost when coercing to
-#'    ms', do not raise an exception
+#' @param use_deprecated_int96_timestamps Write timestamps to INT96 Parquet format. Default `FALSE`.
+#' @param coerce_timestamps Cast timestamps a particular resolution. Can be
+#'   `NULL`, "ms" or "us". Default `NULL` (no casting)
+#' @param allow_truncated_timestamps Allow loss of data when coercing timestamps to a
+#'    particular resolution. E.g. if microsecond or nanosecond data is lost when coercing
+#'    to "ms", do not raise an exception
 #'
-#' @param arrow_properties arrow specific writer properties, derived from
-#'    arguments `use_deprecated_int96_timestamps`, `coerce_timestamps` and `allow_truncated_timestamps`
+#' @param arrow_properties arrow specific writer properties, derived from arguments
+#'   `use_deprecated_int96_timestamps`, `coerce_timestamps` and `allow_truncated_timestamps`
+#'    You should not specify any of these arguments if you also provide a `properties`
+#'    argument, as they will be ignored.
 #'
-#' @details The parameters `compression`, `compression_level`, `use_dictionary` and `write_statistics` support
-#'          various patterns:
-#'          - The default `NULL` leaves the parameter unspecified, and the C++ library uses an appropriate default for
-#'            each column
-#'          - A single, unnamed, value (e.g. a single string for `compression`) applies to all columns
-#'          - An unnamed vector, of the same size as the number of columns, to specify a value for each column, in
-#'            positional order
-#'          - A named vector, to specify the value for the named columns, the default value for the setting is used
-#'            when not supplied.
+#' @details The parameters `compression`, `compression_level`, `use_dictionary` and
+#'   `write_statistics` support various patterns:
 #'
-#' @return NULL, invisibly
+#'  - The default `NULL` leaves the parameter unspecified, and the C++ library
+#'    uses an appropriate default for each column (defaults listed above)
+#'  - A single, unnamed, value (e.g. a single string for `compression`) applies to all columns
+#'  - An unnamed vector, of the same size as the number of columns, to specify a
+#'    value for each column, in positional order
+#'  - A named vector, to specify the value for the named columns, the default
+#'    value for the setting is used when not supplied
+#'
+#' The `compression` argument can be any of the following (case insensitive):
+#' "uncompressed", "snappy", "gzip", "brotli", "zstd", "lz4", "lzo" or "bz2".
+#' Only "uncompressed" is guaranteed to be available, but "snappy" and "gzip"
+#' are almost always included.
+#' The default "snappy" is used if available, otherwise "uncompressed". To
+#' disable compression, set `compression = "uncompressed"`.
+#' Note that "uncompressed" columns may still have dictionary encoding.
+#'
+#' @return `NULL`, invisibly
 #'
 #' @examples
 #' \donttest{
@@ -140,6 +155,12 @@ write_parquet <- function(x,
   }
 
   schema <- x$schema
+  # Match the pyarrow default (overriding the C++ default)
+  if (is.null(compression) && codec_is_available("snappy")) {
+    compression <- "snappy"
+  }
+  # Note: `properties` and `arrow_properties` are not actually $create()-ed
+  # until the next line, so the compression change is applied.
   writer <- ParquetFileWriter$create(schema, sink, properties = properties, arrow_properties = arrow_properties)
   writer$WriteTable(x, chunk_size = chunk_size %||% x$num_rows)
   writer$Close()
@@ -213,6 +234,47 @@ make_valid_version <- function(version, valid_versions = valid_parquet_version) 
   )
 }
 
+#' @title ParquetWriterProperties class
+#' @rdname ParquetWriterProperties
+#' @name ParquetWriterProperties
+#' @docType class
+#' @usage NULL
+#' @format NULL
+#' @description This class holds settings to control how a Parquet file is read
+#' by [ParquetFileWriter].
+#'
+#' @section Factory:
+#'
+#' The `ParquetWriterProperties$create()` factory method instantiates the object
+#' and takes the following arguments:
+#'
+#' - `table`: table to write (required)
+#' - `version`: Parquet version, "1.0" or "2.0". Default "1.0"
+#' - `compression`: Compression type, algorithm `"uncompressed"`
+#' - `compression_level`: Compression level; meaning depends on compression algorithm
+#' - `use_dictionary`: Specify if we should use dictionary encoding. Default `TRUE`
+#' - `write_statistics`: Specify if we should write statistics. Default `TRUE`
+#' - `data_page_size`: Set a target threshhold for the approximate encoded
+#'    size of data pages within a column chunk (in bytes). Default 1 MiB.
+#'
+#' @details The parameters `compression`, `compression_level`, `use_dictionary`
+#'   and write_statistics` support various patterns:
+#'
+#'  - The default `NULL` leaves the parameter unspecified, and the C++ library
+#'    uses an appropriate default for each column (defaults listed above)
+#'  - A single, unnamed, value (e.g. a single string for `compression`) applies to all columns
+#'  - An unnamed vector, of the same size as the number of columns, to specify a
+#'    value for each column, in positional order
+#'  - A named vector, to specify the value for the named columns, the default
+#'    value for the setting is used when not supplied
+#'
+#' Unlike the high-level [write_parquet], `ParquetWriterProperties` arguments
+#' use the C++ defaults. Currently this means "uncompressed" rather than
+#' "snappy" for the `compression` argument.
+#'
+#' @seealso [write_parquet]
+#'
+#' @export
 ParquetWriterProperties <- R6Class("ParquetWriterProperties", inherit = Object)
 ParquetWriterPropertiesBuilder <- R6Class("ParquetWriterPropertiesBuilder", inherit = Object,
   public = list(
@@ -301,6 +363,25 @@ ParquetWriterProperties$create <- function(table, version = NULL, compression = 
   }
 }
 
+#' @title ParquetFileWriter class
+#' @rdname ParquetFileWriter
+#' @name ParquetFileWriter
+#' @docType class
+#' @usage NULL
+#' @format NULL
+#' @description This class enables you to interact with Parquet files.
+#'
+#' @section Factory:
+#'
+#' The `ParquetFileWriter$create()` factory method instantiates the object and
+#' takes the following arguments:
+#'
+#' - `schema` A [Schema]
+#' - `sink` An [arrow::io::OutputStream][OutputStream] or a string which is interpreted as a file path
+#' - `properties` An instance of [ParquetWriterProperties]
+#' - `arrow_properties` An instance of [ParquetArrowWriterProperties]
+#' @export
+#' @include arrow-package.R
 ParquetFileWriter <- R6Class("ParquetFileWriter", inherit = Object,
   public = list(
     WriteTable = function(table, chunk_size) {

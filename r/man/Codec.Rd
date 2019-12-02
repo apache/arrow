@@ -9,12 +9,13 @@ Codecs allow you to create \link[=compression]{compressed input and output strea
 }
 \section{Factory}{
 
-The \code{Codec$create()} factory method takes the following argument:
+The \code{Codec$create()} factory method takes the following arguments:
 \itemize{
-\item \code{type}: string name of the compression method. See \link{CompressionType} for
-a list of possible values. \code{type} may be upper- or lower-cased. Support
-for compression methods depends on build-time flags for the C++ library.
-Most builds support at least "gzip" and "snappy".
+\item \code{type}: string name of the compression method. Possible values are
+"uncompressed", "snappy", "gzip", "brotli", "zstd", "lz4", "lzo" or "bz2".
+\code{type} may be upper- or lower-cased. Not all methods may be available; support
+depends on build-time flags for the C++ library. See \code{\link[=codec_is_available]{codec_is_available()}}.
+Most builds support at least "snappy" and "gzip". All support "uncompressed".
 \item \code{compression_level}: compression level, the default value (\code{NA}) uses the default
 compression level for the selected compression \code{type}.
 }
