@@ -87,6 +87,9 @@ class ARROW_DS_EXPORT ScanTask {
 
   virtual ~ScanTask() = default;
 
+  const ScanOptionsPtr& options() const { return options_; }
+  const ScanContextPtr& context() const { return context_; }
+
  protected:
   ScanTask() : options_(ScanOptions::Defaults()), context_(new ScanContext()) {}
 
