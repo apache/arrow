@@ -22,9 +22,7 @@
 // [[arrow::export]]
 std::unique_ptr<arrow::util::Codec> util___Codec__Create(arrow::Compression::type codec,
                                                          int compression_level) {
-  std::unique_ptr<arrow::util::Codec> out;
-  STOP_IF_NOT_OK(arrow::util::Codec::Create(codec, compression_level, &out));
-  return out;
+  return VALUE_OR_STOP(arrow::util::Codec::Create(codec, compression_level));
 }
 
 // [[arrow::export]]
