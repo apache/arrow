@@ -505,7 +505,7 @@ Status FixedSizeListArray::FromArrays(const std::shared_ptr<Array>& values,
   std::shared_ptr<Buffer> validity_buf;
 
   *out = std::make_shared<FixedSizeListArray>(list_type, length, values, validity_buf,
-                                              /*null_count=*/-1, /*offset=*/0);
+                                              /*null_count=*/0, /*offset=*/0);
   return Status::OK();
 }
 
