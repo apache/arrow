@@ -97,7 +97,7 @@ TEST_F(TestScanner, FilteredScan) {
   const int64_t total_batches = sources.size() * kNumberBatches * kNumberFragments;
   auto reader = ConstantArrayGenerator::Repeat(total_batches, batch_filtered);
 
-  options_->evaluator = std::make_shared<TreeEvaluator>(default_memory_pool());
+  options_->evaluator = std::make_shared<TreeEvaluator>();
   Scanner scanner{sources, options_, ctx_};
 
   // Verifies that the unified BatchReader is equivalent to flattening all the

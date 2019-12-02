@@ -68,18 +68,6 @@ static ScanTaskIterator GetScanTaskIterator(DataFragmentIterator fragments,
   return MakeFlattenIterator(std::move(maybe_scantask_it));
 }
 
-static ScanTaskIterator ProjectAndFilterScanTaskIterator(
-    ScanTaskIterator it, ExpressionPtr filter,
-    std::shared_ptr<ExpressionEvaluator> evaluator,
-    std::shared_ptr<RecordBatchProjector> projector) {
-  // Wrap the scanner ScanTask with a FilterAndProjectScanTask
-  auto wrap_scan_task = [filter, evaluator, projector](ScanTaskPtr task) -> ScanTaskPtr {
-    return std::make_shared<FilterAndProjectScanTask>(std::move(task), filter, evaluator,
-                                                      projector);
-  };
-  return MakeMapIterator(wrap_scan_task, std::move(it));
-}
-
 Result<ScanTaskIterator> Scanner::Scan() {
   // First, transforms DataSources in a flat Iterator<DataFragment>. This
   // iterator is lazily constructed, i.e. DataSource::GetFragments is never
@@ -89,9 +77,12 @@ Result<ScanTaskIterator> Scanner::Scan() {
   // Iterator<ScanTask>. The first Iterator::Next invocation is going to do
   // all the work of unwinding the chained iterators.
   auto scan_task_it = GetScanTaskIterator(std::move(fragments_it), context_);
-  // Third, apply the filter and/or projection to incoming RecordBatches.
-  return ProjectAndFilterScanTaskIterator(std::move(scan_task_it), options_->filter,
-                                          options_->evaluator, options_->projector);
+  // Third, apply the filter and/or projection to incoming RecordBatches by
+  // wrapping the ScanTask with a FilterAndProjectScanTask
+  auto wrap_scan_task = [](ScanTaskPtr task) -> ScanTaskPtr {
+    return std::make_shared<FilterAndProjectScanTask>(std::move(task));
+  };
+  return MakeMapIterator(wrap_scan_task, std::move(scan_task_it));
 }
 
 Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
@@ -149,7 +140,7 @@ Result<ScannerPtr> ScannerBuilder::Finish() const {
   if (options_->filter->Equals(true)) {
     options_->evaluator = ExpressionEvaluator::Null();
   } else {
-    options_->evaluator = std::make_shared<TreeEvaluator>(context_->pool);
+    options_->evaluator = std::make_shared<TreeEvaluator>();
   }
 
   return std::make_shared<Scanner>(dataset_->sources(), options_, context_);
