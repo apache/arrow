@@ -230,6 +230,14 @@ cdef class DataSourceDiscovery:
         return self.wrapped
 
     @property
+    def schema(self):
+        cdef shared_ptr[CSchema] schema = self.discovery.schema()
+        if schema.get() == nullptr:
+            return None
+        else:
+            return pyarrow_wrap_schema(schema)
+
+    @property
     def partition_scheme(self):
         cdef shared_ptr[CPartitionScheme] scheme
         scheme = self.discovery.partition_scheme()
@@ -242,14 +250,19 @@ cdef class DataSourceDiscovery:
     def partition_scheme(self, PartitionScheme scheme not None):
         check_status(self.discovery.SetPartitionScheme(scheme.unwrap()))
 
+    @property
+    def root_partition(self):
+        cdef shared_ptr[CExpression] expr = self.discovery.root_partition()
+        if expr.get() == nullptr:
+            return None
+        else:
+            return Expression.wrap(expr)
+
     def inspect(self):
         cdef CResult[shared_ptr[CSchema]] result
         with nogil:
             result = self.discovery.Inspect()
         return pyarrow_wrap_schema(GetResultValue(result))
-
-    def schema(self):
-        return pyarrow_wrap_schema(self.discovery.schema())
 
     def finish(self):
         cdef CResult[shared_ptr[CDataSource]] result

@@ -403,7 +403,7 @@ def test_file_system_discovery(mockfs):
     discovery = ds.FileSystemDataSourceDiscovery(mockfs, selector, format,
                                                  options)
     assert isinstance(discovery.inspect(), pa.Schema)
-    assert isinstance(discovery.schema(), pa.Schema)
+    assert discovery.schema is None
     assert isinstance(discovery.finish(), ds.FileSystemDataSource)
     assert discovery.partition_scheme is None
 
@@ -415,6 +415,8 @@ def test_file_system_discovery(mockfs):
     )
     discovery.partition_scheme = scheme
     assert isinstance(discovery.partition_scheme, ds.SchemaPartitionScheme)
+    assert discovery.schema is None
+    assert discovery.root_partition is None
 
     data_source = discovery.finish()
     assert isinstance(data_source, ds.DataSource)
