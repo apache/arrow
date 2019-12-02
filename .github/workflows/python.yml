@@ -159,6 +159,7 @@ jobs:
       ARROW_WITH_ZSTD: ON
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_BROTLI: ON
+      ARROW_USE_CCACHE: OFF
       ARROW_BUILD_TESTS: OFF
     steps:
       - name: Checkout Arrow
