@@ -129,8 +129,8 @@ Result<std::shared_ptr<Schema>> FileSystemDataSourceDiscovery::Inspect() {
 }
 
 Result<DataSourcePtr> FileSystemDataSourceDiscovery::Finish() {
-  return FileSystemDataSource::Make(fs_, files_, root_partition(), partition_scheme_,
-                                    format_);
+  return FileSystemDataSource::Make(fs_, files_, root_partition_, partition_scheme_,
+                                    options_.partition_base_dir, format_);
 }
 
 }  // namespace dataset

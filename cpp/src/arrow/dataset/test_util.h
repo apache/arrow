@@ -236,7 +236,7 @@ class JSONRecordBatchFileFormat : public FileFormat {
     return schema_;
   }
 
-  /// \brief Open a file for scanning (always returns an empty iterator)
+  /// \brief Open a file for scanning
   Result<ScanTaskIterator> ScanFile(const FileSource& source, ScanOptionsPtr options,
                                     ScanContextPtr context) const override {
     ARROW_ASSIGN_OR_RAISE(auto file, source.Open());
@@ -289,8 +289,9 @@ class TestFileSystemBasedDataSource : public ::testing::Test {
                   PartitionSchemePtr partition_scheme = PartitionScheme::Default()) {
     MakeFileSystem(stats);
     auto format = std::make_shared<DummyFileFormat>();
-    ASSERT_OK_AND_ASSIGN(source_, FileSystemDataSource::Make(fs_, stats, source_partition,
-                                                             partition_scheme, format));
+    ASSERT_OK_AND_ASSIGN(source_,
+                         FileSystemDataSource::Make(fs_, stats, source_partition,
+                                                    partition_scheme, "", format));
   }
 
  protected:

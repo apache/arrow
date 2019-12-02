@@ -68,21 +68,25 @@ Result<DataSourcePtr> FileSystemDataSource::Make(fs::FileSystemPtr filesystem,
 Result<DataSourcePtr> FileSystemDataSource::Make(
     fs::FileSystemPtr filesystem, fs::FileStatsVector stats,
     ExpressionPtr source_partition, const PartitionSchemePtr& partition_scheme,
-    FileFormatPtr format) {
+    const std::string& partition_base_dir, FileFormatPtr format) {
   ExpressionVector partitions(stats.size(), scalar(true));
   ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::Make(std::move(stats)));
 
+  // TODO(bkietz) extract partition_base_dir and partition_scheme back out to discovery
+
   // apply partition_scheme to forest to derive partitions
   auto apply_partition_scheme = [&](fs::PathForest::Ref ref) {
-    auto segments = fs::internal::SplitAbstractPath(ref.stats().path());
+    if (auto relative =
+            fs::internal::RemoveAncestor(partition_base_dir, ref.stats().path())) {
+      auto segments = fs::internal::SplitAbstractPath(relative->to_string());
 
-    if (segments.size() > 0) {
-      auto segment_index = static_cast<int>(segments.size()) - 1;
-      auto maybe_partition = partition_scheme->Parse(segments.back(), segment_index);
+      if (segments.size() > 0) {
+        auto segment_index = static_cast<int>(segments.size()) - 1;
+        auto maybe_partition = partition_scheme->Parse(segments.back(), segment_index);
 
-      partitions[ref.i] = std::move(maybe_partition).ValueOr(scalar(true));
+        partitions[ref.i] = std::move(maybe_partition).ValueOr(scalar(true));
+      }
     }
-
     return Status::OK();
   };
 
@@ -167,6 +171,8 @@ DataFragmentIterator FileSystemDataSource::GetFragmentsImpl(ScanOptionsPtr optio
       // TODO(bkietz) also simplify the filter using parent partition information
       file.options->filter = expr;
 
+      // FIXME(bkietz) this means we can only materialize partition columns when a
+      // projector is specified
       if (options->projector != nullptr) {
         for (auto ancestor = ref; ancestor.forest == &forest_;
              ancestor = ancestor.parent()) {

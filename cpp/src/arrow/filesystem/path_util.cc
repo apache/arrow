@@ -175,6 +175,16 @@ bool IsAncestorOf(util::string_view ancestor, util::string_view descendant) {
   return descendant.starts_with(std::string{kSep});
 }
 
+util::optional<util::string_view> RemoveAncestor(util::string_view ancestor,
+                                                 util::string_view descendant) {
+  if (!IsAncestorOf(ancestor, descendant)) {
+    return util::nullopt;
+  }
+
+  auto relative_to_ancestor = descendant.substr(ancestor.size());
+  return RemoveLeadingSlash(relative_to_ancestor);
+}
+
 }  // namespace internal
 }  // namespace fs
 }  // namespace arrow

@@ -191,6 +191,7 @@ class ARROW_DS_EXPORT FileSystemDataSource : public DataSource {
   /// \param[in] source_partition the top-level partition of the DataSource
   /// \param[in] partition_scheme partition scheme which will be applied to
   /// attach additional partition expressions to FileStats found in `stats`.
+  /// \param[in] partition_base_dir base directory for partition_scheme.
   /// \param[in] format file format to create fragments from.
   ///
   /// The caller is not required to provide a complete coverage of nodes and
@@ -199,6 +200,7 @@ class ARROW_DS_EXPORT FileSystemDataSource : public DataSource {
                                     fs::FileStatsVector stats,
                                     ExpressionPtr source_partition,
                                     const PartitionSchemePtr& partition_scheme,
+                                    const std::string& partition_base_dir,
                                     FileFormatPtr format);
 
   std::string type() const override { return "filesystem_data_source"; }
