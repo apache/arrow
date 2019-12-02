@@ -138,6 +138,12 @@ impl PartialEq for BooleanArray {
     }
 }
 
+impl PartialEq for StringArray {
+    fn eq(&self, other: &Self) -> bool {
+        self.equals(other)
+    }
+}
+
 impl ArrayEqual for ListArray {
     fn equals(&self, other: &dyn Array) -> bool {
         if !base_equal(&self.data(), &other.data()) {

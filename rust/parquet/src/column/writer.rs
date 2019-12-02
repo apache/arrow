@@ -115,6 +115,42 @@ pub fn get_typed_column_writer<T: DataType>(
     }
 }
 
+/// Similar to `get_typed_column_writer` but returns a reference.
+pub fn get_typed_column_writer_ref<T: DataType>(
+    col_writer: &ColumnWriter,
+) -> &ColumnWriterImpl<T> {
+    match col_writer {
+        ColumnWriter::BoolColumnWriter(ref r) => unsafe { mem::transmute(r) },
+        ColumnWriter::Int32ColumnWriter(ref r) => unsafe { mem::transmute(r) },
+        ColumnWriter::Int64ColumnWriter(ref r) => unsafe { mem::transmute(r) },
+        ColumnWriter::Int96ColumnWriter(ref r) => unsafe { mem::transmute(r) },
+        ColumnWriter::FloatColumnWriter(ref r) => unsafe { mem::transmute(r) },
+        ColumnWriter::DoubleColumnWriter(ref r) => unsafe { mem::transmute(r) },
+        ColumnWriter::ByteArrayColumnWriter(ref r) => unsafe { mem::transmute(r) },
+        ColumnWriter::FixedLenByteArrayColumnWriter(ref r) => unsafe {
+            mem::transmute(r)
+        },
+    }
+}
+
+/// Similar to `get_typed_column_writer` but returns a reference.
+pub fn get_typed_column_writer_mut<T: DataType>(
+    col_writer: &mut ColumnWriter,
+) -> &mut ColumnWriterImpl<T> {
+    match col_writer {
+        ColumnWriter::BoolColumnWriter(ref mut r) => unsafe { mem::transmute(r) },
+        ColumnWriter::Int32ColumnWriter(ref mut r) => unsafe { mem::transmute(r) },
+        ColumnWriter::Int64ColumnWriter(ref mut r) => unsafe { mem::transmute(r) },
+        ColumnWriter::Int96ColumnWriter(ref mut r) => unsafe { mem::transmute(r) },
+        ColumnWriter::FloatColumnWriter(ref mut r) => unsafe { mem::transmute(r) },
+        ColumnWriter::DoubleColumnWriter(ref mut r) => unsafe { mem::transmute(r) },
+        ColumnWriter::ByteArrayColumnWriter(ref mut r) => unsafe { mem::transmute(r) },
+        ColumnWriter::FixedLenByteArrayColumnWriter(ref mut r) => unsafe {
+            mem::transmute(r)
+        },
+    }
+}
+
 /// Typed column writer for a primitive column.
 pub struct ColumnWriterImpl<T: DataType> {
     // Column writer properties
