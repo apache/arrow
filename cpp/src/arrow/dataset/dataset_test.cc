@@ -371,7 +371,7 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   // exclusively, ranges, or an OdbcDataFragment could convert the projection to a SELECT
   // statement. The CsvFileDataFragment wouldn't benefit from this as much, but
   // can still benefit from skipping conversion of unneeded columns.
-  std::vector<std::string> columns{"sales", "model"};
+  std::vector<std::string> columns{"sales", "model", "country"};
   ASSERT_OK(scanner_builder->Project(columns));
 
   // An optional filter expression may also be specified. The filter expression
@@ -392,10 +392,10 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   // In the simplest case, consumption is simply conversion to a Table.
   ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
 
-  using row_type = std::tuple<double, std::string>;
+  using row_type = std::tuple<double, std::string, std::string>;
   std::vector<row_type> rows{
-      row_type{152.25, "3"},
-      row_type{273.5, "3"},
+      row_type{152.25, "3", "CA"},
+      row_type{273.5, "3", "CA"},
   };
   std::shared_ptr<Table> expected;
   ASSERT_OK(stl::TableFromTupleRange(default_memory_pool(), rows, columns, &expected));

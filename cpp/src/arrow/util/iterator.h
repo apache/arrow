@@ -51,6 +51,10 @@ struct IterationTraits<util::optional<T>> {
   /// nullopt indicates the end of iteration.
   /// Specialize IterationTraits if different end semantics are required.
   static util::optional<T> End() { return util::nullopt; }
+
+  // TODO(bkietz) The range-for loop over Iterator<optional<T>> yields
+  // Result<optional<T>> which is unnecessary (since only the unyielded end optional
+  // is nullopt. Add IterationTraits::GetRangeElement() to handle this case
 };
 
 /// \brief A generic Iterator that can return errors

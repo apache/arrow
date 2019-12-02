@@ -38,6 +38,16 @@ ScanOptions::ScanOptions()
 
 ScanOptionsPtr ScanOptions::Defaults() { return ScanOptionsPtr(new ScanOptions); }
 
+ScanOptionsPtr ScanOptions::Copy() const {
+  auto copy = std::make_shared<ScanOptions>(*this);
+
+  if (copy->projector != nullptr) {
+    copy->projector = std::make_shared<RecordBatchProjector>(*copy->projector);
+  }
+
+  return copy;
+}
+
 Result<RecordBatchIterator> SimpleScanTask::Scan() {
   return MakeVectorIterator(record_batches_);
 }
@@ -47,8 +57,7 @@ Result<RecordBatchIterator> SimpleScanTask::Scan() {
 static ScanTaskIterator GetScanTaskIterator(DataFragmentIterator fragments,
                                             ScanContextPtr context) {
   // DataFragment -> ScanTaskIterator
-  auto fn = [context](std::shared_ptr<DataFragment> fragment,
-                      ScanTaskIterator* out) -> Status {
+  auto fn = [context](std::shared_ptr<DataFragment> fragment, ScanTaskIterator* out) {
     return fragment->Scan(context).Value(out);
   };
 

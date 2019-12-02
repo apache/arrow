@@ -67,6 +67,10 @@ class ARROW_DS_EXPORT ScanOptions {
   // Projector for reconciling the final RecordBatch to the requested schema.
   std::shared_ptr<RecordBatchProjector> projector;
 
+  /// Return a copy these options (deep copies projector and use_threads, shallow copies
+  /// other fields)
+  ScanOptionsPtr Copy() const;
+
  private:
   ScanOptions();
 };

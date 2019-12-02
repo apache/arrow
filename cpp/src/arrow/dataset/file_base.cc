@@ -29,12 +29,6 @@
 #include "arrow/util/iterator.h"
 
 namespace arrow {
-
-template <>
-struct IterationTraits<dataset::FileSource> {
-  static dataset::FileSource End() { return dataset::FileSource{"", nullptr}; }
-};
-
 namespace dataset {
 
 Result<std::shared_ptr<arrow::io::RandomAccessFile>> FileSource::Open() const {
@@ -145,9 +139,16 @@ util::optional<std::pair<std::string, std::shared_ptr<Scalar>>> GetKey(
       internal::checked_cast<const ScalarExpression&>(*cmp.right_operand()).value());
 }
 
+struct SourceAndOptions {
+  FileSource source;
+  ScanOptionsPtr options;
+
+  // required by optional
+  bool operator==(const SourceAndOptions& other) const { return this == &other; }
+};
+
 DataFragmentIterator FileSystemDataSource::GetFragmentsImpl(ScanOptionsPtr options) {
-  std::vector<FileSource> files;
-  std::vector<ScanOptionsPtr> options_per_file;
+  std::vector<SourceAndOptions> files;
 
   auto collect_files = [&](fs::PathForest::Ref ref) -> fs::PathForest::MaybePrune {
     auto partition = partitions_[ref.i];
@@ -159,17 +160,29 @@ DataFragmentIterator FileSystemDataSource::GetFragmentsImpl(ScanOptionsPtr optio
     }
 
     if (ref.stats().IsFile()) {
-      files.emplace_back(ref.stats().path(), filesystem_.get());
-      options_per_file.emplace_back(new ScanOptions(*options));
-      options_per_file.back()->filter = expr;
+      SourceAndOptions file = {FileSource(ref.stats().path(), filesystem_.get()),
+                               options->Copy()};
 
-      // TODO(bkietz) walk up parent partitions and get their keys as well
+      // use simplified filter
+      // TODO(bkietz) also simplify the filter using parent partition information
+      file.options->filter = expr;
+
       if (options->projector != nullptr) {
-        if (auto name_value = GetKey(*partition)) {
-          RETURN_NOT_OK(options_per_file.back()->projector->SetDefaultValue(
-              name_value->first, std::move(name_value->second)));
+        for (auto ancestor = ref; ancestor.forest == &forest_;
+             ancestor = ancestor.parent()) {
+          if (auto name_value = GetKey(*partitions_[ancestor.i])) {
+            auto name = std::move(name_value->first);
+            if (file.options->projector->schema()->GetFieldByName(name) == nullptr) {
+              continue;
+            }
+
+            RETURN_NOT_OK(file.options->projector->SetDefaultValue(
+                name, std::move(name_value->second)));
+          }
         }
       }
+
+      files.push_back(std::move(file));
     }
 
     return fs::PathForest::Continue;
@@ -177,12 +190,12 @@ DataFragmentIterator FileSystemDataSource::GetFragmentsImpl(ScanOptionsPtr optio
 
   DCHECK_OK(forest_.Visit(collect_files));
 
-  auto file_to_fragment = [options, this](FileSource src,
-                                          std::shared_ptr<DataFragment>* out) {
-    // TODO(bkietz) use options_per_file here
-    return format_->MakeFragment(src, options).Value(out);
+  auto file_to_fragment = [this](util::optional<SourceAndOptions> file,
+                                 std::shared_ptr<DataFragment>* out) {
+    return format_->MakeFragment(file->source, file->options).Value(out);
   };
-  return MakeMaybeMapIterator(file_to_fragment, MakeVectorIterator(std::move(files)));
+  return MakeMaybeMapIterator(file_to_fragment,
+                              MakeVectorOptionalIterator(std::move(files)));
 }
 
 }  // namespace dataset
