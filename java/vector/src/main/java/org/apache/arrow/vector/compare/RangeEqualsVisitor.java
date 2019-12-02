@@ -18,6 +18,7 @@
 package org.apache.arrow.vector.compare;
 
 import java.util.List;
+import java.util.function.BiFunction;
 
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.util.Preconditions;
@@ -39,16 +40,22 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
   private ValueVector left;
   private ValueVector right;
 
-  private TypeEqualsVisitor typeVisitor;
+  private BiFunction<ValueVector, ValueVector, Boolean> typeComparator;
   private boolean typeCompareResult;
 
   /**
-   * Constructs a new instance with default type visitor (do not check name and metadata).
+   * Default type comparator.
+   */
+  public static final BiFunction<ValueVector, ValueVector, Boolean> DEFAULT_TYPE_COMPARATOR =
+      (v1, v2) -> new TypeEqualsVisitor(v2).equals(v1);
+
+  /**
+   * Constructs a new instance with default type comparator.
    * @param left left vector
    * @param right right vector
    */
   public RangeEqualsVisitor(ValueVector left, ValueVector right) {
-    this (left, right, new TypeEqualsVisitor(right));
+    this (left, right, DEFAULT_TYPE_COMPARATOR);
   }
 
   /**
@@ -56,35 +63,30 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
    *
    * @param left left vector
    * @param right right vector
-   * @param typeVisitor type visitor, null indicates no need to check type.
+   * @param typeComparator type comparator to compare vector type.
    */
   public RangeEqualsVisitor(
       ValueVector left,
       ValueVector right,
-      TypeEqualsVisitor typeVisitor) {
+      BiFunction<ValueVector, ValueVector, Boolean> typeComparator) {
     this.left = left;
     this.right = right;
-    this.typeVisitor = typeVisitor;
+    this.typeComparator = typeComparator;
 
     Preconditions.checkArgument(left != null,
         "left vector cannot be null");
     Preconditions.checkArgument(right != null,
         "right vector cannot be null");
 
-    // Make sure the right vector of typeVisitor and this visitor are the same one.
-    if (typeVisitor != null) {
-      Preconditions.checkArgument(typeVisitor.getRight() == this.right);
-    }
-
     // type usually checks only once unless the left vector is changed.
     checkType();
   }
 
   private void checkType() {
-    if (typeVisitor == null || left == right) {
+    if (typeComparator == null || left == right) {
       typeCompareResult = true;
     } else {
-      typeCompareResult = typeVisitor.equals(left);
+      typeCompareResult = typeComparator.apply(left, right);
     }
   }
 
@@ -190,8 +192,7 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
    * @return the visitor for child vecors.
    */
   protected RangeEqualsVisitor createInnerVisitor(ValueVector leftInner, ValueVector rightInner) {
-    return new RangeEqualsVisitor(leftInner, rightInner,
-        typeVisitor == null ? null : typeVisitor.newVisitor(rightInner));
+    return new RangeEqualsVisitor(leftInner, rightInner, typeComparator);
   }
 
   protected boolean compareUnionVectors(Range range) {

@@ -17,6 +17,8 @@
 
 package org.apache.arrow.vector.compare;
 
+import java.util.function.BiFunction;
+
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
@@ -69,7 +71,7 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
   public ApproxEqualsVisitor(ValueVector left, ValueVector right,
                              VectorValueEqualizer<Float4Vector> floatDiffFunction,
                              VectorValueEqualizer<Float8Vector> doubleDiffFunction) {
-    this (left, right, floatDiffFunction, doubleDiffFunction, new TypeEqualsVisitor(right));
+    this (left, right, floatDiffFunction, doubleDiffFunction, DEFAULT_TYPE_COMPARATOR);
   }
 
   /**
@@ -78,13 +80,13 @@ public class ApproxEqualsVisitor extends RangeEqualsVisitor {
    * @param right the right vector.
    * @param floatDiffFunction the equalizer for float values.
    * @param doubleDiffFunction the equalizer for double values.
-   * @param typeVisitor type visitor to compare vector fields, null indicates no need to check type
+   * @param typeComparator type comparator to compare vector type.
    */
   public ApproxEqualsVisitor(ValueVector left, ValueVector right,
       VectorValueEqualizer<Float4Vector> floatDiffFunction,
       VectorValueEqualizer<Float8Vector> doubleDiffFunction,
-      TypeEqualsVisitor typeVisitor) {
-    super(left, right, typeVisitor);
+      BiFunction<ValueVector, ValueVector, Boolean> typeComparator) {
+    super(left, right, typeComparator);
     this.floatDiffFunction = floatDiffFunction;
     this.doubleDiffFunction = doubleDiffFunction;
   }

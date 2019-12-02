@@ -59,17 +59,6 @@ public class TypeEqualsVisitor implements VectorVisitor<Boolean, Void> {
     this.checkMetadata = checkMetadata;
   }
 
-  public ValueVector getRight() {
-    return right;
-  }
-
-  /**
-   * Return a new visitor with the given right vector, other params are same.
-   */
-  public TypeEqualsVisitor newVisitor(ValueVector right) {
-    return new TypeEqualsVisitor(right, checkName, checkMetadata);
-  }
-
   /**
    * Check type equals without passing IN param in VectorVisitor.
    */
