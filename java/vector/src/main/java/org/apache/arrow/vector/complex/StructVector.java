@@ -555,7 +555,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
 
   @Override
   public void setValueCount(int valueCount) {
-    assert valueCount >= 0;
+    Preconditions.checkArgument(valueCount >= 0);
     while (valueCount > getValidityBufferValueCapacity()) {
       /* realloc the inner buffers if needed */
       reallocValidityBuffer();
