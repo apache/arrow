@@ -29,6 +29,7 @@
 #include "arrow/util/compare.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/optional.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -42,6 +43,14 @@ struct IterationTraits {
   /// default this is NULLPTR since most iterators yield pointer types.
   /// Specialize IterationTraits if different end semantics are required.
   static T End() { return T(NULLPTR); }
+};
+
+template <typename T>
+struct IterationTraits<util::optional<T>> {
+  /// \brief by default when iterating through a sequence of optional,
+  /// nullopt indicates the end of iteration.
+  /// Specialize IterationTraits if different end semantics are required.
+  static util::optional<T> End() { return util::nullopt; }
 };
 
 /// \brief A generic Iterator that can return errors
@@ -247,6 +256,32 @@ class VectorIterator {
 template <typename T>
 Iterator<T> MakeVectorIterator(std::vector<T> v) {
   return Iterator<T>(VectorIterator<T>(std::move(v)));
+}
+
+/// \brief Simple iterator which yields the elements of a std::vector<T> as optional<T>.
+/// This is provided to support T where IterationTraits<T>::End is not specialized
+template <typename T>
+class VectorOptionalIterator {
+ public:
+  explicit VectorOptionalIterator(std::vector<T> v) : elements_(std::move(v)) {}
+
+  Status Next(util::optional<T>* out) {
+    if (i_ == elements_.size()) {
+      *out = util::nullopt;
+    } else {
+      *out = std::move(elements_[i_++]);
+    }
+    return Status::OK();
+  }
+
+ private:
+  std::vector<T> elements_;
+  size_t i_ = 0;
+};
+
+template <typename T>
+Iterator<util::optional<T>> MakeVectorOptionalIterator(std::vector<T> v) {
+  return Iterator<util::optional<T>>(VectorOptionalIterator<T>(std::move(v)));
 }
 
 /// \brief MapIterator takes ownership of an iterator and a function to apply
