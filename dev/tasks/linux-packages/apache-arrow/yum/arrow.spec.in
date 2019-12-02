@@ -44,7 +44,6 @@
 %define use_meson (%{_centos_ver} >= 8)
 
 %define have_rapidjson (%{_centos_ver} == 7)
-%define have_thrift (%{_centos_ver} == 7)
 
 Name:		@PACKAGE@
 Version:	@VERSION@
@@ -94,9 +93,6 @@ BuildRequires:	ncurses-devel
 %if %{use_parquet}
 BuildRequires:	bison
 BuildRequires:	flex
-  %if %{have_thrift}
-BuildRequires:	thrift-devel
-  %endif
 %endif
 
 %if %{use_glib}
@@ -473,9 +469,6 @@ Libraries and header files for Plasma in-memory object store.
 Summary:	Runtime libraries for Apache Parquet C++
 License:	Apache-2.0
 Requires:	boost%{boost_version}-program-options
-  %if %{have_thrift}
-Requires:	thrift
-  %endif
 Requires:	%{name}-libs = %{version}-%{release}
 
 %description -n parquet-libs
