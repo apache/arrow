@@ -146,7 +146,7 @@ TEST_F(ExpressionsTest, SimplificationToNull) {
 
 class FilterTest : public ::testing::Test {
  public:
-  FilterTest() { evaluator_ = std::make_shared<TreeEvaluator>(default_memory_pool()); }
+  FilterTest() { evaluator_ = std::make_shared<TreeEvaluator>(); }
 
   Result<Datum> DoFilter(const Expression& expr,
                          std::vector<std::shared_ptr<Field>> fields,
@@ -427,18 +427,19 @@ class TakeExpression : public CustomExpression {
 
     using TreeEvaluator::Evaluate;
 
-    Result<compute::Datum> Evaluate(const Expression& expr,
-                                    const RecordBatch& batch) const override {
+    Result<compute::Datum> Evaluate(const Expression& expr, const RecordBatch& batch,
+                                    MemoryPool* pool) const override {
       if (expr.type() == ExpressionType::CUSTOM) {
         const auto& take_expr = checked_cast<const TakeExpression&>(expr);
-        return EvaluateTake(take_expr, batch);
+        return EvaluateTake(take_expr, batch, pool);
       }
-      return TreeEvaluator::Evaluate(expr, batch);
+      return TreeEvaluator::Evaluate(expr, batch, pool);
     }
 
     Result<compute::Datum> EvaluateTake(const TakeExpression& take_expr,
-                                        const RecordBatch& batch) const {
-      ARROW_ASSIGN_OR_RAISE(auto indices, Evaluate(*take_expr.operand_, batch));
+                                        const RecordBatch& batch,
+                                        MemoryPool* pool) const {
+      ARROW_ASSIGN_OR_RAISE(auto indices, Evaluate(*take_expr.operand_, batch, pool));
 
       if (indices.kind() == Datum::SCALAR) {
         std::shared_ptr<Array> indices_array;
@@ -449,7 +450,7 @@ class TakeExpression : public CustomExpression {
 
       DCHECK_EQ(indices.kind(), Datum::ARRAY);
       compute::Datum out;
-      compute::FunctionContext ctx{default_memory_pool()};
+      compute::FunctionContext ctx{pool};
       RETURN_NOT_OK(compute::Take(&ctx, compute::Datum(take_expr.dictionary_->data()),
                                   indices, compute::TakeOptions(), &out));
       return std::move(out);
@@ -490,7 +491,7 @@ TEST_F(ExpressionsTest, TakeAssumeYieldsNothing) {
 }
 
 TEST_F(FilterTest, EvaluateTakeExpression) {
-  evaluator_ = std::make_shared<TakeExpression::Evaluator>(default_memory_pool());
+  evaluator_ = std::make_shared<TakeExpression::Evaluator>();
 
   auto dict = ArrayFromJSON(float64(), "[0.0, 0.25, 0.5, 0.75, 1.0]");
 
