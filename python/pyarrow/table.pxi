@@ -125,6 +125,9 @@ cdef class ChunkedArray(_PandasConvertible):
             size += chunk.nbytes
         return size
 
+    def __sizeof__(self):
+        return super(ChunkedArray, self).__sizeof__() + self.nbytes
+
     def __iter__(self):
         for chunk in self.iterchunks():
             for item in chunk:
@@ -656,6 +659,9 @@ cdef class RecordBatch(_PandasConvertible):
         for i in range(self.num_columns):
             size += self.column(i).nbytes
         return size
+
+    def __sizeof__(self):
+        return super(RecordBatch, self).__sizeof__() + self.nbytes
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -1520,6 +1526,9 @@ cdef class Table(_PandasConvertible):
         for column in self.itercolumns():
             size += column.nbytes
         return size
+
+    def __sizeof__(self):
+        return super(Table, self).__sizeof__() + self.nbytes
 
     def add_column(self, int i, field_, column):
         """

@@ -17,6 +17,7 @@
 
 from collections import OrderedDict
 import pickle
+import sys
 
 import pytest
 import numpy as np
@@ -542,3 +543,17 @@ def test_schema_from_pandas():
         schema = pa.Schema.from_pandas(df)
         expected = pa.Table.from_pandas(df).schema
         assert schema == expected
+
+
+def test_schema_sizeof():
+    schema = pa.schema([
+        pa.field('foo', pa.int32()),
+        pa.field('bar', pa.string()),
+    ])
+
+    assert sys.getsizeof(schema) > 30
+
+    schema2 = schema.with_metadata({"key": "some metadata"})
+    assert sys.getsizeof(schema2) > sys.getsizeof(schema)
+    schema3 = schema.with_metadata({"key": "some more metadata"})
+    assert sys.getsizeof(schema3) > sys.getsizeof(schema2)

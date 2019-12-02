@@ -17,6 +17,7 @@
 
 import atexit
 import re
+import sys
 import warnings
 
 from pyarrow import compat
@@ -890,6 +891,15 @@ cdef class Schema:
 
     def __hash__(self):
         return hash((tuple(self), self.metadata))
+
+    def __sizeof__(self):
+        size = 0
+        if self.metadata:
+            for key, value in self.metadata.items():
+                size += sys.getsizeof(key)
+                size += sys.getsizeof(value)
+
+        return size + super(Schema, self).__sizeof__()
 
     @property
     def pandas_metadata(self):

@@ -1607,13 +1607,16 @@ def test_buffers_nested():
     assert struct.unpack('4xh', values) == (43,)
 
 
-def test_nbytes():
+def test_nbytes_sizeof():
     a = pa.array(np.array([4, 5, 6], dtype='int64'))
     assert a.nbytes == 8 * 3
+    assert sys.getsizeof(a) >= object.__sizeof__(a) + a.nbytes
     a = pa.array([1, None, 3], type='int64')
     assert a.nbytes == 8*3 + 1
+    assert sys.getsizeof(a) >= object.__sizeof__(a) + a.nbytes
     a = pa.array([[1, 2], None, [3, None, 4, 5]], type=pa.list_(pa.int64()))
     assert a.nbytes == 1 + 4 * 4 + 1 + 6 * 8
+    assert sys.getsizeof(a) >= object.__sizeof__(a) + a.nbytes
 
 
 def test_invalid_tensor_constructor_repr():
