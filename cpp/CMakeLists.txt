@@ -287,6 +287,7 @@ if(ARROW_PYTHON)
   set(ARROW_CSV ON)
   set(ARROW_DATASET ON)
   set(ARROW_FILESYSTEM ON)
+  set(ARROW_HDFS ON)
   set(ARROW_JSON ON)
 endif()
 
