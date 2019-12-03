@@ -88,6 +88,20 @@ TEST(TestTensor, Make) {
   EXPECT_TRUE(tensor4->Equals(*tensor3));
 }
 
+TEST(TestTensor, MakeZeroDim) {
+  std::vector<int64_t> shape = {};
+  std::vector<double> values = {355 / 113.0};
+  auto data = Buffer::Wrap(values);
+  std::shared_ptr<Tensor> tensor;
+
+  ASSERT_OK_AND_ASSIGN(tensor, Tensor::Make(float64(), data, shape));
+  EXPECT_EQ(1, tensor->size());
+  EXPECT_EQ(shape, tensor->shape());
+  EXPECT_EQ(shape, tensor->strides());
+  EXPECT_EQ(data->data(), tensor->raw_data());
+  EXPECT_EQ(values[0], tensor->Value<DoubleType>({}));
+}
+
 TEST(TestTensor, MakeFailureCases) {
   std::vector<int64_t> shape = {3, 6};
   std::vector<double> values = {1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5, 6, 7, 8, 9};
@@ -101,9 +115,6 @@ TEST(TestTensor, MakeFailureCases) {
 
   // null data
   ASSERT_RAISES(Invalid, Tensor::Make(float64(), nullptr, shape));
-
-  // empty shape
-  ASSERT_RAISES(Invalid, Tensor::Make(float64(), data, {}));
 
   // negative items in shape
   ASSERT_RAISES(Invalid, Tensor::Make(float64(), data, {-3, 6}));
