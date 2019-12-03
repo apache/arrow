@@ -23,61 +23,61 @@
 # `DEPENDENCIES` array (see the comment on top of the declaration for the
 # format).
 
-AWSSDK_VERSION=1.7.160
-BOOST_VERSION=1.67.0
-BROTLI_VERSION=v1.0.7
-BZIP2_VERSION=1.0.8
-CARES_VERSION=1.15.0
-GBENCHMARK_VERSION=v1.5.0
-GFLAGS_VERSION=v2.2.0
-GLOG_VERSION=v0.3.5
-GRPC_VERSION=v1.24.3
-GTEST_VERSION=1.8.1
-JEMALLOC_VERSION=5.2.1
-LZ4_VERSION=v1.9.2
+ARROW_AWSSDK_BUILD_VERSION=1.7.160
+ARROW_BOOST_BUILD_VERSION=1.67.0
+ARROW_BROTLI_BUILD_VERSION=v1.0.7
+ARROW_BZIP2_BUILD_VERSION=1.0.8
+ARROW_CARES_BUILD_VERSION=1.15.0
+ARROW_GBENCHMARK_BUILD_VERSION=v1.5.0
+ARROW_GFLAGS_BUILD_VERSION=v2.2.0
+ARROW_GLOG_BUILD_VERSION=v0.3.5
+ARROW_GRPC_BUILD_VERSION=v1.24.3
+ARROW_GTEST_BUILD_VERSION=1.8.1
+ARROW_JEMALLOC_BUILD_VERSION=5.2.1
+ARROW_LZ4_BUILD_VERSION=v1.9.2
 # Need post-v1.0.6 version for https://github.com/microsoft/mimalloc/pull/140,
 # https://github.com/microsoft/mimalloc/pull/145 and
 # https://github.com/microsoft/mimalloc/pull/148
-MIMALLOC_VERSION=270e765454f98e8bab9d42609b153425f749fff6
-ORC_VERSION=1.5.7
-PROTOBUF_VERSION=v3.7.1
+ARROW_MIMALLOC_BUILD_VERSION=270e765454f98e8bab9d42609b153425f749fff6
+ARROW_ORC_BUILD_VERSION=1.5.7
+ARROW_PROTOBUF_BUILD_VERSION=v3.7.1
 # Because of https://github.com/Tencent/rapidjson/pull/1323, we require
 # a pre-release version of RapidJSON to build with GCC 8 without
 # warnings.
-RAPIDJSON_VERSION=2bbd33b33217ff4a73434ebf10cdac41e2ef5e34
-RE2_VERSION=2019-08-01
-SNAPPY_VERSION=1.1.7
-THRIFT_VERSION=0.12.0
-THRIFT_MD5_CHECKSUM=3deebbb4d1ca77dd9c9e009a1ea02183
-ZLIB_VERSION=1.2.11
-ZSTD_VERSION=v1.4.3
+ARROW_RAPIDJSON_BUILD_VERSION=2bbd33b33217ff4a73434ebf10cdac41e2ef5e34
+ARROW_RE2_BUILD_VERSION=2019-08-01
+ARROW_SNAPPY_BUILD_VERSION=1.1.7
+ARROW_THRIFT_BUILD_VERSION=0.12.0
+ARROW_THRIFT_BUILD_MD5_CHECKSUM=3deebbb4d1ca77dd9c9e009a1ea02183
+ARROW_ZLIB_BUILD_VERSION=1.2.11
+ARROW_ZSTD_BUILD_VERSION=v1.4.3
 
 # The first field is the name of the environment variable expected by cmake.
 # This _must_ match what is defined. The second field is the name of the
 # generated archive file. The third field is the url of the project for the
 # given version.
 DEPENDENCIES=(
-  "ARROW_AWSSDK_URL aws-sdk-cpp-${AWSSDK_VERSION}.tar.gz https://github.com/aws/aws-sdk-cpp/archive/${AWSSDK_VERSION}.tar.gz"
-  "ARROW_BOOST_URL boost-${BOOST_VERSION}.tar.gz https://dl.bintray.com/boostorg/release/${BOOST_VERSION}/source/boost_${BOOST_VERSION//./_}.tar.gz"
-  "ARROW_BROTLI_URL brotli-${BROTLI_VERSION}.tar.gz https://github.com/google/brotli/archive/${BROTLI_VERSION}.tar.gz"
-  "ARROW_BZIP2_URL bzip2-${BZIP2_VERSION}.tar.gz https://sourceware.org/pub/bzip2/bzip2-${BZIP2_VERSION}.tar.gz"
-  "ARROW_CARES_URL cares-${CARES_VERSION}.tar.gz https://c-ares.haxx.se/download/c-ares-$CARES_VERSION.tar.gz"
-  "ARROW_GBENCHMARK_URL gbenchmark-${GBENCHMARK_VERSION}.tar.gz https://github.com/google/benchmark/archive/${GBENCHMARK_VERSION}.tar.gz"
-  "ARROW_GFLAGS_URL gflags-${GFLAGS_VERSION}.tar.gz https://github.com/gflags/gflags/archive/${GFLAGS_VERSION}.tar.gz"
-  "ARROW_GLOG_URL glog-${GLOG_VERSION}.tar.gz https://github.com/google/glog/archive/${GLOG_VERSION}.tar.gz"
-  "ARROW_GRPC_URL grpc-${GRPC_VERSION}.tar.gz https://github.com/grpc/grpc/archive/${GRPC_VERSION}.tar.gz"
-  "ARROW_GTEST_URL gtest-${GTEST_VERSION}.tar.gz https://github.com/google/googletest/archive/release-${GTEST_VERSION}.tar.gz"
-  "ARROW_JEMALLOC_URL jemalloc-${JEMALLOC_VERSION}.tar.bz2 https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_VERSION}/jemalloc-${JEMALLOC_VERSION}.tar.bz2"
-  "ARROW_LZ4_URL lz4-${LZ4_VERSION}.tar.gz https://github.com/lz4/lz4/archive/${LZ4_VERSION}.tar.gz"
-  "ARROW_MIMALLOC_URL mimalloc-${MIMALLOC_VERSION}.tar.gz https://github.com/microsoft/mimalloc/archive/${MIMALLOC_VERSION}.tar.gz"
-  "ARROW_ORC_URL orc-${ORC_VERSION}.tar.gz https://github.com/apache/orc/archive/rel/release-${ORC_VERSION}.tar.gz"
-  "ARROW_PROTOBUF_URL protobuf-${PROTOBUF_VERSION}.tar.gz https://github.com/google/protobuf/releases/download/${PROTOBUF_VERSION}/protobuf-all-${PROTOBUF_VERSION:1}.tar.gz"
-  "ARROW_RAPIDJSON_URL rapidjson-${RAPIDJSON_VERSION}.tar.gz https://github.com/miloyip/rapidjson/archive/${RAPIDJSON_VERSION}.tar.gz"
-  "ARROW_RE2_URL re2-${RE2_VERSION}.tar.gz https://github.com/google/re2/archive/${RE2_VERSION}.tar.gz"
-  "ARROW_SNAPPY_URL snappy-${SNAPPY_VERSION}.tar.gz https://github.com/google/snappy/archive/${SNAPPY_VERSION}.tar.gz"
-  "ARROW_THRIFT_URL thrift-${THRIFT_VERSION}.tar.gz https://archive.apache.org/dist/thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz"
-  "ARROW_ZLIB_URL zlib-${ZLIB_VERSION}.tar.gz https://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz"
-  "ARROW_ZSTD_URL zstd-${ZSTD_VERSION}.tar.gz https://github.com/facebook/zstd/archive/${ZSTD_VERSION}.tar.gz"
+  "ARROW_AWSSDK_URL aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz https://github.com/aws/aws-sdk-cpp/archive/${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
+  "ARROW_BOOST_URL boost-${ARROW_BOOST_BUILD_VERSION}.tar.gz https://dl.bintray.com/boostorg/release/${ARROW_BOOST_BUILD_VERSION}/source/boost_${ARROW_BOOST_BUILD_VERSION//./_}.tar.gz"
+  "ARROW_BROTLI_URL brotli-${ARROW_BROTLI_BUILD_VERSION}.tar.gz https://github.com/google/brotli/archive/${ARROW_BROTLI_BUILD_VERSION}.tar.gz"
+  "ARROW_BZIP2_URL bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz https://sourceware.org/pub/bzip2/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
+  "ARROW_CARES_URL cares-${ARROW_CARES_BUILD_VERSION}.tar.gz https://c-ares.haxx.se/download/c-ares-${ARROW_CARES_BUILD_VERSION}.tar.gz"
+  "ARROW_GBENCHMARK_URL gbenchmark-${ARROW_GBENCHMARK_BUILD_VERSION}.tar.gz https://github.com/google/benchmark/archive/${ARROW_GBENCHMARK_BUILD_VERSION}.tar.gz"
+  "ARROW_GFLAGS_URL gflags-${ARROW_GFLAGS_BUILD_VERSION}.tar.gz https://github.com/gflags/gflags/archive/${ARROW_GFLAGS_BUILD_VERSION}.tar.gz"
+  "ARROW_GLOG_URL glog-${ARROW_GLOG_BUILD_VERSION}.tar.gz https://github.com/google/glog/archive/${ARROW_GLOG_BUILD_VERSION}.tar.gz"
+  "ARROW_GRPC_URL grpc-${ARROW_GRPC_BUILD_VERSION}.tar.gz https://github.com/grpc/grpc/archive/${ARROW_GRPC_BUILD_VERSION}.tar.gz"
+  "ARROW_GTEST_URL gtest-${ARROW_GTEST_BUILD_VERSION}.tar.gz https://github.com/google/googletest/archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
+  "ARROW_JEMALLOC_URL jemalloc-${ARROW_JEMALLOC_BUILD_VERSION}.tar.bz2 https://github.com/jemalloc/jemalloc/releases/download/${ARROW_JEMALLOC_BUILD_VERSION}/jemalloc-${ARROW_JEMALLOC_BUILD_VERSION}.tar.bz2"
+  "ARROW_LZ4_URL lz4-${ARROW_LZ4_BUILD_VERSION}.tar.gz https://github.com/lz4/lz4/archive/${ARROW_LZ4_BUILD_VERSION}.tar.gz"
+  "ARROW_MIMALLOC_URL mimalloc-${ARROW_MIMALLOC_BUILD_VERSION}.tar.gz https://github.com/microsoft/mimalloc/archive/${ARROW_MIMALLOC_BUILD_VERSION}.tar.gz"
+  "ARROW_ORC_URL orc-${ARROW_ORC_BUILD_VERSION}.tar.gz https://github.com/apache/orc/archive/rel/release-${ARROW_ORC_BUILD_VERSION}.tar.gz"
+  "ARROW_PROTOBUF_URL protobuf-${ARROW_PROTOBUF_BUILD_VERSION}.tar.gz https://github.com/google/protobuf/releases/download/${ARROW_PROTOBUF_BUILD_VERSION}/protobuf-all-${ARROW_PROTOBUF_BUILD_VERSION:1}.tar.gz"
+  "ARROW_RAPIDJSON_URL rapidjson-${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz https://github.com/miloyip/rapidjson/archive/${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz"
+  "ARROW_RE2_URL re2-${ARROW_RE2_BUILD_VERSION}.tar.gz https://github.com/google/re2/archive/${ARROW_RE2_BUILD_VERSION}.tar.gz"
+  "ARROW_SNAPPY_URL snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz https://github.com/google/snappy/archive/${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"
+  "ARROW_THRIFT_URL thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz https://archive.apache.org/dist/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+  "ARROW_ZLIB_URL zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz https://zlib.net/fossils/zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz"
+  "ARROW_ZSTD_URL zstd-${ARROW_ZSTD_BUILD_VERSION}.tar.gz https://github.com/facebook/zstd/archive/${ARROW_ZSTD_BUILD_VERSION}.tar.gz"
 )
 
 # vim: set filetype=sh:
