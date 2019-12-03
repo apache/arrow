@@ -255,7 +255,8 @@ endif()
 if(DEFINED ENV{ARROW_BOOST_URL})
   set(BOOST_SOURCE_URL "$ENV{ARROW_BOOST_URL}")
 else()
-  string(REPLACE "." "_" ARROW_BOOST_BUILD_VERSION_UNDERSCORES ${ARROW_BOOST_BUILD_VERSION})
+  string(REPLACE "." "_" ARROW_BOOST_BUILD_VERSION_UNDERSCORES
+                 ${ARROW_BOOST_BUILD_VERSION})
   set(
     BOOST_SOURCE_URL
     "https://dl.bintray.com/boostorg/release/${ARROW_BOOST_BUILD_VERSION}/source/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
@@ -272,14 +273,18 @@ endif()
 if(DEFINED ENV{ARROW_CARES_URL})
   set(CARES_SOURCE_URL "$ENV{ARROW_CARES_URL}")
 else()
-  set(CARES_SOURCE_URL "https://c-ares.haxx.se/download/c-ares-${ARROW_CARES_BUILD_VERSION}.tar.gz")
+  set(CARES_SOURCE_URL
+      "https://c-ares.haxx.se/download/c-ares-${ARROW_CARES_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_GBENCHMARK_URL})
   set(GBENCHMARK_SOURCE_URL "$ENV{ARROW_GBENCHMARK_URL}")
 else()
-  set(GBENCHMARK_SOURCE_URL
-      "https://github.com/google/benchmark/archive/${ARROW_GBENCHMARK_BUILD_VERSION}.tar.gz")
+  set(
+    GBENCHMARK_SOURCE_URL
+
+    "https://github.com/google/benchmark/archive/${ARROW_GBENCHMARK_BUILD_VERSION}.tar.gz"
+    )
 endif()
 
 if(DEFINED ENV{ARROW_GFLAGS_URL})
@@ -292,20 +297,24 @@ endif()
 if(DEFINED ENV{ARROW_GLOG_URL})
   set(GLOG_SOURCE_URL "$ENV{ARROW_GLOG_URL}")
 else()
-  set(GLOG_SOURCE_URL "https://github.com/google/glog/archive/${ARROW_GLOG_BUILD_VERSION}.tar.gz")
+  set(GLOG_SOURCE_URL
+      "https://github.com/google/glog/archive/${ARROW_GLOG_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_GRPC_URL})
   set(GRPC_SOURCE_URL "$ENV{ARROW_GRPC_URL}")
 else()
-  set(GRPC_SOURCE_URL "https://github.com/grpc/grpc/archive/${ARROW_GRPC_BUILD_VERSION}.tar.gz")
+  set(GRPC_SOURCE_URL
+      "https://github.com/grpc/grpc/archive/${ARROW_GRPC_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_GTEST_URL})
   set(GTEST_SOURCE_URL "$ENV{ARROW_GTEST_URL}")
 else()
-  set(GTEST_SOURCE_URL
-      "https://github.com/google/googletest/archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz")
+  set(
+    GTEST_SOURCE_URL
+    "https://github.com/google/googletest/archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
+    )
 endif()
 
 if(DEFINED ENV{ARROW_JEMALLOC_URL})
@@ -320,27 +329,33 @@ endif()
 if(DEFINED ENV{ARROW_MIMALLOC_URL})
   set(MIMALLOC_SOURCE_URL "$ENV{ARROW_MIMALLOC_URL}")
 else()
-  set(MIMALLOC_SOURCE_URL
-      "https://github.com/microsoft/mimalloc/archive/${ARROW_MIMALLOC_BUILD_VERSION}.tar.gz")
+  set(
+    MIMALLOC_SOURCE_URL
+
+    "https://github.com/microsoft/mimalloc/archive/${ARROW_MIMALLOC_BUILD_VERSION}.tar.gz"
+    )
 endif()
 
 if(DEFINED ENV{ARROW_LZ4_URL})
   set(LZ4_SOURCE_URL "$ENV{ARROW_LZ4_URL}")
 else()
-  set(LZ4_SOURCE_URL "https://github.com/lz4/lz4/archive/${ARROW_LZ4_BUILD_VERSION}.tar.gz")
+  set(LZ4_SOURCE_URL
+      "https://github.com/lz4/lz4/archive/${ARROW_LZ4_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_ORC_URL})
   set(ORC_SOURCE_URL "$ENV{ARROW_ORC_URL}")
 else()
-  set(ORC_SOURCE_URL
-      "https://github.com/apache/orc/archive/rel/release-${ARROW_ORC_BUILD_VERSION}.tar.gz")
+  set(
+    ORC_SOURCE_URL
+    "https://github.com/apache/orc/archive/rel/release-${ARROW_ORC_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_PROTOBUF_URL})
   set(PROTOBUF_SOURCE_URL "$ENV{ARROW_PROTOBUF_URL}")
 else()
-  string(SUBSTRING ${ARROW_PROTOBUF_BUILD_VERSION} 1 -1 ARROW_PROTOBUF_STRIPPED_BUILD_VERSION)
+  string(SUBSTRING ${ARROW_PROTOBUF_BUILD_VERSION} 1 -1
+                   ARROW_PROTOBUF_STRIPPED_BUILD_VERSION)
   # strip the leading `v`
   set(
     PROTOBUF_SOURCE_URL
@@ -351,14 +366,18 @@ endif()
 if(DEFINED ENV{ARROW_RE2_URL})
   set(RE2_SOURCE_URL "$ENV{ARROW_RE2_URL}")
 else()
-  set(RE2_SOURCE_URL "https://github.com/google/re2/archive/${ARROW_RE2_BUILD_VERSION}.tar.gz")
+  set(RE2_SOURCE_URL
+      "https://github.com/google/re2/archive/${ARROW_RE2_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_RAPIDJSON_URL})
   set(RAPIDJSON_SOURCE_URL "$ENV{ARROW_RAPIDJSON_URL}")
 else()
-  set(RAPIDJSON_SOURCE_URL
-      "https://github.com/miloyip/rapidjson/archive/${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz")
+  set(
+    RAPIDJSON_SOURCE_URL
+
+    "https://github.com/miloyip/rapidjson/archive/${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz"
+    )
 endif()
 
 if(DEFINED ENV{ARROW_SNAPPY_URL})
@@ -383,13 +402,15 @@ endif()
 if(DEFINED ENV{ARROW_ZSTD_URL})
   set(ZSTD_SOURCE_URL "$ENV{ARROW_ZSTD_URL}")
 else()
-  set(ZSTD_SOURCE_URL "https://github.com/facebook/zstd/archive/${ARROW_ZSTD_BUILD_VERSION}.tar.gz")
+  set(ZSTD_SOURCE_URL
+      "https://github.com/facebook/zstd/archive/${ARROW_ZSTD_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{BZIP2_SOURCE_URL})
   set(BZIP2_SOURCE_URL "$ENV{BZIP2_SOURCE_URL}")
 else()
-  set(BZIP2_SOURCE_URL "https://sourceware.org/pub/bzip2/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz")
+  set(BZIP2_SOURCE_URL
+      "https://sourceware.org/pub/bzip2/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz")
 endif()
 
 # ----------------------------------------------------------------------
@@ -484,9 +505,13 @@ macro(build_boost)
   if(MSVC)
     string(REGEX
            REPLACE "^([0-9]+)\\.([0-9]+)\\.[0-9]+$" "\\1_\\2"
-                   ARROW_BOOST_BUILD_VERSION_NO_MICRO_UNDERSCORE ${ARROW_BOOST_BUILD_VERSION})
-    set(BOOST_LIBRARY_SUFFIX
-        "-vc${MSVC_TOOLSET_VERSION}-mt-x64-${ARROW_BOOST_BUILD_VERSION_NO_MICRO_UNDERSCORE}")
+                   ARROW_BOOST_BUILD_VERSION_NO_MICRO_UNDERSCORE
+                   ${ARROW_BOOST_BUILD_VERSION})
+    set(
+      BOOST_LIBRARY_SUFFIX
+
+      "-vc${MSVC_TOOLSET_VERSION}-mt-x64-${ARROW_BOOST_BUILD_VERSION_NO_MICRO_UNDERSCORE}"
+      )
   else()
     set(BOOST_LIBRARY_SUFFIX "")
   endif()
@@ -1071,8 +1096,10 @@ macro(build_thrift)
 
   if("${THRIFT_SOURCE_URL}" STREQUAL "FROM-APACHE-MIRROR")
     get_apache_mirror()
-    set(THRIFT_SOURCE_URL
-        "${APACHE_MIRROR}/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz")
+    set(
+      THRIFT_SOURCE_URL
+      "${APACHE_MIRROR}/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+      )
   endif()
 
   message("Downloading Apache Thrift from ${THRIFT_SOURCE_URL}")
