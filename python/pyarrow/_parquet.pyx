@@ -935,7 +935,7 @@ cdef converted_type_name_from_enum(ParquetConvertedType type_):
         ParquetConvertedType_INT_8: 'INT_8',
         ParquetConvertedType_INT_16: 'INT_16',
         ParquetConvertedType_INT_32: 'INT_32',
-        ParquetConvertedType_INT_64: 'UINT_64',
+        ParquetConvertedType_INT_64: 'INT_64',
         ParquetConvertedType_JSON: 'JSON',
         ParquetConvertedType_BSON: 'BSON',
         ParquetConvertedType_INTERVAL: 'INTERVAL',
