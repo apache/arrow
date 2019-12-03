@@ -340,7 +340,7 @@ class SparseTensorImpl : public SparseTensor {
       : SparseTensorImpl(NULLPTR, type, NULLPTR, shape, dim_names) {}
 
   /// \brief Create a SparseTensor with full parameters
-  static Result<std::shared_ptr<SparseTensorImpl<SparseIndexType>>> Make(
+  static inline Result<std::shared_ptr<SparseTensorImpl<SparseIndexType>>> Make(
       const std::shared_ptr<SparseIndexType>& sparse_index,
       const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
       const std::vector<int64_t>& shape, const std::vector<std::string>& dim_names) {
@@ -360,9 +360,9 @@ class SparseTensorImpl : public SparseTensor {
   ///
   /// The dense tensor is re-encoded as a sparse index and a physical
   /// data buffer for the non-zero value.
-  static Result<std::shared_ptr<SparseTensorImpl<SparseIndexType>>> Make(
+  static inline Result<std::shared_ptr<SparseTensorImpl<SparseIndexType>>> Make(
       const Tensor& tensor, const std::shared_ptr<DataType>& index_value_type,
-      MemoryPool* pool) {
+      MemoryPool* pool = default_memory_pool()) {
     std::shared_ptr<SparseIndex> sparse_index;
     std::shared_ptr<Buffer> data;
     ARROW_RETURN_NOT_OK(internal::MakeSparseTensorFromTensor(
@@ -373,19 +373,9 @@ class SparseTensorImpl : public SparseTensor {
         data, tensor.shape(), tensor.dim_names_);
   }
 
-  static Result<std::shared_ptr<SparseTensorImpl<SparseIndexType>>> Make(
-      const Tensor& tensor, const std::shared_ptr<DataType>& index_value_type) {
-    return Make(tensor, index_value_type, default_memory_pool());
-  }
-
-  static Result<std::shared_ptr<SparseTensorImpl<SparseIndexType>>> Make(
-      const Tensor& tensor, MemoryPool* pool) {
+  static inline Result<std::shared_ptr<SparseTensorImpl<SparseIndexType>>> Make(
+      const Tensor& tensor, MemoryPool* pool = default_memory_pool()) {
     return Make(tensor, int64(), pool);
-  }
-
-  static Result<std::shared_ptr<SparseTensorImpl<SparseIndexType>>> Make(
-      const Tensor& tensor) {
-    return Make(tensor, default_memory_pool());
   }
 
   /// \brief Create a sparse tensor from a dense tensor
