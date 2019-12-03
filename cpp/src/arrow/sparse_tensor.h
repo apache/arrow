@@ -121,7 +121,7 @@ class ARROW_EXPORT SparseCOOIndex : public internal::SparseIndexBase<SparseCOOIn
     return indices()->Equals(*other.indices());
   }
 
-  Status ValidateShape(const std::vector<int64_t>& shape) const override {
+  inline Status ValidateShape(const std::vector<int64_t>& shape) const override {
     ARROW_RETURN_NOT_OK(SparseIndex::ValidateShape(shape));
 
     if (static_cast<size_t>(coords_->shape()[1]) == shape.size()) {
@@ -205,7 +205,7 @@ class ARROW_EXPORT SparseCSRIndex : public internal::SparseIndexBase<SparseCSRIn
     return indptr()->Equals(*other.indptr()) && indices()->Equals(*other.indices());
   }
 
-  Status ValidateShape(const std::vector<int64_t>& shape) const override {
+  inline Status ValidateShape(const std::vector<int64_t>& shape) const override {
     ARROW_RETURN_NOT_OK(SparseIndex::ValidateShape(shape));
 
     if (shape.size() < 2) {
