@@ -568,11 +568,10 @@ TEST_F(TestSubTreeFileSystem, CopyFile) {
 
 TEST_F(TestSubTreeFileSystem, OpenInputStream) {
   std::shared_ptr<io::InputStream> stream;
-  std::shared_ptr<Buffer> buffer;
   CreateFile("ab", "data");
 
   ASSERT_OK_AND_ASSIGN(stream, subfs_->OpenInputStream("ab"));
-  ASSERT_OK(stream->Read(4, &buffer));
+  ASSERT_OK_AND_ASSIGN(auto buffer, stream->Read(4));
   AssertBufferEqual(*buffer, "data");
   ASSERT_OK(stream->Close());
 
@@ -582,11 +581,10 @@ TEST_F(TestSubTreeFileSystem, OpenInputStream) {
 
 TEST_F(TestSubTreeFileSystem, OpenInputFile) {
   std::shared_ptr<io::RandomAccessFile> stream;
-  std::shared_ptr<Buffer> buffer;
   CreateFile("ab", "some data");
 
   ASSERT_OK_AND_ASSIGN(stream, subfs_->OpenInputFile("ab"));
-  ASSERT_OK(stream->ReadAt(5, 4, &buffer));
+  ASSERT_OK_AND_ASSIGN(auto buffer, stream->ReadAt(5, 4));
   AssertBufferEqual(*buffer, "data");
   ASSERT_OK(stream->Close());
 

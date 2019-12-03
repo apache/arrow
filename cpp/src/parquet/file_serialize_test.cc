@@ -104,8 +104,7 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
     }
     file_writer->Close();
 
-    std::shared_ptr<Buffer> buffer;
-    PARQUET_THROW_NOT_OK(sink->Finish(&buffer));
+    PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
 
     int num_rows_ = num_rowgroups_ * rows_per_rowgroup_;
 
@@ -333,8 +332,7 @@ TEST(TestBufferedRowGroupWriter, DisabledDictionary) {
   col_writer->WriteBatch(1, nullptr, nullptr, &value);
   rg_writer->Close();
   file_writer->Close();
-  std::shared_ptr<Buffer> buffer;
-  PARQUET_THROW_NOT_OK(sink->Finish(&buffer));
+  PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
 
   auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
   auto file_reader = ParquetFileReader::Open(source);

@@ -155,32 +155,24 @@ void JNI_OnUnload(JavaVM* vm, void* reserved) {
 
 JNIEXPORT jlong JNICALL Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_open(
     JNIEnv* env, jobject this_obj, jstring file_path) {
-  std::shared_ptr<arrow::io::ReadableFile> in_file;
-
   std::string path = JStringToCString(env, file_path);
 
-  arrow::Status ret;
   if (path.find("hdfs://") == 0) {
     env->ThrowNew(io_exception_class, "hdfs path not supported yet.");
-  } else {
-    ret = arrow::io::ReadableFile::Open(path, &in_file);
   }
+  auto maybe_file = arrow::io::ReadableFile::Open(path);
 
-  if (ret.ok()) {
-    std::unique_ptr<ORCFileReader> reader;
-
-    ret = ORCFileReader::Open(
-        std::static_pointer_cast<arrow::io::RandomAccessFile>(in_file),
-        arrow::default_memory_pool(), &reader);
-
-    if (!ret.ok()) {
-      env->ThrowNew(io_exception_class, std::string("Failed open file" + path).c_str());
-    }
-
-    return orc_reader_holder_.Insert(std::shared_ptr<ORCFileReader>(reader.release()));
+  if (!maybe_file.ok()) {
+    return -static_cast<jlong>(maybe_file.status().code());
   }
-
-  return static_cast<jlong>(ret.code()) * -1;
+  std::unique_ptr<ORCFileReader> reader;
+  arrow::Status ret = ORCFileReader::Open(
+      std::static_pointer_cast<arrow::io::RandomAccessFile>(*maybe_file),
+      arrow::default_memory_pool(), &reader);
+  if (!ret.ok()) {
+    env->ThrowNew(io_exception_class, std::string("Failed open file" + path).c_str());
+  }
+  return orc_reader_holder_.Insert(std::shared_ptr<ORCFileReader>(reader.release()));
 }
 
 JNIEXPORT void JNICALL Java_org_apache_arrow_adapter_orc_OrcReaderJniWrapper_close(

@@ -120,7 +120,7 @@ class IpcComponentSource {
             "Buffer ", buffer_index,
             " did not start on 8-byte aligned offset: ", buffer->offset());
       }
-      return file_->ReadAt(buffer->offset(), buffer->length(), out);
+      return file_->ReadAt(buffer->offset(), buffer->length()).Value(out);
     }
   }
 
@@ -628,9 +628,9 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
       return Status::Invalid("File is too small: ", footer_offset_);
     }
 
-    std::shared_ptr<Buffer> buffer;
     int file_end_size = static_cast<int>(magic_size + sizeof(int32_t));
-    RETURN_NOT_OK(file_->ReadAt(footer_offset_ - file_end_size, file_end_size, &buffer));
+    ARROW_ASSIGN_OR_RAISE(auto buffer,
+                          file_->ReadAt(footer_offset_ - file_end_size, file_end_size));
 
     const int64_t expected_footer_size = magic_size + sizeof(int32_t);
     if (buffer->size() < expected_footer_size) {
@@ -648,8 +648,9 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
     }
 
     // Now read the footer
-    RETURN_NOT_OK(file_->ReadAt(footer_offset_ - footer_length - file_end_size,
-                                footer_length, &footer_buffer_));
+    ARROW_ASSIGN_OR_RAISE(
+        footer_buffer_,
+        file_->ReadAt(footer_offset_ - footer_length - file_end_size, footer_length));
 
     auto data = footer_buffer_->data();
     flatbuffers::Verifier verifier(data, footer_buffer_->size(), 128);
@@ -765,8 +766,7 @@ RecordBatchFileReader::~RecordBatchFileReader() {}
 
 Status RecordBatchFileReader::Open(io::RandomAccessFile* file,
                                    std::shared_ptr<RecordBatchFileReader>* reader) {
-  int64_t footer_offset;
-  RETURN_NOT_OK(file->GetSize(&footer_offset));
+  ARROW_ASSIGN_OR_RAISE(int64_t footer_offset, file->GetSize());
   return Open(file, footer_offset, reader);
 }
 
@@ -778,8 +778,7 @@ Status RecordBatchFileReader::Open(io::RandomAccessFile* file, int64_t footer_of
 
 Status RecordBatchFileReader::Open(const std::shared_ptr<io::RandomAccessFile>& file,
                                    std::shared_ptr<RecordBatchFileReader>* reader) {
-  int64_t footer_offset;
-  RETURN_NOT_OK(file->GetSize(&footer_offset));
+  ARROW_ASSIGN_OR_RAISE(int64_t footer_offset, file->GetSize());
   return Open(file, footer_offset, reader);
 }
 
@@ -869,9 +868,8 @@ Status ReadSparseCOOIndex(const flatbuf::SparseTensor* sparse_tensor,
   RETURN_NOT_OK(internal::GetSparseCOOIndexMetadata(sparse_index, &indices_type));
 
   auto* indices_buffer = sparse_index->indicesBuffer();
-  std::shared_ptr<Buffer> indices_data;
-  RETURN_NOT_OK(
-      file->ReadAt(indices_buffer->offset(), indices_buffer->length(), &indices_data));
+  ARROW_ASSIGN_OR_RAISE(auto indices_data,
+                        file->ReadAt(indices_buffer->offset(), indices_buffer->length()));
   std::vector<int64_t> indices_shape(
       {non_zero_length, static_cast<int64_t>(shape.size())});
   auto* indices_strides = sparse_index->indicesStrides();
@@ -894,14 +892,12 @@ Status ReadSparseCSRIndex(const flatbuf::SparseTensor* sparse_tensor,
       internal::GetSparseCSRIndexMetadata(sparse_index, &indptr_type, &indices_type));
 
   auto* indptr_buffer = sparse_index->indptrBuffer();
-  std::shared_ptr<Buffer> indptr_data;
-  RETURN_NOT_OK(
-      file->ReadAt(indptr_buffer->offset(), indptr_buffer->length(), &indptr_data));
+  ARROW_ASSIGN_OR_RAISE(auto indptr_data,
+                        file->ReadAt(indptr_buffer->offset(), indptr_buffer->length()));
 
   auto* indices_buffer = sparse_index->indicesBuffer();
-  std::shared_ptr<Buffer> indices_data;
-  RETURN_NOT_OK(
-      file->ReadAt(indices_buffer->offset(), indices_buffer->length(), &indices_data));
+  ARROW_ASSIGN_OR_RAISE(auto indices_data,
+                        file->ReadAt(indices_buffer->offset(), indices_buffer->length()));
 
   std::vector<int64_t> indptr_shape({shape[0] + 1});
   std::vector<int64_t> indices_shape({non_zero_length});
@@ -1077,8 +1073,7 @@ Status ReadSparseTensor(const Buffer& metadata, io::RandomAccessFile* file,
                                          &non_zero_length, &sparse_tensor_format_id,
                                          &sparse_tensor, &buffer));
 
-  std::shared_ptr<Buffer> data;
-  RETURN_NOT_OK(file->ReadAt(buffer->offset(), buffer->length(), &data));
+  ARROW_ASSIGN_OR_RAISE(auto data, file->ReadAt(buffer->offset(), buffer->length()));
 
   std::shared_ptr<SparseIndex> sparse_index;
   switch (sparse_tensor_format_id) {

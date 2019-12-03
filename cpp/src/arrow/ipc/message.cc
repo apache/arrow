@@ -166,8 +166,7 @@ Status Message::ReadFrom(std::shared_ptr<Buffer> metadata, io::InputStream* stre
   int64_t body_length = -1;
   RETURN_NOT_OK(CheckMetadataAndGetBodyLength(*metadata, &body_length));
 
-  std::shared_ptr<Buffer> body;
-  RETURN_NOT_OK(stream->Read(body_length, &body));
+  ARROW_ASSIGN_OR_RAISE(auto body, stream->Read(body_length));
   if (body->size() < body_length) {
     return Status::IOError("Expected to be able to read ", body_length,
                            " bytes for message body, got ", body->size());
@@ -182,8 +181,7 @@ Status Message::ReadFrom(const int64_t offset, std::shared_ptr<Buffer> metadata,
   int64_t body_length = -1;
   RETURN_NOT_OK(CheckMetadataAndGetBodyLength(*metadata, &body_length));
 
-  std::shared_ptr<Buffer> body;
-  RETURN_NOT_OK(file->ReadAt(offset, body_length, &body));
+  ARROW_ASSIGN_OR_RAISE(auto body, file->ReadAt(offset, body_length));
   if (body->size() < body_length) {
     return Status::IOError("Expected to be able to read ", body_length,
                            " bytes for message body, got ", body->size());
@@ -246,8 +244,7 @@ Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile
   ARROW_CHECK_GT(static_cast<size_t>(metadata_length), sizeof(int32_t))
       << "metadata_length should be at least 4";
 
-  std::shared_ptr<Buffer> buffer;
-  RETURN_NOT_OK(file->ReadAt(offset, metadata_length, &buffer));
+  ARROW_ASSIGN_OR_RAISE(auto buffer, file->ReadAt(offset, metadata_length));
 
   if (buffer->size() < metadata_length) {
     return Status::Invalid("Expected to read ", metadata_length,
@@ -295,14 +292,12 @@ Status ReadMessage(int64_t offset, int32_t metadata_length, io::RandomAccessFile
 }
 
 Status AlignStream(io::InputStream* stream, int32_t alignment) {
-  int64_t position = -1;
-  RETURN_NOT_OK(stream->Tell(&position));
+  ARROW_ASSIGN_OR_RAISE(int64_t position, stream->Tell());
   return stream->Advance(PaddedLength(position, alignment) - position);
 }
 
 Status AlignStream(io::OutputStream* stream, int32_t alignment) {
-  int64_t position = -1;
-  RETURN_NOT_OK(stream->Tell(&position));
+  ARROW_ASSIGN_OR_RAISE(int64_t position, stream->Tell());
   int64_t remainder = PaddedLength(position, alignment) - position;
   if (remainder > 0) {
     return stream->Write(kPaddingBytes, remainder);
@@ -311,10 +306,9 @@ Status AlignStream(io::OutputStream* stream, int32_t alignment) {
 }
 
 Status CheckAligned(io::FileInterface* stream, int32_t alignment) {
-  int64_t current_position;
-  ARROW_RETURN_NOT_OK(stream->Tell(&current_position));
-  if (current_position % alignment != 0) {
-    return Status::Invalid("Stream is not aligned pos: ", current_position,
+  ARROW_ASSIGN_OR_RAISE(int64_t position, stream->Tell());
+  if (position % alignment != 0) {
+    return Status::Invalid("Stream is not aligned pos: ", position,
                            " alignment: ", alignment);
   } else {
     return Status::OK();
@@ -326,9 +320,7 @@ namespace {
 Status ReadMessage(io::InputStream* file, MemoryPool* pool, bool copy_metadata,
                    std::unique_ptr<Message>* message) {
   int32_t continuation = 0;
-  int64_t bytes_read = 0;
-  RETURN_NOT_OK(file->Read(sizeof(int32_t), &bytes_read,
-                           reinterpret_cast<uint8_t*>(&continuation)));
+  ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, file->Read(sizeof(int32_t), &continuation));
 
   if (bytes_read == 0) {
     // EOS without indication
@@ -341,8 +333,7 @@ Status ReadMessage(io::InputStream* file, MemoryPool* pool, bool copy_metadata,
   int32_t flatbuffer_length = -1;
   if (continuation == internal::kIpcContinuationToken) {
     // Valid IPC message, read the message length now
-    RETURN_NOT_OK(file->Read(sizeof(int32_t), &bytes_read,
-                             reinterpret_cast<uint8_t*>(&flatbuffer_length)));
+    ARROW_ASSIGN_OR_RAISE(bytes_read, file->Read(sizeof(int32_t), &flatbuffer_length));
   } else {
     // ARROW-6314: Backwards compatibility for reading old IPC
     // messages produced prior to version 0.15.0
@@ -359,9 +350,10 @@ Status ReadMessage(io::InputStream* file, MemoryPool* pool, bool copy_metadata,
   if (copy_metadata) {
     DCHECK_NE(pool, nullptr);
     RETURN_NOT_OK(AllocateBuffer(pool, flatbuffer_length, &metadata));
-    RETURN_NOT_OK(file->Read(flatbuffer_length, &bytes_read, metadata->mutable_data()));
+    ARROW_ASSIGN_OR_RAISE(bytes_read,
+                          file->Read(flatbuffer_length, metadata->mutable_data()));
   } else {
-    RETURN_NOT_OK(file->Read(flatbuffer_length, &metadata));
+    ARROW_ASSIGN_OR_RAISE(metadata, file->Read(flatbuffer_length));
     bytes_read = metadata->size();
   }
   if (bytes_read != flatbuffer_length) {

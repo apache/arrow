@@ -87,8 +87,6 @@ class TestEncryptionConfiguration : public ::testing::Test {
   void EncryptFile(
       std::shared_ptr<parquet::FileEncryptionProperties> encryption_configurations,
       std::string file_name) {
-    std::shared_ptr<FileClass> out_file;
-
     std::string file = data_file(file_name.c_str());
 
     WriterProperties::Builder prop_builder;
@@ -96,7 +94,7 @@ class TestEncryptionConfiguration : public ::testing::Test {
     prop_builder.encryption(encryption_configurations);
     std::shared_ptr<WriterProperties> writer_properties = prop_builder.build();
 
-    PARQUET_THROW_NOT_OK(FileClass::Open(file, &out_file));
+    PARQUET_ASSIGN_OR_THROW(auto out_file, FileClass::Open(file));
     // Create a ParquetFileWriter instance
     std::shared_ptr<parquet::ParquetFileWriter> file_writer =
         parquet::ParquetFileWriter::Open(out_file, schema_, writer_properties);

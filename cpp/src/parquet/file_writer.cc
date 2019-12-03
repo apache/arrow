@@ -351,15 +351,14 @@ class FileSerializer : public ParquetFileWriter::Contents {
       // encrypted footer
       file_metadata_ = metadata_->Finish();
 
-      int64_t position = -1;
-      PARQUET_THROW_NOT_OK(sink_->Tell(&position));
+      PARQUET_ASSIGN_OR_THROW(int64_t position, sink_->Tell());
       uint64_t metadata_start = static_cast<uint64_t>(position);
       auto crypto_metadata = metadata_->GetCryptoMetaData();
       WriteFileCryptoMetaData(*crypto_metadata, sink_.get());
 
       auto footer_encryptor = file_encryptor_->GetFooterEncryptor();
       WriteEncryptedFileMetadata(*file_metadata_, sink_.get(), footer_encryptor, true);
-      PARQUET_THROW_NOT_OK(sink_->Tell(&position));
+      PARQUET_ASSIGN_OR_THROW(position, sink_->Tell());
       uint32_t footer_and_crypto_len = static_cast<uint32_t>(position - metadata_start);
       PARQUET_THROW_NOT_OK(
           sink_->Write(reinterpret_cast<uint8_t*>(&footer_and_crypto_len), 4));
@@ -459,12 +458,11 @@ std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(
 
 void WriteFileMetaData(const FileMetaData& file_metadata, ArrowOutputStream* sink) {
   // Write MetaData
-  int64_t position = -1;
-  PARQUET_THROW_NOT_OK(sink->Tell(&position));
+  PARQUET_ASSIGN_OR_THROW(int64_t position, sink->Tell());
   uint32_t metadata_len = static_cast<uint32_t>(position);
 
   file_metadata.WriteTo(sink);
-  PARQUET_THROW_NOT_OK(sink->Tell(&position));
+  PARQUET_ASSIGN_OR_THROW(position, sink->Tell());
   metadata_len = static_cast<uint32_t>(position) - metadata_len;
 
   // Write Footer
@@ -485,11 +483,10 @@ void WriteEncryptedFileMetadata(const FileMetaData& file_metadata,
     // encrypt and write to sink
     file_metadata.WriteTo(sink, encryptor);
   } else {  // Encrypted file with plaintext footer mode.
-    int64_t position = -1;
-    PARQUET_THROW_NOT_OK(sink->Tell(&position));
+    PARQUET_ASSIGN_OR_THROW(int64_t position, sink->Tell());
     uint32_t metadata_len = static_cast<uint32_t>(position);
     file_metadata.WriteTo(sink, encryptor);
-    PARQUET_THROW_NOT_OK(sink->Tell(&position));
+    PARQUET_ASSIGN_OR_THROW(position, sink->Tell());
     metadata_len = static_cast<uint32_t>(position) - metadata_len;
 
     PARQUET_THROW_NOT_OK(sink->Write(reinterpret_cast<uint8_t*>(&metadata_len), 4));

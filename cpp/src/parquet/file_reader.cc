@@ -116,8 +116,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
       // The Parquet MR writer had a bug in 1.2.8 and below where it didn't include the
       // dictionary page header size in total_compressed_size and total_uncompressed_size
       // (see IMPALA-694). We add padding to compensate.
-      int64_t size = -1;
-      PARQUET_THROW_NOT_OK(source_->GetSize(&size));
+      PARQUET_ASSIGN_OR_THROW(int64_t size, source_->GetSize());
       int64_t bytes_remaining = size - (col_start + col_length);
       int64_t padding = std::min<int64_t>(kMaxDictHeaderSize, bytes_remaining);
       col_length += padding;
@@ -208,8 +207,7 @@ class SerializedFile : public ParquetFileReader::Contents {
   }
 
   void ParseMetaData() {
-    int64_t file_size = -1;
-    PARQUET_THROW_NOT_OK(source_->GetSize(&file_size));
+    PARQUET_ASSIGN_OR_THROW(int64_t file_size, source_->GetSize());
 
     if (file_size == 0) {
       throw ParquetInvalidOrCorruptedFileException("Parquet file size is 0 bytes");
@@ -219,10 +217,10 @@ class SerializedFile : public ParquetFileReader::Contents {
           " bytes, smaller than the minimum file footer (", kFooterSize, " bytes)");
     }
 
-    std::shared_ptr<Buffer> footer_buffer;
     int64_t footer_read_size = std::min(file_size, kDefaultFooterReadSize);
-    PARQUET_THROW_NOT_OK(
-        source_->ReadAt(file_size - footer_read_size, footer_read_size, &footer_buffer));
+    PARQUET_ASSIGN_OR_THROW(
+        auto footer_buffer,
+        source_->ReadAt(file_size - footer_read_size, footer_read_size));
 
     // Check if all bytes are read. Check if last 4 bytes read have the magic bits
     if (footer_buffer->size() != footer_read_size ||
@@ -304,7 +302,8 @@ void SerializedFile::ParseUnencryptedFileMetadata(
     *metadata_buffer = SliceBuffer(
         footer_buffer, footer_read_size - *metadata_len - kFooterSize, *metadata_len);
   } else {
-    PARQUET_THROW_NOT_OK(source_->ReadAt(metadata_start, *metadata_len, metadata_buffer));
+    PARQUET_ASSIGN_OR_THROW(*metadata_buffer,
+                            source_->ReadAt(metadata_start, *metadata_len));
     if ((*metadata_buffer)->size() != *metadata_len) {
       throw ParquetException("Failed reading metadata buffer (requested " +
                              std::to_string(*metadata_len) + " bytes but got " +
@@ -336,8 +335,8 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithEncryptedFooter(
     crypto_metadata_buffer = SliceBuffer(
         footer_buffer, footer_read_size - footer_len - kFooterSize, footer_len);
   } else {
-    PARQUET_THROW_NOT_OK(
-        source_->ReadAt(crypto_metadata_start, footer_len, &crypto_metadata_buffer));
+    PARQUET_ASSIGN_OR_THROW(crypto_metadata_buffer,
+                            source_->ReadAt(crypto_metadata_start, footer_len));
     if (crypto_metadata_buffer->size() != footer_len) {
       throw ParquetException("Failed reading encrypted metadata buffer (requested " +
                              std::to_string(footer_len) + " bytes but got " +
@@ -360,8 +359,8 @@ void SerializedFile::ParseMetaDataOfEncryptedFileWithEncryptedFooter(
       file_crypto_metadata->key_metadata(), properties_.memory_pool()));
   int64_t metadata_offset = file_size - kFooterSize - footer_len + crypto_metadata_len;
   uint32_t metadata_len = footer_len - crypto_metadata_len;
-  std::shared_ptr<Buffer> metadata_buffer;
-  PARQUET_THROW_NOT_OK(source_->ReadAt(metadata_offset, metadata_len, &metadata_buffer));
+  PARQUET_ASSIGN_OR_THROW(auto metadata_buffer,
+                          source_->ReadAt(metadata_offset, metadata_len));
   if (metadata_buffer->size() != metadata_len) {
     throw ParquetException("Failed reading metadata buffer (requested " +
                            std::to_string(metadata_len) + " bytes but got " +
@@ -500,15 +499,11 @@ std::unique_ptr<ParquetFileReader> ParquetFileReader::OpenFile(
     const std::shared_ptr<FileMetaData>& metadata) {
   std::shared_ptr<::arrow::io::RandomAccessFile> source;
   if (memory_map) {
-    std::shared_ptr<::arrow::io::MemoryMappedFile> handle;
-    PARQUET_THROW_NOT_OK(
-        ::arrow::io::MemoryMappedFile::Open(path, ::arrow::io::FileMode::READ, &handle));
-    source = handle;
+    PARQUET_ASSIGN_OR_THROW(
+        source, ::arrow::io::MemoryMappedFile::Open(path, ::arrow::io::FileMode::READ));
   } else {
-    std::shared_ptr<::arrow::io::ReadableFile> handle;
-    PARQUET_THROW_NOT_OK(
-        ::arrow::io::ReadableFile::Open(path, props.memory_pool(), &handle));
-    source = handle;
+    PARQUET_ASSIGN_OR_THROW(source,
+                            ::arrow::io::ReadableFile::Open(path, props.memory_pool()));
   }
 
   return Open(source, props, metadata);

@@ -55,10 +55,9 @@ class CompressedOutputStream::Impl {
     return Status::OK();
   }
 
-  Status Tell(int64_t* position) const {
+  Result<int64_t> Tell() const {
     std::lock_guard<std::mutex> guard(lock_);
-    *position = total_pos_;
-    return Status::OK();
+    return total_pos_;
   }
 
   std::shared_ptr<OutputStream> raw() const { return raw_; }
@@ -198,21 +197,25 @@ class CompressedOutputStream::Impl {
   mutable std::mutex lock_;
 };
 
+Result<std::shared_ptr<CompressedOutputStream>> CompressedOutputStream::Make(
+    util::Codec* codec, const std::shared_ptr<OutputStream>& raw, MemoryPool* pool) {
+  // CAUTION: codec is not owned
+  std::shared_ptr<CompressedOutputStream> res(new CompressedOutputStream);
+  res->impl_.reset(new Impl(pool, std::move(raw)));
+  RETURN_NOT_OK(res->impl_->Init(codec));
+  return res;
+}
+
 Status CompressedOutputStream::Make(util::Codec* codec,
                                     const std::shared_ptr<OutputStream>& raw,
                                     std::shared_ptr<CompressedOutputStream>* out) {
-  return Make(default_memory_pool(), codec, raw, out);
+  return Make(codec, raw).Value(out);
 }
 
 Status CompressedOutputStream::Make(MemoryPool* pool, util::Codec* codec,
                                     const std::shared_ptr<OutputStream>& raw,
                                     std::shared_ptr<CompressedOutputStream>* out) {
-  // CAUTION: codec is not owned
-  std::shared_ptr<CompressedOutputStream> res(new CompressedOutputStream);
-  res->impl_.reset(new Impl(pool, std::move(raw)));
-  RETURN_NOT_OK(res->impl_->Init(codec));
-  *out = res;
-  return Status::OK();
+  return Make(codec, raw, pool).Value(out);
 }
 
 CompressedOutputStream::~CompressedOutputStream() { internal::CloseFromDestructor(this); }
@@ -223,9 +226,7 @@ Status CompressedOutputStream::Abort() { return impl_->Abort(); }
 
 bool CompressedOutputStream::closed() const { return impl_->closed(); }
 
-Status CompressedOutputStream::Tell(int64_t* position) const {
-  return impl_->Tell(position);
-}
+Result<int64_t> CompressedOutputStream::Tell() const { return impl_->Tell(); }
 
 Status CompressedOutputStream::Write(const void* data, int64_t nbytes) {
   return impl_->Write(data, nbytes);
@@ -274,17 +275,14 @@ class CompressedInputStream::Impl {
 
   bool closed() { return !is_open_; }
 
-  Status Tell(int64_t* position) const {
-    *position = total_pos_;
-    return Status::OK();
-  }
+  Result<int64_t> Tell() const { return total_pos_; }
 
   // Read compressed data if necessary
   Status EnsureCompressedData() {
     int64_t compressed_avail = compressed_ ? compressed_->size() - compressed_pos_ : 0;
     if (compressed_avail == 0) {
       // No compressed data available, read a full chunk
-      RETURN_NOT_OK(raw_->Read(kChunkSize, &compressed_));
+      ARROW_ASSIGN_OR_RAISE(compressed_, raw_->Read(kChunkSize));
       compressed_pos_ = 0;
     }
     return Status::OK();
@@ -367,7 +365,7 @@ class CompressedInputStream::Impl {
     return Status::OK();
   }
 
-  Status Read(int64_t nbytes, int64_t* bytes_read, void* out) {
+  Result<int64_t> Read(int64_t nbytes, void* out) {
     auto out_data = reinterpret_cast<uint8_t*>(out);
 
     int64_t total_read = 0;
@@ -386,18 +384,15 @@ class CompressedInputStream::Impl {
     }
 
     total_pos_ += total_read;
-    *bytes_read = total_read;
-    return Status::OK();
+    return total_read;
   }
 
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) {
     std::shared_ptr<ResizableBuffer> buf;
     RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &buf));
-    int64_t bytes_read;
-    RETURN_NOT_OK(Read(nbytes, &bytes_read, buf->mutable_data()));
+    ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, Read(nbytes, buf->mutable_data()));
     RETURN_NOT_OK(buf->Resize(bytes_read));
-    *out = buf;
-    return Status::OK();
+    return buf;
   }
 
   std::shared_ptr<InputStream> raw() const { return raw_; }
@@ -424,20 +419,25 @@ class CompressedInputStream::Impl {
   int64_t total_pos_;
 };
 
+Result<std::shared_ptr<CompressedInputStream>> CompressedInputStream::Make(
+    Codec* codec, const std::shared_ptr<InputStream>& raw, MemoryPool* pool) {
+  // CAUTION: codec is not owned
+  std::shared_ptr<CompressedInputStream> res(new CompressedInputStream);
+  res->impl_.reset(new Impl(pool, std::move(raw)));
+  RETURN_NOT_OK(res->impl_->Init(codec));
+  return res;
+  return Status::OK();
+}
+
 Status CompressedInputStream::Make(Codec* codec, const std::shared_ptr<InputStream>& raw,
                                    std::shared_ptr<CompressedInputStream>* out) {
-  return Make(default_memory_pool(), codec, raw, out);
+  return Make(codec, raw).Value(out);
 }
 
 Status CompressedInputStream::Make(MemoryPool* pool, Codec* codec,
                                    const std::shared_ptr<InputStream>& raw,
                                    std::shared_ptr<CompressedInputStream>* out) {
-  // CAUTION: codec is not owned
-  std::shared_ptr<CompressedInputStream> res(new CompressedInputStream);
-  res->impl_.reset(new Impl(pool, std::move(raw)));
-  RETURN_NOT_OK(res->impl_->Init(codec));
-  *out = res;
-  return Status::OK();
+  return Make(codec, raw, pool).Value(out);
 }
 
 CompressedInputStream::~CompressedInputStream() { internal::CloseFromDestructor(this); }
@@ -448,16 +448,14 @@ Status CompressedInputStream::DoAbort() { return impl_->Abort(); }
 
 bool CompressedInputStream::closed() const { return impl_->closed(); }
 
-Status CompressedInputStream::DoTell(int64_t* position) const {
-  return impl_->Tell(position);
-}
+Result<int64_t> CompressedInputStream::DoTell() const { return impl_->Tell(); }
 
-Status CompressedInputStream::DoRead(int64_t nbytes, int64_t* bytes_read, void* out) {
-  return impl_->Read(nbytes, bytes_read, out);
-}
-
-Status CompressedInputStream::DoRead(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+Result<int64_t> CompressedInputStream::DoRead(int64_t nbytes, void* out) {
   return impl_->Read(nbytes, out);
+}
+
+Result<std::shared_ptr<Buffer>> CompressedInputStream::DoRead(int64_t nbytes) {
+  return impl_->Read(nbytes);
 }
 
 std::shared_ptr<InputStream> CompressedInputStream::raw() const { return impl_->raw(); }

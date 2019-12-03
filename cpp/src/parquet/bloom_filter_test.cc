@@ -80,8 +80,7 @@ TEST(BasicTest, TestBloomFilter) {
   bloom_filter.WriteTo(sink.get());
 
   // Deserialize Bloom filter from memory
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(sink->Finish(&buffer));
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
   ::arrow::io::BufferReader source(buffer);
 
   BlockSplitBloomFilter de_bloom = BlockSplitBloomFilter::Deserialize(&source);
@@ -161,19 +160,16 @@ TEST(CompatibilityTest, TestBloomFilter) {
   const std::string test_string[4] = {"hello", "parquet", "bloom", "filter"};
   const std::string bloom_filter_test_binary =
       std::string(test::get_data_dir()) + "/bloom_filter.bin";
-  std::shared_ptr<::arrow::io::ReadableFile> handle;
 
-  int64_t size;
-  PARQUET_THROW_NOT_OK(
-      ::arrow::io::ReadableFile::Open(bloom_filter_test_binary, &handle));
-  PARQUET_THROW_NOT_OK(handle->GetSize(&size));
+  PARQUET_ASSIGN_OR_THROW(auto handle,
+                          ::arrow::io::ReadableFile::Open(bloom_filter_test_binary));
+  PARQUET_ASSIGN_OR_THROW(int64_t size, handle->GetSize());
 
   // 1024 bytes (bitset) + 4 bytes (hash) + 4 bytes (algorithm) + 4 bytes (length)
   EXPECT_EQ(size, 1036);
 
   std::unique_ptr<uint8_t[]> bitset(new uint8_t[size]());
-  std::shared_ptr<Buffer> buffer(new Buffer(bitset.get(), size));
-  PARQUET_THROW_NOT_OK(handle->Read(size, &buffer));
+  PARQUET_ASSIGN_OR_THROW(auto buffer, handle->Read(size));
 
   ::arrow::io::BufferReader source(buffer);
   BlockSplitBloomFilter bloom_filter1 = BlockSplitBloomFilter::Deserialize(&source);
@@ -198,13 +194,11 @@ TEST(CompatibilityTest, TestBloomFilter) {
   // Serialize Bloom filter to memory output stream
   auto sink = CreateOutputStream();
   bloom_filter2.WriteTo(sink.get());
-  std::shared_ptr<Buffer> buffer1;
-  PARQUET_THROW_NOT_OK(sink->Finish(&buffer1));
+  PARQUET_ASSIGN_OR_THROW(auto buffer1, sink->Finish());
 
   PARQUET_THROW_NOT_OK(handle->Seek(0));
-  PARQUET_THROW_NOT_OK(handle->GetSize(&size));
-  std::shared_ptr<Buffer> buffer2;
-  PARQUET_THROW_NOT_OK(handle->Read(size, &buffer2));
+  PARQUET_ASSIGN_OR_THROW(size, handle->GetSize());
+  PARQUET_ASSIGN_OR_THROW(auto buffer2, handle->Read(size));
 
   EXPECT_TRUE((*buffer1).Equals(*buffer2));
 }

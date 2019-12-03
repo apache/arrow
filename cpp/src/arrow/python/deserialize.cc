@@ -301,21 +301,17 @@ Status DeserializeSet(PyObject* context, const Array& array, int64_t start_idx,
 }
 
 Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) {
-  int64_t bytes_read;
   int32_t num_tensors;
   int32_t num_sparse_tensors;
   int32_t num_ndarrays;
   int32_t num_buffers;
 
   // Read number of tensors
+  RETURN_NOT_OK(src->Read(sizeof(int32_t), reinterpret_cast<uint8_t*>(&num_tensors)));
   RETURN_NOT_OK(
-      src->Read(sizeof(int32_t), &bytes_read, reinterpret_cast<uint8_t*>(&num_tensors)));
-  RETURN_NOT_OK(src->Read(sizeof(int32_t), &bytes_read,
-                          reinterpret_cast<uint8_t*>(&num_sparse_tensors)));
-  RETURN_NOT_OK(
-      src->Read(sizeof(int32_t), &bytes_read, reinterpret_cast<uint8_t*>(&num_ndarrays)));
-  RETURN_NOT_OK(
-      src->Read(sizeof(int32_t), &bytes_read, reinterpret_cast<uint8_t*>(&num_buffers)));
+      src->Read(sizeof(int32_t), reinterpret_cast<uint8_t*>(&num_sparse_tensors)));
+  RETURN_NOT_OK(src->Read(sizeof(int32_t), reinterpret_cast<uint8_t*>(&num_ndarrays)));
+  RETURN_NOT_OK(src->Read(sizeof(int32_t), reinterpret_cast<uint8_t*>(&num_buffers)));
 
   // Align stream to 8-byte offset
   RETURN_NOT_OK(ipc::AlignStream(src, ipc::kArrowIpcAlignment));
@@ -350,15 +346,12 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out) 
     out->ndarrays.push_back(ndarray);
   }
 
-  int64_t offset = -1;
-  RETURN_NOT_OK(src->Tell(&offset));
+  ARROW_ASSIGN_OR_RAISE(int64_t offset, src->Tell());
   for (int i = 0; i < num_buffers; ++i) {
     int64_t size;
-    RETURN_NOT_OK(src->ReadAt(offset, sizeof(int64_t), &bytes_read,
-                              reinterpret_cast<uint8_t*>(&size)));
+    RETURN_NOT_OK(src->ReadAt(offset, sizeof(int64_t), &size));
     offset += sizeof(int64_t);
-    std::shared_ptr<Buffer> buffer;
-    RETURN_NOT_OK(src->ReadAt(offset, size, &buffer));
+    ARROW_ASSIGN_OR_RAISE(auto buffer, src->ReadAt(offset, size));
     out->buffers.push_back(buffer);
     offset += size;
   }

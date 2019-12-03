@@ -126,6 +126,17 @@ class Result;
                               ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
                               lhs, rexpr);
 
+#define EXPECT_OK_AND_ASSIGN_IMPL(status_name, lhs, rexpr) \
+  auto status_name = (rexpr);                              \
+  ARROW_EXPECT_OK(status_name.status());                   \
+  if (status_name.ok()) {                                  \
+    lhs = std::move(status_name).ValueOrDie();             \
+  }
+
+#define EXPECT_OK_AND_ASSIGN(lhs, rexpr)                                              \
+  EXPECT_OK_AND_ASSIGN_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
+                            lhs, rexpr);
+
 #define ASSERT_OK_AND_EQ(expected, expr)        \
   do {                                          \
     ASSERT_OK_AND_ASSIGN(auto _actual, (expr)); \

@@ -239,12 +239,8 @@ class JSONRecordBatchFileFormat : public FileFormat {
   Result<ScanTaskIterator> ScanFile(const FileSource& source, ScanOptionsPtr options,
                                     ScanContextPtr context) const override {
     ARROW_ASSIGN_OR_RAISE(auto file, source.Open());
-
-    int64_t size;
-    RETURN_NOT_OK(file->GetSize(&size));
-
-    std::shared_ptr<Buffer> buffer;
-    RETURN_NOT_OK(file->Read(size, &buffer));
+    ARROW_ASSIGN_OR_RAISE(int64_t size, file->GetSize());
+    ARROW_ASSIGN_OR_RAISE(auto buffer, file->Read(size));
 
     util::string_view view{*buffer};
     std::shared_ptr<RecordBatch> batch = RecordBatchFromJSON(schema_, view);

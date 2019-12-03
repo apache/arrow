@@ -27,9 +27,8 @@
 namespace parquet {
 
 std::shared_ptr<::arrow::io::BufferOutputStream> CreateOutputStream(MemoryPool* pool) {
-  std::shared_ptr<::arrow::io::BufferOutputStream> stream;
-  PARQUET_THROW_NOT_OK(
-      ::arrow::io::BufferOutputStream::Create(kDefaultOutputStreamSize, pool, &stream));
+  PARQUET_ASSIGN_OR_THROW(auto stream, ::arrow::io::BufferOutputStream::Create(
+                                           kDefaultOutputStreamSize, pool));
   return stream;
 }
 

@@ -873,15 +873,15 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
 
     cdef cppclass FileInterface:
         CStatus Close()
-        CStatus Tell(int64_t* position)
+        CResult[int64_t] Tell()
         FileMode mode()
         c_bool closed()
 
     cdef cppclass Readable:
         # put overload under a different name to avoid cython bug with multiple
         # layers of inheritance
-        CStatus ReadBuffer" Read"(int64_t nbytes, shared_ptr[CBuffer]* out)
-        CStatus Read(int64_t nbytes, int64_t* bytes_read, uint8_t* out)
+        CResult[shared_ptr[CBuffer]] ReadBuffer" Read"(int64_t nbytes)
+        CResult[int64_t] Read(int64_t nbytes, uint8_t* out)
 
     cdef cppclass Seekable:
         CStatus Seek(int64_t position)
@@ -901,12 +901,11 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
 
     cdef cppclass CRandomAccessFile" arrow::io::RandomAccessFile"(CInputStream,
                                                                   Seekable):
-        CStatus GetSize(int64_t* size)
+        CResult[int64_t] GetSize()
 
-        CStatus ReadAt(int64_t position, int64_t nbytes,
-                       int64_t* bytes_read, uint8_t* buffer)
-        CStatus ReadAt(int64_t position, int64_t nbytes,
-                       shared_ptr[CBuffer]* out)
+        CResult[int64_t] ReadAt(int64_t position, int64_t nbytes,
+                                uint8_t* buffer)
+        CResult[shared_ptr[CBuffer]] ReadAt(int64_t position, int64_t nbytes)
         c_bool supports_zero_copy()
 
     cdef cppclass WritableFile(COutputStream, Seekable):
@@ -922,17 +921,17 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
 
     cdef cppclass FileOutputStream(COutputStream):
         @staticmethod
-        CStatus Open(const c_string& path, shared_ptr[COutputStream]* file)
+        CResult[shared_ptr[COutputStream]] Open(const c_string& path)
 
         int file_descriptor()
 
     cdef cppclass ReadableFile(CRandomAccessFile):
         @staticmethod
-        CStatus Open(const c_string& path, shared_ptr[ReadableFile]* file)
+        CResult[shared_ptr[ReadableFile]] Open(const c_string& path)
 
         @staticmethod
-        CStatus Open(const c_string& path, CMemoryPool* memory_pool,
-                     shared_ptr[ReadableFile]* file)
+        CResult[shared_ptr[ReadableFile]] Open(const c_string& path,
+                                               CMemoryPool* memory_pool)
 
         int file_descriptor()
 
@@ -940,12 +939,12 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
             " arrow::io::MemoryMappedFile"(ReadWriteFileInterface):
 
         @staticmethod
-        CStatus Create(const c_string& path, int64_t size,
-                       shared_ptr[CMemoryMappedFile]* file)
+        CResult[shared_ptr[CMemoryMappedFile]] Create(const c_string& path,
+                                                      int64_t size)
 
         @staticmethod
-        CStatus Open(const c_string& path, FileMode mode,
-                     shared_ptr[CMemoryMappedFile]* file)
+        CResult[shared_ptr[CMemoryMappedFile]] Open(const c_string& path,
+                                                    FileMode mode)
 
         CStatus Resize(int64_t size)
 
@@ -954,44 +953,34 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
     cdef cppclass CCompressedInputStream \
             " arrow::io::CompressedInputStream"(CInputStream):
         @staticmethod
-        CStatus Make(CMemoryPool* pool, CCodec* codec,
-                     shared_ptr[CInputStream] raw,
-                     shared_ptr[CCompressedInputStream]* out)
-
-        @staticmethod
-        CStatus Make(CCodec* codec, shared_ptr[CInputStream] raw,
-                     shared_ptr[CCompressedInputStream]* out)
+        CResult[shared_ptr[CCompressedInputStream]] Make(
+            CCodec* codec, shared_ptr[CInputStream] raw)
 
     cdef cppclass CCompressedOutputStream \
             " arrow::io::CompressedOutputStream"(COutputStream):
         @staticmethod
-        CStatus Make(CMemoryPool* pool, CCodec* codec,
-                     shared_ptr[COutputStream] raw,
-                     shared_ptr[CCompressedOutputStream]* out)
-
-        @staticmethod
-        CStatus Make(CCodec* codec, shared_ptr[COutputStream] raw,
-                     shared_ptr[CCompressedOutputStream]* out)
+        CResult[shared_ptr[CCompressedOutputStream]] Make(
+            CCodec* codec, shared_ptr[COutputStream] raw)
 
     cdef cppclass CBufferedInputStream \
             " arrow::io::BufferedInputStream"(CInputStream):
 
         @staticmethod
-        CStatus Create(int64_t buffer_size, CMemoryPool* pool,
-                       shared_ptr[CInputStream] raw,
-                       shared_ptr[CBufferedInputStream]* out)
+        CResult[shared_ptr[CBufferedInputStream]] Create(
+            int64_t buffer_size, CMemoryPool* pool,
+            shared_ptr[CInputStream] raw)
 
-        shared_ptr[CInputStream] Detach()
+        CResult[shared_ptr[CInputStream]] Detach()
 
     cdef cppclass CBufferedOutputStream \
             " arrow::io::BufferedOutputStream"(COutputStream):
 
         @staticmethod
-        CStatus Create(int64_t buffer_size, CMemoryPool* pool,
-                       shared_ptr[COutputStream] raw,
-                       shared_ptr[CBufferedOutputStream]* out)
+        CResult[shared_ptr[CBufferedOutputStream]] Create(
+            int64_t buffer_size, CMemoryPool* pool,
+            shared_ptr[COutputStream] raw)
 
-        CStatus Detach(shared_ptr[COutputStream]* raw)
+        CResult[shared_ptr[COutputStream]] Detach()
 
     # ----------------------------------------------------------------------
     # HDFS
@@ -1577,7 +1566,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
 
     cdef cppclass PyBuffer(CBuffer):
         @staticmethod
-        CStatus FromPyObject(object obj, shared_ptr[CBuffer]* out)
+        CResult[shared_ptr[CBuffer]] FromPyObject(object obj)
 
     cdef cppclass PyForeignBuffer(CBuffer):
         @staticmethod

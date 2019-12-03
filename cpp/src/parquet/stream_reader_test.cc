@@ -69,12 +69,8 @@ class TestStreamReader : public ::testing::Test {
   const char* GetDataFile() const { return "stream_reader_test.parquet"; }
 
   void SetUp() {
-    std::shared_ptr<arrow::io::ReadableFile> infile;
-
-    PARQUET_THROW_NOT_OK(arrow::io::ReadableFile::Open(GetDataFile(), &infile));
-
+    PARQUET_ASSIGN_OR_THROW(auto infile, arrow::io::ReadableFile::Open(GetDataFile()));
     auto file_reader = parquet::ParquetFileReader::Open(infile);
-
     reader_ = StreamReader{std::move(file_reader)};
   }
 
@@ -133,9 +129,8 @@ class TestStreamReader : public ::testing::Test {
   }
 
   void createTestFile() {
-    std::shared_ptr<arrow::io::FileOutputStream> outfile;
-
-    PARQUET_THROW_NOT_OK(arrow::io::FileOutputStream::Open(GetDataFile(), &outfile));
+    PARQUET_ASSIGN_OR_THROW(auto outfile,
+                            arrow::io::FileOutputStream::Open(GetDataFile()));
 
     parquet::WriterProperties::Builder builder;
 

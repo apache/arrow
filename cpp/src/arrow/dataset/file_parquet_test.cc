@@ -108,8 +108,8 @@ class ArrowParquetWriterMixin : public ::testing::Test {
     for (auto reader : readers) {
       ARROW_EXPECT_OK(WriteRecordBatchReader(reader, pool, sink));
     }
-    ARROW_EXPECT_OK(sink->Finish(&out));
-
+    // XXX the rest of the test may crash if this fails, since out will be nullptr
+    EXPECT_OK_AND_ASSIGN(out, sink->Finish());
     return out;
   }
 
@@ -124,8 +124,8 @@ class ArrowParquetWriterMixin : public ::testing::Test {
     auto sink = CreateOutputStream(pool);
 
     ARROW_EXPECT_OK(WriteTable(table, pool, sink, 1U << 16));
-    ARROW_EXPECT_OK(sink->Finish(&out));
-
+    // XXX the rest of the test may crash if this fails, since out will be nullptr
+    EXPECT_OK_AND_ASSIGN(out, sink->Finish());
     return out;
   }
 };

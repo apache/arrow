@@ -58,8 +58,8 @@ class TableReaderImpl : public TableReader,
         task_group_(std::move(task_group)) {}
 
   Status Init(std::shared_ptr<io::InputStream> input) {
-    Iterator<std::shared_ptr<Buffer>> it;
-    RETURN_NOT_OK(io::MakeInputStreamIterator(input, read_options_.block_size, &it));
+    ARROW_ASSIGN_OR_RAISE(auto it,
+                          io::MakeInputStreamIterator(input, read_options_.block_size));
     return MakeReadaheadIterator(std::move(it), task_group_->parallelism(),
                                  &block_iterator_);
   }

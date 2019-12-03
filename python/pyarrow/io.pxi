@@ -187,7 +187,8 @@ cdef class NativeFile:
 
         handle = self.get_random_access_file()
         with nogil:
-            check_status(handle.get().GetSize(&size))
+            size = GetResultValue(handle.get().GetSize())
+
         return size
 
     def tell(self):
@@ -199,11 +200,12 @@ cdef class NativeFile:
         if self.is_readable:
             rd_handle = self.get_random_access_file()
             with nogil:
-                check_status(rd_handle.get().Tell(&position))
+                position = GetResultValue(rd_handle.get().Tell())
         else:
             wr_handle = self.get_output_stream()
             with nogil:
-                check_status(wr_handle.get().Tell(&position))
+                position = GetResultValue(wr_handle.get().Tell())
+
         return position
 
     def seek(self, int64_t position, int whence=0):
@@ -235,10 +237,10 @@ cdef class NativeFile:
             if whence == 0:
                 offset = position
             elif whence == 1:
-                check_status(handle.get().Tell(&offset))
+                offset = GetResultValue(handle.get().Tell())
                 offset = offset + position
             elif whence == 2:
-                check_status(handle.get().GetSize(&offset))
+                offset = GetResultValue(handle.get().GetSize())
                 offset = offset + position
             else:
                 with gil:
@@ -324,7 +326,7 @@ cdef class NativeFile:
 
         cdef uint8_t* buf = <uint8_t*> cp.PyBytes_AS_STRING(<object> obj)
         with nogil:
-            check_status(handle.get().Read(c_nbytes, &bytes_read, buf))
+            bytes_read = GetResultValue(handle.get().Read(c_nbytes, buf))
 
         if bytes_read < c_nbytes:
             cp._PyBytes_Resize(&obj, <Py_ssize_t> bytes_read)
@@ -361,8 +363,8 @@ cdef class NativeFile:
 
         cdef uint8_t* buf = <uint8_t*> cp.PyBytes_AS_STRING(<object> obj)
         with nogil:
-            check_status(handle.get().
-                         ReadAt(c_offset, c_nbytes, &bytes_read, buf))
+            bytes_read = GetResultValue(handle.get().
+                                        ReadAt(c_offset, c_nbytes, buf))
 
         if bytes_read < c_nbytes:
             cp._PyBytes_Resize(&obj, <Py_ssize_t> bytes_read)
@@ -404,7 +406,7 @@ cdef class NativeFile:
         buf = py_buf.buffer.get().mutable_data()
 
         with nogil:
-            check_status(handle.get().Read(buf_len, &bytes_read, buf))
+            bytes_read = GetResultValue(handle.get().Read(buf_len, buf))
 
         return bytes_read
 
@@ -456,7 +458,7 @@ cdef class NativeFile:
             c_nbytes = nbytes
 
         with nogil:
-            check_status(handle.get().ReadBuffer(c_nbytes, &output))
+            output = GetResultValue(handle.get().ReadBuffer(c_nbytes))
 
         return pyarrow_wrap_buffer(output)
 
@@ -533,8 +535,8 @@ cdef class NativeFile:
         try:
             while True:
                 with nogil:
-                    check_status(handle.get()
-                                 .Read(c_buffer_size, &bytes_read, buf))
+                    bytes_read = GetResultValue(
+                        handle.get().Read(c_buffer_size, buf))
 
                 total_bytes += bytes_read
 
@@ -714,7 +716,7 @@ cdef class MemoryMappedFile(NativeFile):
             int64_t c_size = size
 
         with nogil:
-            check_status(CMemoryMappedFile.Create(c_path, c_size, &handle))
+            handle = GetResultValue(CMemoryMappedFile.Create(c_path, c_size))
 
         cdef MemoryMappedFile result = MemoryMappedFile()
         result.path = path
@@ -748,7 +750,7 @@ cdef class MemoryMappedFile(NativeFile):
             raise ValueError('Invalid file mode: {0}'.format(mode))
 
         with nogil:
-            check_status(CMemoryMappedFile.Open(c_path, c_mode, &handle))
+            handle = GetResultValue(CMemoryMappedFile.Open(c_path, c_mode))
 
         self.set_output_stream(<shared_ptr[COutputStream]> handle)
         self.set_random_access_file(<shared_ptr[CRandomAccessFile]> handle)
@@ -833,14 +835,14 @@ cdef class OSFile(NativeFile):
         cdef shared_ptr[ReadableFile] handle
 
         with nogil:
-            check_status(ReadableFile.Open(path, pool, &handle))
+            handle = GetResultValue(ReadableFile.Open(path, pool))
 
         self.is_readable = True
         self.set_random_access_file(<shared_ptr[CRandomAccessFile]> handle)
 
     cdef _open_writable(self, c_string path):
         with nogil:
-            check_status(FileOutputStream.Open(path, &self.output_stream))
+            self.output_stream = GetResultValue(FileOutputStream.Open(path))
         self.is_writable = True
 
     def fileno(self):
@@ -1201,8 +1203,8 @@ cdef class CompressedInputStream(NativeFile):
                              .format(compression))
 
         codec = move(GetResultValue(CCodec.Create(compression_type)))
-        check_status(CCompressedInputStream.Make(
-            codec.get(), stream.get_input_stream(), &compressed_stream))
+        compressed_stream = GetResultValue(CCompressedInputStream.Make(
+            codec.get(), stream.get_input_stream()))
 
         self.set_input_stream(<shared_ptr[CInputStream]> compressed_stream)
         self.is_readable = True
@@ -1231,8 +1233,8 @@ cdef class CompressedOutputStream(NativeFile):
                              .format(compression))
 
         codec = move(GetResultValue(CCodec.Create(compression_type)))
-        check_status(CCompressedOutputStream.Make(
-            codec.get(), stream.get_output_stream(), &compressed_stream))
+        compressed_stream = GetResultValue(CCompressedOutputStream.Make(
+            codec.get(), stream.get_output_stream()))
 
         self.set_output_stream(<shared_ptr[COutputStream]> compressed_stream)
         self.is_writable = True
@@ -1251,9 +1253,9 @@ cdef class BufferedInputStream(NativeFile):
 
         if buffer_size <= 0:
             raise ValueError('Buffer size must be larger than zero')
-        check_status(CBufferedInputStream.Create(
+        buffered_stream = GetResultValue(CBufferedInputStream.Create(
             buffer_size, maybe_unbox_memory_pool(memory_pool),
-            stream.get_input_stream(), &buffered_stream))
+            stream.get_input_stream()))
 
         self.set_input_stream(<shared_ptr[CInputStream]> buffered_stream)
         self.is_readable = True
@@ -1278,7 +1280,7 @@ cdef class BufferedInputStream(NativeFile):
         assert buffered != nullptr
 
         with nogil:
-            c_raw = buffered.Detach()
+            c_raw = GetResultValue(buffered.Detach())
 
         raw = NativeFile()
         raw.is_readable = True
@@ -1301,9 +1303,9 @@ cdef class BufferedOutputStream(NativeFile):
 
         if buffer_size <= 0:
             raise ValueError('Buffer size must be larger than zero')
-        check_status(CBufferedOutputStream.Create(
+        buffered_stream = GetResultValue(CBufferedOutputStream.Create(
             buffer_size, maybe_unbox_memory_pool(memory_pool),
-            stream.get_output_stream(), &buffered_stream))
+            stream.get_output_stream()))
 
         self.set_output_stream(<shared_ptr[COutputStream]> buffered_stream)
         self.is_writable = True
@@ -1328,7 +1330,7 @@ cdef class BufferedOutputStream(NativeFile):
         assert buffered != nullptr
 
         with nogil:
-            check_status(buffered.Detach(&c_raw))
+            c_raw = GetResultValue(buffered.Detach())
 
         raw = NativeFile()
         raw.is_writable = True
@@ -1341,7 +1343,7 @@ def py_buffer(object obj):
     Construct an Arrow buffer from a Python bytes-like or buffer-like object
     """
     cdef shared_ptr[CBuffer] buf
-    check_status(PyBuffer.FromPyObject(obj, &buf))
+    buf = GetResultValue(PyBuffer.FromPyObject(obj))
     return pyarrow_wrap_buffer(buf)
 
 
@@ -1377,7 +1379,7 @@ cdef shared_ptr[CBuffer] as_c_buffer(object o) except *:
         if buf == nullptr:
             raise ValueError("got null buffer")
     else:
-        check_status(PyBuffer.FromPyObject(o, &buf))
+        buf = GetResultValue(PyBuffer.FromPyObject(o))
     return buf
 
 
@@ -1417,7 +1419,6 @@ cdef get_input_stream(object source, c_bool use_memory_map,
         NativeFile nf
         unique_ptr[CCodec] codec
         shared_ptr[CInputStream] input_stream
-        shared_ptr[CCompressedInputStream] compressed_stream
         CompressionType compression_type
 
     try:
@@ -1433,9 +1434,8 @@ cdef get_input_stream(object source, c_bool use_memory_map,
 
     if compression_type != CompressionType_UNCOMPRESSED:
         codec = move(GetResultValue(CCodec.Create(compression_type)))
-        check_status(CCompressedInputStream.Make(codec.get(), input_stream,
-                                                 &compressed_stream))
-        input_stream = <shared_ptr[CInputStream]> compressed_stream
+        input_stream = <shared_ptr[CInputStream]> GetResultValue(
+            CCompressedInputStream.Make(codec.get(), input_stream))
 
     out[0] = input_stream
 

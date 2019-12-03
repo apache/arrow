@@ -137,21 +137,19 @@ class OSFile {
     return Status::OK();
   }
 
-  Status Read(int64_t nbytes, int64_t* bytes_read, void* out) {
+  Result<int64_t> Read(int64_t nbytes, void* out) {
     RETURN_NOT_OK(CheckClosed());
     RETURN_NOT_OK(CheckPositioned());
-    return ::arrow::internal::FileRead(fd_, reinterpret_cast<uint8_t*>(out), nbytes)
-        .Value(bytes_read);
+    return ::arrow::internal::FileRead(fd_, reinterpret_cast<uint8_t*>(out), nbytes);
   }
 
-  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, void* out) {
+  Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) {
     RETURN_NOT_OK(CheckClosed());
     // ReadAt() leaves the file position undefined, so require that we seek
     // before calling Read() or Write().
     need_seeking_.store(true);
     return ::arrow::internal::FileReadAt(fd_, reinterpret_cast<uint8_t*>(out), position,
-                                         nbytes)
-        .Value(bytes_read);
+                                         nbytes);
   }
 
   Status Seek(int64_t pos) {
@@ -166,9 +164,9 @@ class OSFile {
     return st;
   }
 
-  Status Tell(int64_t* pos) const {
+  Result<int64_t> Tell() const {
     RETURN_NOT_OK(CheckClosed());
-    return ::arrow::internal::FileTell(fd_).Value(pos);
+    return ::arrow::internal::FileTell(fd_);
   }
 
   Status Write(const void* data, int64_t length) {
@@ -238,32 +236,29 @@ class ReadableFile::ReadableFileImpl : public OSFile {
   Status Open(const std::string& path) { return OpenReadable(path); }
   Status Open(int fd) { return OpenReadable(fd); }
 
-  Status ReadBuffer(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+  Result<std::shared_ptr<Buffer>> ReadBuffer(int64_t nbytes) {
     std::shared_ptr<ResizableBuffer> buffer;
     RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &buffer));
 
-    int64_t bytes_read = 0;
-    RETURN_NOT_OK(Read(nbytes, &bytes_read, buffer->mutable_data()));
+    ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, Read(nbytes, buffer->mutable_data()));
     if (bytes_read < nbytes) {
       RETURN_NOT_OK(buffer->Resize(bytes_read));
       buffer->ZeroPadding();
     }
-    *out = buffer;
-    return Status::OK();
+    return buffer;
   }
 
-  Status ReadBufferAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) {
+  Result<std::shared_ptr<Buffer>> ReadBufferAt(int64_t position, int64_t nbytes) {
     std::shared_ptr<ResizableBuffer> buffer;
     RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &buffer));
 
-    int64_t bytes_read = 0;
-    RETURN_NOT_OK(ReadAt(position, nbytes, &bytes_read, buffer->mutable_data()));
+    ARROW_ASSIGN_OR_RAISE(int64_t bytes_read,
+                          ReadAt(position, nbytes, buffer->mutable_data()));
     if (bytes_read < nbytes) {
       RETURN_NOT_OK(buffer->Resize(bytes_read));
       buffer->ZeroPadding();
     }
-    *out = buffer;
-    return Status::OK();
+    return buffer;
   }
 
  private:
@@ -274,54 +269,59 @@ ReadableFile::ReadableFile(MemoryPool* pool) { impl_.reset(new ReadableFileImpl(
 
 ReadableFile::~ReadableFile() { internal::CloseFromDestructor(this); }
 
+Result<std::shared_ptr<ReadableFile>> ReadableFile::Open(const std::string& path,
+                                                         MemoryPool* pool) {
+  auto file = std::shared_ptr<ReadableFile>(new ReadableFile(pool));
+  RETURN_NOT_OK(file->impl_->Open(path));
+  return file;
+}
+
+Result<std::shared_ptr<ReadableFile>> ReadableFile::Open(int fd, MemoryPool* pool) {
+  auto file = std::shared_ptr<ReadableFile>(new ReadableFile(pool));
+  RETURN_NOT_OK(file->impl_->Open(fd));
+  return file;
+}
+
 Status ReadableFile::Open(const std::string& path, std::shared_ptr<ReadableFile>* file) {
-  return Open(path, default_memory_pool(), file);
+  return Open(path).Value(file);
 }
 
-Status ReadableFile::Open(const std::string& path, MemoryPool* memory_pool,
+Status ReadableFile::Open(const std::string& path, MemoryPool* pool,
                           std::shared_ptr<ReadableFile>* file) {
-  *file = std::shared_ptr<ReadableFile>(new ReadableFile(memory_pool));
-  return (*file)->impl_->Open(path);
-}
-
-Status ReadableFile::Open(int fd, MemoryPool* memory_pool,
-                          std::shared_ptr<ReadableFile>* file) {
-  *file = std::shared_ptr<ReadableFile>(new ReadableFile(memory_pool));
-  return (*file)->impl_->Open(fd);
+  return Open(path, pool).Value(file);
 }
 
 Status ReadableFile::Open(int fd, std::shared_ptr<ReadableFile>* file) {
-  return Open(fd, default_memory_pool(), file);
+  return Open(fd).Value(file);
+}
+
+Status ReadableFile::Open(int fd, MemoryPool* pool, std::shared_ptr<ReadableFile>* file) {
+  return Open(fd, pool).Value(file);
 }
 
 Status ReadableFile::DoClose() { return impl_->Close(); }
 
 bool ReadableFile::closed() const { return !impl_->is_open(); }
 
-Status ReadableFile::DoTell(int64_t* pos) const { return impl_->Tell(pos); }
+Result<int64_t> ReadableFile::DoTell() const { return impl_->Tell(); }
 
-Status ReadableFile::DoRead(int64_t nbytes, int64_t* bytes_read, void* out) {
-  return impl_->Read(nbytes, bytes_read, out);
+Result<int64_t> ReadableFile::DoRead(int64_t nbytes, void* out) {
+  return impl_->Read(nbytes, out);
 }
 
-Status ReadableFile::DoReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                              void* out) {
-  return impl_->ReadAt(position, nbytes, bytes_read, out);
+Result<int64_t> ReadableFile::DoReadAt(int64_t position, int64_t nbytes, void* out) {
+  return impl_->ReadAt(position, nbytes, out);
 }
 
-Status ReadableFile::DoReadAt(int64_t position, int64_t nbytes,
-                              std::shared_ptr<Buffer>* out) {
-  return impl_->ReadBufferAt(position, nbytes, out);
+Result<std::shared_ptr<Buffer>> ReadableFile::DoReadAt(int64_t position, int64_t nbytes) {
+  return impl_->ReadBufferAt(position, nbytes);
 }
 
-Status ReadableFile::DoRead(int64_t nbytes, std::shared_ptr<Buffer>* out) {
-  return impl_->ReadBuffer(nbytes, out);
+Result<std::shared_ptr<Buffer>> ReadableFile::DoRead(int64_t nbytes) {
+  return impl_->ReadBuffer(nbytes);
 }
 
-Status ReadableFile::DoGetSize(int64_t* size) {
-  *size = impl_->size();
-  return Status::OK();
-}
+Result<int64_t> ReadableFile::DoGetSize() { return impl_->size(); }
 
 Status ReadableFile::DoSeek(int64_t pos) { return impl_->Seek(pos); }
 
@@ -343,44 +343,52 @@ FileOutputStream::FileOutputStream() { impl_.reset(new FileOutputStreamImpl()); 
 
 FileOutputStream::~FileOutputStream() { internal::CloseFromDestructor(this); }
 
+Result<std::shared_ptr<FileOutputStream>> FileOutputStream::Open(const std::string& path,
+                                                                 bool append) {
+  auto stream = std::shared_ptr<FileOutputStream>(new FileOutputStream());
+  RETURN_NOT_OK(stream->impl_->Open(path, append));
+  return stream;
+}
+
+Result<std::shared_ptr<FileOutputStream>> FileOutputStream::Open(int fd) {
+  auto stream = std::shared_ptr<FileOutputStream>(new FileOutputStream());
+  RETURN_NOT_OK(stream->impl_->Open(fd));
+  return stream;
+}
+
 Status FileOutputStream::Open(const std::string& path,
-                              std::shared_ptr<OutputStream>* file) {
-  return Open(path, false, file);
+                              std::shared_ptr<OutputStream>* out) {
+  return Open(path, false).Value(out);
 }
 
 Status FileOutputStream::Open(const std::string& path, bool append,
                               std::shared_ptr<OutputStream>* out) {
-  *out = std::shared_ptr<FileOutputStream>(new FileOutputStream());
-  return std::static_pointer_cast<FileOutputStream>(*out)->impl_->Open(path, append);
+  return Open(path, append).Value(out);
 }
 
 Status FileOutputStream::Open(int fd, std::shared_ptr<OutputStream>* out) {
-  *out = std::shared_ptr<FileOutputStream>(new FileOutputStream());
-  return std::static_pointer_cast<FileOutputStream>(*out)->impl_->Open(fd);
+  return Open(fd).Value(out);
 }
 
 Status FileOutputStream::Open(const std::string& path,
-                              std::shared_ptr<FileOutputStream>* file) {
-  return Open(path, false, file);
+                              std::shared_ptr<FileOutputStream>* out) {
+  return Open(path, false).Value(out);
 }
 
 Status FileOutputStream::Open(const std::string& path, bool append,
-                              std::shared_ptr<FileOutputStream>* file) {
-  // private ctor
-  *file = std::shared_ptr<FileOutputStream>(new FileOutputStream());
-  return (*file)->impl_->Open(path, append);
+                              std::shared_ptr<FileOutputStream>* out) {
+  return Open(path, append).Value(out);
 }
 
-Status FileOutputStream::Open(int fd, std::shared_ptr<FileOutputStream>* file) {
-  *file = std::shared_ptr<FileOutputStream>(new FileOutputStream());
-  return (*file)->impl_->Open(fd);
+Status FileOutputStream::Open(int fd, std::shared_ptr<FileOutputStream>* out) {
+  return Open(fd).Value(out);
 }
 
 Status FileOutputStream::Close() { return impl_->Close(); }
 
 bool FileOutputStream::closed() const { return !impl_->is_open(); }
 
-Status FileOutputStream::Tell(int64_t* pos) const { return impl_->Tell(pos); }
+Result<int64_t> FileOutputStream::Tell() const { return impl_->Tell(); }
 
 Status FileOutputStream::Write(const void* data, int64_t length) {
   return impl_->Write(data, length);
@@ -531,16 +539,15 @@ class MemoryMappedFile::MemoryMap
     return Status::OK();
   }
 
-  Status Slice(int64_t offset, int64_t length, std::shared_ptr<Buffer>* out) {
+  Result<std::shared_ptr<Buffer>> Slice(int64_t offset, int64_t length) {
     length = std::max<int64_t>(0, std::min(length, map_len_ - offset));
 
     if (length > 0) {
       DCHECK_NE(region_, nullptr);
-      *out = SliceBuffer(region_, offset, length);
+      return SliceBuffer(region_, offset, length);
     } else {
-      *out = std::make_shared<Buffer>(nullptr, 0);
+      return std::make_shared<Buffer>(nullptr, 0);
     }
-    return Status::OK();
   }
 
   // map_len_ == file_size_ if memory mapping on the whole file
@@ -613,55 +620,58 @@ MemoryMappedFile::MemoryMappedFile() {}
 
 MemoryMappedFile::~MemoryMappedFile() { internal::CloseFromDestructor(this); }
 
-Status MemoryMappedFile::Create(const std::string& path, int64_t size,
-                                std::shared_ptr<MemoryMappedFile>* out) {
-  std::shared_ptr<FileOutputStream> file;
-  RETURN_NOT_OK(FileOutputStream::Open(path, &file));
-
+Result<std::shared_ptr<MemoryMappedFile>> MemoryMappedFile::Create(
+    const std::string& path, int64_t size) {
+  ARROW_ASSIGN_OR_RAISE(auto file, FileOutputStream::Open(path));
   RETURN_NOT_OK(::arrow::internal::FileTruncate(file->file_descriptor(), size));
-
   RETURN_NOT_OK(file->Close());
-  return MemoryMappedFile::Open(path, FileMode::READWRITE, out);
+  return MemoryMappedFile::Open(path, FileMode::READWRITE);
 }
 
-Status MemoryMappedFile::Open(const std::string& path, FileMode::type mode,
-                              std::shared_ptr<MemoryMappedFile>* out) {
+Status MemoryMappedFile::Create(const std::string& path, int64_t size,
+                                std::shared_ptr<MemoryMappedFile>* out) {
+  return Create(path, size).Value(out);
+}
+
+Result<std::shared_ptr<MemoryMappedFile>> MemoryMappedFile::Open(const std::string& path,
+                                                                 FileMode::type mode) {
   std::shared_ptr<MemoryMappedFile> result(new MemoryMappedFile());
 
   result->memory_map_.reset(new MemoryMap());
   RETURN_NOT_OK(result->memory_map_->Open(path, mode));
+  return result;
+}
 
-  *out = result;
-  return Status::OK();
+Result<std::shared_ptr<MemoryMappedFile>> MemoryMappedFile::Open(const std::string& path,
+                                                                 FileMode::type mode,
+                                                                 const int64_t offset,
+                                                                 const int64_t length) {
+  std::shared_ptr<MemoryMappedFile> result(new MemoryMappedFile());
+
+  result->memory_map_.reset(new MemoryMap());
+  RETURN_NOT_OK(result->memory_map_->Open(path, mode, offset, length));
+  return result;
+}
+
+Status MemoryMappedFile::Open(const std::string& path, FileMode::type mode,
+                              std::shared_ptr<MemoryMappedFile>* out) {
+  return Open(path, mode).Value(out);
 }
 
 Status MemoryMappedFile::Open(const std::string& path, FileMode::type mode,
                               const int64_t offset, const int64_t length,
                               std::shared_ptr<MemoryMappedFile>* out) {
-  std::shared_ptr<MemoryMappedFile> result(new MemoryMappedFile());
-
-  result->memory_map_.reset(new MemoryMap());
-  RETURN_NOT_OK(result->memory_map_->Open(path, mode, offset, length));
-
-  *out = result;
-  return Status::OK();
+  return Open(path, mode, offset, length).Value(out);
 }
 
-Status MemoryMappedFile::GetSize(int64_t* size) const {
+Result<int64_t> MemoryMappedFile::GetSize() {
   RETURN_NOT_OK(memory_map_->CheckClosed());
-  *size = memory_map_->size();
-  return Status::OK();
+  return memory_map_->size();
 }
 
-Status MemoryMappedFile::GetSize(int64_t* size) {
+Result<int64_t> MemoryMappedFile::Tell() const {
   RETURN_NOT_OK(memory_map_->CheckClosed());
-  return static_cast<const MemoryMappedFile*>(this)->GetSize(size);
-}
-
-Status MemoryMappedFile::Tell(int64_t* position) const {
-  RETURN_NOT_OK(memory_map_->CheckClosed());
-  *position = memory_map_->position();
-  return Status::OK();
+  return memory_map_->position();
 }
 
 Status MemoryMappedFile::Seek(int64_t position) {
@@ -673,8 +683,8 @@ Status MemoryMappedFile::Close() { return memory_map_->Close(); }
 
 bool MemoryMappedFile::closed() const { return memory_map_->closed(); }
 
-Status MemoryMappedFile::ReadAt(int64_t position, int64_t nbytes,
-                                std::shared_ptr<Buffer>* out) {
+Result<std::shared_ptr<Buffer>> MemoryMappedFile::ReadAt(int64_t position,
+                                                         int64_t nbytes) {
   RETURN_NOT_OK(memory_map_->CheckClosed());
   // if the file is writable, we acquire the lock before creating any slices
   // in case a resize is triggered concurrently, otherwise we wouldn't detect
@@ -682,11 +692,10 @@ Status MemoryMappedFile::ReadAt(int64_t position, int64_t nbytes,
   auto guard_resize = memory_map_->writable()
                           ? std::unique_lock<std::mutex>(memory_map_->resize_lock())
                           : std::unique_lock<std::mutex>();
-  return memory_map_->Slice(position, nbytes, out);
+  return memory_map_->Slice(position, nbytes);
 }
 
-Status MemoryMappedFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                                void* out) {
+Result<int64_t> MemoryMappedFile::ReadAt(int64_t position, int64_t nbytes, void* out) {
   RETURN_NOT_OK(memory_map_->CheckClosed());
   auto guard_resize = memory_map_->writable()
                           ? std::unique_lock<std::mutex>(memory_map_->resize_lock())
@@ -695,22 +704,21 @@ Status MemoryMappedFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes
   if (nbytes > 0) {
     memcpy(out, memory_map_->data() + position, static_cast<size_t>(nbytes));
   }
-  *bytes_read = nbytes;
-  return Status::OK();
+  return nbytes;
 }
 
-Status MemoryMappedFile::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
+Result<int64_t> MemoryMappedFile::Read(int64_t nbytes, void* out) {
   RETURN_NOT_OK(memory_map_->CheckClosed());
-  RETURN_NOT_OK(ReadAt(memory_map_->position(), nbytes, bytes_read, out));
-  memory_map_->advance(*bytes_read);
-  return Status::OK();
+  ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, ReadAt(memory_map_->position(), nbytes, out));
+  memory_map_->advance(bytes_read);
+  return bytes_read;
 }
 
-Status MemoryMappedFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+Result<std::shared_ptr<Buffer>> MemoryMappedFile::Read(int64_t nbytes) {
   RETURN_NOT_OK(memory_map_->CheckClosed());
-  RETURN_NOT_OK(ReadAt(memory_map_->position(), nbytes, out));
-  memory_map_->advance((*out)->size());
-  return Status::OK();
+  ARROW_ASSIGN_OR_RAISE(auto buffer, ReadAt(memory_map_->position(), nbytes));
+  memory_map_->advance(buffer->size());
+  return buffer;
 }
 
 bool MemoryMappedFile::supports_zero_copy() const { return true; }

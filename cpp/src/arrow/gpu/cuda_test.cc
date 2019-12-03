@@ -180,19 +180,16 @@ class TestCudaBufferWriter : public TestCudaBufferBase {
       ASSERT_OK(writer_->SetBufferSize(buffer_size));
     }
 
-    int64_t position = 0;
-    ASSERT_OK(writer_->Tell(&position));
-    ASSERT_EQ(0, position);
+    ASSERT_OK_AND_EQ(0, writer_->Tell());
 
     const uint8_t* host_data = buffer->data();
     ASSERT_OK(writer_->Write(host_data, chunksize));
-    ASSERT_OK(writer_->Tell(&position));
-    ASSERT_EQ(chunksize, position);
+    ASSERT_OK_AND_EQ(chunksize, writer_->Tell());
 
     ASSERT_OK(writer_->Seek(0));
-    ASSERT_OK(writer_->Tell(&position));
-    ASSERT_EQ(0, position);
+    ASSERT_OK_AND_EQ(0, writer_->Tell());
 
+    int64_t position = 0;
     while (position < total_bytes) {
       int64_t bytes_to_write = std::min(chunksize, total_bytes - position);
       ASSERT_OK(writer_->Write(host_data + position, bytes_to_write));
@@ -233,10 +230,8 @@ TEST_F(TestCudaBufferWriter, EdgeCases) {
   ASSERT_EQ(100, writer_->buffer_size());
 
   // Write 0 bytes
-  int64_t position = 0;
   ASSERT_OK(writer_->Write(host_data, 0));
-  ASSERT_OK(writer_->Tell(&position));
-  ASSERT_EQ(0, position);
+  ASSERT_OK_AND_EQ(0, writer_->Tell());
 
   // Write some data, then change buffer size
   ASSERT_OK(writer_->Write(host_data, 10));
@@ -284,34 +279,25 @@ TEST_F(TestCudaBufferReader, Basics) {
   CudaBufferReader reader(device_buffer);
 
   uint8_t stack_buffer[100] = {0};
-  int64_t bytes_read = 0;
   ASSERT_OK(reader.Seek(950));
 
-  int64_t position = 0;
-  ASSERT_OK(reader.Tell(&position));
-  ASSERT_EQ(950, position);
+  ASSERT_OK_AND_EQ(950, reader.Tell());
 
   // Read() to host memory
-  ASSERT_OK(reader.Read(100, &bytes_read, stack_buffer));
-  ASSERT_EQ(50, bytes_read);
+  ASSERT_OK_AND_EQ(50, reader.Read(100, stack_buffer));
   ASSERT_EQ(0, std::memcmp(stack_buffer, host_data + 950, 50));
-  ASSERT_OK(reader.Tell(&position));
-  ASSERT_EQ(1000, position);
+  ASSERT_OK_AND_EQ(1000, reader.Tell());
 
   // ReadAt() to host memory
-  ASSERT_OK(reader.ReadAt(123, 45, &bytes_read, stack_buffer));
-  ASSERT_EQ(45, bytes_read);
+  ASSERT_OK_AND_EQ(45, reader.ReadAt(123, 45, stack_buffer));
   ASSERT_EQ(0, std::memcmp(stack_buffer, host_data + 123, 45));
-  ASSERT_OK(reader.Tell(&position));
-  ASSERT_EQ(1000, position);
+  ASSERT_OK_AND_EQ(1000, reader.Tell());
 
   // Read() to device buffer
-  std::shared_ptr<Buffer> tmp;
   ASSERT_OK(reader.Seek(925));
-  ASSERT_OK(reader.Read(100, &tmp));
+  ASSERT_OK_AND_ASSIGN(auto tmp, reader.Read(100));
   ASSERT_EQ(75, tmp->size());
-  ASSERT_OK(reader.Tell(&position));
-  ASSERT_EQ(1000, position);
+  ASSERT_OK_AND_EQ(1000, reader.Tell());
 
   ASSERT_OK(std::dynamic_pointer_cast<CudaBuffer>(tmp)->CopyToHost(0, tmp->size(),
                                                                    stack_buffer));
@@ -319,10 +305,9 @@ TEST_F(TestCudaBufferReader, Basics) {
 
   // ReadAt() to device buffer
   ASSERT_OK(reader.Seek(42));
-  ASSERT_OK(reader.ReadAt(980, 30, &tmp));
+  ASSERT_OK_AND_ASSIGN(tmp, reader.ReadAt(980, 30));
   ASSERT_EQ(20, tmp->size());
-  ASSERT_OK(reader.Tell(&position));
-  ASSERT_EQ(42, position);
+  ASSERT_OK_AND_EQ(42, reader.Tell());
 
   ASSERT_OK(std::dynamic_pointer_cast<CudaBuffer>(tmp)->CopyToHost(0, tmp->size(),
                                                                    stack_buffer));

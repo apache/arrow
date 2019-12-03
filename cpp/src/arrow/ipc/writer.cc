@@ -1000,7 +1000,7 @@ class StreamBookKeeper {
   explicit StreamBookKeeper(const IpcOptions& options, io::OutputStream* sink)
       : options_(options), sink_(sink), position_(-1) {}
 
-  Status UpdatePosition() { return sink_->Tell(&position_); }
+  Status UpdatePosition() { return sink_->Tell().Value(&position_); }
 
   Status UpdatePositionCheckAligned() {
     RETURN_NOT_OK(UpdatePosition());
@@ -1282,8 +1282,7 @@ Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
 
 Status SerializeSchema(const Schema& schema, DictionaryMemo* dictionary_memo,
                        MemoryPool* pool, std::shared_ptr<Buffer>* out) {
-  std::shared_ptr<io::BufferOutputStream> stream;
-  RETURN_NOT_OK(io::BufferOutputStream::Create(1024, pool, &stream));
+  ARROW_ASSIGN_OR_RAISE(auto stream, io::BufferOutputStream::Create(1024, pool));
 
   auto options = IpcOptions::Defaults();
   auto payload_writer = make_unique<PayloadStreamWriter>(options, stream.get());
@@ -1291,7 +1290,7 @@ Status SerializeSchema(const Schema& schema, DictionaryMemo* dictionary_memo,
                                   dictionary_memo);
   // Write schema and populate fields (but not dictionaries) in dictionary_memo
   RETURN_NOT_OK(writer.Start());
-  return stream->Finish(out);
+  return stream->Finish().Value(out);
 }
 
 }  // namespace ipc

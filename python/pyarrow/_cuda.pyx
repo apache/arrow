@@ -761,8 +761,8 @@ cdef class BufferReader(NativeFile):
             c_nbytes = nbytes
 
         with nogil:
-            check_status(self.reader.Read(c_nbytes,
-                                          <shared_ptr[CBuffer]*> &output))
+            output = static_pointer_cast[CCudaBuffer, CBuffer](
+                GetResultValue(self.reader.Read(c_nbytes)))
 
         return pyarrow_wrap_cudabuffer(output)
 
@@ -811,7 +811,7 @@ cdef class BufferWriter(NativeFile):
             if whence == 0:
                 offset = position
             elif whence == 1:
-                check_status(self.writer.Tell(&offset))
+                offset = GetResultValue(self.writer.Tell())
                 offset = offset + position
             else:
                 with gil:
