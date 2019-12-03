@@ -81,6 +81,7 @@ meson ^
     setup ^
     --prefix=%INSTALL_DIR% ^
     --buildtype=%MESON_BUILD_TYPE% ^
+    -Ddevelopment_mode=true ^
     %C_GLIB_BUILD_DIR% ^
     c_glib || exit /B
 sed -i'' -s 's/\r//g' %C_GLIB_BUILD_DIR%/arrow-glib/version.h || exit /B
