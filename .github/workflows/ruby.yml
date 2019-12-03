@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: C Glib & Ruby
+name: C GLib & Ruby
 
 on:
   push:
@@ -34,7 +34,7 @@ on:
 jobs:
 
   ubuntu:
-    name: AMD64 Ubuntu ${{ matrix.ubuntu }} Glib & Ruby
+    name: AMD64 Ubuntu ${{ matrix.ubuntu }} GLib & Ruby
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -72,7 +72,7 @@ jobs:
           docker-compose push ubuntu-ruby
 
   macos:
-    name: AMD64 MacOS 10.15 Glib & Ruby
+    name: AMD64 MacOS 10.15 GLib & Ruby
     runs-on: macos-latest
     strategy:
       fail-fast: false
@@ -103,7 +103,7 @@ jobs:
         run: |
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/cpp/build
           ci/scripts/c_glib_build.sh $(pwd) $(pwd)/c_glib/build
-      - name: Test Glib
+      - name: Test GLib
         shell: bash
         run: ci/scripts/c_glib_test.sh $(pwd) $(pwd)/c_glib/build
       - name: Test Ruby
