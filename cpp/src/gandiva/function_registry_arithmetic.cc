@@ -41,12 +41,15 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       UNARY_SAFE_NULL_IF_NULL(castBIGINT, {}, decimal128, int64),
 
       // cast to float32
-      UNARY_CAST_TO_FLOAT32(int32), UNARY_CAST_TO_FLOAT32(int64),
+      UNARY_CAST_TO_FLOAT32(int32),
+      UNARY_CAST_TO_FLOAT32(int64),
       UNARY_CAST_TO_FLOAT32(float64),
 
       // cast to float64
-      UNARY_CAST_TO_FLOAT64(int32), UNARY_CAST_TO_FLOAT64(int64),
-      UNARY_CAST_TO_FLOAT64(float32), UNARY_CAST_TO_FLOAT64(decimal128),
+      UNARY_CAST_TO_FLOAT64(int32),
+      UNARY_CAST_TO_FLOAT64(int64),
+      UNARY_CAST_TO_FLOAT64(float32),
+      UNARY_CAST_TO_FLOAT64(decimal128),
 
       // cast to decimal
       UNARY_SAFE_NULL_IF_NULL(castDECIMAL, {}, int32, decimal128),
@@ -63,7 +66,8 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       UNARY_SAFE_NULL_IF_NULL(castDATE, {}, int64, date64),
 
       // add/sub/multiply/divide/mod
-      BINARY_SYMMETRIC_FN(add, {}), BINARY_SYMMETRIC_FN(subtract, {}),
+      BINARY_SYMMETRIC_FN(add, {}),
+      BINARY_SYMMETRIC_FN(subtract, {}),
       BINARY_SYMMETRIC_FN(multiply, {}),
       NUMERIC_TYPES(BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL, divide, {}),
       BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, {"modulo"}, int64, int32, int32),
@@ -81,7 +85,32 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       BINARY_RELATIONAL_BOOL_DATE_FN(less_than, {}),
       BINARY_RELATIONAL_BOOL_DATE_FN(less_than_or_equal_to, {}),
       BINARY_RELATIONAL_BOOL_DATE_FN(greater_than, {}),
-      BINARY_RELATIONAL_BOOL_DATE_FN(greater_than_or_equal_to, {})};
+      BINARY_RELATIONAL_BOOL_DATE_FN(greater_than_or_equal_to, {}),
+
+      NativeFunction("castINT", {}, DataTypeVector{utf8()}, int32(), kResultNullIfNull,
+                     "gdv_fn_castINT_utf8",
+                     NativeFunction::kNeedsContext |
+                         NativeFunction::kNeedsFunctionHolder |
+                         NativeFunction::kCanReturnErrors),
+
+      NativeFunction("castBIGINT", {}, DataTypeVector{utf8()}, int64(), kResultNullIfNull,
+                     "gdv_fn_castBIGINT_utf8",
+                     NativeFunction::kNeedsContext |
+                         NativeFunction::kNeedsFunctionHolder |
+                         NativeFunction::kCanReturnErrors),
+
+      NativeFunction("castFLOAT4", {}, DataTypeVector{utf8()}, float32(),
+                     kResultNullIfNull, "gdv_fn_castFLOAT4_utf8",
+                     NativeFunction::kNeedsContext |
+                         NativeFunction::kNeedsFunctionHolder |
+                         NativeFunction::kCanReturnErrors),
+
+      NativeFunction("castFLOAT8", {}, DataTypeVector{utf8()}, float64(),
+                     kResultNullIfNull, "gdv_fn_castFLOAT8_utf8",
+                     NativeFunction::kNeedsContext |
+                         NativeFunction::kNeedsFunctionHolder |
+                         NativeFunction::kCanReturnErrors),
+  };
 
   return arithmetic_fn_registry_;
 }

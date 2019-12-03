@@ -24,6 +24,7 @@
 #include "gandiva/exported_funcs.h"
 #include "gandiva/in_holder.h"
 #include "gandiva/like_holder.h"
+#include "gandiva/parse_string_holder.h"
 #include "gandiva/random_generator_holder.h"
 #include "gandiva/to_date_holder.h"
 
@@ -48,6 +49,21 @@ double gdv_fn_random_with_seed(int64_t ptr, int32_t seed, bool seed_validity) {
       reinterpret_cast<gandiva::RandomGeneratorHolder*>(ptr);
   return (*holder)();
 }
+
+#define CAST_FROM_STRING(TYPE, C_TYPE, ARROW_TYPE)                                    \
+  C_TYPE gdv_fn_cast##TYPE##_utf8(int64_t context_ptr, int64_t holder_ptr,            \
+                                  const char* data, int data_len) {                   \
+    gandiva::ExecutionContext* context =                                              \
+        reinterpret_cast<gandiva::ExecutionContext*>(context_ptr);                    \
+    gandiva::ParseStringHolder<arrow::ARROW_TYPE>* holder =                           \
+        reinterpret_cast<gandiva::ParseStringHolder<arrow::ARROW_TYPE>*>(holder_ptr); \
+    return (*holder)(context, data, data_len);                                        \
+  }
+
+CAST_FROM_STRING(INT, int32_t, Int32Type)
+CAST_FROM_STRING(BIGINT, int64_t, Int64Type)
+CAST_FROM_STRING(FLOAT4, float_t, FloatType)
+CAST_FROM_STRING(FLOAT8, double_t, DoubleType)
 
 int64_t gdv_fn_to_date_utf8_utf8_int32(int64_t context_ptr, int64_t holder_ptr,
                                        const char* data, int data_len, bool in1_validity,
@@ -203,6 +219,46 @@ void ExportedStubFunctions::AddMappings(Engine* engine) const {
   engine->AddGlobalMappingForFunc(
       "gdv_fn_to_date_utf8_utf8_int32", types->i64_type() /*return_type*/, args,
       reinterpret_cast<void*>(gdv_fn_to_date_utf8_utf8_int32));
+
+  // gdv_fn_castINT_utf8
+  args = {types->i64_type(),     // int64_t context_ptr
+          types->i64_type(),     // int64_t holder_ptr
+          types->i8_ptr_type(),  // const char* data
+          types->i32_type()};    // int data_len
+
+  engine->AddGlobalMappingForFunc("gdv_fn_castINT_utf8",
+                                  types->i32_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_castINT_utf8));
+
+  // gdv_fn_castBIGINT_utf8
+  args = {types->i64_type(),     // int64_t context_ptr
+          types->i64_type(),     // int64_t holder_ptr
+          types->i8_ptr_type(),  // const char* data
+          types->i32_type()};    // int data_len
+
+  engine->AddGlobalMappingForFunc("gdv_fn_castBIGINT_utf8",
+                                  types->i64_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_castBIGINT_utf8));
+
+  // gdv_fn_castFLOAT4_utf8
+  args = {types->i64_type(),     // int64_t context_ptr
+          types->i64_type(),     // int64_t holder_ptr
+          types->i8_ptr_type(),  // const char* data
+          types->i32_type()};    // int data_len
+
+  engine->AddGlobalMappingForFunc("gdv_fn_castFLOAT4_utf8",
+                                  types->float_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_castFLOAT4_utf8));
+
+  // gdv_fn_castFLOAT8_utf8
+  args = {types->i64_type(),     // int64_t context_ptr
+          types->i64_type(),     // int64_t holder_ptr
+          types->i8_ptr_type(),  // const char* data
+          types->i32_type()};    // int data_len
+
+  engine->AddGlobalMappingForFunc("gdv_fn_castFLOAT8_utf8",
+                                  types->double_type() /*return_type*/, args,
+                                  reinterpret_cast<void*>(gdv_fn_castFLOAT8_utf8));
 
   // gdv_fn_in_expr_lookup_int32
   args = {types->i64_type(),  // int64_t in holder ptr
