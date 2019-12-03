@@ -25,9 +25,11 @@
 
 #include "arrow/status.h"
 
+#include "gandiva/arrow.h"
 #include "gandiva/function_holder.h"
 #include "gandiva/like_holder.h"
 #include "gandiva/node.h"
+#include "gandiva/parse_string_holder.h"
 #include "gandiva/random_generator_holder.h"
 #include "gandiva/to_date_holder.h"
 
@@ -66,6 +68,10 @@ class FunctionHolderRegistry {
         {"to_date", LAMBDA_MAKER(ToDateHolder)},
         {"random", LAMBDA_MAKER(RandomGeneratorHolder)},
         {"rand", LAMBDA_MAKER(RandomGeneratorHolder)},
+        {"castINT", LAMBDA_MAKER(ParseStringHolder<arrow::Int32Type>)},
+        {"castBIGINT", LAMBDA_MAKER(ParseStringHolder<arrow::Int64Type>)},
+        {"castFLOAT4", LAMBDA_MAKER(ParseStringHolder<arrow::FloatType>)},
+        {"castFLOAT8", LAMBDA_MAKER(ParseStringHolder<arrow::DoubleType>)},
     };
     return maker_map;
   }

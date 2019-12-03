@@ -30,7 +30,7 @@ using internal::StringConverter;
 template <typename ConverterType, typename C_TYPE>
 void AssertConversion(ConverterType& converter, const std::string& s, C_TYPE expected) {
   typename ConverterType::value_type out;
-  ASSERT_TRUE(converter(s.data(), s.length(), &out))
+  ASSERT_TRUE(converter(s.data(), static_cast<int>(s.length()), &out))
       << "Conversion failed for '" << s << "' (expected to return " << expected << ")";
   ASSERT_EQ(out, expected) << "Conversion failed for '" << s << "'";
 }
