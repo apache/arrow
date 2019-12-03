@@ -216,7 +216,7 @@ class ARROW_EXPORT SparseCSRIndex : public internal::SparseIndexBase<SparseCSRIn
       return Status::Invalid("shape length is too long");
     }
 
-    if (shape.size() == 0 || indptr_->shape()[0] == shape[0] + 1) {
+    if (indptr_->shape()[0] == shape[0] + 1) {
       return Status::OK();
     }
 
