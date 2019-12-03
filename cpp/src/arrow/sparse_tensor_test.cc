@@ -52,18 +52,21 @@ TEST(TestSparseCOOIndex, Make) {
                                  1, 0, 1, 1, 0, 3, 1, 1, 0, 1, 1, 2, 1, 2, 1, 1, 2, 3};
   auto data = Buffer::Wrap(values);
   std::vector<int64_t> shape = {12, 3};
-  std::vector<int64_t> stride = {3 * sizeof(int32_t), sizeof(int32_t)};
+  std::vector<int64_t> strides = {3 * sizeof(int32_t), sizeof(int32_t)};
 
   // OK
-  auto res = SparseCOOIndex::Make(int32(), shape, stride, data);
-  ASSERT_OK(res);
+  std::shared_ptr<SparseCOOIndex> si;
+  ASSERT_OK_AND_ASSIGN(si, SparseCOOIndex::Make(int32(), shape, strides, data));
+  ASSERT_EQ(shape, si->indices()->shape());
+  ASSERT_EQ(strides, si->indices()->strides());
+  ASSERT_EQ(data->data(), si->indices()->raw_data());
 
   // Non-integer type
-  res = SparseCOOIndex::Make(float32(), shape, stride, data);
+  auto res = SparseCOOIndex::Make(float32(), shape, strides, data);
   ASSERT_RAISES(Invalid, res);
 
   // Non-matrix indices
-  res = SparseCOOIndex::Make(int32(), {4, 3, 4}, stride, data);
+  res = SparseCOOIndex::Make(int32(), {4, 3, 4}, strides, data);
   ASSERT_RAISES(Invalid, res);
 
   // Non-contiguous indices
@@ -81,13 +84,17 @@ TEST(TestSparseCSRIndex, Make) {
   std::vector<int64_t> indices_shape = {12};
 
   // OK
-  auto res = SparseCSRIndex::Make(int32(), indptr_shape, indices_shape, indptr_data,
-                                  indices_data);
-  ASSERT_OK(res);
+  std::shared_ptr<SparseCSRIndex> si;
+  ASSERT_OK_AND_ASSIGN(si, SparseCSRIndex::Make(int32(), indptr_shape, indices_shape,
+                                                indptr_data, indices_data));
+  ASSERT_EQ(indptr_shape, si->indptr()->shape());
+  ASSERT_EQ(indptr_data->data(), si->indptr()->raw_data());
+  ASSERT_EQ(indices_shape, si->indices()->shape());
+  ASSERT_EQ(indices_data->data(), si->indices()->raw_data());
 
   // Non-integer type
-  res = SparseCSRIndex::Make(float32(), indptr_shape, indices_shape, indptr_data,
-                             indices_data);
+  auto res = SparseCSRIndex::Make(float32(), indptr_shape, indices_shape, indptr_data,
+                                  indices_data);
   ASSERT_RAISES(Invalid, res);
 
   // Non-vector indptr shape
@@ -331,16 +338,27 @@ TYPED_TEST_P(TestSparseCOOTensorForIndexValueType, Make) {
   std::shared_ptr<SparseCOOTensor> st;
 
   // OK
-  auto res =
-      SparseCOOTensor::Make(si, int64(), sparse_data, this->shape_, this->dim_names_);
-  ASSERT_OK(res);
+  ASSERT_OK_AND_ASSIGN(st, SparseCOOTensor::Make(si, int64(), sparse_data, this->shape_,
+                                                 this->dim_names_));
+  ASSERT_EQ(int64(), st->type());
+  ASSERT_EQ(this->shape_, st->shape());
+  ASSERT_EQ(this->dim_names_, st->dim_names());
+  ASSERT_EQ(sparse_data->data(), st->raw_data());
+  ASSERT_TRUE(
+      internal::checked_pointer_cast<SparseCOOIndex>(st->sparse_index())->Equals(*si));
 
   // OK with an empty dim_names
-  res = SparseCOOTensor::Make(si, int64(), sparse_data, this->shape_, {});
-  ASSERT_OK(res);
+  ASSERT_OK_AND_ASSIGN(st,
+                       SparseCOOTensor::Make(si, int64(), sparse_data, this->shape_, {}));
+  ASSERT_EQ(int64(), st->type());
+  ASSERT_EQ(this->shape_, st->shape());
+  ASSERT_EQ(std::vector<std::string>{}, st->dim_names());
+  ASSERT_EQ(sparse_data->data(), st->raw_data());
+  ASSERT_TRUE(
+      internal::checked_pointer_cast<SparseCOOIndex>(st->sparse_index())->Equals(*si));
 
   // invalid data type
-  res = SparseCOOTensor::Make(si, binary(), sparse_data, this->shape_, {});
+  auto res = SparseCOOTensor::Make(si, binary(), sparse_data, this->shape_, {});
   ASSERT_RAISES(Invalid, res);
 
   // negative items in shape
