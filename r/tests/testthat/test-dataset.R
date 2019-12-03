@@ -30,16 +30,14 @@ df1 <- tibble(
   dbl = as.numeric(1:10),
   lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
   chr = letters[1:10],
-  fct = factor(LETTERS[1:10]),
-  part = 1
+  fct = factor(LETTERS[1:10])
 )
 df2 <- tibble(
   int = 101:110,
   dbl = as.numeric(51:60),
   lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
   chr = letters[10:1],
-  fct = factor(LETTERS[10:1]),
-  part = 2
+  fct = factor(LETTERS[10:1])
 )
 
 test_that("Setup (putting data in the dir)", {
