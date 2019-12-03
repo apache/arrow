@@ -557,9 +557,8 @@ Result<std::shared_ptr<SparseCOOIndex>> SparseCOOIndex::Make(
 // Constructor with a contiguous NumericTensor
 SparseCOOIndex::SparseCOOIndex(const std::shared_ptr<Tensor>& coords)
     : SparseIndexBase(coords->shape()[0]), coords_(coords) {
-  ARROW_CHECK(
-      CheckSparseCOOIndexValidity(coords_->type(), coords_->shape(), coords_->strides())
-          .ok());
+  ARROW_CHECK_OK(
+      CheckSparseCOOIndexValidity(coords_->type(), coords_->shape(), coords_->strides()));
 }
 
 std::string SparseCOOIndex::ToString() const { return std::string("SparseCOOIndex"); }
