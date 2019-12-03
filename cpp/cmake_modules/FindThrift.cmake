@@ -32,21 +32,21 @@ function(EXTRACT_THRIFT_VERSION)
                ARGS
                -version
                OUTPUT_VARIABLE
-               THRIFT_VERSION
+               FOUND_THRIFT_VERSION
                RETURN_VALUE
                THRIFT_RETURN)
   # We're expecting OUTPUT_VARIABLE to look like one of these:
   #   0.9.3
   #   Thrift version 0.11.0
-  if(THRIFT_VERSION MATCHES "Thrift version")
-    string(REGEX MATCH "Thrift version (([0-9]+\\.?)+)" _ "${THRIFT_VERSION}")
+  if(FOUND_THRIFT_VERSION MATCHES "Thrift version")
+    string(REGEX MATCH "Thrift version (([0-9]+\\.?)+)" _ "${FOUND_THRIFT_VERSION}")
     if(NOT CMAKE_MATCH_1)
       message(SEND_ERROR "Could not extract Thrift version. "
-                         "Version output: ${THRIFT_VERSION}")
+                         "Version output: ${FOUND_THRIFT_VERSION}")
     endif()
-    set(THRIFT_VERSION "${CMAKE_MATCH_1}" PARENT_SCOPE)
+    set(FOUND_THRIFT_VERSION "${CMAKE_MATCH_1}" PARENT_SCOPE)
   else()
-    set(THRIFT_VERSION "${THRIFT_VERSION}" PARENT_SCOPE)
+    set(FOUND_THRIFT_VERSION "${FOUND_THRIFT_VERSION}" PARENT_SCOPE)
   endif()
 endfunction(EXTRACT_THRIFT_VERSION)
 
@@ -81,7 +81,7 @@ else()
                  HINTS ${THRIFT_PC_PREFIX}
                  NO_DEFAULT_PATH
                  PATH_SUFFIXES "bin")
-    set(THRIFT_VERSION ${THRIFT_PC_VERSION})
+    set(FOUND_THRIFT_VERSION ${THRIFT_PC_VERSION})
   else()
     find_library(THRIFT_STATIC_LIB thrift${THRIFT_MSVC_STATIC_LIB_SUFFIX}
                  PATH_SUFFIXES "lib/${CMAKE_LIBRARY_ARCHITECTURE}" "lib")
@@ -99,10 +99,11 @@ find_package_handle_standard_args(Thrift
                                   THRIFT_INCLUDE_DIR
                                   THRIFT_COMPILER
                                   VERSION_VAR
-                                  THRIFT_VERSION)
+                                  FOUND_THRIFT_VERSION)
 
 if(Thrift_FOUND OR THRIFT_FOUND)
   set(Thrift_FOUND TRUE)
+  set(THRIFT_VERSION ${FOUND_THRIFT_VERSION})
   add_library(Thrift::thrift STATIC IMPORTED)
   set_target_properties(Thrift::thrift
                         PROPERTIES IMPORTED_LOCATION "${THRIFT_STATIC_LIB}"
