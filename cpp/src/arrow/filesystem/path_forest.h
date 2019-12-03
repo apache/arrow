@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <iosfwd>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -110,7 +111,7 @@ class ARROW_EXPORT PathForest : public util::EqualityComparable<PathForest> {
   template <typename Visitor>
   Status VisitImpl(Visitor&& v, std::false_type) const {
     return Visit([&](Ref ref) -> MaybePrune {
-      RETURN_NOT_OK(v(ref));
+      ARROW_RETURN_NOT_OK(v(ref));
       return Continue;
     });
   }

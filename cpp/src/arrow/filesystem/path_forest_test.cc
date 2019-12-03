@@ -42,7 +42,7 @@ struct TestPathTree {
   FileStats stats;
   std::vector<TestPathTree> subtrees;
 
-  TestPathTree(std::string file_path) : stats(File(std::move(file_path))) {}
+  explicit TestPathTree(std::string file_path) : stats(File(std::move(file_path))) {}
 
   TestPathTree(std::string dir_path, std::vector<TestPathTree> subtrees)
       : stats(Dir(std::move(dir_path))), subtrees(std::move(subtrees)) {}
@@ -98,7 +98,7 @@ void AssertMakePathTree(std::vector<FileStats> stats, std::vector<PT> expected) 
   }));
 }
 
-TEST(TestPathTree, Basic) {
+TEST(TestPathForest, Basic) {
   AssertMakePathTree({}, {});
 
   AssertMakePathTree({File("aa")}, {PT("aa")});
@@ -123,7 +123,7 @@ TEST(TestPathTree, Basic) {
                       PT("CC", {PT("CC/BB", {PT("CC/BB/0")})})});
 }
 
-TEST(TestPathTree, HourlyETL) {
+TEST(TestPathForest, HourlyETL) {
   // This test mimics a scenario where an ETL dumps hourly files in a structure
   // `$year/$month/$day/$hour/*.parquet`.
 
@@ -148,31 +148,31 @@ TEST(TestPathTree, HourlyETL) {
 
   std::vector<FileStats> stats;
 
-  std::vector<TestPathTree> forest;
+  std::vector<PT> forest;
   for (int64_t year = 0; year < kYears; year++) {
     auto year_str = std::to_string(year + 2000);
     auto year_dir = Dir(year_str);
     stats.push_back(year_dir);
 
-    std::vector<TestPathTree> months;
+    std::vector<PT> months;
     for (int64_t month = 0; month < kMonthsPerYear; month++) {
       auto month_str = join({year_str, numbers[month + 1]});
       auto month_dir = Dir(month_str);
       stats.push_back(month_dir);
 
-      std::vector<TestPathTree> days;
+      std::vector<PT> days;
       for (int64_t day = 0; day < kDaysPerMonth; day++) {
         auto day_str = join({month_str, numbers[day + 1]});
         auto day_dir = Dir(day_str);
         stats.push_back(day_dir);
 
-        std::vector<TestPathTree> hours;
+        std::vector<PT> hours;
         for (int64_t hour = 0; hour < kHoursPerDay; hour++) {
           auto hour_str = join({day_str, numbers[hour]});
           auto hour_dir = Dir(hour_str);
           stats.push_back(hour_dir);
 
-          std::vector<TestPathTree> files;
+          std::vector<PT> files;
           for (int64_t file = 0; file < kFilesPerHour; file++) {
             auto file_str = join({hour_str, numbers[file] + ".parquet"});
             auto file_fd = File(file_str);
@@ -199,7 +199,7 @@ TEST(TestPathTree, HourlyETL) {
   AssertMakePathTree(stats, forest);
 }
 
-TEST(TestPathTree, Visit) {
+TEST(TestPathForest, Visit) {
   ASSERT_OK_AND_ASSIGN(auto forest, PathForest::Make({Dir("A"), File("A/a")}));
 
   // Should propagate failure

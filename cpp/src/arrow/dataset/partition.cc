@@ -186,7 +186,7 @@ util::optional<PartitionKeysScheme::Key> HivePartitionScheme::ParseKey(
 
 class HivePartitionSchemeDiscovery : public PartitionSchemeDiscovery {
  public:
-  HivePartitionSchemeDiscovery(std::string partition_base_dir)
+  explicit HivePartitionSchemeDiscovery(std::string partition_base_dir)
       : partition_base_dir_(std::move(partition_base_dir)) {}
 
   Result<std::shared_ptr<Schema>> Inspect(
