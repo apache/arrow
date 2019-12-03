@@ -103,29 +103,33 @@ Result<DataSourceDiscoveryPtr> FileSystemDataSourceDiscovery::Make(
               std::move(options));
 }
 
-static inline Result<std::shared_ptr<Schema>> InspectSchema(
-    fs::FileSystem* fs, const std::vector<fs::FileStats> stats,
-    const FileFormatPtr& format) {
+Result<std::shared_ptr<Schema>> FileSystemDataSourceDiscovery::Inspect() {
   std::vector<std::shared_ptr<Schema>> schemas;
 
-  for (const auto& f : stats) {
+  for (const auto& f : files_) {
     if (!f.IsFile()) continue;
 
-    ARROW_ASSIGN_OR_RAISE(auto schema, format->Inspect(FileSource(f.path(), fs)));
+    ARROW_ASSIGN_OR_RAISE(auto schema, format_->Inspect(FileSource(f.path(), fs_.get())));
     schemas.push_back(schema);
   }
 
-  if (schemas.size() > 0) {
-    // TODO merge schemas.
-    return schemas[0];
+  if (schemas.empty()) {
+    // If there are no files, return the partition scheme's schema.
+    return partition_scheme_->schema();
   }
 
-  // If there is no files, return an empty schema.
-  return std::shared_ptr<Schema>(nullptr);
-}
+  // TODO merge schemas.
+  auto out_schema = arrow::schema(schemas[0]->fields());
 
-Result<std::shared_ptr<Schema>> FileSystemDataSourceDiscovery::Inspect() {
-  return InspectSchema(fs_.get(), files_, format_);
+  // add fields from partition_scheme_
+  for (auto partition_field : partition_scheme_->schema()->fields()) {
+    if (out_schema->GetFieldIndex(partition_field->name()) == -1) {
+      RETURN_NOT_OK(
+          out_schema->AddField(out_schema->num_fields(), partition_field, &out_schema));
+    }
+  }
+
+  return out_schema;
 }
 
 Result<DataSourcePtr> FileSystemDataSourceDiscovery::Finish() {

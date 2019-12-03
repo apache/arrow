@@ -232,38 +232,40 @@ class TestEndToEnd : public TestDataset {
   void SetUp() {
     bool nullable = false;
     schema_ = schema({
-        field("country", utf8(), nullable),
         field("region", utf8(), nullable),
         field("model", utf8(), nullable),
-        field("year", int32(), nullable),
         field("sales", float64(), nullable),
+        // partition columns
+        field("year", int32()),
+        field("month", int32()),
+        field("country", utf8()),
     });
 
     using PathAndContent = std::vector<std::pair<std::string, std::string>>;
     auto files = PathAndContent{
-        {"/2018/01/US.json", R"([
-        {"country": "US", "region": "NY", "year": 2018, "model": "3", "sales": 742.0},
-        {"country": "US", "region": "NY", "year": 2018, "model": "S", "sales": 304.125},
-        {"country": "US", "region": "NY", "year": 2018, "model": "X", "sales": 136.25},
-        {"country": "US", "region": "NY", "year": 2018, "model": "Y", "sales": 27.5}
+        {"/dataset/2018/01/US/dat.json", R"([
+        {"region": "NY", "model": "3", "sales": 742.0},
+        {"region": "NY", "model": "S", "sales": 304.125},
+        {"region": "NY", "model": "X", "sales": 136.25},
+        {"region": "NY", "model": "Y", "sales": 27.5}
       ])"},
-        {"/dataset/2018/01/CA.json", R"([
-        {"country": "US", "region": "CA", "year": 2018, "model": "3", "sales": 512},
-        {"country": "US", "region": "CA", "year": 2018, "model": "S", "sales": 978},
-        {"country": "US", "region": "CA", "year": 2018, "model": "X", "sales": 1.0},
-        {"country": "US", "region": "CA", "year": 2018, "model": "Y", "sales": 69}
+        {"/dataset/2018/01/CA/dat.json", R"([
+        {"region": "CA", "model": "3", "sales": 512},
+        {"region": "CA", "model": "S", "sales": 978},
+        {"region": "CA", "model": "X", "sales": 1.0},
+        {"region": "CA", "model": "Y", "sales": 69}
       ])"},
-        {"/dataset/2019/01/US.json", R"([
-        {"country": "CA", "region": "QC", "year": 2019, "model": "3", "sales": 273.5},
-        {"country": "CA", "region": "QC", "year": 2019, "model": "S", "sales": 13},
-        {"country": "CA", "region": "QC", "year": 2019, "model": "X", "sales": 54},
-        {"country": "CA", "region": "QC", "year": 2019, "model": "Y", "sales": 21}
+        {"/dataset/2019/01/US/dat.json", R"([
+        {"region": "QC", "model": "3", "sales": 273.5},
+        {"region": "QC", "model": "S", "sales": 13},
+        {"region": "QC", "model": "X", "sales": 54},
+        {"region": "QC", "model": "Y", "sales": 21}
       ])"},
-        {"/dataset/2019/01/CA.json", R"([
-        {"country": "CA", "region": "QC", "year": 2019, "model": "3", "sales": 152.25},
-        {"country": "CA", "region": "QC", "year": 2019, "model": "S", "sales": 10},
-        {"country": "CA", "region": "QC", "year": 2019, "model": "X", "sales": 42},
-        {"country": "CA", "region": "QC", "year": 2019, "model": "Y", "sales": 37}
+        {"/dataset/2019/01/CA/dat.json", R"([
+        {"region": "QC", "model": "3", "sales": 152.25},
+        {"region": "QC", "model": "S", "sales": 10},
+        {"region": "QC", "model": "X", "sales": 42},
+        {"region": "QC", "model": "Y", "sales": 37}
       ])"},
         {"/dataset/.pesky", "garbage content"},
     };
@@ -300,11 +302,9 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
 
   // The user must specify which FileFormat is used to create FileFragments.
   // This option is specific to FileSystemBasedDataSource (and the builder).
-  //
-  // Note the JSONRecordBatchFileFormat requires a schema before creating the Discovery
-  // class which is used to discover the schema. This is a chicken-and-egg problem
-  // which only applies to the JSONRecordBatchFileFormat.
-  auto format = std::make_shared<JSONRecordBatchFileFormat>(schema_);
+  auto format_schema = SchemaFromColumnNames(schema_, {"region", "model", "sales"});
+  auto format = std::make_shared<JSONRecordBatchFileFormat>(format_schema);
+
   // A selector is used to crawl files and directories of a
   // filesystem. If the options in Selector are not enough, the
   // FileSystemDataSourceDiscovery class also supports an explicit list of
@@ -322,17 +322,10 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   ASSERT_OK_AND_ASSIGN(discovery,
                        FileSystemDataSourceDiscovery::Make(fs_, s, format, options));
 
-  // DataFragments might have compatible but slightly different schemas, e.g.
-  // schema evolved by adding/renaming columns. In this case, the schema is
-  // passed to the dataset constructor.
-  ASSERT_OK_AND_ASSIGN(auto inspected_schema, discovery->Inspect());
-  EXPECT_EQ(*schema_, *inspected_schema);
-
   // Partitions expressions can be discovered for DataSource and DataFragments.
   // This metadata is then used in conjuction with the query filter to apply
   // the pushdown predicate optimization.
-  auto partition_schema =
-      schema({field("year", int32()), field("month", int32()), field("country", utf8())});
+  auto partition_schema = SchemaFromColumnNames(schema_, {"year", "month", "country"});
   // The SchemaPartitionScheme is a simple scheme where the path is split with
   // the directory separator character and the components are typed and named
   // with the equivalent index in the schema, e.g.
@@ -344,6 +337,12 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   // - "/2019/01/CA/a_file.json -> {"year": 2019, "month": 1, "country": "CA"}
   auto partition_scheme = std::make_shared<SchemaPartitionScheme>(partition_schema);
   ASSERT_OK(discovery->SetPartitionScheme(partition_scheme));
+
+  // DataFragments might have compatible but slightly different schemas, e.g.
+  // schema evolved by adding/renaming columns. In this case, the schema is
+  // passed to the dataset constructor.
+  ASSERT_OK_AND_ASSIGN(auto inspected_schema, discovery->Inspect());
+  EXPECT_EQ(*schema_, *inspected_schema);
 
   // Build the DataSource where partitions are attached to fragments (files).
   ASSERT_OK_AND_ASSIGN(auto datasource, discovery->Finish());
@@ -392,10 +391,10 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   // In the simplest case, consumption is simply conversion to a Table.
   ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
 
-  using row_type = std::tuple<double, std::string, std::string>;
+  using row_type = std::tuple<double, std::string, util::optional<std::string>>;
   std::vector<row_type> rows{
-      row_type{152.25, "3", "CA"},
-      row_type{273.5, "3", "CA"},
+      row_type{152.25, "3", util::make_optional<std::string>("CA")},
+      row_type{273.5, "3", util::make_optional<std::string>("US")},
   };
   std::shared_ptr<Table> expected;
   ASSERT_OK(stl::TableFromTupleRange(default_memory_pool(), rows, columns, &expected));

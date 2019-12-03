@@ -168,7 +168,10 @@ DataFragmentIterator FileSystemDataSource::GetFragmentsImpl(ScanOptionsPtr optio
                                options->Copy()};
 
       // use simplified filter
-      // TODO(bkietz) also simplify the filter using parent partition information
+      for (auto ancestor = ref.parent(); ancestor.forest == &forest_;
+           ancestor = ancestor.parent()) {
+        expr = expr->Assume(partitions_[ancestor.i]);
+      }
       file.options->filter = expr;
 
       // FIXME(bkietz) this means we can only materialize partition columns when a

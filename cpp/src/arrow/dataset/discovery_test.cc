@@ -111,11 +111,11 @@ TEST_F(FileSystemDataSourceDiscoveryTest, Inspect) {
 
   // No files
   ASSERT_OK_AND_ASSIGN(auto actual, discovery_->Inspect());
-  EXPECT_EQ(actual, nullptr);
+  EXPECT_EQ(*actual, Schema({}));
 
   MakeDiscovery({fs::File("test")});
   ASSERT_OK_AND_ASSIGN(actual, discovery_->Inspect());
-  EXPECT_EQ(actual, s);
+  EXPECT_EQ(*actual, *s);
 }
 
 }  // namespace dataset
