@@ -103,14 +103,8 @@ namespace Apache.Arrow.Tests
             var stringType1 = new ListType(stringField);
             var stringType2 = new ListType(StringType.Default);
 
-            var int64Field = new Field.Builder().Name("item").DataType(Int64Type.Default).Build();
-            var int64Type1 = new ListType(int64Field);
-            var int64Type2 = new ListType(Int64Type.Default);
-
             Assert.True(FieldComparer.Equals(stringType1.ValueField, stringType2.ValueField));
-            Assert.True(FieldComparer.Equals(int64Type1.ValueField, int64Type2.ValueField));
             Assert.Equal(stringType1.ValueDataType.TypeId, stringType2.ValueDataType.TypeId);
-            Assert.Equal(int64Type1.ValueDataType.TypeId, int64Type2.ValueDataType.TypeId);
         }
 
         // Todo: StructType::GetFieldIndexDuplicate test
