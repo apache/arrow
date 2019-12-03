@@ -26,6 +26,7 @@
 #include <ostream>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "parquet/platform.h"
@@ -79,7 +80,7 @@ class PARQUET_EXPORT ColumnPath {
  public:
   ColumnPath() : path_() {}
   explicit ColumnPath(const std::vector<std::string>& path) : path_(path) {}
-  explicit ColumnPath(std::vector<std::string>&& path) : path_(path) {}
+  explicit ColumnPath(std::vector<std::string>&& path) : path_(std::move(path)) {}
 
   static std::shared_ptr<ColumnPath> FromDotString(const std::string& dotstring);
   static std::shared_ptr<ColumnPath> FromNode(const Node& node);
@@ -205,7 +206,7 @@ class PARQUET_EXPORT PrimitiveNode : public Node {
   }
 
   static inline NodePtr Make(const std::string& name, Repetition::type repetition,
-                             std::shared_ptr<const LogicalType> logical_type,
+                             const std::shared_ptr<const LogicalType>& logical_type,
                              Type::type primitive_type, int primitive_length = -1) {
     return NodePtr(new PrimitiveNode(name, repetition, logical_type, primitive_type,
                                      primitive_length));
@@ -233,7 +234,7 @@ class PARQUET_EXPORT PrimitiveNode : public Node {
                 int precision = -1, int scale = -1, int id = -1);
 
   PrimitiveNode(const std::string& name, Repetition::type repetition,
-                std::shared_ptr<const LogicalType> logical_type,
+                const std::shared_ptr<const LogicalType>& logical_type,
                 Type::type primitive_type, int primitive_length = -1, int id = -1);
 
   Type::type physical_type_;
@@ -265,7 +266,7 @@ class PARQUET_EXPORT GroupNode : public Node {
 
   static inline NodePtr Make(const std::string& name, Repetition::type repetition,
                              const NodeVector& fields,
-                             std::shared_ptr<const LogicalType> logical_type) {
+                             const std::shared_ptr<const LogicalType>& logical_type) {
     return NodePtr(new GroupNode(name, repetition, fields, logical_type));
   }
 
@@ -291,8 +292,8 @@ class PARQUET_EXPORT GroupNode : public Node {
             ConvertedType::type converted_type = ConvertedType::NONE, int id = -1);
 
   GroupNode(const std::string& name, Repetition::type repetition,
-            const NodeVector& fields, std::shared_ptr<const LogicalType> logical_type,
-            int id = -1);
+            const NodeVector& fields,
+            const std::shared_ptr<const LogicalType>& logical_type, int id = -1);
 
   NodeVector fields_;
   bool EqualsInternal(const GroupNode* other) const;

@@ -35,7 +35,6 @@
 #include "arrow/util/compression.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
-
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
 #include "parquet/encryption_internal.h"
@@ -466,8 +465,8 @@ std::unique_ptr<PageWriter> PageWriter::Open(
     const std::shared_ptr<ArrowOutputStream>& sink, Compression::type codec,
     int compression_level, ColumnChunkMetaDataBuilder* metadata,
     int16_t row_group_ordinal, int16_t column_chunk_ordinal, MemoryPool* pool,
-    bool buffered_row_group, std::shared_ptr<Encryptor> meta_encryptor,
-    std::shared_ptr<Encryptor> data_encryptor) {
+    bool buffered_row_group, const std::shared_ptr<Encryptor>& meta_encryptor,
+    const std::shared_ptr<Encryptor>& data_encryptor) {
   if (buffered_row_group) {
     return std::unique_ptr<PageWriter>(new BufferedPageWriter(
         sink, codec, compression_level, metadata, row_group_ordinal, column_chunk_ordinal,

@@ -161,7 +161,7 @@ FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::aad_prefix
 }
 
 FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::aad_prefix_verifier(
-    std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier) {
+    const std::shared_ptr<AADPrefixVerifier>& aad_prefix_verifier) {
   if (aad_prefix_verifier == nullptr) return this;
 
   DCHECK(aad_prefix_verifier_ == nullptr);
@@ -316,7 +316,7 @@ FileDecryptionProperties::FileDecryptionProperties(
     const std::string& footer_key,
     const std::shared_ptr<DecryptionKeyRetriever>& key_retriever,
     bool check_plaintext_footer_integrity, const std::string& aad_prefix,
-    std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
+    const std::shared_ptr<AADPrefixVerifier>& aad_prefix_verifier,
     const ColumnPathToDecryptionPropertiesMap& column_decryption_properties,
     bool plaintext_files_allowed) {
   DCHECK(!footer_key.empty() || nullptr != key_retriever ||

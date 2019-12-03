@@ -37,7 +37,7 @@ static constexpr int64_t DEFAULT_SCANNER_BATCH_SIZE = 128;
 
 class PARQUET_EXPORT Scanner {
  public:
-  explicit Scanner(std::shared_ptr<ColumnReader> reader,
+  explicit Scanner(const std::shared_ptr<ColumnReader>& reader,
                    int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE,
                    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
       : batch_size_(batch_size),
@@ -54,7 +54,7 @@ class PARQUET_EXPORT Scanner {
   virtual ~Scanner() {}
 
   static std::shared_ptr<Scanner> Make(
-      std::shared_ptr<ColumnReader> col_reader,
+      const std::shared_ptr<ColumnReader>& col_reader,
       int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
@@ -89,7 +89,7 @@ class PARQUET_TEMPLATE_CLASS_EXPORT TypedScanner : public Scanner {
  public:
   typedef typename DType::c_type T;
 
-  explicit TypedScanner(std::shared_ptr<ColumnReader> reader,
+  explicit TypedScanner(const std::shared_ptr<ColumnReader>& reader,
                         int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE,
                         ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
       : Scanner(reader, batch_size, pool) {

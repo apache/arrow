@@ -219,7 +219,7 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
 }
 
 PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetition,
-                             std::shared_ptr<const LogicalType> logical_type,
+                             const std::shared_ptr<const LogicalType>& logical_type,
                              Type::type physical_type, int physical_length, int id)
     : Node(Node::PRIMITIVE, name, repetition, logical_type, id),
       physical_type_(physical_type),
@@ -309,7 +309,7 @@ GroupNode::GroupNode(const std::string& name, Repetition::type repetition,
 
 GroupNode::GroupNode(const std::string& name, Repetition::type repetition,
                      const NodeVector& fields,
-                     std::shared_ptr<const LogicalType> logical_type, int id)
+                     const std::shared_ptr<const LogicalType>& logical_type, int id)
     : Node(Node::GROUP, name, repetition, logical_type, id), fields_(fields) {
   if (logical_type_) {
     // Check for logical type <=> node type consistency

@@ -26,7 +26,7 @@ using arrow::MemoryPool;
 
 namespace parquet {
 
-std::shared_ptr<Scanner> Scanner::Make(std::shared_ptr<ColumnReader> col_reader,
+std::shared_ptr<Scanner> Scanner::Make(const std::shared_ptr<ColumnReader>& col_reader,
                                        int64_t batch_size, MemoryPool* pool) {
   switch (col_reader->type()) {
     case Type::BOOLEAN:

@@ -89,8 +89,8 @@ class PARQUET_EXPORT PageWriter {
       int16_t row_group_ordinal = -1, int16_t column_chunk_ordinal = -1,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
       bool buffered_row_group = false,
-      std::shared_ptr<Encryptor> header_encryptor = NULLPTR,
-      std::shared_ptr<Encryptor> data_encryptor = NULLPTR);
+      const std::shared_ptr<Encryptor>& header_encryptor = NULLPTR,
+      const std::shared_ptr<Encryptor>& data_encryptor = NULLPTR);
 
   // The Column Writer decides if dictionary encoding is used if set and
   // if the dictionary encoding has fallen back to default encoding on reaching dictionary

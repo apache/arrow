@@ -75,7 +75,8 @@ class PARQUET_EXPORT LevelDecoder {
 
 struct CryptoContext {
   CryptoContext(bool start_with_dictionary_page, int16_t rg_ordinal, int16_t col_ordinal,
-                std::shared_ptr<Decryptor> meta, std::shared_ptr<Decryptor> data)
+                const std::shared_ptr<Decryptor>& meta,
+                const std::shared_ptr<Decryptor>& data)
       : start_decrypt_with_dictionary_page(start_with_dictionary_page),
         row_group_ordinal(rg_ordinal),
         column_ordinal(col_ordinal),
