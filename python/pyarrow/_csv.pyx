@@ -575,10 +575,11 @@ def read_csv(input_file, read_options=None, parse_options=None,
     _get_parse_options(parse_options, &c_parse_options)
     _get_convert_options(convert_options, &c_convert_options)
 
-    check_status(CCSVReader.Make(maybe_unbox_memory_pool(memory_pool),
-                                 stream, c_read_options, c_parse_options,
-                                 c_convert_options, &reader))
+    reader = GetResultValue(CCSVReader.Make(
+        maybe_unbox_memory_pool(memory_pool), stream,
+        c_read_options, c_parse_options, c_convert_options))
+
     with nogil:
-        check_status(reader.get().Read(&table))
+        table = GetResultValue(reader.get().Read())
 
     return pyarrow_wrap_table(table)

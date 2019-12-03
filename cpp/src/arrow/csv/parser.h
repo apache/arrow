@@ -15,8 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#ifndef ARROW_CSV_PARSER_H
-#define ARROW_CSV_PARSER_H
+#pragma once
 
 #include <cstddef>
 #include <cstdint>
@@ -179,5 +178,3 @@ class ARROW_EXPORT BlockParser {
 
 }  // namespace csv
 }  // namespace arrow
-
-#endif  // ARROW_CSV_PARSER_H

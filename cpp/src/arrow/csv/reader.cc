@@ -174,10 +174,9 @@ class BaseTableReader : public csv::TableReader {
   // Make column builders, assuming inclusion of all columns in CSV file order
   Status MakeColumnBuilders() {
     for (int32_t col_index = 0; col_index < num_csv_cols_; ++col_index) {
-      std::shared_ptr<ColumnBuilder> builder;
       const auto& col_name = column_names_[col_index];
 
-      RETURN_NOT_OK(MakeCSVColumnBuilder(col_name, col_index, &builder));
+      ARROW_ASSIGN_OR_RAISE(auto builder, MakeCSVColumnBuilder(col_name, col_index));
       column_builders_.push_back(builder);
       builder_names_.push_back(col_name);
     }
@@ -199,11 +198,11 @@ class BaseTableReader : public csv::TableReader {
       auto it = col_indices.find(col_name);
       if (it != col_indices.end()) {
         auto col_index = it->second;
-        RETURN_NOT_OK(MakeCSVColumnBuilder(col_name, col_index, &builder));
+        ARROW_ASSIGN_OR_RAISE(builder, MakeCSVColumnBuilder(col_name, col_index));
       } else {
         // Column not in the CSV file
         if (convert_options_.include_missing_columns) {
-          RETURN_NOT_OK(MakeNullColumnBuilder(col_name, &builder));
+          ARROW_ASSIGN_OR_RAISE(builder, MakeNullColumnBuilder(col_name));
         } else {
           return Status::KeyError("Column '", col_name,
                                   "' in include_columns "
@@ -217,21 +216,21 @@ class BaseTableReader : public csv::TableReader {
   }
 
   // Make a column builder for the given CSV column name and index
-  Status MakeCSVColumnBuilder(const std::string& col_name, int32_t col_index,
-                              std::shared_ptr<ColumnBuilder>* out) {
+  Result<std::shared_ptr<ColumnBuilder>> MakeCSVColumnBuilder(const std::string& col_name,
+                                                              int32_t col_index) {
     // Does the named column have a fixed type?
     auto it = convert_options_.column_types.find(col_name);
     if (it == convert_options_.column_types.end()) {
-      return ColumnBuilder::Make(pool_, col_index, convert_options_, task_group_, out);
+      return ColumnBuilder::Make(pool_, col_index, convert_options_, task_group_);
     } else {
       return ColumnBuilder::Make(pool_, it->second, col_index, convert_options_,
-                                 task_group_, out);
+                                 task_group_);
     }
   }
 
   // Make a column builder for a column of nulls
-  Status MakeNullColumnBuilder(const std::string& col_name,
-                               std::shared_ptr<ColumnBuilder>* out) {
+  Result<std::shared_ptr<ColumnBuilder>> MakeNullColumnBuilder(
+      const std::string& col_name) {
     std::shared_ptr<DataType> type;
     // If the named column have a fixed type, use it, otherwise use null()
     auto it = convert_options_.column_types.find(col_name);
@@ -240,7 +239,7 @@ class BaseTableReader : public csv::TableReader {
     } else {
       type = null();
     }
-    return ColumnBuilder::MakeNull(pool_, type, task_group_, out);
+    return ColumnBuilder::MakeNull(pool_, type, task_group_);
   }
 
   std::vector<std::string> GenerateColumnNames(int32_t num_cols) {
@@ -296,20 +295,18 @@ class BaseTableReader : public csv::TableReader {
     return Status::OK();
   }
 
-  Status MakeTable(std::shared_ptr<Table>* out) {
+  Result<std::shared_ptr<Table>> MakeTable() {
     DCHECK_EQ(column_builders_.size(), builder_names_.size());
 
     std::vector<std::shared_ptr<Field>> fields;
     std::vector<std::shared_ptr<ChunkedArray>> columns;
 
     for (int32_t i = 0; i < static_cast<int32_t>(builder_names_.size()); ++i) {
-      std::shared_ptr<ChunkedArray> array;
-      RETURN_NOT_OK(column_builders_[i]->Finish(&array));
+      ARROW_ASSIGN_OR_RAISE(auto array, column_builders_[i]->Finish());
       fields.push_back(::arrow::field(builder_names_[i], array->type()));
       columns.emplace_back(std::move(array));
     }
-    *out = Table::Make(schema(fields), columns);
-    return Status::OK();
+    return Table::Make(schema(fields), columns);
   }
 
   MemoryPool* pool_;
@@ -350,7 +347,7 @@ class SerialTableReader : public BaseTableReader {
                                  &block_iterator_);
   }
 
-  Status Read(std::shared_ptr<Table>* out) override {
+  Result<std::shared_ptr<Table>> Read() override {
     task_group_ = internal::TaskGroup::MakeSerial();
 
     // First block
@@ -393,7 +390,7 @@ class SerialTableReader : public BaseTableReader {
 
     // Finish conversion, create schema and table
     RETURN_NOT_OK(task_group_->Finish());
-    return MakeTable(out);
+    return MakeTable();
   }
 };
 
@@ -426,7 +423,7 @@ class ThreadedTableReader : public BaseTableReader {
                                  &block_iterator_);
   }
 
-  Status Read(std::shared_ptr<Table>* out) override {
+  Result<std::shared_ptr<Table>> Read() override {
     task_group_ = internal::TaskGroup::MakeThreaded(thread_pool_);
 
     // Read first block and process header serially
@@ -473,7 +470,7 @@ class ThreadedTableReader : public BaseTableReader {
 
     // Finish conversion, create schema and table
     RETURN_NOT_OK(task_group_->Finish());
-    return MakeTable(out);
+    return MakeTable();
   }
 
  protected:
@@ -483,23 +480,35 @@ class ThreadedTableReader : public BaseTableReader {
 /////////////////////////////////////////////////////////////////////////
 // TableReader factory function
 
+Result<std::shared_ptr<TableReader>> TableReader::Make(
+    MemoryPool* pool, std::shared_ptr<io::InputStream> input,
+    const ReadOptions& read_options, const ParseOptions& parse_options,
+    const ConvertOptions& convert_options) {
+  std::shared_ptr<BaseTableReader> reader;
+  if (read_options.use_threads) {
+    reader = std::make_shared<ThreadedTableReader>(
+        pool, input, read_options, parse_options, convert_options, GetCpuThreadPool());
+  } else {
+    reader = std::make_shared<SerialTableReader>(pool, input, read_options, parse_options,
+                                                 convert_options);
+  }
+  RETURN_NOT_OK(reader->Init());
+  return reader;
+}
+
+/////////////////////////////////////////////////////////////////////////
+// Deprecated API(s)
+
 Status TableReader::Make(MemoryPool* pool, std::shared_ptr<io::InputStream> input,
                          const ReadOptions& read_options,
                          const ParseOptions& parse_options,
                          const ConvertOptions& convert_options,
                          std::shared_ptr<TableReader>* out) {
-  std::shared_ptr<BaseTableReader> result;
-  if (read_options.use_threads) {
-    result = std::make_shared<ThreadedTableReader>(
-        pool, input, read_options, parse_options, convert_options, GetCpuThreadPool());
-  } else {
-    result = std::make_shared<SerialTableReader>(pool, input, read_options, parse_options,
-                                                 convert_options);
-  }
-  RETURN_NOT_OK(result->Init());
-  *out = result;
-  return Status::OK();
+  return Make(pool, std::move(input), read_options, parse_options, convert_options)
+      .Value(out);
 }
+
+Status TableReader::Read(std::shared_ptr<Table>* out) { return Read().Value(out); }
 
 }  // namespace csv
 }  // namespace arrow
