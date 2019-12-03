@@ -62,7 +62,6 @@ DEPENDENCIES=(
   "ARROW_BROTLI_URL brotli-${BROTLI_VERSION}.tar.gz https://github.com/google/brotli/archive/${BROTLI_VERSION}.tar.gz"
   "ARROW_BZIP2_URL bzip2-${BZIP2_VERSION}.tar.gz https://sourceware.org/pub/bzip2/bzip2-${BZIP2_VERSION}.tar.gz"
   "ARROW_CARES_URL cares-${CARES_VERSION}.tar.gz https://c-ares.haxx.se/download/c-ares-$CARES_VERSION.tar.gz"
-  "ARROW_DOUBLE_CONVERSION_URL double-conversion-${DOUBLE_CONVERSION_VERSION}.tar.gz https://github.com/google/double-conversion/archive/${DOUBLE_CONVERSION_VERSION}.tar.gz"
   "ARROW_GBENCHMARK_URL gbenchmark-${GBENCHMARK_VERSION}.tar.gz https://github.com/google/benchmark/archive/${GBENCHMARK_VERSION}.tar.gz"
   "ARROW_GFLAGS_URL gflags-${GFLAGS_VERSION}.tar.gz https://github.com/gflags/gflags/archive/${GFLAGS_VERSION}.tar.gz"
   "ARROW_GLOG_URL glog-${GLOG_VERSION}.tar.gz https://github.com/google/glog/archive/${GLOG_VERSION}.tar.gz"
@@ -77,7 +76,6 @@ DEPENDENCIES=(
   "ARROW_RE2_URL re2-${RE2_VERSION}.tar.gz https://github.com/google/re2/archive/${RE2_VERSION}.tar.gz"
   "ARROW_SNAPPY_URL snappy-${SNAPPY_VERSION}.tar.gz https://github.com/google/snappy/archive/${SNAPPY_VERSION}.tar.gz"
   "ARROW_THRIFT_URL thrift-${THRIFT_VERSION}.tar.gz https://archive.apache.org/dist/thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz"
-  "ARROW_URIPARSER_URL uriparser-${URIPARSER_VERSION}.tar.gz https://github.com/uriparser/uriparser/archive/uriparser-${URIPARSER_VERSION}.tar.gz"
   "ARROW_ZLIB_URL zlib-${ZLIB_VERSION}.tar.gz https://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz"
   "ARROW_ZSTD_URL zstd-${ZSTD_VERSION}.tar.gz https://github.com/facebook/zstd/archive/${ZSTD_VERSION}.tar.gz"
 )
