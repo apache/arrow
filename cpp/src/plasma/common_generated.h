@@ -183,14 +183,14 @@ inline ObjectInfoT *ObjectInfo::UnPack(const flatbuffers::resolver_function_t *_
 inline void ObjectInfo::UnPackTo(ObjectInfoT *_o, const flatbuffers::resolver_function_t *_resolver) const {
   (void)_o;
   (void)_resolver;
-  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); };
-  { auto _e = data_size(); _o->data_size = _e; };
-  { auto _e = metadata_size(); _o->metadata_size = _e; };
-  { auto _e = ref_count(); _o->ref_count = _e; };
-  { auto _e = create_time(); _o->create_time = _e; };
-  { auto _e = construct_duration(); _o->construct_duration = _e; };
-  { auto _e = digest(); if (_e) _o->digest = _e->str(); };
-  { auto _e = is_deletion(); _o->is_deletion = _e; };
+  { auto _e = object_id(); if (_e) _o->object_id = _e->str(); }
+  { auto _e = data_size(); _o->data_size = _e; }
+  { auto _e = metadata_size(); _o->metadata_size = _e; }
+  { auto _e = ref_count(); _o->ref_count = _e; }
+  { auto _e = create_time(); _o->create_time = _e; }
+  { auto _e = construct_duration(); _o->construct_duration = _e; }
+  { auto _e = digest(); if (_e) _o->digest = _e->str(); }
+  { auto _e = is_deletion(); _o->is_deletion = _e; }
 }
 
 inline flatbuffers::Offset<ObjectInfo> ObjectInfo::Pack(flatbuffers::FlatBufferBuilder &_fbb, const ObjectInfoT* _o, const flatbuffers::rehasher_function_t *_rehasher) {

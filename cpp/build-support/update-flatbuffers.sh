@@ -22,7 +22,7 @@
 
 CWD="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 SOURCE_DIR=$CWD/../src
-FORMAT_DIR=$CWD/../..
+FORMAT_DIR=$CWD/../../format
 
 flatc -c -o $SOURCE_DIR/generated \
       $FORMAT_DIR/Message.fbs \
