@@ -384,6 +384,10 @@ cdef class LargeListArray(Array):
     pass
 
 
+cdef class MapArray(Array):
+    pass
+
+
 cdef class UnionArray(Array):
     pass
 
