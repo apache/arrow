@@ -131,10 +131,9 @@ garrow_codec_new(GArrowCompressionType type,
                  GError **error)
 {
   auto arrow_type = garrow_compression_type_to_raw(type);
-  std::unique_ptr<arrow::util::Codec> arrow_codec;
-  auto status = arrow::util::Codec::Create(arrow_type, &arrow_codec);
-  if (garrow_error_check(error, status, "[codec][new]")) {
-    return garrow_codec_new_raw(arrow_codec.release());
+  auto arrow_codec = arrow::util::Codec::Create(arrow_type);
+  if (garrow::check(error, arrow_codec, "[codec][new]")) {
+    return garrow_codec_new_raw(arrow_codec.ValueOrDie().release());
   } else {
     return NULL;
   }

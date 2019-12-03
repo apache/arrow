@@ -77,14 +77,16 @@ jobs:
     strategy:
       fail-fast: false
     env:
+      ARROW_BUILD_TESTS: ON
+      ARROW_GLIB_DEVELOPMENT_MODE: true
+      ARROW_GLIB_GTK_DOC: true
       ARROW_HOME: /usr/local
-      ARROW_ORC: OFF
       ARROW_JEMALLOC: OFF
+      ARROW_ORC: OFF
       ARROW_WITH_BROTLI: ON
       ARROW_WITH_LZ4: ON
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
-      ARROW_BUILD_TESTS: ON
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v1
