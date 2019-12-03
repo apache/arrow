@@ -79,8 +79,7 @@ static void BenchmarkConversion(benchmark::State& state,  // NOLINT non-const re
   std::shared_ptr<Converter> converter = *Converter::Make(type, options);
 
   while (state.KeepRunning()) {
-    std::shared_ptr<Array> result;
-    ABORT_NOT_OK(converter->Convert(parser, 0 /* col_index */, &result));
+    ASSIGN_OR_ABORT(auto result, converter->Convert(parser, 0 /* col_index */));
     if (result->length() != parser.num_rows()) {
       std::cerr << "Conversion incomplete\n";
       std::abort();
