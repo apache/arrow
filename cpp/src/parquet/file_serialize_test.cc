@@ -316,6 +316,35 @@ TYPED_TEST(TestSerialize, SmallFileZstd) {
 }
 #endif
 
+TEST(TestBufferedRowGroupWriter, DisabledDictionary) {
+  // PARQUET-1706:
+  // Wrong dictionary_page_offset when writing only data pages via BufferedPageWriter
+  auto sink = CreateOutputStream();
+  auto writer_props = parquet::WriterProperties::Builder().disable_dictionary()->build();
+  schema::NodeVector fields;
+  fields.push_back(
+      PrimitiveNode::Make("col", parquet::Repetition::REQUIRED, parquet::Type::INT32));
+  auto schema = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED, fields));
+  auto file_writer = parquet::ParquetFileWriter::Open(sink, schema, writer_props);
+  auto rg_writer = file_writer->AppendBufferedRowGroup();
+  auto col_writer = static_cast<Int32Writer*>(rg_writer->column(0));
+  int value = 0;
+  col_writer->WriteBatch(1, nullptr, nullptr, &value);
+  rg_writer->Close();
+  file_writer->Close();
+  std::shared_ptr<Buffer> buffer;
+  PARQUET_THROW_NOT_OK(sink->Finish(&buffer));
+
+  auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
+  auto file_reader = ParquetFileReader::Open(source);
+  ASSERT_EQ(1, file_reader->metadata()->num_row_groups());
+  auto rg_reader = file_reader->RowGroup(0);
+  ASSERT_EQ(1, rg_reader->metadata()->num_columns());
+  ASSERT_EQ(1, rg_reader->metadata()->num_rows());
+  ASSERT_FALSE(rg_reader->metadata()->ColumnChunk(0)->has_dictionary_page());
+}
+
 }  // namespace test
 
 }  // namespace parquet
