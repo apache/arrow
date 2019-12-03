@@ -42,7 +42,7 @@ use `PYTHON_VERSION="2.7"` with `UNICODE_WIDTH=32`):
 
 ```bash
 # Build the python packages
-docker-compose run -e PYTHON_VERSION="2.7" -e UNICODE_WIDTH=16 python-manylinux2010
+docker-compose run -e PYTHON_VERSION="2.7" -e UNICODE_WIDTH=16 centos-python-manylinux2010
 # Now the new packages are located in the dist/ folder
 ls -l dist/
 ```
