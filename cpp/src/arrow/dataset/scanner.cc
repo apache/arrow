@@ -86,8 +86,10 @@ Result<ScanTaskIterator> Scanner::Scan() {
 }
 
 Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
-    std::vector<std::shared_ptr<RecordBatch>> batches) {
-  ScanTaskVector tasks{std::make_shared<SimpleScanTask>(batches)};
+    std::vector<std::shared_ptr<RecordBatch>> batches, ScanOptionsPtr options,
+    ScanContextPtr context) {
+  ScanTaskVector tasks{
+      std::make_shared<SimpleScanTask>(batches, std::move(options), std::move(context))};
   return MakeVectorIterator(std::move(tasks));
 }
 

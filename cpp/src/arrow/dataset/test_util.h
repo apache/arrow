@@ -245,7 +245,8 @@ class JSONRecordBatchFileFormat : public FileFormat {
 
     util::string_view view{*buffer};
     std::shared_ptr<RecordBatch> batch = RecordBatchFromJSON(schema_, view);
-    return ScanTaskIteratorFromRecordBatch({batch});
+    return ScanTaskIteratorFromRecordBatch({batch}, std::move(options),
+                                           std::move(context));
   }
 
   inline Result<DataFragmentPtr> MakeFragment(const FileSource& location,
