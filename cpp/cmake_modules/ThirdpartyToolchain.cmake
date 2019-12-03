@@ -231,18 +231,18 @@ foreach(_VERSION_ENTRY ${TOOLCHAIN_VERSIONS_TXT})
     continue()
   endif()
 
-  string(REGEX MATCH "^[^=]*" _LIB_NAME ${_VERSION_ENTRY})
-  string(REPLACE "${_LIB_NAME}=" "" _LIB_VERSION ${_VERSION_ENTRY})
+  string(REGEX MATCH "^[^=]*" _VARIABLE_NAME ${_VERSION_ENTRY})
+  string(REPLACE "${_VARIABLE_NAME}=" "" _VARIABLE_VALUE ${_VERSION_ENTRY})
 
   # Skip blank or malformed lines
-  if(${_LIB_VERSION} STREQUAL "")
+  if(_VARIABLE_VALUE STREQUAL "")
     continue()
   endif()
 
   # For debugging
-  message(STATUS "${_LIB_NAME}: ${_LIB_VERSION}")
+  message(STATUS "${_VARIABLE_NAME}: ${_VARIABLE_VALUE}")
 
-  set(${_LIB_NAME} "${_LIB_VERSION}")
+  set(${_VARIABLE_NAME} ${_VARIABLE_VALUE})
 endforeach()
 
 if(DEFINED ENV{ARROW_AWSSDK_URL})
