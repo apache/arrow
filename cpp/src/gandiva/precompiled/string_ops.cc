@@ -466,9 +466,11 @@ int32 locate_utf8_utf8_int32(int64 context, const char* sub_str, int32 sub_str_l
 }
 
 FORCE_INLINE
-const char* replace_utf8_utf8_utf8(int64 context, const char* text, int32 text_len,
-                                   const char* from_str, int32 from_str_len,
-                                   const char* to_str, int32 to_str_len, int32* out_len) {
+const char* replace_with_max_len_utf8_utf8_utf8(int64 context, const char* text,
+                                                int32 text_len, const char* from_str,
+                                                int32 from_str_len, const char* to_str,
+                                                int32 to_str_len, int32 max_length,
+                                                int32* out_len) {
   // if from_str is empty or its length exceeds that of original string,
   // return the original string
   if (from_str_len == 0 || from_str_len > text_len) {
@@ -476,7 +478,6 @@ const char* replace_utf8_utf8_utf8(int64 context, const char* text, int32 text_l
     return text;
   }
 
-  int32 MAX_LENGTH = 65535;
   bool found = false;
   int32 text_index = 0;
   char* out;
@@ -485,12 +486,12 @@ const char* replace_utf8_utf8_utf8(int64 context, const char* text, int32 text_l
   // Deferring malloc until a match is found, else return input string
   for (; text_index <= text_len - from_str_len; text_index++) {
     if (memcmp(text + text_index, from_str, from_str_len) == 0) {
-      if (text_index + to_str_len > MAX_LENGTH) {
+      if (text_index + to_str_len > max_length) {
         gdv_fn_context_set_error_msg(context, "Buffer overflow for output string");
         *out_len = 0;
         return "";
       }
-      out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, MAX_LENGTH));
+      out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, max_length));
       if (out == nullptr) {
         gdv_fn_context_set_error_msg(context,
                                      "Could not allocate memory for output string");
@@ -511,7 +512,7 @@ const char* replace_utf8_utf8_utf8(int64 context, const char* text, int32 text_l
 
   for (; text_index <= text_len - from_str_len;) {
     if (memcmp(text + text_index, from_str, from_str_len) == 0) {
-      if (out_index + to_str_len > MAX_LENGTH) {
+      if (out_index + to_str_len > max_length) {
         gdv_fn_context_set_error_msg(context, "Buffer overflow for output string");
         *out_len = 0;
         return "";
@@ -520,7 +521,7 @@ const char* replace_utf8_utf8_utf8(int64 context, const char* text, int32 text_l
       out_index += to_str_len;
       text_index += from_str_len;
     } else {
-      if (out_index == MAX_LENGTH) {
+      if (out_index == max_length) {
         gdv_fn_context_set_error_msg(context, "Buffer overflow for output string");
         *out_len = 0;
         return "";
@@ -528,7 +529,7 @@ const char* replace_utf8_utf8_utf8(int64 context, const char* text, int32 text_l
       out[out_index++] = text[text_index++];
     }
   }
-  if (out_index + text_len - text_index > MAX_LENGTH) {
+  if (out_index + text_len - text_index > max_length) {
     gdv_fn_context_set_error_msg(context, "Buffer overflow for output string");
     *out_len = 0;
     return "";
@@ -537,6 +538,15 @@ const char* replace_utf8_utf8_utf8(int64 context, const char* text, int32 text_l
   out_index += text_len - text_index;
   *out_len = out_index;
   return out;
+}
+
+FORCE_INLINE
+const char* replace_utf8_utf8_utf8(int64 context, const char* text, int32 text_len,
+                                   const char* from_str, int32 from_str_len,
+                                   const char* to_str, int32 to_str_len, int32* out_len) {
+  return replace_with_max_len_utf8_utf8_utf8(context, text, text_len, from_str,
+                                             from_str_len, to_str, to_str_len, 65535,
+                                             out_len);
 }
 
 }  // extern "C"

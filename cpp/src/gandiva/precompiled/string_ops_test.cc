@@ -355,13 +355,15 @@ TEST(TestStringOps, TestLocate) {
               ::testing::HasSubstr("Invalid character position argument"));
   ctx.Reset();
 
-  std::string d("a\xff""c");
+  std::string d(
+      "a\xff"
+      "c");
   pos =
-    locate_utf8_utf8_int32(ctx_ptr, "c", 1, d.data(), static_cast<int>(d.length()), 3);
+      locate_utf8_utf8_int32(ctx_ptr, "c", 1, d.data(), static_cast<int>(d.length()), 3);
   EXPECT_EQ(pos, 0);
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr(
-                "unexpected byte \\ff encountered while decoding utf8 string"));
+                  "unexpected byte \\ff encountered while decoding utf8 string"));
   ctx.Reset();
 }
 
@@ -406,6 +408,16 @@ TEST(TestStringOps, TestReplace) {
       replace_utf8_utf8_utf8(ctx_ptr, "TestString", 10, "abc", 3, "xyz", 3, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "TestString");
   EXPECT_FALSE(ctx.has_error());
+
+  out_str = replace_with_max_len_utf8_utf8_utf8(ctx_ptr, "Hell", 4, "ell", 3, "ollow", 5,
+                                                5, &out_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer overflow for output string"));
+  ctx.Reset();
+
+  out_str = replace_with_max_len_utf8_utf8_utf8(ctx_ptr, "eeee", 4, "e", 1, "aaaa", 4, 14,
+                                                &out_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer overflow for output string"));
+  ctx.Reset();
 }
 
 }  // namespace gandiva
