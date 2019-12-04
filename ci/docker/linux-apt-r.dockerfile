@@ -56,19 +56,21 @@ RUN printf "\
                 paste(getRversion(), R.version\$platform, R.version\$arch, R.version\$os)))\n" \
     >> /etc/R/Rprofile.site
 
-# Also ensure parallel compilation of each individual package
-RUN echo "MAKEFLAGS=-j8" >> /usr/lib/R/etc/Makeconf
+# Also ensure parallel compilation of C/C++ code
+RUN echo "MAKEFLAGS=-j$(R --slave -e 'cat(parallel::detectCores())')" >> /usr/lib/R/etc/Makeconf
+
+COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
+COPY r/DESCRIPTION /arrow/r/
+RUN /arrow/ci/scripts/r_deps.sh /arrow
 
 ENV \
     ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
-    ARROW_FLIGHT=OFF \
     ARROW_GANDIVA=OFF \
     ARROW_ORC=OFF \
     ARROW_PARQUET=ON \
     ARROW_PLASMA=OFF \
     ARROW_USE_GLOG=OFF \
-    ARROW_NO_DEPRECATED_API=ON \
-    ARROW_R_DEV=TRUE
+    ARROW_NO_DEPRECATED_API=ON

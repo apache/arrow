@@ -576,7 +576,6 @@ services:
     volumes: *conda-volumes
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
-        /arrow/ci/scripts/r_build.sh /arrow &&
         /arrow/ci/scripts/r_test.sh /arrow"]
 
   ubuntu-r:
@@ -598,8 +597,6 @@ services:
     command: >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
-        /arrow/ci/scripts/r_deps.sh /arrow &&
-        /arrow/ci/scripts/r_build.sh /arrow &&
         /arrow/ci/scripts/r_test.sh /arrow"
 
   ubuntu-r-sanitizer:
