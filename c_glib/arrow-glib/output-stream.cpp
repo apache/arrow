@@ -253,18 +253,17 @@ garrow_file_output_stream_new(const gchar *path,
                               gboolean append,
                               GError **error)
 {
-  std::shared_ptr<arrow::io::FileOutputStream> arrow_file_output_stream;
-  auto status =
-    arrow::io::FileOutputStream::Open(std::string(path),
-                                      append,
-                                      &arrow_file_output_stream);
-  if (status.ok()) {
+  auto arrow_file_output_stream_result =
+    arrow::io::FileOutputStream::Open(std::string(path), append);
+  if (arrow_file_output_stream_result.ok()) {
+    auto arrow_file_output_stream =
+      arrow_file_output_stream_result.ValueOrDie();
     return garrow_file_output_stream_new_raw(&arrow_file_output_stream);
   } else {
     std::string context("[io][file-output-stream][open]: <");
     context += path;
     context += ">";
-    garrow_error_check(error, status, context.c_str());
+    garrow::check(error, arrow_file_output_stream_result, context.c_str());
     return NULL;
   }
 }
@@ -335,7 +334,7 @@ namespace garrow {
       }
     }
 
-    arrow::Status Tell(int64_t *position) const override {
+    arrow::Result<int64_t> Tell() const override {
       if (!G_IS_SEEKABLE(output_stream_)) {
         std::string message("[gio-output-stream][tell] "
                             "not seekable output stream: <");
@@ -344,8 +343,7 @@ namespace garrow {
         return arrow::Status::NotImplemented(message);
       }
 
-      *position = g_seekable_tell(G_SEEKABLE(output_stream_));
-      return arrow::Status::OK();
+      return g_seekable_tell(G_SEEKABLE(output_stream_));
     }
 
     arrow::Status Write(const void *data,
@@ -642,12 +640,10 @@ garrow_compressed_output_stream_new(GArrowCodec *codec,
 {
   auto arrow_codec = garrow_codec_get_raw(codec);
   auto arrow_raw = garrow_output_stream_get_raw(raw);
-  std::shared_ptr<arrow::io::CompressedOutputStream> arrow_stream;
-  auto status = arrow::io::CompressedOutputStream::Make(arrow_codec,
-                                                        arrow_raw,
-                                                        &arrow_stream);
-  if (garrow_error_check(error, status, "[compressed-output-stream][new]")) {
-    return garrow_compressed_output_stream_new_raw(&arrow_stream,
+  auto arrow_stream = arrow::io::CompressedOutputStream::Make(arrow_codec,
+                                                              arrow_raw);
+  if (garrow::check(error, arrow_stream, "[compressed-output-stream][new]")) {
+    return garrow_compressed_output_stream_new_raw(&(arrow_stream.ValueOrDie()),
                                                    codec,
                                                    raw);
   } else {
