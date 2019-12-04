@@ -55,7 +55,8 @@ test_that("Setup (putting data in the dir)", {
 })
 
 test_that("Simple interface for datasets", {
-  ds <- open_dataset(dataset_dir, partition = schema(part = uint8()))
+  # TODO: `part` shouldn't have to match type exactly
+  ds <- open_dataset(dataset_dir, partition = schema(part = double()))
   expect_is(ds, "Dataset")
   expect_equivalent(
     ds %>%
@@ -105,25 +106,27 @@ test_that("filter() on a dataset won't auto-collect", {
 })
 
 test_that("filter() with is.na()", {
-  ds <- open_dataset(dataset_dir)
+  # TODO: `part` shouldn't have to match type exactly
+  ds <- open_dataset(dataset_dir, partition = schema(part = double()))
   expect_equivalent(
     ds %>%
       select(part, lgl) %>%
       filter(!is.na(lgl), part == 1) %>%
       collect(),
-    df1[!is.na(df1$lgl), c("part", "lgl")]
+    tibble(part = 1L, lgl = df1$lgl[!is.na(df1$lgl)])
   )
 })
 
 test_that("filter() with %in%", {
-  ds <- open_dataset(dataset_dir)
+  # TODO: `part` shouldn't have to match type exactly
+  ds <- open_dataset(dataset_dir, partition = schema(part = int32()))
   expect_equivalent(
     ds %>%
-      select(part, int) %>%
-      filter(int %in% c(6L, 4L, 3L), part == 1) %>%
+      select(int, part) %>%
+      filter(int %in% c(6L, 4L, 3L, 103L, 107L), part == 1L) %>%
       # TODO: C++ In() should cast: ARROW-7204
       collect(),
-    df1[c(3, 4, 6), c("part", "int")]
+    tibble(int = df1$int[c(3, 4, 6)], part = 1L)
   )
 })
 
