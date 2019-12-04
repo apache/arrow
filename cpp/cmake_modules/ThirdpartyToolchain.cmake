@@ -1119,6 +1119,7 @@ macro(build_thrift)
                                    INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}")
   add_dependencies(toolchain thrift_ep)
   add_dependencies(Thrift::thrift thrift_ep)
+  set(THRIFT_VERSION ${ARROW_THRIFT_BUILD_VERSION})
 endmacro()
 
 if(ARROW_WITH_THRIFT)
