@@ -380,7 +380,7 @@ struct Unbox<DoubleType> {
       if (*p == NA_INTEGER) {
         builder->UnsafeAppendNull();
       } else {
-        double value;
+        double value = 0;
         RETURN_NOT_OK(internal::double_cast(*p, &value));
         builder->UnsafeAppend(value);
       }
