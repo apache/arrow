@@ -423,22 +423,22 @@ TEST_F(TestMockFS, Make) {
 
 TEST_F(TestMockFS, FileSystemFromUri) {
   std::string path;
-  ASSERT_OK(FileSystemFromUri("mock:", &fs_, &path));
+  ASSERT_OK_AND_ASSIGN(fs_, FileSystemFromUri("mock:", &path));
   ASSERT_EQ(path, "");
   CheckDirs({});  // Ensures it's a MockFileSystem
-  ASSERT_OK(FileSystemFromUri("mock:foo/bar", &fs_, &path));
+  ASSERT_OK_AND_ASSIGN(fs_, FileSystemFromUri("mock:foo/bar", &path));
   ASSERT_EQ(path, "foo/bar");
   CheckDirs({});
-  ASSERT_OK(FileSystemFromUri("mock:/foo/bar", &fs_, &path));
+  ASSERT_OK_AND_ASSIGN(fs_, FileSystemFromUri("mock:/foo/bar", &path));
   ASSERT_EQ(path, "foo/bar");
   CheckDirs({});
-  ASSERT_OK(FileSystemFromUri("mock:/foo/bar/?q=xxx", &fs_, &path));
+  ASSERT_OK_AND_ASSIGN(fs_, FileSystemFromUri("mock:/foo/bar/?q=xxx", &path));
   ASSERT_EQ(path, "foo/bar/");
   CheckDirs({});
-  ASSERT_OK(FileSystemFromUri("mock:///foo/bar", &fs_, &path));
+  ASSERT_OK_AND_ASSIGN(fs_, FileSystemFromUri("mock:///foo/bar", &path));
   ASSERT_EQ(path, "foo/bar");
   CheckDirs({});
-  ASSERT_OK(FileSystemFromUri("mock:///foo/bar?q=zzz", &fs_, &path));
+  ASSERT_OK_AND_ASSIGN(fs_, FileSystemFromUri("mock:///foo/bar?q=zzz", &path));
   ASSERT_EQ(path, "foo/bar");
   CheckDirs({});
 }

@@ -322,12 +322,27 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
 /// Recognized schemes are "file", "mock" and "hdfs".
 ///
 /// \param[in] uri a URI-based path, ex: file:///some/local/path
+/// \param[out] out_path (optional) Path inside the filesystem.
+/// \return out_fs FileSystem instance.
+ARROW_EXPORT
+Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
+                                                      std::string* out_path = NULLPTR);
+
+/// \brief Create a new FileSystem by URI
+///
+/// A scheme-less URI is considered a local filesystem path.
+/// Recognized schemes are "file", "mock" and "hdfs".
+///
+/// \param[in] uri a URI-based path, ex: file:///some/local/path
 /// \param[out] out_fs FileSystem instance.
 /// \param[out] out_path (optional) Path inside the filesystem.
 /// \return Status
-ARROW_EXPORT
-Status FileSystemFromUri(const std::string& uri, std::shared_ptr<FileSystem>* out_fs,
-                         std::string* out_path = NULLPTR);
+ARROW_DEPRECATED("Use Result-returning version")
+inline Status FileSystemFromUri(const std::string& uri,
+                                std::shared_ptr<FileSystem>* out_fs,
+                                std::string* out_path = NULLPTR) {
+  return FileSystemFromUri(uri, out_path).Value(out_fs);
+}
 
 }  // namespace fs
 }  // namespace arrow

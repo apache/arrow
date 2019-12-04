@@ -333,8 +333,8 @@ Result<std::shared_ptr<io::OutputStream>> SlowFileSystem::OpenAppendStream(
   return base_fs_->OpenAppendStream(path);
 }
 
-Status FileSystemFromUri(const std::string& uri_string,
-                         std::shared_ptr<FileSystem>* out_fs, std::string* out_path) {
+Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri_string,
+                                                      std::string* out_path) {
   Uri uri;
   RETURN_NOT_OK(uri.Parse(uri_string));
   if (out_path != nullptr) {
@@ -348,21 +348,18 @@ Status FileSystemFromUri(const std::string& uri_string,
     if (out_path != nullptr) {
       *out_path = uri_string;
     }
-    *out_fs = std::make_shared<LocalFileSystem>();
-    return Status::OK();
+    return std::make_shared<LocalFileSystem>();
   }
 #endif
   if (scheme == "" || scheme == "file") {
-    *out_fs = std::make_shared<LocalFileSystem>();
-    return Status::OK();
+    return std::make_shared<LocalFileSystem>();
   }
 
   if (scheme == "hdfs") {
 #ifdef ARROW_HDFS
     ARROW_ASSIGN_OR_RAISE(auto options, HdfsOptions::FromUri(uri));
     ARROW_ASSIGN_OR_RAISE(auto hdfs, HadoopFileSystem::Make(options));
-    *out_fs = hdfs;
-    return Status::OK();
+    return hdfs;
 #else
     return Status::NotImplemented("Arrow compiled without HDFS support");
 #endif
@@ -375,8 +372,7 @@ Status FileSystemFromUri(const std::string& uri_string,
     *out_path = std::string(RemoveLeadingSlash(*out_path));
   }
   if (scheme == "mock") {
-    *out_fs = std::make_shared<internal::MockFileSystem>(internal::CurrentTimePoint());
-    return Status::OK();
+    return std::make_shared<internal::MockFileSystem>(internal::CurrentTimePoint());
   }
 
   // TODO add support for S3 URIs
