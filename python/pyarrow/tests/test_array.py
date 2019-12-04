@@ -689,6 +689,10 @@ def test_fixed_size_list_from_arrays():
         pa.FixedSizeListArray.from_arrays(values, -4)
 
     with pytest.raises(ValueError):
+        # array with list size 0 cannot be constructed with from_arrays
+        pa.FixedSizeListArray.from_arrays(pa.array([], pa.int64()), 0)
+
+    with pytest.raises(ValueError):
         # length of values not multiple of 5
         pa.FixedSizeListArray.from_arrays(values, 5)
 

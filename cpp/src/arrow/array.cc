@@ -493,9 +493,10 @@ std::shared_ptr<Array> FixedSizeListArray::values() const { return values_; }
 
 Result<std::shared_ptr<Array>> FixedSizeListArray::FromArrays(
     const std::shared_ptr<Array>& values, int32_t list_size) {
-  if (list_size < 0) {
-    return Status::Invalid("list_size needs to be a positive integer");
+  if (list_size <= 0) {
+    return Status::Invalid("list_size needs to be a strict positive integer");
   }
+
   if ((values->length() % list_size) != 0) {
     return Status::Invalid(
         "The length of the values Array needs to be a multiple of the list_size");

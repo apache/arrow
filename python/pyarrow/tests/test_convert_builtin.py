@@ -266,6 +266,14 @@ def test_nested_fixed_size_list(seq):
                 ValueError, match="Length of item not correct: expected 2"):
             pa.array(seq(data), type=pa.list_(pa.int64(), 2))
 
+    # with list size of 0
+    data = [[], [], None]
+    arr = pa.array(seq(data), type=pa.list_(pa.int64(), 0))
+    assert len(arr) == 3
+    assert arr.null_count == 1
+    assert arr.type == pa.list_(pa.int64(), 0)
+    assert arr.to_pylist() == [[], [], None]
+
 
 @parametrize_with_iterable_types
 def test_sequence_all_none(seq):
