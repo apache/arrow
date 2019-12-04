@@ -147,7 +147,6 @@ function build_wheel {
           -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
           -DLLVM_SOURCE=SYSTEM \
           -DMAKE=make \
-          -DOPENSSL_USE_STATIC_LIBS=ON \
           -DProtobuf_SOURCE=SYSTEM \
           -DgRPC_SOURCE=SYSTEM \
           ..

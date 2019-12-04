@@ -114,7 +114,6 @@ cmake -DCMAKE_BUILD_TYPE=Release \
     -DARROW_GANDIVA_JAVA=OFF \
     -DBoost_NAMESPACE=arrow_boost \
     -DBOOST_ROOT=/arrow_boost_dist \
-    -DOPENSSL_USE_STATIC_LIBS=ON \
     -GNinja /arrow/cpp
 ninja
 ninja install
