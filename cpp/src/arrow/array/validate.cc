@@ -18,6 +18,7 @@
 #include "arrow/array/validate.h"
 
 #include "arrow/array.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/visitor_inline.h"
 
@@ -40,11 +41,13 @@ struct ValidateArrayVisitor {
     ARROW_RETURN_IF(array.data()->buffers.size() != 2,
                     Status::Invalid("number of buffers is != 2"));
 
-    if (array.length() > 0 && array.data()->buffers[1] == nullptr) {
-      return Status::Invalid("values buffer is null");
-    }
-    if (array.length() > 0 && array.values() == nullptr) {
-      return Status::Invalid("values is null");
+    if (array.length() > 0) {
+      if (array.data()->buffers[1] == nullptr) {
+        return Status::Invalid("values buffer is null");
+      }
+      if (array.values() == nullptr) {
+        return Status::Invalid("values is null");
+      }
     }
     return Status::OK();
   }
@@ -269,6 +272,37 @@ Status ValidateArray(const Array& array) {
                            "of type ",
                            type.ToString(), ", got ", data.buffers.size());
   }
+  // Validate length of fixed-witdh buffers
+  if (array.length() > 0) {
+    for (size_t i = 0; i < data.buffers.size(); ++i) {
+      const auto bit_width = layout.bit_widths[i];
+      if (bit_width > 0) {
+        const auto& buffer = data.buffers[i];
+        if (buffer == nullptr) {
+          if (i == 0) {
+            // Null bitmap may be absent
+            continue;
+          } else {
+            return Status::Invalid("Buffer #", i,
+                                   " is null in non-empty array "
+                                   "of type ",
+                                   type.ToString());
+          }
+        }
+        const auto min_size =
+            BitUtil::BytesForBits(bit_width * (array.length() + array.offset()));
+        if (buffer->size() < min_size) {
+          return Status::Invalid("Buffer #", i,
+                                 " is too small in array "
+                                 "of type ",
+                                 type.ToString(), " with length ", array.length(),
+                                 " and offset ", array.offset(), " (got ", buffer->size(),
+                                 ", expected at least ", min_size, ")");
+        }
+      }
+    }
+  }
+
   if (type.id() != Type::EXTENSION) {
     if (data.child_data.size() != static_cast<size_t>(type.num_children())) {
       return Status::Invalid("Expected ", type.num_children(),

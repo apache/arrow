@@ -20,14 +20,14 @@
 #if defined(ARROW_R_WITH_ARROW)
 
 // [[arrow::export]]
-std::shared_ptr<arrow::Array> ImportArray(size_t array) {
+std::shared_ptr<arrow::Array> ImportArray(uintptr_t array) {
   std::shared_ptr<arrow::Array> out;
   STOP_IF_NOT_OK(arrow::ImportArray(reinterpret_cast<struct ArrowArray*>(array), &out));
   return out;
 }
 
 // [[arrow::export]]
-std::shared_ptr<arrow::RecordBatch> ImportRecordBatch(size_t array) {
+std::shared_ptr<arrow::RecordBatch> ImportRecordBatch(uintptr_t array) {
   std::shared_ptr<arrow::RecordBatch> out;
   STOP_IF_NOT_OK(
       arrow::ImportRecordBatch(reinterpret_cast<struct ArrowArray*>(array), &out));
@@ -35,18 +35,18 @@ std::shared_ptr<arrow::RecordBatch> ImportRecordBatch(size_t array) {
 }
 
 // [[arrow::export]]
-size_t allocate_arrow_array() { return reinterpret_cast<size_t>(new ArrowArray); }
+uintptr_t allocate_arrow_array() { return reinterpret_cast<uintptr_t>(new ArrowArray); }
 
 // [[arrow::export]]
-void delete_arrow_array(size_t ptr) { delete reinterpret_cast<struct ArrowArray*>(ptr); }
+void delete_arrow_array(uintptr_t ptr) { delete reinterpret_cast<struct ArrowArray*>(ptr); }
 
 // [[arrow::export]]
-void ExportArray(const std::shared_ptr<arrow::Array>& array, size_t ptr) {
+void ExportArray(const std::shared_ptr<arrow::Array>& array, uintptr_t ptr) {
   STOP_IF_NOT_OK(arrow::ExportArray(*array, reinterpret_cast<struct ArrowArray*>(ptr)));
 }
 
 // [[arrow::export]]
-void ExportRecordBatch(const std::shared_ptr<arrow::RecordBatch>& array, size_t ptr) {
+void ExportRecordBatch(const std::shared_ptr<arrow::RecordBatch>& array, uintptr_t ptr) {
   STOP_IF_NOT_OK(
       arrow::ExportRecordBatch(*array, reinterpret_cast<struct ArrowArray*>(ptr)));
 }

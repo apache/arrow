@@ -4583,10 +4583,10 @@ RcppExport SEXP _arrow_parquet___arrow___FileReader__GetSchema(SEXP reader_sexp)
 
 // py-to-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::Array> ImportArray(size_t array);
+std::shared_ptr<arrow::Array> ImportArray(uintptr_t array);
 RcppExport SEXP _arrow_ImportArray(SEXP array_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<size_t>::type array(array_sexp);
+	Rcpp::traits::input_parameter<uintptr_t>::type array(array_sexp);
 	return Rcpp::wrap(ImportArray(array));
 END_RCPP
 }
@@ -4598,10 +4598,10 @@ RcppExport SEXP _arrow_ImportArray(SEXP array_sexp){
 
 // py-to-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
-std::shared_ptr<arrow::RecordBatch> ImportRecordBatch(size_t array);
+std::shared_ptr<arrow::RecordBatch> ImportRecordBatch(uintptr_t array);
 RcppExport SEXP _arrow_ImportRecordBatch(SEXP array_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<size_t>::type array(array_sexp);
+	Rcpp::traits::input_parameter<uintptr_t>::type array(array_sexp);
 	return Rcpp::wrap(ImportRecordBatch(array));
 END_RCPP
 }
@@ -4613,7 +4613,7 @@ RcppExport SEXP _arrow_ImportRecordBatch(SEXP array_sexp){
 
 // py-to-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
-size_t allocate_arrow_array();
+uintptr_t allocate_arrow_array();
 RcppExport SEXP _arrow_allocate_arrow_array(){
 BEGIN_RCPP
 	return Rcpp::wrap(allocate_arrow_array());
@@ -4627,10 +4627,10 @@ RcppExport SEXP _arrow_allocate_arrow_array(){
 
 // py-to-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void delete_arrow_array(size_t ptr);
+void delete_arrow_array(uintptr_t ptr);
 RcppExport SEXP _arrow_delete_arrow_array(SEXP ptr_sexp){
 BEGIN_RCPP
-	Rcpp::traits::input_parameter<size_t>::type ptr(ptr_sexp);
+	Rcpp::traits::input_parameter<uintptr_t>::type ptr(ptr_sexp);
 	delete_arrow_array(ptr);
 	return R_NilValue;
 END_RCPP
@@ -4643,11 +4643,11 @@ RcppExport SEXP _arrow_delete_arrow_array(SEXP ptr_sexp){
 
 // py-to-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void ExportArray(const std::shared_ptr<arrow::Array>& array, size_t ptr);
+void ExportArray(const std::shared_ptr<arrow::Array>& array, uintptr_t ptr);
 RcppExport SEXP _arrow_ExportArray(SEXP array_sexp, SEXP ptr_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::Array>&>::type array(array_sexp);
-	Rcpp::traits::input_parameter<size_t>::type ptr(ptr_sexp);
+	Rcpp::traits::input_parameter<uintptr_t>::type ptr(ptr_sexp);
 	ExportArray(array, ptr);
 	return R_NilValue;
 END_RCPP
@@ -4660,11 +4660,11 @@ RcppExport SEXP _arrow_ExportArray(SEXP array_sexp, SEXP ptr_sexp){
 
 // py-to-r.cpp
 #if defined(ARROW_R_WITH_ARROW)
-void ExportRecordBatch(const std::shared_ptr<arrow::RecordBatch>& array, size_t ptr);
+void ExportRecordBatch(const std::shared_ptr<arrow::RecordBatch>& array, uintptr_t ptr);
 RcppExport SEXP _arrow_ExportRecordBatch(SEXP array_sexp, SEXP ptr_sexp){
 BEGIN_RCPP
 	Rcpp::traits::input_parameter<const std::shared_ptr<arrow::RecordBatch>&>::type array(array_sexp);
-	Rcpp::traits::input_parameter<size_t>::type ptr(ptr_sexp);
+	Rcpp::traits::input_parameter<uintptr_t>::type ptr(ptr_sexp);
 	ExportRecordBatch(array, ptr);
 	return R_NilValue;
 END_RCPP

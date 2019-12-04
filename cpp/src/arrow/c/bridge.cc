@@ -724,7 +724,6 @@ struct ArrayImporter {
     import_ = std::make_shared<ImportedArrayData>();
     c_struct_ = &import_->array_;
     ArrowMoveArray(src, c_struct_);
-    total_offset_ = c_struct_->offset;
     return DoImport();
   }
 
@@ -767,23 +766,11 @@ struct ArrayImporter {
     import_ = parent->import_;
     // The ArrowArray shouldn't be moved, it's owned by its parent
     c_struct_ = src;
-    total_offset_ = parent->total_offset_ + c_struct_->offset;
     return DoImport();
   }
 
   Status ImportDict(const ArrayImporter* parent, struct ArrowArray* src) {
-    if (src->format == nullptr) {
-      return Status::Invalid("Cannot import released ArrowArray");
-    }
-    recursion_level_ = parent->recursion_level_ + 1;
-    if (recursion_level_ >= kMaxImportRecursionLevel) {
-      return Status::Invalid("Recursion level in ArrowArray struct exceeded");
-    }
-    import_ = parent->import_;
-    c_struct_ = src;
-    // Parent offset is not inherited
-    total_offset_ = c_struct_->offset;
-    return DoImport();
+    return ImportChild(parent, src);
   }
 
   Status DoImport() {
@@ -794,7 +781,6 @@ struct ArrayImporter {
     }
 
     // Import main data
-    f_parser_ = FormatStringParser(c_struct_->format);
     RETURN_NOT_OK(ProcessFormat());
 
     // Import dictionary values
@@ -816,6 +802,7 @@ struct ArrayImporter {
   }
 
   Status ProcessFormat() {
+    f_parser_ = FormatStringParser(c_struct_->format);
     RETURN_NOT_OK(f_parser_.CheckHasNext());
     switch (f_parser_.Next()) {
       case 'n':
@@ -1121,11 +1108,11 @@ struct ArrayImporter {
   }
 
   Status MakeChildField(int64_t child_id, std::shared_ptr<Field>* out) {
-    ArrayImporter& child = *child_importers_[child_id];
-    if (child.c_struct_->name == nullptr) {
+    const auto& child = child_importers_[child_id];
+    if (child->c_struct_->name == nullptr) {
       return Status::Invalid("Expected non-null name in imported array child");
     }
-    return child.MakeField(out);
+    return child->MakeField(out);
   }
 
   Status MakeChildFields(std::vector<std::shared_ptr<Field>>* out) {
@@ -1192,7 +1179,7 @@ struct ArrayImporter {
   Status ImportBitsBuffer(int32_t buffer_id) {
     // Compute visible size of buffer
     int64_t buffer_size =
-        BitUtil::RoundUpToMultipleOf8(c_struct_->length + total_offset_) / 8;
+        BitUtil::RoundUpToMultipleOf8(c_struct_->length + c_struct_->offset) / 8;
     return ImportBuffer(buffer_id, buffer_size);
   }
 
@@ -1200,14 +1187,15 @@ struct ArrayImporter {
 
   Status ImportFixedSizeBuffer(int32_t buffer_id, int64_t byte_width) {
     // Compute visible size of buffer
-    int64_t buffer_size = byte_width * (c_struct_->length + total_offset_);
+    int64_t buffer_size = byte_width * (c_struct_->length + c_struct_->offset);
     return ImportBuffer(buffer_id, buffer_size);
   }
 
   template <typename OffsetType>
   Status ImportOffsetsBuffer(int32_t buffer_id) {
     // Compute visible size of buffer
-    int64_t buffer_size = sizeof(OffsetType) * (c_struct_->length + total_offset_ + 1);
+    int64_t buffer_size =
+        sizeof(OffsetType) * (c_struct_->length + c_struct_->offset + 1);
     return ImportBuffer(buffer_id, buffer_size);
   }
 
@@ -1234,7 +1222,6 @@ struct ArrayImporter {
   std::shared_ptr<ImportedArrayData> import_;
   struct ArrowArray* c_struct_;
   FormatStringParser f_parser_;
-  int64_t total_offset_;  // total offset, including parent's
   int64_t recursion_level_;
   std::shared_ptr<ArrayData> data_;
   std::vector<std::unique_ptr<ArrayImporter>> child_importers_;
