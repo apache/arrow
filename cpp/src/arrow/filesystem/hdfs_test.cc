@@ -119,7 +119,7 @@ class TestHadoopFileSystem : public ::testing::Test {
     std::shared_ptr<FileSystem> uri_fs;
     std::string path;
     ARROW_LOG(INFO) << "!!! uri = " << ss.str();
-    ASSERT_OK(FileSystemFromUri(ss.str(), &uri_fs, &path));
+    ASSERT_OK_AND_ASSIGN(uri_fs, FileSystemFromUri(ss.str(), &path));
     ASSERT_EQ(path, "/");
 
     // Sanity check

@@ -114,7 +114,7 @@ class TestLocalFS : public LocalFSTestMixin {
 
   void TestFileSystemFromUri(const std::string& uri) {
     std::string path;
-    ASSERT_OK(FileSystemFromUri(uri, &fs_, &path));
+    ASSERT_OK_AND_ASSIGN(fs_, FileSystemFromUri(uri, &path));
 
     // Test that the right location on disk is accessed
     CreateFile(fs_.get(), local_path_ + "abc", "some data");
