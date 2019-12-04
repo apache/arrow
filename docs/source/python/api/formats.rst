@@ -80,3 +80,15 @@ Parquet Files
    write_metadata
    write_table
    write_to_dataset
+
+.. _api.orc:
+
+ORC Files
+---------
+
+.. currentmodule:: pyarrow.orc
+
+.. autosummary::
+   :toctree: ../generated/
+
+   ORCFile
