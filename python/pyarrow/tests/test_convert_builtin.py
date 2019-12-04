@@ -148,14 +148,14 @@ def _as_dict_values(xs):
     return six.viewvalues(dct)
 
 
-def _as_array(xs):
+def _as_numpy_array(xs):
     arr = np.empty(len(xs), dtype=object)
     arr[:] = xs
     return arr
 
 
 parametrize_with_iterable_types = pytest.mark.parametrize(
-    "seq", [_as_list, _as_tuple, _as_deque, _as_dict_values, _as_array])
+    "seq", [_as_list, _as_tuple, _as_deque, _as_dict_values, _as_numpy_array])
 
 
 @parametrize_with_iterable_types

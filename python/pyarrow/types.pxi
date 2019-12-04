@@ -1879,6 +1879,8 @@ def list_(value_type, int list_size=-1):
     if list_size == -1:
         list_type.reset(new CListType(_field.sp_field))
     else:
+        if list_size < 0:
+            raise ValueError("list_size should be a positive integer")
         list_type.reset(new CFixedSizeListType(_field.sp_field, list_size))
 
     return pyarrow_wrap_data_type(list_type)

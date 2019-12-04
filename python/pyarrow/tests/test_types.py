@@ -324,6 +324,9 @@ def test_fixed_size_list_type():
     assert ty.value_type == pa.float64()
     assert ty.list_size == 2
 
+    with pytest.raises(ValueError):
+        pa.list_(pa.float64(), -2)
+
 
 def test_struct_type():
     fields = [

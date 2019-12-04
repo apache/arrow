@@ -1444,7 +1444,7 @@ cdef class FixedSizeListArray(Array):
     """
 
     @staticmethod
-    def from_arrays(values, int32_t list_size, MemoryPool pool=None):
+    def from_arrays(values, int32_t list_size):
         """
         Construct FixedSizeListArray from array of values and a list length.
 
