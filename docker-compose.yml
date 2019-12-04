@@ -812,11 +812,13 @@ services:
         jdk: ${JDK}
         node: ${NODE}
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
+    environment:
+      ARROW_GLIB_GTK_DOC: "true"
     volumes: *ubuntu-volumes
     command:
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp true &&
-        /arrow/ci/scripts/c_glib_build.sh /arrow /build/c_glib true &&
+        /arrow/ci/scripts/c_glib_build.sh /arrow /build/c_glib &&
         /arrow/ci/scripts/python_build.sh /arrow /build/python &&
         /arrow/ci/scripts/java_build.sh /arrow /build/cpp/debug true &&
         /arrow/ci/scripts/js_build.sh /arrow true &&
