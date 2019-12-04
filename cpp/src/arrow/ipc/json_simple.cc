@@ -285,7 +285,7 @@ class DecimalConverter final : public ConcreteConverter<DecimalConverter> {
       int32_t precision, scale;
       Decimal128 d;
       auto view = util::string_view(json_obj.GetString(), json_obj.GetStringLength());
-      ARROW_ASSIGN_OR_RAISE(d, Decimal128::FromString(view, &precision, &scale));
+      RETURN_NOT_OK(Decimal128::FromString(view, &d, &precision, &scale));
       if (scale != decimal_type_->scale()) {
         return Status::Invalid("Invalid scale for decimal: expected ",
                                decimal_type_->scale(), ", got ", scale);

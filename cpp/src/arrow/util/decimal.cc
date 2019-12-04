@@ -283,8 +283,8 @@ bool ParseDecimalComponents(const char* s, size_t size, DecimalComponents* out) 
 
 }  // namespace
 
-Result<Decimal128> Decimal128::FromString(const util::string_view& s, int32_t* precision,
-                                          int32_t* scale) {
+Status Decimal128::FromString(const util::string_view& s, Decimal128* out,
+                              int32_t* precision, int32_t* scale) {
   if (s.empty()) {
     return Status::Invalid("Empty string cannot be converted to decimal");
   }
@@ -315,34 +315,62 @@ Result<Decimal128> Decimal128::FromString(const util::string_view& s, int32_t* p
     }
   }
 
-  Decimal128 out;
-  StringToInteger(dec.whole_digits, dec.fractional_digits, &out);
+  if (out != nullptr) {
+    *out = 0;
+    StringToInteger(dec.whole_digits, dec.fractional_digits, out);
 
-  if (dec.sign == '-') {
-    out.Negate();
-  }
-
-  if (scale != nullptr && *scale < 0) {
-    const int32_t abs_scale = std::abs(*scale);
-    out *= GetScaleMultiplier(abs_scale);
-
-    if (precision != nullptr) {
-      *precision += abs_scale;
+    if (dec.sign == '-') {
+      out->Negate();
     }
-    *scale = 0;
+
+    if (scale != nullptr && *scale < 0) {
+      const int32_t abs_scale = std::abs(*scale);
+      *out *= GetScaleMultiplier(abs_scale);
+
+      if (precision != nullptr) {
+        *precision += abs_scale;
+      }
+      *scale = 0;
+    }
   }
 
+  return Status::OK();
+}
+
+Status Decimal128::FromString(const std::string& s, Decimal128* out, int32_t* precision,
+                              int32_t* scale) {
+  return FromString(util::string_view(s), out, precision, scale);
+}
+
+Status Decimal128::FromString(const char* s, Decimal128* out, int32_t* precision,
+                              int32_t* scale) {
+  return FromString(util::string_view(s), out, precision, scale);
+}
+
+Result<Decimal128> Decimal128::FromString(const util::string_view& s) {
+  Decimal128 out;
+  RETURN_NOT_OK(FromString(s, &out, nullptr, nullptr));
   return std::move(out);
 }
 
-Result<Decimal128> Decimal128::FromString(const std::string& s, int32_t* precision,
-                                          int32_t* scale) {
-  return FromString(util::string_view(s), precision, scale);
+Result<Decimal128> Decimal128::FromString(const std::string& s) {
+  return FromString(util::string_view(s));
 }
 
-Result<Decimal128> Decimal128::FromString(const char* s, int32_t* precision,
-                                          int32_t* scale) {
-  return FromString(util::string_view(s), precision, scale);
+Result<Decimal128> Decimal128::FromString(const char* s) {
+  return FromString(util::string_view(s));
+}
+
+Status Decimal128::FromString(const util::string_view& s, Decimal128* out) {
+  return FromString(s, out, nullptr, nullptr);
+}
+
+Status Decimal128::FromString(const std::string& s, Decimal128* out) {
+  return FromString(s, out, nullptr, nullptr);
+}
+
+Status Decimal128::FromString(const char* s, Decimal128* out) {
+  return FromString(s, out, nullptr, nullptr);
 }
 
 // Helper function used by Decimal128::FromBigEndian

@@ -434,7 +434,7 @@ class DecimalConverter : public ConcreteConverter {
       Decimal128 decimal;
       int32_t precision, scale;
       util::string_view view(reinterpret_cast<const char*>(data), size);
-      ARROW_ASSIGN_OR_RAISE(decimal, Decimal128::FromString(view, &precision, &scale));
+      RETURN_NOT_OK(Decimal128::FromString(view, &decimal, &precision, &scale));
       DecimalType& type = *internal::checked_cast<DecimalType*>(type_.get());
       if (precision > type.precision()) {
         return Status::Invalid("Error converting ", view, " to ", type_->ToString(),

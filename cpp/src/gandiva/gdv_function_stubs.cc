@@ -115,9 +115,8 @@ int32_t gdv_fn_dec_from_string(int64_t context, const char* in, int32_t in_lengt
                                int32_t* precision_from_str, int32_t* scale_from_str,
                                int64_t* dec_high_from_str, uint64_t* dec_low_from_str) {
   arrow::Decimal128 dec;
-  auto status = arrow::Decimal128::FromString(std::string(in, in_length),
-                                              precision_from_str, scale_from_str)
-                    .Value(&dec);
+  auto status = arrow::Decimal128::FromString(std::string(in, in_length), &dec,
+                                              precision_from_str, scale_from_str);
   if (!status.ok()) {
     gdv_fn_context_set_error_msg(context, status.message().data());
     return -1;

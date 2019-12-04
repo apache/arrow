@@ -112,37 +112,22 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
 
   /// \brief Convert a decimal string to a Decimal128 value, optionally including
   /// precision and scale if they're passed in and not null.
-  static Result<Decimal128> FromString(const util::string_view& s,
-                                       int32_t* precision = NULLPTR,
-                                       int32_t* scale = NULLPTR);
-  static Result<Decimal128> FromString(const std::string& s, int32_t* precision = NULLPTR,
-                                       int32_t* scale = NULLPTR);
-  static Result<Decimal128> FromString(const char* s, int32_t* precision = NULLPTR,
-                                       int32_t* scale = NULLPTR);
+  static Status FromString(const util::string_view& s, Decimal128* out,
+                           int32_t* precision, int32_t* scale = NULLPTR);
+  static Status FromString(const std::string& s, Decimal128* out, int32_t* precision,
+                           int32_t* scale = NULLPTR);
+  static Status FromString(const char* s, Decimal128* out, int32_t* precision,
+                           int32_t* scale = NULLPTR);
+  static Result<Decimal128> FromString(const util::string_view& s);
+  static Result<Decimal128> FromString(const std::string& s);
+  static Result<Decimal128> FromString(const char* s);
 
   ARROW_DEPRECATED("Use Result-returning version")
-  static inline Status FromString(const util::string_view& s, Decimal128* out,
-                                  int32_t* precision = NULLPTR,
-                                  int32_t* scale = NULLPTR) {
-    ARROW_ASSIGN_OR_RAISE(*out, FromString(s, precision, scale));
-    return Status::OK();
-  }
-
+  static Status FromString(const util::string_view& s, Decimal128* out);
   ARROW_DEPRECATED("Use Result-returning version")
-  static inline Status FromString(const std::string& s, Decimal128* out,
-                                  int32_t* precision = NULLPTR,
-                                  int32_t* scale = NULLPTR) {
-    ARROW_ASSIGN_OR_RAISE(*out, FromString(s, precision, scale));
-    return Status::OK();
-  }
-
+  static Status FromString(const std::string& s, Decimal128* out);
   ARROW_DEPRECATED("Use Result-returning version")
-  static inline Status FromString(const char* s, Decimal128* out,
-                                  int32_t* precision = NULLPTR,
-                                  int32_t* scale = NULLPTR) {
-    ARROW_ASSIGN_OR_RAISE(*out, FromString(s, precision, scale));
-    return Status::OK();
-  }
+  static Status FromString(const char* s, Decimal128* out);
 
   /// \brief Convert from a big-endian byte representation. The length must be
   ///        between 1 and 16.

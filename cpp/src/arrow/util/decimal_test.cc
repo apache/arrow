@@ -54,8 +54,7 @@ TEST_F(DecimalTestFixture, TestFromString) {
   Decimal128 expected(this->integer_value_);
   Decimal128 result;
   int32_t precision, scale;
-  ASSERT_OK_AND_ASSIGN(result,
-                       Decimal128::FromString(this->string_value_, &precision, &scale));
+  ASSERT_OK(Decimal128::FromString(this->string_value_, &result, &precision, &scale));
   ASSERT_EQ(result, expected);
   ASSERT_EQ(precision, 8);
   ASSERT_EQ(scale, 5);
@@ -66,7 +65,7 @@ TEST_F(DecimalTestFixture, TestStringStartingWithPlus) {
   Decimal128 out;
   int32_t scale;
   int32_t precision;
-  ASSERT_OK_AND_ASSIGN(out, Decimal128::FromString(plus_value, &precision, &scale));
+  ASSERT_OK(Decimal128::FromString(plus_value, &out, &precision, &scale));
   ASSERT_EQ(234234, out);
   ASSERT_EQ(6, precision);
   ASSERT_EQ(3, scale);
@@ -78,7 +77,7 @@ TEST_F(DecimalTestFixture, TestStringStartingWithPlus128) {
   Decimal128 out;
   int32_t scale;
   int32_t precision;
-  ASSERT_OK_AND_ASSIGN(out, Decimal128::FromString(plus_value, &precision, &scale));
+  ASSERT_OK(Decimal128::FromString(plus_value, &out, &precision, &scale));
   ASSERT_EQ(expected_value, out);
   ASSERT_EQ(25, precision);
   ASSERT_EQ(12, scale);
@@ -186,7 +185,7 @@ TEST(DecimalZerosTest, LeadingZerosNoDecimalPoint) {
   Decimal128 d;
   int32_t precision;
   int32_t scale;
-  ASSERT_OK_AND_ASSIGN(d, Decimal128::FromString(string_value, &precision, &scale));
+  ASSERT_OK(Decimal128::FromString(string_value, &d, &precision, &scale));
   ASSERT_EQ(0, precision);
   ASSERT_EQ(0, scale);
   ASSERT_EQ(0, d);
@@ -197,7 +196,7 @@ TEST(DecimalZerosTest, LeadingZerosDecimalPoint) {
   Decimal128 d;
   int32_t precision;
   int32_t scale;
-  ASSERT_OK_AND_ASSIGN(d, Decimal128::FromString(string_value, &precision, &scale));
+  ASSERT_OK(Decimal128::FromString(string_value, &d, &precision, &scale));
   ASSERT_EQ(4, precision);
   ASSERT_EQ(4, scale);
   ASSERT_EQ(0, d);
@@ -208,7 +207,7 @@ TEST(DecimalZerosTest, NoLeadingZerosDecimalPoint) {
   Decimal128 d;
   int32_t precision;
   int32_t scale;
-  ASSERT_OK_AND_ASSIGN(d, Decimal128::FromString(string_value, &precision, &scale));
+  ASSERT_OK(Decimal128::FromString(string_value, &d, &precision, &scale));
   ASSERT_EQ(5, precision);
   ASSERT_EQ(5, scale);
   ASSERT_EQ(0, d);
@@ -313,8 +312,7 @@ TEST_P(Decimal128ParsingTest, Parse) {
   std::tie(test_string, expected_low_bits, expected_scale) = GetParam();
   Decimal128 value;
   int32_t scale;
-  ASSERT_OK_AND_ASSIGN(value,
-                       Decimal128::FromString(test_string, (int32_t*)nullptr, &scale));
+  ASSERT_OK(Decimal128::FromString(test_string, &value, nullptr, &scale));
   ASSERT_EQ(value.low_bits(), expected_low_bits);
   ASSERT_EQ(expected_scale, scale);
 }
@@ -367,7 +365,7 @@ TEST(Decimal128Test, TestNoDecimalPointExponential) {
   Decimal128 value;
   int32_t precision;
   int32_t scale;
-  ASSERT_OK_AND_ASSIGN(value, Decimal128::FromString("1E1", &precision, &scale));
+  ASSERT_OK(Decimal128::FromString("1E1", &value, &precision, &scale));
   ASSERT_EQ(10, value.low_bits());
   ASSERT_EQ(2, precision);
   ASSERT_EQ(0, scale);

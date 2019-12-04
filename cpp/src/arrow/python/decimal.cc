@@ -114,8 +114,8 @@ Status DecimalFromStdString(const std::string& decimal_string,
   int32_t inferred_precision;
   int32_t inferred_scale;
 
-  ARROW_ASSIGN_OR_RAISE(
-      *out, Decimal128::FromString(decimal_string, &inferred_precision, &inferred_scale));
+  RETURN_NOT_OK(
+      Decimal128::FromString(decimal_string, out, &inferred_precision, &inferred_scale));
 
   const int32_t precision = arrow_type.precision();
   const int32_t scale = arrow_type.scale();
