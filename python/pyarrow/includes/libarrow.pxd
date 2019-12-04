@@ -503,7 +503,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
                            shared_ptr[CArray]* out)
 
         @staticmethod
-        CStatus MakeDense(const CArray& type_codes, const CArray& value_offsets,
+        CStatus MakeDense(const CArray& type_codes,
+                          const CArray& value_offsets,
                           const vector[shared_ptr[CArray]]& children,
                           const vector[c_string]& field_names,
                           const vector[int8_t]& type_codes,
