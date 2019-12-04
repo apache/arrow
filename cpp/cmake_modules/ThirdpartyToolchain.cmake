@@ -1522,6 +1522,7 @@ macro(build_benchmark)
     )
   set(GBENCHMARK_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS}
                             "-DCMAKE_INSTALL_PREFIX=${GBENCHMARK_PREFIX}"
+                            -DCMAKE_INSTALL_LIBDIR=lib
                             -DBENCHMARK_ENABLE_TESTING=OFF
                             -DCMAKE_CXX_FLAGS=${GBENCHMARK_CMAKE_CXX_FLAGS})
   if(APPLE)
