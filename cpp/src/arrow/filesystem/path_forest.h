@@ -51,7 +51,7 @@ class ARROW_EXPORT PathForest : public util::EqualityComparable<PathForest> {
   std::string ToString() const;
 
   /// Reference to a node in the forest
-  struct Ref {
+  struct ARROW_EXPORT Ref {
     const FileStats& stats() const;
 
     int num_descendants() const;
