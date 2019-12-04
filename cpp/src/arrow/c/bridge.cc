@@ -174,7 +174,7 @@ struct ArrayExporter {
     // Export dictionary
     if (data_->dictionary != nullptr) {
       if (checked_cast<const DictionaryType&>(*data_->type).ordered()) {
-        flags_ |= ARROW_FLAG_ORDERED;
+        flags_ |= ARROW_FLAG_DICTIONARY_ORDERED;
       }
       dict_exporter_.reset(new ArrayExporter(data_->dictionary->data()));
       RETURN_NOT_OK(dict_exporter_->Export());
@@ -463,7 +463,7 @@ struct ArrayExporter {
   Status Visit(const MapType& type) {
     export_.format_ = "+m";
     if (type.keys_sorted()) {
-      flags_ |= ARROW_FLAG_KEYS_SORTED;
+      flags_ |= ARROW_FLAG_MAP_KEYS_SORTED;
     }
     return Status::OK();
   }
@@ -742,7 +742,7 @@ struct ArrayImporter {
       std::shared_ptr<Array> indices, values;
       indices = MakeArray(data_);
       RETURN_NOT_OK(dict_importer_->Finish(&values));
-      bool ordered = (c_struct_->flags & ARROW_FLAG_ORDERED) != 0;
+      bool ordered = (c_struct_->flags & ARROW_FLAG_DICTIONARY_ORDERED) != 0;
       auto type = dictionary(indices->type(), values->type(), ordered);
       *out = std::make_shared<DictionaryArray>(type, indices, values);
     } else {
@@ -1019,7 +1019,7 @@ struct ArrayImporter {
                              field->ToString());
     }
 
-    bool keys_sorted = (c_struct_->flags & ARROW_FLAG_KEYS_SORTED);
+    bool keys_sorted = (c_struct_->flags & ARROW_FLAG_MAP_KEYS_SORTED);
     auto type =
         map(value_type->child(0)->type(), value_type->child(1)->type(), keys_sorted);
     // Process buffers as for ListType

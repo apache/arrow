@@ -487,7 +487,8 @@ TEST_F(TestExport, Map) {
              {ARROW_FLAG_NULLABLE, 0, 0, ARROW_FLAG_NULLABLE});
   TestNested(map(int8(), utf8(), /*keys_sorted=*/ true), json,
              {"+m", "+s", "c", "u"}, {"", "entries", "key", "value"},
-             {ARROW_FLAG_NULLABLE | ARROW_FLAG_KEYS_SORTED, 0, 0, ARROW_FLAG_NULLABLE});
+             {ARROW_FLAG_NULLABLE | ARROW_FLAG_MAP_KEYS_SORTED, 0, 0,
+              ARROW_FLAG_NULLABLE});
 }
 
 TEST_F(TestExport, Union) {
@@ -525,7 +526,7 @@ TEST_F(TestExport, Dictionary) {
           out);
     };
     TestNested(factory, {"i", "+l", "u"}, {"", "", "item"},
-               {ARROW_FLAG_NULLABLE | ARROW_FLAG_ORDERED, ARROW_FLAG_NULLABLE,
+               {ARROW_FLAG_NULLABLE | ARROW_FLAG_DICTIONARY_ORDERED, ARROW_FLAG_NULLABLE,
                 ARROW_FLAG_NULLABLE});
   }
   {
@@ -1255,7 +1256,7 @@ TEST_F(TestImport, Dictionary) {
 
   FillStringLike(AddChild(), "u", 4, 0, 0, string_buffers_no_nulls1);
   FillPrimitive("c", 6, 0, 0, primitive_buffers_no_nulls4,
-                ARROW_FLAG_NULLABLE | ARROW_FLAG_ORDERED);
+                ARROW_FLAG_NULLABLE | ARROW_FLAG_DICTIONARY_ORDERED);
   FillDictionary();
 
   ASSERT_OK(DictionaryArray::FromArrays(dictionary(int8(), utf8(), /*ordered=*/true),
