@@ -223,6 +223,32 @@ class TestScalars(unittest.TestCase):
         v = arr[3]
         assert len(v) == 0
 
+    def test_map(self):
+        arr = pa.array([[(u'a', 1), (u'b', 2)], None, [], [(u'c', None)]],
+                       pa.map_(pa.string(), pa.int8()))
+        v = arr[0]
+        assert len(v) == 2
+        assert isinstance(v, pa.MapValue)
+        assert repr(v) == repr([(u'a', 1), (u'b', 2)])
+        assert v.as_py() == [(u'a', 1), (u'b', 2)]
+        assert v[1] == (u'b', 2)
+        assert v[-1] == v[1]
+        assert v[-2] == v[0]
+        with pytest.raises(IndexError):
+            v[-3]
+        with pytest.raises(IndexError):
+            v[2]
+
+        assert arr[1] is pa.NA
+
+        assert len(arr[2]) == 0
+
+        v = arr[3]
+        assert v == [(u'c', None)]
+        assert len(v) == 1
+        assert v[0][0] == u'c'
+        assert v[0][1] is pa.NA
+
     def test_date(self):
         # ARROW-5125
         d1, d2 = datetime.date(3200, 1, 1), datetime.date(1960, 1, 1),

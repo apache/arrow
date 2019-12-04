@@ -47,6 +47,7 @@ namespace arrow {
 
 using internal::BitmapAnd;
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 using internal::CopyBitmap;
 using internal::CountSetBits;
 
@@ -226,25 +227,14 @@ BooleanArray::BooleanArray(int64_t length, const std::shared_ptr<Buffer>& data,
 namespace {
 
 template <typename TYPE>
-Status ListArrayFromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
-                           std::shared_ptr<Array>* out) {
+Status CleanListOffsets(const Array& offsets, MemoryPool* pool,
+                        std::shared_ptr<Buffer>* offset_buf_out,
+                        std::shared_ptr<Buffer>* validity_buf_out) {
   using offset_type = typename TYPE::offset_type;
-  using ArrayType = typename TypeTraits<TYPE>::ArrayType;
   using OffsetArrowType = typename CTypeTraits<offset_type>::ArrowType;
   using OffsetArrayType = typename TypeTraits<OffsetArrowType>::ArrayType;
 
-  if (offsets.length() == 0) {
-    return Status::Invalid("List offsets must have non-zero length");
-  }
-
-  if (offsets.type_id() != OffsetArrowType::type_id) {
-    return Status::TypeError("List offsets must be ", OffsetArrowType::type_name());
-  }
-
-  BufferVector buffers = {};
-
   const auto& typed_offsets = checked_cast<const OffsetArrayType&>(offsets);
-
   const int64_t num_offsets = offsets.length();
 
   if (offsets.null_count() > 0) {
@@ -261,7 +251,7 @@ Status ListArrayFromArrays(const Array& offsets, const Array& values, MemoryPool
     RETURN_NOT_OK(offsets.null_bitmap()->Copy(0, BitUtil::BytesForBits(num_offsets - 1),
                                               &clean_valid_bits));
     BitUtil::ClearBit(clean_valid_bits->mutable_data(), num_offsets);
-    buffers.emplace_back(std::move(clean_valid_bits));
+    *validity_buf_out = clean_valid_bits;
 
     const offset_type* raw_offsets = typed_offsets.raw_values();
     auto clean_raw_offsets =
@@ -276,15 +266,38 @@ Status ListArrayFromArrays(const Array& offsets, const Array& values, MemoryPool
       clean_raw_offsets[i] = current_offset;
     }
 
-    buffers.emplace_back(std::move(clean_offsets));
+    *offset_buf_out = clean_offsets;
   } else {
-    buffers.emplace_back(offsets.null_bitmap());
-    buffers.emplace_back(typed_offsets.values());
+    *validity_buf_out = offsets.null_bitmap();
+    *offset_buf_out = typed_offsets.values();
   }
 
+  return Status::OK();
+}
+
+template <typename TYPE>
+Status ListArrayFromArrays(const Array& offsets, const Array& values, MemoryPool* pool,
+                           std::shared_ptr<Array>* out) {
+  using offset_type = typename TYPE::offset_type;
+  using ArrayType = typename TypeTraits<TYPE>::ArrayType;
+  using OffsetArrowType = typename CTypeTraits<offset_type>::ArrowType;
+
+  if (offsets.length() == 0) {
+    return Status::Invalid("List offsets must have non-zero length");
+  }
+
+  if (offsets.type_id() != OffsetArrowType::type_id) {
+    return Status::TypeError("List offsets must be ", OffsetArrowType::type_name());
+  }
+
+  std::shared_ptr<Buffer> offset_buf, validity_buf;
+  RETURN_NOT_OK(CleanListOffsets<TYPE>(offsets, pool, &offset_buf, &validity_buf));
+  BufferVector buffers = {validity_buf, offset_buf};
+
   auto list_type = std::make_shared<TYPE>(values.type());
-  auto internal_data = ArrayData::Make(list_type, num_offsets - 1, std::move(buffers),
-                                       offsets.null_count(), offsets.offset());
+  auto internal_data =
+      ArrayData::Make(list_type, offsets.length() - 1, std::move(buffers),
+                      offsets.null_count(), offsets.offset());
   internal_data->child_data.push_back(values.data());
 
   *out = std::make_shared<ArrayType>(internal_data);
@@ -321,10 +334,11 @@ LargeListArray::LargeListArray(const std::shared_ptr<DataType>& type, int64_t le
   SetData(internal_data);
 }
 
-void ListArray::SetData(const std::shared_ptr<ArrayData>& data) {
+void ListArray::SetData(const std::shared_ptr<ArrayData>& data,
+                        Type::type expected_type_id) {
   this->Array::SetData(data);
   ARROW_CHECK_EQ(data->buffers.size(), 2);
-  ARROW_CHECK_EQ(data->type->id(), Type::LIST);
+  ARROW_CHECK_EQ(data->type->id(), expected_type_id);
   list_type_ = checked_cast<const ListType*>(data->type.get());
 
   auto value_offsets = data->buffers[1];
@@ -392,19 +406,48 @@ MapArray::MapArray(const std::shared_ptr<DataType>& type, int64_t length,
   SetData(map_data);
 }
 
+Status MapArray::FromArrays(const std::shared_ptr<Array>& offsets,
+                            const std::shared_ptr<Array>& keys,
+                            const std::shared_ptr<Array>& items, MemoryPool* pool,
+                            std::shared_ptr<Array>* out) {
+  using offset_type = typename MapType::offset_type;
+  using OffsetArrowType = typename CTypeTraits<offset_type>::ArrowType;
+
+  if (offsets->length() == 0) {
+    return Status::Invalid("Map offsets must have non-zero length");
+  }
+
+  if (offsets->type_id() != OffsetArrowType::type_id) {
+    return Status::TypeError("Map offsets must be ", OffsetArrowType::type_name());
+  }
+
+  if (keys->null_count() != 0) {
+    return Status::Invalid("Map can not contain NULL valued keys");
+  }
+
+  if (keys->length() != items->length()) {
+    return Status::Invalid("Map key and item arrays must be equal length");
+  }
+
+  std::shared_ptr<Buffer> offset_buf, validity_buf;
+  RETURN_NOT_OK(CleanListOffsets<MapType>(*offsets, pool, &offset_buf, &validity_buf));
+
+  auto map_type = std::make_shared<MapType>(keys->type(), items->type());
+  *out =
+      std::make_shared<MapArray>(map_type, offsets->length() - 1, offset_buf, keys, items,
+                                 validity_buf, offsets->null_count(), offsets->offset());
+  return Status::OK();
+}
+
 void MapArray::SetData(const std::shared_ptr<ArrayData>& data) {
-  ARROW_CHECK_EQ(data->type->id(), Type::MAP);
+  this->ListArray::SetData(data, Type::MAP);
   auto pair_data = data->child_data[0];
   ARROW_CHECK_EQ(pair_data->type->id(), Type::STRUCT);
   ARROW_CHECK_EQ(pair_data->null_count, 0);
   ARROW_CHECK_EQ(pair_data->child_data.size(), 2);
   ARROW_CHECK_EQ(pair_data->child_data[0]->null_count, 0);
 
-  auto pair_list_data = data->Copy();
-  pair_list_data->type = list(pair_data->type);
-  this->ListArray::SetData(pair_list_data);
-  data_->type = data->type;
-
+  map_type_ = checked_cast<const MapType*>(data->type.get());
   keys_ = MakeArray(pair_data->child_data[0]);
   items_ = MakeArray(pair_data->child_data[1]);
 }

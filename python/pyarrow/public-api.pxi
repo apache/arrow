@@ -86,6 +86,8 @@ cdef api object pyarrow_wrap_data_type(
         out = ListType.__new__(ListType)
     elif type.get().id() == _Type_LARGE_LIST:
         out = LargeListType.__new__(LargeListType)
+    elif type.get().id() == _Type_MAP:
+        out = MapType.__new__(MapType)
     elif type.get().id() == _Type_STRUCT:
         out = StructType.__new__(StructType)
     elif type.get().id() == _Type_UNION:

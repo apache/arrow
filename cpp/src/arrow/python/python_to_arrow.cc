@@ -807,6 +807,53 @@ class ListConverter
 };
 
 // ----------------------------------------------------------------------
+// Convert maps
+
+// Define a MapConverter as a ListConverter that uses MapBuilder.value_builder
+// to append struct of key/value pairs
+template <NullCoding null_coding>
+class MapConverter : public ListConverter<MapType, null_coding> {
+ public:
+  using BASE = ListConverter<MapType, null_coding>;
+
+  explicit MapConverter(bool from_pandas, bool strict_conversions)
+      : BASE(from_pandas, strict_conversions), key_builder_(nullptr) {}
+
+  Status AppendSingleVirtual(PyObject* obj) override {
+    RETURN_NOT_OK(BASE::AppendSingleVirtual(obj));
+    return VerifyLastStructAppended();
+  }
+
+  Status AppendMultiple(PyObject* seq, int64_t size) override {
+    RETURN_NOT_OK(BASE::AppendMultiple(seq, size));
+    return VerifyLastStructAppended();
+  }
+
+  Status AppendMultipleMasked(PyObject* seq, PyObject* mask, int64_t size) override {
+    RETURN_NOT_OK(BASE::AppendMultipleMasked(seq, mask, size));
+    return VerifyLastStructAppended();
+  }
+
+ protected:
+  Status VerifyLastStructAppended() {
+    // The struct_builder may not have field_builders initialized in constructor, so
+    // assign key_builder lazily
+    if (key_builder_ == nullptr) {
+      auto struct_builder =
+          checked_cast<StructBuilder*>(BASE::value_converter_->builder());
+      key_builder_ = struct_builder->field_builder(0);
+    }
+    if (key_builder_->null_count() > 0) {
+      return Status::Invalid("Invalid Map: key field can not contain null values");
+    }
+    return Status::OK();
+  }
+
+ private:
+  ArrayBuilder* key_builder_;
+};
+
+// ----------------------------------------------------------------------
 // Convert structs
 
 template <NullCoding null_coding>
@@ -1092,6 +1139,16 @@ Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
         *out = std::unique_ptr<SeqConverter>(
             new ListConverter<LargeListType, NullCoding::NONE_ONLY>(from_pandas,
                                                                     strict_conversions));
+      }
+      return Status::OK();
+    case Type::MAP:
+      if (from_pandas) {
+        *out =
+            std::unique_ptr<SeqConverter>(new MapConverter<NullCoding::PANDAS_SENTINELS>(
+                from_pandas, strict_conversions));
+      } else {
+        *out = std::unique_ptr<SeqConverter>(
+            new MapConverter<NullCoding::NONE_ONLY>(from_pandas, strict_conversions));
       }
       return Status::OK();
     case Type::STRUCT:

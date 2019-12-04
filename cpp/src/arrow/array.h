@@ -610,7 +610,8 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
  protected:
   // This constructor defers SetData to a derived array class
   ListArray() = default;
-  void SetData(const std::shared_ptr<ArrayData>& data);
+  void SetData(const std::shared_ptr<ArrayData>& data,
+               Type::type expected_type_id = Type::LIST);
 };
 
 /// Concrete Array class for large list data (with 64-bit offsets)
@@ -649,7 +650,7 @@ class ARROW_EXPORT LargeListArray : public BaseListArray<LargeListType> {
 
 /// Concrete Array class for map data
 ///
-/// NB: "value" in this context refers to a pair of a key and the correspondint item
+/// NB: "value" in this context refers to a pair of a key and the corresponding item
 class ARROW_EXPORT MapArray : public ListArray {
  public:
   using TypeClass = MapType;
@@ -667,6 +668,25 @@ class ARROW_EXPORT MapArray : public ListArray {
            const std::shared_ptr<Array>& values,
            const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
            int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+
+  /// \brief Construct MapArray from array of offsets and child key, item arrays
+  ///
+  /// This function does the bare minimum of validation of the offsets and
+  /// input types, and will allocate a new offsets array if necessary (i.e. if
+  /// the offsets contain any nulls). If the offsets do not have nulls, they
+  /// are assumed to be well-formed
+  ///
+  /// \param[in] offsets Array containing n + 1 offsets encoding length and
+  /// size. Must be of int32 type
+  /// \param[in] keys Array containing key values
+  /// \param[in] items Array containing item values
+  /// \param[in] pool MemoryPool in case new offsets array needs to be
+  /// allocated because of null values
+  /// \param[out] out Will have length equal to offsets.length() - 1
+  static Status FromArrays(const std::shared_ptr<Array>& offsets,
+                           const std::shared_ptr<Array>& keys,
+                           const std::shared_ptr<Array>& items, MemoryPool* pool,
+                           std::shared_ptr<Array>* out);
 
   const MapType* map_type() const { return map_type_; }
 

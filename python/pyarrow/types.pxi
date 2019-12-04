@@ -282,6 +282,33 @@ cdef class LargeListType(DataType):
         return pyarrow_wrap_data_type(self.list_type.value_type())
 
 
+cdef class MapType(DataType):
+    """
+    Concrete class for map data types.
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        DataType.init(self, type)
+        self.map_type = <const CMapType*> type.get()
+
+    def __reduce__(self):
+        return map_, (self.key_type, self.item_type)
+
+    @property
+    def key_type(self):
+        """
+        The data type of keys in the map entries.
+        """
+        return pyarrow_wrap_data_type(self.map_type.key_type())
+
+    @property
+    def item_type(self):
+        """
+        The data type of items in the map entries.
+        """
+        return pyarrow_wrap_data_type(self.map_type.item_type())
+
+
 cdef class StructType(DataType):
     """
     Concrete class for struct data types.
@@ -1808,7 +1835,6 @@ cpdef ListType list_(value_type):
     list_type : DataType
     """
     cdef:
-        DataType data_type
         Field _field
         shared_ptr[CDataType] list_type
         ListType out = ListType.__new__(ListType)
@@ -1856,6 +1882,32 @@ cpdef LargeListType large_list(value_type):
 
     list_type.reset(new CLargeListType(_field.sp_field))
     out.init(list_type)
+    return out
+
+
+cpdef MapType map_(key_type, item_type, keys_sorted=False):
+    """
+    Create MapType instance from key and item data types
+
+    Parameters
+    ----------
+    key_type : DataType
+    item_type : DataType
+    keys_sorted : boolean
+
+    Returns
+    -------
+    map_type : DataType
+    """
+    cdef:
+        DataType _key_type = ensure_type(key_type, allow_none=False)
+        DataType _item_type = ensure_type(item_type, allow_none=False)
+        shared_ptr[CDataType] map_type
+        MapType out = MapType.__new__(MapType)
+
+    map_type.reset(new CMapType(_key_type.sp_type, _item_type.sp_type,
+                                keys_sorted))
+    out.init(map_type)
     return out
 
 

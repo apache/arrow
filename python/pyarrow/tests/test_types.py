@@ -54,6 +54,7 @@ def get_many_types():
         pa.large_binary(),
         pa.list_(pa.int32()),
         pa.large_list(pa.uint16()),
+        pa.map_(pa.string(), pa.int32()),
         pa.struct([pa.field('a', pa.int32()),
                    pa.field('b', pa.int8()),
                    pa.field('c', pa.string())]),
@@ -124,6 +125,18 @@ def test_is_list():
     assert not types.is_list(b)
 
     assert not types.is_list(pa.int32())
+
+
+def test_is_map():
+    m = pa.map_(pa.utf8(), pa.int32())
+
+    assert types.is_map(m)
+    assert not types.is_map(pa.int32())
+
+    entries_type = pa.struct([pa.field('key', pa.int8()),
+                              pa.field('value', pa.int8())])
+    list_type = pa.list_(entries_type)
+    assert not types.is_map(list_type)
 
 
 def test_is_dictionary():
@@ -284,6 +297,18 @@ def test_large_list_type():
 
     with pytest.raises(TypeError):
         pa.large_list(None)
+
+
+def test_map_type():
+    ty = pa.map_(pa.utf8(), pa.int32())
+    assert isinstance(ty, pa.MapType)
+    assert ty.key_type == pa.utf8()
+    assert ty.item_type == pa.int32()
+
+    with pytest.raises(TypeError):
+        pa.map_(None)
+    with pytest.raises(TypeError):
+        pa.map_(pa.int32(), None)
 
 
 def test_struct_type():
