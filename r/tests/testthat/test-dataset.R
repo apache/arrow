@@ -137,11 +137,11 @@ test_that("filter() on timestamp columns", {
   ds <- open_dataset(dataset_dir)
   expect_equivalent(
     ds %>%
-      # Replace `0L` with a proper lubriate object.
-      filter(ts >= 0L , part == 1) %>%
+      # Replace with expression with function once ARROW-7360 is fixed
+      filter(ts >= (as.integer(as.POSIXct(lubridate::ymd_hms("2015-04-29 03:12:39") + lubridate::days(5))) * 1000000), part == 1) %>%
       select(ts) %>%
       collect(),
-    df1[1:10, c("ts")],
+    df1[5:10, c("ts")],
   )
 })
 

@@ -46,7 +46,6 @@ class EqualityComparable {
   }
 
   bool operator==(const T& other) const { return cast().Equals(other); }
-
   bool operator!=(const T& other) const { return !(cast() == other); }
 
  private:

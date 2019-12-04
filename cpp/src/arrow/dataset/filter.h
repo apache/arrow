@@ -491,7 +491,7 @@ bool Expression::Equals(T&& t) const {
     return false;
   }
   auto s = MakeScalar(std::forward<T>(t));
-  return internal::checked_cast<const ScalarExpression&>(*this).value()->Equals(s);
+  return internal::checked_cast<const ScalarExpression&>(*this).value()->Equals(*s);
 }
 
 template <typename Visitor>

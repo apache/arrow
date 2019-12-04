@@ -30,6 +30,7 @@
 #include "arrow/util/formatting.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/parsing.h"
+#include "arrow/util/time.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -75,8 +76,6 @@ template <typename T, typename R = void>
 using enable_if_scalar_constructor_has_no_arrow_type =
     typename std::enable_if<!scalar_constructor_has_arrow_type<T>::value, R>::type;
 
-// TODO(bkietz) This doesn't need a factory. Just rewrite all scalars to be generically
-// constructible (is_simple_scalar should apply to all scalars)
 struct MakeNullImpl {
   template <typename T, typename ScalarType = typename TypeTraits<T>::ScalarType>
   enable_if_scalar_constructor_has_arrow_type<T, Status> Visit(const T&) {
@@ -217,8 +216,7 @@ CastImpl(const TemporalScalar<From>& from, NumericScalar<To>* to) {
 
 // timestamp to timestamp
 Status CastImpl(const TimestampScalar& from, TimestampScalar* to) {
-  to->value = from.value;
-  return Status::OK();
+  return util::ConvertTimestampValue(from.type, to->type, from.value).Value(&to->value);
 }
 
 // string to any

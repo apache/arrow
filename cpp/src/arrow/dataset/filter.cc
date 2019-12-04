@@ -704,7 +704,7 @@ bool ComparisonExpression::Equals(const Expression& other) const {
 
 bool ScalarExpression::Equals(const Expression& other) const {
   return other.type() == ExpressionType::SCALAR &&
-         value_->Equals(checked_cast<const ScalarExpression&>(other).value_);
+         value_->Equals(*checked_cast<const ScalarExpression&>(other).value_);
 }
 
 bool FieldExpression::Equals(const Expression& other) const {
@@ -880,9 +880,7 @@ Result<std::shared_ptr<DataType>> CastExpression::Validate(const Schema& schema)
   // if the operand is a scalar leaf.
   if (operand_->type() == ExpressionType::SCALAR) {
     auto scalar_expr = checked_pointer_cast<ScalarExpression>(operand_);
-    auto result = scalar_expr->value()->CastTo(to_type);
-    // Test if the cast is implemented.
-    RETURN_NOT_OK(result.status());
+    ARROW_ASSIGN_OR_RAISE(std::ignore, scalar_expr->value()->CastTo(to_type));
     return to_type;
   }
 
@@ -1214,7 +1212,7 @@ Result<std::shared_ptr<RecordBatch>> TreeEvaluator::Filter(
                                   selection.kind(), " of type ", *selection.type());
   }
 
-  if (BooleanScalar(true).Equals(selection.scalar())) {
+  if (BooleanScalar(true).Equals(*selection.scalar())) {
     return batch;
   }
 

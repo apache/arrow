@@ -37,6 +37,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/parsing.h"  // IWYU pragma: keep
+#include "arrow/util/time.h"
 #include "arrow/util/utf8.h"
 #include "arrow/visitor_inline.h"
 
@@ -407,8 +408,9 @@ struct CastFunctor<
 // From one timestamp to another
 
 template <typename in_type, typename out_type>
-void ShiftTime(FunctionContext* ctx, const CastOptions& options, const bool is_multiply,
-               const int64_t factor, const ArrayData& input, ArrayData* output) {
+void ShiftTime(FunctionContext* ctx, const CastOptions& options,
+               const util::DivideOrMultiply factor_op, const int64_t factor,
+               const ArrayData& input, ArrayData* output) {
   const in_type* in_data = input.GetValues<in_type>(1);
   auto out_data = output->GetMutableValues<out_type>(1);
 
@@ -416,7 +418,7 @@ void ShiftTime(FunctionContext* ctx, const CastOptions& options, const bool is_m
     for (int64_t i = 0; i < input.length; i++) {
       out_data[i] = static_cast<out_type>(in_data[i]);
     }
-  } else if (is_multiply) {
+  } else if (factor_op == util::MULTIPLY) {
     if (options.allow_time_overflow) {
       for (int64_t i = 0; i < input.length; i++) {
         out_data[i] = static_cast<out_type>(in_data[i] * factor);
@@ -488,18 +490,6 @@ void ShiftTime(FunctionContext* ctx, const CastOptions& options, const bool is_m
   }
 }
 
-namespace {
-
-// {is_multiply, factor}
-const std::pair<bool, int64_t> kTimeConversionTable[4][4] = {
-    {{true, 1}, {true, 1000}, {true, 1000000}, {true, 1000000000L}},     // SECOND
-    {{false, 1000}, {true, 1}, {true, 1000}, {true, 1000000}},           // MILLI
-    {{false, 1000000}, {false, 1000}, {true, 1}, {true, 1000}},          // MICRO
-    {{false, 1000000000L}, {false, 1000000}, {false, 1000}, {true, 1}},  // NANO
-};
-
-}  // namespace
-
 // <TimestampType, TimestampType> and <DurationType, DurationType>
 template <typename O, typename I>
 struct CastFunctor<
@@ -517,10 +507,8 @@ struct CastFunctor<
       return;
     }
 
-    std::pair<bool, int64_t> conversion =
-        kTimeConversionTable[static_cast<int>(in_type.unit())]
-                            [static_cast<int>(out_type.unit())];
-
+    auto conversion = util::kTimestampConversionTable[static_cast<int>(in_type.unit())]
+                                                     [static_cast<int>(out_type.unit())];
     ShiftTime<int64_t, int64_t>(ctx, options, conversion.first, conversion.second, input,
                                 output);
   }
@@ -540,7 +528,7 @@ struct CastFunctor<Date32Type, TimestampType> {
     };
 
     const int64_t factor = kTimestampToDateFactors[static_cast<int>(in_type.unit())];
-    ShiftTime<int64_t, int32_t>(ctx, options, false, factor, input, output);
+    ShiftTime<int64_t, int32_t>(ctx, options, util::DIVIDE, factor, input, output);
   }
 };
 
@@ -550,10 +538,8 @@ struct CastFunctor<Date64Type, TimestampType> {
                   const ArrayData& input, ArrayData* output) {
     const auto& in_type = checked_cast<const TimestampType&>(*input.type);
 
-    std::pair<bool, int64_t> conversion =
-        kTimeConversionTable[static_cast<int>(in_type.unit())]
-                            [static_cast<int>(TimeUnit::MILLI)];
-
+    auto conversion = util::kTimestampConversionTable[static_cast<int>(in_type.unit())]
+                                                     [static_cast<int>(TimeUnit::MILLI)];
     ShiftTime<int64_t, int64_t>(ctx, options, conversion.first, conversion.second, input,
                                 output);
     if (!ctx->status().ok()) {
@@ -611,9 +597,8 @@ struct CastFunctor<O, I, enable_if_t<is_time_type<I>::value && is_time_type<O>::
       return;
     }
 
-    std::pair<bool, int64_t> conversion =
-        kTimeConversionTable[static_cast<int>(in_type.unit())]
-                            [static_cast<int>(out_type.unit())];
+    auto conversion = util::kTimestampConversionTable[static_cast<int>(in_type.unit())]
+                                                     [static_cast<int>(out_type.unit())];
 
     ShiftTime<in_t, out_t>(ctx, options, conversion.first, conversion.second, input,
                            output);
@@ -627,7 +612,8 @@ template <>
 struct CastFunctor<Date64Type, Date32Type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
-    ShiftTime<int32_t, int64_t>(ctx, options, true, kMillisecondsInDay, input, output);
+    ShiftTime<int32_t, int64_t>(ctx, options, util::MULTIPLY, kMillisecondsInDay, input,
+                                output);
   }
 };
 
@@ -635,7 +621,8 @@ template <>
 struct CastFunctor<Date32Type, Date64Type> {
   void operator()(FunctionContext* ctx, const CastOptions& options,
                   const ArrayData& input, ArrayData* output) {
-    ShiftTime<int64_t, int32_t>(ctx, options, false, kMillisecondsInDay, input, output);
+    ShiftTime<int64_t, int32_t>(ctx, options, util::DIVIDE, kMillisecondsInDay, input,
+                                output);
   }
 };
 

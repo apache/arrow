@@ -33,6 +33,7 @@
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/compare.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string_view.h"
@@ -44,7 +45,7 @@ class Array;
 
 /// \brief Base class for scalar values, representing a single value occupying
 /// an array "slot"
-struct ARROW_EXPORT Scalar {
+struct ARROW_EXPORT Scalar : public util::EqualityComparable<Scalar> {
   virtual ~Scalar() = default;
 
   explicit Scalar(const std::shared_ptr<DataType>& type) : type(type), is_valid(false) {}
@@ -56,10 +57,6 @@ struct ARROW_EXPORT Scalar {
   bool is_valid = false;
 
   bool Equals(const Scalar& other) const;
-  bool Equals(const std::shared_ptr<Scalar>& other) const {
-    if (other) return Equals(*other);
-    return false;
-  }
 
   std::string ToString() const;
 
@@ -101,7 +98,7 @@ struct ARROW_EXPORT PrimitiveScalar : public Scalar {
 
   PrimitiveScalar() : Scalar(TypeTraits<T>::type_singleton()) {}
 
-  ValueType value;
+  ValueType value{};
 };
 
 }  // namespace internal
