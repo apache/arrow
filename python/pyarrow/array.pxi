@@ -1134,8 +1134,7 @@ cdef class Array(_PandasConvertible):
 
         This is a low-level function intended for expert users.
         """
-        cdef shared_ptr[CArray] result
-        check_status(ImportArray(<ArrowArray*> in_ptr, &result))
+        result = GetResultValue(ImportArray(<ArrowArray*> in_ptr))
         return pyarrow_wrap_array(result)
 
 

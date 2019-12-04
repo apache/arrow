@@ -69,9 +69,9 @@ Status ExportRecordBatch(const RecordBatch& batch, struct ArrowArray* out);
 /// specification) to a private object held alive by the resulting array.
 ///
 /// \param[in,out] array C data interface struct holding the array data
-/// \param[out] out Imported array object
+/// \return Imported array object
 ARROW_EXPORT
-Status ImportArray(struct ArrowArray* array, std::shared_ptr<Array>* out);
+Result<std::shared_ptr<Array>> ImportArray(struct ArrowArray* array);
 
 /// \brief Import C++ array and field from the C data interface.
 ///
@@ -94,8 +94,8 @@ Status ImportArray(struct ArrowArray* array, std::shared_ptr<Field>* out_field,
 /// specification) to a private object held alive by the resulting record batch.
 ///
 /// \param[in,out] array C data interface struct holding the record batch data
-/// \param[out] out Imported record batch object
+/// \return Imported record batch object
 ARROW_EXPORT
-Status ImportRecordBatch(struct ArrowArray* array, std::shared_ptr<RecordBatch>* out);
+Result<std::shared_ptr<RecordBatch>> ImportRecordBatch(struct ArrowArray* array);
 
 }  // namespace arrow

@@ -21,24 +21,22 @@
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Array> ImportArray(uintptr_t array) {
-  std::shared_ptr<arrow::Array> out;
-  STOP_IF_NOT_OK(arrow::ImportArray(reinterpret_cast<struct ArrowArray*>(array), &out));
-  return out;
+  return VALUE_OR_STOP(arrow::ImportArray(reinterpret_cast<struct ArrowArray*>(array)));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::RecordBatch> ImportRecordBatch(uintptr_t array) {
-  std::shared_ptr<arrow::RecordBatch> out;
-  STOP_IF_NOT_OK(
-      arrow::ImportRecordBatch(reinterpret_cast<struct ArrowArray*>(array), &out));
-  return out;
+  return VALUE_OR_STOP(
+      arrow::ImportRecordBatch(reinterpret_cast<struct ArrowArray*>(array)));
 }
 
 // [[arrow::export]]
 uintptr_t allocate_arrow_array() { return reinterpret_cast<uintptr_t>(new ArrowArray); }
 
 // [[arrow::export]]
-void delete_arrow_array(uintptr_t ptr) { delete reinterpret_cast<struct ArrowArray*>(ptr); }
+void delete_arrow_array(uintptr_t ptr) {
+  delete reinterpret_cast<struct ArrowArray*>(ptr);
+}
 
 // [[arrow::export]]
 void ExportArray(const std::shared_ptr<arrow::Array>& array, uintptr_t ptr) {

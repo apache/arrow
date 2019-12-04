@@ -923,8 +923,7 @@ class TestImport : public ::testing::Test {
   void CheckImport(const std::shared_ptr<Array>& expected) {
     ReleaseCallback cb(&c_struct_);
 
-    std::shared_ptr<Array> array;
-    ASSERT_OK(ImportArray(&c_struct_, &array));
+    ASSERT_OK_AND_ASSIGN(auto array, ImportArray(&c_struct_));
     ASSERT_TRUE(ArrowIsReleased(&c_struct_));  // was moved
     ASSERT_OK(array->ValidateFull());
     // Special case: Null array doesn't have any data, so it needn't
@@ -940,8 +939,7 @@ class TestImport : public ::testing::Test {
   void CheckImportError() {
     ReleaseCallback cb(&c_struct_);
 
-    std::shared_ptr<Array> array;
-    ASSERT_RAISES(Invalid, ImportArray(&c_struct_, &array));
+    ASSERT_RAISES(Invalid, ImportArray(&c_struct_));
     ASSERT_TRUE(ArrowIsReleased(&c_struct_));  // was moved
     // The ArrowArray should have been released.
     cb.AssertCalled();
@@ -950,8 +948,7 @@ class TestImport : public ::testing::Test {
   void CheckImportAsRecordBatchError() {
     ReleaseCallback cb(&c_struct_);
 
-    std::shared_ptr<RecordBatch> batch;
-    ASSERT_RAISES(Invalid, ImportRecordBatch(&c_struct_, &batch));
+    ASSERT_RAISES(Invalid, ImportRecordBatch(&c_struct_));
     ASSERT_TRUE(ArrowIsReleased(&c_struct_));  // was moved
     // The ArrowArray should have been released.
     cb.AssertCalled();
@@ -1385,7 +1382,7 @@ TEST_F(TestImport, AsRecordBatch) {
     FillStructLike("+s", 3, 0, 0, {"strs", "ints"}, buffers_no_nulls_no_data);
 
     ReleaseCallback cb(&c_struct_);
-    ASSERT_OK(ImportRecordBatch(&c_struct_, &batch));
+    ASSERT_OK_AND_ASSIGN(batch, ImportRecordBatch(&c_struct_));
     ASSERT_TRUE(ArrowIsReleased(&c_struct_));  // was moved
     ASSERT_OK(batch->ValidateFull());
     ASSERT_EQ(batch->num_columns(), 2);
@@ -1409,7 +1406,7 @@ TEST_F(TestImport, AsRecordBatch) {
         {f0, f1}, key_value_metadata(kMetadataKeys1, kMetadataValues1));
 
     ReleaseCallback cb(&c_struct_);
-    ASSERT_OK(ImportRecordBatch(&c_struct_, &batch));
+    ASSERT_OK_AND_ASSIGN(batch, ImportRecordBatch(&c_struct_));
     ASSERT_TRUE(ArrowIsReleased(&c_struct_));  // was moved
     ASSERT_OK(batch->ValidateFull());
     ASSERT_EQ(batch->num_columns(), 2);
@@ -1481,14 +1478,14 @@ class TestRoundtrip : public ::testing::Test {
 
     arr.reset();
     ASSERT_EQ(pool_->bytes_allocated(), new_bytes);
-    ASSERT_OK(ImportArray(&c_export, &arr));
+    ASSERT_OK_AND_ASSIGN(arr, ImportArray(&c_export));
     ASSERT_OK(arr->ValidateFull());
     ASSERT_TRUE(ArrowIsReleased(&c_export));
 
     // Re-export and re-import
     ASSERT_OK(ExportArray(*arr, &c_export));
     arr.reset();
-    ASSERT_OK(ImportArray(&c_export, &arr));
+    ASSERT_OK_AND_ASSIGN(arr, ImportArray(&c_export));
     ASSERT_OK(arr->ValidateFull());
     ASSERT_TRUE(ArrowIsReleased(&c_export));
 
@@ -1519,14 +1516,14 @@ class TestRoundtrip : public ::testing::Test {
     auto new_bytes = pool_->bytes_allocated();
     batch.reset();
     ASSERT_EQ(pool_->bytes_allocated(), new_bytes);
-    ASSERT_OK(ImportRecordBatch(&c_export, &batch));
+    ASSERT_OK_AND_ASSIGN(batch, ImportRecordBatch(&c_export));
     ASSERT_OK(batch->ValidateFull());
     ASSERT_TRUE(ArrowIsReleased(&c_export));
 
     // Re-export and re-import
     ASSERT_OK(ExportRecordBatch(*batch, &c_export));
     batch.reset();
-    ASSERT_OK(ImportRecordBatch(&c_export, &batch));
+    ASSERT_OK_AND_ASSIGN(batch, ImportRecordBatch(&c_export));
     ASSERT_OK(batch->ValidateFull());
     ASSERT_TRUE(ArrowIsReleased(&c_export));
 

@@ -1732,10 +1732,10 @@ cdef extern from 'arrow/c/abi.h':
 
 cdef extern from 'arrow/c/bridge.h' namespace 'arrow' nogil:
     CStatus ExportArray(CArray& array, ArrowArray* out)
-    CStatus ImportArray(ArrowArray* array, shared_ptr[CArray]* out)
+    CResult[shared_ptr[CArray]] ImportArray(ArrowArray* array)
 
     CStatus ExportRecordBatch(CRecordBatch& batch, ArrowArray* out)
-    CStatus ImportRecordBatch(ArrowArray* array, shared_ptr[CRecordBatch]* out)
+    CResult[shared_ptr[CRecordBatch]] ImportRecordBatch(ArrowArray* array)
 
 cdef extern from "<utility>" namespace "std":
     # Work around https://github.com/cython/cython/issues/2169

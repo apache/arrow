@@ -727,27 +727,24 @@ struct ArrayImporter {
     return DoImport();
   }
 
-  Status MakeField(std::shared_ptr<Field>* out) {
+  Result<std::shared_ptr<Field>> MakeField() {
     std::shared_ptr<KeyValueMetadata> metadata;
     RETURN_NOT_OK(DecodeMetadata(c_struct_->metadata, &metadata));
     const char* name = c_struct_->name ? c_struct_->name : "";
     bool nullable = (c_struct_->flags & ARROW_FLAG_NULLABLE) != 0;
-    *out = field(name, data_->type, nullable, metadata);
-    return Status::OK();
+    return field(name, data_->type, nullable, metadata);
   }
 
-  Status Finish(std::shared_ptr<Array>* out) {
+  Result<std::shared_ptr<Array>> Finish() {
     if (dict_importer_ != nullptr) {
-      std::shared_ptr<Array> indices, values;
-      indices = MakeArray(data_);
-      RETURN_NOT_OK(dict_importer_->Finish(&values));
+      auto indices = MakeArray(data_);
+      ARROW_ASSIGN_OR_RAISE(auto values, dict_importer_->Finish());
       bool ordered = (c_struct_->flags & ARROW_FLAG_DICTIONARY_ORDERED) != 0;
       auto type = dictionary(indices->type(), values->type(), ordered);
-      *out = std::make_shared<DictionaryArray>(type, indices, values);
+      return std::make_shared<DictionaryArray>(type, indices, values);
     } else {
-      *out = MakeArray(data_);
+      return MakeArray(data_);
     }
-    return Status::OK();
   }
 
  protected:
@@ -981,8 +978,7 @@ struct ArrayImporter {
   Status ProcessListLike() {
     RETURN_NOT_OK(f_parser_.CheckAtEnd());
     RETURN_NOT_OK(CheckNumChildren(1));
-    std::shared_ptr<Field> field;
-    RETURN_NOT_OK(MakeChildField(0, &field));
+    ARROW_ASSIGN_OR_RAISE(auto field, MakeChildField(0));
     auto type = std::make_shared<ListType>(field);
     RETURN_NOT_OK(CheckNumBuffers(type, 2));
     RETURN_NOT_OK(AllocateArrayData(type));
@@ -994,8 +990,7 @@ struct ArrayImporter {
   Status ProcessMap() {
     RETURN_NOT_OK(f_parser_.CheckAtEnd());
     RETURN_NOT_OK(CheckNumChildren(1));
-    std::shared_ptr<Field> field;
-    RETURN_NOT_OK(MakeChildField(0, &field));
+    ARROW_ASSIGN_OR_RAISE(auto field, MakeChildField(0));
     const auto& value_type = field->type();
     if (value_type->id() != Type::STRUCT) {
       return Status::Invalid("Imported map array has unexpected child field type: ",
@@ -1025,8 +1020,7 @@ struct ArrayImporter {
       return f_parser_.Invalid();
     }
     RETURN_NOT_OK(CheckNumChildren(1));
-    std::shared_ptr<Field> field;
-    RETURN_NOT_OK(MakeChildField(0, &field));
+    ARROW_ASSIGN_OR_RAISE(auto field, MakeChildField(0));
     auto type = fixed_size_list(field, list_size);
     RETURN_NOT_OK(CheckNumBuffers(type, 1));
     RETURN_NOT_OK(AllocateArrayData(type));
@@ -1036,8 +1030,7 @@ struct ArrayImporter {
 
   Status ProcessStruct() {
     RETURN_NOT_OK(f_parser_.CheckAtEnd());
-    std::vector<std::shared_ptr<Field>> fields;
-    RETURN_NOT_OK(MakeChildFields(&fields));
+    ARROW_ASSIGN_OR_RAISE(auto fields, MakeChildFields());
     auto type = struct_(std::move(fields));
     RETURN_NOT_OK(CheckNumBuffers(type, 1));
     RETURN_NOT_OK(AllocateArrayData(type));
@@ -1061,8 +1054,7 @@ struct ArrayImporter {
     RETURN_NOT_OK(f_parser_.CheckNext(':'));
     std::vector<int8_t> type_codes;
     RETURN_NOT_OK(f_parser_.ParseInts(f_parser_.Rest(), &type_codes));
-    std::vector<std::shared_ptr<Field>> fields;
-    RETURN_NOT_OK(MakeChildFields(&fields));
+    ARROW_ASSIGN_OR_RAISE(auto fields, MakeChildFields());
     if (fields.size() != type_codes.size()) {
       return Status::Invalid(
           "ArrowArray struct number of children incompatible with format string '",
@@ -1107,21 +1099,20 @@ struct ArrayImporter {
     return Status::OK();
   }
 
-  Status MakeChildField(int64_t child_id, std::shared_ptr<Field>* out) {
+  Result<std::shared_ptr<Field>> MakeChildField(int64_t child_id) {
     const auto& child = child_importers_[child_id];
     if (child->c_struct_->name == nullptr) {
       return Status::Invalid("Expected non-null name in imported array child");
     }
-    return child->MakeField(out);
+    return child->MakeField();
   }
 
-  Status MakeChildFields(std::vector<std::shared_ptr<Field>>* out) {
+  Result<std::vector<std::shared_ptr<Field>>> MakeChildFields() {
     std::vector<std::shared_ptr<Field>> fields(child_importers_.size());
     for (int64_t i = 0; i < static_cast<int64_t>(child_importers_.size()); ++i) {
-      RETURN_NOT_OK(MakeChildField(i, &fields[i]));
+      ARROW_ASSIGN_OR_RAISE(fields[i], MakeChildField(i));
     }
-    *out = std::move(fields);
-    return Status::OK();
+    return fields;
   }
 
   Status CheckNoChildren(const std::shared_ptr<DataType>& type) {
@@ -1230,21 +1221,21 @@ struct ArrayImporter {
 
 }  // namespace
 
-Status ImportArray(struct ArrowArray* array, std::shared_ptr<Array>* out) {
+Result<std::shared_ptr<Array>> ImportArray(struct ArrowArray* array) {
   ArrayImporter importer;
   RETURN_NOT_OK(importer.Import(array));
-  return importer.Finish(out);
+  return importer.Finish();
 }
 
 Status ImportArray(struct ArrowArray* array, std::shared_ptr<Field>* out_field,
                    std::shared_ptr<Array>* out_array) {
   ArrayImporter importer;
   RETURN_NOT_OK(importer.Import(array));
-  RETURN_NOT_OK(importer.MakeField(out_field));
-  return importer.Finish(out_array);
+  RETURN_NOT_OK(importer.MakeField().Value(out_field));
+  return importer.Finish().Value(out_array);
 }
 
-Status ImportRecordBatch(struct ArrowArray* array, std::shared_ptr<RecordBatch>* out) {
+Result<std::shared_ptr<RecordBatch>> ImportRecordBatch(struct ArrowArray* array) {
   std::shared_ptr<Array> array_result;
   std::shared_ptr<Field> field_result;
   RETURN_NOT_OK(ImportArray(array, &field_result, &array_result));
@@ -1260,9 +1251,9 @@ Status ImportRecordBatch(struct ArrowArray* array, std::shared_ptr<RecordBatch>*
         "Imported array has non-zero offset, "
         "cannot convert to RecordBatch");
   }
-  RETURN_NOT_OK(RecordBatch::FromStructArray(array_result, out));
-  *out = (*out)->ReplaceSchemaMetadata(field_result->metadata());
-  return Status::OK();
+  std::shared_ptr<RecordBatch> batch;
+  RETURN_NOT_OK(RecordBatch::FromStructArray(array_result, &batch));
+  return batch->ReplaceSchemaMetadata(field_result->metadata());
 }
 
 }  // namespace arrow

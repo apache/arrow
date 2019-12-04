@@ -881,8 +881,7 @@ cdef class RecordBatch(_PandasConvertible):
 
         This is a low-level function intended for expert users.
         """
-        cdef shared_ptr[CRecordBatch] result
-        check_status(ImportRecordBatch(<ArrowArray*> in_ptr, &result))
+        result = GetResultValue(ImportRecordBatch(<ArrowArray*> in_ptr))
         return pyarrow_wrap_batch(result)
 
 
