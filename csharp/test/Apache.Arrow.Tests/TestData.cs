@@ -44,12 +44,14 @@ namespace Apache.Arrow.Tests
                 builder.Field(CreateField(DoubleType.Default, i));
                 builder.Field(CreateField(Date32Type.Default, i));
                 builder.Field(CreateField(Date64Type.Default, i));
+                builder.Field(CreateField(TimestampType.Default, i));
+                builder.Field(CreateField(StringType.Default, i));
+                //builder.Field(CreateField(new FixedSizeBinaryType(16), i));
                 //builder.Field(CreateField(new DecimalType(19, 2)));
                 //builder.Field(CreateField(HalfFloatType.Default));
                 //builder.Field(CreateField(StringType.Default));
                 //builder.Field(CreateField(Time32Type.Default));
                 //builder.Field(CreateField(Time64Type.Default));
-                //builder.Field(CreateField(TimestampType.Default));
             }
 
             Schema schema = builder.Build();
@@ -78,16 +80,14 @@ namespace Apache.Arrow.Tests
 
         private static IArrowArray CreateArray(Field field, int length)
         {
-            var creator = new ArrayBufferCreator(length);
+            var creator = new ArrayCreator(length);
+
             field.DataType.Accept(creator);
 
-            ArrayData data = new ArrayData(field.DataType, length, 0, 0,
-                    new[] { ArrowBuffer.Empty, creator.Buffer });
-
-            return ArrowArrayFactory.BuildArray(data);
+            return creator.Array;
         }
 
-        private class ArrayBufferCreator :
+        private class ArrayCreator :
             IArrowTypeVisitor<BooleanType>,
             IArrowTypeVisitor<Date32Type>,
             IArrowTypeVisitor<Date64Type>,
@@ -100,78 +100,94 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<UInt32Type>,
             IArrowTypeVisitor<UInt64Type>,
             IArrowTypeVisitor<FloatType>,
-            IArrowTypeVisitor<DoubleType>
+            IArrowTypeVisitor<DoubleType>,
+            IArrowTypeVisitor<TimestampType>,
+            IArrowTypeVisitor<StringType>
         {
-            private readonly int _length;
-            public ArrowBuffer Buffer { get; private set; }
+            private int Length { get; }
+            public IArrowArray Array { get; private set; }
 
-            public ArrayBufferCreator(int length)
+            public ArrayCreator(int length)
             {
-                _length = length;
+                Length = length;
             }
 
-            public void Visit(BooleanType type)
-            {
-                ArrowBuffer.Builder<bool> builder = new ArrowBuffer.Builder<bool>(_length);
-                for (int i = 0; i < _length; i++)
-                    builder.Append(i % 2 == 0);
+            public void Visit(BooleanType type) => GenerateArray(new BooleanArray.Builder(), x => x % 2 == 0);
+            public void Visit(Int8Type type) => GenerateArray(new Int8Array.Builder(), x => (sbyte)x);
+            public void Visit(Int16Type type) => GenerateArray(new Int16Array.Builder(), x => (short)x);
+            public void Visit(Int32Type type) => GenerateArray(new Int32Array.Builder(), x => x);
+            public void Visit(Int64Type type) => GenerateArray(new Int64Array.Builder(), x => x);
+            public void Visit(UInt8Type type) => GenerateArray(new UInt8Array.Builder(), x => (byte)x);
+            public void Visit(UInt16Type type) => GenerateArray(new UInt16Array.Builder(), x => (ushort)x);
+            public void Visit(UInt32Type type) => GenerateArray(new UInt32Array.Builder(), x => (uint)x);
+            public void Visit(UInt64Type type) => GenerateArray(new UInt64Array.Builder(), x => (ulong)x);
+            public void Visit(FloatType type) => GenerateArray(new FloatArray.Builder(), x => ((float)x / Length));
+            public void Visit(DoubleType type) => GenerateArray(new DoubleArray.Builder(), x => ((double)x / Length));
 
-                Buffer = builder.Build();
+            public void Visit(Date32Type type)
+            {
+                var builder = new Date32Array.Builder().Reserve(Length);
+                var basis = DateTimeOffset.UtcNow.AddDays(-Length);
+
+                for (var i = 0; i < Length; i++)
+                {
+                    builder.Append(basis.AddDays(i));
+                }
+
+                Array = builder.Build();
             }
 
-            public void Visit(Int8Type type)
+            public void Visit(Date64Type type)
             {
-                ArrowBuffer.Builder<sbyte> builder = new ArrowBuffer.Builder<sbyte>(_length);
-                for (int i = 0; i < _length; i++)
-                    builder.Append((sbyte)i);
+                var builder = new Date64Array.Builder().Reserve(Length);
+                var basis = DateTimeOffset.UtcNow.AddSeconds(-Length);
 
-                Buffer = builder.Build();
+                for (var i = 0; i < Length; i++)
+                {
+                    builder.Append(basis.AddSeconds(i));
+                }
+
+                Array = builder.Build();
             }
 
-            public void Visit(UInt8Type type)
+            public void Visit(TimestampType type)
             {
-                ArrowBuffer.Builder<byte> builder = new ArrowBuffer.Builder<byte>(_length);
-                for (int i = 0; i < _length; i++)
-                    builder.Append((byte)i);
+                var builder = new TimestampArray.Builder().Reserve(Length);
+                var basis = DateTimeOffset.UtcNow.AddMilliseconds(-Length);
 
-                Buffer = builder.Build();
+                for (var i = 0; i < Length; i++)
+                {
+                    builder.Append(basis.AddMilliseconds(i));
+                }
+
+                Array = builder.Build();
             }
 
-            public void Visit(Int16Type type)
+            public void Visit(StringType type)
             {
-                ArrowBuffer.Builder<short> builder = new ArrowBuffer.Builder<short>(_length);
-                for (int i = 0; i < _length; i++)
-                    builder.Append((short)i);
+                var str = "helloworld";
+                var builder = new StringArray.Builder();
 
-                Buffer = builder.Build();
+                for (var i = 0; i < Length; i++)
+                {
+                    builder.Append(str);
+                }
+
+                Array = builder.Build();
             }
 
-            public void Visit(UInt16Type type)
-            {
-                ArrowBuffer.Builder<ushort> builder = new ArrowBuffer.Builder<ushort>(_length);
-                for (int i = 0; i < _length; i++)
-                    builder.Append((ushort)i);
-
-                Buffer = builder.Build();
-            }
-
-            public void Visit(Int32Type type) => CreateNumberArray<int>(type);
-            public void Visit(UInt32Type type) => CreateNumberArray<uint>(type);
-            public void Visit(Int64Type type) => CreateNumberArray<long>(type);
-            public void Visit(UInt64Type type) => CreateNumberArray<ulong>(type);
-            public void Visit(FloatType type) => CreateNumberArray<float>(type);
-            public void Visit(DoubleType type) => CreateNumberArray<double>(type);
-            public void Visit(Date32Type type) => CreateNumberArray<int>(type);
-            public void Visit(Date64Type type) => CreateNumberArray<long>(type);
-
-            private void CreateNumberArray<T>(IArrowType type)
+            private void GenerateArray<T, TArray, TArrayBuilder>(IArrowArrayBuilder<T, TArray, TArrayBuilder> builder, Func<int, T> generator)
+                where TArrayBuilder : IArrowArrayBuilder<T, TArray, TArrayBuilder>
+                where TArray : IArrowArray
                 where T : struct
             {
-                ArrowBuffer.Builder<T> builder = new ArrowBuffer.Builder<T>(_length);
-                for (int i = 0; i < _length; i++)
-                    builder.Append((T)Convert.ChangeType(i, typeof(T)));
+                for (var i = 0; i < Length; i++)
+                {
+                    var value = generator(i);
+                    builder.Append(value);
+                }
 
-                Buffer = builder.Build();
+                Array = builder.Build(default);
             }
 
             public void Visit(IArrowType type)

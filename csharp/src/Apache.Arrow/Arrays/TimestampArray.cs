@@ -42,16 +42,20 @@ namespace Apache.Arrow
                         length, nullCount, offset);
             }
 
+            protected TimestampType Type { get; }
             protected TimeZoneInfo TimeZone { get; }
-            protected TimeUnit Unit { get; }
 
-            public Builder(TimeUnit unit = TimeUnit.Millisecond, string timezone = null)
-                : base(new TimestampBuilder(new TimestampType(unit, timezone)))
+            public Builder(TimeUnit unit, TimeZoneInfo timezone)
+                : this(new TimestampType(unit, timezone)) { }
+
+            public Builder(TimeUnit unit = TimeUnit.Millisecond, string timezone = "UTC")
+                : this(new TimestampType(unit, timezone)) { }
+
+            public Builder(TimestampType type)
+                : base(new TimestampBuilder(type))
             {
-                Unit = unit;
-                TimeZone = string.IsNullOrEmpty(timezone) 
-                               ? TimeZoneInfo.Utc
-                               : TimeZoneInfo.FindSystemTimeZoneById(timezone) ?? TimeZoneInfo.Utc;
+                Type = type;
+                TimeZone = type.GetTimeZoneInfo() ?? TimeZoneInfo.Utc;
             }
 
             protected override long ConvertTo(DateTimeOffset value)
@@ -65,7 +69,7 @@ namespace Apache.Arrow
                 var span = value.ToOffset(TimeZone.BaseUtcOffset) - Epoch;
                 var ticks = span.Ticks;
 
-                switch (Unit)
+                switch (Type.Unit)
                 {
                     case TimeUnit.Nanosecond:
                         return ticks / 100;
@@ -76,7 +80,7 @@ namespace Apache.Arrow
                     case TimeUnit.Second:
                         return ticks / TimeSpan.TicksPerSecond;
                     default:
-                        throw new InvalidOperationException($"unsupported time unit <{Unit}>");
+                        throw new InvalidOperationException($"unsupported time unit <{Type.Unit}>");
                 }
             }
         }
@@ -88,17 +92,15 @@ namespace Apache.Arrow
             ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
             int length, int nullCount, int offset)
             : this(new ArrayData(type, length, nullCount, offset,
-                new[] {nullBitmapBuffer, valueBuffer}))
-        {
-            TimeZone = type.Timezone != null 
-                ? TimeZoneInfo.FindSystemTimeZoneById(type.Timezone) ?? TimeZoneInfo.Utc
-                : TimeZoneInfo.Utc;
-        }
+                new[] {nullBitmapBuffer, valueBuffer})) { }
 
         public TimestampArray(ArrayData data)
             : base(data)
         {
             data.EnsureDataType(ArrowTypeId.Timestamp);
+
+            var type = (TimestampType)data.DataType;
+            TimeZone = type.GetTimeZoneInfo() ?? TimeZoneInfo.Utc;
         }
 
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
@@ -112,8 +114,8 @@ namespace Apache.Arrow
 
             Debug.Assert((Data.DataType as TimestampType) != null);
 
+            var type = (TimestampType)Data.DataType;
             var value = Values[index];
-            var type = (TimestampType) Data.DataType;
 
             long ticks;
 
@@ -140,5 +142,6 @@ namespace Apache.Arrow
                 Epoch.Ticks + TimeZone.BaseUtcOffset.Ticks + ticks,
                 TimeZone.BaseUtcOffset);
         }
+
     }
 }
