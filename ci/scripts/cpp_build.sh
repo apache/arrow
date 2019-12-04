@@ -31,13 +31,22 @@ elif [ -x "$(command -v xcrun)" ]; then
   export ARROW_GANDIVA_PC_CXX_FLAGS="-isysroot;$(xcrun --show-sdk-path)"
 fi
 
-export ARROW_USE_CCACHE=${ARROW_USE_CCACHE:-ON}
+# We know ccache is installed by default in most Linux development builds
+# (and docker containers)
+uname=$(uname -s)
+case "${uname}" in
+    Linux*)     ccache_default=ON;;
+    *)          ccache_default=OFF;;
+esac
+
+export ARROW_USE_CCACHE=${ARROW_USE_CCACHE:-$ccache_default}
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
     export CCACHE_COMPILERCHECK=content
     export CCACHE_COMPRESS=1
     export CCACHE_COMPRESSLEVEL=5
-    export CCACHE_DIR=/build/ccache
+    # Typically /build/ccache
+    export CCACHE_DIR=${build_dir}/../ccache
     export CCACHE_MAXSIZE=500M
     export PATH=/usr/lib/ccache/:$PATH
 
