@@ -817,7 +817,7 @@ class MapConverter : public ListConverter<MapType, null_coding> {
   using BASE = ListConverter<MapType, null_coding>;
 
   explicit MapConverter(bool from_pandas, bool strict_conversions)
-      : BASE(from_pandas, strict_conversions) {}
+      : BASE(from_pandas, strict_conversions), key_builder_(nullptr) {}
 
   Status AppendSingleVirtual(PyObject* obj) override {
     RETURN_NOT_OK(BASE::AppendSingleVirtual(obj));
@@ -836,13 +836,21 @@ class MapConverter : public ListConverter<MapType, null_coding> {
 
  protected:
   Status VerifyLastStructAppended() {
-    auto struct_builder = checked_cast<StructBuilder*>(BASE::value_converter_->builder());
-    auto key_builder = struct_builder->field_builder(0);
-    if (key_builder->null_count() > 0) {
+    // The struct_builder may not have field_builders initialized in constructor, so
+    // assign key_builder lazily
+    if (key_builder_ == nullptr) {
+      auto struct_builder =
+          checked_cast<StructBuilder*>(BASE::value_converter_->builder());
+      key_builder_ = struct_builder->field_builder(0);
+    }
+    if (key_builder_->null_count() > 0) {
       return Status::Invalid("Invalid Map: key field can not contain null values");
     }
     return Status::OK();
   }
+
+ private:
+  ArrayBuilder* key_builder_;
 };
 
 // ----------------------------------------------------------------------
