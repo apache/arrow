@@ -390,10 +390,10 @@ class RecordBatchSerializer : public ArrayVisitor {
     const int64_t offset = array.offset();
     const int64_t length = array.length();
 
-    std::shared_ptr<Buffer> type_ids;
-    RETURN_NOT_OK(GetTruncatedBuffer<UnionArray::type_id_t>(
-        offset, length, array.type_ids(), pool_, &type_ids));
-    out_->body_buffers.emplace_back(type_ids);
+    std::shared_ptr<Buffer> type_codes;
+    RETURN_NOT_OK(GetTruncatedBuffer<UnionArray::type_code_t>(
+        offset, length, array.type_codes(), pool_, &type_codes));
+    out_->body_buffers.emplace_back(type_codes);
 
     --max_recursion_depth_;
     if (array.mode() == UnionMode::DENSE) {
@@ -422,7 +422,7 @@ class RecordBatchSerializer : public ArrayVisitor {
         // the value_offsets for each array
 
         const int32_t* unshifted_offsets = array.raw_value_offsets();
-        const int8_t* type_ids = array.raw_type_ids();
+        const int8_t* type_codes = array.raw_type_codes();
 
         // Allocate the shifted offsets
         std::shared_ptr<Buffer> shifted_offsets_buffer;
@@ -434,7 +434,7 @@ class RecordBatchSerializer : public ArrayVisitor {
         // Offsets may not be ascending, so we need to find out the start offset
         // for each child
         for (int64_t i = 0; i < length; ++i) {
-          const uint8_t code = type_ids[i];
+          const uint8_t code = type_codes[i];
           if (child_offsets[code] == -1) {
             child_offsets[code] = unshifted_offsets[i];
           } else {
@@ -444,7 +444,7 @@ class RecordBatchSerializer : public ArrayVisitor {
 
         // Now compute shifted offsets by subtracting child offset
         for (int64_t i = 0; i < length; ++i) {
-          const int8_t code = type_ids[i];
+          const int8_t code = type_codes[i];
           shifted_offsets[i] = unshifted_offsets[i] - child_offsets[code];
           // Update the child length to account for observed value
           child_lengths[code] = std::max(child_lengths[code], shifted_offsets[i] + 1);

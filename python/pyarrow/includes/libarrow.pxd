@@ -474,19 +474,19 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
     cdef cppclass CUnionArray" arrow::UnionArray"(CArray):
         @staticmethod
-        CStatus MakeSparse(const CArray& type_ids,
+        CStatus MakeSparse(const CArray& type_codes,
                            const vector[shared_ptr[CArray]]& children,
                            const vector[c_string]& field_names,
                            const vector[int8_t]& type_codes,
                            shared_ptr[CArray]* out)
 
         @staticmethod
-        CStatus MakeDense(const CArray& type_ids, const CArray& value_offsets,
+        CStatus MakeDense(const CArray& type_codes, const CArray& value_offsets,
                           const vector[shared_ptr[CArray]]& children,
                           const vector[c_string]& field_names,
                           const vector[int8_t]& type_codes,
                           shared_ptr[CArray]* out)
-        int8_t* raw_type_ids()
+        int8_t* raw_type_codes()
         int32_t value_offset(int i)
         int child_id(int64_t index)
         shared_ptr[CArray] child(int pos)
