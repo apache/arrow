@@ -114,8 +114,8 @@ Status DecimalFromStdString(const std::string& decimal_string,
   int32_t inferred_precision;
   int32_t inferred_scale;
 
-  RETURN_NOT_OK(
-      Decimal128::FromString(decimal_string, out, &inferred_precision, &inferred_scale));
+  ARROW_ASSIGN_OR_RAISE(
+      *out, Decimal128::FromString(decimal_string, &inferred_precision, &inferred_scale));
 
   const int32_t precision = arrow_type.precision();
   const int32_t scale = arrow_type.scale();
@@ -128,7 +128,7 @@ Status DecimalFromStdString(const std::string& decimal_string,
 
   if (scale != inferred_scale) {
     DCHECK_NE(out, NULLPTR);
-    RETURN_NOT_OK(out->Rescale(inferred_scale, scale, out));
+    ARROW_ASSIGN_OR_RAISE(*out, out->Rescale(inferred_scale, scale));
   }
   return Status::OK();
 }

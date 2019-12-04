@@ -375,11 +375,9 @@ TEST(TimestampConversion, CustomNulls) {
 }
 
 Decimal128 Dec128(util::string_view value) {
-  Decimal128 dec;
   int32_t scale = 0;
   int32_t precision = 0;
-  DCHECK_OK(Decimal128::FromString(value, &dec, &precision, &scale));
-  return dec;
+  return Decimal128::FromString(value, &precision, &scale).ValueOrDie();
 }
 
 TEST(DecimalConversion, Basics) {
