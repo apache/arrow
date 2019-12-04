@@ -214,7 +214,7 @@ def test_dataset(simple_data_source, tree_data_source, schema):
     # TODO(kszucs): test non-boolean expressions for filter do raise
     builder = dataset.new_scan().use_threads(True).filter(condition)
     assert isinstance(builder, ds.ScannerBuilder)
-    assert isinstance(builder.schema(), pa.Schema)
+    assert isinstance(builder.schema, pa.Schema)
 
     scanner = builder.finish()
     assert isinstance(scanner, ds.Scanner)

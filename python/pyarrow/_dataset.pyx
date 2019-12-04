@@ -967,6 +967,7 @@ cdef class ScannerBuilder:
         check_status(self.builder.UseThreads(value))
         return self
 
+    @property
     def schema(self):
         return pyarrow_wrap_schema(self.builder.schema())
 
