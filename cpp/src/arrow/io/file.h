@@ -43,6 +43,7 @@ class ARROW_EXPORT FileOutputStream : public OutputStream {
 
   /// \brief Open a local file for writing, truncating any existing file
   /// \param[in] path with UTF8 encoding
+  /// \param[in] append append to existing file, otherwise truncate to 0 bytes
   /// \return an open FileOutputStream
   ///
   /// When opening a new file, any existing file with the indicated path is
