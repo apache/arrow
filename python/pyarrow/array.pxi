@@ -1460,14 +1460,14 @@ cdef class FixedSizeListArray(Array):
         """
         cdef:
             Array _values
-            shared_ptr[CArray] out
+            CResult[shared_ptr[CArray]] c_result
 
         _values = asarray(values)
 
         with nogil:
-            check_status(CFixedSizeListArray.FromArrays(
-                _values.sp_array, list_size, &out))
-        cdef Array result = pyarrow_wrap_array(out)
+            c_result = CFixedSizeListArray.FromArrays(
+                _values.sp_array, list_size)
+        cdef Array result = pyarrow_wrap_array(GetResultValue(c_result))
         result.validate()
         return result
 

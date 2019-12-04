@@ -491,8 +491,8 @@ std::shared_ptr<DataType> FixedSizeListArray::value_type() const {
 
 std::shared_ptr<Array> FixedSizeListArray::values() const { return values_; }
 
-Status FixedSizeListArray::FromArrays(const std::shared_ptr<Array>& values,
-                                      int32_t list_size, std::shared_ptr<Array>* out) {
+Result<std::shared_ptr<Array>> FixedSizeListArray::FromArrays(
+    const std::shared_ptr<Array>& values, int32_t list_size) {
   if (list_size < 0) {
     return Status::Invalid("list_size needs to be a positive integer");
   }
@@ -504,9 +504,8 @@ Status FixedSizeListArray::FromArrays(const std::shared_ptr<Array>& values,
   auto list_type = std::make_shared<FixedSizeListType>(values->type(), list_size);
   std::shared_ptr<Buffer> validity_buf;
 
-  *out = std::make_shared<FixedSizeListArray>(list_type, length, values, validity_buf,
+  return std::make_shared<FixedSizeListArray>(list_type, length, values, validity_buf,
                                               /*null_count=*/0, /*offset=*/0);
-  return Status::OK();
 }
 
 // ----------------------------------------------------------------------

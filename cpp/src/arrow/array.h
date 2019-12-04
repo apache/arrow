@@ -741,8 +741,8 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
   /// \param[in] values Array containing list values
   /// \param[in] list_size The fixed length of each list
   /// \param[out] out Will have length equal to values.length() / list_size
-  static Status FromArrays(const std::shared_ptr<Array>& values, int32_t list_size,
-                           std::shared_ptr<Array>* out);
+  static Result<std::shared_ptr<Array>> FromArrays(const std::shared_ptr<Array>& values,
+                                                   int32_t list_size);
 
  protected:
   void SetData(const std::shared_ptr<ArrayData>& data);
