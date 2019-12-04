@@ -66,7 +66,8 @@ Non-goals
 
 * Expose a C API mimicking operations available in higher-level runtimes
   (such as C++, Java...).
-* Data sharing between distinct processes.
+* Data sharing between distinct processes or storage persistence.
+
 
 Comparison with the Arrow IPC format
 ------------------------------------
@@ -77,13 +78,16 @@ Pros of the C data interface vs. the IPC format:
 * No buffer reassembly (data is already exposed in logical Arrow format).
 * Zero-copy by design.
 * Easy to reimplement from scratch.
+* Minimal C definition that can be easily copied into other codebases.
+* Resource lifetime management through a custom release callback.
 
 Pros of the IPC format vs. the data interface:
 
 * Works across processes and machines.
 * Allows data storage and persistence.
-* Being a streamable format, the IPC format has room for composing more features (such as
-  integrity checks, compression...).
+* Being a streamable format, the IPC format has room for composing more features
+  (such as integrity checks, compression...).
+* Does not require explicit C data access.
 
 Data type description -- format strings
 =======================================
@@ -210,7 +214,7 @@ Notes:
 
 (1)
    The timezone string is appended as-is after the colon character ``:``, without
-   any quotes.
+   any quotes.  If the timezone is empty, the colon ``:`` must still be included.
 
 (2)
    As specified in the Arrow columnar format, the map type has a single child type
@@ -244,9 +248,9 @@ are available under the Apache License 2.0.
 
 .. code-block:: c
 
-   #define ARROW_FLAG_ORDERED 1
+   #define ARROW_FLAG_DICTIONARY_ORDERED 1
    #define ARROW_FLAG_NULLABLE 2
-   #define ARROW_FLAG_KEYS_SORTED 4
+   #define ARROW_FLAG_MAP_KEYS_SORTED 4
 
    struct ArrowArray {
      // Type description
@@ -328,9 +332,9 @@ The ArrowArray structure
 
    * ``ARROW_FLAG_NULLABLE``: whether this field is semantically nullable
      (regardless of whether it actually has null values).
-   * ``ARROW_FLAG_ORDERED``: for dictionary-encoded arrays, whether the
-     ordering of dictionary indices is semantically meaningful.
-   * ``ARROW_FLAG_KEYS_SORTED``: for map arrays, whether the keys within
+   * ``ARROW_FLAG_DICTIONARY_ORDERED``: for dictionary-encoded arrays,
+     whether the ordering of dictionary indices is semantically meaningful.
+   * ``ARROW_FLAG_MAP_KEYS_SORTED``: for map arrays, whether the keys within
      each map value are sorted.
 
    If omitted, MUST be 0.
