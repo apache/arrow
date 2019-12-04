@@ -105,6 +105,17 @@ if test "x$GARROW_DEBUG" != "xno"; then
     CXXFLAGS="$CXXFLAGS -O0 -g3"
   fi
 fi
+AC_ARG_ENABLE(development-mode,
+  [AS_HELP_STRING([--enable-development-mode],
+                  [Use development mode (default=no)])],
+  [GARROW_DEVELOPMENT_MODE="$enableval"],
+  [GARROW_DEVELOPMENT_MODE="no"])
+if test "x$GARROW_DEVELOPMENT_MODE" != "xno"; then
+  if test "$CLANG" = "yes" -o "$GCC" = "yes"; then
+    CFLAGS="$CFLAGS -Werror"
+    CXXFLAGS="$CXXFLAGS -Werror"
+  fi
+fi
 AC_SUBST(GARROW_CFLAGS)
 AC_SUBST(GARROW_CXXFLAGS)
 
