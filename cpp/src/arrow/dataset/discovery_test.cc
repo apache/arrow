@@ -27,7 +27,7 @@
 namespace arrow {
 namespace dataset {
 
-class FileSystemDataSourceDiscoveryTest : public TestFileSystemBasedDataSource {
+class FileSystemDataSourceDiscoveryTest : public TestFileSystemDataSource {
  public:
   void MakeDiscovery(const std::vector<fs::FileStats>& files) {
     MakeFileSystem(files);
@@ -36,6 +36,7 @@ class FileSystemDataSourceDiscoveryTest : public TestFileSystemBasedDataSource {
   }
 
   void AssertFinishWithPaths(std::vector<std::string> paths) {
+    options_ = ScanOptions::Make(discovery_->schema());
     ASSERT_OK_AND_ASSIGN(source_, discovery_->Finish());
     AssertFragmentsAreFromPath(source_->GetFragments(options_), paths);
   }

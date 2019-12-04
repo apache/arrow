@@ -165,21 +165,14 @@ class DatasetFixtureMixin : public ::testing::Test {
   }
 
  protected:
-  ScanOptionsPtr options_ = ScanOptions::Defaults();
-  ScanContextPtr ctx_;
-};
+  void SetSchema(std::vector<std::shared_ptr<Field>> fields) {
+    schema_ = schema(std::move(fields));
+    options_ = ScanOptions::Make(schema_);
+  }
 
-template <typename Format>
-class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
- public:
-  virtual std::vector<std::string> file_names() const = 0;
-
-  fs::Selector selector_;
-  std::unique_ptr<DataSource> source_;
-  std::shared_ptr<fs::FileSystem> fs_;
-  FileFormatPtr format_;
   std::shared_ptr<Schema> schema_;
-  ScanOptionsPtr options_ = ScanOptions::Defaults();
+  ScanOptionsPtr options_;
+  ScanContextPtr ctx_;
 };
 
 /// \brief A dummy FileFormat implementation
@@ -271,7 +264,7 @@ Result<DataFragmentPtr> JSONRecordBatchFileFormat::MakeFragment(const FileSource
   return std::make_shared<JSONRecordBatchFragment>(source, schema_, options);
 }
 
-class TestFileSystemBasedDataSource : public ::testing::Test {
+class TestFileSystemDataSource : public ::testing::Test {
  public:
   void MakeFileSystem(const std::vector<fs::FileStats>& stats) {
     ASSERT_OK_AND_ASSIGN(fs_, fs::internal::MockFileSystem::Make(fs::kNoTime, stats));
@@ -298,7 +291,7 @@ class TestFileSystemBasedDataSource : public ::testing::Test {
  protected:
   std::shared_ptr<fs::FileSystem> fs_;
   DataSourcePtr source_;
-  ScanOptionsPtr options_ = ScanOptions::Defaults();
+  ScanOptionsPtr options_ = ScanOptions::Make(schema({}));
 };
 
 void AssertFragmentsAreFromPath(DataFragmentIterator it,

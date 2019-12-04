@@ -36,10 +36,6 @@ SimpleDataFragment::SimpleDataFragment(
     std::vector<std::shared_ptr<RecordBatch>> record_batches, ScanOptionsPtr scan_options)
     : DataFragment(std::move(scan_options)), record_batches_(std::move(record_batches)) {}
 
-SimpleDataFragment::SimpleDataFragment(
-    std::vector<std::shared_ptr<RecordBatch>> record_batches)
-    : SimpleDataFragment(std::move(record_batches), ScanOptions::Defaults()) {}
-
 Result<ScanTaskIterator> SimpleDataFragment::Scan(ScanContextPtr context) {
   // Make an explicit copy of record_batches_ to ensure Scan can be called
   // multiple times.

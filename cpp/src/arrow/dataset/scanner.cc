@@ -33,18 +33,16 @@
 namespace arrow {
 namespace dataset {
 
-ScanOptions::ScanOptions()
-    : filter(scalar(true)), evaluator(ExpressionEvaluator::Null()) {}
+ScanOptions::ScanOptions(std::shared_ptr<Schema> schema)
+    : filter(scalar(true)),
+      evaluator(ExpressionEvaluator::Null()),
+      projector(RecordBatchProjector(std::move(schema))) {}
 
-ScanOptionsPtr ScanOptions::Defaults() { return ScanOptionsPtr(new ScanOptions); }
-
-ScanOptionsPtr ScanOptions::Copy() const {
-  auto copy = std::make_shared<ScanOptions>(*this);
-
-  if (copy->projector != nullptr) {
-    copy->projector = std::make_shared<RecordBatchProjector>(*copy->projector);
-  }
-
+ScanOptionsPtr ScanOptions::ReplaceSchema(std::shared_ptr<Schema> schema) const {
+  auto copy = ScanOptions::Make(std::move(schema));
+  copy->use_threads = use_threads;
+  copy->filter = filter;
+  copy->evaluator = evaluator;
   return copy;
 }
 
@@ -95,7 +93,7 @@ Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
 
 ScannerBuilder::ScannerBuilder(DatasetPtr dataset, ScanContextPtr context)
     : dataset_(std::move(dataset)),
-      options_(ScanOptions::Defaults()),
+      options_(ScanOptions::Make(dataset_->schema())),
       context_(std::move(context)) {}
 
 Status EnsureColumnsInSchema(const std::shared_ptr<Schema>& schema,
@@ -132,20 +130,18 @@ Status ScannerBuilder::UseThreads(bool use_threads) {
 }
 
 Result<ScannerPtr> ScannerBuilder::Finish() const {
-  options_->schema = dataset_->schema();
+  ScanOptionsPtr options;
   if (has_projection_ && !project_columns_.empty()) {
-    auto projected_schema = SchemaFromColumnNames(schema(), project_columns_);
-    options_->schema = projected_schema;
-    options_->projector = std::make_shared<RecordBatchProjector>(projected_schema);
-  }
-
-  if (options_->filter->Equals(true)) {
-    options_->evaluator = ExpressionEvaluator::Null();
+    options = options_->ReplaceSchema(SchemaFromColumnNames(schema(), project_columns_));
   } else {
-    options_->evaluator = std::make_shared<TreeEvaluator>();
+    options = std::make_shared<ScanOptions>(*options_);
   }
 
-  return std::make_shared<Scanner>(dataset_->sources(), options_, context_);
+  if (!options->filter->Equals(true)) {
+    options->evaluator = std::make_shared<TreeEvaluator>();
+  }
+
+  return std::make_shared<Scanner>(dataset_->sources(), std::move(options), context_);
 }
 
 using arrow::internal::TaskGroup;
@@ -199,7 +195,7 @@ Result<std::shared_ptr<Table>> Scanner::ToTable() {
   // Wait for all tasks to complete, or the first error.
   RETURN_NOT_OK(task_group->Finish());
 
-  return aggregator.Finish(options_->schema);
+  return aggregator.Finish(options_->schema());
 }
 
 }  // namespace dataset

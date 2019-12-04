@@ -24,6 +24,7 @@
 
 #include "arrow/compute/context.h"
 #include "arrow/dataset/dataset.h"
+#include "arrow/dataset/projector.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/memory_pool.h"
@@ -45,13 +46,16 @@ struct ARROW_DS_EXPORT ScanContext {
   internal::ThreadPool* thread_pool = arrow::internal::GetCpuThreadPool();
 };
 
-class RecordBatchProjector;
-
 class ARROW_DS_EXPORT ScanOptions {
  public:
   virtual ~ScanOptions() = default;
 
-  static ScanOptionsPtr Defaults();
+  static ScanOptionsPtr Make(std::shared_ptr<Schema> schema) {
+    return ScanOptionsPtr(new ScanOptions(std::move(schema)));
+  }
+
+  // Construct a copy of these options with a different schema.
+  ScanOptionsPtr ReplaceSchema(std::shared_ptr<Schema> schema) const;
 
   // Indicate if the Scanner should make use of the ThreadPool found in the
   // ScanContext.
@@ -59,20 +63,18 @@ class ARROW_DS_EXPORT ScanOptions {
 
   // Filter
   ExpressionPtr filter;
+
   // Evaluator for Filter
   std::shared_ptr<ExpressionEvaluator> evaluator;
 
   // Schema to which record batches will be reconciled
-  std::shared_ptr<Schema> schema;
-  // Projector for reconciling the final RecordBatch to the requested schema.
-  std::shared_ptr<RecordBatchProjector> projector;
+  const std::shared_ptr<Schema>& schema() const { return projector.schema(); }
 
-  /// Return a copy these options (deep copies projector and use_threads, shallow copies
-  /// other fields)
-  ScanOptionsPtr Copy() const;
+  // Projector for reconciling the final RecordBatch to the requested schema.
+  RecordBatchProjector projector;
 
  private:
-  ScanOptions();
+  explicit ScanOptions(std::shared_ptr<Schema> schema);
 };
 
 /// \brief Read record batches from a range of a single data fragment. A
@@ -91,8 +93,6 @@ class ARROW_DS_EXPORT ScanTask {
   const ScanContextPtr& context() const { return context_; }
 
  protected:
-  ScanTask() : options_(ScanOptions::Defaults()), context_(new ScanContext()) {}
-
   ScanTask(ScanOptionsPtr options, ScanContextPtr context)
       : options_(std::move(options)), context_(std::move(context)) {}
 
@@ -103,9 +103,6 @@ class ARROW_DS_EXPORT ScanTask {
 /// \brief A trivial ScanTask that yields the RecordBatch of an array.
 class ARROW_DS_EXPORT SimpleScanTask : public ScanTask {
  public:
-  explicit SimpleScanTask(std::vector<std::shared_ptr<RecordBatch>> record_batches)
-      : record_batches_(std::move(record_batches)) {}
-
   SimpleScanTask(std::vector<std::shared_ptr<RecordBatch>> record_batches,
                  ScanOptionsPtr options, ScanContextPtr context)
       : ScanTask(std::move(options), std::move(context)),
@@ -118,9 +115,8 @@ class ARROW_DS_EXPORT SimpleScanTask : public ScanTask {
 };
 
 Result<ScanTaskIterator> ScanTaskIteratorFromRecordBatch(
-    std::vector<std::shared_ptr<RecordBatch>> batches,
-    ScanOptionsPtr options = ScanOptions::Defaults(),
-    ScanContextPtr = std::make_shared<ScanContext>());
+    std::vector<std::shared_ptr<RecordBatch>> batches, ScanOptionsPtr options,
+    ScanContextPtr);
 
 /// \brief Scanner is a materialized scan operation with context and options
 /// bound. A scanner is the class that glues ScanTask, DataFragment,

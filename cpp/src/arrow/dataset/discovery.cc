@@ -35,7 +35,9 @@ namespace arrow {
 namespace dataset {
 
 DataSourceDiscovery::DataSourceDiscovery()
-    : partition_scheme_(PartitionScheme::Default()) {}
+    : schema_(arrow::schema({})),
+      partition_scheme_(PartitionScheme::Default()),
+      root_partition_(scalar(true)) {}
 
 FileSystemDataSourceDiscovery::FileSystemDataSourceDiscovery(
     fs::FileSystemPtr filesystem, fs::FileStatsVector files, FileFormatPtr format,

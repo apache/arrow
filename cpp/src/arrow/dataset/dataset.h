@@ -73,8 +73,6 @@ class ARROW_DS_EXPORT DataFragment {
 /// RecordBatch.
 class ARROW_DS_EXPORT SimpleDataFragment : public DataFragment {
  public:
-  explicit SimpleDataFragment(std::vector<std::shared_ptr<RecordBatch>> record_batches);
-
   SimpleDataFragment(std::vector<std::shared_ptr<RecordBatch>> record_batches,
                      ScanOptionsPtr scan_options);
 

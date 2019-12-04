@@ -36,12 +36,12 @@ TEST_F(TestSimpleDataFragment, Scan) {
   constexpr int64_t kBatchSize = 1024;
   constexpr int64_t kNumberBatches = 16;
 
-  auto s = schema({field("i32", int32()), field("f64", float64())});
-  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, s);
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
 
   // Creates a SimpleDataFragment of the same repeated batch.
-  auto fragment = SimpleDataFragment({kNumberBatches, batch});
+  auto fragment = SimpleDataFragment({kNumberBatches, batch}, options_);
 
   AssertFragmentEquals(reader.get(), &fragment);
 }
@@ -53,12 +53,12 @@ TEST_F(TestSimpleDataSource, GetFragments) {
   constexpr int64_t kBatchSize = 1024;
   constexpr int64_t kNumberBatches = 16;
 
-  auto s = schema({field("i32", int32()), field("f64", float64())});
-  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, s);
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches * kNumberFragments, batch);
 
   std::vector<std::shared_ptr<RecordBatch>> batches{kNumberBatches, batch};
-  auto fragment = std::make_shared<SimpleDataFragment>(batches);
+  auto fragment = std::make_shared<SimpleDataFragment>(batches, options_);
   // It is safe to copy fragment multiple time since Scan() does not consume
   // the internal array.
   auto source = SimpleDataSource({kNumberFragments, fragment});
@@ -74,14 +74,14 @@ TEST_F(TestTreeDataSource, GetFragments) {
   constexpr int64_t kChildPerNode = 2;
   constexpr int64_t kCompleteBinaryTreeDepth = 4;
 
-  auto s = schema({field("i32", int32()), field("f64", float64())});
-  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, s);
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
 
   auto n_leaves = 1U << kCompleteBinaryTreeDepth;
   auto reader = ConstantArrayGenerator::Repeat(kNumberBatches * n_leaves, batch);
 
   std::vector<std::shared_ptr<RecordBatch>> batches{kNumberBatches, batch};
-  auto fragment = std::make_shared<SimpleDataFragment>(batches);
+  auto fragment = std::make_shared<SimpleDataFragment>(batches, options_);
 
   // Creates a complete binary tree of depth kCompleteBinaryTreeDepth where the
   // leaves are SimpleDataSource containing kChildPerNode fragments.
@@ -108,11 +108,11 @@ TEST_F(TestDataset, TrivialScan) {
   constexpr int64_t kNumberBatches = 16;
   constexpr int64_t kBatchSize = 1024;
 
-  auto s = schema({field("i32", int32()), field("f64", float64())});
-  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, s);
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
 
   std::vector<std::shared_ptr<RecordBatch>> batches{kNumberBatches, batch};
-  auto fragment = std::make_shared<SimpleDataFragment>(batches);
+  auto fragment = std::make_shared<SimpleDataFragment>(batches, options_);
   DataFragmentVector fragments{kNumberFragments, fragment};
 
   DataSourceVector sources = {
@@ -123,7 +123,7 @@ TEST_F(TestDataset, TrivialScan) {
   const int64_t total_batches = sources.size() * kNumberFragments * kNumberBatches;
   auto reader = ConstantArrayGenerator::Repeat(total_batches, batch);
 
-  ASSERT_OK_AND_ASSIGN(auto dataset, Dataset::Make(sources, s));
+  ASSERT_OK_AND_ASSIGN(auto dataset, Dataset::Make(sources, schema_));
   AssertDatasetEquals(reader.get(), dataset.get());
 }
 
@@ -132,8 +132,8 @@ TEST(TestProjector, MismatchedType) {
 
   auto from_schema = schema({field("f64", float64())});
   auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, from_schema);
-  auto to_schema = schema({field("f64", int32())});
 
+  auto to_schema = schema({field("f64", int32())});
   RecordBatchProjector projector(to_schema);
 
   auto result = projector.Project(*batch);
@@ -231,7 +231,7 @@ TEST(TestProjector, NonTrivial) {
 class TestEndToEnd : public TestDataset {
   void SetUp() {
     bool nullable = false;
-    schema_ = schema({
+    SetSchema({
         field("region", utf8(), nullable),
         field("model", utf8(), nullable),
         field("sales", float64(), nullable),
@@ -280,7 +280,6 @@ class TestEndToEnd : public TestDataset {
 
  protected:
   std::shared_ptr<fs::FileSystem> fs_;
-  std::shared_ptr<Schema> schema_;
 };
 
 TEST_F(TestEndToEnd, EndToEndSingleSource) {
@@ -301,7 +300,7 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   DataSourceDiscoveryPtr discovery;
 
   // The user must specify which FileFormat is used to create FileFragments.
-  // This option is specific to FileSystemBasedDataSource (and the builder).
+  // This option is specific to FileSystemDataSource (and the builder).
   auto format_schema = SchemaFromColumnNames(schema_, {"region", "model", "sales"});
   auto format = std::make_shared<JSONRecordBatchFileFormat>(format_schema);
 

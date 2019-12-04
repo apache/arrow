@@ -157,11 +157,6 @@ class ParquetScanTaskIterator {
   // Compute the column projection out of an optional arrow::Schema
   static std::vector<int> InferColumnProjection(const parquet::FileMetaData& metadata,
                                                 const ScanOptionsPtr& options) {
-    if (options->projector == nullptr) {
-      // fall back to no push down projection
-      return internal::Iota(metadata.num_columns());
-    }
-
     SchemaManifest manifest;
     if (!SchemaManifest::Make(metadata.schema(), nullptr,
                               parquet::default_arrow_reader_properties(), &manifest)
@@ -177,7 +172,7 @@ class ParquetScanTaskIterator {
     for (const auto& schema_field : manifest.schema_fields) {
       auto field_name = schema_field.field->name();
 
-      if (options->projector->schema()->GetFieldIndex(field_name) != -1) {
+      if (options->projector.schema()->GetFieldIndex(field_name) != -1) {
         // add explicitly projected field
         AddColumnIndices(schema_field, &column_projection);
         continue;

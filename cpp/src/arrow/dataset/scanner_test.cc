@@ -34,11 +34,11 @@ TEST_F(TestScanner, Scan) {
   constexpr int64_t kNumberBatches = 16;
   constexpr int64_t kBatchSize = 1024;
 
-  auto s = schema({field("i32", int32()), field("f64", float64())});
-  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, s);
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
 
   std::vector<std::shared_ptr<RecordBatch>> batches{kNumberBatches, batch};
-  auto fragment = std::make_shared<SimpleDataFragment>(batches);
+  auto fragment = std::make_shared<SimpleDataFragment>(batches, options_);
   DataFragmentVector fragments{kNumberFragments, fragment};
 
   DataSourceVector sources = {
@@ -77,13 +77,14 @@ TEST_F(TestScanner, FilteredScan) {
         value += 1.0;
       }));
 
-  auto s = schema({field("f64", float64())});
-  auto batch = RecordBatch::Make(s, f64->length(), {f64});
-  auto batch_filtered = RecordBatch::Make(s, f64_filtered->length(), {f64_filtered});
+  SetSchema({field("f64", float64())});
+  auto batch = RecordBatch::Make(schema_, f64->length(), {f64});
+  auto batch_filtered =
+      RecordBatch::Make(schema_, f64_filtered->length(), {f64_filtered});
 
   std::vector<std::shared_ptr<RecordBatch>> batches{kNumberBatches, batch};
 
-  options_ = ScanOptions::Defaults();
+  options_ = ScanOptions::Make(schema_);
   options_->filter = ("f64"_ > 0.0).Copy();
 
   auto fragment = std::make_shared<SimpleDataFragment>(batches, options_);
@@ -109,21 +110,21 @@ TEST_F(TestScanner, ToTable) {
   constexpr int64_t kBatchSize = 1024;
   constexpr int64_t kNumberBatches = 16;
 
-  auto s = schema({field("i32", int32()), field("f64", float64())});
-  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, s);
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
   std::vector<std::shared_ptr<RecordBatch>> batches{kNumberBatches, batch};
 
   std::shared_ptr<Table> expected;
   ASSERT_OK(Table::FromRecordBatches(batches, &expected));
 
-  auto fragment = std::make_shared<SimpleDataFragment>(batches);
+  auto fragment = std::make_shared<SimpleDataFragment>(batches, options_);
   DataFragmentVector fragments{1, fragment};
 
   DataSourceVector sources = {
       std::make_shared<SimpleDataSource>(fragments),
   };
 
-  options_->schema = s;
+  options_ = ScanOptions::Make(schema_);
   auto scanner = std::make_shared<Scanner>(sources, options_, ctx_);
   std::shared_ptr<Table> actual;
 

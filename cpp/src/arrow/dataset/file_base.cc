@@ -165,7 +165,7 @@ DataFragmentIterator FileSystemDataSource::GetFragmentsImpl(ScanOptionsPtr optio
 
     if (ref.stats().IsFile()) {
       SourceAndOptions file = {FileSource(ref.stats().path(), filesystem_.get()),
-                               options->Copy()};
+                               std::make_shared<ScanOptions>(*options)};
 
       // use simplified filter
       for (auto ancestor = ref.parent(); ancestor.forest == &forest_;
@@ -174,20 +174,16 @@ DataFragmentIterator FileSystemDataSource::GetFragmentsImpl(ScanOptionsPtr optio
       }
       file.options->filter = expr;
 
-      // FIXME(bkietz) this means we can only materialize partition columns when a
-      // projector is specified
-      if (options->projector != nullptr) {
-        for (auto ancestor = ref; ancestor.forest == &forest_;
-             ancestor = ancestor.parent()) {
-          if (auto name_value = GetKey(*partitions_[ancestor.i])) {
-            auto name = std::move(name_value->first);
-            if (file.options->projector->schema()->GetFieldByName(name) == nullptr) {
-              continue;
-            }
-
-            RETURN_NOT_OK(file.options->projector->SetDefaultValue(
-                name, std::move(name_value->second)));
+      for (auto ancestor = ref; ancestor.forest == &forest_;
+           ancestor = ancestor.parent()) {
+        if (auto name_value = GetKey(*partitions_[ancestor.i])) {
+          auto name = std::move(name_value->first);
+          if (file.options->projector.schema()->GetFieldByName(name) == nullptr) {
+            continue;
           }
+
+          RETURN_NOT_OK(file.options->projector.SetDefaultValue(
+              name, std::move(name_value->second)));
         }
       }
 

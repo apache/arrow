@@ -100,6 +100,8 @@ using ScanTaskPtr = std::shared_ptr<ScanTask>;
 using ScanTaskVector = std::vector<ScanTaskPtr>;
 using ScanTaskIterator = Iterator<ScanTaskPtr>;
 
+class RecordBatchProjector;
+
 class DatasetWriter;
 class WriteContext;
 class WriteOptions;

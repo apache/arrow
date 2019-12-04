@@ -78,7 +78,7 @@ TEST(FileSource, BufferBased) {
   ASSERT_EQ(Compression::LZ4, source2.compression());
 }
 
-TEST_F(TestFileSystemBasedDataSource, Basic) {
+TEST_F(TestFileSystemDataSource, Basic) {
   MakeSource({});
   AssertFragmentsAreFromPath(source_->GetFragments(options_), {});
 
@@ -90,7 +90,7 @@ TEST_F(TestFileSystemBasedDataSource, Basic) {
   AssertFragmentsAreFromPath(source_->GetFragments(options_), {"A/a", "A/B/b"});
 }
 
-TEST_F(TestFileSystemBasedDataSource, RootPartitionPruning) {
+TEST_F(TestFileSystemDataSource, RootPartitionPruning) {
   auto source_partition = ("a"_ == 5).Copy();
   MakeSource({fs::File("a"), fs::File("b")}, source_partition);
 
@@ -118,7 +118,7 @@ TEST_F(TestFileSystemBasedDataSource, RootPartitionPruning) {
   AssertFragmentsAreFromPath(source_->GetFragments(options_), {"a", "b"});
 }
 
-TEST_F(TestFileSystemBasedDataSource, TreePartitionPruning) {
+TEST_F(TestFileSystemDataSource, TreePartitionPruning) {
   auto source_partition = ("country"_ == "US").Copy();
   std::vector<fs::FileStats> regions = {
       fs::Dir("NY"), fs::File("NY/New York"),      fs::File("NY/Franklin"),

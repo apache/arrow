@@ -44,20 +44,17 @@ static inline RecordBatchIterator FilterRecordBatch(RecordBatchIterator it,
 static inline RecordBatchIterator ProjectRecordBatch(RecordBatchIterator it,
                                                      ScanOptionsPtr options,
                                                      ScanContextPtr context) {
-  if (options->projector == nullptr) {
-    return it;
-  }
-
   auto project = [options, context](std::shared_ptr<RecordBatch> in,
                                     std::shared_ptr<RecordBatch>* out) {
-    return options->projector->Project(*in, context->pool).Value(out);
+    return options->projector.Project(*in, context->pool).Value(out);
   };
   return MakeMaybeMapIterator(project, std::move(it));
 }
 
 class FilterAndProjectScanTask : public ScanTask {
  public:
-  explicit FilterAndProjectScanTask(ScanTaskPtr task) : task_(std::move(task)) {}
+  explicit FilterAndProjectScanTask(ScanTaskPtr task)
+      : ScanTask(task->options(), task->context()), task_(std::move(task)) {}
 
   Result<RecordBatchIterator> Scan() override {
     ARROW_ASSIGN_OR_RAISE(auto it, task_->Scan());
