@@ -660,12 +660,9 @@ def test_compression_level():
                             ("None", 444), ("lzo", 14)]
     buf = io.BytesIO()
     for (codec, level) in invalid_combinations:
-        try:
+        with pytest.raises(IOError):
             _write_table(table, buf, compression=codec,
                          compression_level=level)
-            assert 0
-        except pa.ArrowException:
-            pass
 
 
 @pytest.mark.pandas
