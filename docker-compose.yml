@@ -214,7 +214,6 @@ services:
         base: ${REPO}:${ARCH}-debian-${DEBIAN}-cpp
     environment:
       ARROW_GLIB_GTK_DOC: "true"
-      ARROW_GLIB_DEVELOPMENT_MODE: "true"
     shm_size: *shm-size
     volumes: *debian-volumes
     command: &c-glib-command >
@@ -241,7 +240,6 @@ services:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     environment:
       ARROW_GLIB_GTK_DOC: "true"
-      ARROW_GLIB_DEVELOPMENT_MODE: "true"
     shm_size: *shm-size
     volumes: *ubuntu-volumes
     command: *c-glib-command
