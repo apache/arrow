@@ -23,7 +23,6 @@
 #include <string>
 #include <vector>
 
-#include "arrow/result.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
@@ -227,7 +226,7 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
   /// At most `nbytes` bytes are read.  The number of bytes read is returned
   /// (it can be less than `nbytes` if EOF is reached).
   ///
-  /// This method can be called by multiple threads concurrently.
+  /// This method can be safely called from multiple threads concurrently.
   /// It is unspecified whether this method updates the file position or not.
   ///
   /// The default RandomAccessFile-provided implementation uses Seek() and Read(),

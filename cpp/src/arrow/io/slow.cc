@@ -26,6 +26,7 @@
 
 #include "arrow/buffer.h"
 #include "arrow/io/util_internal.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 

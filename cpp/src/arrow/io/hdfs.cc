@@ -32,6 +32,7 @@
 #include "arrow/io/hdfs_internal.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 

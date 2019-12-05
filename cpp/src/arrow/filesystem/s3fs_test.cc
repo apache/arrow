@@ -55,6 +55,8 @@
 #include "arrow/filesystem/s3_internal.h"
 #include "arrow/filesystem/s3fs.h"
 #include "arrow/filesystem/test_util.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/io_util.h"

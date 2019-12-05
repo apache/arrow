@@ -28,6 +28,8 @@
 #include "arrow/filesystem/s3fs.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/io/interfaces.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/logging.h"
 

@@ -26,6 +26,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/result.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/compression.h"

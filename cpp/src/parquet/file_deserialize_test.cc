@@ -348,8 +348,8 @@ TEST_F(TestParquetFileReader, IncompleteMetadata) {
       stream->Write(reinterpret_cast<const uint8_t*>(&metadata_len), sizeof(uint32_t)));
   ASSERT_OK(stream->Write(reinterpret_cast<const uint8_t*>(magic), strlen(magic)));
 
-  ASSERT_OK_AND_ASSIGN(auto result, stream->Finish());
-  ASSERT_NO_FATAL_FAILURE(AssertInvalidFileThrows(result));
+  ASSERT_OK_AND_ASSIGN(auto buffer, stream->Finish());
+  ASSERT_NO_FATAL_FAILURE(AssertInvalidFileThrows(buffer));
 }
 
 }  // namespace parquet

@@ -25,10 +25,9 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/buffer.h"
 #include "arrow/compare.h"
-#include "arrow/result.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"

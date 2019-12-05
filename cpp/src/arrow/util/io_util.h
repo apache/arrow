@@ -32,8 +32,7 @@
 #endif
 
 #include "arrow/io/interfaces.h"
-#include "arrow/result.h"
-#include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 
 // The Windows API defines DeleteFile as a macro resolving to either

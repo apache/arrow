@@ -23,7 +23,6 @@
 
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/io/hdfs.h"
-#include "arrow/result.h"
 #include "arrow/util/uri.h"
 
 namespace arrow {

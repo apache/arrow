@@ -15,15 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <cassert>
+#include <iostream>
+#include <string>
+
 #include <arrow/adapters/orc/adapter.h>
 #include <arrow/array.h>
 #include <arrow/buffer.h>
 #include <arrow/io/api.h>
 #include <arrow/ipc/api.h>
+#include <arrow/util/checked_cast.h>
 #include <arrow/util/logging.h>
-#include <cassert>
-#include <iostream>
-#include <string>
 
 #include "org_apache_arrow_adapter_orc_OrcMemoryJniWrapper.h"
 #include "org_apache_arrow_adapter_orc_OrcReaderJniWrapper.h"
@@ -49,6 +51,7 @@ static jmethodID record_batch_constructor;
 
 static jint JNI_VERSION = JNI_VERSION_1_6;
 
+using arrow::internal::checked_cast;
 using arrow::jni::ConcurrentMap;
 
 static ConcurrentMap<std::shared_ptr<arrow::Buffer>> buffer_holder_;

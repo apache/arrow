@@ -85,6 +85,7 @@
 #endif
 
 #include "arrow/buffer.h"
+#include "arrow/result.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 

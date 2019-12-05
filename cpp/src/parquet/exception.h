@@ -23,8 +23,7 @@
 #include <string>
 #include <utility>
 
-#include "arrow/result.h"
-#include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "parquet/platform.h"
 
 // PARQUET-1085

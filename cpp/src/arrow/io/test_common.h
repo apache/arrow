@@ -22,8 +22,7 @@
 #include <string>
 #include <vector>
 
-#include "arrow/result.h"
-#include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {

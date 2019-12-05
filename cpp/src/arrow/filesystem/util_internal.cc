@@ -17,6 +17,8 @@
 
 #include "arrow/filesystem/util_internal.h"
 #include "arrow/buffer.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 
 namespace arrow {
 namespace fs {

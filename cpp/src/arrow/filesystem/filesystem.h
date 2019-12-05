@@ -24,8 +24,7 @@
 #include <string>
 #include <vector>
 
-#include "arrow/result.h"
-#include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -338,11 +337,8 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
 /// \param[out] out_path (optional) Path inside the filesystem.
 /// \return Status
 ARROW_DEPRECATED("Use Result-returning version")
-inline Status FileSystemFromUri(const std::string& uri,
-                                std::shared_ptr<FileSystem>* out_fs,
-                                std::string* out_path = NULLPTR) {
-  return FileSystemFromUri(uri, out_path).Value(out_fs);
-}
+Status FileSystemFromUri(const std::string& uri, std::shared_ptr<FileSystem>* out_fs,
+                         std::string* out_path = NULLPTR);
 
 }  // namespace fs
 }  // namespace arrow

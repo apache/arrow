@@ -66,6 +66,8 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/util_internal.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {

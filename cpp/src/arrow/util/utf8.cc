@@ -21,6 +21,7 @@
 #include <stdexcept>
 #include <utility>
 
+#include "arrow/result.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/utf8.h"
 #include "arrow/vendored/utf8cpp/checked.h"

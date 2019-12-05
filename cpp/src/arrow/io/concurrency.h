@@ -20,6 +20,7 @@
 #include <memory>
 
 #include "arrow/io/interfaces.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
