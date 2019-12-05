@@ -46,7 +46,7 @@ using internal::GetAbstractPathParent;
 using internal::MakeAbstractPathRelative;
 using internal::RemoveLeadingSlash;
 
-static constexpr int32_t kDefaultHdfsPort = 8020;
+static constexpr int32_t kDefaultHdfsPort = 0;
 
 class HadoopFileSystem::Impl {
  public:
@@ -268,7 +268,7 @@ void HdfsOptions::ConfigureEndPoint(const std::string& host, int port) {
   connection_config.port = port;
 }
 
-void HdfsOptions::ConfigureHdfsDriver(bool use_hdfs3) {
+void HdfsOptions::ConfigureHdfs3Driver(bool use_hdfs3) {
   if (use_hdfs3) {
     connection_config.driver = ::arrow::io::HdfsDriver::LIBHDFS3;
   } else {
@@ -312,9 +312,9 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
   if (it != options_map.end()) {
     const auto& v = it->second;
     if (v == "1") {
-      options.ConfigureHdfsDriver(true);
+      options.ConfigureHdfs3Driver(true);
     } else if (v == "0") {
-      options.ConfigureHdfsDriver(false);
+      options.ConfigureHdfs3Driver(false);
     } else {
       return Status::Invalid(
           "Invalid value for option 'use_hdfs3' (allowed values are '0' and '1'): '", v,
