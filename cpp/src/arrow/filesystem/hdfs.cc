@@ -331,7 +331,6 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
     options.ConfigureEndPoint(host, port);
   }
 
-
   it = options_map.find("replication");
   if (it != options_map.end()) {
     const auto& v = it->second;
