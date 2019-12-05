@@ -104,6 +104,7 @@ jobs:
       matrix:
         name:
           - dask
+          - hdfs
           - turbodbc
           - pandas-master
           - pandas-0.24
@@ -122,6 +123,9 @@ jobs:
             library: pandas
             title: Pandas master
             pandas: master
+          - name: hdfs
+            library: hdfs
+            title: HDFS
     env:
       PYTHON: 3.7
       DASK: latest
