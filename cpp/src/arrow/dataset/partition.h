@@ -19,13 +19,11 @@
 
 #include <functional>
 #include <memory>
-#include <regex>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
-#include "arrow/dataset/dataset.h"
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"

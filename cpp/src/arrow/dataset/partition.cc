@@ -18,17 +18,20 @@
 #include "arrow/dataset/partition.h"
 
 #include <algorithm>
+#include <map>
 #include <memory>
-#include <unordered_map>
+#include <regex>
 #include <utility>
 #include <vector>
 
+#include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/filter.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/scalar.h"
 #include "arrow/util/iterator.h"
+#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace dataset {
@@ -118,7 +121,7 @@ inline bool AllIntegral(const std::vector<std::string>& reprs) {
 }
 
 inline std::shared_ptr<Schema> InferSchema(
-    const std::unordered_map<std::string, std::vector<std::string>>& name_to_values) {
+    const std::map<std::string, std::vector<std::string>>& name_to_values) {
   std::vector<std::shared_ptr<Field>> fields(name_to_values.size());
 
   size_t field_index = 0;
@@ -131,12 +134,12 @@ inline std::shared_ptr<Schema> InferSchema(
 
 class SchemaPartitionSchemeDiscovery : public PartitionSchemeDiscovery {
  public:
-  SchemaPartitionSchemeDiscovery(std::vector<std::string> field_names)
+  explicit SchemaPartitionSchemeDiscovery(std::vector<std::string> field_names)
       : field_names_(std::move(field_names)) {}
 
   Result<std::shared_ptr<Schema>> Inspect(
       const std::vector<string_view>& paths) const override {
-    std::unordered_map<std::string, std::vector<std::string>> name_to_values;
+    std::map<std::string, std::vector<std::string>> name_to_values;
 
     for (auto path : paths) {
       size_t field_index = 0;
@@ -147,7 +150,8 @@ class SchemaPartitionSchemeDiscovery : public PartitionSchemeDiscovery {
       }
     }
 
-    return InferSchema(name_to_values);
+    // ensure that the fields are ordered by field_names_
+    return SchemaFromColumnNames(InferSchema(name_to_values), field_names_);
   }
 
   Result<PartitionSchemePtr> Finish() const override {
@@ -180,7 +184,7 @@ class HivePartitionSchemeDiscovery : public PartitionSchemeDiscovery {
  public:
   Result<std::shared_ptr<Schema>> Inspect(
       const std::vector<string_view>& paths) const override {
-    std::unordered_map<std::string, std::vector<std::string>> name_to_values;
+    std::map<std::string, std::vector<std::string>> name_to_values;
 
     for (auto path : paths) {
       for (auto&& segment : fs::internal::SplitAbstractPath(path.to_string())) {

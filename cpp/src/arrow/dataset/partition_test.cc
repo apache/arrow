@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <regex>
 #include <string>
 #include <vector>
 
@@ -119,16 +120,16 @@ TEST_F(TestPartitionScheme, DiscoverSchema) {
   discovery_ = SchemaPartitionScheme::MakeDiscovery({"alpha", "beta"});
 
   // type is int32 if possibe
-  AssertInspect({"/0/1"}, {Int("beta"), Int("alpha")});
+  AssertInspect({"/0/1"}, {Int("alpha"), Int("beta")});
 
   // extra segments are ignored
-  AssertInspect({"/0/1/what"}, {Int("beta"), Int("alpha")});
+  AssertInspect({"/0/1/what"}, {Int("alpha"), Int("beta")});
 
   // fall back to string if any segment for field alpha is not parseable as int
-  AssertInspect({"/0/1", "/hello/1"}, {Int("beta"), Str("alpha")});
+  AssertInspect({"/0/1", "/hello/1"}, {Str("alpha"), Int("beta")});
 
   // missing segment for beta doesn't cause an error or fallback
-  AssertInspect({"/0/1", "/hello"}, {Int("beta"), Str("alpha")});
+  AssertInspect({"/0/1", "/hello"}, {Str("alpha"), Int("beta")});
 }
 
 TEST_F(TestPartitionScheme, Hive) {
@@ -156,7 +157,7 @@ TEST_F(TestPartitionScheme, DiscoverHiveSchema) {
   discovery_ = HivePartitionScheme::MakeDiscovery();
 
   // type is int32 if possibe
-  AssertInspect({"/alpha=0/beta=1"}, {Int("beta"), Int("alpha")});
+  AssertInspect({"/alpha=0/beta=1"}, {Int("alpha"), Int("beta")});
 
   // extra segments are ignored
   AssertInspect({"/gamma=0/unexpected/delta=1/dat.parquet"},
@@ -164,7 +165,7 @@ TEST_F(TestPartitionScheme, DiscoverHiveSchema) {
 
   // order doesn't matter
   AssertInspect({"/alpha=0/beta=1", "/beta=2/alpha=3", "/gamma=what"},
-                {Str("gamma"), Int("alpha"), Int("beta")});
+                {Int("alpha"), Int("beta"), Str("gamma")});
 }
 
 TEST_F(TestPartitionScheme, EtlThenHive) {
