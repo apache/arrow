@@ -30,7 +30,10 @@ RUN apt-get update -y && \
     apt-key adv \
         --keyserver keyserver.ubuntu.com \
         --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9 && \
-    add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu bionic-cran35/' && \
+    # NOTE: as of 2019-12, R 3.5 and 3.6 are available in the repos with -cran35 suffix
+    # R 3.2, 3.3, 3.4 are available without the suffix but only for trusty and xenial
+    # TODO: make sure OS version and R version are valid together and conditionally set repo suffix
+    add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu '$(lsb_release -cs)'-cran35/' && \
     apt-get install -y \
         r-base=${r}* \
         # system libs needed by core R packages
@@ -53,7 +56,7 @@ RUN apt-get update -y && \
 # and use pre-built binaries where possible
 RUN printf "\
     options(Ncpus = parallel::detectCores(), \
-            repos = 'https://demo.rstudiopm.com/all/__linux__/bionic/latest', \
+            repos = 'https://demo.rstudiopm.com/all/__linux__/"$(lsb_release -cs)"/latest', \
             HTTPUserAgent = sprintf(\
                 'R/%%s R (%%s)', getRversion(), \
                 paste(getRversion(), R.version\$platform, R.version\$arch, R.version\$os)))\n" \
