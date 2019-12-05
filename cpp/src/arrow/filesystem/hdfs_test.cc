@@ -42,7 +42,7 @@ TEST(TestHdfsOptions, FromUri) {
   ASSERT_OK_AND_ASSIGN(options, HdfsOptions::FromUri(uri));
   ASSERT_EQ(options.replication, 3);
   ASSERT_EQ(options.connection_config.host, "localhost");
-  ASSERT_EQ(options.connection_config.port, 8020);
+  ASSERT_EQ(options.connection_config.port, 0);
   ASSERT_EQ(options.connection_config.user, "");
   ASSERT_EQ(options.connection_config.driver, HdfsDriver::LIBHDFS);
 
