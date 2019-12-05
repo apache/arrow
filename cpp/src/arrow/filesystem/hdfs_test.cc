@@ -41,7 +41,7 @@ TEST(TestHdfsOptions, FromUri) {
   ASSERT_OK(uri.Parse("hdfs://localhost"));
   ASSERT_OK_AND_ASSIGN(options, HdfsOptions::FromUri(uri));
   ASSERT_EQ(options.replication, 3);
-  ASSERT_EQ(options.connection_config.host, "localhost");
+  ASSERT_EQ(options.connection_config.host, "hdfs://localhost");
   ASSERT_EQ(options.connection_config.port, 0);
   ASSERT_EQ(options.connection_config.user, "");
   ASSERT_EQ(options.connection_config.driver, HdfsDriver::LIBHDFS);
@@ -49,7 +49,7 @@ TEST(TestHdfsOptions, FromUri) {
   ASSERT_OK(uri.Parse("hdfs://otherhost:9999/?use_hdfs3=0&replication=2"));
   ASSERT_OK_AND_ASSIGN(options, HdfsOptions::FromUri(uri));
   ASSERT_EQ(options.replication, 2);
-  ASSERT_EQ(options.connection_config.host, "otherhost");
+  ASSERT_EQ(options.connection_config.host, "hdfs://otherhost");
   ASSERT_EQ(options.connection_config.port, 9999);
   ASSERT_EQ(options.connection_config.user, "");
   ASSERT_EQ(options.connection_config.driver, HdfsDriver::LIBHDFS);
