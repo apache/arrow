@@ -2025,7 +2025,7 @@ def union(children_fields, mode, type_codes=None):
         c_fields.push_back(child_field.sp_field)
 
     if type_codes is not None:
-        if len(type_codes) != c_fields.size():
+        if len(type_codes) != <Py_ssize_t>(c_fields.size()):
             raise ValueError("type_codes should have the same length "
                              "as fields")
         for code in type_codes:
