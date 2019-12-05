@@ -140,8 +140,7 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
   ARROW_DEPRECATED("Use Result-returning version")
   static inline Status FromBigEndian(const uint8_t* data, int32_t length,
                                      Decimal128* out) {
-    ARROW_ASSIGN_OR_RAISE(*out, FromBigEndian(data, length));
-    return Status::OK();
+    return FromBigEndian(data, length).Value(out);
   }
 
   /// \brief Convert Decimal128 from one scale to another
@@ -155,8 +154,7 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
   /// \brief Convert Decimal128 from one scale to another
   ARROW_DEPRECATED("Use Result-returning version")
   Status Rescale(int32_t original_scale, int32_t new_scale, Decimal128* out) const {
-    ARROW_ASSIGN_OR_RAISE(*out, Rescale(original_scale, new_scale));
-    return Status::OK();
+    return Rescale(original_scale, new_scale).Value(out);
   }
 
   /// \brief Convert to a signed integer
@@ -175,8 +173,7 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
   /// \brief Convert to a signed integer
   template <typename T, typename = internal::EnableIfIsOneOf<T, int32_t, int64_t>>
   Status ToInteger(T* out) const {
-    ARROW_ASSIGN_OR_RAISE(*out, ToInteger<T>());
-    return Status::OK();
+    return ToInteger<T>().Value(out);
   }
 
   friend ARROW_EXPORT std::ostream& operator<<(std::ostream& os,
