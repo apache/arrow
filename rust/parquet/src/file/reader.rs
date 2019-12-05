@@ -510,7 +510,7 @@ impl<T: Read> PageReader for SerializedPageReader<T> {
             }
 
             let result = match page_header.type_ {
-                PageType::DICTIONARY_PAGE => {
+                PageType::DictionaryPage => {
                     assert!(page_header.dictionary_page_header.is_some());
                     let dict_header =
                         page_header.dictionary_page_header.as_ref().unwrap();
@@ -522,7 +522,7 @@ impl<T: Read> PageReader for SerializedPageReader<T> {
                         is_sorted,
                     }
                 }
-                PageType::DATA_PAGE => {
+                PageType::DataPage => {
                     assert!(page_header.data_page_header.is_some());
                     let header = page_header.data_page_header.unwrap();
                     self.seen_num_values += header.num_values as i64;
@@ -542,7 +542,7 @@ impl<T: Read> PageReader for SerializedPageReader<T> {
                         ),
                     }
                 }
-                PageType::DATA_PAGE_V2 => {
+                PageType::DataPageV2 => {
                     assert!(page_header.data_page_header_v2.is_some());
                     let header = page_header.data_page_header_v2.unwrap();
                     let is_compressed = header.is_compressed.unwrap_or(true);
