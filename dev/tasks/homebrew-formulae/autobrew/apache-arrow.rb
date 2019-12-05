@@ -40,8 +40,13 @@ class ApacheArrow < Formula
   def install
     ENV.cxx11
     args = %W[
-      -DARROW_PARQUET=ON
+      -DARROW_COMPUTE=ON
+      -DARROW_CSV=ON
+      -DARROW_DATASET=ON
+      -DARROW_FILESYSTEM=ON
       -DARROW_HDFS=OFF
+      -DARROW_JSON=ON
+      -DARROW_PARQUET=ON
       -DARROW_BUILD_SHARED=OFF
       -DARROW_JEMALLOC=OFF
       -DARROW_USE_GLOG=OFF
