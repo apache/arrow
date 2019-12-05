@@ -173,16 +173,16 @@ fn str_value(column: ArrayRef, row: usize) -> Result<String> {
         DataType::Float16 => make_string!(Float32Array, column, row),
         DataType::Float32 => make_string!(Float32Array, column, row),
         DataType::Float64 => make_string!(Float64Array, column, row),
-        DataType::Timestamp(unit) if *unit == TimeUnit::Second => {
+        DataType::Timestamp(unit, _) if *unit == TimeUnit::Second => {
             make_string!(TimestampSecondArray, column, row)
         }
-        DataType::Timestamp(unit) if *unit == TimeUnit::Millisecond => {
+        DataType::Timestamp(unit, _) if *unit == TimeUnit::Millisecond => {
             make_string!(TimestampMillisecondArray, column, row)
         }
-        DataType::Timestamp(unit) if *unit == TimeUnit::Microsecond => {
+        DataType::Timestamp(unit, _) if *unit == TimeUnit::Microsecond => {
             make_string!(TimestampMicrosecondArray, column, row)
         }
-        DataType::Timestamp(unit) if *unit == TimeUnit::Nanosecond => {
+        DataType::Timestamp(unit, _) if *unit == TimeUnit::Nanosecond => {
             make_string!(TimestampNanosecondArray, column, row)
         }
         DataType::Date32(_) => make_string!(Date32Array, column, row),

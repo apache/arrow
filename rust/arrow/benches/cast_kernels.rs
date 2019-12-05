@@ -96,7 +96,7 @@ fn add_benchmark(c: &mut Criterion) {
         b.iter(|| {
             cast_array::<TimestampNanosecondType>(
                 512,
-                DataType::Timestamp(TimeUnit::Nanosecond),
+                DataType::Timestamp(TimeUnit::Nanosecond, None),
             )
         })
     });
@@ -104,7 +104,7 @@ fn add_benchmark(c: &mut Criterion) {
         b.iter(|| {
             cast_array::<TimestampMillisecondType>(
                 512,
-                DataType::Timestamp(TimeUnit::Nanosecond),
+                DataType::Timestamp(TimeUnit::Nanosecond, None),
             )
         })
     });

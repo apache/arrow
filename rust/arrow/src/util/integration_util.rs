@@ -135,7 +135,7 @@ impl ArrowJsonBatch {
                     DataType::Int64
                     | DataType::Date64(_)
                     | DataType::Time64(_)
-                    | DataType::Timestamp(_) => {
+                    | DataType::Timestamp(_, _) => {
                         let arr = Int64Array::from(arr.data());
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
                     }
@@ -396,18 +396,22 @@ mod tests {
             Field::new("time_millis", DataType::Time32(TimeUnit::Millisecond), true),
             Field::new("time_micros", DataType::Time64(TimeUnit::Microsecond), true),
             Field::new("time_nanos", DataType::Time64(TimeUnit::Nanosecond), true),
-            Field::new("ts_secs", DataType::Timestamp(TimeUnit::Second), true),
+            Field::new("ts_secs", DataType::Timestamp(TimeUnit::Second, None), true),
             Field::new(
                 "ts_millis",
-                DataType::Timestamp(TimeUnit::Millisecond),
+                DataType::Timestamp(TimeUnit::Millisecond, None),
                 true,
             ),
             Field::new(
                 "ts_micros",
-                DataType::Timestamp(TimeUnit::Microsecond),
+                DataType::Timestamp(TimeUnit::Microsecond, None),
                 true,
             ),
-            Field::new("ts_nanos", DataType::Timestamp(TimeUnit::Nanosecond), true),
+            Field::new(
+                "ts_nanos",
+                DataType::Timestamp(TimeUnit::Nanosecond, None),
+                true,
+            ),
             Field::new("utf8s", DataType::Utf8, true),
             Field::new("lists", DataType::List(Box::new(DataType::Int32)), true),
             Field::new(

@@ -76,16 +76,16 @@ pub fn take(
         DataType::Time64(Nanosecond) => {
             take_primitive::<Time64NanosecondType>(values, indices)
         }
-        DataType::Timestamp(Second) => {
+        DataType::Timestamp(Second, _) => {
             take_primitive::<TimestampSecondType>(values, indices)
         }
-        DataType::Timestamp(Millisecond) => {
+        DataType::Timestamp(Millisecond, _) => {
             take_primitive::<TimestampMillisecondType>(values, indices)
         }
-        DataType::Timestamp(Microsecond) => {
+        DataType::Timestamp(Microsecond, _) => {
             take_primitive::<TimestampMicrosecondType>(values, indices)
         }
-        DataType::Timestamp(Nanosecond) => {
+        DataType::Timestamp(Nanosecond, _) => {
             take_primitive::<TimestampNanosecondType>(values, indices)
         }
         DataType::Utf8 => take_string(values, indices),

@@ -271,7 +271,7 @@ fn create_primitive_array(
                 builder.build()
             }
         }
-        Boolean | Int64 | UInt64 | Float64 | Time64(_) | Timestamp(_) | Date64(_) => {
+        Boolean | Int64 | UInt64 | Float64 | Time64(_) | Timestamp(_, _) | Date64(_) => {
             let mut builder = ArrayData::builder(data_type.clone())
                 .len(length)
                 .buffers(buffers[1..].to_vec())
@@ -530,7 +530,7 @@ mod tests {
         let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
         // the test is repetitive, thus we can read all supported files at once
         let paths = vec![
-            // "generated_datetime",
+            "generated_datetime",
             "generated_nested",
             "generated_primitive_no_batches",
             "generated_primitive_zerolength",

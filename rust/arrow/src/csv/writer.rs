@@ -203,7 +203,7 @@ impl<W: Write> Writer<W> {
                         .format(&self.time_format)
                         .to_string()
                 }
-                DataType::Timestamp(time_unit) => {
+                DataType::Timestamp(time_unit, _) => {
                     use TimeUnit::*;
                     let datetime = match time_unit {
                         Second => col
@@ -394,7 +394,7 @@ mod tests {
             Field::new("c2", DataType::Float64, true),
             Field::new("c3", DataType::UInt32, false),
             Field::new("c4", DataType::Boolean, true),
-            Field::new("c5", DataType::Timestamp(TimeUnit::Millisecond), true),
+            Field::new("c5", DataType::Timestamp(TimeUnit::Millisecond, None), true),
             Field::new("c6", DataType::Time32(TimeUnit::Second), false),
         ]);
 
@@ -523,7 +523,7 @@ sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03
             Field::new("c2", DataType::Float64, true),
             Field::new("c3", DataType::UInt32, false),
             Field::new("c4", DataType::Boolean, true),
-            Field::new("c5", DataType::Timestamp(TimeUnit::Millisecond), true),
+            Field::new("c5", DataType::Timestamp(TimeUnit::Millisecond, None), true),
             Field::new("c6", DataType::Time32(TimeUnit::Second), false),
         ]);
 

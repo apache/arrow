@@ -166,11 +166,18 @@ fn get_data_type(field: ipc::Field) -> DataType {
         }
         ipc::Type::Timestamp => {
             let timestamp = field.type_as_timestamp().unwrap();
+            let timezone: Option<String> = timestamp.timezone().map(|tz| tz.to_string());
             match timestamp.unit() {
-                ipc::TimeUnit::SECOND => DataType::Timestamp(TimeUnit::Second),
-                ipc::TimeUnit::MILLISECOND => DataType::Timestamp(TimeUnit::Millisecond),
-                ipc::TimeUnit::MICROSECOND => DataType::Timestamp(TimeUnit::Microsecond),
-                ipc::TimeUnit::NANOSECOND => DataType::Timestamp(TimeUnit::Nanosecond),
+                ipc::TimeUnit::SECOND => DataType::Timestamp(TimeUnit::Second, timezone),
+                ipc::TimeUnit::MILLISECOND => {
+                    DataType::Timestamp(TimeUnit::Millisecond, timezone)
+                }
+                ipc::TimeUnit::MICROSECOND => {
+                    DataType::Timestamp(TimeUnit::Microsecond, timezone)
+                }
+                ipc::TimeUnit::NANOSECOND => {
+                    DataType::Timestamp(TimeUnit::Nanosecond, timezone)
+                }
             }
         }
         ipc::Type::List => {
@@ -300,7 +307,9 @@ fn get_fb_field_type<'a: 'b, 'b>(
             }
             (ipc::Type::Time, builder.finish().as_union_value(), None)
         }
-        Timestamp(unit) => {
+        Timestamp(unit, tz) => {
+            let tz = tz.clone().unwrap_or(String::new());
+            let tz_str = fbb.create_string(tz.as_str());
             let mut builder = ipc::TimestampBuilder::new(&mut fbb);
             let time_unit = match unit {
                 TimeUnit::Second => ipc::TimeUnit::SECOND,
@@ -309,6 +318,9 @@ fn get_fb_field_type<'a: 'b, 'b>(
                 TimeUnit::Nanosecond => ipc::TimeUnit::NANOSECOND,
             };
             builder.add_unit(time_unit);
+            if !tz.is_empty() {
+                builder.add_timezone(tz_str);
+            }
             (
                 ipc::Type::Timestamp,
                 builder.finish().as_union_value(),
@@ -397,20 +409,24 @@ mod tests {
                 Field::new("time32[ms]", DataType::Time32(TimeUnit::Millisecond), false),
                 Field::new("time64[us]", DataType::Time64(TimeUnit::Microsecond), false),
                 Field::new("time64[ns]", DataType::Time64(TimeUnit::Nanosecond), true),
-                Field::new("timestamp[s]", DataType::Timestamp(TimeUnit::Second), false),
+                Field::new(
+                    "timestamp[s]",
+                    DataType::Timestamp(TimeUnit::Second, None),
+                    false,
+                ),
                 Field::new(
                     "timestamp[ms]",
-                    DataType::Timestamp(TimeUnit::Millisecond),
+                    DataType::Timestamp(TimeUnit::Millisecond, None),
                     true,
                 ),
                 Field::new(
                     "timestamp[us]",
-                    DataType::Timestamp(TimeUnit::Microsecond),
+                    DataType::Timestamp(TimeUnit::Microsecond, None),
                     false,
                 ),
                 Field::new(
                     "timestamp[ns]",
-                    DataType::Timestamp(TimeUnit::Nanosecond),
+                    DataType::Timestamp(TimeUnit::Nanosecond, None),
                     true,
                 ),
                 Field::new("utf8", DataType::Utf8, false),

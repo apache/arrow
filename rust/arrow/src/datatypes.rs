@@ -32,7 +32,9 @@ use std::str::FromStr;
 #[cfg(feature = "simd")]
 use packed_simd::*;
 use serde_derive::{Deserialize, Serialize};
-use serde_json::{json, Number, Value, Value::Number as VNumber};
+use serde_json::{
+    json, Number, Value, Value::Number as VNumber, Value::String as VString,
+};
 
 use crate::error::{ArrowError, Result};
 use std::sync::Arc;
@@ -62,7 +64,8 @@ pub enum DataType {
     Float16,
     Float32,
     Float64,
-    Timestamp(TimeUnit),
+    /// A timestamp with an optional timezone
+    Timestamp(TimeUnit, Option<String>),
     Date32(DateUnit),
     Date64(DateUnit),
     Time32(TimeUnit),
@@ -232,28 +235,28 @@ make_type!(Float64Type, f64, DataType::Float64, 64, 0.0f64);
 make_type!(
     TimestampSecondType,
     i64,
-    DataType::Timestamp(TimeUnit::Second),
+    DataType::Timestamp(TimeUnit::Second, None),
     64,
     0i64
 );
 make_type!(
     TimestampMillisecondType,
     i64,
-    DataType::Timestamp(TimeUnit::Millisecond),
+    DataType::Timestamp(TimeUnit::Millisecond, None),
     64,
     0i64
 );
 make_type!(
     TimestampMicrosecondType,
     i64,
-    DataType::Timestamp(TimeUnit::Microsecond),
+    DataType::Timestamp(TimeUnit::Microsecond, None),
     64,
     0i64
 );
 make_type!(
     TimestampNanosecondType,
     i64,
-    DataType::Timestamp(TimeUnit::Nanosecond),
+    DataType::Timestamp(TimeUnit::Nanosecond, None),
     64,
     0i64
 );
@@ -559,21 +562,25 @@ impl DataType {
                         "floatingpoint precision missing or invalid".to_string(),
                     )),
                 },
-                Some(s) if s == "timestamp" => match map.get("unit") {
-                    Some(p) if p == "SECOND" => Ok(DataType::Timestamp(TimeUnit::Second)),
-                    Some(p) if p == "MILLISECOND" => {
-                        Ok(DataType::Timestamp(TimeUnit::Millisecond))
-                    }
-                    Some(p) if p == "MICROSECOND" => {
-                        Ok(DataType::Timestamp(TimeUnit::Microsecond))
-                    }
-                    Some(p) if p == "NANOSECOND" => {
-                        Ok(DataType::Timestamp(TimeUnit::Nanosecond))
-                    }
-                    _ => Err(ArrowError::ParseError(
-                        "timestamp unit missing or invalid".to_string(),
-                    )),
-                },
+                Some(s) if s == "timestamp" => {
+                    let unit = match map.get("unit") {
+                        Some(p) if p == "SECOND" => Ok(TimeUnit::Second),
+                        Some(p) if p == "MILLISECOND" => Ok(TimeUnit::Millisecond),
+                        Some(p) if p == "MICROSECOND" => Ok(TimeUnit::Microsecond),
+                        Some(p) if p == "NANOSECOND" => Ok(TimeUnit::Nanosecond),
+                        _ => Err(ArrowError::ParseError(
+                            "timestamp unit missing or invalid".to_string(),
+                        )),
+                    };
+                    let tz = match map.get("timezone") {
+                        None => Ok(None),
+                        Some(VString(tz)) => Ok(Some(tz.to_string())),
+                        _ => Err(ArrowError::ParseError(
+                            "timezone must be a string".to_string(),
+                        )),
+                    };
+                    Ok(DataType::Timestamp(unit?, tz?))
+                }
                 Some(s) if s == "date" => match map.get("unit") {
                     Some(p) if p == "DAY" => Ok(DataType::Date32(DateUnit::Day)),
                     Some(p) if p == "MILLISECOND" => {
@@ -725,12 +732,22 @@ impl DataType {
                     DateUnit::Millisecond => "MILLISECOND",
                 }})
             }
-            DataType::Timestamp(unit) => json!({"name": "timestamp", "unit": match unit {
-                TimeUnit::Second => "SECOND",
-                TimeUnit::Millisecond => "MILLISECOND",
-                TimeUnit::Microsecond => "MICROSECOND",
-                TimeUnit::Nanosecond => "NANOSECOND",
-            }}),
+            DataType::Timestamp(unit, None) => {
+                json!({"name": "timestamp", "unit": match unit {
+                    TimeUnit::Second => "SECOND",
+                    TimeUnit::Millisecond => "MILLISECOND",
+                    TimeUnit::Microsecond => "MICROSECOND",
+                    TimeUnit::Nanosecond => "NANOSECOND",
+                }})
+            }
+            DataType::Timestamp(unit, Some(tz)) => {
+                json!({"name": "timestamp", "unit": match unit {
+                    TimeUnit::Second => "SECOND",
+                    TimeUnit::Millisecond => "MILLISECOND",
+                    TimeUnit::Microsecond => "MICROSECOND",
+                    TimeUnit::Nanosecond => "NANOSECOND",
+                }, "timezone": tz})
+            }
             DataType::Interval(unit) => json!({"name": "interval", "unit": match unit {
                 IntervalUnit::YearMonth => "YEAR_MONTH",
                 IntervalUnit::DayTime => "DAY_TIME",
@@ -1260,10 +1277,25 @@ mod tests {
                 Field::new("c12", DataType::Time64(TimeUnit::Millisecond), false),
                 Field::new("c13", DataType::Time64(TimeUnit::Microsecond), false),
                 Field::new("c14", DataType::Time64(TimeUnit::Nanosecond), false),
-                Field::new("c15", DataType::Timestamp(TimeUnit::Second), false),
-                Field::new("c16", DataType::Timestamp(TimeUnit::Millisecond), false),
-                Field::new("c17", DataType::Timestamp(TimeUnit::Microsecond), false),
-                Field::new("c18", DataType::Timestamp(TimeUnit::Nanosecond), false),
+                Field::new("c15", DataType::Timestamp(TimeUnit::Second, None), false),
+                Field::new(
+                    "c16",
+                    DataType::Timestamp(TimeUnit::Millisecond, Some("UTC".to_string())),
+                    false,
+                ),
+                Field::new(
+                    "c17",
+                    DataType::Timestamp(
+                        TimeUnit::Microsecond,
+                        Some("Africa/Johannesburg".to_string()),
+                    ),
+                    false,
+                ),
+                Field::new(
+                    "c18",
+                    DataType::Timestamp(TimeUnit::Nanosecond, None),
+                    false,
+                ),
                 Field::new("c19", DataType::Interval(IntervalUnit::DayTime), false),
                 Field::new("c20", DataType::Interval(IntervalUnit::YearMonth), false),
                 Field::new("c21", DataType::List(Box::new(DataType::Boolean)), false),
@@ -1439,7 +1471,8 @@ mod tests {
                         "nullable": false,
                         "type": {
                             "name": "timestamp",
-                            "unit": "MILLISECOND"
+                            "unit": "MILLISECOND",
+                            "timezone": "UTC"
                         },
                         "children": []
                     },
@@ -1448,7 +1481,8 @@ mod tests {
                         "nullable": false,
                         "type": {
                             "name": "timestamp",
-                            "unit": "MICROSECOND"
+                            "unit": "MICROSECOND",
+                            "timezone": "Africa/Johannesburg"
                         },
                         "children": []
                     },
