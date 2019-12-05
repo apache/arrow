@@ -1009,6 +1009,16 @@ def test_cast_string_to_number_roundtrip():
         assert casted_back.equals(in_arr)
 
 
+def test_cast_dictionary():
+    arr = pa.DictionaryArray.from_arrays(
+        pa.array([0, 1, None], type=pa.int32()),
+        pa.array([u"foo", u"bar"]))
+    assert arr.cast(pa.string()).equals(pa.array([u"foo", u"bar", None]))
+    with pytest.raises(NotImplementedError):
+        # Shouldn't crash (ARROW-7077)
+        arr.cast(pa.int32())
+
+
 def test_view():
     # ARROW-5992
     arr = pa.array(['foo', 'bar', 'baz'], type=pa.utf8())

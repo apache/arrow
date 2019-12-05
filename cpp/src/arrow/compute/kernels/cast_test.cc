@@ -1402,7 +1402,7 @@ TYPED_TEST(TestNullCast, FromNull) {
 }
 
 // ----------------------------------------------------------------------
-// Test casting to DictionaryType
+// Test casting from DictionaryType
 
 template <typename TestType>
 class TestDictionaryCast : public TestCast {};
@@ -1451,6 +1451,22 @@ TYPED_TEST(TestDictionaryCast, NoNulls) {
   ASSERT_OK(dict_array->ValidateFull());
 
   this->CheckPass(*dict_array, *plain_array, plain_array->type(), options);
+}
+
+TYPED_TEST(TestDictionaryCast, OutTypeError) {
+  // ARROW-7077: unsupported out type should return an error
+  std::shared_ptr<Array> plain_array =
+      TestBase::MakeRandomArray<typename TypeTraits<TypeParam>::ArrayType>(0, 0);
+  auto in_type = dictionary(int32(), plain_array->type());
+  // Test an output type that's not the plain input type but still part of TestTypes.
+  auto out_type = (plain_array->type()->id() == Type::INT8) ? binary() : int8();
+  std::unique_ptr<UnaryKernel> kernel;
+  ASSERT_RAISES(NotImplemented,
+                GetCastFunction(*in_type, out_type, CastOptions(), &kernel));
+  // Test an output type that's not part of TestTypes.
+  out_type = list(in_type);
+  ASSERT_RAISES(NotImplemented,
+                GetCastFunction(*in_type, out_type, CastOptions(), &kernel));
 }
 
 /*TYPED_TEST(TestDictionaryCast, Reverse) {
