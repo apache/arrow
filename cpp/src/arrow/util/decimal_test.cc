@@ -345,11 +345,8 @@ INSTANTIATE_TEST_CASE_P(Decimal128ParsingTestInvalid, Decimal128ParsingTestInval
                                           "-1.23E--5", "1.2345E+++07"));
 
 TEST(Decimal128ParseTest, WithExponentAndNullptrScale) {
-  Decimal128 value;
-  ASSERT_OK_AND_ASSIGN(value, Decimal128::FromString("1.23E-8"));
-
   const Decimal128 expected_value(123);
-  ASSERT_EQ(expected_value, value);
+  ASSERT_OK_AND_EQ(expected_value, Decimal128::FromString("1.23E-8"));
 }
 
 TEST(Decimal128Test, TestSmallNumberFormat) {
@@ -392,30 +389,26 @@ TEST(Decimal128Test, TestFromBigEndian) {
     for (int ii = 0; ii < 16; ++ii) {
       auto little_endian = value.ToBytes();
       std::reverse(little_endian.begin(), little_endian.end());
-      Decimal128 out;
       // Limit the number of bytes we are passing to make
       // sure that it works correctly. That's why all of the
       // 'start' values don't have a 1 in the most significant
       // bit place
-      ASSERT_OK_AND_ASSIGN(
-          out, Decimal128::FromBigEndian(little_endian.data() + 15 - ii, ii + 1));
-      ASSERT_EQ(value, out);
+      ASSERT_OK_AND_EQ(value,
+                       Decimal128::FromBigEndian(little_endian.data() + 15 - ii, ii + 1));
 
       // Negate it and convert to big endian
       auto negated = -value;
       little_endian = negated.ToBytes();
       std::reverse(little_endian.begin(), little_endian.end());
       // The sign bit is looked up in the MSB
-      ASSERT_OK_AND_ASSIGN(
-          out, Decimal128::FromBigEndian(little_endian.data() + 15 - ii, ii + 1));
-      ASSERT_EQ(negated, out);
+      ASSERT_OK_AND_EQ(negated,
+                       Decimal128::FromBigEndian(little_endian.data() + 15 - ii, ii + 1));
 
       // Take the complement and convert to big endian
       auto complement = ~value;
       little_endian = complement.ToBytes();
       std::reverse(little_endian.begin(), little_endian.end());
-      ASSERT_OK_AND_ASSIGN(out, Decimal128::FromBigEndian(little_endian.data(), 16));
-      ASSERT_EQ(complement, out);
+      ASSERT_OK_AND_EQ(complement, Decimal128::FromBigEndian(little_endian.data(), 16));
 
       value <<= 8;
       value += Decimal128(start);
