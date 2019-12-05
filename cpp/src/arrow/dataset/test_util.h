@@ -217,8 +217,13 @@ Result<DataFragmentPtr> DummyFileFormat::MakeFragment(const FileSource& source,
 
 class JSONRecordBatchFileFormat : public FileFormat {
  public:
+  using SchemaResolver = std::function<std::shared_ptr<Schema>(const FileSource&)>;
+
   explicit JSONRecordBatchFileFormat(std::shared_ptr<Schema> schema)
-      : schema_(std::move(schema)) {}
+      : resolver_([schema](const FileSource&) { return schema; }) {}
+
+  explicit JSONRecordBatchFileFormat(SchemaResolver resolver)
+      : resolver_(std::move(resolver)) {}
 
   std::string name() const override { return "json_record_batch"; }
 
@@ -226,7 +231,7 @@ class JSONRecordBatchFileFormat : public FileFormat {
   Result<bool> IsSupported(const FileSource& source) const override { return true; }
 
   Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override {
-    return schema_;
+    return resolver_(source);
   }
 
   /// \brief Open a file for scanning
@@ -237,7 +242,9 @@ class JSONRecordBatchFileFormat : public FileFormat {
     ARROW_ASSIGN_OR_RAISE(auto buffer, file->Read(size));
 
     util::string_view view{*buffer};
-    std::shared_ptr<RecordBatch> batch = RecordBatchFromJSON(schema_, view);
+
+    ARROW_ASSIGN_OR_RAISE(auto schema, Inspect(source));
+    std::shared_ptr<RecordBatch> batch = RecordBatchFromJSON(schema, view);
     return ScanTaskIteratorFromRecordBatch({batch}, std::move(options),
                                            std::move(context));
   }
@@ -246,7 +253,7 @@ class JSONRecordBatchFileFormat : public FileFormat {
                                               ScanOptionsPtr options) override;
 
  protected:
-  std::shared_ptr<Schema> schema_;
+  SchemaResolver resolver_;
 };
 
 class JSONRecordBatchFragment : public FileDataFragment {
@@ -261,7 +268,7 @@ class JSONRecordBatchFragment : public FileDataFragment {
 
 Result<DataFragmentPtr> JSONRecordBatchFileFormat::MakeFragment(const FileSource& source,
                                                                 ScanOptionsPtr options) {
-  return std::make_shared<JSONRecordBatchFragment>(source, schema_, options);
+  return std::make_shared<JSONRecordBatchFragment>(source, resolver_(source), options);
 }
 
 class TestFileSystemDataSource : public ::testing::Test {

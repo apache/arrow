@@ -26,6 +26,7 @@
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/stl.h"
 #include "arrow/testing/generator.h"
+#include "arrow/util/optional.h"
 
 namespace arrow {
 namespace dataset {
@@ -398,6 +399,235 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
   std::shared_ptr<Table> expected;
   ASSERT_OK(stl::TableFromTupleRange(default_memory_pool(), rows, columns, &expected));
   AssertTablesEqual(*expected, *table, false, true);
+}
+
+class TestSchemaUnification : public TestDataset {
+ public:
+  using i32 = util::optional<int32_t>;
+
+  void SetUp() {
+    using PathAndContent = std::vector<std::pair<std::string, std::string>>;
+
+    // The following test creates 2 data source with divergent but compatible
+    // schemas. Each data source have a common partition scheme where the
+    // fields are not materialized in the data fragments.
+    //
+    // Each data source is composed of 2 data fragments with divergent but
+    // compatible schemas. The data fragment within a data source share at
+    // least one column.
+    //
+    // Thus, the fixture helps verifying various scenarios where the Scanner
+    // must fix the RecordBatches to align with the final unified schema exposed
+    // to the consumer.
+    constexpr auto ds1_df1 = "/dataset/alpha/part_ds=1/part_df=1/data.json";
+    constexpr auto ds1_df2 = "/dataset/alpha/part_ds=1/part_df=2/data.json";
+    constexpr auto ds2_df1 = "/dataset/beta/part_ds=2/part_df=1/data.json";
+    constexpr auto ds2_df2 = "/dataset/beta/part_ds=2/part_df=2/data.json";
+    auto files = PathAndContent{
+        // First DataSource
+        {ds1_df1, R"([{"phy_1": 111, "phy_2": 211}])"},
+        {ds1_df2, R"([{"phy_2": 212, "phy_3": 312}])"},
+        // Second DataSource
+        {ds2_df1, R"([{"phy_3": 321, "phy_4": 421}])"},
+        {ds2_df2, R"([{"phy_4": 422, "phy_2": 222}])"},
+    };
+
+    auto mock_fs = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
+    for (const auto& f : files) {
+      ARROW_EXPECT_OK(mock_fs->CreateFile(f.first, f.second, /* recursive */ true));
+    }
+    fs_ = mock_fs;
+
+    auto get_source = [this](std::string base) -> Result<std::shared_ptr<DataSource>> {
+      fs::Selector s;
+      s.base_dir = base;
+      s.recursive = true;
+
+      auto resolver = [this](const FileSource& source) -> std::shared_ptr<Schema> {
+        auto path = source.path();
+        // A different schema for each data fragment.
+        if (path == ds1_df1) {
+          return SchemaFromNames({"phy_1", "phy_2"});
+        } else if (path == ds1_df2) {
+          return SchemaFromNames({"phy_2", "phy_3"});
+        } else if (path == ds2_df1) {
+          return SchemaFromNames({"phy_3", "phy_4"});
+        } else if (path == ds2_df2) {
+          return SchemaFromNames({"phy_4", "phy_2"});
+        }
+
+        return nullptr;
+      };
+
+      auto format = std::make_shared<JSONRecordBatchFileFormat>(resolver);
+      ARROW_ASSIGN_OR_RAISE(auto discovery,
+                            FileSystemDataSourceDiscovery::Make(fs_, s, format, {}));
+
+      auto scheme_schema = SchemaFromNames({"part_ds", "part_df"});
+      auto partition_scheme = std::make_shared<HivePartitionScheme>(scheme_schema);
+      RETURN_NOT_OK(discovery->SetPartitionScheme(partition_scheme));
+
+      return discovery->Finish();
+    };
+
+    schema_ = SchemaFromNames({"phy_1", "phy_2", "phy_3", "phy_4", "part_ds", "part_df"});
+    ASSERT_OK_AND_ASSIGN(auto ds1, get_source("/dataset/alpha"));
+    ASSERT_OK_AND_ASSIGN(auto ds2, get_source("/dataset/beta"));
+    ASSERT_OK_AND_ASSIGN(dataset_, Dataset::Make({ds1, ds2}, schema_));
+  }
+
+  std::shared_ptr<Schema> SchemaFromNames(const std::vector<std::string> names) {
+    std::vector<std::shared_ptr<Field>> fields;
+    for (const auto& name : names) {
+      fields.push_back(field(name, int32()));
+    }
+
+    return schema(fields);
+  }
+
+  template <typename TupleType>
+  void AssertScanEquals(std::shared_ptr<Scanner> scanner,
+                        const std::vector<TupleType>& expected_rows) {
+    std::vector<std::string> columns;
+    for (const auto& field : scanner->schema()->fields()) {
+      columns.push_back(field->name());
+    }
+
+    ASSERT_OK_AND_ASSIGN(auto actual, scanner->ToTable());
+    std::shared_ptr<Table> expected;
+    ASSERT_OK(stl::TableFromTupleRange(default_memory_pool(), expected_rows, columns,
+                                       &expected));
+    AssertTablesEqual(*expected, *actual, false, true);
+  }
+
+  template <typename TupleType>
+  void AssertBuilderEquals(std::shared_ptr<ScannerBuilder> builder,
+                           const std::vector<TupleType>& expected_rows) {
+    ASSERT_OK_AND_ASSIGN(auto scanner, builder->Finish());
+    AssertScanEquals(scanner, expected_rows);
+  }
+
+ protected:
+  std::shared_ptr<fs::FileSystem> fs_;
+  std::shared_ptr<Dataset> dataset_;
+};
+
+using nonstd::nullopt;
+
+TEST_F(TestSchemaUnification, SelectStar) {
+  // This is a `SELECT * FROM dataset` where it ensures:
+  //
+  // - proper re-ordering of columns
+  // - materializing missing physical columns in DataFragments
+  // - materializing missing partition columns extracted from PartitionScheme
+  ASSERT_OK_AND_ASSIGN(auto scan_builder, dataset_->NewScan());
+
+  using TupleType = std::tuple<i32, i32, i32, i32, i32, i32>;
+  std::vector<TupleType> rows = {
+      {111, 211, nullopt, nullopt, 1, 1},
+      {nullopt, 212, 312, nullopt, 1, 2},
+      {nullopt, nullopt, 321, 421, 2, 1},
+      {nullopt, 222, nullopt, 422, 2, 2},
+  };
+
+  AssertBuilderEquals(scan_builder, rows);
+}
+
+TEST_F(TestSchemaUnification, SelectPhysicalColumns) {
+  // Same as above, but scoped to physical columns.
+  ASSERT_OK_AND_ASSIGN(auto scan_builder, dataset_->NewScan());
+  ASSERT_OK(scan_builder->Project({"phy_1", "phy_2", "phy_3", "phy_4"}));
+
+  using TupleType = std::tuple<i32, i32, i32, i32>;
+  std::vector<TupleType> rows = {
+      {111, 211, nullopt, nullopt},
+      {nullopt, 212, 312, nullopt},
+      {nullopt, nullopt, 321, 421},
+      {nullopt, 222, nullopt, 422},
+  };
+
+  AssertBuilderEquals(scan_builder, rows);
+}
+
+TEST_F(TestSchemaUnification, SelectSomeReorderedPhysicalColumns) {
+  // Select physical columns in a different order than physical DataFragments
+  ASSERT_OK_AND_ASSIGN(auto scan_builder, dataset_->NewScan());
+  ASSERT_OK(scan_builder->Project({"phy_2", "phy_1", "phy_4"}));
+
+  using TupleType = std::tuple<i32, i32, i32>;
+  std::vector<TupleType> rows = {
+      {211, 111, nullopt},
+      {212, nullopt, nullopt},
+      {nullopt, nullopt, 421},
+      {222, nullopt, 422},
+  };
+
+  AssertBuilderEquals(scan_builder, rows);
+}
+
+TEST_F(TestSchemaUnification, SelectPhysicalColumnsFilterPartitionColumn) {
+  // Select a subset of physical column with a filter on a missing physical
+  // column and a partition column, it ensures:
+  //
+  // - Can filter on virtual and physical columns with a non-trivial filter
+  //   when some of the columns may not be materialized
+  ASSERT_OK_AND_ASSIGN(auto scan_builder, dataset_->NewScan());
+  ASSERT_OK(scan_builder->Project({"phy_2", "phy_3", "phy_4"}));
+  ASSERT_OK(scan_builder->Filter(("part_df"_ == 1 && "phy_2"_ == 211) ||
+                                 ("part_ds"_ == 2 && "phy_4"_ != 422)));
+
+  using TupleType = std::tuple<i32, i32, i32>;
+  std::vector<TupleType> rows = {
+      {211, nullopt, nullopt},
+      {nullopt, 321, 421},
+  };
+
+  AssertBuilderEquals(scan_builder, rows);
+}
+
+TEST_F(TestSchemaUnification, SelectPartitionColumns) {
+  // Selects partition (virtual) columns, it ensures:
+  //
+  // - virtual column are materialized
+  // - DataFragment yield the right number of rows even if no column is selected
+  ASSERT_OK_AND_ASSIGN(auto scan_builder, dataset_->NewScan());
+  ASSERT_OK(scan_builder->Project({"part_ds", "part_df"}));
+  using TupleType = std::tuple<i32, i32>;
+  std::vector<TupleType> rows = {
+      {1, 1},
+      {1, 2},
+      {2, 1},
+      {2, 2},
+  };
+  AssertBuilderEquals(scan_builder, rows);
+}
+
+TEST_F(TestSchemaUnification, SelectPartitionColumnsFilterPhysicalColumn) {
+  // Selects re-ordered virtual columns with a filter on a physical columns
+  ASSERT_OK_AND_ASSIGN(auto scan_builder, dataset_->NewScan());
+  ASSERT_OK(scan_builder->Filter("phy_1"_ == 111));
+
+  ASSERT_OK(scan_builder->Project({"part_df", "part_ds"}));
+  using TupleType = std::tuple<i32, i32>;
+  std::vector<TupleType> rows = {
+      {1, 1},
+  };
+  AssertBuilderEquals(scan_builder, rows);
+}
+
+TEST_F(TestSchemaUnification, SelectMixedColumnsAndFilter) {
+  // Selects mix of phyical/virtual with a different order and uses a filter on
+  // a physical column not selected.
+  ASSERT_OK_AND_ASSIGN(auto scan_builder, dataset_->NewScan());
+  ASSERT_OK(scan_builder->Filter("phy_2"_ >= 212));
+  ASSERT_OK(scan_builder->Project({"part_df", "phy_3", "part_ds", "phy_1"}));
+
+  using TupleType = std::tuple<i32, i32, i32, i32>;
+  std::vector<TupleType> rows = {
+      {2, 312, 1, nullopt},
+      {2, nullopt, 2, nullopt},
+  };
+  AssertBuilderEquals(scan_builder, rows);
 }
 
 }  // namespace dataset
