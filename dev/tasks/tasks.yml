@@ -104,7 +104,7 @@ groups:
     - test-conda-r-3.6
     - test-ubuntu-18.04-r-sanitizer
     - test-debian-10-go-1.12
-    - test-debian-10-rust-nightly-2019-09-25
+    - test-debian-10-rust-nightly-2019-11-14
     - test-ubuntu-18.04-docs
     - test-ubuntu-fuzzit-fuzzing
     - test-ubuntu-fuzzit-regression
@@ -145,7 +145,7 @@ groups:
     - test-conda-r-3.6
     - test-ubuntu-18.04-r-sanitizer
     - test-debian-10-go-1.12
-    - test-debian-10-rust-nightly-2019-09-25
+    - test-debian-10-rust-nightly-2019-11-14
     - test-ubuntu-18.04-docs
 
   cpp:
@@ -255,7 +255,7 @@ groups:
     - test-conda-r-3.6
     # - test-ubuntu-18.04-r-sanitizer # ARROW-6957
     - test-debian-10-go-1.12
-    - test-debian-10-rust-nightly-2019-09-25
+    - test-debian-10-rust-nightly-2019-11-14
     - test-ubuntu-18.04-docs
     - test-ubuntu-fuzzit-fuzzing
     - test-ubuntu-fuzzit-regression
@@ -1787,13 +1787,13 @@ tasks:
         - docker-compose build debian-go
         - docker-compose run debian-go
 
-  test-debian-10-rust-nightly-2019-09-25:
+  test-debian-10-rust-nightly-2019-11-14:
     ci: circle
     platform: linux
     template: docker-tests/circle.linux.yml
     params:
       commands:
-        - export RUST=nightly-2019-09-25
+        - export RUST=nightly-2019-11-14
         - docker-compose pull --ignore-pull-failures debian-rust
         - docker-compose build debian-rust
         - docker-compose run debian-rust

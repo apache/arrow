@@ -639,6 +639,7 @@ services:
     volumes: *debian-volumes
     command: &rust-command >
       /bin/bash -c "
+        echo ${RUST} > /arrow/rust/rust-toolchain &&
         /arrow/ci/scripts/rust_build.sh /arrow /build/rust &&
         /arrow/ci/scripts/rust_test.sh /arrow /build/rust"
 
