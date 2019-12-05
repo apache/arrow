@@ -1935,11 +1935,11 @@ TEST_P(DecimalTest, WithNulls) {
                                   Decimal128(4), Decimal128(-1), Decimal128(1),
                                   Decimal128(2)};
   Decimal128 big;
-  ASSERT_OK(Decimal128::FromString("230342903942.234234", &big));
+  ASSERT_OK_AND_ASSIGN(big, Decimal128::FromString("230342903942.234234"));
   draw.push_back(big);
 
   Decimal128 big_negative;
-  ASSERT_OK(Decimal128::FromString("-23049302932.235234", &big_negative));
+  ASSERT_OK_AND_ASSIGN(big_negative, Decimal128::FromString("-23049302932.235234"));
   draw.push_back(big_negative);
 
   std::vector<uint8_t> valid_bytes = {true, true, false, true, false,

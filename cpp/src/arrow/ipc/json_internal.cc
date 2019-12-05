@@ -1228,7 +1228,7 @@ class ArrayReader {
             << "Empty string found when parsing Decimal128 value";
 
         Decimal128 value;
-        RETURN_NOT_OK(Decimal128::FromString(val.GetString(), &value));
+        ARROW_ASSIGN_OR_RAISE(value, Decimal128::FromString(val.GetString()));
         RETURN_NOT_OK(builder.Append(value));
       }
     }

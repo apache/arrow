@@ -22,7 +22,9 @@
 #include <limits>
 #include <string>
 #include <type_traits>
+#include <utility>
 
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/basic_decimal.h"
 #include "arrow/util/string_view.h"
@@ -70,12 +72,32 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
   ///   21 / -5 -> -4,  1
   ///  -21 / -5 ->  4, -1
   /// \param[in] divisor the number to divide by
+  /// \return the pair of the quotient and the remainder
+  Result<std::pair<Decimal128, Decimal128>> Divide(const Decimal128& divisor) const {
+    std::pair<Decimal128, Decimal128> result;
+    auto dstatus = BasicDecimal128::Divide(divisor, &result.first, &result.second);
+    ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
+    return std::move(result);
+  }
+
+  /// Divide this number by right and return the result.
+  ///
+  /// This operation is not destructive.
+  /// The answer rounds to zero. Signs work like:
+  ///   21 /  5 ->  4,  1
+  ///  -21 /  5 -> -4, -1
+  ///   21 / -5 -> -4,  1
+  ///  -21 / -5 ->  4, -1
+  /// \param[in] divisor the number to divide by
   /// \param[out] result the quotient
   /// \param[out] remainder the remainder after the division
+  ARROW_DEPRECATED("Use Result-returning version")
   Status Divide(const Decimal128& divisor, Decimal128* result,
                 Decimal128* remainder) const {
-    auto dstatus = BasicDecimal128::Divide(divisor, result, remainder);
-    return ToArrowStatus(dstatus);
+    std::pair<Decimal128, Decimal128> out;
+    ARROW_ASSIGN_OR_RAISE(out, Divide(divisor));
+    std::tie(*result, *remainder) = out;
+    return Status::OK();
   }
 
   /// \brief Convert the Decimal128 value to a base 10 decimal string with the given
@@ -91,26 +113,53 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
   /// \brief Convert a decimal string to a Decimal128 value, optionally including
   /// precision and scale if they're passed in and not null.
   static Status FromString(const util::string_view& s, Decimal128* out,
-                           int32_t* precision = NULLPTR, int32_t* scale = NULLPTR);
-  static Status FromString(const std::string& s, Decimal128* out,
-                           int32_t* precision = NULLPTR, int32_t* scale = NULLPTR);
-  static Status FromString(const char* s, Decimal128* out, int32_t* precision = NULLPTR,
+                           int32_t* precision, int32_t* scale = NULLPTR);
+  static Status FromString(const std::string& s, Decimal128* out, int32_t* precision,
                            int32_t* scale = NULLPTR);
+  static Status FromString(const char* s, Decimal128* out, int32_t* precision,
+                           int32_t* scale = NULLPTR);
+  static Result<Decimal128> FromString(const util::string_view& s);
+  static Result<Decimal128> FromString(const std::string& s);
+  static Result<Decimal128> FromString(const char* s);
+
+  ARROW_DEPRECATED("Use Result-returning version")
+  static Status FromString(const util::string_view& s, Decimal128* out);
+  ARROW_DEPRECATED("Use Result-returning version")
+  static Status FromString(const std::string& s, Decimal128* out);
+  ARROW_DEPRECATED("Use Result-returning version")
+  static Status FromString(const char* s, Decimal128* out);
 
   /// \brief Convert from a big-endian byte representation. The length must be
   ///        between 1 and 16.
   /// \return error status if the length is an invalid value
-  static Status FromBigEndian(const uint8_t* data, int32_t length, Decimal128* out);
+  static Result<Decimal128> FromBigEndian(const uint8_t* data, int32_t length);
+
+  /// \brief Convert from a big-endian byte representation. The length must be
+  ///        between 1 and 16.
+  /// \return error status if the length is an invalid value
+  ARROW_DEPRECATED("Use Result-returning version")
+  static inline Status FromBigEndian(const uint8_t* data, int32_t length,
+                                     Decimal128* out) {
+    return FromBigEndian(data, length).Value(out);
+  }
 
   /// \brief Convert Decimal128 from one scale to another
+  Result<Decimal128> Rescale(int32_t original_scale, int32_t new_scale) const {
+    Decimal128 out;
+    auto dstatus = BasicDecimal128::Rescale(original_scale, new_scale, &out);
+    ARROW_RETURN_NOT_OK(ToArrowStatus(dstatus));
+    return std::move(out);
+  }
+
+  /// \brief Convert Decimal128 from one scale to another
+  ARROW_DEPRECATED("Use Result-returning version")
   Status Rescale(int32_t original_scale, int32_t new_scale, Decimal128* out) const {
-    auto dstatus = BasicDecimal128::Rescale(original_scale, new_scale, out);
-    return ToArrowStatus(dstatus);
+    return Rescale(original_scale, new_scale).Value(out);
   }
 
   /// \brief Convert to a signed integer
   template <typename T, typename = internal::EnableIfIsOneOf<T, int32_t, int64_t>>
-  Status ToInteger(T* out) const {
+  Result<T> ToInteger() const {
     constexpr auto min_value = std::numeric_limits<T>::min();
     constexpr auto max_value = std::numeric_limits<T>::max();
     const auto& self = *this;
@@ -118,8 +167,13 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
       return Status::Invalid("Invalid cast from Decimal128 to ", sizeof(T),
                              " byte integer");
     }
-    *out = static_cast<T>(low_bits());
-    return Status::OK();
+    return static_cast<T>(low_bits());
+  }
+
+  /// \brief Convert to a signed integer
+  template <typename T, typename = internal::EnableIfIsOneOf<T, int32_t, int64_t>>
+  Status ToInteger(T* out) const {
+    return ToInteger<T>().Value(out);
   }
 
   friend ARROW_EXPORT std::ostream& operator<<(std::ostream& os,
