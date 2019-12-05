@@ -31,7 +31,6 @@ import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.util.Preconditions;
 
 import io.netty.buffer.ArrowBuf;
-import io.netty.buffer.UnsafeDirectLittleEndian;
 import io.netty.util.internal.OutOfDirectMemoryError;
 
 /**
@@ -344,7 +343,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       BufferManager bufferManager) throws OutOfMemoryException {
     assertOpen();
 
-    final AllocationManager manager = new AllocationManager(this, size);
+    final AllocationManagerBase manager = newAllocationManager(size);
     final BufferLedger ledger = manager.associate(this); // +1 ref cnt (required)
     final ArrowBuf buffer = ledger.newArrowBuf(size, bufferManager);
 
@@ -353,6 +352,14 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         "Allocated capacity %d was not equal to requested capacity %d.", buffer.capacity(), size);
 
     return buffer;
+  }
+
+  private AllocationManagerBase newAllocationManager(int size) {
+    return newAllocationManager(this, size);
+  }
+
+  protected AllocationManagerBase newAllocationManager(BaseAllocator accountingAllocator, int size) {
+    return new AllocationManager(accountingAllocator, size);
   }
 
   @Override
@@ -377,7 +384,12 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     assertOpen();
 
     final ChildAllocator childAllocator =
-        new ChildAllocator(listener, this, name, initReservation, maxAllocation, roundingPolicy);
+        new ChildAllocator(listener, this, name, initReservation, maxAllocation, roundingPolicy) {
+          @Override
+          protected AllocationManagerBase newAllocationManager(BaseAllocator accountingAllocator, int size) {
+            return BaseAllocator.this.newAllocationManager(accountingAllocator, size);
+          }
+        };
 
     if (DEBUG) {
       synchronized (DEBUG_LOCK) {
@@ -517,7 +529,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
    * @throws IllegalStateException when any problems are found
    */
   void verifyAllocator() {
-    final IdentityHashMap<UnsafeDirectLittleEndian, BaseAllocator> seen = new IdentityHashMap<>();
+    final IdentityHashMap<AllocationManagerBase, BaseAllocator> seen = new IdentityHashMap<>();
     verifyAllocator(seen);
   }
 
@@ -531,7 +543,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
    * @throws IllegalStateException when any problems are found
    */
   private void verifyAllocator(
-      final IdentityHashMap<UnsafeDirectLittleEndian, BaseAllocator> buffersSeen) {
+      final IdentityHashMap<AllocationManagerBase, BaseAllocator> buffersSeen) {
     // The remaining tests can only be performed if we're in debug mode.
     if (!DEBUG) {
       return;
@@ -578,19 +590,19 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
           continue;
         }
 
-        final UnsafeDirectLittleEndian udle = ledger.getUnderlying();
+        final AllocationManagerBase amb = ledger.getAllocationManager();
         /*
          * Even when shared, ArrowBufs are rewrapped, so we should never see the same instance
          * twice.
          */
-        final BaseAllocator otherOwner = buffersSeen.get(udle);
+        final BaseAllocator otherOwner = buffersSeen.get(amb);
         if (otherOwner != null) {
           throw new IllegalStateException("This allocator's ArrowBuf already owned by another " +
             "allocator");
         }
-        buffersSeen.put(udle, this);
+        buffersSeen.put(amb, this);
 
-        bufferTotal += udle.capacity();
+        bufferTotal += amb.getSize();
       }
 
       // Preallocated space has to be accounted for
@@ -702,11 +714,11 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       if (!ledger.isOwningLedger()) {
         continue;
       }
-      final UnsafeDirectLittleEndian udle = ledger.getUnderlying();
+      final AllocationManagerBase amb = ledger.getAllocationManager();
       sb.append("UnsafeDirectLittleEndian[identityHashCode == ");
-      sb.append(Integer.toString(System.identityHashCode(udle)));
+      sb.append(Integer.toString(System.identityHashCode(amb)));
       sb.append("] size ");
-      sb.append(Integer.toString(udle.capacity()));
+      sb.append(Integer.toString(amb.getSize()));
       sb.append('\n');
     }
   }
