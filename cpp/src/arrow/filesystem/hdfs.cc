@@ -301,18 +301,13 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
     options_map.emplace(kv.first, kv.second);
   }
 
-  const auto port = uri.port();
-  if (port == -1) {
-    options.ConfigureEndPoint(uri.host(), kDefaultHdfsPort);
-  } else {
-    options.ConfigureEndPoint(uri.host(), port);
-  }
-
+  auto useHdfs3 = false;
   auto it = options_map.find("use_hdfs3");
   if (it != options_map.end()) {
     const auto& v = it->second;
     if (v == "1") {
       options.ConfigureHdfs3Driver(true);
+      useHdfs3 = true;
     } else if (v == "0") {
       options.ConfigureHdfs3Driver(false);
     } else {
@@ -321,6 +316,23 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
           "'");
     }
   }
+
+  std::string host;
+  if (useHdfs3) {
+    host = uri.host();
+  }
+  else {
+    host = uri.scheme() + "://" + uri.host();    
+  }
+
+  const auto port = uri.port();
+  if (port == -1) {
+    options.ConfigureEndPoint(host, kDefaultHdfsPort);
+  } else {
+    options.ConfigureEndPoint(host, port);
+  }
+
+
   it = options_map.find("replication");
   if (it != options_map.end()) {
     const auto& v = it->second;
