@@ -320,9 +320,8 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
   std::string host;
   if (useHdfs3) {
     host = uri.host();
-  }
-  else {
-    host = uri.scheme() + "://" + uri.host();    
+  } else {
+    host = uri.scheme() + "://" + uri.host();
   }
 
   const auto port = uri.port();
