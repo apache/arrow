@@ -121,7 +121,7 @@ Result<std::shared_ptr<Schema>> FileSystemDataSourceDiscovery::Inspect() {
   }
 
   // TODO merge schemas.
-  auto out_schema = arrow::schema(schemas[0]->fields());
+  auto out_schema = arrow::schema(schemas[0]->fields(), schemas[0]->metadata());
 
   // add fields from partition_scheme_
   for (auto partition_field : partition_scheme_->schema()->fields()) {
