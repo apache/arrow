@@ -33,6 +33,8 @@
 namespace arrow {
 namespace dataset {
 
+using util::string_view;
+
 Result<ExpressionPtr> PartitionScheme::Parse(const std::string& path) const {
   ExpressionVector expressions;
   int i = 0;
@@ -109,9 +111,9 @@ util::optional<PartitionKeysScheme::Key> SchemaPartitionScheme::ParseKey(
 }
 
 inline bool AllIntegral(const std::vector<std::string>& reprs) {
-  return std::all_of(reprs.begin(), reprs.end(), [](util::string_view repr) {
+  return std::all_of(reprs.begin(), reprs.end(), [](string_view repr) {
     // TODO(bkietz) use ParseUnsigned or so
-    return repr.find_first_not_of("0123456789") == util::string_view::npos;
+    return repr.find_first_not_of("0123456789") == string_view::npos;
   });
 }
 
@@ -129,25 +131,16 @@ inline std::shared_ptr<Schema> InferSchema(
 
 class SchemaPartitionSchemeDiscovery : public PartitionSchemeDiscovery {
  public:
-  SchemaPartitionSchemeDiscovery(std::string partition_base_dir,
-                                 std::vector<std::string> field_names)
-      : partition_base_dir_(std::move(partition_base_dir)),
-        field_names_(std::move(field_names)) {}
+  SchemaPartitionSchemeDiscovery(std::vector<std::string> field_names)
+      : field_names_(std::move(field_names)) {}
 
   Result<std::shared_ptr<Schema>> Inspect(
-      const fs::FileStatsVector& stats) const override {
+      const std::vector<string_view>& paths) const override {
     std::unordered_map<std::string, std::vector<std::string>> name_to_values;
 
-    for (const auto& stats : stats) {
-      if (!fs::internal::IsAncestorOf(partition_base_dir_, stats.path())) {
-        continue;
-      }
-
-      auto segments = fs::internal::SplitAbstractPath(
-          stats.path().substr(partition_base_dir_.size()));
-
+    for (auto path : paths) {
       size_t field_index = 0;
-      for (auto&& segment : segments) {
+      for (auto&& segment : fs::internal::SplitAbstractPath(path.to_string())) {
         if (field_index == field_names_.size()) break;
 
         name_to_values[field_names_[field_index++]].push_back(std::move(segment));
@@ -162,14 +155,13 @@ class SchemaPartitionSchemeDiscovery : public PartitionSchemeDiscovery {
   }
 
  private:
-  std::string partition_base_dir_;
   std::vector<std::string> field_names_;
 };
 
 PartitionSchemeDiscoveryPtr SchemaPartitionScheme::MakeDiscovery(
-    std::string partition_base_dir, std::vector<std::string> field_names) {
-  return PartitionSchemeDiscoveryPtr(new SchemaPartitionSchemeDiscovery(
-      std::move(partition_base_dir), std::move(field_names)));
+    std::vector<std::string> field_names) {
+  return PartitionSchemeDiscoveryPtr(
+      new SchemaPartitionSchemeDiscovery(std::move(field_names)));
 }
 
 util::optional<PartitionKeysScheme::Key> HivePartitionScheme::ParseKey(
@@ -186,22 +178,12 @@ util::optional<PartitionKeysScheme::Key> HivePartitionScheme::ParseKey(
 
 class HivePartitionSchemeDiscovery : public PartitionSchemeDiscovery {
  public:
-  explicit HivePartitionSchemeDiscovery(std::string partition_base_dir)
-      : partition_base_dir_(std::move(partition_base_dir)) {}
-
   Result<std::shared_ptr<Schema>> Inspect(
-      const fs::FileStatsVector& stats) const override {
+      const std::vector<string_view>& paths) const override {
     std::unordered_map<std::string, std::vector<std::string>> name_to_values;
 
-    for (const auto& stats : stats) {
-      if (!fs::internal::IsAncestorOf(partition_base_dir_, stats.path())) {
-        continue;
-      }
-
-      auto segments = fs::internal::SplitAbstractPath(
-          stats.path().substr(partition_base_dir_.size()));
-
-      for (const auto& segment : segments) {
+    for (auto path : paths) {
+      for (auto&& segment : fs::internal::SplitAbstractPath(path.to_string())) {
         if (auto key = HivePartitionScheme::ParseKey(segment)) {
           name_to_values[key->name].push_back(std::move(key->value));
         }
@@ -219,10 +201,8 @@ class HivePartitionSchemeDiscovery : public PartitionSchemeDiscovery {
   std::string partition_base_dir_;
 };
 
-PartitionSchemeDiscoveryPtr HivePartitionScheme::MakeDiscovery(
-    std::string partition_base_dir) {
-  return PartitionSchemeDiscoveryPtr(
-      new HivePartitionSchemeDiscovery(std::move(partition_base_dir)));
+PartitionSchemeDiscoveryPtr HivePartitionScheme::MakeDiscovery() {
+  return PartitionSchemeDiscoveryPtr(new HivePartitionSchemeDiscovery());
 }
 
 }  // namespace dataset

@@ -52,9 +52,9 @@ class TestPartitionScheme : public ::testing::Test {
     AssertParse(path, expected.Copy());
   }
 
-  void AssertInspect(const fs::FileStatsVector& stats,
+  void AssertInspect(const std::vector<util::string_view>& paths,
                      const std::vector<std::shared_ptr<Field>>& expected) {
-    ASSERT_OK_AND_ASSIGN(auto actual, discovery_->Inspect(stats));
+    ASSERT_OK_AND_ASSIGN(auto actual, discovery_->Inspect(paths));
     ASSERT_EQ(*actual, Schema(expected));
   }
 
@@ -116,25 +116,19 @@ TEST_F(TestPartitionScheme, Schema) {
 }
 
 TEST_F(TestPartitionScheme, DiscoverSchema) {
-  discovery_ = SchemaPartitionScheme::MakeDiscovery("/base_dir", {"alpha", "beta"});
+  discovery_ = SchemaPartitionScheme::MakeDiscovery({"alpha", "beta"});
 
   // type is int32 if possibe
-  AssertInspect({fs::File("/base_dir/0/1")}, {Int("beta"), Int("alpha")});
+  AssertInspect({"/0/1"}, {Int("beta"), Int("alpha")});
 
   // extra segments are ignored
-  AssertInspect({fs::File("/base_dir/0/1/what")}, {Int("beta"), Int("alpha")});
-
-  // outside base_dir is ignored
-  AssertInspect({fs::File("/what"), fs::File("/base_dir/0/1")},
-                {Int("beta"), Int("alpha")});
+  AssertInspect({"/0/1/what"}, {Int("beta"), Int("alpha")});
 
   // fall back to string if any segment for field alpha is not parseable as int
-  AssertInspect({fs::File("/base_dir/0/1"), fs::File("/base_dir/hello/1")},
-                {Int("beta"), Str("alpha")});
+  AssertInspect({"/0/1", "/hello/1"}, {Int("beta"), Str("alpha")});
 
   // missing segment for beta doesn't cause an error or fallback
-  AssertInspect({fs::File("/base_dir/0/1"), fs::File("/base_dir/hello")},
-                {Int("beta"), Str("alpha")});
+  AssertInspect({"/0/1", "/hello"}, {Int("beta"), Str("alpha")});
 }
 
 TEST_F(TestPartitionScheme, Hive) {
@@ -159,18 +153,17 @@ TEST_F(TestPartitionScheme, Hive) {
 }
 
 TEST_F(TestPartitionScheme, DiscoverHiveSchema) {
-  discovery_ = HivePartitionScheme::MakeDiscovery("/base_dir");
+  discovery_ = HivePartitionScheme::MakeDiscovery();
 
   // type is int32 if possibe
-  AssertInspect({fs::File("/base_dir/alpha=0/beta=1")}, {Int("beta"), Int("alpha")});
+  AssertInspect({"/alpha=0/beta=1"}, {Int("beta"), Int("alpha")});
 
   // extra segments are ignored
-  AssertInspect({fs::File("/base_dir/gamma=0/unexpected/delta=1/dat.parquet")},
+  AssertInspect({"/gamma=0/unexpected/delta=1/dat.parquet"},
                 {Int("delta"), Int("gamma")});
 
   // order doesn't matter
-  AssertInspect({fs::File("/base_dir/alpha=0/beta=1"),
-                 fs::File("/base_dir/beta=2/alpha=3"), fs::File("/base_dir/gamma=what")},
+  AssertInspect({"/alpha=0/beta=1", "/beta=2/alpha=3", "/gamma=what"},
                 {Str("gamma"), Int("alpha"), Int("beta")});
 }
 

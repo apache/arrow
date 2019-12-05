@@ -93,7 +93,7 @@ class ARROW_DS_EXPORT PartitionSchemeDiscovery {
 
   /// Get the schema for the resulting PartitionScheme.
   virtual Result<std::shared_ptr<Schema>> Inspect(
-      const fs::FileStatsVector& stats) const = 0;
+      const std::vector<util::string_view>& paths) const = 0;
 
   /// Create a partition scheme with schema inferred from stats.
   virtual Result<PartitionSchemePtr> Finish() const = 0;
@@ -166,8 +166,7 @@ class ARROW_DS_EXPORT SchemaPartitionScheme : public PartitionKeysScheme {
 
   util::optional<Key> ParseKey(const std::string& segment, int i) const override;
 
-  static PartitionSchemeDiscoveryPtr MakeDiscovery(std::string partition_base_dir,
-                                                   std::vector<std::string> field_names);
+  static PartitionSchemeDiscoveryPtr MakeDiscovery(std::vector<std::string> field_names);
 };
 
 /// \brief Multi-level, directory based partitioning scheme
@@ -192,7 +191,7 @@ class ARROW_DS_EXPORT HivePartitionScheme : public PartitionKeysScheme {
 
   static util::optional<Key> ParseKey(const std::string& segment);
 
-  static PartitionSchemeDiscoveryPtr MakeDiscovery(std::string partition_base_dir);
+  static PartitionSchemeDiscoveryPtr MakeDiscovery();
 };
 
 /// \brief Implementation provided by lambda or other callable
