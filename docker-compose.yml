@@ -518,7 +518,9 @@ services:
   ########################## Python Wheels ####################################
 
   centos-python-manylinux1:
-    image: ${REPO}:amd64-centos-5.11-python-manylinux1
+    # TODO(kszucs): change to ${REPO}:tag once
+    # https://issues.apache.org/jira/browse/INFRA-19499 is resolved
+    image: arrowdev/amd64-centos-5.11-python-manylinux1:latest
     build:
       context: python/manylinux1
       dockerfile: Dockerfile-x86_64_base
@@ -535,7 +537,9 @@ services:
     command: &manylinux-command /io/build_arrow.sh
 
   centos-python-manylinux2010:
-    image: ${REPO}:amd64-centos-6.10-python-manylinux2010
+    # TODO(kszucs): change to ${REPO}:tag once
+    # https://issues.apache.org/jira/browse/INFRA-19499 is resolved
+    image: arrowdev/amd64-centos-6.10-python-manylinux2010:latest
     build:
       context: python/manylinux2010
       dockerfile: Dockerfile-x86_64_base
