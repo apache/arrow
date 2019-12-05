@@ -37,6 +37,18 @@ cdef inline c_string _path_as_bytes(path) except *:
     return tobytes(path)
 
 
+cpdef file_system_from_uri(uri):
+    cdef:
+        shared_ptr[CFileSystem] c_fs
+        c_string c_path
+
+    uristr = _path_as_bytes(uri)
+    FileSystemFromUri(uristr, &c_fs, &c_path)
+    f = InternalFileSystem()
+    f.init(c_fs)
+    return f, c_path
+
+
 cdef class FileStats:
     """FileSystem entry stats"""
 
@@ -451,6 +463,13 @@ cdef class FileSystem:
         return self._wrap_output_stream(
             stream, path=path, compression=compression, buffer_size=buffer_size
         )
+
+
+cdef class InternalFileSystem(FileSystem):
+    """Expose C++ FileSytem from FileSystemFromUri"""
+
+    def __init__(self):
+        pass
 
 
 cdef class LocalFileSystemOptions:

@@ -25,6 +25,8 @@ from pyarrow.includes.libarrow cimport PyDateTime_from_TimePoint
 from pyarrow.lib import _detect_compression
 from pyarrow.lib cimport *
 
+cpdef file_system_from_uri(uri)
+
 
 cpdef enum FileType:
     NonExistent = <int8_t> CFileType_NonExistent

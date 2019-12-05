@@ -24,5 +24,6 @@ from pyarrow._fs import (  # noqa
     FileSystem,
     LocalFileSystem,
     LocalFileSystemOptions,
-    SubTreeFileSystem
+    SubTreeFileSystem,
+    file_system_from_uri
 )

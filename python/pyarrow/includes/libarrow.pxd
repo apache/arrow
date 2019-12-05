@@ -1067,6 +1067,8 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
 
 cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
+    CStatus FileSystemFromUri(const c_string& uri_string, shared_ptr[CFileSystem]* out_fs, c_string* out_path)
+
     ctypedef enum CFileType "arrow::fs::FileType":
         CFileType_NonExistent "arrow::fs::FileType::NonExistent"
         CFileType_Unknown "arrow::fs::FileType::Unknown"
