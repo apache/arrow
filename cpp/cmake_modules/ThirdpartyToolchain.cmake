@@ -231,34 +231,35 @@ foreach(_VERSION_ENTRY ${TOOLCHAIN_VERSIONS_TXT})
     continue()
   endif()
 
-  string(REGEX MATCH "^[^=]*" _LIB_NAME ${_VERSION_ENTRY})
-  string(REPLACE "${_LIB_NAME}=" "" _LIB_VERSION ${_VERSION_ENTRY})
+  string(REGEX MATCH "^[^=]*" _VARIABLE_NAME ${_VERSION_ENTRY})
+  string(REPLACE "${_VARIABLE_NAME}=" "" _VARIABLE_VALUE ${_VERSION_ENTRY})
 
   # Skip blank or malformed lines
-  if(${_LIB_VERSION} STREQUAL "")
+  if(_VARIABLE_VALUE STREQUAL "")
     continue()
   endif()
 
   # For debugging
-  message(STATUS "${_LIB_NAME}: ${_LIB_VERSION}")
+  message(STATUS "${_VARIABLE_NAME}: ${_VARIABLE_VALUE}")
 
-  set(${_LIB_NAME} "${_LIB_VERSION}")
+  set(${_VARIABLE_NAME} ${_VARIABLE_VALUE})
 endforeach()
 
 if(DEFINED ENV{ARROW_AWSSDK_URL})
   set(AWSSDK_SOURCE_URL "$ENV{ARROW_AWSSDK_URL}")
 else()
   set(AWSSDK_SOURCE_URL
-      "https://github.com/aws/aws-sdk-cpp/archive/${AWSSDK_VERSION}.tar.gz")
+      "https://github.com/aws/aws-sdk-cpp/archive/${ARROW_AWSSDK_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_BOOST_URL})
   set(BOOST_SOURCE_URL "$ENV{ARROW_BOOST_URL}")
 else()
-  string(REPLACE "." "_" BOOST_VERSION_UNDERSCORES ${BOOST_VERSION})
+  string(REPLACE "." "_" ARROW_BOOST_BUILD_VERSION_UNDERSCORES
+                 ${ARROW_BOOST_BUILD_VERSION})
   set(
     BOOST_SOURCE_URL
-    "https://dl.bintray.com/boostorg/release/${BOOST_VERSION}/source/boost_${BOOST_VERSION_UNDERSCORES}.tar.gz"
+    "https://dl.bintray.com/boostorg/release/${ARROW_BOOST_BUILD_VERSION}/source/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
     )
 endif()
 
@@ -266,46 +267,54 @@ if(DEFINED ENV{ARROW_BROTLI_URL})
   set(BROTLI_SOURCE_URL "$ENV{ARROW_BROTLI_URL}")
 else()
   set(BROTLI_SOURCE_URL
-      "https://github.com/google/brotli/archive/${BROTLI_VERSION}.tar.gz")
+      "https://github.com/google/brotli/archive/${ARROW_BROTLI_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_CARES_URL})
   set(CARES_SOURCE_URL "$ENV{ARROW_CARES_URL}")
 else()
-  set(CARES_SOURCE_URL "https://c-ares.haxx.se/download/c-ares-${CARES_VERSION}.tar.gz")
+  set(CARES_SOURCE_URL
+      "https://c-ares.haxx.se/download/c-ares-${ARROW_CARES_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_GBENCHMARK_URL})
   set(GBENCHMARK_SOURCE_URL "$ENV{ARROW_GBENCHMARK_URL}")
 else()
-  set(GBENCHMARK_SOURCE_URL
-      "https://github.com/google/benchmark/archive/${GBENCHMARK_VERSION}.tar.gz")
+  set(
+    GBENCHMARK_SOURCE_URL
+
+    "https://github.com/google/benchmark/archive/${ARROW_GBENCHMARK_BUILD_VERSION}.tar.gz"
+    )
 endif()
 
 if(DEFINED ENV{ARROW_GFLAGS_URL})
   set(GFLAGS_SOURCE_URL "$ENV{ARROW_GFLAGS_URL}")
 else()
   set(GFLAGS_SOURCE_URL
-      "https://github.com/gflags/gflags/archive/${GFLAGS_VERSION}.tar.gz")
+      "https://github.com/gflags/gflags/archive/${ARROW_GFLAGS_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_GLOG_URL})
   set(GLOG_SOURCE_URL "$ENV{ARROW_GLOG_URL}")
 else()
-  set(GLOG_SOURCE_URL "https://github.com/google/glog/archive/${GLOG_VERSION}.tar.gz")
+  set(GLOG_SOURCE_URL
+      "https://github.com/google/glog/archive/${ARROW_GLOG_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_GRPC_URL})
   set(GRPC_SOURCE_URL "$ENV{ARROW_GRPC_URL}")
 else()
-  set(GRPC_SOURCE_URL "https://github.com/grpc/grpc/archive/${GRPC_VERSION}.tar.gz")
+  set(GRPC_SOURCE_URL
+      "https://github.com/grpc/grpc/archive/${ARROW_GRPC_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_GTEST_URL})
   set(GTEST_SOURCE_URL "$ENV{ARROW_GTEST_URL}")
 else()
-  set(GTEST_SOURCE_URL
-      "https://github.com/google/googletest/archive/release-${GTEST_VERSION}.tar.gz")
+  set(
+    GTEST_SOURCE_URL
+    "https://github.com/google/googletest/archive/release-${ARROW_GTEST_BUILD_VERSION}.tar.gz"
+    )
 endif()
 
 if(DEFINED ENV{ARROW_JEMALLOC_URL})
@@ -313,59 +322,69 @@ if(DEFINED ENV{ARROW_JEMALLOC_URL})
 else()
   set(
     JEMALLOC_SOURCE_URL
-    "https://github.com/jemalloc/jemalloc/releases/download/${JEMALLOC_VERSION}/jemalloc-${JEMALLOC_VERSION}.tar.bz2"
+    "https://github.com/jemalloc/jemalloc/releases/download/${ARROW_JEMALLOC_BUILD_VERSION}/jemalloc-${ARROW_JEMALLOC_BUILD_VERSION}.tar.bz2"
     )
 endif()
 
 if(DEFINED ENV{ARROW_MIMALLOC_URL})
   set(MIMALLOC_SOURCE_URL "$ENV{ARROW_MIMALLOC_URL}")
 else()
-  set(MIMALLOC_SOURCE_URL
-      "https://github.com/microsoft/mimalloc/archive/${MIMALLOC_VERSION}.tar.gz")
+  set(
+    MIMALLOC_SOURCE_URL
+
+    "https://github.com/microsoft/mimalloc/archive/${ARROW_MIMALLOC_BUILD_VERSION}.tar.gz"
+    )
 endif()
 
 if(DEFINED ENV{ARROW_LZ4_URL})
   set(LZ4_SOURCE_URL "$ENV{ARROW_LZ4_URL}")
 else()
-  set(LZ4_SOURCE_URL "https://github.com/lz4/lz4/archive/${LZ4_VERSION}.tar.gz")
+  set(LZ4_SOURCE_URL
+      "https://github.com/lz4/lz4/archive/${ARROW_LZ4_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_ORC_URL})
   set(ORC_SOURCE_URL "$ENV{ARROW_ORC_URL}")
 else()
-  set(ORC_SOURCE_URL
-      "https://github.com/apache/orc/archive/rel/release-${ORC_VERSION}.tar.gz")
+  set(
+    ORC_SOURCE_URL
+    "https://github.com/apache/orc/archive/rel/release-${ARROW_ORC_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_PROTOBUF_URL})
   set(PROTOBUF_SOURCE_URL "$ENV{ARROW_PROTOBUF_URL}")
 else()
-  string(SUBSTRING ${PROTOBUF_VERSION} 1 -1 STRIPPED_PROTOBUF_VERSION)
+  string(SUBSTRING ${ARROW_PROTOBUF_BUILD_VERSION} 1 -1
+                   ARROW_PROTOBUF_STRIPPED_BUILD_VERSION)
   # strip the leading `v`
   set(
     PROTOBUF_SOURCE_URL
-    "https://github.com/protocolbuffers/protobuf/releases/download/${PROTOBUF_VERSION}/protobuf-all-${STRIPPED_PROTOBUF_VERSION}.tar.gz"
+    "https://github.com/protocolbuffers/protobuf/releases/download/${ARROW_PROTOBUF_BUILD_VERSION}/protobuf-all-${ARROW_PROTOBUF_STRIPPED_BUILD_VERSION}.tar.gz"
     )
 endif()
 
 if(DEFINED ENV{ARROW_RE2_URL})
   set(RE2_SOURCE_URL "$ENV{ARROW_RE2_URL}")
 else()
-  set(RE2_SOURCE_URL "https://github.com/google/re2/archive/${RE2_VERSION}.tar.gz")
+  set(RE2_SOURCE_URL
+      "https://github.com/google/re2/archive/${ARROW_RE2_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_RAPIDJSON_URL})
   set(RAPIDJSON_SOURCE_URL "$ENV{ARROW_RAPIDJSON_URL}")
 else()
-  set(RAPIDJSON_SOURCE_URL
-      "https://github.com/miloyip/rapidjson/archive/${RAPIDJSON_VERSION}.tar.gz")
+  set(
+    RAPIDJSON_SOURCE_URL
+
+    "https://github.com/miloyip/rapidjson/archive/${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz"
+    )
 endif()
 
 if(DEFINED ENV{ARROW_SNAPPY_URL})
   set(SNAPPY_SOURCE_URL "$ENV{ARROW_SNAPPY_URL}")
 else()
   set(SNAPPY_SOURCE_URL
-      "https://github.com/google/snappy/archive/${SNAPPY_VERSION}.tar.gz")
+      "https://github.com/google/snappy/archive/${ARROW_SNAPPY_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_THRIFT_URL})
@@ -377,19 +396,21 @@ endif()
 if(DEFINED ENV{ARROW_ZLIB_URL})
   set(ZLIB_SOURCE_URL "$ENV{ARROW_ZLIB_URL}")
 else()
-  set(ZLIB_SOURCE_URL "https://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz")
+  set(ZLIB_SOURCE_URL "https://zlib.net/fossils/zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_ZSTD_URL})
   set(ZSTD_SOURCE_URL "$ENV{ARROW_ZSTD_URL}")
 else()
-  set(ZSTD_SOURCE_URL "https://github.com/facebook/zstd/archive/${ZSTD_VERSION}.tar.gz")
+  set(ZSTD_SOURCE_URL
+      "https://github.com/facebook/zstd/archive/${ARROW_ZSTD_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{BZIP2_SOURCE_URL})
   set(BZIP2_SOURCE_URL "$ENV{BZIP2_SOURCE_URL}")
 else()
-  set(BZIP2_SOURCE_URL "https://sourceware.org/pub/bzip2/bzip2-${BZIP2_VERSION}.tar.gz")
+  set(BZIP2_SOURCE_URL
+      "https://sourceware.org/pub/bzip2/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz")
 endif()
 
 # ----------------------------------------------------------------------
@@ -484,9 +505,13 @@ macro(build_boost)
   if(MSVC)
     string(REGEX
            REPLACE "^([0-9]+)\\.([0-9]+)\\.[0-9]+$" "\\1_\\2"
-                   BOOST_VERSION_NO_MICRO_UNDERSCORE ${BOOST_VERSION})
-    set(BOOST_LIBRARY_SUFFIX
-        "-vc${MSVC_TOOLSET_VERSION}-mt-x64-${BOOST_VERSION_NO_MICRO_UNDERSCORE}")
+                   ARROW_BOOST_BUILD_VERSION_NO_MICRO_UNDERSCORE
+                   ${ARROW_BOOST_BUILD_VERSION})
+    set(
+      BOOST_LIBRARY_SUFFIX
+
+      "-vc${MSVC_TOOLSET_VERSION}-mt-x64-${ARROW_BOOST_BUILD_VERSION_NO_MICRO_UNDERSCORE}"
+      )
   else()
     set(BOOST_LIBRARY_SUFFIX "")
   endif()
@@ -1071,15 +1096,17 @@ macro(build_thrift)
 
   if("${THRIFT_SOURCE_URL}" STREQUAL "FROM-APACHE-MIRROR")
     get_apache_mirror()
-    set(THRIFT_SOURCE_URL
-        "${APACHE_MIRROR}/thrift/${THRIFT_VERSION}/thrift-${THRIFT_VERSION}.tar.gz")
+    set(
+      THRIFT_SOURCE_URL
+      "${APACHE_MIRROR}/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz"
+      )
   endif()
 
   message("Downloading Apache Thrift from ${THRIFT_SOURCE_URL}")
 
   externalproject_add(thrift_ep
                       URL ${THRIFT_SOURCE_URL}
-                      URL_HASH "MD5=${THRIFT_MD5_CHECKSUM}"
+                      URL_HASH "MD5=${ARROW_THRIFT_BUILD_MD5_CHECKSUM}"
                       BUILD_BYPRODUCTS "${THRIFT_STATIC_LIB}" "${THRIFT_COMPILER}"
                       CMAKE_ARGS ${THRIFT_CMAKE_ARGS}
                       DEPENDS ${THRIFT_DEPENDENCIES} ${EP_LOG_OPTIONS})
@@ -1092,6 +1119,7 @@ macro(build_thrift)
                                    INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}")
   add_dependencies(toolchain thrift_ep)
   add_dependencies(Thrift::thrift thrift_ep)
+  set(THRIFT_VERSION ${ARROW_THRIFT_BUILD_VERSION})
 endmacro()
 
 if(ARROW_WITH_THRIFT)
