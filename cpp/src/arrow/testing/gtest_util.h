@@ -112,14 +112,19 @@ class Result;
     }                                                               \
   } while (false);
 
-#define ASSERT_OK_AND_ASSIGN_IMPL(status_name, lhs, rexpr) \
-  auto status_name = (rexpr);                              \
-  ASSERT_OK(status_name.status());                         \
+#define ASSIGN_OR_HANDLE_ERROR_IMPL(handle_error, status_name, lhs, rexpr) \
+  auto status_name = (rexpr);                                              \
+  handle_error(status_name.status());                                      \
   lhs = std::move(status_name).ValueOrDie();
 
-#define ASSERT_OK_AND_ASSIGN(lhs, rexpr)                                              \
-  ASSERT_OK_AND_ASSIGN_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
-                            lhs, rexpr);
+#define ASSERT_OK_AND_ASSIGN(lhs, rexpr) \
+  ASSIGN_OR_HANDLE_ERROR_IMPL(           \
+      ASSERT_OK, ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), lhs, rexpr);
+
+#define ASSIGN_OR_ABORT(lhs, rexpr)                                                     \
+  ASSIGN_OR_HANDLE_ERROR_IMPL(ABORT_NOT_OK,                                             \
+                              ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
+                              lhs, rexpr);
 
 #define ASSERT_OK_AND_EQ(expected, expr)        \
   do {                                          \
