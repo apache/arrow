@@ -45,9 +45,9 @@ RUN apt-get update -y && \
         clang-format \
         clang-tidy \
         # R CMD CHECK --as-cran needs pdflatex to build the package manual
-        texlive-latex-base && \
-    # Need locales so we can set UTF-8
-    apt-get install -y locales && \
+        texlive-latex-base \
+        # Need locales so we can set UTF-8
+        locales && \
     locale-gen en_US.UTF-8 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
@@ -70,15 +70,15 @@ COPY r/DESCRIPTION /arrow/r/
 RUN /arrow/ci/scripts/r_deps.sh /arrow
 
 ENV \
-    LC_ALL=en_US.UTF-8 \
     ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_FLIGHT=OFF \
     ARROW_GANDIVA=OFF \
+    ARROW_NO_DEPRECATED_API=ON \
     ARROW_ORC=OFF \
     ARROW_PARQUET=ON \
     ARROW_PLASMA=OFF \
     ARROW_USE_GLOG=OFF \
-    ARROW_NO_DEPRECATED_API=ON
+    LC_ALL=en_US.UTF-8
