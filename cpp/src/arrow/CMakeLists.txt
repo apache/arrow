@@ -109,12 +109,6 @@ set(ARROW_SRCS
     tensor.cc
     type.cc
     visitor.cc
-    csv/converter.cc
-    csv/chunker.cc
-    csv/column_builder.cc
-    csv/options.cc
-    csv/parser.cc
-    csv/reader.cc
     io/buffered.cc
     io/compressed.cc
     io/file.cc
@@ -253,10 +247,20 @@ add_subdirectory(testing)
 #
 
 add_subdirectory(array)
-add_subdirectory(csv)
 add_subdirectory(io)
 add_subdirectory(util)
 add_subdirectory(vendored)
+
+if(ARROW_CSV)
+  list(APPEND ARROW_SRCS
+              csv/converter.cc
+              csv/chunker.cc
+              csv/column_builder.cc
+              csv/options.cc
+              csv/parser.cc
+              csv/reader.cc)
+  add_subdirectory(csv)
+endif()
 
 if(ARROW_COMPUTE)
   add_subdirectory(compute)
@@ -489,12 +493,16 @@ add_arrow_test(public_api_test)
 add_arrow_test(result_test)
 add_arrow_test(scalar_test)
 add_arrow_test(status_test)
-add_arrow_test(stl_test)
 add_arrow_test(type_test)
 add_arrow_test(table_test)
 add_arrow_test(table_builder_test)
 add_arrow_test(tensor_test)
 add_arrow_test(sparse_tensor_test)
+
+if(ARROW_COMPUTE)
+  # This unit test uses compute code
+  add_arrow_test(stl_test)
+endif()
 
 add_arrow_benchmark(builder_benchmark)
 add_arrow_benchmark(type_benchmark)
