@@ -357,9 +357,9 @@ Status ReadRecordBatch(const Message& message, const std::shared_ptr<Schema>& sc
   CHECK_MESSAGE_TYPE(Message::RECORD_BATCH, message.type());
   CHECK_HAS_BODY(message);
   auto options = IpcOptions::Defaults();
-  io::BufferReader reader(message.body());
-  return ReadRecordBatch(*message.metadata(), schema, dictionary_memo, options, &reader,
-                         out);
+  ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message.body()));
+  return ReadRecordBatch(*message.metadata(), schema, dictionary_memo, options,
+                         reader.get(), out);
 }
 
 // ----------------------------------------------------------------------
@@ -478,8 +478,8 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
     // Only invoke this method if we already know we have a dictionary message
     DCHECK_EQ(message.type(), Message::DICTIONARY_BATCH);
     CHECK_HAS_BODY(message);
-    io::BufferReader reader(message.body());
-    return ReadDictionary(*message.metadata(), &dictionary_memo_, &reader);
+    ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message.body()));
+    return ReadDictionary(*message.metadata(), &dictionary_memo_, reader.get());
   }
 
   Status ReadInitialDictionaries() {
@@ -545,9 +545,9 @@ class RecordBatchStreamReader::RecordBatchStreamReaderImpl {
       return Status::NotImplemented("Delta dictionaries not yet implemented");
     } else {
       CHECK_HAS_BODY(*message);
-      io::BufferReader reader(message->body());
-      return ReadRecordBatch(*message->metadata(), schema_, &dictionary_memo_, &reader,
-                             batch);
+      ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
+      return ReadRecordBatch(*message->metadata(), schema_, &dictionary_memo_,
+                             reader.get(), batch);
     }
   }
 
@@ -697,8 +697,9 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
       RETURN_NOT_OK(ReadMessageFromBlock(GetDictionaryBlock(i), &message));
 
       CHECK_HAS_BODY(*message);
-      io::BufferReader reader(message->body());
-      RETURN_NOT_OK(ReadDictionary(*message->metadata(), &dictionary_memo_, &reader));
+      ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
+      RETURN_NOT_OK(
+          ReadDictionary(*message->metadata(), &dictionary_memo_, reader.get()));
     }
     return Status::OK();
   }
@@ -716,9 +717,9 @@ class RecordBatchFileReader::RecordBatchFileReaderImpl {
     RETURN_NOT_OK(ReadMessageFromBlock(GetRecordBatchBlock(i), &message));
 
     CHECK_HAS_BODY(*message);
-    io::BufferReader reader(message->body());
+    ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
     return ::arrow::ipc::ReadRecordBatch(*message->metadata(), schema_, &dictionary_memo_,
-                                         &reader, batch);
+                                         reader.get(), batch);
   }
 
   Status ReadSchema() {
@@ -838,9 +839,9 @@ Status ReadRecordBatch(const std::shared_ptr<Schema>& schema,
   std::unique_ptr<Message> message;
   RETURN_NOT_OK(ReadContiguousPayload(file, &message));
   CHECK_HAS_BODY(*message);
-  io::BufferReader buffer_reader(message->body());
+  ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
   return ReadRecordBatch(*message->metadata(), schema, dictionary_memo, options,
-                         &buffer_reader, out);
+                         reader.get(), out);
 }
 
 Result<std::shared_ptr<Tensor>> ReadTensor(io::InputStream* file) {
@@ -1148,8 +1149,8 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(const Buffer& metadata,
 
 Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(const Message& message) {
   CHECK_HAS_BODY(message);
-  io::BufferReader buffer_reader(message.body());
-  return ReadSparseTensor(*message.metadata(), &buffer_reader);
+  ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message.body()));
+  return ReadSparseTensor(*message.metadata(), reader.get());
 }
 
 Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(io::InputStream* file) {
@@ -1157,8 +1158,8 @@ Result<std::shared_ptr<SparseTensor>> ReadSparseTensor(io::InputStream* file) {
   RETURN_NOT_OK(ReadContiguousPayload(file, &message));
   CHECK_MESSAGE_TYPE(Message::SPARSE_TENSOR, message->type());
   CHECK_HAS_BODY(*message);
-  io::BufferReader buffer_reader(message->body());
-  return ReadSparseTensor(*message->metadata(), &buffer_reader);
+  ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
+  return ReadSparseTensor(*message->metadata(), reader.get());
 }
 
 ///////////////////////////////////////////////////////////////////////////

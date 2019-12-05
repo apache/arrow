@@ -484,36 +484,39 @@ cdef class CudaBuffer(Buffer):
         if position < 0 or (self.size and position > self.size) \
            or (self.size == 0 and position != 0):
             raise ValueError('position argument is out-of-range')
-        cdef int64_t nbytes_
+        cdef:
+            int64_t c_nbytes
         if buf is None:
             if nbytes < 0:
                 # copy all starting from position to new host buffer
-                nbytes_ = self.size - position
+                c_nbytes = self.size - position
             else:
                 if nbytes > self.size - position:
                     raise ValueError(
                         'requested more to copy than available from '
                         'device buffer')
                 # copy nbytes starting from position to new host buffeer
-                nbytes_ = nbytes
-            buf = allocate_buffer(nbytes_, memory_pool=memory_pool,
+                c_nbytes = nbytes
+            buf = allocate_buffer(c_nbytes, memory_pool=memory_pool,
                                   resizable=resizable)
         else:
             if nbytes < 0:
                 # copy all from position until given host buffer is full
-                nbytes_ = min(self.size - position, buf.size)
+                c_nbytes = min(self.size - position, buf.size)
             else:
                 if nbytes > buf.size:
                     raise ValueError(
                         'requested copy does not fit into host buffer')
                 # copy nbytes from position to given host buffer
-                nbytes_ = nbytes
-        cdef shared_ptr[CBuffer] buf_ = pyarrow_unwrap_buffer(buf)
-        cdef int64_t position_ = position
+                c_nbytes = nbytes
+
+        cdef:
+            shared_ptr[CBuffer] c_buf = pyarrow_unwrap_buffer(buf)
+            int64_t c_position = position
         with nogil:
             check_status(self.cuda_buffer.get()
-                         .CopyToHost(position_, nbytes_,
-                                     buf_.get().mutable_data()))
+                         .CopyToHost(c_position, c_nbytes,
+                                     c_buf.get().mutable_data()))
         return buf
 
     def copy_from_host(self, data, int64_t position=0, int64_t nbytes=-1):
@@ -540,13 +543,14 @@ cdef class CudaBuffer(Buffer):
         """
         if position < 0 or position > self.size:
             raise ValueError('position argument is out-of-range')
-        cdef int64_t nbytes_
+        cdef:
+            int64_t c_nbytes
         buf = as_buffer(data)
 
         if nbytes < 0:
             # copy from host buffer to device buffer starting from
             # position until device buffer is full
-            nbytes_ = min(self.size - position, buf.size)
+            c_nbytes = min(self.size - position, buf.size)
         else:
             if nbytes > buf.size:
                 raise ValueError(
@@ -556,14 +560,16 @@ cdef class CudaBuffer(Buffer):
                     'requested more to copy than available in device buffer')
             # copy nbytes from host buffer to device buffer starting
             # from position
-            nbytes_ = nbytes
+            c_nbytes = nbytes
 
-        cdef shared_ptr[CBuffer] buf_ = pyarrow_unwrap_buffer(buf)
-        cdef int64_t position_ = position
+        cdef:
+            shared_ptr[CBuffer] c_buf = pyarrow_unwrap_buffer(buf)
+            int64_t c_position = position
         with nogil:
             check_status(self.cuda_buffer.get().
-                         CopyFromHost(position_, buf_.get().data(), nbytes_))
-        return nbytes_
+                         CopyFromHost(c_position, c_buf.get().data(),
+                                      c_nbytes))
+        return c_nbytes
 
     def copy_from_device(self, buf, int64_t position=0, int64_t nbytes=-1):
         """Copy data from device to device.
@@ -587,12 +593,13 @@ cdef class CudaBuffer(Buffer):
         """
         if position < 0 or position > self.size:
             raise ValueError('position argument is out-of-range')
-        cdef int64_t nbytes_
+        cdef:
+            int64_t c_nbytes
 
         if nbytes < 0:
             # copy from source device buffer to device buffer starting
             # from position until device buffer is full
-            nbytes_ = min(self.size - position, buf.size)
+            c_nbytes = min(self.size - position, buf.size)
         else:
             if nbytes > buf.size:
                 raise ValueError(
@@ -602,23 +609,26 @@ cdef class CudaBuffer(Buffer):
                     'requested more to copy than available in device buffer')
             # copy nbytes from source device buffer to device buffer
             # starting from position
-            nbytes_ = nbytes
+            c_nbytes = nbytes
 
-        cdef shared_ptr[CCudaBuffer] buf_ = pyarrow_unwrap_cudabuffer(buf)
-        cdef int64_t position_ = position
-        cdef shared_ptr[CCudaContext] src_ctx_ = pyarrow_unwrap_cudacontext(
-            buf.context)
+        cdef:
+            shared_ptr[CCudaBuffer] c_buf = pyarrow_unwrap_cudabuffer(buf)
+            int64_t c_position = position
+            shared_ptr[CCudaContext] c_src_ctx = pyarrow_unwrap_cudacontext(
+                buf.context)
+            void* c_source_data = <void*>(c_buf.get().address())
+
         if self.context.handle != buf.context.handle:
             with nogil:
                 check_status(self.cuda_buffer.get().
-                             CopyFromAnotherDevice(src_ctx_, position_,
-                                                   buf_.get().data(), nbytes_))
+                             CopyFromAnotherDevice(c_src_ctx, c_position,
+                                                   c_source_data, c_nbytes))
         else:
             with nogil:
                 check_status(self.cuda_buffer.get().
-                             CopyFromDevice(position_, buf_.get().data(),
-                                            nbytes_))
-        return nbytes_
+                             CopyFromDevice(c_position, c_source_data,
+                                            c_nbytes))
+        return c_nbytes
 
     def export_for_ipc(self):
         """
@@ -791,11 +801,13 @@ cdef class BufferWriter(NativeFile):
           Specify data, the data instance must implement buffer
           protocol.
         """
-        cdef Buffer arrow_buffer = as_buffer(data)
-        cdef const uint8_t* buf = arrow_buffer.buffer.get().data()
-        cdef int64_t bufsize = len(arrow_buffer)
+        cdef:
+            Buffer buf = as_buffer(data)
+            const uint8_t* c_data = buf.buffer.get().data()
+            int64_t c_size = buf.buffer.get().size()
+
         with nogil:
-            check_status(self.writer.WriteAt(position, buf, bufsize))
+            check_status(self.writer.WriteAt(position, c_data, c_size))
 
     def flush(self):
         """ Flush the buffer stream """

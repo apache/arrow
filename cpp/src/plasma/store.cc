@@ -199,7 +199,7 @@ Status PlasmaStore::AllocateCudaMemory(
   DCHECK_NE(device_num, 0);
   RETURN_NOT_OK(manager_->GetContext(device_num - 1, &context_));
   RETURN_NOT_OK(context_->Allocate(static_cast<int64_t>(size), &cuda_buffer));
-  *out_pointer = cuda_buffer->mutable_data();
+  *out_pointer = reinterpret_cast<uint8_t*>(cuda_buffer->address());
   // The IPC handle will keep the buffer memory alive
   return cuda_buffer->ExportForIpc(out_ipc_handle);
 }

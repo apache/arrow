@@ -34,7 +34,7 @@ include_directories(SYSTEM ${CUDA_INCLUDE_DIRS})
 
 message(STATUS "CUDA Libraries: ${CUDA_LIBRARIES}")
 
-set(ARROW_CUDA_SRCS cuda_arrow_ipc.cc cuda_context.cc cuda_memory.cc)
+set(ARROW_CUDA_SRCS cuda_arrow_ipc.cc cuda_context.cc cuda_internal.cc cuda_memory.cc)
 
 set(ARROW_CUDA_SHARED_LINK_LIBS ${CUDA_LIBRARIES} ${CUDA_CUDA_LIBRARY})
 

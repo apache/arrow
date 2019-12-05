@@ -96,6 +96,7 @@ set(ARROW_SRCS
     array/validate.cc
     buffer.cc
     compare.cc
+    device.cc
     extension_type.cc
     memory_pool.cc
     pretty_print.cc

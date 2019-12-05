@@ -21,47 +21,76 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <sstream>
 #include <string>
-#include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include <cuda.h>
 
-#include "arrow/gpu/cuda_common.h"
+#include "arrow/gpu/cuda_internal.h"
 #include "arrow/gpu/cuda_memory.h"
+#include "arrow/util/checked_cast.h"
 
 namespace arrow {
+
+using internal::checked_cast;
+using internal::checked_pointer_cast;
+
 namespace cuda {
 
-struct CudaDevice {
-  int device_num;
-  CUdevice handle;
-  int64_t total_memory;
-};
+using internal::ContextSaver;
 
-class ContextSaver {
- public:
-  explicit ContextSaver(CUcontext new_context) { cuCtxPushCurrent(new_context); }
-  ~ContextSaver() {
-    CUcontext unused;
-    cuCtxPopCurrent(&unused);
+namespace {
+
+struct DeviceProperties {
+  int device_number_;
+  CUdevice handle_;
+  int64_t total_memory_;
+  std::string name_;
+
+  Status Init(int device_number) {
+    device_number_ = device_number;
+    CU_RETURN_NOT_OK("cuDeviceGet", cuDeviceGet(&handle_, device_number));
+    size_t total_memory = 0;
+    CU_RETURN_NOT_OK("cuDeviceTotalMem", cuDeviceTotalMem(&total_memory, handle_));
+    total_memory_ = total_memory;
+
+    char buf[200];
+    CU_RETURN_NOT_OK("cuDeviceGetName", cuDeviceGetName(buf, sizeof(buf), device_number));
+    name_.assign(buf);
+    return Status::OK();
   }
 };
 
-class CudaContext::CudaContextImpl {
- public:
-  CudaContextImpl() : bytes_allocated_(0) {}
+const char kCudaDeviceTypeName[] = "arrow::cuda::CudaDevice";
 
-  Status Init(const CudaDevice& device) {
-    device_ = device;
+}  // namespace
+
+struct CudaDevice::Impl {
+  DeviceProperties props;
+};
+
+// ----------------------------------------------------------------------
+// CudaContext implementation
+
+class CudaContext::Impl {
+ public:
+  Impl() : bytes_allocated_(0) {}
+
+  Status Init(const std::shared_ptr<CudaDevice>& device) {
+    mm_ = checked_pointer_cast<CudaMemoryManager>(device->default_memory_manager());
+    props_ = &device->impl_->props;
     own_context_ = true;
-    CU_RETURN_NOT_OK(cuDevicePrimaryCtxRetain(&context_, device_.handle));
+    CU_RETURN_NOT_OK("cuDevicePrimaryCtxRetain",
+                     cuDevicePrimaryCtxRetain(&context_, props_->handle_));
     is_open_ = true;
     return Status::OK();
   }
 
-  Status InitShared(const CudaDevice& device, CUcontext ctx) {
-    device_ = device;
+  Status InitShared(const std::shared_ptr<CudaDevice>& device, CUcontext ctx) {
+    mm_ = checked_pointer_cast<CudaMemoryManager>(device->default_memory_manager());
+    props_ = &device->impl_->props;
     own_context_ = false;
     context_ = ctx;
     is_open_ = true;
@@ -70,7 +99,8 @@ class CudaContext::CudaContextImpl {
 
   Status Close() {
     if (is_open_ && own_context_) {
-      CU_RETURN_NOT_OK(cuDevicePrimaryCtxRelease(device_.handle));
+      CU_RETURN_NOT_OK("cuDevicePrimaryCtxRelease",
+                       cuDevicePrimaryCtxRelease(props_->handle_));
     }
     is_open_ = false;
     return Status::OK();
@@ -82,7 +112,7 @@ class CudaContext::CudaContextImpl {
     if (nbytes > 0) {
       ContextSaver set_temporary(context_);
       CUdeviceptr data;
-      CU_RETURN_NOT_OK(cuMemAlloc(&data, static_cast<size_t>(nbytes)));
+      CU_RETURN_NOT_OK("cuMemAlloc", cuMemAlloc(&data, static_cast<size_t>(nbytes)));
       bytes_allocated_ += nbytes;
       *out = reinterpret_cast<uint8_t*>(data);
     } else {
@@ -91,46 +121,41 @@ class CudaContext::CudaContextImpl {
     return Status::OK();
   }
 
-  Status CopyHostToDevice(void* dst, const void* src, int64_t nbytes) {
+  Status CopyHostToDevice(uintptr_t dst, const void* src, int64_t nbytes) {
     ContextSaver set_temporary(context_);
-    CU_RETURN_NOT_OK(cuMemcpyHtoD(reinterpret_cast<CUdeviceptr>(dst), src,
-                                  static_cast<size_t>(nbytes)));
+    CU_RETURN_NOT_OK("cuMemcpyHtoD", cuMemcpyHtoD(dst, src, static_cast<size_t>(nbytes)));
     return Status::OK();
   }
 
-  Status CopyDeviceToHost(void* dst, const void* src, int64_t nbytes) {
+  Status CopyDeviceToHost(void* dst, uintptr_t src, int64_t nbytes) {
     ContextSaver set_temporary(context_);
-    CU_RETURN_NOT_OK(cuMemcpyDtoH(dst, reinterpret_cast<const CUdeviceptr>(src),
-                                  static_cast<size_t>(nbytes)));
+    CU_RETURN_NOT_OK("cuMemcpyDtoH", cuMemcpyDtoH(dst, src, static_cast<size_t>(nbytes)));
     return Status::OK();
   }
 
-  Status CopyDeviceToDevice(void* dst, const void* src, int64_t nbytes) {
+  Status CopyDeviceToDevice(uintptr_t dst, uintptr_t src, int64_t nbytes) {
     ContextSaver set_temporary(context_);
-    CU_RETURN_NOT_OK(cuMemcpyDtoD(reinterpret_cast<CUdeviceptr>(dst),
-                                  reinterpret_cast<const CUdeviceptr>(src),
-                                  static_cast<size_t>(nbytes)));
+    CU_RETURN_NOT_OK("cuMemcpyDtoD", cuMemcpyDtoD(dst, src, static_cast<size_t>(nbytes)));
     return Status::OK();
   }
 
-  Status CopyDeviceToAnotherDevice(const std::shared_ptr<CudaContext>& dst_ctx, void* dst,
-                                   const void* src, int64_t nbytes) {
+  Status CopyDeviceToAnotherDevice(const std::shared_ptr<CudaContext>& dst_ctx,
+                                   uintptr_t dst, uintptr_t src, int64_t nbytes) {
     ContextSaver set_temporary(context_);
-    CU_RETURN_NOT_OK(cuMemcpyPeer(reinterpret_cast<CUdeviceptr>(dst),
-                                  reinterpret_cast<CUcontext>(dst_ctx->handle()),
-                                  reinterpret_cast<const CUdeviceptr>(src), context_,
-                                  static_cast<size_t>(nbytes)));
+    CU_RETURN_NOT_OK("cuMemcpyPeer",
+                     cuMemcpyPeer(dst, reinterpret_cast<CUcontext>(dst_ctx->handle()),
+                                  src, context_, static_cast<size_t>(nbytes)));
     return Status::OK();
   }
 
   Status Synchronize(void) {
     ContextSaver set_temporary(context_);
-    CU_RETURN_NOT_OK(cuCtxSynchronize());
+    CU_RETURN_NOT_OK("cuCtxSynchronize", cuCtxSynchronize());
     return Status::OK();
   }
 
   Status Free(void* device_ptr, int64_t nbytes) {
-    CU_RETURN_NOT_OK(cuMemFree(reinterpret_cast<CUdeviceptr>(device_ptr)));
+    CU_RETURN_NOT_OK("cuMemFree", cuMemFree(reinterpret_cast<CUdeviceptr>(device_ptr)));
     bytes_allocated_ -= nbytes;
     return Status::OK();
   }
@@ -141,6 +166,7 @@ class CudaContext::CudaContextImpl {
     if (size > 0) {
       ContextSaver set_temporary(context_);
       CU_RETURN_NOT_OK(
+          "cuIpcGetMemHandle",
           cuIpcGetMemHandle(&cu_handle, reinterpret_cast<CUdeviceptr>(data)));
     }
     *handle = std::shared_ptr<CudaIpcMemHandle>(new CudaIpcMemHandle(size, &cu_handle));
@@ -153,6 +179,7 @@ class CudaContext::CudaContextImpl {
       auto handle = reinterpret_cast<const CUipcMemHandle*>(ipc_handle.handle());
       CUdeviceptr data;
       CU_RETURN_NOT_OK(
+          "cuIpcOpenMemHandle",
           cuIpcOpenMemHandle(&data, *handle, CU_IPC_MEM_LAZY_ENABLE_PEER_ACCESS));
       *out = reinterpret_cast<uint8_t*>(data);
     } else {
@@ -161,12 +188,17 @@ class CudaContext::CudaContextImpl {
     return Status::OK();
   }
 
-  const CudaDevice device() const { return device_; }
+  std::shared_ptr<CudaDevice> device() const {
+    return checked_pointer_cast<CudaDevice>(mm_->device());
+  }
+
+  const std::shared_ptr<CudaMemoryManager>& memory_manager() const { return mm_; }
 
   void* context_handle() const { return reinterpret_cast<void*>(context_); }
 
  private:
-  CudaDevice device_;
+  std::shared_ptr<CudaMemoryManager> mm_;
+  const DeviceProperties* props_;
   CUcontext context_;
   bool is_open_;
 
@@ -176,73 +208,286 @@ class CudaContext::CudaContextImpl {
   std::atomic<int64_t> bytes_allocated_;
 };
 
-class CudaDeviceManager::CudaDeviceManagerImpl {
+// ----------------------------------------------------------------------
+// CudaDevice implementation
+
+CudaDevice::CudaDevice(Impl impl) : impl_(new Impl(std::move(impl))) {}
+
+const char* CudaDevice::type_name() const { return kCudaDeviceTypeName; }
+
+std::string CudaDevice::ToString() const {
+  std::stringstream ss;
+  ss << "CudaDevice(device_number=" << device_number() << ", name=\"" << device_name()
+     << "\")";
+  return ss.str();
+}
+
+bool CudaDevice::Equals(const Device& other) const {
+  if (!IsCudaDevice(other)) {
+    return false;
+  }
+  return checked_cast<const CudaDevice&>(other).device_number() == device_number();
+}
+
+int CudaDevice::device_number() const { return impl_->props.device_number_; }
+
+std::string CudaDevice::device_name() const { return impl_->props.name_; }
+
+int64_t CudaDevice::total_memory() const { return impl_->props.total_memory_; }
+
+int CudaDevice::handle() const { return impl_->props.handle_; }
+
+Result<std::shared_ptr<CudaDevice>> CudaDevice::Make(int device_number) {
+  ARROW_ASSIGN_OR_RAISE(auto manager, CudaDeviceManager::Instance());
+  return manager->GetDevice(device_number);
+}
+
+std::shared_ptr<MemoryManager> CudaDevice::default_memory_manager() {
+  return CudaMemoryManager::Make(shared_from_this());
+}
+
+Result<std::shared_ptr<CudaContext>> CudaDevice::GetContext() {
+  // XXX should we cache a default context in CudaDevice instance?
+  auto context = std::shared_ptr<CudaContext>(new CudaContext());
+  auto self = checked_pointer_cast<CudaDevice>(shared_from_this());
+  RETURN_NOT_OK(context->impl_->Init(self));
+  return context;
+}
+
+Result<std::shared_ptr<CudaContext>> CudaDevice::GetSharedContext(void* handle) {
+  auto context = std::shared_ptr<CudaContext>(new CudaContext());
+  auto self = checked_pointer_cast<CudaDevice>(shared_from_this());
+  RETURN_NOT_OK(context->impl_->InitShared(self, reinterpret_cast<CUcontext>(handle)));
+  return context;
+}
+
+Result<std::shared_ptr<CudaHostBuffer>> CudaDevice::AllocateHostBuffer(int64_t size) {
+  ARROW_ASSIGN_OR_RAISE(auto context, GetContext());
+  ContextSaver set_temporary(*context);
+  void* ptr;
+  CU_RETURN_NOT_OK("cuMemHostAlloc", cuMemHostAlloc(&ptr, static_cast<size_t>(size),
+                                                    CU_MEMHOSTALLOC_PORTABLE));
+  return std::make_shared<CudaHostBuffer>(reinterpret_cast<uint8_t*>(ptr), size);
+}
+
+bool IsCudaDevice(const Device& device) {
+  return device.type_name() == kCudaDeviceTypeName;
+}
+
+Result<std::shared_ptr<CudaDevice>> AsCudaDevice(const std::shared_ptr<Device>& device) {
+  if (IsCudaDevice(*device)) {
+    return checked_pointer_cast<CudaDevice>(device);
+  } else {
+    return Status::TypeError("Device is not a Cuda device: ", device->ToString());
+  }
+}
+
+// ----------------------------------------------------------------------
+// CudaMemoryManager implementation
+
+std::shared_ptr<CudaMemoryManager> CudaMemoryManager::Make(
+    const std::shared_ptr<Device>& device) {
+  return std::shared_ptr<CudaMemoryManager>(new CudaMemoryManager(device));
+}
+
+std::shared_ptr<CudaDevice> CudaMemoryManager::cuda_device() const {
+  return checked_pointer_cast<CudaDevice>(device_);
+}
+
+Result<std::shared_ptr<io::RandomAccessFile>> CudaMemoryManager::GetBufferReader(
+    std::shared_ptr<Buffer> buf) {
+  if (*buf->device() != *device_) {
+    return Status::Invalid(
+        "CudaMemoryManager::GetBufferReader called on foreign buffer "
+        "for device ",
+        buf->device()->ToString());
+  }
+  return std::make_shared<CudaBufferReader>(checked_pointer_cast<CudaBuffer>(buf));
+}
+
+Result<std::shared_ptr<io::OutputStream>> CudaMemoryManager::GetBufferWriter(
+    std::shared_ptr<Buffer> buf) {
+  if (*buf->device() != *device_) {
+    return Status::Invalid(
+        "CudaMemoryManager::GetBufferReader called on foreign buffer "
+        "for device ",
+        buf->device()->ToString());
+  }
+  std::shared_ptr<CudaBuffer> cuda_buf;
+  RETURN_NOT_OK(CudaBuffer::FromBuffer(buf, &cuda_buf));
+  auto writer = std::make_shared<CudaBufferWriter>(cuda_buf);
+  // Use 8MB buffering, which yields generally good performance
+  RETURN_NOT_OK(writer->SetBufferSize(1 << 23));
+  return writer;
+}
+
+Result<std::shared_ptr<Buffer>> CudaMemoryManager::AllocateBuffer(int64_t size) {
+  ARROW_ASSIGN_OR_RAISE(auto context, cuda_device()->GetContext());
+  std::shared_ptr<CudaBuffer> dest;
+  RETURN_NOT_OK(context->Allocate(size, &dest));
+  return dest;
+}
+
+Result<std::shared_ptr<Buffer>> CudaMemoryManager::CopyBufferTo(
+    const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to) {
+  if (to->is_cpu()) {
+    // Device-to-CPU copy
+    std::shared_ptr<Buffer> dest;
+    ARROW_ASSIGN_OR_RAISE(auto from_context, cuda_device()->GetContext());
+    ARROW_ASSIGN_OR_RAISE(dest, to->AllocateBuffer(buf->size()));
+    RETURN_NOT_OK(from_context->CopyDeviceToHost(dest->mutable_data(), buf->address(),
+                                                 buf->size()));
+    return dest;
+  }
+  return nullptr;
+}
+
+Result<std::shared_ptr<Buffer>> CudaMemoryManager::CopyBufferFrom(
+    const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& from) {
+  std::shared_ptr<CudaBuffer> dest;
+  if (from->is_cpu()) {
+    // CPU-to-device copy
+    ARROW_ASSIGN_OR_RAISE(auto to_context, cuda_device()->GetContext());
+    RETURN_NOT_OK(to_context->Allocate(buf->size(), &dest));
+    RETURN_NOT_OK(
+        to_context->CopyHostToDevice(dest->address(), buf->data(), buf->size()));
+    return dest;
+  }
+  if (IsCudaMemoryManager(*from)) {
+    // Device-to-device copy
+    ARROW_ASSIGN_OR_RAISE(auto to_context, cuda_device()->GetContext());
+    ARROW_ASSIGN_OR_RAISE(
+        auto from_context,
+        checked_cast<const CudaMemoryManager&>(*from).cuda_device()->GetContext());
+    RETURN_NOT_OK(to_context->Allocate(buf->size(), &dest));
+    if (to_context->handle() == from_context->handle()) {
+      // Same context
+      RETURN_NOT_OK(
+          to_context->CopyDeviceToDevice(dest->address(), buf->address(), buf->size()));
+    } else {
+      // Other context
+      RETURN_NOT_OK(from_context->CopyDeviceToAnotherDevice(to_context, dest->address(),
+                                                            buf->address(), buf->size()));
+    }
+    return dest;
+  }
+  return nullptr;
+}
+
+Result<std::shared_ptr<Buffer>> CudaMemoryManager::ViewBufferTo(
+    const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to) {
+  if (to->is_cpu()) {
+    // Device-on-CPU view
+    ARROW_ASSIGN_OR_RAISE(auto address, GetHostAddress(buf->address()));
+    return std::make_shared<Buffer>(address, buf->size(), to, buf);
+  }
+  return nullptr;
+}
+
+Result<std::shared_ptr<Buffer>> CudaMemoryManager::ViewBufferFrom(
+    const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& from) {
+  if (from->is_cpu()) {
+    // CPU-on-device view
+    ARROW_ASSIGN_OR_RAISE(auto to_context, cuda_device()->GetContext());
+    ARROW_ASSIGN_OR_RAISE(auto address, GetDeviceAddress(buf->data(), to_context));
+    return std::make_shared<Buffer>(address, buf->size(), shared_from_this(), buf);
+  }
+  return nullptr;
+}
+
+bool IsCudaMemoryManager(const MemoryManager& mm) { return IsCudaDevice(*mm.device()); }
+
+Result<std::shared_ptr<CudaMemoryManager>> AsCudaMemoryManager(
+    const std::shared_ptr<MemoryManager>& mm) {
+  if (IsCudaMemoryManager(*mm)) {
+    return checked_pointer_cast<CudaMemoryManager>(mm);
+  } else {
+    return Status::TypeError("Device is not a Cuda device: ", mm->device()->ToString());
+  }
+}
+
+// ----------------------------------------------------------------------
+// CudaDeviceManager implementation
+
+class CudaDeviceManager::Impl {
  public:
-  CudaDeviceManagerImpl() : host_bytes_allocated_(0) {}
+  Impl() : host_bytes_allocated_(0) {}
 
   Status Init() {
-    CU_RETURN_NOT_OK(cuInit(0));
-    CU_RETURN_NOT_OK(cuDeviceGetCount(&num_devices_));
+    CU_RETURN_NOT_OK("cuInit", cuInit(0));
+    CU_RETURN_NOT_OK("cuDeviceGetCount", cuDeviceGetCount(&num_devices_));
 
     devices_.resize(num_devices_);
     for (int i = 0; i < num_devices_; ++i) {
-      RETURN_NOT_OK(GetDeviceProperties(i, &devices_[i]));
+      ARROW_ASSIGN_OR_RAISE(devices_[i], MakeDevice(i));
     }
     return Status::OK();
   }
 
   Status AllocateHost(int device_number, int64_t nbytes, uint8_t** out) {
+    RETURN_NOT_OK(CheckDeviceNum(device_number));
     std::shared_ptr<CudaContext> ctx;
     RETURN_NOT_OK(GetContext(device_number, &ctx));
     ContextSaver set_temporary((CUcontext)(ctx.get()->handle()));
-    CU_RETURN_NOT_OK(cuMemHostAlloc(reinterpret_cast<void**>(out),
-                                    static_cast<size_t>(nbytes),
-                                    CU_MEMHOSTALLOC_PORTABLE));
+    CU_RETURN_NOT_OK("cuMemHostAlloc", cuMemHostAlloc(reinterpret_cast<void**>(out),
+                                                      static_cast<size_t>(nbytes),
+                                                      CU_MEMHOSTALLOC_PORTABLE));
     host_bytes_allocated_ += nbytes;
     return Status::OK();
   }
 
   Status FreeHost(void* data, int64_t nbytes) {
-    CU_RETURN_NOT_OK(cuMemFreeHost(data));
+    CU_RETURN_NOT_OK("cuMemFreeHost", cuMemFreeHost(data));
     host_bytes_allocated_ -= nbytes;
     return Status::OK();
   }
 
-  Status GetDeviceProperties(int device_number, CudaDevice* device) {
-    device->device_num = device_number;
-    CU_RETURN_NOT_OK(cuDeviceGet(&device->handle, device_number));
-
-    size_t total_memory = 0;
-    CU_RETURN_NOT_OK(cuDeviceTotalMem(&total_memory, device->handle));
-    device->total_memory = total_memory;
-    return Status::OK();
-  }
-
   Status GetContext(int device_number, std::shared_ptr<CudaContext>* out) {
-    *out = std::shared_ptr<CudaContext>(new CudaContext());
-    return (*out)->impl_->Init(devices_[device_number]);
+    RETURN_NOT_OK(CheckDeviceNum(device_number));
+    return devices_[device_number]->GetContext().Value(out);
   }
 
-  Status GetSharedContext(int device_number, CUcontext ctx,
+  Status GetSharedContext(int device_number, void* handle,
                           std::shared_ptr<CudaContext>* out) {
-    *out = std::shared_ptr<CudaContext>(new CudaContext());
-    return (*out)->impl_->InitShared(devices_[device_number], ctx);
+    RETURN_NOT_OK(CheckDeviceNum(device_number));
+    return devices_[device_number]->GetSharedContext(handle).Value(out);
+  }
+
+  Result<std::shared_ptr<CudaDevice>> GetDevice(int device_number) {
+    RETURN_NOT_OK(CheckDeviceNum(device_number));
+    return devices_[device_number];
   }
 
   int num_devices() const { return num_devices_; }
 
+  Status CheckDeviceNum(int device_number) const {
+    if (device_number < 0 || device_number >= num_devices_) {
+      return Status::Invalid("Invalid Cuda device number ", device_number,
+                             " (should be between 0 and ", num_devices_ - 1,
+                             ", inclusive)");
+    }
+    return Status::OK();
+  }
+
+ protected:
+  Result<std::shared_ptr<CudaDevice>> MakeDevice(int device_number) {
+    DeviceProperties props;
+    RETURN_NOT_OK(props.Init(device_number));
+    return std::shared_ptr<CudaDevice>(new CudaDevice({std::move(props)}));
+  }
+
  private:
   int num_devices_;
-  std::vector<CudaDevice> devices_;
+  std::vector<std::shared_ptr<CudaDevice>> devices_;
 
   int64_t host_bytes_allocated_;
 };
 
-CudaDeviceManager::CudaDeviceManager() { impl_.reset(new CudaDeviceManagerImpl()); }
+CudaDeviceManager::CudaDeviceManager() { impl_.reset(new Impl()); }
 
 std::unique_ptr<CudaDeviceManager> CudaDeviceManager::instance_ = nullptr;
 
-Status CudaDeviceManager::GetInstance(CudaDeviceManager** manager) {
+Result<CudaDeviceManager*> CudaDeviceManager::Instance() {
   static std::mutex mutex;
   static std::atomic<bool> init_end(false);
 
@@ -254,8 +499,15 @@ Status CudaDeviceManager::GetInstance(CudaDeviceManager** manager) {
       init_end = true;
     }
   }
-  *manager = instance_.get();
-  return Status::OK();
+  return instance_.get();
+}
+
+Status CudaDeviceManager::GetInstance(CudaDeviceManager** manager) {
+  return Instance().Value(manager);
+}
+
+Result<std::shared_ptr<CudaDevice>> CudaDeviceManager::GetDevice(int device_number) {
+  return impl_->GetDevice(device_number);
 }
 
 Status CudaDeviceManager::GetContext(int device_number,
@@ -265,7 +517,7 @@ Status CudaDeviceManager::GetContext(int device_number,
 
 Status CudaDeviceManager::GetSharedContext(int device_number, void* ctx,
                                            std::shared_ptr<CudaContext>* out) {
-  return impl_->GetSharedContext(device_number, (CUcontext)ctx, out);
+  return impl_->GetSharedContext(device_number, ctx, out);
 }
 
 Status CudaDeviceManager::AllocateHost(int device_number, int64_t nbytes,
@@ -285,7 +537,7 @@ int CudaDeviceManager::num_devices() const { return impl_->num_devices(); }
 // ----------------------------------------------------------------------
 // CudaContext public API
 
-CudaContext::CudaContext() { impl_.reset(new CudaContextImpl()); }
+CudaContext::CudaContext() { impl_.reset(new Impl()); }
 
 CudaContext::~CudaContext() {}
 
@@ -307,22 +559,42 @@ Status CudaContext::ExportIpcBuffer(void* data, int64_t size,
   return impl_->ExportIpcBuffer(data, size, handle);
 }
 
-Status CudaContext::CopyHostToDevice(void* dst, const void* src, int64_t nbytes) {
+Status CudaContext::CopyHostToDevice(uintptr_t dst, const void* src, int64_t nbytes) {
   return impl_->CopyHostToDevice(dst, src, nbytes);
 }
 
-Status CudaContext::CopyDeviceToHost(void* dst, const void* src, int64_t nbytes) {
+Status CudaContext::CopyHostToDevice(void* dst, const void* src, int64_t nbytes) {
+  return impl_->CopyHostToDevice(reinterpret_cast<uintptr_t>(dst), src, nbytes);
+}
+
+Status CudaContext::CopyDeviceToHost(void* dst, uintptr_t src, int64_t nbytes) {
   return impl_->CopyDeviceToHost(dst, src, nbytes);
 }
 
-Status CudaContext::CopyDeviceToDevice(void* dst, const void* src, int64_t nbytes) {
+Status CudaContext::CopyDeviceToHost(void* dst, const void* src, int64_t nbytes) {
+  return impl_->CopyDeviceToHost(dst, reinterpret_cast<uintptr_t>(src), nbytes);
+}
+
+Status CudaContext::CopyDeviceToDevice(uintptr_t dst, uintptr_t src, int64_t nbytes) {
   return impl_->CopyDeviceToDevice(dst, src, nbytes);
+}
+
+Status CudaContext::CopyDeviceToDevice(void* dst, const void* src, int64_t nbytes) {
+  return impl_->CopyDeviceToDevice(reinterpret_cast<uintptr_t>(dst),
+                                   reinterpret_cast<uintptr_t>(src), nbytes);
+}
+
+Status CudaContext::CopyDeviceToAnotherDevice(const std::shared_ptr<CudaContext>& dst_ctx,
+                                              uintptr_t dst, uintptr_t src,
+                                              int64_t nbytes) {
+  return impl_->CopyDeviceToAnotherDevice(dst_ctx, dst, src, nbytes);
 }
 
 Status CudaContext::CopyDeviceToAnotherDevice(const std::shared_ptr<CudaContext>& dst_ctx,
                                               void* dst, const void* src,
                                               int64_t nbytes) {
-  return impl_->CopyDeviceToAnotherDevice(dst_ctx, dst, src, nbytes);
+  return impl_->CopyDeviceToAnotherDevice(dst_ctx, reinterpret_cast<uintptr_t>(dst),
+                                          reinterpret_cast<uintptr_t>(src), nbytes);
 }
 
 Status CudaContext::Synchronize(void) { return impl_->Synchronize(); }
@@ -336,12 +608,13 @@ Status CudaContext::Free(void* device_ptr, int64_t nbytes) {
 Status CudaContext::OpenIpcBuffer(const CudaIpcMemHandle& ipc_handle,
                                   std::shared_ptr<CudaBuffer>* out) {
   if (ipc_handle.memory_size() > 0) {
-    ContextSaver set_temporary(reinterpret_cast<CUcontext>(handle()));
+    ContextSaver set_temporary(*this);
     uint8_t* data = nullptr;
     RETURN_NOT_OK(impl_->OpenIpcBuffer(ipc_handle, &data));
     // Need to ask the device how big the buffer is
     size_t allocation_size = 0;
-    CU_RETURN_NOT_OK(cuMemGetAddressRange(nullptr, &allocation_size,
+    CU_RETURN_NOT_OK("cuMemGetAddressRange",
+                     cuMemGetAddressRange(nullptr, &allocation_size,
                                           reinterpret_cast<CUdeviceptr>(data)));
     *out = std::make_shared<CudaBuffer>(data, allocation_size, this->shared_from_this(),
                                         true, true);
@@ -355,9 +628,8 @@ Status CudaContext::OpenIpcBuffer(const CudaIpcMemHandle& ipc_handle,
 }
 
 Status CudaContext::CloseIpcBuffer(CudaBuffer* buf) {
-  ContextSaver set_temporary(reinterpret_cast<CUcontext>(handle()));
-  uint8_t* data = buf->mutable_data();
-  CU_RETURN_NOT_OK(cuIpcCloseMemHandle(reinterpret_cast<CUdeviceptr>(data)));
+  ContextSaver set_temporary(*this);
+  CU_RETURN_NOT_OK("cuIpcCloseMemHandle", cuIpcCloseMemHandle(buf->address()));
   return Status::OK();
 }
 
@@ -365,11 +637,18 @@ int64_t CudaContext::bytes_allocated() const { return impl_->bytes_allocated(); 
 
 void* CudaContext::handle() const { return impl_->context_handle(); }
 
-int CudaContext::device_number() const { return impl_->device().device_num; }
+std::shared_ptr<CudaDevice> CudaContext::device() const { return impl_->device(); }
+
+std::shared_ptr<CudaMemoryManager> CudaContext::memory_manager() const {
+  return impl_->memory_manager();
+}
+
+int CudaContext::device_number() const { return impl_->device()->device_number(); }
 
 Status CudaContext::GetDeviceAddress(uint8_t* addr, uint8_t** devaddr) {
-  ContextSaver set_temporary(reinterpret_cast<CUcontext>(handle()));
-  CU_RETURN_NOT_OK(cuPointerGetAttribute(devaddr, CU_POINTER_ATTRIBUTE_DEVICE_POINTER,
+  ContextSaver set_temporary(*this);
+  CU_RETURN_NOT_OK("cuPointerGetAttribute",
+                   cuPointerGetAttribute(devaddr, CU_POINTER_ATTRIBUTE_DEVICE_POINTER,
                                          reinterpret_cast<CUdeviceptr>(addr)));
   return Status::OK();
 }

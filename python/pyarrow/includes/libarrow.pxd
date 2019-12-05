@@ -247,8 +247,11 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CBuffer(const uint8_t* data, int64_t size)
         const uint8_t* data()
         uint8_t* mutable_data()
+        uintptr_t address()
+        uintptr_t mutable_address()
         int64_t size()
         shared_ptr[CBuffer] parent()
+        c_bool is_cpu() const
         c_bool is_mutable() const
         c_string ToHexString()
         c_bool Equals(const CBuffer& other)

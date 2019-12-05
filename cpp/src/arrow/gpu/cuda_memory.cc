@@ -31,11 +31,13 @@
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
-#include "arrow/gpu/cuda_common.h"
 #include "arrow/gpu/cuda_context.h"
+#include "arrow/gpu/cuda_internal.h"
 
 namespace arrow {
 namespace cuda {
+
+using internal::ContextSaver;
 
 // ----------------------------------------------------------------------
 // CUDA IPC memory handle
@@ -98,7 +100,13 @@ CudaBuffer::CudaBuffer(uint8_t* data, int64_t size,
     : Buffer(data, size), context_(context), own_data_(own_data), is_ipc_(is_ipc) {
   is_mutable_ = true;
   mutable_data_ = data;
+  SetMemoryManager(context_->memory_manager());
 }
+
+CudaBuffer::CudaBuffer(uintptr_t address, int64_t size,
+                       const std::shared_ptr<CudaContext>& context, bool own_data,
+                       bool is_ipc)
+    : CudaBuffer(reinterpret_cast<uint8_t*>(address), size, context, own_data, is_ipc) {}
 
 CudaBuffer::~CudaBuffer() { ARROW_CHECK_OK(Close()); }
 
@@ -136,7 +144,7 @@ Status CudaBuffer::FromBuffer(std::shared_ptr<Buffer> buffer,
     if (!parent) {
       return Status::TypeError("buffer is not backed by a CudaBuffer");
     }
-    offset += buffer->data() - parent->data();
+    offset += buffer->address() - parent->address();
     buffer = parent;
   }
   // Re-slice to represent the same memory area
@@ -193,27 +201,65 @@ CudaHostBuffer::~CudaHostBuffer() {
   ARROW_CHECK_OK(manager->FreeHost(mutable_data_, size_));
 }
 
+Result<uintptr_t> CudaHostBuffer::GetDeviceAddress(
+    const std::shared_ptr<CudaContext>& ctx) {
+  return ::arrow::cuda::GetDeviceAddress(data(), ctx);
+}
+
 // ----------------------------------------------------------------------
 // CudaBufferReader
 
 CudaBufferReader::CudaBufferReader(const std::shared_ptr<Buffer>& buffer)
-    : io::BufferReader(buffer) {
-  if (!CudaBuffer::FromBuffer(buffer, &cuda_buffer_).ok()) {
+    : address_(buffer->address()), size_(buffer->size()), position_(0), is_open_(true) {
+  if (!CudaBuffer::FromBuffer(buffer, &buffer_).ok()) {
     throw std::bad_cast();
   }
-  context_ = cuda_buffer_->context();
+  context_ = buffer_->context();
 }
 
-CudaBufferReader::~CudaBufferReader() {}
+Status CudaBufferReader::DoClose() {
+  is_open_ = false;
+  return Status::OK();
+}
+
+bool CudaBufferReader::closed() const { return !is_open_; }
+
+// XXX Only in a certain sense (not on the CPU)...
+bool CudaBufferReader::supports_zero_copy() const { return true; }
+
+Result<int64_t> CudaBufferReader::DoTell() const {
+  RETURN_NOT_OK(CheckClosed());
+  return position_;
+}
+
+Result<int64_t> CudaBufferReader::DoGetSize() {
+  RETURN_NOT_OK(CheckClosed());
+  return size_;
+}
+
+Status CudaBufferReader::DoSeek(int64_t position) {
+  RETURN_NOT_OK(CheckClosed());
+
+  if (position < 0 || position > size_) {
+    return Status::IOError("Seek out of bounds");
+  }
+
+  position_ = position;
+  return Status::OK();
+}
 
 Result<int64_t> CudaBufferReader::DoReadAt(int64_t position, int64_t nbytes,
                                            void* buffer) {
+  RETURN_NOT_OK(CheckClosed());
+
   nbytes = std::min(nbytes, size_ - position);
-  RETURN_NOT_OK(context_->CopyDeviceToHost(buffer, data_ + position, nbytes));
+  RETURN_NOT_OK(context_->CopyDeviceToHost(buffer, address_ + position, nbytes));
   return nbytes;
 }
 
 Result<int64_t> CudaBufferReader::DoRead(int64_t nbytes, void* buffer) {
+  RETURN_NOT_OK(CheckClosed());
+
   ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, DoReadAt(position_, nbytes, buffer));
   position_ += bytes_read;
   return bytes_read;
@@ -221,13 +267,17 @@ Result<int64_t> CudaBufferReader::DoRead(int64_t nbytes, void* buffer) {
 
 Result<std::shared_ptr<Buffer>> CudaBufferReader::DoReadAt(int64_t position,
                                                            int64_t nbytes) {
+  RETURN_NOT_OK(CheckClosed());
+
   int64_t size = std::min(nbytes, size_ - position);
-  return std::make_shared<CudaBuffer>(cuda_buffer_, position, size);
+  return std::make_shared<CudaBuffer>(buffer_, position, size);
 }
 
 Result<std::shared_ptr<Buffer>> CudaBufferReader::DoRead(int64_t nbytes) {
+  RETURN_NOT_OK(CheckClosed());
+
   int64_t size = std::min(nbytes, size_ - position_);
-  auto buffer = std::make_shared<CudaBuffer>(cuda_buffer_, position_, size);
+  auto buffer = std::make_shared<CudaBuffer>(buffer_, position_, size);
   position_ += size;
   return buffer;
 }
@@ -244,7 +294,7 @@ class CudaBufferWriter::CudaBufferWriterImpl {
         buffer_position_(0) {
     buffer_ = buffer;
     ARROW_CHECK(buffer->is_mutable()) << "Must pass mutable buffer";
-    mutable_data_ = buffer->mutable_data();
+    address_ = buffer->mutable_address();
     size_ = buffer->size();
     position_ = 0;
     closed_ = false;
@@ -280,9 +330,8 @@ class CudaBufferWriter::CudaBufferWriterImpl {
   Status FlushInternal() {
     if (buffer_size_ > 0 && buffer_position_ > 0) {
       // Only need to flush when the write has been buffered
-      RETURN_NOT_OK(
-          context_->CopyHostToDevice(mutable_data_ + position_ - buffer_position_,
-                                     host_buffer_data_, buffer_position_));
+      RETURN_NOT_OK(context_->CopyHostToDevice(address_ + position_ - buffer_position_,
+                                               host_buffer_data_, buffer_position_));
       buffer_position_ = 0;
     }
     return Status::OK();
@@ -305,8 +354,7 @@ class CudaBufferWriter::CudaBufferWriterImpl {
       if (nbytes + buffer_position_ >= buffer_size_) {
         // Reach end of buffer, write everything
         RETURN_NOT_OK(Flush());
-        RETURN_NOT_OK(
-            context_->CopyHostToDevice(mutable_data_ + position_, data, nbytes));
+        RETURN_NOT_OK(context_->CopyHostToDevice(address_ + position_, data, nbytes));
       } else {
         // Write bytes to buffer
         std::memcpy(host_buffer_data_ + buffer_position_, data, nbytes);
@@ -314,7 +362,7 @@ class CudaBufferWriter::CudaBufferWriterImpl {
       }
     } else {
       // Unbuffered write
-      RETURN_NOT_OK(context_->CopyHostToDevice(mutable_data_ + position_, data, nbytes));
+      RETURN_NOT_OK(context_->CopyHostToDevice(address_ + position_, data, nbytes));
     }
     position_ += nbytes;
     return Status::OK();
@@ -350,7 +398,7 @@ class CudaBufferWriter::CudaBufferWriterImpl {
   std::shared_ptr<CudaContext> context_;
   std::shared_ptr<CudaBuffer> buffer_;
   std::mutex lock_;
-  uint8_t* mutable_data_;
+  uintptr_t address_;
   int64_t size_;
   int64_t position_;
   bool closed_;
@@ -406,6 +454,25 @@ Status AllocateCudaHostBuffer(int device_number, const int64_t size,
   CudaDeviceManager* manager = nullptr;
   RETURN_NOT_OK(CudaDeviceManager::GetInstance(&manager));
   return manager->AllocateHost(device_number, size, out);
+}
+
+Result<uintptr_t> GetDeviceAddress(const uint8_t* cpu_data,
+                                   const std::shared_ptr<CudaContext>& ctx) {
+  ContextSaver context_saver(*ctx);
+  CUdeviceptr ptr;
+  // XXX should we use cuPointerGetAttribute(CU_POINTER_ATTRIBUTE_DEVICE_POINTER)
+  // instead?
+  CU_RETURN_NOT_OK("cuMemHostGetDevicePointer",
+                   cuMemHostGetDevicePointer(&ptr, const_cast<uint8_t*>(cpu_data), 0));
+  return static_cast<uintptr_t>(ptr);
+}
+
+Result<uint8_t*> GetHostAddress(uintptr_t device_ptr) {
+  void* ptr;
+  CU_RETURN_NOT_OK(
+      "cuPointerGetAttribute",
+      cuPointerGetAttribute(&ptr, CU_POINTER_ATTRIBUTE_HOST_POINTER, device_ptr));
+  return static_cast<uint8_t*>(ptr);
 }
 
 }  // namespace cuda

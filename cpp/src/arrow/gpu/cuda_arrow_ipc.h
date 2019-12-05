@@ -50,6 +50,8 @@ ARROW_EXPORT
 Status SerializeRecordBatch(const RecordBatch& batch, CudaContext* ctx,
                             std::shared_ptr<CudaBuffer>* out);
 
+// TODO deprecate for ipc::ReadMessage()?
+
 /// \brief Read Arrow IPC message located on GPU device
 /// \param[in] reader a CudaBufferReader
 /// \param[in] pool a MemoryPool to allocate CPU memory for the metadata
