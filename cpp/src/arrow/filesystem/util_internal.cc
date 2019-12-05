@@ -17,6 +17,8 @@
 
 #include "arrow/filesystem/util_internal.h"
 #include "arrow/buffer.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 
 namespace arrow {
 namespace fs {
@@ -31,11 +33,11 @@ TimePoint CurrentTimePoint() {
 Status CopyStream(const std::shared_ptr<io::InputStream>& src,
                   const std::shared_ptr<io::OutputStream>& dest, int64_t chunk_size) {
   std::shared_ptr<Buffer> chunk;
-  int64_t bytes_read;
 
   RETURN_NOT_OK(AllocateBuffer(chunk_size, &chunk));
   while (true) {
-    RETURN_NOT_OK(src->Read(chunk_size, &bytes_read, chunk->mutable_data()));
+    ARROW_ASSIGN_OR_RAISE(int64_t bytes_read,
+                          src->Read(chunk_size, chunk->mutable_data()));
     if (bytes_read == 0) {
       // EOF
       break;

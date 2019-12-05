@@ -192,7 +192,7 @@ class BackgroundReader {
 static void SetupPipeWriter(std::shared_ptr<io::OutputStream>* stream,
                             std::shared_ptr<BackgroundReader>* reader) {
   auto pipe = *internal::CreatePipe();
-  ABORT_NOT_OK(io::FileOutputStream::Open(pipe.wfd, stream));
+  *stream = *io::FileOutputStream::Open(pipe.wfd);
   *reader = BackgroundReader::StartReader(pipe.rfd);
 }
 
@@ -229,20 +229,17 @@ static void BenchmarkStreamingWrites(benchmark::State& state,
 
 static void FileOutputStreamSmallWritesToNull(
     benchmark::State& state) {  // NOLINT non-const reference
-  std::shared_ptr<io::OutputStream> stream;
-  ABORT_NOT_OK(io::FileOutputStream::Open(GetNullFile(), &stream));
+  auto stream = *io::FileOutputStream::Open(GetNullFile());
 
   BenchmarkStreamingWrites(state, small_sizes, stream.get());
 }
 
 static void BufferedOutputStreamSmallWritesToNull(
     benchmark::State& state) {  // NOLINT non-const reference
-  std::shared_ptr<io::OutputStream> file;
-  ABORT_NOT_OK(io::FileOutputStream::Open(GetNullFile(), &file));
+  auto file = *io::FileOutputStream::Open(GetNullFile());
 
-  std::shared_ptr<io::BufferedOutputStream> buffered_file;
-  ABORT_NOT_OK(io::BufferedOutputStream::Create(kBufferSize, default_memory_pool(), file,
-                                                &buffered_file));
+  auto buffered_file =
+      *io::BufferedOutputStream::Create(kBufferSize, default_memory_pool(), file);
   BenchmarkStreamingWrites(state, small_sizes, buffered_file.get());
 }
 
@@ -274,9 +271,8 @@ static void BufferedOutputStreamSmallWritesToPipe(
   std::shared_ptr<BackgroundReader> reader;
   SetupPipeWriter(&stream, &reader);
 
-  std::shared_ptr<io::BufferedOutputStream> buffered_stream;
-  ABORT_NOT_OK(io::BufferedOutputStream::Create(kBufferSize, default_memory_pool(),
-                                                stream, &buffered_stream));
+  auto buffered_stream =
+      *io::BufferedOutputStream::Create(kBufferSize, default_memory_pool(), stream);
   BenchmarkStreamingWrites(state, small_sizes, buffered_stream.get(), reader.get());
 }
 
@@ -286,9 +282,8 @@ static void BufferedOutputStreamLargeWritesToPipe(
   std::shared_ptr<BackgroundReader> reader;
   SetupPipeWriter(&stream, &reader);
 
-  std::shared_ptr<io::BufferedOutputStream> buffered_stream;
-  ABORT_NOT_OK(io::BufferedOutputStream::Create(kBufferSize, default_memory_pool(),
-                                                stream, &buffered_stream));
+  auto buffered_stream =
+      *io::BufferedOutputStream::Create(kBufferSize, default_memory_pool(), stream);
 
   BenchmarkStreamingWrites(state, large_sizes, buffered_stream.get(), reader.get());
 }

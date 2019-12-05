@@ -194,12 +194,11 @@ class MockFSOutputStream : public io::OutputStream {
 
   bool closed() const override { return closed_; }
 
-  Status Tell(int64_t* position) const override {
+  Result<int64_t> Tell() const override {
     if (closed_) {
       return Status::Invalid("Invalid operation on closed stream");
     }
-    *position = file_->size();
-    return Status::OK();
+    return file_->size();
   }
 
   Status Write(const void* data, int64_t nbytes) override {

@@ -339,8 +339,8 @@ class SerialTableReader : public BaseTableReader {
   using BaseTableReader::BaseTableReader;
 
   Status Init() override {
-    RETURN_NOT_OK(
-        io::MakeInputStreamIterator(input_, read_options_.block_size, &block_iterator_));
+    ARROW_ASSIGN_OR_RAISE(block_iterator_,
+                          io::MakeInputStreamIterator(input_, read_options_.block_size));
     // Since we're converting serially, no need to readahead more than one block
     int block_queue_size = 1;
     return MakeReadaheadIterator(std::move(block_iterator_), block_queue_size,
@@ -416,8 +416,8 @@ class ThreadedTableReader : public BaseTableReader {
   }
 
   Status Init() override {
-    RETURN_NOT_OK(
-        io::MakeInputStreamIterator(input_, read_options_.block_size, &block_iterator_));
+    ARROW_ASSIGN_OR_RAISE(block_iterator_,
+                          io::MakeInputStreamIterator(input_, read_options_.block_size));
     int32_t block_queue_size = thread_pool_->GetCapacity();
     return MakeReadaheadIterator(std::move(block_iterator_), block_queue_size,
                                  &block_iterator_);

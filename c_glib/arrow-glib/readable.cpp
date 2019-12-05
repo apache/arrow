@@ -64,11 +64,10 @@ garrow_readable_read(GArrowReadable *readable,
 {
   const auto arrow_readable = garrow_readable_get_raw(readable);
 
-  std::shared_ptr<arrow::Buffer> arrow_buffer;
-  auto status = arrow_readable->Read(n_bytes, &arrow_buffer);
-  if (garrow_error_check(error, status, "[io][readable][read]")) {
+  auto arrow_buffer = arrow_readable->Read(n_bytes);
+  if (garrow::check(error, arrow_buffer, "[io][readable][read]")) {
     auto *iface = GARROW_READABLE_GET_IFACE(readable);
-    return iface->new_raw(&arrow_buffer);
+    return iface->new_raw(&(arrow_buffer.ValueOrDie()));
   } else {
     return NULL;
   }

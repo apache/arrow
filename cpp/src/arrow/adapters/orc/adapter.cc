@@ -68,23 +68,29 @@ namespace orc {
     }                                         \
   } while (0)
 
+#define ORC_ASSIGN_OR_THROW_IMPL(status_name, lhs, rexpr) \
+  auto status_name = (rexpr);                             \
+  ORC_THROW_NOT_OK(status_name.status());                 \
+  lhs = std::move(status_name).ValueOrDie();
+
+#define ORC_ASSIGN_OR_THROW(lhs, rexpr)                                              \
+  ORC_ASSIGN_OR_THROW_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
+                           lhs, rexpr);
+
 class ArrowInputFile : public liborc::InputStream {
  public:
   explicit ArrowInputFile(const std::shared_ptr<io::RandomAccessFile>& file)
       : file_(file) {}
 
   uint64_t getLength() const override {
-    int64_t size;
-    ORC_THROW_NOT_OK(file_->GetSize(&size));
+    ORC_ASSIGN_OR_THROW(int64_t size, file_->GetSize());
     return static_cast<uint64_t>(size);
   }
 
   uint64_t getNaturalReadSize() const override { return 128 * 1024; }
 
   void read(void* buf, uint64_t length, uint64_t offset) override {
-    int64_t bytes_read;
-
-    ORC_THROW_NOT_OK(file_->ReadAt(offset, length, &bytes_read, buf));
+    ORC_ASSIGN_OR_THROW(int64_t bytes_read, file_->ReadAt(offset, length, buf));
 
     if (static_cast<uint64_t>(bytes_read) != length) {
       throw liborc::ParseError("Short read from arrow input file");

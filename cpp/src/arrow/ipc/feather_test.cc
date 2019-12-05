@@ -281,7 +281,7 @@ void CheckBatches(const RecordBatch& expected, const RecordBatch& result) {
 class TestTableReader : public ::testing::Test {
  public:
   void SetUp() {
-    ASSERT_OK(io::BufferOutputStream::Create(1024, default_memory_pool(), &stream_));
+    ASSERT_OK_AND_ASSIGN(stream_, io::BufferOutputStream::Create(1024));
     ASSERT_OK(TableWriter::Open(stream_, &writer_));
   }
 
@@ -289,7 +289,7 @@ class TestTableReader : public ::testing::Test {
     // Write table footer
     ASSERT_OK(writer_->Finalize());
 
-    ASSERT_OK(stream_->Finish(&output_));
+    ASSERT_OK_AND_ASSIGN(output_, stream_->Finish());
 
     auto buffer = std::make_shared<io::BufferReader>(output_);
     ASSERT_OK(TableReader::Open(buffer, &reader_));
@@ -356,7 +356,7 @@ TEST_F(TestTableReader, ReadNames) {
 class TestTableWriter : public ::testing::Test {
  public:
   void SetUp() {
-    ASSERT_OK(io::BufferOutputStream::Create(1024, default_memory_pool(), &stream_));
+    ASSERT_OK_AND_ASSIGN(stream_, io::BufferOutputStream::Create(1024));
     ASSERT_OK(TableWriter::Open(stream_, &writer_));
   }
 
@@ -364,7 +364,7 @@ class TestTableWriter : public ::testing::Test {
     // Write table footer
     ASSERT_OK(writer_->Finalize());
 
-    ASSERT_OK(stream_->Finish(&output_));
+    ASSERT_OK_AND_ASSIGN(output_, stream_->Finish());
 
     auto buffer = std::make_shared<io::BufferReader>(output_);
     ASSERT_OK(TableReader::Open(buffer, &reader_));

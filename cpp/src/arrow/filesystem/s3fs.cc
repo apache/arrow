@@ -66,6 +66,8 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/util_internal.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -314,18 +316,14 @@ class ObjectInputFile : public io::RandomAccessFile {
 
   bool closed() const override { return closed_; }
 
-  Status Tell(int64_t* position) const override {
+  Result<int64_t> Tell() const override {
     RETURN_NOT_OK(CheckClosed());
-
-    *position = pos_;
-    return Status::OK();
+    return pos_;
   }
 
-  Status GetSize(int64_t* size) override {
+  Result<int64_t> GetSize() override {
     RETURN_NOT_OK(CheckClosed());
-
-    *size = content_length_;
-    return Status::OK();
+    return content_length_;
   }
 
   Status Seek(int64_t position) override {
@@ -336,15 +334,13 @@ class ObjectInputFile : public io::RandomAccessFile {
     return Status::OK();
   }
 
-  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                void* out) override {
+  Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) override {
     RETURN_NOT_OK(CheckClosed());
     RETURN_NOT_OK(CheckPosition(position, "read"));
 
     nbytes = std::min(nbytes, content_length_ - position);
     if (nbytes == 0) {
-      *bytes_read = 0;
-      return Status::OK();
+      return 0;
     }
 
     // Read the desired range of bytes
@@ -355,11 +351,10 @@ class ObjectInputFile : public io::RandomAccessFile {
     stream.read(reinterpret_cast<char*>(out), nbytes);
     // NOTE: the stream is a stringstream by default, there is no actual error
     // to check for.  However, stream.fail() may return true if EOF is reached.
-    *bytes_read = stream.gcount();
-    return Status::OK();
+    return stream.gcount();
   }
 
-  Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override {
+  Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) override {
     RETURN_NOT_OK(CheckClosed());
     RETURN_NOT_OK(CheckPosition(position, "read"));
 
@@ -367,27 +362,26 @@ class ObjectInputFile : public io::RandomAccessFile {
     nbytes = std::min(nbytes, content_length_ - position);
 
     std::shared_ptr<ResizableBuffer> buf;
-    int64_t bytes_read;
     RETURN_NOT_OK(AllocateResizableBuffer(nbytes, &buf));
     if (nbytes > 0) {
-      RETURN_NOT_OK(ReadAt(position, nbytes, &bytes_read, buf->mutable_data()));
+      ARROW_ASSIGN_OR_RAISE(int64_t bytes_read,
+                            ReadAt(position, nbytes, buf->mutable_data()));
       DCHECK_LE(bytes_read, nbytes);
       RETURN_NOT_OK(buf->Resize(bytes_read));
     }
-    *out = std::move(buf);
-    return Status::OK();
+    return buf;
   }
 
-  Status Read(int64_t nbytes, int64_t* bytes_read, void* out) override {
-    RETURN_NOT_OK(ReadAt(pos_, nbytes, bytes_read, out));
-    pos_ += *bytes_read;
-    return Status::OK();
+  Result<int64_t> Read(int64_t nbytes, void* out) override {
+    ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, ReadAt(pos_, nbytes, out));
+    pos_ += bytes_read;
+    return bytes_read;
   }
 
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override {
-    RETURN_NOT_OK(ReadAt(pos_, nbytes, out));
-    pos_ += (*out)->size();
-    return Status::OK();
+  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override {
+    ARROW_ASSIGN_OR_RAISE(auto buffer, ReadAt(pos_, nbytes));
+    pos_ += buffer->size();
+    return buffer;
   }
 
  protected:
@@ -521,12 +515,11 @@ class ObjectOutputStream : public io::OutputStream {
 
   bool closed() const override { return closed_; }
 
-  Status Tell(int64_t* position) const override {
+  Result<int64_t> Tell() const override {
     if (closed_) {
       return Status::Invalid("Operation on closed stream");
     }
-    *position = pos_;
-    return Status::OK();
+    return pos_;
   }
 
   Status Write(const std::shared_ptr<Buffer>& buffer) override {
@@ -567,8 +560,8 @@ class ObjectOutputStream : public io::OutputStream {
     }
     // Can't upload data on its own, need to buffer it
     if (!current_part_) {
-      RETURN_NOT_OK(io::BufferOutputStream::Create(
-          part_upload_threshold_, default_memory_pool(), &current_part_));
+      ARROW_ASSIGN_OR_RAISE(current_part_,
+                            io::BufferOutputStream::Create(part_upload_threshold_));
       current_part_size_ = 0;
     }
     RETURN_NOT_OK(current_part_->Write(data, nbytes));
@@ -597,8 +590,7 @@ class ObjectOutputStream : public io::OutputStream {
   // Upload-related helpers
 
   Status CommitCurrentPart() {
-    std::shared_ptr<Buffer> buf;
-    RETURN_NOT_OK(current_part_->Finish(&buf));
+    ARROW_ASSIGN_OR_RAISE(auto buf, current_part_->Finish());
     current_part_.reset();
     current_part_size_ = 0;
     return UploadPart(buf);

@@ -169,30 +169,28 @@ gparquet_arrow_file_writer_new_path(GArrowSchema *schema,
                                     const gchar *path,
                                     GError **error)
 {
-  std::shared_ptr<arrow::io::FileOutputStream> arrow_file_output_stream;
-  auto status = arrow::io::FileOutputStream::Open(path,
-                                                  false,
-                                                  &arrow_file_output_stream);
-  if (!garrow_error_check(error,
-                          status,
-                          "[parquet][arrow][file-writer][new-path]")) {
+  auto arrow_file_output_stream =
+    arrow::io::FileOutputStream::Open(path, false);
+  if (!garrow::check(error,
+                     arrow_file_output_stream,
+                     "[parquet][arrow][file-writer][new-path]")) {
     return NULL;
   }
 
   auto arrow_schema = garrow_schema_get_raw(schema).get();
   std::shared_ptr<arrow::io::OutputStream> arrow_output_stream =
-    arrow_file_output_stream;
+    arrow_file_output_stream.ValueOrDie();
   auto arrow_memory_pool = arrow::default_memory_pool();
   auto parquet_writer_properties = parquet::default_writer_properties();
   std::unique_ptr<parquet::arrow::FileWriter> parquet_arrow_file_writer;
-  status = parquet::arrow::FileWriter::Open(*arrow_schema,
-                                            arrow_memory_pool,
-                                            arrow_output_stream,
-                                            parquet_writer_properties,
-                                            &parquet_arrow_file_writer);
-  if (garrow_error_check(error,
-                         status,
-                         "[parquet][arrow][file-writer][new-path]")) {
+  auto status = parquet::arrow::FileWriter::Open(*arrow_schema,
+                                                 arrow_memory_pool,
+                                                 arrow_output_stream,
+                                                 parquet_writer_properties,
+                                                 &parquet_arrow_file_writer);
+  if (garrow::check(error,
+                    status,
+                    "[parquet][arrow][file-writer][new-path]")) {
     return gparquet_arrow_file_writer_new_raw(parquet_arrow_file_writer.release());
   } else {
     return NULL;

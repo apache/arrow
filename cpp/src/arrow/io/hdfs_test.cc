@@ -349,36 +349,26 @@ TYPED_TEST(TestHadoopFileSystem, ReadableMethods) {
   ASSERT_OK(this->client_->OpenReadable(path, &file));
 
   // Test GetSize -- move this into its own unit test if ever needed
-  int64_t file_size;
-  ASSERT_OK(file->GetSize(&file_size));
-  ASSERT_EQ(size, file_size);
+  ASSERT_OK_AND_EQ(size, file->GetSize());
 
   uint8_t buffer[50];
-  int64_t bytes_read = 0;
 
-  ASSERT_OK(file->Read(50, &bytes_read, buffer));
+  ASSERT_OK_AND_EQ(50, file->Read(50, buffer));
   ASSERT_EQ(0, std::memcmp(buffer, data.data(), 50));
-  ASSERT_EQ(50, bytes_read);
 
-  ASSERT_OK(file->Read(50, &bytes_read, buffer));
+  ASSERT_OK_AND_EQ(50, file->Read(50, buffer));
   ASSERT_EQ(0, std::memcmp(buffer, data.data() + 50, 50));
-  ASSERT_EQ(50, bytes_read);
 
   // EOF
-  ASSERT_OK(file->Read(1, &bytes_read, buffer));
-  ASSERT_EQ(0, bytes_read);
+  ASSERT_OK_AND_EQ(0, file->Read(1, buffer));
 
   // ReadAt to EOF
-  ASSERT_OK(file->ReadAt(60, 100, &bytes_read, buffer));
-  ASSERT_EQ(40, bytes_read);
-  ASSERT_EQ(0, std::memcmp(buffer, data.data() + 60, bytes_read));
+  ASSERT_OK_AND_EQ(40, file->ReadAt(60, 100, buffer));
+  ASSERT_EQ(0, std::memcmp(buffer, data.data() + 60, 40));
 
   // Seek, Tell
   ASSERT_OK(file->Seek(60));
-
-  int64_t position;
-  ASSERT_OK(file->Tell(&position));
-  ASSERT_EQ(60, position);
+  ASSERT_OK_AND_EQ(60, file->Tell());
 }
 
 TYPED_TEST(TestHadoopFileSystem, LargeFile) {
@@ -400,11 +390,8 @@ TYPED_TEST(TestHadoopFileSystem, LargeFile) {
   std::shared_ptr<Buffer> buffer;
   ASSERT_OK(AllocateBuffer(nullptr, size, &buffer));
 
-  int64_t bytes_read = 0;
-
-  ASSERT_OK(file->Read(size, &bytes_read, buffer->mutable_data()));
+  ASSERT_OK_AND_EQ(size, file->Read(size, buffer->mutable_data()));
   ASSERT_EQ(0, std::memcmp(buffer->data(), data.data(), size));
-  ASSERT_EQ(size, bytes_read);
 
   // explicit buffer size
   std::shared_ptr<HdfsReadableFile> file2;
@@ -413,9 +400,8 @@ TYPED_TEST(TestHadoopFileSystem, LargeFile) {
   std::shared_ptr<Buffer> buffer2;
   ASSERT_OK(AllocateBuffer(nullptr, size, &buffer2));
 
-  ASSERT_OK(file2->Read(size, &bytes_read, buffer2->mutable_data()));
+  ASSERT_OK_AND_EQ(size, file2->Read(size, buffer2->mutable_data()));
   ASSERT_EQ(0, std::memcmp(buffer2->data(), data.data(), size));
-  ASSERT_EQ(size, bytes_read);
 }
 
 TYPED_TEST(TestHadoopFileSystem, RenameFile) {

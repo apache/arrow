@@ -83,11 +83,11 @@ class ARROW_EXPORT SlowInputStream : public SlowInputStreamBase<InputStream> {
   Status Abort() override;
   bool closed() const override;
 
-  Status Read(int64_t nbytes, int64_t* bytes_read, void* out) override;
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
-  Status Peek(int64_t nbytes, util::string_view* out) override;
+  Result<int64_t> Read(int64_t nbytes, void* out) override;
+  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override;
+  Result<util::string_view> Peek(int64_t nbytes) override;
 
-  Status Tell(int64_t* position) const override;
+  Result<int64_t> Tell() const override;
 };
 
 /// \brief A RandomAccessFile wrapper that makes reads slower.
@@ -103,16 +103,15 @@ class ARROW_EXPORT SlowRandomAccessFile : public SlowInputStreamBase<RandomAcces
   Status Abort() override;
   bool closed() const override;
 
-  Status Read(int64_t nbytes, int64_t* bytes_read, void* out) override;
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
-  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                void* out) override;
-  Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
-  Status Peek(int64_t nbytes, util::string_view* out) override;
+  Result<int64_t> Read(int64_t nbytes, void* out) override;
+  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override;
+  Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) override;
+  Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) override;
+  Result<util::string_view> Peek(int64_t nbytes) override;
 
-  Status GetSize(int64_t* size) override;
+  Result<int64_t> GetSize() override;
   Status Seek(int64_t position) override;
-  Status Tell(int64_t* position) const override;
+  Result<int64_t> Tell() const override;
 };
 
 }  // namespace io

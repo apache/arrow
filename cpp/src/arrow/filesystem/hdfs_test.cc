@@ -270,12 +270,9 @@ TYPED_TEST(TestHadoopFileSystem, WriteReadFile) {
 
   std::shared_ptr<io::RandomAccessFile> file;
   ASSERT_OK_AND_ASSIGN(file, this->fs_->OpenInputFile(file_name));
-  int64_t file_size;
-  ASSERT_OK(file->GetSize(&file_size));
-  ASSERT_EQ(kDataSize, file_size);
+  ASSERT_OK_AND_EQ(kDataSize, file->GetSize());
   uint8_t buffer[kDataSize];
-  int64_t bytes_read = 0;
-  ASSERT_OK(file->Read(kDataSize, &bytes_read, buffer));
+  ASSERT_OK_AND_EQ(kDataSize, file->Read(kDataSize, buffer));
   ASSERT_EQ(0, std::memcmp(buffer, data.c_str(), kDataSize));
 
   ASSERT_OK(this->fs_->DeleteDir("CD"));

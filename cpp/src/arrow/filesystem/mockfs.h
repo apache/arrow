@@ -23,7 +23,6 @@
 #include <vector>
 
 #include "arrow/filesystem/filesystem.h"
-#include "arrow/result.h"
 
 namespace arrow {
 namespace fs {

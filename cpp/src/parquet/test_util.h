@@ -338,8 +338,7 @@ static std::shared_ptr<DataPageV1> MakeDataPage(
     num_values = std::max(page_builder.num_values(), num_vals);
   }
 
-  std::shared_ptr<Buffer> buffer;
-  PARQUET_THROW_NOT_OK(page_stream->Finish(&buffer));
+  PARQUET_ASSIGN_OR_THROW(auto buffer, page_stream->Finish());
 
   return std::make_shared<DataPageV1>(buffer, num_values, encoding,
                                       page_builder.def_level_encoding(),

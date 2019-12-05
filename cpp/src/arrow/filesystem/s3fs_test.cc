@@ -55,6 +55,8 @@
 #include "arrow/filesystem/s3_internal.h"
 #include "arrow/filesystem/s3fs.h"
 #include "arrow/filesystem/test_util.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/io_util.h"
@@ -667,19 +669,19 @@ TEST_F(TestS3FS, OpenInputStream) {
 
   // "Files"
   ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream("bucket/somefile"));
-  ASSERT_OK(stream->Read(2, &buf));
+  ASSERT_OK_AND_ASSIGN(buf, stream->Read(2));
   AssertBufferEqual(*buf, "so");
-  ASSERT_OK(stream->Read(5, &buf));
+  ASSERT_OK_AND_ASSIGN(buf, stream->Read(5));
   AssertBufferEqual(*buf, "me da");
-  ASSERT_OK(stream->Read(5, &buf));
+  ASSERT_OK_AND_ASSIGN(buf, stream->Read(5));
   AssertBufferEqual(*buf, "ta");
-  ASSERT_OK(stream->Read(5, &buf));
+  ASSERT_OK_AND_ASSIGN(buf, stream->Read(5));
   AssertBufferEqual(*buf, "");
 
   ASSERT_OK_AND_ASSIGN(stream, fs_->OpenInputStream("bucket/somedir/subdir/subfile"));
-  ASSERT_OK(stream->Read(100, &buf));
+  ASSERT_OK_AND_ASSIGN(buf, stream->Read(100));
   AssertBufferEqual(*buf, "sub data");
-  ASSERT_OK(stream->Read(100, &buf));
+  ASSERT_OK_AND_ASSIGN(buf, stream->Read(100));
   AssertBufferEqual(*buf, "");
 
   // "Directories"
@@ -691,7 +693,6 @@ TEST_F(TestS3FS, OpenInputStream) {
 TEST_F(TestS3FS, OpenInputFile) {
   std::shared_ptr<io::RandomAccessFile> file;
   std::shared_ptr<Buffer> buf;
-  int64_t nbytes = -1, pos = -1, bytes_read = 0;
 
   // Non-existent
   ASSERT_RAISES(IOError, fs_->OpenInputFile("non-existent-bucket/somefile"));
@@ -699,40 +700,33 @@ TEST_F(TestS3FS, OpenInputFile) {
 
   // "Files"
   ASSERT_OK_AND_ASSIGN(file, fs_->OpenInputFile("bucket/somefile"));
-  ASSERT_OK(file->GetSize(&nbytes));
-  ASSERT_EQ(nbytes, 9);
-  ASSERT_OK(file->Read(4, &buf));
+  ASSERT_OK_AND_EQ(9, file->GetSize());
+  ASSERT_OK_AND_ASSIGN(buf, file->Read(4));
   AssertBufferEqual(*buf, "some");
-  ASSERT_OK(file->GetSize(&nbytes));
-  ASSERT_EQ(nbytes, 9);
-  ASSERT_OK(file->Tell(&pos));
-  ASSERT_EQ(pos, 4);
+  ASSERT_OK_AND_EQ(9, file->GetSize());
+  ASSERT_OK_AND_EQ(4, file->Tell());
 
-  ASSERT_OK(file->ReadAt(2, 5, &buf));
+  ASSERT_OK_AND_ASSIGN(buf, file->ReadAt(2, 5));
   AssertBufferEqual(*buf, "me da");
-  ASSERT_OK(file->Tell(&pos));
-  ASSERT_EQ(pos, 4);
-  ASSERT_OK(file->ReadAt(5, 20, &buf));
+  ASSERT_OK_AND_EQ(4, file->Tell());
+  ASSERT_OK_AND_ASSIGN(buf, file->ReadAt(5, 20));
   AssertBufferEqual(*buf, "data");
-  ASSERT_OK(file->ReadAt(9, 20, &buf));
+  ASSERT_OK_AND_ASSIGN(buf, file->ReadAt(9, 20));
   AssertBufferEqual(*buf, "");
 
   char result[10];
-  ASSERT_OK(file->ReadAt(2, 5, &bytes_read, &result));
-  ASSERT_EQ(bytes_read, 5);
-  ASSERT_OK(file->ReadAt(5, 20, &bytes_read, &result));
-  ASSERT_EQ(bytes_read, 4);
-  ASSERT_OK(file->ReadAt(9, 0, &bytes_read, &result));
-  ASSERT_EQ(bytes_read, 0);
+  ASSERT_OK_AND_EQ(5, file->ReadAt(2, 5, &result));
+  ASSERT_OK_AND_EQ(4, file->ReadAt(5, 20, &result));
+  ASSERT_OK_AND_EQ(0, file->ReadAt(9, 0, &result));
 
   // Reading past end of file
-  ASSERT_RAISES(IOError, file->ReadAt(10, 20, &buf));
+  ASSERT_RAISES(IOError, file->ReadAt(10, 20));
 
   ASSERT_OK(file->Seek(5));
-  ASSERT_OK(file->Read(2, &buf));
+  ASSERT_OK_AND_ASSIGN(buf, file->Read(2));
   AssertBufferEqual(*buf, "da");
   ASSERT_OK(file->Seek(9));
-  ASSERT_OK(file->Read(2, &buf));
+  ASSERT_OK_AND_ASSIGN(buf, file->Read(2));
   AssertBufferEqual(*buf, "");
   // Seeking past end of file
   ASSERT_RAISES(IOError, file->Seek(10));

@@ -714,14 +714,12 @@ Status SerializedPyObject::GetComponents(MemoryPool* memory_pool, PyObject** out
   constexpr int64_t kInitialCapacity = 1024;
 
   // Write the record batch describing the object structure
-  std::shared_ptr<io::BufferOutputStream> stream;
-  std::shared_ptr<Buffer> buffer;
-
   py_gil.release();
-  RETURN_NOT_OK(io::BufferOutputStream::Create(kInitialCapacity, memory_pool, &stream));
+  ARROW_ASSIGN_OR_RAISE(auto stream,
+                        io::BufferOutputStream::Create(kInitialCapacity, memory_pool));
   RETURN_NOT_OK(
       ipc::WriteRecordBatchStream({this->batch}, this->ipc_options, stream.get()));
-  RETURN_NOT_OK(stream->Finish(&buffer));
+  ARROW_ASSIGN_OR_RAISE(auto buffer, stream->Finish());
   py_gil.acquire();
 
   RETURN_NOT_OK(PushBuffer(buffer));

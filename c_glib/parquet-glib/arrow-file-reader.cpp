@@ -165,26 +165,24 @@ GParquetArrowFileReader *
 gparquet_arrow_file_reader_new_path(const gchar *path,
                                     GError **error)
 {
-  std::shared_ptr<arrow::io::MemoryMappedFile> arrow_memory_mapped_file;
-  auto status = arrow::io::MemoryMappedFile::Open(path,
-                                                  ::arrow::io::FileMode::READ,
-                                                  &arrow_memory_mapped_file);
-  if (!garrow_error_check(error,
-                          status,
-                          "[parquet][arrow][file-reader][new-path]")) {
+  auto arrow_memory_mapped_file =
+    arrow::io::MemoryMappedFile::Open(path, arrow::io::FileMode::READ);
+  if (!garrow::check(error,
+                     arrow_memory_mapped_file,
+                     "[parquet][arrow][file-reader][new-path]")) {
     return NULL;
   }
 
   std::shared_ptr<arrow::io::RandomAccessFile> arrow_random_access_file =
-    arrow_memory_mapped_file;
+    arrow_memory_mapped_file.ValueOrDie();
   auto arrow_memory_pool = arrow::default_memory_pool();
   std::unique_ptr<parquet::arrow::FileReader> parquet_arrow_file_reader;
-  status = parquet::arrow::OpenFile(arrow_random_access_file,
-                                    arrow_memory_pool,
-                                    &parquet_arrow_file_reader);
-  if (garrow_error_check(error,
-                         status,
-                         "[parquet][arrow][file-reader][new-path]")) {
+  auto status = parquet::arrow::OpenFile(arrow_random_access_file,
+                                         arrow_memory_pool,
+                                         &parquet_arrow_file_reader);
+  if (garrow::check(error,
+                    status,
+                    "[parquet][arrow][file-reader][new-path]")) {
     return gparquet_arrow_file_reader_new_raw(parquet_arrow_file_reader.release());
   } else {
     return NULL;

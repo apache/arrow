@@ -100,7 +100,7 @@ class TestPageSerde : public ::testing::Test {
 
   void ResetStream() { out_stream_ = CreateOutputStream(); }
 
-  void EndStream() { PARQUET_THROW_NOT_OK(out_stream_->Finish(&out_buffer_)); }
+  void EndStream() { PARQUET_ASSIGN_OR_THROW(out_buffer_, out_stream_->Finish()); }
 
  protected:
   std::shared_ptr<::arrow::io::BufferOutputStream> out_stream_;
@@ -184,8 +184,7 @@ TEST_F(TestPageSerde, TestLargePageHeaders) {
   int max_header_size = 512 * 1024;  // 512 KB
   ASSERT_NO_FATAL_FAILURE(WriteDataPageHeader(max_header_size));
 
-  int64_t position = -1;
-  ASSERT_OK(out_stream_->Tell(&position));
+  ASSERT_OK_AND_ASSIGN(int64_t position, out_stream_->Tell());
   ASSERT_GE(max_header_size, position);
 
   // check header size is between 256 KB to 16 MB
@@ -206,8 +205,7 @@ TEST_F(TestPageSerde, TestFailLargePageHeaders) {
   // Serialize the Page header
   int max_header_size = 512 * 1024;  // 512 KB
   ASSERT_NO_FATAL_FAILURE(WriteDataPageHeader(max_header_size));
-  int64_t position = -1;
-  ASSERT_OK(out_stream_->Tell(&position));
+  ASSERT_OK_AND_ASSIGN(int64_t position, out_stream_->Tell());
   ASSERT_GE(max_header_size, position);
 
   int smaller_max_size = 128 * 1024;
@@ -350,9 +348,8 @@ TEST_F(TestParquetFileReader, IncompleteMetadata) {
       stream->Write(reinterpret_cast<const uint8_t*>(&metadata_len), sizeof(uint32_t)));
   ASSERT_OK(stream->Write(reinterpret_cast<const uint8_t*>(magic), strlen(magic)));
 
-  std::shared_ptr<Buffer> result;
-  ASSERT_OK(stream->Finish(&result));
-  ASSERT_NO_FATAL_FAILURE(AssertInvalidFileThrows(result));
+  ASSERT_OK_AND_ASSIGN(auto buffer, stream->Finish());
+  ASSERT_NO_FATAL_FAILURE(AssertInvalidFileThrows(buffer));
 }
 
 }  // namespace parquet

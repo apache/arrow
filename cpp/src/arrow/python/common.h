@@ -118,19 +118,20 @@ class ARROW_PYTHON_EXPORT PyReleaseGIL {
 // A helper to call safely into the Python interpreter from arbitrary C++ code.
 // The GIL is acquired, and the current thread's error status is preserved.
 template <typename Function>
-Status SafeCallIntoPython(Function&& func) {
+auto SafeCallIntoPython(Function&& func) -> decltype(func()) {
   PyAcquireGIL lock;
   PyObject* exc_type;
   PyObject* exc_value;
   PyObject* exc_traceback;
   PyErr_Fetch(&exc_type, &exc_value, &exc_traceback);
-  Status st = std::forward<Function>(func)();
+  auto maybe_status = std::forward<Function>(func)();
   // If the return Status is a "Python error", the current Python error status
   // describes the error and shouldn't be clobbered.
-  if (!IsPyError(st) && exc_type != NULLPTR) {
+  if (!IsPyError(::arrow::internal::GenericToStatus(maybe_status)) &&
+      exc_type != NULLPTR) {
     PyErr_Restore(exc_type, exc_value, exc_traceback);
   }
-  return st;
+  return maybe_status;
 }
 
 #define PYARROW_IS_PY2 PY_MAJOR_VERSION <= 2
@@ -285,7 +286,7 @@ class ARROW_PYTHON_EXPORT PyBuffer : public Buffer {
   /// one-dimensional byte buffers.
   ~PyBuffer();
 
-  static Status FromPyObject(PyObject* obj, std::shared_ptr<Buffer>* out);
+  static Result<std::shared_ptr<Buffer>> FromPyObject(PyObject* obj);
 
  private:
   PyBuffer();

@@ -32,6 +32,7 @@
 #include "arrow/io/hdfs_internal.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
 
@@ -83,11 +84,10 @@ class HdfsAnyFileImpl {
     return Status::OK();
   }
 
-  Status Tell(int64_t* offset) {
+  Result<int64_t> Tell() {
     int64_t ret = driver_->Tell(fs_, file_);
     CHECK_FAILURE(ret, "tell");
-    *offset = ret;
-    return Status::OK();
+    return ret;
   }
 
   bool is_open() const { return is_open_; }
@@ -133,38 +133,34 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
 
   bool closed() const { return !is_open_; }
 
-  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, void* buffer) {
-    tSize ret;
-    if (driver_->HasPread()) {
-      ret = driver_->Pread(fs_, file_, static_cast<tOffset>(position),
-                           reinterpret_cast<void*>(buffer), static_cast<tSize>(nbytes));
-    } else {
+  Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* buffer) {
+    if (!driver_->HasPread()) {
       std::lock_guard<std::mutex> guard(lock_);
       RETURN_NOT_OK(Seek(position));
-      return Read(nbytes, bytes_read, buffer);
+      return Read(nbytes, buffer);
     }
+    tSize ret =
+        driver_->Pread(fs_, file_, static_cast<tOffset>(position),
+                       reinterpret_cast<void*>(buffer), static_cast<tSize>(nbytes));
     CHECK_FAILURE(ret, "read");
-    *bytes_read = ret;
-    return Status::OK();
+    return ret;
   }
 
-  Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) {
+  Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) {
     std::shared_ptr<ResizableBuffer> buffer;
     RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &buffer));
 
-    int64_t bytes_read = 0;
-    RETURN_NOT_OK(ReadAt(position, nbytes, &bytes_read, buffer->mutable_data()));
+    ARROW_ASSIGN_OR_RAISE(int64_t bytes_read,
+                          ReadAt(position, nbytes, buffer->mutable_data()));
 
     if (bytes_read < nbytes) {
       RETURN_NOT_OK(buffer->Resize(bytes_read));
       buffer->ZeroPadding();
     }
-
-    *out = buffer;
-    return Status::OK();
+    return buffer;
   }
 
-  Status Read(int64_t nbytes, int64_t* bytes_read, void* buffer) {
+  Result<int64_t> Read(int64_t nbytes, void* buffer) {
     int64_t total_bytes = 0;
     while (total_bytes < nbytes) {
       tSize ret = driver_->Read(
@@ -176,34 +172,29 @@ class HdfsReadableFile::HdfsReadableFileImpl : public HdfsAnyFileImpl {
         break;
       }
     }
-
-    *bytes_read = total_bytes;
-    return Status::OK();
+    return total_bytes;
   }
 
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) {
     std::shared_ptr<ResizableBuffer> buffer;
     RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &buffer));
 
-    int64_t bytes_read = 0;
-    RETURN_NOT_OK(Read(nbytes, &bytes_read, buffer->mutable_data()));
+    ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, Read(nbytes, buffer->mutable_data()));
     if (bytes_read < nbytes) {
       RETURN_NOT_OK(buffer->Resize(bytes_read));
     }
-
-    *out = buffer;
-    return Status::OK();
+    return buffer;
   }
 
-  Status GetSize(int64_t* size) {
+  Result<int64_t> GetSize() {
     hdfsFileInfo* entry = driver_->GetPathInfo(fs_, path_.c_str());
     if (entry == nullptr) {
       return GetPathInfoFailed(path_);
     }
 
-    *size = entry->mSize;
+    int64_t size = entry->mSize;
     driver_->FreeFileInfo(entry, 1);
-    return Status::OK();
+    return size;
   }
 
   void set_memory_pool(MemoryPool* pool) { pool_ = pool; }
@@ -228,29 +219,28 @@ Status HdfsReadableFile::Close() { return impl_->Close(); }
 
 bool HdfsReadableFile::closed() const { return impl_->closed(); }
 
-Status HdfsReadableFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                                void* buffer) {
-  return impl_->ReadAt(position, nbytes, bytes_read, buffer);
+Result<int64_t> HdfsReadableFile::ReadAt(int64_t position, int64_t nbytes, void* buffer) {
+  return impl_->ReadAt(position, nbytes, buffer);
 }
 
-Status HdfsReadableFile::ReadAt(int64_t position, int64_t nbytes,
-                                std::shared_ptr<Buffer>* out) {
-  return impl_->ReadAt(position, nbytes, out);
+Result<std::shared_ptr<Buffer>> HdfsReadableFile::ReadAt(int64_t position,
+                                                         int64_t nbytes) {
+  return impl_->ReadAt(position, nbytes);
 }
 
-Status HdfsReadableFile::Read(int64_t nbytes, int64_t* bytes_read, void* buffer) {
-  return impl_->Read(nbytes, bytes_read, buffer);
-}
-
-Status HdfsReadableFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* buffer) {
+Result<int64_t> HdfsReadableFile::Read(int64_t nbytes, void* buffer) {
   return impl_->Read(nbytes, buffer);
 }
 
-Status HdfsReadableFile::GetSize(int64_t* size) { return impl_->GetSize(size); }
+Result<std::shared_ptr<Buffer>> HdfsReadableFile::Read(int64_t nbytes) {
+  return impl_->Read(nbytes);
+}
+
+Result<int64_t> HdfsReadableFile::GetSize() { return impl_->GetSize(); }
 
 Status HdfsReadableFile::Seek(int64_t position) { return impl_->Seek(position); }
 
-Status HdfsReadableFile::Tell(int64_t* position) const { return impl_->Tell(position); }
+Result<int64_t> HdfsReadableFile::Tell() const { return impl_->Tell(); }
 
 // ----------------------------------------------------------------------
 // File writing
@@ -307,7 +297,7 @@ Status HdfsOutputStream::Write(const void* buffer, int64_t nbytes) {
 
 Status HdfsOutputStream::Flush() { return impl_->Flush(); }
 
-Status HdfsOutputStream::Tell(int64_t* position) const { return impl_->Tell(position); }
+Result<int64_t> HdfsOutputStream::Tell() const { return impl_->Tell(); }
 
 // ----------------------------------------------------------------------
 // HDFS client

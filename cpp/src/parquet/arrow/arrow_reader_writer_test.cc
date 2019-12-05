@@ -348,7 +348,7 @@ void WriteTableToBuffer(const std::shared_ptr<Table>& table, int64_t row_group_s
 
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), sink,
                                 row_group_size, write_props, arrow_properties));
-  ASSERT_OK_NO_THROW(sink->Finish(out));
+  ASSERT_OK_AND_ASSIGN(*out, sink->Finish());
 }
 
 void AssertChunkedEqual(const ChunkedArray& expected, const ChunkedArray& actual) {
@@ -378,13 +378,11 @@ void DoRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group_size,
                      default_arrow_writer_properties(),
                  const ArrowReaderProperties& arrow_reader_properties =
                      default_arrow_reader_properties()) {
-  std::shared_ptr<Buffer> buffer;
-
   auto sink = CreateOutputStream();
   ASSERT_OK_NO_THROW(WriteTable(*table, ::arrow::default_memory_pool(), sink,
                                 row_group_size, writer_properties,
                                 arrow_writer_properties));
-  ASSERT_OK_NO_THROW(sink->Finish(&buffer));
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
 
   std::unique_ptr<FileReader> reader;
   FileReaderBuilder builder;
@@ -498,8 +496,7 @@ class TestParquetIO : public ::testing::Test {
   }
 
   void ReaderFromSink(std::unique_ptr<FileReader>* out) {
-    std::shared_ptr<Buffer> buffer;
-    ASSERT_OK_NO_THROW(sink_->Finish(&buffer));
+    ASSERT_OK_AND_ASSIGN(auto buffer, sink_->Finish());
     ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
                                 ::arrow::default_memory_pool(), out));
   }
@@ -2252,8 +2249,7 @@ class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
   std::shared_ptr<::arrow::Int32Array> values_array_ = nullptr;
 
   void InitReader() {
-    std::shared_ptr<Buffer> buffer;
-    ASSERT_OK_NO_THROW(nested_parquet_->Finish(&buffer));
+    ASSERT_OK_AND_ASSIGN(auto buffer, nested_parquet_->Finish());
     ASSERT_OK_NO_THROW(OpenFile(std::make_shared<BufferReader>(buffer),
                                 ::arrow::default_memory_pool(), &reader_));
   }
@@ -2684,8 +2680,7 @@ TEST(TestArrowReaderAdHoc, LARGE_MEMORY_TEST(LargeStringColumn)) {
   }
   ASSERT_OK_NO_THROW(arrow_writer->Close());
 
-  std::shared_ptr<Buffer> tables_buffer;
-  ASSERT_OK_NO_THROW(sink->Finish(&tables_buffer));
+  ASSERT_OK_AND_ASSIGN(auto tables_buffer, sink->Finish());
 
   // drop to save memory
   table.reset();
@@ -2772,8 +2767,7 @@ TEST(TestArrowWriterAdHoc, SchemaMismatch) {
   auto writer_schm = ::arrow::schema({field("POS", ::arrow::uint32())});
   auto table_schm = ::arrow::schema({field("POS", ::arrow::int64())});
   using ::arrow::io::BufferOutputStream;
-  std::shared_ptr<BufferOutputStream> outs;
-  ASSERT_OK(BufferOutputStream::Create(1 << 10, pool, &outs));
+  ASSERT_OK_AND_ASSIGN(auto outs, BufferOutputStream::Create(1 << 10, pool));
   auto props = default_writer_properties();
   std::unique_ptr<arrow::FileWriter> writer;
   ASSERT_OK(arrow::FileWriter::Open(*writer_schm, pool, outs, props, &writer));

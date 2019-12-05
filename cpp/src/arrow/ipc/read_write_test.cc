@@ -102,21 +102,16 @@ TEST(TestMessage, SerializeTo) {
   std::unique_ptr<Message> message;
   ASSERT_OK(Message::Open(metadata, std::make_shared<Buffer>(body), &message));
 
-  int64_t output_length = 0;
-  int64_t position = 0;
-
-  std::shared_ptr<io::BufferOutputStream> stream;
-
   auto CheckWithAlignment = [&](int32_t alignment) {
     IpcOptions options;
     options.alignment = alignment;
     const int32_t prefix_size = 8;
-    ASSERT_OK(io::BufferOutputStream::Create(1 << 10, default_memory_pool(), &stream));
+    int64_t output_length = 0;
+    ASSERT_OK_AND_ASSIGN(auto stream, io::BufferOutputStream::Create(1 << 10));
     ASSERT_OK(message->SerializeTo(stream.get(), options, &output_length));
-    ASSERT_OK(stream->Tell(&position));
     ASSERT_EQ(BitUtil::RoundUp(metadata->size() + prefix_size, alignment) + body_length,
               output_length);
-    ASSERT_EQ(output_length, position);
+    ASSERT_OK_AND_EQ(output_length, stream->Tell());
   };
 
   CheckWithAlignment(8);
@@ -140,14 +135,13 @@ TEST(TestMessage, LegacyIpcBackwardsCompatibility) {
     ASSERT_OK(internal::GetRecordBatchPayload(*batch, arg_options, default_memory_pool(),
                                               &payload));
 
-    std::shared_ptr<io::BufferOutputStream> stream;
-    ASSERT_OK(io::BufferOutputStream::Create(1 << 20, default_memory_pool(), &stream));
+    ASSERT_OK_AND_ASSIGN(auto stream, io::BufferOutputStream::Create(1 << 20));
 
     int32_t metadata_length = -1;
     ASSERT_OK(
         internal::WriteIpcPayload(payload, arg_options, stream.get(), &metadata_length));
 
-    ASSERT_OK(stream->Finish(out_serialized));
+    ASSERT_OK_AND_ASSIGN(*out_serialized, stream->Finish());
     io::BufferReader io_reader(*out_serialized);
     ASSERT_OK(ReadMessage(&io_reader, out));
   };
@@ -309,8 +303,7 @@ class IpcTestFixture : public io::MemoryMapFixture {
     RETURN_NOT_OK(file_writer->WriteRecordBatch(batch));
     RETURN_NOT_OK(file_writer->Close());
 
-    int64_t offset;
-    RETURN_NOT_OK(mmap_->Tell(&offset));
+    ARROW_ASSIGN_OR_RAISE(int64_t offset, mmap_->Tell());
 
     std::shared_ptr<RecordBatchFileReader> file_reader;
     RETURN_NOT_OK(RecordBatchFileReader::Open(mmap_.get(), offset, &file_reader));
@@ -332,7 +325,8 @@ class IpcTestFixture : public io::MemoryMapFixture {
   void CheckRoundtrip(const RecordBatch& batch, int64_t buffer_size) {
     std::stringstream ss;
     ss << "test-write-row-batch-" << g_file_number++;
-    ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(buffer_size, ss.str(), &mmap_));
+    ASSERT_OK_AND_ASSIGN(mmap_,
+                         io::MemoryMapFixture::InitMemoryMap(buffer_size, ss.str()));
 
     DictionaryMemo dictionary_memo;
 
@@ -389,7 +383,8 @@ TEST_F(TestIpcRoundTrip, MetadataVersion) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(MakeIntRecordBatch(&batch));
 
-  ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(1 << 16, "test-metadata", &mmap_));
+  ASSERT_OK_AND_ASSIGN(mmap_,
+                       io::MemoryMapFixture::InitMemoryMap(1 << 16, "test-metadata"));
 
   int32_t metadata_length;
   int64_t body_length;
@@ -471,8 +466,8 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBinaryOffsets) {
 
   std::stringstream ss;
   ss << "test-truncate-offsets";
-  ASSERT_OK(
-      io::MemoryMapFixture::InitMemoryMap(/*buffer_size=*/1 << 20, ss.str(), &mmap_));
+  ASSERT_OK_AND_ASSIGN(
+      mmap_, io::MemoryMapFixture::InitMemoryMap(/*buffer_size=*/1 << 20, ss.str()));
   DictionaryMemo dictionary_memo;
   std::shared_ptr<RecordBatch> result;
   ASSERT_OK(DoStandardRoundTrip(*sliced_batch, &dictionary_memo, &result));
@@ -607,7 +602,8 @@ class RecursionLimits : public ::testing::Test, public io::MemoryMapFixture {
     std::stringstream ss;
     ss << "test-write-past-max-recursion-" << g_file_number++;
     const int memory_map_size = 1 << 20;
-    RETURN_NOT_OK(io::MemoryMapFixture::InitMemoryMap(memory_map_size, ss.str(), &mmap_));
+    ARROW_ASSIGN_OR_RAISE(mmap_,
+                          io::MemoryMapFixture::InitMemoryMap(memory_map_size, ss.str()));
 
     auto options = IpcOptions::Defaults();
     if (override_level) {
@@ -711,7 +707,7 @@ struct FileWriterHelper {
     RETURN_NOT_OK(writer_->Close());
     RETURN_NOT_OK(sink_->Close());
     // Current offset into stream is the end of the file
-    return sink_->Tell(&footer_offset_);
+    return sink_->Tell().Value(&footer_offset_);
   }
 
   Status ReadBatches(BatchVector* out_batches) {
@@ -944,7 +940,7 @@ TEST_F(TestIpcRoundTrip, LargeRecordBatch) {
 
   // 512 MB
   constexpr int64_t kBufferSize = 1 << 29;
-  ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &mmap_));
+  ASSERT_OK_AND_ASSIGN(mmap_, io::MemoryMapFixture::InitMemoryMap(kBufferSize, path));
 
   std::shared_ptr<RecordBatch> result;
   ASSERT_OK(DoLargeRoundTrip(*batch, false, &result));
@@ -967,15 +963,13 @@ TEST(TestRecordBatchStreamReader, EmptyStreamWithDictionaries) {
   auto f0 = arrow::field("f0", arrow::dictionary(arrow::int8(), arrow::utf8()));
   auto schema = arrow::schema({f0});
 
-  std::shared_ptr<io::BufferOutputStream> out;
-  ASSERT_OK(io::BufferOutputStream::Create(0, default_memory_pool(), &out));
+  ASSERT_OK_AND_ASSIGN(auto stream, io::BufferOutputStream::Create(0));
 
   std::shared_ptr<RecordBatchWriter> writer;
-  ASSERT_OK(RecordBatchStreamWriter::Open(out.get(), schema, &writer));
+  ASSERT_OK(RecordBatchStreamWriter::Open(stream.get(), schema, &writer));
   ASSERT_OK(writer->Close());
 
-  std::shared_ptr<arrow::Buffer> buffer;
-  ASSERT_OK(out->Finish(&buffer));
+  ASSERT_OK_AND_ASSIGN(auto buffer, stream->Finish());
   io::BufferReader buffer_reader(buffer);
   std::shared_ptr<RecordBatchReader> reader;
   ASSERT_OK(RecordBatchStreamReader::Open(&buffer_reader, &reader));
@@ -991,8 +985,7 @@ TEST(TestRecordBatchStreamReader, EmptyStreamWithDictionaries) {
 void SpliceMessages(std::shared_ptr<Buffer> stream,
                     const std::vector<int>& included_indices,
                     std::shared_ptr<Buffer>* spliced_stream) {
-  std::shared_ptr<io::BufferOutputStream> out;
-  ASSERT_OK(io::BufferOutputStream::Create(0, default_memory_pool(), &out));
+  ASSERT_OK_AND_ASSIGN(auto out, io::BufferOutputStream::Create(0));
 
   io::BufferReader buffer_reader(stream);
   std::unique_ptr<MessageReader> message_reader = MessageReader::Open(&buffer_reader);
@@ -1022,7 +1015,7 @@ void SpliceMessages(std::shared_ptr<Buffer> stream,
     ASSERT_OK(
         internal::WriteIpcPayload(payload, options, out.get(), &unused_metadata_length));
   }
-  ASSERT_OK(out->Finish(spliced_stream));
+  ASSERT_OK_AND_ASSIGN(*spliced_stream, out->Finish());
 }
 
 TEST(TestRecordBatchStreamReader, NotEnoughDictionaries) {
@@ -1030,8 +1023,7 @@ TEST(TestRecordBatchStreamReader, NotEnoughDictionaries) {
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(MakeDictionaryFlat(&batch));
 
-  std::shared_ptr<io::BufferOutputStream> out;
-  ASSERT_OK(io::BufferOutputStream::Create(0, default_memory_pool(), &out));
+  ASSERT_OK_AND_ASSIGN(auto out, io::BufferOutputStream::Create(0));
   std::shared_ptr<RecordBatchWriter> writer;
   ASSERT_OK(RecordBatchStreamWriter::Open(out.get(), batch->schema(), &writer));
   ASSERT_OK(writer->WriteRecordBatch(*batch));
@@ -1039,8 +1031,7 @@ TEST(TestRecordBatchStreamReader, NotEnoughDictionaries) {
 
   // Now let's mangle the stream a little bit and make sure we return the right
   // error
-  std::shared_ptr<arrow::Buffer> buffer;
-  ASSERT_OK(out->Finish(&buffer));
+  ASSERT_OK_AND_ASSIGN(auto buffer, out->Finish());
 
   auto AssertFailsWith = [](std::shared_ptr<Buffer> stream, const std::string& ex_error) {
     io::BufferReader reader(stream);
@@ -1100,7 +1091,7 @@ class TestTensorRoundTrip : public ::testing::Test, public IpcTestFixture {
 TEST_F(TestTensorRoundTrip, BasicRoundtrip) {
   std::string path = "test-write-tensor";
   constexpr int64_t kBufferSize = 1 << 20;
-  ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &mmap_));
+  ASSERT_OK_AND_ASSIGN(mmap_, io::MemoryMapFixture::InitMemoryMap(kBufferSize, path));
 
   std::vector<int64_t> shape = {4, 6};
   std::vector<int64_t> strides = {48, 8};
@@ -1134,7 +1125,7 @@ TEST_F(TestTensorRoundTrip, BasicRoundtrip) {
 TEST_F(TestTensorRoundTrip, NonContiguous) {
   std::string path = "test-write-tensor-strided";
   constexpr int64_t kBufferSize = 1 << 20;
-  ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &mmap_));
+  ASSERT_OK_AND_ASSIGN(mmap_, io::MemoryMapFixture::InitMemoryMap(kBufferSize, path));
 
   std::vector<int64_t> values;
   randint(24, 0, 100, &values);
@@ -1259,7 +1250,8 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexRowMajor) {
 
   std::string path = "test-write-sparse-coo-tensor";
   constexpr int64_t kBufferSize = 1 << 20;
-  ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &this->mmap_));
+  ASSERT_OK_AND_ASSIGN(this->mmap_,
+                       io::MemoryMapFixture::InitMemoryMap(kBufferSize, path));
 
   // Dense representation:
   // [
@@ -1305,7 +1297,8 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCOOIndexColumnMajor) {
 
   std::string path = "test-write-sparse-coo-tensor";
   constexpr int64_t kBufferSize = 1 << 20;
-  ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &this->mmap_));
+  ASSERT_OK_AND_ASSIGN(this->mmap_,
+                       io::MemoryMapFixture::InitMemoryMap(kBufferSize, path));
 
   // Dense representation:
   // [
@@ -1350,7 +1343,8 @@ TYPED_TEST_P(TestSparseTensorRoundTrip, WithSparseCSRIndex) {
 
   std::string path = "test-write-sparse-csr-matrix";
   constexpr int64_t kBufferSize = 1 << 20;
-  ASSERT_OK(io::MemoryMapFixture::InitMemoryMap(kBufferSize, path, &this->mmap_));
+  ASSERT_OK_AND_ASSIGN(this->mmap_,
+                       io::MemoryMapFixture::InitMemoryMap(kBufferSize, path));
 
   std::vector<int64_t> shape = {4, 6};
   std::vector<std::string> dim_names = {"foo", "bar", "baz"};

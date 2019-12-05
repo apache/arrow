@@ -79,18 +79,18 @@ class PARQUET_EXPORT ParquetInputWrapper : public ::arrow::io::RandomAccessFile 
 
   // FileInterface
   ::arrow::Status Close() override;
-  ::arrow::Status Tell(int64_t* position) const override;
+  ::arrow::Result<int64_t> Tell() const override;
   bool closed() const override;
 
   // Seekable
   ::arrow::Status Seek(int64_t position) override;
 
   // InputStream / RandomAccessFile
-  ::arrow::Status Read(int64_t nbytes, int64_t* bytes_read, void* out) override;
-  ::arrow::Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
-  ::arrow::Status ReadAt(int64_t position, int64_t nbytes,
-                         std::shared_ptr<Buffer>* out) override;
-  ::arrow::Status GetSize(int64_t* size) override;
+  ::arrow::Result<int64_t> Read(int64_t nbytes, void* out) override;
+  ::arrow::Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override;
+  ::arrow::Result<std::shared_ptr<Buffer>> ReadAt(int64_t position,
+                                                  int64_t nbytes) override;
+  ::arrow::Result<int64_t> GetSize() override;
 
  private:
   std::unique_ptr<RandomAccessSource> owned_source_;
@@ -108,7 +108,7 @@ class PARQUET_EXPORT ParquetOutputWrapper : public ::arrow::io::OutputStream {
 
   // FileInterface
   ::arrow::Status Close() override;
-  ::arrow::Status Tell(int64_t* position) const override;
+  ::arrow::Result<int64_t> Tell() const override;
   bool closed() const override;
 
   // Writable

@@ -44,7 +44,11 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   /// \param[in] initial_capacity the initial allocated internal capacity of
   /// the OutputStream
   /// \param[in,out] pool a MemoryPool to use for allocations
-  /// \param[out] out the created stream
+  /// \return the created stream
+  static Result<std::shared_ptr<BufferOutputStream>> Create(
+      int64_t initial_capacity, MemoryPool* pool = default_memory_pool());
+
+  ARROW_DEPRECATED("Use Result-returning overload")
   static Status Create(int64_t initial_capacity, MemoryPool* pool,
                        std::shared_ptr<BufferOutputStream>* out);
 
@@ -55,7 +59,7 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   /// Close the stream, preserving the buffer (retrieve it with Finish()).
   Status Close() override;
   bool closed() const override;
-  Status Tell(int64_t* position) const override;
+  Result<int64_t> Tell() const override;
   Status Write(const void* data, int64_t nbytes) override;
 
   /// \cond FALSE
@@ -63,6 +67,9 @@ class ARROW_EXPORT BufferOutputStream : public OutputStream {
   /// \endcond
 
   /// Close the stream and return the buffer
+  Result<std::shared_ptr<Buffer>> Finish();
+
+  ARROW_DEPRECATED("Use Result-returning overload")
   Status Finish(std::shared_ptr<Buffer>* result);
 
   /// \brief Initialize state of OutputStream with newly allocated memory and
@@ -99,7 +106,7 @@ class ARROW_EXPORT MockOutputStream : public OutputStream {
   // Implement the OutputStream interface
   Status Close() override;
   bool closed() const override;
-  Status Tell(int64_t* position) const override;
+  Result<int64_t> Tell() const override;
   Status Write(const void* data, int64_t nbytes) override;
   /// \cond FALSE
   using Writable::Write;
@@ -122,7 +129,7 @@ class ARROW_EXPORT FixedSizeBufferWriter : public WritableFile {
   Status Close() override;
   bool closed() const override;
   Status Seek(int64_t position) override;
-  Status Tell(int64_t* position) const override;
+  Result<int64_t> Tell() const override;
   Status Write(const void* data, int64_t nbytes) override;
   /// \cond FALSE
   using Writable::Write;
@@ -163,17 +170,16 @@ class ARROW_EXPORT BufferReader
 
   // These methods are virtual for CudaBuffer...
   virtual Status DoClose();
-  virtual Status DoRead(int64_t nbytes, int64_t* bytes_read, void* buffer);
-  // Zero copy read
-  virtual Status DoRead(int64_t nbytes, std::shared_ptr<Buffer>* out);
-  virtual Status DoReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                          void* out);
-  virtual Status DoReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out);
-  Status DoPeek(int64_t nbytes, util::string_view* out) override;
 
-  Status DoTell(int64_t* position) const;
+  virtual Result<int64_t> DoRead(int64_t nbytes, void* buffer);
+  virtual Result<std::shared_ptr<Buffer>> DoRead(int64_t nbytes);
+  virtual Result<int64_t> DoReadAt(int64_t position, int64_t nbytes, void* out);
+  virtual Result<std::shared_ptr<Buffer>> DoReadAt(int64_t position, int64_t nbytes);
+  Result<util::string_view> DoPeek(int64_t nbytes) override;
+
+  Result<int64_t> DoTell() const;
   Status DoSeek(int64_t position);
-  Status DoGetSize(int64_t* size);
+  Result<int64_t> DoGetSize();
 
   inline Status CheckClosed() const;
 
