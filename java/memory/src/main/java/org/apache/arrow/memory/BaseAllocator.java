@@ -359,7 +359,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   }
 
   /**
-   * By default all {@link ArrowBuf} instances created with {@link NettyAllocationManager}.
+   * By default all {@link ArrowBuf} instances are created with {@link NettyAllocationManager}.
    * One may extend this method to specify a user-defined AllocationManager implementation.
    *
    * @param accountingAllocator The allocator that are expected to be associated with newly created AllocationManager.
