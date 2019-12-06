@@ -21,7 +21,6 @@ set -ex
 
 source_dir=${1}/cpp
 build_dir=${2}/cpp
-ccache_dir=${2}/ccache
 with_docs=${3:-false}
 
 : ${ARROW_USE_CCACHE:=OFF}

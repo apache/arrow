@@ -61,6 +61,7 @@ RUN dnf update -y && \
 ENV CC=gcc \
     CXX=g++ \
     PATH=/usr/lib/ccache/:$PATH \
+    ARROW_USE_CCACHE=ON \
     ARROW_ORC=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     cares_SOURCE=BUNDLED \
@@ -78,6 +79,4 @@ ENV CC=gcc \
     ARROW_GANDIVA=OFF \
     ARROW_GANDIVA_JAVA=ON \
     ARROW_BUILD_TESTS=ON \
-    ARROW_USE_CCACHE=ON \
-    ARROW_HOME=/usr/local \
-    PATH=/usr/lib/ccache/:$PATH
+    ARROW_HOME=/usr/local

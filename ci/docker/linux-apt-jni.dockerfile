@@ -56,6 +56,8 @@ ENV PATH=/opt/cmake-${cmake}-Linux-x86_64/bin:$PATH
 
 ENV CC=gcc \
     CXX=g++ \
+    PATH=/usr/lib/ccache/:$PATH \
+    ARROW_USE_CCACHE=ON \
     ORC_SOURCE=BUNDLED \
     Protobuf_SOURCE=BUNDLED \
     ARROW_BUILD_TESTS=OFF \
