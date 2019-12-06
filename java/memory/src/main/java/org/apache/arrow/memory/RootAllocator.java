@@ -40,8 +40,20 @@ public class RootAllocator extends BaseAllocator {
     this(listener, limit, DefaultRoundingPolicy.INSTANCE);
   }
 
+  /**
+   * Constructor.
+   *
+   * @param listener        the allocation listener
+   * @param limit           max allocation size in bytes
+   * @param roundingPolicy  the policy for rounding the buffer size
+   */
   public RootAllocator(final AllocationListener listener, final long limit, RoundingPolicy roundingPolicy) {
-    super(null, listener, "ROOT", 0, limit, roundingPolicy);
+    super(null, "ROOT",
+        configBuilder()
+            .listener(listener)
+            .maxAllocation(limit)
+            .roundingPolicy(roundingPolicy)
+            .create());
   }
 
   /**

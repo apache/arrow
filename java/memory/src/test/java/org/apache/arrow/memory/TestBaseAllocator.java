@@ -360,7 +360,7 @@ public class TestBaseAllocator {
 
   @Test
   public void testCustomizedAllocationManager() {
-    try (RootAllocator allocator = createAllocatorWithCustomizedAllocationManager()) {
+    try (BaseAllocator allocator = createAllocatorWithCustomizedAllocationManager()) {
       final ArrowBuf arrowBuf1 = allocator.buffer(MAX_ALLOCATION);
       assertNotNull("allocation failed", arrowBuf1);
 
@@ -384,13 +384,9 @@ public class TestBaseAllocator {
     }
   }
 
-  private RootAllocator createAllocatorWithCustomizedAllocationManager() {
-    return new RootAllocator(MAX_ALLOCATION) {
-
-      @Override
-      protected AllocationManager newAllocationManager(BaseAllocator accountingAllocator, int size) {
-
-        return new AllocationManager(accountingAllocator, size) {
+  private BaseAllocator createAllocatorWithCustomizedAllocationManager() {
+    return new BaseAllocator(null, "ROOT", BaseAllocator.configBuilder()
+        .allocationManagerFactory((accountingAllocator, size) -> new AllocationManager(accountingAllocator, size) {
           private final Unsafe unsafe = getUnsafe();
           private final long address = unsafe.allocateMemory(size);
 
@@ -419,8 +415,8 @@ public class TestBaseAllocator {
               }
             }
           }
-        };
-      }
+        }).create()) {
+
     };
   }
 

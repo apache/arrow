@@ -26,6 +26,8 @@ import io.netty.buffer.UnsafeDirectLittleEndian;
  */
 public class NettyAllocationManager extends AllocationManager {
 
+  public static final Factory FACTORY = new Factory();
+
   private static final PooledByteBufAllocatorL INNER_ALLOCATOR = new PooledByteBufAllocatorL();
   static final UnsafeDirectLittleEndian EMPTY = INNER_ALLOCATOR.empty;
   static final long CHUNK_SIZE = INNER_ALLOCATOR.getChunkSize();
@@ -60,5 +62,17 @@ public class NettyAllocationManager extends AllocationManager {
   @Override
   public int getSize() {
     return size;
+  }
+
+  /**
+   * Factory for creating {@link NettyAllocationManager}.
+   */
+  public static class Factory implements AllocationManager.Factory {
+    private Factory() {}
+
+    @Override
+    public AllocationManager create(BaseAllocator accountingAllocator, int size) {
+      return new NettyAllocationManager(accountingAllocator, size);
+    }
   }
 }

@@ -196,4 +196,21 @@ public abstract class AllocationManager {
    * Release the underling memory chunk.
    */
   protected abstract void release0();
+
+  /**
+   * A factory interface for creating {@link AllocationManager}.
+   * One may extend this interface to use a user-defined AllocationManager implementation.
+   */
+  public interface Factory {
+
+    /**
+     * Create an {@link AllocationManager}.
+     *
+     * @param accountingAllocator The allocator that are expected to be associated with newly created AllocationManager.
+     *                            Currently it is always equivalent to "this"
+     * @param size Size (in bytes) of memory managed by the AllocationManager
+     * @return The created AllocationManager used by this allocator
+     */
+    AllocationManager create(BaseAllocator accountingAllocator, int size);
+  }
 }
