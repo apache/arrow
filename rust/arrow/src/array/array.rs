@@ -621,6 +621,51 @@ def_numeric_from_vec!(
     DataType::Time64(TimeUnit::Nanosecond)
 );
 
+impl<T: ArrowTimestampType> PrimitiveArray<T> {
+    pub fn from_vec(data: Vec<i64>, timezone: Option<Arc<String>>) -> Self {
+        let array_data =
+            ArrayData::builder(DataType::Timestamp(T::get_time_unit(), timezone))
+                .len(data.len())
+                .add_buffer(Buffer::from(data.to_byte_slice()))
+                .build();
+        PrimitiveArray::from(array_data)
+    }
+}
+
+impl<T: ArrowTimestampType> PrimitiveArray<T> {
+    /// Construct a timestamp array from a vec of Option<i64> values and an optional timezone
+    pub fn from_opt_vec(data: Vec<Option<i64>>, timezone: Option<Arc<String>>) -> Self {
+        // TODO: duplicated from def_numeric_from_vec! macro, it looks possible to convert to generic
+        let data_len = data.len();
+        let num_bytes = bit_util::ceil(data_len, 8);
+        let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+        let mut val_buf = MutableBuffer::new(data_len * mem::size_of::<i64>());
+
+        {
+            let null = vec![0; mem::size_of::<i64>()];
+            let null_slice = null_buf.data_mut();
+            for (i, v) in data.iter().enumerate() {
+                if let Some(n) = v {
+                    bit_util::set_bit(null_slice, i);
+                    // unwrap() in the following should be safe here since we've
+                    // made sure enough space is allocated for the values.
+                    val_buf.write(&n.to_byte_slice()).unwrap();
+                } else {
+                    val_buf.write(&null).unwrap();
+                }
+            }
+        }
+
+        let array_data =
+            ArrayData::builder(DataType::Timestamp(T::get_time_unit(), timezone))
+                .len(data_len)
+                .add_buffer(val_buf.freeze())
+                .null_bit_buffer(null_buf.freeze())
+                .build();
+        PrimitiveArray::from(array_data)
+    }
+}
+
 /// Constructs a boolean array from a vector. Should only be used for testing.
 impl From<Vec<bool>> for BooleanArray {
     fn from(data: Vec<bool>) -> Self {

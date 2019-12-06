@@ -1062,11 +1062,10 @@ mod tests {
 
     #[test]
     fn test_cast_timestamp_to_date32() {
-        let a = TimestampMillisecondArray::from(vec![
-            Some(864000000005),
-            Some(1545696000001),
-            None,
-        ]);
+        let a = TimestampMillisecondArray::from_opt_vec(
+            vec![Some(864000000005), Some(1545696000001), None],
+            Some(Arc::new(String::from("UTC"))),
+        );
         let array = Arc::new(a) as ArrayRef;
         let b = cast(&array, &DataType::Date32(DateUnit::Day)).unwrap();
         let c = b.as_any().downcast_ref::<Date32Array>().unwrap();

@@ -24,6 +24,7 @@ use flatbuffers::{
     FlatBufferBuilder, ForwardsUOffset, UnionWIPOffset, Vector, WIPOffset,
 };
 use std::collections::HashMap;
+use std::sync::Arc;
 
 /// Serialize a schema in IPC format
 fn schema_to_fb(schema: &Schema) -> FlatBufferBuilder {
@@ -166,7 +167,8 @@ fn get_data_type(field: ipc::Field) -> DataType {
         }
         ipc::Type::Timestamp => {
             let timestamp = field.type_as_timestamp().unwrap();
-            let timezone: Option<String> = timestamp.timezone().map(|tz| tz.to_string());
+            let timezone: Option<Arc<String>> =
+                timestamp.timezone().map(|tz| Arc::new(tz.to_string()));
             match timestamp.unit() {
                 ipc::TimeUnit::SECOND => DataType::Timestamp(TimeUnit::Second, timezone),
                 ipc::TimeUnit::MILLISECOND => {
@@ -308,7 +310,7 @@ fn get_fb_field_type<'a: 'b, 'b>(
             (ipc::Type::Time, builder.finish().as_union_value(), None)
         }
         Timestamp(unit, tz) => {
-            let tz = tz.clone().unwrap_or(String::new());
+            let tz = tz.clone().unwrap_or(Arc::new(String::new()));
             let tz_str = fbb.create_string(tz.as_str());
             let mut builder = ipc::TimestampBuilder::new(&mut fbb);
             let time_unit = match unit {

@@ -28,6 +28,7 @@ use std::mem::size_of;
 use std::ops::{Add, Div, Mul, Sub};
 use std::slice::from_raw_parts;
 use std::str::FromStr;
+use std::sync::Arc;
 
 #[cfg(feature = "simd")]
 use packed_simd::*;
@@ -37,7 +38,6 @@ use serde_json::{
 };
 
 use crate::error::{ArrowError, Result};
-use std::sync::Arc;
 
 /// The possible relative types that are supported.
 ///
@@ -65,7 +65,7 @@ pub enum DataType {
     Float32,
     Float64,
     /// A timestamp with an optional timezone
-    Timestamp(TimeUnit, Option<String>),
+    Timestamp(TimeUnit, Option<Arc<String>>),
     Date32(DateUnit),
     Date64(DateUnit),
     Time32(TimeUnit),
@@ -516,6 +516,32 @@ impl ArrowTemporalType for Time64NanosecondType {}
 impl ArrowTemporalType for IntervalYearMonthType {}
 impl ArrowTemporalType for IntervalDayTimeType {}
 
+/// A timestamp type allows us to create array builders that take a timestamp
+pub trait ArrowTimestampType: ArrowTemporalType {
+    fn get_time_unit() -> TimeUnit;
+}
+
+impl ArrowTimestampType for TimestampSecondType {
+    fn get_time_unit() -> TimeUnit {
+        TimeUnit::Second
+    }
+}
+impl ArrowTimestampType for TimestampMillisecondType {
+    fn get_time_unit() -> TimeUnit {
+        TimeUnit::Millisecond
+    }
+}
+impl ArrowTimestampType for TimestampMicrosecondType {
+    fn get_time_unit() -> TimeUnit {
+        TimeUnit::Microsecond
+    }
+}
+impl ArrowTimestampType for TimestampNanosecondType {
+    fn get_time_unit() -> TimeUnit {
+        TimeUnit::Nanosecond
+    }
+}
+
 /// Allows conversion from supported Arrow types to a byte slice.
 pub trait ToByteSlice {
     /// Converts this instance into a byte slice
@@ -574,7 +600,7 @@ impl DataType {
                     };
                     let tz = match map.get("timezone") {
                         None => Ok(None),
-                        Some(VString(tz)) => Ok(Some(tz.to_string())),
+                        Some(VString(tz)) => Ok(Some(Arc::new(tz.to_string()))),
                         _ => Err(ArrowError::ParseError(
                             "timezone must be a string".to_string(),
                         )),
@@ -1280,14 +1306,17 @@ mod tests {
                 Field::new("c15", DataType::Timestamp(TimeUnit::Second, None), false),
                 Field::new(
                     "c16",
-                    DataType::Timestamp(TimeUnit::Millisecond, Some("UTC".to_string())),
+                    DataType::Timestamp(
+                        TimeUnit::Millisecond,
+                        Some(Arc::new("UTC".to_string())),
+                    ),
                     false,
                 ),
                 Field::new(
                     "c17",
                     DataType::Timestamp(
                         TimeUnit::Microsecond,
-                        Some("Africa/Johannesburg".to_string()),
+                        Some(Arc::new("Africa/Johannesburg".to_string())),
                     ),
                     false,
                 ),
