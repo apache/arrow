@@ -29,10 +29,10 @@ build = "build.rs"
 edition = "2018"
 
 [dependencies]
-parquet-format = "~2.5"
+parquet-format = "~2.6"
 quick-error = "1.2.2"
 byteorder = "1"
-thrift = "0.0.4"
+thrift = "0.12"
 snap = "0.2"
 brotli = "2.5"
 flate2 = "1.0.2"
