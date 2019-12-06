@@ -617,8 +617,6 @@ services:
     command: >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
-        /arrow/ci/scripts/r_deps.sh /arrow &&
-        /arrow/ci/scripts/r_build.sh /arrow &&
         /arrow/ci/scripts/r_sanitize.sh /arrow"
 
   ################################ Rust #######################################

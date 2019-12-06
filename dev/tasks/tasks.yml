@@ -251,7 +251,7 @@ groups:
     - test-fedora-29-python-3
     - test-ubuntu-18.04-r-3.6
     - test-conda-r-3.6
-    # - test-ubuntu-18.04-r-sanitizer # ARROW-6957
+    - test-ubuntu-18.04-r-sanitizer
     - test-debian-10-go-1.12
     - test-ubuntu-18.04-docs
     - test-ubuntu-fuzzit-fuzzing
