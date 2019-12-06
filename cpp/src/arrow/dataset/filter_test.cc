@@ -82,6 +82,8 @@ TEST_F(ExpressionsTest, StringRepresentation) {
   ASSERT_EQ(("a"_ > int32_t(3) and "a"_ < int32_t(4)).ToString(),
             "((a > 3:int32) and (a < 4:int32))");
   ASSERT_EQ(("f"_ > double(4)).ToString(), "(f > 4:double)");
+  ASSERT_EQ("f"_.CastTo(float64()).ToString(), "(cast f to double)");
+  ASSERT_EQ("f"_.CastLike("a"_).ToString(), "(cast f like a)");
 }
 
 TEST_F(ExpressionsTest, Equality) {

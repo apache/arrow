@@ -675,7 +675,7 @@ std::string CastExpression::ToString() const {
     auto like = arrow::util::get<ExpressionPtr>(to_);
     to = " like " + like->ToString();
   }
-  return internal::JoinStrings({"(cast ", operand_->ToString(), std::move(to)}, "");
+  return internal::JoinStrings({"(cast ", operand_->ToString(), std::move(to), ")"}, "");
 }
 
 std::string ComparisonExpression::ToString() const {
