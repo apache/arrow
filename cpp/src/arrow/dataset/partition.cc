@@ -90,8 +90,7 @@ Result<ExpressionPtr> PartitionKeysScheme::ConvertKey(const Key& key,
     return scalar(true);
   }
 
-  std::shared_ptr<Scalar> converted;
-  RETURN_NOT_OK(Scalar::Parse(field->type(), key.value, &converted));
+  ARROW_ASSIGN_OR_RAISE(auto converted, Scalar::Parse(field->type(), key.value));
   return equal(field_ref(field->name()), scalar(converted));
 }
 

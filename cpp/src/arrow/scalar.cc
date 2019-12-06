@@ -126,12 +126,12 @@ struct MakeNullImpl {
             typename Enable = typename std::enable_if<
                 internal::is_simple_scalar<ScalarType>::value>::type>
   Status Visit(const T&) {
-    *out_ = std::make_shared<ScalarType>(ValueType(), type_, false);
+    out_ = std::make_shared<ScalarType>(ValueType(), type_, false);
     return Status::OK();
   }
 
   Status Visit(const NullType&) {
-    *out_ = std::make_shared<NullScalar>();
+    out_ = std::make_shared<NullScalar>();
     return Status::OK();
   }
 
@@ -140,13 +140,13 @@ struct MakeNullImpl {
   }
 
   const std::shared_ptr<DataType>& type_;
-  std::shared_ptr<Scalar>* out_;
+  std::shared_ptr<Scalar> out_;
 };
 
-Status MakeNullScalar(const std::shared_ptr<DataType>& type,
-                      std::shared_ptr<Scalar>* null) {
-  MakeNullImpl impl = {type, null};
-  return VisitTypeInline(*type, &impl);
+Result<std::shared_ptr<Scalar>> MakeNullScalar(const std::shared_ptr<DataType>& type) {
+  MakeNullImpl impl = {type, nullptr};
+  RETURN_NOT_OK(VisitTypeInline(*type, &impl));
+  return std::move(impl.out_);
 }
 
 std::string Scalar::ToString() const {
@@ -180,7 +180,7 @@ struct ScalarParseImpl {
 
   template <typename Arg>
   Status Finish(Arg&& arg) {
-    return MakeScalar(type_, std::forward<Arg>(arg), out_);
+    return MakeScalar(type_, std::forward<Arg>(arg)).Value(out_);
   }
 
   Status FinishWithBuffer() { return Finish(Buffer::FromString(s_.to_string())); }
@@ -194,10 +194,12 @@ struct ScalarParseImpl {
   std::shared_ptr<Scalar>* out_;
 };
 
-Status Scalar::Parse(const std::shared_ptr<DataType>& type, util::string_view s,
-                     std::shared_ptr<Scalar>* out) {
-  ScalarParseImpl impl = {type, s, out};
-  return VisitTypeInline(*type, &impl);
+Result<std::shared_ptr<Scalar>> Scalar::Parse(const std::shared_ptr<DataType>& type,
+                                              util::string_view s) {
+  std::shared_ptr<Scalar> out;
+  ScalarParseImpl impl = {type, s, &out};
+  RETURN_NOT_OK(VisitTypeInline(*type, &impl));
+  return out;
 }
 
 namespace internal {
@@ -244,8 +246,8 @@ Status CastImpl(const BooleanScalar& from, NumericScalar<T>* to) {
 // string to any
 template <typename ScalarType>
 Status CastImpl(const StringScalar& from, ScalarType* to) {
-  std::shared_ptr<Scalar> out;
-  RETURN_NOT_OK(Scalar::Parse(to->type, util::string_view(*from.value), &out));
+  ARROW_ASSIGN_OR_RAISE(auto out,
+                        Scalar::Parse(to->type, util::string_view(*from.value)));
   to->value = std::move(checked_cast<ScalarType&>(*out).value);
   return Status::OK();
 }
@@ -341,14 +343,13 @@ struct ToTypeVisitor {
 }  // namespace
 
 Result<std::shared_ptr<Scalar>> Scalar::CastTo(std::shared_ptr<DataType> to) const {
-  std::shared_ptr<Scalar> out;
-  RETURN_NOT_OK(MakeNullScalar(to, &out));
+  ARROW_ASSIGN_OR_RAISE(auto out, MakeNullScalar(to));
   if (is_valid) {
     out->is_valid = true;
     ToTypeVisitor unpack_to_type{*this, to, out.get()};
     RETURN_NOT_OK(VisitTypeInline(*to, &unpack_to_type));
   }
-  return std::move(out);
+  return out;
 }
 
 }  // namespace arrow

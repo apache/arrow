@@ -298,13 +298,13 @@ static ExpressionPtr ColumnChunkStatisticsAsExpression(
 
   // Optimize for corner case where all values are nulls
   if (statistics->num_values() == statistics->null_count()) {
-    std::shared_ptr<Scalar> null_scalar;
-    if (!MakeNullScalar(field->type(), &null_scalar).ok()) {
+    auto null_scalar = MakeNullScalar(field->type());
+    if (null_scalar.ok()) {
       // MakeNullScalar can fail for some nested/repeated types.
       return scalar(true);
     }
 
-    return equal(field_expr, scalar(null_scalar));
+    return equal(field_expr, scalar(*null_scalar));
   }
 
   std::shared_ptr<Scalar> min, max;

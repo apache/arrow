@@ -1018,8 +1018,7 @@ std::shared_ptr<ExpressionEvaluator> ExpressionEvaluator::Null() {
     Result<Datum> Evaluate(const Expression& expr, const RecordBatch& batch,
                            MemoryPool* pool) const override {
       ARROW_ASSIGN_OR_RAISE(auto type, expr.Validate(*batch.schema()));
-      std::shared_ptr<Scalar> out;
-      RETURN_NOT_OK(MakeNullScalar(type, &out));
+      ARROW_ASSIGN_OR_RAISE(auto out, MakeNullScalar(type));
       return Datum(std::move(out));
     }
 

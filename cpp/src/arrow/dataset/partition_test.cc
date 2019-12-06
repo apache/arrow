@@ -211,8 +211,7 @@ TEST_F(TestPartitionScheme, Set) {
         std::string element;
         std::istringstream elements(matches[1]);
         while (elements >> element) {
-          std::shared_ptr<Scalar> s;
-          RETURN_NOT_OK(Scalar::Parse(int32(), element, &s));
+          ARROW_ASSIGN_OR_RAISE(auto s, Scalar::Parse(int32(), element));
           subexpressions.push_back(equal(field_ref("x"), scalar(s)));
         }
 
@@ -248,9 +247,8 @@ class RangePartitionScheme : public HivePartitionScheme {
     auto& max_cmp = matches[4] == "]" ? less_equal : less;
 
     const auto& type = schema_->GetFieldByName(key->name)->type();
-    std::shared_ptr<Scalar> min, max;
-    RETURN_NOT_OK(Scalar::Parse(type, min_repr, &min));
-    RETURN_NOT_OK(Scalar::Parse(type, max_repr, &max));
+    ARROW_ASSIGN_OR_RAISE(auto min, Scalar::Parse(type, min_repr));
+    ARROW_ASSIGN_OR_RAISE(auto max, Scalar::Parse(type, max_repr));
 
     ranges.push_back(and_(min_cmp(field_ref(key->name), scalar(min)),
                           max_cmp(field_ref(key->name), scalar(max))));
