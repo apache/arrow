@@ -183,7 +183,7 @@ public abstract class AllocationManager {
    *
    * @return size of underlying memory chunk
    */
-  protected int getSize() {
+  public int getSize() {
     return size;
   }
 

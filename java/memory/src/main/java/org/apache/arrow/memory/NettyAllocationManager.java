@@ -58,7 +58,7 @@ public class NettyAllocationManager extends AllocationManager {
   }
 
   @Override
-  protected int getSize() {
+  public int getSize() {
     return size;
   }
 }
