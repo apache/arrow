@@ -1697,7 +1697,3 @@ cdef extern from 'arrow/util/thread_pool.h' namespace 'arrow' nogil:
 cdef extern from 'arrow/array/concatenate.h' namespace 'arrow' nogil:
     CStatus Concatenate(const vector[shared_ptr[CArray]]& arrays,
                         CMemoryPool* pool, shared_ptr[CArray]* result)
-
-cdef extern from "<utility>" namespace "std":
-    # Work around https://github.com/cython/cython/issues/2169
-    unique_ptr[CCodec] move(unique_ptr[CCodec]) nogil
