@@ -1086,8 +1086,8 @@ def test_plasma_list():
 @pytest.mark.plasma
 def test_object_id_randomness():
     cmd = "from pyarrow import plasma; print(plasma.ObjectID.from_random())"
-    first_object_id = subprocess.check_output(["python", "-c", cmd])
-    second_object_id = subprocess.check_output(["python", "-c", cmd])
+    first_object_id = subprocess.check_output([sys.executable, "-c", cmd])
+    second_object_id = subprocess.check_output([sys.executable, "-c", cmd])
     assert first_object_id != second_object_id
 
 
