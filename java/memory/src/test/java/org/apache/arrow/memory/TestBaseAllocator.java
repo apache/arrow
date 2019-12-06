@@ -385,7 +385,7 @@ public class TestBaseAllocator {
   }
 
   private BaseAllocator createAllocatorWithCustomizedAllocationManager() {
-    return new BaseAllocator(null, "ROOT", BaseAllocator.configBuilder()
+    return new RootAllocator(BaseAllocator.configBuilder()
         .allocationManagerFactory((accountingAllocator, size) -> new AllocationManager(accountingAllocator, size) {
           private final Unsafe unsafe = getUnsafe();
           private final long address = unsafe.allocateMemory(size);
@@ -415,9 +415,7 @@ public class TestBaseAllocator {
               }
             }
           }
-        }).create()) {
-
-    };
+        }).create());
   }
 
   // Allocation listener

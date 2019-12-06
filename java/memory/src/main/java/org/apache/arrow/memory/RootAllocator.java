@@ -48,12 +48,16 @@ public class RootAllocator extends BaseAllocator {
    * @param roundingPolicy  the policy for rounding the buffer size
    */
   public RootAllocator(final AllocationListener listener, final long limit, RoundingPolicy roundingPolicy) {
-    super(null, "ROOT",
-        configBuilder()
-            .listener(listener)
-            .maxAllocation(limit)
-            .roundingPolicy(roundingPolicy)
-            .create());
+    this(configBuilder()
+        .listener(listener)
+        .maxAllocation(limit)
+        .roundingPolicy(roundingPolicy)
+        .create()
+    );
+  }
+
+  public RootAllocator(Config config) {
+    super(null, "ROOT", config);
   }
 
   /**
