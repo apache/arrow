@@ -1076,11 +1076,10 @@ mod tests {
 
     #[test]
     fn test_cast_timestamp_to_date64() {
-        let a = TimestampMillisecondArray::from(vec![
-            Some(864000000005),
-            Some(1545696000001),
+        let a = TimestampMillisecondArray::from_opt_vec(
+            vec![Some(864000000005), Some(1545696000001), None],
             None,
-        ]);
+        );
         let array = Arc::new(a) as ArrayRef;
         let b = cast(&array, &DataType::Date64(DateUnit::Millisecond)).unwrap();
         let c = b.as_any().downcast_ref::<Date64Array>().unwrap();
@@ -1091,11 +1090,10 @@ mod tests {
 
     #[test]
     fn test_cast_timestamp_to_i64() {
-        let a = TimestampMillisecondArray::from(vec![
-            Some(864000000005),
-            Some(1545696000001),
-            None,
-        ]);
+        let a = TimestampMillisecondArray::from_opt_vec(
+            vec![Some(864000000005), Some(1545696000001), None],
+            Some(Arc::new("UTC".to_string())),
+        );
         let array = Arc::new(a) as ArrayRef;
         let b = cast(&array, &DataType::Int64).unwrap();
         let c = b.as_any().downcast_ref::<Int64Array>().unwrap();
@@ -1107,11 +1105,10 @@ mod tests {
 
     #[test]
     fn test_cast_between_timestamps() {
-        let a = TimestampMillisecondArray::from(vec![
-            Some(864000003005),
-            Some(1545696002001),
+        let a = TimestampMillisecondArray::from_opt_vec(
+            vec![Some(864000003005), Some(1545696002001), None],
             None,
-        ]);
+        );
         let array = Arc::new(a) as ArrayRef;
         let b = cast(&array, &DataType::Timestamp(TimeUnit::Second, None)).unwrap();
         let c = b.as_any().downcast_ref::<TimestampSecondArray>().unwrap();

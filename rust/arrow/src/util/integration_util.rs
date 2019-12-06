@@ -479,15 +479,20 @@ mod tests {
             None,
             Some(16584393546415),
         ]);
-        let ts_secs = TimestampSecondArray::from(vec![None, Some(193438817552), None]);
-        let ts_millis = TimestampMillisecondArray::from(vec![
+        let ts_secs = TimestampSecondArray::from_opt_vec(
+            vec![None, Some(193438817552), None],
             None,
-            Some(38606916383008),
-            Some(58113709376587),
-        ]);
-        let ts_micros = TimestampMicrosecondArray::from(vec![None, None, None]);
-        let ts_nanos =
-            TimestampNanosecondArray::from(vec![None, None, Some(-6473623571954960143)]);
+        );
+        let ts_millis = TimestampMillisecondArray::from_opt_vec(
+            vec![None, Some(38606916383008), Some(58113709376587)],
+            None,
+        );
+        let ts_micros =
+            TimestampMicrosecondArray::from_opt_vec(vec![None, None, None], None);
+        let ts_nanos = TimestampNanosecondArray::from_opt_vec(
+            vec![None, None, Some(-6473623571954960143)],
+            None,
+        );
         let ts_secs_tz = TimestampSecondArray::from_opt_vec(
             vec![None, Some(193438817552), None],
             secs_tz,

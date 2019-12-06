@@ -582,26 +582,6 @@ def_numeric_from_vec!(UInt64Type, u64, DataType::UInt64);
 def_numeric_from_vec!(Float32Type, f32, DataType::Float32);
 def_numeric_from_vec!(Float64Type, f64, DataType::Float64);
 
-def_numeric_from_vec!(
-    TimestampSecondType,
-    i64,
-    DataType::Timestamp(TimeUnit::Second, None)
-);
-def_numeric_from_vec!(
-    TimestampMillisecondType,
-    i64,
-    DataType::Timestamp(TimeUnit::Millisecond, None)
-);
-def_numeric_from_vec!(
-    TimestampMicrosecondType,
-    i64,
-    DataType::Timestamp(TimeUnit::Microsecond, None)
-);
-def_numeric_from_vec!(
-    TimestampNanosecondType,
-    i64,
-    DataType::Timestamp(TimeUnit::Nanosecond, None)
-);
 def_numeric_from_vec!(Date32Type, i32, DataType::Date32(DateUnit::Day));
 def_numeric_from_vec!(Date64Type, i64, DataType::Date64(DateUnit::Millisecond));
 def_numeric_from_vec!(Time32SecondType, i32, DataType::Time32(TimeUnit::Second));
@@ -622,6 +602,7 @@ def_numeric_from_vec!(
 );
 
 impl<T: ArrowTimestampType> PrimitiveArray<T> {
+    /// Construct a timestamp array from a vec of i64 values and an optional timezone
     pub fn from_vec(data: Vec<i64>, timezone: Option<Arc<String>>) -> Self {
         let array_data =
             ArrayData::builder(DataType::Timestamp(T::get_time_unit(), timezone))
@@ -1829,7 +1810,7 @@ mod tests {
     #[test]
     fn test_timestamp_fmt_debug() {
         let arr: PrimitiveArray<TimestampMillisecondType> =
-            vec![1546214400000, 1546214400000].into();
+            TimestampMillisecondArray::from_vec(vec![1546214400000, 1546214400000], None);
         assert_eq!(
             "PrimitiveArray<Timestamp(Millisecond, None)>\n[\n  2018-12-31T00:00:00,\n  2018-12-31T00:00:00,\n]",
             format!("{:?}", arr)
