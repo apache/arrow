@@ -204,16 +204,16 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CSimpleDataSource "arrow::dataset::SimpleDataSource"(
             CDataSource):
-        pass
-
-    cdef cppclass CTreeDataSource "arrow::dataset::TreeDataSource"(
-            CDataSource):
-        pass
+        CSimpleDataSource(CRecordBatchIterator record_batches)
 
     ctypedef shared_ptr[CDataSource] CDataSourcePtr \
         "arrow::dataset::DataSourcePtr"
     ctypedef vector[CDataSourcePtr] CDataSourceVector \
         "arrow::dataset::DataSourceVector"
+
+    cdef cppclass CTreeDataSource "arrow::dataset::TreeDataSource"(
+            CDataSource):
+        CTreeDataSource(CDataSourceVector children)
 
     cdef cppclass CDataset "arrow::dataset::Dataset":
         @staticmethod

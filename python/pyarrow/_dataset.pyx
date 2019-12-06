@@ -294,205 +294,6 @@ cdef class FileSystemDataSourceDiscovery(DataSourceDiscovery):
         self.filesystem_discovery = <CFileSystemDataSourceDiscovery*> sp.get()
 
 
-cdef class FileSource:
-
-    cdef:
-        shared_ptr[CFileSource] wrapped
-        CFileSource* source
-
-    cdef readonly:
-        FileSystem fs
-
-    def __init__(self, path, FileSystem filesystem not None, compression=None):
-        cdef shared_ptr[CFileSource] source
-
-        # need to hold a reference for the filesystem
-        self.fs = filesystem
-
-        source.reset(new CFileSource(
-            tobytes(path),
-            self.fs.unwrap().get(),
-            _get_compression_type(compression)
-        ))
-
-        self.init(source)
-
-    cdef init(self, shared_ptr[CFileSource]& sp):
-        self.wrapped = sp
-        self.source = sp.get()
-
-    @staticmethod
-    cdef wrap(shared_ptr[CFileSource]& sp):
-        cdef FileSource self = FileSource.__new__(FileSource)
-        self.init(sp)
-        return self
-
-    cdef inline shared_ptr[CFileSource] unwrap(self):
-        return self.wrapped
-
-    def equals(self, FileSource other):
-        return deref(self.source) == deref(other.unwrap())
-
-    def __eq__(self, other):
-        try:
-            return self.equals(other)
-        except TypeError:
-            return NotImplemented
-
-    @property
-    def compression(self):
-        return self.wrapped.get().compression()
-
-    @property
-    def path(self):
-        return frombytes(self.wrapped.get().path())
-
-    # def open(self):
-    #     CStatus Open(shared_ptr[CRandomAccessFile]* out)
-
-
-cdef class DataFragment:
-    """A granular piece of a Dataset such as an individual file.
-
-    It can be read/scanned separately from other fragments.
-    A DataFragment yields a collection of RecordBatch, encapsulated in one or
-    more ScanTasks.
-    """
-    cdef:
-        shared_ptr[CDataFragment] wrapped
-        CDataFragment* fragment
-
-    def __init__(self):
-        _forbid_instantiation(self.__class__)
-
-    cdef void init(self, const shared_ptr[CDataFragment]& sp):
-        self.wrapped = sp
-        self.fragment = sp.get()
-
-    @staticmethod
-    cdef wrap(shared_ptr[CDataFragment]& sp):
-        cdef DataFragment self
-
-        typ = frombytes(sp.get().type())
-        if typ == 'simple_data_fragment':
-            self = SimpleDataFragment.__new__(SimpleDataFragment)
-        elif typ == 'parquet_data_fragment':
-            self = ParquetDataFragment.__new__(ParquetDataFragment)
-        else:
-            raise TypeError(typ)
-
-        self.init(sp)
-        return self
-
-    cdef inline shared_ptr[CDataFragment] unwrap(self):
-        return self.wrapped
-
-    def scan(self, ScanContext context=None):
-        """Returns an iterator of ScanTasks
-
-        Each of ScanTask yields RecordBatches from this DataFragment.
-
-        Parameters
-        ----------
-        context : ScanContext, default None
-
-        Returns
-        -------
-        scan_tasks: Iterator[ScanTask]
-        """
-        cdef:
-            CResult[CScanTaskIterator] iterator_result
-            CScanTaskIterator iterator
-            CScanTaskPtr task
-
-        context = context or ScanContext()
-        iterator_result = self.fragment.Scan(context.unwrap())
-        iterator = move(GetResultValue(move(iterator_result)))
-
-        while True:
-            iterator.Next(&task)
-            if task.get() == nullptr:
-                raise StopIteration()
-            else:
-                yield ScanTask.wrap(task)
-
-    @property
-    def splittable(self):
-        """Get whether the DataFragment supports parallel scanning."""
-        return self.fragment.splittable()
-
-    @property
-    def scan_options(self):
-        """Get the scan options used for scanning the data fragment.
-
-        Filtering, schema reconciliation, and partition options. None indicates
-        that no filtering or schema reconciliation will be performed and all
-        partitions will be scanned.
-        """
-        cdef shared_ptr[CScanOptions] options = self.fragment.scan_options()
-        if options.get() == nullptr:
-            return None
-        else:
-            return ScanOptions.wrap(options)
-
-
-cdef class SimpleDataFragment(DataFragment):
-    """A fragment that yields ScanTasks out of a fixed set of RecordBatches."""
-
-    cdef:
-        CSimpleDataFragment* simple_fragment
-
-    def __init__(self, record_batches):
-        """Create a simple data fragment from record batches.
-
-        Parameters
-        ----------
-        record_batches : iterator of RecordBatch
-        """
-        cdef:
-            RecordBatch batch
-            vector[shared_ptr[CRecordBatch]] batches
-            shared_ptr[CSimpleDataFragment] simple_fragment
-
-        for batch in record_batches:
-            batches.push_back(batch.sp_batch)
-
-        simple_fragment = make_shared[CSimpleDataFragment](batches)
-        self.init(<shared_ptr[CDataFragment]> simple_fragment)
-
-    cdef void init(self, const shared_ptr[CDataFragment]& sp):
-        DataFragment.init(self, sp)
-        self.simple_fragment = <CSimpleDataFragment*> sp.get()
-
-
-cdef class FileDataFragment(DataFragment):
-
-    cdef:
-        CFileDataFragment* file_fragment
-
-    cdef void init(self, const shared_ptr[CDataFragment]& sp):
-        DataFragment.init(self, sp)
-        self.file_fragment = <CFileDataFragment*> sp.get()
-
-    @property
-    def source(self):
-        cdef shared_ptr[CFileSource] source
-        source = make_shared[CFileSource](self.file_fragment.source())
-        return FileSource.wrap(source)
-
-
-cdef class ParquetDataFragment(FileDataFragment):
-
-    def __init__(self, FileSource source not None,
-                 ParquetScanOptions scan_options not None):
-        cdef shared_ptr[CDataFragment] fragment
-        fragment.reset(new CParquetDataFragment(
-            deref(source.unwrap()),
-            scan_options.unwrap()
-        ))
-        self.init(fragment)
-
-
 cdef class DataSource:
     """Basic component of a Dataset which yields zero or more DataFragments.
 
@@ -531,32 +332,6 @@ cdef class DataSource:
     cdef shared_ptr[CDataSource] unwrap(self):
         return self.wrapped
 
-    def fragments(self, ScanOptions scan_options=None):
-        """Get the data fragments of this data source.
-
-        Parameters
-        ----------
-        scan_options : ScanOptions, default None
-            Controls filtering and schema inference.
-
-        Returns
-        -------
-        fragments : iterator of DataFragments
-        """
-        cdef:
-            CDataFragmentIterator iterator
-            CDataFragmentPtr fragment
-
-        scan_options = scan_options or ScanOptions()
-        iterator = self.source.GetFragments(scan_options.unwrap())
-
-        while True:
-            iterator.Next(&fragment)
-            if fragment.get() == nullptr:
-                raise StopIteration()
-            else:
-                yield DataFragment.wrap(fragment)
-
     @property
     def partition_expression(self):
         cdef shared_ptr[CExpression] expression
@@ -567,22 +342,23 @@ cdef class DataSource:
             return Expression.wrap(expression)
 
 
+# Rename it to InMemoryDataSource
 cdef class SimpleDataSource(DataSource):
     """A DataSource consisting of a flat sequence of DataFragments."""
 
     cdef:
         CSimpleDataSource* simple_source
 
-    def __init__(self, data_fragments):
+    def __init__(self, record_batches):
         cdef:
-            DataFragment fragment
-            CDataFragmentVector fragments
+            RecordBatch batch
+            vector[shared_ptr[CRecordBatch]] batches
             shared_ptr[CSimpleDataSource] simple_source
 
-        for fragment in data_fragments:
-            fragments.push_back(fragment.unwrap())
+        for batch in record_batches:
+            batches.push_back(pyarrow_unwrap_batch(batch))
 
-        simple_source = make_shared[CSimpleDataSource](fragments)
+        simple_source = make_shared[CSimpleDataSource](batches)
         self.init(<shared_ptr[CDataSource]> simple_source)
 
     cdef void init(self, const shared_ptr[CDataSource]& sp):
@@ -705,72 +481,6 @@ cdef class Dataset:
     @property
     def schema(self):
         return pyarrow_wrap_schema(self.dataset.schema())
-
-
-cdef class ScanOptions:
-
-    cdef:
-        shared_ptr[CScanOptions] wrapped
-        CScanOptions* options
-
-    def __init__(self, Schema schema=None):
-        self.init(CScanOptions.Defaults())
-        if schema is not None:
-            self.schema = schema
-
-    cdef init(self, const shared_ptr[CScanOptions]& sp):
-        self.wrapped = sp
-        self.options = sp.get()
-
-    @staticmethod
-    cdef wrap(const shared_ptr[CScanOptions]& sp):
-        cdef ScanOptions self = ScanOptions.__new__(ScanOptions)
-        self.init(sp)
-        return self
-
-    cdef inline shared_ptr[CScanOptions] unwrap(self):
-        return self.wrapped
-
-    @property
-    def schema(self):
-        """Schema to which record batches will be reconciled"""
-        if self.options.schema == nullptr:
-            return None
-        else:
-            return pyarrow_wrap_schema(self.options.schema)
-
-    @schema.setter
-    def schema(self, Schema value):
-        self.options.schema = pyarrow_unwrap_schema(value)
-
-    @property
-    def use_threads(self):
-        """Make use of the thread pool found in the scan context"""
-        return self.options.use_threads
-
-    @use_threads.setter
-    def use_threads(self, bint value):
-        self.options.use_threads = value
-
-
-cdef class FileScanOptions(ScanOptions):
-    pass
-
-
-cdef class ParquetScanOptions(FileScanOptions):
-    pass
-
-
-cdef class WriteOptions:
-    pass
-
-
-cdef class FileWriteOptions(WriteOptions):
-    pass
-
-
-cdef class ParquetWriterOptions(FileWriteOptions):
-    pass
 
 
 cdef class ScanContext:
@@ -983,28 +693,9 @@ cdef class Scanner:
         shared_ptr[CScanner] wrapped
         CScanner* scanner
 
-    def __init__(self, data_sources, ScanOptions scan_options not None,
-                 ScanContext scan_context not None):
-        """Create the scanner
-
-        Parameters
-        ----------
-        data_sources : list of DataSource
-        scan_options : ScanOptions
-        scan_context : ScanContext
-        """
-        cdef:
-            DataSource source
-            CDataSourceVector sources
-            shared_ptr[CScanner] scanner
-
-        for source in data_sources:
-            sources.push_back(source.unwrap())
-
-        scanner = make_shared[CScanner](
-            sources, scan_options.unwrap(), scan_context.unwrap()
-        )
-        self.init(scanner)
+    def __init__(self):
+        raise TypeError('Scanner cannot be initialized directly, use '
+                        'ScannerBuilder instead')
 
     cdef void init(self, shared_ptr[CScanner]& sp):
         self.wrapped = sp

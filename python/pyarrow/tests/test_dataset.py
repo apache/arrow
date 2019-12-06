@@ -23,6 +23,7 @@ import pyarrow.fs as fs
 try:
     import pyarrow.dataset as ds
 except ImportError:
+    raise
     ds = None
 
 # Marks all of the tests in this module
@@ -73,13 +74,8 @@ def table(record_batch):
 
 
 @pytest.fixture
-def simple_data_fragment(record_batch):
-    return ds.SimpleDataFragment([record_batch] * 5)
-
-
-@pytest.fixture
-def simple_data_source(simple_data_fragment):
-    return ds.SimpleDataSource([simple_data_fragment] * 4)
+def simple_data_source(record_batch):
+    return ds.SimpleDataSource([record_batch] * 4)
 
 
 @pytest.fixture
@@ -92,19 +88,6 @@ def dataset(simple_data_source, tree_data_source, schema):
     return ds.Dataset([simple_data_source, tree_data_source], schema)
 
 
-def test_scan_options():
-    schema = pa.schema([
-        pa.field('a', pa.string()),
-        pa.field('b', pa.string())
-    ])
-    options = ds.ScanOptions(schema)
-    assert isinstance(options, ds.ScanOptions)
-    assert options.schema.equals(schema)
-
-    options = ds.ScanOptions()
-    assert options.schema is None
-
-
 def test_scan_context():
     context = ds.ScanContext()
     assert isinstance(context.memory_pool, pa.MemoryPool)
@@ -112,44 +95,15 @@ def test_scan_context():
     assert isinstance(context.memory_pool, pa.MemoryPool)
 
 
-def test_simple_data_fragment(record_batch):
-    batches = [record_batch] * 5
-    fragment = ds.SimpleDataFragment(batches)
-
-    assert isinstance(fragment, ds.SimpleDataFragment)
-    assert fragment.splittable is False
-    assert isinstance(fragment.scan_options, ds.ScanOptions)
-
-    tasks = list(fragment.scan())
-    assert len(tasks) == 5
-    for task, batch in zip(tasks, batches):
-        assert isinstance(task, ds.ScanTask)
-        result_batches = list(task.scan())
-        assert len(result_batches) == 1
-        assert result_batches[0].equals(batch)
-
-
-def test_simple_data_source(simple_data_fragment):
-    source = ds.SimpleDataSource([simple_data_fragment] * 4)
+def test_simple_data_source(record_batch):
+    source = ds.SimpleDataSource([record_batch] * 4)
     assert isinstance(source, ds.SimpleDataSource)
     assert source.partition_expression is None
-
-    result = source.fragments()
-    fragments = list(result)
-    assert len(fragments) == 4
-    for fragment in fragments:
-        assert isinstance(fragment, ds.DataFragment)
 
 
 def test_tree_data_source(simple_data_source):
     source = ds.TreeDataSource([simple_data_source] * 2)
     assert isinstance(source, ds.TreeDataSource)
-
-    result = source.fragments()
-    fragments = list(result)
-    assert len(fragments) == 8
-    for fragment in fragments:
-        assert isinstance(fragment, ds.DataFragment)
 
 
 def test_filesystem_data_source(mockfs):
@@ -168,7 +122,6 @@ def test_filesystem_data_source(mockfs):
         path_partitions=path_partitions,
         file_format=file_format
     )
-    assert len(list(source.fragments())) == 2
 
     source_partition = ds.ComparisonExpression(
         ds.CompareOperator.Equal,
@@ -194,7 +147,6 @@ def test_filesystem_data_source(mockfs):
         path_partitions=path_partitions,
         file_format=file_format
     )
-    assert len(list(source.fragments())) == 2
     assert source.partition_expression.equals(source_partition)
 
 
@@ -225,22 +177,6 @@ def test_dataset(simple_data_source, tree_data_source, schema):
             assert isinstance(record_batch, pa.RecordBatch)
 
 
-def test_scanner(schema, simple_data_source):
-    sources = [simple_data_source]
-    # FIXME(kszucs): if schema is not set to options it segfaults
-    options = ds.ScanOptions(schema=schema)
-    context = ds.ScanContext()
-
-    scanner = ds.Scanner(sources, options, context)
-    for task in scanner.scan():
-        assert isinstance(task, ds.ScanTask)
-        for record_batch in task.scan():  # call it execute?
-            assert isinstance(record_batch, pa.RecordBatch)
-
-    table = scanner.to_table()
-    assert isinstance(table, pa.Table)
-
-
 def test_scanner_builder(dataset):
     context = ds.ScanContext()
     builder = ds.ScannerBuilder(dataset, context)
@@ -255,31 +191,10 @@ def test_scanner_builder(dataset):
     assert isinstance(scanner, ds.Scanner)
 
 
-def test_file_source(mockfs):
-    source0 = ds.FileSource('/path/to/file.parquet', mockfs,
-                            compression=None)
-    source1 = ds.FileSource('/path/to/file.parquet', mockfs,
-                            compression=None)
-    source2 = ds.FileSource('/path/to/file.parquet.gz', mockfs,
-                            compression='gzip')
-    assert source1.path == '/path/to/file.parquet'
-    assert source1.fs == mockfs
-    assert source1.compression == 0  # None
-    assert source2.path == '/path/to/file.parquet.gz'
-    assert source2.fs == mockfs
-    assert source2.compression == 2  # 'gzip'
-    assert source1 != source2
-    assert source0 == source1
-
-    fragment = ds.ParquetDataFragment(source1, ds.ParquetScanOptions())
-    assert isinstance(fragment, ds.ParquetDataFragment)
-    assert fragment.source == source1
-
-
 def test_abstract_classes():
     classes = [
         ds.FileFormat,
-        ds.DataFragment,
+        ds.Scanner,
         ds.DataSource,
         ds.Expression,
         ds.PartitionScheme,
