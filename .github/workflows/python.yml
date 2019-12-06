@@ -160,6 +160,7 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_BROTLI: ON
       ARROW_BUILD_TESTS: OFF
+      CMAKE_ARGS: "-DPYTHON_EXECUTABLE=/usr/local/bin/python3"
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v1
@@ -170,12 +171,13 @@ jobs:
         run: |
           brew bundle --file=cpp/Brewfile
           brew install coreutils python
-          pip install -r python/requirements.txt \
-                      -r python/requirements-test.txt \
-                      cython
+          pip3 install -r python/requirements.txt \
+                       -r python/requirements-test.txt \
+                       cython
       - name: Build
         shell: bash
         run: |
+          export PYTHON=python3
           ci/scripts/cpp_build.sh $(pwd)
           ci/scripts/python_build.sh $(pwd)
       - name: Test
