@@ -48,7 +48,7 @@ public class NettyAllocationManager extends AllocationManager {
   }
 
   @Override
-  long memoryAddress() {
+  protected long memoryAddress() {
     return memoryChunk.memoryAddress();
   }
 

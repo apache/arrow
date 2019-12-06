@@ -395,12 +395,12 @@ public class TestBaseAllocator {
           private final long address = unsafe.allocateMemory(size);
 
           @Override
-          long memoryAddress() {
+          protected long memoryAddress() {
             return address;
           }
 
           @Override
-          void release0() {
+          protected void release0() {
             unsafe.setMemory(address, size, (byte) 0);
             unsafe.freeMemory(address);
           }
