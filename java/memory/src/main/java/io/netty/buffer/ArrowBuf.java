@@ -25,7 +25,7 @@ import java.nio.ByteOrder;
 import java.nio.ReadOnlyBufferException;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.arrow.memory.NettyAllocationManager;
+import org.apache.arrow.memory.AllocationManager;
 import org.apache.arrow.memory.BaseAllocator;
 import org.apache.arrow.memory.BaseAllocator.Verbosity;
 import org.apache.arrow.memory.BoundsChecking;
@@ -54,7 +54,7 @@ import io.netty.util.internal.PlatformDependent;
  * The mangement (allocation, deallocation, reference counting etc) for
  * the memory chunk is not done by ArrowBuf.
  * Default implementation of ReferenceManager, allocation is in
- * {@link BaseAllocator}, {@link BufferLedger} and {@link NettyAllocationManager}
+ * {@link BaseAllocator}, {@link BufferLedger} and {@link AllocationManager}
  * </p>
  */
 public final class ArrowBuf implements AutoCloseable {

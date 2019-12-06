@@ -29,7 +29,7 @@ import org.apache.arrow.util.Preconditions;
 import io.netty.buffer.ArrowBuf;
 
 /**
- * The reference manager that binds an {@link NettyAllocationManager} to
+ * The reference manager that binds an {@link AllocationManager} to
  * {@link BufferAllocator} and a set of {@link ArrowBuf}. The set of
  * ArrowBufs managed by this reference manager share a common
  * fate (same reference count).
@@ -97,7 +97,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    * no ArrowBufs managed by this reference manager need access to the memory
    * chunk. In that case, the ledger should inform the allocation manager
    * about releasing its ownership for the chunk. Whether or not the memory
-   * chunk will be released is something that {@link NettyAllocationManager} will
+   * chunk will be released is something that {@link AllocationManager} will
    * decide since tracks the usage of memory chunk across multiple reference
    * managers and allocators.
    * @return true if the new ref count has dropped to 0, false otherwise
@@ -113,7 +113,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    * no ArrowBufs managed by this reference manager need access to the memory
    * chunk. In that case, the ledger should inform the allocation manager
    * about releasing its ownership for the chunk. Whether or not the memory
-   * chunk will be released is something that {@link NettyAllocationManager} will
+   * chunk will be released is something that {@link AllocationManager} will
    * decide since tracks the usage of memory chunk across multiple reference
    * managers and allocators.
    * @param decrement amount to decrease the reference count by
