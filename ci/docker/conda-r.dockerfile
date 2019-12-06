@@ -19,6 +19,13 @@ ARG repo
 ARG arch
 FROM ${repo}:${arch}-conda-cpp
 
+# Need locales so we can set UTF-8
+RUN apt-get update -y && \
+    apt-get install -y locales && \
+    locale-gen en_US.UTF-8 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 # install R specific packages
 ARG r=3.6.1
 COPY ci/conda_env_r.yml /arrow/ci/
@@ -28,8 +35,8 @@ RUN conda install -q \
         nomkl && \
     conda clean --all
 
-# Ensure parallel compilation of each individual package
-RUN printf "\nMAKEFLAGS=-j8\n" >> $CONDA_PREFIX/lib/R/etc/Makeconf
+# Ensure parallel compilation of of C/C++ code
+RUN echo "MAKEFLAGS=-j$(R --slave -e 'cat(parallel::detectCores())')" >> $CONDA_PREFIX/lib/R/etc/Makeconf
 
 ENV ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
@@ -37,9 +44,9 @@ ENV ARROW_BUILD_STATIC=OFF \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_FLIGHT=OFF \
     ARROW_GANDIVA=OFF \
+    ARROW_NO_DEPRECATED_API=ON \
     ARROW_ORC=OFF \
     ARROW_PARQUET=ON \
     ARROW_PLASMA=OFF \
     ARROW_USE_GLOG=OFF \
-    ARROW_NO_DEPRECATED_API=ON \
-    ARROW_R_DEV=TRUE
+    LC_ALL=en_US.UTF-8
