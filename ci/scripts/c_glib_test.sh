@@ -20,7 +20,7 @@
 set -ex
 
 source_dir=${1}/c_glib
-build_dir=${2:-${source_dir}/build}
+build_dir=${2}/c_glib
 
 export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
 export PKG_CONFIG_PATH=${ARROW_HOME}/lib/pkgconfig

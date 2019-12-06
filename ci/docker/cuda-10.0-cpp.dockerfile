@@ -72,7 +72,9 @@ RUN apt-get update -y -q && \
 # - libgtest-dev only provide sources
 # - libprotobuf-dev only provide sources
 # - thrift is too old
-ENV ARROW_DEPENDENCY_SOURCE=SYSTEM \
+ENV PATH=/usr/lib/ccache/:$PATH \
+    ARROW_USE_CCACHE=ON \
+    ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_FLIGHT=OFF \
     ARROW_CUDA=ON \
     ARROW_PLASMA=ON \

@@ -58,6 +58,8 @@ RUN apt-get update -y -q && \
 # - liblz4-dev is too old
 ENV CC=gcc \
     CXX=g++ \
+    PATH=/usr/lib/ccache/:$PATH \
+    ARROW_USE_CCACHE=ON \
     ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     Thrift_SOURCE=BUNDLED \

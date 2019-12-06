@@ -73,7 +73,9 @@ RUN echo "MAKEFLAGS=-j$(R --slave -e 'cat(parallel::detectCores())')" >> /usr/lo
 # - libgtest-dev only provide sources
 # - libprotobuf-dev only provide sources
 # - thrift is too old
-ENV gRPC_SOURCE=BUNDLED \
+ENV PATH=/usr/lib/ccache/:$PATH \
+    ARROW_USE_CCACHE=ON \
+    gRPC_SOURCE=BUNDLED \
     Protobuf_SOURCE=BUNDLED \
     cares_SOURCE=BUNDLED \
     GTest_SOURCE=BUNDLED \

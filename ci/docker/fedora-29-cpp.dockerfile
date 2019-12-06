@@ -60,6 +60,7 @@ RUN dnf update -y && \
 # * protobuf libraries in Fedora 29 are too old for gRPC
 ENV CC=gcc \
     CXX=g++ \
+    PATH=/usr/lib/ccache/:$PATH \
     ARROW_ORC=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     cares_SOURCE=BUNDLED \
@@ -77,4 +78,6 @@ ENV CC=gcc \
     ARROW_GANDIVA=OFF \
     ARROW_GANDIVA_JAVA=ON \
     ARROW_BUILD_TESTS=ON \
-    ARROW_HOME=/usr/local
+    ARROW_USE_CCACHE=ON \
+    ARROW_HOME=/usr/local \
+    PATH=/usr/lib/ccache/:$PATH

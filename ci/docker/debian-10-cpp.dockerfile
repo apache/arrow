@@ -60,6 +60,8 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
 
 ENV CC=gcc \
     CXX=g++ \
+    PATH=/usr/lib/ccache/:$PATH \
+    ARROW_USE_CCACHE=ON \
     cares_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     gRPC_SOURCE=BUNDLED \

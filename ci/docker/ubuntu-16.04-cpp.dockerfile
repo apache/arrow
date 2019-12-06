@@ -62,7 +62,11 @@ RUN apt-get update -y -q && \
 # - libprotobuf-dev / libprotoc-dev in Xenial too old for gRPC
 # - libboost-all-dev does not include Boost.Process, needed for Flight
 #   unit tests, so doing vendored build by default
-ENV ARROW_BUILD_BENCHMARKS=OFF \
+ENV CXX=g++ \
+    CC=gcc \
+    PATH=/usr/lib/ccache/:$PATH \
+    ARROW_USE_CCACHE=ON \
+    ARROW_BUILD_BENCHMARKS=OFF \
     ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     BOOST_SOURCE=BUNDLED \
@@ -82,6 +86,4 @@ ENV ARROW_BUILD_BENCHMARKS=OFF \
     ARROW_WITH_BZ2=ON \
     ARROW_WITH_ZSTD=OFF \
     ARROW_WITH_SNAPPY=ON \
-    ARROW_WITH_BROTLI=ON \
-    CXX=g++ \
-    CC=gcc
+    ARROW_WITH_BROTLI=ON

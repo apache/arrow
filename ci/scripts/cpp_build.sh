@@ -20,8 +20,11 @@
 set -ex
 
 source_dir=${1}/cpp
-build_dir=${2:-${source_dir}/build}
+build_dir=${2}/cpp
+ccache_dir=${2}/ccache
 with_docs=${3:-false}
+
+: ${ARROW_USE_CCACHE:=OFF}
 
 # TODO(kszucs): consider to move these to CMake
 if [ ! -z "${CONDA_PREFIX}" ]; then
@@ -31,25 +34,7 @@ elif [ -x "$(command -v xcrun)" ]; then
   export ARROW_GANDIVA_PC_CXX_FLAGS="-isysroot;$(xcrun --show-sdk-path)"
 fi
 
-# We know ccache is installed by default in most Linux development builds
-# (and docker containers)
-uname=$(uname -s)
-case "${uname}" in
-    Linux*)     ccache_default=ON;;
-    *)          ccache_default=OFF;;
-esac
-
-export ARROW_USE_CCACHE=${ARROW_USE_CCACHE:-$ccache_default}
-
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
-    export CCACHE_COMPILERCHECK=content
-    export CCACHE_COMPRESS=1
-    export CCACHE_COMPRESSLEVEL=5
-    # Typically /build/ccache
-    export CCACHE_DIR=${build_dir}/../ccache
-    export CCACHE_MAXSIZE=500M
-    export PATH=/usr/lib/ccache/:$PATH
-
     echo -e "===\n=== ccache statistics before build\n==="
     ccache -s
 fi

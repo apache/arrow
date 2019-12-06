@@ -20,7 +20,7 @@ set -ex
 
 arrow_dir=${1}
 source_dir=${1}/java
-cpp_build_dir=${2:-${arrow_dir}/cpp/build/debug}
+cpp_build_dir=${2}/cpp/${ARROW_BUILD_TYPE:-debug}
 
 # for jni and plasma tests
 export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}

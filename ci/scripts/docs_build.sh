@@ -19,7 +19,7 @@
 set -ex
 
 arrow_dir=${1}
-build_dir=${2}
+build_dir=${2}/docs
 
 export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
 export PKG_CONFIG_PATH=${ARROW_HOME}/lib/pkgconfig:${PKG_CONFIG_PATH}
