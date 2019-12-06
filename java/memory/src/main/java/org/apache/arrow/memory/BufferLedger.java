@@ -29,7 +29,7 @@ import org.apache.arrow.util.Preconditions;
 import io.netty.buffer.ArrowBuf;
 
 /**
- * The reference manager that binds an {@link AllocationManager} to
+ * The reference manager that binds an {@link NettyAllocationManager} to
  * {@link BufferAllocator} and a set of {@link ArrowBuf}. The set of
  * ArrowBufs managed by this reference manager share a common
  * fate (same reference count).
@@ -45,13 +45,13 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
   // correctly
   private final long lCreationTime = System.nanoTime();
   private final BaseAllocator allocator;
-  private final AllocationManagerBase allocationManager;
+  private final AllocationManager allocationManager;
   private final HistoricalLog historicalLog =
       BaseAllocator.DEBUG ? new HistoricalLog(BaseAllocator.DEBUG_LOG_LENGTH,
         "BufferLedger[%d]", 1) : null;
   private volatile long lDestructionTime = 0;
 
-  BufferLedger(final BaseAllocator allocator, final AllocationManagerBase allocationManager) {
+  BufferLedger(final BaseAllocator allocator, final AllocationManager allocationManager) {
     this.allocator = allocator;
     this.allocationManager = allocationManager;
   }
@@ -97,7 +97,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    * no ArrowBufs managed by this reference manager need access to the memory
    * chunk. In that case, the ledger should inform the allocation manager
    * about releasing its ownership for the chunk. Whether or not the memory
-   * chunk will be released is something that {@link AllocationManager} will
+   * chunk will be released is something that {@link NettyAllocationManager} will
    * decide since tracks the usage of memory chunk across multiple reference
    * managers and allocators.
    * @return true if the new ref count has dropped to 0, false otherwise
@@ -113,7 +113,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    * no ArrowBufs managed by this reference manager need access to the memory
    * chunk. In that case, the ledger should inform the allocation manager
    * about releasing its ownership for the chunk. Whether or not the memory
-   * chunk will be released is something that {@link AllocationManager} will
+   * chunk will be released is something that {@link NettyAllocationManager} will
    * decide since tracks the usage of memory chunk across multiple reference
    * managers and allocators.
    * @param decrement amount to decrease the reference count by
@@ -140,7 +140,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    * no ArrowBufs managed by this reference manager need access to the memory
    * chunk. In that case, the ledger should inform the allocation manager
    * about releasing its ownership for the chunk. Whether or not the memory
-   * chunk will be released is something that {@link AllocationManager} will
+   * chunk will be released is something that {@link NettyAllocationManager} will
    * decide since tracks the usage of memory chunk across multiple reference
    * managers and allocators.
    *
@@ -522,7 +522,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
     }
   }
 
-  public AllocationManagerBase getAllocationManager() {
+  public AllocationManager getAllocationManager() {
     return allocationManager;
   }
 }

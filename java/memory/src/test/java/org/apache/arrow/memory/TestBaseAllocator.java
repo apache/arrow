@@ -388,9 +388,9 @@ public class TestBaseAllocator {
     return new RootAllocator(MAX_ALLOCATION) {
 
       @Override
-      protected AllocationManagerBase newAllocationManager(BaseAllocator accountingAllocator, int size) {
+      protected AllocationManager newAllocationManager(BaseAllocator accountingAllocator, int size) {
 
-        return new AllocationManagerBase(accountingAllocator) {
+        return new AllocationManager(accountingAllocator) {
           private final Unsafe unsafe = getUnsafe();
           private final long address = unsafe.allocateMemory(size);
 

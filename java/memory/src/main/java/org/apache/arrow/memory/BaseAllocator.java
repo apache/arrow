@@ -279,7 +279,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   }
 
   private ArrowBuf createEmpty() {
-    return new ArrowBuf(ReferenceManager.NO_OP, null, 0, AllocationManager.EMPTY.memoryAddress(), true);
+    return new ArrowBuf(ReferenceManager.NO_OP, null, 0, NettyAllocationManager.EMPTY.memoryAddress(), true);
   }
 
   @Override
@@ -343,7 +343,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       BufferManager bufferManager) throws OutOfMemoryException {
     assertOpen();
 
-    final AllocationManagerBase manager = newAllocationManager(size);
+    final AllocationManager manager = newAllocationManager(size);
     final BufferLedger ledger = manager.associate(this); // +1 ref cnt (required)
     final ArrowBuf buffer = ledger.newArrowBuf(size, bufferManager);
 
@@ -354,12 +354,12 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     return buffer;
   }
 
-  private AllocationManagerBase newAllocationManager(int size) {
+  private AllocationManager newAllocationManager(int size) {
     return newAllocationManager(this, size);
   }
 
-  protected AllocationManagerBase newAllocationManager(BaseAllocator accountingAllocator, int size) {
-    return new AllocationManager(accountingAllocator, size);
+  protected AllocationManager newAllocationManager(BaseAllocator accountingAllocator, int size) {
+    return new NettyAllocationManager(accountingAllocator, size);
   }
 
   @Override
@@ -386,7 +386,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     final ChildAllocator childAllocator =
         new ChildAllocator(listener, this, name, initReservation, maxAllocation, roundingPolicy) {
           @Override
-          protected AllocationManagerBase newAllocationManager(BaseAllocator accountingAllocator, int size) {
+          protected AllocationManager newAllocationManager(BaseAllocator accountingAllocator, int size) {
             return BaseAllocator.this.newAllocationManager(accountingAllocator, size);
           }
         };
@@ -529,7 +529,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
    * @throws IllegalStateException when any problems are found
    */
   void verifyAllocator() {
-    final IdentityHashMap<AllocationManagerBase, BaseAllocator> seen = new IdentityHashMap<>();
+    final IdentityHashMap<AllocationManager, BaseAllocator> seen = new IdentityHashMap<>();
     verifyAllocator(seen);
   }
 
@@ -543,7 +543,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
    * @throws IllegalStateException when any problems are found
    */
   private void verifyAllocator(
-      final IdentityHashMap<AllocationManagerBase, BaseAllocator> buffersSeen) {
+      final IdentityHashMap<AllocationManager, BaseAllocator> buffersSeen) {
     // The remaining tests can only be performed if we're in debug mode.
     if (!DEBUG) {
       return;
@@ -590,19 +590,19 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
           continue;
         }
 
-        final AllocationManagerBase amb = ledger.getAllocationManager();
+        final AllocationManager am = ledger.getAllocationManager();
         /*
          * Even when shared, ArrowBufs are rewrapped, so we should never see the same instance
          * twice.
          */
-        final BaseAllocator otherOwner = buffersSeen.get(amb);
+        final BaseAllocator otherOwner = buffersSeen.get(am);
         if (otherOwner != null) {
           throw new IllegalStateException("This allocator's ArrowBuf already owned by another " +
             "allocator");
         }
-        buffersSeen.put(amb, this);
+        buffersSeen.put(am, this);
 
-        bufferTotal += amb.getSize();
+        bufferTotal += am.getSize();
       }
 
       // Preallocated space has to be accounted for
@@ -714,11 +714,11 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       if (!ledger.isOwningLedger()) {
         continue;
       }
-      final AllocationManagerBase amb = ledger.getAllocationManager();
+      final AllocationManager am = ledger.getAllocationManager();
       sb.append("UnsafeDirectLittleEndian[identityHashCode == ");
-      sb.append(Integer.toString(System.identityHashCode(amb)));
+      sb.append(Integer.toString(System.identityHashCode(am)));
       sb.append("] size ");
-      sb.append(Integer.toString(amb.getSize()));
+      sb.append(Integer.toString(am.getSize()));
       sb.append('\n');
     }
   }
