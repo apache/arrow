@@ -53,5 +53,9 @@ class ChildAllocator extends BaseAllocator {
     super(parentAllocator, listener, name, initReservation, maxAllocation, roundingPolicy);
   }
 
-
+  @Override
+  protected AllocationManager newAllocationManager(BaseAllocator accountingAllocator, int size) {
+    // to expect consistent behavior with parent on creating allocation managers
+    return getParentAllocator().newAllocationManager(accountingAllocator, size);
+  }
 }

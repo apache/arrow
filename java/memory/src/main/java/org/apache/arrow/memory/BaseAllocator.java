@@ -118,7 +118,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   }
 
   @Override
-  public BufferAllocator getParentAllocator() {
+  public BaseAllocator getParentAllocator() {
     return parentAllocator;
   }
 
@@ -358,6 +358,9 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     return newAllocationManager(this, size);
   }
 
+  /**
+   * All {@link AllocationManager} instances created are defaulted to Netty implementation.
+   */
   protected AllocationManager newAllocationManager(BaseAllocator accountingAllocator, int size) {
     return new NettyAllocationManager(accountingAllocator, size);
   }
@@ -384,12 +387,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     assertOpen();
 
     final ChildAllocator childAllocator =
-        new ChildAllocator(listener, this, name, initReservation, maxAllocation, roundingPolicy) {
-          @Override
-          protected AllocationManager newAllocationManager(BaseAllocator accountingAllocator, int size) {
-            return BaseAllocator.this.newAllocationManager(accountingAllocator, size);
-          }
-        };
+        new ChildAllocator(listener, this, name, initReservation, maxAllocation, roundingPolicy);
 
     if (DEBUG) {
       synchronized (DEBUG_LOCK) {
