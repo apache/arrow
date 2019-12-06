@@ -988,7 +988,21 @@ Status MakeSparseTensorIndexCOO(FBB& fbb, const SparseCOOIndex& sparse_index,
   return Status::OK();
 }
 
-Status MakeSparseMatrixIndexCSR(FBB& fbb, const SparseCSRIndex& sparse_index,
+template <typename SparseIndexType>
+struct SparseMatrixCompressedAxis {};
+
+template <>
+struct SparseMatrixCompressedAxis<SparseCSRIndex> {
+  constexpr static const auto value = flatbuf::SparseMatrixCompressedAxis_Row;
+};
+
+template <>
+struct SparseMatrixCompressedAxis<SparseCSCIndex> {
+  constexpr static const auto value = flatbuf::SparseMatrixCompressedAxis_Column;
+};
+
+template <typename SparseIndexType>
+Status MakeSparseMatrixIndexCSX(FBB& fbb, const SparseIndexType& sparse_index,
                                 const std::vector<BufferMetadata>& buffers,
                                 flatbuf::SparseTensorIndex* fb_sparse_index_type,
                                 Offset* fb_sparse_index, size_t* num_buffers) {
@@ -1012,10 +1026,11 @@ Status MakeSparseMatrixIndexCSR(FBB& fbb, const SparseCSRIndex& sparse_index,
   const BufferMetadata& indices_metadata = buffers[1];
   flatbuf::Buffer indices(indices_metadata.offset, indices_metadata.length);
 
-  *fb_sparse_index = flatbuf::CreateSparseMatrixIndexCSX(
-                         fbb, flatbuf::SparseMatrixCompressedAxis_Row, indptr_type_offset,
-                         &indptr, indices_type_offset, &indices)
-                         .Union();
+  auto compressedAxis = SparseMatrixCompressedAxis<SparseIndexType>::value;
+  *fb_sparse_index =
+      flatbuf::CreateSparseMatrixIndexCSX(fbb, compressedAxis, indptr_type_offset,
+                                          &indptr, indices_type_offset, &indices)
+          .Union();
   *num_buffers = 2;
   return Status::OK();
 }
@@ -1032,8 +1047,14 @@ Status MakeSparseTensorIndex(FBB& fbb, const SparseIndex& sparse_index,
       break;
 
     case SparseTensorFormat::CSR:
-      RETURN_NOT_OK(MakeSparseMatrixIndexCSR(
+      RETURN_NOT_OK(MakeSparseMatrixIndexCSX(
           fbb, checked_cast<const SparseCSRIndex&>(sparse_index), buffers,
+          fb_sparse_index_type, fb_sparse_index, num_buffers));
+      break;
+
+    case SparseTensorFormat::CSC:
+      RETURN_NOT_OK(MakeSparseMatrixIndexCSX(
+          fbb, checked_cast<const SparseCSCIndex&>(sparse_index), buffers,
           fb_sparse_index_type, fb_sparse_index, num_buffers));
       break;
 

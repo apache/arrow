@@ -898,18 +898,20 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
   ARROW_ASSIGN_OR_RAISE(auto indices_data,
                         file->ReadAt(indices_buffer->offset(), indices_buffer->length()));
 
-  std::vector<int64_t> indptr_shape({shape[0] + 1});
   std::vector<int64_t> indices_shape({non_zero_length});
-
   switch (sparse_index->compressedAxis()) {
-    case flatbuf::SparseMatrixCompressedAxis_Row:
+    case flatbuf::SparseMatrixCompressedAxis_Row: {
+      std::vector<int64_t> indptr_shape({shape[0] + 1});
       return std::make_shared<SparseCSRIndex>(
           std::make_shared<Tensor>(indptr_type, indptr_data, indptr_shape),
           std::make_shared<Tensor>(indices_type, indices_data, indices_shape));
-
-    case flatbuf::SparseMatrixCompressedAxis_Column:
-      return Status::NotImplemented("CSC sparse index is not supported");
-
+    }
+    case flatbuf::SparseMatrixCompressedAxis_Column: {
+      std::vector<int64_t> indptr_shape({shape[1] + 1});
+      return std::make_shared<SparseCSCIndex>(
+          std::make_shared<Tensor>(indptr_type, indptr_data, indptr_shape),
+          std::make_shared<Tensor>(indices_type, indices_data, indices_shape));
+    }
     default:
       return Status::Invalid("Invalid value of SparseMatrixCompressedAxis");
   }
@@ -930,6 +932,15 @@ Status MakeSparseTensorWithSparseCSRIndex(
     const std::shared_ptr<SparseCSRIndex>& sparse_index, int64_t non_zero_length,
     const std::shared_ptr<Buffer>& data, std::shared_ptr<SparseTensor>* out) {
   *out = std::make_shared<SparseCSRMatrix>(sparse_index, type, data, shape, dim_names);
+  return Status::OK();
+}
+
+Status MakeSparseTensorWithSparseCSCIndex(
+    const std::shared_ptr<DataType>& type, const std::vector<int64_t>& shape,
+    const std::vector<std::string>& dim_names,
+    const std::shared_ptr<SparseCSCIndex>& sparse_index, int64_t non_zero_length,
+    const std::shared_ptr<Buffer>& data, std::shared_ptr<SparseTensor>* out) {
+  *out = std::make_shared<SparseCSCMatrix>(sparse_index, type, data, shape, dim_names);
   return Status::OK();
 }
 
@@ -1041,7 +1052,6 @@ Status ReadSparseTensorPayload(const IpcPayload& payload,
                                                 non_zero_length, payload.body_buffers[1],
                                                 out);
     }
-
     case SparseTensorFormat::CSR: {
       std::shared_ptr<SparseCSRIndex> sparse_index;
       std::shared_ptr<DataType> indptr_type;
@@ -1058,7 +1068,6 @@ Status ReadSparseTensorPayload(const IpcPayload& payload,
                                                 non_zero_length, payload.body_buffers[2],
                                                 out);
     }
-
     default:
       return Status::Invalid("Unsupported sparse index format");
   }
@@ -1084,30 +1093,27 @@ Status ReadSparseTensor(const Buffer& metadata, io::RandomAccessFile* file,
 
   std::shared_ptr<SparseIndex> sparse_index;
   switch (sparse_tensor_format_id) {
-    case SparseTensorFormat::COO:
-      RETURN_NOT_OK(ReadSparseCOOIndex(sparse_tensor, shape, non_zero_length, file)
-                        .Value(&sparse_index));
+    case SparseTensorFormat::COO: {
+      ARROW_ASSIGN_OR_RAISE(
+          sparse_index, ReadSparseCOOIndex(sparse_tensor, shape, non_zero_length, file));
       return MakeSparseTensorWithSparseCOOIndex(
           type, shape, dim_names, checked_pointer_cast<SparseCOOIndex>(sparse_index),
           non_zero_length, data, out);
-
-    case SparseTensorFormat::CSR:
-      RETURN_NOT_OK(ReadSparseCSXIndex(sparse_tensor, shape, non_zero_length, file)
-                        .Value(&sparse_index));
+    }
+    case SparseTensorFormat::CSR: {
+      ARROW_ASSIGN_OR_RAISE(
+          sparse_index, ReadSparseCSXIndex(sparse_tensor, shape, non_zero_length, file));
       return MakeSparseTensorWithSparseCSRIndex(
           type, shape, dim_names, checked_pointer_cast<SparseCSRIndex>(sparse_index),
           non_zero_length, data, out);
-
-    case SparseTensorFormat::CSC:
-      return Status::NotImplemented("CSC sparse index is not supported");  // TODO:
-
-      // RETURN_NOT_OK(
-      //     ReadSparseCSXIndex(sparse_tensor, shape, non_zero_length,
-      //     file).Value(&sparse_index));
-      // return MakeSparseTensorWithSparseCSCIndex(
-      //     type, shape, dim_names, checked_pointer_cast<SparseCSCIndex>(sparse_index),
-      //     non_zero_length, data, out);
-
+    }
+    case SparseTensorFormat::CSC: {
+      ARROW_ASSIGN_OR_RAISE(
+          sparse_index, ReadSparseCSXIndex(sparse_tensor, shape, non_zero_length, file));
+      return MakeSparseTensorWithSparseCSCIndex(
+          type, shape, dim_names, checked_pointer_cast<SparseCSCIndex>(sparse_index),
+          non_zero_length, data, out);
+    }
     default:
       return Status::Invalid("Unsupported sparse index format");
   }

@@ -746,6 +746,11 @@ class SparseTensorSerializer {
             VisitSparseCSRIndex(checked_cast<const SparseCSRIndex&>(sparse_index)));
         break;
 
+      case SparseTensorFormat::CSC:
+        RETURN_NOT_OK(
+            VisitSparseCSCIndex(checked_cast<const SparseCSCIndex&>(sparse_index)));
+        break;
+
       default:
         std::stringstream ss;
         ss << "Unable to convert type: " << sparse_index.ToString() << std::endl;
@@ -793,6 +798,12 @@ class SparseTensorSerializer {
   }
 
   Status VisitSparseCSRIndex(const SparseCSRIndex& sparse_index) {
+    out_->body_buffers.emplace_back(sparse_index.indptr()->data());
+    out_->body_buffers.emplace_back(sparse_index.indices()->data());
+    return Status::OK();
+  }
+
+  Status VisitSparseCSCIndex(const SparseCSCIndex& sparse_index) {
     out_->body_buffers.emplace_back(sparse_index.indptr()->data());
     out_->body_buffers.emplace_back(sparse_index.indices()->data());
     return Status::OK();
