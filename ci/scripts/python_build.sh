@@ -39,8 +39,9 @@ pushd ${source_dir}
 relative_build_dir=$(realpath --relative-to=. $build_dir)
 
 # not nice, but prevents mutating the mounted the source directory for docker
-python setup.py build --build-base $build_dir \
-                install --single-version-externally-managed \
-                        --record $relative_build_dir/record.txt
+${PYTHON:-python} \
+  setup.py build --build-base $build_dir \
+           install --single-version-externally-managed \
+                   --record $relative_build_dir/record.txt
 
 popd
