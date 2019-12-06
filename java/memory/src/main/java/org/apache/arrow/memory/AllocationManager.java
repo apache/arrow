@@ -61,7 +61,7 @@ public abstract class AllocationManager {
   private volatile BufferLedger owningLedger;
   private volatile long amDestructionTime = 0;
 
-  AllocationManager(BaseAllocator accountingAllocator, int size) {
+  protected AllocationManager(BaseAllocator accountingAllocator, int size) {
     Preconditions.checkNotNull(accountingAllocator);
     accountingAllocator.assertOpen();
 
@@ -190,10 +190,10 @@ public abstract class AllocationManager {
   /**
    * Return the absolute memory address pointing to the fist byte of underling memory chunk.
    */
-  abstract long memoryAddress();
+  protected abstract long memoryAddress();
 
   /**
    * Release the underling memory chunk.
    */
-  abstract void release0();
+  protected abstract void release0();
 }
