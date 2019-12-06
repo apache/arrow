@@ -41,6 +41,7 @@ LLVMTypes::LLVMTypes(llvm::LLVMContext& context) : context_(context) {
       {arrow::Type::type::STRING, i8_ptr_type()},
       {arrow::Type::type::BINARY, i8_ptr_type()},
       {arrow::Type::type::DECIMAL, i128_type()},
+      {arrow::Type::type::INTERVAL, i64_type()},
   };
 }
 

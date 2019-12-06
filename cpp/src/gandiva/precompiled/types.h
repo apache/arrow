@@ -22,6 +22,7 @@
 #include "gandiva/gdv_function_stubs.h"
 
 // Use the same names as in arrow data types. Makes it easy to write pre-processor macros.
+<<<<<<< HEAD
 using gdv_boolean = bool;
 using gdv_int8 = int8_t;
 using gdv_int16 = int16_t;
@@ -38,6 +39,7 @@ using gdv_time32 = int32_t;
 using gdv_timestamp = int64_t;
 using gdv_utf8 = char*;
 using gdv_binary = char*;
+using gdv_day_time_interval = uint64_t;
 
 #ifdef GANDIVA_UNIT_TEST
 // unit tests may be compiled without O2, so inlining may not happen.

@@ -162,6 +162,10 @@ void ExpressionRegistry::AddArrowTypesToVector(arrow::Type::type& type,
     case arrow::Type::type::DECIMAL:
       vector.push_back(arrow::decimal(38, 0));
       break;
+    case arrow::Type::type::INTERVAL:
+      vector.push_back(arrow::day_time_interval());
+      vector.push_back(arrow::month_interval());
+      break;
     default:
       // Unsupported types. test ensures that
       // when one of these are added build breaks.
