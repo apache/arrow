@@ -936,6 +936,7 @@ def deserialize_regex(serialized, q):
     import pyarrow as pa
     q.put(pa.deserialize(serialized))
 
+
 def test_deserialize_in_different_process():
     from multiprocessing import Process, Queue
     import re
