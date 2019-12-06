@@ -36,11 +36,18 @@ class AggregateFunction;
 /// \class MinMaxOptions
 ///
 /// The user can control the MinMax kernel behavior with this class. By default,
-/// it will return null if there is a null value present.
+/// it will skip null if there is a null value present.
 struct ARROW_EXPORT MinMaxOptions {
-  //   MinMaxOptions() : skip_nulls(false) {}
+  enum mode {
+    /// skip null values
+    SKIP = 0,
+    /// any nulls will result in null output
+    OUTPUT_NULL
+  };
 
-  //   bool skip_nulls;
+  explicit MinMaxOptions(enum mode null_handling = SKIP) : null_handling(null_handling) {}
+
+  enum mode null_handling = SKIP;
 };
 
 /// \brief Return a Min/Max Kernel
