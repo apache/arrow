@@ -43,6 +43,19 @@ where
     criterion::black_box(cast(&array, &to_type).unwrap());
 }
 
+// cast timestamp array from specified primitive array type to desired data type
+fn cast_timestamp_array<FROM>(size: usize, to_type: DataType) -> ()
+where
+    FROM: ArrowTimestampType,
+    Standard: Distribution<i64>,
+{
+    let array = Arc::new(PrimitiveArray::<FROM>::from_vec(
+        vec![random::<i64>(); size],
+        None,
+    )) as ArrayRef;
+    criterion::black_box(cast(&array, &to_type).unwrap());
+}
+
 fn add_benchmark(c: &mut Criterion) {
     c.bench_function("cast int32 to int32 512", |b| {
         b.iter(|| cast_array::<Int32Type>(512, DataType::Int32))
@@ -94,22 +107,22 @@ fn add_benchmark(c: &mut Criterion) {
     });
     c.bench_function("cast timestamp_ns to timestamp_s 512", |b| {
         b.iter(|| {
-            cast_array::<TimestampNanosecondType>(
+            cast_timestamp_array::<TimestampNanosecondType>(
                 512,
-                DataType::Timestamp(TimeUnit::Nanosecond),
+                DataType::Timestamp(TimeUnit::Nanosecond, None),
             )
         })
     });
     c.bench_function("cast timestamp_ms to timestamp_ns 512", |b| {
         b.iter(|| {
-            cast_array::<TimestampMillisecondType>(
+            cast_timestamp_array::<TimestampMillisecondType>(
                 512,
-                DataType::Timestamp(TimeUnit::Nanosecond),
+                DataType::Timestamp(TimeUnit::Nanosecond, None),
             )
         })
     });
     c.bench_function("cast timestamp_ms to i64 512", |b| {
-        b.iter(|| cast_array::<TimestampMillisecondType>(512, DataType::Int64))
+        b.iter(|| cast_timestamp_array::<TimestampMillisecondType>(512, DataType::Int64))
     });
 }
 

@@ -191,7 +191,7 @@ impl ParquetTypeConverter {
             PhysicalType::BOOLEAN => Ok(DataType::Boolean),
             PhysicalType::INT32 => self.from_int32(),
             PhysicalType::INT64 => self.from_int64(),
-            PhysicalType::INT96 => Ok(DataType::Timestamp(TimeUnit::Nanosecond)),
+            PhysicalType::INT96 => Ok(DataType::Timestamp(TimeUnit::Nanosecond, None)),
             PhysicalType::FLOAT => Ok(DataType::Float32),
             PhysicalType::DOUBLE => Ok(DataType::Float64),
             PhysicalType::BYTE_ARRAY => self.from_byte_array(),
@@ -227,10 +227,10 @@ impl ParquetTypeConverter {
             LogicalType::UINT_64 => Ok(DataType::UInt64),
             LogicalType::TIME_MICROS => Ok(DataType::Time64(TimeUnit::Microsecond)),
             LogicalType::TIMESTAMP_MILLIS => {
-                Ok(DataType::Timestamp(TimeUnit::Millisecond))
+                Ok(DataType::Timestamp(TimeUnit::Millisecond, None))
             }
             LogicalType::TIMESTAMP_MICROS => {
-                Ok(DataType::Timestamp(TimeUnit::Microsecond))
+                Ok(DataType::Timestamp(TimeUnit::Microsecond, None))
             }
             other => Err(ArrowError(format!(
                 "Unable to convert parquet INT64 logical type {}",
@@ -867,10 +867,14 @@ mod tests {
             Field::new("date", DataType::Date32(DateUnit::Day), true),
             Field::new("time_milli", DataType::Time32(TimeUnit::Millisecond), true),
             Field::new("time_micro", DataType::Time64(TimeUnit::Microsecond), true),
-            Field::new("ts_milli", DataType::Timestamp(TimeUnit::Millisecond), true),
+            Field::new(
+                "ts_milli",
+                DataType::Timestamp(TimeUnit::Millisecond, None),
+                true,
+            ),
             Field::new(
                 "ts_micro",
-                DataType::Timestamp(TimeUnit::Microsecond),
+                DataType::Timestamp(TimeUnit::Microsecond, None),
                 false,
             ),
         ];
