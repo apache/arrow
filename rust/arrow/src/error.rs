@@ -19,6 +19,8 @@
 use std::error::Error;
 
 use csv as csv_crate;
+use std::fmt::Display;
+use serde::export::Formatter;
 
 /// Many different operations in the `arrow` crate return this error type
 #[derive(Debug, Clone, PartialEq)]
@@ -67,6 +69,14 @@ impl From<csv_crate::Error> for ArrowError {
 impl From<::std::string::FromUtf8Error> for ArrowError {
     fn from(error: ::std::string::FromUtf8Error) -> Self {
         ArrowError::ParseError(error.description().to_string())
+    }
+}
+
+impl Error for ArrowError {}
+
+impl Display for ArrowError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+      write!(f, "Arrow error happened!")
     }
 }
 
