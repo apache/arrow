@@ -70,8 +70,10 @@ class ExpressionsTest : public ::testing::Test {
     AssertSimplifiesTo(expr, given, *expected);
   }
 
-  std::shared_ptr<Schema> schema_ = schema({field("a", int32()), field("b", int32()),
-                                            field("f", float64()), field("s", utf8())});
+  std::shared_ptr<DataType> ns = timestamp(TimeUnit::NANO);
+  std::shared_ptr<Schema> schema_ =
+      schema({field("a", int32()), field("b", int32()), field("f", float64()),
+              field("s", utf8()), field("ts", ns)});
   std::shared_ptr<ScalarExpression> always = scalar(true);
   std::shared_ptr<ScalarExpression> never = scalar(false);
 };
@@ -330,20 +332,18 @@ TEST_F(FilterTest, Cast) {
 }
 
 TEST_F(ExpressionsTest, ImplicitCast) {
-  ASSERT_OK_AND_ASSIGN(auto filter,
-                       InsertImplicitCasts("a"_ == 0.0, Schema({field("a", int32())})));
-  ASSERT_EQ(E{filter}, E{"a"_ == scalar(0.0)->CastTo(int32())});
+  ASSERT_OK_AND_ASSIGN(auto filter, InsertImplicitCasts("a"_ == 0.0, *schema_));
+  ASSERT_EQ(E{filter}, E{"a"_ == 0});
 
-  auto ns = timestamp(TimeUnit::NANO);
-  ASSERT_OK_AND_ASSIGN(filter,
-                       InsertImplicitCasts("a"_ == "1990", Schema({field("a", ns)})));
-  ASSERT_EQ(E{filter}, E{"a"_ == scalar("1990")->CastTo(ns)});
+  ASSERT_OK_AND_ASSIGN(filter, InsertImplicitCasts("ts"_ == "1990-01-03", *schema_));
+  ASSERT_EQ(E{filter}, E{"ts"_ == *MakeScalar("1990-01-03")->CastTo(ns)});
 
   ASSERT_OK_AND_ASSIGN(
-      filter, InsertImplicitCasts("a"_ == "1990" and "b"_ == "3",
-                                  Schema({field("a", ns), field("b", int32())})));
-  ASSERT_EQ(E{filter}, E{"a"_ == scalar("1990")->CastTo(ns) and
-                         "b"_ == scalar("3")->CastTo(int32())});
+      filter, InsertImplicitCasts("ts"_ == "1990-01-03" and "b"_ == "3", *schema_));
+  ASSERT_EQ(E{filter}, E{"ts"_ == *MakeScalar("1990-01-03")->CastTo(ns) and "b"_ == 3});
+
+  AssertSimplifiesTo(*filter, "b"_ == 2, *never);
+  AssertSimplifiesTo(*filter, "b"_ == 3, "ts"_ == *MakeScalar("1990-01-03")->CastTo(ns));
 }
 
 TEST_F(FilterTest, ImplicitCast) {

@@ -893,65 +893,82 @@ Result<std::shared_ptr<DataType>> FieldExpression::Validate(const Schema& schema
 }
 
 struct InsertImplicitCastsImpl {
-  struct Validated {
+  struct ValidatedAndCast {
     ExpressionPtr expr;
     std::shared_ptr<DataType> type;
   };
 
-  Result<Validated> Validate(const Expression& expr) {
-    Validated out;
-    ARROW_ASSIGN_OR_RAISE(out.expr, InsertImplicitCasts(expr, schema_));
+  Result<ValidatedAndCast> InsertCasts(const Expression& expr) {
+    ValidatedAndCast out;
+    if (expr.type() == ExpressionType::SCALAR) {
+      ARROW_ASSIGN_OR_RAISE(out.expr, InsertImplicitCasts(expr, schema_));
+    } else {
+      ARROW_ASSIGN_OR_RAISE(out.expr, InsertImplicitCasts(expr, schema_));
+    }
     ARROW_ASSIGN_OR_RAISE(out.type, out.expr->Validate(schema_));
     return std::move(out);
   }
 
+  void Cast(std::shared_ptr<DataType> type, ExpressionPtr* expr) {
+    if ((*expr)->type() != ExpressionType::SCALAR) {
+      *expr = (*expr)->CastTo(type).Copy();
+      return;
+    }
+
+    // cast the scalar directly
+    const auto& value = checked_cast<const ScalarExpression&>(**expr).value();
+    auto maybe_value = value->CastTo(std::move(type));
+    DCHECK_OK(maybe_value.status());
+    *expr = scalar(*maybe_value);
+  }
+
   Result<ExpressionPtr> operator()(const NotExpression& expr) {
-    ARROW_ASSIGN_OR_RAISE(auto op, Validate(*expr.operand()));
+    ARROW_ASSIGN_OR_RAISE(auto op, InsertCasts(*expr.operand()));
 
     if (op.type->id() != Type::BOOL) {
-      op.expr = op.expr->CastTo(boolean()).Copy();
+      Cast(boolean(), &op.expr);
     }
     return not_(std::move(op.expr));
   }
 
   Result<ExpressionPtr> operator()(const AndExpression& expr) {
-    ARROW_ASSIGN_OR_RAISE(auto lhs, Validate(*expr.left_operand()));
-    ARROW_ASSIGN_OR_RAISE(auto rhs, Validate(*expr.right_operand()));
+    ARROW_ASSIGN_OR_RAISE(auto lhs, InsertCasts(*expr.left_operand()));
+    ARROW_ASSIGN_OR_RAISE(auto rhs, InsertCasts(*expr.right_operand()));
 
     if (lhs.type->id() != Type::BOOL) {
-      lhs.expr = lhs.expr->CastTo(boolean()).Copy();
+      Cast(boolean(), &lhs.expr);
     }
     if (rhs.type->id() != Type::BOOL) {
-      rhs.expr = rhs.expr->CastTo(boolean()).Copy();
+      Cast(boolean(), &rhs.expr);
     }
     return and_(std::move(lhs.expr), std::move(rhs.expr));
   }
 
   Result<ExpressionPtr> operator()(const OrExpression& expr) {
-    ARROW_ASSIGN_OR_RAISE(auto lhs, Validate(*expr.left_operand()));
-    ARROW_ASSIGN_OR_RAISE(auto rhs, Validate(*expr.right_operand()));
+    ARROW_ASSIGN_OR_RAISE(auto lhs, InsertCasts(*expr.left_operand()));
+    ARROW_ASSIGN_OR_RAISE(auto rhs, InsertCasts(*expr.right_operand()));
 
     if (lhs.type->id() != Type::BOOL) {
-      lhs.expr = lhs.expr->CastTo(boolean()).Copy();
+      Cast(boolean(), &lhs.expr);
     }
     if (rhs.type->id() != Type::BOOL) {
-      rhs.expr = rhs.expr->CastTo(boolean()).Copy();
+      Cast(boolean(), &rhs.expr);
     }
     return or_(std::move(lhs.expr), std::move(rhs.expr));
   }
 
   Result<ExpressionPtr> operator()(const ComparisonExpression& expr) {
-    ARROW_ASSIGN_OR_RAISE(auto lhs, Validate(*expr.left_operand()));
-    ARROW_ASSIGN_OR_RAISE(auto rhs, Validate(*expr.right_operand()));
+    ARROW_ASSIGN_OR_RAISE(auto lhs, InsertCasts(*expr.left_operand()));
+    ARROW_ASSIGN_OR_RAISE(auto rhs, InsertCasts(*expr.right_operand()));
 
     if (lhs.type->Equals(rhs.type)) {
       return expr.Copy();
     }
 
     if (lhs.expr->type() == ExpressionType::SCALAR) {
-      lhs.expr = lhs.expr->CastTo(rhs.type).Copy();
+      Cast(rhs.type, &lhs.expr);
     } else {
-      rhs.expr = rhs.expr->CastTo(lhs.type).Copy();
+      Cast(lhs.type, &rhs.expr);
     }
     return std::make_shared<ComparisonExpression>(expr.op(), std::move(lhs.expr),
                                                   std::move(rhs.expr));
