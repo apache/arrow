@@ -386,6 +386,7 @@ public class TestBaseAllocator {
 
   private BaseAllocator createAllocatorWithCustomizedAllocationManager() {
     return new RootAllocator(BaseAllocator.configBuilder()
+        .maxAllocation(MAX_ALLOCATION)
         .allocationManagerFactory((accountingAllocator, size) -> new AllocationManager(accountingAllocator, size) {
           private final Unsafe unsafe = getUnsafe();
           private final long address = unsafe.allocateMemory(size);
