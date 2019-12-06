@@ -140,7 +140,7 @@ public class BufferLedger implements ValueWithKeyIncluded<BaseAllocator>, Refere
    * no ArrowBufs managed by this reference manager need access to the memory
    * chunk. In that case, the ledger should inform the allocation manager
    * about releasing its ownership for the chunk. Whether or not the memory
-   * chunk will be released is something that {@link NettyAllocationManager} will
+   * chunk will be released is something that {@link AllocationManager} will
    * decide since tracks the usage of memory chunk across multiple reference
    * managers and allocators.
    *
