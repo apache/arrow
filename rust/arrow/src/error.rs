@@ -17,6 +17,7 @@
 
 //! Defines `ArrowError` for representing failures in various Arrow operations
 use std::error::Error;
+use std::fmt::{Display, Formatter};
 
 use csv as csv_crate;
 
@@ -72,6 +73,9 @@ impl From<::std::string::FromUtf8Error> for ArrowError {
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> ARROW-7312: [Rust] Implement std::error::Error for ArrowError.
 impl Display for ArrowError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -94,7 +98,10 @@ impl Display for ArrowError {
 
 impl Error for ArrowError {}
 
+<<<<<<< HEAD
 pub type Result<T> = std::result::Result<T, ArrowError>;
 =======
+=======
+>>>>>>> ARROW-7312: [Rust] Implement std::error::Error for ArrowError.
 pub type Result<T> = ::std::result::Result<T, ArrowError>;
 >>>>>>> Rebase master
