@@ -423,7 +423,10 @@ mod tests {
                 ),
                 Field::new(
                     "timestamp[us]",
-                    DataType::Timestamp(TimeUnit::Microsecond, None),
+                    DataType::Timestamp(
+                        TimeUnit::Microsecond,
+                        Some(Arc::new("Africa/Johannesburg".to_string())),
+                    ),
                     false,
                 ),
                 Field::new(
