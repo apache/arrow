@@ -19,8 +19,8 @@ package org.apache.arrow.memory.rounding;
 
 import java.lang.reflect.Field;
 
-import org.apache.arrow.memory.NettyAllocationManager;
 import org.apache.arrow.memory.BaseAllocator;
+import org.apache.arrow.memory.NettyAllocationManager;
 
 /**
  * The default rounding policy. That is, if the requested size is within the chunk size,
