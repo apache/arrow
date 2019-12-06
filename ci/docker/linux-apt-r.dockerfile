@@ -30,7 +30,10 @@ RUN apt-get update -y && \
     apt-key adv \
         --keyserver keyserver.ubuntu.com \
         --recv-keys E298A3A825C0D65DFD57CBB651716619E084DAB9 && \
-    add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu bionic-cran35/' && \
+    # NOTE: as of 2019-12, R 3.5 and 3.6 are available in the repos with -cran35 suffix
+    # R 3.2, 3.3, 3.4 are available without the suffix but only for trusty and xenial
+    # TODO: make sure OS version and R version are valid together and conditionally set repo suffix
+    add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu '$(lsb_release -cs)'-cran35/' && \
     apt-get install -y \
         r-base=${r}* \
         # system libs needed by core R packages
@@ -42,7 +45,10 @@ RUN apt-get update -y && \
         clang-format \
         clang-tidy \
         # R CMD CHECK --as-cran needs pdflatex to build the package manual
-        texlive-latex-base && \
+        texlive-latex-base \
+        # Need locales so we can set UTF-8
+        locales && \
+    locale-gen en_US.UTF-8 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -50,14 +56,18 @@ RUN apt-get update -y && \
 # and use pre-built binaries where possible
 RUN printf "\
     options(Ncpus = parallel::detectCores(), \
-            repos = 'https://demo.rstudiopm.com/all/__linux__/bionic/latest', \
+            repos = 'https://demo.rstudiopm.com/all/__linux__/"$(lsb_release -cs)"/latest', \
             HTTPUserAgent = sprintf(\
                 'R/%%s R (%%s)', getRversion(), \
                 paste(getRversion(), R.version\$platform, R.version\$arch, R.version\$os)))\n" \
     >> /etc/R/Rprofile.site
 
-# Also ensure parallel compilation of each individual package
-RUN echo "MAKEFLAGS=-j8" >> /usr/lib/R/etc/Makeconf
+# Also ensure parallel compilation of C/C++ code
+RUN echo "MAKEFLAGS=-j$(R --slave -e 'cat(parallel::detectCores())')" >> /usr/lib/R/etc/Makeconf
+
+COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
+COPY r/DESCRIPTION /arrow/r/
+RUN /arrow/ci/scripts/r_deps.sh /arrow
 
 ENV \
     ARROW_BUILD_STATIC=OFF \
@@ -66,9 +76,9 @@ ENV \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_FLIGHT=OFF \
     ARROW_GANDIVA=OFF \
+    ARROW_NO_DEPRECATED_API=ON \
     ARROW_ORC=OFF \
     ARROW_PARQUET=ON \
     ARROW_PLASMA=OFF \
     ARROW_USE_GLOG=OFF \
-    ARROW_NO_DEPRECATED_API=ON \
-    ARROW_R_DEV=TRUE
+    LC_ALL=en_US.UTF-8

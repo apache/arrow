@@ -42,7 +42,6 @@ jobs:
     env:
       R: ${{ matrix.r }}
       UBUNTU: ${{ matrix.ubuntu }}
-      ARROW_R_CXXFLAGS: '-Werror'
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v1

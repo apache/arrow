@@ -26,7 +26,14 @@ pushd ${source_dir}
 
 export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
 export R_LD_LIBRARY_PATH=${LD_LIBRARY_PATH}
+export ARROW_R_CXXFLAGS='-Werror'
+export TEST_R_WITH_ARROW=TRUE
+export _R_CHECK_TESTS_NLINES_=0
+export _R_CHECK_CRAN_INCOMING_REMOTE_=FALSE
+export _R_CHECK_LIMIT_CORES_=FALSE
+export _R_CHECK_COMPILATION_FLAGS_=FALSE
+export VERSION=$(grep ^Version DESCRIPTION | sed s/Version:\ //)
 
-${R_BIN} CMD check --no-manual --as-cran arrow_*.tar.gz
+${R_BIN} -e "rcmdcheck::rcmdcheck(build_args = '--no-build-vignettes', args = c('--no-manual', '--as-cran', '--ignore-vignettes'), error_on = 'warning', check_dir = 'check')"
 
 popd
