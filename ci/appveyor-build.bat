@@ -17,10 +17,6 @@
 
 @echo on
 
-@rem All other builds are C++ builds
-goto cpp
-
-:cpp
 git config core.symlinks true
 git reset --hard
 if "%JOB:~,5%" == "MinGW" (
@@ -28,6 +24,3 @@ if "%JOB:~,5%" == "MinGW" (
 ) else (
     call ci\appveyor-cpp-build.bat
 )
-goto scriptexit
-
-:scriptexit
