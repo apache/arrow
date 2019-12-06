@@ -390,7 +390,7 @@ public class TestBaseAllocator {
       @Override
       protected AllocationManager newAllocationManager(BaseAllocator accountingAllocator, int size) {
 
-        return new AllocationManager(accountingAllocator) {
+        return new AllocationManager(accountingAllocator, size) {
           private final Unsafe unsafe = getUnsafe();
           private final long address = unsafe.allocateMemory(size);
 
@@ -403,11 +403,6 @@ public class TestBaseAllocator {
           void release0() {
             unsafe.setMemory(address, size, (byte) 0);
             unsafe.freeMemory(address);
-          }
-
-          @Override
-          int getSize() {
-            return size;
           }
 
           private Unsafe getUnsafe() {

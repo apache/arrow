@@ -34,7 +34,7 @@ public class NettyAllocationManager extends AllocationManager {
   private final UnsafeDirectLittleEndian memoryChunk;
 
   NettyAllocationManager(BaseAllocator accountingAllocator, int size) {
-    super(accountingAllocator);
+    super(accountingAllocator, size);
     this.memoryChunk = INNER_ALLOCATOR.allocate(size);
     this.size = memoryChunk.capacity();
   }
