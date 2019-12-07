@@ -61,7 +61,7 @@ services:
   #     conda-cpp|debian-cpp|...
   # Minimum boost - Ubuntu Xenial 16.04 has Boost 1.58:
   #   UBUNTU=16.04 docker-compose build \
-  #     -e ARROW_BOOST_SOURCE=SYSTEM \
+  #     -e BOOST_SOURCE=SYSTEM \
   #     ubuntu-cpp
 
   conda-cpp:
@@ -461,12 +461,12 @@ services:
         cmake: 3.2.3
     environment:
       <<: *ccache
-      # Vendor boost to avoid dealing with stale FindBoost.
-      ARROW_BOOST_SOURCE: "BUNDLED"
       ARROW_ORC: "OFF"
       ARROW_GANDIVA: "OFF"
       # uriparser requires cmake 3.3
       ARROW_FLIGHT: "OFF"
+      # Vendor boost to avoid dealing with stale FindBoost.
+      BOOST_SOURCE: "BUNDLED"
     volumes: *ubuntu-volumes
     command: *cpp-command
 
