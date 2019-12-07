@@ -20,6 +20,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <utility>
 
 #include "parquet/metadata.h"
 #include "parquet/platform.h"
