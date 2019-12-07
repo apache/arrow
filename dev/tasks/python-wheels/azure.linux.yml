@@ -41,6 +41,7 @@ jobs:
         cd arrow
         BUILD_IMAGE=centos-python-{{ wheel_tag }}
         docker-compose pull $BUILD_IMAGE
+        # TODO(kou): Uncomment this when we resolve "ADD never use cache" problem.
         # docker-compose build $BUILD_IMAGE
         docker-compose run \
           -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} \
