@@ -459,14 +459,17 @@ cdef class Dataset:
     def __init__(self, data_sources, Schema schema not None):
         """Create a dataset
 
+        A schema must be passed because most of the data sources' schema is
+        unknown before executing possibly expensive scanning operation, but
+        projecting, filtering, predicate pushduwn requires a well defined
+        schema to work on.
+
         Parameters
         ----------
         data_sources : list of DataSource
             One or more input data sources
         schema : Schema
-            A known schema to conform to. The data sources must conform their
-            output to this schema with projections and filters taken into
-            account.
+            A known schema to conform to.
         """
         cdef:
             DataSource source
@@ -646,8 +649,9 @@ cdef class ScannerBuilder:
         deserializing columns that will not be required further down the
         compute chain.
 
-        Raises exception if any column name does not exists in the dataset's
-        Schema.
+        It alters the object in place and returns with the object itself
+        enabling method chaining. Raises exception if any of the referenced
+        column names does not exists in the dataset's Schema.
 
         Parameters
         ----------
@@ -663,7 +667,12 @@ cdef class ScannerBuilder:
         return self
 
     def finish(self):
-        """Return the constructed now-immutable Scanner object"""
+        """Return the constructed now-immutable Scanner object
+
+        Returns
+        -------
+        self : ScannerBuilder
+        """
         return Scanner.wrap(GetResultValue(self.builder.Finish()))
 
     def filter(self, Expression filter_expression not None):
@@ -672,9 +681,11 @@ cdef class ScannerBuilder:
         The predicate will be passed down to DataSources and corresponding
         data fragments to exploit predicate pushdown if possible using
         partition information or internal metadata, e.g. Parquet statistics.
+        Otherwise filters the loaded RecordBatches before yielding them.
 
-        Raises exception if any of the referenced columns does not exists in
-        the dataset's schema.
+        It alters the object in place and returns with the object itself
+        enabling method chaining. Raises exception if any of the referenced
+        column names does not exists in the dataset's Schema.
 
         Parameters
         ----------
@@ -690,6 +701,9 @@ cdef class ScannerBuilder:
 
     def use_threads(self, bint value):
         """Set whether the Scanner should make use of the thread pool.
+
+        It alters the object in place and returns with the object itself
+        enabling method chaining.
 
         Parameters
         ----------
