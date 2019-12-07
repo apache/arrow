@@ -1722,7 +1722,7 @@ impl DictionaryArray {
         1
     }
 
-    // Get a key for various primitive types.
+    /// Get a key for various primitive types.
     fn key<T: Copy>(&self, i: usize) -> T {
         unsafe {
             let ptr: *const T = mem::transmute(self.raw_values.get());
