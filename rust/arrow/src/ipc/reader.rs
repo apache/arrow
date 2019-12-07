@@ -392,7 +392,7 @@ fn create_dictionary_array(
         }
         make_array(builder.build())
     } else {
-        panic!("Cannot create dictionary array from {:?}", data_type)
+        unreachable!("Cannot create dictionary array from {:?}", data_type)
     }
 }
 
