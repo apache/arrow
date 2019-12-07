@@ -2366,7 +2366,7 @@ mod tests {
         // Construct a buffer for value offsets, for the nested array:
         let keys = Buffer::from(&[2_i16, 3, 4].to_byte_slice());
 
-        // Construct a list array from the above two
+        // Construct a dictionary array from the above two
         let key_type = DataType::Int16;
         let value_type = DataType::Int8;
         let dict_data_type =
