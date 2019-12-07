@@ -38,9 +38,8 @@ jobs:
         set -ex
         cd arrow
         BUILD_IMAGE=centos-python-{{ wheel_tag }}
-        # don't attempt to build it, because the base image by pypa is updated
-        # regularly and would cause undeterministic builds
         docker-compose pull $BUILD_IMAGE
+        docker-compose build $BUILD_IMAGE
         docker-compose run \
           -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} \
           -e PYTHON_VERSION="{{ python_version }}" \
