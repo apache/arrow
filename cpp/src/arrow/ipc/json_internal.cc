@@ -596,7 +596,7 @@ class ArrayWriter {
     WriteValidityField(array);
     const auto& type = checked_cast<const UnionType&>(*array.type());
 
-    WriteIntegerField("TYPE_ID", array.raw_type_ids(), array.length());
+    WriteIntegerField("TYPE_ID", array.raw_type_codes(), array.length());
     if (type.mode() == UnionMode::DENSE) {
       WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length());
     }
@@ -1228,7 +1228,7 @@ class ArrayReader {
             << "Empty string found when parsing Decimal128 value";
 
         Decimal128 value;
-        RETURN_NOT_OK(Decimal128::FromString(val.GetString(), &value));
+        ARROW_ASSIGN_OR_RAISE(value, Decimal128::FromString(val.GetString()));
         RETURN_NOT_OK(builder.Append(value));
       }
     }

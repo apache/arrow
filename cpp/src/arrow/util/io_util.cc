@@ -85,6 +85,7 @@
 #endif
 
 #include "arrow/buffer.h"
+#include "arrow/result.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 
@@ -106,10 +107,7 @@ Status StdoutStream::Close() { return Status::OK(); }
 
 bool StdoutStream::closed() const { return false; }
 
-Status StdoutStream::Tell(int64_t* position) const {
-  *position = pos_;
-  return Status::OK();
-}
+Result<int64_t> StdoutStream::Tell() const { return pos_; }
 
 Status StdoutStream::Write(const void* data, int64_t nbytes) {
   pos_ += nbytes;
@@ -127,10 +125,7 @@ Status StderrStream::Close() { return Status::OK(); }
 
 bool StderrStream::closed() const { return false; }
 
-Status StderrStream::Tell(int64_t* position) const {
-  *position = pos_;
-  return Status::OK();
-}
+Result<int64_t> StderrStream::Tell() const { return pos_; }
 
 Status StderrStream::Write(const void* data, int64_t nbytes) {
   pos_ += nbytes;
@@ -148,31 +143,25 @@ Status StdinStream::Close() { return Status::OK(); }
 
 bool StdinStream::closed() const { return false; }
 
-Status StdinStream::Tell(int64_t* position) const {
-  *position = pos_;
-  return Status::OK();
-}
+Result<int64_t> StdinStream::Tell() const { return pos_; }
 
-Status StdinStream::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
+Result<int64_t> StdinStream::Read(int64_t nbytes, void* out) {
   std::cin.read(reinterpret_cast<char*>(out), nbytes);
   if (std::cin) {
-    *bytes_read = nbytes;
     pos_ += nbytes;
+    return nbytes;
   } else {
-    *bytes_read = 0;
+    return 0;
   }
-  return Status::OK();
 }
 
-Status StdinStream::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+Result<std::shared_ptr<Buffer>> StdinStream::Read(int64_t nbytes) {
   std::shared_ptr<ResizableBuffer> buffer;
   ARROW_RETURN_NOT_OK(AllocateResizableBuffer(nbytes, &buffer));
-  int64_t bytes_read;
-  ARROW_RETURN_NOT_OK(Read(nbytes, &bytes_read, buffer->mutable_data()));
+  ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, Read(nbytes, buffer->mutable_data()));
   ARROW_RETURN_NOT_OK(buffer->Resize(bytes_read, false));
   buffer->ZeroPadding();
-  *out = buffer;
-  return Status::OK();
+  return buffer;
 }
 
 }  // namespace io

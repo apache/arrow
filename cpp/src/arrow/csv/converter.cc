@@ -442,7 +442,7 @@ class DecimalConverter : public ConcreteConverter {
       }
       if (scale != type.scale()) {
         Decimal128 scaled;
-        RETURN_NOT_OK(decimal.Rescale(scale, type.scale(), &scaled));
+        ARROW_ASSIGN_OR_RAISE(scaled, decimal.Rescale(scale, type.scale()));
         builder.UnsafeAppend(scaled);
       } else {
         builder.UnsafeAppend(decimal);

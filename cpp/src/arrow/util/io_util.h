@@ -32,8 +32,7 @@
 #endif
 
 #include "arrow/io/interfaces.h"
-#include "arrow/result.h"
-#include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 
 // The Windows API defines DeleteFile as a macro resolving to either
@@ -57,7 +56,7 @@ class ARROW_EXPORT StdoutStream : public OutputStream {
   Status Close() override;
   bool closed() const override;
 
-  Status Tell(int64_t* position) const override;
+  Result<int64_t> Tell() const override;
 
   Status Write(const void* data, int64_t nbytes) override;
 
@@ -74,7 +73,7 @@ class ARROW_EXPORT StderrStream : public OutputStream {
   Status Close() override;
   bool closed() const override;
 
-  Status Tell(int64_t* position) const override;
+  Result<int64_t> Tell() const override;
 
   Status Write(const void* data, int64_t nbytes) override;
 
@@ -91,11 +90,11 @@ class ARROW_EXPORT StdinStream : public InputStream {
   Status Close() override;
   bool closed() const override;
 
-  Status Tell(int64_t* position) const override;
+  Result<int64_t> Tell() const override;
 
-  Status Read(int64_t nbytes, int64_t* bytes_read, void* out) override;
+  Result<int64_t> Read(int64_t nbytes, void* out) override;
 
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override;
 
  private:
   int64_t pos_;

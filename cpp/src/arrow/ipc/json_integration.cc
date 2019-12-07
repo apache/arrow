@@ -189,12 +189,8 @@ Status JsonReader::Open(MemoryPool* pool, const std::shared_ptr<Buffer>& data,
 Status JsonReader::Open(MemoryPool* pool,
                         const std::shared_ptr<io::ReadableFile>& in_file,
                         std::unique_ptr<JsonReader>* reader) {
-  int64_t file_size = 0;
-  RETURN_NOT_OK(in_file->GetSize(&file_size));
-
-  std::shared_ptr<arrow::Buffer> json_buffer;
-  RETURN_NOT_OK(in_file->Read(file_size, &json_buffer));
-
+  ARROW_ASSIGN_OR_RAISE(int64_t file_size, in_file->GetSize());
+  ARROW_ASSIGN_OR_RAISE(auto json_buffer, in_file->Read(file_size));
   return Open(pool, json_buffer, reader);
 }
 

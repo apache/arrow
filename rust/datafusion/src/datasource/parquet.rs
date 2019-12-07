@@ -398,21 +398,21 @@ impl ParquetFile {
                                     is_nullable,
                                 )?
                             }
-                            DataType::Timestamp(TimeUnit::Millisecond) => {
+                            DataType::Timestamp(TimeUnit::Millisecond, None) => {
                                 ArrowReader::<TimestampMillisecondType>::read(
                                     r,
                                     self.batch_size,
                                     is_nullable,
                                 )?
                             }
-                            DataType::Timestamp(TimeUnit::Microsecond) => {
+                            DataType::Timestamp(TimeUnit::Microsecond, None) => {
                                 ArrowReader::<TimestampMicrosecondType>::read(
                                     r,
                                     self.batch_size,
                                     is_nullable,
                                 )?
                             }
-                            DataType::Timestamp(TimeUnit::Nanosecond) => {
+                            DataType::Timestamp(TimeUnit::Nanosecond, None) => {
                                 ArrowReader::<TimestampMicrosecondType>::read(
                                     r,
                                     self.batch_size,
@@ -596,7 +596,7 @@ mod tests {
              double_col: Float64\n\
              date_string_col: Utf8\n\
              string_col: Utf8\n\
-             timestamp_col: Timestamp(Nanosecond)",
+             timestamp_col: Timestamp(Nanosecond, None)",
             y
         );
 

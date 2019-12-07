@@ -477,6 +477,7 @@ def test_type_schema_pickling():
         pa.binary(),
         pa.binary(10),
         pa.list_(pa.string()),
+        pa.map_(pa.string(), pa.int8()),
         pa.struct([
             pa.field('a', 'int8'),
             pa.field('b', 'string')

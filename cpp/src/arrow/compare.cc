@@ -239,8 +239,8 @@ class RangeEqualsVisitor {
 
     const std::vector<int>& child_ids = left_type.child_ids();
 
-    const int8_t* left_ids = left.raw_type_ids();
-    const int8_t* right_ids = right.raw_type_ids();
+    const int8_t* left_codes = left.raw_type_codes();
+    const int8_t* right_codes = right.raw_type_codes();
 
     for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
          ++i, ++o_i) {
@@ -248,11 +248,11 @@ class RangeEqualsVisitor {
         return false;
       }
       if (left.IsNull(i)) continue;
-      if (left_ids[i] != right_ids[o_i]) {
+      if (left_codes[i] != right_codes[o_i]) {
         return false;
       }
 
-      auto child_num = child_ids[left_ids[i]];
+      auto child_num = child_ids[left_codes[i]];
 
       // TODO(wesm): really we should be comparing stretches of non-null data
       // rather than looking at one value at a time.

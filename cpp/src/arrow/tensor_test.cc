@@ -38,6 +38,102 @@ void AssertCountNonZero(const Tensor& t, int64_t expected) {
   ASSERT_EQ(count, expected);
 }
 
+TEST(TestTensor, Make) {
+  std::vector<int64_t> shape = {3, 6};
+  std::vector<int64_t> strides = {sizeof(double) * 6, sizeof(double)};
+  std::vector<double> values = {1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  auto data = Buffer::Wrap(values);
+
+  // without strides and dim_names
+  std::shared_ptr<Tensor> tensor1;
+  ASSERT_OK_AND_ASSIGN(tensor1, Tensor::Make(float64(), data, shape));
+  EXPECT_EQ(float64(), tensor1->type());
+  EXPECT_EQ(shape, tensor1->shape());
+  EXPECT_EQ(strides, tensor1->strides());
+  EXPECT_EQ(std::vector<std::string>{}, tensor1->dim_names());
+  EXPECT_EQ(data->data(), tensor1->raw_data());
+
+  // without dim_names
+  std::shared_ptr<Tensor> tensor2;
+  ASSERT_OK_AND_ASSIGN(tensor2, Tensor::Make(float64(), data, shape, strides));
+  EXPECT_EQ(float64(), tensor2->type());
+  EXPECT_EQ(shape, tensor2->shape());
+  EXPECT_EQ(strides, tensor2->strides());
+  EXPECT_EQ(std::vector<std::string>{}, tensor2->dim_names());
+  EXPECT_EQ(data->data(), tensor2->raw_data());
+  EXPECT_TRUE(tensor2->Equals(*tensor1));
+
+  // without strides
+  std::vector<std::string> dim_names = {"foo", "bar"};
+  std::shared_ptr<Tensor> tensor3;
+  ASSERT_OK_AND_ASSIGN(tensor3, Tensor::Make(float64(), data, shape, {}, dim_names));
+  EXPECT_EQ(float64(), tensor3->type());
+  EXPECT_EQ(shape, tensor3->shape());
+  EXPECT_EQ(strides, tensor3->strides());
+  EXPECT_EQ(dim_names, tensor3->dim_names());
+  EXPECT_EQ(data->data(), tensor3->raw_data());
+  EXPECT_TRUE(tensor3->Equals(*tensor1));
+  EXPECT_TRUE(tensor3->Equals(*tensor2));
+
+  // supply all parameters
+  std::shared_ptr<Tensor> tensor4;
+  ASSERT_OK_AND_ASSIGN(tensor4, Tensor::Make(float64(), data, shape, strides, dim_names));
+  EXPECT_EQ(float64(), tensor4->type());
+  EXPECT_EQ(shape, tensor4->shape());
+  EXPECT_EQ(strides, tensor4->strides());
+  EXPECT_EQ(dim_names, tensor4->dim_names());
+  EXPECT_EQ(data->data(), tensor4->raw_data());
+  EXPECT_TRUE(tensor4->Equals(*tensor1));
+  EXPECT_TRUE(tensor4->Equals(*tensor2));
+  EXPECT_TRUE(tensor4->Equals(*tensor3));
+}
+
+TEST(TestTensor, MakeZeroDim) {
+  std::vector<int64_t> shape = {};
+  std::vector<double> values = {355 / 113.0};
+  auto data = Buffer::Wrap(values);
+  std::shared_ptr<Tensor> tensor;
+
+  ASSERT_OK_AND_ASSIGN(tensor, Tensor::Make(float64(), data, shape));
+  EXPECT_EQ(1, tensor->size());
+  EXPECT_EQ(shape, tensor->shape());
+  EXPECT_EQ(shape, tensor->strides());
+  EXPECT_EQ(data->data(), tensor->raw_data());
+  EXPECT_EQ(values[0], tensor->Value<DoubleType>({}));
+}
+
+TEST(TestTensor, MakeFailureCases) {
+  std::vector<int64_t> shape = {3, 6};
+  std::vector<double> values = {1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  auto data = Buffer::Wrap(values);
+
+  // null type
+  ASSERT_RAISES(Invalid, Tensor::Make(nullptr, data, shape));
+
+  // invalid type
+  ASSERT_RAISES(Invalid, Tensor::Make(binary(), data, shape));
+
+  // null data
+  ASSERT_RAISES(Invalid, Tensor::Make(float64(), nullptr, shape));
+
+  // negative items in shape
+  ASSERT_RAISES(Invalid, Tensor::Make(float64(), data, {-3, 6}));
+
+  // invalid stride length
+  ASSERT_RAISES(Invalid, Tensor::Make(float64(), data, shape, {sizeof(double)}));
+  ASSERT_RAISES(Invalid, Tensor::Make(float64(), data, shape,
+                                      {sizeof(double), sizeof(double), sizeof(double)}));
+
+  // invalid stride values to involve buffer over run
+  ASSERT_RAISES(Invalid, Tensor::Make(float64(), data, shape,
+                                      {sizeof(double) * 6, sizeof(double) * 2}));
+  ASSERT_RAISES(Invalid, Tensor::Make(float64(), data, shape,
+                                      {sizeof(double) * 12, sizeof(double)}));
+
+  // too many dim_names are supplied
+  ASSERT_RAISES(Invalid, Tensor::Make(float64(), data, shape, {}, {"foo", "bar", "baz"}));
+}
+
 TEST(TestTensor, ZeroDim) {
   const int64_t values = 1;
   std::vector<int64_t> shape = {};
@@ -357,6 +453,58 @@ REGISTER_TYPED_TEST_CASE_P(TestFloatTensor, Equals);
 
 INSTANTIATE_TYPED_TEST_CASE_P(Float32, TestFloatTensor, FloatType);
 INSTANTIATE_TYPED_TEST_CASE_P(Float64, TestFloatTensor, DoubleType);
+
+TEST(TestNumericTensor, Make) {
+  std::vector<int64_t> shape = {3, 6};
+  std::vector<int64_t> strides = {sizeof(double) * 6, sizeof(double)};
+  std::vector<double> values = {1, 2, 3, 4, 5, 6, 7, 8, 9, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  auto data = Buffer::Wrap(values);
+
+  // without strides and dim_names
+  std::shared_ptr<NumericTensor<DoubleType>> tensor1;
+  ASSERT_OK_AND_ASSIGN(tensor1, NumericTensor<DoubleType>::Make(data, shape));
+  EXPECT_EQ(float64(), tensor1->type());
+  EXPECT_EQ(shape, tensor1->shape());
+  EXPECT_EQ(strides, tensor1->strides());
+  EXPECT_EQ(data->data(), tensor1->raw_data());
+  EXPECT_EQ(std::vector<std::string>{}, tensor1->dim_names());
+
+  // without dim_names
+  std::shared_ptr<NumericTensor<DoubleType>> tensor2;
+  ASSERT_OK_AND_ASSIGN(tensor2, NumericTensor<DoubleType>::Make(data, shape, strides));
+  EXPECT_EQ(float64(), tensor2->type());
+  EXPECT_EQ(shape, tensor2->shape());
+  EXPECT_EQ(strides, tensor2->strides());
+  EXPECT_EQ(std::vector<std::string>{}, tensor2->dim_names());
+  EXPECT_EQ(data->data(), tensor2->raw_data());
+  EXPECT_TRUE(tensor2->Equals(*tensor1));
+
+  // without strides
+  std::vector<std::string> dim_names = {"foo", "bar"};
+  std::shared_ptr<NumericTensor<DoubleType>> tensor3;
+  ASSERT_OK_AND_ASSIGN(tensor3,
+                       NumericTensor<DoubleType>::Make(data, shape, {}, dim_names));
+  EXPECT_EQ(float64(), tensor3->type());
+  EXPECT_EQ(shape, tensor3->shape());
+  EXPECT_EQ(strides, tensor3->strides());
+  EXPECT_EQ(dim_names, tensor3->dim_names());
+  EXPECT_EQ(data->data(), tensor3->raw_data());
+  EXPECT_TRUE(tensor3->Equals(*tensor1));
+  EXPECT_TRUE(tensor3->Equals(*tensor2));
+
+  // supply all parameters
+  std::shared_ptr<NumericTensor<DoubleType>> tensor4;
+  ASSERT_OK_AND_ASSIGN(tensor4,
+                       NumericTensor<DoubleType>::Make(data, shape, strides, dim_names));
+  EXPECT_EQ(float64(), tensor4->type());
+  EXPECT_EQ(shape, tensor4->shape());
+  EXPECT_EQ(strides, tensor4->strides());
+  EXPECT_EQ(dim_names, tensor4->dim_names());
+  EXPECT_EQ(data->data(), tensor4->raw_data());
+  EXPECT_TRUE(tensor4->Equals(*tensor1));
+  EXPECT_TRUE(tensor4->Equals(*tensor2));
+  EXPECT_TRUE(tensor4->Equals(*tensor3));
+}
 
 TEST(TestNumericTensor, ElementAccessWithRowMajorStrides) {
   std::vector<int64_t> shape = {3, 4};

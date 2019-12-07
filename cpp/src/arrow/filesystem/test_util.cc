@@ -27,6 +27,7 @@
 #include "arrow/filesystem/test_util.h"
 #include "arrow/filesystem/util_internal.h"
 #include "arrow/io/interfaces.h"
+#include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 
 using ::testing::ElementsAre;
@@ -88,12 +89,11 @@ void AssertFileContents(FileSystem* fs, const std::string& path,
   ASSERT_EQ(st.size(), static_cast<int64_t>(expected_data.length()))
       << "For path '" << path << "'";
 
-  std::shared_ptr<Buffer> buffer, leftover;
   ASSERT_OK_AND_ASSIGN(auto stream, fs->OpenInputStream(path));
-  ASSERT_OK(stream->Read(st.size(), &buffer));
+  ASSERT_OK_AND_ASSIGN(auto buffer, stream->Read(st.size()));
   AssertBufferEqual(*buffer, expected_data);
   // No data left in stream
-  ASSERT_OK(stream->Read(1, &leftover));
+  ASSERT_OK_AND_ASSIGN(auto leftover, stream->Read(1));
   ASSERT_EQ(leftover->size(), 0);
 
   ASSERT_OK(stream->Close());
@@ -720,11 +720,9 @@ void GenericFileSystemTest::TestGetTargetStatsSelectorWithRecursion(FileSystem* 
 
 void GenericFileSystemTest::TestOpenOutputStream(FileSystem* fs) {
   std::shared_ptr<io::OutputStream> stream;
-  int64_t position = -1;
 
   ASSERT_OK_AND_ASSIGN(stream, fs->OpenOutputStream("abc"));
-  ASSERT_OK(stream->Tell(&position));
-  ASSERT_EQ(position, 0);
+  ASSERT_OK_AND_EQ(0, stream->Tell());
   ASSERT_FALSE(stream->closed());
   ASSERT_OK(stream->Close());
   ASSERT_TRUE(stream->closed());
@@ -744,8 +742,7 @@ void GenericFileSystemTest::TestOpenOutputStream(FileSystem* fs) {
   ASSERT_OK_AND_ASSIGN(stream, fs->OpenOutputStream("CD/ghi"));
   ASSERT_OK(stream->Write("some "));
   ASSERT_OK(stream->Write(Buffer::FromString("data")));
-  ASSERT_OK(stream->Tell(&position));
-  ASSERT_EQ(position, 9);
+  ASSERT_OK_AND_EQ(9, stream->Tell());
   ASSERT_OK(stream->Close());
   AssertAllDirs(fs, {"CD"});
   AssertAllFiles(fs, {"CD/ghi", "abc"});
@@ -774,23 +771,19 @@ void GenericFileSystemTest::TestOpenAppendStream(FileSystem* fs) {
     return;
   }
   std::shared_ptr<io::OutputStream> stream;
-  int64_t position = -1;
 
   ASSERT_OK_AND_ASSIGN(stream, fs->OpenAppendStream("abc"));
-  ASSERT_OK(stream->Tell(&position));
-  ASSERT_EQ(position, 0);
+  ASSERT_OK_AND_EQ(0, stream->Tell());
   ASSERT_OK(stream->Write("some "));
   ASSERT_OK(stream->Write(Buffer::FromString("data")));
-  ASSERT_OK(stream->Tell(&position));
-  ASSERT_EQ(position, 9);
+  ASSERT_OK_AND_EQ(9, stream->Tell());
   ASSERT_OK(stream->Close());
   AssertAllDirs(fs, {});
   AssertAllFiles(fs, {"abc"});
   AssertFileContents(fs, "abc", "some data");
 
   ASSERT_OK_AND_ASSIGN(stream, fs->OpenAppendStream("abc"));
-  ASSERT_OK(stream->Tell(&position));
-  ASSERT_EQ(position, 9);
+  ASSERT_OK_AND_EQ(9, stream->Tell());
   ASSERT_OK(stream->Write(" appended"));
   ASSERT_OK(stream->Close());
   AssertAllDirs(fs, {});
@@ -807,14 +800,14 @@ void GenericFileSystemTest::TestOpenInputStream(FileSystem* fs) {
   std::shared_ptr<io::InputStream> stream;
   std::shared_ptr<Buffer> buffer;
   ASSERT_OK_AND_ASSIGN(stream, fs->OpenInputStream("AB/abc"));
-  ASSERT_OK(stream->Read(4, &buffer));
+  ASSERT_OK_AND_ASSIGN(buffer, stream->Read(4));
   AssertBufferEqual(*buffer, "some");
-  ASSERT_OK(stream->Read(6, &buffer));
+  ASSERT_OK_AND_ASSIGN(buffer, stream->Read(6));
   AssertBufferEqual(*buffer, " data");
-  ASSERT_OK(stream->Read(1, &buffer));
+  ASSERT_OK_AND_ASSIGN(buffer, stream->Read(1));
   AssertBufferEqual(*buffer, "");
   ASSERT_OK(stream->Close());
-  ASSERT_RAISES(Invalid, stream->Read(1, &buffer));  // Stream is closed
+  ASSERT_RAISES(Invalid, stream->Read(1));  // Stream is closed
 
   // File does not exist
   ASSERT_RAISES(IOError, fs->OpenInputStream("AB/def"));
@@ -830,14 +823,12 @@ void GenericFileSystemTest::TestOpenInputFile(FileSystem* fs) {
 
   std::shared_ptr<io::RandomAccessFile> file;
   std::shared_ptr<Buffer> buffer;
-  int64_t size = -1;
   ASSERT_OK_AND_ASSIGN(file, fs->OpenInputFile("AB/abc"));
-  ASSERT_OK(file->ReadAt(5, 6, &buffer));
+  ASSERT_OK_AND_ASSIGN(buffer, file->ReadAt(5, 6));
   AssertBufferEqual(*buffer, "other ");
-  ASSERT_OK(file->GetSize(&size));
-  ASSERT_EQ(size, 15);
+  ASSERT_OK_AND_EQ(15, file->GetSize());
   ASSERT_OK(file->Close());
-  ASSERT_RAISES(Invalid, file->ReadAt(1, 1, &buffer));  // Stream is closed
+  ASSERT_RAISES(Invalid, file->ReadAt(1, 1));  // Stream is closed
 
   // File does not exist
   ASSERT_RAISES(IOError, fs->OpenInputFile("AB/def"));

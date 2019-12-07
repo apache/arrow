@@ -1381,3 +1381,57 @@ def test_decimal_array_with_none_and_nan():
 def test_timezone_string(tz, name):
     assert pa.lib.tzinfo_to_string(tz) == name
     assert pa.lib.string_to_tzinfo(name) == tz
+
+
+def test_map_from_dicts():
+    data = [[{'key': b'a', 'value': 1}, {'key': b'b', 'value': 2}],
+            [{'key': b'c', 'value': 3}],
+            [{'key': b'd', 'value': 4}, {'key': b'e', 'value': 5},
+             {'key': b'f', 'value': None}],
+            [{'key': b'g', 'value': 7}]]
+    expected = [[(d['key'], d['value']) for d in entry] for entry in data]
+
+    arr = pa.array(expected, type=pa.map_(pa.binary(), pa.int32()))
+
+    assert arr.to_pylist() == expected
+
+    # With omitted values
+    data[1] = None
+    expected[1] = None
+
+    arr = pa.array(expected, type=pa.map_(pa.binary(), pa.int32()))
+
+    assert arr.to_pylist() == expected
+
+    # Invalid dictionary
+    for entry in [[{'value': 5}], [{}], [{'k': 1, 'v': 2}]]:
+        with pytest.raises(ValueError, match="Invalid Map"):
+            pa.array([entry], type=pa.map_('i4', 'i4'))
+
+    # Invalid dictionary types
+    for entry in [[{'key': '1', 'value': 5}], [{'key': {'value': 2}}]]:
+        with pytest.raises(TypeError, match="integer is required"):
+            pa.array([entry], type=pa.map_('i4', 'i4'))
+
+
+def test_map_from_tuples():
+    expected = [[(b'a', 1), (b'b', 2)],
+                [(b'c', 3)],
+                [(b'd', 4), (b'e', 5), (b'f', None)],
+                [(b'g', 7)]]
+
+    arr = pa.array(expected, type=pa.map_(pa.binary(), pa.int32()))
+
+    assert arr.to_pylist() == expected
+
+    # With omitted values
+    expected[1] = None
+
+    arr = pa.array(expected, type=pa.map_(pa.binary(), pa.int32()))
+
+    assert arr.to_pylist() == expected
+
+    # Invalid tuple size
+    for entry in [[(5,)], [()], [('5', 'foo', True)]]:
+        with pytest.raises(ValueError, match="(?i)tuple size"):
+            pa.array([entry], type=pa.map_('i4', 'i4'))

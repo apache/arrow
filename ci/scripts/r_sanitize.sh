@@ -22,7 +22,7 @@ set -ex
 
 source_dir=${1}/r
 
-# Build arrow
+${R_BIN} CMD INSTALL ${source_dir}
 pushd ${source_dir}/tests
 
 export UBSAN_OPTIONS="print_stacktrace=1,suppressions=/arrow/r/tools/ubsan.supp"

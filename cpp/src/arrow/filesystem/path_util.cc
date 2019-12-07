@@ -16,6 +16,8 @@
 // under the License.
 
 #include "arrow/filesystem/path_util.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string_view.h"
 

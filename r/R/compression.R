@@ -28,12 +28,13 @@
 #' @section Factory:
 #' The `Codec$create()` factory method takes the following arguments:
 #' * `type`: string name of the compression method. Possible values are
-#'    "uncompressed", "snappy", "gzip", "brotli", "zstd", "lz4", "lzo" or "bz2".
-#'    `type` may be upper- or lower-cased. Not all methods may be available; support
-#'    depends on build-time flags for the C++ library. See [codec_is_available()].
-#'    Most builds support at least "snappy" and "gzip". All support "uncompressed".
-#' * `compression_level`: compression level, the default value (`NA`) uses the default
-#'    compression level for the selected compression `type`.
+#'    "uncompressed", "snappy", "gzip", "brotli", "zstd", "lz4", "lzo", or
+#'    "bz2". `type` may be upper- or lower-cased. Not all methods may be
+#'    available; support depends on build-time flags for the C++ library.
+#'    See [codec_is_available()]. Most builds support at least "snappy" and
+#'    "gzip". All support "uncompressed".
+#' * `compression_level`: compression level, the default value (`NA`) uses the
+#'    default compression level for the selected compression `type`.
 #' @rdname Codec
 #' @name Codec
 #' @export
@@ -53,6 +54,15 @@ Codec$create <- function(type = "gzip", compression_level = NA) {
   type
 }
 
+#' Check whether a compression codec is available
+#'
+#' Support for compression libraries depends on the build-time settings of
+#' the Arrow C++ library. This function lets you know which are available for
+#' use.
+#' @param type A string, one of "uncompressed", "snappy", "gzip", "brotli",
+#' "zstd", "lz4", "lzo", or "bz2", case insensitive.
+#' @return Logical: is `type` available?
+#' @export
 codec_is_available <- function(type) {
   util___Codec__IsAvailable(compression_from_name(type))
 }

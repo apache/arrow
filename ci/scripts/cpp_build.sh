@@ -31,11 +31,28 @@ elif [ -x "$(command -v xcrun)" ]; then
   export ARROW_GANDIVA_PC_CXX_FLAGS="-isysroot;$(xcrun --show-sdk-path)"
 fi
 
-# export CCACHE_COMPRESS=1
-# export CCACHE_COMPRESSLEVEL=5
-# export CCACHE_COMPILERCHECK=content
-# export CCACHE_DIR=/build/ccache
-# export PATH=/usr/lib/ccache/:$PATH
+# We know ccache is installed by default in most Linux development builds
+# (and docker containers)
+uname=$(uname -s)
+case "${uname}" in
+    Linux*)     ccache_default=ON;;
+    *)          ccache_default=OFF;;
+esac
+
+export ARROW_USE_CCACHE=${ARROW_USE_CCACHE:-$ccache_default}
+
+if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
+    export CCACHE_COMPILERCHECK=content
+    export CCACHE_COMPRESS=1
+    export CCACHE_COMPRESSLEVEL=5
+    # Typically /build/ccache
+    export CCACHE_DIR=${build_dir}/../ccache
+    export CCACHE_MAXSIZE=500M
+    export PATH=/usr/lib/ccache/:$PATH
+
+    echo -e "===\n=== ccache statistics before build\n==="
+    ccache -s
+fi
 
 mkdir -p ${build_dir}
 pushd ${build_dir}
@@ -50,6 +67,7 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       -DARROW_BUILD_TESTS=${ARROW_BUILD_TESTS:-OFF} \
       -DARROW_BUILD_UTILITIES=${ARROW_BUILD_UTILITIES:-ON} \
       -DARROW_COMPUTE=${ARROW_COMPUTE:-ON} \
+      -DARROW_CSV=${ARROW_CSV:-ON} \
       -DARROW_CUDA=${ARROW_CUDA:-OFF} \
       -DARROW_CXXFLAGS=${ARROW_CXXFLAGS:-} \
       -DARROW_DATASET=${ARROW_DATASET:-ON} \
@@ -60,6 +78,7 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       -DARROW_FUZZING=${ARROW_FUZZING:-OFF} \
       -DARROW_FUZZING=${ARROW_FUZZING:-OFF} \
       -DARROW_JNI=${ARROW_JNI:-OFF} \
+      -DARROW_JSON=${ARROW_JSON:-ON} \
       -DARROW_GANDIVA_JAVA=${ARROW_GANDIVA_JAVA:-OFF} \
       -DARROW_GANDIVA_PC_CXX_FLAGS=${ARROW_GANDIVA_PC_CXX_FLAGS:-} \
       -DARROW_GANDIVA=${ARROW_GANDIVA:-OFF} \
@@ -115,6 +134,11 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
 cmake --build . --target install
 
 popd
+
+if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
+    echo -e "===\n=== ccache statistics after build\n==="
+    ccache -s
+fi
 
 if [ "${with_docs}" == "true" ]; then
   pushd ${source_dir}/apidoc

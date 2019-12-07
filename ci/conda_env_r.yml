@@ -31,6 +31,7 @@ pandoc
 r-covr
 r-hms
 r-lubridate
+r-rcmdcheck
 r-rmarkdown
 r-testthat
 r-tibble

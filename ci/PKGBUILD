@@ -28,7 +28,7 @@ depends=("${MINGW_PACKAGE_PREFIX}-boost"
          "${MINGW_PACKAGE_PREFIX}-thrift"
          "${MINGW_PACKAGE_PREFIX}-snappy"
          "${MINGW_PACKAGE_PREFIX}-zlib"
-         "${MINGW_PACKAGE_PREFIX}-lz4"         
+         "${MINGW_PACKAGE_PREFIX}-lz4"
          "${MINGW_PACKAGE_PREFIX}-zstd")
 makedepends=("${MINGW_PACKAGE_PREFIX}-cmake"
              "${MINGW_PACKAGE_PREFIX}-gcc")
@@ -80,6 +80,11 @@ build() {
     -DCMAKE_BUILD_TYPE=${cmake_build_type} \
     -DARROW_BUILD_STATIC=ON \
     -DARROW_BUILD_SHARED=OFF \
+    -DARROW_COMPUTE=ON \
+    -DARROW_CSV=ON \
+    -DARROW_DATASET=ON \
+    -DARROW_FILESYSTEM=ON \
+    -DARROW_JSON=ON \
     -DARROW_PARQUET=ON \
     -DARROW_HDFS=OFF \
     -DARROW_BOOST_USE_SHARED=OFF \

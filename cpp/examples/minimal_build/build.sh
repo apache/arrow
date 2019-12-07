@@ -27,15 +27,7 @@ NPROC=$(nproc)
 mkdir $BUILD_DIR
 pushd $BUILD_DIR
 
-cmake /arrow/cpp \
-      -DARROW_COMPUTE=OFF \
-      -DARROW_DATASET=OFF \
-      -DARROW_FILESYSTEM=OFF \
-      -DARROW_HDFS=OFF \
-      -DARROW_JEMALLOC=OFF \
-      -DARROW_JSON=OFF \
-      -DARROW_USE_GLOG=OFF \
-      -DARROW_BUILD_UTILITIES=OFF
+cmake /arrow/cpp -DARROW_JEMALLOC=OFF $ARROW_CMAKE_OPTIONS
 
 make -j$NPROC
 make install

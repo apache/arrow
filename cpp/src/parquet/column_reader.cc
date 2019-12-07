@@ -229,22 +229,20 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
     // We try to deserialize a larger buffer progressively
     // until a maximum allowed header limit
     while (true) {
-      string_view buffer;
-      PARQUET_THROW_NOT_OK(stream_->Peek(allowed_page_size, &buffer));
-      if (buffer.size() == 0) {
+      PARQUET_ASSIGN_OR_THROW(auto view, stream_->Peek(allowed_page_size));
+      if (view.size() == 0) {
         return std::shared_ptr<Page>(nullptr);
       }
 
       // This gets used, then set by DeserializeThriftMsg
-      header_size = static_cast<uint32_t>(buffer.size());
+      header_size = static_cast<uint32_t>(view.size());
       try {
         if (crypto_ctx_.meta_decryptor != nullptr) {
           UpdateDecryption(crypto_ctx_.meta_decryptor, encryption::kDictionaryPageHeader,
                            data_page_header_aad_);
         }
-        DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(buffer.data()),
-                             &header_size, &current_page_header_,
-                             crypto_ctx_.meta_decryptor);
+        DeserializeThriftMsg(reinterpret_cast<const uint8_t*>(view.data()), &header_size,
+                             &current_page_header_, crypto_ctx_.meta_decryptor);
         break;
       } catch (std::exception& e) {
         // Failed to deserialize. Double the allowed page header size and try again
@@ -267,8 +265,7 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
                        data_page_aad_);
     }
     // Read the compressed data page.
-    std::shared_ptr<Buffer> page_buffer;
-    PARQUET_THROW_NOT_OK(stream_->Read(compressed_len, &page_buffer));
+    PARQUET_ASSIGN_OR_THROW(auto page_buffer, stream_->Read(compressed_len));
     if (page_buffer->size() != compressed_len) {
       std::stringstream ss;
       ss << "Page was smaller (" << page_buffer->size() << ") than expected ("

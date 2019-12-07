@@ -135,7 +135,7 @@ impl ArrowJsonBatch {
                     DataType::Int64
                     | DataType::Date64(_)
                     | DataType::Time64(_)
-                    | DataType::Timestamp(_) => {
+                    | DataType::Timestamp(_, _) => {
                         let arr = Int64Array::from(arr.data());
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
                     }
@@ -378,6 +378,10 @@ mod tests {
 
     #[test]
     fn test_arrow_data_equality() {
+        let secs_tz = Some(Arc::new("Europe/Budapest".to_string()));
+        let millis_tz = Some(Arc::new("America/New_York".to_string()));
+        let micros_tz = Some(Arc::new("UTC".to_string()));
+        let nanos_tz = Some(Arc::new("Africa/Johannesburg".to_string()));
         let schema = Schema::new(vec![
             Field::new("bools", DataType::Boolean, true),
             Field::new("int8s", DataType::Int8, true),
@@ -396,18 +400,42 @@ mod tests {
             Field::new("time_millis", DataType::Time32(TimeUnit::Millisecond), true),
             Field::new("time_micros", DataType::Time64(TimeUnit::Microsecond), true),
             Field::new("time_nanos", DataType::Time64(TimeUnit::Nanosecond), true),
-            Field::new("ts_secs", DataType::Timestamp(TimeUnit::Second), true),
+            Field::new("ts_secs", DataType::Timestamp(TimeUnit::Second, None), true),
             Field::new(
                 "ts_millis",
-                DataType::Timestamp(TimeUnit::Millisecond),
+                DataType::Timestamp(TimeUnit::Millisecond, None),
                 true,
             ),
             Field::new(
                 "ts_micros",
-                DataType::Timestamp(TimeUnit::Microsecond),
+                DataType::Timestamp(TimeUnit::Microsecond, None),
                 true,
             ),
-            Field::new("ts_nanos", DataType::Timestamp(TimeUnit::Nanosecond), true),
+            Field::new(
+                "ts_nanos",
+                DataType::Timestamp(TimeUnit::Nanosecond, None),
+                true,
+            ),
+            Field::new(
+                "ts_secs_tz",
+                DataType::Timestamp(TimeUnit::Second, secs_tz.clone()),
+                true,
+            ),
+            Field::new(
+                "ts_millis_tz",
+                DataType::Timestamp(TimeUnit::Millisecond, millis_tz.clone()),
+                true,
+            ),
+            Field::new(
+                "ts_micros_tz",
+                DataType::Timestamp(TimeUnit::Microsecond, micros_tz.clone()),
+                true,
+            ),
+            Field::new(
+                "ts_nanos_tz",
+                DataType::Timestamp(TimeUnit::Nanosecond, nanos_tz.clone()),
+                true,
+            ),
             Field::new("utf8s", DataType::Utf8, true),
             Field::new("lists", DataType::List(Box::new(DataType::Int32)), true),
             Field::new(
@@ -451,15 +479,34 @@ mod tests {
             None,
             Some(16584393546415),
         ]);
-        let ts_secs = TimestampSecondArray::from(vec![None, Some(193438817552), None]);
-        let ts_millis = TimestampMillisecondArray::from(vec![
+        let ts_secs = TimestampSecondArray::from_opt_vec(
+            vec![None, Some(193438817552), None],
             None,
-            Some(38606916383008),
-            Some(58113709376587),
-        ]);
-        let ts_micros = TimestampMicrosecondArray::from(vec![None, None, None]);
-        let ts_nanos =
-            TimestampNanosecondArray::from(vec![None, None, Some(-6473623571954960143)]);
+        );
+        let ts_millis = TimestampMillisecondArray::from_opt_vec(
+            vec![None, Some(38606916383008), Some(58113709376587)],
+            None,
+        );
+        let ts_micros =
+            TimestampMicrosecondArray::from_opt_vec(vec![None, None, None], None);
+        let ts_nanos = TimestampNanosecondArray::from_opt_vec(
+            vec![None, None, Some(-6473623571954960143)],
+            None,
+        );
+        let ts_secs_tz = TimestampSecondArray::from_opt_vec(
+            vec![None, Some(193438817552), None],
+            secs_tz,
+        );
+        let ts_millis_tz = TimestampMillisecondArray::from_opt_vec(
+            vec![None, Some(38606916383008), Some(58113709376587)],
+            millis_tz,
+        );
+        let ts_micros_tz =
+            TimestampMicrosecondArray::from_opt_vec(vec![None, None, None], micros_tz);
+        let ts_nanos_tz = TimestampNanosecondArray::from_opt_vec(
+            vec![None, None, Some(-6473623571954960143)],
+            nanos_tz,
+        );
         let utf8s = StringArray::try_from(vec![Some("aa"), None, Some("bbb")]).unwrap();
 
         let value_data = Int32Array::from(vec![None, Some(2), None, None]);
@@ -510,6 +557,10 @@ mod tests {
                 Arc::new(ts_millis),
                 Arc::new(ts_micros),
                 Arc::new(ts_nanos),
+                Arc::new(ts_secs_tz),
+                Arc::new(ts_millis_tz),
+                Arc::new(ts_micros_tz),
+                Arc::new(ts_nanos_tz),
                 Arc::new(utf8s),
                 Arc::new(lists),
                 Arc::new(structs),

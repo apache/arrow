@@ -84,17 +84,15 @@ cdef extern from "arrow/gpu/cuda_api.h" namespace "arrow::cuda" nogil:
     cdef cppclass \
             CCudaBufferReader" arrow::cuda::CudaBufferReader"(CBufferReader):
         CCudaBufferReader(const shared_ptr[CBuffer]& buffer)
-        CStatus Read(int64_t nbytes, int64_t* bytes_read, void* buffer)
-        CStatus Read(int64_t nbytes, shared_ptr[CBuffer]* out)
+        CResult[int64_t] Read(int64_t nbytes, void* buffer)
+        CResult[shared_ptr[CBuffer]] Read(int64_t nbytes)
 
     cdef cppclass \
             CCudaBufferWriter" arrow::cuda::CudaBufferWriter"(WritableFile):
         CCudaBufferWriter(const shared_ptr[CCudaBuffer]& buffer)
         CStatus Close()
-        # CStatus Seek(int64_t position)
         CStatus Write(const void* data, int64_t nbytes)
         CStatus WriteAt(int64_t position, const void* data, int64_t nbytes)
-        # CStatus Tell(int64_t* position) const
         CStatus SetBufferSize(const int64_t buffer_size)
         int64_t buffer_size()
         int64_t num_bytes_buffered() const

@@ -88,7 +88,7 @@ value for the setting is used when not supplied
 The \code{compression} argument can be any of the following (case insensitive):
 "uncompressed", "snappy", "gzip", "brotli", "zstd", "lz4", "lzo" or "bz2".
 Only "uncompressed" is guaranteed to be available, but "snappy" and "gzip"
-are almost always included.
+are almost always included. See \code{\link[=codec_is_available]{codec_is_available()}}.
 The default "snappy" is used if available, otherwise "uncompressed". To
 disable compression, set \code{compression = "uncompressed"}.
 Note that "uncompressed" columns may still have dictionary encoding.

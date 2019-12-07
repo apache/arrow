@@ -354,8 +354,8 @@ class ArrayPrinter : public PrettyPrinter {
 
     Newline();
     Write("-- type_ids: ");
-    UInt8Array type_ids(array.length(), array.type_ids(), nullptr, 0, array.offset());
-    RETURN_NOT_OK(PrettyPrint(type_ids, indent_ + indent_size_, sink_));
+    UInt8Array type_codes(array.length(), array.type_codes(), nullptr, 0, array.offset());
+    RETURN_NOT_OK(PrettyPrint(type_codes, indent_ + indent_size_, sink_));
 
     if (array.mode() == UnionMode::DENSE) {
       Newline();

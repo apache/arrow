@@ -22,7 +22,7 @@
 #include <string>
 #include <vector>
 
-#include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -46,8 +46,8 @@ class ARROW_EXPORT MemoryMapFixture {
 
   void CreateFile(const std::string& path, int64_t size);
 
-  Status InitMemoryMap(int64_t size, const std::string& path,
-                       std::shared_ptr<MemoryMappedFile>* mmap);
+  Result<std::shared_ptr<MemoryMappedFile>> InitMemoryMap(int64_t size,
+                                                          const std::string& path);
 
   void AppendFile(const std::string& path);
 

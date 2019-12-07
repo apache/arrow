@@ -286,7 +286,7 @@ std::string DurationType::ToString() const {
 // ----------------------------------------------------------------------
 // Union type
 
-constexpr int8_t UnionType::kMaxTypeId;
+constexpr int8_t UnionType::kMaxTypeCode;
 constexpr int UnionType::kInvalidChildId;
 
 UnionType::UnionType(const std::vector<std::shared_ptr<Field>>& fields,
@@ -294,7 +294,7 @@ UnionType::UnionType(const std::vector<std::shared_ptr<Field>>& fields,
     : NestedType(Type::UNION),
       mode_(mode),
       type_codes_(type_codes),
-      child_ids_(kMaxTypeId + 1, kInvalidChildId) {
+      child_ids_(kMaxTypeCode + 1, kInvalidChildId) {
   DCHECK_LE(fields.size(), type_codes.size()) << "union field with unknown type id";
   DCHECK_GE(fields.size(), type_codes.size())
       << "type id provided without corresponding union field";
@@ -302,7 +302,7 @@ UnionType::UnionType(const std::vector<std::shared_ptr<Field>>& fields,
   for (int child_id = 0; child_id < static_cast<int>(type_codes_.size()); ++child_id) {
     const auto type_code = type_codes_[child_id];
     DCHECK_GE(type_code, 0);
-    DCHECK_LE(type_code, kMaxTypeId);
+    DCHECK_LE(type_code, kMaxTypeCode);
     child_ids_[type_code] = child_id;
   }
 }

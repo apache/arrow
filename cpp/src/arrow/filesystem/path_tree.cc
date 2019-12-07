@@ -28,6 +28,7 @@
 #include <vector>
 
 #include "arrow/filesystem/path_util.h"
+#include "arrow/status.h"
 
 namespace arrow {
 namespace fs {

@@ -203,7 +203,7 @@ impl<W: Write> Writer<W> {
                         .format(&self.time_format)
                         .to_string()
                 }
-                DataType::Timestamp(time_unit) => {
+                DataType::Timestamp(time_unit, _) => {
                     use TimeUnit::*;
                     let datetime = match time_unit {
                         Second => col
@@ -394,7 +394,7 @@ mod tests {
             Field::new("c2", DataType::Float64, true),
             Field::new("c3", DataType::UInt32, false),
             Field::new("c4", DataType::Boolean, true),
-            Field::new("c5", DataType::Timestamp(TimeUnit::Millisecond), true),
+            Field::new("c5", DataType::Timestamp(TimeUnit::Millisecond, None), true),
             Field::new("c6", DataType::Time32(TimeUnit::Second), false),
         ]);
 
@@ -410,11 +410,10 @@ mod tests {
         ]);
         let c3 = PrimitiveArray::<UInt32Type>::from(vec![3, 2, 1]);
         let c4 = PrimitiveArray::<BooleanType>::from(vec![Some(true), Some(false), None]);
-        let c5 = TimestampMillisecondArray::from(vec![
+        let c5 = TimestampMillisecondArray::from_opt_vec(
+            vec![None, Some(1555584887378), Some(1555555555555)],
             None,
-            Some(1555584887378),
-            Some(1555555555555),
-        ]);
+        );
         let c6 = Time32SecondArray::from(vec![1234, 24680, 85563]);
 
         let batch = RecordBatch::try_new(
@@ -523,7 +522,7 @@ sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03
             Field::new("c2", DataType::Float64, true),
             Field::new("c3", DataType::UInt32, false),
             Field::new("c4", DataType::Boolean, true),
-            Field::new("c5", DataType::Timestamp(TimeUnit::Millisecond), true),
+            Field::new("c5", DataType::Timestamp(TimeUnit::Millisecond, None), true),
             Field::new("c6", DataType::Time32(TimeUnit::Second), false),
         ]);
 
@@ -539,11 +538,10 @@ sed do eiusmod tempor,-556132.25,1,,2019-04-18T02:45:55.555000000,23:46:03
         ]);
         let c3 = PrimitiveArray::<UInt32Type>::from(vec![3, 2, 1]);
         let c4 = PrimitiveArray::<BooleanType>::from(vec![Some(true), Some(false), None]);
-        let c5 = TimestampMillisecondArray::from(vec![
+        let c5 = TimestampMillisecondArray::from_opt_vec(
+            vec![None, Some(1555584887378), Some(1555555555555)],
             None,
-            Some(1555584887378),
-            Some(1555555555555),
-        ]);
+        );
         let c6 = Time32SecondArray::from(vec![1234, 24680, 85563]);
 
         let batch = RecordBatch::try_new(

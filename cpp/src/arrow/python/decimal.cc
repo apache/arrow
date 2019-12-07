@@ -128,7 +128,7 @@ Status DecimalFromStdString(const std::string& decimal_string,
 
   if (scale != inferred_scale) {
     DCHECK_NE(out, NULLPTR);
-    RETURN_NOT_OK(out->Rescale(inferred_scale, scale, out));
+    ARROW_ASSIGN_OR_RAISE(*out, out->Rescale(inferred_scale, scale));
   }
   return Status::OK();
 }

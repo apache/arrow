@@ -79,8 +79,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
   void BuildReader(int64_t num_rows,
                    Compression::type compression = Compression::UNCOMPRESSED) {
-    std::shared_ptr<Buffer> buffer;
-    ASSERT_OK(sink_->Finish(&buffer));
+    ASSERT_OK_AND_ASSIGN(auto buffer, sink_->Finish());
     auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
     std::unique_ptr<PageReader> page_reader =
         PageReader::Open(std::move(source), num_rows, compression);

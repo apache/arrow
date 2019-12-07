@@ -46,6 +46,7 @@
 #include "arrow/util/compression_bz2.h"
 #endif
 
+#include "arrow/result.h"
 #include "arrow/status.h"
 
 namespace arrow {

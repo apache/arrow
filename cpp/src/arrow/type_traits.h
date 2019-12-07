@@ -324,6 +324,9 @@ struct TypeTraits<MapType> {
   using ArrayType = MapArray;
   using BuilderType = MapBuilder;
   using ScalarType = MapScalar;
+  using OffsetType = Int32Type;
+  using OffsetArrayType = Int32Array;
+  using OffsetBuilderType = Int32Builder;
   constexpr static bool is_parameter_free = false;
 };
 

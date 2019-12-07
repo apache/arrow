@@ -123,16 +123,16 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
         DataType::Time64(TimeUnit::Nanosecond) => {
             Arc::new(Time64NanosecondArray::from(data)) as ArrayRef
         }
-        DataType::Timestamp(TimeUnit::Second) => {
+        DataType::Timestamp(TimeUnit::Second, _) => {
             Arc::new(TimestampSecondArray::from(data)) as ArrayRef
         }
-        DataType::Timestamp(TimeUnit::Millisecond) => {
+        DataType::Timestamp(TimeUnit::Millisecond, _) => {
             Arc::new(TimestampMillisecondArray::from(data)) as ArrayRef
         }
-        DataType::Timestamp(TimeUnit::Microsecond) => {
+        DataType::Timestamp(TimeUnit::Microsecond, _) => {
             Arc::new(TimestampMicrosecondArray::from(data)) as ArrayRef
         }
-        DataType::Timestamp(TimeUnit::Nanosecond) => {
+        DataType::Timestamp(TimeUnit::Nanosecond, _) => {
             Arc::new(TimestampNanosecondArray::from(data)) as ArrayRef
         }
         DataType::Binary => Arc::new(BinaryArray::from(data)) as ArrayRef,
@@ -332,7 +332,7 @@ where
                 (v % MILLISECONDS * MICROSECONDS) as u32,
             )),
             DataType::Time32(_) | DataType::Time64(_) => None,
-            DataType::Timestamp(unit) => match unit {
+            DataType::Timestamp(unit, _) => match unit {
                 TimeUnit::Second => Some(NaiveDateTime::from_timestamp(v, 0)),
                 TimeUnit::Millisecond => Some(NaiveDateTime::from_timestamp(
                     // extract seconds from milliseconds
@@ -416,7 +416,7 @@ where
                     _ => None,
                 }
             }
-            DataType::Timestamp(_) => match self.value_as_datetime(i) {
+            DataType::Timestamp(_, _) => match self.value_as_datetime(i) {
                 Some(datetime) => Some(datetime.time()),
                 None => None,
             },
@@ -468,7 +468,7 @@ where
                     None => write!(f, "null"),
                 }
             }
-            DataType::Timestamp(_) => match array.value_as_datetime(index) {
+            DataType::Timestamp(_, _) => match array.value_as_datetime(index) {
                 Some(datetime) => write!(f, "{:?}", datetime),
                 None => write!(f, "null"),
             },
@@ -581,28 +581,7 @@ def_numeric_from_vec!(UInt32Type, u32, DataType::UInt32);
 def_numeric_from_vec!(UInt64Type, u64, DataType::UInt64);
 def_numeric_from_vec!(Float32Type, f32, DataType::Float32);
 def_numeric_from_vec!(Float64Type, f64, DataType::Float64);
-// TODO: add temporal arrays
 
-def_numeric_from_vec!(
-    TimestampSecondType,
-    i64,
-    DataType::Timestamp(TimeUnit::Second)
-);
-def_numeric_from_vec!(
-    TimestampMillisecondType,
-    i64,
-    DataType::Timestamp(TimeUnit::Millisecond)
-);
-def_numeric_from_vec!(
-    TimestampMicrosecondType,
-    i64,
-    DataType::Timestamp(TimeUnit::Microsecond)
-);
-def_numeric_from_vec!(
-    TimestampNanosecondType,
-    i64,
-    DataType::Timestamp(TimeUnit::Nanosecond)
-);
 def_numeric_from_vec!(Date32Type, i32, DataType::Date32(DateUnit::Day));
 def_numeric_from_vec!(Date64Type, i64, DataType::Date64(DateUnit::Millisecond));
 def_numeric_from_vec!(Time32SecondType, i32, DataType::Time32(TimeUnit::Second));
@@ -621,6 +600,52 @@ def_numeric_from_vec!(
     i64,
     DataType::Time64(TimeUnit::Nanosecond)
 );
+
+impl<T: ArrowTimestampType> PrimitiveArray<T> {
+    /// Construct a timestamp array from a vec of i64 values and an optional timezone
+    pub fn from_vec(data: Vec<i64>, timezone: Option<Arc<String>>) -> Self {
+        let array_data =
+            ArrayData::builder(DataType::Timestamp(T::get_time_unit(), timezone))
+                .len(data.len())
+                .add_buffer(Buffer::from(data.to_byte_slice()))
+                .build();
+        PrimitiveArray::from(array_data)
+    }
+}
+
+impl<T: ArrowTimestampType> PrimitiveArray<T> {
+    /// Construct a timestamp array from a vec of Option<i64> values and an optional timezone
+    pub fn from_opt_vec(data: Vec<Option<i64>>, timezone: Option<Arc<String>>) -> Self {
+        // TODO: duplicated from def_numeric_from_vec! macro, it looks possible to convert to generic
+        let data_len = data.len();
+        let num_bytes = bit_util::ceil(data_len, 8);
+        let mut null_buf = MutableBuffer::new(num_bytes).with_bitset(num_bytes, false);
+        let mut val_buf = MutableBuffer::new(data_len * mem::size_of::<i64>());
+
+        {
+            let null = vec![0; mem::size_of::<i64>()];
+            let null_slice = null_buf.data_mut();
+            for (i, v) in data.iter().enumerate() {
+                if let Some(n) = v {
+                    bit_util::set_bit(null_slice, i);
+                    // unwrap() in the following should be safe here since we've
+                    // made sure enough space is allocated for the values.
+                    val_buf.write(&n.to_byte_slice()).unwrap();
+                } else {
+                    val_buf.write(&null).unwrap();
+                }
+            }
+        }
+
+        let array_data =
+            ArrayData::builder(DataType::Timestamp(T::get_time_unit(), timezone))
+                .len(data_len)
+                .add_buffer(val_buf.freeze())
+                .null_bit_buffer(null_buf.freeze())
+                .build();
+        PrimitiveArray::from(array_data)
+    }
+}
 
 /// Constructs a boolean array from a vector. Should only be used for testing.
 impl From<Vec<bool>> for BooleanArray {
@@ -1785,9 +1810,9 @@ mod tests {
     #[test]
     fn test_timestamp_fmt_debug() {
         let arr: PrimitiveArray<TimestampMillisecondType> =
-            vec![1546214400000, 1546214400000].into();
+            TimestampMillisecondArray::from_vec(vec![1546214400000, 1546214400000], None);
         assert_eq!(
-            "PrimitiveArray<Timestamp(Millisecond)>\n[\n  2018-12-31T00:00:00,\n  2018-12-31T00:00:00,\n]",
+            "PrimitiveArray<Timestamp(Millisecond, None)>\n[\n  2018-12-31T00:00:00,\n  2018-12-31T00:00:00,\n]",
             format!("{:?}", arr)
         );
     }

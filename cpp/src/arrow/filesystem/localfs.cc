@@ -312,13 +312,9 @@ template <typename InputStreamType>
 Result<std::shared_ptr<InputStreamType>> OpenInputStreamGeneric(
     const std::string& path, const LocalFileSystemOptions& options) {
   if (options.use_mmap) {
-    std::shared_ptr<io::MemoryMappedFile> file;
-    RETURN_NOT_OK(io::MemoryMappedFile::Open(path, io::FileMode::READ, &file));
-    return file;
+    return io::MemoryMappedFile::Open(path, io::FileMode::READ);
   } else {
-    std::shared_ptr<io::ReadableFile> file;
-    RETURN_NOT_OK(io::ReadableFile::Open(path, &file));
-    return file;
+    return io::ReadableFile::Open(path);
   }
 }
 
@@ -344,13 +340,11 @@ Result<std::shared_ptr<io::OutputStream>> OpenOutputStreamGeneric(const std::str
   ARROW_ASSIGN_OR_RAISE(auto fn, PlatformFilename::FromString(path));
   ARROW_ASSIGN_OR_RAISE(
       fd, ::arrow::internal::FileOpenWritable(fn, write_only, truncate, append));
-  std::shared_ptr<io::OutputStream> stream;
-  Status st = io::FileOutputStream::Open(fd, &stream);
-  if (!st.ok()) {
+  auto maybe_stream = io::FileOutputStream::Open(fd);
+  if (!maybe_stream.ok()) {
     ARROW_UNUSED(::arrow::internal::FileClose(fd));
-    return st;
   }
-  return stream;
+  return maybe_stream;
 }
 
 }  // namespace

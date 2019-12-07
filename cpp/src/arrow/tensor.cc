@@ -17,6 +17,7 @@
 
 #include "arrow/tensor.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -72,6 +73,91 @@ static void ComputeColumnMajorStrides(const FixedWidthType& type,
   }
 }
 
+namespace {
+
+inline bool IsTensorStridesRowMajor(const std::shared_ptr<DataType>& type,
+                                    const std::vector<int64_t>& shape,
+                                    const std::vector<int64_t>& strides) {
+  std::vector<int64_t> c_strides;
+  const auto& fw_type = checked_cast<const FixedWidthType&>(*type);
+  ComputeRowMajorStrides(fw_type, shape, &c_strides);
+  return strides == c_strides;
+}
+
+inline bool IsTensorStridesColumnMajor(const std::shared_ptr<DataType>& type,
+                                       const std::vector<int64_t>& shape,
+                                       const std::vector<int64_t>& strides) {
+  std::vector<int64_t> f_strides;
+  const auto& fw_type = checked_cast<const FixedWidthType&>(*type);
+  ComputeColumnMajorStrides(fw_type, shape, &f_strides);
+  return strides == f_strides;
+}
+
+inline Status CheckTensorValidity(const std::shared_ptr<DataType>& type,
+                                  const std::shared_ptr<Buffer>& data,
+                                  const std::vector<int64_t>& shape) {
+  if (!type) {
+    return Status::Invalid("Null type is supplied");
+  }
+  if (!is_tensor_supported(type->id())) {
+    return Status::Invalid(type->ToString(), " is not valid data type for a tensor");
+  }
+  if (!data) {
+    return Status::Invalid("Null data is supplied");
+  }
+  if (!std::all_of(shape.begin(), shape.end(), [](int64_t x) { return x > 0; })) {
+    return Status::Invalid("Shape elements must be positive");
+  }
+  return Status::OK();
+}
+
+Status CheckTensorStridesValidity(const std::shared_ptr<Buffer>& data,
+                                  const std::vector<int64_t>& shape,
+                                  const std::vector<int64_t>& strides) {
+  if (strides.size() != shape.size()) {
+    return Status::Invalid("strides must have the same length as shape");
+  }
+
+  std::vector<int64_t> last_index(shape);
+  const int64_t n = static_cast<int64_t>(shape.size());
+  for (int64_t i = 0; i < n; ++i) {
+    --last_index[i];
+  }
+  int64_t last_offset = Tensor::CalculateValueOffset(strides, last_index);
+  if (last_offset >= data->size()) {
+    return Status::Invalid("strides must not involve buffer over run");
+  }
+  return Status::OK();
+}
+
+}  // namespace
+
+namespace internal {
+
+bool IsTensorStridesContiguous(const std::shared_ptr<DataType>& type,
+                               const std::vector<int64_t>& shape,
+                               const std::vector<int64_t>& strides) {
+  return IsTensorStridesRowMajor(type, shape, strides) ||
+         IsTensorStridesColumnMajor(type, shape, strides);
+}
+
+Status ValidateTensorParameters(const std::shared_ptr<DataType>& type,
+                                const std::shared_ptr<Buffer>& data,
+                                const std::vector<int64_t>& shape,
+                                const std::vector<int64_t>& strides,
+                                const std::vector<std::string>& dim_names) {
+  RETURN_NOT_OK(CheckTensorValidity(type, data, shape));
+  if (!strides.empty()) {
+    RETURN_NOT_OK(CheckTensorStridesValidity(data, shape, strides));
+  }
+  if (dim_names.size() > shape.size()) {
+    return Status::Invalid("too many dim_names are supplied");
+  }
+  return Status::OK();
+}
+
+}  // namespace internal
+
 /// Constructor with strides and dimension names
 Tensor::Tensor(const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data,
                const std::vector<int64_t>& shape, const std::vector<int64_t>& strides,
@@ -105,20 +191,16 @@ int64_t Tensor::size() const {
   return std::accumulate(shape_.begin(), shape_.end(), 1LL, std::multiplies<int64_t>());
 }
 
-bool Tensor::is_contiguous() const { return is_row_major() || is_column_major(); }
+bool Tensor::is_contiguous() const {
+  return internal::IsTensorStridesContiguous(type_, shape_, strides_);
+}
 
 bool Tensor::is_row_major() const {
-  std::vector<int64_t> c_strides;
-  const auto& fw_type = checked_cast<const FixedWidthType&>(*type_);
-  ComputeRowMajorStrides(fw_type, shape_, &c_strides);
-  return strides_ == c_strides;
+  return IsTensorStridesRowMajor(type_, shape_, strides_);
 }
 
 bool Tensor::is_column_major() const {
-  std::vector<int64_t> f_strides;
-  const auto& fw_type = checked_cast<const FixedWidthType&>(*type_);
-  ComputeColumnMajorStrides(fw_type, shape_, &f_strides);
-  return strides_ == f_strides;
+  return IsTensorStridesColumnMajor(type_, shape_, strides_);
 }
 
 Type::type Tensor::type_id() const { return type_->id(); }

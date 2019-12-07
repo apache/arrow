@@ -24,6 +24,9 @@
 
 namespace parquet {
 
+using ::arrow::Result;
+using ::arrow::Status;
+
 ParquetInputWrapper::ParquetInputWrapper(std::unique_ptr<RandomAccessSource> source)
     : ParquetInputWrapper(source.get()) {
   owned_source_ = std::move(source);
@@ -42,44 +45,37 @@ ParquetInputWrapper::~ParquetInputWrapper() {
   }
 }
 
-::arrow::Status ParquetInputWrapper::Close() {
+Status ParquetInputWrapper::Close() {
   PARQUET_CATCH_NOT_OK(source_->Close());
   closed_ = true;
-  return ::arrow::Status::OK();
+  return Status::OK();
 }
 
-::arrow::Status ParquetInputWrapper::Tell(int64_t* position) const {
-  PARQUET_CATCH_NOT_OK(*position = source_->Tell());
-  return ::arrow::Status::OK();
+Result<int64_t> ParquetInputWrapper::Tell() const {
+  PARQUET_CATCH_AND_RETURN(source_->Tell());
 }
 
 bool ParquetInputWrapper::closed() const { return closed_; }
 
-::arrow::Status ParquetInputWrapper::Seek(int64_t position) {
-  return ::arrow::Status::NotImplemented("Seek");
+Status ParquetInputWrapper::Seek(int64_t position) {
+  return Status::NotImplemented("Seek");
 }
 
-::arrow::Status ParquetInputWrapper::Read(int64_t nbytes, int64_t* bytes_read,
-                                          void* out) {
-  PARQUET_CATCH_NOT_OK(*bytes_read =
-                           source_->Read(nbytes, reinterpret_cast<uint8_t*>(out)));
-  return ::arrow::Status::OK();
+Result<int64_t> ParquetInputWrapper::Read(int64_t nbytes, void* out) {
+  PARQUET_CATCH_AND_RETURN(source_->Read(nbytes, reinterpret_cast<uint8_t*>(out)));
 }
 
-::arrow::Status ParquetInputWrapper::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
-  PARQUET_CATCH_NOT_OK(*out = source_->Read(nbytes));
-  return ::arrow::Status::OK();
+Result<std::shared_ptr<Buffer>> ParquetInputWrapper::Read(int64_t nbytes) {
+  PARQUET_CATCH_AND_RETURN(source_->Read(nbytes));
 }
 
-::arrow::Status ParquetInputWrapper::ReadAt(int64_t position, int64_t nbytes,
-                                            std::shared_ptr<Buffer>* out) {
-  PARQUET_CATCH_NOT_OK(*out = source_->ReadAt(position, nbytes));
-  return ::arrow::Status::OK();
+Result<std::shared_ptr<Buffer>> ParquetInputWrapper::ReadAt(int64_t position,
+                                                            int64_t nbytes) {
+  PARQUET_CATCH_AND_RETURN(source_->ReadAt(position, nbytes));
 }
 
-::arrow::Status ParquetInputWrapper::GetSize(int64_t* size) {
-  PARQUET_CATCH_NOT_OK(*size = source_->Size());
-  return ::arrow::Status::OK();
+Result<int64_t> ParquetInputWrapper::GetSize() {
+  PARQUET_CATCH_AND_RETURN(source_->Size());
 }
 
 ParquetOutputWrapper::ParquetOutputWrapper(std::unique_ptr<::parquet::OutputStream> sink)
@@ -106,22 +102,21 @@ ParquetOutputWrapper::~ParquetOutputWrapper() {
   }
 }
 
-::arrow::Status ParquetOutputWrapper::Close() {
+Status ParquetOutputWrapper::Close() {
   PARQUET_CATCH_NOT_OK(sink_->Close());
   closed_ = true;
-  return ::arrow::Status::OK();
+  return Status::OK();
 }
 
-::arrow::Status ParquetOutputWrapper::Tell(int64_t* position) const {
-  PARQUET_CATCH_NOT_OK(*position = sink_->Tell());
-  return ::arrow::Status::OK();
+Result<int64_t> ParquetOutputWrapper::Tell() const {
+  PARQUET_CATCH_AND_RETURN(sink_->Tell());
 }
 
 bool ParquetOutputWrapper::closed() const { return closed_; }
 
-::arrow::Status ParquetOutputWrapper::Write(const void* data, int64_t nbytes) {
+Status ParquetOutputWrapper::Write(const void* data, int64_t nbytes) {
   PARQUET_CATCH_NOT_OK(sink_->Write(reinterpret_cast<const uint8_t*>(data), nbytes));
-  return ::arrow::Status::OK();
+  return Status::OK();
 }
 
 }  // namespace parquet

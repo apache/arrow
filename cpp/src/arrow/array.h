@@ -25,10 +25,9 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/buffer.h"
 #include "arrow/compare.h"
-#include "arrow/result.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
@@ -610,7 +609,8 @@ class ARROW_EXPORT ListArray : public BaseListArray<ListType> {
  protected:
   // This constructor defers SetData to a derived array class
   ListArray() = default;
-  void SetData(const std::shared_ptr<ArrayData>& data);
+  void SetData(const std::shared_ptr<ArrayData>& data,
+               Type::type expected_type_id = Type::LIST);
 };
 
 /// Concrete Array class for large list data (with 64-bit offsets)
@@ -649,7 +649,7 @@ class ARROW_EXPORT LargeListArray : public BaseListArray<LargeListType> {
 
 /// Concrete Array class for map data
 ///
-/// NB: "value" in this context refers to a pair of a key and the correspondint item
+/// NB: "value" in this context refers to a pair of a key and the corresponding item
 class ARROW_EXPORT MapArray : public ListArray {
  public:
   using TypeClass = MapType;
@@ -667,6 +667,25 @@ class ARROW_EXPORT MapArray : public ListArray {
            const std::shared_ptr<Array>& values,
            const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
            int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+
+  /// \brief Construct MapArray from array of offsets and child key, item arrays
+  ///
+  /// This function does the bare minimum of validation of the offsets and
+  /// input types, and will allocate a new offsets array if necessary (i.e. if
+  /// the offsets contain any nulls). If the offsets do not have nulls, they
+  /// are assumed to be well-formed
+  ///
+  /// \param[in] offsets Array containing n + 1 offsets encoding length and
+  /// size. Must be of int32 type
+  /// \param[in] keys Array containing key values
+  /// \param[in] items Array containing item values
+  /// \param[in] pool MemoryPool in case new offsets array needs to be
+  /// allocated because of null values
+  /// \param[out] out Will have length equal to offsets.length() - 1
+  static Status FromArrays(const std::shared_ptr<Array>& offsets,
+                           const std::shared_ptr<Array>& keys,
+                           const std::shared_ptr<Array>& items, MemoryPool* pool,
+                           std::shared_ptr<Array>* out);
 
   const MapType* map_type() const { return map_type_; }
 
@@ -1011,7 +1030,8 @@ class ARROW_EXPORT StructArray : public Array {
 class ARROW_EXPORT UnionArray : public Array {
  public:
   using TypeClass = UnionType;
-  using type_id_t = int8_t;
+
+  using type_code_t = int8_t;
 
   explicit UnionArray(const std::shared_ptr<ArrayData>& data);
 
@@ -1038,7 +1058,7 @@ class ARROW_EXPORT UnionArray : public Array {
   static Status MakeDense(const Array& type_ids, const Array& value_offsets,
                           const std::vector<std::shared_ptr<Array>>& children,
                           const std::vector<std::string>& field_names,
-                          const std::vector<type_id_t>& type_codes,
+                          const std::vector<type_code_t>& type_codes,
                           std::shared_ptr<Array>* out);
 
   /// \brief Construct Dense UnionArray from types_ids, value_offsets and children
@@ -1074,7 +1094,7 @@ class ARROW_EXPORT UnionArray : public Array {
   /// \param[out] out Will have length equal to value_offsets.length()
   static Status MakeDense(const Array& type_ids, const Array& value_offsets,
                           const std::vector<std::shared_ptr<Array>>& children,
-                          const std::vector<type_id_t>& type_codes,
+                          const std::vector<type_code_t>& type_codes,
                           std::shared_ptr<Array>* out) {
     return MakeDense(type_ids, value_offsets, children, {}, type_codes, out);
   }
@@ -1111,7 +1131,7 @@ class ARROW_EXPORT UnionArray : public Array {
   static Status MakeSparse(const Array& type_ids,
                            const std::vector<std::shared_ptr<Array>>& children,
                            const std::vector<std::string>& field_names,
-                           const std::vector<type_id_t>& type_codes,
+                           const std::vector<type_code_t>& type_codes,
                            std::shared_ptr<Array>* out);
 
   /// \brief Construct Sparse UnionArray from type_ids and children
@@ -1141,7 +1161,7 @@ class ARROW_EXPORT UnionArray : public Array {
   /// \param[out] out Will have length equal to type_ids.length()
   static Status MakeSparse(const Array& type_ids,
                            const std::vector<std::shared_ptr<Array>>& children,
-                           const std::vector<type_id_t>& type_codes,
+                           const std::vector<type_code_t>& type_codes,
                            std::shared_ptr<Array>* out) {
     return MakeSparse(type_ids, children, {}, type_codes, out);
   }
@@ -1163,13 +1183,19 @@ class ARROW_EXPORT UnionArray : public Array {
   }
 
   /// Note that this buffer does not account for any slice offset
-  std::shared_ptr<Buffer> type_ids() const { return data_->buffers[1]; }
+  std::shared_ptr<Buffer> type_codes() const { return data_->buffers[1]; }
 
-  const type_id_t* raw_type_ids() const { return raw_type_ids_ + data_->offset; }
+  const type_code_t* raw_type_codes() const { return raw_type_codes_ + data_->offset; }
+
+  ARROW_DEPRECATED("Use UnionArray::type_codes")
+  std::shared_ptr<Buffer> type_ids() const { return type_codes(); }
+
+  ARROW_DEPRECATED("Use UnionArray::raw_type_codes")
+  const type_code_t* raw_type_ids() const { return raw_type_codes(); }
 
   /// The physical child id containing value at index.
   int child_id(int64_t i) const {
-    return union_type_->child_ids()[raw_type_ids_[i + data_->offset]];
+    return union_type_->child_ids()[raw_type_codes_[i + data_->offset]];
   }
 
   /// For dense arrays only.
@@ -1195,7 +1221,7 @@ class ARROW_EXPORT UnionArray : public Array {
  protected:
   void SetData(const std::shared_ptr<ArrayData>& data);
 
-  const type_id_t* raw_type_ids_;
+  const type_code_t* raw_type_codes_;
   const int32_t* raw_value_offsets_;
   const UnionType* union_type_;
 

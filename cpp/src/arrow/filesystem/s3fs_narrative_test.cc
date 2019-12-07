@@ -28,6 +28,8 @@
 #include "arrow/filesystem/s3fs.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/io/interfaces.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/logging.h"
 
@@ -96,7 +98,6 @@ void TestBucket(int argc, char** argv) {
   std::shared_ptr<io::InputStream> is;
   std::shared_ptr<io::RandomAccessFile> file;
   std::shared_ptr<Buffer> buf;
-  int64_t pos;
   Status status;
 
   // Check bucket exists and is empty
@@ -152,25 +153,22 @@ void TestBucket(int argc, char** argv) {
   ASSERT_RAISES_PRINT("OpenInputStream with non-existing file", IOError,
                       fs->OpenInputStream("zzz"));
   ASSERT_OK_AND_ASSIGN(is, fs->OpenInputStream("File1"));
-  ASSERT_OK(is->Read(5, &buf));
+  ASSERT_OK_AND_ASSIGN(buf, is->Read(5));
   AssertBufferEqual(*buf, "first");
-  ASSERT_OK(is->Read(10, &buf));
+  ASSERT_OK_AND_ASSIGN(buf, is->Read(10));
   AssertBufferEqual(*buf, " data");
-  ASSERT_OK(is->Read(10, &buf));
+  ASSERT_OK_AND_ASSIGN(buf, is->Read(10));
   AssertBufferEqual(*buf, "");
   ASSERT_OK(is->Close());
 
   ASSERT_OK_AND_ASSIGN(file, fs->OpenInputFile("Dir1/File2"));
-  ASSERT_OK(file->Tell(&pos));
-  ASSERT_EQ(pos, 0);
+  ASSERT_OK_AND_EQ(0, file->Tell());
   ASSERT_OK(file->Seek(7));
-  ASSERT_OK(file->Tell(&pos));
-  ASSERT_EQ(pos, 7);
-  ASSERT_OK(file->Read(2, &buf));
+  ASSERT_OK_AND_EQ(7, file->Tell());
+  ASSERT_OK_AND_ASSIGN(buf, file->Read(2));
   AssertBufferEqual(*buf, "da");
-  ASSERT_OK(file->Tell(&pos));
-  ASSERT_EQ(pos, 9);
-  ASSERT_OK(file->ReadAt(2, 4, &buf));
+  ASSERT_OK_AND_EQ(9, file->Tell());
+  ASSERT_OK_AND_ASSIGN(buf, file->ReadAt(2, 4));
   AssertBufferEqual(*buf, "cond");
   ASSERT_OK(file->Close());
 

@@ -204,8 +204,7 @@ class SerializedPageWriter : public PageWriter {
     page_header.__set_dictionary_page_header(dict_page_header);
     // TODO(PARQUET-594) crc checksum
 
-    int64_t start_pos = -1;
-    PARQUET_THROW_NOT_OK(sink_->Tell(&start_pos));
+    PARQUET_ASSIGN_OR_THROW(int64_t start_pos, sink_->Tell());
     if (dictionary_page_offset_ == 0) {
       dictionary_page_offset_ = start_pos;
     }
@@ -221,8 +220,7 @@ class SerializedPageWriter : public PageWriter {
     total_uncompressed_size_ += uncompressed_size + header_size;
     total_compressed_size_ += output_data_len + header_size;
 
-    int64_t final_pos = -1;
-    PARQUET_THROW_NOT_OK(sink_->Tell(&final_pos));
+    PARQUET_ASSIGN_OR_THROW(int64_t final_pos, sink_->Tell());
     return final_pos - start_pos;
   }
 
@@ -290,8 +288,7 @@ class SerializedPageWriter : public PageWriter {
     page_header.__set_data_page_header(data_page_header);
     // TODO(PARQUET-594) crc checksum
 
-    int64_t start_pos = -1;
-    PARQUET_THROW_NOT_OK(sink_->Tell(&start_pos));
+    PARQUET_ASSIGN_OR_THROW(int64_t start_pos, sink_->Tell());
     if (data_page_offset_ == 0) {
       data_page_offset_ = start_pos;
     }
@@ -308,8 +305,7 @@ class SerializedPageWriter : public PageWriter {
     num_values_ += page.num_values();
 
     ++page_ordinal_;
-    int64_t current_pos = -1;
-    PARQUET_THROW_NOT_OK(sink_->Tell(&current_pos));
+    PARQUET_ASSIGN_OR_THROW(int64_t current_pos, sink_->Tell());
     return current_pos - start_pos;
   }
 
@@ -326,6 +322,9 @@ class SerializedPageWriter : public PageWriter {
   int64_t total_uncompressed_size() { return total_uncompressed_size_; }
 
  private:
+  // To allow UpdateEncryption on Close
+  friend class BufferedPageWriter;
+
   void InitEncryption() {
     // Prepare the AAD for quick update later.
     if (data_encryptor_ != nullptr) {
@@ -424,23 +423,24 @@ class BufferedPageWriter : public PageWriter {
   }
 
   void Close(bool has_dictionary, bool fallback) override {
+    if (pager_->meta_encryptor_ != nullptr) {
+      pager_->UpdateEncryption(encryption::kColumnMetaData);
+    }
     // index_page_offset = -1 since they are not supported
-    int64_t final_position = -1;
-    PARQUET_THROW_NOT_OK(final_sink_->Tell(&final_position));
+    PARQUET_ASSIGN_OR_THROW(int64_t final_position, final_sink_->Tell());
     // dictionary page offset should be 0 iff there are no dictionary pages
     auto dictionary_page_offset =
         has_dictionary_pages_ ? pager_->dictionary_page_offset() + final_position : 0;
     metadata_->Finish(pager_->num_values(), dictionary_page_offset, -1,
                       pager_->data_page_offset() + final_position,
                       pager_->total_compressed_size(), pager_->total_uncompressed_size(),
-                      has_dictionary, fallback);
+                      has_dictionary, fallback, pager_->meta_encryptor_);
 
     // Write metadata at end of column chunk
     metadata_->WriteTo(in_memory_sink_.get());
 
     // flush everything to the serialized sink
-    std::shared_ptr<Buffer> buffer;
-    PARQUET_THROW_NOT_OK(in_memory_sink_->Finish(&buffer));
+    PARQUET_ASSIGN_OR_THROW(auto buffer, in_memory_sink_->Finish());
     PARQUET_THROW_NOT_OK(final_sink_->Write(buffer));
   }
 

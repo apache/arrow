@@ -34,10 +34,9 @@ namespace ipc {
 
 // Reads a file on the file system and prints to stdout the stream version of it.
 Status ConvertToStream(const char* path) {
-  std::shared_ptr<io::ReadableFile> in_file;
   std::shared_ptr<RecordBatchFileReader> reader;
 
-  RETURN_NOT_OK(io::ReadableFile::Open(path, &in_file));
+  ARROW_ASSIGN_OR_RAISE(auto in_file, io::ReadableFile::Open(path));
   RETURN_NOT_OK(ipc::RecordBatchFileReader::Open(in_file.get(), &reader));
 
   io::StdoutStream sink;

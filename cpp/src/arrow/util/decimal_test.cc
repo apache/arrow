@@ -96,7 +96,7 @@ TEST(DecimalTest, TestFromStringDecimal128) {
 TEST(DecimalTest, TestFromDecimalString128) {
   std::string string_value("-23049223942343.532412");
   Decimal128 result;
-  ASSERT_OK(Decimal128::FromString(string_value, &result));
+  ASSERT_OK_AND_ASSIGN(result, Decimal128::FromString(string_value));
   Decimal128 expected(static_cast<int64_t>(-230492239423435324));
   ASSERT_EQ(result, expected * 100 - 12);
 
@@ -115,7 +115,7 @@ TEST(DecimalTest, TestDecimal32SignedRoundTrip) {
 TEST(DecimalTest, TestDecimal64SignedRoundTrip) {
   Decimal128 expected;
   std::string string_value("-34034293045.921");
-  ASSERT_OK(Decimal128::FromString(string_value, &expected));
+  ASSERT_OK_AND_ASSIGN(expected, Decimal128::FromString(string_value));
 
   auto bytes = expected.ToBytes();
   Decimal128 result(bytes.data());
@@ -126,7 +126,7 @@ TEST(DecimalTest, TestDecimal64SignedRoundTrip) {
 TEST(DecimalTest, TestDecimalStringAndBytesRoundTrip) {
   Decimal128 expected;
   std::string string_value("-340282366920938463463374607431.711455");
-  ASSERT_OK(Decimal128::FromString(string_value, &expected));
+  ASSERT_OK_AND_ASSIGN(expected, Decimal128::FromString(string_value));
 
   std::string expected_string_value("-340282366920938463463374607431711455");
   Decimal128 expected_underlying_value(expected_string_value);
@@ -142,59 +142,42 @@ TEST(DecimalTest, TestDecimalStringAndBytesRoundTrip) {
 
 TEST(DecimalTest, TestInvalidInputMinus) {
   std::string invalid_value("-");
-  Decimal128 out;
-  Status status = Decimal128::FromString(invalid_value, &out);
-  ASSERT_RAISES(Invalid, status);
+  ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
 }
 
 TEST(DecimalTest, TestInvalidInputDot) {
   std::string invalid_value("0.0.0");
-  Decimal128 out;
-  Status status = Decimal128::FromString(invalid_value, &out);
-  ASSERT_RAISES(Invalid, status);
+  ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
 }
 
 TEST(DecimalTest, TestInvalidInputEmbeddedMinus) {
   std::string invalid_value("0-13-32");
-  Decimal128 out;
-  Status status = Decimal128::FromString(invalid_value, &out);
-  ASSERT_RAISES(Invalid, status);
+  ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
 }
 
 TEST(DecimalTest, TestInvalidInputSingleChar) {
   std::string invalid_value("a");
-  Decimal128 out;
-  Status status = Decimal128::FromString(invalid_value, &out);
-  ASSERT_RAISES(Invalid, status);
+  ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
 }
 
 TEST(DecimalTest, TestInvalidInputWithValidSubstring) {
   std::string invalid_value("-23092.235-");
-  Decimal128 out;
-  Status status = Decimal128::FromString(invalid_value, &out);
-  auto msg = status.message();
-  ASSERT_RAISES(Invalid, status);
+  ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
 }
 
 TEST(DecimalTest, TestInvalidInputWithMinusPlus) {
   std::string invalid_value("-+23092.235");
-  Decimal128 out;
-  Status status = Decimal128::FromString(invalid_value, &out);
-  ASSERT_RAISES(Invalid, status);
+  ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
 }
 
 TEST(DecimalTest, TestInvalidInputWithPlusMinus) {
   std::string invalid_value("+-23092.235");
-  Decimal128 out;
-  Status status = Decimal128::FromString(invalid_value, &out);
-  ASSERT_RAISES(Invalid, status);
+  ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
 }
 
 TEST(DecimalTest, TestInvalidInputWithLeadingZeros) {
   std::string invalid_value("00a");
-  Decimal128 out;
-  Status status = Decimal128::FromString(invalid_value, &out);
-  ASSERT_RAISES(Invalid, status);
+  ASSERT_RAISES(Invalid, Decimal128::FromString(invalid_value));
 }
 
 TEST(DecimalZerosTest, LeadingZerosNoDecimalPoint) {
@@ -329,7 +312,7 @@ TEST_P(Decimal128ParsingTest, Parse) {
   std::tie(test_string, expected_low_bits, expected_scale) = GetParam();
   Decimal128 value;
   int32_t scale;
-  ASSERT_OK(Decimal128::FromString(test_string, &value, NULLPTR, &scale));
+  ASSERT_OK(Decimal128::FromString(test_string, &value, nullptr, &scale));
   ASSERT_EQ(value.low_bits(), expected_low_bits);
   ASSERT_EQ(expected_scale, scale);
 }
@@ -354,8 +337,7 @@ class Decimal128ParsingTestInvalid : public ::testing::TestWithParam<std::string
 
 TEST_P(Decimal128ParsingTestInvalid, Parse) {
   std::string test_string = GetParam();
-  Decimal128 value;
-  ASSERT_RAISES(Invalid, Decimal128::FromString(test_string, &value));
+  ASSERT_RAISES(Invalid, Decimal128::FromString(test_string));
 }
 
 INSTANTIATE_TEST_CASE_P(Decimal128ParsingTestInvalid, Decimal128ParsingTestInvalid,
@@ -363,11 +345,8 @@ INSTANTIATE_TEST_CASE_P(Decimal128ParsingTestInvalid, Decimal128ParsingTestInval
                                           "-1.23E--5", "1.2345E+++07"));
 
 TEST(Decimal128ParseTest, WithExponentAndNullptrScale) {
-  Decimal128 value;
-  ASSERT_OK(Decimal128::FromString("1.23E-8", &value));
-
   const Decimal128 expected_value(123);
-  ASSERT_EQ(expected_value, value);
+  ASSERT_OK_AND_EQ(expected_value, Decimal128::FromString("1.23E-8"));
 }
 
 TEST(Decimal128Test, TestSmallNumberFormat) {
@@ -410,28 +389,26 @@ TEST(Decimal128Test, TestFromBigEndian) {
     for (int ii = 0; ii < 16; ++ii) {
       auto little_endian = value.ToBytes();
       std::reverse(little_endian.begin(), little_endian.end());
-      Decimal128 out;
       // Limit the number of bytes we are passing to make
       // sure that it works correctly. That's why all of the
       // 'start' values don't have a 1 in the most significant
       // bit place
-      ASSERT_OK(Decimal128::FromBigEndian(little_endian.data() + 15 - ii, ii + 1, &out));
-      ASSERT_EQ(value, out);
+      ASSERT_OK_AND_EQ(value,
+                       Decimal128::FromBigEndian(little_endian.data() + 15 - ii, ii + 1));
 
       // Negate it and convert to big endian
       auto negated = -value;
       little_endian = negated.ToBytes();
       std::reverse(little_endian.begin(), little_endian.end());
       // The sign bit is looked up in the MSB
-      ASSERT_OK(Decimal128::FromBigEndian(little_endian.data() + 15 - ii, ii + 1, &out));
-      ASSERT_EQ(negated, out);
+      ASSERT_OK_AND_EQ(negated,
+                       Decimal128::FromBigEndian(little_endian.data() + 15 - ii, ii + 1));
 
       // Take the complement and convert to big endian
       auto complement = ~value;
       little_endian = complement.ToBytes();
       std::reverse(little_endian.begin(), little_endian.end());
-      ASSERT_OK(Decimal128::FromBigEndian(little_endian.data(), 16, &out));
-      ASSERT_EQ(complement, out);
+      ASSERT_OK_AND_EQ(complement, Decimal128::FromBigEndian(little_endian.data(), 16));
 
       value <<= 8;
       value += Decimal128(start);
@@ -440,9 +417,8 @@ TEST(Decimal128Test, TestFromBigEndian) {
 }
 
 TEST(Decimal128Test, TestFromBigEndianBadLength) {
-  Decimal128 out;
-  ASSERT_RAISES(Invalid, Decimal128::FromBigEndian(0, -1, &out));
-  ASSERT_RAISES(Invalid, Decimal128::FromBigEndian(0, 17, &out));
+  ASSERT_RAISES(Invalid, Decimal128::FromBigEndian(0, -1));
+  ASSERT_RAISES(Invalid, Decimal128::FromBigEndian(0, 17));
 }
 
 TEST(Decimal128Test, TestToInteger) {

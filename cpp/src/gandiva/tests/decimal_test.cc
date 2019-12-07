@@ -52,15 +52,13 @@ std::vector<Decimal128> TestDecimal::MakeDecimalVector(std::vector<std::string> 
     int32_t str_precision;
     int32_t str_scale;
 
-    auto status = Decimal128::FromString(str, &str_value, &str_precision, &str_scale);
-    DCHECK_OK(status);
+    DCHECK_OK(Decimal128::FromString(str, &str_value, &str_precision, &str_scale));
 
     Decimal128 scaled_value;
     if (str_scale == scale) {
       scaled_value = str_value;
     } else {
-      status = str_value.Rescale(str_scale, scale, &scaled_value);
-      DCHECK_OK(status);
+      scaled_value = str_value.Rescale(str_scale, scale).ValueOrDie();
     }
     ret.push_back(scaled_value);
   }

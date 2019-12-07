@@ -182,7 +182,7 @@ TEST(PyBuffer, InvalidInputObject) {
   PyObject* input = Py_None;
   auto old_refcnt = Py_REFCNT(input);
   {
-    Status st = PyBuffer::FromPyObject(input, &res);
+    Status st = PyBuffer::FromPyObject(input).status();
     ASSERT_TRUE(IsPyError(st)) << st.ToString();
     ASSERT_FALSE(PyErr_Occurred());
   }

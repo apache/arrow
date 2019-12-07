@@ -334,26 +334,26 @@ struct ValidateArrayDataVisitor {
   }
 
   Status Visit(const UnionArray& array) {
-    const auto& type_codes = array.union_type()->type_codes();
     const auto& child_ids = array.union_type()->child_ids();
 
-    const int8_t* type_ids = array.raw_type_ids();
+    const int8_t* type_codes = array.raw_type_codes();
     for (int64_t i = 0; i < array.length(); ++i) {
       if (array.IsNull(i)) {
         continue;
       }
-      const int32_t id = type_ids[i];
-      if (id < 0 || child_ids[id] == UnionType::kInvalidChildId) {
+      const int32_t code = type_codes[i];
+      if (code < 0 || child_ids[code] == UnionType::kInvalidChildId) {
         return Status::Invalid("Union value at position ", i, " has invalid type id ",
-                               id);
+                               code);
       }
     }
 
     if (array.mode() == UnionMode::DENSE) {
       // Map logical type id to child length
       std::vector<int64_t> child_lengths(256);
-      for (int child_id = 0; child_id < static_cast<int>(type_codes.size()); ++child_id) {
-        child_lengths[type_codes[child_id]] = array.child(child_id)->length();
+      const auto& type_codes_map = array.union_type()->type_codes();
+      for (int child_id = 0; child_id < array.type()->num_children(); ++child_id) {
+        child_lengths[type_codes_map[child_id]] = array.child(child_id)->length();
       }
 
       // Check offsets
@@ -362,17 +362,17 @@ struct ValidateArrayDataVisitor {
         if (array.IsNull(i)) {
           continue;
         }
-        const int32_t id = type_ids[i];
+        const int32_t code = type_codes[i];
         const int32_t offset = offsets[i];
         if (offset < 0) {
           return Status::Invalid("Union value at position ", i, " has negative offset ",
                                  offset);
         }
-        if (offset >= child_lengths[id]) {
+        if (offset >= child_lengths[code]) {
           return Status::Invalid("Union value at position ", i,
                                  " has offset larger "
                                  "than child length (",
-                                 offset, " >= ", child_lengths[id], ")");
+                                 offset, " >= ", child_lengths[code], ")");
         }
       }
     }

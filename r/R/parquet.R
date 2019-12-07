@@ -94,7 +94,7 @@ read_parquet <- function(file,
 #' The `compression` argument can be any of the following (case insensitive):
 #' "uncompressed", "snappy", "gzip", "brotli", "zstd", "lz4", "lzo" or "bz2".
 #' Only "uncompressed" is guaranteed to be available, but "snappy" and "gzip"
-#' are almost always included.
+#' are almost always included. See [codec_is_available()].
 #' The default "snappy" is used if available, otherwise "uncompressed". To
 #' disable compression, set `compression = "uncompressed"`.
 #' Note that "uncompressed" columns may still have dictionary encoding.
@@ -379,7 +379,7 @@ ParquetWriterProperties$create <- function(table, version = NULL, compression = 
 #' - `schema` A [Schema]
 #' - `sink` An [arrow::io::OutputStream][OutputStream] or a string which is interpreted as a file path
 #' - `properties` An instance of [ParquetWriterProperties]
-#' - `arrow_properties` An instance of [ParquetArrowWriterProperties]
+#' - `arrow_properties` An instance of `ParquetArrowWriterProperties`
 #' @export
 #' @include arrow-package.R
 ParquetFileWriter <- R6Class("ParquetFileWriter", inherit = Object,

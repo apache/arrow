@@ -24,8 +24,7 @@
 #include <memory>
 #include <string>
 
-#include "arrow/result.h"
-#include "arrow/status.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"

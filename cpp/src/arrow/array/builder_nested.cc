@@ -44,8 +44,12 @@ MapBuilder::MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& ke
   auto map_type = internal::checked_cast<const MapType*>(type.get());
   keys_sorted_ = map_type->keys_sorted();
 
-  list_builder_ = std::make_shared<ListBuilder>(
-      pool, key_builder, list(field("key", key_builder->type(), false)));
+  std::vector<std::shared_ptr<ArrayBuilder>> child_builders{key_builder, item_builder};
+  auto struct_builder =
+      std::make_shared<StructBuilder>(map_type->value_type(), pool, child_builders);
+
+  list_builder_ =
+      std::make_shared<ListBuilder>(pool, struct_builder, struct_builder->type());
 }
 
 MapBuilder::MapBuilder(MemoryPool* pool, const std::shared_ptr<ArrayBuilder>& key_builder,
@@ -62,24 +66,15 @@ Status MapBuilder::Resize(int64_t capacity) {
 
 void MapBuilder::Reset() {
   list_builder_->Reset();
-  item_builder_->Reset();
   ArrayBuilder::Reset();
 }
 
 Status MapBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
   ARROW_CHECK_EQ(item_builder_->length(), key_builder_->length())
       << "keys and items builders don't have the same size in MapBuilder";
-  // finish list(keys) builder
+  RETURN_NOT_OK(AdjustStructBuilderLength());
   RETURN_NOT_OK(list_builder_->FinishInternal(out));
-  // finish values builder
-  std::shared_ptr<ArrayData> items_data;
-  RETURN_NOT_OK(item_builder_->FinishInternal(&items_data));
-
-  auto keys_data = (*out)->child_data[0];
   (*out)->type = type();
-  (*out)->child_data[0] =
-      ArrayData::Make((*out)->type->child(0)->type(), keys_data->length, {nullptr},
-                      {keys_data, items_data}, 0, 0);
   ArrayBuilder::Reset();
   return Status::OK();
 }
@@ -87,6 +82,7 @@ Status MapBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 Status MapBuilder::AppendValues(const int32_t* offsets, int64_t length,
                                 const uint8_t* valid_bytes) {
   DCHECK_EQ(item_builder_->length(), key_builder_->length());
+  RETURN_NOT_OK(AdjustStructBuilderLength());
   RETURN_NOT_OK(list_builder_->AppendValues(offsets, length, valid_bytes));
   length_ = list_builder_->length();
   null_count_ = list_builder_->null_count();
@@ -95,6 +91,7 @@ Status MapBuilder::AppendValues(const int32_t* offsets, int64_t length,
 
 Status MapBuilder::Append() {
   DCHECK_EQ(item_builder_->length(), key_builder_->length());
+  RETURN_NOT_OK(AdjustStructBuilderLength());
   RETURN_NOT_OK(list_builder_->Append());
   length_ = list_builder_->length();
   return Status::OK();
@@ -102,6 +99,7 @@ Status MapBuilder::Append() {
 
 Status MapBuilder::AppendNull() {
   DCHECK_EQ(item_builder_->length(), key_builder_->length());
+  RETURN_NOT_OK(AdjustStructBuilderLength());
   RETURN_NOT_OK(list_builder_->AppendNull());
   length_ = list_builder_->length();
   null_count_ = list_builder_->null_count();
@@ -110,9 +108,22 @@ Status MapBuilder::AppendNull() {
 
 Status MapBuilder::AppendNulls(int64_t length) {
   DCHECK_EQ(item_builder_->length(), key_builder_->length());
+  RETURN_NOT_OK(AdjustStructBuilderLength());
   RETURN_NOT_OK(list_builder_->AppendNulls(length));
   length_ = list_builder_->length();
   null_count_ = list_builder_->null_count();
+  return Status::OK();
+}
+
+Status MapBuilder::AdjustStructBuilderLength() {
+  // If key/item builders have been appended, adjust struct builder length
+  // to match. Struct and key are non-nullable, append all valid values.
+  auto struct_builder =
+      internal::checked_cast<StructBuilder*>(list_builder_->value_builder());
+  if (struct_builder->length() < key_builder_->length()) {
+    int64_t length_diff = key_builder_->length() - struct_builder->length();
+    RETURN_NOT_OK(struct_builder->AppendValues(length_diff, NULLPTR));
+  }
   return Status::OK();
 }
 

@@ -23,18 +23,15 @@
 #include <string>
 #include <vector>
 
-#include "arrow/array.h"
 #include "arrow/record_batch.h"
-#include "arrow/result.h"
-#include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
 
-class MemoryPool;
-class Status;
+using ArrayVector = std::vector<std::shared_ptr<Array>>;
 
 /// \class ChunkedArray
 /// \brief A data structure managing a list of primitive Arrow arrays logically

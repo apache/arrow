@@ -877,16 +877,16 @@ impl StructBuilder {
             DataType::Time64(TimeUnit::Nanosecond) => {
                 Box::new(Time64NanosecondBuilder::new(capacity))
             }
-            DataType::Timestamp(TimeUnit::Second) => {
+            DataType::Timestamp(TimeUnit::Second, _) => {
                 Box::new(TimestampSecondBuilder::new(capacity))
             }
-            DataType::Timestamp(TimeUnit::Millisecond) => {
+            DataType::Timestamp(TimeUnit::Millisecond, _) => {
                 Box::new(TimestampMillisecondBuilder::new(capacity))
             }
-            DataType::Timestamp(TimeUnit::Microsecond) => {
+            DataType::Timestamp(TimeUnit::Microsecond, _) => {
                 Box::new(TimestampMicrosecondBuilder::new(capacity))
             }
-            DataType::Timestamp(TimeUnit::Nanosecond) => {
+            DataType::Timestamp(TimeUnit::Nanosecond, _) => {
                 Box::new(TimestampNanosecondBuilder::new(capacity))
             }
             DataType::Struct(fields) => {

@@ -917,7 +917,7 @@ def test_deserialize_components_in_different_process():
     subprocess_env = test_util.get_modified_env_with_pythonpath()
     print("** sys.path =", sys.path)
     print("** setting PYTHONPATH to:", subprocess_env['PYTHONPATH'])
-    subprocess.check_call(["python", "-c", code], env=subprocess_env)
+    subprocess.check_call([sys.executable, "-c", code], env=subprocess_env)
 
 
 def test_serialize_read_concatenated_records():

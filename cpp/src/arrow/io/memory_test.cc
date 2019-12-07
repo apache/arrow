@@ -82,8 +82,7 @@ TEST_F(TestBufferOutputStream, WriteAfterFinish) {
 
   auto buffer_stream = checked_cast<BufferOutputStream*>(stream_.get());
 
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(buffer_stream->Finish(&buffer));
+  ASSERT_OK(buffer_stream->Finish());
 
   ASSERT_RAISES(IOError, stream_->Write(data));
 }
@@ -95,15 +94,13 @@ TEST_F(TestBufferOutputStream, Reset) {
 
   ASSERT_OK(stream->Write(data));
 
-  std::shared_ptr<Buffer> buffer;
-  ASSERT_OK(stream->Finish(&buffer));
+  ASSERT_OK_AND_ASSIGN(auto buffer, stream->Finish());
   ASSERT_EQ(buffer->size(), static_cast<int64_t>(data.size()));
 
   ASSERT_OK(stream->Reset(2048));
   ASSERT_OK(stream->Write(data));
   ASSERT_OK(stream->Write(data));
-  std::shared_ptr<Buffer> buffer2;
-  ASSERT_OK(stream->Finish(&buffer2));
+  ASSERT_OK_AND_ASSIGN(auto buffer2, stream->Finish());
 
   ASSERT_EQ(buffer2->size(), static_cast<int64_t>(data.size() * 2));
 }
@@ -114,24 +111,19 @@ TEST(TestFixedSizeBufferWriter, Basics) {
 
   FixedSizeBufferWriter writer(buffer);
 
-  int64_t position;
-  ASSERT_OK(writer.Tell(&position));
-  ASSERT_EQ(0, position);
+  ASSERT_OK_AND_EQ(0, writer.Tell());
 
   std::string data = "data123456";
   auto nbytes = static_cast<int64_t>(data.size());
   ASSERT_OK(writer.Write(data.c_str(), nbytes));
 
-  ASSERT_OK(writer.Tell(&position));
-  ASSERT_EQ(nbytes, position);
+  ASSERT_OK_AND_EQ(nbytes, writer.Tell());
 
   ASSERT_OK(writer.Seek(4));
-  ASSERT_OK(writer.Tell(&position));
-  ASSERT_EQ(4, position);
+  ASSERT_OK_AND_EQ(4, writer.Tell());
 
   ASSERT_OK(writer.Seek(1024));
-  ASSERT_OK(writer.Tell(&position));
-  ASSERT_EQ(1024, position);
+  ASSERT_OK_AND_EQ(1024, writer.Tell());
 
   // Write out of bounds
   ASSERT_RAISES(IOError, writer.Write(data.c_str(), 1));
@@ -154,11 +146,11 @@ TEST(TestBufferReader, FromStrings) {
   BufferReader reader2(view);
 
   std::shared_ptr<Buffer> piece;
-  ASSERT_OK(reader1.Read(4, &piece));
+  ASSERT_OK_AND_ASSIGN(piece, reader1.Read(4));
   ASSERT_EQ(0, memcmp(piece->data(), data.data(), 4));
 
   ASSERT_OK(reader2.Seek(2));
-  ASSERT_OK(reader2.Read(4, &piece));
+  ASSERT_OK_AND_ASSIGN(piece, reader2.Read(4));
   ASSERT_EQ(0, memcmp(piece->data(), data.data() + 2, 4));
 }
 
@@ -166,21 +158,16 @@ TEST(TestBufferReader, Seeking) {
   std::string data = "data123456";
 
   BufferReader reader(data);
-  int64_t pos;
-  ASSERT_OK(reader.Tell(&pos));
-  ASSERT_EQ(pos, 0);
+  ASSERT_OK_AND_EQ(0, reader.Tell());
 
   ASSERT_OK(reader.Seek(9));
-  ASSERT_OK(reader.Tell(&pos));
-  ASSERT_EQ(pos, 9);
+  ASSERT_OK_AND_EQ(9, reader.Tell());
 
   ASSERT_OK(reader.Seek(10));
-  ASSERT_OK(reader.Tell(&pos));
-  ASSERT_EQ(pos, 10);
+  ASSERT_OK_AND_EQ(10, reader.Tell());
 
   ASSERT_RAISES(IOError, reader.Seek(11));
-  ASSERT_OK(reader.Tell(&pos));
-  ASSERT_EQ(pos, 10);
+  ASSERT_OK_AND_EQ(10, reader.Tell());
 }
 
 TEST(TestBufferReader, Peek) {
@@ -190,12 +177,12 @@ TEST(TestBufferReader, Peek) {
 
   util::string_view view;
 
-  ASSERT_OK(reader.Peek(4, &view));
+  ASSERT_OK_AND_ASSIGN(view, reader.Peek(4));
 
   ASSERT_EQ(4, view.size());
   ASSERT_EQ(data.substr(0, 4), view.to_string());
 
-  ASSERT_OK(reader.Peek(20, &view));
+  ASSERT_OK_AND_ASSIGN(view, reader.Peek(20));
   ASSERT_EQ(data.size(), view.size());
   ASSERT_EQ(data, view.to_string());
 }
@@ -211,8 +198,8 @@ TEST(TestBufferReader, RetainParentReference) {
     ASSERT_OK(AllocateBuffer(nullptr, static_cast<int64_t>(data.size()), &buffer));
     std::memcpy(buffer->mutable_data(), data.c_str(), data.size());
     BufferReader reader(buffer);
-    ASSERT_OK(reader.Read(4, &slice1));
-    ASSERT_OK(reader.Read(6, &slice2));
+    ASSERT_OK_AND_ASSIGN(slice1, reader.Read(4));
+    ASSERT_OK_AND_ASSIGN(slice2, reader.Read(6));
   }
 
   ASSERT_TRUE(slice1->parent() != nullptr);
@@ -232,49 +219,37 @@ TEST(TestRandomAccessFile, GetStream) {
   stream1 = RandomAccessFile::GetStream(file, 0, 10);
   stream2 = RandomAccessFile::GetStream(file, 9, 16);
 
-  int64_t position = -1;
-  ASSERT_OK(stream1->Tell(&position));
-  ASSERT_EQ(0, position);
+  ASSERT_OK_AND_EQ(0, stream1->Tell());
 
   std::shared_ptr<Buffer> buf2;
   uint8_t buf3[20];
 
-  int64_t bytes_read = -1;
-  ASSERT_OK(stream2->Read(4, &bytes_read, buf3));
-  ASSERT_EQ(4, bytes_read);
+  ASSERT_OK_AND_EQ(4, stream2->Read(4, buf3));
   ASSERT_EQ(0, std::memcmp(buf3, "2dat", 4));
-  ASSERT_OK(stream2->Tell(&position));
-  ASSERT_EQ(4, position);
+  ASSERT_OK_AND_EQ(4, stream2->Tell());
 
-  ASSERT_OK(stream1->Read(6, &bytes_read, buf3));
-  ASSERT_EQ(6, bytes_read);
+  ASSERT_OK_AND_EQ(6, stream1->Read(6, buf3));
   ASSERT_EQ(0, std::memcmp(buf3, "data1d", 6));
-  ASSERT_OK(stream1->Tell(&position));
-  ASSERT_EQ(6, position);
+  ASSERT_OK_AND_EQ(6, stream1->Tell());
 
-  ASSERT_OK(stream1->Read(2, &buf2));
+  ASSERT_OK_AND_ASSIGN(buf2, stream1->Read(2));
   ASSERT_TRUE(SliceBuffer(buf, 6, 2)->Equals(*buf2));
 
   // Read to end of each stream
-  ASSERT_OK(stream1->Read(4, &bytes_read, buf3));
-  ASSERT_EQ(2, bytes_read);
+  ASSERT_OK_AND_EQ(2, stream1->Read(4, buf3));
   ASSERT_EQ(0, std::memcmp(buf3, "a2", 2));
-  ASSERT_OK(stream1->Tell(&position));
-  ASSERT_EQ(10, position);
+  ASSERT_OK_AND_EQ(10, stream1->Tell());
 
-  ASSERT_OK(stream1->Read(1, &bytes_read, buf3));
-  ASSERT_EQ(0, bytes_read);
-  ASSERT_OK(stream1->Tell(&position));
-  ASSERT_EQ(10, position);
+  ASSERT_OK_AND_EQ(0, stream1->Read(1, buf3));
+  ASSERT_OK_AND_EQ(10, stream1->Tell());
 
   // stream2 had its extent limited
-  ASSERT_OK(stream2->Read(20, &buf2));
+  ASSERT_OK_AND_ASSIGN(buf2, stream2->Read(20));
   ASSERT_TRUE(SliceBuffer(buf, 13, 12)->Equals(*buf2));
 
-  ASSERT_OK(stream2->Read(1, &buf2));
+  ASSERT_OK_AND_ASSIGN(buf2, stream2->Read(1));
   ASSERT_EQ(0, buf2->size());
-  ASSERT_OK(stream2->Tell(&position));
-  ASSERT_EQ(16, position);
+  ASSERT_OK_AND_EQ(16, stream2->Tell());
 
   ASSERT_OK(stream1->Close());
 
@@ -283,9 +258,9 @@ TEST(TestRandomAccessFile, GetStream) {
   ASSERT_TRUE(stream1->closed());
 
   // Check whether closed
-  ASSERT_RAISES(IOError, stream1->Tell(&position));
-  ASSERT_RAISES(IOError, stream1->Read(1, &buf2));
-  ASSERT_RAISES(IOError, stream1->Read(1, &bytes_read, buf3));
+  ASSERT_RAISES(IOError, stream1->Tell());
+  ASSERT_RAISES(IOError, stream1->Read(1));
+  ASSERT_RAISES(IOError, stream1->Read(1, buf3));
 }
 
 TEST(TestMemcopy, ParallelMemcopy) {
@@ -325,17 +300,15 @@ void TestSlowInputStream() {
   auto slow = std::make_shared<SlowStreamType>(stream, latency);
 
   ASSERT_FALSE(slow->closed());
-  std::shared_ptr<Buffer> buf;
   auto t1 = clock::now();
-  ASSERT_OK(slow->Read(6, &buf));
+  ASSERT_OK_AND_ASSIGN(auto buf, slow->Read(6));
   auto t2 = clock::now();
   AssertBufferEqual(*buf, "abcdef");
   auto dt = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1).count();
   ASSERT_LT(dt, latency * 3);  // likely
   ASSERT_GT(dt, latency / 3);  // likely
 
-  util::string_view view;
-  ASSERT_OK(slow->Peek(4, &view));
+  ASSERT_OK_AND_ASSIGN(util::string_view view, slow->Peek(4));
   ASSERT_EQ(view, util::string_view("ghij"));
 
   ASSERT_OK(slow->Close());
@@ -353,7 +326,7 @@ TEST(TestSlowRandomAccessFile, Basics) { TestSlowInputStream<SlowRandomAccessFil
 TEST(TestInputStreamIterator, Basics) {
   auto reader = std::make_shared<BufferReader>(Buffer::FromString("data123456"));
   Iterator<std::shared_ptr<Buffer>> it;
-  ASSERT_OK(MakeInputStreamIterator(reader, /*block_size=*/3, &it));
+  ASSERT_OK_AND_ASSIGN(it, MakeInputStreamIterator(reader, /*block_size=*/3));
   std::shared_ptr<Buffer> buf;
   ASSERT_OK(it.Next(&buf));
   AssertBufferEqual(*buf, "dat");
@@ -373,11 +346,11 @@ TEST(TestInputStreamIterator, Closed) {
   Iterator<std::shared_ptr<Buffer>> it;
   auto reader = std::make_shared<BufferReader>(Buffer::FromString("data123456"));
   ASSERT_OK(reader->Close());
-  ASSERT_RAISES(Invalid, MakeInputStreamIterator(reader, 3, &it));
+  ASSERT_RAISES(Invalid, MakeInputStreamIterator(reader, 3));
 
   reader = std::make_shared<BufferReader>(Buffer::FromString("data123456"));
   std::shared_ptr<Buffer> buf;
-  ASSERT_OK(MakeInputStreamIterator(reader, /*block_size=*/3, &it));
+  ASSERT_OK_AND_ASSIGN(it, MakeInputStreamIterator(reader, /*block_size=*/3));
   ASSERT_OK(it.Next(&buf));
   AssertBufferEqual(*buf, "dat");
   // Close stream and read from iterator

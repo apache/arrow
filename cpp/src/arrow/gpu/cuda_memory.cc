@@ -206,31 +206,30 @@ CudaBufferReader::CudaBufferReader(const std::shared_ptr<Buffer>& buffer)
 
 CudaBufferReader::~CudaBufferReader() {}
 
-Status CudaBufferReader::DoReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                                  void* buffer) {
+Result<int64_t> CudaBufferReader::DoReadAt(int64_t position, int64_t nbytes,
+                                           void* buffer) {
   nbytes = std::min(nbytes, size_ - position);
-  *bytes_read = nbytes;
-  return context_->CopyDeviceToHost(buffer, data_ + position, nbytes);
+  RETURN_NOT_OK(context_->CopyDeviceToHost(buffer, data_ + position, nbytes));
+  return nbytes;
 }
 
-Status CudaBufferReader::DoRead(int64_t nbytes, int64_t* bytes_read, void* buffer) {
-  RETURN_NOT_OK(DoReadAt(position_, nbytes, bytes_read, buffer));
-  position_ += *bytes_read;
-  return Status::OK();
+Result<int64_t> CudaBufferReader::DoRead(int64_t nbytes, void* buffer) {
+  ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, DoReadAt(position_, nbytes, buffer));
+  position_ += bytes_read;
+  return bytes_read;
 }
 
-Status CudaBufferReader::DoReadAt(int64_t position, int64_t nbytes,
-                                  std::shared_ptr<Buffer>* out) {
+Result<std::shared_ptr<Buffer>> CudaBufferReader::DoReadAt(int64_t position,
+                                                           int64_t nbytes) {
   int64_t size = std::min(nbytes, size_ - position);
-  *out = std::make_shared<CudaBuffer>(cuda_buffer_, position, size);
-  return Status::OK();
+  return std::make_shared<CudaBuffer>(cuda_buffer_, position, size);
 }
 
-Status CudaBufferReader::DoRead(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+Result<std::shared_ptr<Buffer>> CudaBufferReader::DoRead(int64_t nbytes) {
   int64_t size = std::min(nbytes, size_ - position_);
-  *out = std::make_shared<CudaBuffer>(cuda_buffer_, position_, size);
+  auto buffer = std::make_shared<CudaBuffer>(cuda_buffer_, position_, size);
   position_ += size;
-  return Status::OK();
+  return buffer;
 }
 
 // ----------------------------------------------------------------------
@@ -291,10 +290,9 @@ class CudaBufferWriter::CudaBufferWriterImpl {
 
   bool closed() const { return closed_; }
 
-  Status Tell(int64_t* position) const {
+  Result<int64_t> Tell() const {
     CHECK_CLOSED();
-    *position = position_;
-    return Status::OK();
+    return position_;
   }
 
   Status Write(const void* data, int64_t nbytes) {
@@ -383,7 +381,7 @@ Status CudaBufferWriter::Seek(int64_t position) {
   return impl_->Seek(position);
 }
 
-Status CudaBufferWriter::Tell(int64_t* position) const { return impl_->Tell(position); }
+Result<int64_t> CudaBufferWriter::Tell() const { return impl_->Tell(); }
 
 Status CudaBufferWriter::Write(const void* data, int64_t nbytes) {
   return impl_->Write(data, nbytes);

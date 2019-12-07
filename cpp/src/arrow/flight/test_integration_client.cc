@@ -134,8 +134,7 @@ int main(int argc, char** argv) {
   // 1. Put the data to the server.
   std::unique_ptr<arrow::ipc::internal::json::JsonReader> reader;
   std::cout << "Opening JSON file '" << FLAGS_path << "'" << std::endl;
-  std::shared_ptr<arrow::io::ReadableFile> in_file;
-  ABORT_NOT_OK(arrow::io::ReadableFile::Open(FLAGS_path, &in_file));
+  auto in_file = *arrow::io::ReadableFile::Open(FLAGS_path);
   ABORT_NOT_OK(arrow::ipc::internal::json::JsonReader::Open(arrow::default_memory_pool(),
                                                             in_file, &reader));
 

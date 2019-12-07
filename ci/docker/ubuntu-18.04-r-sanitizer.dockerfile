@@ -43,11 +43,13 @@ RUN apt-get update -y -q && \
       libsnappy-dev \
       libssl-dev \
       libzstd-dev \
+      locales \
       ninja-build \
       pkg-config \
       rapidjson-dev \
       thrift-compiler \
       tzdata && \
+      locale-gen en_US.UTF-8 && \
       apt-get clean && rm -rf /var/lib/apt/lists*
 
 # Ensure parallel R package installation, set CRAN repo mirror,
@@ -60,14 +62,8 @@ RUN printf "\
                 paste(getRversion(), R.version\$platform, R.version\$arch, R.version\$os)))\n" \
     >> /usr/local/RDsan/lib/R/etc/Rprofile.site
 
-# Also ensure parallel compilation of each individual package
-RUN printf "MAKEFLAGS=-j8\n" >> /usr/local/RDsan/lib/R/etc/Makeconf
-ENV MAKEFLAGS=-j8
-
-# Install R package dependencies
-# NOTE: any changes here should also be done in Dockerfile
-RUN RDsan -e "install.packages(c('remotes', 'dplyr', 'glue'))"
-RUN RDsan -e "remotes::install_github('romainfrancois/decor')"
+# Also ensure parallel compilation of C/C++ code
+RUN echo "MAKEFLAGS=-j$(R --slave -e 'cat(parallel::detectCores())')" >> /usr/local/RDsan/lib/R/etc/Makeconf
 
 # Prioritize system packages and local installation
 # The following dependencies will be downloaded due to missing/invalid packages
@@ -95,10 +91,9 @@ ENV gRPC_SOURCE=BUNDLED \
     ARROW_INSTALL_NAME_RPATH=OFF \
     ARROW_WITH_BZ2=OFF \
     ARROW_WITH_ZSTD=OFF \
-    ARROW_R_DEV=TRUE \
+    LC_ALL=en_US.UTF-8 \
     R_BIN=RDsan
 
-# Ensure parallel R package installation and set CRAN repo mirror
-RUN printf "options(Ncpus = parallel::detectCores(), repos = 'https://demo.rstudiopm.com/all/__linux__/bionic/latest')\n" >> /etc/R/Rprofile.site
-# Also ensure parallel compilation of each individual package
-RUN printf "MAKEFLAGS=-j8\n" >> /usr/lib/R/etc/Makeconf
+COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
+COPY r/DESCRIPTION /arrow/r/
+RUN /arrow/ci/scripts/r_deps.sh /arrow

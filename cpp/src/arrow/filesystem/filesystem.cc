@@ -26,6 +26,8 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/util_internal.h"
 #include "arrow/io/slow.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/uri.h"
@@ -377,6 +379,11 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri_str
 
   // TODO add support for S3 URIs
   return Status::Invalid("Unrecognized filesystem type in URI: ", uri_string);
+}
+
+Status FileSystemFromUri(const std::string& uri, std::shared_ptr<FileSystem>* out_fs,
+                         std::string* out_path) {
+  return FileSystemFromUri(uri, out_path).Value(out_fs);
 }
 
 }  // namespace fs

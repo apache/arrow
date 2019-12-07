@@ -62,30 +62,32 @@ inline static Status Generate(const std::shared_ptr<Schema>& schm, Engine& e,
 
 template <typename Engine>
 struct GenerateImpl {
+  Status Visit(const NullType&) { return OK(writer.Null()); }
+
   Status Visit(const BooleanType&) {
     return OK(writer.Bool(std::uniform_int_distribution<uint16_t>{}(e)&1));
   }
 
   template <typename T>
-  enable_if_physical_unsigned_integer<T, Status> Visit(T const&) {
+  enable_if_physical_unsigned_integer<T, Status> Visit(const T&) {
     auto val = std::uniform_int_distribution<>{}(e);
     return OK(writer.Uint64(static_cast<typename T::c_type>(val)));
   }
 
   template <typename T>
-  enable_if_physical_signed_integer<T, Status> Visit(T const&) {
+  enable_if_physical_signed_integer<T, Status> Visit(const T&) {
     auto val = std::uniform_int_distribution<>{}(e);
     return OK(writer.Int64(static_cast<typename T::c_type>(val)));
   }
 
   template <typename T>
-  enable_if_physical_floating_point<T, Status> Visit(T const&) {
+  enable_if_physical_floating_point<T, Status> Visit(const T&) {
     auto val = std::normal_distribution<typename T::c_type>{0, 1 << 10}(e);
     return OK(writer.Double(val));
   }
 
   template <typename T>
-  enable_if_base_binary<T, Status> Visit(T const&) {
+  enable_if_base_binary<T, Status> Visit(const T&) {
     auto size = std::poisson_distribution<>{4}(e);
     std::uniform_int_distribution<uint16_t> gen_char(32, 127);  // FIXME generate UTF8
     std::string s(size, '\0');
@@ -102,6 +104,22 @@ struct GenerateImpl {
   }
 
   Status Visit(const StructType& t) { return Generate(t.children(), e, &writer); }
+
+  Status Visit(const DayTimeIntervalType& t) { return NotImplemented(t); }
+
+  Status Visit(const DictionaryType& t) { return NotImplemented(t); }
+
+  Status Visit(const ExtensionType& t) { return NotImplemented(t); }
+
+  Status Visit(const Decimal128Type& t) { return NotImplemented(t); }
+
+  Status Visit(const FixedSizeBinaryType& t) { return NotImplemented(t); }
+
+  Status Visit(const UnionType& t) { return NotImplemented(t); }
+
+  Status NotImplemented(const DataType& t) {
+    return Status::NotImplemented("random generation of arrays of type ", t);
+  }
 
   Engine& e;
   rj::Writer<rj::StringBuffer>& writer;

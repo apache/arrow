@@ -23,6 +23,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/result.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/logging.h"

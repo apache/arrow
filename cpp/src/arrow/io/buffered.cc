@@ -116,14 +116,13 @@ class BufferedOutputStream::Impl : public BufferedBase {
     return Status::OK();
   }
 
-  Status Tell(int64_t* position) const {
+  Result<int64_t> Tell() const {
     std::lock_guard<std::mutex> guard(lock_);
     if (raw_pos_ == -1) {
-      RETURN_NOT_OK(raw_->Tell(&raw_pos_));
+      ARROW_ASSIGN_OR_RAISE(raw_pos_, raw_->Tell());
       DCHECK_GE(raw_pos_, 0);
     }
-    *position = raw_pos_ + buffer_pos_;
-    return Status::OK();
+    return raw_pos_ + buffer_pos_;
   }
 
   Status Write(const void* data, int64_t nbytes) { return DoWrite(data, nbytes); }
@@ -172,12 +171,11 @@ class BufferedOutputStream::Impl : public BufferedBase {
     return FlushUnlocked();
   }
 
-  Status Detach(std::shared_ptr<OutputStream>* raw) {
+  Result<std::shared_ptr<OutputStream>> Detach() {
     std::lock_guard<std::mutex> guard(lock_);
     RETURN_NOT_OK(FlushUnlocked());
-    *raw = std::move(raw_);
     is_open_ = false;
-    return Status::OK();
+    return std::move(raw_);
   }
 
   Status SetBufferSize(int64_t new_buffer_size) {
@@ -203,14 +201,18 @@ BufferedOutputStream::BufferedOutputStream(std::shared_ptr<OutputStream> raw,
   impl_.reset(new Impl(std::move(raw), pool));
 }
 
-Status BufferedOutputStream::Create(int64_t buffer_size, MemoryPool* pool,
-                                    std::shared_ptr<OutputStream> raw,
-                                    std::shared_ptr<BufferedOutputStream>* out) {
+Result<std::shared_ptr<BufferedOutputStream>> BufferedOutputStream::Create(
+    int64_t buffer_size, MemoryPool* pool, std::shared_ptr<OutputStream> raw) {
   auto result = std::shared_ptr<BufferedOutputStream>(
       new BufferedOutputStream(std::move(raw), pool));
   RETURN_NOT_OK(result->SetBufferSize(buffer_size));
-  *out = std::move(result);
-  return Status::OK();
+  return result;
+}
+
+Status BufferedOutputStream::Create(int64_t buffer_size, MemoryPool* pool,
+                                    std::shared_ptr<OutputStream> raw,
+                                    std::shared_ptr<BufferedOutputStream>* out) {
+  return Create(buffer_size, pool, std::move(raw)).Value(out);
 }
 
 BufferedOutputStream::~BufferedOutputStream() { internal::CloseFromDestructor(this); }
@@ -223,8 +225,12 @@ int64_t BufferedOutputStream::buffer_size() const { return impl_->buffer_size();
 
 int64_t BufferedOutputStream::bytes_buffered() const { return impl_->buffer_pos(); }
 
+Result<std::shared_ptr<OutputStream>> BufferedOutputStream::Detach() {
+  return impl_->Detach();
+}
+
 Status BufferedOutputStream::Detach(std::shared_ptr<OutputStream>* raw) {
-  return impl_->Detach(raw);
+  return Detach().Value(raw);
 }
 
 Status BufferedOutputStream::Close() { return impl_->Close(); }
@@ -233,9 +239,7 @@ Status BufferedOutputStream::Abort() { return impl_->Abort(); }
 
 bool BufferedOutputStream::closed() const { return impl_->closed(); }
 
-Status BufferedOutputStream::Tell(int64_t* position) const {
-  return impl_->Tell(position);
-}
+Result<int64_t> BufferedOutputStream::Tell() const { return impl_->Tell(); }
 
 Status BufferedOutputStream::Write(const void* data, int64_t nbytes) {
   return impl_->Write(data, nbytes);
@@ -277,14 +281,13 @@ class BufferedInputStream::Impl : public BufferedBase {
     return Status::OK();
   }
 
-  Status Tell(int64_t* position) const {
+  Result<int64_t> Tell() const {
     if (raw_pos_ == -1) {
-      RETURN_NOT_OK(raw_->Tell(&raw_pos_));
+      ARROW_ASSIGN_OR_RAISE(raw_pos_, raw_->Tell());
       DCHECK_GE(raw_pos_, 0);
     }
     // Shift by bytes_buffered to return semantic stream position
-    *position = raw_pos_ - bytes_buffered_;
-    return Status::OK();
+    return raw_pos_ - bytes_buffered_;
   }
 
   Status SetBufferSize(int64_t new_buffer_size) {
@@ -297,7 +300,7 @@ class BufferedInputStream::Impl : public BufferedBase {
     return ResizeBuffer(new_buffer_size);
   }
 
-  Status Peek(int64_t nbytes, util::string_view* out) {
+  Result<util::string_view> Peek(int64_t nbytes) {
     if (raw_read_bound_ >= 0) {
       // Do not try to peek more than the total remaining number of bytes.
       nbytes = std::min(nbytes, bytes_buffered_ + (raw_read_bound_ - raw_read_total_));
@@ -320,17 +323,17 @@ class BufferedInputStream::Impl : public BufferedBase {
         additional_bytes_to_read =
             std::min(additional_bytes_to_read, raw_read_bound_ - raw_read_total_);
       }
-      int64_t bytes_read = -1;
-      RETURN_NOT_OK(raw_->Read(additional_bytes_to_read, &bytes_read,
-                               buffer_->mutable_data() + buffer_pos_ + bytes_buffered_));
+      ARROW_ASSIGN_OR_RAISE(
+          int64_t bytes_read,
+          raw_->Read(additional_bytes_to_read,
+                     buffer_->mutable_data() + buffer_pos_ + bytes_buffered_));
       bytes_buffered_ += bytes_read;
       raw_read_total_ += bytes_read;
       nbytes = bytes_buffered_;
     }
     DCHECK(nbytes <= bytes_buffered_);  // Enough bytes available
-    *out = util::string_view(reinterpret_cast<const char*>(buffer_data_ + buffer_pos_),
+    return util::string_view(reinterpret_cast<const char*>(buffer_data_ + buffer_pos_),
                              static_cast<size_t>(nbytes));
-    return Status::OK();
   }
 
   int64_t bytes_buffered() const { return bytes_buffered_; }
@@ -358,7 +361,7 @@ class BufferedInputStream::Impl : public BufferedBase {
       if (raw_read_bound_ >= 0) {
         bytes_to_buffer = std::min(buffer_size_, raw_read_bound_ - raw_read_total_);
       }
-      RETURN_NOT_OK(raw_->Read(bytes_to_buffer, &bytes_buffered_, buffer_data_));
+      ARROW_ASSIGN_OR_RAISE(bytes_buffered_, raw_->Read(bytes_to_buffer, buffer_data_));
       buffer_pos_ = 0;
       raw_read_total_ += bytes_buffered_;
 
@@ -373,15 +376,13 @@ class BufferedInputStream::Impl : public BufferedBase {
     bytes_buffered_ -= nbytes;
   }
 
-  Status Read(int64_t nbytes, int64_t* bytes_read, void* out) {
+  Result<int64_t> Read(int64_t nbytes, void* out) {
     ARROW_CHECK_GT(nbytes, 0);
 
     if (nbytes < buffer_size_) {
       // Pre-buffer for small reads
       RETURN_NOT_OK(BufferIfNeeded());
     }
-
-    *bytes_read = 0;
 
     if (nbytes > bytes_buffered_) {
       // Copy buffered bytes into out, then read rest
@@ -391,37 +392,35 @@ class BufferedInputStream::Impl : public BufferedBase {
       if (raw_read_bound_ >= 0) {
         bytes_to_read = std::min(bytes_to_read, raw_read_bound_ - raw_read_total_);
       }
-      RETURN_NOT_OK(raw_->Read(bytes_to_read, bytes_read,
-                               reinterpret_cast<uint8_t*>(out) + bytes_buffered_));
-      raw_read_total_ += *bytes_read;
+      ARROW_ASSIGN_OR_RAISE(
+          int64_t bytes_read,
+          raw_->Read(bytes_to_read, reinterpret_cast<uint8_t*>(out) + bytes_buffered_));
+      raw_read_total_ += bytes_read;
 
       // Do not make assumptions about the raw stream position
       raw_pos_ = -1;
-      *bytes_read += bytes_buffered_;
+      bytes_read += bytes_buffered_;
       RewindBuffer();
+      return bytes_read;
     } else {
       memcpy(out, buffer_data_ + buffer_pos_, nbytes);
-      *bytes_read = nbytes;
       ConsumeBuffer(nbytes);
+      return nbytes;
     }
-    return Status::OK();
   }
 
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) {
     std::shared_ptr<ResizableBuffer> buffer;
     RETURN_NOT_OK(AllocateResizableBuffer(pool_, nbytes, &buffer));
 
-    int64_t bytes_read = 0;
-    RETURN_NOT_OK(Read(nbytes, &bytes_read, buffer->mutable_data()));
+    ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, Read(nbytes, buffer->mutable_data()));
 
     if (bytes_read < nbytes) {
       // Change size but do not reallocate internal capacity
       RETURN_NOT_OK(buffer->Resize(bytes_read, false /* shrink_to_fit */));
       buffer->ZeroPadding();
     }
-
-    *out = buffer;
-    return Status::OK();
+    return buffer;
   }
 
   // For providing access to the raw file handles
@@ -445,15 +444,20 @@ BufferedInputStream::BufferedInputStream(std::shared_ptr<InputStream> raw,
 
 BufferedInputStream::~BufferedInputStream() { internal::CloseFromDestructor(this); }
 
+Result<std::shared_ptr<BufferedInputStream>> BufferedInputStream::Create(
+    int64_t buffer_size, MemoryPool* pool, std::shared_ptr<InputStream> raw,
+    int64_t raw_total_bytes_bound) {
+  auto result = std::shared_ptr<BufferedInputStream>(
+      new BufferedInputStream(std::move(raw), pool, raw_total_bytes_bound));
+  RETURN_NOT_OK(result->SetBufferSize(buffer_size));
+  return result;
+}
+
 Status BufferedInputStream::Create(int64_t buffer_size, MemoryPool* pool,
                                    std::shared_ptr<InputStream> raw,
                                    std::shared_ptr<BufferedInputStream>* out,
                                    int64_t raw_total_bytes_bound) {
-  auto result = std::shared_ptr<BufferedInputStream>(
-      new BufferedInputStream(std::move(raw), pool, raw_total_bytes_bound));
-  RETURN_NOT_OK(result->SetBufferSize(buffer_size));
-  *out = std::move(result);
-  return Status::OK();
+  return Create(buffer_size, pool, std::move(raw)).Value(out);
 }
 
 Status BufferedInputStream::DoClose() { return impl_->Close(); }
@@ -466,12 +470,10 @@ std::shared_ptr<InputStream> BufferedInputStream::Detach() { return impl_->Detac
 
 std::shared_ptr<InputStream> BufferedInputStream::raw() const { return impl_->raw(); }
 
-Status BufferedInputStream::DoTell(int64_t* position) const {
-  return impl_->Tell(position);
-}
+Result<int64_t> BufferedInputStream::DoTell() const { return impl_->Tell(); }
 
-Status BufferedInputStream::DoPeek(int64_t nbytes, util::string_view* out) {
-  return impl_->Peek(nbytes, out);
+Result<util::string_view> BufferedInputStream::DoPeek(int64_t nbytes) {
+  return impl_->Peek(nbytes);
 }
 
 Status BufferedInputStream::SetBufferSize(int64_t new_buffer_size) {
@@ -482,12 +484,12 @@ int64_t BufferedInputStream::bytes_buffered() const { return impl_->bytes_buffer
 
 int64_t BufferedInputStream::buffer_size() const { return impl_->buffer_size(); }
 
-Status BufferedInputStream::DoRead(int64_t nbytes, int64_t* bytes_read, void* out) {
-  return impl_->Read(nbytes, bytes_read, out);
+Result<int64_t> BufferedInputStream::DoRead(int64_t nbytes, void* out) {
+  return impl_->Read(nbytes, out);
 }
 
-Status BufferedInputStream::DoRead(int64_t nbytes, std::shared_ptr<Buffer>* out) {
-  return impl_->Read(nbytes, out);
+Result<std::shared_ptr<Buffer>> BufferedInputStream::DoRead(int64_t nbytes) {
+  return impl_->Read(nbytes);
 }
 
 }  // namespace io

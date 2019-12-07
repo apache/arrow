@@ -27,7 +27,7 @@
 #include "arrow/ipc/dictionary.h"  // IWYU pragma: export
 #include "arrow/ipc/message.h"
 #include "arrow/ipc/options.h"
-#include "arrow/result.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {

@@ -627,6 +627,57 @@ def test_list_from_arrays(list_array_type, list_type_factory):
         result.validate(full=True)
 
 
+def test_map_from_arrays():
+    offsets_arr = np.array([0, 2, 5, 8], dtype='i4')
+    offsets = pa.array(offsets_arr, type='int32')
+    pykeys = [b'a', b'b', b'c', b'd', b'e', b'f', b'g', b'h']
+    pyitems = list(range(len(pykeys)))
+    pypairs = list(zip(pykeys, pyitems))
+    pyentries = [pypairs[:2], pypairs[2:5], pypairs[5:8]]
+    keys = pa.array(pykeys, type='binary')
+    items = pa.array(pyitems, type='i4')
+
+    result = pa.MapArray.from_arrays(offsets, keys, items)
+    expected = pa.array(pyentries, type=pa.map_(pa.binary(), pa.int32()))
+
+    assert result.equals(expected)
+
+    # With nulls
+    offsets = [0, None, 2, 6]
+    pykeys = [b'a', b'b', b'c', b'd', b'e', b'f']
+    pyitems = [1, 2, 3, None, 4, 5]
+    pypairs = list(zip(pykeys, pyitems))
+    pyentries = [pypairs[:2], None, pypairs[2:]]
+    keys = pa.array(pykeys, type='binary')
+    items = pa.array(pyitems, type='i4')
+
+    result = pa.MapArray.from_arrays(offsets, keys, items)
+    expected = pa.array(pyentries, type=pa.map_(pa.binary(), pa.int32()))
+
+    assert result.equals(expected)
+
+    # check invalid usage
+
+    offsets = [0, 1, 3, 5]
+    keys = np.arange(5)
+    items = np.arange(5)
+    _ = pa.MapArray.from_arrays(offsets, keys, items)
+
+    # raise on invalid offsets
+    with pytest.raises(ValueError):
+        pa.MapArray.from_arrays(offsets + [6], keys, items)
+
+    # raise on length of keys != items
+    with pytest.raises(ValueError):
+        pa.MapArray.from_arrays(offsets, keys, np.concatenate([items, items]))
+
+    # raise on keys with null
+    keys_with_null = list(keys)[:-1] + [None]
+    assert len(keys_with_null) == len(items)
+    with pytest.raises(ValueError):
+        pa.MapArray.from_arrays(offsets, keys_with_null, items)
+
+
 def test_union_from_dense():
     binary = pa.array([b'a', b'b', b'c', b'd'], type='binary')
     int64 = pa.array([1, 2, 3], type='int64')
@@ -956,6 +1007,16 @@ def test_cast_string_to_number_roundtrip():
         casted_back = casted.cast(in_arr.type, safe=True)
         casted_back.validate(full=True)
         assert casted_back.equals(in_arr)
+
+
+def test_cast_dictionary():
+    arr = pa.DictionaryArray.from_arrays(
+        pa.array([0, 1, None], type=pa.int32()),
+        pa.array([u"foo", u"bar"]))
+    assert arr.cast(pa.string()).equals(pa.array([u"foo", u"bar", None]))
+    with pytest.raises(NotImplementedError):
+        # Shouldn't crash (ARROW-7077)
+        arr.cast(pa.int32())
 
 
 def test_view():
