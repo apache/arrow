@@ -59,7 +59,6 @@ cdef class FileFormat:
     cdef wrap(shared_ptr[CFileFormat]& sp):
         cdef FileFormat self
 
-        # TODO(kszucs): either choose type() or name() but consistently
         typ = frombytes(sp.get().name())
         if typ == 'parquet':
             self = ParquetFileFormat.__new__(ParquetFileFormat)
@@ -349,7 +348,6 @@ cdef class DataSource:
             return Expression.wrap(expression)
 
 
-# TODO(kszucs) Rename it to InMemoryDataSource
 cdef class SimpleDataSource(DataSource):
     """An in memory DataSource created from in memory RecordBatches"""
 
@@ -397,7 +395,7 @@ cdef class TreeDataSource(DataSource):
 
 
 cdef class FileSystemDataSource(DataSource):
-    """"""
+    """A DataSource created from a set of files on a particular filesystem"""
 
     cdef:
         CFileSystemDataSource* filesystem_source
