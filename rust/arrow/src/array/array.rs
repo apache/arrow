@@ -1731,7 +1731,7 @@ impl DictionaryArray {
         }
     }
 
-    // Get a zero-copy slice of keys for various primitive types.
+    /// Get a zero-copy slice of keys for various primitive types.
     fn key_slice<T>(&self) -> &[T] {
         let raw = unsafe {
             let ptr: *const T = mem::transmute(self.raw_values.get());
