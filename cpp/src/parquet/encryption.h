@@ -303,8 +303,7 @@ class PARQUET_EXPORT FileDecryptionProperties {
     Builder* aad_prefix(const std::string& aad_prefix);
 
     /// Set callback for verification of AAD Prefixes stored in file.
-    Builder* aad_prefix_verifier(
-        const std::shared_ptr<AADPrefixVerifier>& aad_prefix_verifier);
+    Builder* aad_prefix_verifier(std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier);
 
     /// By default, reading plaintext (unencrypted) files is not
     /// allowed when using a decryptor
@@ -389,9 +388,9 @@ class PARQUET_EXPORT FileDecryptionProperties {
 
   FileDecryptionProperties(
       const std::string& footer_key,
-      const std::shared_ptr<DecryptionKeyRetriever>& key_retriever,
+      std::shared_ptr<DecryptionKeyRetriever> key_retriever,
       bool check_plaintext_footer_integrity, const std::string& aad_prefix,
-      const std::shared_ptr<AADPrefixVerifier>& aad_prefix_verifier,
+      std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
       const ColumnPathToDecryptionPropertiesMap& column_decryption_properties,
       bool plaintext_files_allowed);
 };

@@ -113,7 +113,7 @@ class PARQUET_EXPORT Node {
       : type_(type),
         name_(name),
         repetition_(repetition),
-        logical_type_(logical_type),
+        logical_type_(std::move(logical_type)),
         id_(id),
         parent_(NULLPTR) {}
 
@@ -206,7 +206,7 @@ class PARQUET_EXPORT PrimitiveNode : public Node {
   }
 
   static inline NodePtr Make(const std::string& name, Repetition::type repetition,
-                             const std::shared_ptr<const LogicalType>& logical_type,
+                             std::shared_ptr<const LogicalType> logical_type,
                              Type::type primitive_type, int primitive_length = -1) {
     return NodePtr(new PrimitiveNode(name, repetition, logical_type, primitive_type,
                                      primitive_length));
@@ -234,7 +234,7 @@ class PARQUET_EXPORT PrimitiveNode : public Node {
                 int precision = -1, int scale = -1, int id = -1);
 
   PrimitiveNode(const std::string& name, Repetition::type repetition,
-                const std::shared_ptr<const LogicalType>& logical_type,
+                std::shared_ptr<const LogicalType> logical_type,
                 Type::type primitive_type, int primitive_length = -1, int id = -1);
 
   Type::type physical_type_;
@@ -266,7 +266,7 @@ class PARQUET_EXPORT GroupNode : public Node {
 
   static inline NodePtr Make(const std::string& name, Repetition::type repetition,
                              const NodeVector& fields,
-                             const std::shared_ptr<const LogicalType>& logical_type) {
+                             std::shared_ptr<const LogicalType> logical_type) {
     return NodePtr(new GroupNode(name, repetition, fields, logical_type));
   }
 
@@ -292,8 +292,8 @@ class PARQUET_EXPORT GroupNode : public Node {
             ConvertedType::type converted_type = ConvertedType::NONE, int id = -1);
 
   GroupNode(const std::string& name, Repetition::type repetition,
-            const NodeVector& fields,
-            const std::shared_ptr<const LogicalType>& logical_type, int id = -1);
+            const NodeVector& fields, std::shared_ptr<const LogicalType> logical_type,
+            int id = -1);
 
   NodeVector fields_;
   bool EqualsInternal(const GroupNode* other) const;
@@ -336,7 +336,7 @@ void PARQUET_EXPORT PrintSchema(const schema::Node* schema, std::ostream& stream
 // definition levels.
 class PARQUET_EXPORT ColumnDescriptor {
  public:
-  ColumnDescriptor(const schema::NodePtr& node, int16_t max_definition_level,
+  ColumnDescriptor(schema::NodePtr node, int16_t max_definition_level,
                    int16_t max_repetition_level,
                    const SchemaDescriptor* schema_descr = NULLPTR);
 
@@ -402,7 +402,7 @@ class PARQUET_EXPORT SchemaDescriptor {
 
   // Analyze the schema
   void Init(std::unique_ptr<schema::Node> schema);
-  void Init(const schema::NodePtr& schema);
+  void Init(schema::NodePtr schema);
 
   const ColumnDescriptor* Column(int i) const;
 
