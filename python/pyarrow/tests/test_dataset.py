@@ -23,7 +23,6 @@ import pyarrow.fs as fs
 try:
     import pyarrow.dataset as ds
 except ImportError:
-    raise
     ds = None
 
 # Marks all of the tests in this module
