@@ -546,6 +546,7 @@ impl<R: Read + Seek> FileReader<R> {
                     let id = batch.id();
 
                     // As the dictionary batch does not contain the type of the
+                    // values array, we need to retieve this from the schema.
                     let first_field = find_dictionary_field(&ipc_schema, id)
                         .expect("dictionary id not found in shchema");
 
