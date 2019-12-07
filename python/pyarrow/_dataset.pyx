@@ -276,14 +276,21 @@ cdef class FileSystemDataSourceDiscovery(DataSourceDiscovery):
     cdef:
         CFileSystemDataSourceDiscovery* filesystem_discovery
 
-    def __init__(self, FileSystem filesystem not None,
-                 Selector selector not None, FileFormat format not None,
+    def __init__(self, FileSystem filesystem not None, paths_or_selector,
+                 FileFormat format not None,
                  FileSystemDiscoveryOptions options=None):
-        cdef CResult[shared_ptr[CDataSourceDiscovery]] result
+        cdef:
+            FileStats file_stats
+            vector[CFileStats] stats
+            CResult[shared_ptr[CDataSourceDiscovery]] result
+
         options = options or FileSystemDiscoveryOptions()
-        result = CFileSystemDataSourceDiscovery.Make(
+        for file_stats in filesystem.get_target_stats(paths_or_selector):
+            stats.push_back(file_stats.unwrap())
+
+        result = CFileSystemDataSourceDiscovery.MakeFromFileStats(
             filesystem.unwrap(),
-            selector.unwrap(),
+            stats,
             format.unwrap(),
             options.unwrap()
         )
@@ -295,10 +302,10 @@ cdef class FileSystemDataSourceDiscovery(DataSourceDiscovery):
 
 
 cdef class DataSource:
-    """Basic component of a Dataset which yields zero or more DataFragments.
+    """Basic component of a Dataset which yields zero or more data fragments.
 
-    A DataSource acts as a discovery mechanism of DataFragments and partitions,
-    e.g. files deeply nested in a directory.
+    A DataSource acts as a discovery mechanism of data fragments and
+    partitions, e.g. files deeply nested in a directory.
     """
 
     cdef:
@@ -342,9 +349,9 @@ cdef class DataSource:
             return Expression.wrap(expression)
 
 
-# Rename it to InMemoryDataSource
+# TODO(kszucs) Rename it to InMemoryDataSource
 cdef class SimpleDataSource(DataSource):
-    """A DataSource consisting of a flat sequence of DataFragments."""
+    """An in memory DataSource created from in memory RecordBatches"""
 
     cdef:
         CSimpleDataSource* simple_source
@@ -367,6 +374,7 @@ cdef class SimpleDataSource(DataSource):
 
 
 cdef class TreeDataSource(DataSource):
+    """A DataSource created from other data source objects"""
 
     cdef:
         CTreeDataSource* tree_source
@@ -389,13 +397,27 @@ cdef class TreeDataSource(DataSource):
 
 
 cdef class FileSystemDataSource(DataSource):
+    """"""
 
     cdef:
         CFileSystemDataSource* filesystem_source
 
-    def __init__(self, FileSystem filesystem not None, file_stats,
+    def __init__(self, FileSystem filesystem not None, paths_or_selector,
                  Expression source_partition, dict path_partitions,
                  FileFormat file_format not None):
+        """Create a FileSystemDataSource
+
+        Parameters
+        ----------
+        filesystem : FileSystem
+            Filesystem to discover.
+        paths_or_selector : Union[Selector, List[FileStats]]
+            The file stats object can be queried by the
+            filesystem.get_target_stats method.
+        source_partition : Expression
+        path_partitions : Dict[str, Expression]
+        file_format : FileFormat
+        """
         cdef:
             FileStats stats
             Expression expression
@@ -404,7 +426,7 @@ cdef class FileSystemDataSource(DataSource):
             unordered_map[c_string, shared_ptr[CExpression]] c_path_partitions
             CResult[shared_ptr[CDataSource]] result
 
-        for stats in file_stats:
+        for stats in filesystem.get_target_stats(paths_or_selector):
             c_file_stats.push_back(stats.unwrap())
 
         for path, expression in path_partitions.items():
@@ -466,12 +488,14 @@ cdef class Dataset:
     cdef inline shared_ptr[CDataset] unwrap(self):
         return self.wrapped
 
-    # TODO(kszucs): pass ScanContext
-    def new_scan(self):
+    def new_scan(self, ScanContext context=None):
         """Begin to build a new Scan operation against this Dataset."""
-        cdef shared_ptr[CScannerBuilder] builder
-        builder = GetResultValue(self.dataset.NewScan())
-        return ScannerBuilder.wrap(builder)
+        cdef CResult[shared_ptr[CScannerBuilder]] result
+        if context is None:
+            result = self.dataset.NewScan()
+        else:
+            result = self.dataset.NewScanWithContext(context.unwrap())
+        return ScannerBuilder.wrap(GetResultValue(result))
 
     @property
     def sources(self):
@@ -618,8 +642,9 @@ cdef class ScannerBuilder:
         """Set the subset of columns to materialize.
 
         This subset will be passed down to DataSources and corresponding
-        DataFragments. The goal is to avoid loading, copying, and deserializing
-        columns that will not be required further down the compute chain.
+        data fragments. The goal is to avoid loading, copying, and
+        deserializing columns that will not be required further down the
+        compute chain.
 
         Raises exception if any column name does not exists in the dataset's
         Schema.
@@ -645,8 +670,8 @@ cdef class ScannerBuilder:
         """Set the filter expression to return only rows matching the filter.
 
         The predicate will be passed down to DataSources and corresponding
-        DataFragments to exploit predicate pushdown if possible using partition
-        information or DataFragment internal metadata, e.g. Parquet statistics.
+        data fragments to exploit predicate pushdown if possible using
+        partition information or internal metadata, e.g. Parquet statistics.
 
         Raises exception if any of the referenced columns does not exists in
         the dataset's schema.
@@ -685,8 +710,8 @@ cdef class ScannerBuilder:
 cdef class Scanner:
     """A materialized scan operation with context and options bound.
 
-    A scanner is the class that glues ScanTask, DataFragment, and DataSource
-    together.
+    A scanner is the class that glues the scan tasks, data fragments and data
+    sources together.
     """
 
     cdef:

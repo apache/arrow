@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""Dataset is currently unstable. APIs subject to change without notice."""
+
 from __future__ import absolute_import
 
 import sys

@@ -69,12 +69,12 @@ def record_batch(schema):
 
 @pytest.fixture
 def table(record_batch):
-    return pa.Table.from_batches([record_batch] * 10)
+    return pa.Table.from_batches([record_batch])
 
 
 @pytest.fixture
 def simple_data_source(record_batch):
-    return ds.SimpleDataSource([record_batch] * 4)
+    return ds.SimpleDataSource([record_batch])
 
 
 @pytest.fixture
@@ -95,7 +95,7 @@ def test_scan_context():
 
 
 def test_simple_data_source(record_batch):
-    source = ds.SimpleDataSource([record_batch] * 4)
+    source = ds.SimpleDataSource([record_batch])
     assert isinstance(source, ds.SimpleDataSource)
     assert source.partition_expression is None
 
@@ -106,17 +106,17 @@ def test_tree_data_source(simple_data_source):
 
 
 def test_filesystem_data_source(mockfs):
-    file_stats = mockfs.get_target_stats([
-        'subdir/1/xxx/file0.parquet',
-        'subdir/2/yyy/file1.parquet',
-    ])
     file_format = ds.ParquetFileFormat()
     source_partition = None
     path_partitions = {}
 
+    paths = [
+        'subdir/1/xxx/file0.parquet',
+        'subdir/2/yyy/file1.parquet',
+    ]
     source = ds.FileSystemDataSource(
         mockfs,
-        file_stats,
+        paths,
         source_partition=source_partition,
         path_partitions=path_partitions,
         file_format=file_format
@@ -141,7 +141,7 @@ def test_filesystem_data_source(mockfs):
     }
     source = ds.FileSystemDataSource(
         mockfs,
-        file_stats,
+        paths,
         source_partition=source_partition,
         path_partitions=path_partitions,
         file_format=file_format
@@ -301,11 +301,14 @@ def test_expression(schema):
     assert str(condition) == "(i64 > 5:int64)"
 
 
-def test_file_system_discovery(mockfs):
-    selector = fs.Selector('subdir', recursive=True)
-    assert selector.base_dir == 'subdir'
-    assert selector.recursive is True
-
+@pytest.mark.parametrize('paths_or_selector', [
+    fs.Selector('subdir', recursive=True),
+    [
+        'subdir/1/xxx/file0.parquet',
+        'subdir/2/yyy/file1.parquet',
+    ]
+])
+def test_file_system_discovery(mockfs, paths_or_selector, record_batch):
     format = ds.ParquetFileFormat()
     assert format.name() == 'parquet'
 
@@ -314,8 +317,9 @@ def test_file_system_discovery(mockfs):
     assert options.ignore_prefixes == ['.', '_']
     assert options.exclude_invalid_files is True
 
-    discovery = ds.FileSystemDataSourceDiscovery(mockfs, selector, format,
-                                                 options)
+    discovery = ds.FileSystemDataSourceDiscovery(
+        mockfs, paths_or_selector, format, options
+    )
     assert isinstance(discovery.inspect(), pa.Schema)
     assert discovery.schema is None
     assert isinstance(discovery.finish(), ds.FileSystemDataSource)
@@ -341,5 +345,6 @@ def test_file_system_discovery(mockfs):
     scanner = dataset.new_scan().finish()
     for task in scanner.scan():
         assert isinstance(task, ds.ScanTask)
-        for record_batch in task.scan():
-            assert isinstance(record_batch, pa.RecordBatch)
+        for batch in task.scan():
+            assert batch.equals(record_batch)
+            assert isinstance(batch, pa.RecordBatch)

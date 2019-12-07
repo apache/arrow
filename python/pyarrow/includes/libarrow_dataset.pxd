@@ -219,7 +219,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         @staticmethod
         CResult[shared_ptr[CDataset]] Make(CDataSourceVector sources,
                                            shared_ptr[CSchema] schema)
-        CResult[CScannerBuilderPtr] NewScan(CScanContextPtr context)
+        CResult[CScannerBuilderPtr] NewScanWithContext "NewScan"(
+            CScanContextPtr context)
         CResult[CScannerBuilderPtr] NewScan()
         const CDataSourceVector& sources()
         shared_ptr[CSchema] schema()
@@ -349,14 +350,14 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             "arrow::dataset::FileSystemDataSourceDiscovery"(
                 CDataSourceDiscovery):
         @staticmethod
-        CResult[CDataSourceDiscoveryPtr] Make(
+        CResult[CDataSourceDiscoveryPtr] MakeFromFileStats "Make"(
             CFileSystemPtr filesytem,
             CFileStatsVector paths,
             CFileFormatPtr format,
             CFileSystemDiscoveryOptions options
         )
         @staticmethod
-        CResult[CDataSourceDiscoveryPtr] Make(
+        CResult[CDataSourceDiscoveryPtr] MakeFromSelector "Make"(
             CFileSystemPtr filesytem,
             CSelector,
             CFileFormatPtr format,
