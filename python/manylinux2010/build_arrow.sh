@@ -67,6 +67,10 @@ PATH="${PATH}:${CPYTHON_PATH}"
 
 echo "=== (${PYTHON_VERSION}) Install the wheel build dependencies ==="
 $PIP install -r requirements-wheel.txt
+if [ "${PYTHON_VERSION}" = "2.7" -a "${UNICODE_WIDTH}" = "16" ]; then
+  # Can't use UNICODE_WIDTH in requirements.txt
+  $PIP install tensorflow
+fi
 
 if [ "${PYTHON_VERSION}" != "2.7" ]; then
   export PYARROW_WITH_FLIGHT=1

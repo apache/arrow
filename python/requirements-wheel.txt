@@ -6,5 +6,5 @@ pandas
 setuptools_scm==3.2.0
 six>=1.0.0
 # TODO: TensorFlow doesn't support Python 3.8 yet.
-tensorflow; python_version < "3.8"
+tensorflow; python_version >= "3.0" and python_version < "3.8"
 wheel==0.31.1
