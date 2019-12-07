@@ -49,7 +49,7 @@ struct ArrowJsonBatch {
     columns: Vec<ArrowJsonColumn>,
 }
 
-/// A struct that partially reads the Arrow JSON record batch
+/// A struct that partially reads the Arrow JSON dictionary batch
 #[derive(Deserialize)]
 #[allow(non_snake_case)]
 struct ArrowJsonDictionaryBatch {
