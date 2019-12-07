@@ -94,9 +94,8 @@ RUN apt-get update -y -q && \
 # - libgtest-dev only provide sources
 # - libprotobuf-dev only provide sources
 # - thrift is too old
-ENV PATH=/usr/lib/ccache/:$PATH \
-    ARROW_USE_CCACHE=ON \
-    ARROW_BUILD_TESTS=ON \
+ENV ARROW_BUILD_TESTS=ON \
+    ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_FLIGHT=OFF \
     ARROW_GANDIVA=ON \
     ARROW_HDFS=ON \
@@ -107,14 +106,15 @@ ENV PATH=/usr/lib/ccache/:$PATH \
     ARROW_PARQUET=ON \
     ARROW_PLASMA=ON \
     ARROW_USE_ASAN=OFF \
+    ARROW_USE_CCACHE=ON \
     ARROW_USE_UBSAN=OFF \
-    ARROW_WITH_ZLIB=ON \
-    ARROW_WITH_LZ4=ON \
-    ARROW_WITH_BZ2=ON \
-    ARROW_WITH_ZSTD=ON \
-    ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_BROTLI=ON \
-    ARROW_DEPENDENCY_SOURCE=SYSTEM \
-    ORC_SOURCE=BUNDLED \
+    ARROW_WITH_BZ2=ON \
+    ARROW_WITH_LZ4=ON \
+    ARROW_WITH_SNAPPY=ON \
+    ARROW_WITH_ZLIB=ON \
+    ARROW_WITH_ZSTD=ON \
     GTest_SOURCE=BUNDLED \
+    ORC_SOURCE=BUNDLED \
+    PATH=/usr/lib/ccache/:$PATH \
     Thrift_SOURCE=BUNDLED
