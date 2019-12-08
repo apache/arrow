@@ -338,46 +338,44 @@ class ARROW_EXPORT SparseCSCIndex
 ///
 /// A CSF sparse index manages the location of its non-zero values by set of
 /// prefix trees. Each path from a root to leaf forms one tensor non-zero index.
-/// CSF is implemented with five vectors.
+/// CSF is implemented with three vectors.
 ///
-/// Vectors indptr and indices are split into N-1 segments (by indptr_offsets) and
-/// N segments (by indices_offsetsy, where N is the number of dimensions.
-/// Indptr and indices segments describe the set of prefix trees.
-///
-/// Trees traverse dimensions in order given by axis_order.
+/// Vectors inptr and indices contain N-1 and N buffers respectively, where N is the
+/// number of dimensions. Axis_order is a vector of integers of legth N. Indptr and
+/// indices describe the set of prefix trees. Trees traverse dimensions in order given by
+/// axis_order.
 class ARROW_EXPORT SparseCSFIndex : public internal::SparseIndexBase<SparseCSFIndex> {
  public:
   static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::CSF;
 
   /// \brief Make SparseCSFIndex from raw properties
-  static Status Make(const std::shared_ptr<DataType> indices_type,
-                     const std::vector<int64_t>& indptr_shape,
-                     const std::vector<int64_t>& indices_shape,
-                     const std::vector<int64_t>& indptr_offsets,
-                     const std::vector<int64_t>& indices_offsets,
-                     const std::vector<int64_t>& axis_order,
-                     std::shared_ptr<Buffer> indptr_data,
-                     std::shared_ptr<Buffer> indices_data,
-                     std::shared_ptr<SparseCSFIndex>* out);
+  static Result<std::shared_ptr<SparseCSFIndex>> Make(
+      const std::shared_ptr<DataType>& indptr_type,
+      const std::shared_ptr<DataType>& indices_type,
+      const std::vector<int64_t>& indices_shapes, const std::vector<int64_t>& axis_order,
+      std::vector<std::shared_ptr<Buffer>> indptr_data,
+      std::vector<std::shared_ptr<Buffer>> indices_data);
+
+  /// \brief Make SparseCSFIndex from raw properties
+  static Result<std::shared_ptr<SparseCSFIndex>> Make(
+      const std::shared_ptr<DataType>& indices_type,
+      const std::vector<int64_t>& indices_shapes, const std::vector<int64_t>& axis_order,
+      std::vector<std::shared_ptr<Buffer>> indptr_data,
+      std::vector<std::shared_ptr<Buffer>> indices_data) {
+    return Make(indices_type, indices_type, indices_shapes, axis_order, indptr_data,
+                indices_data);
+  }
 
   /// \brief Construct SparseCSFIndex from two index vectors
-  explicit SparseCSFIndex(const std::shared_ptr<Tensor>& indptr,
-                          const std::shared_ptr<Tensor>& indices,
-                          const std::vector<int64_t>& indptr_offsets,
-                          const std::vector<int64_t>& indices_offsets,
+  explicit SparseCSFIndex(std::vector<std::shared_ptr<Tensor>>& indptr,
+                          std::vector<std::shared_ptr<Tensor>>& indices,
                           const std::vector<int64_t>& axis_order);
 
   /// \brief Return a 1D tensor of indptr vector
-  const std::shared_ptr<Tensor>& indptr() const { return indptr_; }
+  const std::vector<std::shared_ptr<Tensor>>& indptr() const { return indptr_; }
 
   /// \brief Return a 1D tensor of indices vector
-  const std::shared_ptr<Tensor>& indices() const { return indices_; }
-
-  /// \brief Return a 1D vector of indptr offsets
-  const std::vector<int64_t>& indptr_offsets() const { return indptr_offsets_; }
-
-  /// \brief Return a vector of indices offsets
-  const std::vector<int64_t>& indices_offsets() const { return indices_offsets_; }
+  const std::vector<std::shared_ptr<Tensor>>& indices() const { return indices_; }
 
   /// \brief Return a 1D vector specifying the order of axes
   const std::vector<int64_t>& axis_order() const { return axis_order_; }
@@ -387,17 +385,16 @@ class ARROW_EXPORT SparseCSFIndex : public internal::SparseIndexBase<SparseCSFIn
 
   /// \brief Return whether the CSF indices are equal
   bool Equals(const SparseCSFIndex& other) const {
-    return indptr()->Equals(*other.indptr()) && indices()->Equals(*other.indices()) &&
-           indptr_offsets() == other.indptr_offsets() &&
-           indices_offsets() == other.indices_offsets() &&
-           axis_order() == other.axis_order();
+    for (int64_t i = 0; i < static_cast<int64_t>(indices().size()); ++i)
+      if (!indices()[i]->Equals(*other.indices()[i])) return false;
+    for (int64_t i = 0; i < static_cast<int64_t>(indptr().size()); ++i)
+      if (!indptr()[i]->Equals(*other.indptr()[i])) return false;
+    return axis_order() == other.axis_order();
   }
 
  protected:
-  std::shared_ptr<Tensor> indptr_;
-  std::shared_ptr<Tensor> indices_;
-  std::vector<int64_t> indptr_offsets_;
-  std::vector<int64_t> indices_offsets_;
+  std::vector<std::shared_ptr<Tensor>> indptr_;
+  std::vector<std::shared_ptr<Tensor>> indices_;
   std::vector<int64_t> axis_order_;
 };
 

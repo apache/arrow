@@ -145,41 +145,29 @@ table SparseTensorIndexCSF {
   ///    / \ / \   \    /|\
   ///   2  3 1  3   1  1 2 3
 
-  /// The type of values in indptrBuffer
+  /// The type of values in indptrBuffers
   indptrType: Int;
 
-  /// indptrBuffer stores the sparsity structure.
-  /// For example, the indptrBuffer for the above X is:
+  /// indptrBuffers stores the sparsity structure.
+  /// Position in the indptrBuffers vector signifies the dimension.
+  /// For example, the indptrBuffers for the above X is:
   ///
-  ///   indptrBuffer(X) = [0, 2, 3, 0, 1, 3, 4, 0, 2, 4, 5, 8].
+  ///   indptrBuffer(X) = [[0, 2, 3], [0, 1, 3, 4], [0, 2, 4, 5, 8]].
   ///
-  indptrBuffer: Buffer;
+  indptrBuffers: [Buffer];
 
-  /// indptrOffsets stores per dimension offset in indptrBuffer.
-  /// For example, the indptrOffsets for the above X is:
-  ///
-  ///   indptrOffsets(X) = [0, 3, 7].
-  ///
-  indptrOffsets: [int];
-
-  /// The type of values in indicesBuffer
+  /// The type of values in indicesBuffers
   indicesType: Int;
 
-  /// indicesBuffer stores the label of each node,
-  /// For example, the indicesBuffer for the above X is:
+  /// indicesBuffers stores the label of each node.
+  /// Position in the indicesBuffers vector signifies the dimension.
+  /// For example, the indicesBuffers for the above X is:
   ///
-  ///   indicesBuffer(X) = [1, 2, 1, 2, 2, 1, 1, 2, 2, 2, 3, 1, 3, 1, 1, 2, 3].
+  ///   indicesBuffer(X) = [[1, 2], [1, 2, 2], [1, 1, 2, 2], [2, 3, 1, 3, 1, 1, 2, 3]].
   ///
-  indicesBuffer: Buffer;
+  indicesBuffers: [Buffer];
 
-  /// indicesOffsets stores per dimension offset in indicesOffsets.
-  /// For example, the indicesBuffer for the above X is:
-  ///
-  ///   indicesOffsets(X) = [0, 2, 5, 9].
-  ///
-  indicesOffsets: [int];
-
-  /// axisOrder stores the sequence in which dimensions were traversed.
+  /// axisOrder stores the sequence in which dimensions were traversed to produce the prefix tree.
   /// For example, the axisOrder for the above X is:
   ///
   ///   axisOrder(X) = [0, 1, 2, 3].
