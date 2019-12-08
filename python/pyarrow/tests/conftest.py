@@ -136,13 +136,13 @@ except ImportError:
     pass
 
 try:
-    import pyarrow.fs import S3FileSystem  # noqa
+    from pyarrow.fs import S3FileSystem  # noqa
     defaults['s3'] = True
 except ImportError:
     pass
 
 try:
-    from pyarrow.fs import HadoopFileSystem   # noqa
+    from pyarrow.fs import HadoopFileSystem  # noqa
     defaults['hdfs'] = True
 except ImportError:
     pass
