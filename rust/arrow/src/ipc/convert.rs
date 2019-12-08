@@ -17,7 +17,7 @@
 
 //! Utilities for converting between IPC types and native Arrow types
 
-use crate::datatypes::{DataType, DateUnit, Field, Schema, TimeUnit};
+use crate::datatypes::{DataType, DateUnit, Field, IntervalUnit, Schema, TimeUnit};
 use crate::ipc;
 
 use flatbuffers::{
@@ -182,6 +182,24 @@ fn get_data_type(field: ipc::Field) -> DataType {
                 }
             }
         }
+        ipc::Type::Interval => {
+            let interval = field.type_as_interval().unwrap();
+            match interval.unit() {
+                ipc::IntervalUnit::YEAR_MONTH => {
+                    DataType::Interval(IntervalUnit::YearMonth)
+                }
+                ipc::IntervalUnit::DAY_TIME => DataType::Interval(IntervalUnit::DayTime),
+            }
+        }
+        ipc::Type::Duration => {
+            let duration = field.type_as_duration().unwrap();
+            match duration.unit() {
+                ipc::TimeUnit::SECOND => DataType::Duration(TimeUnit::Second),
+                ipc::TimeUnit::MILLISECOND => DataType::Duration(TimeUnit::Millisecond),
+                ipc::TimeUnit::MICROSECOND => DataType::Duration(TimeUnit::Microsecond),
+                ipc::TimeUnit::NANOSECOND => DataType::Duration(TimeUnit::Nanosecond),
+            }
+        }
         ipc::Type::List => {
             let children = field.children().unwrap();
             if children.len() != 1 {
@@ -213,7 +231,6 @@ fn get_data_type(field: ipc::Field) -> DataType {
 
             DataType::Struct(fields)
         }
-        // TODO add interval support
         t @ _ => unimplemented!("Type {:?} not supported", t),
     }
 }
@@ -272,6 +289,11 @@ fn get_fb_field_type<'a: 'b, 'b>(
                 None,
             )
         }
+        Binary => (
+            ipc::Type::Binary,
+            ipc::BinaryBuilder::new(&mut fbb).finish().as_union_value(),
+            None,
+        ),
         Utf8 => (
             ipc::Type::Utf8,
             ipc::Utf8Builder::new(&mut fbb).finish().as_union_value(),
@@ -328,6 +350,26 @@ fn get_fb_field_type<'a: 'b, 'b>(
                 builder.finish().as_union_value(),
                 None,
             )
+        }
+        Interval(unit) => {
+            let mut builder = ipc::IntervalBuilder::new(&mut fbb);
+            let interval_unit = match unit {
+                IntervalUnit::YearMonth => ipc::IntervalUnit::YEAR_MONTH,
+                IntervalUnit::DayTime => ipc::IntervalUnit::DAY_TIME,
+            };
+            builder.add_unit(interval_unit);
+            (ipc::Type::Interval, builder.finish().as_union_value(), None)
+        }
+        Duration(unit) => {
+            let mut builder = ipc::DurationBuilder::new(&mut fbb);
+            let time_unit = match unit {
+                TimeUnit::Second => ipc::TimeUnit::SECOND,
+                TimeUnit::Millisecond => ipc::TimeUnit::MILLISECOND,
+                TimeUnit::Microsecond => ipc::TimeUnit::MICROSECOND,
+                TimeUnit::Nanosecond => ipc::TimeUnit::NANOSECOND,
+            };
+            builder.add_unit(time_unit);
+            (ipc::Type::Duration, builder.finish().as_union_value(), None)
         }
         List(ref list_type) => {
             let inner_types = get_fb_field_type(list_type, &mut fbb);
@@ -434,7 +476,18 @@ mod tests {
                     DataType::Timestamp(TimeUnit::Nanosecond, None),
                     true,
                 ),
+                Field::new(
+                    "interval[ym]",
+                    DataType::Interval(IntervalUnit::YearMonth),
+                    true,
+                ),
+                Field::new(
+                    "interval[dt]",
+                    DataType::Interval(IntervalUnit::DayTime),
+                    true,
+                ),
                 Field::new("utf8", DataType::Utf8, false),
+                Field::new("binary", DataType::Binary, false),
                 Field::new("list[u8]", DataType::List(Box::new(DataType::UInt8)), true),
                 Field::new(
                     "list[struct<float32, int32, bool>]",

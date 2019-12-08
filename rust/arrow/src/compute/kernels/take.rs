@@ -88,6 +88,24 @@ pub fn take(
         DataType::Timestamp(Nanosecond, _) => {
             take_primitive::<TimestampNanosecondType>(values, indices)
         }
+        DataType::Interval(IntervalUnit::YearMonth) => {
+            take_primitive::<IntervalYearMonthType>(values, indices)
+        }
+        DataType::Interval(IntervalUnit::DayTime) => {
+            take_primitive::<IntervalDayTimeType>(values, indices)
+        }
+        DataType::Duration(TimeUnit::Second) => {
+            take_primitive::<DurationSecondType>(values, indices)
+        }
+        DataType::Duration(TimeUnit::Millisecond) => {
+            take_primitive::<DurationMillisecondType>(values, indices)
+        }
+        DataType::Duration(TimeUnit::Microsecond) => {
+            take_primitive::<DurationMicrosecondType>(values, indices)
+        }
+        DataType::Duration(TimeUnit::Nanosecond) => {
+            take_primitive::<DurationNanosecondType>(values, indices)
+        }
         DataType::Utf8 => take_string(values, indices),
         DataType::List(_) => take_list(values, indices),
         DataType::Struct(fields) => {
@@ -291,6 +309,54 @@ mod tests {
             vec![Some(-15), None, None, Some(-15), Some(2)],
         );
 
+        // interval_year_month
+        test_take_primitive_arrays::<IntervalYearMonthType>(
+            vec![Some(0), None, Some(2), Some(-15), None],
+            &index,
+            None,
+            vec![Some(-15), None, None, Some(-15), Some(2)],
+        );
+
+        // interval_day_time
+        test_take_primitive_arrays::<IntervalDayTimeType>(
+            vec![Some(0), None, Some(2), Some(-15), None],
+            &index,
+            None,
+            vec![Some(-15), None, None, Some(-15), Some(2)],
+        );
+
+        // duration_second
+        test_take_primitive_arrays::<DurationSecondType>(
+            vec![Some(0), None, Some(2), Some(-15), None],
+            &index,
+            None,
+            vec![Some(-15), None, None, Some(-15), Some(2)],
+        );
+
+        // duration_millisecond
+        test_take_primitive_arrays::<DurationMillisecondType>(
+            vec![Some(0), None, Some(2), Some(-15), None],
+            &index,
+            None,
+            vec![Some(-15), None, None, Some(-15), Some(2)],
+        );
+
+        // duration_microsecond
+        test_take_primitive_arrays::<DurationMicrosecondType>(
+            vec![Some(0), None, Some(2), Some(-15), None],
+            &index,
+            None,
+            vec![Some(-15), None, None, Some(-15), Some(2)],
+        );
+
+        // duration_nanosecond
+        test_take_primitive_arrays::<DurationNanosecondType>(
+            vec![Some(0), None, Some(2), Some(-15), None],
+            &index,
+            None,
+            vec![Some(-15), None, None, Some(-15), Some(2)],
+        );
+
         // float32
         test_take_primitive_arrays::<Float32Type>(
             vec![Some(0.0), None, Some(2.21), Some(-3.1), None],
@@ -308,7 +374,6 @@ mod tests {
         );
 
         // boolean
-        // float32
         test_take_primitive_arrays::<BooleanType>(
             vec![Some(false), None, Some(true), Some(false), None],
             &index,

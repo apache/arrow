@@ -101,7 +101,12 @@ pub type Time32SecondArray = PrimitiveArray<Time32SecondType>;
 pub type Time32MillisecondArray = PrimitiveArray<Time32MillisecondType>;
 pub type Time64MicrosecondArray = PrimitiveArray<Time64MicrosecondType>;
 pub type Time64NanosecondArray = PrimitiveArray<Time64NanosecondType>;
-// TODO add interval
+pub type IntervalYearMonthArray = PrimitiveArray<IntervalYearMonthType>;
+pub type IntervalDayTimeArray = PrimitiveArray<IntervalDayTimeType>;
+pub type DurationSecondArray = PrimitiveArray<DurationSecondType>;
+pub type DurationMillisecondArray = PrimitiveArray<DurationMillisecondType>;
+pub type DurationMicrosecondArray = PrimitiveArray<DurationMicrosecondType>;
+pub type DurationNanosecondArray = PrimitiveArray<DurationNanosecondType>;
 
 pub use self::array::ListArrayOps;
 pub use self::array::PrimitiveArrayOps;
@@ -133,6 +138,12 @@ pub type Time32SecondBufferBuilder = BufferBuilder<Time32SecondType>;
 pub type Time32MillisecondBufferBuilder = BufferBuilder<Time32MillisecondType>;
 pub type Time64MicrosecondBufferBuilder = BufferBuilder<Time64MicrosecondType>;
 pub type Time64NanosecondBufferBuilder = BufferBuilder<Time64NanosecondType>;
+pub type IntervalYearMonthBufferBuilder = BufferBuilder<IntervalYearMonthType>;
+pub type IntervalDayTimeBufferBuilder = BufferBuilder<IntervalDayTimeType>;
+pub type DurationSecondBufferBuilder = BufferBuilder<DurationSecondType>;
+pub type DurationMillisecondBufferBuilder = BufferBuilder<DurationMillisecondType>;
+pub type DurationMicrosecondBufferBuilder = BufferBuilder<DurationMicrosecondType>;
+pub type DurationNanosecondBufferBuilder = BufferBuilder<DurationNanosecondType>;
 
 pub use self::builder::ArrayBuilder;
 pub use self::builder::BinaryBuilder;
@@ -165,6 +176,12 @@ pub type Time32SecondBuilder = PrimitiveBuilder<Time32SecondType>;
 pub type Time32MillisecondBuilder = PrimitiveBuilder<Time32MillisecondType>;
 pub type Time64MicrosecondBuilder = PrimitiveBuilder<Time64MicrosecondType>;
 pub type Time64NanosecondBuilder = PrimitiveBuilder<Time64NanosecondType>;
+pub type IntervalYearMonthBuilder = PrimitiveBuilder<IntervalYearMonthType>;
+pub type IntervalDayTimeBuilder = PrimitiveBuilder<IntervalDayTimeType>;
+pub type DurationSecondBuilder = PrimitiveBuilder<DurationSecondType>;
+pub type DurationMillisecondBuilder = PrimitiveBuilder<DurationMillisecondType>;
+pub type DurationMicrosecondBuilder = PrimitiveBuilder<DurationMicrosecondType>;
+pub type DurationNanosecondBuilder = PrimitiveBuilder<DurationNanosecondType>;
 
 // --------------------- Array Equality ---------------------
 

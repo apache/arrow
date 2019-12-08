@@ -61,6 +61,7 @@ use crate::error::{ArrowError, Result};
 /// * To or from `StructArray`
 /// * List to primitive
 /// * Utf8 to boolean
+/// * Interval and duration
 pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
     use DataType::*;
     let from_type = array.data_type();

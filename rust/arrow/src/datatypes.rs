@@ -70,6 +70,7 @@ pub enum DataType {
     Date64(DateUnit),
     Time32(TimeUnit),
     Time64(TimeUnit),
+    Duration(TimeUnit),
     Interval(IntervalUnit),
     Binary,
     FixedSizeBinary(i32),
@@ -298,15 +299,43 @@ make_type!(
 );
 make_type!(
     IntervalYearMonthType,
-    i64,
+    i32,
     DataType::Interval(IntervalUnit::YearMonth),
-    64,
-    0i64
+    32,
+    0i32
 );
 make_type!(
     IntervalDayTimeType,
     i64,
     DataType::Interval(IntervalUnit::DayTime),
+    64,
+    0i64
+);
+make_type!(
+    DurationSecondType,
+    i64,
+    DataType::Duration(TimeUnit::Second),
+    64,
+    0i64
+);
+make_type!(
+    DurationMillisecondType,
+    i64,
+    DataType::Duration(TimeUnit::Millisecond),
+    64,
+    0i64
+);
+make_type!(
+    DurationMicrosecondType,
+    i64,
+    DataType::Duration(TimeUnit::Microsecond),
+    64,
+    0i64
+);
+make_type!(
+    DurationNanosecondType,
+    i64,
+    DataType::Duration(TimeUnit::Nanosecond),
     64,
     0i64
 );
@@ -497,8 +526,12 @@ make_numeric_type!(Time32SecondType, i32, i32x16, m32x16);
 make_numeric_type!(Time32MillisecondType, i32, i32x16, m32x16);
 make_numeric_type!(Time64MicrosecondType, i64, i64x8, m64x8);
 make_numeric_type!(Time64NanosecondType, i64, i64x8, m64x8);
-make_numeric_type!(IntervalYearMonthType, i64, i64x8, m64x8);
+make_numeric_type!(IntervalYearMonthType, i32, i32x16, m32x16);
 make_numeric_type!(IntervalDayTimeType, i64, i64x8, m64x8);
+make_numeric_type!(DurationSecondType, i64, i64x8, m64x8);
+make_numeric_type!(DurationMillisecondType, i64, i64x8, m64x8);
+make_numeric_type!(DurationMicrosecondType, i64, i64x8, m64x8);
+make_numeric_type!(DurationNanosecondType, i64, i64x8, m64x8);
 
 /// A subtype of primitive type that represents temporal values.
 pub trait ArrowTemporalType: ArrowPrimitiveType {}
@@ -513,8 +546,8 @@ impl ArrowTemporalType for Time32SecondType {}
 impl ArrowTemporalType for Time32MillisecondType {}
 impl ArrowTemporalType for Time64MicrosecondType {}
 impl ArrowTemporalType for Time64NanosecondType {}
-impl ArrowTemporalType for IntervalYearMonthType {}
-impl ArrowTemporalType for IntervalDayTimeType {}
+// impl ArrowTemporalType for IntervalYearMonthType {}
+// impl ArrowTemporalType for IntervalDayTimeType {}
 
 /// A timestamp type allows us to create array builders that take a timestamp
 pub trait ArrowTimestampType: ArrowTemporalType {
@@ -634,6 +667,21 @@ impl DataType {
                         )),
                     }
                 }
+                Some(s) if s == "duration" => match map.get("unit") {
+                    Some(p) if p == "SECOND" => Ok(DataType::Duration(TimeUnit::Second)),
+                    Some(p) if p == "MILLISECOND" => {
+                        Ok(DataType::Duration(TimeUnit::Millisecond))
+                    }
+                    Some(p) if p == "MICROSECOND" => {
+                        Ok(DataType::Duration(TimeUnit::Microsecond))
+                    }
+                    Some(p) if p == "NANOSECOND" => {
+                        Ok(DataType::Duration(TimeUnit::Nanosecond))
+                    }
+                    _ => Err(ArrowError::ParseError(
+                        "time unit missing or invalid".to_string(),
+                    )),
+                },
                 Some(s) if s == "interval" => match map.get("unit") {
                     Some(p) if p == "DAY_TIME" => {
                         Ok(DataType::Interval(IntervalUnit::DayTime))
@@ -777,6 +825,12 @@ impl DataType {
             DataType::Interval(unit) => json!({"name": "interval", "unit": match unit {
                 IntervalUnit::YearMonth => "YEAR_MONTH",
                 IntervalUnit::DayTime => "DAY_TIME",
+            }}),
+            DataType::Duration(unit) => json!({"name": "duration", "unit": match unit {
+                TimeUnit::Second => "SECOND",
+                TimeUnit::Millisecond => "MILLISECOND",
+                TimeUnit::Microsecond => "MICROSECOND",
+                TimeUnit::Nanosecond => "NANOSECOND",
             }}),
         }
     }
@@ -1348,6 +1402,12 @@ mod tests {
                     ]),
                     false,
                 ),
+                Field::new("c25", DataType::Interval(IntervalUnit::YearMonth), true),
+                Field::new("c26", DataType::Interval(IntervalUnit::DayTime), true),
+                Field::new("c27", DataType::Duration(TimeUnit::Second), false),
+                Field::new("c28", DataType::Duration(TimeUnit::Millisecond), false),
+                Field::new("c29", DataType::Duration(TimeUnit::Microsecond), false),
+                Field::new("c30", DataType::Duration(TimeUnit::Nanosecond), false),
             ],
             metadata,
         );
@@ -1629,6 +1689,60 @@ mod tests {
                                 "children": []
                             }
                         ]
+                    },
+                    {
+                        "name": "c25",
+                        "nullable": true,
+                        "type": {
+                            "name": "interval",
+                            "unit": "YEAR_MONTH"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c26",
+                        "nullable": true,
+                        "type": {
+                            "name": "interval",
+                            "unit": "DAY_TIME"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c27",
+                        "nullable": false,
+                        "type": {
+                            "name": "duration",
+                            "unit": "SECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c28",
+                        "nullable": false,
+                        "type": {
+                            "name": "duration",
+                            "unit": "MILLISECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c29",
+                        "nullable": false,
+                        "type": {
+                            "name": "duration",
+                            "unit": "MICROSECOND"
+                        },
+                        "children": []
+                    },
+                    {
+                        "name": "c30",
+                        "nullable": false,
+                        "type": {
+                            "name": "duration",
+                            "unit": "NANOSECOND"
+                        },
+                        "children": []
                     }
                 ],
                 "metadata" : {

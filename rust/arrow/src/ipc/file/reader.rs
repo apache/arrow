@@ -23,7 +23,7 @@ use std::sync::Arc;
 use crate::array::*;
 use crate::buffer::Buffer;
 use crate::compute::cast;
-use crate::datatypes::{DataType, Schema, SchemaRef};
+use crate::datatypes::{DataType, IntervalUnit, Schema, SchemaRef};
 use crate::error::{ArrowError, Result};
 use crate::ipc;
 use crate::record_batch::{RecordBatch, RecordBatchReader};
@@ -215,7 +215,15 @@ fn create_primitive_array(
             }
             builder.build()
         }
-        Int8 | Int16 | Int32 | UInt8 | UInt16 | UInt32 | Time32(_) | Date32(_) => {
+        Int8
+        | Int16
+        | Int32
+        | UInt8
+        | UInt16
+        | UInt32
+        | Time32(_)
+        | Date32(_)
+        | Interval(IntervalUnit::YearMonth) => {
             if buffers[1].len() / 8 == length {
                 // interpret as a signed i64, and cast appropriately
                 let mut builder = ArrayData::builder(DataType::Int64)
@@ -271,7 +279,15 @@ fn create_primitive_array(
                 builder.build()
             }
         }
-        Boolean | Int64 | UInt64 | Float64 | Time64(_) | Timestamp(_, _) | Date64(_) => {
+        Boolean
+        | Int64
+        | UInt64
+        | Float64
+        | Time64(_)
+        | Timestamp(_, _)
+        | Date64(_)
+        | Duration(_)
+        | Interval(IntervalUnit::DayTime) => {
             let mut builder = ArrayData::builder(data_type.clone())
                 .len(length)
                 .buffers(buffers[1..].to_vec())
@@ -530,6 +546,7 @@ mod tests {
         let testdata = env::var("ARROW_TEST_DATA").expect("ARROW_TEST_DATA not defined");
         // the test is repetitive, thus we can read all supported files at once
         let paths = vec![
+            "generated_interval",
             "generated_datetime",
             "generated_nested",
             "generated_primitive_no_batches",
