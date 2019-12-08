@@ -22,6 +22,7 @@ import six
 from pyarrow.compat import frombytes, tobytes
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport PyDateTime_from_TimePoint
+from pyarrow.includes.libarrow_fs cimport *
 from pyarrow.lib import _detect_compression
 from pyarrow.lib cimport *
 

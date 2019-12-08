@@ -55,7 +55,7 @@ def strip_hdfs_abspath(path):
 
 cdef class HadoopFileSystem:
     cdef:
-        shared_ptr[CHadoopFileSystem] client
+        shared_ptr[CIOHadoopFileSystem] client
 
     cdef readonly:
         bint is_open
@@ -102,7 +102,7 @@ cdef class HadoopFileSystem:
         self.extra_conf = extra_conf
 
         with nogil:
-            check_status(CHadoopFileSystem.Connect(&conf, &self.client))
+            check_status(CIOHadoopFileSystem.Connect(&conf, &self.client))
         self.is_open = True
 
     @classmethod

@@ -64,7 +64,7 @@ def subtree_localfs(request, tempdir, localfs):
 @pytest.fixture
 def s3fs(request, minio_server):
     request.config.pyarrow.requires('s3')
-    from pyarrow.s3fs import S3Options, S3FileSystem
+    from pyarrow.fs import S3Options, S3FileSystem
 
     address, access_key, secret_key = minio_server
     bucket = 'pyarrow-filesystem/'
@@ -96,6 +96,25 @@ def subtree_s3fs(request, s3fs):
     )
 
 
+@pytest.fixture
+def hdfs(request, hdfs_server):
+    request.config.pyarrow.requires('hdfs')
+    from pyarrow.fs import HdfsOptions, HadoopFileSystem
+
+    uri, user = hdfs_server
+    options = HdfsOptions.from_uri(uri)
+    options.user = user
+
+    fs = HadoopFileSystem(options)
+
+    return dict(
+        fs=fs,
+        pathfn=lambda p: p,
+        allow_move_dir=True,
+        allow_append_to_file=False,
+    )
+
+
 @pytest.fixture(params=[
     pytest.param(
         pytest.lazy_fixture('localfs'),
@@ -112,6 +131,10 @@ def subtree_s3fs(request, s3fs):
     pytest.param(
         pytest.lazy_fixture('s3fs'),
         id='S3FileSystem'
+    ),
+    pytest.param(
+        pytest.lazy_fixture('hdfs'),
+        id='HadoopFileSystem'
     ),
 ])
 def filesystem_config(request):
@@ -423,7 +446,7 @@ def test_localfs_options():
 
 @pytest.mark.s3
 def test_s3_options(minio_server):
-    from pyarrow.s3fs import S3Options
+    from pyarrow.fs import S3Options
 
     options = S3Options()
 

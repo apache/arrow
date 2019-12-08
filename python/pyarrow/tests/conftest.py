@@ -118,7 +118,7 @@ except ImportError:
     pass
 
 try:
-    import pyarrow.plasma as plasma  # noqa
+    import pyarrow.plasma  # noqa
     defaults['plasma'] = True
 except ImportError:
     pass
@@ -136,8 +136,14 @@ except ImportError:
     pass
 
 try:
-    import pyarrow.s3fs  # noqa
+    import pyarrow.fs import S3FileSystem  # noqa
     defaults['s3'] = True
+except ImportError:
+    pass
+
+try:
+    from pyarrow.fs import HadoopFileSystem   # noqa
+    defaults['hdfs'] = True
 except ImportError:
     pass
 
@@ -228,6 +234,19 @@ except ImportError:
 
         def __exit__(self, exc_type, exc_value, traceback):
             shutil.rmtree(self.tmp)
+
+
+# TODO(kszucs): move the following fixtures to test_fs.py once the previous
+# parquet dataset implementation and hdfs implementation are removed.
+
+@pytest.mark.hdfs
+@pytest.fixture(scope='session')
+def hdfs_server():
+    host = os.environ.get('ARROW_HDFS_TEST_HOST', 'default')
+    port = int(os.environ.get('ARROW_HDFS_TEST_PORT', 0))
+    user = os.environ.get('ARROW_HDFS_TEST_USER', 'hdfs')
+    uri = "hdfs://{}:{}".format(host, port)
+    return uri, user
 
 
 @pytest.mark.s3
