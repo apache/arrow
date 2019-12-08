@@ -102,11 +102,11 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          ci/scripts/cpp_build.sh $(pwd) $(pwd)/cpp/build
-          ci/scripts/c_glib_build.sh $(pwd) $(pwd)/c_glib/build
+          ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+          ci/scripts/c_glib_build.sh $(pwd) $(pwd)/build
       - name: Test GLib
         shell: bash
-        run: ci/scripts/c_glib_test.sh $(pwd) $(pwd)/c_glib/build
+        run: ci/scripts/c_glib_test.sh $(pwd) $(pwd)/build
       - name: Test Ruby
         shell: bash
         run: ci/scripts/ruby_test.sh $(pwd)

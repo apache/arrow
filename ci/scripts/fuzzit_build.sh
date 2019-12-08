@@ -21,7 +21,7 @@ set -euxo pipefail
 export TARGET_ID=apache-arrow/arrow-ipc-fuzzing
 
 source_dir=${1}/cpp
-build_dir=${2:-${source_dir}/build}
+build_dir=${2}/cpp
 
 pushd ${build_dir}/relwithdebinfo
 

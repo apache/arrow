@@ -79,7 +79,7 @@ jobs:
           submodules: true
       - name: Build
         shell: bash
-        run: ci/scripts/java_build.sh $(pwd)
+        run: ci/scripts/java_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
-        run: ci/scripts/java_test.sh $(pwd)
+        run: ci/scripts/java_test.sh $(pwd) $(pwd)/build

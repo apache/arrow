@@ -40,6 +40,13 @@ volumes:
   amd64-fedora-29-cache:
   maven-cache:
 
+x-ccache: &ccache
+  CCACHE_COMPILERCHECK: content
+  CCACHE_COMPRESS: 1
+  CCACHE_COMPRESSLEVEL: 5
+  CCACHE_MAXSIZE: 500M
+  CCACHE_DIR: /build/ccache
+
 services:
 
   ################################# C++ #######################################
@@ -73,12 +80,14 @@ services:
         arch: ${ARCH}
         prefix: /opt/conda
     shm_size: &shm-size 2G
+    environment:
+      <<: *ccache
     volumes: &conda-volumes
       - .:/arrow:delegated
       - ${ARCH}-conda-cache:/build:delegated
     command: &cpp-conda-command
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
-        /arrow/ci/scripts/cpp_test.sh /arrow /build/cpp"]
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/cpp_test.sh /arrow /build"]
 
   cuda-cpp:
     # Usage:
@@ -94,13 +103,15 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-cuda-${CUDA}-cpp
     shm_size: *shm-size
+    environment:
+      <<: *ccache
     volumes: &cuda-volumes
       - .:/arrow:delegated
       - ${ARCH}-cuda-${CUDA}-cache:/build:delegated
     command: &cpp-command >
       /bin/bash -c "
-        /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
-        /arrow/ci/scripts/cpp_test.sh /arrow /build/cpp"
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/cpp_test.sh /arrow /build"
 
   debian-cpp:
     # Usage:
@@ -118,6 +129,8 @@ services:
       args:
         arch: ${ARCH}
     shm_size: *shm-size
+    environment:
+      <<: *ccache
     volumes: &debian-volumes
       - .:/arrow:delegated
       - ${ARCH}-debian-${DEBIAN}-cache:/build:delegated
@@ -139,6 +152,8 @@ services:
       args:
         arch: ${ARCH}
     shm_size: *shm-size
+    environment:
+      <<: *ccache
     volumes: &ubuntu-volumes
       - .:/arrow:delegated
       - ${ARCH}-ubuntu-${UBUNTU}-cache:/build:delegated
@@ -165,6 +180,7 @@ services:
     shm_size: *shm-size
     volumes: *ubuntu-volumes
     environment:
+      <<: *ccache
       CC: clang-7
       CXX: clang++-7
       ARROW_JEMALLOC: "OFF"
@@ -189,6 +205,8 @@ services:
       args:
         arch: ${ARCH}
     shm_size: *shm-size
+    environment:
+      <<: *ccache
     volumes: &fedora-volumes
       - .:/arrow:delegated
       - ${ARCH}-fedora-${FEDORA}-cache:/build:delegated
@@ -215,12 +233,14 @@ services:
     environment:
       ARROW_GLIB_GTK_DOC: "true"
     shm_size: *shm-size
+    environment:
+      <<: *ccache
     volumes: *debian-volumes
     command: &c-glib-command >
       /bin/bash -c "
-        /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
-        /arrow/ci/scripts/c_glib_build.sh /arrow /build/c_glib &&
-        /arrow/ci/scripts/c_glib_test.sh /arrow /build/c_glib"
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/c_glib_build.sh /arrow /build &&
+        /arrow/ci/scripts/c_glib_test.sh /arrow /build"
 
   ubuntu-c-glib:
     # Usage:
@@ -239,6 +259,7 @@ services:
       args:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     environment:
+      <<: *ccache
       ARROW_GLIB_GTK_DOC: "true"
     shm_size: *shm-size
     volumes: *ubuntu-volumes
@@ -268,12 +289,14 @@ services:
       args:
         base: ${REPO}:${ARCH}-debian-${DEBIAN}-c-glib
     shm_size: *shm-size
+    environment:
+      <<: *ccache
     volumes: *debian-volumes
     command: &ruby-command >
       /bin/bash -c "
-        /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
-        /arrow/ci/scripts/c_glib_build.sh /arrow /build/c_glib &&
-        /arrow/ci/scripts/c_glib_test.sh /arrow /build/c_glib &&
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/c_glib_build.sh /arrow /build &&
+        /arrow/ci/scripts/c_glib_test.sh /arrow /build &&
         /arrow/ci/scripts/ruby_test.sh /arrow"
 
   ubuntu-ruby:
@@ -294,6 +317,8 @@ services:
       args:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-c-glib
     shm_size: *shm-size
+    environment:
+      <<: *ccache
     volumes: *ubuntu-volumes
     command: *ruby-command
 
@@ -318,10 +343,12 @@ services:
         arch: ${ARCH}
         python: ${PYTHON}
     shm_size: *shm-size
+    environment:
+      <<: *ccache
     volumes: *conda-volumes
     command: &python-conda-command
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
-        /arrow/ci/scripts/python_build.sh /arrow /build/python &&
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/python_test.sh /arrow"]
 
   cuda-python:
@@ -341,11 +368,13 @@ services:
       args:
         base: ${REPO}:${ARCH}-cuda-${CUDA}-cpp
     shm_size: *shm-size
+    environment:
+      <<: *ccache
     volumes: *cuda-volumes
     command: &python-command >
       /bin/bash -c "
-        /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
-        /arrow/ci/scripts/python_build.sh /arrow /build/python &&
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/python_test.sh /arrow"
 
   debian-python:
@@ -365,6 +394,8 @@ services:
       args:
         base: ${REPO}:${ARCH}-debian-${DEBIAN}-cpp
     shm_size: *shm-size
+    environment:
+      <<: *ccache
     volumes: *debian-volumes
     command: *python-command
 
@@ -385,6 +416,8 @@ services:
       args:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     shm_size: *shm-size
+    environment:
+      <<: *ccache
     volumes: *ubuntu-volumes
     command: *python-command
 
@@ -405,6 +438,8 @@ services:
       args:
         base: ${REPO}:${ARCH}-fedora-${FEDORA}-cpp
     shm_size: *shm-size
+    environment:
+      <<: *ccache
     volumes: *fedora-volumes
     command: *python-command
 
@@ -425,6 +460,7 @@ services:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
         cmake: 3.2.3
     environment:
+      <<: *ccache
       # Vendor boost to avoid dealing with stale FindBoost.
       ARROW_BOOST_SOURCE: "BUNDLED"
       ARROW_ORC: "OFF"
@@ -456,6 +492,8 @@ services:
         python: ${PYTHON}
         pandas: ${PANDAS}
     shm_size: *shm-size
+    environment:
+      <<: *ccache
     volumes: *conda-volumes
     command: *python-conda-command
 
@@ -481,10 +519,12 @@ services:
         python: ${PYTHON}
         dask: ${DASK}
     shm_size: *shm-size
+    environment:
+      <<: *ccache
     volumes: *conda-volumes
     command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
-        /arrow/ci/scripts/python_build.sh /arrow /build/python &&
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/integration_dask.sh"]
 
   conda-python-turbodbc:
@@ -509,11 +549,13 @@ services:
         python: ${PYTHON}
         turbodbc: ${TURBODBC}
     shm_size: *shm-size
+    environment:
+      <<: *ccache
     volumes: *conda-volumes
     command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
-        /arrow/ci/scripts/python_build.sh /arrow /build/python &&
-        /arrow/ci/scripts/integration_turbodbc.sh /turbodbc /build/turbodbc"]
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build.sh /arrow /build &&
+        /arrow/ci/scripts/integration_turbodbc.sh /turbodbc /build"]
 
   ########################## Python Wheels ####################################
 
@@ -573,9 +615,11 @@ services:
         arch: ${ARCH}
         r: ${R}
     shm_size: *shm-size
+    environment:
+      <<: *ccache
     volumes: *conda-volumes
     command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/r_test.sh /arrow"]
 
   ubuntu-r:
@@ -593,10 +637,12 @@ services:
         r: ${R}
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     shm_size: *shm-size
+    environment:
+      <<: *ccache
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "
-        /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/r_test.sh /arrow"
 
   ubuntu-r-sanitizer:
@@ -613,10 +659,12 @@ services:
       dockerfile: ci/docker/ubuntu-18.04-r-sanitizer.dockerfile
       cache_from:
         - ${REPO}:amd64-ubuntu-18.04-r-sanitizer
+    environment:
+      <<: *ccache
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "
-        /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/r_sanitize.sh /arrow"
 
   ################################ Rust #######################################
@@ -639,8 +687,8 @@ services:
     command: &rust-command >
       /bin/bash -c "
         echo ${RUST} > /arrow/rust/rust-toolchain &&
-        /arrow/ci/scripts/rust_build.sh /arrow /build/rust &&
-        /arrow/ci/scripts/rust_test.sh /arrow /build/rust"
+        /arrow/ci/scripts/rust_build.sh /arrow /build &&
+        /arrow/ci/scripts/rust_test.sh /arrow /build"
 
   ################################# Go ########################################
 
@@ -730,8 +778,8 @@ services:
       - maven-cache:/root/.m2:delegated
     command: &java-command >
       /bin/bash -c "
-        /arrow/ci/scripts/java_build.sh /arrow &&
-        /arrow/ci/scripts/java_test.sh /arrow"
+        /arrow/ci/scripts/java_build.sh /arrow /build &&
+        /arrow/ci/scripts/java_test.sh /arrow /build"
 
   debian-java-jni:
     # Includes plasma test and jni for gandiva and orc.
@@ -748,15 +796,17 @@ services:
       args:
         base: ${REPO}:${ARCH}-debian-9-java-${JDK}-maven-${MAVEN}
     shm_size: *shm-size
+    environment:
+      <<: *ccache
     volumes:
       - .:/arrow:delegated
       - maven-cache:/root/.m2:delegated
       - ${ARCH}-debian-9-cache:/build:delegated
     command:
       /bin/bash -c "
-        /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
-        /arrow/ci/scripts/java_build.sh /arrow /build/cpp/debug
-        /arrow/ci/scripts/java_test.sh /arrow /build/cpp/debug"
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/java_build.sh /arrow /build &&
+        /arrow/ci/scripts/java_test.sh /arrow /build"
 
   ############################## Integration ##################################
 
@@ -782,13 +832,14 @@ services:
         go: ${GO}
     volumes: *conda-volumes
     environment:
+      <<: *ccache
       # tell archery where the arrow binaries are located
       ARROW_CPP_EXE_PATH: /build/cpp/debug
     command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/go_build.sh /arrow &&
-        /arrow/ci/scripts/java_build.sh /arrow &&
-        /arrow/ci/scripts/js_build.sh /arrow &&
+        /arrow/ci/scripts/java_build.sh /arrow /build &&
+        /arrow/ci/scripts/js_build.sh /arrow /build &&
         pip install -e /arrow/dev/archery &&
         archery integration --with-all --run-flight"]
 
@@ -811,16 +862,17 @@ services:
         node: ${NODE}
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     environment:
+      <<: *ccache
       ARROW_GLIB_GTK_DOC: "true"
     volumes: *ubuntu-volumes
     command:
       /bin/bash -c "
-        /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp true &&
-        /arrow/ci/scripts/c_glib_build.sh /arrow /build/c_glib &&
-        /arrow/ci/scripts/python_build.sh /arrow /build/python &&
-        /arrow/ci/scripts/java_build.sh /arrow /build/cpp/debug true &&
+        /arrow/ci/scripts/cpp_build.sh /arrow /build true &&
+        /arrow/ci/scripts/c_glib_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build.sh /arrow /build &&
+        /arrow/ci/scripts/java_build.sh /arrow /build true &&
         /arrow/ci/scripts/js_build.sh /arrow true &&
-        /arrow/ci/scripts/docs_build.sh /arrow /build/docs"
+        /arrow/ci/scripts/docs_build.sh /arrow /build"
 
   ################################# Tools #####################################
 
@@ -838,6 +890,8 @@ services:
       args:
         rust: ${RUST}
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+    environment:
+      <<: *ccache
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "pip install -e /arrow/dev/archery && archery lint"
@@ -859,11 +913,13 @@ services:
       FUZZIT_HOST: bionic-llvm7
       CI_ARROW_SHA: ${CI_ARROW_SHA:-UNSET}
       CI_ARROW_BRANCH: ${CI_ARROW_BRANCH:-UNSET}
+    environment:
+      <<: *ccache
     volumes: *debian-volumes
     command: >
       /bin/bash -c "
-        /arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
-        /arrow/ci/scripts/fuzzit_build.sh /arrow /build/cpp"
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/fuzzit_build.sh /arrow /build"
 
   ######################### Integration Tests #################################
 
@@ -914,10 +970,12 @@ services:
       - ARROW_HIVESERVER2=ON
       - ARROW_HIVESERVER2_TEST_HOST=impala
     shm_size: *shm-size
+    environment:
+      <<: *ccache
     volumes: *conda-volumes
     command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
-        /arrow/ci/scripts/integration_hiveserver2.sh /arrow /build/cpp"]
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/integration_hiveserver2.sh /arrow /build"]
 
   conda-python-hdfs:
     # Usage:
@@ -943,18 +1001,19 @@ services:
     links:
       - impala:impala
     environment:
-      - ARROW_HDFS_TEST_HOST=impala
-      - ARROW_HDFS_TEST_PORT=8020
-      - ARROW_HDFS_TEST_USER=hdfs
+      <<: *ccache
+      ARROW_HDFS_TEST_HOST: impala
+      ARROW_HDFS_TEST_PORT: 8020
+      ARROW_HDFS_TEST_USER: hdfs
     shm_size: *shm-size
     volumes: &conda-maven-volumes
       - .:/arrow:delegated
       - maven-cache:/root/.m2:delegated
       - ${ARCH}-conda-cache:/build:delegated
     command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
-        /arrow/ci/scripts/python_build.sh /arrow /build/python &&
-        /arrow/ci/scripts/integration_hdfs.sh /arrow /build/cpp"]
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build.sh /arrow /build &&
+        /arrow/ci/scripts/integration_hdfs.sh /arrow /build"]
 
   conda-python-spark:
     # Usage:
@@ -978,9 +1037,11 @@ services:
         maven: 3.5
         spark: ${SPARK}
     shm_size: *shm-size
+    environment:
+      <<: *ccache
     volumes: *conda-maven-volumes
     command:
-      ["/arrow/ci/scripts/cpp_build.sh /arrow /build/cpp &&
-        /arrow/ci/scripts/python_build.sh /arrow /build/python &&
-        /arrow/ci/scripts/java_build.sh /arrow &&
+      ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/python_build.sh /arrow /build &&
+        /arrow/ci/scripts/java_build.sh /arrow /build &&
         /arrow/ci/scripts/integration_spark.sh /arrow /spark"]

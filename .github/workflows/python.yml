@@ -178,8 +178,8 @@ jobs:
         shell: bash
         run: |
           export PYTHON=python3
-          ci/scripts/cpp_build.sh $(pwd)
-          ci/scripts/python_build.sh $(pwd)
+          ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+          ci/scripts/python_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
-        run: ci/scripts/python_test.sh $(pwd)
+        run: ci/scripts/python_test.sh $(pwd) $(pwd)/build

@@ -20,7 +20,7 @@
 set -e
 
 source_dir=${1}/cpp
-build_dir=${2:-${source_dir}/build}
+build_dir=${2}/cpp
 
 export CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath --glob`
 export HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop

@@ -73,26 +73,28 @@ RUN echo "MAKEFLAGS=-j$(R --slave -e 'cat(parallel::detectCores())')" >> /usr/lo
 # - libgtest-dev only provide sources
 # - libprotobuf-dev only provide sources
 # - thrift is too old
-ENV gRPC_SOURCE=BUNDLED \
-    Protobuf_SOURCE=BUNDLED \
-    cares_SOURCE=BUNDLED \
-    GTest_SOURCE=BUNDLED \
-    Thrift_SOURCE=BUNDLED \
-    ARROW_DEPENDENCY_SOURCE=SYSTEM \
+ENV ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_FLIGHT=OFF \
     ARROW_GANDIVA=OFF \
     ARROW_HDFS=OFF \
+    ARROW_INSTALL_NAME_RPATH=OFF \
+    ARROW_NO_DEPRECATED_API=ON \
     ARROW_ORC=OFF \
     ARROW_PARQUET=ON \
     ARROW_PLASMA=OFF \
     ARROW_USE_ASAN=OFF \
+    ARROW_USE_CCACHE=ON \
     ARROW_USE_UBSAN=OFF \
-    ARROW_NO_DEPRECATED_API=ON \
-    ARROW_INSTALL_NAME_RPATH=OFF \
     ARROW_WITH_BZ2=OFF \
     ARROW_WITH_ZSTD=OFF \
+    cares_SOURCE=BUNDLED \
+    gRPC_SOURCE=BUNDLED \
+    GTest_SOURCE=BUNDLED \
     LC_ALL=en_US.UTF-8 \
-    R_BIN=RDsan
+    PATH=/usr/lib/ccache/:$PATH \
+    Protobuf_SOURCE=BUNDLED \
+    R_BIN=RDsan \
+    Thrift_SOURCE=BUNDLED
 
 COPY ci/scripts/r_deps.sh /arrow/ci/scripts/
 COPY r/DESCRIPTION /arrow/r/

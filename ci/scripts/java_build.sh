@@ -20,7 +20,7 @@ set -ex
 
 arrow_dir=${1}
 source_dir=${1}/java
-cpp_build_dir=${2:-${arrow_dir}/cpp/build/debug}
+cpp_build_dir=${2}/cpp/${ARROW_BUILD_TYPE:-debug}
 with_docs=${3:-false}
 
 mvn="mvn -B -DskipTests -Drat.skip=true -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn"

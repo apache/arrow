@@ -20,8 +20,10 @@
 set -ex
 
 source_dir=${1}/cpp
-build_dir=${2:-${source_dir}/build}
+build_dir=${2}/cpp
 with_docs=${3:-false}
+
+: ${ARROW_USE_CCACHE:=OFF}
 
 # TODO(kszucs): consider to move these to CMake
 if [ ! -z "${CONDA_PREFIX}" ]; then
@@ -31,25 +33,7 @@ elif [ -x "$(command -v xcrun)" ]; then
   export ARROW_GANDIVA_PC_CXX_FLAGS="-isysroot;$(xcrun --show-sdk-path)"
 fi
 
-# We know ccache is installed by default in most Linux development builds
-# (and docker containers)
-uname=$(uname -s)
-case "${uname}" in
-    Linux*)     ccache_default=ON;;
-    *)          ccache_default=OFF;;
-esac
-
-export ARROW_USE_CCACHE=${ARROW_USE_CCACHE:-$ccache_default}
-
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
-    export CCACHE_COMPILERCHECK=content
-    export CCACHE_COMPRESS=1
-    export CCACHE_COMPRESSLEVEL=5
-    # Typically /build/ccache
-    export CCACHE_DIR=${build_dir}/../ccache
-    export CCACHE_MAXSIZE=500M
-    export PATH=/usr/lib/ccache/:$PATH
-
     echo -e "===\n=== ccache statistics before build\n==="
     ccache -s
 fi
@@ -92,6 +76,7 @@ cmake -G "${CMAKE_GENERATOR:-Ninja}" \
       -DARROW_ORC=${ARROW_ORC:-OFF} \
       -DARROW_PARQUET=${ARROW_PARQUET:-OFF} \
       -DARROW_PLASMA=${ARROW_PLASMA:-OFF} \
+      -DARROW_PLASMA_JAVA_CLIENT=${ARROW_PLASMA_JAVA_CLIENT:-OFF} \
       -DARROW_PYTHON=${ARROW_PYTHON:-OFF} \
       -DARROW_S3=${ARROW_S3:-OFF} \
       -DARROW_TEST_LINKAGE=${ARROW_TEST_LINKAGE:-shared} \
