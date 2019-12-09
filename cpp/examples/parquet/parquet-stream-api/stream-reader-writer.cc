@@ -163,8 +163,9 @@ std::string TestData::string_;
 void WriteParquetFile() {
   std::shared_ptr<arrow::io::FileOutputStream> outfile;
 
-  PARQUET_THROW_NOT_OK(
-      arrow::io::FileOutputStream::Open("parquet-stream-api-example.parquet", &outfile));
+  PARQUET_ASSIGN_OR_THROW(
+      outfile,
+      arrow::io::FileOutputStream::Open("parquet-stream-api-example.parquet"));
 
   parquet::WriterProperties::Builder builder;
 
@@ -219,8 +220,9 @@ void WriteParquetFile() {
 void ReadParquetFile() {
   std::shared_ptr<arrow::io::ReadableFile> infile;
 
-  PARQUET_THROW_NOT_OK(
-      arrow::io::ReadableFile::Open("parquet-stream-api-example.parquet", &infile));
+  PARQUET_ASSIGN_OR_THROW(
+      infile,
+      arrow::io::ReadableFile::Open("parquet-stream-api-example.parquet"));
 
   auto file_reader = parquet::ParquetFileReader::Open(infile);
 
