@@ -61,6 +61,13 @@ TEST(TestHdfsOptions, FromUri) {
   ASSERT_EQ(options.connection_config.port, 9999);
   ASSERT_EQ(options.connection_config.user, "stevereich");
   ASSERT_EQ(options.connection_config.driver, HdfsDriver::LIBHDFS3);
+
+  ASSERT_OK(uri.Parse("viewfs://other-nn/mypath/myfile"));
+  ASSERT_OK_AND_ASSIGN(options, HdfsOptions::FromUri(uri));
+  ASSERT_EQ(options.connection_config.host, "viewfs://other-nn");
+  ASSERT_EQ(options.connection_config.port, 0);
+  ASSERT_EQ(options.connection_config.user, "");
+  ASSERT_EQ(options.connection_config.driver, HdfsDriver::LIBHDFS);
 }
 
 struct JNIDriver {
