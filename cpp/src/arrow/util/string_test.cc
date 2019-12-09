@@ -37,10 +37,38 @@ TEST(Trim, Basics) {
   }
 }
 
-TEST(ParseHexValue, Invalid) {
-  std::string input = "xy";
+TEST(ParseHexValue, Valid) {
   uint8_t output;
-  
+
+  // evaluate valid letters
+  std::string input = "AB";
+  ASSERT_OK(ParseHexValue(input.c_str(), &output));
+  EXPECT_EQ(171, output);
+
+  // evaluate valid numbers
+  input = "12";
+  ASSERT_OK(ParseHexValue(input.c_str(), &output));
+  EXPECT_EQ(18, output);
+
+  // evaluate mixed hex numbers
+  input = "B1";
+  ASSERT_OK(ParseHexValue(input.c_str(), &output));
+  EXPECT_EQ(177, output);
+}
+
+TEST(ParseHexValue, Invalid) {
+  uint8_t output;
+
+  // evaluate invalid letters
+  std::string input = "XY";
+  ASSERT_RAISES(Invalid, ParseHexValue(input.c_str(), &output));
+
+  // evaluate invalid signs
+  input = "@?";
+  ASSERT_RAISES(Invalid, ParseHexValue(input.c_str(), &output));
+
+  // evaluate lower-case letters
+  input = "ab";
   ASSERT_RAISES(Invalid, ParseHexValue(input.c_str(), &output));
 }
 
