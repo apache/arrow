@@ -83,7 +83,7 @@ jobs:
         run: ci/scripts/rust_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
-        run: ci/scripts/rust_test.sh $(pwd)
+        run: ci/scripts/rust_test.sh $(pwd) $(pwd)/build
 
   macos:
     name: AMD64 MacOS 10.15 Rust ${{ matrix.rust }}
@@ -111,4 +111,4 @@ jobs:
         run: ci/scripts/rust_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
-        run: ci/scripts/rust_test.sh $(pwd)
+        run: ci/scripts/rust_test.sh $(pwd) $(pwd)/build
