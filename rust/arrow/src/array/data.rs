@@ -128,6 +128,11 @@ impl ArrayData {
         &self.null_bitmap
     }
 
+    /// Returns a reference to the null buffer of this array data.
+    pub fn null_buffer(&self) -> Option<&Buffer> {
+        self.null_bitmap().as_ref().map(|b| b.buffer_ref())
+    }
+
     /// Returns whether the element at index `i` is not null
     pub fn is_valid(&self, i: usize) -> bool {
         if let Some(ref b) = self.null_bitmap {

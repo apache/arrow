@@ -56,6 +56,10 @@ impl Bitmap {
         unsafe { bit_util::get_bit_raw(self.bits.raw_data(), i) }
     }
 
+    pub fn buffer_ref(&self) -> &Buffer {
+        &self.bits
+    }
+
     pub fn to_buffer(self) -> Buffer {
         self.bits
     }
