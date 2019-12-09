@@ -21,6 +21,8 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/status.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/string.h"
 
 namespace arrow {
@@ -33,6 +35,13 @@ TEST(Trim, Basics) {
   for (auto case_ : test_cases) {
     EXPECT_EQ(case_.second, TrimString(case_.first));
   }
+}
+
+TEST(ParseHexValue, Invalid) {
+  std::string input = "xy";
+  uint8_t output;
+  
+  ASSERT_RAISES(Invalid, ParseHexValue(input.c_str(), &output));
 }
 
 }  // namespace internal
