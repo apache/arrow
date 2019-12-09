@@ -30,7 +30,9 @@ of batches rather than creating a new :class:`VectorSchemaRoot` instance each ti
 may have no data (say it was transferred downstream or not yet populated).
 
 
-Here is the example of building a :class:`VectorSchemaRoot`::
+Here is the example of building a :class:`VectorSchemaRoot`
+
+.. code-block:: Java
 
     BitVector bitVector = new BitVector("boolean", allocator);
     VarCharVector varCharVector = new VarCharVector("varchar", allocator);
@@ -49,7 +51,9 @@ Here is the example of building a :class:`VectorSchemaRoot`::
 
 The vectors within a :class:`VectorSchemaRoot` could be loaded/unloaded via :class:`VectorLoader` and :class:`VectorUnloader`.
 :class:`VectorLoader` and :class:`VectorUnloader` handles converting between :class:`VectorSchemaRoot` and :class:`ArrowRecordBatch`(
-representation of a RecordBatch :doc:`IPC <../format/IPC.rst>` message). Examples as below::
+representation of a RecordBatch :doc:`IPC <../format/IPC.rst>` message). Examples as below
+
+.. code-block:: Java
 
     // create a VectorSchemaRoot root1 and convert its data into recordBatch
     VectorSchemaRoot root1 = new VectorSchemaRoot(fields, vectors);
@@ -61,7 +65,9 @@ representation of a RecordBatch :doc:`IPC <../format/IPC.rst>` message). Example
     VectorLoader loader = new VectorLoader(root2);
     loader.load(recordBatch);
 
-A new :class:`VectorSchemaRoot` could be sliced from an existing instance with zero-copy::
+A new :class:`VectorSchemaRoot` could be sliced from an existing instance with zero-copy
+
+.. code-block:: Java
 
     // 0 indicates start index (inclusive) and 5 indicated length (exclusive).
     VectorSchemaRoot newRoot = vectorSchemaRoot.slice(0, 5);

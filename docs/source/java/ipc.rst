@@ -30,7 +30,9 @@ Arrow defines two types of binary formats for serializing record batches:
 
 Writing and Reading Streaming Format
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-First, let's populate a :class:`VectorSchemaRoot` with a small batch of records::
+First, let's populate a :class:`VectorSchemaRoot` with a small batch of records
+
+.. code-block:: Java
 
     BitVector bitVector = new BitVector("boolean", allocator);
     VarCharVector varCharVector = new VarCharVector("varchar", allocator);
@@ -52,7 +54,9 @@ Now, we can begin writing a stream containing some number of these batches. For 
     ArrowStreamWriter writer = new ArrowStreamWriter(root, /*DictionaryProvider=*/null, Channels.newChannel(out));
 
 
-Here we used an in-memory stream, but this could have been a socket or some other IO stream. Then we can do::
+Here we used an in-memory stream, but this could have been a socket or some other IO stream. Then we can do
+
+.. code-block:: Java
 
     writer.start();
     // write the first batch
@@ -78,7 +82,9 @@ could overwrite previous ones.
 
 Now the :class:`ByteArrayOutputStream` contains the complete stream which contains 5 record batches.
 We can read such a stream with :class:`ArrowStreamReader`, note that :class:`VectorSchemaRoot` within
-reader will be loaded with new values on every call to :class:`loadNextBatch()`::
+reader will be loaded with new values on every call to :class:`loadNextBatch()`
+
+.. code-block:: Java
 
     try (ArrowStreamReader reader = new ArrowStreamReader(new ByteArrayInputStream(out.toByteArray()), allocator)) {
       Schema schema = reader.getVectorSchemaRoot().getSchema();
@@ -91,7 +97,9 @@ reader will be loaded with new values on every call to :class:`loadNextBatch()`:
 
     }
 
-Here we also give a simple example with dictionary encoded vectors::
+Here we also give a simple example with dictionary encoded vectors
+
+.. code-block:: Java
 
     DictionaryProvider.MapDictionaryProvider provider = new DictionaryProvider.MapDictionaryProvider();
     // create dictionary and provider
@@ -147,7 +155,9 @@ Here we also give a simple example with dictionary encoded vectors::
 
 Writing and Reading Random Access Files
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-The :class:`ArrowFileWriter` has the same API as :class:`ArrowStreamWriter`::
+The :class:`ArrowFileWriter` has the same API as :class:`ArrowStreamWriter`
+
+.. code-block:: Java
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     ArrowFileWriter writer = new ArrowFileWriter(root, null, Channels.newChannel(out));
@@ -163,7 +173,9 @@ The :class:`ArrowFileWriter` has the same API as :class:`ArrowStreamWriter`::
 
 The difference between :class:`ArrowFileReader` and :class:`ArrowStreamReader` is that the input source
 must have a ``seek`` method for random access. Because we have access to the entire payload, we know the
-number of record batches in the file, and can read any at random::
+number of record batches in the file, and can read any at random
+
+.. code-block:: Java
 
     try (ArrowFileReader reader = new ArrowFileReader(
         new ByteArrayReadableSeekableByteChannel(out.toByteArray()), allocator)) {
