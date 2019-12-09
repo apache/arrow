@@ -20,7 +20,7 @@ set -e
 
 arrow_dir=${1}
 source_dir=${1}/cpp
-build_dir=${2:-${source_dir}/build}
+build_dir=${2}/cpp
 
 ${arrow_dir}/ci/scripts/util_wait_for_it.sh impala:21050 -t 300 -s -- echo "impala is up"
 

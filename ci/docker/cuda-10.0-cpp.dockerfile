@@ -72,15 +72,17 @@ RUN apt-get update -y -q && \
 # - libgtest-dev only provide sources
 # - libprotobuf-dev only provide sources
 # - thrift is too old
-ENV ARROW_DEPENDENCY_SOURCE=SYSTEM \
+ENV ARROW_CUDA=ON \
+    ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_FLIGHT=OFF \
-    ARROW_CUDA=ON \
+    ARROW_HOME=/usr/local \
+    ARROW_INSTALL_NAME_RPATH=OFF \
+    ARROW_NO_DEPRECATED_API=ON \
     ARROW_PLASMA=ON \
     ARROW_USE_ASAN=ON \
+    ARROW_USE_CCACHE=ON \
     ARROW_USE_UBSAN=ON \
-    ARROW_NO_DEPRECATED_API=ON \
-    ARROW_INSTALL_NAME_RPATH=OFF \
-    ARROW_HOME=/usr/local \
+    GTest_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
-    Thrift_SOURCE=BUNDLED \
-    GTest_SOURCE=BUNDLED
+    PATH=/usr/lib/ccache/:$PATH \
+    Thrift_SOURCE=BUNDLED

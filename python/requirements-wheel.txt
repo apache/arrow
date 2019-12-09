@@ -1,6 +1,12 @@
+Keras-Preprocessing
 cython
-wheel==0.31.1
+futures; python_version < "3.2"
+numpy>=1.16
+pandas
 setuptools_scm==3.2.0
 six>=1.0.0
-numpy==1.14.5
-futures; python_version < "3.2"
+# TODO: TensorFlow doesn't support Python 3.8 yet.
+tensorflow; python_version >= "3.0" and python_version < "3.8"
+# pin wheel, because auditwheel is not compatible with wheel=0.32
+# TODO(kszucs): remove after auditwheel properly supports wheel>0.31
+wheel==0.31.1

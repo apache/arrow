@@ -119,10 +119,10 @@ jobs:
         run: brew bundle --file=cpp/Brewfile
       - name: Build
         shell: bash
-        run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/cpp/build
+        run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
-        run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/cpp/build
+        run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
   windows:
     name: AMD64 ${{ matrix.name }} C++
@@ -165,7 +165,7 @@ jobs:
           submodules: true
       - name: Build
         shell: bash
-        run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/cpp/build
+        run: ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
-        run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/cpp/build
+        run: ci/scripts/cpp_test.sh $(pwd) $(pwd)/build

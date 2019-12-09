@@ -14,7 +14,10 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-FROM quay.io/pypa/manylinux1_x86_64:latest
+
+# See https://quay.io/repository/pypa/manylinux1_x86_64?tab=history
+# to update base image.
+FROM quay.io/pypa/manylinux1_x86_64@sha256:e7ed385da2363ea796385bb106a98364f7a8a658a5e8dbf1b7e4c71f2f299251
 
 # Install dependencies
 RUN yum install -y xz ccache flex wget && yum clean all
@@ -84,10 +87,7 @@ RUN /build_glog.sh
 ENV GLOG_HOME /usr
 
 WORKDIR /
-RUN git clone https://github.com/matthew-brett/multibuild.git && cd multibuild && git checkout ffe59955ad8690c2f8bb74766cb7e9b0d0ee3963
-
-ADD scripts/build_virtualenvs.sh /
-RUN /build_virtualenvs.sh
+RUN git clone https://github.com/matthew-brett/multibuild.git && cd multibuild && git checkout 68a4af043e2adb0d9353d4a0e1f3d871203237aa
 
 ADD scripts/build_llvm.sh /
 RUN /build_llvm.sh

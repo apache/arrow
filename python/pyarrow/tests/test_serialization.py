@@ -932,7 +932,11 @@ def test_serialize_read_concatenated_records():
     pa.read_serialized(f).deserialize()
 
 
-@pytest.mark.skipif(os.name == 'nt', reason="deserialize_regex not pickleable")
+def deserialize_regex(serialized, q):
+    import pyarrow as pa
+    q.put(pa.deserialize(serialized))
+
+
 def test_deserialize_in_different_process():
     from multiprocessing import Process, Queue
     import re
@@ -944,10 +948,6 @@ def test_deserialize_in_different_process():
 
     serialized = pa.serialize(regex, serialization_context)
     serialized_bytes = serialized.to_buffer().to_pybytes()
-
-    def deserialize_regex(serialized, q):
-        import pyarrow as pa
-        q.put(pa.deserialize(serialized))
 
     q = Queue()
     p = Process(target=deserialize_regex, args=(serialized_bytes, q))
