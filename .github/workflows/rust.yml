@@ -22,10 +22,12 @@ on:
     paths:
       - 'ci/**'
       - 'rust/**'
+      - '.github/workflows/rust.yml'
   pull_request:
     paths:
       - 'ci/**'
       - 'rust/**'
+      - '.github/workflows/rust.yml'
 
 jobs:
 
