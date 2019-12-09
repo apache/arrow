@@ -594,9 +594,7 @@ services:
     command: *manylinux-command
 
   centos-python-manylinux2014:
-    # TODO(kszucs): change to ${REPO}:tag once
-    # https://issues.apache.org/jira/browse/INFRA-19499 is resolved
-    image: arrowdev/amd64-centos-7.7-python-manylinux2014:latest
+    image: ${REPO}:amd64-centos-7.7-python-manylinux2014:latest
     build:
       context: python/manylinux201x
       dockerfile: Dockerfile-x86_64_base_2014
