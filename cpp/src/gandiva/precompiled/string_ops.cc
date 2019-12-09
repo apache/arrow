@@ -513,11 +513,6 @@ const char* replace_with_max_len_utf8_utf8_utf8(int64 context, const char* text,
       text_index += from_str_len;
       last_match_index = text_index;
     } else {
-      if (out_index + text_index - last_match_index == max_length) {
-        gdv_fn_context_set_error_msg(context, "Buffer overflow for output string");
-        *out_len = 0;
-        return "";
-      }
       text_index++;
     }
   }
@@ -527,6 +522,11 @@ const char* replace_with_max_len_utf8_utf8_utf8(int64 context, const char* text,
     return text;
   }
 
+  if (out_index + text_len - last_match_index > max_length) {
+    gdv_fn_context_set_error_msg(context, "Buffer overflow for output string");
+    *out_len = 0;
+    return "";
+  }
   memcpy(out + out_index, text + last_match_index, text_len - last_match_index);
   out_index += text_len - last_match_index;
   *out_len = out_index;
