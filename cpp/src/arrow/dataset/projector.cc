@@ -40,22 +40,17 @@ RecordBatchProjector::RecordBatchProjector(std::shared_ptr<Schema> to)
       column_indices_(to_->num_fields(), kNoMatch),
       scalars_(to_->num_fields(), nullptr) {}
 
-Status RecordBatchProjector::SetDefaultValue(const std::string& name,
-                                             std::shared_ptr<Scalar> scalar) {
-  auto field_index = to_->GetFieldIndex(name);
-  if (field_index == -1) {
-    return Status::Invalid("no field named ", name, " in schema ", *to_);
-  }
-
+Status RecordBatchProjector::SetDefaultValue(int index, std::shared_ptr<Scalar> scalar) {
   DCHECK_NE(scalar, nullptr);
 
-  auto field_type = to_->field(field_index)->type();
+  auto field_type = to_->field(index)->type();
   if (!field_type->Equals(scalar->type)) {
-    return Status::TypeError("field ", name, " is ", *field_type,
-                             " but provided scalar is ", *scalar->type);
+    return Status::TypeError("field ", to_->field(index)->ToString(),
+                             " cannot be materialized from scalar of type ",
+                             *scalar->type);
   }
 
-  scalars_[field_index] = std::move(scalar);
+  scalars_[index] = std::move(scalar);
   return Status::OK();
 }
 

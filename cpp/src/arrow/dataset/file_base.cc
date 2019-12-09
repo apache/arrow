@@ -80,12 +80,14 @@ Result<DataSourcePtr> FileSystemDataSource::Make(
             fs::internal::RemoveAncestor(partition_base_dir, ref.stats().path())) {
       auto segments = fs::internal::SplitAbstractPath(relative->to_string());
 
-      if (segments.size() > 0) {
-        auto segment_index = static_cast<int>(segments.size()) - 1;
-        auto maybe_partition = partition_scheme->Parse(segments.back(), segment_index);
-
-        partitions[ref.i] = std::move(maybe_partition).ValueOr(scalar(true));
+      if (segments.empty()) {
+        return Status::OK();
       }
+
+      auto segment_index = static_cast<int>(segments.size()) - 1;
+      auto maybe_partition = partition_scheme->Parse(segments.back(), segment_index);
+
+      partitions[ref.i] = std::move(maybe_partition).ValueOr(scalar(true));
     }
     return Status::OK();
   };
@@ -151,56 +153,55 @@ struct SourceAndOptions {
   bool operator==(const SourceAndOptions& other) const { return this == &other; }
 };
 
-DataFragmentIterator FileSystemDataSource::GetFragmentsImpl(ScanOptionsPtr options) {
-  std::vector<SourceAndOptions> files;
+DataFragmentIterator FileSystemDataSource::GetFragmentsImpl(ScanOptionsPtr root_options) {
+  DataFragmentVector fragments;
+  std::vector<ScanOptionsPtr> options(forest_.size());
 
-  auto collect_files = [&](fs::PathForest::Ref ref) -> fs::PathForest::MaybePrune {
+  auto collect_fragments = [&](fs::PathForest::Ref ref) -> fs::PathForest::MaybePrune {
     auto partition = partitions_[ref.i];
-    auto expr = options->filter->Assume(partition);
 
-    if (expr->IsNull() || expr->Equals(false)) {
+    // if available, copy parent's filter and projector
+    // (which are appropriately simplified and loaded with default values)
+    if (auto parent = ref.parent()) {
+      options[ref.i].reset(new ScanOptions(*options[parent.i]));
+    } else {
+      options[ref.i].reset(new ScanOptions(*root_options));
+    }
+
+    // simplify filter by partition information
+    auto filter = options[ref.i]->filter->Assume(partition);
+    options[ref.i]->filter = filter;
+
+    if (filter->IsNull() || filter->Equals(false)) {
       // directories (and descendants) which can't satisfy the filter are pruned
       return fs::PathForest::Prune;
     }
 
+    // if possible, extract a partition key and pass it to the projector
+    auto projector = &options[ref.i]->projector;
+    if (auto name_value = GetKey(*partition)) {
+      auto index = projector->schema()->GetFieldIndex(name_value->first);
+      if (index != -1) {
+        RETURN_NOT_OK(projector->SetDefaultValue(index, std::move(name_value->second)));
+      }
+    }
+
     if (ref.stats().IsFile()) {
-      SourceAndOptions file = {FileSource(ref.stats().path(), filesystem_.get()),
-                               std::make_shared<ScanOptions>(*options)};
-
-      // use simplified filter
-      for (auto ancestor = ref.parent(); ancestor.forest == &forest_;
-           ancestor = ancestor.parent()) {
-        expr = expr->Assume(partitions_[ancestor.i]);
-      }
-      file.options->filter = expr;
-
-      for (auto ancestor = ref; ancestor.forest == &forest_;
-           ancestor = ancestor.parent()) {
-        if (auto name_value = GetKey(*partitions_[ancestor.i])) {
-          auto name = std::move(name_value->first);
-          if (file.options->projector.schema()->GetFieldByName(name) == nullptr) {
-            continue;
-          }
-
-          RETURN_NOT_OK(file.options->projector.SetDefaultValue(
-              name, std::move(name_value->second)));
-        }
-      }
-
-      files.push_back(std::move(file));
+      // generate a fragment for this file
+      FileSource src(ref.stats().path(), filesystem_.get());
+      ARROW_ASSIGN_OR_RAISE(auto fragment, format_->MakeFragment(src, options[ref.i]));
+      fragments.push_back(std::move(fragment));
     }
 
     return fs::PathForest::Continue;
   };
 
-  DCHECK_OK(forest_.Visit(collect_files));
+  auto status = forest_.Visit(collect_fragments);
+  if (!status.ok()) {
+    return MakeErrorIterator<DataFragmentPtr>(status);
+  }
 
-  auto file_to_fragment = [this](util::optional<SourceAndOptions> file,
-                                 std::shared_ptr<DataFragment>* out) {
-    return format_->MakeFragment(file->source, file->options).Value(out);
-  };
-  return MakeMaybeMapIterator(file_to_fragment,
-                              MakeVectorOptionalIterator(std::move(files)));
+  return MakeVectorIterator(std::move(fragments));
 }
 
 }  // namespace dataset

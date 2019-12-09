@@ -104,7 +104,8 @@ TEST_F(TestScanner, MaterializeMissingColumn) {
   auto batch_missing_f64 =
       ConstantArrayGenerator::Zeroes(kBatchSize, schema({field("i32", int32())}));
 
-  ASSERT_OK(options_->projector.SetDefaultValue("f64", MakeScalar(2.5)));
+  ASSERT_OK(options_->projector.SetDefaultValue(schema_->GetFieldIndex("f64"),
+                                                MakeScalar(2.5)));
 
   ASSERT_OK_AND_ASSIGN(auto f64, ArrayFromBuilderVisitor(float64(), kBatchSize,
                                                          [&](DoubleBuilder* builder) {

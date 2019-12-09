@@ -46,9 +46,9 @@ class ARROW_DS_EXPORT RecordBatchProjector {
   /// to the projected record batch with all its slots null.
   explicit RecordBatchProjector(std::shared_ptr<Schema> to);
 
-  /// If the named field is absent from a record batch it will be added to the projected
+  /// If the indexed field is absent from a record batch it will be added to the projected
   /// record batch with all its slots equal to the provided scalar (instead of null).
-  Status SetDefaultValue(const std::string& name, std::shared_ptr<Scalar> scalar);
+  Status SetDefaultValue(int index, std::shared_ptr<Scalar> scalar);
 
   Result<std::shared_ptr<RecordBatch>> Project(const RecordBatch& batch,
                                                MemoryPool* pool = default_memory_pool());
