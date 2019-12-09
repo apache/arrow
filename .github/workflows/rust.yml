@@ -90,7 +90,6 @@ jobs:
   macos:
     name: AMD64 MacOS 10.15 Rust ${{ matrix.rust }}
     runs-on: macos-latest
-    if: github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
