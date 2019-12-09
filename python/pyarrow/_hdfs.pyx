@@ -82,7 +82,7 @@ cdef class HdfsOptions:
         if not isinstance(value, tuple) or len(value) != 2:
             raise TypeError('Endpoint must be a tuple of host port pair')
         self.options.connection_config.host = tobytes(value[0])
-        self.options.connection_config.port = tobytes(value[1])
+        self.options.connection_config.port = int(value[1])
 
     @property
     def driver(self):
