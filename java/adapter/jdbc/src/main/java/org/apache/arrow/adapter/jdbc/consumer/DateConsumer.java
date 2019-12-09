@@ -22,6 +22,7 @@ import java.sql.SQLException;
 import java.util.Calendar;
 import java.util.Date;
 
+import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DateMilliVector;
 
 /**
@@ -33,8 +34,8 @@ public class DateConsumer {
   /**
    * Creates a consumer for {@link DateMilliVector}.
    */
-  public static JdbcConsumer<DateMilliVector> createConsumer(
-          DateMilliVector vector, int index, boolean nullable, Calendar calendar) {
+  public static JdbcConsumer<DateDayVector> createConsumer(
+      DateDayVector vector, int index, boolean nullable, Calendar calendar) {
     if (nullable) {
       return new NullableDateConsumer(vector, index, calendar);
     } else {
@@ -45,21 +46,21 @@ public class DateConsumer {
   /**
    * Nullable consumer for date.
    */
-  static class NullableDateConsumer extends BaseConsumer<DateMilliVector> {
+  static class NullableDateConsumer extends BaseConsumer<DateDayVector> {
 
     protected final Calendar calendar;
 
     /**
      * Instantiate a DateConsumer.
      */
-    public NullableDateConsumer(DateMilliVector vector, int index) {
+    public NullableDateConsumer(DateDayVector vector, int index) {
       this(vector, index, /* calendar */null);
     }
 
     /**
      * Instantiate a DateConsumer.
      */
-    public NullableDateConsumer(DateMilliVector vector, int index, Calendar calendar) {
+    public NullableDateConsumer(DateDayVector vector, int index, Calendar calendar) {
       super(vector, index);
       this.calendar = calendar;
     }
@@ -69,7 +70,7 @@ public class DateConsumer {
       Date date = calendar == null ? resultSet.getDate(columnIndexInResultSet) :
           resultSet.getDate(columnIndexInResultSet, calendar);
       if (!resultSet.wasNull()) {
-        vector.setSafe(currentIndex, date.getTime());
+        vector.setSafe(currentIndex, (int) (date.getTime() / DateDayVector.MILLIS_PER_DAY));
       }
       currentIndex++;
     }
@@ -78,21 +79,21 @@ public class DateConsumer {
   /**
    * Non-nullable consumer for date.
    */
-  static class NonNullableDateConsumer extends BaseConsumer<DateMilliVector> {
+  static class NonNullableDateConsumer extends BaseConsumer<DateDayVector> {
 
     protected final Calendar calendar;
 
     /**
      * Instantiate a DateConsumer.
      */
-    public NonNullableDateConsumer(DateMilliVector vector, int index) {
+    public NonNullableDateConsumer(DateDayVector vector, int index) {
       this(vector, index, /* calendar */null);
     }
 
     /**
      * Instantiate a DateConsumer.
      */
-    public NonNullableDateConsumer(DateMilliVector vector, int index, Calendar calendar) {
+    public NonNullableDateConsumer(DateDayVector vector, int index, Calendar calendar) {
       super(vector, index);
       this.calendar = calendar;
     }
@@ -101,7 +102,7 @@ public class DateConsumer {
     public void consume(ResultSet resultSet) throws SQLException {
       Date date = calendar == null ? resultSet.getDate(columnIndexInResultSet) :
           resultSet.getDate(columnIndexInResultSet, calendar);
-      vector.setSafe(currentIndex, date.getTime());
+      vector.setSafe(currentIndex, (int) (date.getTime() / DateDayVector.MILLIS_PER_DAY));
       currentIndex++;
     }
   }
