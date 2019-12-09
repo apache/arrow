@@ -156,6 +156,7 @@ jobs:
       ARROW_BUILD_STATIC: OFF
       ARROW_BOOST_USE_SHARED: OFF
       ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
+      BOOST_SOURCE: BUNDLED
     steps:
       - name: Disable Crash Dialogs
         run: reg add "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" /v DontShowUI /t REG_DWORD /d 1 /f
