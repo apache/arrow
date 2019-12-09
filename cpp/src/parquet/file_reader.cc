@@ -83,7 +83,7 @@ std::unique_ptr<PageReader> RowGroupReader::GetColumnPageReader(int i) {
 // Returns the rowgroup metadata
 const RowGroupMetaData* RowGroupReader::metadata() const { return contents_->metadata(); }
 
-uint64_t page_offset=0,num_values=0,next_page_offset=0;
+uint64_t page_offset,num_values,next_page_offset;
 
 // RowGroupReader::Contents implementation for the Parquet file specification
 class SerializedRowGroup : public RowGroupReader::Contents {
@@ -99,7 +99,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
   const ReaderProperties* properties() const override { return &properties_; }
 
-  void GoToPage(int64_t v, parquet::format::ColumnIndex col_index, parquet::format::OffsetIndex offset_index, uint64_t& page_offset,uint64_t& num_values,uint64_t& next_page_offset) const {
+  void GoToPage(int64_t v, int64_t default_start, int64_t default_next_page_offset, int64_t default_num_values,parquet::format::ColumnIndex col_index, parquet::format::OffsetIndex offset_index, uint64_t& page_offset,uint64_t& num_values,uint64_t& next_page_offset) const {
       std::vector<int>::size_type itemindex = 0;
       //std::vector<int64_t> min_vec = std::vector<std::basic_string<char>>(col_index.min_values.begin(), col_index.min_values.end());
       int64_t min_diff = std::numeric_limits<int64_t>::max();//std::lower_bound(min_vec.begin(),min_vec.end(),v);
@@ -113,10 +113,16 @@ class SerializedRowGroup : public RowGroupReader::Contents {
            }
       }
 
-      if ( page_offset == 0 && next_page_offset == 0 && num_values == 0 ) {
+      if ( page_offset == 0 && next_page_offset == 0 && num_values == 0 && offset_index.page_locations.size()>1) {
         page_offset = offset_index.page_locations[min_index].offset;
         next_page_offset=offset_index.page_locations[min_index+1].offset;
         num_values = offset_index.page_locations[min_index+1].first_row_index - offset_index.page_locations[min_index].first_row_index;
+      }
+    
+      if(page_offset == 0 && next_page_offset == 0 && num_values == 0) {
+           page_offset = default_start;
+           next_page_offset = page_offset + default_next_page_offset;
+           num_values = default_num_values;
       }
   }
 
@@ -203,11 +209,11 @@ class SerializedRowGroup : public RowGroupReader::Contents {
         parquet::format::OffsetIndex offset_index;
         DeserializeColumnIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&col_index, source_, properties_);
         DeserializeOffsetIndex(*reinterpret_cast<ColumnChunkMetaData*>(col.get()),&offset_index, source_, properties_);
-        GoToPage(3075287,
-                  col_index,offset_index,page_offset,num_values,next_page_offset);
+        page_offset = 0, next_page_offset =0, num_values = 0;
+        GoToPage(39, col_start,col_length,col->num_values(),col_index,offset_index,page_offset,num_values,next_page_offset);
     }
 
-    GoToPagewoIndex(3075287);
+//    GoToPagewoIndex(39);
 
     // PARQUET-816 workaround for old files created by older parquet-mr
     const ApplicationVersion& version = file_metadata_->writer_version();
