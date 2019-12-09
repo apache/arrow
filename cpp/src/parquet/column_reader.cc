@@ -37,7 +37,6 @@
 #include "arrow/util/compression.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
-
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
 #include "parquet/encryption_internal.h"
@@ -118,10 +117,10 @@ static constexpr int16_t kNonPageOrdinal = static_cast<int16_t>(-1);
 // and the page metadata.
 class SerializedPageReader : public PageReader {
  public:
-  SerializedPageReader(const std::shared_ptr<ArrowInputStream>& stream,
-                       int64_t total_num_rows, Compression::type codec,
-                       ::arrow::MemoryPool* pool, const CryptoContext* crypto_ctx)
-      : stream_(stream),
+  SerializedPageReader(std::shared_ptr<ArrowInputStream> stream, int64_t total_num_rows,
+                       Compression::type codec, ::arrow::MemoryPool* pool,
+                       const CryptoContext* crypto_ctx)
+      : stream_(std::move(stream)),
         decompression_buffer_(AllocateBuffer(pool, 0)),
         page_ordinal_(0),
         seen_num_rows_(0),
@@ -351,11 +350,13 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
   return std::shared_ptr<Page>(nullptr);
 }
 
-std::unique_ptr<PageReader> PageReader::Open(
-    const std::shared_ptr<ArrowInputStream>& stream, int64_t total_num_rows,
-    Compression::type codec, ::arrow::MemoryPool* pool, const CryptoContext* ctx) {
+std::unique_ptr<PageReader> PageReader::Open(std::shared_ptr<ArrowInputStream> stream,
+                                             int64_t total_num_rows,
+                                             Compression::type codec,
+                                             ::arrow::MemoryPool* pool,
+                                             const CryptoContext* ctx) {
   return std::unique_ptr<PageReader>(
-      new SerializedPageReader(stream, total_num_rows, codec, pool, ctx));
+      new SerializedPageReader(std::move(stream), total_num_rows, codec, pool, ctx));
 }
 
 // ----------------------------------------------------------------------
@@ -1311,7 +1312,7 @@ class ByteArrayChunkedRecordReader : public TypedRecordReader<ByteArrayType>,
     if (result.size() == 0 || accumulator_.builder->length() > 0) {
       std::shared_ptr<::arrow::Array> last_chunk;
       PARQUET_THROW_NOT_OK(accumulator_.builder->Finish(&last_chunk));
-      result.push_back(last_chunk);
+      result.push_back(std::move(last_chunk));
     }
     accumulator_.chunks = {};
     return result;

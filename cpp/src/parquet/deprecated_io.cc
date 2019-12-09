@@ -83,10 +83,9 @@ ParquetOutputWrapper::ParquetOutputWrapper(std::unique_ptr<::parquet::OutputStre
   owned_sink_ = std::move(sink);
 }
 
-ParquetOutputWrapper::ParquetOutputWrapper(
-    const std::shared_ptr<::parquet::OutputStream>& sink)
+ParquetOutputWrapper::ParquetOutputWrapper(std::shared_ptr<::parquet::OutputStream> sink)
     : ParquetOutputWrapper(sink.get()) {
-  shared_sink_ = sink;
+  shared_sink_ = std::move(sink);
 }
 
 ParquetOutputWrapper::ParquetOutputWrapper(::parquet::OutputStream* sink)

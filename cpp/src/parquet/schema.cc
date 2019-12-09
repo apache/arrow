@@ -25,7 +25,6 @@
 #include <utility>
 
 #include "arrow/util/logging.h"
-
 #include "parquet/exception.h"
 #include "parquet/schema_internal.h"
 #include "parquet/thrift_internal.h"
@@ -46,7 +45,7 @@ std::shared_ptr<ColumnPath> ColumnPath::FromDotString(const std::string& dotstri
   while (std::getline(ss, item, '.')) {
     path.push_back(item);
   }
-  return std::shared_ptr<ColumnPath>(new ColumnPath(std::move(path)));
+  return std::make_shared<ColumnPath>(std::move(path));
 }
 
 std::shared_ptr<ColumnPath> ColumnPath::FromNode(const Node& node) {
@@ -71,7 +70,7 @@ std::shared_ptr<ColumnPath> ColumnPath::extend(const std::string& node_name) con
   std::copy(path_.cbegin(), path_.cend(), path.begin());
   path[path_.size()] = node_name;
 
-  return std::shared_ptr<ColumnPath>(new ColumnPath(std::move(path)));
+  return std::make_shared<ColumnPath>(std::move(path));
 }
 
 std::string ColumnPath::ToDotString() const {
@@ -221,7 +220,7 @@ PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetitio
 PrimitiveNode::PrimitiveNode(const std::string& name, Repetition::type repetition,
                              std::shared_ptr<const LogicalType> logical_type,
                              Type::type physical_type, int physical_length, int id)
-    : Node(Node::PRIMITIVE, name, repetition, logical_type, id),
+    : Node(Node::PRIMITIVE, name, repetition, std::move(logical_type), id),
       physical_type_(physical_type),
       type_length_(physical_length) {
   std::stringstream error;
@@ -310,7 +309,7 @@ GroupNode::GroupNode(const std::string& name, Repetition::type repetition,
 GroupNode::GroupNode(const std::string& name, Repetition::type repetition,
                      const NodeVector& fields,
                      std::shared_ptr<const LogicalType> logical_type, int id)
-    : Node(Node::GROUP, name, repetition, logical_type, id), fields_(fields) {
+    : Node(Node::GROUP, name, repetition, std::move(logical_type), id), fields_(fields) {
   if (logical_type_) {
     // Check for logical type <=> node type consistency
     if (logical_type_->is_nested()) {
@@ -809,8 +808,8 @@ void SchemaDescriptor::updateColumnOrders(const std::vector<ColumnOrder>& column
   const_cast<GroupNode*>(group_node_)->Visit(&visitor);
 }
 
-void SchemaDescriptor::Init(const NodePtr& schema) {
-  schema_ = schema;
+void SchemaDescriptor::Init(NodePtr schema) {
+  schema_ = std::move(schema);
 
   if (!schema_->is_group()) {
     throw ParquetException("Must initialize with a schema group");
@@ -875,11 +874,10 @@ int SchemaDescriptor::GetColumnIndex(const PrimitiveNode& node) const {
   return it->second;
 }
 
-ColumnDescriptor::ColumnDescriptor(const schema::NodePtr& node,
-                                   int16_t max_definition_level,
+ColumnDescriptor::ColumnDescriptor(schema::NodePtr node, int16_t max_definition_level,
                                    int16_t max_repetition_level,
                                    const SchemaDescriptor* schema_descr)
-    : node_(node),
+    : node_(std::move(node)),
       max_definition_level_(max_definition_level),
       max_repetition_level_(max_repetition_level) {
   if (!node_->is_primitive()) {

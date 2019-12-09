@@ -28,7 +28,6 @@
 #include "arrow/io/file.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
-
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
 #include "parquet/deprecated_io.h"
@@ -82,11 +81,10 @@ const RowGroupMetaData* RowGroupReader::metadata() const { return contents_->met
 // RowGroupReader::Contents implementation for the Parquet file specification
 class SerializedRowGroup : public RowGroupReader::Contents {
  public:
-  SerializedRowGroup(const std::shared_ptr<ArrowInputFile>& source,
-                     FileMetaData* file_metadata, int row_group_number,
-                     const ReaderProperties& props,
+  SerializedRowGroup(std::shared_ptr<ArrowInputFile> source, FileMetaData* file_metadata,
+                     int row_group_number, const ReaderProperties& props,
                      InternalFileDecryptor* file_decryptor = nullptr)
-      : source_(source),
+      : source_(std::move(source)),
         file_metadata_(file_metadata),
         properties_(props),
         row_group_ordinal_(row_group_number),
@@ -178,9 +176,9 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 // This class takes ownership of the provided data source
 class SerializedFile : public ParquetFileReader::Contents {
  public:
-  SerializedFile(const std::shared_ptr<ArrowInputFile>& source,
+  SerializedFile(std::shared_ptr<ArrowInputFile> source,
                  const ReaderProperties& props = default_reader_properties())
-      : source_(source), properties_(props) {}
+      : source_(std::move(source)), properties_(props) {}
 
   ~SerializedFile() override {
     try {
@@ -202,8 +200,8 @@ class SerializedFile : public ParquetFileReader::Contents {
 
   std::shared_ptr<FileMetaData> metadata() const override { return file_metadata_; }
 
-  void set_metadata(const std::shared_ptr<FileMetaData>& metadata) {
-    file_metadata_ = metadata;
+  void set_metadata(std::shared_ptr<FileMetaData> metadata) {
+    file_metadata_ = std::move(metadata);
   }
 
   void ParseMetaData() {
@@ -461,9 +459,10 @@ ParquetFileReader::~ParquetFileReader() {
 // Open the file. If no metadata is passed, it is parsed from the footer of
 // the file
 std::unique_ptr<ParquetFileReader::Contents> ParquetFileReader::Contents::Open(
-    const std::shared_ptr<ArrowInputFile>& source, const ReaderProperties& props,
-    const std::shared_ptr<FileMetaData>& metadata) {
-  std::unique_ptr<ParquetFileReader::Contents> result(new SerializedFile(source, props));
+    std::shared_ptr<ArrowInputFile> source, const ReaderProperties& props,
+    std::shared_ptr<FileMetaData> metadata) {
+  std::unique_ptr<ParquetFileReader::Contents> result(
+      new SerializedFile(std::move(source), props));
 
   // Access private methods here, but otherwise unavailable
   SerializedFile* file = static_cast<SerializedFile*>(result.get());
@@ -472,16 +471,16 @@ std::unique_ptr<ParquetFileReader::Contents> ParquetFileReader::Contents::Open(
     // Validates magic bytes, parses metadata, and initializes the SchemaDescriptor
     file->ParseMetaData();
   } else {
-    file->set_metadata(metadata);
+    file->set_metadata(std::move(metadata));
   }
 
   return result;
 }
 
 std::unique_ptr<ParquetFileReader> ParquetFileReader::Open(
-    const std::shared_ptr<::arrow::io::RandomAccessFile>& source,
-    const ReaderProperties& props, const std::shared_ptr<FileMetaData>& metadata) {
-  auto contents = SerializedFile::Open(source, props, metadata);
+    std::shared_ptr<::arrow::io::RandomAccessFile> source, const ReaderProperties& props,
+    std::shared_ptr<FileMetaData> metadata) {
+  auto contents = SerializedFile::Open(std::move(source), props, std::move(metadata));
   std::unique_ptr<ParquetFileReader> result(new ParquetFileReader());
   result->Open(std::move(contents));
   return result;
@@ -489,14 +488,14 @@ std::unique_ptr<ParquetFileReader> ParquetFileReader::Open(
 
 std::unique_ptr<ParquetFileReader> ParquetFileReader::Open(
     std::unique_ptr<RandomAccessSource> source, const ReaderProperties& props,
-    const std::shared_ptr<FileMetaData>& metadata) {
+    std::shared_ptr<FileMetaData> metadata) {
   auto wrapper = std::make_shared<ParquetInputWrapper>(std::move(source));
-  return Open(wrapper, props, metadata);
+  return Open(std::move(wrapper), props, std::move(metadata));
 }
 
 std::unique_ptr<ParquetFileReader> ParquetFileReader::OpenFile(
     const std::string& path, bool memory_map, const ReaderProperties& props,
-    const std::shared_ptr<FileMetaData>& metadata) {
+    std::shared_ptr<FileMetaData> metadata) {
   std::shared_ptr<::arrow::io::RandomAccessFile> source;
   if (memory_map) {
     PARQUET_ASSIGN_OR_THROW(
@@ -506,7 +505,7 @@ std::unique_ptr<ParquetFileReader> ParquetFileReader::OpenFile(
                             ::arrow::io::ReadableFile::Open(path, props.memory_pool()));
   }
 
-  return Open(source, props, metadata);
+  return Open(std::move(source), props, std::move(metadata));
 }
 
 void ParquetFileReader::Open(std::unique_ptr<ParquetFileReader::Contents> contents) {

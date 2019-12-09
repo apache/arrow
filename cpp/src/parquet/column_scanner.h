@@ -19,10 +19,12 @@
 #define PARQUET_COLUMN_SCANNER_H
 
 #include <stdio.h>
+
 #include <cstdint>
 #include <memory>
 #include <ostream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "parquet/column_reader.h"
@@ -46,7 +48,7 @@ class PARQUET_EXPORT Scanner {
         value_buffer_(AllocateBuffer(pool)),
         value_offset_(0),
         values_buffered_(0),
-        reader_(reader) {
+        reader_(std::move(reader)) {
     def_levels_.resize(descr()->max_definition_level() > 0 ? batch_size_ : 0);
     rep_levels_.resize(descr()->max_repetition_level() > 0 ? batch_size_ : 0);
   }
@@ -79,8 +81,6 @@ class PARQUET_EXPORT Scanner {
   std::shared_ptr<ResizableBuffer> value_buffer_;
   int value_offset_;
   int64_t values_buffered_;
-
- private:
   std::shared_ptr<ColumnReader> reader_;
 };
 
@@ -92,8 +92,8 @@ class PARQUET_TEMPLATE_CLASS_EXPORT TypedScanner : public Scanner {
   explicit TypedScanner(std::shared_ptr<ColumnReader> reader,
                         int64_t batch_size = DEFAULT_SCANNER_BATCH_SIZE,
                         ::arrow::MemoryPool* pool = ::arrow::default_memory_pool())
-      : Scanner(reader, batch_size, pool) {
-    typed_reader_ = static_cast<TypedColumnReader<DType>*>(reader.get());
+      : Scanner(std::move(reader), batch_size, pool) {
+    typed_reader_ = static_cast<TypedColumnReader<DType>*>(reader_.get());
     int value_byte_size = type_traits<DType::type_num>::value_byte_size;
     PARQUET_THROW_NOT_OK(value_buffer_->Resize(batch_size_ * value_byte_size));
     values_ = reinterpret_cast<T*>(value_buffer_->mutable_data());
