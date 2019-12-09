@@ -25,7 +25,7 @@ import (
 	"github.com/apache/arrow/go/arrow/arrio"
 	"github.com/apache/arrow/go/arrow/internal/arrjson"
 	"github.com/apache/arrow/go/arrow/ipc"
-	"github.com/pkg/errors"
+	"golang.org/x/xerrors"
 )
 
 func main() {
@@ -49,11 +49,11 @@ func main() {
 
 func runCommand(jsonName, arrowName, mode string, verbose bool) error {
 	if jsonName == "" {
-		return errors.Errorf("must specify json file name")
+		return xerrors.Errorf("must specify json file name")
 	}
 
 	if arrowName == "" {
-		return errors.Errorf("must specify arrow file name")
+		return xerrors.Errorf("must specify arrow file name")
 	}
 
 	switch mode {
@@ -64,7 +64,7 @@ func runCommand(jsonName, arrowName, mode string, verbose bool) error {
 	case "VALIDATE":
 		return validate(arrowName, jsonName, verbose)
 	default:
-		return errors.Errorf("unknown command %q", mode)
+		return xerrors.Errorf("unknown command %q", mode)
 	}
 
 	return nil
@@ -73,19 +73,19 @@ func runCommand(jsonName, arrowName, mode string, verbose bool) error {
 func cnvToJSON(arrowName, jsonName string, verbose bool) error {
 	r, err := os.Open(arrowName)
 	if err != nil {
-		return errors.Wrapf(err, "could not open ARROW file %q", arrowName)
+		return xerrors.Errorf("could not open ARROW file %q: %w", arrowName, err)
 	}
 	defer r.Close()
 
 	w, err := os.Create(jsonName)
 	if err != nil {
-		return errors.Wrapf(err, "could not create JSON file %q", jsonName)
+		return xerrors.Errorf("could not create JSON file %q: %w", jsonName, err)
 	}
 	defer w.Close()
 
 	rr, err := ipc.NewFileReader(r)
 	if err != nil {
-		return errors.Wrapf(err, "could not open ARROW file reader from file %q", arrowName)
+		return xerrors.Errorf("could not open ARROW file reader from file %q: %w", arrowName, err)
 	}
 	defer rr.Close()
 
@@ -95,27 +95,27 @@ func cnvToJSON(arrowName, jsonName string, verbose bool) error {
 
 	ww, err := arrjson.NewWriter(w, rr.Schema())
 	if err != nil {
-		return errors.Wrap(err, "could not create JSON encoder")
+		return xerrors.Errorf("could not create JSON encoder: %w", err)
 	}
 	defer ww.Close()
 
 	n, err := arrio.Copy(ww, rr)
 	if err != nil {
-		return errors.Wrap(err, "could not convert ARROW file reader data to JSON data")
+		return xerrors.Errorf("could not convert ARROW file reader data to JSON data: %w", err)
 	}
 
 	if got, want := n, int64(rr.NumRecords()); got != want {
-		return errors.Errorf("invalid number of records copied (got=%d, want=%d", got, want)
+		return xerrors.Errorf("invalid number of records copied (got=%d, want=%d", got, want)
 	}
 
 	err = ww.Close()
 	if err != nil {
-		return errors.Wrapf(err, "could not close JSON encoder %q", jsonName)
+		return xerrors.Errorf("could not close JSON encoder %q: %w", jsonName, err)
 	}
 
 	err = w.Close()
 	if err != nil {
-		return errors.Wrapf(err, "could not close JSON file %q", jsonName)
+		return xerrors.Errorf("could not close JSON file %q: %w", jsonName, err)
 	}
 
 	return nil
@@ -124,19 +124,19 @@ func cnvToJSON(arrowName, jsonName string, verbose bool) error {
 func cnvToARROW(arrowName, jsonName string, verbose bool) error {
 	r, err := os.Open(jsonName)
 	if err != nil {
-		return errors.Wrapf(err, "could not open JSON file %q", jsonName)
+		return xerrors.Errorf("could not open JSON file %q: %w", jsonName, err)
 	}
 	defer r.Close()
 
 	w, err := os.Create(arrowName)
 	if err != nil {
-		return errors.Wrapf(err, "could not create ARROW file %q", arrowName)
+		return xerrors.Errorf("could not create ARROW file %q: %w", arrowName, err)
 	}
 	defer w.Close()
 
 	rr, err := arrjson.NewReader(r)
 	if err != nil {
-		return errors.Wrapf(err, "could not open JSON file reader from file %q", jsonName)
+		return xerrors.Errorf("could not open JSON file reader from file %q: %w", jsonName, err)
 	}
 
 	if verbose {
@@ -145,27 +145,27 @@ func cnvToARROW(arrowName, jsonName string, verbose bool) error {
 
 	ww, err := ipc.NewFileWriter(w, ipc.WithSchema(rr.Schema()))
 	if err != nil {
-		return errors.Wrap(err, "could not create ARROW file writer")
+		return xerrors.Errorf("could not create ARROW file writer: %w", err)
 	}
 	defer ww.Close()
 
 	n, err := arrio.Copy(ww, rr)
 	if err != nil {
-		return errors.Wrap(err, "could not convert JSON data to ARROW data")
+		return xerrors.Errorf("could not convert JSON data to ARROW data: %w", err)
 	}
 
 	if got, want := n, int64(rr.NumRecords()); got != want {
-		return errors.Errorf("invalid number of records copied (got=%d, want=%d", got, want)
+		return xerrors.Errorf("invalid number of records copied (got=%d, want=%d", got, want)
 	}
 
 	err = ww.Close()
 	if err != nil {
-		return errors.Wrapf(err, "could not close ARROW file writer %q", arrowName)
+		return xerrors.Errorf("could not close ARROW file writer %q: %w", arrowName, err)
 	}
 
 	err = w.Close()
 	if err != nil {
-		return errors.Wrapf(err, "could not close ARROW file %q", arrowName)
+		return xerrors.Errorf("could not close ARROW file %q: %w", arrowName, err)
 	}
 
 	return nil
@@ -174,24 +174,24 @@ func cnvToARROW(arrowName, jsonName string, verbose bool) error {
 func validate(arrowName, jsonName string, verbose bool) error {
 	jr, err := os.Open(jsonName)
 	if err != nil {
-		return errors.Wrapf(err, "could not open JSON file %q", jsonName)
+		return xerrors.Errorf("could not open JSON file %q: %w", jsonName, err)
 	}
 	defer jr.Close()
 
 	jrr, err := arrjson.NewReader(jr)
 	if err != nil {
-		return errors.Wrapf(err, "could not open JSON file reader from file %q", jsonName)
+		return xerrors.Errorf("could not open JSON file reader from file %q: %w", jsonName, err)
 	}
 
 	ar, err := os.Open(arrowName)
 	if err != nil {
-		return errors.Wrapf(err, "could not open ARROW file %q", arrowName)
+		return xerrors.Errorf("could not open ARROW file %q: %w", arrowName, err)
 	}
 	defer ar.Close()
 
 	arr, err := ipc.NewFileReader(ar)
 	if err != nil {
-		return errors.Wrapf(err, "could not open ARROW file reader from file %q", arrowName)
+		return xerrors.Errorf("could not open ARROW file reader from file %q: %w", arrowName, err)
 	}
 	defer arr.Close()
 
@@ -199,27 +199,27 @@ func validate(arrowName, jsonName string, verbose bool) error {
 		if verbose {
 			log.Printf("JSON schema:\n%v\nArrow schema:\n%v\n", arr.Schema(), jrr.Schema())
 		}
-		return errors.Errorf("schemas did not match")
+		return xerrors.Errorf("schemas did not match")
 	}
 
 	for i := 0; i < arr.NumRecords(); i++ {
 		arec, err := arr.Read()
 		if err != nil {
-			return errors.Wrapf(err, "could not read record %d from ARROW file", i)
+			return xerrors.Errorf("could not read record %d from ARROW file: %w", i, err)
 		}
 		jrec, err := jrr.Read()
 		if err != nil {
-			return errors.Wrapf(err, "could not read record %d from JSON file", i)
+			return xerrors.Errorf("could not read record %d from JSON file: %w", i, err)
 		}
 		if !array.RecordApproxEqual(jrec, arec) {
-			return errors.Errorf("record batch %d did not match\nJSON:\n%v\nARROW:\n%v\n",
+			return xerrors.Errorf("record batch %d did not match\nJSON:\n%v\nARROW:\n%v\n",
 				i, jrec, arec,
 			)
 		}
 	}
 
 	if jn, an := jrr.NumRecords(), arr.NumRecords(); jn != an {
-		return errors.Errorf("different number of record batches: %d (JSON) vs %d (Arrow)", jn, an)
+		return xerrors.Errorf("different number of record batches: %d (JSON) vs %d (Arrow)", jn, an)
 	}
 
 	return nil
