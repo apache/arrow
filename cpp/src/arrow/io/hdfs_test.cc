@@ -466,12 +466,12 @@ TYPED_TEST(TestHadoopFileSystem, ThreadSafety) {
     for (int i = 0; i < niter; ++i) {
       std::shared_ptr<Buffer> buffer;
       if (i % 2 == 0) {
-        ASSERT_OK(file->ReadAt(3, 3, &buffer));
+        ASSERT_OK_AND_ASSIGN(buffer, file->ReadAt(3, 3));
         if (0 == memcmp(data.c_str() + 3, buffer->data(), 3)) {
           correct_count += 1;
         }
       } else {
-        ASSERT_OK(file->ReadAt(0, 4, &buffer));
+        ASSERT_OK_AND_ASSIGN(buffer, file->ReadAt(0, 4));
         if (0 == memcmp(data.c_str() + 0, buffer->data(), 4)) {
           correct_count += 1;
         }
