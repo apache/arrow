@@ -17,11 +17,11 @@
   under the License.
 -->
 
-## Manylinux2010 wheels for Apache Arrow
+## Manylinux201x wheels for Apache Arrow
 
 This folder provides base Docker images and an infrastructure to build
-`manylinux2010` compatible Python wheels that should be installable on all
-Linux distributions published in last four years.
+`manylinux2010` and `manylinux2014` compatible Python wheels that should be installable on all
+Linux distributions published in last several years.
 
 The process is split up in two parts:
 
@@ -47,12 +47,15 @@ docker-compose run -e PYTHON_VERSION="2.7" -e UNICODE_WIDTH=16 centos-python-man
 ls -l dist/
 ```
 
+You can do the same for `manylinux2014` by substituting `centos-python-manylinux2014`.
+Note that `manylinux2014` does not support Python 2.7.
+
 ### Re-building the build image
 
 In case you want to make changes to the base Docker image (for example because
 you want to update a dependency to a new version), you must re-build it.
-The Docker configuration is in `Dockerfile-x86_64_base`, and it calls into
-scripts stored under the `scripts` directory.
+The Docker configuration is in `Dockerfile-x86_64_base_2010` and `Dockerfile-x86_64_base_2014`,
+and it calls into scripts stored under the `scripts` directory.
 
 ```bash
 docker-compose build python-manylinux2010
