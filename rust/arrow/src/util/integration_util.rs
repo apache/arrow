@@ -20,7 +20,7 @@
 //! These utilities define structs that read the integration JSON format for integration testing purposes.
 
 use serde_derive::Deserialize;
-use serde_json::Value;
+use serde_json::{Number as VNumber, Value};
 
 use crate::array::*;
 use crate::datatypes::*;
@@ -135,9 +135,47 @@ impl ArrowJsonBatch {
                     DataType::Int64
                     | DataType::Date64(_)
                     | DataType::Time64(_)
-                    | DataType::Timestamp(_, _) => {
+                    | DataType::Timestamp(_, _)
+                    | DataType::Duration(_) => {
                         let arr = Int64Array::from(arr.data());
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
+                    }
+                    DataType::Interval(IntervalUnit::YearMonth) => {
+                        let arr = IntervalYearMonthArray::from(arr.data());
+                        arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
+                    }
+                    DataType::Interval(IntervalUnit::DayTime) => {
+                        let arr = IntervalDayTimeArray::from(arr.data());
+                        let x = json_array
+                            .iter()
+                            .map(|v| {
+                                match v {
+                                    Value::Null => Value::Null,
+                                    Value::Object(v) => {
+                                        // interval has days and milliseconds
+                                        let days: i32 =
+                                            v.get("days").unwrap().as_i64().unwrap()
+                                                as i32;
+                                        let milliseconds: i32 = v
+                                            .get("milliseconds")
+                                            .unwrap()
+                                            .as_i64()
+                                            .unwrap()
+                                            as i32;
+                                        let value: i64 = unsafe {
+                                            std::mem::transmute::<[i32; 2], i64>([
+                                                days,
+                                                milliseconds,
+                                            ])
+                                        };
+                                        Value::Number(VNumber::from(value))
+                                    }
+                                    // return null if Value is not an object
+                                    _ => Value::Null,
+                                }
+                            })
+                            .collect::<Vec<Value>>();
+                        arr.equals_json(&x.iter().collect::<Vec<&Value>>()[..])
                     }
                     DataType::UInt8 => {
                         let arr = arr.as_any().downcast_ref::<UInt8Array>().unwrap();

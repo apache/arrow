@@ -105,6 +105,7 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
         DataType::UInt16 => Arc::new(UInt16Array::from(data)) as ArrayRef,
         DataType::UInt32 => Arc::new(UInt32Array::from(data)) as ArrayRef,
         DataType::UInt64 => Arc::new(UInt64Array::from(data)) as ArrayRef,
+        DataType::Float16 => panic!("Float16 datatype not supported"),
         DataType::Float32 => Arc::new(Float32Array::from(data)) as ArrayRef,
         DataType::Float64 => Arc::new(Float64Array::from(data)) as ArrayRef,
         DataType::Date32(DateUnit::Day) => Arc::new(Date32Array::from(data)) as ArrayRef,
@@ -134,6 +135,24 @@ pub fn make_array(data: ArrayDataRef) -> ArrayRef {
         }
         DataType::Timestamp(TimeUnit::Nanosecond, _) => {
             Arc::new(TimestampNanosecondArray::from(data)) as ArrayRef
+        }
+        DataType::Interval(IntervalUnit::YearMonth) => {
+            Arc::new(IntervalYearMonthArray::from(data)) as ArrayRef
+        }
+        DataType::Interval(IntervalUnit::DayTime) => {
+            Arc::new(IntervalDayTimeArray::from(data)) as ArrayRef
+        }
+        DataType::Duration(TimeUnit::Second) => {
+            Arc::new(DurationSecondArray::from(data)) as ArrayRef
+        }
+        DataType::Duration(TimeUnit::Millisecond) => {
+            Arc::new(DurationMillisecondArray::from(data)) as ArrayRef
+        }
+        DataType::Duration(TimeUnit::Microsecond) => {
+            Arc::new(DurationMicrosecondArray::from(data)) as ArrayRef
+        }
+        DataType::Duration(TimeUnit::Nanosecond) => {
+            Arc::new(DurationNanosecondArray::from(data)) as ArrayRef
         }
         DataType::Binary => Arc::new(BinaryArray::from(data)) as ArrayRef,
         DataType::FixedSizeBinary(_) => {
@@ -599,6 +618,36 @@ def_numeric_from_vec!(
     Time64NanosecondType,
     i64,
     DataType::Time64(TimeUnit::Nanosecond)
+);
+def_numeric_from_vec!(
+    IntervalYearMonthType,
+    i32,
+    DataType::Interval(IntervalUnit::YearMonth)
+);
+def_numeric_from_vec!(
+    IntervalDayTimeType,
+    i64,
+    DataType::Interval(IntervalUnit::DayTime)
+);
+def_numeric_from_vec!(
+    DurationSecondType,
+    i64,
+    DataType::Duration(TimeUnit::Second)
+);
+def_numeric_from_vec!(
+    DurationMillisecondType,
+    i64,
+    DataType::Duration(TimeUnit::Millisecond)
+);
+def_numeric_from_vec!(
+    DurationMicrosecondType,
+    i64,
+    DataType::Duration(TimeUnit::Microsecond)
+);
+def_numeric_from_vec!(
+    DurationNanosecondType,
+    i64,
+    DataType::Duration(TimeUnit::Nanosecond)
 );
 
 impl<T: ArrowTimestampType> PrimitiveArray<T> {
@@ -1715,6 +1764,62 @@ mod tests {
             let time = arr.value_as_time(i).unwrap();
             assert_eq!(formatted[i], time.format("%H:%M:%S%.3f").to_string());
         }
+    }
+
+    #[test]
+    fn test_interval_array_from_vec() {
+        // intervals are currently not treated specially, but are Int32 and Int64 arrays
+        let arr = IntervalYearMonthArray::from(vec![Some(1), None, Some(-5)]);
+        assert_eq!(3, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(1, arr.null_count());
+        assert_eq!(1, arr.value(0));
+        assert!(arr.is_null(1));
+        assert_eq!(-5, arr.value(2));
+
+        // a day_time interval contains days and milliseconds, but we do not yet have accessors for the values
+        let arr = IntervalDayTimeArray::from(vec![Some(1), None, Some(-5)]);
+        assert_eq!(3, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(1, arr.null_count());
+        assert_eq!(1, arr.value(0));
+        assert!(arr.is_null(1));
+        assert_eq!(-5, arr.value(2));
+    }
+
+    #[test]
+    fn test_duration_array_from_vec() {
+        let arr = DurationSecondArray::from(vec![Some(1), None, Some(-5)]);
+        assert_eq!(3, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(1, arr.null_count());
+        assert_eq!(1, arr.value(0));
+        assert!(arr.is_null(1));
+        assert_eq!(-5, arr.value(2));
+
+        let arr = DurationMillisecondArray::from(vec![Some(1), None, Some(-5)]);
+        assert_eq!(3, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(1, arr.null_count());
+        assert_eq!(1, arr.value(0));
+        assert!(arr.is_null(1));
+        assert_eq!(-5, arr.value(2));
+
+        let arr = DurationMicrosecondArray::from(vec![Some(1), None, Some(-5)]);
+        assert_eq!(3, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(1, arr.null_count());
+        assert_eq!(1, arr.value(0));
+        assert!(arr.is_null(1));
+        assert_eq!(-5, arr.value(2));
+
+        let arr = DurationNanosecondArray::from(vec![Some(1), None, Some(-5)]);
+        assert_eq!(3, arr.len());
+        assert_eq!(0, arr.offset());
+        assert_eq!(1, arr.null_count());
+        assert_eq!(1, arr.value(0));
+        assert!(arr.is_null(1));
+        assert_eq!(-5, arr.value(2));
     }
 
     #[test]
