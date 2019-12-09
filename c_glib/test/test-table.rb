@@ -210,5 +210,21 @@ valid:
                      table.slice(-2, 2))
       end
     end
+
+    def test_combine_chunks
+      table = build_table(
+        "visible" => Arrow::ChunkedArray::new([build_boolean_array([true, false, true]),
+                                               build_boolean_array([false, true]),
+                                               build_boolean_array([false])])
+      )
+      combined_table = table.combine_chunks
+      assert_equal(table, combined_table)
+
+      chunked_array = combined_table.get_column_data(0)
+      assert_equal(1, chunked_array.n_chunks)
+
+      assert_equal([true, false, true, false, true, false],
+                   chunked_array.get_chunk(0).values)
+    end
   end
 end
