@@ -212,9 +212,12 @@ class SerializedRowGroup : public RowGroupReader::Contents {
         page_offset = 0, next_page_offset =0, num_values = 0;
         GoToPage(39, col_start,col_length,col->num_values(),col_index,offset_index,page_offset,num_values,next_page_offset);
     }
-
-//    GoToPagewoIndex(39);
-
+    else{
+       page_offset = col_start;
+       next_page_offset = page_offset + col_length;
+       num_values = col->num_values();
+       GoToPagewoIndex(39);
+    }
     // PARQUET-816 workaround for old files created by older parquet-mr
     const ApplicationVersion& version = file_metadata_->writer_version();
     if (version.VersionLt(ApplicationVersion::PARQUET_816_FIXED_VERSION())) {
