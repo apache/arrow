@@ -351,9 +351,7 @@ TEST(TestStringOps, TestLocate) {
 
   pos = locate_utf8_utf8_int32(ctx_ptr, "bar", 3, "barbar", 6, 7);
   EXPECT_EQ(pos, 0);
-  EXPECT_THAT(ctx.get_error(),
-              ::testing::HasSubstr("Invalid character position argument"));
-  ctx.Reset();
+  EXPECT_FALSE(ctx.has_error());
 
   std::string d(
       "a\xff"
