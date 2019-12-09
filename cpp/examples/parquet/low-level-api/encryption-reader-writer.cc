@@ -44,7 +44,6 @@ const std::string kColumnEncryptionKey1 = "1234567890123450";
 const std::string kColumnEncryptionKey2 = "1234567890123451";
 
 int main(int argc, char** argv) {
-
   /**********************************************************************************
                              PARQUET ENCRYPTION WRITER EXAMPLE
   **********************************************************************************/
@@ -53,15 +52,14 @@ int main(int argc, char** argv) {
     // Create a local file output stream instance.
     using FileClass = ::arrow::io::FileOutputStream;
     std::shared_ptr<FileClass> out_file;
-    PARQUET_THROW_NOT_OK(FileClass::Open(PARQUET_FILENAME, &out_file));
+    PARQUET_ASSIGN_OR_THROW(out_file, FileClass::Open(PARQUET_FILENAME));
 
     // Setup the parquet schema
     std::shared_ptr<GroupNode> schema = SetupSchema();
 
     // Add encryption properties
     // Encryption configuration: Encrypt two columns and the footer.
-    std::map<std::string,
-             std::shared_ptr<parquet::ColumnEncryptionProperties>>
+    std::map<std::string, std::shared_ptr<parquet::ColumnEncryptionProperties>>
         encryption_cols;
 
     parquet::SchemaDescriptor schema_desc;
@@ -212,7 +210,6 @@ int main(int argc, char** argv) {
       std::static_pointer_cast<parquet::StringKeyIdRetriever>(string_kr1);
 
   parquet::FileDecryptionProperties::Builder file_decryption_builder;
-
 
   try {
     parquet::ReaderProperties reader_properties = parquet::default_reader_properties();
