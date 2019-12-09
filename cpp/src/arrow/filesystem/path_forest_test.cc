@@ -123,6 +123,20 @@ TEST(TestPathForest, Basic) {
                       PT("CC", {PT("CC/BB", {PT("CC/BB/0")})})});
 }
 
+TEST(TestPathForest, AssociatedObjects) {
+  std::vector<FileStats> stats = {File("aa/1"), File("bb/2"), File("aa/3"), File("bb/4")};
+  std::vector<std::string> dirnames = {"aa", "bb", "aa", "bb"};
+  std::vector<std::string> basenames = {"1", "2", "3", "4"};
+
+  ASSERT_OK_AND_ASSIGN(auto forest, PathForest::Make(stats, &dirnames, &basenames));
+
+  ASSERT_OK(forest.Visit([&](PathForest::Ref ref) {
+    EXPECT_THAT(ref.stats().path(), ::testing::StartsWith(dirnames[ref.i]));
+    EXPECT_THAT(ref.stats().path(), ::testing::EndsWith(basenames[ref.i]));
+    return Status::OK();
+  }));
+}
+
 TEST(TestPathForest, HourlyETL) {
   // This test mimics a scenario where an ETL dumps hourly files in a structure
   // `$year/$month/$day/$hour/*.parquet`.

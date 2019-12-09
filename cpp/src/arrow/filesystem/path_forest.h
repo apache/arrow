@@ -29,19 +29,42 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/compare.h"
+#include "arrow/util/macros.h"
+#include "arrow/util/sort.h"
 
 namespace arrow {
 namespace fs {
 
 /// \brief A PathForest is a utility to transform a vector of FileStats into a
-/// forest representation for tree traversal purposes. Each node in the graph wraps
-/// a FileStats. Files are expected to be found only at leaves of the tree.
+/// forest representation for tree traversal purposes. Note: there is no guarantee of a
+/// shared root. Each node in the graph wraps a FileStats. Files are expected to be found
+/// only at leaves of the tree.
 class ARROW_EXPORT PathForest : public util::EqualityComparable<PathForest> {
  public:
-  /// \brief Transforms a FileStats vector into a forest. Since there
-  /// is no guarantee of a single shared root, it is possible to have a forest
-  /// (multiple roots). The caller should ensure that stats does not contain duplicates.
-  static Result<PathForest> Make(std::vector<FileStats> stats);
+  /// \brief Transforms a FileStats vector into a forest. The caller should ensure that
+  /// stats does not contain duplicates.
+  ///
+  /// Vector(s) of associated objects (IE associated[i] is associated with stats[i]) may
+  /// be passed for reordering. (After construction, associated[i] is associated with
+  /// forest[i]).
+  template <typename... Associated>
+  static Result<PathForest> Make(std::vector<FileStats> stats,
+                                 std::vector<Associated>*... associated) {
+    auto compare_paths = [](const FileStats& lhs, const FileStats& rhs) {
+      return lhs.path() < rhs.path();
+    };
+
+    if (sizeof...(associated) == 0) {
+      std::sort(stats.begin(), stats.end(), compare_paths);
+    } else {
+      auto indices = internal::ArgSort(stats, compare_paths);
+      size_t ignored[] = {internal::Permute(indices, &stats),
+                          internal::Permute(indices, associated)...};
+      static_cast<void>(ignored);
+    }
+
+    return DoMake(std::move(stats));
+  }
 
   /// \brief Returns the number of nodes in this forest.
   int size() const { return size_; }
@@ -93,6 +116,8 @@ class ARROW_EXPORT PathForest : public util::EqualityComparable<PathForest> {
         stats_(std::move(stats)),
         descendant_counts_(std::move(descendant_counts)),
         parents_(std::move(parents)) {}
+
+  static Result<PathForest> DoMake(std::vector<FileStats> sorted_stats);
 
   /// \brief Visit with eager pruning.
   template <typename Visitor>

@@ -33,11 +33,7 @@
 namespace arrow {
 namespace fs {
 
-Result<PathForest> PathForest::Make(std::vector<FileStats> stats) {
-  std::stable_sort(
-      stats.begin(), stats.end(),
-      [](const FileStats& lhs, const FileStats& rhs) { return lhs.path() < rhs.path(); });
-
+Result<PathForest> PathForest::DoMake(std::vector<FileStats> stats) {
   int size = static_cast<int>(stats.size());
   std::vector<int> descendant_counts(size, 0), parents(size, -1);
 

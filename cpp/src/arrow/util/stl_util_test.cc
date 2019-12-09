@@ -15,11 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <string>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/util/sort.h"
 #include "arrow/util/stl.h"
+#include "arrow/util/string.h"
 
 namespace arrow {
 namespace internal {
@@ -53,6 +57,39 @@ TEST(StlUtilTest, VectorAddRemoveTest) {
 
   result3 = DeleteVectorElement(result3, 0);
   EXPECT_TRUE(result3.empty());
+}
+
+void ExpectSortPermutation(std::vector<std::string> unsorted,
+                           std::vector<int64_t> expected_indices) {
+  auto actual_indices = ArgSort(unsorted);
+  EXPECT_THAT(actual_indices, ::testing::ContainerEq(expected_indices));
+
+  auto sorted = unsorted;
+  std::sort(sorted.begin(), sorted.end());
+
+  auto permuted = unsorted;
+  Permute(expected_indices, &permuted);
+
+  EXPECT_THAT(permuted, ::testing::ContainerEq(sorted));
+}
+
+TEST(StlUtilTest, ArgSortPermute) {
+  std::string f = "foxtrot", a = "alpha", b = "bravo", d = "delta", c = "charlie",
+              e = "echo";
+
+  ExpectSortPermutation({a, f}, {0, 1});
+  ExpectSortPermutation({f, a}, {1, 0});
+  ExpectSortPermutation({a, b, c}, {0, 1, 2});
+  ExpectSortPermutation({a, c, b}, {0, 2, 1});
+  ExpectSortPermutation({c, a, b}, {1, 2, 0});
+  ExpectSortPermutation({a, b, c, d, e, f}, {0, 1, 2, 3, 4, 5});
+  ExpectSortPermutation({f, e, d, c, b, a}, {5, 4, 3, 2, 1, 0});
+  ExpectSortPermutation({f, a, b, d, c, e}, {1, 2, 4, 3, 5, 0});
+  ExpectSortPermutation({d, f, e, c, b, a}, {5, 4, 3, 0, 2, 1});
+  ExpectSortPermutation({b, a, c, d, f, e}, {1, 0, 2, 3, 5, 4});
+  ExpectSortPermutation({c, b, a, d, e, f}, {2, 1, 0, 3, 4, 5});
+  ExpectSortPermutation({b, c, a, f, d, e}, {2, 0, 1, 4, 5, 3});
+  ExpectSortPermutation({b, c, d, e, a, f}, {4, 0, 1, 2, 3, 5});
 }
 
 }  // namespace internal
