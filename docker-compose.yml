@@ -594,7 +594,7 @@ services:
     command: *manylinux-command
 
   centos-python-manylinux2014:
-    image: ${REPO}:amd64-centos-7.7-python-manylinux2014:latest
+    image: ${REPO}:amd64-centos-7.7-python-manylinux2014
     build:
       context: python/manylinux201x
       dockerfile: Dockerfile-x86_64_base_2014
