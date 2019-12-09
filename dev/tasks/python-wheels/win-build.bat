@@ -20,14 +20,14 @@
 @rem create conda environment for compiling
 conda update --yes --quiet conda
 
-call conda create -n wheel-build -q -y -c conda-forge ^
+conda create -n wheel-build -q -y -c conda-forge ^
     --file=%ARROW_SRC%\ci\conda_env_cpp.yml ^
     --file=%ARROW_SRC%\ci\conda_env_gandiva.yml ^
     python=%PYTHON_VERSION% ^
     numpy=%NUMPY_VERSION% ^
     || exit /B
 
-call activate wheel-build
+call conda.bat activate wheel-build
 
 @rem Cannot use conda_env_python.yml here because conda-forge has
 @rem ceased providing up-to-date packages for Python 3.5
@@ -84,17 +84,17 @@ pushd %ARROW_SRC%\python
 python setup.py bdist_wheel || exit /B
 popd
 
-call deactivate
+call conda.bat deactivate
 
 set ARROW_TEST_DATA=%ARROW_SRC%\testing\data
 
 @rem test the wheel
 @rem TODO For maximum reliability, we should test in a plain virtualenv instead.
-call conda create -n wheel-test -c conda-forge -q -y ^
+conda create -n wheel-test -c conda-forge -q -y ^
     --file %ARROW_SRC%\ci\conda_env_python.yml ^
     python=%PYTHON_VERSION% ^
     numpy=%NUMPY_VERSION% || exit /B
-call activate wheel-test
+call conda.bat activate wheel-test
 
 @rem install the built wheel
 pip install -vv --no-index --find-links=%ARROW_SRC%\python\dist\ pyarrow || exit /B

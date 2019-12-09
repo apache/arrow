@@ -367,4 +367,57 @@ TEST(TestStringOps, TestLocate) {
   ctx.Reset();
 }
 
+TEST(TestStringOps, TestReplace) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<int64>(&ctx);
+  int32 out_len = 0;
+
+  const char* out_str;
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, "TestString1String2", 18, "String", 6,
+                                   "Replace", 7, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestReplace1Replace2");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str =
+      replace_utf8_utf8_utf8(ctx_ptr, "TestString1", 11, "String", 6, "", 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Test1");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, "", 0, "test", 4, "rep", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, "Ç††çåå†", 17, "†", 3, "t", 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Çttçååt");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, "TestString", 10, "", 0, "rep", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str =
+      replace_utf8_utf8_utf8(ctx_ptr, "Test", 4, "TestString", 10, "rep", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Test");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, "Test", 4, "Test", 4, "", 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str =
+      replace_utf8_utf8_utf8(ctx_ptr, "TestString", 10, "abc", 3, "xyz", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = replace_with_max_len_utf8_utf8_utf8(ctx_ptr, "Hell", 4, "ell", 3, "ollow", 5,
+                                                5, &out_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer overflow for output string"));
+  ctx.Reset();
+
+  out_str = replace_with_max_len_utf8_utf8_utf8(ctx_ptr, "eeee", 4, "e", 1, "aaaa", 4, 14,
+                                                &out_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer overflow for output string"));
+  ctx.Reset();
+}
+
 }  // namespace gandiva

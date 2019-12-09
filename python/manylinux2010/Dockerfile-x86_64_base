@@ -15,7 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM quay.io/pypa/manylinux2010_x86_64:latest
+# See https://quay.io/repository/pypa/manylinux2010_x86_64?tab=history
+# to update base image.
+FROM quay.io/pypa/manylinux2010_x86_64@sha256:d41631c7360a0028876755aebb7036db639c24e7dcdaf3a9e6dcc0e74a681541
 
 # Install build dependencies
 RUN yum install -y xz bison ccache flex wget
@@ -30,7 +32,7 @@ ADD scripts/build_zlib.sh /
 RUN /build_zlib.sh
 
 WORKDIR /
-RUN git clone https://github.com/matthew-brett/multibuild.git && cd multibuild && git checkout 1a7f31be677185f2dface2643284846e14130c3f
+RUN git clone https://github.com/matthew-brett/multibuild.git && cd multibuild && git checkout 68a4af043e2adb0d9353d4a0e1f3d871203237aa
 
 ADD scripts/build_llvm.sh /
 RUN /build_llvm.sh
@@ -94,6 +96,3 @@ RUN /build_re2.sh
 
 ADD scripts/build_bz2.sh /
 RUN /build_bz2.sh
-
-ADD scripts/build_virtualenvs.sh /
-RUN /build_virtualenvs.sh

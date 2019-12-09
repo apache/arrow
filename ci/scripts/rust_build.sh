@@ -20,7 +20,7 @@
 set -ex
 
 source_dir=${1}/rust
-build_dir=${2:-${source_dir}/target}
+build_dir=${2}/rust
 
 export ARROW_TEST_DATA=${arrow_dir}/testing/data
 export PARQUET_TEST_DATA=${arrow_dir}/cpp/submodules/parquet-testing/data

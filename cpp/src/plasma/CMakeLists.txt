@@ -190,17 +190,9 @@ if(ARROW_PLASMA_JAVA_CLIENT)
                           plasma_shared
                           ${PLASMA_LINK_LIBS}
                           "-undefined dynamic_lookup"
-                          -Wl,-force_load,flatbuffers::flatbuffers
-                          flatbuffers::flatbuffers
                           ${PTHREAD_LIBRARY})
   else(APPLE)
-    target_link_libraries(plasma_java
-                          plasma_shared
-                          ${PLASMA_LINK_LIBS}
-                          -Wl,--whole-archive
-                          flatbuffers::flatbuffers
-                          -Wl,--no-whole-archive
-                          flatbuffers::flatbuffers
+    target_link_libraries(plasma_java plasma_shared ${PLASMA_LINK_LIBS}
                           ${PTHREAD_LIBRARY})
   endif(APPLE)
 endif()

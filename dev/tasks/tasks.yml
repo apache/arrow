@@ -37,17 +37,21 @@ groups:
     - wheel-manylinux1-cp35m
     - wheel-manylinux1-cp36m
     - wheel-manylinux1-cp37m
+    - wheel-manylinux1-cp38
     - wheel-manylinux2010-cp27m
     - wheel-manylinux2010-cp27mu
     - wheel-manylinux2010-cp35m
     - wheel-manylinux2010-cp36m
     - wheel-manylinux2010-cp37m
+    - wheel-manylinux2010-cp38
     - wheel-osx-cp27m
     - wheel-osx-cp35m
     - wheel-osx-cp36m
     - wheel-osx-cp37m
+    - wheel-osx-cp38
     - wheel-win-cp36m
     - wheel-win-cp37m
+    - wheel-win-cp38
 
   linux:
     - debian-stretch
@@ -208,17 +212,21 @@ groups:
     - wheel-manylinux1-cp35m
     - wheel-manylinux1-cp36m
     - wheel-manylinux1-cp37m
+    - wheel-manylinux1-cp38
     - wheel-manylinux2010-cp27m
     - wheel-manylinux2010-cp27mu
     - wheel-manylinux2010-cp35m
     - wheel-manylinux2010-cp36m
     - wheel-manylinux2010-cp37m
+    - wheel-manylinux2010-cp38
     - wheel-osx-cp27m
     - wheel-osx-cp35m
     - wheel-osx-cp36m
     - wheel-osx-cp37m
+    - wheel-osx-cp38
     - wheel-win-cp36m
     - wheel-win-cp37m
+    - wheel-win-cp38
     - debian-stretch
     - debian-buster
     - ubuntu-xenial
@@ -366,9 +374,9 @@ tasks:
   ############################## Wheel Linux ##################################
 
   wheel-manylinux1-cp27m:
-    ci: travis
+    ci: azure
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/azure.linux.yml
     params:
       python_version: 2.7
       unicode_width: 16
@@ -379,9 +387,9 @@ tasks:
       - pyarrow-{no_rc_version}-cp27-cp27m-manylinux1_x86_64.whl
 
   wheel-manylinux1-cp27mu:
-    ci: travis
+    ci: azure
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/azure.linux.yml
     params:
       python_version: 2.7
       unicode_width: 32
@@ -393,9 +401,9 @@ tasks:
       - pyarrow-{no_rc_version}-cp27-cp27mu-manylinux1_x86_64.whl
 
   wheel-manylinux1-cp35m:
-    ci: travis
+    ci: azure
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/azure.linux.yml
     params:
       python_version: 3.5
       unicode_width: 16
@@ -407,9 +415,9 @@ tasks:
       - pyarrow-{no_rc_version}-cp35-cp35m-manylinux1_x86_64.whl
 
   wheel-manylinux1-cp36m:
-    ci: travis
+    ci: azure
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/azure.linux.yml
     params:
       python_version: 3.6
       unicode_width: 16
@@ -421,9 +429,9 @@ tasks:
       - pyarrow-{no_rc_version}-cp36-cp36m-manylinux1_x86_64.whl
 
   wheel-manylinux1-cp37m:
-    ci: travis
+    ci: azure
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/azure.linux.yml
     params:
       python_version: 3.7
       unicode_width: 16
@@ -434,10 +442,24 @@ tasks:
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-manylinux1_x86_64.whl
 
-  wheel-manylinux2010-cp27m:
-    ci: travis
+  wheel-manylinux1-cp38:
+    ci: azure
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/azure.linux.yml
+    params:
+      python_version: 3.8
+      unicode_width: 16
+      wheel_tag: manylinux1
+      test_docker_images:
+        - python:3.8
+      test_remove_system_libs: true
+    artifacts:
+      - pyarrow-{no_rc_version}-cp38-cp38-manylinux1_x86_64.whl
+
+  wheel-manylinux2010-cp27m:
+    ci: azure
+    platform: linux
+    template: python-wheels/azure.linux.yml
     params:
       python_version: 2.7
       unicode_width: 16
@@ -448,9 +470,9 @@ tasks:
       - pyarrow-{no_rc_version}-cp27-cp27m-manylinux2010_x86_64.whl
 
   wheel-manylinux2010-cp27mu:
-    ci: travis
+    ci: azure
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/azure.linux.yml
     params:
       python_version: 2.7
       unicode_width: 32
@@ -462,9 +484,9 @@ tasks:
       - pyarrow-{no_rc_version}-cp27-cp27mu-manylinux2010_x86_64.whl
 
   wheel-manylinux2010-cp35m:
-    ci: travis
+    ci: azure
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/azure.linux.yml
     params:
       python_version: 3.5
       unicode_width: 16
@@ -476,9 +498,9 @@ tasks:
       - pyarrow-{no_rc_version}-cp35-cp35m-manylinux2010_x86_64.whl
 
   wheel-manylinux2010-cp36m:
-    ci: travis
+    ci: azure
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/azure.linux.yml
     params:
       python_version: 3.6
       unicode_width: 16
@@ -490,9 +512,9 @@ tasks:
       - pyarrow-{no_rc_version}-cp36-cp36m-manylinux2010_x86_64.whl
 
   wheel-manylinux2010-cp37m:
-    ci: travis
+    ci: azure
     platform: linux
-    template: python-wheels/travis.linux.yml
+    template: python-wheels/azure.linux.yml
     params:
       python_version: 3.7
       unicode_width: 16
@@ -502,6 +524,20 @@ tasks:
       test_remove_system_libs: true
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-manylinux2010_x86_64.whl
+
+  wheel-manylinux2010-cp38:
+    ci: azure
+    platform: linux
+    template: python-wheels/azure.linux.yml
+    params:
+      python_version: 3.8
+      unicode_width: 16
+      wheel_tag: manylinux2010
+      test_docker_images:
+        - python:3.8
+      test_remove_system_libs: true
+    artifacts:
+      - pyarrow-{no_rc_version}-cp38-cp38-manylinux2010_x86_64.whl
 
   ############################## Wheel OSX ####################################
 
@@ -550,6 +586,15 @@ tasks:
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-macosx_10_6_intel.whl
 
+  wheel-osx-cp38:
+    ci: travis
+    platform: osx
+    template: python-wheels/travis.osx.yml
+    params:
+      python_version: 3.8
+    artifacts:
+      - pyarrow-{no_rc_version}-cp38-cp38-macosx_10_6_intel.whl
+
   ############################## Wheel Windows ################################
 
   wheel-win-cp36m:
@@ -569,6 +614,15 @@ tasks:
       python_version: 3.7
     artifacts:
       - pyarrow-{no_rc_version}-cp37-cp37m-win_amd64.whl
+
+  wheel-win-cp38:
+    ci: appveyor
+    platform: win
+    template: python-wheels/appveyor.yml
+    params:
+      python_version: 3.8
+    artifacts:
+      - pyarrow-{no_rc_version}-cp38-cp38-win_amd64.whl
 
   ############################## Linux PKGS ####################################
 

@@ -860,18 +860,18 @@ class TestPlasmaClient(object):
                 self.plasma_client2.create(
                     object_id, DEFAULT_PLASMA_STORE_MEMORY + SMALL_OBJECT_SIZE)
 
-    def test_client_death_during_get(self):
+    @staticmethod
+    def _client_blocked_in_get(plasma_store_name, object_id):
         import pyarrow.plasma as plasma
+        client = plasma.connect(plasma_store_name)
+        # Try to get an object ID that doesn't exist. This should block.
+        client.get([object_id])
 
+    def test_client_death_during_get(self):
         object_id = random_object_id()
 
-        def client_blocked_in_get(plasma_store_name):
-            client = plasma.connect(self.plasma_store_name)
-            # Try to get an object ID that doesn't exist. This should block.
-            client.get([object_id])
-
-        p = multiprocessing.Process(target=client_blocked_in_get,
-                                    args=(self.plasma_store_name, ))
+        p = multiprocessing.Process(target=self._client_blocked_in_get,
+                                    args=(self.plasma_store_name, object_id))
         p.start()
         # Make sure the process is running.
         time.sleep(0.2)
@@ -889,18 +889,18 @@ class TestPlasmaClient(object):
         # the store is dead.
         self.plasma_client.contains(random_object_id())
 
-    def test_client_getting_multiple_objects(self):
+    @staticmethod
+    def _client_get_multiple(plasma_store_name, object_ids):
         import pyarrow.plasma as plasma
+        client = plasma.connect(plasma_store_name)
+        # Try to get an object ID that doesn't exist. This should block.
+        client.get(object_ids)
 
+    def test_client_getting_multiple_objects(self):
         object_ids = [random_object_id() for _ in range(10)]
 
-        def client_get_multiple(plasma_store_name):
-            client = plasma.connect(self.plasma_store_name)
-            # Try to get an object ID that doesn't exist. This should block.
-            client.get(object_ids)
-
-        p = multiprocessing.Process(target=client_get_multiple,
-                                    args=(self.plasma_store_name, ))
+        p = multiprocessing.Process(target=self._client_get_multiple,
+                                    args=(self.plasma_store_name, object_ids))
         p.start()
         # Make sure the process is running.
         time.sleep(0.2)

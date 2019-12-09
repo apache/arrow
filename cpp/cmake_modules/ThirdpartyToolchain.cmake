@@ -502,16 +502,39 @@ macro(build_boost)
 
   set(BOOST_LIB_DIR "${BOOST_PREFIX}/stage/lib")
   set(BOOST_BUILD_LINK "static")
+  if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
+    set(BOOST_BUILD_VARIANT "debug")
+  else()
+    set(BOOST_BUILD_VARIANT "release")
+  endif()
+  if(MSVC)
+    set(BOOST_CONFIGURE_COMMAND ".\\\\bootstrap.bat")
+  else()
+    set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh")
+  endif()
+  list(APPEND BOOST_CONFIGURE_COMMAND "--prefix=${BOOST_PREFIX}"
+              "--with-libraries=filesystem,regex,system")
+  set(BOOST_BUILD_COMMAND "./b2" "-j${NPROC}" "link=${BOOST_BUILD_LINK}"
+                          "variant=${BOOST_BUILD_VARIANT}")
+  if(MSVC)
+    string(REGEX
+           REPLACE "([0-9])$" ".\\1" BOOST_TOOLSET_MSVC_VERSION ${MSVC_TOOLSET_VERSION})
+    list(APPEND BOOST_BUILD_COMMAND "toolset=msvc-${BOOST_TOOLSET_MSVC_VERSION}")
+  else()
+    list(APPEND BOOST_BUILD_COMMAND "cxxflags=-fPIC")
+  endif()
+
   if(MSVC)
     string(REGEX
            REPLACE "^([0-9]+)\\.([0-9]+)\\.[0-9]+$" "\\1_\\2"
                    ARROW_BOOST_BUILD_VERSION_NO_MICRO_UNDERSCORE
                    ${ARROW_BOOST_BUILD_VERSION})
-    set(
-      BOOST_LIBRARY_SUFFIX
-
-      "-vc${MSVC_TOOLSET_VERSION}-mt-x64-${ARROW_BOOST_BUILD_VERSION_NO_MICRO_UNDERSCORE}"
-      )
+    set(BOOST_LIBRARY_SUFFIX "-vc${MSVC_TOOLSET_VERSION}-mt")
+    if(BOOST_BUILD_VARIANT STREQUAL "debug")
+      set(BOOST_LIBRARY_SUFFIX "${BOOST_LIBRARY_SUFFIX}-gd")
+    endif()
+    set(BOOST_LIBRARY_SUFFIX
+        "${BOOST_LIBRARY_SUFFIX}-x64-${ARROW_BOOST_BUILD_VERSION_NO_MICRO_UNDERSCORE}")
   else()
     set(BOOST_LIBRARY_SUFFIX "")
   endif()
@@ -534,27 +557,6 @@ macro(build_boost)
   set(BOOST_BUILD_PRODUCTS ${BOOST_STATIC_SYSTEM_LIBRARY}
                            ${BOOST_STATIC_FILESYSTEM_LIBRARY}
                            ${BOOST_STATIC_REGEX_LIBRARY})
-  if(MSVC)
-    set(BOOST_CONFIGURE_COMMAND ".\\\\bootstrap.bat")
-  else()
-    set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh")
-  endif()
-  list(APPEND BOOST_CONFIGURE_COMMAND "--prefix=${BOOST_PREFIX}"
-              "--with-libraries=filesystem,regex,system")
-  if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-    set(BOOST_BUILD_VARIANT "debug")
-  else()
-    set(BOOST_BUILD_VARIANT "release")
-  endif()
-  set(BOOST_BUILD_COMMAND "./b2" "-j${NPROC}" "link=${BOOST_BUILD_LINK}"
-                          "variant=${BOOST_BUILD_VARIANT}")
-  if(MSVC)
-    string(REGEX
-           REPLACE "([0-9])$" ".\\1" BOOST_TOOLSET_MSVC_VERSION ${MSVC_TOOLSET_VERSION})
-    list(APPEND BOOST_BUILD_COMMAND "toolset=msvc-${BOOST_TOOLSET_MSVC_VERSION}")
-  else()
-    list(APPEND BOOST_BUILD_COMMAND "cxxflags=-fPIC")
-  endif()
 
   add_thirdparty_lib(boost_system STATIC_LIB "${BOOST_STATIC_SYSTEM_LIBRARY}")
 

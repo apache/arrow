@@ -58,13 +58,20 @@ export PYARROW_CMAKE_OPTIONS='-DTHRIFT_HOME=/usr -DBoost_NAMESPACE=arrow_boost -
 mkdir -p /io/dist
 
 # Must pass PYTHON_VERSION and UNICODE_WIDTH env variables
-# possible values are: 2.7,16 2.7,32 3.5,16 3.6,16 3.7,16
+# possible values are: 2.7,16 2.7,32 3.5,16 3.6,16 3.7,16 3.8,16
 
 CPYTHON_PATH="$(cpython_path ${PYTHON_VERSION} ${UNICODE_WIDTH})"
 PYTHON_INTERPRETER="${CPYTHON_PATH}/bin/python"
 PIP="${CPYTHON_PATH}/bin/pip"
 # Put our Python first to avoid picking up an antiquated Python from CMake
 PATH="${CPYTHON_PATH}/bin:${PATH}"
+
+echo "=== (${PYTHON_VERSION}) Install the wheel build dependencies ==="
+$PIP install -r requirements-wheel.txt
+if [ "${PYTHON_VERSION}" = "2.7" -a "${UNICODE_WIDTH}" = "32" ]; then
+  # Can't use UNICODE_WIDTH in requirements.txt
+  $PIP install tensorflow
+fi
 
 if [ "${PYTHON_VERSION}" != "2.7" ]; then
   export PYARROW_WITH_FLIGHT=1
@@ -122,9 +129,6 @@ popd
 
 # Check that we don't expose any unwanted symbols
 /io/scripts/check_arrow_visibility.sh
-
-echo "=== (${PYTHON_VERSION}) Install the wheel build dependencies ==="
-$PIP install -r requirements-wheel.txt
 
 # Clear output directories and leftovers
 rm -rf dist/

@@ -20,7 +20,7 @@
 set -e
 
 source_dir=${1}
-build_dir=${2:-${source_dir}/build}
+build_dir=${2}/turbodbc
 
 # check that optional pyarrow modules are available
 # because pytest would just skip the pyarrow tests

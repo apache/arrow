@@ -21,7 +21,7 @@ set -ex
 
 arrow_dir=${1}
 source_dir=${1}/cpp
-build_dir=${2:-${source_dir}/build}
+build_dir=${2}/cpp
 
 export ARROW_TEST_DATA=${arrow_dir}/testing/data
 export PARQUET_TEST_DATA=${source_dir}/submodules/parquet-testing/data

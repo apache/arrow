@@ -465,4 +465,81 @@ int32 locate_utf8_utf8_int32(int64 context, const char* sub_str, int32 sub_str_l
   return 0;
 }
 
+FORCE_INLINE
+const char* replace_with_max_len_utf8_utf8_utf8(int64 context, const char* text,
+                                                int32 text_len, const char* from_str,
+                                                int32 from_str_len, const char* to_str,
+                                                int32 to_str_len, int32 max_length,
+                                                int32* out_len) {
+  // if from_str is empty or its length exceeds that of original string,
+  // return the original string
+  if (from_str_len <= 0 || from_str_len > text_len) {
+    *out_len = text_len;
+    return text;
+  }
+
+  bool found = false;
+  int32 text_index = 0;
+  char* out;
+  int32 out_index = 0;
+  int32 last_match_index =
+      0;  // defer copying string from last_match_index till next match is found
+
+  for (; text_index <= text_len - from_str_len;) {
+    if (memcmp(text + text_index, from_str, from_str_len) == 0) {
+      if (out_index + text_index - last_match_index + to_str_len > max_length) {
+        gdv_fn_context_set_error_msg(context, "Buffer overflow for output string");
+        *out_len = 0;
+        return "";
+      }
+      if (!found) {
+        // found match for first time
+        out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, max_length));
+        if (out == nullptr) {
+          gdv_fn_context_set_error_msg(context,
+                                       "Could not allocate memory for output string");
+          *out_len = 0;
+          return "";
+        }
+        found = true;
+      }
+      // first copy the part deferred till now
+      memcpy(out + out_index, text + last_match_index, (text_index - last_match_index));
+      out_index += text_index - last_match_index;
+      // then copy the target string
+      memcpy(out + out_index, to_str, to_str_len);
+      out_index += to_str_len;
+
+      text_index += from_str_len;
+      last_match_index = text_index;
+    } else {
+      text_index++;
+    }
+  }
+
+  if (!found) {
+    *out_len = text_len;
+    return text;
+  }
+
+  if (out_index + text_len - last_match_index > max_length) {
+    gdv_fn_context_set_error_msg(context, "Buffer overflow for output string");
+    *out_len = 0;
+    return "";
+  }
+  memcpy(out + out_index, text + last_match_index, text_len - last_match_index);
+  out_index += text_len - last_match_index;
+  *out_len = out_index;
+  return out;
+}
+
+FORCE_INLINE
+const char* replace_utf8_utf8_utf8(int64 context, const char* text, int32 text_len,
+                                   const char* from_str, int32 from_str_len,
+                                   const char* to_str, int32 to_str_len, int32* out_len) {
+  return replace_with_max_len_utf8_utf8_utf8(context, text, text_len, from_str,
+                                             from_str_len, to_str, to_str_len, 65535,
+                                             out_len);
+}
+
 }  // extern "C"

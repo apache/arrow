@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "parquet/exception.h"
@@ -79,8 +80,8 @@ struct CryptoContext {
       : start_decrypt_with_dictionary_page(start_with_dictionary_page),
         row_group_ordinal(rg_ordinal),
         column_ordinal(col_ordinal),
-        meta_decryptor(meta),
-        data_decryptor(data) {}
+        meta_decryptor(std::move(meta)),
+        data_decryptor(std::move(data)) {}
   CryptoContext() {}
 
   bool start_decrypt_with_dictionary_page = false;
@@ -97,7 +98,7 @@ class PARQUET_EXPORT PageReader {
   virtual ~PageReader() = default;
 
   static std::unique_ptr<PageReader> Open(
-      const std::shared_ptr<ArrowInputStream>& stream, int64_t total_num_rows,
+      std::shared_ptr<ArrowInputStream> stream, int64_t total_num_rows,
       Compression::type codec, ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
       const CryptoContext* ctx = NULLPTR);
 
