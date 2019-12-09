@@ -108,7 +108,6 @@ def hdfs(request, hdfs_server):
 
     uri, user = hdfs_server
     options = HdfsOptions.from_uri(uri)
-    options.user = user
 
     fs = HadoopFileSystem(options)
 
@@ -528,5 +527,6 @@ def test_hdfs_options(hdfs_server):
     options.buffer_size = 64*1024
     assert options.buffer_size == 64*1024
 
-    options = HdfsOptions.from_uri('hdfs://localhost:8080/')
+    options = HdfsOptions.from_uri('hdfs://localhost:8080/?user=test')
     assert options.endpoint == ('localhost', 8080)
+    assert options.user == 'test'

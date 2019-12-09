@@ -245,8 +245,8 @@ def hdfs_server():
     host = os.environ.get('ARROW_HDFS_TEST_HOST', 'default')
     port = int(os.environ.get('ARROW_HDFS_TEST_PORT', 0))
     user = os.environ.get('ARROW_HDFS_TEST_USER', 'hdfs')
-    uri = "hdfs://{}:{}".format(host, port)
-    return uri, user
+    uri = "hdfs://{}:{}/?user={}".format(host, port, user)
+    return uri
 
 
 @pytest.mark.s3
