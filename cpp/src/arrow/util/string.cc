@@ -75,11 +75,12 @@ Status ParseHexValue(const char* data, uint8_t* out) {
   char c1 = data[0];
   char c2 = data[1];
 
-  const char* pos1 = std::lower_bound(kAsciiTable, kAsciiTable + 16, c1);
-  const char* pos2 = std::lower_bound(kAsciiTable, kAsciiTable + 16, c2);
+  const char* kAsciiTableEnd = kAsciiTable + 16;
+  const char* pos1 = std::lower_bound(kAsciiTable, kAsciiTableEnd, c1);
+  const char* pos2 = std::lower_bound(kAsciiTable, kAsciiTableEnd, c2);
 
   // Error checking
-  if (*pos1 != c1 || *pos2 != c2) {
+  if (pos1 == kAsciiTableEnd || pos2 == kAsciiTableEnd || *pos1 != c1 || *pos2 != c2) {
     return Status::Invalid("Encountered non-hex digit");
   }
 
