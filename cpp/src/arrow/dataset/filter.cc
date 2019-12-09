@@ -898,13 +898,9 @@ struct InsertImplicitCastsImpl {
     std::shared_ptr<DataType> type;
   };
 
-  Result<ValidatedAndCast> InsertCasts(const Expression& expr) {
+  Result<ValidatedAndCast> InsertCastsAndValidate(const Expression& expr) {
     ValidatedAndCast out;
-    if (expr.type() == ExpressionType::SCALAR) {
-      ARROW_ASSIGN_OR_RAISE(out.expr, InsertImplicitCasts(expr, schema_));
-    } else {
-      ARROW_ASSIGN_OR_RAISE(out.expr, InsertImplicitCasts(expr, schema_));
-    }
+    ARROW_ASSIGN_OR_RAISE(out.expr, InsertImplicitCasts(expr, schema_));
     ARROW_ASSIGN_OR_RAISE(out.type, out.expr->Validate(schema_));
     return std::move(out);
   }
@@ -923,7 +919,7 @@ struct InsertImplicitCastsImpl {
   }
 
   Result<ExpressionPtr> operator()(const NotExpression& expr) {
-    ARROW_ASSIGN_OR_RAISE(auto op, InsertCasts(*expr.operand()));
+    ARROW_ASSIGN_OR_RAISE(auto op, InsertCastsAndValidate(*expr.operand()));
 
     if (op.type->id() != Type::BOOL) {
       Cast(boolean(), &op.expr);
@@ -932,8 +928,8 @@ struct InsertImplicitCastsImpl {
   }
 
   Result<ExpressionPtr> operator()(const AndExpression& expr) {
-    ARROW_ASSIGN_OR_RAISE(auto lhs, InsertCasts(*expr.left_operand()));
-    ARROW_ASSIGN_OR_RAISE(auto rhs, InsertCasts(*expr.right_operand()));
+    ARROW_ASSIGN_OR_RAISE(auto lhs, InsertCastsAndValidate(*expr.left_operand()));
+    ARROW_ASSIGN_OR_RAISE(auto rhs, InsertCastsAndValidate(*expr.right_operand()));
 
     if (lhs.type->id() != Type::BOOL) {
       Cast(boolean(), &lhs.expr);
@@ -945,8 +941,8 @@ struct InsertImplicitCastsImpl {
   }
 
   Result<ExpressionPtr> operator()(const OrExpression& expr) {
-    ARROW_ASSIGN_OR_RAISE(auto lhs, InsertCasts(*expr.left_operand()));
-    ARROW_ASSIGN_OR_RAISE(auto rhs, InsertCasts(*expr.right_operand()));
+    ARROW_ASSIGN_OR_RAISE(auto lhs, InsertCastsAndValidate(*expr.left_operand()));
+    ARROW_ASSIGN_OR_RAISE(auto rhs, InsertCastsAndValidate(*expr.right_operand()));
 
     if (lhs.type->id() != Type::BOOL) {
       Cast(boolean(), &lhs.expr);
@@ -958,8 +954,8 @@ struct InsertImplicitCastsImpl {
   }
 
   Result<ExpressionPtr> operator()(const ComparisonExpression& expr) {
-    ARROW_ASSIGN_OR_RAISE(auto lhs, InsertCasts(*expr.left_operand()));
-    ARROW_ASSIGN_OR_RAISE(auto rhs, InsertCasts(*expr.right_operand()));
+    ARROW_ASSIGN_OR_RAISE(auto lhs, InsertCastsAndValidate(*expr.left_operand()));
+    ARROW_ASSIGN_OR_RAISE(auto rhs, InsertCastsAndValidate(*expr.right_operand()));
 
     if (lhs.type->Equals(rhs.type)) {
       return expr.Copy();

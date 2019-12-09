@@ -576,7 +576,7 @@ class ARROW_DS_EXPORT ExpressionEvaluator {
   ///
   /// \note The ExpressionEvaluator must outlive the returned iterator.
   RecordBatchIterator FilterBatches(RecordBatchIterator unfiltered, ExpressionPtr filter,
-                                    MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+                                    MemoryPool* pool = default_memory_pool());
 
   /// construct an Evaluator which evaluates all expressions to null and does no
   /// filtering

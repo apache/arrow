@@ -393,8 +393,8 @@ TEST_F(TestEndToEnd, EndToEndSingleSource) {
 
   using row_type = std::tuple<double, std::string, util::optional<std::string>>;
   std::vector<row_type> rows{
-      row_type{152.25, "3", util::make_optional<std::string>("CA")},
-      row_type{273.5, "3", util::make_optional<std::string>("US")},
+      row_type{152.25, "3", "CA"},
+      row_type{273.5, "3", "US"},
   };
   std::shared_ptr<Table> expected;
   ASSERT_OK(stl::TableFromTupleRange(default_memory_pool(), rows, columns, &expected));

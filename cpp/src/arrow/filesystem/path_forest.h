@@ -62,6 +62,8 @@ class ARROW_EXPORT PathForest : public util::EqualityComparable<PathForest> {
     /// This node's parent or Ref{nullptr, 0} if this node has no parent
     Ref parent() const;
 
+    explicit operator bool() const { return forest != NULLPTR; }
+
     const PathForest* forest;
     int i;
   };

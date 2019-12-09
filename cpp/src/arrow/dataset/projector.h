@@ -50,13 +50,13 @@ class ARROW_DS_EXPORT RecordBatchProjector {
   /// record batch with all its slots equal to the provided scalar (instead of null).
   Status SetDefaultValue(const std::string& name, std::shared_ptr<Scalar> scalar);
 
-  Result<std::shared_ptr<RecordBatch>> Project(
-      const RecordBatch& batch, MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+  Result<std::shared_ptr<RecordBatch>> Project(const RecordBatch& batch,
+                                               MemoryPool* pool = default_memory_pool());
 
   const std::shared_ptr<Schema>& schema() const { return to_; }
 
   Status SetInputSchema(std::shared_ptr<Schema> from,
-                        MemoryPool* pool ARROW_MEMORY_POOL_DEFAULT);
+                        MemoryPool* pool = default_memory_pool());
 
  private:
   Status ResizeMissingColumns(int64_t new_length, MemoryPool* pool);
