@@ -28,7 +28,7 @@ import (
 	"github.com/apache/arrow/go/arrow/array"
 	"github.com/apache/arrow/go/arrow/internal/debug"
 	"github.com/apache/arrow/go/arrow/memory"
-	"github.com/pkg/errors"
+	"golang.org/x/xerrors"
 )
 
 // Reader wraps encoding/csv.Reader and creates array.Records from a schema.
@@ -105,7 +105,7 @@ func NewReader(r io.Reader, schema *arrow.Schema, opts ...Option) *Reader {
 func (r *Reader) readHeader() error {
 	records, err := r.r.Read()
 	if err != nil {
-		return errors.Wrapf(err, "arrow/csv: could not read header from file")
+		return xerrors.Errorf("arrow/csv: could not read header from file: %w", err)
 	}
 
 	if len(records) != len(r.schema.Fields()) {
