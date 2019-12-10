@@ -696,6 +696,8 @@ services:
         arch: ${ARCH}
         rust: ${RUST}
     shm_size: *shm-size
+    environment:
+      CARGO_HOME: /build/cargo
     volumes: *debian-volumes
     command: &rust-command >
       /bin/bash -c "
