@@ -27,7 +27,6 @@ if sys.version_info < (3,):
 from pyarrow._dataset import (  # noqa
     AndExpression,
     CastExpression,
-    CastOptions,
     CompareOperator,
     ComparisonExpression,
     Dataset,

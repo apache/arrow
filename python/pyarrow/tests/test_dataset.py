@@ -149,13 +149,13 @@ def test_filesystem_data_source(mockfs):
     assert source.partition_expression.equals(source_partition)
 
 
-def test_dataset(simple_data_source, tree_data_source, schema):
+def test_dataset(simple_data_source, tree_data_source, record_batch, schema):
     dataset = ds.Dataset([simple_data_source, tree_data_source], schema)
 
     assert isinstance(dataset, ds.Dataset)
     assert isinstance(dataset.schema, pa.Schema)
-    for source in dataset.sources:
-        assert isinstance(source, ds.DataSource)
+    assert isinstance(dataset.sources[0], ds.SimpleDataSource)
+    assert isinstance(dataset.sources[1], ds.TreeDataSource)
 
     condition = ds.ComparisonExpression(
         ds.CompareOperator.Equal,
@@ -163,17 +163,27 @@ def test_dataset(simple_data_source, tree_data_source, schema):
         ds.ScalarExpression(1)
     )
     # TODO(kszucs): test non-boolean expressions for filter do raise
-    builder = dataset.new_scan().use_threads(True).filter(condition)
+    builder = dataset.new_scan()
     assert isinstance(builder, ds.ScannerBuilder)
-    assert isinstance(builder.schema, pa.Schema)
+    assert builder.schema.equals(schema)
 
     scanner = builder.finish()
     assert isinstance(scanner, ds.Scanner)
+    assert len(list(scanner.scan())) == 3
 
     for task in scanner.scan():
         assert isinstance(task, ds.ScanTask)
-        for record_batch in task.scan():
-            assert isinstance(record_batch, pa.RecordBatch)
+        for batch in task.scan():
+            assert batch.equals(record_batch)
+
+    table = scanner.to_table()
+    assert isinstance(table, pa.Table)
+    assert len(table) == 15
+
+    scanner = dataset.new_scan().use_threads(True).filter(condition).finish()
+    result = scanner.to_table()
+    expected = pa.table([[1] * 3, [1.0] * 3], schema=schema)
+    assert result.equals(expected)
 
 
 def test_scanner_builder(dataset):
@@ -265,8 +275,8 @@ def test_expression(schema):
     assert equal.op() == ds.CompareOperator.Equal
 
     and_ = ds.AndExpression(a, b)
-    assert isinstance(and_.left_operand, ds.Expression)
-    assert isinstance(and_.right_operand, ds.Expression)
+    assert and_.left_operand.equals(a)
+    assert and_.right_operand.equals(b)
     assert and_.equals(ds.AndExpression(a, b))
     assert and_.equals(and_)
 
@@ -276,7 +286,7 @@ def test_expression(schema):
     ds.NotExpression(ds.OrExpression(a, b, c))
     ds.IsValidExpression(a)
     ds.CastExpression(a, pa.int32())
-    ds.CastExpression(a, pa.int32(), ds.CastOptions.unsafe())
+    ds.CastExpression(a, pa.int32(), safe=True)
     ds.InExpression(a, pa.array([1, 2, 3]))
 
     condition = ds.ComparisonExpression(
@@ -321,7 +331,6 @@ def test_file_system_discovery(mockfs, paths_or_selector, record_batch):
         mockfs, paths_or_selector, format, options
     )
     assert isinstance(discovery.inspect(), pa.Schema)
-    assert discovery.schema is None
     assert isinstance(discovery.finish(), ds.FileSystemDataSource)
     assert discovery.partition_scheme is None
 
@@ -333,7 +342,6 @@ def test_file_system_discovery(mockfs, paths_or_selector, record_batch):
     )
     discovery.partition_scheme = scheme
     assert isinstance(discovery.partition_scheme, ds.SchemaPartitionScheme)
-    assert discovery.schema is None
     assert discovery.root_partition is None
 
     data_source = discovery.finish()
@@ -343,8 +351,14 @@ def test_file_system_discovery(mockfs, paths_or_selector, record_batch):
     dataset = ds.Dataset([data_source], inspected_schema)
 
     scanner = dataset.new_scan().finish()
+    assert len(list(scanner.scan())) == 2
+
     for task in scanner.scan():
         assert isinstance(task, ds.ScanTask)
         for batch in task.scan():
             assert batch.equals(record_batch)
             assert isinstance(batch, pa.RecordBatch)
+
+    table = scanner.to_table()
+    assert isinstance(table, pa.Table)
+    assert len(table) == 10

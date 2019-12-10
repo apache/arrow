@@ -531,6 +531,16 @@ cdef class _CRecordBatchReader:
         shared_ptr[CRecordBatchReader] reader
 
 
+cdef class CastOptions:
+    cdef:
+        CCastOptions options
+
+    @staticmethod
+    cdef wrap(CCastOptions options)
+
+    cdef inline CCastOptions unwrap(self) nogil
+
+
 cdef CompressionType _get_compression_type(object name) except *
 
 cdef get_input_stream(object source, c_bool use_memory_map,

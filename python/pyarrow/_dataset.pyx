@@ -19,9 +19,6 @@
 
 from __future__ import absolute_import
 
-import collections
-import six
-
 from cython.operator cimport dereference as deref
 
 from pyarrow.lib cimport *
@@ -229,14 +226,6 @@ cdef class DataSourceDiscovery:
         return self.wrapped
 
     @property
-    def schema(self):
-        cdef shared_ptr[CSchema] schema = self.discovery.schema()
-        if schema.get() == nullptr:
-            return None
-        else:
-            return pyarrow_wrap_schema(schema)
-
-    @property
     def partition_scheme(self):
         cdef shared_ptr[CPartitionScheme] scheme
         scheme = self.discovery.partition_scheme()
@@ -335,7 +324,7 @@ cdef class DataSource:
         self.init(sp)
         return self
 
-    cdef shared_ptr[CDataSource] unwrap(self):
+    cdef shared_ptr[CDataSource] unwrap(self) nogil:
         return self.wrapped
 
     @property
@@ -473,20 +462,18 @@ cdef class Dataset:
             DataSource source
             CDataSourceVector sources
             CResult[CDatasetPtr] result
-            shared_ptr[CSchema] sp_schema
 
         for source in data_sources:
-            sources.push_back(source.wrapped)
+            sources.push_back(source.unwrap())
 
         result = CDataset.Make(sources, pyarrow_unwrap_schema(schema))
-
         self.init(GetResultValue(result))
 
     cdef void init(self, const shared_ptr[CDataset]& sp):
         self.wrapped = sp
         self.dataset = sp.get()
 
-    cdef inline shared_ptr[CDataset] unwrap(self):
+    cdef inline shared_ptr[CDataset] unwrap(self) nogil:
         return self.wrapped
 
     def new_scan(self, ScanContext context=None):
@@ -647,9 +634,9 @@ cdef class ScannerBuilder:
         deserializing columns that will not be required further down the
         compute chain.
 
-        It alters the object in place and returns with the object itself
-        enabling method chaining. Raises exception if any of the referenced
-        column names does not exists in the dataset's Schema.
+        It alters the object in place and returns the object itself enabling
+        method chaining. Raises exception if any of the referenced column names
+        does not exists in the dataset's Schema.
 
         Parameters
         ----------
@@ -681,9 +668,9 @@ cdef class ScannerBuilder:
         partition information or internal metadata, e.g. Parquet statistics.
         Otherwise filters the loaded RecordBatches before yielding them.
 
-        It alters the object in place and returns with the object itself
-        enabling method chaining. Raises exception if any of the referenced
-        column names does not exists in the dataset's Schema.
+        It alters the object in place and returns the object itself enabling
+        method chaining. Raises exception if any of the referenced column names
+        does not exists in the dataset's Schema.
 
         Parameters
         ----------
@@ -821,9 +808,6 @@ cdef class Expression:
             self = IsValidExpression.__new__(IsValidExpression)
         elif typ == CExpressionType_IN:
             self = InExpression.__new__(InExpression)
-        # TODO(kszucs): implement it
-        # elif typ == CExpressionType_CUSTOM:
-        #     self = CustomExpression.__new__(CustomExpression)
         else:
             raise TypeError(typ)
 
@@ -969,91 +953,16 @@ cdef class IsValidExpression(UnaryExpression):
         self.init(<shared_ptr[CExpression]> expression)
 
 
-cdef class CastOptions:
-
-    cdef:
-        CCastOptions options
-
-    __slots__ = ()  # avoid mistakingly creating attributes
-
-    def __init__(self, allow_int_overflow=None,
-                 allow_time_truncate=None, allow_time_overflow=None,
-                 allow_float_truncate=None, allow_invalid_utf8=None):
-        if allow_int_overflow is not None:
-            self.allow_int_overflow = allow_int_overflow
-        if allow_time_truncate is not None:
-            self.allow_time_truncate = allow_time_truncate
-        if allow_time_overflow is not None:
-            self.allow_time_overflow = allow_time_overflow
-        if allow_float_truncate is not None:
-            self.allow_float_truncate = allow_float_truncate
-        if allow_invalid_utf8 is not None:
-            self.allow_invalid_utf8 = allow_invalid_utf8
-
-    @staticmethod
-    cdef wrap(CCastOptions options):
-        cdef CastOptions self = CastOptions.__new__(CastOptions)
-        self.options = options
-        return self
-
-    @staticmethod
-    def safe():
-        return CastOptions.wrap(CCastOptions.Safe())
-
-    @staticmethod
-    def unsafe():
-        return CastOptions.wrap(CCastOptions.Unsafe())
-
-    cdef inline CCastOptions unwrap(self):
-        return self.options
-
-    @property
-    def allow_int_overflow(self):
-        return self.options.allow_int_overflow
-
-    @allow_int_overflow.setter
-    def allow_int_overflow(self, bint flag):
-        self.options.allow_int_overflow = flag
-
-    @property
-    def allow_time_truncate(self):
-        return self.options.allow_time_truncate
-
-    @allow_time_truncate.setter
-    def allow_time_truncate(self, bint flag):
-        self.options.allow_time_truncate = flag
-
-    @property
-    def allow_time_overflow(self):
-        return self.options.allow_time_overflow
-
-    @allow_time_overflow.setter
-    def allow_time_overflow(self, bint flag):
-        self.options.allow_time_overflow = flag
-
-    @property
-    def allow_float_truncate(self):
-        return self.options.allow_float_truncate
-
-    @allow_float_truncate.setter
-    def allow_float_truncate(self, bint flag):
-        self.options.allow_float_truncate = flag
-
-    @property
-    def allow_invalid_utf8(self):
-        return self.options.allow_invalid_utf8
-
-    @allow_invalid_utf8.setter
-    def allow_invalid_utf8(self, bint flag):
-        self.options.allow_invalid_utf8 = flag
-
-
 cdef class CastExpression(UnaryExpression):
 
     def __init__(self, Expression operand not None, DataType to not None,
-                 CastOptions options=None):
-        cdef shared_ptr[CExpression] expression
-        options = options or CastOptions.safe()
+                 bint safe=True):
+        # TODO(kszucs): safe is consitently used across pyarrow, but on long
+        #               term we should expose the CastOptions object
+        cdef:
+            CastOptions options
+            shared_ptr[CExpression] expression
+        options = CastOptions.safe() if safe else CastOptions.unsafe()
         expression.reset(new CCastExpression(
             operand.unwrap(),
             pyarrow_unwrap_data_type(to),

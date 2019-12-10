@@ -98,7 +98,7 @@ DataFragmentIterator DataSource::GetFragments(ScanOptionsPtr scan_options) {
 
 SimpleDataSource::SimpleDataSource(
     std::vector<std::shared_ptr<RecordBatch>> record_batches) {
-  SimpleDataSource({std::make_shared<SimpleDataFragment>(record_batches)});
+  fragments_.emplace_back(std::make_shared<SimpleDataFragment>(record_batches));
 }
 
 DataFragmentIterator SimpleDataSource::GetFragmentsImpl(ScanOptionsPtr scan_options) {
