@@ -57,10 +57,10 @@ class ARROW_EXPORT PathForest : public util::EqualityComparable<PathForest> {
     if (sizeof...(associated) == 0) {
       std::sort(stats.begin(), stats.end(), compare_paths);
     } else {
-      auto indices = internal::ArgSort(stats, compare_paths);
-      size_t ignored[] = {internal::Permute(indices, &stats),
-                          internal::Permute(indices, associated)...};
-      static_cast<void>(ignored);
+      auto indices = arrow::internal::ArgSort(stats, compare_paths);
+      size_t _[] = {arrow::internal::Permute(indices, &stats),
+                    arrow::internal::Permute(indices, associated)...};
+      static_cast<void>(_);
     }
 
     return DoMake(std::move(stats));

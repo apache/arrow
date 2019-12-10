@@ -38,15 +38,19 @@ std::vector<int64_t> ArgSort(const std::vector<T>& values, Cmp&& cmp = {}) {
 
 template <typename T>
 size_t Permute(const std::vector<int64_t>& indices, std::vector<T>* values) {
-  if (indices.size() == 0) {
-    return 0;
+  if (indices.size() <= 1) {
+    return indices.size();
   }
 
   // mask indicating which of values are in the correct location
   std::vector<bool> sorted(indices.size(), false);
 
+  size_t cycle_count = 0;
+
   for (auto cycle_start = sorted.begin(); cycle_start != sorted.end();
        cycle_start = std::find(cycle_start, sorted.end(), false)) {
+    ++cycle_count;
+
     // position in which an element belongs WRT sort
     auto sort_into = static_cast<int64_t>(cycle_start - sorted.begin());
 
@@ -66,7 +70,9 @@ size_t Permute(const std::vector<int64_t>& indices, std::vector<T>* values) {
     }
     sorted[sort_into] = true;
   }
-  return indices.size();
+
+  return cycle_count;
+  ;
 }
 
 }  // namespace internal
