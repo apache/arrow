@@ -42,6 +42,9 @@ if errorlevel 1 GOTO error
 CALL :verify_wheel 3.7 %1 %2
 if errorlevel 1 GOTO error
 
+CALL :verify_wheel 3.8 %1 %2
+if errorlevel 1 GOTO error
+
 :done
 cd %_CURRENT_DIR%
 
