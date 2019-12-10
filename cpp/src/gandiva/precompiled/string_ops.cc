@@ -155,7 +155,6 @@ int32 utf8_byte_pos(int64 context, const char* str, int32 str_len, int32 char_po
     byte_index += char_len;
   }
   if (byte_index >= str_len) {
-    gdv_fn_context_set_error_msg(context, "Invalid character position argument");
     return -1;
   }
   return byte_index;
