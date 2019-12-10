@@ -22,8 +22,8 @@
 #include <gtest/gtest.h>
 
 #include "arrow/util/sort.h"
-#include "arrow/util/stl.h"
 #include "arrow/util/string.h"
+#include "arrow/util/vector.h"
 
 namespace arrow {
 namespace internal {
