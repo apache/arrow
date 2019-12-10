@@ -135,27 +135,50 @@ impl ParquetPartition {
 
             // open file
             let file = File::open(&filename).unwrap();
-            let file_reader = Rc::new(SerializedFileReader::new(file).unwrap());
-            let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
-            let mut batch_reader = arrow_reader
-                .get_record_reader_by_columns(projection, batch_size)
-                .unwrap();
+            match SerializedFileReader::new(file) {
+                Ok(file_reader) => {
+                    let file_reader = Rc::new(file_reader);
 
-            while let Ok(_) = request_rx.recv() {
-                match batch_reader.next_batch() {
-                    Ok(Some(batch)) => {
-                        response_tx.send(Ok(Some(batch))).unwrap();
+                    let mut arrow_reader = ParquetFileArrowReader::new(file_reader);
+
+                    match arrow_reader
+                        .get_record_reader_by_columns(projection, batch_size)
+                    {
+                        Ok(mut batch_reader) => {
+                            while let Ok(_) = request_rx.recv() {
+                                match batch_reader.next_batch() {
+                                    Ok(Some(batch)) => {
+                                        response_tx.send(Ok(Some(batch))).unwrap();
+                                    }
+                                    Ok(None) => {
+                                        response_tx.send(Ok(None)).unwrap();
+                                        break;
+                                    }
+                                    Err(e) => {
+                                        response_tx
+                                            .send(Err(ExecutionError::General(format!(
+                                                "{:?}",
+                                                e
+                                            ))))
+                                            .unwrap();
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        Err(e) => {
+                            response_tx
+                                .send(Err(ExecutionError::General(format!("{:?}", e))))
+                                .unwrap();
+                        }
                     }
-                    Ok(None) => {
-                        response_tx.send(Ok(None)).unwrap();
-                        break;
-                    }
-                    Err(e) => {
-                        response_tx
-                            .send(Err(ExecutionError::General(format!("{:?}", e))))
-                            .unwrap();
-                        break;
-                    }
+                }
+
+                Err(e) => {
+                    response_tx
+                        .send(Err(ExecutionError::General(format!("{:?}", e))))
+                        .unwrap();
                 }
             }
         });

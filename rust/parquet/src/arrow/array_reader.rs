@@ -846,7 +846,7 @@ impl<'a> ArrayReaderBuilder {
                 >::new(page_iterator, column_desc)?))
             }
             other => Err(ArrowError(format!(
-                "Unable to create primite array reader for parquet physical type {}",
+                "Unable to create primitive array reader for parquet physical type {}",
                 other
             ))),
         }
