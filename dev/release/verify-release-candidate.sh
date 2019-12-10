@@ -586,7 +586,16 @@ test_macos_wheels() {
     conda create -yq -n ${env} python=${py_arch//m/}
     conda activate ${env}
 
-    pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[m.]/}-cp${py_arch//./}-macosx_10_6_intel.whl
+    macos_suffix=macosx
+    case "${py_arch}" in
+    *m)
+      macos_suffix="${macos_suffix}_10_6_intel"
+      ;;
+    *)
+      macos_suffix="${macos_suffix}_10_9_x86_64"
+      ;;
+    esac
+    pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[m.]/}-cp${py_arch//./}-${macos_suffix}.whl
 
     check_python_imports py_arch
 
