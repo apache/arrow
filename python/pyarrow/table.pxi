@@ -1671,26 +1671,26 @@ def table(data, names=None, schema=None, metadata=None):
 
 def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None):
     """
-    Perform zero-copy concatenation of pyarrow.Table objects.
+    Concatenate pyarrow.Table objects.
 
-    If promote==False, the schemas of all the Tables must be the same
-    (except the metadata), otherwise an exception will be raised. The result
-    Table will share the metadata with the first table.
+    If promote==False, a zero-copy concatenation will be performed. The schemas
+    of all the Tables must be the same (except the metadata), otherwise an
+    exception will be raised. The result Table will share the metadata with the
+    first table.
 
-    If promote==True, columns of the same name will be concatenated.
-    They should be of the same type, or be of type NULL, in which case it will
-    be promoted to the type of other corresponding columns with null values
-    filled.  If a table is missing a particular field, null values of the
-    appropriate type will be generated to take the place of the missing field.
-    The new schema will share the metadata with the first table. Each field in
-    the new schema will share the metadata with the first table which has the
-    field defined.
+    If promote==True, any null type arrays will be casted to the type of other
+    arrays in the column of the same name. If a table is missing a particular
+    field, null values of the appropriate type will be generated to take the
+    place of the missing field. The new schema will share the metadata with the
+    first table. Each field in the new schema will share the metadata with the
+    first table which has the field defined. Note that type promotions may
+    involve additional allocations on the given ``memory_pool``.
 
     Parameters
     ----------
     tables : iterable of pyarrow.Table objects
     promote: bool, default False
-        If True, concatenate tables with null-filling and type promotion.
+        If True, concatenate tables with null-filling and null type promotion.
     memory_pool : MemoryPool, default None
         For memory allocations, if required, otherwise use default pool
     """
