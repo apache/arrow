@@ -1018,6 +1018,8 @@ impl CastExpr {
             && (is_numeric(&cast_type) || cast_type == DataType::Utf8)
         {
             Ok(Self { expr, cast_type })
+        } else if expr_type == DataType::Binary && cast_type == DataType::Utf8 {
+            Ok(Self { expr, cast_type })
         } else {
             Err(ExecutionError::General(format!(
                 "Invalid CAST from {:?} to {:?}",
