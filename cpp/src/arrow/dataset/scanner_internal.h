@@ -28,27 +28,26 @@ namespace arrow {
 namespace dataset {
 
 static inline RecordBatchIterator FilterRecordBatch(RecordBatchIterator it,
-                                                    ScanOptionsPtr options,
-                                                    ScanContextPtr context) {
-  auto filter_fn = [options, context](std::shared_ptr<RecordBatch> in,
-                                      std::shared_ptr<RecordBatch>* out) {
-    ARROW_ASSIGN_OR_RAISE(
-        auto selection_datum,
-        options->evaluator->Evaluate(*options->filter, *in, context->pool));
-    return options->evaluator->Filter(selection_datum, in, context->pool).Value(out);
-  };
-
-  return MakeMaybeMapIterator(filter_fn, std::move(it));
+                                                    const ExpressionEvaluator& evaluator,
+                                                    const Expression& filter,
+                                                    MemoryPool* pool) {
+  return MakeMaybeMapIterator(
+      [&, pool](std::shared_ptr<RecordBatch> in, std::shared_ptr<RecordBatch>* out) {
+        ARROW_ASSIGN_OR_RAISE(auto selection_datum,
+                              evaluator.Evaluate(filter, *in, pool));
+        return evaluator.Filter(selection_datum, in, pool).Value(out);
+      },
+      std::move(it));
 }
 
 static inline RecordBatchIterator ProjectRecordBatch(RecordBatchIterator it,
-                                                     ScanOptionsPtr options,
-                                                     ScanContextPtr context) {
-  auto project = [options, context](std::shared_ptr<RecordBatch> in,
-                                    std::shared_ptr<RecordBatch>* out) {
-    return options->projector.Project(*in, context->pool).Value(out);
-  };
-  return MakeMaybeMapIterator(project, std::move(it));
+                                                     RecordBatchProjector* projector,
+                                                     MemoryPool* pool) {
+  return MakeMaybeMapIterator(
+      [=](std::shared_ptr<RecordBatch> in, std::shared_ptr<RecordBatch>* out) {
+        return projector->Project(*in, pool).Value(out);
+      },
+      std::move(it));
 }
 
 class FilterAndProjectScanTask : public ScanTask {
@@ -58,8 +57,10 @@ class FilterAndProjectScanTask : public ScanTask {
 
   Result<RecordBatchIterator> Scan() override {
     ARROW_ASSIGN_OR_RAISE(auto it, task_->Scan());
-    auto filter_it = FilterRecordBatch(std::move(it), task_->options(), task_->context());
-    return ProjectRecordBatch(std::move(filter_it), task_->options(), task_->context());
+    auto filter_it = FilterRecordBatch(std::move(it), *options_->evaluator,
+                                       *options_->filter, context_->pool);
+    return ProjectRecordBatch(std::move(filter_it), &task_->options()->projector,
+                              context_->pool);
   }
 
  private:
