@@ -676,14 +676,13 @@ class StringConverter
     return value_converter_->AppendMultiple(obj, value_length); \
   }
 
-template <typename TypeClass, NullCoding null_coding>
-class ListConverter
-    : public TypedConverter<TypeClass, ListConverter<TypeClass, null_coding>,
-                            null_coding> {
+// Base class for ListConverter and FixedSizeListConverter (to have both work with CRTP)
+template <typename TypeClass, class Derived, NullCoding null_coding>
+class BaseListConverter : public TypedConverter<TypeClass, Derived, null_coding> {
  public:
   using BuilderType = typename TypeTraits<TypeClass>::BuilderType;
 
-  explicit ListConverter(bool from_pandas, bool strict_conversions)
+  explicit BaseListConverter(bool from_pandas, bool strict_conversions)
       : from_pandas_(from_pandas), strict_conversions_(strict_conversions) {}
 
   Status Init(ArrayBuilder* builder) {
@@ -806,15 +805,69 @@ class ListConverter
   bool strict_conversions_;
 };
 
+template <typename TypeClass, NullCoding null_coding>
+class ListConverter
+    : public BaseListConverter<TypeClass, ListConverter<TypeClass, null_coding>,
+                               null_coding> {
+ public:
+  using BASE =
+      BaseListConverter<TypeClass, ListConverter<TypeClass, null_coding>, null_coding>;
+  using BASE::BASE;
+};
+
+template <NullCoding null_coding>
+class FixedSizeListConverter
+    : public BaseListConverter<FixedSizeListType, FixedSizeListConverter<null_coding>,
+                               null_coding> {
+ public:
+  using BASE = BaseListConverter<FixedSizeListType, FixedSizeListConverter<null_coding>,
+                                 null_coding>;
+  using BASE::BASE;
+
+  Status Init(ArrayBuilder* builder) {
+    RETURN_NOT_OK(BASE::Init(builder));
+    list_size_ = checked_pointer_cast<FixedSizeListType>(builder->type())->list_size();
+    return Status::OK();
+  }
+
+  Status AppendItem(PyObject* obj) {
+    // the same as BaseListConverter but with additional length checks
+    RETURN_NOT_OK(this->typed_builder_->Append());
+    if (PyArray_Check(obj)) {
+      int64_t list_size = static_cast<int64_t>(PyArray_Size(obj));
+      if (list_size != list_size_) {
+        return Status::Invalid("Length of item not correct: expected ", list_size_,
+                               " but got array of size ", list_size);
+      }
+      return this->AppendNdarrayItem(obj);
+    }
+    if (!PySequence_Check(obj)) {
+      return internal::InvalidType(obj,
+                                   "was not a sequence or recognized null"
+                                   " for conversion to list type");
+    }
+    int64_t list_size = static_cast<int64_t>(PySequence_Size(obj));
+    if (list_size != list_size_) {
+      return Status::Invalid("Length of item not correct: expected ", list_size_,
+                             " but got list of size ", list_size);
+    }
+    return this->value_converter_->AppendMultiple(obj, list_size);
+  }
+
+ protected:
+  int64_t list_size_;
+};
+
 // ----------------------------------------------------------------------
 // Convert maps
 
 // Define a MapConverter as a ListConverter that uses MapBuilder.value_builder
 // to append struct of key/value pairs
 template <NullCoding null_coding>
-class MapConverter : public ListConverter<MapType, null_coding> {
+class MapConverter
+    : public BaseListConverter<MapType, MapConverter<null_coding>, null_coding> {
  public:
-  using BASE = ListConverter<MapType, null_coding>;
+  using BASE = BaseListConverter<MapType, MapConverter<null_coding>, null_coding>;
 
   explicit MapConverter(bool from_pandas, bool strict_conversions)
       : BASE(from_pandas, strict_conversions), key_builder_(nullptr) {}
@@ -1149,6 +1202,17 @@ Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
       } else {
         *out = std::unique_ptr<SeqConverter>(
             new MapConverter<NullCoding::NONE_ONLY>(from_pandas, strict_conversions));
+      }
+      return Status::OK();
+    case Type::FIXED_SIZE_LIST:
+      if (from_pandas) {
+        *out = std::unique_ptr<SeqConverter>(
+            new FixedSizeListConverter<NullCoding::PANDAS_SENTINELS>(from_pandas,
+                                                                     strict_conversions));
+      } else {
+        *out = std::unique_ptr<SeqConverter>(
+            new FixedSizeListConverter<NullCoding::NONE_ONLY>(from_pandas,
+                                                              strict_conversions));
       }
       return Status::OK();
     case Type::STRUCT:

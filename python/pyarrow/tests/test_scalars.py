@@ -249,6 +249,22 @@ class TestScalars(unittest.TestCase):
         assert v[0][0] == u'c'
         assert v[0][1] is pa.NA
 
+    def test_fixed_size_list(self):
+        arr = pa.array([[1, None, 3], [4, 5, 6]], pa.list_(pa.int64(), 3))
+
+        v = arr[0]
+        assert len(v) == 3
+        assert isinstance(v, pa.FixedSizeListValue)
+        assert repr(v) == "[1, None, 3]"
+        assert v.as_py() == [1, None, 3]
+        assert v[0].as_py() == 1
+        assert v[1] is pa.NA
+        assert v[-1] == v[2]
+        with pytest.raises(IndexError):
+            v[-4]
+        with pytest.raises(IndexError):
+            v[3]
+
     def test_date(self):
         # ARROW-5125
         d1, d2 = datetime.date(3200, 1, 1), datetime.date(1960, 1, 1),

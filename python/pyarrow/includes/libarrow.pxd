@@ -73,6 +73,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
 
         _Type_LIST" arrow::Type::LIST"
         _Type_LARGE_LIST" arrow::Type::LARGE_LIST"
+        _Type_FIXED_SIZE_LIST" arrow::Type::FIXED_SIZE_LIST"
         _Type_STRUCT" arrow::Type::STRUCT"
         _Type_UNION" arrow::Type::UNION"
         _Type_DICTIONARY" arrow::Type::DICTIONARY"
@@ -293,6 +294,14 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         shared_ptr[CDataType] item_type()
         c_bool keys_sorted()
 
+    cdef cppclass CFixedSizeListType" arrow::FixedSizeListType"(CDataType):
+        CFixedSizeListType(const shared_ptr[CDataType]& value_type,
+                           int32_t list_size)
+        CFixedSizeListType(const shared_ptr[CField]& field, int32_t list_size)
+        shared_ptr[CDataType] value_type()
+        shared_ptr[CField] value_field()
+        int32_t list_size()
+
     cdef cppclass CStringType" arrow::StringType"(CDataType):
         pass
 
@@ -473,7 +482,16 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
         CStatus FromArrays(const CArray& offsets, const CArray& values,
                            CMemoryPool* pool, shared_ptr[CArray]* out)
 
-        const int64_t* raw_value_offsets()
+        int64_t value_offset(int i)
+        int64_t value_length(int i)
+        shared_ptr[CArray] values()
+        shared_ptr[CDataType] value_type()
+
+    cdef cppclass CFixedSizeListArray" arrow::FixedSizeListArray"(CArray):
+        @staticmethod
+        CResult[shared_ptr[CArray]] FromArrays(
+            const shared_ptr[CArray]& values, int32_t list_size)
+
         int64_t value_offset(int i)
         int64_t value_length(int i)
         shared_ptr[CArray] values()

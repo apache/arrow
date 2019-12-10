@@ -53,6 +53,7 @@ def get_many_types():
         pa.large_string(),
         pa.large_binary(),
         pa.list_(pa.int32()),
+        pa.list_(pa.int32(), 2),
         pa.large_list(pa.uint16()),
         pa.map_(pa.string(), pa.int32()),
         pa.struct([pa.field('a', pa.int32()),
@@ -118,11 +119,17 @@ def test_is_decimal():
 def test_is_list():
     a = pa.list_(pa.int32())
     b = pa.large_list(pa.int32())
+    c = pa.list_(pa.int32(), 3)
 
     assert types.is_list(a)
     assert not types.is_large_list(a)
+    assert not types.is_fixed_size_list(a)
     assert types.is_large_list(b)
     assert not types.is_list(b)
+    assert not types.is_fixed_size_list(b)
+    assert types.is_fixed_size_list(c)
+    assert not types.is_list(c)
+    assert not types.is_large_list(c)
 
     assert not types.is_list(pa.int32())
 
@@ -309,6 +316,16 @@ def test_map_type():
         pa.map_(None)
     with pytest.raises(TypeError):
         pa.map_(pa.int32(), None)
+
+
+def test_fixed_size_list_type():
+    ty = pa.list_(pa.float64(), 2)
+    assert isinstance(ty, pa.FixedSizeListType)
+    assert ty.value_type == pa.float64()
+    assert ty.list_size == 2
+
+    with pytest.raises(ValueError):
+        pa.list_(pa.float64(), -2)
 
 
 def test_struct_type():

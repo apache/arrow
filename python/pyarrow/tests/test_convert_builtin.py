@@ -148,8 +148,14 @@ def _as_dict_values(xs):
     return six.viewvalues(dct)
 
 
+def _as_numpy_array(xs):
+    arr = np.empty(len(xs), dtype=object)
+    arr[:] = xs
+    return arr
+
+
 parametrize_with_iterable_types = pytest.mark.parametrize(
-    "seq", [_as_list, _as_tuple, _as_deque, _as_dict_values])
+    "seq", [_as_list, _as_tuple, _as_deque, _as_dict_values, _as_numpy_array])
 
 
 @parametrize_with_iterable_types
@@ -232,6 +238,41 @@ def test_nested_arrays(seq):
     assert arr.null_count == 1
     assert arr.type == pa.list_(pa.int64())
     assert arr.to_pylist() == [[], [1, 2], None]
+
+
+@parametrize_with_iterable_types
+def test_nested_fixed_size_list(seq):
+    # sequence of lists
+    data = [[1, 2], [3, None], None]
+    arr = pa.array(seq(data), type=pa.list_(pa.int64(), 2))
+    assert len(arr) == 3
+    assert arr.null_count == 1
+    assert arr.type == pa.list_(pa.int64(), 2)
+    assert arr.to_pylist() == data
+
+    # sequence of numpy arrays
+    data = [np.array([1, 2], dtype='int64'), np.array([3, 4], dtype='int64'),
+            None]
+    arr = pa.array(seq(data), type=pa.list_(pa.int64(), 2))
+    assert len(arr) == 3
+    assert arr.null_count == 1
+    assert arr.type == pa.list_(pa.int64(), 2)
+    assert arr.to_pylist() == [[1, 2], [3, 4], None]
+
+    # incorrect length of the lists or arrays
+    data = [[1, 2, 4], [3, None], None]
+    for data in [[[1, 2, 3]], [np.array([1, 2, 4], dtype='int64')]]:
+        with pytest.raises(
+                ValueError, match="Length of item not correct: expected 2"):
+            pa.array(seq(data), type=pa.list_(pa.int64(), 2))
+
+    # with list size of 0
+    data = [[], [], None]
+    arr = pa.array(seq(data), type=pa.list_(pa.int64(), 0))
+    assert len(arr) == 3
+    assert arr.null_count == 1
+    assert arr.type == pa.list_(pa.int64(), 0)
+    assert arr.to_pylist() == [[], [], None]
 
 
 @parametrize_with_iterable_types

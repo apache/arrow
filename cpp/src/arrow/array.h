@@ -736,6 +736,14 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
     return values_->Slice(value_offset(i), value_length(i));
   }
 
+  /// \brief Construct FixedSizeListArray from child value array and value_length
+  ///
+  /// \param[in] values Array containing list values
+  /// \param[in] list_size The fixed length of each list
+  /// \return Will have length equal to values.length() / list_size
+  static Result<std::shared_ptr<Array>> FromArrays(const std::shared_ptr<Array>& values,
+                                                   int32_t list_size);
+
  protected:
   void SetData(const std::shared_ptr<ArrayData>& data);
   int32_t list_size_;

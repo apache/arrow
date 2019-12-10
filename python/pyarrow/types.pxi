@@ -309,6 +309,34 @@ cdef class MapType(DataType):
         return pyarrow_wrap_data_type(self.map_type.item_type())
 
 
+
+cdef class FixedSizeListType(DataType):
+    """
+    Concrete class for fixed size list data types.
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        DataType.init(self, type)
+        self.list_type = <const CFixedSizeListType*> type.get()
+
+    def __reduce__(self):
+        return list_, (self.value_type, self.list_size)
+
+    @property
+    def value_type(self):
+        """
+        The data type of large list values.
+        """
+        return pyarrow_wrap_data_type(self.list_type.value_type())
+
+    @property
+    def list_size(self):
+        """
+        The size of the fixed size lists.
+        """
+        return self.list_type.list_size()
+
+
 cdef class StructType(DataType):
     """
     Concrete class for struct data types.
@@ -1822,13 +1850,16 @@ def large_utf8():
     return large_string()
 
 
-cpdef ListType list_(value_type):
+def list_(value_type, int list_size=-1):
     """
     Create ListType instance from child data type or field
 
     Parameters
     ----------
     value_type : DataType or Field
+    list_size : int, optional, default -1
+        If length == -1 then return a variable length list type. If length is
+        greater than or equal to 0 then return a fixed size list type.
 
     Returns
     -------
@@ -1837,7 +1868,6 @@ cpdef ListType list_(value_type):
     cdef:
         Field _field
         shared_ptr[CDataType] list_type
-        ListType out = ListType.__new__(ListType)
 
     if isinstance(value_type, DataType):
         _field = field('item', value_type)
@@ -1846,9 +1876,14 @@ cpdef ListType list_(value_type):
     else:
         raise TypeError('List requires DataType or Field')
 
-    list_type.reset(new CListType(_field.sp_field))
-    out.init(list_type)
-    return out
+    if list_size == -1:
+        list_type.reset(new CListType(_field.sp_field))
+    else:
+        if list_size < 0:
+            raise ValueError("list_size should be a positive integer")
+        list_type.reset(new CFixedSizeListType(_field.sp_field, list_size))
+
+    return pyarrow_wrap_data_type(list_type)
 
 
 cpdef LargeListType large_list(value_type):

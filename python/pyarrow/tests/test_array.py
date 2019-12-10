@@ -678,6 +678,25 @@ def test_map_from_arrays():
         pa.MapArray.from_arrays(offsets, keys_with_null, items)
 
 
+def test_fixed_size_list_from_arrays():
+    values = pa.array(range(12), pa.int64())
+    result = pa.FixedSizeListArray.from_arrays(values, 4)
+    assert result.to_pylist() == [[0, 1, 2, 3], [4, 5, 6, 7], [8, 9, 10, 11]]
+    assert result.type.equals(pa.list_(pa.int64(), 4))
+
+    # raise on invalid values / list_size
+    with pytest.raises(ValueError):
+        pa.FixedSizeListArray.from_arrays(values, -4)
+
+    with pytest.raises(ValueError):
+        # array with list size 0 cannot be constructed with from_arrays
+        pa.FixedSizeListArray.from_arrays(pa.array([], pa.int64()), 0)
+
+    with pytest.raises(ValueError):
+        # length of values not multiple of 5
+        pa.FixedSizeListArray.from_arrays(values, 5)
+
+
 def test_union_from_dense():
     binary = pa.array([b'a', b'b', b'c', b'd'], type='binary')
     int64 = pa.array([1, 2, 3], type='int64')
@@ -967,6 +986,7 @@ def test_cast_from_null():
         pa.binary(),
         pa.binary(10),
         pa.list_(pa.int16()),
+        pa.list_(pa.int32(), 4),
         pa.large_list(pa.uint8()),
         pa.decimal128(19, 4),
         pa.timestamp('us'),
@@ -1802,6 +1822,43 @@ def test_list_array_values_offsets_sliced(klass):
     i = arr2.offsets[0].as_py()
     j = arr2.offsets[1].as_py()
     assert arr2[0].as_py() == arr2.values[i:j].to_pylist() == [4]
+
+
+def test_fixed_size_list_array_flatten():
+    typ2 = pa.list_(pa.list_(pa.int64(), 2), 3)
+    arr2 = pa.array([
+        [
+            [1, 2],
+            [3, 4],
+            [5, 6],
+        ],
+        None,
+        [
+            [7, None],
+            None,
+            [8, 9]
+        ],
+    ], type=typ2)
+    assert arr2.type.equals(typ2)
+
+    typ1 = pa.list_(pa.int64(), 2)
+    arr1 = pa.array([
+        [1, 2], [3, 4], [5, 6],
+        None, None, None,
+        [7, None], None, [8, 9]
+    ], type=typ1)
+    assert arr1.type.equals(typ1)
+    assert arr2.flatten().equals(arr1)
+
+    typ0 = pa.int64()
+    arr0 = pa.array([
+        1, 2, 3, 4, 5, 6,
+        None, None, None, None, None, None,
+        7, None, None, None, 8, 9,
+    ], type=typ0)
+    assert arr0.type.equals(typ0)
+    assert arr1.flatten().equals(arr0)
+    assert arr2.flatten().flatten().equals(arr0)
 
 
 def test_struct_array_flatten():

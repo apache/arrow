@@ -173,6 +173,13 @@ def is_large_list(t):
     return t.id == lib.Type_LARGE_LIST
 
 
+def is_fixed_size_list(t):
+    """
+    Return True if value is an instance of a fixed size list type
+    """
+    return t.id == lib.Type_FIXED_SIZE_LIST
+
+
 def is_struct(t):
     """
     Return True if value is an instance of a struct type
