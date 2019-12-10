@@ -209,7 +209,7 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                 let mut b = StringBuilder::new(array.len());
                 for i in 0..array.len() {
                     if array.is_null(i) {
-                        b.append(false)?;
+                        b.append_null()?;
                     } else {
                         b.append_value(str::from_utf8(from.value(i)).unwrap())?;
                     }
