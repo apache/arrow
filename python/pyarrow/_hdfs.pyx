@@ -32,7 +32,20 @@ cdef class HdfsOptions:
 
     Parameters
     ----------
-
+    endpoint : tuple of (host, port) pair
+        For example ('localhost', 8020).
+    driver : {'libhdfs', 'libhdfs3'}, default 'libhdfs'
+        Connect using libhdfs (JNI-based) or libhdfs3 (3rd-party C++ library
+        from Apache HAWQ (incubating)). Prefer libhdfs because libhdfs3 project
+        is not maintaned anymore.
+    replication : int, default 3
+        Number of copies each block will have.
+    buffer_size : int, default 0
+        If 0, no buffering will happen otherwise the size of the temporary read
+        and write buffer.
+    default_block_size : int, default None
+        None means the default configuration for HDFS, a typical block size is
+        128 MB.
     """
     cdef:
         CHdfsOptions options
@@ -87,18 +100,18 @@ cdef class HdfsOptions:
     @property
     def driver(self):
         if self.options.connection_config.driver == HdfsDriver_LIBHDFS3:
-            return 'hdfs3'
+            return 'libhdfs3'
         else:
-            return 'hdfs'
+            return 'libhdfs'
 
     @driver.setter
     def driver(self, value):
-        if value == 'hdfs3':
+        if value == 'libhdfs3':
             self.options.connection_config.driver = HdfsDriver_LIBHDFS3
-        elif value == 'hdfs':
+        elif value == 'libhdfs':
             self.options.connection_config.driver = HdfsDriver_LIBHDFS
         else:
-            raise ValueError('Choose either hdfs of hdfs3')
+            raise ValueError('Choose either libhdfs of libhdfs3')
 
     @property
     def user(self):
@@ -134,19 +147,23 @@ cdef class HdfsOptions:
 
 
 cdef class HadoopFileSystem(FileSystem):
-    """HDFS backed FileSystem implementation
-
-    Parameters
-    ----------
-    options: HdfsOptions, default None
-        Options for connecting to hdfs. If None is passed then attempts to
-        initialize the connection from AWS environment variables.
-    """
+    """HDFS backed FileSystem implementation"""
 
     cdef:
         CHadoopFileSystem* hdfs
 
     def __init__(self, options_or_uri=None):
+        """Create HadoopFileSystem
+
+        Parameters
+        ----------
+        options_or_uri: HdfsOptions or str, default None
+            Either an options object or a string URI describing the connection
+            to HDFS. HdfsOptions(endpoint=('localhost', 8020), user='test') and
+            'hdfs://localhost:8020/?user=test' are equivalent.
+            To change the used driver, replication, buffer_size or
+            default_block_size use the HdfsOptions object.
+        """
         cdef:
             HdfsOptions options
             shared_ptr[CHadoopFileSystem] wrapped

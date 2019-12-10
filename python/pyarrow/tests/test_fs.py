@@ -496,7 +496,7 @@ def test_s3_options(minio_server):
 
 @pytest.mark.hdfs
 def test_hdfs_options(hdfs_server):
-    from pyarrow.fs import HdfsOptions
+    from pyarrow.fs import HdfsOptions, HadoopFileSystem
 
     options = HdfsOptions()
     assert options.endpoint == ('', 0)
@@ -505,9 +505,9 @@ def test_hdfs_options(hdfs_server):
     with pytest.raises(TypeError):
         options.endpoint = 'localhost:8000'
 
-    assert options.driver == 'hdfs'
-    options.driver = 'hdfs3'
-    assert options.driver == 'hdfs3'
+    assert options.driver == 'libhdfs'
+    options.driver = 'libhdfs3'
+    assert options.driver == 'libhdfs3'
     with pytest.raises(ValueError):
         options.driver = 'unknown'
 
@@ -516,8 +516,8 @@ def test_hdfs_options(hdfs_server):
     assert options.replication == 2
 
     assert options.user == ''
-    options.user = 'hdfs'
-    assert options.user == 'hdfs'
+    options.user = 'libhdfs'
+    assert options.user == 'libhdfs'
 
     assert options.default_block_size == 0
     options.default_block_size = 128*1024**2
@@ -530,3 +530,6 @@ def test_hdfs_options(hdfs_server):
     options = HdfsOptions.from_uri('hdfs://localhost:8080/?user=test')
     assert options.endpoint == ('localhost', 8080)
     assert options.user == 'test'
+
+    fs = HadoopFileSystem('hdfs://localhost:8080/?user=test')
+    assert fs.get_target_stats(Selector('/'))
