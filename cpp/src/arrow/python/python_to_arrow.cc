@@ -864,9 +864,10 @@ class FixedSizeListConverter
 // Define a MapConverter as a ListConverter that uses MapBuilder.value_builder
 // to append struct of key/value pairs
 template <NullCoding null_coding>
-class MapConverter : public ListConverter<MapType, null_coding> {
+class MapConverter
+    : public BaseListConverter<MapType, MapConverter<null_coding>, null_coding> {
  public:
-  using BASE = ListConverter<MapType, null_coding>;
+  using BASE = BaseListConverter<MapType, MapConverter<null_coding>, null_coding>;
 
   explicit MapConverter(bool from_pandas, bool strict_conversions)
       : BASE(from_pandas, strict_conversions), key_builder_(nullptr) {}
@@ -1201,6 +1202,8 @@ Status GetConverter(const std::shared_ptr<DataType>& type, bool from_pandas,
       } else {
         *out = std::unique_ptr<SeqConverter>(
             new MapConverter<NullCoding::NONE_ONLY>(from_pandas, strict_conversions));
+      }
+      return Status::OK();
     case Type::FIXED_SIZE_LIST:
       if (from_pandas) {
         *out = std::unique_ptr<SeqConverter>(
