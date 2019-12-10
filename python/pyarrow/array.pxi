@@ -1308,7 +1308,8 @@ cdef class ListArray(Array):
 
     @property
     def values(self):
-        return self.flatten()
+        cdef CListArray* arr = <CListArray*> self.ap
+        return pyarrow_wrap_array(arr.values())
 
     @property
     def offsets(self):
@@ -1328,7 +1329,7 @@ cdef class ListArray(Array):
         result : Array
         """
         cdef CListArray* arr = <CListArray*> self.ap
-        return pyarrow_wrap_array(arr.values())
+        return pyarrow_wrap_array(arr.Flatten())
 
 
 cdef class LargeListArray(Array):
@@ -1369,7 +1370,8 @@ cdef class LargeListArray(Array):
 
     @property
     def values(self):
-        return self.flatten()
+        cdef CLargeListArray* arr = <CLargeListArray*> self.ap
+        return pyarrow_wrap_array(arr.values())
 
     @property
     def offsets(self):
@@ -1389,7 +1391,7 @@ cdef class LargeListArray(Array):
         result : Array
         """
         cdef CLargeListArray* arr = <CLargeListArray*> self.ap
-        return pyarrow_wrap_array(arr.values())
+        return pyarrow_wrap_array(arr.Flatten())
 
 
 cdef class MapArray(Array):
