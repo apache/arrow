@@ -106,8 +106,8 @@ def hdfs(request, hdfs_server):
     request.config.pyarrow.requires('hdfs')
     from pyarrow.fs import HdfsOptions, HadoopFileSystem
 
-    uri, user = hdfs_server
-    options = HdfsOptions.from_uri(uri)
+    host, port, user = hdfs_server
+    options = HdfsOptions(endpoint=(host, port), user=user)
 
     fs = HadoopFileSystem(options)
 
@@ -531,5 +531,7 @@ def test_hdfs_options(hdfs_server):
     assert options.endpoint == ('localhost', 8080)
     assert options.user == 'test'
 
-    fs = HadoopFileSystem('hdfs://localhost:8080/?user=test')
+    host, port, user = hdfs_server
+    uri = "hdfs://{}:{}/?user={}".format(host, port, user)
+    fs = HadoopFileSystem(uri)
     assert fs.get_target_stats(Selector('/'))
