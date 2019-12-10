@@ -845,6 +845,12 @@ impl<'a> ArrayReaderBuilder {
                     Utf8Converter,
                 >::new(page_iterator, column_desc)?))
             }
+            PhysicalType::BYTE_ARRAY => {
+                Ok(Box::new(ComplexObjectArrayReader::<
+                    ByteArrayType,
+                    Utf8Converter, //TODO should be binary converter
+                >::new(page_iterator, column_desc)?))
+            }
             other => Err(ArrowError(format!(
                 "Unable to create primitive array reader for parquet physical type {}",
                 other
