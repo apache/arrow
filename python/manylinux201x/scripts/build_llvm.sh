@@ -39,7 +39,7 @@ cmake -DCMAKE_INSTALL_PREFIX=$PREFIX \
     -DLLVM_ENABLE_RTTI=ON \
     -DLLVM_ENABLE_OCAMLDOC=OFF \
     -DLLVM_USE_INTEL_JITEVENTS=ON \
-    -DPYTHON_EXECUTABLE="$(cpython_path 2.7 32)/bin/python" \
+    -DPYTHON_EXECUTABLE="$(cpython_path 3.6 16)/bin/python" \
     -GNinja \
     ..
 ninja install

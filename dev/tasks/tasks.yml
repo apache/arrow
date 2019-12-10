@@ -44,6 +44,10 @@ groups:
     - wheel-manylinux2010-cp36m
     - wheel-manylinux2010-cp37m
     - wheel-manylinux2010-cp38
+    - wheel-manylinux2014-cp35m
+    - wheel-manylinux2014-cp36m
+    - wheel-manylinux2014-cp37m
+    - wheel-manylinux2014-cp38
     - wheel-osx-cp27m
     - wheel-osx-cp35m
     - wheel-osx-cp36m
@@ -219,6 +223,10 @@ groups:
     - wheel-manylinux2010-cp36m
     - wheel-manylinux2010-cp37m
     - wheel-manylinux2010-cp38
+    - wheel-manylinux2014-cp35m
+    - wheel-manylinux2014-cp36m
+    - wheel-manylinux2014-cp37m
+    - wheel-manylinux2014-cp38
     - wheel-osx-cp27m
     - wheel-osx-cp35m
     - wheel-osx-cp36m
@@ -381,6 +389,7 @@ tasks:
       python_version: 2.7
       unicode_width: 16
       wheel_tag: manylinux1
+      wheel_dir: manylinux1
       test_docker_images: []
       test_remove_system_libs: true
     artifacts:
@@ -394,6 +403,7 @@ tasks:
       python_version: 2.7
       unicode_width: 32
       wheel_tag: manylinux1
+      wheel_dir: manylinux1
       test_docker_images:
         - python:2.7  # debian ucs4
       test_remove_system_libs: false
@@ -408,6 +418,7 @@ tasks:
       python_version: 3.5
       unicode_width: 16
       wheel_tag: manylinux1
+      wheel_dir: manylinux1
       test_docker_images:
         - python:3.5
       test_remove_system_libs: true
@@ -422,6 +433,7 @@ tasks:
       python_version: 3.6
       unicode_width: 16
       wheel_tag: manylinux1
+      wheel_dir: manylinux1
       test_docker_images:
         - python:3.6
       test_remove_system_libs: true
@@ -436,6 +448,7 @@ tasks:
       python_version: 3.7
       unicode_width: 16
       wheel_tag: manylinux1
+      wheel_dir: manylinux1
       test_docker_images:
         - python:3.7
       test_remove_system_libs: true
@@ -450,6 +463,7 @@ tasks:
       python_version: 3.8
       unicode_width: 16
       wheel_tag: manylinux1
+      wheel_dir: manylinux1
       test_docker_images:
         - python:3.8
       test_remove_system_libs: true
@@ -464,6 +478,7 @@ tasks:
       python_version: 2.7
       unicode_width: 16
       wheel_tag: manylinux2010
+      wheel_dir: manylinux201x
       test_docker_images: []
       test_remove_system_libs: true
     artifacts:
@@ -477,6 +492,7 @@ tasks:
       python_version: 2.7
       unicode_width: 32
       wheel_tag: manylinux2010
+      wheel_dir: manylinux201x
       test_docker_images:
         - python:2.7  # debian ucs4
       test_remove_system_libs: false
@@ -491,6 +507,7 @@ tasks:
       python_version: 3.5
       unicode_width: 16
       wheel_tag: manylinux2010
+      wheel_dir: manylinux201x
       test_docker_images:
         - python:3.5
       test_remove_system_libs: true
@@ -505,6 +522,7 @@ tasks:
       python_version: 3.6
       unicode_width: 16
       wheel_tag: manylinux2010
+      wheel_dir: manylinux201x
       test_docker_images:
         - python:3.6
       test_remove_system_libs: true
@@ -519,6 +537,7 @@ tasks:
       python_version: 3.7
       unicode_width: 16
       wheel_tag: manylinux2010
+      wheel_dir: manylinux201x
       test_docker_images:
         - python:3.7
       test_remove_system_libs: true
@@ -533,11 +552,72 @@ tasks:
       python_version: 3.8
       unicode_width: 16
       wheel_tag: manylinux2010
+      wheel_dir: manylinux201x
       test_docker_images:
         - python:3.8
       test_remove_system_libs: true
     artifacts:
       - pyarrow-{no_rc_version}-cp38-cp38-manylinux2010_x86_64.whl
+
+  wheel-manylinux2014-cp35m:
+    ci: azure
+    platform: linux
+    template: python-wheels/azure.linux.yml
+    params:
+      python_version: 3.5
+      unicode_width: 16
+      wheel_tag: manylinux2014
+      wheel_dir: manylinux201x
+      test_docker_images:
+        - python:3.5
+      test_remove_system_libs: true
+    artifacts:
+      - pyarrow-{no_rc_version}-cp35-cp35m-manylinux2014_x86_64.whl
+
+  wheel-manylinux2014-cp36m:
+    ci: azure
+    platform: linux
+    template: python-wheels/azure.linux.yml
+    params:
+      python_version: 3.6
+      unicode_width: 16
+      wheel_tag: manylinux2014
+      wheel_dir: manylinux201x
+      test_docker_images:
+        - python:3.6
+      test_remove_system_libs: true
+    artifacts:
+      - pyarrow-{no_rc_version}-cp36-cp36m-manylinux2014_x86_64.whl
+
+  wheel-manylinux2014-cp37m:
+    ci: azure
+    platform: linux
+    template: python-wheels/azure.linux.yml
+    params:
+      python_version: 3.7
+      unicode_width: 16
+      wheel_tag: manylinux2014
+      wheel_dir: manylinux201x
+      test_docker_images:
+        - python:3.7
+      test_remove_system_libs: true
+    artifacts:
+      - pyarrow-{no_rc_version}-cp37-cp37m-manylinux2014_x86_64.whl
+
+  wheel-manylinux2014-cp38:
+    ci: azure
+    platform: linux
+    template: python-wheels/azure.linux.yml
+    params:
+      python_version: 3.8
+      unicode_width: 16
+      wheel_tag: manylinux2014
+      wheel_dir: manylinux201x
+      test_docker_images:
+        - python:3.8
+      test_remove_system_libs: true
+    artifacts:
+      - pyarrow-{no_rc_version}-cp38-cp38-manylinux2014_x86_64.whl
 
   ############################## Wheel OSX ####################################
 

@@ -555,34 +555,47 @@ check_python_imports() {
 }
 
 test_linux_wheels() {
-  local py_arches="2.7mu 3.6m 3.7m"
+  local py_arches="2.7mu 3.5m 3.6m 3.7m 3.8"
+  local manylinuxes="1 2010 2014"
 
   for py_arch in ${py_arches}; do
     local env=_verify_wheel-${py_arch}
     conda create -yq -n ${env} python=${py_arch//[mu]/}
     conda activate ${env}
 
-    pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[mu.]/}-cp${py_arch//./}-manylinux1_x86_64.whl
+    for ml_spec in manylinuxes; do
+      if [[ "$py_arch" = "2.7mu" && "$ml_spec" = "2014" ]]; then
+        # manylinux2014 does not support py2.7, so skip that one
+        continue
+      fi
 
-    check_python_imports py_arch
+      pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[mu.]/}-cp${py_arch//./}-manylinux${ml_spec}_x86_64.whl
 
-    pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[mu.]/}-cp${py_arch//./}-manylinux2010_x86_64.whl
-
-    check_python_imports py_arch
+      check_python_imports py_arch
+    done
 
     conda deactivate
   done
 }
 
 test_macos_wheels() {
-  local py_arches="2.7m 3.6m 3.7m"
+  local py_arches="2.7m 3.5m 3.6m 3.7m 3.8"
 
   for py_arch in ${py_arches}; do
     local env=_verify_wheel-${py_arch}
     conda create -yq -n ${env} python=${py_arch//m/}
     conda activate ${env}
 
-    pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[m.]/}-cp${py_arch//./}-macosx_10_6_intel.whl
+    macos_suffix=macosx
+    case "${py_arch}" in
+    *m)
+      macos_suffix="${macos_suffix}_10_6_intel"
+      ;;
+    *)
+      macos_suffix="${macos_suffix}_10_9_x86_64"
+      ;;
+    esac
+    pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[m.]/}-cp${py_arch//./}-${macos_suffix}.whl
 
     check_python_imports py_arch
 

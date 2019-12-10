@@ -579,8 +579,8 @@ services:
   centos-python-manylinux2010:
     image: ${REPO}:amd64-centos-6.10-python-manylinux2010
     build:
-      context: python/manylinux2010
-      dockerfile: Dockerfile-x86_64_base
+      context: python/manylinux201x
+      dockerfile: Dockerfile-x86_64_base_2010
       cache_from:
         - ${REPO}:amd64-centos-6.10-python-manylinux2010
     shm_size: *shm-size
@@ -590,7 +590,24 @@ services:
       UNICODE_WIDTH: ${UNICODE_WIDTH:-16}
     volumes:
       - .:/arrow:delegated
-      - ./python/manylinux2010:/io:delegated
+      - ./python/manylinux201x:/io:delegated
+    command: *manylinux-command
+
+  centos-python-manylinux2014:
+    image: ${REPO}:amd64-centos-7.7-python-manylinux2014
+    build:
+      context: python/manylinux201x
+      dockerfile: Dockerfile-x86_64_base_2014
+      cache_from:
+        - ${REPO}:amd64-centos-7.7-python-manylinux2014
+    shm_size: *shm-size
+    environment:
+      PYARROW_PARALLEL: 3
+      PYTHON_VERSION: ${PYTHON_VERSION:-3.6}
+      UNICODE_WIDTH: ${UNICODE_WIDTH:-16}
+    volumes:
+      - .:/arrow:delegated
+      - ./python/manylinux201x:/io:delegated
     command: *manylinux-command
 
   ################################## R ########################################

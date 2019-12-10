@@ -18,15 +18,16 @@
 # under the License.
 #
 # Build upon the scripts in https://github.com/matthew-brett/manylinux-builds
-# * Copyright (c) 2013-2016, Matt Terry and Matthew Brett (BSD 2-clause)
+# * Copyright (c) 2013-2019, Matt Terry and Matthew Brett (BSD 2-clause)
 #
 # Usage:
 #   either build:
-#     $ docker-compose build python-manylinux2010
+#     $ docker-compose build centos-python-manylinux2010
 #   or pull:
-#     $ docker-compose pull python-manylinux2010
-#   an then run:
-#     $ docker-compose run -e PYTHON_VERSION=3.7 python-manylinux2010
+#     $ docker-compose pull centos-python-manylinux2010
+#   and then run:
+#     $ docker-compose run -e PYTHON_VERSION=3.7 centos-python-manylinux2010
+# Can use either manylinux2010 or manylinux2014
 
 source /multibuild/manylinux_utils.sh
 
@@ -59,6 +60,7 @@ mkdir -p /io/dist
 
 # Must pass PYTHON_VERSION and UNICODE_WIDTH env variables
 # possible values are: 2.7,16 2.7,32 3.5,16 3.6,16 3.7,16 3.8,16
+# Note that manylinux2014 does not support Python 2.7
 
 CPYTHON_PATH="$(cpython_path ${PYTHON_VERSION} ${UNICODE_WIDTH})"
 PYTHON_INTERPRETER="${CPYTHON_PATH}/bin/python"
@@ -142,9 +144,9 @@ PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py bdist_wheel
 # Source distribution is used for debian pyarrow packages.
 PATH="$PATH:${CPYTHON_PATH}/bin" $PYTHON_INTERPRETER setup.py sdist
 
-echo "=== (${PYTHON_VERSION}) Tag the wheel with manylinux2010 ==="
+echo "=== (${PYTHON_VERSION}) Tag the wheel with manylinux201x ==="
 mkdir -p repaired_wheels/
-auditwheel repair --plat manylinux2010_x86_64 -L . dist/pyarrow-*.whl -w repaired_wheels/
+auditwheel repair --plat ${AUDITWHEEL_PLAT} -L . dist/pyarrow-*.whl -w repaired_wheels/
 
 # Install the built wheels
 $PIP install repaired_wheels/*.whl

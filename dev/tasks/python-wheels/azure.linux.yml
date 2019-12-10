@@ -40,7 +40,7 @@ jobs:
         docker-compose -v
         cd arrow
         BUILD_IMAGE=centos-python-{{ wheel_tag }}
-        docker-compose pull $BUILD_IMAGE
+        docker-compose pull --ignore-pull-failures $BUILD_IMAGE
         # TODO(kou): Uncomment this when we resolve "ADD never use cache" problem.
         # docker-compose build $BUILD_IMAGE
         docker-compose run \
@@ -58,7 +58,7 @@ jobs:
         docker run \
           -v $(pwd):/arrow quay.io/pypa/{{ wheel_tag }}_x86_64 \
           /bin/bash -c \
-            "auditwheel show /arrow/python/{{ wheel_tag }}/dist/*.whl"
+            "auditwheel show /arrow/python/{{ wheel_dir }}/dist/*.whl"
       displayName: Audit wheel
 
     - script: |
@@ -72,7 +72,7 @@ jobs:
         docker run \
           --shm-size 2G \
           -v $(pwd):/arrow \
-          -e WHEEL_TAG="{{ wheel_tag }}" \
+          -e WHEEL_DIR="{{ wheel_dir }}" \
           {{ image }} \
           /arrow/dev/tasks/python-wheels/manylinux-test.sh ${test_args}
         {%- endfor %}
@@ -84,7 +84,7 @@ jobs:
           --queue-path . \
           --queue-remote {{ queue.remote_url }} \
           upload-artifacts \
-          --pattern "arrow/python/{{ wheel_tag }}/dist/*" \
+          --pattern "arrow/python/{{ wheel_dir }}/dist/*" \
           --sha {{ task.branch }} \
           --tag {{ task.tag }}
       env:
