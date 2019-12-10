@@ -72,7 +72,6 @@ size_t Permute(const std::vector<int64_t>& indices, std::vector<T>* values) {
   }
 
   return cycle_count;
-  ;
 }
 
 }  // namespace internal
