@@ -157,11 +157,6 @@ def test_dataset(simple_data_source, tree_data_source, record_batch, schema):
     assert isinstance(dataset.sources[0], ds.SimpleDataSource)
     assert isinstance(dataset.sources[1], ds.TreeDataSource)
 
-    condition = ds.ComparisonExpression(
-        ds.CompareOperator.Equal,
-        ds.FieldExpression('i64'),
-        ds.ScalarExpression(1)
-    )
     # TODO(kszucs): test non-boolean expressions for filter do raise
     builder = dataset.new_scan()
     assert isinstance(builder, ds.ScannerBuilder)
@@ -180,6 +175,11 @@ def test_dataset(simple_data_source, tree_data_source, record_batch, schema):
     assert isinstance(table, pa.Table)
     assert len(table) == 15
 
+    condition = ds.ComparisonExpression(
+        ds.CompareOperator.Equal,
+        ds.FieldExpression('i64'),
+        ds.ScalarExpression(1)
+    )
     scanner = dataset.new_scan().use_threads(True).filter(condition).finish()
     result = scanner.to_table()
     expected = pa.table([[1] * 3, [1.0] * 3], schema=schema)
@@ -196,8 +196,8 @@ def test_scanner_builder(dataset):
     builder = dataset.new_scan()
     builder.project(['i64'])
     scanner = builder.finish()
-    scanner.scan()
     assert isinstance(scanner, ds.Scanner)
+    assert len(list(scanner.scan())) == 3
 
 
 def test_abstract_classes():

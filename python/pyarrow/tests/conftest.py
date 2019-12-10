@@ -103,7 +103,6 @@ try:
     import pyarrow.dataset  # noqa
     defaults['dataset'] = True
 except ImportError:
-    raise
     pass
 
 try:

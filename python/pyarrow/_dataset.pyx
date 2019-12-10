@@ -246,6 +246,10 @@ cdef class DataSourceDiscovery:
         else:
             return Expression.wrap(expr)
 
+    @root_partition.setter
+    def root_partition(self, Expression expr):
+        check_status(self.discovery.SetRootPartition(expr.unwrap()))
+
     def inspect(self):
         cdef CResult[shared_ptr[CSchema]] result
         with nogil:

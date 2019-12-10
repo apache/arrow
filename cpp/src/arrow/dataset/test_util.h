@@ -263,7 +263,7 @@ class JSONRecordBatchFragment : public FileDataFragment {
       : FileDataFragment(source, std::make_shared<JSONRecordBatchFileFormat>(schema),
                          options) {}
 
-  std::string type() const override { return "json_batch_data_source"; }
+  std::string type() const override { return "json_batch_data_fragment"; }
 
   bool splittable() const override { return false; }
 };
