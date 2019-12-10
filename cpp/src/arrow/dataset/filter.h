@@ -554,18 +554,29 @@ class ARROW_DS_EXPORT ExpressionEvaluator {
   ///
   /// expr must be validated against the schema of batch before calling this method.
   virtual Result<compute::Datum> Evaluate(const Expression& expr,
-                                          const RecordBatch& batch) const = 0;
+                                          const RecordBatch& batch,
+                                          MemoryPool* pool) const = 0;
+
+  Result<compute::Datum> Evaluate(const Expression& expr,
+                                  const RecordBatch& batch) const {
+    return Evaluate(expr, batch, default_memory_pool());
+  }
 
   virtual Result<std::shared_ptr<RecordBatch>> Filter(
-      const compute::Datum& selection,
-      const std::shared_ptr<RecordBatch>& batch) const = 0;
+      const compute::Datum& selection, const std::shared_ptr<RecordBatch>& batch,
+      MemoryPool* pool) const = 0;
+
+  Result<std::shared_ptr<RecordBatch>> Filter(
+      const compute::Datum& selection, const std::shared_ptr<RecordBatch>& batch) const {
+    return Filter(selection, batch, default_memory_pool());
+  }
 
   /// \brief Wrap an iterator of record batches with a filter expression. The resulting
   /// iterator will yield record batches filtered by the given expression.
   ///
   /// \note The ExpressionEvaluator must outlive the returned iterator.
-  virtual RecordBatchIterator FilterBatches(RecordBatchIterator unfiltered,
-                                            ExpressionPtr filter);
+  RecordBatchIterator FilterBatches(RecordBatchIterator unfiltered, ExpressionPtr filter,
+                                    MemoryPool* pool = default_memory_pool());
 
   /// construct an Evaluator which evaluates all expressions to null and does no
   /// filtering
@@ -576,18 +587,15 @@ class ARROW_DS_EXPORT ExpressionEvaluator {
 /// filter record batches in depth first order
 class ARROW_DS_EXPORT TreeEvaluator : public ExpressionEvaluator {
  public:
-  explicit TreeEvaluator(MemoryPool* pool) : pool_(pool) {}
+  Result<compute::Datum> Evaluate(const Expression& expr, const RecordBatch& batch,
+                                  MemoryPool* pool) const override;
 
-  Result<compute::Datum> Evaluate(const Expression& expr,
-                                  const RecordBatch& batch) const override;
-
-  Result<std::shared_ptr<RecordBatch>> Filter(
-      const compute::Datum& selection,
-      const std::shared_ptr<RecordBatch>& batch) const override;
+  Result<std::shared_ptr<RecordBatch>> Filter(const compute::Datum& selection,
+                                              const std::shared_ptr<RecordBatch>& batch,
+                                              MemoryPool* pool) const override;
 
  protected:
   struct Impl;
-  MemoryPool* pool_;
 };
 
 }  // namespace dataset

@@ -27,7 +27,7 @@
 namespace arrow {
 namespace dataset {
 
-class FileSystemDataSourceDiscoveryTest : public TestFileSystemBasedDataSource {
+class FileSystemDataSourceDiscoveryTest : public TestFileSystemDataSource {
  public:
   void MakeDiscovery(const std::vector<fs::FileStats>& files) {
     MakeFileSystem(files);
@@ -36,15 +36,21 @@ class FileSystemDataSourceDiscoveryTest : public TestFileSystemBasedDataSource {
   }
 
   void AssertFinishWithPaths(std::vector<std::string> paths) {
+    options_ = ScanOptions::Make(discovery_->schema());
     ASSERT_OK_AND_ASSIGN(source_, discovery_->Finish());
     AssertFragmentsAreFromPath(source_->GetFragments(options_), paths);
+  }
+
+  void AssertInspect(const std::vector<std::shared_ptr<Field>>& expected_fields) {
+    ASSERT_OK_AND_ASSIGN(auto actual, discovery_->Inspect());
+    ASSERT_EQ(*actual, Schema(expected_fields));
   }
 
  protected:
   fs::Selector selector_;
   FileSystemDiscoveryOptions discovery_options_;
   DataSourceDiscoveryPtr discovery_;
-  FileFormatPtr format_ = std::make_shared<DummyFileFormat>();
+  FileFormatPtr format_ = std::make_shared<DummyFileFormat>(schema({}));
 };
 
 TEST_F(FileSystemDataSourceDiscoveryTest, Basic) {
@@ -75,6 +81,7 @@ TEST_F(FileSystemDataSourceDiscoveryTest, Partition) {
   auto partition_scheme =
       std::make_shared<HivePartitionScheme>(schema({field("a", int32())}));
   ASSERT_OK(discovery_->SetPartitionScheme(partition_scheme));
+  AssertInspect({field("a", int32())});
   AssertFinishWithPaths({selector_.base_dir + "/a=1", selector_.base_dir + "/a=2"});
 }
 
@@ -111,11 +118,11 @@ TEST_F(FileSystemDataSourceDiscoveryTest, Inspect) {
 
   // No files
   ASSERT_OK_AND_ASSIGN(auto actual, discovery_->Inspect());
-  EXPECT_EQ(actual, nullptr);
+  EXPECT_EQ(*actual, Schema({}));
 
   MakeDiscovery({fs::File("test")});
   ASSERT_OK_AND_ASSIGN(actual, discovery_->Inspect());
-  EXPECT_EQ(actual, s);
+  EXPECT_EQ(*actual, *s);
 }
 
 }  // namespace dataset

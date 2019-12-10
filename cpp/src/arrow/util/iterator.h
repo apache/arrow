@@ -29,6 +29,7 @@
 #include "arrow/util/compare.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/optional.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -42,6 +43,18 @@ struct IterationTraits {
   /// default this is NULLPTR since most iterators yield pointer types.
   /// Specialize IterationTraits if different end semantics are required.
   static T End() { return T(NULLPTR); }
+};
+
+template <typename T>
+struct IterationTraits<util::optional<T>> {
+  /// \brief by default when iterating through a sequence of optional,
+  /// nullopt indicates the end of iteration.
+  /// Specialize IterationTraits if different end semantics are required.
+  static util::optional<T> End() { return util::nullopt; }
+
+  // TODO(bkietz) The range-for loop over Iterator<optional<T>> yields
+  // Result<optional<T>> which is unnecessary (since only the unyielded end optional
+  // is nullopt. Add IterationTraits::GetRangeElement() to handle this case
 };
 
 /// \brief A generic Iterator that can return errors
@@ -249,6 +262,32 @@ Iterator<T> MakeVectorIterator(std::vector<T> v) {
   return Iterator<T>(VectorIterator<T>(std::move(v)));
 }
 
+/// \brief Simple iterator which yields the elements of a std::vector<T> as optional<T>.
+/// This is provided to support T where IterationTraits<T>::End is not specialized
+template <typename T>
+class VectorOptionalIterator {
+ public:
+  explicit VectorOptionalIterator(std::vector<T> v) : elements_(std::move(v)) {}
+
+  Status Next(util::optional<T>* out) {
+    if (i_ == elements_.size()) {
+      *out = util::nullopt;
+    } else {
+      *out = std::move(elements_[i_++]);
+    }
+    return Status::OK();
+  }
+
+ private:
+  std::vector<T> elements_;
+  size_t i_ = 0;
+};
+
+template <typename T>
+Iterator<util::optional<T>> MakeVectorOptionalIterator(std::vector<T> v) {
+  return Iterator<util::optional<T>>(VectorOptionalIterator<T>(std::move(v)));
+}
+
 /// \brief MapIterator takes ownership of an iterator and a function to apply
 /// on every element. The mapped function is not allowed to fail.
 template <typename Fn,
@@ -296,7 +335,7 @@ class MaybeMapIterator {
   explicit MaybeMapIterator(Fn map, Iterator<I> it) : map_(map), it_(std::move(it)) {}
 
   Status Next(O* out) {
-    I i;
+    I i = IterationTraits<I>::End();
 
     ARROW_RETURN_NOT_OK(it_.Next(&i));
     if (i == IterationTraits<I>::End()) {
@@ -337,7 +376,7 @@ class FilterIterator {
   Status Next(O* out) {
     bool accept = true;
     do {
-      I i;
+      I i = IterationTraits<I>::End();
 
       ARROW_RETURN_NOT_OK(it_.Next(&i));
       if (i == IterationTraits<I>::End()) {

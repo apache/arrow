@@ -45,11 +45,10 @@ class ParquetScanTask : public ScanTask {
   ParquetScanTask(int row_group, std::vector<int> column_projection,
                   std::shared_ptr<parquet::arrow::FileReader> reader,
                   ScanOptionsPtr options, ScanContextPtr context)
-      : row_group_(row_group),
+      : ScanTask(std::move(options), std::move(context)),
+        row_group_(row_group),
         column_projection_(std::move(column_projection)),
-        reader_(reader),
-        options_(std::move(options)),
-        context_(std::move(context)) {}
+        reader_(reader) {}
 
   Result<RecordBatchIterator> Scan() {
     // The construction of parquet's RecordBatchReader is deferred here to
@@ -72,9 +71,6 @@ class ParquetScanTask : public ScanTask {
   // guarantee the producing ParquetScanTaskIterator is still alive. This is a
   // contract required by record_batch_reader_
   std::shared_ptr<parquet::arrow::FileReader> reader_;
-
-  ScanOptionsPtr options_;
-  ScanContextPtr context_;
 };
 
 // Skip RowGroups with a filter and metadata
@@ -161,11 +157,6 @@ class ParquetScanTaskIterator {
   // Compute the column projection out of an optional arrow::Schema
   static std::vector<int> InferColumnProjection(const parquet::FileMetaData& metadata,
                                                 const ScanOptionsPtr& options) {
-    if (options->projector == nullptr) {
-      // fall back to no push down projection
-      return internal::Iota(metadata.num_columns());
-    }
-
     SchemaManifest manifest;
     if (!SchemaManifest::Make(metadata.schema(), nullptr,
                               parquet::default_arrow_reader_properties(), &manifest)
@@ -181,7 +172,7 @@ class ParquetScanTaskIterator {
     for (const auto& schema_field : manifest.schema_fields) {
       auto field_name = schema_field.field->name();
 
-      if (options->projector->schema()->GetFieldIndex(field_name) != -1) {
+      if (options->projector.schema()->GetFieldIndex(field_name) != -1) {
         // add explicitly projected field
         AddColumnIndices(schema_field, &column_projection);
         continue;
@@ -307,13 +298,13 @@ static ExpressionPtr ColumnChunkStatisticsAsExpression(
 
   // Optimize for corner case where all values are nulls
   if (statistics->num_values() == statistics->null_count()) {
-    std::shared_ptr<Scalar> null_scalar;
-    if (!MakeNullScalar(field->type(), &null_scalar).ok()) {
+    auto null_scalar = MakeNullScalar(field->type());
+    if (null_scalar.ok()) {
       // MakeNullScalar can fail for some nested/repeated types.
       return scalar(true);
     }
 
-    return equal(field_expr, scalar(null_scalar));
+    return equal(field_expr, scalar(*null_scalar));
   }
 
   std::shared_ptr<Scalar> min, max;

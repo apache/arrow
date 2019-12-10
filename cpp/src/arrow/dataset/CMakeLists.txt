@@ -25,6 +25,7 @@ set(ARROW_DATASET_SRCS
     file_base.cc
     filter.cc
     partition.cc
+    projector.cc
     scanner.cc)
 
 set(ARROW_DATASET_LINK_STATIC arrow_static)

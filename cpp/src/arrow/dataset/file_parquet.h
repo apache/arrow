@@ -27,6 +27,7 @@
 namespace parquet {
 class ParquetFileReader;
 class RowGroupMetaData;
+class FileMetaData;
 }  // namespace parquet
 
 namespace arrow {

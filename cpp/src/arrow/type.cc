@@ -34,7 +34,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/stl.h"
+#include "arrow/util/vector.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -923,6 +923,8 @@ std::string Schema::ComputeMetadataFingerprint() const {
   ss << "}";
   return ss.str();
 }
+
+void PrintTo(const Schema& s, std::ostream* os) { *os << s; }
 
 std::string DataType::ComputeFingerprint() const {
   // Default implementation returns empty string, signalling non-implemented

@@ -27,12 +27,17 @@
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/type_fwd.h"
-#include "arrow/filesystem/path_tree.h"
+#include "arrow/filesystem/path_forest.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/status.h"
 
 namespace arrow {
 namespace dataset {
+
+DataSourceDiscovery::DataSourceDiscovery()
+    : schema_(arrow::schema({})),
+      partition_scheme_(PartitionScheme::Default()),
+      root_partition_(scalar(true)) {}
 
 FileSystemDataSourceDiscovery::FileSystemDataSourceDiscovery(
     fs::FileSystemPtr filesystem, fs::FileStatsVector files, FileFormatPtr format,
@@ -100,42 +105,60 @@ Result<DataSourceDiscoveryPtr> FileSystemDataSourceDiscovery::Make(
               std::move(options));
 }
 
-static inline Result<std::shared_ptr<Schema>> InspectSchema(
-    fs::FileSystem* fs, const std::vector<fs::FileStats> stats,
-    const FileFormatPtr& format) {
+Result<std::shared_ptr<Schema>> FileSystemDataSourceDiscovery::Inspect() {
   std::vector<std::shared_ptr<Schema>> schemas;
 
-  for (const auto& f : stats) {
+  for (const auto& f : files_) {
     if (!f.IsFile()) continue;
 
-    ARROW_ASSIGN_OR_RAISE(auto schema, format->Inspect(FileSource(f.path(), fs)));
+    ARROW_ASSIGN_OR_RAISE(auto schema, format_->Inspect(FileSource(f.path(), fs_.get())));
     schemas.push_back(schema);
   }
 
-  if (schemas.size() > 0) {
-    // TODO merge schemas.
-    return schemas[0];
+  if (schemas.empty()) {
+    // If there are no files, return the partition scheme's schema.
+    return partition_scheme_->schema();
   }
 
-  // If there is no files, return an empty schema.
-  return std::shared_ptr<Schema>(nullptr);
-}
+  // TODO merge schemas.
+  auto out_schema = arrow::schema(schemas[0]->fields(), schemas[0]->metadata());
 
-Result<std::shared_ptr<Schema>> FileSystemDataSourceDiscovery::Inspect() {
-  return InspectSchema(fs_.get(), files_, format_);
+  // add fields from partition_scheme_
+  for (auto partition_field : partition_scheme_->schema()->fields()) {
+    if (out_schema->GetFieldIndex(partition_field->name()) == -1) {
+      RETURN_NOT_OK(
+          out_schema->AddField(out_schema->num_fields(), partition_field, &out_schema));
+    }
+  }
+
+  return out_schema;
 }
 
 Result<DataSourcePtr> FileSystemDataSourceDiscovery::Finish() {
-  PathPartitions partitions;
+  ExpressionVector partitions(files_.size(), scalar(true));
 
-  if (partition_scheme_ != nullptr) {
-    ARROW_ASSIGN_OR_RAISE(
-        partitions,
-        ApplyPartitionScheme(*partition_scheme_, options_.partition_base_dir, files_));
-  }
+  ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::Make(files_));
 
-  return FileSystemDataSource::Make(fs_, files_, root_partition(), std::move(partitions),
-                                    format_);
+  // apply partition_scheme to forest to derive partitions
+  auto apply_partition_scheme = [&](fs::PathForest::Ref ref) {
+    if (auto relative = fs::internal::RemoveAncestor(options_.partition_base_dir,
+                                                     ref.stats().path())) {
+      auto segments = fs::internal::SplitAbstractPath(relative->to_string());
+
+      if (segments.size() > 0) {
+        auto segment_index = static_cast<int>(segments.size()) - 1;
+        auto maybe_partition = partition_scheme_->Parse(segments.back(), segment_index);
+
+        partitions[ref.i] = std::move(maybe_partition).ValueOr(scalar(true));
+      }
+    }
+    return Status::OK();
+  };
+
+  RETURN_NOT_OK(forest.Visit(apply_partition_scheme));
+
+  return FileSystemDataSource::Make(fs_, std::move(forest), std::move(partitions),
+                                    root_partition_, format_);
 }
 
 }  // namespace dataset

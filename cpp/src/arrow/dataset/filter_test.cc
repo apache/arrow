@@ -70,8 +70,10 @@ class ExpressionsTest : public ::testing::Test {
     AssertSimplifiesTo(expr, given, *expected);
   }
 
-  std::shared_ptr<Schema> schema_ = schema({field("a", int32()), field("b", int32()),
-                                            field("f", float64()), field("s", utf8())});
+  std::shared_ptr<DataType> ns = timestamp(TimeUnit::NANO);
+  std::shared_ptr<Schema> schema_ =
+      schema({field("a", int32()), field("b", int32()), field("f", float64()),
+              field("s", utf8()), field("ts", ns)});
   std::shared_ptr<ScalarExpression> always = scalar(true);
   std::shared_ptr<ScalarExpression> never = scalar(false);
 };
@@ -82,6 +84,8 @@ TEST_F(ExpressionsTest, StringRepresentation) {
   ASSERT_EQ(("a"_ > int32_t(3) and "a"_ < int32_t(4)).ToString(),
             "((a > 3:int32) and (a < 4:int32))");
   ASSERT_EQ(("f"_ > double(4)).ToString(), "(f > 4:double)");
+  ASSERT_EQ("f"_.CastTo(float64()).ToString(), "(cast f to double)");
+  ASSERT_EQ("f"_.CastLike("a"_).ToString(), "(cast f like a)");
 }
 
 TEST_F(ExpressionsTest, Equality) {
@@ -146,7 +150,7 @@ TEST_F(ExpressionsTest, SimplificationToNull) {
 
 class FilterTest : public ::testing::Test {
  public:
-  FilterTest() { evaluator_ = std::make_shared<TreeEvaluator>(default_memory_pool()); }
+  FilterTest() { evaluator_ = std::make_shared<TreeEvaluator>(); }
 
   Result<Datum> DoFilter(const Expression& expr,
                          std::vector<std::shared_ptr<Field>> fields,
@@ -328,20 +332,18 @@ TEST_F(FilterTest, Cast) {
 }
 
 TEST_F(ExpressionsTest, ImplicitCast) {
-  ASSERT_OK_AND_ASSIGN(auto filter,
-                       InsertImplicitCasts("a"_ == 0.0, Schema({field("a", int32())})));
-  ASSERT_EQ(E{filter}, E{"a"_ == scalar(0.0)->CastTo(int32())});
+  ASSERT_OK_AND_ASSIGN(auto filter, InsertImplicitCasts("a"_ == 0.0, *schema_));
+  ASSERT_EQ(E{filter}, E{"a"_ == 0});
 
-  auto ns = timestamp(TimeUnit::NANO);
-  ASSERT_OK_AND_ASSIGN(filter,
-                       InsertImplicitCasts("a"_ == "1990", Schema({field("a", ns)})));
-  ASSERT_EQ(E{filter}, E{"a"_ == scalar("1990")->CastTo(ns)});
+  ASSERT_OK_AND_ASSIGN(filter, InsertImplicitCasts("ts"_ == "1990-01-03", *schema_));
+  ASSERT_EQ(E{filter}, E{"ts"_ == *MakeScalar("1990-01-03")->CastTo(ns)});
 
   ASSERT_OK_AND_ASSIGN(
-      filter, InsertImplicitCasts("a"_ == "1990" and "b"_ == "3",
-                                  Schema({field("a", ns), field("b", int32())})));
-  ASSERT_EQ(E{filter}, E{"a"_ == scalar("1990")->CastTo(ns) and
-                         "b"_ == scalar("3")->CastTo(int32())});
+      filter, InsertImplicitCasts("ts"_ == "1990-01-03" and "b"_ == "3", *schema_));
+  ASSERT_EQ(E{filter}, E{"ts"_ == *MakeScalar("1990-01-03")->CastTo(ns) and "b"_ == 3});
+
+  AssertSimplifiesTo(*filter, "b"_ == 2, *never);
+  AssertSimplifiesTo(*filter, "b"_ == 3, "ts"_ == *MakeScalar("1990-01-03")->CastTo(ns));
 }
 
 TEST_F(FilterTest, ImplicitCast) {
@@ -427,18 +429,19 @@ class TakeExpression : public CustomExpression {
 
     using TreeEvaluator::Evaluate;
 
-    Result<compute::Datum> Evaluate(const Expression& expr,
-                                    const RecordBatch& batch) const override {
+    Result<compute::Datum> Evaluate(const Expression& expr, const RecordBatch& batch,
+                                    MemoryPool* pool) const override {
       if (expr.type() == ExpressionType::CUSTOM) {
         const auto& take_expr = checked_cast<const TakeExpression&>(expr);
-        return EvaluateTake(take_expr, batch);
+        return EvaluateTake(take_expr, batch, pool);
       }
-      return TreeEvaluator::Evaluate(expr, batch);
+      return TreeEvaluator::Evaluate(expr, batch, pool);
     }
 
     Result<compute::Datum> EvaluateTake(const TakeExpression& take_expr,
-                                        const RecordBatch& batch) const {
-      ARROW_ASSIGN_OR_RAISE(auto indices, Evaluate(*take_expr.operand_, batch));
+                                        const RecordBatch& batch,
+                                        MemoryPool* pool) const {
+      ARROW_ASSIGN_OR_RAISE(auto indices, Evaluate(*take_expr.operand_, batch, pool));
 
       if (indices.kind() == Datum::SCALAR) {
         std::shared_ptr<Array> indices_array;
@@ -449,7 +452,7 @@ class TakeExpression : public CustomExpression {
 
       DCHECK_EQ(indices.kind(), Datum::ARRAY);
       compute::Datum out;
-      compute::FunctionContext ctx{default_memory_pool()};
+      compute::FunctionContext ctx{pool};
       RETURN_NOT_OK(compute::Take(&ctx, compute::Datum(take_expr.dictionary_->data()),
                                   indices, compute::TakeOptions(), &out));
       return std::move(out);
@@ -490,7 +493,7 @@ TEST_F(ExpressionsTest, TakeAssumeYieldsNothing) {
 }
 
 TEST_F(FilterTest, EvaluateTakeExpression) {
-  evaluator_ = std::make_shared<TakeExpression::Evaluator>(default_memory_pool());
+  evaluator_ = std::make_shared<TakeExpression::Evaluator>();
 
   auto dict = ArrayFromJSON(float64(), "[0.0, 0.25, 0.5, 0.75, 1.0]");
 

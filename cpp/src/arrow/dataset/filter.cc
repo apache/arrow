@@ -675,7 +675,7 @@ std::string CastExpression::ToString() const {
     auto like = arrow::util::get<ExpressionPtr>(to_);
     to = " like " + like->ToString();
   }
-  return internal::JoinStrings({"(cast ", operand_->ToString(), std::move(to)}, "");
+  return internal::JoinStrings({"(cast ", operand_->ToString(), std::move(to), ")"}, "");
 }
 
 std::string ComparisonExpression::ToString() const {
@@ -893,65 +893,78 @@ Result<std::shared_ptr<DataType>> FieldExpression::Validate(const Schema& schema
 }
 
 struct InsertImplicitCastsImpl {
-  struct Validated {
+  struct ValidatedAndCast {
     ExpressionPtr expr;
     std::shared_ptr<DataType> type;
   };
 
-  Result<Validated> Validate(const Expression& expr) {
-    Validated out;
+  Result<ValidatedAndCast> InsertCastsAndValidate(const Expression& expr) {
+    ValidatedAndCast out;
     ARROW_ASSIGN_OR_RAISE(out.expr, InsertImplicitCasts(expr, schema_));
     ARROW_ASSIGN_OR_RAISE(out.type, out.expr->Validate(schema_));
     return std::move(out);
   }
 
+  void Cast(std::shared_ptr<DataType> type, ExpressionPtr* expr) {
+    if ((*expr)->type() != ExpressionType::SCALAR) {
+      *expr = (*expr)->CastTo(type).Copy();
+      return;
+    }
+
+    // cast the scalar directly
+    const auto& value = checked_cast<const ScalarExpression&>(**expr).value();
+    auto maybe_value = value->CastTo(std::move(type));
+    DCHECK_OK(maybe_value.status());
+    *expr = scalar(*maybe_value);
+  }
+
   Result<ExpressionPtr> operator()(const NotExpression& expr) {
-    ARROW_ASSIGN_OR_RAISE(auto op, Validate(*expr.operand()));
+    ARROW_ASSIGN_OR_RAISE(auto op, InsertCastsAndValidate(*expr.operand()));
 
     if (op.type->id() != Type::BOOL) {
-      op.expr = op.expr->CastTo(boolean()).Copy();
+      Cast(boolean(), &op.expr);
     }
     return not_(std::move(op.expr));
   }
 
   Result<ExpressionPtr> operator()(const AndExpression& expr) {
-    ARROW_ASSIGN_OR_RAISE(auto lhs, Validate(*expr.left_operand()));
-    ARROW_ASSIGN_OR_RAISE(auto rhs, Validate(*expr.right_operand()));
+    ARROW_ASSIGN_OR_RAISE(auto lhs, InsertCastsAndValidate(*expr.left_operand()));
+    ARROW_ASSIGN_OR_RAISE(auto rhs, InsertCastsAndValidate(*expr.right_operand()));
 
     if (lhs.type->id() != Type::BOOL) {
-      lhs.expr = lhs.expr->CastTo(boolean()).Copy();
+      Cast(boolean(), &lhs.expr);
     }
     if (rhs.type->id() != Type::BOOL) {
-      rhs.expr = rhs.expr->CastTo(boolean()).Copy();
+      Cast(boolean(), &rhs.expr);
     }
     return and_(std::move(lhs.expr), std::move(rhs.expr));
   }
 
   Result<ExpressionPtr> operator()(const OrExpression& expr) {
-    ARROW_ASSIGN_OR_RAISE(auto lhs, Validate(*expr.left_operand()));
-    ARROW_ASSIGN_OR_RAISE(auto rhs, Validate(*expr.right_operand()));
+    ARROW_ASSIGN_OR_RAISE(auto lhs, InsertCastsAndValidate(*expr.left_operand()));
+    ARROW_ASSIGN_OR_RAISE(auto rhs, InsertCastsAndValidate(*expr.right_operand()));
 
     if (lhs.type->id() != Type::BOOL) {
-      lhs.expr = lhs.expr->CastTo(boolean()).Copy();
+      Cast(boolean(), &lhs.expr);
     }
     if (rhs.type->id() != Type::BOOL) {
-      rhs.expr = rhs.expr->CastTo(boolean()).Copy();
+      Cast(boolean(), &rhs.expr);
     }
     return or_(std::move(lhs.expr), std::move(rhs.expr));
   }
 
   Result<ExpressionPtr> operator()(const ComparisonExpression& expr) {
-    ARROW_ASSIGN_OR_RAISE(auto lhs, Validate(*expr.left_operand()));
-    ARROW_ASSIGN_OR_RAISE(auto rhs, Validate(*expr.right_operand()));
+    ARROW_ASSIGN_OR_RAISE(auto lhs, InsertCastsAndValidate(*expr.left_operand()));
+    ARROW_ASSIGN_OR_RAISE(auto rhs, InsertCastsAndValidate(*expr.right_operand()));
 
     if (lhs.type->Equals(rhs.type)) {
       return expr.Copy();
     }
 
     if (lhs.expr->type() == ExpressionType::SCALAR) {
-      lhs.expr = lhs.expr->CastTo(rhs.type).Copy();
+      Cast(rhs.type, &lhs.expr);
     } else {
-      rhs.expr = rhs.expr->CastTo(lhs.type).Copy();
+      Cast(lhs.type, &rhs.expr);
     }
     return std::make_shared<ComparisonExpression>(expr.op(), std::move(lhs.expr),
                                                   std::move(rhs.expr));
@@ -998,12 +1011,13 @@ std::vector<std::string> FieldsInExpression(const ExpressionPtr& expr) {
 }
 
 RecordBatchIterator ExpressionEvaluator::FilterBatches(RecordBatchIterator unfiltered,
-                                                       ExpressionPtr filter) {
-  auto filter_batches = [filter, this](const std::shared_ptr<RecordBatch>& unfiltered,
-                                       std::shared_ptr<RecordBatch>* filtered,
-                                       bool* accept) {
-    ARROW_ASSIGN_OR_RAISE(auto selection, Evaluate(*filter, *unfiltered));
-    ARROW_ASSIGN_OR_RAISE(*filtered, Filter(selection, unfiltered));
+                                                       ExpressionPtr filter,
+                                                       MemoryPool* pool) {
+  auto filter_batches = [filter, pool, this](
+                            const std::shared_ptr<RecordBatch>& unfiltered,
+                            std::shared_ptr<RecordBatch>* filtered, bool* accept) {
+    ARROW_ASSIGN_OR_RAISE(auto selection, Evaluate(*filter, *unfiltered, pool));
+    ARROW_ASSIGN_OR_RAISE(*filtered, Filter(selection, unfiltered, pool));
     // drop empty batches
     *accept = (*filtered)->num_rows() > 0;
     return Status::OK();
@@ -1014,17 +1028,16 @@ RecordBatchIterator ExpressionEvaluator::FilterBatches(RecordBatchIterator unfil
 
 std::shared_ptr<ExpressionEvaluator> ExpressionEvaluator::Null() {
   struct Impl : ExpressionEvaluator {
-    Result<Datum> Evaluate(const Expression& expr,
-                           const RecordBatch& batch) const override {
+    Result<Datum> Evaluate(const Expression& expr, const RecordBatch& batch,
+                           MemoryPool* pool) const override {
       ARROW_ASSIGN_OR_RAISE(auto type, expr.Validate(*batch.schema()));
-      std::shared_ptr<Scalar> out;
-      RETURN_NOT_OK(MakeNullScalar(type, &out));
+      ARROW_ASSIGN_OR_RAISE(auto out, MakeNullScalar(type));
       return Datum(std::move(out));
     }
 
-    Result<std::shared_ptr<RecordBatch>> Filter(
-        const Datum& selection,
-        const std::shared_ptr<RecordBatch>& batch) const override {
+    Result<std::shared_ptr<RecordBatch>> Filter(const Datum& selection,
+                                                const std::shared_ptr<RecordBatch>& batch,
+                                                MemoryPool* pool) const override {
       return batch;
     }
   };
@@ -1057,31 +1070,30 @@ struct TreeEvaluator::Impl {
                                               const compute::Datum& left,
                                               const compute::Datum& right,
                                               compute::Datum* out)) const {
-    ARROW_ASSIGN_OR_RAISE(auto lhs, this_->Evaluate(*expr.left_operand(), batch_));
-    ARROW_ASSIGN_OR_RAISE(auto rhs, this_->Evaluate(*expr.right_operand(), batch_));
+    ARROW_ASSIGN_OR_RAISE(auto lhs, Evaluate(*expr.left_operand()));
+    ARROW_ASSIGN_OR_RAISE(auto rhs, Evaluate(*expr.right_operand()));
 
     if (lhs.is_scalar()) {
       std::shared_ptr<Array> lhs_array;
-      RETURN_NOT_OK(
-          MakeArrayFromScalar(pool_, *lhs.scalar(), batch_.num_rows(), &lhs_array));
+      RETURN_NOT_OK(MakeArrayFromScalar(ctx_.memory_pool(), *lhs.scalar(),
+                                        batch_.num_rows(), &lhs_array));
       lhs = Datum(std::move(lhs_array));
     }
 
     if (rhs.is_scalar()) {
       std::shared_ptr<Array> rhs_array;
-      RETURN_NOT_OK(
-          MakeArrayFromScalar(pool_, *rhs.scalar(), batch_.num_rows(), &rhs_array));
+      RETURN_NOT_OK(MakeArrayFromScalar(ctx_.memory_pool(), *rhs.scalar(),
+                                        batch_.num_rows(), &rhs_array));
       rhs = Datum(std::move(rhs_array));
     }
 
     Datum out;
-    compute::FunctionContext ctx{pool_};
-    RETURN_NOT_OK(kernel(&ctx, lhs, rhs, &out));
+    RETURN_NOT_OK(kernel(&ctx_, lhs, rhs, &out));
     return std::move(out);
   }
 
   Result<Datum> operator()(const NotExpression& expr) const {
-    ARROW_ASSIGN_OR_RAISE(auto to_invert, this_->Evaluate(*expr.operand(), batch_));
+    ARROW_ASSIGN_OR_RAISE(auto to_invert, Evaluate(*expr.operand()));
     if (IsNullDatum(to_invert)) {
       return NullDatum();
     }
@@ -1094,26 +1106,24 @@ struct TreeEvaluator::Impl {
 
     DCHECK(to_invert.is_array());
     Datum out;
-    compute::FunctionContext ctx{pool_};
-    RETURN_NOT_OK(arrow::compute::Invert(&ctx, to_invert, &out));
+    RETURN_NOT_OK(arrow::compute::Invert(&ctx_, to_invert, &out));
     return std::move(out);
   }
 
   Result<Datum> operator()(const InExpression& expr) const {
-    ARROW_ASSIGN_OR_RAISE(auto operand_values, this_->Evaluate(*expr.operand(), batch_));
+    ARROW_ASSIGN_OR_RAISE(auto operand_values, Evaluate(*expr.operand()));
     if (IsNullDatum(operand_values)) {
       return Datum(expr.set()->null_count() != 0);
     }
 
     DCHECK(operand_values.is_array());
     Datum out;
-    compute::FunctionContext ctx{pool_};
-    RETURN_NOT_OK(arrow::compute::IsIn(&ctx, operand_values, expr.set(), &out));
+    RETURN_NOT_OK(arrow::compute::IsIn(&ctx_, operand_values, expr.set(), &out));
     return std::move(out);
   }
 
   Result<Datum> operator()(const IsValidExpression& expr) const {
-    ARROW_ASSIGN_OR_RAISE(auto operand_values, this_->Evaluate(*expr.operand(), batch_));
+    ARROW_ASSIGN_OR_RAISE(auto operand_values, Evaluate(*expr.operand()));
     if (IsNullDatum(operand_values)) {
       return Datum(false);
     }
@@ -1134,21 +1144,20 @@ struct TreeEvaluator::Impl {
   Result<Datum> operator()(const CastExpression& expr) const {
     ARROW_ASSIGN_OR_RAISE(auto to_type, expr.Validate(*batch_.schema()));
 
-    ARROW_ASSIGN_OR_RAISE(auto to_cast, this_->Evaluate(*expr.operand(), batch_));
+    ARROW_ASSIGN_OR_RAISE(auto to_cast, Evaluate(*expr.operand()));
     if (to_cast.is_scalar()) {
       return to_cast.scalar()->CastTo(to_type);
     }
 
     DCHECK(to_cast.is_array());
     Datum out;
-    compute::FunctionContext ctx{pool_};
-    RETURN_NOT_OK(arrow::compute::Cast(&ctx, to_cast, to_type, expr.options(), &out));
+    RETURN_NOT_OK(arrow::compute::Cast(&ctx_, to_cast, to_type, expr.options(), &out));
     return std::move(out);
   }
 
   Result<Datum> operator()(const ComparisonExpression& expr) const {
-    ARROW_ASSIGN_OR_RAISE(auto lhs, this_->Evaluate(*expr.left_operand(), batch_));
-    ARROW_ASSIGN_OR_RAISE(auto rhs, this_->Evaluate(*expr.right_operand(), batch_));
+    ARROW_ASSIGN_OR_RAISE(auto lhs, Evaluate(*expr.left_operand()));
+    ARROW_ASSIGN_OR_RAISE(auto rhs, Evaluate(*expr.right_operand()));
 
     if (IsNullDatum(lhs) || IsNullDatum(rhs)) {
       return Datum(std::make_shared<BooleanScalar>());
@@ -1157,9 +1166,8 @@ struct TreeEvaluator::Impl {
     DCHECK(lhs.is_array());
 
     Datum out;
-    compute::FunctionContext ctx{pool_};
     RETURN_NOT_OK(arrow::compute::Compare(
-        &ctx, lhs, rhs, arrow::compute::CompareOptions(expr.op()), &out));
+        &ctx_, lhs, rhs, arrow::compute::CompareOptions(expr.op()), &out));
     return std::move(out);
   }
 
@@ -1167,22 +1175,27 @@ struct TreeEvaluator::Impl {
     return Status::NotImplemented("evaluation of ", expr.ToString());
   }
 
+  Result<Datum> Evaluate(const Expression& expr) const {
+    return this_->Evaluate(expr, batch_, ctx_.memory_pool());
+  }
+
   const TreeEvaluator* this_;
   const RecordBatch& batch_;
-  MemoryPool* pool_;
+  mutable compute::FunctionContext ctx_;
 };
 
-Result<Datum> TreeEvaluator::Evaluate(const Expression& expr,
-                                      const RecordBatch& batch) const {
-  return VisitExpression(expr, Impl{this, batch, pool_});
+Result<Datum> TreeEvaluator::Evaluate(const Expression& expr, const RecordBatch& batch,
+                                      MemoryPool* pool) const {
+  return VisitExpression(expr, Impl{this, batch, compute::FunctionContext{pool}});
 }
 
 Result<std::shared_ptr<RecordBatch>> TreeEvaluator::Filter(
-    const compute::Datum& selection, const std::shared_ptr<RecordBatch>& batch) const {
+    const compute::Datum& selection, const std::shared_ptr<RecordBatch>& batch,
+    MemoryPool* pool) const {
   if (selection.is_array()) {
     auto selection_array = selection.make_array();
     std::shared_ptr<RecordBatch> filtered;
-    compute::FunctionContext ctx{pool_};
+    compute::FunctionContext ctx{pool};
     RETURN_NOT_OK(compute::Filter(&ctx, *batch, *selection_array, &filtered));
     return std::move(filtered);
   }

@@ -27,6 +27,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/filter.h"
 #include "arrow/filesystem/localfs.h"
@@ -164,21 +165,14 @@ class DatasetFixtureMixin : public ::testing::Test {
   }
 
  protected:
-  ScanOptionsPtr options_ = ScanOptions::Defaults();
-  ScanContextPtr ctx_;
-};
+  void SetSchema(std::vector<std::shared_ptr<Field>> fields) {
+    schema_ = schema(std::move(fields));
+    options_ = ScanOptions::Make(schema_);
+  }
 
-template <typename Format>
-class FileSystemBasedDataSourceMixin : public FileSourceFixtureMixin {
- public:
-  virtual std::vector<std::string> file_names() const = 0;
-
-  fs::Selector selector_;
-  std::unique_ptr<DataSource> source_;
-  std::shared_ptr<fs::FileSystem> fs_;
-  FileFormatPtr format_;
   std::shared_ptr<Schema> schema_;
-  ScanOptionsPtr options_ = ScanOptions::Defaults();
+  ScanOptionsPtr options_;
+  ScanContextPtr ctx_;
 };
 
 /// \brief A dummy FileFormat implementation
@@ -223,8 +217,13 @@ Result<DataFragmentPtr> DummyFileFormat::MakeFragment(const FileSource& source,
 
 class JSONRecordBatchFileFormat : public FileFormat {
  public:
+  using SchemaResolver = std::function<std::shared_ptr<Schema>(const FileSource&)>;
+
   explicit JSONRecordBatchFileFormat(std::shared_ptr<Schema> schema)
-      : schema_(std::move(schema)) {}
+      : resolver_([schema](const FileSource&) { return schema; }) {}
+
+  explicit JSONRecordBatchFileFormat(SchemaResolver resolver)
+      : resolver_(std::move(resolver)) {}
 
   std::string name() const override { return "json_record_batch"; }
 
@@ -232,10 +231,10 @@ class JSONRecordBatchFileFormat : public FileFormat {
   Result<bool> IsSupported(const FileSource& source) const override { return true; }
 
   Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override {
-    return schema_;
+    return resolver_(source);
   }
 
-  /// \brief Open a file for scanning (always returns an empty iterator)
+  /// \brief Open a file for scanning
   Result<ScanTaskIterator> ScanFile(const FileSource& source, ScanOptionsPtr options,
                                     ScanContextPtr context) const override {
     ARROW_ASSIGN_OR_RAISE(auto file, source.Open());
@@ -243,15 +242,18 @@ class JSONRecordBatchFileFormat : public FileFormat {
     ARROW_ASSIGN_OR_RAISE(auto buffer, file->Read(size));
 
     util::string_view view{*buffer};
-    std::shared_ptr<RecordBatch> batch = RecordBatchFromJSON(schema_, view);
-    return ScanTaskIteratorFromRecordBatch({batch});
+
+    ARROW_ASSIGN_OR_RAISE(auto schema, Inspect(source));
+    std::shared_ptr<RecordBatch> batch = RecordBatchFromJSON(schema, view);
+    return ScanTaskIteratorFromRecordBatch({batch}, std::move(options),
+                                           std::move(context));
   }
 
   inline Result<DataFragmentPtr> MakeFragment(const FileSource& location,
                                               ScanOptionsPtr options) override;
 
  protected:
-  std::shared_ptr<Schema> schema_;
+  SchemaResolver resolver_;
 };
 
 class JSONRecordBatchFragment : public FileDataFragment {
@@ -266,10 +268,10 @@ class JSONRecordBatchFragment : public FileDataFragment {
 
 Result<DataFragmentPtr> JSONRecordBatchFileFormat::MakeFragment(const FileSource& source,
                                                                 ScanOptionsPtr options) {
-  return std::make_shared<JSONRecordBatchFragment>(source, schema_, options);
+  return std::make_shared<JSONRecordBatchFragment>(source, resolver_(source), options);
 }
 
-class TestFileSystemBasedDataSource : public ::testing::Test {
+class TestFileSystemDataSource : public ::testing::Test {
  public:
   void MakeFileSystem(const std::vector<fs::FileStats>& stats) {
     ASSERT_OK_AND_ASSIGN(fs_, fs::internal::MockFileSystem::Make(fs::kNoTime, stats));
@@ -284,18 +286,22 @@ class TestFileSystemBasedDataSource : public ::testing::Test {
   }
 
   void MakeSource(const std::vector<fs::FileStats>& stats,
-                  ExpressionPtr source_partition = nullptr,
-                  PathPartitions partitions = {}) {
+                  ExpressionPtr source_partition = scalar(true),
+                  ExpressionVector partitions = {}) {
+    if (partitions.empty()) {
+      partitions.resize(stats.size(), scalar(true));
+    }
+
     MakeFileSystem(stats);
     auto format = std::make_shared<DummyFileFormat>();
-    ASSERT_OK_AND_ASSIGN(source_, FileSystemDataSource::Make(fs_, stats, source_partition,
-                                                             partitions, format));
+    ASSERT_OK_AND_ASSIGN(source_, FileSystemDataSource::Make(fs_, stats, partitions,
+                                                             source_partition, format));
   }
 
  protected:
   std::shared_ptr<fs::FileSystem> fs_;
   DataSourcePtr source_;
-  ScanOptionsPtr options_ = ScanOptions::Defaults();
+  ScanOptionsPtr options_ = ScanOptions::Make(schema({}));
 };
 
 void AssertFragmentsAreFromPath(DataFragmentIterator it,

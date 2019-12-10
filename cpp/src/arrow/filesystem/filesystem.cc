@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <sstream>
 #include <utility>
 
 #include "arrow/filesystem/filesystem.h"
@@ -90,6 +91,12 @@ std::string FileStats::dir_name() const {
 }
 
 // Debug helper
+std::string FileStats::ToString() const {
+  std::stringstream os;
+  os << *this;
+  return os.str();
+}
+
 std::ostream& operator<<(std::ostream& os, const FileStats& stats) {
   return os << "FileStats(" << stats.type() << ", " << stats.path() << ")";
 }

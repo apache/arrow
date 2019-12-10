@@ -28,7 +28,7 @@
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/filesystem/filesystem.h"
-#include "arrow/filesystem/path_tree.h"
+#include "arrow/filesystem/path_forest.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
@@ -65,13 +65,13 @@ class ARROW_DS_EXPORT DataSourceDiscovery {
     return Status::OK();
   }
 
-  PartitionSchemePtr partition_scheme() const { return partition_scheme_; }
+  const PartitionSchemePtr& partition_scheme() const { return partition_scheme_; }
   Status SetPartitionScheme(PartitionSchemePtr partition_scheme) {
     partition_scheme_ = partition_scheme;
     return Status::OK();
   }
 
-  ExpressionPtr root_partition() const { return root_partition_; }
+  const ExpressionPtr& root_partition() const { return root_partition_; }
   Status SetRootPartition(ExpressionPtr partition) {
     root_partition_ = partition;
     return Status::OK();
@@ -80,6 +80,8 @@ class ARROW_DS_EXPORT DataSourceDiscovery {
   virtual ~DataSourceDiscovery() = default;
 
  protected:
+  DataSourceDiscovery();
+
   std::shared_ptr<Schema> schema_;
   PartitionSchemePtr partition_scheme_;
   ExpressionPtr root_partition_;

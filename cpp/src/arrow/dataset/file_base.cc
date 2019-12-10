@@ -20,8 +20,10 @@
 #include <algorithm>
 #include <vector>
 
+#include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/filter.h"
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/filesystem/path_util.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/util/iterator.h"
@@ -30,14 +32,11 @@ namespace arrow {
 namespace dataset {
 
 Result<std::shared_ptr<arrow::io::RandomAccessFile>> FileSource::Open() const {
-  switch (type_) {
-    case PATH:
-      return filesystem_->OpenInputFile(path_);
-    case BUFFER:
-      return std::make_shared<::arrow::io::BufferReader>(buffer_);
+  if (type() == PATH) {
+    return filesystem()->OpenInputFile(path());
   }
 
-  return Status::NotImplemented("Unknown file source type.");
+  return std::make_shared<::arrow::io::BufferReader>(buffer());
 }
 
 Result<ScanTaskIterator> FileDataFragment::Scan(ScanContextPtr context) {
@@ -46,78 +45,141 @@ Result<ScanTaskIterator> FileDataFragment::Scan(ScanContextPtr context) {
 
 FileSystemDataSource::FileSystemDataSource(fs::FileSystemPtr filesystem,
                                            fs::PathForest forest,
+                                           ExpressionVector file_partitions,
                                            ExpressionPtr source_partition,
-                                           PathPartitions partitions,
                                            FileFormatPtr format)
     : DataSource(std::move(source_partition)),
       filesystem_(std::move(filesystem)),
       forest_(std::move(forest)),
-      partitions_(std::move(partitions)),
-      format_(std::move(format)) {}
+      partitions_(std::move(file_partitions)),
+      format_(std::move(format)) {
+  DCHECK_EQ(static_cast<size_t>(forest_.size()), partitions_.size());
+}
 
 Result<DataSourcePtr> FileSystemDataSource::Make(fs::FileSystemPtr filesystem,
                                                  fs::FileStatsVector stats,
                                                  ExpressionPtr source_partition,
-                                                 PathPartitions partitions,
                                                  FileFormatPtr format) {
-  fs::PathForest forest;
-  RETURN_NOT_OK(fs::PathTree::Make(stats, &forest));
+  ExpressionVector partitions(stats.size(), scalar(true));
+  return Make(std::move(filesystem), std::move(stats), std::move(partitions),
+              std::move(source_partition), std::move(format));
+}
 
+Result<DataSourcePtr> FileSystemDataSource::Make(fs::FileSystemPtr filesystem,
+                                                 fs::FileStatsVector stats,
+                                                 ExpressionVector partitions,
+                                                 ExpressionPtr source_partition,
+                                                 FileFormatPtr format) {
+  ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::Make(std::move(stats), &partitions));
+  return Make(std::move(filesystem), std::move(forest), std::move(partitions),
+              std::move(source_partition), std::move(format));
+}
+
+Result<DataSourcePtr> FileSystemDataSource::Make(fs::FileSystemPtr filesystem,
+                                                 fs::PathForest forest,
+                                                 ExpressionVector partitions,
+                                                 ExpressionPtr source_partition,
+                                                 FileFormatPtr format) {
   return DataSourcePtr(new FileSystemDataSource(
-      std::move(filesystem), std::move(forest), std::move(source_partition),
-      std::move(partitions), std::move(format)));
+      std::move(filesystem), std::move(forest), std::move(partitions),
+      std::move(source_partition), std::move(format)));
 }
 
-DataFragmentIterator FileSystemDataSource::GetFragmentsImpl(ScanOptionsPtr options) {
-  std::vector<std::unique_ptr<fs::FileStats>> files;
+std::string FileSystemDataSource::ToString() const {
+  std::string repr = "FileSystemDataSource:";
 
-  auto visitor = [&files](const fs::FileStats& stats) {
-    if (stats.IsFile()) {
-      files.emplace_back(new fs::FileStats(stats));
+  if (forest_.size() == 0) {
+    return repr + " []";
+  }
+
+  DCHECK_OK(forest_.Visit([&](fs::PathForest::Ref ref) {
+    repr += "\n" + ref.stats().path();
+
+    if (!partitions_[ref.i]->Equals(true)) {
+      repr += ": " + partitions_[ref.i]->ToString();
     }
-    return Status::OK();
-  };
-  // The matcher ensures that directories (and their descendants) are not
-  // visited.
-  auto matcher = [this, options](const fs::FileStats& stats, bool* match) {
-    *match = this->PartitionMatches(stats, options->filter);
-    return Status::OK();
-  };
 
-  for (auto tree : forest_) {
-    DCHECK_OK(tree->Visit(visitor, matcher));
-  }
-
-  auto file_it = MakeVectorIterator(std::move(files));
-  auto file_to_fragment = [options, this](std::unique_ptr<fs::FileStats> stats,
-                                          std::shared_ptr<DataFragment>* out) {
-    FileSource src(stats->path(), filesystem_.get());
-    ARROW_ASSIGN_OR_RAISE(*out, format_->MakeFragment(src, options));
     return Status::OK();
-  };
+  }));
 
-  return MakeMaybeMapIterator(file_to_fragment, std::move(file_it));
+  return repr;
 }
 
-bool FileSystemDataSource::PartitionMatches(const fs::FileStats& stats,
-                                            ExpressionPtr filter) {
-  if (filter == nullptr) {
-    return true;
+util::optional<std::pair<std::string, std::shared_ptr<Scalar>>> GetKey(
+    const Expression& expr) {
+  if (expr.type() != ExpressionType::COMPARISON) {
+    return util::nullopt;
   }
 
-  auto found = partitions_.find(stats.path());
-  if (found == partitions_.end()) {
-    // No partition attached to current node (directory or file), continue.
-    return true;
+  const auto& cmp = internal::checked_cast<const ComparisonExpression&>(expr);
+  if (cmp.op() != compute::CompareOperator::EQUAL) {
+    return util::nullopt;
   }
 
-  auto expr = found->second->Assume(*filter);
-  if (expr->IsNull() || expr->Equals(false)) {
-    // selector is not satisfiable; don't recurse in this branch.
-    return false;
+  // TODO(bkietz) allow this ordering to be flipped
+
+  if (cmp.left_operand()->type() != ExpressionType::FIELD) {
+    return util::nullopt;
   }
 
-  return true;
+  if (cmp.right_operand()->type() != ExpressionType::SCALAR) {
+    return util::nullopt;
+  }
+
+  return std::make_pair(
+      internal::checked_cast<const FieldExpression&>(*cmp.left_operand()).name(),
+      internal::checked_cast<const ScalarExpression&>(*cmp.right_operand()).value());
+}
+
+DataFragmentIterator FileSystemDataSource::GetFragmentsImpl(ScanOptionsPtr root_options) {
+  DataFragmentVector fragments;
+  std::vector<ScanOptionsPtr> options(forest_.size());
+
+  auto collect_fragments = [&](fs::PathForest::Ref ref) -> fs::PathForest::MaybePrune {
+    auto partition = partitions_[ref.i];
+
+    // if available, copy parent's filter and projector
+    // (which are appropriately simplified and loaded with default values)
+    if (auto parent = ref.parent()) {
+      options[ref.i].reset(new ScanOptions(*options[parent.i]));
+    } else {
+      options[ref.i].reset(new ScanOptions(*root_options));
+    }
+
+    // simplify filter by partition information
+    auto filter = options[ref.i]->filter->Assume(partition);
+    options[ref.i]->filter = filter;
+
+    if (filter->IsNull() || filter->Equals(false)) {
+      // directories (and descendants) which can't satisfy the filter are pruned
+      return fs::PathForest::Prune;
+    }
+
+    // if possible, extract a partition key and pass it to the projector
+    auto projector = &options[ref.i]->projector;
+    if (auto name_value = GetKey(*partition)) {
+      auto index = projector->schema()->GetFieldIndex(name_value->first);
+      if (index != -1) {
+        RETURN_NOT_OK(projector->SetDefaultValue(index, std::move(name_value->second)));
+      }
+    }
+
+    if (ref.stats().IsFile()) {
+      // generate a fragment for this file
+      FileSource src(ref.stats().path(), filesystem_.get());
+      ARROW_ASSIGN_OR_RAISE(auto fragment, format_->MakeFragment(src, options[ref.i]));
+      fragments.push_back(std::move(fragment));
+    }
+
+    return fs::PathForest::Continue;
+  };
+
+  auto status = forest_.Visit(collect_fragments);
+  if (!status.ok()) {
+    return MakeErrorIterator<DataFragmentPtr>(status);
+  }
+
+  return MakeVectorIterator(std::move(fragments));
 }
 
 }  // namespace dataset

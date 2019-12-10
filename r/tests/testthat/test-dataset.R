@@ -30,16 +30,14 @@ df1 <- tibble(
   dbl = as.numeric(1:10),
   lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
   chr = letters[1:10],
-  fct = factor(LETTERS[1:10]),
-  part = 1
+  fct = factor(LETTERS[1:10])
 )
 df2 <- tibble(
   int = 101:110,
   dbl = as.numeric(51:60),
   lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
   chr = letters[10:1],
-  fct = factor(LETTERS[10:1]),
-  part = 2
+  fct = factor(LETTERS[10:1])
 )
 
 test_that("Setup (putting data in the dir)", {
@@ -107,25 +105,25 @@ test_that("filter() on a dataset won't auto-collect", {
 })
 
 test_that("filter() with is.na()", {
-  ds <- open_dataset(dataset_dir)
+  ds <- open_dataset(dataset_dir, partition = schema(part = uint8()))
   expect_equivalent(
     ds %>%
       select(part, lgl) %>%
       filter(!is.na(lgl), part == 1) %>%
       collect(),
-    df1[!is.na(df1$lgl), c("part", "lgl")]
+    tibble(part = 1L, lgl = df1$lgl[!is.na(df1$lgl)])
   )
 })
 
 test_that("filter() with %in%", {
-  ds <- open_dataset(dataset_dir)
+  ds <- open_dataset(dataset_dir, partition = schema(part = uint8()))
   expect_equivalent(
     ds %>%
-      select(part, int) %>%
-      filter(int %in% c(6L, 4L, 3L), part == 1) %>%
+      select(int, part) %>%
+      filter(int %in% c(6L, 4L, 3L, 103L, 107L), part == 1) %>%
       # TODO: C++ In() should cast: ARROW-7204
       collect(),
-    df1[c(3, 4, 6), c("part", "int")]
+    tibble(int = df1$int[c(3, 4, 6)], part = 1)
   )
 })
 

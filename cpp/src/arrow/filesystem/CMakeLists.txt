@@ -20,7 +20,7 @@ arrow_install_all_headers("arrow/filesystem")
 
 add_arrow_test(filesystem_test)
 add_arrow_test(localfs_test)
-add_arrow_test(path_tree_test)
+add_arrow_test(path_forest_test)
 
 if(ARROW_S3)
   add_arrow_test(s3fs_test)

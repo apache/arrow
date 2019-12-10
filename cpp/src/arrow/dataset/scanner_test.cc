@@ -27,39 +27,49 @@
 namespace arrow {
 namespace dataset {
 
-class TestScanner : public DatasetFixtureMixin {};
+class TestScanner : public DatasetFixtureMixin {
+ protected:
+  static constexpr int64_t kNumberSources = 2;
+  static constexpr int64_t kNumberFragments = 4;
+  static constexpr int64_t kNumberBatches = 16;
+  static constexpr int64_t kBatchSize = 1024;
+
+  Scanner MakeScanner(std::shared_ptr<RecordBatch> batch) {
+    std::vector<std::shared_ptr<RecordBatch>> batches{kNumberBatches, batch};
+
+    DataFragmentVector fragments{kNumberFragments,
+                                 std::make_shared<SimpleDataFragment>(batches, options_)};
+
+    DataSourceVector sources{kNumberSources,
+                             std::make_shared<SimpleDataSource>(fragments)};
+
+    return Scanner{sources, options_, ctx_};
+  }
+
+  void AssertScannerEqualsRepetitionsOf(Scanner scanner,
+                                        std::shared_ptr<RecordBatch> batch) {
+    const int64_t total_batches = kNumberSources * kNumberBatches * kNumberFragments;
+    auto expected = ConstantArrayGenerator::Repeat(total_batches, batch);
+
+    // Verifies that the unified BatchReader is equivalent to flattening all the
+    // structures of the scanner, i.e. Scanner[DataSource[ScanTask[RecordBatch]]]
+    AssertScannerEquals(expected.get(), &scanner);
+  }
+};
+
+constexpr int64_t TestScanner::kNumberSources;
+constexpr int64_t TestScanner::kNumberFragments;
+constexpr int64_t TestScanner::kNumberBatches;
+constexpr int64_t TestScanner::kBatchSize;
 
 TEST_F(TestScanner, Scan) {
-  constexpr int64_t kNumberFragments = 4;
-  constexpr int64_t kNumberBatches = 16;
-  constexpr int64_t kBatchSize = 1024;
-
-  auto s = schema({field("i32", int32()), field("f64", float64())});
-  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, s);
-
-  std::vector<std::shared_ptr<RecordBatch>> batches{kNumberBatches, batch};
-  auto fragment = std::make_shared<SimpleDataFragment>(batches);
-  DataFragmentVector fragments{kNumberFragments, fragment};
-
-  DataSourceVector sources = {
-      std::make_shared<SimpleDataSource>(fragments),
-      std::make_shared<SimpleDataSource>(fragments),
-  };
-
-  const int64_t total_batches = sources.size() * kNumberBatches * kNumberFragments;
-  auto reader = ConstantArrayGenerator::Repeat(total_batches, batch);
-
-  Scanner scanner{sources, options_, ctx_};
-
-  // Verifies that the unified BatchReader is equivalent to flattening all the
-  // structures of the scanner, i.e. Scanner[DataSource[ScanTask[RecordBatch]]]
-  AssertScannerEquals(reader.get(), &scanner);
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  AssertScannerEqualsRepetitionsOf(MakeScanner(batch), batch);
 }
 
 TEST_F(TestScanner, FilteredScan) {
-  constexpr int64_t kNumberFragments = 4;
-  constexpr int64_t kNumberBatches = 16;
-  constexpr int64_t kBatchSize = 1024;
+  SetSchema({field("f64", float64())});
 
   double value = 0.5;
   ASSERT_OK_AND_ASSIGN(auto f64,
@@ -69,6 +79,12 @@ TEST_F(TestScanner, FilteredScan) {
                                                  builder->UnsafeAppend(-value);
                                                  value += 1.0;
                                                }));
+
+  options_->filter = ("f64"_ > 0.0).Copy();
+  options_->evaluator = std::make_shared<TreeEvaluator>();
+
+  auto batch = RecordBatch::Make(schema_, f64->length(), {f64});
+
   value = 0.5;
   ASSERT_OK_AND_ASSIGN(
       auto f64_filtered,
@@ -77,64 +93,50 @@ TEST_F(TestScanner, FilteredScan) {
         value += 1.0;
       }));
 
-  auto s = schema({field("f64", float64())});
-  auto batch = RecordBatch::Make(s, f64->length(), {f64});
-  auto batch_filtered = RecordBatch::Make(s, f64_filtered->length(), {f64_filtered});
+  auto filtered_batch =
+      RecordBatch::Make(schema_, f64_filtered->length(), {f64_filtered});
 
-  std::vector<std::shared_ptr<RecordBatch>> batches{kNumberBatches, batch};
+  AssertScannerEqualsRepetitionsOf(MakeScanner(batch), filtered_batch);
+}
 
-  options_ = ScanOptions::Defaults();
-  options_->filter = ("f64"_ > 0.0).Copy();
+TEST_F(TestScanner, MaterializeMissingColumn) {
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch_missing_f64 =
+      ConstantArrayGenerator::Zeroes(kBatchSize, schema({field("i32", int32())}));
 
-  auto fragment = std::make_shared<SimpleDataFragment>(batches, options_);
-  DataFragmentVector fragments{kNumberFragments, fragment};
+  ASSERT_OK(options_->projector.SetDefaultValue(schema_->GetFieldIndex("f64"),
+                                                MakeScalar(2.5)));
 
-  DataSourceVector sources = {
-      std::make_shared<SimpleDataSource>(fragments),
-      std::make_shared<SimpleDataSource>(fragments),
-  };
+  ASSERT_OK_AND_ASSIGN(auto f64, ArrayFromBuilderVisitor(float64(), kBatchSize,
+                                                         [&](DoubleBuilder* builder) {
+                                                           builder->UnsafeAppend(2.5);
+                                                         }));
+  auto batch_with_f64 =
+      RecordBatch::Make(schema_, f64->length(), {batch_missing_f64->column(0), f64});
 
-  const int64_t total_batches = sources.size() * kNumberBatches * kNumberFragments;
-  auto reader = ConstantArrayGenerator::Repeat(total_batches, batch_filtered);
-
-  options_->evaluator = std::make_shared<TreeEvaluator>(default_memory_pool());
-  Scanner scanner{sources, options_, ctx_};
-
-  // Verifies that the unified BatchReader is equivalent to flattening all the
-  // structures of the scanner, i.e. Scanner[DataSource[ScanTask[RecordBatch]]]
-  AssertScannerEquals(reader.get(), &scanner);
+  AssertScannerEqualsRepetitionsOf(MakeScanner(batch_missing_f64), batch_with_f64);
 }
 
 TEST_F(TestScanner, ToTable) {
-  constexpr int64_t kBatchSize = 1024;
-  constexpr int64_t kNumberBatches = 16;
-
-  auto s = schema({field("i32", int32()), field("f64", float64())});
-  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, s);
-  std::vector<std::shared_ptr<RecordBatch>> batches{kNumberBatches, batch};
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  std::vector<std::shared_ptr<RecordBatch>> batches{
+      kNumberBatches * kNumberFragments * kNumberSources, batch};
 
   std::shared_ptr<Table> expected;
   ASSERT_OK(Table::FromRecordBatches(batches, &expected));
 
-  auto fragment = std::make_shared<SimpleDataFragment>(batches);
-  DataFragmentVector fragments{1, fragment};
-
-  DataSourceVector sources = {
-      std::make_shared<SimpleDataSource>(fragments),
-  };
-
-  options_->schema = s;
-  auto scanner = std::make_shared<Scanner>(sources, options_, ctx_);
+  auto scanner = MakeScanner(batch);
   std::shared_ptr<Table> actual;
 
   options_->use_threads = false;
-  ASSERT_OK_AND_ASSIGN(actual, scanner->ToTable());
+  ASSERT_OK_AND_ASSIGN(actual, scanner.ToTable());
   AssertTablesEqual(*expected, *actual);
 
   // There is no guarantee on the ordering when using multiple threads, but
   // since the RecordBatch is always the same it will pass.
   options_->use_threads = true;
-  ASSERT_OK_AND_ASSIGN(actual, scanner->ToTable());
+  ASSERT_OK_AND_ASSIGN(actual, scanner.ToTable());
   AssertTablesEqual(*expected, *actual);
 }
 

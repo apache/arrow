@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <regex>
 #include <string>
 #include <vector>
 
@@ -52,14 +53,50 @@ class TestPartitionScheme : public ::testing::Test {
     AssertParse(path, expected.Copy());
   }
 
+  void AssertInspect(const std::vector<util::string_view>& paths,
+                     const std::vector<std::shared_ptr<Field>>& expected) {
+    ASSERT_OK_AND_ASSIGN(auto actual, discovery_->Inspect(paths));
+    ASSERT_EQ(*actual, Schema(expected));
+  }
+
  protected:
+  static std::shared_ptr<Field> Int(std::string name) {
+    return field(std::move(name), int32());
+  }
+
+  static std::shared_ptr<Field> Str(std::string name) {
+    return field(std::move(name), utf8());
+  }
+
   PartitionSchemePtr scheme_;
+  PartitionSchemeDiscoveryPtr discovery_;
 };
 
-TEST_F(TestPartitionScheme, Simple) {
-  auto expr = equal(field_ref("alpha"), scalar<int16_t>(3));
-  scheme_ = std::make_shared<ConstantPartitionScheme>(expr);
-  AssertParse("/hello/world", expr);
+TEST_F(TestPartitionScheme, SegmentDictionary) {
+  using Dict = std::unordered_map<std::string, ExpressionPtr>;
+  Dict alpha_dict, beta_dict;
+  auto add_expr = [](const std::string& segment, const Expression& expr, Dict* dict) {
+    dict->emplace(segment, expr.Copy());
+  };
+
+  add_expr("zero", "alpha"_ == 0, &alpha_dict);
+  add_expr("one", "alpha"_ == 1, &alpha_dict);
+  add_expr("more", "alpha"_ >= 2, &alpha_dict);
+
+  add_expr("...", "beta"_ == "uh", &beta_dict);
+  add_expr("?", "beta"_ == "what", &beta_dict);
+  add_expr("!", "beta"_ == "OH", &beta_dict);
+
+  scheme_.reset(new SegmentDictionaryPartitionScheme(
+      schema({field("alpha", int32()), field("beta", utf8())}), {alpha_dict, beta_dict}));
+
+  AssertParse("/one/?", "alpha"_ == int32_t(1) and "beta"_ == "what");
+  AssertParse("/one/?/---", "alpha"_ == int32_t(1) and "beta"_ == "what");
+  AssertParse("/more", "alpha"_ >= int32_t(2));      // missing second segment
+  AssertParse("/---/---", scalar(true));             // unrecognized segments
+  AssertParse("/---/!", "beta"_ == "OH");            // unrecognized first segment
+  AssertParse("/zero/---", "alpha"_ == int32_t(0));  // unrecognized second segment
+  AssertParse("", scalar(true));                     // no segments to parse
 }
 
 TEST_F(TestPartitionScheme, Schema) {
@@ -77,6 +114,22 @@ TEST_F(TestPartitionScheme, Schema) {
   AssertParse("/0/dat.parquet", "alpha"_ == int32_t(0) and "beta"_ == "dat.parquet");
 
   AssertParse("/0/foo/ignored=2341", "alpha"_ == int32_t(0) and "beta"_ == "foo");
+}
+
+TEST_F(TestPartitionScheme, DiscoverSchema) {
+  discovery_ = SchemaPartitionScheme::MakeDiscovery({"alpha", "beta"});
+
+  // type is int32 if possibe
+  AssertInspect({"/0/1"}, {Int("alpha"), Int("beta")});
+
+  // extra segments are ignored
+  AssertInspect({"/0/1/what"}, {Int("alpha"), Int("beta")});
+
+  // fall back to string if any segment for field alpha is not parseable as int
+  AssertInspect({"/0/1", "/hello/1"}, {Str("alpha"), Int("beta")});
+
+  // missing segment for beta doesn't cause an error or fallback
+  AssertInspect({"/0/1", "/hello"}, {Str("alpha"), Int("beta")});
 }
 
 TEST_F(TestPartitionScheme, Hive) {
@@ -100,10 +153,19 @@ TEST_F(TestPartitionScheme, Hive) {
   AssertParseError("/alpha=0.0/beta=3.25");  // conversion of "0.0" to int32 fails
 }
 
-template <typename T>
-void PopFront(size_t n, std::vector<T>* v) {
-  std::move(v->begin() + n, v->end(), v->begin());
-  v->resize(v->size() - n);
+TEST_F(TestPartitionScheme, DiscoverHiveSchema) {
+  discovery_ = HivePartitionScheme::MakeDiscovery();
+
+  // type is int32 if possibe
+  AssertInspect({"/alpha=0/beta=1"}, {Int("alpha"), Int("beta")});
+
+  // extra segments are ignored
+  AssertInspect({"/gamma=0/unexpected/delta=1/dat.parquet"},
+                {Int("delta"), Int("gamma")});
+
+  // order doesn't matter
+  AssertInspect({"/alpha=0/beta=1", "/beta=2/alpha=3", "/gamma=what"},
+                {Int("alpha"), Int("beta"), Str("gamma")});
 }
 
 TEST_F(TestPartitionScheme, EtlThenHive) {
@@ -113,22 +175,21 @@ TEST_F(TestPartitionScheme, EtlThenHive) {
       schema({field("alpha", int32()), field("beta", float32())}));
 
   scheme_ = std::make_shared<FunctionPartitionScheme>(
-      [&](const std::string& path) -> Result<ExpressionPtr> {
-        ARROW_ASSIGN_OR_RAISE(auto etl_expr, etl_scheme.Parse(path));
+      schema({field("year", int16()), field("month", int8()), field("day", int8()),
+              field("hour", int8()), field("alpha", int32()), field("beta", float32())}),
+      [&](const std::string& segment, int i) -> Result<ExpressionPtr> {
+        if (i < etl_scheme.schema()->num_fields()) {
+          return etl_scheme.Parse(segment, i);
+        }
 
-        auto segments = fs::internal::SplitAbstractPath(path);
-        PopFront(etl_scheme.schema()->num_fields(), &segments);
-        ARROW_ASSIGN_OR_RAISE(
-            auto alphabeta_expr,
-            alphabeta_scheme.Parse(fs::internal::JoinAbstractPath(segments)));
-
-        return and_(std::move(etl_expr), std::move(alphabeta_expr));
+        i -= etl_scheme.schema()->num_fields();
+        return alphabeta_scheme.Parse(segment, i);
       });
 
   AssertParse("/1999/12/31/00/alpha=0/beta=3.25",
               "year"_ == int16_t(1999) and "month"_ == int8_t(12) and
                   "day"_ == int8_t(31) and "hour"_ == int8_t(0) and
-                  ("alpha"_ == int32_t(0) and "beta"_ == 3.25f));
+                  "alpha"_ == int32_t(0) and "beta"_ == 3.25f);
 
   AssertParseError("/20X6/03/21/05/alpha=0/beta=3.25");
 }
@@ -137,9 +198,10 @@ TEST_F(TestPartitionScheme, Set) {
   // An adhoc partition scheme which parses segments like "/x in [1 4 5]"
   // into ("x"_ == 1 or "x"_ == 4 or "x"_ == 5)
   scheme_ = std::make_shared<FunctionPartitionScheme>(
-      [](const std::string& path) -> Result<ExpressionPtr> {
+      schema({field("x", int32())}),
+      [](const std::string& segment, int) -> Result<ExpressionPtr> {
         std::smatch matches;
-        auto segment = std::move(fs::internal::SplitAbstractPath(path)[0]);
+
         static std::regex re("^x in \\[(.*)\\]$");
         if (!std::regex_match(segment, matches, re) || matches.size() != 2) {
           return Status::Invalid("regex failed to parse");
@@ -149,8 +211,7 @@ TEST_F(TestPartitionScheme, Set) {
         std::string element;
         std::istringstream elements(matches[1]);
         while (elements >> element) {
-          std::shared_ptr<Scalar> s;
-          RETURN_NOT_OK(Scalar::Parse(int32(), element, &s));
+          ARROW_ASSIGN_OR_RAISE(auto s, Scalar::Parse(int32(), element));
           subexpressions.push_back(equal(field_ref("x"), scalar(s)));
         }
 
@@ -170,25 +231,27 @@ class RangePartitionScheme : public HivePartitionScheme {
 
   std::string name() const override { return "range_partition_scheme"; }
 
-  Result<ExpressionPtr> Parse(const std::string& path) const override {
+  Result<ExpressionPtr> Parse(const std::string& segment, int i) const override {
     ExpressionVector ranges;
-    for (auto key : GetUnconvertedKeys(path)) {
-      std::smatch matches;
-      RETURN_NOT_OK(DoRegex(key.value, &matches));
-
-      auto& min_cmp = matches[1] == "[" ? greater_equal : greater;
-      std::string min_repr = matches[2];
-      std::string max_repr = matches[3];
-      auto& max_cmp = matches[4] == "]" ? less_equal : less;
-
-      const auto& type = schema_->GetFieldByName(key.name)->type();
-      std::shared_ptr<Scalar> min, max;
-      RETURN_NOT_OK(Scalar::Parse(type, min_repr, &min));
-      RETURN_NOT_OK(Scalar::Parse(type, max_repr, &max));
-
-      ranges.push_back(and_(min_cmp(field_ref(key.name), scalar(min)),
-                            max_cmp(field_ref(key.name), scalar(max))));
+    auto key = ParseKey(segment, i);
+    if (!key) {
+      return Status::Invalid("can't parse '", segment, "' as a range");
     }
+
+    std::smatch matches;
+    RETURN_NOT_OK(DoRegex(key->value, &matches));
+
+    auto& min_cmp = matches[1] == "[" ? greater_equal : greater;
+    std::string min_repr = matches[2];
+    std::string max_repr = matches[3];
+    auto& max_cmp = matches[4] == "]" ? less_equal : less;
+
+    const auto& type = schema_->GetFieldByName(key->name)->type();
+    ARROW_ASSIGN_OR_RAISE(auto min, Scalar::Parse(type, min_repr));
+    ARROW_ASSIGN_OR_RAISE(auto max, Scalar::Parse(type, max_repr));
+
+    ranges.push_back(and_(min_cmp(field_ref(key->name), scalar(min)),
+                          max_cmp(field_ref(key->name), scalar(max))));
     return and_(ranges);
   }
 

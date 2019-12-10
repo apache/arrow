@@ -52,20 +52,27 @@ class ARROW_DS_EXPORT DataFragment {
 
   virtual ~DataFragment() = default;
 
+  /// \brief An expression which evaluates to true for all data viewed by this
+  /// DataFragment. May be null, which indicates no information is available.
+  const std::shared_ptr<Expression>& partition_expression() const {
+    return partition_expression_;
+  }
+
  protected:
-  DataFragment();
-  explicit DataFragment(ScanOptionsPtr scan_options)
-      : scan_options_(std::move(scan_options)) {}
+  explicit DataFragment(ScanOptionsPtr scan_options);
+
+  DataFragment(ScanOptionsPtr scan_options, ExpressionPtr partition_expression)
+      : scan_options_(std::move(scan_options)),
+        partition_expression_(std::move(partition_expression)) {}
 
   ScanOptionsPtr scan_options_;
+  ExpressionPtr partition_expression_;
 };
 
 /// \brief A trivial DataFragment that yields ScanTask out of a fixed set of
 /// RecordBatch.
 class ARROW_DS_EXPORT SimpleDataFragment : public DataFragment {
  public:
-  explicit SimpleDataFragment(std::vector<std::shared_ptr<RecordBatch>> record_batches);
-
   SimpleDataFragment(std::vector<std::shared_ptr<RecordBatch>> record_batches,
                      ScanOptionsPtr scan_options);
 

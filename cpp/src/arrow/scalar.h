@@ -28,6 +28,7 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
@@ -60,8 +61,8 @@ struct ARROW_EXPORT Scalar {
 
   std::string ToString() const;
 
-  static Status Parse(const std::shared_ptr<DataType>& type, util::string_view s,
-                      std::shared_ptr<Scalar>* out);
+  static Result<std::shared_ptr<Scalar>> Parse(const std::shared_ptr<DataType>& type,
+                                               util::string_view repr);
 
   // TODO(bkietz) add compute::CastOptions
   Result<std::shared_ptr<Scalar>> CastTo(std::shared_ptr<DataType> to) const;
@@ -357,11 +358,9 @@ class ARROW_EXPORT ExtensionScalar : public Scalar {
 };
 
 /// \param[in] type the type of scalar to produce
-/// \param[out] null output scalar with is_valid=false
-/// \return Status
+/// \return output scalar with is_valid=false
 ARROW_EXPORT
-Status MakeNullScalar(const std::shared_ptr<DataType>& type,
-                      std::shared_ptr<Scalar>* null);
+Result<std::shared_ptr<Scalar>> MakeNullScalar(const std::shared_ptr<DataType>& type);
 
 namespace internal {
 
@@ -397,10 +396,12 @@ struct MakeScalarImpl {
 };
 
 template <typename Value>
-Status MakeScalar(const std::shared_ptr<DataType>& type, Value&& value,
-                  std::shared_ptr<Scalar>* out) {
-  MakeScalarImpl<Value&&> impl = {type, std::forward<Value>(value), out};
-  return VisitTypeInline(*type, &impl);
+Result<std::shared_ptr<Scalar>> MakeScalar(const std::shared_ptr<DataType>& type,
+                                           Value&& value) {
+  std::shared_ptr<Scalar> out;
+  MakeScalarImpl<Value&&> impl = {type, std::forward<Value>(value), &out};
+  ARROW_RETURN_NOT_OK(VisitTypeInline(*type, &impl));
+  return out;
 }
 
 /// \brief type inferring scalar factory
@@ -412,8 +413,7 @@ std::shared_ptr<Scalar> MakeScalar(Value value) {
   return std::make_shared<ScalarType>(std::move(value), Traits::type_singleton(), true);
 }
 
-template <size_t N>
-std::shared_ptr<Scalar> MakeScalar(const char (&value)[N]) {
+inline std::shared_ptr<Scalar> MakeScalar(std::string value) {
   return std::make_shared<StringScalar>(value);
 }
 
