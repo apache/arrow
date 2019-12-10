@@ -794,6 +794,9 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     CStatus ConcatenateTables(const vector[shared_ptr[CTable]]& tables,
                               shared_ptr[CTable]* result)
 
+    CResult[shared_ptr[CTable]] ConcatenateTablesWithPromotion(
+        const vector[shared_ptr[CTable]]& tables, CMemoryPool* pool)
+
 cdef extern from "arrow/builder.h" namespace "arrow" nogil:
 
     cdef cppclass CArrayBuilder" arrow::ArrayBuilder":
