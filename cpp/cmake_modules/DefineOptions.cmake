@@ -49,7 +49,7 @@ macro(define_option name description default)
   check_description_length(${name} ${description})
   list_join(description "\n" multiline_description)
 
-  option(${name} ${multiline_description} ${default})
+  option(${name} "${multiline_description}" ${default})
 
   list(APPEND "ARROW_${ARROW_OPTION_CATEGORY}_OPTION_NAMES" ${name})
   set("${name}_OPTION_DESCRIPTION" ${description})
@@ -365,19 +365,17 @@ macro(config_summary_message)
     set(option_names ${ARROW_${category}_OPTION_NAMES})
 
     foreach(name ${option_names})
-      if("${${name}_OPTION_TYPE}" STREQUAL "string")
-        set(value "\"${${name}}\"")
-      else()
-        set(value "${${name}}")
+      set(value "${${name}}")
+      if("${value}" STREQUAL "")
+        set(value "\"\"")
       endif()
 
-      set(default ${${name}_OPTION_DEFAULT})
       set(description ${${name}_OPTION_DESCRIPTION})
 
       if(NOT ("${${name}_OPTION_ENUM}" STREQUAL ""))
-        set(summary "[${${name}_OPTION_ENUM}] ${value}")
+        set(summary "[default=${${name}_OPTION_ENUM}] ${value}")
       else()
-        set(summary "[default=${default}] ${value}")
+        set(summary "[default=${${name}_OPTION_DEFAULT}] ${value}")
       endif()
 
       string(LENGTH "${summary}" summary_length)
