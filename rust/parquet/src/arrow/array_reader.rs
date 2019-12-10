@@ -31,12 +31,12 @@ use arrow::array::{
     Int16BufferBuilder, StructArray,
 };
 use arrow::buffer::{Buffer, MutableBuffer};
-use arrow::datatypes::{DataType as ArrowType, Field, TimeUnit};
+use arrow::datatypes::{DataType as ArrowType, Field};
 
 use crate::arrow::converter::{
-    BoolConverter, Converter, Float32Converter, Float64Converter, Int16Converter,
-    Int32Converter, Int64Converter, Int8Converter, Int96Converter, UInt16Converter,
-    UInt32Converter, UInt64Converter, UInt8Converter, Utf8Converter,
+    BinaryConverter, BoolConverter, Converter, Float32Converter, Float64Converter,
+    Int16Converter, Int32Converter, Int64Converter, Int8Converter, Int96Converter,
+    UInt16Converter, UInt32Converter, UInt64Converter, UInt8Converter, Utf8Converter,
 };
 use crate::arrow::record_reader::RecordReader;
 use crate::arrow::schema::parquet_to_arrow_field;
@@ -215,12 +215,6 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
                 Float64Converter::convert(transmute::<
                     &mut RecordReader<T>,
                     &mut RecordReader<DoubleType>,
-                >(&mut self.record_reader))
-            },
-            (ArrowType::Timestamp(TimeUnit::Nanosecond, _), PhysicalType::INT96) => unsafe {
-                Int96Converter::convert(transmute::<
-                    &mut RecordReader<T>,
-                    &mut RecordReader<Int96Type>,
                 >(&mut self.record_reader))
             },
             (arrow_type, physical_type) => Err(general_err!(
@@ -826,10 +820,12 @@ impl<'a> ArrayReaderBuilder {
                 page_iterator,
                 column_desc,
             )?)),
-            PhysicalType::INT96 => Ok(Box::new(PrimitiveArrayReader::<Int96Type>::new(
-                page_iterator,
-                column_desc,
-            )?)),
+            PhysicalType::INT96 => {
+                Ok(Box::new(ComplexObjectArrayReader::<
+                    Int96Type,
+                    Int96Converter,
+                >::new(page_iterator, column_desc)?))
+            }
             PhysicalType::FLOAT => Ok(Box::new(PrimitiveArrayReader::<FloatType>::new(
                 page_iterator,
                 column_desc,
@@ -837,19 +833,22 @@ impl<'a> ArrayReaderBuilder {
             PhysicalType::DOUBLE => Ok(Box::new(
                 PrimitiveArrayReader::<DoubleType>::new(page_iterator, column_desc)?,
             )),
-            PhysicalType::BYTE_ARRAY
-                if cur_type.get_basic_info().logical_type() == LogicalType::UTF8 =>
-            {
-                Ok(Box::new(ComplexObjectArrayReader::<
-                    ByteArrayType,
-                    Utf8Converter,
-                >::new(page_iterator, column_desc)?))
-            }
             PhysicalType::BYTE_ARRAY => {
-                Ok(Box::new(ComplexObjectArrayReader::<
-                    ByteArrayType,
-                    Utf8Converter, //TODO should be binary converter
-                >::new(page_iterator, column_desc)?))
+                if cur_type.get_basic_info().logical_type() == LogicalType::UTF8 {
+                    Ok(Box::new(ComplexObjectArrayReader::<
+                        ByteArrayType,
+                        Utf8Converter,
+                    >::new(
+                        page_iterator, column_desc
+                    )?))
+                } else {
+                    Ok(Box::new(ComplexObjectArrayReader::<
+                        ByteArrayType,
+                        BinaryConverter,
+                    >::new(
+                        page_iterator, column_desc
+                    )?))
+                }
             }
             other => Err(ArrowError(format!(
                 "Unable to create primitive array reader for parquet physical type {}",

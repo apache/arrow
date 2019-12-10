@@ -78,7 +78,7 @@ impl TableProvider for ParquetTable {
 mod tests {
     use super::*;
     use arrow::array::{
-        BooleanArray, Float32Array, Float64Array, Int32Array, StringArray,
+        BinaryArray, BooleanArray, Float32Array, Float64Array, Int32Array,
         TimestampNanosecondArray,
     };
     use std::env;
@@ -122,8 +122,8 @@ mod tests {
              bigint_col: Int64\n\
              float_col: Float32\n\
              double_col: Float64\n\
-             date_string_col: Utf8\n\
-             string_col: Utf8\n\
+             date_string_col: Binary\n\
+             string_col: Binary\n\
              timestamp_col: Timestamp(Nanosecond, None)",
             y
         );
@@ -272,7 +272,7 @@ mod tests {
     }
 
     #[test]
-    fn read_utf8_alltypes_plain_parquet() {
+    fn read_binary_alltypes_plain_parquet() {
         let table = load_table("alltypes_plain.parquet");
 
         let projection = Some(vec![9]);
@@ -286,11 +286,11 @@ mod tests {
         let array = batch
             .column(0)
             .as_any()
-            .downcast_ref::<StringArray>()
+            .downcast_ref::<BinaryArray>()
             .unwrap();
-        let mut values: Vec<String> = vec![];
+        let mut values: Vec<&str> = vec![];
         for i in 0..batch.num_rows() {
-            values.push(array.value(i).to_string());
+            values.push(std::str::from_utf8(array.value(i)).unwrap());
         }
 
         assert_eq!(
