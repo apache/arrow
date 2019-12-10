@@ -45,58 +45,44 @@ Result<ScanTaskIterator> FileDataFragment::Scan(ScanContextPtr context) {
 
 FileSystemDataSource::FileSystemDataSource(fs::FileSystemPtr filesystem,
                                            fs::PathForest forest,
-                                           ExpressionPtr source_partition,
                                            ExpressionVector file_partitions,
+                                           ExpressionPtr source_partition,
                                            FileFormatPtr format)
     : DataSource(std::move(source_partition)),
       filesystem_(std::move(filesystem)),
       forest_(std::move(forest)),
       partitions_(std::move(file_partitions)),
-      format_(std::move(format)) {}
+      format_(std::move(format)) {
+  DCHECK_EQ(static_cast<size_t>(forest_.size()), partitions_.size());
+}
 
 Result<DataSourcePtr> FileSystemDataSource::Make(fs::FileSystemPtr filesystem,
                                                  fs::FileStatsVector stats,
                                                  ExpressionPtr source_partition,
                                                  FileFormatPtr format) {
-  ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::Make(std::move(stats)));
-
-  return DataSourcePtr(new FileSystemDataSource(std::move(filesystem), std::move(forest),
-                                                std::move(source_partition), {},
-                                                std::move(format)));
+  ExpressionVector partitions(stats.size(), scalar(true));
+  return Make(std::move(filesystem), std::move(stats), std::move(partitions),
+              std::move(source_partition), std::move(format));
 }
 
-Result<DataSourcePtr> FileSystemDataSource::Make(
-    fs::FileSystemPtr filesystem, fs::FileStatsVector stats,
-    ExpressionPtr source_partition, const PartitionSchemePtr& partition_scheme,
-    const std::string& partition_base_dir, FileFormatPtr format) {
-  ExpressionVector partitions(stats.size(), scalar(true));
-  ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::Make(std::move(stats)));
+Result<DataSourcePtr> FileSystemDataSource::Make(fs::FileSystemPtr filesystem,
+                                                 fs::FileStatsVector stats,
+                                                 ExpressionVector partitions,
+                                                 ExpressionPtr source_partition,
+                                                 FileFormatPtr format) {
+  ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::Make(std::move(stats), &partitions));
+  return Make(std::move(filesystem), std::move(forest), std::move(partitions),
+              std::move(source_partition), std::move(format));
+}
 
-  // TODO(bkietz) extract partition_base_dir and partition_scheme back out to discovery
-
-  // apply partition_scheme to forest to derive partitions
-  auto apply_partition_scheme = [&](fs::PathForest::Ref ref) {
-    if (auto relative =
-            fs::internal::RemoveAncestor(partition_base_dir, ref.stats().path())) {
-      auto segments = fs::internal::SplitAbstractPath(relative->to_string());
-
-      if (segments.empty()) {
-        return Status::OK();
-      }
-
-      auto segment_index = static_cast<int>(segments.size()) - 1;
-      auto maybe_partition = partition_scheme->Parse(segments.back(), segment_index);
-
-      partitions[ref.i] = std::move(maybe_partition).ValueOr(scalar(true));
-    }
-    return Status::OK();
-  };
-
-  DCHECK_OK(forest.Visit(apply_partition_scheme));
-
+Result<DataSourcePtr> FileSystemDataSource::Make(fs::FileSystemPtr filesystem,
+                                                 fs::PathForest forest,
+                                                 ExpressionVector partitions,
+                                                 ExpressionPtr source_partition,
+                                                 FileFormatPtr format) {
   return DataSourcePtr(new FileSystemDataSource(
-      std::move(filesystem), std::move(forest), std::move(source_partition),
-      std::move(partitions), std::move(format)));
+      std::move(filesystem), std::move(forest), std::move(partitions),
+      std::move(source_partition), std::move(format)));
 }
 
 std::string FileSystemDataSource::ToString() const {
@@ -144,14 +130,6 @@ util::optional<std::pair<std::string, std::shared_ptr<Scalar>>> GetKey(
       internal::checked_cast<const FieldExpression&>(*cmp.left_operand()).name(),
       internal::checked_cast<const ScalarExpression&>(*cmp.right_operand()).value());
 }
-
-struct SourceAndOptions {
-  FileSource source;
-  ScanOptionsPtr options;
-
-  // required by optional
-  bool operator==(const SourceAndOptions& other) const { return this == &other; }
-};
 
 DataFragmentIterator FileSystemDataSource::GetFragmentsImpl(ScanOptionsPtr root_options) {
   DataFragmentVector fragments;

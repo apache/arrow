@@ -125,22 +125,13 @@ TEST_F(TestFileSystemDataSource, TreePartitionPruning) {
       fs::Dir("CA"), fs::File("CA/San Francisco"), fs::File("CA/Franklin"),
   };
 
-  std::vector<std::unordered_map<std::string, ExpressionPtr>> dictionaries(2);
-  auto add_expr = [&](std::string name, std::string value) {
-    auto dict = dictionaries.data() + (name == "city");
-    dict->emplace(value, equal(field_ref(name), scalar(value)));
+  ExpressionVector partitions = {
+      ("state"_ == "NY").Copy(),           ("city"_ == "New York").Copy(),
+      ("city"_ == "Franklin").Copy(),      ("state"_ == "CA").Copy(),
+      ("city"_ == "San Francisco").Copy(), ("city"_ == "Franklin").Copy(),
   };
 
-  add_expr("state", "CA");
-  add_expr("state", "NY");
-
-  add_expr("city", "San Francisco");
-  add_expr("city", "New York");
-  add_expr("city", "Franklin");
-
-  auto partition_scheme = std::make_shared<SegmentDictionaryPartitionScheme>(
-      schema({field("state", utf8()), field("city", utf8())}), dictionaries);
-  MakeSource(regions, source_partition, partition_scheme);
+  MakeSource(regions, source_partition, partitions);
 
   std::vector<std::string> all_cities = {"CA/San Francisco", "CA/Franklin", "NY/New York",
                                          "NY/Franklin"};

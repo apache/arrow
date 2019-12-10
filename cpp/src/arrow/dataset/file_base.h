@@ -188,20 +188,32 @@ class ARROW_DS_EXPORT FileSystemDataSource : public DataSource {
   ///
   /// \param[in] filesystem the filesystem which files are from.
   /// \param[in] stats a list of files/directories to consume.
+  /// \param[in] partitions partition information associated with `stats`.
   /// \param[in] source_partition the top-level partition of the DataSource
-  /// \param[in] partition_scheme partition scheme which will be applied to
   /// attach additional partition expressions to FileStats found in `stats`.
-  /// \param[in] partition_base_dir base directory for partition_scheme.
   /// \param[in] format file format to create fragments from.
   ///
   /// The caller is not required to provide a complete coverage of nodes and
   /// partitions.
   static Result<DataSourcePtr> Make(fs::FileSystemPtr filesystem,
                                     fs::FileStatsVector stats,
-                                    ExpressionPtr source_partition,
-                                    const PartitionSchemePtr& partition_scheme,
-                                    const std::string& partition_base_dir,
-                                    FileFormatPtr format);
+                                    ExpressionVector partitions,
+                                    ExpressionPtr source_partition, FileFormatPtr format);
+
+  /// \brief Create a FileSystemDataSource with file-level partitions.
+  ///
+  /// \param[in] filesystem the filesystem which files are from.
+  /// \param[in] forest a PathForest of files/directories to consume.
+  /// \param[in] partitions partition information associated with `forest`.
+  /// \param[in] source_partition the top-level partition of the DataSource
+  /// attach additional partition expressions to FileStats found in `forest`.
+  /// \param[in] format file format to create fragments from.
+  ///
+  /// The caller is not required to provide a complete coverage of nodes and
+  /// partitions.
+  static Result<DataSourcePtr> Make(fs::FileSystemPtr filesystem, fs::PathForest forest,
+                                    ExpressionVector partitions,
+                                    ExpressionPtr source_partition, FileFormatPtr format);
 
   std::string type() const override { return "filesystem_data_source"; }
 
@@ -211,7 +223,7 @@ class ARROW_DS_EXPORT FileSystemDataSource : public DataSource {
   DataFragmentIterator GetFragmentsImpl(ScanOptionsPtr options) override;
 
   FileSystemDataSource(fs::FileSystemPtr filesystem, fs::PathForest forest,
-                       ExpressionPtr source_partition, ExpressionVector file_partitions,
+                       ExpressionVector file_partitions, ExpressionPtr source_partition,
                        FileFormatPtr format);
 
   fs::FileSystemPtr filesystem_;

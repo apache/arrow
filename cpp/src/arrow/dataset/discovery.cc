@@ -135,8 +135,30 @@ Result<std::shared_ptr<Schema>> FileSystemDataSourceDiscovery::Inspect() {
 }
 
 Result<DataSourcePtr> FileSystemDataSourceDiscovery::Finish() {
-  return FileSystemDataSource::Make(fs_, files_, root_partition_, partition_scheme_,
-                                    options_.partition_base_dir, format_);
+  ExpressionVector partitions(files_.size(), scalar(true));
+
+  ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::Make(files_));
+
+  // apply partition_scheme to forest to derive partitions
+  auto apply_partition_scheme = [&](fs::PathForest::Ref ref) {
+    if (auto relative = fs::internal::RemoveAncestor(options_.partition_base_dir,
+                                                     ref.stats().path())) {
+      auto segments = fs::internal::SplitAbstractPath(relative->to_string());
+
+      if (segments.size() > 0) {
+        auto segment_index = static_cast<int>(segments.size()) - 1;
+        auto maybe_partition = partition_scheme_->Parse(segments.back(), segment_index);
+
+        partitions[ref.i] = std::move(maybe_partition).ValueOr(scalar(true));
+      }
+    }
+    return Status::OK();
+  };
+
+  RETURN_NOT_OK(forest.Visit(apply_partition_scheme));
+
+  return FileSystemDataSource::Make(fs_, std::move(forest), std::move(partitions),
+                                    root_partition_, format_);
 }
 
 }  // namespace dataset

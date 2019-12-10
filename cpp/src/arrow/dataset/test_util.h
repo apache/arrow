@@ -287,12 +287,15 @@ class TestFileSystemDataSource : public ::testing::Test {
 
   void MakeSource(const std::vector<fs::FileStats>& stats,
                   ExpressionPtr source_partition = scalar(true),
-                  PartitionSchemePtr partition_scheme = PartitionScheme::Default()) {
+                  ExpressionVector partitions = {}) {
+    if (partitions.empty()) {
+      partitions.resize(stats.size(), scalar(true));
+    }
+
     MakeFileSystem(stats);
     auto format = std::make_shared<DummyFileFormat>();
-    ASSERT_OK_AND_ASSIGN(source_,
-                         FileSystemDataSource::Make(fs_, stats, source_partition,
-                                                    partition_scheme, "", format));
+    ASSERT_OK_AND_ASSIGN(source_, FileSystemDataSource::Make(fs_, stats, partitions,
+                                                             source_partition, format));
   }
 
  protected:
