@@ -347,6 +347,34 @@ class TestListArray : public TestBuilder {
     ASSERT_EQ("counts", type.value_field()->name());
   }
 
+  void TestFlattenZeroLength() {
+    Done();
+    auto flattened = result_->Flatten();
+    ASSERT_OK(flattened->ValidateFull());
+    ASSERT_EQ(0, flattened->length());
+  }
+
+  void TestFlatten() {
+    auto type = std::make_shared<T>(int32());
+    auto list_array = std::dynamic_pointer_cast<ArrayType>(
+        ArrayFromJSON(type, "[[1, 2], [3], [4], null, [5], [], [6]]"));
+    auto flattened = list_array->Flatten();
+    ASSERT_OK(flattened->ValidateFull());
+    EXPECT_TRUE(
+        list_array->Flatten()->Equals(ArrayFromJSON(int32(), "[1, 2, 3, 4, 5, 6]")));
+    EXPECT_TRUE(
+        list_array->values()->Equals(ArrayFromJSON(int32(), "[1, 2, 3, 4, 5, 6]")));
+
+    auto sliced_list_array =
+        std::dynamic_pointer_cast<ArrayType>(list_array->Slice(3, 4));
+    auto sliced_flattened = sliced_list_array->Flatten();
+    ASSERT_OK(sliced_flattened->ValidateFull());
+    // Note the difference between values() and Flatten().
+    EXPECT_TRUE(sliced_flattened->Equals(ArrayFromJSON(int32(), "[5, 6]")));
+    EXPECT_TRUE(sliced_list_array->values()->Equals(
+        ArrayFromJSON(int32(), "[1, 2, 3, 4, 5, 6]")));
+  }
+
  protected:
   std::shared_ptr<DataType> value_type_;
 
@@ -377,6 +405,9 @@ TYPED_TEST(TestListArray, ZeroLength) { this->TestZeroLength(); }
 TYPED_TEST(TestListArray, BuilderPreserveFieldName) {
   this->TestBuilderPreserveFieldName();
 }
+
+TYPED_TEST(TestListArray, Flatten) { this->TestFlatten(); }
+TYPED_TEST(TestListArray, FlattenZeroLength) { this->TestFlattenZeroLength(); }
 
 // ----------------------------------------------------------------------
 // Map tests
