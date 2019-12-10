@@ -555,7 +555,7 @@ check_python_imports() {
 }
 
 test_linux_wheels() {
-  local py_arches="2.7mu 3.6m 3.7m 3.8m"
+  local py_arches="2.7mu 3.5m 3.6m 3.7m 3.8"
   local manylinuxes="1 2010 2014"
 
   for py_arch in ${py_arches}; do
@@ -568,7 +568,7 @@ test_linux_wheels() {
         # manylinux2014 does not support py2.7, so skip that one
         continue
       fi
-      
+
       pip install python-rc/${VERSION}-rc${RC_NUMBER}/pyarrow-${VERSION}-cp${py_arch//[mu.]/}-cp${py_arch//./}-manylinux${ml_spec}_x86_64.whl
 
       check_python_imports py_arch
@@ -579,7 +579,7 @@ test_linux_wheels() {
 }
 
 test_macos_wheels() {
-  local py_arches="2.7m 3.6m 3.7m 3.8m"
+  local py_arches="2.7m 3.5m 3.6m 3.7m 3.8"
 
   for py_arch in ${py_arches}; do
     local env=_verify_wheel-${py_arch}
