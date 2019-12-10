@@ -73,9 +73,6 @@ impl ParquetExec {
                     .collect(),
             );
 
-            println!("projection: {:?}", projection);
-            println!("projected schema: {:?}", projected_schema);
-
             Ok(Self {
                 filenames,
                 schema: Arc::new(projected_schema),
