@@ -31,12 +31,12 @@ use arrow::array::{
     Int16BufferBuilder, StructArray,
 };
 use arrow::buffer::{Buffer, MutableBuffer};
-use arrow::datatypes::{DataType as ArrowType, Field};
+use arrow::datatypes::{DataType as ArrowType, Field, TimeUnit};
 
 use crate::arrow::converter::{
     BoolConverter, Converter, Float32Converter, Float64Converter, Int16Converter,
-    Int32Converter, Int64Converter, Int8Converter, UInt16Converter, UInt32Converter,
-    UInt64Converter, UInt8Converter, Utf8Converter,
+    Int32Converter, Int64Converter, Int8Converter, Int96Converter, UInt16Converter,
+    UInt32Converter, UInt64Converter, UInt8Converter, Utf8Converter,
 };
 use crate::arrow::record_reader::RecordReader;
 use crate::arrow::schema::parquet_to_arrow_field;
@@ -217,9 +217,16 @@ impl<T: DataType> ArrayReader for PrimitiveArrayReader<T> {
                     &mut RecordReader<DoubleType>,
                 >(&mut self.record_reader))
             },
-            (arrow_type, _) => Err(general_err!(
-                "Reading {:?} type from parquet is not supported yet.",
-                arrow_type
+            (ArrowType::Timestamp(TimeUnit::Nanosecond, _), PhysicalType::INT96) => unsafe {
+                Int96Converter::convert(transmute::<
+                    &mut RecordReader<T>,
+                    &mut RecordReader<Int96Type>,
+                >(&mut self.record_reader))
+            },
+            (arrow_type, physical_type) => Err(general_err!(
+                "Reading {:?} type from parquet {:?} is not supported yet.",
+                arrow_type,
+                physical_type
             )),
         }?;
 

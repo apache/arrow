@@ -35,10 +35,11 @@ use std::marker::PhantomData;
 use crate::data_type::{
     BoolType, DoubleType as ParquetDoubleType, FloatType as ParquetFloatType,
     Int32Type as ParquetInt32Type, Int64Type as ParquetInt64Type,
+    Int96Type as ParquetInt96Type,
 };
 use arrow::datatypes::{
-    Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, UInt16Type,
-    UInt32Type, UInt64Type, UInt8Type,
+    Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type,
+    TimestampNanosecondType, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
 };
 
 /// A converter is used to consume record reader's content and convert it to arrow
@@ -137,6 +138,8 @@ pub type Int32Converter = CastConverter<ParquetInt32Type, Int32Type, Int32Type>;
 pub type UInt32Converter = CastConverter<ParquetInt32Type, UInt32Type, UInt32Type>;
 pub type Int64Converter = CastConverter<ParquetInt64Type, Int64Type, Int64Type>;
 pub type UInt64Converter = CastConverter<ParquetInt64Type, UInt64Type, UInt64Type>;
+pub type Int96Converter =
+    CastConverter<ParquetInt96Type, TimestampNanosecondType, TimestampNanosecondType>;
 pub type Float32Converter = CastConverter<ParquetFloatType, Float32Type, Float32Type>;
 pub type Float64Converter = CastConverter<ParquetDoubleType, Float64Type, Float64Type>;
 pub type Utf8Converter =

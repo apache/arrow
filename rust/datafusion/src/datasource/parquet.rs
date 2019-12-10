@@ -124,7 +124,7 @@ mod tests {
              double_col: Float64\n\
              date_string_col: Utf8\n\
              string_col: Utf8\n\
-             timestamp_col: Timestamp(Nanosecond)",
+             timestamp_col: Timestamp(Nanosecond, None)",
             y
         );
 
