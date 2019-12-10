@@ -211,7 +211,10 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
                     if array.is_null(i) {
                         b.append_null()?;
                     } else {
-                        b.append_value(str::from_utf8(from.value(i)).unwrap())?;
+                        match str::from_utf8(from.value(i)) {
+                            Ok(s) => b.append_value(s)?,
+                            Err(_) => b.append_null()?, // not valid UTF8
+                        }
                     }
                 }
 
