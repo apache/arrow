@@ -592,7 +592,6 @@ Status MakeTensorFromSparseTensor(MemoryPool* pool, const SparseTensor* sparse_t
       *out = std::make_shared<Tensor>(sparse_tensor->type(), values_buffer,
                                       sparse_tensor->shape());
       return Status::OK();
-      return Status::NotImplemented("CSC format is not implemented yet");
     }
   }
   return Status::NotImplemented("Unsupported SparseIndex format type");
