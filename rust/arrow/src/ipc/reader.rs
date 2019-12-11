@@ -536,8 +536,13 @@ impl<R: Read + Seek> RecordBatchReader for FileReader<R> {
 
 /// Arrow Stream reader
 pub struct StreamReader<R: Read> {
+    /// Buffered stream reader
     reader: BufReader<R>,
+    /// The schema that is read from the stream's first message
     schema: Arc<Schema>,
+    /// An indicator of whether the strewam is complete.
+    ///
+    /// This value is set to `true` the first time the reader's `next()` returns `None`.
     finished: bool,
 }
 
