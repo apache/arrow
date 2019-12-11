@@ -91,6 +91,14 @@ Result<Iterator<std::shared_ptr<Buffer>>> MakeInputStreamIterator(
   return Iterator<std::shared_ptr<Buffer>>(InputStreamBlockIterator(stream, block_size));
 }
 
+Status Readable::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
+  return Read(nbytes, out).Value(bytes_read);
+}
+
+Status Readable::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+  return Read(nbytes).Value(out);
+}
+
 struct RandomAccessFile::RandomAccessFileImpl {
   std::mutex lock_;
 };

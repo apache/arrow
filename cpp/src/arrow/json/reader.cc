@@ -78,12 +78,12 @@ class TableReaderImpl : public TableReader,
     int64_t block_index = 0;
     std::shared_ptr<Buffer> partial = empty;
 
-    while (block) {
+    while (block != nullptr) {
       std::shared_ptr<Buffer> next_block, whole, completion, next_partial;
 
       ARROW_ASSIGN_OR_RAISE(next_block, block_iterator_.Next());
 
-      if (!next_block) {
+      if (next_block == nullptr) {
         // End of file reached => compute completion from penultimate block
         RETURN_NOT_OK(chunker_->ProcessFinal(partial, block, &completion, &whole));
       } else {

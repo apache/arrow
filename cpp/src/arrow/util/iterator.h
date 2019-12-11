@@ -190,9 +190,9 @@ class FunctionIterator {
 
 /// \brief Construct an Iterator which invokes a callable on Next()
 template <typename Fn,
-          typename T = typename internal::call_traits::return_type<Fn>::ValueType>
-Iterator<T> MakeFunctionIterator(Fn fn) {
-  return Iterator<T>(FunctionIterator<Fn, T>(std::move(fn)));
+          typename Ret = typename internal::call_traits::return_type<Fn>::ValueType>
+Iterator<Ret> MakeFunctionIterator(Fn fn) {
+  return Iterator<Ret>(FunctionIterator<Fn, Ret>(std::move(fn)));
 }
 
 template <typename T>
@@ -280,56 +280,56 @@ class MapIterator {
 
 /// \brief MapIterator takes ownership of an iterator and a function to apply
 /// on every element. The mapped function is not allowed to fail.
-template <typename Fn, typename I = internal::call_traits::argument_type<0, Fn>,
-          typename O = internal::call_traits::return_type<Fn>>
-Iterator<O> MakeMapIterator(Fn map, Iterator<I> it) {
-  return Iterator<O>(MapIterator<Fn, I, O>(std::move(map), std::move(it)));
+template <typename Fn, typename From = internal::call_traits::argument_type<0, Fn>,
+          typename To = internal::call_traits::return_type<Fn>>
+Iterator<To> MakeMapIterator(Fn map, Iterator<From> it) {
+  return Iterator<To>(MapIterator<Fn, From, To>(std::move(map), std::move(it)));
 }
 
 /// \brief Like MapIterator, but where the function can fail.
-template <typename Fn, typename I = internal::call_traits::argument_type<0, Fn>,
-          typename O = typename internal::call_traits::return_type<Fn>::ValueType>
-Iterator<O> MakeMaybeMapIterator(Fn map, Iterator<I> it) {
-  return Iterator<O>(MapIterator<Fn, I, O>(std::move(map), std::move(it)));
+template <typename Fn, typename From = internal::call_traits::argument_type<0, Fn>,
+          typename To = typename internal::call_traits::return_type<Fn>::ValueType>
+Iterator<To> MakeMaybeMapIterator(Fn map, Iterator<From> it) {
+  return Iterator<To>(MapIterator<Fn, From, To>(std::move(map), std::move(it)));
 }
 
 struct FilterIterator {
   enum Action { ACCEPT, REJECT };
 
-  template <typename O>
-  static Result<std::pair<O, Action>> Reject() {
-    return std::make_pair(IterationTraits<O>::End(), REJECT);
+  template <typename To>
+  static Result<std::pair<To, Action>> Reject() {
+    return std::make_pair(IterationTraits<To>::End(), REJECT);
   }
 
-  template <typename O>
-  static Result<std::pair<O, Action>> Accept(O out) {
+  template <typename To>
+  static Result<std::pair<To, Action>> Accept(To out) {
     return std::make_pair(std::move(out), ACCEPT);
   }
 
-  template <typename O>
-  static Result<std::pair<O, Action>> MaybeAccept(Result<O> maybe_out) {
-    return std::move(maybe_out).Map(Accept<O>);
+  template <typename To>
+  static Result<std::pair<To, Action>> MaybeAccept(Result<To> maybe_out) {
+    return std::move(maybe_out).Map(Accept<To>);
   }
 
-  template <typename O>
-  static Result<std::pair<O, Action>> Error(Status s) {
+  template <typename To>
+  static Result<std::pair<To, Action>> Error(Status s) {
     return s;
   }
 
-  template <typename Fn, typename I, typename O>
+  template <typename Fn, typename From, typename To>
   class Impl {
    public:
-    explicit Impl(Fn filter, Iterator<I> it) : filter_(filter), it_(std::move(it)) {}
+    explicit Impl(Fn filter, Iterator<From> it) : filter_(filter), it_(std::move(it)) {}
 
-    Result<O> Next() {
-      O out = IterationTraits<O>::End();
+    Result<To> Next() {
+      To out = IterationTraits<To>::End();
       Action action;
 
       for (;;) {
-        ARROW_ASSIGN_OR_RAISE(I i, it_.Next());
+        ARROW_ASSIGN_OR_RAISE(From i, it_.Next());
 
-        if (i == IterationTraits<I>::End()) {
-          return IterationTraits<O>::End();
+        if (i == IterationTraits<From>::End()) {
+          return IterationTraits<To>::End();
         }
 
         ARROW_ASSIGN_OR_RAISE(std::tie(out, action), filter_(std::move(i)));
@@ -340,19 +340,20 @@ struct FilterIterator {
 
    private:
     Fn filter_;
-    Iterator<I> it_;
+    Iterator<From> it_;
   };
 };
 
 /// \brief Like MapIterator, but where the function can fail or reject elements.
 template <
-    typename Fn, typename I = typename internal::call_traits::argument_type<0, Fn>,
-    typename Y = typename internal::call_traits::return_type<Fn>::ValueType,
-    typename O = typename std::tuple_element<0, Y>::type,
+    typename Fn, typename From = typename internal::call_traits::argument_type<0, Fn>,
+    typename Ret = typename internal::call_traits::return_type<Fn>::ValueType,
+    typename To = typename std::tuple_element<0, Ret>::type,
     typename Enable = typename std::enable_if<std::is_same<
-        typename std::tuple_element<1, Y>::type, FilterIterator::Action>::value>::type>
-Iterator<O> MakeFilterIterator(Fn filter, Iterator<I> it) {
-  return Iterator<O>(FilterIterator::Impl<Fn, I, O>(std::move(filter), std::move(it)));
+        typename std::tuple_element<1, Ret>::type, FilterIterator::Action>::value>::type>
+Iterator<To> MakeFilterIterator(Fn filter, Iterator<From> it) {
+  return Iterator<To>(
+      FilterIterator::Impl<Fn, From, To>(std::move(filter), std::move(it)));
 }
 
 /// \brief FlattenIterator takes an iterator generating iterators and yields a
