@@ -906,62 +906,6 @@ static Status MakeRecordBatch(FBB& fbb, int64_t length, int64_t body_length,
   return Status::OK();
 }
 
-}  // namespace
-
-Status WriteSchemaMessage(const Schema& schema, DictionaryMemo* dictionary_memo,
-                          std::shared_ptr<Buffer>* out) {
-  FBB fbb;
-  flatbuffers::Offset<flatbuf::Schema> fb_schema;
-  RETURN_NOT_OK(SchemaToFlatbuffer(fbb, schema, dictionary_memo, &fb_schema));
-  return WriteFBMessage(fbb, flatbuf::MessageHeader_Schema, fb_schema.Union(), 0, out);
-}
-
-Status WriteRecordBatchMessage(int64_t length, int64_t body_length,
-                               const std::vector<FieldMetadata>& nodes,
-                               const std::vector<BufferMetadata>& buffers,
-                               std::shared_ptr<Buffer>* out) {
-  FBB fbb;
-  RecordBatchOffset record_batch;
-  RETURN_NOT_OK(MakeRecordBatch(fbb, length, body_length, nodes, buffers, &record_batch));
-  return WriteFBMessage(fbb, flatbuf::MessageHeader_RecordBatch, record_batch.Union(),
-                        body_length, out);
-}
-
-Status WriteTensorMessage(const Tensor& tensor, int64_t buffer_start_offset,
-                          std::shared_ptr<Buffer>* out) {
-  using TensorDimOffset = flatbuffers::Offset<flatbuf::TensorDim>;
-  using TensorOffset = flatbuffers::Offset<flatbuf::Tensor>;
-
-  FBB fbb;
-
-  const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
-  const int elem_size = type.bit_width() / 8;
-
-  flatbuf::Type fb_type_type;
-  Offset fb_type;
-  RETURN_NOT_OK(TensorTypeToFlatbuffer(fbb, *tensor.type(), &fb_type_type, &fb_type));
-
-  std::vector<TensorDimOffset> dims;
-  for (int i = 0; i < tensor.ndim(); ++i) {
-    FBString name = fbb.CreateString(tensor.dim_name(i));
-    dims.push_back(flatbuf::CreateTensorDim(fbb, tensor.shape()[i], name));
-  }
-
-  auto fb_shape = fbb.CreateVector(util::MakeNonNull(dims.data()), dims.size());
-
-  flatbuffers::Offset<flatbuffers::Vector<int64_t>> fb_strides;
-  fb_strides = fbb.CreateVector(util::MakeNonNull(tensor.strides().data()),
-                                tensor.strides().size());
-  int64_t body_length = tensor.size() * elem_size;
-  flatbuf::Buffer buffer(buffer_start_offset, body_length);
-
-  TensorOffset fb_tensor =
-      flatbuf::CreateTensor(fbb, fb_type_type, fb_type, fb_shape, fb_strides, &buffer);
-
-  return WriteFBMessage(fbb, flatbuf::MessageHeader_Tensor, fb_tensor.Union(),
-                        body_length, out);
-}
-
 Status MakeSparseTensorIndexCOO(FBB& fbb, const SparseCOOIndex& sparse_index,
                                 const std::vector<BufferMetadata>& buffers,
                                 flatbuf::SparseTensorIndex* fb_sparse_index_type,
@@ -1102,6 +1046,62 @@ Status MakeSparseTensor(FBB& fbb, const SparseTensor& sparse_tensor, int64_t bod
                                   fb_sparse_index_type, fb_sparse_index, &data);
 
   return Status::OK();
+}
+
+}  // namespace
+
+Status WriteSchemaMessage(const Schema& schema, DictionaryMemo* dictionary_memo,
+                          std::shared_ptr<Buffer>* out) {
+  FBB fbb;
+  flatbuffers::Offset<flatbuf::Schema> fb_schema;
+  RETURN_NOT_OK(SchemaToFlatbuffer(fbb, schema, dictionary_memo, &fb_schema));
+  return WriteFBMessage(fbb, flatbuf::MessageHeader_Schema, fb_schema.Union(), 0, out);
+}
+
+Status WriteRecordBatchMessage(int64_t length, int64_t body_length,
+                               const std::vector<FieldMetadata>& nodes,
+                               const std::vector<BufferMetadata>& buffers,
+                               std::shared_ptr<Buffer>* out) {
+  FBB fbb;
+  RecordBatchOffset record_batch;
+  RETURN_NOT_OK(MakeRecordBatch(fbb, length, body_length, nodes, buffers, &record_batch));
+  return WriteFBMessage(fbb, flatbuf::MessageHeader_RecordBatch, record_batch.Union(),
+                        body_length, out);
+}
+
+Status WriteTensorMessage(const Tensor& tensor, int64_t buffer_start_offset,
+                          std::shared_ptr<Buffer>* out) {
+  using TensorDimOffset = flatbuffers::Offset<flatbuf::TensorDim>;
+  using TensorOffset = flatbuffers::Offset<flatbuf::Tensor>;
+
+  FBB fbb;
+
+  const auto& type = checked_cast<const FixedWidthType&>(*tensor.type());
+  const int elem_size = type.bit_width() / 8;
+
+  flatbuf::Type fb_type_type;
+  Offset fb_type;
+  RETURN_NOT_OK(TensorTypeToFlatbuffer(fbb, *tensor.type(), &fb_type_type, &fb_type));
+
+  std::vector<TensorDimOffset> dims;
+  for (int i = 0; i < tensor.ndim(); ++i) {
+    FBString name = fbb.CreateString(tensor.dim_name(i));
+    dims.push_back(flatbuf::CreateTensorDim(fbb, tensor.shape()[i], name));
+  }
+
+  auto fb_shape = fbb.CreateVector(util::MakeNonNull(dims.data()), dims.size());
+
+  flatbuffers::Offset<flatbuffers::Vector<int64_t>> fb_strides;
+  fb_strides = fbb.CreateVector(util::MakeNonNull(tensor.strides().data()),
+                                tensor.strides().size());
+  int64_t body_length = tensor.size() * elem_size;
+  flatbuf::Buffer buffer(buffer_start_offset, body_length);
+
+  TensorOffset fb_tensor =
+      flatbuf::CreateTensor(fbb, fb_type_type, fb_type, fb_shape, fb_strides, &buffer);
+
+  return WriteFBMessage(fbb, flatbuf::MessageHeader_Tensor, fb_tensor.Union(),
+                        body_length, out);
 }
 
 Status WriteSparseTensorMessage(const SparseTensor& sparse_tensor, int64_t body_length,
