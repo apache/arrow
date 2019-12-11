@@ -87,13 +87,6 @@ def dataset(simple_data_source, tree_data_source, schema):
     return ds.Dataset([simple_data_source, tree_data_source], schema)
 
 
-def test_scan_context():
-    context = ds.ScanContext()
-    assert isinstance(context.memory_pool, pa.MemoryPool)
-    context = ds.ScanContext(pa.default_memory_pool())
-    assert isinstance(context.memory_pool, pa.MemoryPool)
-
-
 def test_simple_data_source(record_batch):
     source = ds.SimpleDataSource([record_batch])
     assert isinstance(source, ds.SimpleDataSource)
@@ -181,13 +174,12 @@ def test_dataset(simple_data_source, tree_data_source, record_batch, schema):
 
 
 def test_scanner_builder(dataset):
-    context = ds.ScanContext()
-    builder = ds.ScannerBuilder(dataset, context)
+    builder = ds.ScannerBuilder(dataset, memory_pool=pa.default_memory_pool())
     scanner = builder.finish()
     assert isinstance(scanner, ds.Scanner)
     scanner.scan()
 
-    builder = dataset.new_scan()
+    builder = dataset.new_scan(memory_pool=pa.default_memory_pool())
     builder.project(['i64'])
     scanner = builder.finish()
     assert isinstance(scanner, ds.Scanner)

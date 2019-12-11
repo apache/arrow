@@ -503,13 +503,13 @@ cdef class Dataset:
     cdef inline shared_ptr[CDataset] unwrap(self) nogil:
         return self.wrapped
 
-    def new_scan(self, ScanContext context=None):
+    def new_scan(self, MemoryPool memory_pool=None):
         """Begin to build a new Scan operation against this Dataset."""
-        cdef CResult[shared_ptr[CScannerBuilder]] result
-        if context is None:
-            result = self.dataset.NewScan()
-        else:
-            result = self.dataset.NewScanWithContext(context.unwrap())
+        cdef:
+            shared_ptr[CScanContext] context = make_shared[CScanContext]()
+            CResult[shared_ptr[CScannerBuilder]] result
+        context.get().pool = maybe_unbox_memory_pool(memory_pool)
+        result = self.dataset.NewScanWithContext(context)
         return ScannerBuilder.wrap(GetResultValue(result))
 
     @property
@@ -520,45 +520,6 @@ cdef class Dataset:
     @property
     def schema(self):
         return pyarrow_wrap_schema(self.dataset.schema())
-
-
-cdef class ScanContext:
-
-    cdef:
-        shared_ptr[CScanContext] wrapped
-        CScanContext *context
-
-    def __init__(self, MemoryPool memory_pool=None):
-        cdef shared_ptr[CScanContext] context = make_shared[CScanContext]()
-        self.init(context)
-        if memory_pool is not None:
-            self.memory_pool = memory_pool
-
-    cdef init(self, shared_ptr[CScanContext]& sp):
-        self.wrapped = sp
-        self.context = sp.get()
-
-    @staticmethod
-    cdef ScanContext wrap(shared_ptr[CScanContext]& sp):
-        cdef ScanContext self = ScanContext.__new__(ScanContext)
-        self.init(sp)
-        return self
-
-    cdef inline shared_ptr[CScanContext] unwrap(self):
-        return self.wrapped
-
-    @property
-    def memory_pool(self):
-        # TODO(kszucs): there's no function to box/wrap memory pool
-        cdef:
-            MemoryPool pool = MemoryPool.__new__(MemoryPool)
-        # this might be unsafe because of the raw pointers
-        pool.init(self.context.pool)
-        return pool
-
-    @memory_pool.setter
-    def memory_pool(self, MemoryPool pool):
-        self.context.pool = maybe_unbox_memory_pool(pool)
 
 
 cdef class ScanTask:
@@ -633,11 +594,12 @@ cdef class ScannerBuilder:
         shared_ptr[CScannerBuilder] wrapped
         CScannerBuilder* builder
 
-    def __init__(self, Dataset dataset not None, ScanContext context not None):
-        cdef shared_ptr[CScannerBuilder] builder
-        builder = make_shared[CScannerBuilder](
-            dataset.unwrap(), context.unwrap()
-        )
+    def __init__(self, Dataset dataset not None, MemoryPool memory_pool=None):
+        cdef:
+            shared_ptr[CScannerBuilder] builder
+            shared_ptr[CScanContext] context = make_shared[CScanContext]()
+        context.get().pool = maybe_unbox_memory_pool(memory_pool)
+        builder = make_shared[CScannerBuilder](dataset.unwrap(), context)
         self.init(builder)
 
     cdef void init(self, shared_ptr[CScannerBuilder]& sp):
