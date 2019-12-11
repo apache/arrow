@@ -607,7 +607,7 @@ garrow_table_combine_chunks(GArrowTable *table,
   std::shared_ptr<arrow::Table> arrow_combined_table;
   auto status = arrow_table->CombineChunks(arrow::default_memory_pool(),
                                            &arrow_combined_table);
-  if (garrow_error_check(error, status, "[table][combine_chunks]")) {
+  if (garrow_error_check(error, status, "[table][combine-chunks]")) {
     return garrow_table_new_raw(&arrow_combined_table);
   } else {
     return NULL;
