@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
@@ -193,7 +194,12 @@ class ARROW_EXPORT RecordBatchReader {
   /// \return Status
   virtual Status ReadNext(std::shared_ptr<RecordBatch>* batch) = 0;
 
-  Status Next(std::shared_ptr<RecordBatch>* batch) { return ReadNext(batch); }
+  /// \brief Iterator interface
+  Result<std::shared_ptr<RecordBatch>> Next() {
+    std::shared_ptr<RecordBatch> batch;
+    ARROW_RETURN_NOT_OK(ReadNext(&batch));
+    return batch;
+  }
 
   /// \brief Consume entire stream as a vector of record batches
   Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches);

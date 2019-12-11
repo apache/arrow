@@ -32,10 +32,10 @@ static inline RecordBatchIterator FilterRecordBatch(RecordBatchIterator it,
                                                     const Expression& filter,
                                                     MemoryPool* pool) {
   return MakeMaybeMapIterator(
-      [&, pool](std::shared_ptr<RecordBatch> in, std::shared_ptr<RecordBatch>* out) {
-        ARROW_ASSIGN_OR_RAISE(auto selection_datum,
-                              evaluator.Evaluate(filter, *in, pool));
-        return evaluator.Filter(selection_datum, in, pool).Value(out);
+      [&filter, &evaluator, pool](std::shared_ptr<RecordBatch> in) {
+        return evaluator.Evaluate(filter, *in, pool).Map([&](compute::Datum selection) {
+          return evaluator.Filter(selection, in);
+        });
       },
       std::move(it));
 }
@@ -44,9 +44,7 @@ static inline RecordBatchIterator ProjectRecordBatch(RecordBatchIterator it,
                                                      RecordBatchProjector* projector,
                                                      MemoryPool* pool) {
   return MakeMaybeMapIterator(
-      [=](std::shared_ptr<RecordBatch> in, std::shared_ptr<RecordBatch>* out) {
-        return projector->Project(*in, pool).Value(out);
-      },
+      [=](std::shared_ptr<RecordBatch> in) { return projector->Project(*in, pool); },
       std::move(it));
 }
 

@@ -75,9 +75,7 @@ std::unique_ptr<GeneratedRecordBatch<Gen>> MakeGeneratedRecordBatch(
 }
 
 void EnsureRecordBatchReaderDrained(RecordBatchReader* reader) {
-  std::shared_ptr<RecordBatch> batch = nullptr;
-
-  ARROW_EXPECT_OK(reader->Next(&batch));
+  ASSERT_OK_AND_ASSIGN(auto batch, reader->Next());
   EXPECT_EQ(batch, nullptr);
 }
 

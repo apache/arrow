@@ -33,6 +33,7 @@
 #include "arrow/csv/options.h"
 #include "arrow/csv/parser.h"
 #include "arrow/io/interfaces.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
@@ -76,23 +77,25 @@ class BaseTableReader : public csv::TableReader {
 
  protected:
   Status ReadNextBlock(bool first_block, std::shared_ptr<Buffer>* out) {
-    std::shared_ptr<Buffer> buf;
-    RETURN_NOT_OK(block_iterator_.Next(&buf));
+    ARROW_ASSIGN_OR_RAISE(auto buf, block_iterator_.Next());
     if (buf == nullptr) {
       // EOF
       out->reset();
       return Status::OK();
     }
+
     int64_t offset = 0;
     if (first_block) {
       ARROW_ASSIGN_OR_RAISE(auto data, util::SkipUTF8BOM(buf->data(), buf->size()));
       offset += data - buf->data();
       DCHECK_GE(offset, 0);
     }
+
     if (trailing_cr_ && buf->data()[offset] == '\n') {
       // Skip '\r\n' line separator that started at the end of previous block
       ++offset;
     }
+
     trailing_cr_ = (buf->data()[buf->size() - 1] == '\r');
     buf = SliceBuffer(buf, offset);
     if (buf->size() == 0) {
@@ -101,6 +104,7 @@ class BaseTableReader : public csv::TableReader {
     } else {
       *out = std::move(buf);
     }
+
     return Status::OK();
   }
 
@@ -341,10 +345,11 @@ class SerialTableReader : public BaseTableReader {
   Status Init() override {
     ARROW_ASSIGN_OR_RAISE(block_iterator_,
                           io::MakeInputStreamIterator(input_, read_options_.block_size));
+
     // Since we're converting serially, no need to readahead more than one block
-    int block_queue_size = 1;
-    return MakeReadaheadIterator(std::move(block_iterator_), block_queue_size,
-                                 &block_iterator_);
+    int32_t block_queue_size = 1;
+    return MakeReadaheadIterator(std::move(block_iterator_), block_queue_size)
+        .Value(&block_iterator_);
   }
 
   Result<std::shared_ptr<Table>> Read() override {
@@ -365,7 +370,8 @@ class SerialTableReader : public BaseTableReader {
 
     while (block) {
       std::shared_ptr<Buffer> next_block, completion;
-      RETURN_NOT_OK(block_iterator_.Next(&next_block));
+
+      ARROW_ASSIGN_OR_RAISE(next_block, block_iterator_.Next());
       bool is_final = (next_block == nullptr);
 
       if (is_final) {
@@ -418,9 +424,10 @@ class ThreadedTableReader : public BaseTableReader {
   Status Init() override {
     ARROW_ASSIGN_OR_RAISE(block_iterator_,
                           io::MakeInputStreamIterator(input_, read_options_.block_size));
+
     int32_t block_queue_size = thread_pool_->GetCapacity();
-    return MakeReadaheadIterator(std::move(block_iterator_), block_queue_size,
-                                 &block_iterator_);
+    return MakeReadaheadIterator(std::move(block_iterator_), block_queue_size)
+        .Value(&block_iterator_);
   }
 
   Result<std::shared_ptr<Table>> Read() override {
@@ -441,7 +448,8 @@ class ThreadedTableReader : public BaseTableReader {
 
     while (block) {
       std::shared_ptr<Buffer> next_block, whole, completion, next_partial;
-      RETURN_NOT_OK(block_iterator_.Next(&next_block));
+
+      ARROW_ASSIGN_OR_RAISE(next_block, block_iterator_.Next());
       bool is_final = (next_block == nullptr);
 
       if (is_final) {
