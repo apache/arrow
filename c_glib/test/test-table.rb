@@ -218,13 +218,14 @@ valid:
                                                build_boolean_array([false])])
       )
       combined_table = table.combine_chunks
-      assert_equal(table, combined_table)
-
-      chunked_array = combined_table.get_column_data(0)
-      assert_equal(1, chunked_array.n_chunks)
-
-      assert_equal([true, false, true, false, true, false],
-                   chunked_array.get_chunk(0).values)
+      all_values = combined_table.n_columns.times.collect do |i|
+        column = combined_table.get_column_data(i)
+        column.n_chunks.times.collect do |j|
+          column.get_chunk(j).values
+        end
+      end
+      assert_equal([[[true, false, true, false, true, false]]],
+                   all_values)
     end
   end
 end
