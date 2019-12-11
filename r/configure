@@ -33,6 +33,11 @@ PKG_BREW_NAME="apache-arrow"
 PKG_TEST_HEADER="<arrow/api.h>"
 PKG_LIBS="-larrow -lparquet -larrow_dataset"
 
+# Temporarily put here
+if [ "$LIBARROW_BINARY" ]; then
+  PKG_LIBS="$PKG_LIBS -lthrift -lsnappy -lz -lzstd -llz4 -lbrotlidec-static -lbrotlienc-static -lbrotlicommon-static -lboost_filesystem -lboost_regex -lboost_system -ljemalloc_pic"
+fi
+
 # generate code
 if [ "$ARROW_R_DEV" = "TRUE" ]; then
   echo "*** Generating code with data-raw/codegen.R"

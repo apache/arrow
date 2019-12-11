@@ -684,6 +684,19 @@ services:
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/r_sanitize.sh /arrow"
 
+  r-manylinux2014:
+    image: ${REPO}:amd64-centos-7.7-python-manylinux2014
+    build:
+      context: python/manylinux201x
+      dockerfile: Dockerfile-x86_64_base_2014
+      cache_from:
+        - ${REPO}:amd64-centos-7.7-python-manylinux2014
+    shm_size: *shm-size
+    volumes:
+      - .:/arrow:delegated
+      - ./python/manylinux201x:/io:delegated
+    command: /io/build_arrow_static.sh
+  
   ################################ Rust #######################################
 
   debian-rust:
