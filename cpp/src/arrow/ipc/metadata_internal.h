@@ -111,7 +111,7 @@ Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type
 Status GetSparseCOOIndexMetadata(const flatbuf::SparseTensorIndexCOO* sparse_index,
                                  std::shared_ptr<DataType>* indices_type);
 
-// EXPERIMENTAL: Extracting metadata of a SparseCSRIndex from the message
+// EXPERIMENTAL: Extracting metadata of a SparseCSXIndex from the message
 Status GetSparseCSXIndexMetadata(const flatbuf::SparseMatrixIndexCSX* sparse_index,
                                  std::shared_ptr<DataType>* indptr_type,
                                  std::shared_ptr<DataType>* indices_type);
