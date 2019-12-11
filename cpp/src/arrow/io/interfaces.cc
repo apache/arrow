@@ -28,6 +28,7 @@
 #include "arrow/buffer.h"
 #include "arrow/io/concurrency.h"
 #include "arrow/io/util_internal.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
@@ -47,18 +48,20 @@ class InputStreamBlockIterator {
   InputStreamBlockIterator(std::shared_ptr<InputStream> stream, int64_t block_size)
       : stream_(stream), block_size_(block_size) {}
 
-  Status Next(std::shared_ptr<Buffer>* out) {
+  Result<std::shared_ptr<Buffer>> Next() {
     if (done_) {
-      out->reset();
-      return Status::OK();
+      return nullptr;
     }
-    ARROW_ASSIGN_OR_RAISE(*out, stream_->Read(block_size_));
-    if ((*out)->size() == 0) {
+
+    ARROW_ASSIGN_OR_RAISE(auto out, stream_->Read(block_size_));
+
+    if (out->size() == 0) {
       done_ = true;
       stream_.reset();
-      out->reset();
+      out.reset();
     }
-    return Status::OK();
+
+    return out;
   }
 
  protected:

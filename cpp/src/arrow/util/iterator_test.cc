@@ -66,56 +66,77 @@ struct IterationTraits<TestInt> {
 template <typename T>
 class TracingIterator {
  public:
-  explicit TracingIterator(Iterator<T> it) : it_(std::move(it)) {}
+  explicit TracingIterator(Iterator<T> it) : it_(std::move(it)), state_(new State) {}
 
-  Status Next(T* out) {
-    std::unique_lock<std::mutex> lock(mutex_);
-    thread_ids_.insert(std::this_thread::get_id());
-    if (!next_status_.ok()) {
+  Result<T> Next() {
+    auto lock = state_->Lock();
+    state_->thread_ids_.insert(std::this_thread::get_id());
+
+    RETURN_NOT_OK(state_->GetNextStatus());
+
+    ARROW_ASSIGN_OR_RAISE(auto out, it_.Next());
+    state_->values_.push_back(out);
+
+    state_->cv_.notify_one();
+    return out;
+  }
+
+  class State {
+   public:
+    const std::vector<T>& values() { return values_; }
+
+    const std::unordered_set<std::thread::id>& thread_ids() { return thread_ids_; }
+
+    void InsertFailure(Status st) {
+      auto lock = Lock();
+      next_status_ = std::move(st);
+    }
+
+    // Wait until the iterator has emitted at least `size` values
+    void WaitForValues(int size) {
+      auto lock = Lock();
+      cv_.wait(lock, [&]() { return values_.size() >= static_cast<size_t>(size); });
+    }
+
+    void AssertValuesEqual(const std::vector<T>& expected) {
+      auto lock = Lock();
+      ASSERT_EQ(values_, expected);
+    }
+
+    void AssertValuesStartwith(const std::vector<T>& expected) {
+      auto lock = Lock();
+      ASSERT_TRUE(std::equal(expected.begin(), expected.end(), values_.begin()));
+    }
+
+    std::unique_lock<std::mutex> Lock() { return std::unique_lock<std::mutex>(mutex_); }
+
+   private:
+    friend TracingIterator;
+
+    Status GetNextStatus() {
+      if (next_status_.ok()) {
+        return Status::OK();
+      }
+
       Status st = std::move(next_status_);
       next_status_ = Status::OK();
       return st;
     }
-    RETURN_NOT_OK(it_.Next(out));
-    values_.push_back(*out);
 
-    cv_.notify_one();
-    return Status::OK();
-  }
+    Status next_status_;
+    std::vector<T> values_;
+    std::unordered_set<std::thread::id> thread_ids_;
 
-  const std::vector<T>& values() { return values_; }
+    std::mutex mutex_;
+    std::condition_variable cv_;
+  };
 
-  const std::unordered_set<std::thread::id>& thread_ids() { return thread_ids_; }
-
-  void InsertFailure(Status st) {
-    std::unique_lock<std::mutex> lock(mutex_);
-    next_status_ = std::move(st);
-  }
-
-  // Wait until the iterator has emitted at least `size` values
-  void WaitForValues(int size) {
-    std::unique_lock<std::mutex> lock(mutex_);
-    cv_.wait(lock, [&]() { return values_.size() >= static_cast<size_t>(size); });
-  }
-
-  void AssertValuesEqual(const std::vector<T>& expected) {
-    std::unique_lock<std::mutex> lock(mutex_);
-    ASSERT_EQ(values_, expected);
-  }
-
-  void AssertValuesStartwith(const std::vector<T>& expected) {
-    std::unique_lock<std::mutex> lock(mutex_);
-    ASSERT_TRUE(std::equal(expected.begin(), expected.end(), values_.begin()));
-  }
+  const std::shared_ptr<State>& state() const { return state_; }
 
  private:
   Iterator<T> it_;
-  Status next_status_;
-  std::vector<T> values_;
-  std::unordered_set<std::thread::id> thread_ids_;
 
-  std::mutex mutex_;
-  std::condition_variable cv_;
+  std::shared_ptr<State> state_;
 };
 
 template <typename T>
@@ -154,8 +175,7 @@ void AssertIteratorNoMatch(std::vector<T> expected, Iterator<T> actual) {
 
 template <typename T>
 void AssertIteratorNext(T expected, Iterator<T>& it) {
-  T actual;
-  ASSERT_OK(it.Next(&actual));
+  ASSERT_OK_AND_ASSIGN(T actual, it.Next());
   ASSERT_EQ(expected, actual);
 }
 
@@ -184,64 +204,61 @@ TEST(TestVectorIterator, RangeForLoop) {
   std::vector<TestInt> ints = {1, 2, 3, 4};
 
   auto ints_it = ints.begin();
-  for (auto v_result : VectorIt(ints)) {
-    ASSERT_OK_AND_ASSIGN(TestInt v, v_result);
-    ASSERT_EQ(v, *ints_it++);
+  for (auto maybe_i : VectorIt(ints)) {
+    ASSERT_OK_AND_ASSIGN(TestInt i, maybe_i);
+    ASSERT_EQ(i, *ints_it++);
   }
-  ASSERT_EQ(ints_it, ints.end());
+  ASSERT_EQ(ints_it, ints.end()) << *ints_it << "@" << (ints_it - ints.begin());
 
-  std::vector<std::unique_ptr<TestInt>> vec;
+  std::vector<std::unique_ptr<TestInt>> intptrs;
   for (TestInt i : ints) {
-    vec.emplace_back(new TestInt(i));
+    intptrs.emplace_back(new TestInt(i));
   }
 
   // also works with move only types
   ints_it = ints.begin();
-  for (auto v_result : MakeVectorIterator(std::move(vec))) {
-    ASSERT_OK_AND_ASSIGN(std::unique_ptr<TestInt> v, std::move(v_result));
-    ASSERT_EQ(*v, *ints_it++);
+  for (auto maybe_i_ptr : MakeVectorIterator(std::move(intptrs))) {
+    ASSERT_OK_AND_ASSIGN(std::unique_ptr<TestInt> i_ptr, std::move(maybe_i_ptr));
+    ASSERT_EQ(*i_ptr, *ints_it++);
   }
   ASSERT_EQ(ints_it, ints.end());
 }
 
 TEST(TestFunctionIterator, RangeForLoop) {
   int i = 0;
-  auto fails_at_3 = MakeFunctionIterator([&](TestInt* out) {
+  auto fails_at_3 = MakeFunctionIterator([&]() -> Result<TestInt> {
     if (i >= 3) {
       return Status::IndexError("fails at 3");
     }
-    out->value = i++;
-    return Status::OK();
+    return i++;
   });
 
-  std::vector<Result<TestInt>> actual,
-      expected{0, 1, 2, Status::IndexError("fails at 3")};
-  for (auto r : fails_at_3) {
-    actual.push_back(std::move(r));
+  int expected_i = 0;
+  for (auto maybe_i : fails_at_3) {
+    if (expected_i < 3) {
+      ASSERT_OK(maybe_i.status());
+      ASSERT_EQ(*maybe_i, expected_i);
+    } else if (expected_i == 3) {
+      ASSERT_RAISES(IndexError, maybe_i.status());
+    }
+    ASSERT_LE(expected_i, 3) << "iteration stops after an error is encountered";
+    ++expected_i;
   }
-  ASSERT_EQ(actual, expected);
 }
 
 TEST(FilterIterator, Basic) {
-  AssertIteratorMatch({1, 2, 3, 4}, FilterIt(VectorIt({1, 2, 3, 4}),
-                                             [](TestInt i, TestInt* o, bool* accept) {
-                                               *o = std::move(i);
-                                               return Status::OK();
-                                             }));
+  AssertIteratorMatch({1, 2, 3, 4}, FilterIt(VectorIt({1, 2, 3, 4}), [](TestInt i) {
+                        return FilterIterator::Accept(std::move(i));
+                      }));
 
-  AssertIteratorMatch(
-      {}, FilterIt(VectorIt({1, 2, 3, 4}), [](TestInt i, TestInt* o, bool* accept) {
-        *o = std::move(i);
-        *accept = false;
-        return Status::OK();
-      }));
+  AssertIteratorMatch({}, FilterIt(VectorIt({1, 2, 3, 4}), [](TestInt i) {
+                        return FilterIterator::Reject<TestInt>();
+                      }));
 
-  AssertIteratorMatch(
-      {2, 4}, FilterIt(VectorIt({1, 2, 3, 4}), [](TestInt i, TestInt* o, bool* accept) {
-        *o = std::move(i);
-        *accept = (i.value % 2 == 0);
-        return Status::OK();
-      }));
+  AssertIteratorMatch({2, 4}, FilterIt(VectorIt({1, 2, 3, 4}), [](TestInt i) {
+                        return i.value % 2 == 0 ? FilterIterator::Accept(std::move(i))
+                                                : FilterIterator::Reject<TestInt>();
+                      }));
 }
 
 TEST(FlattenVectorIterator, Basic) {
@@ -291,25 +308,22 @@ TEST(FlattenVectorIterator, Pyramid) {
 TEST(ReadaheadIterator, DefaultConstructor) {
   ReadaheadIterator<TestInt> it;
   TestInt v{42};
-  ASSERT_OK(it.Next(&v));
+  ASSERT_OK_AND_ASSIGN(v, it.Next());
   ASSERT_EQ(v, TestInt());
 }
 
 TEST(ReadaheadIterator, Empty) {
-  Iterator<TestInt> it;
-  ASSERT_OK(MakeReadaheadIterator(VectorIt({}), 2, &it));
+  ASSERT_OK_AND_ASSIGN(auto it, MakeReadaheadIterator(VectorIt({}), 2));
   AssertIteratorMatch({}, std::move(it));
 }
 
 TEST(ReadaheadIterator, Basic) {
-  Iterator<TestInt> it;
-  ASSERT_OK(MakeReadaheadIterator(VectorIt({1, 2, 3, 4, 5}), 2, &it));
+  ASSERT_OK_AND_ASSIGN(auto it, MakeReadaheadIterator(VectorIt({1, 2, 3, 4, 5}), 2));
   AssertIteratorMatch({1, 2, 3, 4, 5}, std::move(it));
 }
 
 TEST(ReadaheadIterator, NotExhausted) {
-  Iterator<TestInt> it;
-  ASSERT_OK(MakeReadaheadIterator(VectorIt({1, 2, 3, 4, 5}), 2, &it));
+  ASSERT_OK_AND_ASSIGN(auto it, MakeReadaheadIterator(VectorIt({1, 2, 3, 4, 5}), 2));
   AssertIteratorNext({1}, it);
   AssertIteratorNext({2}, it);
 }
@@ -319,12 +333,12 @@ void SleepABit(double seconds = 1e-3) {
 }
 
 TEST(ReadaheadIterator, Trace) {
-  auto tracing =
-      std::make_shared<TracingIterator<TestInt>>(VectorIt({1, 2, 3, 4, 5, 6, 7, 8}));
+  TracingIterator<TestInt> tracing_it(VectorIt({1, 2, 3, 4, 5, 6, 7, 8}));
+  auto tracing = tracing_it.state();
   ASSERT_EQ(tracing->values().size(), 0);
 
-  Iterator<TestInt> it;
-  ASSERT_OK(MakeReadaheadIterator(MakePointerIterator(tracing), 2, &it));
+  ASSERT_OK_AND_ASSIGN(
+      auto it, MakeReadaheadIterator(Iterator<TestInt>(std::move(tracing_it)), 2));
   tracing->WaitForValues(2);
   SleepABit();  // check no further value is emitted
   tracing->AssertValuesEqual({1, 2});
@@ -368,14 +382,16 @@ TEST(ReadaheadIterator, Trace) {
 }
 
 TEST(ReadaheadIterator, NextError) {
-  auto tracing = std::make_shared<TracingIterator<TestInt>>(VectorIt({1, 2, 3}));
+  TracingIterator<TestInt> tracing_it((VectorIt({1, 2, 3})));
+  auto tracing = tracing_it.state();
   ASSERT_EQ(tracing->values().size(), 0);
+
   tracing->InsertFailure(Status::IOError("xxx"));
 
-  Iterator<TestInt> it;
-  ASSERT_OK(MakeReadaheadIterator(MakePointerIterator(tracing), 2, &it));
-  TestInt v;
-  ASSERT_RAISES(IOError, it.Next(&v));
+  ASSERT_OK_AND_ASSIGN(
+      auto it, MakeReadaheadIterator(Iterator<TestInt>(std::move(tracing_it)), 2));
+
+  ASSERT_RAISES(IOError, it.Next().status());
 
   AssertIteratorNext({1}, it);
   tracing->WaitForValues(3);

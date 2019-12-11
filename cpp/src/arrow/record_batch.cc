@@ -306,7 +306,7 @@ class SimpleRecordBatchReader : public RecordBatchReader {
       : schema_(schema), it_(MakeVectorIterator(batches)) {}
 
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
-    return it_.Next(batch);
+    return it_.Next().Value(batch);
   }
 
   std::shared_ptr<Schema> schema() const override { return schema_; }

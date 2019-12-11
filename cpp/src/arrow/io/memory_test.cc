@@ -325,37 +325,34 @@ TEST(TestSlowRandomAccessFile, Basics) { TestSlowInputStream<SlowRandomAccessFil
 
 TEST(TestInputStreamIterator, Basics) {
   auto reader = std::make_shared<BufferReader>(Buffer::FromString("data123456"));
-  Iterator<std::shared_ptr<Buffer>> it;
-  ASSERT_OK_AND_ASSIGN(it, MakeInputStreamIterator(reader, /*block_size=*/3));
+  ASSERT_OK_AND_ASSIGN(auto it, MakeInputStreamIterator(reader, /*block_size=*/3));
   std::shared_ptr<Buffer> buf;
-  ASSERT_OK(it.Next(&buf));
+  ASSERT_OK_AND_ASSIGN(buf, it.Next());
   AssertBufferEqual(*buf, "dat");
-  ASSERT_OK(it.Next(&buf));
+  ASSERT_OK_AND_ASSIGN(buf, it.Next());
   AssertBufferEqual(*buf, "a12");
-  ASSERT_OK(it.Next(&buf));
+  ASSERT_OK_AND_ASSIGN(buf, it.Next());
   AssertBufferEqual(*buf, "345");
-  ASSERT_OK(it.Next(&buf));
+  ASSERT_OK_AND_ASSIGN(buf, it.Next());
   AssertBufferEqual(*buf, "6");
-  ASSERT_OK(it.Next(&buf));
+  ASSERT_OK_AND_ASSIGN(buf, it.Next());
   ASSERT_EQ(buf, nullptr);
-  ASSERT_OK(it.Next(&buf));
+  ASSERT_OK_AND_ASSIGN(buf, it.Next());
   ASSERT_EQ(buf, nullptr);
 }
 
 TEST(TestInputStreamIterator, Closed) {
-  Iterator<std::shared_ptr<Buffer>> it;
   auto reader = std::make_shared<BufferReader>(Buffer::FromString("data123456"));
   ASSERT_OK(reader->Close());
   ASSERT_RAISES(Invalid, MakeInputStreamIterator(reader, 3));
 
   reader = std::make_shared<BufferReader>(Buffer::FromString("data123456"));
-  std::shared_ptr<Buffer> buf;
-  ASSERT_OK_AND_ASSIGN(it, MakeInputStreamIterator(reader, /*block_size=*/3));
-  ASSERT_OK(it.Next(&buf));
+  ASSERT_OK_AND_ASSIGN(auto it, MakeInputStreamIterator(reader, /*block_size=*/3));
+  ASSERT_OK_AND_ASSIGN(auto buf, it.Next());
   AssertBufferEqual(*buf, "dat");
   // Close stream and read from iterator
   ASSERT_OK(reader->Close());
-  ASSERT_RAISES(Invalid, it.Next(&buf));
+  ASSERT_RAISES(Invalid, it.Next().status());
 }
 
 }  // namespace io

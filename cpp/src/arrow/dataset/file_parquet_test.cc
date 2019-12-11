@@ -78,8 +78,8 @@ Status WriteRecordBatchReader(RecordBatchReader* reader, FileWriter* writer) {
                            "'");
   }
 
-  return MakePointerIterator(reader).Visit(
-      [&](std::shared_ptr<RecordBatch> batch) -> Status {
+  return MakeFunctionIterator([reader] { return reader->Next(); })
+      .Visit([&](std::shared_ptr<RecordBatch> batch) {
         return WriteRecordBatch(*batch, writer);
       });
 }

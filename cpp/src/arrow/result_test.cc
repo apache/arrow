@@ -576,6 +576,83 @@ TEST(ResultTest, StatusReturnAdapterMoveAndConvertValue) {
   EXPECT_EQ(*implicitly_convertible.move_only.data, kIntElement);
 }
 
+// Verify that a Result<T> can be queried for a stored value or an alternative.
+TEST(ResultTest, ValueOrAlternative) {
+  EXPECT_EQ(Result<MoveOnlyDataType>(MoveOnlyDataType{kIntElement})
+                .ValueOr(MoveOnlyDataType{0})
+                .data[0],
+            kIntElement);
+
+  EXPECT_EQ(
+      Result<MoveOnlyDataType>(Status::Invalid("")).ValueOr(MoveOnlyDataType{0}).data[0],
+      0);
+}
+
+TEST(ResultTest, MapFunctionToConstValue) {
+  static auto error = Status::Invalid("some error message");
+
+  const Result<MoveOnlyDataType> result(MoveOnlyDataType{kIntElement});
+
+  auto const_mapped =
+      result.Map([](const MoveOnlyDataType& m) -> Result<int> { return *m.data; });
+  EXPECT_TRUE(const_mapped.ok());
+  EXPECT_EQ(const_mapped.ValueOrDie(), kIntElement);
+
+  auto const_error =
+      result.Map([](const MoveOnlyDataType& m) -> Result<int> { return error; });
+  EXPECT_FALSE(const_error.ok());
+  EXPECT_EQ(const_error.status(), error);
+}
+
+TEST(ResultTest, MapFunctionToRrefValue) {
+  static auto error = Status::Invalid("some error message");
+
+  auto result = [] { return Result<MoveOnlyDataType>(MoveOnlyDataType{kIntElement}); };
+
+  auto move_mapped =
+      result().Map([](MoveOnlyDataType m) -> Result<int> { return std::move(*m.data); });
+  EXPECT_TRUE(move_mapped.ok());
+  EXPECT_EQ(move_mapped.ValueOrDie(), kIntElement);
+
+  auto move_error = result().Map([](MoveOnlyDataType m) -> Result<int> { return error; });
+  EXPECT_FALSE(move_error.ok());
+  EXPECT_EQ(move_error.status(), error);
+}
+
+TEST(ResultTest, MapFunctionToConstError) {
+  static auto error = Status::Invalid("some error message");
+  static auto other_error = Status::Invalid("some other error message");
+
+  const Result<MoveOnlyDataType> result(error);
+
+  auto const_mapped =
+      result.Map([](const MoveOnlyDataType& m) -> Result<int> { return *m.data; });
+  EXPECT_FALSE(const_mapped.ok());
+  EXPECT_EQ(const_mapped.status(), error);  // error is *not* replaced by a value
+
+  auto const_error =
+      result.Map([](const MoveOnlyDataType& m) -> Result<int> { return other_error; });
+  EXPECT_FALSE(const_error.ok());
+  EXPECT_EQ(const_error.status(), error);  // error is *not* replaced by other_error
+}
+
+TEST(ResultTest, MapFunctionToRrefError) {
+  static auto error = Status::Invalid("some error message");
+  static auto other_error = Status::Invalid("some other error message");
+
+  auto result = [] { return Result<MoveOnlyDataType>(error); };
+
+  auto move_mapped =
+      result().Map([](MoveOnlyDataType m) -> Result<int> { return std::move(*m.data); });
+  EXPECT_FALSE(move_mapped.ok());
+  EXPECT_EQ(move_mapped.status(), error);  // error is *not* replaced by a value
+
+  auto move_error =
+      result().Map([](MoveOnlyDataType m) -> Result<int> { return other_error; });
+  EXPECT_FALSE(move_error.ok());
+  EXPECT_EQ(move_error.status(), error);  // error is *not* replaced by other_error
+}
+
 // Verify that a Result<U> is assignable to a Result<T>, where T
 // is a type which has an implicit constructor taking a const U &.
 TEST(ResultTest, TemplateCopyAssign) {

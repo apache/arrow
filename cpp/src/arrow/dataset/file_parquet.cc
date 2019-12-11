@@ -61,7 +61,8 @@ class ParquetScanTask : public ScanTask {
     RETURN_NOT_OK(reader_->GetRecordBatchReader({row_group_}, column_projection_,
                                                 &record_batch_reader));
 
-    return MakePointerIterator(std::move(record_batch_reader));
+    std::shared_ptr<RecordBatchReader> r = std::move(record_batch_reader);
+    return MakeFunctionIterator([r] { return r->Next(); });
   }
 
  private:
@@ -138,19 +139,16 @@ class ParquetScanTaskIterator {
         std::move(metadata), std::move(arrow_reader)));
   }
 
-  Status Next(ScanTaskPtr* task) {
+  Result<ScanTaskPtr> Next() {
     auto row_group = skipper_.Next();
 
     // Iteration is done.
     if (row_group == RowGroupSkipper::kIterationDone) {
-      *task = nullptr;
-      return Status::OK();
+      return nullptr;
     }
 
-    task->reset(
+    return ScanTaskPtr(
         new ParquetScanTask(row_group, column_projection_, reader_, options_, context_));
-
-    return Status::OK();
   }
 
  private:

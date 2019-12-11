@@ -55,8 +55,8 @@ Result<RecordBatchIterator> SimpleScanTask::Scan() {
 static ScanTaskIterator GetScanTaskIterator(DataFragmentIterator fragments,
                                             ScanContextPtr context) {
   // DataFragment -> ScanTaskIterator
-  auto fn = [context](std::shared_ptr<DataFragment> fragment, ScanTaskIterator* out) {
-    return fragment->Scan(context).Value(out);
+  auto fn = [context](std::shared_ptr<DataFragment> fragment) {
+    return fragment->Scan(context);
   };
 
   // Iterator<Iterator<ScanTask>>

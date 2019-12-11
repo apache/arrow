@@ -60,16 +60,15 @@ class TableReaderImpl : public TableReader,
   Status Init(std::shared_ptr<io::InputStream> input) {
     ARROW_ASSIGN_OR_RAISE(auto it,
                           io::MakeInputStreamIterator(input, read_options_.block_size));
-    return MakeReadaheadIterator(std::move(it), task_group_->parallelism(),
-                                 &block_iterator_);
+    return MakeReadaheadIterator(std::move(it), task_group_->parallelism())
+        .Value(&block_iterator_);
   }
 
   Status Read(std::shared_ptr<Table>* out) override {
     RETURN_NOT_OK(MakeBuilder());
 
-    std::shared_ptr<Buffer> block;
-    RETURN_NOT_OK(block_iterator_.Next(&block));
-    if (!block) {
+    ARROW_ASSIGN_OR_RAISE(auto block, block_iterator_.Next());
+    if (block == nullptr) {
       return Status::Invalid("Empty JSON file");
     }
 
@@ -79,12 +78,12 @@ class TableReaderImpl : public TableReader,
     int64_t block_index = 0;
     std::shared_ptr<Buffer> partial = empty;
 
-    while (block) {
+    while (block != nullptr) {
       std::shared_ptr<Buffer> next_block, whole, completion, next_partial;
 
-      RETURN_NOT_OK(block_iterator_.Next(&next_block));
+      ARROW_ASSIGN_OR_RAISE(next_block, block_iterator_.Next());
 
-      if (!next_block) {
+      if (next_block == nullptr) {
         // End of file reached => compute completion from penultimate block
         RETURN_NOT_OK(chunker_->ProcessFinal(partial, block, &completion, &whole));
       } else {

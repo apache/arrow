@@ -1021,14 +1021,17 @@ std::vector<std::string> FieldsInExpression(const ExpressionPtr& expr) {
 RecordBatchIterator ExpressionEvaluator::FilterBatches(RecordBatchIterator unfiltered,
                                                        ExpressionPtr filter,
                                                        MemoryPool* pool) {
-  auto filter_batches = [filter, pool, this](
-                            const std::shared_ptr<RecordBatch>& unfiltered,
-                            std::shared_ptr<RecordBatch>* filtered, bool* accept) {
-    ARROW_ASSIGN_OR_RAISE(auto selection, Evaluate(*filter, *unfiltered, pool));
-    ARROW_ASSIGN_OR_RAISE(*filtered, Filter(selection, unfiltered, pool));
-    // drop empty batches
-    *accept = (*filtered)->num_rows() > 0;
-    return Status::OK();
+  auto filter_batches = [filter, pool, this](std::shared_ptr<RecordBatch> unfiltered) {
+    auto filtered = Evaluate(*filter, *unfiltered, pool).Map([&](Datum selection) {
+      return Filter(selection, unfiltered, pool);
+    });
+
+    if (filtered.ok() && (*filtered)->num_rows() == 0) {
+      // drop empty batches
+      return FilterIterator::Reject<std::shared_ptr<RecordBatch>>();
+    }
+
+    return FilterIterator::MaybeAccept(std::move(filtered));
   };
 
   return MakeFilterIterator(std::move(filter_batches), std::move(unfiltered));
