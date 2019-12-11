@@ -37,7 +37,7 @@ cdef class HdfsOptions:
     driver : {'libhdfs', 'libhdfs3'}, default 'libhdfs'
         Connect using libhdfs (JNI-based) or libhdfs3 (3rd-party C++ library
         from Apache HAWQ (incubating)). Prefer libhdfs because libhdfs3 project
-        is not maintaned anymore.
+        is not maintained anymore.
     replication : int, default 3
         Number of copies each block will have.
     buffer_size : int, default 0
