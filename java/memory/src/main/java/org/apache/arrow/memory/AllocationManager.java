@@ -93,7 +93,14 @@ public abstract class AllocationManager {
     return associate(allocator, true);
   }
 
-  private BufferLedger associate(final BaseAllocator allocator, final boolean retain) {
+  /**
+   * Associate the existing underlying buffer with a new allocator.
+   *
+   * @param allocator The target allocator to associate this buffer with.
+   * @param retain True for increasing the ref count by 1
+   * @return size of underlying memory chunk
+   */
+  protected final BufferLedger associate(final BaseAllocator allocator, final boolean retain) {
     allocator.assertOpen();
     Preconditions.checkState(root == allocator.root,
           "A buffer can only be associated between two allocators that share the same root");
