@@ -31,6 +31,7 @@ from pyarrow._dataset import (  # noqa
     ComparisonExpression,
     Dataset,
     DataSource,
+    DefaultPartitionScheme,
     Expression,
     FieldExpression,
     FileFormat,

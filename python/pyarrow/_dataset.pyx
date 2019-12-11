@@ -97,7 +97,9 @@ cdef class PartitionScheme:
 
         # TODO(kszucs): either choose type() or name() but consistently
         typ = frombytes(sp.get().name())
-        if typ == 'schema_partition_scheme':
+        if typ == 'default_partition_scheme':
+            self = DefaultPartitionScheme.__new__(DefaultPartitionScheme)
+        elif typ == 'schema_partition_scheme':
             self = SchemaPartitionScheme.__new__(SchemaPartitionScheme)
         elif typ == 'hive_partition_scheme':
             self = HivePartitionScheme.__new__(HivePartitionScheme)
@@ -114,6 +116,21 @@ cdef class PartitionScheme:
         cdef CResult[shared_ptr[CExpression]] result
         result = self.scheme.Parse(tobytes(path))
         return Expression.wrap(GetResultValue(result))
+
+
+cdef class DefaultPartitionScheme(PartitionScheme):
+
+    cdef:
+        CDefaultPartitionScheme* default_scheme  # hmmm...
+
+    def __init__(self):
+        cdef shared_ptr[CDefaultPartitionScheme] scheme
+        scheme = make_shared[CDefaultPartitionScheme]()
+        self.init(<shared_ptr[CPartitionScheme]> scheme)
+
+    cdef init(self, const shared_ptr[CPartitionScheme]& sp):
+        PartitionScheme.init(self, sp)
+        self.default_scheme = <CDefaultPartitionScheme*> sp.get()
 
 
 cdef class SchemaPartitionScheme(PartitionScheme):
@@ -351,13 +368,13 @@ cdef class SimpleDataSource(DataSource):
         cdef:
             RecordBatch batch
             vector[shared_ptr[CRecordBatch]] batches
-            shared_ptr[CSimpleDataSource] simple_source
+            CResult[shared_ptr[CDataSource]] result
 
         for batch in record_batches:
             batches.push_back(pyarrow_unwrap_batch(batch))
 
-        simple_source = make_shared[CSimpleDataSource](batches)
-        self.init(<shared_ptr[CDataSource]> simple_source)
+        result = CSimpleDataSource.Make(batches)
+        self.init(GetResultValue(result))
 
     cdef void init(self, const shared_ptr[CDataSource]& sp):
         DataSource.init(self, sp)
@@ -394,7 +411,7 @@ cdef class FileSystemDataSource(DataSource):
         CFileSystemDataSource* filesystem_source
 
     def __init__(self, FileSystem filesystem not None, paths_or_selector,
-                 Expression source_partition, dict path_partitions,
+                 partitions, Expression source_partition,
                  FileFormat file_format not None):
         """Create a FileSystemDataSource
 
@@ -405,8 +422,8 @@ cdef class FileSystemDataSource(DataSource):
         paths_or_selector : Union[Selector, List[FileStats]]
             The file stats object can be queried by the
             filesystem.get_target_stats method.
+        partitions : List[Expression]
         source_partition : Expression
-        path_partitions : Dict[str, Expression]
         file_format : FileFormat
         """
         cdef:
@@ -414,14 +431,20 @@ cdef class FileSystemDataSource(DataSource):
             Expression expression
             vector[CFileStats] c_file_stats
             shared_ptr[CExpression] c_source_partition
-            unordered_map[c_string, shared_ptr[CExpression]] c_path_partitions
+            vector[shared_ptr[CExpression]] c_partitions
             CResult[shared_ptr[CDataSource]] result
 
         for stats in filesystem.get_target_stats(paths_or_selector):
             c_file_stats.push_back(stats.unwrap())
 
-        for path, expression in path_partitions.items():
-            c_path_partitions[tobytes(path)] = expression.unwrap()
+        for expression in partitions:
+            c_partitions.push_back(expression.unwrap())
+
+        if c_file_stats.size() != c_partitions.size():
+            raise ValueError(
+                'The number of files resulting from paths_or_selector must be '
+                'equal to the number of partitions.'
+            )
 
         if source_partition is not None:
             c_source_partition = source_partition.unwrap()
@@ -429,8 +452,8 @@ cdef class FileSystemDataSource(DataSource):
         result = CFileSystemDataSource.Make(
             filesystem.unwrap(),
             c_file_stats,
+            c_partitions,
             c_source_partition,
-            c_path_partitions,
             file_format.unwrap()
         )
         self.init(GetResultValue(result))

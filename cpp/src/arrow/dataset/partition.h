@@ -108,6 +108,18 @@ class ARROW_DS_EXPORT PartitionSchemeDiscovery {
   std::shared_ptr<Schema> schema_;
 };
 
+/// \brief Subclass for representing the default, always true scheme.
+class DefaultPartitionScheme : public PartitionScheme {
+ public:
+  DefaultPartitionScheme() : PartitionScheme(::arrow::schema({})) {}
+
+  std::string name() const override { return "default_partition_scheme"; }
+
+  Result<ExpressionPtr> Parse(const std::string& segment, int i) const override {
+    return scalar(true);
+  }
+};
+
 /// \brief Subclass for looking up partition information from a dictionary
 /// mapping segments to expressions provided on construction.
 class ARROW_DS_EXPORT SegmentDictionaryPartitionScheme : public PartitionScheme {

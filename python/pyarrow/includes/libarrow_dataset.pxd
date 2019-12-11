@@ -204,7 +204,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     cdef cppclass CSimpleDataSource "arrow::dataset::SimpleDataSource"(
             CDataSource):
-        CSimpleDataSource(CRecordBatchIterator record_batches)
+        @staticmethod
+        CResult[shared_ptr[CDataSource]] Make(vector[shared_ptr[CRecordBatch]])
 
     ctypedef shared_ptr[CDataSource] CDataSourcePtr \
         "arrow::dataset::DataSourcePtr"
@@ -284,8 +285,8 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         @staticmethod
         CResult[CDataSourcePtr] Make(CFileSystemPtr filesystem,
                                      CFileStatsVector stats,
+                                     CExpressionVector partitions,
                                      CExpressionPtr source_partition,
-                                     CPathPartitions partitions,
                                      CFileFormatPtr format)
         c_string type()
         shared_ptr[CDataFragmentIterator] GetFragments(CScanOptionsPtr options)
@@ -314,6 +315,10 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
 
     ctypedef shared_ptr[CPartitionScheme] CPartitionSchemePtr \
         "arrow::dataset::PartitionSchemePtr"
+
+    cdef cppclass CDefaultPartitionScheme \
+            "arrow::dataset::DefaultPartitionScheme"(CPartitionScheme):
+        CDefaultPartitionScheme()
 
     cdef cppclass CSchemaPartitionScheme \
             "arrow::dataset::SchemaPartitionScheme"(CPartitionScheme):
