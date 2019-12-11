@@ -27,8 +27,6 @@ if (PARQUET_REQUIRE_ENCRYPTION)
   add_executable(parquet-encryption-example-all-crypto-options low-level-api/encryption-reader-writer-all-crypto-options.cc)
   target_include_directories(parquet-encryption-example PRIVATE low-level-api/)
   target_include_directories(parquet-encryption-example-all-crypto-options PRIVATE low-level-api/)
-  target_link_libraries(parquet-encryption-example parquet_static)
-  target_link_libraries(parquet-encryption-example-all-crypto-options parquet_static)
 endif()
 
 # Prefer shared linkage but use static if shared build is deactivated
@@ -42,6 +40,11 @@ target_link_libraries(parquet-arrow-example ${PARQUET_EXAMPLE_LINK_LIBS})
 target_link_libraries(parquet-low-level-example ${PARQUET_EXAMPLE_LINK_LIBS})
 target_link_libraries(parquet-low-level-example2 ${PARQUET_EXAMPLE_LINK_LIBS})
 target_link_libraries(parquet-stream-api-example ${PARQUET_EXAMPLE_LINK_LIBS})
+
+if(PARQUET_REQUIRE_ENCRYPTION)
+  target_link_libraries(parquet-encryption-example ${PARQUET_EXAMPLE_LINK_LIBS})
+  target_link_libraries(parquet-encryption-example-all-crypto-options ${PARQUET_EXAMPLE_LINK_LIBS})
+endif()
 
 add_dependencies(parquet
   parquet-low-level-example
