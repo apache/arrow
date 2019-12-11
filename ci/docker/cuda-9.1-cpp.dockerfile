@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM nvidia/cuda:10.0-devel-ubuntu18.04
+FROM nvidia/cuda:9.1-devel-ubuntu16.04
 
 # pipefail is enabled for proper error detection in the `wget | apt-key add`
 # step
@@ -25,7 +25,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
-      wget software-properties-common gpg-agent && \
+      wget software-properties-common && \
       apt-get clean && rm -rf /var/lib/apt/lists*
 
 # Installs C++ toolchain and dependencies
@@ -40,7 +40,6 @@ RUN apt-get update -y -q && \
       g++ \
       gcc \
       git \
-      libbenchmark-dev \
       libboost-filesystem-dev \
       libboost-regex-dev \
       libboost-system-dev \
@@ -64,9 +63,6 @@ RUN apt-get update -y -q && \
       thrift-compiler \
       tzdata && \
       apt-get clean && rm -rf /var/lib/apt/lists*
-
-# Make sure libcuda.so and its dependencies are visible by CMake
-RUN ln -s /usr/local/cuda-10.0/compat/lib* /usr/local/cuda-10.0/lib64/
 
 # Prioritize system packages and local installation
 # The following dependencies will be downloaded due to missing/invalid packages
@@ -93,5 +89,4 @@ ENV ARROW_BUILD_STATIC=OFF \
     GTest_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \
-    Thrift_SOURCE=BUNDLED \
-    LD_LIBRARY_PATH=/usr/local/cuda/lib64/
+    Thrift_SOURCE=BUNDLED
