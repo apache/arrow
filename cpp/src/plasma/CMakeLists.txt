@@ -192,9 +192,7 @@ if(ARROW_PLASMA_JAVA_CLIENT)
                           "-undefined dynamic_lookup"
                           ${PTHREAD_LIBRARY})
   else(APPLE)
-    target_link_libraries(plasma_java
-                          plasma_shared
-                          ${PLASMA_LINK_LIBS}
+    target_link_libraries(plasma_java plasma_shared ${PLASMA_LINK_LIBS}
                           ${PTHREAD_LIBRARY})
   endif(APPLE)
 endif()
