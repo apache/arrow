@@ -830,9 +830,17 @@ class ScalarEqualsVisitor {
     return Status::OK();
   }
 
+  Status Visit(const BooleanScalar& left) {
+    const auto& right = checked_cast<const BooleanScalar&>(right_);
+    result_ = left.value == right.value;
+    return Status::OK();
+  }
+
   template <typename T>
-  typename std::enable_if<std::is_base_of<internal::PrimitiveScalar, T>::value,
-                          Status>::type
+  typename std::enable_if<
+      std::is_base_of<internal::PrimitiveScalar<typename T::TypeClass>, T>::value ||
+          std::is_base_of<TemporalScalar<typename T::TypeClass>, T>::value,
+      Status>::type
   Visit(const T& left_) {
     const auto& right = checked_cast<const T&>(right_);
     result_ = right.value == left_.value;
@@ -840,19 +848,9 @@ class ScalarEqualsVisitor {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<BinaryScalar, T>::value, Status>::type Visit(
-      const T& left_) {
-    const auto& left = checked_cast<const BinaryScalar&>(left_);
+  typename std::enable_if<std::is_base_of<BaseBinaryScalar, T>::value, Status>::type
+  Visit(const T& left) {
     const auto& right = checked_cast<const BinaryScalar&>(right_);
-    result_ = internal::SharedPtrEquals(left.value, right.value);
-    return Status::OK();
-  }
-
-  template <typename T>
-  typename std::enable_if<std::is_base_of<LargeBinaryScalar, T>::value, Status>::type
-  Visit(const T& left_) {
-    const auto& left = checked_cast<const LargeBinaryScalar&>(left_);
-    const auto& right = checked_cast<const LargeBinaryScalar&>(right_);
     result_ = internal::SharedPtrEquals(left.value, right.value);
     return Status::OK();
   }

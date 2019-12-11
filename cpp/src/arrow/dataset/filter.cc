@@ -704,7 +704,7 @@ bool ComparisonExpression::Equals(const Expression& other) const {
 
 bool ScalarExpression::Equals(const Expression& other) const {
   return other.type() == ExpressionType::SCALAR &&
-         value_->Equals(checked_cast<const ScalarExpression&>(other).value_);
+         value_->Equals(*checked_cast<const ScalarExpression&>(other).value_);
 }
 
 bool FieldExpression::Equals(const Expression& other) const {
@@ -876,6 +876,14 @@ Result<std::shared_ptr<DataType>> CastExpression::Validate(const Schema& schema)
     ARROW_ASSIGN_OR_RAISE(to_type, like->Validate(schema));
   }
 
+  // Until expressions carry a shape, detect scalar and try to cast it. Works
+  // if the operand is a scalar leaf.
+  if (operand_->type() == ExpressionType::SCALAR) {
+    auto scalar_expr = checked_pointer_cast<ScalarExpression>(operand_);
+    ARROW_ASSIGN_OR_RAISE(std::ignore, scalar_expr->value()->CastTo(to_type));
+    return to_type;
+  }
+
   std::unique_ptr<compute::UnaryKernel> kernel;
   RETURN_NOT_OK(GetCastFunction(*operand_type, to_type, options_, &kernel));
   return to_type;
@@ -1031,8 +1039,7 @@ std::shared_ptr<ExpressionEvaluator> ExpressionEvaluator::Null() {
     Result<Datum> Evaluate(const Expression& expr, const RecordBatch& batch,
                            MemoryPool* pool) const override {
       ARROW_ASSIGN_OR_RAISE(auto type, expr.Validate(*batch.schema()));
-      ARROW_ASSIGN_OR_RAISE(auto out, MakeNullScalar(type));
-      return Datum(std::move(out));
+      return Datum(MakeNullScalar(type));
     }
 
     Result<std::shared_ptr<RecordBatch>> Filter(const Datum& selection,
@@ -1205,7 +1212,7 @@ Result<std::shared_ptr<RecordBatch>> TreeEvaluator::Filter(
                                   selection.kind(), " of type ", *selection.type());
   }
 
-  if (BooleanScalar(true).Equals(selection.scalar())) {
+  if (BooleanScalar(true).Equals(*selection.scalar())) {
     return batch;
   }
 

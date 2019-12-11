@@ -324,9 +324,8 @@ TYPED_TEST(TestNumericCompareKernel, SimpleCompareScalarArray) {
 TYPED_TEST(TestNumericCompareKernel, TestNullScalar) {
   /* Ensure that null scalar broadcast to all null results. */
   using ScalarType = typename TypeTraits<TypeParam>::ScalarType;
-  using CType = typename TypeTraits<TypeParam>::CType;
 
-  Datum null(std::make_shared<ScalarType>(CType(0), false));
+  Datum null(std::make_shared<ScalarType>());
   EXPECT_FALSE(null.scalar()->is_valid);
 
   CompareOptions eq(CompareOperator::EQUAL);

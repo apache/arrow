@@ -30,6 +30,7 @@
 #include "arrow/util/formatting.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/parsing.h"
+#include "arrow/util/time.h"
 #include "arrow/visitor_inline.h"
 
 namespace arrow {
@@ -39,113 +40,63 @@ using internal::checked_pointer_cast;
 
 bool Scalar::Equals(const Scalar& other) const { return ScalarEquals(*this, other); }
 
-Time32Scalar::Time32Scalar(int32_t value, const std::shared_ptr<DataType>& type,
-                           bool is_valid)
-    : internal::PrimitiveScalar{type, is_valid}, value(value) {
-  ARROW_CHECK_EQ(Type::TIME32, type->id());
-}
-
-Time64Scalar::Time64Scalar(int64_t value, const std::shared_ptr<DataType>& type,
-                           bool is_valid)
-    : internal::PrimitiveScalar{type, is_valid}, value(value) {
-  ARROW_CHECK_EQ(Type::TIME64, type->id());
-}
-
-TimestampScalar::TimestampScalar(int64_t value, const std::shared_ptr<DataType>& type,
-                                 bool is_valid)
-    : internal::PrimitiveScalar{type, is_valid}, value(value) {
-  ARROW_CHECK_EQ(Type::TIMESTAMP, type->id());
-}
-
-DurationScalar::DurationScalar(int64_t value, const std::shared_ptr<DataType>& type,
-                               bool is_valid)
-    : internal::PrimitiveScalar{type, is_valid}, value(value) {
-  DCHECK_EQ(Type::DURATION, type->id());
-}
-
-MonthIntervalScalar::MonthIntervalScalar(int32_t value, bool is_valid)
-    : internal::PrimitiveScalar{month_interval(), is_valid}, value(value) {}
-
-MonthIntervalScalar::MonthIntervalScalar(int32_t value,
-                                         const std::shared_ptr<DataType>& type,
-                                         bool is_valid)
-    : internal::PrimitiveScalar{type, is_valid}, value(value) {
-  DCHECK_EQ(Type::INTERVAL, type->id());
-  DCHECK_EQ(IntervalType::MONTHS,
-            checked_cast<IntervalType*>(type.get())->interval_type());
-}
-
-DayTimeIntervalScalar::DayTimeIntervalScalar(DayTimeIntervalType::DayMilliseconds value,
-                                             bool is_valid)
-    : internal::PrimitiveScalar{day_time_interval(), is_valid}, value(value) {}
-
-DayTimeIntervalScalar::DayTimeIntervalScalar(DayTimeIntervalType::DayMilliseconds value,
-                                             const std::shared_ptr<DataType>& type,
-                                             bool is_valid)
-    : internal::PrimitiveScalar{type, is_valid}, value(value) {
-  DCHECK_EQ(Type::INTERVAL, type->id());
-  DCHECK_EQ(IntervalType::DAY_TIME,
-            checked_cast<IntervalType*>(type.get())->interval_type());
-}
-
 StringScalar::StringScalar(std::string s)
-    : StringScalar(Buffer::FromString(std::move(s)), true) {}
+    : StringScalar(Buffer::FromString(std::move(s))) {}
 
 FixedSizeBinaryScalar::FixedSizeBinaryScalar(const std::shared_ptr<Buffer>& value,
-                                             const std::shared_ptr<DataType>& type,
-                                             bool is_valid)
-    : BinaryScalar(value, type, is_valid) {
+                                             const std::shared_ptr<DataType>& type)
+    : BinaryScalar(value, type) {
   ARROW_CHECK_EQ(checked_cast<const FixedSizeBinaryType&>(*type).byte_width(),
                  value->size());
 }
 
-Decimal128Scalar::Decimal128Scalar(const Decimal128& value,
-                                   const std::shared_ptr<DataType>& type, bool is_valid)
-    : Scalar{type, is_valid}, value(value) {}
-
 BaseListScalar::BaseListScalar(const std::shared_ptr<Array>& value,
-                               const std::shared_ptr<DataType>& type, bool is_valid)
-    : Scalar{type, is_valid}, value(value) {}
+                               const std::shared_ptr<DataType>& type)
+    : Scalar{type, true}, value(value) {}
 
-BaseListScalar::BaseListScalar(const std::shared_ptr<Array>& value, bool is_valid)
-    : BaseListScalar(value, value->type(), is_valid) {}
+BaseListScalar::BaseListScalar(const std::shared_ptr<Array>& value)
+    : BaseListScalar(value, value->type()) {}
 
 FixedSizeListScalar::FixedSizeListScalar(const std::shared_ptr<Array>& value,
-                                         const std::shared_ptr<DataType>& type,
-                                         bool is_valid)
-    : BaseListScalar(value, type, is_valid) {
+                                         const std::shared_ptr<DataType>& type)
+    : BaseListScalar(value, type) {
   ARROW_CHECK_EQ(value->length(),
                  checked_cast<const FixedSizeListType*>(type.get())->list_size());
 }
 
-// TODO(bkietz) This doesn't need a factory. Just rewrite all scalars to be generically
-// constructible (is_simple_scalar should apply to all scalars)
+template <typename T>
+using scalar_constructor_has_arrow_type =
+    std::is_constructible<typename TypeTraits<T>::ScalarType, std::shared_ptr<DataType>>;
+
+template <typename T, typename R = void>
+using enable_if_scalar_constructor_has_arrow_type =
+    typename std::enable_if<scalar_constructor_has_arrow_type<T>::value, R>::type;
+
+template <typename T, typename R = void>
+using enable_if_scalar_constructor_has_no_arrow_type =
+    typename std::enable_if<!scalar_constructor_has_arrow_type<T>::value, R>::type;
+
 struct MakeNullImpl {
-  template <typename T, typename ScalarType = typename TypeTraits<T>::ScalarType,
-            typename ValueType = typename ScalarType::ValueType,
-            typename Enable = typename std::enable_if<
-                internal::is_simple_scalar<ScalarType>::value>::type>
-  Status Visit(const T&) {
-    out_ = std::make_shared<ScalarType>(ValueType(), type_, false);
+  template <typename T, typename ScalarType = typename TypeTraits<T>::ScalarType>
+  enable_if_scalar_constructor_has_arrow_type<T, Status> Visit(const T&) {
+    out_ = std::make_shared<ScalarType>(type_);
     return Status::OK();
   }
 
-  Status Visit(const NullType&) {
-    out_ = std::make_shared<NullScalar>();
+  template <typename T, typename ScalarType = typename TypeTraits<T>::ScalarType>
+  enable_if_scalar_constructor_has_no_arrow_type<T, Status> Visit(const T&) {
+    out_ = std::make_shared<ScalarType>();
     return Status::OK();
-  }
-
-  Status Visit(const DataType& t) {
-    return Status::NotImplemented("construcing null scalars of type ", t);
   }
 
   const std::shared_ptr<DataType>& type_;
   std::shared_ptr<Scalar> out_;
 };
 
-Result<std::shared_ptr<Scalar>> MakeNullScalar(const std::shared_ptr<DataType>& type) {
+std::shared_ptr<Scalar> MakeNullScalar(const std::shared_ptr<DataType>& type) {
   MakeNullImpl impl = {type, nullptr};
-  RETURN_NOT_OK(VisitTypeInline(*type, &impl));
+  // Should not fail.
+  DCHECK_OK(VisitTypeInline(*type, &impl));
   return std::move(impl.out_);
 }
 
@@ -243,6 +194,36 @@ Status CastImpl(const BooleanScalar& from, NumericScalar<T>* to) {
   return Status::OK();
 }
 
+// numeric to temporal
+template <typename From, typename To>
+typename std::enable_if<std::is_base_of<TemporalType, To>::value &&
+                            !std::is_same<DayTimeIntervalType, To>::value,
+                        Status>::type
+CastImpl(const NumericScalar<From>& from, TemporalScalar<To>* to) {
+  to->value = static_cast<typename To::c_type>(from.value);
+  return Status::OK();
+}
+
+// temporal to numeric
+template <typename From, typename To>
+typename std::enable_if<std::is_base_of<TemporalType, From>::value &&
+                            !std::is_same<DayTimeIntervalType, From>::value,
+                        Status>::type
+CastImpl(const TemporalScalar<From>& from, NumericScalar<To>* to) {
+  to->value = static_cast<typename To::c_type>(from.value);
+  return Status::OK();
+}
+
+// timestamp to timestamp
+Status CastImpl(const TimestampScalar& from, TimestampScalar* to) {
+  return util::ConvertTimestampValue(from.type, to->type, from.value).Value(&to->value);
+}
+
+Status CastImpl(const TimestampScalar& from, StringScalar* to) {
+  to->value = Buffer::FromString(std::to_string(from.value));
+  return Status::OK();
+}
+
 // string to any
 template <typename ScalarType>
 Status CastImpl(const StringScalar& from, ScalarType* to) {
@@ -285,8 +266,10 @@ struct FromTypeVisitor {
                     out_);
   }
 
-  // identity cast
-  Status Visit(const ToType&) {
+  // identity cast only for parameter free types
+  template <typename T1 = ToType>
+  typename std::enable_if<TypeTraits<T1>::is_parameter_free, Status>::type Visit(
+      const ToType&) {
     out_->value = checked_cast<const ToScalar&>(from_).value;
     return Status::OK();
   }
@@ -343,7 +326,7 @@ struct ToTypeVisitor {
 }  // namespace
 
 Result<std::shared_ptr<Scalar>> Scalar::CastTo(std::shared_ptr<DataType> to) const {
-  ARROW_ASSIGN_OR_RAISE(auto out, MakeNullScalar(to));
+  std::shared_ptr<Scalar> out = MakeNullScalar(to);
   if (is_valid) {
     out->is_valid = true;
     ToTypeVisitor unpack_to_type{*this, to, out.get()};

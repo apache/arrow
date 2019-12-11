@@ -80,6 +80,18 @@ test_that("More complex select/filter", {
   )
 })
 
+# ARROW-7360
+# test_that("filtering with expression", {
+#   char_sym <- "b"
+#   expect_dplyr_equal(
+#     input %>%
+#       filter(chr == char_sym) %>%
+#       select(string = chr, int) %>%
+#       collect(),
+#     tbl
+#   )
+# })
+
 test_that("filter() on is.na()", {
   expect_dplyr_equal(
     input %>%

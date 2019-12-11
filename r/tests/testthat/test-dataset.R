@@ -25,19 +25,24 @@ dir.create(dataset_dir)
 hive_dir <- tempfile()
 dir.create(hive_dir)
 
+first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
 df1 <- tibble(
   int = 1:10,
   dbl = as.numeric(1:10),
   lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
   chr = letters[1:10],
-  fct = factor(LETTERS[1:10])
+  fct = factor(LETTERS[1:10]),
+  ts = first_date + lubridate::days(1:10)
 )
+
+second_date <- lubridate::ymd_hms("2017-03-09 07:01:02")
 df2 <- tibble(
   int = 101:110,
   dbl = as.numeric(51:60),
   lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
   chr = letters[10:1],
-  fct = factor(LETTERS[10:1])
+  fct = factor(LETTERS[10:1]),
+  ts = second_date + lubridate::days(10:1)
 )
 
 test_that("Setup (putting data in the dir)", {
@@ -124,6 +129,18 @@ test_that("filter() with %in%", {
       # TODO: C++ In() should cast: ARROW-7204
       collect(),
     tibble(int = df1$int[c(3, 4, 6)], part = 1)
+  )
+})
+
+test_that("filter() on timestamp columns", {
+  ds <- open_dataset(dataset_dir, partition = schema(part = uint8()))
+  expect_equivalent(
+    ds %>%
+      # Replace with expression with function once ARROW-7360 is fixed
+      filter(ts >= (as.integer(as.POSIXct(lubridate::ymd_hms("2015-04-29 03:12:39") + lubridate::days(5))) * 1000000), part == 1) %>%
+      select(ts) %>%
+      collect(),
+    df1[5:10, c("ts")],
   )
 })
 

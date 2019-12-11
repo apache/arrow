@@ -97,9 +97,7 @@ struct DatumEqual<Type, enable_if_integer<Type>> {
     if (lhs.kind() == Datum::SCALAR) {
       auto left = internal::checked_cast<const ScalarType*>(lhs.scalar().get());
       auto right = internal::checked_cast<const ScalarType*>(rhs.scalar().get());
-      ASSERT_EQ(left->is_valid, right->is_valid);
-      ASSERT_EQ(left->type->id(), right->type->id());
-      ASSERT_EQ(left->value, right->value);
+      ASSERT_EQ(*left, *right);
     }
   }
 };
