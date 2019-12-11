@@ -210,5 +210,22 @@ valid:
                      table.slice(-2, 2))
       end
     end
+
+    def test_combine_chunks
+      table = build_table(
+        "visible" => Arrow::ChunkedArray::new([build_boolean_array([true, false, true]),
+                                               build_boolean_array([false, true]),
+                                               build_boolean_array([false])])
+      )
+      combined_table = table.combine_chunks
+      all_values = combined_table.n_columns.times.collect do |i|
+        column = combined_table.get_column_data(i)
+        column.n_chunks.times.collect do |j|
+          column.get_chunk(j).values
+        end
+      end
+      assert_equal([[[true, false, true, false, true, false]]],
+                   all_values)
+    end
   end
 end
