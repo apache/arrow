@@ -147,23 +147,22 @@ cdef class HdfsOptions:
 
 
 cdef class HadoopFileSystem(FileSystem):
-    """HDFS backed FileSystem implementation"""
+    """HDFS backed FileSystem implementation
+
+    Parameters
+    ----------
+    options_or_uri: HdfsOptions or str, default None
+        Either an options object or a string URI describing the connection to
+        HDFS. HdfsOptions(endpoint=('localhost', 8020), user='test') and
+        'hdfs://localhost:8020/?user=test' are equivalent.
+        In order to change the used driver, replication, buffer_size or
+        default_block_size use the HdfsOptions object.
+    """
 
     cdef:
         CHadoopFileSystem* hdfs
 
     def __init__(self, options_or_uri=None):
-        """Create HadoopFileSystem
-
-        Parameters
-        ----------
-        options_or_uri: HdfsOptions or str, default None
-            Either an options object or a string URI describing the connection
-            to HDFS. HdfsOptions(endpoint=('localhost', 8020), user='test') and
-            'hdfs://localhost:8020/?user=test' are equivalent.
-            To change the used driver, replication, buffer_size or
-            default_block_size use the HdfsOptions object.
-        """
         cdef:
             HdfsOptions options
             shared_ptr[CHadoopFileSystem] wrapped
