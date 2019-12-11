@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -72,6 +73,22 @@ class ARROW_DS_EXPORT ScanOptions {
 
   // Projector for reconciling the final RecordBatch to the requested schema.
   RecordBatchProjector projector;
+
+  // Return a vector of fields that requires materialization.
+  //
+  // This is usually the union of the fields referenced in the projection and the
+  // filter expression. Examples:
+  //
+  // - `SELECT a, b WHERE a < 2 && c > 1` => ["a", "b", "a", "c"]
+  // - `SELECT a + b < 3 WHERE a > 1` => ["a", "b"]
+  //
+  // This is needed for expression where a field may not be directly
+  // used in the final projection but is still required to evaluate the
+  // expression.
+  //
+  // This is used by DataFragments implementation to apply the column
+  // sub-selection optimization.
+  std::vector<std::string> MaterializedFields() const;
 
  private:
   explicit ScanOptions(std::shared_ptr<Schema> schema);

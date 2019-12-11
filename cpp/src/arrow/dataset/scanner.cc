@@ -46,6 +46,20 @@ ScanOptionsPtr ScanOptions::ReplaceSchema(std::shared_ptr<Schema> schema) const 
   return copy;
 }
 
+std::vector<std::string> ScanOptions::MaterializedFields() const {
+  std::vector<std::string> fields;
+
+  for (const auto& f : schema()->fields()) {
+    fields.push_back(f->name());
+  }
+
+  for (auto&& name : FieldsInExpression(filter)) {
+    fields.push_back(std::move(name));
+  }
+
+  return fields;
+}
+
 Result<RecordBatchIterator> SimpleScanTask::Execute() {
   return MakeVectorIterator(record_batches_);
 }

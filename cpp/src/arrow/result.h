@@ -388,10 +388,10 @@ class Result : public util::EqualityComparable<Result<T>> {
   arrow::util::variant<T, Status, const char*> variant_;
 };
 
-#define ARROW_ASSIGN_OR_RAISE_IMPL(status_name, lhs, rexpr) \
-  auto status_name = (rexpr);                               \
-  ARROW_RETURN_NOT_OK(status_name.status());                \
-  lhs = std::move(status_name).ValueOrDie();
+#define ARROW_ASSIGN_OR_RAISE_IMPL(result_name, lhs, rexpr) \
+  auto result_name = (rexpr);                               \
+  ARROW_RETURN_NOT_OK((result_name).status());              \
+  lhs = std::move(result_name).ValueOrDie();
 
 #define ARROW_ASSIGN_OR_RAISE_NAME(x, y) ARROW_CONCAT(x, y)
 
@@ -405,7 +405,7 @@ class Result : public util::EqualityComparable<Result<T>> {
 //   ValueType value;
 //   ARROW_ASSIGN_OR_RAISE(value, MaybeGetValue(arg));
 //
-// WARNING: ASSIGN_OR_RAISE expands into multiple statements; it cannot be used
+// WARNING: ARROW_ASSIGN_OR_RAISE expands into multiple statements; it cannot be used
 //  in a single statement (e.g. as the body of an if statement without {})!
 #define ARROW_ASSIGN_OR_RAISE(lhs, rexpr)                                              \
   ARROW_ASSIGN_OR_RAISE_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \

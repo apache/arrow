@@ -187,5 +187,31 @@ TEST_F(TestScannerBuilder, TestFilter) {
                 builder.Filter("i64"_ == int64_t(10) || "not_a_column"_ == true));
 }
 
+using testing::ElementsAre;
+using testing::IsEmpty;
+
+TEST(ScanOptions, TestMaterializedFields) {
+  auto i32 = field("i32", int32());
+  auto i64 = field("i64", int64());
+
+  auto opts = ScanOptions::Make(schema({}));
+  EXPECT_THAT(opts->MaterializedFields(), IsEmpty());
+
+  opts->filter = ("i32"_ == 10).Copy();
+  EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32"));
+
+  opts = ScanOptions::Make(schema({i32, i64}));
+  EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32", "i64"));
+
+  opts = opts->ReplaceSchema(schema({i32}));
+  EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32"));
+
+  opts->filter = ("i32"_ == 10).Copy();
+  EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32", "i32"));
+
+  opts->filter = ("i64"_ == 10).Copy();
+  EXPECT_THAT(opts->MaterializedFields(), ElementsAre("i32", "i64"));
+}
+
 }  // namespace dataset
 }  // namespace arrow
