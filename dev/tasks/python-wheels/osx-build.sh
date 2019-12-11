@@ -41,7 +41,7 @@ function build_wheel {
     boost_directory_name="boost_${boost_version//\./_}"
     boost_tarball_name="${boost_directory_name}.tar.gz"
     wget -nv --no-check-certificate \
-        http://downloads.sourceforge.net/project/boost/boost/"${boost_version}"/"${boost_tarball_name}" \
+        https://downloads.sourceforge.net/project/boost/boost/"${boost_version}"/"${boost_tarball_name}" \
         -O "${boost_tarball_name}"
     tar xf "${boost_tarball_name}"
 
