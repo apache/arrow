@@ -113,6 +113,32 @@ test_that("filter() with %in%", {
   )
 })
 
+test_that("filter environment scope", {
+  expect_error(
+    filter(batch, chr == b_var),
+    "object 'b_var' not found"
+  )
+  b_var <- "b"
+  expect_dplyr_equal(
+    input %>%
+      filter(chr == b_var) %>%
+      collect(),
+    tbl
+  )
+  # Also for functions
+  expect_error(
+    filter(batch, isEqualTo(int, 4)),
+    'could not find function "isEqualTo"'
+  )
+  isEqualTo <- function(x, y) x == y
+  expect_dplyr_equal(
+    input %>%
+      filter(isEqualTo(int, 4)) %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("Filtering on a column that doesn't exist errors correctly", {
   expect_error(
     batch %>% filter(not_a_col == 42) %>% collect(),
