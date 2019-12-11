@@ -30,6 +30,7 @@ import org.apache.arrow.memory.rounding.RoundingPolicy;
 import org.apache.arrow.memory.util.AssertionUtil;
 import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.util.Preconditions;
+import org.immutables.value.Value;
 
 import io.netty.buffer.ArrowBuf;
 import io.netty.util.internal.OutOfDirectMemoryError;
@@ -47,7 +48,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   public static final boolean DEBUG = AssertionUtil.isAssertionsEnabled() ||
       Boolean.parseBoolean(System.getProperty(DEBUG_ALLOCATOR, "false"));
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BaseAllocator.class);
-  public static final Config DEFAULT_CONFIG = new ConfigBuilder().create();
+  public static final Config DEFAULT_CONFIG = ImmutableConfig.builder().build();
 
   // Package exposed for sharing between AllocatorManger and BaseAllocator objects
   final String name;
@@ -74,16 +75,15 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
    * @param config            configuration including other options of this allocator
    *
    * @see Config
-   * @see ConfigBuilder
    */
   protected BaseAllocator(
       final BaseAllocator parentAllocator,
       final String name,
       final Config config) throws OutOfMemoryException {
-    super(parentAllocator, name, config.initReservation, config.maxAllocation);
+    super(parentAllocator, name, config.getInitReservation(), config.getMaxAllocation());
 
-    this.listener = config.listener;
-    this.allocationManagerFactory = config.allocationManagerFactory;
+    this.listener = config.getListener();
+    this.allocationManagerFactory = config.getAllocationManagerFactory();
 
     if (parentAllocator != null) {
       this.root = parentAllocator.root;
@@ -112,7 +112,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       historicalLog = null;
       childLedgers = null;
     }
-    this.roundingPolicy = config.roundingPolicy;
+    this.roundingPolicy = config.getRoundingPolicy();
   }
 
   AllocationListener getListener() {
@@ -393,7 +393,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
             .maxAllocation(maxAllocation)
             .roundingPolicy(roundingPolicy)
             .allocationManagerFactory(allocationManagerFactory)
-            .create());
+            .build());
 
     if (DEBUG) {
       synchronized (DEBUG_LOCK) {
@@ -748,7 +748,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   /**
    * Returns a default {@link Config} instance.
    *
-   * @see ConfigBuilder
+   * @see ImmutableConfig.Builder
    */
   public static Config defaultConfig() {
     return DEFAULT_CONFIG;
@@ -758,130 +758,54 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   /**
    * Returns a builder class for configuring BaseAllocator's options.
    */
-  public static ConfigBuilder configBuilder() {
-    return new ConfigBuilder();
+  public static ImmutableConfig.Builder configBuilder() {
+    return ImmutableConfig.builder();
   }
 
   /**
    * Config class of {@link BaseAllocator}.
    */
-  protected static class Config {
-    protected final AllocationManager.Factory allocationManagerFactory;
-    protected final AllocationListener listener;
-    protected final long initReservation;
-    protected final long maxAllocation;
-    protected final RoundingPolicy roundingPolicy;
-
+  @Value.Immutable
+  abstract static class Config {
     /**
-     * @param allocationManagerFactory    factory for creating {@link AllocationManager} instances
-     * @param listener          listener callback. Must be non-null
-     * @param initReservation   initial reservation. Cannot be modified after construction
-     * @param maxAllocation     limit. Allocations past the limit fail. Can be modified after
-     *                          construction
-     * @param roundingPolicy    the policy for rounding the buffer size
+     * Factory for creating {@link AllocationManager} instances.
      */
-    private Config(AllocationManager.Factory allocationManagerFactory,
-                  AllocationListener listener,
-                  long initReservation,
-                  long maxAllocation,
-                  RoundingPolicy roundingPolicy) {
-      this.allocationManagerFactory = allocationManagerFactory;
-      this.listener = listener;
-      this.initReservation = initReservation;
-      this.maxAllocation = maxAllocation;
-      this.roundingPolicy = roundingPolicy;
-    }
-
-    private Config(ConfigBuilder builder) {
-      this(builder.allocationManagerFactory,
-          builder.listener,
-          builder.initReservation,
-          builder.maxAllocation,
-          builder.roundingPolicy);
-    }
-  }
-
-  /**
-   * Builder class for {@link Config}.
-   */
-  public static class ConfigBuilder {
-    private AllocationManager.Factory allocationManagerFactory = NettyAllocationManager.FACTORY;
-    private AllocationListener listener = AllocationListener.NOOP;
-    private long initReservation = 0;
-    private long maxAllocation = Long.MAX_VALUE;
-    private RoundingPolicy roundingPolicy = DefaultRoundingPolicy.INSTANCE;
-
-    private ConfigBuilder() {
+    @Value.Default
+    AllocationManager.Factory getAllocationManagerFactory() {
+      return NettyAllocationManager.FACTORY;
     }
 
     /**
-     * Specify a factory for creating {@link AllocationManager} instances.
-     *
-     * <p>Default value: NettyAllocationManager.FACTORY
-     *
-     * @return this ConfigBuilder
-     * @see AllocationManager
+     * Listener callback. Must be non-null.
      */
-    public ConfigBuilder allocationManagerFactory(AllocationManager.Factory allocationManagerFactory) {
-      this.allocationManagerFactory = allocationManagerFactory;
-      return this;
+    @Value.Default
+    AllocationListener getListener() {
+      return AllocationListener.NOOP;
     }
 
     /**
-     * Specify a listener callback. Must be non-null.
-     *
-     * <p>Default value: AllocationListener.NOOP
-     *
-     * @return this ConfigBuilder
-     * @see AllocationListener
+     * Initial reservation size (in bytes) for this allocator.
      */
-    public ConfigBuilder listener(AllocationListener listener) {
-      this.listener = listener;
-      return this;
+    @Value.Default
+    long getInitReservation() {
+      return 0;
     }
 
     /**
-     * Specify the initial reservation size (in bytes) for this allocator.
-     *
-     * <p>Default value: 0
-     *
-     * @return this ConfigBuilder
+     * Max allocation size (in bytes) for this allocator, allocations past this limit fail.
+     * Can be modified after construction.
      */
-    public ConfigBuilder initReservation(long initReservation) {
-      this.initReservation = initReservation;
-      return this;
+    @Value.Default
+    long getMaxAllocation() {
+      return Long.MAX_VALUE;
     }
 
     /**
-     * Specify the max allocation size (in bytes) for this allocator.
-     *
-     * <p>Default value: Long.MAX_VALUE
-     *
-     * @return this ConfigBuilder
+     * The policy for rounding the buffer size.
      */
-    public ConfigBuilder maxAllocation(long maxAllocation) {
-      this.maxAllocation = maxAllocation;
-      return this;
-    }
-
-    /**
-     * Specify a {@link RoundingPolicy} instance for rounding the buffer size
-     *
-     * <p>Default value: DefaultRoundingPolicy.INSTANCE
-     *
-     * @return this ConfigBuilder
-     * @see RoundingPolicy
-     */
-    public ConfigBuilder roundingPolicy(RoundingPolicy roundingPolicy) {
-      this.roundingPolicy = roundingPolicy;
-      return this;
-    }
-
-    /**
-     * Create the {@link Config} instance.
-     */
-    public Config create() {
-      return new Config(this);
+    @Value.Default
+    RoundingPolicy getRoundingPolicy() {
+      return DefaultRoundingPolicy.INSTANCE;
     }
   }
 

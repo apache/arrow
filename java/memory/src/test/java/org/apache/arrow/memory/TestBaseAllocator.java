@@ -416,7 +416,7 @@ public class TestBaseAllocator {
               }
             }
           }
-        }).create());
+        }).build());
   }
 
   // Allocation listener

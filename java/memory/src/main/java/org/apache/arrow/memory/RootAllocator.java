@@ -52,7 +52,7 @@ public class RootAllocator extends BaseAllocator {
         .listener(listener)
         .maxAllocation(limit)
         .roundingPolicy(roundingPolicy)
-        .create()
+        .build()
     );
   }
 
