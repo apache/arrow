@@ -57,7 +57,7 @@ int main(int argc, char** argv) {
     // Create a local file output stream instance.
     using FileClass = ::arrow::io::FileOutputStream;
     std::shared_ptr<FileClass> out_file;
-    PARQUET_THROW_NOT_OK(FileClass::Open(PARQUET_FILENAME, &out_file));
+    PARQUET_ASSIGN_OR_THROW(out_file, FileClass::Open(PARQUET_FILENAME));
 
     // Setup the parquet schema
     std::shared_ptr<GroupNode> schema = SetupSchema();

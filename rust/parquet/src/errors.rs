@@ -17,7 +17,7 @@
 
 //! Common Parquet errors and macros.
 
-use std::{cell, convert, io, result};
+use std::{cell, convert, io, result, str};
 
 use arrow::error::ArrowError;
 use quick_error::quick_error;
@@ -38,6 +38,7 @@ quick_error! {
               from(e: snap::Error) -> (format!("underlying snap error: {}", e))
               from(e: thrift::Error) -> (format!("underlying Thrift error: {}", e))
               from(e: cell::BorrowMutError) -> (format!("underlying borrow error: {}", e))
+              from(e: str::Utf8Error) -> (format!("underlying utf8 error: {}", e))
       }
       /// "Not yet implemented" Parquet error.
       /// Returned when functionality is not yet available.

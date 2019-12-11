@@ -81,22 +81,31 @@ garrow_error_code(const arrow::Status &status)
 
 G_END_DECLS
 
+namespace garrow {
+  gboolean
+  check(GError **error,
+        const arrow::Status &status,
+        const char *context) {
+    if (status.ok()) {
+      return TRUE;
+    } else {
+      g_set_error(error,
+                  GARROW_ERROR,
+                  garrow_error_code(status),
+                  "%s: %s",
+                  context,
+                  status.ToString().c_str());
+      return FALSE;
+    }
+  }
+}
+
 gboolean
 garrow_error_check(GError **error,
                    const arrow::Status &status,
                    const char *context)
 {
-  if (status.ok()) {
-    return TRUE;
-  } else {
-    g_set_error(error,
-                GARROW_ERROR,
-                garrow_error_code(status),
-                "%s: %s",
-                context,
-                status.ToString().c_str());
-    return FALSE;
-  }
+  return garrow::check(error, status, context);
 }
 
 arrow::Status

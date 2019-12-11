@@ -17,17 +17,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-option('gtk_doc',
-       type: 'boolean',
-       value: false,
-       description: 'Build document by GTK-Doc')
+option('arrow_cpp_build_dir',
+       type: 'string',
+       value: '',
+       description: 'Use this option to build with not installed Arrow C++')
 
 option('arrow_cpp_build_type',
        type: 'string',
        value: 'release',
        description: '-DCMAKE_BUILD_TYPE option value for Arrow C++')
 
-option('arrow_cpp_build_dir',
-       type: 'string',
-       value: '',
-       description: 'Use this option to build with not installed Arrow C++')
+option('development_mode',
+       type: 'boolean',
+       value: false,
+       description: 'Build in development mode')
+
+option('gtk_doc',
+       type: 'boolean',
+       value: false,
+       description: 'Build document by GTK-Doc')

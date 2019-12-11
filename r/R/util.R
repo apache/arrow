@@ -15,8 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-oxford_paste <- function(x, conjunction = "and") {
-  if (is.character(x)) {
+oxford_paste <- function(x, conjunction = "and", quote = TRUE) {
+  if (quote && is.character(x)) {
     x <- paste0('"', x, '"')
   }
   if (length(x) < 2) {

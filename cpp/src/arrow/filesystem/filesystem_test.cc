@@ -167,6 +167,51 @@ TEST(PathUtil, RemoveTrailingSlash) {
   ASSERT_EQ("/abc/def", std::string(RemoveTrailingSlash("/abc/def//")));
 }
 
+TEST(PathUtil, EnsureLeadingSlash) {
+  ASSERT_EQ("/", EnsureLeadingSlash(""));
+  ASSERT_EQ("/", EnsureLeadingSlash("/"));
+  ASSERT_EQ("/abc", EnsureLeadingSlash("abc"));
+  ASSERT_EQ("/abc/", EnsureLeadingSlash("abc/"));
+  ASSERT_EQ("/abc", EnsureLeadingSlash("/abc"));
+  ASSERT_EQ("/abc/", EnsureLeadingSlash("/abc/"));
+}
+
+TEST(PathUtil, RemoveLeadingSlash) {
+  ASSERT_EQ("", std::string(RemoveLeadingSlash("")));
+  ASSERT_EQ("", std::string(RemoveLeadingSlash("/")));
+  ASSERT_EQ("", std::string(RemoveLeadingSlash("//")));
+  ASSERT_EQ("abc/def", std::string(RemoveLeadingSlash("abc/def")));
+  ASSERT_EQ("abc/def", std::string(RemoveLeadingSlash("/abc/def")));
+  ASSERT_EQ("abc/def", std::string(RemoveLeadingSlash("//abc/def")));
+  ASSERT_EQ("abc/def/", std::string(RemoveLeadingSlash("abc/def/")));
+  ASSERT_EQ("abc/def/", std::string(RemoveLeadingSlash("/abc/def/")));
+  ASSERT_EQ("abc/def/", std::string(RemoveLeadingSlash("//abc/def/")));
+}
+
+TEST(PathUtil, MakeAbstractPathRelative) {
+  std::string s;
+
+  ASSERT_OK_AND_EQ("", MakeAbstractPathRelative("/", "/"));
+  ASSERT_OK_AND_EQ("foo/bar", MakeAbstractPathRelative("/", "/foo/bar"));
+
+  ASSERT_OK_AND_EQ("", MakeAbstractPathRelative("/foo", "/foo"));
+  ASSERT_OK_AND_EQ("", MakeAbstractPathRelative("/foo/", "/foo"));
+  ASSERT_OK_AND_EQ("", MakeAbstractPathRelative("/foo", "/foo/"));
+  ASSERT_OK_AND_EQ("", MakeAbstractPathRelative("/foo/", "/foo/"));
+
+  ASSERT_OK_AND_EQ("bar", MakeAbstractPathRelative("/foo", "/foo/bar"));
+  ASSERT_OK_AND_EQ("bar", MakeAbstractPathRelative("/foo/", "/foo/bar"));
+  ASSERT_OK_AND_EQ("bar/", MakeAbstractPathRelative("/foo/", "/foo/bar/"));
+
+  // Not relative to base
+  ASSERT_RAISES(Invalid, MakeAbstractPathRelative("/xxx", "/foo/bar"));
+  ASSERT_RAISES(Invalid, MakeAbstractPathRelative("/xxx", "/xxxx"));
+
+  // Base is not absolute
+  ASSERT_RAISES(Invalid, MakeAbstractPathRelative("foo/bar", "foo/bar/baz"));
+  ASSERT_RAISES(Invalid, MakeAbstractPathRelative("", "foo/bar/baz"));
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // Generic MockFileSystem tests
 
@@ -293,15 +338,15 @@ TEST_F(TestMockFS, GetTargetStatsSingle) {
   CreateFile("AB/CD/ef", "some data");
 
   FileStats st;
-  ASSERT_OK(fs_->GetTargetStats("AB", &st));
+  ASSERT_OK_AND_ASSIGN(st, fs_->GetTargetStats("AB"));
   AssertFileStats(st, "AB", FileType::Directory, time_);
   ASSERT_EQ(st.base_name(), "AB");
-  ASSERT_OK(fs_->GetTargetStats("AB/CD/ef", &st));
+  ASSERT_OK_AND_ASSIGN(st, fs_->GetTargetStats("AB/CD/ef"));
   AssertFileStats(st, "AB/CD/ef", FileType::File, time_, 9);
   ASSERT_EQ(st.base_name(), "ef");
 
   // Invalid path
-  ASSERT_RAISES(Invalid, fs_->GetTargetStats("//foo//bar//baz//", &st));
+  ASSERT_RAISES(Invalid, fs_->GetTargetStats("//foo//bar//baz//"));
 }
 
 TEST_F(TestMockFS, GetTargetStatsVector) {
@@ -309,8 +354,8 @@ TEST_F(TestMockFS, GetTargetStatsVector) {
   CreateFile("AB/CD/ef", "some data");
 
   std::vector<FileStats> stats;
-  ASSERT_OK(
-      fs_->GetTargetStats({"AB", "AB/CD", "AB/zz", "zz", "XX/zz", "AB/CD/ef"}, &stats));
+  ASSERT_OK_AND_ASSIGN(
+      stats, fs_->GetTargetStats({"AB", "AB/CD", "AB/zz", "zz", "XX/zz", "AB/CD/ef"}));
   ASSERT_EQ(stats.size(), 6);
   AssertFileStats(stats[0], "AB", FileType::Directory, time_);
   AssertFileStats(stats[1], "AB/CD", FileType::Directory, time_);
@@ -320,8 +365,7 @@ TEST_F(TestMockFS, GetTargetStatsVector) {
   AssertFileStats(stats[5], "AB/CD/ef", FileType::File, time_, 9);
 
   // Invalid path
-  ASSERT_RAISES(Invalid,
-                fs_->GetTargetStats({"AB", "AB/CD", "//foo//bar//baz//"}, &stats));
+  ASSERT_RAISES(Invalid, fs_->GetTargetStats({"AB", "AB/CD", "//foo//bar//baz//"}));
 }
 
 TEST_F(TestMockFS, GetTargetStatsSelector) {
@@ -331,13 +375,13 @@ TEST_F(TestMockFS, GetTargetStatsSelector) {
   Selector s;
   s.base_dir = "";
   std::vector<FileStats> stats;
-  ASSERT_OK(fs_->GetTargetStats(s, &stats));
+  ASSERT_OK_AND_ASSIGN(stats, fs_->GetTargetStats(s));
   ASSERT_EQ(stats.size(), 2);
   AssertFileStats(stats[0], "AB", FileType::Directory, time_);
   AssertFileStats(stats[1], "ab", FileType::File, time_, 4);
 
   s.recursive = true;
-  ASSERT_OK(fs_->GetTargetStats(s, &stats));
+  ASSERT_OK_AND_ASSIGN(stats, fs_->GetTargetStats(s));
   ASSERT_EQ(stats.size(), 3);
   AssertFileStats(stats[0], "AB", FileType::Directory, time_);
   AssertFileStats(stats[1], "AB/CD", FileType::Directory, time_);
@@ -345,26 +389,22 @@ TEST_F(TestMockFS, GetTargetStatsSelector) {
 
   // Invalid path
   s.base_dir = "//foo//bar//baz//";
-  ASSERT_RAISES(Invalid, fs_->GetTargetStats(s, &stats));
+  ASSERT_RAISES(Invalid, fs_->GetTargetStats(s));
 }
 
 TEST_F(TestMockFS, OpenOutputStream) {
-  std::shared_ptr<io::OutputStream> stream;
-
-  ASSERT_OK(fs_->OpenOutputStream("ab", &stream));
+  ASSERT_OK_AND_ASSIGN(auto stream, fs_->OpenOutputStream("ab"));
   ASSERT_OK(stream->Close());
   CheckDirs({});
   CheckFiles({{"ab", time_, ""}});
 }
 
 TEST_F(TestMockFS, OpenAppendStream) {
-  std::shared_ptr<io::OutputStream> stream;
-
-  ASSERT_OK(fs_->OpenAppendStream("ab", &stream));
+  ASSERT_OK_AND_ASSIGN(auto stream, fs_->OpenAppendStream("ab"));
   ASSERT_OK(WriteString(stream.get(), "some "));
   ASSERT_OK(stream->Close());
 
-  ASSERT_OK(fs_->OpenAppendStream("ab", &stream));
+  ASSERT_OK_AND_ASSIGN(stream, fs_->OpenAppendStream("ab"));
   ASSERT_OK(WriteString(stream.get(), "data"));
   ASSERT_OK(stream->Close());
   CheckDirs({});
@@ -379,6 +419,28 @@ TEST_F(TestMockFS, Make) {
   ASSERT_OK_AND_ASSIGN(fs_, MockFileSystem::Make(time_, {Dir("A/B/C"), File("A/a")}));
   CheckDirs({{"A", time_}, {"A/B", time_}, {"A/B/C", time_}});
   CheckFiles({{"A/a", time_, ""}});
+}
+
+TEST_F(TestMockFS, FileSystemFromUri) {
+  std::string path;
+  ASSERT_OK_AND_ASSIGN(fs_, FileSystemFromUri("mock:", &path));
+  ASSERT_EQ(path, "");
+  CheckDirs({});  // Ensures it's a MockFileSystem
+  ASSERT_OK_AND_ASSIGN(fs_, FileSystemFromUri("mock:foo/bar", &path));
+  ASSERT_EQ(path, "foo/bar");
+  CheckDirs({});
+  ASSERT_OK_AND_ASSIGN(fs_, FileSystemFromUri("mock:/foo/bar", &path));
+  ASSERT_EQ(path, "foo/bar");
+  CheckDirs({});
+  ASSERT_OK_AND_ASSIGN(fs_, FileSystemFromUri("mock:/foo/bar/?q=xxx", &path));
+  ASSERT_EQ(path, "foo/bar/");
+  CheckDirs({});
+  ASSERT_OK_AND_ASSIGN(fs_, FileSystemFromUri("mock:///foo/bar", &path));
+  ASSERT_EQ(path, "foo/bar");
+  CheckDirs({});
+  ASSERT_OK_AND_ASSIGN(fs_, FileSystemFromUri("mock:///foo/bar?q=zzz", &path));
+  ASSERT_EQ(path, "foo/bar");
+  CheckDirs({});
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -506,68 +568,65 @@ TEST_F(TestSubTreeFileSystem, CopyFile) {
 
 TEST_F(TestSubTreeFileSystem, OpenInputStream) {
   std::shared_ptr<io::InputStream> stream;
-  std::shared_ptr<Buffer> buffer;
   CreateFile("ab", "data");
 
-  ASSERT_OK(subfs_->OpenInputStream("ab", &stream));
-  ASSERT_OK(stream->Read(4, &buffer));
+  ASSERT_OK_AND_ASSIGN(stream, subfs_->OpenInputStream("ab"));
+  ASSERT_OK_AND_ASSIGN(auto buffer, stream->Read(4));
   AssertBufferEqual(*buffer, "data");
   ASSERT_OK(stream->Close());
 
-  ASSERT_RAISES(IOError, subfs_->OpenInputStream("non-existent", &stream));
-  ASSERT_RAISES(IOError, subfs_->OpenInputStream("", &stream));
+  ASSERT_RAISES(IOError, subfs_->OpenInputStream("non-existent"));
+  ASSERT_RAISES(IOError, subfs_->OpenInputStream(""));
 }
 
 TEST_F(TestSubTreeFileSystem, OpenInputFile) {
   std::shared_ptr<io::RandomAccessFile> stream;
-  std::shared_ptr<Buffer> buffer;
   CreateFile("ab", "some data");
 
-  ASSERT_OK(subfs_->OpenInputFile("ab", &stream));
-  ASSERT_OK(stream->ReadAt(5, 4, &buffer));
+  ASSERT_OK_AND_ASSIGN(stream, subfs_->OpenInputFile("ab"));
+  ASSERT_OK_AND_ASSIGN(auto buffer, stream->ReadAt(5, 4));
   AssertBufferEqual(*buffer, "data");
   ASSERT_OK(stream->Close());
 
-  ASSERT_RAISES(IOError, subfs_->OpenInputFile("non-existent", &stream));
-  ASSERT_RAISES(IOError, subfs_->OpenInputFile("", &stream));
+  ASSERT_RAISES(IOError, subfs_->OpenInputFile("non-existent"));
+  ASSERT_RAISES(IOError, subfs_->OpenInputFile(""));
 }
 
 TEST_F(TestSubTreeFileSystem, OpenOutputStream) {
   std::shared_ptr<io::OutputStream> stream;
 
-  ASSERT_OK(subfs_->OpenOutputStream("ab", &stream));
+  ASSERT_OK_AND_ASSIGN(stream, subfs_->OpenOutputStream("ab"));
   ASSERT_OK(stream->Write("data"));
   ASSERT_OK(stream->Close());
   CheckFiles({{"sub/tree/ab", time_, "data"}});
 
   ASSERT_OK(subfs_->CreateDir("AB"));
-  ASSERT_OK(subfs_->OpenOutputStream("AB/cd", &stream));
+  ASSERT_OK_AND_ASSIGN(stream, subfs_->OpenOutputStream("AB/cd"));
   ASSERT_OK(stream->Write("other"));
   ASSERT_OK(stream->Close());
   CheckFiles({{"sub/tree/AB/cd", time_, "other"}, {"sub/tree/ab", time_, "data"}});
 
-  ASSERT_RAISES(IOError, subfs_->OpenOutputStream("non-existent/xxx", &stream));
-  ASSERT_RAISES(IOError, subfs_->OpenOutputStream("AB", &stream));
-  ASSERT_RAISES(IOError, subfs_->OpenOutputStream("", &stream));
+  ASSERT_RAISES(IOError, subfs_->OpenOutputStream("non-existent/xxx"));
+  ASSERT_RAISES(IOError, subfs_->OpenOutputStream("AB"));
+  ASSERT_RAISES(IOError, subfs_->OpenOutputStream(""));
   CheckFiles({{"sub/tree/AB/cd", time_, "other"}, {"sub/tree/ab", time_, "data"}});
 }
 
 TEST_F(TestSubTreeFileSystem, OpenAppendStream) {
   std::shared_ptr<io::OutputStream> stream;
 
-  ASSERT_OK(subfs_->OpenAppendStream("ab", &stream));
+  ASSERT_OK_AND_ASSIGN(stream, subfs_->OpenAppendStream("ab"));
   ASSERT_OK(stream->Write("some"));
   ASSERT_OK(stream->Close());
   CheckFiles({{"sub/tree/ab", time_, "some"}});
 
-  ASSERT_OK(subfs_->OpenAppendStream("ab", &stream));
+  ASSERT_OK_AND_ASSIGN(stream, subfs_->OpenAppendStream("ab"));
   ASSERT_OK(stream->Write(" data"));
   ASSERT_OK(stream->Close());
   CheckFiles({{"sub/tree/ab", time_, "some data"}});
 }
 
 TEST_F(TestSubTreeFileSystem, GetTargetStatsSingle) {
-  FileStats st;
   ASSERT_OK(subfs_->CreateDir("AB/CD"));
 
   AssertFileStats(subfs_.get(), "AB", FileType::Directory, time_);
@@ -586,7 +645,8 @@ TEST_F(TestSubTreeFileSystem, GetTargetStatsVector) {
   CreateFile("ab", "data");
   CreateFile("AB/cd", "other data");
 
-  ASSERT_OK(subfs_->GetTargetStats({"ab", "AB", "AB/cd", "non-existent"}, &stats));
+  ASSERT_OK_AND_ASSIGN(stats,
+                       subfs_->GetTargetStats({"ab", "AB", "AB/cd", "non-existent"}));
   ASSERT_EQ(stats.size(), 4);
   AssertFileStats(stats[0], "ab", FileType::File, time_, 4);
   AssertFileStats(stats[1], "AB", FileType::Directory, time_);
@@ -605,13 +665,13 @@ TEST_F(TestSubTreeFileSystem, GetTargetStatsSelector) {
 
   selector.base_dir = "AB";
   selector.recursive = false;
-  ASSERT_OK(subfs_->GetTargetStats(selector, &stats));
+  ASSERT_OK_AND_ASSIGN(stats, subfs_->GetTargetStats(selector));
   ASSERT_EQ(stats.size(), 2);
   AssertFileStats(stats[0], "AB/CD", FileType::Directory, time_);
   AssertFileStats(stats[1], "AB/cd", FileType::File, time_, 5);
 
   selector.recursive = true;
-  ASSERT_OK(subfs_->GetTargetStats(selector, &stats));
+  ASSERT_OK_AND_ASSIGN(stats, subfs_->GetTargetStats(selector));
   ASSERT_EQ(stats.size(), 3);
   AssertFileStats(stats[0], "AB/CD", FileType::Directory, time_);
   AssertFileStats(stats[1], "AB/CD/ef", FileType::File, time_, 6);
@@ -619,13 +679,13 @@ TEST_F(TestSubTreeFileSystem, GetTargetStatsSelector) {
 
   selector.base_dir = "";
   selector.recursive = false;
-  ASSERT_OK(subfs_->GetTargetStats(selector, &stats));
+  ASSERT_OK_AND_ASSIGN(stats, subfs_->GetTargetStats(selector));
   ASSERT_EQ(stats.size(), 2);
   AssertFileStats(stats[0], "AB", FileType::Directory, time_);
   AssertFileStats(stats[1], "ab", FileType::File, time_, 4);
 
   selector.recursive = true;
-  ASSERT_OK(subfs_->GetTargetStats(selector, &stats));
+  ASSERT_OK_AND_ASSIGN(stats, subfs_->GetTargetStats(selector));
   ASSERT_EQ(stats.size(), 5);
   AssertFileStats(stats[0], "AB", FileType::Directory, time_);
   AssertFileStats(stats[1], "AB/CD", FileType::Directory, time_);
@@ -634,9 +694,9 @@ TEST_F(TestSubTreeFileSystem, GetTargetStatsSelector) {
   AssertFileStats(stats[4], "ab", FileType::File, time_, 4);
 
   selector.base_dir = "non-existent";
-  ASSERT_RAISES(IOError, subfs_->GetTargetStats(selector, &stats));
+  ASSERT_RAISES(IOError, subfs_->GetTargetStats(selector));
   selector.allow_non_existent = true;
-  ASSERT_OK(subfs_->GetTargetStats(selector, &stats));
+  ASSERT_OK_AND_ASSIGN(stats, subfs_->GetTargetStats(selector));
   ASSERT_EQ(stats.size(), 0);
 }
 

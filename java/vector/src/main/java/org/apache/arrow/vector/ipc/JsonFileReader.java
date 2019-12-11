@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Objects;
 
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVectorHelper;
 import org.apache.arrow.vector.BufferLayout.BufferType;
@@ -604,7 +605,7 @@ public class JsonFileReader implements AutoCloseable, DictionaryProvider {
 
     buf = reader.readBuffer(allocator, count);
 
-    assert buf != null;
+    Preconditions.checkNotNull(buf);
     return buf;
   }
 

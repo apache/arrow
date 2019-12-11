@@ -28,7 +28,6 @@
 #include <vector>
 
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/stl.h"
 
 namespace arrow {
 
@@ -175,6 +174,10 @@ TEST(TestVectorIterator, Basic) {
   AssertIteratorNoMatch({}, VectorIt({1, 2, 3}));
   AssertIteratorNoMatch({1, 2, 2}, VectorIt({1, 2, 3}));
   AssertIteratorNoMatch({1, 2, 3, 1}, VectorIt({1, 2, 3}));
+
+  // int does not have specialized IterationTraits
+  AssertIteratorMatch(std::vector<util::optional<int>>{0, 1, 2, 3, 4, 5},
+                      MakeVectorOptionalIterator(std::vector<int>{0, 1, 2, 3, 4, 5}));
 }
 
 TEST(TestVectorIterator, RangeForLoop) {

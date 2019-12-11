@@ -5,16 +5,19 @@
 \alias{FieldExpression}
 \alias{ScalarExpression}
 \alias{ComparisonExpression}
+\alias{InExpression}
 \alias{AndExpression}
 \alias{OrExpression}
 \alias{NotExpression}
+\alias{IsValidExpression}
 \title{Arrow expressions}
 \description{
 \code{Expression}s are used to define filter logic for passing to a \link{Dataset}
 \link{Scanner}. \code{FieldExpression}s refer to columns in the \code{Dataset} and are
 compared to \code{ScalarExpression}s using \code{ComparisonExpression}s.
 \code{ComparisonExpression}s may be combined with \code{AndExpression} or
-\code{OrExpression} and negated with \code{NotExpression}.
+\code{OrExpression} and negated with \code{NotExpression}. \code{IsValidExpression} is
+essentially \code{is.na()} for \code{Expression}s.
 }
 \section{Factory}{
 
@@ -28,7 +31,7 @@ construct a \code{FieldExpression} independently of any \code{Dataset}.
 (e.g. "==", "!=", ">", etc.) and two \code{Expression} objects.
 
 \code{AndExpression$create(e1, e2)} and \code{OrExpression$create(e1, e2)} take
-two \code{Expression} objects, while \code{NotExpression$create(e1)} takes a single
-\code{Expression}.
+two \code{Expression} objects, while \code{NotExpression$create(e1)} and
+\code{IsValidExpression$create(e1)} take a single \code{Expression}.
 }
 

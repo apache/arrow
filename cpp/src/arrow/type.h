@@ -26,8 +26,6 @@
 #include <string>
 #include <vector>
 
-#include "arrow/result.h"
-#include "arrow/status.h"
 #include "arrow/type_fwd.h"  // IWYU pragma: export
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
@@ -314,8 +312,6 @@ class ARROW_EXPORT NestedType : public DataType, public ParametricType {
   using DataType::DataType;
 };
 
-class NoExtraMeta {};
-
 /// \brief The combination of a field name and data type, with optional metadata
 ///
 /// Fields are used to describe the individual constituents of a
@@ -403,8 +399,8 @@ namespace detail {
 template <typename DERIVED, typename BASE, Type::type TYPE_ID, typename C_TYPE>
 class ARROW_EXPORT CTypeImpl : public BASE {
  public:
-  using c_type = C_TYPE;
   static constexpr Type::type type_id = TYPE_ID;
+  using c_type = C_TYPE;
 
   CTypeImpl() : BASE(TYPE_ID) {}
 
@@ -425,7 +421,7 @@ class IntegerTypeImpl : public detail::CTypeImpl<DERIVED, IntegerType, TYPE_ID, 
 }  // namespace detail
 
 /// Concrete type class for always-null data
-class ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
+class ARROW_EXPORT NullType : public DataType {
  public:
   static constexpr Type::type type_id = Type::NA;
 
@@ -446,21 +442,13 @@ class ARROW_EXPORT NullType : public DataType, public NoExtraMeta {
 };
 
 /// Concrete type class for boolean data
-class ARROW_EXPORT BooleanType : public FixedWidthType, public NoExtraMeta {
+class ARROW_EXPORT BooleanType
+    : public detail::CTypeImpl<BooleanType, PrimitiveCType, Type::BOOL, bool> {
  public:
-  static constexpr Type::type type_id = Type::BOOL;
-
   static constexpr const char* type_name() { return "bool"; }
 
-  BooleanType() : FixedWidthType(Type::BOOL) {}
-
-  std::string ToString() const override;
-
-  DataTypeLayout layout() const override { return {{1, 1}, false}; }
-
-  int bit_width() const override { return 1; }
-
-  std::string name() const override { return "bool"; }
+  // BooleanType within arrow use a single bit instead of the C 8-bits layout.
+  int bit_width() const final { return 1; }
 
  protected:
   std::string ComputeFingerprint() const override;
@@ -721,7 +709,7 @@ class ARROW_EXPORT FixedSizeListType : public NestedType {
 };
 
 /// \brief Base class for all variable-size binary data types
-class ARROW_EXPORT BaseBinaryType : public DataType, public NoExtraMeta {
+class ARROW_EXPORT BaseBinaryType : public DataType {
  public:
   using DataType::DataType;
 };
@@ -818,6 +806,7 @@ class ARROW_EXPORT LargeStringType : public LargeBinaryType {
 class ARROW_EXPORT FixedSizeBinaryType : public FixedWidthType, public ParametricType {
  public:
   static constexpr Type::type type_id = Type::FIXED_SIZE_BINARY;
+  static constexpr bool is_utf8 = false;
 
   static constexpr const char* type_name() { return "fixed_size_binary"; }
 
@@ -928,11 +917,13 @@ struct UnionMode {
 class ARROW_EXPORT UnionType : public NestedType {
  public:
   static constexpr Type::type type_id = Type::UNION;
+  static constexpr int8_t kMaxTypeCode = 127;
+  static constexpr int kInvalidChildId = -1;
 
   static constexpr const char* type_name() { return "union"; }
 
   UnionType(const std::vector<std::shared_ptr<Field>>& fields,
-            const std::vector<uint8_t>& type_codes,
+            const std::vector<int8_t>& type_codes,
             UnionMode::type mode = UnionMode::SPARSE);
 
   DataTypeLayout layout() const override;
@@ -940,7 +931,14 @@ class ARROW_EXPORT UnionType : public NestedType {
   std::string ToString() const override;
   std::string name() const override { return "union"; }
 
-  const std::vector<uint8_t>& type_codes() const { return type_codes_; }
+  /// The array of logical type ids.
+  ///
+  /// For example, the first type in the union might be denoted by the id 5
+  /// (instead of 0).
+  const std::vector<int8_t>& type_codes() const { return type_codes_; }
+
+  /// An array mapping logical type ids to physical child ids.
+  const std::vector<int>& child_ids() const { return child_ids_; }
 
   uint8_t max_type_code() const;
 
@@ -951,10 +949,8 @@ class ARROW_EXPORT UnionType : public NestedType {
 
   UnionMode::type mode_;
 
-  // The type id used in the data to indicate each data type in the union. For
-  // example, the first type in the union might be denoted by the id 5 (instead
-  // of 0).
-  std::vector<uint8_t> type_codes_;
+  std::vector<int8_t> type_codes_;
+  std::vector<int> child_ids_;
 };
 
 // ----------------------------------------------------------------------
@@ -984,10 +980,9 @@ class ARROW_EXPORT Date32Type : public DateType {
  public:
   static constexpr Type::type type_id = Type::DATE32;
   static constexpr DateUnit UNIT = DateUnit::DAY;
+  using c_type = int32_t;
 
   static constexpr const char* type_name() { return "date32"; }
-
-  using c_type = int32_t;
 
   Date32Type();
 
@@ -1007,10 +1002,9 @@ class ARROW_EXPORT Date64Type : public DateType {
  public:
   static constexpr Type::type type_id = Type::DATE64;
   static constexpr DateUnit UNIT = DateUnit::MILLI;
+  using c_type = int64_t;
 
   static constexpr const char* type_name() { return "date64"; }
-
-  using c_type = int64_t;
 
   Date64Type();
 
@@ -1117,8 +1111,8 @@ class ARROW_EXPORT TimestampType : public TemporalType, public ParametricType {
  public:
   using Unit = TimeUnit;
 
-  typedef int64_t c_type;
   static constexpr Type::type type_id = Type::TIMESTAMP;
+  using c_type = int64_t;
 
   static constexpr const char* type_name() { return "timestamp"; }
 
@@ -1162,8 +1156,8 @@ class ARROW_EXPORT IntervalType : public TemporalType, public ParametricType {
 /// in Schema.fbs (Years are defined as 12 months).
 class ARROW_EXPORT MonthIntervalType : public IntervalType {
  public:
-  using c_type = int32_t;
   static constexpr Type::type type_id = Type::INTERVAL;
+  using c_type = int32_t;
 
   static constexpr const char* type_name() { return "month_interval"; }
 
@@ -1187,6 +1181,9 @@ class ARROW_EXPORT DayTimeIntervalType : public IntervalType {
       return this->days == other.days && this->milliseconds == other.milliseconds;
     }
     bool operator!=(DayMilliseconds other) const { return !(*this == other); }
+    bool operator<(DayMilliseconds other) const {
+      return this->days < other.days || this->milliseconds < other.milliseconds;
+    }
   };
   using c_type = DayMilliseconds;
   static_assert(sizeof(DayMilliseconds) == 8,
@@ -1381,6 +1378,8 @@ class ARROW_EXPORT Schema : public detail::Fingerprintable,
   std::string ComputeMetadataFingerprint() const override;
 
  private:
+  friend void PrintTo(const Schema& s, std::ostream* os);
+
   class Impl;
   std::unique_ptr<Impl> impl_;
 };
@@ -1466,13 +1465,21 @@ struct_(const std::vector<std::shared_ptr<Field>>& fields);
 /// \brief Create a UnionType instance
 std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Field>>& child_fields,
-       const std::vector<uint8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
+       const std::vector<int8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
+
+/// \brief Create a UnionType instance
+std::shared_ptr<DataType> ARROW_EXPORT
+union_(const std::vector<std::shared_ptr<Field>>& child_fields,
+       UnionMode::type mode = UnionMode::SPARSE);
+
+/// \brief Create a UnionType instance
+std::shared_ptr<DataType> ARROW_EXPORT union_(UnionMode::type mode = UnionMode::SPARSE);
 
 /// \brief Create a UnionType instance
 std::shared_ptr<DataType> ARROW_EXPORT
 union_(const std::vector<std::shared_ptr<Array>>& children,
-       const std::vector<std::string>& field_names,
-       const std::vector<uint8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE);
+       const std::vector<std::string>& field_names, const std::vector<int8_t>& type_codes,
+       UnionMode::type mode = UnionMode::SPARSE);
 
 /// \brief Create a UnionType instance
 inline std::shared_ptr<DataType> ARROW_EXPORT

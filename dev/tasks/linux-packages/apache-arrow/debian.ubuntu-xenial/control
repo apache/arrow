@@ -17,7 +17,6 @@ Build-Depends:
   libboost-regex-dev,
   libboost-system-dev,
   libbrotli-dev,
-  libdouble-conversion-dev,
   libgirepository1.0-dev,
   libgoogle-glog-dev,
   liblz4-dev,

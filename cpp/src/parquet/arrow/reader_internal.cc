@@ -1122,10 +1122,10 @@ Status ConvertToDecimal128<ByteArrayType>(const Array& array,
 /// The parquet spec allows systems to write decimals in int32, int64 if the values are
 /// small enough to fit in less 4 bytes or less than 8 bytes, respectively.
 /// This function implements the conversion from int32 and int64 arrays to decimal arrays.
-template <typename ParquetIntegerType,
-          typename = typename std::enable_if<
-              std::is_same<ParquetIntegerType, Int32Type>::value ||
-              std::is_same<ParquetIntegerType, Int64Type>::value>::type>
+template <
+    typename ParquetIntegerType,
+    typename = ::arrow::enable_if_t<std::is_same<ParquetIntegerType, Int32Type>::value ||
+                                    std::is_same<ParquetIntegerType, Int64Type>::value>>
 static Status DecimalIntegerTransfer(RecordReader* reader, MemoryPool* pool,
                                      const std::shared_ptr<DataType>& type, Datum* out) {
   DCHECK_EQ(type->id(), ::arrow::Type::DECIMAL);

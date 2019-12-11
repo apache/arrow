@@ -21,7 +21,6 @@
 #include <memory>
 
 #include "arrow/io/interfaces.h"
-#include "arrow/io/memory.h"
 #include "arrow/python/visibility.h"
 
 #include "arrow/python/config.h"
@@ -29,9 +28,6 @@
 #include "arrow/python/common.h"
 
 namespace arrow {
-
-class MemoryPool;
-
 namespace py {
 
 class ARROW_NO_EXPORT PythonFile;
@@ -45,21 +41,20 @@ class ARROW_PYTHON_EXPORT PyReadableFile : public io::RandomAccessFile {
   Status Abort() override;
   bool closed() const override;
 
-  Status Read(int64_t nbytes, int64_t* bytes_read, void* out) override;
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+  Result<int64_t> Read(int64_t nbytes, void* out) override;
+  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) override;
 
   // Thread-safe version
-  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                void* out) override;
+  Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) override;
 
   // Thread-safe version
-  Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) override;
+  Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) override;
 
-  Status GetSize(int64_t* size) override;
+  Result<int64_t> GetSize() override;
 
   Status Seek(int64_t position) override;
 
-  Status Tell(int64_t* position) const override;
+  Result<int64_t> Tell() const override;
 
  private:
   std::unique_ptr<PythonFile> file_;
@@ -73,7 +68,7 @@ class ARROW_PYTHON_EXPORT PyOutputStream : public io::OutputStream {
   Status Close() override;
   Status Abort() override;
   bool closed() const override;
-  Status Tell(int64_t* position) const override;
+  Result<int64_t> Tell() const override;
   Status Write(const void* data, int64_t nbytes) override;
   Status Write(const std::shared_ptr<Buffer>& buffer) override;
 

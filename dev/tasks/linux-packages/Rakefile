@@ -20,6 +20,7 @@
 packages = [
   "apache-arrow",
   "apache-arrow-archive-keyring",
+  "apache-arrow-release",
 ]
 
 namespace :apt do

@@ -128,5 +128,10 @@ public class TestStableVectorComparator {
       byte b2 = vector2.get(index2)[0];
       return b1 - b2;
     }
+
+    @Override
+    public VectorValueComparator<VarCharVector> createNew() {
+      return new TestVarCharSorter();
+    }
   }
 }

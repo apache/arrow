@@ -208,11 +208,11 @@ cdef class FileSystem:
         if isinstance(paths_or_selector, Selector):
             with nogil:
                 selector = (<Selector>paths_or_selector).selector
-                check_status(self.fs.GetTargetStats(selector, &stats))
+                stats = GetResultValue(self.fs.GetTargetStats(selector))
         elif isinstance(paths_or_selector, (list, tuple)):
             paths = [_path_as_bytes(s) for s in paths_or_selector]
             with nogil:
-                check_status(self.fs.GetTargetStats(paths, &stats))
+                stats = GetResultValue(self.fs.GetTargetStats(paths))
         else:
             raise TypeError('Must pass either paths or a Selector')
 
@@ -334,7 +334,7 @@ cdef class FileSystem:
             shared_ptr[CRandomAccessFile] in_handle
 
         with nogil:
-            check_status(self.fs.OpenInputFile(pathstr, &in_handle))
+            in_handle = GetResultValue(self.fs.OpenInputFile(pathstr))
 
         stream.set_random_access_file(in_handle)
         stream.is_readable = True
@@ -367,7 +367,7 @@ cdef class FileSystem:
             shared_ptr[CInputStream] in_handle
 
         with nogil:
-            check_status(self.fs.OpenInputStream(pathstr, &in_handle))
+            in_handle = GetResultValue(self.fs.OpenInputStream(pathstr))
 
         stream.set_input_stream(in_handle)
         stream.is_readable = True
@@ -405,7 +405,7 @@ cdef class FileSystem:
             shared_ptr[COutputStream] out_handle
 
         with nogil:
-            check_status(self.fs.OpenOutputStream(pathstr, &out_handle))
+            out_handle = GetResultValue(self.fs.OpenOutputStream(pathstr))
 
         stream.set_output_stream(out_handle)
         stream.is_writable = True
@@ -443,7 +443,7 @@ cdef class FileSystem:
             shared_ptr[COutputStream] out_handle
 
         with nogil:
-            check_status(self.fs.OpenAppendStream(pathstr, &out_handle))
+            out_handle = GetResultValue(self.fs.OpenAppendStream(pathstr))
 
         stream.set_output_stream(out_handle)
         stream.is_writable = True

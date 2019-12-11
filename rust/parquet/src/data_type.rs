@@ -23,7 +23,9 @@ use std::mem;
 use byteorder::{BigEndian, ByteOrder};
 
 use crate::basic::Type;
+use crate::errors::{ParquetError, Result};
 use crate::util::memory::{ByteBuffer, ByteBufferPtr};
+use std::str::from_utf8;
 
 /// Rust representation for logical type INT96, value is backed by an array of `u32`.
 /// The type only takes 12 bytes, without extra padding.
@@ -109,6 +111,14 @@ impl ByteArray {
     pub fn slice(&self, start: usize, len: usize) -> Self {
         assert!(self.data.is_some());
         Self::from(self.data.as_ref().unwrap().range(start, len))
+    }
+
+    pub fn as_utf8(&self) -> Result<&str> {
+        self.data
+            .as_ref()
+            .map(|ptr| ptr.as_ref())
+            .ok_or_else(|| general_err!("Can't convert empty byte array to utf8"))
+            .and_then(|bytes| from_utf8(bytes).map_err(|e| e.into()))
     }
 }
 

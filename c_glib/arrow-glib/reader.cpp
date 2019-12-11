@@ -1731,28 +1731,28 @@ garrow_csv_reader_new(GArrowInputStream *input,
                       GError **error)
 {
   auto arrow_input = garrow_input_stream_get_raw(input);
-  arrow::Status status;
-  std::shared_ptr<arrow::csv::TableReader> arrow_reader;
+  arrow::csv::ReadOptions read_options;
+  arrow::csv::ParseOptions parse_options;
+  arrow::csv::ConvertOptions convert_options;
   if (options) {
     auto options_priv = GARROW_CSV_READ_OPTIONS_GET_PRIVATE(options);
-    status = arrow::csv::TableReader::Make(arrow::default_memory_pool(),
-                                           arrow_input,
-                                           options_priv->read_options,
-                                           options_priv->parse_options,
-                                           options_priv->convert_options,
-                                           &arrow_reader);
+    read_options = options_priv->read_options;
+    parse_options = options_priv->parse_options;
+    convert_options = options_priv->convert_options;
   } else {
-    status =
-      arrow::csv::TableReader::Make(arrow::default_memory_pool(),
-                                    arrow_input,
-                                    arrow::csv::ReadOptions::Defaults(),
-                                    arrow::csv::ParseOptions::Defaults(),
-                                    arrow::csv::ConvertOptions::Defaults(),
-                                    &arrow_reader);
+    read_options = arrow::csv::ReadOptions::Defaults();
+    parse_options = arrow::csv::ParseOptions::Defaults();
+    convert_options = arrow::csv::ConvertOptions::Defaults();
   }
 
-  if (garrow_error_check(error, status, "[csv-reader][new]")) {
-    return garrow_csv_reader_new_raw(&arrow_reader);
+  auto arrow_reader =
+    arrow::csv::TableReader::Make(arrow::default_memory_pool(),
+                                  arrow_input,
+                                  read_options,
+                                  parse_options,
+                                  convert_options);
+  if (garrow::check(error, arrow_reader, "[csv-reader][new]")) {
+    return garrow_csv_reader_new_raw(&(arrow_reader.ValueOrDie()));
   } else {
     return NULL;
   }
@@ -1772,10 +1772,9 @@ garrow_csv_reader_read(GArrowCSVReader *reader,
                        GError **error)
 {
   auto arrow_reader = garrow_csv_reader_get_raw(reader);
-  std::shared_ptr<arrow::Table> arrow_table;
-  auto status = arrow_reader->Read(&arrow_table);
-  if (garrow_error_check(error, status, "[csv-reader][read]")) {
-    return garrow_table_new_raw(&arrow_table);
+  auto arrow_table = arrow_reader->Read();
+  if (garrow::check(error, arrow_table, "[csv-reader][read]")) {
+    return garrow_table_new_raw(&(arrow_table.ValueOrDie()));
   } else {
     return NULL;
   }

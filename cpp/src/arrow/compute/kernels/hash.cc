@@ -37,7 +37,6 @@
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
@@ -269,9 +268,6 @@ class HashKernelImpl : public HashKernel {
 // Base class for all "regular" hash kernel implementations
 // (NullType has a separate implementation)
 
-template <bool B, typename T = void>
-using enable_if_t = typename std::enable_if<B, T>::type;
-
 template <typename Type, typename Scalar, typename Action, bool with_error_status = false,
           bool with_memo_visit_null = true>
 class RegularHashKernelImpl : public HashKernelImpl {
@@ -298,8 +294,8 @@ class RegularHashKernelImpl : public HashKernelImpl {
                                                           0 /* start_offset */, out);
   }
 
-  template <typename Enable = Status>
-  auto VisitNull() -> enable_if_t<!with_error_status, Enable> {
+  template <bool HasError = with_error_status>
+  enable_if_t<!HasError, Status> VisitNull() {
     auto on_found = [this](int32_t memo_index) { action_.ObserveNullFound(memo_index); };
     auto on_not_found = [this](int32_t memo_index) {
       action_.ObserveNullNotFound(memo_index);
@@ -313,8 +309,8 @@ class RegularHashKernelImpl : public HashKernelImpl {
     return Status::OK();
   }
 
-  template <typename Enable = Status>
-  auto VisitNull() -> enable_if_t<with_error_status, Enable> {
+  template <bool HasError = with_error_status>
+  enable_if_t<HasError, Status> VisitNull() {
     Status s = Status::OK();
     auto on_found = [this](int32_t memo_index) { action_.ObserveFound(memo_index); };
     auto on_not_found = [this, &s](int32_t memo_index) {
@@ -330,9 +326,8 @@ class RegularHashKernelImpl : public HashKernelImpl {
     return s;
   }
 
-  template <typename Enable = Status>
-  auto VisitValue(const Scalar& value) ->
-      typename std::enable_if<!with_error_status, Enable>::type {
+  template <bool HasError = with_error_status>
+  enable_if_t<!HasError, Status> VisitValue(const Scalar& value) {
     auto on_found = [this](int32_t memo_index) { action_.ObserveFound(memo_index); };
     auto on_not_found = [this](int32_t memo_index) {
       action_.ObserveNotFound(memo_index);
@@ -342,9 +337,8 @@ class RegularHashKernelImpl : public HashKernelImpl {
     return Status::OK();
   }
 
-  template <typename Enable = Status>
-  auto VisitValue(const Scalar& value) ->
-      typename std::enable_if<with_error_status, Enable>::type {
+  template <bool HasError = with_error_status>
+  enable_if_t<HasError, Status> VisitValue(const Scalar& value) {
     Status s = Status::OK();
     auto on_found = [this](int32_t memo_index) { action_.ObserveFound(memo_index); };
     auto on_not_found = [this, &s](int32_t memo_index) {
@@ -431,23 +425,7 @@ struct HashKernelTraits<Type, Action, with_error_status, with_memo_visit_null,
 template <typename Type, typename Action, bool with_error_status,
           bool with_memo_visit_null>
 struct HashKernelTraits<Type, Action, with_error_status, with_memo_visit_null,
-                        enable_if_boolean<Type>> {
-  using HashKernelImpl =
-      RegularHashKernelImpl<Type, bool, Action, with_error_status, with_memo_visit_null>;
-};
-
-template <typename Type, typename Action, bool with_error_status,
-          bool with_memo_visit_null>
-struct HashKernelTraits<Type, Action, with_error_status, with_memo_visit_null,
-                        enable_if_binary<Type>> {
-  using HashKernelImpl = RegularHashKernelImpl<Type, util::string_view, Action,
-                                               with_error_status, with_memo_visit_null>;
-};
-
-template <typename Type, typename Action, bool with_error_status,
-          bool with_memo_visit_null>
-struct HashKernelTraits<Type, Action, with_error_status, with_memo_visit_null,
-                        enable_if_fixed_size_binary<Type>> {
+                        enable_if_has_string_view<Type>> {
   using HashKernelImpl = RegularHashKernelImpl<Type, util::string_view, Action,
                                                with_error_status, with_memo_visit_null>;
 };
@@ -612,6 +590,7 @@ const char kValuesFieldName[] = "values";
 const char kCountsFieldName[] = "counts";
 const int32_t kValuesFieldIndex = 0;
 const int32_t kCountsFieldIndex = 1;
+
 Status ValueCounts(FunctionContext* ctx, const Datum& value,
                    std::shared_ptr<Array>* counts) {
   std::unique_ptr<HashKernel> func;
@@ -633,6 +612,8 @@ Status ValueCounts(FunctionContext* ctx, const Datum& value,
       std::vector<std::shared_ptr<Array>>{uniques, MakeArray(value_counts.array())});
   return Status::OK();
 }
+
 #undef PROCESS_SUPPORTED_HASH_TYPES
+
 }  // namespace compute
 }  // namespace arrow

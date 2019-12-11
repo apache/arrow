@@ -66,7 +66,7 @@ class ARROW_EXPORT BasicUnionBuilder : public ArrayBuilder {
   int8_t NextTypeId();
 
   std::vector<std::shared_ptr<Field>> child_fields_;
-  std::vector<uint8_t> type_codes_;
+  std::vector<int8_t> type_codes_;
   UnionMode::type mode_;
 
   std::vector<ArrayBuilder*> type_id_to_children_;

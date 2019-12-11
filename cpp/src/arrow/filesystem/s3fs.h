@@ -82,8 +82,8 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   /// \cond FALSE
   using FileSystem::GetTargetStats;
   /// \endcond
-  Status GetTargetStats(const std::string& path, FileStats* out) override;
-  Status GetTargetStats(const Selector& select, std::vector<FileStats>* out) override;
+  Result<FileStats> GetTargetStats(const std::string& path) override;
+  Result<std::vector<FileStats>> GetTargetStats(const Selector& select) override;
 
   Status CreateDir(const std::string& path, bool recursive = true) override;
 
@@ -101,14 +101,14 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   /// NOTE: Reads from the stream will be synchronous and unbuffered.
   /// You way want to wrap the stream in a BufferedInputStream or use
   /// a custom readahead strategy to avoid idle waits.
-  Status OpenInputStream(const std::string& path,
-                         std::shared_ptr<io::InputStream>* out) override;
+  Result<std::shared_ptr<io::InputStream>> OpenInputStream(
+      const std::string& path) override;
 
   /// Create a random access file for reading from a S3 object.
   ///
   /// See OpenInputStream for performance notes.
-  Status OpenInputFile(const std::string& path,
-                       std::shared_ptr<io::RandomAccessFile>* out) override;
+  Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
+      const std::string& path) override;
 
   /// Create a sequential output stream for writing to a S3 object.
   ///
@@ -116,14 +116,14 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   /// S3Options.background_writes, they can be synchronous or not.
   /// It is recommended to enable background_writes unless you prefer
   /// implementing your own background execution strategy.
-  Status OpenOutputStream(const std::string& path,
-                          std::shared_ptr<io::OutputStream>* out) override;
+  Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
+      const std::string& path) override;
 
-  Status OpenAppendStream(const std::string& path,
-                          std::shared_ptr<io::OutputStream>* out) override;
+  Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
+      const std::string& path) override;
 
   /// Create a S3FileSystem instance from the given options.
-  static Status Make(const S3Options& options, std::shared_ptr<S3FileSystem>* out);
+  static Result<std::shared_ptr<S3FileSystem>> Make(const S3Options& options);
 
  protected:
   explicit S3FileSystem(const S3Options& options);

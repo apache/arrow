@@ -26,38 +26,58 @@ import org.apache.arrow.vector.BigIntVector;
  * Consumer which consume bigint type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.BigIntVector}.
  */
-public class BigIntConsumer implements JdbcConsumer<BigIntVector> {
-
-  private BigIntVector vector;
-  private final int columnIndexInResultSet;
-
-  private int currentIndex;
+public class BigIntConsumer {
 
   /**
-   * Instantiate a BigIntConsumer.
+   * Creates a consumer for {@link BigIntVector}.
    */
-  public BigIntConsumer(BigIntVector vector, int index) {
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    long value = resultSet.getLong(columnIndexInResultSet);
-    if (!resultSet.wasNull()) {
-      vector.setSafe(currentIndex, value);
+  public static JdbcConsumer<BigIntVector> createConsumer(BigIntVector vector, int index, boolean nullable) {
+    if (nullable) {
+      return new NullableBigIntConsumer(vector, index);
+    } else {
+      return new NonNullableBigIntConsumer(vector, index);
     }
-    currentIndex++;
   }
 
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
+  /**
+   * Nullable consumer for big int.
+   */
+  static class NullableBigIntConsumer extends BaseConsumer<BigIntVector> {
+
+    /**
+     * Instantiate a BigIntConsumer.
+     */
+    public NullableBigIntConsumer(BigIntVector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      long value = resultSet.getLong(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        vector.setSafe(currentIndex, value);
+      }
+      currentIndex++;
+    }
   }
 
-  @Override
-  public void resetValueVector(BigIntVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
+  /**
+   * Non-nullable consumer for big int.
+   */
+  static class NonNullableBigIntConsumer extends BaseConsumer<BigIntVector> {
+
+    /**
+     * Instantiate a BigIntConsumer.
+     */
+    public NonNullableBigIntConsumer(BigIntVector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      long value = resultSet.getLong(columnIndexInResultSet);
+      vector.setSafe(currentIndex, value);
+      currentIndex++;
+    }
   }
 }

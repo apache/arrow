@@ -34,7 +34,6 @@ RUN \
     brotli-devel \
     bzip2-devel \
     cmake3 \
-    double-conversion-devel \
     flex \
     gflags-devel \
     git \
@@ -52,6 +51,5 @@ RUN \
     rpmdevtools \
     snappy-devel \
     tar \
-    thrift-devel \
     zlib-devel && \
   yum clean ${quiet} all

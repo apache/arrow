@@ -23,6 +23,8 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array.h"
+#include "arrow/buffer.h"
 #include "arrow/json/converter.h"
 #include "arrow/table.h"
 #include "arrow/util/logging.h"

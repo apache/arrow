@@ -51,7 +51,6 @@ pub unsafe fn memcpy(dst: *mut u8, src: *const u8, len: usize) {
 }
 
 extern "C" {
-    #[inline]
     pub fn memcmp(p1: *const u8, p2: *const u8, len: usize) -> i32;
 }
 

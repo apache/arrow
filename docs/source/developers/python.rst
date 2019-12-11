@@ -166,7 +166,8 @@ On Linux and macOS:
         --file arrow/ci/conda_env_cpp.yml \
         --file arrow/ci/conda_env_python.yml \
         compilers \
-        python=3.7
+        python=3.7 \
+        pandas
 
 As of January 2019, the ``compilers`` package is needed on many Linux
 distributions to use packages from conda-forge.

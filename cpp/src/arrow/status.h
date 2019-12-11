@@ -53,19 +53,19 @@
   ARROW_RETURN_IF_(condition, status, ARROW_STRINGIFY(status))
 
 /// \brief Propagate any non-successful Status to the caller
-#define ARROW_RETURN_NOT_OK(status)                            \
-  do {                                                         \
-    ::arrow::Status __s = (status);                            \
-    ARROW_RETURN_IF_(!__s.ok(), __s, ARROW_STRINGIFY(status)); \
+#define ARROW_RETURN_NOT_OK(status)                                   \
+  do {                                                                \
+    ::arrow::Status __s = ::arrow::internal::GenericToStatus(status); \
+    ARROW_RETURN_IF_(!__s.ok(), __s, ARROW_STRINGIFY(status));        \
   } while (false)
 
-#define RETURN_NOT_OK_ELSE(s, else_) \
-  do {                               \
-    ::arrow::Status _s = (s);        \
-    if (!_s.ok()) {                  \
-      else_;                         \
-      return _s;                     \
-    }                                \
+#define RETURN_NOT_OK_ELSE(s, else_)                            \
+  do {                                                          \
+    ::arrow::Status _s = ::arrow::internal::GenericToStatus(s); \
+    if (!_s.ok()) {                                             \
+      else_;                                                    \
+      return _s;                                                \
+    }                                                           \
   } while (false)
 
 // This is an internal-use macro and should not be used in public headers.
@@ -423,6 +423,14 @@ Status& Status::operator&=(Status&& s) noexcept {
   return *this;
 }
 /// \endcond
+
+namespace internal {
+
+// Extract Status from Status or Result<T>
+// Useful for the status check macros such as RETURN_NOT_OK.
+inline Status GenericToStatus(const Status& st) { return st; }
+
+}  // namespace internal
 
 }  // namespace arrow
 

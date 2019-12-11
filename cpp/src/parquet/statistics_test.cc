@@ -364,8 +364,7 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     row_group_writer->Close();
     file_writer->Close();
 
-    std::shared_ptr<Buffer> buffer;
-    ASSERT_OK(sink->Finish(&buffer));
+    ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
     auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
     auto file_reader = ParquetFileReader::Open(source);
     auto rg_reader = file_reader->RowGroup(0);
@@ -647,8 +646,7 @@ class TestStatisticsSortOrder : public ::testing::Test {
   }
 
   void VerifyParquetStats() {
-    std::shared_ptr<Buffer> pbuffer;
-    ASSERT_OK(parquet_sink_->Finish(&pbuffer));
+    ASSERT_OK_AND_ASSIGN(auto pbuffer, parquet_sink_->Finish());
 
     // Create a ParquetReader instance
     std::unique_ptr<parquet::ParquetFileReader> parquet_reader =
@@ -861,8 +859,7 @@ TEST_F(TestStatisticsSortOrderFLBA, UnknownSortOrder) {
   this->SetUpSchema();
   this->WriteParquet();
 
-  std::shared_ptr<Buffer> pbuffer;
-  PARQUET_THROW_NOT_OK(parquet_sink_->Finish(&pbuffer));
+  ASSERT_OK_AND_ASSIGN(auto pbuffer, parquet_sink_->Finish());
 
   // Create a ParquetReader instance
   std::unique_ptr<parquet::ParquetFileReader> parquet_reader =

@@ -104,13 +104,55 @@ func WithCRLF(useCRLF bool) Option {
 	}
 }
 
-func WithHeader() Option {
+// WithHeader enables or disables CSV-header handling.
+func WithHeader(useHeader bool) Option {
 	return func(cfg config) {
 		switch cfg := cfg.(type) {
 		case *Reader:
-			cfg.header = true
+			cfg.header = useHeader
 		case *Writer:
-			cfg.header = true
+			cfg.header = useHeader
+		default:
+			panic(fmt.Errorf("arrow/csv: unknown config type %T", cfg))
+		}
+	}
+}
+
+// DefaultNullValues is the set of values considered as NULL values by default
+// when Reader is configured to handle NULL values.
+var DefaultNullValues = []string{"", "NULL", "null"}
+
+// WithNullReader sets options for a CSV Reader pertaining to NULL value
+// handling. If stringsCanBeNull is true, then a string that matches one of the
+// nullValues set will be interpreted as NULL. Numeric columns will be checked
+// for nulls in all cases. If no nullValues arguments are passed in, the
+// defaults set in NewReader() will be kept.
+//
+// When no NULL values is given, the default set is taken from DefaultNullValues.
+func WithNullReader(stringsCanBeNull bool, nullValues ...string) Option {
+	return func(cfg config) {
+		switch cfg := cfg.(type) {
+		case *Reader:
+			cfg.stringsCanBeNull = stringsCanBeNull
+
+			if len(nullValues) == 0 {
+				nullValues = DefaultNullValues
+			}
+			cfg.nulls = make([]string, len(nullValues))
+			copy(cfg.nulls, nullValues)
+		default:
+			panic(fmt.Errorf("arrow/csv: unknown config type %T", cfg))
+		}
+	}
+}
+
+// WithNullWriter sets the null string written for NULL values. The default is
+// set in NewWriter().
+func WithNullWriter(null string) Option {
+	return func(cfg config) {
+		switch cfg := cfg.(type) {
+		case *Writer:
+			cfg.nullValue = null
 		default:
 			panic(fmt.Errorf("arrow/csv: unknown config type %T", cfg))
 		}

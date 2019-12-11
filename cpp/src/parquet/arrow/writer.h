@@ -48,23 +48,21 @@ namespace arrow {
 /// Write column-by-column the whole column chunk.
 class PARQUET_EXPORT FileWriter {
  public:
-  static ::arrow::Status Make(
-      MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer,
-      const std::shared_ptr<::arrow::Schema>& schema,
-      const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
-      std::unique_ptr<FileWriter>* out);
+  static ::arrow::Status Make(MemoryPool* pool, std::unique_ptr<ParquetFileWriter> writer,
+                              std::shared_ptr<::arrow::Schema> schema,
+                              std::shared_ptr<ArrowWriterProperties> arrow_properties,
+                              std::unique_ptr<FileWriter>* out);
 
   static ::arrow::Status Open(const ::arrow::Schema& schema, MemoryPool* pool,
-                              const std::shared_ptr<::arrow::io::OutputStream>& sink,
-                              const std::shared_ptr<WriterProperties>& properties,
+                              std::shared_ptr<::arrow::io::OutputStream> sink,
+                              std::shared_ptr<WriterProperties> properties,
                               std::unique_ptr<FileWriter>* writer);
 
-  static ::arrow::Status Open(
-      const ::arrow::Schema& schema, MemoryPool* pool,
-      const std::shared_ptr<::arrow::io::OutputStream>& sink,
-      const std::shared_ptr<WriterProperties>& properties,
-      const std::shared_ptr<ArrowWriterProperties>& arrow_properties,
-      std::unique_ptr<FileWriter>* writer);
+  static ::arrow::Status Open(const ::arrow::Schema& schema, MemoryPool* pool,
+                              std::shared_ptr<::arrow::io::OutputStream> sink,
+                              std::shared_ptr<WriterProperties> properties,
+                              std::shared_ptr<ArrowWriterProperties> arrow_properties,
+                              std::unique_ptr<FileWriter>* writer);
 
   virtual std::shared_ptr<::arrow::Schema> schema() const = 0;
 
@@ -101,12 +99,12 @@ PARQUET_EXPORT
 /// \brief Write a Table to Parquet.
 ///
 /// The table shall only consist of columns of primitive type or of primitive lists.
-::arrow::Status PARQUET_EXPORT WriteTable(
-    const ::arrow::Table& table, MemoryPool* pool,
-    const std::shared_ptr<::arrow::io::OutputStream>& sink, int64_t chunk_size,
-    const std::shared_ptr<WriterProperties>& properties = default_writer_properties(),
-    const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
-        default_arrow_writer_properties());
+::arrow::Status PARQUET_EXPORT
+WriteTable(const ::arrow::Table& table, MemoryPool* pool,
+           std::shared_ptr<::arrow::io::OutputStream> sink, int64_t chunk_size,
+           std::shared_ptr<WriterProperties> properties = default_writer_properties(),
+           std::shared_ptr<ArrowWriterProperties> arrow_properties =
+               default_arrow_writer_properties());
 
 }  // namespace arrow
 }  // namespace parquet

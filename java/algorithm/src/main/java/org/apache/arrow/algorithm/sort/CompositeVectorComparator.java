@@ -59,4 +59,13 @@ public class CompositeVectorComparator extends  VectorValueComparator<ValueVecto
     }
     return 0;
   }
+
+  @Override
+  public VectorValueComparator<ValueVector> createNew() {
+    VectorValueComparator[] newInnerComparators = new VectorValueComparator[innerComparators.length];
+    for (int i = 0; i < innerComparators.length; i++) {
+      newInnerComparators[i] = innerComparators[i].createNew();
+    }
+    return new CompositeVectorComparator(newInnerComparators);
+  }
 }

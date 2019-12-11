@@ -28,6 +28,8 @@
 #include "arrow/filesystem/s3fs.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/io/interfaces.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/logging.h"
 
@@ -50,9 +52,9 @@ namespace fs {
 
 #define ASSERT_RAISES_PRINT(context_msg, error_type, expr) \
   do {                                                     \
-    Status _st;                                            \
-    ASSERT_RAISES(error_type, (_st = (expr)));             \
-    PrintError(context_msg, _st);                          \
+    auto _status_or_result = (expr);                       \
+    ASSERT_RAISES(error_type, _status_or_result);          \
+    PrintError(context_msg, _status_or_result);            \
   } while (0)
 
 std::shared_ptr<FileSystem> MakeFileSystem() {
@@ -66,7 +68,7 @@ std::shared_ptr<FileSystem> MakeFileSystem() {
   options.endpoint_override = FLAGS_endpoint;
   options.scheme = FLAGS_scheme;
   options.region = FLAGS_region;
-  ABORT_NOT_OK(S3FileSystem::Make(options, &s3fs));
+  s3fs = S3FileSystem::Make(options).ValueOrDie();
   return std::make_shared<SubTreeFileSystem>(FLAGS_bucket, s3fs);
 }
 
@@ -75,6 +77,11 @@ void PrintError(const std::string& context_msg, const Status& st) {
     std::cout << "-- Error printout (" << context_msg << ") --\n"
               << st.ToString() << std::endl;
   }
+}
+
+template <typename T>
+void PrintError(const std::string& context_msg, const Result<T>& result) {
+  PrintError(context_msg, result.status());
 }
 
 void ClearBucket(int argc, char** argv) {
@@ -91,14 +98,13 @@ void TestBucket(int argc, char** argv) {
   std::shared_ptr<io::InputStream> is;
   std::shared_ptr<io::RandomAccessFile> file;
   std::shared_ptr<Buffer> buf;
-  int64_t pos;
   Status status;
 
   // Check bucket exists and is empty
   select.base_dir = "";
   select.allow_non_existent = false;
   select.recursive = false;
-  ASSERT_OK(fs->GetTargetStats(select, &stats));
+  ASSERT_OK_AND_ASSIGN(stats, fs->GetTargetStats(select));
   ASSERT_EQ(stats.size(), 0) << "Bucket should be empty, perhaps use --clear?";
 
   // Create directory structure
@@ -114,7 +120,7 @@ void TestBucket(int argc, char** argv) {
 
   // GetTargetStats(Selector)
   select.base_dir = "";
-  ASSERT_OK(fs->GetTargetStats(select, &stats));
+  ASSERT_OK_AND_ASSIGN(stats, fs->GetTargetStats(select));
   ASSERT_EQ(stats.size(), 4);
   SortStats(&stats);
   AssertFileStats(stats[0], "Dir1", FileType::Directory);
@@ -124,48 +130,45 @@ void TestBucket(int argc, char** argv) {
 
   select.base_dir = "zzzz";
   ASSERT_RAISES_PRINT("GetTargetStats(Selector) with non-existing base_dir", IOError,
-                      fs->GetTargetStats(select, &stats));
+                      fs->GetTargetStats(select));
   select.allow_non_existent = true;
-  ASSERT_OK(fs->GetTargetStats(select, &stats));
+  ASSERT_OK_AND_ASSIGN(stats, fs->GetTargetStats(select));
   ASSERT_EQ(stats.size(), 0);
 
   select.base_dir = "Dir1";
   select.allow_non_existent = false;
-  ASSERT_OK(fs->GetTargetStats(select, &stats));
+  ASSERT_OK_AND_ASSIGN(stats, fs->GetTargetStats(select));
   ASSERT_EQ(stats.size(), 2);
   AssertFileStats(stats[0], "Dir1/File2", FileType::File, 11);
   AssertFileStats(stats[1], "Dir1/Subdir", FileType::Directory);
 
   select.base_dir = "Dir2";
   select.recursive = true;
-  ASSERT_OK(fs->GetTargetStats(select, &stats));
+  ASSERT_OK_AND_ASSIGN(stats, fs->GetTargetStats(select));
   ASSERT_EQ(stats.size(), 2);
   AssertFileStats(stats[0], "Dir2/Subdir", FileType::Directory);
   AssertFileStats(stats[1], "Dir2/Subdir/File3", FileType::File, 10);
 
   // Read a file
   ASSERT_RAISES_PRINT("OpenInputStream with non-existing file", IOError,
-                      fs->OpenInputStream("zzz", &is));
-  ASSERT_OK(fs->OpenInputStream("File1", &is));
-  ASSERT_OK(is->Read(5, &buf));
+                      fs->OpenInputStream("zzz"));
+  ASSERT_OK_AND_ASSIGN(is, fs->OpenInputStream("File1"));
+  ASSERT_OK_AND_ASSIGN(buf, is->Read(5));
   AssertBufferEqual(*buf, "first");
-  ASSERT_OK(is->Read(10, &buf));
+  ASSERT_OK_AND_ASSIGN(buf, is->Read(10));
   AssertBufferEqual(*buf, " data");
-  ASSERT_OK(is->Read(10, &buf));
+  ASSERT_OK_AND_ASSIGN(buf, is->Read(10));
   AssertBufferEqual(*buf, "");
   ASSERT_OK(is->Close());
 
-  ASSERT_OK(fs->OpenInputFile("Dir1/File2", &file));
-  ASSERT_OK(file->Tell(&pos));
-  ASSERT_EQ(pos, 0);
+  ASSERT_OK_AND_ASSIGN(file, fs->OpenInputFile("Dir1/File2"));
+  ASSERT_OK_AND_EQ(0, file->Tell());
   ASSERT_OK(file->Seek(7));
-  ASSERT_OK(file->Tell(&pos));
-  ASSERT_EQ(pos, 7);
-  ASSERT_OK(file->Read(2, &buf));
+  ASSERT_OK_AND_EQ(7, file->Tell());
+  ASSERT_OK_AND_ASSIGN(buf, file->Read(2));
   AssertBufferEqual(*buf, "da");
-  ASSERT_OK(file->Tell(&pos));
-  ASSERT_EQ(pos, 9);
-  ASSERT_OK(file->ReadAt(2, 4, &buf));
+  ASSERT_OK_AND_EQ(9, file->Tell());
+  ASSERT_OK_AND_ASSIGN(buf, file->ReadAt(2, 4));
   AssertBufferEqual(*buf, "cond");
   ASSERT_OK(file->Close());
 

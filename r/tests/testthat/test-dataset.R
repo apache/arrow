@@ -30,16 +30,14 @@ df1 <- tibble(
   dbl = as.numeric(1:10),
   lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
   chr = letters[1:10],
-  fct = factor(LETTERS[1:10]),
-  part = 1
+  fct = factor(LETTERS[1:10])
 )
 df2 <- tibble(
   int = 101:110,
   dbl = as.numeric(51:60),
   lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
   chr = letters[10:1],
-  fct = factor(LETTERS[10:1]),
-  part = 2
+  fct = factor(LETTERS[10:1])
 )
 
 test_that("Setup (putting data in the dir)", {
@@ -62,7 +60,7 @@ test_that("Simple interface for datasets", {
   expect_equivalent(
     ds %>%
       select(chr, dbl) %>%
-      filter(dbl > 7 & dbl < 53) %>%
+      filter(dbl > 7 & dbl < 53L) %>% # Testing the auto-casting of scalars
       arrange(dbl),
     rbind(
       df1[8:10, c("chr", "dbl")],
@@ -73,7 +71,7 @@ test_that("Simple interface for datasets", {
   expect_equivalent(
     ds %>%
       select(string = chr, integer = int, part) %>%
-      filter(integer > 6L & part == 1) %>%
+      filter(integer > 6 & part == 1) %>% # 6 not 6L to test autocasting
       summarize(mean = mean(integer)),
     df1 %>%
       select(string = chr, integer = int) %>%
@@ -94,6 +92,38 @@ test_that("Hive partitioning", {
       df1[8:10, c("chr", "dbl")],
       df2[1:2, c("chr", "dbl")]
     )
+  )
+})
+
+test_that("filter() on a dataset won't auto-collect", {
+  ds <- open_dataset(dataset_dir)
+  expect_error(
+    ds %>% filter(int > 6, dbl > max(dbl)),
+    "Filter expression not supported for Arrow Datasets: dbl > max(dbl)",
+    fixed = TRUE
+  )
+})
+
+test_that("filter() with is.na()", {
+  ds <- open_dataset(dataset_dir, partition = schema(part = uint8()))
+  expect_equivalent(
+    ds %>%
+      select(part, lgl) %>%
+      filter(!is.na(lgl), part == 1) %>%
+      collect(),
+    tibble(part = 1L, lgl = df1$lgl[!is.na(df1$lgl)])
+  )
+})
+
+test_that("filter() with %in%", {
+  ds <- open_dataset(dataset_dir, partition = schema(part = uint8()))
+  expect_equivalent(
+    ds %>%
+      select(int, part) %>%
+      filter(int %in% c(6L, 4L, 3L, 103L, 107L), part == 1) %>%
+      # TODO: C++ In() should cast: ARROW-7204
+      collect(),
+    tibble(int = df1$int[c(3, 4, 6)], part = 1)
   )
 })
 

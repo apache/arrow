@@ -27,82 +27,138 @@
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/partition.h"
 #include "arrow/dataset/type_fwd.h"
-#include "arrow/filesystem/path_tree.h"
+#include "arrow/filesystem/path_forest.h"
+#include "arrow/filesystem/path_util.h"
 #include "arrow/status.h"
 
 namespace arrow {
 namespace dataset {
 
+DataSourceDiscovery::DataSourceDiscovery()
+    : schema_(arrow::schema({})),
+      partition_scheme_(PartitionScheme::Default()),
+      root_partition_(scalar(true)) {}
+
 FileSystemDataSourceDiscovery::FileSystemDataSourceDiscovery(
-    fs::FileSystem* filesystem, std::string base_dir, std::vector<fs::FileStats> files,
-    std::shared_ptr<FileFormat> format)
-    : fs_(filesystem),
-      base_dir_(std::move(base_dir)),
+    fs::FileSystemPtr filesystem, fs::FileStatsVector files, FileFormatPtr format,
+    FileSystemDiscoveryOptions options)
+    : fs_(std::move(filesystem)),
       files_(std::move(files)),
-      format_(std::move(format)) {}
+      format_(std::move(format)),
+      options_(std::move(options)) {}
 
-Status FileSystemDataSourceDiscovery::Make(fs::FileSystem* filesystem,
-                                           std::string base_dir,
-                                           std::vector<fs::FileStats> files,
-                                           std::shared_ptr<FileFormat> format,
-                                           std::shared_ptr<DataSourceDiscovery>* out) {
-  out->reset(
-      new FileSystemDataSourceDiscovery(filesystem, std::move(base_dir), files, format));
-  return Status::OK();
+bool StartsWithAnyOf(const std::vector<std::string>& prefixes, const std::string& path) {
+  auto dir_base = fs::internal::GetAbstractPathParent(path);
+  util::string_view basename{dir_base.second};
+
+  auto matches_prefix = [&basename](const std::string& prefix) -> bool {
+    return !prefix.empty() && basename.starts_with(prefix);
+  };
+
+  return std::any_of(prefixes.cbegin(), prefixes.cend(), matches_prefix);
 }
 
-Status FileSystemDataSourceDiscovery::Make(fs::FileSystem* filesystem,
-                                           std::vector<fs::FileStats> files,
-                                           std::shared_ptr<FileFormat> format,
-                                           std::shared_ptr<DataSourceDiscovery>* out) {
-  return Make(filesystem, "", std::move(files), std::move(format), out);
+Result<DataSourceDiscoveryPtr> FileSystemDataSourceDiscovery::Make(
+    fs::FileSystemPtr fs, fs::FileStatsVector files, FileFormatPtr format,
+    FileSystemDiscoveryOptions options) {
+  DCHECK_NE(format, nullptr);
+
+  bool has_prefixes = !options.ignore_prefixes.empty();
+  std::vector<fs::FileStats> filtered;
+  for (const auto& stat : files) {
+    if (stat.IsFile()) {
+      const std::string& path = stat.path();
+
+      if (has_prefixes && StartsWithAnyOf(options.ignore_prefixes, path)) {
+        continue;
+      }
+
+      if (options.exclude_invalid_files) {
+        ARROW_ASSIGN_OR_RAISE(auto supported,
+                              format->IsSupported(FileSource(path, fs.get())));
+        if (!supported) {
+          continue;
+        }
+      }
+    }
+
+    filtered.push_back(stat);
+  }
+
+  return DataSourceDiscoveryPtr(new FileSystemDataSourceDiscovery(
+      fs, std::move(filtered), std::move(format), std::move(options)));
 }
 
-Status FileSystemDataSourceDiscovery::Make(fs::FileSystem* filesystem,
-                                           fs::Selector selector,
-                                           std::shared_ptr<FileFormat> format,
-                                           std::shared_ptr<DataSourceDiscovery>* out) {
-  std::vector<fs::FileStats> files;
-  RETURN_NOT_OK(filesystem->GetTargetStats(selector, &files));
-  return Make(filesystem, std::move(selector.base_dir), std::move(files), format, out);
+Result<DataSourceDiscoveryPtr> FileSystemDataSourceDiscovery::Make(
+    fs::FileSystemPtr filesystem, fs::Selector selector, FileFormatPtr format,
+    FileSystemDiscoveryOptions options) {
+  ARROW_ASSIGN_OR_RAISE(auto files, filesystem->GetTargetStats(selector));
+
+  // By automatically setting the options base_dir to the selector's base_dir,
+  // we provide a better experience for user providing PartitionScheme that are
+  // relative to the base_dir instead of the full path.
+  if (options.partition_base_dir.empty() && !selector.base_dir.empty()) {
+    options.partition_base_dir = selector.base_dir;
+  }
+
+  return Make(std::move(filesystem), std::move(files), std::move(format),
+              std::move(options));
 }
 
-static inline Status InspectSchema(fs::FileSystem* fs,
-                                   const std::vector<fs::FileStats> stats,
-                                   const std::shared_ptr<FileFormat>& format,
-                                   std::shared_ptr<Schema>* out) {
+Result<std::shared_ptr<Schema>> FileSystemDataSourceDiscovery::Inspect() {
   std::vector<std::shared_ptr<Schema>> schemas;
 
-  for (const auto& f : stats) {
+  for (const auto& f : files_) {
     if (!f.IsFile()) continue;
 
-    std::shared_ptr<Schema> schema;
-    RETURN_NOT_OK(format->Inspect(FileSource(f.path(), fs), &schema));
+    ARROW_ASSIGN_OR_RAISE(auto schema, format_->Inspect(FileSource(f.path(), fs_.get())));
     schemas.push_back(schema);
   }
 
-  if (schemas.size() > 0) {
-    // TODO merge schemas.
-    *out = schemas[0];
+  if (schemas.empty()) {
+    // If there are no files, return the partition scheme's schema.
+    return partition_scheme_->schema();
   }
 
-  return Status::OK();
-}
+  // TODO merge schemas.
+  auto out_schema = arrow::schema(schemas[0]->fields(), schemas[0]->metadata());
 
-Status FileSystemDataSourceDiscovery::Inspect(std::shared_ptr<Schema>* out) {
-  return InspectSchema(fs_, files_, format_, out);
-}
-
-Status FileSystemDataSourceDiscovery::Finish(std::shared_ptr<DataSource>* out) {
-  PathPartitions partitions;
-
-  if (partition_scheme_ != nullptr) {
-    RETURN_NOT_OK(
-        ApplyPartitionScheme(*partition_scheme_, base_dir_, files_, &partitions));
+  // add fields from partition_scheme_
+  for (auto partition_field : partition_scheme_->schema()->fields()) {
+    if (out_schema->GetFieldIndex(partition_field->name()) == -1) {
+      RETURN_NOT_OK(
+          out_schema->AddField(out_schema->num_fields(), partition_field, &out_schema));
+    }
   }
 
-  return FileSystemBasedDataSource::Make(fs_, files_, root_partition(),
-                                         std::move(partitions), format_, out);
+  return out_schema;
+}
+
+Result<DataSourcePtr> FileSystemDataSourceDiscovery::Finish() {
+  ExpressionVector partitions(files_.size(), scalar(true));
+
+  ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::Make(files_));
+
+  // apply partition_scheme to forest to derive partitions
+  auto apply_partition_scheme = [&](fs::PathForest::Ref ref) {
+    if (auto relative = fs::internal::RemoveAncestor(options_.partition_base_dir,
+                                                     ref.stats().path())) {
+      auto segments = fs::internal::SplitAbstractPath(relative->to_string());
+
+      if (segments.size() > 0) {
+        auto segment_index = static_cast<int>(segments.size()) - 1;
+        auto maybe_partition = partition_scheme_->Parse(segments.back(), segment_index);
+
+        partitions[ref.i] = std::move(maybe_partition).ValueOr(scalar(true));
+      }
+    }
+    return Status::OK();
+  };
+
+  RETURN_NOT_OK(forest.Visit(apply_partition_scheme));
+
+  return FileSystemDataSource::Make(fs_, std::move(forest), std::move(partitions),
+                                    root_partition_, format_);
 }
 
 }  // namespace dataset

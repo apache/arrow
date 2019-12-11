@@ -23,6 +23,7 @@ import java.sql.SQLException;
 
 import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.ValueVector;
+import org.apache.arrow.vector.VectorSchemaRoot;
 
 /**
  * Composite consumer which hold all consumers.
@@ -41,8 +42,8 @@ public class CompositeJdbcConsumer implements JdbcConsumer {
 
   @Override
   public void consume(ResultSet rs) throws SQLException, IOException {
-    for (JdbcConsumer consumer : consumers) {
-      consumer.consume(rs);
+    for (int i = 0; i < consumers.length; i++) {
+      consumers[i].consume(rs);
     }
   }
 
@@ -61,5 +62,15 @@ public class CompositeJdbcConsumer implements JdbcConsumer {
   @Override
   public void resetValueVector(ValueVector vector) {
 
+  }
+
+  /**
+   * Reset inner consumers through vectors in the vector schema root.
+   */
+  public void resetVectorSchemaRoot(VectorSchemaRoot root) {
+    assert root.getFieldVectors().size() == consumers.length;
+    for (int i = 0; i < consumers.length; i++) {
+      consumers[i].resetValueVector(root.getVector(i));
+    }
   }
 }

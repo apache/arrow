@@ -39,6 +39,7 @@ struct ArrayData;
 class ArrayBuilder;
 class Field;
 class Tensor;
+struct Scalar;
 
 class ChunkedArray;
 class RecordBatch;

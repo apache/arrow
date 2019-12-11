@@ -63,6 +63,7 @@ void CheckUnique(FunctionContext* ctx, const std::shared_ptr<DataType>& type,
 
   std::shared_ptr<Array> result;
   ASSERT_OK(Unique(ctx, input, &result));
+  ASSERT_OK(result->ValidateFull());
   // TODO: We probably shouldn't rely on array ordering.
   ASSERT_ARRAYS_EQUAL(*expected, *result);
 }
@@ -79,6 +80,7 @@ void CheckValueCountsNull(FunctionContext* ctx, const std::shared_ptr<DataType>&
 
   std::shared_ptr<Array> result;
   ASSERT_OK(ValueCounts(ctx, input, &result));
+  ASSERT_OK(result->ValidateFull());
   auto result_struct = std::dynamic_pointer_cast<StructArray>(result);
   ASSERT_NE(result_struct->GetFieldByName(kValuesFieldName), nullptr);
   // TODO: We probably shouldn't rely on value ordering.
@@ -101,6 +103,7 @@ void CheckValueCounts(FunctionContext* ctx, const std::shared_ptr<DataType>& typ
 
   std::shared_ptr<Array> result;
   ASSERT_OK(ValueCounts(ctx, input, &result));
+  ASSERT_OK(result->ValidateFull());
   auto result_struct = std::dynamic_pointer_cast<StructArray>(result);
   // TODO: We probably shouldn't rely on value ordering.
   ASSERT_ARRAYS_EQUAL(*ex_values, *result_struct->field(kValuesFieldIndex));
@@ -124,6 +127,7 @@ void CheckDictEncode(FunctionContext* ctx, const std::shared_ptr<DataType>& type
   Datum datum_out;
   ASSERT_OK(DictionaryEncode(ctx, input, &datum_out));
   std::shared_ptr<Array> result = MakeArray(datum_out.array());
+  ASSERT_OK(result->ValidateFull());
 
   ASSERT_ARRAYS_EQUAL(expected, *result);
 }

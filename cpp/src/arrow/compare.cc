@@ -237,15 +237,10 @@ class RangeEqualsVisitor {
 
     const auto& left_type = checked_cast<const UnionType&>(*left.type());
 
-    // Define a mapping from the type id to child number
-    const std::vector<uint8_t>& type_codes = left_type.type_codes();
-    std::vector<uint8_t> type_id_to_child_num(left.union_type()->max_type_code() + 1, 0);
-    for (uint8_t i = 0; i < type_codes.size(); ++i) {
-      type_id_to_child_num[type_codes[i]] = i;
-    }
+    const std::vector<int>& child_ids = left_type.child_ids();
 
-    const uint8_t* left_ids = left.raw_type_ids();
-    const uint8_t* right_ids = right.raw_type_ids();
+    const int8_t* left_codes = left.raw_type_codes();
+    const int8_t* right_codes = right.raw_type_codes();
 
     for (int64_t i = left_start_idx_, o_i = right_start_idx_; i < left_end_idx_;
          ++i, ++o_i) {
@@ -253,11 +248,11 @@ class RangeEqualsVisitor {
         return false;
       }
       if (left.IsNull(i)) continue;
-      if (left_ids[i] != right_ids[o_i]) {
+      if (left_codes[i] != right_codes[o_i]) {
         return false;
       }
 
-      auto child_num = type_id_to_child_num[left_ids[i]];
+      auto child_num = child_ids[left_codes[i]];
 
       // TODO(wesm): really we should be comparing stretches of non-null data
       // rather than looking at one value at a time.
@@ -731,27 +726,25 @@ class TypeEqualsVisitor {
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<NoExtraMeta, T>::value ||
-                              std::is_base_of<PrimitiveCType, T>::value,
-                          Status>::type
+  enable_if_t<is_null_type<T>::value || is_primitive_ctype<T>::value ||
+                  is_base_binary_type<T>::value,
+              Status>
   Visit(const T&) {
     result_ = true;
     return Status::OK();
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<IntervalType, T>::value, Status>::type Visit(
-      const T& left) {
+  enable_if_interval<T, Status> Visit(const T& left) {
     const auto& right = checked_cast<const IntervalType&>(right_);
     result_ = right.interval_type() == left.interval_type();
     return Status::OK();
   }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<TimeType, T>::value ||
-                              std::is_base_of<DateType, T>::value ||
-                              std::is_base_of<DurationType, T>::value,
-                          Status>::type
+  enable_if_t<is_time_type<T>::value || is_date_type<T>::value ||
+                  is_duration_type<T>::value,
+              Status>
   Visit(const T& left) {
     const auto& right = checked_cast<const T&>(right_);
     result_ = left.unit() == right.unit();
@@ -776,9 +769,11 @@ class TypeEqualsVisitor {
     return Status::OK();
   }
 
-  Status Visit(const ListType& left) { return VisitChildren(left); }
-
-  Status Visit(const LargeListType& left) { return VisitChildren(left); }
+  template <typename T>
+  enable_if_t<is_list_like_type<T>::value || is_struct_type<T>::value, Status> Visit(
+      const T& left) {
+    return VisitChildren(left);
+  }
 
   Status Visit(const MapType& left) {
     const auto& right = checked_cast<const MapType&>(right_);
@@ -788,10 +783,6 @@ class TypeEqualsVisitor {
     }
     return VisitChildren(left);
   }
-
-  Status Visit(const FixedSizeListType& left) { return VisitChildren(left); }
-
-  Status Visit(const StructType& left) { return VisitChildren(left); }
 
   Status Visit(const UnionType& left) {
     const auto& right = checked_cast<const UnionType&>(right_);

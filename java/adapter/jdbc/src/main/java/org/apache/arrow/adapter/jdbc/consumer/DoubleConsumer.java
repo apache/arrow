@@ -26,38 +26,58 @@ import org.apache.arrow.vector.Float8Vector;
  * Consumer which consume double type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.Float8Vector}.
  */
-public class DoubleConsumer implements JdbcConsumer<Float8Vector> {
-
-  private Float8Vector vector;
-  private final int columnIndexInResultSet;
-
-  private int currentIndex;
+public class DoubleConsumer {
 
   /**
-   * Instantiate a DoubleConsumer.
+   * Creates a consumer for {@link Float8Vector}.
    */
-  public DoubleConsumer(Float8Vector vector, int index) {
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    double value = resultSet.getDouble(columnIndexInResultSet);
-    if (!resultSet.wasNull()) {
-      vector.setSafe(currentIndex, value);
+  public static JdbcConsumer<Float8Vector> createConsumer(Float8Vector vector, int index, boolean nullable) {
+    if (nullable) {
+      return new NullableDoubleConsumer(vector, index);
+    } else {
+      return new NonNullableDoubleConsumer(vector, index);
     }
-    currentIndex++;
   }
 
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
+  /**
+   * Nullable double consumer.
+   */
+  static class NullableDoubleConsumer extends BaseConsumer<Float8Vector> {
+
+    /**
+     * Instantiate a DoubleConsumer.
+     */
+    public NullableDoubleConsumer(Float8Vector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      double value = resultSet.getDouble(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        vector.setSafe(currentIndex, value);
+      }
+      currentIndex++;
+    }
   }
 
-  @Override
-  public void resetValueVector(Float8Vector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
+  /**
+   * Non-nullable double consumer.
+   */
+  static class NonNullableDoubleConsumer extends BaseConsumer<Float8Vector> {
+
+    /**
+     * Instantiate a DoubleConsumer.
+     */
+    public NonNullableDoubleConsumer(Float8Vector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      double value = resultSet.getDouble(columnIndexInResultSet);
+      vector.setSafe(currentIndex, value);
+      currentIndex++;
+    }
   }
 }

@@ -138,6 +138,28 @@ int32 utf8_length(int64 context, const char* data, int32 data_len) {
   return count;
 }
 
+// Get the byte position corresponding to a character position for a non-empty utf8
+// sequence
+FORCE_INLINE
+int32 utf8_byte_pos(int64 context, const char* str, int32 str_len, int32 char_pos) {
+  int char_len = 0;
+  int byte_index = 0;
+  for (int32 char_index = 0; char_index < char_pos && byte_index < str_len;
+       char_index++) {
+    char_len = utf8_char_length(str[byte_index]);
+    if (char_len == 0 ||
+        byte_index + char_len > str_len) {  // invalid byte or incomplete glyph
+      set_error_for_invalid_utf(context, str[byte_index]);
+      return -1;
+    }
+    byte_index += char_len;
+  }
+  if (byte_index >= str_len) {
+    return -1;
+  }
+  return byte_index;
+}
+
 #define UTF8_LENGTH(NAME, TYPE)                               \
   FORCE_INLINE                                                \
   int32 NAME##_##TYPE(int64 context, TYPE in, int32 in_len) { \
@@ -203,6 +225,45 @@ const char* lower_utf8(int64 context, const char* data, int32 data_len,
       cur = static_cast<char>(cur + 0x20);
     }
     ret[i] = cur;
+  }
+  *out_len = data_len;
+  return ret;
+}
+
+// Reverse a utf8 sequence
+FORCE_INLINE
+const char* reverse_utf8(int64 context, const char* data, int32 data_len,
+                         int32_t* out_len) {
+  if (data_len == 0) {
+    *out_len = 0;
+    return "";
+  }
+
+  char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, data_len));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  int32 char_len;
+  for (int32 i = 0; i < data_len; i += char_len) {
+    char_len = utf8_char_length(data[i]);
+
+    if (char_len == 0 || i + char_len > data_len) {  // invalid byte or incomplete glyph
+      set_error_for_invalid_utf(context, data[i]);
+      *out_len = 0;
+      return "";
+    }
+
+    for (int32 j = 0; j < char_len; ++j) {
+      if (j > 0 && (data[i + j] & 0xC0) != 0x80) {  // bytes following head-byte of glyph
+        set_error_for_invalid_utf(context, data[i + j]);
+        *out_len = 0;
+        return "";
+      }
+      ret[data_len - i - char_len + j] = data[i + j];
+    }
   }
   *out_len = data_len;
   return ret;
@@ -369,6 +430,115 @@ const char* convert_fromUTF8_binary(int64 context, const char* bin_in, int32 len
   }
   memcpy(ret, bin_in, *out_len);
   return ret;
+}
+
+// Search for a string within another string
+FORCE_INLINE
+int32 locate_utf8_utf8(int64 context, const char* sub_str, int32 sub_str_len,
+                       const char* str, int32 str_len) {
+  return locate_utf8_utf8_int32(context, sub_str, sub_str_len, str, str_len, 1);
+}
+
+// Search for a string within another string starting at position start-pos (1-indexed)
+FORCE_INLINE
+int32 locate_utf8_utf8_int32(int64 context, const char* sub_str, int32 sub_str_len,
+                             const char* str, int32 str_len, int32 start_pos) {
+  if (start_pos < 1) {
+    gdv_fn_context_set_error_msg(context, "Start position must be greater than 0");
+    return 0;
+  }
+
+  if (str_len == 0 || sub_str_len == 0) {
+    return 0;
+  }
+
+  int32 byte_pos = utf8_byte_pos(context, str, str_len, start_pos - 1);
+  if (byte_pos < 0) {
+    return 0;
+  }
+  for (int32 i = byte_pos; i <= str_len - sub_str_len; ++i) {
+    if (memcmp(str + i, sub_str, sub_str_len) == 0) {
+      return utf8_length(context, str, i) + 1;
+    }
+  }
+  return 0;
+}
+
+FORCE_INLINE
+const char* replace_with_max_len_utf8_utf8_utf8(int64 context, const char* text,
+                                                int32 text_len, const char* from_str,
+                                                int32 from_str_len, const char* to_str,
+                                                int32 to_str_len, int32 max_length,
+                                                int32* out_len) {
+  // if from_str is empty or its length exceeds that of original string,
+  // return the original string
+  if (from_str_len <= 0 || from_str_len > text_len) {
+    *out_len = text_len;
+    return text;
+  }
+
+  bool found = false;
+  int32 text_index = 0;
+  char* out;
+  int32 out_index = 0;
+  int32 last_match_index =
+      0;  // defer copying string from last_match_index till next match is found
+
+  for (; text_index <= text_len - from_str_len;) {
+    if (memcmp(text + text_index, from_str, from_str_len) == 0) {
+      if (out_index + text_index - last_match_index + to_str_len > max_length) {
+        gdv_fn_context_set_error_msg(context, "Buffer overflow for output string");
+        *out_len = 0;
+        return "";
+      }
+      if (!found) {
+        // found match for first time
+        out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, max_length));
+        if (out == nullptr) {
+          gdv_fn_context_set_error_msg(context,
+                                       "Could not allocate memory for output string");
+          *out_len = 0;
+          return "";
+        }
+        found = true;
+      }
+      // first copy the part deferred till now
+      memcpy(out + out_index, text + last_match_index, (text_index - last_match_index));
+      out_index += text_index - last_match_index;
+      // then copy the target string
+      memcpy(out + out_index, to_str, to_str_len);
+      out_index += to_str_len;
+
+      text_index += from_str_len;
+      last_match_index = text_index;
+    } else {
+      text_index++;
+    }
+  }
+
+  if (!found) {
+    *out_len = text_len;
+    return text;
+  }
+
+  if (out_index + text_len - last_match_index > max_length) {
+    gdv_fn_context_set_error_msg(context, "Buffer overflow for output string");
+    *out_len = 0;
+    return "";
+  }
+  memcpy(out + out_index, text + last_match_index, text_len - last_match_index);
+  out_index += text_len - last_match_index;
+  *out_len = out_index;
+  return out;
+}
+
+FORCE_INLINE
+const char* replace_utf8_utf8_utf8(int64 context, const char* text, int32 text_len,
+                                   const char* from_str, int32 from_str_len,
+                                   const char* to_str, int32 to_str_len, int32* out_len) {
+  return replace_with_max_len_utf8_utf8_utf8(context, text, text_len, from_str,
+                                             from_str_len, to_str, to_str_len, 65535,
+                                             out_len);
 }
 
 }  // extern "C"

@@ -85,6 +85,7 @@
 #endif
 
 #include "arrow/buffer.h"
+#include "arrow/result.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 
@@ -106,10 +107,7 @@ Status StdoutStream::Close() { return Status::OK(); }
 
 bool StdoutStream::closed() const { return false; }
 
-Status StdoutStream::Tell(int64_t* position) const {
-  *position = pos_;
-  return Status::OK();
-}
+Result<int64_t> StdoutStream::Tell() const { return pos_; }
 
 Status StdoutStream::Write(const void* data, int64_t nbytes) {
   pos_ += nbytes;
@@ -127,10 +125,7 @@ Status StderrStream::Close() { return Status::OK(); }
 
 bool StderrStream::closed() const { return false; }
 
-Status StderrStream::Tell(int64_t* position) const {
-  *position = pos_;
-  return Status::OK();
-}
+Result<int64_t> StderrStream::Tell() const { return pos_; }
 
 Status StderrStream::Write(const void* data, int64_t nbytes) {
   pos_ += nbytes;
@@ -148,31 +143,25 @@ Status StdinStream::Close() { return Status::OK(); }
 
 bool StdinStream::closed() const { return false; }
 
-Status StdinStream::Tell(int64_t* position) const {
-  *position = pos_;
-  return Status::OK();
-}
+Result<int64_t> StdinStream::Tell() const { return pos_; }
 
-Status StdinStream::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
+Result<int64_t> StdinStream::Read(int64_t nbytes, void* out) {
   std::cin.read(reinterpret_cast<char*>(out), nbytes);
   if (std::cin) {
-    *bytes_read = nbytes;
     pos_ += nbytes;
+    return nbytes;
   } else {
-    *bytes_read = 0;
+    return 0;
   }
-  return Status::OK();
 }
 
-Status StdinStream::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
+Result<std::shared_ptr<Buffer>> StdinStream::Read(int64_t nbytes) {
   std::shared_ptr<ResizableBuffer> buffer;
   ARROW_RETURN_NOT_OK(AllocateResizableBuffer(nbytes, &buffer));
-  int64_t bytes_read;
-  ARROW_RETURN_NOT_OK(Read(nbytes, &bytes_read, buffer->mutable_data()));
+  ARROW_ASSIGN_OR_RAISE(int64_t bytes_read, Read(nbytes, buffer->mutable_data()));
   ARROW_RETURN_NOT_OK(buffer->Resize(bytes_read, false));
   buffer->ZeroPadding();
-  *out = buffer;
-  return Status::OK();
+  return buffer;
 }
 
 }  // namespace io
@@ -193,23 +182,17 @@ std::basic_string<CharT> ReplaceChars(std::basic_string<CharT> s, CharT find, Ch
   return s;
 }
 
-Status StringToNative(const std::string& s, NativePathString* out) {
+Result<NativePathString> StringToNative(const std::string& s) {
 #if _WIN32
-  std::wstring ws;
-  RETURN_NOT_OK(::arrow::util::UTF8ToWideString(s, &ws));
-  *out = std::move(ws);
+  return ::arrow::util::UTF8ToWideString(s);
 #else
-  *out = s;
+  return s;
 #endif
-  return Status::OK();
 }
 
 #if _WIN32
-Status NativeToString(const NativePathString& ws, std::string* out) {
-  std::string s;
-  RETURN_NOT_OK(::arrow::util::WideStringToUTF8(ws, &s));
-  *out = std::move(s);
-  return Status::OK();
+Result<std::string> NativeToString(const NativePathString& ws) {
+  return ::arrow::util::WideStringToUTF8(ws);
 }
 #endif
 
@@ -337,14 +320,13 @@ const NativePathString& PlatformFilename::ToNative() const { return impl_->nativ
 
 std::string PlatformFilename::ToString() const {
 #if _WIN32
-  std::string s;
-  Status st = NativeToString(impl_->generic(), &s);
-  if (!st.ok()) {
+  auto result = NativeToString(impl_->generic());
+  if (!result.ok()) {
     std::stringstream ss;
-    ss << "<Unrepresentable filename: " << st.ToString() << ">";
+    ss << "<Unrepresentable filename: " << result.status().ToString() << ">";
     return ss.str();
   }
-  return s;
+  return *std::move(result);
 #else
   return impl_->generic();
 #endif
@@ -354,12 +336,10 @@ PlatformFilename PlatformFilename::Parent() const {
   return PlatformFilename(NativeParent(ToNative()));
 }
 
-Status PlatformFilename::FromString(const std::string& file_name, PlatformFilename* out) {
+Result<PlatformFilename> PlatformFilename::FromString(const std::string& file_name) {
   RETURN_NOT_OK(ValidatePath(file_name));
-  NativePathString ns;
-  RETURN_NOT_OK(StringToNative(file_name, &ns));
-  *out = PlatformFilename(std::move(ns));
-  return Status::OK();
+  ARROW_ASSIGN_OR_RAISE(auto ns, StringToNative(file_name));
+  return PlatformFilename(std::move(ns));
 }
 
 PlatformFilename PlatformFilename::Join(const PlatformFilename& child) const {
@@ -370,16 +350,9 @@ PlatformFilename PlatformFilename::Join(const PlatformFilename& child) const {
   }
 }
 
-Status PlatformFilename::Join(const std::string& child_name,
-                              PlatformFilename* out) const {
-  PlatformFilename child;
-  RETURN_NOT_OK(PlatformFilename::FromString(child_name, &child));
-  *out = Join(child);
-  return Status::OK();
-}
-
-Status FileNameFromString(const std::string& file_name, PlatformFilename* out) {
-  return PlatformFilename::FromString(file_name, out);
+Result<PlatformFilename> PlatformFilename::Join(const std::string& child_name) const {
+  ARROW_ASSIGN_OR_RAISE(auto child, PlatformFilename::FromString(child_name));
+  return Join(child);
 }
 
 //
@@ -388,40 +361,36 @@ Status FileNameFromString(const std::string& file_name, PlatformFilename* out) {
 
 namespace {
 
-Status DoCreateDir(const PlatformFilename& dir_path, bool create_parents, bool* created) {
+Result<bool> DoCreateDir(const PlatformFilename& dir_path, bool create_parents) {
 #ifdef _WIN32
   if (CreateDirectoryW(dir_path.ToNative().c_str(), nullptr)) {
-    *created = true;
-    return Status::OK();
+    return true;
   }
   int errnum = GetLastError();
   if (errnum == ERROR_ALREADY_EXISTS) {
-    *created = false;
-    return Status::OK();
+    return false;
   }
   if (create_parents && errnum == ERROR_PATH_NOT_FOUND) {
     auto parent_path = dir_path.Parent();
     if (parent_path != dir_path) {
-      RETURN_NOT_OK(DoCreateDir(parent_path, create_parents, created));
-      return DoCreateDir(dir_path, false, created);  // Retry
+      RETURN_NOT_OK(DoCreateDir(parent_path, create_parents));
+      return DoCreateDir(dir_path, false);  // Retry
     }
   }
   return Status::IOError("Cannot create directory '", dir_path.ToString(),
                          "': ", WinErrorMessage(errnum));
 #else
   if (mkdir(dir_path.ToNative().c_str(), S_IRWXU | S_IRWXG | S_IRWXO) == 0) {
-    *created = true;
-    return Status::OK();
+    return true;
   }
   if (errno == EEXIST) {
-    *created = false;
-    return Status::OK();
+    return false;
   }
   if (create_parents && errno == ENOENT) {
     auto parent_path = dir_path.Parent();
     if (parent_path != dir_path) {
-      RETURN_NOT_OK(DoCreateDir(parent_path, create_parents, created));
-      return DoCreateDir(dir_path, false, created);  // Retry
+      RETURN_NOT_OK(DoCreateDir(parent_path, create_parents));
+      return DoCreateDir(dir_path, false);  // Retry
     }
   }
   return Status::IOError("Cannot create directory '", dir_path.ToString(),
@@ -431,22 +400,12 @@ Status DoCreateDir(const PlatformFilename& dir_path, bool create_parents, bool* 
 
 }  // namespace
 
-Status CreateDir(const PlatformFilename& dir_path, bool* created) {
-  bool did_create = false;
-  RETURN_NOT_OK(DoCreateDir(dir_path, false, &did_create));
-  if (created) {
-    *created = did_create;
-  }
-  return Status::OK();
+Result<bool> CreateDir(const PlatformFilename& dir_path) {
+  return DoCreateDir(dir_path, false);
 }
 
-Status CreateDirTree(const PlatformFilename& dir_path, bool* created) {
-  bool did_create = false;
-  RETURN_NOT_OK(DoCreateDir(dir_path, true, &did_create));
-  if (created) {
-    *created = did_create;
-  }
-  return Status::OK();
+Result<bool> CreateDirTree(const PlatformFilename& dir_path) {
+  return DoCreateDir(dir_path, true);
 }
 
 #ifdef _WIN32
@@ -468,8 +427,7 @@ std::wstring PathWithoutTrailingSlash(const PlatformFilename& fn) {
   return path;
 }
 
-Status ListDirInternal(const PlatformFilename& dir_path,
-                       std::vector<WIN32_FIND_DATAW>* out) {
+Result<std::vector<WIN32_FIND_DATAW>> ListDirInternal(const PlatformFilename& dir_path) {
   WIN32_FIND_DATAW find_data;
   std::wstring pattern = PathWithoutTrailingSlash(dir_path) + L"\\*.*";
   HANDLE handle = FindFirstFileW(pattern.c_str(), &find_data);
@@ -498,8 +456,7 @@ Status ListDirInternal(const PlatformFilename& dir_path,
     return Status::IOError("Cannot list directory '", dir_path.ToString(),
                            "': ", WinErrorMessage(errnum));
   }
-  *out = std::move(results);
-  return Status::OK();
+  return results;
 }
 
 Status FindOneFile(const PlatformFilename& fn, WIN32_FIND_DATAW* find_data,
@@ -524,22 +481,20 @@ Status FindOneFile(const PlatformFilename& fn, WIN32_FIND_DATAW* find_data,
 
 }  // namespace
 
-Status ListDir(const PlatformFilename& dir_path, std::vector<PlatformFilename>* out) {
-  std::vector<WIN32_FIND_DATAW> entries;
-  RETURN_NOT_OK(ListDirInternal(dir_path, &entries));
+Result<std::vector<PlatformFilename>> ListDir(const PlatformFilename& dir_path) {
+  ARROW_ASSIGN_OR_RAISE(auto entries, ListDirInternal(dir_path));
 
   std::vector<PlatformFilename> results;
   results.reserve(entries.size());
   for (const auto& entry : entries) {
     results.emplace_back(std::wstring(entry.cFileName));
   }
-  *out = std::move(results);
-  return Status::OK();
+  return results;
 }
 
 #else
 
-Status ListDir(const PlatformFilename& dir_path, std::vector<PlatformFilename>* out) {
+Result<std::vector<PlatformFilename>> ListDir(const PlatformFilename& dir_path) {
   DIR* dir = opendir(dir_path.ToNative().c_str());
   if (dir == nullptr) {
     return Status::IOError("Cannot list directory '", dir_path.ToString(),
@@ -567,9 +522,7 @@ Status ListDir(const PlatformFilename& dir_path, std::vector<PlatformFilename>* 
     return Status::IOError("Cannot list directory '", dir_path.ToString(),
                            "': ", ErrnoMessage(errno));
   }
-
-  *out = std::move(results);
-  return Status::OK();
+  return results;
 }
 
 #endif
@@ -610,8 +563,7 @@ Status DeleteDirEntry(const PlatformFilename& path, const WIN32_FIND_DATAW& entr
 }
 
 Status DeleteDirTreeInternal(const PlatformFilename& dir_path) {
-  std::vector<WIN32_FIND_DATAW> entries;
-  RETURN_NOT_OK(ListDirInternal(dir_path, &entries));
+  ARROW_ASSIGN_OR_RAISE(auto entries, ListDirInternal(dir_path));
   for (const auto& entry : entries) {
     PlatformFilename path = dir_path.Join(PlatformFilename(entry.cFileName));
     RETURN_NOT_OK(DeleteDirEntry(path, entry));
@@ -619,18 +571,14 @@ Status DeleteDirTreeInternal(const PlatformFilename& dir_path) {
   return Status::OK();
 }
 
-Status DeleteDirContents(const PlatformFilename& dir_path, bool* deleted,
-                         bool remove_top_dir) {
+Result<bool> DeleteDirContents(const PlatformFilename& dir_path, bool remove_top_dir) {
   bool exists = false;
   WIN32_FIND_DATAW entry;
   RETURN_NOT_OK(FindOneFile(dir_path, &entry, &exists));
   if (exists) {
     RETURN_NOT_OK(DeleteDirEntryDir(dir_path, entry, remove_top_dir));
   }
-  if (deleted != nullptr) {
-    *deleted = exists;
-  }
-  return Status::OK();
+  return exists;
 }
 
 #else  // POSIX
@@ -682,8 +630,7 @@ Status DeleteDirEntry(const PlatformFilename& path, const struct stat& lst) {
 }
 
 Status DeleteDirTreeInternal(const PlatformFilename& dir_path) {
-  std::vector<PlatformFilename> children;
-  RETURN_NOT_OK(ListDir(dir_path, &children));
+  ARROW_ASSIGN_OR_RAISE(auto children, ListDir(dir_path));
   for (const auto& child : children) {
     struct stat lst;
     PlatformFilename full_path = dir_path.Join(child);
@@ -693,8 +640,7 @@ Status DeleteDirTreeInternal(const PlatformFilename& dir_path) {
   return Status::OK();
 }
 
-Status DeleteDirContents(const PlatformFilename& dir_path, bool* deleted,
-                         bool remove_top_dir) {
+Result<bool> DeleteDirContents(const PlatformFilename& dir_path, bool remove_top_dir) {
   bool exists = true;
   struct stat lst;
   RETURN_NOT_OK(LinkStat(dir_path, &lst, &exists));
@@ -705,29 +651,25 @@ Status DeleteDirContents(const PlatformFilename& dir_path, bool* deleted,
     }
     RETURN_NOT_OK(DeleteDirEntryDir(dir_path, lst, remove_top_dir));
   }
-  if (deleted != nullptr) {
-    *deleted = exists;
-  }
-  return Status::OK();
+  return exists;
 }
 
 #endif
 
 }  // namespace
 
-Status DeleteDirContents(const PlatformFilename& dir_path, bool* deleted) {
-  return DeleteDirContents(dir_path, deleted, /*remove_top_dir=*/false);
+Result<bool> DeleteDirContents(const PlatformFilename& dir_path) {
+  return DeleteDirContents(dir_path, /*remove_top_dir=*/false);
 }
 
-Status DeleteDirTree(const PlatformFilename& dir_path, bool* deleted) {
-  return DeleteDirContents(dir_path, deleted, /*remove_top_dir=*/true);
+Result<bool> DeleteDirTree(const PlatformFilename& dir_path) {
+  return DeleteDirContents(dir_path, /*remove_top_dir=*/true);
 }
 
-Status DeleteFile(const PlatformFilename& file_path, bool* deleted) {
-  bool did_delete = false;
+Result<bool> DeleteFile(const PlatformFilename& file_path) {
 #ifdef _WIN32
   if (DeleteFileW(file_path.ToNative().c_str())) {
-    did_delete = true;
+    return true;
   } else {
     int errnum = GetLastError();
     if (errnum != ERROR_FILE_NOT_FOUND) {
@@ -737,7 +679,7 @@ Status DeleteFile(const PlatformFilename& file_path, bool* deleted) {
   }
 #else
   if (unlink(file_path.ToNative().c_str()) == 0) {
-    did_delete = true;
+    return true;
   } else {
     if (errno != ENOENT) {
       return Status::IOError("Cannot delete file '", file_path.ToString(),
@@ -745,37 +687,33 @@ Status DeleteFile(const PlatformFilename& file_path, bool* deleted) {
     }
   }
 #endif
-  if (deleted) {
-    *deleted = did_delete;
-  }
-  return Status::OK();
+  return false;
 }
 
-Status FileExists(const PlatformFilename& path, bool* out) {
+Result<bool> FileExists(const PlatformFilename& path) {
 #ifdef _WIN32
   if (GetFileAttributesW(path.ToNative().c_str()) != INVALID_FILE_ATTRIBUTES) {
-    *out = true;
+    return true;
   } else {
     int errnum = GetLastError();
     if (errnum != ERROR_PATH_NOT_FOUND && errnum != ERROR_FILE_NOT_FOUND) {
       return Status::IOError("Failed getting information for path '", path.ToString(),
                              "': ", WinErrorMessage(errnum));
     }
-    *out = false;
+    return false;
   }
 #else
   struct stat st;
   if (stat(path.ToNative().c_str(), &st) == 0) {
-    *out = true;
+    return true;
   } else {
     if (errno != ENOENT && errno != ENOTDIR) {
       return Status::IOError("Failed getting information for path '", path.ToString(),
                              "': ", ErrnoMessage(errno));
     }
-    *out = false;
+    return false;
   }
 #endif
-  return Status::OK();
 }
 
 //
@@ -793,10 +731,10 @@ static inline int64_t lseek64_compat(int fd, int64_t pos, int whence) {
 #endif
 }
 
-static inline Status CheckFileOpResult(int ret, int errno_actual,
-                                       const PlatformFilename& file_name,
-                                       const char* opname) {
-  if (ret == -1) {
+static inline Result<int> CheckFileOpResult(int fd_ret, int errno_actual,
+                                            const PlatformFilename& file_name,
+                                            const char* opname) {
+  if (fd_ret == -1) {
 #ifdef _WIN32
     int winerr = GetLastError();
     if (winerr != ERROR_SUCCESS) {
@@ -807,41 +745,40 @@ static inline Status CheckFileOpResult(int ret, int errno_actual,
     return Status::IOError("Failed to ", opname, " file '", file_name.ToString(),
                            "', error: ", ErrnoMessage(errno_actual));
   }
-  return Status::OK();
+  return fd_ret;
 }
 
-Status FileOpenReadable(const PlatformFilename& file_name, int* fd) {
-  int ret, errno_actual;
+Result<int> FileOpenReadable(const PlatformFilename& file_name) {
+  int fd, errno_actual;
 #if defined(_WIN32)
   SetLastError(0);
-  errno_actual = _wsopen_s(fd, file_name.ToNative().c_str(),
+  errno_actual = _wsopen_s(&fd, file_name.ToNative().c_str(),
                            _O_RDONLY | _O_BINARY | _O_NOINHERIT, _SH_DENYNO, _S_IREAD);
-  ret = *fd;
 #else
-  ret = *fd = open(file_name.ToNative().c_str(), O_RDONLY);
+  fd = open(file_name.ToNative().c_str(), O_RDONLY);
   errno_actual = errno;
 
-  if (ret >= 0) {
+  if (fd >= 0) {
     // open(O_RDONLY) succeeds on directories, check for it
     struct stat st;
-    ret = fstat(*fd, &st);
+    int ret = fstat(fd, &st);
     if (ret == -1) {
-      ARROW_UNUSED(FileClose(*fd));
+      ARROW_UNUSED(FileClose(fd));
       // Will propagate error below
     } else if (S_ISDIR(st.st_mode)) {
-      ARROW_UNUSED(FileClose(*fd));
+      ARROW_UNUSED(FileClose(fd));
       return Status::IOError("Cannot open for reading: path '", file_name.ToString(),
                              "' is a directory");
     }
   }
 #endif
 
-  return CheckFileOpResult(ret, errno_actual, file_name, "open local");
+  return CheckFileOpResult(fd, errno_actual, file_name, "open local");
 }
 
-Status FileOpenWritable(const PlatformFilename& file_name, bool write_only, bool truncate,
-                        bool append, int* fd) {
-  int ret, errno_actual;
+Result<int> FileOpenWritable(const PlatformFilename& file_name, bool write_only,
+                             bool truncate, bool append) {
+  int fd, errno_actual;
 
 #if defined(_WIN32)
   SetLastError(0);
@@ -861,8 +798,7 @@ Status FileOpenWritable(const PlatformFilename& file_name, bool write_only, bool
     oflag |= _O_RDWR;
   }
 
-  errno_actual = _wsopen_s(fd, file_name.ToNative().c_str(), oflag, _SH_DENYNO, pmode);
-  ret = *fd;
+  errno_actual = _wsopen_s(&fd, file_name.ToNative().c_str(), oflag, _SH_DENYNO, pmode);
 
 #else
   int oflag = O_CREAT;
@@ -880,24 +816,24 @@ Status FileOpenWritable(const PlatformFilename& file_name, bool write_only, bool
     oflag |= O_RDWR;
   }
 
-  ret = *fd = open(file_name.ToNative().c_str(), oflag, ARROW_WRITE_SHMODE);
+  fd = open(file_name.ToNative().c_str(), oflag, ARROW_WRITE_SHMODE);
   errno_actual = errno;
 #endif
-  RETURN_NOT_OK(CheckFileOpResult(ret, errno_actual, file_name, "open local"));
+
+  RETURN_NOT_OK(CheckFileOpResult(fd, errno_actual, file_name, "open local"));
   if (append) {
     // Seek to end, as O_APPEND does not necessarily do it
-    auto ret = lseek64_compat(*fd, 0, SEEK_END);
+    auto ret = lseek64_compat(fd, 0, SEEK_END);
     if (ret == -1) {
-      ARROW_UNUSED(FileClose(*fd));
+      ARROW_UNUSED(FileClose(fd));
       return Status::IOError("lseek failed");
     }
   }
-  return Status::OK();
+  return fd;
 }
 
-Status FileTell(int fd, int64_t* pos) {
+Result<int64_t> FileTell(int fd) {
   int64_t current_pos;
-
 #if defined(_WIN32)
   current_pos = _telli64(fd);
   if (current_pos == -1) {
@@ -907,13 +843,12 @@ Status FileTell(int fd, int64_t* pos) {
   current_pos = lseek64_compat(fd, 0, SEEK_CUR);
   CHECK_LSEEK(current_pos);
 #endif
-
-  *pos = current_pos;
-  return Status::OK();
+  return current_pos;
 }
 
-Status CreatePipe(int fd[2]) {
+Result<Pipe> CreatePipe() {
   int ret;
+  int fd[2];
 #if defined(_WIN32)
   ret = _pipe(fd, 4096, _O_BINARY);
 #else
@@ -923,7 +858,7 @@ Status CreatePipe(int fd[2]) {
   if (ret == -1) {
     return Status::IOError("Error creating pipe: ", ErrnoMessage(errno));
   }
-  return Status::OK();
+  return Pipe{fd[0], fd[1]};
 }
 
 static Status StatusFromErrno(const char* prefix) {
@@ -1031,7 +966,7 @@ Status FileSeek(int fd, int64_t pos, int whence) {
 
 Status FileSeek(int fd, int64_t pos) { return FileSeek(fd, pos, SEEK_SET); }
 
-Status FileGetSize(int fd, int64_t* size) {
+Result<int64_t> FileGetSize(int fd) {
 #if defined(_WIN32)
   struct __stat64 st;
 #else
@@ -1052,13 +987,11 @@ Status FileGetSize(int fd, int64_t* size) {
     // Maybe the file doesn't support getting its size, double-check by
     // trying to tell() (seekable files usually have a size, while
     // non-seekable files don't)
-    int64_t position;
-    RETURN_NOT_OK(FileTell(fd, &position));
+    RETURN_NOT_OK(FileTell(fd));
   } else if (st.st_size < 0) {
     return Status::IOError("error getting file size");
   }
-  *size = st.st_size;
-  return Status::OK();
+  return st.st_size;
 }
 
 //
@@ -1087,12 +1020,12 @@ static inline int64_t pread_compat(int fd, void* buf, int64_t nbytes, int64_t po
 #endif
 }
 
-Status FileRead(int fd, uint8_t* buffer, int64_t nbytes, int64_t* bytes_read) {
-  *bytes_read = 0;
+Result<int64_t> FileRead(int fd, uint8_t* buffer, int64_t nbytes) {
+  int64_t bytes_read = 0;
 
-  while (*bytes_read < nbytes) {
+  while (bytes_read < nbytes) {
     int64_t chunksize =
-        std::min(static_cast<int64_t>(ARROW_MAX_IO_CHUNKSIZE), nbytes - *bytes_read);
+        std::min(static_cast<int64_t>(ARROW_MAX_IO_CHUNKSIZE), nbytes - bytes_read);
 #if defined(_WIN32)
     int64_t ret =
         static_cast<int64_t>(_read(fd, buffer, static_cast<uint32_t>(chunksize)));
@@ -1101,36 +1034,28 @@ Status FileRead(int fd, uint8_t* buffer, int64_t nbytes, int64_t* bytes_read) {
 #endif
 
     if (ret == -1) {
-      *bytes_read = ret;
-      break;
+      return Status::IOError("Error reading bytes from file: ", ErrnoMessage(errno));
     }
     if (ret == 0) {
       // EOF
       break;
     }
     buffer += ret;
-    *bytes_read += ret;
+    bytes_read += ret;
   }
-
-  if (*bytes_read == -1) {
-    return Status::IOError("Error reading bytes from file: ", ErrnoMessage(errno));
-  }
-
-  return Status::OK();
+  return bytes_read;
 }
 
-Status FileReadAt(int fd, uint8_t* buffer, int64_t position, int64_t nbytes,
-                  int64_t* bytes_read) {
-  *bytes_read = 0;
+Result<int64_t> FileReadAt(int fd, uint8_t* buffer, int64_t position, int64_t nbytes) {
+  int64_t bytes_read = 0;
 
-  while (*bytes_read < nbytes) {
+  while (bytes_read < nbytes) {
     int64_t chunksize =
-        std::min(static_cast<int64_t>(ARROW_MAX_IO_CHUNKSIZE), nbytes - *bytes_read);
+        std::min(static_cast<int64_t>(ARROW_MAX_IO_CHUNKSIZE), nbytes - bytes_read);
     int64_t ret = pread_compat(fd, buffer, chunksize, position);
 
     if (ret == -1) {
-      *bytes_read = ret;
-      break;
+      return Status::IOError("Error reading bytes from file: ", ErrnoMessage(errno));
     }
     if (ret == 0) {
       // EOF
@@ -1138,13 +1063,9 @@ Status FileReadAt(int fd, uint8_t* buffer, int64_t position, int64_t nbytes,
     }
     buffer += ret;
     position += ret;
-    *bytes_read += ret;
+    bytes_read += ret;
   }
-
-  if (*bytes_read == -1) {
-    return Status::IOError("Error reading bytes from file: ", ErrnoMessage(errno));
-  }
-  return Status::OK();
+  return bytes_read;
 }
 
 //
@@ -1198,7 +1119,7 @@ Status FileTruncate(int fd, const int64_t size) {
 // Environment variables
 //
 
-Status GetEnvVar(const char* name, std::string* out) {
+Result<std::string> GetEnvVar(const char* name) {
 #ifdef _WIN32
   // On Windows, getenv() reads an early copy of the process' environment
   // which doesn't get updated when SetEnvironmentVariable() is called.
@@ -1210,42 +1131,45 @@ Status GetEnvVar(const char* name, std::string* out) {
   } else if (res == 0) {
     return Status::KeyError("environment variable undefined");
   }
-  *out = std::string(c_str);
-  return Status::OK();
+  return std::string(c_str);
 #else
   char* c_str = getenv(name);
   if (c_str == nullptr) {
     return Status::KeyError("environment variable undefined");
   }
-  *out = std::string(c_str);
-  return Status::OK();
+  return std::string(c_str);
 #endif
 }
 
-Status GetEnvVar(const std::string& name, std::string* out) {
-  return GetEnvVar(name.c_str(), out);
-}
+Result<std::string> GetEnvVar(const std::string& name) { return GetEnvVar(name.c_str()); }
 
 #ifdef _WIN32
-Status GetEnvVar(const std::string& name, NativePathString* out) {
+Result<NativePathString> GetEnvVarNative(const std::string& name) {
   NativePathString w_name;
   constexpr int32_t bufsize = 2000;
   wchar_t w_str[bufsize];
 
-  RETURN_NOT_OK(StringToNative(name, &w_name));
+  ARROW_ASSIGN_OR_RAISE(w_name, StringToNative(name));
   auto res = GetEnvironmentVariableW(w_name.c_str(), w_str, bufsize);
   if (res >= bufsize) {
     return Status::CapacityError("environment variable value too long");
   } else if (res == 0) {
     return Status::KeyError("environment variable undefined");
   }
-  *out = NativePathString(w_str);
-  return Status::OK();
+  return NativePathString(w_str);
 }
 
-Status GetEnvVar(const char* name, NativePathString* out) {
-  return GetEnvVar(std::string(name), out);
+Result<NativePathString> GetEnvVarNative(const char* name) {
+  return GetEnvVarNative(std::string(name));
 }
+
+#else
+
+Result<NativePathString> GetEnvVarNative(const std::string& name) {
+  return GetEnvVar(name);
+}
+
+Result<NativePathString> GetEnvVarNative(const char* name) { return GetEnvVar(name); }
 #endif
 
 Status SetEnvVar(const char* name, const char* value) {
@@ -1329,17 +1253,17 @@ std::vector<NativePathString> GetPlatformTemporaryDirs() {
 
   std::vector<NativePathString> temp_dirs;
   for (const auto& sel : selectors) {
-    NativePathString p;
-    Status st = GetEnvVar(sel.env_var, &p);
-    if (st.IsKeyError()) {
+    auto result = GetEnvVarNative(sel.env_var);
+    if (result.status().IsKeyError()) {
       // Environment variable absent, skip
       continue;
     }
-    if (!st.ok()) {
+    if (!result.ok()) {
       ARROW_LOG(WARNING) << "Failed getting env var '" << sel.env_var
-                         << "': " << st.ToString();
+                         << "': " << result.status().ToString();
       continue;
     }
+    NativePathString p = *std::move(result);
     if (p.empty()) {
       // Environment variable set to empty string, skip
       continue;
@@ -1368,10 +1292,10 @@ std::string MakeRandomName(int num_chars) {
 }
 }  // namespace
 
-Status TemporaryDir::Make(const std::string& prefix, std::unique_ptr<TemporaryDir>* out) {
+Result<std::unique_ptr<TemporaryDir>> TemporaryDir::Make(const std::string& prefix) {
   std::string suffix = MakeRandomName(8);
   NativePathString base_name;
-  RETURN_NOT_OK(StringToNative(prefix + suffix, &base_name));
+  ARROW_ASSIGN_OR_RAISE(base_name, StringToNative(prefix + suffix));
 
   auto base_dirs = GetPlatformTemporaryDirs();
   DCHECK_NE(base_dirs.size(), 0);
@@ -1379,17 +1303,16 @@ Status TemporaryDir::Make(const std::string& prefix, std::unique_ptr<TemporaryDi
   auto st = Status::OK();
   for (const auto& p : base_dirs) {
     PlatformFilename fn(p + kNativeSep + base_name + kNativeSep);
-    bool created = false;
-    st = CreateDir(fn, &created);
-    if (!st.ok()) {
+    auto result = CreateDir(fn);
+    if (!result.ok()) {
+      st = result.status();
       continue;
     }
-    if (!created) {
+    if (!*result) {
       // XXX Should we retry with another random name?
       return Status::IOError("Path already exists: '", fn.ToString(), "'");
     } else {
-      out->reset(new TemporaryDir(std::move(fn)));
-      return Status::OK();
+      return std::unique_ptr<TemporaryDir>(new TemporaryDir(std::move(fn)));
     }
   }
 
@@ -1400,7 +1323,7 @@ Status TemporaryDir::Make(const std::string& prefix, std::unique_ptr<TemporaryDi
 TemporaryDir::TemporaryDir(PlatformFilename&& path) : path_(std::move(path)) {}
 
 TemporaryDir::~TemporaryDir() {
-  Status st = DeleteDirTree(path_);
+  Status st = DeleteDirTree(path_).status();
   if (!st.ok()) {
     ARROW_LOG(WARNING) << "When trying to delete temporary directory: " << st;
   }
@@ -1436,7 +1359,7 @@ SignalHandler::Callback SignalHandler::callback() const {
 const struct sigaction& SignalHandler::action() const { return sa_; }
 #endif
 
-Status GetSignalHandler(int signum, SignalHandler* out) {
+Result<SignalHandler> GetSignalHandler(int signum) {
 #if ARROW_HAVE_SIGACTION
   struct sigaction sa;
   int ret = sigaction(signum, nullptr, &sa);
@@ -1444,7 +1367,7 @@ Status GetSignalHandler(int signum, SignalHandler* out) {
     // TODO more detailed message using errno
     return Status::IOError("sigaction call failed");
   }
-  *out = SignalHandler(sa);
+  return SignalHandler(sa);
 #else
   // To read the old handler, set the signal handler to something else temporarily
   SignalHandler::Callback cb = signal(signum, SIG_IGN);
@@ -1452,13 +1375,11 @@ Status GetSignalHandler(int signum, SignalHandler* out) {
     // TODO more detailed message using errno
     return Status::IOError("signal call failed");
   }
-  *out = SignalHandler(cb);
+  return SignalHandler(cb);
 #endif
-  return Status::OK();
 }
 
-Status SetSignalHandler(int signum, const SignalHandler& handler,
-                        SignalHandler* old_handler) {
+Result<SignalHandler> SetSignalHandler(int signum, const SignalHandler& handler) {
 #if ARROW_HAVE_SIGACTION
   struct sigaction old_sa;
   int ret = sigaction(signum, &handler.action(), &old_sa);
@@ -1466,18 +1387,14 @@ Status SetSignalHandler(int signum, const SignalHandler& handler,
     // TODO more detailed message using errno
     return Status::IOError("sigaction call failed");
   }
-  if (old_handler != nullptr) {
-    *old_handler = SignalHandler(old_sa);
-  }
+  return SignalHandler(old_sa);
 #else
   SignalHandler::Callback cb = signal(signum, handler.callback());
   if (cb == SIG_ERR) {
     // TODO more detailed message using errno
     return Status::IOError("signal call failed");
   }
-  if (old_handler != nullptr) {
-    *old_handler = SignalHandler(cb);
-  }
+  return SignalHandler(cb);
 #endif
   return Status::OK();
 }

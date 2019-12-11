@@ -24,7 +24,6 @@ requirements:
     - boost-cpp
     - brotli
     - c-ares
-    - double-conversion
     - gflags
     - glog
     - grpc-cpp
@@ -39,7 +38,6 @@ requirements:
     - re2
     - snappy
     - thrift-cpp >=0.11
-    - uriparser
     - zlib
     - zstd
 
@@ -49,7 +47,6 @@ requirements:
     - boost-cpp
     - brotli
     - c-ares
-    - double-conversion
     - gflags
     - glog
     - grpc-cpp
@@ -57,7 +54,6 @@ requirements:
     - python
     - re2
     - snappy
-    - uriparser
     - zlib
     - zstd
 

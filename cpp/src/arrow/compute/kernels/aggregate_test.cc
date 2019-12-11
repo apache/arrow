@@ -26,6 +26,7 @@
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/count.h"
 #include "arrow/compute/kernels/mean.h"
+#include "arrow/compute/kernels/minmax.h"
 #include "arrow/compute/kernels/sum.h"
 #include "arrow/compute/kernels/sum_internal.h"
 #include "arrow/compute/test_util.h"
@@ -38,6 +39,9 @@
 #include "arrow/testing/random.h"
 
 namespace arrow {
+
+using internal::checked_pointer_cast;
+
 namespace compute {
 
 ///
@@ -306,6 +310,60 @@ TYPED_TEST(TestRandomNumericCountKernel, RandomArrayCount) {
       }
     }
   }
+}
+
+///
+/// Min / Max
+///
+
+template <typename ArrowType>
+class TestNumericMinMaxKernel : public ComputeFixture, public TestBase {
+  using Traits = TypeTraits<ArrowType>;
+  using ArrayType = typename Traits::ArrayType;
+  using c_type = typename ArrayType::value_type;
+  using ScalarType = typename Traits::ScalarType;
+
+ public:
+  template <typename Min, typename Max>
+  void AssertMinMaxIs(std::string array_json, Min expected_min, Max expected_max,
+                      const MinMaxOptions& options) {
+    auto array = ArrayFromJSON(Traits::type_singleton(), array_json);
+    Datum out, out_min, out_max;
+    ASSERT_OK(MinMax(&this->ctx_, options, *array, &out));
+
+    ASSERT_TRUE(out.is_collection());
+    auto col = out.collection();
+
+    out_min = col[0];
+    ASSERT_TRUE(out_min.is_scalar());
+    auto min = checked_pointer_cast<ScalarType>(out_min.scalar());
+    ASSERT_EQ(min->value, static_cast<c_type>(expected_min));
+
+    out_max = col[1];
+    ASSERT_TRUE(out_max.is_scalar());
+    auto max = checked_pointer_cast<ScalarType>(out_max.scalar());
+    ASSERT_EQ(max->value, static_cast<c_type>(expected_max));
+  }
+};
+
+template <typename ArrowType>
+class TestFloatingMinMaxKernel : public TestNumericMinMaxKernel<ArrowType> {};
+
+TYPED_TEST_CASE(TestNumericMinMaxKernel, IntegralArrowTypes);
+TYPED_TEST(TestNumericMinMaxKernel, Basics) {
+  MinMaxOptions options;
+  this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);
+  this->AssertMinMaxIs("[5, null, 2, 3, 4]", 2, 5, options);
+}
+
+TYPED_TEST_CASE(TestFloatingMinMaxKernel, RealArrowTypes);
+TYPED_TEST(TestFloatingMinMaxKernel, Floats) {
+  MinMaxOptions options;
+  this->AssertMinMaxIs("[5, 1, 2, 3, 4]", 1, 5, options);
+  this->AssertMinMaxIs("[5, null, 2, 3, 4]", 2, 5, options);
+  this->AssertMinMaxIs("[5, Inf, 2, 3, 4]", 2.0, INFINITY, options);
+  this->AssertMinMaxIs("[5, NaN, 2, 3, 4]", 2, 5, options);
+  this->AssertMinMaxIs("[5, -Inf, 2, 3, 4]", -INFINITY, 5, options);
 }
 
 }  // namespace compute

@@ -23,4 +23,23 @@ class TimestampArrayTest < Test::Unit::TestCase
     time = Time.at(sec, usec)
     assert_equal(time, array[0])
   end
+
+  sub_test_case("#is_in") do
+    def setup
+      values = [
+        Time.parse("2019-11-18T00:09:11"),
+        Time.parse("2019-11-18T00:09:12"),
+        Time.parse("2019-11-18T00:09:13"),
+      ]
+      @array = Arrow::TimestampArray.new(:micro, values)
+    end
+
+    test("Arrow: Array") do
+      right = [
+        Time.parse("2019-11-18T00:09:12"),
+      ]
+      assert_equal(Arrow::BooleanArray.new([false, true, false]),
+                   @array.is_in(right))
+    end
+  end
 end

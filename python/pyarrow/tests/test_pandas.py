@@ -2184,6 +2184,16 @@ class TestZeroCopyConversion(object):
         tm.assert_series_equal(pd.Series(result), pd.Series(values),
                                check_names=False)
 
+    def test_zero_copy_timestamp(self):
+        arr = np.array(['2007-07-13'], dtype='datetime64[ns]')
+        result = pa.array(arr).to_pandas(zero_copy_only=True)
+        npt.assert_array_equal(result, arr)
+
+    def test_zero_copy_duration(self):
+        arr = np.array([1], dtype='timedelta64[ns]')
+        result = pa.array(arr).to_pandas(zero_copy_only=True)
+        npt.assert_array_equal(result, arr)
+
     def check_zero_copy_failure(self, arr):
         with pytest.raises(pa.ArrowInvalid):
             arr.to_pandas(zero_copy_only=True)
@@ -2204,12 +2214,12 @@ class TestZeroCopyConversion(object):
         arr = pa.array([[1, 2], [8, 9]], type=pa.list_(pa.int64()))
         self.check_zero_copy_failure(arr)
 
-    def test_zero_copy_failure_on_timestamp_types(self):
-        arr = np.array(['2007-07-13'], dtype='datetime64[ns]')
+    def test_zero_copy_failure_on_timestamp_with_nulls(self):
+        arr = np.array([1, None], dtype='datetime64[ns]')
         self.check_zero_copy_failure(pa.array(arr))
 
-    def test_zero_copy_failure_on_duration_types(self):
-        arr = np.array([1], dtype='timedelta64[ns]')
+    def test_zero_copy_failure_on_duration_with_nulls(self):
+        arr = np.array([1, None], dtype='timedelta64[ns]')
         self.check_zero_copy_failure(pa.array(arr))
 
 
@@ -3202,6 +3212,80 @@ def test_variable_dictionary_to_pandas():
     tm.assert_series_equal(result_dense, expected_dense)
 
 
+def test_dictionary_from_pandas():
+    cat = pd.Categorical([u'a', u'b', u'a'])
+    expected_type = pa.dictionary(pa.int8(), pa.string())
+
+    result = pa.array(cat)
+    assert result.to_pylist() == ['a', 'b', 'a']
+    assert result.type.equals(expected_type)
+
+    # with missing values in categorical
+    cat = pd.Categorical([u'a', u'b', None, u'a'])
+
+    result = pa.array(cat)
+    assert result.to_pylist() == ['a', 'b', None, 'a']
+    assert result.type.equals(expected_type)
+
+    # with additional mask
+    result = pa.array(cat, mask=np.array([False, False, False, True]))
+    assert result.to_pylist() == ['a', 'b', None, None]
+    assert result.type.equals(expected_type)
+
+
+def test_dictionary_from_pandas_specified_type():
+    # ARROW-7168 - ensure specified type is always respected
+
+    # the same as cat = pd.Categorical(['a', 'b']) but explicit about dtypes
+    cat = pd.Categorical.from_codes(
+        np.array([0, 1], dtype='int8'), np.array(['a', 'b'], dtype=object))
+
+    # different index type -> allow this
+    # (the type of the 'codes' in pandas is not part of the data type)
+    typ = pa.dictionary(index_type=pa.int16(), value_type=pa.string())
+    result = pa.array(cat, type=typ)
+    assert result.type.equals(typ)
+    assert result.to_pylist() == ['a', 'b']
+
+    # mismatching values type -> raise error (for now a deprecation warning)
+    typ = pa.dictionary(index_type=pa.int8(), value_type=pa.int64())
+    with pytest.warns(FutureWarning):
+        result = pa.array(cat, type=typ)
+    assert result.to_pylist() == ['a', 'b']
+
+    # mismatching order -> raise error (for now a deprecation warning)
+    typ = pa.dictionary(
+        index_type=pa.int8(), value_type=pa.string(), ordered=True)
+    with pytest.warns(FutureWarning, match="The 'ordered' flag of the passed"):
+        result = pa.array(cat, type=typ)
+    assert result.to_pylist() == ['a', 'b']
+
+    # with mask
+    typ = pa.dictionary(index_type=pa.int16(), value_type=pa.string())
+    result = pa.array(cat, type=typ, mask=np.array([False, True]))
+    assert result.type.equals(typ)
+    assert result.to_pylist() == ['a', None]
+
+    # empty categorical -> be flexible in values type to allow
+    cat = pd.Categorical([])
+
+    typ = pa.dictionary(index_type=pa.int8(), value_type=pa.string())
+    result = pa.array(cat, type=typ)
+    assert result.type.equals(typ)
+    assert result.to_pylist() == []
+    typ = pa.dictionary(index_type=pa.int8(), value_type=pa.int64())
+    result = pa.array(cat, type=typ)
+    assert result.type.equals(typ)
+    assert result.to_pylist() == []
+
+    # passing non-dictionary type
+    cat = pd.Categorical(['a', 'b'])
+    result = pa.array(cat, type=pa.string())
+    expected = pa.array(['a', 'b'], type=pa.string())
+    assert result.equals(expected)
+    assert result.to_pylist() == ['a', 'b']
+
+
 # ----------------------------------------------------------------------
 # Array protocol in pandas conversions tests
 
@@ -3319,16 +3403,6 @@ def test_convert_to_extension_array(monkeypatch):
          'c': [4, 5, 6]})
     table = pa.table(df)
 
-    # Int64Dtype has no __arrow_array__ -> use normal conversion
-    result = table.to_pandas()
-    assert len(result._data.blocks) == 1
-    assert isinstance(result._data.blocks[0], _int.IntBlock)
-
-    # patch pandas Int64Dtype to have the protocol method
-    monkeypatch.setattr(
-        pd.Int64Dtype, '__from_arrow__', _Int64Dtype__from_arrow__,
-        raising=False)
-
     # Int64Dtype is recognized -> convert to extension block by default
     # for a proper roundtrip
     result = table.to_pandas()
@@ -3342,6 +3416,13 @@ def test_convert_to_extension_array(monkeypatch):
     result = table2.to_pandas()
     assert isinstance(result._data.blocks[0], _int.ExtensionBlock)
     tm.assert_frame_equal(result, df2)
+
+    # monkeypatch pandas Int64Dtype to *not* have the protocol method
+    monkeypatch.delattr(pd.core.arrays.integer._IntegerDtype, "__from_arrow__")
+    # Int64Dtype has no __from_arrow__ -> use normal conversion
+    result = table.to_pandas()
+    assert len(result._data.blocks) == 1
+    assert isinstance(result._data.blocks[0], _int.IntBlock)
 
 
 class MyCustomIntegerType(pa.PyExtensionType):
@@ -3364,13 +3445,11 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
     arr = pa.ExtensionArray.from_storage(MyCustomIntegerType(), storage)
     table = pa.table({'a': arr})
 
-    with pytest.raises(ValueError):
-        table.to_pandas()
-
-    # patch pandas Int64Dtype to have the protocol method
-    monkeypatch.setattr(
-        pd.Int64Dtype, '__from_arrow__', _Int64Dtype__from_arrow__,
-        raising=False)
+    if LooseVersion(pd.__version__) < "0.26.0.dev":
+        # ensure pandas Int64Dtype has the protocol method (for older pandas)
+        monkeypatch.setattr(
+            pd.Int64Dtype, '__from_arrow__', _Int64Dtype__from_arrow__,
+            raising=False)
 
     # extension type points to Int64Dtype, which knows how to create a
     # pandas ExtensionArray
@@ -3378,6 +3457,18 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
     assert isinstance(result._data.blocks[0], _int.ExtensionBlock)
     expected = pd.DataFrame({'a': pd.array([1, 2, 3, 4], dtype='Int64')})
     tm.assert_frame_equal(result, expected)
+
+    # monkeypatch pandas Int64Dtype to *not* have the protocol method
+    # (remove the version added above and the actual version for recent pandas)
+    if LooseVersion(pd.__version__) < "0.26.0.dev":
+        monkeypatch.delattr(pd.Int64Dtype, "__from_arrow__")
+    else:
+        monkeypatch.delattr(
+            pd.core.arrays.integer._IntegerDtype, "__from_arrow__",
+            raising=False)
+
+    with pytest.raises(ValueError):
+        table.to_pandas()
 
 
 # ----------------------------------------------------------------------

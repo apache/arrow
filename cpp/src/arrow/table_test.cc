@@ -142,20 +142,20 @@ TEST_F(TestChunkedArray, Validate) {
   // Valid if empty
   ArrayVector empty = {};
   auto no_chunks = std::make_shared<ChunkedArray>(empty, utf8());
-  ASSERT_OK(no_chunks->Validate());
+  ASSERT_OK(no_chunks->ValidateFull());
 
   random::RandomArrayGenerator gen(0);
   arrays_one_.push_back(gen.Int32(50, 0, 100, 0.1));
   Construct();
-  ASSERT_OK(one_->Validate());
+  ASSERT_OK(one_->ValidateFull());
 
   arrays_one_.push_back(gen.Int32(50, 0, 100, 0.1));
   Construct();
-  ASSERT_OK(one_->Validate());
+  ASSERT_OK(one_->ValidateFull());
 
   arrays_one_.push_back(gen.String(50, 0, 10, 0.1));
   Construct();
-  ASSERT_RAISES(Invalid, one_->Validate());
+  ASSERT_RAISES(Invalid, one_->ValidateFull());
 }
 
 TEST_F(TestChunkedArray, View) {
@@ -212,7 +212,7 @@ class TestTable : public TestBase {
 TEST_F(TestTable, EmptySchema) {
   auto empty_schema = ::arrow::schema({});
   table_ = Table::Make(empty_schema, columns_);
-  ASSERT_OK(table_->Validate());
+  ASSERT_OK(table_->ValidateFull());
   ASSERT_EQ(0, table_->num_rows());
   ASSERT_EQ(0, table_->num_columns());
 }
@@ -222,7 +222,7 @@ TEST_F(TestTable, Ctors) {
   MakeExample1(length);
 
   table_ = Table::Make(schema_, columns_);
-  ASSERT_OK(table_->Validate());
+  ASSERT_OK(table_->ValidateFull());
   ASSERT_EQ(length, table_->num_rows());
   ASSERT_EQ(3, table_->num_columns());
 
@@ -230,11 +230,11 @@ TEST_F(TestTable, Ctors) {
   ASSERT_TRUE(table_->Equals(*array_ctor));
 
   table_ = Table::Make(schema_, columns_, length);
-  ASSERT_OK(table_->Validate());
+  ASSERT_OK(table_->ValidateFull());
   ASSERT_EQ(length, table_->num_rows());
 
   table_ = Table::Make(schema_, arrays_);
-  ASSERT_OK(table_->Validate());
+  ASSERT_OK(table_->ValidateFull());
   ASSERT_EQ(length, table_->num_rows());
   ASSERT_EQ(3, table_->num_columns());
 }
@@ -257,20 +257,20 @@ TEST_F(TestTable, InvalidColumns) {
   MakeExample1(length);
 
   table_ = Table::Make(schema_, columns_, length - 1);
-  ASSERT_RAISES(Invalid, table_->Validate());
+  ASSERT_RAISES(Invalid, table_->ValidateFull());
 
   columns_.clear();
 
   // Wrong number of columns
   table_ = Table::Make(schema_, columns_, length);
-  ASSERT_RAISES(Invalid, table_->Validate());
+  ASSERT_RAISES(Invalid, table_->ValidateFull());
 
   columns_ = {std::make_shared<ChunkedArray>(MakeRandomArray<Int32Array>(length)),
               std::make_shared<ChunkedArray>(MakeRandomArray<UInt8Array>(length)),
               std::make_shared<ChunkedArray>(MakeRandomArray<Int16Array>(length - 1))};
 
   table_ = Table::Make(schema_, columns_, length);
-  ASSERT_RAISES(Invalid, table_->Validate());
+  ASSERT_RAISES(Invalid, table_->ValidateFull());
 }
 
 TEST_F(TestTable, Equals) {
@@ -655,7 +655,7 @@ TEST_F(TestTable, RenameColumns) {
   std::shared_ptr<Table> renamed;
   ASSERT_OK(table->RenameColumns({"zero", "one", "two"}, &renamed));
   EXPECT_THAT(renamed->ColumnNames(), testing::ElementsAre("zero", "one", "two"));
-  ASSERT_OK(renamed->Validate());
+  ASSERT_OK(renamed->ValidateFull());
 
   ASSERT_RAISES(Invalid, table->RenameColumns({"hello", "world"}, &renamed));
 }
@@ -778,15 +778,15 @@ TEST_F(TestRecordBatch, Validate) {
 
   auto b1 = RecordBatch::Make(schema, length, {a0, a1, a2});
 
-  ASSERT_OK(b1->Validate());
+  ASSERT_OK(b1->ValidateFull());
 
   // Length mismatch
   auto b2 = RecordBatch::Make(schema, length, {a0, a1, a3});
-  ASSERT_RAISES(Invalid, b2->Validate());
+  ASSERT_RAISES(Invalid, b2->ValidateFull());
 
   // Type mismatch
   auto b3 = RecordBatch::Make(schema, length, {a0, a1, a0});
-  ASSERT_RAISES(Invalid, b3->Validate());
+  ASSERT_RAISES(Invalid, b3->ValidateFull());
 }
 
 TEST_F(TestRecordBatch, Slice) {
@@ -997,19 +997,19 @@ TEST_F(TestTableBatchReader, Chunksize) {
 
   std::shared_ptr<RecordBatch> batch;
   ASSERT_OK(i1.ReadNext(&batch));
-  ASSERT_OK(batch->Validate());
+  ASSERT_OK(batch->ValidateFull());
   ASSERT_EQ(10, batch->num_rows());
 
   ASSERT_OK(i1.ReadNext(&batch));
-  ASSERT_OK(batch->Validate());
+  ASSERT_OK(batch->ValidateFull());
   ASSERT_EQ(15, batch->num_rows());
 
   ASSERT_OK(i1.ReadNext(&batch));
-  ASSERT_OK(batch->Validate());
+  ASSERT_OK(batch->ValidateFull());
   ASSERT_EQ(5, batch->num_rows());
 
   ASSERT_OK(i1.ReadNext(&batch));
-  ASSERT_OK(batch->Validate());
+  ASSERT_OK(batch->ValidateFull());
   ASSERT_EQ(10, batch->num_rows());
 
   ASSERT_OK(i1.ReadNext(&batch));

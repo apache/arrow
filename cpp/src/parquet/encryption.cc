@@ -18,12 +18,12 @@
 #include "parquet/encryption.h"
 
 #include <string.h>
+
 #include <map>
 #include <utility>
 
 #include "arrow/util/logging.h"
 #include "arrow/util/utf8.h"
-
 #include "parquet/encryption_internal.h"
 
 namespace parquet {
@@ -165,7 +165,7 @@ FileDecryptionProperties::Builder* FileDecryptionProperties::Builder::aad_prefix
   if (aad_prefix_verifier == nullptr) return this;
 
   DCHECK(aad_prefix_verifier_ == nullptr);
-  aad_prefix_verifier_ = aad_prefix_verifier;
+  aad_prefix_verifier_ = std::move(aad_prefix_verifier);
   return this;
 }
 
@@ -313,8 +313,7 @@ std::string FileDecryptionProperties::column_key(const std::string& column_path)
 }
 
 FileDecryptionProperties::FileDecryptionProperties(
-    const std::string& footer_key,
-    const std::shared_ptr<DecryptionKeyRetriever>& key_retriever,
+    const std::string& footer_key, std::shared_ptr<DecryptionKeyRetriever> key_retriever,
     bool check_plaintext_footer_integrity, const std::string& aad_prefix,
     std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
     const ColumnPathToDecryptionPropertiesMap& column_decryption_properties,
@@ -329,10 +328,10 @@ FileDecryptionProperties::FileDecryptionProperties(
   if (footer_key.empty() && check_plaintext_footer_integrity) {
     DCHECK(nullptr != key_retriever);
   }
-  aad_prefix_verifier_ = aad_prefix_verifier;
+  aad_prefix_verifier_ = std::move(aad_prefix_verifier);
   footer_key_ = footer_key;
   check_plaintext_footer_integrity_ = check_plaintext_footer_integrity;
-  key_retriever_ = key_retriever;
+  key_retriever_ = std::move(key_retriever);
   aad_prefix_ = aad_prefix;
   column_decryption_properties_ = column_decryption_properties;
   plaintext_files_allowed_ = plaintext_files_allowed;
@@ -358,8 +357,7 @@ FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::footer_key
 std::shared_ptr<ColumnEncryptionProperties>
 FileEncryptionProperties::column_encryption_properties(const std::string& column_path) {
   if (encrypted_columns_.size() == 0) {
-    auto builder = std::shared_ptr<ColumnEncryptionProperties::Builder>(
-        new ColumnEncryptionProperties::Builder(column_path));
+    auto builder = std::make_shared<ColumnEncryptionProperties::Builder>(column_path);
     return builder->build();
   }
   if (encrypted_columns_.find(column_path) != encrypted_columns_.end()) {

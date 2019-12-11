@@ -498,7 +498,7 @@ struct MemoizationTraits {
 };
 
 template <typename T>
-struct MemoizationTraits<T, enable_if_binary_like<T>> {
+struct MemoizationTraits<T, enable_if_has_string_view<T>> {
   // For binary, we memoize string_view as a scalar value to avoid having to
   // unnecessarily copy the memory into the memo table data structure
   using Scalar = util::string_view;
@@ -1937,8 +1937,7 @@ class ArrowDeserializer {
   // types
 
   template <typename Type>
-  typename std::enable_if<is_floating_type<Type>::value, Status>::type Visit(
-      const Type& type) {
+  enable_if_t<is_floating_type<Type>::value, Status> Visit(const Type& type) {
     constexpr int TYPE = Type::type_id;
     using traits = internal::arrow_traits<TYPE>;
 
@@ -1960,19 +1959,19 @@ class ArrowDeserializer {
   }
 
   template <typename Type>
-  typename std::enable_if<std::is_base_of<TimestampType, Type>::value ||
-                              std::is_base_of<DurationType, Type>::value,
-                          Status>::type
+  enable_if_t<is_timestamp_type<Type>::value || is_duration_type<Type>::value, Status>
   Visit(const Type& type) {
-    if (options_.zero_copy_only) {
-      return Status::Invalid("Copy Needed, but zero_copy_only was True");
-    }
-
     constexpr int TYPE = Type::type_id;
     using traits = internal::arrow_traits<TYPE>;
     using c_type = typename Type::c_type;
 
     typedef typename traits::T T;
+
+    if (data_->num_chunks() == 1 && data_->null_count() == 0) {
+      return ConvertValuesZeroCopy<TYPE>(options_, traits::npy_type, data_->chunk(0));
+    } else if (options_.zero_copy_only) {
+      return Status::Invalid("Copy Needed, but zero_copy_only was True");
+    }
 
     RETURN_NOT_OK(AllocateOutput(traits::npy_type));
     auto out_values = reinterpret_cast<T*>(PyArray_DATA(arr_));
@@ -1992,8 +1991,7 @@ class ArrowDeserializer {
   }
 
   template <typename Type>
-  typename std::enable_if<std::is_base_of<DateType, Type>::value, Status>::type Visit(
-      const Type& type) {
+  enable_if_date<Type, Status> Visit(const Type& type) {
     if (options_.zero_copy_only) {
       return Status::Invalid("Copy Needed, but zero_copy_only was True");
     }
@@ -2025,15 +2023,13 @@ class ArrowDeserializer {
   }
 
   template <typename Type>
-  typename std::enable_if<std::is_base_of<TimeType, Type>::value, Status>::type Visit(
-      const Type& type) {
+  enable_if_time<Type, Status> Visit(const Type& type) {
     return Status::NotImplemented("Don't know how to serialize Arrow time type to NumPy");
   }
 
   // Integer specialization
   template <typename Type>
-  typename std::enable_if<is_integer_type<Type>::value, Status>::type Visit(
-      const Type& type) {
+  enable_if_integer<Type, Status> Visit(const Type& type) {
     constexpr int TYPE = Type::type_id;
     using traits = internal::arrow_traits<TYPE>;
 
@@ -2075,8 +2071,7 @@ class ArrowDeserializer {
 
   // Strings and binary
   template <typename Type>
-  typename std::enable_if<std::is_base_of<BaseBinaryType, Type>::value, Status>::type
-  Visit(const Type& type) {
+  enable_if_base_binary<Type, Status> Visit(const Type& type) {
     return VisitObjects(ConvertBinaryLike<Type>);
   }
 
@@ -2171,8 +2166,32 @@ class ArrowDeserializer {
     return Status::OK();
   }
 
-  // Default case
-  Status Visit(const DataType& type) { return Status::NotImplemented(type.name()); }
+  Status Visit(const ExtensionType& type) {
+    auto storage_type = type.storage_type();
+
+    ArrayVector out_chunks(data_->num_chunks());
+    for (int i = 0; i < data_->num_chunks(); i++) {
+      auto chunk = data_->chunk(i);
+      auto storage_data = checked_cast<const ExtensionArray&>(*chunk).storage();
+      out_chunks[i] = storage_data;
+    }
+
+    data_ = std::make_shared<ChunkedArray>(out_chunks);
+
+    RETURN_NOT_OK(VisitTypeInline(*data_->type(), this));
+    return Status::OK();
+  }
+
+  Status Visit(const FixedSizeListType& type) { return NotImplemented(type); }
+  Status Visit(const LargeListType& type) { return NotImplemented(type); }
+  Status Visit(const UnionType& type) { return NotImplemented(type); }
+  Status Visit(const DayTimeIntervalType& type) { return NotImplemented(type); }
+  Status Visit(const MonthIntervalType& type) { return NotImplemented(type); }
+
+  Status NotImplemented(const DataType& type) {
+    return Status::NotImplemented(
+        "Convertion from arrow to pandas is not implemented for type ", type.name());
+  }
 
   Status Convert(PyObject** out) {
     RETURN_NOT_OK(VisitTypeInline(*data_->type(), this));

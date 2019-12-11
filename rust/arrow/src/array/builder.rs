@@ -877,17 +877,35 @@ impl StructBuilder {
             DataType::Time64(TimeUnit::Nanosecond) => {
                 Box::new(Time64NanosecondBuilder::new(capacity))
             }
-            DataType::Timestamp(TimeUnit::Second) => {
+            DataType::Timestamp(TimeUnit::Second, _) => {
                 Box::new(TimestampSecondBuilder::new(capacity))
             }
-            DataType::Timestamp(TimeUnit::Millisecond) => {
+            DataType::Timestamp(TimeUnit::Millisecond, _) => {
                 Box::new(TimestampMillisecondBuilder::new(capacity))
             }
-            DataType::Timestamp(TimeUnit::Microsecond) => {
+            DataType::Timestamp(TimeUnit::Microsecond, _) => {
                 Box::new(TimestampMicrosecondBuilder::new(capacity))
             }
-            DataType::Timestamp(TimeUnit::Nanosecond) => {
+            DataType::Timestamp(TimeUnit::Nanosecond, _) => {
                 Box::new(TimestampNanosecondBuilder::new(capacity))
+            }
+            DataType::Interval(IntervalUnit::YearMonth) => {
+                Box::new(IntervalYearMonthBuilder::new(capacity))
+            }
+            DataType::Interval(IntervalUnit::DayTime) => {
+                Box::new(IntervalDayTimeBuilder::new(capacity))
+            }
+            DataType::Duration(TimeUnit::Second) => {
+                Box::new(DurationSecondBuilder::new(capacity))
+            }
+            DataType::Duration(TimeUnit::Millisecond) => {
+                Box::new(DurationMillisecondBuilder::new(capacity))
+            }
+            DataType::Duration(TimeUnit::Microsecond) => {
+                Box::new(DurationMicrosecondBuilder::new(capacity))
+            }
+            DataType::Duration(TimeUnit::Nanosecond) => {
+                Box::new(DurationNanosecondBuilder::new(capacity))
             }
             DataType::Struct(fields) => {
                 let schema = Schema::new(fields.clone());

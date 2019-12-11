@@ -163,14 +163,12 @@ class ARROW_EXPORT CudaBufferReader : public io::BufferReader {
 
  private:
   // Read to host memory (copy)
-  Status DoRead(int64_t nbytes, int64_t* bytes_read, void* out) override;
-  Status DoReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                  void* out) override;
+  Result<int64_t> DoRead(int64_t nbytes, void* out) override;
+  Result<int64_t> DoReadAt(int64_t position, int64_t nbytes, void* out) override;
 
   // Read to device buffer (zero-copy)
-  Status DoRead(int64_t nbytes, std::shared_ptr<Buffer>* out) override;
-  Status DoReadAt(int64_t position, int64_t nbytes,
-                  std::shared_ptr<Buffer>* out) override;
+  Result<std::shared_ptr<Buffer>> DoRead(int64_t nbytes) override;
+  Result<std::shared_ptr<Buffer>> DoReadAt(int64_t position, int64_t nbytes) override;
 
   std::shared_ptr<CudaBuffer> cuda_buffer_;
   std::shared_ptr<CudaContext> context_;
@@ -197,7 +195,7 @@ class ARROW_EXPORT CudaBufferWriter : public io::WritableFile {
 
   Status WriteAt(int64_t position, const void* data, int64_t nbytes) override;
 
-  Status Tell(int64_t* position) const override;
+  Result<int64_t> Tell() const override;
 
   /// \brief Set CPU buffer size to limit calls to cudaMemcpy
   /// \param[in] buffer_size the size of CPU buffer to allocate

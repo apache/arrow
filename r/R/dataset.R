@@ -35,15 +35,15 @@
 #' @include arrow-package.R
 open_dataset <- function (path, schema = NULL, partition = NULL, ...) {
   dsd <- DataSourceDiscovery$create(path, ...)
-  if (is.null(schema)) {
-    schema <- dsd$Inspect()
-  }
   if (!is.null(partition)) {
     if (inherits(partition, "Schema")) {
       partition <- SchemaPartitionScheme$create(partition)
     }
     assert_is(partition, "PartitionScheme")
     dsd$SetPartitionScheme(partition)
+  }
+  if (is.null(schema)) {
+    schema <- dsd$Inspect()
   }
   Dataset$create(list(dsd$Finish()), schema)
 }

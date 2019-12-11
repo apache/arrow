@@ -23,6 +23,7 @@
 #include <string>
 #include <vector>
 
+#include "arrow/result.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/logging.h"
@@ -117,8 +118,7 @@ int64_t StreamingCompress(Codec* codec, const std::vector<uint8_t>& data,
 static void StreamingCompression(Compression::type compression,
                                  const std::vector<uint8_t>& data,
                                  benchmark::State& state) {  // NOLINT non-const reference
-  std::unique_ptr<Codec> codec;
-  ABORT_NOT_OK(Codec::Create(compression, &codec));
+  auto codec = *Codec::Create(compression, &codec);
 
   while (state.KeepRunning()) {
     int64_t compressed_size = StreamingCompress(codec.get(), data);
@@ -183,15 +183,25 @@ static void ReferenceStreamingDecompression(
   StreamingDecompression(COMPRESSION, data, state);
 }
 
+#ifdef ARROW_WITH_ZLIB
 BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::GZIP);
-BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::BROTLI);
-BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::ZSTD);
-BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::LZ4);
-
 BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::GZIP);
+#endif
+
+#ifdef ARROW_WITH_BROTLI
+BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::BROTLI);
 BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::BROTLI);
+#endif
+
+#ifdef ARROW_WITH_ZSTD
+BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::ZSTD);
 BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::ZSTD);
+#endif
+
+#ifdef ARROW_WITH_LZ4
+BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::LZ4);
 BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::LZ4);
+#endif
 
 #endif
 

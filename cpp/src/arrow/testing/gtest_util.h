@@ -38,7 +38,6 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/stl.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -46,18 +45,6 @@ namespace arrow {
 template <typename T>
 class Result;
 
-namespace internal {
-
-// Helpers for the ASSERT* macros below
-
-inline Status GenericToStatus(const Status& st) { return st; }
-
-template <typename T>
-inline Status GenericToStatus(const Result<T>& res) {
-  return res.status();
-}
-
-}  // namespace internal
 }  // namespace arrow
 
 // NOTE: failing must be inline in the macros below, to get correct file / line number
@@ -125,14 +112,30 @@ inline Status GenericToStatus(const Result<T>& res) {
     }                                                               \
   } while (false);
 
-#define ASSERT_OK_AND_ASSIGN_IMPL(status_name, lhs, rexpr) \
-  auto status_name = (rexpr);                              \
-  ASSERT_OK(status_name.status());                         \
+#define ASSIGN_OR_HANDLE_ERROR_IMPL(handle_error, status_name, lhs, rexpr) \
+  auto status_name = (rexpr);                                              \
+  handle_error(status_name.status());                                      \
   lhs = std::move(status_name).ValueOrDie();
 
-#define ASSERT_OK_AND_ASSIGN(lhs, rexpr)                                              \
-  ASSERT_OK_AND_ASSIGN_IMPL(ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
-                            lhs, rexpr);
+#define ASSERT_OK_AND_ASSIGN(lhs, rexpr) \
+  ASSIGN_OR_HANDLE_ERROR_IMPL(           \
+      ASSERT_OK, ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), lhs, rexpr);
+
+#define ASSIGN_OR_ABORT(lhs, rexpr)                                                     \
+  ASSIGN_OR_HANDLE_ERROR_IMPL(ABORT_NOT_OK,                                             \
+                              ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
+                              lhs, rexpr);
+
+#define EXPECT_OK_AND_ASSIGN(lhs, rexpr)                                                \
+  ASSIGN_OR_HANDLE_ERROR_IMPL(ARROW_EXPECT_OK,                                          \
+                              ARROW_ASSIGN_OR_RAISE_NAME(_error_or_value, __COUNTER__), \
+                              lhs, rexpr);
+
+#define ASSERT_OK_AND_EQ(expected, expr)        \
+  do {                                          \
+    ASSERT_OK_AND_ASSIGN(auto _actual, (expr)); \
+    ASSERT_EQ(expected, _actual);               \
+  } while (0)
 
 namespace arrow {
 

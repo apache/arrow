@@ -18,6 +18,7 @@
 package org.apache.arrow.algorithm.sort;
 
 import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.OFFSET_WIDTH;
+import static org.junit.Assert.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.arrow.memory.BufferAllocator;
@@ -109,6 +110,25 @@ public class TestDefaultVectorComparator {
 
       // list vector elements equal
       assertTrue(comparator.compare(0, 0) == 0);
+    }
+  }
+
+  @Test
+  public void testCopiedComparatorForLists() {
+    for (int i = 1; i < 10; i++) {
+      for (int j = 1; j < 10; j++) {
+        try (ListVector listVector1 = createListVector(10);
+             ListVector listVector2 = createListVector(11)) {
+          VectorValueComparator<ListVector> comparator =
+                  DefaultVectorComparators.createDefaultComparator(listVector1);
+          comparator.attachVectors(listVector1, listVector2);
+
+          VectorValueComparator<ListVector> copyComparator = comparator.createNew();
+          copyComparator.attachVectors(listVector1, listVector2);
+
+          assertEquals(comparator.compare(0, 0), copyComparator.compare(0, 0));
+        }
+      }
     }
   }
 

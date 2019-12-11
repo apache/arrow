@@ -38,7 +38,7 @@ Status ParallelFor(int num_tasks, FUNCTION&& func) {
   std::vector<std::future<Status>> futures(num_tasks);
 
   for (int i = 0; i < num_tasks; ++i) {
-    futures[i] = pool->Submit(func, i);
+    ARROW_ASSIGN_OR_RAISE(futures[i], pool->Submit(func, i));
   }
   auto st = Status::OK();
   for (auto& fut : futures) {

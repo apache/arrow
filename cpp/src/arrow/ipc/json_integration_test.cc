@@ -62,17 +62,11 @@ bool file_exists(const char* path) {
 // Convert JSON file to IPC binary format
 static Status ConvertJsonToArrow(const std::string& json_path,
                                  const std::string& arrow_path) {
-  std::shared_ptr<io::ReadableFile> in_file;
-  std::shared_ptr<io::FileOutputStream> out_file;
+  ARROW_ASSIGN_OR_RAISE(auto in_file, io::ReadableFile::Open(json_path));
+  ARROW_ASSIGN_OR_RAISE(auto out_file, io::FileOutputStream::Open(arrow_path));
 
-  RETURN_NOT_OK(io::ReadableFile::Open(json_path, &in_file));
-  RETURN_NOT_OK(io::FileOutputStream::Open(arrow_path, &out_file));
-
-  int64_t file_size = 0;
-  RETURN_NOT_OK(in_file->GetSize(&file_size));
-
-  std::shared_ptr<Buffer> json_buffer;
-  RETURN_NOT_OK(in_file->Read(file_size, &json_buffer));
+  ARROW_ASSIGN_OR_RAISE(int64_t file_size, in_file->GetSize());
+  ARROW_ASSIGN_OR_RAISE(auto json_buffer, in_file->Read(file_size));
 
   std::unique_ptr<internal::json::JsonReader> reader;
   RETURN_NOT_OK(internal::json::JsonReader::Open(json_buffer, &reader));
@@ -95,11 +89,8 @@ static Status ConvertJsonToArrow(const std::string& json_path,
 // Convert IPC binary format to JSON
 static Status ConvertArrowToJson(const std::string& arrow_path,
                                  const std::string& json_path) {
-  std::shared_ptr<io::ReadableFile> in_file;
-  std::shared_ptr<io::FileOutputStream> out_file;
-
-  RETURN_NOT_OK(io::ReadableFile::Open(arrow_path, &in_file));
-  RETURN_NOT_OK(io::FileOutputStream::Open(json_path, &out_file));
+  ARROW_ASSIGN_OR_RAISE(auto in_file, io::ReadableFile::Open(arrow_path));
+  ARROW_ASSIGN_OR_RAISE(auto out_file, io::FileOutputStream::Open(json_path));
 
   std::shared_ptr<RecordBatchFileReader> reader;
   RETURN_NOT_OK(RecordBatchFileReader::Open(in_file.get(), &reader));
@@ -125,21 +116,16 @@ static Status ConvertArrowToJson(const std::string& arrow_path,
 static Status ValidateArrowVsJson(const std::string& arrow_path,
                                   const std::string& json_path) {
   // Construct JSON reader
-  std::shared_ptr<io::ReadableFile> json_file;
-  RETURN_NOT_OK(io::ReadableFile::Open(json_path, &json_file));
+  ARROW_ASSIGN_OR_RAISE(auto json_file, io::ReadableFile::Open(json_path));
 
-  int64_t file_size = 0;
-  RETURN_NOT_OK(json_file->GetSize(&file_size));
-
-  std::shared_ptr<Buffer> json_buffer;
-  RETURN_NOT_OK(json_file->Read(file_size, &json_buffer));
+  ARROW_ASSIGN_OR_RAISE(int64_t file_size, json_file->GetSize());
+  ARROW_ASSIGN_OR_RAISE(auto json_buffer, json_file->Read(file_size));
 
   std::unique_ptr<internal::json::JsonReader> json_reader;
   RETURN_NOT_OK(internal::json::JsonReader::Open(json_buffer, &json_reader));
 
   // Construct Arrow reader
-  std::shared_ptr<io::ReadableFile> arrow_file;
-  RETURN_NOT_OK(io::ReadableFile::Open(arrow_path, &arrow_file));
+  ARROW_ASSIGN_OR_RAISE(auto arrow_file, io::ReadableFile::Open(arrow_path));
 
   std::shared_ptr<RecordBatchFileReader> arrow_reader;
   RETURN_NOT_OK(RecordBatchFileReader::Open(arrow_file.get(), &arrow_reader));
@@ -173,6 +159,16 @@ static Status ValidateArrowVsJson(const std::string& arrow_path,
   for (int i = 0; i < json_nbatches; ++i) {
     RETURN_NOT_OK(json_reader->ReadRecordBatch(i, &json_batch));
     RETURN_NOT_OK(arrow_reader->ReadRecordBatch(i, &arrow_batch));
+    Status valid_st = json_batch->ValidateFull();
+    if (!valid_st.ok()) {
+      return Status::Invalid("JSON record batch ", i, " did not validate:\n",
+                             valid_st.ToString());
+    }
+    valid_st = arrow_batch->ValidateFull();
+    if (!valid_st.ok()) {
+      return Status::Invalid("Arrow record batch ", i, " did not validate:\n",
+                             valid_st.ToString());
+    }
 
     if (!json_batch->ApproxEquals(*arrow_batch)) {
       std::stringstream ss;
@@ -229,7 +225,9 @@ Status RunCommand(const std::string& json_path, const std::string& arrow_path,
 
 class TestJSONIntegration : public ::testing::Test {
  public:
-  void SetUp() { ASSERT_OK(TemporaryDir::Make("json-integration-test-", &temp_dir_)); }
+  void SetUp() {
+    ASSERT_OK_AND_ASSIGN(temp_dir_, TemporaryDir::Make("json-integration-test-"));
+  }
 
   std::string mkstemp() {
     std::stringstream ss;
@@ -239,12 +237,8 @@ class TestJSONIntegration : public ::testing::Test {
   }
 
   Status WriteJson(const char* data, const std::string& path) {
-    do {
-      std::shared_ptr<io::FileOutputStream> out;
-      RETURN_NOT_OK(io::FileOutputStream::Open(path, &out));
-      RETURN_NOT_OK(out->Write(data, static_cast<int64_t>(strlen(data))));
-    } while (0);
-    return Status::OK();
+    ARROW_ASSIGN_OR_RAISE(auto out_file, io::FileOutputStream::Open(path));
+    return out_file->Write(data, static_cast<int64_t>(strlen(data)));
   }
 
   void TearDown() { temp_dir_.reset(); }

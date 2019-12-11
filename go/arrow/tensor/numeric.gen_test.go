@@ -978,3 +978,193 @@ func TestTensorFloat64(t *testing.T) {
 		})
 	}
 }
+
+func TestTensorDate32(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	bld := array.NewDate32Builder(mem)
+	defer bld.Release()
+
+	raw := []arrow.Date32{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+	bld.AppendValues(raw, nil)
+
+	arr := bld.NewDate32Array()
+	defer arr.Release()
+
+	var (
+		shape = []int64{2, 5}
+		names = []string{"x", "y"}
+		bw    = int64(arrow.PrimitiveTypes.Date32.(arrow.FixedWidthDataType).BitWidth()) / 8
+	)
+
+	tsr := tensor.New(arr.Data(), shape, nil, names).(*tensor.Date32)
+	defer tsr.Release()
+
+	tsr.Retain()
+	tsr.Release()
+
+	if got, want := tsr.Len(), 10; got != want {
+		t.Fatalf("invalid length: got=%d, want=%d", got, want)
+	}
+
+	if got, want := tsr.Shape(), shape; !reflect.DeepEqual(got, want) {
+		t.Fatalf("invalid shape: got=%v, want=%v", got, want)
+	}
+
+	if got, want := tsr.Strides(), []int64{5 * bw, 1 * bw}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("invalid strides: got=%v, want=%v", got, want)
+	}
+
+	if got, want := tsr.NumDims(), 2; got != want {
+		t.Fatalf("invalid dims: got=%d, want=%d", got, want)
+	}
+
+	for i, name := range names {
+		if got, want := tsr.DimName(i), name; got != want {
+			t.Fatalf("invalid dim-name[%d]: got=%q, want=%q", i, got, want)
+		}
+	}
+
+	if got, want := tsr.DataType(), arr.DataType(); got != want {
+		t.Fatalf("invalid data-type: got=%q, want=%q", got.Name(), want.Name())
+	}
+
+	if got, want := tsr.Data(), arr.Data(); got != want {
+		t.Fatalf("invalid data: got=%v, want=%v", got, want)
+	}
+
+	if tsr.IsMutable() {
+		t.Fatalf("should not be mutable")
+	}
+
+	if !tsr.IsContiguous() {
+		t.Fatalf("should be contiguous")
+	}
+
+	if !tsr.IsRowMajor() || tsr.IsColMajor() {
+		t.Fatalf("should be row-major")
+	}
+
+	if got, want := tsr.Date32Values(), raw; !reflect.DeepEqual(got, want) {
+		t.Fatalf("invalid backing array: got=%v, want=%v", got, want)
+	}
+
+	for _, tc := range []struct {
+		i []int64
+		v arrow.Date32
+	}{
+		{i: []int64{0, 0}, v: 1},
+		{i: []int64{0, 1}, v: 2},
+		{i: []int64{0, 2}, v: 3},
+		{i: []int64{0, 3}, v: 4},
+		{i: []int64{0, 4}, v: 5},
+		{i: []int64{1, 0}, v: 6},
+		{i: []int64{1, 1}, v: 7},
+		{i: []int64{1, 2}, v: 8},
+		{i: []int64{1, 3}, v: 9},
+		{i: []int64{1, 4}, v: 10},
+	} {
+		t.Run(fmt.Sprintf("%v", tc.i), func(t *testing.T) {
+			got := tsr.Value(tc.i)
+			if got != tc.v {
+				t.Fatalf("arr[%v]: got=%v, want=%v", tc.i, got, tc.v)
+			}
+		})
+	}
+}
+
+func TestTensorDate64(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	bld := array.NewDate64Builder(mem)
+	defer bld.Release()
+
+	raw := []arrow.Date64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+	bld.AppendValues(raw, nil)
+
+	arr := bld.NewDate64Array()
+	defer arr.Release()
+
+	var (
+		shape = []int64{2, 5}
+		names = []string{"x", "y"}
+		bw    = int64(arrow.PrimitiveTypes.Date64.(arrow.FixedWidthDataType).BitWidth()) / 8
+	)
+
+	tsr := tensor.New(arr.Data(), shape, nil, names).(*tensor.Date64)
+	defer tsr.Release()
+
+	tsr.Retain()
+	tsr.Release()
+
+	if got, want := tsr.Len(), 10; got != want {
+		t.Fatalf("invalid length: got=%d, want=%d", got, want)
+	}
+
+	if got, want := tsr.Shape(), shape; !reflect.DeepEqual(got, want) {
+		t.Fatalf("invalid shape: got=%v, want=%v", got, want)
+	}
+
+	if got, want := tsr.Strides(), []int64{5 * bw, 1 * bw}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("invalid strides: got=%v, want=%v", got, want)
+	}
+
+	if got, want := tsr.NumDims(), 2; got != want {
+		t.Fatalf("invalid dims: got=%d, want=%d", got, want)
+	}
+
+	for i, name := range names {
+		if got, want := tsr.DimName(i), name; got != want {
+			t.Fatalf("invalid dim-name[%d]: got=%q, want=%q", i, got, want)
+		}
+	}
+
+	if got, want := tsr.DataType(), arr.DataType(); got != want {
+		t.Fatalf("invalid data-type: got=%q, want=%q", got.Name(), want.Name())
+	}
+
+	if got, want := tsr.Data(), arr.Data(); got != want {
+		t.Fatalf("invalid data: got=%v, want=%v", got, want)
+	}
+
+	if tsr.IsMutable() {
+		t.Fatalf("should not be mutable")
+	}
+
+	if !tsr.IsContiguous() {
+		t.Fatalf("should be contiguous")
+	}
+
+	if !tsr.IsRowMajor() || tsr.IsColMajor() {
+		t.Fatalf("should be row-major")
+	}
+
+	if got, want := tsr.Date64Values(), raw; !reflect.DeepEqual(got, want) {
+		t.Fatalf("invalid backing array: got=%v, want=%v", got, want)
+	}
+
+	for _, tc := range []struct {
+		i []int64
+		v arrow.Date64
+	}{
+		{i: []int64{0, 0}, v: 1},
+		{i: []int64{0, 1}, v: 2},
+		{i: []int64{0, 2}, v: 3},
+		{i: []int64{0, 3}, v: 4},
+		{i: []int64{0, 4}, v: 5},
+		{i: []int64{1, 0}, v: 6},
+		{i: []int64{1, 1}, v: 7},
+		{i: []int64{1, 2}, v: 8},
+		{i: []int64{1, 3}, v: 9},
+		{i: []int64{1, 4}, v: 10},
+	} {
+		t.Run(fmt.Sprintf("%v", tc.i), func(t *testing.T) {
+			got := tsr.Value(tc.i)
+			if got != tc.v {
+				t.Fatalf("arr[%v]: got=%v, want=%v", tc.i, got, tc.v)
+			}
+		})
+	}
+}

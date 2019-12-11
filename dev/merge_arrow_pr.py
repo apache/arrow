@@ -156,9 +156,7 @@ class JiraIssue(object):
         unreleased_versions = sorted(unreleased_versions,
                                      key=lambda x: x.name, reverse=True)
 
-        mainline_version_regex = re.compile(r'\d.*')
-        mainline_versions = [x for x in unreleased_versions
-                             if mainline_version_regex.match(x.name)]
+        mainline_versions = self._filter_mainline_versions(unreleased_versions)
 
         mainline_non_patch_versions = []
         for v in mainline_versions:
@@ -175,6 +173,14 @@ class JiraIssue(object):
             for x in merge_branches]
 
         return all_versions, default_fix_versions
+
+    def _filter_mainline_versions(self, versions):
+        if self.project == 'PARQUET':
+            mainline_regex = re.compile(r'cpp-\d.*')
+        else:
+            mainline_regex = re.compile(r'\d.*')
+
+        return [x for x in versions if mainline_regex.match(x.name)]
 
     def resolve(self, fix_versions, comment):
         fields = self.issue.fields

@@ -342,7 +342,7 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
     }
 
     int listSize = leftVector.getListSize();
-    RangeEqualsVisitor innerVisitor = createInnerVisitor(leftVector, rightVector);
+    RangeEqualsVisitor innerVisitor = createInnerVisitor(leftVector.getDataVector(), rightVector.getDataVector());
     Range innerRange = new Range(0, 0, listSize);
 
     for (int i = 0; i < range.getLength(); i++) {

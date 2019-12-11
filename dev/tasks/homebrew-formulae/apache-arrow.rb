@@ -6,16 +6,14 @@ class ApacheArrow < Formula
   head "https://github.com/apache/arrow.git"
 
   depends_on "cmake" => :build
-  depends_on "aws-sdk-cpp"
   depends_on "boost"
   depends_on "brotli"
-  depends_on "double-conversion"
   depends_on "flatbuffers"
   depends_on "glog"
   depends_on "grpc"
   depends_on "lz4"
   depends_on "numpy"
-  depends_on "openssl"
+  depends_on "openssl@1.1"
   depends_on "protobuf"
   depends_on "python"
   depends_on "rapidjson"
@@ -32,7 +30,6 @@ class ApacheArrow < Formula
       -DARROW_PLASMA=ON
       -DARROW_PROTOBUF_USE_SHARED=ON
       -DARROW_PYTHON=ON
-      -DARROW_S3=ON
       -DARROW_WITH_BZ2=ON
       -DARROW_WITH_ZLIB=ON
       -DARROW_WITH_ZSTD=ON
@@ -42,6 +39,7 @@ class ApacheArrow < Formula
       -DARROW_INSTALL_NAME_RPATH=OFF
       -DPYTHON_EXECUTABLE=#{Formula["python"].bin/"python3"}
     ]
+    # Re-enable -DARROW_S3=ON and add back aws-sdk-cpp to depends_on in ARROW-6437
 
     mkdir "build"
     cd "build" do

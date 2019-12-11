@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "gandiva/execution_context.h"
 #include "gandiva/precompiled/types.h"
@@ -279,6 +280,142 @@ TEST(TestStringOps, TestLower) {
   out_str = lower_utf8(ctx_ptr, "", 0, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_FALSE(ctx.has_error());
+}
+
+TEST(TestStringOps, TestReverse) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<int64>(&ctx);
+  int32 out_len = 0;
+
+  const char* out_str;
+  out_str = reverse_utf8(ctx_ptr, "TestString", 10, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "gnirtStseT");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = reverse_utf8(ctx_ptr, "", 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = reverse_utf8(ctx_ptr, "çåå†", 9, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "†ååç");
+  EXPECT_FALSE(ctx.has_error());
+
+  std::string d("aa\xc3");
+  out_str = reverse_utf8(ctx_ptr, d.data(), static_cast<int>(d.length()), &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr(
+                  "unexpected byte \\c3 encountered while decoding utf8 string"));
+  ctx.Reset();
+}
+
+TEST(TestStringOps, TestLocate) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<int64>(&ctx);
+
+  int pos;
+
+  pos = locate_utf8_utf8(ctx_ptr, "String", 6, "TestString", 10);
+  EXPECT_EQ(pos, 5);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = locate_utf8_utf8_int32(ctx_ptr, "String", 6, "TestString", 10, 1);
+  EXPECT_EQ(pos, 5);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = locate_utf8_utf8_int32(ctx_ptr, "abc", 3, "abcabc", 6, 2);
+  EXPECT_EQ(pos, 4);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = locate_utf8_utf8(ctx_ptr, "çåå", 6, "s†å†emçåå†d", 21);
+  EXPECT_EQ(pos, 7);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = locate_utf8_utf8_int32(ctx_ptr, "bar", 3, "†barbar", 9, 3);
+  EXPECT_EQ(pos, 5);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = locate_utf8_utf8_int32(ctx_ptr, "sub", 3, "", 0, 1);
+  EXPECT_EQ(pos, 0);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = locate_utf8_utf8_int32(ctx_ptr, "", 0, "str", 3, 1);
+  EXPECT_EQ(pos, 0);
+  EXPECT_FALSE(ctx.has_error());
+
+  pos = locate_utf8_utf8_int32(ctx_ptr, "bar", 3, "barbar", 6, 0);
+  EXPECT_EQ(pos, 0);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Start position must be greater than 0"));
+  ctx.Reset();
+
+  pos = locate_utf8_utf8_int32(ctx_ptr, "bar", 3, "barbar", 6, 7);
+  EXPECT_EQ(pos, 0);
+  EXPECT_FALSE(ctx.has_error());
+
+  std::string d(
+      "a\xff"
+      "c");
+  pos =
+      locate_utf8_utf8_int32(ctx_ptr, "c", 1, d.data(), static_cast<int>(d.length()), 3);
+  EXPECT_EQ(pos, 0);
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr(
+                  "unexpected byte \\ff encountered while decoding utf8 string"));
+  ctx.Reset();
+}
+
+TEST(TestStringOps, TestReplace) {
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<int64>(&ctx);
+  int32 out_len = 0;
+
+  const char* out_str;
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, "TestString1String2", 18, "String", 6,
+                                   "Replace", 7, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestReplace1Replace2");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str =
+      replace_utf8_utf8_utf8(ctx_ptr, "TestString1", 11, "String", 6, "", 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Test1");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, "", 0, "test", 4, "rep", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, "Ç††çåå†", 17, "†", 3, "t", 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Çttçååt");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, "TestString", 10, "", 0, "rep", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str =
+      replace_utf8_utf8_utf8(ctx_ptr, "Test", 4, "TestString", 10, "rep", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "Test");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = replace_utf8_utf8_utf8(ctx_ptr, "Test", 4, "Test", 4, "", 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str =
+      replace_utf8_utf8_utf8(ctx_ptr, "TestString", 10, "abc", 3, "xyz", 3, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "TestString");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = replace_with_max_len_utf8_utf8_utf8(ctx_ptr, "Hell", 4, "ell", 3, "ollow", 5,
+                                                5, &out_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer overflow for output string"));
+  ctx.Reset();
+
+  out_str = replace_with_max_len_utf8_utf8_utf8(ctx_ptr, "eeee", 4, "e", 1, "aaaa", 4, 14,
+                                                &out_len);
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Buffer overflow for output string"));
+  ctx.Reset();
 }
 
 }  // namespace gandiva

@@ -91,7 +91,7 @@ class TestStringArray : public ::testing::Test {
     length_ = static_cast<int64_t>(offsets_.size()) - 1;
     value_buf_ = Buffer::Wrap(chars_);
     offsets_buf_ = Buffer::Wrap(offsets_);
-    ASSERT_OK(BitUtil::BytesToBits(valid_bytes_, default_memory_pool(), &null_bitmap_));
+    ASSERT_OK_AND_ASSIGN(null_bitmap_, BitUtil::BytesToBits(valid_bytes_));
     null_count_ = CountNulls(valid_bytes_);
 
     strings_ = std::make_shared<ArrayType>(length_, offsets_buf_, value_buf_,
@@ -101,7 +101,7 @@ class TestStringArray : public ::testing::Test {
   void TestArrayBasics() {
     ASSERT_EQ(length_, strings_->length());
     ASSERT_EQ(1, strings_->null_count());
-    ASSERT_OK(strings_->Validate());
+    ASSERT_OK(strings_->ValidateFull());
     TestInitialized(*strings_);
     AssertZeroPadded(*strings_);
   }
@@ -276,7 +276,7 @@ class TestStringBuilder : public TestBuilder {
     FinishAndCheckPadding(builder_.get(), &out);
 
     result_ = std::dynamic_pointer_cast<ArrayType>(out);
-    ASSERT_OK(result_->Validate());
+    ASSERT_OK(result_->ValidateFull());
   }
 
   void TestScalarAppend() {
@@ -330,7 +330,7 @@ class TestStringBuilder : public TestBuilder {
     ASSERT_EQ(builder_->value_data_length(), total_length * reps);
     Done();
 
-    ASSERT_OK(result_->Validate());
+    ASSERT_OK(result_->ValidateFull());
     ASSERT_EQ(reps * N, result_->length());
     ASSERT_EQ(reps, result_->null_count());
     ASSERT_EQ(reps * total_length, result_->value_data()->size());

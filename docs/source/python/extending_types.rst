@@ -43,7 +43,8 @@ define the ``__arrow_array__`` method to return an Arrow array::
             return pyarrow.array(..., type=type)
 
 The ``__arrow_array__`` method takes an optional `type` keyword which is passed
-through from :func:`pyarrow.array`.
+through from :func:`pyarrow.array`. The method is allowed to return either
+a :class:`~pyarrow.Array` or a :class:`~pyarrow.ChunkedArray`.
 
 
 Defining extension types ("user-defined types")

@@ -103,6 +103,17 @@ main(void)
                                       required: false)
 endif
 
+cxx = meson.get_compiler('cpp')
+cxx_flags = []
+if get_option('development_mode')
+  if cxx.get_id() == 'msvc'
+    cxx_flags += ['/WX']
+  else
+    cxx_flags += ['-Werror']
+  endif
+endif
+add_project_arguments(cxx.get_supported_arguments(cxx_flags), language: 'cpp')
+
 subdir('arrow-glib')
 if arrow_cuda.found()
   subdir('arrow-cuda-glib')

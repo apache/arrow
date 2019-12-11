@@ -117,8 +117,8 @@ class CSVLoaderTest < Test::Unit::TestCase
   end
 
   sub_test_case("CSVReader") do
-    def load_csv(data, options)
-      Arrow::CSVLoader.load(data, options)
+    def load_csv(data, **options)
+      Arrow::CSVLoader.load(data, **options)
     end
 
     sub_test_case(":headers") do

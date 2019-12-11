@@ -72,7 +72,7 @@ PlasmaObject random_plasma_object(void) {
 
 class TestPlasmaSerialization : public ::testing::Test {
  public:
-  void SetUp() { ARROW_CHECK_OK(TemporaryDir::Make("ser-test-", &temp_dir_)); }
+  void SetUp() { ASSERT_OK_AND_ASSIGN(temp_dir_, TemporaryDir::Make("ser-test-")); }
 
   // Create a temporary file.
   // A fd is returned which must be closed manually.  The file itself

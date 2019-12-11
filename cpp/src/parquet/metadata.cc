@@ -15,6 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "parquet/metadata.h"
+
+#include <inttypes.h>
+
 #include <algorithm>
 #include <ostream>
 #include <string>
@@ -22,12 +26,9 @@
 #include <vector>
 
 #include "arrow/util/logging.h"
-
-#include <inttypes.h>
 #include "parquet/encryption_internal.h"
 #include "parquet/exception.h"
 #include "parquet/internal_file_decryptor.h"
-#include "parquet/metadata.h"
 #include "parquet/schema.h"
 #include "parquet/schema_internal.h"
 #include "parquet/statistics.h"
@@ -567,7 +568,7 @@ class FileMetaData::FileMetaDataImpl {
 
   const SchemaDescriptor* schema() const { return &schema_; }
 
-  std::shared_ptr<const KeyValueMetadata> key_value_metadata() const {
+  const std::shared_ptr<const KeyValueMetadata>& key_value_metadata() const {
     return key_value_metadata_;
   }
 
@@ -630,7 +631,7 @@ class FileMetaData::FileMetaDataImpl {
         metadata->Append(it.key, it.value);
       }
     }
-    key_value_metadata_ = metadata;
+    key_value_metadata_ = std::move(metadata);
   }
 
   std::shared_ptr<const KeyValueMetadata> key_value_metadata_;
@@ -706,7 +707,7 @@ int FileMetaData::num_schema_elements() const { return impl_->num_schema_element
 
 const SchemaDescriptor* FileMetaData::schema() const { return impl_->schema(); }
 
-std::shared_ptr<const KeyValueMetadata> FileMetaData::key_value_metadata() const {
+const std::shared_ptr<const KeyValueMetadata>& FileMetaData::key_value_metadata() const {
   return impl_->key_value_metadata();
 }
 
@@ -777,12 +778,9 @@ void FileCryptoMetaData::WriteTo(::arrow::io::OutputStream* dst) const {
 std::string FileMetaData::SerializeToString() const {
   // We need to pass in an initial size. Since it will automatically
   // increase the buffer size to hold the metadata, we just leave it 0.
-  std::shared_ptr<arrow::io::BufferOutputStream> serializer;
-  PARQUET_THROW_NOT_OK(arrow::io::BufferOutputStream::Create(
-      0, arrow::default_memory_pool(), &serializer));
-  std::shared_ptr<arrow::Buffer> metadata_buffer;
+  PARQUET_ASSIGN_OR_THROW(auto serializer, arrow::io::BufferOutputStream::Create(0));
   WriteTo(serializer.get());
-  PARQUET_THROW_NOT_OK(serializer->Finish(&metadata_buffer));
+  PARQUET_ASSIGN_OR_THROW(auto metadata_buffer, serializer->Finish());
   return metadata_buffer->ToString();
 }
 
@@ -894,18 +892,18 @@ bool ApplicationVersion::HasCorrectStatistics(Type::type col_type,
 // row-group metadata
 class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
  public:
-  explicit ColumnChunkMetaDataBuilderImpl(const std::shared_ptr<WriterProperties>& props,
+  explicit ColumnChunkMetaDataBuilderImpl(std::shared_ptr<WriterProperties> props,
                                           const ColumnDescriptor* column)
       : owned_column_chunk_(new format::ColumnChunk),
-        properties_(props),
+        properties_(std::move(props)),
         column_(column) {
     Init(owned_column_chunk_.get());
   }
 
-  explicit ColumnChunkMetaDataBuilderImpl(const std::shared_ptr<WriterProperties>& props,
+  explicit ColumnChunkMetaDataBuilderImpl(std::shared_ptr<WriterProperties> props,
                                           const ColumnDescriptor* column,
                                           format::ColumnChunk* column_chunk)
-      : properties_(props), column_(column) {
+      : properties_(std::move(props)), column_(column) {
     Init(column_chunk);
   }
 
@@ -1040,29 +1038,30 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
 };
 
 std::unique_ptr<ColumnChunkMetaDataBuilder> ColumnChunkMetaDataBuilder::Make(
-    const std::shared_ptr<WriterProperties>& props, const ColumnDescriptor* column,
+    std::shared_ptr<WriterProperties> props, const ColumnDescriptor* column,
     void* contents) {
   return std::unique_ptr<ColumnChunkMetaDataBuilder>(
-      new ColumnChunkMetaDataBuilder(props, column, contents));
+      new ColumnChunkMetaDataBuilder(std::move(props), column, contents));
 }
 
 std::unique_ptr<ColumnChunkMetaDataBuilder> ColumnChunkMetaDataBuilder::Make(
-    const std::shared_ptr<WriterProperties>& props, const ColumnDescriptor* column) {
+    std::shared_ptr<WriterProperties> props, const ColumnDescriptor* column) {
   return std::unique_ptr<ColumnChunkMetaDataBuilder>(
-      new ColumnChunkMetaDataBuilder(props, column));
+      new ColumnChunkMetaDataBuilder(std::move(props), column));
 }
 
 ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilder(
-    const std::shared_ptr<WriterProperties>& props, const ColumnDescriptor* column)
+    std::shared_ptr<WriterProperties> props, const ColumnDescriptor* column)
     : impl_{std::unique_ptr<ColumnChunkMetaDataBuilderImpl>(
-          new ColumnChunkMetaDataBuilderImpl(props, column))} {}
+          new ColumnChunkMetaDataBuilderImpl(std::move(props), column))} {}
 
 ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilder(
-    const std::shared_ptr<WriterProperties>& props, const ColumnDescriptor* column,
+    std::shared_ptr<WriterProperties> props, const ColumnDescriptor* column,
     void* contents)
     : impl_{std::unique_ptr<ColumnChunkMetaDataBuilderImpl>(
           new ColumnChunkMetaDataBuilderImpl(
-              props, column, reinterpret_cast<format::ColumnChunk*>(contents)))} {}
+              std::move(props), column,
+              reinterpret_cast<format::ColumnChunk*>(contents)))} {}
 
 ColumnChunkMetaDataBuilder::~ColumnChunkMetaDataBuilder() {}
 
@@ -1102,9 +1101,9 @@ int64_t ColumnChunkMetaDataBuilder::total_compressed_size() const {
 
 class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
  public:
-  explicit RowGroupMetaDataBuilderImpl(const std::shared_ptr<WriterProperties>& props,
+  explicit RowGroupMetaDataBuilderImpl(std::shared_ptr<WriterProperties> props,
                                        const SchemaDescriptor* schema, void* contents)
-      : properties_(props), schema_(schema), next_column_(0) {
+      : properties_(std::move(props)), schema_(schema), next_column_(0) {
     row_group_ = reinterpret_cast<format::RowGroup*>(contents);
     InitializeColumns(schema->num_columns());
   }
@@ -1173,17 +1172,17 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
 };
 
 std::unique_ptr<RowGroupMetaDataBuilder> RowGroupMetaDataBuilder::Make(
-    const std::shared_ptr<WriterProperties>& props, const SchemaDescriptor* schema_,
+    std::shared_ptr<WriterProperties> props, const SchemaDescriptor* schema_,
     void* contents) {
   return std::unique_ptr<RowGroupMetaDataBuilder>(
-      new RowGroupMetaDataBuilder(props, schema_, contents));
+      new RowGroupMetaDataBuilder(std::move(props), schema_, contents));
 }
 
-RowGroupMetaDataBuilder::RowGroupMetaDataBuilder(
-    const std::shared_ptr<WriterProperties>& props, const SchemaDescriptor* schema_,
-    void* contents)
+RowGroupMetaDataBuilder::RowGroupMetaDataBuilder(std::shared_ptr<WriterProperties> props,
+                                                 const SchemaDescriptor* schema_,
+                                                 void* contents)
     : impl_{std::unique_ptr<RowGroupMetaDataBuilderImpl>(
-          new RowGroupMetaDataBuilderImpl(props, schema_, contents))} {}
+          new RowGroupMetaDataBuilderImpl(std::move(props), schema_, contents))} {}
 
 RowGroupMetaDataBuilder::~RowGroupMetaDataBuilder() {}
 
@@ -1211,12 +1210,14 @@ void RowGroupMetaDataBuilder::Finish(int64_t total_bytes_written,
 class FileMetaDataBuilder::FileMetaDataBuilderImpl {
  public:
   explicit FileMetaDataBuilderImpl(
-      const SchemaDescriptor* schema, const std::shared_ptr<WriterProperties>& props,
-      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata)
-      : properties_(props), schema_(schema), key_value_metadata_(key_value_metadata) {
+      const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props,
+      std::shared_ptr<const KeyValueMetadata> key_value_metadata)
+      : properties_(std::move(props)),
+        schema_(schema),
+        key_value_metadata_(std::move(key_value_metadata)) {
     metadata_.reset(new format::FileMetaData());
-    if (props->file_encryption_properties() != nullptr &&
-        props->file_encryption_properties()->encrypted_footer()) {
+    if (properties_->file_encryption_properties() != nullptr &&
+        properties_->file_encryption_properties()->encrypted_footer()) {
       crypto_metadata_.reset(new format::FileCryptoMetaData());
     }
   }
@@ -1339,17 +1340,17 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
 };
 
 std::unique_ptr<FileMetaDataBuilder> FileMetaDataBuilder::Make(
-    const SchemaDescriptor* schema, const std::shared_ptr<WriterProperties>& props,
-    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) {
+    const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props,
+    std::shared_ptr<const KeyValueMetadata> key_value_metadata) {
   return std::unique_ptr<FileMetaDataBuilder>(
-      new FileMetaDataBuilder(schema, props, key_value_metadata));
+      new FileMetaDataBuilder(schema, std::move(props), std::move(key_value_metadata)));
 }
 
 FileMetaDataBuilder::FileMetaDataBuilder(
-    const SchemaDescriptor* schema, const std::shared_ptr<WriterProperties>& props,
-    const std::shared_ptr<const KeyValueMetadata>& key_value_metadata)
-    : impl_{std::unique_ptr<FileMetaDataBuilderImpl>(
-          new FileMetaDataBuilderImpl(schema, props, key_value_metadata))} {}
+    const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props,
+    std::shared_ptr<const KeyValueMetadata> key_value_metadata)
+    : impl_{std::unique_ptr<FileMetaDataBuilderImpl>(new FileMetaDataBuilderImpl(
+          schema, std::move(props), std::move(key_value_metadata)))} {}
 
 FileMetaDataBuilder::~FileMetaDataBuilder() {}
 

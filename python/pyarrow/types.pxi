@@ -17,6 +17,7 @@
 
 import atexit
 import re
+import sys
 import warnings
 
 from pyarrow import compat
@@ -281,6 +282,61 @@ cdef class LargeListType(DataType):
         return pyarrow_wrap_data_type(self.list_type.value_type())
 
 
+cdef class MapType(DataType):
+    """
+    Concrete class for map data types.
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        DataType.init(self, type)
+        self.map_type = <const CMapType*> type.get()
+
+    def __reduce__(self):
+        return map_, (self.key_type, self.item_type)
+
+    @property
+    def key_type(self):
+        """
+        The data type of keys in the map entries.
+        """
+        return pyarrow_wrap_data_type(self.map_type.key_type())
+
+    @property
+    def item_type(self):
+        """
+        The data type of items in the map entries.
+        """
+        return pyarrow_wrap_data_type(self.map_type.item_type())
+
+
+
+cdef class FixedSizeListType(DataType):
+    """
+    Concrete class for fixed size list data types.
+    """
+
+    cdef void init(self, const shared_ptr[CDataType]& type) except *:
+        DataType.init(self, type)
+        self.list_type = <const CFixedSizeListType*> type.get()
+
+    def __reduce__(self):
+        return list_, (self.value_type, self.list_size)
+
+    @property
+    def value_type(self):
+        """
+        The data type of large list values.
+        """
+        return pyarrow_wrap_data_type(self.list_type.value_type())
+
+    @property
+    def list_size(self):
+        """
+        The size of the fixed size lists.
+        """
+        return self.list_type.list_size()
+
+
 cdef class StructType(DataType):
     """
     Concrete class for struct data types.
@@ -389,7 +445,7 @@ cdef class UnionType(DataType):
         return self.child(i)
 
     def __reduce__(self):
-        return union, (list(self), self.mode)
+        return union, (list(self), self.mode, self.type_codes)
 
 
 cdef class TimestampType(DataType):
@@ -890,6 +946,15 @@ cdef class Schema:
 
     def __hash__(self):
         return hash((tuple(self), self.metadata))
+
+    def __sizeof__(self):
+        size = 0
+        if self.metadata:
+            for key, value in self.metadata.items():
+                size += sys.getsizeof(key)
+                size += sys.getsizeof(value)
+
+        return size + super(Schema, self).__sizeof__()
 
     @property
     def pandas_metadata(self):
@@ -1785,23 +1850,24 @@ def large_utf8():
     return large_string()
 
 
-cpdef ListType list_(value_type):
+def list_(value_type, int list_size=-1):
     """
     Create ListType instance from child data type or field
 
     Parameters
     ----------
     value_type : DataType or Field
+    list_size : int, optional, default -1
+        If length == -1 then return a variable length list type. If length is
+        greater than or equal to 0 then return a fixed size list type.
 
     Returns
     -------
     list_type : DataType
     """
     cdef:
-        DataType data_type
         Field _field
         shared_ptr[CDataType] list_type
-        ListType out = ListType.__new__(ListType)
 
     if isinstance(value_type, DataType):
         _field = field('item', value_type)
@@ -1810,9 +1876,14 @@ cpdef ListType list_(value_type):
     else:
         raise TypeError('List requires DataType or Field')
 
-    list_type.reset(new CListType(_field.sp_field))
-    out.init(list_type)
-    return out
+    if list_size == -1:
+        list_type.reset(new CListType(_field.sp_field))
+    else:
+        if list_size < 0:
+            raise ValueError("list_size should be a positive integer")
+        list_type.reset(new CFixedSizeListType(_field.sp_field, list_size))
+
+    return pyarrow_wrap_data_type(list_type)
 
 
 cpdef LargeListType large_list(value_type):
@@ -1846,6 +1917,32 @@ cpdef LargeListType large_list(value_type):
 
     list_type.reset(new CLargeListType(_field.sp_field))
     out.init(list_type)
+    return out
+
+
+cpdef MapType map_(key_type, item_type, keys_sorted=False):
+    """
+    Create MapType instance from key and item data types
+
+    Parameters
+    ----------
+    key_type : DataType
+    item_type : DataType
+    keys_sorted : boolean
+
+    Returns
+    -------
+    map_type : DataType
+    """
+    cdef:
+        DataType _key_type = ensure_type(key_type, allow_none=False)
+        DataType _item_type = ensure_type(item_type, allow_none=False)
+        shared_ptr[CDataType] map_type
+        MapType out = MapType.__new__(MapType)
+
+    map_type.reset(new CMapType(_key_type.sp_type, _item_type.sp_type,
+                                keys_sorted))
+    out.init(map_type)
     return out
 
 
@@ -1926,7 +2023,7 @@ def struct(fields):
     return pyarrow_wrap_data_type(struct_type)
 
 
-def union(children_fields, mode):
+def union(children_fields, mode, type_codes=None):
     """
     Create UnionType from children fields.
 
@@ -1935,6 +2032,7 @@ def union(children_fields, mode):
     fields : sequence of Field values
     mode : str
         'dense' or 'sparse'
+    type_codes : list of integers, default None
 
     Returns
     -------
@@ -1943,7 +2041,7 @@ def union(children_fields, mode):
     cdef:
         Field child_field
         vector[shared_ptr[CField]] c_fields
-        vector[uint8_t] type_codes
+        vector[int8_t] c_type_codes
         shared_ptr[CDataType] union_type
         int i
 
@@ -1958,15 +2056,23 @@ def union(children_fields, mode):
         else:
             raise ValueError("Invalid union mode {0!r}".format(mode))
 
-    for i, child_field in enumerate(children_fields):
-        type_codes.push_back(i)
+    for child_field in children_fields:
         c_fields.push_back(child_field.sp_field)
 
+    if type_codes is not None:
+        if len(type_codes) != <Py_ssize_t>(c_fields.size()):
+            raise ValueError("type_codes should have the same length "
+                             "as fields")
+        for code in type_codes:
+            c_type_codes.push_back(code)
+    else:
+        c_type_codes = range(c_fields.size())
+
     if mode == UnionMode_SPARSE:
-        union_type.reset(new CUnionType(c_fields, type_codes,
+        union_type.reset(new CUnionType(c_fields, c_type_codes,
                                         _UnionMode_SPARSE))
     else:
-        union_type.reset(new CUnionType(c_fields, type_codes,
+        union_type.reset(new CUnionType(c_fields, c_type_codes,
                                         _UnionMode_DENSE))
 
     return pyarrow_wrap_data_type(union_type)

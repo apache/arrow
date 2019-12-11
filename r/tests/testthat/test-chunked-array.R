@@ -257,23 +257,23 @@ test_that("chunked_array() supports the type= argument. conversion from INTSXP a
 })
 
 test_that("Array$create() aborts on overflow", {
-  expect_error(chunked_array(128L, type = int8())$type, "Invalid.*downsize")
-  expect_error(chunked_array(-129L, type = int8())$type, "Invalid.*downsize")
+  expect_error(chunked_array(128L, type = int8())$type, "Invalid.*Value is too large")
+  expect_error(chunked_array(-129L, type = int8())$type, "Invalid.*Value is too large")
 
-  expect_error(chunked_array(256L, type = uint8())$type, "Invalid.*downsize")
-  expect_error(chunked_array(-1L, type = uint8())$type, "Invalid.*downsize")
+  expect_error(chunked_array(256L, type = uint8())$type, "Invalid.*Value is too large")
+  expect_error(chunked_array(-1L, type = uint8())$type, "Invalid.*Value is too large")
 
-  expect_error(chunked_array(32768L, type = int16())$type, "Invalid.*downsize")
-  expect_error(chunked_array(-32769L, type = int16())$type, "Invalid.*downsize")
+  expect_error(chunked_array(32768L, type = int16())$type, "Invalid.*Value is too large")
+  expect_error(chunked_array(-32769L, type = int16())$type, "Invalid.*Value is too large")
 
-  expect_error(chunked_array(65536L, type = uint16())$type, "Invalid.*downsize")
-  expect_error(chunked_array(-1L, type = uint16())$type, "Invalid.*downsize")
+  expect_error(chunked_array(65536L, type = uint16())$type, "Invalid.*Value is too large")
+  expect_error(chunked_array(-1L, type = uint16())$type, "Invalid.*Value is too large")
 
-  expect_error(chunked_array(65536L, type = uint16())$type, "Invalid.*downsize")
-  expect_error(chunked_array(-1L, type = uint16())$type, "Invalid.*downsize")
+  expect_error(chunked_array(65536L, type = uint16())$type, "Invalid.*Value is too large")
+  expect_error(chunked_array(-1L, type = uint16())$type, "Invalid.*Value is too large")
 
-  expect_error(chunked_array(bit64::as.integer64(2^31), type = int32()), "Invalid.*downsize")
-  expect_error(chunked_array(bit64::as.integer64(2^32), type = uint32()), "Invalid.*downsize")
+  expect_error(chunked_array(bit64::as.integer64(2^31), type = int32()), "Invalid.*Value is too large")
+  expect_error(chunked_array(bit64::as.integer64(2^32), type = uint32()), "Invalid.*Value is too large")
 })
 
 test_that("chunked_array() convert doubles to integers", {

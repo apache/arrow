@@ -102,7 +102,7 @@ endif()
 
 set(PARQUET_BOOST_LINK_LIBS)
 
-if("${COMPILER_FAMILY}" STREQUAL "gcc" AND "${COMPILER_VERSION}" VERSION_LESS "4.9")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "4.9")
   add_definitions(-DPARQUET_USE_BOOST_REGEX)
   list(APPEND PARQUET_BOOST_LINK_LIBS ${BOOST_REGEX_LIBRARY})
 endif()
@@ -349,7 +349,26 @@ add_parquet_benchmark(column_io_benchmark)
 add_parquet_benchmark(encoding_benchmark)
 add_parquet_benchmark(arrow/reader_writer_benchmark PREFIX "parquet-arrow")
 
-# Required for tests, the ExternalProject for zstd does not build on CMake < 3.7
+if(ARROW_WITH_BROTLI)
+  add_definitions(-DARROW_WITH_BROTLI)
+endif()
+
+if(ARROW_WITH_BZ2)
+  add_definitions(-DARROW_WITH_BZ2)
+endif()
+
+if(ARROW_WITH_LZ4)
+  add_definitions(-DARROW_WITH_LZ4)
+endif()
+
+if(ARROW_WITH_SNAPPY)
+  add_definitions(-DARROW_WITH_SNAPPY)
+endif()
+
+if(ARROW_WITH_ZLIB)
+  add_definitions(-DARROW_WITH_ZLIB)
+endif()
+
 if(ARROW_WITH_ZSTD)
   add_definitions(-DARROW_WITH_ZSTD)
 endif()

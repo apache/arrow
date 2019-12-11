@@ -20,6 +20,7 @@
 #include <memory>
 
 #include "arrow/io/interfaces.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
@@ -100,38 +101,38 @@ class ARROW_EXPORT InputStreamConcurrencyWrapper : public InputStream {
     return derived()->DoAbort();
   }
 
-  Status Tell(int64_t* position) const final {
+  Result<int64_t> Tell() const final {
     auto guard = lock_.exclusive_guard();
-    return derived()->DoTell(position);
+    return derived()->DoTell();
   }
 
-  Status Read(int64_t nbytes, int64_t* bytes_read, void* out) final {
-    auto guard = lock_.exclusive_guard();
-    return derived()->DoRead(nbytes, bytes_read, out);
-  }
-
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) final {
+  Result<int64_t> Read(int64_t nbytes, void* out) final {
     auto guard = lock_.exclusive_guard();
     return derived()->DoRead(nbytes, out);
   }
 
-  Status Peek(int64_t nbytes, util::string_view* out) final {
+  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) final {
     auto guard = lock_.exclusive_guard();
-    return derived()->DoPeek(nbytes, out);
+    return derived()->DoRead(nbytes);
+  }
+
+  Result<util::string_view> Peek(int64_t nbytes) final {
+    auto guard = lock_.exclusive_guard();
+    return derived()->DoPeek(nbytes);
   }
 
   /*
   Methods to implement in derived class:
 
   Status DoClose();
-  Status DoTell(int64_t* position) const;
-  Status DoRead(int64_t nbytes, int64_t* bytes_read, void* out);
-  Status DoRead(int64_t nbytes, std::shared_ptr<Buffer>* out);
+  Result<int64_t> DoTell() const;
+  Result<int64_t> DoRead(int64_t nbytes, void* out);
+  Result<std::shared_ptr<Buffer>> DoRead(int64_t nbytes);
 
   And optionally:
 
   Status DoAbort() override;
-  Status DoPeek(int64_t nbytes, util::string_view* out) override;
+  Result<util::string_view> DoPeek(int64_t nbytes) override;
 
   These methods should be protected in the derived class and
   InputStreamConcurrencyWrapper declared as a friend with
@@ -144,8 +145,7 @@ class ARROW_EXPORT InputStreamConcurrencyWrapper : public InputStream {
   // have derived classes itself.
   virtual Status DoAbort() { return derived()->DoClose(); }
 
-  virtual Status DoPeek(int64_t ARROW_ARG_UNUSED(nbytes),
-                        util::string_view* ARROW_ARG_UNUSED(out)) {
+  virtual Result<util::string_view> DoPeek(int64_t ARROW_ARG_UNUSED(nbytes)) {
     return Status::NotImplemented("Peek not implemented");
   }
 
@@ -171,24 +171,24 @@ class ARROW_EXPORT RandomAccessFileConcurrencyWrapper : public RandomAccessFile 
     return derived()->DoAbort();
   }
 
-  Status Tell(int64_t* position) const final {
+  Result<int64_t> Tell() const final {
     auto guard = lock_.exclusive_guard();
-    return derived()->DoTell(position);
+    return derived()->DoTell();
   }
 
-  Status Read(int64_t nbytes, int64_t* bytes_read, void* out) final {
-    auto guard = lock_.exclusive_guard();
-    return derived()->DoRead(nbytes, bytes_read, out);
-  }
-
-  Status Read(int64_t nbytes, std::shared_ptr<Buffer>* out) final {
+  Result<int64_t> Read(int64_t nbytes, void* out) final {
     auto guard = lock_.exclusive_guard();
     return derived()->DoRead(nbytes, out);
   }
 
-  Status Peek(int64_t nbytes, util::string_view* out) final {
+  Result<std::shared_ptr<Buffer>> Read(int64_t nbytes) final {
     auto guard = lock_.exclusive_guard();
-    return derived()->DoPeek(nbytes, out);
+    return derived()->DoRead(nbytes);
+  }
+
+  Result<util::string_view> Peek(int64_t nbytes) final {
+    auto guard = lock_.exclusive_guard();
+    return derived()->DoPeek(nbytes);
   }
 
   Status Seek(int64_t position) final {
@@ -196,9 +196,9 @@ class ARROW_EXPORT RandomAccessFileConcurrencyWrapper : public RandomAccessFile 
     return derived()->DoSeek(position);
   }
 
-  Status GetSize(int64_t* size) final {
+  Result<int64_t> GetSize() final {
     auto guard = lock_.exclusive_guard();
-    return derived()->DoGetSize(size);
+    return derived()->DoGetSize();
   }
 
   // NOTE: ReadAt doesn't use stream pointer, but it is allowed to update it
@@ -207,32 +207,32 @@ class ARROW_EXPORT RandomAccessFileConcurrencyWrapper : public RandomAccessFile 
   // update it, such as Peek) cannot run in parallel with ReadAt and has
   // to use the exclusive_guard.
 
-  Status ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, void* out) final {
-    auto guard = lock_.shared_guard();
-    return derived()->DoReadAt(position, nbytes, bytes_read, out);
-  }
-
-  Status ReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out) final {
+  Result<int64_t> ReadAt(int64_t position, int64_t nbytes, void* out) final {
     auto guard = lock_.shared_guard();
     return derived()->DoReadAt(position, nbytes, out);
+  }
+
+  Result<std::shared_ptr<Buffer>> ReadAt(int64_t position, int64_t nbytes) final {
+    auto guard = lock_.shared_guard();
+    return derived()->DoReadAt(position, nbytes);
   }
 
   /*
   Methods to implement in derived class:
 
   Status DoClose();
-  Status DoTell(int64_t* position) const;
-  Status DoRead(int64_t nbytes, int64_t* bytes_read, void* out);
-  Status DoRead(int64_t nbytes, std::shared_ptr<Buffer>* out);
+  Result<int64_t> DoTell() const;
+  Result<int64_t> DoRead(int64_t nbytes, void* out);
+  Result<std::shared_ptr<Buffer>> DoRead(int64_t nbytes);
   Status DoSeek(int64_t position);
-  Status DoGetSize(int64_t* size);
-  Status DoReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read, void* out);
-  Status DoReadAt(int64_t position, int64_t nbytes, std::shared_ptr<Buffer>* out);
+  Result<int64_t> DoGetSize()
+  Result<int64_t> DoReadAt(int64_t position, int64_t nbytes, void* out);
+  Result<std::shared_ptr<Buffer>> DoReadAt(int64_t position, int64_t nbytes);
 
   And optionally:
 
   Status DoAbort() override;
-  Status DoPeek(int64_t nbytes, util::string_view* out) override;
+  Result<util::string_view> DoPeek(int64_t nbytes) override;
 
   These methods should be protected in the derived class and
   RandomAccessFileConcurrencyWrapper declared as a friend with
@@ -245,8 +245,7 @@ class ARROW_EXPORT RandomAccessFileConcurrencyWrapper : public RandomAccessFile 
   // have derived classes itself.
   virtual Status DoAbort() { return derived()->DoClose(); }
 
-  virtual Status DoPeek(int64_t ARROW_ARG_UNUSED(nbytes),
-                        util::string_view* ARROW_ARG_UNUSED(out)) {
+  virtual Result<util::string_view> DoPeek(int64_t ARROW_ARG_UNUSED(nbytes)) {
     return Status::NotImplemented("Peek not implemented");
   }
 

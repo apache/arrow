@@ -108,8 +108,8 @@ class ArrowParquetWriterMixin : public ::testing::Test {
     for (auto reader : readers) {
       ARROW_EXPECT_OK(WriteRecordBatchReader(reader, pool, sink));
     }
-    ARROW_EXPECT_OK(sink->Finish(&out));
-
+    // XXX the rest of the test may crash if this fails, since out will be nullptr
+    EXPECT_OK_AND_ASSIGN(out, sink->Finish());
     return out;
   }
 
@@ -124,8 +124,8 @@ class ArrowParquetWriterMixin : public ::testing::Test {
     auto sink = CreateOutputStream(pool);
 
     ARROW_EXPECT_OK(WriteTable(table, pool, sink, 1U << 16));
-    ARROW_EXPECT_OK(sink->Finish(&out));
-
+    // XXX the rest of the test may crash if this fails, since out will be nullptr
+    EXPECT_OK_AND_ASSIGN(out, sink->Finish());
     return out;
   }
 };
@@ -158,22 +158,24 @@ class ParquetBufferFixtureMixin : public ArrowParquetWriterMixin {
 
 class TestParquetFileFormat : public ParquetBufferFixtureMixin {
  protected:
-  std::shared_ptr<ScanOptions> opts_ = ScanOptions::Defaults();
-  std::shared_ptr<ScanContext> ctx_ = std::make_shared<ScanContext>();
+  ScanOptionsPtr opts_;
+  ScanContextPtr ctx_ = std::make_shared<ScanContext>();
 };
 
 TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
   auto reader = GetRecordBatchReader();
   auto source = GetFileSource(reader.get());
+
+  opts_ = ScanOptions::Make(reader->schema());
   auto fragment = std::make_shared<ParquetFragment>(*source, opts_);
 
-  ScanTaskIterator scan_task_it;
-  ASSERT_OK(fragment->Scan(ctx_, &scan_task_it));
+  ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(ctx_));
   int64_t row_count = 0;
 
   for (auto maybe_task : scan_task_it) {
     ASSERT_OK_AND_ASSIGN(auto task, std::move(maybe_task));
-    for (auto maybe_batch : task->Scan()) {
+    ASSERT_OK_AND_ASSIGN(auto rb_it, task->Scan());
+    for (auto maybe_batch : rb_it) {
       ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
       row_count += batch->num_rows();
     }
@@ -185,26 +187,25 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
 TEST_F(TestParquetFileFormat, OpenFailureWithRelevantError) {
   auto format = ParquetFileFormat();
 
-  std::shared_ptr<Schema> dont_care;
-
   std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
+  auto result = format.Inspect({buf});
   EXPECT_RAISES_WITH_MESSAGE_THAT(IOError, testing::HasSubstr("<Buffer>"),
-                                  format.Inspect({buf}, &dont_care));
+                                  result.status());
 
   constexpr auto file_name = "herp/derp";
   ASSERT_OK_AND_ASSIGN(
       auto fs, fs::internal::MockFileSystem::Make(fs::kNoTime, {fs::File(file_name)}));
+  result = format.Inspect({file_name, fs.get()});
   EXPECT_RAISES_WITH_MESSAGE_THAT(IOError, testing::HasSubstr(file_name),
-                                  format.Inspect({file_name, fs.get()}, &dont_care));
+                                  result.status());
 }
 
 TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjected) {
   schema_ = schema({field("f64", float64()), field("i64", int64()),
                     field("f32", float32()), field("i32", int32())});
 
-  opts_->schema = schema_;
-  opts_->projector = std::make_shared<RecordBatchProjector>(
-      default_memory_pool(), SchemaFromColumnNames(schema_, {"f64"}));
+  opts_ = ScanOptions::Make(schema_);
+  opts_->projector = RecordBatchProjector(SchemaFromColumnNames(schema_, {"f64"}));
   opts_->filter = equal(field_ref("i32"), scalar(0));
 
   // NB: projector is applied by the scanner; ParquetFragment does not evaluate it so
@@ -215,13 +216,13 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjected) {
   auto source = GetFileSource(reader.get());
   auto fragment = std::make_shared<ParquetFragment>(*source, opts_);
 
-  ScanTaskIterator scan_task_it;
-  ASSERT_OK(fragment->Scan(ctx_, &scan_task_it));
+  ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(ctx_));
   int64_t row_count = 0;
 
   for (auto maybe_task : scan_task_it) {
     ASSERT_OK_AND_ASSIGN(auto task, std::move(maybe_task));
-    for (auto maybe_batch : task->Scan()) {
+    ASSERT_OK_AND_ASSIGN(auto rb_it, task->Scan());
+    for (auto maybe_batch : rb_it) {
       ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
       row_count += batch->num_rows();
       ASSERT_EQ(*batch->schema(), *expected_schema);
@@ -244,9 +245,8 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
                     field("f32", float32()), field("i32", int32())});
   auto reader = GetRecordBatchReader();
 
-  opts_->schema = schema_;
-  opts_->projector = std::make_shared<RecordBatchProjector>(
-      default_memory_pool(), SchemaFromColumnNames(schema_, {"f64"}));
+  opts_ = ScanOptions::Make(schema_);
+  opts_->projector = RecordBatchProjector(SchemaFromColumnNames(schema_, {"f64"}));
   opts_->filter = equal(field_ref("i32"), scalar(0));
 
   // NB: projector is applied by the scanner; ParquetFragment does not evaluate it so
@@ -257,13 +257,13 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
       GetFileSource({reader.get(), reader_without_i32.get(), reader_without_f64.get()});
   auto fragment = std::make_shared<ParquetFragment>(*source, opts_);
 
-  ScanTaskIterator scan_task_it;
-  ASSERT_OK(fragment->Scan(ctx_, &scan_task_it));
+  ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(ctx_));
   int64_t row_count = 0;
 
   for (auto maybe_task : scan_task_it) {
     ASSERT_OK_AND_ASSIGN(auto task, std::move(maybe_task));
-    for (auto maybe_batch : task->Scan()) {
+    ASSERT_OK_AND_ASSIGN(auto rb_it, task->Scan());
+    for (auto maybe_batch : rb_it) {
       ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
       row_count += batch->num_rows();
     }
@@ -277,9 +277,27 @@ TEST_F(TestParquetFileFormat, Inspect) {
   auto source = GetFileSource(reader.get());
   auto format = ParquetFileFormat();
 
-  std::shared_ptr<Schema> actual;
-  ASSERT_OK(format.Inspect(*source.get(), &actual));
+  ASSERT_OK_AND_ASSIGN(auto actual, format.Inspect(*source.get()));
   EXPECT_EQ(*actual, *schema_);
+}
+
+TEST_F(TestParquetFileFormat, IsSupported) {
+  auto reader = GetRecordBatchReader();
+  auto source = GetFileSource(reader.get());
+  auto format = ParquetFileFormat();
+
+  bool supported = false;
+
+  std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(util::string_view(""));
+  ASSERT_OK_AND_ASSIGN(supported, format.IsSupported(FileSource(buf)));
+  ASSERT_EQ(supported, false);
+
+  buf = std::make_shared<Buffer>(util::string_view("corrupted"));
+  ASSERT_OK_AND_ASSIGN(supported, format.IsSupported(FileSource(buf)));
+  ASSERT_EQ(supported, false);
+
+  ASSERT_OK_AND_ASSIGN(supported, format.IsSupported(*source));
+  EXPECT_EQ(supported, true);
 }
 
 void CountRowsInScan(ScanTaskIterator& it, int64_t expected_rows,
@@ -289,7 +307,8 @@ void CountRowsInScan(ScanTaskIterator& it, int64_t expected_rows,
 
   for (auto maybe_scan_task : it) {
     ASSERT_OK_AND_ASSIGN(auto scan_task, std::move(maybe_scan_task));
-    for (auto maybe_record_batch : scan_task->Scan()) {
+    ASSERT_OK_AND_ASSIGN(auto rb_it, scan_task->Scan());
+    for (auto maybe_record_batch : rb_it) {
       ASSERT_OK_AND_ASSIGN(auto record_batch, std::move(maybe_record_batch));
       actual_rows += record_batch->num_rows();
       actual_batches++;
@@ -307,11 +326,11 @@ class TestParquetFileFormatPushDown : public TestParquetFileFormat {
     int64_t actual_rows = 0;
     int64_t actual_batches = 0;
 
-    ScanTaskIterator it;
-    ASSERT_OK(fragment.Scan(ctx_, &it));
+    ASSERT_OK_AND_ASSIGN(auto it, fragment.Scan(ctx_));
     for (auto maybe_scan_task : it) {
       ASSERT_OK_AND_ASSIGN(auto scan_task, std::move(maybe_scan_task));
-      for (auto maybe_record_batch : scan_task->Scan()) {
+      ASSERT_OK_AND_ASSIGN(auto rb_it, scan_task->Scan());
+      for (auto maybe_record_batch : rb_it) {
         ASSERT_OK_AND_ASSIGN(auto record_batch, std::move(maybe_record_batch));
         actual_rows += record_batch->num_rows();
         actual_batches++;
@@ -341,6 +360,8 @@ TEST_F(TestParquetFileFormatPushDown, Basic) {
 
   auto reader = ArithmeticDatasetFixture::GetRecordBatchReader(kNumRowGroups);
   auto source = GetFileSource(reader.get());
+
+  opts_ = ScanOptions::Make(reader->schema());
   auto fragment = std::make_shared<ParquetFragment>(*source, opts_);
 
   opts_->filter = scalar(true);

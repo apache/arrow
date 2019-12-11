@@ -17,6 +17,7 @@
 
 //! Defines `ArrowError` for representing failures in various Arrow operations
 use std::error::Error;
+use std::fmt::{Display, Formatter};
 
 use csv as csv_crate;
 
@@ -69,5 +70,27 @@ impl From<::std::string::FromUtf8Error> for ArrowError {
         ArrowError::ParseError(error.description().to_string())
     }
 }
+
+impl Display for ArrowError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            &ArrowError::MemoryError(ref desc) => write!(f, "Memory error: {}", desc),
+            &ArrowError::ParseError(ref desc) => write!(f, "Parser error: {}", desc),
+            &ArrowError::ComputeError(ref desc) => write!(f, "Compute error: {}", desc),
+            &ArrowError::DivideByZero => write!(f, "Divide by zero error"),
+            &ArrowError::CsvError(ref desc) => write!(f, "Csv error: {}", desc),
+            &ArrowError::JsonError(ref desc) => write!(f, "Json error: {}", desc),
+            &ArrowError::IoError(ref desc) => write!(f, "Io error: {}", desc),
+            &ArrowError::InvalidArgumentError(ref desc) => {
+                write!(f, "Invalid argument error: {}", desc)
+            }
+            &ArrowError::ParquetError(ref desc) => {
+                write!(f, "Parquet argument error: {}", desc)
+            }
+        }
+    }
+}
+
+impl Error for ArrowError {}
 
 pub type Result<T> = ::std::result::Result<T, ArrowError>;

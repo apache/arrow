@@ -17,6 +17,7 @@
 
 from collections import OrderedDict
 import pickle
+import sys
 
 import pytest
 import numpy as np
@@ -63,6 +64,7 @@ def test_type_to_pandas_dtype():
         (pa.binary(12), np.object_),
         (pa.string(), np.object_),
         (pa.list_(pa.int8()), np.object_),
+        # (pa.list_(pa.int8(), 2), np.object_),  # TODO needs pandas conversion
     ]
     for arrow_type, numpy_type in cases:
         assert arrow_type.to_pandas_dtype() == numpy_type
@@ -476,6 +478,7 @@ def test_type_schema_pickling():
         pa.binary(),
         pa.binary(10),
         pa.list_(pa.string()),
+        pa.map_(pa.string(), pa.int8()),
         pa.struct([
             pa.field('a', 'int8'),
             pa.field('b', 'string')
@@ -542,3 +545,17 @@ def test_schema_from_pandas():
         schema = pa.Schema.from_pandas(df)
         expected = pa.Table.from_pandas(df).schema
         assert schema == expected
+
+
+def test_schema_sizeof():
+    schema = pa.schema([
+        pa.field('foo', pa.int32()),
+        pa.field('bar', pa.string()),
+    ])
+
+    assert sys.getsizeof(schema) > 30
+
+    schema2 = schema.with_metadata({"key": "some metadata"})
+    assert sys.getsizeof(schema2) > sys.getsizeof(schema)
+    schema3 = schema.with_metadata({"key": "some more metadata"})
+    assert sys.getsizeof(schema3) > sys.getsizeof(schema2)

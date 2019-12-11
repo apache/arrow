@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require "arrow/bigdecimal-extension"
-
 module Arrow
   class Decimal128ArrayBuilder
     class << self

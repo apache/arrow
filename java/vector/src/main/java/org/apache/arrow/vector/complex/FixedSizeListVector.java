@@ -281,7 +281,7 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
       reallocValidityBuffer();
     }
 
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    BitVectorHelper.setBit(validityBuffer, index);
     return index * listSize;
   }
 
@@ -493,7 +493,7 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
     while (index >= getValidityBufferValueCapacity()) {
       reallocValidityBuffer();
     }
-    BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+    BitVectorHelper.unsetBit(validityBuffer, index);
   }
 
   /** Sets the value at index to not-null. Reallocates if index is larger than capacity. */
@@ -501,7 +501,7 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
     while (index >= getValidityBufferValueCapacity()) {
       reallocValidityBuffer();
     }
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    BitVectorHelper.setBit(validityBuffer, index);
   }
 
   @Override

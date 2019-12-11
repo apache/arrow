@@ -20,6 +20,8 @@
 
 LANG=C
 
+set -u
+
 run()
 {
   "$@"

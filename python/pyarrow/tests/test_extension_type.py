@@ -18,6 +18,7 @@
 import pickle
 import weakref
 
+import numpy as np
 import pyarrow as pa
 
 import pytest
@@ -388,3 +389,22 @@ def test_parquet(tmpdir, registered_period_type):
     pa.unregister_extension_type(period_type.extension_name)
     result = pq.read_table(filename)
     assert result.column("ext").type == pa.int64()
+
+
+def test_to_numpy():
+    period_type = PeriodType('D')
+    storage = pa.array([1, 2, 3, 4], pa.int64())
+    arr = pa.ExtensionArray.from_storage(period_type, storage)
+
+    expected = storage.to_numpy()
+    result = arr.to_numpy()
+    np.testing.assert_array_equal(result, expected)
+
+    result = np.asarray(arr)
+    np.testing.assert_array_equal(result, expected)
+
+    # chunked array
+    charr = pa.chunked_array([arr])
+
+    result = np.asarray(charr)
+    np.testing.assert_array_equal(result, expected)

@@ -1688,7 +1688,7 @@
 * ARROW-4769 - [Rust] Improve array limit function where max records > len
 * ARROW-4776 - [C++] DictionaryBuilder should support bootstrapping from an existing dict type
 * ARROW-4777 - [C++/Python] manylinux1: Update lz4 to 1.8.3
-* ARROW-4789 - [C++] Deprecate and and later remove arrow::io::ReadableFileInterface
+* ARROW-4789 - [C++] Deprecate and later remove arrow::io::ReadableFileInterface
 * ARROW-4791 - Unused dependencies in arrow and datafusion
 * ARROW-4794 - [Python] Make pandas an optional test dependency
 * ARROW-4797 - [Plasma] Avoid store crash if not enough memory is available

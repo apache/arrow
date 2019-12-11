@@ -396,8 +396,8 @@ dataset___ScannerBuilder__Finish <- function(sb){
     .Call(`_arrow_dataset___ScannerBuilder__Finish` , sb)
 }
 
-dataset___Scanner__ToTable <- function(scn){
-    .Call(`_arrow_dataset___Scanner__ToTable` , scn)
+dataset___Scanner__ToTable <- function(scanner){
+    .Call(`_arrow_dataset___Scanner__ToTable` , scanner)
 }
 
 shared_ptr_is_null <- function(xp){
@@ -624,6 +624,10 @@ dataset___expr__less_equal <- function(lhs, rhs){
     .Call(`_arrow_dataset___expr__less_equal` , lhs, rhs)
 }
 
+dataset___expr__in <- function(lhs, rhs){
+    .Call(`_arrow_dataset___expr__in` , lhs, rhs)
+}
+
 dataset___expr__and <- function(lhs, rhs){
     .Call(`_arrow_dataset___expr__and` , lhs, rhs)
 }
@@ -634,6 +638,10 @@ dataset___expr__or <- function(lhs, rhs){
 
 dataset___expr__not <- function(lhs){
     .Call(`_arrow_dataset___expr__not` , lhs)
+}
+
+dataset___expr__is_valid <- function(lhs){
+    .Call(`_arrow_dataset___expr__is_valid` , lhs)
 }
 
 dataset___expr__scalar <- function(x){

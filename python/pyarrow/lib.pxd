@@ -69,6 +69,16 @@ cdef class LargeListType(DataType):
         const CLargeListType* list_type
 
 
+cdef class MapType(DataType):
+    cdef:
+        const CMapType* map_type
+
+
+cdef class FixedSizeListType(DataType):
+    cdef:
+        const CFixedSizeListType* list_type
+
+
 cdef class StructType(DataType):
     cdef:
         const CStructType* struct_type
@@ -204,6 +214,29 @@ cdef class LargeListValue(ArrayValue):
 
     cdef:
         CLargeListArray* ap
+
+    cdef getitem(self, int64_t i)
+    cdef int64_t length(self)
+
+
+cdef class MapValue(ArrayValue):
+    cdef readonly:
+        DataType key_type
+        DataType item_type
+
+    cdef:
+        CMapArray* ap
+
+    cdef getitem(self, int64_t i)
+    cdef int64_t length(self)
+
+
+cdef class FixedSizeListValue(ArrayValue):
+    cdef readonly:
+        DataType value_type
+
+    cdef:
+        CFixedSizeListArray* ap
 
     cdef getitem(self, int64_t i)
     cdef int64_t length(self)
@@ -364,6 +397,14 @@ cdef class ListArray(Array):
 
 
 cdef class LargeListArray(Array):
+    pass
+
+
+cdef class MapArray(Array):
+    pass
+
+
+cdef class FixedSizeListArray(Array):
     pass
 
 

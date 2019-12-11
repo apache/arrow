@@ -250,17 +250,7 @@ struct IsInKernelTraits<Type, enable_if_has_c_type<Type>> {
 };
 
 template <typename Type>
-struct IsInKernelTraits<Type, enable_if_boolean<Type>> {
-  using IsInKernelImpl = IsInKernel<Type, bool>;
-};
-
-template <typename Type>
-struct IsInKernelTraits<Type, enable_if_binary<Type>> {
-  using IsInKernelImpl = IsInKernel<Type, util::string_view>;
-};
-
-template <typename Type>
-struct IsInKernelTraits<Type, enable_if_fixed_size_binary<Type>> {
+struct IsInKernelTraits<Type, enable_if_has_string_view<Type>> {
   using IsInKernelImpl = IsInKernel<Type, util::string_view>;
 };
 

@@ -539,7 +539,7 @@ public class StructVector extends NonNullableStructVector implements FieldVector
       /* realloc the inner buffers if needed */
       reallocValidityBuffer();
     }
-    BitVectorHelper.setValidityBitToOne(validityBuffer, index);
+    BitVectorHelper.setBit(validityBuffer, index);
   }
 
   /**
@@ -550,12 +550,12 @@ public class StructVector extends NonNullableStructVector implements FieldVector
       /* realloc the inner buffers if needed */
       reallocValidityBuffer();
     }
-    BitVectorHelper.setValidityBit(validityBuffer, index, 0);
+    BitVectorHelper.unsetBit(validityBuffer, index);
   }
 
   @Override
   public void setValueCount(int valueCount) {
-    assert valueCount >= 0;
+    Preconditions.checkArgument(valueCount >= 0);
     while (valueCount > getValidityBufferValueCapacity()) {
       /* realloc the inner buffers if needed */
       reallocValidityBuffer();

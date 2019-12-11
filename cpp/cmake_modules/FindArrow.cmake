@@ -275,6 +275,7 @@ macro(arrow_find_package_pkg_config)
                                      "${rest_shared_lib_paths}"
                                      IMPORTED_LOCATION
                                      "${first_shared_lib_path}")
+    get_target_property(shared_lib ${target_shared} IMPORTED_LOCATION)
 
     find_library(${prefix}_static_lib
                  NAMES "${static_lib_name}"

@@ -43,5 +43,4 @@ public interface JdbcConsumer<T extends ValueVector> extends AutoCloseable {
    * Reset the vector within consumer for partial read purpose.
    */
   void resetValueVector(T vector);
-
 }

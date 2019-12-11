@@ -51,8 +51,8 @@ void AssertBuilding(const std::shared_ptr<ColumnBuilder>& builder,
     builder->Append(parser);
   }
   ASSERT_OK(builder->task_group()->Finish());
-  ASSERT_OK(builder->Finish(out));
-  ASSERT_OK((*out)->Validate());
+  ASSERT_OK_AND_ASSIGN(*out, builder->Finish());
+  ASSERT_OK((*out)->ValidateFull());
 }
 
 void CheckInferred(const std::shared_ptr<TaskGroup>& tg, const ChunkData& csv_data,
@@ -60,7 +60,8 @@ void CheckInferred(const std::shared_ptr<TaskGroup>& tg, const ChunkData& csv_da
                    std::shared_ptr<ChunkedArray> expected) {
   std::shared_ptr<ColumnBuilder> builder;
   std::shared_ptr<ChunkedArray> actual;
-  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, options, tg, &builder));
+  ASSERT_OK_AND_ASSIGN(builder,
+                       ColumnBuilder::Make(default_memory_pool(), 0, options, tg));
   AssertBuilding(builder, csv_data, &actual);
   AssertChunkedEqual(*actual, *expected);
 }
@@ -77,7 +78,8 @@ void CheckFixedType(const std::shared_ptr<TaskGroup>& tg,
                     std::shared_ptr<ChunkedArray> expected) {
   std::shared_ptr<ColumnBuilder> builder;
   std::shared_ptr<ChunkedArray> actual;
-  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), type, 0, options, tg, &builder));
+  ASSERT_OK_AND_ASSIGN(builder,
+                       ColumnBuilder::Make(default_memory_pool(), type, 0, options, tg));
   AssertBuilding(builder, csv_data, &actual);
   AssertChunkedEqual(*actual, *expected);
 }
@@ -100,7 +102,7 @@ TEST(NullColumnBuilder, Empty) {
   auto tg = TaskGroup::MakeSerial();
 
   std::shared_ptr<ColumnBuilder> builder;
-  ASSERT_OK(ColumnBuilder::MakeNull(default_memory_pool(), type, tg, &builder));
+  ASSERT_OK_AND_ASSIGN(builder, ColumnBuilder::MakeNull(default_memory_pool(), type, tg));
 
   std::shared_ptr<ChunkedArray> actual;
   AssertBuilding(builder, {}, &actual);
@@ -115,7 +117,7 @@ TEST(NullColumnBuilder, InsertNull) {
   auto tg = TaskGroup::MakeSerial();
 
   std::shared_ptr<ColumnBuilder> builder;
-  ASSERT_OK(ColumnBuilder::MakeNull(default_memory_pool(), type, tg, &builder));
+  ASSERT_OK_AND_ASSIGN(builder, ColumnBuilder::MakeNull(default_memory_pool(), type, tg));
 
   std::shared_ptr<BlockParser> parser;
   std::shared_ptr<ChunkedArray> actual, expected;
@@ -125,8 +127,8 @@ TEST(NullColumnBuilder, InsertNull) {
   MakeColumnParser({"123"}, &parser);
   builder->Insert(0, parser);
   ASSERT_OK(builder->task_group()->Finish());
-  ASSERT_OK(builder->Finish(&actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK_AND_ASSIGN(actual, builder->Finish());
+  ASSERT_OK(actual->ValidateFull());
 
   auto chunks =
       ArrayVector{std::make_shared<NullArray>(1), std::make_shared<NullArray>(2)};
@@ -140,7 +142,7 @@ TEST(NullColumnBuilder, InsertTyped) {
   auto tg = TaskGroup::MakeSerial();
 
   std::shared_ptr<ColumnBuilder> builder;
-  ASSERT_OK(ColumnBuilder::MakeNull(default_memory_pool(), type, tg, &builder));
+  ASSERT_OK_AND_ASSIGN(builder, ColumnBuilder::MakeNull(default_memory_pool(), type, tg));
 
   std::shared_ptr<BlockParser> parser;
   std::shared_ptr<ChunkedArray> actual, expected;
@@ -150,8 +152,8 @@ TEST(NullColumnBuilder, InsertTyped) {
   MakeColumnParser({"jkl"}, &parser);
   builder->Insert(0, parser);
   ASSERT_OK(builder->task_group()->Finish());
-  ASSERT_OK(builder->Finish(&actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK_AND_ASSIGN(actual, builder->Finish());
+  ASSERT_OK(actual->ValidateFull());
 
   auto chunks = ArrayVector{ArrayFromJSON(type, "[null]"),
                             ArrayFromJSON(type, "[null, null, null]")};
@@ -164,7 +166,7 @@ TEST(NullColumnBuilder, EmptyChunks) {
   auto tg = TaskGroup::MakeSerial();
 
   std::shared_ptr<ColumnBuilder> builder;
-  ASSERT_OK(ColumnBuilder::MakeNull(default_memory_pool(), type, tg, &builder));
+  ASSERT_OK_AND_ASSIGN(builder, ColumnBuilder::MakeNull(default_memory_pool(), type, tg));
 
   std::shared_ptr<BlockParser> parser;
   std::shared_ptr<ChunkedArray> actual, expected;
@@ -176,8 +178,8 @@ TEST(NullColumnBuilder, EmptyChunks) {
   MakeColumnParser({}, &parser);
   builder->Insert(2, parser);
   ASSERT_OK(builder->task_group()->Finish());
-  ASSERT_OK(builder->Finish(&actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK_AND_ASSIGN(actual, builder->Finish());
+  ASSERT_OK(actual->ValidateFull());
 
   auto chunks =
       ArrayVector{ArrayFromJSON(type, "[]"), ArrayFromJSON(type, "[null, null]"),
@@ -193,8 +195,8 @@ TEST(ColumnBuilder, Empty) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ColumnBuilder> builder;
-  ASSERT_OK(
-      ColumnBuilder::Make(default_memory_pool(), int32(), 0, options, tg, &builder));
+  ASSERT_OK_AND_ASSIGN(
+      builder, ColumnBuilder::Make(default_memory_pool(), int32(), 0, options, tg));
 
   std::shared_ptr<ChunkedArray> actual;
   AssertBuilding(builder, {}, &actual);
@@ -216,8 +218,8 @@ TEST(ColumnBuilder, Insert) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ColumnBuilder> builder;
-  ASSERT_OK(
-      ColumnBuilder::Make(default_memory_pool(), int32(), 0, options, tg, &builder));
+  ASSERT_OK_AND_ASSIGN(
+      builder, ColumnBuilder::Make(default_memory_pool(), int32(), 0, options, tg));
 
   std::shared_ptr<BlockParser> parser;
   std::shared_ptr<ChunkedArray> actual, expected;
@@ -226,8 +228,8 @@ TEST(ColumnBuilder, Insert) {
   MakeColumnParser({"123"}, &parser);
   builder->Insert(0, parser);
   ASSERT_OK(builder->task_group()->Finish());
-  ASSERT_OK(builder->Finish(&actual));
-  ASSERT_OK(actual->Validate());
+  ASSERT_OK_AND_ASSIGN(actual, builder->Finish());
+  ASSERT_OK(actual->ValidateFull());
 
   ChunkedArrayFromVector<Int32Type>({{123}, {456}}, &expected);
   AssertChunkedEqual(*actual, *expected);
@@ -428,7 +430,8 @@ void CheckAutoDictEncoded(const std::shared_ptr<TaskGroup>& tg, const ChunkData&
                           std::vector<std::shared_ptr<Array>> expected_dictionaries) {
   std::shared_ptr<ColumnBuilder> builder;
   std::shared_ptr<ChunkedArray> actual;
-  ASSERT_OK(ColumnBuilder::Make(default_memory_pool(), 0, options, tg, &builder));
+  ASSERT_OK_AND_ASSIGN(builder,
+                       ColumnBuilder::Make(default_memory_pool(), 0, options, tg));
   AssertBuilding(builder, csv_data, &actual);
   ASSERT_EQ(actual->num_chunks(), static_cast<int>(csv_data.size()));
   for (int i = 0; i < actual->num_chunks(); ++i) {

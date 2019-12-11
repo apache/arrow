@@ -237,6 +237,7 @@ TEST(BlockParser, Basics) {
   {
     auto csv1 = MakeCSVData({"ab,cd,\n", "ef,,gh\n"});
     auto csv2 = MakeCSVData({",ij,kl\n"});
+    std::vector<util::string_view> csvs = {csv1, csv2};
     BlockParser parser(ParseOptions::Defaults());
     AssertParseOk(parser, {{csv1}, {csv2}});
     AssertColumnsEq(parser, {{"ab", "ef", ""}, {"cd", "", "ij"}, {"", "gh", "kl"}});

@@ -37,7 +37,9 @@ class FunctionContext;
 ARROW_EXPORT
 Status Invert(FunctionContext* context, const Datum& value, Datum* out);
 
-/// \brief Element-wise AND of two boolean datums
+/// \brief Element-wise AND of two boolean datums which always propagates nulls
+/// (null and false is null).
+///
 /// \param[in] context the FunctionContext
 /// \param[in] left left operand (array)
 /// \param[in] right right operand (array)
@@ -48,7 +50,23 @@ Status Invert(FunctionContext* context, const Datum& value, Datum* out);
 ARROW_EXPORT
 Status And(FunctionContext* context, const Datum& left, const Datum& right, Datum* out);
 
-/// \brief Element-wise OR of two boolean datums
+/// \brief Element-wise AND of two boolean datums with a Kleene truth table
+/// (null and false is false).
+///
+/// \param[in] context the FunctionContext
+/// \param[in] left left operand (array)
+/// \param[in] right right operand (array)
+/// \param[out] out resulting datum
+///
+/// \since 1.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Status KleeneAnd(FunctionContext* context, const Datum& left, const Datum& right,
+                 Datum* out);
+
+/// \brief Element-wise OR of two boolean datums which always propagates nulls
+/// (null and true is null).
+///
 /// \param[in] context the FunctionContext
 /// \param[in] left left operand (array)
 /// \param[in] right right operand (array)
@@ -58,6 +76,20 @@ Status And(FunctionContext* context, const Datum& left, const Datum& right, Datu
 /// \note API not yet finalized
 ARROW_EXPORT
 Status Or(FunctionContext* context, const Datum& left, const Datum& right, Datum* out);
+
+/// \brief Element-wise OR of two boolean datums with a Kleene truth table
+/// (null or true is true).
+///
+/// \param[in] context the FunctionContext
+/// \param[in] left left operand (array)
+/// \param[in] right right operand (array)
+/// \param[out] out resulting datum
+///
+/// \since 1.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Status KleeneOr(FunctionContext* context, const Datum& left, const Datum& right,
+                Datum* out);
 
 /// \brief Element-wise XOR of two boolean datums
 /// \param[in] context the FunctionContext

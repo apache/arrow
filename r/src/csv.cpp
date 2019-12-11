@@ -78,19 +78,15 @@ std::shared_ptr<arrow::csv::TableReader> csv___TableReader__Make(
     const std::shared_ptr<arrow::csv::ReadOptions>& read_options,
     const std::shared_ptr<arrow::csv::ParseOptions>& parse_options,
     const std::shared_ptr<arrow::csv::ConvertOptions>& convert_options) {
-  std::shared_ptr<arrow::csv::TableReader> table_reader;
-  STOP_IF_NOT_OK(arrow::csv::TableReader::Make(arrow::default_memory_pool(), input,
-                                               *read_options, *parse_options,
-                                               *convert_options, &table_reader));
-  return table_reader;
+  return VALUE_OR_STOP(arrow::csv::TableReader::Make(arrow::default_memory_pool(), input,
+                                                     *read_options, *parse_options,
+                                                     *convert_options));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> csv___TableReader__Read(
     const std::shared_ptr<arrow::csv::TableReader>& table_reader) {
-  std::shared_ptr<arrow::Table> table;
-  STOP_IF_NOT_OK(table_reader->Read(&table));
-  return table;
+  return VALUE_OR_STOP(table_reader->Read());
 }
 
 #endif

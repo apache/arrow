@@ -504,14 +504,14 @@ namespace red_arrow {
     uint8_t compute_child_index(const arrow::UnionArray& array,
                                 arrow::UnionType* type,
                                 const char* tag) {
-      const auto type_id = array.raw_type_ids()[index_];
-      const auto& type_codes = type->type_codes();
-      for (uint8_t i = 0; i < type_codes.size(); ++i) {
-        if (type_codes[i] == type_id) {
-          return i;
+      const auto type_code = array.raw_type_codes()[index_];
+      if (type_code >= 0 && type_code <= arrow::UnionType::kMaxTypeCode) {
+        const auto child_id = type->child_ids()[type_code];
+        if (child_id >= 0) {
+          return child_id;
         }
       }
-      check_status(arrow::Status::Invalid("Unknown type ID: ", type_id),
+      check_status(arrow::Status::Invalid("Unknown type ID: ", type_code),
                    tag);
       return 0;
     }

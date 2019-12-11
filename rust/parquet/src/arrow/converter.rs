@@ -16,8 +16,11 @@
 // under the License.
 
 use crate::arrow::record_reader::RecordReader;
-use crate::data_type::DataType;
-use arrow::array::{ArrayRef, BooleanArray, BooleanBufferBuilder, BufferBuilderTrait};
+use crate::data_type::{ByteArray, DataType};
+use arrow::array::{
+    Array, ArrayRef, BooleanArray, BooleanBufferBuilder, BufferBuilderTrait,
+    StringBuilder,
+};
 use arrow::compute::cast;
 use std::convert::From;
 use std::sync::Arc;
@@ -26,7 +29,7 @@ use crate::errors::Result;
 use arrow::datatypes::{ArrowPrimitiveType, DataType as ArrowDataType};
 
 use arrow::array::ArrayDataBuilder;
-use arrow::array::PrimitiveArray;
+use arrow::array::{PrimitiveArray, StringArray};
 use std::marker::PhantomData;
 
 use crate::data_type::{
@@ -40,11 +43,11 @@ use arrow::datatypes::{
 
 /// A converter is used to consume record reader's content and convert it to arrow
 /// primitive array.
-pub trait Converter<T: DataType> {
+pub trait Converter<S, T> {
     /// This method converts record reader's buffered content into arrow array.
     /// It will consume record reader's data, but will not reset record reader's
     /// state.
-    fn convert(record_reader: &mut RecordReader<T>) -> Result<ArrayRef>;
+    fn convert(source: S) -> Result<T>;
 }
 
 /// Cast converter first converts record reader's buffer to arrow's
@@ -55,7 +58,8 @@ pub struct CastConverter<ParquetType, ArrowSourceType, ArrowTargetType> {
     _arrow_target_marker: PhantomData<ArrowTargetType>,
 }
 
-impl<ParquetType, ArrowSourceType, ArrowTargetType> Converter<ParquetType>
+impl<ParquetType, ArrowSourceType, ArrowTargetType>
+    Converter<&mut RecordReader<ParquetType>, ArrayRef>
     for CastConverter<ParquetType, ArrowSourceType, ArrowTargetType>
 where
     ParquetType: DataType,
@@ -80,10 +84,10 @@ where
     }
 }
 
-pub struct BooleanConverter {}
+pub struct BooleanArrayConverter {}
 
-impl Converter<BoolType> for BooleanConverter {
-    fn convert(record_reader: &mut RecordReader<BoolType>) -> Result<ArrayRef> {
+impl Converter<&mut RecordReader<BoolType>, BooleanArray> for BooleanArrayConverter {
+    fn convert(record_reader: &mut RecordReader<BoolType>) -> Result<BooleanArray> {
         let record_data = record_reader.consume_record_data()?;
 
         let mut boolean_buffer = BooleanBufferBuilder::new(record_data.len());
@@ -100,11 +104,31 @@ impl Converter<BoolType> for BooleanConverter {
             array_data = array_data.null_bit_buffer(b);
         }
 
-        Ok(Arc::new(BooleanArray::from(array_data.build())))
+        Ok(BooleanArray::from(array_data.build()))
     }
 }
 
-//pub type BooleanConverter = CastConverter<BoolType, BooleanType, BooleanType>;
+pub struct Utf8ArrayConverter {}
+
+impl Converter<Vec<Option<ByteArray>>, StringArray> for Utf8ArrayConverter {
+    fn convert(source: Vec<Option<ByteArray>>) -> Result<StringArray> {
+        let mut builder = StringBuilder::new(source.len());
+        for v in source {
+            match v {
+                Some(array) => builder.append_value(array.as_utf8()?),
+                None => builder.append_null(),
+            }?
+        }
+
+        Ok(builder.finish())
+    }
+}
+
+pub type BoolConverter<'a> = ArrayRefConverter<
+    &'a mut RecordReader<BoolType>,
+    BooleanArray,
+    BooleanArrayConverter,
+>;
 pub type Int8Converter = CastConverter<ParquetInt32Type, Int32Type, Int8Type>;
 pub type UInt8Converter = CastConverter<ParquetInt32Type, Int32Type, UInt8Type>;
 pub type Int16Converter = CastConverter<ParquetInt32Type, Int32Type, Int16Type>;
@@ -115,6 +139,38 @@ pub type Int64Converter = CastConverter<ParquetInt64Type, Int64Type, Int64Type>;
 pub type UInt64Converter = CastConverter<ParquetInt64Type, UInt64Type, UInt64Type>;
 pub type Float32Converter = CastConverter<ParquetFloatType, Float32Type, Float32Type>;
 pub type Float64Converter = CastConverter<ParquetDoubleType, Float64Type, Float64Type>;
+pub type Utf8Converter =
+    ArrayRefConverter<Vec<Option<ByteArray>>, StringArray, Utf8ArrayConverter>;
+
+pub struct FromConverter<S, T> {
+    _source: PhantomData<S>,
+    _dest: PhantomData<T>,
+}
+
+impl<S, T> Converter<S, T> for FromConverter<S, T>
+where
+    T: From<S>,
+{
+    fn convert(source: S) -> Result<T> {
+        Ok(T::from(source))
+    }
+}
+
+pub struct ArrayRefConverter<S, A, C> {
+    _source: PhantomData<S>,
+    _array: PhantomData<A>,
+    _converter: PhantomData<C>,
+}
+
+impl<S, A, C> Converter<S, ArrayRef> for ArrayRefConverter<S, A, C>
+where
+    A: Array + 'static,
+    C: Converter<S, A> + 'static,
+{
+    fn convert(source: S) -> Result<ArrayRef> {
+        C::convert(source).map(|array| Arc::new(array) as ArrayRef)
+    }
+}
 
 #[cfg(test)]
 mod tests {

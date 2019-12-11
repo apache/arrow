@@ -39,6 +39,14 @@ class RandomAccessFile;
 
 namespace py {
 
+struct ARROW_PYTHON_EXPORT SparseTensorCounts {
+  int coo;
+  int csr;
+
+  int num_total_tensors() const { return coo + csr; }
+  int num_total_buffers() const { return coo * 3 + csr * 4; }
+};
+
 /// \brief Read serialized Python sequence from file interface using Arrow IPC
 /// \param[in] src a RandomAccessFile
 /// \param[out] out the reconstructed data
@@ -50,15 +58,18 @@ Status ReadSerializedObject(io::RandomAccessFile* src, SerializedPyObject* out);
 /// SerializedPyObject::GetComponents.
 ///
 /// \param[in] num_tensors number of tensors in the object
+/// \param[in] num_sparse_tensors number of sparse tensors in the object
 /// \param[in] num_ndarrays number of numpy Ndarrays in the object
 /// \param[in] num_buffers number of buffers in the object
 /// \param[in] data a list containing pyarrow.Buffer instances. Must be 1 +
-/// num_tensors * 2 + num_buffers in length
+/// num_tensors * 2 + num_coo_tensors * 3 + num_csr_tensors * 4 + num_buffers in length
 /// \param[out] out the reconstructed object
 /// \return Status
 ARROW_PYTHON_EXPORT
-Status GetSerializedFromComponents(int num_tensors, int num_ndarrays, int num_buffers,
-                                   PyObject* data, SerializedPyObject* out);
+Status GetSerializedFromComponents(int num_tensors,
+                                   const SparseTensorCounts& num_sparse_tensors,
+                                   int num_ndarrays, int num_buffers, PyObject* data,
+                                   SerializedPyObject* out);
 
 /// \brief Reconstruct Python object from Arrow-serialized representation
 /// \param[in] context Serialization context which contains custom serialization

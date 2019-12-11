@@ -304,7 +304,7 @@ TEST(ThreadedTaskGroup, Errors) {
   // Limit parallelism to ensure some tasks don't get started
   // after the first failing ones
   std::shared_ptr<ThreadPool> thread_pool;
-  ASSERT_OK(ThreadPool::Make(4, &thread_pool));
+  ASSERT_OK_AND_ASSIGN(thread_pool, ThreadPool::Make(4));
 
   TestTaskGroupErrors(TaskGroup::MakeThreaded(thread_pool.get()));
 }
@@ -316,28 +316,28 @@ TEST(ThreadedTaskGroup, TasksSpawnTasks) {
 
 TEST(ThreadedTaskGroup, SubGroupsSuccess) {
   std::shared_ptr<ThreadPool> thread_pool;
-  ASSERT_OK(ThreadPool::Make(4, &thread_pool));
+  ASSERT_OK_AND_ASSIGN(thread_pool, ThreadPool::Make(4));
 
   TestTaskSubGroupsSuccess(TaskGroup::MakeThreaded(thread_pool.get()));
 }
 
 TEST(ThreadedTaskGroup, SubGroupsErrors) {
   std::shared_ptr<ThreadPool> thread_pool;
-  ASSERT_OK(ThreadPool::Make(4, &thread_pool));
+  ASSERT_OK_AND_ASSIGN(thread_pool, ThreadPool::Make(4));
 
   TestTaskSubGroupsErrors(TaskGroup::MakeThreaded(thread_pool.get()));
 }
 
 TEST(ThreadedTaskGroup, StressTaskGroupLifetime) {
   std::shared_ptr<ThreadPool> thread_pool;
-  ASSERT_OK(ThreadPool::Make(16, &thread_pool));
+  ASSERT_OK_AND_ASSIGN(thread_pool, ThreadPool::Make(16));
 
   StressTaskGroupLifetime([&] { return TaskGroup::MakeThreaded(thread_pool.get()); });
 }
 
 TEST(ThreadedTaskGroup, StressFailingTaskGroupLifetime) {
   std::shared_ptr<ThreadPool> thread_pool;
-  ASSERT_OK(ThreadPool::Make(16, &thread_pool));
+  ASSERT_OK_AND_ASSIGN(thread_pool, ThreadPool::Make(16));
 
   StressFailingTaskGroupLifetime(
       [&] { return TaskGroup::MakeThreaded(thread_pool.get()); });

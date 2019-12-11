@@ -28,48 +28,81 @@ import org.apache.arrow.vector.TimeMilliVector;
  * Consumer which consume time type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.TimeMilliVector}.
  */
-public class TimeConsumer implements JdbcConsumer<TimeMilliVector> {
-
-  private TimeMilliVector vector;
-  private final int columnIndexInResultSet;
-  private final Calendar calendar;
-
-  private int currentIndex;
+public abstract class TimeConsumer {
 
   /**
-   * Instantiate a TimeConsumer.
+   * Creates a consumer for {@link TimeMilliVector}.
    */
-  public TimeConsumer(TimeMilliVector vector, int index) {
-    this(vector, index, null);
-  }
-
-  /**
-   * Instantiate a TimeConsumer.
-   */
-  public TimeConsumer(TimeMilliVector vector, int index, Calendar calendar) {
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
-    this.calendar = calendar;
-  }
-
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    Time time = calendar == null ? resultSet.getTime(columnIndexInResultSet) :
-        resultSet.getTime(columnIndexInResultSet, calendar);
-    if (!resultSet.wasNull()) {
-      vector.setSafe(currentIndex, (int) time.getTime());
+  public static JdbcConsumer<TimeMilliVector> createConsumer(
+          TimeMilliVector vector, int index, boolean nullable, Calendar calendar) {
+    if (nullable) {
+      return new NullableTimeConsumer(vector, index, calendar);
+    } else {
+      return new NonNullableTimeConsumer(vector, index, calendar);
     }
-    currentIndex++;
   }
 
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
+  /**
+   * Nullable consumer for {@link TimeMilliVector}.
+   */
+  static class NullableTimeConsumer extends BaseConsumer<TimeMilliVector> {
+
+    protected final Calendar calendar;
+
+    /**
+     * Instantiate a TimeConsumer.
+     */
+    public NullableTimeConsumer(TimeMilliVector vector, int index) {
+      this(vector, index, /* calendar */null);
+    }
+
+    /**
+     * Instantiate a TimeConsumer.
+     */
+    public NullableTimeConsumer(TimeMilliVector vector, int index, Calendar calendar) {
+      super(vector, index);
+      this.calendar = calendar;
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      Time time = calendar == null ? resultSet.getTime(columnIndexInResultSet) :
+          resultSet.getTime(columnIndexInResultSet, calendar);
+      if (!resultSet.wasNull()) {
+        vector.setSafe(currentIndex, (int) time.getTime());
+      }
+      currentIndex++;
+    }
   }
 
-  @Override
-  public void resetValueVector(TimeMilliVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
+  /**
+   * Non-nullable consumer for {@link TimeMilliVector}.
+   */
+  static class NonNullableTimeConsumer extends BaseConsumer<TimeMilliVector> {
+
+    protected final Calendar calendar;
+
+    /**
+     * Instantiate a TimeConsumer.
+     */
+    public NonNullableTimeConsumer(TimeMilliVector vector, int index) {
+      this(vector, index, /* calendar */null);
+    }
+
+    /**
+     * Instantiate a TimeConsumer.
+     */
+    public NonNullableTimeConsumer(TimeMilliVector vector, int index, Calendar calendar) {
+      super(vector, index);
+      this.calendar = calendar;
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      Time time = calendar == null ? resultSet.getTime(columnIndexInResultSet) :
+          resultSet.getTime(columnIndexInResultSet, calendar);
+      vector.setSafe(currentIndex, (int) time.getTime());
+      currentIndex++;
+    }
   }
 }

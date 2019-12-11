@@ -149,6 +149,7 @@ update_versions() {
   sed -i.bak -E \
     -e "s/^version = \".+\"/version = \"${version}\"/g" \
     -e "s/^(arrow = .* version = )\".+\"( .*)/\\1\"${version}\"\\2/g" \
+    -e "s/^(arrow-flight = .* version = )\".+\"( .*)/\\1\"${version}\"\\2/g" \
     -e "s/^(parquet = .* version = )\".+\"( .*)/\\1\"${version}\"\\2/g" \
     */Cargo.toml
   rm -f */Cargo.toml.bak

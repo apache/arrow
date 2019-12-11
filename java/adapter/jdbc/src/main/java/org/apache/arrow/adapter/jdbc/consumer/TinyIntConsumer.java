@@ -26,38 +26,58 @@ import org.apache.arrow.vector.TinyIntVector;
  * Consumer which consume tinyInt type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.TinyIntVector}.
  */
-public class TinyIntConsumer implements JdbcConsumer<TinyIntVector> {
-
-  private TinyIntVector vector;
-  private final int columnIndexInResultSet;
-
-  private int currentIndex;
+public abstract class TinyIntConsumer {
 
   /**
-   * Instantiate a TinyIntConsumer.
+   * Creates a consumer for {@link TinyIntVector}.
    */
-  public TinyIntConsumer(TinyIntVector vector, int index) {
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    byte value = resultSet.getByte(columnIndexInResultSet);
-    if (!resultSet.wasNull()) {
-      vector.setSafe(currentIndex, value);
+  public static JdbcConsumer<TinyIntVector> createConsumer(TinyIntVector vector, int index, boolean nullable) {
+    if (nullable) {
+      return new NullableTinyIntConsumer(vector, index);
+    } else {
+      return new NonNullableTinyIntConsumer(vector, index);
     }
-    currentIndex++;
   }
 
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
+  /**
+   * Nullable consumer for tiny int.
+   */
+  static class NullableTinyIntConsumer extends BaseConsumer<TinyIntVector> {
+
+    /**
+     * Instantiate a TinyIntConsumer.
+     */
+    public NullableTinyIntConsumer(TinyIntVector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      byte value = resultSet.getByte(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        vector.setSafe(currentIndex, value);
+      }
+      currentIndex++;
+    }
   }
 
-  @Override
-  public void resetValueVector(TinyIntVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
+  /**
+   * Non-nullable consumer for tiny int.
+   */
+  static class NonNullableTinyIntConsumer extends BaseConsumer<TinyIntVector> {
+
+    /**
+     * Instantiate a TinyIntConsumer.
+     */
+    public NonNullableTinyIntConsumer(TinyIntVector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      byte value = resultSet.getByte(columnIndexInResultSet);
+      vector.setSafe(currentIndex, value);
+      currentIndex++;
+    }
   }
 }

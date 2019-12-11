@@ -114,4 +114,10 @@ public abstract class VectorValueComparator<V extends ValueVector> {
    *     values are equal.
    */
   public abstract int compareNotNull(int index1, int index2);
+
+  /**
+   * Creates a comparator of the same type.
+   * @return the newly created comparator.
+   */
+  public abstract VectorValueComparator<V> createNew();
 }

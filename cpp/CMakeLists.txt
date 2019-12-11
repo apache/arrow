@@ -266,16 +266,7 @@ endif(UNIX)
 # Set up various options
 #
 
-if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
-  # Currently the compression tests require at least these libraries; bz2 and
-  # zstd are optional. See ARROW-3984
-  set(ARROW_WITH_BROTLI ON)
-  set(ARROW_WITH_LZ4 ON)
-  set(ARROW_WITH_SNAPPY ON)
-  set(ARROW_WITH_ZLIB ON)
-endif()
-
-if(ARROW_BUILD_TESTS OR ARROW_BUILD_INTEGRATION)
+if(ARROW_BUILD_BENCHMARKS OR ARROW_BUILD_TESTS OR ARROW_BUILD_INTEGRATION)
   set(ARROW_JSON ON)
 endif()
 
@@ -285,6 +276,19 @@ endif()
 
 if(ARROW_DATASET)
   set(ARROW_FILESYSTEM ON)
+endif()
+
+if(ARROW_PARQUET)
+  set(ARROW_COMPUTE ON)
+endif()
+
+if(ARROW_PYTHON)
+  set(ARROW_COMPUTE ON)
+  set(ARROW_CSV ON)
+  set(ARROW_DATASET ON)
+  set(ARROW_FILESYSTEM ON)
+  set(ARROW_HDFS ON)
+  set(ARROW_JSON ON)
 endif()
 
 if(MSVC)
@@ -353,9 +357,6 @@ endif()
 #
 # Compiler flags
 #
-
-# Determine compiler version
-include(CompilerInfo)
 
 if(ARROW_NO_DEPRECATED_API)
   add_definitions(-DARROW_NO_DEPRECATED_API)
@@ -600,14 +601,9 @@ set(ARROW_SHARED_INSTALL_INTERFACE_LIBS)
 set(ARROW_STATIC_INSTALL_INTERFACE_LIBS)
 
 # Libraries to link statically with libarrow.so
-set(ARROW_LINK_LIBS ${double-conversion_LIBRARIES})
-set(ARROW_STATIC_LINK_LIBS ${double-conversion_LIBRARIES})
-set(ARROW_STATIC_INSTALL_INTERFACE_LIBS ${double-conversion_LIBRARIES})
-
-if(ARROW_WITH_URIPARSER)
-  list(APPEND ARROW_STATIC_LINK_LIBS uriparser::uriparser)
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS uriparser::uriparser)
-endif()
+set(ARROW_LINK_LIBS)
+set(ARROW_STATIC_LINK_LIBS)
+set(ARROW_STATIC_INSTALL_INTERFACE_LIBS)
 
 if(ARROW_USE_OPENSSL)
   set(ARROW_OPENSSL_LIBS OpenSSL::Crypto OpenSSL::SSL)
@@ -720,7 +716,6 @@ set(ARROW_TEST_SHARED_LINK_LIBS
     arrow_testing_shared
     arrow_shared
     ${ARROW_LINK_LIBS}
-    ${double-conversion_LIBRARIES}
     ${BOOST_FILESYSTEM_LIBRARY}
     ${BOOST_SYSTEM_LIBRARY}
     ${ARROW_TEST_LINK_TOOLCHAIN})

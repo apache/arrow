@@ -36,8 +36,7 @@ struct ARROW_EXPORT LocalFileSystemOptions {
   static LocalFileSystemOptions Defaults();
 };
 
-/// \brief EXPERIMENTAL: a FileSystem implementation accessing files
-/// on the local machine.
+/// \brief A FileSystem implementation accessing files on the local machine.
 ///
 /// This class handles only `/`-separated paths.  If desired, conversion
 /// from Windows backslash-separated paths should be done by the caller.
@@ -52,8 +51,8 @@ class ARROW_EXPORT LocalFileSystem : public FileSystem {
   /// \cond FALSE
   using FileSystem::GetTargetStats;
   /// \endcond
-  Status GetTargetStats(const std::string& path, FileStats* out) override;
-  Status GetTargetStats(const Selector& select, std::vector<FileStats>* out) override;
+  Result<FileStats> GetTargetStats(const std::string& path) override;
+  Result<std::vector<FileStats>> GetTargetStats(const Selector& select) override;
 
   Status CreateDir(const std::string& path, bool recursive = true) override;
 
@@ -66,17 +65,14 @@ class ARROW_EXPORT LocalFileSystem : public FileSystem {
 
   Status CopyFile(const std::string& src, const std::string& dest) override;
 
-  Status OpenInputStream(const std::string& path,
-                         std::shared_ptr<io::InputStream>* out) override;
-
-  Status OpenInputFile(const std::string& path,
-                       std::shared_ptr<io::RandomAccessFile>* out) override;
-
-  Status OpenOutputStream(const std::string& path,
-                          std::shared_ptr<io::OutputStream>* out) override;
-
-  Status OpenAppendStream(const std::string& path,
-                          std::shared_ptr<io::OutputStream>* out) override;
+  Result<std::shared_ptr<io::InputStream>> OpenInputStream(
+      const std::string& path) override;
+  Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(
+      const std::string& path) override;
+  Result<std::shared_ptr<io::OutputStream>> OpenOutputStream(
+      const std::string& path) override;
+  Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(
+      const std::string& path) override;
 
  protected:
   LocalFileSystemOptions options_;

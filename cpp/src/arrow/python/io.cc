@@ -142,19 +142,18 @@ class PythonFile {
 #endif
   }
 
-  Status Tell(int64_t* position) {
+  Result<int64_t> Tell() {
     RETURN_NOT_OK(CheckClosed());
 
     PyObject* result = cpp_PyObject_CallMethod(file_.obj(), "tell", "()");
     PY_RETURN_IF_ERROR(StatusCode::IOError);
 
-    *position = PyLong_AsLongLong(result);
+    int64_t position = PyLong_AsLongLong(result);
     Py_DECREF(result);
 
     // PyLong_AsLongLong can raise OverflowError
     PY_RETURN_IF_ERROR(StatusCode::IOError);
-
-    return Status::OK();
+    return position;
   }
 
   std::mutex& lock() { return lock_; }
@@ -195,12 +194,12 @@ Status PyReadableFile::Seek(int64_t position) {
   return SafeCallIntoPython([=] { return file_->Seek(position, 0); });
 }
 
-Status PyReadableFile::Tell(int64_t* position) const {
-  return SafeCallIntoPython([=]() { return file_->Tell(position); });
+Result<int64_t> PyReadableFile::Tell() const {
+  return SafeCallIntoPython([=]() -> Result<int64_t> { return file_->Tell(); });
 }
 
-Status PyReadableFile::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
-  return SafeCallIntoPython([=]() {
+Result<int64_t> PyReadableFile::Read(int64_t nbytes, void* out) {
+  return SafeCallIntoPython([=]() -> Result<int64_t> {
     OwnedRef bytes;
     RETURN_NOT_OK(file_->Read(nbytes, bytes.ref()));
     PyObject* bytes_obj = bytes.obj();
@@ -212,54 +211,48 @@ Status PyReadableFile::Read(int64_t nbytes, int64_t* bytes_read, void* out) {
           Py_TYPE(bytes_obj)->tp_name, "' (did you open the file in binary mode?)");
     }
 
-    *bytes_read = PyBytes_GET_SIZE(bytes_obj);
-    std::memcpy(out, PyBytes_AS_STRING(bytes_obj), *bytes_read);
-    return Status::OK();
+    int64_t bytes_read = PyBytes_GET_SIZE(bytes_obj);
+    std::memcpy(out, PyBytes_AS_STRING(bytes_obj), bytes_read);
+    return bytes_read;
   });
 }
 
-Status PyReadableFile::Read(int64_t nbytes, std::shared_ptr<Buffer>* out) {
-  return SafeCallIntoPython([=]() {
+Result<std::shared_ptr<Buffer>> PyReadableFile::Read(int64_t nbytes) {
+  return SafeCallIntoPython([=]() -> Result<std::shared_ptr<Buffer>> {
     OwnedRef bytes_obj;
     RETURN_NOT_OK(file_->Read(nbytes, bytes_obj.ref()));
     DCHECK(bytes_obj.obj() != NULL);
 
-    return PyBuffer::FromPyObject(bytes_obj.obj(), out);
+    return PyBuffer::FromPyObject(bytes_obj.obj());
   });
 }
 
-Status PyReadableFile::ReadAt(int64_t position, int64_t nbytes, int64_t* bytes_read,
-                              void* out) {
+Result<int64_t> PyReadableFile::ReadAt(int64_t position, int64_t nbytes, void* out) {
   std::lock_guard<std::mutex> guard(file_->lock());
-  return SafeCallIntoPython([=]() {
-    RETURN_NOT_OK(Seek(position));
-    return Read(nbytes, bytes_read, out);
-  });
-}
-
-Status PyReadableFile::ReadAt(int64_t position, int64_t nbytes,
-                              std::shared_ptr<Buffer>* out) {
-  std::lock_guard<std::mutex> guard(file_->lock());
-  return SafeCallIntoPython([=]() {
+  return SafeCallIntoPython([=]() -> Result<int64_t> {
     RETURN_NOT_OK(Seek(position));
     return Read(nbytes, out);
   });
 }
 
-Status PyReadableFile::GetSize(int64_t* size) {
-  return SafeCallIntoPython([=]() {
-    int64_t current_position = -1;
+Result<std::shared_ptr<Buffer>> PyReadableFile::ReadAt(int64_t position, int64_t nbytes) {
+  std::lock_guard<std::mutex> guard(file_->lock());
+  return SafeCallIntoPython([=]() -> Result<std::shared_ptr<Buffer>> {
+    RETURN_NOT_OK(Seek(position));
+    return Read(nbytes);
+  });
+}
 
-    RETURN_NOT_OK(file_->Tell(&current_position));
+Result<int64_t> PyReadableFile::GetSize() {
+  return SafeCallIntoPython([=]() -> Result<int64_t> {
+    ARROW_ASSIGN_OR_RAISE(int64_t current_position, file_->Tell());
     RETURN_NOT_OK(file_->Seek(0, 2));
 
-    int64_t file_size = -1;
-    RETURN_NOT_OK(file_->Tell(&file_size));
+    ARROW_ASSIGN_OR_RAISE(int64_t file_size, file_->Tell());
     // Restore previous file position
     RETURN_NOT_OK(file_->Seek(current_position, 0));
 
-    *size = file_size;
-    return Status::OK();
+    return file_size;
   });
 }
 
@@ -292,10 +285,7 @@ bool PyOutputStream::closed() const {
   return res;
 }
 
-Status PyOutputStream::Tell(int64_t* position) const {
-  *position = position_;
-  return Status::OK();
-}
+Result<int64_t> PyOutputStream::Tell() const { return position_; }
 
 Status PyOutputStream::Write(const void* data, int64_t nbytes) {
   return SafeCallIntoPython([=]() {

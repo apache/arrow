@@ -32,7 +32,6 @@ RUN \
     bzip2-devel \
     clang \
     cmake \
-    double-conversion-devel \
     flex \
     gcc-c++ \
     gflags-devel \
@@ -59,6 +58,5 @@ RUN \
     rpmdevtools \
     snappy-devel \
     tar \
-    # thrift-devel \
     zlib-devel && \
   dnf clean ${quiet} all

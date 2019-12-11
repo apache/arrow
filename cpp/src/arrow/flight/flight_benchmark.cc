@@ -227,11 +227,11 @@ Status RunPerformanceTest(FlightClient* client, bool test_put) {
   //   RETURN_NOT_OK(ConsumeStream(endpoint));
   // }
 
-  std::shared_ptr<ThreadPool> pool;
-  RETURN_NOT_OK(ThreadPool::Make(FLAGS_num_threads, &pool));
+  ARROW_ASSIGN_OR_RAISE(auto pool, ThreadPool::Make(FLAGS_num_threads));
   std::vector<std::future<Status>> tasks;
   for (const auto& endpoint : plan->endpoints()) {
-    tasks.emplace_back(pool->Submit(ConsumeStream, endpoint));
+    ARROW_ASSIGN_OR_RAISE(auto task, pool->Submit(ConsumeStream, endpoint));
+    tasks.push_back(std::move(task));
   }
 
   // Wait for tasks to finish

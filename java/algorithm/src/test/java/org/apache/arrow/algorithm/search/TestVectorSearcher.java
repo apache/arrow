@@ -217,7 +217,7 @@ public class TestVectorSearcher {
     dataVector.setValueCount(innerCount);
 
     for (int i = 0; i < outerCount; i++) {
-      BitVectorHelper.setValidityBitToOne(listVector.getValidityBuffer(), i);
+      BitVectorHelper.setBit(listVector.getValidityBuffer(), i);
       listVector.getOffsetBuffer().setInt(i * OFFSET_WIDTH, i * listLength);
       listVector.getOffsetBuffer().setInt((i + 1) * OFFSET_WIDTH, (i + 1) * listLength);
     }
@@ -247,7 +247,7 @@ public class TestVectorSearcher {
     dataVector.setValueCount(innerCount);
 
     for (int i = 0; i < outerCount; i++) {
-      BitVectorHelper.setValidityBitToOne(listVector.getValidityBuffer(), i);
+      BitVectorHelper.setBit(listVector.getValidityBuffer(), i);
       listVector.getOffsetBuffer().setInt(i * OFFSET_WIDTH, i * listLength);
       listVector.getOffsetBuffer().setInt((i + 1) * OFFSET_WIDTH, (i + 1) * listLength);
     }

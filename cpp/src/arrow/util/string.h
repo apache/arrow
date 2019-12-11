@@ -18,6 +18,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 #include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
@@ -39,6 +40,11 @@ ARROW_EXPORT std::string Escape(util::string_view str);
 ARROW_EXPORT Status ParseHexValue(const char* data, uint8_t* out);
 
 namespace internal {
+
+/// \brief Join strings with a delimiter
+ARROW_EXPORT
+std::string JoinStrings(const std::vector<util::string_view>& strings,
+                        util::string_view delimiter);
 
 /// \brief Trim whitespace from left and right sides of string
 ARROW_EXPORT

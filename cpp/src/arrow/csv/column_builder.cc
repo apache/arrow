@@ -64,7 +64,7 @@ class NullColumnBuilder : public ColumnBuilder {
   Status Init();
 
   void Insert(int64_t block_index, const std::shared_ptr<BlockParser>& parser) override;
-  Status Finish(std::shared_ptr<ChunkedArray>* out) override;
+  Result<std::shared_ptr<ChunkedArray>> Finish() override;
 
   // While NullColumnBuilder is so cheap that it doesn't need parallelization
   // in itself, the CSV reader doesn't know this and can still call it from
@@ -106,7 +106,7 @@ void NullColumnBuilder::Insert(int64_t block_index,
   });
 }
 
-Status NullColumnBuilder::Finish(std::shared_ptr<ChunkedArray>* out) {
+Result<std::shared_ptr<ChunkedArray>> NullColumnBuilder::Finish() {
   // Unnecessary iff all tasks have finished
   std::lock_guard<std::mutex> lock(mutex_);
 
@@ -115,8 +115,7 @@ Status NullColumnBuilder::Finish(std::shared_ptr<ChunkedArray>* out) {
       return Status::Invalid("a chunk failed allocating for an unknown reason");
     }
   }
-  *out = std::make_shared<ChunkedArray>(chunks_, type_);
-  return Status::OK();
+  return std::make_shared<ChunkedArray>(chunks_, type_);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -136,7 +135,7 @@ class TypedColumnBuilder : public ColumnBuilder {
   Status Init();
 
   void Insert(int64_t block_index, const std::shared_ptr<BlockParser>& parser) override;
-  Status Finish(std::shared_ptr<ChunkedArray>* out) override;
+  Result<std::shared_ptr<ChunkedArray>> Finish() override;
 
  protected:
   Status WrapConversionError(const Status& st) {
@@ -182,18 +181,20 @@ void TypedColumnBuilder::Insert(int64_t block_index,
 
   // We're careful that all references in the closure outlive the Append() call
   task_group_->Append([=]() -> Status {
-    std::shared_ptr<Array> res;
-    RETURN_NOT_OK(WrapConversionError(converter_->Convert(*parser, col_index_, &res)));
+    auto maybe_array = converter_->Convert(*parser, col_index_);
+    if (!maybe_array.ok()) {
+      return WrapConversionError(maybe_array.status());
+    }
 
     std::lock_guard<std::mutex> lock(mutex_);
     // Should not insert an already converted chunk
     DCHECK_EQ(chunks_[chunk_index], nullptr);
-    chunks_[chunk_index] = std::move(res);
+    chunks_[chunk_index] = *std::move(maybe_array);
     return Status::OK();
   });
 }
 
-Status TypedColumnBuilder::Finish(std::shared_ptr<ChunkedArray>* out) {
+Result<std::shared_ptr<ChunkedArray>> TypedColumnBuilder::Finish() {
   // Unnecessary iff all tasks have finished
   std::lock_guard<std::mutex> lock(mutex_);
 
@@ -202,8 +203,7 @@ Status TypedColumnBuilder::Finish(std::shared_ptr<ChunkedArray>* out) {
       return Status::Invalid("a chunk failed converting for an unknown reason");
     }
   }
-  *out = std::make_shared<ChunkedArray>(chunks_, type_);
-  return Status::OK();
+  return std::make_shared<ChunkedArray>(chunks_, type_);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -222,7 +222,7 @@ class InferringColumnBuilder : public ColumnBuilder {
   Status Init();
 
   void Insert(int64_t block_index, const std::shared_ptr<BlockParser>& parser) override;
-  Status Finish(std::shared_ptr<ChunkedArray>* out) override;
+  Result<std::shared_ptr<ChunkedArray>> Finish() override;
 
  protected:
   Status LoosenType(const Status& conversion_error);
@@ -366,13 +366,12 @@ Status InferringColumnBuilder::TryConvertChunk(size_t chunk_index) {
   std::unique_lock<std::mutex> lock(mutex_);
   std::shared_ptr<Converter> converter = converter_;
   std::shared_ptr<BlockParser> parser = parsers_[chunk_index];
-  std::shared_ptr<Array> res;
   InferKind kind = infer_kind_;
 
   DCHECK_NE(parser, nullptr);
 
   lock.unlock();
-  Status conversion_status = converter->Convert(*parser, col_index_, &res);
+  auto maybe_array = converter->Convert(*parser, col_index_);
   lock.lock();
 
   if (kind != infer_kind_) {
@@ -382,9 +381,9 @@ Status InferringColumnBuilder::TryConvertChunk(size_t chunk_index) {
     return Status::OK();
   }
 
-  if (conversion_status.ok()) {
+  if (maybe_array.ok()) {
     // Conversion succeeded
-    chunks_[chunk_index] = std::move(res);
+    chunks_[chunk_index] = std::move(*maybe_array);
     if (!can_loosen_type_) {
       // We won't try to reconvert anymore
       parsers_[chunk_index].reset();
@@ -392,7 +391,7 @@ Status InferringColumnBuilder::TryConvertChunk(size_t chunk_index) {
     return Status::OK();
   } else if (can_loosen_type_) {
     // Conversion failed, try another type
-    RETURN_NOT_OK(LoosenType(conversion_status));
+    RETURN_NOT_OK(LoosenType(maybe_array.status()));
 
     // Reconvert past finished chunks
     // (unfinished chunks will notice by themselves if they need reconverting)
@@ -415,7 +414,7 @@ Status InferringColumnBuilder::TryConvertChunk(size_t chunk_index) {
     return Status::OK();
   } else {
     // Conversion failed but cannot loosen more
-    return conversion_status;
+    return maybe_array.status();
   }
 }
 
@@ -441,7 +440,7 @@ void InferringColumnBuilder::Insert(int64_t block_index,
   ScheduleConvertChunk(chunk_index);
 }
 
-Status InferringColumnBuilder::Finish(std::shared_ptr<ChunkedArray>* out) {
+Result<std::shared_ptr<ChunkedArray>> InferringColumnBuilder::Finish() {
   // Unnecessary iff all tasks have finished
   std::lock_guard<std::mutex> lock(mutex_);
 
@@ -454,46 +453,39 @@ Status InferringColumnBuilder::Finish(std::shared_ptr<ChunkedArray>* out) {
     DCHECK_EQ(chunk->type()->id(), infer_type_->id())
         << "Inference didn't equalize types!";
   }
-  *out = std::make_shared<ChunkedArray>(chunks_, infer_type_);
+  auto ptr = std::make_shared<ChunkedArray>(chunks_, infer_type_);
   chunks_.clear();
   parsers_.clear();
-
-  return Status::OK();
+  return ptr;
 }
 
 //////////////////////////////////////////////////////////////////////////
 // Factory functions
 
-Status ColumnBuilder::Make(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-                           int32_t col_index, const ConvertOptions& options,
-                           const std::shared_ptr<TaskGroup>& task_group,
-                           std::shared_ptr<ColumnBuilder>* out) {
-  auto ptr = new TypedColumnBuilder(type, col_index, options, pool, task_group);
-  auto res = std::shared_ptr<ColumnBuilder>(ptr);
+Result<std::shared_ptr<ColumnBuilder>> ColumnBuilder::Make(
+    MemoryPool* pool, const std::shared_ptr<DataType>& type, int32_t col_index,
+    const ConvertOptions& options, const std::shared_ptr<TaskGroup>& task_group) {
+  auto ptr =
+      std::make_shared<TypedColumnBuilder>(type, col_index, options, pool, task_group);
   RETURN_NOT_OK(ptr->Init());
-  *out = res;
-  return Status::OK();
+  return ptr;
 }
 
-Status ColumnBuilder::Make(MemoryPool* pool, int32_t col_index,
-                           const ConvertOptions& options,
-                           const std::shared_ptr<TaskGroup>& task_group,
-                           std::shared_ptr<ColumnBuilder>* out) {
-  // XXX
-  auto ptr = new InferringColumnBuilder(col_index, options, pool, task_group);
-  auto res = std::shared_ptr<ColumnBuilder>(ptr);
+Result<std::shared_ptr<ColumnBuilder>> ColumnBuilder::Make(
+    MemoryPool* pool, int32_t col_index, const ConvertOptions& options,
+    const std::shared_ptr<TaskGroup>& task_group) {
+  auto ptr =
+      std::make_shared<InferringColumnBuilder>(col_index, options, pool, task_group);
   RETURN_NOT_OK(ptr->Init());
-  *out = res;
-  return Status::OK();
+  return ptr;
 }
 
-Status ColumnBuilder::MakeNull(MemoryPool* pool, const std::shared_ptr<DataType>& type,
-                               const std::shared_ptr<internal::TaskGroup>& task_group,
-                               std::shared_ptr<ColumnBuilder>* out) {
-  auto res = std::make_shared<NullColumnBuilder>(type, pool, task_group);
-  RETURN_NOT_OK(res->Init());
-  *out = std::move(res);
-  return Status::OK();
+Result<std::shared_ptr<ColumnBuilder>> ColumnBuilder::MakeNull(
+    MemoryPool* pool, const std::shared_ptr<DataType>& type,
+    const std::shared_ptr<internal::TaskGroup>& task_group) {
+  auto ptr = std::make_shared<NullColumnBuilder>(type, pool, task_group);
+  RETURN_NOT_OK(ptr->Init());
+  return ptr;
 }
 
 }  // namespace csv

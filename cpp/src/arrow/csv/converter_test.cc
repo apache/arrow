@@ -61,7 +61,8 @@ void AssertConversion(const std::shared_ptr<DataType>& type,
   MakeCSVParser(csv_string, &parser);
   for (int32_t col_index = 0; col_index < static_cast<int32_t>(expected.size());
        ++col_index) {
-    ASSERT_OK(converter->Convert(*parser, col_index, &array));
+    ASSERT_OK_AND_ASSIGN(array, converter->Convert(*parser, col_index));
+    ASSERT_OK(array->ValidateFull());
     ArrayFromVector<DATA_TYPE, C_TYPE>(type, expected[col_index], &expected_array);
     AssertArraysEqual(*expected_array, *array);
   }
@@ -82,7 +83,8 @@ void AssertConversion(const std::shared_ptr<DataType>& type,
   MakeCSVParser(csv_string, &parser);
   for (int32_t col_index = 0; col_index < static_cast<int32_t>(expected.size());
        ++col_index) {
-    ASSERT_OK(converter->Convert(*parser, col_index, &array));
+    ASSERT_OK_AND_ASSIGN(array, converter->Convert(*parser, col_index));
+    ASSERT_OK(array->ValidateFull());
     ArrayFromVector<DATA_TYPE, C_TYPE>(type, is_valid[col_index], expected[col_index],
                                        &expected_array);
     AssertArraysEqual(*expected_array, *array);
@@ -105,9 +107,7 @@ Result<std::shared_ptr<Array>> DictConversion(
   MakeCSVParser({csv_string}, parse_options, &parser);
 
   const int32_t col_index = 0;
-  std::shared_ptr<Array> array;
-  RETURN_NOT_OK(converter->Convert(*parser, col_index, &array));
-  return array;
+  return converter->Convert(*parser, col_index);
 }
 
 void AssertDictConversion(const std::string& csv_string,
@@ -122,6 +122,7 @@ void AssertDictConversion(const std::string& csv_string,
 
   ASSERT_OK_AND_ASSIGN(
       array, DictConversion(expected_dict->type(), csv_string, max_cardinality, options));
+  ASSERT_OK(array->ValidateFull());
   expected_type = dictionary(expected_indices->type(), expected_dict->type());
   ASSERT_TRUE(array->type()->Equals(*expected_type));
   const auto& dict_array = internal::checked_cast<const DictionaryArray&>(*array);
@@ -143,16 +144,15 @@ void AssertConversionError(const std::shared_ptr<DataType>& type,
                            ConvertOptions options = ConvertOptions::Defaults()) {
   std::shared_ptr<BlockParser> parser;
   std::shared_ptr<Converter> converter;
-  std::shared_ptr<Array> array;
 
   ASSERT_OK_AND_ASSIGN(converter, Converter::Make(type, options));
 
   MakeCSVParser(csv_string, &parser);
   for (int32_t i = 0; i < parser->num_cols(); ++i) {
     if (invalid_columns.find(i) == invalid_columns.end()) {
-      ASSERT_OK(converter->Convert(*parser, i, &array));
+      ASSERT_OK(converter->Convert(*parser, i));
     } else {
-      ASSERT_RAISES(Invalid, converter->Convert(*parser, i, &array));
+      ASSERT_RAISES(Invalid, converter->Convert(*parser, i));
     }
   }
 }
@@ -241,10 +241,10 @@ TEST(NullConversion, Basics) {
   ASSERT_OK_AND_ASSIGN(converter, Converter::Make(type, ConvertOptions::Defaults()));
 
   MakeCSVParser({"NA,z\n", ",0\n"}, &parser);
-  ASSERT_OK(converter->Convert(*parser, 0, &array));
+  ASSERT_OK_AND_ASSIGN(array, converter->Convert(*parser, 0));
   ASSERT_EQ(array->type()->id(), Type::NA);
   ASSERT_EQ(array->length(), 2);
-  ASSERT_RAISES(Invalid, converter->Convert(*parser, 1, &array));
+  ASSERT_RAISES(Invalid, converter->Convert(*parser, 1));
 }
 
 TEST(IntegerConversion, Basics) {

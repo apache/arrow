@@ -22,7 +22,6 @@ brotli
 bzip2
 c-ares
 cmake
-double-conversion
 gflags
 glog
 gmock>=1.8.1
@@ -30,12 +29,12 @@ grpc-cpp>=1.21.4
 gtest=1.8.1
 libprotobuf
 lz4-c
+make
 ninja
 pkg-config
 python
 rapidjson
 snappy
 thrift-cpp>=0.11.0
-uriparser
 zlib
 zstd

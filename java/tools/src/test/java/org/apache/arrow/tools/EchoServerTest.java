@@ -45,6 +45,7 @@ import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.dictionary.DictionaryProvider.MapDictionaryProvider;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.arrow.vector.ipc.ArrowStreamWriter;
+import org.apache.arrow.vector.testing.ValueVectorDataPopulator;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
@@ -167,19 +168,10 @@ public class EchoServerTest {
                  "dict",
                  FieldType.nullable(VARCHAR.getType()),
                  allocator)) {
-      writeVector.allocateNewSafe();
-      writeVector.set(0, 0);
-      writeVector.set(1, 1);
-      writeVector.set(3, 2);
-      writeVector.set(4, 1);
-      writeVector.set(5, 2);
-      writeVector.setValueCount(6);
 
-      writeDictionaryVector.allocateNewSafe();
-      writeDictionaryVector.set(0, "foo".getBytes(StandardCharsets.UTF_8));
-      writeDictionaryVector.set(1, "bar".getBytes(StandardCharsets.UTF_8));
-      writeDictionaryVector.set(2, "baz".getBytes(StandardCharsets.UTF_8));
-      writeDictionaryVector.setValueCount(3);
+      ValueVectorDataPopulator.setVector(writeVector, 0, 1, null, 2, 1, 2);
+      ValueVectorDataPopulator.setVector(writeDictionaryVector, "foo".getBytes(StandardCharsets.UTF_8),
+          "bar".getBytes(StandardCharsets.UTF_8), "baz".getBytes(StandardCharsets.UTF_8));
 
       List<Field> fields = ImmutableList.of(writeVector.getField());
       List<FieldVector> vectors = ImmutableList.of((FieldVector) writeVector);

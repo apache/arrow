@@ -27,40 +27,60 @@ import org.apache.arrow.vector.VarCharVector;
  * Consumer which consume varchar type values from {@link ResultSet}.
  * Write the data to {@link org.apache.arrow.vector.VarCharVector}.
  */
-public class VarCharConsumer implements JdbcConsumer<VarCharVector> {
-
-  private final int columnIndexInResultSet;
-
-  private VarCharVector vector;
-  private int currentIndex;
+public abstract class VarCharConsumer {
 
   /**
-   * Instantiate a VarCharConsumer.
+   * Creates a consumer for {@link VarCharVector}.
    */
-  public VarCharConsumer(VarCharVector vector, int index) {
-    this.vector = vector;
-    this.columnIndexInResultSet = index;
-  }
-
-  @Override
-  public void consume(ResultSet resultSet) throws SQLException {
-    String value = resultSet.getString(columnIndexInResultSet);
-    if (!resultSet.wasNull()) {
-      byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
-
-      vector.setSafe(currentIndex, bytes);
+  public static JdbcConsumer<VarCharVector> createConsumer(VarCharVector vector, int index, boolean nullable) {
+    if (nullable) {
+      return new NullableVarCharConsumer(vector, index);
+    } else {
+      return new NonNullableVarCharConsumer(vector, index);
     }
-    currentIndex++;
   }
 
-  @Override
-  public void close() throws Exception {
-    this.vector.close();
+  /**
+   * Nullable consumer for var char.
+   */
+  static class NullableVarCharConsumer extends BaseConsumer<VarCharVector> {
+
+    /**
+     * Instantiate a VarCharConsumer.
+     */
+    public NullableVarCharConsumer(VarCharVector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      String value = resultSet.getString(columnIndexInResultSet);
+      if (!resultSet.wasNull()) {
+        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+        vector.setSafe(currentIndex, bytes);
+      }
+      currentIndex++;
+    }
   }
 
-  @Override
-  public void resetValueVector(VarCharVector vector) {
-    this.vector = vector;
-    this.currentIndex = 0;
+  /**
+   * Non-nullable consumer for var char.
+   */
+  static class NonNullableVarCharConsumer extends BaseConsumer<VarCharVector> {
+
+    /**
+     * Instantiate a VarCharConsumer.
+     */
+    public NonNullableVarCharConsumer(VarCharVector vector, int index) {
+      super(vector, index);
+    }
+
+    @Override
+    public void consume(ResultSet resultSet) throws SQLException {
+      String value = resultSet.getString(columnIndexInResultSet);
+      byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+      vector.setSafe(currentIndex, bytes);
+      currentIndex++;
+    }
   }
 }

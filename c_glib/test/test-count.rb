@@ -21,7 +21,6 @@ class TestCount < Test::Unit::TestCase
 
   sub_test_case("mode") do
     def test_default
-      require_gi(1, 42, 0)
       assert_equal(2, build_int32_array([1, nil, 3]).count)
     end
 

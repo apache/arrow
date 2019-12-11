@@ -41,8 +41,7 @@ using internal::SafeLeftShift;
 using internal::SafeSignedAdd;
 
 Decimal128::Decimal128(const std::string& str) : Decimal128() {
-  Status status = Decimal128::FromString(str, this);
-  ARROW_CHECK_OK(status);
+  *this = Decimal128::FromString(str).ValueOrDie();
 }
 
 static const Decimal128 kTenTo36(static_cast<int64_t>(0xC097CE7BC90715),
@@ -56,7 +55,7 @@ std::string Decimal128::ToIntegerString() const {
 
   // get anything above 10 ** 36 and print it
   Decimal128 top;
-  ARROW_CHECK_OK(Divide(kTenTo36, &top, &remainder));
+  std::tie(top, remainder) = Divide(kTenTo36).ValueOrDie();
 
   if (top != 0) {
     buf << static_cast<int64_t>(top);
@@ -66,7 +65,7 @@ std::string Decimal128::ToIntegerString() const {
 
   // now get anything above 10 ** 18 and print it
   Decimal128 tail;
-  auto s = remainder.Divide(kTenTo18, &top, &tail);
+  std::tie(top, tail) = remainder.Divide(kTenTo18).ValueOrDie();
 
   if (need_fill || top != 0) {
     if (need_fill) {
@@ -319,6 +318,7 @@ Status Decimal128::FromString(const util::string_view& s, Decimal128* out,
   if (out != nullptr) {
     *out = 0;
     StringToInteger(dec.whole_digits, dec.fractional_digits, out);
+
     if (dec.sign == '-') {
       out->Negate();
     }
@@ -347,6 +347,32 @@ Status Decimal128::FromString(const char* s, Decimal128* out, int32_t* precision
   return FromString(util::string_view(s), out, precision, scale);
 }
 
+Result<Decimal128> Decimal128::FromString(const util::string_view& s) {
+  Decimal128 out;
+  RETURN_NOT_OK(FromString(s, &out, nullptr, nullptr));
+  return std::move(out);
+}
+
+Result<Decimal128> Decimal128::FromString(const std::string& s) {
+  return FromString(util::string_view(s));
+}
+
+Result<Decimal128> Decimal128::FromString(const char* s) {
+  return FromString(util::string_view(s));
+}
+
+Status Decimal128::FromString(const util::string_view& s, Decimal128* out) {
+  return FromString(s, out, nullptr, nullptr);
+}
+
+Status Decimal128::FromString(const std::string& s, Decimal128* out) {
+  return FromString(s, out, nullptr, nullptr);
+}
+
+Status Decimal128::FromString(const char* s, Decimal128* out) {
+  return FromString(s, out, nullptr, nullptr);
+}
+
 // Helper function used by Decimal128::FromBigEndian
 static inline uint64_t UInt64FromBigEndian(const uint8_t* bytes, int32_t length) {
   // We don't bounds check the length here because this is called by
@@ -361,7 +387,7 @@ static inline uint64_t UInt64FromBigEndian(const uint8_t* bytes, int32_t length)
   return ::arrow::BitUtil::FromBigEndian(result);
 }
 
-Status Decimal128::FromBigEndian(const uint8_t* bytes, int32_t length, Decimal128* out) {
+Result<Decimal128> Decimal128::FromBigEndian(const uint8_t* bytes, int32_t length) {
   static constexpr int32_t kMinDecimalBytes = 1;
   static constexpr int32_t kMaxDecimalBytes = 16;
 
@@ -411,8 +437,7 @@ Status Decimal128::FromBigEndian(const uint8_t* bytes, int32_t length, Decimal12
     low |= low_bits;
   }
 
-  *out = Decimal128(high, static_cast<uint64_t>(low));
-  return Status::OK();
+  return Decimal128(high, static_cast<uint64_t>(low));
 }
 
 Status Decimal128::ToArrowStatus(DecimalStatus dstatus) const {

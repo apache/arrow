@@ -45,7 +45,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/stl.h"
+#include "arrow/util/make_unique.h"
 #include "arrow/visitor.h"
 
 namespace arrow {
@@ -73,7 +73,7 @@ static inline Status GetTruncatedBitmap(int64_t offset, int64_t length,
   int64_t min_length = PaddedLength(BitUtil::BytesForBits(length));
   if (offset != 0 || min_length < input->size()) {
     // With a sliced array / non-zero offset, we must copy the bitmap
-    RETURN_NOT_OK(CopyBitmap(pool, input->data(), offset, length, buffer));
+    ARROW_ASSIGN_OR_RAISE(*buffer, CopyBitmap(pool, input->data(), offset, length));
   } else {
     *buffer = input;
   }
@@ -390,10 +390,10 @@ class RecordBatchSerializer : public ArrayVisitor {
     const int64_t offset = array.offset();
     const int64_t length = array.length();
 
-    std::shared_ptr<Buffer> type_ids;
-    RETURN_NOT_OK(GetTruncatedBuffer<UnionArray::type_id_t>(
-        offset, length, array.type_ids(), pool_, &type_ids));
-    out_->body_buffers.emplace_back(type_ids);
+    std::shared_ptr<Buffer> type_codes;
+    RETURN_NOT_OK(GetTruncatedBuffer<UnionArray::type_code_t>(
+        offset, length, array.type_codes(), pool_, &type_codes));
+    out_->body_buffers.emplace_back(type_codes);
 
     --max_recursion_depth_;
     if (array.mode() == UnionMode::DENSE) {
@@ -404,8 +404,8 @@ class RecordBatchSerializer : public ArrayVisitor {
                                                 pool_, &value_offsets));
 
       // The Union type codes are not necessary 0-indexed
-      uint8_t max_code = 0;
-      for (uint8_t code : type.type_codes()) {
+      int8_t max_code = 0;
+      for (int8_t code : type.type_codes()) {
         if (code > max_code) {
           max_code = code;
         }
@@ -422,7 +422,7 @@ class RecordBatchSerializer : public ArrayVisitor {
         // the value_offsets for each array
 
         const int32_t* unshifted_offsets = array.raw_value_offsets();
-        const uint8_t* type_ids = array.raw_type_ids();
+        const int8_t* type_codes = array.raw_type_codes();
 
         // Allocate the shifted offsets
         std::shared_ptr<Buffer> shifted_offsets_buffer;
@@ -434,7 +434,7 @@ class RecordBatchSerializer : public ArrayVisitor {
         // Offsets may not be ascending, so we need to find out the start offset
         // for each child
         for (int64_t i = 0; i < length; ++i) {
-          const uint8_t code = type_ids[i];
+          const uint8_t code = type_codes[i];
           if (child_offsets[code] == -1) {
             child_offsets[code] = unshifted_offsets[i];
           } else {
@@ -444,7 +444,7 @@ class RecordBatchSerializer : public ArrayVisitor {
 
         // Now compute shifted offsets by subtracting child offset
         for (int64_t i = 0; i < length; ++i) {
-          const uint8_t code = type_ids[i];
+          const int8_t code = type_codes[i];
           shifted_offsets[i] = unshifted_offsets[i] - child_offsets[code];
           // Update the child length to account for observed value
           child_lengths[code] = std::max(child_lengths[code], shifted_offsets[i] + 1);
@@ -462,7 +462,7 @@ class RecordBatchSerializer : public ArrayVisitor {
         // truncate the children. For now, we are truncating the children to be
         // no longer than the parent union.
         if (offset != 0) {
-          const uint8_t code = type.type_codes()[i];
+          const int8_t code = type.type_codes()[i];
           const int64_t child_offset = child_offsets[code];
           const int64_t child_length = child_lengths[code];
 
@@ -814,14 +814,25 @@ Status GetSparseTensorPayload(const SparseTensor& sparse_tensor, MemoryPool* poo
 }  // namespace internal
 
 Status WriteSparseTensor(const SparseTensor& sparse_tensor, io::OutputStream* dst,
-                         int32_t* metadata_length, int64_t* body_length,
-                         MemoryPool* pool) {
+                         int32_t* metadata_length, int64_t* body_length) {
   internal::IpcPayload payload;
   internal::SparseTensorSerializer writer(0, &payload);
   RETURN_NOT_OK(writer.Assemble(sparse_tensor));
 
   *body_length = payload.body_length;
   return internal::WriteIpcPayload(payload, IpcOptions::Defaults(), dst, metadata_length);
+}
+
+Status GetSparseTensorMessage(const SparseTensor& sparse_tensor, MemoryPool* pool,
+                              std::unique_ptr<Message>* out) {
+  internal::IpcPayload payload;
+  RETURN_NOT_OK(internal::GetSparseTensorPayload(sparse_tensor, pool, &payload));
+
+  const std::shared_ptr<Buffer> metadata = payload.metadata;
+  const std::shared_ptr<Buffer> buffer = *payload.body_buffers.data();
+
+  out->reset(new Message(metadata, buffer));
+  return Status::OK();
 }
 
 Status GetRecordBatchSize(const RecordBatch& batch, int64_t* size) {
@@ -989,7 +1000,7 @@ class StreamBookKeeper {
   explicit StreamBookKeeper(const IpcOptions& options, io::OutputStream* sink)
       : options_(options), sink_(sink), position_(-1) {}
 
-  Status UpdatePosition() { return sink_->Tell(&position_); }
+  Status UpdatePosition() { return sink_->Tell().Value(&position_); }
 
   Status UpdatePositionCheckAligned() {
     RETURN_NOT_OK(UpdatePosition());
@@ -1029,7 +1040,7 @@ class StreamBookKeeper {
   int64_t position_;
 };
 
-/// A IpcPayloadWriter implementation that writes to a IPC stream
+/// A IpcPayloadWriter implementation that writes to an IPC stream
 /// (with an end-of-stream marker)
 class PayloadStreamWriter : public internal::IpcPayloadWriter,
                             protected StreamBookKeeper {
@@ -1271,8 +1282,7 @@ Status SerializeRecordBatch(const RecordBatch& batch, MemoryPool* pool,
 
 Status SerializeSchema(const Schema& schema, DictionaryMemo* dictionary_memo,
                        MemoryPool* pool, std::shared_ptr<Buffer>* out) {
-  std::shared_ptr<io::BufferOutputStream> stream;
-  RETURN_NOT_OK(io::BufferOutputStream::Create(1024, pool, &stream));
+  ARROW_ASSIGN_OR_RAISE(auto stream, io::BufferOutputStream::Create(1024, pool));
 
   auto options = IpcOptions::Defaults();
   auto payload_writer = make_unique<PayloadStreamWriter>(options, stream.get());
@@ -1280,7 +1290,7 @@ Status SerializeSchema(const Schema& schema, DictionaryMemo* dictionary_memo,
                                   dictionary_memo);
   // Write schema and populate fields (but not dictionaries) in dictionary_memo
   RETURN_NOT_OK(writer.Start());
-  return stream->Finish(out);
+  return stream->Finish().Value(out);
 }
 
 }  // namespace ipc

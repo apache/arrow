@@ -20,15 +20,15 @@
 //! These utilities define structs that read the integration JSON format for integration testing purposes.
 
 use serde_derive::Deserialize;
-use serde_json::Value;
+use serde_json::{Number as VNumber, Value};
 
 use crate::array::*;
 use crate::datatypes::*;
-use crate::record_batch::RecordBatch;
+use crate::record_batch::{RecordBatch, RecordBatchReader};
 
 /// A struct that represents an Arrow file with a schema and record batches
 #[derive(Deserialize)]
-struct ArrowJson {
+pub(crate) struct ArrowJson {
     schema: ArrowJsonSchema,
     batches: Vec<ArrowJsonBatch>,
 }
@@ -62,6 +62,22 @@ struct ArrowJsonColumn {
     children: Option<Vec<ArrowJsonColumn>>,
 }
 
+impl ArrowJson {
+    /// Compare the Arrow JSON with a record batch reader
+    pub fn equals_reader(&self, reader: &mut RecordBatchReader) -> bool {
+        if !self.schema.equals_schema(&reader.schema()) {
+            return false;
+        }
+        self.batches.iter().all(|col| {
+            let batch = reader.next_batch();
+            match batch {
+                Ok(Some(batch)) => col.equals_batch(&batch),
+                _ => false,
+            }
+        })
+    }
+}
+
 impl ArrowJsonSchema {
     /// Compare the Arrow JSON schema with the Arrow `Schema`
     fn equals_schema(&self, schema: &Schema) -> bool {
@@ -79,7 +95,7 @@ impl ArrowJsonSchema {
 }
 
 impl ArrowJsonBatch {
-    /// Comapre the Arrow JSON record batch with a `RecordBatch`
+    /// Compare the Arrow JSON record batch with a `RecordBatch`
     fn equals_batch(&self, batch: &RecordBatch) -> bool {
         if self.count != batch.num_rows() {
             return false;
@@ -119,9 +135,47 @@ impl ArrowJsonBatch {
                     DataType::Int64
                     | DataType::Date64(_)
                     | DataType::Time64(_)
-                    | DataType::Timestamp(_) => {
+                    | DataType::Timestamp(_, _)
+                    | DataType::Duration(_) => {
                         let arr = Int64Array::from(arr.data());
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
+                    }
+                    DataType::Interval(IntervalUnit::YearMonth) => {
+                        let arr = IntervalYearMonthArray::from(arr.data());
+                        arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
+                    }
+                    DataType::Interval(IntervalUnit::DayTime) => {
+                        let arr = IntervalDayTimeArray::from(arr.data());
+                        let x = json_array
+                            .iter()
+                            .map(|v| {
+                                match v {
+                                    Value::Null => Value::Null,
+                                    Value::Object(v) => {
+                                        // interval has days and milliseconds
+                                        let days: i32 =
+                                            v.get("days").unwrap().as_i64().unwrap()
+                                                as i32;
+                                        let milliseconds: i32 = v
+                                            .get("milliseconds")
+                                            .unwrap()
+                                            .as_i64()
+                                            .unwrap()
+                                            as i32;
+                                        let value: i64 = unsafe {
+                                            std::mem::transmute::<[i32; 2], i64>([
+                                                days,
+                                                milliseconds,
+                                            ])
+                                        };
+                                        Value::Number(VNumber::from(value))
+                                    }
+                                    // return null if Value is not an object
+                                    _ => Value::Null,
+                                }
+                            })
+                            .collect::<Vec<Value>>();
+                        arr.equals_json(&x.iter().collect::<Vec<&Value>>()[..])
                     }
                     DataType::UInt8 => {
                         let arr = arr.as_any().downcast_ref::<UInt8Array>().unwrap();
@@ -164,6 +218,11 @@ impl ArrowJsonBatch {
                         let arr = arr.as_any().downcast_ref::<ListArray>().unwrap();
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
                     }
+                    DataType::FixedSizeList(_) => {
+                        let arr =
+                            arr.as_any().downcast_ref::<FixedSizeListArray>().unwrap();
+                        arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
+                    }
                     DataType::Struct(_) => {
                         let arr = arr.as_any().downcast_ref::<StructArray>().unwrap();
                         arr.equals_json(&json_array.iter().collect::<Vec<&Value>>()[..])
@@ -178,6 +237,9 @@ impl ArrowJsonBatch {
 fn json_from_col(col: &ArrowJsonColumn, data_type: &DataType) -> Vec<Value> {
     match data_type {
         DataType::List(dt) => json_from_list_col(col, &**dt),
+        DataType::FixedSizeList((dt, list_size)) => {
+            json_from_fixed_size_list_col(col, &**dt, *list_size as usize)
+        }
         DataType::Struct(fields) => json_from_struct_col(col, fields),
         _ => merge_json_array(&col.validity, &col.data.clone().unwrap()),
     }
@@ -257,6 +319,36 @@ fn json_from_list_col(col: &ArrowJsonColumn, data_type: &DataType) -> Vec<Value>
     values
 }
 
+/// Convert an Arrow JSON column/array of a `DataType::List` into a vector of `Value`
+fn json_from_fixed_size_list_col(
+    col: &ArrowJsonColumn,
+    data_type: &DataType,
+    list_size: usize,
+) -> Vec<Value> {
+    let mut values = Vec::with_capacity(col.count);
+
+    // get the inner array
+    let child = &col.children.clone().expect("list type must have children")[0];
+    let inner = match data_type {
+        DataType::List(ref dt) => json_from_col(child, &**dt),
+        DataType::FixedSizeList((ref dt, _)) => json_from_col(child, &**dt),
+        DataType::Struct(fields) => json_from_struct_col(col, fields),
+        _ => merge_json_array(&child.validity, &child.data.clone().unwrap()),
+    };
+
+    for i in 0..col.count {
+        match col.validity[i] {
+            0 => values.push(Value::Null),
+            1 => values.push(Value::Array(
+                inner[(list_size * i)..(list_size * (i + 1))].to_vec(),
+            )),
+            _ => panic!("Validity data should be 0 or 1"),
+        }
+    }
+
+    values
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -324,6 +416,10 @@ mod tests {
 
     #[test]
     fn test_arrow_data_equality() {
+        let secs_tz = Some(Arc::new("Europe/Budapest".to_string()));
+        let millis_tz = Some(Arc::new("America/New_York".to_string()));
+        let micros_tz = Some(Arc::new("UTC".to_string()));
+        let nanos_tz = Some(Arc::new("Africa/Johannesburg".to_string()));
         let schema = Schema::new(vec![
             Field::new("bools", DataType::Boolean, true),
             Field::new("int8s", DataType::Int8, true),
@@ -342,18 +438,42 @@ mod tests {
             Field::new("time_millis", DataType::Time32(TimeUnit::Millisecond), true),
             Field::new("time_micros", DataType::Time64(TimeUnit::Microsecond), true),
             Field::new("time_nanos", DataType::Time64(TimeUnit::Nanosecond), true),
-            Field::new("ts_secs", DataType::Timestamp(TimeUnit::Second), true),
+            Field::new("ts_secs", DataType::Timestamp(TimeUnit::Second, None), true),
             Field::new(
                 "ts_millis",
-                DataType::Timestamp(TimeUnit::Millisecond),
+                DataType::Timestamp(TimeUnit::Millisecond, None),
                 true,
             ),
             Field::new(
                 "ts_micros",
-                DataType::Timestamp(TimeUnit::Microsecond),
+                DataType::Timestamp(TimeUnit::Microsecond, None),
                 true,
             ),
-            Field::new("ts_nanos", DataType::Timestamp(TimeUnit::Nanosecond), true),
+            Field::new(
+                "ts_nanos",
+                DataType::Timestamp(TimeUnit::Nanosecond, None),
+                true,
+            ),
+            Field::new(
+                "ts_secs_tz",
+                DataType::Timestamp(TimeUnit::Second, secs_tz.clone()),
+                true,
+            ),
+            Field::new(
+                "ts_millis_tz",
+                DataType::Timestamp(TimeUnit::Millisecond, millis_tz.clone()),
+                true,
+            ),
+            Field::new(
+                "ts_micros_tz",
+                DataType::Timestamp(TimeUnit::Microsecond, micros_tz.clone()),
+                true,
+            ),
+            Field::new(
+                "ts_nanos_tz",
+                DataType::Timestamp(TimeUnit::Nanosecond, nanos_tz.clone()),
+                true,
+            ),
             Field::new("utf8s", DataType::Utf8, true),
             Field::new("lists", DataType::List(Box::new(DataType::Int32)), true),
             Field::new(
@@ -397,15 +517,34 @@ mod tests {
             None,
             Some(16584393546415),
         ]);
-        let ts_secs = TimestampSecondArray::from(vec![None, Some(193438817552), None]);
-        let ts_millis = TimestampMillisecondArray::from(vec![
+        let ts_secs = TimestampSecondArray::from_opt_vec(
+            vec![None, Some(193438817552), None],
             None,
-            Some(38606916383008),
-            Some(58113709376587),
-        ]);
-        let ts_micros = TimestampMicrosecondArray::from(vec![None, None, None]);
-        let ts_nanos =
-            TimestampNanosecondArray::from(vec![None, None, Some(-6473623571954960143)]);
+        );
+        let ts_millis = TimestampMillisecondArray::from_opt_vec(
+            vec![None, Some(38606916383008), Some(58113709376587)],
+            None,
+        );
+        let ts_micros =
+            TimestampMicrosecondArray::from_opt_vec(vec![None, None, None], None);
+        let ts_nanos = TimestampNanosecondArray::from_opt_vec(
+            vec![None, None, Some(-6473623571954960143)],
+            None,
+        );
+        let ts_secs_tz = TimestampSecondArray::from_opt_vec(
+            vec![None, Some(193438817552), None],
+            secs_tz,
+        );
+        let ts_millis_tz = TimestampMillisecondArray::from_opt_vec(
+            vec![None, Some(38606916383008), Some(58113709376587)],
+            millis_tz,
+        );
+        let ts_micros_tz =
+            TimestampMicrosecondArray::from_opt_vec(vec![None, None, None], micros_tz);
+        let ts_nanos_tz = TimestampNanosecondArray::from_opt_vec(
+            vec![None, None, Some(-6473623571954960143)],
+            nanos_tz,
+        );
         let utf8s = StringArray::try_from(vec![Some("aa"), None, Some("bbb")]).unwrap();
 
         let value_data = Int32Array::from(vec![None, Some(2), None, None]);
@@ -456,6 +595,10 @@ mod tests {
                 Arc::new(ts_millis),
                 Arc::new(ts_micros),
                 Arc::new(ts_nanos),
+                Arc::new(ts_secs_tz),
+                Arc::new(ts_millis_tz),
+                Arc::new(ts_micros_tz),
+                Arc::new(ts_nanos_tz),
                 Arc::new(utf8s),
                 Arc::new(lists),
                 Arc::new(structs),

@@ -293,7 +293,7 @@ void InteropTestWriteEncryptedParquetFiles(std::string root_path) {
       std::string file =
           root_path + fileName + std::string(test_number_string) + ".parquet.encrypted";
       std::cout << "Write " << file << std::endl;
-      PARQUET_THROW_NOT_OK(FileClass::Open(file, &out_file));
+      PARQUET_ASSIGN_OR_THROW(out_file, FileClass::Open(file));
 
       // Setup the parquet schema
       std::shared_ptr<GroupNode> schema = SetupSchema();
