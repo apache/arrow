@@ -94,7 +94,7 @@ struct MakeNullImpl {
 };
 
 std::shared_ptr<Scalar> MakeNullScalar(const std::shared_ptr<DataType>& type) {
-  MakeNullImpl impl = {type};
+  MakeNullImpl impl = {type, nullptr};
   // Should not fail.
   DCHECK_OK(VisitTypeInline(*type, &impl));
   return std::move(impl.out_);
@@ -217,6 +217,11 @@ CastImpl(const TemporalScalar<From>& from, NumericScalar<To>* to) {
 // timestamp to timestamp
 Status CastImpl(const TimestampScalar& from, TimestampScalar* to) {
   return util::ConvertTimestampValue(from.type, to->type, from.value).Value(&to->value);
+}
+
+Status CastImpl(const TimestampScalar& from, StringScalar* to) {
+  to->value = Buffer::FromString(std::to_string(from.value));
+  return Status::OK();
 }
 
 // string to any

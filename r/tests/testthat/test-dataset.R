@@ -31,7 +31,6 @@ df1 <- tibble(
   dbl = as.numeric(1:10),
   lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
   chr = letters[1:10],
-  fct = factor(LETTERS[1:10])
   fct = factor(LETTERS[1:10]),
   ts = first_date + lubridate::days(1:10)
 )
@@ -134,7 +133,7 @@ test_that("filter() with %in%", {
 })
 
 test_that("filter() on timestamp columns", {
-  ds <- open_dataset(dataset_dir)
+  ds <- open_dataset(dataset_dir, partition = schema(part = uint8()))
   expect_equivalent(
     ds %>%
       # Replace with expression with function once ARROW-7360 is fixed

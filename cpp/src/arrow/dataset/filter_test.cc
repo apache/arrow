@@ -336,17 +336,15 @@ TEST_F(ExpressionsTest, ImplicitCast) {
   ASSERT_EQ(E{filter}, E{"a"_ == 0});
 
   auto ns = timestamp(TimeUnit::NANO);
-  ASSERT_OK_AND_ASSIGN(filter,
-                       InsertImplicitCasts("ts"_ == "1990-10-23 10:23:33", *schema_));
-  ASSERT_EQ(E{filter}, E{"ts"_ == scalar("1990-10-23 10:23:33")->CastTo(ns)});
+  auto date = "1990-10-23 10:23:33";
+  ASSERT_OK_AND_ASSIGN(filter, InsertImplicitCasts("ts"_ == date, *schema_));
+  ASSERT_EQ(E{filter}, E{"ts"_ == *MakeScalar(date)->CastTo(ns)});
 
-  ASSERT_OK_AND_ASSIGN(
-      filter,
-      InsertImplicitCasts("ts"_ == "1990-10-23 10:23:33" and "b"_ == "3", *schema_));
-  ASSERT_EQ(E{filter},
-            E{"a"_ == scalar("1990-10-23 10:23:33")->CastTo(ns) and "b"_ == 3});
+  ASSERT_OK_AND_ASSIGN(filter,
+                       InsertImplicitCasts("ts"_ == date and "b"_ == "3", *schema_));
+  ASSERT_EQ(E{filter}, E{"ts"_ == *MakeScalar(date)->CastTo(ns) and "b"_ == 3});
   AssertSimplifiesTo(*filter, "b"_ == 2, *never);
-  AssertSimplifiesTo(*filter, "b"_ == 3, "ts"_ == *MakeScalar("1990-01-03")->CastTo(ns));
+  AssertSimplifiesTo(*filter, "b"_ == 3, "ts"_ == *MakeScalar(date)->CastTo(ns));
 }
 
 TEST_F(FilterTest, ImplicitCast) {
