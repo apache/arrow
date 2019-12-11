@@ -41,6 +41,8 @@ module Arrow
             available_formats << match_data.post_match
           end
         end
+        deprecated_formats = ["batch", "stream"]
+        available_formats -= deprecated_formats
         message = "Arrow::Table load format must be one of ["
         message << available_formats.join(", ")
         message << "]: #{format.inspect}"
@@ -119,16 +121,28 @@ module Arrow
       load_raw(input, reader)
     end
 
-    def load_as_batch
+    # @since 1.0.0
+    def load_as_arrow_file
       input = open_input_stream
       reader = RecordBatchFileReader.new(input)
       load_raw(input, reader)
     end
 
-    def load_as_stream
+    # @deprecated Use `format: :arrow_file` instead.
+    def load_as_batch
+      load_as_arrow_file
+    end
+
+    # @since 1.0.0
+    def load_as_arrow_streaming
       input = open_input_stream
       reader = RecordBatchStreamReader.new(input)
       load_raw(input, reader)
+    end
+
+    # @deprecated Use `format: :arrow_streaming` instead.
+    def load_as_stream
+      load_as_arrow_streaming
     end
 
     if Arrow.const_defined?(:ORCFileReader)
