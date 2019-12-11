@@ -129,7 +129,7 @@ class ARROW_DS_EXPORT SimpleDataSource : public DataSource {
   //
   /// \param[in] record_batches one or more input record batches
   static Result<DataSourcePtr> Make(
-    std::vector<std::shared_ptr<RecordBatch>> record_batches);
+      std::vector<std::shared_ptr<RecordBatch>> record_batches);
 
   explicit SimpleDataSource();
 

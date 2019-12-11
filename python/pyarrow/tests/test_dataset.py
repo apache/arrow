@@ -177,13 +177,20 @@ def test_scanner_builder(dataset):
     builder = ds.ScannerBuilder(dataset, memory_pool=pa.default_memory_pool())
     scanner = builder.finish()
     assert isinstance(scanner, ds.Scanner)
-    scanner.scan()
+    assert len(list(scanner.scan())) == 3
+
+    with pytest.raises(pa.ArrowInvalid):
+        dataset.new_scan().project(['unknown'])
 
     builder = dataset.new_scan(memory_pool=pa.default_memory_pool())
-    builder.project(['i64'])
-    scanner = builder.finish()
+    scanner = builder.project(['i64', 'i64', 'i64']).finish()
     assert isinstance(scanner, ds.Scanner)
     assert len(list(scanner.scan())) == 3
+    for task in scanner.scan():
+        for batch in task.scan():
+            assert isinstance(batch, pa.RecordBatch)
+            # FIXME(kszucs)
+            # assert batch.num_columns == 1
 
 
 def test_abstract_classes():
