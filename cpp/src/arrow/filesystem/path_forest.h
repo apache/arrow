@@ -69,8 +69,6 @@ class ARROW_EXPORT PathForest : public util::EqualityComparable<PathForest> {
   /// \brief Returns the number of nodes in this forest.
   int size() const { return size_; }
 
-  const std::vector<FileStats>& stats() const { return *stats_; }
-
   bool Equals(const PathForest& other) const;
 
   std::string ToString() const;

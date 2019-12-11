@@ -25,13 +25,11 @@
 #include <string>
 #include <vector>
 
-#include "arrow/dataset/partition.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/path_forest.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/variant.h"
 
 namespace arrow {
 namespace dataset {
@@ -67,6 +65,12 @@ class ARROW_DS_EXPORT DataSourceDiscovery {
     return Status::OK();
   }
 
+  const PartitionSchemePtr& partition_scheme() const { return partition_scheme_; }
+  Status SetPartitionScheme(PartitionSchemePtr partition_scheme) {
+    partition_scheme_ = partition_scheme;
+    return Status::OK();
+  }
+
   const ExpressionPtr& root_partition() const { return root_partition_; }
   Status SetRootPartition(ExpressionPtr partition) {
     root_partition_ = partition;
@@ -79,20 +83,11 @@ class ARROW_DS_EXPORT DataSourceDiscovery {
   DataSourceDiscovery();
 
   std::shared_ptr<Schema> schema_;
+  PartitionSchemePtr partition_scheme_;
   ExpressionPtr root_partition_;
 };
 
 struct FileSystemDiscoveryOptions {
-  // Either an explicit PartitionScheme or a PartitionSchemeDiscovery to discover one.
-  //
-  // If a discovery is provided, it will be used to infer a schema for partition fields
-  // based on file and directory paths then construct a PartitionScheme.
-  //
-  // The resulting partition scheme will be applied to discovered files and the resulting
-  // partition information embedded in the DataSource.
-  util::variant<PartitionSchemeDiscoveryPtr, PartitionSchemePtr> partition_scheme =
-      HivePartitionScheme::MakeDiscovery();
-
   // For the purposes of applying the partition scheme, paths will be stripped
   // of the partition_base_dir. Files not matching the partition_base_dir
   // prefix will be skipped for partition discovery. The ignored files will still
@@ -113,7 +108,7 @@ struct FileSystemDiscoveryOptions {
   // Invalid files (via selector or explicitly) will be excluded by checking
   // with the FileFormat::IsSupported method.  This will incur IO for each files
   // in a serial and single threaded fashion. Disabling this feature will skip the
-  // IO, but unsupported files may be present in the DataSource
+  // IO, but unsupported files may will be present in the DataSource
   // (resulting in an error at scan time).
   bool exclude_invalid_files = true;
 
@@ -170,13 +165,12 @@ class ARROW_DS_EXPORT FileSystemDataSourceDiscovery : public DataSourceDiscovery
   Result<DataSourcePtr> Finish() override;
 
  protected:
-  FileSystemDataSourceDiscovery(fs::FileSystemPtr filesystem, fs::PathForest forest,
-                                FileFormatPtr format, FileSystemDiscoveryOptions options);
-
-  Result<std::shared_ptr<Schema>> PartitionSchema();
+  FileSystemDataSourceDiscovery(fs::FileSystemPtr filesystem,
+                                std::vector<fs::FileStats> files, FileFormatPtr format,
+                                FileSystemDiscoveryOptions options);
 
   fs::FileSystemPtr fs_;
-  fs::PathForest forest_;
+  std::vector<fs::FileStats> files_;
   FileFormatPtr format_;
   FileSystemDiscoveryOptions options_;
 };

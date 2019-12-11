@@ -70,27 +70,17 @@ TEST_F(FileSystemDataSourceDiscoveryTest, Selector) {
   MakeDiscovery({fs::File("0"), fs::File("A/a"), fs::File("A/A/a")});
   // partition_base_dir should not affect filtered files, ony the applied
   // partition scheme.
-  AssertInspect({});
   AssertFinishWithPaths({"A/a", "A/A/a"});
 }
 
-TEST_F(FileSystemDataSourceDiscoveryTest, ExplicitPartition) {
-  selector_.base_dir = "a=ignored/base";
-  discovery_options_.partition_scheme =
-      std::make_shared<HivePartitionScheme>(schema({field("a", float64())}));
-
-  MakeDiscovery(
-      {fs::File(selector_.base_dir + "/a=1"), fs::File(selector_.base_dir + "/a=2")});
-
-  AssertInspect({field("a", float64())});
-  AssertFinishWithPaths({selector_.base_dir + "/a=1", selector_.base_dir + "/a=2"});
-}
-
-TEST_F(FileSystemDataSourceDiscoveryTest, DiscoveredPartition) {
+TEST_F(FileSystemDataSourceDiscoveryTest, Partition) {
   selector_.base_dir = "a=ignored/base";
   MakeDiscovery(
       {fs::File(selector_.base_dir + "/a=1"), fs::File(selector_.base_dir + "/a=2")});
 
+  auto partition_scheme =
+      std::make_shared<HivePartitionScheme>(schema({field("a", int32())}));
+  ASSERT_OK(discovery_->SetPartitionScheme(partition_scheme));
   AssertInspect({field("a", int32())});
   AssertFinishWithPaths({selector_.base_dir + "/a=1", selector_.base_dir + "/a=2"});
 }
