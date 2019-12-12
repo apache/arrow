@@ -72,9 +72,9 @@ public class VectorLoader {
       Iterator<ArrowFieldNode> nodes) {
     checkArgument(nodes.hasNext(), "no more field nodes for for field %s and vector %s", field, vector);
     ArrowFieldNode fieldNode = nodes.next();
-    List<BufferLayout> bufferLayouts = TypeLayout.getTypeLayout(field.getType()).getBufferLayouts();
-    List<ArrowBuf> ownBuffers = new ArrayList<>(bufferLayouts.size());
-    for (int j = 0; j < bufferLayouts.size(); j++) {
+    int bufferLayoutCount = TypeLayout.getTypeBufferCount(field.getType());
+    List<ArrowBuf> ownBuffers = new ArrayList<>(bufferLayoutCount);
+    for (int j = 0; j < bufferLayoutCount; j++) {
       ownBuffers.add(buffers.next());
     }
     try {
