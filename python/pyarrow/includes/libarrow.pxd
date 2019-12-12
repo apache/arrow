@@ -1686,7 +1686,7 @@ cdef extern from 'arrow/util/compression.h' namespace 'arrow' nogil:
 
 cdef extern from 'arrow/util/iterator.h' namespace 'arrow' nogil:
     cdef cppclass CIterator" arrow::Iterator"[T]:
-        CStatus Next(T* out)
+        CResult[T] Next()
         CStatus Visit[Visitor](Visitor&& visitor)
 
 

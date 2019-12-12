@@ -565,7 +565,7 @@ cdef class ScanTask:
         iterator = move(GetResultValue(move(self.task.Scan())))
 
         while True:
-            iterator.Next(&record_batch)
+            record_batch = GetResultValue(iterator.Next())
             if record_batch.get() == nullptr:
                 raise StopIteration()
             else:
@@ -737,7 +737,7 @@ cdef class Scanner:
         iterator = move(GetResultValue(move(self.scanner.Scan())))
 
         while True:
-            iterator.Next(&task)
+            task = GetResultValue(iterator.Next())
             if task.get() == nullptr:
                 raise StopIteration()
             else:
