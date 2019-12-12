@@ -53,3 +53,59 @@ from pyarrow._dataset import (  # noqa
     Source,
     TreeSource,
 )
+
+
+def open_dataset(path_or_paths, filesystem=None, partition_scheme=None,
+                 format="parquet"):
+    """
+    Open a multi-file dataset.
+
+    Parameters
+    ----------
+    path_or_paths : str or list of str
+        String path to a directory containing the data files.
+    filesystem : FileSystem, default None
+        By default will be inferred from the path.
+    partition_scheme : PartitionScheme or Schema
+        If a Schema is passed, it is interpreted as a HivePartitionScheme.
+    format : str
+        Currently only "parquet" is supported.
+
+    Returns
+    -------
+    Dataset
+
+    """
+    import pyarrow
+    from pyarrow.fs import LocalFileSystem, FileType, FileSelector
+
+    if filesystem is None:
+        # TODO handle other file systems
+        filesystem = LocalFileSystem()
+
+    if isinstance(path_or_paths, str):
+        path = filesystem.get_target_stats([path_or_paths])[0]
+        if path.type == FileType.Directory:
+            # for directory, pass a selector
+            path_or_paths = FileSelector(path_or_paths, recursive=True)
+        else:
+            # path_or_paths is a single file path, pass it as a list
+            path_or_paths = [path_or_paths]
+
+    if format == "parquet":
+        format = ParquetFileFormat()
+    elif not isinstance(format, FileFormat):
+        raise ValueError("format '{0}' is not supported".format(format))
+
+    # TODO pass through options
+    options = FileSystemDiscoveryOptions()
+    discovery = FileSystemDataSourceDiscovery(
+        filesystem, path_or_paths, format, options)
+
+    if partition_scheme is not None:
+        if isinstance(partition_scheme, pyarrow.Schema):
+            partition_scheme = HivePartitionScheme(partition_scheme)
+        discovery.partition_scheme = partition_scheme
+
+    inspected_schema = discovery.inspect()
+    return Dataset([discovery.finish()], inspected_schema)

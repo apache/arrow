@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import numpy as np
+
 import pytest
 
 import pyarrow as pa
@@ -383,3 +385,62 @@ def test_paritioning_factory(mockfs):
 
     hive_partitioning_factory = ds.HivePartitioning.discover()
     assert isinstance(hive_partitioning_factory, ds.PartitioningFactory)
+
+
+@pytest.mark.parquet
+def test_open_dataset_single_file(tempdir):
+    import pyarrow.parquet as pq
+    table = pa.table({'a': range(9), 'b': [0.] * 4 + [1.] * 5})
+    pq.write_table(table, tempdir / "test.parquet")
+
+    dataset = ds.open_dataset(str(tempdir / "test.parquet"))
+    assert dataset.schema.remove_metadata().equals(table.schema)
+
+    result = dataset.new_scan().finish().to_table()
+    result = result.replace_schema_metadata()
+    assert result.equals(table)
+
+
+@pytest.mark.parquet
+def test_open_dataset_directory(tempdir):
+    import pyarrow.parquet as pq
+    table = pa.table({'a': range(9), 'b': [0.] * 4 + [1.] * 5})
+    pq.write_table(table, tempdir / "test1.parquet")
+    pq.write_table(table, tempdir / "test2.parquet")
+
+    dataset = ds.open_dataset(str(tempdir))
+    assert dataset.schema.remove_metadata().equals(table.schema)
+
+    result = dataset.new_scan().finish().to_table()
+    result = result.replace_schema_metadata()
+    assert result.equals(pa.concat_tables([table, table]))
+
+
+@pytest.mark.parquet
+def test_open_dataset_partitioned_directory(tempdir):
+    import pyarrow.parquet as pq
+    table = pa.table({'a': range(9), 'b': [0.] * 4 + [1.] * 5})
+    for part in range(3):
+        path = tempdir / "part={0}".format(part)
+        path.mkdir()
+        pq.write_table(table, path / "test.parquet")
+
+    dataset = ds.open_dataset(str(tempdir))
+    assert dataset.schema.remove_metadata().equals(table.schema)
+
+    result = dataset.new_scan().finish().to_table()
+    result = result.replace_schema_metadata()
+    assert result.equals(pa.concat_tables([table] * 3))
+
+    # specify partition scheme
+    dataset = ds.open_dataset(
+        str(tempdir), partition_scheme=pa.schema([("part", pa.int8())]))
+    expected_schema = table.schema.append(pa.field("part", pa.int8()))
+    assert dataset.schema.remove_metadata().equals(expected_schema)
+
+    result = dataset.new_scan().finish().to_table()
+    result = result.replace_schema_metadata()
+    expected = pa.concat_tables([table] * 3)
+    expected = expected.append_column(
+        "part", pa.array(np.repeat([0, 1, 2], 9), type=pa.int8()))
+    assert result.equals(expected)
