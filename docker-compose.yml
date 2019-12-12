@@ -1016,6 +1016,7 @@ services:
       - impala:impala
     environment:
       <<: *ccache
+      ARROW_HDFS: "ON"
       ARROW_HDFS_TEST_HOST: impala
       ARROW_HDFS_TEST_PORT: 8020
       ARROW_HDFS_TEST_USER: hdfs

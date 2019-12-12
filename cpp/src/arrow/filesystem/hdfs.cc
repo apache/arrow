@@ -339,6 +339,12 @@ Result<HdfsOptions> HdfsOptions::FromUri(const Uri& uri) {
   return options;
 }
 
+Result<HdfsOptions> HdfsOptions::FromUri(const std::string& uri_string) {
+  Uri uri;
+  RETURN_NOT_OK(uri.Parse(uri_string));
+  return FromUri(uri);
+}
+
 HadoopFileSystem::HadoopFileSystem(const HdfsOptions& options)
     : impl_(new Impl{options}) {}
 

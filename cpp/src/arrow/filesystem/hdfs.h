@@ -50,6 +50,7 @@ struct ARROW_EXPORT HdfsOptions {
   void ConfigureHdfsBlockSize(int64_t default_block_size);
 
   static Result<HdfsOptions> FromUri(const ::arrow::internal::Uri& uri);
+  static Result<HdfsOptions> FromUri(const std::string& uri);
 };
 
 /// HDFS-backed FileSystem implementation.

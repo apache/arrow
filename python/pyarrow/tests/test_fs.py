@@ -34,6 +34,7 @@ def localfs(request, tempdir):
     return dict(
         fs=LocalFileSystem(),
         pathfn=lambda p: (tempdir / p).as_posix(),
+        allow_copy_file=True,
         allow_move_dir=True,
         allow_append_to_file=True,
     )
@@ -44,6 +45,7 @@ def localfs_with_mmap(request, tempdir):
     return dict(
         fs=LocalFileSystem(use_mmap=True),
         pathfn=lambda p: (tempdir / p).as_posix(),
+        allow_copy_file=True,
         allow_move_dir=True,
         allow_append_to_file=True,
     )
@@ -56,6 +58,7 @@ def subtree_localfs(request, tempdir, localfs):
     return dict(
         fs=SubTreeFileSystem(prefix, localfs['fs']),
         pathfn=prefix.__add__,
+        allow_copy_file=True,
         allow_move_dir=True,
         allow_append_to_file=True,
     )
@@ -64,7 +67,7 @@ def subtree_localfs(request, tempdir, localfs):
 @pytest.fixture
 def s3fs(request, minio_server):
     request.config.pyarrow.requires('s3')
-    from pyarrow.s3fs import S3Options, S3FileSystem
+    from pyarrow.fs import S3Options, S3FileSystem
 
     address, access_key, secret_key = minio_server
     bucket = 'pyarrow-filesystem/'
@@ -80,6 +83,7 @@ def s3fs(request, minio_server):
     return dict(
         fs=fs,
         pathfn=bucket.__add__,
+        allow_copy_file=True,
         allow_move_dir=False,
         allow_append_to_file=False,
     )
@@ -91,8 +95,28 @@ def subtree_s3fs(request, s3fs):
     return dict(
         fs=SubTreeFileSystem(prefix, s3fs['fs']),
         pathfn=prefix.__add__,
+        allow_copy_file=True,
         allow_move_dir=False,
         allow_append_to_file=False,
+    )
+
+
+@pytest.fixture
+def hdfs(request, hdfs_server):
+    request.config.pyarrow.requires('hdfs')
+    from pyarrow.fs import HdfsOptions, HadoopFileSystem
+
+    host, port, user = hdfs_server
+    options = HdfsOptions(endpoint=(host, port), user=user)
+
+    fs = HadoopFileSystem(options)
+
+    return dict(
+        fs=fs,
+        pathfn=lambda p: p,
+        allow_copy_file=False,
+        allow_move_dir=True,
+        allow_append_to_file=True,
     )
 
 
@@ -113,6 +137,10 @@ def subtree_s3fs(request, s3fs):
         pytest.lazy_fixture('s3fs'),
         id='S3FileSystem'
     ),
+    pytest.param(
+        pytest.lazy_fixture('hdfs'),
+        id='HadoopFileSystem'
+    ),
 ])
 def filesystem_config(request):
     return request.param
@@ -131,6 +159,11 @@ def pathfn(request, filesystem_config):
 @pytest.fixture
 def allow_move_dir(request, filesystem_config):
     return filesystem_config['allow_move_dir']
+
+
+@pytest.fixture
+def allow_copy_file(request, filesystem_config):
+    return filesystem_config['allow_copy_file']
 
 
 @pytest.fixture
@@ -248,16 +281,20 @@ def test_delete_dir(fs, pathfn):
         fs.delete_dir(d)
 
 
-def test_copy_file(fs, pathfn):
+def test_copy_file(fs, pathfn, allow_copy_file):
     s = pathfn('test-copy-source-file')
     t = pathfn('test-copy-target-file')
 
     with fs.open_output_stream(s):
         pass
 
-    fs.copy_file(s, t)
-    fs.delete_file(s)
-    fs.delete_file(t)
+    if allow_copy_file:
+        fs.copy_file(s, t)
+        fs.delete_file(s)
+        fs.delete_file(t)
+    else:
+        with pytest.raises(pa.ArrowNotImplementedError):
+            fs.copy_file(s, t)
 
 
 def test_move_directory(fs, pathfn, allow_move_dir):
@@ -388,7 +425,8 @@ def test_open_append_stream(fs, pathfn, compression, buffer_size, compressor,
         s.write(initial)
 
     if allow_append_to_file:
-        with fs.open_append_stream(p, compression, buffer_size) as f:
+        with fs.open_append_stream(p, compression=compression,
+                                   buffer_size=buffer_size) as f:
             f.write(b'\nnewly added')
 
         with fs.open_input_stream(p) as f:
@@ -398,7 +436,8 @@ def test_open_append_stream(fs, pathfn, compression, buffer_size, compressor,
         assert result == b'already existing\nnewly added'
     else:
         with pytest.raises(pa.ArrowNotImplementedError):
-            fs.open_append_stream(p, compression, buffer_size)
+            fs.open_append_stream(p, compression=compression,
+                                  buffer_size=buffer_size)
 
 
 def test_localfs_options():
@@ -423,7 +462,7 @@ def test_localfs_options():
 
 @pytest.mark.s3
 def test_s3_options(minio_server):
-    from pyarrow.s3fs import S3Options
+    from pyarrow.fs import S3Options
 
     options = S3Options()
 
@@ -453,3 +492,46 @@ def test_s3_options(minio_server):
     )
     assert options.scheme == 'http'
     assert options.endpoint_override == address
+
+
+@pytest.mark.hdfs
+def test_hdfs_options(hdfs_server):
+    from pyarrow.fs import HdfsOptions, HadoopFileSystem
+
+    options = HdfsOptions()
+    assert options.endpoint == ('', 0)
+    options.endpoint = ('localhost', 8080)
+    assert options.endpoint == ('localhost', 8080)
+    with pytest.raises(TypeError):
+        options.endpoint = 'localhost:8000'
+
+    assert options.driver == 'libhdfs'
+    options.driver = 'libhdfs3'
+    assert options.driver == 'libhdfs3'
+    with pytest.raises(ValueError):
+        options.driver = 'unknown'
+
+    assert options.replication == 3
+    options.replication = 2
+    assert options.replication == 2
+
+    assert options.user == ''
+    options.user = 'libhdfs'
+    assert options.user == 'libhdfs'
+
+    assert options.default_block_size == 0
+    options.default_block_size = 128*1024**2
+    assert options.default_block_size == 128*1024**2
+
+    assert options.buffer_size == 0
+    options.buffer_size = 64*1024
+    assert options.buffer_size == 64*1024
+
+    options = HdfsOptions.from_uri('hdfs://localhost:8080/?user=test')
+    assert options.endpoint == ('localhost', 8080)
+    assert options.user == 'test'
+
+    host, port, user = hdfs_server
+    uri = "hdfs://{}:{}/?user={}".format(host, port, user)
+    fs = HadoopFileSystem(uri)
+    assert fs.get_target_stats(Selector('/'))

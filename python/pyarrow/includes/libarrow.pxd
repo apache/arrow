@@ -1039,11 +1039,11 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
     cdef cppclass HdfsOutputStream(COutputStream):
         pass
 
-    cdef cppclass CHadoopFileSystem \
+    cdef cppclass CIOHadoopFileSystem \
             "arrow::io::HadoopFileSystem"(CIOFileSystem):
         @staticmethod
         CStatus Connect(const HdfsConnectionConfig* config,
-                        shared_ptr[CHadoopFileSystem]* client)
+                        shared_ptr[CIOHadoopFileSystem]* client)
 
         CStatus MakeDirectory(const c_string& path)
 
@@ -1096,77 +1096,6 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         void set_memcopy_threads(int num_threads)
         void set_memcopy_blocksize(int64_t blocksize)
         void set_memcopy_threshold(int64_t threshold)
-
-
-cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
-
-    ctypedef enum CFileType "arrow::fs::FileType":
-        CFileType_NonExistent "arrow::fs::FileType::NonExistent"
-        CFileType_Unknown "arrow::fs::FileType::Unknown"
-        CFileType_File "arrow::fs::FileType::File"
-        CFileType_Directory "arrow::fs::FileType::Directory"
-
-    cdef cppclass CTimePoint "arrow::fs::TimePoint":
-        pass
-
-    cdef cppclass CFileStats "arrow::fs::FileStats":
-        CFileStats()
-        CFileStats(CFileStats&&)
-        CFileStats& operator=(CFileStats&&)
-        CFileStats(const CFileStats&)
-        CFileStats& operator=(const CFileStats&)
-
-        CFileType type()
-        void set_type(CFileType type)
-        c_string path()
-        void set_path(const c_string& path)
-        c_string base_name()
-        int64_t size()
-        void set_size(int64_t size)
-        c_string extension()
-        CTimePoint mtime()
-        void set_mtime(CTimePoint mtime)
-
-    cdef cppclass CSelector "arrow::fs::Selector":
-        CSelector()
-        c_string base_dir
-        c_bool allow_non_existent
-        c_bool recursive
-
-    cdef cppclass CFileSystem "arrow::fs::FileSystem":
-        CResult[CFileStats] GetTargetStats(const c_string& path)
-        CResult[vector[CFileStats]] GetTargetStats(
-            const vector[c_string]& paths)
-        CResult[vector[CFileStats]] GetTargetStats(const CSelector& select)
-        CStatus CreateDir(const c_string& path, c_bool recursive)
-        CStatus DeleteDir(const c_string& path)
-        CStatus DeleteFile(const c_string& path)
-        CStatus DeleteFiles(const vector[c_string]& paths)
-        CStatus Move(const c_string& src, const c_string& dest)
-        CStatus CopyFile(const c_string& src, const c_string& dest)
-        CResult[shared_ptr[CInputStream]] OpenInputStream(
-            const c_string& path)
-        CResult[shared_ptr[CRandomAccessFile]] OpenInputFile(
-            const c_string& path)
-        CResult[shared_ptr[COutputStream]] OpenOutputStream(
-            const c_string& path)
-        CResult[shared_ptr[COutputStream]] OpenAppendStream(
-            const c_string& path)
-
-    cdef cppclass CLocalFileSystemOptions "arrow::fs::LocalFileSystemOptions":
-        c_bool use_mmap
-
-        @staticmethod
-        CLocalFileSystemOptions Defaults()
-
-    cdef cppclass CLocalFileSystem "arrow::fs::LocalFileSystem"(CFileSystem):
-        CLocalFileSystem()
-        CLocalFileSystem(CLocalFileSystemOptions)
-
-    cdef cppclass CSubTreeFileSystem \
-            "arrow::fs::SubTreeFileSystem"(CFileSystem):
-        CSubTreeFileSystem(const c_string& base_path,
-                           shared_ptr[CFileSystem] base_fs)
 
 
 cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:

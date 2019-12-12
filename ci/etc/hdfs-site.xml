@@ -14,7 +14,7 @@
   limitations under the License. See accompanying LICENSE file.
 -->
 
-<!-- Put site-specific property overrides in this file. -->
+<!-- This is the client configuration for the HDFS integration tests. -->
 
 <configuration>
 	<property>
@@ -38,7 +38,15 @@
 		<value>false</value>
 	</property>
 	<property>
-		<name>dfs.default.replica</name>
+	<name>dfs.default.replica</name>
 		<value>1</value>
+  	</property>
+	<property>
+    <name>dfs.support.append</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>dfs.client.block.write.replace-datanode-on-failure.enable</name>
+    <value>false</value>
   </property>
 </configuration>

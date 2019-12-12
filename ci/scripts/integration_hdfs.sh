@@ -37,4 +37,5 @@ popd
 # pytest ignores them, see https://github.com/pytest-dev/pytest/issues/3517
 export PYARROW_TEST_HDFS=ON
 
+pytest -v --pyargs pyarrow.tests.test_fs
 pytest -v --pyargs pyarrow.tests.test_hdfs
