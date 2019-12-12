@@ -249,3 +249,10 @@ test_that("==.Table", {
   expect_true(all.equal(tab1, tab2))
   expect_equal(tab1, tab2)
 })
+
+test_that("Table handles null type (ARROW-7064)", {
+  tab <- Table$create(a = 1:10, n = vctrs::unspecified(10))
+  expect_equal(tab$schema,  schema(a = int32(), n = null()))
+})
+
+
