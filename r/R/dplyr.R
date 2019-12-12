@@ -100,10 +100,8 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
   # with references to Arrays (if .data is Table/RecordBatch) or Fields (if
   # .data is a Dataset).
   filter_data <- env()
-  for (v in unique(unlist(lapply(filts, all.vars)))) {
-    if (!(v %in% names(.data))) {
-      stop("object '", v, "' not found", call. = FALSE)
-    }
+  vars_in_filters <- intersect(unlist(lapply(filts, all.vars)), names(.data))
+  for (v in vars_in_filters) {
     # Map any renamed vars to their name in the underlying Arrow schema
     old_var_name <- .data$selected_columns[v]
     if (data_is_dataset) {
@@ -126,7 +124,18 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
   filters <- lapply(filts, function (f) {
     # This should yield an Expression as long as the filter function(s) are
     # implemented in Arrow.
-    try(eval_tidy(f, dm), silent = TRUE)
+    tryCatch(eval_tidy(f, dm), error = function(e) {
+      # Look for the cases where bad input was given, i.e. this would fail
+      # in regular dplyr anyway
+      msg <- conditionMessage(e)
+      if (grepl("object '.*'.not.found", msg)) {
+        stop(e)
+      }
+      if (grepl('could not find function ".*"', msg)) {
+        stop(e)
+      }
+      invisible(structure(msg, class = "try-error", condition = e))
+    })
   })
 
   bad_filters <- map_lgl(filters, ~inherits(., "try-error"))

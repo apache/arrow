@@ -134,10 +134,15 @@ test_that("filter() with %in%", {
 
 test_that("filter() on timestamp columns", {
   ds <- open_dataset(dataset_dir, partition = schema(part = uint8()))
+  datetime_to_ns <- function (x) {
+    # TODO: src/expression.cpp should handle timestamp data
+    # TODO: C++ library should handle autocasting
+    as.numeric(x) * 1000000
+  }
   expect_equivalent(
     ds %>%
-      # Replace with expression with function once ARROW-7360 is fixed
-      filter(ts >= (as.integer(as.POSIXct(lubridate::ymd_hms("2015-04-29 03:12:39") + lubridate::days(5))) * 1000000), part == 1) %>%
+      filter(ts >= datetime_to_ns(lubridate::ymd_hms("2015-05-04 03:12:39"))) %>%
+      filter(part == 1) %>%
       select(ts) %>%
       collect(),
     df1[5:10, c("ts")],
