@@ -53,7 +53,7 @@ cdef class FileStats:
         self.stats = stats
         return self
 
-    cdef inline CFileStats unwrap(self):
+    cdef inline CFileStats unwrap(self) nogil:
         return self.stats
 
     def __repr__(self):
@@ -150,7 +150,7 @@ cdef class Selector:
         self.recursive = recursive
         self.allow_non_existent = allow_non_existent
 
-    cdef inline CSelector unwrap(self):
+    cdef inline CSelector unwrap(self) nogil:
         return self.selector
 
     @property
@@ -213,7 +213,7 @@ cdef class FileSystem:
         self.init(sp)
         return self
 
-    cdef inline shared_ptr[CFileSystem] unwrap(self):
+    cdef inline shared_ptr[CFileSystem] unwrap(self) nogil:
         return self.wrapped
 
     def get_target_stats(self, paths_or_selector):

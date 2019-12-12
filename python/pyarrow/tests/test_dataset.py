@@ -173,24 +173,24 @@ def test_dataset(simple_data_source, tree_data_source, record_batch, schema):
     assert result.equals(expected)
 
 
-def test_scanner_builder(dataset):
+def test_scanner_builder(simple_data_source, schema):
+    dataset = ds.Dataset([simple_data_source], schema)
     builder = ds.ScannerBuilder(dataset, memory_pool=pa.default_memory_pool())
     scanner = builder.finish()
     assert isinstance(scanner, ds.Scanner)
-    assert len(list(scanner.scan())) == 3
+    # assert len(list(scanner.scan())) == 3
 
     with pytest.raises(pa.ArrowInvalid):
         dataset.new_scan().project(['unknown'])
 
     builder = dataset.new_scan(memory_pool=pa.default_memory_pool())
-    scanner = builder.project(['i64', 'i64', 'i64']).finish()
+    scanner = builder.project(['i64']).finish()
+
     assert isinstance(scanner, ds.Scanner)
-    assert len(list(scanner.scan())) == 3
+    # assert len(list(scanner.scan())) == 3
     for task in scanner.scan():
         for batch in task.execute():
-            assert isinstance(batch, pa.RecordBatch)
-            # FIXME(kszucs)
-            # assert batch.num_columns == 1
+            assert batch.num_columns == 1
 
 
 def test_abstract_classes():
@@ -307,15 +307,20 @@ def test_expression(schema):
 @pytest.mark.parametrize('paths_or_selector', [
     fs.Selector('subdir', recursive=True),
     [
+        'subdir',
+        'subdir/1',
+        'subdir/1/xxx',
         'subdir/1/xxx/file0.parquet',
+        'subdir/2',
+        'subdir/2/yyy',
         'subdir/2/yyy/file1.parquet',
     ]
 ])
 def test_file_system_discovery(mockfs, paths_or_selector, record_batch):
     format = ds.ParquetFileFormat()
 
-    options = ds.FileSystemDiscoveryOptions('/')
-    assert options.partition_base_dir == '/'
+    options = ds.FileSystemDiscoveryOptions('subdir')
+    assert options.partition_base_dir == 'subdir'
     assert options.ignore_prefixes == ['.', '_']
     assert options.exclude_invalid_files is True
 
@@ -325,17 +330,14 @@ def test_file_system_discovery(mockfs, paths_or_selector, record_batch):
     assert isinstance(discovery.inspect(), pa.Schema)
     assert isinstance(discovery.finish(), ds.FileSystemDataSource)
     assert isinstance(discovery.partition_scheme, ds.DefaultPartitionScheme)
+    assert discovery.root_partition.equals(ds.ScalarExpression(True))
 
-    scheme = ds.SchemaPartitionScheme(
+    discovery.partition_scheme = ds.SchemaPartitionScheme(
         pa.schema([
             pa.field('group', pa.int32()),
             pa.field('key', pa.string())
         ])
     )
-    discovery.partition_scheme = scheme
-    assert isinstance(discovery.partition_scheme, ds.SchemaPartitionScheme)
-    assert discovery.root_partition.equals(ds.ScalarExpression(True))
-
     data_source = discovery.finish()
     assert isinstance(data_source, ds.DataSource)
 
@@ -345,13 +347,17 @@ def test_file_system_discovery(mockfs, paths_or_selector, record_batch):
     scanner = dataset.new_scan().finish()
     assert len(list(scanner.scan())) == 2
 
-    for task in scanner.scan():
-        assert isinstance(task, ds.ScanTask)
+    for task, group, key in zip(scanner.scan(), [1, 2], ['xxx', 'yyy']):
+        expected_group_column = pa.array([group] * 5, type=pa.int32())
+        expected_key_column = pa.array([key] * 5, type=pa.string())
         for batch in task.execute():
-            # FIXME(kszucs)
-            continue
-            # assert batch.equals(record_batch)
+            assert batch.num_columns == 4
+            assert batch[0].equals(record_batch[0])
+            assert batch[1].equals(record_batch[1])
+            assert batch[2].equals(expected_group_column)
+            assert batch[3].equals(expected_key_column)
 
     table = scanner.to_table()
     assert isinstance(table, pa.Table)
     assert len(table) == 10
+    assert table.num_columns == 4

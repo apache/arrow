@@ -113,6 +113,10 @@ cdef class PartitionScheme:
         result = self.scheme.Parse(tobytes(path))
         return Expression.wrap(GetResultValue(result))
 
+    @property
+    def schema(self):
+        return pyarrow_wrap_schema(self.scheme.schema())
+
 
 cdef class DefaultPartitionScheme(PartitionScheme):
 
@@ -132,7 +136,7 @@ cdef class DefaultPartitionScheme(PartitionScheme):
 cdef class SchemaPartitionScheme(PartitionScheme):
 
     cdef:
-        CSchemaPartitionScheme* schema_scheme  # hmmm...
+        CSchemaPartitionScheme* schema_scheme
 
     def __init__(self, Schema schema not None):
         cdef shared_ptr[CSchemaPartitionScheme] scheme
@@ -144,10 +148,6 @@ cdef class SchemaPartitionScheme(PartitionScheme):
     cdef init(self, const shared_ptr[CPartitionScheme]& sp):
         PartitionScheme.init(self, sp)
         self.schema_scheme = <CSchemaPartitionScheme*> sp.get()
-
-    @property
-    def schema(self):
-        return pyarrow_wrap_schema(self.schema_scheme.schema())
 
 
 cdef class HivePartitionScheme(PartitionScheme):
@@ -165,10 +165,6 @@ cdef class HivePartitionScheme(PartitionScheme):
     cdef init(self, const shared_ptr[CPartitionScheme]& sp):
         PartitionScheme.init(self, sp)
         self.hive_scheme = <CHivePartitionScheme*> sp.get()
-
-    @property
-    def schema(self):
-        return pyarrow_wrap_schema(self.hive_scheme.schema())
 
 
 cdef class FileSystemDiscoveryOptions:
@@ -235,7 +231,7 @@ cdef class DataSourceDiscovery:
         self.init(sp)
         return self
 
-    cdef inline shared_ptr[CDataSourceDiscovery] unwrap(self):
+    cdef inline shared_ptr[CDataSourceDiscovery] unwrap(self) nogil:
         return self.wrapped
 
     @property
@@ -541,7 +537,7 @@ cdef class ScanTask:
         self.init(sp)
         return self
 
-    cdef inline shared_ptr[CScanTask] unwrap(self):
+    cdef inline shared_ptr[CScanTask] unwrap(self) nogil:
         return self.wrapped
 
     def execute(self):
@@ -608,7 +604,7 @@ cdef class ScannerBuilder:
         self.init(sp)
         return self
 
-    cdef inline shared_ptr[CScannerBuilder] unwrap(self):
+    cdef inline shared_ptr[CScannerBuilder] unwrap(self) nogil:
         return self.wrapped
 
     def project(self, columns):

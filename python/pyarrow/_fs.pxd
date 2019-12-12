@@ -41,14 +41,14 @@ cdef class FileStats:
     @staticmethod
     cdef wrap(CFileStats stats)
 
-    cdef inline CFileStats unwrap(self)
+    cdef inline CFileStats unwrap(self) nogil
 
 
 cdef class Selector:
     cdef:
         CSelector selector
 
-    cdef inline CSelector unwrap(self)
+    cdef inline CSelector unwrap(self) nogil
 
 
 cdef class FileSystem:
@@ -61,7 +61,7 @@ cdef class FileSystem:
     @staticmethod
     cdef wrap(shared_ptr[CFileSystem]& sp)
 
-    cdef inline shared_ptr[CFileSystem] unwrap(self)
+    cdef inline shared_ptr[CFileSystem] unwrap(self) nogil
 
 
 cdef class LocalFileSystem(FileSystem):

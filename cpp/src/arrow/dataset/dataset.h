@@ -128,8 +128,6 @@ class ARROW_DS_EXPORT SimpleDataSource : public DataSource {
   static Result<DataSourcePtr> Make(
       std::vector<std::shared_ptr<RecordBatch>> record_batches);
 
-  explicit SimpleDataSource();
-
   DataFragmentIterator GetFragmentsImpl(ScanOptionsPtr options) override;
 
   std::string type_name() const override { return "simple"; }

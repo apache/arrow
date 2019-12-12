@@ -312,6 +312,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CPartitionScheme "arrow::dataset::PartitionScheme":
         c_string type_name() const
         CResult[CExpressionPtr] Parse(const c_string& path) const
+        const shared_ptr[CSchema]& schema()
 
     ctypedef shared_ptr[CPartitionScheme] CPartitionSchemePtr \
         "arrow::dataset::PartitionSchemePtr"
@@ -323,14 +324,10 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CSchemaPartitionScheme \
             "arrow::dataset::SchemaPartitionScheme"(CPartitionScheme):
         CSchemaPartitionScheme(shared_ptr[CSchema] schema)
-        const shared_ptr[CSchema]& schema()
 
     cdef cppclass CHivePartitionScheme \
             "arrow::dataset::HivePartitionScheme"(CPartitionScheme):
         CHivePartitionScheme(shared_ptr[CSchema] schema)
-        const shared_ptr[CSchema]& schema()
-        # vector[CUnconvertedKey] GetUnconvertedKeys(
-        #    const c_string& path) const;
 
     cdef cppclass CFileSystemDiscoveryOptions \
             "arrow::dataset::FileSystemDiscoveryOptions":
