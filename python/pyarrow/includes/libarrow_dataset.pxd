@@ -153,7 +153,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         "arrow::dataset::ScanContextPtr"
 
     cdef cppclass CScanTask" arrow::dataset::ScanTask":
-        CResult[CRecordBatchIterator] Scan()
+        CResult[CRecordBatchIterator] Execute()
 
     cdef cppclass CSimpleScanTask "arrow::dataset::SimpleScanTask"(CScanTask):
         pass

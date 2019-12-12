@@ -544,7 +544,7 @@ cdef class ScanTask:
     cdef inline shared_ptr[CScanTask] unwrap(self):
         return self.wrapped
 
-    def scan(self):
+    def execute(self):
         """Iterate through sequence of materialized record batches.
 
         Execution semantics are encapsulated in the particular ScanTask
@@ -558,7 +558,7 @@ cdef class ScanTask:
             CRecordBatchIterator iterator
             shared_ptr[CRecordBatch] record_batch
 
-        iterator = move(GetResultValue(move(self.task.Scan())))
+        iterator = move(GetResultValue(move(self.task.Execute())))
 
         while True:
             record_batch = GetResultValue(iterator.Next())

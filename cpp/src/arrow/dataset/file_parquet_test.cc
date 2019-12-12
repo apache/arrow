@@ -174,7 +174,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReader) {
 
   for (auto maybe_task : scan_task_it) {
     ASSERT_OK_AND_ASSIGN(auto task, std::move(maybe_task));
-    ASSERT_OK_AND_ASSIGN(auto rb_it, task->Scan());
+    ASSERT_OK_AND_ASSIGN(auto rb_it, task->Execute());
     for (auto maybe_batch : rb_it) {
       ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
       row_count += batch->num_rows();
@@ -221,7 +221,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjected) {
 
   for (auto maybe_task : scan_task_it) {
     ASSERT_OK_AND_ASSIGN(auto task, std::move(maybe_task));
-    ASSERT_OK_AND_ASSIGN(auto rb_it, task->Scan());
+    ASSERT_OK_AND_ASSIGN(auto rb_it, task->Execute());
     for (auto maybe_batch : rb_it) {
       ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
       row_count += batch->num_rows();
@@ -262,7 +262,7 @@ TEST_F(TestParquetFileFormat, ScanRecordBatchReaderProjectedMissingCols) {
 
   for (auto maybe_task : scan_task_it) {
     ASSERT_OK_AND_ASSIGN(auto task, std::move(maybe_task));
-    ASSERT_OK_AND_ASSIGN(auto rb_it, task->Scan());
+    ASSERT_OK_AND_ASSIGN(auto rb_it, task->Execute());
     for (auto maybe_batch : rb_it) {
       ASSERT_OK_AND_ASSIGN(auto batch, std::move(maybe_batch));
       row_count += batch->num_rows();
@@ -307,7 +307,7 @@ void CountRowsInScan(ScanTaskIterator& it, int64_t expected_rows,
 
   for (auto maybe_scan_task : it) {
     ASSERT_OK_AND_ASSIGN(auto scan_task, std::move(maybe_scan_task));
-    ASSERT_OK_AND_ASSIGN(auto rb_it, scan_task->Scan());
+    ASSERT_OK_AND_ASSIGN(auto rb_it, scan_task->Execute());
     for (auto maybe_record_batch : rb_it) {
       ASSERT_OK_AND_ASSIGN(auto record_batch, std::move(maybe_record_batch));
       actual_rows += record_batch->num_rows();
@@ -329,7 +329,7 @@ class TestParquetFileFormatPushDown : public TestParquetFileFormat {
     ASSERT_OK_AND_ASSIGN(auto it, fragment.Scan(ctx_));
     for (auto maybe_scan_task : it) {
       ASSERT_OK_AND_ASSIGN(auto scan_task, std::move(maybe_scan_task));
-      ASSERT_OK_AND_ASSIGN(auto rb_it, scan_task->Scan());
+      ASSERT_OK_AND_ASSIGN(auto rb_it, scan_task->Execute());
       for (auto maybe_record_batch : rb_it) {
         ASSERT_OK_AND_ASSIGN(auto record_batch, std::move(maybe_record_batch));
         actual_rows += record_batch->num_rows();

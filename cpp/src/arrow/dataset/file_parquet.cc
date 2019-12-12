@@ -50,7 +50,7 @@ class ParquetScanTask : public ScanTask {
         column_projection_(std::move(column_projection)),
         reader_(reader) {}
 
-  Result<RecordBatchIterator> Scan() {
+  Result<RecordBatchIterator> Execute() {
     // The construction of parquet's RecordBatchReader is deferred here to
     // control the memory usage of consumers who materialize all ScanTasks
     // before dispatching them, e.g. for scheduling purposes.

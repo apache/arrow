@@ -150,7 +150,7 @@ def test_dataset(simple_data_source, tree_data_source, record_batch, schema):
 
     for task in scanner.scan():
         assert isinstance(task, ds.ScanTask)
-        for batch in task.scan():
+        for batch in task.execute():
             assert batch.equals(record_batch)
 
     table = scanner.to_table()
@@ -187,7 +187,7 @@ def test_scanner_builder(dataset):
     assert isinstance(scanner, ds.Scanner)
     assert len(list(scanner.scan())) == 3
     for task in scanner.scan():
-        for batch in task.scan():
+        for batch in task.execute():
             assert isinstance(batch, pa.RecordBatch)
             # FIXME(kszucs)
             # assert batch.num_columns == 1
@@ -347,7 +347,7 @@ def test_file_system_discovery(mockfs, paths_or_selector, record_batch):
 
     for task in scanner.scan():
         assert isinstance(task, ds.ScanTask)
-        for batch in task.scan():
+        for batch in task.execute():
             # FIXME(kszucs)
             continue
             # assert batch.equals(record_batch)

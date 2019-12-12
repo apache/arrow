@@ -85,7 +85,7 @@ class ARROW_DS_EXPORT ScanTask {
   /// \brief Iterate through sequence of materialized record batches
   /// resulting from the Scan. Execution semantics are encapsulated in the
   /// particular ScanTask implementation
-  virtual Result<RecordBatchIterator> Scan() = 0;
+  virtual Result<RecordBatchIterator> Execute() = 0;
 
   virtual ~ScanTask() = default;
 
@@ -108,7 +108,7 @@ class ARROW_DS_EXPORT SimpleScanTask : public ScanTask {
       : ScanTask(std::move(options), std::move(context)),
         record_batches_(std::move(record_batches)) {}
 
-  Result<RecordBatchIterator> Scan() override;
+  Result<RecordBatchIterator> Execute() override;
 
  protected:
   std::vector<std::shared_ptr<RecordBatch>> record_batches_;
