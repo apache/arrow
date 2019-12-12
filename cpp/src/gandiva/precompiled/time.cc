@@ -740,14 +740,16 @@ const char* castVARCHAR_timestamp_int64(gdv_int64 context, gdv_timestamp in,
 }
 
 FORCE_INLINE
-int64 extractDay_daytimeinterval(day_time_interval in) { return in & 0x00000000FFFFFFFF; }
+gdv_int64 extractDay_daytimeinterval(gdv_day_time_interval in) {
+  return in & 0x00000000FFFFFFFF;
+}
 
 FORCE_INLINE
-int64 extractMillis_daytimeinterval(day_time_interval in) {
+gdv_int64 extractMillis_daytimeinterval(gdv_day_time_interval in) {
   return (in & 0xFFFFFFFF00000000) >> 32;
 }
 
-int64 castBIGINT_daytimeinterval(day_time_interval in) {
+gdv_int64 castBIGINT_daytimeinterval(gdv_day_time_interval in) {
   return extractMillis_daytimeinterval(in) +
          extractDay_daytimeinterval(in) * MILLIS_IN_DAY;
 }
