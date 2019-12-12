@@ -168,6 +168,8 @@ void CheckSparseCSXIndexValidity(const std::shared_ptr<DataType>& indptr_type,
 template <typename SparseIndexType, SparseMatrixCompressedAxis::type COMPRESSED_AXIS>
 class SparseCSXIndex : public SparseIndexBase<SparseIndexType> {
  public:
+  static constexpr SparseMatrixCompressedAxis::type kCompressedAxis = COMPRESSED_AXIS;
+
   /// \brief Make a subclass of SparseCSXIndex from raw properties
   static Result<std::shared_ptr<SparseIndexType>> Make(
       const std::shared_ptr<DataType>& indptr_type,
@@ -284,9 +286,13 @@ class ARROW_EXPORT SparseCSRIndex
     : public internal::SparseCSXIndex<SparseCSRIndex,
                                       internal::SparseMatrixCompressedAxis::ROW> {
  public:
+  using BaseClass =
+      internal::SparseCSXIndex<SparseCSRIndex, internal::SparseMatrixCompressedAxis::ROW>;
+
   static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::CSR;
   static constexpr char const* kTypeName = "SparseCSRIndex";
 
+  using SparseCSXIndex::kCompressedAxis;
   using SparseCSXIndex::Make;
   using SparseCSXIndex::SparseCSXIndex;
 };
@@ -310,9 +316,14 @@ class ARROW_EXPORT SparseCSCIndex
     : public internal::SparseCSXIndex<SparseCSCIndex,
                                       internal::SparseMatrixCompressedAxis::COLUMN> {
  public:
+  using BaseClass =
+      internal::SparseCSXIndex<SparseCSCIndex,
+                               internal::SparseMatrixCompressedAxis::COLUMN>;
+
   static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::CSC;
   static constexpr char const* kTypeName = "SparseCSCIndex";
 
+  using SparseCSXIndex::kCompressedAxis;
   using SparseCSXIndex::Make;
   using SparseCSXIndex::SparseCSXIndex;
 };
