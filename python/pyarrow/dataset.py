@@ -50,6 +50,5 @@ from pyarrow._dataset import (  # noqa
     ScannerBuilder,
     ScanTask,
     SchemaPartitionScheme,
-    SimpleDataSource,
     TreeDataSource,
 )

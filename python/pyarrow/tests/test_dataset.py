@@ -32,15 +32,27 @@ pytestmark = pytest.mark.dataset
 
 @pytest.fixture
 @pytest.mark.parquet
-def mockfs(table):
+def mockfs():
     import pyarrow.parquet as pq
 
     mockfs = fs._MockFileSystem()
+
+    data = [
+        list(range(5)),
+        list(map(float, range(5)))
+    ]
+    schema = pa.schema([
+        pa.field('i64', pa.int64()),
+        pa.field('f64', pa.float64())
+    ])
+    batch = pa.record_batch(data, schema=schema)
+    table = pa.Table.from_batches([batch])
 
     directories = [
         'subdir/1/xxx',
         'subdir/2/yyy',
     ]
+
     for i, directory in enumerate(directories):
         path = '{}/file{}.parquet'.format(directory, i)
         mockfs.create_dir(directory)
@@ -51,51 +63,21 @@ def mockfs(table):
 
 
 @pytest.fixture
-def schema():
-    return pa.schema([
-        pa.field('i64', pa.int64()),
-        pa.field('f64', pa.float64())
-    ])
-
-
-@pytest.fixture
-def record_batch(schema):
-    data = [
-        list(range(5)),
-        list(map(float, range(5)))
-    ]
-    return pa.record_batch(data, schema=schema)
-
-
-@pytest.fixture
-def table(record_batch):
-    return pa.Table.from_batches([record_batch])
-
-
-@pytest.fixture
-def simple_data_source(record_batch):
-    return ds.SimpleDataSource([record_batch])
-
-
-@pytest.fixture
-def tree_data_source(simple_data_source):
-    return ds.TreeDataSource([simple_data_source] * 2)
-
-
-@pytest.fixture
-def dataset(simple_data_source, tree_data_source, schema):
-    return ds.Dataset([simple_data_source, tree_data_source], schema)
-
-
-def test_simple_data_source(record_batch):
-    source = ds.SimpleDataSource([record_batch])
-    assert isinstance(source, ds.SimpleDataSource)
-    assert source.partition_expression is None
-
-
-def test_tree_data_source(simple_data_source):
-    source = ds.TreeDataSource([simple_data_source] * 2)
-    assert isinstance(source, ds.TreeDataSource)
+def dataset(mockfs):
+    format = ds.ParquetFileFormat()
+    selector = fs.Selector('subdir', recursive=True)
+    options = ds.FileSystemDiscoveryOptions('subdir')
+    discovery = ds.FileSystemDataSourceDiscovery(mockfs, selector, format,
+                                                 options)
+    discovery.partition_scheme = ds.SchemaPartitionScheme(
+        pa.schema([
+            pa.field('group', pa.int32()),
+            pa.field('key', pa.string())
+        ])
+    )
+    source = discovery.finish()
+    schema = discovery.inspect()
+    return ds.Dataset([source], schema)
 
 
 def test_filesystem_data_source(mockfs):
@@ -131,31 +113,29 @@ def test_filesystem_data_source(mockfs):
     assert source.partition_expression.equals(source_partition)
 
 
-def test_dataset(simple_data_source, tree_data_source, record_batch, schema):
-    dataset = ds.Dataset([simple_data_source, tree_data_source], schema)
-
+def test_dataset(dataset):
     assert isinstance(dataset, ds.Dataset)
     assert isinstance(dataset.schema, pa.Schema)
-    assert isinstance(dataset.sources[0], ds.SimpleDataSource)
-    assert isinstance(dataset.sources[1], ds.TreeDataSource)
 
     # TODO(kszucs): test non-boolean expressions for filter do raise
     builder = dataset.new_scan()
     assert isinstance(builder, ds.ScannerBuilder)
-    assert builder.schema.equals(schema)
 
     scanner = builder.finish()
     assert isinstance(scanner, ds.Scanner)
-    assert len(list(scanner.scan())) == 3
+    assert len(list(scanner.scan())) == 2
 
+    expected_i64 = pa.array([0, 1, 2, 3, 4], type=pa.int64())
+    expected_f64 = pa.array([0, 1, 2, 3, 4], type=pa.float64())
     for task in scanner.scan():
         assert isinstance(task, ds.ScanTask)
         for batch in task.execute():
-            assert batch.equals(record_batch)
+            assert batch.column(0).equals(expected_i64)
+            assert batch.column(1).equals(expected_f64)
 
     table = scanner.to_table()
     assert isinstance(table, pa.Table)
-    assert len(table) == 15
+    assert len(table) == 10
 
     condition = ds.ComparisonExpression(
         ds.CompareOperator.Equal,
@@ -165,20 +145,19 @@ def test_dataset(simple_data_source, tree_data_source, record_batch, schema):
     scanner = dataset.new_scan().use_threads(True).filter(condition).finish()
     result = scanner.to_table()
 
-    data = [
-        list(range(5)) * 3,
-        list(map(float, range(5))) * 3
-    ]
-    expected = pa.table(data, schema=schema)
-    assert result.equals(expected)
+    assert result.to_pydict() == {
+        'i64': [1, 1],
+        'f64': [1., 1.],
+        'group': [1, 2],
+        'key': ['xxx', 'yyy']
+    }
 
 
-def test_scanner_builder(simple_data_source, schema):
-    dataset = ds.Dataset([simple_data_source], schema)
+def test_scanner_builder(dataset):
     builder = ds.ScannerBuilder(dataset, memory_pool=pa.default_memory_pool())
     scanner = builder.finish()
     assert isinstance(scanner, ds.Scanner)
-    # assert len(list(scanner.scan())) == 3
+    assert len(list(scanner.scan())) == 2
 
     with pytest.raises(pa.ArrowInvalid):
         dataset.new_scan().project(['unknown'])
@@ -187,7 +166,7 @@ def test_scanner_builder(simple_data_source, schema):
     scanner = builder.project(['i64']).finish()
 
     assert isinstance(scanner, ds.Scanner)
-    # assert len(list(scanner.scan())) == 3
+    assert len(list(scanner.scan())) == 2
     for task in scanner.scan():
         for batch in task.execute():
             assert batch.num_columns == 1
@@ -206,7 +185,11 @@ def test_abstract_classes():
             klass()
 
 
-def test_partition_scheme(schema):
+def test_partition_scheme():
+    schema = pa.schema([
+        pa.field('i64', pa.int64()),
+        pa.field('f64', pa.float64())
+    ])
     for klass in [ds.SchemaPartitionScheme, ds.HivePartitionScheme]:
         scheme = klass(schema)
         assert isinstance(scheme, ds.PartitionScheme)
@@ -259,7 +242,7 @@ def test_partition_scheme(schema):
     assert expr.equals(expected)
 
 
-def test_expression(schema):
+def test_expression():
     a = ds.ScalarExpression(1)
     b = ds.ScalarExpression(1.1)
     c = ds.ScalarExpression(True)
@@ -287,6 +270,10 @@ def test_expression(schema):
         ds.FieldExpression('i64'),
         ds.ScalarExpression(5)
     )
+    schema = pa.schema([
+        pa.field('i64', pa.int64()),
+        pa.field('f64', pa.float64())
+    ])
     assert condition.validate(schema) == pa.bool_()
 
     i64_is_5 = ds.ComparisonExpression(
@@ -316,7 +303,7 @@ def test_expression(schema):
         'subdir/2/yyy/file1.parquet',
     ]
 ])
-def test_file_system_discovery(mockfs, paths_or_selector, record_batch):
+def test_file_system_discovery(mockfs, paths_or_selector):
     format = ds.ParquetFileFormat()
 
     options = ds.FileSystemDiscoveryOptions('subdir')
@@ -347,13 +334,15 @@ def test_file_system_discovery(mockfs, paths_or_selector, record_batch):
     scanner = dataset.new_scan().finish()
     assert len(list(scanner.scan())) == 2
 
+    expected_i64 = pa.array([0, 1, 2, 3, 4], type=pa.int64())
+    expected_f64 = pa.array([0, 1, 2, 3, 4], type=pa.float64())
     for task, group, key in zip(scanner.scan(), [1, 2], ['xxx', 'yyy']):
         expected_group_column = pa.array([group] * 5, type=pa.int32())
         expected_key_column = pa.array([key] * 5, type=pa.string())
         for batch in task.execute():
             assert batch.num_columns == 4
-            assert batch[0].equals(record_batch[0])
-            assert batch[1].equals(record_batch[1])
+            assert batch[0].equals(expected_i64)
+            assert batch[1].equals(expected_f64)
             assert batch[2].equals(expected_group_column)
             assert batch[3].equals(expected_key_column)
 

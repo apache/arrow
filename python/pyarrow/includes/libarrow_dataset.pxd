@@ -202,11 +202,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         const CExpressionPtr& partition_expression()
         c_string type_name()
 
-    cdef cppclass CSimpleDataSource "arrow::dataset::SimpleDataSource"(
-            CDataSource):
-        @staticmethod
-        CResult[shared_ptr[CDataSource]] Make(vector[shared_ptr[CRecordBatch]])
-
     ctypedef shared_ptr[CDataSource] CDataSourcePtr \
         "arrow::dataset::DataSourcePtr"
     ctypedef vector[CDataSourcePtr] CDataSourceVector \

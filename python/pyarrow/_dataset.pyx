@@ -327,8 +327,6 @@ cdef class DataSource:
         typ = frombytes(sp.get().type_name())
         if typ == 'tree':
             self = TreeDataSource.__new__(TreeDataSource)
-        elif typ == 'simple':
-            self = SimpleDataSource.__new__(SimpleDataSource)
         elif typ == 'filesystem':
             self = FileSystemDataSource.__new__(FileSystemDataSource)
         else:
@@ -348,29 +346,6 @@ cdef class DataSource:
             return None
         else:
             return Expression.wrap(expression)
-
-
-cdef class SimpleDataSource(DataSource):
-    """An in memory DataSource created from in memory RecordBatches"""
-
-    cdef:
-        CSimpleDataSource* simple_source
-
-    def __init__(self, record_batches):
-        cdef:
-            RecordBatch batch
-            vector[shared_ptr[CRecordBatch]] batches
-            CResult[shared_ptr[CDataSource]] result
-
-        for batch in record_batches:
-            batches.push_back(pyarrow_unwrap_batch(batch))
-
-        result = CSimpleDataSource.Make(batches)
-        self.init(GetResultValue(result))
-
-    cdef void init(self, const shared_ptr[CDataSource]& sp):
-        DataSource.init(self, sp)
-        self.simple_source = <CSimpleDataSource*> sp.get()
 
 
 cdef class TreeDataSource(DataSource):
@@ -630,6 +605,7 @@ cdef class ScannerBuilder:
         """
         cdef vector[c_string] cols = [tobytes(c) for c in columns]
         check_status(self.builder.Project(cols))
+
         return self
 
     def finish(self):

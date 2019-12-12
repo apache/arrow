@@ -96,15 +96,6 @@ DataFragmentIterator DataSource::GetFragments(ScanOptionsPtr scan_options) {
   return GetFragmentsImpl(std::move(simplified_scan_options));
 }
 
-Result<DataSourcePtr> SimpleDataSource::Make(
-    std::vector<std::shared_ptr<RecordBatch>> record_batches) {
-  ARROW_CHECK_GE(record_batches.size(), 1);
-  auto schema = record_batches.front()->schema();
-  auto options = ScanOptions::Make(schema);
-  auto fragment = std::make_shared<SimpleDataFragment>(record_batches, options);
-  return DataSourcePtr(new SimpleDataSource({fragment}));
-}
-
 DataFragmentIterator SimpleDataSource::GetFragmentsImpl(ScanOptionsPtr scan_options) {
   return MakeVectorIterator(fragments_);
 }

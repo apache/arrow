@@ -122,12 +122,6 @@ class ARROW_DS_EXPORT SimpleDataSource : public DataSource {
   explicit SimpleDataSource(DataFragmentVector fragments)
       : fragments_(std::move(fragments)) {}
 
-  /// \brief Build a SimpleDataSource from uniform record_batches
-  //
-  /// \param[in] record_batches one or more input record batches
-  static Result<DataSourcePtr> Make(
-      std::vector<std::shared_ptr<RecordBatch>> record_batches);
-
   DataFragmentIterator GetFragmentsImpl(ScanOptionsPtr options) override;
 
   std::string type_name() const override { return "simple"; }
