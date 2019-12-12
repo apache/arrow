@@ -21,6 +21,7 @@ from libcpp.unordered_map cimport unordered_map
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_fs cimport *
 
 
 cdef extern from "arrow/api.h" namespace "arrow" nogil:

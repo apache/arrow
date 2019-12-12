@@ -59,6 +59,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         c_bool recursive
 
     cdef cppclass CFileSystem "arrow::fs::FileSystem":
+        c_string type() const
         CResult[CFileStats] GetTargetStats(const c_string& path)
         CResult[vector[CFileStats]] GetTargetStats(
             const vector[c_string]& paths)
