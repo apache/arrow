@@ -25,8 +25,6 @@ from libcpp.cast cimport dynamic_cast
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
-# TODO(kszucs): DEPRECATE
-# ctypedef RandomAccessFile = CRandomAccessFile
 
 cdef extern from "Python.h":
     int PySlice_Check(object)
