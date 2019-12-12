@@ -164,7 +164,7 @@ class SparseTensorConverter<TYPE, SparseCOOIndex>
       ARROW_GENERATE_FOR_ALL_INTEGER_TYPES(CALL_TYPE_SPECIFIC_CONVERT);
       // LCOV_EXCL_START: The following invalid causes program failure.
       default:
-        return Status::Invalid("Unsupported SparseTensor index value type");
+        return Status::TypeError("Unsupported SparseTensor index value type");
         // LCOV_EXCL_STOP
     }
   }
@@ -271,7 +271,7 @@ class SparseTensorConverter<TYPE, SparseCSRIndex>
       ARROW_GENERATE_FOR_ALL_INTEGER_TYPES(CALL_TYPE_SPECIFIC_CONVERT);
       // LCOV_EXCL_START: The following invalid causes program failure.
       default:
-        return Status::Invalid("Unsupported SparseTensor index value type");
+        return Status::TypeError("Unsupported SparseTensor index value type");
         // LCOV_EXCL_STOP
     }
   }
@@ -392,7 +392,7 @@ class SparseTensorConverter<TYPE, SparseCSCIndex>
       ARROW_GENERATE_FOR_ALL_INTEGER_TYPES(CALL_TYPE_SPECIFIC_CONVERT);
       // LCOV_EXCL_START: The following invalid causes program failure.
       default:
-        return Status::Invalid("Unsupported SparseTensor index value type");
+        return Status::TypeError("Unsupported SparseTensor index value type");
         // LCOV_EXCL_STOP
     }
   }
@@ -478,7 +478,7 @@ inline Status MakeSparseTensorFromTensor(
     ARROW_GENERATE_FOR_ALL_NUMERIC_TYPES(MAKE_SPARSE_TENSOR_FROM_TENSOR);
       // LCOV_EXCL_START: ignore program failure
     default:
-      return Status::Invalid("Unsupported Tensor value type");
+      return Status::TypeError("Unsupported Tensor value type");
       // LCOV_EXCL_STOP
   }
 }
@@ -675,7 +675,7 @@ inline Status CheckSparseCOOIndexValidity(const std::shared_ptr<DataType>& type,
                                           const std::vector<int64_t>& shape,
                                           const std::vector<int64_t>& strides) {
   if (!is_integer(type->id())) {
-    return Status::Invalid("Type of SparseCOOIndex indices must be integer");
+    return Status::TypeError("Type of SparseCOOIndex indices must be integer");
   }
   if (shape.size() != 2) {
     return Status::Invalid("SparseCOOIndex indices must be a matrix");
@@ -728,7 +728,7 @@ Status ValidateSparseCSXIndex(const std::shared_ptr<DataType>& indptr_type,
                               const std::vector<int64_t>& indices_shape,
                               char const* type_name) {
   if (!is_integer(indptr_type->id())) {
-    return Status::Invalid("Type of ", type_name, " indptr must be integer");
+    return Status::TypeError("Type of ", type_name, " indptr must be integer");
   }
   if (indptr_shape.size() != 1) {
     return Status::Invalid(type_name, " indptr must be a vector");

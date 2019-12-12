@@ -63,7 +63,7 @@ TEST(TestSparseCOOIndex, Make) {
 
   // Non-integer type
   auto res = SparseCOOIndex::Make(float32(), shape, strides, data);
-  ASSERT_RAISES(Invalid, res);
+  ASSERT_RAISES(TypeError, res);
 
   // Non-matrix indices
   res = SparseCOOIndex::Make(int32(), {4, 3, 4}, strides, data);
@@ -96,7 +96,7 @@ TEST(TestSparseCSRIndex, Make) {
   // Non-integer type
   auto res = SparseCSRIndex::Make(float32(), indptr_shape, indices_shape, indptr_data,
                                   indices_data);
-  ASSERT_RAISES(Invalid, res);
+  ASSERT_RAISES(TypeError, res);
 
   // Non-vector indptr shape
   ASSERT_RAISES(Invalid, SparseCSRIndex::Make(int32(), {1, 2}, indices_shape, indptr_data,
@@ -126,8 +126,8 @@ TEST(TestSparseCSCIndex, Make) {
   ASSERT_EQ(std::string("SparseCSCIndex"), si->ToString());
 
   // Non-integer type
-  ASSERT_RAISES(Invalid, SparseCSCIndex::Make(float32(), indptr_shape, indices_shape,
-                                              indptr_data, indices_data));
+  ASSERT_RAISES(TypeError, SparseCSCIndex::Make(float32(), indptr_shape, indices_shape,
+                                                indptr_data, indices_data));
 
   // Non-vector indptr shape
   ASSERT_RAISES(Invalid, SparseCSCIndex::Make(int32(), {1, 2}, indices_shape, indptr_data,
