@@ -60,7 +60,7 @@ class ARROW_DS_EXPORT PartitionScheme {
   virtual ~PartitionScheme() = default;
 
   /// \brief The name identifying the kind of partition scheme
-  virtual std::string name() const = 0;
+  virtual std::string type_name() const = 0;
 
   /// \brief Parse a path segment into a partition expression
   ///
@@ -113,7 +113,7 @@ class DefaultPartitionScheme : public PartitionScheme {
  public:
   DefaultPartitionScheme() : PartitionScheme(::arrow::schema({})) {}
 
-  std::string name() const override { return "default_partition_scheme"; }
+  std::string type_name() const override { return "default"; }
 
   Result<ExpressionPtr> Parse(const std::string& segment, int i) const override {
     return scalar(true);
@@ -129,7 +129,7 @@ class ARROW_DS_EXPORT SegmentDictionaryPartitionScheme : public PartitionScheme 
       std::vector<std::unordered_map<std::string, ExpressionPtr>> dictionaries)
       : PartitionScheme(std::move(schema)), dictionaries_(std::move(dictionaries)) {}
 
-  std::string name() const override { return "segment_dictionary_partition_scheme"; }
+  std::string type_name() const override { return "segment_dictionary"; }
 
   /// Return dictionaries_[i][segment] or scalar(true)
   Result<ExpressionPtr> Parse(const std::string& segment, int i) const override;
@@ -172,7 +172,7 @@ class ARROW_DS_EXPORT SchemaPartitionScheme : public PartitionKeysScheme {
   explicit SchemaPartitionScheme(std::shared_ptr<Schema> schema)
       : PartitionKeysScheme(std::move(schema)) {}
 
-  std::string name() const override { return "schema_partition_scheme"; }
+  std::string type_name() const override { return "schema"; }
 
   util::optional<Key> ParseKey(const std::string& segment, int i) const override;
 
@@ -193,7 +193,7 @@ class ARROW_DS_EXPORT HivePartitionScheme : public PartitionKeysScheme {
   explicit HivePartitionScheme(std::shared_ptr<Schema> schema)
       : PartitionKeysScheme(std::move(schema)) {}
 
-  std::string name() const override { return "hive_partition_scheme"; }
+  std::string type_name() const override { return "hive"; }
 
   util::optional<Key> ParseKey(const std::string& segment, int i) const override {
     return ParseKey(segment);
@@ -210,12 +210,12 @@ class ARROW_DS_EXPORT FunctionPartitionScheme : public PartitionScheme {
   explicit FunctionPartitionScheme(
       std::shared_ptr<Schema> schema,
       std::function<Result<ExpressionPtr>(const std::string&, int)> impl,
-      std::string name = "function_partition_scheme")
+      std::string name = "function")
       : PartitionScheme(std::move(schema)),
         impl_(std::move(impl)),
         name_(std::move(name)) {}
 
-  std::string name() const override { return name_; }
+  std::string type_name() const override { return name_; }
 
   Result<ExpressionPtr> Parse(const std::string& segment, int i) const override {
     return impl_(segment, i);

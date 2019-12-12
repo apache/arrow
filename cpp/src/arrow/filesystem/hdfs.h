@@ -61,7 +61,7 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
  public:
   ~HadoopFileSystem() override;
 
-  std::string type() const override { return "hdfs"; }
+  std::string type_name() const override { return "hdfs"; }
 
   /// \cond FALSE
   using FileSystem::GetTargetStats;

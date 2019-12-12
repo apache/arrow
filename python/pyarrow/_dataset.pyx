@@ -95,13 +95,12 @@ cdef class PartitionScheme:
     cdef wrap(const shared_ptr[CPartitionScheme]& sp):
         cdef PartitionScheme self
 
-        # TODO(kszucs): either choose type() or name() but consistently
-        typ = frombytes(sp.get().name())
-        if typ == 'default_partition_scheme':
+        typ = frombytes(sp.get().type_name())
+        if typ == 'default':
             self = DefaultPartitionScheme.__new__(DefaultPartitionScheme)
-        elif typ == 'schema_partition_scheme':
+        elif typ == 'schema':
             self = SchemaPartitionScheme.__new__(SchemaPartitionScheme)
-        elif typ == 'hive_partition_scheme':
+        elif typ == 'hive':
             self = HivePartitionScheme.__new__(HivePartitionScheme)
         else:
             raise TypeError(typ)
@@ -121,7 +120,7 @@ cdef class PartitionScheme:
 cdef class DefaultPartitionScheme(PartitionScheme):
 
     cdef:
-        CDefaultPartitionScheme* default_scheme  # hmmm...
+        CDefaultPartitionScheme* default_scheme
 
     def __init__(self):
         cdef shared_ptr[CDefaultPartitionScheme] scheme
@@ -332,12 +331,12 @@ cdef class DataSource:
     cdef wrap(shared_ptr[CDataSource]& sp):
         cdef DataSource self
 
-        typ = frombytes(sp.get().type())
-        if typ == 'tree_data_source':
+        typ = frombytes(sp.get().type_name())
+        if typ == 'tree':
             self = TreeDataSource.__new__(TreeDataSource)
-        elif typ == 'simple_data_source':
+        elif typ == 'simple':
             self = SimpleDataSource.__new__(SimpleDataSource)
-        elif typ == 'filesystem_data_source':
+        elif typ == 'filesystem':
             self = FileSystemDataSource.__new__(FileSystemDataSource)
         else:
             raise TypeError(typ)

@@ -183,7 +183,6 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CDataFragment "arrow::dataset::DataFragment":
         CResult[CScanTaskIterator] Scan(CScanContextPtr context)
         c_bool splittable()
-        c_string type()
         CScanOptionsPtr scan_options()
 
     ctypedef shared_ptr[CDataFragment] CDataFragmentPtr \
@@ -201,7 +200,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
     cdef cppclass CDataSource "arrow::dataset::DataSource":
         CDataFragmentIterator GetFragments(CScanOptionsPtr options)
         const CExpressionPtr& partition_expression()
-        c_string type()
+        c_string type_name()
 
     cdef cppclass CSimpleDataSource "arrow::dataset::SimpleDataSource"(
             CDataSource):
@@ -311,7 +310,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         c_bool splittable()
 
     cdef cppclass CPartitionScheme "arrow::dataset::PartitionScheme":
-        c_string name() const
+        c_string type_name() const
         CResult[CExpressionPtr] Parse(const c_string& path) const
 
     ctypedef shared_ptr[CPartitionScheme] CPartitionSchemePtr \

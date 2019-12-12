@@ -216,7 +216,7 @@ class ARROW_DS_EXPORT FileSystemDataSource : public DataSource {
                                     ExpressionVector partitions,
                                     ExpressionPtr source_partition, FileFormatPtr format);
 
-  std::string type() const override { return "filesystem_data_source"; }
+  std::string type_name() const override { return "filesystem"; }
 
   std::string ToString() const;
 

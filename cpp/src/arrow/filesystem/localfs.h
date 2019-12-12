@@ -48,7 +48,7 @@ class ARROW_EXPORT LocalFileSystem : public FileSystem {
   explicit LocalFileSystem(const LocalFileSystemOptions&);
   ~LocalFileSystem() override;
 
-  std::string type() const override { return "local"; }
+  std::string type_name() const override { return "local"; }
 
   /// \cond FALSE
   using FileSystem::GetTargetStats;

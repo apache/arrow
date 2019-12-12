@@ -44,8 +44,6 @@ class ARROW_DS_EXPORT DataFragment {
   /// scanning
   virtual bool splittable() const = 0;
 
-  virtual std::string type() const = 0;
-
   /// \brief Filtering, schema reconciliation, and partition options to use when
   /// scanning this fragment. May be nullptr, which indicates that no filtering
   /// or schema reconciliation will be performed and all partitions will be
@@ -78,8 +76,6 @@ class ARROW_DS_EXPORT SimpleDataFragment : public DataFragment {
   SimpleDataFragment(std::vector<std::shared_ptr<RecordBatch>> record_batches,
                      ScanOptionsPtr scan_options);
 
-  std::string type() const override { return "simple_data_fragment"; }
-
   Result<ScanTaskIterator> Scan(ScanContextPtr context) override;
 
   bool splittable() const override { return false; }
@@ -101,7 +97,7 @@ class ARROW_DS_EXPORT DataSource {
   /// May be null, which indicates no information is available.
   const ExpressionPtr& partition_expression() const { return partition_expression_; }
 
-  virtual std::string type() const = 0;
+  virtual std::string type_name() const = 0;
 
   virtual ~DataSource() = default;
 
@@ -135,7 +131,7 @@ class ARROW_DS_EXPORT SimpleDataSource : public DataSource {
 
   DataFragmentIterator GetFragmentsImpl(ScanOptionsPtr options) override;
 
-  std::string type() const override { return "simple_data_source"; }
+  std::string type_name() const override { return "simple"; }
 
  private:
   DataFragmentVector fragments_;
@@ -148,7 +144,7 @@ class ARROW_DS_EXPORT TreeDataSource : public DataSource {
 
   DataFragmentIterator GetFragmentsImpl(ScanOptionsPtr options) override;
 
-  std::string type() const override { return "tree_data_source"; }
+  std::string type_name() const override { return "tree"; }
 
  private:
   DataSourceVector children_;

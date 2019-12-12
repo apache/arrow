@@ -194,7 +194,7 @@ cdef class FileSystem:
     cdef wrap(shared_ptr[CFileSystem]& sp):
         cdef FileSystem self
 
-        typ = frombytes(sp.get().type())
+        typ = frombytes(sp.get().type_name())
         if typ == 'local':
             self = LocalFileSystem.__new__(LocalFileSystem)
         elif typ == 'mock':
@@ -202,8 +202,11 @@ cdef class FileSystem:
         elif typ == 'subtree':
             self = SubTreeFileSystem.__new__(SubTreeFileSystem)
         elif typ == 's3':
-            from pyarrow.s3fs import S3FileSystem
+            from pyarrow._s3fs import S3FileSystem
             self = S3FileSystem.__new__(S3FileSystem)
+        elif typ == 'hdfs':
+            from pyarrow._hdfs import HadoopFileSystem
+            self = HadoopFileSystem.__new__(HadoopFileSystem)
         else:
             raise TypeError('Cannot wrap FileSystem pointer')
 
