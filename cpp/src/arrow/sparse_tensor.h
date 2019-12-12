@@ -176,7 +176,7 @@ class SparseCSXIndex : public SparseIndexBase<SparseIndexType> {
       std::shared_ptr<Buffer> indptr_data, std::shared_ptr<Buffer> indices_data) {
     ARROW_RETURN_NOT_OK(ValidateSparseCSXIndex(indptr_type, indices_type, indptr_shape,
                                                indices_shape,
-                                               SparseIndexType::TYPE_NAME));
+                                               SparseIndexType::kTypeName));
     return std::make_shared<SparseIndexType>(
         std::make_shared<Tensor>(indptr_type, indptr_data, indptr_shape),
         std::make_shared<Tensor>(indices_type, indices_data, indices_shape));
@@ -221,7 +221,7 @@ class SparseCSXIndex : public SparseIndexBase<SparseIndexType> {
         indptr_(indptr),
         indices_(indices) {
     CheckSparseCSXIndexValidity(indptr_->type(), indices_->type(), indptr_->shape(),
-                                indices_->shape(), SparseIndexType::TYPE_NAME);
+                                indices_->shape(), SparseIndexType::kTypeName);
   }
 
   /// \brief Return a 1D tensor of indptr vector
@@ -232,7 +232,7 @@ class SparseCSXIndex : public SparseIndexBase<SparseIndexType> {
 
   /// \brief Return a string representation of the sparse index
   std::string ToString() const override {
-    return std::string(SparseIndexType::TYPE_NAME);
+    return std::string(SparseIndexType::kTypeName);
   }
 
   /// \brief Return whether the CSR indices are equal
@@ -285,7 +285,7 @@ class ARROW_EXPORT SparseCSRIndex
                                       internal::SparseMatrixCompressedAxis::ROW> {
  public:
   static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::CSR;
-  constexpr static char const* TYPE_NAME = "SparseCSRIndex";
+  static constexpr char const* kTypeName = "SparseCSRIndex";
 
   using SparseCSXIndex::Make;
   using SparseCSXIndex::SparseCSXIndex;
@@ -311,7 +311,7 @@ class ARROW_EXPORT SparseCSCIndex
                                       internal::SparseMatrixCompressedAxis::COLUMN> {
  public:
   static constexpr SparseTensorFormat::type format_id = SparseTensorFormat::CSC;
-  constexpr static char const* TYPE_NAME = "SparseCSCIndex";
+  static constexpr char const* kTypeName = "SparseCSCIndex";
 
   using SparseCSXIndex::Make;
   using SparseCSXIndex::SparseCSXIndex;
