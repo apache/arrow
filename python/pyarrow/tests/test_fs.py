@@ -46,6 +46,7 @@ def mockfs(request):
     return dict(
         fs=_MockFileSystem(),
         pathfn=lambda p: p,
+        allow_copy_file=True,
         allow_move_dir=True,
         allow_append_to_file=True,
     )
