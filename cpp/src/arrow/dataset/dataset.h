@@ -97,6 +97,7 @@ class ARROW_DS_EXPORT DataSource {
   /// May be null, which indicates no information is available.
   const ExpressionPtr& partition_expression() const { return partition_expression_; }
 
+  /// \brief The name identifying the kind of data source
   virtual std::string type_name() const = 0;
 
   virtual ~DataSource() = default;

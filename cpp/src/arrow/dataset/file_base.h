@@ -131,7 +131,8 @@ class ARROW_DS_EXPORT FileFormat {
  public:
   virtual ~FileFormat() = default;
 
-  virtual std::string name() const = 0;
+  /// \brief The name identifying the kind of file format
+  virtual std::string type_name() const = 0;
 
   /// \brief Indicate if the FileSource is supported/readable by this format.
   virtual Result<bool> IsSupported(const FileSource& source) const = 0;

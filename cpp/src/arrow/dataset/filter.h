@@ -184,6 +184,7 @@ class ARROW_DS_EXPORT Expression {
   /// returns a debug string representing this expression
   virtual std::string ToString() const = 0;
 
+  /// \brief Return the expression's type identifier
   ExpressionType::type type() const { return type_; }
 
   /// Copy this expression into a shared pointer.

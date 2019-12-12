@@ -313,7 +313,6 @@ def test_expression(schema):
 ])
 def test_file_system_discovery(mockfs, paths_or_selector, record_batch):
     format = ds.ParquetFileFormat()
-    assert format.name() == 'parquet'
 
     options = ds.FileSystemDiscoveryOptions('/')
     assert options.partition_base_dir == '/'

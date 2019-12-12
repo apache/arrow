@@ -56,7 +56,7 @@ cdef class FileFormat:
     cdef wrap(shared_ptr[CFileFormat]& sp):
         cdef FileFormat self
 
-        typ = frombytes(sp.get().name())
+        typ = frombytes(sp.get().type_name())
         if typ == 'parquet':
             self = ParquetFileFormat.__new__(ParquetFileFormat)
         else:
@@ -67,9 +67,6 @@ cdef class FileFormat:
 
     cdef inline shared_ptr[CFileFormat] unwrap(self):
         return self.wrapped
-
-    def name(self):
-        return frombytes(self.format.name())
 
 
 cdef class ParquetFileFormat(FileFormat):

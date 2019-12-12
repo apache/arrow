@@ -179,7 +179,7 @@ class DummyFileFormat : public FileFormat {
   explicit DummyFileFormat(std::shared_ptr<Schema> schema = NULLPTR)
       : schema_(std::move(schema)) {}
 
-  std::string name() const override { return "dummy"; }
+  std::string type_name() const override { return "dummy"; }
 
   Result<bool> IsSupported(const FileSource& source) const override { return true; }
 
@@ -223,7 +223,7 @@ class JSONRecordBatchFileFormat : public FileFormat {
   explicit JSONRecordBatchFileFormat(SchemaResolver resolver)
       : resolver_(std::move(resolver)) {}
 
-  std::string name() const override { return "json_record_batch"; }
+  std::string type_name() const override { return "json_record_batch"; }
 
   /// \brief Return true if the given file extension
   Result<bool> IsSupported(const FileSource& source) const override { return true; }

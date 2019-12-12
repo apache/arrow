@@ -247,7 +247,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         c_string file_type()
 
     cdef cppclass CFileFormat "arrow::dataset::FileFormat":
-        c_string name()
+        c_string type_name()
         CStatus IsSupported(const CFileSource& source, c_bool* supported) const
         CStatus Inspect(const CFileSource& source,
                         shared_ptr[CSchema]* out) const
