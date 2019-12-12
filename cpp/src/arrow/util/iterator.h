@@ -110,9 +110,12 @@ class Iterator : public util::EqualityComparable<Iterator<T>> {
 
   class RangeIterator {
    public:
-    RangeIterator() = default;
+    RangeIterator() : value_(IterationTraits<T>::End()), iterator_() {}
 
-    explicit RangeIterator(Iterator i) : iterator_(std::move(i)) { Next(); }
+    explicit RangeIterator(Iterator i)
+        : value_(IterationTraits<T>::End()), iterator_(std::move(i)) {
+      Next();
+    }
 
     bool operator!=(const RangeIterator& other) const { return value_ != other.value_; }
 
@@ -138,7 +141,7 @@ class Iterator : public util::EqualityComparable<Iterator<T>> {
       value_ = iterator_.Next();
     }
 
-    Result<T> value_ = IterationTraits<T>::End();
+    Result<T> value_;
     Iterator iterator_;
   };
 
