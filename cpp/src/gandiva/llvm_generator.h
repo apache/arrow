@@ -90,7 +90,7 @@ class GANDIVA_EXPORT LLVMGenerator {
    public:
     Visitor(LLVMGenerator* generator, llvm::Function* function,
             llvm::BasicBlock* entry_block, llvm::Value* arg_addrs,
-            llvm::Value* arg_addr_offsets, llvm::Value* arg_local_bitmaps,
+            llvm::Value* arg_local_bitmaps, std::vector<llvm::Value*> slice_offsets,
             llvm::Value* arg_context_ptr, llvm::Value* loop_var);
 
     void Visit(const VectorReadValidityDex& dex) override;
@@ -146,8 +146,8 @@ class GANDIVA_EXPORT LLVMGenerator {
     // Switch to the entry_block and get reference of the validity/value/offsets buffer
     llvm::Value* GetBufferReference(int idx, BufferType buffer_type, FieldPtr field);
 
-    // Get offset of the validity/value/offsets buffer
-    llvm::Value* GetBufferOffset(int idx, FieldPtr field);
+    // Get the slice offset of the validity/value/offsets buffer
+    llvm::Value* GetSliceOffset(int idx);
 
     // Switch to the entry_block and get reference to the local bitmap.
     llvm::Value* GetLocalBitMapReference(int idx);
@@ -160,8 +160,8 @@ class GANDIVA_EXPORT LLVMGenerator {
     llvm::Function* function_;
     llvm::BasicBlock* entry_block_;
     llvm::Value* arg_addrs_;
-    llvm::Value* arg_addr_offsets_;
     llvm::Value* arg_local_bitmaps_;
+    std::vector<llvm::Value*> slice_offsets_;
     llvm::Value* arg_context_ptr_;
     llvm::Value* loop_var_;
     bool has_arena_allocs_;
@@ -188,8 +188,8 @@ class GANDIVA_EXPORT LLVMGenerator {
   llvm::Value* GetDataBufferPtrReference(llvm::Value* arg_addrs, int idx, FieldPtr field);
 
   /// Generate code for the value array of one expression.
-  Status CodeGenExprValue(DexPtr value_expr, FieldDescriptorPtr output, int suffix_idx,
-                          llvm::Function** fn,
+  Status CodeGenExprValue(DexPtr value_expr, int num_buffers, FieldDescriptorPtr output,
+                          int suffix_idx, llvm::Function** fn,
                           SelectionVector::Mode selection_vector_mode);
 
   /// Generate code to load the local bitmap specified index and cast it as bitmap.

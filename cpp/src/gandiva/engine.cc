@@ -189,7 +189,7 @@ Status Engine::RemoveUnusedFunctions() {
 }
 
 // Optimise and compile the module.
-Status Engine::FinalizeModule(bool optimise_ir, bool dump_ir) {
+Status Engine::FinalizeModule(bool optimise_ir, bool dump_ir, std::string* final_ir) {
   auto status = RemoveUnusedFunctions();
   ARROW_RETURN_NOT_OK(status);
 
@@ -225,7 +225,10 @@ Status Engine::FinalizeModule(bool optimise_ir, bool dump_ir) {
       DumpIR("After optimise");
     }
   }
-
+  if (final_ir != nullptr) {
+    llvm::raw_string_ostream stream(*final_ir);
+    module_->print(stream, nullptr);
+  }
   ARROW_RETURN_IF(llvm::verifyModule(*module_, &llvm::errs()),
                   Status::CodeGenError("Module verification failed after optimizer"));
 
