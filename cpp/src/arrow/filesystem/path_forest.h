@@ -95,6 +95,10 @@ class ARROW_EXPORT PathForest : public util::EqualityComparable<PathForest> {
 
   std::vector<Ref> roots() const;
 
+  const std::vector<FileStats>& stats() const& { return *stats_; }
+
+  std::vector<FileStats> stats() && { return std::move(*stats_); }
+
   enum { Continue, Prune };
   using MaybePrune = Result<decltype(Prune)>;
 

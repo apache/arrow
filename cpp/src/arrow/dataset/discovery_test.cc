@@ -159,6 +159,9 @@ class FileSystemDataSourceDiscoveryTest : public DataSourceDiscoveryTest {
 TEST_F(FileSystemDataSourceDiscoveryTest, Basic) {
   MakeDiscovery({fs::File("a"), fs::File("b")});
   AssertFinishWithPaths({"a", "b"});
+
+  // missing directory
+  MakeDiscovery({fs::Dir("a"), fs::Dir("a/b"), fs::File("a/b/c")});
 }
 
 TEST_F(FileSystemDataSourceDiscoveryTest, Selector) {

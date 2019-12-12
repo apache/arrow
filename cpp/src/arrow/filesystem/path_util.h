@@ -79,6 +79,12 @@ ARROW_EXPORT
 util::optional<util::string_view> RemoveAncestor(util::string_view ancestor,
                                                  util::string_view descendant);
 
+/// Return a vector of paths which are descendants of ancestor but ancestors of descendant
+/// (not inclusive of either argument).
+ARROW_EXPORT
+std::vector<std::string> GatherAncestry(util::string_view ancestor,
+                                        util::string_view descendant);
+
 // Join the components of an abstract path.
 template <class StringIt>
 std::string JoinAbstractPath(StringIt it, StringIt end) {

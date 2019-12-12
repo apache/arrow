@@ -54,14 +54,18 @@ Result<std::shared_ptr<Schema>> DataSourceDiscovery::Inspect() {
 }
 
 FileSystemDataSourceDiscovery::FileSystemDataSourceDiscovery(
-    fs::FileSystemPtr filesystem, fs::FileStatsVector files, FileFormatPtr format,
+    fs::FileSystemPtr filesystem, fs::PathForest forest, FileFormatPtr format,
     FileSystemDiscoveryOptions options)
     : fs_(std::move(filesystem)),
-      files_(std::move(files)),
+      forest_(std::move(forest)),
       format_(std::move(format)),
       options_(std::move(options)) {}
 
 bool StartsWithAnyOf(const std::vector<std::string>& prefixes, const std::string& path) {
+  if (prefixes.empty()) {
+    return false;
+  }
+
   auto dir_base = fs::internal::GetAbstractPathParent(path);
   util::string_view basename{dir_base.second};
 
@@ -72,41 +76,72 @@ bool StartsWithAnyOf(const std::vector<std::string>& prefixes, const std::string
   return std::any_of(prefixes.cbegin(), prefixes.cend(), matches_prefix);
 }
 
-Result<DataSourceDiscoveryPtr> FileSystemDataSourceDiscovery::Make(
-    fs::FileSystemPtr fs, fs::FileStatsVector files, FileFormatPtr format,
-    FileSystemDiscoveryOptions options) {
-  DCHECK_NE(format, nullptr);
+Status FileSystemDataSourceDiscovery::Filter(const fs::FileSystemPtr& filesystem,
+                                             const FileFormatPtr& format,
+                                             const FileSystemDiscoveryOptions& options,
+                                             fs::FileStatsVector* files) {
+  for (auto it = files->begin(); it != files->end();) {
+    if (StartsWithAnyOf(options.ignore_prefixes, it->path())) {
+      files->erase(it);
+      continue;
+    }
 
-  bool has_prefixes = !options.ignore_prefixes.empty();
-  std::vector<fs::FileStats> filtered;
-  for (const auto& stat : files) {
-    if (stat.IsFile()) {
-      const std::string& path = stat.path();
-
-      if (has_prefixes && StartsWithAnyOf(options.ignore_prefixes, path)) {
+    if (it->IsFile() && options.exclude_invalid_files) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto supported, format->IsSupported(FileSource(it->path(), filesystem.get())));
+      if (!supported) {
+        files->erase(it);
         continue;
-      }
-
-      if (options.exclude_invalid_files) {
-        ARROW_ASSIGN_OR_RAISE(auto supported,
-                              format->IsSupported(FileSource(path, fs.get())));
-        if (!supported) {
-          continue;
-        }
       }
     }
 
-    filtered.push_back(stat);
+    ++it;
+  }
+  return Status::OK();
+}
+
+Result<DataSourceDiscoveryPtr> FileSystemDataSourceDiscovery::Make(
+    fs::FileSystemPtr filesystem, const std::vector<std::string>& paths,
+    FileFormatPtr format, FileSystemDiscoveryOptions options) {
+  DCHECK_NE(format, nullptr);
+
+  ARROW_ASSIGN_OR_RAISE(auto files, filesystem->GetTargetStats(paths));
+  ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::Make(std::move(files)));
+
+  std::vector<std::string> missing;
+  DCHECK_OK(forest.Visit([&missing](fs::PathForest::Ref ref) {
+    if (auto parent = ref.parent()) {
+      for (auto&& ancestor :
+           fs::internal::GatherAncestry(parent.stats().path(), ref.stats().path())) {
+        missing.push_back(std::move(ancestor));
+      }
+    }
+    return Status::OK();
+  }));
+
+  files = std::move(forest).stats();
+
+  for (auto&& path : missing) {
+    ARROW_ASSIGN_OR_RAISE(auto file, filesystem->GetTargetStats(std::move(path)));
+    files.emplace_back(std::move(file));
   }
 
+  RETURN_NOT_OK(Filter(filesystem, format, options, &files));
+
+  ARROW_ASSIGN_OR_RAISE(forest, fs::PathForest::Make(std::move(files)));
+
   return DataSourceDiscoveryPtr(new FileSystemDataSourceDiscovery(
-      fs, std::move(filtered), std::move(format), std::move(options)));
+      filesystem, std::move(forest), std::move(format), std::move(options)));
 }
 
 Result<DataSourceDiscoveryPtr> FileSystemDataSourceDiscovery::Make(
     fs::FileSystemPtr filesystem, fs::FileSelector selector, FileFormatPtr format,
     FileSystemDiscoveryOptions options) {
   ARROW_ASSIGN_OR_RAISE(auto files, filesystem->GetTargetStats(selector));
+
+  RETURN_NOT_OK(Filter(filesystem, format, options, &files));
+
+  ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::Make(std::move(files)));
 
   // By automatically setting the options base_dir to the selector's base_dir,
   // we provide a better experience for user providing PartitionScheme that are
@@ -115,15 +150,15 @@ Result<DataSourceDiscoveryPtr> FileSystemDataSourceDiscovery::Make(
     options.partition_base_dir = selector.base_dir;
   }
 
-  return Make(std::move(filesystem), std::move(files), std::move(format),
-              std::move(options));
+  return DataSourceDiscoveryPtr(new FileSystemDataSourceDiscovery(
+      filesystem, std::move(forest), std::move(format), std::move(options)));
 }
 
 Result<std::vector<std::shared_ptr<Schema>>>
 FileSystemDataSourceDiscovery::InspectSchemas() {
   std::vector<std::shared_ptr<Schema>> schemas;
 
-  for (const auto& f : files_) {
+  for (const auto& f : forest_.stats()) {
     if (!f.IsFile()) continue;
     auto source = FileSource(f.path(), fs_.get());
     ARROW_ASSIGN_OR_RAISE(auto schema, format_->Inspect(source));
@@ -134,9 +169,7 @@ FileSystemDataSourceDiscovery::InspectSchemas() {
 }
 
 Result<DataSourcePtr> FileSystemDataSourceDiscovery::Finish() {
-  ExpressionVector partitions(files_.size(), scalar(true));
-
-  ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::Make(files_));
+  ExpressionVector partitions(forest_.size(), scalar(true));
 
   // apply partition_scheme to forest to derive partitions
   auto apply_partition_scheme = [&](fs::PathForest::Ref ref) {
@@ -154,10 +187,9 @@ Result<DataSourcePtr> FileSystemDataSourceDiscovery::Finish() {
     return Status::OK();
   };
 
-  RETURN_NOT_OK(forest.Visit(apply_partition_scheme));
-
-  return FileSystemDataSource::Make(fs_, std::move(forest), std::move(partitions),
-                                    root_partition_, format_);
+  RETURN_NOT_OK(forest_.Visit(apply_partition_scheme));
+  return FileSystemDataSource::Make(fs_, forest_, std::move(partitions), root_partition_,
+                                    format_);
 }
 
 }  // namespace dataset
