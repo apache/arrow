@@ -352,6 +352,73 @@ cdef class ChunkedArray(_PandasConvertible):
 
         return pyarrow_wrap_chunked_array(result)
 
+    def filter(self, mask):
+        """
+        Filter the chunked array with a boolean mask.
+
+        Parameters
+        ----------
+        mask : Array or ChunkedArray
+            The boolean mask indicating which values to extract.
+
+        Returns
+        -------
+        ChunkedArray
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> arr = pa.chunked_array([["a", "b"], ["c", None, "e"]])
+        >>> mask = pa.chunked_array([[True, False], [None, False, True]])
+
+        >>> arr.filter(mask)
+        <pyarrow.lib.ChunkedArray object at 0x7f8070081ea8>
+        [
+          [
+            "a"
+          ],
+          [
+            null,
+            "e"
+          ]
+        ]
+        """
+        # cdef:
+        #     cdef CDatum out
+
+        # with nogil:
+        #     check_status(
+        #         FilterKernel(_context(), CDatum(self.sp_chunked_array),
+        #                      CDatum(mask.sp_array), &out))
+
+        # return wrap_datum(out)
+
+        cdef:
+            CChunkedArray* c_arr = self.chunked_array
+            CArray* c_mask_arr
+            CChunkedArray* c_mask_chunked
+            shared_ptr[CChunkedArray] out
+
+        mask = asarray(mask)
+
+        if isinstance(mask, Array):
+            c_mask_arr = (<Array> mask).ap
+
+            with nogil:
+                check_status(
+                    FilterKernel(_context(), deref(c_arr), deref(c_mask_arr),
+                                 &out))
+
+        elif isinstance(mask, ChunkedArray):
+            c_mask_chunked = (<ChunkedArray> mask).chunked_array
+
+            with nogil:
+                check_status(
+                    FilterKernel(_context(), deref(c_arr),
+                                 deref(c_mask_chunked), &out))
+
+        return pyarrow_wrap_chunked_array(out)
+
     @property
     def num_chunks(self):
         """
@@ -740,6 +807,32 @@ cdef class RecordBatch(_PandasConvertible):
 
         return pyarrow_wrap_batch(result)
 
+    def filter(self, Array mask):
+        """
+        Filter the record batch with a boolean mask.
+
+        Parameters
+        ----------
+        mask : Array
+            The boolean mask indicating which rows to extract.
+
+        Returns
+        -------
+        RecordBatch
+        """
+        cdef:
+            CRecordBatch* c_arr = self.batch
+            CArray* c_mask = mask.ap
+            shared_ptr[CRecordBatch] out
+
+        mask = asarray(mask)
+
+        with nogil:
+            check_status(
+                FilterKernel(_context(), deref(c_arr), deref(c_mask), &out))
+
+        return pyarrow_wrap_batch(out)
+
     def equals(self, RecordBatch other):
         cdef:
             CRecordBatch* this_batch = self.batch
@@ -1105,6 +1198,45 @@ cdef class Table(_PandasConvertible):
             result = self.table.Slice(offset, length)
 
         return pyarrow_wrap_table(result)
+
+    def filter(self, mask):
+        """
+        Filter the rows of the table with a boolean mask.
+
+        Parameters
+        ----------
+        mask : Array or ChunkedArray
+            The boolean mask indicating which rows to extract.
+
+        Returns
+        -------
+        Table
+        """
+        cdef:
+            CTable* c_table = self.table
+            CArray* c_mask_arr
+            CChunkedArray* c_mask_chunked
+            shared_ptr[CTable] out
+
+        mask = asarray(mask)
+
+        if isinstance(mask, Array):
+            c_mask_arr = (<Array> mask).ap
+
+            with nogil:
+                check_status(
+                    FilterKernel(_context(), deref(c_table), deref(c_mask_arr),
+                                 &out))
+
+        elif isinstance(mask, ChunkedArray):
+            c_mask_chunked = (<ChunkedArray> mask).chunked_array
+
+            with nogil:
+                check_status(
+                    FilterKernel(_context(), deref(c_table),
+                                 deref(c_mask_chunked), &out))
+
+        return pyarrow_wrap_table(out)
 
     def replace_schema_metadata(self, metadata=None):
         """

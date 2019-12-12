@@ -1526,8 +1526,28 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     # Filter clashes with gandiva.pyx::Filter
     CStatus FilterKernel" arrow::compute::Filter"(
-        CFunctionContext* context, const CDatum& values,
+        CFunctionContext* ctx, const CDatum& values,
         const CDatum& filter, CFilterOptions, CDatum* out)
+
+    CStatus FilterKernel" arrow::compute::Filter"(
+        CFunctionContext* ctx, const CChunkedArray& values,
+        const CArray& filter, shared_ptr[CChunkedArray]* out)
+
+    CStatus FilterKernel" arrow::compute::Filter"(
+        CFunctionContext* ctx, const CChunkedArray& values,
+        const CChunkedArray& filter, shared_ptr[CChunkedArray]* out)
+
+    CStatus FilterKernel" arrow::compute::Filter"(
+        CFunctionContext* ctx, const CRecordBatch& batch,
+        const CArray& filter, shared_ptr[CRecordBatch]* out)
+
+    CStatus FilterKernel" arrow::compute::Filter"(
+        CFunctionContext* ctx, const CTable& table,
+        const CArray& filter, shared_ptr[CTable]* out)
+
+    CStatus FilterKernel" arrow::compute::Filter"(
+        CFunctionContext* ctx, const CTable& table,
+        const CChunkedArray& filter, shared_ptr[CTable]* out)
 
     enum CCompareOperator "arrow::compute::CompareOperator":
         CCompareOperator_EQUAL "arrow::compute::CompareOperator::EQUAL"
