@@ -331,6 +331,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         vector[c_string] ignore_prefixes
 
     cdef cppclass CDataSourceDiscovery "arrow::dataset::DataSourceDiscovery":
+        CResult[vector[shared_ptr[CSchema]]] InspectSchemas()
         CResult[shared_ptr[CSchema]] Inspect()
         CResult[CDataSourcePtr] Finish()
         shared_ptr[CSchema] schema()

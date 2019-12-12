@@ -315,6 +315,7 @@ def test_file_system_discovery(mockfs, paths_or_selector):
         mockfs, paths_or_selector, format, options
     )
     assert isinstance(discovery.inspect(), pa.Schema)
+    assert isinstance(discovery.inspect_schemas(), list)
     assert isinstance(discovery.finish(), ds.FileSystemDataSource)
     assert isinstance(discovery.partition_scheme, ds.DefaultPartitionScheme)
     assert discovery.root_partition.equals(ds.ScalarExpression(True))
