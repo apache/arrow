@@ -141,14 +141,12 @@ class ARROW_EXPORT SparseCOOIndex : public internal::SparseIndexBase<SparseCOOIn
 
 namespace internal {
 
-struct SparseMatrixCompressedAxis {
-  /// EXPERIMENTAL: The axis to be compressed
-  enum type {
-    /// The value for CSR matrix
-    ROW,
-    /// The value for CSC matrix
-    COLUMN
-  };
+/// EXPERIMENTAL: The axis to be compressed
+enum class SparseMatrixCompressedAxis : char {
+  /// The value for CSR matrix
+  ROW,
+  /// The value for CSC matrix
+  COLUMN
 };
 
 ARROW_EXPORT
@@ -165,10 +163,10 @@ void CheckSparseCSXIndexValidity(const std::shared_ptr<DataType>& indptr_type,
                                  const std::vector<int64_t>& indices_shape,
                                  char const* type_name);
 
-template <typename SparseIndexType, SparseMatrixCompressedAxis::type COMPRESSED_AXIS>
+template <typename SparseIndexType, SparseMatrixCompressedAxis COMPRESSED_AXIS>
 class SparseCSXIndex : public SparseIndexBase<SparseIndexType> {
  public:
-  static constexpr SparseMatrixCompressedAxis::type kCompressedAxis = COMPRESSED_AXIS;
+  static constexpr SparseMatrixCompressedAxis kCompressedAxis = COMPRESSED_AXIS;
 
   /// \brief Make a subclass of SparseCSXIndex from raw properties
   static Result<std::shared_ptr<SparseIndexType>> Make(
