@@ -22,7 +22,7 @@ requirements:
     - arrow-cpp {{ ARROW_VERSION }}
     - boost-cpp
     - cython
-    - numpy 1.14.*
+    - numpy 1.16.*
     - python
     - setuptools
     - setuptools_scm
