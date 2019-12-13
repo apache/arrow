@@ -86,12 +86,15 @@ TEST_F(TestLLVMGenerator, TestAdd) {
 
   llvm::Function* ir_func = nullptr;
 
-  status = generator->CodeGenExprValue(func_dex, desc_sum, 0, &ir_func,
+  status = generator->CodeGenExprValue(func_dex, 4, desc_sum, 0, &ir_func,
                                        SelectionVector::MODE_NONE);
   EXPECT_TRUE(status.ok()) << status.message();
 
-  status = generator->engine_->FinalizeModule(true, false);
+  std::string final_ir;
+  status = generator->engine_->FinalizeModule(true, false, &final_ir);
   EXPECT_TRUE(status.ok()) << status.message();
+  EXPECT_TRUE(final_ir.find("vector.body") != std::string::npos)
+      << "missing vectorization: " << final_ir;
 
   EvalFunc eval_func = (EvalFunc)generator->engine_->CompiledFunction(ir_func);
 
