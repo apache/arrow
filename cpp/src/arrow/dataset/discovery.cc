@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -76,59 +77,60 @@ bool StartsWithAnyOf(const std::vector<std::string>& prefixes, const std::string
   return std::any_of(prefixes.cbegin(), prefixes.cend(), matches_prefix);
 }
 
-Status FileSystemDataSourceDiscovery::Filter(const fs::FileSystemPtr& filesystem,
-                                             const FileFormatPtr& format,
-                                             const FileSystemDiscoveryOptions& options,
-                                             fs::FileStatsVector* files) {
-  for (auto it = files->begin(); it != files->end();) {
-    if (StartsWithAnyOf(options.ignore_prefixes, it->path())) {
-      files->erase(it);
-      continue;
+Result<fs::PathForest> FileSystemDataSourceDiscovery::Filter(
+    const fs::FileSystemPtr& filesystem, const FileFormatPtr& format,
+    const FileSystemDiscoveryOptions& options, fs::PathForest forest) {
+  fs::FileStatsVector out;
+
+  auto& stats = forest.stats();
+  RETURN_NOT_OK(forest.Visit([&](fs::PathForest::Ref ref) -> fs::PathForest::MaybePrune {
+    const auto& path = ref.stats().path();
+
+    if (StartsWithAnyOf(options.ignore_prefixes, path)) {
+      return fs::PathForest::Prune;
     }
 
-    if (it->IsFile() && options.exclude_invalid_files) {
-      ARROW_ASSIGN_OR_RAISE(
-          auto supported, format->IsSupported(FileSource(it->path(), filesystem.get())));
+    if (ref.stats().IsFile() && options.exclude_invalid_files) {
+      ARROW_ASSIGN_OR_RAISE(auto supported,
+                            format->IsSupported(FileSource(path, filesystem.get())));
       if (!supported) {
-        files->erase(it);
-        continue;
+        return fs::PathForest::Continue;
       }
     }
 
-    ++it;
-  }
-  return Status::OK();
+    out.push_back(std::move(stats[ref.i]));
+    return fs::PathForest::Continue;
+  }));
+
+  return fs::PathForest::MakeFromPreSorted(std::move(out));
 }
 
 Result<DataSourceDiscoveryPtr> FileSystemDataSourceDiscovery::Make(
     fs::FileSystemPtr filesystem, const std::vector<std::string>& paths,
     FileFormatPtr format, FileSystemDiscoveryOptions options) {
-  DCHECK_NE(format, nullptr);
-
   ARROW_ASSIGN_OR_RAISE(auto files, filesystem->GetTargetStats(paths));
   ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::Make(std::move(files)));
 
-  std::vector<std::string> missing;
-  DCHECK_OK(forest.Visit([&missing](fs::PathForest::Ref ref) {
+  std::unordered_set<fs::FileStats, fs::FileStats::ByPath> missing;
+  DCHECK_OK(forest.Visit([&](fs::PathForest::Ref ref) {
+    util::string_view parent_path = options.partition_base_dir;
     if (auto parent = ref.parent()) {
-      for (auto&& ancestor :
-           fs::internal::GatherAncestry(parent.stats().path(), ref.stats().path())) {
-        missing.push_back(std::move(ancestor));
-      }
+      parent_path = parent.stats().path();
+    }
+
+    for (auto&& path : fs::internal::GatherAncestry(parent_path, ref.stats().path())) {
+      ARROW_ASSIGN_OR_RAISE(auto file, filesystem->GetTargetStats(std::move(path)));
+      missing.insert(std::move(file));
     }
     return Status::OK();
   }));
 
   files = std::move(forest).stats();
-
-  for (auto&& path : missing) {
-    ARROW_ASSIGN_OR_RAISE(auto file, filesystem->GetTargetStats(std::move(path)));
-    files.emplace_back(std::move(file));
-  }
-
-  RETURN_NOT_OK(Filter(filesystem, format, options, &files));
+  std::move(missing.begin(), missing.end(), std::back_inserter(files));
 
   ARROW_ASSIGN_OR_RAISE(forest, fs::PathForest::Make(std::move(files)));
+
+  ARROW_ASSIGN_OR_RAISE(forest, Filter(filesystem, format, options, std::move(forest)));
 
   return DataSourceDiscoveryPtr(new FileSystemDataSourceDiscovery(
       filesystem, std::move(forest), std::move(format), std::move(options)));
@@ -139,9 +141,9 @@ Result<DataSourceDiscoveryPtr> FileSystemDataSourceDiscovery::Make(
     FileSystemDiscoveryOptions options) {
   ARROW_ASSIGN_OR_RAISE(auto files, filesystem->GetTargetStats(selector));
 
-  RETURN_NOT_OK(Filter(filesystem, format, options, &files));
-
   ARROW_ASSIGN_OR_RAISE(auto forest, fs::PathForest::Make(std::move(files)));
+
+  ARROW_ASSIGN_OR_RAISE(forest, Filter(filesystem, format, options, std::move(forest)));
 
   // By automatically setting the options base_dir to the selector's base_dir,
   // we provide a better experience for user providing PartitionScheme that are

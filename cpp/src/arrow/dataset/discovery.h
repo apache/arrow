@@ -172,9 +172,10 @@ class ARROW_DS_EXPORT FileSystemDataSourceDiscovery : public DataSourceDiscovery
   FileSystemDataSourceDiscovery(fs::FileSystemPtr filesystem, fs::PathForest forest,
                                 FileFormatPtr format, FileSystemDiscoveryOptions options);
 
-  static Status Filter(const fs::FileSystemPtr& filesystem, const FileFormatPtr& format,
-                       const FileSystemDiscoveryOptions& options,
-                       fs::FileStatsVector* files);
+  static Result<fs::PathForest> Filter(const fs::FileSystemPtr& filesystem,
+                                       const FileFormatPtr& format,
+                                       const FileSystemDiscoveryOptions& options,
+                                       fs::PathForest forest);
 
   fs::FileSystemPtr fs_;
   fs::PathForest forest_;
