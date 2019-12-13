@@ -884,6 +884,10 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCOOIndex(
 Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
     const flatbuf::SparseTensor* sparse_tensor, const std::vector<int64_t>& shape,
     int64_t non_zero_length, io::RandomAccessFile* file) {
+  if (shape.size() != 2) {
+    return Status::Invalid("Invalid shape length for a sparse matrix");
+  }
+
   auto* sparse_index = sparse_tensor->sparseIndex_as_SparseMatrixIndexCSX();
 
   std::shared_ptr<DataType> indptr_type, indices_type;
@@ -899,15 +903,34 @@ Result<std::shared_ptr<SparseIndex>> ReadSparseCSXIndex(
                         file->ReadAt(indices_buffer->offset(), indices_buffer->length()));
 
   std::vector<int64_t> indices_shape({non_zero_length});
+  const auto indices_minimum_bytes =
+      indices_shape[0] * checked_pointer_cast<FixedWidthType>(indices_type)->bit_width() /
+      CHAR_BIT;
+  if (indices_minimum_bytes > indices_buffer->length()) {
+    return Status::Invalid("shape is inconsistent to the size of indices buffer");
+  }
+
   switch (sparse_index->compressedAxis()) {
     case flatbuf::SparseMatrixCompressedAxis_Row: {
       std::vector<int64_t> indptr_shape({shape[0] + 1});
+      const int64_t indptr_minimum_bytes =
+          indptr_shape[0] *
+          checked_pointer_cast<FixedWidthType>(indptr_type)->bit_width() / CHAR_BIT;
+      if (indptr_minimum_bytes > indptr_buffer->length()) {
+        return Status::Invalid("shape is inconsistent to the size of indptr buffer");
+      }
       return std::make_shared<SparseCSRIndex>(
           std::make_shared<Tensor>(indptr_type, indptr_data, indptr_shape),
           std::make_shared<Tensor>(indices_type, indices_data, indices_shape));
     }
     case flatbuf::SparseMatrixCompressedAxis_Column: {
       std::vector<int64_t> indptr_shape({shape[1] + 1});
+      const int64_t indptr_minimum_bytes =
+          indptr_shape[0] *
+          checked_pointer_cast<FixedWidthType>(indptr_type)->bit_width() / CHAR_BIT;
+      if (indptr_minimum_bytes > indptr_buffer->length()) {
+        return Status::Invalid("shape is inconsistent to the size of indptr buffer");
+      }
       return std::make_shared<SparseCSCIndex>(
           std::make_shared<Tensor>(indptr_type, indptr_data, indptr_shape),
           std::make_shared<Tensor>(indices_type, indices_data, indices_shape));
