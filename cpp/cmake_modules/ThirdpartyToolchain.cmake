@@ -1176,22 +1176,22 @@ macro(build_protobuf)
 
   file(MAKE_DIRECTORY "${PROTOBUF_INCLUDE_DIR}")
 
-  add_library(protobuf::libprotobuf STATIC IMPORTED)
+  add_library(arrow::protobuf::libprotobuf STATIC IMPORTED)
   set_target_properties(
-    protobuf::libprotobuf
+    arrow::protobuf::libprotobuf
     PROPERTIES IMPORTED_LOCATION "${PROTOBUF_STATIC_LIB}" INTERFACE_INCLUDE_DIRECTORIES
                "${PROTOBUF_INCLUDE_DIR}")
-  add_library(protobuf::libprotoc STATIC IMPORTED)
+  add_library(arrow::protobuf::libprotoc STATIC IMPORTED)
   set_target_properties(
-    protobuf::libprotoc
+    arrow::protobuf::libprotoc
     PROPERTIES IMPORTED_LOCATION "${PROTOC_STATIC_LIB}" INTERFACE_INCLUDE_DIRECTORIES
                "${PROTOBUF_INCLUDE_DIR}")
-  add_executable(protobuf::protoc IMPORTED)
-  set_target_properties(protobuf::protoc
+  add_executable(arrow::protobuf::protoc IMPORTED)
+  set_target_properties(arrow::protobuf::protoc
                         PROPERTIES IMPORTED_LOCATION "${PROTOBUF_COMPILER}")
 
   add_dependencies(toolchain protobuf_ep)
-  add_dependencies(protobuf::libprotobuf protobuf_ep)
+  add_dependencies(arrow::protobuf::libprotobuf protobuf_ep)
 endmacro()
 
 if(ARROW_WITH_PROTOBUF)
@@ -1210,41 +1210,57 @@ if(ARROW_WITH_PROTOBUF)
   # TODO: Don't use global includes but rather target_include_directories
   include_directories(SYSTEM ${PROTOBUF_INCLUDE_DIR})
 
-  # Old CMake versions don't define the targets
-  if(NOT TARGET protobuf::libprotobuf)
-    add_library(protobuf::libprotobuf UNKNOWN IMPORTED)
-    set_target_properties(protobuf::libprotobuf
-                          PROPERTIES IMPORTED_LOCATION "${PROTOBUF_LIBRARY}"
-                                     INTERFACE_INCLUDE_DIRECTORIES
-                                     "${PROTOBUF_INCLUDE_DIR}")
-  endif()
-  if(NOT TARGET protobuf::libprotoc)
-    if(PROTOBUF_PROTOC_LIBRARY AND NOT Protobuf_PROTOC_LIBRARY)
-      # Old CMake versions have a different casing.
-      set(Protobuf_PROTOC_LIBRARY ${PROTOBUF_PROTOC_LIBRARY})
+  if(TARGET arrow::protobuf::libprotobuf)
+    set(ARROW_PROTOBUF_LIBPROTOBUF arrow::protobuf::libprotobuf)
+  else()
+    # Old CMake versions don't define the targets
+    if(NOT TARGET protobuf::libprotobuf)
+      add_library(protobuf::libprotobuf UNKNOWN IMPORTED)
+      set_target_properties(protobuf::libprotobuf
+                            PROPERTIES IMPORTED_LOCATION "${PROTOBUF_LIBRARY}"
+                                       INTERFACE_INCLUDE_DIRECTORIES
+                                       "${PROTOBUF_INCLUDE_DIR}")
     endif()
-    if(NOT Protobuf_PROTOC_LIBRARY)
-      message(FATAL_ERROR "libprotoc was set to ${Protobuf_PROTOC_LIBRARY}")
-    endif()
-    add_library(protobuf::libprotoc UNKNOWN IMPORTED)
-    set_target_properties(protobuf::libprotoc
-                          PROPERTIES IMPORTED_LOCATION "${Protobuf_PROTOC_LIBRARY}"
-                                     INTERFACE_INCLUDE_DIRECTORIES
-                                     "${PROTOBUF_INCLUDE_DIR}")
+    set(ARROW_PROTOBUF_LIBPROTOBUF protobuf::libprotobuf)
   endif()
-  if(NOT TARGET protobuf::protoc)
-    add_executable(protobuf::protoc IMPORTED)
-    set_target_properties(protobuf::protoc
-                          PROPERTIES IMPORTED_LOCATION "${PROTOBUF_PROTOC_EXECUTABLE}")
+  if(TARGET arrow::protobuf::libprotoc)
+    set(ARROW_PROTOBUF_LIBPROTOC arrow::protobuf::libprotoc)
+  else()
+    if(NOT TARGET protobuf::libprotoc)
+      if(PROTOBUF_PROTOC_LIBRARY AND NOT Protobuf_PROTOC_LIBRARY)
+        # Old CMake versions have a different casing.
+        set(Protobuf_PROTOC_LIBRARY ${PROTOBUF_PROTOC_LIBRARY})
+      endif()
+      if(NOT Protobuf_PROTOC_LIBRARY)
+        message(FATAL_ERROR "libprotoc was set to ${Protobuf_PROTOC_LIBRARY}")
+      endif()
+      add_library(protobuf::libprotoc UNKNOWN IMPORTED)
+      set_target_properties(protobuf::libprotoc
+                            PROPERTIES IMPORTED_LOCATION "${Protobuf_PROTOC_LIBRARY}"
+                                       INTERFACE_INCLUDE_DIRECTORIES
+                                       "${PROTOBUF_INCLUDE_DIR}")
+    endif()
+    set(ARROW_PROTOBUF_LIBPROTOC protobuf::libprotoc)
+  endif()
+  if(TARGET arrow::protobuf::protoc)
+    set(ARROW_PROTOBUF_PROTOC arrow::protobuf::protoc)
+  else()
+    if(NOT TARGET protobuf::protoc)
+      add_executable(protobuf::protoc IMPORTED)
+      set_target_properties(protobuf::protoc
+                            PROPERTIES IMPORTED_LOCATION "${PROTOBUF_PROTOC_EXECUTABLE}")
+    endif()
+    set(ARROW_PROTOBUF_PROTOC protobuf::protoc)
   endif()
 
   # Log protobuf paths as we often see issues with mixed sources for
   # the libraries and protoc.
-  get_target_property(PROTOBUF_PROTOC_EXECUTABLE protobuf::protoc IMPORTED_LOCATION)
+  get_target_property(PROTOBUF_PROTOC_EXECUTABLE ${ARROW_PROTOBUF_PROTOC}
+                      IMPORTED_LOCATION)
   message(STATUS "Found protoc: ${PROTOBUF_PROTOC_EXECUTABLE}")
   # Protobuf_PROTOC_LIBRARY is set by all versions of FindProtobuf.cmake
   message(STATUS "Found libprotoc: ${Protobuf_PROTOC_LIBRARY}")
-  get_target_property(PROTOBUF_LIBRARY protobuf::libprotobuf IMPORTED_LOCATION)
+  get_target_property(PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF} IMPORTED_LOCATION)
   message(STATUS "Found libprotobuf: ${PROTOBUF_LIBRARY}")
   message(STATUS "Found protobuf headers: ${PROTOBUF_INCLUDE_DIR}")
 endif()
@@ -1988,12 +2004,13 @@ macro(build_grpc)
     add_dependencies(grpc_dependencies gflags_ep)
   endif()
 
-  add_dependencies(grpc_dependencies protobuf::libprotobuf c-ares::cares)
+  add_dependencies(grpc_dependencies ${ARROW_PROTOBUF_LIBPROTOBUF} c-ares::cares)
 
-  get_target_property(GRPC_PROTOBUF_INCLUDE_DIR protobuf::libprotobuf
+  get_target_property(GRPC_PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
                       INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(GRPC_PB_ROOT "${GRPC_PROTOBUF_INCLUDE_DIR}" DIRECTORY)
-  get_target_property(GRPC_Protobuf_PROTOC_LIBRARY protobuf::libprotoc IMPORTED_LOCATION)
+  get_target_property(GRPC_Protobuf_PROTOC_LIBRARY ${ARROW_PROTOBUF_LIBPROTOC}
+                      IMPORTED_LOCATION)
   get_target_property(GRPC_CARES_INCLUDE_DIR c-ares::cares INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(GRPC_CARES_ROOT "${GRPC_CARES_INCLUDE_DIR}" DIRECTORY)
   get_target_property(GRPC_GFLAGS_INCLUDE_DIR ${GFLAGS_LIBRARIES}
@@ -2201,10 +2218,11 @@ macro(build_orc)
 
   set(ORC_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS} ${ORC_CMAKE_CXX_FLAGS}")
 
-  get_target_property(ORC_PROTOBUF_INCLUDE_DIR protobuf::libprotobuf
+  get_target_property(ORC_PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
                       INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(ORC_PB_ROOT "${ORC_PROTOBUF_INCLUDE_DIR}" DIRECTORY)
-  get_target_property(ORC_PROTOBUF_LIBRARY protobuf::libprotobuf IMPORTED_LOCATION)
+  get_target_property(ORC_PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF}
+                      IMPORTED_LOCATION)
 
   get_target_property(ORC_SNAPPY_INCLUDE_DIR Snappy::snappy INTERFACE_INCLUDE_DIRECTORIES)
   get_filename_component(ORC_SNAPPY_ROOT "${ORC_SNAPPY_INCLUDE_DIR}" DIRECTORY)
@@ -2248,7 +2266,7 @@ macro(build_orc)
   add_dependencies(orc_ep ZLIB::ZLIB)
   add_dependencies(orc_ep LZ4::lz4)
   add_dependencies(orc_ep Snappy::snappy)
-  add_dependencies(orc_ep protobuf::libprotobuf)
+  add_dependencies(orc_ep ${ARROW_PROTOBUF_LIBPROTOBUF})
 
   add_library(orc::liborc STATIC IMPORTED)
   set_target_properties(orc::liborc
