@@ -281,3 +281,8 @@ test_that("record_batch() only auto splice data frames", {
     regexp = "only data frames are allowed as unnamed arguments to be auto spliced"
   )
 })
+
+test_that("record_batch() handles null type (ARROW-7064)", {
+  batch <- record_batch(a = 1:10, n = vctrs::unspecified(10))
+  expect_equal(batch$schema,  schema(a = int32(), n = null()))
+})

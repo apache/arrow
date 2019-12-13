@@ -309,6 +309,27 @@ class VectorConverter {
   ArrayBuilder* builder_;
 };
 
+class NullVectorConverter : public VectorConverter {
+ public:
+  using BuilderType = NullBuilder;
+
+  ~NullVectorConverter() {}
+
+  Status Init(ArrayBuilder* builder) override {
+    builder_ = builder;
+    typed_builder_ = checked_cast<BuilderType*>(builder_);
+    return Status::OK();
+  }
+
+  Status Ingest(SEXP obj) override {
+    RETURN_NOT_OK(typed_builder_->AppendNulls(XLENGTH(obj)));
+    return Status::OK();
+  }
+
+ protected:
+  BuilderType* typed_builder_;
+};
+
 template <typename Type, typename Enable = void>
 struct Unbox {};
 
@@ -766,6 +787,10 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
     TIME_CONVERTER_CASE(TIME64, Time64Type, Time64Converter);
     TIME_CONVERTER_CASE(TIMESTAMP, TimestampType, TimestampConverter);
 
+    case Type::NA:
+      *out = std::unique_ptr<NullVectorConverter>(new NullVectorConverter);
+      return Status::OK();
+
     default:
       break;
   }
@@ -800,6 +825,9 @@ std::shared_ptr<arrow::DataType> InferType(SEXP x) {
       }
       break;
     case LGLSXP:
+      if (Rf_inherits(x, "vctrs_unspecified")) {
+        return null();
+      }
       return boolean();
     case INTSXP:
       if (Rf_isFactor(x)) {

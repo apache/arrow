@@ -70,6 +70,14 @@ test_that("Array supports NA", {
   expect_equal(Array__Mask(x_dbl), c(rep(TRUE, 10), FALSE))
 })
 
+test_that("Array support null type (ARROW-7064)", {
+  a <- Array$create(vctrs::unspecified(10))
+  expect_equal(a$type, null())
+
+  v <- a$as_vector()
+  expect_equal(v, vctrs::unspecified(10))
+})
+
 test_that("Array supports logical vectors (ARROW-3341)", {
   # with NA
   x <- sample(c(TRUE, FALSE, NA), 1000, replace = TRUE)
@@ -275,12 +283,12 @@ test_that("array supports difftime", {
   expect_equal(a$length(), 2L)
   expect_equal(a$as_vector(), c(time, time))
 
-  a <- Array$create(vctrs::vec_c(time, NA))
+  a <- Array$create(vctrs::vec_c(NA, time))
   expect_equal(a$type, time32(unit = TimeUnit$SECOND))
   expect_equal(a$length(), 2L)
-  expect_true(a$IsNull(1))
-  expect_equal(a$as_vector()[1], time)
-  expect_true(is.na(a$as_vector()[2]))
+  expect_true(a$IsNull(0))
+  expect_equal(a$as_vector()[2], time)
+  expect_true(is.na(a$as_vector()[1]))
 })
 
 test_that("support for NaN (ARROW-3615)", {
