@@ -53,8 +53,8 @@ class FilterAndProjectScanTask : public ScanTask {
   explicit FilterAndProjectScanTask(ScanTaskPtr task)
       : ScanTask(task->options(), task->context()), task_(std::move(task)) {}
 
-  Result<RecordBatchIterator> Scan() override {
-    ARROW_ASSIGN_OR_RAISE(auto it, task_->Scan());
+  Result<RecordBatchIterator> Execute() override {
+    ARROW_ASSIGN_OR_RAISE(auto it, task_->Execute());
     auto filter_it = FilterRecordBatch(std::move(it), *options_->evaluator,
                                        *options_->filter, context_->pool);
     return ProjectRecordBatch(std::move(filter_it), &task_->options()->projector,

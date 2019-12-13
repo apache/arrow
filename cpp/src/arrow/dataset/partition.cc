@@ -54,17 +54,6 @@ Result<ExpressionPtr> PartitionScheme::Parse(const std::string& path) const {
   return and_(std::move(expressions));
 }
 
-class DefaultPartitionScheme : public PartitionScheme {
- public:
-  DefaultPartitionScheme() : PartitionScheme(::arrow::schema({})) {}
-
-  std::string name() const override { return "default_partition_scheme"; }
-
-  Result<ExpressionPtr> Parse(const std::string& segment, int i) const override {
-    return scalar(true);
-  }
-};
-
 PartitionSchemePtr PartitionScheme::Default() {
   return std::make_shared<DefaultPartitionScheme>();
 }

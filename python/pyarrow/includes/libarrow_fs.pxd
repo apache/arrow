@@ -59,6 +59,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         c_bool recursive
 
     cdef cppclass CFileSystem "arrow::fs::FileSystem":
+        c_string type_name() const
         CResult[CFileStats] GetTargetStats(const c_string& path)
         CResult[vector[CFileStats]] GetTargetStats(
             const vector[c_string]& paths)
@@ -147,3 +148,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         @staticmethod
         CResult[shared_ptr[CHadoopFileSystem]] Make(
             const CHdfsOptions& options)
+
+    cdef cppclass CMockFileSystem "arrow::fs::internal::MockFileSystem"(
+            CFileSystem):
+        CMockFileSystem(CTimePoint current_time)

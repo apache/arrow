@@ -97,7 +97,8 @@ class ARROW_DS_EXPORT DataSource {
   /// May be null, which indicates no information is available.
   const ExpressionPtr& partition_expression() const { return partition_expression_; }
 
-  virtual std::string type() const = 0;
+  /// \brief The name identifying the kind of data source
+  virtual std::string type_name() const = 0;
 
   virtual ~DataSource() = default;
 
@@ -123,7 +124,7 @@ class ARROW_DS_EXPORT SimpleDataSource : public DataSource {
 
   DataFragmentIterator GetFragmentsImpl(ScanOptionsPtr options) override;
 
-  std::string type() const override { return "simple_data_source"; }
+  std::string type_name() const override { return "simple"; }
 
  private:
   DataFragmentVector fragments_;
@@ -136,7 +137,7 @@ class ARROW_DS_EXPORT TreeDataSource : public DataSource {
 
   DataFragmentIterator GetFragmentsImpl(ScanOptionsPtr options) override;
 
-  std::string type() const override { return "tree_data_source"; }
+  std::string type_name() const override { return "tree"; }
 
  private:
   DataSourceVector children_;
@@ -149,7 +150,7 @@ class ARROW_DS_EXPORT Dataset : public std::enable_shared_from_this<Dataset> {
   /// \brief Build a Dataset from uniform sources.
   //
   /// \param[in] sources one or more input data sources
-  /// \param[in] schema a known schema to conform to, may be nullptr
+  /// \param[in] schema a known schema to conform to
   static Result<DatasetPtr> Make(DataSourceVector sources,
                                  std::shared_ptr<Schema> schema);
 

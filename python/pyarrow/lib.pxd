@@ -19,12 +19,11 @@
 
 from __future__ import absolute_import
 
-from pyarrow.includes.common cimport *
-from pyarrow.includes.libarrow cimport *
-from pyarrow.includes.libarrow cimport CStatus
 from cpython cimport PyObject
 from libcpp cimport nullptr
 from libcpp.cast cimport dynamic_cast
+from pyarrow.includes.common cimport *
+from pyarrow.includes.libarrow cimport *
 
 
 cdef extern from "Python.h":
@@ -530,6 +529,18 @@ cdef class _CRecordBatchReader:
         shared_ptr[CRecordBatchReader] reader
 
 
+cdef class CastOptions:
+    cdef:
+        CCastOptions options
+
+    @staticmethod
+    cdef wrap(CCastOptions options)
+
+    cdef inline CCastOptions unwrap(self) nogil
+
+
+cdef CompressionType _get_compression_type(object name) except *
+
 cdef get_input_stream(object source, c_bool use_memory_map,
                       shared_ptr[CInputStream]* reader)
 cdef get_reader(object source, c_bool use_memory_map,
@@ -547,6 +558,7 @@ cdef object pyarrow_wrap_metadata(
 # Public Cython API for 3rd party code
 #
 
+cdef public object pyarrow_wrap_scalar(const shared_ptr[CScalar]& sp_scalar)
 cdef public object pyarrow_wrap_array(const shared_ptr[CArray]& sp_array)
 cdef public object pyarrow_wrap_chunked_array(
     const shared_ptr[CChunkedArray]& sp_array)
@@ -565,6 +577,7 @@ cdef public object pyarrow_wrap_sparse_coo_tensor(
 cdef public object pyarrow_wrap_sparse_csr_matrix(
     const shared_ptr[CSparseCSRMatrix]& sp_sparse_tensor)
 
+cdef public shared_ptr[CScalar] pyarrow_unwrap_scalar(object scalar)
 cdef public shared_ptr[CArray] pyarrow_unwrap_array(object array)
 cdef public shared_ptr[CRecordBatch] pyarrow_unwrap_batch(object batch)
 cdef public shared_ptr[CBuffer] pyarrow_unwrap_buffer(object buffer)

@@ -155,6 +155,8 @@ class ARROW_EXPORT FileSystem {
  public:
   virtual ~FileSystem();
 
+  virtual std::string type_name() const = 0;
+
   /// Get statistics for the given target.
   ///
   /// Any symlink is automatically dereferenced, recursively.
@@ -243,6 +245,8 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
                              std::shared_ptr<FileSystem> base_fs);
   ~SubTreeFileSystem() override;
 
+  std::string type_name() const override { return "subtree"; }
+
   /// \cond FALSE
   using FileSystem::GetTargetStats;
   /// \endcond
@@ -288,6 +292,8 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
   SlowFileSystem(std::shared_ptr<FileSystem> base_fs, double average_latency);
   SlowFileSystem(std::shared_ptr<FileSystem> base_fs, double average_latency,
                  int32_t seed);
+
+  std::string type_name() const override { return "slow"; }
 
   using FileSystem::GetTargetStats;
   Result<FileStats> GetTargetStats(const std::string& path) override;

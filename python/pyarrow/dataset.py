@@ -15,32 +15,40 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""Dataset is currently unstable. APIs subject to change without notice."""
+
 from __future__ import absolute_import
 
-from pyarrow._fs import (  # noqa
-    Selector,
-    FileType,
-    FileStats,
-    FileSystem,
-    LocalFileSystem,
-    LocalFileSystemOptions,
-    SubTreeFileSystem,
-    _MockFileSystem
+import sys
+
+if sys.version_info < (3,):
+    raise ImportError("Python Dataset bindings require Python 3")
+
+from pyarrow._dataset import (  # noqa
+    AndExpression,
+    CastExpression,
+    CompareOperator,
+    ComparisonExpression,
+    Dataset,
+    DataSource,
+    DefaultPartitionScheme,
+    Expression,
+    FieldExpression,
+    FileFormat,
+    FileSystemDataSource,
+    FileSystemDataSourceDiscovery,
+    FileSystemDiscoveryOptions,
+    HivePartitionScheme,
+    InExpression,
+    IsValidExpression,
+    NotExpression,
+    OrExpression,
+    ParquetFileFormat,
+    PartitionScheme,
+    ScalarExpression,
+    Scanner,
+    ScannerBuilder,
+    ScanTask,
+    SchemaPartitionScheme,
+    TreeDataSource,
 )
-
-try:
-    from pyarrow._hdfs import HdfsOptions, HadoopFileSystem  # noqa
-except ImportError:
-    pass
-
-try:
-    from pyarrow._s3fs import (  # noqa
-        initialize_s3,
-        finalize_s3,
-        S3Options,
-        S3FileSystem
-    )
-except ImportError:
-    pass
-else:
-    initialize_s3()

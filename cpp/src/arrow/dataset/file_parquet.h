@@ -46,7 +46,7 @@ class ARROW_DS_EXPORT ParquetWriteOptions : public FileWriteOptions {
 /// \brief A FileFormat implementation that reads from Parquet files
 class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
  public:
-  std::string name() const override { return "parquet"; }
+  std::string type_name() const override { return "parquet"; }
 
   Result<bool> IsSupported(const FileSource& source) const override;
 

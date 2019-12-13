@@ -87,7 +87,7 @@ class DatasetFixtureMixin : public ::testing::Test {
   /// record batches yielded by the data fragment.
   void AssertScanTaskEquals(RecordBatchReader* expected, ScanTask* task,
                             bool ensure_drained = true) {
-    ASSERT_OK_AND_ASSIGN(auto it, task->Scan());
+    ASSERT_OK_AND_ASSIGN(auto it, task->Execute());
     ARROW_EXPECT_OK(it.Visit([expected](std::shared_ptr<RecordBatch> rhs) -> Status {
       std::shared_ptr<RecordBatch> lhs;
       RETURN_NOT_OK(expected->ReadNext(&lhs));
@@ -179,7 +179,7 @@ class DummyFileFormat : public FileFormat {
   explicit DummyFileFormat(std::shared_ptr<Schema> schema = NULLPTR)
       : schema_(std::move(schema)) {}
 
-  std::string name() const override { return "dummy"; }
+  std::string type_name() const override { return "dummy"; }
 
   Result<bool> IsSupported(const FileSource& source) const override { return true; }
 
@@ -223,7 +223,7 @@ class JSONRecordBatchFileFormat : public FileFormat {
   explicit JSONRecordBatchFileFormat(SchemaResolver resolver)
       : resolver_(std::move(resolver)) {}
 
-  std::string name() const override { return "json_record_batch"; }
+  std::string type_name() const override { return "json_record_batch"; }
 
   /// \brief Return true if the given file extension
   Result<bool> IsSupported(const FileSource& source) const override { return true; }

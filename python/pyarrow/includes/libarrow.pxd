@@ -791,6 +791,8 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     cdef cppclass CDoubleScalar" arrow::DoubleScalar"(CScalar):
         double value
 
+    shared_ptr[CScalar] MakeScalar[Value](Value value)
+
     CStatus ConcatenateTables(const vector[shared_ptr[CTable]]& tables,
                               shared_ptr[CTable]* result)
 
@@ -1363,11 +1365,15 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     cdef cppclass CCastOptions" arrow::compute::CastOptions":
         CCastOptions()
         CCastOptions(c_bool safe)
+        @staticmethod
         CCastOptions Safe()
+        @staticmethod
         CCastOptions Unsafe()
         c_bool allow_int_overflow
         c_bool allow_time_truncate
+        c_bool allow_time_overflow
         c_bool allow_float_truncate
+        c_bool allow_invalid_utf8
 
     cdef cppclass CTakeOptions" arrow::compute::TakeOptions":
         pass
@@ -1419,6 +1425,16 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
     CStatus FilterKernel" arrow::compute::Filter"(
         CFunctionContext* context, const CDatum& values,
         const CDatum& filter, CDatum* out)
+
+    enum CCompareOperator "arrow::compute::CompareOperator":
+        CCompareOperator_EQUAL "arrow::compute::CompareOperator::EQUAL"
+        CCompareOperator_NOT_EQUAL "arrow::compute::CompareOperator::NOT_EQUAL"
+        CCompareOperator_GREATER "arrow::compute::CompareOperator::GREATER"
+        CCompareOperator_GREATER_EQUAL \
+            "arrow::compute::CompareOperator::GREATER_EQUAL"
+        CCompareOperator_LESS "arrow::compute::CompareOperator::LESS"
+        CCompareOperator_LESS_EQUAL \
+            "arrow::compute::CompareOperator::LESS_EQUAL"
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py":
@@ -1572,13 +1588,13 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py::internal" nogil:
-
     cdef cppclass CTimePoint "arrow::py::internal::TimePoint":
         pass
 
-    cdef CStatus PyDateTime_from_int(int64_t val, const TimeUnit unit,
-                                     PyObject** out)
-    cdef CStatus PyDateTime_from_TimePoint(CTimePoint val, PyObject** out)
+    CStatus PyDateTime_from_int(int64_t val, const TimeUnit unit,
+                                PyObject** out)
+    CStatus PyDateTime_from_TimePoint(CTimePoint val, PyObject** out)
+    CTimePoint PyDateTime_to_TimePoint(PyDateTime_DateTime* pydatetime)
 
 
 cdef extern from 'arrow/python/init.h':
@@ -1668,6 +1684,12 @@ cdef extern from 'arrow/util/compression.h' namespace 'arrow' nogil:
         int64_t MaxCompressedLen(int64_t input_len, const uint8_t* input)
 
 
+cdef extern from 'arrow/util/iterator.h' namespace 'arrow' nogil:
+    cdef cppclass CIterator" arrow::Iterator"[T]:
+        CResult[T] Next()
+        CStatus Visit[Visitor](Visitor&& visitor)
+
+
 cdef extern from 'arrow/util/thread_pool.h' namespace 'arrow' nogil:
     int GetCpuThreadPoolCapacity()
     CStatus SetCpuThreadPoolCapacity(int threads)
@@ -1675,7 +1697,3 @@ cdef extern from 'arrow/util/thread_pool.h' namespace 'arrow' nogil:
 cdef extern from 'arrow/array/concatenate.h' namespace 'arrow' nogil:
     CStatus Concatenate(const vector[shared_ptr[CArray]]& arrays,
                         CMemoryPool* pool, shared_ptr[CArray]* result)
-
-cdef extern from "<utility>" namespace "std":
-    # Work around https://github.com/cython/cython/issues/2169
-    unique_ptr[CCodec] move(unique_ptr[CCodec]) nogil

@@ -229,7 +229,7 @@ class RangePartitionScheme : public HivePartitionScheme {
  public:
   using HivePartitionScheme::HivePartitionScheme;
 
-  std::string name() const override { return "range_partition_scheme"; }
+  std::string type_name() const override { return "range"; }
 
   Result<ExpressionPtr> Parse(const std::string& segment, int i) const override {
     ExpressionVector ranges;

@@ -46,7 +46,7 @@ ScanOptionsPtr ScanOptions::ReplaceSchema(std::shared_ptr<Schema> schema) const 
   return copy;
 }
 
-Result<RecordBatchIterator> SimpleScanTask::Scan() {
+Result<RecordBatchIterator> SimpleScanTask::Execute() {
   return MakeVectorIterator(record_batches_);
 }
 
@@ -169,7 +169,7 @@ struct TableAggregator {
 
 struct ScanTaskPromise {
   Status operator()() {
-    ARROW_ASSIGN_OR_RAISE(auto it, task->Scan());
+    ARROW_ASSIGN_OR_RAISE(auto it, task->Execute());
     for (auto maybe_batch : it) {
       ARROW_ASSIGN_OR_RAISE(auto batch, std::move(maybe_batch));
       aggregator.Append(std::move(batch));

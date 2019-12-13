@@ -46,6 +46,7 @@ class Filter;
 /// be read like a file
 class ARROW_DS_EXPORT FileSource {
  public:
+  // NOTE(kszucs): it'd be better to separate the BufferSource from FileSource
   enum SourceType { PATH, BUFFER };
 
   FileSource(std::string path, fs::FileSystem* filesystem,
@@ -130,7 +131,8 @@ class ARROW_DS_EXPORT FileFormat {
  public:
   virtual ~FileFormat() = default;
 
-  virtual std::string name() const = 0;
+  /// \brief The name identifying the kind of file format
+  virtual std::string type_name() const = 0;
 
   /// \brief Indicate if the FileSource is supported/readable by this format.
   virtual Result<bool> IsSupported(const FileSource& source) const = 0;
@@ -215,7 +217,7 @@ class ARROW_DS_EXPORT FileSystemDataSource : public DataSource {
                                     ExpressionVector partitions,
                                     ExpressionPtr source_partition, FileFormatPtr format);
 
-  std::string type() const override { return "filesystem_data_source"; }
+  std::string type_name() const override { return "filesystem"; }
 
   std::string ToString() const;
 
