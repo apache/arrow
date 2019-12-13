@@ -174,12 +174,23 @@ TYPED_TEST(TestFilterKernelWithNumeric, FilterRandomNumeric) {
 }
 
 template <typename CType>
-decltype(Comparator<CType, EQUAL>::Compare)* GetComparator(CompareOperator op) {
-  using cmp_t = decltype(Comparator<CType, EQUAL>::Compare);
-  static cmp_t* cmp[] = {
-      Comparator<CType, EQUAL>::Compare,   Comparator<CType, NOT_EQUAL>::Compare,
-      Comparator<CType, GREATER>::Compare, Comparator<CType, GREATER_EQUAL>::Compare,
-      Comparator<CType, LESS>::Compare,    Comparator<CType, LESS_EQUAL>::Compare,
+using Comparator = bool(CType, CType);
+
+template <typename CType>
+Comparator<CType>* GetComparator(CompareOperator op) {
+  static Comparator<CType>* cmp[] = {
+      // EQUAL
+      [](CType l, CType r) { return l == r; },
+      // NOT_EQUAL
+      [](CType l, CType r) { return l != r; },
+      // GREATER
+      [](CType l, CType r) { return l > r; },
+      // GREATER_EQUAL
+      [](CType l, CType r) { return l >= r; },
+      // LESS
+      [](CType l, CType r) { return l < r; },
+      // LESS_EQUAL
+      [](CType l, CType r) { return l <= r; },
   };
   return cmp[op];
 }

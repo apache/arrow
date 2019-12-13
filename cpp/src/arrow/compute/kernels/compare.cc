@@ -21,246 +21,260 @@
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string_view.h"
+#include "arrow/visitor_inline.h"
 
 namespace arrow {
 
+using internal::checked_cast;
+using internal::checked_pointer_cast;
+using util::string_view;
+
 namespace compute {
 
-std::shared_ptr<DataType> CompareBinaryKernel::out_type() const {
-  return compare_function_->out_type();
-}
+using DatumKind = decltype(Datum::SCALAR);
 
-Status CompareBinaryKernel::Call(FunctionContext* ctx, const Datum& left,
-                                 const Datum& right, Datum* out) {
-  DCHECK(left.type()->Equals(right.type()));
+// A function object which either accesses successive elements of an Array or repeats
+// the value of a Scalar.
+template <typename ArrowType, DatumKind Kind, typename Enable = void>
+struct Get;
 
-  auto lk = left.kind();
-  auto rk = right.kind();
-  auto out_array = out->array();
+template <typename Numeric>
+struct Get<Numeric, Datum::ARRAY, enable_if_number<Numeric>> {
+  using T = typename Numeric::c_type;
 
-  if (lk == Datum::ARRAY && rk == Datum::SCALAR) {
-    auto array = left.array();
-    auto scalar = right.scalar();
-    return compare_function_->Compare(*array, *scalar, &out_array);
-  } else if (lk == Datum::SCALAR && rk == Datum::ARRAY) {
-    auto scalar = left.scalar();
-    auto array = right.array();
-    auto out_array = out->array();
-    return compare_function_->Compare(*scalar, *array, &out_array);
-  } else if (lk == Datum::ARRAY && rk == Datum::ARRAY) {
-    auto lhs = left.array();
-    auto rhs = right.array();
-    return compare_function_->Compare(*lhs, *rhs, &out_array);
+  explicit Get(const Datum& datum) : ptr_(datum.array()->GetMutableValues<T>(1)) {}
+
+  T operator()() { return *ptr_++; }
+
+  T* ptr_;
+};
+
+template <>
+struct Get<BooleanType, Datum::ARRAY> {
+  explicit Get(const Datum& datum)
+      : reader_(datum.array()->GetValues<uint8_t>(1), datum.array()->offset,
+                datum.array()->length) {}
+
+  bool operator()() {
+    bool out = reader_.IsSet();
+    reader_.Next();
+    return out;
   }
 
-  return Status::Invalid("Invalid datum signature for CompareBinaryKernel");
-}
+  internal::BitmapReader reader_;
+};
 
-template <typename ArrowType, CompareOperator Op,
-          typename ScalarType = typename TypeTraits<ArrowType>::ScalarType,
-          typename T = typename TypeTraits<ArrowType>::CType>
-static Status CompareArrayScalar(const ArrayData& array, const ScalarType& scalar,
-                                 uint8_t* output_bitmap) {
-  const T* left = array.GetValues<T>(1);
-  const T right = scalar.value;
+template <typename StringLike>
+struct Get<StringLike, Datum::ARRAY, enable_if_base_binary<StringLike>> {
+  using ArrayType = typename TypeTraits<StringLike>::ArrayType;
 
-  internal::GenerateBitsUnrolled(
-      output_bitmap, 0, array.length,
-      [&left, right]() -> bool { return Comparator<T, Op>::Compare(*left++, right); });
+  explicit Get(const Datum& datum)
+      : array_(checked_pointer_cast<ArrayType>(datum.make_array())) {}
 
-  return Status::OK();
-}
+  string_view operator()() { return array_->GetView(i_++); }
 
-template <typename ArrowType, CompareOperator Op,
-          typename ScalarType = typename TypeTraits<ArrowType>::ScalarType,
-          typename T = typename TypeTraits<ArrowType>::CType>
-static Status CompareScalarArray(const ScalarType& scalar, const ArrayData& array,
-                                 uint8_t* output_bitmap) {
-  const T left = scalar.value;
-  const T* right = array.GetValues<T>(1);
+  std::shared_ptr<ArrayType> array_;
+  int64_t i_ = 0;
+};
 
-  internal::GenerateBitsUnrolled(
-      output_bitmap, 0, array.length,
-      [left, &right]() -> bool { return Comparator<T, Op>::Compare(left, *right++); });
+template <typename Numeric>
+struct Get<Numeric, Datum::SCALAR, enable_if_number<Numeric>> {
+  using T = typename Numeric::c_type;
+  using ScalarType = typename TypeTraits<Numeric>::ScalarType;
 
-  return Status::OK();
-}
+  explicit Get(const Datum& datum)
+      : value_(checked_cast<const ScalarType&>(*datum.scalar()).value) {}
 
-template <typename ArrowType, CompareOperator Op,
-          typename T = typename TypeTraits<ArrowType>::CType>
-static Status CompareArrayArray(const ArrayData& lhs, const ArrayData& rhs,
-                                uint8_t* output_bitmap) {
-  const T* left = lhs.GetValues<T>(1);
-  const T* right = rhs.GetValues<T>(1);
+  T operator()() { return value_; }
 
-  internal::GenerateBitsUnrolled(output_bitmap, 0, lhs.length, [&left, &right]() -> bool {
-    return Comparator<T, Op>::Compare(*left++, *right++);
-  });
+  T value_;
+};
 
-  return Status::OK();
-}
+template <typename StringLike>
+struct Get<StringLike, Datum::SCALAR, enable_if_base_binary<StringLike>> {
+  using ScalarType = typename TypeTraits<StringLike>::ScalarType;
 
-template <typename ArrowType, CompareOperator Op>
-class CompareFunctionImpl final : public CompareFunction {
-  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-  using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
+  explicit Get(const Datum& datum)
+      : value_(*checked_cast<const ScalarType&>(*datum.scalar()).value) {}
 
+  string_view operator()() { return value_; }
+
+  string_view value_;
+};
+
+template <>
+struct Get<BooleanType, Datum::SCALAR> {
+  explicit Get(const Datum& datum)
+      : value_(checked_cast<const BooleanScalar&>(*datum.scalar()).value) {}
+
+  bool operator()() { return value_; }
+
+  bool value_;
+};
+
+template <typename Cmp, typename ArrowType>
+class CompareBinaryKernel final : public BinaryKernel {
  public:
-  explicit CompareFunctionImpl(FunctionContext* ctx) : ctx_(ctx) {}
+  explicit CompareBinaryKernel(Cmp cmp) : cmp_(std::move(cmp)) {}
 
-  Status Compare(const ArrayData& array, const Scalar& scalar, ArrayData* output) const {
-    // Caller must cast
-    DCHECK(array.type->Equals(scalar.type));
-    // Output must be a boolean array
-    DCHECK(output->type->Equals(boolean()));
-    // Output must be of same length
-    DCHECK_EQ(output->length, array.length);
+  std::shared_ptr<DataType> out_type() const override { return boolean(); }
 
-    // Scalar is null, all comparisons are null.
-    if (!scalar.is_valid) {
-      return detail::SetAllNulls(ctx_, array, output);
+  Status Call(FunctionContext* ctx, const Datum& left, const Datum& right,
+              Datum* out) override {
+    if (left.kind() == Datum::ARRAY && right.kind() == Datum::SCALAR) {
+      return DoCall<Datum::ARRAY, Datum::SCALAR>(ctx, left, right, out);
+    } else if (left.kind() == Datum::SCALAR && right.kind() == Datum::ARRAY) {
+      return DoCall<Datum::SCALAR, Datum::ARRAY>(ctx, left, right, out);
+    } else if (left.kind() == Datum::ARRAY && right.kind() == Datum::ARRAY) {
+      return DoCall<Datum::ARRAY, Datum::ARRAY>(ctx, left, right, out);
     }
-
-    // Copy null_bitmap
-    RETURN_NOT_OK(detail::PropagateNulls(ctx_, array, output));
-
-    uint8_t* bitmap_result = output->buffers[1]->mutable_data();
-    return CompareArrayScalar<ArrowType, Op>(
-        array, static_cast<const ScalarType&>(scalar), bitmap_result);
-  }
-
-  Status Compare(const Scalar& scalar, const ArrayData& array, ArrayData* output) const {
-    // Caller must cast
-    DCHECK(array.type->Equals(scalar.type));
-    // Output must be a boolean array
-    DCHECK(output->type->Equals(boolean()));
-    // Output must be of same length
-    DCHECK_EQ(output->length, array.length);
-
-    // Scalar is null, all comparisons are null.
-    if (!scalar.is_valid) {
-      return detail::SetAllNulls(ctx_, array, output);
-    }
-
-    // Copy null_bitmap
-    RETURN_NOT_OK(detail::PropagateNulls(ctx_, array, output));
-
-    uint8_t* bitmap_result = output->buffers[1]->mutable_data();
-    return CompareScalarArray<ArrowType, Op>(static_cast<const ScalarType&>(scalar),
-                                             array, bitmap_result);
-  }
-
-  Status Compare(const ArrayData& lhs, const ArrayData& rhs, ArrayData* output) const {
-    // Caller must cast
-    DCHECK(lhs.type->Equals(rhs.type));
-    // Output must be a boolean array
-    DCHECK(output->type->Equals(boolean()));
-    // Inputs must be of same length
-    DCHECK_EQ(lhs.length, rhs.length);
-    // Output must be of same length as inputs
-    DCHECK_EQ(output->length, lhs.length);
-
-    // Copy null_bitmap
-    RETURN_NOT_OK(detail::AssignNullIntersection(ctx_, lhs, rhs, output));
-
-    uint8_t* bitmap_result = output->buffers[1]->mutable_data();
-    return CompareArrayArray<ArrowType, Op>(lhs, rhs, bitmap_result);
+    return Status::Invalid("Invalid datum signature for CompareBinaryKernel");
   }
 
  private:
-  FunctionContext* ctx_;
+  template <DatumKind LeftKind, DatumKind RightKind>
+  Status DoCall(FunctionContext* ctx, const Datum& left, const Datum& right, Datum* out) {
+    auto out_data = out->array();
+
+    if (LeftKind == Datum::SCALAR && RightKind == Datum::ARRAY) {
+      if (!left.scalar()->is_valid) {
+        return detail::SetAllNulls(ctx, *right.array(), out_data.get());
+      }
+      RETURN_NOT_OK(detail::PropagateNulls(ctx, *right.array(), out_data.get()));
+    }
+
+    if (LeftKind == Datum::ARRAY && RightKind == Datum::SCALAR) {
+      if (!right.scalar()->is_valid) {
+        return detail::SetAllNulls(ctx, *left.array(), out_data.get());
+      }
+      RETURN_NOT_OK(detail::PropagateNulls(ctx, *left.array(), out_data.get()));
+    }
+
+    if (LeftKind == Datum::ARRAY && RightKind == Datum::ARRAY) {
+      RETURN_NOT_OK(detail::AssignNullIntersection(ctx, *left.array(), *right.array(),
+                                                   out_data.get()));
+    }
+
+    Get<ArrowType, LeftKind> get_left(left);
+    Get<ArrowType, RightKind> get_right(right);
+
+    auto out_bitmap = out_data->buffers[1]->mutable_data();
+    internal::GenerateBitsUnrolled(out_bitmap, 0, out_data->length,
+                                   [&] { return cmp_(get_left(), get_right()); });
+    return Status::OK();
+  }
+
+  Cmp cmp_;
 };
 
-template <typename ArrowType, CompareOperator Op>
-static inline std::shared_ptr<CompareFunction> MakeCompareFunctionTypeOp(
-    FunctionContext* ctx) {
-  return std::make_shared<CompareFunctionImpl<ArrowType, Op>>(ctx);
+template <typename ArrowType, typename Cmp>
+std::shared_ptr<BinaryKernel> MakeCompareKernel(Cmp cmp) {
+  return std::make_shared<CompareBinaryKernel<Cmp, ArrowType>>(std::move(cmp));
 }
 
 template <typename ArrowType>
-static inline std::shared_ptr<CompareFunction> MakeCompareFunctionType(
-    FunctionContext* ctx, struct CompareOptions options) {
-  switch (options.op) {
+std::shared_ptr<BinaryKernel> UnpackOperator(CompareOperator op) {
+  using T = decltype(Get<ArrowType, Datum::SCALAR>{Datum{}}());
+
+  switch (op) {
     case CompareOperator::EQUAL:
-      return MakeCompareFunctionTypeOp<ArrowType, CompareOperator::EQUAL>(ctx);
+      return MakeCompareKernel<ArrowType>([](T l, T r) { return l == r; });
+
     case CompareOperator::NOT_EQUAL:
-      return MakeCompareFunctionTypeOp<ArrowType, CompareOperator::NOT_EQUAL>(ctx);
+      return MakeCompareKernel<ArrowType>([](T l, T r) { return l != r; });
+
     case CompareOperator::GREATER:
-      return MakeCompareFunctionTypeOp<ArrowType, CompareOperator::GREATER>(ctx);
+      return MakeCompareKernel<ArrowType>([](T l, T r) { return l > r; });
+
     case CompareOperator::GREATER_EQUAL:
-      return MakeCompareFunctionTypeOp<ArrowType, CompareOperator::GREATER_EQUAL>(ctx);
+      return MakeCompareKernel<ArrowType>([](T l, T r) { return l >= r; });
+
     case CompareOperator::LESS:
-      return MakeCompareFunctionTypeOp<ArrowType, CompareOperator::LESS>(ctx);
+      return MakeCompareKernel<ArrowType>([](T l, T r) { return l < r; });
+
     case CompareOperator::LESS_EQUAL:
-      return MakeCompareFunctionTypeOp<ArrowType, CompareOperator::LESS_EQUAL>(ctx);
+      return MakeCompareKernel<ArrowType>([](T l, T r) { return l <= r; });
   }
 
   return nullptr;
 }
 
-std::shared_ptr<CompareFunction> MakeCompareFunction(FunctionContext* ctx,
-                                                     const DataType& type,
-                                                     struct CompareOptions options) {
-  switch (type.id()) {
-    case UInt8Type::type_id:
-      return MakeCompareFunctionType<UInt8Type>(ctx, options);
-    case Int8Type::type_id:
-      return MakeCompareFunctionType<Int8Type>(ctx, options);
-    case UInt16Type::type_id:
-      return MakeCompareFunctionType<UInt16Type>(ctx, options);
-    case Int16Type::type_id:
-      return MakeCompareFunctionType<Int16Type>(ctx, options);
-    case UInt32Type::type_id:
-      return MakeCompareFunctionType<UInt32Type>(ctx, options);
-    case Int32Type::type_id:
-      return MakeCompareFunctionType<Int32Type>(ctx, options);
-    case UInt64Type::type_id:
-      return MakeCompareFunctionType<UInt64Type>(ctx, options);
-    case Int64Type::type_id:
-      return MakeCompareFunctionType<Int64Type>(ctx, options);
-    case FloatType::type_id:
-      return MakeCompareFunctionType<FloatType>(ctx, options);
-    case DoubleType::type_id:
-      return MakeCompareFunctionType<DoubleType>(ctx, options);
-    case Date32Type::type_id:
-      return MakeCompareFunctionType<Date32Type>(ctx, options);
-    case Date64Type::type_id:
-      return MakeCompareFunctionType<Date64Type>(ctx, options);
-    case TimestampType::type_id:
-      return MakeCompareFunctionType<TimestampType>(ctx, options);
-    case Time32Type::type_id:
-      return MakeCompareFunctionType<Time32Type>(ctx, options);
-    case Time64Type::type_id:
-      return MakeCompareFunctionType<Time64Type>(ctx, options);
-    default:
-      return nullptr;
+struct UnpackType {
+  Status Visit(const NullType& unreachable) { return Status::OK(); }
+
+  Status Visit(const BooleanType& t) {
+    *out_ = UnpackOperator<BooleanType>(options_.op);
+    return Status::OK();
   }
+
+  template <typename Numeric>
+  enable_if_number<Numeric, Status> Visit(const Numeric& t) {
+    *out_ = UnpackOperator<Numeric>(options_.op);
+    return Status::OK();
+  }
+
+  template <typename StringLike>
+  enable_if_base_binary<StringLike, Status> Visit(const StringLike& t) {
+    *out_ = UnpackOperator<StringLike>(options_.op);
+    return Status::OK();
+  }
+
+  Status Visit(const DictionaryType& t) { return NotImplemented(t); }
+  Status Visit(const IntervalType& t) { return NotImplemented(t); }
+  Status Visit(const FixedSizeBinaryType& t) { return NotImplemented(t); }
+  Status Visit(const DurationType& t) { return NotImplemented(t); }
+  Status Visit(const Date32Type& t) { return NotImplemented(t); }
+  Status Visit(const Date64Type& t) { return NotImplemented(t); }
+  Status Visit(const TimestampType& t) { return NotImplemented(t); }
+  Status Visit(const Time32Type& t) { return NotImplemented(t); }
+  Status Visit(const Time64Type& t) { return NotImplemented(t); }
+  Status Visit(const Decimal128Type& t) { return NotImplemented(t); }
+  Status Visit(const ListType& t) { return NotImplemented(t); }
+  Status Visit(const LargeListType& t) { return NotImplemented(t); }
+  Status Visit(const MapType& t) { return NotImplemented(t); }
+  Status Visit(const FixedSizeListType& t) { return NotImplemented(t); }
+  Status Visit(const UnionType& t) { return NotImplemented(t); }
+  Status Visit(const ExtensionType& t) { return NotImplemented(t); }
+  Status Visit(const StructType& t) { return NotImplemented(t); }
+
+  Status NotImplemented(const DataType& t) {
+    return Status::NotImplemented("Compare not implemented for type ", t);
+  }
+
+  std::shared_ptr<BinaryKernel>* out_;
+  CompareOptions options_;
+};
+
+Status MakeCompareKernel(const DataType& type, CompareOptions options,
+                         std::shared_ptr<BinaryKernel>* out) {
+  UnpackType visitor{out, options};
+  return VisitTypeInline(type, &visitor);
 }
 
-ARROW_EXPORT
+inline int64_t OutLength(const Datum& left, const Datum& right) {
+  if (left.kind() == Datum::ARRAY) return left.length();
+  if (right.kind() == Datum::ARRAY) return right.length();
+  return 0;
+}
+
 Status Compare(FunctionContext* context, const Datum& left, const Datum& right,
                struct CompareOptions options, Datum* out) {
-  DCHECK(out);
-
   auto type = left.type();
   if (!type->Equals(right.type())) {
     return Status::TypeError("Cannot compare data of differing type ", *type, " vs ",
                              *right.type());
   }
-  // Requires that both types are equal.
-  auto fn = MakeCompareFunction(context, *type, options);
-  if (fn == nullptr) {
-    return Status::NotImplemented("Compare not implemented for type ", type->ToString());
-  }
 
-  CompareBinaryKernel filter_kernel(fn);
-  detail::PrimitiveAllocatingBinaryKernel kernel(&filter_kernel);
+  std::shared_ptr<BinaryKernel> kernel;
+  RETURN_NOT_OK(MakeCompareKernel(*type, options, &kernel));
 
-  const int64_t length = CompareBinaryKernel::out_length(left, right);
-  out->value = ArrayData::Make(filter_kernel.out_type(), length);
+  out->value = ArrayData::Make(kernel->out_type(), OutLength(left, right));
 
-  return kernel.Call(context, left, right, out);
+  return detail::PrimitiveAllocatingBinaryKernel(kernel.get())
+      .Call(context, left, right, out);
 }
 
 }  // namespace compute

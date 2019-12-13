@@ -39,22 +39,6 @@
 namespace arrow {
 namespace compute {
 
-TEST(TestComparatorOperator, BasicOperator) {
-  using T = int32_t;
-  std::vector<T> vals{0, 1, 2, 3, 4, 5, 6};
-
-  for (int32_t i : vals) {
-    for (int32_t j : vals) {
-      EXPECT_EQ((Comparator<T, EQUAL>::Compare(i, j)), i == j);
-      EXPECT_EQ((Comparator<T, NOT_EQUAL>::Compare(i, j)), i != j);
-      EXPECT_EQ((Comparator<T, GREATER>::Compare(i, j)), i > j);
-      EXPECT_EQ((Comparator<T, GREATER_EQUAL>::Compare(i, j)), i >= j);
-      EXPECT_EQ((Comparator<T, LESS>::Compare(i, j)), i < j);
-      EXPECT_EQ((Comparator<T, LESS_EQUAL>::Compare(i, j)), i <= j);
-    }
-  }
-}
-
 template <typename ArrowType>
 static void ValidateCompare(FunctionContext* ctx, CompareOptions options,
                             const Datum& lhs, const Datum& rhs, const Datum& expected) {
