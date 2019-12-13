@@ -172,7 +172,7 @@ table SparseTensorIndexCSF {
   ///
   ///   axisOrder(X) = [0, 1, 2, 3].
   ///
-  axisOrder: [long];
+  axisOrder: [Int];
 }
 
 union SparseTensorIndex {

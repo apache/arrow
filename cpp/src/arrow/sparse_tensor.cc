@@ -17,6 +17,7 @@
 
 #include "arrow/sparse_tensor.h"
 
+#include <arrow/util/sort.h>
 #include <algorithm>
 #include <functional>
 #include <limits>
@@ -454,9 +455,7 @@ class SparseTensorConverter<TYPE, SparseCSFIndex>
 
     std::vector<int64_t> counts(ndim);
     std::fill_n(counts.begin(), ndim, static_cast<int64_t>(0));
-
-    std::vector<int64_t> axis_order(ndim);
-    for (int64_t i = 0; i < ndim; ++i) axis_order[i] = i;
+    std::vector<int64_t> axis_order = internal::ArgSort(tensor_.shape());
 
     std::vector<TypedBufferBuilder<c_index_value_type>> indptr_buffer_builders(ndim - 1);
     std::vector<TypedBufferBuilder<c_index_value_type>> indices_buffer_builders(ndim);
@@ -464,8 +463,9 @@ class SparseTensorConverter<TYPE, SparseCSFIndex>
     for (int64_t row = 0; row < nonzero_count; ++row) {
       bool tree_split = false;
       for (int64_t column = 0; column < ndim; ++column) {
-        bool change = coords->Value<IndexValueType>({row, column}) !=
-                      coords->Value<IndexValueType>({row - 1, column});
+        int64_t dimension = axis_order[column];
+        bool change = coords->Value<IndexValueType>({row, dimension}) !=
+                      coords->Value<IndexValueType>({row - 1, dimension});
 
         if (tree_split || change || row == 0) {
           if (row > 1) tree_split = true;
@@ -475,7 +475,7 @@ class SparseTensorConverter<TYPE, SparseCSFIndex>
                 static_cast<c_index_value_type>(counts[column + 1])));
           RETURN_NOT_OK(
               indices_buffer_builders[column].Append(static_cast<c_index_value_type>(
-                  coords->Value<IndexValueType>({row, column}))));
+                  coords->Value<IndexValueType>({row, dimension}))));
           ++counts[column];
         }
       }
