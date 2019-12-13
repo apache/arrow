@@ -30,7 +30,7 @@ namespace Apache.Arrow
 
         public ArrowBuffer ValueBuffer => Data.Buffers[1];
 
-        public ReadOnlySpan<T> Values => ValueBuffer.Span.CastTo<T>().Slice(0, Length);
+        public ReadOnlySpan<T> Values => ValueBuffer.Span.CastTo<T>().Slice(Offset, Length);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public T? GetValue(int index)

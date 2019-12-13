@@ -164,21 +164,21 @@ namespace Apache.Arrow
 
         public ArrowBuffer ValueBuffer => Data.Buffers[2];
 
-        public ReadOnlySpan<int> ValueOffsets => ValueOffsetsBuffer.Span.CastTo<int>().Slice(0, Length + 1);
+        public ReadOnlySpan<int> ValueOffsets => ValueOffsetsBuffer.Span.CastTo<int>().Slice(Offset, Length + 1);
 
         public ReadOnlySpan<byte> Values => ValueBuffer.Span.CastTo<byte>();
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetValueOffset(int index)
         {
-            return ValueOffsets[Offset + index];
+            return ValueOffsets[index];
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public int GetValueLength(int index)
         {
             var offsets = ValueOffsets;
-            var offset = Offset + index;
+            var offset = index;
 
             return offsets[offset + 1] - offsets[offset];
         }
