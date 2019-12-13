@@ -184,7 +184,7 @@ class SparseCSXIndex : public SparseIndexBase<SparseIndexType> {
         std::make_shared<Tensor>(indices_type, indices_data, indices_shape));
   }
 
-  /// \brief Make a subclass of SparseCSRIndex from raw properties
+  /// \brief Make a subclass of SparseCSXIndex from raw properties
   static Result<std::shared_ptr<SparseIndexType>> Make(
       const std::shared_ptr<DataType>& indices_type,
       const std::vector<int64_t>& indptr_shape, const std::vector<int64_t>& indices_shape,
@@ -216,7 +216,7 @@ class SparseCSXIndex : public SparseIndexBase<SparseIndexType> {
                 indices_data);
   }
 
-  /// \brief Construct SparseCSRIndex from two index vectors
+  /// \brief Construct SparseCSXIndex from two index vectors
   explicit SparseCSXIndex(const std::shared_ptr<Tensor>& indptr,
                           const std::shared_ptr<Tensor>& indices)
       : SparseIndexBase<SparseIndexType>(indices->shape()[0]),
