@@ -17,6 +17,10 @@
 
 #include "arrow/compute/kernels/compare.h"
 
+#include <utility>
+
+#include "boost/range.hpp"
+
 #include "arrow/compute/context.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/util_internal.h"
@@ -34,169 +38,195 @@ using util::string_view;
 
 namespace compute {
 
-using DatumKind = decltype(Datum::SCALAR);
+template <typename T, CompareOperator Op>
+struct Comparator;
 
-// A function object which either accesses successive elements of an Array or repeats
-// the value of a Scalar.
-template <typename ArrowType, DatumKind Kind, typename Enable = void>
-struct Get;
-
-template <typename Numeric>
-struct Get<Numeric, Datum::ARRAY, enable_if_number<Numeric>> {
-  using T = typename Numeric::c_type;
-
-  explicit Get(const Datum& datum) : ptr_(datum.array()->GetMutableValues<T>(1)) {}
-
-  T operator()() { return *ptr_++; }
-
-  T* ptr_;
+template <typename T>
+struct Comparator<T, CompareOperator::EQUAL> {
+  constexpr static bool Compare(const T& lhs, const T& rhs) { return lhs == rhs; }
 };
 
-template <>
-struct Get<BooleanType, Datum::ARRAY> {
-  explicit Get(const Datum& datum)
-      : reader_(datum.array()->GetValues<uint8_t>(1), datum.array()->offset,
-                datum.array()->length) {}
+template <typename T>
+struct Comparator<T, CompareOperator::NOT_EQUAL> {
+  constexpr static bool Compare(const T& lhs, const T& rhs) { return lhs != rhs; }
+};
+
+template <typename T>
+struct Comparator<T, CompareOperator::GREATER> {
+  constexpr static bool Compare(const T& lhs, const T& rhs) { return lhs > rhs; }
+};
+
+template <typename T>
+struct Comparator<T, CompareOperator::GREATER_EQUAL> {
+  constexpr static bool Compare(const T& lhs, const T& rhs) { return lhs >= rhs; }
+};
+
+template <typename T>
+struct Comparator<T, CompareOperator::LESS> {
+  constexpr static bool Compare(const T& lhs, const T& rhs) { return lhs < rhs; }
+};
+
+template <typename T>
+struct Comparator<T, CompareOperator::LESS_EQUAL> {
+  constexpr static bool Compare(const T& lhs, const T& rhs) { return lhs <= rhs; }
+};
+
+template <typename Value>
+struct RepeatedValue {
+  Value operator()() { return value_; }
+  Value value_;
+};
+
+struct RepeatedBufferAsStringView {
+  explicit RepeatedBufferAsStringView(const Buffer& buffer) : value_(buffer) {}
+  util::string_view operator()() { return value_; }
+  util::string_view value_;
+};
+
+struct ReadFromBitmap : internal::BitmapReader {
+  using internal::BitmapReader::BitmapReader;
 
   bool operator()() {
-    bool out = reader_.IsSet();
-    reader_.Next();
+    bool out = IsSet();
+    Next();
     return out;
   }
-
-  internal::BitmapReader reader_;
 };
 
-template <typename StringLike>
-struct Get<StringLike, Datum::ARRAY, enable_if_base_binary<StringLike>> {
-  using ArrayType = typename TypeTraits<StringLike>::ArrayType;
+template <typename T>
+struct DereferenceIncrementPointer {
+  T operator()() { return *ptr_++; }
+  const T* ptr_;
+};
 
-  explicit Get(const Datum& datum)
-      : array_(checked_pointer_cast<ArrayType>(datum.make_array())) {}
+template <typename ArrayType>
+struct GetViewFromStringLikeArray {
+  explicit GetViewFromStringLikeArray(const ArrayType* array) : array_(array) {}
 
   string_view operator()() { return array_->GetView(i_++); }
 
-  std::shared_ptr<ArrayType> array_;
+  const ArrayType* array_;
   int64_t i_ = 0;
 };
 
-template <typename Numeric>
-struct Get<Numeric, Datum::SCALAR, enable_if_number<Numeric>> {
-  using T = typename Numeric::c_type;
-  using ScalarType = typename TypeTraits<Numeric>::ScalarType;
+template <typename T, typename RangeType = RepeatedValue<typename T::c_type>>
+RangeType MakeRange(const TemporalScalar<T>& scalar) {
+  return RangeType{scalar.value};
+}
 
-  explicit Get(const Datum& datum)
-      : value_(checked_cast<const ScalarType&>(*datum.scalar()).value) {}
+template <typename T, typename RangeType = RepeatedValue<typename T::c_type>>
+RangeType MakeRange(const internal::PrimitiveScalar<T>& scalar) {
+  return RangeType{scalar.value};
+}
 
-  T operator()() { return value_; }
+RepeatedBufferAsStringView MakeRange(const BaseBinaryScalar& scalar) {
+  return RepeatedBufferAsStringView{*scalar.value};
+}
 
-  T value_;
-};
+ReadFromBitmap MakeRange(const BooleanArray& array) {
+  return ReadFromBitmap(array.data()->GetValues<uint8_t>(1), array.offset(),
+                        array.length());
+}
 
-template <typename StringLike>
-struct Get<StringLike, Datum::SCALAR, enable_if_base_binary<StringLike>> {
-  using ScalarType = typename TypeTraits<StringLike>::ScalarType;
+template <typename T,
+          typename RangeType = DereferenceIncrementPointer<typename T::c_type>>
+RangeType MakeRange(const NumericArray<T>& array) {
+  return RangeType{array.raw_values()};
+}
 
-  explicit Get(const Datum& datum)
-      : value_(*checked_cast<const ScalarType&>(*datum.scalar()).value) {}
+template <typename T, typename RangeType = GetViewFromStringLikeArray<BaseBinaryArray<T>>>
+RangeType MakeRange(const BaseBinaryArray<T>& array) {
+  return RangeType{&array};
+}
 
-  string_view operator()() { return value_; }
+inline Status AssignNulls(FunctionContext* ctx, const Scalar& scalar, const Array& array,
+                          ArrayData* out) {
+  return scalar.is_valid ? detail::PropagateNulls(ctx, *array.data(), out)
+                         : detail::SetAllNulls(ctx, *array.data(), out);
+}
 
-  string_view value_;
-};
+inline Status AssignNulls(FunctionContext* ctx, const Array& left, const Array& right,
+                          ArrayData* out) {
+  return detail::AssignNullIntersection(ctx, *left.data(), *right.data(), out);
+}
 
-template <>
-struct Get<BooleanType, Datum::SCALAR> {
-  explicit Get(const Datum& datum)
-      : value_(checked_cast<const BooleanScalar&>(*datum.scalar()).value) {}
+template <CompareOperator Op, typename L, typename R>
+Status Compare(L&& get_left, R&& get_right, ArrayData* out) {
+  auto out_bitmap = out->buffers[1]->mutable_data();
+  internal::GenerateBitsUnrolled(out_bitmap, 0, out->length, [&]() -> bool {
+    return Comparator<decltype(get_left()), Op>::Compare(get_left(), get_right());
+  });
+  return Status::OK();
+}
 
-  bool operator()() { return value_; }
-
-  bool value_;
-};
-
-template <typename Cmp, typename ArrowType>
-class CompareBinaryKernel final : public BinaryKernel {
+template <typename ArrowType, CompareOperator Op>
+class CompareKernel final : public BinaryKernel {
  public:
-  explicit CompareBinaryKernel(Cmp cmp) : cmp_(std::move(cmp)) {}
+  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+  using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
 
   std::shared_ptr<DataType> out_type() const override { return boolean(); }
 
   Status Call(FunctionContext* ctx, const Datum& left, const Datum& right,
-              Datum* out) override {
-    if (left.kind() == Datum::ARRAY && right.kind() == Datum::SCALAR) {
-      return DoCall<Datum::ARRAY, Datum::SCALAR>(ctx, left, right, out);
-    } else if (left.kind() == Datum::SCALAR && right.kind() == Datum::ARRAY) {
-      return DoCall<Datum::SCALAR, Datum::ARRAY>(ctx, left, right, out);
-    } else if (left.kind() == Datum::ARRAY && right.kind() == Datum::ARRAY) {
-      return DoCall<Datum::ARRAY, Datum::ARRAY>(ctx, left, right, out);
+              Datum* out_datum) override {
+    auto out = out_datum->array();
+
+    auto left_array = AsArray(left);
+    auto left_scalar = AsScalar(left);
+
+    auto right_array = AsArray(right);
+    auto right_scalar = AsScalar(right);
+
+    if (left_array && right_array) {
+      RETURN_NOT_OK(AssignNulls(ctx, *left_array, *right_array, out.get()));
+      return Compare<Op>(MakeRange(*left_array), MakeRange(*right_array), out.get());
     }
-    return Status::Invalid("Invalid datum signature for CompareBinaryKernel");
+
+    if (left_array && right_scalar) {
+      RETURN_NOT_OK(AssignNulls(ctx, *right_scalar, *left_array, out.get()));
+      return Compare<Op>(MakeRange(*left_array), MakeRange(*right_scalar), out.get());
+    }
+
+    if (left_scalar && right_array) {
+      RETURN_NOT_OK(AssignNulls(ctx, *left_scalar, *right_array, out.get()));
+      return Compare<Op>(MakeRange(*left_scalar), MakeRange(*right_array), out.get());
+    }
+
+    return Status::Invalid("Invalid datum signature for CompareBinaryKernel::Call");
   }
 
  private:
-  template <DatumKind LeftKind, DatumKind RightKind>
-  Status DoCall(FunctionContext* ctx, const Datum& left, const Datum& right, Datum* out) {
-    auto out_data = out->array();
-
-    if (LeftKind == Datum::SCALAR && RightKind == Datum::ARRAY) {
-      if (!left.scalar()->is_valid) {
-        return detail::SetAllNulls(ctx, *right.array(), out_data.get());
-      }
-      RETURN_NOT_OK(detail::PropagateNulls(ctx, *right.array(), out_data.get()));
-    }
-
-    if (LeftKind == Datum::ARRAY && RightKind == Datum::SCALAR) {
-      if (!right.scalar()->is_valid) {
-        return detail::SetAllNulls(ctx, *left.array(), out_data.get());
-      }
-      RETURN_NOT_OK(detail::PropagateNulls(ctx, *left.array(), out_data.get()));
-    }
-
-    if (LeftKind == Datum::ARRAY && RightKind == Datum::ARRAY) {
-      RETURN_NOT_OK(detail::AssignNullIntersection(ctx, *left.array(), *right.array(),
-                                                   out_data.get()));
-    }
-
-    Get<ArrowType, LeftKind> get_left(left);
-    Get<ArrowType, RightKind> get_right(right);
-
-    auto out_bitmap = out_data->buffers[1]->mutable_data();
-    internal::GenerateBitsUnrolled(out_bitmap, 0, out_data->length,
-                                   [&] { return cmp_(get_left(), get_right()); });
-    return Status::OK();
+  static std::shared_ptr<ArrayType> AsArray(const Datum& datum) {
+    if (datum.kind() != Datum::ARRAY) return nullptr;
+    return checked_pointer_cast<ArrayType>(datum.make_array());
   }
 
-  Cmp cmp_;
+  static std::shared_ptr<ScalarType> AsScalar(const Datum& datum) {
+    if (datum.kind() != Datum::SCALAR) return nullptr;
+    return checked_pointer_cast<ScalarType>(datum.scalar());
+  }
 };
-
-template <typename ArrowType, typename Cmp>
-std::shared_ptr<BinaryKernel> MakeCompareKernel(Cmp cmp) {
-  return std::make_shared<CompareBinaryKernel<Cmp, ArrowType>>(std::move(cmp));
-}
 
 template <typename ArrowType>
 std::shared_ptr<BinaryKernel> UnpackOperator(CompareOperator op) {
-  using T = decltype(Get<ArrowType, Datum::SCALAR>{Datum{}}());
-
   switch (op) {
     case CompareOperator::EQUAL:
-      return MakeCompareKernel<ArrowType>([](T l, T r) { return l == r; });
+      return std::make_shared<CompareKernel<ArrowType, CompareOperator::EQUAL>>();
 
     case CompareOperator::NOT_EQUAL:
-      return MakeCompareKernel<ArrowType>([](T l, T r) { return l != r; });
+      return std::make_shared<CompareKernel<ArrowType, CompareOperator::NOT_EQUAL>>();
 
     case CompareOperator::GREATER:
-      return MakeCompareKernel<ArrowType>([](T l, T r) { return l > r; });
+      return std::make_shared<CompareKernel<ArrowType, CompareOperator::GREATER>>();
 
     case CompareOperator::GREATER_EQUAL:
-      return MakeCompareKernel<ArrowType>([](T l, T r) { return l >= r; });
+      return std::make_shared<CompareKernel<ArrowType, CompareOperator::GREATER_EQUAL>>();
 
     case CompareOperator::LESS:
-      return MakeCompareKernel<ArrowType>([](T l, T r) { return l < r; });
+      return std::make_shared<CompareKernel<ArrowType, CompareOperator::LESS>>();
 
     case CompareOperator::LESS_EQUAL:
-      return MakeCompareKernel<ArrowType>([](T l, T r) { return l <= r; });
+      return std::make_shared<CompareKernel<ArrowType, CompareOperator::LESS_EQUAL>>();
   }
 
   return nullptr;
@@ -216,6 +246,12 @@ struct UnpackType {
     return Status::OK();
   }
 
+  template <typename Temporal>
+  enable_if_temporal<Temporal, Status> Visit(const Temporal& t) {
+    *out_ = UnpackOperator<Temporal>(options_.op);
+    return Status::OK();
+  }
+
   template <typename StringLike>
   enable_if_base_binary<StringLike, Status> Visit(const StringLike& t) {
     *out_ = UnpackOperator<StringLike>(options_.op);
@@ -223,14 +259,10 @@ struct UnpackType {
   }
 
   Status Visit(const DictionaryType& t) { return NotImplemented(t); }
-  Status Visit(const IntervalType& t) { return NotImplemented(t); }
+  Status Visit(const DayTimeIntervalType& t) { return NotImplemented(t); }
+  Status Visit(const MonthIntervalType& t) { return NotImplemented(t); }
   Status Visit(const FixedSizeBinaryType& t) { return NotImplemented(t); }
   Status Visit(const DurationType& t) { return NotImplemented(t); }
-  Status Visit(const Date32Type& t) { return NotImplemented(t); }
-  Status Visit(const Date64Type& t) { return NotImplemented(t); }
-  Status Visit(const TimestampType& t) { return NotImplemented(t); }
-  Status Visit(const Time32Type& t) { return NotImplemented(t); }
-  Status Visit(const Time64Type& t) { return NotImplemented(t); }
   Status Visit(const Decimal128Type& t) { return NotImplemented(t); }
   Status Visit(const ListType& t) { return NotImplemented(t); }
   Status Visit(const LargeListType& t) { return NotImplemented(t); }
