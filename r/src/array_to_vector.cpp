@@ -628,9 +628,9 @@ class Converter_Int64 : public Converter {
   }
 };
 
-class Converter_Unspecified : public Converter {
+class Converter_Null : public Converter {
  public:
-  explicit Converter_Unspecified(const ArrayVector& arrays) : Converter(arrays) {}
+  explicit Converter_Null(const ArrayVector& arrays) : Converter(arrays) {}
 
   SEXP Allocate(R_xlen_t n) const {
     Rcpp::LogicalVector data(n, NA_LOGICAL);
@@ -727,7 +727,7 @@ std::shared_ptr<Converter> Converter::Make(const ArrayVector& arrays) {
       return std::make_shared<arrow::r::Converter_List>(arrays);
 
     case Type::NA:
-      return std::make_shared<arrow::r::Converter_Unspecified>(arrays);
+      return std::make_shared<arrow::r::Converter_Null>(arrays);
 
     default:
       break;
