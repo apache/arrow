@@ -22,12 +22,11 @@
 #
 # Usage:
 #   either build:
-#     $ docker-compose build centos-python-manylinux2010
+#     $ docker-compose build centos-python-manylinux2014
 #   or pull:
-#     $ docker-compose pull centos-python-manylinux2010
+#     $ docker-compose pull centos-python-manylinux2014
 #   and then run:
-#     $ docker-compose run r-manylinux
-# Can use either manylinux2010 or manylinux2014
+#     $ docker-compose run r-manylinux2014
 
 # Quit on failure
 set -e
@@ -35,9 +34,9 @@ set -e
 # Print commands for debugging
 set -x
 
-cd /arrow/python
+cd /arrow/r
 
-ARROW_BUILD_DIR="$(pwd)/manylinux201x/dist"
+ARROW_BUILD_DIR="$(pwd)/libarrow/dist"
 mkdir -p "${ARROW_BUILD_DIR}"
 pushd "${ARROW_BUILD_DIR}"
 cmake -DCMAKE_BUILD_TYPE=Release \
