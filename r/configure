@@ -31,12 +31,7 @@ PKG_DEB_NAME="(unsuppored)"
 PKG_RPM_NAME="(unsuppored)"
 PKG_BREW_NAME="apache-arrow"
 PKG_TEST_HEADER="<arrow/api.h>"
-PKG_LIBS="-larrow -lparquet -larrow_dataset"
-
-# Temporarily put here
-if [ "$LIBARROW_BINARY" ]; then
-  PKG_LIBS="$PKG_LIBS -lthrift -lsnappy -lz -lzstd -llz4 -lbrotlidec-static -lbrotlienc-static -lbrotlicommon-static -lboost_filesystem -lboost_regex -lboost_system -ljemalloc_pic"
-fi
+PKG_LIBS="-lparquet -larrow_dataset -larrow"
 
 # generate code
 if [ "$ARROW_R_DEV" = "TRUE" ]; then
@@ -65,7 +60,7 @@ if [ "$INCLUDE_DIR" ] || [ "$LIB_DIR" ]; then
 else
   # Use pkg-config if available
   pkg-config --version >/dev/null 2>&1
-  if [ "$FORCE_AUTOBREW" != "TRUE" ] && [ $? -eq 0 ]; then
+  if [ "$LOCAL_LIBARROW" = "" ] && [ "$FORCE_AUTOBREW" != "TRUE" ] && [ $? -eq 0 ]; then
     PKGCONFIG_CFLAGS=`pkg-config --cflags --silence-errors ${PKG_CONFIG_NAME}`
     PKGCONFIG_LIBS=`pkg-config --libs --silence-errors ${PKG_CONFIG_NAME}`
   fi
@@ -96,6 +91,13 @@ else
       fi
       PKG_CFLAGS="-I$BREWDIR/opt/$PKG_BREW_NAME/include"
       PKG_LIBS="-L$BREWDIR/opt/$PKG_BREW_NAME/lib $PKG_LIBS"
+    else
+      VERSION=$(grep ^Version DESCRIPTION | sed s/Version:\ //)
+      ${R_HOME}/bin/Rscript tools/linuxlibs.R $VERSION $LOCAL_LIBARROW
+      PKG_CFLAGS="-I$(pwd)/libarrow/arrow-${VERSION}/include $PKG_CFLAGS"
+      PKG_LIBS="-L$(pwd)/libarrow/arrow-${VERSION}/lib $PKG_LIBS"
+      # Also enumerate the static libs included in there
+      PKG_LIBS="$PKG_LIBS -lthrift -lsnappy -lz -lzstd -llz4 -lbrotlidec-static -lbrotlienc-static -lbrotlicommon-static -lboost_filesystem -lboost_regex -lboost_system -ljemalloc_pic"
     fi
   fi
 fi
@@ -109,6 +111,8 @@ CPPFLAGS=`"${R_HOME}"/bin/R CMD config CPPFLAGS`
 # If libarrow uses the old GLIBCXX ABI, so we have to use it too
 if [ "$ARROW_USE_OLD_CXXABI" ]; then
   PKG_CFLAGS="$PKG_CFLAGS -D_GLIBCXX_USE_CXX11_ABI=0"
+# else
+#   PKG_CFLAGS="$PKG_CFLAGS -D_GLIBCXX_USE_CXX11_ABI=1"
 fi
 
 # Set any user-defined CXXFLAGS
