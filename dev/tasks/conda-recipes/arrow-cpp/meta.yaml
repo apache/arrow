@@ -23,7 +23,10 @@ requirements:
     - aws-sdk-cpp
     - boost-cpp
     - brotli
+    - bzip2
     - c-ares
+    - double-conversion
+    - flatbuffers
     - gflags
     - glog
     - grpc-cpp
@@ -31,22 +34,23 @@ requirements:
     - clangdev 7.*
     - llvmdev 7.*
     - lz4-c
-    - numpy 1.14.*
+    - numpy 1.16.*
     - orc  # [unix]
     - python
     - rapidjson
     - re2
     - snappy
     - thrift-cpp >=0.11
+    - uriparser
     - zlib
     - zstd
 
   run:
-    - {{ pin_compatible('numpy', lower_bound='1.14') }}
-    - aws-sdk-cpp
+    - {{ pin_compatible('numpy', lower_bound='1.16') }}
     - boost-cpp
     - brotli
     - c-ares
+    - double-conversion
     - gflags
     - glog
     - grpc-cpp
@@ -54,6 +58,7 @@ requirements:
     - python
     - re2
     - snappy
+    - uriparser
     - zlib
     - zstd
 
