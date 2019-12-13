@@ -18,8 +18,10 @@ using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Apache.Arrow.Types;
 using FlatBuffers;
 
 namespace Apache.Arrow.Ipc
@@ -108,7 +110,7 @@ namespace Apache.Arrow.Ipc
             }
 
             private void CreateBuffers<T>(PrimitiveArray<T> array)
-                where T: struct
+                where T : struct
             {
                 _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
                 _buffers.Add(CreateBuffer(array.ValueBuffer));
@@ -175,6 +177,49 @@ namespace Apache.Arrow.Ipc
             _options = options ?? IpcOptions.Default;
         }
 
+        private VectorOffset CreateFieldVector(IEnumerable<IArrowArray> fieldArrayList)
+        {
+            var allArrowArrayList = GetAll(fieldArrayList).ToList();
+            
+            Flatbuf.RecordBatch.StartNodesVector(Builder, allArrowArrayList.Count);
+
+            foreach (var array in allArrowArrayList)
+            {
+                Flatbuf.FieldNode.CreateFieldNode(Builder, array.Length, array.NullCount);
+            }
+
+            return Builder.EndVector();
+
+
+            //Inner methods
+
+            IEnumerable<IArrowArray> GetAll(IEnumerable<IArrowArray> targetArrayList)
+            {
+                foreach (var arrowArray in targetArrayList)
+                {
+                    foreach (var arr in GetSelfAndOffspring(arrowArray))
+                    {
+                        yield return arr;
+                    }
+                }
+            }
+
+            IEnumerable<IArrowArray> GetSelfAndOffspring(IArrowArray targetArray)
+            {
+                if (targetArray.Data.DataType is NestedType)
+                {
+                    foreach (var child in targetArray.Data.Children)
+                    {
+                        foreach (var offspring in GetSelfAndOffspring(ArrowArrayFactory.BuildArray(child)))
+                        {
+                            yield return offspring;
+                        }
+                    }
+                }
+                yield return targetArray;
+            }
+        }
+
         private protected async Task WriteRecordBatchInternalAsync(RecordBatch recordBatch,
             CancellationToken cancellationToken = default)
         {
@@ -189,23 +234,13 @@ namespace Apache.Arrow.Ipc
             Builder.Clear();
 
             // Serialize field nodes
-
-            var fieldCount = Schema.Fields.Count;
-
-            Flatbuf.RecordBatch.StartNodesVector(Builder, fieldCount);
-
             // flatbuffer struct vectors have to be created in reverse order
-            for (var i = fieldCount - 1; i >= 0; i--)
-            {
-                var fieldArray = recordBatch.Column(i);
-                Flatbuf.FieldNode.CreateFieldNode(Builder, fieldArray.Length, fieldArray.NullCount);
-            }
-
-            var fieldNodesVectorOffset = Builder.EndVector();
+            var fieldNodesVectorOffset = CreateFieldVector(recordBatch.Arrays.Reverse());
 
             // Serialize buffers
-
             var recordBatchBuilder = new ArrowRecordBatchFlatBufferBuilder();
+
+            var fieldCount = Schema.Fields.Count;
             for (var i = 0; i < fieldCount; i++)
             {
                 var fieldArray = recordBatch.Column(i);
@@ -285,7 +320,7 @@ namespace Apache.Arrow.Ipc
         {
             return WriteRecordBatchInternalAsync(recordBatch, cancellationToken);
         }
-        
+
         public async Task WriteEndAsync(CancellationToken cancellationToken = default)
         {
             if (!HasWrittenEnd)
@@ -307,7 +342,6 @@ namespace Apache.Arrow.Ipc
             // Build fields
 
             var fieldOffsets = new Offset<Flatbuf.Field>[schema.Fields.Count];
-            var fieldChildren = new List<Offset<Flatbuf.Field>>();
 
             for (var i = 0; i < fieldOffsets.Length; i++)
             {
@@ -315,6 +349,7 @@ namespace Apache.Arrow.Ipc
                 var fieldNameOffset = Builder.CreateString(field.Name);
                 var fieldType = _fieldTypeBuilder.BuildFieldType(field);
 
+                var fieldChildren = GetChildrenFieldOffset(field).ToArray();
                 var fieldChildrenOffsets = Builder.CreateVectorOfTables(fieldChildren.ToArray());
 
                 fieldOffsets[i] = Flatbuf.Field.CreateField(Builder,
@@ -330,6 +365,21 @@ namespace Apache.Arrow.Ipc
 
             return Flatbuf.Schema.CreateSchema(
                 Builder, endianness, fieldsVectorOffset);
+        }
+
+        private protected IEnumerable<Offset<Flatbuf.Field>> GetChildrenFieldOffset(Field field)
+        {
+            if (!(field.DataType is NestedType type)) yield break;
+            foreach (var child in type.Children)
+            {
+                var fieldNameOffset = Builder.CreateString(child.Name);
+                var fieldType = _fieldTypeBuilder.BuildFieldType(child);
+                var fieldChildrenOffsets = Builder.CreateVectorOfTables(GetChildrenFieldOffset(child).ToArray());
+
+                yield return Flatbuf.Field.CreateField(Builder,
+                    fieldNameOffset, child.IsNullable, fieldType.Type, fieldType.Offset,
+                    default, fieldChildrenOffsets, default);
+            }
         }
 
         private async ValueTask<Offset<Flatbuf.Schema>> WriteSchemaAsync(Schema schema, CancellationToken cancellationToken)
@@ -357,7 +407,7 @@ namespace Apache.Arrow.Ipc
         private async ValueTask<long> WriteMessageAsync<T>(
             Flatbuf.MessageHeader headerType, Offset<T> headerOffset, int bodyLength,
             CancellationToken cancellationToken)
-            where T: struct
+            where T : struct
         {
             var messageOffset = Flatbuf.Message.CreateMessage(
                 Builder, CurrentMetadataVersion, headerType, headerOffset.Value,

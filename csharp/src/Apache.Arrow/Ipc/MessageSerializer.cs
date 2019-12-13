@@ -125,6 +125,12 @@ namespace Apache.Arrow.Ipc
                     return new Types.StringType();
                 case Flatbuf.Type.Binary:
                     return Types.BinaryType.Default;
+                case Flatbuf.Type.List:
+                    if (field.ChildrenLength != 1)
+                    {
+                        throw new InvalidDataException($"List type must have only one child.");
+                    }
+                    return new Types.ListType(GetFieldArrowType(field.Children(0).GetValueOrDefault()));
                 default:
                     throw new InvalidDataException($"Arrow primitive '{field.TypeType}' is unsupported.");
             }

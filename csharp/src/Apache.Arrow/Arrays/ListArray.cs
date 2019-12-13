@@ -32,7 +32,6 @@ namespace Apache.Arrow
             : this(new ArrayData(dataType, length, nullCount, offset,
                 new[] {nullBitmapBuffer, valueOffsetsBuffer}, new[] {values.Data}))
         {
-            Values = values;
         }
 
         public ListArray(ArrayData data)
@@ -40,6 +39,7 @@ namespace Apache.Arrow
         {
             data.EnsureBufferCount(2);
             data.EnsureDataType(ArrowTypeId.List);
+            Values = ArrowArrayFactory.BuildArray(data.Children[0]);
         }
 
         public override void Accept(IArrowArrayVisitor visitor) => Accept(this, visitor);
