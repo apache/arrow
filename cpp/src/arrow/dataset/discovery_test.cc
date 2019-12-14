@@ -47,7 +47,7 @@ class FileSystemDataSourceDiscoveryTest : public TestFileSystemDataSource {
   }
 
  protected:
-  fs::Selector selector_;
+  fs::FileSelector selector_;
   FileSystemDiscoveryOptions discovery_options_;
   DataSourceDiscoveryPtr discovery_;
   FileFormatPtr format_ = std::make_shared<DummyFileFormat>(schema({}));

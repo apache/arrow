@@ -888,15 +888,16 @@ class S3FileSystem::Impl {
     return Status::OK();
   }
 
-  // Recursive workhorse for GetTargetStats(Selector...)
-  Status Walk(const Selector& select, const std::string& bucket, const std::string& key,
-              std::vector<FileStats>* out) {
+  // Recursive workhorse for GetTargetStats(FileSelector...)
+  Status Walk(const FileSelector& select, const std::string& bucket,
+              const std::string& key, std::vector<FileStats>* out) {
     int32_t nesting_depth = 0;
     return Walk(select, bucket, key, nesting_depth, out);
   }
 
-  Status Walk(const Selector& select, const std::string& bucket, const std::string& key,
-              int32_t nesting_depth, std::vector<FileStats>* out) {
+  Status Walk(const FileSelector& select, const std::string& bucket,
+              const std::string& key, int32_t nesting_depth,
+              std::vector<FileStats>* out) {
     if (nesting_depth >= kMaxNestingDepth) {
       return Status::IOError("S3 filesystem tree exceeds maximum nesting depth (",
                              kMaxNestingDepth, ")");
@@ -1173,7 +1174,7 @@ Result<FileStats> S3FileSystem::GetTargetStats(const std::string& s) {
   }
 }
 
-Result<std::vector<FileStats>> S3FileSystem::GetTargetStats(const Selector& select) {
+Result<std::vector<FileStats>> S3FileSystem::GetTargetStats(const FileSelector& select) {
   S3Path base_path;
   RETURN_NOT_OK(S3Path::FromString(select.base_dir, &base_path));
 

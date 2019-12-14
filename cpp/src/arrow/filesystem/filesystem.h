@@ -135,7 +135,7 @@ struct ARROW_EXPORT FileStats : public util::EqualityComparable<FileStats> {
 ARROW_EXPORT std::ostream& operator<<(std::ostream& os, const FileStats&);
 
 /// \brief File selector for filesystem APIs
-struct ARROW_EXPORT Selector {
+struct ARROW_EXPORT FileSelector {
   // The directory in which to select files.
   // If the path exists but doesn't point to a directory, this should be an error.
   std::string base_dir;
@@ -147,7 +147,7 @@ struct ARROW_EXPORT Selector {
   // The maximum number of subdirectories to recurse into.
   int32_t max_recursion = INT32_MAX;
 
-  Selector() {}
+  FileSelector() {}
 };
 
 /// \brief Abstract file system API
@@ -172,7 +172,7 @@ class ARROW_EXPORT FileSystem {
   /// The selector's base directory will not be part of the results, even if
   /// it exists.
   /// If it doesn't exist, see `Selector::allow_non_existent`.
-  virtual Result<std::vector<FileStats>> GetTargetStats(const Selector& select) = 0;
+  virtual Result<std::vector<FileStats>> GetTargetStats(const FileSelector& select) = 0;
 
   /// Create a directory and subdirectories.
   ///
@@ -251,7 +251,7 @@ class ARROW_EXPORT SubTreeFileSystem : public FileSystem {
   using FileSystem::GetTargetStats;
   /// \endcond
   Result<FileStats> GetTargetStats(const std::string& path) override;
-  Result<std::vector<FileStats>> GetTargetStats(const Selector& select) override;
+  Result<std::vector<FileStats>> GetTargetStats(const FileSelector& select) override;
 
   Status CreateDir(const std::string& path, bool recursive = true) override;
 
@@ -297,7 +297,7 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
 
   using FileSystem::GetTargetStats;
   Result<FileStats> GetTargetStats(const std::string& path) override;
-  Result<std::vector<FileStats>> GetTargetStats(const Selector& select) override;
+  Result<std::vector<FileStats>> GetTargetStats(const FileSelector& select) override;
 
   Status CreateDir(const std::string& path, bool recursive = true) override;
 

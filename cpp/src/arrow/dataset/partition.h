@@ -33,7 +33,7 @@ namespace arrow {
 
 namespace fs {
 struct FileStats;
-struct Selector;
+struct FileSelector;
 }  // namespace fs
 
 namespace dataset {

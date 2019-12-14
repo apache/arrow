@@ -66,7 +66,7 @@ class ARROW_EXPORT MockFileSystem : public FileSystem {
   // of default overrides.
   using FileSystem::GetTargetStats;
   Result<FileStats> GetTargetStats(const std::string& path) override;
-  Result<std::vector<FileStats>> GetTargetStats(const Selector& select) override;
+  Result<std::vector<FileStats>> GetTargetStats(const FileSelector& select) override;
 
   Status CreateDir(const std::string& path, bool recursive = true) override;
 

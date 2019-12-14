@@ -372,7 +372,7 @@ TEST_F(TestMockFS, GetTargetStatsSelector) {
   ASSERT_OK(fs_->CreateDir("AB/CD"));
   CreateFile("ab", "data");
 
-  Selector s;
+  FileSelector s;
   s.base_dir = "";
   std::vector<FileStats> stats;
   ASSERT_OK_AND_ASSIGN(stats, fs_->GetTargetStats(s));
@@ -656,7 +656,7 @@ TEST_F(TestSubTreeFileSystem, GetTargetStatsVector) {
 
 TEST_F(TestSubTreeFileSystem, GetTargetStatsSelector) {
   std::vector<FileStats> stats;
-  Selector selector;
+  FileSelector selector;
 
   ASSERT_OK(subfs_->CreateDir("AB/CD"));
   CreateFile("ab", "data");

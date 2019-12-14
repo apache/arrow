@@ -106,7 +106,7 @@ names.Dataset <- function(x) names(x$schema)
 #' * `filesystem`: Currently only "local" is supported
 #' * `format`: Currently only "parquet" is supported
 #' * `allow_non_existent`: logical: is `path` allowed to not exist? Default
-#' `FALSE`. See [Selector].
+#' `FALSE`. See [FileSelector].
 #' * `recursive`: logical: should files be discovered in subdirectories of
 #' * `path`? Default `TRUE`.
 #' * `...` Additional arguments passed to the [FileSystem] `$create()` method
@@ -114,7 +114,7 @@ names.Dataset <- function(x) names(x$schema)
 #' `FileSystemDataSourceDiscovery$create()` is a lower-level factory method and
 #' takes the following arguments:
 #' * `filesystem`: A [FileSystem]
-#' * `selector`: A [Selector]
+#' * `selector`: A [FileSelector]
 #' * `format`: Currently only "parquet" is supported
 #' @section Methods:
 #' `DataSource` has no defined methods. It is just passed to `Dataset$create()`.
@@ -162,7 +162,7 @@ DataSourceDiscovery$create <- function(path,
       # We'll register other file systems here
     )[[filesystem]]$create(...)
   }
-  selector <- Selector$create(
+  selector <- FileSelector$create(
     path,
     allow_non_existent = allow_non_existent,
     recursive = recursive
@@ -182,7 +182,7 @@ FileSystemDataSourceDiscovery$create <- function(filesystem,
                                                  selector,
                                                  format = "parquet") {
   assert_is(filesystem, "FileSystem")
-  assert_is(selector, "Selector")
+  assert_is(selector, "FileSelector")
   format <- match.arg(format) # Only parquet for now
   shared_ptr(
     FileSystemDataSourceDiscovery,

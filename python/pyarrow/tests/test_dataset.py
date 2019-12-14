@@ -65,7 +65,7 @@ def mockfs():
 @pytest.fixture
 def dataset(mockfs):
     format = ds.ParquetFileFormat()
-    selector = fs.Selector('subdir', recursive=True)
+    selector = fs.FileSelector('subdir', recursive=True)
     options = ds.FileSystemDiscoveryOptions('subdir')
     discovery = ds.FileSystemDataSourceDiscovery(mockfs, selector, format,
                                                  options)

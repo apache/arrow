@@ -413,7 +413,7 @@ TEST_F(TestS3FS, GetTargetStatsObject) {
 }
 
 TEST_F(TestS3FS, GetTargetStatsSelector) {
-  Selector select;
+  FileSelector select;
   std::vector<FileStats> stats;
 
   // Root dir
@@ -478,7 +478,7 @@ TEST_F(TestS3FS, GetTargetStatsSelector) {
 }
 
 TEST_F(TestS3FS, GetTargetStatsSelectorRecursive) {
-  Selector select;
+  FileSelector select;
   std::vector<FileStats> stats;
   select.recursive = true;
 
@@ -580,7 +580,7 @@ TEST_F(TestS3FS, DeleteFile) {
 }
 
 TEST_F(TestS3FS, DeleteDir) {
-  Selector select;
+  FileSelector select;
   select.base_dir = "bucket";
   std::vector<FileStats> stats;
   FileStats st;

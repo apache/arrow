@@ -25,7 +25,7 @@ import pytest
 
 import pyarrow as pa
 from pyarrow.tests.test_io import gzip_compress, gzip_decompress
-from pyarrow.fs import (FileType, Selector, FileSystem, LocalFileSystem,
+from pyarrow.fs import (FileType, FileSelector, FileSystem, LocalFileSystem,
                         LocalFileSystemOptions, SubTreeFileSystem,
                         _MockFileSystem)
 
@@ -253,7 +253,8 @@ def test_get_target_stats_with_selector(fs, pathfn):
             pass
         fs.create_dir(dir_a)
 
-        selector = Selector(base_dir, allow_non_existent=False, recursive=True)
+        selector = FileSelector(base_dir, allow_non_existent=False,
+                                recursive=True)
         assert selector.base_dir == base_dir
 
         stats = fs.get_target_stats(selector)
@@ -555,4 +556,4 @@ def test_hdfs_options(hdfs_server):
     host, port, user = hdfs_server
     uri = "hdfs://{}:{}/?user={}".format(host, port, user)
     fs = HadoopFileSystem(uri)
-    assert fs.get_target_stats(Selector('/'))
+    assert fs.get_target_stats(FileSelector('/'))

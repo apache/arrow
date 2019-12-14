@@ -90,7 +90,7 @@ Result<DataSourceDiscoveryPtr> FileSystemDataSourceDiscovery::Make(
 }
 
 Result<DataSourceDiscoveryPtr> FileSystemDataSourceDiscovery::Make(
-    fs::FileSystemPtr filesystem, fs::Selector selector, FileFormatPtr format,
+    fs::FileSystemPtr filesystem, fs::FileSelector selector, FileFormatPtr format,
     FileSystemDiscoveryOptions options) {
   ARROW_ASSIGN_OR_RAISE(auto files, filesystem->GetTargetStats(selector));
 

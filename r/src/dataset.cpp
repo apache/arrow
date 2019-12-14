@@ -22,7 +22,7 @@
 // [[arrow::export]]
 ds::DataSourceDiscoveryPtr dataset___FSDSDiscovery__Make(
     const std::shared_ptr<fs::FileSystem>& fs,
-    const std::shared_ptr<fs::Selector>& selector) {
+    const std::shared_ptr<fs::FileSelector>& selector) {
   // TODO(npr): add format as an argument, don't hard-code Parquet
   auto format = std::make_shared<ds::ParquetFileFormat>();
   // TODO(fsaintjacques): Make options configurable
