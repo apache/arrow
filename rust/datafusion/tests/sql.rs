@@ -86,7 +86,9 @@ fn nyc() -> Result<()> {
 fn parquet_query() {
     let mut ctx = ExecutionContext::new();
     register_alltypes_parquet(&mut ctx);
-    let sql = "SELECT id, string_col FROM alltypes_plain";
+    // NOTE that string_col is actually a binary column and does not have the UTF8 logical type
+    // so we need an explicit cast
+    let sql = "SELECT id, CAST(string_col AS varchar) FROM alltypes_plain";
     let actual = execute(&mut ctx, sql).join("\n");
     let expected =
         "4\t\"0\"\n5\t\"1\"\n6\t\"0\"\n7\t\"1\"\n2\t\"0\"\n3\t\"1\"\n0\t\"0\"\n1\t\"1\""

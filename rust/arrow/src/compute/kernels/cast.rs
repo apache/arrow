@@ -35,6 +35,7 @@
 //! assert_eq!(7.0, c.value(2));
 //! ```
 
+use std::str;
 use std::sync::Arc;
 
 use crate::array::*;
@@ -203,6 +204,22 @@ pub fn cast(array: &ArrayRef, to_type: &DataType) -> Result<ArrayRef> {
             Int64 => cast_numeric_to_string::<Int64Type>(array),
             Float32 => cast_numeric_to_string::<Float32Type>(array),
             Float64 => cast_numeric_to_string::<Float64Type>(array),
+            Binary => {
+                let from = array.as_any().downcast_ref::<BinaryArray>().unwrap();
+                let mut b = StringBuilder::new(array.len());
+                for i in 0..array.len() {
+                    if array.is_null(i) {
+                        b.append_null()?;
+                    } else {
+                        match str::from_utf8(from.value(i)) {
+                            Ok(s) => b.append_value(s)?,
+                            Err(_) => b.append_null()?, // not valid UTF8
+                        }
+                    }
+                }
+
+                Ok(Arc::new(b.finish()) as ArrayRef)
+            }
             _ => Err(ArrowError::ComputeError(format!(
                 "Casting from {:?} to {:?} not supported",
                 from_type, to_type,

@@ -39,7 +39,7 @@ fn main() -> Result<()> {
     )?;
 
     // simple selection
-    let sql = "SELECT int_col, double_col, date_string_col FROM alltypes_plain WHERE id > 1 AND tinyint_col < double_col";
+    let sql = "SELECT int_col, double_col, CAST(date_string_col as VARCHAR) FROM alltypes_plain WHERE id > 1 AND tinyint_col < double_col";
 
     // create the query plan
     let plan = ctx.create_logical_plan(&sql)?;
