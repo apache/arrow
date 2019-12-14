@@ -24,18 +24,18 @@ a sequence of \link[=Field]{fields}, each a contiguous Arrow \link{Array}.
 \section{S3 Methods and Usage}{
 
 Record batches are data-frame-like, and many methods you expect to work on
-a \code{data.frame} are implemented for \code{RecordBatch}. This includes \verb{[}, \verb{[[},
-\verb{$}, \code{names}, \code{dim}, \code{nrow}, \code{ncol}, \code{head}, and \code{tail}. You can also pull
+a \code{data.frame} are implemented for \code{RecordBatch}. This includes \code{[}, \code{[[},
+\code{$}, \code{names}, \code{dim}, \code{nrow}, \code{ncol}, \code{head}, and \code{tail}. You can also pull
 the data from an Arrow record batch into R with \code{as.data.frame()}. See the
 examples.
 
-A caveat about the \verb{$} method: because \code{RecordBatch} is an \code{R6} object,
-\verb{$} is also used to access the object's methods (see below). Methods take
+A caveat about the \code{$} method: because \code{RecordBatch} is an \code{R6} object,
+\code{$} is also used to access the object's methods (see below). Methods take
 precedence over the table's columns. So, \code{batch$Slice} would return the
 "Slice" method function even if there were a column in the table called
 "Slice".
 
-A caveat about the \verb{[} method for row operations: only "slicing" is
+A caveat about the \code{[} method for row operations: only "slicing" is
 currently supported. That is, you can select a continuous range of rows
 from the table, but you can't filter with a \code{logical} vector or take an
 arbitrary selection of rows by integer indices.
