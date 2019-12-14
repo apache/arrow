@@ -116,6 +116,9 @@ def subtree_s3fs(request, s3fs):
 @pytest.fixture
 def hdfs(request, hdfs_server):
     request.config.pyarrow.requires('hdfs')
+    if not pa.have_libhdfs():
+        pytest.skip('Cannot locate libhdfs')
+
     from pyarrow.fs import HdfsOptions, HadoopFileSystem
 
     host, port, user = hdfs_server
@@ -513,6 +516,8 @@ def test_s3_options(minio_server):
 @pytest.mark.hdfs
 def test_hdfs_options(hdfs_server):
     from pyarrow.fs import HdfsOptions, HadoopFileSystem
+    if not pa.have_libhdfs():
+        pytest.skip('Cannot locate libhdfs')
 
     options = HdfsOptions()
     assert options.endpoint == ('', 0)
