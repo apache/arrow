@@ -485,7 +485,8 @@ Result<FileStats> MockFileSystem::GetTargetStats(const std::string& path) {
   return st;
 }
 
-Result<std::vector<FileStats>> MockFileSystem::GetTargetStats(const FileSelector& selector) {
+Result<std::vector<FileStats>> MockFileSystem::GetTargetStats(
+    const FileSelector& selector) {
   auto parts = SplitAbstractPath(selector.base_dir);
   RETURN_NOT_OK(ValidateAbstractPathParts(parts));
 

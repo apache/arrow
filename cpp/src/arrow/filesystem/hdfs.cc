@@ -361,7 +361,8 @@ Result<FileStats> HadoopFileSystem::GetTargetStats(const std::string& path) {
   return impl_->GetTargetStats(path);
 }
 
-Result<std::vector<FileStats>> HadoopFileSystem::GetTargetStats(const FileSelector& select) {
+Result<std::vector<FileStats>> HadoopFileSystem::GetTargetStats(
+    const FileSelector& select) {
   return impl_->GetTargetStats(select);
 }
 
