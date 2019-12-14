@@ -239,15 +239,21 @@ mod tests {
 
         let results = partitions[0].execute()?;
         let mut results = results.lock().unwrap();
-        while let Some(batch) = results.next()? {
-            println!(
-                "got batch with {} rows and {} columns",
-                batch.num_rows(),
-                batch.num_columns()
-            );
-        }
+        let batch = results.next()?.unwrap();
 
-        //TODO assertions
+        assert_eq!(8, batch.num_rows());
+        assert_eq!(3, batch.num_columns());
+
+        let field_names: Vec<&str> = batch
+            .schema()
+            .fields()
+            .iter()
+            .map(|f| f.name().as_str())
+            .collect();
+        assert_eq!(vec!["id", "bool_col", "tinyint_col"], field_names);
+
+        let batch = results.next()?;
+        assert!(batch.is_none());
 
         Ok(())
     }
