@@ -292,7 +292,7 @@ def test_expression():
 
 
 @pytest.mark.parametrize('paths_or_selector', [
-    fs.Selector('subdir', recursive=True),
+    fs.FileSelector('subdir', recursive=True),
     [
         'subdir',
         'subdir/1',

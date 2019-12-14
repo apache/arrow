@@ -82,12 +82,14 @@ void fs___FileStats__set_mtime(const std::shared_ptr<fs::FileStats>& x, SEXP tim
 // Selector
 
 // [[arrow::export]]
-std::string fs___FileSelector__base_dir(const std::shared_ptr<fs::FileSelector>& selector) {
+std::string fs___FileSelector__base_dir(
+    const std::shared_ptr<fs::FileSelector>& selector) {
   return selector->base_dir;
 }
 
 // [[arrow::export]]
-bool fs___FileSelector__allow_non_existent(const std::shared_ptr<fs::FileSelector>& selector) {
+bool fs___FileSelector__allow_non_existent(
+    const std::shared_ptr<fs::FileSelector>& selector) {
   return selector->allow_non_existent;
 }
 
