@@ -19,7 +19,7 @@
 source /multibuild/manylinux_utils.sh
 
 export LLVM_VERSION="7.0.1"
-curl -sL http://releases.llvm.org/${LLVM_VERSION}/llvm-${LLVM_VERSION}.src.tar.xz -o llvm-${LLVM_VERSION}.src.tar.xz
+curl -sL https://releases.llvm.org/${LLVM_VERSION}/llvm-${LLVM_VERSION}.src.tar.xz -o llvm-${LLVM_VERSION}.src.tar.xz
 unxz llvm-${LLVM_VERSION}.src.tar.xz
 tar xf llvm-${LLVM_VERSION}.src.tar
 pushd llvm-${LLVM_VERSION}.src
