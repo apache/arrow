@@ -124,7 +124,7 @@ namespace Apache.Arrow.Ipc
                 while (!recordBatchManipulator.IsAllNodeRead)
                 {
                     var field = schema.GetFieldByIndex(recordBatchManipulator.CurrentNodeIndex);
-                    Flatbuf.FieldNode fieldNode = recordBatchManipulator.UnshiftNode();
+                    Flatbuf.FieldNode fieldNode = recordBatchManipulator.ShiftNode();
 
                     var arrayData = field.DataType.IsFixedPrimitive() ?
                         LoadPrimitiveField(recordBatchManipulator, field, in fieldNode, messageBuffer) :
@@ -142,8 +142,8 @@ namespace Apache.Arrow.Ipc
             in Flatbuf.FieldNode fieldNode,
             ByteBuffer bodyData)
         {
-            var nullBitmapBuffer = recordBatchManipulator.UnshiftBuffer();
-            var valueBuffer = recordBatchManipulator.UnshiftBuffer();
+            var nullBitmapBuffer = recordBatchManipulator.ShiftBuffer();
+            var valueBuffer = recordBatchManipulator.ShiftBuffer();
 
             ArrowBuffer nullArrowBuffer = BuildArrowBuffer(bodyData, nullBitmapBuffer);
             ArrowBuffer valueArrowBuffer = BuildArrowBuffer(bodyData, valueBuffer);
@@ -174,9 +174,9 @@ namespace Apache.Arrow.Ipc
             in Flatbuf.FieldNode fieldNode,
             ByteBuffer bodyData)
         {
-            var nullBitmapBuffer = recordBatchManipulator.UnshiftBuffer();
-            var offsetBuffer = recordBatchManipulator.UnshiftBuffer();
-            var valueBuffer = recordBatchManipulator.UnshiftBuffer();
+            var nullBitmapBuffer = recordBatchManipulator.ShiftBuffer();
+            var offsetBuffer = recordBatchManipulator.ShiftBuffer();
+            var valueBuffer = recordBatchManipulator.ShiftBuffer();
 
             ArrowBuffer nullArrowBuffer = BuildArrowBuffer(bodyData, nullBitmapBuffer);
             ArrowBuffer offsetArrowBuffer = BuildArrowBuffer(bodyData, offsetBuffer);
@@ -209,7 +209,7 @@ namespace Apache.Arrow.Ipc
             if (!(field.DataType is NestedType type)) yield break;
             foreach (var childField in type.Children)
             {
-                Flatbuf.FieldNode childFieldNode = recordBatchManipulator.UnshiftNode();
+                Flatbuf.FieldNode childFieldNode = recordBatchManipulator.ShiftNode();
                 yield return childField.DataType.IsFixedPrimitive()
                     ? LoadPrimitiveField(recordBatchManipulator, childField, in childFieldNode, bodyData)
                     : LoadVariableField(recordBatchManipulator, childField, in childFieldNode, bodyData);
@@ -231,7 +231,7 @@ namespace Apache.Arrow.Ipc
         }
     }
 
-    internal class RecordBatchManipulator
+    class RecordBatchManipulator
     {
         private int CurrentBufferIndex { get; set; }
         private Flatbuf.RecordBatch RecordBatch { get; }
@@ -243,12 +243,12 @@ namespace Apache.Arrow.Ipc
             RecordBatch = recordBatch;
         }
 
-        internal Flatbuf.Buffer UnshiftBuffer()
+        internal Flatbuf.Buffer ShiftBuffer()
         {
             return RecordBatch.Buffers(CurrentBufferIndex++).GetValueOrDefault();
         }
 
-        internal Flatbuf.FieldNode UnshiftNode()
+        internal Flatbuf.FieldNode ShiftNode()
         {
             return RecordBatch.Nodes(CurrentNodeIndex++).GetValueOrDefault();
         }
